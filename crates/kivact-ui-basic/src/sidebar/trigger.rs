@@ -4,8 +4,8 @@ use super::state::current;
 use kivact::i18n::message;
 use kivact::state::{Callback, IntoValue};
 use kivact::ui::{ButtonVariant, ControlSize, button};
+use kivact::view::{Element, Node, icon};
 use kivact::view::{IntoView, View};
-use kivact::view::{Node, NodeBuilder, icon};
 
 /// The button that opens and closes the sidebar. Created by [`sidebar_trigger`].
 pub struct SidebarTrigger {
@@ -38,7 +38,7 @@ impl SidebarTrigger {
     }
 }
 
-impl NodeBuilder for SidebarTrigger {
+impl Element for SidebarTrigger {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()

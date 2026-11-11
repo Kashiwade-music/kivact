@@ -66,7 +66,7 @@ pub struct TabListState {
 /// for it.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, for_each}};
+/// use kivact_core::{state::signal, view::{Element, column, node, text, for_each}};
 /// use kivact_interaction::{use_tabs, ListItem};
 /// let options = signal(vec![ListItem::new("general", "General"),
 ///     ListItem::new("keys", "Keys")]);
@@ -102,15 +102,15 @@ impl<K: kivact_core::state::ItemKey> Clone for TabsApi<K> {
 }
 impl<K: kivact_core::state::ItemKey> Copy for TabsApi<K> {}
 
-/// Create keyed tabs whose selected key is `selected`. Setup only.
+/// Create keyed tabs whose selected key is `value`. Setup only.
 #[track_caller]
 pub fn use_tabs<K: kivact_core::state::ItemKey>(
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact_core::state::IntoBinding<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    value: impl kivact_core::state::IntoBinding<K>,
 ) -> TabsApi<K> {
     let owner = Owner::current();
-    let options = options.into_value();
-    let original: Binding<K> = selected.into_binding();
+    let options = items.into_value();
+    let original: Binding<K> = value.into_binding();
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: K| {
         edit.once(original.get_untracked(), || original.set(value))

@@ -1,5 +1,4 @@
 //! Role: Catalog page of Popover: the dialog at a trigger, its placement and alignment.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "popover",
         name: "Popover",
         description: "トリガーの近くに重ねて表示する、モーダルではないパネルです。標準の kivact::ui::dialog を DialogMode::Popover にして attach で取り付けると、このテーマでは popover.tsx の見た目で描きます。Escape、外側の押下、フォーカスが離れたときに閉じ、閉じるとフォーカスはトリガーへ戻ります。attach に渡したボタンが開閉のボタンになります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact::view::{OverlayAlign, Placement};\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact::view::{OverlayAlign, Placement};\nuse kivact_ui_basic as basic;",
         source: include_str!("popover.rs"),
         align: PreviewAlign::Center,
         examples: vec![

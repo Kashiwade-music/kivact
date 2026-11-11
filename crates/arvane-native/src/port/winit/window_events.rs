@@ -2,7 +2,7 @@
 
 use crate::port::winit::key_code::{map_key, physical_code};
 use crate::port::winit::windows::NativeWindow;
-use arvane_shell::pipeline::{DropSession, RawDrop, RawIme, RawKey};
+use arvane_shell::pipeline::{DropSession, RawDrop, RawIme, RawKey, RawKeyPhase};
 use arvane_shell::{ShellEvent, ShellWindow};
 use kivact_types::{Point, PointerPhase, WheelInput};
 use winit::event::{ElementState, Ime, MouseScrollDelta, WindowEvent};
@@ -257,9 +257,13 @@ fn key_event(native: &mut NativeWindow, event: winit::event::KeyEvent) -> ShellE
                 key: map_key(&event.logical_key),
                 code: physical_code(event.physical_key),
             },
-            pressed: event.state == ElementState::Pressed,
-            repeat: Some(event.repeat),
-            text: event.text.map(|s| s.to_string()),
+            phase: match event.state {
+                ElementState::Pressed => RawKeyPhase::Down {
+                    repeat: Some(event.repeat),
+                    text: event.text.map(|s| s.to_string()),
+                },
+                ElementState::Released => RawKeyPhase::Up,
+            },
         },
         modifiers,
         pointer,

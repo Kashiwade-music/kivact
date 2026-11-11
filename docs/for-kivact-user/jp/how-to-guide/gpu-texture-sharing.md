@@ -51,7 +51,6 @@ kivact-gpu-share = { git = "https://github.com/Kashiwade-music/kivact", features
 `shared_image(width, height)` が UI 側の作業を引き受けます。setup で作り、その `link()` をエンジンのスレッドに渡し、`frame()` を canvas で描きます。`pixels()` は、インポートできないウィンドウ向けに同じ画像が持つ代替です。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions};
 use kivact::geometry::{Rect};
 use kivact::gpu_interop;
@@ -270,12 +269,12 @@ fn serve_pixels(link: &ShareLink, request: &ShareRequest) {
 
 ## アダプターと API を選ぶ
 
-GPU デバイスを先に作るのはウィンドウで、どのアダプターの上にあるかを教えてくれます。`gpu_interop::adapter()` で読みます。デバイスの準備ができるまで、ウィンドウが CPU で描いている間 (`ARVANE_RENDERER=cpu` や GPU なし)、そして他のプラットフォームでは `None` です。追跡されるので、`memo` で追えます。`GpuAdapter` はグラフィックス API、アダプターの LUID または Vulkan の UUID、`generation` を持ち、新しい世代は新しいデバイスを意味します。
+GPU デバイスを先に作るのはウィンドウで、どのアダプターの上にあるかを教えてくれます。`gpu_interop::adapter()` で読みます。デバイスの準備ができるまで、ウィンドウが CPU で描いている間 (`ARVANE_RENDERER=cpu` や GPU なし)、そして他のプラットフォームでは `None` です。追跡されるので、`memo` で追えます。`GpuAdapter` の `ids` は `AdapterIds` で、Direct3D 12 では LUID、Vulkan ではデバイスとドライバーの UUID（Windows では LUID も）を持ちます。`backend()` がグラフィックス API を返し、`generation` が変わると新しいデバイスを意味します。
 
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference};
+use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
@@ -285,12 +284,15 @@ fn main() -> kivact::Result<()> {
             backend: Some(GpuBackend::Vulkan),
             power: GpuPower::HighPerformance,
             adapter: None,
+            start: GpuStart::OnDemand,
         })
         .run(app)
 }
 ```
 
 これは要求ではなく希望です。応えられなければウィンドウは別のアダプターや API に切り替わり、環境変数 `WGPU_BACKEND` と `WGPU_POWER_PREF` が優先されます。希望がなければ、ウィンドウは省電力のアダプターを好み、Vulkan、次に (Windows では) Direct3D 12 の順で選びます。エンジンは自前の希望ではなく、常に `adapter()` に従ってください。
+
+`start` は device を作る時期を決めます。既定の `GpuStart::OnDemand` は CPU で frame を描き、ウィンドウが初めて GPU を必要としたときに device を起動します。必要とするのは、ユーザーの shader を描いたとき、App が `gpu_interop::adapter()` を読んだとき（`shared_image` が読みます。texture を import する engine や drawable の export を受け取る engine も先に読みます）、または CPU の frame が表示周期の半分を続けて超えたときです。GPU を一度も使わない画面はドライバーのメモリを負担せず、最初の shader や共有画像は device の準備後に少し遅れて現れます。その間に描かれる frame は CPU の frame です。最初の frame から GPU で描く必要があるとき（起動直後からウィンドウ全体が viewport の画面、計測、短い CPU への切り替えが許されない場合）は `GpuStart::AtLaunch` を選びます。`ARVANE_RENDERER=gpu` は `AtLaunch`、`ARVANE_RENDERER=auto` は `OnDemand` を強制し、`ARVANE_RENDERER=cpu` は device を起動しません。
 
 ## 制限
 

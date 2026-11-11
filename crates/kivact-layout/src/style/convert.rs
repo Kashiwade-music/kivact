@@ -8,13 +8,13 @@ use taffy::prelude::{
     LengthPercentageAuto,
 };
 use taffy::{
-    AlignItems, Display, FlexWrap, GridAutoFlow, GridTemplateComponent, GridTemplateRepetition,
+    AlignItems, FlexWrap, GridAutoFlow, GridTemplateComponent, GridTemplateRepetition,
     MaxTrackSizingFunction, MinTrackSizingFunction, Overflow as TOverflow, Position as TPos,
     RepetitionCount, TrackSizingFunction,
 };
 
 use crate::calcs::CalcAlloc;
-use crate::style::node::{NodeStyle, TStyle};
+use crate::style::node::{GridArea, NodeDisplay, NodeStyle, TStyle};
 use kivact_types::{
     Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridRepeat, GridTrack,
     Justify, LayoutProps, Overflow, Position, TrackSize,
@@ -179,15 +179,18 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
         align_self: l.align_self.map(align),
         justify_content: l.justify.map(content),
         align_content: l.align_content.map(content),
-        grid_column: item.map(|g| g.column).unwrap_or_default(),
-        grid_row: item.map(|g| g.row).unwrap_or_default(),
-        justify_self: item.and_then(|g| g.justify_self).map(align),
-        grid: None,
+        grid_area: item.map(|g| {
+            Box::new(GridArea {
+                column: g.column,
+                row: g.row,
+                justify_self: g.justify_self.map(align),
+            })
+        }),
     };
     if let Some(c) = container
-        && style.display == Display::Grid
+        && let NodeDisplay::Grid(_) = style.display
     {
-        style.grid = Some(Box::new(x.grid(&style, c)));
+        style.display = NodeDisplay::Grid(Some(Box::new(x.grid(&style, c))));
     }
     style
 }
@@ -209,7 +212,7 @@ impl Lengths<'_, '_> {
     /// `node`'s.
     fn grid(&mut self, node: &NodeStyle, c: &GridContainer) -> TStyle {
         let mut style = TStyle {
-            display: node.display,
+            display: node.display.taffy(),
             position: node.position,
             overflow: node.overflow,
             inset: node.inset,
@@ -299,13 +302,13 @@ impl Lengths<'_, '_> {
     }
 }
 
-fn display(l: &LayoutProps, hidden: bool) -> Display {
+fn display(l: &LayoutProps, hidden: bool) -> NodeDisplay {
     if l.hidden || hidden {
-        Display::None
+        NodeDisplay::None
     } else if l.display == kivact_types::Display::Grid {
-        Display::Grid
+        NodeDisplay::Grid(None)
     } else {
-        Display::Flex
+        NodeDisplay::Flex
     }
 }
 

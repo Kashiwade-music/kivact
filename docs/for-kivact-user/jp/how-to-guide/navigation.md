@@ -38,13 +38,13 @@ Stepper の現在位置も 0 始まりです。説明、status、省略可能か
 
 Breadcrumb は navigation landmark と list を公開します。末尾は `CurrentItem::Page` を持ち、操作の対象にはなりません。それ以前の項目は Enter、Space、pointer の操作で key を通知します。`.item` は項目の内容、`.separator` は装飾の区切りを差し替えます。
 
-Navigation の trigger は hover で開きます。click、Enter、Space、ArrowDown で固定し、Escape で閉じます。固定した panel は外側の press または focus の移動でも閉じます。`.open_delay` と `.close_delay` は `Duration` を受け、`.placement` と `.align` で位置を決めます。独自のナビゲーションは `interaction::use_navigation_menu()` の上に作れます。`NavOpen` が開閉の唯一の状態で、`hover_after`、`leave_after`、`pin`、`toggle`、`close` がその owner へ遷移を送ります。
+Navigation の trigger は hover で開きます。click、Enter、Space、ArrowDown で固定し、Escape で閉じます。固定した panel は外側の press または focus の移動でも閉じます。`.open_delay` と `.close_delay` は `Duration` を受け、`.placement` と `.align` で位置を決めます。独自のナビゲーションは `interaction::use_navigation_menu()` の上に作れます。`NavOpen` が開閉の唯一の状態で、`hover_after`、`leave_after`、`show`、`toggle`、`hide` がその owner へ遷移を送ります。
 
 `breadcrumb(items).current(current_key)` は既定の末尾の現在ページを上書きします。リアクティブな `Option<K>` を受け取り、`Some(key)` はそのキー、明示的な `None` は現在ページなしを表します。メソッドを省略すると末尾が現在ページになります。
 
 Stepper の項目の recipe は、同じ responsive layout の投影から `index`、`count`、実際の `orientation` を受け取ります。見た目の variant が向きや項目数をコピーする必要はありません。
 
-Breadcrumb の項目の recipe は `BreadcrumbItemState { current, input }` を受け取ります。`input` は実際のリンクの Part から来る値で、操作できないラベルや現在ページのラベルでは `None` です。hover 時の下線のような状態に応じた文字の装飾はこの値で設定します。描画だけの疑似状態の style では文字の装飾を変えられません。
+Breadcrumb の項目の recipe は `BreadcrumbItemState`（`Current`、`Label`、`Link(input)` のどれか）を受け取ります。`is_current()` は現在ページかどうか、`input()` は実際のリンクの Part の値で、操作できないラベルや現在ページのラベルでは `None` です。hover 時の下線のような状態に応じた文字の装飾はこの値で設定します。描画だけの疑似状態の style では文字の装飾を変えられません。
 
 ## ページ操作の形を選ぶ
 
@@ -79,7 +79,7 @@ fn docs_menu() -> impl IntoView {
 }
 ```
 
-独自のメニューのトリガーでは、`interaction::use_menu_with_open(entries, open_binding)` で開閉をアプリケーションの binding に接続します。`.trigger_action(callback)` は setup 時にトリガーの通常の押下動作を置き換える設定で、表示の変更を監視する callback ではありません。外部から開いた場合は focus をメニューへ移さず、トリガーからキーボードで開いた場合は標準の最初の focus を保つため、表示後に手動で focus を動かす補正を重ねないようにします。
+独自のメニューのトリガーでは、`interaction::use_menu_with_open(items, open_binding)` で開閉をアプリケーションの binding に接続します。`.trigger_action(callback)` は setup 時にトリガーの通常の押下動作を置き換える設定で、表示の変更を監視する callback ではありません。外部から開いた場合は focus をメニューへ移さず、トリガーからキーボードで開いた場合は標準の最初の focus を保つため、表示後に手動で focus を動かす補正を重ねないようにします。
 
 ## 見た目を変える
 

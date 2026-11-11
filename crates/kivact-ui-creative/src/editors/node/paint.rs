@@ -149,12 +149,8 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
                 state.texts,
             );
         }
-        if let Some(DragMode::Link {
-            from: id,
-            output: index,
-            to,
-            ..
-        }) = state.drag_state()
+        if let Some(DragMode::Link { source, to, .. }) = state.drag_state()
+            && let (id, index) = source.output()
             && let Some(node) = nodes.iter().find(|n| n.id == id)
         {
             geometry::draw_link(draw, geometry::socket(node, true, index), to, p.accent);

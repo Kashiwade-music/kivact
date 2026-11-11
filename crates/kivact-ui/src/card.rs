@@ -3,11 +3,11 @@ use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
 use kivact_core::view::{
-    Handled, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, View, node, node_ref,
+    Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
 };
 use kivact_interaction::{use_button, use_checkbox};
 
-use crate::component_values::CardState;
+use crate::component_values::{CardAction, CardState};
 
 /// A surface containing optional header, media, content and footer regions.
 pub struct Card {
@@ -16,11 +16,11 @@ pub struct Card {
     header: Option<View>,
     media: Option<View>,
     footer: Option<View>,
-    action: CardAction,
+    action: CardKind,
     disabled: Value<bool>,
     variants: Variants,
 }
-enum CardAction {
+enum CardKind {
     Plain,
     Press,
     Select(Binding<bool>),
@@ -33,7 +33,7 @@ pub fn card(children: impl IntoView) -> Card {
         header: None,
         media: None,
         footer: None,
-        action: CardAction::Plain,
+        action: CardKind::Plain,
         disabled: false.into_value(),
         variants: Variants::default(),
     }
@@ -57,14 +57,14 @@ impl Card {
     /// Activate the card with click, Enter, Space or assistive activation.
     pub fn on_press(mut self, f: impl Into<kivact_core::state::Callback<()>>) -> Self {
         self.root = self.root.on_press(f);
-        if matches!(self.action, CardAction::Plain) {
-            self.action = CardAction::Press;
+        if matches!(self.action, CardKind::Plain) {
+            self.action = CardKind::Press;
         }
         self
     }
     /// Make the card a checkbox backed by the supplied binding.
     pub fn selected(mut self, selected: impl IntoBinding<bool>) -> Self {
-        self.action = CardAction::Select(selected.into_binding());
+        self.action = CardKind::Select(selected.into_binding());
         self
     }
     /// Disable activation.
@@ -78,7 +78,7 @@ impl Card {
         self
     }
 }
-impl NodeBuilder for Card {
+impl Element for Card {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -86,19 +86,19 @@ impl NodeBuilder for Card {
 impl IntoView for Card {
     fn into_view(self) -> View {
         let disabled = self.disabled;
-        let selected = match self.action {
-            CardAction::Select(binding) => Some(binding),
-            _ => None,
-        };
-        let interactive = !matches!(self.action, CardAction::Plain);
         let has_media = self.media.is_some();
         let has_footer = self.footer.is_some();
         let (root, input) = card_target(self.root, self.action, disabled);
         let state = move || CardState {
-            selected: selected.map(|selected| selected.get()),
-            input: input.map(|input| input.get()),
+            action: match input {
+                CardInput::Plain => CardAction::Plain,
+                CardInput::Press(input) => CardAction::Press { input: input.get() },
+                CardInput::Select(input, selected) => CardAction::Select {
+                    input: input.get(),
+                    selected: selected.get(),
+                },
+            },
             disabled: disabled.get(),
-            interactive,
             has_media,
             has_footer,
         };
@@ -153,20 +153,24 @@ impl IntoView for Card {
     }
 }
 
+/// The behavior a card's root got, with the live input state of its part.
+#[derive(Clone, Copy)]
+enum CardInput {
+    Plain,
+    Press(Value<kivact_core::custom::PartState>),
+    Select(Value<kivact_core::custom::PartState>, Binding<bool>),
+}
+
 /// Attach the one canonical behavior part and expose its actual input snapshot.
-fn card_target(
-    root: Node,
-    action: CardAction,
-    disabled: Value<bool>,
-) -> (Node, Option<Value<kivact_core::custom::PartState>>) {
+fn card_target(root: Node, action: CardKind, disabled: Value<bool>) -> (Node, CardInput) {
     match action {
-        CardAction::Plain => (root, None),
-        CardAction::Press => {
+        CardKind::Plain => (root, CardInput::Plain),
+        CardKind::Press => {
             let part = use_button().disabled(disabled).control();
             let input = part.state();
-            (root.part(part), Some(input))
+            (root.part(part), CardInput::Press(input))
         }
-        CardAction::Select(selected) => {
+        CardKind::Select(selected) => {
             let reference = node_ref();
             let focused = reference.focused();
             let part = use_checkbox(selected).disabled(disabled).control();
@@ -188,7 +192,7 @@ fn card_target(
                             Handled::No
                         }
                     }),
-                Some(input),
+                CardInput::Select(input, selected),
             )
         }
     }

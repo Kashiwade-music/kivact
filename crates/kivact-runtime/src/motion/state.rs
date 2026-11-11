@@ -82,24 +82,45 @@ pub enum AnimKind {
     FrameLoop,
 }
 
+/// Whether one animation is idle, running or paused.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum RunStatus {
+    /// No run is in progress.
+    #[default]
+    Idle,
+    /// A run is in progress.
+    Running,
+    /// A run is paused (never for a frame loop).
+    Paused,
+}
+
 /// One animation of a [`MotionState::animations`] snapshot.
 pub struct AnimInfo {
     /// What kind of animation it is.
     pub kind: AnimKind,
-    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    // xtask-allow(state-fields): option: absent means the owner is gone (its App is no longer registered)
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     /// Where the owner that owns it was created.
     pub created_at: Option<&'static std::panic::Location<'static>>,
     /// The owner it is registered under.
     pub owner: crate::OwnerId,
-    /// Whether a run is in progress.
-    pub running: bool,
-    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
-    /// Whether it is paused (never for a frame loop).
-    pub paused: bool,
-    // xtask-allow(state-fields): passive record - a snapshot of one animation for DevTools; the fields are independent facts read once.
+    /// The status of its latest run.
+    pub status: RunStatus,
+    // xtask-allow(state-fields): independent: a fixed property of the animation; any value is valid beside its status
     /// Whether reduced motion stops it (the default) or it is essential.
     pub decorative: bool,
+}
+
+impl AnimInfo {
+    /// Whether a run is in progress.
+    pub fn is_running(&self) -> bool {
+        self.status == RunStatus::Running
+    }
+
+    /// Whether it is paused (never for a frame loop).
+    pub fn is_paused(&self) -> bool {
+        self.status == RunStatus::Paused
+    }
 }
 
 /// Per-App frame clock and weak registrations driven by host frame ticks.
@@ -150,8 +171,11 @@ impl MotionState {
                 kind: AnimKind::FrameLoop,
                 created_at: owner_source(l.owner),
                 owner: l.owner.id(),
-                running: matches!(l.state.get_untracked(), LoopState::Running(_)),
-                paused: false,
+                status: if matches!(l.state.get_untracked(), LoopState::Running(_)) {
+                    RunStatus::Running
+                } else {
+                    RunStatus::Idle
+                },
                 decorative: l.motion.get() == LoopMotion::Decorative,
             });
         }
@@ -225,10 +249,8 @@ impl MotionState {
                 }
                 if let LoopState::Running(run) = l.state.get_untracked() {
                     l.set_run(Some(LoopRun {
-                        start_ns: now,
-                        index: 0,
-                        last_tick: None,
-                        ..run
+                        rate: run.rate,
+                        cadence: Cadence::Fresh { start_ns: now },
                     }));
                 }
             }
@@ -250,10 +272,8 @@ impl MotionState {
             for l in self.live_loops() {
                 if let LoopState::Running(run) = l.state.get_untracked() {
                     l.set_run(Some(LoopRun {
-                        start_ns: now,
-                        index: 0,
-                        last_tick: None,
-                        ..run
+                        rate: run.rate,
+                        cadence: Cadence::Fresh { start_ns: now },
                     }));
                 }
             }
@@ -286,19 +306,20 @@ impl MotionState {
             if run.due(period) > now {
                 continue;
             }
-            let delta = run.last_tick.map_or(0, |t| now.saturating_sub(t));
-            let mut next = LoopRun {
-                last_tick: Some(now),
-                ..run
-            };
+            let delta = run.last_tick().map_or(0, |t| now.saturating_sub(t));
+            let mut index = run.index();
             if let FrameRate::Hz(_) = run.rate {
                 // advance to the first slot after now (no catch-up bursts)
-                next.index += 1;
+                index += 1;
+                let mut next = run.ticked(index, now);
                 while next.due(period) <= now {
-                    next.index += 1;
+                    index += 1;
+                    next = run.ticked(index, now);
                 }
+                l.set_run(Some(next));
+            } else {
+                l.set_run(Some(run.ticked(index, now)));
             }
-            l.set_run(Some(next));
             let frame = l.frames.get();
             l.frames.set(frame + 1);
             let info = FrameInfo {
@@ -419,12 +440,11 @@ pub(crate) struct LoopCell {
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
     pub(crate) state: Signal<LoopState>,
-    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - frames
+    // xtask-allow(state-fields): statistic: the number of frames this loop has run; a count, valid at any value beside the loop's state
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
-    // xtask-allow(state-fields): count + gate + lazy memo (ADR-19) - The memo `FrameLoop::rate` returns, made on its first call
-    /// The memo `FrameLoop::rate` returns, made on its first call.
-    pub(crate) rate: Cell<Option<crate::Value<Option<super::values::FrameRate>>>>,
+    /// The memo `FrameLoop::rate` returns, created in `frame_loop`'s setup.
+    pub(crate) rate: crate::Value<Option<super::values::FrameRate>>,
     /// Set in setup by `FrameLoop::essential`.
     pub(crate) motion: Cell<LoopMotion>,
 }
@@ -433,22 +453,66 @@ pub(crate) struct LoopCell {
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) struct LoopRun {
     pub(crate) rate: FrameRate,
-    /// When the loop started at this rate (host ns; `Hz` ticks count from here).
-    pub(crate) start_ns: u64,
-    /// Ticks at this rate so far.
-    pub(crate) index: u64,
-    /// Host time of the last callback; `None` before the first one.
-    pub(crate) last_tick: Option<u64>,
+    pub(crate) cadence: Cadence,
+}
+
+/// What a running loop has done at its current rate: nothing yet, or some
+/// callbacks (the first one makes the last tick known).
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Cadence {
+    /// No callback yet at this rate.
+    Fresh { start_ns: u64 },
+    /// Callbacks have run at this rate.
+    Ticking {
+        start_ns: u64,
+        index: u64,
+        last_tick: u64,
+    },
 }
 
 impl LoopRun {
+    /// When the loop started at this rate (host ns; `Hz` ticks count from here).
+    fn start_ns(&self) -> u64 {
+        match self.cadence {
+            Cadence::Fresh { start_ns } | Cadence::Ticking { start_ns, .. } => start_ns,
+        }
+    }
+
+    /// Host time of the last callback; `None` before the first one.
+    pub(crate) fn last_tick(&self) -> Option<u64> {
+        match self.cadence {
+            Cadence::Fresh { .. } => None,
+            Cadence::Ticking { last_tick, .. } => Some(last_tick),
+        }
+    }
+
+    /// Ticks at this rate so far.
+    fn index(&self) -> u64 {
+        match self.cadence {
+            Cadence::Fresh { .. } => 0,
+            Cadence::Ticking { index, .. } => index,
+        }
+    }
+
+    /// This run with a callback delivered at `now`.
+    fn ticked(&self, index: u64, now: u64) -> Self {
+        Self {
+            rate: self.rate,
+            cadence: Cadence::Ticking {
+                start_ns: self.start_ns(),
+                index,
+                last_tick: now,
+            },
+        }
+    }
+
     /// Next due time on the host clock.
     pub(crate) fn due(&self, period_ns: u64) -> u64 {
         match self.rate {
             FrameRate::Hz(hz) => {
-                self.start_ns + ((self.index + 1) as f64 * 1e9 / hz).round() as u64
+                self.start_ns() + ((self.index() + 1) as f64 * 1e9 / hz).round() as u64
             }
-            FrameRate::Display => self.last_tick.unwrap_or(self.start_ns) + period_ns,
+            FrameRate::Display => self.last_tick().unwrap_or(self.start_ns()) + period_ns,
         }
     }
 }

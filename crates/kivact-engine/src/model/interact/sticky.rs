@@ -5,7 +5,7 @@
 //! The move (`HostNode::shift`) is part of the box's position everywhere
 //! the model places it ([`Model::location`], so `rect`, hit testing,
 //! the paint list, accessibility, overlay anchors, scroll into view and
-//! the reports all see the stuck box; G-07).
+//! the reports all see the stuck box).
 //!
 //! Invariants:
 //! - A box's scrollport is the border box of its nearest ancestor with a
@@ -55,7 +55,7 @@ impl Model {
             {
                 n.shift = shift;
                 self.changes.stuck(id);
-                self.a11y.subtree(id);
+                self.a11y.moved(id);
             }
         }
     }

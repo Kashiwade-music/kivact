@@ -181,6 +181,8 @@ instead:
 - A GPU that fails to build a shader's pipeline is treated the same way as the
   CPU, and the failure is reported once.
 
+By default a window draws on the CPU until it first needs the GPU (`GpuStart::OnDemand`): the first frames of a shader show its fallback, and the shader appears once the device is ready. When the first frame must already run the shader, choose `GpuStart::AtLaunch` with `App::gpu_preference` (`kivact::launch`).
+
 Shaders affect only drawing. Hit testing, focus and screen readers see the same
 element as before.
 

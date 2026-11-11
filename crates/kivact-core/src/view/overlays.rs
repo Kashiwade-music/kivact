@@ -56,8 +56,8 @@ use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
 use kivact_runtime::{IntoValue, Prop as InputProp};
 
-use crate::view::descriptor::{IntoView, View, mount, view_fn};
-use crate::view::element_data::{Content, Node, NodeBuilder};
+use crate::view::descriptor::{IntoView, View, view_fn};
+use crate::view::element_data::{Content, Element, Node};
 use crate::view::input::{DismissReason, Key, KeyEvent, Modifiers};
 use crate::view::mount::mount_host;
 use crate::view::node_ref::{self, NodeRef};
@@ -124,7 +124,7 @@ pub struct Overlay {
     keep_anchor_clear: bool,
     modal: bool,
     child: View,
-    /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
+    /// Holds the modifiers (`Element`); its content and children are unused.
     root: Node,
     at: &'static Location<'static>,
 }
@@ -140,7 +140,7 @@ pub struct Overlay {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{IntoView, NodeBuilder, Role, node, node_ref, show, text};
+/// use kivact::view::{IntoView, Element, Role, node, node_ref, show, text};
 /// use kivact::view::{OverlayAlign, Placement, overlay};
 /// fn menu_button() -> impl IntoView {
 ///     let open = signal(false);
@@ -198,7 +198,7 @@ pub fn overlay(
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{IntoView, MouseButton, Node, NodeBuilder, show_some};
+/// use kivact::view::{IntoView, MouseButton, Node, Element, show_some};
 /// use kivact::geometry::{Point};
 /// use kivact::view::{Placement, PointerEvent};
 /// use kivact::view::{View, overlay_at};
@@ -359,7 +359,7 @@ fn dismiss_reason(event: &crate::view::A11yEvent) -> DismissReason {
     }
 }
 
-impl NodeBuilder for Overlay {
+impl Element for Overlay {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -437,8 +437,7 @@ impl IntoView for Overlay {
                     );
                 }
             });
-            let c = mount(child, cx);
-            cx.append(id, c);
+            child.mount_into(cx, id);
             if modal {
                 restore_focus_on_unmount(cx.rt, cx.window, cx.owner, id);
             }
@@ -465,7 +464,7 @@ fn restore_focus_on_unmount(
     };
     let visible = ViewState::of(rt)
         .focus_keys(window)
-        .is_some_and(|keys| keys.visible.get_untracked());
+        .is_some_and(|keys| keys.focus.get_untracked().is_some_and(|key| key.visible));
     let scope = ModalScope {
         rt: Rc::downgrade(rt),
         window,
@@ -511,17 +510,42 @@ impl Drop for ModalScope {
 
 /// Where a key goes and where its handler chain stops (see [`key_route`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct KeyRoute {
+pub(crate) enum KeyRoute {
+    /// The node the host named, else the focused node; no modal is open, so
+    /// the chain runs to the root.
+    Focused { target: NodeId },
+    /// A modal is shown: the named or focused node inside it, else the modal
+    /// itself; the chain stops at `modal`.
+    Modal { target: NodeId, modal: NodeId },
+    /// Nothing is named or focused and no modal is open: the App's view (else
+    /// the root) sees the key, so window-level shortcuts work; an unhandled
+    /// Enter or Space does not activate it.
+    Unfocused { view: NodeId },
+}
+
+impl KeyRoute {
     /// The first node of the chain.
-    pub target: NodeId,
-    // xtask-allow(state-fields): per-dispatch result value - The topmost shown modal, where the chain stops
+    pub(crate) fn target(self) -> NodeId {
+        match self {
+            Self::Focused { target } | Self::Modal { target, .. } => target,
+            Self::Unfocused { view } => view,
+        }
+    }
+
     /// The topmost shown modal, where the chain stops.
-    pub stop: Option<NodeId>,
-    // xtask-allow(state-fields): per-dispatch result value - Whether an unhandled Enter or Space activates `target`: not when the key reached the App's view (or the root) only because nothing has the focus and no modal is open
-    /// Whether an unhandled Enter or Space activates `target`: not when
-    /// the key reached the App's view (or the root) only because nothing
-    /// has the focus and no modal is open.
-    pub activates: bool,
+    pub(crate) fn stop(self) -> Option<NodeId> {
+        match self {
+            Self::Modal { modal, .. } => Some(modal),
+            Self::Focused { .. } | Self::Unfocused { .. } => None,
+        }
+    }
+
+    /// Whether an unhandled Enter or Space activates the target: not when the
+    /// key reached the App's view (or the root) only because nothing has the
+    /// focus and no modal is open.
+    pub(crate) fn activates(self) -> bool {
+        !matches!(self, Self::Unfocused { .. })
+    }
 }
 
 /// The route of a key the host aimed at `named` in `window`: that node, else
@@ -537,17 +561,28 @@ pub(crate) fn key_route(
     let focused = focus::focused(rt, window).map(|f| f.node);
     let tree = ViewState::tree(rt);
     let modal = tree.reader().active_modal(window);
-    let target = named
-        .or(focused)
-        .filter(|t| modal.is_none_or(|m| tree.is_within(*t, m)))
-        .or(modal);
-    let root = tree.root(window).unwrap_or(NodeId(1));
-    KeyRoute {
-        activates: target.is_some(),
-        target: target
-            .or_else(|| tree.reader().children(root).first().copied())
-            .unwrap_or(root),
-        stop: modal,
+    let chosen = named.or(focused);
+    match modal {
+        Some(modal) => KeyRoute::Modal {
+            target: chosen
+                .filter(|t| tree.is_within(*t, modal))
+                .unwrap_or(modal),
+            modal,
+        },
+        None => match chosen {
+            Some(target) => KeyRoute::Focused { target },
+            None => {
+                let root = tree.root(window).unwrap_or(NodeId(1));
+                KeyRoute::Unfocused {
+                    view: tree
+                        .reader()
+                        .children(root)
+                        .first()
+                        .copied()
+                        .unwrap_or(root),
+                }
+            }
+        },
     }
 }
 

@@ -227,7 +227,7 @@ fn style_source(
 ) -> Option<(Vec<StyleLayer>, Owner, Option<&'static Location<'static>>)> {
     let tree = ViewState::tree(rt);
     let node = tree.get(id)?;
-    Some((node.style_layers.clone(), node.owner, node.at))
+    Some((node.style_layers(), node.owner, node.at))
 }
 
 /// Evaluate one style layer under its node's owner.

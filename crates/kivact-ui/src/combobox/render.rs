@@ -7,10 +7,19 @@ use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::state::{IntoBinding, IntoValue, ItemKey, Value, binding, memo, signal};
 use kivact_core::view::{
-    Handled, IntoView, Key, NodeBuilder, Placement, PointerKind, PointerPhase, View, column,
-    for_each, icon, node, node_ref, overlay, row, scroll, show, text,
+    Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
+    icon, node, node_ref, overlay, row, scroll, show, text,
 };
 use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
+
+/// The combobox frame takes no input while the combobox is disabled.
+fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
+    if disabled {
+        kivact_core::view::Availability::Disabled
+    } else {
+        kivact_core::view::Availability::default()
+    }
+}
 
 pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
     let mounted = prepare(&mut field);
@@ -66,9 +75,12 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         |r| r.combobox_recipes().frame_recipe(),
         &variants,
         move || PartState {
-            focused: within.get(),
-            disabled: disabled.get(),
-            ..PartState::default()
+            focus: if within.get() {
+                kivact_core::view::Focus::Focused
+            } else {
+                kivact_core::view::Focus::None
+            },
+            availability: frame_availability(disabled.get()),
         },
     );
     let empty =
@@ -265,7 +277,7 @@ fn editor_view<K: ItemKey>(
         move |text| {
             if !disabled.get_untracked() {
                 if !shown.get_untracked() {
-                    list.open();
+                    list.show();
                 }
                 query.set(text);
             }
@@ -336,13 +348,13 @@ fn editor_pointer<K: ItemKey>(
                     )
                 )
             {
-                list.open_sheet();
+                list.show_sheet();
                 gesture.send(crate::select::machine::Event::Reset);
             } else if matches!(event.phase(), PointerPhase::Down(_))
                 && ((event.kind() != PointerKind::Touch && !shown.get_untracked())
                     || (event.kind() == PointerKind::Touch && !presentation.uses_sheet()))
             {
-                list.open();
+                list.show();
             }
         }
         Handled::No
@@ -408,7 +420,7 @@ fn popup_surface<K: ItemKey>(
                             .combobox
                             .popup_offset,
                     )
-                    .on_dismiss(move |_| list.close())
+                    .on_dismiss(move |_| list.hide())
                     .into_view()
             }
         },
@@ -430,7 +442,7 @@ fn sheet_surface<K: ItemKey>(
     let query = list.query();
     let sheet_open = binding(sheet_shown, move |shown| {
         if !shown {
-            list.close();
+            list.hide();
         }
     });
     let sheet_input = node_ref();
@@ -504,7 +516,7 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     );
     kivact_core::state::effect_on(disabled, move |disabled| {
         if *disabled {
-            list.close();
+            list.hide();
         }
     });
     let source = list.options();

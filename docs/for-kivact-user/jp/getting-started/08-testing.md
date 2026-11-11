@@ -21,6 +21,7 @@ kivact = { git = "https://github.com/Kashiwade-music/kivact", features = ["test"
 use std::time::Duration;
 
 use kivact::prelude::*;
+use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -31,7 +32,7 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl Component {
+fn header(dark: Signal<bool>) -> impl Element {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
@@ -44,21 +45,21 @@ fn header(dark: Signal<bool>) -> impl Component {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("削除")
             .name(move || format!("{} を削除", task.get().title))
-            .variant(kivact::ui::ButtonVariant::Ghost)
+            .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
         |task| task.id,
@@ -76,7 +77,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Component {
+fn tasks_screen(dark: Signal<bool>, saved: Vec<Task>) -> impl Element {
     let next_id = var(saved.iter().map(|task| task.id).max().unwrap_or(0) + 1);
     let tasks = signal(saved);
     let draft = signal(String::new());

@@ -18,11 +18,16 @@ impl Lane {
 /// A snapshot of the domain location that requested an editor context menu.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EditorContext {
-    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
-    pub item: Option<u64>,
-    // xtask-allow(state-fields): Independent optional identities in an immutable context-menu location snapshot.
-    pub lane: Option<u64>,
+    pub focus: EditorFocus,
     pub time: f64,
+}
+
+/// The place a context menu was requested at.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum EditorFocus {
+    Canvas,
+    Lane(u64),
+    Item { lane: u64, item: u64 },
 }
 
 /// An application clip in its own time units.
@@ -122,8 +127,7 @@ pub(crate) fn canvas_size(
 impl EditorContext {
     pub(crate) fn at_time(time: f64) -> Self {
         Self {
-            item: None,
-            lane: None,
+            focus: EditorFocus::Canvas,
             time,
         }
     }

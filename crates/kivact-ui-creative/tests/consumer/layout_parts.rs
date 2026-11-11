@@ -6,10 +6,10 @@
 use crate::support::near;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::test::{Element, Screen};
+use kivact::test::{Locator, Screen};
 use kivact_ui_creative as ui;
 
-fn width(element: &Element<'_>) -> f64 {
+fn width(element: &Locator<'_>) -> f64 {
     element.rect().expect("laid out").width
 }
 

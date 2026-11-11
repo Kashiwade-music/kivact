@@ -11,8 +11,8 @@ use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    IntoView, Node, NodeBuilder, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal,
-    spacer, text,
+    Element, IntoView, Node, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal, spacer,
+    text,
 };
 use kivact::state::Binding;
 use kivact::style::Position;
@@ -30,7 +30,7 @@ pub(super) fn animation(state: Signal<TransportState>) -> impl IntoView {
     let graph = signal(animation_curves());
     let graph_selected = signal(vec![18_u64]);
     let (keys, selected) = super::animation_model::bindings(graph, graph_selected);
-    let initial_keys = signal(None);
+    let initial_keys = super::txn::Txn::signal();
     let channels = [signal(true), signal(true), signal(true)];
     let transform = signal(kivact::interaction::ViewTransform {
         scale: 6.8,
@@ -83,12 +83,21 @@ pub(super) fn nodes() -> impl IntoView {
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))
 }
 
+/// The grading viewer's display: graded, bypassed, or wiped.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Grade {
+    Graded,
+    Bypassed,
+    Wipe,
+}
+
 pub(super) fn grading() -> impl IntoView {
     let upper = signal(Some("parade".to_owned()));
     let lower = signal(Some("vectorscope".to_owned()));
     let worker_image = images::worker_gradient();
-    let bypass = signal(false);
-    let wipe = signal(false);
+    let grade = signal(Grade::Graded);
+    let bypass = grade_toggle(grade, Grade::Bypassed);
+    let wipe = grade_toggle(grade, Grade::Wipe);
     let wheels = [
         signal(rgb(0x7a7a7a)),
         signal(rgb(0x909090)),
@@ -553,7 +562,7 @@ fn animation_dope_sheet(
     state: Signal<TransportState>,
     keys: Binding<Vec<ui::Keyframe>>,
     selected: Binding<Vec<u64>>,
-    initial_keys: Signal<Option<Vec<ui::Keyframe>>>,
+    initial_keys: Signal<super::txn::Txn<Vec<ui::Keyframe>>>,
     transform: Signal<kivact::interaction::ViewTransform>,
 ) -> impl IntoView {
     ui::dope_sheet(
@@ -565,18 +574,17 @@ fn animation_dope_sheet(
         },
     )
     .on_edit(move |event| match event {
-        ui::EditorEvent::Begin => initial_keys.set(Some(keys.get())),
+        ui::EditorEvent::Begin => super::txn::Txn::begin(initial_keys, keys.get()),
         ui::EditorEvent::Request(request) => {
             let mut next = keys.get();
             apply_time(&mut next, &request);
             keys.set(next);
         }
-        ui::EditorEvent::Commit => initial_keys.set(None),
+        ui::EditorEvent::Commit => super::txn::Txn::commit(initial_keys),
         ui::EditorEvent::Cancel => {
-            if let Some(initial) = initial_keys.get() {
+            if let Some(initial) = super::txn::Txn::cancel(initial_keys) {
                 keys.set(initial);
             }
-            initial_keys.set(None);
         }
     })
     .zoom_range(0.25..=10.0)
@@ -855,10 +863,18 @@ fn grading_scopes(
     .style(style().grow(1).gap(6).padding(8))
 }
 
+/// One of the grading viewer's two display toggles over [`Grade`].
+fn grade_toggle(grade: Signal<Grade>, value: Grade) -> Binding<bool> {
+    kivact::state::binding(
+        move || grade.get() == value,
+        move |on: bool| grade.set(if on { value } else { Grade::Graded }),
+    )
+}
+
 fn grading_viewer(
     worker_image: Signal<Option<kivact::draw::Pixels>>,
-    bypass: Signal<bool>,
-    wipe: Signal<bool>,
+    bypass: Binding<bool>,
+    wipe: Binding<bool>,
 ) -> Node {
     col((
         line((

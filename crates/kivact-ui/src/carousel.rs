@@ -4,7 +4,7 @@ use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
 use kivact_core::view::{
-    Handled, IntoChildren, IntoView, Key, Node, NodeBuilder, Orientation, ReadingDirection, Role,
+    Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
@@ -102,7 +102,7 @@ impl Carousel {
         self
     }
 }
-impl NodeBuilder for Carousel {
+impl Element for Carousel {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -140,7 +140,7 @@ struct Layout {
     api: kivact_interaction::CarouselApi,
     navigation: Value<kivact_interaction::CarouselState>,
     mode: CarouselMode,
-    // xtask-allow(state-fields): passive record - looping
+    // xtask-allow(state-fields): option: Carousel::looping; false stops navigation at the first and last slides
     looping: bool,
     snap: Value<Snap>,
     vertical: Value<bool>,
@@ -154,11 +154,11 @@ struct Layout {
     disabled: Value<bool>,
     buttons: Value<bool>,
     edge_fade: Value<bool>,
-    // xtask-allow(state-fields): passive record - per view
+    // xtask-allow(state-fields): option: copied from Carousel::items_per_view; absent shows one slide per view and leaves scroll-mode slides at their natural size
     per_view: Option<Value<f64>>,
-    // xtask-allow(state-fields): passive record - gap
+    // xtask-allow(state-fields): option: absent means the component's default
     gap: Option<Value<f64>>,
-    // xtask-allow(state-fields): passive record - padding
+    // xtask-allow(state-fields): option: absent means the component's default
     padding: Option<Value<f64>>,
 }
 impl Layout {

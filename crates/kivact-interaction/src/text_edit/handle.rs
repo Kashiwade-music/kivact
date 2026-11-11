@@ -91,7 +91,7 @@ fn create(binding: Binding<String>, lines: Lines) -> TextEditApi {
         lines,
         options,
         control,
-        next_control: Cell::new(Generation::new()),
+        next_control_id: Cell::new(Generation::new()),
     });
     TextEditApi {
         data: owner.store("TextEditApi", data),
@@ -404,7 +404,7 @@ impl TextEditApi {
         require_setup("TextEditApi::control");
         let input = part(|state| state);
         let state = input.state();
-        self.data.get().observed.set(Some(state));
+        crate::part_slot::attach_part_state(self.data.get().observed, state);
         let node = node_ref();
         let options = self.data.get().options.value();
         let line_layout = memo(move || {
@@ -431,9 +431,9 @@ impl TextEditApi {
             // Only the control mounted now writes; each control has its own id.
             let id = {
                 let data = owned.get();
-                let mut next = data.next_control.get();
+                let mut next = data.next_control_id.get();
                 let id = next.next();
-                data.next_control.set(next);
+                data.next_control_id.set(next);
                 id
             };
             let editing = self.native_editing(node, id, input_draft, line_layout);
@@ -496,13 +496,14 @@ struct TextEditOptions {
 }
 
 struct Data {
-    // xtask-allow(state-fields): independent fact - the observation of the attached control part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached control part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     binding: Binding<String>,
     lines: Lines,
     options: OptionsCell<TextEditOptions>,
     control: MachineHandle<machine::Machine>,
-    next_control: Cell<Generation>,
+    // xtask-allow(state-fields): identity: allocates control ids; the mounted id lives in the machine state
+    next_control_id: Cell<Generation>,
 }
 
 impl Data {

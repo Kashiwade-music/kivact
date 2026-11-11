@@ -7,14 +7,16 @@ use crate::state::Session;
 
 /// The running animations and the animation clock.
 pub(crate) fn view(session: Session) -> impl IntoView {
-    let data = signal(None::<p::AnimationList>);
     let scale = signal(Some("1".to_owned()));
-    on_mount(move || refresh(session, data, scale));
-
-    let rows = memo(move || data.get().map(|list| list.animations).unwrap_or_default());
+    let data = resource(|| (), move |()| refresh(session, scale));
+    let rows = memo(move || {
+        data.latest()
+            .map(|list| list.animations)
+            .unwrap_or_default()
+    });
     // The clock's scale when it is not one of the toggle values (set over MCP, say).
     let custom_scale = memo(move || {
-        data.get()
+        data.latest()
             .map(|list| list.time_scale)
             .filter(|scale| !is_preset(*scale))
     });
@@ -31,7 +33,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                 let scale_value = key.parse::<f64>().unwrap_or(1.0);
                 session.send::<p::SetTimeScale>(
                     p::TimeScaleParams { scale: scale_value },
-                    move |_| refresh(session, data, scale),
+                    move |_| data.refetch(),
                 );
             }),
             show_some(custom_scale, |scale: Value<f64>| {
@@ -71,15 +73,14 @@ pub(crate) fn view(session: Session) -> impl IntoView {
 }
 
 /// Read the animations and set the selected time scale from the answer.
-fn refresh(
+async fn refresh(
     session: Session,
-    data: Signal<Option<p::AnimationList>>,
     scale: Signal<Option<String>>,
-) {
-    session.send::<p::ListAnimations>(p::Empty {}, move |list| {
-        scale.set(Some(scale_key(list.time_scale)));
-        data.set(Some(list));
-    });
+) -> Result<p::AnimationList, UiError> {
+    let source = session.source();
+    let list = source.call::<p::ListAnimations>(p::Empty {}).await?;
+    scale.set(Some(scale_key(list.time_scale)));
+    Ok(list)
 }
 
 /// The choices of the time scale toggle group: the key of each and its label.

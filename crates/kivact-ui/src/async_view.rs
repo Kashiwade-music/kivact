@@ -1,7 +1,7 @@
 //! Role: Display the loading, success and retry states of async operations.
 use kivact_core::UiError;
 use kivact_core::task::{AsyncSnapshot, AsyncSource, AsyncState, Retry};
-use kivact_core::view::{IntoView, NodeBuilder, View, dynamic};
+use kivact_core::view::{Element, IntoView, View, dynamic};
 use std::rc::Rc;
 
 /// A view of a resource or action, with optional loading and error content.

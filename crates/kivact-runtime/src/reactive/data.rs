@@ -27,6 +27,7 @@ use std::rc::Rc;
 use crate::reactive::arena::{Arena, Key};
 use crate::reactive::detail::DetailLog;
 use crate::reactive::error::UiError;
+use crate::reactive::links::Links;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
 pub(crate) const CYCLE_LIMIT: usize = 100;
@@ -66,10 +67,12 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): S-8 ID - the effect creation-order ID allocator
+    // xtask-allow(state-fields): identity: allocates effect creation-order ids
     pub(crate) seq: Cell<u64>,
+    // xtask-allow(state-fields): identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
+    // xtask-allow(state-fields): independent: ADR-17: filled by the constructor before it returns; never observed empty
     #[expect(
         clippy::disallowed_types,
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
@@ -82,7 +85,7 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): measurement - the runtime's time measurement
+    // xtask-allow(state-fields): independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -168,10 +171,10 @@ pub(crate) struct SourceCell<T> {
 }
 
 pub(crate) struct MemoCell<T> {
-    // xtask-allow(state-fields): cache + config - value
+    // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): cache + config - eq
+    // xtask-allow(state-fields): option: absent means every recomputation notifies (no equality check)
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -202,16 +205,18 @@ pub(crate) enum NodeData {
 
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
+    // xtask-allow(state-fields): identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
+    // xtask-allow(state-fields): statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
 
 pub(crate) struct MemoNode {
     /// (subscriber, index of this node in subscriber.deps).
-    pub(crate) subs: Vec<(Key, u32)>,
+    pub(crate) subs: Links,
     pub(crate) run: Computation,
 }
 
@@ -227,7 +232,7 @@ pub(crate) struct EffectNode {
 pub(crate) struct Computation {
     pub(crate) compute: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
-    pub(crate) deps: Vec<(Key, u32)>,
+    pub(crate) deps: Links,
     pub(crate) state: CompState,
 }
 
@@ -236,7 +241,7 @@ impl Computation {
     pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
         Computation {
             compute,
-            deps: Vec::new(),
+            deps: Links::default(),
             state: CompState::Stale(Staleness::Dirty),
         }
     }
@@ -261,7 +266,7 @@ impl RNode {
         }
     }
 
-    pub(crate) fn subs_mut(&mut self) -> Option<&mut Vec<(Key, u32)>> {
+    pub(crate) fn subs_mut(&mut self) -> Option<&mut Links> {
         match &mut self.data {
             NodeData::Source(s) => Some(&mut s.subs),
             NodeData::Memo(m) => Some(&mut m.subs),
@@ -312,17 +317,25 @@ pub struct NodeInfo {
     pub deps: Vec<NodeId>,
 }
 
-pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): config; lifecycle in OwnerPhase - parent
-    pub(crate) parent: Option<Key>,
-    pub(crate) parent_index: u32,
-    pub(crate) children: Vec<Key>,
-    pub(crate) nodes: Vec<Key>,
+/// What only some owners have: objects, constants, cleanups, contexts and
+/// an error handler (`OwnerEntry::extra`, created by the first of them).
+#[derive(Default)]
+pub(crate) struct OwnerExtra {
     pub(crate) objects: Vec<Key>,
     pub(crate) consts: Vec<Key>,
     pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
     pub(crate) contexts: Vec<(TypeId, Rc<dyn Any>)>,
     pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
+}
+
+pub(crate) struct OwnerEntry {
+    // xtask-allow(state-fields): independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs
+    pub(crate) parent: Option<Key>,
+    pub(crate) parent_index: u32,
+    pub(crate) children: Vec<Key>,
+    pub(crate) nodes: Vec<Key>,
+    // xtask-allow(state-fields): independent: the box of the rare members, created by the first object, constant, cleanup, context or error handler registered on the owner and kept until the entry is removed; either phase holds it or not (disposal empties it, never drops it)
+    pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
     /// the owner.
@@ -331,6 +344,18 @@ pub(crate) struct OwnerEntry {
     /// (`owner.rs`).
     pub(crate) phase: OwnerPhase,
 }
+
+impl OwnerEntry {
+    /// The rare members, created on first use.
+    pub(crate) fn extra_mut(&mut self) -> &mut OwnerExtra {
+        self.extra.get_or_insert_default()
+    }
+}
+
+const _: () = assert!(
+    std::mem::size_of::<OwnerEntry>() <= 88,
+    "OwnerEntry grew: put the new member in OwnerExtra"
+);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum OwnerPhase {
@@ -359,14 +384,14 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): execution-context value - owner
+    // xtask-allow(state-fields): independent: callback_frame and handler_frame replace the owner under any frame kind
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): execution-context value - pure
+    // xtask-allow(state-fields): independent: pure_section sets it under any frame kind and owner
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): execution-context value - writer
+    // xtask-allow(state-fields): independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame)
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): execution-context value - tracking
+    // xtask-allow(state-fields): independent: untracked_frame and callback_frame clear it under any kind
     pub(crate) tracking: Option<CollectorSlot>,
 }
 

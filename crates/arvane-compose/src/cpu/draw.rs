@@ -5,8 +5,8 @@ use std::collections::HashMap;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::geometry3d::Projective;
 use kivact_types::gpu::ExternalFrame;
-use kivact_types::pixel::Pixels;
-use kivact_types::render::PixelRect;
+use kivact_types::pixel::{BlendMode, Pixels};
+use kivact_types::render::{Composite, PixelRect};
 
 use super::blend::combine;
 use super::surface::{Pixmap, Premul, Texels, sample_bilinear, sample_nearest};
@@ -269,6 +269,86 @@ fn resolve<'a>(
     })
 }
 
+/// The integer translation `(tx, ty)` of `map` (target px to texel), when it is one.
+fn integer_translation(map: &Projective) -> Option<(i64, i64)> {
+    let m = &map.m;
+    let unit = m[0][0] == 1.0
+        && m[0][1] == 0.0
+        && m[1][0] == 0.0
+        && m[1][1] == 1.0
+        && m[2][0] == 0.0
+        && m[2][1] == 0.0
+        && m[2][2] == 1.0;
+    let (tx, ty) = (m[0][2], m[1][2]);
+    (unit && tx.is_finite() && ty.is_finite() && tx.fract() == 0.0 && ty.fract() == 0.0)
+        .then_some((tx as i64, ty as i64))
+}
+
+/// The pixel rectangle `[x0, x1) × [y0, y1)` of `points` when they are the
+/// four distinct corners of an axis-aligned rectangle on integer coordinates.
+fn pixel_rect(points: &[Point]) -> Option<(i64, i64, i64, i64)> {
+    if points.len() != 4
+        || points
+            .iter()
+            .any(|p| p.x.fract() != 0.0 || p.y.fract() != 0.0)
+    {
+        return None;
+    }
+    let x0 = points.iter().map(|p| p.x).fold(f64::INFINITY, f64::min);
+    let x1 = points.iter().map(|p| p.x).fold(f64::NEG_INFINITY, f64::max);
+    let y0 = points.iter().map(|p| p.y).fold(f64::INFINITY, f64::min);
+    let y1 = points.iter().map(|p| p.y).fold(f64::NEG_INFINITY, f64::max);
+    let corner = |x: f64, y: f64| points.iter().any(|p| p.x == x && p.y == y);
+    let all = corner(x0, y0) && corner(x1, y0) && corner(x1, y1) && corner(x0, y1);
+    (all && x0 < x1 && y0 < y1).then_some((x0 as i64, x1 as i64, y0 as i64, y1 as i64))
+}
+
+/// `paint` for a source-over copy of a premultiplied texture moved by whole
+/// pixels into a pixel-aligned rectangle, the common case of a cached chunk: integer src-over per byte.
+/// None when the op is not of that kind.
+fn paint_fast(
+    dst: &mut Pixmap,
+    op: &DrawOp<'_>,
+    texture: &Texture<'_>,
+    cover: Option<&Pixmap>,
+) -> Option<()> {
+    let Texture::Premul(src) = texture else {
+        return None;
+    };
+    if cover.is_some()
+        || op.opacity != 1.0
+        || op.blend != BlendMode::Normal
+        || op.composite != Composite::SourceOver
+    {
+        return None;
+    }
+    let (tx, ty) = integer_translation(&op.map)?;
+    let (x0, x1, y0, y1) = pixel_rect(&op.polygon.points)?;
+    let (w, h) = dst.size();
+    let (sw, sh) = src.size();
+    let (x0, y0) = (x0.max(0), y0.max(0));
+    let (x1, y1) = (x1.min(i64::from(w)), y1.min(i64::from(h)));
+    for y in y0..y1 {
+        let sy = y + ty;
+        if sy < 0 || sy >= i64::from(sh) {
+            continue;
+        }
+        for x in x0..x1 {
+            if let Scissor::Rects(rects) = &op.scissor
+                && !rects.iter().any(|r| inside(r, x as u32, y as u32))
+            {
+                continue;
+            }
+            let sx = x + tx;
+            if sx < 0 || sx >= i64::from(sw) {
+                continue;
+            }
+            dst.blend_src_over(x as u32, y as u32, src.byte_texel(sx as u32, sy as u32));
+        }
+    }
+    Some(())
+}
+
 /// Blends every covered pixel of `dst` with the texture sampled through the op's map.
 fn paint(
     dst: &mut Pixmap,
@@ -278,6 +358,9 @@ fn paint(
     texture: &Texture<'_>,
     cover: Option<&Pixmap>,
 ) -> Result<(), ComposeError> {
+    if paint_fast(dst, op, texture, cover).is_some() {
+        return Ok(());
+    }
     let (w, h) = dst.size();
     let (x0, y0, x1, y1) = shape.pixel_bounds(w, h);
     for y in y0..y1 {

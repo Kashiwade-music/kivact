@@ -1,10 +1,11 @@
 //! Role: Mounted parts combine caller constraints and preserve behavior defaults.
 
+use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::Owner;
 use kivact_runtime::Prop as InputProp;
+use kivact_runtime::{Owner, Value};
 
 use crate::view::descriptor::Mcx;
 use crate::view::element_data::{Common, Constraints};
@@ -150,11 +151,11 @@ fn replace<T>(target: &mut Option<T>, incoming: Option<T>) {
 
 /// What a target's final constraints combine: the caller's own modifiers and the parts' requirements.
 pub(super) struct ConstraintSources {
-    // xtask-allow(state-fields): passive mount input - disabled
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means enabled
     pub(super) disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount input - hidden
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means shown
     pub(super) hidden: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount input - focusable
+    // xtask-allow(state-fields): option: the caller's own last `focusable` modifier; absent lets the parts decide: focusable when a part requires focus, otherwise not
     pub(super) focusable: Option<InputProp<bool>>,
     pub(super) required: PartConstraints,
 }
@@ -172,7 +173,15 @@ pub(super) fn constraints(
         focusable,
         required,
     } = sources;
-    let value = |source: InputProp<bool>| source.into_value(cx.owner, at);
+    let flags = ConstFlags {
+        owner: cx.owner,
+        at,
+        values: Cell::new([None, None]),
+    };
+    let value = |source: InputProp<bool>| match source.fixed() {
+        Some(b) => flags.get(b),
+        None => source.into_value(cx.owner, at),
+    };
     let caller_disabled = value(disabled.unwrap_or_else(|| InputProp::constant(false)));
     let caller_hidden = value(hidden.unwrap_or_else(|| InputProp::constant(false)));
     let caller_focus = focusable.map(value);
@@ -221,6 +230,22 @@ pub(super) fn constraints(
         eligible,
         caller_disabled,
         caller_hidden,
+    }
+}
+
+/// The two constant flags one mount needs at most, created on first use.
+struct ConstFlags {
+    owner: Owner,
+    at: &'static Location<'static>,
+    values: Cell<[Option<Value<bool>>; 2]>,
+}
+impl ConstFlags {
+    fn get(&self, value: bool) -> Value<bool> {
+        let mut values = self.values.get();
+        let slot = &mut values[usize::from(value)];
+        let v = *slot.get_or_insert_with(|| self.owner.constant(value, self.at));
+        self.values.set(values);
+        v
     }
 }
 

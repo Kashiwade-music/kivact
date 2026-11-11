@@ -28,7 +28,6 @@ it with `.get()` anywhere you would read a signal, so anything that reads it
 updates on every step.
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {
@@ -91,7 +90,7 @@ offsets and shapes it with its easing. The easing of the last keyframe is not
 used, since no segment starts there.
 
 ```rust,no_run
-use kivact::motion::{Easing, Keyframe, Transition, animated};
+use kivact::motion::Keyframe;
 use kivact::prelude::*;
 
 fn lift_card() -> impl IntoView {
@@ -124,7 +123,6 @@ Moving an element with `transform` and `opacity` is cheap, because it does not
 change layout. Read the animated value in a style closure:
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::prelude::*;
 
 fn drawer() -> impl IntoView {
@@ -182,7 +180,6 @@ that returns different values), give the style a transition. It interpolates
 opacity, solid backgrounds, border colors, the transform, shadows and filters:
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -209,7 +206,6 @@ transition for one property and it takes over from `All` for that property, so
 the rest can use another timing:
 
 ```rust,no_run
-use kivact::motion::{Easing, Spring, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -241,7 +237,6 @@ Pair them with `show`, `show_some`, a list or any other way elements come and
 go.
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -290,10 +285,8 @@ time since the previous tick (`delta`), a frame counter and the estimated
 presentation time. Start it with a rate:
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Path, Stroke};
-use kivact::geometry::{Point};
-use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::motion::{FrameInfo, FrameRate};
 use kivact::prelude::*;
 
 fn clock_hand() -> impl IntoView {
@@ -358,7 +351,7 @@ acts on it for you in most cases:
   if that matters to the user:
 
 ```rust,no_run
-use kivact::motion::{FrameInfo, FrameRate, frame_loop};
+use kivact::motion::{FrameInfo, FrameRate};
 use kivact::prelude::*;
 
 fn starfield() -> impl IntoView {
@@ -383,7 +376,6 @@ wait. `screen.advance(Duration)` moves time forward through every frame. You can
 start a test with reduced motion on or switch it while the screen runs:
 
 ```rust,test_harness
-use kivact::motion::{Easing, Transition, animated};
 use kivact::prelude::*;
 
 fn progress() -> impl IntoView {

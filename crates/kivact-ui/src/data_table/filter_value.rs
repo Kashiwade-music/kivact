@@ -20,9 +20,9 @@ pub enum FilterField {
     Text,
     /// A finite number with optional inclusive bounds.
     Number {
-        // xtask-allow(state-fields): passive record - the inclusive lower bound, absent for none
+        // xtask-allow(state-fields): option: absent means the filter has no bound
         min: Option<f64>,
-        // xtask-allow(state-fields): passive record - the inclusive upper bound, absent for none
+        // xtask-allow(state-fields): option: absent means the filter has no bound
         max: Option<f64>,
     },
     /// One of the (key, label) options.

@@ -195,7 +195,7 @@ pub enum ThemeMode {
     Dark,
 }
 
-/// A complete theme. Replace with `App::theme` or `kivact::view::provide_theme`.
+/// A complete theme. Replace with `App::theme` or `kivact::style::provide_theme`.
 ///
 /// Read its values with the accessors (`theme.space().md`) and change them
 /// with the `with_*` builders, which keep everything else:
@@ -492,7 +492,7 @@ kivact_runtime::constant_value!(Theme);
 /// Provide `theme` to `owner`'s subtree, replacing any inherited theme.
 /// The value stays reactive: readers below `owner` track it.
 ///
-/// The App's root and `kivact::view::provide_theme` use it;
+/// The App's root and `kivact::style::provide_theme` use it;
 /// [`use_theme`] and [`theme_of`] read the nearest one above the
 /// caller.
 pub fn install_theme(owner: Owner, theme: Value<Theme>) {

@@ -96,6 +96,7 @@ impl Model {
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.restack = true;
+            self.stale_fact(*id);
             self.repaint(*id);
             !done
         });

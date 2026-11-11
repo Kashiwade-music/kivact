@@ -15,10 +15,15 @@ use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
 pub(super) struct DrawInput {
+    // xtask-allow(state-fields): option: a draw layer below the children; absent means none
     pub(super) below: Option<DrawFn>,
+    // xtask-allow(state-fields): option: a draw layer over the children; absent means none
     pub(super) over: Option<DrawFn>,
+    // xtask-allow(state-fields): option: a layout-driven draw; absent means none
     pub(super) with_layout: Option<LayoutDrawFn>,
+    // xtask-allow(state-fields): option: the local paint channel resolve made for a styled Box that does not edit text; None means the node cannot take local paint
     pub(super) local_paint: Option<LocalPaintSource>,
+    // xtask-allow(state-fields): option: the region registry attach_parts made when the node has parts, regions or part constraints; None means the draw effect paints no region
     pub(super) regions: Option<Rc<Registry>>,
     /// The node's layout size, written by the layout observer `resolve` installed.
     pub(super) size: Signal<Size>,
@@ -60,7 +65,7 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
             let layout = observation.and_then(|observation| {
                 observation.editing_revision.track();
-                observation.rect.get();
+                observation.measured.get();
                 observation.scroll_geometry.get();
                 let rt = weak.upgrade()?;
                 ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)
@@ -106,6 +111,31 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
             }
         });
     }
+}
+
+/// Bind the draw effect of a styled box without draw layers when its style
+/// first has a paint callback (`LocalPaint::OnFirstPaint`): the layout size
+/// observer and the Draw layer's effect that `bind` makes at mount for a
+/// box with draw layers. `local_paint` already holds the callback.
+pub(super) fn bind_style_paint(
+    cx: &Mcx<'_>,
+    id: NodeId,
+    local_paint: LocalPaintSource,
+    at: &'static Location<'static>,
+) {
+    let size = cx.owner.signal(Size::new(0.0, 0.0), at);
+    if let Some(handlers) = ViewState::tree_mut(cx.rt).handlers_mut(id) {
+        handlers.observe_layout(move |_, s| size.set(s));
+    }
+    let input = DrawInput {
+        below: None,
+        over: None,
+        with_layout: None,
+        local_paint: Some(local_paint),
+        regions: None,
+        size,
+    };
+    bind(cx, id, input, at);
 }
 
 fn report_unsupported(

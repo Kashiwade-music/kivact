@@ -25,12 +25,12 @@ pub fn request_device(
     adapter: &GpuAdapter,
     desc: &::wgpu::DeviceDescriptor<'_>,
 ) -> Result<(::wgpu::Adapter, ::wgpu::Device, ::wgpu::Queue), Error> {
-    let backends = match adapter.backend {
+    let backends = match adapter.backend() {
         GpuBackend::Dx12 => ::wgpu::Backends::DX12,
         GpuBackend::Vulkan => ::wgpu::Backends::VULKAN,
     };
     for found in pollster::block_on(instance.enumerate_adapters(backends)) {
-        match adapter.backend {
+        match adapter.backend() {
             #[cfg(windows)]
             GpuBackend::Dx12 if super::d3d12::is_adapter(&found, adapter)? => {
                 return super::d3d12::open(found, desc);

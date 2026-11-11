@@ -1,23 +1,81 @@
 //! Role: system specimens for the operation-console catalog.
 
 use super::common::{cards, line, list, specimen, suppress_search_shortcut, wide};
-use super::state::Demo;
+use super::state::{Demo, Overlay};
 use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, Role, column, node, rgb, row, signal, spacer, text,
+    ColorToken, Element, IntoView, Node, Role, column, node, rgb, row, signal, spacer, text,
 };
-use kivact::state::{binding, memo};
+use kivact::state::{Binding, Machine, Signal, Step, binding, machine, memo};
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
 use kivact::view::{rich_text, span};
 use kivact_ui_game as g;
 use std::time::Duration;
 
+/// What a dialog's field holds: no text while closed, the text while open.
+#[derive(Clone, PartialEq)]
+enum Editing {
+    Closed,
+    Open { title: String },
+}
+enum EditingEvent {
+    Open(bool),
+    Title(String),
+}
+struct EditingInput;
+impl Machine for EditingInput {
+    type State = Editing;
+    type Event = EditingEvent;
+    type Effect = ();
+    fn transition(&self, state: &Editing, event: EditingEvent) -> Step<Editing, EditingEvent, ()> {
+        match event {
+            EditingEvent::Open(true) if matches!(state, Editing::Closed) => {
+                Step::to(Editing::Open {
+                    title: String::new(),
+                })
+            }
+            EditingEvent::Open(true) => Step::stay(),
+            EditingEvent::Open(false) => Step::to(Editing::Closed),
+            EditingEvent::Title(title) => match state {
+                Editing::Open { .. } => Step::to(Editing::Open { title }),
+                Editing::Closed => Step::stay(),
+            },
+        }
+    }
+}
+
+/// The field of the dialog that `which` opens: empty when it opens, gone when
+/// it closes (the dialog's open binding and the text are one state).
+fn editing(overlay: Signal<Overlay>, which: Overlay) -> Binding<String> {
+    let initial = if overlay.get_untracked() == which {
+        Editing::Open {
+            title: String::new(),
+        }
+    } else {
+        Editing::Closed
+    };
+    let dialog = machine(initial, || EditingInput, |_, ()| {});
+    dialog.feed(overlay, move |open| EditingEvent::Open(open == which));
+    let state = dialog.state();
+    binding(
+        move || match state.get() {
+            Editing::Open { title } => title,
+            Editing::Closed => String::new(),
+        },
+        move |title| dialog.send(EditingEvent::Title(title)),
+    )
+}
+
 pub(super) fn feedback(scene: Demo) -> Node {
+    // xtask-allow(state-fields): independent: the info alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let info = signal(true);
+    // xtask-allow(state-fields): independent: the success alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let success = signal(true);
+    // xtask-allow(state-fields): independent: the warning alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let warning = signal(true);
+    // xtask-allow(state-fields): independent: the danger alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let danger = signal(true);
     cards(
         (
@@ -31,8 +89,11 @@ pub(super) fn feedback(scene: Demo) -> Node {
     )
 }
 pub(super) fn overlays(scene: Demo) -> Node {
+    // xtask-allow(state-fields): independent: the detail-column menu checkbox, flipped only by its own entry; archived and the user popover have their own signals, so it pairs with either of their states
     let pinned = signal(true);
+    // xtask-allow(state-fields): independent: the include-archived menu checkbox, flipped only by its own entry; pinned and the user popover have their own signals, so it pairs with either of their states
     let archived = signal(false);
+    // xtask-allow(state-fields): independent: the user popover's open binding, set by its own trigger and cleared by the popover; it never reads or writes the menu checkboxes, so it opens with any checkbox pair
     let user_open = signal(false);
     cards(
         (
@@ -46,14 +107,8 @@ pub(super) fn overlays(scene: Demo) -> Node {
     )
 }
 pub(super) fn create_dialog(scene: Demo) -> impl IntoView {
-    let title = signal(String::new());
-    // A dialog opens empty each time, however it was closed.
-    kivact::state::effect(move || {
-        if !scene.create.get() {
-            title.set(String::new());
-        }
-    });
-    kivact::ui::dialog("新規案件", scene.create)
+    let title = editing(scene.overlay, Overlay::Create);
+    kivact::ui::dialog("新規案件", scene.open(Overlay::Create))
         .content(move || {
             list((
                 kivact::ui::field(
@@ -93,12 +148,12 @@ pub(super) fn create_dialog(scene: Demo) -> impl IntoView {
                 kivact::ui::button("キャンセル")
                     .variant(kivact_ui_game::Slant)
                     .variant(kivact::ui::ButtonVariant::Ghost)
-                    .on_press(move || scene.create.set(false)),
+                    .on_press(move || scene.hide(Overlay::Create)),
                 kivact::ui::button("作成")
                     .variant(kivact_ui_game::Slant)
                     .disabled(move || title.get().trim().is_empty())
                     .on_press(move || {
-                        scene.create.set(false);
+                        scene.hide(Overlay::Create);
                         toaster().push(
                             Toast::new("案件を作成しました")
                                 .body(title.get())
@@ -110,14 +165,10 @@ pub(super) fn create_dialog(scene: Demo) -> impl IntoView {
         })
 }
 pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
-    let confirmation = signal(String::new());
-    kivact::state::effect(move || {
-        if !scene.delete.get() {
-            confirmation.set(String::new());
-        }
-    });
+    let confirmation = editing(scene.overlay, Overlay::Delete);
     // An irreversible question: an outside press does not answer it.
-    kivact::ui::dialog("案件を削除", scene.delete).mode(kivact::interaction::DialogMode::AlertModal)
+    kivact::ui::dialog("案件を削除", scene.open(Overlay::Delete))
+        .mode(kivact::interaction::DialogMode::AlertModal)
         .content(move || {
             list((
                 row((
@@ -134,7 +185,7 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
             (
                 kivact::ui::button("キャンセル").variant(kivact_ui_game::Slant)
                     .variant(kivact::ui::ButtonVariant::Ghost)
-                    .on_press(move || scene.delete.set(false)),
+                    .on_press(move || scene.hide(Overlay::Delete)),
                 kivact::ui::button("削除する").variant(kivact_ui_game::Slant)
                     .icon(kivact::view::icon("trash"))
                     .variant(kivact::ui::ButtonVariant::Danger)
@@ -145,7 +196,7 @@ pub(super) fn delete_dialog(scene: Demo) -> impl IntoView {
                             .rows
                             .update(|rows| rows.retain(|r| !ids.contains(&r.id)));
                         scene.selected.set(Vec::new());
-                        scene.delete.set(false);
+                        scene.hide(Overlay::Delete);
                         toaster().push(Toast::new("削除しました").body(format!("{} 件の案件を削除しました。", ids.len())).tone(Tone::Danger).duration(Some(Duration::from_secs(4))));
                     }),
             )
@@ -189,7 +240,7 @@ pub(super) fn drawer_body() -> Node {
         ]),
     ))
 }
-pub(super) fn layout() -> impl kivact::view::Component {
+pub(super) fn layout() -> impl kivact::view::Element {
     let document = signal("OPS-2042.md".to_owned());
     let document_title = signal("第 3 区画 定期点検".to_owned());
     let selection = binding(
@@ -205,7 +256,9 @@ pub(super) fn layout() -> impl kivact::view::Component {
     let files = workspace_files(nodes, selection);
     let title = signal("第 3 区画 定期点検".to_owned());
     let priority = signal(Some("medium".to_owned()));
+    // xtask-allow(state-fields): independent: bound only to the inspector's notify switch; the opacity slider has its own signal, so notifications on or off pair with any opacity
     let notify = signal(true);
+    // xtask-allow(state-fields): independent: bound only to the inspector's opacity slider; the notify switch has its own signal, so any opacity pairs with notifications on or off
     let opacity = signal(90_f64);
     let document_body = document_preview(document, document_title);
     let inspector = document_inspector(title, priority, notify, opacity);
@@ -243,7 +296,7 @@ fn inspector_row(label: &str, control: impl IntoView) -> Node {
     .style(style().align_items(Align::Center).gap(6).width(pct(100)))
 }
 
-fn system_banners() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn system_banners() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-01",
         "システムバナー",
@@ -287,7 +340,7 @@ fn inline_alerts(
     success: kivact::state::Signal<bool>,
     warning: kivact::state::Signal<bool>,
     danger: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-02",
         "インラインアラート",
@@ -297,7 +350,7 @@ fn inline_alerts(
                     .description("v2.5.0 で監査ログのエクスポートが追加されました。")
                     .tone(kivact::interaction::Tone::Info)
                     .icon(kivact::view::icon("info-circle"))
-                    .visible(info)
+                    .open(info)
                     .dismissible(true)
                     .dismiss_label(kivact::i18n::message("game.alert.close", "Close alert"))
                     .dismiss_content(text("×"))
@@ -311,7 +364,7 @@ fn inline_alerts(
                     .description("2.4GB · 所要 3 分 12 秒")
                     .tone(kivact::interaction::Tone::Success)
                     .icon(kivact::view::icon("circle-check"))
-                    .visible(success)
+                    .open(success)
                     .dismissible(true)
                     .dismiss_label(kivact::i18n::message("game.alert.close", "Close alert"))
                     .dismiss_content(text("×"))
@@ -346,7 +399,7 @@ fn inline_alerts(
                         ))
                         .style(style().gap(10).margin_top(6))
                     })
-                    .visible(warning)
+                    .open(warning)
                     .dismissible(true)
                     .dismiss_label(kivact::i18n::message("game.alert.close", "Close alert"))
                     .dismiss_content(text("×"))
@@ -356,7 +409,7 @@ fn inline_alerts(
                     .description("ERR_UPSTREAM_502 · 3 回再試行後に停止")
                     .tone(kivact::interaction::Tone::Danger)
                     .icon(kivact::view::icon("alert-octagon"))
-                    .visible(danger)
+                    .open(danger)
                     .dismissible(true)
                     .dismiss_label(kivact::i18n::message("game.alert.close", "Close alert"))
                     .dismiss_content(text("×"))
@@ -365,7 +418,7 @@ fn inline_alerts(
     )
 }
 
-fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-03",
         "トースト",
@@ -401,7 +454,7 @@ fn toast_actions() -> crate::game::specimens::Specimen<impl kivact::view::Compon
     )
 }
 
-fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "FBK-04",
         "スケルトン",
@@ -421,7 +474,7 @@ fn loading_skeletons() -> crate::game::specimens::Specimen<impl kivact::view::Co
     )
 }
 
-fn empty_content(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn empty_content(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
                 "FBK-05",
                 "空状態",
@@ -434,7 +487,7 @@ fn empty_content(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::v
                             .variant(kivact_ui_game::Slant)
                             .icon(kivact::view::icon("plus"))
                             .size(kivact::ui::ControlSize::Small)
-                            .on_press(move || scene.create.set(true)),
+                            .on_press(move || scene.show(Overlay::Create)),
                     ))),
             )
 }
@@ -443,7 +496,7 @@ fn dropdown_menu(
     scene: Demo,
     pinned: kivact::state::Signal<bool>,
     archived: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-01",
         "ドロップダウンメニュー",
@@ -461,14 +514,14 @@ fn dropdown_menu(
                 ]
             })
             .on_activate(move |key: &'static str| match key {
-                "rename" => scene.create.set(true),
+                "rename" => scene.show(Overlay::Create),
                 "copy" => {
                     spawn(platform::copy_text("OPS-2041"));
                 }
-                "window" => scene.drawer.set(true),
+                "window" => scene.show(Overlay::Drawer),
                 "pinned" => pinned.update(|on| *on = !*on),
                 "archived" => archived.update(|on| *on = !*on),
-                "delete" => scene.delete.set(true),
+                "delete" => scene.show(Overlay::Delete),
                 _ => {}
             })
             .offset(0.)
@@ -485,15 +538,15 @@ fn dropdown_menu(
                 ],
             )
             .icon("dots")
-            .on_select(move |key: &'static str| match key {
-                "favorite" => scene.drawer.set(true),
-                _ => scene.palette.set(true),
+            .on_activate(move |key: &'static str| match key {
+                "favorite" => scene.show(Overlay::Drawer),
+                _ => scene.show(Overlay::Palette),
             }),
         )),
     )
 }
 
-fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-02",
         "モーダルダイアログ",
@@ -502,17 +555,17 @@ fn modal_dialog(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::vi
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("plus"))
                 .test_id("game-create-open")
-                .on_press(move || scene.create.set(true)),
+                .on_press(move || scene.show(Overlay::Create)),
             kivact::ui::button("確認ダイアログ")
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("alert-triangle"))
                 .variant(kivact::ui::ButtonVariant::Danger)
-                .on_press(move || scene.delete.set(true)),
+                .on_press(move || scene.show(Overlay::Delete)),
         )),
     )
 }
 
-fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-03",
         "ドロワー / パレット",
@@ -521,17 +574,17 @@ fn drawer_commands(scene: Demo) -> crate::game::specimens::Specimen<impl kivact:
                 .variant(kivact_ui_game::Slant)
                 .test_id("game-drawer-open")
                 .variant(kivact::ui::ButtonVariant::Secondary)
-                .on_press(move || scene.drawer.set(true)),
+                .on_press(move || scene.show(Overlay::Drawer)),
             kivact::ui::button("コマンドパレット")
                 .variant(kivact_ui_game::Slant)
                 .icon(kivact::view::icon("command"))
                 .variant(kivact_ui_game::ButtonTone::Dark)
-                .on_press(move || scene.palette.set(true)),
+                .on_press(move || scene.show(Overlay::Palette)),
         )),
     )
 }
 
-fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-04",
         "ツールチップ",
@@ -573,7 +626,7 @@ fn tooltip_anchors() -> crate::game::specimens::Specimen<impl kivact::view::Comp
 fn user_popover(
     scene: Demo,
     user_open: kivact::state::Signal<bool>,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(
         "OVL-05",
         "ユーザーポップオーバー",
@@ -608,7 +661,7 @@ fn user_popover(
                     kivact::ui::button("メッセージを送る")
                         .variant(kivact_ui_game::Slant)
                         .size(kivact::ui::ControlSize::Small)
-                        .on_press(move || scene.drawer.set(true)),
+                        .on_press(move || scene.show(Overlay::Drawer)),
                 ))
             })
             .attach(
@@ -675,48 +728,51 @@ fn workspace_files(
     selection: kivact::state::Binding<Option<String>>,
 ) -> impl IntoView {
     let expanded = signal(vec!["operations".to_owned()]);
-    kivact::ui::tree("Workspace files", nodes)
-        .expanded(expanded)
-        .selection(binding(selection, move |key: Option<String>| {
+    kivact::ui::tree(
+        "Workspace files",
+        nodes,
+        binding(selection, move |key: Option<String>| {
             if key
                 .as_deref()
                 .is_none_or(|id| !["operations", "inventory", "archive"].contains(&id))
             {
                 selection.set(key);
             }
-        }))
-        .on_activate(move |key| {
-            if ["operations", "inventory", "archive"].contains(&key.as_str()) {
-                expanded.update(|keys| {
-                    if keys.contains(&key) {
-                        keys.retain(|k| k != &key);
-                    } else {
-                        keys.push(key);
-                    }
-                });
-            }
-        })
-        .item(|item, _| {
-            let key = item.get_untracked().key;
-            let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
-            let marker = match key.as_str() {
-                "OPS-2041.md" => "M",
-                "OPS-2043.md" => "A",
-                _ => "",
-            };
-            row((
-                kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
-                    style().size(14, 14).color(if folder {
-                        ColorToken::Warning
-                    } else {
-                        ColorToken::TextMuted
-                    }),
-                ),
-                text(key).style(style().grow(1).font_size(12.5)),
-                g::mono(marker),
-            ))
-            .style(style().grow(1).gap(6).align_items(Align::Center))
-        })
+        }),
+    )
+    .expanded(expanded)
+    .on_activate(move |key| {
+        if ["operations", "inventory", "archive"].contains(&key.as_str()) {
+            expanded.update(|keys| {
+                if keys.contains(&key) {
+                    keys.retain(|k| k != &key);
+                } else {
+                    keys.push(key);
+                }
+            });
+        }
+    })
+    .item(|item, _| {
+        let key = item.get_untracked().key;
+        let folder = ["operations", "inventory", "archive"].contains(&key.as_str());
+        let marker = match key.as_str() {
+            "OPS-2041.md" => "M",
+            "OPS-2043.md" => "A",
+            _ => "",
+        };
+        row((
+            kivact::view::icon(if folder { "folder" } else { "file-text" }).style(
+                style().size(14, 14).color(if folder {
+                    ColorToken::Warning
+                } else {
+                    ColorToken::TextMuted
+                }),
+            ),
+            text(key).style(style().grow(1).font_size(12.5)),
+            g::mono(marker),
+        ))
+        .style(style().grow(1).gap(6).align_items(Align::Center))
+    })
 }
 
 fn document_preview(

@@ -4,7 +4,7 @@
 //! [`TextEditApi`] control on an ordinary node and
 //! hand the native settings and callbacks to the `TextEditApi`; the field's
 //! style is the theme's `text_input` or `text_area` recipe with a
-//! [`TextInputState`]. [`TextInput`] implements `NodeBuilder` with the field
+//! [`TextInputState`]. [`TextInput`] implements `Element` with the field
 //! as its node, so modifiers land on the input itself. `Style::paint` is box
 //! drawing, which a native editing leaf does not support, so these recipes
 //! return style only.
@@ -14,8 +14,8 @@ use kivact_core::style::use_theme;
 use kivact_core::state::Binding;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 
 use super::layer::recipes;
@@ -25,7 +25,7 @@ use super::variants::{Variant, Variants};
 /// A single-line text input with the theme's field look.
 ///
 /// Created by [`text_input`]. Native editing, binding and IME use
-/// [`TextEditApi`](kivact_interaction::TextEditApi). [`NodeBuilder`] modifiers
+/// [`TextEditApi`](kivact_interaction::TextEditApi). [`Element`] modifiers
 /// apply to the native field.
 pub struct TextInput {
     field: Node,
@@ -189,7 +189,7 @@ impl TextInput {
     ///
     /// - Enter commits: `on_commit` runs with the text, and the draft ends
     ///   when it returns `()` or `Ok`. An `Err` is reported and the draft stays
-    ///   open. A field marked [`invalid`](NodeBuilder::invalid) does not
+    ///   open. A field marked [`invalid`](Element::invalid) does not
     ///   commit; it stays as it is.
     /// - Escape cancels: the text from before the draft is written back to
     ///   the binding.
@@ -259,7 +259,7 @@ impl TextInput {
     }
 }
 
-impl NodeBuilder for TextInput {
+impl Element for TextInput {
     /// The native input field itself, so `style`, `name`, `disabled`,
     /// `on_key` and the other modifiers apply to the field and win over the
     /// theme's look.

@@ -33,38 +33,28 @@ fn wheel_list(handlers: &Handlers) -> &EventHandlers<WheelEvent> {
     &handlers.wheel
 }
 
-/// Where one event goes: the target whose observers see it and the target
-/// whose defaults run.
-struct Selected {
-    // xtask-allow(state-fields): per-event routing snapshot - observed
-    observed: Option<Rc<Target>>,
-    // xtask-allow(state-fields): per-event routing snapshot - target
-    target: Option<Rc<Target>>,
-    // xtask-allow(state-fields): per-event routing snapshot - The event came from this node's own canvas
-    /// The event came from this node's own canvas.
-    own_canvas: bool,
+/// Where one event goes.
+enum Selected {
+    /// The event did not come from this node's canvas (no origin, or another
+    /// node's): the node's own target takes the defaults; no target observes it.
+    Bubbled,
+    /// The event came from this node's canvas: the target (the node's own, or
+    /// the region the event names) observes it and takes the defaults.
+    Own(Rc<Target>),
+    /// The event names a region of this canvas the registry does not have:
+    /// only the node's own entries run.
+    Unknown,
 }
 
 /// Region identifiers belong to their original canvas. Ancestors receive
 /// bubbling through node defaults without retargeting.
 fn select(registry: &Registry, own_canvas: bool, region: Option<RegionId>) -> Selected {
-    let found = region
-        .filter(|_| own_canvas)
-        .and_then(|id| registry.lookup(id));
-    let observed = match &found {
-        Some(target) => Some(target.clone()),
-        None if region.is_none() && own_canvas => Some(registry.root.clone()),
-        None => None,
-    };
-    let target = if !own_canvas || region.is_none() {
-        Some(registry.root.clone())
-    } else {
-        found
-    };
-    Selected {
-        observed,
-        target,
-        own_canvas,
+    if !own_canvas {
+        return Selected::Bubbled;
+    }
+    match region {
+        None => Selected::Own(registry.root.clone()),
+        Some(id) => registry.lookup(id).map_or(Selected::Unknown, Selected::Own),
     }
 }
 
@@ -79,34 +69,30 @@ fn deliver_selected<E: Clone + 'static>(
     selected: &Selected,
     event: &E,
 ) -> crate::Result<Handled> {
-    let observing = || {
-        selected
-            .observed
-            .as_ref()
-            .is_some_and(|target| target.live())
+    // The target whose observers see the event, and the target whose defaults run.
+    let (observed, target): (Option<&Target>, Option<&Target>) = match selected {
+        Selected::Bubbled => (None, Some(root)),
+        Selected::Own(target) => (Some(&**target), Some(&**target)),
+        Selected::Unknown => (None, None),
     };
-    let target_ready = || {
-        selected
-            .target
-            .as_ref()
-            .is_some_and(|target| target.enabled())
-    };
+    let observing = || observed.is_some_and(Target::live);
+    let target_ready = || target.is_some_and(Target::enabled);
     let fallback_ready = || target_ready() && root.enabled();
     let mut sources = vec![Source::new(own, &Layer::NODE, &open)];
-    if let Some(target) = &selected.observed {
+    if let Some(observed) = observed {
         sources.push(Source::new(
-            list(&target.handlers),
+            list(&observed.handlers),
             &[Layer::Observer],
             &observing,
         ));
     }
-    if let Some(target) = &selected.target {
+    if let Some(target) = target {
         sources.push(Source::new(
             list(&target.handlers),
             &[Layer::PartDefault],
             &target_ready,
         ));
-        if selected.own_canvas && target.region().is_some() {
+        if matches!(selected, Selected::Own(_)) && target.region().is_some() {
             sources.push(Source::new(
                 list(&root.handlers),
                 &[Layer::RegionDefault],
@@ -234,6 +220,7 @@ fn route_actions(caller: &mut Handlers, registry: &Rc<Registry>) {
 
 fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
     let custom = Rc::new(std::mem::take(&mut caller.a11y));
+    let declares = registry.declares_regions();
     for action in [
         A11yAction::Focus,
         A11yAction::Increment,
@@ -247,6 +234,17 @@ fn route_accessibility(caller: &mut Handlers, registry: &Rc<Registry>) {
         A11yAction::ShowMenu,
         A11yAction::Dismiss,
     ] {
+        // Without regions only the node's own handlers can run: route no other action.
+        let offered = custom.iter().any(|(candidate, _)| *candidate == action)
+            || registry
+                .root
+                .actions
+                .a11y
+                .iter()
+                .any(|(candidate, _)| *candidate == action);
+        if !declares && !offered {
+            continue;
+        }
         let custom = custom.clone();
         let root = registry.root.clone();
         let registry = registry.clone();

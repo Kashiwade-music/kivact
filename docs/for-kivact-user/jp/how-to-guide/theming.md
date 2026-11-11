@@ -8,7 +8,6 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
 
 fn main() -> kivact::Result<()> {
     // `kivact-ui-basic` は Cargo.toml にある。`Theme::dark()` ならキットは不要。
@@ -30,7 +29,6 @@ fn main() -> kivact::Result<()> {
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::{ThemeMode, use_theme};
 use kivact::style::provide_theme;
 
 fn app() -> impl IntoView {
@@ -86,7 +84,6 @@ mod tests {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::use_theme;
 
 fn card(body: impl IntoView) -> impl IntoView {
     column(body).style(
@@ -121,7 +118,6 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::rgb;
 use kivact::style::theme::Palette;
 
 fn brand() -> Theme {
@@ -190,11 +186,11 @@ use kivact::prelude::*;
 fn buttons() -> impl IntoView {
     row((
         button("Primary"),
-        button("Secondary").variant(kivact::ui::ButtonVariant::Secondary),
-        button("Outline").variant(kivact::ui::ButtonVariant::Outline),
-        button("Ghost").variant(kivact::ui::ButtonVariant::Ghost),
-        button("Danger").variant(kivact::ui::ButtonVariant::Danger),
-        button("Link").variant(kivact::ui::ButtonVariant::Link),
+        button("Secondary").variant(ButtonVariant::Secondary),
+        button("Outline").variant(ButtonVariant::Outline),
+        button("Ghost").variant(ButtonVariant::Ghost),
+        button("Danger").variant(ButtonVariant::Danger),
+        button("Link").variant(ButtonVariant::Link),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -298,7 +294,7 @@ mod tests {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::style::{Color, hwb, oklch};
+use kivact::style::{hwb, oklch};
 
 fn swatches(brand_text: &str) -> impl IntoView {
     // 設定から来た色。解釈できない値は既定の色に戻す。
@@ -356,7 +352,7 @@ fn dusk() -> impl IntoView {
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::style::{Color, ThemeExtension, use_theme, rgb};
+use kivact::style::ThemeExtension;
 
 #[derive(Debug, PartialEq)]
 struct Brand {

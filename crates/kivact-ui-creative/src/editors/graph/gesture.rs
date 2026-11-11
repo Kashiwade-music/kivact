@@ -89,8 +89,7 @@ pub(crate) struct State {
     /// (`State::drag`).
     pub(crate) gesture: DragApi<Snapshot>,
     pub(crate) edit: EditSession<Snapshot>,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
-    pub(crate) active: Signal<Option<Target>>,
+    pub(crate) active: kivact::state::Binding<Option<Target>>,
     /// Space held on the focused editor: the next primary drag pans.
     pub(crate) space: SpacePanApi,
     pub(crate) lane_activate: Option<Callback<u64>>,

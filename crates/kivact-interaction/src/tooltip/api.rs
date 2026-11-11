@@ -62,21 +62,14 @@ impl Hub {
     fn warm_for(&self, id: TooltipId) -> bool {
         let hub = self.machine.state().get_untracked();
         hub.stack.last().is_some_and(|visible| *visible != id)
-            || matches!(hub.warmth, Warmth::Warm { until_ns, excluded } if excluded != id && now_ns() <= until_ns)
+            || matches!(hub.warmth, Warmth::Warm { excluded } if excluded != id)
     }
     fn want(&self, id: TooltipId) {
         self.machine.send(Event::Want(id));
     }
     fn release(&self, id: TooltipId, within: Duration) {
-        self.machine.send(Event::Release {
-            id,
-            until_ns: now_ns().saturating_add(within.as_nanos().min(u128::from(u64::MAX)) as u64),
-        });
+        self.machine.send(Event::Release { id, within });
     }
-}
-
-fn now_ns() -> u64 {
-    kivact_core::custom::clock_now()
 }
 
 /// Copy handle for a tooltip: when a hint shows and what it describes.
@@ -99,7 +92,7 @@ fn now_ns() -> u64 {
 /// the tooltip then and goes on as usual otherwise), on a pointer press on the
 /// trigger and on a wheel over it. Tab and modifier keys alone do not hide
 /// it. After one of these it stays hidden until the condition stops and
-/// becomes true again, as [`DelayedApi::dismiss`](crate::DelayedApi::dismiss) does. A child
+/// becomes true again, as [`DelayedApi::hide`](crate::DelayedApi::hide) does. A child
 /// of the trigger that handles pointer presses itself is the one that receives
 /// them, so a press on it does not reach the trigger; Escape and a press
 /// outside still hide the tooltip.
@@ -116,7 +109,7 @@ fn now_ns() -> u64 {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::view::{NodeBuilder, node, node_ref, text};
+/// use kivact_core::view::{Element, node, node_ref, text};
 /// use kivact_core::view::{Placement, Role, overlay, show};
 /// use kivact_interaction::use_tooltip;
 /// let tip = use_tooltip();
@@ -134,9 +127,9 @@ fn now_ns() -> u64 {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by TooltipApi::trigger at mount; the hint content is mounted only while the tooltip shows
     trigger_state: Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by TooltipApi::content when the hint mounts after the show delay, after the trigger attached
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,
@@ -269,7 +262,7 @@ impl TooltipApi {
     /// Hide the hint until the trigger is engaged again.
     #[track_caller]
     fn dismiss(self) {
-        self.delayed.dismiss();
+        self.delayed.hide();
     }
 
     /// The trigger whose hover and focus show the hint.
@@ -285,7 +278,7 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        self.trigger_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.anchor)
@@ -326,7 +319,7 @@ impl TooltipApi {
             open: visible.get(),
         });
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.surface)

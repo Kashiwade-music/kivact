@@ -27,13 +27,13 @@ fn frame(t: &Theme, s: &Look<PartState>) -> Style {
         .radius(0)
         .background(crate::theme_access::field_fill(&p))
         .border(1, p.input);
-    let base = if s.disabled {
+    let base = if s.is_disabled() {
         base.merge(&crate::theme_access::disabled())
             .background(p.input.with_alpha(if p.is_dark() { 0.8 } else { 0.5 }))
     } else {
         base
     };
-    if s.focused {
+    if s.is_focused() {
         base.merge(&crate::theme_access::focus_ring(&p))
     } else {
         base

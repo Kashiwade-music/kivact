@@ -33,16 +33,16 @@ pub enum RevealVisibility {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 // Immutable reveal construction policy: independent inversion, layout retention, caller overrides and delay; these fields describe no current hover or visibility phase.
 pub struct RevealContent {
-    // xtask-allow(state-fields): Immutable hover-inversion policy, not a current hover flag.
+    // xtask-allow(state-fields): option: caller policy in RevealContent; true reveals away from hover and keeps layout, false reveals on hover.
     /// Reveal away from hover instead of on hover; focus and touch still reveal.
     pub inverted: bool,
-    // xtask-allow(state-fields): Immutable layout-retention policy, not current visibility.
+    // xtask-allow(state-fields): option: caller policy in RevealContent; false lets hidden content leave normal flow once the fade ends.
     /// Keep hidden content in normal layout instead of removing its space.
     pub preserve_layout: bool,
-    // xtask-allow(state-fields): Optional caller visibility policy override, not a stored lifecycle.
+    // xtask-allow(state-fields): option: caller visibility policy override, not a stored lifecycle.
     /// Optional visibility override; focused content remains visible.
     pub force: Option<RevealVisibility>,
-    // xtask-allow(state-fields): Optional independent container hover-input override, not current hover state.
+    // xtask-allow(state-fields): option: independent container hover-input override, not current hover state.
     /// Optional override of the container hover input.
     pub container_force: Option<RevealForce>,
     /// Delay before hover reveals content, in milliseconds; defaults to zero.

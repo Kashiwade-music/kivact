@@ -16,7 +16,7 @@ use std::rc::Rc;
 use crate::state::{Value, memo, on_cleanup, signal};
 use crate::view::element_data::Common;
 use crate::view::owner::Owner;
-use crate::view::part_data::{PartBinding, PartMount};
+use crate::view::part_data::{Availability, Focus, PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
 use kivact_runtime::EffectKind;
 
@@ -60,8 +60,11 @@ enum Hover {
 pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
     Owner::current();
     let node = node_ref();
-    let focused = node.focused();
-    let focus_visible = node.focus_visible();
+    let focus = node.focus_memo(|focus| match focus {
+        None => Focus::None,
+        Some(false) => Focus::Focused,
+        Some(true) => Focus::FocusedVisible,
+    });
     let input = signal(PartInput::default());
     let availability = signal(None::<(Value<bool>, Value<bool>)>);
     let enabled = move || {
@@ -76,12 +79,8 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             .unwrap_or_default();
         let input = input.get();
         state(PartState {
-            pressed: !disabled && !hidden && input.press != Press::Idle,
-            hovered: !disabled && !hidden && input.hover == Hover::Inside,
-            focused: focused.get(),
-            focus_visible: focus_visible.get(),
-            disabled,
-            hidden,
+            availability: part_availability(disabled, hidden, input),
+            focus: focus.get(),
         })
     });
     let mounted = Rc::new(move |mount: PartMount| {
@@ -95,7 +94,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
                 let disabled = mount.disabled.get();
                 let hidden = mount.hidden.get();
                 let hovered = hover.get();
-                let focused = focused.get();
+                let focused = focus.get() != Focus::None;
                 input.update(|input| {
                     if disabled || hidden {
                         *input = PartInput::default();
@@ -118,7 +117,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             availability.set(None);
         });
     });
-    let mut common = input_observers(input, focused, enabled);
+    let mut common = input_observers(input, focus, enabled);
     let binding = PartBinding {
         node,
         hooks: vec![Rc::new(move |mount| {
@@ -134,14 +133,32 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
     })
 }
 
+/// The availability of a target: hidden wins over disabled, and pressed and
+/// hovered exist only while the target takes input.
+fn part_availability(disabled: bool, hidden: bool, input: PartInput) -> Availability {
+    if hidden {
+        Availability::Hidden
+    } else if disabled {
+        Availability::Disabled
+    } else {
+        Availability::Enabled {
+            pressed: input.press != Press::Idle,
+            hovered: input.hover == Hover::Inside,
+        }
+    }
+}
+
 fn input_observers(
     input: crate::state::Signal<PartInput>,
-    focused: Value<bool>,
+    focus: Value<Focus>,
     enabled: impl Fn() -> bool + Copy + 'static,
 ) -> Common {
     let mut common = Common::default();
     common.handlers.key.observer(move |event| {
-        if matches!(event.key(), Key::Space | Key::Enter) && focused.get_untracked() && enabled() {
+        if matches!(event.key(), Key::Space | Key::Enter)
+            && focus.get_untracked() != Focus::None
+            && enabled()
+        {
             input.update(|input| input.press = Press::Key(event.key()));
         }
     });

@@ -1,5 +1,4 @@
 //! Role: Catalog page of Item: variants, media, group and pressable.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "item",
         name: "Item",
         description: "アイコン、題名、説明、操作を持つ一覧の項目です。on_press を渡すと項目全体が押せます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
         source: include_str!("item.rs"),
         align: PreviewAlign::Center,
         examples: vec![

@@ -21,7 +21,7 @@ fn inspector() -> impl IntoView {
 ```
 
 Install `ui::theme(ThemeMode::Dark)` on an App or with
-`kivact::view::provide_theme`: it is a plain `Theme` in the Iris accent and
+`kivact::style::provide_theme`: it is a plain `Theme` in the Iris accent and
 the comfortable density. Choose others with
 `ui::theme_with(ThemeMode::Dark, ui::ThemeOptions { accent: ui::Accent::Lime,
 density: ui::Density::Compact })`. Use `..Default::default()` to keep omitted
@@ -37,18 +37,18 @@ sliders, splitters and the toast region through `kivact::ui`; they take the
 kit's look from the recipes. Every component of the kit, like `kivact::ui`,
 takes the values it edits as constructor arguments and keeps no hidden copy.
 A segmented control is the standard radio group in the kit's look:
-`radio_group(label, options, value).orientation(Orientation::Horizontal)
+`radio_group(label, items, selected).orientation(Orientation::Horizontal)
 .variant(kivact::ui::RadioGroupVariant::Segmented)`. Domain controls such as
 `document_tabs`, the numeric fields, dock and editor surfaces remain in this
 kit; tool toggles, progress bars, inspector sections and split panes are the
 standard `kivact::ui::toggle`, `progress`, `disclosure` and `split` in its look.
 
-Components implement `kivact::control::NodeBuilder` and `IntoView`.
-Use ordinary `NodeBuilder` modifiers for layout, styles, names, IDs and callbacks.
+Components implement `kivact::view::Element` and `IntoView`.
+Use ordinary `Element` modifiers for layout, styles, names, IDs and callbacks.
 There is no official-component-only rendering or input route.
 
 Icons are names in the theme's `IconSet`, drawn with
-`kivact::control::icon("name")` like every icon: a 16px Tabler outline in the
+`kivact::view::icon("name")` like every icon: a 16px Tabler outline in the
 inherited text color. The kit's theme has `click`, `adjustments-horizontal`,
 `checkbox`, `bulb`, `adjustments`, `chart-bar`, `layout-columns`, `hierarchy`,
 `table`, `stack`, `timeline`, `keyframes`, `schema`, `palette`, `color-picker`,
@@ -73,7 +73,7 @@ use kivact_ui_creative as ui;
 
 static NODE: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 3l9 9-9 9-9-9z"/></svg>"#;
 let theme = ui::theme(ThemeMode::Dark).with_icon("node", Asset::from(NODE));
-let view = kivact::control::icon("node");
+let view = kivact::view::icon("node");
 ```
 
 `LabelTone` (`Normal`, `Muted`, `Accent`, `Warning`, `Error`, `Custom(color)`)
@@ -164,9 +164,9 @@ belong to the application. Loop, playhead, tool and view values are the bindings
 `zoom_range`, `min_duration` and `loop_min_duration` configure proposals;
 `automation_label` supplies the optional lane heading. Track regions
 are allocated independently of model identities, including large knot IDs.
-`document_tabs(label, options, selected).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
+`document_tabs(label, items, value).on_reorder(on_reorder).on_close(on_close)` is `kivact::ui::tabs`
 with a tab slot that closes a tab and drags it 60 px to swap with a
-neighbor; the application applies both to its options. `.content(|key| ..)`
+neighbor; the application applies both to its items. `.content(|key| ..)`
 and `.keep_mounted(true)` are the standard tabs'.
 The standard `kivact::ui::data_table(rows, key, columns)` is drawn dense in this
 kit's theme (its `DataTableRecipes`): `.focus(TableFocus::Rows(ListPolicy::default()))` makes the rows
@@ -195,12 +195,12 @@ its color when hovered, pressed or focused, and retains its accessible name.
 `PickerItem`s (label, section, description, shortcut, icon, enabled): `.attach(button)`
 opens it below a button and `.at(anchor, position)` at a window point. The focus stays
 in the search field, Up and Down move the active row over the enabled items and stop at
-the ends, Enter or a click picks (`on_pick`), Escape, an outside press and Tab cancel
+the ends, Enter or a click activates (`on_activate`), Escape, an outside press and Tab cancel
 (`on_cancel`), and `on_preview` reports the active key for a live preview and `None`
 when it ends.
 `popup_button` and `dialog_button` open a popover below the button and a modal
-dialog: they are the core `dialog` parts (`DialogKind::Popover` and
-`DialogKind::Modal`) drawn in Creative's look, named like the button, with the
+dialog: they are the core `dialog` parts (`DialogMode::Popover` and
+`DialogMode::Modal`) drawn in Creative's look, named like the button, with the
 title as a heading, a Close button under the content, and Escape, outside
 press and assistive technology's Dismiss closing them.
 `tool_window_button(label, options, content)` provides a draggable, collapsible
@@ -209,7 +209,7 @@ restore its opener focus; outside dismissal preserves the newly focused
 control. `ToolWindowOptions` sets a separate title, width, center or top-right
 placement, modal containment and chrome spacing (`ToolWindowOptions::default()` is
 a 520-pixel nonmodal centered window). Its content factory receives a
-`ToolWindowApi` whose `close()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
+`ToolWindowApi` whose `hide()` closes the window and restores opener focus. Collapsing retains edited content; reopening mounts
 the factory again. Modal backdrop presses keep the confirmation open,
 while Escape closes it. Optional backdrop blur uses ordinary public styles.
 
@@ -221,14 +221,14 @@ fn tool_window() -> impl IntoView {
     ui::tool_window_button("Settings…",
         ui::ToolWindowOptions::default().title("Settings").width(340.0)
             .position(ui::WindowPosition::TopRight { right: 40.0, top: 120.0 }),
-        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.close()))
+        |window: ui::ToolWindowApi| kivact::ui::button("Apply").on_press(move || window.hide()))
 }
 ```
 
 `tool_window(anchor, open, options).content(content)` is the same window that the
 application opens and closes through a `Binding<bool>`; `tool_window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
-button, Escape, Dismiss, `ToolWindowApi::close`, an outside press on a
+button, Escape, Dismiss, `ToolWindowApi::hide`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus
 back with `anchor.restore_focus()`, which does nothing if the anchor has gone;
 a modal window gives it back to the element that had it when it opened. Each
@@ -274,7 +274,7 @@ Gain uses `gain_range(min, max)` (default 0..1); audio applications can supply
 `fader` maps a normalized value `t` to position `sqrt(t)` and position `n` back
 to `min + (max - min) * n²` over its configured range; audio applications can
 explicitly choose `range(-60.0, 6.0)`.
-`GradientStop::new(position, color)` has no identity. `gradient_editor(stops, selection)`
+`GradientStop::new(position, color)` has no identity. `gradient_editor(stops, selected)`
 takes the selected stop as an `Option<usize>` into the stop vector; adding and
 deleting adjust that index.
 
@@ -288,9 +288,9 @@ theme draws, and `.body(..)` adds its second line.
 canvas with one keyboard focus: a press on the track moves the nearer end, a
 press on an end or on the movable interval drags it, and the keys edit what
 was pressed, selected or moved last. Context menus are
-`kivact::ui::menu(label, entries, choose).attach_context(target)`.
+`kivact::ui::menu(label, items).on_activate(choose).attach_context(target)`.
 
-`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, primary, entries).on_select(choose)` keeps the primary action required. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
+`arrangement(clips, tracks, state).length(beats)` defaults to 16 beats. `split_button(label, items).on_press(primary).on_activate(choose)` takes the primary action through `on_press`. `tool_window(anchor, open, options).content(factory)` rebuilds content on opening and defaults to empty content. Document-tab close/reorder callbacks default to no action. Mixer inserts/routes and pie-menu entries accept reactive read-only lists. Segmented radio groups use the standard item slot.
 
 ## Migrating from the previous release
 
@@ -304,15 +304,15 @@ names and their replacements:
 | `Color` | `creative::ColorName` |
 | Cargo feature `gpu-interop` of `kivact-ui-creative` | Removed: enable the `gpu-interop` feature of the `kivact` dependency and call `kivact::view::viewport(pixels).gpu_frame(move \|\| image.frame())` with `kivact::gpu_interop::shared_image(..)` |
 | `notice(tone, title, message)`, `Notice` (`.dismissible`) | `kivact::ui::alert(title).tone(tone).description(message).variant(creative::NoticeVariant).dismissible(true)`, with `.icon(..)`, `.dismiss_content(..)`, `.dismiss_label(..)` |
-| `pie_menu(entries, state, choose)` | `creative::pie_menu(entries, state).on_activate(choose)` (returns `creative::PieMenu`); `PieState` is `Closed` or `Open { mode: creative::PieMode, center, hot }` |
+| `pie_menu(entries, state, choose)` | `creative::pie_menu(items, state).on_activate(choose)` (returns `creative::PieMenu`); `PieState` is `Closed` or `Open { mode: creative::PieMode, center, hot }` |
 | `Segmented` | `kivact::ui::radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` |
-| `split_button(label, primary, entries)` | `creative::split_button(label, entries).on_press(primary).on_select(..)` |
+| `split_button(label, primary, entries)` | `creative::split_button(label, items).on_press(primary).on_activate(..)` |
 | `SurfacePointer` | Standard pointer events: `viewport(..).with_node(\|n\| n.on_pointer(..))`, mapped to image coordinates with `kivact::interaction::use_zoom_pan(..).to_content(event.pos())` |
 | `SurfaceRegion` | Canvas regions: `Node::region(id, part)` / `Node::regions(..)`, with the geometry painted by `Draw::region(id, rect)` |
 | `SurfaceSize` | `kivact::view::SurfaceSize` (from `viewport(..).on_resize(..)`) |
 | `theme(mode).accent(a).density(d)` (`ThemeOptions` trait) | `creative::theme_with(mode, creative::ThemeOptions { accent, density })` (`ThemeOptions` is a struct) |
 | `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
-| `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.close()`) |
+| `ToolWindow` (the handle given to content) | `creative::ToolWindowApi` (`.hide()`) |
 | `ToolWindowBuilder` (returned by `tool_window(..)`) | `creative::ToolWindow` (`tool_window(anchor, open, options).content(\|w: ToolWindowApi\| ..)`) |
 | `viewport_surface(image)`, `ViewportSurface` | `kivact::view::viewport(pixels)` (takes `Pixels`, not `Option<Pixels>`), with `.fit(..)`, `.pixelated(..)` and `.on_resize(..)`; `.transform(binding)` -> `.transform(kivact::interaction::use_zoom_pan(binding))`; `.on_edit(..)` -> `use_zoom_pan(..).on_edit(..)`; `.overlay(..)` -> `.with_node(\|n\| n.draw_over(..))` with `zoom.to_view(..)` |
 

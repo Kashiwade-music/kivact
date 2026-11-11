@@ -1,7 +1,7 @@
 //! Role: Style canonical calendars and date/time field surfaces with Neutral tokens.
 use crate::Tokens;
 use kivact::custom::PartState;
-use kivact::interaction::{CalendarDayState, CalendarSpan};
+use kivact::interaction::{CalendarDayState, CalendarSpan, DaySelection};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, style};
 use kivact::ui::{CalendarDayVisual, CalendarRecipes, Look};
 use kivact::view::{ReadingDirection, use_direction};
@@ -33,14 +33,14 @@ fn day(theme: &Theme, s: &Look<CalendarDayVisual>) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .text_wrap(false)
-        .color(if s.day.edge {
+        .color(if s.day.selection == DaySelection::Edge {
             t.colors.on_accent
         } else if s.in_month {
             t.colors.text_primary
         } else {
             t.colors.text_secondary
         })
-        .background(if s.day.edge {
+        .background(if s.day.selection == DaySelection::Edge {
             t.colors.accent
         } else {
             Color::TRANSPARENT
@@ -61,7 +61,7 @@ fn day(theme: &Theme, s: &Look<CalendarDayVisual>) -> Style {
     }
     if s.day.disabled || !s.in_month {
         base.opacity(0.3)
-    } else if s.day.edge {
+    } else if s.day.selection == DaySelection::Edge {
         base
     } else {
         base.hover(style().background(t.colors.overlay_hover))

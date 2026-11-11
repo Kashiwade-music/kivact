@@ -3,9 +3,7 @@ use crate::draw::{ImageOptions, Pixels};
 use crate::geometry::{Rect, Size};
 use crate::gpu_interop::GpuFrame;
 use crate::state::{IntoValue, Value, callback, effect, memo};
-use crate::view::{
-    HandlerResult, ImageFit, IntoView, Node, NodeBuilder, Role, View, node, node_ref,
-};
+use crate::view::{Element, HandlerResult, ImageFit, IntoView, Node, Role, View, node, node_ref};
 use kivact_style::{Overflow, style};
 use kivact_types::ViewTransform;
 use kivact_types::cell::Sent;
@@ -88,7 +86,7 @@ impl Viewport {
         self
     }
 }
-impl NodeBuilder for Viewport {
+impl Element for Viewport {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -128,7 +126,7 @@ impl IntoView for Viewport {
         let content = memo(move || {
             if let Some(frame) = gpu_frame
                 .get()
-                .filter(|_| crate::gpu_interop::adapter().is_some())
+                .filter(|_| crate::gpu_interop::has_adapter())
             {
                 return Rect::new(0.0, 0.0, frame.width() as f64, frame.height() as f64);
             }
@@ -161,7 +159,7 @@ impl IntoView for Viewport {
             };
             if let Some(frame) = gpu_frame
                 .get()
-                .filter(|_| crate::gpu_interop::adapter().is_some())
+                .filter(|_| crate::gpu_interop::has_adapter())
             {
                 draw.gpu_frame_with_pixels(&frame, &image, destination, options);
                 return;

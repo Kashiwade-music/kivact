@@ -9,9 +9,9 @@ mod test_options;
 #[cfg(debug_assertions)]
 mod text_reference;
 
-pub use arvane::{Renderer, ShellEvent, ShellImeText};
+pub use arvane::{ShellEvent, ShellImeText};
 pub use arvane_native::mirror::MirrorStats;
-pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey};
+pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 pub use arvane_virtual::{GpuMode, MirrorMode};
 pub use kivact_types::render::{SemanticsNode, SemanticsTree};
 pub use kivact_types::{
@@ -23,7 +23,7 @@ pub use kivact_types::{PointerSample, Semantics, Transform};
 
 pub use display_probe::{display_stats, gpu_unavailable};
 pub use test_frame::TestFrame;
-pub use test_host::ArvaneTestHost;
+pub use test_host::{ArvaneTestHost, Renderer};
 pub use test_options::{TestFonts, TestHostOptions, default_font};
 
 #[cfg(any(windows, target_os = "linux"))]

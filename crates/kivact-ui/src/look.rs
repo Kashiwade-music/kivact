@@ -79,7 +79,7 @@ pub(super) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
         .weight(theme.text().weight_strong)
         .border(1, Color::TRANSPARENT);
     // An icon button is a square of the button's height.
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.width(height(theme, size)).padding_x(0)
     } else {
         s
@@ -117,7 +117,7 @@ pub(super) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
             // The label inherits the root's text decoration; the actual hover
             // state underlines it, as CSS `hover:underline` (a text
             // decoration is not a state style property).
-            if state.input.hovered {
+            if state.input.is_hovered() {
                 s.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 s
@@ -174,11 +174,11 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, 
     let side = indicator(theme, look.size);
     let r = theme.radius().sm;
     let rect = Rect::new(leading(theme), (size.height - side) / 2.0, side, side);
-    if look.checked != CheckedState::Unchecked {
+    if look.checked() != CheckedState::Unchecked {
         d.rounded_rect(rect, r, ColorToken::Accent);
         let at = |x: f64, y: f64| Point::new(rect.x + side * x, rect.y + side * y);
         let mark = Stroke::new(2.0).cap(LineCap::Round).join(LineJoin::Round);
-        if look.checked == CheckedState::Indeterminate {
+        if look.is_mixed() {
             d.polyline(
                 [at(0.25, 0.5), at(0.75, 0.5)],
                 &mark,
@@ -208,7 +208,7 @@ pub(super) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, 
 
 /// The track and thumb of a switch.
 pub(super) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
-    let on = look.checked.is_checked();
+    let on = look.is_checked();
     let h = indicator(theme, look.size);
     let w = indicator_width(theme, look.size, true);
     let track = Rect::new(leading(theme), (size.height - h) / 2.0, w, h);
@@ -262,7 +262,7 @@ pub(super) fn toggle_button(theme: &Theme, state: &ToggleButtonState) -> Style {
         .color(ColorToken::Text)
         .hover(style().background(ColorToken::Hover))
         .pressed(style().background(ColorToken::Pressed));
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.width(height(theme, size)).padding_x(0)
     } else {
         s

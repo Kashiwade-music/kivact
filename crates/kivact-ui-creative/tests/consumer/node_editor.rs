@@ -170,3 +170,46 @@ fn node_parameters_accept_finite_set_value_drag_and_toggle() {
     assert_eq!(value.value_range().2, Some(0.8));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn node_link_region_reports_its_selection() {
+    let (screen, links) = kivact::test::render_with_handle(crate::support::options(), || {
+        let socket = ui::NodeSocket::new;
+        let data = signal(vec![
+            test_node(
+                1,
+                "Image",
+                30.0,
+                vec![],
+                vec![socket("Image", "Image", kivact::style::rgb(0xffd25a))],
+            ),
+            test_node(
+                2,
+                "Mix",
+                300.0,
+                vec![socket("Image", "Image", kivact::style::rgb(0xffd25a))],
+                vec![],
+            ),
+        ]);
+        let links = signal(vec![ui::NodeLink::new(1, 0, 2, 0)]);
+        (
+            links,
+            app_node_editor(data, links, ui::NodeState::new())
+                .style(style().height(300))
+                .test_id("nodes"),
+        )
+    });
+    let link = screen.get_by_role(Role::Button, "Link Image output 0 to Mix input 0");
+    assert!(!link.is_selected());
+    link.a11y(A11yAction::Select);
+    assert!(link.is_selected());
+    screen
+        .get_by_role(Role::Button, "Image")
+        .a11y(A11yAction::Select);
+    assert!(
+        !link.is_selected(),
+        "selecting a node clears the link selection"
+    );
+    assert_eq!(links.get_untracked().len(), 1);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

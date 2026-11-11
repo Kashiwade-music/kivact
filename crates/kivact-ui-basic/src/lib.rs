@@ -4,7 +4,7 @@
 //! 12 px controls and Lucide icons. The only dependency is the public
 //! `kivact` facade; behavior comes from `kivact::interaction` and the
 //! standard `kivact::ui` components. A builder that draws one box accepts the
-//! public [`kivact::view::NodeBuilder`] modifiers, and the style and
+//! public [`kivact::view::Element`] modifiers, and the style and
 //! semantics it installs are only defaults: what the caller sets wins. A
 //! dialog, an alert dialog, a sheet and a popover are the standard
 //! `kivact::ui::dialog` of the kinds `Modal`, `AlertModal` (its width class

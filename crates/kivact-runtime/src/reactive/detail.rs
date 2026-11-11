@@ -56,6 +56,7 @@ pub struct StageSpan {
 pub struct DetailWrite {
     /// The written node.
     pub node: NodeId,
+    // xtask-allow(state-fields): independent: the turn's last cause when the write happened (None before the turn's first cause or after the cap dropped one); a write with or without a cause may or may not change the value
     /// The index of the last cause before the write, if any.
     pub cause: Option<u32>,
     /// Value type name.
@@ -66,7 +67,7 @@ pub struct DetailWrite {
     /// Where it was written.
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive record - one write or run for DevTools; both fields are independent facts of it.
+    // xtask-allow(state-fields): independent: a read-only DevTools record of one write; whether it changed the value is a fact of its own
     /// Whether the write changed the value.
     pub changed: bool,
 }
@@ -77,6 +78,7 @@ pub struct DetailWrite {
 pub struct DetailRun {
     /// The run node.
     pub node: NodeId,
+    // xtask-allow(state-fields): independent: the turn's last cause when the run happened (None before the turn's first cause or after the cap dropped one); a run with or without a cause may or may not change its value
     /// The index of the last cause before the run, if any.
     pub cause: Option<u32>,
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
@@ -84,7 +86,7 @@ pub struct DetailRun {
     /// Where the memo or effect was created.
     // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive record - one write or run for DevTools; both fields are independent facts of it.
+    // xtask-allow(state-fields): independent: a read-only DevTools record of one run; whether it changed the value is a fact of its own
     /// Whether the run changed its value.
     pub changed: bool,
 }
@@ -130,14 +132,36 @@ pub(crate) enum DetailLog {
     Recording(Box<DetailBuilder>),
 }
 
+/// The last cause recorded in the turn being recorded.
+#[derive(Clone, Copy, Default)]
+enum CauseSlot {
+    /// No cause yet.
+    #[default]
+    Empty,
+    /// The index of the last recorded cause.
+    At(u32),
+    /// A cause was dropped at the per-list cap.
+    Dropped,
+}
+
+impl CauseSlot {
+    /// The index, unless no cause was recorded or one was dropped.
+    fn at(self) -> Option<u32> {
+        match self {
+            Self::At(index) => Some(index),
+            Self::Empty | Self::Dropped => None,
+        }
+    }
+}
+
 /// The turn being recorded and the finished turns waiting for `take`.
 pub(crate) struct DetailBuilder {
     /// The turn being recorded (what happens between two turns belongs to the next one).
     current: TurnDetail,
     /// Finished turns waiting for `take`.
     done: VecDeque<TurnDetail>,
-    // xtask-allow(state-fields): statistics - the index of the last cause recorded in this turn; `None` before the first or after one was dropped at the cap.
-    cause: Option<u32>,
+    /// The index of the last cause recorded in this turn.
+    cause: CauseSlot,
     /// The stage being timed and the turn-relative ns it started at.
     open_stage: Option<(Stage, u64)>,
 }
@@ -149,7 +173,7 @@ impl DetailLog {
             *self = Self::Recording(Box::new(DetailBuilder {
                 current: TurnDetail::default(),
                 done: VecDeque::new(),
-                cause: None,
+                cause: CauseSlot::Empty,
                 open_stage: None,
             }));
         }
@@ -187,9 +211,9 @@ impl DetailLog {
         };
         if builder.current.causes.len() < CAP {
             builder.current.causes.push(CauseEntry { tag, label });
-            builder.cause = Some((builder.current.causes.len() - 1) as u32);
+            builder.cause = CauseSlot::At((builder.current.causes.len() - 1) as u32);
         } else {
-            builder.cause = None;
+            builder.cause = CauseSlot::Dropped;
             builder.current.dropped += 1;
         }
     }
@@ -209,7 +233,7 @@ impl DetailLog {
         if builder.current.writes.len() < CAP {
             builder.current.writes.push(DetailWrite {
                 node,
-                cause: builder.cause,
+                cause: builder.cause.at(),
                 ty,
                 created_at,
                 at,
@@ -234,7 +258,7 @@ impl DetailLog {
         if builder.current.runs.len() < CAP {
             builder.current.runs.push(DetailRun {
                 node,
-                cause: builder.cause,
+                cause: builder.cause.at(),
                 kind,
                 at,
                 changed,
@@ -300,7 +324,7 @@ impl DetailLog {
             builder.done.pop_front();
         }
         builder.done.push_back(done);
-        builder.cause = None;
+        builder.cause = CauseSlot::Empty;
         builder.open_stage = None;
     }
 }

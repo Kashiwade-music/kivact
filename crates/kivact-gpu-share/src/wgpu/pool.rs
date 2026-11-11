@@ -223,7 +223,7 @@ impl Pool {
     ) -> Result<(Self, SharedTextures), Error> {
         config.check()?;
         let desc = texture_desc(&config);
-        let (raw, textures, shared) = match adapter.backend {
+        let (raw, textures, shared) = match adapter.backend() {
             #[cfg(windows)]
             GpuBackend::Dx12 => {
                 let (raw, textures, shared) =

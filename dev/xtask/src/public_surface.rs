@@ -16,10 +16,10 @@ pub(crate) struct Surface {
 struct Binding {
     path: String,
     target: String,
-    // xtask-allow(state-fields): passive record - whether the binding is public
+    // xtask-allow(state-fields): independent: whether a binding is public is a fixed fact, separate from whether it names a value
     public: bool,
     origin: (String, String, proc_macro2::Span),
-    // xtask-allow(state-fields): passive record - whether the binding names a value item
+    // xtask-allow(state-fields): independent: whether a binding names a value is a fixed fact, separate from its visibility
     value: bool,
 }
 
@@ -53,7 +53,9 @@ pub(crate) fn build_for(sources: &[Source], public_needed: bool) -> Surface {
     }
     let roots: BTreeSet<_> = sources
         .iter()
-        .filter(|s| s.library && (s.package == "kivact" || crate::check_policy::is_kit(&s.package)))
+        .filter(|s| {
+            s.library() && (s.package == "kivact" || crate::check_policy::is_kit(&s.package))
+        })
         .map(Source::identity_root)
         .collect();
     let mut pending: Vec<_> = roots

@@ -5,7 +5,7 @@ use kivact::style::style;
 use kivact::test::RenderOptions;
 use kivact::test::render_with_handle;
 use kivact::ui::button;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact::view::node_ref;

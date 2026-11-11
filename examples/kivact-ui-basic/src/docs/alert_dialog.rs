@@ -1,5 +1,4 @@
 //! Role: Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,14 +9,14 @@ pub(crate) fn page() -> Page {
         slug: "alert-dialog",
         name: "Alert Dialog",
         description: "ユーザーに確認や回答を求めるモーダルです。標準の kivact::ui::dialog を DialogMode::AlertModal にすると、このテーマでは alert-dialog.tsx の見た目で描きます。Escape とボタンで閉じ、外側の押下では閉じません。フォーカスはフッターの最初のボタンから始まり、閉じると開いた要素へ戻ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
         source: include_str!("alert_dialog.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "open の signal と題名を渡し、kind を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
+                "open の signal と題名を渡し、mode を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
                 default,
             ),
             Example::new(
@@ -75,7 +74,9 @@ fn default() -> impl IntoView {
 
 // example: destructive
 fn destructive() -> impl IntoView {
+    // xtask-allow(state-fields): independent: "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either value of deleted
     let open = signal(false);
+    // xtask-allow(state-fields): independent: set by the alert's Delete button and never cleared; the muted line shows it while the alert is open or closed
     let deleted = signal(false);
     column((
         button("Delete Chat")

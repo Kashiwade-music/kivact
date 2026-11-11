@@ -10,10 +10,10 @@
 //! of view still do (as a Playwright locator finds off-screen elements).
 //! Props and test ids are read from the engine's tree.
 //!
-//! An `Element`'s name, role, value, states and `a11y_actions` are read
+//! An `Locator`'s name, role, value, states and `a11y_actions` are read
 //! from the published tree (a node assistive technology does not see has
-//! the role `None`). `Element::rect` is the bounding box of the drawn box
-//! (`NodeRef::rect`'s); `Element::accessibility_bounds` is the published
+//! the role `None`). `Locator::rect` is the bounding box of the drawn box
+//! (`NodeRef::rect`'s); `Locator::accessibility_bounds` is the published
 //! bounds mapped by scrolling and transforms as the platform maps them;
 //! `children()` projects the retained tree through structural Contents boxes.
 
@@ -23,7 +23,7 @@ use std::panic::Location;
 use kivact_engine::contract::NodeType;
 use kivact_types::NodeId;
 
-use super::model::{Element, FIND_TIMEOUT, Query, Screen, Within};
+use super::model::{FIND_TIMEOUT, Locator, Query, Screen, Within};
 use kivact_core::view::Role;
 use kivact_runtime::TurnRecord;
 use kivact_style::draw::RegionId;
@@ -68,7 +68,8 @@ impl Screen {
             let Some(n) = tree.get(id) else { continue };
             match q {
                 Query::Text(t) => {
-                    if n.kind == Some(NodeType::Text) && tree.content(id).as_ref() == Some(t) {
+                    if n.node_type() == Some(NodeType::Text) && tree.content(id).as_ref() == Some(t)
+                    {
                         out.push((id, None));
                     }
                 }
@@ -120,10 +121,10 @@ impl Screen {
     }
 
     #[track_caller]
-    pub(super) fn get(&self, q: Query, scope: Option<NodeId>) -> Element<'_> {
+    pub(super) fn get(&self, q: Query, scope: Option<NodeId>) -> Locator<'_> {
         let found = self.matches(&q, scope);
         match found.as_slice() {
-            [(node, region)] => Element {
+            [(node, region)] => Locator {
                 screen: self,
                 node: *node,
                 region: *region,
@@ -137,9 +138,9 @@ impl Screen {
         }
     }
 
-    fn query(&self, q: Query, scope: Option<NodeId>) -> Option<Element<'_>> {
+    fn query(&self, q: Query, scope: Option<NodeId>) -> Option<Locator<'_>> {
         let found = self.matches(&q, scope);
-        (found.len() == 1).then(|| Element {
+        (found.len() == 1).then(|| Locator {
             screen: self,
             node: found[0].0,
             region: found[0].1,
@@ -149,14 +150,14 @@ impl Screen {
     /// Wait (advancing virtual time a frame at a time, at most 5 s) until
     /// exactly one element matches.
     #[track_caller]
-    fn find(&self, q: Query, scope: Option<NodeId>) -> Element<'_> {
+    fn find(&self, q: Query, scope: Option<NodeId>) -> Locator<'_> {
         let start = self.now_ns();
         let limit = FIND_TIMEOUT.as_nanos() as u64;
         loop {
             self.run_until_idle();
             let found = self.matches(&q, scope);
             if found.len() == 1 {
-                return Element {
+                return Locator {
                     screen: self,
                     node: found[0].0,
                     region: found[0].1,
@@ -176,10 +177,10 @@ impl Screen {
         }
     }
 
-    pub(super) fn all(&self, q: Query, scope: Option<NodeId>) -> Vec<Element<'_>> {
+    pub(super) fn all(&self, q: Query, scope: Option<NodeId>) -> Vec<Locator<'_>> {
         self.matches(&q, scope)
             .into_iter()
-            .map(|(node, region)| Element {
+            .map(|(node, region)| Locator {
                 screen: self,
                 node,
                 region,
@@ -209,7 +210,7 @@ impl Screen {
             if n.at.is_some() {
                 return n.at;
             }
-            cur = n.parent;
+            cur = n.parent();
         }
         None
     }
@@ -261,7 +262,7 @@ impl Screen {
     }
 
     /// Queries limited to `element`'s subtree.
-    pub fn within<'a>(&'a self, element: Element<'a>) -> Within<'a> {
+    pub fn within<'a>(&'a self, element: Locator<'a>) -> Within<'a> {
         Within {
             screen: self,
             scope: element.node,
@@ -269,96 +270,96 @@ impl Screen {
     }
 
     #[track_caller]
-    pub fn get_by_role(&self, role: Role, name: &str) -> Element<'_> {
+    pub fn get_by_role(&self, role: Role, name: &str) -> Locator<'_> {
         self.get(Query::Role(role, name.into()), None)
     }
     #[track_caller]
-    pub fn get_by_text(&self, text: &str) -> Element<'_> {
+    pub fn get_by_text(&self, text: &str) -> Locator<'_> {
         self.get(Query::Text(text.into()), None)
     }
     #[track_caller]
-    pub fn get_by_test_id(&self, id: &str) -> Element<'_> {
+    pub fn get_by_test_id(&self, id: &str) -> Locator<'_> {
         self.get(Query::TestId(id.into()), None)
     }
-    pub fn query_by_role(&self, role: Role, name: &str) -> Option<Element<'_>> {
+    pub fn query_by_role(&self, role: Role, name: &str) -> Option<Locator<'_>> {
         self.query(Query::Role(role, name.into()), None)
     }
-    pub fn query_by_text(&self, text: &str) -> Option<Element<'_>> {
+    pub fn query_by_text(&self, text: &str) -> Option<Locator<'_>> {
         self.query(Query::Text(text.into()), None)
     }
-    pub fn query_by_test_id(&self, id: &str) -> Option<Element<'_>> {
+    pub fn query_by_test_id(&self, id: &str) -> Option<Locator<'_>> {
         self.query(Query::TestId(id.into()), None)
     }
     #[track_caller]
-    pub fn find_by_role(&self, role: Role, name: &str) -> Element<'_> {
+    pub fn find_by_role(&self, role: Role, name: &str) -> Locator<'_> {
         self.find(Query::Role(role, name.into()), None)
     }
     #[track_caller]
-    pub fn find_by_text(&self, text: &str) -> Element<'_> {
+    pub fn find_by_text(&self, text: &str) -> Locator<'_> {
         self.find(Query::Text(text.into()), None)
     }
     #[track_caller]
-    pub fn find_by_test_id(&self, id: &str) -> Element<'_> {
+    pub fn find_by_test_id(&self, id: &str) -> Locator<'_> {
         self.find(Query::TestId(id.into()), None)
     }
-    pub fn all_by_role(&self, role: Role, name: &str) -> Vec<Element<'_>> {
+    pub fn all_by_role(&self, role: Role, name: &str) -> Vec<Locator<'_>> {
         self.all(Query::Role(role, name.into()), None)
     }
-    pub fn all_by_text(&self, text: &str) -> Vec<Element<'_>> {
+    pub fn all_by_text(&self, text: &str) -> Vec<Locator<'_>> {
         self.all(Query::Text(text.into()), None)
     }
-    pub fn all_by_test_id(&self, id: &str) -> Vec<Element<'_>> {
+    pub fn all_by_test_id(&self, id: &str) -> Vec<Locator<'_>> {
         self.all(Query::TestId(id.into()), None)
     }
 }
 
 impl<'a> Within<'a> {
     #[track_caller]
-    pub fn get_by_role(&self, role: Role, name: &str) -> Element<'a> {
+    pub fn get_by_role(&self, role: Role, name: &str) -> Locator<'a> {
         self.screen
             .get(Query::Role(role, name.into()), Some(self.scope))
     }
     #[track_caller]
-    pub fn get_by_text(&self, text: &str) -> Element<'a> {
+    pub fn get_by_text(&self, text: &str) -> Locator<'a> {
         self.screen.get(Query::Text(text.into()), Some(self.scope))
     }
     #[track_caller]
-    pub fn get_by_test_id(&self, id: &str) -> Element<'a> {
+    pub fn get_by_test_id(&self, id: &str) -> Locator<'a> {
         self.screen.get(Query::TestId(id.into()), Some(self.scope))
     }
-    pub fn query_by_role(&self, role: Role, name: &str) -> Option<Element<'a>> {
+    pub fn query_by_role(&self, role: Role, name: &str) -> Option<Locator<'a>> {
         self.screen
             .query(Query::Role(role, name.into()), Some(self.scope))
     }
-    pub fn query_by_text(&self, text: &str) -> Option<Element<'a>> {
+    pub fn query_by_text(&self, text: &str) -> Option<Locator<'a>> {
         self.screen
             .query(Query::Text(text.into()), Some(self.scope))
     }
-    pub fn query_by_test_id(&self, id: &str) -> Option<Element<'a>> {
+    pub fn query_by_test_id(&self, id: &str) -> Option<Locator<'a>> {
         self.screen
             .query(Query::TestId(id.into()), Some(self.scope))
     }
     #[track_caller]
-    pub fn find_by_role(&self, role: Role, name: &str) -> Element<'a> {
+    pub fn find_by_role(&self, role: Role, name: &str) -> Locator<'a> {
         self.screen
             .find(Query::Role(role, name.into()), Some(self.scope))
     }
     #[track_caller]
-    pub fn find_by_text(&self, text: &str) -> Element<'a> {
+    pub fn find_by_text(&self, text: &str) -> Locator<'a> {
         self.screen.find(Query::Text(text.into()), Some(self.scope))
     }
     #[track_caller]
-    pub fn find_by_test_id(&self, id: &str) -> Element<'a> {
+    pub fn find_by_test_id(&self, id: &str) -> Locator<'a> {
         self.screen.find(Query::TestId(id.into()), Some(self.scope))
     }
-    pub fn all_by_role(&self, role: Role, name: &str) -> Vec<Element<'a>> {
+    pub fn all_by_role(&self, role: Role, name: &str) -> Vec<Locator<'a>> {
         self.screen
             .all(Query::Role(role, name.into()), Some(self.scope))
     }
-    pub fn all_by_text(&self, text: &str) -> Vec<Element<'a>> {
+    pub fn all_by_text(&self, text: &str) -> Vec<Locator<'a>> {
         self.screen.all(Query::Text(text.into()), Some(self.scope))
     }
-    pub fn all_by_test_id(&self, id: &str) -> Vec<Element<'a>> {
+    pub fn all_by_test_id(&self, id: &str) -> Vec<Locator<'a>> {
         self.screen.all(Query::TestId(id.into()), Some(self.scope))
     }
 }

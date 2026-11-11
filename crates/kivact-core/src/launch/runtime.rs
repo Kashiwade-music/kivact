@@ -109,7 +109,6 @@ impl Launch {
 /// Set up and mount an App whose runtime is built.
 fn start_mount(
     rt: &Rc<Runtime>,
-    info: &HostInfo,
     writer: &Writer,
     mut options: AppOptions,
     root: Box<dyn FnOnce() -> View>,
@@ -118,8 +117,6 @@ fn start_mount(
     let setup = rt.begin_setup();
     let root_owner = rt.root();
     root_owner.provide(WindowScope(WindowId::MAIN));
-    #[cfg(debug_assertions)]
-    crate::client::trace::event(rt, format_args!("host_events start {info:?}"));
     writer.set_window(
         WindowId::MAIN,
         std::mem::take(&mut options.settings.title),
@@ -158,6 +155,7 @@ impl Launch {
             LaunchState::Waiting { options, root } => (options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
+        #[cfg(debug_assertions)]
         let trace_name = match &self.mode {
             ClientMode::Test { name, .. } => Some(name.clone()),
             _ => None,
@@ -210,7 +208,9 @@ impl Launch {
             LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
-        start_mount(&rt, info, &writer, options, root, at);
+        #[cfg(debug_assertions)]
+        crate::client::trace::event(&rt, format_args!("host_events start {info:?}"));
+        start_mount(&rt, &writer, options, root, at);
         #[cfg(debug_assertions)]
         crate::client::trace::record(&rt);
     }
@@ -394,9 +394,11 @@ fn settle_user_effects(
 }
 
 fn output(report: TurnReport) -> TurnOutput {
-    TurnOutput {
+    if matches!(report.exit, ExitState::Exited) {
+        return TurnOutput::Exit;
+    }
+    TurnOutput::Continue {
         next_wake_ns: report.next_deadline,
-        exit: matches!(report.exit, ExitState::Exited),
     }
 }
 
@@ -455,12 +457,14 @@ fn describe(e: &kivact_engine::contract::HostEvent) -> String {
         E::Pointer(route) => format!(
             "Pointer {} {:?}",
             phase_name(route.input.phase),
-            route.target
+            route.target.map(|target| target.node)
         ),
-        E::Wheel(route) => format!("Wheel {:?}", route.target),
+        E::Wheel(route) => format!("Wheel {:?}", route.target.map(|target| target.node)),
         E::Key(route) => format!(
             "Key {:?} {:?} region {:?}",
-            route.input.key, route.target, route.region
+            route.input.key,
+            route.target.map(|target| target.node),
+            route.target.and_then(|target| target.region)
         ),
         E::Activate { node, region, .. } => {
             format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))

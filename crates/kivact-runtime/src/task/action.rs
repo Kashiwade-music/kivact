@@ -108,8 +108,8 @@ enum QueueMode {
 struct Queue<I: 'static> {
     mode: QueueMode,
     phase: RefCell<ActionPhase<I>>,
-    /// Id of the last worker spawned: a worker whose id is not current returns.
-    worker_ids: Cell<Generation>,
+    /// Allocates worker ids; the current worker's id lives in `Worker::Picking`/`Running`.
+    next_worker_id: Cell<Generation>,
 }
 
 /// Queue ownership and lifecycle retain work together through close and detach.
@@ -161,7 +161,7 @@ impl<I: 'static> Queue<I> {
                 worker: Worker::Stopped,
                 waiting: VecDeque::new(),
             }),
-            worker_ids: Cell::new(Generation::new()),
+            next_worker_id: Cell::new(Generation::new()),
         }
     }
 
@@ -246,12 +246,15 @@ pub(crate) struct ActionCell<T: 'static, I: 'static> {
     run: RunFn<T, I>,
     runner: Runner<I>,
     async_state: AsyncCell<T>,
+    // xtask-allow(state-fields): projection: written only by ActionCell::begin_run (the input of the latest started run; None before the first run)
     /// The run `state` describes; `None` before the first run.
     last: RefCell<Option<Submitted<I>>>,
     /// Wakers of the `close` futures waiting for the action to drain.
     drained: RefCell<Vec<Waker>>,
     on_complete: RefCell<Vec<DoneHandler<T>>>,
-    next_handler: Cell<Generation>,
+    // xtask-allow(state-fields): identity: allocates on_complete registration ids; each DoneHandler keeps its own id and its owner's cleanup removes it by that id
+    /// The id the next `on_complete` registration takes.
+    next_handler_id: Cell<Generation>,
     at: &'static Location<'static>,
 }
 
@@ -381,7 +384,7 @@ where
         last: RefCell::new(None),
         drained: RefCell::new(Vec::new()),
         on_complete: RefCell::new(Vec::new()),
-        next_handler: Cell::new(Generation::new()),
+        next_handler_id: Cell::new(Generation::new()),
         at,
     });
     if matches!(cell.runner, Runner::Queue(_)) {
@@ -469,6 +472,19 @@ impl<T: 'static, I: 'static> ActionCell<T, I> {
             Runner::Latest(..) => unreachable!("invariant: only a queued action has a worker"),
         }
     }
+
+    /// Start one run of `submitted`: the only writer of `last`. `publish`
+    /// updates the action's state after `last` names the run and before the
+    /// run's future is made.
+    fn begin_run(
+        &self,
+        submitted: &Submitted<I>,
+        publish: impl FnOnce(&Self),
+    ) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>> {
+        *self.last.borrow_mut() = Some(submitted.clone());
+        publish(self);
+        (self.run)(&submitted.input)
+    }
 }
 
 impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
@@ -511,11 +527,7 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
             rt,
             self.owner,
             self.at,
-            || {
-                *self.last.borrow_mut() = Some(submitted.clone());
-                self.async_state.start();
-                (self.run)(&submitted.input)
-            },
+            || self.begin_run(&submitted, |cell| cell.async_state.start()),
             move |result| {
                 let Some(cell) = weak.upgrade() else { return };
                 cell.finish(result);
@@ -556,9 +568,9 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
         if !matches!(*queue.phase.borrow().parts().0, Worker::Stopped) {
             return;
         }
-        let mut generation = queue.worker_ids.get();
+        let mut generation = queue.next_worker_id.get();
         let id = generation.next();
-        queue.worker_ids.set(generation);
+        queue.next_worker_id.set(generation);
         let weak = Rc::downgrade(self);
         // The worker runs for the action's owner (see the module doc); once
         // the owner is disposed that owner is dead and owner-relative
@@ -582,9 +594,7 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
                             return;
                         };
                         queue.set_running(true);
-                        *cell.last.borrow_mut() = Some(submitted.clone());
-                        cell.queue_status();
-                        (cell.run)(&submitted.input)
+                        cell.begin_run(&submitted, |cell| cell.queue_status())
                     };
                     let result = fut.await;
                     let Some(cell) = weak.upgrade() else { return };
@@ -756,9 +766,9 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
         let owner = Owner::current("Action::on_complete", at);
-        let mut generation = cell.next_handler.get();
+        let mut generation = cell.next_handler_id.get();
         let id = generation.next();
-        cell.next_handler.set(generation);
+        cell.next_handler_id.set(generation);
         cell.on_complete.borrow_mut().push(DoneHandler {
             id,
             owner,

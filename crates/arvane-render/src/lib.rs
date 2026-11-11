@@ -3,7 +3,7 @@
 //! Responsibility: scene rasterization with private vello_cpu and
 //! vello_hybrid backends, which share every stage but the last (`draw.rs`).
 //! [`CpuRaster`] draws a scene into caller-owned premultiplied RGBA8 pixels
-//! on the calling thread, deterministically; [`GpuRaster`] (feature `gpu`)
+//! on the calling thread, deterministically; `GpuRaster` (feature `gpu`)
 //! draws it into a texture view the caller encodes into, on the caller's
 //! device. Devices, surfaces, external frames and compositing are not this
 //! crate's: they belong to the compositor.

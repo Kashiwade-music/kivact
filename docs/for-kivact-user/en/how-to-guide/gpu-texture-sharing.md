@@ -74,7 +74,6 @@ Two rules decide whether sharing is possible at all:
 fallback the same image carries for windows that cannot import.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions};
 use kivact::geometry::{Rect};
 use kivact::gpu_interop;
@@ -335,14 +334,15 @@ raw objects instead of freeing them under the GPU.
 The window makes its GPU device first and tells you which adapter it is on. Read it with
 `gpu_interop::adapter()`: `None` until the device is ready, while the window draws on the
 CPU (`ARVANE_RENDERER=cpu`, or no GPU) and on other platforms. It is tracked, so a
-`memo` can follow it. A `GpuAdapter` names the graphics API, the adapter's LUID or
-Vulkan UUIDs, and a `generation`; a new generation means a new device.
+`memo` can follow it. A `GpuAdapter`'s `ids` is an `AdapterIds`: Direct3D 12's LUID, or
+Vulkan's device and driver UUIDs (and the LUID on Windows); `backend()` names the graphics
+API, and a new `generation` means a new device.
 
 To make the window choose a graphics API, a kind of adapter or an exact adapter, which is
 useful when the engine needs a specific one, set a wish:
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference};
+use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
@@ -352,6 +352,7 @@ fn main() -> kivact::Result<()> {
             backend: Some(GpuBackend::Vulkan),
             power: GpuPower::HighPerformance,
             adapter: None,
+            start: GpuStart::OnDemand,
         })
         .run(app)
 }
@@ -362,6 +363,19 @@ cannot honor it, and the environment variables `WGPU_BACKEND` and `WGPU_POWER_PR
 override it. Without a wish the window prefers the low-power adapter, Vulkan first and
 then Direct3D 12 on Windows. The engine always follows `adapter()`, never its own
 preference.
+
+`start` decides when the device is created. The default, `GpuStart::OnDemand`,
+draws frames on the CPU and starts the device the first time the window needs it:
+a user shader drawn, the App reading `gpu_interop::adapter()` (a `shared_image`
+does, and an engine that imports textures or receives a drawable's export reads
+it first), or CPU frames that keep missing half the display period. Screens that never use the GPU
+then pay nothing for its driver memory, and the first shader or shared image
+appears a little later, after the device is ready; the frames drawn in the
+meantime are CPU frames. Choose `GpuStart::AtLaunch` when the first frame must
+already be the GPU's, for example a viewport that fills the window from the start,
+a measurement, or a case where a short CPU fallback is not acceptable.
+`ARVANE_RENDERER=gpu` forces `AtLaunch`, `ARVANE_RENDERER=auto` forces
+`OnDemand`, and `ARVANE_RENDERER=cpu` never starts the device.
 
 ## Limits
 

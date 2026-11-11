@@ -1,8 +1,8 @@
 //! Role: Arrange fields with Neutral form spacing.
 use crate::stack::rtl;
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 
 use kivact::state::provide;
@@ -74,7 +74,7 @@ impl FormLayout {
     }
 }
 
-impl NodeBuilder for FormLayout {
+impl Element for FormLayout {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

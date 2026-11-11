@@ -2,20 +2,22 @@
 //!
 //! Type-to-find: the pure policy behind letter keys in menus, listboxes and
 //! palettes. A control keeps one [`Typeahead`], feeds it each typed character
-//! with the current time and asks [`typeahead_find`] where to move.
+//! and asks [`typeahead_find`] where to move. The owning machine ends the
+//! prefix with `Step::after` after [`TYPEAHEAD_WINDOW`].
+
+use std::time::Duration;
 
 /// Characters typed within this long of the previous one are matched
 /// together as one prefix.
-const TYPEAHEAD_WINDOW_NS: u64 = 500_000_000;
+pub(crate) const TYPEAHEAD_WINDOW: Duration = Duration::from_millis(500);
 
-/// The characters typed so far and when the last one arrived.
+/// The characters typed so far.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) enum Typeahead {
     #[default]
     Idle,
     Typing {
         text: String,
-        expires_ns: u64,
     },
 }
 
@@ -31,22 +33,19 @@ pub(crate) struct TypeaheadQuery {
 }
 
 impl Typeahead {
-    /// Add a typed character at `now_ns`; returns what to search for.
+    /// Add a typed character; returns what to search for.
     ///
-    /// A character typed more than 500 ms after the previous
-    /// one starts a new prefix; otherwise it extends the prefix. One
+    /// The owning machine ends the prefix after the window, so a character
+    /// always extends the current prefix here. One
     /// character repeated ("aa") searches for that character alone, so it
     /// cycles through the items that start with it.
-    pub(crate) fn push(&mut self, c: char, now_ns: u64) -> TypeaheadQuery {
+    pub(crate) fn push(&mut self, c: char) -> TypeaheadQuery {
         let mut text = match std::mem::take(self) {
-            Self::Typing { text, expires_ns } if now_ns <= expires_ns => text,
-            _ => String::new(),
+            Self::Typing { text } => text,
+            Self::Idle => String::new(),
         };
         text.extend(c.to_lowercase());
-        *self = Self::Typing {
-            text: text.clone(),
-            expires_ns: now_ns.saturating_add(TYPEAHEAD_WINDOW_NS),
-        };
+        *self = Self::Typing { text: text.clone() };
         let mut chars = text.chars();
         let first = chars.next();
         let count = text.chars().count();

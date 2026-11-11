@@ -1,7 +1,7 @@
 //! Role: These tests verify component builders and shared modifiers.
 //!
 //! Component builders that hold a root
-//! `Node` get the standard modifiers through `NodeBuilder`, writer-less values
+//! `Node` get the standard modifiers through `Element`, writer-less values
 //! bind as cheaply as constants, and the roles added for the official components
 //! reach the screen.
 
@@ -17,7 +17,7 @@ use kivact::style::Align;
 use kivact::test::render;
 use kivact::view::A11yAction;
 
-// ---- NodeBuilder -------------------------------------------------------------
+// ---- Element -------------------------------------------------------------
 
 /// An external-style component: a builder struct around its root `Node`.
 struct Card {
@@ -25,7 +25,7 @@ struct Card {
 }
 
 #[track_caller]
-fn card(title: impl IntoText) -> impl Component {
+fn card(title: impl IntoText) -> impl Element {
     let title = title.into_text_value();
     Card {
         root: node()
@@ -36,7 +36,7 @@ fn card(title: impl IntoText) -> impl Component {
     }
 }
 
-impl NodeBuilder for Card {
+impl Element for Card {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

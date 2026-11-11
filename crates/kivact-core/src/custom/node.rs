@@ -46,10 +46,10 @@ impl Owner {
         let rt = self.runtime();
         let window = crate::view::state::current_window(self.0);
         let keys = ViewState::of(&rt).focus_keys(window)?;
-        keys.node.get().map(|node| NodeToken {
+        keys.focus.get().map(|key| NodeToken {
             app: self.0.app(),
-            node,
-            visible: keys.visible.get(),
+            node: key.target,
+            visible: key.visible,
         })
     }
 }
@@ -67,7 +67,7 @@ pub fn focused_node() -> Option<NodeToken> {
         node,
         visible: ViewState::of(&rt)
             .focus_keys(window)
-            .is_some_and(|keys| keys.visible.get_untracked()),
+            .is_some_and(|keys| keys.focus.get_untracked().is_some_and(|key| key.visible)),
     })
 }
 

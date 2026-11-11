@@ -82,7 +82,7 @@ pub struct PopupState {
 /// before the next flush is skipped, and an explicit live focus request wins.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{NodeBuilder, node, node_ref, text, Placement, Role, overlay, show}};
+/// use kivact_core::{state::signal, view::{Element, node, node_ref, text, Placement, Role, overlay, show}};
 /// use kivact_interaction::use_popup;
 /// let open = signal(false);
 /// let menu = use_popup(open);
@@ -100,9 +100,9 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by PopupApi::content_with while the surface is mounted and emptied when it unmounts; the trigger has attached by then or is absent
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached trigger part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by PopupApi::base_trigger at the trigger's mount; while the popup is closed there is a trigger and no content
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
@@ -142,11 +142,18 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
     let machine = machine(
         State::Closed,
         move || Machine {
-            focused: focused_node(),
-            focus_inside: disclosure
-                .content
-                .mounted_node()
-                .is_some_and(|panel| disclosure.content.focus_was_in(panel)),
+            focus: match focused_node() {
+                Some(_)
+                    if disclosure
+                        .content
+                        .mounted_node()
+                        .is_some_and(|panel| disclosure.content.focus_was_in(panel)) =>
+                {
+                    machine::HostFocus::Inside
+                }
+                Some(token) => machine::HostFocus::Elsewhere(token),
+                None => machine::HostFocus::Nowhere,
+            },
         },
         move |cx, effect| match effect {
             machine::Effect::Misuse => raise(
@@ -341,7 +348,7 @@ impl PopupApi {
     /// Request closure and apply the focus-return policy only after the
     /// controlled binding accepts it. A missing target receives no focus request.
     #[track_caller]
-    pub fn close(self, reason: PopupCloseReason) {
+    pub fn hide(self, reason: PopupCloseReason) {
         if !self.is_open().get_untracked() {
             return;
         }
@@ -378,7 +385,7 @@ impl PopupApi {
 
     fn toggle(self) {
         if self.is_open().get() {
-            self.close(PopupCloseReason::Programmatic);
+            self.hide(PopupCloseReason::Programmatic);
         } else {
             self.disclosure.open.set(true);
         }
@@ -399,7 +406,7 @@ impl PopupApi {
                 .on_press(move || self.toggle())
                 .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
                 .a11y_action(A11yAction::Collapse, move |_| {
-                    self.close(PopupCloseReason::Accessibility)
+                    self.hide(PopupCloseReason::Accessibility)
                 })
         })
     }
@@ -411,7 +418,7 @@ impl PopupApi {
             .disclosure
             .base_trigger(|input, open| PopupState { input, open });
         let part_state = base.state();
-        self.trigger_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(base)
                 .node_ref(self.own_anchor)
@@ -421,7 +428,7 @@ impl PopupApi {
                 // as the anchor is part of its focus range.
                 .on_key_up(move |event: KeyEvent| {
                     if event.key() == Key::Tab && self.is_open().get() {
-                        self.close(PopupCloseReason::Tab);
+                        self.hide(PopupCloseReason::Tab);
                     }
                     Handled::No
                 })
@@ -453,7 +460,7 @@ impl PopupApi {
             open: open.get(),
         });
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.content_ref())

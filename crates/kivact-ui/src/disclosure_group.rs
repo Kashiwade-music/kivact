@@ -1,6 +1,6 @@
 //! Role: Render accordion panels over one headless selection controller.
 use kivact_core::state::IntoText;
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, column};
+use kivact_core::view::{Element, IntoView, Node, View, column};
 use kivact_interaction::{DisclosureGroupApi, IntoSelection, use_disclosure_group};
 
 /// A sequence of labelled disclosure panels sharing one selection.
@@ -13,11 +13,11 @@ pub struct DisclosureGroup<K: 'static> {
 }
 /// Create a single-selection or multiple-selection accordion.
 pub fn disclosure_group<K: Clone + PartialEq + 'static>(
-    selection: impl IntoSelection<K>,
+    selected: impl IntoSelection<K>,
 ) -> DisclosureGroup<K> {
     DisclosureGroup {
         root: column(()),
-        group: use_disclosure_group(selection),
+        group: use_disclosure_group(selected),
         panels: Vec::new(),
         variants: crate::variants::Variants::default(),
         heading_level: 3,
@@ -46,7 +46,7 @@ impl<K: Clone + PartialEq + 'static> DisclosureGroup<K> {
         self
     }
 }
-impl<K: 'static> NodeBuilder for DisclosureGroup<K> {
+impl<K: 'static> Element for DisclosureGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

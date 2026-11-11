@@ -67,7 +67,7 @@ impl Model {
             PointerPhase::Down(press) | PointerPhase::Up(press) => {
                 // Where the press or release is; a release outside the
                 // window does not bring the mouse back into it.
-                self.pointer.state.mouse_mut().at = Some(input.position);
+                self.pointer.state.mouse_mut().at = input.position;
                 let pressed = matches!(input.phase, PointerPhase::Down(_));
                 self.mouse_button(input.position, press, pressed, modifiers, engine);
             }
@@ -75,7 +75,7 @@ impl Model {
             // a `Cancel` where the mouse was, and nothing stays hovered.
             PointerPhase::Cancel => {
                 self.report_mouse_position(None);
-                self.pointer.state.mouse_mut().at = Some(input.position);
+                self.pointer.state.mouse_mut().at = input.position;
                 self.cancel_pointer_at(PointerId::MOUSE, input.position);
                 let space = PointerSpace::new(input.position, engine);
                 self.pointer_move(PointerId::MOUSE, None, modifiers, &space);
@@ -86,7 +86,7 @@ impl Model {
 
     /// The mouse's window position at its last event.
     fn mouse_at(&self) -> Point {
-        self.pointer.state.mouse().at.unwrap_or_default()
+        self.pointer.state.mouse().at
     }
 
     /// Report the mouse's window position (`None`: outside the window)
@@ -107,7 +107,7 @@ impl Model {
         modifiers: kivact_types::Modifiers,
         engine: &mut arvane::Engine,
     ) {
-        self.pointer.state.mouse_mut().at = Some(at);
+        self.pointer.state.mouse_mut().at = at;
         self.report_mouse_position(Some(at));
         if let MouseGesture::Scrollbar(drag) = self.pointer.state.mouse().gesture {
             let local = self.pointer_local(drag.node, at);
@@ -287,7 +287,6 @@ impl Model {
                     let space = PointerSpace::new(self.pointer.state.track(id).at(), engine);
                     self.end_contact(id, modifiers, &space);
                 }
-                let primary = input.is_primary;
                 self.begin_pointer(
                     PointerSource {
                         time_ns: input.time_ns,
@@ -296,8 +295,8 @@ impl Model {
                         pressure: input.pressure,
                         tilt: input.tilt,
                         buttons: input.buttons,
-                        primary,
                     },
+                    input.is_primary,
                     at,
                 );
                 let hit = self.hit(at);
@@ -367,7 +366,7 @@ impl Model {
         let delta = input.delta;
         self.report_modifiers(input.modifiers);
         let modifiers = input.modifiers;
-        self.pointer.state.mouse_mut().at = Some(input.position);
+        self.pointer.state.mouse_mut().at = input.position;
         let at = input.position;
         let hit = self.hit(at);
         let space = PointerSpace::new(at, engine);
@@ -400,10 +399,8 @@ impl Model {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     window: self.window,
-                    target: Some(node),
-                    region: None,
+                    target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
-                    captured: false,
                     activation: None,
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Leave,
@@ -416,10 +413,8 @@ impl Model {
                 let pos = self.pointer_local(node, point);
                 self.push(HostEvent::File(crate::contract::Routed {
                     window: self.window,
-                    target: Some(node),
-                    region: None,
+                    target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
-                    captured: false,
                     activation: None,
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Enter,
@@ -438,10 +433,8 @@ impl Model {
             };
             self.push(HostEvent::File(crate::contract::Routed {
                 window: self.window,
-                target: Some(node),
-                region: None,
+                target: Some(crate::contract::RouteTarget { node, region: None }),
                 local: pos,
-                captured: false,
                 activation: None,
                 input: kivact_types::FileDrop {
                     phase,

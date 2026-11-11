@@ -13,7 +13,7 @@ pub(crate) fn check(
     surface: &Surface,
     errors: &mut Vec<String>,
 ) {
-    if !source.library {
+    if !source.library() {
         return;
     }
     let records = crate::check_policy::strings(policy, "record_types");

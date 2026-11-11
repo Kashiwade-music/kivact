@@ -219,9 +219,11 @@ impl Keyboard {
                     chr: char::from_u32(scalar),
                     keycode: detail,
                 },
-                pressed: down,
-                repeat: None,
-                text,
+                phase: if down {
+                    arvane_shell::pipeline::RawKeyPhase::Down { repeat: None, text }
+                } else {
+                    arvane_shell::pipeline::RawKeyPhase::Up
+                },
             },
             modifiers,
             None,

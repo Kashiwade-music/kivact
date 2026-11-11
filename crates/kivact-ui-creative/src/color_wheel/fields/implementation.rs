@@ -13,8 +13,8 @@ use kivact::state::callback;
 use kivact::state::{Binding, Value, binding, machine, memo};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
+use kivact::view::Element;
 use kivact::view::IntoView;
-use kivact::view::NodeBuilder;
 use kivact::view::{View, dynamic, for_each, show};
 use kivact::view::{column, row};
 

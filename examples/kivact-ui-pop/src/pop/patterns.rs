@@ -4,7 +4,8 @@ use super::common::{card, cards_grid, half, muted, section, third, wrap};
 use kivact::i18n::{CalendarDate, Weekday};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    ColorToken, IntoView, Node, NodeBuilder, Signal, column, dynamic, rgb, row, show, signal, text,
+    Binding, ColorToken, Element, IntoView, Node, Signal, column, dynamic, rgb, row, show, signal,
+    text,
 };
 use kivact::state::Callback;
 use kivact::style::GridPlacement;
@@ -15,7 +16,9 @@ use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
 
 pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
+    // xtask-allow(state-fields): independent: set only by the maintenance notice's close button and never cleared; the success notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_info = signal(false);
+    // xtask-allow(state-fields): independent: set only by the success notice's close button and never cleared; the maintenance notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_success = signal(false);
     section(
         "07",
@@ -50,10 +53,10 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
 }
 
 pub(super) fn overlays(
-    confirm: Signal<bool>,
-    form: Signal<bool>,
-    sheet: Signal<bool>,
-    command: Signal<bool>,
+    confirm: Binding<bool>,
+    form: Binding<bool>,
+    sheet: Binding<bool>,
+    command: Binding<bool>,
 ) -> Node {
     let popover_open = signal(false);
     section(
@@ -499,7 +502,7 @@ fn toast_examples(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::Ca
     )
 }
 
-fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
     kivact::ui::card(
         column((
             row((
@@ -567,7 +570,7 @@ fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
     .style(style().grid_column(GridPlacement::span(7)))
 }
 
-fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Component {
+fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
     kivact::ui::card(
         {
             let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =

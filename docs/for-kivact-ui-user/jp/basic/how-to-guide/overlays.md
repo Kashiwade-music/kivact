@@ -4,7 +4,7 @@
 
 このガイドでは、ページの上に何かを重ねる方法を説明します。ダイアログ、確認、横からのシート、下からのドロワー、ポップオーバー、ホバーカード、メニュー、トーストです。[チュートリアル](../getting-started/README.md)を終えていて、アプリが `basic::theme` を使っていることを前提にしています。
 
-これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` の `.kind(..)` を変えたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
+これらの多くは、キット独自のコンポーネントではありません。ダイアログ、アラートダイアログ、シート、ポップオーバーは、標準の `dialog(title, open)` の `.mode(..)` を変えたもの、メニューは標準の `menu(..)`、トーストは標準の `toast_region` と `toaster` です。テーマがそれらを Lyra の見た目で描きます。スワイプドロワーも標準の `kivact::ui::dialog` を使います。ホバープレビューは標準の `kivact::ui::hover_card` を Basic の surface recipe で描きます。
 
 すべてに共通する決まりが 2 つあります。
 
@@ -133,7 +133,7 @@ fn move_goal() -> impl IntoView {
 }
 ```
 
-`kivact::ui::dialog` と `kivact::ui::hover_card` は `NodeBuilder` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
+`kivact::ui::dialog` と `kivact::ui::hover_card` は `Element` ではありません。置いた場所には何も描かないので、`.style(..)` や `.test_id(..)` は使えません。
 
 ## ボタンにポップオーバーを付ける
 

@@ -128,10 +128,6 @@ const FIRST_FRAME: NonZeroU64 = match NonZeroU64::new(kivact_types::SHARED_PREPA
 pub(crate) struct Slots {
     /// The value of the last frame drawn into each texture.
     drawn: Vec<SlotState>,
-    // xtask-allow(state-fields): cursor - the texture of the next frame, round robin
-    /// The texture of the next frame.
-    next: usize,
-    // xtask-allow(state-fields): S-8 ID - the last frame value given out
     /// The last value given out.
     last: Option<NonZeroU64>,
 }
@@ -144,16 +140,24 @@ impl Slots {
     pub(crate) fn new(slots: u32) -> Self {
         Self {
             drawn: vec![SlotState::Fresh; slots as usize],
-            next: 0,
             last: None,
         }
     }
 
+    /// The texture of the next frame: round robin over the frames finished so far.
+    fn cursor(&self) -> usize {
+        let finished = self
+            .last
+            .map_or(0, |last| last.get() - FIRST_FRAME.get() + 1);
+        (finished % self.drawn.len() as u64) as usize
+    }
+
     /// The next frame's texture and its last frame's value.
     pub(crate) fn next(&self) -> Acquired {
+        let slot = self.cursor();
         Acquired {
-            slot: self.next as u32,
-            wait: self.drawn[self.next].value(),
+            slot: slot as u32,
+            wait: self.drawn[slot].value(),
         }
     }
 
@@ -170,14 +174,14 @@ impl Slots {
     /// The frame `acquired` (the one [`Slots::next`] gave) was submitted:
     /// its value.
     pub(crate) fn finish(&mut self, acquired: Acquired) -> FrameReady {
+        let slot = self.cursor();
         assert_eq!(
-            acquired.slot as usize, self.next,
+            acquired.slot as usize, slot,
             "invariant: the frame finished is the one `next` gave (a target borrows its pool)"
         );
         let value = self.next_value();
         self.last = Some(value);
-        self.drawn[self.next] = SlotState::Drawn(value);
-        self.next = (self.next + 1) % self.drawn.len();
+        self.drawn[slot] = SlotState::Drawn(value);
         FrameReady {
             slot: acquired.slot,
             value: value.get(),

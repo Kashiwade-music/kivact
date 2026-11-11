@@ -22,8 +22,8 @@ pub(crate) enum RowAccess {
 /// One editable property of a panel.
 pub(crate) fn property_row(
     name: String,
-    value: Signal<String>,
-    enabled: Signal<bool>,
+    value: Binding<String>,
+    enabled: Binding<bool>,
     access: RowAccess,
     on_commit: impl Fn(String) + 'static,
 ) -> View {
@@ -38,8 +38,8 @@ pub(crate) fn property_row(
 /// A property row whose editor is a color input with its preview and sliders.
 pub(crate) fn color_property_row(
     name: String,
-    value: Signal<String>,
-    enabled: Signal<bool>,
+    value: Binding<String>,
+    enabled: Binding<bool>,
     access: RowAccess,
     on_commit: impl Fn(String) + 'static,
 ) -> View {
@@ -56,7 +56,7 @@ pub(crate) fn color_property_row(
 
 /// The layout shared by both editors: the checkbox, the name, the editor, and the hint of an
 /// unavailable row.
-fn frame(name: String, enabled: Signal<bool>, access: RowAccess, editor: impl IntoView) -> View {
+fn frame(name: String, enabled: Binding<bool>, access: RowAccess, editor: impl IntoView) -> View {
     let row_view = row((
         checkbox_slot(name.clone(), enabled, access),
         label(name, enabled, access == RowAccess::Editable),
@@ -70,7 +70,7 @@ fn frame(name: String, enabled: Signal<bool>, access: RowAccess, editor: impl In
 }
 
 /// The checkbox of a row; a read-only row keeps an empty slot of its size instead.
-fn checkbox_slot(name: String, enabled: Signal<bool>, access: RowAccess) -> View {
+fn checkbox_slot(name: String, enabled: Binding<bool>, access: RowAccess) -> View {
     match access {
         RowAccess::ReadOnly => node().style(style().size(16, 16).shrink(0)).into_view(),
         RowAccess::Editable | RowAccess::Unavailable(_) => checkbox(name, enabled)
@@ -81,7 +81,7 @@ fn checkbox_slot(name: String, enabled: Signal<bool>, access: RowAccess) -> View
 }
 
 /// The visible name of a row, dimmed while its override is off or the row cannot be edited.
-fn label(name: String, enabled: Signal<bool>, editable: bool) -> impl IntoView {
+fn label(name: String, enabled: Binding<bool>, editable: bool) -> impl IntoView {
     text(name).style(move || {
         style()
             .width(LABEL_WIDTH)

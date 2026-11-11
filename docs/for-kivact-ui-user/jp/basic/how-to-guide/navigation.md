@@ -71,7 +71,7 @@ fn shell() -> impl IntoView {
 
 ## タブでビューを切り替える
 
-タブは標準の `tabs(label, options, current)` です。`current` は選択中のタブの key を持ち、常に選択肢のどれかです。`.content(|key| ..)` は、選ばれた key のパネルを作ります。
+タブは標準の `tabs(label, items, value)` です。`current` は選択中のタブの key を持ち、常に選択肢のどれかです。`.content(|key| ..)` は、選ばれた key のパネルを作ります。
 
 ```rust,no_run
 use kivact::prelude::*;

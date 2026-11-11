@@ -94,7 +94,7 @@ fn badge_style(
         .weight(500)
         .text_wrap(false)
         .clip(true);
-    if variant == BadgeVariant::Link && input.hovered {
+    if variant == BadgeVariant::Link && input.is_hovered() {
         s = s
             .text_decoration(TextDecorationLine::UNDERLINE)
             .text_underline_offset(4);

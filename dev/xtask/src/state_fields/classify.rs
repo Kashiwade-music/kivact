@@ -11,6 +11,17 @@ pub(super) enum Class {
     None,
     Phase,
     Stored,
+    /// A named counter that counts only beside another stored field.
+    Helper,
+}
+
+/// The workspace facts that classify one field.
+#[derive(Clone, Copy)]
+pub(super) struct RuleContext<'a> {
+    pub(super) source: &'a Source,
+    pub(super) surface: &'a Surface,
+    pub(super) enums: &'a BTreeSet<String>,
+    pub(super) policy: &'a toml::Table,
 }
 
 /// The outermost type name, ignoring references and `Box`.
@@ -43,24 +54,24 @@ pub(super) fn peel(ty: &syn::Type, names: &[&str]) -> syn::Type {
 }
 
 /// Classify one field or static, honouring Api/role/record exemptions.
-pub(super) fn classify(
-    source: &Source,
-    surface: &Surface,
-    name: &str,
-    ty: &syn::Type,
-    exempt: bool,
-    enums: &BTreeSet<String>,
-    policy: &toml::Table,
-) -> Class {
+pub(super) fn classify(rules: &RuleContext<'_>, name: &str, ty: &syn::Type, exempt: bool) -> Class {
     let bare = peel(ty, &["Cell", "RefCell", "Rc", "Arc"]);
     let bare_name = outer(&bare);
-    if matches!(bare_name.as_str(), "Value" | "Binding")
-        || strings(policy, "named_helpers").contains(&bare_name)
-    {
+    if matches!(bare_name.as_str(), "Value" | "Binding") {
         return Class::None;
     }
+    if strings(rules.policy, "named_helpers").contains(&bare_name) {
+        return if is_named_counter_helper(&bare_name) {
+            Class::Helper
+        } else {
+            Class::None
+        };
+    }
+    if is_lazy_slot(&bare_name) {
+        return Class::Stored;
+    }
     let phase = peel(ty, &["Cell", "RefCell", "Signal", "Var", "Rc"]);
-    if !exempt && is_phase(&phase, source, surface, enums) {
+    if !exempt && is_phase(&phase, rules.source, rules.surface, rules.enums) {
         return Class::Phase;
     }
     if exempt {
@@ -75,10 +86,31 @@ pub(super) fn classify(
         || is_atomic(ty)
         || is_counted_mutable(ty)
         || is_named_counter(name, ty)
+        || is_state_collection(name, ty)
     {
         return Class::Stored;
     }
     Class::None
+}
+
+/// The named counters that count beside another stored field.
+fn is_named_counter_helper(name: &str) -> bool {
+    matches!(name, "Generation" | "Sent" | "Revision" | "Epoch")
+}
+
+/// A slot filled after construction.
+fn is_lazy_slot(name: &str) -> bool {
+    matches!(name, "OnceCell" | "OnceLock" | "LazyCell" | "LazyLock")
+}
+
+/// A queue of work to do, such as `pending` or `dirty` plans.
+fn is_state_collection(name: &str, ty: &syn::Type) -> bool {
+    matches!(
+        outer(ty).as_str(),
+        "Vec" | "VecDeque" | "BTreeSet" | "HashSet"
+    ) && ["pending", "dirty", "awaiting", "relayout", "stale"]
+        .iter()
+        .any(|prefix| name.starts_with(prefix))
 }
 
 fn is_phase(ty: &syn::Type, source: &Source, surface: &Surface, enums: &BTreeSet<String>) -> bool {
@@ -136,8 +168,22 @@ fn phase_identity(
     None
 }
 
+/// Whether `identity` names a workspace enum that is a phase (State, Phase, Status, Stage,
+/// Connection, Lifecycle, Run, Present).
 fn is_phase_enum(identity: &str, enums: &BTreeSet<String>) -> bool {
-    (identity.ends_with("State") || identity.ends_with("Phase")) && enums.contains(identity)
+    let named = [
+        "State",
+        "Phase",
+        "Status",
+        "Stage",
+        "Connection",
+        "Lifecycle",
+        "Run",
+        "Present",
+    ]
+    .iter()
+    .any(|suffix| identity.ends_with(suffix));
+    named && enums.contains(identity)
 }
 
 fn flatten_use(tree: &syn::UseTree, prefix: &str, output: &mut Vec<(String, String)>) {
@@ -227,7 +273,7 @@ fn is_setting_payload(ty: &syn::Type) -> bool {
     };
     match segment.ident.to_string().as_str() {
         "Callback" | "Handler" | "ViewFn" => true,
-        "Rc" | "Box" => single_type_argument(segment).is_some_and(is_fn_object),
+        "Rc" | "Arc" | "Box" => single_type_argument(segment).is_some_and(is_fn_object),
         _ => false,
     }
 }

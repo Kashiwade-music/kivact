@@ -66,9 +66,9 @@ fn paints(fill: &Fill) -> bool {
 /// The axes a limit holds on.
 #[derive(Clone, Copy)]
 pub(super) struct Axes {
-    // xtask-allow(state-fields): independent geometric facts - x
+    // xtask-allow(state-fields): independent: Axes::held_by clears x when the node scrolls horizontally or is a text input, y when it scrolls vertically; overflow-x and overflow-y are authored apart, so all four pairs occur
     x: bool,
-    // xtask-allow(state-fields): independent geometric facts - y
+    // xtask-allow(state-fields): independent: Axes::held_by clears y when the node scrolls vertically, x for horizontal scrolling or a text input; overflow-x and overflow-y are authored apart, so all four pairs occur
     y: bool,
 }
 

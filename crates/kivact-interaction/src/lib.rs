@@ -14,8 +14,11 @@
 //! container `list()`, a table has `grid()`, `header`, `row` and `cell`, the
 //! zoom and pan surface is `viewport()`, a slider has `thumb()` and
 //! `track(axis)`, a number field `input()`, and a one-element behavior
-//! `control()`. The open query is `is_open()` and the commands are `open()`,
-//! `close()` and `toggle()` on a Copy `self`. State a caller may own is a
+//! `control()`. The open query is `is_open()` and the commands are `show()`,
+//! `hide()` and `toggle()` on a Copy `self`: `show` and `hide` change nothing when
+//! the surface already is so, `toggle` inverts, and a kind of surface is a suffix
+//! (`show_sheet()`). A toaster's `dismiss(id)` removes one toast from its
+//! queue; it is not a show/hide command. State a caller may own is a
 //! builder of that name taking a `Binding` (`sort(binding)`,
 //! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
 //!
@@ -25,7 +28,7 @@
 //! is a [`DelayedApi`]. The content of a
 //! popup, tooltip or dialog is mounted with the free function
 //! `show(handle.is_open(), factory)`, in a fresh owner on every opening. A menu
-//! and a command palette keep their own `show`: a menu's top level builds its
+//! and a command palette keep their own [`while_open`](MenuApi::while_open): a menu's top level builds its
 //! content again when a request changes between the pointer and the anchor
 //! origin, and a submenu mounts its level in a new owner while it is open.
 
@@ -75,7 +78,7 @@ mod zoom_pan;
 pub use announcer::{Announcer, announcer};
 pub use calendar::{
     CalendarDayState, CalendarGridApi, CalendarOptions, CalendarSelection, CalendarSpan,
-    use_calendar_grid,
+    DaySelection, use_calendar_grid,
 };
 pub use combobox::{ComboboxApi, ComboboxMode, use_combobox};
 pub use delayed::{DelayedApi, DelayedPhase, Delays, use_delayed};
@@ -96,8 +99,8 @@ pub use list::{
     use_list,
 };
 pub use menu::{
-    DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin,
-    MenuPress, MenuRow, SubmenuTiming, use_menu, use_menu_with_open,
+    DisabledMenuFocus, MenuApi, MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState,
+    MenuOrigin, MenuPress, MenuRow, PressOver, SubmenuTiming, use_menu, use_menu_with_open,
 };
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
@@ -111,8 +114,8 @@ pub use select::{SelectApi, use_select};
 pub use space_pan::{SpacePanApi, use_space_pan};
 pub use splitter::{SplitterApi, SplitterState, use_splitter};
 pub use table::{
-    ColumnDef, DataTableApi, DataTableModelApi, FilterValue, SortOrder, TableCellState, TableFocus,
-    TableHeaderState, TableRowState, use_data_table, use_data_table_model,
+    ColumnDef, DataTableApi, DataTableModelApi, FilterValue, HeaderSort, SortOrder, TableCellState,
+    TableFocus, TableHeaderState, TableRowState, use_data_table, use_data_table_model,
 };
 pub use tabs::{TabListState, TabState, TabsApi, use_tabs};
 pub use toaster::{Toast, ToastId, ToastOptions, ToastState, ToasterApi, toaster};
@@ -133,6 +136,7 @@ pub use zoom_pan::{ViewTransform, ZoomPanApi, use_zoom_pan};
 mod inline_edit;
 mod interaction_policy;
 mod options_cell;
+mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{

@@ -11,7 +11,7 @@
 | id を持つレコード。行が自分の状態や入力を持つ | `for_each(items, key, row)` | 返した key |
 | id のない素の値(数値、文字列) | `for_index(items, row)` | 位置 |
 | 高さがそろった数千行 | `virtual_list(items, key, row)` | key。見えている行だけが存在する |
-| ユーザーが選ぶ一覧 | `list(name, items).selection(selected)` | 項目の key |
+| ユーザーが選ぶ一覧 | `list(name, items, selected)` | 項目の key |
 | 並べ替え・絞り込み・頁分け・選択のある列 | `data_table(rows, key, columns)` | 行の key |
 
 どれも項目として `Signal<Vec<T>>`、`Value`、memo、または `Vec<T>` を返すクロージャを受け取り、それが変わると再実行します。`T` は `Clone + PartialEq` が必要です。Kivact が古い項目と新しい項目を比較して、更新する行を判断するためです。
@@ -141,7 +141,6 @@ fn main() -> kivact::Result<()> {
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {
@@ -196,7 +195,7 @@ mod tests {
 
 ## ユーザーが選ぶ一覧
 
-`list(name, items).selection(selected)` は `ListItem` を listbox として表示し、選ばれた key を `Signal<Option<K>>` へ書きます。name は一覧のアクセシブルな名前で、画面には描かれません。
+`list(name, items, selected)` は `ListItem` を listbox として表示し、選ばれた key を `Signal<Option<K>>` へ書きます。name は一覧のアクセシブルな名前で、画面には描かれません。
 
 ```rust,test_harness
 use kivact::prelude::*;
@@ -212,9 +211,11 @@ fn app() -> impl IntoView {
                 ListItem::new(1_u32, "赤"),
                 ListItem::new(2, "青").with_description("落ち着いた色"),
                 ListItem::new(3, "緑").disabled(true),
-            ]).selection(selected),
+            ],
+            selected,
+        ),
         text(move || format!("選択中: {:?}", selected.get())),
-        list("ファイル", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")]).selection(picked_many)
+        list("ファイル", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")], picked_many)
         .item(|item, state| {
             text(move || {
                 let mark = if state.get().selected { "[x] " } else { "[ ] " };

@@ -2,8 +2,8 @@
 use crate::ColorName;
 use kivact::interaction::{ListItem, MenuEntry};
 use kivact::ui::ButtonVariant;
+use kivact::view::Element;
 use kivact::view::IntoView;
-use kivact::view::NodeBuilder;
 
 use kivact::style::use_theme;
 use std::hash::Hash;
@@ -23,9 +23,9 @@ use kivact::view::{
 };
 use kivact::view::{column, icon, node, row, text};
 
-use super::data::{DockCx, MenuInput, TabDrag, Texts};
+use super::data::{DockCx, DockGesture, MenuInput, TabDrag, Texts};
 use super::geometry::{STRIP, drop_target};
-use super::items::Item;
+use super::items::{ChromeDisplay, Item};
 use super::model::{DockLayout, DockPlacement, DockSide, DockTab, DockTabs};
 
 /// Pixels a pressed tab must travel before it becomes a drag.
@@ -57,9 +57,7 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
             active: None,
         },
     });
-    let maximized = memo(
-        move || matches!(item.with(Clone::clone), Item::Chrome { maximized, .. } if maximized),
-    );
+    let maximized = maximized(item);
     let title = memo(move || {
         tabs.with(|tabs| {
             tabs.active_tab()
@@ -127,6 +125,45 @@ pub(super) fn container<K: kivact::state::ItemKey>(cx: DockCx<K>, item: Value<It
     .into_view()
 }
 
+/// Whether the container is shown maximized in the flattened layout.
+fn maximized<K: kivact::state::ItemKey>(item: Value<Item<K>>) -> Value<bool> {
+    memo(move || {
+        matches!(
+            item.with(Clone::clone),
+            Item::Chrome {
+                display: ChromeDisplay::Maximized,
+                ..
+            }
+        )
+    })
+}
+
+/// Whether this tab is the one being renamed.
+fn renaming<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    key: kivact::state::Var<K>,
+) -> impl Fn() -> bool + Copy + 'static {
+    move || {
+        matches!(
+            cx.gesture.get(),
+            DockGesture::Renaming(renamed) if renamed == key.get()
+        )
+    }
+}
+
+/// Whether this tab is the one being dragged.
+fn dragged<K: kivact::state::ItemKey>(
+    cx: DockCx<K>,
+    key: kivact::state::Var<K>,
+) -> impl Fn() -> bool + Copy + 'static {
+    move || {
+        matches!(
+            cx.gesture.get(),
+            DockGesture::Dragging(drag) if drag.source == key.get()
+        )
+    }
+}
+
 fn tab_view<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     group: ListApi<K>,
@@ -143,14 +180,10 @@ fn tab_view<K: kivact::state::ItemKey>(
     });
     let member_state = member.state();
     cx.register_rect(id, member_ref.rect());
-    let renaming = move || cx.rename.is_open(&key.get());
-    // A renamed tab does not drag; the press still reaches the tab's selection.
+    let renaming = renaming(cx, key);
     let tab_drag = tab_drag(cx, key, renaming);
-    let start_rename = move || cx.rename.open(key.get());
-    let dragged = move || {
-        cx.drag
-            .with(|d| d.as_ref().is_some_and(|d| d.source == key.get()))
-    };
+    let start_rename = move || cx.rename.show(key.get());
+    let dragged = dragged(cx, key);
     let glyph_ref = node_ref();
     let glyph_rect = glyph_ref.rect();
     let glyph = dynamic(
@@ -191,7 +224,7 @@ fn tab_view<K: kivact::state::ItemKey>(
                 })
             ) {
                 tab_drag.cancel();
-                cx.drag.set(None);
+                cx.gesture.set(DockGesture::Idle);
                 // The panel's icon maximizes, its title renames.
                 if glyph_rect
                     .get()
@@ -529,19 +562,19 @@ fn tab_drag<K: kivact::state::ItemKey>(
                     drop_target(layout, root, update.pos, &id, |tab| cx.tab_rect(tab))
                 })
             });
-            cx.drag.set(Some(TabDrag { source: id, target }));
+            cx.gesture
+                .set(DockGesture::Dragging(TabDrag { source: id, target }));
         })
         .on_end(move |update: DragUpdate<()>| {
             if update.phase == DragPhase::Cancel {
-                cx.drag.set(None);
+                cx.gesture.set(DockGesture::Idle);
                 return;
             }
-            let target = cx.drag.with(|d| {
-                d.as_ref()
-                    .and_then(|d| d.target.as_ref())
-                    .map(|t| t.placement.clone())
+            let target = cx.gesture.with(|gesture| match gesture {
+                DockGesture::Dragging(drag) => drag.target.as_ref().map(|t| t.placement.clone()),
+                _ => None,
             });
-            cx.drag.set(None);
+            cx.gesture.set(DockGesture::Idle);
             if let Some(placement) = target {
                 cx.edit(|layout| layout.move_tab(&key.get(), placement));
             }

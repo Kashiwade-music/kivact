@@ -14,7 +14,7 @@ arvane-text = { path = "../arvane-text", version = "0.1.0" }
 arvane-render = { path = "../arvane-render", version = "0.1.0" }
 arvane-compose = { path = "../arvane-compose", version = "0.1.0" }
 arvane-asset = { path = "../arvane-asset", version = "0.1.0" }
-tracing = "0.1.41"
+tracing = { workspace = true }
 
 [target.'cfg(any(windows, target_os = "linux"))'.dev-dependencies]
 gpu-interop-producer = { path = "../../dev/tests/gpu-interop-producer", features = ["wgpu"] }

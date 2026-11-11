@@ -1,16 +1,16 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
 use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
-use super::values::{CheckableState, ControlSize};
+use super::values::{CheckControl, CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::use_theme;
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, icon, node};
 use kivact_core::view::{
-    CheckedState, HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each,
-    show, use_direction,
+    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, show,
+    use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, icon, node};
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
 use std::rc::Rc;
 
@@ -33,8 +33,8 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     variants: Variants,
 }
 
-/// A themed radio group named `label` over `options` that writes the
-/// chosen key to `value`.
+/// A themed radio group named `label` over `items` that writes the
+/// chosen key to `selected`.
 ///
 /// Each option is a `Role::RadioButton` named by its label, showing the
 /// theme's indicator (the `dot` icon while chosen), its icon and its label
@@ -64,13 +64,13 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn radio_group<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<Option<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl kivact_core::state::IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
     RadioGroup {
         root: node().role(Role::RadioGroup).name(label),
-        options: options.into_value(),
-        value: value.into_binding(),
+        options: items.into_value(),
+        value: selected.into_binding(),
         orientation: Orientation::Vertical,
         size: super::values::default_control_size().into_value(),
         on_edit: None,
@@ -138,7 +138,7 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     ///     )
     ///     .item(|item, state| {
     ///         text(move || {
-    ///             let mark = if state.get().checked.is_checked() { "* " } else { "" };
+    ///             let mark = if state.get().is_checked() { "* " } else { "" };
     ///             format!("{mark}{}", item.get().label())
     ///         })
     ///     })
@@ -169,7 +169,7 @@ impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     }
 }
 
-impl<K: kivact_core::state::ItemKey> NodeBuilder for RadioGroup<K> {
+impl<K: kivact_core::state::ItemKey> Element for RadioGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -178,7 +178,7 @@ impl<K: kivact_core::state::ItemKey> NodeBuilder for RadioGroup<K> {
 impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
     fn into_view(self) -> View {
         let RadioGroup {
-            root,
+            mut root,
             options,
             value,
             orientation,
@@ -188,6 +188,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
             item_node,
             variants,
         } = self;
+        let invalid = root.accessible_invalid();
         let edit = EditSession::new(move |initial: Option<K>| value.set(initial));
         if let Some(on_edit) = on_edit {
             edit.on_edit(move |phase| on_edit.call(phase));
@@ -200,7 +201,17 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
         let rows = for_each(
             options,
             |item| item.key().clone(),
-            move |item| radio_option(group, item, size, &looks, slot.as_ref(), item_node.as_ref()),
+            move |item| {
+                radio_option(
+                    group,
+                    item,
+                    size,
+                    invalid,
+                    &looks,
+                    slot.as_ref(),
+                    item_node.as_ref(),
+                )
+            },
         );
         let reversed = orientation == Orientation::Horizontal
             && use_direction().get() == ReadingDirection::Rtl;
@@ -225,6 +236,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
     group: kivact_interaction::ListApi<K>,
     item: Value<ListItem<K>>,
     size: Value<ControlSize>,
+    invalid: Option<Value<bool>>,
     looks: &Variants,
     slot: Option<&OptionContent<K>>,
     modify: Option<&ItemNode<K>>,
@@ -236,11 +248,11 @@ fn radio_option<K: kivact_core::state::ItemKey>(
         let state = state.get();
         CheckableState {
             input: state.input,
-            checked: CheckedState::from_bool(state.selected),
+            control: CheckControl::Radio {
+                selected: state.selected,
+            },
             size: size.get(),
-            invalid: false,
-            text: None,
-            switch_drag: None,
+            invalid: invalid.is_some_and(|invalid| invalid.get()),
         }
     });
     let lines = looks.clone();
@@ -256,7 +268,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
             recipes(&use_theme().get())
                 .radio_group_recipes()
                 .has_custom_mark()
-                || check.get().checked.is_checked()
+                || check.get().is_checked()
         },
         move || {
             with_recipe_style(

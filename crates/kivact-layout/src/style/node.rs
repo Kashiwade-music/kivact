@@ -26,13 +26,62 @@ use taffy::{
 use kivact_types::{GridLine, GridPos};
 
 /// A full taffy style (named grid lines are never used): a grid
-/// container's (`NodeStyle::grid`).
+/// container's (`NodeDisplay::Grid`).
 pub(crate) type TStyle = taffy::Style<String>;
 
+/// What a node's box is: none, a flex box, or a grid container with the full
+/// taffy style of its tracks (a grid container whose props have none: `None`).
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum NodeDisplay {
+    None,
+    Flex,
+    Grid(Option<Box<TStyle>>),
+}
+
+impl NodeDisplay {
+    /// The display taffy reads.
+    #[inline(always)]
+    pub(crate) fn taffy(&self) -> Display {
+        match self {
+            NodeDisplay::None => Display::None,
+            NodeDisplay::Flex => Display::Flex,
+            NodeDisplay::Grid(_) => Display::Grid,
+        }
+    }
+
+    /// The grid container's full style, when this is a grid container with one.
+    #[inline(always)]
+    pub(crate) fn grid(&self) -> Option<&TStyle> {
+        match self {
+            NodeDisplay::Grid(Some(grid)) => Some(grid),
+            _ => None,
+        }
+    }
+
+    /// The grid container's full style, when this is a grid container with one.
+    #[inline(always)]
+    pub(crate) fn grid_mut(&mut self) -> Option<&mut TStyle> {
+        match self {
+            NodeDisplay::Grid(Some(grid)) => Some(grid),
+            _ => None,
+        }
+    }
+}
+
+/// An item's place in its grid container: both axes and its row-axis
+/// alignment (most nodes are auto-placed in flex parents and have none).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct GridArea {
+    pub(crate) column: GridLine,
+    pub(crate) row: GridLine,
+    /// CSS `justify-self` (`None`: the container's `justify_items`).
+    pub(crate) justify_self: Option<AlignSelf>,
+}
+
 /// The taffy style of one layout node (see the module docs).
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeStyle {
-    pub(crate) display: Display,
+    pub(crate) display: NodeDisplay,
     pub(crate) position: Position,
     pub(crate) overflow: Point<Overflow>,
     pub(crate) inset: Rect<LengthPercentageAuto>,
@@ -42,7 +91,7 @@ pub(crate) struct NodeStyle {
     /// the layout pass, never by the props.
     pub(crate) min_width_floor: f32,
     pub(crate) max_size: Size<LengthPercentageAuto>,
-    // xtask-allow(state-fields): passive converted props - aspect ratio
+    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) aspect_ratio: Option<f32>,
     pub(crate) margin: Rect<LengthPercentageAuto>,
     pub(crate) padding: Rect<LengthPercentage>,
@@ -50,32 +99,36 @@ pub(crate) struct NodeStyle {
     pub(crate) gap: Size<LengthPercentage>,
     pub(crate) flex_direction: FlexDirection,
     pub(crate) flex_wrap: FlexWrap,
-    // xtask-allow(state-fields): passive converted props - align items
+    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_items: Option<AlignItems>,
-    // xtask-allow(state-fields): passive converted props - align self
+    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_self: Option<AlignSelf>,
-    // xtask-allow(state-fields): passive converted props - align content
+    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_content: Option<AlignContent>,
-    // xtask-allow(state-fields): passive converted props - justify content
+    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) justify_content: Option<JustifyContent>,
     pub(crate) flex_basis: Dimension,
     pub(crate) flex_grow: f32,
     pub(crate) flex_shrink: f32,
-    /// Its place as a grid item.
-    pub(crate) grid_column: GridLine,
-    pub(crate) grid_row: GridLine,
-    // xtask-allow(state-fields): passive converted props - justify self
-    pub(crate) justify_self: Option<AlignSelf>,
-    // xtask-allow(state-fields): passive converted props - A grid container's full style (`None`: not a grid container)
-    /// A grid container's full style (`None`: not a grid container).
-    pub(crate) grid: Option<Box<TStyle>>,
+    // xtask-allow(state-fields): option: the node's placement as a grid item (column, row, justify-self); absent means auto-placed and aligned by the container's justify_items
+    /// Its place as a grid item (absent: auto-placed).
+    pub(crate) grid_area: Option<Box<GridArea>>,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<NodeStyle>() <= 264,
+    "NodeStyle grew: box the new rare field"
+);
 
 impl Default for NodeStyle {
     fn default() -> Self {
         let d = TStyle::DEFAULT;
         NodeStyle {
-            display: d.display,
+            display: match d.display {
+                Display::None => NodeDisplay::None,
+                Display::Grid => NodeDisplay::Grid(None),
+                _ => NodeDisplay::Flex,
+            },
             position: d.position,
             overflow: d.overflow,
             inset: d.inset,
@@ -97,10 +150,7 @@ impl Default for NodeStyle {
             flex_basis: d.flex_basis,
             flex_grow: d.flex_grow,
             flex_shrink: d.flex_shrink,
-            grid_column: GridLine::default(),
-            grid_row: GridLine::default(),
-            justify_self: d.justify_self,
-            grid: None,
+            grid_area: None,
         }
     }
 }
@@ -132,7 +182,7 @@ impl NodeStyle {
         }
         self.min_width_floor = floor;
         let min_size = self.floored_min_size();
-        if let Some(grid) = self.grid.as_mut() {
+        if let Some(grid) = self.display.grid_mut() {
             grid.min_size = min_size;
         }
         true
@@ -147,7 +197,7 @@ impl NodeStyle {
         self.min_size = min;
         self.max_size = max;
         let min = self.floored_min_size();
-        if let Some(grid) = self.grid.as_mut() {
+        if let Some(grid) = self.display.grid_mut() {
             grid.min_size = min;
             grid.max_size = max;
         }
@@ -173,8 +223,8 @@ impl CoreStyle for NodeStyle {
     #[inline(always)]
     fn box_generation_mode(&self) -> BoxGenerationMode {
         match self.display {
-            Display::None => BoxGenerationMode::None,
-            _ => BoxGenerationMode::Normal,
+            NodeDisplay::None => BoxGenerationMode::None,
+            NodeDisplay::Flex | NodeDisplay::Grid(_) => BoxGenerationMode::Normal,
         }
     }
 
@@ -291,12 +341,20 @@ impl FlexboxItemStyle for NodeStyle {
 impl GridItemStyle for NodeStyle {
     #[inline(always)]
     fn grid_row(&self) -> Line<GridPlacement<String>> {
-        line(self.grid_row)
+        line(
+            self.grid_area
+                .as_deref()
+                .map_or(GridLine::default(), |a| a.row),
+        )
     }
 
     #[inline(always)]
     fn grid_column(&self) -> Line<GridPlacement<String>> {
-        line(self.grid_column)
+        line(
+            self.grid_area
+                .as_deref()
+                .map_or(GridLine::default(), |a| a.column),
+        )
     }
 
     #[inline(always)]
@@ -306,6 +364,6 @@ impl GridItemStyle for NodeStyle {
 
     #[inline(always)]
     fn justify_self(&self) -> Option<AlignSelf> {
-        self.justify_self
+        self.grid_area.as_deref().and_then(|area| area.justify_self)
     }
 }

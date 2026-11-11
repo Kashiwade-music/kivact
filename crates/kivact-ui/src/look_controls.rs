@@ -46,7 +46,7 @@ pub(super) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .background(ColorToken::Surface);
-    if state.checked.is_checked() {
+    if state.is_checked() {
         s.border(1, ColorToken::Accent).color(ColorToken::Accent)
     } else if state.invalid {
         s.border(1, ColorToken::Danger)
@@ -56,7 +56,7 @@ pub(super) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
 }
 
 pub(super) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
-    if state.checked.is_checked() {
+    if state.is_checked() {
         style()
     } else {
         style().size(0, 0).opacity(0.0)

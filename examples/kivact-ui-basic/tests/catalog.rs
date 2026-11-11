@@ -4,6 +4,7 @@
 #![warn(redundant_imports)]
 
 use kivact::prelude::*;
+use kivact::style::Position;
 use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
 use std::time::Duration;
@@ -195,5 +196,97 @@ fn search_filters_the_list_and_the_keyboard_walks_it() {
         screen.get_by_test_id("catalog-title").text(),
         "Button Group",
         "ArrowDown selects the next component"
+    );
+}
+
+/// The side of a cell of `every_page_character_is_in_the_catalog_fonts`.
+const CELL: u32 = 40;
+/// Cells per row of that test.
+const COLUMNS: u32 = 25;
+
+/// Whether `c` of a page source must be drawn by a catalog font: a visible
+/// character above ASCII. Emoji (U+1F000 and above) are left to the
+/// system's emoji font, which the catalog does not bundle.
+fn bundled(c: char) -> bool {
+    !c.is_ascii()
+        && !c.is_whitespace()
+        && !c.is_control()
+        && c < '\u{1F000}'
+        && !matches!(c, '\u{200B}'..='\u{200F}' | '\u{2028}'..='\u{202E}' | '\u{2060}'..='\u{206F}' | '\u{FE00}'..='\u{FE0F}' | '\u{FEFF}')
+}
+
+/// Cell `index` of the grid: `c` at its top left.
+fn glyph_cell(index: u32, c: char) -> View {
+    let (column, row) = (index % COLUMNS, index / COLUMNS);
+    node()
+        .child(text(c.to_string()))
+        .style(
+            style()
+                .position(Position::Absolute)
+                .left((column * CELL) as i32)
+                .top((row * CELL) as i32)
+                .size(CELL as i32, CELL as i32),
+        )
+        .into_view()
+}
+
+/// The pixels of cell `index` of `shot`.
+fn cell_pixels(shot: &kivact::test::Screenshot, index: u32) -> Vec<u32> {
+    let (x0, y0) = ((index % COLUMNS) * CELL, (index / COLUMNS) * CELL);
+    (0..CELL)
+        .flat_map(|y| (0..CELL).map(move |x| (x0 + x, y0 + y)))
+        .map(|(x, y)| shot.pixel(x, y).expect("the cell is in the window"))
+        .collect()
+}
+
+/// Every visible character above ASCII of the catalog's pages is drawn by
+/// one of the catalog's fonts: none of them draws the missing glyph, which a
+/// character no bundled font has gets (the first font's). A character added
+/// to a page without running `dev/tools/subset-catalog-font.py` again fails.
+#[test]
+fn every_page_character_is_in_the_catalog_fonts() {
+    let mut chars: Vec<char> = pages()
+        .iter()
+        .flat_map(|page| page.source.chars())
+        .filter(|c| bundled(*c))
+        .collect();
+    chars.sort_unstable();
+    chars.dedup();
+    // Cell 0: a character no font has, drawn as the missing glyph.
+    let probe = '\u{10FFFD}';
+    let cells: Vec<char> = std::iter::once(probe)
+        .chain(chars.iter().copied())
+        .collect();
+    let rows = (cells.len() as u32).div_ceil(COLUMNS);
+    let grid = cells.clone();
+    let screen = render_with(
+        RenderOptions::with_theme(kivact_ui_basic::theme(ThemeMode::Light))
+            .window_size(f64::from(COLUMNS * CELL), f64::from(rows * CELL))
+            .scale(1.)
+            .fonts(TestFonts::Only(
+                fonts().iter().map(|&bytes| bytes.into()).collect(),
+            )),
+        move || {
+            let cells: Vec<View> = grid
+                .iter()
+                .enumerate()
+                .map(|(index, c)| glyph_cell(index as u32, *c))
+                .collect();
+            node().child(cells)
+        },
+    );
+    let shot = screen.screenshot();
+    let missing_glyph = cell_pixels(&shot, 0);
+    assert!(
+        missing_glyph.iter().any(|p| *p != missing_glyph[0]),
+        "the missing glyph is drawn"
+    );
+    let missing: Vec<char> = (1..cells.len() as u32)
+        .filter(|index| cell_pixels(&shot, *index) == missing_glyph)
+        .map(|index| cells[index as usize])
+        .collect();
+    assert!(
+        missing.is_empty(),
+        "no catalog font draws {missing:?}: run dev/tools/subset-catalog-font.py"
     );
 }

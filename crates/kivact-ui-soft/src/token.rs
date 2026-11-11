@@ -4,8 +4,8 @@ use kivact::state::IntoValue;
 use crate::feedback::icon_box;
 use crate::recipe_style::{overlay, ring};
 use crate::{HueColors, Hues};
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::icon;
 use kivact::view::row;
 use kivact::view::text;
@@ -166,7 +166,7 @@ impl Token {
     }
 }
 
-impl NodeBuilder for Token {
+impl Element for Token {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

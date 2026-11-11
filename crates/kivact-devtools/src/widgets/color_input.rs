@@ -6,7 +6,7 @@ use kivact::prelude::*;
 /// text field and the sliders off.
 pub(crate) fn color_input(
     label: &str,
-    value: Signal<String>,
+    value: Binding<String>,
     disabled: bool,
     on_commit: impl Fn(String) + 'static,
 ) -> impl IntoView {
@@ -91,7 +91,7 @@ fn slider_row(
 }
 
 /// A small box filled with the color the text names.
-fn preview(label: &str, value: Signal<String>) -> impl IntoView {
+fn preview(label: &str, value: Binding<String>) -> impl IntoView {
     node().name(format!("{label} preview")).style(move || {
         let color = Color::css(value.get().trim()).unwrap_or(Color::TRANSPARENT);
         style()

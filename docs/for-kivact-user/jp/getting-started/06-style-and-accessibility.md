@@ -8,6 +8,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
+use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -18,7 +19,7 @@ struct Task {
     done: bool,
 }
 
-fn header(dark: Signal<bool>) -> impl Component {
+fn header(dark: Signal<bool>) -> impl Element {
     row((
         image(LOGO).name("タスクのロゴ").style(style().size(32, 32)),
         column((
@@ -31,21 +32,21 @@ fn header(dark: Signal<bool>) -> impl Component {
     .style(style().gap(12).align_items(Align::Center))
 }
 
-fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Component {
+fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let done = bind!(task.done);
     row((
         checkbox(move || task.get().title, done),
         button("削除")
             .name(move || format!("{} を削除", task.get().title))
-            .variant(kivact::ui::ButtonVariant::Ghost)
+            .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)
     .style(style().gap(8).align_items(Align::Center).justify_content(Justify::SpaceBetween))
 }
 
-fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
+fn task_list(tasks: Signal<Vec<Task>>) -> impl Element {
     column(for_each(
         tasks,
         |task| task.id,
@@ -63,7 +64,7 @@ fn task_list(tasks: Signal<Vec<Task>>) -> impl Component {
     )
 }
 
-fn tasks_screen(dark: Signal<bool>) -> impl Component {
+fn tasks_screen(dark: Signal<bool>) -> impl Element {
     let tasks = signal(vec![
         Task { id: 1, title: "牛乳を買う".to_owned(), done: false },
         Task { id: 2, title: "チュートリアルを書く".to_owned(), done: false },
@@ -133,7 +134,7 @@ fn main() -> kivact::Result<()> {
 
 **画像とフォントのバイト列。** `image(LOGO)` は、このプログラムに埋め込んだ SVG のバイト列を使います。ファイルをビルド時に埋め込む場合は `include_bytes!("logo.svg").as_slice()` を渡せます。実行時に得たバイト列は、`kivact::view::AssetBytes::new(bytes)` に所有する `Vec<u8>` を渡して保持します。生成した生の RGBA 画素には `kivact::draw::Pixels::new(width, height, rgba)` を使い、`rgba` にも 1 画素あたり 4 バイトの `Vec<u8>` を渡せます。同じバイト列を再利用するときは、保持した `AssetBytes` を clone します。フォントは `.run(app)` の前に `App::fonts(iter)` で登録し、埋め込みフォントのバイトスライスなどをイテレーターから渡します。これらの API が、データを保持する領域を管理します。
 
-**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(kivact::ui::ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
+**ボタンの種類。** ボタンは、既定では主要な操作です (`Primary`、アクセントカラーで塗りつぶし)。`.variant(ButtonVariant::Ghost)` を付けると、ホバーするまで塗りのない控えめな見た目になるので、削除ボタンに使っています。ほかの種類は、`Secondary`、`Outline`、`Danger`、`Link` です。
 
 **アクセシブルな名前。** スクリーンリーダーはコントロールを役割と名前で読み上げ、キーボード操作やテストのツールも、同じ方法でコントロールを見つけます。そのため、すべてのコントロールに名前が必要です。
 

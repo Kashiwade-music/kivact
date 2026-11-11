@@ -3,7 +3,7 @@
 //! The O(N) enumeration stores IDs/hashes only. Payload construction remains
 //! proportional to the expanded dirt; no accepted payload is retained here.
 use super::node::{drawable, structural};
-use crate::a11y::state::{Dirt, Metadata};
+use crate::a11y::state::{Clipping, Dirt, Metadata, Payloads};
 use crate::model::Model;
 use crate::semantic_role;
 use arvane as a;
@@ -11,11 +11,21 @@ use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
 
-/// A semantics tree built for publication and the identity metadata it was
-/// built with (`None`: a local text build reused the accepted metadata).
+/// What a build changes in the accepted identity metadata, on acceptance.
+pub(in crate::a11y) enum MetadataUpdate {
+    /// Nothing (a payload build that clipped no row in or out).
+    Keep,
+    /// Only the clipping of some lists (a payload build).
+    Clipping(Clipping),
+    /// All of it (a metadata, complete or empty-tree build).
+    Replace(Metadata),
+}
+
+/// A semantics tree built for publication and what it changes in the
+/// accepted identity metadata.
 pub(in crate::a11y) struct Built {
     pub(in crate::a11y) tree: kivact_types::render::SemanticsTree,
-    pub(in crate::a11y) metadata: Option<Metadata>,
+    pub(in crate::a11y) metadata: MetadataUpdate,
 }
 
 impl Model {
@@ -28,8 +38,8 @@ impl Model {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
-    /// Build the payloads `dirt` asks for, with the identity metadata the
-    /// build used (`None`: a local text build reused the accepted one).
+    /// Build the payloads `dirt` asks for, with what the build changes in the
+    /// accepted identity metadata.
     pub(in crate::a11y) fn build_semantics_for(
         &mut self,
         engine: &mut a::Engine,
@@ -39,29 +49,30 @@ impl Model {
         let Some(root) = self.tree().root() else {
             return self.build_empty_semantics();
         };
-        if let Dirt::LocalText { nodes } = dirt {
-            return Built {
-                tree: self.build_local_text(root, nodes, engine),
-                metadata: None,
-            };
-        }
         let empty = BTreeSet::new();
         let (own, subtrees, removed) = match dirt {
+            Dirt::Clean => return self.build_payloads(root, &Payloads::default(), engine),
+            Dirt::Payload(payloads) => return self.build_payloads(root, payloads, engine),
             Dirt::Metadata {
                 nodes,
                 subtrees,
                 removed,
             } => (nodes, subtrees, removed),
-            _ => (&empty, &empty, &empty),
+            Dirt::Full => (&empty, &empty, &empty),
         };
         let subtree_roots = subtrees;
         let (metadata, order) = self.build_identity_metadata();
+        #[cfg(feature = "testing")]
+        {
+            self.a11y.enumerated += order.len() as u64;
+        }
         let mut dirty = own.clone();
         dirty.extend(removed.iter().copied());
         dirty.extend(
             metadata
-                .clipped
-                .symmetric_difference(&self.a11y.metadata.clipped)
+                .clipping
+                .rows()
+                .symmetric_difference(self.a11y.metadata.clipping.rows())
                 .copied(),
         );
         for &id in &order {
@@ -75,6 +86,25 @@ impl Model {
                 }
             }
         }
+        let tree = self.build_semantics_tail(root, full, &metadata, subtree_roots, dirty, engine);
+        Built {
+            tree,
+            metadata: MetadataUpdate::Replace(metadata),
+        }
+    }
+
+    /// Expand `dirty` and build the payloads; `subtree_roots` are rebuilt with
+    /// everything under them, and a changed modal dirties all descendants.
+    fn build_semantics_tail(
+        &mut self,
+        root: types::NodeId,
+        full: bool,
+        metadata: &Metadata,
+        subtree_roots: &BTreeSet<types::NodeId>,
+        mut dirty: BTreeSet<types::NodeId>,
+        engine: &mut a::Engine,
+    ) -> kivact_types::render::SemanticsTree {
+        let order = self.semantic_order();
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
         let mut inherited = BTreeSet::new();
         for &id in &order {
@@ -89,21 +119,18 @@ impl Model {
             }
         }
         self.expand_overlay_dirt(&order, &inherited, &mut dirty);
-        self.expand_relation_dirt(&metadata, &mut dirty);
+        self.expand_relation_dirt(metadata, &mut dirty);
         self.invalidate_boxless_ancestors(&mut dirty);
-        let nodes = self.build_dirty_nodes(root, full, &dirty, &metadata, engine);
+        let nodes = self.build_dirty_nodes(root, full, &dirty, metadata, engine);
         #[cfg(feature = "testing")]
         {
             self.a11y.constructed += nodes.len() as u64;
         }
-        let focus = self.semantics_focus(&metadata.clipped);
-        Built {
-            tree: kivact_types::render::SemanticsTree {
-                root: kivact_types::SemanticsId(root.0),
-                focus,
-                nodes,
-            },
-            metadata: Some(metadata),
+        let focus = self.semantics_focus(metadata.clipping.rows());
+        kivact_types::render::SemanticsTree {
+            root: kivact_types::SemanticsId(root.0),
+            focus,
+            nodes,
         }
     }
     fn build_empty_semantics(&mut self) -> Built {
@@ -135,17 +162,21 @@ impl Model {
                 focus: None,
                 nodes: vec![node],
             },
-            metadata: Some(Metadata {
+            metadata: MetadataUpdate::Replace(Metadata {
                 live: BTreeSet::from([id]),
                 ..Default::default()
             }),
         }
     }
+    /// Enumerate the identity and order metadata of the whole tree (a PERF-1
+    /// exception). A structural change is checked by this
+    /// complete comparison because no writer's notice is trusted to keep the
+    /// hierarchy right; payload-only dirt never runs it.
     fn build_identity_metadata(&mut self) -> (Metadata, Vec<types::NodeId>) {
         self.prepare_region_ids();
-        let clipped = self.clipped_rows();
+        let clipping = self.clipping_of_all();
         let mut metadata = Metadata {
-            clipped,
+            clipping,
             modal: self.modal(),
             ..Default::default()
         };
@@ -236,7 +267,11 @@ impl Model {
             }
         }
     }
-    fn expand_relation_dirt(&self, metadata: &Metadata, dirty: &mut BTreeSet<types::NodeId>) {
+    pub(super) fn expand_relation_dirt(
+        &self,
+        metadata: &Metadata,
+        dirty: &mut BTreeSet<types::NodeId>,
+    ) {
         // Both old and current reverse edges matter for removal and relation replacement.
         let mut queue: Vec<_> = dirty.iter().copied().collect();
         while let Some(target) = queue.pop() {
@@ -271,7 +306,7 @@ impl Model {
                 self.build_node(
                     id,
                     offset,
-                    &metadata.clipped,
+                    metadata.clipping.rows(),
                     &mut nodes,
                     &mut active,
                     engine,

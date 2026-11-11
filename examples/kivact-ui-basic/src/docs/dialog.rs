@@ -1,5 +1,4 @@
 //! Role: Catalog page of Dialog: default, form, no close button and confirmation.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,14 +9,14 @@ pub(crate) fn page() -> Page {
         slug: "dialog",
         name: "Dialog",
         description: "ページの上に重ねて表示するモーダルです。標準の kivact::ui::dialog に Lyra の見た目を当てたもので、フォーカスの閉じ込めと Escape での閉じる動作は標準の部品が行います。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("dialog.rs"),
         align: PreviewAlign::Center,
         examples: vec![
             Example::new(
                 "default",
                 "Default",
-                "open の signal と題名を渡し、show に本文とフッターを返す関数を渡します。右上の閉じるボタンと Escape で閉じます。",
+                "open の signal と題名を渡し、content(..) と footer(..) に本文とフッターを作る関数を渡します。右上の閉じるボタンと Escape で閉じます。",
                 default,
             ),
             Example::new(
@@ -120,7 +119,9 @@ fn no_close_button() -> impl IntoView {
 
 // example: confirm
 fn confirm() -> impl IntoView {
+    // xtask-allow(state-fields): independent: "Delete account" opens the dialog and Cancel or Delete closes it; reopening after the deletion keeps deleted true
     let open = signal(false);
+    // xtask-allow(state-fields): independent: set by the dialog's Delete button and never cleared; the account line reads it with the dialog open or closed
     let deleted = signal(false);
     column((
         button("Delete account")

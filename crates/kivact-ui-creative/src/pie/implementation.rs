@@ -10,7 +10,7 @@ use kivact::i18n::message;
 use kivact::interaction::use_popup;
 use kivact::state::IntoValue;
 use kivact::style::{ColorToken, style};
-use kivact::view::{IntoView, Key, Node, NodeBuilder, Role, column, node, text};
+use kivact::view::{Element, IntoView, Key, Node, Role, column, node, text};
 
 use kivact::state::binding;
 use kivact::state::callback;
@@ -23,12 +23,12 @@ use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, overlay_at
 /// commit its `hot` choice on key-up using the same application command callback.
 #[track_caller]
 pub fn pie_menu(
-    entries: impl IntoValue<Vec<PieEntry>>,
+    items: impl IntoValue<Vec<PieEntry>>,
     state: impl IntoBinding<PieState>,
 ) -> PieMenu {
     PieMenu {
         root: column(()).style(style().height(0).gap(0)),
-        entries: entries.into_value(),
+        entries: items.into_value(),
         state: state.into_binding(),
         choose: None,
     }
@@ -48,7 +48,7 @@ impl PieMenu {
         self
     }
 }
-impl NodeBuilder for PieMenu {
+impl Element for PieMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

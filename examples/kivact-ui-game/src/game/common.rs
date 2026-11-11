@@ -2,7 +2,7 @@
 
 use kivact::interaction::ListItem;
 use kivact::prelude::{
-    ColorToken, IntoText, IntoValue, IntoView, Key, Node, NodeBuilder, column, grid, node, row,
+    ColorToken, Element, IntoText, IntoValue, IntoView, Key, Node, column, grid, node, row,
 };
 use kivact::style::{Align, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
@@ -46,7 +46,7 @@ pub(super) fn specimen(
     id: &str,
     name: &str,
     body: impl IntoView,
-) -> crate::game::specimens::Specimen<impl kivact::view::Component> {
+) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     let body = node()
         .child(body)
         .style(style().min_height(if matches!(id, "OVL-01" | "OVL-05") {
@@ -80,7 +80,7 @@ pub(super) fn list(children: impl IntoView) -> Node {
     column(children).style(style().gap(12).width(pct(100)))
 }
 
-pub(super) fn wide<B: NodeBuilder>(view: B) -> B {
+pub(super) fn wide<B: Element>(view: B) -> B {
     view.style(style().grid_column(GridPlacement::span(2)))
 }
 

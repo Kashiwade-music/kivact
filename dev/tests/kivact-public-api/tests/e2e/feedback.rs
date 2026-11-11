@@ -166,7 +166,7 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
             column((
                 ui::button("Outside"),
                 ui::alert("Controlled alert")
-                    .visible(binding(visible, move |next| {
+                    .open(binding(visible, move |next| {
                         if accept.get_untracked() {
                             visible.set(next);
                         }
@@ -205,6 +205,45 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
         .click();
     assert_eq!(dismissed.get_untracked(), 2);
     assert!(outside.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn controlled_alert_shown_again_restores_focus_to_the_control_focused_while_hidden() {
+    let (screen, visible) = render_with_handle(options(), || {
+        let visible = signal(true);
+        (
+            visible,
+            column((
+                ui::button("First"),
+                ui::button("Second"),
+                ui::alert("Controlled alert")
+                    .open(visible)
+                    .dismissible(true)
+                    .dismiss_label("Dismiss controlled alert"),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "First").focus();
+    visible.set(false);
+    screen.run_until_idle();
+    assert!(
+        screen
+            .query_by_role(Role::Alert, "Controlled alert")
+            .is_none()
+    );
+    let second = screen.get_by_role(Role::Button, "Second");
+    second.focus();
+    visible.set(true);
+    screen.run_until_idle();
+    screen
+        .get_by_role(Role::Button, "Dismiss controlled alert")
+        .click();
+    assert!(!visible.get_untracked());
+    assert!(
+        second.is_focused(),
+        "focus returns to the control focused when the alert reappeared"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

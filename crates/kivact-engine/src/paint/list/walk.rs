@@ -5,12 +5,14 @@
 //! kept as a [`LayerSpec`]. Any other node is walked in the space of the
 //! transforms pushed around it, as before.
 
-use super::ink::{grow, ink, ink_local, local_transform, overlaps, placed, reach};
+use super::ink::{drawn, grow, ink_local, local_transform, overlaps, placed, reach};
 use crate::contract::NodeType;
+use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
-    ChildIndex, Entry, LayerSpec, ListState, Look, PaintList, Step, SubtreeFacts,
+    ChildIndex, ClipShape, Entry, Grouping, LayerSpec, ListState, Look, PaintList, StaleFacts,
+    Step, SubtreeFacts,
 };
 use crate::tree::node::HostNode;
 use kivact_types::cell::Generation;
@@ -18,7 +20,7 @@ use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
 /// pixel at every scale from 0.5 up (and `1 / scale` below).
@@ -88,8 +90,6 @@ struct Walk<'a> {
     indices: &'a mut HashMap<NodeId, ChildIndex>,
     /// What each subtree holds (decides the layers).
     facts: &'a HashMap<NodeId, SubtreeFacts>,
-    /// The layout pass the tree is laid out by.
-    pass: Generation,
     /// The generation of the nodes' inks.
     generation: Generation,
     /// The containers whose index this walk used.
@@ -134,14 +134,16 @@ impl Walk<'_> {
             _ => overlaps(placed(local.as_ref(), own, origin), clip),
         };
         if !visible {
-            // Neither it nor anything in its subtree shows.
-            let shows = ink(host, id, n, &layout, self.generation).is_some_and(|k| {
+            // Neither it nor anything in its subtree shows, unless a box of the
+            // subtree is drawn outside its ink (projected, or placed by a
+            // drawing).
+            let shows = drawn(host, id, n, &layout, self.generation).is_some_and(|d| {
                 let at = Rect {
-                    x: k.x + origin.x,
-                    y: k.y + origin.y,
-                    ..k
+                    x: d.rect.x + origin.x,
+                    y: d.rect.y + origin.y,
+                    ..d.rect
                 };
-                overlaps(at, clip)
+                d.beyond || overlaps(at, clip)
             });
             if !shows {
                 return;
@@ -152,24 +154,28 @@ impl Walk<'_> {
         };
         let clips = n.clips();
         let presence_clip = presence_clip(host, id, clip, o, layout.size);
-        let (group, grouped, alpha) = opacity(host, id, n, &look, parent_alpha);
+        let (grouping, alpha) = opacity(host, id, n, &look, parent_alpha);
         // A layer applies its node's opacity itself.
         let alpha = if layer.is_some() { parent_alpha } else { alpha };
+        let clip_shape = match (clips, look.rounded) {
+            (false, _) => ClipShape::None,
+            (true, false) => ClipShape::Rect,
+            (true, true) => ClipShape::Rounded,
+        };
         let step = Step {
             id,
             origin: o,
             transform,
             alpha,
-            clips,
+            clip_shape,
             presence_clip,
-            rounded: look.rounded,
             own: visible,
-            grouped,
-            group,
+            grouping,
             clip,
             layer,
         };
-        let listed = visible || grouped || transform.is_some() || layer.is_some();
+        let listed =
+            visible || grouping != Grouping::None || transform.is_some() || layer.is_some();
         if listed {
             self.out.push(Entry::Open(step));
         }
@@ -356,16 +362,15 @@ impl Walk<'_> {
             return;
         }
         self.used.insert(id);
-        let (pass, generation) = (self.pass, self.generation);
+        let generation = self.generation;
         let index = self.indices.entry(id).or_insert_with(|| {
             ChildIndex::build(
                 host,
                 host.tree().flat_children(host.tree().nodes.id_at(n.index)),
-                pass,
                 generation,
             )
         });
-        index.refresh(host, pass, generation);
+        index.refresh(host, generation);
         // The clip in the index's space (the children's layout space).
         let window = Rect {
             x: clip.x - base.x,
@@ -386,7 +391,10 @@ impl Walk<'_> {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {
-            let at = match host.node(child).filter(|c| c.place.sticky) {
+            let at = match host
+                .node(child)
+                .filter(|c| c.place.positioning == crate::tree::node::Positioning::Sticky)
+            {
                 Some(c) => Point {
                     x: at.x + c.shift.x,
                     y: at.y + c.shift.y,
@@ -407,14 +415,16 @@ impl Model {
 
     /// Bring the paint list up to date for the next frame: rebuilt if
     /// anything restacked since the last one (see the module invariants).
-    pub(crate) fn paint_list(&mut self) {
+    /// Returns whether it was rebuilt.
+    pub(crate) fn paint_list(&mut self) -> bool {
         let mut list = std::mem::take(&mut self.paint.list);
         let window = self.window();
         let key = ListState::Built {
             size: window,
             scale: self.paint.scale,
         };
-        if list.state != key {
+        let rebuilt = list.state != key;
+        if rebuilt {
             let margin = MARGIN.max(1.0 / self.paint.scale.max(f64::MIN_POSITIVE));
             let viewport = Rect {
                 x: -margin,
@@ -422,13 +432,16 @@ impl Model {
                 width: window.width + 2.0 * margin,
                 height: window.height + 2.0 * margin,
             };
-            list.facts = self.layer_facts();
+            let stale = std::mem::replace(
+                &mut self.paint.stale_facts,
+                StaleFacts::Nodes(BTreeSet::new()),
+            );
+            self.refresh_facts(stale, &mut list.facts);
             let mut walk = Walk {
                 host: self,
                 margin,
                 indices: &mut list.indices,
                 facts: &list.facts,
-                pass: list.pass,
                 generation: list.ink_gen,
                 used: HashSet::new(),
                 out: Vec::with_capacity(list.entries.len()),
@@ -457,6 +470,56 @@ impl Model {
             list.state = key;
         }
         self.paint.list = list;
+        rebuilt
+    }
+
+    /// Bring `facts` up to date with the nodes marked stale since the last list.
+    pub(crate) fn refresh_facts(
+        &self,
+        stale: StaleFacts,
+        facts: &mut HashMap<NodeId, SubtreeFacts>,
+    ) {
+        match stale {
+            StaleFacts::All => *facts = self.layer_facts(),
+            StaleFacts::Nodes(set) => {
+                let tree = self.tree();
+                let mut queue: BinaryHeap<(usize, NodeId)> = set
+                    .into_iter()
+                    .filter(|id| tree.contains(*id))
+                    .map(|id| (tree.depth(id), id))
+                    .collect();
+                let mut done = BTreeSet::new();
+                while let Some((_, id)) = queue.pop() {
+                    if !done.insert(id) {
+                        continue;
+                    }
+                    let parent = if self.is_layer_node(id) {
+                        // A layer root starts afresh: its facts are derived with no parent.
+                        None
+                    } else {
+                        tree.get(id)
+                            .and_then(|n| tree.flat_parent(n))
+                            // A chain of transparent ancestors: the root is the
+                            // layer root the facts were derived from.
+                            .or_else(|| tree.root().filter(|root| *root != id))
+                    };
+                    let parent_look = parent.and_then(|p| self.drawn_look(p));
+                    let new = crate::layer::node_facts(self, id, parent_look.as_ref(), facts);
+                    let old = facts.get(&id).copied().unwrap_or_default();
+                    if new == SubtreeFacts::default() {
+                        facts.remove(&id);
+                    } else {
+                        facts.insert(id, new);
+                    }
+                    if new != old
+                        && !self.is_layer_node(id)
+                        && let Some(p) = parent
+                    {
+                        queue.push((tree.depth(p), p));
+                    }
+                }
+            }
+        }
     }
 
     /// Build an independent list in the target's local output space.
@@ -478,7 +541,6 @@ impl Model {
             margin: MARGIN,
             indices: &mut indices,
             facts: &facts,
-            pass: self.paint.list.pass,
             generation: self.paint.list.ink_gen,
             used: HashSet::new(),
             out: Vec::new(),
@@ -537,7 +599,7 @@ fn opacity(
     n: &HostNode,
     look: &Look,
     parent_alpha: f64,
-) -> (bool, bool, f64) {
+) -> (Grouping, f64) {
     // Group opacity over more than one thing it draws.
     let content = match n.kind() {
         _ if host.editors[n.index.0].is_some() => 2,
@@ -549,11 +611,15 @@ fn opacity(
         || look.items + content > 1
         || look.grouped;
     let group = look.opacity < 1.0 && more;
-    let grouped = group || look.grouped;
+    let grouping = match (group, look.grouped) {
+        (true, _) => Grouping::Opacity,
+        (false, true) => Grouping::Effects,
+        (false, false) => Grouping::None,
+    };
     let alpha = if group {
         parent_alpha
     } else {
         parent_alpha * look.opacity
     };
-    (group, grouped, alpha)
+    (grouping, alpha)
 }

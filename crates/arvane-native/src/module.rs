@@ -12,14 +12,22 @@
 
 #[cfg(any(windows, target_os = "linux"))]
 use std::sync::atomic::{AtomicBool, Ordering};
+
+/// What retaining the module gave, and whether it was reported.
+#[cfg(any(windows, target_os = "linux"))]
+struct Retained {
+    // xtask-allow(state-fields): cache: the loader's answer for keeping this module mapped (`retain`); asking again gives the same answer, so it is asked once per process and never invalidated
+    mapping: Option<&'static str>,
+    // xtask-allow(state-fields): independent: set by the first `retain_module` call before it logs, whatever the loader answered; a reentrant call from the log subscriber sees it set and returns, so both answers occur with it unset and set
+    reported: AtomicBool,
+}
+
 #[cfg(any(windows, target_os = "linux"))]
 #[expect(
     clippy::disallowed_types,
     reason = "process-wide module mapping initialized once"
 )]
-static MAPPING: std::sync::OnceLock<Option<&'static str>> = std::sync::OnceLock::new();
-#[cfg(any(windows, target_os = "linux"))]
-static REPORTED: AtomicBool = AtomicBool::new(false);
+static RETAINED: std::sync::OnceLock<Retained> = std::sync::OnceLock::new();
 
 /// Keep this code module mapped until process exit for detached threads or
 /// native providers. Repeated calls do nothing. Other platforms do nothing.
@@ -27,14 +35,17 @@ static REPORTED: AtomicBool = AtomicBool::new(false);
 pub fn retain_module() {
     #[cfg(any(windows, target_os = "linux"))]
     {
-        let mapping = MAPPING.get_or_init(retain);
+        let retained = RETAINED.get_or_init(|| Retained {
+            mapping: retain(),
+            reported: AtomicBool::new(false),
+        });
         // Publish the report flag before entering subscriber code: a reentrant
         // call observes the completed mapping and must not log recursively.
-        if REPORTED.swap(true, Ordering::AcqRel) {
+        if retained.reported.swap(true, Ordering::AcqRel) {
             return;
         }
         let caller = std::panic::Location::caller();
-        if let Some(mapping) = mapping {
+        if let Some(mapping) = retained.mapping {
             tracing::warn!(target: "kivact", %caller, mapping,
                 "module code kept mapped until process exit for a detached thread or native library");
         } else {

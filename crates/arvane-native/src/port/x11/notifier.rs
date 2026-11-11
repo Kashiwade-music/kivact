@@ -1,4 +1,4 @@
-//! Role: Own X11 notification identity and the UI thread join handle.
+//! Role: Own X11 notification identity and the UI thread's lifetime.
 use std::os::fd::OwnedFd;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicU8, Ordering};
@@ -7,10 +7,19 @@ use std::thread::JoinHandle;
 pub(super) const MAX_DIMENSION: u32 = u16::MAX as u32;
 pub(super) struct Notifier {
     pub(super) wake: OwnedFd,
-    // xtask-allow(state-fields): mailbox - wake reasons coalesced across threads until the UI loop takes them
+    // xtask-allow(state-fields): independent: bits OR-ed in by `request` on any thread and swapped to zero by `take` on the UI thread; a request in any UiThread state only sets bits, which wait until the UI loop takes them
     pub(super) reasons: AtomicU8,
-    // xtask-allow(state-fields): owned resource - the UI thread's join handle, stored once after the spawn and taken once at close
-    pub(super) thread: Mutex<Option<JoinHandle<()>>>,
+    /// The UI thread's lifetime: spawned once, and joined once at close.
+    pub(super) thread: Mutex<UiThread>,
+}
+/// The UI thread's lifetime.
+pub(super) enum UiThread {
+    /// Not spawned yet.
+    Unspawned,
+    /// Spawned; the handle is held until the thread is joined or detached.
+    Running(JoinHandle<()>),
+    /// The handle was taken once (joined, or detached because its own callback closed).
+    Joined,
 }
 impl Notifier {
     pub(super) fn request(&self, reasons: arvane_shell::WakeReasons) {

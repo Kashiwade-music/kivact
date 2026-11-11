@@ -9,7 +9,7 @@
 ```rust,no_run
 use kivact::prelude::*;
 
-fn header() -> impl Component {
+fn header() -> impl Element {
     column((
         text("タスク"),
         text("今日やること"),
@@ -17,11 +17,11 @@ fn header() -> impl Component {
     .style(style().gap(4))
 }
 
-fn task_row(title: impl IntoText) -> impl Component {
+fn task_row(title: impl IntoText) -> impl Element {
     row((text("-"), text(title))).style(style().gap(8))
 }
 
-fn task_list() -> impl Component {
+fn task_list() -> impl Element {
     column((
         task_row("牛乳を買う"),
         task_row("チュートリアルを書く"),
@@ -41,15 +41,38 @@ fn main() -> kivact::Result<()> {
 
 ## 新しく出てきたもの
 
-**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Component` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
+**view の helper は普通の関数です。** `header`、`task_row`、`task_list` は、呼び出し側が呼んだ時点で実行されます。`task_row` は `impl IntoText` を受け取るので、固定の文字列と、文字を返すリアクティブな値のどちらも渡せます。これらの helper は `impl Element` を返します。修飾できる単一のルートを持つ view なので、呼び出し側で `.style(..)`、`.name(..)` などの標準のノードの修飾を付けられます。分岐や fragment など、修飾できる単一のルートを持たない view を返す場合は `impl IntoView` を使います。
 
-**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `component(move || { .. })` を返します。
+**props を取る helper はコンポーネントにします。** helper が props を取るなら `#[component]` を付け、prop を `Value`、`View`、`Callback` などで宣言します。props のビルダーは Kivact が書くので、手で書く必要はありません（[再利用できるコンポーネントを書く](../how-to-guide/custom-components.md)）。props が無く、呼び出し側がノードの修飾を付け続ける helper は、普通の関数のままでかまいません。
+
+```rust,no_run
+use kivact::prelude::*;
+
+/// タスクの 1 行。`#[component]` が props のビルダーを書きます。
+#[component]
+fn task_row(title: Value<String>) -> impl IntoView {
+    row((text("-"), text(title))).style(style().gap(8))
+}
+
+fn app() -> impl IntoView {
+    column((
+        task_row("牛乳を買う"),
+        task_row("チュートリアルを書く"),
+        task_row("散歩に行く"),
+    ))
+    .style(style().gap(8))
+}
+```
+
+`Value<String>` の prop は `&str` もシグナルも受け取るので、`task_row("牛乳を買う")` と書けます。`header` や `task_list` のように props を持たない helper は、普通の関数のままにします。
+
+**セットアップの境界は明示します。** Rust の helper を呼んでも、その状態に新しいライフサイクルは作られません。`App::run(app)` はルートを一度だけセットアップします。状態が変わると、次のステップで扱うリアクティブなクロージャだけが再評価されます。React の render 関数のように、画面全体の関数を毎回呼び直す仕組みではありません。自分専用のシグナル、effect、後片付けを持つ再利用可能な view は `scope(move || { .. })` を返します。
 
 ```rust,no_run
 use kivact::prelude::*;
 
 fn click_counter() -> impl IntoView {
-    component(move || {
+    scope(move || {
         let count = signal(0);
         column((
             text(move || format!("{} 回押しました", count.get())),
@@ -62,7 +85,7 @@ fn click_counter() -> impl IntoView {
 
 クロージャはこの view がマウントされた時に一度だけ実行されます。そこで作った状態は view がアンマウントされると破棄されます。`count` を変えるとセットアップを再実行せずに文字だけが更新されます。この境界は見えるレイアウトの箱を追加しません。返される `View` には修飾できる単一のルートがないため、スタイルは内側の `column` に付けます。シグナルとリアクティブなクロージャは次のステップで使います。
 
-`signal` や `memo` は、App のルート、`component`、`show`、`dynamic`、`for_each` が実行するセットアップで作ります。`text(move || ..)` や `style(move || ..)` のようなリアクティブなクロージャは変更のたびに再実行されるため、セットアップ済みの値を読みます。
+`signal` や `memo` は、App のルート、`scope`、`show`、`dynamic`、`for_each` が実行するセットアップで作ります。`text(move || ..)` や `style(move || ..)` のようなリアクティブなクロージャは変更のたびに再実行されるため、セットアップ済みの値を読みます。
 
 **`column` と `row`** は、子を縦と横に並べます。子はタプルで渡します (`column((a, b, c))`)。括弧が二重になっているのは、内側がタプルだからで、`column(a, b)` とは書けません。子の型はバラバラでよく、タプルには最大 16 個まで入れられます。
 

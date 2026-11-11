@@ -128,7 +128,7 @@ fn easing_editor() -> impl IntoView {
 
 ## グラデーションを編集する
 
-`gradient_editor(stops, selection)` は、ドラッグできるストップを持つカラーランプを表示し、選択中のストップには位置のフィールドとカラーホイールを表示します。
+`gradient_editor(stops, selected)` は、ドラッグできるストップを持つカラーランプを表示し、選択中のストップには位置のフィールドとカラーホイールを表示します。
 
 ```rust,no_run
 use kivact::draw::linear_gradient;

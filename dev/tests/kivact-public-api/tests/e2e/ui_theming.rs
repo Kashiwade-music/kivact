@@ -45,7 +45,7 @@ fn a_switch_thumb_recipe_animates_when_the_binding_changes() {
                 style()
                     .size(16, 16)
                     .background(rgb(RED))
-                    .translate_x(if state.checked.is_checked() { 80 } else { 0 })
+                    .translate_x(if state.is_checked() { 80 } else { 0 })
                     .transition(TransitionProp::All, Transition::tween(400, Easing::Linear))
             }
         });
@@ -145,7 +145,11 @@ fn a_menu_slot_replaces_item_rows_and_the_default_shows_headings_and_description
                 .on_activate(move |key| chosen.set(Some(key)))
                 .item(|entry, state: Value<MenuItemState>| {
                     text(move || {
-                        let mark = if state.get().input.focused { "> " } else { "" };
+                        let mark = if state.get().input.is_focused() {
+                            "> "
+                        } else {
+                            ""
+                        };
                         format!("{mark}[{}]", entry.get().label())
                     })
                 }),

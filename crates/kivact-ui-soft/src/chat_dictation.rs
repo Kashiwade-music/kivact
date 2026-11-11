@@ -3,7 +3,7 @@ use kivact::i18n::message;
 use kivact::state::{Callback, IntoText, IntoValue, Value, callback};
 use kivact::style::{Align, Direction, Justify, style};
 use kivact::ui::ControlSize;
-use kivact::view::{IntoView, Node, NodeBuilder, Role, View, node, row, text};
+use kivact::view::{Element, IntoView, Node, Role, View, node, row, text};
 fn control_side(size: ControlSize) -> i32 {
     match size {
         ControlSize::ExtraSmall => 24,
@@ -15,17 +15,19 @@ fn control_side(size: ControlSize) -> i32 {
 /// Read-only microphone capability and audio samples supplied by the application.
 // Read-only application-owned microphone capability and sampled audio facts; the control owns no recording transitions.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub struct DictationState {
-    // xtask-allow(state-fields): Read-only application microphone capability fact; the control owns no recording state.
-    /// Whether the application can offer dictation.
-    pub supported: bool,
-    // xtask-allow(state-fields): Read-only application recording snapshot; transitions remain in the application owner.
-    /// Whether the application is currently listening.
-    pub listening: bool,
-    /// Current normalized input amplitude used when band samples are absent.
-    pub volume: f64,
-    /// Normalized frequency-band amplitudes used to draw the listening waveform.
-    pub bands: Vec<f64>,
+pub enum DictationState {
+    /// The application cannot offer dictation.
+    #[default]
+    Unsupported,
+    /// The application can offer dictation and is not listening.
+    Idle,
+    /// The application is listening.
+    Listening {
+        /// Current normalized input amplitude used when band samples are absent.
+        volume: f64,
+        /// Normalized frequency-band amplitudes used to draw the listening waveform.
+        bands: Vec<f64>,
+    },
 }
 
 /// Dictation toggle displaying application-owned recording state.
@@ -50,7 +52,7 @@ pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDicta
     }
 }
 
-impl NodeBuilder for ChatDictationButton {
+impl Element for ChatDictationButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -92,7 +94,7 @@ impl IntoView for ChatDictationButton {
             label,
         } = self;
         let side = control_side(size.get());
-        let listening = move || state.with(|state| state.listening);
+        let listening = move || matches!(state.get(), DictationState::Listening { .. });
         let icon = text("🎙").hidden(listening);
         let waveform = row(dictation_bars(state, side))
             .hidden(move || !listening())
@@ -101,13 +103,15 @@ impl IntoView for ChatDictationButton {
             .focusable(true)
             .name(label)
             .checked(listening)
-            .disabled(move || !state.with(|state| state.supported))
+            .disabled(move || matches!(state.get(), DictationState::Unsupported))
             .on_press(move || {
                 if let Some(toggle) = on_toggle {
                     toggle.call(());
                 }
             })
-            .hidden(move || hide_when_unsupported.get() && !state.with(|state| state.supported))
+            .hidden(move || {
+                hide_when_unsupported.get() && matches!(state.get(), DictationState::Unsupported)
+            })
             .with_node(move |node| {
                 node.base_style(move || {
                     let p = kivact::style::use_tokens::<crate::Tokens>();
@@ -132,8 +136,12 @@ fn dictation_bars(state: Value<DictationState>, side: i32) -> Vec<Node> {
         .map(|index| {
             node().style(move || {
                 let p = kivact::style::use_tokens::<crate::Tokens>();
-                let (band, volume) = state
-                    .with(|state| (state.bands.get(index).copied().unwrap_or(0.0), state.volume));
+                let (band, volume) = state.with(|state| match state {
+                    DictationState::Listening { volume, bands } => {
+                        (bands.get(index).copied().unwrap_or(0.0), *volume)
+                    }
+                    DictationState::Unsupported | DictationState::Idle => (0.0, 0.0),
+                });
                 let level = (band.max(0.0) / 0.2).sqrt().min(1.0);
                 let height = if side <= 28 { 14.0 } else { 18.0 };
                 style()

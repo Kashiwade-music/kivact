@@ -3,7 +3,7 @@
 use crate::ColorName;
 use crate::parts::sized_icon;
 
-use kivact::view::{Node, NodeBuilder, node, row};
+use kivact::view::{Element, Node, node, row};
 
 use kivact::style::{Align, Direction, pct, style};
 use kivact::view::{IntoView, View};
@@ -62,7 +62,7 @@ impl Marker {
     }
 }
 
-impl NodeBuilder for Marker {
+impl Element for Marker {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

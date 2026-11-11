@@ -8,7 +8,7 @@
 //! focusability, base style) first, so the caller's modifiers win. The
 //! standard components
 //! (`kivact::ui`) and those of the official UI kits hold a root `Node` and
-//! implement [`NodeBuilder`] like any external component — role, focus,
+//! implement [`Element`] like any external component — role, focus,
 //! key/pointer/a11y input, draw layers, regions and size hints are all
 //! public.
 //!
@@ -25,7 +25,7 @@ use kivact_engine::contract::NodeType;
 
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
-use crate::view::descriptor::{mount, view_fn};
+use crate::view::descriptor::view_fn;
 use crate::view::element_data::Common;
 use crate::view::element_data::{Content, Node};
 use crate::view::mount::mount_host;
@@ -105,8 +105,11 @@ impl Node {
     /// Preserved label relations after caller and part sources are merged.
     pub(crate) fn labelled_by_sources(&self) -> Vec<crate::view::NodeRef> {
         self.semantic_inputs()
-            .filter_map(|patch| match patch.relation {
-                Some((crate::view::semantics_data::Relation::LabelledBy, target)) => Some(target),
+            .filter_map(|patch| match &patch.input {
+                crate::view::semantics_data::SemanticInput::Relation(
+                    crate::view::semantics_data::Relation::LabelledBy,
+                    target,
+                ) => Some(*target),
                 _ => None,
             })
             .collect()
@@ -115,8 +118,11 @@ impl Node {
     /// Preserved description relations after caller and part sources are merged.
     pub(crate) fn described_by_sources(&self) -> Vec<crate::view::NodeRef> {
         self.semantic_inputs()
-            .filter_map(|patch| match patch.relation {
-                Some((crate::view::semantics_data::Relation::DescribedBy, target)) => Some(target),
+            .filter_map(|patch| match &patch.input {
+                crate::view::semantics_data::SemanticInput::Relation(
+                    crate::view::semantics_data::Relation::DescribedBy,
+                    target,
+                ) => Some(*target),
                 _ => None,
             })
             .collect()
@@ -259,8 +265,7 @@ impl IntoView for Node {
                 n.at = None;
             }
             for child in children {
-                let child = mount(child, cx);
-                cx.append(id, child);
+                child.mount_into(cx, id);
             }
             match content {
                 Content::Box => {}
@@ -387,7 +392,7 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 ///
 /// ```no_run
 /// # use kivact_core as kivact;
-/// use kivact::view::{NodeBuilder, icon};
+/// use kivact::view::{Element, icon};
 /// use kivact::style::{ColorToken, style};
 /// let check = icon("check").style(style().color(ColorToken::Accent));
 /// # let _ = check;

@@ -1,6 +1,6 @@
 //! Role: Test element queries and inspection.
 //!
-//! Reads on an `Element`: scoped queries, its accessibility (as the host
+//! Reads on an `Locator`: scoped queries, its accessibility (as the host
 //! published it, falling back to the retained tree for nodes without a
 //! role), its text and state.
 
@@ -8,12 +8,12 @@ use kivact_engine::contract::SceneLayer;
 use kivact_engine::testing::SemanticsNode;
 use kivact_types::{self as p};
 
-use super::model::{Element, Query};
+use super::model::{Locator, Query};
 use kivact_core::diagnostics::Why;
 use kivact_core::view::{A11yAction, CheckedState, Role};
 use kivact_style::draw::RegionId;
 
-impl<'a> Element<'a> {
+impl<'a> Locator<'a> {
     /// Why this element's props have their values (effects, reads, writes).
     pub fn why(&self) -> Why {
         self.screen.inspect().why(self.node)
@@ -21,30 +21,30 @@ impl<'a> Element<'a> {
 
     /// Search within this element's subtree.
     #[track_caller]
-    pub fn get_by_role(&self, role: Role, name: &str) -> Element<'a> {
+    pub fn get_by_role(&self, role: Role, name: &str) -> Locator<'a> {
         self.screen
             .get(Query::Role(role, name.into()), Some(self.node))
     }
     #[track_caller]
-    pub fn get_by_text(&self, text: &str) -> Element<'a> {
+    pub fn get_by_text(&self, text: &str) -> Locator<'a> {
         self.screen.get(Query::Text(text.into()), Some(self.node))
     }
     #[track_caller]
-    pub fn get_by_test_id(&self, id: &str) -> Element<'a> {
+    pub fn get_by_test_id(&self, id: &str) -> Locator<'a> {
         self.screen.get(Query::TestId(id.into()), Some(self.node))
     }
-    pub fn all_by_test_id(&self, id: &str) -> Vec<Element<'a>> {
+    pub fn all_by_test_id(&self, id: &str) -> Vec<Locator<'a>> {
         self.screen.all(Query::TestId(id.into()), Some(self.node))
     }
 
     /// The element's retained child nodes in order, projecting through
     /// structural Contents boxes. Nodes without accessibility roles are included.
-    pub fn children(&self) -> Vec<Element<'a>> {
+    pub fn children(&self) -> Vec<Locator<'a>> {
         self.screen
             .facts()
             .children(self.node)
             .into_iter()
-            .map(|c| Element {
+            .map(|c| Locator {
                 screen: self.screen,
                 node: c,
                 region: None,
@@ -109,19 +109,19 @@ impl<'a> Element<'a> {
     /// The elements the host published as describing this one
     /// (`.described_by(..)`), in order. Empty when this element is not
     /// exposed or has none.
-    pub fn described_by(&self) -> Vec<Element<'a>> {
+    pub fn described_by(&self) -> Vec<Locator<'a>> {
         self.related(|p| p.described_by.iter().map(|id| id.0).collect())
     }
 
     /// The elements the host published as controlled by this one
     /// (`.controls(..)`), in order.
-    pub fn controls(&self) -> Vec<Element<'a>> {
+    pub fn controls(&self) -> Vec<Locator<'a>> {
         self.related(|p| p.controls.iter().map(|id| id.0).collect())
     }
 
     /// The elements the host published as labelling this one
     /// (`.labelled_by(..)`), in order.
-    pub fn labelled_by(&self) -> Vec<Element<'a>> {
+    pub fn labelled_by(&self) -> Vec<Locator<'a>> {
         self.related(|p| p.labelled_by.iter().map(|id| id.0).collect())
     }
 
@@ -129,7 +129,7 @@ impl<'a> Element<'a> {
     fn related(
         &self,
         pick: impl FnOnce(&p::Semantics<p::SemanticsId>) -> Vec<u64>,
-    ) -> Vec<Element<'a>> {
+    ) -> Vec<Locator<'a>> {
         let ids = self
             .published()
             .map(|n| n.semantics)
@@ -138,7 +138,7 @@ impl<'a> Element<'a> {
         let host = self.screen.host();
         ids.into_iter()
             .filter_map(|id| host.semantics_target(self.screen.window, id))
-            .map(|(node, region)| Element {
+            .map(|(node, region)| Locator {
                 screen: self.screen,
                 node,
                 region,
@@ -393,7 +393,7 @@ impl<'a> Element<'a> {
     }
 }
 
-impl Element<'_> {
+impl Locator<'_> {
     /// Numeric minimum, maximum and current value, as published to AT.
     pub fn value_range(&self) -> (Option<f64>, Option<f64>, Option<f64>) {
         self.published()
@@ -441,7 +441,7 @@ impl Element<'_> {
             .unwrap_or_default()
     }
     /// Whether AT identifies this other element as the active descendant.
-    pub fn has_active_descendant(&self, other: &Element<'_>) -> bool {
+    pub fn has_active_descendant(&self, other: &Locator<'_>) -> bool {
         let target = other.published().map(|n| n.id);
         target.is_some()
             && self

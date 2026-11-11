@@ -135,6 +135,8 @@ pub trait ShellWindow {
     /// `None` for the whole frame. The callback receives the buffer's
     /// [`BufferAge`]: with `Previous`, the pixels outside `damage` already hold
     /// the last presented frame. The callback runs synchronously at most once.
+    /// The callback returns `false` only before it has written any pixel, so the
+    /// window can keep the last presented frame as the base of the next damaged frame.
     /// `false` discards its buffer without presentation. `Ok(true)` acknowledges
     /// a committed frame; `Ok(false)` means no buffer was offered or the callback
     /// declined it. A backend error is independent of an error captured by the
@@ -269,12 +271,12 @@ pub enum Step {
 #[derive(Clone, Debug)]
 pub enum StepOutcome {
     Idle {
-        // xtask-allow(state-fields): passive record - the next timer deadline the backend reports
+        // xtask-allow(state-fields): independent: the loop control's earliest timer deadline when the turn ends; timers come from the handler, apart from window redraw flags and wakes, so it is present or absent with any mix of them
         next_deadline: Option<u64>,
-        // xtask-allow(state-fields): passive record - whether a redraw was asked during the turn
-        /// Whether any window asked for a redraw during the turn.
+        // xtask-allow(state-fields): independent: whether any window's redraw flag is still set when the turn ends; windows set it from their own requests, apart from the timer deadline and pending wakes, so a turn may end with any mix
+        /// Whether a window's redraw is still pending when the turn ends (asked and not delivered yet).
         redraw_requested: bool,
-        // xtask-allow(state-fields): passive record - whether the turn handled a wake
+        // xtask-allow(state-fields): independent: whether a wake is still pending when the turn ends (`WakePending::pending`); wakers set it from any thread, apart from the timer deadline and redraw flags, so a turn may end with any mix
         woken: bool,
     },
     Exited,

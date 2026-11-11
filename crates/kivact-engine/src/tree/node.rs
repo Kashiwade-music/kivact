@@ -25,16 +25,29 @@ pub(crate) struct HostNode {
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<DrawList>>; 2],
     pub(crate) scroll: Point,
-    pub(crate) sent_layout: kivact_types::cell::Sent<LayoutReport>,
-    pub(crate) sent_scroll: kivact_types::cell::Sent<ScrollReport>,
-    /// The last published loading status of an `Image` node's asset.
-    pub(crate) sent_image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
+    /// What was last published about it: only an observed, scrolling or
+    /// image node publishes (`Model::report_geometry`, `Model::report_images`).
+    pub(crate) sent: Option<Box<SentReports>>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
     /// How far a sticky box is moved from its laid out position by the
     /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
     pub(crate) shift: Point,
+}
+
+const _: () = assert!(
+    std::mem::size_of::<HostNode>() <= 312,
+    "HostNode grew: box the new rare field"
+);
+
+/// The last values published to the client about one node.
+#[derive(Clone, Debug, Default)]
+pub(crate) struct SentReports {
+    pub(crate) layout: kivact_types::cell::Sent<LayoutReport>,
+    pub(crate) scroll: kivact_types::cell::Sent<ScrollReport>,
+    /// The last published loading status of an `Image` node's asset.
+    pub(crate) image: kivact_types::cell::Sent<kivact_types::ImageStatus>,
 }
 
 /// The last published geometry, text clipping and window layout box observation.
@@ -117,33 +130,43 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
-    // xtask-allow(state-fields): derived cache - Its base paint or a state style transforms it
+    // xtask-allow(state-fields): cache: update_place derives it from the base paint and state style transforms, a running state motion and the parent's perspective (raise_under_perspective only raises it); the walks skip untransformed nodes by it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
     pub(crate) z: i32,
-    // xtask-allow(state-fields): derived cache - A state style sets its z-index
+    // xtask-allow(state-fields): cache: a state style sets its z-index
     /// A state style sets its z-index.
     pub(crate) z_states: bool,
     /// One of its children has (or had) a z-index or a state style that
     /// sets one: its children are ordered by z-index (`Model::stacked`).
     /// Kept once set.
     pub(crate) stacks: Stacking,
-    // xtask-allow(state-fields): derived cache - `position: sticky`: moved by its scrollport's scroll, and drawn and hit over its in-flow siblings of the same z-index (CSS paints positioned boxes after in-flow ones)
+    /// Where its `position` places it: in the flow, moved by its
+    /// scrollport's scroll (drawn and hit over its in-flow siblings of the
+    /// same z-index, as CSS paints positioned boxes after in-flow ones), or
+    /// a layer of its own at its window position.
+    pub(crate) positioning: Positioning,
+}
+
+/// Where a node's `position` places it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Positioning {
+    /// In flow, in its parent's layout, scroll and clip.
+    #[default]
+    InFlow,
     /// `position: sticky`: moved by its scrollport's scroll, and drawn and
-    /// hit over its in-flow siblings of the same z-index (CSS paints
-    /// positioned boxes after in-flow ones).
-    pub(crate) sticky: bool,
-    // xtask-allow(state-fields): derived cache - `position: fixed`: a layer of its own at its window position
+    /// hit over its in-flow siblings of the same z-index.
+    Sticky,
     /// `position: fixed`: a layer of its own at its window position.
-    pub(crate) fixed: bool,
+    Fixed,
 }
 
 impl Place {
     /// It may be ordered among its siblings by a z-index (or by being
     /// sticky).
     pub(crate) fn has_z(&self) -> bool {
-        self.z != 0 || self.z_states || self.sticky
+        self.z != 0 || self.z_states || self.positioning == Positioning::Sticky
     }
 }
 
@@ -155,9 +178,7 @@ impl HostNode {
             index,
             scenes: [None, None],
             scroll: Point::default(),
-            sent_layout: Default::default(),
-            sent_scroll: Default::default(),
-            sent_image: Default::default(),
+            sent: None,
             place: Place::default(),
             shift: Point::default(),
         };
@@ -168,7 +189,8 @@ impl HostNode {
     /// Derive the place from the props. `moving` says a running state
     /// motion has a current transform that is not none; `under_perspective`
     /// says the parent has a perspective, which moves a node whose transform
-    /// is not 2D. The only writer of `Place::transformed`.
+    /// is not 2D. The writer that clears `Place::transformed`
+    /// (`NodeTree::raise_under_perspective` only raises it).
     pub(crate) fn update_place(&mut self, moving: bool, under_perspective: bool) {
         if self.is_transparent() {
             self.place = Place::default();
@@ -190,8 +212,11 @@ impl HostNode {
             ..self.place
         };
         let position = self.layout().map(|l| l.position);
-        self.place.sticky = position == Some(Position::Sticky);
-        self.place.fixed = position == Some(Position::Fixed);
+        self.place.positioning = match position {
+            Some(Position::Sticky) => Positioning::Sticky,
+            Some(Position::Fixed) => Positioning::Fixed,
+            _ => Positioning::InFlow,
+        };
     }
 
     /// Whether its base paint or one of its state styles sets a transform
@@ -339,7 +364,7 @@ impl HostNode {
     /// It starts a layer of its own (an overlay, or a fixed box): placed in
     /// the window, not in its parent's layout, scroll, clip or transforms.
     pub(crate) fn is_layer(&self) -> bool {
-        self.kind() == NodeType::Overlay || self.place.fixed
+        self.kind() == NodeType::Overlay || self.place.positioning == Positioning::Fixed
     }
 
     /// An overlay that confines input while shown.

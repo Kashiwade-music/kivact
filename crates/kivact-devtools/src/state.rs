@@ -71,6 +71,7 @@ pub(crate) struct Session {
     pub(crate) panel: Signal<Panel>,
     /// Panels shown in their own window.
     pub(crate) popped: Signal<Vec<Panel>>,
+    // xtask-allow(state-fields): independent: the status bar's last RPC failure, set by Session::send when a call fails and by Session::report; it stays while connection moves to Lost, and a connected session may have none
     /// The last failure to show in the status bar.
     pub(crate) status: Signal<Option<String>>,
     /// The detail of the selected node.

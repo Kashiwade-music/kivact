@@ -7,7 +7,8 @@ license.workspace = true
 description = "Interactive styled component catalog for kivact-ui-creative"
 
 [features]
-default = ["gpu"]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 gpu = ["kivact/gpu"]
 
 [dependencies]

@@ -50,7 +50,7 @@ const STANDARD: &[&str] = &[
     "AsyncFnOnce",
 ];
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
-    if !source.library {
+    if !source.library() {
         return;
     }
     if !crate::check_policy::is_kit(&source.package) {

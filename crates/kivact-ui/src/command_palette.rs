@@ -6,7 +6,7 @@ use kivact_core::i18n::message;
 use kivact_core::state::{Binding, Value, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Icon, style, use_theme};
-use kivact_core::view::NodeBuilder;
+use kivact_core::view::Element;
 use kivact_core::view::{
     HandlerResult, IntoView, KeyEvent, Placement, View, dynamic, for_each, node_ref, overlay, show,
 };
@@ -25,15 +25,15 @@ pub struct CommandPalette<K: kivact_core::state::ItemKey> {
     open: Binding<bool>,
     commands: Value<Vec<Command<K>>>,
     run: Rc<dyn Fn(K) -> kivact_core::Result<()>>,
-    // xtask-allow(state-fields): builder option - filter
+    // xtask-allow(state-fields): option: absent means the component's default
     filter: Option<Filter<K>>,
-    // xtask-allow(state-fields): builder option - close on
+    // xtask-allow(state-fields): option: CommandPalette::close_on; absent means only Escape closes the palette from the field
     close_on: Option<fn(&KeyEvent) -> bool>,
-    // xtask-allow(state-fields): builder option - placeholder
+    // xtask-allow(state-fields): option: absent means the component's default
     placeholder: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - empty
+    // xtask-allow(state-fields): option: absent means the component's default
     empty: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - footer
+    // xtask-allow(state-fields): option: CommandPalette::footer; absent draws no footer under the command list
     footer: Option<Footer>,
     variants: Variants,
 }

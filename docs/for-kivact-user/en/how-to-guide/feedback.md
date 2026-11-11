@@ -2,7 +2,7 @@
 
 [日本語](../../jp/how-to-guide/feedback.md)
 
-Use `kivact::ui` for empty states, alerts, cards, and input groups. The installed theme supplies each component's recipes. Root `NodeBuilder` modifiers, including `.name(..)` and `.style(..)`, remain available.
+Use `kivact::ui` for empty states, alerts, cards, and input groups. The installed theme supplies each component's recipes. Root `Element` modifiers, including `.name(..)` and `.style(..)`, remain available.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -66,8 +66,9 @@ Use a kit's `.variant(..)` for its color, spacing, density, shadow or media fram
 choices, or apply ordinary `.style(..)`. Interaction and announcements stay with
 the standard components. Keep custom actions as real named controls.
 
-Card recipes receive `input: Option<PartState>` from the actual button or
-checkbox part; an ordinary card receives `None`. The `overlay` recipe draws a
+Card recipes read `state.input()`, the `PartState` of the actual button or
+checkbox part (`None` for an ordinary card); `state.action` tells a plain,
+pressable and selectable card apart. The `overlay` recipe draws a
 noninteractive decorative node above the content. Its bounds follow the laid-out
 card root, and the theme defines clipping and corner shape.
 
@@ -76,7 +77,8 @@ existing icon, title and description, and action, disclosure and dismiss slots.
 They default to `Display::Contents`, so they add no box unless the recipe asks for
 one. Decide their look from the same `AlertState`.
 
-`AlertState.has_content` reports whether the details slot exists, independent of
-whether the alert is collapsible. The standard disclosure control attaches the
+`AlertState::has_content()` reports whether the content slot exists, independent of
+whether the alert is collapsible; `AlertState::expansion()` tells whether it can
+collapse and is open. The standard disclosure control attaches the
 standard tooltip to its actual target; translate its name and hint with the
 `alert.expand` and `alert.collapse` messages.

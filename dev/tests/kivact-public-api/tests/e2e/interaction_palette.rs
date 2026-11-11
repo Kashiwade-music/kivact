@@ -13,7 +13,7 @@ use kivact::interaction::Command;
 use kivact::interaction::{CommandPaletteApi, use_command_palette};
 use kivact::prelude::*;
 use kivact::state::callback;
-use kivact::test::{Element, Screen};
+use kivact::test::{Locator, Screen};
 use kivact::view::{Placement, overlay};
 
 type Cmd = Command<&'static str>;
@@ -70,7 +70,7 @@ fn opener(open: Signal<bool>) -> Node {
 }
 
 fn palette_with_height(p: CommandPaletteApi<&'static str>, height: f64) -> View {
-    p.show(move || {
+    p.while_open(move || {
         let rows = for_each(
             p.visible(),
             |g| (g.index, g.heading.is_some()),
@@ -172,16 +172,16 @@ impl Page {
             .get_by_role(Role::Button, "Open palette")
             .click();
     }
-    fn field(&self) -> Element<'_> {
+    fn field(&self) -> Locator<'_> {
         self.screen.get_by_role(Role::TextBox, "Search commands")
     }
     /// The rows now listed (of the names the tests use), top to bottom.
-    fn rendered(&self) -> Vec<Element<'_>> {
-        let mut rows: Vec<Element<'_>> = NAMES
+    fn rendered(&self) -> Vec<Locator<'_>> {
+        let mut rows: Vec<Locator<'_>> = NAMES
             .iter()
             .filter_map(|name| self.screen.query_by_role(Role::Option, name))
             .collect();
-        let y = |e: &Element<'_>| e.rect().map(|r| r.y).unwrap_or_default();
+        let y = |e: &Locator<'_>| e.rect().map(|r| r.y).unwrap_or_default();
         rows.sort_by(|a, b| y(a).total_cmp(&y(b)));
         rows
     }

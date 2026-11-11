@@ -12,7 +12,7 @@ use kivact_types::{Environment, PointerSettings};
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
     pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
-    // xtask-allow(state-fields): independent fact - the focused text input's state as the application last set it
+    // xtask-allow(state-fields): independent: written only by the IME port's `surrounding` when the application focuses or edits a text input, while reduced_motion and locale come from the system's settings; neither source reads the other, so every pair occurs
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
@@ -28,22 +28,23 @@ pub(crate) struct NativeInput {
     /// subclass reads it.
     #[cfg(windows)]
     pub(crate) subclass_installed: Cell<Subclass>,
-    // xtask-allow(state-fields): measurement - the system reduce-motion preference as last read
+    // xtask-allow(state-fields): cache: the system's reduce-motion preference as last read; read again on `WM_SETTINGCHANGE` (Windows) and on the settings portal's environment wake (Linux)
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
     pub(crate) mouse: Cell<PointerSettings>,
-    // xtask-allow(state-fields): measurement - the system locale as last read
+    // xtask-allow(state-fields): cache: the system's locale as last read (`system_locale`); read again on `WM_SETTINGCHANGE` and when the window gains focus; absent when the system reports none
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
     /// changed; the change is not announced yet.
     pub(crate) env_changed: LocalMailbox<()>,
     /// Wakes the event loop when the subclass noted something to deliver
-    /// outside a window event (a settings change); `None` for a window that
-    /// installs no subclass (an embedded child).
+    /// outside a window event (a settings change, the file drag position).
+    /// Only the subclass procedure calls it; an embedded child installs no
+    /// subclass, so its waker is never called from here.
     #[cfg(windows)]
-    waker: Option<ShellWaker>,
+    waker: ShellWaker,
     /// The touch and pen pointers of the frame of the last pointer message
     /// (Windows' `WM_POINTER*`: winit reports every pointer of the frame
     /// from it), read while winit reports them: winit reports a pen as a
@@ -59,10 +60,10 @@ pub(crate) struct ContactNote {
     pub(crate) id: u64,
     /// Touch or pen.
     pub(crate) kind: kivact_types::PointerKind,
-    // xtask-allow(state-fields): platform snapshot - The contact ended without a release (the system took it over)
+    // xtask-allow(state-fields): independent: the platform's CANCELED flag for the contact's pointer message; tilt comes from the pen info of the same message, and a touch (no tilt) or a pen (with or without tilt) can each be canceled, so every pair occurs
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
-    // xtask-allow(state-fields): platform snapshot - The pen's tilt (degrees along x and y), when reported
+    // xtask-allow(state-fields): option: the pen's tilt in degrees along x and y; absent when the platform reports none
     /// The pen's tilt (degrees along x and y), when reported.
     pub(crate) tilt: Option<(f64, f64)>,
 }
@@ -74,7 +75,7 @@ pub(crate) enum Subclass {
     Installed,
 }
 impl NativeInput {
-    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: Option<ShellWaker>) -> Self {
+    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: ShellWaker) -> Self {
         Self {
             ime: RefCell::default(),
             text: RefCell::new(None),
@@ -97,10 +98,8 @@ impl NativeInput {
 
 #[cfg(windows)]
 impl NativeInput {
-    /// Wake the event loop, when the window has one to wake.
+    /// Wake the event loop.
     pub(crate) fn wake(&self, reasons: WakeReasons) {
-        if let Some(waker) = &self.waker {
-            waker.wake(reasons);
-        }
+        self.waker.wake(reasons);
     }
 }

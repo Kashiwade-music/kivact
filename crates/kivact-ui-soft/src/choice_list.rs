@@ -2,8 +2,8 @@
 
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 use kivact::view::row;
@@ -38,28 +38,28 @@ pub struct CheckboxList<K: ItemKey> {
 /// Build checkbox rows from keyed options and a writable collection of selected keys.
 pub fn checkbox_list<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl IntoBinding<Vec<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoBinding<Vec<K>>,
 ) -> CheckboxList<K> {
     CheckboxList {
         root: node()
             .with_node(move |node| node.role(Role::Group))
             .name(label),
-        options: options.into_value(),
-        value: value.into_binding(),
+        options: items.into_value(),
+        value: selected.into_binding(),
     }
 }
 
 /// Build mutually exclusive option rows with the canonical radio-group behavior.
 pub fn radio_list<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl IntoBinding<Option<K>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoBinding<Option<K>>,
 ) -> RadioGroup<K> {
-    radio_group(label, options, value)
+    radio_group(label, items, selected)
 }
 
-impl<K: ItemKey> NodeBuilder for CheckboxList<K> {
+impl<K: ItemKey> Element for CheckboxList<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

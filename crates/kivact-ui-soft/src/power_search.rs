@@ -21,9 +21,9 @@ use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::ui::select;
 use kivact::ui::text_input;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::for_each;
 use kivact::view::icon;
@@ -64,18 +64,18 @@ pub struct PowerSearch<K: ItemKey> {
 /// Build an editor for adding, changing and removing filters over the supplied keyed fields.
 pub fn power_search<K: ItemKey>(
     label: impl IntoText,
-    fields: impl IntoValue<Vec<ListItem<K>>>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
     filters: impl IntoBinding<Vec<SearchFilter<K>>>,
 ) -> PowerSearch<K> {
     PowerSearch {
         root: node(),
         label: label.into_text_value(),
-        fields: fields.into_value(),
+        fields: items.into_value(),
         filters: filters.into_binding(),
     }
 }
 
-impl<K: ItemKey> NodeBuilder for PowerSearch<K> {
+impl<K: ItemKey> Element for PowerSearch<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -140,9 +140,9 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
 
 #[derive(Clone, PartialEq)]
 struct FilterDraft<K> {
-    // xtask-allow(state-fields): passive record - field
+    // xtask-allow(state-fields): independent: set only by the Field select or seeded from the edited filter; operator is chosen separately and Apply requires both, so a draft missing either is a valid in-progress form.
     field: Option<K>,
-    // xtask-allow(state-fields): passive record - operator
+    // xtask-allow(state-fields): independent: the chosen comparison; every field offers every operator
     operator: Option<SearchOperator>,
     value: String,
 }

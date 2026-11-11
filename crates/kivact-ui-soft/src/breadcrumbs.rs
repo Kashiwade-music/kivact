@@ -58,15 +58,15 @@ fn item(theme: &Theme, s: &Look<BreadcrumbItemState>) -> Style {
         .min_width(0)
         .border(0, kivact::style::Color::TRANSPARENT)
         .background(kivact::style::Color::TRANSPARENT)
-        .color(if (s.current || s.input.is_none()) && !supporting {
+        .color(if s.input().is_none() && !supporting {
             t.colors.text_primary
         } else {
             t.colors.text_secondary
         });
-    if s.current || s.input.is_none() {
+    if s.input().is_none() {
         base.weight(t.typography.weight_semibold)
     } else {
-        let base = if s.input.is_some_and(|input| input.hovered) {
+        let base = if s.input().is_some_and(|input| input.is_hovered()) {
             base.text_decoration(TextDecorationLine::UNDERLINE)
         } else {
             base

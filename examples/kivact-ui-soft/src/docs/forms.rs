@@ -6,7 +6,7 @@ use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{ControlSize, field, number_input, text_area, text_input};
 use kivact::ui::{input_addon, input_group_with};
-use kivact::view::{Node, NodeBuilder, column};
+use kivact::view::{Element, Node, column};
 use kivact_ui_soft::{
     FieldStatusVariant, StatusKind, checkbox_list, field_status, power_search, rich_text_editor,
 };

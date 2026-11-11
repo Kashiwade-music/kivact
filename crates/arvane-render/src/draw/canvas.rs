@@ -64,6 +64,17 @@ pub(crate) trait Canvas {
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect);
 }
 
+/// How a run of glyphs is rasterized.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum GlyphRaster {
+    /// Unhinted outlines where the shaping put them: stroked runs, and
+    /// runs under a rotation, a skew or a non-uniform scale.
+    Outline,
+    /// Hinted vertically, under a translation and a uniform scale;
+    /// `atlas`: the glyphs may come from a glyph atlas (a solid fill).
+    Hinted { atlas: bool },
+}
+
 /// How a run of glyphs is drawn.
 pub(crate) struct GlyphRun<'a> {
     /// The font the glyph ids index.
@@ -74,20 +85,22 @@ pub(crate) struct GlyphRun<'a> {
     pub(crate) coords: &'a [i16],
     /// Stem darkening of the run.
     pub(crate) embolden: glifo::FontEmbolden,
-    // xtask-allow(state-fields): drawing options - Hint vertically (only under a translation and a uniform scale)
-    /// Hint vertically (only under a translation and a uniform scale).
-    pub(crate) hint: bool,
-    // xtask-allow(state-fields): drawing options - cached
-    /// May come from a glyph atlas (only under a translation and a uniform
-    /// scale; rotated glyphs are drawn from their outlines).
+    /// Hinting, and whether the glyph atlas may be used.
+    pub(crate) raster: GlyphRaster,
+}
+
+impl GlyphRun<'_> {
+    /// Whether the glyphs may come from a glyph atlas (only under a
+    /// translation and a uniform scale; rotated glyphs are drawn from their
+    /// outlines).
     #[cfg_attr(
         not(feature = "gpu"),
         expect(dead_code, reason = "the GPU's glyph atlas")
     )]
-    pub(crate) cached: bool,
-}
+    pub(crate) fn atlas(&self) -> bool {
+        matches!(self.raster, GlyphRaster::Hinted { atlas: true })
+    }
 
-impl GlyphRun<'_> {
     /// `builder` set up for this run: vertical hinting and stem darkening
     /// (`text.rs`).
     pub(crate) fn apply<'a, B: glifo::GlyphRunBackend<'a>>(
@@ -100,7 +113,7 @@ impl GlyphRun<'_> {
         builder
             .font_size(self.font_size as f32)
             .normalized_coords(self.coords)
-            .hint(self.hint)
+            .hint(matches!(self.raster, GlyphRaster::Hinted { .. }))
             .font_embolden(self.embolden)
     }
 }

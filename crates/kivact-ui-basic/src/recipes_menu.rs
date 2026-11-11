@@ -109,9 +109,9 @@ fn surface(t: &Theme) -> Style {
 /// the row is lit: open, or (while enabled) hovered or focused, which the
 /// part reads from the row, a style group.
 fn when_lit(s: &kivact::ui::Look<MenuItemState>, base: Style, lit: Style) -> Style {
-    if s.expanded {
+    if s.is_expanded() {
         base.merge(&lit)
-    } else if s.input.disabled {
+    } else if s.input.is_disabled() {
         base
     } else {
         base.group_hover(lit.clone()).group_focus(lit)
@@ -124,7 +124,7 @@ fn when_lit(s: &kivact::ui::Look<MenuItemState>, base: Style, lit: Style) -> Sty
 /// at the end (`pr-8`), or at the start in the menu bar (`pl-8`).
 fn item(t: &Theme, s: &kivact::ui::Look<MenuItemState>, look: MenuLook) -> Style {
     let p = t.ext::<Tokens>();
-    let (left, right) = match (s.check.is_some(), look.bar) {
+    let (left, right) = match (s.check().is_some(), look.bar) {
         (true, true) => (32.0, 8.0),
         (true, false) => (8.0, 32.0),
         (false, _) => (8.0, 8.0),
@@ -151,7 +151,7 @@ fn item(t: &Theme, s: &kivact::ui::Look<MenuItemState>, look: MenuLook) -> Style
         })
         .hover(lit_style.clone())
         .focus(lit_style.clone());
-    if s.expanded {
+    if s.is_expanded() {
         base.merge(&lit_style)
     } else {
         base

@@ -101,11 +101,11 @@ pub(super) struct Frame<'a> {
     pub(super) config: &'a ChartConfig,
     pub(super) rows: &'a [ChartRow],
     pub(super) kind: ChartKind,
-    // xtask-allow(state-fields): passive record - horizontal
+    // xtask-allow(state-fields): option: the caller's Chart::orientation (Horizontal), read per paint in Options::frame; false lays bars out as columns
     pub(super) horizontal: bool,
-    // xtask-allow(state-fields): passive record - grid
+    // xtask-allow(state-fields): option: the caller's Chart::grid (default on), read per paint in Options::frame; false skips the grid lines
     pub(super) grid: bool,
-    // xtask-allow(state-fields): passive record - axis
+    // xtask-allow(state-fields): option: the caller's Chart::axis (default on), read per paint in Options::frame; false drops the axis labels and their gutter
     pub(super) axis: bool,
     /// The caption under the total in the middle of a donut.
     pub(super) total_label: &'a str,

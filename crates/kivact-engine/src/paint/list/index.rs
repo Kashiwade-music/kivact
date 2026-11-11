@@ -12,12 +12,14 @@
 //!   stuck anywhere): [`ChildIndex::sticky`] lists them all.
 //! - An entry's reach is the child's ink (`super::ink`: what its subtree
 //!   can draw on) at its location, grown by [`SLACK`]; a child whose ink is
-//!   not finite reaches everywhere.
-//! - After a layout pass every entry takes its child's new location; only
-//!   the children whose size or content size changed are looked at again
-//!   (their ink). After a change in a child's subtree
-//!   (`ChildIndex::touch`), that child is. The container's children
-//!   changing drops the index (the parent module).
+//!   not finite, or whose subtree draws outside its ink (`Drawn::beyond`),
+//!   reaches everywhere.
+//! - After a layout pass the children whose layout changed
+//!   (`PaintState::moved_child`, from the pass's geometry changes) are
+//!   looked at again: their location, size and ink. After a change in a
+//!   child's subtree (`ChildIndex::touch`), that child is looked at again
+//!   too. Nothing else is visited. The container's children changing drops
+//!   the index (the parent module).
 
 use crate::model::Model;
 use crate::paint::state::{Axis, ChildIndex, Extent, Indexed};
@@ -26,7 +28,7 @@ use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
 use kivact_types::{NodeId, Rect};
 
-use super::ink::{grow, ink, overlaps};
+use super::ink::{drawn, grow, overlaps};
 
 /// Logical pixels an entry is grown by: the index computes a child's reach
 /// relative to its location, the walk in window space, and the two may
@@ -42,9 +44,14 @@ impl Indexed {
         generation: Generation,
         order: usize,
     ) -> Self {
-        let extent = match n.and_then(|n| ink(host, id, n, &layout, generation)) {
-            Some(r) if [r.x, r.y, r.width, r.height].iter().all(|v| v.is_finite()) => {
-                Extent::Within(grow(r, SLACK))
+        let extent = match n.and_then(|n| drawn(host, id, n, &layout, generation)) {
+            Some(d)
+                if !d.beyond
+                    && [d.rect.x, d.rect.y, d.rect.width, d.rect.height]
+                        .iter()
+                        .all(|v| v.is_finite()) =>
+            {
+                Extent::Within(grow(d.rect, SLACK))
             }
             Some(_) => Extent::Anywhere,
             None => Extent::Nothing,
@@ -52,10 +59,9 @@ impl Indexed {
         Indexed {
             id,
             order,
-            sticky: n.is_some_and(|n| n.place.sticky),
+            sticky: n
+                .is_some_and(|n| n.place.positioning == crate::tree::node::Positioning::Sticky),
             location: layout.location,
-            size: layout.size,
-            content: layout.content_size,
             extent,
         }
     }
@@ -89,12 +95,11 @@ impl Axis {
 }
 
 impl ChildIndex {
-    /// The index of the children `children`, laid out by layout pass
-    /// `pass`, with inks of generation `generation`.
+    /// The index of the children `children`, with inks of generation
+    /// `generation`.
     pub(super) fn build(
         host: &Model,
         children: impl ExactSizeIterator<Item = NodeId>,
-        pass: Generation,
         generation: Generation,
     ) -> Self {
         let layouts = host;
@@ -119,41 +124,34 @@ impl ChildIndex {
             starts: Vec::new(),
             furthest: Vec::new(),
             sticky: Vec::new(),
-            pass,
             touched: Vec::new(),
         };
         index.sort();
         index
     }
 
-    /// Something in the subtree of the child `id` changed (its ink).
-    pub(super) fn touch(&mut self, id: NodeId) {
+    /// Something in the subtree of the child `id` changed (its ink), or
+    /// the child moved or resized in a layout pass.
+    pub(crate) fn touch(&mut self, id: NodeId) {
         self.touched.push(id);
     }
 
-    /// Bring the entries up to layout pass `pass` and the touched children
-    /// (inks of generation `generation`).
-    pub(super) fn refresh(&mut self, host: &Model, pass: Generation, generation: Generation) {
-        let relaid = pass != self.pass;
-        if !relaid && self.touched.is_empty() {
+    /// Bring the touched children's entries up to the current layout and
+    /// inks of generation `generation`.
+    pub(super) fn refresh(&mut self, host: &Model, generation: Generation) {
+        if self.touched.is_empty() {
             return;
         }
         let mut touched = std::mem::take(&mut self.touched);
         touched.sort_unstable();
         let layouts = host;
         for e in &mut self.entries {
-            let again = touched.binary_search(&e.id).is_ok();
-            if !relaid && !again {
+            if touched.binary_search(&e.id).is_err() {
                 continue;
             }
             let layout = layouts.computed_layout(e.id).unwrap_or_default();
-            if again || layout.size != e.size || layout.content_size != e.content {
-                *e = Indexed::new(host, e.id, host.node(e.id), layout, generation, e.order);
-            } else {
-                e.location = layout.location;
-            }
+            *e = Indexed::new(host, e.id, host.node(e.id), layout, generation, e.order);
         }
-        self.pass = pass;
         self.sort();
     }
 

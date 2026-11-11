@@ -84,6 +84,7 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
     // not add to every period (the loop asks for its next tick a period
     // after the last one's stamp).
     let times: Rc<std::cell::RefCell<Vec<Duration>>> = Rc::default();
+    // xtask-allow(state-fields): independent: a test slot holding the frame loop; written once
     let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
     let (t, s) = (times.clone(), slot.clone());
     let screen = render_with(small(MirrorMode::Off), move || {
@@ -114,6 +115,7 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
 
     // Waiting in virtual time.
     let screen = render(|| {
+        // xtask-allow(state-fields): independent: set by the spawned sleep after 300 ms of virtual time; the frame-loop slot of the same test is filled at mount, before and after it flips
         let shown = signal(false);
         kivact_core::task::spawn(async move {
             kivact_core::task::sleep(Duration::from_millis(300)).await;
@@ -132,7 +134,9 @@ fn virtual_time_drives_sleep_and_frame_loops_exactly() {
 
 #[test]
 fn a_display_rate_loop_follows_the_window_to_a_faster_display() {
+    // xtask-allow(state-fields): statistic: a test counter of ticks
     let count = Rc::new(Cell::new(0u64));
+    // xtask-allow(state-fields): independent: a test slot holding the frame loop; written once
     let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
     let (c, s) = (count.clone(), slot.clone());
     let screen = render_with(small(MirrorMode::Off), move || {
@@ -219,7 +223,9 @@ fn failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel() {
 }
 
 fn ticks(hz: f64, period: u64) -> u64 {
+    // xtask-allow(state-fields): statistic: a test counter of ticks
     let count = Rc::new(Cell::new(0u64));
+    // xtask-allow(state-fields): independent: a test slot holding the frame loop; written once
     let slot: Rc<Cell<Option<FrameLoop>>> = Rc::new(Cell::new(None));
     let (c, s) = (count.clone(), slot.clone());
     let screen = render_with(small(MirrorMode::Off).frame_period_ns(period), move || {

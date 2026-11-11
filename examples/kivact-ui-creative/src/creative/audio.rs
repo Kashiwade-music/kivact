@@ -4,7 +4,7 @@ use kivact::state::IntoBinding;
 
 use super::audio_values::level;
 use super::common::{col, note};
-use kivact::prelude::{IntoView, NodeBuilder, ScrollAxes, Signal, rgb, row, scroll, signal};
+use kivact::prelude::{Element, IntoView, ScrollAxes, Signal, rgb, row, scroll, signal};
 use kivact::state::IntoValue;
 use kivact::state::binding;
 use kivact::style::style;

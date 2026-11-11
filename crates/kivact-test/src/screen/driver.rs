@@ -23,19 +23,17 @@ const SETTLE_LIMIT: usize = 100_000;
 
 impl Screen {
     /// Mount `root` on the test driver with `options`, the App fonts
-    /// `fonts` (as `App::font` passes them), drawing on the GPU when `gpu`
-    /// (the GPU smoke test), and settle.
+    /// `fonts` (as `App::font` passes them), and settle.
     #[track_caller]
     pub(crate) fn start(
         options: RenderOptions,
-        gpu: bool,
         fonts: Vec<(Asset, &'static Location<'static>)>,
         root: Box<dyn FnOnce() -> View>,
         at: &'static Location<'static>,
     ) -> Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
-        let (app, host_options) = options.into_host(gpu, fonts);
+        let (app, host_options) = options.into_host(fonts);
         let timed = record.clone();
         let (client, launch) = Launch::new(
             app,
@@ -109,6 +107,23 @@ impl Screen {
                 self.fail(&report);
             }
             self.step();
+        }
+    }
+
+    /// Wait until the window's frames are drawn on the GPU, while its device
+    /// starts on a worker thread ([`Renderer::GpuStarting`]): the host keeps
+    /// running in real time, at most 5 s (the virtual clock does not move),
+    /// then settles. Fails the test, with the failure report, when the device
+    /// failed, did not start in time, or is not starting (the window draws
+    /// on the CPU only, or nothing needed the GPU yet).
+    #[track_caller]
+    pub fn wait_for_gpu(&self) {
+        self.log("wait for gpu".into());
+        let waited = self.host_mut().wait_for_gpu(self.window);
+        self.run_until_idle();
+        if let Err(error) = waited {
+            let report = self.report(&format!("wait_for_gpu: {error}"), None, &[]);
+            self.fail(&report);
         }
     }
 

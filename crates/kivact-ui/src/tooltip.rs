@@ -6,8 +6,8 @@ use kivact_core::geometry::Edge;
 use kivact_core::geometry::Rect;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{Element, node, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
-use kivact_core::view::{NodeBuilder, node, text};
 
 /// A themed hint for a trigger, created by [`tooltip`]; attach it with
 /// [`attach`](Tooltip::attach).
@@ -88,7 +88,7 @@ impl Tooltip {
     /// has a description keeps it. The surface is mounted in a fresh owner
     /// while the tooltip is shown. Moving the pointer onto the hint keeps it
     /// shown until the pointer leaves both the trigger and the hint.
-    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
         let anchor = node_ref();

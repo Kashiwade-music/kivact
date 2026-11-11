@@ -63,7 +63,7 @@ pub(crate) fn cancelled(at: &'static Location<'static>) -> UiError {
 /// The only publication path for resource and action state.
 pub(crate) struct AsyncCell<T: 'static> {
     pub(super) state: crate::Signal<Rc<AsyncState<T>>>,
-    // xtask-allow(state-fields): delivery record - the value of the latest success, kept while a later run is pending or failed
+    // xtask-allow(state-fields): projection: written only by AsyncCell::publish (Ready(v) implies latest == Some(v))
     pub(super) latest: crate::Signal<Option<T>>,
 }
 impl<T: Clone + 'static> AsyncCell<T> {
@@ -73,18 +73,22 @@ impl<T: Clone + 'static> AsyncCell<T> {
             latest: owner.signal(None, at),
         }
     }
+    /// The only writer of both signals: a success first records its value as
+    /// `latest`, then becomes `state`.
+    fn publish(&self, next: AsyncState<T>) {
+        if let AsyncState::Ready(value) = &next {
+            self.latest.update(|latest| *latest = Some(value.clone()));
+        }
+        self.state.update(|state| *state = Rc::new(next));
+    }
     pub(super) fn start(&self) {
-        self.state
-            .update(|state| *state = Rc::new(AsyncState::Pending));
+        self.publish(AsyncState::Pending);
     }
     pub(super) fn finish(&self, result: Result<T, UiError>) {
         let next = match result {
-            Ok(value) => {
-                self.latest.update(|latest| *latest = Some(value.clone()));
-                AsyncState::Ready(value)
-            }
+            Ok(value) => AsyncState::Ready(value),
             Err(error) => AsyncState::Failed(error),
         };
-        self.state.update(|state| *state = Rc::new(next));
+        self.publish(next);
     }
 }

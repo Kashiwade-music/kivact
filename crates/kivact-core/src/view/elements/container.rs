@@ -10,7 +10,7 @@ use super::builders::node;
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
-use crate::view::element_data::{Node, NodeBuilder};
+use crate::view::element_data::{Element, Node};
 use crate::view::state::ViewState;
 use crate::view::{IntoView, Orientation, Role, View};
 use kivact_style::{Direction, Style, style};
@@ -43,7 +43,7 @@ pub fn row(children: impl IntoView) -> Node {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::style::{auto, style};
-/// use kivact::view::{NodeBuilder, grid, span, text};
+/// use kivact::view::{Element, grid, span, text};
 /// use kivact::style::{GridPlacement, Track};
 /// // .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 16px }
 /// let cards = grid((text("A"), text("B").style(style().grid_column(GridPlacement::span(2)))))
@@ -64,13 +64,13 @@ pub fn grid(children: impl IntoView) -> Node {
 /// It scrolls vertically; [`axes`](Scroll::axes) scrolls horizontally or both
 /// ways. Its accessibility orientation follows the axes (vertical,
 /// horizontal, none for both); an `.orientation(..)` on it that disagrees is
-/// reported and ignored. The modifiers of [`NodeBuilder`] apply to the
+/// reported and ignored. The modifiers of [`Element`] apply to the
 /// container.
 ///
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::style::{style};
-/// use kivact::view::{NodeBuilder, ScrollAxes, column, row, scroll, text};
+/// use kivact::view::{Element, ScrollAxes, column, row, scroll, text};
 ///
 /// let list = scroll(column((text("A"), text("B")))).style(style().height(120));
 /// let strip = scroll(row((text("A"), text("B")))).axes(ScrollAxes::Horizontal);
@@ -103,7 +103,7 @@ impl Scroll {
     }
 }
 
-impl NodeBuilder for Scroll {
+impl Element for Scroll {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -133,7 +133,12 @@ impl IntoView for Scroll {
                 .semantics
                 .iter()
                 .rev()
-                .find_map(|patch| patch.orientation.clone());
+                .find_map(|patch| match &patch.input {
+                    crate::view::semantics_data::SemanticInput::Orientation(source) => {
+                        Some(source.clone())
+                    }
+                    _ => None,
+                });
             let weak = cx.weak();
             let owner = cx.owner;
             let reported = kivact_types::cell::ReportOnce::new();

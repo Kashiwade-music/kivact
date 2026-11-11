@@ -5,7 +5,7 @@ use crate::{ChatAlign, ChatThreadState};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
-    IntoView, Node, NodeBuilder, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
+    Element, IntoView, Node, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
 /// A scrollable message log that follows new content until the reader scrolls away.
@@ -93,7 +93,7 @@ impl ChatThread {
         self
     }
 }
-impl NodeBuilder for ChatThread {
+impl Element for ChatThread {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

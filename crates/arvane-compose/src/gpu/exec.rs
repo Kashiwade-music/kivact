@@ -67,8 +67,8 @@ impl GpuContext {
     /// Drop the chunk and surface textures no record of the cache names.
     fn prune(&mut self) {
         let cache = &self.cache;
-        self.chunks.retain(|key, _| cache.chunks.contains_key(key));
-        self.kept.retain(|key, _| cache.layers.contains_key(key));
+        self.chunks.retain(|key, _| cache.keeps_chunk(key));
+        self.kept.retain(|key, _| cache.keeps_layer(key));
     }
 
     /// Plan one frame against `cache`, draw it, and return the output with the records to store.
@@ -130,6 +130,7 @@ impl GpuContext {
             exports: exported,
             missed,
             shader_failures: std::mem::take(&mut self.shader_failures),
+            shader_fallback: false,
             pending_exports: pending,
             stats,
         };

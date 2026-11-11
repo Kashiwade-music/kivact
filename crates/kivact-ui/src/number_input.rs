@@ -9,8 +9,8 @@ use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, grid, icon};
 use kivact_core::view::{IntoView, NodeRef, View, node_ref};
-use kivact_core::view::{Node, NodeBuilder, grid, icon};
 use kivact_interaction::{ScalarRange, use_scalar};
 
 /// What a number field shows: the value formatted, or what the user typed
@@ -162,7 +162,7 @@ impl NumberInput {
     }
 }
 
-impl NodeBuilder for NumberInput {
+impl Element for NumberInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

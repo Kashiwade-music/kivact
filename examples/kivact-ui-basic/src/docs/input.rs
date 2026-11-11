@@ -1,5 +1,4 @@
 //! Role: Catalog page of Input: basic, label, disabled, invalid and with a button.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "input",
         name: "Input",
         description: "一行のテキストを入力する欄です。標準の kivact::ui::text_input に Lyra の見た目を当てたもので、値は呼び出し側の signal が持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
         source: include_str!("input.rs"),
         align: PreviewAlign::Center,
         examples: vec![

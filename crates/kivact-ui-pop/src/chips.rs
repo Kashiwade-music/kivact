@@ -5,8 +5,8 @@ use kivact::i18n::{message, message_with};
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, BorderStyle, ColorToken, style};
+use kivact::view::{Element, Node, icon, row, text};
 use kivact::view::{HandlerResult, IntoView, View, for_index};
-use kivact::view::{Node, NodeBuilder, icon, row, text};
 
 /// A chip that calls its owner when its remove button is invoked.
 pub struct RemovableChip {
@@ -28,7 +28,7 @@ impl RemovableChip {
         self
     }
 }
-impl NodeBuilder for RemovableChip {
+impl Element for RemovableChip {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -94,7 +94,7 @@ impl ChipList {
         self
     }
 }
-impl NodeBuilder for ChipList {
+impl Element for ChipList {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

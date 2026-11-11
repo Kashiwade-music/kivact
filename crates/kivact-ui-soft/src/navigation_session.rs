@@ -3,7 +3,7 @@ use kivact::interaction::{Delays, NavOpen, NavigationMenuApi, use_navigation_men
 use kivact::state::{
     Binding, IntoValue, Value, binding, effect_on, on_cleanup, provide, try_use_context,
 };
-use kivact::view::{Handled, IntoView, NodeBuilder, PointerEvent, PointerKind, PointerPhase, View};
+use kivact::view::{Element, Handled, IntoView, PointerEvent, PointerKind, PointerPhase, View};
 use std::time::Duration;
 #[derive(Clone, Copy)]
 struct NavigationGroup(NavigationMenuApi);
@@ -33,9 +33,9 @@ impl NavPanel {
             move || eligible.get() && active(),
             move |open| {
                 if open && eligible.get_untracked() {
-                    api.pin(key);
+                    api.show(key);
                 } else if !open && active() {
-                    api.close();
+                    api.hide();
                 }
             },
         );
@@ -61,12 +61,12 @@ impl NavPanel {
             self.api.toggle(self.key);
         }
     }
-    pub(crate) fn trigger<T: NodeBuilder>(self, target: T) -> T {
+    pub(crate) fn trigger<T: Element>(self, target: T) -> T {
         target.with_node(move |node| {
             node.on_pointer(move |event| self.pointer(event, NavPart::Trigger))
         })
     }
-    pub(crate) fn surface<T: NodeBuilder>(self, target: T) -> T {
+    pub(crate) fn surface<T: Element>(self, target: T) -> T {
         target.with_node(move |node| {
             node.on_pointer(move |event| self.pointer(event, NavPart::Surface))
         })

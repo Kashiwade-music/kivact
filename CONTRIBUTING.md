@@ -18,7 +18,7 @@
   - 公開 enum と field を公開した struct への `#[non_exhaustive]`（`non-exhaustive`。policy の `extra_rules` に入れていません）。互換を残さない初期開発版では利点がなく、workspace の中の `match` から網羅性の検査を奪うためです。
 - 関数は Clippy の 80 行の上限に収めます。長い処理は責務を持つ helper に分け、lint の無効化や行の詰め込みで回避しません。
 - 所有と状態は `Machine`・binding・読み取り専用の投影で表します。公開 API の field に `Arc`・`Rc`・lock を漏らさず、asset は所有する byte 列や `AssetBytes`、保持する描画結果は snapshot の型で渡します。
-- 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `component(move || view)` を使います。
+- 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `scope(move || view)` を使います。
 - panic は不具合です。`catch_unwind` で隔離せず、毒された lock の中身にも触れません。
 - glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。
 
@@ -82,9 +82,13 @@ KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 5400 -- cargo test -p 
 dev/tools/check-features.sh
 ```
 
-`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
+`cargo xtask check` はファイルごとの code 行の上限、crate の `visible_to`、module の依存の向き、Google Rust Style Guide の規則（rustfmt と Clippy を含む）を検査し、`architecture/` の図と `architecture/index.html` を生成します。`state-fields`、`effect-writes`、`api-shape`、`canonical-path`、`name-collision`、`kit-literal-color`、`os-branch`、`structural-options` も含み、`--only <検査> --crate <crate> --module <module path>` で範囲を絞れます（`--only` はコンマ区切りで複数指定可、`--report` は違反を一覧にして成功で終了、`--report-audit` は状態の閉じ方の一覧を `dev/xtask/state-audit.md` に書き出す（commit しない）、例外は対象の field や項目の直前の `// xtask-allow(<検査>): <理由>`）。CI は fmt と `cargo xtask check --no-write` だけを実行します。`dev/tools/check-features.sh` は library の非既定 feature を一つずつ有効にしてコンパイルします。
 
 `cargo xtask devtools-codegen --check` は `cargo xtask check` に含まれるため、別に実行しません。DevTools の Python client を変えたときは、`python -m unittest discover python/kivact-devtools/tests` も実行します（任意）。
+
+KPI（起動・メモリ・CPU・フレーム時間・更新レイテンシ・バイナリサイズ）は `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh <label>` で測ります。
+実 window を開き release の build を 9 回行うため、時間がかかります。比べる二つの commit を同じ機械で測り、report を比べます（[dev/bench/README.md](dev/bench/README.md)）。
+手動の道具であり、CI には組み込みません。結果の Markdown は `dev/bench/results/` に書かれ、commit しません。
 
 ## commit と PR
 

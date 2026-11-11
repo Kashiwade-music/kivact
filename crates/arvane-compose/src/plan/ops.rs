@@ -142,10 +142,10 @@ pub(crate) enum Source<'a> {
     External {
         /// The frame to draw.
         frame: ExternalFrame,
-        // xtask-allow(state-fields): passive record - the CPU pixels, present when the CPU draws the frame
+        // xtask-allow(state-fields): option: the fallback pixels the application gave with the frame (`Draw::gpu_frame_with_pixels`), which only the CPU compositor draws; absent when it gave none, and the CPU compositor then reports the frame missed
         /// The CPU pixels, if any.
         cpu: Option<&'a Pixels>,
-        // xtask-allow(state-fields): passive record - the source rectangle, absent for the whole frame
+        // xtask-allow(state-fields): option: the source rectangle; absent for the whole frame
         /// The source rectangle, None for all of it.
         source: Option<kivact_types::geometry::Rect>,
     },

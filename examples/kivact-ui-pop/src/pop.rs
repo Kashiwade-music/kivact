@@ -4,6 +4,7 @@
 
 mod common;
 mod components;
+mod components_helpers;
 mod data;
 mod hero;
 mod keyed_catalog;

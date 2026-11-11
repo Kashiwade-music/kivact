@@ -84,11 +84,20 @@ impl Model {
     /// order.
     pub(crate) fn admit_input(&self, event: &HostEvent) -> bool {
         match event {
-            HostEvent::Pointer(event) => event.target.is_some_and(|node| {
-                self.admit_pointer(node, event.input.id, event.input.phase, event.input.buttons)
+            HostEvent::Pointer(event) => event.target.is_some_and(|target| {
+                self.admit_pointer(
+                    target.node,
+                    event.input.id,
+                    event.input.phase,
+                    event.input.buttons,
+                )
             }),
-            HostEvent::Wheel(event) => event.target.is_some_and(|node| self.in_scope(node)),
-            HostEvent::File(event) => event.target.is_some_and(|node| self.in_scope(node)),
+            HostEvent::Wheel(event) => event
+                .target
+                .is_some_and(|target| self.in_scope(target.node)),
+            HostEvent::File(event) => event
+                .target
+                .is_some_and(|target| self.in_scope(target.node)),
             HostEvent::Activate { node, .. }
             | HostEvent::TextChanged { node, .. }
             | HostEvent::SelectionChanged { node, .. }

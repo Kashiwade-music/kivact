@@ -29,10 +29,18 @@ impl Model {
             self.edits.inputs.remove(&id);
         }
         slot.and_then(|slot| {
-            std::mem::replace(
+            let installed = edit.is_some();
+            let editor = std::mem::replace(
                 &mut self.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
-            )
+            );
+            // An editor measures itself; a node that stops editing is
+            // measured by its kind again.
+            if let Some(node) = self.tree.get(id) {
+                self.measure
+                    .set_measure(slot.0, &node.properties.kind, installed);
+            }
+            editor
         })
     }
 
@@ -132,7 +140,7 @@ impl Model {
                 if initialize {
                     Mutation::NONE
                 } else {
-                    Mutation::LOCAL_TEXT
+                    Mutation::PAYLOAD_ONLY
                 },
             );
             self.remeasure(id);
@@ -204,7 +212,7 @@ impl Model {
             };
             let changed = self.editors[n.index.0]
                 .as_mut()
-                .is_some_and(|node| node.reported_session.update(session.clone()).is_some());
+                .is_some_and(|node| node.report_session(&session));
             if changed {
                 events.push(HostEvent::SelectionChanged { node: id, session });
             }

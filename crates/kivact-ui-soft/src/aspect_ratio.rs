@@ -1,7 +1,7 @@
 //! Role: Keep content clipped to a specified aspect ratio.
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::node;
 
 use kivact::state::IntoValue;
@@ -59,7 +59,7 @@ impl AspectRatio {
     }
 }
 
-impl NodeBuilder for AspectRatio {
+impl Element for AspectRatio {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -3,7 +3,7 @@
 use super::level::Level;
 use super::session::Session;
 use super::state::Edge;
-use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
+use super::state::{MenuEntry, MenuItemDisplay, MenuItemState, MenuOrigin, MenuRow, PressOver};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
@@ -27,13 +27,13 @@ use kivact_core::view::{
 ///
 /// Attach [`trigger`](Self::trigger) to a menu button, or
 /// [`context_trigger`](Self::context_trigger) to an area that opens it with a
-/// right click; give one menu one of the two. [`show`](Self::show) mounts the
+/// right click; give one menu one of the two. [`while_open`](Self::while_open) mounts the
 /// caller's `overlay(..)` with the [`content`](Self::content) part while the
 /// menu is open, and the caller renders the rows of a level with
 /// `for_each(menu.entries(), |(row, _)| row.clone(), ..)`, attaching
 /// [`item`](Self::item) to each item row and drawing separators itself.
 /// [`submenu`](Self::submenu) returns the handle of a submenu level, with its
-/// own `entries`, `show`, `surface` and `item`; its overlay is anchored to
+/// own `entries`, `while_open`, `surface` and `item`; its overlay is anchored to
 /// its item's node, after it.
 ///
 /// Keys inside the menu: Up and Down move through the focusable items of a level
@@ -69,13 +69,13 @@ use kivact_core::view::{
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{MenuEntry, MenuRow, use_menu};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -89,7 +89,7 @@ use kivact_core::view::{
 ///     let anchor = node_ref();
 ///     (
 ///         node().node_ref(anchor).part(trigger).name("File").child(text("File")),
-///         file.show(move || {
+///         file.while_open(move || {
 ///             let rows = for_each(file.entries(), |(row, _)| row.clone(), move |entry| {
 ///                 let row = entry.with(|(row, _)| row.clone());
 ///                 match row {
@@ -120,26 +120,22 @@ impl<K: kivact_core::state::ItemKey> Clone for MenuApi<K> {
 
 impl<K: kivact_core::state::ItemKey> Copy for MenuApi<K> {}
 
-/// A menu over `entries` that calls `choose` with the key of a chosen item.
+/// A menu over `items`; [`on_activate`](MenuApi::on_activate) receives the key of a chosen item.
 /// Setup only.
 #[track_caller]
 pub fn use_menu<K: kivact_core::state::ItemKey>(
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> MenuApi<K> {
-    use_menu_with_open(entries, signal(false))
+    use_menu_with_open(items, signal(false))
 }
 /// A menu whose popup observes the caller's accepted open binding directly.
 /// External opening does not request item focus; keyboard triggers retain canonical focus behavior.
 #[track_caller]
 pub fn use_menu_with_open<K: kivact_core::state::ItemKey>(
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
     open: impl IntoBinding<bool>,
 ) -> MenuApi<K> {
-    let session = Session::new(
-        entries.into_value(),
-        callback(|_: K| ()),
-        open.into_binding(),
-    );
+    let session = Session::new(items.into_value(), callback(|_: K| ()), open.into_binding());
     let level = Level::new(session, Vec::new(), session.is_open());
     MenuApi { session, level }
 }
@@ -169,6 +165,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         })
     }
     /// Drawing state of the actual mounted menu item.
+    /// Before the item mounts it reads as a plain item (`MenuItemDisplay::Action`).
     pub fn item_state(self, key: K) -> Value<MenuItemState> {
         memo(move || {
             self.level
@@ -177,9 +174,8 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                 .map(|state| state.get())
                 .unwrap_or(MenuItemState {
                     input: PartState::default(),
-                    pressed_over: None,
-                    check: None,
-                    expanded: false,
+                    pressed_over: PressOver::None,
+                    display: MenuItemDisplay::Action,
                     destructive: false,
                 })
         })
@@ -187,10 +183,11 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     /// Replace the actual trigger's press action during setup; this is not an observer.
     /// ArrowUp/Down retain canonical opening and initial focus, and popup dismissal is unchanged.
-    pub fn trigger_action(self, action: impl Fn() + 'static) -> Self {
+    pub fn trigger_action(self, action: impl Into<Callback<()>>) -> Self {
+        let action = action.into();
         self.session
             .options
-            .update(|options| options.trigger_action = Some(callback(move |()| action())));
+            .update(|options| options.trigger_action = Some(action));
         self
     }
     /// Handle activation of a menu item.
@@ -232,14 +229,14 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         self.session.origin
     }
 
-    /// Open the menu as the trigger's ArrowDown does: it opens on its first
+    /// Show the menu as the trigger's ArrowDown does: it opens on its first
     /// focusable item, and the focus later returns to the trigger. Does nothing
     /// while the menu is open. Meant for a component that opens one of several
     /// menus itself, such as a menu bar moving between its menus. Top level
     /// only.
     #[track_caller]
-    pub fn open(self) {
-        self.top_level("open");
+    pub fn show(self) {
+        self.top_level("show");
         if self.session.is_open().get_untracked() {
             return;
         }
@@ -247,12 +244,12 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         self.session.request(0, Edge::First);
     }
 
-    /// Close every level of the menu without moving the focus, as
+    /// Hide every level of the menu without moving the focus, as
     /// [`PopupCloseReason::Programmatic`] does. Does nothing while the menu
     /// is closed. Top level only.
     #[track_caller]
-    pub fn close(self) {
-        self.top_level("close");
+    pub fn hide(self) {
+        self.top_level("hide");
         self.session.close(PopupCloseReason::Programmatic);
     }
 
@@ -471,7 +468,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             })
         };
         let part_state = base.state();
-        level.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(level.content_state, part_state);
         Part::new(part_state, move |host| level.content(host.part(base)))
     }
 
@@ -496,7 +493,7 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     /// new origin kind is the menu's own. It is the one exception to
     /// mounting an overlay's content with the `show` function.
     #[track_caller]
-    pub fn show<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
+    pub fn while_open<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
         let factory = factory.into_view_fn();
         let shown = self.level.shown;
         if self.level.depth > 0 {

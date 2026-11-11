@@ -17,7 +17,7 @@ use kivact::style::{ColorToken, Overflow, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{A11yAction, A11yRequest, Handled, IntoView, Role, View, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 /// An editor for typed nodes, sockets, controls and links.
 pub struct NodeEditor {
@@ -85,7 +85,7 @@ impl NodeEditor {
     }
 }
 
-impl NodeBuilder for NodeEditor {
+impl Element for NodeEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -182,7 +182,12 @@ impl NodeEditor {
                 .collect::<Vec<_>>()
         });
         let choose = selection::controller(order, selected);
-        let scene = targets::targets(move || targets(&data.get(), &edges.get()));
+        let targets =
+            targets::targets::<crate::editors::node::gesture::Target, (u64, usize)>(move || {
+                targets(&data.get(), &edges.get())
+            });
+        let scene = targets.scene();
+        let active = targets.active();
         let reference = node_ref();
         let phase = phase_observer(observer);
         let edit =
@@ -197,7 +202,7 @@ impl NodeEditor {
         let input = root_part.state();
         let blocked = memo(move || {
             let input = input.get();
-            input.disabled || input.hidden || !reference.is_visible()
+            input.is_disabled() || input.is_hidden() || !reference.is_visible()
         });
         // The canvas pans and zooms; the pan forwards its phases as the
         // editor's own.
@@ -224,7 +229,7 @@ impl NodeEditor {
             transform,
             scene,
             snap,
-            active: signal(None),
+            active,
             mode: crate::editors::node::gesture::NodeController::new(),
             reference,
             texts: crate::editors::shared::texts::Texts::new(),
@@ -276,10 +281,13 @@ fn observe_inputs(state: State) {
                 crate::editors::node::gesture::DragMode::Items { ids } => {
                     ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
                 }
-                crate::editors::node::gesture::DragMode::Link { from, output, .. } => nodes
-                    .iter()
-                    .find(|node| node.id == from)
-                    .is_some_and(|node| output < node.outputs.len()),
+                crate::editors::node::gesture::DragMode::Link { source, .. } => {
+                    let (from, output) = source.output();
+                    nodes
+                        .iter()
+                        .find(|node| node.id == from)
+                        .is_some_and(|node| output < node.outputs.len())
+                }
                 _ => true,
             });
         state.mode.inputs(
@@ -316,23 +324,24 @@ fn region_control(
                 .part(drag_source)
         })
     };
-    if initial.range.is_some() {
+    if initial.range().is_some() {
         control = kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
-                .value_min(move || info.get().range.map_or(0.0, |v| v.0))
-                .value_max(move || info.get().range.map_or(0.0, |v| v.1))
-                .value_now(move || info.get().range.map_or(0.0, |v| v.2))
+                .value_min(move || info.get().range().map_or(0.0, |v| v.0))
+                .value_max(move || info.get().range().map_or(0.0, |v| v.1))
+                .value_now(move || info.get().range().map_or(0.0, |v| v.2))
         });
     }
-    if initial.checked.is_some() {
+    if initial.checked().is_some() {
         control = kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
-                .checked(move || info.get().checked.unwrap_or(false))
+                .checked(move || info.get().checked().unwrap_or(false))
         });
     }
     if matches!(target, Target::Link(..)) {
         control = kivact::custom::Part::new(control.state(), move |node| {
-            node.part(control).selected(move || info.get().selected)
+            node.part(control)
+                .selected(move || info.get().is_selected())
         });
     }
     if matches!(
@@ -352,7 +361,7 @@ fn region_actions(
     target: Target,
     state: State,
 ) -> kivact::custom::Part<kivact::custom::PartState> {
-    match (initial.role, initial.checked.is_some()) {
+    match (initial.role, initial.checked().is_some()) {
         (Role::SpinButton, _) => kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
                 .a11y_action(A11yAction::SetValue, move |event| {

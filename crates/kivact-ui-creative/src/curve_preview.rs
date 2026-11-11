@@ -5,13 +5,13 @@ use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::state::IntoValue;
 use kivact::style::{style, use_theme};
+use kivact::view::{Element, Node, canvas};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, canvas};
 /// A read-only sampled curve whose modifiers apply to its canvas.
 pub struct CurvePreview {
     root: Node,
 }
-impl NodeBuilder for CurvePreview {
+impl Element for CurvePreview {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

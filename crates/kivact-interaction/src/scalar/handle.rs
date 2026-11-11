@@ -57,7 +57,7 @@ pub struct ScalarApi {
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -383,7 +383,7 @@ impl ScalarApi {
             }
         });
         let part_state = input.state();
-        self.edit.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.edit.observed, part_state);
         Part::new(part_state, move |mut host| {
             register_host_disabled(shared, host.accessible_disabled());
             let mut control = host
@@ -423,7 +423,7 @@ impl ScalarApi {
                 });
             }
             let state = part_state;
-            let focused = memo(move || state.get().input.focused);
+            let focused = memo(move || state.get().input.is_focused());
             register_focus(shared, focused);
             control = control
                 .disabled(move || shared.is_disabled())

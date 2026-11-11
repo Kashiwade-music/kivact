@@ -12,7 +12,7 @@ use kivact::geometry::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
 use kivact::style::Align;
-use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
+use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
 use kivact::view::{A11yAction, Placement, overlay};
 use kivact::view::{Modifiers, MouseButton, overlay_at};
 
@@ -93,7 +93,7 @@ fn level<K: ItemKey>(m: MenuApi<K>) -> Node {
                         .child(text(label));
                     if submenu {
                         let sub = m.submenu(key);
-                        row.child(sub.show(move || {
+                        row.child(sub.while_open(move || {
                             overlay(anchor, Placement::End, level(sub))
                                 .with_node(move |node| node.part(sub.content()))
                                 .name(label)
@@ -115,7 +115,7 @@ pub(super) fn menu_button<K: ItemKey>(name: &'static str, m: MenuApi<K>) -> View
     let anchor = node_ref();
     (
         action(name).part(trigger).node_ref(anchor),
-        m.show(move || {
+        m.while_open(move || {
             overlay(anchor, Placement::Below, level(m))
                 .offset(4)
                 .with_node(move |node| node.part(m.content()))
@@ -133,7 +133,7 @@ fn context_area<K: ItemKey>(name: &'static str, area: Node, m: MenuApi<K>) -> Vi
     let origin = m.origin();
     (
         area.part(trigger).node_ref(anchor),
-        m.show(move || {
+        m.while_open(move || {
             let content = level(m);
             let placed = match origin.get_untracked() {
                 Some(MenuOrigin::Pointer(point)) => overlay_at(point, Placement::Below, content),
@@ -159,7 +159,7 @@ fn mount_button(
     })
 }
 
-fn item<'a>(screen: &'a Screen, name: &str) -> Element<'a> {
+fn item<'a>(screen: &'a Screen, name: &str) -> Locator<'a> {
     screen.get_by_role(Role::MenuItem, name)
 }
 
@@ -174,7 +174,7 @@ fn shift() -> Modifiers {
     }
 }
 
-fn center(element: &Element<'_>) -> Point {
+fn center(element: &Locator<'_>) -> Point {
     let rect = element.rect().expect("invariant: the element is laid out");
     Point::new(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0)
 }

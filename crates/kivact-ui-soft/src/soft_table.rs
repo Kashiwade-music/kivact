@@ -1,7 +1,7 @@
 //! Role: Compose Soft bulk selection and status on canonical controls.
 use kivact::state::{Binding, IntoBinding, IntoText, IntoValue, PropValue, Value};
 use kivact::style::{Align, Direction, style};
-use kivact::view::{IntoView, Node, NodeBuilder, View, text};
+use kivact::view::{Element, IntoView, Node, View, text};
 
 type SelectionLabel = kivact::view::ViewFn<Value<usize>>;
 
@@ -27,7 +27,7 @@ pub fn table_selection_toolbar<K: PropValue>(
     }
 }
 
-impl<K: PropValue> NodeBuilder for TableSelectionToolbar<K> {
+impl<K: PropValue> Element for TableSelectionToolbar<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()

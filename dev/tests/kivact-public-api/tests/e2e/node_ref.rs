@@ -135,3 +135,25 @@ fn frame_loop_runs_only_while_present() {
     assert_eq!(rate.get(), None);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn rect_called_after_binding_follows_the_node() {
+    let (screen, (target, width)) = mount(|| {
+        let target = node_ref();
+        let width = signal(120.0);
+        (
+            (target, width),
+            node()
+                .node_ref(target)
+                .style(move || style().width(width.get()).height(40).shrink(0)),
+        )
+    });
+    // Bound at mount, before anything read its geometry.
+    let rect = target.rect();
+    screen.run_until_idle();
+    assert_eq!(rect.get().map(|r| r.width), Some(120.0));
+    width.set(160.0);
+    screen.run_until_idle();
+    assert_eq!(rect.get().map(|r| r.width), Some(160.0));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

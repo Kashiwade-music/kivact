@@ -9,8 +9,8 @@ use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
 use kivact::ui::{ButtonVariant, button, text_input};
 use kivact::view::HandlerResult;
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, Role, View, dynamic, for_each};
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// One choice of a [`QuestionnaireStep`].
 #[derive(Clone, Debug, PartialEq)]
@@ -101,10 +101,10 @@ enum StepKind {
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
     title: String,
-    // xtask-allow(state-fields): passive record - description
+    // xtask-allow(state-fields): option: absent means the step has no description
     description: Option<String>,
     kind: StepKind,
-    // xtask-allow(state-fields): passive record - optional
+    // xtask-allow(state-fields): option: the caller's QuestionnaireStep::optional (default false); false means the step has no Skip button and Next waits for an answer
     optional: bool,
 }
 
@@ -232,7 +232,7 @@ impl Questionnaire {
     }
 }
 
-impl NodeBuilder for Questionnaire {
+impl Element for Questionnaire {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

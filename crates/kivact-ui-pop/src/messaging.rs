@@ -2,7 +2,7 @@
 
 use crate::Hue;
 use kivact::state::Value;
-use kivact::view::{Node, NodeBuilder, column, row, text};
+use kivact::view::{Element, Node, column, row, text};
 
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, ColorToken, TextOverflow, style};
@@ -76,7 +76,7 @@ impl Thread {
         self
     }
 }
-impl NodeBuilder for Thread {
+impl Element for Thread {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

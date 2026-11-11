@@ -55,7 +55,7 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
         ControlSize::Medium => (24, 12, 14),
         ControlSize::Large => (28, 12, 14),
     };
-    let selected = look.checked.is_checked();
+    let selected = look.is_checked();
     let (fill, ink) = if selected {
         (c.bg_surface, c.text_primary)
     } else {
@@ -77,7 +77,7 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
         .cursor(Cursor::Pointer)
         .focus_visible(ring(&t, c.focus_ring))
         .disabled(style().color(c.text_disabled).cursor(Cursor::Default));
-    if !selected && !look.input.disabled {
+    if !selected && !look.input.is_disabled() {
         base = base
             .hover(style().background(c.overlay_hover))
             .pressed(style().background(c.overlay_pressed));

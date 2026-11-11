@@ -6,7 +6,7 @@ use kivact::test::MirrorMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::ui::text_input;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::Role;
 use kivact::view::text;
 use kivact_ui_soft::{FormDirection, form_layout, form_row, theme};

@@ -12,13 +12,24 @@ use crate::source::Placement;
 
 /// What the first parse of a user source declares.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Interface {
-    // xtask-allow(state-fields): Independent fact read from the declarations; the entry signature is reported by `takes_params` separately.
+pub(crate) enum Interface {
+    /// No `Params` struct: the entry function takes two arguments.
+    NoParams,
+    /// The user declares a `Params` struct; `taken`: the entry function
+    /// takes it as its third argument.
+    Params { taken: bool },
+}
+
+impl Interface {
     /// Whether the user declares a `Params` struct.
-    pub(crate) params_declared: bool,
-    // xtask-allow(state-fields): Independent fact read from the entry signature; the struct declaration is reported by `params_declared` separately.
+    pub(crate) fn params_declared(self) -> bool {
+        matches!(self, Self::Params { .. })
+    }
+
     /// Whether the entry function takes `Params` as its third argument.
-    pub(crate) takes_params: bool,
+    pub(crate) fn takes_params(self) -> bool {
+        matches!(self, Self::Params { taken: true })
+    }
 }
 
 /// Checks the entry function of `kind` and reports what the source declares.
@@ -51,9 +62,12 @@ pub(crate) fn read_interface(
     if !returns_color {
         return Err(place.error(offset, format!("`fn {name}` must return vec4<f32>")));
     }
-    Ok(Interface {
-        params_declared,
-        takes_params,
+    Ok(if params_declared {
+        Interface::Params {
+            taken: takes_params,
+        }
+    } else {
+        Interface::NoParams
     })
 }
 

@@ -29,7 +29,7 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) want: Value<Option<Want<K>>>,
     pub(super) machine: MachineHandle<super::machine::Machine<K>>,
     pub(super) typed: kivact_core::state::Binding<Typeahead>,
-    // xtask-allow(state-fields): Independent structural theme opt-in; created once during setup.
+    // xtask-allow(state-fields): option: whether the theme tracks a menu press, fixed during setup
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
 }
@@ -71,7 +71,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
                     .submenu,
             },
             move |_, command| match command {
-                Effect::Close => popup.close(PopupCloseReason::Escape),
+                Effect::Close => popup.hide(PopupCloseReason::Escape),
                 Effect::Closed => {
                     if let Some(press) = press {
                         press.cancel_open();
@@ -145,7 +145,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         if let Some(press) = self.press {
             press.cancel();
         }
-        self.popup.close(reason);
+        self.popup.hide(reason);
     }
 
     /// Where the focus returns for the opening in progress: to the trigger
@@ -207,12 +207,6 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             depth,
             target: Target::Key(key),
         })));
-    }
-
-    /// The pointer rests on `key` of the level at `depth`: asked for unless a
-    /// command is waiting.
-    pub(super) fn hover(&self, depth: usize, key: K) {
-        self.machine.send(Event::Hover(depth, key));
     }
 
     /// Open the submenu of `key` (an item of the level at `depth`) without

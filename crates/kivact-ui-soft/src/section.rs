@@ -4,8 +4,8 @@ use crate::stack::{ContainerInset, Padding, Space, padding_options, rtl};
 
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 
@@ -110,7 +110,7 @@ impl Section {
     }
 }
 
-impl NodeBuilder for Section {
+impl Element for Section {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -128,7 +128,7 @@ impl IntoView for Section {
             bleed_top,
             bleed_bottom,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let parent = try_use_context::<ContainerInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();

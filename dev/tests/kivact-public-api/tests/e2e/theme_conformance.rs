@@ -121,9 +121,7 @@ fn contract_view() -> (Handles, impl IntoView) {
                 .name("Progress")
                 .style(style().width(280)),
             ui::disclosure("Details", open).content(|| text("Disclosed content")),
-            ui::list("Items", choices())
-                .selection(signal(Some("a")))
-                .style(style().width(280)),
+            ui::list("Items", choices(), signal(Some("a"))).style(style().width(280)),
         ))
         .style(
             style()

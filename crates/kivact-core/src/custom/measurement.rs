@@ -20,10 +20,10 @@ pub enum AvailableSpace {
 /// ([`Constraints::measure_text`]) for the call.
 #[derive(Clone, Copy)]
 pub struct Constraints<'a> {
-    // xtask-allow(state-fields): borrowed input snapshot - The width the layout already fixed
+    // xtask-allow(state-fields): independent: the width the layout already fixed; either dimension may be fixed on its own
     /// The width the layout already fixed.
     pub known_width: Option<f64>,
-    // xtask-allow(state-fields): borrowed input snapshot - The height the layout already fixed
+    // xtask-allow(state-fields): independent: the height the layout already fixed; either dimension may be fixed on its own
     /// The height the layout already fixed.
     pub known_height: Option<f64>,
     /// The width available.
@@ -54,7 +54,7 @@ impl Constraints<'_> {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::state::{Signal};
-    /// use kivact::view::{IntoView, NodeBuilder};
+    /// use kivact::view::{IntoView, Element};
     /// use kivact::geometry::{Size};
     /// use kivact::draw::TextFormat;
     /// use kivact::custom::{Constraints, Measurement, primitive};
@@ -87,7 +87,7 @@ impl Constraints<'_> {
     /// ```no_run
     /// # use kivact_core as kivact;
     /// use kivact::state::{Signal};
-    /// use kivact::view::{IntoView, NodeBuilder, text};
+    /// use kivact::view::{IntoView, Element, text};
     /// use kivact::draw::{TextFormat};
     /// use kivact::geometry::{Size};
     /// use kivact::custom::{Constraints, Measurement, primitive};

@@ -5,7 +5,7 @@ use crate::{DatePresentation, button, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, row};
+use kivact_core::view::{Element, IntoView, Node, View, node, row};
 /// A wall-clock time field with hours and minutes, optionally seconds.
 pub struct TimeInput {
     root: Node,
@@ -70,7 +70,7 @@ impl TimeInput {
         self
     }
 }
-impl NodeBuilder for TimeInput {
+impl Element for TimeInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

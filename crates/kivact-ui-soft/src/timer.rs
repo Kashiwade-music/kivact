@@ -1,7 +1,7 @@
 //! Role: Display the elapsed time since a wall-clock instant.
 use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -108,7 +108,7 @@ impl Timer {
     }
 }
 
-impl NodeBuilder for Timer {
+impl Element for Timer {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()

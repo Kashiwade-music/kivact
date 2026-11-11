@@ -1,7 +1,7 @@
 //! Role: Render stable keyed page controls and an atomic editable page draft.
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, memo};
 use kivact_core::view::{
-    CurrentItem, IntoView, Node, NodeBuilder, Orientation, Role, View, for_each, node, text,
+    CurrentItem, Element, IntoView, Node, Orientation, Role, View, for_each, node, text,
 };
 use std::rc::Rc;
 
@@ -128,7 +128,7 @@ impl Pagination {
         self
     }
 }
-impl NodeBuilder for Pagination {
+impl Element for Pagination {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -481,9 +481,9 @@ fn dot_control(
         })
 }
 struct ControlContent {
-    // xtask-allow(state-fields): passive record - summary
+    // xtask-allow(state-fields): option: the summary built from the caller's summary slot, or the page count in Count and Compact modes; absent places no summary between the controls
     summary: Option<View>,
-    // xtask-allow(state-fields): passive record - input
+    // xtask-allow(state-fields): option: the page field built only for PaginationMode::Input; absent in every other mode, and it may sit beside a caller summary
     input: Option<View>,
 }
 fn render_controls(
@@ -692,9 +692,9 @@ fn control_disabled(
 }
 
 struct PageExtras {
-    // xtask-allow(state-fields): passive record - summary
+    // xtask-allow(state-fields): option: absent means the component's default
     summary: Option<SummarySlot>,
-    // xtask-allow(state-fields): passive record - page size
+    // xtask-allow(state-fields): option: the caller's Pagination::page_size binding; absent shows no size select and counts one item per page
     page_size: Option<Binding<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,

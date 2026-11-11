@@ -6,17 +6,17 @@ use kivact::state::IntoValue;
 use kivact::state::{Binding, Callback};
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;
+use kivact::view::{Element, Node, row};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, row};
 
 /// Playback button state; the application owns its clock.
 #[derive(Clone, Debug, PartialEq)]
 pub struct TransportState {
-    // xtask-allow(state-fields): caller binding - playing
+    // xtask-allow(state-fields): independent: Play toggles playing and Stop clears it; Record and Cycle leave it
     pub playing: bool,
-    // xtask-allow(state-fields): caller binding - recording
+    // xtask-allow(state-fields): independent: Record toggles recording; Play, Stop and Cycle leave it
     pub recording: bool,
-    // xtask-allow(state-fields): caller binding - cycling
+    // xtask-allow(state-fields): independent: Cycle toggles cycling; Play, Stop and Record leave it
     pub cycling: bool,
 }
 
@@ -65,7 +65,7 @@ impl Transport {
     }
 }
 
-impl NodeBuilder for Transport {
+impl Element for Transport {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

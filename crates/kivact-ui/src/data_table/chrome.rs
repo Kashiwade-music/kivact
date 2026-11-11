@@ -1,5 +1,5 @@
 //! Role: The default regions of a data table: filter field, summary, pager, check boxes.
-use super::types::DataTableContext;
+use super::types::{DataTableContext, Paging};
 use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use crate::{
@@ -11,8 +11,8 @@ use kivact_core::i18n::{message, message_with};
 use kivact_core::state::{Binding, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
+use kivact_core::view::Element;
 use kivact_core::view::IntoView;
-use kivact_core::view::NodeBuilder;
 use kivact_core::view::{Node, Role, View};
 use kivact_core::view::{node, row, text};
 use kivact_interaction::ListItem;
@@ -23,7 +23,10 @@ pub(super) fn toolbar<R: kivact_core::state::PropValue, K: kivact_core::state::I
     variants: &Variants,
 ) -> Option<View> {
     let query = context.filter?;
-    let page = context.page.map(|(index, _)| index);
+    let page = match context.paging {
+        Paging::Off => None,
+        Paging::Local { page, .. } | Paging::Remote { page, .. } => Some(page),
+    };
     let edited = binding(query, move |text: String| {
         query.set(text);
         if let Some(page) = page {
@@ -52,7 +55,7 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
     sizes: Option<Value<Vec<usize>>>,
     variants: &Variants,
 ) -> Option<View> {
-    if context.selection.is_none() && context.page.is_none() {
+    if context.selection.is_none() && matches!(context.paging, Paging::Off) {
         return None;
     }
     let summary = context.selection.map(|selection| {
@@ -73,34 +76,21 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
         );
         kivact_core::view::text(text).style(style().grow(1))
     });
-    let pager = context
-        .page
-        .map(|(index, _)| pager(context, index, variants));
-    let size_picker = context.page_size.zip(sizes).map(|(size, sizes)| {
-        let options = move || {
-            sizes.with(|sizes| {
-                let mut seen = std::collections::HashSet::new();
-                sizes
-                    .iter()
-                    .copied()
-                    .filter(|size| *size > 0 && seen.insert(*size))
-                    .map(|size| ListItem::new(size, size.to_string()))
-                    .collect::<Vec<_>>()
-            })
-        };
-        select(
-            message("data_table.page_size", "Rows per page"),
-            options,
-            binding(
-                move || Some(size.get().max(1)),
-                move |next: Option<usize>| {
-                    if let Some(next) = next {
-                        size.set(next);
-                    }
-                },
-            ),
-        )
-    });
+    let (pager, size_picker) = match context.paging {
+        Paging::Off => (None, None),
+        Paging::Local { page, page_size } => (
+            Some(pager(context, page, None, variants)),
+            sizes.map(|sizes| size_picker(page_size, sizes)),
+        ),
+        Paging::Remote {
+            page,
+            page_size,
+            has_more,
+        } => (
+            Some(pager(context, page, Some(has_more), variants)),
+            sizes.map(|sizes| size_picker(page_size, sizes)),
+        ),
+    };
     let spacer = summary.is_none().then(|| node().style(style().grow(1)));
     Some(
         with_recipe_style(
@@ -113,15 +103,43 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
     )
 }
 
+/// The rows-per-page selector over the writable size and its options.
+fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
+    let options = move || {
+        sizes.with(|sizes| {
+            let mut seen = std::collections::HashSet::new();
+            sizes
+                .iter()
+                .copied()
+                .filter(|size| *size > 0 && seen.insert(*size))
+                .map(|size| ListItem::new(size, size.to_string()))
+                .collect::<Vec<_>>()
+        })
+    };
+    select(
+        message("data_table.page_size", "Rows per page"),
+        options,
+        binding(
+            move || Some(size.get().max(1)),
+            move |next: Option<usize>| {
+                if let Some(next) = next {
+                    size.set(next);
+                }
+            },
+        ),
+    )
+    .into_view()
+}
+
 /// The page shown, Previous and Next.
 fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
     index: Binding<usize>,
+    has_more: Option<Value<bool>>,
     variants: &Variants,
 ) -> View {
     let pages = context.model.page_count();
     // A page past the last one shows the last page and leaves the binding.
-    let has_more = context.has_more;
     let shown = memo(move || {
         if has_more.is_some() {
             index.get()
@@ -195,15 +213,14 @@ pub(super) fn select_page<K: kivact_core::state::ItemKey>(
         }
         selection.set(next);
     });
-    let state = move || DataTableCheckState {
-        header: true,
-        checked: if all() {
+    let state = move || {
+        DataTableCheckState::Header(if all() {
             CheckedState::Checked
         } else if mixed() {
             CheckedState::Indeterminate
         } else {
             CheckedState::Unchecked
-        },
+        })
     };
     let root = with_recipe_style(
         node().role(Role::ColumnHeader),

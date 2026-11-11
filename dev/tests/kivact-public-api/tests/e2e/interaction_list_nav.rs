@@ -8,7 +8,7 @@ use crate::support::mount_with;
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListApi, ListOptions, use_list};
 use kivact::prelude::*;
-use kivact::test::{Element, MirrorMode, RenderOptions, Screen};
+use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
 use kivact::view::{KeyCode, Modifiers};
 
 const NAMES: [&str; 12] = [
@@ -112,7 +112,7 @@ fn button(name: &'static str) -> Node {
         .style(style().size(120, 28))
 }
 
-fn row<'a>(screen: &'a Screen, name: &str) -> Element<'a> {
+fn row<'a>(screen: &'a Screen, name: &str) -> Locator<'a> {
     screen.get_by_role(Role::Option, name)
 }
 

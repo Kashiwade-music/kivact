@@ -7,16 +7,18 @@
 //!
 //! Bounded: two generations of [`ENTRIES`] layouts; an entry used from the
 //! older generation moves to the newer one, and a full newer generation
-//! drops the older one.
+//! drops the older one. A paragraph is kept from its second use on (a
+//! text measured once and never drawn keeps only its key's hash,
+//! `Shaped::seen`).
 //!
 //! Invariant: a key holds what shaping reads and nothing else: the
 //! colors, decorations, highlights, alignment, overflow and line clamp of
 //! a paragraph and its spans are applied to the shaped layout afterwards,
 //! so changing them never shapes again. Plain text in a plain style keys
 //! nothing but the text and its common style (no allocation besides the
-//! text, as quick to hash as before the rest of the vocabulary).
+//! text, and quick to hash).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 use kivact_types::render::SpanStyle;
 use kivact_types::render::TextSpan;
@@ -43,25 +45,25 @@ pub(crate) fn variation_bits(variations: &[FontVariation]) -> Vec<VariationBits>
 struct SpanKey {
     start: usize,
     end: usize,
-    // xtask-allow(state-fields): cache key - font size
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_size: Option<u64>,
-    // xtask-allow(state-fields): cache key - weight
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     weight: Option<u16>,
-    // xtask-allow(state-fields): cache key - family
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache key - italic
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: Option<bool>,
-    // xtask-allow(state-fields): cache key - letter spacing
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     letter_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache key - word spacing
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     word_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache key - kerning
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): cache key - features
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): cache key - variations
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     variations: Option<Vec<VariationBits>>,
-    // xtask-allow(state-fields): cache key - font width
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_width: Option<u64>,
 }
 
@@ -119,17 +121,17 @@ pub(crate) struct Key {
     font_size: u64,
     weight: u16,
     line_height: u64,
-    // xtask-allow(state-fields): cache key - wrap
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     wrap: bool,
-    // xtask-allow(state-fields): cache key - family
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache key - italic
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: bool,
     variations: Vec<VariationBits>,
     font_width: u64,
-    // xtask-allow(state-fields): cache key - optical sizing
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     optical_sizing: bool,
-    // xtask-allow(state-fields): cache key - rich
+    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     rich: Option<Box<RichKey>>,
 }
 
@@ -175,28 +177,187 @@ impl Key {
 
 /// Shaped layouts by [`Key`]; a glyph's brush is the index of its span
 /// plus one (0: the paragraph's style).
+///
+/// A paragraph is kept from its second use on: the first time a key is
+/// shaped its layout waits in `scratch` (the last [`SCRATCH`] first-time
+/// paragraphs) and its hash is remembered in `seen`; a later use takes it
+/// from the scratch (or shapes it again once the scratch dropped it) and
+/// keeps it. A text measured once and never drawn keeps nothing but the hash.
 #[derive(Default)]
 pub(crate) struct Shaped {
     current: HashMap<Key, parley::Layout<u32>>,
     previous: HashMap<Key, parley::Layout<u32>>,
+    /// The last paragraphs shaped for the first time, oldest first.
+    scratch: VecDeque<(Key, parley::Layout<u32>)>,
+    /// The hashes of the keys shaped once and not kept: two generations of
+    /// at most `SEEN` each, as the layouts' two generations.
+    seen: [HashSet<u64>; 2],
+}
+
+/// First-time paragraphs waiting for their second use (a frame measures its
+/// new texts, then draws them).
+const SCRATCH: usize = 16;
+
+/// Whether a layout was kept from an earlier call or shaped by this one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Found {
+    Kept,
+    Shaped,
+}
+
+/// First-time keys remembered per generation.
+const SEEN: usize = 8192;
+
+/// The hash `seen` keeps for `key` (one fixed hasher: the maps' own are
+/// seeded per map and change when a generation is replaced).
+fn key_hash(key: &Key) -> u64 {
+    use std::hash::BuildHasher;
+    std::hash::BuildHasherDefault::<std::collections::hash_map::DefaultHasher>::default()
+        .hash_one(key)
 }
 
 impl Shaped {
-    /// The layout of `key`, shaped by `shape` unless kept.
+    /// The layout of `key`: kept, waiting in the scratch (then kept), or
+    /// shaped by `shape` (kept when the key was shaped once before, else into
+    /// the scratch).
     pub(crate) fn get_or_insert(
         &mut self,
         key: Key,
         shape: impl FnOnce() -> parley::Layout<u32>,
-    ) -> &mut parley::Layout<u32> {
-        if !self.current.contains_key(&key) {
-            let layout = self.previous.remove(&key).unwrap_or_else(shape);
-            if self.current.len() >= ENTRIES {
-                self.previous = std::mem::take(&mut self.current);
-            }
-            self.current.insert(key.clone(), layout);
+    ) -> (&mut parley::Layout<u32>, Found) {
+        if self.current.contains_key(&key) {
+            let layout = self.current.get_mut(&key).expect("invariant: present");
+            return (layout, Found::Kept);
         }
-        self.current
-            .get_mut(&key)
-            .expect("invariant: inserted above")
+        if let Some(layout) = self.previous.remove(&key) {
+            return (self.keep(key, layout), Found::Kept);
+        }
+        if let Some(at) = self.scratch.iter().position(|(waiting, _)| *waiting == key) {
+            let (key, layout) = self.scratch.remove(at).expect("invariant: found above");
+            let hash = key_hash(&key);
+            if !self.seen[0].remove(&hash) {
+                self.seen[1].remove(&hash);
+            }
+            return (self.keep(key, layout), Found::Kept);
+        }
+        let hash = key_hash(&key);
+        let layout = shape();
+        if self.seen[0].remove(&hash) || self.seen[1].remove(&hash) {
+            return (self.keep(key, layout), Found::Shaped);
+        }
+        if self.seen[0].len() >= SEEN {
+            self.seen[1] = std::mem::take(&mut self.seen[0]);
+        }
+        self.seen[0].insert(hash);
+        if self.scratch.len() >= SCRATCH {
+            self.scratch.pop_front();
+        }
+        self.scratch.push_back((key, layout));
+        let (_, layout) = self.scratch.back_mut().expect("invariant: pushed above");
+        (layout, Found::Shaped)
+    }
+
+    /// Keep `layout` in the current generation (a full one becomes the previous).
+    fn keep(&mut self, key: Key, layout: parley::Layout<u32>) -> &mut parley::Layout<u32> {
+        if self.current.len() >= ENTRIES {
+            self.previous = std::mem::take(&mut self.current);
+        }
+        self.current.entry(key).or_insert(layout)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests for what the paragraph and measurement caches keep, and when.
+    use super::*;
+    use crate::TextEngine;
+    use crate::cache::TextKeyRef;
+    use kivact_types::render::RichText;
+    use std::sync::Arc;
+
+    /// The bundled test font (Tuffy; a copy of the `arvane` crate's file, so
+    /// this crate's tests build from its own package).
+    static FONT: &[u8] = include_bytes!("../tests/fixtures/Tuffy.ttf");
+
+    fn engine() -> TextEngine {
+        TextEngine::isolated(&[Arc::from(FONT)]).expect("the test font loads")
+    }
+
+    /// Whether `measured` keeps the answer for `text` in `style`.
+    fn measured_kept(engine: &mut TextEngine, text: &str, style: &ComputedTextStyle) -> bool {
+        let key = TextKeyRef::new(RichText::from(text), style, None, false);
+        engine.cache.measured.get(&key).is_some()
+    }
+
+    #[test]
+    fn texts_measured_once_each_keep_no_paragraph() {
+        let mut engine = engine();
+        let style = ComputedTextStyle::default();
+        engine
+            .measure("first".into(), &style, None)
+            .expect("measures");
+        engine
+            .measure("second".into(), &style, None)
+            .expect("measures");
+        assert_eq!(engine.cache.paragraphs.current.len(), 0);
+    }
+
+    #[test]
+    fn a_paragraph_is_kept_from_its_second_shaping() {
+        let mut engine = engine();
+        let style = ComputedTextStyle::default();
+        engine
+            .measure("again".into(), &style, None)
+            .expect("measures");
+        engine
+            .measure("other".into(), &style, None)
+            .expect("measures");
+        engine
+            .measure("again".into(), &style, None)
+            .expect("measures");
+        assert_eq!(engine.cache.paragraphs.current.len(), 1);
+    }
+
+    #[test]
+    fn a_measurement_is_kept_from_its_second_call_with_equal_metrics() {
+        let mut engine = engine();
+        let style = ComputedTextStyle::default();
+        let first = engine.measure("again".into(), &style, None);
+        assert!(!measured_kept(&mut engine, "again", &style));
+        engine
+            .measure("other".into(), &style, None)
+            .expect("measures");
+        let second = engine.measure("again".into(), &style, None);
+        assert!(measured_kept(&mut engine, "again", &style));
+        assert!(!measured_kept(&mut engine, "other", &style));
+        assert_eq!(first, second);
+    }
+
+    /// Uses `texts` in order through one paragraph cache; how many shapings ran.
+    fn shapings(texts: &[&str]) -> usize {
+        let style = ComputedTextStyle::default();
+        let mut shaped = Shaped::default();
+        let mut count = 0;
+        for text in texts {
+            shaped.get_or_insert(Key::new(text, &[], &style, 20.0), || {
+                count += 1;
+                parley::Layout::new()
+            });
+        }
+        count
+    }
+
+    #[test]
+    fn texts_measured_then_drawn_are_shaped_once_each() {
+        assert_eq!(shapings(&["first", "second", "first", "second"]), 2);
+    }
+
+    #[test]
+    fn a_paragraph_dropped_from_the_scratch_is_shaped_again_and_kept() {
+        let mut texts: Vec<String> = (0..=SCRATCH).map(|i| format!("text {i}")).collect();
+        texts.push("text 0".to_owned());
+        texts.push("text 0".to_owned());
+        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+        assert_eq!(shapings(&texts), SCRATCH + 2);
     }
 }

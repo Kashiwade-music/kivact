@@ -71,11 +71,7 @@ impl Runtime {
             parent_index: 0,
             children: Vec::new(),
             nodes: Vec::new(),
-            objects: Vec::new(),
-            consts: Vec::new(),
-            cleanups: Vec::new(),
-            contexts: Vec::new(),
-            on_error: None,
+            extra: None,
             created_at: at,
             phase: if state == OwnerState::Live {
                 OwnerPhase::Live
@@ -134,7 +130,7 @@ impl Runtime {
     pub(crate) fn add_cleanup(&self, owner: Key, f: Box<dyn FnOnce()>) {
         let f = match self.owners.borrow_mut().get_mut(owner) {
             Some(o) if o.phase == OwnerPhase::Live => {
-                o.cleanups.push(f);
+                o.extra_mut().cleanups.push(f);
                 return;
             }
             _ => f,
@@ -157,12 +153,12 @@ impl Runtime {
         let tid = (*value).type_id();
         let replaced = match self.owners.borrow_mut().get_mut(owner) {
             Some(o) => {
-                let old = o
-                    .contexts
+                let contexts = &mut o.extra_mut().contexts;
+                let old = contexts
                     .iter()
                     .position(|(t, _)| *t == tid)
-                    .map(|i| o.contexts.remove(i));
-                o.contexts.push((tid, value));
+                    .map(|i| contexts.remove(i));
+                contexts.push((tid, value));
                 old
             }
             None => Some((tid, value)),
@@ -177,7 +173,11 @@ impl Runtime {
         let mut cur = Some(owner);
         while let Some(k) = cur {
             let o = owners.get(k)?;
-            if let Some((_, v)) = o.contexts.iter().find(|(t, _)| *t == tid) {
+            if let Some((_, v)) = o
+                .extra
+                .as_ref()
+                .and_then(|x| x.contexts.iter().find(|(t, _)| *t == tid))
+            {
                 return Some(v.clone());
             }
             cur = o.parent;
@@ -189,7 +189,7 @@ impl Runtime {
     /// once when the owner is gone).
     pub(crate) fn set_error_handler(&self, owner: Key, handler: Rc<dyn Fn(UiError)>) {
         let replaced = match self.owners.borrow_mut().get_mut(owner) {
-            Some(o) => o.on_error.replace(handler),
+            Some(o) => o.extra_mut().on_error.replace(handler),
             None => Some(handler),
         };
         drop(replaced);
@@ -256,7 +256,13 @@ impl Runtime {
 
     fn dispose_one(&self, key: Key) {
         let (cleanups, created_at) = match self.owners.borrow_mut().get_mut(key) {
-            Some(o) => (std::mem::take(&mut o.cleanups), o.created_at),
+            Some(o) => (
+                o.extra
+                    .as_deref_mut()
+                    .map(|x| std::mem::take(&mut x.cleanups))
+                    .unwrap_or_default(),
+                o.created_at,
+            ),
             None => return,
         };
         if !cleanups.is_empty() {
@@ -274,11 +280,19 @@ impl Runtime {
                 _ => return,
             };
             let (nodes, objects, consts) = match self.owners.borrow_mut().get_mut(key) {
-                Some(o) => (
-                    std::mem::take(&mut o.nodes),
-                    std::mem::take(&mut o.objects),
-                    std::mem::take(&mut o.consts),
-                ),
+                Some(o) => {
+                    let (objects, consts) = o
+                        .extra
+                        .as_deref_mut()
+                        .map(|x| {
+                            (
+                                std::mem::take(&mut x.objects),
+                                std::mem::take(&mut x.consts),
+                            )
+                        })
+                        .unwrap_or_default();
+                    (std::mem::take(&mut o.nodes), objects, consts)
+                }
                 None => return,
             };
             if nodes.is_empty() && objects.is_empty() && consts.is_empty() {
@@ -447,7 +461,7 @@ impl Runtime {
             .owners
             .borrow_mut()
             .get_mut(owner)
-            .map(|o| o.consts.push(key))
+            .map(|o| o.extra_mut().consts.push(key))
             .is_some();
         if !registered {
             let disposed_by = self.owners.borrow().tomb(owner).and_then(|t| t.disposed_by);
@@ -480,5 +494,83 @@ impl Runtime {
             "Value read after its owner was disposed",
             at,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Owner disposal releases every rare member.
+
+    use std::cell::RefCell;
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use crate::reactive::AppId;
+    use crate::reactive::data::Runtime;
+    use crate::reactive::error::UiError;
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    /// Records its own drop in the shared event log.
+    struct Probe(Rc<RefCell<Vec<&'static str>>>);
+
+    impl Drop for Probe {
+        fn drop(&mut self) {
+            self.0.borrow_mut().push("dropped");
+        }
+    }
+
+    #[test]
+    fn disposing_an_owner_releases_its_context_cleanup_error_handler_object_and_const() {
+        let rt = Runtime::with_id(AppId(1), Rc::new(Quiet), 0);
+        let at = Location::caller();
+        let log = Rc::new(RefCell::new(Vec::<&'static str>::new()));
+        let owner = rt.create_owner(None, at);
+
+        rt.provide_context(owner, Rc::new(Probe(log.clone())));
+        let cleanup_log = log.clone();
+        rt.add_cleanup(
+            owner,
+            Box::new(move || cleanup_log.borrow_mut().push("cleanup")),
+        );
+        let handler_probe = Probe(log.clone());
+        rt.set_error_handler(
+            owner,
+            Rc::new(move |_: UiError| {
+                let _ = &handler_probe;
+            }),
+        );
+        let object_log = log.clone();
+        rt.insert_object(
+            owner,
+            Rc::new(Probe(log.clone())),
+            "test object",
+            Some(Box::new(move |_: &Runtime| {
+                object_log.borrow_mut().push("object");
+            })),
+            at,
+        );
+        rt.create_const(owner, Probe(log.clone()), at);
+
+        assert!(rt.owner_alive(owner));
+        assert!(log.borrow().is_empty());
+
+        rt.dispose_owner(owner);
+
+        assert!(!rt.owner_alive(owner));
+        let events = log.borrow();
+        let count = |name: &str| events.iter().filter(|event| **event == name).count();
+        assert_eq!(count("cleanup"), 1, "the cleanup runs once");
+        assert_eq!(count("object"), 1, "the object's dispose hook runs once");
+        assert_eq!(
+            count("dropped"),
+            4,
+            "context, handler, object and const are all dropped"
+        );
     }
 }

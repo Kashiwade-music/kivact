@@ -46,7 +46,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -82,7 +82,7 @@ use kivact_core::view::{EditPhase, HandlerResult};
 pub struct EditSession<T: 'static> {
     session: MachineHandle<machine::Machine<T>>,
     restore: Callback<T>,
-    // xtask-allow(state-fields): builder option - the observer callback a setter supplied, absent until set
+    // xtask-allow(state-fields): option: the observer callback a setter supplied, absent until set
     observer: Var<Option<Callback<EditPhase>>>,
     /// Passes an error of the observer on, as the session's owner reports it.
     failed: Callback<UiError>,

@@ -53,8 +53,7 @@ pub(crate) struct State<T: TimeItem> {
     pub bounds: Value<kivact::interaction::ScalarRange>,
     pub min_duration: Value<f64>,
     pub lane_height: f64,
-    // xtask-allow(state-fields): Bindings, reactive options and keyboard targets are independent of the gesture lifecycle owned by DecisionMachine.
-    pub active: Signal<Option<Target>>,
+    pub active: kivact::state::Binding<Option<Target>>,
     pub child_focus: Value<bool>,
     pub context: Signal<EditorContext>,
     pub lane_activate: Option<Callback<u64>>,

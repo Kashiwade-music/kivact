@@ -1,5 +1,6 @@
 //! Role: Mounting binds the style, disabled and selected states of a host node.
 
+use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -10,7 +11,7 @@ use kivact_runtime::{EffectKind, UiError};
 use kivact_style::{Interactive, Style};
 use kivact_types::{LayoutProps, NodeId};
 
-use super::facts::{LocalPaintSource, NodeFacts};
+use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use crate::view::descriptor::Mcx;
 use crate::view::element_data::StyleLayer;
 use crate::view::state::ViewState;
@@ -72,7 +73,7 @@ pub(super) fn bind_node_style(
 pub(crate) struct NodeStyle {
     /// Style layers, merged in order.
     pub layers: Vec<StyleLayer>,
-    // xtask-allow(state-fields): mount config - The node is a focus stop: the theme's focus ring and disabled look apply under its style
+    // xtask-allow(state-fields): option: a mount input; absent means not a focus stop
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style.
     pub focusable: bool,
@@ -80,13 +81,12 @@ pub(crate) struct NodeStyle {
     pub disabled: Option<Rc<dyn Fn() -> bool>>,
     /// Reader of the selected state (applies the `selected` state style).
     pub selected: Option<Rc<dyn Fn() -> bool>>,
-    // xtask-allow(state-fields): mount config - Applied to every resolved layout before it is set (a builder that owns part of its node's layout)
+    // xtask-allow(state-fields): option: a layout hook; absent means the layout is set as resolved
     /// Applied to every resolved layout before it is set (a builder that
     /// owns part of its node's layout).
     pub fix_layout: Option<fn(&mut LayoutProps)>,
-    // xtask-allow(state-fields): mount config - The merged local paint read by the existing drawing effect
-    /// The merged local paint read by the existing drawing effect.
-    pub local_paint: Option<LocalPaintSource>,
+    /// How the style's paint callback is recorded.
+    pub local_paint: LocalPaint,
 }
 
 /// Resolve the style of node `id` (the one style path of every node):
@@ -110,6 +110,8 @@ pub(crate) fn bind_style(
         local_paint,
     } = style;
     let owner = cx.owner;
+    let window = cx.window;
+    let local_paint = RefCell::new(local_paint);
     #[cfg(feature = "devtools")]
     if crate::view::devtools_hooks::is_running(cx.rt) {
         crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
@@ -136,33 +138,12 @@ pub(crate) fn bind_style(
                 kivact_style::internal::compile_style(&s, theme, state)
             })
         });
-        let has_paint = resolved.has_retained_paint();
-        if has_paint && local_paint.is_none() && reports.leaf_paint.note() {
-            rt.report(
-                Some(owner),
-                UiError::new(
-                    kivact_runtime::ErrorKind::Unsupported,
-                    "local paint requires a box node; apply it to the containing node",
-                    Some(at),
-                ),
-            );
-        }
-        if let Some(source) = &local_paint {
-            // A style can acquire paint later; observe only when it first does.
-            // Never disable observation needed by a NodeRef or another consumer.
-            if has_paint {
-                ViewState::tree_mut(&rt).set_observe(id, true);
-            }
-            let changed = source
-                .value
-                .borrow()
-                .as_ref()
-                .map_or(has_paint, |old| !old.same_retained_paint(&resolved));
-            if changed {
-                *source.value.borrow_mut() = has_paint.then(|| resolved.clone());
-                source.revision.notify_from_render();
-            }
-        }
+        let mcx = Mcx {
+            rt: &rt,
+            owner,
+            window,
+        };
+        feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);
         let mut layout = resolved.layout.clone();
         if let Some(fix) = fix_layout {
             fix(&mut layout);
@@ -180,6 +161,57 @@ pub(crate) fn bind_style(
         drop(tree);
         reports.report(&rt, owner, id, &resolved, at);
     });
+}
+
+/// Hand the style's paint callback to the node's draw effect (see
+/// [`LocalPaint`]). The callback's own reads are tracked by that effect,
+/// so a signal only the callback reads never runs the style again.
+fn feed_local_paint(
+    cx: &Mcx<'_>,
+    id: NodeId,
+    local_paint: &RefCell<LocalPaint>,
+    resolved: &kivact_style::CompiledStyle,
+    reports: &StyleReports,
+    at: &'static Location<'static>,
+) {
+    let has_paint = resolved.has_retained_paint();
+    if has_paint && matches!(*local_paint.borrow(), LocalPaint::OnFirstPaint) {
+        let source = LocalPaintSource::new(cx.owner, at);
+        *source.value.borrow_mut() = Some(Box::new(resolved.clone()));
+        super::draw::bind_style_paint(cx, id, source.clone(), at);
+        *local_paint.borrow_mut() = LocalPaint::WithDraw(source);
+    }
+    match &*local_paint.borrow() {
+        LocalPaint::None => {
+            if has_paint && reports.leaf_paint.note() {
+                cx.rt.report(
+                    Some(cx.owner),
+                    UiError::new(
+                        kivact_runtime::ErrorKind::Unsupported,
+                        "local paint requires a box node; apply it to the containing node",
+                        Some(at),
+                    ),
+                );
+            }
+        }
+        LocalPaint::OnFirstPaint => {}
+        LocalPaint::WithDraw(source) => {
+            // A style can acquire paint later; observe only when it first does.
+            // Never disable observation needed by a NodeRef or another consumer.
+            if has_paint {
+                ViewState::tree_mut(cx.rt).set_observe(id, true);
+            }
+            let changed = source
+                .value
+                .borrow()
+                .as_ref()
+                .map_or(has_paint, |old| !old.same_retained_paint(resolved));
+            if changed {
+                *source.value.borrow_mut() = has_paint.then(|| Box::new(resolved.clone()));
+                source.revision.notify_from_render();
+            }
+        }
+    }
 }
 
 #[derive(Default)]

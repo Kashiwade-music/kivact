@@ -9,10 +9,10 @@ use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
 use kivact_core::view::EditPhase;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::SliderTouchMotion;
 use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, use_scalar};
 
@@ -162,10 +162,35 @@ impl Slider {
     }
 }
 
-impl NodeBuilder for Slider {
+impl Element for Slider {
     /// The track, so modifiers (a width, a test id) apply to it.
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+/// The direction a slider's value grows along its track.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TrackFlow {
+    /// A horizontal track in left-to-right text.
+    LeftToRight,
+    /// A horizontal track in right-to-left text.
+    RightToLeft,
+    /// A vertical track: the value grows upwards.
+    BottomToTop,
+}
+
+impl TrackFlow {
+    /// The flow of a track with this axis, reading the inherited
+    /// direction at setup.
+    fn new(vertical: bool) -> Self {
+        if vertical {
+            Self::BottomToTop
+        } else if use_direction().get() == ReadingDirection::Rtl {
+            Self::RightToLeft
+        } else {
+            Self::LeftToRight
+        }
     }
 }
 
@@ -174,24 +199,25 @@ impl NodeBuilder for Slider {
 struct Geometry {
     track: Value<Option<Rect>>,
     thumb: Value<Option<Rect>>,
-    // xtask-allow(state-fields): independent fact - vertical
-    vertical: bool,
-    // xtask-allow(state-fields): independent fact - rtl
-    rtl: bool,
+    flow: TrackFlow,
 }
 
 impl Geometry {
+    fn vertical(&self) -> bool {
+        self.flow == TrackFlow::BottomToTop
+    }
+
     /// The offset of a thumb at `fraction` from the track's start edge
     /// (left, or top when vertical), and the thumb's offset across.
     fn thumb_at(&self, fraction: f64) -> Option<(f64, f64)> {
         let (track, thumb) = (self.track.get()?, self.thumb.get()?);
         let f = fraction.clamp(0.0, 1.0);
-        Some(if self.vertical {
+        Some(if self.vertical() {
             (
                 (1.0 - f) * (track.height - thumb.height),
                 (track.width - thumb.width) / 2.0,
             )
-        } else if self.rtl {
+        } else if self.flow == TrackFlow::RightToLeft {
             (
                 (1.0 - f) * (track.width - thumb.width),
                 (track.height - thumb.height) / 2.0,
@@ -208,7 +234,7 @@ impl Geometry {
     fn thumb_style(&self, fraction: f64) -> Style {
         let (along, across) = self.thumb_at(fraction).unwrap_or((0.0, 0.0));
         let s = style().position(Position::Absolute);
-        if self.vertical {
+        if self.vertical() {
             s.top(along).left(across)
         } else {
             s.left(along).top(across)
@@ -222,20 +248,20 @@ impl Geometry {
         let (Some(track), Some(thumb)) = (self.track.get(), self.thumb.get()) else {
             return s.size(0, 0);
         };
-        let half = if self.vertical {
+        let half = if self.vertical() {
             thumb.height / 2.0
         } else {
             thumb.width / 2.0
         };
         let center = |f: f64| self.thumb_at(f).map_or(0.0, |(along, _)| along + half);
-        let length = if self.vertical {
+        let length = if self.vertical() {
             track.height
         } else {
             track.width
         };
         // The start edge in the track's coordinates: the bottom of a
         // vertical track and the right of a right-to-left one.
-        let start = if self.vertical || self.rtl {
+        let start = if self.flow != TrackFlow::LeftToRight {
             length
         } else {
             0.0
@@ -243,7 +269,7 @@ impl Geometry {
         let a = from.map_or(start, center);
         let b = center(to);
         let (lo, hi) = (a.min(b), a.max(b));
-        if self.vertical {
+        if self.vertical() {
             s.top(lo)
                 .height(hi - lo)
                 .left(0)
@@ -293,8 +319,7 @@ impl IntoView for Slider {
         let geometry = std::rc::Rc::new(Geometry {
             track: track_ref.rect(),
             thumb: thumb_ref.rect(),
-            vertical,
-            rtl: !vertical && use_direction().get() == ReadingDirection::Rtl,
+            flow: TrackFlow::new(vertical),
         });
         let state = move |input: PartState| AxisState {
             input,

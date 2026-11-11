@@ -9,8 +9,8 @@ use kivact::style::ThemeMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::ui::button;
+use kivact::view::Element;
 use kivact::view::Key;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft as soft;
@@ -24,7 +24,7 @@ fn tree_list_expands_and_collapses_with_arrow_keys() {
                 TreeNode::new(1, None, "Folder"),
                 TreeNode::new(2, Some(1), "Document"),
             ];
-            kivact::ui::tree("Files", nodes).expanded(signal(Vec::new()))
+            kivact::ui::tree("Files", nodes, signal(None)).expanded(signal(Vec::new()))
         },
     );
 

@@ -15,7 +15,7 @@ back to the list.
 | Records with an id, rows with their own state or controls | `for_each(items, key, row)` | the key you return |
 | Plain values (numbers, strings) with no id | `for_index(items, row)` | the position |
 | Thousands of rows, all alike in height | `virtual_list(items, key, row)` | the key; only visible rows exist |
-| A list the user selects from | `list(name, items).selection(selected)` | the item's key |
+| A list the user selects from | `list(name, items, selected)` | the item's key |
 | Columns that sort, filter, page and select | `data_table(rows, key, columns)` | the row's key |
 
 All of them take the items as a `Signal<Vec<T>>`, a `Value`, a memo or a closure
@@ -172,7 +172,6 @@ the example below) or a `Binding`.
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::view::RowHeight;
 
 #[derive(Clone, PartialEq)]
 struct Entry {
@@ -235,7 +234,7 @@ mod tests {
 
 ## A list the user picks from
 
-`list(name, items).selection(selected)` shows `ListItem`s as a listbox and writes the
+`list(name, items, selected)` shows `ListItem`s as a listbox and writes the
 chosen key to a `Signal<Option<K>>`. The name is the accessible name of the
 list and is not drawn.
 
@@ -253,9 +252,11 @@ fn app() -> impl IntoView {
                 ListItem::new(1_u32, "Red"),
                 ListItem::new(2, "Blue").with_description("A calm color"),
                 ListItem::new(3, "Green").disabled(true),
-            ]).selection(selected),
+            ],
+            selected,
+        ),
         text(move || format!("selected: {:?}", selected.get())),
-        list("Files", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")]).selection(picked_many)
+        list("Files", vec![ListItem::new(1_u32, "notes.txt"), ListItem::new(2, "plan.md")], picked_many)
         .item(|item, state| {
             text(move || {
                 let mark = if state.get().selected { "[x] " } else { "[ ] " };

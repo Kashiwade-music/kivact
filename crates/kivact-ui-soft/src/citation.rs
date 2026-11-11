@@ -12,11 +12,11 @@ use kivact::style::Justify;
 use kivact::style::TransitionProp;
 use kivact::style::style;
 use kivact::view::Asset;
+use kivact::view::Element;
 use kivact::view::HandlerResult;
 use kivact::view::ImageFit;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
@@ -28,16 +28,16 @@ use kivact::view::use_direction;
 /// Source metadata used to label and open a citation.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct CitationSource {
-    // xtask-allow(state-fields): Optional display title is application source metadata, not an opening phase.
+    // xtask-allow(state-fields): option: application-supplied source title; absent falls back to the url, then to the numbered "Source N" label.
     /// Optional title used as the citation label.
     pub title: Option<String>,
-    // xtask-allow(state-fields): Optional destination is authored source metadata, not a pending navigation handle.
+    // xtask-allow(state-fields): option: application-supplied destination; absent keeps the citation non-interactive even when on_open is set.
     /// Destination opened when the citation is activated.
     pub url: Option<String>,
-    // xtask-allow(state-fields): Optional preview asset is an independent authored visual.
+    // xtask-allow(state-fields): option: application-supplied preview image; when present it is shown instead of icon.
     /// Optional image shown beside the citation label.
     pub image: Option<Asset>,
-    // xtask-allow(state-fields): Optional fallback glyph is an independent authored visual.
+    // xtask-allow(state-fields): option: application-supplied fallback glyph used only when image is absent; absent shows no media.
     /// Optional glyph shown when no source image is available.
     pub icon: Option<Icon>,
 }
@@ -87,7 +87,7 @@ impl Citation {
     }
 }
 
-impl NodeBuilder for Citation {
+impl Element for Citation {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -1,195 +1,179 @@
 //! Role: Date draft, validation and picker lifetime transitions.
 use kivact_core::i18n::{CalendarDate, Locale};
 use kivact_core::state::{Machine, Step};
+
+/// Which control opened the picker, so closing returns the focus to it.
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum OpenedBy {
+pub(crate) enum OpenedBy {
     Input,
     Button,
 }
-#[derive(Clone, PartialEq)]
-pub(super) enum Draft {
-    Empty,
-    Valid(CalendarDate),
-    Invalid(String),
-}
+
+/// Whether a typed date has been checked against the locale and bounds.
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum DateValidation {
+pub(crate) enum DateValidation {
     Unchecked,
     Checked,
 }
+
+/// The editor's authoritative typed date: the caller's date, or the pending
+/// text with its validation.
 #[derive(Clone, PartialEq)]
-pub(super) enum TypedDate {
+pub(crate) enum TypedDate {
     Following(CalendarDate),
     Editing {
         text: String,
         validation: DateValidation,
     },
 }
+
+impl TypedDate {
+    /// The typed date for a caller's value: following it, or an empty edit.
+    pub(crate) fn initial(value: Option<CalendarDate>) -> Self {
+        value.map_or_else(
+            || Self::Editing {
+                text: String::new(),
+                validation: DateValidation::Unchecked,
+            },
+            Self::Following,
+        )
+    }
+}
+
+/// Whether the picker is shown and, while it is, which control opened it.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum Picker {
+    Closed,
+    Open { opened_by: OpenedBy },
+}
+
+/// One machine's state: the typed date and the picker it shows.
 #[derive(Clone, PartialEq)]
-pub(super) enum DateInputState {
-    Closed { draft: Draft },
-    Open { opened_by: OpenedBy, draft: Draft },
+pub(crate) struct DateField {
+    pub(crate) typed: TypedDate,
+    pub(crate) picker: Picker,
 }
-impl DateInputState {
-    pub(super) fn draft(&self) -> &Draft {
-        match self {
-            Self::Closed { draft } | Self::Open { draft, .. } => draft,
-        }
-    }
-    pub(super) fn is_open(&self) -> bool {
-        matches!(self, Self::Open { .. })
+
+impl DateField {
+    /// Whether the picker is shown.
+    pub(crate) fn is_open(&self) -> bool {
+        matches!(self.picker, Picker::Open { .. })
     }
 }
-pub(super) enum Event {
+
+pub(crate) enum Event {
     Open(OpenedBy),
     Close,
+    Edit(String),
     Commit(String),
     Pick(CalendarDate),
     SheetPick(CalendarDate),
     Clear,
     External(Option<CalendarDate>),
 }
-pub(super) struct Snapshot {
-    pub(super) locale: Locale,
-    // xtask-allow(state-fields): passive record - min
-    pub(super) min: Option<CalendarDate>,
-    // xtask-allow(state-fields): passive record - max
-    pub(super) max: Option<CalendarDate>,
+
+pub(crate) enum Effect {
+    /// Publish this date to the caller and announce it.
+    Value(Option<CalendarDate>),
+    /// Publish whether the typed draft is a valid optional date.
+    Validity(bool),
 }
-impl Machine for Snapshot {
-    type State = DateInputState;
-    type Event = Event;
-    type Effect = Option<CalendarDate>;
-    fn transition(
-        &self,
-        state: &DateInputState,
-        event: Event,
-    ) -> Step<DateInputState, Event, Option<CalendarDate>> {
-        let accept = |date: CalendarDate| {
-            self.min.is_none_or(|min| date >= min) && self.max.is_none_or(|max| date <= max)
-        };
-        match event {
-            Event::External(value) => {
-                let draft = value.map_or(Draft::Empty, Draft::Valid);
-                Step::to(match state {
-                    DateInputState::Closed { .. } => DateInputState::Closed { draft },
-                    DateInputState::Open { opened_by, .. } => DateInputState::Open {
-                        opened_by: *opened_by,
-                        draft,
-                    },
-                })
-            }
-            Event::Open(opened_by) => Step::to(DateInputState::Open {
-                opened_by,
-                draft: state.draft().clone(),
-            }),
-            Event::Close => Step::to(DateInputState::Closed {
-                draft: state.draft().clone(),
-            }),
-            Event::Clear => Step::to(DateInputState::Closed {
-                draft: Draft::Empty,
-            })
-            .with(None),
-            Event::SheetPick(date) if accept(date) => Step::to(DateInputState::Open {
-                opened_by: match state {
-                    DateInputState::Open { opened_by, .. } => *opened_by,
-                    _ => OpenedBy::Button,
-                },
-                draft: Draft::Valid(date),
-            })
-            .with(Some(date)),
-            Event::SheetPick(_) => Step::stay(),
-            Event::Pick(date) if accept(date) => Step::to(DateInputState::Closed {
-                draft: Draft::Valid(date),
-            })
-            .with(Some(date)),
-            Event::Pick(_) => Step::stay(),
-            Event::Commit(text) if text.trim().is_empty() => Step::to(DateInputState::Closed {
-                draft: Draft::Empty,
-            })
-            .with(None),
-            Event::Commit(text) => match self.locale.parse_date(&text).filter(|date| accept(*date))
-            {
-                Some(date) => Step::to(DateInputState::Closed {
-                    draft: Draft::Valid(date),
-                })
-                .with(Some(date)),
-                None => Step::to(match state {
-                    DateInputState::Closed { .. } => DateInputState::Closed {
-                        draft: Draft::Invalid(text),
-                    },
-                    DateInputState::Open { opened_by, .. } => DateInputState::Open {
-                        opened_by: *opened_by,
-                        draft: Draft::Invalid(text),
-                    },
-                }),
-            },
-        }
+
+pub(crate) struct Snapshot {
+    pub(crate) locale: Locale,
+    // xtask-allow(state-fields): option: the caller's DateInput min bound read for each event; absent accepts any early date
+    pub(crate) min: Option<CalendarDate>,
+    // xtask-allow(state-fields): option: the caller's DateInput max bound read for each event; absent accepts any late date
+    pub(crate) max: Option<CalendarDate>,
+}
+
+impl Snapshot {
+    fn accepts(&self, date: CalendarDate) -> bool {
+        self.min.is_none_or(|min| date >= min) && self.max.is_none_or(|max| date <= max)
+    }
+    fn valid_text(&self, text: &str) -> bool {
+        text.trim().is_empty()
+            || self
+                .locale
+                .parse_date(text)
+                .is_some_and(|date| self.accepts(date))
     }
 }
 
-pub(super) enum TypedEvent {
-    Edit(String),
-    Commit(String),
-    External(Option<CalendarDate>),
-}
-pub(super) enum TypedEffect {
-    Commit(String),
-    Validity(bool),
-}
-pub(super) struct TypedSnapshot {
-    pub(super) locale: Locale,
-    // xtask-allow(state-fields): passive record - min
-    pub(super) min: Option<CalendarDate>,
-    // xtask-allow(state-fields): passive record - max
-    pub(super) max: Option<CalendarDate>,
-}
-impl Machine for TypedSnapshot {
-    type State = TypedDate;
-    type Event = TypedEvent;
-    type Effect = TypedEffect;
-    fn transition(
-        &self,
-        _: &TypedDate,
-        event: TypedEvent,
-    ) -> Step<TypedDate, TypedEvent, TypedEffect> {
+impl Machine for Snapshot {
+    type State = DateField;
+    type Event = Event;
+    type Effect = Effect;
+    fn transition(&self, state: &DateField, event: Event) -> Step<DateField, Event, Effect> {
+        let picker = state.picker;
+        let with = |typed: TypedDate| DateField { typed, picker };
         match event {
-            TypedEvent::Edit(text) => {
-                let valid = text.trim().is_empty()
-                    || self.locale.parse_date(&text).is_some_and(|date| {
-                        self.min.is_none_or(|min| date >= min)
-                            && self.max.is_none_or(|max| date <= max)
-                    });
-                Step::to(TypedDate::Editing {
+            Event::External(value) => {
+                Step::to(with(TypedDate::initial(value))).with(Effect::Validity(true))
+            }
+            Event::Open(opened_by) => Step::to(DateField {
+                typed: state.typed.clone(),
+                picker: Picker::Open { opened_by },
+            }),
+            Event::Close => Step::to(DateField {
+                typed: state.typed.clone(),
+                picker: Picker::Closed,
+            }),
+            Event::Edit(text) => {
+                let valid = self.valid_text(&text);
+                Step::to(with(TypedDate::Editing {
                     text,
                     validation: DateValidation::Unchecked,
-                })
-                .with(TypedEffect::Validity(valid))
+                }))
+                .with(Effect::Validity(valid))
             }
-            TypedEvent::External(Some(date)) => {
-                Step::to(TypedDate::Following(date)).with(TypedEffect::Validity(true))
-            }
-            TypedEvent::External(None) => Step::to(TypedDate::Editing {
-                text: String::new(),
-                validation: DateValidation::Unchecked,
+            Event::Commit(text) if text.trim().is_empty() => Step::to(DateField {
+                typed: TypedDate::Editing {
+                    text: String::new(),
+                    validation: DateValidation::Unchecked,
+                },
+                picker: Picker::Closed,
             })
-            .with(TypedEffect::Validity(true)),
-            TypedEvent::Commit(text) => {
-                let next = match self.locale.parse_date(&text).filter(|date| {
-                    self.min.is_none_or(|min| *date >= min)
-                        && self.max.is_none_or(|max| *date <= max)
-                }) {
-                    Some(date) => TypedDate::Following(date),
-                    None => TypedDate::Editing {
-                        text: text.clone(),
+            .with(Effect::Validity(true))
+            .with(Effect::Value(None)),
+            Event::Commit(text) => match self
+                .locale
+                .parse_date(&text)
+                .filter(|date| self.accepts(*date))
+            {
+                Some(date) => Step::to(DateField {
+                    typed: TypedDate::Following(date),
+                    picker: Picker::Closed,
+                })
+                .with(Effect::Validity(true))
+                .with(Effect::Value(Some(date))),
+                None => Step::to(DateField {
+                    typed: TypedDate::Editing {
+                        text,
                         validation: DateValidation::Checked,
                     },
-                };
-                let valid = text.trim().is_empty() || matches!(next, TypedDate::Following(_));
-                Step::to(next)
-                    .with(TypedEffect::Commit(text))
-                    .with(TypedEffect::Validity(valid))
+                    picker,
+                })
+                .with(Effect::Validity(false)),
+            },
+            Event::Pick(date) if self.accepts(date) => Step::to(DateField {
+                typed: TypedDate::Following(date),
+                picker: Picker::Closed,
+            })
+            .with(Effect::Value(Some(date))),
+            Event::Pick(_) => Step::stay(),
+            Event::SheetPick(date) if self.accepts(date) => {
+                Step::to(with(TypedDate::Following(date))).with(Effect::Value(Some(date)))
             }
+            Event::SheetPick(_) => Step::stay(),
+            Event::Clear => Step::to(DateField {
+                typed: TypedDate::Editing {
+                    text: String::new(),
+                    validation: DateValidation::Unchecked,
+                },
+                picker: Picker::Closed,
+            })
+            .with(Effect::Value(None)),
         }
     }
 }

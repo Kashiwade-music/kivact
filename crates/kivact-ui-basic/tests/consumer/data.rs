@@ -104,10 +104,10 @@ fn payments_table() -> (Handles, impl IntoView) {
         .page(handles.page, 3)
         .toolbar(move |use_context| {
             let query = use_context.filter.expect("the table has a filter");
-            let page = use_context
-                .page
-                .map(|(page, _)| page)
-                .expect("the table pages");
+            let page = match use_context.paging {
+                kivact::ui::Paging::Local { page, .. } => page,
+                _ => panic!("the table pages"),
+            };
             let filter = kivact::ui::text_input(
                 "Filter emails...",
                 kivact::state::binding(query, move |text: String| {

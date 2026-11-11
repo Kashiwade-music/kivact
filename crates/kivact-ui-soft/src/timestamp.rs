@@ -9,9 +9,9 @@ use kivact::state::Value;
 use kivact::state::machine;
 use kivact::state::memo;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -160,16 +160,16 @@ pub enum InstantFormat {
 /// A row in the timestamp details.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct TimestampEntry {
-    // xtask-allow(state-fields): Optional per-entry time zone is an immutable formatting override.
+    // xtask-allow(state-fields): option: per-entry time zone is an immutable formatting override.
     /// Optional time zone overriding the main timestamp zone for this entry.
     pub zone: Option<TimeZone>,
     /// Date and time format for this detail row.
     pub format: InstantFormat,
-    // xtask-allow(state-fields): Optional prefix label is independent authored presentation text.
+    // xtask-allow(state-fields): option: prefix label is independent authored presentation text.
     /// Optional label preceding the detail value.
     pub label: Option<String>,
-    // xtask-allow(state-fields): Copy permission is a presentation capability, not a clipboard phase.
-    /// Whether the detail value offers a copy action.
+    // xtask-allow(state-fields): option: the caller's flag for a copy action on this detail row; timestamp_details does not draw a copy action yet, so both values render alike
+    /// Reserved for a copy action on this detail row; the timestamp details do not draw one yet, so the value has no effect.
     pub copyable: bool,
 }
 
@@ -318,7 +318,7 @@ impl Timestamp {
     }
 }
 
-impl NodeBuilder for Timestamp {
+impl Element for Timestamp {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.text.node_mut()

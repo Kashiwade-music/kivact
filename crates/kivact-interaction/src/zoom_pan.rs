@@ -9,9 +9,9 @@
 //! key is one edit and each pan or pinch is one edit of an [`EditSession`];
 //! the session is used directly rather than through a `DragApi`, since these
 //! gestures do not fit one primary-button drag (see `crate::drag`). The
-//! gesture is one state ([`ZoomPanApi::is_gesturing`]) ended in one place. Space
-//! is tracked by a [`SpacePanApi`](crate::SpacePanApi) ([`ZoomPanApi::is_space_armed`]):
-//! while not panning, Space presses and releases update the state and reach
+//! gesture is one state ([`ZoomPanApi::is_gesturing`]) ended in one place; the
+//! gesture machine also holds Space ([`ZoomPanApi::is_space_armed`]): while not
+//! panning, Space presses and releases update the state and reach
 //! ancestors, returning `Handled::PreventDefault` so the focused part is not
 //! activated; an application that binds Space to play or stop therefore
 //! also runs it when a Space-plus-drag pan starts. Releasing Space alone

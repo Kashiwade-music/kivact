@@ -7,9 +7,9 @@ use kivact::interaction::Delays;
 use kivact::interaction::use_menu_with_open;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
@@ -42,10 +42,10 @@ use std::time::Duration;
 /// An action entry for a navigation heading menu, with optional supporting content.
 pub struct NavHeadingMenuItem {
     pub(crate) label: Value<String>,
-    // xtask-allow(state-fields): builder option - description
+    // xtask-allow(state-fields): option: caller supporting text from NavHeadingMenuItem::description; absent renders the label alone.
     pub(crate) description: Option<Value<String>>,
     pub(crate) icon: Option<ViewFn>,
-    // xtask-allow(state-fields): builder option - disabled
+    // xtask-allow(state-fields): option: caller availability from NavHeadingMenuItem::disabled; false keeps the entry selectable.
     pub(crate) disabled: bool,
     pub(crate) action: Option<Callback<()>>,
 }
@@ -160,7 +160,7 @@ pub(crate) fn nav_menu_view(
     let heading = matches!(look, NavMenuLook::Heading);
     let default_min_width = menu_min_width(heading, size);
     let min_width = min_width.unwrap_or_else(|| default_min_width.into_value());
-    let surface = behavior.show(move || {
+    let surface = behavior.while_open(move || {
         let items = items.clone();
         let rows = for_each(
             behavior.entries(),
@@ -321,7 +321,7 @@ impl SideNavHeading {
     }
 }
 
-impl NodeBuilder for SideNavHeading {
+impl Element for SideNavHeading {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -342,7 +342,7 @@ impl IntoView for SideNavHeading {
             super_action,
             sub_action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let rail = crate::side_navigation::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();
@@ -512,11 +512,13 @@ fn nav_entry_style(
         .font_size(t.typography.body.size_px)
         .line_height(t.typography.body.line_height_px / t.typography.body.size_px)
         .radius(t.radius.element)
-        .background(if !input.disabled && (input.focused || input.hovered) {
-            t.colors.overlay_hover
-        } else {
-            kivact::style::Color::TRANSPARENT
-        })
+        .background(
+            if !input.is_disabled() && (input.is_focused() || input.is_hovered()) {
+                t.colors.overlay_hover
+            } else {
+                kivact::style::Color::TRANSPARENT
+            },
+        )
         .disabled(style().opacity(t.sizes.disabled_opacity))
         .transition(
             TransitionProp::All,
@@ -632,7 +634,7 @@ pub(crate) fn menu_option_style(
             role.weight
         })
         .disabled(style().opacity(t.sizes.disabled_opacity));
-    if input.hovered || input.focused {
+    if input.is_hovered() || input.is_focused() {
         base.background(t.colors.overlay_hover)
     } else {
         base

@@ -15,7 +15,7 @@ use std::ops::Range;
 use kivact_engine::testing::ShellEvent;
 use kivact_style::draw::Rect;
 
-use super::model::{Element, Screen};
+use super::model::{Locator, Screen};
 use super::results::ImeText;
 
 impl Screen {
@@ -61,12 +61,12 @@ impl Screen {
     }
 }
 
-impl Element<'_> {
+impl Locator<'_> {
     /// Focus the element (unless focused) and have the IME take `range`
     /// (chars of the value, inside the text the IME is given:
     /// [`Screen::ime_text`]) for reconversion, as the Windows IME confirms
     /// the range it reconverts: it becomes the selection, which the next
-    /// composition ([`Element::compose`], [`Element::commit`]) replaces.
+    /// composition ([`Locator::compose`], [`Locator::commit`]) replaces.
     #[track_caller]
     pub fn reconvert(&self, range: Range<usize>) {
         self.ensure_focus();

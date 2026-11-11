@@ -3,7 +3,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::platform::capabilities;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{
-    IntoView, Key, Modifiers, Node, NodeBuilder, Role, View, for_index, row, text,
+    Element, IntoView, Key, Modifiers, Node, Role, View, for_index, row, text,
 };
 pub struct Kbd {
     root: Node,
@@ -23,7 +23,7 @@ impl Kbd {
         self
     }
 }
-impl NodeBuilder for Kbd {
+impl Element for Kbd {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -71,7 +71,7 @@ impl KbdCombo {
         self
     }
 }
-impl NodeBuilder for KbdCombo {
+impl Element for KbdCombo {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

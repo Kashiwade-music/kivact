@@ -31,6 +31,10 @@ pub enum ViewRange {
 #[track_caller]
 pub fn scroll_progress(scroller: NodeRef, axis: Orientation) -> Value<f64> {
     require_setup("scroll_progress");
+    scroller.require_observation(
+        crate::view::state::RefObservation::Sources,
+        std::panic::Location::caller(),
+    );
     memo(move || {
         scroller
             .tracked_observation()
@@ -51,8 +55,9 @@ pub fn view_progress(
     range: ViewRange,
 ) -> Value<f64> {
     require_setup("view_progress");
-    let _ = target.rect();
-    let _ = scroller.rect();
+    let at = std::panic::Location::caller();
+    target.require_observation(crate::view::state::RefObservation::SourcesAndLayout, at);
+    scroller.require_observation(crate::view::state::RefObservation::SourcesAndLayout, at);
     memo(move || {
         let (Some(target), Some(scroller)) = (layout_rect(target), layout_rect(scroller)) else {
             return 0.0;
@@ -68,7 +73,11 @@ pub fn view_progress(
 
 /// The window layout box of `node`, tracked.
 fn layout_rect(node: NodeRef) -> Option<Rect> {
-    node.tracked_observation()?.layout_rect.try_get().flatten()
+    node.tracked_observation()?
+        .measured
+        .try_get()
+        .flatten()
+        .map(|measured| measured.layout_rect)
 }
 
 /// The start and length of `rect` along `axis`.

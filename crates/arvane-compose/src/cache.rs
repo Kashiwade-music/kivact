@@ -50,6 +50,56 @@ pub(crate) enum Retained {
     Glyphs(GlyphRunSnapshot),
 }
 
+/// Where one command of a chunk's index reaches, in chunk px.
+#[derive(Clone, Copy, Debug)]
+pub(crate) enum Reach {
+    /// Nothing of it lands in the chunk.
+    Nothing,
+    /// A command that draws: it damages this rectangle when it changes or
+    /// moves.
+    Draws(PixelRect),
+    /// A group opener (a clip, a transform, a group without blur): it draws
+    /// nothing of its own and damages its group's bounds only when it
+    /// changed itself (its hash), never because its content's extent moved
+    /// (each content command damages its own place).
+    Opens(PixelRect),
+}
+
+/// One command of a chunk's index: its hash and where it reaches.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Indexed {
+    pub(crate) hash: u64,
+    pub(crate) reach: Reach,
+}
+
+impl Indexed {
+    /// The rectangle this command draws in (`None` for an opener or a
+    /// command outside the chunk): with the hash, what makes two entries
+    /// the same.
+    fn drawn(&self) -> Option<PixelRect> {
+        match self.reach {
+            Reach::Draws(rect) => Some(rect),
+            Reach::Opens(_) | Reach::Nothing => None,
+        }
+    }
+
+    /// What a change of this command damages.
+    pub(crate) fn damage(&self) -> Option<PixelRect> {
+        match self.reach {
+            Reach::Draws(rect) | Reach::Opens(rect) => Some(rect),
+            Reach::Nothing => None,
+        }
+    }
+}
+
+impl PartialEq for Indexed {
+    fn eq(&self, o: &Self) -> bool {
+        self.hash == o.hash && self.drawn() == o.drawn()
+    }
+}
+
+impl Eq for Indexed {}
+
 /// The previous frame's record of one chunk.
 #[derive(Clone, Debug)]
 pub(crate) struct ChunkRecord {
@@ -59,8 +109,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) origin: kivact_types::geometry::Point,
     /// Size in px.
     pub(crate) size: (u32, u32),
-    /// Per command: hash and chunk px bounds (None: draws nothing there).
-    pub(crate) index: Arc<[(u64, Option<PixelRect>)]>,
+    /// Per command: its index entry.
+    pub(crate) index: Arc<[Indexed]>,
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.
@@ -90,17 +140,89 @@ const KEEP_FRAMES: u64 = 2;
 /// The chunk and layer records of the frames drawn so far.
 #[derive(Default)]
 pub(crate) struct CacheIndex {
-    /// Chunk records by key.
-    pub(crate) chunks: HashMap<ChunkKey, ChunkRecord>,
-    /// Layer records by key.
-    pub(crate) layers: HashMap<LayerKey, LayerRecord>,
     /// Frames drawn so far (cache stamps; statistics, not a phase).
     pub(crate) frame: u64,
-    /// The next frame redraws everything: set by `clear`, cleared by `store`.
-    pub(crate) invalidated: bool,
+    /// The records kept from the last frame, unless the next frame redraws
+    /// everything.
+    pub(crate) records: Records,
+}
+
+/// What the cache keeps of the last frame.
+pub(crate) enum Records {
+    /// The records of the last frame, by key.
+    Kept {
+        /// Chunk records by key.
+        chunks: HashMap<ChunkKey, ChunkRecord>,
+        /// Layer records by key.
+        layers: HashMap<LayerKey, LayerRecord>,
+    },
+    /// The next frame redraws everything: no record is kept.
+    Invalidated,
+}
+
+impl Default for Records {
+    fn default() -> Self {
+        Self::Kept {
+            chunks: HashMap::new(),
+            layers: HashMap::new(),
+        }
+    }
+}
+
+impl Records {
+    /// The kept maps, empty after [`Records::Invalidated`] (nothing is kept
+    /// then).
+    fn kept(
+        &mut self,
+    ) -> (
+        &mut HashMap<ChunkKey, ChunkRecord>,
+        &mut HashMap<LayerKey, LayerRecord>,
+    ) {
+        if matches!(self, Self::Invalidated) {
+            *self = Self::default();
+        }
+        match self {
+            Self::Kept { chunks, layers } => (chunks, layers),
+            Self::Invalidated => unreachable!("just made Kept"),
+        }
+    }
 }
 
 impl CacheIndex {
+    /// Whether the chunk record `key` is kept: false after `clear`, when the
+    /// next frame redraws everything.
+    pub(crate) fn keeps_chunk(&self, key: &ChunkKey) -> bool {
+        match &self.records {
+            Records::Kept { chunks, .. } => chunks.contains_key(key),
+            Records::Invalidated => false,
+        }
+    }
+
+    /// Whether the layer record `key` is kept: false after `clear`, when the
+    /// next frame redraws everything.
+    pub(crate) fn keeps_layer(&self, key: &LayerKey) -> bool {
+        match &self.records {
+            Records::Kept { layers, .. } => layers.contains_key(key),
+            Records::Invalidated => false,
+        }
+    }
+
+    /// The chunk record `key`, when the cache keeps one.
+    pub(crate) fn chunk(&self, key: &ChunkKey) -> Option<&ChunkRecord> {
+        match &self.records {
+            Records::Kept { chunks, .. } => chunks.get(key),
+            Records::Invalidated => None,
+        }
+    }
+
+    /// The layer record `key`, when the cache keeps one.
+    pub(crate) fn layer(&self, key: &LayerKey) -> Option<&LayerRecord> {
+        match &self.records {
+            Records::Kept { layers, .. } => layers.get(key),
+            Records::Invalidated => None,
+        }
+    }
+
     /// Store the records of the frame `frame` and drop the records that
     /// were not used for [`KEEP_FRAMES`] frames. `forgets` are chunks the
     /// frame drew without caching: their old records no longer match the
@@ -113,22 +235,18 @@ impl CacheIndex {
         forgets: &[ChunkKey],
     ) {
         self.frame = frame;
-        self.invalidated = false;
+        let (kept_chunks, kept_layers) = self.records.kept();
         for key in forgets {
-            self.chunks.remove(key);
+            kept_chunks.remove(key);
         }
-        self.chunks.extend(chunks);
-        self.layers.extend(layers);
-        self.chunks
-            .retain(|_, record| record.frame + KEEP_FRAMES > frame);
-        self.layers
-            .retain(|_, record| record.frame + KEEP_FRAMES > frame);
+        kept_chunks.extend(chunks);
+        kept_layers.extend(layers);
+        kept_chunks.retain(|_, record| record.frame + KEEP_FRAMES > frame);
+        kept_layers.retain(|_, record| record.frame + KEEP_FRAMES > frame);
     }
 
     /// Forget every record (after a resize, a lost device or a failed frame).
     pub(crate) fn clear(&mut self) {
-        self.chunks.clear();
-        self.layers.clear();
-        self.invalidated = true;
+        self.records = Records::Invalidated;
     }
 }

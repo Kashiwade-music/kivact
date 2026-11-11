@@ -94,7 +94,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// is a `Role::Option` named by its label, `selected` while active.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, for_each}};
+/// use kivact_core::{state::signal, view::{Element, column, node, text, for_each}};
 /// use kivact_interaction::{ListItem, use_combobox, use_text_edit};
 /// let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
 /// let chosen = signal(None::<&'static str>);
@@ -110,9 +110,9 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// ));
 /// ```
 pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): independent fact - the observation of the attached input part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached input part, absent until it attaches
     input_state: Signal<Option<Value<PartState>>>,
-    // xtask-allow(state-fields): independent fact - the observation of the attached content part, absent until it attaches
+    // xtask-allow(state-fields): independent: set by ComboboxApi::content when the list surface attaches; the input part attaches separately through ComboboxApi::input, before the surface first mounts
     content_state: Signal<Option<Value<PartState>>>,
     item_states: Signal<HashMap<K, Value<ListItemState>>>,
     options: Value<Vec<ListItem<K>>>,
@@ -149,16 +149,18 @@ fn first_enabled<K: Clone>(options: &[ListItem<K>]) -> Option<K> {
         .map(|option| option.key.clone())
 }
 
-/// A combobox over `options` whose choice is written to `selection`, with an
+/// A combobox over `items` whose choice is written to `selected`, with an
 /// empty query. Setup only.
 #[track_caller]
 pub fn use_combobox<K: kivact_core::state::ItemKey>(
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl crate::IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl crate::IntoSelection<K>,
 ) -> ComboboxApi<K> {
-    let selection = selection.into_selection();
-    let source = OptionsCell::new(options.into_value());
+    let selection = selected.into_selection();
+    let source = OptionsCell::new(items.into_value());
     let options = memo(move || source.value().get().get());
+    // The one open state; the machine writes the caller's binding, never the reverse.
+    let mode = OptionsCell::new(PresentationMode::Inline);
     let session = machine(
         machine::ComboboxState {
             mode: machine::ComboMode::Closed,
@@ -166,8 +168,15 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
             highlight: None::<K>,
         },
         || machine::Machine::<K>::new(),
-        |_, effect| match effect {
+        move |_, effect| match effect {
             machine::Effect::Query(source, text) => source.set(text),
+            machine::Effect::WriteOpen(open) => {
+                if let PresentationMode::Popup(binding) = mode.get()
+                    && binding.get_untracked() != open
+                {
+                    binding.set(open);
+                }
+            }
         },
     );
     let query = memo(move || session.state().with(|state| state.query.get()));
@@ -211,7 +220,7 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
             (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
         ),
         selection,
-        mode: OptionsCell::new(PresentationMode::Inline),
+        mode,
         session,
         filter,
         shown,
@@ -233,7 +242,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         kivact_core::state::effect_on(
             move || query.get(),
             move |_| {
-                session.send(machine::Event::QueryChanged);
+                // A closed list stays closed when the caller writes the query.
+                if self.shown() {
+                    session.send(machine::Event::QueryChanged);
+                }
             },
         );
         self
@@ -377,27 +389,41 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         self.mode
             .update(|mode| *mode = PresentationMode::Popup(open));
         let session = self.session;
-        kivact_core::state::effect_on(open, move |shown| {
-            if !shown {
-                session.send(machine::Event::Close);
-            }
-        });
+        // The machine is the source of truth: its state starts from the
+        // caller's value and follows it without feeding its own writes back.
+        session.send(machine::Event::OpenRequested(open.get_untracked()));
+        session.feed(open, machine::Event::OpenRequested);
         let focused = self.input_ref.focused();
-        effect(move || {
-            if !focused.get() && !transferred.get() && open.get_untracked() {
-                open.set(false);
+        kivact_core::state::effect_on(focused, move |focused| {
+            if !focused {
+                session.send(machine::Event::FocusLeft {
+                    transferred: transferred.get(),
+                });
             }
         });
         self
+    }
+
+    /// Reset the query and the highlight whenever the caller's `open` becomes
+    /// false: an inline list whose owner closes it. Setup only.
+    #[track_caller]
+    pub(crate) fn follow_open(self, open: kivact_core::state::Binding<bool>) {
+        let session = self.session;
+        kivact_core::state::effect_on(open, move |&shown| {
+            if !shown {
+                session.send(machine::Event::Reset);
+            }
+        });
     }
 
     /// Whether the list shows: the open state of a [`popup`](Self::popup), and
     /// always for a combobox without one.
     pub fn is_open(self) -> Value<bool> {
         let mode = self.mode;
+        let state = self.session.state();
         (move || match mode.value().get() {
             PresentationMode::Inline => true,
-            PresentationMode::Popup(open) => open.get(),
+            PresentationMode::Popup(_) => state.with(|state| state.mode.is_open()),
         })
         .into_value()
     }
@@ -417,38 +443,58 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         })
     }
 
-    /// Open the same list in a touch sheet.
-    pub fn open_sheet(self) {
-        self.session.send(machine::Event::OpenSheet);
-        if let PresentationMode::Popup(open) = self.mode.get() {
-            open.set(true);
+    /// Show the list in a touch sheet; an open popover list moves to the
+    /// sheet. Nothing changes while the sheet shows.
+    pub fn show_sheet(self) {
+        let in_sheet = self.session.state().with_untracked(|state| {
+            matches!(
+                state.mode,
+                machine::ComboMode::Browsing(crate::surface::Surface::Sheet)
+                    | machine::ComboMode::Filtering(crate::surface::Surface::Sheet)
+            )
+        });
+        if !in_sheet {
+            self.session.send(machine::Event::OpenSheet);
         }
     }
 
-    /// Open a popup list. Nothing happens without [`popup`](Self::popup).
-    pub fn open(self) {
-        self.session.send(machine::Event::Open);
-        if let PresentationMode::Popup(open) = self.mode.get() {
-            open.set(true);
+    /// Show a popup list. Nothing changes while the list shows (its query and
+    /// surface stay), and nothing happens without [`popup`](Self::popup).
+    pub fn show(self) {
+        if !self.shown() {
+            self.session.send(machine::Event::Open);
         }
     }
 
-    /// Close a popup list. Nothing happens without [`popup`](Self::popup).
-    pub fn close(self) {
-        self.session.send(machine::Event::Close);
-        if let PresentationMode::Popup(open) = self.mode.get() {
-            open.set(false);
+    /// Hide a popup list. Nothing changes while it is hidden, and nothing
+    /// happens without [`popup`](Self::popup).
+    pub fn hide(self) {
+        if let PresentationMode::Popup(_) = self.mode.get() {
+            self.session.send(machine::Event::Close);
         }
     }
 
-    /// Open a closed popup list and close an open one.
+    /// Show a hidden popup list and hide a shown one.
     pub fn toggle(self) {
-        if let PresentationMode::Popup(open) = self.mode.get() {
-            if open.get_untracked() {
-                self.close();
+        if let PresentationMode::Popup(_) = self.mode.get() {
+            if self.shown() {
+                self.hide();
             } else {
-                self.open();
+                self.show();
             }
+        }
+    }
+
+    /// Whether the list shows now, read untracked: [`is_open`](Self::is_open)
+    /// makes a value, which only setup may do, and the commands run in
+    /// handlers.
+    fn shown(self) -> bool {
+        match self.mode.get() {
+            PresentationMode::Inline => true,
+            PresentationMode::Popup(_) => self
+                .session
+                .state()
+                .with_untracked(|state| state.mode.is_open()),
         }
     }
 
@@ -481,12 +527,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         self.active.into_value()
     }
 
-    /// Empty the query and make the first enabled option active, as when the
-    /// combobox was made.
-    pub(crate) fn reset(self) {
-        self.session.send(machine::Event::Reset);
-    }
-
     /// Choose `key` if it is an enabled option the list shows now. A
     /// binding that fails the write reports its error.
     fn choose(self, key: K) {
@@ -512,7 +552,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             }
             Selection::Single(value) => {
                 value.set(Some(key));
-                self.close();
+                self.hide();
             }
         }
     }
@@ -564,7 +604,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let (active, rows) = (self.active, self.rows);
         let input = part(|input| input);
         let part_state = input.state();
-        self.input_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.input_state, part_state);
         let expanded = self.is_open();
         Part::new(part_state, move |host| {
             let host = if matches!(self.mode.get(), PresentationMode::Popup(_)) {
@@ -585,15 +625,19 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.alt && !m.ctrl && !m.meta && !m.shift {
-                        match event.key() { Key::ArrowDown => self.open(), Key::ArrowUp => self.close(), _ => return Handled::No }
+                        match event.key() {
+                            Key::ArrowDown => self.show(),
+                            Key::ArrowUp => self.hide(),
+                            _ => return Handled::No,
+                        }
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta || m.shift {
                         return Handled::No;
                     }
-                    let closed = matches!(self.mode.get(), PresentationMode::Popup(open) if !open.get_untracked());
+                    let closed = !self.shown();
                     match event.key() {
-                        Key::ArrowDown | Key::ArrowUp if closed => self.open(),
+                        Key::ArrowDown | Key::ArrowUp if closed => self.show(),
                         Key::ArrowDown => self.step(1),
                         Key::ArrowUp => self.step(-1),
                         // A closed list has nothing to choose.
@@ -606,10 +650,13 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                         Key::Escape
                             if matches!(self.mode.get(), PresentationMode::Popup(_)) && !closed =>
                         {
-                            self.close();
+                            self.hide();
                         }
                         Key::Backspace
-                            if self.session.state().with_untracked(|state| state.query.get().is_empty()) =>
+                            if self
+                                .session
+                                .state()
+                                .with_untracked(|state| state.query.get().is_empty()) =>
                         {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;
@@ -635,7 +682,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     pub fn content(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        self.content_state.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.list_ref)

@@ -22,12 +22,12 @@ kivact_core::state::constant_value!(AvatarShape);
 pub struct BadgeState {
     pub tone: Tone,
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - Whether the badge has an activation callback
+    // xtask-allow(state-fields): independent: Badge::on_press makes the badge pressable; its icons are added by separate calls
     /// Whether the badge has an activation callback.
     pub actionable: bool,
-    // xtask-allow(state-fields): passive record - leading icon
+    // xtask-allow(state-fields): independent: Badge::icon fills the leading slot, with or without a trailing icon or press handler
     pub leading_icon: bool,
-    // xtask-allow(state-fields): passive record - trailing icon
+    // xtask-allow(state-fields): independent: Badge::trailing_icon fills the trailing slot, with or without a leading icon or press handler
     pub trailing_icon: bool,
 }
 #[derive(Clone, Debug, PartialEq)]

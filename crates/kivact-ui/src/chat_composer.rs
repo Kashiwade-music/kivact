@@ -5,8 +5,8 @@ use crate::{ChatComposerState, ComposerStatus, ComposerStatusPosition};
 use kivact_core::custom::NodeRefExt;
 use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, callback};
 use kivact_core::view::{
-    Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, NodeBuilder, Role, View,
-    node, node_ref, text,
+    Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
+    node_ref, text,
 };
 /// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
@@ -127,7 +127,7 @@ impl ChatComposer {
         self
     }
 }
-impl NodeBuilder for ChatComposer {
+impl Element for ChatComposer {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

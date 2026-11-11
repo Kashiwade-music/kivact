@@ -29,34 +29,49 @@ pub enum NodeKind {
 }
 
 /// A node's typed props: its kind's payload, the input flags, and the
-/// rest boxed, so only the nodes that have them allocate them (a setter
-/// compares before it allocates a box).
+/// rest boxed, or shared (`Rc`) when many nodes write equal values
+/// (`Model::set_shared_prop`), so only the nodes that have them allocate
+/// them (a setter compares before it allocates a box).
 #[derive(Clone, Debug, PartialEq)]
 pub struct NodeProperties {
     /// Node type and its corresponding payload.
     pub kind: NodeKind,
+    // xtask-allow(state-fields): option: absent means the node is not a native editor
     /// Optional native editing contract.
     pub editing: Option<Box<EditingData>>,
+    // xtask-allow(state-fields): option: absent means the node has no IME session
     /// Optional IME session of a focusable node that is not a native editor.
     pub ime: Option<Box<ImeSessionProps>>,
+    // xtask-allow(state-fields): option: absent uses the host's layout defaults
     /// Optional layout properties; absent uses host defaults.
-    pub layout: Option<Box<LayoutProps>>,
+    pub layout: Option<std::rc::Rc<LayoutProps>>,
+    // xtask-allow(state-fields): option: absent draws nothing
     /// Optional resolved paint properties.
-    pub paint: Option<Box<PaintProps>>,
+    pub paint: Option<std::rc::Rc<PaintProps>>,
+    // xtask-allow(state-fields): option: absent inherits the parent's text style
     /// Optional inherited text properties.
-    pub text: Option<Box<TextStyle>>,
+    pub text: Option<std::rc::Rc<TextStyle>>,
+    // xtask-allow(state-fields): option: absent has no state styles
     /// Optional state-dependent style overrides.
-    pub states: Option<Box<StateStyles>>,
+    pub states: Option<std::rc::Rc<StateStyles>>,
     /// Input participation and focus flags.
     pub input: NodeInput,
+    // xtask-allow(state-fields): option: absent exposes no accessible properties
     /// Optional accessible node properties.
-    pub semantics: Option<Box<kivact_types::Semantics<FocusTarget>>>,
+    pub semantics: Option<std::rc::Rc<kivact_types::Semantics<FocusTarget>>>,
+    // xtask-allow(state-fields): option: absent means it is not a drawable root
     /// The drawable this node is the root of, if any (its id and mode).
     pub drawable: Option<DrawableRole>,
+    // xtask-allow(state-fields): option: absent means it has no shared-layout identity
     /// The shared-layout id: a node that gets its first box with the id of
     /// a departed node animates from that node's last box (`layout_id`).
     pub layout_id: Option<std::sync::Arc<str>>,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<NodeProperties>() <= 240,
+    "NodeProperties grew: box the new rare field"
+);
 
 /// The root node of a drawable: which drawable it is and how it is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -131,8 +146,10 @@ pub struct RovingFocus {
 /// Measurement callback for a childless box; absent means ordinary layout.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct BoxData {
+    // xtask-allow(state-fields): option: absent means ordinary layout
     /// Optional natural dimensions used to size the leaf box.
     pub intrinsic: Option<IntrinsicSize>,
+    // xtask-allow(state-fields): option: absent means ordinary layout
     /// Pure measurement callback for a leaf box.
     pub measure: Option<LeafMeasure>,
 }
@@ -140,30 +157,43 @@ pub struct BoxData {
 /// Native text-editing behavior, coloring and constraints for a node.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct EditingData {
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Synchronous native editing behavior.
     pub behavior: Option<kivact_editing::EditBehavior>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Optional line coloring callback.
     pub colors: Option<kivact_editing::LineColors>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Resolved document decorations.
     pub decorations: Option<Vec<kivact_editing::RangeDecoration>>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Keys bypassing native editing and its behavior, forwarded to client handlers.
     pub forward_keys: Option<Vec<Key>>,
+    // xtask-allow(state-fields): option: the controlled value the app writes (InputValue, Model::controlled_value); absent until the first write, when the editor starts from empty text
     /// Controlled document value; identity and revision govern host adoption.
     pub value: Option<std::rc::Rc<str>>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Hide clipboard content and request protected native editing.
     pub purpose: Option<kivact_types::InputPurpose>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Prevent mutations while retaining selection and copy.
     pub read_only: Option<bool>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Maximum Unicode scalar count accepted by editing mutations.
     pub max_length: Option<usize>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Text displayed while the controlled document is empty.
     pub placeholder: Option<String>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Allow line breaks in the editable value.
     pub multiline: Option<bool>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Visual line layout of a multiline field.
     pub line_layout: Option<EditLineLayout>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Request document-change events.
     pub report_text: Option<bool>,
+    // xtask-allow(state-fields): option: absent means the editor's default
     /// Request selection and composition-session events.
     pub report_session: Option<bool>,
 }
@@ -199,6 +229,16 @@ impl NodeKind {
 }
 
 impl NodeProperties {
+    /// The node's role: the one its semantics state, else `Role::Text` for a
+    /// text node that is not a native editor (its kind's role, which the
+    /// platform tree also gives it, `model::semantics::semantic_role`).
+    pub fn role(&self) -> Option<kivact_types::Role> {
+        self.semantics.as_deref().and_then(|s| s.role).or_else(|| {
+            (matches!(self.kind, NodeKind::Text(_)) && self.editing.is_none())
+                .then_some(kivact_types::Role::Text)
+        })
+    }
+
     /// Build properties containing this payload and no optional overrides.
     pub fn new(kind: NodeKind) -> Self {
         Self {

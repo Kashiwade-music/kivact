@@ -2,8 +2,8 @@
 
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::icon;
 use kivact::view::node;
 use kivact::view::row;
@@ -81,7 +81,7 @@ impl FieldStatus {
     }
 }
 
-impl NodeBuilder for FieldStatus {
+impl Element for FieldStatus {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

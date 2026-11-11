@@ -141,12 +141,12 @@ fn component_list(selected: Signal<Option<usize>>) -> Node {
                         .color(p.foreground);
                     let s = if state.selected {
                         s.background(p.muted).weight(500)
-                    } else if state.input.hovered {
+                    } else if state.input.is_hovered() {
                         s.background(p.muted.with_alpha(0.5))
                     } else {
                         s
                     };
-                    if state.input.focus_visible {
+                    if state.input.is_focus_visible() {
                         s.ring(1, p.ring.with_alpha(0.5))
                     } else {
                         s

@@ -1,5 +1,4 @@
 //! Role: Catalog page of Sidebar: groups, icon mode, sub-menus and frames.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "sidebar",
         name: "Sidebar",
         description: "ナビゲーションを置く、開閉できる側面の領域です。sidebar_provider に開閉の束縛、sidebar、隣のページを渡します。sidebar_trigger、端のレール、Ctrl+B（Mac は Cmd+B）で開閉し、デモは枠の中に収めています。Ctrl+B をウィンドウのどこでも使うには、provider をアプリのルートの view にします。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::style::use_theme;\nuse kivact_ui_basic as basic;",
         source: include_str!("sidebar.rs"),
         align: PreviewAlign::Center,
         examples: vec![
@@ -45,7 +44,7 @@ pub(crate) fn page() -> Page {
 // example: basic
 fn basic() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -121,7 +120,7 @@ fn basic() -> impl IntoView {
 // example: icon
 fn icon() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -187,7 +186,7 @@ fn icon() -> impl IntoView {
 // example: submenu
 fn submenu() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)
@@ -261,7 +260,7 @@ fn submenu() -> impl IntoView {
 // example: floating
 fn floating() -> impl IntoView {
     /// A bounded frame for a sidebar demo.
-    fn frame(provider: impl kivact::view::Component) -> impl kivact::view::Component {
+    fn frame(provider: impl kivact::view::Element) -> impl kivact::view::Element {
         column(provider).style(
             style()
                 .width(580)

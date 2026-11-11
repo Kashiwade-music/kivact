@@ -11,11 +11,18 @@ impl Model {
         let (index, fresh) = self.tree.nodes.reserve();
         if fresh {
             self.layout.push();
-            self.measure.push();
+            self.measure.push(&kind);
             self.paint.push_slot();
             self.editors.push(None);
+        } else {
+            // A reused slot measures the new node's kind, never the old one's.
+            self.measure.set_measure(index.0, &kind, false);
         }
         self.tree.install(id, HostNode::new(kind, index), index);
+        if self.tree.root() == Some(id) {
+            // A new root is a new set of layer roots.
+            self.paint.stale_all_facts();
+        }
     }
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
         let Self {
@@ -51,9 +58,9 @@ impl Model {
 )]
 struct RemovedPayload {
     node: HostNode,
-    // xtask-allow(state-fields): drop-order payload - editor
+    // xtask-allow(state-fields): option: absent means the node had no editor
     editor: Option<Box<crate::measure::editor::EditorNode>>,
-    // xtask-allow(state-fields): drop-order payload - extents
+    // xtask-allow(state-fields): option: absent means the node had no text extents
     extents: Option<Box<crate::measure::state::TextExtents>>,
 }
 impl Drop for Model {

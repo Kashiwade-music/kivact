@@ -29,20 +29,29 @@
 use std::sync::Arc;
 
 use crate::model::Model;
-use crate::model::interact::text_geometry::{caret_rect, input_scroll, text_line};
+use crate::model::interact::text_geometry::{caret_in, input_scroll, line_box};
+use crate::model::interact::visual::content_at;
 use kivact_types::{NodeId, Point, Rect};
 
 use kivact_types::{SemanticsText, SemanticsTextRun};
 
 impl Model {
+    /// The editor's text in content space: its line and caret as the
+    /// accessibility tree places them, from the content-space box of the node
+    /// (no scroll term), with `offset` (the scrolls above its layer) added.
     pub(super) fn editing_semantics(
         &mut self,
         id: NodeId,
         offset: Point,
         engine: &mut arvane::Engine,
     ) -> SemanticsText {
-        let caret = shifted(caret_rect(self, id, engine), offset.x, offset.y);
-        let line = text_line(self, id, engine);
+        let content = self
+            .computed_layout(id)
+            .map(|l| l.content_box)
+            .unwrap_or_default();
+        let text_box = content_at(self.content_rect(id).unwrap_or_default(), content);
+        let line = line_box(self, id, engine, text_box);
+        let caret = shifted(caret_in(self, id, engine, line), offset.x, offset.y);
         let at = Point {
             x: line.x - input_scroll(self, id) + offset.x,
             y: line.y + offset.y,

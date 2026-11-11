@@ -2,7 +2,9 @@
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_engine::contract::{HostRequest, InjectedInput, PlatformKey, RawInput, RawKey};
+use kivact_engine::contract::{
+    HostRequest, ImeStateInfo, InjectedInput, PlatformKey, RawInput, RawKey, RawKeyPhase,
+};
 use kivact_runtime::Runtime;
 use kivact_types::{InputPurpose, Key, KeyCode, Modifiers, NodeId, Point, RequestId, WindowId};
 
@@ -32,14 +34,20 @@ fn invalid_chord() -> p::RpcError {
 }
 
 fn raw_key(key: Key, pressed: bool, text: Option<String>) -> InjectedInput {
+    let phase = if pressed {
+        RawKeyPhase::Down {
+            repeat: Some(false),
+            text,
+        }
+    } else {
+        RawKeyPhase::Up
+    };
     InjectedInput::Raw(RawInput::Key(RawKey {
         key: PlatformKey::Code {
             key,
             code: KeyCode::Unidentified,
         },
-        pressed,
-        repeat: Some(false),
-        text,
+        phase,
     }))
 }
 
@@ -233,13 +241,28 @@ pub(super) fn get_ime_state(
         return Err(window_not_found(params.window));
     };
     let state = reader.ime_state(window);
+    let (node, composing, preedit, cursor_area, purpose) = match state {
+        ImeStateInfo::Inactive => (None, false, None, None, InputPurpose::Text),
+        ImeStateInfo::Focused {
+            node,
+            purpose,
+            cursor_area,
+            composition,
+        } => (
+            Some(node.0),
+            composition.is_some(),
+            composition,
+            cursor_area.map(convert::rect),
+            purpose,
+        ),
+    };
     Ok(p::ImeState {
         window: params.window,
-        node: state.node.map(|node| node.0),
-        composing: state.composing,
-        preedit: state.preedit,
-        cursor_area: state.cursor_area.map(convert::rect),
-        purpose: purpose_name(state.purpose),
+        node,
+        composing,
+        preedit,
+        cursor_area,
+        purpose: purpose_name(purpose),
     })
 }
 

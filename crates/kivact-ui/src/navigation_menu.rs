@@ -1,8 +1,8 @@
 //! Role: Compose exclusive navigation panels around the canonical navigation machine.
-use kivact_core::state::{IntoText, IntoValue, Value, binding, memo};
+use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
 use kivact_core::view::{
-    Handled, IntoView, Key, Node, NodeBuilder, OverlayAlign, Placement, PointerPhase, Role, View,
-    node, node_ref, overlay, show,
+    Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
+    node_ref, overlay, show,
 };
 use kivact_interaction::{NavOpen, use_navigation_menu, use_popup};
 use std::rc::Rc;
@@ -27,7 +27,7 @@ pub struct NavigationMenu {
     placement: Placement,
     align: OverlayAlign,
     variants: crate::variants::Variants,
-    changed: Option<Rc<dyn Fn(bool)>>,
+    changed: Option<Callback<bool>>,
 }
 /// Construct a navigation landmark under an accessible label.
 #[track_caller]
@@ -45,8 +45,11 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
 }
 impl NavigationMenu {
     /// Report accepted opening and closing transitions.
-    pub fn on_open_change(mut self, f: impl Fn(bool) + 'static) -> Self {
-        self.changed = Some(Rc::new(f));
+    pub fn on_open_change<R: kivact_core::view::HandlerResult>(
+        mut self,
+        f: impl Fn(bool) -> R + 'static,
+    ) -> Self {
+        self.changed = Some(callback(f));
         self
     }
     /// Add a panel trigger. Keys belong to the application's navigation data.
@@ -101,7 +104,7 @@ impl NavigationMenu {
         self
     }
 }
-impl NodeBuilder for NavigationMenu {
+impl Element for NavigationMenu {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -120,7 +123,7 @@ impl IntoView for NavigationMenu {
         } = self;
         let api = use_navigation_menu();
         let api = if let Some(changed) = changed {
-            api.on_open_change(move |open| changed(open))
+            api.on_open_change(move |open| changed.call(open))
         } else {
             api
         };
@@ -212,7 +215,7 @@ fn navigation_panel(
             move || state.get(),
         )
         .child(crate::navigation_context::provide_panel(
-            kivact_core::state::callback(move |()| api.close()),
+            kivact_core::state::callback(move |()| api.hide()),
             variants.clone(),
             move || content(),
         ));
@@ -231,7 +234,7 @@ fn navigation_panel(
             })
             .on_key(move |event| {
                 if event.key() == Key::Escape {
-                    api.close();
+                    api.hide();
                     anchor.focus();
                     Handled::Yes
                 } else {
@@ -252,9 +255,9 @@ fn pinned_binding(
         move || state.get() == NavOpen::Pinned(at),
         move |pin| {
             if pin {
-                api.pin(at);
+                api.show(at);
             } else if state.get_untracked() == NavOpen::Pinned(at) {
-                api.close();
+                api.hide();
             }
         },
     )
@@ -296,11 +299,11 @@ fn navigation_trigger(
             })
             .on_key(move |event| match event.key() {
                 Key::Escape if shown.get_untracked() => {
-                    api.close();
+                    api.hide();
                     Handled::Yes
                 }
                 Key::ArrowDown if !disabled.get_untracked() => {
-                    api.pin(at);
+                    api.show(at);
                     Handled::Yes
                 }
                 _ => Handled::No,
@@ -325,7 +328,7 @@ fn navigation_action(
             .disabled(disabled)
             .with_node(|node| node.role(Role::Link))
             .on_press(move || {
-                api.close();
+                api.hide();
                 press.call(());
             }),
         |r| r.navigation_menu_recipes().action_recipe(),

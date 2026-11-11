@@ -9,8 +9,8 @@ use kivact::interaction::{
     ListGesture, ListOptions, ListRangeMode, ListRangeOptions, Selection, use_list,
 };
 use kivact::prelude::{
-    IntoView, NodeBuilder, ScrollAxes, for_each, grid, node, rgb, row, scroll, show, signal,
-    spacer, text,
+    Element, IntoView, ScrollAxes, for_each, grid, node, rgb, row, scroll, show, signal, spacer,
+    text,
 };
 use kivact::state::IntoValue;
 use kivact::style::hsl;

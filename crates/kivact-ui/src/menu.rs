@@ -3,7 +3,7 @@
 //! One renderer draws both the ordinary trigger's placement and the context
 //! placement at the pointer. The builder draws its default trigger button;
 //! `.attach(trigger)` takes the caller's trigger and `.attach_context(target)`
-//! the right-click target, both `impl NodeBuilder + IntoView`. A trigger that
+//! the right-click target, both `impl Element + IntoView`. A trigger that
 //! has its own role (a menu bar's `MenuItem`, read with
 //! `Node::accessible_role`) keeps it after attaching; one without becomes a
 //! `Button`. The root surface's side and alignment are `.placement` and
@@ -20,10 +20,10 @@ use super::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::HandlerResult;
+use kivact_core::view::{Element, Node, column, node, scroll, text};
 use kivact_core::view::{
     IntoView, NodeRef, OverlayAlign, Placement, View, for_each, overlay, overlay_at,
 };
-use kivact_core::view::{Node, NodeBuilder, column, node, scroll, text};
 use kivact_interaction::{
     MenuApi as Behavior, MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
 };
@@ -34,14 +34,14 @@ type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<Menu
 pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     behavior: Behavior<K>,
-    // xtask-allow(state-fields): Independent builder placement option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     offset: Option<f64>,
     placement: Placement,
-    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): Independent immutable layout option.
+    // xtask-allow(state-fields): option: Menu::at_least_anchor_width; false sizes the surface to its content
     at_least_anchor_width: bool,
-    // xtask-allow(state-fields): Optional immutable caller renderer, not interaction state.
+    // xtask-allow(state-fields): option: absent means the component's default
     item: Option<ItemContent<K>>,
     variants: Variants,
 }
@@ -60,11 +60,11 @@ pub struct Menu<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn menu<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> Menu<K> {
     Menu {
         label: label.into_text_value(),
-        behavior: kivact_interaction::use_menu(entries),
+        behavior: kivact_interaction::use_menu(items),
         offset: None,
         placement: Placement::Below,
         align: None,
@@ -135,7 +135,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     ///     let entries = vec![MenuEntry::item("new", "New"), MenuEntry::item("open", "Open")];
     ///     menu("File", entries).on_activate(|_key| {}).item(|entry, state| {
     ///         text(move || {
-    ///             let mark = if state.get().input.focused { "> " } else { "" };
+    ///             let mark = if state.get().input.is_focused() { "> " } else { "" };
     ///             format!("{mark}{}", entry.get().label())
     ///         })
     ///     })
@@ -155,20 +155,20 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     /// own is named by the menu's label; a trigger with a role keeps it (a
     /// menu bar's triggers are `Role::MenuItem`), and one without is a
     /// `Role::Button`.
-    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         self.render(Some(trigger), Opening::Trigger)
     }
     /// Open the same themed menu by a context press or the context-menu key
     /// on `target`, at the pointer, and return the target with the menu. Its
     /// top level is drawn with the `context_surface` recipe.
-    pub fn attach_context<T: NodeBuilder + IntoView>(self, target: T) -> View {
+    pub fn attach_context<T: Element + IntoView>(self, target: T) -> View {
         self.render(Some(target), Opening::Context)
     }
-    pub(crate) fn attach_context_fallback<T: NodeBuilder + IntoView>(self, target: T) -> View {
+    pub(crate) fn attach_context_fallback<T: Element + IntoView>(self, target: T) -> View {
         self.render(Some(target), Opening::ContextFallback)
     }
 
-    fn render<T: NodeBuilder + IntoView>(self, trigger: Option<T>, opening: Opening) -> View {
+    fn render<T: Element + IntoView>(self, trigger: Option<T>, opening: Opening) -> View {
         let part = match opening {
             Opening::ContextFallback => self.behavior.context_fallback_trigger(),
             Opening::Context => self.behavior.context_trigger(),
@@ -234,7 +234,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
 }
 /// The trigger's accessible name and the trigger with `part` attached; a
 /// role the trigger has (a menu bar's `MenuItem`) stays the trigger's.
-fn named<T: NodeBuilder + IntoView, S: kivact_core::state::PropValue>(
+fn named<T: Element + IntoView, S: kivact_core::state::PropValue>(
     mut trigger: T,
     part: kivact_core::custom::Part<S>,
 ) -> (Option<Value<String>>, View) {
@@ -273,9 +273,9 @@ struct Level<K: kivact_core::state::ItemKey> {
     behavior: Behavior<K>,
     anchor: NodeRef,
     placement: Placement,
-    // xtask-allow(state-fields): Independent builder alignment option, consumed when rendering.
+    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): Independent immutable layout option.
+    // xtask-allow(state-fields): option: copied from Menu::at_least_anchor_width for the top level; submenu levels are false
     at_least_anchor_width: bool,
     kind: LevelKind,
     label: Value<String>,
@@ -386,7 +386,7 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         offset,
         variants,
     } = level;
-    behavior.show(move || {
+    behavior.while_open(move || {
         let part = behavior.content();
         let state = part.state();
         let rows = menu_rows(behavior, slot.clone(), variants.clone());

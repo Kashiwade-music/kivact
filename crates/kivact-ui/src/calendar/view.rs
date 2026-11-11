@@ -7,8 +7,8 @@ use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Callback, Value, on_mount, signal};
 use kivact_core::style::style;
+use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, Role, View, dynamic};
-use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
 use std::rc::Rc;
 
@@ -29,17 +29,17 @@ pub struct Calendar {
     cell_size: Value<f64>,
     variants: crate::variants::Variants,
     selection: CalendarSelection,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: Calendar::default_month; absent starts at the selection's month or today, and a caller month binding (displayed_month) takes precedence over it
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: Value<usize>,
     caption: Value<CalendarCaption>,
     outside: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: absent means the component's default
     week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: Value<bool>,
-    // xtask-allow(state-fields): Independent setup or presentation option, not a lifecycle flag.
+    // xtask-allow(state-fields): option: Calendar::month binds the shown month to the caller; absent keeps it in the calendar's own signal seeded from default_month
     displayed_month: Option<Binding<CalendarMonth>>,
     today: Value<CalendarDate>,
     min: Value<Option<CalendarDate>>,
@@ -277,16 +277,13 @@ impl Calendar {
 
     /// Call `f` when a choice is complete: a day for [`calendar`], the second
     /// click of a range selection.
-    pub fn on_commit<R: kivact_core::view::HandlerResult>(
-        mut self,
-        f: impl Fn() -> R + 'static,
-    ) -> Self {
-        self.on_commit = Some(kivact_core::state::callback(move |()| f()));
+    pub fn on_commit(mut self, f: impl Into<Callback<()>>) -> Self {
+        self.on_commit = Some(f.into());
         self
     }
 }
 
-impl NodeBuilder for Calendar {
+impl Element for Calendar {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -11,12 +11,21 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 use syn::spanned::Spanned;
 
+/// The Cargo target a source file was reached through.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Target {
+    /// Not reached through a declared target: a checker fixture, or a file
+    /// `walk_file` read before `load` names its target. Checked as library code.
+    Undeclared,
+    /// The package's library, by its crate name.
+    Library(String),
+    /// One binary of the package, as `package@bin:name`.
+    Binary(String),
+}
+
 pub(crate) struct Source {
     pub(crate) package: String,
-    // xtask-allow(state-fields): Optional immutable Cargo target identity recorded while parsing source metadata.
-    pub(crate) target: Option<String>,
-    // xtask-allow(state-fields): Immutable target-kind metadata, independent of optional target naming.
-    pub(crate) library: bool,
+    pub(crate) target: Target,
     pub(crate) module: String,
     pub(crate) path: PathBuf,
     pub(crate) text: String,
@@ -29,10 +38,16 @@ pub(crate) struct Source {
 }
 
 impl Source {
+    /// Whether the source is library code (a library target or an undeclared fixture).
+    pub(crate) fn library(&self) -> bool {
+        !matches!(self.target, Target::Binary(_))
+    }
+
     pub(crate) fn identity_root(&self) -> String {
-        self.target
-            .clone()
-            .unwrap_or_else(|| self.package.replace('-', "_"))
+        match &self.target {
+            Target::Library(name) | Target::Binary(name) => name.clone(),
+            Target::Undeclared => self.package.replace('-', "_"),
+        }
     }
 
     pub(crate) fn location(&self, span: proc_macro2::Span) -> String {
@@ -74,6 +89,14 @@ impl Source {
     /// The line of the marker directly before `span`, even when its reason is empty.
     pub(crate) fn marker_line(&self, rule: &str, span: proc_macro2::Span) -> Option<usize> {
         self.marker_before(rule, span).map(|(line, _)| line)
+    }
+    /// The reason written after `// xtask-allow(rule):` on `line`.
+    pub(crate) fn allow_reason(&self, rule: &str, line: usize) -> Option<String> {
+        let marker = format!("// xtask-allow({rule}):");
+        let text = self.text.lines().nth(line.checked_sub(1)?)?;
+        text.trim_start()
+            .strip_prefix(&marker)
+            .map(|reason| reason.trim().to_owned())
     }
     /// Record that the marker on `line` explained a counted field or static.
     pub(crate) fn use_allow(&self, line: usize) {
@@ -165,12 +188,11 @@ pub(crate) fn load(root: &Path) -> Result<Vec<Source>, String> {
             let start = sources.len();
             walk_file(package, "", &file, true, &mut BTreeSet::new(), &mut sources)?;
             for source in &mut sources[start..] {
-                source.library = library;
-                source.target = Some(if library {
-                    name.replace('-', "_")
+                source.target = if library {
+                    Target::Library(name.replace('-', "_"))
                 } else {
-                    format!("{}@bin:{}", package.replace('-', "_"), name)
-                });
+                    Target::Binary(format!("{}@bin:{}", package.replace('-', "_"), name))
+                };
             }
         }
     }
@@ -407,8 +429,7 @@ fn walk_items(
     }
     sources.push(Source {
         package: package.to_owned(),
-        target: None,
-        library: true,
+        target: Target::Undeclared,
         module: module.to_owned(),
         path: file.to_path_buf(),
         text: text.to_owned(),
@@ -442,8 +463,7 @@ pub(crate) fn fixture(text: &str) -> Source {
     let parsed = syn::parse_file(text).unwrap();
     Source {
         package: "kivact-ui-soft".into(),
-        target: None,
-        library: true,
+        target: Target::Undeclared,
         module: "widgets".into(),
         path: "crates/kivact-ui-soft/src/widgets.rs".into(),
         text: text.into(),
@@ -481,13 +501,13 @@ mod tests {
             "pub struct Shared { pub x: f32 } pub struct State { a: bool, b: bool }",
         )
         .unwrap();
-        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: bool, b: bool } impl NodeBuilder for State {}").unwrap();
+        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: bool, b: bool } impl Element for State {}").unwrap();
         for path in ["tool.rs", "src/bin/helper.rs", "src/bin/nested/main.rs"] {
             std::fs::write(directory.join(path), "struct Model { a: bool, b: bool }").unwrap();
         }
         let sources = super::load(&root).unwrap();
         assert_eq!(sources.len(), 5);
-        assert_eq!(sources.iter().filter(|s| s.library).count(), 1);
+        assert_eq!(sources.iter().filter(|s| s.library()).count(), 1);
         let identities: std::collections::BTreeSet<_> =
             sources.iter().map(|s| s.identity_root()).collect();
         assert_eq!(identities.len(), 5);
@@ -507,6 +527,7 @@ mod tests {
         assert_eq!(
             crate::local_checks::check(&root, &policy, &options)
                 .unwrap()
+                .errors
                 .len(),
             4
         );

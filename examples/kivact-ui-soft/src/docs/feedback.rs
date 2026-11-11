@@ -3,7 +3,7 @@ use super::specimen::specimen;
 use kivact::style::{Align, style};
 use kivact::ui::badge;
 use kivact::ui::{ControlSize, skeleton, spinner};
-use kivact::view::{Node, NodeBuilder, column, row, text};
+use kivact::view::{Element, Node, column, row, text};
 use kivact_ui_soft::{
     BadgeVariant, SkeletonRadius, SpinnerShade, SpinnerVariant, StatusDotVariant, TokenColor,
     status_dot, token,

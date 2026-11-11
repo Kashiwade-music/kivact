@@ -5,8 +5,8 @@ use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Direction, Justify, style};
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role, View, node,
-    row, use_direction,
+    Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
+    use_direction,
 };
 
 use crate::collection_values::{ToolbarEdge, ToolbarState};
@@ -83,7 +83,7 @@ impl Toolbar {
         self
     }
 }
-impl NodeBuilder for Toolbar {
+impl Element for Toolbar {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

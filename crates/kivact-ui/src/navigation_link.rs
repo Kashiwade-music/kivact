@@ -3,7 +3,7 @@ use crate::layer::with_recipe_style;
 use crate::navigation_values::NavigationLinkState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, column, node, node_ref, text};
+use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
 /// A title, optional icon and description that activates and closes its navigation panel.
 pub struct NavigationMenuLink {
     root: Node,
@@ -43,7 +43,7 @@ impl NavigationMenuLink {
         self
     }
 }
-impl NodeBuilder for NavigationMenuLink {
+impl Element for NavigationMenuLink {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

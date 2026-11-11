@@ -1,6 +1,6 @@
 //! Role: AssetStore: schedules asset jobs and answers images and pixels from its cache.
 
-use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey};
+use super::entry::{Entry, Recheck, Residency, Stamp, State, Variant, VariantKey, VariantSource};
 use super::image_state::{AnimationInfo, ImageState};
 use super::job::{Done, Job, Loaded};
 use super::worker::Worker;
@@ -15,7 +15,6 @@ use crate::svg::{FontDb, Svg};
 use kivact_types::Asset;
 use kivact_types::Pixels;
 use kivact_types::{Rgba, Size};
-use resvg::usvg;
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::num::NonZeroU64;
@@ -38,6 +37,26 @@ pub(super) enum Runner {
     Worker(Worker),
 }
 
+/// The host's frame clock (`begin_frame`, counted from 1).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum FrameClock {
+    /// Before the host's first `begin_frame`: nothing is protected.
+    #[default]
+    BeforeFirstFrame,
+    /// The host's current frame.
+    Frame(NonZeroU64),
+}
+
+impl FrameClock {
+    /// The frame's number, when the host has begun one.
+    pub(super) fn number(self) -> Option<NonZeroU64> {
+        match self {
+            Self::BeforeFirstFrame => None,
+            Self::Frame(frame) => Some(frame),
+        }
+    }
+}
+
 /// Loads, decodes and keeps images for one host instance (see the module
 /// invariants).
 pub struct AssetStore {
@@ -46,15 +65,13 @@ pub struct AssetStore {
     /// registered ones (`register_font`).
     pub(super) fonts: FontDb,
     pub(super) entries: HashMap<Asset, Entry>,
-    // xtask-allow(state-fields): measurement - the host's frame clock written by begin_frame; the cache protects what the current and the previous frame used
-    /// The host's current frame (`begin_frame`, counted from 1); `None`
-    /// before the first: nothing is protected.
-    pub(super) frame: Option<NonZeroU64>,
+    /// The host's frame clock written by `begin_frame`.
+    pub(super) frame: FrameClock,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
-    // xtask-allow(state-fields): S-8 ID - the next image id
+    // xtask-allow(state-fields): identity: the next image id, given to each image the store makes
     pub(super) next_id: u64,
-    // xtask-allow(state-fields): S-8 ID - the next entry generation; a job result of another generation is dropped
+    // xtask-allow(state-fields): identity: the next entry generation; a job result of another generation is dropped
     pub(super) next_generation: u64,
     pub(super) budget: usize,
     pub(super) bytes: usize,
@@ -80,13 +97,11 @@ impl AssetStore {
     }
 
     fn with_runner(runner: Runner) -> AssetStore {
-        let mut fonts = usvg::fontdb::Database::new();
-        fonts.load_system_fonts();
         AssetStore {
             runner,
-            fonts: Arc::new(fonts),
+            fonts: Arc::new(crate::svg::SvgFonts::new()),
             entries: HashMap::new(),
-            frame: None,
+            frame: FrameClock::BeforeFirstFrame,
             tick: 0,
             next_id: 1,
             next_generation: 1,
@@ -105,9 +120,9 @@ impl AssetStore {
     /// Until the first call nothing is protected: the cache is a plain LRU
     /// within its budget.
     pub fn begin_frame(&mut self) {
-        self.frame = Some(match self.frame {
-            Some(frame) => frame.checked_add(1).expect("invariant: frames fit u64"),
-            None => NonZeroU64::MIN,
+        self.frame = FrameClock::Frame(match self.frame {
+            FrameClock::Frame(frame) => frame.checked_add(1).expect("invariant: frames fit u64"),
+            FrameClock::BeforeFirstFrame => NonZeroU64::MIN,
         });
     }
 
@@ -151,12 +166,12 @@ impl AssetStore {
         }
     }
 
-    /// Registers the font `bytes` for SVG `<text>`. Every SVG that is pending
+    /// Registers the font `font` for SVG `<text>`. Every SVG that is pending
     /// or parsed is parsed again with the new fonts (its rasters are dropped,
     /// and the results of the parses of the old fonts are dropped when they
     /// land).
-    pub fn register_font(&mut self, bytes: Arc<[u8]>) {
-        Arc::make_mut(&mut self.fonts).load_font_data(bytes.to_vec());
+    pub fn register_font(&mut self, font: kivact_types::render::FontSource) {
+        self.fonts = Arc::new(self.fonts.with_font(font));
         let stale: Vec<Asset> = self
             .entries
             .iter()
@@ -263,10 +278,8 @@ impl AssetStore {
                 }
                 let (index, source) = self.resident_frame(asset, frame)?;
                 let base = VariantKey {
-                    size: None,
-                    crop: None,
+                    source: VariantSource::Frame(index),
                     tint: None,
-                    frame: index,
                 };
                 self.tinted(asset, base, source, tint)
                     .map(|p| (p, Region::WHOLE))
@@ -276,10 +289,8 @@ impl AssetStore {
                     pixels::raster_plan(device, visible, MAX_SVG_RASTER_EDGE, max_bytes)?;
                 let svg = Arc::clone(svg);
                 let key = VariantKey {
-                    size: Some(size),
-                    crop,
+                    source: VariantSource::Svg { size, crop },
                     tint: None,
-                    frame: 0,
                 };
                 match entry.variants.get_mut(&key) {
                     None => self.start_raster(asset, svg, key, now),
@@ -329,7 +340,7 @@ impl AssetStore {
     fn stamp(&mut self) -> Stamp {
         self.tick += 1;
         Stamp {
-            frame: self.frame,
+            frame: self.frame.number(),
             tick: self.tick,
         }
     }
@@ -404,7 +415,9 @@ impl AssetStore {
 
     /// Rasterizes `svg` for the variant `key` (its size and crop).
     fn start_raster(&mut self, asset: &Asset, svg: Arc<Svg>, key: VariantKey, now: Stamp) {
-        let (Some(entry), Some(size)) = (self.entries.get_mut(asset), key.size) else {
+        let (Some(entry), VariantSource::Svg { size, crop }) =
+            (self.entries.get_mut(asset), key.source)
+        else {
             return;
         };
         entry
@@ -416,7 +429,7 @@ impl AssetStore {
             generation,
             svg,
             size,
-            crop: key.crop,
+            crop,
         });
     }
 
@@ -505,10 +518,8 @@ impl AssetStore {
                     return false;
                 }
                 let key = VariantKey {
-                    size: Some(size),
-                    crop,
+                    source: VariantSource::Svg { size, crop },
                     tint: None,
-                    frame: 0,
                 };
                 self.land_raster(&asset, key, bitmap)
             }
@@ -697,9 +708,7 @@ impl AssetStore {
                 .variants
                 .iter()
                 .filter_map(|(k, v)| match v {
-                    Variant::Ready { used, .. }
-                        if k.tint == want && (!whole || k.crop.is_none()) =>
-                    {
+                    Variant::Ready { used, .. } if k.tint == want && (!whole || k.is_whole()) => {
                         Some((*used, *k))
                     }
                     _ => None,

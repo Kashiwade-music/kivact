@@ -4,6 +4,37 @@ use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_game as g;
 
+fn files_tree(
+    selected: Signal<Option<String>>,
+    expanded: Signal<Vec<String>>,
+) -> kivact::ui::Tree<String> {
+    kivact::ui::tree(
+        "Files",
+        file_tree_nodes(),
+        binding(selected, move |key: Option<String>| {
+            if key
+                .as_deref()
+                .is_none_or(|id| !["docs", "src"].contains(&id))
+            {
+                selected.set(key);
+            }
+        }),
+    )
+    .expanded(expanded)
+    .on_activate(move |key| {
+        if ["docs", "src"].contains(&key.as_str()) {
+            expanded.update(|keys| {
+                if keys.contains(&key) {
+                    keys.retain(|k| k != &key);
+                } else {
+                    keys.push(key);
+                }
+            });
+        }
+    })
+    .item(|item, _| file_tree_label(item.get_untracked().key))
+}
+
 #[test]
 fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
     let (screen, selected) = kivact::test::render_with_handle(
@@ -14,31 +45,7 @@ fn tree_is_one_tab_stop_with_arrow_keys_and_selects_only_leaves() {
         || {
             let selected = signal(Some("b.md".to_owned()));
             let expanded = signal(vec!["docs".to_owned()]);
-            (
-                selected,
-                kivact::ui::tree("Files", file_tree_nodes())
-                    .expanded(expanded)
-                    .selection(binding(selected, move |key: Option<String>| {
-                        if key
-                            .as_deref()
-                            .is_none_or(|id| !["docs", "src"].contains(&id))
-                        {
-                            selected.set(key);
-                        }
-                    }))
-                    .on_activate(move |key| {
-                        if ["docs", "src"].contains(&key.as_str()) {
-                            expanded.update(|keys| {
-                                if keys.contains(&key) {
-                                    keys.retain(|k| k != &key);
-                                } else {
-                                    keys.push(key);
-                                }
-                            });
-                        }
-                    })
-                    .item(|item, _| file_tree_label(item.get_untracked().key)),
-            )
+            (selected, files_tree(selected, expanded))
         },
     );
     let item = |name: &str| screen.get_by_role(Role::TreeItem, name);

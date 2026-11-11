@@ -40,14 +40,14 @@ use super::{
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{MenuEntry, use_menu, use_menubar};
 /// use kivact::prelude::*;
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 ///
 /// fn bar() -> impl IntoView {
 ///     let file = use_menu(vec![MenuEntry::item("new", "New")]).on_activate(|_| {});
@@ -93,6 +93,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         })
     });
     // The triggers are a horizontal list: the arrows move the focus along it.
+    // xtask-allow(state-fields): independent: the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any index or none pairs with it
     let focus = signal(None::<usize>);
     let list = use_list(
         items,
@@ -105,6 +106,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
             ..ListOptions::default()
         },
     );
+    // xtask-allow(state-fields): option: the menus the bar opens, fixed when the bar is made
     let menus = var(menus);
     let rtl = use_direction().get() == ReadingDirection::Rtl;
     menus.with(|items| {
@@ -118,9 +120,9 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
                         (at + len - 1) % len
                     };
                     if next != at {
-                        items[at].close();
+                        items[at].hide();
                         list.focus(next);
-                        items[next].open();
+                        items[next].show();
                     }
                 });
             }));
@@ -172,8 +174,8 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                         };
                         if next != open {
                             list.focus(next);
-                            menus[open].close();
-                            menus[next].open();
+                            menus[open].hide();
+                            menus[next].show();
                         }
                         Some(())
                     });
@@ -210,7 +212,7 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                             let mut moved = false;
                             for other in menus.iter() {
                                 if other.is_open().get_untracked() {
-                                    other.close();
+                                    other.hide();
                                     moved = true;
                                 }
                             }
@@ -219,7 +221,7 @@ impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
                                 // stop, which the focus returns to when the menu
                                 // closes.
                                 list.focus(at);
-                                this.open();
+                                this.show();
                             }
                         });
                     }

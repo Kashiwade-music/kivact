@@ -4,8 +4,57 @@ use crate::color::Rgba;
 use crate::geometry::{Rect, Size};
 use crate::semantics_text::TextCaret;
 use crate::text::primitives::DecorationLines;
+use std::fmt;
 use std::ops::Range;
 use std::sync::Arc;
+
+/// A font file's bytes, shared with where they came from (a system font's
+/// mapping, embedded bytes, or bytes read at run time); never copied.
+#[derive(Clone)]
+pub struct FontSource(Arc<dyn AsRef<[u8]> + Send + Sync>);
+
+impl FontSource {
+    /// Share `source` (e.g. a text system's mapped font file).
+    pub fn new(source: Arc<dyn AsRef<[u8]> + Send + Sync>) -> Self {
+        Self(source)
+    }
+    /// Embedded bytes, without copying them.
+    pub fn from_static(bytes: &'static [u8]) -> Self {
+        Self(Arc::new(bytes))
+    }
+    /// Bytes already shared, without copying them.
+    pub fn from_shared(bytes: Arc<[u8]>) -> Self {
+        Self(Arc::new(bytes))
+    }
+    /// The shared source, for a backend that keeps it (vello, fontdb).
+    pub fn source(&self) -> &Arc<dyn AsRef<[u8]> + Send + Sync> {
+        &self.0
+    }
+    /// The address of the source: its identity while it lives (cache key).
+    pub fn id(&self) -> usize {
+        Arc::as_ptr(&self.0).cast::<u8>() as usize
+    }
+}
+
+impl std::ops::Deref for FontSource {
+    type Target = [u8];
+    fn deref(&self) -> &[u8] {
+        (*self.0).as_ref()
+    }
+}
+
+impl PartialEq for FontSource {
+    // Same source: equal without comparing the bytes; different sources compare their bytes.
+    fn eq(&self, other: &Self) -> bool {
+        self.id() == other.id() || **self == **other
+    }
+}
+
+impl fmt::Debug for FontSource {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "FontSource({} bytes)", self.len())
+    }
+}
 
 /// Positioned glyph, usable on any thread.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -20,14 +69,14 @@ pub struct Glyph {
     pub advance: f64,
 }
 
-/// A shaped run retaining its font bytes; usable on any thread.
+/// A shaped run sharing its font file (kept alive by the run); usable on any thread.
 /// The shared bytes remain valid after the text engine or its caches are
 /// dropped. Glyph positions use logical pixels from the text layout origin;
 /// a scene places the immutable run with its glyph command's origin.
 #[derive(Clone, Debug, PartialEq)]
 pub struct GlyphRun {
-    /// Complete font file bytes.
-    pub font: crate::AssetBytes,
+    /// The font file, shared with its source.
+    pub font: FontSource,
     /// Font face index.
     pub font_index: u32,
     /// Logical font size.

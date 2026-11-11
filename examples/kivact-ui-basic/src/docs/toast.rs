@@ -1,5 +1,4 @@
 //! Role: Catalog page of Toast: pushed notifications, variants, actions and durations.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -12,7 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "toast",
         name: "Toast",
         description: "操作の結果などを一時的に知らせる通知です。標準の toast_region(toaster()).hold_all_on_hover(true) をアプリのルートに一度だけ置き、toaster().push(Toast::new(題名).tone(tone)) で積みます。二行目は body、長さは duration、操作は action のように Toast の method で足し、icon は tone ごとに kit の theme が描きます。複数あるときは新しい通知の後ろに小さく重なり、ポインターを重ねるかフォーカスすると間隔を空けた一覧に開きます。開いている間はすべての通知の時間が止まり、Escape で閉じます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::{ControlSize};
+        usage: "use kivact::prelude::*;\nuse kivact::ui::{ControlSize};
 use kivact::interaction::{Toast, Tone, toaster};\nuse kivact_ui_basic as basic;\nuse std::time::Duration;",
         source: include_str!("toast.rs"),
         align: PreviewAlign::Center,

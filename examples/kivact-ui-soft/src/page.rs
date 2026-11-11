@@ -1,7 +1,7 @@
 //! Role: Render a component's catalog heading and documentation content.
 use crate::pages::PageInfo;
 use kivact::style::style;
-use kivact::view::{NodeBuilder, Scroll, column, scroll, text};
+use kivact::view::{Element, Scroll, column, scroll, text};
 
 pub(super) fn page_view(info: &PageInfo) -> Scroll {
     scroll(

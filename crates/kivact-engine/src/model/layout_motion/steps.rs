@@ -75,12 +75,9 @@ impl Model {
     /// The window layout boxes of the nodes with a layout transition, before
     /// a layout pass.
     pub(crate) fn capture_layout_motion(&self) -> Vec<(NodeId, Rect)> {
-        self.tree
-            .iter()
-            .filter_map(|(id, n)| {
-                n.layout()?.layout_transition.as_ref()?;
-                Some((id, self.window_layout_rect(id)?))
-            })
+        self.sources
+            .layout_transitions()
+            .filter_map(|id| Some((id, self.window_layout_rect(id)?)))
             .collect()
     }
 
@@ -133,6 +130,8 @@ impl Model {
         };
         if self.frame.reduced_motion() && timing.decorative {
             self.layout_motion.runs.remove(&id);
+            self.stale_fact(id);
+            self.mark_corrected_below(id);
             return;
         }
         let start = self.frame.request_motion_frame();
@@ -149,6 +148,29 @@ impl Model {
             },
         );
         self.changes.restack = true;
+        self.stale_fact(id);
+        // A descendant with a layout transition cancels this new run (it is a
+        // layer while the run moves), so its facts are derived again.
+        self.mark_corrected_below(id);
+    }
+
+    /// Mark the nodes below `id` in its layer that have a layout transition:
+    /// their own `layout_motion_transform` cancels the motion of `id`, so they
+    /// are layers while it runs and stop being layers when it ends.
+    fn mark_corrected_below(&mut self, id: NodeId) {
+        let mut stack: Vec<NodeId> = self.tree.flat_children(id).collect();
+        while let Some(child) = stack.pop() {
+            let Some(n) = self.tree.get(child) else {
+                continue;
+            };
+            if n.is_layer() {
+                continue;
+            }
+            if self.has_layout_transition(child) {
+                self.stale_fact(child);
+            }
+            stack.extend(self.tree.flat_children(child));
+        }
     }
 
     /// Step every run to `now`; a finished run is dropped at its goal.
@@ -159,9 +181,10 @@ impl Model {
         let moving: Vec<_> = self.layout_motion.runs.keys().copied().collect();
         for id in moving {
             self.repaint(id);
-            self.a11y.subtree(id);
+            self.a11y.moved(id);
             self.repaint_corrected_below(id);
         }
+        let before: Vec<NodeId> = self.layout_motion.runs.keys().copied().collect();
         let tree = &self.tree;
         self.layout_motion.runs.retain(|id, a| {
             tree.contains(*id)
@@ -170,6 +193,14 @@ impl Model {
                     .timing
                     .step(&a.from, &a.to, a.start, now, &mut a.current, &mut a.spring)
         });
+        for id in before {
+            if !self.layout_motion.runs.contains_key(&id) {
+                // A run that ended may stop making its node a layer (and the
+                // nodes that cancelled it stop being layers too).
+                self.stale_fact(id);
+                self.mark_corrected_below(id);
+            }
+        }
         self.changes.restack = true;
         self.changes.paint = true;
         !self.layout_motion.runs.is_empty()

@@ -2,7 +2,7 @@
 use crate::support::{mount, mount_with};
 use kivact::interaction::{ColumnDef, Selection, TableFocus, Tone, use_data_table};
 use kivact::prelude::*;
-use kivact::test::Element;
+use kivact::test::Locator;
 use kivact::test::RenderOptions;
 use kivact::ui::RowStatus;
 use kivact::view::Modifiers;
@@ -43,7 +43,7 @@ fn interactive_table() -> Node {
     .part(table.grid())
 }
 
-fn descendant_roles(element: Element<'_>) -> Vec<Role> {
+fn descendant_roles(element: Locator<'_>) -> Vec<Role> {
     let mut roles = Vec::new();
     for child in element.children() {
         if let Some(role) = child.role() {

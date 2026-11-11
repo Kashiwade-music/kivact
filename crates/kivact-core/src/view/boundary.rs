@@ -40,14 +40,14 @@ pub(crate) fn mount_in(
     Mcx { rt, owner, window }.mount_child(view)
 }
 
-/// Build a component once when mounted, within its own setup and cleanup owner.
+/// Run `build` once at mount in a new owner (a scope): its hooks and cleanups belong to it.
 ///
 /// The initializer inherits context from the mounting parent. Its signals, effects,
 /// and cleanup callbacks belong to this component and are disposed with it.
 /// The boundary adds a transparent fragment without a visible layout box.
 /// Use a factory for content that must be constructed again on later mounts.
 #[track_caller]
-pub fn component<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
+pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
     let at = Location::caller();
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
@@ -128,7 +128,7 @@ pub fn provide_theme<V: IntoView>(
 /// use kivact::i18n::{Locale, use_locale};
 /// use kivact::i18n::provide_locale;
 /// use kivact::{App};
-/// use kivact::view::{IntoView, NodeBuilder, text};
+/// use kivact::view::{IntoView, Element, text};
 ///
 /// fn quote() -> impl IntoView {
 ///     // The quotation is French whatever the rest of the App speaks.
@@ -167,7 +167,7 @@ pub fn provide_locale<V: IntoView>(
 /// # use kivact_core as kivact;
 /// use kivact::i18n::{Messages, message};
 /// use kivact::i18n::provide_messages;
-/// use kivact::view::{IntoView, NodeBuilder, text};
+/// use kivact::view::{IntoView, Element, text};
 ///
 /// fn confirm() -> impl IntoView {
 ///     provide_messages(Messages::new().with("dialog.close", "Dismiss"), || {
@@ -261,7 +261,7 @@ pub(crate) fn messages_value(owner: Owner) -> Value<Messages> {
 
 /// Provide `locale` to `owner`'s subtree, replacing any inherited locale.
 ///
-/// The App's root and `kivact::view::provide_locale` use it; [`locale`]
+/// The App's root and `kivact::i18n::provide_locale` use it; [`locale`]
 /// reads the nearest one above the caller.
 pub(crate) fn install_locale(owner: Owner, locale: Value<Locale>) {
     owner.provide(LocaleCtx(locale));
@@ -294,7 +294,7 @@ pub(crate) fn install_layered_messages(
 }
 
 /// The locale in effect here: the App's (`App::locale`,
-/// else the system's), or the one a `kivact::view::provide_locale` above provides.
+/// else the system's), or the one a `kivact::i18n::provide_locale` above provides.
 /// Reactive: it follows the App when it switches the locale at runtime,
 /// and the system when the App names none and the user changes it.
 ///
@@ -317,7 +317,7 @@ pub fn use_locale() -> Value<Locale> {
 }
 
 /// The text of `key` in effect here: what the App set for it
-/// (`App::messages`, `kivact::view::provide_messages`), else
+/// (`App::messages`, `kivact::i18n::provide_messages`), else
 /// `default`. Reactive: it follows the App when it switches the messages
 /// at runtime. Setup only.
 ///

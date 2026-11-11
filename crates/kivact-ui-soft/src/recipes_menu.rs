@@ -4,6 +4,7 @@ use crate::recipes_dialog::{anchored, body_text, focus, motion, shadows, support
 use kivact::custom::PartState;
 use kivact::interaction::MenuItemState;
 use kivact::interaction::PopupState;
+use kivact::interaction::PressOver;
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Style;
@@ -150,14 +151,12 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
         } else {
             p.colors.text_primary
         });
-    let base = if s.input.disabled {
+    let base = if s.input.is_disabled() {
         base.opacity(p.sizes.disabled_opacity)
-    } else if let Some(pressed) = s.pressed_over {
-        if pressed {
-            base.background(p.colors.overlay_hover)
-        } else {
-            base
-        }
+    } else if s.pressed_over == PressOver::Over {
+        base.background(p.colors.overlay_hover)
+    } else if s.pressed_over == PressOver::Away {
+        base
     } else {
         base.hover(highlight.clone())
             .focus(highlight.clone())
@@ -168,7 +167,7 @@ fn item(t: &Theme, s: &Look<MenuItemState>) -> Style {
                 p.colors.focus_ring,
             ))
     };
-    let base = if s.expanded {
+    let base = if s.is_expanded() {
         base.merge(&highlight)
     } else {
         base

@@ -4,11 +4,11 @@ use crate::layer::with_base_recipe_style;
 use crate::values::{ControlSize, ToggleButtonState};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{
-    Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback,
+    Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback, memo,
 };
 use kivact_core::view::{
-    EditPhase, HandlerResult, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role,
-    View, ViewFn, for_each, node, use_direction,
+    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
+    ViewFn, for_each, node, use_direction,
 };
 use kivact_interaction::{IntoSelection, ListItem, Selection};
 
@@ -28,20 +28,20 @@ pub struct ToggleGroup<K: ItemKey> {
     variants: Variants,
 }
 
-/// A named group whose toggles edit `selection`. `Option<K>` allows zero or
+/// A named group whose toggles edit `selected`. `Option<K>` allows zero or
 /// one pressed item; `Vec<K>` allows many. Pressing a selected item releases
 /// it. Arrows only move focus; Space, Enter, click and accessibility activation
 /// toggle the focused item. Missing keys remain in the caller's selection.
 #[track_caller]
 pub fn toggle_group<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoSelection<K>,
 ) -> ToggleGroup<K> {
     ToggleGroup {
         root: node().role(Role::Group).name(label),
-        options: options.into_value(),
-        selection: selection.into_selection(),
+        options: items.into_value(),
+        selection: selected.into_selection(),
         orientation: Orientation::Horizontal.into_value(),
         size: crate::values::default_control_size().into_value(),
         spacing: None,
@@ -94,7 +94,7 @@ impl<K: ItemKey> ToggleGroup<K> {
         self
     }
 }
-impl<K: ItemKey> NodeBuilder for ToggleGroup<K> {
+impl<K: ItemKey> Element for ToggleGroup<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -156,6 +156,9 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 if let Some(observer) = on_edit {
                     behavior = behavior.on_edit(move |phase| observer.call(phase));
                 }
+                // Only an item with an icon loses its label in an icon-only group;
+                // an iconless item keeps its label, so it is not drawn as a square.
+                let hide = memo(move || icon_only.get() && item.get().icon().is_some());
                 let part =
                     behavior
                         .control()
@@ -166,11 +169,11 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                                 size: size.get(),
                                 leading_icon: item.get().icon().is_some()
                                     || item.get().pressed_icon().is_some(),
-                                icon_only: icon_only.get(),
+                                label_hidden: hide.get(),
                             }
                         });
                 let state = part.state();
-                let content = item_content(slot.as_ref(), item, state, pressed, icon_only);
+                let content = item_content(slot.as_ref(), item, state, pressed, hide);
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
                     |r| r.toggle_group_recipes().item_recipe(),
@@ -215,7 +218,7 @@ fn item_content<K: ItemKey>(
     item: Value<ListItem<K>>,
     state: Value<ToggleButtonState>,
     pressed: Binding<bool>,
-    icon_only: Value<bool>,
+    hide: Value<bool>,
 ) -> View {
     match slot {
         Some(slot) => slot.call((item, state)),
@@ -228,10 +231,7 @@ fn item_content<K: ItemKey>(
                     item.icon().cloned()
                 }
             }),
-            crate::helpers::visible_label(
-                (move || item.get().label()).into_value(),
-                Some(icon_only),
-            ),
+            crate::helpers::visible_label((move || item.get().label()).into_value(), Some(hide)),
         )
             .into_view(),
     }

@@ -16,22 +16,59 @@ use crate::view::tree::Handlers;
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): passive mount record - focusable when disabled
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means not focusable while disabled
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount record - roving focus
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no roving focus
     pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
-    // xtask-allow(state-fields): passive mount record - hit testable
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node hit-tests
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     /// The final handlers (routed through the parts' defaults when the node has parts).
     pub(super) handlers: Handlers,
-    // xtask-allow(state-fields): passive mount record - intrinsic
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means none
     pub(super) intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): passive mount record - The node has an explicit draw layer: its layout is observed for the layer's size
+    // xtask-allow(state-fields): option: set once by finish_resolve when the node has a draw, draw_over or draw_with_layout layer; false means the layout is not observed for a layer's size
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
-    // xtask-allow(state-fields): passive mount record - editing
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node does not edit
     pub(super) editing: Option<EditorProps>,
+}
+
+/// Whether `handlers` is the default record: the node declared no handler.
+fn is_default_handlers(handlers: &Handlers) -> bool {
+    // Destructured so that a new field of `Handlers` must be listed here.
+    let Handlers {
+        activate,
+        key,
+        file,
+        key_up,
+        pointer,
+        secondary_context,
+        wheel,
+        ime,
+        a11y,
+        text,
+        selection,
+        edit_phase,
+        image_error,
+        scroll,
+        layout,
+    } = handlers;
+    activate.is_none()
+        && secondary_context.is_none()
+        && text.is_none()
+        && selection.is_none()
+        && edit_phase.is_none()
+        && image_error.is_none()
+        && scroll.is_none()
+        && layout.is_none()
+        && a11y.is_empty()
+        && key.is_empty()
+        && file.is_empty()
+        && key_up.is_empty()
+        && pointer.is_empty()
+        && wheel.is_empty()
+        && ime.is_empty()
 }
 
 /// Stage 1: decide the listener flags from the final handlers, then write the node's first
@@ -60,8 +97,14 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         if let Some(n) = tree.get_mut(id) {
             n.at = Some(at);
             n.exit_layout = exit_layout;
-            n.exit_complete = exit_complete;
-            n.handlers = Some(Box::new(handlers));
+            if exit_complete.is_some() {
+                n.rare_mut().exit_complete = exit_complete;
+            }
+            // A node that declared no handler keeps no record of them: an
+            // observer added later creates it (`ViewNodes::handlers_mut`).
+            if !is_default_handlers(&handlers) {
+                n.handlers = Some(Box::new(handlers));
+            }
         }
         if listen_file {
             tree.update(id, PropValue::ListenFile(true), writer);

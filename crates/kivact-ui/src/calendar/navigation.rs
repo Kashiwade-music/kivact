@@ -70,13 +70,13 @@ pub(super) enum Event {
     Entered,
 }
 pub(super) struct SwipeSnapshot {
-    // xtask-allow(state-fields): passive record - rtl
+    // xtask-allow(state-fields): independent: computed per event in swipe_navigation from the inherited reading direction; it only flips the drag sign, so it pairs with any at_min/at_max taken from the caller's bounds
     pub(super) rtl: bool,
     pub(super) now: u64,
-    // xtask-allow(state-fields): passive record - The first shown month is the earliest the bounds allow
+    // xtask-allow(state-fields): independent: computed per event in swipe_navigation as "shown month <= the caller's min month"; it is true together with at_max when min and max fall in the shown month, which resists drags both ways
     /// The first shown month is the earliest the bounds allow.
     pub(super) at_min: bool,
-    // xtask-allow(state-fields): passive record - The first shown month is the latest the bounds allow
+    // xtask-allow(state-fields): independent: computed per event in swipe_navigation as "shown month >= the caller's max month"; it is set apart from the reading direction and is true with at_min only when both bounds fall in the shown month
     /// The first shown month is the latest the bounds allow.
     pub(super) at_max: bool,
 }

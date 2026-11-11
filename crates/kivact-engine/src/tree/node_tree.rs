@@ -2,19 +2,30 @@
 
 use super::store::NodeStore;
 use crate::contract::NodeType;
-use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place};
+use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place, Positioning};
 use kivact_types::NodeId;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 
+/// One flat child: its id and its slot (both are fixed while the list is cached:
+/// a child that leaves or is destroyed forgets its parent's list first).
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct FlatChild {
+    pub(crate) id: NodeId,
+    pub(crate) slot: NodeIndex,
+}
+
 /// The node tree.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {
-    flat: RefCell<BTreeMap<NodeId, Rc<[NodeId]>>>,
+    /// Cached flat children, indexed by the parent's slot.
+    flat: RefCell<Vec<Option<Rc<[FlatChild]>>>>,
+    // xtask-allow(state-fields): independent: parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so pending work occurs with or without a root
     /// Derived packing work only; the child order remains solely in NodeLinks.
     pending_child_order: BTreeSet<NodeId>,
     pub(crate) nodes: NodeStore,
+    // xtask-allow(state-fields): independent: the Root-kind node, set when the client installs it and cleared when it is removed; detached subtrees queue child-order packing too, so pending work occurs with or without a root
     pub(crate) root: Option<NodeId>,
     pub(crate) overlays: Vec<NodeId>,
     pub(crate) scrollers: BTreeSet<NodeId>,
@@ -68,47 +79,90 @@ impl NodeTree {
         &self,
         id: NodeId,
     ) -> impl DoubleEndedIterator<Item = NodeId> + ExactSizeIterator {
-        let children = self.flat(id);
-        (0..children.len()).map(move |index| children[index])
+        let children = self.flat_list(id);
+        (0..children.len()).map(move |index| children[index].id)
     }
 
-    /// The `index`-th of [`NodeTree::flat_children`] of `id`.
-    pub(crate) fn flat_child(&self, id: NodeId, index: usize) -> Option<NodeId> {
-        self.flat(id).get(index).copied()
+    /// The slot of the `raw`-th flat child of the node at `slot` (layout's
+    /// constant-time child access).
+    pub(crate) fn flat_child_slot(&self, slot: usize, raw: usize) -> usize {
+        if let Some(Some(list)) = self.flat.borrow().get(slot) {
+            return list[raw].slot.0;
+        }
+        self.flat_at(NodeIndex(slot))[raw].slot.0
     }
 
-    /// The flat children of `id`, cached until the tree's structure or a
-    /// node's Contents role changes ([`NodeTree::forget_flat`]).
-    fn flat(&self, id: NodeId) -> Rc<[NodeId]> {
-        let cached = self.flat.borrow().get(&id).cloned();
-        cached.unwrap_or_else(|| {
-            let mut children = Vec::new();
-            let mut stack = self
-                .get(id)
-                .map(|n| self.children_ids(n).rev().collect::<Vec<_>>())
-                .unwrap_or_default();
-            while let Some(child) = stack.pop() {
-                let Some(node) = self.get(child) else {
-                    continue;
-                };
-                if node.is_transparent() {
-                    if !node.hidden() {
-                        stack.extend(self.children_ids(node).rev());
-                    }
-                } else {
-                    children.push(child);
+    /// The number of flat children of the node at `slot`.
+    pub(crate) fn flat_len(&self, slot: usize) -> usize {
+        if let Some(Some(list)) = self.flat.borrow().get(slot) {
+            return list.len();
+        }
+        self.flat_at(NodeIndex(slot)).len()
+    }
+
+    fn flat_list(&self, id: NodeId) -> Rc<[FlatChild]> {
+        match self.nodes.index_of(id) {
+            Some(slot) => self.flat_at(slot),
+            None => Rc::from(Vec::new()),
+        }
+    }
+
+    /// The flat children of the node at `slot`, cached until the tree's
+    /// structure or a node's Contents role changes ([`NodeTree::forget_flat`]).
+    fn flat_at(&self, slot: NodeIndex) -> Rc<[FlatChild]> {
+        if let Some(Some(list)) = self.flat.borrow().get(slot.0) {
+            return list.clone();
+        }
+        let mut children = Vec::new();
+        let mut stack: Vec<NodeIndex> = self.nodes.links(slot).children.iter().rev().collect();
+        while let Some(child) = stack.pop() {
+            let node = self.nodes.at(child);
+            if node.is_transparent() {
+                if !node.hidden() {
+                    stack.extend(self.nodes.links(child).children.iter().rev());
                 }
+            } else {
+                children.push(FlatChild {
+                    id: self.nodes.id_at(child),
+                    slot: child,
+                });
             }
-            let children: Rc<[NodeId]> = children.into();
-            self.flat.borrow_mut().insert(id, children.clone());
-            children
-        })
+        }
+        let children: Rc<[FlatChild]> = children.into();
+        let mut flat = self.flat.borrow_mut();
+        if flat.len() <= slot.0 {
+            flat.resize(slot.0 + 1, None);
+        }
+        flat[slot.0] = Some(children.clone());
+        children
     }
 
     /// A node started or stopped being a Contents node, or a Contents node
     /// was hidden or shown: the flat children are derived again.
     pub(crate) fn forget_flat(&mut self) {
         self.flat.get_mut().clear();
+    }
+
+    /// Forget the cached flat lists that list the children of `id`: its own,
+    /// and while the node is a Contents node, its parent's (repeatedly).
+    pub(crate) fn forget_flat_around(&self, id: NodeId) {
+        let Some(mut index) = self.nodes.index_of(id) else {
+            return;
+        };
+        let mut flat = self.flat.borrow_mut();
+        loop {
+            if let Some(entry) = flat.get_mut(index.0) {
+                *entry = None;
+            }
+            // Only a Contents node's children are listed in its parent's list.
+            if !self.nodes.at(index).is_transparent() {
+                break;
+            }
+            let Some(parent) = self.nodes.links(index).parent else {
+                break;
+            };
+            index = parent;
+        }
     }
 
     /// Logical children still owned by the client.
@@ -191,6 +245,19 @@ impl NodeTree {
             cur = self.nodes.get(&x).and_then(|n| self.parent_id(n));
         }
         out
+    }
+
+    /// The number of ancestors of `id`: 0 for a root.
+    pub(crate) fn depth(&self, id: NodeId) -> usize {
+        let mut depth = 0;
+        let Some(mut cur) = self.nodes.index_of(id) else {
+            return depth;
+        };
+        while let Some(parent) = self.nodes.links(cur).parent {
+            depth += 1;
+            cur = parent;
+        }
+        depth
     }
 
     /// The child indices from the root down to `id`: ordering paths orders
@@ -317,7 +384,7 @@ impl NodeTree {
 
     /// Install a detached node into its reserved, initialized structural slot.
     pub(crate) fn install(&mut self, id: NodeId, node: HostNode, slot: NodeIndex) {
-        self.flat.get_mut().clear();
+        // A new id: it is detached, so no cached flat list holds it.
         debug_assert_ne!(id.0, 0, "node zero is the layout viewport");
         if node.kind() == NodeType::Root {
             self.root = Some(id);
@@ -331,7 +398,7 @@ impl NodeTree {
         let place = node.place;
         self.nodes.install(id, node, slot);
         self.track_scroller(id, scrolls);
-        self.track_position(id, place.sticky, place.fixed);
+        self.track_position(id, place.positioning);
     }
 
     /// Derive the place of the node at `index` again from its props, keeping the
@@ -350,7 +417,7 @@ impl NodeTree {
         n.update_place(moving, under_perspective);
         let (place, scrolls) = (n.place, n.scroll_axes() != (false, false));
         self.track_scroller(id, scrolls);
-        self.track_position(id, place.sticky, place.fixed);
+        self.track_position(id, place.positioning);
         old
     }
 
@@ -369,9 +436,12 @@ impl NodeTree {
         true
     }
 
-    /// Note whether `id` is sticky or fixed.
-    fn track_position(&mut self, id: NodeId, sticky: bool, fixed: bool) {
-        for (set, on) in [(&mut self.sticky, sticky), (&mut self.fixed, fixed)] {
+    /// Note where `id`'s `position` places it.
+    fn track_position(&mut self, id: NodeId, positioning: Positioning) {
+        for (set, on) in [
+            (&mut self.sticky, positioning == Positioning::Sticky),
+            (&mut self.fixed, positioning == Positioning::Fixed),
+        ] {
             if on {
                 set.insert(id);
             } else {
@@ -398,8 +468,11 @@ impl NodeTree {
         } else {
             self.observed.remove(&id)
         };
-        if changed && let Some(n) = self.nodes.get_mut(&id) {
-            n.sent_layout = Default::default();
+        if changed
+            && let Some(n) = self.nodes.get_mut(&id)
+            && let Some(sent) = n.sent.as_deref_mut()
+        {
+            sent.layout = Default::default();
         }
         changed
     }
@@ -412,7 +485,6 @@ impl NodeTree {
         id: NodeId,
         before: Option<NodeId>,
     ) -> Option<()> {
-        self.flat.get_mut().clear();
         let child = self.nodes.index_of(id)?;
         let parent_index = self.nodes.index_of(parent)?;
         let before_index = before.and_then(|before| self.nodes.index_of(before));
@@ -430,6 +502,7 @@ impl NodeTree {
         if overlay {
             self.overlays.push(id);
         }
+        self.forget_flat_around(parent);
         Some(())
     }
 
@@ -443,9 +516,9 @@ impl NodeTree {
 
     /// Unlink `id` from its parent (the node stays); returns the parent.
     pub(crate) fn detach(&mut self, id: NodeId) -> Option<NodeId> {
-        self.flat.get_mut().clear();
         let index = self.nodes.index_of(id)?;
         let parent = self.nodes.links(index).parent?;
+        let parent_id = self.nodes.id_at(parent);
         let children = &mut self.nodes.links_mut(parent).children;
         children.remove(index);
         if children.is_editing() {
@@ -453,7 +526,8 @@ impl NodeTree {
         }
         self.nodes.links_mut(index).parent = None;
         self.overlays.retain(|overlay| *overlay != id);
-        Some(self.nodes.id_at(parent))
+        self.forget_flat_around(parent_id);
+        Some(parent_id)
     }
 
     /// Pack the one active sibling order before layout or a revision boundary.
@@ -486,6 +560,10 @@ impl NodeTree {
                 let payload = prepare(slot, node);
                 self.nodes.release(slot);
                 stack.extend(links.children);
+                // The entry of the slot is the list of its flat children.
+                if let Some(entry) = self.flat.get_mut().get_mut(slot.0) {
+                    *entry = None;
+                }
                 self.pending_child_order.remove(&x);
                 self.overlays.retain(|o| *o != x);
                 self.scrollers.remove(&x);

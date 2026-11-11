@@ -8,8 +8,9 @@
 //! Frames go through the window's GPU surface when the GPU renderer is
 //! ready (`arvane-render` built with its feature `gpu`), else they are
 //! rasterized on the CPU straight into the window's CPU surface. A native window's presenter starts the GPU on
-//! a worker thread with the window (the first frames are drawn on the CPU)
-//! and moves the start along on the shell's wakes (`gpu.rs`).
+//! a worker thread with the window or, by default, when the window first
+//! needs it (the first frames are drawn on the CPU either way) and moves
+//! the start along on the shell's wakes (`gpu.rs`).
 //!
 //! Invariants:
 //! - A frame the GPU cannot draw because its device failed, or because the

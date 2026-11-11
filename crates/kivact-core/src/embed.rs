@@ -33,9 +33,9 @@ use std::panic::Location;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
-    // xtask-allow(state-fields): optional validated constructor input, independent of parent scale.
+    // xtask-allow(state-fields): option: an optional constructor input; the default applies when absent
     window: Option<ParentWindow>,
-    // xtask-allow(state-fields): optional host scale configuration, independent of callback presence.
+    // xtask-allow(state-fields): option: an optional host scale; the default applies when absent
     scale: Option<f64>,
     on_resize_request: Option<std::sync::Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
 }
@@ -210,7 +210,7 @@ impl App {
     /// may continue under module retention after `Err` is returned. Title and
     /// fullscreen have no effect.
     /// The App theme must be fixed. A reactive theme returns `ErrorKind::Unsupported`;
-    /// create it with [`view::provide_theme`](crate::view::provide_theme) inside
+    /// create it with [`style::provide_theme`](crate::style::provide_theme) inside
     /// the `Send` root factory so it belongs to the App UI thread.
     /// `min_window_size` clamps `platform::request_window_size`, not the host.
     #[track_caller]

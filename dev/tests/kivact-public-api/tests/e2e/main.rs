@@ -3,6 +3,7 @@
 //! `kivact::test`. One binary links kivact, Arvane and wgpu once instead of
 //! once per file; the windows share its one event loop.
 
+mod a11y_incremental;
 mod apg_breadcrumb;
 #[cfg(feature = "embed")]
 mod embed;
@@ -22,10 +23,12 @@ mod apg_tree_view;
 mod apg_window_splitter;
 mod assets;
 mod async_tests;
+mod binding_update;
 mod borders_backgrounds;
 mod canvas;
 mod canvas_worker;
 mod color_spaces;
+mod component_macro;
 mod components;
 mod compositor;
 mod custom_text_field;
@@ -40,8 +43,14 @@ mod effects_filters;
 mod environment;
 mod flows;
 mod focus;
+mod frame_sources;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
 mod gpu_interop;
+mod gpu_on_demand;
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod gpu_on_demand_shared;
+#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
+mod gpu_on_demand_windows;
 mod grid;
 mod hover;
 mod i18n;
@@ -59,6 +68,7 @@ mod interaction_list_nav;
 mod interaction_menu;
 mod interaction_palette;
 mod interaction_select;
+mod interaction_show_hide;
 mod interaction_slider;
 mod interaction_splitter;
 mod interaction_state;
@@ -97,6 +107,7 @@ mod setup_functions;
 mod shaders;
 mod shared_layout;
 mod style_paint;
+mod svg_embedded_text;
 mod task;
 mod text_editing;
 mod text_effects;
@@ -126,6 +137,7 @@ mod launch_window;
 
 mod machine;
 mod reactive_props;
+mod resource_reclaim;
 
 mod apg_accordion;
 mod apg_menu;

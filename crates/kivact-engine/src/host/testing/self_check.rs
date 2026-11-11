@@ -21,6 +21,11 @@ impl ArvaneTestHost {
         let mut errors = model.layout_self_check(&mut engine);
         errors.extend(model.paint_self_check());
         errors.extend(model.text_self_check());
+        compare_hits(
+            model,
+            self.mouse_position(kivact_types::WindowId::MAIN),
+            &mut errors,
+        );
         for (id, node) in model.tree.nodes.iter() {
             let caret = model.editors[node.index.0]
                 .as_deref()
@@ -130,6 +135,29 @@ fn compare_accessibility(
                 published.is_some(),
                 rebuilt.is_some()
             )),
+        }
+    }
+}
+
+/// The hit test leaves children out by their inks: it finds what the
+/// complete walk finds, under the mouse and at the window's center.
+fn compare_hits(
+    model: &crate::model::Model,
+    mouse: Option<kivact_types::Point>,
+    errors: &mut Vec<String>,
+) {
+    let size = model.window();
+    let center = kivact_types::Point {
+        x: size.width / 2.0,
+        y: size.height / 2.0,
+    };
+    for at in mouse.into_iter().chain([center]) {
+        let (pruned, reference) = (model.hit(at), model.hit_reference(at));
+        if pruned != reference {
+            errors.push(format!(
+                "hit at ({}, {}): pruned {pruned:?}, reference {reference:?}",
+                at.x, at.y
+            ));
         }
     }
 }

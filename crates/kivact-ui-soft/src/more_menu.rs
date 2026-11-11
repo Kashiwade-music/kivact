@@ -13,10 +13,10 @@ use kivact::ui::Menu;
 use kivact::ui::button;
 use kivact::ui::menu;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::HandlerResult;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::OverlayAlign;
 use kivact::view::Placement;
 use kivact::view::View;
@@ -32,7 +32,7 @@ pub struct MoreMenu<K: ItemKey> {
 #[track_caller]
 /// Create an overflow menu whose chosen entry key is passed to `choose`.
 pub fn more_menu<K, R>(
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
     choose: impl Fn(K) -> R + 'static,
 ) -> MoreMenu<K>
 where
@@ -41,7 +41,7 @@ where
 {
     let label = kivact::i18n::message("soft.more_menu.label", "More options");
     MoreMenu {
-        menu: menu(label, entries).on_activate(choose),
+        menu: menu(label, items).on_activate(choose),
         label,
         button: button(label)
             .icon(icon("ellipsis"))
@@ -94,7 +94,7 @@ struct MoreTrigger {
     label: Value<String>,
 }
 
-impl NodeBuilder for MoreTrigger {
+impl Element for MoreTrigger {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
@@ -117,7 +117,7 @@ impl<K: ItemKey> IntoView for MoreMenu<K> {
     }
 }
 
-impl<K: ItemKey> NodeBuilder for MoreMenu<K> {
+impl<K: ItemKey> Element for MoreMenu<K> {
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()
     }

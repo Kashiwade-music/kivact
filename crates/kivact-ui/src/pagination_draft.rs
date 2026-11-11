@@ -1,6 +1,6 @@
 //! Role: Own editable one-based page text and commit it atomically.
 use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
-use kivact_core::view::{Handled, IntoView, Key, NodeBuilder, View, node_ref};
+use kivact_core::view::{Element, Handled, IntoView, Key, View, node_ref};
 #[derive(Clone, PartialEq)]
 enum PageDraft {
     Following(u32),

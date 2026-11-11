@@ -13,7 +13,7 @@ use kivact::state::{Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 use std::rc::Rc;
 
 /// An editable graph whose curves and view intervals use application domain units.
@@ -115,7 +115,7 @@ impl GraphEditor {
     }
 }
 
-impl NodeBuilder for GraphEditor {
+impl Element for GraphEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -219,7 +219,9 @@ impl GraphEditor {
         let lanes = graph_lanes(lanes, curves);
         let visible = crate::editors::graph::a11y::visible(curves, lanes, settings.clone());
         let choose = graph_selection(visible, selected);
-        let scene = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
+        let targets = crate::editors::graph::a11y::scene(curves, visible, selected, lanes);
+        let scene = targets.scene();
+        let active = targets.active();
         let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
             lanes,
             &extensions,
@@ -259,7 +261,7 @@ impl GraphEditor {
             edit,
             press,
             gesture,
-            active: signal(None),
+            active,
             space: use_space_pan(),
             lane_activate: extensions.lane_activate,
             item_activate: extensions.item_activate,
@@ -298,8 +300,8 @@ fn observe_inputs(
             let input = availability_state.get();
             state.press.inputs_changed(
                 focused,
-                visible && !input.hidden,
-                !input.disabled,
+                visible && !input.is_hidden(),
+                !input.is_disabled(),
                 !missing,
                 move || state.cancel(),
             );

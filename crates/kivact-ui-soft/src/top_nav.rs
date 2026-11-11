@@ -12,9 +12,9 @@ use crate::stack::{Space, rtl};
 
 use kivact::interaction::Delays;
 use kivact::interaction::use_dialog;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
@@ -60,13 +60,13 @@ struct TopNavCx {
 
 #[derive(Default)]
 struct Slots {
-    // xtask-allow(state-fields): builder option - heading
+    // xtask-allow(state-fields): option: caller content from TopNav::heading, mounted once; absent leaves the heading area empty.
     heading: Option<View>,
-    // xtask-allow(state-fields): builder option - start
+    // xtask-allow(state-fields): option: caller content from TopNav::start, mounted once and dropped in the mobile bar; absent leaves the start area empty.
     start: Option<View>,
-    // xtask-allow(state-fields): builder option - center
+    // xtask-allow(state-fields): option: caller content from TopNav::center, mounted once and dropped in the mobile bar; absent leaves the center area empty.
     center: Option<View>,
-    // xtask-allow(state-fields): builder option - end
+    // xtask-allow(state-fields): option: caller content from TopNav::end, mounted once; absent leaves the end area empty.
     end: Option<View>,
 }
 
@@ -112,7 +112,7 @@ impl TopNav {
     }
 }
 
-impl NodeBuilder for TopNav {
+impl Element for TopNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -232,7 +232,7 @@ impl TopNavItem {
     }
     /// Mount replacement visible label content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
-        self.content = Some(kivact::view::component(move || content.into_view()));
+        self.content = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Set whether this item is the current navigation destination.
@@ -253,7 +253,7 @@ impl TopNavItem {
     }
 }
 
-impl NodeBuilder for TopNavItem {
+impl Element for TopNavItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -276,7 +276,7 @@ impl IntoView for TopNavItem {
             action,
             size,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
@@ -308,7 +308,7 @@ impl IntoView for TopNavItem {
                         if !disabled.get() {
                             action.call(());
                             if drawer {
-                                mobile.close();
+                                mobile.hide();
                             }
                         }
                     })
@@ -395,19 +395,19 @@ pub fn top_nav_menu(
 }
 
 impl TopNavMenu {
-    /// Set the pointer-hover opening delay in milliseconds.
-    pub fn delay_ms(mut self, delay: u64) -> Self {
-        self.delays.open = Duration::from_millis(delay);
+    /// Set the pointer-hover opening delay.
+    pub fn open_delay(mut self, delay: Duration) -> Self {
+        self.delays.open = delay;
         self
     }
-    /// Set the pointer-leave closing delay in milliseconds.
-    pub fn hide_delay_ms(mut self, delay: u64) -> Self {
-        self.delays.close = Duration::from_millis(delay);
+    /// Set the pointer-leave closing delay.
+    pub fn close_delay(mut self, delay: Duration) -> Self {
+        self.delays.close = delay;
         self
     }
 }
 
-impl NodeBuilder for TopNavMenu {
+impl Element for TopNavMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -422,7 +422,7 @@ impl IntoView for TopNavMenu {
             items,
             delays,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let item = side_nav_item(label)
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
@@ -509,14 +509,14 @@ impl TopNavMegaMenu {
         self.featured = Some(featured.into_view_fn());
         self
     }
-    /// Set the pointer-hover opening delay in milliseconds.
-    pub fn delay_ms(mut self, delay: u64) -> Self {
-        self.delays.open = Duration::from_millis(delay);
+    /// Set the pointer-hover opening delay.
+    pub fn open_delay(mut self, delay: Duration) -> Self {
+        self.delays.open = delay;
         self
     }
-    /// Set the pointer-leave closing delay in milliseconds.
-    pub fn hide_delay_ms(mut self, delay: u64) -> Self {
-        self.delays.close = Duration::from_millis(delay);
+    /// Set the pointer-leave closing delay.
+    pub fn close_delay(mut self, delay: Duration) -> Self {
+        self.delays.close = delay;
         self
     }
     /// Observe changes to the flyout's open state.
@@ -529,7 +529,7 @@ impl TopNavMegaMenu {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenu {
+impl Element for TopNavMegaMenu {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -549,7 +549,7 @@ impl IntoView for TopNavMegaMenu {
             delays,
             on_change,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
@@ -643,7 +643,7 @@ impl TopNavMegaMenuItem {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenuItem {
+impl Element for TopNavMegaMenuItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -659,7 +659,7 @@ impl IntoView for TopNavMegaMenuItem {
             icon,
             action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>().map(|value| value.get());
@@ -710,7 +710,7 @@ impl IntoView for TopNavMegaMenuItem {
                             popup.0.set(false);
                         }
                         if drawer {
-                            mobile.close();
+                            mobile.hide();
                         }
                     })
             } else {
@@ -776,7 +776,7 @@ impl TopNavMegaMenuFeaturedCard {
     }
 }
 
-impl NodeBuilder for TopNavMegaMenuFeaturedCard {
+impl Element for TopNavMegaMenuFeaturedCard {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -793,7 +793,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             content,
             link,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>().map(|value| value.get());
@@ -813,7 +813,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
                             popup.0.set(false);
                         }
                         if drawer {
-                            mobile.close();
+                            mobile.hide();
                         }
                     })
                     .style(|| {

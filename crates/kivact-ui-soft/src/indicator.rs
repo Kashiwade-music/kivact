@@ -12,13 +12,13 @@ use kivact::style::Justify;
 use kivact::style::Position;
 use kivact::style::style;
 use kivact::style::use_theme;
-use kivact::ui::CheckableState;
 use kivact::ui::ControlSize;
 use kivact::ui::Look;
+use kivact::ui::{CheckControl, CheckableState};
 use kivact::view::CheckedState;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::icon;
 use kivact::view::node;
@@ -98,7 +98,7 @@ impl Indicator {
     }
 }
 
-impl NodeBuilder for Indicator {
+impl Element for Indicator {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -112,18 +112,26 @@ impl IntoView for Indicator {
         let actual = attachment.state();
         self.root = self.root.with_node(move |node| node.part(attachment));
         let checked = self.checked;
+        let kind = self.kind;
         let input = self.input;
         let look = move || {
             let mut input = input.get();
-            input.disabled |= actual.get().disabled;
-            input.focus_visible &= !input.disabled;
+            if actual.get().is_disabled() && !input.is_hidden() {
+                input.availability = kivact::view::Availability::Disabled;
+            }
+            if input.is_disabled() {
+                input.focus = kivact::view::Focus::None;
+            }
             Look::new(CheckableState {
                 input,
-                checked: checked.get(),
+                control: match kind {
+                    Kind::Radio => CheckControl::Radio {
+                        selected: checked.get().is_checked(),
+                    },
+                    Kind::Checkbox | Kind::Check => CheckControl::CheckBox(checked.get()),
+                },
                 size,
                 invalid: false,
-                text: None,
-                switch_drag: None,
             })
         };
         match self.kind {
@@ -147,7 +155,7 @@ impl IntoView for Indicator {
                             if matches!(kind, Kind::Radio) {
                                 base = base.radius(t.radius.full);
                             }
-                            if look.input.disabled {
+                            if look.input.is_disabled() {
                                 base = base
                                     .opacity(t.sizes.disabled_opacity)
                                     .border_color(t.colors.border);
@@ -173,16 +181,12 @@ fn check_view(
         node.base_style(move || {
             let t = kivact::style::use_tokens::<crate::Tokens>();
             let state = look();
-            let side = if custom || state.checked.is_checked() {
-                16
-            } else {
-                0
-            };
+            let side = if custom || state.is_checked() { 16 } else { 0 };
             style()
                 .size(side, side)
                 .clip(true)
                 .shrink(0)
-                .color(if state.input.disabled {
+                .color(if state.input.is_disabled() {
                     t.colors.icon_disabled
                 } else {
                     t.colors.accent

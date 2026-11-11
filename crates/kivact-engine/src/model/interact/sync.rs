@@ -142,10 +142,9 @@ impl Model {
                 {
                     editor.lines = Default::default();
                 }
-                self.a11y.node(id);
+                self.a11y.payload(id);
                 self.remeasure(id);
             }
-            self.changes.paint = true;
         }
         let mut touched: Vec<NodeId> = self.changes.touched().collect();
         for id in &touched {
@@ -160,10 +159,18 @@ impl Model {
             || changes.fonts
             || moved
             || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW));
-        let restyled = changes
+        let restyled: Vec<NodeId> = changes
             .marked(Dirty::REDRAW)
-            .any(|id| self.node(id).is_some_and(|n| n.states().is_some()));
-        let restack = changes.restack || moved || restyled;
+            .filter(|id| self.node(*id).is_some_and(|n| n.states().is_some()))
+            .collect();
+        for id in &restyled {
+            self.stale_fact(*id);
+            let children: Vec<NodeId> = self.tree.flat_children(*id).collect();
+            for child in children {
+                self.stale_fact(child);
+            }
+        }
+        let restack = changes.restack || moved || !restyled.is_empty();
         self.paint
             .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
         self.report_sessions();
@@ -203,6 +210,23 @@ impl Model {
         let kept = self.paint.look[n.index.0].replace(look);
         if kept.is_none_or(|kept| kept.stacking() != look.stacking()) {
             self.changes.restack = true;
+        }
+        if kept != Some(look) {
+            self.stale_fact(id);
+            let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+            for child in children {
+                self.stale_fact(child);
+            }
+        }
+        self.index_sources(id);
+    }
+
+    /// File `id` again in the motion index from its props. A changed frame
+    /// source restacks and redraws, so the next paint list refreshes it.
+    fn index_sources(&mut self, id: NodeId) {
+        if self.sources.file(id, self.tree.get(id)) {
+            self.changes.restack = true;
+            self.changes.paint = true;
         }
     }
 
@@ -247,14 +271,15 @@ impl Model {
         if changed {
             for id in &images {
                 let node = self.tree.get(*id);
-                let used = node.and_then(|n| self.measure.natural[n.index.0].get());
+                let used = node.and_then(|n| self.measure.natural(n.index.0));
                 let image = node.and_then(|n| n.image());
                 if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);
                     self.changes.mark(*id, Dirty::REDRAW);
-                    self.a11y.node(*id);
+                    self.a11y.payload(*id);
                 }
             }
+            self.changes.restack = true;
             self.changes.paint = true;
         }
         self.sync();
@@ -281,7 +306,12 @@ impl Model {
             };
             let status = assets.image_status(asset);
             reports.extend(assets.check_image(*id, asset));
-            if n.sent_image.update(status).is_some() {
+            if n.sent
+                .get_or_insert_default()
+                .image
+                .update(status)
+                .is_some()
+            {
                 statuses.push((*id, status));
             }
         }

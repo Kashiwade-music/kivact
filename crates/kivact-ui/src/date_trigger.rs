@@ -1,5 +1,5 @@
 //! Role: Preserve a caller-owned trigger for date-field dialog presentation.
-use kivact_core::view::{IntoView, NodeBuilder, NodeRef, View, node_ref};
+use kivact_core::view::{Element, IntoView, NodeRef, View, node_ref};
 pub(crate) struct AttachTrigger {
     attach: Box<dyn FnOnce(crate::Dialog) -> View>,
     pub(crate) focus: NodeRef,
@@ -14,7 +14,7 @@ pub(crate) enum FieldPresentation {
     Trigger(AttachTrigger),
 }
 impl FieldPresentation {
-    pub(crate) fn trigger<T: NodeBuilder + IntoView + 'static>(trigger: T) -> Self {
+    pub(crate) fn trigger<T: Element + IntoView + 'static>(trigger: T) -> Self {
         let focus = node_ref();
         Self::Trigger(AttachTrigger {
             focus,

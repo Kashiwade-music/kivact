@@ -14,6 +14,13 @@ pub(crate) enum RefreshMode {
     /// This expensive checkpoint is useful after a source batch or adoption.
     /// In release builds it performs ordinary reconciliation only; no integrity
     /// scan, reference allocation or diagnostic assurance is provided.
+    #[cfg_attr(
+        not(any(debug_assertions, feature = "testing")),
+        expect(
+            dead_code,
+            reason = "only the testing self-check requests a verification"
+        )
+    )]
     Verify,
 }
 
@@ -86,7 +93,7 @@ impl EditLines {
             let text = self.shown(source.value, source.placeholder);
             self.rebuild_with_metrics(text, engine);
         } else if self.revision != source.revision && self.shows_value() {
-            let fits = self.key.wrap_width.is_none()
+            let fits = self.key.breaks.wrap_width().is_none()
                 && source
                     .damage
                     .filter(|d| d.base == self.revision)

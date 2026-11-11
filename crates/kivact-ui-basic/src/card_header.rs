@@ -2,7 +2,7 @@
 use crate::Tokens;
 use kivact::state::{IntoText, Value};
 use kivact::style::{Align, Direction, style, use_tokens};
-use kivact::view::{IntoView, Node, NodeBuilder, View, column, node, row, text};
+use kivact::view::{Element, IntoView, Node, View, column, node, row, text};
 
 /// The header of a standard `kivact::ui::card`: a title, a description and
 /// an action. Created by [`card_header`]; pass it to the card's `.header(..)`.
@@ -55,7 +55,7 @@ impl CardHeader {
     }
 }
 
-impl NodeBuilder for CardHeader {
+impl Element for CardHeader {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

@@ -3,11 +3,10 @@ use crate::collection_values::{ItemListMarker, ItemPosition, ItemRowState};
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
-use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback};
+use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::style::{Style, TextOverflow, style};
 use kivact_core::view::{
-    HandlerResult, IntoChildren, IntoView, Node, NodeBuilder, NodeRef, Role, View, node, node_ref,
-    text,
+    Element, IntoChildren, IntoView, Node, NodeRef, Role, View, node, node_ref, text,
 };
 /// A semantic item row; its description and activation share the actual root.
 pub struct ItemRow {
@@ -16,30 +15,30 @@ pub struct ItemRow {
 }
 struct RowContents {
     title: Value<String>,
-    // xtask-allow(state-fields): passive record - title content
+    // xtask-allow(state-fields): option: absent means the component's default
     title_content: Option<View>,
-    // xtask-allow(state-fields): passive record - description
+    // xtask-allow(state-fields): option: ItemRow::description text; absent shows no description unless description_content gives one
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): passive record - description content
+    // xtask-allow(state-fields): option: ItemRow::description_content; present it replaces the plain description text, absent falls back to that text
     description_content: Option<View>,
-    // xtask-allow(state-fields): passive record - media
+    // xtask-allow(state-fields): option: ItemRow::media; absent leaves the media slot out of the row body
     media: Option<View>,
-    // xtask-allow(state-fields): passive record - actions
+    // xtask-allow(state-fields): option: ItemRow::actions; absent leaves the trailing actions slot out of the row body
     actions: Option<View>,
-    // xtask-allow(state-fields): passive record - header
+    // xtask-allow(state-fields): option: ItemRow::header; absent draws nothing above the row body
     header: Option<View>,
-    // xtask-allow(state-fields): passive record - footer
+    // xtask-allow(state-fields): option: ItemRow::footer; absent draws nothing below the row body
     footer: Option<View>,
-    // xtask-allow(state-fields): passive record - marker
+    // xtask-allow(state-fields): option: absent means the component's default
     marker: Option<View>,
     press: Option<Callback<()>>,
-    // xtask-allow(state-fields): passive record - delegate
+    // xtask-allow(state-fields): option: ItemRow::delegate_to; absent lets the row itself take on_press, present forwards activation to the target instead
     delegate: Option<NodeRef>,
-    // xtask-allow(state-fields): passive record - position
+    // xtask-allow(state-fields): option: absent means the component's default
     position: Option<(Value<usize>, Value<usize>)>,
-    // xtask-allow(state-fields): passive record - title lines
+    // xtask-allow(state-fields): option: absent means the component's default
     title_lines: Option<Value<Option<u32>>>,
-    // xtask-allow(state-fields): passive record - description lines
+    // xtask-allow(state-fields): option: absent means the component's default
     description_lines: Option<Value<Option<u32>>>,
     variants: Variants,
 }
@@ -101,8 +100,8 @@ impl ItemRow {
         self.contents.marker = Some(view.into_view());
         self
     }
-    pub fn on_press<R: HandlerResult>(mut self, f: impl Fn() -> R + 'static) -> Self {
-        self.contents.press = Some(callback(move |()| f()));
+    pub fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
+        self.contents.press = Some(f.into());
         self
     }
     /// Activate and focus the actual eligible target instead of making the row a tab stop.
@@ -130,7 +129,7 @@ impl ItemRow {
         self
     }
 }
-impl NodeBuilder for ItemRow {
+impl Element for ItemRow {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

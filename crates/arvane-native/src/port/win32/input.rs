@@ -145,16 +145,7 @@ pub(super) fn message(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) -> 
         // A separate WM_CHAR (for example test text injection) remains a commit.
         WM_CHAR => {
             let unit = w as u16;
-            let text = {
-                let mut decoder = state.decoder.borrow_mut();
-                decoder.push(unit).map(|first| {
-                    let mut text = first.to_string();
-                    if let Some(tail) = decoder.take_tail() {
-                        text.push(tail);
-                    }
-                    text
-                })
-            };
+            let text = state.decoder.borrow_mut().push(unit);
             if let Some(text) = text
                 && !text.chars().all(char::is_control)
             {
@@ -302,9 +293,7 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         state.event(arvane_shell::pipeline::KeyPipeline::default().key(
             arvane_shell::pipeline::RawKey {
                 key: raw_key,
-                pressed: false,
-                repeat: Some(false),
-                text: None,
+                phase: arvane_shell::pipeline::RawKeyPhase::Up,
             },
             self::modifiers(state),
             state.mouse.get().window_position(),
@@ -345,9 +334,10 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     state.event(arvane_shell::pipeline::KeyPipeline::default().key(
         arvane_shell::pipeline::RawKey {
             key: raw_key,
-            pressed: true,
-            repeat: Some(l & (1 << 30) != 0),
-            text: Some(text),
+            phase: arvane_shell::pipeline::RawKeyPhase::Down {
+                repeat: Some(l & (1 << 30) != 0),
+                text: Some(text),
+            },
         },
         self::modifiers(state),
         state.mouse.get().window_position(),

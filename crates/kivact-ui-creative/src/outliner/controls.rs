@@ -6,7 +6,7 @@ use kivact::custom::Generation;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
 use kivact::interaction::EditSession;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 
 use kivact::state::{Binding, Callback, Value};
 use kivact::style::style;
@@ -155,7 +155,7 @@ pub(super) fn restriction(
     item: Value<TreeItem>,
     context: Context,
     column: usize,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let id = item.get_untracked().id;
     let mut button = kivact::ui::button(
         [
@@ -227,7 +227,7 @@ pub(super) fn restriction(
         .with_node(move |node| node.style(style().size(20, 20).padding(0)));
     button
 }
-pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> impl kivact::view::Component {
+pub(super) fn expansion(item: Value<TreeItem>, context: Context) -> impl kivact::view::Element {
     let id = item.get_untracked().id;
     let expand = move |subtree: bool| {
         let next = context.data.get_untracked();

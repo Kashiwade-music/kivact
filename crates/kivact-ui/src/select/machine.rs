@@ -20,7 +20,7 @@ pub(crate) enum Event {
     Reset,
 }
 pub(crate) enum Effect {}
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Readiness {
     Ready,
     Unavailable,
@@ -35,59 +35,73 @@ impl MachineTrait for Machine {
     type Event = Event;
     type Effect = Effect;
     fn transition(&self, state: &SheetGesture, event: Event) -> Step<SheetGesture, Event, Effect> {
-        let Event::Pointer(event) = event else {
-            return if matches!(state, SheetGesture::Released(_)) {
-                Step::to(SheetGesture::Idle)
-            } else {
-                Step::stay()
-            };
-        };
-        if matches!(event.phase(), PointerPhase::Down(_)) {
-            return if event.kind() == PointerKind::Touch
-                && event.is_primary()
-                && matches!(self.readiness, Readiness::Ready)
-            {
-                Step::to(SheetGesture::Pressed {
-                    pointer: event.id(),
-                    origin: event.window_pos(),
-                })
-            } else if matches!(state, SheetGesture::Released(_)) {
-                Step::to(SheetGesture::Idle)
-            } else {
-                Step::stay()
-            };
-        }
-        let (pointer, outcome) = match *state {
-            SheetGesture::Pressed { pointer, origin } => {
-                let pos = event.window_pos();
-                let distance = (pos.x - origin.x).hypot(pos.y - origin.y);
-                let moved = DragAxis::Horizontal
-                    .past_slop(Point::new(distance, 0.0), self.slop)
-                    .is_some();
-                (pointer, if moved { Outcome::Moved } else { Outcome::Tap })
+        match event {
+            Event::Pointer(event) => {
+                match gesture(*state, self.readiness, self.bounds, self.slop, event) {
+                    Some(next) => Step::to(next),
+                    None => Step::stay(),
+                }
             }
-            SheetGesture::Moved { pointer } => (pointer, Outcome::Moved),
-            _ => return Step::stay(),
-        };
-        if pointer != event.id() {
-            return Step::stay();
-        }
-        match event.phase() {
-            PointerPhase::Move if outcome == Outcome::Moved => {
-                Step::to(SheetGesture::Moved { pointer })
+            Event::Reset if matches!(state, SheetGesture::Released(_)) => {
+                Step::to(SheetGesture::Idle)
             }
-            PointerPhase::Up(_) => Step::to(
-                if self
-                    .bounds
-                    .is_some_and(|rect| rect.contains(event.window_pos()))
-                {
-                    SheetGesture::Released(outcome)
-                } else {
-                    SheetGesture::Idle
-                },
-            ),
-            PointerPhase::Cancel => Step::to(SheetGesture::Idle),
-            _ => Step::stay(),
+            Event::Reset => Step::stay(),
         }
+    }
+}
+
+/// The gesture's next state from one pointer event, or `None` when it stays.
+///
+/// A press starts a contact only while `readiness` permits it; a move or
+/// release follows the pressed contact and releases inside `bounds` record
+/// whether the contact was a tap.
+pub(crate) fn gesture(
+    state: SheetGesture,
+    readiness: Readiness,
+    bounds: Option<Rect>,
+    slop: f64,
+    event: PointerEvent,
+) -> Option<SheetGesture> {
+    if matches!(event.phase(), PointerPhase::Down(_)) {
+        return if event.kind() == PointerKind::Touch
+            && event.is_primary()
+            && matches!(readiness, Readiness::Ready)
+        {
+            Some(SheetGesture::Pressed {
+                pointer: event.id(),
+                origin: event.window_pos(),
+            })
+        } else if matches!(state, SheetGesture::Released(_)) {
+            Some(SheetGesture::Idle)
+        } else {
+            None
+        };
+    }
+    let (pointer, outcome) = match state {
+        SheetGesture::Pressed { pointer, origin } => {
+            let pos = event.window_pos();
+            let distance = (pos.x - origin.x).hypot(pos.y - origin.y);
+            let moved = DragAxis::Horizontal
+                .past_slop(Point::new(distance, 0.0), slop)
+                .is_some();
+            (pointer, if moved { Outcome::Moved } else { Outcome::Tap })
+        }
+        SheetGesture::Moved { pointer } => (pointer, Outcome::Moved),
+        _ => return None,
+    };
+    if pointer != event.id() {
+        return None;
+    }
+    match event.phase() {
+        PointerPhase::Move if outcome == Outcome::Moved => Some(SheetGesture::Moved { pointer }),
+        PointerPhase::Up(_) => Some(
+            if bounds.is_some_and(|rect| rect.contains(event.window_pos())) {
+                SheetGesture::Released(outcome)
+            } else {
+                SheetGesture::Idle
+            },
+        ),
+        PointerPhase::Cancel => Some(SheetGesture::Idle),
+        _ => None,
     }
 }

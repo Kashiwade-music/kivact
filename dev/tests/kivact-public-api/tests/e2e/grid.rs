@@ -104,3 +104,55 @@ fn templates_mix_px_percentages_fr_and_minmax() {
         "70px floor",
     );
 }
+
+#[test]
+fn grid_items_justify_self_within_their_area() {
+    let screen = render_with(window(800.0, 600.0), || {
+        grid((
+            node().test_id("start").style(style().height(10).width(50)),
+            node()
+                .test_id("end")
+                .style(style().height(10).width(50).justify_self(Align::End)),
+            node().test_id("center").style(
+                style()
+                    .height(10)
+                    .width(50)
+                    .justify_self(Align::Center)
+                    .grid_column(1)
+                    .grid_row(2),
+            ),
+            // A grid container placed as an item keeps its own placement.
+            grid((node().test_id("inner").style(style().height(10)),))
+                .test_id("nested")
+                .style(
+                    style()
+                        .width(100)
+                        .justify_self(Align::End)
+                        .grid_column(2)
+                        .grid_row(2)
+                        .grid_template_columns(Track::fr(1)),
+                ),
+        ))
+        .style(style().grid_template_columns((400, 400)))
+    });
+    assert_rect(
+        rect_of(&screen, "start"),
+        (0.0, 0.0, 50.0, 10.0),
+        "default start",
+    );
+    assert_rect(
+        rect_of(&screen, "end"),
+        (750.0, 0.0, 50.0, 10.0),
+        "justify-self end",
+    );
+    assert_rect(
+        rect_of(&screen, "center"),
+        (175.0, 10.0, 50.0, 10.0),
+        "justify-self center",
+    );
+    assert_rect(
+        rect_of(&screen, "nested"),
+        (700.0, 10.0, 100.0, 10.0),
+        "nested grid end",
+    );
+}

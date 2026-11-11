@@ -23,8 +23,8 @@ use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::{style, use_theme};
+use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, View, show};
-use kivact_core::view::{Node, NodeBuilder, node, row};
 use kivact_interaction::DisabledButtonFocus;
 use kivact_interaction::use_button;
 use std::time::Duration;
@@ -95,7 +95,7 @@ pub struct Button {
     children: Vec<View>,
     size: ButtonSize,
     variants: Variants,
-    busy: Value<bool>,
+    busy: Option<Value<bool>>,
     input: Value<PartState>,
     hide_label: Option<Value<bool>>,
 }
@@ -138,7 +138,7 @@ pub fn button(label: impl IntoText) -> Button {
         children: Vec::new(),
         size: ButtonSize::Default(super::values::default_control_size()),
         variants: Variants::default(),
-        busy: false.into_value(),
+        busy: None,
         input,
         hide_label: None,
     }
@@ -162,7 +162,7 @@ impl Button {
     pub fn busy(mut self, busy: impl IntoValue<bool>) -> Self {
         let busy = busy.into_value();
         self.root = self.root.busy(busy);
-        self.busy = busy;
+        self.busy = Some(busy);
         self
     }
     /// A view before the label, in a box the theme's
@@ -182,7 +182,7 @@ impl Button {
     /// Keep the accessible name while omitting the visible label (while
     /// true; constant or reactive). A button with a leading
     /// [`icon`](Self::icon) and no visible label is an icon button: its
-    /// recipe knows it from [`ButtonState::icon_only`] and draws a square.
+    /// recipe knows it from [`ButtonState::is_icon_only`] and draws a square.
     #[track_caller]
     pub fn hide_label(mut self, hide: impl IntoValue<bool>) -> Self {
         self.hide_label = Some(hide.into_value());
@@ -210,7 +210,7 @@ impl Button {
         self
     }
 }
-impl NodeBuilder for Button {
+impl Element for Button {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -233,19 +233,26 @@ impl Button {
         // A popup or disclosure attaches its trigger before the button is
         // finished; the recipe draws the button as that trigger.
         let expanded = root.accessible_expanded();
-        // Busy ignores presses as the caller's `.disabled(..)` does.
+        // Busy ignores presses as the caller's `.disabled(..)` does. A button
+        // that is neither busy nor disabled gets no disabled computed.
         let disabled = root.accessible_disabled();
-        let root = root.disabled(move || busy.get() || disabled.is_some_and(|d| d.get()));
+        let root = if busy.is_some() || disabled.is_some() {
+            root.disabled(move || {
+                busy.is_some_and(|busy| busy.get()) || disabled.is_some_and(|d| d.get())
+            })
+        } else {
+            root
+        };
         let size = size.value();
         let (leading_icon, trailing_icon) = (icon.is_some(), trailing.is_some());
         let state = memo(move || ButtonState {
             input: input.get(),
             size: size.get(),
-            busy: busy.get(),
+            busy: busy.is_some_and(|busy| busy.get()),
             expanded: expanded.map(|open| open.get()),
             leading_icon,
             trailing_icon,
-            icon_only: leading_icon && hide_label.is_some_and(|hide| hide.get()),
+            label_hidden: hide_label.is_some_and(|hide| hide.get()),
         });
         // The text style, then the recipe: base layers below every `.style(..)` of the caller.
         let root = with_base_recipe_style(
@@ -262,7 +269,9 @@ impl Button {
                 move || state.get(),
             )
         };
-        let (phase, reveal_pending) = busy_animation(state);
+        // Only a button the caller gave `.busy(..)` creates the busy clock, its
+        // machine and its indicator (MEM-5): the others create no constant either.
+        let busy_parts = busy.map(|_| busy_animation(state));
         let content = with_recipe_style(
             row((
                 icon.map(slot),
@@ -274,11 +283,11 @@ impl Button {
             &variants,
             move || {
                 let mut state = state.get();
-                state.busy &= !reveal_pending.get();
+                state.busy &= !busy_parts.is_some_and(|(_, reveal)| reveal.get());
                 state
             },
         );
-        let indicator = busy_indicator(state, &variants, phase);
+        let indicator = busy_parts.map(|(phase, _)| busy_indicator(state, &variants, phase));
         root.child(content).child(indicator)
     }
 }

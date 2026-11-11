@@ -6,26 +6,105 @@
 //! them may have changed (a `TextStyle` write on the node or an ancestor, a
 //! move to another parent, a reused slot). The entry is shared (`Rc`), so
 //! a reader keeps it without copying the style's family and features.
+//!
+//! The leaf column holds what a node's own kind measures: an image's
+//! natural size or a text's shaped extents (one per kind, which never
+//! changes after the node is made).
 use kivact_types::{ComputedTextStyle, Size};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::Rc;
+
+/// What a node's leaf measures: one per node kind, which never changes.
+#[derive(Clone, Debug)]
+pub(crate) enum LeafMeasure {
+    /// Neither an image nor a text: an intrinsic size or a leaf callback
+    /// measures it.
+    None,
+    /// An image's natural size, once its asset is loaded.
+    Natural(Cell<Option<Size>>),
+    /// A text's shaped extents, kept while its style and text hold.
+    Text(RefCell<Option<Box<TextExtents>>>),
+}
 
 #[derive(Clone, Debug, Default)]
 pub(crate) struct MeasureColumns {
-    pub(crate) natural: Vec<Cell<Option<Size>>>,
-    pub(crate) extents: Vec<RefCell<Option<Box<TextExtents>>>>,
+    /// What the node at each slot measures (see [`LeafMeasure`]).
+    pub(crate) leaf: Vec<LeafMeasure>,
     computed_text: Vec<RefCell<Option<Rc<ComputedTextStyle>>>>,
+    /// The last distinct text styles resolved or measured in this window:
+    /// the nodes with an equal style share one.
+    recent_style: RefCell<kivact_types::cell::Recent<ComputedTextStyle>>,
 }
 impl MeasureColumns {
-    pub(crate) fn push(&mut self) {
-        self.natural.push(Cell::new(None));
-        self.extents.push(RefCell::new(None));
+    pub(crate) fn push(&mut self, kind: &crate::contract::NodeKind) {
+        self.leaf.push(leaf_for(kind));
         self.computed_text.push(RefCell::new(None));
     }
+
+    /// Measure the node at `slot` one way only: an editor measures itself
+    /// (`LeafMeasure::None`), else the node's kind does.
+    pub(crate) fn set_measure(
+        &mut self,
+        slot: usize,
+        kind: &crate::contract::NodeKind,
+        editor: bool,
+    ) {
+        let leaf = if editor {
+            LeafMeasure::None
+        } else {
+            leaf_for(kind)
+        };
+        let same = matches!(
+            (&self.leaf[slot], &leaf),
+            (LeafMeasure::None, LeafMeasure::None)
+                | (LeafMeasure::Natural(_), LeafMeasure::Natural(_))
+                | (LeafMeasure::Text(_), LeafMeasure::Text(_))
+        );
+        if !same {
+            self.leaf[slot] = leaf;
+        }
+    }
     pub(crate) fn take_slot(&mut self, slot: usize) -> Option<Box<TextExtents>> {
-        self.natural[slot].set(None);
+        let extents = match std::mem::replace(&mut self.leaf[slot], LeafMeasure::None) {
+            LeafMeasure::Text(extents) => extents.into_inner(),
+            _ => None,
+        };
         self.computed_text[slot].get_mut().take();
-        self.extents[slot].get_mut().take()
+        extents
+    }
+
+    /// The natural size of the image at `slot`, once it is recorded.
+    pub(crate) fn natural(&self, slot: usize) -> Option<Size> {
+        match &self.leaf[slot] {
+            LeafMeasure::Natural(natural) => natural.get(),
+            _ => None,
+        }
+    }
+
+    /// Keep `size` as the natural size of the image at `slot`.
+    pub(crate) fn set_natural(&self, slot: usize, size: Option<Size>) {
+        if let LeafMeasure::Natural(natural) = &self.leaf[slot] {
+            natural.set(size);
+        }
+    }
+
+    /// The shaped extents of the text at `slot`, when its leaf measures
+    /// text; an image and a measured leaf keep none.
+    pub(crate) fn extents(&self, slot: usize) -> Option<RefMut<'_, Option<Box<TextExtents>>>> {
+        match &self.leaf[slot] {
+            LeafMeasure::Text(extents) => Some(extents.borrow_mut()),
+            _ => None,
+        }
+    }
+
+    /// Forget the shaped extents of every text.
+    #[cfg(all(debug_assertions, feature = "testing"))]
+    pub(crate) fn forget_extents(&self) {
+        for leaf in &self.leaf {
+            if let LeafMeasure::Text(extents) = leaf {
+                *extents.borrow_mut() = None;
+            }
+        }
     }
 
     /// The resolved text style of `slot`, if one is kept.
@@ -42,10 +121,24 @@ impl MeasureColumns {
     pub(crate) fn forget_computed_text(&mut self, slot: usize) {
         self.computed_text[slot].get_mut().take();
     }
+
+    /// `style` shared with an equal style of this window's recent ones.
+    pub(crate) fn share_style(&self, style: ComputedTextStyle) -> Rc<ComputedTextStyle> {
+        self.recent_style.borrow_mut().share(style)
+    }
 }
+/// The leaf measure a node of `kind` needs.
+fn leaf_for(kind: &crate::contract::NodeKind) -> LeafMeasure {
+    match kind {
+        crate::contract::NodeKind::Image(_) => LeafMeasure::Natural(Cell::new(None)),
+        crate::contract::NodeKind::Text(_) => LeafMeasure::Text(RefCell::default()),
+        _ => LeafMeasure::None,
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct TextExtents {
-    pub(crate) style: kivact_types::ComputedTextStyle,
+    pub(crate) style: Rc<kivact_types::ComputedTextStyle>,
     pub(crate) single: Option<kivact_types::TextMetrics>,
     pub(crate) wrapped: Vec<(f64, Option<kivact_types::TextMetrics>)>,
 }

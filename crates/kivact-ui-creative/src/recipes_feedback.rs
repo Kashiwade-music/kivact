@@ -2,7 +2,7 @@
 use crate::feedback::ToneExt;
 use crate::{NoticeVariant, Tokens};
 use kivact::style::{Position, Theme};
-use kivact::ui::{AlertRecipes, CardRecipes, EmptyStateRecipes, InputGroupRecipes};
+use kivact::ui::{AlertRecipes, CardRecipes, EmptyStateRecipes, InputGroupRecipes, Selectable};
 
 pub(crate) fn alert(r: AlertRecipes) -> AlertRecipes {
     r.root(|prev| {
@@ -84,7 +84,7 @@ pub(crate) fn card(r: CardRecipes) -> CardRecipes {
                 .color(p.text)
                 .border(
                     1,
-                    if s.selected == Some(true) {
+                    if s.selection() == Selectable::Selected {
                         p.accent
                     } else {
                         p.hair

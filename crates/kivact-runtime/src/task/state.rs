@@ -107,7 +107,7 @@ pub struct TaskState {
     pub(super) exec: Executor,
     /// Pending host-clock timers.
     pub(super) time: RefCell<Scheduler>,
-    // xtask-allow(state-fields): construction option - the worker count of the blocking pool; absent is the default
+    // xtask-allow(state-fields): option: absent means the default worker count
     /// Worker count of the blocking pool (`None`: the default).
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after

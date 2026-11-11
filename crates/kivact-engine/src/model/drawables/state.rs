@@ -21,12 +21,12 @@ pub(crate) const RETRY_MAX_NS: u64 = 100_000_000;
 /// The export the app asked of one drawable.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct ExportAsk {
-    // xtask-allow(state-fields): S-8 ID - the generation of the app's request in the public export protocol
+    // xtask-allow(state-fields): identity: the generation of the app's request in the public export protocol
     /// The generation of the app's request.
     pub(crate) generation: u64,
     /// How the frames are delivered.
     pub(crate) mode: ExportRequestMode,
-    // xtask-allow(state-fields): setting - the scale the app set for the frames; absent follows the window
+    // xtask-allow(state-fields): option: absent means the frames follow the window's scale
     /// Device px per logical px of the frames; `None` follows the window.
     pub(crate) scale: Option<f64>,
 }

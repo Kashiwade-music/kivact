@@ -18,7 +18,7 @@ use kivact::view::HandlerResult;
 use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
 };
-use kivact::view::{Node, NodeBuilder, column, node, row};
+use kivact::view::{Element, Node, column, node, row};
 use std::rc::Rc;
 
 /// An inline ramp, selected position field and color wheel. Stops use vector indices.
@@ -40,20 +40,20 @@ pub struct GradientEditor {
     edit: Option<Callback<EditPhase>>,
 }
 
-/// Edit gradient `stops` by vector index; `selection` is the index of the
+/// Edit gradient `stops` by vector index; `selected` is the index of the
 /// selected stop, which selecting alone does not report to `on_edit`. The
-/// root name is set with NodeBuilder::name.
+/// root name is set with Element::name.
 #[track_caller]
 pub fn gradient_editor(
     stops: impl IntoBinding<Vec<GradientStop>>,
-    selection: impl IntoBinding<Option<usize>>,
+    selected: impl IntoBinding<Option<usize>>,
 ) -> GradientEditor {
     GradientEditor {
         root: column(())
             .role(Role::Group)
             .style(style().gap(8).width(pct(100)).min_width(0)),
         stops: stops.into_binding(),
-        selection: selection.into_binding(),
+        selection: selected.into_binding(),
         to_display: Rc::new(|c| c),
         from_display: Rc::new(|c| c),
         edit: None,
@@ -80,7 +80,7 @@ impl GradientEditor {
     }
 }
 
-impl NodeBuilder for GradientEditor {
+impl Element for GradientEditor {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -113,14 +113,16 @@ impl IntoView for GradientEditor {
         let stops = self.stops.into_value();
         let selection = self.selection;
         let selected = selection.into_value();
-        let scene =
-            crate::editors::shared::targets::targets(move || Ok((0..stops.get().len()).collect()));
+        let targets = crate::editors::shared::targets::targets::<usize, ()>(move || {
+            Ok((0..stops.get().len()).collect())
+        });
+        let scene = targets.scene();
         let valid = memo(move || scene.get().is_ok());
         let root_part = part(|input| input);
         let input = root_part.state();
         let blocked = memo(move || {
             let input = input.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         });
         let drag = use_drag::<(usize, f64, f64)>(DragCoordinates::Local);
         let state = Model::new(self.stops, selection, valid, self.edit, blocked, drag);

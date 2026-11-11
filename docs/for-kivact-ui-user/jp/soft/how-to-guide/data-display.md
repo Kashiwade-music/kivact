@@ -107,7 +107,7 @@ Soft の `ChatDensity`、`BubbleVariant`、`SystemMessageVariant`、`ComposerEle
 
 言語 tokenizer は Soft に残ります。組み込みの `CodeLanguageInput::Named` または独自の `CodeLanguage` を `code_highlight` に渡し、標準 `highlight` の行 callback から呼びます。callback の content source に現在の `Tokens.colors.syntax` または明示的な `SyntaxColors` を渡すと、palette の reactive な上書きを保てます。`syntax_theme` は引き続き子の palette を供給します。streaming text、tool call、token、アプリが所有する dictation は Soft の domain です。
 
-階層の collection は `kivact::ui::tree(label, nodes).expanded(expanded)` で作ります。Soft の tree recipe が行の密度、祖先のガイド線、開閉マーカーのアニメーションを描きます。`.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` で見た目を変更でき、密度とガイド表示には reactive な値も渡せます。選択、activation、header、行の独自の内容には `.selection(..)`、`.on_activate(..)`、`.header(..)`、`.item(..)` を使います。`.marker_content(..)` には実際の行と祖先の projection が渡されます。
+階層の collection は `kivact::ui::tree(label, items, selected).expanded(expanded)` で作ります。Soft の tree recipe が行の密度、祖先のガイド線、開閉マーカーのアニメーションを描きます。`.variant(soft::TreeLook::default().density(soft::ItemDensity::Compact).guides(false))` で見た目を変更でき、密度とガイド表示には reactive な値も渡せます。選択は `selected` の引数で、activation、header、行の独自の内容には `.on_activate(..)`、`.header(..)`、`.item(..)` を使います。`.marker_content(..)` には実際の行と祖先の projection が渡されます。
 
 枝の表示には `.reveal(2.0, kivact::motion::Transition::tween(734.77, kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0)))` を使います。閉じた行は直ちにキーボード操作の対象から外れ、退出する絵はアニメーションの間保持されます。共通の開閉ラベルは `tree.toggle_children` です。
 

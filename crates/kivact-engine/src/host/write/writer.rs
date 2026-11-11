@@ -142,6 +142,11 @@ impl Writer {
                 .map(|model| model.a11y.constructed)
                 .sum(),
             a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
+            a11y_enumerated: app
+                .windows
+                .values()
+                .map(|model| model.a11y.enumerated)
+                .sum(),
             ..stats
         };
         stats
@@ -377,6 +382,23 @@ impl Writer {
         }
     }
 
+    /// Register `font` (`HostRequest::RegisterFont`) at once, so the next
+    /// layout measures with it.
+    fn register_font(&self, app: &mut AppModel, request: RequestId, font: kivact_types::Asset) {
+        let result = app
+            .assets
+            .borrow_mut()
+            .register_font(&mut self.engine.borrow_mut(), &font);
+        if matches!(result, PlatformResult::Fonts(_)) {
+            let fonts = app.assets.borrow().fonts();
+            for model in app.windows.values_mut() {
+                model.fonts_added();
+                model.update_env(|env, _| env.fonts = fonts);
+            }
+        }
+        app.events.push(HostEvent::EffectResult { request, result });
+    }
+
     /// Ask the platform for `effect`; the result is reported with
     /// `request` (`HostEvent::EffectResult`). A font is registered at
     /// once (the next layout measures with it); the other effects are
@@ -394,20 +416,7 @@ impl Writer {
                     model.snapshots.push((request, node));
                 }
             }
-            HostRequest::RegisterFont(font) => {
-                let result = app
-                    .assets
-                    .borrow_mut()
-                    .register_font(&mut self.engine.borrow_mut(), &font);
-                if matches!(result, PlatformResult::Fonts(_)) {
-                    let fonts = app.assets.borrow().fonts();
-                    for model in app.windows.values_mut() {
-                        model.fonts_added();
-                        model.update_env(|env, _| env.fonts = fonts);
-                    }
-                }
-                app.events.push(HostEvent::EffectResult { request, result });
-            }
+            HostRequest::RegisterFont(font) => self.register_font(&mut app, request, font),
             HostRequest::Platform {
                 window,
                 request: platform,
@@ -423,21 +432,7 @@ impl Writer {
                 }
             }
             drawable @ (HostRequest::DrawableExport { .. }
-            | HostRequest::SetDrawableGeometry { .. }) => {
-                let id = match &drawable {
-                    HostRequest::DrawableExport { id, .. }
-                    | HostRequest::SetDrawableGeometry { id, .. } => *id,
-                    _ => unreachable!("invariant: matching drawable request"),
-                };
-                let window = drawable_window(&app, id);
-                let AppModel {
-                    windows, writes, ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
-                    writes.command(None);
-                    crate::model::drawables::apply_request(model, drawable);
-                }
-            }
+            | HostRequest::SetDrawableGeometry { .. }) => apply_drawable_effect(&mut app, drawable),
             HostRequest::ReducedMotion(value) => {
                 queue_main(&mut app, request, DeferredRequest::ReducedMotion(value))
             }
@@ -457,6 +452,11 @@ impl Writer {
             }
             HostRequest::TimeScale(scale) => {
                 queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
+            }
+            HostRequest::DemandGpu { window } => {
+                if let Some(model) = app.windows.get_mut(&window) {
+                    model.effects.push((request, DeferredRequest::DemandGpu));
+                }
             }
         }
     }
@@ -591,6 +591,22 @@ fn queue_main(app: &mut AppModel, request: RequestId, effect: DeferredRequest) {
     if let Some(model) = windows.get_mut(&WindowId::MAIN) {
         writes.command(None);
         model.effects.push((request, effect));
+    }
+}
+
+/// Apply a drawable export or geometry request for the drawable's window.
+fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
+    let id = match &drawable {
+        HostRequest::DrawableExport { id, .. } | HostRequest::SetDrawableGeometry { id, .. } => *id,
+        _ => unreachable!("invariant: matching drawable request"),
+    };
+    let window = drawable_window(app, id);
+    let AppModel {
+        windows, writes, ..
+    } = app;
+    if let Some(model) = windows.get_mut(&window) {
+        writes.command(None);
+        crate::model::drawables::apply_request(model, drawable);
     }
 }
 

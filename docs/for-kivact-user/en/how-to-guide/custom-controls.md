@@ -26,7 +26,7 @@ official kits are built from the same ones.
 | a search box with suggestions | `use_combobox` | `input()`, `content()`, `item(key)` |
 | a command palette | `use_command_palette` | `content()`, `input()`, `list()`, `item(key)` |
 | an open/close body, a popover, a tooltip | `use_disclosure`, `use_popup`, `use_tooltip` | `trigger()`, `content()` |
-| a hover card, a delayed hint, a flashing confirmation | `use_delayed` | `is_open()`, `dismiss()`, `pulse()` |
+| a hover card, a delayed hint, a flashing confirmation | `use_delayed` | `is_open()`, `hide()`, `pulse()` |
 | a dialog | `use_dialog` | `trigger()`, `content()`, `title()`, `description()`, `close_trigger()` |
 | tabs | `use_tabs` | `list()`, `item(key)`, `panel(key)` |
 | a tree | `use_tree` | `list()`, `item(key)` |
@@ -45,13 +45,12 @@ The shortest custom control is a switch. Everything it does comes from the
 controller; the code only decides what it looks like.
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
 use kivact::style::Direction;
 
 /// A pill with a knob that slides to the right when on.
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
+pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
     let api = use_switch(on);
     let state = api.control_state();
     let control = api.control();
@@ -68,7 +67,7 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Com
                 .padding(3)
                 .radius(12)
                 .background(if on { ColorToken::Accent } else { ColorToken::Border })
-                .opacity(if state.input.pressed { 0.8 } else { 1.0 })
+                .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
         .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
 }
@@ -77,7 +76,7 @@ fn app() -> impl IntoView {
     let notifications = signal(false);
     column((
         pill_switch("Notifications", notifications),
-        text(move || if notifications.get() { "On" } else { "Off" }.to_owned()),
+        text(move || if notifications.get() { "On" } else { "Off" }),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -154,7 +153,7 @@ use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
 fn custom_switch() -> impl IntoView {
-    component(|| {
+    scope(|| {
         let enabled = signal(false);
         let api = use_switch(enabled);
         let state = api.control_state();
@@ -177,9 +176,9 @@ The switch controller still owns keyboard, pointer and accessibility behavior.
 The composed Part reads the same facts; it does not maintain a second checked or
 pressed signal. Use `Node`'s inherent methods for semantics such as `role` and
 `checked`. A builder reaches those methods with `.with_node(|host| ...)`;
-`NodeBuilder` supplies its common modifiers such as `style`, `disabled` and `name`.
+`Element` supplies its common modifiers such as `style`, `disabled` and `name`.
 
-As in this example, create the controller inside `component(move || ...)` when the
+As in this example, create the controller inside `scope(move || ...)` when the
 control needs its own owner. That setup runs once at mounting, and the controller's
 cleanup and timers end with the same lifetime when it is removed. See
 [component lifetimes](custom-components.md#give-setup-its-own-lifetime).
@@ -193,8 +192,7 @@ list semantics; you provide the keys, the order and the looks.
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, ListOptions, Selection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
 
 /// A row of options; the arrow keys move and select, Tab leaves the row.
@@ -202,7 +200,7 @@ pub fn segmented<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
     selected: impl IntoBinding<Option<K>>,
-) -> impl Component {
+) -> impl Element {
     let options = options.into_value();
     let list = use_list(
         options,
@@ -228,7 +226,7 @@ pub fn segmented<K: ItemKey>(
                         .padding_y(6)
                         .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
                         .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
-                        .opacity(if state.input.disabled { 0.4 } else { 1.0 })
+                        .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
         },
@@ -305,10 +303,9 @@ and `overlay` while `is_open()` is true.
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, use_select};
+use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 
 pub fn dropdown<K: ItemKey>(
     label: impl IntoText,
@@ -402,8 +399,8 @@ The controller kept all of these promises: Up and Down at the closed trigger cha
 the value without opening, Alt+Down, F4, Enter, Space and a click open it, the list
 takes focus on the selected option, Escape closes without choosing, and focus goes
 back to the trigger. The same pairing of `trigger()`, `content()` and `show` works
-for `use_popup`, `use_disclosure`, `use_tooltip`, `use_dialog` and `use_menu`; only
-the Parts differ. For a modal surface, a dialog's content also traps Tab inside
+for `use_popup`, `use_disclosure`, `use_tooltip` and `use_dialog`; a menu mounts its
+content with `MenuApi::while_open` instead of `show`. Only the Parts differ. For a modal surface, a dialog's content also traps Tab inside
 and returns focus to the opener when it closes.
 
 ## Drag to change a value
@@ -422,13 +419,11 @@ Use `.source_with(move || value.get_untracked())` when the payload must snapshot
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// A number you change by dragging sideways.
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
+pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
@@ -526,16 +521,14 @@ node has: draw layers, input handlers, focus, accessibility and test ids. The AP
 experimental.
 
 ```rust,test_harness
-use kivact::state::Binding;
-use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::custom::{Constraints, primitive};
-use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
+use kivact::view::{A11yAction, PointerPhase};
 
 const CELL: f64 = 20.0;
 
 /// A row of `max` dots; the number of lit dots is the rating.
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Component {
+pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
     let value = value.into_binding();
     primitive()
         // The size depends only on `max`: the layout measures again when it changes.
@@ -637,13 +630,11 @@ padding and a counter are yours. The standard `text_input` is this controller pl
 themed frame.
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
-use kivact::style::Align;
 
 /// A field with a character counter. `max` is enforced by the editor.
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Component {
+pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
     let value = value.into_binding();
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
     let state = api.control_state();
@@ -651,7 +642,7 @@ pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max:
     let editor = node().part(control).name(label).style(move || {
         style()
             .grow(1)
-            .border_bottom(if state.get().focused { 2 } else { 1 }, ColorToken::Accent)
+            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, ColorToken::Accent)
             .padding_y(6)
     });
     row((editor, text(move || format!("{}/{max}", value.with(|text| text.chars().count())))))
@@ -761,7 +752,7 @@ impl Machine for CopyButton {
 
 fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    component(move || {
+    scope(move || {
         let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
             CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
         });
@@ -772,7 +763,7 @@ fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
 ```
 
 Create the machine in the component's setup owner. For a reusable component with
-its own mount lifetime, convert `text` once, then return `component(move || { ... })`
+its own mount lifetime, convert `text` once, then return `scope(move || { ... })`
 and create the machine inside that initializer. Its pending timer is cancelled
 when that instance is removed. Keep the transition pure: it chooses a next state
 and describes work; the effect runner performs the clipboard write.

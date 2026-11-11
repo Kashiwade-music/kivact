@@ -182,13 +182,14 @@ impl Model {
             .or_else(|| self.focused());
         self.push(HostEvent::Key(crate::contract::Routed {
             window: self.window,
-            target: node.map(|f| f.node),
-            region: node.and_then(|f| f.region),
+            target: node.map(|f| crate::contract::RouteTarget {
+                node: f.node,
+                region: f.region,
+            }),
             local: pointer
                 .zip(node.map(|f| f.node))
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
-            captured: false,
             activation: None,
             input: kivact_types::KeyInput {
                 key,
@@ -414,13 +415,14 @@ impl Model {
         }
         self.push(HostEvent::Key(crate::contract::Routed {
             window: self.window,
-            target: self.focused().map(|f| f.node),
-            region: self.focused().and_then(|f| f.region),
+            target: self.focused().map(|f| crate::contract::RouteTarget {
+                node: f.node,
+                region: f.region,
+            }),
             local: pointer
                 .zip(self.focused().map(|f| f.node))
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
-            captured: false,
             activation: None,
             input: kivact_types::KeyInput {
                 key,

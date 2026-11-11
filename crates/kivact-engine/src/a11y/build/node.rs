@@ -1,5 +1,6 @@
 //! Role: Build one node's accessibility payload under the full builder's policy.
 
+use crate::a11y::state::Clipping;
 use crate::model::Model;
 use crate::{is_list_role, semantic_role};
 use arvane as a;
@@ -70,12 +71,10 @@ impl Model {
             return;
         };
         let hidden = self.hidden(id, clipped);
-        let rect = self.semantic_rect(id).unwrap_or_default();
-        let bounds = types::Rect {
-            x: rect.x + offset.x,
-            y: rect.y + offset.y,
-            ..rect
-        };
+        // A node without a box (not laid out, hidden, or a boxless group
+        // with nothing shown) has empty bounds at the origin: like every
+        // other content-space bounds they follow no scroll above its layer.
+        let bounds = self.content_bounds(id).unwrap_or_default();
         let scroll = n.scroll();
 
         let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
@@ -134,7 +133,7 @@ impl Model {
             .node(id)
             .is_some_and(|n| self.editors[n.index.0].is_some() && !n.password())
         {
-            let text = self.editing_semantics(id, offset, engine);
+            let text = self.editing_semantics(id, self.layer_offset(id), engine);
             output.semantics.text = Some(text);
         } else if let Some(authored) = authored_text {
             // A node that draws and edits its own text publishes its own runs.
@@ -346,8 +345,8 @@ impl Model {
         let Some(ancestor) = frame else {
             return self.window_map(id)?.bounds(own);
         };
-        let r = self.rect(ancestor)?;
-        let above = self.scroll_above(ancestor);
+        let r = self.content_rect(ancestor)?;
+        let above = self.layer_offset(ancestor);
         let inside = self.content_map_between(id, ancestor)?.bounds(own)?;
         Some(types::Rect {
             x: r.x + above.x + inside.x,
@@ -356,7 +355,7 @@ impl Model {
         })
     }
 
-    /// The transform the accessibility node of `id` carries (G-07: the one
+    /// The transform the accessibility node of `id` carries (the one
     /// it is drawn and hit with), about its content-space box `bounds`
     /// (its layout box moved by the scrolls above it, `offset`). A layer
     /// (an overlay, a fixed box) is drawn at its window origin whatever
@@ -412,16 +411,22 @@ impl Model {
         }
     }
 
-    /// Rows of every clipping list-like container that lie entirely
-    /// outside it while neither neighbouring row reaches into it.
-    pub(super) fn clipped_rows(&self) -> BTreeSet<types::NodeId> {
-        let mut clipped = BTreeSet::new();
+    /// The clipping of every shown clipping list-like container (a complete enumeration).
+    pub(super) fn clipping_of_all(&self) -> Clipping {
+        let mut clipping = Clipping::default();
         for (list, _) in self.tree().iter() {
-            if let Some((_, c)) = self.list_rows(list) {
-                clipped.extend(c);
+            if let Some((_, clipped)) = self.list_rows(list) {
+                clipping.set_list(list, clipped);
             }
         }
-        clipped
+        clipping
+    }
+
+    /// Whether `id` is a clipping list-like container (shown or not).
+    pub(super) fn is_clipping_list_node(&self, id: types::NodeId) -> bool {
+        self.tree()
+            .get(id)
+            .is_some_and(|n| is_clipping_list(n, self.editors[n.index.0].is_some()))
     }
 
     /// The rows of `list` when it is a shown clipping list-like container,
@@ -429,7 +434,7 @@ impl Model {
     /// neighbouring row reaches into it. Containers without a role between
     /// the list and its rows are transparent; rows holding the focus stay
     /// exposed.
-    fn list_rows(
+    pub(super) fn list_rows(
         &self,
         list: types::NodeId,
     ) -> Option<(Vec<types::NodeId>, BTreeSet<types::NodeId>)> {

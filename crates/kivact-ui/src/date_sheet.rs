@@ -1,7 +1,7 @@
 //! Role: Immediate date selection with a sheet-owned month/year panel.
 use kivact_core::i18n::{CalendarDate, CalendarMonth, NameWidth, message, use_locale};
 use kivact_core::state::{Binding, Machine, Step, binding, machine};
-use kivact_core::view::{IntoView, Node, NodeBuilder, column, dynamic, row};
+use kivact_core::view::{Element, IntoView, Node, column, dynamic, row};
 #[derive(Clone, Copy, PartialEq)]
 enum DateSheetPanel {
     Calendar,

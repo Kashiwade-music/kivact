@@ -6,7 +6,10 @@
 use std::collections::BTreeMap;
 
 use arvane::asset::AnimationInfo;
+use kivact_types::paint::{Fill, FillImage};
 use kivact_types::{Asset, NodeId};
+
+use crate::tree::node::HostNode;
 
 /// The playbacks of the animated images, keyed by node and image slot (0:
 /// the content image).
@@ -35,4 +38,25 @@ pub(crate) enum PlaybackState {
 /// The playback slot of background layer `index` (slot 0 is the content image).
 pub(crate) fn background_slot(index: usize) -> u8 {
     u8::try_from(index + 1).unwrap_or(u8::MAX)
+}
+
+/// The images of `node` that play when it is drawn: its content image
+/// (slot 0) unless its `playing` prop is false, then each animated background
+/// layer in its slot. Reduced motion is applied by the reader.
+pub(crate) fn node_images(node: &HostNode) -> Vec<(u8, Asset)> {
+    let mut images = Vec::new();
+    if let Some(asset) = node.image() {
+        let playing = node.image_data().and_then(|d| d.playing).unwrap_or(true);
+        if playing {
+            images.push((0, asset.clone()));
+        }
+    }
+    if let Some(Fill::Layers(layers)) = node.paint().and_then(|p| p.background.as_ref()) {
+        for (index, layer) in layers.iter().enumerate() {
+            if let FillImage::Image(asset) = &layer.image {
+                images.push((background_slot(index), asset.clone()));
+            }
+        }
+    }
+    images
 }

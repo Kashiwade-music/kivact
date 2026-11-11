@@ -1,6 +1,7 @@
 //! Role: Supply token-based default feedback, card and input-group recipes.
 use crate::component_values::{
     AlertState, AlertVariant, CardState, EmptyStateState, InputGroupMemberState, InputGroupState,
+    Selectable,
 };
 use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
@@ -87,7 +88,7 @@ pub(super) fn alert_content(t: &Theme, _: &Look<AlertState>) -> Style {
 }
 
 pub(super) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
-    let color = if s.selected == Some(true) {
+    let color = if s.selection() == Selectable::Selected {
         ColorToken::Accent
     } else {
         ColorToken::Border
@@ -99,7 +100,7 @@ pub(super) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
         .border(1, color)
         .background(ColorToken::Surface)
         .color(ColorToken::Text);
-    if s.interactive {
+    if s.is_interactive() {
         base.focus_visible(style().ring_with_offset(
             t.focus_ring(),
             t.focus_ring_offset(),

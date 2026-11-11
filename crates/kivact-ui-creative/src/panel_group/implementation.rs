@@ -10,7 +10,7 @@ use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
 use kivact::state::{Value, machine, memo};
 use kivact::style::{ColorToken, style};
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::icon;
 use kivact::view::{IntoView, Role, column, node, node_ref, row, text};
 
@@ -29,7 +29,7 @@ use std::rc::Rc;
 pub fn panel_group<V: IntoView>(
     panels: impl IntoBinding<Vec<InspectorPanel>>,
     content: impl Fn(Value<InspectorPanel>) -> V + 'static,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let content: Rc<dyn Fn(Value<InspectorPanel>) -> kivact::view::View> =
         Rc::new(move |panel| content(panel).into_view());
     let panels = panels.into_binding();
@@ -170,7 +170,7 @@ fn reorder_gesture(
 ) -> kivact::interaction::DragApi<u64> {
     use_drag(DragCoordinates::Window)
         .on_start(move |_| {
-            drag.send(machine::Event::Begin(id));
+            drag.send(machine::Event::Start(id));
         })
         .on_update(move |update: DragUpdate<u64>| {
             let order = data.get();
@@ -187,7 +187,11 @@ fn reorder_gesture(
             drag.send(machine::Event::Target(found));
         })
         .on_end(move |update: DragUpdate<u64>| {
-            drag.send(machine::Event::End(update.phase == DragPhase::End));
+            drag.send(if update.phase == DragPhase::End {
+                machine::Event::End
+            } else {
+                machine::Event::Cancel
+            });
         })
 }
 /// Render a separate reorder target with assistive up/down movement.

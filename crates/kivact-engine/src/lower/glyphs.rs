@@ -25,13 +25,13 @@ use kivact_types::{Point, Rgba, TextShadow};
 /// How a shaped text is colored as it is drawn.
 #[derive(Default)]
 pub(crate) struct Colors {
-    // xtask-allow(state-fields): drawing options - The paint of every glyph run (`None`: the shaped run's own color)
+    // xtask-allow(state-fields): option: absent means the shaped run's own color
     /// The paint of every glyph run (`None`: the shaped run's own color).
     pub(crate) glyphs: Option<Paint>,
-    // xtask-allow(state-fields): drawing options - Every decoration line's color (plain text's `currentColor`)
+    // xtask-allow(state-fields): option: absent means the text's own color
     /// Every decoration line's color (plain text's `currentColor`).
     pub(crate) decorations: Option<Rgba>,
-    // xtask-allow(state-fields): drawing options - The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one
+    // xtask-allow(state-fields): option: absent means no outline
     /// The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one.
     pub(crate) outline: Option<GlyphStroke>,
     /// Whether the fill or the outline of the glyphs is painted first.

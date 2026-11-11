@@ -328,8 +328,9 @@ struct Shared<K: kivact_core::state::ItemKey> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TreeItemState {
     pub input: PartState,
+    // xtask-allow(state-fields): independent: copied from the row's ListItemState; a multiple selection or a caller's binding write keeps rows selected while another row is active
     pub selected: bool,
-    // xtask-allow(state-fields): Public derived part output, independent of selection.
+    // xtask-allow(state-fields): independent: copied from the row's ListItemState; Ctrl+arrow moves the active row without selecting it
     pub active: bool,
     pub branch: TreeBranch,
     pub level: u32,
@@ -387,7 +388,7 @@ pub struct TreeItemState {
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
@@ -435,13 +436,13 @@ impl<K: 'static> Copy for TreeApi<K> {}
 /// Missing or hidden keys remain in the bindings. Setup only.
 #[track_caller]
 pub fn use_tree<K: kivact_core::state::ItemKey>(
-    nodes: impl IntoValue<Vec<TreeNode<K>>>,
+    items: impl IntoValue<Vec<TreeNode<K>>>,
     expanded: impl kivact_core::state::IntoBinding<Vec<K>>,
-    selection: impl crate::IntoSelection<K>,
+    selected: impl crate::IntoSelection<K>,
 ) -> TreeApi<K> {
-    let selection = selection.into_selection();
+    let selection = selected.into_selection();
     let owner = Owner::current();
-    let nodes = nodes.into_value();
+    let nodes = items.into_value();
     let expanded = expanded.into_binding();
     let options = OptionsCell::new(TreeOptions {
         filter: Reactive::<String>::new(String::new()),

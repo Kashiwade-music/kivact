@@ -74,20 +74,20 @@ kivact_core::state::constant_value!(
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatMessageState {
     pub sender: ChatSender,
-    // xtask-allow(state-fields): passive record - status
+    // xtask-allow(state-fields): option: ChatMessage::status; absent for a message without a delivery state
     pub status: Option<ChatMessageStatus>,
     pub align: ChatAlign,
     pub group: ChatBubbleGroup,
     pub reactions_side: ChatReactionsSide,
-    // xtask-allow(state-fields): passive record - has reactions
+    // xtask-allow(state-fields): independent: ChatMessage::reactions fills the reaction slot of a message with or without header, footer, avatar or press handler
     pub has_reactions: bool,
-    // xtask-allow(state-fields): passive record - actionable
+    // xtask-allow(state-fields): independent: ChatMessage::on_press makes the bubble pressable, whichever of its slots are filled
     pub actionable: bool,
-    // xtask-allow(state-fields): passive record - has header
+    // xtask-allow(state-fields): independent: ChatMessage::header fills the slot above the bubble; header, footer and avatar are separate builder calls and each renders alone
     pub has_header: bool,
-    // xtask-allow(state-fields): passive record - has footer
+    // xtask-allow(state-fields): independent: ChatMessage::footer fills the slot below the bubble, with or without a header
     pub has_footer: bool,
-    // xtask-allow(state-fields): passive record - has avatar
+    // xtask-allow(state-fields): independent: ChatMessage::avatar fills the avatar slot beside a bubble of any group position, with or without header or footer
     pub has_avatar: bool,
 }
 /// Scroll-follow facts supplied by the shared follow behavior.
@@ -98,9 +98,9 @@ pub struct ChatThreadState {
 /// Composer facts supplied to its recipes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChatComposerState {
-    // xtask-allow(state-fields): passive record - stopped
+    // xtask-allow(state-fields): independent: copied from the caller's stop_shown and status
     pub stopped: bool,
-    // xtask-allow(state-fields): passive record - status
+    // xtask-allow(state-fields): independent: copied from the caller's stop_shown and status
     pub status: Option<ComposerStatus>,
 }
 /// The repeating typing phase supplied to recipes.

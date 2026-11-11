@@ -45,9 +45,9 @@ enum Drag {
     /// XdndPosition (`None` before the first one, so no status was sent yet).
     Hovering {
         source: NonZeroU32,
-        // xtask-allow(state-fields): independent fact - whether the source offers a URI list we take, decided at XdndEnter
+        // xtask-allow(state-fields): independent: decided once at XdndEnter from the protocol version and the offered types; point is filled by every XdndPosition whether or not we accept (a refusing status is still sent), so all four pairs occur
         accepts: bool,
-        // xtask-allow(state-fields): independent fact - the last XdndPosition, absent before the first one
+        // xtask-allow(state-fields): independent: the last XdndPosition, absent until the first one arrives (no status sent yet); it is filled whatever accepts says, and drop takes the URIs only for accepts with a point, so all four pairs occur
         point: Option<Point>,
     },
     /// `source` dropped at `point`; its selection is being converted, given up at `deadline`.

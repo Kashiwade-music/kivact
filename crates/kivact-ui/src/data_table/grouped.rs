@@ -10,8 +10,8 @@ use kivact_core::state::{Binding, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
+use kivact_core::view::Element;
 use kivact_core::view::IntoView;
-use kivact_core::view::NodeBuilder;
 use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
 use kivact_core::view::{icon, node, row, text};
 use kivact_interaction::TableFocus;

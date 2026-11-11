@@ -11,10 +11,8 @@
 `drawable()` は、セットアップでハンドルを作ります。内容は一度だけ、キャンバスの `.drawable(ハンドル, 内容)` でマウントされ、キャンバスは `draw.drawable(ハンドル, at)` で描きます。`at` は、内容の左上の角を置く位置で、キャンバスの座標で指定します。変換の下に置くには、呼び出しを `draw.layer` で囲みます。
 
 ```rust,no_run
-use kivact::draw::{Layer, Transform};
-use kivact::geometry::Point;
+use kivact::draw::Layer;
 use kivact::prelude::*;
-use kivact::view::drawable;
 
 fn settings_card() -> impl IntoView {
     let card = drawable();
@@ -67,7 +65,7 @@ use std::time::Duration;
 use kivact::draw::Pixels;
 use kivact::geometry::Matrix4;
 use kivact::prelude::*;
-use kivact::view::{DrawableFrame, ShareError, ShareUpdate, drawable, viewport};
+use kivact::view::{DrawableFrame, ShareError, ShareUpdate, viewport};
 
 fn engine_panel() -> impl IntoView {
     let panel = drawable();

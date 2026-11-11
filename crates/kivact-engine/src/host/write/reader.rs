@@ -5,8 +5,8 @@ use crate::contract::{
 };
 use crate::model::AppModel;
 use kivact_types::{
-    ComputedTextStyle, DrawList, FocusTarget, InputPurpose, LayoutCheck, LayoutFinding,
-    LayoutProps, NodeId, PaintProps, Point, Rect, WindowId,
+    ComputedTextStyle, DrawList, FocusTarget, LayoutCheck, LayoutFinding, LayoutProps, NodeId,
+    PaintProps, Point, Rect, WindowId,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -79,6 +79,11 @@ impl Reader {
                 .map(|model| model.a11y.constructed)
                 .sum(),
             a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
+            a11y_enumerated: app
+                .windows
+                .values()
+                .map(|model| model.a11y.enumerated)
+                .sum(),
             ..stats
         };
         stats
@@ -112,10 +117,25 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    /// Clone the one canonical semantics value stored for this node.
+    /// The semantics of `id` as written, with its role as
+    /// [`NodeProperties::role`](crate::contract::NodeProperties::role) gives
+    /// it (a `Text` node that states none has `Role::Text`).
     pub fn semantics(&self, id: NodeId) -> Option<kivact_types::Semantics<FocusTarget>> {
-        self.with_model(id, |model| model.tree().get(id)?.semantics().cloned())
-            .flatten()
+        self.with_model(id, |model| {
+            let properties = &model.tree().get(id)?.properties;
+            let role = properties.role();
+            match properties.semantics.as_deref() {
+                Some(semantics) => Some(kivact_types::Semantics {
+                    role,
+                    ..semantics.clone()
+                }),
+                None => role.map(|role| kivact_types::Semantics {
+                    role: Some(role),
+                    ..Default::default()
+                }),
+            }
+        })
+        .flatten()
     }
 
     /// Registered and system font family names, sorted and unique, preserving case.
@@ -407,50 +427,39 @@ impl Reader {
         use crate::model::edit::state::ImeTarget;
         let app = self.app.borrow();
         let Some(model) = app.model(window) else {
-            return ImeStateInfo {
-                node: None,
-                composing: false,
-                preedit: None,
-                cursor_area: None,
-                purpose: InputPurpose::Text,
-            };
+            return ImeStateInfo::Inactive;
         };
         let purpose = model.ime_purpose();
-        let (node, composing, preedit) = match model.edits.target {
-            ImeTarget::None => (None, false, None),
+        let (node, composition) = match model.edits.target {
+            ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
                 let Some(editor) = model.editors[slot.0.0].as_deref() else {
-                    return ImeStateInfo {
-                        node: Some(id),
-                        composing: false,
-                        preedit: None,
-                        cursor_area: None,
+                    return ImeStateInfo::Focused {
+                        node: id,
                         purpose,
+                        cursor_area: None,
+                        composition: None,
                     };
                 };
                 let state = editor.editor.state();
-                let preedit = state.marked().map(|range| state.value()[range].to_owned());
-                (Some(id), state.is_composing(), preedit)
+                let composition = state.marked().map(|range| state.value()[range].to_owned());
+                (id, composition)
             }
-            ImeTarget::Session(id) => (Some(id), false, None),
+            ImeTarget::Session(id) => (id, None),
         };
-        let cursor_area = match node {
-            Some(id) if matches!(model.edits.target, ImeTarget::Native(_)) => {
-                let mut engine = self.engine.borrow_mut();
-                let caret =
-                    crate::model::interact::text_geometry::caret_rect(model, id, &mut engine);
-                Some(model.drawn_rect(id, caret))
-            }
-            Some(_) => model.session_area(),
-            None => None,
+        let cursor_area = if matches!(model.edits.target, ImeTarget::Native(_)) {
+            let mut engine = self.engine.borrow_mut();
+            let caret = crate::model::interact::text_geometry::caret_rect(model, node, &mut engine);
+            Some(model.drawn_rect(node, caret))
+        } else {
+            model.session_area()
         };
-        ImeStateInfo {
+        ImeStateInfo::Focused {
             node,
-            composing,
-            preedit,
-            cursor_area,
             purpose,
+            cursor_area,
+            composition,
         }
     }
 

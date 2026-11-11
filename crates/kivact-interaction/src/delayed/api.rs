@@ -2,7 +2,7 @@
 //!
 //! [`DelayedApi`] follows a `wanted` condition late: it shows `open` after the
 //! condition turns true and hides `close` after it turns false, on owner-scoped
-//! machine timers (no polling). [`DelayedApi::dismiss`] hides it at once and keeps it
+//! machine timers (no polling). [`DelayedApi::hide`] hides it at once and keeps it
 //! hidden until the condition goes false, and [`DelayedApi::pulse`] shows it at
 //! once and hides it after the close delay (a "Copied" mark).
 
@@ -33,7 +33,7 @@ pub enum DelayedPhase {
     Shown,
     /// No longer wanted (or pulsed); still shown while the close delay runs.
     Closing,
-    /// Hidden by `dismiss` while wanted: stays hidden until `wanted` goes false.
+    /// Hidden by [`hide`](DelayedApi::hide) while wanted: stays hidden until `wanted` goes false.
     Dismissed,
 }
 
@@ -42,7 +42,7 @@ pub enum DelayedPhase {
 ///
 /// ```no_run
 /// use std::time::Duration;
-/// use kivact_core::{state::signal, view::{NodeBuilder, column, node, text, show}};
+/// use kivact_core::{state::signal, view::{Element, column, node, text, show}};
 /// use kivact_interaction::{Delays, use_delayed};
 /// let hovered = signal(false);
 /// let card = use_delayed(hovered, Delays {
@@ -129,7 +129,7 @@ impl DelayedApi {
     /// `wanted` goes false; otherwise it is `Hidden`. Cancels a running delay.
     /// Call it from a handler or an effect.
     #[track_caller]
-    pub fn dismiss(self) {
+    pub fn hide(self) {
         self.state.send(Event::Dismiss);
     }
 
@@ -143,7 +143,7 @@ impl DelayedApi {
         self.state.send(Event::Pulse);
     }
 
-    /// Dismiss whenever `requested` changes to `false`, as `dismiss` does; a
+    /// Dismiss whenever `requested` changes to `false`, as `hide` does; a
     /// change to `true` changes nothing. Setup only.
     pub(crate) fn dismiss_on_release(self, requested: impl IntoValue<bool>) {
         self.state.feed(requested, Event::Request);

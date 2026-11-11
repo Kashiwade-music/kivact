@@ -6,10 +6,10 @@ use crate::parts::pressable;
 use kivact::draw::Shadow;
 use kivact::geometry::Rect;
 use kivact::i18n::message;
-use kivact::view::{Node, NodeBuilder, column, node, row, scroll};
+use kivact::view::{Element, Node, column, node, row, scroll};
 
 use kivact::state::Value;
-use kivact::state::{IntoValue, callback};
+use kivact::state::{IntoBinding, IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
@@ -22,11 +22,11 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    // xtask-allow(state-fields): builder option - header
+    // xtask-allow(state-fields): option: the caller's Sidebar::header; absent means the panel has no top section
     header: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - content
+    // xtask-allow(state-fields): option: the caller's Sidebar::content; absent means the panel has no scrolling middle section
     content: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - footer
+    // xtask-allow(state-fields): option: the caller's Sidebar::footer; absent means the panel has no bottom section
     footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }
@@ -94,10 +94,24 @@ impl Sidebar {
     }
 }
 
-impl NodeBuilder for Sidebar {
+impl Element for Sidebar {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+impl IntoView for Sidebar {
+    /// A sidebar without a provider: the panel, expanded (the parts behave
+    /// as an expanded sidebar outside a provider, `state.rs`).
+    fn into_view(self) -> kivact::view::View {
+        let cx = SidebarCx {
+            open: kivact::state::signal(true).into_binding(),
+            side: self.side,
+            variant: self.variant,
+            collapsible: self.collapsible,
+        };
+        self.build(cx).into_view()
     }
 }
 
@@ -202,7 +216,7 @@ fn build_rail(cx: SidebarCx) -> Node {
             let closed = !cx.open.get();
             // The 2 px line is local paint, which a state style cannot
             // draw, so it follows the rail's hover.
-            let line = if state.get().hovered {
+            let line = if state.get().is_hovered() {
                 p.sidebar_border
             } else {
                 Color::TRANSPARENT
@@ -311,7 +325,7 @@ pub fn sidebar_provider(
     open: impl kivact::state::IntoBinding<bool>,
     sidebar: Sidebar,
     page: impl IntoView,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let open = open.into_binding();
     let cx = SidebarCx {
         open,

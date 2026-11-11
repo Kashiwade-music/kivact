@@ -21,7 +21,7 @@ pub(crate) fn collect(
     resolve: impl Fn(&Source, &syn::Type) -> Option<String>,
 ) -> Edges {
     let mut edges = Edges::new();
-    for source in sources.iter().filter(|s| s.library) {
+    for source in sources.iter().filter(|s| s.library()) {
         for item in &source.items {
             let (owner, generics) = match item {
                 syn::Item::Struct(i) if public(&i.vis) => {

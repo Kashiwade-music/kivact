@@ -80,7 +80,7 @@ macro_rules! time_editor_builder {
                 self
             }
         }
-        impl kivact::view::NodeBuilder for $type {
+        impl kivact::view::Element for $type {
             /// Return the editor root for ordinary node modifiers.
             #[doc(hidden)]
             fn node_mut(&mut self) -> &mut kivact::view::Node {

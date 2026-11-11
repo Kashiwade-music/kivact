@@ -1,5 +1,4 @@
 //! Role: Catalog page of Alert: default, destructive and with an action.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -11,7 +10,7 @@ pub(crate) fn page() -> Page {
         slug: "alert",
         name: "Alert",
         description: "ユーザーの注意を引くための短いメッセージを表示する部品です。Role::Alert として公開され、アイコン、説明、操作を添えられます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
         source: include_str!("alert.rs"),
         align: PreviewAlign::Center,
         examples: vec![

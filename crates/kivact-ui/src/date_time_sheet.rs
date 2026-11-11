@@ -5,18 +5,18 @@ use kivact_core::i18n::{
 };
 use kivact_core::state::{Binding, Value, binding, machine, memo};
 use kivact_core::view::{
-    Handled, IntoView, Key, Node, NodeBuilder, View, column, dynamic, node_ref, row,
+    Element, Handled, IntoView, Key, Node, View, column, dynamic, node_ref, row,
 };
 pub(crate) struct Inputs {
     pub root: Node,
     pub label: Value<String>,
-    // xtask-allow(state-fields): caller binding - picker label
+    // xtask-allow(state-fields): option: absent means the component's default
     pub picker_label: Option<Value<String>>,
     pub value: Binding<Option<DateTime>>,
     pub format: Value<DateStyle>,
     pub min: Value<Option<DateTime>>,
     pub max: Value<Option<DateTime>>,
-    // xtask-allow(state-fields): caller binding - week start
+    // xtask-allow(state-fields): option: absent means the component's default
     pub week_start: Option<Value<Weekday>>,
     pub seconds: Value<bool>,
     pub variants: crate::variants::Variants,

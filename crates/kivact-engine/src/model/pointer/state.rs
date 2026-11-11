@@ -12,8 +12,11 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 /// kept once in its track's source.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
+    // xtask-allow(state-fields): independent: the file-listening node under an OS file drag, set by the file drag events and cleared at Drop, Leave or its removal; the hover and position projections follow mouse events, so any pair occurs
     pub(super) file_target: Option<NodeId>,
+    // xtask-allow(state-fields): projection: the hover last reported to the client, written only by Model::report_hover
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
+    // xtask-allow(state-fields): projection: the mouse position last reported to the client, written only by Model::report_mouse_position
     pub(super) position_sent: kivact_types::cell::Sent<Option<Point>>,
     pub(super) shown: kivact_types::Cursor,
 }
@@ -67,7 +70,7 @@ pub(crate) struct PointerState {
 impl Default for PointerState {
     fn default() -> Self {
         Self {
-            tracks: BTreeMap::from([(PointerId::MOUSE.0, Track::new(PointerSource::MOUSE))]),
+            tracks: BTreeMap::from([(PointerId::MOUSE.0, Track::mouse())]),
         }
     }
 }
@@ -88,30 +91,63 @@ pub(crate) struct Hover {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MouseTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
-    pub(crate) at: Option<Point>,
+    pub(crate) at: Point,
     pub(crate) hover: Hover,
     pub(crate) gesture: MouseGesture,
+}
+
+/// A contact's part in hover: the primary contact of its kind (Pointer
+/// Events' `isPrimary`) keeps a hover chain while it lasts; another
+/// contact of the same kind has none.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum ContactRole {
+    Primary(Hover),
+    Secondary,
+}
+
+impl ContactRole {
+    fn of(primary: bool) -> Self {
+        if primary {
+            Self::Primary(Hover::default())
+        } else {
+            Self::Secondary
+        }
+    }
+
+    fn hover(&self) -> Option<&Hover> {
+        match self {
+            Self::Primary(hover) => Some(hover),
+            Self::Secondary => None,
+        }
+    }
+
+    fn hover_mut(&mut self) -> Option<&mut Hover> {
+        match self {
+            Self::Primary(hover) => Some(hover),
+            Self::Secondary => None,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
-    pub(crate) hover: Option<Hover>,
+    pub(crate) role: ContactRole,
     pub(crate) gesture: TouchGesture,
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PenTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): entered listener and primary hover are independent input facts.
+    // xtask-allow(state-fields): independent: the nearest pointer-listening ancestor of the hit, set by track_hover; clear_hover empties the hover chain but keeps it for Leave, and a non-primary pen has no chain, so every pair occurs
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
-    pub(crate) hover: Option<Hover>,
+    pub(crate) role: ContactRole,
     pub(crate) route: Route,
 }
 
@@ -147,8 +183,9 @@ impl Default for TouchGesture {
 /// Capture and primary press are independent facts of a routed gesture.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct Route {
-    // xtask-allow(state-fields): capture and primary press have independent lifetimes.
+    // xtask-allow(state-fields): independent: where the gesture's listener events go: set by any button's Down over a listener or by set_pointer_capture, cleared when no button is held; a secondary-button drag has it without a press
     pub(crate) capture: Option<Capture>,
+    // xtask-allow(state-fields): independent: the primary button's pressed chain and activation target, set only by primary_press and taken by that button's Up; a press over a node without a pointer listener has no capture, and a listener may release the capture mid-press
     pub(crate) press: Option<Press>,
 }
 
@@ -215,29 +252,53 @@ pub(crate) enum Axis {
 }
 
 impl Track {
-    pub(crate) fn new(source: PointerSource) -> Self {
-        match source.kind {
-            PointerKind::Mouse => Self::Mouse(MouseTrack {
-                source,
-                over: None,
-                at: None,
-                hover: Hover::default(),
-                gesture: MouseGesture::default(),
-            }),
-            PointerKind::Touch => Self::Touch(TouchTrack {
+    /// The mouse's track (always primary, always hovering).
+    pub(crate) fn mouse() -> Self {
+        Self::Mouse(MouseTrack {
+            source: PointerSource::MOUSE,
+            over: None,
+            at: Point::default(),
+            hover: Hover::default(),
+            gesture: MouseGesture::default(),
+        })
+    }
+
+    /// The track of a touch or pen contact that just went down; `primary`
+    /// is the platform's `isPrimary` at its `Down`.
+    pub(crate) fn contact(source: PointerSource, primary: bool) -> Self {
+        debug_assert_ne!(
+            source.kind,
+            PointerKind::Mouse,
+            "the mouse is not a contact"
+        );
+        let role = ContactRole::of(primary);
+        if source.kind == PointerKind::Pen {
+            Self::Pen(PenTrack {
                 source,
                 over: None,
                 at: Point::default(),
-                hover: source.primary.then(Hover::default),
-                gesture: TouchGesture::default(),
-            }),
-            PointerKind::Pen => Self::Pen(PenTrack {
-                source,
-                over: None,
-                at: Point::default(),
-                hover: source.primary.then(Hover::default),
+                role,
                 route: Route::default(),
-            }),
+            })
+        } else {
+            Self::Touch(TouchTrack {
+                source,
+                over: None,
+                at: Point::default(),
+                role,
+                gesture: TouchGesture::default(),
+            })
+        }
+    }
+
+    /// Whether this is the primary pointer of its kind (Pointer Events'
+    /// `isPrimary`): the mouse always; a contact when it was the only one of
+    /// its kind at its `Down`, until it ends.
+    pub(crate) fn is_primary(&self) -> bool {
+        match self {
+            Self::Mouse(_) => true,
+            Self::Touch(t) => matches!(t.role, ContactRole::Primary(_)),
+            Self::Pen(t) => matches!(t.role, ContactRole::Primary(_)),
         }
     }
 
@@ -259,7 +320,7 @@ impl Track {
 
     pub(crate) fn at(&self) -> Point {
         match self {
-            Self::Mouse(t) => t.at.unwrap_or_default(),
+            Self::Mouse(t) => t.at,
             Self::Touch(t) => t.at,
             Self::Pen(t) => t.at,
         }
@@ -267,7 +328,7 @@ impl Track {
 
     pub(super) fn set_at(&mut self, at: Point) {
         match self {
-            Self::Mouse(t) => t.at = Some(at),
+            Self::Mouse(t) => t.at = at,
             Self::Touch(t) => t.at = at,
             Self::Pen(t) => t.at = at,
         }
@@ -276,16 +337,16 @@ impl Track {
     pub(crate) fn hover(&self) -> Option<&Hover> {
         match self {
             Self::Mouse(t) => Some(&t.hover),
-            Self::Touch(t) => t.hover.as_ref(),
-            Self::Pen(t) => t.hover.as_ref(),
+            Self::Touch(t) => t.role.hover(),
+            Self::Pen(t) => t.role.hover(),
         }
     }
 
     pub(super) fn hover_mut(&mut self) -> Option<&mut Hover> {
         match self {
             Self::Mouse(t) => Some(&mut t.hover),
-            Self::Touch(t) => t.hover.as_mut(),
-            Self::Pen(t) => t.hover.as_mut(),
+            Self::Touch(t) => t.role.hover_mut(),
+            Self::Pen(t) => t.role.hover_mut(),
         }
     }
 
@@ -375,18 +436,14 @@ pub(crate) struct PointerSource {
     pub(crate) id: PointerId,
     /// Mouse, touch or pen.
     pub(crate) kind: PointerKind,
-    // xtask-allow(state-fields): optional shell sample data, independent of primary identity.
+    // xtask-allow(state-fields): independent: the pressure of the pointer's last shell sample (shell.rs); platforms report pressure and tilt apart (a touch may have pressure and no tilt, a mouse neither), so every pair occurs
     /// The pressure at its last event, when reported.
     pub(crate) pressure: Option<f64>,
-    // xtask-allow(state-fields): optional shell sample data, independent of pressure.
+    // xtask-allow(state-fields): independent: the pen tilt of the pointer's last shell sample (shell.rs); platforms report tilt and pressure apart (a pen may lack either, a mouse has neither), so every pair occurs
     /// The pen's tilt at its last event, when reported.
     pub(crate) tilt: Option<(f64, f64)>,
     /// The buttons held after its last event (none after a `Cancel`).
     pub(crate) buttons: PointerButtons,
-    /// Whether it is the primary pointer of its kind (Pointer Events'
-    /// `isPrimary`): the mouse always; a touch or pen contact when no other
-    /// contact of its kind was in contact at its `Down`, until it ends.
-    pub(crate) primary: bool,
 }
 
 pub(crate) type CursorKind = kivact_types::Cursor;
@@ -400,7 +457,6 @@ impl PointerSource {
         pressure: None,
         tilt: None,
         buttons: PointerButtons::NONE,
-        primary: true,
     };
 }
 

@@ -6,9 +6,9 @@ use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ViewFn;
 use kivact::view::icon;
 use kivact::view::node;
@@ -31,6 +31,7 @@ use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
+use kivact::style::Length;
 use kivact::style::Position;
 use kivact::style::TransitionProp;
 use kivact::style::pct;
@@ -54,16 +55,40 @@ pub struct AppShellMobile {
 #[derive(Clone, Copy)]
 struct MobileContext {
     state: MachineHandle<MobileMachine>,
-    open: Binding<bool>,
     toggle: NodeRef,
     drawer: NodeRef,
-    // xtask-allow(state-fields): passive record - auto toggle
+    // xtask-allow(state-fields): option: fixed at AppShell construction as MobileNavMode::Auto with MobileNavConfig::has_toggle; false means the app supplies its own drawer control.
     auto_toggle: bool,
+}
+impl MobileContext {
+    fn is_mobile(self) -> bool {
+        matches!(self.state.get(), AppShellMobileState::Mobile { .. })
+    }
+    fn is_open(self) -> bool {
+        matches!(self.state.get(), AppShellMobileState::Mobile { open: true })
+    }
+    fn set_open(self, open: bool) {
+        self.state.send(AppShellMobileEvent::SetOpen(open));
+    }
 }
 #[derive(Clone, Copy, PartialEq)]
 enum AppShellMobileState {
     Desktop,
-    Mobile,
+    Mobile {
+        /// Whether the drawer is open.
+        open: bool,
+    },
+}
+#[derive(Clone, Copy, PartialEq)]
+enum AppShellMobileEvent {
+    /// Whether the viewport is below the mobile breakpoint.
+    Resize(bool),
+    /// The caller's open binding changed.
+    Sync(bool),
+    /// Open or close the drawer.
+    SetOpen(bool),
+    /// Invert the drawer's open state.
+    Toggle,
 }
 /// Readonly snapshot read for each viewport-width event.
 struct MobileMachine {
@@ -72,21 +97,48 @@ struct MobileMachine {
 }
 impl Machine for MobileMachine {
     type State = AppShellMobileState;
-    /// Whether the viewport is below the mobile breakpoint.
-    type Event = bool;
-    /// Close the drawer binding.
-    type Effect = ();
+    type Event = AppShellMobileEvent;
+    /// The value to write to the caller's open binding.
+    type Effect = bool;
     fn transition(
         &self,
         state: &AppShellMobileState,
-        below: bool,
-    ) -> Step<AppShellMobileState, bool, ()> {
-        match (state, below) {
-            (_, true) => Step::to(AppShellMobileState::Mobile),
-            (AppShellMobileState::Mobile, false) if self.open => {
-                Step::to(AppShellMobileState::Desktop).with(())
+        event: AppShellMobileEvent,
+    ) -> Step<AppShellMobileState, AppShellMobileEvent, bool> {
+        match (state, event) {
+            (AppShellMobileState::Mobile { .. }, AppShellMobileEvent::Resize(true)) => Step::stay(),
+            (_, AppShellMobileEvent::Resize(true)) => {
+                Step::to(AppShellMobileState::Mobile { open: self.open })
             }
-            (_, false) => Step::to(AppShellMobileState::Desktop),
+            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Resize(false)) => {
+                let step = Step::to(AppShellMobileState::Desktop);
+                if *open { step.with(false) } else { step }
+            }
+            (AppShellMobileState::Desktop, AppShellMobileEvent::Resize(false)) => Step::stay(),
+            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Sync(next)) => {
+                if *open == next {
+                    Step::stay()
+                } else {
+                    Step::to(AppShellMobileState::Mobile { open: next })
+                }
+            }
+            (AppShellMobileState::Desktop, AppShellMobileEvent::Sync(_)) => Step::stay(),
+            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::SetOpen(next)) => {
+                if *open == next {
+                    Step::stay()
+                } else {
+                    Step::to(AppShellMobileState::Mobile { open: next }).with(next)
+                }
+            }
+            (AppShellMobileState::Desktop, AppShellMobileEvent::SetOpen(false)) => {
+                Step::stay().with(false)
+            }
+            (AppShellMobileState::Desktop, AppShellMobileEvent::SetOpen(true)) => Step::stay(),
+            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Toggle) => {
+                let next = !*open;
+                Step::to(AppShellMobileState::Mobile { open: next }).with(next)
+            }
+            (AppShellMobileState::Desktop, AppShellMobileEvent::Toggle) => Step::stay(),
         }
     }
 }
@@ -106,22 +158,28 @@ impl AppShellMobile {
             return Self::default();
         };
         let initial = if mobile.is_some_and(|mobile| mobile.get_untracked()) {
-            AppShellMobileState::Mobile
+            AppShellMobileState::Mobile {
+                open: open.get_untracked(),
+            }
         } else {
             AppShellMobileState::Desktop
         };
         let state = machine(
             initial,
             move || MobileMachine { open: open.get() },
-            move |_, ()| open.set(false),
+            move |_, write: bool| {
+                if open.get_untracked() != write {
+                    open.set(write);
+                }
+            },
         );
         if let Some(mobile) = mobile {
-            state.feed(mobile, |below| below);
+            state.feed(mobile, AppShellMobileEvent::Resize);
         }
+        state.feed(move || open.get(), AppShellMobileEvent::Sync);
         Self {
             context: Some(MobileContext {
                 state,
-                open,
                 toggle: node_ref(),
                 drawer: node_ref(),
                 auto_toggle,
@@ -130,14 +188,11 @@ impl AppShellMobile {
     }
     /// Return whether the configured shell currently uses its mobile layout.
     pub fn is_mobile(self) -> bool {
-        self.context
-            .is_some_and(|context| context.state.get() == AppShellMobileState::Mobile)
+        self.context.is_some_and(MobileContext::is_mobile)
     }
     /// Return whether the mobile-layout drawer is currently open.
     pub fn is_open(self) -> bool {
-        self.context.is_some_and(|context| {
-            context.state.get() == AppShellMobileState::Mobile && context.open.get()
-        })
+        self.context.is_some_and(MobileContext::is_open)
     }
     /// Return whether an app shell provided mobile navigation controls.
     pub fn is_enabled(self) -> bool {
@@ -151,27 +206,36 @@ impl AppShellMobile {
     pub fn drawer_ref(self) -> Option<NodeRef> {
         self.context.map(|context| context.drawer)
     }
-    /// Request that the configured drawer open; do nothing outside a shell or in the desktop layout.
-    pub fn open(self) {
+    /// Show the configured drawer; do nothing outside a shell or in the desktop layout.
+    pub fn show(self) {
         if let Some(context) = self.context
-            && self.is_mobile()
+            && context.is_mobile()
         {
-            context.open.set(true);
+            context.set_open(true);
         }
     }
-    /// Request that the configured drawer close; do nothing outside a shell.
-    pub fn close(self) {
+    /// Hide the configured drawer; do nothing outside a shell.
+    pub fn hide(self) {
         if let Some(context) = self.context {
-            context.open.set(false);
+            context.set_open(false);
         }
     }
-    /// Invert the configured drawer's open binding; do nothing outside a shell or in the desktop layout.
+    /// Invert the configured drawer's open state; do nothing outside a shell or in the desktop layout.
     pub fn toggle(self) {
         if let Some(context) = self.context
-            && self.is_mobile()
+            && context.is_mobile()
         {
-            context.open.set(!context.open.get());
+            context.state.send(AppShellMobileEvent::Toggle);
         }
+    }
+    /// The drawer's open state as a binding written back to the shell machine.
+    pub(crate) fn open_binding(self) -> Option<Binding<bool>> {
+        self.context.map(|context| {
+            kivact::state::binding(
+                move || context.is_open(),
+                move |open| context.set_open(open),
+            )
+        })
     }
 }
 
@@ -191,7 +255,7 @@ pub enum DrawerSide {
 pub struct MobileNav {
     root: Node,
     open: Option<Binding<bool>>,
-    width: Value<f64>,
+    width: Value<Length>,
     side: Value<DrawerSide>,
     label: Option<Value<String>>,
     header: Option<Value<String>>,
@@ -204,7 +268,7 @@ pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
     MobileNav {
         root: node(),
         open: None,
-        width: (320.0).into_value(),
+        width: (Length::Px(320.0)).into_value(),
         side: (DrawerSide::Auto).into_value(),
         label: None,
         header: None,
@@ -219,10 +283,9 @@ impl MobileNav {
         self.open = Some(open.into_binding());
         self
     }
-    /// Set drawer width in pixels; negative widths are clamped to zero.
-    pub fn width(mut self, width: impl IntoValue<f64>) -> Self {
-        let width = width.into_value();
-        self.width = (move || width.get().max(0.0)).into_value();
+    /// Set the drawer width as a layout length (`320.0` is 320 px).
+    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+        self.width = width.into_value();
         self
     }
     /// Choose the logical edge or automatic placement of the drawer.
@@ -247,7 +310,7 @@ impl MobileNav {
     }
 }
 
-impl NodeBuilder for MobileNav {
+impl Element for MobileNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -266,10 +329,10 @@ impl IntoView for MobileNav {
             header_view,
             content,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mobile = use_app_shell_mobile();
             let open = open
-                .or(mobile.context.map(|context| context.open))
+                .or_else(|| mobile.open_binding())
                 .unwrap_or_else(|| signal(false).into_binding());
             let anchor = mobile
                 .context
@@ -332,7 +395,7 @@ impl MobileNavToggle {
     }
 }
 
-impl NodeBuilder for MobileNavToggle {
+impl Element for MobileNavToggle {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -346,7 +409,7 @@ impl IntoView for MobileNavToggle {
             label,
             icon: glyph,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let mobile = use_app_shell_mobile();
             if !mobile.is_enabled() {
                 return View::empty();
@@ -469,7 +532,7 @@ fn drawer_body(content: ViewFn) -> impl IntoView {
 }
 fn drawer_panel(
     drawer: NodeRef,
-    width: Value<f64>,
+    width: Value<Length>,
     right: bool,
     header: impl IntoView,
     body: impl IntoView,

@@ -2,10 +2,10 @@
 //!
 //! The modifier methods are written once, as plain default methods:
 //! the everyday set (`common`, `draw`, `intrinsic`) on
-//! `kivact::view::NodeBuilder` and the advanced set (`advanced`,
+//! `kivact::view::Element` and the advanced set (`advanced`,
 //! `draw_over`) on `kivact::view::Node`. `Node`, `Overlay`,
 //! `VirtualList` and every component holding a root `Node` implement
-//! `NodeBuilder`. `Part` has its own inherent methods for the semantic and
+//! `Element`. `Part` has its own inherent methods for the semantic and
 //! input subset, which forward to the same `Common` methods below. Adding a
 //! modifier means writing the method on the trait, plus, when it has logic
 //! beyond a field write, one `Common` method that `Part` shares.
@@ -40,7 +40,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 /// The shared bodies of the modifiers that are more than a field write.
-/// `NodeBuilder`, `Node` and `Part` forward to them.
+/// `Element`, `Node` and `Part` forward to them.
 impl Common {
     #[track_caller]
     pub(crate) fn semantic<T: Clone + 'static>(
@@ -55,10 +55,7 @@ impl Common {
             layer: self.semantics.last().map_or(0, |patch| patch.layer),
             at: Location::caller(),
             reactive,
-            text: false,
             apply: Rc::new(move |semantics| apply(semantics, source.get())),
-            relation: None,
-            orientation: None,
         });
     }
 
@@ -79,7 +76,7 @@ impl Common {
         self.semantics
             .last_mut()
             .expect("invariant: semantic appends a patch")
-            .relation = Some((relation, target));
+            .input = SemanticInput::Relation(relation, target);
     }
 
     #[track_caller]
@@ -91,7 +88,7 @@ impl Common {
         self.semantics
             .last_mut()
             .expect("invariant: semantic appends a patch")
-            .orientation = Some(source);
+            .input = SemanticInput::Orientation(source);
     }
 
     pub(crate) fn append_semantics(&mut self, patches: &mut Vec<SemanticsPatch>) {

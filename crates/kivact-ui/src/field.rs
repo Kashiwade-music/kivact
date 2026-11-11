@@ -12,13 +12,13 @@ use super::values::FieldState;
 use super::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, memo};
+use kivact_core::view::{Element, Node, node, text};
 use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
-use kivact_core::view::{Node, NodeBuilder, node, text};
 
 /// A control with its visible label, hint and error, created by [`field`].
 ///
 /// The root is a column of the label, the control, the hint and the error
-/// message; [`NodeBuilder`] modifiers apply to it.
+/// message; [`Element`] modifiers apply to it.
 pub struct Field<C> {
     root: Node,
     label: Value<String>,
@@ -57,7 +57,7 @@ pub struct Field<C> {
 /// }
 /// ```
 #[track_caller]
-pub fn field<C: NodeBuilder + IntoView>(label: impl IntoText, control: C) -> Field<C> {
+pub fn field<C: Element + IntoView>(label: impl IntoText, control: C) -> Field<C> {
     Field {
         root: node(),
         label: label.into_text_value(),
@@ -107,14 +107,14 @@ impl<C> Field<C> {
     }
 }
 
-impl<C> NodeBuilder for Field<C> {
+impl<C: Element + IntoView> Element for Field<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
 
 #[diagnostic::do_not_recommend]
-impl<C: NodeBuilder + IntoView> IntoView for Field<C> {
+impl<C: Element + IntoView> IntoView for Field<C> {
     fn into_view(self) -> View {
         let Field {
             root,

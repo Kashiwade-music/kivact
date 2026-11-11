@@ -33,10 +33,8 @@ pub fn render_with<V: IntoView>(
     options: RenderOptions,
     root: impl FnOnce() -> V + 'static,
 ) -> Screen {
-    let gpu = options.uses_gpu();
     Screen::start(
         options,
-        gpu,
         Vec::new(),
         Box::new(move || root().into_view()),
         std::panic::Location::caller(),
@@ -52,7 +50,7 @@ pub fn render_with<V: IntoView>(
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::state::{signal};
-/// use kivact::view::{NodeBuilder, text};
+/// use kivact::view::text;
 /// use kivact_test::{RenderOptions, render_with_handle};
 /// let (screen, count) = render_with_handle(RenderOptions::from_env(), || {
 ///     let count = signal(0);

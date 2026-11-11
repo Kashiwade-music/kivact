@@ -59,9 +59,9 @@ pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct MetadataAppearance {
     columns: MetadataColumns,
-    // xtask-allow(state-fields): builder option - position
+    // xtask-allow(state-fields): option: theme-author placement from MetadataLook::label_position; absent places terms beside details in one column and above them otherwise.
     position: Option<LabelPosition>,
-    // xtask-allow(state-fields): builder option - width
+    // xtask-allow(state-fields): option: theme-author term column width from MetadataLook::label_width; absent sizes the term column to its max-content width.
     width: Option<f64>,
     orientation: kivact::view::Orientation,
 }

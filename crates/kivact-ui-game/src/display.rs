@@ -2,8 +2,8 @@
 use kivact::draw::Path;
 use kivact::geometry::Point;
 use kivact::style::{Color, ColorToken, Theme, pct, style};
+use kivact::view::{Element, column, node};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{NodeBuilder, column, node};
 
 use crate::Tokens;
 use kivact::interaction::Tone;
@@ -59,11 +59,11 @@ impl ActivityEntry {
 }
 
 /// Diamond-marked activity timeline.
-/// Entries own non-cloneable views and are consumed once as composition.
+/// Items own non-cloneable views and are consumed once as composition.
 #[track_caller]
-pub fn activity(entries: Vec<ActivityEntry>) -> impl kivact::view::Component {
+pub fn activity(items: Vec<ActivityEntry>) -> impl kivact::view::Element {
     column(
-        entries
+        items
             .into_iter()
             .map(
                 |ActivityEntry {

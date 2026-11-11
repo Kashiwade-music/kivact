@@ -68,6 +68,7 @@ names and their replacements:
 | `dropzone`, `Dropzone` | `kivact::ui::dropzone(label)`; `.hint(..)` and `.filters(..)` unchanged; `.on_files(..)` gets `Vec<kivact::interaction::FileInfo>` |
 | `empty_state`, `EmptyState` (`.content`) | `kivact::ui::empty_state(title).description(..).icon(..).actions(view)` |
 | `gauge(label, value).total(n).tone(t)`, `Gauge` | `kivact::ui::progress(Some(value / total)).name(label).variant(kivact::ui::ProgressVariant::Gauge).variant(game::GaugeSegments(total)).variant(tone)` |
+| `icon_menu(..).on_select(..)` | `game::icon_menu(..).on_activate(..)` |
 | `input_adorned(prefix, control, suffix)` | `kivact::ui::input_group(label, (control,)).variant(game::GameInputGroupVariant::Adorned).start(prefix).end(suffix)` |
 | `input_group(prefix, control, suffix)`, `input_group_content(..)` | `kivact::ui::input_group(label, (control,)).variant(game::GameInputGroupVariant::Inline).start(..).end(..)`; plain text cells are `kivact::ui::input_addon(text)` |
 | `kpi(label, target)` (`.heading(closure)`) | Same function, drawn as a standard `kivact::ui::stat`; `.heading(view)` takes a view |
@@ -82,7 +83,7 @@ names and their replacements:
 | `tag_badge(label, tone, variant)` | `kivact::ui::badge(label).tone(tone).variant(game::BadgeVariant::..)` |
 | `theme(mode).density(d)` (`ThemeOptions` trait) | `game::theme_with(mode, game::ThemeOptions { density })` (`ThemeOptions` is a struct) |
 | `toolbar(children)` | `kivact::ui::toolbar(label).start(..).center(..).end(..)` |
-| `tree(entries, selection)`, `TreeEntry` | `kivact::ui::tree(label, nodes)` of `kivact::interaction::TreeNode::new(key, parent, label)`, with `.selection(..)`, `.expanded(..)` and `.marker_content(..)` |
+| `tree(entries, selection)`, `TreeEntry` | `kivact::ui::tree(label, items, selected)` of `kivact::interaction::TreeNode::new(key, parent, label)`, with `.expanded(..)` and `.marker_content(..)` |
 
 ## Documentation
 

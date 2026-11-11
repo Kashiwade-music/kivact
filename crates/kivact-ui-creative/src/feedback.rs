@@ -8,7 +8,7 @@ use kivact::geometry::{Point, Rect};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 use kivact::platform;
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
+use kivact::view::{Element, Node, column, icon, node, row, text};
 
 use kivact::state::{Binding, Value, signal};
 use kivact::state::{IntoText, IntoValue};
@@ -87,7 +87,7 @@ pub fn popup_button<V: IntoView>(
 #[track_caller]
 pub fn split_button<K: kivact::state::ItemKey>(
     label: impl IntoText,
-    entries: impl IntoValue<Vec<MenuEntry<K>>>,
+    items: impl IntoValue<Vec<MenuEntry<K>>>,
 ) -> SplitButton<K> {
     SplitButton {
         root: row(()).role(Role::Group).style(
@@ -100,7 +100,7 @@ pub fn split_button<K: kivact::state::ItemKey>(
         primary: kivact::ui::button(label)
             .variant(ButtonVariant::Primary)
             .with_node(move |node| node.style(style().radius(0))),
-        entries: entries.into_value(),
+        entries: items.into_value(),
         choose: kivact::state::callback(|_| ()),
     }
 }
@@ -118,13 +118,13 @@ impl<K: 'static> SplitButton<K> {
         self
     }
 
-    /// Selection callback; no action by default.
-    pub fn on_select<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
+    /// Activation callback; no action by default.
+    pub fn on_activate<R: HandlerResult>(mut self, choose: impl Fn(K) -> R + 'static) -> Self {
         self.choose = kivact::state::callback(choose);
         self
     }
 }
-impl<K: 'static> NodeBuilder for SplitButton<K> {
+impl<K: kivact::state::ItemKey> Element for SplitButton<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -292,7 +292,7 @@ impl ToolWindowOptions {
     }
 }
 
-/// What a tool window gives its content: [`close`](ToolWindowApi::close) closes
+/// What a tool window gives its content: [`hide`](ToolWindowApi::hide) closes
 /// the window, as its close button does.
 #[derive(Clone, Copy)]
 pub struct ToolWindowApi {
@@ -300,8 +300,8 @@ pub struct ToolWindowApi {
 }
 
 impl ToolWindowApi {
-    /// Close the window: its `open` value becomes `false`.
-    pub fn close(self) {
+    /// Hide the window: its `open` value becomes `false`.
+    pub fn hide(self) {
         self.open.set(false);
     }
 }
@@ -318,7 +318,7 @@ pub fn tool_window_button<V: IntoView>(
     label: impl IntoText,
     options: ToolWindowOptions,
     content: impl Fn(ToolWindowApi) -> V + 'static,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let label = label.into_text_value();
     let title = options.title.clone().map_or(label, IntoValue::into_value);
     let open = signal(false);
@@ -343,7 +343,7 @@ pub fn tool_window_button<V: IntoView>(
 /// that opens it. `open` is the only state: the window mounts when it
 /// becomes `true`, and it is written `false` by the close button, Escape,
 /// Dismiss from assistive technology, an outside press on a nonmodal window,
-/// [`ToolWindowApi::close`] and the unmounting of the window's part itself. A
+/// [`ToolWindowApi::hide`] and the unmounting of the window's part itself. A
 /// modal window keeps input and focus inside it and ignores an outside press.
 /// The title is [`ToolWindowOptions::title`], or the message `window.untitled`
 /// ("Window").
@@ -351,7 +351,7 @@ pub fn tool_window_button<V: IntoView>(
 /// Each time the window opens it starts expanded at its initial position,
 /// whatever the earlier use left.
 ///
-/// After Escape, the close button, [`ToolWindowApi::close`] or Dismiss, a
+/// After Escape, the close button, [`ToolWindowApi::hide`] or Dismiss, a
 /// nonmodal window uses the shared dialog to restore its anchor when focus
 /// was inside it. An unavailable anchor is harmless. A modal window gives it
 /// back to the element that had it when the window opened. An outside press
@@ -371,7 +371,7 @@ pub fn tool_window_button<V: IntoView>(
 ///             open,
 ///             ui::ToolWindowOptions::default().title("Tool"),
 ///         ).content(|window: ui::ToolWindowApi| {
-///                 kivact::ui::button("Done").on_press(move || window.close())
+///                 kivact::ui::button("Done").on_press(move || window.hide())
 ///             }),
 ///     ))
 /// }
@@ -405,7 +405,7 @@ impl ToolWindow {
         self
     }
 }
-impl NodeBuilder for ToolWindow {
+impl Element for ToolWindow {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -454,28 +454,27 @@ fn window_layer<V: IntoView>(
         });
     }
     let close = ToolWindowApi { open };
+    // The state of the window that is open now; a closed window keeps none.
+    let state = signal(ToolWindowState::Closed);
     let layer = show(dialog.is_open(), move || {
         // Made again at each opening, so a window starts expanded and in place.
-        let collapsed = signal(false);
-        let offset = signal(Point::new(0.0, 0.0));
+        kivact::state::on_mount(move || {
+            state.set(ToolWindowState::Open {
+                collapsed: false,
+                offset: Point::new(0.0, 0.0),
+            });
+        });
+        kivact::state::on_cleanup(move || state.set(ToolWindowState::Closed));
         // The offset and box at the press, which the drag moves from.
-        let mover = window_mover(offset, options.position);
-        let header = window_header(
-            options.clone(),
-            title,
-            collapsed,
-            mover,
-            bounds,
-            offset,
-            close,
-        );
+        let mover = window_mover(state, options.position);
+        let header = window_header(options.clone(), title, state, mover, bounds, close);
         let window = overlay(
             node_ref(),
             Placement::Center,
             column((
                 header,
                 node()
-                    .hidden(collapsed)
+                    .hidden(move || state.with(ToolWindowState::collapsed))
                     .style(style().padding(options.body_padding))
                     .child(content(close)),
             ))
@@ -506,9 +505,10 @@ fn window_layer<V: IntoView>(
                     .unwrap_or(Rect::new(0.0, 0.0, options.width, 0.0));
                 let centered = WindowPosition::Center.origin(viewport, rect);
                 let initial = options.position.origin(viewport, rect);
+                let offset = state.with(ToolWindowState::offset);
                 style().translate(
-                    initial.x - centered.x + offset.get().x,
-                    initial.y - centered.y + offset.get().y,
+                    initial.x - centered.x + offset.x,
+                    initial.y - centered.y + offset.y,
                 )
             })
         })
@@ -518,8 +518,34 @@ fn window_layer<V: IntoView>(
     column((layer,)).style(style().gap(0))
 }
 
+/// One tool window: closed, or open with its collapsed state and drag offset.
+#[derive(Clone, Copy, PartialEq)]
+enum ToolWindowState {
+    Closed,
+    Open { collapsed: bool, offset: Point },
+}
+
+impl ToolWindowState {
+    fn collapsed(&self) -> bool {
+        matches!(
+            self,
+            Self::Open {
+                collapsed: true,
+                ..
+            }
+        )
+    }
+
+    fn offset(&self) -> Point {
+        match self {
+            Self::Closed => Point::new(0.0, 0.0),
+            Self::Open { offset, .. } => *offset,
+        }
+    }
+}
+
 fn window_mover(
-    offset: kivact::state::Signal<Point>,
+    state: kivact::state::Signal<ToolWindowState>,
     position: WindowPosition,
 ) -> kivact::interaction::DragApi<Option<(Point, Rect)>> {
     use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
@@ -533,24 +559,39 @@ fn window_mover(
                 base.x + initial.x + update.delta.x,
                 base.y + initial.y + update.delta.y,
             );
-            offset.set(Point::new(
+            let offset = Point::new(
                 proposed.x.clamp(
                     -rect.width + 80.0,
                     (viewport.width - 80.0).max(-rect.width + 80.0),
                 ) - base.x,
                 proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
-            ));
+            );
+            state.update(|state| {
+                if let ToolWindowState::Open {
+                    offset: current, ..
+                } = state
+                {
+                    *current = offset;
+                }
+            });
         },
     )
+}
+
+fn toggle_collapsed(state: kivact::state::Signal<ToolWindowState>) {
+    state.update(|state| {
+        if let ToolWindowState::Open { collapsed, .. } = state {
+            *collapsed = !*collapsed;
+        }
+    });
 }
 
 fn window_header(
     options: ToolWindowOptions,
     title: Value<String>,
-    collapsed: kivact::state::Signal<bool>,
+    state: kivact::state::Signal<ToolWindowState>,
     mover: kivact::interaction::DragApi<Option<(Point, Rect)>>,
     bounds: Value<Option<Rect>>,
-    offset: kivact::state::Signal<Point>,
     close: ToolWindowApi,
 ) -> Node {
     let (minimize_label, close_label) = (
@@ -579,7 +620,7 @@ fn window_header(
                         }
                     })
                 })
-                .on_press(move || collapsed.update(|value| *value = !*value))
+                .on_press(move || toggle_collapsed(state))
         }),
         kivact::ui::button(close_label)
             .variant(ButtonVariant::Secondary)
@@ -594,7 +635,7 @@ fn window_header(
                     }
                 })
             })
-            .on_press(move || close.close()),
+            .on_press(move || close.hide()),
     ))
     .name(message_with(
         "creative.window.title_bar",
@@ -606,8 +647,8 @@ fn window_header(
         header = header
             .role(Role::Button)
             .focusable(true)
-            .expanded(move || !collapsed.get())
-            .a11y_action(A11yAction::Toggle, move |_| collapsed.update(|v| *v = !*v))
+            .expanded(move || !state.with(ToolWindowState::collapsed))
+            .a11y_action(A11yAction::Toggle, move |_| toggle_collapsed(state))
             .on_pointer_default(move |e| {
                 if matches!(
                     e.phase(),
@@ -617,7 +658,7 @@ fn window_header(
                     })
                 ) {
                     mover.cancel();
-                    collapsed.update(|v| *v = !*v);
+                    toggle_collapsed(state);
                     return Handled::Yes;
                 }
                 Handled::No
@@ -625,7 +666,7 @@ fn window_header(
             .part(mover.source_with(move || {
                 bounds
                     .get_untracked()
-                    .map(|rect| (offset.get_untracked(), rect))
+                    .map(|rect| (state.with_untracked(ToolWindowState::offset), rect))
             }));
     }
     header

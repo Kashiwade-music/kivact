@@ -25,8 +25,10 @@
 //!   large stack (`store::worker`), since usvg and resvg recurse per level.
 
 mod document;
+pub(crate) mod fonts;
 pub(crate) mod nesting;
 mod svgz;
 
 pub(crate) use document::{FontDb, ParseError, Svg, parse};
+pub(crate) use fonts::SvgFonts;
 pub(crate) use svgz::{DecompressError, decompress};

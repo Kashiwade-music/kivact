@@ -15,8 +15,8 @@ use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::use_theme;
+use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
-use kivact_core::view::{Node, NodeBuilder, column, node, row, text};
 use kivact_interaction::TabState;
 use kivact_interaction::{ListActivation, ListItem, TabsApi as Behavior};
 use std::rc::Rc;
@@ -36,7 +36,7 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     variants: Variants,
     keep_mounted: bool,
 }
-/// A themed tab list whose selected key is `binding`; give it
+/// A themed tab list whose selected key is `value`; give it
 /// [`content`](Tabs::content) when the tabs also own the selected panel.
 ///
 /// `label` is the tab list's accessible name; it is not drawn.
@@ -48,14 +48,14 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
 /// what a tab shows, keeping its keys, semantics and recipe.
 pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    binding: impl kivact_core::state::IntoBinding<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    value: impl kivact_core::state::IntoBinding<K>,
 ) -> Tabs<K> {
     let variants = Variants::default();
     Tabs {
         root: node().name(label),
-        options: options.into_value(),
-        binding: binding.into_binding(),
+        options: items.into_value(),
+        binding: value.into_binding(),
         on_edit: None,
         activation: ListActivation::Automatic,
         orientation: Orientation::Horizontal,
@@ -283,7 +283,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         }
     }
 }
-impl<K: kivact_core::state::ItemKey> NodeBuilder for Tabs<K> {
+impl<K: kivact_core::state::ItemKey> Element for Tabs<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

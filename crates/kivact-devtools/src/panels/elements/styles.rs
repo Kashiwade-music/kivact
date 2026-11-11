@@ -4,7 +4,8 @@ use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Session};
-use crate::widgets::property_row::{RowAccess, color_property_row, property_row};
+use crate::widgets::override_row::{Override, override_row};
+use crate::widgets::property_row::RowAccess;
 
 /// The properties a style override can set; every other row is read-only.
 const EDITABLE: &[&str] = &[
@@ -114,10 +115,7 @@ pub(crate) fn styles_tab(
     detail: Resource<Option<p::NodeDetail>>,
 ) -> impl IntoView {
     let scope_signal = signal(Some(Scope::Node));
-    let tokens = signal(None::<p::ThemeTokenList>);
-    on_mount(move || {
-        session.send::<p::ListThemeTokens>(p::Empty {}, move |list| tokens.set(Some(list)));
-    });
+    let tokens = session.read::<p::ListThemeTokens>();
     let state = memo(move || {
         (
             detail.latest().flatten(),
@@ -127,7 +125,7 @@ pub(crate) fn styles_tab(
                 .map(|list| list.overrides)
                 .unwrap_or_default(),
             scope_signal.get(),
-            tokens.get().map(|list| list.tokens).unwrap_or_default(),
+            tokens.latest().map(|list| list.tokens).unwrap_or_default(),
         )
     });
     dynamic(state, move |(detail, overrides, selected, tokens)| {
@@ -260,29 +258,27 @@ fn property_row_view(
     let existing_id = key
         .as_ref()
         .and_then(|key| find_override_id(overrides, key));
-    let enabled = signal(existing_id.is_some());
-    let value = signal(start);
-    let toggle_key = key.clone();
-    effect_on(enabled, move |on| {
-        let Some(key) = &toggle_key else {
-            return;
-        };
-        if *on {
-            set_override(session, key.clone(), value.get_untracked());
-        } else if let Some(id) = existing_id {
-            clear_override(session, id);
-        }
-    });
-    let commit = move |text: String| {
-        if let Some(key) = &key {
-            set_override(session, key.clone(), text);
-        }
+    let initial = match existing_id {
+        Some(id) => Override::On {
+            id: Some(id),
+            value: start,
+        },
+        None => Override::Off { value: start },
     };
-    if is_color_property(&name) {
-        color_property_row(name, value, enabled, access, commit).into_view()
-    } else {
-        property_row(name, value, enabled, access, commit).into_view()
-    }
+    let commit_key = key;
+    let color = is_color_property(&name);
+    override_row(
+        name,
+        initial,
+        color,
+        access,
+        move |value| {
+            if let Some(key) = &commit_key {
+                set_override(session, key.clone(), value);
+            }
+        },
+        move |id| clear_override(session, id),
+    )
 }
 
 /// The override a row of `property` edits under `scope`, with the value a new one starts with.

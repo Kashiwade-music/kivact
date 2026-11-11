@@ -3,13 +3,13 @@ use super::data::Combobox;
 use crate::SelectPresentation;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoBinding, IntoText, IntoValue, ItemKey};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, node};
+use kivact_core::view::{Element, IntoView, Node, View, node};
 use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
 use std::future::Future;
 use std::rc::Rc;
 use std::time::Duration;
 
-/// A combobox named `label` over keyed `options`, editing one or many choices.
+/// A combobox named `label` over keyed `items`, editing the choices in `selected` (one or many).
 ///
 /// Typing filters labels, arrows highlight enabled rows, and Enter chooses.
 /// Focus remains in the editor. Multiple selection toggles keys and Backspace
@@ -25,14 +25,14 @@ use std::time::Duration;
 #[track_caller]
 pub fn combobox<K: ItemKey>(
     label: impl IntoText,
-    options: impl IntoValue<Vec<ListItem<K>>>,
-    selection: impl IntoSelection<K>,
+    items: impl IntoValue<Vec<ListItem<K>>>,
+    selected: impl IntoSelection<K>,
 ) -> Combobox<K> {
     Combobox {
         root: node(),
         label: label.into_text_value(),
-        options: options.into_value(),
-        selection: selection.into_selection(),
+        options: items.into_value(),
+        selection: selected.into_selection(),
         query: None,
         open: None,
         on_edit: None,
@@ -135,7 +135,7 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
 }
-impl<K: ItemKey> NodeBuilder for Combobox<K> {
+impl<K: ItemKey> Element for Combobox<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

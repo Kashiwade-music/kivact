@@ -78,7 +78,7 @@
 //! `interaction::use_text_edit` and the unstyled [`interaction`](kivact_interaction)
 //! behaviors, through the public API only. [`Button`], [`Checkbox`], [`Switch`],
 //! [`Select`], [`Tabs`] and [`TextInput`] (the native field itself) take
-//! [`NodeBuilder`](kivact_core::view::NodeBuilder) modifiers on their roots.
+//! [`Element`](kivact_core::view::Element) modifiers on their roots.
 //! Overlays attach the same way everywhere: [`Menu::attach`],
 //! [`Menu::attach_context`] and [`Tooltip::attach`] take the caller's trigger,
 //! [`Dialog::content`]/[`Dialog::footer`], [`Tabs::content`] and
@@ -105,13 +105,13 @@
 //! The types and API reference are here; installing a kit is in the
 //! official UI guide.
 //!
-//! Callbacks are plain closures (`impl Fn(T) -> R` or `impl Fn() -> R`, where
-//! `R` is `()` or `Result<(), UiError>`), and bool options such as
-//! [`Button::hide_label`] take a constant or a reactive value.
+//! Handlers are closures. One without a payload takes
+//! `impl Into<Callback<()>>` (a closure `move || ..` or a shared `Callback`);
+//! one with a payload takes `impl Fn(T) -> R`, where `R` is `()` or
+//! `Result<(), UiError>`. Bool options such as [`Button::hide_label`] take a constant or a reactive value.
 //!
 //! ```no_run
 //! use kivact::prelude::*;
-//! use kivact::ui::ButtonVariant;
 //!
 //! fn sign_up() -> impl IntoView {
 //!     let name = signal(String::new());
@@ -164,7 +164,7 @@ mod column_values;
 pub use column_values::DataColumn;
 pub use data_table::{
     DataTable, DataTableContext, DataTableDensity, DataTableRowStatusPaint, DataTableStickyPaint,
-    DataTableTokens, DataTableTreeIndent, FilterField, FilterUi, data_table,
+    DataTableTokens, DataTableTreeIndent, FilterField, FilterUi, Paging, data_table,
 };
 pub use disclosure::{Disclosure, DisclosureMotion, DisclosureTokens, disclosure};
 pub use field::{Field, field};
@@ -185,10 +185,11 @@ pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation, toggle_button};
 pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
-    AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
-    DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState,
-    ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState, TextInputState,
-    ToastGroupState, ToggleButtonState, TooltipArrowState, provide_control_size,
+    AxisState, ButtonState, ButtonVariant, CheckControl, CheckableState, ControlSize,
+    DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState, DialogState,
+    FieldState, Lift, ProgressState, RadioGroupVariant, SelectTriggerState, TextInputState,
+    ThumbDrag, ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput,
+    provide_control_size,
 };
 pub use variants::{Look, Variant};
 
@@ -408,7 +409,7 @@ pub use chat_values::{
     ComposerStatusPosition, TypingIndicatorState,
 };
 pub use code_block::{CodeBlock, code_block};
-pub use code_values::CodeBlockState;
+pub use code_values::{CodeBlockState, CodeCollapse};
 pub use recipes::{
     ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
     TypingIndicatorRecipes,
@@ -422,8 +423,8 @@ pub use collection_values::{
     ItemListTokens, ItemRowState, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
 };
 pub use component_values::{
-    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberKind,
-    InputGroupMemberState, InputGroupState, StatState, Trend,
+    AlertState, CardAction, CardState, EmptyStateState, Expansion, HeadingState,
+    InputGroupMemberKind, InputGroupMemberState, InputGroupState, Selectable, StatState, Trend,
 };
 pub use hover_card_values::{HoverCardSurfaceState, HoverCardTokens};
 

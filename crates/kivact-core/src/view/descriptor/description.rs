@@ -113,33 +113,81 @@ impl Mcx<'_> {
 
 type MountFn = Box<dyn FnOnce(&Mcx<'_>) -> NodeId>;
 
+/// What an unmounted view is: nothing, one node, or a group of views mounted
+/// in order into the parent (a tuple or a `Vec`).
+enum ViewRepr {
+    Empty,
+    One(MountFn),
+    Group(Vec<View>),
+}
+
 /// A type-erased, unmounted view. Mounting it creates nodes and effects
 /// exactly once.
 pub struct View {
-    mount: Option<MountFn>,
+    repr: ViewRepr,
 }
 
 impl View {
     fn new(f: impl FnOnce(&Mcx<'_>) -> NodeId + 'static) -> Self {
         View {
-            mount: Some(Box::new(f)),
+            repr: ViewRepr::One(Box::new(f)),
         }
     }
 
     /// A view that renders nothing.
     pub fn empty() -> Self {
-        View { mount: None }
+        View {
+            repr: ViewRepr::Empty,
+        }
+    }
+
+    /// A group of `views` (empty ones dropped): nothing for none, the view
+    /// itself for one, a group otherwise.
+    pub(crate) fn group(views: Vec<View>) -> Self {
+        let mut views: Vec<View> = views.into_iter().filter(|v| !v.is_empty()).collect();
+        match views.len() {
+            0 => View::empty(),
+            1 => views.pop().expect("invariant: one view"),
+            _ => View {
+                repr: ViewRepr::Group(views),
+            },
+        }
     }
 
     /// Whether this view is [`View::empty`], such as what `()` becomes.
     pub(crate) fn is_empty(&self) -> bool {
-        self.mount.is_none()
+        matches!(self.repr, ViewRepr::Empty)
     }
 
+    /// Mount as one node (a fragment for nothing or for a group).
     fn mount(self, cx: &Mcx<'_>) -> NodeId {
-        match self.mount {
-            Some(f) => f(cx),
-            None => cx.fragment(),
+        match self.repr {
+            ViewRepr::Empty => cx.fragment(),
+            ViewRepr::One(f) => f(cx),
+            ViewRepr::Group(views) => {
+                let frag = cx.fragment();
+                for v in views {
+                    v.mount_into(cx, frag);
+                }
+                frag
+            }
+        }
+    }
+
+    /// Mount into `parent`, in order: nothing for nothing, each member of a
+    /// group directly under `parent` (no fragment).
+    pub(crate) fn mount_into(self, cx: &Mcx<'_>, parent: NodeId) {
+        match self.repr {
+            ViewRepr::Empty => {}
+            ViewRepr::One(f) => {
+                let child = f(cx);
+                cx.append(parent, child);
+            }
+            ViewRepr::Group(views) => {
+                for v in views {
+                    v.mount_into(cx, parent);
+                }
+            }
         }
     }
 }
@@ -192,14 +240,7 @@ impl<V: IntoView> IntoView for Option<V> {
 
 impl<V: IntoView> IntoView for Vec<V> {
     fn into_view(self) -> View {
-        View::new(move |cx| {
-            let frag = cx.fragment();
-            for v in self {
-                let child = v.into_view().mount(cx);
-                cx.append(frag, child);
-            }
-            frag
-        })
+        View::group(self.into_iter().map(IntoView::into_view).collect())
     }
 }
 
@@ -212,14 +253,7 @@ macro_rules! tuple_into_view {
             #[allow(non_snake_case, reason = "tuple element bindings reuse the type parameter names")]
             fn into_view(self) -> View {
                 let ($($name,)+) = self;
-                View::new(move |cx| {
-                    let frag = cx.fragment();
-                    $(
-                        let child = $name.into_view().mount(cx);
-                        cx.append(frag, child);
-                    )+
-                    frag
-                })
+                View::group(vec![$($name.into_view()),+])
             }
         }
     };

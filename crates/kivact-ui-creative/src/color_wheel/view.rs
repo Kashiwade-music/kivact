@@ -17,10 +17,10 @@ use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
     show,
 };
-use kivact::view::{Node, NodeBuilder, column, node};
+use kivact::view::{Element, Node, column, node};
 
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
-/// and optional swatches. NodeBuilder modifiers apply to the whole group.
+/// and optional swatches. Element modifiers apply to the whole group.
 /// RGB fields use normalized channels, HSV uses hue degrees and normalized
 /// saturation/value. HEX accepts #RRGGBB and #RRGGBBAA; invalid drafts stay
 /// visible without writing, Enter confirms and Escape discards the draft.
@@ -101,7 +101,7 @@ impl ColorWheel {
     }
 }
 
-impl NodeBuilder for ColorWheel {
+impl Element for ColorWheel {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -140,7 +140,7 @@ impl IntoView for ColorWheel {
         let root_state = root_part.state();
         let blocked = memo(move || {
             let input = root_state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         });
         let alpha = self.options.alpha;
         let drag = use_drag::<Channel>(DragCoordinates::Local);
@@ -365,7 +365,7 @@ fn observed_canvas(
         group.focus_within(),
         memo(move || {
             let input = canvas_state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         }),
         alpha,
     );

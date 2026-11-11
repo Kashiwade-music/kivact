@@ -90,6 +90,11 @@ impl Window<'_> {
     pub fn release_caches(&mut self) {
         self.presenter.release_caches();
     }
+    /// Release the window's CPU frame state after it has been idle. The next
+    /// frame redraws everything; what the window shows stays on screen.
+    pub fn forget_frame_state(&mut self) {
+        self.presenter.forget_frame_state();
+    }
     pub fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.shell.physical_size(), self.shell.scale())
     }
@@ -189,9 +194,7 @@ pub struct Windows<'a> {
     shell: &'a mut dyn ShellLoop,
     presenters: &'a mut BTreeMap<WindowId, Presenter>,
     env: crate::env::Env,
-    /// The windows start the GPU renderer.
-    gpu: bool,
-    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    // xtask-allow(state-fields): option: the renderer observer the application gave (`Shell::on_renderer_change` or `ShellSetup::observer`), cloned into every presenter's Notes; absent when it gave none
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }
@@ -221,12 +224,18 @@ impl<'a> Windows<'a> {
         }
         // Only an opened window starts its renderer.
         if let Some(presenter) = self.presenters.get_mut(&id) {
-            presenter.note(RendererChange::Start { gpu: self.gpu });
-            if self.gpu {
-                presenter.start_gpu(self.shell.waker());
-            }
+            presenter.begin(self.env.start, self.shell.waker());
         }
         Ok(())
+    }
+
+    /// Start `id`'s GPU device when it waits for a reason (`GpuStart::OnDemand`):
+    /// the App reads the window's adapter to share GPU textures with it. Nothing
+    /// for a window on the CPU only or whose device started.
+    pub fn demand_gpu(&mut self, id: WindowId) {
+        if let Some(presenter) = self.presenters.get_mut(&id) {
+            presenter.demand_gpu();
+        }
     }
 
     /// Shut the presenter down, then close the shell window.
@@ -261,15 +270,16 @@ impl<'a> Windows<'a> {
 }
 
 /// The main-thread window loop: one native window whose frames Arvane
-/// draws on the GPU when it can (started with the window, on a worker
-/// thread; the first frames are drawn on the CPU), else on the CPU.
-/// Construct and run on the application's main thread.
+/// draws on the GPU when it can (started with the window or, by default,
+/// when the window needs it, on a worker thread; the first frames are
+/// drawn on the CPU), else on the CPU. Construct and run on the
+/// application's main thread.
 pub struct Shell {
     shell: Box<dyn Backend>,
-    // xtask-allow(state-fields): construction option - prefer gpu
+    // xtask-allow(state-fields): option: whether the application asked to draw on the GPU (`Shell::prefer_gpu`, default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto`
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): construction option - observer
+    // xtask-allow(state-fields): option: the renderer observer `Shell::on_renderer_change` gave; absent when the application observes no renderer change
     observer: Option<crate::presentation::Observer>,
 }
 
@@ -287,17 +297,19 @@ impl Shell {
     /// Draw on the GPU when it is available (the default), falling back to
     /// the CPU; `false` draws on the CPU. The environment variable
     /// `ARVANE_RENDERER=cpu` overrides `true`, `ARVANE_RENDERER=gpu`
-    /// overrides `false`.
+    /// overrides `false` (the device starts with the window), and
+    /// `ARVANE_RENDERER=auto` starts the device when it is needed.
     pub fn prefer_gpu(mut self, prefer: bool) -> Self {
         self.prefer_gpu = prefer;
         self
     }
 
-    /// Make the window's GPU device as `preference` wishes (the adapter
-    /// and the graphics API; the default is Arvane's own choice). The
+    /// Make the window's GPU device as `preference` wishes (the adapter,
+    /// the graphics API and when the device is started; the default is
+    /// Arvane's own choice, started when the window needs it). The
     /// environment variables `WGPU_BACKEND` and `WGPU_POWER_PREF` override
-    /// it. The device used is reported with the renderer's changes
-    /// ([`RendererChange::Gpu`]).
+    /// the first two. The device used is reported with the renderer's
+    /// changes ([`RendererChange::Gpu`]).
     pub fn gpu_preference(mut self, preference: GpuPreference) -> Self {
         self.gpu_preference = preference;
         self
@@ -324,10 +336,10 @@ impl Shell {
 
 /// Presenter configuration shared by synchronous and stepped shells.
 pub struct ShellSetup {
-    // xtask-allow(state-fields): construction option - prefer gpu
+    // xtask-allow(state-fields): option: whether the host asks to draw on the GPU (default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto`
     pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): construction option - observer
+    // xtask-allow(state-fields): option: the renderer observer the host gives, cloned into every presenter's Notes; absent when it observes no renderer change
     pub observer: Option<Observer>,
 }
 impl Default for ShellSetup {
@@ -371,12 +383,10 @@ pub(crate) fn driver<H: Handler>(
     gpu_preference: GpuPreference,
     observer: Option<Observer>,
 ) -> Driver<H> {
-    let env = crate::env::Env::read(gpu_preference);
-    let gpu = crate::env::starts_gpu(env.renderer, prefer_gpu);
+    let env = crate::env::Env::read(prefer_gpu, gpu_preference);
     Driver {
         handler,
         presenters: BTreeMap::new(),
-        gpu,
         env,
         observer,
     }
@@ -386,11 +396,9 @@ pub(crate) fn driver<H: Handler>(
 pub(crate) struct Driver<H> {
     handler: H,
     presenters: BTreeMap<WindowId, Presenter>,
-    /// The windows start the GPU renderer.
-    gpu: bool,
     /// The renderers' environment, read once per loop.
     env: crate::env::Env,
-    // xtask-allow(state-fields): construction option - the renderer observer from ShellSetup, cloned into every presenter's Notes
+    // xtask-allow(state-fields): option: the renderer observer the application gave (`Shell::on_renderer_change` or `ShellSetup::observer`), cloned into every presenter's Notes; absent when it gave none
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }
@@ -401,7 +409,6 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.close(&mut windows);
@@ -421,16 +428,12 @@ impl<H: Handler> ShellHandler for Driver<H> {
         // On a worker thread: the first frames are drawn on the CPU.
         let mut presenter =
             Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN), &self.env);
-        presenter.note(RendererChange::Start { gpu: self.gpu });
-        if self.gpu {
-            presenter.start_gpu(waker.clone());
-        }
+        presenter.begin(self.env.start, waker.clone());
         self.presenters.insert(WindowId::MAIN, presenter);
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.start(&mut windows, waker)
@@ -466,7 +469,6 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            gpu: self.gpu,
             observer: self.observer.clone(),
         };
         self.handler.event(target, event, &mut windows)

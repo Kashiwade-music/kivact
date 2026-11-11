@@ -331,3 +331,37 @@ fn pop_modals_drawer_calendar_and_conversation_use_live_models() {
     assert!(screen.within(thread).query_by_text("1").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn pop_palette_commands_open_their_dialogs() {
+    let screen = mount();
+    screen.get_by_role(Role::Button, "コマンドパレット").click();
+    screen.advance(Duration::from_millis(400));
+    screen.type_text("新しい依頼");
+    screen.advance(Duration::from_millis(100));
+    screen.press_key(Key::Enter);
+    screen.advance(Duration::from_millis(400));
+    assert!(
+        screen
+            .query_by_role(Role::Dialog, "新しい依頼を作成")
+            .is_some(),
+        "the palette's Create command opens the form dialog"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn pop_two_quick_messages_both_get_a_reply() {
+    let screen = mount();
+    chapter(&screen, "messaging");
+    let message = screen.get_by_role(Role::TextBox, "メッセージを入力");
+    message.commit("一通目");
+    message.press_key(Key::Enter);
+    message.commit("二通目");
+    message.press_key(Key::Enter);
+    screen.advance(Duration::from_millis(4000));
+    screen.get_by_text("わかりました！すぐに確認しますね。");
+    screen.get_by_text("先生、ありがとうございます♪");
+    assert!(screen.query_by_test_id("pop-reply-card").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

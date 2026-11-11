@@ -71,7 +71,7 @@ fn shell() -> impl IntoView {
 
 ## Switch views with tabs
 
-Tabs are the standard `tabs(label, options, current)`. `current` holds the key of the selected tab, which is always one of the options. `.content(|key| ..)` builds the panel for the selected key:
+Tabs are the standard `tabs(label, items, value)`. `current` holds the key of the selected tab, which is always one of the options. `.content(|key| ..)` builds the panel for the selected key:
 
 ```rust,no_run
 use kivact::prelude::*;

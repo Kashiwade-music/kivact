@@ -9,7 +9,7 @@ use crate::editors::shared::metrics::ARRANGEMENT_SIDEBAR;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::EditSession;
 use kivact::interaction::{ListApi, ListGesture};
-use kivact::state::{Binding, Callback, Signal, Value};
+use kivact::state::{Binding, Callback, Value};
 #[derive(Clone, PartialEq)]
 pub(crate) enum Snapshot {
     Clips(Vec<(u64, f64, f64)>),
@@ -69,8 +69,7 @@ pub(crate) struct State {
     pub(crate) markers: Value<Vec<TimelineMarker>>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
-    // xtask-allow(state-fields): Bindings, reactive options and active keyboard target are independent of the gesture lifecycle owned by DecisionMachine.
-    pub(crate) active_auto: Signal<Option<(u64, u64)>>,
+    pub(crate) active_auto: kivact::state::Binding<Option<(u64, u64)>>,
     pub(crate) press: crate::editors::shared::gesture::CanvasGesture<
         crate::editors::arrangement::a11y::targets::Target,
         Option<Drag>,

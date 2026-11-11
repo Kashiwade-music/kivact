@@ -28,19 +28,20 @@ pub struct HoverCardApi {
     shown: Value<bool>,
 }
 /// Connect pointer travel and immediate focus or external opening to one surface.
+/// `open` is the caller's open state; the surface writes it as it shows and hides.
 pub fn use_hover_card(
     anchor: NodeRef,
     surface: NodeRef,
     enabled: impl IntoValue<bool>,
     focused: impl IntoValue<bool>,
-    requested: impl IntoBinding<bool>,
+    open: impl IntoBinding<bool>,
     timing: HoverCardTiming,
 ) -> HoverCardApi {
-    let requested = requested.into_binding();
+    let open = open.into_binding();
     let focused = focused.into_value();
     let enabled = enabled.into_value();
     let immediate = focused;
-    // The surface's visibility changes are the only writer of `requested`;
+    // The surface's visibility changes are the only writer of `open`;
     // the caller's own writes reach the surface through `feed`.
     let surface = crate::hover_corridor::hover_surface(
         anchor,
@@ -51,11 +52,11 @@ pub fn use_hover_card(
             open: timing.open_delay,
             close: timing.close_delay,
         },
-        move |visible| requested.set(visible),
+        move |visible| open.set(visible),
     );
     surface.hurry_on(immediate);
-    surface.dismiss_on_release(requested);
-    let shown = memo(move || enabled.get() && requested.get());
+    surface.dismiss_on_release(open);
+    let shown = memo(move || enabled.get() && open.get());
     let state = memo(move || {
         if shown.get() {
             match surface.phase().get() {
@@ -82,7 +83,7 @@ pub fn use_hover_card(
     HoverCardApi {
         surface,
         state,
-        open: requested,
+        open,
         shown,
     }
 }
@@ -97,8 +98,8 @@ impl HoverCardApi {
         self.shown
     }
     /// Hide until the current engagement ends.
-    pub fn dismiss(self) {
+    pub fn hide(self) {
         self.open.set(false);
-        self.surface.dismiss();
+        self.surface.hide();
     }
 }

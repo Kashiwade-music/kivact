@@ -6,8 +6,8 @@ use kivact::geometry::Point;
 use kivact::motion::Transition;
 use kivact::motion::animated;
 use kivact::state::IntoBinding;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::node;
 use kivact::view::row;
@@ -178,7 +178,7 @@ impl Outline {
     }
 }
 
-impl NodeBuilder for Outline {
+impl Element for Outline {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -248,12 +248,12 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
-    // xtask-allow(state-fields): Optional mounted scroll-viewport reference, not scroll phase.
+    // xtask-allow(state-fields): option: caller viewport from Outline::scroll_container; absent scrolls the window through target.scroll_into_view.
     viewport: Option<NodeRef>,
     offset: f64,
-    // xtask-allow(state-fields): Immutable setup snapshot controlling whether navigation requests scrolling.
+    // xtask-allow(state-fields): option: caller choice from Outline::scroll_on_press sampled once in into_view; false skips scrolling and reports navigation end immediately.
     scroll_on_press: bool,
-    // xtask-allow(state-fields): Optional caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
+    // xtask-allow(state-fields): option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,
@@ -322,7 +322,7 @@ impl IntoView for Outline {
             start,
             end,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let pending = machine(
                 OutlineScroll::Idle,
                 || ScrollMachine,

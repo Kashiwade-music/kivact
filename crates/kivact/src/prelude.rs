@@ -2,6 +2,8 @@
 
 pub use crate::{App, UiError};
 
+pub use crate::component;
+
 pub use crate::state::use_context;
 
 pub use crate::state::{
@@ -13,19 +15,16 @@ pub use crate::state::{IntoBinding, ItemKey, PropValue, bind};
 
 pub use crate::geometry::{Point, Size};
 
-pub use crate::view::Component;
-
 pub use crate::view::{
-    CheckedState, EditPhase, Handled, InputPurpose, IntoView, Key, KeyEvent, Modifiers, Node,
-    NodeBuilder, NodeRef, Orientation, Placement, PointerEvent, Role, RowHeight, ScrollAxes, View,
-    WindowMode, WindowPlacement, canvas, column, component, drawable, dynamic, error_boundary,
-    for_each, for_index, grid, icon, image, node, node_ref, row, scroll, show, show_some, spacer,
+    CheckedState, EditPhase, Element, Handled, InputPurpose, IntoView, Key, KeyEvent, Modifiers,
+    Node, NodeRef, Orientation, Placement, PointerEvent, Role, RowHeight, ScrollAxes, View,
+    WindowMode, WindowPlacement, canvas, column, drawable, dynamic, error_boundary, for_each,
+    for_index, grid, icon, image, node, node_ref, row, scope, scroll, show, show_some, spacer,
     stack, text, virtual_list, window,
 };
 
 pub use crate::style::{
-    Align, Color, ColorToken, Justify, Style, Theme, ThemeColor, ThemeMode, pct, provide_theme,
-    rgb, style,
+    Align, Color, ColorToken, Justify, Style, Theme, ThemeColor, ThemeMode, pct, rgb, style,
 };
 
 pub use crate::style::{use_theme, use_tokens};
@@ -47,10 +46,10 @@ pub use crate::interaction::{IntoSelection, Selection};
 pub use crate::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 
 pub use crate::ui::{
-    DataColumn, PageItem, StepStatus, StepperItem, breadcrumb, button, button_group, checkbox,
-    combobox, data_table, dialog, field, list, menu, navigation_menu, pagination, radio_group,
-    select, selection_field, slider, stepper, switch, tabs, text_area, text_input, toast_region,
-    toggle_group, toolbar, tooltip,
+    ButtonVariant, DataColumn, PageItem, StepStatus, StepperItem, breadcrumb, button, button_group,
+    checkbox, combobox, data_table, dialog, field, list, menu, navigation_menu, pagination,
+    radio_group, select, selection_field, slider, stepper, switch, tabs, text_area, text_input,
+    toast_region, toggle_group, toolbar, tooltip,
 };
 
 pub use crate::ui::async_view;

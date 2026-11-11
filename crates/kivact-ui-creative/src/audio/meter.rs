@@ -1,7 +1,7 @@
 //! Role: The level Meter: segmented, oriented, multi-channel level bars.
 
 use kivact::geometry::Rect;
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 use kivact::state::{IntoText, IntoValue};
 use kivact::state::{Machine, Step, Value, effect, machine, memo};
@@ -95,7 +95,7 @@ impl Meter {
     }
 }
 
-impl NodeBuilder for Meter {
+impl Element for Meter {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

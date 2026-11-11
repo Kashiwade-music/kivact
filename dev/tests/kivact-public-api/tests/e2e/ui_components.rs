@@ -53,9 +53,7 @@ fn standard_tree_expands_and_moves_focus_into_the_branch() {
         ];
         (
             expanded,
-            ui::tree("Files", nodes)
-                .expanded(expanded)
-                .selection(selected.into_selection()),
+            ui::tree("Files", nodes, selected.into_selection()).expanded(expanded),
         )
     });
     screen.get_by_role(Role::Tree, "Files");

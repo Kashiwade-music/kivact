@@ -25,7 +25,7 @@ pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
     pub(crate) items: Value<Vec<T>>,
     pub(crate) state: crate::TimeState,
-    // xtask-allow(state-fields): Independent setup options and callback; this builder owns no gesture lifecycle.
+    // xtask-allow(state-fields): option: the caller's .lanes(...) builder; absent means one unnamed lane per distinct item lane id (visible_lanes)
     pub(crate) lanes: Option<Value<Vec<Lane>>>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,
@@ -164,7 +164,7 @@ impl<T: TimeItem> TimeEditor<T> {
         let _frame = playhead.into_value();
         let visible = visible_lanes(data, lanes);
         let choose = time_selection(data, visible, selected);
-        let scene = time_scene(data, visible, selection);
+        let (scene, active) = time_scene(data, visible, selection);
         let cells_width = extensions.width(SIDEBAR);
         let (cells, child_focus) = crate::editors::shared::lane::lane_cells(
             visible,
@@ -198,7 +198,7 @@ impl<T: TimeItem> TimeEditor<T> {
             bounds,
             min_duration,
             lane_height,
-            active: kivact::state::signal(None),
+            active,
             child_focus,
             context: kivact::state::signal(EditorContext::at_time(playhead.get_untracked())),
             lane_activate: extensions.lane_activate,
@@ -240,8 +240,8 @@ fn observe_inputs<T: TimeItem>(
         let input = availability_state.get();
         state.press.inputs_changed(
             focused,
-            visible && !input.hidden,
-            !input.disabled,
+            visible && !input.is_hidden(),
+            !input.is_disabled(),
             !missing,
             move || state.cancel(),
         );
@@ -272,8 +272,8 @@ fn time_scene<T: TimeItem>(
     data: Value<Vec<T>>,
     visible: Value<Vec<Lane>>,
     selection: Value<Vec<u64>>,
-) -> TimeScene {
-    targets::targets(move || {
+) -> (TimeScene, kivact::state::Binding<Option<Target>>) {
+    let targets = targets::targets::<Target, Target>(move || {
         let selected = selection.get();
         let mut targets = vec![Target::Playhead];
         targets.extend(visible.get().iter().map(|lane| Target::Lane(lane.id)));
@@ -290,7 +290,8 @@ fn time_scene<T: TimeItem>(
             }
         }
         Ok(targets)
-    })
+    });
+    (targets.scene(), targets.active())
 }
 
 fn time_selection<T: TimeItem>(

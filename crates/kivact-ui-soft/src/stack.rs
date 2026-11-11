@@ -2,8 +2,8 @@
 use kivact::state::IntoValue;
 use kivact::state::Value;
 
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
 use kivact::view::node;
 use kivact::view::scroll;
@@ -74,19 +74,19 @@ pub(crate) fn rtl() -> bool {
 #[derive(Clone, Copy, Debug, Default)]
 // Passive optional logical padding values resolved by precedence; these numerical style fields are independent configuration, not runtime flags.
 pub(crate) struct Padding {
-    // xtask-allow(state-fields): Passive optional all padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from the padding builder; absent leaves edges without x, y or edge values on the container default.
     pub all: Option<Space>,
-    // xtask-allow(state-fields): Passive optional x padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_x; absent defers inline edges to padding, then the container default.
     pub x: Option<Space>,
-    // xtask-allow(state-fields): Passive optional y padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_y; absent defers top and bottom to padding, then the container default.
     pub y: Option<Space>,
-    // xtask-allow(state-fields): Passive optional start padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_start; absent defers the leading edge to padding_x, then padding, then the container default.
     pub start: Option<Space>,
-    // xtask-allow(state-fields): Passive optional end padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_end; absent defers the trailing edge to padding_x, then padding, then the container default.
     pub end: Option<Space>,
-    // xtask-allow(state-fields): Passive optional top padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_top; absent defers the top edge to padding_y, then padding, then the container default.
     pub top: Option<Space>,
-    // xtask-allow(state-fields): Passive optional bottom padding value resolved by geometric precedence, not a runtime phase.
+    // xtask-allow(state-fields): option: caller value from padding_bottom; absent defers the bottom edge to padding_y, then padding, then the container default.
     pub bottom: Option<Space>,
 }
 
@@ -405,7 +405,7 @@ impl FlexStack {
     }
 }
 
-impl NodeBuilder for FlexStack {
+impl Element for FlexStack {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -520,7 +520,7 @@ impl StackItem {
     }
 }
 
-impl NodeBuilder for StackItem {
+impl Element for StackItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

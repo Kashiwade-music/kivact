@@ -4,7 +4,7 @@ use super::variants::{Variant, Variants};
 use super::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Role, View, node, node_ref, row, text, use_direction,
+    Element, IntoChildren, IntoView, Node, Role, View, node, node_ref, row, text, use_direction,
 };
 
 use crate::component_values::{InputGroupMemberKind, InputGroupMemberState, InputGroupState};
@@ -87,7 +87,7 @@ impl<C> InputGroup<C> {
         self
     }
 }
-impl<C> NodeBuilder for InputGroup<C> {
+impl<C: IntoChildren + 'static> Element for InputGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -234,7 +234,7 @@ fn adornment(view: View, primary: kivact_core::view::NodeRef) -> Node {
         })
 }
 /// Add noninteractive text adjacent to a grouped input.
-pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Component {
+pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
     let size = super::values::default_control_size();
     let direction = use_direction();
     with_recipe_style(

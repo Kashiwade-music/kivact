@@ -10,10 +10,10 @@ use kivact_core::state::{Callback, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Align, Track, auto, style, use_theme};
 use kivact_core::view::NodeRef;
+use kivact_core::view::{Element, Node, grid, icon, row, text};
 use kivact_core::view::{
     Handled, HandlerResult, IntoView, Key, PointerPhase, View, for_index, node_ref,
 };
-use kivact_core::view::{Node, NodeBuilder, grid, icon, row, text};
 
 /// A row of removable tags and a text input to add one, created by
 /// [`tag_input`].
@@ -114,7 +114,7 @@ impl TagInput {
     }
 }
 
-impl NodeBuilder for TagInput {
+impl Element for TagInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -220,7 +220,11 @@ fn with_tag_box(
         |r| r.tag_input_recipes().root_recipe(),
         variants,
         move || PartState {
-            focused: within.get(),
+            focus: if within.get() {
+                kivact_core::view::Focus::Focused
+            } else {
+                kivact_core::view::Focus::None
+            },
             ..PartState::default()
         },
     )

@@ -8,7 +8,7 @@ use kivact::ErrorKind;
 use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight};
+use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight, rich_text, span};
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -378,7 +378,7 @@ fn keyboard_activation_disabled_and_bubbling() {
 
 #[test]
 fn counter_example_end_to_end() {
-    fn counter(initial: i32) -> impl Component {
+    fn counter(initial: i32) -> impl Element {
         let count = signal(initial);
         let doubled = memo(move || count.get() * 2);
         column((
@@ -432,4 +432,21 @@ fn closure_child_updates_text() {
     screen.run_until_idle();
     screen.get_by_text("second");
     assert!(screen.query_by_text("first").is_none());
+}
+
+#[test]
+fn plain_rich_and_string_texts_are_text_role_and_named_by_content() {
+    let screen = render(|| {
+        column((
+            text("plain"),
+            rich_text(|| vec![span("ri"), span("ch")]),
+            "string",
+            text("tagged").test_id("tagged"),
+        ))
+    });
+    screen.get_by_role(Role::Text, "plain");
+    screen.get_by_role(Role::Text, "rich");
+    screen.get_by_role(Role::Text, "string");
+    screen.get_by_role(Role::Text, "tagged");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -17,7 +17,7 @@
 //! draws nothing.
 //!
 //! A submenu is a child level of the same session; its `shown`, `origin`
-//! and `show` mount the content in a new owner while it is open. A level
+//! and [`while_open`](MenuApi::while_open) mount the content in a new owner while it is open. A level
 //! moves with the list's menu policy (vertical, wrapping, manual activation)
 //! plus typeahead, and hovering a submenu item opens it after a delay.
 //! A context menu is the same [`MenuApi`] through
@@ -27,7 +27,7 @@
 //! `overlay_at` or an anchored overlay; the focus held before opening comes
 //! back on a best-effort basis after Escape, a choice or assistive
 //! technology, while Tab and an outside press keep their destination.
-//! [`MenuApi::open`] and [`MenuApi::close`] let a component that switches between
+//! [`MenuApi::show`] and [`MenuApi::hide`] let a component that switches between
 //! several menus (a menu bar) drive them.
 //!
 //! Menus and selects use the list's private mounted selection path, so an
@@ -48,4 +48,7 @@ mod state;
 pub use handle::{MenuApi, use_menu, use_menu_with_open};
 pub use level::{DisabledMenuFocus, SubmenuTiming};
 pub use press_state::MenuPress;
-pub use state::{MenuCheck, MenuEntry, MenuItemKind, MenuItemState, MenuOrigin, MenuRow};
+pub use state::{
+    MenuCheck, MenuEntry, MenuItemDisplay, MenuItemKind, MenuItemState, MenuOrigin, MenuRow,
+    PressOver,
+};

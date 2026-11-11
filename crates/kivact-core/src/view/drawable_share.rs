@@ -108,9 +108,9 @@ pub(crate) struct ExportOpen {
     /// receive frames, the newest frame.
     pub(crate) request: ExportRequest,
     pub(crate) geometry: Mailbox<Option<Matrix4>>,
-    // xtask-allow(state-fields): The app's configured scale; a setting, not derived from the window.
+    // xtask-allow(state-fields): option: the App's configured scale; absent means the window's own
     pub(crate) scale: Option<f64>,
-    // xtask-allow(state-fields): ID allocator: the last frame number issued over the drawable's life.
+    // xtask-allow(state-fields): identity: allocates frame numbers over the drawable's life
     pub(crate) next_number: u64,
     /// Take-once wake of the UI task: an app call the UI turn has not taken yet.
     pub(crate) wake: Mailbox<()>,
@@ -122,9 +122,9 @@ pub(crate) enum ExportRequest {
     None { generation: u64 },
     /// Frames are read back as pixels; `latest` is the newest one received.
     Pixels {
-        // xtask-allow(state-fields): S-8 ID - the generation of the app's request; a frame of another generation is dropped
+        // xtask-allow(state-fields): identity: the generation of the App's request; a frame of another generation is dropped
         generation: u64,
-        // xtask-allow(state-fields): delivery record - the newest frame received for this request
+        // xtask-allow(state-fields): independent: set only by ExportOpen::on_frame with a frame of this request's generation; None until the first such frame, and any generation may still lack one
         latest: Option<DrawableFrame>,
     },
     /// The window has to make the pool; no GPU frames yet.
@@ -142,12 +142,12 @@ pub(crate) enum ExportRequest {
     /// Textures made. `textures` is taken once by `wait`; `latest` is the newest GPU frame.
     #[cfg(feature = "gpu-interop")]
     GpuProvided {
-        // xtask-allow(state-fields): S-8 ID - the generation of the app's request; a frame of another generation is dropped
+        // xtask-allow(state-fields): identity: the generation of the App's request; a frame of another generation is dropped
         generation: u64,
         adapter: GpuAdapter,
         /// Take-once hand-over of the pool to `wait` (S-9 Mailbox, not an `Option` that is taken).
         textures: Mailbox<SharedTextures>,
-        // xtask-allow(state-fields): delivery record - the newest frame received for this request
+        // xtask-allow(state-fields): independent: set only by ExportOpen::on_frame with a GPU frame of this request's generation; None until the first such frame, and any generation may still lack one
         latest: Option<DrawableFrame>,
     },
     /// The request failed; `wait` reports it.

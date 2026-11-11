@@ -3,7 +3,6 @@ use super::data::{ViewTransform, ZoomPanOptions, finite, valid_scale};
 use super::machine;
 use crate::EditSession;
 use crate::options_cell::OptionsCell;
-use crate::space_pan::{SpacePanApi, use_space_pan};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{Part, PartState, part, raise};
 use kivact_core::geometry::{Point, Rect, Size};
@@ -19,13 +18,13 @@ use std::rc::Rc;
 /// to the caller's node; drawing and content remain the caller's responsibility.
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
+    // xtask-allow(state-fields): independent: the observation of the attached viewport part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     transform: Binding<ViewTransform>,
     settings: OptionsCell<ZoomPanOptions>,
     edit: EditSession<ViewTransform>,
-    space: SpacePanApi,
-    /// The one gesture; a Signal so that `is_gesturing` and `is_space_armed`
-    /// follow it.
+    /// The one gesture; Space is held in its idle state, so
+    /// `is_gesturing` and `is_space_armed` follow it.
     gesture: MachineHandle<machine::Machine>,
     gesturing: Value<bool>,
     armed: Value<bool>,
@@ -35,18 +34,17 @@ pub struct ZoomPanApi {
 #[track_caller]
 pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransform>) -> ZoomPanApi {
     let transform = transform.into_binding();
-    let space = use_space_pan();
     let settings = OptionsCell::new(ZoomPanOptions::default());
     let edit = EditSession::new(move |initial| transform.set(initial));
     let session = Rc::new(edit);
     let gesture = machine(
         Gesture::Idle {
+            space: false,
             touches: Vec::new(),
         },
         move || machine::Machine {
             options: settings.get(),
             transform: transform.get(),
-            armed: space.armed().get(),
             session: session.clone(),
         },
         move |_, effect| match effect {
@@ -64,13 +62,12 @@ pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransfor
         },
     );
     let gesturing = memo(move || gesture.get().active());
-    let armed = memo(move || space.armed().get() && !gesturing.get());
+    let armed = memo(move || gesture.get().space());
     ZoomPanApi {
         observed: signal(None),
         transform,
         settings,
         edit,
-        space,
         gesture,
         gesturing,
         armed,
@@ -179,7 +176,8 @@ impl ZoomPanApi {
         let value = binding.into_value();
         let edit = self.edit;
         let gesturing = self.gesturing.get_untracked();
-        if self.space.key(event, true) {
+        if event.key() == Key::Space {
+            self.gesture.send(machine::Event::Space(true));
             return if gesturing {
                 Handled::Yes
             } else {
@@ -269,7 +267,7 @@ impl ZoomPanApi {
         let edit = self.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host
@@ -280,28 +278,26 @@ impl ZoomPanApi {
             let state = part_state;
             let rect = target.rect();
             let focus = target.focus_within();
-            self.space.watch(target, state);
             self.gesture.feed(
                 memo(move || {
                     let state = state.get();
-                    focus.get() && !state.disabled && !state.hidden
+                    focus.get() && !state.is_disabled() && !state.is_hidden()
                 }),
                 machine::Event::Available,
             );
             surface
                 .on_pointer(move |event: PointerEvent| {
                     if event.phase() == PointerPhase::Cancel {
-                        self.space.disarm();
+                        self.gesture.send(machine::Event::Space(false));
                     }
                     let snapshot = machine::Machine {
                         options: self.settings.get(),
                         transform: value.get_untracked(),
-                        armed: self.armed.get_untracked(),
                         session: Rc::new(edit),
                     };
                     let handled = snapshot.pointer(&self.gesture.get(), event).1;
                     // The machine input reads the same surface snapshot used to accept input.
-                    if state.get_untracked().disabled
+                    if state.get_untracked().is_disabled()
                         && matches!(event.phase(), PointerPhase::Down(_))
                     {
                         return Handled::No;
@@ -316,7 +312,7 @@ impl ZoomPanApi {
                     if !finite(event.pos())
                         || !event.delta().y.is_finite()
                         || event.delta().y == 0.0
-                        || state.get().disabled
+                        || state.get().is_disabled()
                     {
                         return Handled::No;
                     }
@@ -332,7 +328,8 @@ impl ZoomPanApi {
                 })
                 .on_key(move |event: KeyEvent| self.viewport_key(&event, rect.get()))
                 .on_key_up(move |event: KeyEvent| {
-                    if self.space.key(&event, false) {
+                    if event.key() == Key::Space {
+                        self.gesture.send(machine::Event::Space(false));
                         if self.gesturing.get_untracked() {
                             Handled::Yes
                         } else {

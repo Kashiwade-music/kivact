@@ -8,7 +8,7 @@ use crate::host::launch::{AssetMode, Launch};
 use crate::model::Model;
 use arvane::spi::{Step, StepOutcome};
 use arvane::{
-    EventTarget, Handler, Renderer, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
+    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
     ShellImeText, ShellSetup, ShellWaker, SteppedShell, Windows,
 };
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
@@ -28,9 +28,9 @@ use std::sync::Arc;
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
-    // xtask-allow(state-fields): diagnostic statistics; never used to control scheduling.
+    // xtask-allow(state-fields): statistic: turns counted for diagnostics; never used to control scheduling
     turns: Cell<u64>,
-    // xtask-allow(state-fields): diagnostic statistics; never used as an event or generation.
+    // xtask-allow(state-fields): statistic: frame ticks counted for diagnostics; never used as an event or generation
     frame_ticks: Cell<u64>,
 }
 
@@ -59,7 +59,7 @@ pub struct ArvaneTestHost {
     script: Script,
     shell: SteppedShell,
     outcome: StepOutcome,
-    renderer: Rc<RefCell<BTreeMap<WindowId, RendererState>>>,
+    renderer: Rc<RefCell<BTreeMap<WindowId, Observed>>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,
     controls: Rc<RefCell<Vec<Control>>>,
     counts: Rc<Counts>,
@@ -72,9 +72,39 @@ enum Control {
     LoseGpuDevice(WindowId),
 }
 
-enum RendererState {
-    Ready(Renderer),
-    Failed(String),
+/// What draws a test window's frames, and where its GPU device stands
+/// (`kivact::test::Screen::renderer`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Renderer {
+    /// The CPU, and no GPU device is starting: the window draws on the CPU
+    /// only, or waits until it needs the GPU (`GpuStart::OnDemand`).
+    Cpu,
+    /// The CPU, while the window's GPU device starts on a worker thread.
+    GpuStarting,
+    /// The GPU.
+    Gpu,
+    /// The CPU for the rest of the session: the GPU device failed or could
+    /// not start.
+    GpuFailed,
+}
+
+/// A window's renderer as its notes said, with the reason of a failure.
+enum Observed {
+    Cpu,
+    GpuStarting,
+    Gpu,
+    GpuFailed(String),
+}
+
+impl Observed {
+    fn renderer(&self) -> Renderer {
+        match self {
+            Self::Cpu => Renderer::Cpu,
+            Self::GpuStarting => Renderer::GpuStarting,
+            Self::Gpu => Renderer::Gpu,
+            Self::GpuFailed(_) => Renderer::GpuFailed,
+        }
+    }
 }
 
 struct SharedHost {
@@ -150,6 +180,73 @@ fn make_host(
     Ok(Rc::new(RefCell::new(host)))
 }
 
+/// The virtual platform of a test window as `options` says.
+fn virtual_options(options: &TestHostOptions) -> VirtualOptions {
+    let default_capabilities = VirtualOptions::default().capabilities;
+    VirtualOptions {
+        main: WindowRequest::main(
+            options.title.clone(),
+            Size {
+                width: options.width,
+                height: options.height,
+            },
+        ),
+        scale: options.scale,
+        frame_period_ns: options.frame_period_ns,
+        reduced_motion: options.reduced_motion,
+        dark: options.theme == ThemeHint::Dark,
+        locale: options.locale.clone(),
+        mirror: options.mirror,
+        gpu: options.gpu,
+        capabilities: Capabilities {
+            multi_window: !options.single_window,
+            window_placement: !options.single_window,
+            ..default_capabilities
+        },
+        restored_state: options.restored_state.clone(),
+    }
+}
+
+/// Note each window's renderer state in `observed`.
+fn renderer_observer(
+    observed: Rc<RefCell<BTreeMap<WindowId, Observed>>>,
+) -> Option<arvane::Observer> {
+    Some(Rc::new(RefCell::new(
+        move |window, change: &RendererChange| {
+            let state = match change {
+                RendererChange::Start { gpu: false } => Observed::Cpu,
+                RendererChange::Start { gpu: true } | RendererChange::GpuStarting { .. } => {
+                    Observed::GpuStarting
+                }
+                RendererChange::Gpu { .. } => Observed::Gpu,
+                RendererChange::Cpu { reason } => Observed::GpuFailed(reason.clone()),
+                RendererChange::ExternalFrameMissed { .. }
+                | RendererChange::ShaderFailed { .. }
+                | RendererChange::LimitExceeded { .. } => return,
+            };
+            observed.borrow_mut().insert(window, state);
+        },
+    )))
+}
+
+/// Start the stepped shell of `backend` with the test's GPU wish.
+fn start_shell(
+    backend: VirtualBackend,
+    options: &TestHostOptions,
+    shared: SharedHost,
+    observer: Option<arvane::Observer>,
+) -> Result<SteppedShell, ShellError> {
+    Shell::start_stepped(
+        Box::new(backend),
+        ShellSetup {
+            prefer_gpu: options.gpu == GpuMode::Required,
+            gpu_preference: options.gpu_preference,
+            observer,
+        },
+        shared,
+    )
+}
+
 impl ArvaneTestHost {
     /// Engine mutation access for existing backend contract E2E tests.
     pub fn writer(&self) -> crate::api::Writer {
@@ -166,61 +263,23 @@ impl ArvaneTestHost {
     /// first revision asks for).
     pub fn new(client: Client, options: TestHostOptions) -> Result<Self, HostError> {
         let error = |e: &dyn std::fmt::Display| HostError::new(e.to_string());
-        let default_capabilities = VirtualOptions::default().capabilities;
-        let backend = VirtualBackend::new(VirtualOptions {
-            main: WindowRequest::main(
-                options.title.clone(),
-                Size {
-                    width: options.width,
-                    height: options.height,
-                },
-            ),
-            scale: options.scale,
-            frame_period_ns: options.frame_period_ns,
-            reduced_motion: options.reduced_motion,
-            dark: options.theme == ThemeHint::Dark,
-            locale: options.locale.clone(),
-            mirror: options.mirror,
-            gpu: options.gpu,
-            capabilities: Capabilities {
-                multi_window: !options.single_window,
-                window_placement: !options.single_window,
-                ..default_capabilities
-            },
-            restored_state: options.restored_state.clone(),
-        });
+        let backend = VirtualBackend::new(virtual_options(&options));
         let script = backend.script();
         let probe = backend.probe();
         let counts = Rc::new(Counts::default());
         let host = make_host(client, &options, counts.clone())?;
         let renderer = Rc::new(RefCell::new(BTreeMap::new()));
-        let observed = renderer.clone();
         let injected = Rc::new(RefCell::new(Vec::new()));
         let controls = Rc::new(RefCell::new(Vec::new()));
-        let shell = Shell::start_stepped(
-            Box::new(backend),
-            ShellSetup {
-                prefer_gpu: options.gpu == GpuMode::Required,
-                gpu_preference: options.gpu_preference,
-                observer: Some(Rc::new(RefCell::new(
-                    move |window, change: &RendererChange| {
-                        let state = match change {
-                            RendererChange::Start { .. } => RendererState::Ready(Renderer::Cpu),
-                            RendererChange::Gpu { .. } => RendererState::Ready(Renderer::Gpu),
-                            RendererChange::Cpu { reason } => RendererState::Failed(reason.clone()),
-                            RendererChange::ExternalFrameMissed { .. }
-                            | RendererChange::ShaderFailed { .. }
-                            | RendererChange::LimitExceeded { .. } => return,
-                        };
-                        observed.borrow_mut().insert(window, state);
-                    },
-                ))),
-            },
+        let shell = start_shell(
+            backend,
+            &options,
             SharedHost {
                 host: host.clone(),
                 injected: injected.clone(),
                 controls: controls.clone(),
             },
+            renderer_observer(renderer.clone()),
         )
         .map_err(|e| error(&e))?;
         let mut driver = Self {
@@ -239,39 +298,44 @@ impl ArvaneTestHost {
             counts,
         };
         driver.step(Step::Wake);
-        driver.wait_for_gpu(options.gpu)?;
+        if options.gpu == GpuMode::Required
+            && options.gpu_preference.start == kivact_types::gpu::GpuStart::AtLaunch
+        {
+            driver.wait_for_gpu(WindowId::MAIN)?;
+        }
         if let Some(failure) = driver.failure() {
             return Err(HostError::new(failure.to_string()));
         }
         Ok(driver)
     }
 
-    fn wait_for_gpu(&mut self, mode: GpuMode) -> Result<(), HostError> {
-        if mode != GpuMode::Required {
-            return Ok(());
-        }
+    /// Run the host (real time, at most 5 s) until window `window`'s frames
+    /// are drawn on the GPU, while its device starts on a worker thread.
+    pub fn wait_for_gpu(&mut self, window: WindowId) -> Result<(), HostError> {
         let started = std::time::Instant::now();
-        let main = WindowId::MAIN;
-        while self.renderer(main) != Some(Renderer::Gpu)
-            && self.failure().is_none()
-            && !matches!(
-                self.renderer.borrow().get(&main),
-                Some(RendererState::Failed(_))
-            )
-            && started.elapsed() < std::time::Duration::from_secs(5)
-        {
+        loop {
+            if let Some(failure) = self.failure() {
+                return Err(HostError::new(failure.to_string()));
+            }
+            match self.renderer.borrow().get(&window) {
+                Some(Observed::Gpu) => return Ok(()),
+                Some(Observed::GpuFailed(reason)) => {
+                    return Err(HostError::new(format!("the GPU device failed: {reason}")));
+                }
+                Some(Observed::Cpu) | None => {
+                    return Err(HostError::new(
+                        "the window's GPU device is not starting (the window draws on the CPU only, or nothing needed the GPU yet)",
+                    ));
+                }
+                Some(Observed::GpuStarting) => {}
+            }
+            if started.elapsed() >= std::time::Duration::from_secs(5) {
+                return Err(HostError::new(
+                    "the GPU device did not start within five seconds",
+                ));
+            }
             std::thread::park_timeout(std::time::Duration::from_millis(5));
             self.step(Step::Wake);
-        }
-        if let Some(failure) = self.failure() {
-            return Err(HostError::new(failure.to_string()));
-        }
-        match self.renderer.borrow().get(&main) {
-            Some(RendererState::Ready(Renderer::Gpu)) => Ok(()),
-            Some(RendererState::Failed(reason)) => Err(HostError::new(reason.clone())),
-            _ => Err(HostError::new(
-                "GPU renderer did not start within five seconds",
-            )),
         }
     }
 
@@ -449,13 +513,10 @@ impl ArvaneTestHost {
         self.step(Step::Redraw);
         requested
     }
-    /// The rasterizer that drew window `window`'s last presented frame.
+    /// What draws window `window`'s frames, and where its GPU device stands;
+    /// `None` before the window noted its renderer.
     pub fn renderer(&self, window: WindowId) -> Option<Renderer> {
-        match self.renderer.borrow().get(&window) {
-            None => None,
-            Some(RendererState::Ready(renderer)) => Some(*renderer),
-            Some(RendererState::Failed(_)) => Some(Renderer::Cpu),
-        }
+        self.renderer.borrow().get(&window).map(Observed::renderer)
     }
 
     /// The last presented frame of window `window`.

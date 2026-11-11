@@ -4,7 +4,7 @@ use super::measurement::{Constraints, Measurement, constraints, sanitize};
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
-use crate::view::element_data::{Node, NodeBuilder};
+use crate::view::element_data::{Element, Node};
 use crate::view::elements::builders::node;
 use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
@@ -23,7 +23,7 @@ type BindMeasure = Box<dyn FnOnce(&Mcx<'_>, NodeId, &'static Location<'static>)>
 /// **Experimental.** A new primitive element: a leaf box measured by its
 /// author. Built by [`primitive`]; the standard modifiers (`draw`,
 /// `on_pointer`, `role`, `test_id`, `style`, ...) come from
-/// [`NodeBuilder`] and apply to its node. See the
+/// [`Element`] and apply to its node. See the
 /// [module](super) for what it supports.
 pub struct Primitive {
     root: Node,
@@ -147,7 +147,7 @@ fn bind_measure<T, F, R>(
     });
 }
 
-impl NodeBuilder for Primitive {
+impl Element for Primitive {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

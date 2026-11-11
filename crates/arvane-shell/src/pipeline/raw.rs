@@ -10,12 +10,15 @@ pub enum RawInput {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RawKey {
     pub key: PlatformKey,
-    // xtask-allow(state-fields): input record - pressed
-    pub pressed: bool,
-    // xtask-allow(state-fields): input record - repeat
-    pub repeat: Option<bool>,
-    // xtask-allow(state-fields): input record - text
-    pub text: Option<String>,
+    pub phase: RawKeyPhase,
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum RawKeyPhase {
+    Down {
+        repeat: Option<bool>,
+        text: Option<String>,
+    },
+    Up,
 }
 #[derive(Clone, Debug, PartialEq)]
 pub enum PlatformKey {

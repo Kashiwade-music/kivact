@@ -30,7 +30,7 @@ pub(crate) struct TestApp {
     /// The touch and pen contacts the test has down (`contact_*`), in the
     /// order they went down, each at its last position.
     pub(super) contacts: RefCell<Vec<(Contact, kivact_style::draw::Point)>>,
-    // xtask-allow(state-fields): S-8 ID - the platform id of the last contact
+    // xtask-allow(state-fields): identity: the platform pointer id of the last contact
     /// The platform's id of the last contact (the window gives each
     /// contact a pointer id of its own, never the mouse's).
     pub(super) last_contact: Cell<u64>,
@@ -53,6 +53,9 @@ pub struct Contact {
     /// The window the contact went down in.
     pub(super) window: WindowId,
     pub(super) kind: PointerKind,
+    /// Whether the platform calls it the primary contact: the first contact
+    /// of its kind down in the window. A later one is not primary.
+    pub(super) primary: bool,
 }
 
 impl Contact {
@@ -69,7 +72,7 @@ impl Contact {
 
 /// A node (or a scene region) found by a query.
 #[derive(Clone, Copy)]
-pub struct Element<'a> {
+pub struct Locator<'a> {
     pub(super) screen: &'a Screen,
     pub(super) node: NodeId,
     pub(super) region: Option<RegionId>,

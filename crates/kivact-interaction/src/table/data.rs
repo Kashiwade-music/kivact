@@ -13,12 +13,12 @@ use kivact_core::view::SortDirection;
 pub(super) struct Header<C> {
     pub(super) key: C,
     pub(super) label: Reactive<String>,
-    // xtask-allow(state-fields): passive record - sortable
+    // xtask-allow(state-fields): option: whether the caller gave the column a ColumnDef::compare, copied by ColumnDef::header; false leaves the header unsortable
     pub(super) sortable: bool,
-    // xtask-allow(state-fields): passive record - The starting width in the caller's unit;
+    // xtask-allow(state-fields): option: the starting width in the caller's unit; absent leaves it to layout
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,
-    // xtask-allow(state-fields): passive record - min width
+    // xtask-allow(state-fields): option: the caller's ColumnDef::min_width, copied by ColumnDef::header; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
 }
 
@@ -78,27 +78,37 @@ impl Default for TableFocus {
     }
 }
 
+/// The sort state of a column header: unsortable, sortable but not sorting,
+/// or sorting (with its direction and its one-based priority in a multi-column
+/// sort).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeaderSort {
+    /// The column has no comparison, so activating it does not sort.
+    Unsortable,
+    /// The column can sort but the table is not sorted by it.
+    Sortable,
+    /// The table is sorted by this column; `rank` is one-based.
+    Sorted {
+        direction: SortOrder,
+        rank: Option<usize>,
+    },
+}
+
 /// The sort state and actual input state of a column header.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableHeaderState {
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - The column's sort direction;
-    /// The column's sort direction; `None` while the table is not sorted by it.
-    pub sort: Option<SortOrder>,
-    // xtask-allow(state-fields): passive record - sortable
-    pub sortable: bool,
-    // xtask-allow(state-fields): passive record - One-based priority in an active multi-column sort
-    /// One-based priority in an active multi-column sort.
-    pub sort_rank: Option<usize>,
+    /// The column's sort state.
+    pub sorting: HeaderSort,
 }
 
 /// The selection, roving focus and actual input state of a row.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableRowState {
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - selected
+    // xtask-allow(state-fields): independent: whether the table selection holds the row; Space, a pointer press and the caller's binding change it, and a multiple selection keeps rows selected while the tab stop is elsewhere
     pub selected: bool,
-    // xtask-allow(state-fields): passive record - The row holds the tab stop: itself with [`TableFocus::Rows`], one of its cells with [`TableFocus::Cells`]
+    // xtask-allow(state-fields): independent: whether the row holds the tab stop (itself under TableFocus::Rows, one of its cells under TableFocus::Cells); arrows between cells and under Manual activation move it without changing the selection
     /// The row holds the tab stop: itself with [`TableFocus::Rows`], one of
     /// its cells with [`TableFocus::Cells`].
     pub active: bool,
@@ -108,10 +118,10 @@ pub struct TableRowState {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TableCellState {
     pub input: PartState,
-    // xtask-allow(state-fields): passive record - The cell's row is selected
+    // xtask-allow(state-fields): independent: copied from the cell's row selection; Space selects the row of the focused cell, and arrows leave the selection where it is
     /// The cell's row is selected.
     pub selected: bool,
-    // xtask-allow(state-fields): passive record - The cell holds the tab stop only with [`TableFocus::Cells`]
+    // xtask-allow(state-fields): independent: whether the cell holds the tab stop, only under TableFocus::Cells; arrows move it between cells of selected and unselected rows alike
     /// The cell holds the tab stop only with [`TableFocus::Cells`].
     pub active: bool,
 }

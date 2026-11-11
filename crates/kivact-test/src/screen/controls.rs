@@ -10,7 +10,7 @@ use kivact_types as p;
 
 use kivact_engine::testing::Insets;
 
-use super::model::{Element, FIND_TIMEOUT, Screen};
+use super::model::{FIND_TIMEOUT, Locator, Screen};
 use kivact_style::Cursor;
 
 impl Screen {
@@ -221,9 +221,9 @@ impl Screen {
     }
 
     /// The focused element, if any.
-    pub fn focused(&self) -> Option<Element<'_>> {
+    pub fn focused(&self) -> Option<Locator<'_>> {
         let f = self.host().focused(self.window)?;
-        Some(Element {
+        Some(Locator {
             screen: self,
             node: f.node,
             region: f.region,
@@ -231,9 +231,9 @@ impl Screen {
     }
 
     /// The element under the pointer, if any.
-    pub fn hovered(&self) -> Option<Element<'_>> {
+    pub fn hovered(&self) -> Option<Locator<'_>> {
         let h = self.host().hovered(self.window)?;
-        Some(Element {
+        Some(Locator {
             screen: self,
             node: h,
             region: None,

@@ -112,15 +112,15 @@ pub struct ToastId(pub(super) Generation);
 pub struct Toast {
     /// What the toast says. It names the toast for assistive technology.
     pub title: String,
-    // xtask-allow(state-fields): passive record - The second line, if there is one
+    // xtask-allow(state-fields): option: the second line, if there is one
     /// The second line, if there is one.
     pub body: Option<String>,
     /// The tone.
     pub tone: Tone,
-    // xtask-allow(state-fields): passive record - How long it stays;
+    // xtask-allow(state-fields): option: the caller's display time from Toast::duration (default 5 s); absent keeps the toast until it is dismissed
     /// How long it stays; `None` until it is dismissed.
     pub duration: Option<Duration>,
-    // xtask-allow(state-fields): passive record - action
+    // xtask-allow(state-fields): option: the action's label and function, if there is one
     /// The label and the function of the action, if there is one: owned by
     /// the toast, run when its action button is pressed.
     #[allow(

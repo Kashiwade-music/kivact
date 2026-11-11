@@ -62,8 +62,7 @@ impl Host {
         };
         // The client's `ViewState` starts its App motion input from these
         // values; only a later change is an `AppMotion` event.
-        self.app_motion
-            .update((info.surface_active, info.env.frame_period_ns));
+        self.report_app_motion(info.surface_active, info.env.frame_period_ns);
         let tree = super::write::Writer::new(&self.app, &self.engine);
         self.client.start(&info, waker, tree);
         if self.observe_close() {
@@ -257,7 +256,9 @@ impl Host {
                     self.windows
                         .get_mut(&id)
                         .expect("invariant: a drawn window has host state")
-                        .last_present = LastPresent::Settled;
+                        .last_present = LastPresent::Shown {
+                        at_ns: windows.now_ns(),
+                    };
                 }
                 // The window had no buffer (timed out, occluded):
                 // the picture is drawn again when Arvane says.
@@ -324,6 +325,7 @@ impl Host {
                 }
             }
         }
+        self.release_idle_frames(now, windows);
         self.tick_windows(now);
         let mut events = false;
         for id in self.window_ids() {
@@ -521,18 +523,15 @@ impl Host {
             }
             ShellEvent::AccessibilityActivated => {
                 if let Some(model) = self.app.borrow_mut().model_mut(id)
-                    && model.a11y.publish == crate::a11y::state::A11yPublish::Inactive
+                    && model.a11y.activate()
+                    && self.accessibility_noted.note()
                 {
-                    model.a11y.publish = crate::a11y::state::A11yPublish::AwaitingFirstTree;
-                    model.a11y.invalidate();
-                    if self.accessibility_noted.note() {
-                        self.frame_log.borrow_mut().note("accessibility=on");
-                    }
+                    self.frame_log.borrow_mut().note("accessibility=on");
                 }
             }
             ShellEvent::AccessibilityDeactivated => {
                 if let Some(model) = self.app.borrow_mut().model_mut(id) {
-                    model.a11y.publish = crate::a11y::state::A11yPublish::Inactive;
+                    model.a11y.deactivate();
                 }
             }
             ShellEvent::Accessibility { node, request } => {

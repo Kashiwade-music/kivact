@@ -68,10 +68,10 @@ This is the model of SolidJS. Two consequences:
 
 | Idea | React | SolidJS | Kivact |
 | --- | --- | --- | --- |
-| Component | function returning JSX | function returning JSX | function returning `impl IntoView` |
-| Props | props object | props object | function arguments; `impl IntoText` for text, `impl IntoValue<T>` for values that may change |
-| Children | `children` | `props.children` | an argument of type `V: IntoView` |
-| Callback prop | `onSave` prop | `onSave` prop | `impl Into<Callback<()>>` for an action without input; convert once to share it |
+| Component | function returning JSX | function returning JSX | `#[component] fn card(..) -> impl IntoView`; a plain function when it has no props |
+| Props | props object | props object | arguments of the component: `Value<T>` for a value that may change, `View` for children, `Callback<E>` for handlers; required ones positional, optional ones setters |
+| Children | `children` | `props.children` | a `View` prop (one slot), `Vec<View>` (several), or `ViewFn` (built again on every opening) |
+| Callback prop | `onSave` prop | `onSave` prop | a `Callback<()>` prop for an action without input; its setter takes `impl Into<Callback<()>>` and stores the closure once |
 | State machine | `useReducer` plus effects | reducer plus effects | `Machine`: explicit states, events, effects and timers |
 | State | `useState` | `createSignal` | `signal(value)`; `get`, `with`, `set`, `update` on one `Signal<T>` |
 | Derived value | compute in render, `useMemo` | `createMemo` | a closure for one use, `memo(..)` to share or cache |
@@ -114,24 +114,28 @@ See [custom controls](custom-controls.md#write-behavior-with-a-state-machine).
 
 ## Props, children and callbacks
 
+Mark a function that takes props with `#[component]`; Kivact writes the props
+builder from the signature.
+
 ```rust,test_harness
 use kivact::prelude::*;
 
-// `impl IntoText`: a literal, a String, or a closure that returns text.
-// `impl IntoValue<i32>`: a number, a signal, a memo or a closure.
-fn stat(label: impl IntoText, value: impl IntoValue<i32>) -> impl IntoView {
-    let value = value.into_value();
+// `Value<String>`: a literal, a String, a signal or a closure that returns text.
+// `Value<i32>`: a number, a signal, a memo or a closure.
+#[component]
+fn stat(label: Value<String>, value: Value<i32>) -> impl IntoView {
     row((text(label), text(move || value.get().to_string()))).style(style().gap(8))
 }
 
-// `V: IntoView`: any view, including another component.
-fn panel<V: IntoView>(title: &str, child: V) -> impl IntoView {
+// `View`: any view, including another component.
+#[component]
+fn panel(title: Value<String>, child: View) -> impl IntoView {
     column((text(title), child)).style(style().gap(8).padding(12))
 }
 
 // A callback prop: a closure the caller gives you.
-fn buttons(on_add: impl Into<Callback<()>>) -> impl IntoView {
-    let on_add = on_add.into();
+#[component]
+fn buttons(on_add: Callback<()>) -> impl IntoView {
     row((button("Add").on_press(on_add), button("Add again").on_press(on_add)))
 }
 
@@ -168,15 +172,20 @@ mod tests {
 }
 ```
 
-- A prop that may change takes `impl IntoValue<T>`: the caller passes a
-  constant, a signal, a memo or a closure, and you call `.into_value()` once to
-  get a `Value<T>` handle to read.
-- A callback prop without an input takes `impl Into<Callback<()>>`. Convert it
-  once with `.into()`; the resulting handle is `Copy`, so both buttons can use
-  the same action. The caller can pass a `move || ...` closure directly.
+- A prop that may change is `Value<T>`. Its constructor takes
+  `impl IntoValue<T>`, so the caller passes a constant, a signal, a memo or a
+  closure, and the body gets a `Value<T>` to read with `.get()` or `.with(..)`.
+- A callback prop without an input is `Callback<()>`. Its constructor takes
+  `impl Into<Callback<()>>` and stores the closure once; the handle is `Copy`, so
+  both buttons can use the same action. The caller can pass a `move || ...`
+  closure directly.
 - Wherever a closure returning `()` is accepted, a closure returning
   `Result<(), UiError>` is accepted too, so you can use `?` inside a handler.
   The error reaches the nearest error handler.
+- A component is not generic: where Rust would take `fn panel<V: IntoView>(..)`,
+  take a `View` prop, a `Vec<View>` prop or a `Value<T>` prop. A generated
+  component also implements `IntoView`, not `Element`, so its callers change it
+  through props rather than through `.style(..)`.
 
 ## Effects, cleanup and mount
 
@@ -184,7 +193,7 @@ mod tests {
 use kivact::prelude::*;
 
 fn tracker(query: Signal<String>) -> impl IntoView {
-    component(move || {
+    scope(move || {
         // Runs once the screen is built, then again whenever `query` changes.
         effect(move || {
             println!("searching for {}", query.get());
@@ -363,8 +372,7 @@ mod tests {
   nothing was provided. When the value is optional, use
   `kivact::state::try_use_context::<T>()`, which returns an `Option<Value<T>>`.
 - `provide` only affects its child. Siblings built after it do not see the value.
-- Themes, locale, messages and reading direction have their own `provide_*`
-  functions in `kivact::view` ([Theming](theming.md), [Internationalization](i18n.md)).
+- Themes, locale, messages and reading direction have their own `provide_*` functions: `kivact::style::provide_theme`, `kivact::i18n::provide_locale` and `kivact::i18n::provide_messages`, and `kivact::view::provide_direction` ([Theming](theming.md), [Internationalization](i18n.md)).
 
 ## Refs
 
@@ -525,7 +533,7 @@ item. If a name must stay, qualify it, such as `kivact::view::text("Hello")`,
 ```rust,no_run
 use kivact::prelude::*;
 
-fn heading_row(label: String) -> impl Component {
+fn heading_row(label: String) -> impl Element {
     row((text(label), button("Open")))
 }
 ```

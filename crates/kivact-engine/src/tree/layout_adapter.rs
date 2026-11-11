@@ -2,7 +2,7 @@
 
 use crate::contract::NodeType;
 use crate::tree::NodeTree;
-use crate::tree::node::NodeIndex;
+use crate::tree::node::{NodeIndex, Positioning};
 use kivact_layout::{Flow, LayoutTree};
 use kivact_types::{LayoutProps, NodeId, OverlayAt, OverlayFit};
 
@@ -35,24 +35,18 @@ impl LayoutTree for NodeTree {
     }
     #[inline]
     fn child_count(&self, slot: usize) -> usize {
-        self.flat_children(self.nodes.id_at(NodeIndex(slot))).len()
+        self.flat_len(slot)
     }
     #[inline]
     fn child_at(&self, slot: usize, raw_child: usize) -> usize {
-        self.nodes
-            .index_of(
-                self.flat_child(self.nodes.id_at(NodeIndex(slot)), raw_child)
-                    .expect("invariant: layout child exists"),
-            )
-            .expect("invariant: layout child is retained")
-            .0
+        self.flat_child_slot(slot, raw_child)
     }
     #[inline]
     fn flow(&self, slot: usize) -> Flow {
         let n = self.nodes.at(NodeIndex(slot));
         if n.kind() == NodeType::Overlay {
             Flow::Overlay
-        } else if n.place.fixed {
+        } else if n.place.positioning == Positioning::Fixed {
             Flow::Fixed
         } else {
             Flow::Normal

@@ -19,9 +19,9 @@
 
 #![allow(unsafe_code, reason = "Direct3D 12 calls below wgpu's safe API")]
 
-use crate::common::{Error, Identity, same_backend};
+use crate::common::{Error, same_backend};
 use ::wgpu::hal::api::Dx12;
-use kivact_types::{GpuBackend, SharedHandle, SharedTextures};
+use kivact_types::{AdapterIds, GpuBackend, SharedHandle, SharedTextures};
 use std::os::windows::io::{AsHandle, AsRawHandle, FromRawHandle, OwnedHandle};
 use std::time::Duration;
 use windows::Win32::Foundation::{HANDLE, WAIT_OBJECT_0};
@@ -44,18 +44,13 @@ const SAMPLED: D3D12_RESOURCE_STATES = D3D12_RESOURCE_STATES(
 );
 
 /// The identity of a Direct3D 12 adapter (`None`: not Direct3D 12).
-pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<Identity> {
+pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<AdapterIds> {
     // SAFETY: only reads the adapter's description while the guard lives.
     let hal = unsafe { adapter.as_hal::<Dx12>() }?;
     // SAFETY: a live DXGI adapter.
     let desc = unsafe { hal.raw_adapter().GetDesc2() }.ok()?;
     let luid = crate::d3d12_contract::luid_bytes(desc.AdapterLuid);
-    Some(Identity {
-        backend: GpuBackend::Dx12,
-        luid: Some(luid),
-        device_uuid: None,
-        driver_uuid: None,
-    })
+    Some(AdapterIds::Dx12 { luid })
 }
 
 /// Whether `device` is a Direct3D 12 device.

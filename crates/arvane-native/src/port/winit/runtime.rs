@@ -120,7 +120,7 @@ struct Runner<'a> {
     phase: LoopPhase,
     started: Instant,
     waker: ShellWaker,
-    // xtask-allow(state-fields): mailbox - coalesced wake reasons the loop drains
+    // xtask-allow(state-fields): independent: bits OR-ed in by the ShellWaker on any thread and swapped to zero by `user_event`; wakes arrive in every LoopPhase (before the main window, while running, after a stop) and are drained in each, so every pair with phase occurs
     /// Wake reasons accumulated until the event loop receives the notification.
     wake_reasons: Arc<AtomicU8>,
 }

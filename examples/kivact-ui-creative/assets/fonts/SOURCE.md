@@ -1,3 +1,3 @@
 # Catalog font provenance
 
-Geist, Geist Mono and Noto Sans JP retain their original font bytes, licenses and hashes in examples/shared-assets/fonts/.
+Geist and Geist Mono retain their original font bytes, and Noto Sans JP is a subset; their licenses and hashes are in examples/shared-assets/fonts/.

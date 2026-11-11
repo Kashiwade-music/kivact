@@ -1,6 +1,6 @@
 //! Role: Node region targets and accessible semantic descriptions.
-use super::gesture::Info;
 use super::gesture::Target;
+use super::gesture::{Facet, Info};
 use super::model::{NodeControlValue, NodeData, NodeLink};
 use crate::editors::shared::targets::Scene;
 use kivact::UiError;
@@ -41,16 +41,14 @@ pub(crate) fn semantic(
 ) -> Vec<Info> {
     let mut result = Vec::new();
     let Some(scene) = scene else { return result };
-    let info = |target, name, value, role, checked, selected, range| {
+    let info = |target, name, value, role, facet| {
         scene.id(&target).map(|id| Info {
             id,
             target,
             name,
             value,
             role,
-            checked,
-            selected,
-            range,
+            facet,
         })
     };
     for node in &nodes {
@@ -59,9 +57,7 @@ pub(crate) fn semantic(
             node.label.clone(),
             texts.selection(selection.contains(&node.id)),
             Role::Button,
-            None,
-            false,
-            None,
+            Facet::Plain,
         ));
         for (outgoing, sockets) in [(false, &node.inputs), (true, &node.outputs)] {
             for (index, socket) in sockets.iter().enumerate() {
@@ -70,40 +66,40 @@ pub(crate) fn semantic(
                     texts.socket(outgoing, &node.label, &socket.label),
                     socket.type_name.clone(),
                     Role::Button,
-                    None,
-                    false,
-                    None,
+                    Facet::Plain,
                 ));
             }
         }
         for (index, control) in node.controls.iter().enumerate() {
-            let (role, value, checked, range) = match &control.value {
+            let (role, value, facet) = match &control.value {
                 NodeControlValue::Number {
                     value, min, max, ..
                 } => (
                     Role::SpinButton,
                     format!("{value:.3}"),
-                    None,
-                    Some((*min, *max, *value)),
+                    Facet::Range {
+                        min: *min,
+                        max: *max,
+                        now: *value,
+                    },
                 ),
                 NodeControlValue::Choice { options, selected } => (
                     Role::Button,
                     options.get(*selected).cloned().unwrap_or_default(),
-                    None,
-                    None,
+                    Facet::Plain,
                 ),
-                NodeControlValue::Toggle(value) => {
-                    (Role::Button, texts.toggle(*value), Some(*value), None)
-                }
+                NodeControlValue::Toggle(value) => (
+                    Role::Button,
+                    texts.toggle(*value),
+                    Facet::Toggle { checked: *value },
+                ),
             };
             result.extend(info(
                 Target::control(node, index),
                 format!("{} {}", node.label, control.label),
                 value,
                 role,
-                checked,
-                false,
-                range,
+                facet,
             ));
         }
     }
@@ -119,16 +115,14 @@ fn link_info(
     texts: crate::editors::shared::texts::Texts,
 ) -> Vec<Info> {
     let mut result = Vec::new();
-    let info = |target, name, value, role, checked, selected, range| {
+    let info = |target, name, value, role, facet| {
         scene.id(&target).map(|id| Info {
             id,
             target,
             name,
             value,
             role,
-            checked,
-            selected,
-            range,
+            facet,
         })
     };
     for link in links {
@@ -143,9 +137,9 @@ fn link_info(
             texts.port_link(&from.label, link.output, &to.label, link.input),
             String::new(),
             Role::Button,
-            None,
-            selected_link == Some(link),
-            None,
+            Facet::Link {
+                selected: selected_link == Some(link),
+            },
         ));
     }
     result

@@ -6,8 +6,8 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, provide, try_use_context};
 use kivact_core::style::style;
 use kivact_core::view::{
-    IntoChildren, IntoView, Node, NodeBuilder, Orientation, ReadingDirection, Role, View, node,
-    row, text, use_direction,
+    Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
+    text, use_direction,
 };
 
 #[derive(Clone, Copy)]
@@ -57,7 +57,7 @@ impl<C> ButtonGroup<C> {
         self
     }
 }
-impl<C> NodeBuilder for ButtonGroup<C> {
+impl<C: IntoChildren> Element for ButtonGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -118,7 +118,7 @@ pub struct ButtonGroupCell {
     root: Node,
     separator: bool,
 }
-impl NodeBuilder for ButtonGroupCell {
+impl Element for ButtonGroupCell {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -177,7 +177,7 @@ pub fn button_group_text(label: impl IntoText) -> ButtonGroupCell {
 pub struct ButtonGroupMember {
     button: crate::Button,
     solid: Value<bool>,
-    // xtask-allow(state-fields): Independent presentation or construction input, not interaction state.
+    // xtask-allow(state-fields): option: ButtonGroupMember::keep_size; false lets the group size the member like its siblings
     keep_size: bool,
 }
 impl From<crate::Button> for ButtonGroupMember {

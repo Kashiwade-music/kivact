@@ -7,7 +7,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 /// Whether Space is held on a focused surface.
 ///
 /// ```no_run
-/// use kivact_core::view::{NodeBuilder, node};
+/// use kivact_core::view::{Element, node};
 /// use kivact_interaction::use_space_pan;
 /// let space = use_space_pan();
 /// let canvas = node().part(space.control());
@@ -15,6 +15,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 /// ```
 #[derive(Clone, Copy)]
 pub struct SpacePanApi {
+    // xtask-allow(state-fields): independent: the observation of the attached surface part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     held: MachineHandle<machine::Machine>,
     armed: Value<bool>,
@@ -61,7 +62,7 @@ impl SpacePanApi {
     pub fn control(self) -> Part<PartState> {
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host.part(input).node_ref(target).region_events();
@@ -107,7 +108,7 @@ impl SpacePanApi {
         self.held.feed(
             memo(move || {
                 let state = state.get();
-                focus.get() && !state.disabled && !state.hidden
+                focus.get() && !state.is_disabled() && !state.is_hidden()
             }),
             machine::Event::Available,
         );

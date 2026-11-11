@@ -35,5 +35,5 @@ mod canvas;
 mod painter;
 mod shadows;
 
-pub(crate) use canvas::{Canvas, GlyphRun};
+pub(crate) use canvas::{Canvas, GlyphRaster, GlyphRun};
 pub(crate) use painter::{Caches, Frame, draw};

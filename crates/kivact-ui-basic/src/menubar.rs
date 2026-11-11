@@ -2,7 +2,7 @@
 
 use kivact::interaction::MenuEntry;
 use kivact::interaction::{MenuApi, use_menubar};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::memo;
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Direction, style};
@@ -66,7 +66,7 @@ impl<K: kivact::state::ItemKey> Menubar<K> {
         self
     }
 }
-impl<K: kivact::state::ItemKey> NodeBuilder for Menubar<K> {
+impl<K: kivact::state::ItemKey> Element for Menubar<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -176,7 +176,7 @@ fn menu_surface<K: kivact::state::ItemKey>(
     label: kivact::state::Value<String>,
     sub: bool,
 ) -> View {
-    menu.show(move || {
+    menu.while_open(move || {
         let rows = kivact::view::for_each(
             menu.entries(),
             |(row, _)| row.clone(),

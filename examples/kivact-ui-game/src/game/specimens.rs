@@ -4,8 +4,8 @@ use kivact::geometry::Point;
 use kivact::state::Value;
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{Align, BorderStyle, ColorToken, Justify, pct, style, use_theme};
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
 use kivact_ui_game::{ColorName, Tokens, cut_corner, hud, mono};
 /// Supported prototype shape motifs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -17,7 +17,7 @@ pub(super) enum ShapeKind {
 }
 
 /// A catalog specimen frame. Created by [`specimen`].
-pub(super) struct Specimen<C: kivact::view::Component> {
+pub(super) struct Specimen<C: kivact::view::Element> {
     root: C,
     id: Value<String>,
     title: Value<String>,
@@ -34,7 +34,7 @@ pub(super) fn specimen(
     id: impl IntoText,
     title: impl IntoText,
     content: impl IntoView,
-) -> Specimen<impl kivact::view::Component> {
+) -> Specimen<impl kivact::view::Element> {
     Specimen {
         root: hud(()),
         id: id.into_text_value(),
@@ -44,7 +44,7 @@ pub(super) fn specimen(
         note: None,
     }
 }
-impl<C: kivact::view::Component> Specimen<C> {
+impl<C: kivact::view::Element> Specimen<C> {
     /// A right-aligned machine caption in the header; empty by default.
     pub(super) fn caption(mut self, caption: impl IntoText) -> Self {
         self.caption = caption.into_text_value();
@@ -57,12 +57,12 @@ impl<C: kivact::view::Component> Specimen<C> {
         self
     }
 }
-impl<C: kivact::view::Component> NodeBuilder for Specimen<C> {
+impl<C: kivact::view::Element> Element for Specimen<C> {
     fn node_mut(&mut self) -> &mut Node {
         self.root.node_mut()
     }
 }
-impl<C: kivact::view::Component> IntoView for Specimen<C> {
+impl<C: kivact::view::Element> IntoView for Specimen<C> {
     fn into_view(self) -> View {
         self.root
             .with_node(move |root| {

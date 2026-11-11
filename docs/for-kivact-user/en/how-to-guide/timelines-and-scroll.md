@@ -27,7 +27,7 @@ it drives, add **segments** that move a track to a target, and start it from
 updates while the timeline plays.
 
 ```rust,no_run
-use kivact::motion::{At, Easing, Stagger, Timeline, Transition, timeline};
+use kivact::motion::{At, Stagger, Timeline};
 use kivact::prelude::*;
 
 fn boot_line(tl: Timeline, delay_ms: f64, label: &'static str) -> impl IntoView {
@@ -104,7 +104,7 @@ shape the steps with `.easing(..)`:
 - `StaggerFrom::Index(i)` counts from item `i`.
 
 ```rust,no_run
-use kivact::motion::{Easing, Stagger, StaggerFrom, Transition};
+use kivact::motion::{Stagger, StaggerFrom};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 
@@ -209,7 +209,6 @@ and it never completes, so scrolling is the only thing that moves it. This is
 how a scroll-linked animation is written without a frame loop:
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition, timeline};
 use kivact::prelude::*;
 use kivact::view::scroll_progress;
 
@@ -244,7 +243,6 @@ Give the content a `style().exit(..)` and a `TransitionProp::All` transition so
 there is an exit to wait for. Without one, it is removed at once in every mode.
 
 ```rust,no_run
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::PresenceMode;
@@ -280,7 +278,6 @@ so without one nothing animates. An id is an attribute of the node, not a style
 property.
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition};
 use kivact::prelude::*;
 
 fn tabs() -> impl IntoView {

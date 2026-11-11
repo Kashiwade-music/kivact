@@ -16,6 +16,20 @@ pub enum Renderer {
     Gpu,
 }
 
+/// Why a window's GPU device starts after the window opened.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum GpuStartCause {
+    /// A frame drew a user shader by its fallback on the CPU.
+    Shader,
+    /// The App asked for the device: it reads the window's adapter to share
+    /// GPU textures with it (`HostRequest::DemandGpu`).
+    App,
+    /// CPU frames kept missing half the display period.
+    SlowFrames,
+    /// The device failed and a new one starts (once per session).
+    Restart,
+}
+
 /// A change of the renderer that draws a window's frames, or a note of
 /// what it could not draw.
 ///
@@ -28,6 +42,13 @@ pub enum RendererChange {
         /// The GPU is starting.
         gpu: bool,
     },
+    /// A device the window waited for (`GpuStart::OnDemand`), or a new one
+    /// after a device failure, starts on a worker; frames stay on the CPU
+    /// until it is ready (`renderer=cpu gpu=starting cause=…`).
+    GpuStarting {
+        /// Why it starts.
+        cause: GpuStartCause,
+    },
     /// Frames are drawn on the GPU from now on (`renderer=gpu adapter=…
     /// init_ms=… configure_ms=…`).
     Gpu {
@@ -35,11 +56,11 @@ pub enum RendererChange {
         adapter: String,
         /// Creating the device.
         init: Duration,
-        // xtask-allow(state-fields): passive record - how long the first swapchain took when it was configured in the background, absent otherwise
+        // xtask-allow(state-fields): statistic: how long the first swapchain took when it was configured in the background, shown as `configure_ms`; absent when it was configured on the UI thread; nothing branches on it
         /// Configuring the window's first swapchain, when it was configured
         /// in the background.
         configure: Option<Duration>,
-        // xtask-allow(state-fields): passive record - the adapter that can import shared textures, absent without gpu-interop
+        // xtask-allow(state-fields): independent: the adapter when the device can import shared textures (feature gpu-interop and an adapter that supports it), absent otherwise; it depends on the device alone, while configure depends on where the swapchain was configured, so all pairs occur
         /// The adapter, when the device can import textures an external
         /// render engine shares (feature `gpu-interop`): a new
         /// [`GpuAdapter::generation`] means the images imported before are
@@ -82,6 +103,15 @@ impl fmt::Display for RendererChange {
         match self {
             Self::Start { gpu: true } => f.write_str("renderer=cpu gpu=starting"),
             Self::Start { gpu: false } => f.write_str("renderer=cpu"),
+            Self::GpuStarting { cause } => {
+                let cause = match cause {
+                    GpuStartCause::Shader => "shader",
+                    GpuStartCause::App => "app",
+                    GpuStartCause::SlowFrames => "slow_frames",
+                    GpuStartCause::Restart => "restart",
+                };
+                write!(f, "renderer=cpu gpu=starting cause={cause}")
+            }
             Self::Gpu {
                 adapter,
                 init,

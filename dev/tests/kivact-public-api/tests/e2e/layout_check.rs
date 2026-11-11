@@ -5,7 +5,7 @@
 //! sits above the middle of its row or is cut by a clip is found with where
 //! it was created; an ellipsis, a scrolling axis and an ignored test id are
 //! not violations; a text of white space alone is one line high in any
-//! width; `Element::check_layout` looks at a subtree; and
+//! width; `Locator::check_layout` looks at a subtree; and
 //! `assert_layout` fails listing every violation.
 
 use kivact::prelude::*;
@@ -13,8 +13,9 @@ use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
 use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
 
-static NOTO: &[u8] =
-    include_bytes!("../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP[wght].ttf");
+static NOTO: &[u8] = include_bytes!(
+    "../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"
+);
 
 const GRAY: u32 = 0xdddddd;
 

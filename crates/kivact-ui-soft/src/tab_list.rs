@@ -11,11 +11,9 @@ use kivact::interaction::use_tabs;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
-use kivact::view::IntoViewFn;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ScrollAxes;
-use kivact::view::ViewFn;
 use kivact::view::column;
 use kivact::view::icon;
 use kivact::view::node;
@@ -94,121 +92,7 @@ pub enum TabOverflow {
     Visible,
 }
 
-/// A keyed tab with retained icon and trailing-content slots.
-pub struct Tab<K> {
-    root: Node,
-    key: K,
-    label: Value<String>,
-    icon: Option<View>,
-    selected_icon: Option<View>,
-    label_hidden: Value<bool>,
-    end: Option<View>,
-    panel: Option<NodeRef>,
-}
-
-/// Create a tab identified by `key` and named by `label`.
-pub fn tab<K>(key: K, label: impl IntoText) -> Tab<K> {
-    Tab {
-        root: node(),
-        key,
-        label: label.into_text_value(),
-        icon: None,
-        selected_icon: None,
-        label_hidden: (false).into_value(),
-        end: None,
-        panel: None,
-    }
-}
-
-impl<K> Tab<K> {
-    /// Mount the tab's leading icon once.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-    /// Mount an alternative icon once for the selected tab.
-    pub fn selected_icon(mut self, icon: impl IntoView) -> Self {
-        self.selected_icon = Some(icon.into_view());
-        self
-    }
-    /// Hide the visible label while retaining its accessible name.
-    pub fn label_hidden(mut self, hidden: impl IntoValue<bool>) -> Self {
-        self.label_hidden = hidden.into_value();
-        self
-    }
-    /// Mount trailing tab content once.
-    pub fn end_content(mut self, end: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || end.into_view()));
-        self
-    }
-    /// Associate the tab with an existing panel node reference.
-    pub fn panel(mut self, panel: NodeRef) -> Self {
-        self.panel = Some(panel);
-        self
-    }
-}
-
-impl<K> NodeBuilder for Tab<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-#[derive(Clone)]
-/// A keyed option inside a tab-strip menu.
-pub struct TabMenuOption<K> {
-    key: K,
-    label: Value<String>,
-    icon: Option<ViewFn>,
-    // xtask-allow(state-fields): Immutable caller availability input, not the Menu interaction phase.
-    disabled: bool,
-}
-
-impl<K> TabMenuOption<K> {
-    /// Create a selectable menu option with its destination key and label.
-    pub fn new(key: K, label: impl IntoText) -> Self {
-        Self {
-            key,
-            label: label.into_text_value(),
-            icon: None,
-            disabled: false,
-        }
-    }
-    /// Build this option's icon when its menu content opens.
-    pub fn icon<V: IntoView>(mut self, icon: impl IntoViewFn<V>) -> Self {
-        self.icon = Some(icon.into_view_fn());
-        self
-    }
-    /// Prevent this option from being chosen.
-    pub fn disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
-    }
-}
-
-/// A menu trigger embedded in the tab strip.
-pub struct TabMenu<K> {
-    root: Node,
-    label: Value<String>,
-    options: Vec<TabMenuOption<K>>,
-}
-
-/// Create a labeled tab-strip menu from keyed options in visible order.
-pub fn tab_menu<K>(label: impl IntoText, options: Vec<TabMenuOption<K>>) -> TabMenu<K> {
-    TabMenu {
-        root: node(),
-        label: label.into_text_value(),
-        options,
-    }
-}
-
-impl<K> NodeBuilder for TabMenu<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
+pub use crate::tab_entries::{Tab, TabMenu, TabMenuOption, tab, tab_menu};
 
 /// An ordinary tab or embedded menu in a tab strip.
 pub enum TabEntry<K> {
@@ -251,11 +135,11 @@ pub struct TabList<K: ItemKey> {
 }
 
 /// Create a named strip bound to the currently selected key.
-pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -> TabList<K> {
+pub fn tab_list<K: ItemKey>(label: impl IntoText, value: impl IntoBinding<K>) -> TabList<K> {
     TabList {
         root: node(),
-        label: name.into_text_value(),
-        binding: binding.into_binding(),
+        label: label.into_text_value(),
+        binding: value.into_binding(),
         entries: Vec::new(),
         look: Look {
             size: ControlSize::Medium,
@@ -270,7 +154,7 @@ pub fn tab_list<K: ItemKey>(name: impl IntoText, binding: impl IntoBinding<K>) -
 }
 
 impl<K: ItemKey> TabList<K> {
-    /// Replace the strip entries with tabs and embedded menus in the supplied order.
+    /// Append tabs and embedded menus to the strip, in the supplied order.
     pub fn tabs(mut self, tabs: impl IntoIterator<Item = impl Into<TabEntry<K>>>) -> Self {
         self.entries.extend(tabs.into_iter().map(Into::into));
         self
@@ -322,7 +206,7 @@ impl<K: ItemKey> TabList<K> {
     }
 }
 
-impl<K: ItemKey> NodeBuilder for TabList<K> {
+impl<K: ItemKey> Element for TabList<K> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -446,7 +330,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }
@@ -738,7 +622,7 @@ fn tab_menu_view<K: ItemKey>(
             crate::nav_heading::menu_chevron(open),
             indicator(look, selected, true),
         ));
-    let menu = behavior.show(move || {
+    let menu = behavior.while_open(move || {
         let options = options.clone();
         let rows = for_each(
             behavior.entries(),
@@ -849,10 +733,10 @@ fn focus_track<K: ItemKey>(
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,
-    // xtask-allow(state-fields): Existing canonical TabsApi handle, without copied selection or phase.
+    // xtask-allow(state-fields): option: TabsApi created only when the caller's TabPattern is Tabs; None makes the strip a Navigation landmark without tab semantics.
     behavior: Option<kivact::interaction::TabsApi<K>>,
     focus: FocusTrack,
-    // xtask-allow(state-fields): Fixed overflow presentation input, independent of the shared Tabs and focus cursor.
+    // xtask-allow(state-fields): option: caller TabOverflow sampled once in into_view; false lets the strip overflow without a scrolling viewport.
     scrollable: bool,
 }
 impl<K: ItemKey> TabRuntime<K> {

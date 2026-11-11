@@ -13,8 +13,8 @@ use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::use_theme;
+use kivact_core::view::{Element, Node, node, text};
 use kivact_core::view::{IntoView, Role, View};
-use kivact_core::view::{Node, NodeBuilder, node, text};
 
 use crate::values::ProgressVariant;
 #[derive(Clone, Copy, PartialEq)]
@@ -126,7 +126,7 @@ impl Progress {
     }
 }
 
-impl NodeBuilder for Progress {
+impl Element for Progress {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -474,7 +474,7 @@ fn command_filters_groups_and_chooses_with_the_keyboard() {
 
 /// The box of the panel inside a dialog's overlay: the overlay node itself has
 /// no size when its panel is placed at the window's edge.
-fn panel(dialog: &kivact::test::Element<'_>) -> kivact::geometry::Rect {
+fn panel(dialog: &kivact::test::Locator<'_>) -> kivact::geometry::Rect {
     dialog
         .children()
         .first()

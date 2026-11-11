@@ -7,8 +7,8 @@ use kivact::state::{IntoText, IntoValue};
 use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Direction, Justify, style};
 use kivact::view::icon;
+use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, View, show};
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
 
 /// An activity entry. Created by [`timeline_item`].
 pub struct TimelineItem {
@@ -83,7 +83,7 @@ impl TimelineItem {
         self
     }
 }
-impl NodeBuilder for TimelineItem {
+impl Element for TimelineItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

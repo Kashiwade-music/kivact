@@ -34,3 +34,8 @@ __pycache__/
 python/kivact-devtools/build/
 .kivact/review/
 .kivact/traces/
+
+# Local reports: the KPI reports of dev/bench/run.sh and the state audit of
+# `cargo xtask check --only state-fields --report-audit`.
+/dev/bench/results/
+/dev/xtask/state-audit.md

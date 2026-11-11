@@ -1,7 +1,7 @@
 //! Role: Dense creative-tool controls, panels and editor surfaces.
 //!
 //! The only dependency is the public `kivact` facade. Components expose
-//! their root through `NodeBuilder`, so ordinary `NodeBuilder` modifiers
+//! their root through `Element`, so ordinary `Element` modifiers
 //! apply to official and third-party components in exactly the same way.
 //! Install [`theme`] on an App or with `kivact::style::provide_theme`.
 //!
@@ -62,7 +62,7 @@ pub use crate::editors::node::model::{
     NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest, NodeSocket,
 };
 pub use crate::editors::node::view_state::NodeState;
-pub use crate::editors::shared::model::{Clip, EditorContext, ItemTime, Lane};
+pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
 pub use crate::editors::time::model::{Keyframe, TimeRequest};
 pub use crate::editors::time::view_state::TimeState;
 pub use crate::outliner::view_state::OutlinerState;

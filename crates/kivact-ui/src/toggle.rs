@@ -6,15 +6,15 @@
 //! checked state in a `CheckableState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
 use super::layer::with_base_recipe_style;
-use super::values::{CheckableState, ControlSize};
+use super::values::{CheckControl, CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::view::{CheckedState, Element, Node, node};
 use kivact_core::view::{IntoView, View};
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
-    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $text:expr) => {
+    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $control:ident) => {
         $(#[$doc])*
         pub struct $name {
             root: Node,
@@ -83,7 +83,7 @@ macro_rules! toggle_builder {
             }
         }
 
-        impl NodeBuilder for $name {
+        impl Element for $name {
             fn node_mut(&mut self) -> &mut Node {
                 &mut self.root
             }
@@ -102,17 +102,14 @@ macro_rules! toggle_builder {
                 }
                 let invalid = self.root.accessible_invalid();
                 let size = self.size;
-                let text: Option<fn(Value<bool>) -> Value<String>> = $text;
-                let text = text.map(|text| text(self.state.into_value()));
                 let (control, drag) =
                     $gesture(behavior.control(), self.state, size, self.on_edit);
+                let kind = $control(self.state, drag);
                 let part = control.map_state(move |state: ToggleState| CheckableState {
                     input: state.input,
-                    checked: state.checked,
+                    control: kind(state.checked),
                     size: size.get(),
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
-                    text,
-                    switch_drag: drag.and_then(|drag| drag.get()),
                 });
                 let check_state = part.state();
                 let indicator = super::toggle_parts::$parts(&self.variants, check_state);
@@ -141,7 +138,7 @@ toggle_builder!(
     checkbox_recipe,
     checkbox,
     no_gesture,
-    None
+    checkbox_control
 );
 
 toggle_builder!(
@@ -155,7 +152,7 @@ toggle_builder!(
     switch_recipe,
     switch,
     switch_gesture,
-    Some(switch_text)
+    switch_control
 );
 
 use super::switch_drag::switch as switch_gesture;
@@ -193,6 +190,29 @@ fn switch_text(on: Value<bool>) -> Value<String> {
         kivact_core::i18n::message("switch.off", "OFF"),
     );
     kivact_core::state::memo(move || if on.get() { yes.get() } else { no.get() })
+}
+
+/// A check box's control: its checked state as the behavior reports it,
+/// mixed included.
+fn checkbox_control(
+    _: Binding<bool>,
+    _: super::switch_drag::Visual,
+) -> impl Fn(CheckedState) -> CheckControl + 'static {
+    CheckControl::CheckBox
+}
+
+/// A switch's control: on or off, its localized word for the state (made at
+/// setup) and the live visual of its opted-in drag.
+fn switch_control(
+    state: Binding<bool>,
+    drag: super::switch_drag::Visual,
+) -> impl Fn(CheckedState) -> CheckControl + 'static {
+    let text = switch_text(state.into_value());
+    move |checked| CheckControl::Switch {
+        on: checked.is_checked(),
+        text,
+        drag: drag.and_then(|drag| drag.get()),
+    }
 }
 
 impl Checkbox {

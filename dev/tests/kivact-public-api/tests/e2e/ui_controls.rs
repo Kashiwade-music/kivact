@@ -86,6 +86,35 @@ fn a_radio_group_chooses_by_keys_pointer_and_invoke_each_choice_one_edit() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
+#[test]
+fn an_invalid_radio_group_reports_invalid_to_its_option_recipes() {
+    let (screen, ()) = mount_with(options(), move || {
+        let invalid = signal(true);
+        let view = column((
+            radio_group("Size", sizes(), signal(None::<&'static str>))
+                .invalid(move || invalid.get())
+                .item(|item, state| {
+                    text(move || {
+                        let mark = if state.get().invalid {
+                            "invalid"
+                        } else {
+                            "valid"
+                        };
+                        format!("{} {mark}", item.get().label())
+                    })
+                }),
+            button("Fix").on_press(move || invalid.set(false)),
+        ));
+        ((), view)
+    });
+    screen.find_by_text("Small invalid");
+    screen.find_by_text("Large invalid");
+    screen.get_by_role(Role::Button, "Fix").click();
+    screen.find_by_text("Small valid");
+    assert!(screen.query_by_text("Small invalid").is_none());
+    assert!(screen.errors().is_empty());
+}
+
 // ---------------------------------------------------------------------------
 // Slider.
 

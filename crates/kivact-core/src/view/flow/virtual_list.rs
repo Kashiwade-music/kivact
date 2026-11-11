@@ -39,7 +39,7 @@ use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Overflow, Point, Posit
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
-use crate::view::element_data::{Content, Node, NodeBuilder};
+use crate::view::element_data::{Content, Element, Node};
 use crate::view::flow::list::{ListInput, ListSource, RowFn, key_hash, lis, source_row};
 use crate::view::mount::mount_host_with;
 use crate::view::state::ViewState;
@@ -68,7 +68,7 @@ pub struct VirtualList<T: 'static, K: 'static> {
     overscan: f64,
     scroll_to: InputProp<Option<K>>,
     keep_focused: bool,
-    /// Holds the modifiers (`NodeBuilder`); its content and children are unused.
+    /// Holds the modifiers (`Element`); its content and children are unused.
     root: Node,
     at: &'static Location<'static>,
 }
@@ -163,7 +163,7 @@ impl<T: 'static, K: 'static> VirtualList<T, K> {
     }
 }
 
-impl<T: 'static, K: 'static> NodeBuilder for VirtualList<T, K> {
+impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> Element for VirtualList<T, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -298,7 +298,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 let weak = cx.weak();
                 let st = state.clone();
                 cx.effect(EffectKind::Internal, at, move || {
-                    let node = keys.node.get();
+                    let node = keys.focus.get().map(|key| key.target);
                     let Some(rt) = weak.upgrade() else { return };
                     let held = node.and_then(|node| focused_row(&rt, spacer, node.node, &st));
                     st.borrow_mut().held.set(held);
@@ -530,10 +530,8 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                         });
                     }
                 }
-                let fragment = cx.fragment();
                 let content = mount_in(rt, owner, window, || row.call((k.clone(), sig)));
-                cx.append(fragment, content);
-                cx.append(wrapper, fragment);
+                cx.append(wrapper, content);
                 order.push(wrapper);
                 fresh.push(true);
                 state.borrow_mut().rows.insert(

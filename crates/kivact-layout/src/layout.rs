@@ -31,11 +31,16 @@ impl Layout {
             return;
         }
         *current = scale;
+        if scale.is_some() {
+            self.columns.values.scaled.insert(slot + 1);
+        } else {
+            self.columns.values.scaled.remove(&(slot + 1));
+        }
         // A changed scale changes the node's output and, through it, its
         // ancestors' cached outputs.
         self.columns
             .clear_caches_through(tree, &mut self.state, slot);
-        self.state.changed = true;
+        self.state.mark_dirty();
     }
     /// Rebuild one live node style from its authoritative properties.
     pub fn rebuild_style<T: LayoutTree + ?Sized>(&mut self, tree: &T, id: NodeId) {
@@ -64,11 +69,15 @@ impl Layout {
         available: Size,
         measure: &mut dyn LeafMeasurer,
     ) -> bool {
-        if !self.state.take_changed() || tree.root().is_none() {
+        if tree.root().is_none() {
+            // Nothing to compute: keep the pending work for the first root.
             return false;
         }
+        let Some(relayout) = self.state.take_changed() else {
+            return false;
+        };
         self.columns
-            .compute(tree, &mut self.state, available, measure);
+            .compute(tree, &mut self.state, relayout, available, measure);
         true
     }
     /// Compute one overlay with an optional anchor placement limit.
@@ -80,8 +89,11 @@ impl Layout {
         limit: Option<Size>,
         measure: &mut dyn LeafMeasurer,
     ) {
+        self.columns.next_stamp();
         self.columns
             .compute_overlay(tree, &self.state, id, available, limit, measure);
+        self.columns
+            .finish_rounding_at(tree, &self.state, id, measure);
     }
     /// Drain rounded geometry observations, discarding unread entries on drop.
     pub fn drain_geometry_changes(&mut self) -> GeometryChanges<'_> {
@@ -116,3 +128,6 @@ impl Layout {
         self.columns.compare(&other.columns, tree)
     }
 }
+
+#[cfg(test)]
+mod tests;

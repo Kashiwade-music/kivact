@@ -14,6 +14,8 @@ use kivact_style::internal::ForcedStates;
 use kivact_types::cell::{LocalMailbox, ReportOnce, Sent};
 use kivact_types::{FocusTarget, NodeId, RequestId, Revision, WindowId};
 
+use super::inspect_mode;
+
 /// The DevTools state of an App: off, or the running agent and its data.
 pub(crate) enum DevtoolsState {
     Off,
@@ -59,34 +61,38 @@ pub(crate) struct SessionData {
     pub(crate) turns: RefCell<VecDeque<p::TurnGraph>>,
     pub(crate) frames: RefCell<BTreeMap<WindowId, VecDeque<p::FrameInfo>>>,
     pub(crate) update_counts: RefCell<HashMap<NodeId, u32>>,
-    // xtask-allow(state-fields): S-8 ID - style override id allocator.
+    // xtask-allow(state-fields): identity: allocates style override ids
     pub(crate) next_override: Cell<u64>,
-    // xtask-allow(state-fields): independent fact - the node the DevTools user highlights (with the layout overlay choice).
-    pub(crate) highlight: Cell<Option<Highlight>>,
-    // xtask-allow(state-fields): independent fact - the window in pick mode; the core owns it and the engine holds an applied copy.
-    pub(crate) pick: Cell<Option<WindowId>>,
+    pub(crate) inspector: Cell<inspect_mode::Inspector>,
     pub(crate) overlays: RefCell<p::OverlaySettings>,
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
-    // xtask-allow(state-fields): S-8 ID - snapshot id allocator.
+    // xtask-allow(state-fields): identity: allocates snapshot ids
     pub(crate) next_snapshot: Cell<u64>,
     pub(crate) sent_tree: RefCell<HashMap<NodeId, p::ElementInfo>>,
+    // xtask-allow(state-fields): cache: the last windows report sent; the whole report is compared with the next one
     pub(crate) sent_windows: RefCell<Sent<Vec<p::WindowInfo>>>,
+    // xtask-allow(state-fields): cache: the seq of the last reported error already notified (S-9 `Sent`); the next turn notifies only entries of `rt.reported()` with a larger seq
     pub(crate) errors_sent: RefCell<Sent<u64>>,
     pub(crate) open_failed: ReportOnce,
 }
 
-#[derive(Clone, Copy)]
-pub(crate) struct Highlight {
-    pub(crate) node: NodeId,
-    pub(crate) layout: bool,
+impl SessionData {
+    /// Leave pick mode; the node the pointer last hovered stays the
+    /// highlight, as it did before pick mode began.
+    pub(crate) fn end_pick(&self) {
+        let highlight = self.inspector.get().highlight();
+        self.inspector
+            .set(inspect_mode::Inspector::Idle { highlight });
+    }
 }
 
 pub(crate) struct PropWrite {
     pub(crate) node: NodeId,
     pub(crate) prop: Prop,
-    // xtask-allow(state-fields): passive record - the effect that wrote the prop; known only for effect-driven writes
+    // xtask-allow(state-fields): statistic: a diagnostic record of the effect that wrote the prop; known only for effect-driven writes
     pub(crate) effect: Option<EffectId>,
+    // xtask-allow(state-fields): independent: whether this one write changed the node's value (the engine's comparison); a write from an effect and a direct write can each change the value or leave it equal, and DevTools shows all four
     pub(crate) changed: bool,
 }
 
@@ -203,8 +209,7 @@ impl DevtoolsState {
                 frames: RefCell::new(BTreeMap::new()),
                 update_counts: RefCell::new(HashMap::new()),
                 next_override: Cell::new(0),
-                highlight: Cell::new(None),
-                pick: Cell::new(None),
+                inspector: Cell::new(inspect_mode::Inspector::Idle { highlight: None }),
                 overlays: RefCell::new(overlays_off()),
                 sent_overlays: RefCell::new(BTreeMap::new()),
                 snapshots: RefCell::new(VecDeque::new()),

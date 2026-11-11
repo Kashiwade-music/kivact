@@ -8,10 +8,10 @@ use kivact_core::motion::Transition;
 use kivact_core::state::{Binding, Value, signal};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{TransitionProp, style};
+use kivact_core::view::{Element, Node, column, node, text};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, column, node, text};
 use kivact_interaction::{Selection, TreeApi, TreeItemState, TreeNode, TreeRow, use_tree};
 use std::rc::Rc;
 
@@ -35,12 +35,13 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn tree<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
-    nodes: impl IntoValue<Vec<TreeNode<K>>>,
+    items: impl IntoValue<Vec<TreeNode<K>>>,
+    selected: impl kivact_interaction::IntoSelection<K>,
 ) -> Tree<K> {
     Tree {
         root: node().name(label),
-        nodes: nodes.into_value(),
-        selection: kivact_interaction::IntoSelection::into_selection(signal(None)),
+        nodes: items.into_value(),
+        selection: kivact_interaction::IntoSelection::into_selection(selected),
         expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
         item: None,
         marker_content: None,
@@ -60,11 +61,6 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     /// Reveal branches with retained presence, as in `tree_rows`.
     pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
         self.reveal = Some((gap.into(), transition));
-        self
-    }
-    /// Bind the selected keys.
-    pub fn selection(mut self, selection: impl kivact_interaction::IntoSelection<K>) -> Self {
-        self.selection = selection.into_selection();
         self
     }
     /// Bind expanded branches.
@@ -105,7 +101,7 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
     }
 }
 
-impl<K: kivact_core::state::ItemKey> NodeBuilder for Tree<K> {
+impl<K: kivact_core::state::ItemKey> Element for Tree<K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
@@ -275,7 +271,7 @@ fn row_marker<K: kivact_core::state::ItemKey>(
                 "Toggle children",
             ))
             .expanded(move || state.get().branch.is_expanded())
-            .disabled(move || state.get().input.disabled)
+            .disabled(move || state.get().input.is_disabled())
             .on_press(move || behavior.toggle(key.clone()))
             .child(match marker_content {
                 Some(content) => content.call(recipe_state.into_value()),

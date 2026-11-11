@@ -11,9 +11,9 @@ pub struct DisclosureGroupPosition {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct DisclosureRecipeState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): passive record - open
+    // xtask-allow(state-fields): independent: copied from the attached part's DisclosureState::open by DisclosureRecipeState::from_part; standalone panels and accordion members (group Some) both open and close
     pub open: bool,
-    // xtask-allow(state-fields): passive record - group
+    // xtask-allow(state-fields): option: the panel's place in an accordion; absent for a standalone disclosure
     pub group: Option<DisclosureGroupPosition>,
 }
 impl DisclosureRecipeState {

@@ -145,14 +145,13 @@ enum Attempt {
 }
 
 /// The adapter of `backends` the device is made on: the one the
-/// application named, when it is there (feature `gpu-interop`), else the
-/// one its power preference picks.
+/// application named, when it is there, else the one its power preference
+/// picks.
 fn adapter(
     instance: &wgpu::Instance,
     backends: wgpu::Backends,
     env: &GpuEnv,
 ) -> Result<wgpu::Adapter, Attempt> {
-    #[cfg(feature = "gpu-interop")]
     if let Some(wanted) = env.preference.adapter {
         let named = pollster::block_on(instance.enumerate_adapters(backends))
             .into_iter()
@@ -188,7 +187,7 @@ fn open_device(
             .interop
             .then(|| kivact_gpu_share::device::identity(adapter))
             .flatten()
-            .map(|identity| gpu_adapter(adapter, identity, next_generation()));
+            .map(|ids| gpu_adapter(adapter, ids, next_generation()));
         Ok((opened.device, opened.queue, interop))
     }
     #[cfg(not(feature = "gpu-interop"))]
@@ -199,19 +198,15 @@ fn open_device(
     }
 }
 
-/// The report of `adapter`, whose identity is `identity`.
-#[cfg(feature = "gpu-interop")]
+/// The report of `adapter`, whose identity is `ids`.
 fn gpu_adapter(
     adapter: &wgpu::Adapter,
-    identity: kivact_gpu_share::Identity,
+    ids: kivact_types::AdapterIds,
     generation: u64,
 ) -> kivact_types::GpuAdapter {
     kivact_types::GpuAdapter {
-        backend: identity.backend,
+        ids,
         name: adapter.get_info().name,
-        luid: identity.luid,
-        device_uuid: identity.device_uuid,
-        driver_uuid: identity.driver_uuid,
         generation,
     }
 }

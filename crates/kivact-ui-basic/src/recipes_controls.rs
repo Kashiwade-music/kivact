@@ -64,7 +64,7 @@ fn radio_item(t: &Theme, _: &kivact::ui::Look<CheckableState>) -> Style {
 /// inside the focused item, so the recipe reads the item's state.
 fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckableState>) -> Style {
     let p = t.ext::<Tokens>();
-    let checked = s.checked.is_checked();
+    let checked = s.is_checked();
     let base = style()
         .position(Position::Relative)
         .size(16, 16)
@@ -82,7 +82,7 @@ fn radio_indicator(t: &Theme, s: &kivact::ui::Look<CheckableState>) -> Style {
         } else {
             Color::TRANSPARENT
         });
-    if s.input.focus_visible {
+    if s.input.is_focus_visible() {
         base.merge(&wide_focus_ring(&p))
     } else {
         base
@@ -333,7 +333,7 @@ fn splitter_handle(t: &Theme, s: &kivact::ui::Look<AxisState>) -> Style {
     let p = t.ext::<Tokens>();
     // Panes in a row are split by a vertical line.
     let stacked = s.orientation == Orientation::Vertical;
-    let line = if s.input.focus_visible {
+    let line = if s.input.is_focus_visible() {
         p.ring
     } else {
         p.border
@@ -478,7 +478,7 @@ fn disclosure_trigger(t: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
         .color(p.foreground);
     // `hover:underline`: a text decoration, which a state style cannot
     // change, so it follows the trigger's state.
-    let s = if state.input.hovered && !state.input.disabled {
+    let s = if state.input.is_hovered() && !state.input.is_disabled() {
         s.text_decoration(TextDecorationLine::UNDERLINE)
     } else {
         s

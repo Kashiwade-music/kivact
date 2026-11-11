@@ -5,8 +5,8 @@ use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
 use kivact::state::IntoBinding;
+use kivact::view::Element;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::column;
 use kivact::view::icon;
 use kivact::view::image;
@@ -70,11 +70,11 @@ impl LightboxMedia {
 pub struct Lightbox {
     open: Binding<bool>,
     media: Value<Vec<LightboxMedia>>,
-    // xtask-allow(state-fields): Optional external active-index binding; gallery lifecycle remains in LightboxState.
+    // xtask-allow(state-fields): option: the caller's index binding from Lightbox::index; None keeps the gallery's own index from 0
     index: Option<Binding<usize>>,
-    // xtask-allow(state-fields): Fixed zoom capability chosen during setup.
+    // xtask-allow(state-fields): option: fixed at setup; absent means zoom is disabled
     zoom: bool,
-    // xtask-allow(state-fields): Optional external zoom-view binding supplied by the shared gallery handle.
+    // xtask-allow(state-fields): option: absent keeps the gallery's own fit and zoom view; LightboxHandle::view passes a binding projected from its state
     view: Option<Binding<LightboxView>>,
 }
 
@@ -134,16 +134,16 @@ pub fn use_lightbox(media: impl IntoValue<Vec<LightboxMedia>>) -> LightboxHandle
 }
 
 impl LightboxHandle {
-    /// Open the zero-based gallery entry in fit-to-view mode.
-    pub fn open(self, index: usize) {
+    /// Show the zero-based gallery entry in fit-to-view mode.
+    pub fn show(self, index: usize) {
         self.state.set(LightboxState::Open {
             index,
             view: LightboxView::Fit,
         });
     }
 
-    /// Close this gallery.
-    pub fn close(self) {
+    /// Hide this gallery.
+    pub fn hide(self) {
         self.state.set(LightboxState::Closed);
     }
 
@@ -158,9 +158,9 @@ impl LightboxHandle {
             move || matches!(self.state.get(), LightboxState::Open { .. }),
             move |open| {
                 if open {
-                    self.open(0);
+                    self.show(0);
                 } else {
-                    self.close();
+                    self.hide();
                 }
             },
         );
@@ -196,7 +196,7 @@ impl LightboxHandle {
 
     /// Return an activation callback that opens the given zero-based entry.
     pub fn trigger(self, index: usize) -> impl Fn() + 'static {
-        move || self.open(index)
+        move || self.show(index)
     }
 }
 

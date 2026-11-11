@@ -1,6 +1,6 @@
 //! Role: Render nested sidebar items and section rows.
 
-use super::context::{SideNavCx, nav_cx};
+use super::context::{NavSurface, SideNavCx, nav_cx};
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
@@ -32,10 +32,10 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Placement;
 use kivact::view::Role;
 use kivact::view::View;
@@ -123,12 +123,12 @@ impl SideNavItem {
     }
     /// Mount trailing row content once; hide it in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || content.into_view()));
+        self.end = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Mount additional row action controls once; hide them in the collapsed rail.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(kivact::view::component(move || actions.into_view()));
+        self.actions = Some(kivact::view::scope(move || actions.into_view()));
         self
     }
     /// Build nested entries on expansion or when the collapsed-rail flyout opens.
@@ -149,7 +149,7 @@ impl SideNavItem {
     }
 }
 
-impl NodeBuilder for SideNavItem {
+impl Element for SideNavItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -175,7 +175,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let context = ItemContext::new(
                 label,
                 selected,
@@ -320,7 +320,7 @@ impl SideNavSection {
     }
     /// Mount content once at the logical end of the section header.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::component(move || content.into_view()));
+        self.end = Some(kivact::view::scope(move || content.into_view()));
         self
     }
     /// Hide the section header while keeping its entries available.
@@ -330,7 +330,7 @@ impl SideNavSection {
     }
 }
 
-impl NodeBuilder for SideNavSection {
+impl Element for SideNavSection {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -347,7 +347,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        kivact::view::component(move || {
+        kivact::view::scope(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()
@@ -399,13 +399,13 @@ impl IntoView for SideNavSection {
 kivact::state::constant_value!(ItemCollapse);
 
 struct ItemSlots {
-    // xtask-allow(state-fields): Independent retained leading construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller icon from SideNavItem::icon, mounted once; absent means the row has no leading icon.
     leading: Option<View>,
-    // xtask-allow(state-fields): Independent retained selected icon construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller icon from SideNavItem::selected_icon, mounted once; absent keeps the leading icon while selected.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): Independent retained end construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller content from SideNavItem::end_content, mounted once; absent means no trailing row content.
     end: Option<View>,
-    // xtask-allow(state-fields): Independent retained actions construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller controls from SideNavItem::actions, mounted once; absent means no row action controls.
     actions: Option<View>,
     children: Option<ViewFn>,
 }
@@ -428,10 +428,10 @@ enum ItemBranch {
     Leaf,
     /// A children factory exists.
     Parent {
-        // xtask-allow(state-fields): independent fact - the collapse owner of the item, absent for ItemCollapse::AlwaysOpen
+        // xtask-allow(state-fields): independent: whether the item has its own collapse owner (AlwaysOpen has none); independent of the shell's flyout
         /// `None` for `ItemCollapse::AlwaysOpen`.
         expansion: Option<ItemExpansion>,
-        // xtask-allow(state-fields): independent fact - the rail flyout panel, present only inside a collapsible sidebar
+        // xtask-allow(state-fields): independent: whether the shell is collapsible (a fixed shell has no rail flyout); independent of the item's collapse owner
         /// The rail flyout panel; present only inside a collapsible sidebar.
         flyout: Option<crate::navigation_session::NavPanel>,
     },
@@ -515,7 +515,7 @@ impl ItemContext {
                     disclosure: use_disclosure(open).disabled(disabled),
                 }
             });
-            let flyout = cx.collapsed.is_some().then(|| {
+            let flyout = cx.collapsed().is_some().then(|| {
                 crate::navigation_session::NavPanel::new(
                     move || cx.rail() && !disabled.get(),
                     Delays {
@@ -713,7 +713,7 @@ impl ItemContext {
         } else {
             primary
         };
-        if !has_children && cx.collapsed.is_some() {
+        if !has_children && cx.collapsed().is_some() {
             tooltip(label).placement(Placement::End).attach(primary)
         } else {
             primary.into_view()
@@ -735,11 +735,11 @@ impl ItemContext {
             panel.toggle();
         } else if let Some(action) = action {
             action.call(());
-            if let Some(popup) = cx.popup {
+            if let Some(popup) = cx.popup() {
                 popup.set(false);
             }
             if mode == ShellNavMode::Drawer {
-                mobile.close();
+                mobile.hide();
             }
         } else if popup_panel.is_some()
             && let Some(open) = open
@@ -807,7 +807,7 @@ impl ItemContext {
             show(behavior.is_open(), move || {
                 let children = children.clone();
                 let cx = SideNavCx {
-                    popup: Some(open),
+                    surface: NavSurface::Flyout { open },
                     ..SideNavCx::default()
                 };
                 let surface = nav_panel

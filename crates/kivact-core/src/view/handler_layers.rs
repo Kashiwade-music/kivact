@@ -55,14 +55,13 @@ use kivact_runtime::Handler;
 /// The handlers of one event kind, ordered by layer. Within a layer the
 /// order is the delivery order. Cloning shares the list.
 pub(crate) struct EventHandlers<E> {
-    entries: Rc<Vec<(Layer, Handler<E>)>>,
+    /// `None`: no handler (nothing allocated).
+    entries: Option<Rc<Vec<(Layer, Handler<E>)>>>,
 }
 
 impl<E> Default for EventHandlers<E> {
     fn default() -> Self {
-        Self {
-            entries: Rc::default(),
-        }
+        Self { entries: None }
     }
 }
 
@@ -74,26 +73,36 @@ impl<E> Clone for EventHandlers<E> {
     }
 }
 
+impl<E> EventHandlers<E> {
+    fn list(&self) -> &[(Layer, Handler<E>)] {
+        self.entries.as_deref().map_or(&[], Vec::as_slice)
+    }
+}
+
 impl<E: 'static> EventHandlers<E> {
+    fn list_mut(&mut self) -> &mut Vec<(Layer, Handler<E>)> {
+        Rc::make_mut(self.entries.get_or_insert_with(Rc::default))
+    }
+
     /// Add `handler` at the end of its layer.
     fn register(&mut self, layer: Layer, handler: Handler<E>) {
         let at = self
-            .entries
+            .list()
             .partition_point(|(current, _)| *current <= layer);
-        Rc::make_mut(&mut self.entries).insert(at, (layer, handler));
+        self.list_mut().insert(at, (layer, handler));
     }
 
     /// Merge a later caller segment without reclassifying handler layers.
     pub(crate) fn merge_caller(&mut self, later: Self) {
-        for (layer, handler) in later.entries.iter().rev() {
+        for (layer, handler) in later.list().iter().rev() {
             if *layer == Layer::Caller {
                 let at = self
-                    .entries
+                    .list()
                     .partition_point(|(current, _)| *current < *layer);
-                Rc::make_mut(&mut self.entries).insert(at, (*layer, handler.clone()));
+                self.list_mut().insert(at, (*layer, handler.clone()));
             }
         }
-        for (layer, handler) in later.entries.iter() {
+        for (layer, handler) in later.list().iter() {
             if *layer != Layer::Caller {
                 self.register(*layer, handler.clone());
             }
@@ -113,14 +122,15 @@ impl<E: 'static> EventHandlers<E> {
     /// `on_*`: before the callers already registered.
     pub(crate) fn caller(&mut self, f: impl Fn(E) -> Result<Handled> + 'static) {
         let at = self
-            .entries
+            .list()
             .partition_point(|(current, _)| *current < Layer::Caller);
-        Rc::make_mut(&mut self.entries).insert(at, (Layer::Caller, Handler::from_fn(f)));
+        self.list_mut()
+            .insert(at, (Layer::Caller, Handler::from_fn(f)));
     }
 
     /// A kind with one caller handler (`on_file`): a later one replaces it.
     pub(crate) fn replace_caller(&mut self, f: impl Fn(E) -> Result<Handled> + 'static) {
-        Rc::make_mut(&mut self.entries).retain(|(layer, _)| *layer != Layer::Caller);
+        self.list_mut().retain(|(layer, _)| *layer != Layer::Caller);
         self.caller(f);
     }
 
@@ -132,7 +142,7 @@ impl<E: 'static> EventHandlers<E> {
     /// A list whose only entry is the router a mounted node installs.
     pub(crate) fn router(f: impl Fn(E) -> Result<Handled> + 'static) -> Self {
         Self {
-            entries: Rc::new(vec![(Layer::Caller, Handler::from_fn(f))]),
+            entries: Some(Rc::new(vec![(Layer::Caller, Handler::from_fn(f))])),
         }
     }
 
@@ -142,13 +152,13 @@ impl<E: 'static> EventHandlers<E> {
     /// also become region defaults.
     pub(crate) fn absorb_part(&mut self, part: Self, region_events: bool) {
         if region_events {
-            for (layer, handler) in part.entries.iter() {
+            for (layer, handler) in part.list().iter() {
                 if *layer == Layer::Caller {
                     self.register(Layer::RegionDefault, handler.clone());
                 }
             }
         }
-        for (layer, handler) in part.entries.iter() {
+        for (layer, handler) in part.list().iter() {
             let layer = match layer {
                 Layer::Observer => Layer::Observer,
                 Layer::Caller | Layer::NodeDefault | Layer::PartDefault => Layer::PartDefault,
@@ -160,19 +170,19 @@ impl<E: 'static> EventHandlers<E> {
 
     /// The entries of `layers` only.
     pub(crate) fn only(&self, layers: &[Layer]) -> Self {
+        let entries: Vec<_> = self
+            .list()
+            .iter()
+            .filter(|(layer, _)| layers.contains(layer))
+            .cloned()
+            .collect();
         Self {
-            entries: Rc::new(
-                self.entries
-                    .iter()
-                    .filter(|(layer, _)| layers.contains(layer))
-                    .cloned()
-                    .collect(),
-            ),
+            entries: (!entries.is_empty()).then(|| Rc::new(entries)),
         }
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.entries.is_empty()
+        self.list().is_empty()
     }
 
     /// A copy for dispatch, if anything is registered.
@@ -231,7 +241,7 @@ pub(crate) fn deliver<E: Clone + 'static>(sources: &[Source<'_, E>], event: &E) 
             if !source.layers.contains(&layer) || !(source.admit)() {
                 continue;
             }
-            for (current, handler) in source.list.entries.iter() {
+            for (current, handler) in source.list.list().iter() {
                 if *current != layer {
                     continue;
                 }

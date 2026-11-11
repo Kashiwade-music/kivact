@@ -7,12 +7,12 @@
 //! routing, focus through the accessibility `Focus` action, touch and pen
 //! contacts (`contact_*`, `tap`) as the platform's contacts.
 //!
-//! Element actions check actionability first, like Playwright: a click
+//! Locator actions check actionability first, like Playwright: a click
 //! lands at the centre of the element's box only if the element is
 //! mounted, shown, has a size, is enabled, lies in the window and is what
 //! the hit test finds there (not covered by another node or a modal's
 //! backdrop); otherwise the test fails with the reason.
-//! [`Element::force_click`] and the screen's pointer methods skip the
+//! [`Locator::force_click`] and the screen's pointer methods skip the
 //! checks (a click that should do nothing, a press outside a popup).
 //!
 //! - `click` moves the pointer to the centre of the element's box (the
@@ -27,10 +27,10 @@
 //!   the range an IME takes back (`ime`). `Screen::ime_text` is what the
 //!   host answers the IME, `Screen::ime_cursor_area` where the window puts
 //!   the candidate window, `Screen::cursor` the mouse cursor shown.
-//! - `Element::scroll` moves to the element's centre and wheels;
+//! - `Locator::scroll` moves to the element's centre and wheels;
 //!   `Screen::scroll` wheels at the current pointer (unchecked). Tab and
 //!   modifiers are keys with modifiers.
-//! - Touch and pen: `Element::tap` and `tap_with(PointerKind)` check
+//! - Touch and pen: `Locator::tap` and `tap_with(PointerKind)` check
 //!   actionability; `Screen::contact_down(kind, x, y)`,
 //!   `contact_move(contact, x, y)`, `contact_up(contact)` and
 //!   `contact_cancel(contact)` name a contact by the [`Contact`] that
@@ -47,7 +47,7 @@ use kivact_engine::testing::{PointerId, PointerPhase, ShellEvent};
 use kivact_types::PointerSample;
 use kivact_types::{self as p, NodeId};
 
-use super::model::{Contact, Element, Screen};
+use super::model::{Contact, Locator, Screen};
 use kivact_core::view::{A11yAction, Key, Role};
 use kivact_core::view::{ButtonPress, Modifiers, MouseButton, PointerKind};
 use kivact_style::draw::{Point, Rect};
@@ -189,7 +189,7 @@ impl Screen {
     /// Wheel at the current pointer position (positive `dy` scrolls
     /// content forward, down), on whatever the hit test finds there (no
     /// actionability check). Move the pointer first with
-    /// [`Self::mouse_move`]; [`Element::scroll`] moves it to an element.
+    /// [`Self::mouse_move`]; [`Locator::scroll`] moves it to an element.
     pub fn scroll(&self, dx: f64, dy: f64) {
         self.log(format!("scroll ({dx}, {dy}) at the pointer"));
         self.send(ShellEvent::Wheel(p::WheelInput {
@@ -256,10 +256,17 @@ impl Screen {
         }
         let id = self.app.last_contact.get() + 1;
         self.app.last_contact.set(id);
+        let primary = !self
+            .app
+            .contacts
+            .borrow()
+            .iter()
+            .any(|(c, _)| c.window == self.window && c.kind == kind);
         let contact = Contact {
             id,
             window: self.window,
             kind,
+            primary,
         };
         let at = Point::new(x, y);
         self.app.contacts.borrow_mut().push((contact, at));
@@ -374,7 +381,7 @@ impl Screen {
                 },
                 time_ns: 0,
                 modifiers,
-                is_primary: true,
+                is_primary: contact.primary,
             },
         );
     }
@@ -415,7 +422,7 @@ impl Screen {
     }
 }
 
-impl<'a> Element<'a> {
+impl<'a> Locator<'a> {
     /// The element's box (the region's for a region) in window
     /// coordinates, if it is mounted on the host.
     pub(super) fn host_rect(&self) -> Option<p::Rect> {

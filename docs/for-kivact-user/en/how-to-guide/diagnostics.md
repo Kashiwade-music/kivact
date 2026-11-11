@@ -114,7 +114,6 @@ last 256 errors. The app does not stop.
 ```rust,test_harness
 use kivact::ErrorKind;
 use kivact::prelude::*;
-use kivact::view::error_boundary;
 
 fn export() -> Result<(), UiError> {
     // `?` converts any `std::error::Error` into `UiError`.
@@ -314,7 +313,7 @@ To see the same causes in a running app, record with DevTools and read the
 Updates panel; see
 [See why the screen updated](devtools.md#see-why-the-screen-updated).
 
-In a test you do not need a `NodeRef`: `Element::why()` does the same for any
+In a test you do not need a `NodeRef`: `Locator::why()` does the same for any
 element you found.
 
 ```rust,test_harness

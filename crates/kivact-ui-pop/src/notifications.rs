@@ -11,8 +11,8 @@ use kivact::state::IntoValue;
 use kivact::state::signal;
 use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Justify, Position, pct, style};
+use kivact::view::{Element, Node, column, icon, node, row, text};
 use kivact::view::{IntoView, Placement, Role, for_each, overlay, show};
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 
 /// One notification; its identifier survives read-state updates.
 #[derive(Clone, Debug, PartialEq)]
@@ -47,14 +47,14 @@ impl NotificationItem {
 
 /// Anchored notification history. Marking read calls the owner and keeps it open.
 /// The trigger dot and row backgrounds derive from the same reactive read state.
-pub struct NotificationMenu<V: IntoView + NodeBuilder> {
+pub struct NotificationMenu<V: IntoView + Element> {
     trigger: V,
     root: Node,
     items: kivact::state::Value<Vec<NotificationItem>>,
     mark_read: kivact::state::Callback<()>,
 }
 #[track_caller]
-pub fn notification_menu<V: IntoView + NodeBuilder>(
+pub fn notification_menu<V: IntoView + Element>(
     trigger: V,
     items: impl IntoValue<Vec<NotificationItem>>,
 ) -> NotificationMenu<V> {
@@ -65,19 +65,19 @@ pub fn notification_menu<V: IntoView + NodeBuilder>(
         mark_read: kivact::state::callback(|_| ()),
     }
 }
-impl<V: IntoView + NodeBuilder> NotificationMenu<V> {
+impl<V: IntoView + Element> NotificationMenu<V> {
     pub fn on_mark_read(mut self, mark_read: impl Into<kivact::state::Callback<()>>) -> Self {
         self.mark_read = mark_read.into();
         self
     }
 }
-impl<V: IntoView + NodeBuilder> NodeBuilder for NotificationMenu<V> {
+impl<V: IntoView + Element> Element for NotificationMenu<V> {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }
 }
-impl<V: IntoView + NodeBuilder> IntoView for NotificationMenu<V> {
+impl<V: IntoView + Element> IntoView for NotificationMenu<V> {
     fn into_view(self) -> kivact::view::View {
         let items = self.items;
         let trigger = self.trigger;

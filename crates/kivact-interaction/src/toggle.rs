@@ -29,9 +29,9 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
-    // xtask-allow(state-fields): independent fact - the observation of the attached part, absent until it attaches
+    // xtask-allow(state-fields): independent: the observation of the attached part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
-    // xtask-allow(state-fields): builder option - the disabled value a setter supplied, absent until set
+    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -39,7 +39,7 @@ pub struct ButtonApi {
 ///
 /// ```no_run
 /// use kivact_core::view::node;
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact_interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
@@ -66,8 +66,10 @@ impl ButtonApi {
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
+    /// Call it before [`control`](Self::control).
     #[track_caller]
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
+        kivact_core::custom::require_setup("ButtonApi::disabled");
         let disabled = disabled.into_value();
         self.disabled.update(|slot| *slot = Some(disabled));
         self
@@ -79,17 +81,20 @@ impl ButtonApi {
         let disabled = self.disabled;
         let input = part(|input| input);
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
-
-            host.part(input)
-                .role(Role::Button)
-                .focusable(true)
-                .disabled(move || {
+            let host = host.part(input).role(Role::Button).focusable(true);
+            // A button nobody disables keeps no disabled computed: its
+            // constraints stay constant.
+            if caller_disabled.is_none() && disabled.get_untracked().is_none() {
+                host
+            } else {
+                host.disabled(move || {
                     caller_disabled.is_some_and(|value| value.get())
                         || disabled.with(|d| d.is_some_and(|d| d.get()))
                 })
+            }
         })
     }
 }
@@ -171,7 +176,7 @@ struct ToggleOptions {
 /// ```no_run
 /// use kivact_core::state::{signal};
 /// use kivact_core::{view::node};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact_interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();
@@ -372,7 +377,7 @@ impl Core {
             },
         });
         let part_state = input.state();
-        self.observed.set(Some(part_state));
+        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
 

@@ -109,7 +109,7 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
                 (
                     format!("{role} {name:?}"),
                     n.origins.clone(),
-                    n.semantic_origins.clone(),
+                    n.semantic_origins().to_vec(),
                 )
             }
             None => ("(removed)".to_string(), Vec::new(), Vec::new()),

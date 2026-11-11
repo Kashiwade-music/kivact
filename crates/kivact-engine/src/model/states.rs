@@ -96,14 +96,14 @@ impl Model {
             return Vec::new();
         };
         [
-            s.focus.as_ref().filter(|_| {
+            s.focus.as_deref().filter(|_| {
                 self.focused()
                     == Some(kivact_types::FocusTarget {
                         node: id,
                         region: None,
                     })
             }),
-            s.focus_visible.as_ref().filter(|_| {
+            s.focus_visible.as_deref().filter(|_| {
                 self.focus.visible()
                     && self.focused()
                         == Some(kivact_types::FocusTarget {
@@ -111,12 +111,16 @@ impl Model {
                             region: None,
                         })
             }),
-            s.group_focus.as_ref().filter(|_| self.is_group_focused(id)),
-            s.group_hover.as_ref().filter(|_| self.is_group_hovered(id)),
-            s.hover.as_ref().filter(|_| self.is_hovered(id)),
-            s.pressed.as_ref().filter(|_| self.is_pressed(id)),
-            s.enter.as_ref().filter(|_| entering),
-            s.exit.as_ref().filter(|_| self.tree.leaving(id)),
+            s.group_focus
+                .as_deref()
+                .filter(|_| self.is_group_focused(id)),
+            s.group_hover
+                .as_deref()
+                .filter(|_| self.is_group_hovered(id)),
+            s.hover.as_deref().filter(|_| self.is_hovered(id)),
+            s.pressed.as_deref().filter(|_| self.is_pressed(id)),
+            s.enter.as_deref().filter(|_| entering),
+            s.exit.as_deref().filter(|_| self.tree.leaving(id)),
         ]
         .into_iter()
         .flatten()
@@ -144,7 +148,12 @@ impl Model {
         for x in &members {
             self.prepare_state_motion(*x);
         }
-        let changed = self.set_boxed_prop(id, Some(states), |p| Some(&mut p.states), mutation);
+        let changed = self.set_shared_prop(
+            id,
+            (states != StateStyles::default()).then_some(states),
+            |p| Some(&mut p.states),
+            mutation,
+        );
         for x in members {
             self.restyled(x);
         }
@@ -161,7 +170,7 @@ impl Model {
             .and_then(|n| n.states())
             .is_some_and(crate::tree::states_place)
         {
-            self.a11y.subtree(id);
+            self.a11y.moved(id);
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);

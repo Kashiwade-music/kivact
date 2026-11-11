@@ -103,21 +103,44 @@ pub(super) fn layout_changed(
     rect: Rect,
     size: Size,
     text_truncated: bool,
+    measured_layout: Option<Rect>,
 ) {
     let observation = {
-        let tree = ViewState::tree(rt);
-        let Some(node) = tree.get(node) else {
-            return stale(rt, "layout", node);
-        };
-        node.observation
+        let mut tree = ViewState::tree_mut(rt);
+        match tree.get(node).map(crate::view::tree::CoreNode::observation) {
+            None => {
+                drop(tree);
+                return stale(rt, "layout", node);
+            }
+            Some(Some(observation)) => Some(observation),
+            Some(None) => {
+                // No observation yet: a node a reference is bound to may get one
+                // later, so keep its report for `observe_node`, which seeds the
+                // observation with it (the report can come before it). A node
+                // without a reference never gets one: keep nothing.
+                if tree
+                    .get(node)
+                    .is_some_and(crate::view::tree::CoreNode::has_references)
+                {
+                    let measured = measured_layout
+                        .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect });
+                    tree.note_layout(node, (measured, text_truncated));
+                }
+                None
+            }
+        }
     };
-    let layout = handler(rt, node, |h| h.layout.clone());
-    if observation.is_some() || layout.is_some() {
+    let layout_handler = handler(rt, node, |h| h.layout.clone());
+    if observation.is_some() || layout_handler.is_some() {
         run_handler(rt, node_owner(rt, node), || {
             if let Some(observation) = observation {
                 observation.text_truncated.set(text_truncated);
+                observation.measured.set(
+                    measured_layout
+                        .map(|layout_rect| crate::view::tree::Measured { rect, layout_rect }),
+                );
             }
-            if let Some(layout) = layout {
+            if let Some(layout) = layout_handler {
                 layout.call((rect, size))?;
             }
             Ok(())

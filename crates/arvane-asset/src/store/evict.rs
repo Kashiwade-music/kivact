@@ -48,7 +48,7 @@ impl AssetStore {
     /// the current or the previous frame.
     pub(super) fn protected(&self, stamp: Stamp) -> bool {
         matches!(
-            (self.frame, stamp.frame),
+            (self.frame.number(), stamp.frame),
             (Some(current), Some(used)) if used.get().saturating_add(1) >= current.get()
         )
     }
@@ -114,7 +114,7 @@ impl AssetStore {
     /// it not used in the current frame until fewer than `MAX_TINTS` are
     /// left (or only current ones are). Scans only the entry's variants.
     pub(super) fn trim_tints(&mut self, asset: &Asset, base: VariantKey) {
-        let frame = self.frame;
+        let frame = self.frame.number();
         let Some(entry) = self.entries.get_mut(asset) else {
             return;
         };
@@ -123,12 +123,11 @@ impl AssetStore {
             let mut oldest: Option<(Stamp, VariantKey)> = None;
             for (key, variant) in &entry.variants {
                 if let Variant::Ready { used, .. } = variant
-                    && key.size == base.size
-                    && key.crop == base.crop
+                    && key.same_shape(&base)
                     && key.tint.is_some()
                 {
                     count += 1;
-                    let current = frame.is_some() && used.frame == frame;
+                    let current = frame.is_some_and(|frame| used.frame == Some(frame));
                     if !current && oldest.is_none_or(|(o, _)| *used < o) {
                         oldest = Some((*used, *key));
                     }

@@ -3,7 +3,7 @@ use crate::variants::{Variant, Variants};
 use crate::{ControlSize, SpinnerState};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
 use kivact_core::state::{IntoValue, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, Role, View, node};
+use kivact_core::view::{Element, IntoView, Node, Role, View, node};
 pub struct Spinner {
     root: Node,
     size: Value<ControlSize>,
@@ -34,7 +34,7 @@ impl Spinner {
         self
     }
 }
-impl NodeBuilder for Spinner {
+impl Element for Spinner {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

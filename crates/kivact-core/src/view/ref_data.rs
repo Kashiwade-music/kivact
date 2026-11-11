@@ -44,10 +44,12 @@ pub(crate) struct NodeRefState {
     /// The one source of binding and detachment. Tracked readers `get` it;
     /// untracked paths use `try_get_untracked`, where a disposed signal reads as unbound.
     pub(crate) bound: Signal<RefState>,
-    /// `NodeRef::rect` was called: every node the ref binds to has its layout observed.
-    pub(crate) observes_layout: Cell<LayoutObservation>,
-    pub(crate) rect_value: Value<Option<Rect>>,
-    pub(crate) scroll_value: Value<crate::geometry::Point>,
+    /// What the readers called so far need on every node the ref binds to.
+    pub(crate) observation: Cell<RefObservation>,
+    // xtask-allow(state-fields): cache: the rect memo of the binding, created under the ref's owner by the first NodeRef::rect call; absent until then
+    pub(crate) rect_value: Cell<Option<Value<Option<Rect>>>>,
+    // xtask-allow(state-fields): cache: the scroll offset memo of the binding, created under the ref's owner by the first NodeRef::scroll_offset call; absent until then
+    pub(crate) scroll_value: Cell<Option<Value<crate::geometry::Point>>>,
 }
 
 #[derive(Clone, Copy, PartialEq)]
@@ -64,8 +66,16 @@ impl RefState {
         }
     }
 }
-#[derive(Clone, Copy)]
-pub(crate) enum LayoutObservation {
-    NotRequested,
-    Requested,
+/// What a reference's readers need on every node it binds to, from the first
+/// such reader on (never lowered).
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum RefObservation {
+    /// No reader of the node's geometry or status yet: a bound node gets no
+    /// `NodeObservation` (a region binding always does).
+    Unrequested,
+    /// The node's graph sources (`NodeObservation`): scroll offset, image
+    /// status, scroll progress.
+    Sources,
+    /// The sources and the engine's layout reports of the node (`NodeRef::rect`).
+    SourcesAndLayout,
 }

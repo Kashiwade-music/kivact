@@ -95,12 +95,10 @@ pub struct Transform {
     scale: [f64; 3],
     /// 1/d of the `perspective(d)` function; 0 is none.
     perspective_inverse: f64,
-    /// The canonical stage of the last function that set a part: a
-    /// function of an earlier stage is composed by decomposition.
-    stage: Stage,
-    /// At least one function was given (`perspective()` is valid only as
-    /// the first one).
-    started: bool,
+    /// How much of the canonical form the functions given so far set: a
+    /// function of an earlier stage is composed by decomposition, and
+    /// `perspective()` is valid only before any other one.
+    progress: Progress,
     /// Where the perspective function sits, so a merge counts it once.
     perspective_place: PerspectivePlace,
     /// Functions CSS allows that this form cannot keep, counted as
@@ -138,6 +136,18 @@ enum Stage {
     Scale,
 }
 
+/// What the functions given so far set: the canonical stage of the last
+/// function that set a part, and whether any function was given at all
+/// (`perspective()` is valid only as the first one).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Progress {
+    /// No function was given yet.
+    Fresh,
+    /// At least one function was given; the last one that set a part left it
+    /// at this stage (`None`: only a translate or a perspective so far).
+    Started(Stage),
+}
+
 /// `tan` of `deg` degrees (exact at 0).
 fn tan_deg(deg: f64) -> f64 {
     if deg == 0.0 {
@@ -162,8 +172,7 @@ impl Transform {
             skew: [0.0; 3],
             scale: [1.0; 3],
             perspective_inverse: 0.0,
-            stage: Stage::None,
-            started: false,
+            progress: Progress::Fresh,
             perspective_place: PerspectivePlace::Absent,
             unsupported: 0,
         }
@@ -194,13 +203,21 @@ impl Transform {
                 self.scale = [m.m[0][0], m.m[1][1], m.m[2][2]];
             }
         }
-        self.stage = Stage::Scale;
+        self.progress = Progress::Started(Stage::Scale);
     }
 
     /// Whether a function of `stage` extends the canonical form directly
     /// (it is not before the stage already set).
     fn in_order(&self, stage: Stage) -> bool {
-        stage >= self.stage
+        stage >= self.stage()
+    }
+
+    /// The canonical stage of the last function that set a part (`None`: none).
+    fn stage(&self) -> Stage {
+        match self.progress {
+            Progress::Fresh => Stage::None,
+            Progress::Started(stage) => stage,
+        }
     }
 
     /// Follow the linear matrix `next` (CSS: this function after the ones so far).
@@ -212,8 +229,8 @@ impl Transform {
 
     /// Record that a function was given; false for the first one.
     fn begin(&mut self) -> bool {
-        let first = !self.started;
-        self.started = true;
+        let first = self.progress == Progress::Fresh;
+        self.progress = Progress::Started(self.stage());
         first
     }
 
@@ -284,7 +301,7 @@ impl Transform {
         self.begin();
         if self.in_order(Stage::RotateZ) {
             self.rotate[2] += deg;
-            self.stage = Stage::RotateZ;
+            self.progress = Progress::Started(Stage::RotateZ);
             return self;
         }
         self.then_matrix(Matrix4::rotate_z(deg))
@@ -296,7 +313,7 @@ impl Transform {
         self.begin();
         if self.in_order(Stage::RotateY) {
             self.rotate[1] += deg;
-            self.stage = Stage::RotateY;
+            self.progress = Progress::Started(Stage::RotateY);
             return self;
         }
         self.then_matrix(Matrix4::rotate_y(deg))
@@ -308,7 +325,7 @@ impl Transform {
         self.begin();
         if self.in_order(Stage::RotateX) {
             self.rotate[0] += deg;
-            self.stage = Stage::RotateX;
+            self.progress = Progress::Started(Stage::RotateX);
             return self;
         }
         self.then_matrix(Matrix4::rotate_x(deg))
@@ -359,7 +376,7 @@ impl Transform {
         self.begin();
         if self.in_order(Stage::Scale) {
             self.scale = [self.scale[0] * x, self.scale[1] * y, self.scale[2] * z];
-            self.stage = Stage::Scale;
+            self.progress = Progress::Started(Stage::Scale);
             return self;
         }
         self.then_matrix(Matrix4::scale(x, y, z))
@@ -371,7 +388,7 @@ impl Transform {
         self.begin();
         if self.in_order(Stage::Skew) {
             self.skew[0] = (tan_deg(self.skew[0]) + tan_deg(deg)).atan().to_degrees();
-            self.stage = Stage::Skew;
+            self.progress = Progress::Started(Stage::Skew);
             return self;
         }
         self.then_matrix(Matrix4::skew(deg, 0.0, 0.0))
@@ -461,7 +478,7 @@ impl Transform {
     /// A perspective of `next` is counted once: `next` already counted it
     /// when it was not first there.
     pub(crate) fn then(self, next: &Transform) -> Self {
-        let had_functions = self.started;
+        let had_functions = matches!(self.progress, Progress::Started(_));
         let mut out = self.moved(next.translate, next.per_size);
         out.begin();
         out = out.then_matrix(next.linear());
@@ -549,8 +566,7 @@ impl Transform {
             skew: [c[10], c[11], c[12]],
             scale: [c[13], c[14], c[15]],
             perspective_inverse: c[16],
-            stage: Stage::Scale,
-            started: true,
+            progress: Progress::Started(Stage::Scale),
             perspective_place: if c[16] > 0.0 {
                 PerspectivePlace::First
             } else {

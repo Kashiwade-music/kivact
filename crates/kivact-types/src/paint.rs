@@ -658,8 +658,8 @@ pub struct ShaderSpec {
 pub struct ElementTransform {
     /// The move in px (x, y, z) ...
     pub translate: [f64; 3],
-    /// ... plus fractions of the box size, as before:
-    /// x += per_size[0]·w + per_size[1]·h, y += per_size[2]·w + per_size[3]·h.
+    /// ... plus fractions of the box size (`w` and `h` are its width and height):
+    /// `x += per_size[0]·w + per_size[1]·h`, `y += per_size[2]·w + per_size[3]·h`.
     pub per_size: [f64; 4],
     /// Degrees about x, y and z.
     pub rotate: [f64; 3],
@@ -922,21 +922,21 @@ pub struct PaintDelta {
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct StateStyles {
     /// Applied while hovered.
-    pub hover: Option<PaintDelta>,
+    pub hover: Option<Box<PaintDelta>>,
     /// Applied while pressed.
-    pub pressed: Option<PaintDelta>,
+    pub pressed: Option<Box<PaintDelta>>,
     /// Applied while focused.
-    pub focus: Option<PaintDelta>,
+    pub focus: Option<Box<PaintDelta>>,
     /// Applied over `focus` while the focus is visible (the host asks for a
     /// focus indication: keyboard focus, not a pointer press).
-    pub focus_visible: Option<PaintDelta>,
+    pub focus_visible: Option<Box<PaintDelta>>,
     /// Applied while the nearest ancestor that is a `group` is hovered (in
     /// the hover chain: the pointer is over it or a node below it), under
     /// the node's own `hover`.
-    pub group_hover: Option<PaintDelta>,
+    pub group_hover: Option<Box<PaintDelta>>,
     /// Applied while the focus is on the nearest ancestor that is a `group`
     /// or on a node below it, under the node's own `focus`.
-    pub group_focus: Option<PaintDelta>,
+    pub group_focus: Option<Box<PaintDelta>>,
     /// The node is a group for the `group_hover` and `group_focus` of the
     /// nodes below it.
     pub group: bool,
@@ -944,27 +944,32 @@ pub struct StateStyles {
     /// `@starting-style`): its paint transition moves it to its paint. A
     /// node without a paint transition, or under reduced motion with a
     /// decorative one, shows its paint at once.
-    pub enter: Option<PaintDelta>,
+    pub enter: Option<Box<PaintDelta>>,
     /// The paint a removed node moves to by its paint transition before it
     /// goes: until every exit in the removed subtree ends, the subtree is
     /// drawn where it was but takes no hit, focus or accessibility node.
     /// Without a transition (or under reduced motion with a decorative
     /// one) the node goes at once.
-    pub exit: Option<PaintDelta>,
+    pub exit: Option<Box<PaintDelta>>,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<StateStyles>() <= 80,
+    "StateStyles keeps its deltas boxed"
+);
 
 impl StateStyles {
     /// Every delta it sets.
     pub fn deltas(&self) -> impl Iterator<Item = &PaintDelta> {
         [
-            &self.hover,
-            &self.pressed,
-            &self.focus,
-            &self.focus_visible,
-            &self.group_hover,
-            &self.group_focus,
-            &self.enter,
-            &self.exit,
+            self.hover.as_deref(),
+            self.pressed.as_deref(),
+            self.focus.as_deref(),
+            self.focus_visible.as_deref(),
+            self.group_hover.as_deref(),
+            self.group_focus.as_deref(),
+            self.enter.as_deref(),
+            self.exit.as_deref(),
         ]
         .into_iter()
         .flatten()

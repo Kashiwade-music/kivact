@@ -5,14 +5,14 @@ use std::sync::Arc;
 
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::render::{PixelRect, RenderScene};
+use kivact_types::render::{PixelRect, RenderCmd, RenderScene};
 
 use super::bounds::{mapped_bounds, scene_bounds};
 use super::builder::Builder;
 use super::frame::{area, ceil_px, floor_px};
 use super::hash;
 use super::ops::{ChunkTask, Damage, Grid, PlanError, Redraw};
-use crate::cache::{ChunkKey, ChunkRecord, LayerRecord, Retained};
+use crate::cache::{ChunkKey, ChunkRecord, Indexed, LayerRecord, Reach, Retained};
 
 /// Changed commands beyond which their bounds merge into one rectangle.
 const MERGE_AT: usize = 17;
@@ -72,8 +72,50 @@ fn union_px(rects: &[PixelRect]) -> Option<PixelRect> {
     })
 }
 
+/// Whether two px rectangles share a pixel.
+fn overlaps_px(a: PixelRect, b: PixelRect) -> bool {
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height
+}
+
+/// Fewer, slightly larger rectangles: the CPU raster passes over a chunk's
+/// commands once per rectangle. Overlapping rectangles merge; then all merge
+/// into their union when it is at most twice their area.
+fn coalesce(mut rects: Vec<PixelRect>) -> Vec<PixelRect> {
+    if rects.len() > 64 {
+        return union_px(&rects).into_iter().collect();
+    }
+    'again: loop {
+        for i in 0..rects.len() {
+            for j in i + 1..rects.len() {
+                if overlaps_px(rects[i], rects[j]) {
+                    rects[i] = union_px(&[rects[i], rects[j]]).expect("two rects");
+                    rects.swap_remove(j);
+                    continue 'again;
+                }
+            }
+        }
+        break;
+    }
+    let total: u64 = rects.iter().map(area).sum();
+    match union_px(&rects) {
+        Some(u) if rects.len() > 1 && area(&u) <= 2 * total => vec![u],
+        _ => rects,
+    }
+}
+
+/// The index entry of a command with its chunk px bounds.
+fn indexed(command: &RenderCmd, hash: u64, clipped: Option<PixelRect>) -> Indexed {
+    let reach = match (command, clipped) {
+        (_, None) => Reach::Nothing,
+        (RenderCmd::PushClip(_) | RenderCmd::PushTransform(_), Some(rect)) => Reach::Opens(rect),
+        (RenderCmd::PushGroup(g), Some(rect)) if g.blur.is_none() => Reach::Opens(rect),
+        (_, Some(rect)) => Reach::Draws(rect),
+    };
+    Indexed { hash, reach }
+}
+
 /// The rectangles of a chunk's commands that changed between two indexes (old and new bounds).
-fn diff(old: &[(u64, Option<PixelRect>)], new: &[(u64, Option<PixelRect>)]) -> Vec<PixelRect> {
+fn diff(old: &[Indexed], new: &[Indexed]) -> Vec<PixelRect> {
     let head = old.iter().zip(new).take_while(|(a, b)| a == b).count();
     let tail_max = old.len().min(new.len()) - head;
     let tail = old
@@ -96,26 +138,26 @@ fn diff(old: &[(u64, Option<PixelRect>)], new: &[(u64, Option<PixelRect>)]) -> V
             // A deletion: the old command reappears further on in the new list.
             let deleted = (i + 1..end_old.min(i + SEARCH)).find(|&k| old[k] == new[j]);
             if let Some(k) = deleted {
-                changed.extend(old[i..k].iter().filter_map(|c| c.1));
+                changed.extend(old[i..k].iter().filter_map(Indexed::damage));
                 i = k;
                 continue;
             }
             // An insertion: the new command reappears further on in the old list.
             let inserted = (j + 1..end_new.min(j + SEARCH)).find(|&k| new[k] == old[i]);
             if let Some(k) = inserted {
-                changed.extend(new[j..k].iter().filter_map(|c| c.1));
+                changed.extend(new[j..k].iter().filter_map(Indexed::damage));
                 j = k;
                 continue;
             }
-            changed.extend(old[i].1);
-            changed.extend(new[j].1);
+            changed.extend(old[i].damage());
+            changed.extend(new[j].damage());
             i += 1;
             j += 1;
         } else if i < end_old {
-            changed.extend(old[i].1);
+            changed.extend(old[i].damage());
             i += 1;
         } else {
-            changed.extend(new[j].1);
+            changed.extend(new[j].damage());
             j += 1;
         }
     }
@@ -141,19 +183,17 @@ impl<'a> Builder<'a> {
         let bounds = scene_bounds(&scene)?;
         let mut retain: Vec<Retained> = Vec::new();
         let hashes = hash::scene_hashes(&scene, &mut retain);
-        let pairs: Vec<(u64, Option<PixelRect>)> = hashes
+        let index: Arc<[Indexed]> = hashes
             .into_iter()
             .zip(bounds)
-            .map(|(h, b)| {
-                (
-                    h,
-                    b.and_then(|r| clip_px(r, grid.origin, grid.scale, grid.size)),
-                )
+            .zip(scene.commands.iter())
+            .map(|((h, b), command)| {
+                let clipped = b.and_then(|r| clip_px(r, grid.origin, grid.scale, grid.size));
+                indexed(command, h, clipped)
             })
             .collect();
-        let index: Arc<[(u64, Option<PixelRect>)]> = pairs.into();
         let cache = self.cache;
-        let previous = cache.chunks.get(&key).filter(|_| cached);
+        let previous = cache.chunk(&key).filter(|_| cached);
         let redraw = match previous {
             Some(prev)
                 if prev.scale == grid.scale
@@ -214,11 +254,11 @@ impl<'a> Builder<'a> {
     pub(super) fn finish_damage(&mut self) -> Damage {
         let cache = self.cache;
         // After a resize, `invalidate()` or a failed frame, the whole output is redrawn.
-        if cache.invalidated {
+        let crate::cache::Records::Kept { layers, .. } = &cache.records else {
             return Damage::Full;
-        }
+        };
         // A layer recorded last frame and not this frame vanished: its old place changes.
-        for (key, prev) in &cache.layers {
+        for (key, prev) in layers {
             if !self.seen.contains(key) {
                 self.damage.extend(prev.window_bounds);
             }
@@ -244,6 +284,7 @@ impl<'a> Builder<'a> {
             .iter()
             .filter_map(|d| clip_px(*d, Point::new(0.0, 0.0), 1.0, self.window))
             .collect();
+        let rects = coalesce(rects);
         let total: u64 = rects.iter().map(area).sum();
         if rects.len() >= FULL_AT || total as f64 > 0.5 * window_area {
             Damage::Full
@@ -256,8 +297,11 @@ impl<'a> Builder<'a> {
     pub(super) fn carry_reused(&mut self) {
         let cache = self.cache;
         let frame = self.frame;
+        let crate::cache::Records::Kept { chunks, layers } = &cache.records else {
+            return;
+        };
         for key in &self.reused {
-            if let Some(prev) = cache.layers.get(key) {
+            if let Some(prev) = layers.get(key) {
                 let record = LayerRecord {
                     frame,
                     ..prev.clone()
@@ -265,7 +309,7 @@ impl<'a> Builder<'a> {
                 self.layer_records.push((*key, record));
             }
         }
-        for (key, prev) in &cache.chunks {
+        for (key, prev) in chunks {
             if self.reused_chunks.contains(&key.layer) {
                 let record = ChunkRecord {
                     frame,

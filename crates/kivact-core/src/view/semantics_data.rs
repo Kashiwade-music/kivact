@@ -16,23 +16,19 @@ pub(crate) enum Relation {
 /// A patch retains its declaration site and its place in the modifier sequence.
 #[derive(Clone)]
 pub(crate) struct SemanticsPatch {
-    // xtask-allow(state-fields): passive patch value - part
+    // xtask-allow(state-fields): option: set by apply_part on the patches a part declared, false on the caller's own; the *_source readers and part constraints tell the two apart
     pub(crate) part: bool,
     pub(crate) input: SemanticInput,
     pub(crate) layer: usize,
     pub(crate) at: &'static Location<'static>,
-    // xtask-allow(state-fields): passive patch value - reactive
-    pub(crate) reactive: bool,
-    // xtask-allow(state-fields): passive patch value - text
-    pub(crate) text: bool,
+    // xtask-allow(state-fields): projection: written only by Common::semantic from whether the patch's source is fixed; the source itself is erased into `apply`
+    pub(super) reactive: bool,
     pub(crate) apply: Rc<dyn Fn(&mut Semantics<FocusTarget>)>,
-    // xtask-allow(state-fields): passive patch value - relation
-    pub(crate) relation: Option<(Relation, NodeRef)>,
-    // xtask-allow(state-fields): passive patch value - orientation
-    pub(crate) orientation: Option<Prop<Orientation>>,
 }
 
-/// Preserved inputs queried by behavior and constraints, on the canonical patch.
+/// What a patch keeps beside `apply` for later readers: the preserved input
+/// of a state or name modifier, a relation, an orientation, or the
+/// `semantics_text` mark. At most one per patch.
 #[derive(Clone)]
 pub(crate) enum SemanticInput {
     None,
@@ -47,4 +43,10 @@ pub(crate) enum SemanticInput {
     Indeterminate(Prop<bool>),
     Expanded(Prop<bool>),
     Focusable(Prop<bool>),
+    /// `described_by`, `controls` or `labelled_by`: the relation and its target.
+    Relation(Relation, NodeRef),
+    /// `.orientation(..)`: its source, which `scroll` compares with its axes.
+    Orientation(Prop<Orientation>),
+    /// `semantics_text`: the node's semantics are published after its draw layers.
+    Text,
 }

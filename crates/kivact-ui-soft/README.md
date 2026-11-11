@@ -51,13 +51,13 @@ The standard APIs in this table come from `kivact::ui`.
 | Chat domains | `chat_dictation_button`, `chat_token`, `chat_tokenized_text`, `chat_tool_calls`; standard `ui::chat_thread`, `ui::chat_message`, `ui::chat_composer`, `ui::typing_indicator` |
 | Checkbox | Standard `checkbox`, `checkbox_list`, `checkbox_list_item` |
 | Citation / Code | `citation`, `code`, `code_highlight`; standard `ui::code_block` |
-| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selection)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
+| Collapsible | Standard `disclosure(title, open)` and `disclosure_group(selected)`. Use Soft `DisclosureVariant` for chevron position, density, and separators. |
 | Command Palette | Standard `command_palette` provides the input and list. Set `.placeholder(..)`, `.empty_text(..)`, and `.footer(..)`. Create entries with `Command::new(..)` and `Command::group(..)`. |
 | Context Menu | Standard `menu(..).attach_context(..)` and `MenuEntry::item(..)` |
 | Date Input | Standard `date_input`, `date_range_input`, `date_time_input` |
 | Dialog | Standard `dialog`, `dialog_header`, `alert_dialog`. Signals own imperative open state. |
 | Divider | `divider` |
-| Drawer | Standard `dialog(...).kind(DialogKind::Drawer(...))`, `drawer_header` |
+| Drawer | Standard `dialog(...).mode(DialogMode::Drawer(...))`, `drawer_header` |
 | Dropdown Menu | Standard `menu`. Use `MenuEntry::item`, `checkbox`, `separator`, `group`, `radio`, and `submenu`. A radio group is a group of radio entries. |
 | Empty State | Standard `empty_state`; `.announce_changes()` retains change announcements and `EmptyStateVariant::compact(value)` controls density |
 | Field / Field Label | Pass the label to standard `field(label, control)`. Use `field_status`, standard `input_group`, `input_addon`, and standard `dropzone` for the surrounding controls. |
@@ -74,7 +74,7 @@ The standard APIs in this table come from `kivact::ui`.
 | More Menu | `more_menu` |
 | Navigation | `mobile_nav`, `mobile_nav_toggle`, `nav_heading_menu`, `nav_icon`, `side_nav`, `side_nav_collapse_button`, `side_nav_heading`, `side_nav_item`, `side_nav_section`, `top_nav`, `top_nav_heading`, `top_nav_item`, `top_nav_menu`, `top_nav_mega_menu`, `top_nav_mega_menu_item`, `top_nav_featured_card` |
 | Number Input / Outline / Overflow List / Overlay / Pagination | Standard `number_input`, `outline`, `pagination`, `overflow_list`, `media_overlay` |
-| Popover | Standard `dialog(...).kind(DialogKind::Popover)` and `kivact::view::overlay` |
+| Popover | Standard `dialog(...).mode(DialogMode::Popover)` and `kivact::view::overlay` |
 | Power Search / Progress Bar | `power_search`, standard `progress` |
 | Radio | `radio_list`, standard `ListItem` |
 | Resizable | standard `splitter(...).collapsible(..).snaps(..)` |
@@ -296,7 +296,7 @@ names and their replacements:
 | `Banner`, `banner`, `BannerStatus` | `ui::alert(title).tone(Tone::Info\|Success\|Warning\|Danger).icon(soft::banner_icon(tone))` (Error -> `Tone::Danger`); `.actions(..)`, `.content(..).collapsible(true)`; `.variant(soft::BannerAppearance::new(container, elevation))` |
 | `BreadcrumbItem`, `breadcrumb_item`, `Breadcrumbs`, `breadcrumbs` | `ui::breadcrumb(Vec<ListItem<K>>)` (`ui::Breadcrumb`); `.current(..)`, `.on_activate(..)`, `.item(..)`, `.separator(..)`; `.variant(soft::BreadcrumbsVariant::..)` |
 | `ButtonGroup`, `button_group`, `GroupMember`, `GroupMembers` | `ui::button_group(label, children)` (`ui::ButtonGroup`); member overrides `ui::ButtonGroupMember::from(button).solid(..).keep_size(..)`; `.variant(soft::ButtonGroupVariant(soft::Elevation::..))` |
-| `Calendar`, `calendar`, `calendar_range` | `ui::calendar(selection)` (`ui::Calendar`) bound to `Option<CalendarDate>` or `Option<DateRange>` (`kivact::i18n`) |
+| `Calendar`, `calendar`, `calendar_range` | `ui::calendar(selected)` (`ui::Calendar`) bound to `Option<CalendarDate>` or `Option<DateRange>` (`kivact::i18n`) |
 | `Card`, `card`, `clickable_card`, `selectable_card` | `ui::card(content)` (`ui::Card`); clickable `.name(..).on_press(..)`; selectable `.name(..).selected(binding)`; `.variant(soft::CardVariant::..)` or `soft::CardAppearance::new(..)`, `soft::with_card_insets` |
 | `Carousel`, `carousel`, `CarouselHandle`, `use_carousel` | `ui::carousel(index, slides).name(label)` (`ui::Carousel`), `.mode(ui::CarouselMode::Scroll)`, `.snap(ui::Snap::..)`; headless `kivact::interaction::use_carousel(index, count)` -> `CarouselApi` |
 | `ChatBubble`, `chat_bubble`, `BubbleGroup`, `ChatMetadata`, `chat_metadata`, `MessageStatus` | `ui::chat_message(author).content(..)`; `.group(ui::ChatBubbleGroup::..)`, `.metadata(..)`, `.time(..)`, `.status(ui::ChatMessageStatus::..)`; `.variant(soft::BubbleVariant::..)` |
@@ -310,9 +310,10 @@ names and their replacements:
 | `CodeBlock`, `code_block`, `SyntaxTheme` | `ui::code_block(code)` (`ui::CodeBlock`) with `.highlight(palette, \|line, palette\| soft::code_highlight(&language, line, palette))`; `.variant(soft::CodeBlockSize\|CodeBlockWidth\|CodeBlockContainer\|CodeAppearance)`; `SyntaxTheme` -> `soft::SyntaxColors` |
 | `Collapsible`, `collapsible`, `collapsible_default` | `ui::disclosure(title, open).content(..).animated(true)` (`ui::Disclosure`); default-open: pass `signal(true)`; `.variant(soft::DisclosureVariant { chevron, density, dividers })` |
 | `CollapsibleConfig`, `CollapsibleState`, `use_collapsible` | `kivact::interaction::use_disclosure(open)` -> `DisclosureApi`; custom trigger: `ui::disclosure(..).content(..).attach(trigger)` |
-| `CollapsibleGroup`, `collapsible_group`, `GroupMode` | `ui::disclosure_group(selection).panel(key, title, factory)`; `Option<K>` binding = single, `Vec<K>` = multiple |
+| `CollapsibleGroup`, `collapsible_group`, `GroupMode` | `ui::disclosure_group(selected).panel(key, title, factory)`; `Option<K>` binding = single, `Vec<K>` = multiple |
 | `DateInput`, `date_input`, `DatePresentation`, `DateRangeInput`, `date_range_input`, `DateRangePreset`, `DateTimeInput`, `date_time_input`, `TimeInput`, `time_input` | Same names in `kivact::ui` (builders also in prelude); `.presentation(ui::DatePresentation::..)`, `.presets(Vec<ui::DateRangePreset>)` |
 | `DateTime`, `TimeOfDay` | `kivact::i18n::DateTime`, `kivact::i18n::TimeOfDay` |
+| `DictationState { supported, listening, volume, bands }` | `DictationState::{Unsupported, Idle, Listening { volume, bands }}`; `Unsupported` is the default |
 | `EmptyState`, `empty_state` | `ui::empty_state(title).description(..).icon(..).actions(..)` (`ui::EmptyState`); `.announce_changes()`; `.variant(soft::EmptyStateVariant::compact(..))` |
 | `FileInput`, `file_input` | `ui::dropzone(label).pick_on_press().on_files(..)`; `.multiple()`, `.filters(..)`, `.accept_drop(false)` for picker-only; `.variant(soft::DropzoneVariant::Field)` |
 | `Grid`, `grid` | `soft::LayoutGrid`, `soft::layout_grid(children)` |
@@ -324,14 +325,16 @@ names and their replacements:
 | `Instant` | `soft::TimestampValue` (`unix_seconds`, `unix_millis`, `parse_iso`) |
 | `Item`, `item`, `list_item` | `ui::item_row(title)` (`ui::ItemRow`); `.description(..)`, `.media(..)`, `.actions(..)`, `.delegate_to(..)`; `.variant(soft::ItemLook\|ItemDensity\|ItemAlign\|ItemLayout)` |
 | `kbd` | `ui::kbd("mod+shift+p")` or typed `ui::kbd_combo(keys)` |
+| `LightboxHandle::open(index)`, `AppShellMobile::open()`, `LightboxHandle::close()`, `AppShellMobile::close()` | `LightboxHandle::show(index)`, `AppShellMobile::show()`, `LightboxHandle::hide()`, `AppShellMobile::hide()` |
+| `mobile_nav(..).width(f64)` | `mobile_nav(..).width(impl IntoValue<Length>)`; `320.0` is 320 px |
 | `List`, `list`, `list_items`, `IntoListItems`, `ListDensity`, `ListMarker` | `ui::item_list(children)` (`ui::ItemList`; keyed: `for_each` + `item_row(..).position(index, count)`); `.marker(ui::ItemListMarker::..)`, `.start(n)`; `.variant(soft::ListLook)`; `ListDensity` -> `soft::ItemDensity` |
 | `MetadataItem`, `metadata_item`, `MetadataList`, `metadata_list`, `IntoMetadataItems` | `ui::description_list(children)`, `ui::description(term, detail)`; same `.variant(soft::MetadataLook)` on list and pairs |
 | `Motion`, `Radius`, `Spacing`, `TextStyle`, `Typography` | `soft::MotionTokens`, `soft::RadiusTokens`, `soft::SpaceTokens`, `soft::TypeStyle`, `soft::TypeTokens` |
-| `MultiSelector`, `multi_selector` | `ui::combobox(label, options, Vec<K> binding).chips()` |
+| `MultiSelector`, `multi_selector` | `ui::combobox(label, items, Vec<K> binding).chips()` |
 | `Pagination`, `pagination`, `PaginationVariant`, `table_pagination` | `ui::pagination(count, page)` (zero-based `usize`; `ui::Pagination`); `.mode(ui::PaginationMode::..)`, `.window(ui::PaginationWindow::Buffered)`, `.summary(soft::pagination_status)`; `.variant(soft::PaginationAppearance::new(size))` |
 | `PillPlacement`, `ResizableConfig`, `ResizableState`, `ResizeHandle`, `resize_handle`, `ResizeSize`, `use_resizable` | `ui::splitter(name, size, ScalarRange)` (`ui::Splitter`) with `.collapsible(..)`, `.snaps(..)`, `.handle(..)`; headless `kivact::interaction::use_splitter(value, range, axis)` |
-| `Segmented`, `SegmentedControl`, `segmented_control`, `SegmentedIconOnly` | `radio_group(label, options, value).variant(ui::RadioGroupVariant::Segmented)` + `.variant(soft::SegmentedLook { layout, icon_only })` |
-| `Selector`, `selector` | `ui::select(label, options, selected).open_on_arrow(true)` |
+| `Segmented`, `SegmentedControl`, `segmented_control`, `SegmentedIconOnly` | `radio_group(label, items, selected).variant(ui::RadioGroupVariant::Segmented)` + `.variant(soft::SegmentedLook { layout, icon_only })` |
+| `Selector`, `selector` | `ui::select(label, items, selected).open_on_arrow(true)` |
 | `SelectorPresentation`, `complex_selector`, `complex_selector_with_presentation` | `ui::selection_field(label, value_label).content(factory).presentation(ui::SelectPresentation::..)` |
 | `Skeleton`, `skeleton` | `ui::skeleton()` (`ui::Skeleton`); `.shape(ui::SkeletonShape::..)`, `.lines(n)`, `.index(n)`; `.variant(soft::SkeletonRadius::..)` |
 | `Spinner`, `spinner`, `SpinnerSize` | `ui::spinner().size(ControlSize::ExtraSmall\|Small\|Medium\|Large)` (= Sm/Md/Lg/Xl) (`ui::Spinner`); `.variant(soft::SpinnerVariant { shade, ink })`, `.label_content(..)` |
@@ -341,14 +344,15 @@ names and their replacements:
 | `TableAlign`, `TableDensity` | `ui::TableCell::align(kivact::style::TextAlign::..)`; density `soft::ItemDensity` via `.variant(soft::TableCellAppearance::new(density, vertical_align, divider))` |
 | `Text`, `text` | `soft::StyledText`, `soft::styled_text(value)` (prelude `text` is the unstyled primitive) |
 | `kivact::interaction::Toaster` | `kivact::interaction::ToasterApi`, the handle `toaster()` returns |
-| `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, options, selection)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |
+| `ToggleButtonGroup`, `toggle_button_group`, `ToggleSelection` | `ui::toggle_group(label, items, selected)` (`ui::ToggleGroup`); `Option<K>` binding = single, `Vec<K>` = multiple; `ListItem::with_pressed_icon(..)`, `.icon_only(..)` |
 | `tokens` | `kivact::style::use_tokens::<soft::Tokens>()` |
-| `Tokenizer`, `tokenizer` | `ui::combobox(label, options, Vec<K> binding).chips().exclude_selected()` |
+| `Tokenizer`, `tokenizer` | `ui::combobox(label, items, Vec<K> binding).chips().exclude_selected()` |
+| `ToolCall::duration(..)`, `ToolCall::error(..)` | `chat_tool_calls(..)` records carry `ToolCall::status(ToolStatus::Complete { duration: Some(..) })` or `ToolStatus::Error { message: Some(..) }`; the duration and error fields moved into `ToolStatus` |
 | `Toolbar`, `toolbar`, `Edge` | `ui::toolbar(label).start(..).center(..).end(..)` (`ui::Toolbar`); `.dividers(&[ui::ToolbarEdge::..])`; `.variant(soft::ToolbarVariant(soft::SectionVariant::..))` |
 | `toolbar_item` | `soft::keyboard_hint(target)` inside `soft::with_key_hints(axis, \|\| ..)` |
 | `TopNavHeading`, `TopNavMenuItem` | `soft::SideNavHeading`, `soft::NavHeadingMenuItem` (still returned by `top_nav_heading`, `top_nav_menu_item`) |
-| `TreeDensity`, `TreeList`, `tree_list`, `TreeVariant` | `ui::tree(label, nodes).expanded(expanded)` (`ui::Tree`); `.variant(soft::TreeLook::default().density(soft::ItemDensity::..).guides(bool))` |
-| `Typeahead`, `typeahead`, `base_typeahead` | `ui::combobox(label, options, selected)` (`ui::Combobox`); `.search(..)`, `.debounce(..)`, `.placeholder(..)`, `.empty_text(..)` |
+| `TreeDensity`, `TreeList`, `tree_list`, `TreeVariant` | `ui::tree(label, items, selected).expanded(expanded)` (`ui::Tree`); `.variant(soft::TreeLook::default().density(soft::ItemDensity::..).guides(bool))` |
+| `Typeahead`, `typeahead`, `base_typeahead` | `ui::combobox(label, items, selected)` (`ui::Combobox`); `.search(..)`, `.debounce(..)`, `.placeholder(..)`, `.empty_text(..)` |
 | `use_overflow`, `OverflowOptions` (f32 widths and gap) | Same functions with f64 widths, available width, indicator width and `OverflowOptions::gap` |
 
 ## Filled standard recipes

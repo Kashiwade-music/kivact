@@ -148,9 +148,9 @@ impl NumberSymbols {
 /// Observe ICU's resolved data requests, preserving locale and numbering-system fallback.
 #[derive(Default)]
 struct SymbolCapture {
-    // xtask-allow(state-fields): construction-time capture - symbols
+    // xtask-allow(state-fields): independent: the decimal symbols ICU loads through this provider while it builds the formatter; ICU loads the digits through the other slot in its own order, and NumberSymbols::new reads both once after the build
     symbols: RefCell<Option<DataPayload<DecimalSymbolsV1>>>,
-    // xtask-allow(state-fields): construction-time capture - digits
+    // xtask-allow(state-fields): independent: the decimal digits ICU loads through this provider while it builds the formatter; ICU loads the symbols through the other slot in its own order, and NumberSymbols::new reads both once after the build
     digits: RefCell<Option<DataPayload<DecimalDigitsV1>>>,
 }
 

@@ -1,8 +1,9 @@
 //! Role: Lazy shaping, editing geometry, coloring and bounded run publication.
 
 use crate::text_input::EditLines;
+use crate::text_input::edit_lines::Coloring;
 use crate::text_input::pieces::shape_long;
-use crate::text_input::records::{Colored, Shape, Shown};
+use crate::text_input::records::{Colored, Run, Shape, Shown};
 use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
 use kivact_types::text_utf::floor_char_boundary as floor;
 use kivact_types::{Point, Rect};
@@ -317,12 +318,15 @@ impl EditLines {
     /// Color the lines up to `upto` with `colors` (see the module
     /// invariants).
     pub(crate) fn color(&mut self, text: &str, colors: &LineColors, upto: usize) {
-        if self.colors.as_ref() != Some(colors) {
-            self.colors = Some(colors.clone());
+        if self.coloring.as_ref().is_none_or(|c| c.colors != *colors) {
             self.forget_colors();
+            self.coloring = Some(Coloring {
+                colors: colors.clone(),
+                colored: 0,
+            });
         }
-        while self.colored < upto.min(self.len()) {
-            let i = self.colored;
+        while self.colored() < upto.min(self.len()) {
+            let i = self.colored();
             let input = match i {
                 0 => LineState::default(),
                 _ => self
@@ -331,7 +335,7 @@ impl EditLines {
                     .map(|c| c.output.clone())
                     .unwrap_or_default(),
             };
-            if self.key.wrap_width.is_some() {
+            if self.key.breaks.wrap_width().is_some() {
                 self.color_wrapped_line(text, colors, i, input);
                 continue;
             }
@@ -349,7 +353,7 @@ impl EditLines {
                     output,
                 });
             }
-            self.colored += 1;
+            self.set_colored(i + 1);
         }
     }
 
@@ -399,12 +403,12 @@ impl EditLines {
                 output: output.clone(),
             });
         }
-        self.colored = last + 1;
+        self.set_colored(last + 1);
     }
 
     /// Forget the colors (the input has none).
     pub(crate) fn uncolor(&mut self) {
-        if self.colors.take().is_some() {
+        if self.coloring.take().is_some() {
             self.forget_colors();
         }
     }
@@ -415,7 +419,7 @@ impl EditLines {
                 line.uncolor();
             }
         }
-        self.colored = 0;
+        self.set_colored(0);
     }
 
     /// Line `i` shaped with its colors over the text color `color`
@@ -474,7 +478,16 @@ impl EditLines {
         let Some(line) = self.line_mut(i) else {
             return ids();
         };
-        *line.kept().run_id.get_or_insert_with(ids)
+        let kept = line.kept();
+        match &mut kept.run {
+            Run::Id(id) => *id,
+            Run::Published { run, .. } => run.id.0,
+            Run::Unassigned => {
+                let id = ids();
+                kept.run = Run::Id(id);
+                id
+            }
+        }
     }
 
     /// The lines published to assistive technology: those around the
@@ -549,7 +562,10 @@ impl EditLines {
             .line_mut(i)
             .expect("invariant: published lines exist")
             .kept();
-        if let Some((placed, run)) = &kept.run
+        if let Run::Published {
+            origin: placed,
+            run,
+        } = &kept.run
             && *placed == origin
         {
             return run.clone();
@@ -583,7 +599,10 @@ impl EditLines {
             bounds,
             carets,
         });
-        kept.run = Some((origin, run.clone()));
+        kept.run = Run::Published {
+            origin,
+            run: run.clone(),
+        };
         run
     }
 }

@@ -73,7 +73,7 @@ pub(crate) struct Handlers {
     pub key_up: EventHandlers<KeyEvent>,
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
-    // xtask-allow(state-fields): optional subscriptions (builder) - Fallback for an unclaimed secondary button event in this subtree
+    // xtask-allow(state-fields): option: a builder subscription; absent means none
     /// Fallback for an unclaimed secondary button event in this subtree.
     pub secondary_context: Option<SecondaryContextHandler>,
     /// Wheel handlers.
@@ -85,7 +85,7 @@ pub(crate) struct Handlers {
     pub a11y: Vec<(A11yAction, Handler<crate::view::A11yEvent>)>,
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
-    // xtask-allow(state-fields): optional subscriptions (builder) - Session changes of a TextInput (`TextEditing::on_selection_change`)
+    // xtask-allow(state-fields): option: a builder subscription; absent means none
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
     pub selection: Option<crate::view::editing_data::SessionHandler>,
     pub edit_phase: Option<Handler<crate::view::EditPhase>>,
@@ -249,19 +249,33 @@ fn offered_actions<T>(activate: bool, a11y: &[(A11yAction, T)]) -> Vec<A11yActio
     actions
 }
 
+/// The geometry of one observed node: the rectangle the engine reported and
+/// the window layout box (without the node's own transform). Both arrive in
+/// the same `LayoutChanged`; an observed node has neither before its first
+/// layout.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) struct Measured {
+    pub(crate) rect: crate::geometry::Rect,
+    pub(crate) layout_rect: crate::geometry::Rect,
+}
+
+/// The last layout report of a node that had no observation yet: its window
+/// layout box (`Measured`, when it has one) and whether its text was
+/// truncated. The engine reports a node once per change and does not repeat
+/// it, so a report that arrives before the observation exists is kept in
+/// `ViewNodes::layout_seeds`, and `observe_node` seeds the observation with it.
+pub(crate) type LayoutSeed = (Option<Measured>, bool);
+
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
-    // xtask-allow(state-fields): independent fact - the node's rectangle as the engine last reported it, absent before the first layout
-    pub(crate) rect: Signal<Option<crate::geometry::Rect>>,
-    // xtask-allow(state-fields): independent fact - whether the engine truncated the node's text
+    // xtask-allow(state-fields): independent: set from each layout report, None while the report carries no measured layout box; text_truncated is set from the same report on its own, so every pair occurs
+    pub(crate) measured: Signal<Option<Measured>>,
+    // xtask-allow(state-fields): independent: set from every layout report, including before any measurement is published
     pub(crate) text_truncated: Signal<bool>,
     /// The offset, viewport and content extents of a scroll container: the
     /// one scroll fact; the offset and the scroll position are projections.
     pub(crate) scroll_geometry: Signal<ScrollState>,
-    // xtask-allow(state-fields): independent fact - the window layout box without the node's own transform, absent before the first layout
-    /// The window layout box, without the node's own transform.
-    pub(crate) layout_rect: Signal<Option<crate::geometry::Rect>>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
     pub(crate) scene_revision: Notifier,
     pub(crate) editing_revision: Notifier,
@@ -285,10 +299,9 @@ pub(crate) struct Removed {
 /// props, rect, test id, whether its layout is observed) is read through
 /// [`ViewNodes::reader`].
 pub(crate) struct CoreNode {
-    pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     /// Owner whose disposal removes the node.
     pub owner: Owner,
-    // xtask-allow(state-fields): independent per-node resources - Where the builder of a host node was called (`#[track_caller]` of `node()`, `text(..)`, `button(..)`, ...)
+    // xtask-allow(state-fields): option: the builder's call site, recorded when the node is created; absent for the root, fragments and the wrappers a builder adds, which take their nearest located ancestor's location
     /// Where the builder of a host node was called (`#[track_caller]` of
     /// `node()`, `text(..)`, `button(..)`, ...). `None` for the root, for
     /// fragments, for the wrappers a builder adds (stack layers, list rows)
@@ -296,19 +309,34 @@ pub(crate) struct CoreNode {
     /// their nearest located ancestor. Snapshots and diagnostics name nodes
     /// by it.
     pub at: Option<&'static Location<'static>>,
-    // xtask-allow(state-fields): independent per-node resources - Event handlers, if any
+    // xtask-allow(state-fields): independent: the declared handlers recorded when the node is created, or an empty record ViewNodes::handlers_mut and ViewNodes::observe_node create for a later observer; a node with or without a location may have either
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
-    pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): independent per-node resources - The graph sources node references read (`ViewNodes::observe_node`)
-    /// The graph sources node references read (`ViewNodes::observe_node`).
-    pub(crate) observation: Option<NodeObservation>,
-    // xtask-allow(state-fields): independent per-node resources - Created only when a reference observes this node's lifetime
-    /// Created only when a reference observes this node's lifetime.
-    pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
+    // xtask-allow(state-fields): independent: created by the first rare resource the node gets (a reference, an exit callback, an observation, a presence source, semantic origins or DevTools style layers) and kept until removal; a node with or without a location or handlers may have one
+    /// What only some nodes have (see [`CoreRare`]).
+    pub(crate) rare: Option<Box<CoreRare>>,
+}
+
+const _: () = assert!(
+    std::mem::size_of::<CoreNode>() <= 64,
+    "CoreNode grew: put the new field in CoreRare"
+);
+
+/// The per-node resources few nodes have (`CoreNode::rare`). Created by the
+/// first of them and kept until the node is removed.
+#[derive(Default)]
+pub(crate) struct CoreRare {
+    pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
+    pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
+    // xtask-allow(state-fields): independent: created by ViewNodes::observe_node when a reference first needs the node's geometry, text truncation, scroll or image status; the presence source beside it is created separately by ViewNodes::presence, so either exists without the other
+    /// The graph sources node references read (`ViewNodes::observe_node`).
+    pub(crate) observation: Option<NodeObservation>,
+    // xtask-allow(state-fields): independent: created by ViewNodes::presence when a reference first observes the node's lifetime; the observation beside it is created separately, so either exists without the other
+    /// Created only when a reference observes this node's lifetime.
+    pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     pub(crate) semantic_origins: Vec<&'static Location<'static>>,
     /// The style layers the node was mounted with, for the DevTools.
     #[cfg(feature = "devtools")]
@@ -319,19 +347,47 @@ impl CoreNode {
     /// Metadata for a node of `owner`, without handlers or origins yet.
     fn new(owner: Owner) -> CoreNode {
         CoreNode {
-            references: Vec::new(),
             owner,
             at: None,
             handlers: None,
             exit_layout: Default::default(),
-            exit_complete: None,
-            observation: None,
-            presence: None,
             origins: Vec::new(),
-            semantic_origins: Vec::new(),
-            #[cfg(feature = "devtools")]
-            style_layers: Vec::new(),
+            rare: None,
         }
+    }
+
+    /// The rare resources, created on first use.
+    pub(crate) fn rare_mut(&mut self) -> &mut CoreRare {
+        self.rare.get_or_insert_default()
+    }
+
+    /// The graph sources node references read, if a reference observes it.
+    pub(crate) fn observation(&self) -> Option<NodeObservation> {
+        self.rare.as_ref().and_then(|r| r.observation)
+    }
+
+    /// The presence source, if a reference observes the node's lifetime.
+    pub(crate) fn presence(&self) -> Option<Signal<kivact_types::Presence>> {
+        self.rare.as_ref().and_then(|r| r.presence)
+    }
+
+    /// Whether a node reference is bound to the node (only such a node can get
+    /// an observation after its first layout report).
+    pub(crate) fn has_references(&self) -> bool {
+        self.rare.as_ref().is_some_and(|r| !r.references.is_empty())
+    }
+
+    /// The locations of the semantic patches that set the node's semantics.
+    pub(crate) fn semantic_origins(&self) -> &[&'static Location<'static>] {
+        self.rare.as_ref().map_or(&[], |r| &r.semantic_origins)
+    }
+
+    /// The style layers the node was mounted with.
+    #[cfg(feature = "devtools")]
+    pub(crate) fn style_layers(&self) -> Vec<crate::view::style_layer::StyleLayer> {
+        self.rare
+            .as_ref()
+            .map_or_else(Vec::new, |r| r.style_layers.clone())
     }
 }
 
@@ -347,6 +403,9 @@ pub(crate) struct ViewNodes {
     engine: Writer,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
+    /// The latest layout report of each referenced node that has no observation yet
+    /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
+    layout_seeds: IdMap<LayoutSeed>,
     /// Choice candidate invalidation; only Hidden changes notify it.
     visibility_revision: Notifier,
     live_region_revision: Notifier,
@@ -372,6 +431,7 @@ impl ViewNodes {
                 TextEditsInFlight(IdMap::default()),
             )),
             leaving: IdMap::default(),
+            layout_seeds: IdMap::default(),
             visibility_revision: owner.notifier(Location::caller()),
             live_region_revision: owner.notifier(Location::caller()),
         }
@@ -469,31 +529,22 @@ impl ViewNodes {
     ) -> Option<NodeObservation> {
         let image_status = self.reader().image_status(id);
         let node = self.nodes.0.get_mut(&id)?;
-        if let Some(observation) = node.observation {
+        if let Some(observation) = node.observation() {
             return Some(observation);
         }
+        let (measured, text_truncated) = self.layout_seeds.remove(&id).unwrap_or_default();
         let observation = NodeObservation {
-            rect: node.owner.signal(None::<crate::geometry::Rect>, at),
-            text_truncated: node.owner.signal(false, at),
+            measured: node.owner.signal(measured, at),
+            text_truncated: node.owner.signal(text_truncated, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
-            layout_rect: node.owner.signal(None::<crate::geometry::Rect>, at),
             image_status: node.owner.signal(image_status, at),
             scene_revision: node.owner.notifier(at),
             editing_revision: node.owner.notifier(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
-        let rect = observation.rect;
-        handlers.observe_layout(move |bounds, _| {
-            rect.set(Some(crate::geometry::Rect::new(
-                bounds.x,
-                bounds.y,
-                bounds.width,
-                bounds.height,
-            )));
-        });
         let scroll_geometry = observation.scroll_geometry;
         handlers.observe_scroll(move |state| scroll_geometry.set(state));
-        node.observation = Some(observation);
+        node.rare_mut().observation = Some(observation);
         Some(observation)
     }
 
@@ -505,10 +556,12 @@ impl ViewNodes {
     ) -> Option<Signal<kivact_types::Presence>> {
         let initial = self.reader().presence(id);
         let node = self.nodes.0.get_mut(&id)?;
+        let owner = node.owner;
         Some(
             *node
+                .rare_mut()
                 .presence
-                .get_or_insert_with(|| node.owner.signal(initial, at)),
+                .get_or_insert_with(|| owner.signal(initial, at)),
         )
     }
 
@@ -606,10 +659,7 @@ impl ViewNodes {
         })
     }
     pub(crate) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.role)
-        })
+        self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
 
     pub(crate) fn hidden(&self, id: NodeId) -> Option<bool> {
@@ -671,7 +721,7 @@ impl ViewNodes {
             return;
         }
         self.engine().set_scene(id, layer, Arc::new(scene));
-        if let Some(observation) = self.get(id).and_then(|node| node.observation) {
+        if let Some(observation) = self.get(id).and_then(CoreNode::observation) {
             observation.scene_revision.notify_from_render();
         }
     }
@@ -683,9 +733,17 @@ impl ViewNodes {
         id: NodeId,
         layers: Vec<crate::view::style_layer::StyleLayer>,
     ) {
-        if let Some(node) = self.nodes.0.get_mut(&id) {
-            node.style_layers = layers;
+        if let Some(node) = self.nodes.0.get_mut(&id)
+            && (!layers.is_empty() || node.rare.is_some())
+        {
+            node.rare_mut().style_layers = layers;
         }
+    }
+
+    /// Keep the latest layout report of `id` for the observation it may get
+    /// later (`observe_node` takes it).
+    pub(crate) fn note_layout(&mut self, id: NodeId, seed: LayoutSeed) {
+        self.layout_seeds.insert(id, seed);
     }
 
     pub(crate) fn set_observe(&mut self, id: NodeId, on: bool) {
@@ -714,8 +772,9 @@ impl ViewNodes {
         let mut records = Vec::new();
         for id in &ids {
             self.future_text_edits.borrow_mut().0.remove(id);
+            self.layout_seeds.remove(id);
             if let Some(record) = self.nodes.0.remove(id) {
-                for reference in &record.references {
+                for reference in record.rare.iter().flat_map(|r| r.references.iter()) {
                     if reference
                         .try_get_untracked()
                         .and_then(crate::view::ref_data::RefState::bound)
@@ -753,7 +812,10 @@ impl ViewNodes {
             return descendants;
         };
         let pop = node.exit_layout == crate::view::ExitLayout::Pop;
-        let callback = node.exit_complete.take();
+        let callback = node
+            .rare
+            .as_deref_mut()
+            .and_then(|r| r.exit_complete.take());
         let notify = callback.is_some();
         if notify {
             self.leaving.insert(id, Leaving { on_exit: callback });
@@ -792,7 +854,8 @@ impl ViewNodes {
         let Some(on_exit) = on_exit else {
             return;
         };
-        node.exit_complete = Some(match node.exit_complete.take() {
+        let rare = node.rare_mut();
+        rare.exit_complete = Some(match rare.exit_complete.take() {
             None => on_exit,
             Some(own) => Handler::from_fn(move |()| -> Result<(), UiError> {
                 let first = own.call(());

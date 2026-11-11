@@ -5,8 +5,9 @@ use super::frame::{FramePlan, Presented};
 use super::gpu::{Fallback, Gpu};
 use super::health::{FrameHealth, LossAction};
 use crate::ShellWaker;
+use crate::env::RendererStart;
 use crate::error::{self, Failure, FailureKind};
-use crate::presentation::{Notes, Renderer, RendererChange};
+use crate::presentation::{GpuStartCause, Notes, Renderer, RendererChange};
 use arvane_compose::{CpuCompositor, CpuOutput, Damage, GpuContext, GpuSurface, Presentation};
 use arvane_render::RenderError;
 use arvane_shell::{BufferAge, ShellWindow};
@@ -15,14 +16,29 @@ use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
 /// What drawing one frame did, before the frame policy.
-pub(super) struct Drawn {
-    pub(super) renderer: Renderer,
-    /// `false`: the window had no buffer to give.
-    pub(super) shown: bool,
-    pub(super) raster: Duration,
-    pub(super) present: Duration,
+pub(super) enum Drawn {
+    /// The window showed the frame.
+    Shown {
+        renderer: Renderer,
+        raster: Duration,
+        present: Duration,
+        /// The frame's exports, missed external frames, shader failures and stats.
+        report: FrameReport,
+    },
+    /// The window had no buffer to give: the frame is drawn again later.
+    NoBuffer {
+        /// The frame's exports, missed external frames, shader failures and stats.
+        report: FrameReport,
+    },
+}
+
+impl Drawn {
     /// The frame's exports, missed external frames, shader failures and stats.
-    pub(super) report: FrameReport,
+    fn report(&self) -> &FrameReport {
+        match self {
+            Self::Shown { report, .. } | Self::NoBuffer { report, .. } => report,
+        }
+    }
 }
 
 /// The renderers of one window and its frame policy.
@@ -51,6 +67,12 @@ impl Presenter {
         self.gpu.release_caches();
     }
 
+    /// Release the CPU frame state of an idle window; its next frame redraws
+    /// everything. The GPU state is kept (its memory is not in the CPU frame state).
+    pub(crate) fn forget_frame_state(&mut self) {
+        self.cpu.invalidate();
+    }
+
     /// A presenter noting its renderer changes to `notes`, its GPU devices
     /// made as `env` says.
     pub(crate) fn new(notes: Notes, env: &crate::env::Env) -> Self {
@@ -63,11 +85,6 @@ impl Presenter {
             shader_failed: HashSet::new(),
             limits_noted: HashSet::new(),
         }
-    }
-
-    /// Note a renderer change.
-    pub(crate) fn note(&mut self, change: RendererChange) {
-        self.notes.note(change);
     }
 
     /// The adapter of the GPU device drawing the window's frames, when it
@@ -182,16 +199,16 @@ impl Presenter {
         self.health = FrameHealth::Healthy;
     }
 
-    /// Start the GPU renderer on a worker thread; frames are drawn on the
-    /// CPU until it is ready, and when no hardware adapter is available,
-    /// or GPU support is not built in, for the whole session. `waker`
-    /// wakes the window's thread when a start step finishes
-    /// ([`Presenter::prepare`] then).
-    pub(crate) fn start_gpu(&mut self, waker: ShellWaker) {
-        self.gpu.start(
-            std::sync::Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP)),
-            &mut self.notes,
-        );
+    /// The renderer the window starts with (see [`Gpu::begin`]); call once,
+    /// when the window opened.
+    pub(crate) fn begin(&mut self, start: RendererStart, waker: ShellWaker) {
+        self.gpu.begin(start, waker, &mut self.notes);
+    }
+
+    /// Start the GPU device the window waits for: the App asks for it (a GPU
+    /// texture the App shares). See [`Gpu::demand`].
+    pub(crate) fn demand_gpu(&mut self) {
+        self.gpu.demand(GpuStartCause::App, &mut self.notes);
     }
 
     /// Move a GPU start along for `window` without drawing: once the
@@ -225,29 +242,34 @@ impl Presenter {
         // Every frame that was drawn notes its report, including one drawn
         // after a surface loss on the CPU.
         if let Ok(drawn) = &drawn {
-            self.note_report(&drawn.report);
+            self.note_report(drawn.report());
         }
         // A frame that was not shown leaves the compositor's records ahead
         // of what the window holds: the next frame redraws everything.
-        if !matches!(&drawn, Ok(drawn) if drawn.shown) {
+        if !matches!(&drawn, Ok(Drawn::Shown { .. })) {
             self.cpu.invalidate();
         }
         match drawn {
-            Ok(drawn) if drawn.shown => {
+            Ok(Drawn::Shown {
+                renderer,
+                raster,
+                present,
+                report,
+            }) => {
                 self.health.shown();
                 Ok(Presented::Shown {
-                    renderer: drawn.renderer,
-                    raster: drawn.raster,
-                    present: drawn.present,
-                    exports: drawn.report.exports,
-                    pending_exports: drawn.report.pending_exports,
-                    stats: drawn.report.stats,
+                    renderer,
+                    raster,
+                    present,
+                    exports: report.exports,
+                    pending_exports: report.pending_exports,
+                    stats: report.stats,
                 })
             }
             // The surface had no buffer (timed out, occluded): the picture
             // is drawn again a display period later, backing off to 16
             // periods while it stays so.
-            Ok(_) => {
+            Ok(Drawn::NoBuffer { .. }) => {
                 let wait = self.health.skipped(period_ns);
                 Ok(Presented::Skipped {
                     retry_at_ns: now_ns.saturating_add(wait),
@@ -290,6 +312,25 @@ impl Presenter {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
         let (now, period) = (window.now_ns(), window.frame_period_ns());
+        if self.gpu.waits()
+            && let Ok(drawn) = &drawn
+        {
+            if drawn.report().shader_fallback {
+                self.gpu.demand(GpuStartCause::Shader, &mut self.notes);
+            } else if let Drawn::Shown {
+                renderer: Renderer::Cpu,
+                raster,
+                present,
+                ..
+            } = drawn
+            {
+                self.gpu.note_cpu_frame(
+                    *raster + *present,
+                    Duration::from_nanos(period),
+                    &mut self.notes,
+                );
+            }
+        }
         let renderer = if self.gpu.ready() {
             Renderer::Gpu
         } else {
@@ -361,11 +402,7 @@ impl Presenter {
         // the frame is drawn again later (the first GPU frame follows
         // the configuration at once).
         if self.gpu.configuring() && window.shows_cpu_frame() {
-            return Ok(Drawn {
-                renderer: Renderer::Cpu,
-                shown: false,
-                raster: Duration::ZERO,
-                present: Duration::ZERO,
+            return Ok(Drawn::NoBuffer {
                 report: FrameReport::default(),
             });
         }
@@ -375,14 +412,14 @@ impl Presenter {
                 window.release_cpu_surface();
                 if presentation == Presentation::Shown {
                     self.keep_shown_frame(window);
+                    return Ok(Drawn::Shown {
+                        renderer: Renderer::Gpu,
+                        raster: started.elapsed().saturating_sub(present),
+                        present,
+                        report,
+                    });
                 }
-                return Ok(Drawn {
-                    renderer: Renderer::Gpu,
-                    shown: presentation == Presentation::Shown,
-                    raster: started.elapsed().saturating_sub(present),
-                    present,
-                    report,
-                });
+                return Ok(Drawn::NoBuffer { report });
             }
             // vello_cpu draws what vello_hybrid cannot (the device is
             // fine); the frame goes through the window's GPU surface.
@@ -398,14 +435,14 @@ impl Presenter {
                         window.release_cpu_surface();
                         if presentation == Presentation::Shown {
                             self.keep_shown_frame(window);
+                            return Ok(Drawn::Shown {
+                                renderer: Renderer::Cpu,
+                                raster,
+                                present,
+                                report,
+                            });
                         }
-                        return Ok(Drawn {
-                            renderer: Renderer::Cpu,
-                            shown: presentation == Presentation::Shown,
-                            raster,
-                            present,
-                            report,
-                        });
+                        return Ok(Drawn::NoBuffer { report });
                     }
                     Some(Err(e)) => self.gpu_failed(e)?,
                     None => {}
@@ -481,13 +518,17 @@ impl Presenter {
             true
         });
         let shown = backend.map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
-        Ok(Drawn {
-            renderer: Renderer::Cpu,
-            shown,
-            raster,
-            present: started.elapsed().saturating_sub(raster),
-            report,
-        })
+        let present = started.elapsed().saturating_sub(raster);
+        if shown {
+            Ok(Drawn::Shown {
+                renderer: Renderer::Cpu,
+                raster,
+                present,
+                report,
+            })
+        } else {
+            Ok(Drawn::NoBuffer { report })
+        }
     }
 
     /// Keep a copy of the GPU frame just shown when `window` keeps frames. A failed read-back

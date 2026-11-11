@@ -37,16 +37,16 @@ pub enum EditOutcome {
 /// `x` is in logical pixels from the start of the editor's text box,
 /// before the editor's horizontal scroll.
 pub struct EditContext<'a> {
-    // xtask-allow(state-fields): borrowed snapshot - Whether committed text may contain line breaks
+    // xtask-allow(state-fields): option: the editor's authored multiline prop the engine passes per request; false means committed text keeps no line breaks
     /// Whether committed text may contain line breaks.
     pub multiline: bool,
-    // xtask-allow(state-fields): borrowed snapshot - Whether user input must preserve the value
+    // xtask-allow(state-fields): option: the editor's authored read_only prop the engine passes per request; false lets user input change the value
     /// Whether user input must preserve the value.
     pub read_only: bool,
-    // xtask-allow(state-fields): borrowed snapshot - Whether clipboard copy and cut must hide the value
+    // xtask-allow(state-fields): option: whether the editor's authored input purpose is Password, passed per request; false lets copy and cut expose the value
     /// Whether clipboard copy and cut must hide the value.
     pub password: bool,
-    // xtask-allow(state-fields): borrowed snapshot - layout
+    // xtask-allow(state-fields): independent: the editor's laid-out lines for this request, which the engine always supplies and a caller without layout leaves out; the flags are authored props and do not decide whether lines exist
     layout: Option<EditLayout<'a>>,
 }
 

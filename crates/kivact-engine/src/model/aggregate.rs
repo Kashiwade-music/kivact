@@ -17,6 +17,8 @@ pub(crate) enum DeferredRequest {
     Inject(Vec<arvane::InjectedInput>),
     Emulate(EngineEmulation),
     TimeScale(f64),
+    /// Start the model's window GPU device (nothing is answered).
+    DemandGpu,
 }
 
 /// The engine's state: the node tree and one field per state group.
@@ -27,7 +29,10 @@ pub(crate) struct Model {
     pub(crate) layout: kivact_layout::Layout,
     pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) playback: super::playback::state::Playback,
+    pub(crate) sources: super::frame::sources::MotionSources,
     pub(crate) measure: crate::measure::state::MeasureColumns,
+    /// The recent values of the shared node properties (`Model::set_shared_prop`).
+    pub(crate) recent: super::recent::RecentProps,
     pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
@@ -36,8 +41,9 @@ pub(crate) struct Model {
     pub(crate) pointer: super::pointer::state::Pointer,
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
+    // xtask-allow(state-fields): projection: the modifiers last reported to the client, written only by Model::report_modifiers
     /// The keyboard modifiers the shell reports held.
-    pub(crate) modifiers: kivact_types::cell::Sent<Modifiers>,
+    pub(super) modifiers: kivact_types::cell::Sent<Modifiers>,
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
@@ -48,6 +54,7 @@ pub(crate) struct Model {
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
+    // xtask-allow(state-fields): independent: the title and minimum size Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so either is set without the other
     /// The window title and minimum size to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>)>,
     /// The platform effects to carry out after the turn.
@@ -81,7 +88,9 @@ impl Model {
             layout: Default::default(),
             layout_motion: Default::default(),
             playback: Default::default(),
+            sources: Default::default(),
             measure: Default::default(),
+            recent: Default::default(),
             editors: Vec::new(),
             events: shared.events.clone(),
             changes: super::changes::Changes::initial(),
@@ -125,6 +134,45 @@ impl Model {
         self.tree.get(id)
     }
 
+    /// Mark `id`'s subtree facts stale for the next paint list. A transparent
+    /// node marks the flat parent that holds the children it contributes, and
+    /// those children (their own layer reads that parent's look).
+    pub(crate) fn stale_fact(&mut self, id: NodeId) {
+        let Some(node) = self.tree.get(id) else {
+            return;
+        };
+        if !node.is_transparent() {
+            self.paint.stale_fact(id);
+            return;
+        }
+        if let Some(at) = self.tree.flat_parent(node).or_else(|| self.tree.root()) {
+            self.paint.stale_fact(at);
+        }
+        let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+        for child in children {
+            self.paint.stale_fact(child);
+        }
+    }
+
+    /// Mark the facts of `id` and of every node below it stale: a change
+    /// that hides or shows the whole subtree (each box of it derives its
+    /// facts again, its ancestors as they change).
+    pub(crate) fn stale_subtree_facts(&mut self, id: NodeId) {
+        self.stale_fact(id);
+        let mut stack: Vec<NodeId> = self
+            .tree
+            .get(id)
+            .map(|n| self.tree.children_ids(n).collect())
+            .unwrap_or_default();
+        while let Some(x) = stack.pop() {
+            let Some(n) = self.tree.get(x) else { continue };
+            if !n.is_transparent() {
+                self.paint.stale_fact(x);
+            }
+            stack.extend(self.tree.children_ids(n));
+        }
+    }
+
     /// Computed geometry from the retained node.
     pub(crate) fn computed_layout(&self, id: NodeId) -> Option<kivact_layout::NodeLayout> {
         self.layout.computed_layout(&self.tree, id)
@@ -144,21 +192,44 @@ impl Model {
     /// promote this to a subtree/metadata refresh during the same settle.
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.a11y.local_text(id);
+            self.a11y.payload(id);
             self.changes.mark(id, super::changes::Dirty::REDRAW);
         }
     }
 
+    /// `id` is drawn again (its paint or state styles): only its own payload
+    /// (its scene regions' padding box) can change; a state style that moves
+    /// or reorders it moves its subtree.
     pub(crate) fn repaint(&mut self, id: NodeId) {
         if self.tree.contains(id) {
-            self.a11y.node(id);
+            self.a11y.payload(id);
             if self
                 .node(id)
                 .is_some_and(|n| n.states().is_some_and(crate::tree::states_place))
             {
-                self.a11y.subtree(id);
+                self.a11y.moved(id);
             }
             self.changes.mark(id, super::changes::Dirty::REDRAW);
+        }
+    }
+
+    /// The scroll offset of `id` changed: its own payload and the clipping
+    /// lists at or above it. Every other payload under it keeps its
+    /// content-space bounds, except the layers under it (an overlay, a fixed
+    /// box), drawn at their window origins: they move in content space.
+    /// Overlays anchored under it follow (`a11y::build::payload`).
+    pub(crate) fn a11y_scrolled(&mut self, id: NodeId) {
+        self.a11y.scrolled(id);
+        let layers: Vec<NodeId> = self
+            .tree
+            .overlays
+            .iter()
+            .chain(self.tree.fixed.iter())
+            .copied()
+            .filter(|x| *x != id && self.tree.is_in_subtree(*x, id))
+            .collect();
+        for layer in layers {
+            self.a11y.moved(layer);
         }
     }
 }

@@ -3,13 +3,12 @@
 use crate::{EditSession, TextEditApi, use_text_edit};
 use kivact_core::state::{
     IntoBinding, IntoText, IntoValue, ItemKey, Machine, MachineHandle, Step, binding, callback,
-    machine, on_cleanup, var,
+    machine, on_cleanup,
 };
-use kivact_types::cell::Sent;
 
 // A request precedes the conditional field's construction: its draft does not
 // exist until the caller mounts field(). It is an actual pending rename request.
-enum InlineEdit<K: ItemKey> {
+enum Phase<K: ItemKey> {
     Idle,
     Requested {
         key: K,
@@ -20,7 +19,7 @@ enum InlineEdit<K: ItemKey> {
         session: EditSession<String>,
     },
 }
-impl<K: ItemKey> Clone for InlineEdit<K> {
+impl<K: ItemKey> Clone for Phase<K> {
     fn clone(&self) -> Self {
         match self {
             Self::Idle => Self::Idle,
@@ -37,7 +36,7 @@ impl<K: ItemKey> Clone for InlineEdit<K> {
         }
     }
 }
-impl<K: ItemKey> PartialEq for InlineEdit<K> {
+impl<K: ItemKey> PartialEq for Phase<K> {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Idle, Self::Idle) => true,
@@ -54,12 +53,35 @@ impl<K: ItemKey> PartialEq for InlineEdit<K> {
         }
     }
 }
-impl<K: ItemKey> InlineEdit<K> {
+impl<K: ItemKey> Phase<K> {
     fn key(&self) -> Option<K> {
         match self {
             Self::Idle => None,
             Self::Requested { key } | Self::Editing { key, .. } => Some(key.clone()),
         }
+    }
+}
+
+/// The rename request. The key last written to the caller's `editing`
+/// binding is always the key of the phase, so it is not stored.
+struct InlineEdit<K: ItemKey> {
+    phase: Phase<K>,
+}
+impl<K: ItemKey> Clone for InlineEdit<K> {
+    fn clone(&self) -> Self {
+        Self {
+            phase: self.phase.clone(),
+        }
+    }
+}
+impl<K: ItemKey> PartialEq for InlineEdit<K> {
+    fn eq(&self, other: &Self) -> bool {
+        self.phase == other.phase
+    }
+}
+impl<K: ItemKey> InlineEdit<K> {
+    fn key(&self) -> Option<K> {
+        self.phase.key()
     }
 }
 enum Event<K: ItemKey> {
@@ -86,34 +108,48 @@ impl<K: ItemKey> Machine for Rename<K> {
         event: Event<K>,
     ) -> Step<InlineEdit<K>, Event<K>, Option<K>> {
         match event {
-            Event::Request(key) if state.key() == key => Step::stay(),
-            Event::Request(Some(key)) => {
-                Step::to(InlineEdit::Requested { key: key.clone() }).with(Some(key))
+            Event::Request(Some(key)) if state.key().as_ref() == Some(&key) => Step::stay(),
+            Event::Request(key) => {
+                let write = state.key() != key;
+                let next = InlineEdit {
+                    phase: key
+                        .clone()
+                        .map_or(Phase::Idle, |key| Phase::Requested { key }),
+                };
+                let step = Step::to(next);
+                if write { step.with(key) } else { step }
             }
-            Event::Request(None) => Step::to(InlineEdit::Idle).with(None),
             Event::Mounted {
                 key,
                 draft,
                 session,
-            } if state.key().as_ref() == Some(&key) => Step::to(InlineEdit::Editing {
-                key,
-                draft,
-                session,
-            }),
-            Event::Typed { key, draft } => match state {
-                InlineEdit::Editing {
+            } if state.key().as_ref() == Some(&key) => {
+                let mut next = state.clone();
+                next.phase = Phase::Editing {
+                    key,
+                    draft,
+                    session,
+                };
+                Step::to(next)
+            }
+            Event::Typed { key, draft } => match &state.phase {
+                Phase::Editing {
                     key: active,
                     session,
                     ..
-                } if *active == key => Step::to(InlineEdit::Editing {
-                    key,
-                    draft,
-                    session: *session,
-                }),
+                } if *active == key => {
+                    let mut next = state.clone();
+                    next.phase = Phase::Editing {
+                        key,
+                        draft,
+                        session: *session,
+                    };
+                    Step::to(next)
+                }
                 _ => Step::stay(),
             },
             Event::Ended(key) if state.key().as_ref() == Some(&key) => {
-                Step::to(InlineEdit::Idle).with(None)
+                Step::to(InlineEdit { phase: Phase::Idle }).with(None)
             }
             _ => Step::stay(),
         }
@@ -135,15 +171,16 @@ impl<K: ItemKey> Copy for InlineEditApi<K> {}
 pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> InlineEditApi<K> {
     let editing = editing.into_binding();
     let initial = editing.get_untracked();
-    let sent = var(Sent::new());
-    sent.update(|sent| {
-        sent.update(initial.clone());
-    });
     let rename = machine(
-        initial.map_or(InlineEdit::Idle, |key| InlineEdit::Requested { key }),
+        InlineEdit {
+            phase: initial.map_or(Phase::Idle, |key| Phase::Requested { key }),
+        },
         || Rename(std::marker::PhantomData),
+        // The machine is the one writer of the request it reports; it writes
+        // only a key the binding does not already hold, and the echo of its
+        // own write comes back as a request for the state it holds.
         move |_, key| {
-            if sent.update(|sent| sent.update(key.clone()).is_some()) {
+            if editing.get_untracked() != key {
                 editing.set(key);
             }
         },
@@ -153,7 +190,7 @@ pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> Inli
 }
 impl<K: ItemKey> InlineEditApi<K> {
     /// Request renaming this key; the conditional field supplies its draft on mount.
-    pub fn open(self, key: K) {
+    pub fn show(self, key: K) {
         self.rename.send(Event::Request(Some(key)));
     }
     /// Read whether this key is requested or being renamed.
@@ -186,8 +223,8 @@ impl<K: ItemKey> InlineEditApi<K> {
         let read_key = key.clone();
         let write_key = key.clone();
         let projected = binding(
-            move || match self.rename.get() {
-                InlineEdit::Editing { key, draft, .. } if key == read_key => draft,
+            move || match self.rename.get().phase {
+                Phase::Editing { key, draft, .. } if key == read_key => draft,
                 _ => draft.get(),
             },
             move |text: String| {

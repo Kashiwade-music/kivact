@@ -339,6 +339,9 @@ pub struct FrameReport {
     pub missed: Vec<ExternalFrame>,
     /// (program hash, message) of shader pipelines that failed, once each.
     pub shader_failures: Vec<(u64, String)>,
+    /// A user shader (paint or filter) was drawn by its fallback on the CPU
+    /// this frame; the GPU draws it.
+    pub shader_fallback: bool,
     /// Exports skipped this frame because no slot was released.
     pub pending_exports: Vec<DrawableId>,
     /// Work counts of this frame.

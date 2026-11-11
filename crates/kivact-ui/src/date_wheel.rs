@@ -5,7 +5,7 @@ use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, message};
 use kivact_core::state::{Binding, IntoValue, Value, binding, notifier};
 use kivact_core::view::{
-    EditPhase, Handled, Node, NodeBuilder, Role, WheelEvent, column, node, row, text,
+    EditPhase, Element, Handled, Node, Role, WheelEvent, column, node, row, text,
 };
 use kivact_interaction::{
     DragCoordinates, DragPhase, ScalarRange, project_release, use_drag, use_scalar,

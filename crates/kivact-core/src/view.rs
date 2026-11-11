@@ -28,6 +28,8 @@ pub(crate) mod focus;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+#[cfg(feature = "devtools")]
+pub(crate) mod inspect_mode;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
@@ -62,7 +64,7 @@ pub use crate::view::flow::{
     dynamic, error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, component, provide_direction, use_direction};
+pub use boundary::{ReadingDirection, provide_direction, scope, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]
@@ -72,7 +74,7 @@ pub use drawable::{Drawable, drawable};
 pub use drawable_share::DrawableTextures;
 #[doc(inline)]
 pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
-pub use element_data::Component;
+pub use element_data::Element;
 #[doc(inline)]
 pub use hover::pointer_position;
 #[doc(inline)]
@@ -88,6 +90,8 @@ pub use kivact_types::Presence;
 pub use modifier_keys::modifiers;
 #[doc(inline)]
 pub use mounted::is_mounted;
+#[doc(inline)]
+pub use part_data::{Availability, Focus};
 #[doc(inline)]
 pub use scroll_timeline::{ViewRange, scroll_progress, view_progress};
 #[doc(inline)]
@@ -121,8 +125,8 @@ pub(crate) mod elements;
 pub use children::IntoChildren;
 pub use edit_phase::EditPhase;
 pub use elements::{
-    ImageFit, Node, NodeBuilder, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column,
-    grid, icon, image, node, rich_text, row, scroll, spacer, span, stack, text, viewport,
+    ImageFit, Node, Scroll, ScrollAxes, Span, SurfaceSize, Viewport, canvas, column, grid, icon,
+    image, node, rich_text, row, scroll, spacer, span, stack, text, viewport,
 };
 pub use kivact_style::asset::{Asset, AssetBytes};
 

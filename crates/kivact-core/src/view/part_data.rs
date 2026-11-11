@@ -43,28 +43,92 @@ pub(crate) struct PartBinding {
     pub(crate) hooks: Vec<Rc<dyn Fn(PartMount) -> Result<(), UiError>>>,
 }
 
+/// Whether this exact target has keyboard focus, and whether the host asks
+/// for a visible focus indication.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Focus {
+    /// The target does not have keyboard focus.
+    #[default]
+    None,
+    /// The target has keyboard focus.
+    Focused,
+    /// The target has keyboard focus and the host requests a visible
+    /// focus indication.
+    FocusedVisible,
+}
+
+/// Whether a target takes input, and what input holds it when it does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Availability {
+    /// The target takes input.
+    Enabled {
+        // xtask-allow(state-fields): independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs
+        /// A primary pointer or focused activation key is held down.
+        pressed: bool,
+        // xtask-allow(state-fields): independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs
+        /// The pointer is over this exact target.
+        hovered: bool,
+    },
+    /// A caller or attached behavior disables the target.
+    Disabled,
+    /// A caller or attached behavior hides the target (wins over Disabled:
+    /// a hidden target is not drawn).
+    Hidden,
+}
+
+impl Default for Availability {
+    fn default() -> Self {
+        Self::Enabled {
+            pressed: false,
+            hovered: false,
+        }
+    }
+}
+
 /// Actual input and availability state of an attached node or canvas region.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PartState {
-    // xtask-allow(state-fields): public observation snapshot - A primary pointer or focused activation key is held down
-    /// A primary pointer or focused activation key is held down. Always
-    /// `false` while the target is disabled or hidden.
-    pub pressed: bool,
-    // xtask-allow(state-fields): public observation snapshot - The pointer is over this exact target
-    /// The pointer is over this exact target. Always `false` while the
-    /// target is disabled or hidden.
-    pub hovered: bool,
-    // xtask-allow(state-fields): public observation snapshot - This exact target has keyboard focus
+    /// This exact target's keyboard focus; [`Focus::FocusedVisible`] also
+    /// means the host requests a visible focus indication.
+    pub focus: Focus,
+    /// Whether this target takes input; pressed and hovered exist only while it does.
+    pub availability: Availability,
+}
+
+impl PartState {
     /// This exact target has keyboard focus.
-    pub focused: bool,
-    // xtask-allow(state-fields): public observation snapshot - The host requests a visible focus indication for this exact target
+    pub fn is_focused(&self) -> bool {
+        self.focus != Focus::None
+    }
+
     /// The host requests a visible focus indication for this exact target.
-    /// Implies `focused`.
-    pub focus_visible: bool,
-    // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior disables this target
+    pub fn is_focus_visible(&self) -> bool {
+        self.focus == Focus::FocusedVisible
+    }
+
+    /// A primary pointer or focused activation key is held down.
+    pub fn is_pressed(&self) -> bool {
+        matches!(
+            self.availability,
+            Availability::Enabled { pressed: true, .. }
+        )
+    }
+
+    /// The pointer is over this exact target.
+    pub fn is_hovered(&self) -> bool {
+        matches!(
+            self.availability,
+            Availability::Enabled { hovered: true, .. }
+        )
+    }
+
     /// A caller or attached behavior disables this target.
-    pub disabled: bool,
-    // xtask-allow(state-fields): public observation snapshot - A caller or attached behavior hides this target
+    pub fn is_disabled(&self) -> bool {
+        self.availability == Availability::Disabled
+    }
+
     /// A caller or attached behavior hides this target.
-    pub hidden: bool,
+    pub fn is_hidden(&self) -> bool {
+        self.availability == Availability::Hidden
+    }
 }

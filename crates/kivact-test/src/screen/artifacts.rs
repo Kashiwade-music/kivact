@@ -6,7 +6,7 @@
 //! cargo target directory, named after the test; a window beyond the main
 //! one is named `<name>-w<id>`. Failure messages name the files (or stderr
 //! does). `Screen::screenshot` is the last frame (pixels, hash and PNG),
-//! `Element::screenshot` its part under the element's box.
+//! `Locator::screenshot` its part under the element's box.
 
 use std::cell::Cell;
 use std::fmt::Write as _;
@@ -17,7 +17,7 @@ use std::time::Duration;
 use kivact_engine::testing::{SemanticsNode, Transform};
 use kivact_types::WindowId;
 
-use super::model::{Element, Screen, TestApp};
+use super::model::{Locator, Screen, TestApp};
 use super::results::Screenshot;
 use kivact_style::draw::Rect;
 
@@ -126,7 +126,7 @@ impl Screen {
     }
 }
 
-impl Element<'_> {
+impl Locator<'_> {
     /// The element's part of a screenshot (its layout box, in physical
     /// pixels of the frame).
     pub fn screenshot(&self) -> Screenshot {

@@ -25,7 +25,7 @@ use super::tree::ViewNodes;
 use kivact_runtime::Completion;
 use kivact_types::Capabilities;
 
-pub(crate) use super::ref_data::{Bound, LayoutObservation, NodeRefState, RefState};
+pub(crate) use super::ref_data::{Bound, NodeRefState, RefObservation, RefState};
 
 /// The node the host last reported under the pointer (`view::hover`).
 #[derive(Clone, Copy)]
@@ -47,6 +47,7 @@ pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
     pub(crate) reply: FocusReply,
     pub(crate) stage: RequestStage,
+    // xtask-allow(state-fields): independent: given once by the caller of request_focus and never changed; the stage moves from Queued to Sent on the host write whatever the indicator, so both values occur in both stages
     /// The requested focus indicator, independent of request progress.
     pub(crate) visible: bool,
 }
@@ -145,16 +146,22 @@ impl EnvState {
     }
 }
 
+/// The keyboard focus of a window: the target and whether its indicator is
+/// visible.
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) struct KeyFocus {
+    pub(crate) target: kivact_types::FocusTarget,
+    pub(crate) visible: bool,
+}
+
 /// The reactive focus nodes of an App (created at root mount).
 #[derive(Clone, Copy)]
 pub(crate) struct FocusKeys {
-    // xtask-allow(state-fields): independent facts; selector is a projection - The focused node as last reported by the host
-    /// The focused node as last reported by the host.
-    pub(crate) node: Signal<Option<kivact_types::FocusTarget>>,
+    /// The focused node as last reported by the host, with the indicator it
+    /// asked for; `None` while nothing is focused.
+    pub(crate) focus: Signal<Option<KeyFocus>>,
     /// "Is this node focused", notifying only the previous and next node.
     pub(crate) selector: Selector<kivact_types::FocusTarget>,
-    // xtask-allow(state-fields): independent facts; selector is a projection - visible
-    pub(crate) visible: Signal<bool>,
 }
 
 /// How a focus request completes.
@@ -181,11 +188,13 @@ pub(crate) enum EffectWaiter {
 /// Outstanding host requests of an App.
 #[derive(Default)]
 pub(crate) struct Requests {
+    // xtask-allow(state-fields): identity: allocates host request ids; no other field derives from it
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
     /// Pending CPU captures, answered at the settled host boundary.
     pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
+    // xtask-allow(state-fields): independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
@@ -215,7 +224,7 @@ pub(crate) struct ViewState {
     pub(crate) removed: RefCell<Vec<NodeId>>,
     /// The open windows' records.
     pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
-    // xtask-allow(state-fields): S-8 ID - the next window id
+    // xtask-allow(state-fields): identity: allocates window ids; `WindowId::MAIN` is 1
     /// The last window id handed out (`WindowId::MAIN` is 1).
     next_window: Cell<u64>,
     /// What the host's platform can do (host events alone write it).
@@ -226,7 +235,7 @@ pub(crate) struct ViewState {
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
-    // xtask-allow(state-fields): independent fact - the App has not drawn yet
+    // xtask-allow(state-fields): independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once)
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
@@ -256,7 +265,7 @@ pub(crate) struct WindowRecord {
         reason = "the record keeps the window's title for DevTools and diagnostics"
     )]
     pub(crate) title: Value<String>,
-    // xtask-allow(state-fields): construction option - Window::min_size
+    // xtask-allow(state-fields): option: `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
     pub(crate) min_size: Option<kivact_types::Size>,
     pub(crate) dismiss: Option<Handler<DismissReason>>,
     pub(crate) open: Binding<bool>,
@@ -478,15 +487,13 @@ enum Modality {
 impl FocusKeys {
     /// Create the focus source and its selector under the window's `owner`.
     pub(crate) fn new(owner: Owner, at: &'static Location<'static>) -> FocusKeys {
-        let node: Signal<Option<FocusTarget>> = owner.signal(None::<FocusTarget>, at);
-        // `selector` registers under the setup owner.
-        let selector = owner.with_setup(|| kivact_runtime::selector(node));
-        let visible = owner.signal(false, at);
-        FocusKeys {
-            node,
-            selector,
-            visible,
-        }
+        let focus: Signal<Option<KeyFocus>> = owner.signal(None, at);
+        // `selector` registers under the setup owner, and follows the target
+        // only: a new indicator for the same target changes nothing.
+        let targets =
+            owner.with_setup(|| kivact_runtime::memo(move || focus.get().map(|key| key.target)));
+        let selector = owner.with_setup(|| kivact_runtime::selector(targets));
+        FocusKeys { focus, selector }
     }
 }
 

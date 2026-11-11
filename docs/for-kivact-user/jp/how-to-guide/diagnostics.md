@@ -88,7 +88,6 @@ Kivact はコンポーネントの setup、イベントハンドラー (`on_pres
 ```rust,test_harness
 use kivact::ErrorKind;
 use kivact::prelude::*;
-use kivact::view::error_boundary;
 
 fn export() -> Result<(), UiError> {
     // `?` はあらゆる `std::error::Error` を `UiError` に変換します。
@@ -253,7 +252,7 @@ node 5 Text "doubled: 4"
 
 実行中のアプリで同じ原因を見るには、DevTools で記録して Updates パネルを読みます。[画面が更新された理由を見る](devtools.md#画面が更新された理由を見る) を参照してください。
 
-テストでは `NodeRef` は不要です。見つけた要素に `Element::why()` を呼べば同じ情報が得られます。
+テストでは `NodeRef` は不要です。見つけた要素に `Locator::why()` を呼べば同じ情報が得られます。
 
 ```rust,test_harness
 use kivact::prelude::*;

@@ -15,11 +15,11 @@ use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{Direction, pct, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::IntoChildren;
+use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, Role, View, node_ref, show,
     use_direction,
 };
-use kivact_core::view::{Node, NodeBuilder, node};
 use kivact_interaction::{ScalarRange, use_splitter};
 
 /// The pixels used until the host has laid the panes out.
@@ -142,7 +142,7 @@ impl Split {
     }
 }
 
-impl NodeBuilder for Split {
+impl Element for Split {
     /// The row (or column) of the panes and handles.
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

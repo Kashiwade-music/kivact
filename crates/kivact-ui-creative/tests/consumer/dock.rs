@@ -8,7 +8,7 @@ use crate::support::near;
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::*;
-use kivact::test::{Element, Screen};
+use kivact::test::{Locator, Screen};
 use kivact::view::{A11yAction, MouseButton};
 use kivact_ui_creative as ui;
 use std::cell::Cell;
@@ -63,7 +63,7 @@ fn mount_dock() -> (Screen, Probe) {
 }
 
 /// Drag `element` from its center to the window point `to`.
-fn drag_to(element: &Element<'_>, to: Point) {
+fn drag_to(element: &Locator<'_>, to: Point) {
     let rect = element.rect().expect("dragged element is laid out");
     element.drag(
         Point::new(rect.width / 2.0, rect.height / 2.0),
@@ -335,7 +335,7 @@ fn close_buttons_and_commands_remove_closable_tabs_and_report_each() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &Element<'_>) {
+fn assert_splitter_pointer_changes(screen: &Screen, probe: &Probe, splitter: &Locator<'_>) {
     // Double click equalizes; a drag moves by the pointer's travel.
     splitter.a11y_set_value("30");
     splitter.double_click();

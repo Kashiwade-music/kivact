@@ -9,8 +9,8 @@ use kivact::ui::ControlSize;
 use kivact::ui::badge;
 use kivact::ui::button;
 use kivact::ui::input_group_with;
+use kivact::view::Element;
 use kivact::view::Key;
-use kivact::view::NodeBuilder;
 use kivact::view::Role;
 use kivact::view::column;
 use kivact_ui_soft::{IconSize, StatusDotVariant, icon_view, status_dot};
@@ -342,5 +342,35 @@ fn canonical_avatar_overflow_tracks_real_omissions_and_keeps_its_action() {
     total.set(2);
     screen.run_until_idle();
     assert!(screen.query_by_role(Role::Button, "Show 6 more").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn collapsible_alert_open_binding_controls_details_not_visibility() {
+    let (screen, open) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let open = signal(true);
+            (
+                open,
+                kivact::ui::alert("Heads up")
+                    .content(|| kivact::view::text("Details body"))
+                    .collapsible(true)
+                    .open(open),
+            )
+        },
+    );
+    assert!(
+        screen
+            .query_by_role(Role::Button, "Collapse details")
+            .is_some()
+    );
+    open.set(false);
+    screen.run_until_idle();
+    assert!(
+        screen
+            .query_by_role(Role::Button, "Expand details")
+            .is_some()
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

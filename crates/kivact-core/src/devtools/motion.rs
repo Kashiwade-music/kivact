@@ -34,8 +34,8 @@ pub(super) fn list_animations(rt: &Runtime, _: p::Empty) -> Result<p::AnimationL
             },
             source: info.created_at.map(convert::location),
             owner: info.owner.raw(),
-            running: info.running,
-            paused: info.paused,
+            running: info.is_running(),
+            paused: info.is_paused(),
             decorative: info.decorative,
         })
         .collect();

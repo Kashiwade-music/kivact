@@ -135,6 +135,26 @@ impl<M: Machine> MachineCx<M> {
     }
 }
 
+/// Run `fire` after `delay` on a task of `owner`. Every machine's timers
+/// share this one future type: the handle and the event are in `fire`.
+#[inline(never)]
+fn spawn_timer(
+    owner: Owner,
+    delay: Duration,
+    fire: Box<dyn FnOnce()>,
+    at: &'static Location<'static>,
+) -> Task {
+    let wait = sleep(delay);
+    spawn_in(
+        owner,
+        async move {
+            wait.await;
+            fire();
+        },
+        at,
+    )
+}
+
 /// Create a machine during setup. `input` builds each event's snapshot untracked.
 #[track_caller]
 pub fn machine<M: Machine>(
@@ -194,16 +214,9 @@ impl<M: Machine> MachineHandle<M> {
                         task.cancel();
                     }
                     if let Some(delay) = delay {
-                        let wait = sleep(delay);
                         let handle = *self;
-                        let task = spawn_in(
-                            cell.owner,
-                            async move {
-                                wait.await;
-                                handle.send(event);
-                            },
-                            at,
-                        );
+                        let fire: Box<dyn FnOnce()> = Box::new(move || handle.send(event));
+                        let task = spawn_timer(cell.owner, delay, fire, at);
                         cell.timers.borrow_mut().insert(key, task);
                     }
                 }

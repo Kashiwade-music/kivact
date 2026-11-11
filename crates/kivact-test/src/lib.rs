@@ -29,7 +29,9 @@
 //! - Options: [`RenderOptions`] defaults to 800 × 600 at scale 1, the
 //!   bundled font only, a real window (headless when none opens), the CPU
 //!   and 60 Hz. The Cargo GPU feature only enables the capability; a test
-//!   picks how it draws with `gpu` (no API says which one drew).
+//!   picks how it draws with `gpu` (the GPU from the first frame) or
+//!   `gpu_on_demand` (the CPU until the window needs the GPU), and reads what
+//!   draws with `Screen::renderer`.
 //!   The default reads `KIVACT_TEST_MIRROR` (`off`, `auto`, or `required`).
 //!   [`RenderOptions::from_env`] also reads `KIVACT_TEST_GPU=1`.
 //!   [`render_with_handle`] also returns values made by the root setup.
@@ -46,7 +48,7 @@
 //!   failure artifacts are written. Test a detected misuse with
 //!   `#[should_panic(expected = "..")]`.
 //! - Layout check: [`Screen::check_layout`], `check_layout_with` and
-//!   `Element::check_layout` turn the engine's findings into
+//!   `Locator::check_layout` turn the engine's findings into
 //!   [`LayoutViolation`]s; `assert_layout` fails with all of them and keeps
 //!   the frame in [`failure_dir`]. [`Screen::assert_layout_with`] preserves
 //!   explicit check options and the same failure artifacts. A Japanese label needs Noto Sans JP given
@@ -61,7 +63,7 @@
 //! # #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 //! # fn example() -> kivact_core::Result<()> {
 //! use kivact_core::{App, Result};
-//! use kivact_core::view::{NodeBuilder, text};
+//! use kivact_core::view::text;
 //! use kivact_test::TestParent;
 //! let parent = TestParent::open(320, 240)?;
 //! let editor = App::new("Editor").window_size(320, 240)
@@ -92,11 +94,11 @@ mod screen;
 
 /// The work counts of a presented frame, as [`Screen::frame_stats`] reports them.
 pub use kivact_types::render::FrameStats;
-pub use options::{MirrorMode, RenderOptions, TestFonts};
+pub use options::{MirrorMode, RenderOptions, Renderer, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 
 pub use screen::{
-    Contact, Element, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation,
+    Contact, ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, Locator,
     RasterDifference, Screen, Screenshot, SemanticNode, Within, failure_dir,
 };
 

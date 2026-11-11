@@ -1,5 +1,4 @@
 //! Role: Catalog page of Sheet: the standard dialog attached to a side of the window.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -10,7 +9,7 @@ pub(crate) fn page() -> Page {
         slug: "sheet",
         name: "Sheet",
         description: "画面の端から出てくるモーダルのパネルです。標準の kivact::ui::dialog を DialogMode::Drawer(Side) にすると、このテーマでは sheet.tsx の見た目で描きます。題名、説明、本文、フッターを持ち、Escape、閉じるボタン、背景の押下で閉じます。",
-        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
+        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
         source: include_str!("sheet.rs"),
         align: PreviewAlign::Center,
         examples: vec![

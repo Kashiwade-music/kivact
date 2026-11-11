@@ -5,7 +5,7 @@ use crate::date_time_model::{
 use crate::{DatePresentation, button, calendar, date_input, dialog, time_input};
 use kivact_core::i18n::{DateStyle, DateTime, TimeStyle, Weekday, message};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, column, node, row};
+use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
     root: Node,
@@ -83,7 +83,7 @@ impl DateTimeInput {
         self
     }
 }
-impl NodeBuilder for DateTimeInput {
+impl Element for DateTimeInput {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

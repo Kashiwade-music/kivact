@@ -2,7 +2,7 @@
 
 use crate::{Hue, Tokens};
 use kivact::i18n::message;
-use kivact::view::{Node, NodeBuilder, column, icon, row, text};
+use kivact::view::{Element, Node, column, icon, row, text};
 
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue};
@@ -44,7 +44,7 @@ impl AgendaItem {
         self
     }
 }
-impl NodeBuilder for AgendaItem {
+impl Element for AgendaItem {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root

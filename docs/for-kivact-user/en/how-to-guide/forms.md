@@ -289,7 +289,7 @@ Other rules:
 - `.max_length(n)` limits the input by characters (Unicode scalar values), and a
   composition in progress is never cut.
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
-  `.purpose(kivact::view::InputPurpose::Password)` hides the text and blocks copy and cut.
+  `.purpose(InputPurpose::Password)` hides the text and blocks copy and cut.
 
 ## Commit a single field with Enter or blur
 
@@ -300,7 +300,7 @@ before the edit.
 
 An inline rename also needs to know which item is being renamed, to open the
 field with its text selected and to close it again. `use_inline_edit` keeps
-that: `open(id)` starts a rename, `is_open(&id)` tells whether it runs, and
+that: `show(id)` starts a rename, `is_open(&id)` tells whether it runs, and
 `field(..)` builds the field.
 
 ```rust,no_run
@@ -319,7 +319,7 @@ fn names() -> impl IntoView {
                 text(move || item.get().1),
                 show(
                     move || !rename.is_open(&id),
-                    move || button("Rename").on_press(move || rename.open(id)),
+                    move || button("Rename").on_press(move || rename.show(id)),
                 ),
                 show(
                     move || rename.is_open(&id),
@@ -364,7 +364,7 @@ Enter belongs to the draft, and `.on_edit(..)` reports `Begin`, `Commit` and
 
 ### Mobile input and restoration
 
-Set `.purpose(kivact::view::InputPurpose::Email)` to describe the expected input.
+Set `.purpose(InputPurpose::Email)` to describe the expected input.
 The other purposes are Text, Number, Decimal, Url, Phone, Password and Search.
 Password also masks the value and prevents clipboard and accessibility disclosure.
 Desktop winit maps Password to its password hint and all other purposes to Normal.
@@ -426,7 +426,6 @@ an accessible name even when no visible heading is needed.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());
@@ -455,7 +454,7 @@ For exclusive choices that always choose when navigating, use
 `IntoChildren`. `button_group_separator()` and `button_group_text(..)` are
 non-focusable cells. `.orientation(Orientation::Vertical)` changes both the
 layout and arrow navigation of any of these groups. `.disabled(source)` is
-the standard `NodeBuilder` modifier. Themes customize the corresponding
+the standard `Element` modifier. Themes customize the corresponding
 `UiTokens` groups and `UiRecipes` tables; caller styles still override recipes.
 
 `radio_group(...).item_node(|target, item, state| target.with_node(...))` exposes the complete canonical target for advanced attachments, such as a kit keyboard hint. Return that target with modifiers; do not create another native focus or selection owner. `.item(...)` continues to replace only inner content, and the two slots compose.

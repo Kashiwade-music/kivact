@@ -2,7 +2,7 @@
 //! The `IntoView` implementations for strings mount a plain text node.
 //!
 //! Invariant: a rich text is one text node whose `Content` is its spans'
-//! text joined (its accessible name and `Element::text`, one text for
+//! text joined (its accessible name and `Locator::text`, one text for
 //! assistive technology) and whose `TextSpans` style their ranges; one
 //! render effect writes both, so they always agree.
 //!
@@ -10,13 +10,16 @@
 //! call of `text(..)` (or the location given by `.located_at_caller()`), or nothing
 //! for a plain string child, which diagnostics
 //! show with the location of its nearest located ancestor.
+//!
+//! A text node states no role: the engine exposes a `Text` node without one as
+//! `Role::Text`, named by its content (`kivact_engine` `semantic_role`).
 
 use std::panic::Location;
 
 use crate::state::{IntoText, IntoValue};
 use crate::view::element_data::{Content, Node};
 use crate::view::span::Span;
-use crate::view::{IntoView, Role, View};
+use crate::view::{IntoView, View};
 
 /// Text from a constant, a signal, a value or a closure.
 #[track_caller]
@@ -25,13 +28,12 @@ pub fn text(content: impl IntoText) -> Node {
         Content::Plain(content.into_text()),
         Some(Location::caller()),
     )
-    .role(Role::Text)
 }
 
 /// The text of a plain string child (`IntoView for String / &str`): it has
 /// no call site of its own.
 pub(crate) fn string_child(content: impl IntoText) -> Node {
-    Node::new(Content::Plain(content.into_text()), None).role(Role::Text)
+    Node::new(Content::Plain(content.into_text()), None)
 }
 
 /// One paragraph of [`span`]s with their own styles (weight, color, size,
@@ -48,7 +50,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 /// use kivact::view::{Span, rich_text, span};
 /// use kivact::state::{Signal};
 /// use kivact::style::{ColorToken};
-/// use kivact::view::{IntoView, NodeBuilder};
+/// use kivact::view::{IntoView, Element};
 ///
 /// /// `label` with the first match of `query` bold and highlighted.
 /// fn highlight(label: &str, query: &str) -> Vec<Span> {
@@ -71,7 +73,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 /// [`span`]: crate::view::span
 #[track_caller]
 pub fn rich_text(spans: impl IntoValue<Vec<Span>>) -> Node {
-    Node::new(Content::Rich(spans.into_prop()), Some(Location::caller())).role(Role::Text)
+    Node::new(Content::Rich(spans.into_prop()), Some(Location::caller()))
 }
 
 impl IntoView for String {

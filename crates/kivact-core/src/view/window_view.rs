@@ -41,7 +41,7 @@ pub struct Window {
     open: Binding<bool>,
     content: Option<ViewFn<()>>,
     size: Size,
-    // xtask-allow(state-fields): builder option - window() reads it once when the window opens
+    // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     min_size: Option<Size>,
     mode: WindowMode,
     placement: WindowPlacement,

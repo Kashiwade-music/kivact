@@ -6,7 +6,7 @@ use crate::check_source::Source;
 use crate::public_surface::{Surface, export_span};
 use std::collections::BTreeMap;
 pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>) {
-    if !source.library {
+    if !source.library() {
         return;
     }
     let prefix = source.identity_root() + "::";

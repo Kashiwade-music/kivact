@@ -1,8 +1,8 @@
 //! Role: The console's table cell looks for the standard data table's columns.
 use kivact::i18n::message;
 use kivact::style::{Align, Color, ColorToken, pct, style};
+use kivact::view::{Element, column, row, text};
 use kivact::view::{IntoView, View};
-use kivact::view::{NodeBuilder, column, row, text};
 
 use kivact::interaction::Tone;
 

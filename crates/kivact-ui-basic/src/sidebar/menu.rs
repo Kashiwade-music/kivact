@@ -5,7 +5,7 @@ use crate::parts::pressable;
 use kivact::ui::skeleton;
 
 use kivact::interaction::use_tooltip;
-use kivact::view::{Node, NodeBuilder, column, node, row, text};
+use kivact::view::{Element, Node, column, node, row, text};
 
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
@@ -22,9 +22,9 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
 pub struct SidebarGroup {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): builder option - action
+    // xtask-allow(state-fields): option: the caller's SidebarGroup::action; absent means the label row has no end control
     action: Option<kivact::view::View>,
-    // xtask-allow(state-fields): builder option - content
+    // xtask-allow(state-fields): option: the caller's SidebarGroup::content; absent means the group shows only its label
     content: Option<kivact::view::View>,
 }
 
@@ -62,7 +62,7 @@ impl SidebarGroup {
     }
 }
 
-impl NodeBuilder for SidebarGroup {
+impl Element for SidebarGroup {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -123,7 +123,7 @@ impl IntoView for SidebarGroup {
 
 /// A list of menu buttons (`SidebarMenu`): a `Role::List` column of full-width rows.
 #[track_caller]
-pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Component {
+pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Element {
     column(children)
         .with_node(|root| root.role(Role::List))
         .style(style().width(pct(100)).min_width(0))
@@ -165,27 +165,27 @@ impl SidebarMenuButtonSize {
 pub struct SidebarMenuButton {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): builder option - icon
+    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::icon; absent means the row has no leading icon
     icon: Option<View>,
     active: Value<bool>,
-    // xtask-allow(state-fields): builder option - badge
+    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::badge; absent means the row shows no count
     badge: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - action
+    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::action; absent means no end control and no 32 px end padding
     action: Option<kivact::view::View>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
     on_press: Option<Callback<()>>,
-    // xtask-allow(state-fields): builder option - sub
+    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::sub; absent means the row has no nested list
     sub: Option<kivact::view::View>,
 }
 
 /// What the root style of a [`SidebarMenuButton`] reads.
 #[derive(Clone, Copy)]
 struct ButtonCfg {
-    // xtask-allow(state-fields): passive record - cx
+    // xtask-allow(state-fields): option: absent means the part is outside a provider
     cx: Option<SidebarCx>,
     active: Value<bool>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
-    // xtask-allow(state-fields): passive record - has action
+    // xtask-allow(state-fields): projection: whether the button has an action view, written only by build_button
     has_action: bool,
 }
 
@@ -261,7 +261,7 @@ impl SidebarMenuButton {
     }
 }
 
-impl NodeBuilder for SidebarMenuButton {
+impl Element for SidebarMenuButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -444,7 +444,7 @@ impl SidebarMenuSubButton {
     }
 }
 
-impl NodeBuilder for SidebarMenuSubButton {
+impl Element for SidebarMenuSubButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -497,7 +497,7 @@ impl IntoView for SidebarMenuSubButton {
 
 /// A horizontal rule in the sidebar color (`SidebarSeparator`), inset by 8 px.
 #[track_caller]
-pub fn sidebar_separator() -> impl kivact::view::Component {
+pub fn sidebar_separator() -> impl kivact::view::Element {
     node()
         .with_node(|root| root.role(Role::Separator))
         .orientation(Orientation::Horizontal)
@@ -529,7 +529,7 @@ pub fn sidebar_input(
 /// A loading placeholder for a menu row (`SidebarMenuSkeleton`): a 16 px
 /// bar of a width between 50 % and 90 % that depends on where it was written.
 #[track_caller]
-pub fn sidebar_menu_skeleton() -> impl kivact::view::Component {
+pub fn sidebar_menu_skeleton() -> impl kivact::view::Element {
     let at = std::panic::Location::caller();
     let width = 50.0 + ((at.line() * 7 + at.column()) % 41) as f64;
     row(skeleton().style(style().height(16).grow(1).max_width(pct(width)))).style(

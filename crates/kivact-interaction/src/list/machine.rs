@@ -1,4 +1,5 @@
 //! Role: Keep virtual focus requests until their source loses focus.
+use super::typeahead::{TYPEAHEAD_WINDOW, Typeahead};
 use kivact_core::custom::{NodeRefExt, NodeToken};
 use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::NodeRef;
@@ -60,12 +61,19 @@ pub(super) enum Focus {
 pub(super) struct State<K> {
     pub(super) pending: Pending<K>,
     pub(super) focus: Focus,
+    pub(super) typed: Typeahead,
 }
 pub(super) enum Event<K> {
-    Activate { key: K, origin: Origin },
+    Activate {
+        key: K,
+        origin: Origin,
+    },
     Cancel,
     MountFocus(Focus),
     Observe(Option<NodeToken>),
+    Typeahead(Typeahead),
+    /// The type-to-find window ended.
+    Expire,
 }
 pub(super) struct Machine<K>(PhantomData<fn() -> K>);
 impl<K> Machine<K> {
@@ -89,6 +97,14 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 }
                 _ => {}
             },
+            Event::Typeahead(typed) => {
+                if matches!(typed, Typeahead::Typing { .. }) {
+                    next.typed = typed;
+                    return Step::to(next).after(TYPEAHEAD_WINDOW, Event::Expire);
+                }
+                next.typed = typed;
+            }
+            Event::Expire => next.typed = Typeahead::Idle,
         }
         Step::to(next)
     }

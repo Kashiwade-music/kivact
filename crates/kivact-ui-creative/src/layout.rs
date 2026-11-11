@@ -4,15 +4,15 @@ use crate::ColorName;
 use kivact::state::IntoText;
 use kivact::style::use_theme;
 use kivact::style::{Align, ColorToken, Cursor, Direction, Justify, Overflow, Style, Theme, style};
+use kivact::view::{Element, Node, column, icon, node, row, text};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, column, icon, node, row, text};
 
 /// A reusable media thumbnail with consumer supplied preview content and metadata.
 pub fn media_tile(
     label: impl IntoText,
     metadata: impl IntoText,
     preview: impl IntoView,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let label = label.into_text_value();
     column((
         preview,
@@ -106,7 +106,7 @@ impl Panel {
         self
     }
 }
-impl NodeBuilder for Panel {
+impl Element for Panel {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -122,12 +122,12 @@ impl IntoView for Panel {
     }
 }
 
-/// A source-style hierarchical row. Selection, expansion and events use NodeBuilder.
+/// A source-style hierarchical row. Selection, expansion and events use Element.
 #[track_caller]
 pub fn tree_row(
     label: impl IntoText,
     depth: impl kivact::state::IntoValue<usize>,
-) -> impl kivact::view::Component {
+) -> impl kivact::view::Element {
     let label = label.into_text_value();
     let depth = kivact::state::IntoValue::into_value(depth);
     kivact::ui::button(label)

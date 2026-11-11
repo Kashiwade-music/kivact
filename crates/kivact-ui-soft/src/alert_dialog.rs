@@ -13,8 +13,8 @@ use kivact::style::style;
 use kivact::ui::ButtonVariant;
 use kivact::ui::button;
 use kivact::ui::dialog;
+use kivact::view::Element;
 use kivact::view::IntoView;
-use kivact::view::NodeBuilder;
 use kivact::view::View;
 use kivact::view::column;
 use kivact::view::node_ref;
@@ -27,9 +27,9 @@ use std::rc::Rc;
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
     open: Binding<bool>,
-    // xtask-allow(state-fields): Optional application action configuration, independent of canonical Dialog visibility.
+    // xtask-allow(state-fields): option: application action configuration, independent of canonical Dialog visibility.
     action: Option<(String, Rc<dyn Fn()>)>,
-    // xtask-allow(state-fields): Optional cancel-button text configuration, not an operation phase.
+    // xtask-allow(state-fields): option: caller label from AlertDialog::cancel_label; absent uses the localized "Cancel" message (soft.alert_dialog.cancel).
     cancel: Option<String>,
     variant: ButtonVariant,
     loading: Value<bool>,

@@ -9,7 +9,7 @@ use kivact::prelude::*;
 use kivact::view::{RowHeight, error_boundary};
 
 /// A component with its own state: a click counter.
-fn clicker(label: &'static str) -> impl Component {
+fn clicker(label: &'static str) -> impl Element {
     let n = signal(0);
     {
         let label = (move || format!("{label} {}", n.get())).into_value();
@@ -80,7 +80,7 @@ struct Task {
     title: &'static str,
 }
 
-fn task_row(task: Binding<Task>) -> impl Component {
+fn task_row(task: Binding<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let clicks = signal(0);
     {
@@ -199,7 +199,7 @@ fn virtual_list_rows_write_back_through_a_signal_source() {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-fn failing(label: &'static str) -> impl Component {
+fn failing(label: &'static str) -> impl Element {
     {
         let label = label.into_value();
         node()

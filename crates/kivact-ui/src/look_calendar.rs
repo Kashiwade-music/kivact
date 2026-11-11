@@ -31,7 +31,7 @@ pub(super) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
         .text_wrap(false)
         .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
         .disabled(style().opacity(t.disabled_opacity()));
-    let base = if s.day.edge {
+    let base = if s.day.selection == kivact_interaction::DaySelection::Edge {
         base.background(ColorToken::Accent)
             .color(ColorToken::AccentText)
     } else if s.today || s.day.span == CalendarSpan::Middle {

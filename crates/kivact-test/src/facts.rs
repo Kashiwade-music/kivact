@@ -6,13 +6,25 @@ use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
 pub(super) struct Node {
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
-    pub(super) kind: Option<NodeType>,
+    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's node type for each id
+    node_type: Option<NodeType>,
     pub(super) children: Vec<NodeId>,
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
-    pub(super) parent: Option<NodeId>,
-    // xtask-allow(state-fields): immutable per-query engine/creation metadata, not a lifecycle phase.
+    // xtask-allow(state-fields): projection: written only by Facts::new, which copies the engine reader's parent for each id
+    parent: Option<NodeId>,
+    // xtask-allow(state-fields): independent: a per-query creation location; any combination is valid
     pub(super) at: Option<&'static Location<'static>>,
+}
+impl Node {
+    /// The engine reader's node type; `None` when the reader has no
+    /// properties for the id.
+    pub(super) fn node_type(&self) -> Option<NodeType> {
+        self.node_type
+    }
+
+    /// The engine reader's parent; `None` for the root.
+    pub(super) fn parent(&self) -> Option<NodeId> {
+        self.parent
+    }
 }
 pub(super) struct Facts {
     reader: Reader,
@@ -34,13 +46,13 @@ impl Facts {
             if !inspect.contains(id) {
                 continue;
             }
-            let kind = reader.with_node(id, |n| n.map(|n| n.kind.node_type()));
+            let node_type = reader.with_node(id, |n| n.map(|n| n.kind.node_type()));
             let children = reader.children(id);
             stack.extend(children.iter().copied());
             nodes.insert(
                 id,
                 Node {
-                    kind,
+                    node_type,
                     children,
                     parent: reader.parent(id),
                     at: inspect.located_at(id),
@@ -128,10 +140,7 @@ impl Facts {
         })
     }
     pub(super) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
-        self.with_node(id, |node| {
-            node.and_then(|node| node.semantics.as_deref())
-                .and_then(|semantics| semantics.role)
-        })
+        self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
     pub(super) fn value(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {

@@ -246,13 +246,13 @@ fn main() -> kivact::Result<()> {
 - 入力が独自の理由で invalid(`text_input(..).invalid(..)`)のときは、`field` に error がなくても invalid のままです。入力は、どちらか一方でも invalid と言えば invalid になります。
 - バインディングの書き込み側(`binding(read, write)` の `write`)が値を拒否すると、入力欄はバインディングの値へ戻ります。これは「数字だけ」のような入力フィルター向けで、「必須」の表現には使いません。
 - `.max_length(n)` は文字数(Unicode スカラー値)で入力を制限します。変換中の文字が途中で切られることはありません。
-- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.purpose(kivact::view::InputPurpose::Password)` は文字を隠し、コピーと切り取りを防ぎます。
+- `.read_only(true)` は選択とコピーを許し、`.disabled(..)` は入力を受け付けません。`.purpose(InputPurpose::Password)` は文字を隠し、コピーと切り取りを防ぎます。
 
 ## 1 つの欄を Enter かフォーカス移動で確定する
 
 その場での名前変更のように、ユーザーが確定したときだけ編集を反映したいことがあります。`text_input(..).on_draft_commit(on_commit)` は、欄を下書きにします。Enter か欄からフォーカスが外れると、テキストを渡して `on_commit` が呼ばれ、Escape は編集前の文字列に戻します。
 
-その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`open(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
+その場での名前変更では、どの項目を変更中かも分かっている必要があります。欄を文字列を選択した状態で開き、確定後に閉じるためです。`use_inline_edit` がそれを持ちます。`show(id)` で変更を始め、`is_open(&id)` で変更中かを調べ、`field(..)` で欄を作ります。
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -270,7 +270,7 @@ fn names() -> impl IntoView {
                 text(move || item.get().1),
                 show(
                     move || !rename.is_open(&id),
-                    move || button("名前を変更").on_press(move || rename.open(id)),
+                    move || button("名前を変更").on_press(move || rename.show(id)),
                 ),
                 show(
                     move || rename.is_open(&id),
@@ -307,7 +307,7 @@ fn main() -> kivact::Result<()> {
 
 ### モバイル入力と状態復元
 
-`.purpose(kivact::view::InputPurpose::Email)` で期待する入力を指定します。
+`.purpose(InputPurpose::Email)` で期待する入力を指定します。
 ほかに Text、Number、Decimal、Url、Phone、Password、Search があります。
 Password は値を隠し、クリップボードやアクセシビリティへの文字列公開を防ぎます。
 デスクトップの winit は Password をパスワードのヒントに、それ以外を Normal に写します。
@@ -368,7 +368,6 @@ End で利用可能な先頭と末尾へ移動します。見出しを表示し�
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());
@@ -396,7 +395,7 @@ fn editor_actions() -> impl IntoView {
 `button_group` は `IntoChildren` を通して任意の操作部品を受け取ります。
 `button_group_separator()` と `button_group_text(..)` はフォーカスを取りません。
 どのグループでも `.orientation(Orientation::Vertical)` で配置と操作の向きを
-変えられます。無効化には共通の `NodeBuilder` の `.disabled(source)` を使います。
+変えられます。無効化には共通の `Element` の `.disabled(source)` を使います。
 テーマは対応する `UiTokens` と `UiRecipes` の表で見た目を変えます。
 呼び出し側のスタイルは recipe より優先します。
 

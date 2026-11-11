@@ -140,7 +140,7 @@ fn handler_writes_are_batched_into_one_effect_run_and_one_batch() {
 
 #[test]
 fn effect_cleanup_runs_before_rerun_and_on_dispose_child_before_parent() {
-    fn child(l: Log) -> impl Component {
+    fn child(l: Log) -> impl Element {
         on_cleanup(move || l.borrow_mut().push("child cleanup".into()));
         text("child")
     }

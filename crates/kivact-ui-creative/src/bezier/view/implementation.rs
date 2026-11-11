@@ -18,12 +18,12 @@ use kivact::view::HandlerResult;
 use kivact::view::{
     A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
 };
-use kivact::view::{Node, NodeBuilder, node};
+use kivact::view::{Element, Node, node};
 
 /// Two editable control points of a [`CubicBezier`].
 /// Arrow keys move X/Y by 0.01, Shift by 0.1 and Ctrl by 0.001.
 /// Each slider offers Select/Activate, SetValue (`x,y` or `x y`), and X
-/// Increment/Decrement. Ordinary NodeBuilder modifiers style the canvas. External invalid values are normalized for drawing and
+/// Increment/Decrement. Ordinary Element modifiers style the canvas. External invalid values are normalized for drawing and
 /// editing without writing the binding until an edit. Cancel restores the
 /// exact external value, including invalid fields. Names use `bezier.label`,
 /// `bezier.control1` and `bezier.control2` message keys.
@@ -67,7 +67,7 @@ impl BezierCurve {
     }
 }
 
-impl NodeBuilder for BezierCurve {
+impl Element for BezierCurve {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -247,7 +247,7 @@ fn control_point(
     c.edit.feed(
         memo(move || {
             let input = state.get();
-            input.disabled || input.hidden
+            input.is_disabled() || input.is_hidden()
         }),
         machine::Event::InputChanged,
     );

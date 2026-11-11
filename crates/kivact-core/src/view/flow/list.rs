@@ -28,7 +28,7 @@ use std::rc::Rc;
 use kivact_types::NodeId;
 
 use crate::view::boundary::mount_in;
-use crate::view::descriptor::{IntoView, Mcx, View, view_fn};
+use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
@@ -209,15 +209,15 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
     for &o in &kept_old_pos {
         keep_mark[o] = true;
     }
-    for (i, slot) in old.iter_mut().enumerate() {
-        if !keep_mark[i]
-            && let Some(r) = slot.take()
-        {
-            let removed = ViewState::tree_mut(rt).remove(r.node);
-            removed.commit(rt);
-            r.row.owner().dispose();
-        }
-    }
+    let gone: Vec<Row<K, T>> = old
+        .iter_mut()
+        .zip(&keep_mark)
+        .filter(|(_, kept)| !**kept)
+        .filter_map(|(slot, _)| slot.take())
+        .collect();
+    let parts: Vec<(NodeId, Owner)> = gone.iter().map(|r| (r.node, r.row.owner())).collect();
+    dispose_rows(rt, &parts);
+    drop(gone);
     // 3. Stable rows = LIS of old positions in new order.
     let stable = stable_positions(&kept_old_pos, old.len());
     // 4. Build the new row list; mount new rows; attach and move right to left.
@@ -240,35 +240,50 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
                     continue;
                 };
                 let item = keyed.item();
-                let cx = Mcx {
-                    rt,
-                    owner: keyed.owner(),
-                    window,
-                };
-                let node = cx.fragment();
-                let child = mount_in(rt, keyed.owner(), window, || row.call((k, item)));
-                cx.append(node, child);
+                // The row's own node: its view's root, or a fragment for an empty view
+                // or a group (`View::mount`).
+                let node = mount_in(rt, keyed.owner(), window, || row.call((k, item)));
                 new_rows.push(Row { row: keyed, node });
                 fresh.push(true);
                 moved.push(false);
             }
         }
     }
-    if live && (fresh.iter().any(|f| *f) || moved.iter().any(|m| *m)) {
-        let tree = ViewState::tree(rt);
-        // Place the already-created rows from right to left.
-        let mut next = None;
-        for i in (0..new_rows.len()).rev() {
-            let r = &new_rows[i];
-            if fresh[i] {
-                tree.engine().insert(frag, r.node, next);
-            } else if moved[i] {
-                tree.engine().move_before(r.node, next);
-            }
-            next = Some(r.node);
-        }
+    if live {
+        let nodes: Vec<NodeId> = new_rows.iter().map(|r| r.node).collect();
+        place_rows(rt, frag, &nodes, &fresh, &moved);
     }
     state.borrow_mut().replace(new_rows);
+}
+
+/// Remove each row's node from the tree and dispose its owner, in order
+/// (the part of a list update that does not depend on the item type).
+#[inline(never)]
+fn dispose_rows(rt: &Rc<Runtime>, rows: &[(NodeId, Owner)]) {
+    for &(node, owner) in rows {
+        let removed = ViewState::tree_mut(rt).remove(node);
+        removed.commit(rt);
+        owner.dispose();
+    }
+}
+
+/// Insert the `fresh` rows into `frag` and move the `moved` ones, right to
+/// left (`nodes` in the new order; the rows are already created).
+#[inline(never)]
+fn place_rows(rt: &Rc<Runtime>, frag: NodeId, nodes: &[NodeId], fresh: &[bool], moved: &[bool]) {
+    if !fresh.iter().any(|f| *f) && !moved.iter().any(|m| *m) {
+        return;
+    }
+    let tree = ViewState::tree(rt);
+    let mut next = None;
+    for i in (0..nodes.len()).rev() {
+        if fresh[i] {
+            tree.engine().insert(frag, nodes[i], next);
+        } else if moved[i] {
+            tree.engine().move_before(nodes[i], next);
+        }
+        next = Some(nodes[i]);
+    }
 }
 
 /// Which old rows stay put: the longest increasing subsequence of their old
@@ -341,13 +356,7 @@ where
                 let owner = parent.child(at);
                 let sig = owner.signal(item, at);
                 let b = mount_branch(&rt, owner, window, frag, || {
-                    let child = row(i, sig.into_value()).into_view();
-                    view_fn(move |cx| {
-                        let fragment = cx.fragment();
-                        let child = cx.mount_child(child);
-                        cx.append(fragment, child);
-                        fragment
-                    })
+                    row(i, sig.into_value()).into_view()
                 });
                 rows.borrow_mut().push((b, sig));
             }

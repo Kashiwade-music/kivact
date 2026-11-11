@@ -31,7 +31,7 @@ fn main() -> kivact::Result<()> {
 ```
 
 The root setup runs once when the App mounts it. Use
-`component(move || view)` for a child that needs its own once-mounted setup
+`scope(move || view)` for a child that needs its own once-mounted setup
 and cleanup owner. Dynamic properties read signals inside closures.
 Runtime image and font inputs accept owned `Vec<u8>` or `AssetBytes`; keep
 an asset and clone it when reused so its cache identity stays stable.
@@ -40,6 +40,7 @@ an asset and clone it when reused so its cache identity stays stable.
 
 - **Plain functions and signals.** `signal`, `memo`, `effect` and keyed
   lists, with no virtual DOM and no re-rendering of whole components.
+  `#[component]` writes the props builder of a function that takes props.
 - **Standard components.** Buttons, inputs, selects, dialogs, menus, tabs,
   tables, toasts and more in `kivact::ui`, styled by the active theme.
 - **Accessibility by default.** Every component exposes role, name and state
@@ -92,7 +93,7 @@ The API reference is the rustdoc: `cargo doc -p kivact --open`.
 
 ## Workspace crates
 
-The workspace contains 47 packages. Application code uses `kivact` and,
+The workspace contains 49 packages. Application code uses `kivact` and,
 optionally, a UI kit; the remaining library boundaries separate the runtime,
 engine, backend and test harness. This diagram shows the main dependency paths;
 see the [architecture guide](docs/for-kivact-developer/architecture.md) and
@@ -124,6 +125,7 @@ flowchart TD
 | Crate | Path | Purpose |
 |---|---|---|
 | `kivact` | `crates/kivact` | Application and component-author facade. |
+| `kivact-macros` | `crates/kivact-macros` | The `#[component]` attribute that writes a component's props builder (re-exported by `kivact`). |
 | `kivact-core` | `crates/kivact-core` | View descriptions, mounting, input and application launch. |
 | `kivact-test` | `crates/kivact-test` | App-wide E2E harness exposed as kivact::test. |
 | `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | Wire vocabulary shared by the DevTools agent, app, MCP server and Python client. |
@@ -170,12 +172,14 @@ flowchart TD
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture-sharing contracts and native helpers (experimental). |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | Independent renderer used by GPU-sharing tests. |
 | `xtask` | `dev/xtask` | Workspace checks and generated architecture graphs. |
+| `kivact-bench` | `dev/bench` | Manual KPI probes (startup, memory, CPU, frame time, update latency, binary size); never run by CI. |
 
 ## Cargo features of `kivact`
 
 | Feature | Default | Description |
 |---|---|---|
-| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time. |
+| `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time; by default the device starts when the window needs it: a user shader drawn, the App reading `gpu_interop::adapter()`, or CPU frames that keep missing half the display period (`GpuStart::OnDemand`; choose `GpuStart::AtLaunch` with `App::gpu_preference`). |
+| `complex-scripts` | yes | ICU's word and line dictionaries for Thai, Lao, Khmer, Myanmar and Chinese/Japanese word breaking (about 3 MB). Turn it off for a smaller binary when the app does not need that segmentation. |
 | `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
 | `devtools` | no | The DevTools agent in the app, for the separate DevTools app, MCP server and Python client. Release builds that enable it warn at startup. |
 | `tokio` | no | Tokio integration for asynchronous tasks. |
@@ -199,7 +203,7 @@ flowchart TD
 | `examples/` | Small applications and the kit catalogs |
 | `templates/basic/` | The smallest application with a test |
 | `docs/` | User guides, permanent architecture, decisions and strategy |
-| `dev/` | Workspace checks and the public-API test suite |
+| `dev/` | Workspace checks, the public-API test suite and the manual KPI bench |
 | `architecture/` | Generated crate and module dependency graphs |
 
 ## Contributing

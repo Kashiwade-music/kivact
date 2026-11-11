@@ -64,6 +64,34 @@ impl Pixmap {
         }
     }
 
+    /// The premultiplied bytes at (`x`, `y`), which must be inside.
+    pub(crate) fn byte_texel(&self, x: u32, y: u32) -> [u8; 4] {
+        let i = (y as usize * self.width as usize + x as usize) * 4;
+        [
+            self.data[i],
+            self.data[i + 1],
+            self.data[i + 2],
+            self.data[i + 3],
+        ]
+    }
+
+    /// Source-over of the premultiplied bytes `s` at (`x`, `y`), which must be inside.
+    pub(crate) fn blend_src_over(&mut self, x: u32, y: u32, s: [u8; 4]) {
+        let i = (y as usize * self.width as usize + x as usize) * 4;
+        let a = u16::from(s[3]);
+        if a == 255 {
+            self.data[i..i + 4].copy_from_slice(&s);
+            return;
+        }
+        if a == 0 {
+            return;
+        }
+        for (c, &s) in s.iter().enumerate() {
+            let d = u16::from(self.data[i + c]);
+            self.data[i + c] = (u16::from(s) + (d * (255 - a) + 127) / 255).min(255) as u8;
+        }
+    }
+
     /// Clear `rect` (or all of it when None) to transparent.
     pub(crate) fn clear(&mut self, rect: Option<PixelRect>) {
         let Some(r) = rect else {

@@ -187,7 +187,7 @@ fn effects() -> impl IntoView {
         .style(style().size(480, 360).background(rgb(0xffffff)))
 }
 
-/// Element transforms: rotated text (unhinted outlines), a skewed button
+/// Locator transforms: rotated text (unhinted outlines), a skewed button
 /// with its counter-skewed label (hinted again), a rotated image, a world
 /// scaled 1.5× holding text, an SVG (rasterized for the zoom) and a
 /// rounded, shadowed card, and boxes ordered by z-index.
@@ -263,15 +263,11 @@ fn shot(gpu: bool) -> (Screenshot, Option<Renderer>) {
 
 #[track_caller]
 fn shot_of(gpu: bool, scene: fn() -> kivact_core::view::View) -> (Screenshot, Option<Renderer>) {
-    let screen = Screen::start(
-        RenderOptions::default()
-            .window_size(480.0, 360.0)
-            .mirror(MirrorMode::Required),
-        gpu,
-        Vec::new(),
-        Box::new(scene),
-        Location::caller(),
-    );
+    let options = RenderOptions::default()
+        .window_size(480.0, 360.0)
+        .mirror(MirrorMode::Required);
+    let options = if gpu { options.gpu() } else { options };
+    let screen = Screen::start(options, Vec::new(), Box::new(scene), Location::caller());
     let shot = screen.screenshot();
     let renderer = screen.with_host(|host| host.renderer(WindowId::MAIN));
     (shot, renderer)
@@ -314,11 +310,12 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
         return;
     }
     let shot = |gpu| {
+        let options = RenderOptions::default()
+            .window_size(180.0, 100.0)
+            .mirror(MirrorMode::Required);
+        let options = if gpu { options.gpu() } else { options };
         let screen = Screen::start(
-            RenderOptions::default()
-                .window_size(180.0, 100.0)
-                .mirror(MirrorMode::Required),
-            gpu,
+            options,
             Vec::new(),
             Box::new(|| {
                 node()
@@ -476,12 +473,13 @@ fn gpu_frames_follow_a_scale_change() {
         return;
     }
     let start = |gpu: bool, scale: f64| {
+        let options = RenderOptions::default()
+            .window_size(480.0, 360.0)
+            .scale(scale)
+            .mirror(MirrorMode::Required);
+        let options = if gpu { options.gpu() } else { options };
         Screen::start(
-            RenderOptions::default()
-                .window_size(480.0, 360.0)
-                .scale(scale)
-                .mirror(MirrorMode::Required),
-            gpu,
+            options,
             Vec::new(),
             Box::new(|| representative().into_view()),
             Location::caller(),

@@ -16,7 +16,19 @@ pub enum TestFonts {
     System,
 }
 
-pub use kivact_engine::testing::MirrorMode;
+pub use kivact_engine::testing::{MirrorMode, Renderer};
+
+/// How a test window uses the GPU (`RenderOptions::gpu`, `gpu_on_demand`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum TestGpu {
+    /// The CPU only (`ARVANE_RENDERER=cpu`).
+    #[default]
+    Off,
+    /// The device starts with the window (`ARVANE_RENDERER=gpu`).
+    AtLaunch,
+    /// The device starts when the window needs it (`ARVANE_RENDERER=auto`).
+    OnDemand,
+}
 
 fn mirror_from_env() -> MirrorMode {
     match std::env::var("KIVACT_TEST_MIRROR").as_deref() {
@@ -38,7 +50,7 @@ pub struct RenderOptions {
     scale: f64,
     fonts: TestFonts,
     mirror: MirrorMode,
-    gpu: bool,
+    gpu: TestGpu,
     frame_period_ns: u64,
     single_window: bool,
     restored_state: std::collections::BTreeMap<String, Vec<u8>>,
@@ -55,7 +67,7 @@ impl Default for RenderOptions {
             scale: 1.,
             fonts: TestFonts::Bundled,
             mirror: mirror_from_env(),
-            gpu: false,
+            gpu: TestGpu::Off,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             single_window: false,
             restored_state: Default::default(),
@@ -70,7 +82,11 @@ impl RenderOptions {
     }
     pub fn from_env() -> Self {
         Self {
-            gpu: std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1"),
+            gpu: if std::env::var("KIVACT_TEST_GPU").as_deref() == Ok("1") {
+                TestGpu::AtLaunch
+            } else {
+                TestGpu::Off
+            },
             ..Self::default()
         }
     }
@@ -93,8 +109,24 @@ impl RenderOptions {
         self.dark = true;
         self
     }
+    /// Draw on the GPU from the first frame: the window's device starts with
+    /// the window and the test waits until it is ready, as
+    /// `ARVANE_RENDERER=gpu` does for a running App (`GpuStart::AtLaunch`).
+    /// Needs a real window (`MirrorMode::Required`) and a GPU
+    /// ([`gpu_unavailable`](crate::gpu_unavailable)).
     pub fn gpu(mut self) -> Self {
-        self.gpu = true;
+        self.gpu = TestGpu::AtLaunch;
+        self
+    }
+    /// Draw on the CPU until the window needs the GPU, then start its device,
+    /// as a running App does by default (`GpuStart::OnDemand`,
+    /// `ARVANE_RENDERER=auto`): a user shader drawn, or the App reading
+    /// `gpu_interop::adapter` (a `shared_image` does), starts it.
+    /// [`Screen::renderer`](crate::Screen::renderer) says what draws, and
+    /// [`Screen::wait_for_gpu`](crate::Screen::wait_for_gpu) waits for the
+    /// device. Needs a real window and a GPU, as [`Self::gpu`] does.
+    pub fn gpu_on_demand(mut self) -> Self {
+        self.gpu = TestGpu::OnDemand;
         self
     }
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
@@ -126,8 +158,9 @@ impl RenderOptions {
         self.app = self.app.window_size(width, height);
         self
     }
-    #[cfg(feature = "gpu-interop")]
-    pub fn gpu_preference(mut self, preference: kivact_types::GpuPreference) -> Self {
+    /// Its `start` is the test's: [`Self::gpu`] or [`Self::gpu_on_demand`]
+    /// decide it, as `ARVANE_RENDERER` does for a running App.
+    pub fn gpu_preference(mut self, preference: kivact_core::launch::GpuPreference) -> Self {
         self.app = self.app.gpu_preference(preference);
         self
     }
@@ -161,15 +194,11 @@ impl RenderOptions {
 }
 
 impl RenderOptions {
-    pub(crate) fn uses_gpu(&self) -> bool {
-        self.gpu
-    }
     pub(crate) fn is_headless(&self) -> bool {
         self.mirror == MirrorMode::Off
     }
     pub(crate) fn into_host(
         self,
-        gpu: bool,
         fonts: Vec<(
             kivact_core::view::Asset,
             &'static std::panic::Location<'static>,
@@ -219,12 +248,17 @@ impl RenderOptions {
             reduced_motion: self.reduced_motion,
             locale: self.host_locale,
             inline_assets: true,
-            gpu: if gpu {
-                kivact_engine::testing::GpuMode::Required
-            } else {
-                kivact_engine::testing::GpuMode::Off
+            gpu: match self.gpu {
+                TestGpu::Off => kivact_engine::testing::GpuMode::Off,
+                TestGpu::AtLaunch | TestGpu::OnDemand => kivact_engine::testing::GpuMode::Required,
             },
-            gpu_preference: initial.gpu_preference,
+            gpu_preference: kivact_types::GpuPreference {
+                start: match self.gpu {
+                    TestGpu::OnDemand => kivact_types::gpu::GpuStart::OnDemand,
+                    TestGpu::Off | TestGpu::AtLaunch => kivact_types::gpu::GpuStart::AtLaunch,
+                },
+                ..initial.gpu_preference
+            },
         };
         (app, host)
     }

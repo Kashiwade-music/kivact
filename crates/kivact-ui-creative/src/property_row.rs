@@ -9,8 +9,8 @@ use kivact::i18n::message;
 use kivact::state::{IntoText, IntoValue};
 use kivact::state::{Value, memo};
 use kivact::style::{Align, TextAlign, style};
+use kivact::view::{Element, Node, node, row, text};
 use kivact::view::{IntoView, Role, View};
-use kivact::view::{Node, NodeBuilder, node, row, text};
 
 use crate::PropertyState;
 
@@ -101,7 +101,7 @@ impl PropertyRow {
     }
 }
 
-impl NodeBuilder for PropertyRow {
+impl Element for PropertyRow {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -263,7 +263,7 @@ impl PropertyStateButton {
     }
 }
 
-impl NodeBuilder for PropertyStateButton {
+impl Element for PropertyStateButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         self.button.node_mut()

@@ -93,14 +93,21 @@ pub(crate) unsafe fn timeline(
     unsafe { device.create_semaphore(&info, None) }.map_err(crate::common::api("vkCreateSemaphore"))
 }
 
+/// What `VkPhysicalDeviceIDProperties` and the API version say.
+pub(crate) struct VulkanIds {
+    pub(crate) device_uuid: [u8; 16],
+    pub(crate) driver_uuid: [u8; 16],
+    /// Read by the import only (`AdapterIds::Vulkan::luid`).
+    #[cfg(feature = "import")]
+    pub(crate) luid: Option<[u8; 8]>,
+    pub(crate) version: u32,
+}
+
 /// Read an adapter's identity and Vulkan version.
 ///
 /// # Safety
 /// The physical device belongs to the live instance.
-pub(crate) unsafe fn identity(
-    instance: &ash::Instance,
-    physical: vk::PhysicalDevice,
-) -> (crate::common::Identity, u32) {
+pub(crate) unsafe fn identity(instance: &ash::Instance, physical: vk::PhysicalDevice) -> VulkanIds {
     let mut id = vk::PhysicalDeviceIDProperties::default();
     let version = {
         let mut properties = vk::PhysicalDeviceProperties2::default().push_next(&mut id);
@@ -108,13 +115,11 @@ pub(crate) unsafe fn identity(
         unsafe { instance.get_physical_device_properties2(physical, &mut properties) };
         properties.properties.api_version
     };
-    (
-        crate::common::Identity {
-            backend: kivact_types::GpuBackend::Vulkan,
-            luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
-            device_uuid: Some(id.device_uuid),
-            driver_uuid: Some(id.driver_uuid),
-        },
+    VulkanIds {
+        device_uuid: id.device_uuid,
+        driver_uuid: id.driver_uuid,
+        #[cfg(feature = "import")]
+        luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
         version,
-    )
+    }
 }

@@ -27,7 +27,7 @@
 //!   window origin (it ignores its ancestors' transforms).
 //! - The transform a node is drawn with is the one it is hit, pointed at,
 //!   reported (`LayoutChanged`, `NodeRef::rect`: the window bounds of the
-//!   transformed box) and exposed with (G-07): its base paint's with its
+//!   transformed box) and exposed with: its base paint's with its
 //!   active state styles'. A pointer event's position is the point in the
 //!   node's box space ([`Model::to_local`], [`Model::pointer_local`]). The same transform places the caret, the IME's
 //!   character boxes and text area, overlay anchors, scroll targets and
@@ -183,6 +183,7 @@ impl Model {
             for child in children {
                 if self.tree.raise_under_perspective(child) {
                     self.changes.restack = true;
+                    self.stale_fact(child);
                     self.repaint(child);
                 }
             }
@@ -517,7 +518,10 @@ impl Model {
     /// is sticky (CSS paints positioned boxes over the in-flow ones of the
     /// same z-index).
     pub(crate) fn stack_key(&self, id: NodeId) -> (i32, bool) {
-        let sticky = self.tree.get(id).is_some_and(|n| n.place.sticky);
+        let sticky = self
+            .tree
+            .get(id)
+            .is_some_and(|n| n.place.positioning == crate::tree::node::Positioning::Sticky);
         (self.z_index(id), sticky)
     }
 

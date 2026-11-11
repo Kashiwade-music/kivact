@@ -87,7 +87,7 @@ impl Model {
         }
     }
 }
-fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Element<'_> {
+fn item(screen: &Screen, model: Model, index: usize) -> kivact::test::Locator<'_> {
     screen.get_by_role(Role::Button, &model.name(index))
 }
 fn fixture(kind: Kind, snap: bool) -> (Screen, Model) {
@@ -161,7 +161,7 @@ fn playhead_arrow_keys_edit_the_time_without_moving_selected_items() {
         let before = model.snapshot();
         let marker = screen.get_by_role(Role::Slider, "Playhead");
         marker.press_key(Key::ArrowRight);
-        // Graph uses the explicit logical-time step configured by the D4 fixture.
+        // The graph fixture sets an explicit logical-time step (`.step(10.0, 0.01)`).
         assert_eq!(
             model.frame.get_untracked(),
             if kind == Kind::Graph { 10.0 } else { 1.0 },
@@ -258,7 +258,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .lanes(lanes)
         .name("Gesture editor")
@@ -272,7 +272,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .lanes(lanes)
         .name("Gesture editor")
@@ -286,7 +286,7 @@ fn gesture_view(model: Model, snap: bool) -> View {
                 playhead: model.frame.into_binding(),
             },
         )
-        .on_item_activate(move |id| model.activated.update(|ids| ids.push(id)))
+        .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
         .snap(snap)
         .step(10.0, 0.01)
         .time_format(|time| format!("{time}"))

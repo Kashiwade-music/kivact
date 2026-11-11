@@ -9,8 +9,8 @@ use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
 use kivact::state::{Value, memo, signal};
 use kivact::style::{Direction, Length, pct, style};
+use kivact::view::{Element, Node, column, node};
 use kivact::view::{IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show};
-use kivact::view::{Node, NodeBuilder, column, node};
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -162,7 +162,7 @@ impl Chart {
     }
 }
 
-impl NodeBuilder for Chart {
+impl Element for Chart {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -189,6 +189,15 @@ fn describe(config: &ChartConfig, rows: &[ChartRow], format: &dyn Fn(f64) -> Str
         .join("; ")
 }
 
+/// What the pointer is over: the tooltip's content and where the pointer is.
+#[derive(Clone, Debug, PartialEq)]
+enum ChartHover {
+    /// Not over the plot.
+    Away,
+    /// Over `hit` at `at` (in the plot).
+    Over { hit: Hit, at: Point },
+}
+
 impl IntoView for Chart {
     fn into_view(self) -> View {
         let Chart {
@@ -202,9 +211,22 @@ impl IntoView for Chart {
             height,
         } = self;
         let config = Rc::new(config);
-        let hit = signal(None::<Hit>);
-        // Apart from the hit: a move within a row only moves the card.
-        let at = signal(Point::new(0.0, 0.0));
+        let hover = signal(ChartHover::Away);
+        // The hit and the pointer change separately: a move within a row only
+        // moves the card.
+        let hit = memo(move || {
+            hover.with(|hover| match hover {
+                ChartHover::Over { hit, .. } => Some(hit.clone()),
+                ChartHover::Away => None,
+            })
+        });
+        let at = memo(move || {
+            hover.with(|hover| match hover {
+                ChartHover::Over { at, .. } => *at,
+                ChartHover::Away => Point::new(0.0, 0.0),
+            })
+        });
+        // xtask-allow(state-fields): independent: measured plot size
         let plot = Rc::new(Cell::new(Size::new(0.0, 0.0)));
         let total_label = message("basic.chart.total", "Total");
         let name = chart_name(options.kind, &config);
@@ -224,7 +246,7 @@ impl IntoView for Chart {
                     let label = total_label.get();
                     data.with(|rows| {
                         let frame = options.frame(&config, rows, &label, &*format);
-                        paint(d, size, &frame, hit.get().as_ref());
+                        hit.with(|hit| paint(d, size, &frame, hit.as_ref()));
                     });
                 }
             })
@@ -240,37 +262,53 @@ impl IntoView for Chart {
                                 let frame = options.frame(&config, rows, "", &*format);
                                 hit_test(plot.get(), &frame, event.pos())
                             });
-                            at.set(event.pos());
-                            hit.set(next);
+                            hover.set(match next {
+                                Some(hit) => ChartHover::Over {
+                                    hit,
+                                    at: event.pos(),
+                                },
+                                None => ChartHover::Away,
+                            });
                         }
-                        PointerPhase::Leave | PointerPhase::Cancel => hit.set(None),
+                        PointerPhase::Leave | PointerPhase::Cancel => hover.set(ChartHover::Away),
                         PointerPhase::Up(_) => {}
                     }
                 }
             });
-        let card = {
-            let config = config.clone();
-            dynamic(
-                move || hit.get(),
-                move |hit| {
-                    hit.map(|hit| super::tooltip::tooltip(&hit, at, &config, plot.get(), &*format))
-                },
-            )
-        };
-        let legend = {
-            let config = config.clone();
-            let shown = !config.series.is_empty();
-            show(
-                move || shown && with_legend.get(),
-                move || super::tooltip::legend(&config),
-            )
-        };
+        let (card, legend) = below_plot(&config, &plot, &format, hit, at, with_legend);
         let plot_box = node()
             .style(style().width(pct(100)).direction(Direction::Column))
             .child(canvas)
             .child(card);
         root.child(plot_box).child(legend).into_view()
     }
+}
+
+/// The tooltip card that follows the hit and the legend under the plot.
+fn below_plot(
+    config: &Rc<ChartConfig>,
+    plot: &Rc<Cell<Size>>,
+    format: &Rc<dyn Fn(f64) -> String>,
+    hit: Value<Option<Hit>>,
+    at: Value<Point>,
+    with_legend: Value<bool>,
+) -> (impl IntoView, impl IntoView) {
+    let card_config = config.clone();
+    let plot = plot.clone();
+    let format = format.clone();
+    let card = dynamic(
+        move || hit.get(),
+        move |hit| {
+            hit.map(|hit| super::tooltip::tooltip(&hit, at, &card_config, plot.get(), &*format))
+        },
+    );
+    let legend_config = config.clone();
+    let shown = !config.series.is_empty();
+    let legend = show(
+        move || shown && with_legend.get(),
+        move || super::tooltip::legend(&legend_config),
+    );
+    (card, legend)
 }
 
 fn chart_name(kind: Value<ChartKind>, config: &ChartConfig) -> Value<String> {

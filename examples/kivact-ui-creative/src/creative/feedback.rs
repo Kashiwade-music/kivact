@@ -6,7 +6,7 @@ use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    IntoView, Key, Node, NodeBuilder, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
+    Element, IntoView, Key, Node, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
     on_mount, row, scroll, show, signal, text,
 };
 use kivact::state::callback;
@@ -71,7 +71,7 @@ fn window_options(title: &str, width: f64) -> ui::ToolWindowOptions {
         .titlebar_padding(14.0, 8.0)
 }
 
-fn window_footer(content: impl IntoView) -> impl kivact::view::Component {
+fn window_footer(content: impl IntoView) -> impl kivact::view::Element {
     row(content)
         .style(
             style()
@@ -83,7 +83,7 @@ fn window_footer(content: impl IntoView) -> impl kivact::view::Component {
         .style(style().border_top(1, ui::ColorName::Hair))
 }
 
-fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
+fn render_settings(status: Signal<String>) -> impl kivact::view::Element {
     ui::tool_window_button(
         "Render Settings…",
         window_options("Render Settings", 340.0)
@@ -127,13 +127,13 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
                         .variant(kivact::ui::ButtonVariant::Secondary)
                         .on_press(move || {
                             status.set("Render settings cancelled".into());
-                            close.close();
+                            close.hide();
                         }),
                     kivact::ui::button("Render")
                         .variant(kivact::ui::ButtonVariant::Primary)
                         .on_press(move || {
                             status.set("Render requested (demo)".into());
-                            close.close();
+                            close.hide();
                         }),
                 )),
             ))
@@ -143,7 +143,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Component {
     .test_id("creative-export-dialog")
 }
 
-fn close_project(status: Signal<String>) -> impl kivact::view::Component {
+fn close_project(status: Signal<String>) -> impl kivact::view::Element {
     ui::tool_window_button(
         "Close Project…",
         window_options("Close Project", 440.0).modal(true).backdrop_blur(6.0),
@@ -152,7 +152,7 @@ fn close_project(status: Signal<String>) -> impl kivact::view::Component {
             on_mount(move || default_action.focus());
             let save = callback(move |()| {
                 status.set("Saved and closed (demo)".into());
-                close.close();
+                close.hide();
             });
             column((
                 row((
@@ -171,12 +171,12 @@ fn close_project(status: Signal<String>) -> impl kivact::view::Component {
                 window_footer((
                     kivact::ui::button("Don't Save").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || {
                         status.set("Closed without saving (demo)".into());
-                        close.close();
+                        close.hide();
                     }),
                     node().style(style().grow(1)),
                     kivact::ui::button("Cancel").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || {
                         status.set("Close cancelled".into());
-                        close.close();
+                        close.hide();
                     }),
                     kivact::ui::button("Save").variant(kivact::ui::ButtonVariant::Primary).with_node(|node| node.node_ref(default_action)).on_press(move || save.call(())),
                 )),

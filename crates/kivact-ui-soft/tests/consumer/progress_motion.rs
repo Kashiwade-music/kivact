@@ -9,7 +9,7 @@ use kivact::test::render_with;
 use kivact::test::render_with_handle;
 use kivact::ui::ProgressMotion;
 use kivact::ui::progress;
-use kivact::view::NodeBuilder;
+use kivact::view::Element;
 use kivact::view::Role;
 use std::time::Duration;
 

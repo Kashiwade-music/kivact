@@ -8,8 +8,8 @@ use kivact::style::provide_theme;
 use kivact::style::{Align, ColorToken, Justify, ThemeMode, style};
 use kivact::task::spawn;
 use kivact::ui::{ButtonVariant, button, text_input};
+use kivact::view::{Element, Node, column, row, scroll, spacer, text};
 use kivact::view::{IntoView, dynamic};
-use kivact::view::{Node, NodeBuilder, column, row, scroll, spacer, text};
 
 /// Mount the catalog with the light appearance.
 pub fn catalog() -> impl IntoView {

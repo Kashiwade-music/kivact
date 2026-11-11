@@ -46,10 +46,10 @@ fn gpu_window(backend: GpuBackend) -> Result<(Harness, GpuAdapter), String> {
             "the {backend:?} device cannot import shared textures"
         ));
     };
-    if adapter.backend != backend {
+    if adapter.backend() != backend {
         return Err(format!(
             "the window's device is {:?} (WGPU_BACKEND?)",
-            adapter.backend
+            adapter.backend()
         ));
     }
     Ok((window, adapter))

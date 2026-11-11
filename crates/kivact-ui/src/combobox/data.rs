@@ -19,28 +19,28 @@ pub struct Combobox<K: ItemKey> {
     pub(super) label: Value<String>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
-    // xtask-allow(state-fields): builder option - query
+    // xtask-allow(state-fields): option: Combobox::query binds the editor text to the caller; absent keeps the query inside the combobox behavior
     pub(super) query: Option<Binding<String>>,
-    // xtask-allow(state-fields): builder option - open
+    // xtask-allow(state-fields): option: Combobox::open binds popup visibility to the caller; absent uses a local signal, and inline mode ignores it because its list always shows
     pub(super) open: Option<Binding<bool>>,
     pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
-    // xtask-allow(state-fields): builder option - free text
+    // xtask-allow(state-fields): option: Combobox::free_text; false accepts only listed options
     pub(super) free_text: bool,
-    // xtask-allow(state-fields): builder option - mode
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) mode: Option<ComboboxMode>,
-    // xtask-allow(state-fields): builder option - chips
+    // xtask-allow(state-fields): option: Combobox::chips; false shows no chips for the selected keys
     pub(super) chips: bool,
-    // xtask-allow(state-fields): builder option - placeholder
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) placeholder: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - empty
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) empty: Option<Value<String>>,
     pub(super) clear: Value<bool>,
-    // xtask-allow(state-fields): builder option - matcher
+    // xtask-allow(state-fields): option: absent means the component's default
     pub(super) matcher: Option<Matcher<K>>,
-    // xtask-allow(state-fields): builder option - search
+    // xtask-allow(state-fields): option: Combobox::search; absent filters the caller's items locally, present fetches suggestions and skips the matcher
     pub(super) search: Option<Search<K>>,
     pub(super) debounce: Value<Duration>,
-    // xtask-allow(state-fields): builder option - exclude selected
+    // xtask-allow(state-fields): option: Combobox::exclude_selected; false keeps selected options in the list
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
     pub(super) variants: Variants,

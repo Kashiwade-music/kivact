@@ -136,7 +136,7 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
         s
     };
     // button.tsx `size="icon"`: a square, as wide as the button is high.
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.aspect_ratio(1.0).padding_x(0)
     } else {
         s
@@ -281,7 +281,7 @@ fn toggle_edge(
     if invalid {
         let (border, ring) = invalid_edge(p);
         (border, Some(ring))
-    } else if input.focus_visible {
+    } else if input.is_focus_visible() {
         (p.ring, Some(p.ring.with_alpha(0.5)))
     } else {
         (rest, None)
@@ -295,23 +295,19 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
         CHECK_SIDE,
         CHECK_SIDE,
     );
-    let on = state.checked != CheckedState::Unchecked;
+    let on = state.checked() != CheckedState::Unchecked;
     // `data-checked:bg-primary`; unchecked only `dark:bg-input/30`.
     d.fill_rect(rect, if on { p.primary } else { field_fill(p) });
     let (border, halo) = toggle_edge(p, &state.input, state.invalid, p.input);
     // `aria-invalid:aria-checked:border-primary`.
-    let border = if on && !state.input.focus_visible {
+    let border = if on && !state.input.is_focus_visible() {
         p.primary
     } else {
         border
     };
     edge(d, rect, 0.0, border, halo);
     if on {
-        let glyph = if state.checked == CheckedState::Indeterminate {
-            MINUS
-        } else {
-            CHECK
-        };
+        let glyph = if state.is_mixed() { MINUS } else { CHECK };
         stroke_glyph(
             d,
             Point::new(rect.x + 1.0, rect.y + 1.0),
@@ -323,7 +319,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
 }
 
 fn draw_switch(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
-    let on = state.checked.is_checked();
+    let on = state.is_checked();
     let ((width, height), side) = switch_metrics(state.size);
     let track = Rect::new(LEAD, (size.height - height) / 2.0, width, height);
     let radius = height / 2.0;

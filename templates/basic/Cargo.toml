@@ -6,7 +6,8 @@ edition = "2024"
 publish = false
 
 [features]
-default = ["gpu"]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
 # Applications choose the renderer; component libraries leave it to their consumer.
 gpu = ["kivact/gpu"]
 

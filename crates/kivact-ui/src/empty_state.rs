@@ -2,7 +2,7 @@
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, on_mount};
-use kivact_core::view::{IntoView, LiveRegion, Node, NodeBuilder, Role, View, node, text};
+use kivact_core::view::{Element, IntoView, LiveRegion, Node, Role, View, node, text};
 use kivact_interaction::announcer;
 
 #[derive(Clone, Copy, PartialEq)]
@@ -76,7 +76,7 @@ impl EmptyState {
         self
     }
 }
-impl NodeBuilder for EmptyState {
+impl Element for EmptyState {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

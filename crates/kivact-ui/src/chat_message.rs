@@ -5,7 +5,7 @@ use crate::{
     ChatAlign, ChatBubbleGroup, ChatMessageState, ChatMessageStatus, ChatReactionsSide, ChatSender,
 };
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
-use kivact_core::view::{IntoView, Node, NodeBuilder, View, node, text};
+use kivact_core::view::{Element, IntoView, Node, View, node, text};
 /// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
     root: Node,
@@ -146,7 +146,7 @@ impl ChatMessage {
         self
     }
 }
-impl NodeBuilder for ChatMessage {
+impl Element for ChatMessage {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
     }

@@ -1,7 +1,7 @@
 //! Role: Application node graph constraints and edit reduction.
 use super::editor_images as images;
 use kivact::geometry::{Point, Size};
-use kivact::state::{Signal, signal};
+use kivact::state::Signal;
 use kivact::style::rgb;
 use kivact_ui_creative as ui;
 const IMAGE_TYPE: &str = "Image";
@@ -94,19 +94,18 @@ pub(super) fn edits(
     nodes: Signal<Vec<ui::NodeData>>,
     links: Signal<Vec<ui::NodeLink>>,
 ) -> impl Fn(ui::EditorEvent<ui::NodeRequest>) + 'static {
-    let snapshot = signal(None);
+    let txn = super::txn::Txn::signal();
     move |event| match event {
         ui::EditorEvent::Begin => {
-            snapshot.set(Some((nodes.get_untracked(), links.get_untracked())))
+            super::txn::Txn::begin(txn, (nodes.get_untracked(), links.get_untracked()))
         }
         ui::EditorEvent::Request(request) => apply(nodes, links, request),
-        ui::EditorEvent::Commit => snapshot.set(None),
+        ui::EditorEvent::Commit => super::txn::Txn::commit(txn),
         ui::EditorEvent::Cancel => {
-            if let Some((old_nodes, old_links)) = snapshot.get_untracked() {
+            if let Some((old_nodes, old_links)) = super::txn::Txn::cancel(txn) {
                 nodes.set(old_nodes);
                 links.set(old_links);
             }
-            snapshot.set(None);
         }
     }
 }

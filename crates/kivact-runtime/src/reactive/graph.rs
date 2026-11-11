@@ -40,6 +40,7 @@ use crate::reactive::data::{
     EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, SourceCell, SourceNode,
 };
 use crate::reactive::error::{ErrorKind, misuse_at, new_error};
+use crate::reactive::links::Links;
 
 impl<T: 'static> Compute for MemoCell<T> {
     fn run(&self) -> bool {
@@ -163,7 +164,7 @@ impl Runtime {
         });
         let ty = std::any::type_name::<T>();
         let data = NodeData::Source(SourceNode {
-            subs: Vec::new(),
+            subs: Links::default(),
             changed_at: kivact_types::cell::Generation::new(),
             written: None,
         });
@@ -185,7 +186,7 @@ impl Runtime {
         let compute: Rc<dyn Compute> = cell.clone();
         let ty = std::any::type_name::<T>();
         let data = NodeData::Memo(MemoNode {
-            subs: Vec::new(),
+            subs: Links::default(),
             run: Computation::new(compute),
         });
         self.insert_node(owner, cell, data, at, ty)
@@ -434,7 +435,7 @@ impl Runtime {
                             continue;
                         }
                         if was_clean {
-                            for (s, _) in &m.subs {
+                            for (s, _) in m.subs.iter() {
                                 diag.detail.edge(NodeId(k), NodeId(*s));
                             }
                             stack.extend(m.subs.iter().map(|(s, _)| (*s, Staleness::Check)));
@@ -721,22 +722,6 @@ impl Runtime {
         )
     }
 
-    /// Current value of a memo; `read_node` computed it first (a memo that
-    /// reads itself is a `Cycle` misuse there).
-    pub(crate) fn memo_value<T: 'static, R>(
-        &self,
-        cell: &Rc<dyn Any>,
-        f: impl FnOnce(&T) -> R,
-        at: &'static Location<'static>,
-    ) -> R {
-        let Some(memo) = cell.downcast_ref::<MemoCell<T>>() else {
-            misuse_at(ErrorKind::WrongApp, "handle type mismatch", at)
-        };
-        let v = memo.value.borrow();
-        f(v.as_ref()
-            .expect("invariant: read_node computed the memo (a self-read is a Cycle there)"))
-    }
-
     /// Remove a single owned node before its owner is disposed.
     pub(crate) fn remove_owned_node(&self, key: Key) -> Option<RNode> {
         let (owner, index) = self
@@ -818,8 +803,10 @@ fn remove_dep_entry(g: &mut crate::reactive::arena::Arena<RNode>, sub: Key, inde
     }
 }
 
-pub(crate) fn is_memo<T: 'static>(cell: &Rc<dyn Any>) -> bool {
-    cell.is::<MemoCell<T>>()
+/// The memo cell of `T` behind `cell`, if it is one (`read_node` computed
+/// its value first; a memo that reads itself is a `Cycle` misuse there).
+pub(crate) fn memo_cell<T: 'static>(cell: &Rc<dyn Any>) -> Option<&MemoCell<T>> {
+    cell.downcast_ref::<MemoCell<T>>()
 }
 
 /// Read helpers for typed handles.

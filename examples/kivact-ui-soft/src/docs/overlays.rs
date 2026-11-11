@@ -7,7 +7,7 @@ use kivact::style::style;
 use kivact::ui::{
     ButtonVariant, button, command_palette, dialog, hover_card, menu, toast_region, tooltip,
 };
-use kivact::view::{Node, NodeBuilder, row, text};
+use kivact::view::{Element, Node, row, text};
 use kivact_ui_soft::{
     LightboxMedia, alert_dialog, bottom_sheet, bottom_sheet_flow, dialog_header, drawer_header,
     lightbox, media_overlay,
@@ -157,7 +157,7 @@ fn example_overlay() -> Node {
     specimen(
         "Overlay on a preview",
         media_overlay(text("Document preview")).attach(button("Cover")),
-        "media_overlay(|| text(\"Document preview\")).attach(button(\"Cover\"))",
+        "media_overlay(text(\"Document preview\")).attach(button(\"Cover\"))",
     )
 }
 
@@ -200,7 +200,7 @@ fn example_dropdown_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach(button("Actions")),
-        "menu(\"Actions\", entries, on_pick).attach(button(\"Actions\"))",
+        "menu(\"Actions\", items).on_activate(on_activate).attach(button(\"Actions\"))",
     )
 }
 
@@ -216,7 +216,7 @@ fn example_context_menu() -> Node {
         )
         .on_activate(|_| {})
         .attach_context(button("Document")),
-        "menu(\"Document actions\", entries, on_pick).attach_context(button(\"Document\"))",
+        "menu(\"Document actions\", items).on_activate(on_activate).attach_context(button(\"Document\"))",
     )
 }
 
@@ -267,6 +267,6 @@ fn example_more_menu() -> Node {
             ],
             |_| {},
         ),
-        "more_menu(entries, on_pick)",
+        "more_menu(items, on_activate)",
     )
 }

@@ -17,22 +17,31 @@ struct Decision<T, D> {
     click: ClickIntent,
 }
 
+/// The press the canvas owns: none, a press deciding what it does, or a drag.
+#[derive(Clone, PartialEq)]
+enum Press<T, D> {
+    Idle,
+    Deciding(Decision<T, D>),
+    Dragging {
+        drag: D,
+        current: Point,
+        target: Option<T>,
+    },
+}
+
 #[derive(Clone, PartialEq)]
 enum ClickIntent {
-    None,
     Single { selection: Option<u64> },
     Double { selection: Option<u64> },
 }
 impl ClickIntent {
     fn selection(&self) -> Option<u64> {
         match self {
-            Self::None => None,
             Self::Single { selection } | Self::Double { selection } => *selection,
         }
     }
     fn set_selection(&mut self, pending: Option<u64>) {
         match self {
-            Self::None => {}
             Self::Single { selection } | Self::Double { selection } => *selection = pending,
         }
     }
@@ -59,7 +68,7 @@ struct DecisionMachine<T, D>(std::marker::PhantomData<(T, D)>);
 impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
     for DecisionMachine<T, D>
 {
-    type State = Option<Decision<T, D>>;
+    type State = Press<T, D>;
     type Event = DecisionEvent<T, D>;
     type Effect = Rc<dyn Fn()>;
     fn transition(
@@ -67,10 +76,9 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
         state: &Self::State,
         event: Self::Event,
     ) -> Step<Self::State, Self::Event, Self::Effect> {
-        let mut next = state.clone();
         match event {
-            DecisionEvent::Begin(decision) => return Step::to(Some(decision)),
-            DecisionEvent::Clear => return Step::to(None),
+            DecisionEvent::Begin(decision) => Step::to(Press::Deciding(decision)),
+            DecisionEvent::Clear => Step::to(Press::Idle),
             DecisionEvent::InputsChanged {
                 focused,
                 visible,
@@ -78,32 +86,55 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static> Machine
                 data_valid,
                 rollback,
             } => {
-                return if !focused || !visible || !enabled || !data_valid {
-                    Step::to(None).with(rollback)
+                if !focused || !visible || !enabled || !data_valid {
+                    Step::to(Press::Idle).with(rollback)
                 } else {
                     Step::stay()
-                };
-            }
-            DecisionEvent::Payload(payload) => {
-                if let Some(decision) = &mut next {
-                    decision.payload = payload;
                 }
             }
+            DecisionEvent::Payload(payload) => match state {
+                Press::Deciding(decision) => {
+                    let mut next = decision.clone();
+                    next.payload = payload;
+                    Step::to(Press::Deciding(next))
+                }
+                Press::Dragging {
+                    current, target, ..
+                } => Step::to(Press::Dragging {
+                    drag: payload,
+                    current: *current,
+                    target: *target,
+                }),
+                Press::Idle => Step::stay(),
+            },
             DecisionEvent::Pending(pending) => {
-                if let Some(decision) = &mut next {
-                    decision.click.set_selection(pending);
+                if let Press::Deciding(decision) = state {
+                    let mut next = decision.clone();
+                    next.click.set_selection(pending);
+                    Step::to(Press::Deciding(next))
+                } else {
+                    Step::stay()
                 }
             }
-            DecisionEvent::Motion { current, moved } => {
-                if let Some(decision) = &mut next {
-                    decision.current = current;
-                    if moved {
-                        decision.click = ClickIntent::None;
-                    }
+            DecisionEvent::Motion { current, moved } => match state {
+                Press::Deciding(decision) if moved => Step::to(Press::Dragging {
+                    drag: decision.payload.clone(),
+                    current,
+                    target: decision.target,
+                }),
+                Press::Deciding(decision) => {
+                    let mut next = decision.clone();
+                    next.current = current;
+                    Step::to(Press::Deciding(next))
                 }
-            }
+                Press::Dragging { drag, target, .. } => Step::to(Press::Dragging {
+                    drag: drag.clone(),
+                    current,
+                    target: *target,
+                }),
+                Press::Idle => Step::stay(),
+            },
         }
-        Step::to(next)
     }
 }
 
@@ -143,7 +174,7 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
     pub(crate) fn new(drag: DragApi<S>) -> Self {
         Self {
             controller: machine(
-                None,
+                Press::Idle,
                 || DecisionMachine(std::marker::PhantomData),
                 |_, rollback| rollback(),
             ),
@@ -193,9 +224,11 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
         });
     }
     pub(crate) fn with_payload<R>(self, read: impl FnOnce(&D) -> R) -> Option<R> {
-        self.controller
-            .state()
-            .with(|state| state.as_ref().map(|state| read(&state.payload)))
+        self.controller.state().with(|state| match state {
+            Press::Deciding(decision) => Some(read(&decision.payload)),
+            Press::Dragging { drag, .. } => Some(read(drag)),
+            Press::Idle => None,
+        })
     }
     pub(crate) fn update_payload(self, change: impl FnOnce(&mut D)) {
         if let Some(mut payload) = self.with_payload(Clone::clone) {
@@ -205,9 +238,10 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
     }
 
     pub(crate) fn pending(self) -> Option<u64> {
-        self.controller
-            .state()
-            .with(|state| state.as_ref().and_then(|state| state.click.selection()))
+        self.controller.state().with(|state| match state {
+            Press::Deciding(decision) => decision.click.selection(),
+            Press::Idle | Press::Dragging { .. } => None,
+        })
     }
     pub(crate) fn set_pending(self, pending: Option<u64>) {
         self.controller.send(DecisionEvent::Pending(pending));
@@ -217,23 +251,23 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
         self.snapshot.get()
     }
     pub(crate) fn current(self) -> Point {
-        self.controller.state().with(|state| {
-            state
-                .as_ref()
-                .map_or(Point::new(0., 0.), |state| state.current)
+        self.controller.state().with(|state| match state {
+            Press::Deciding(decision) => decision.current,
+            Press::Dragging { current, .. } => *current,
+            Press::Idle => Point::new(0., 0.),
         })
     }
     pub(crate) fn pressed(self) -> Option<T> {
-        self.controller
-            .state()
-            .with(|state| state.as_ref().and_then(|state| state.target))
+        self.controller.state().with(|state| match state {
+            Press::Deciding(decision) => decision.target,
+            Press::Dragging { target, .. } => *target,
+            Press::Idle => None,
+        })
     }
     pub(crate) fn moved(self) -> bool {
-        self.controller.state().with(|state| {
-            state
-                .as_ref()
-                .is_some_and(|state| matches!(state.click, ClickIntent::None))
-        })
+        self.controller
+            .state()
+            .with(|state| matches!(state, Press::Dragging { .. }))
     }
     pub(crate) fn update(
         self,
@@ -268,11 +302,11 @@ impl<T: Copy + PartialEq + 'static, D: Clone + PartialEq + 'static, S: Clone + P
         ),
     ) {
         self.update(update.pos, update.start_pos, &update.payload, &callbacks.0);
-        let activation = self.controller.state().with(|state| {
-            state
-                .as_ref()
-                .filter(|state| matches!(state.click, ClickIntent::Double { .. }))
-                .and_then(|state| state.target)
+        let activation = self.controller.state().with(|state| match state {
+            Press::Deciding(decision) if matches!(decision.click, ClickIntent::Double { .. }) => {
+                decision.target
+            }
+            _ => None,
         });
         if marquee() {
             let hit = callbacks.1(Rect::from_points(update.start_pos, self.current()));

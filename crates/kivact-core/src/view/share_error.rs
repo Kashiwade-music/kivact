@@ -13,7 +13,7 @@ pub enum ShareError {
     /// The wait ran out of time.
     Timeout,
     /// The request cannot be served so: the window refused the textures
-    /// (its message), a [`ShareMode::Pixels`] request was given textures,
+    /// (its message), a `ShareMode::Pixels` request was given textures,
     /// or a request was given textures twice.
     Failed(String),
 }

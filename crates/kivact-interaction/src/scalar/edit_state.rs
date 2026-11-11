@@ -144,6 +144,7 @@ impl Shared {
 /// The edit plumbing of one thumb.
 #[derive(Clone, Copy)]
 pub(crate) struct Edit {
+    // xtask-allow(state-fields): independent: the state of the part the kit attached, absent until input() or thumb() attaches it; single and range thumbs (bounds None or Some) exist both before and after attaching
     pub(crate) observed: Signal<Option<Value<super::data::ScalarState>>>,
     pub(crate) shared: Shared,
     /// Which thumb of the slider this is, from 0.
@@ -151,7 +152,7 @@ pub(crate) struct Edit {
     /// The thumb's element, which a press on the track focuses.
     pub(crate) thumb: NodeRef,
     pub(crate) thumb_rect: Value<Option<Rect>>,
-    // xtask-allow(state-fields): optional caller-supplied bounds are independent of the mounted-state observation.
+    // xtask-allow(state-fields): option: caller-supplied bounds of a thumb that another thumb limits
     /// The published bounds of a thumb that another thumb limits.
     pub(crate) bounds: Option<(Value<f64>, Value<f64>)>,
 }

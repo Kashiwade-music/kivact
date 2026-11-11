@@ -120,8 +120,8 @@ fn listbox_list_tab_reentry_follows_external_selection() {
                 list(
                     "Fruits",
                     vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")],
-                )
-                .selection(selected),
+                    selected,
+                ),
             )),
         )
     });

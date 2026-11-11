@@ -8,7 +8,7 @@ use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::prelude::{
-    IntoView, Key, Node, NodeBuilder, Orientation, Signal, column, dynamic, grid, node, rgb, row,
+    Element, IntoView, Key, Node, Orientation, Signal, column, dynamic, grid, node, rgb, row,
     scroll, signal, spacer, text,
 };
 use kivact::style::{Align, Color, pct, style};
@@ -17,10 +17,14 @@ use kivact::view::Handled;
 use kivact_ui_creative as ui;
 
 pub(super) fn properties() -> impl IntoView {
+    // xtask-allow(state-fields): independent: the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport display checkboxes, so any tab pairs with any display setting
     let tab = signal(2_usize);
     let display_color = signal(rgb(0xffffff));
+    // xtask-allow(state-fields): independent: bound only to the Name checkbox of Viewport Display; Axes and Wireframe have their own signals, so every on/off mix is a valid display
     let display_name = signal(false);
+    // xtask-allow(state-fields): independent: bound only to the Axes checkbox of Viewport Display; Name and Wireframe have their own signals, so every on/off mix is a valid display
     let display_axes = signal(true);
+    // xtask-allow(state-fields): independent: bound only to the Wireframe checkbox of Viewport Display; Name and Axes have their own signals, so every on/off mix is a valid display
     let display_wireframe = signal(false);
     let display_as = signal(Some("textured".to_owned()));
     row((

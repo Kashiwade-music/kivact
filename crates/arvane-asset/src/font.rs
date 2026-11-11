@@ -15,6 +15,7 @@
 use std::sync::Arc;
 
 use kivact_types::Asset;
+use kivact_types::render::FontSource;
 use skrifa::MetadataProvider;
 use skrifa::raw::FileRef;
 use skrifa::string::StringId;
@@ -40,11 +41,11 @@ impl FontBytes {
         }
     }
 
-    /// The bytes as a shared allocation (copies embedded bytes once).
-    pub fn to_shared(&self) -> Arc<[u8]> {
+    /// The bytes as a font source shared with them (never copied).
+    pub fn to_source(&self) -> FontSource {
         match self {
-            FontBytes::Static(b) => Arc::from(*b),
-            FontBytes::Shared(b) => Arc::clone(b),
+            FontBytes::Static(b) => FontSource::from_static(b),
+            FontBytes::Shared(b) => FontSource::from_shared(Arc::clone(b)),
         }
     }
 }

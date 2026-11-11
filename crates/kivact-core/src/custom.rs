@@ -45,16 +45,16 @@
 //! | need | how |
 //! |---|---|
 //! | measure and layout | [`Primitive::measure`]: a synchronous function of a content value, called by the layout (like a text's shaping); it may return a [`Measurement`] with a first baseline for `Align::Baseline` |
-//! | draw | `.draw(..)` / `.draw_over(..)` ([`NodeBuilder`]): the [`Draw`] vocabulary at the laid-out size, run again when the size or a signal it reads changes |
+//! | draw | `.draw(..)` / `.draw_over(..)` ([`Element`]): the [`Draw`] vocabulary at the laid-out size, run again when the size or a signal it reads changes |
 //! | input | `.on_pointer(..)`, `.on_key(..)`, `.on_wheel(..)`, `.a11y_action(..)`; `Draw::region` for hit areas |
 //! | focus | `.focusable(true)`, the `focus` state style |
-//! | accessibility | `.role(..)` and `.value_text(..)` ([`Node`]), `.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.a11y_action(..)`; `Draw::region` for parts |
+//! | accessibility | `.role(..)` and `.value_text(..)` ([`Node`](crate::view::Node)), `.name(..)`, [`Primitive::checked`], [`Primitive::expanded`], `.a11y_action(..)`; `Draw::region` for parts |
 //! | test identification | `.test_id(..)` |
 //! | resource lifetime | the primitive's owner: its effects, handlers and measure function are dropped when it unmounts; `on_cleanup` for the author's own resources |
 //!
 //! [`TextEditing`] attaches native editing to a node through a Part, with
 //! a key policy ([`TextEditing::behavior`]), line colors
-//! ([`TextEditing::highlight`]) and range edits ([`TextEditEvent`]).
+//! ([`TextEditing::line_styles`]) and range edits ([`TextEditEvent`]).
 //! [`NodeRefExt::edit_session`] reads its selection without the text,
 //! [`NodeRefExt::edit_state`] copies its text and selection;
 //! [`NodeRefExt::text_layout`] reads the shaped lines asked for and their
@@ -116,7 +116,7 @@
 //! # use kivact_core as kivact;
 //! use kivact::state::{Signal};
 //! use kivact::style::{ColorToken};
-//! use kivact::view::{IntoView, NodeBuilder, Role, row};
+//! use kivact::view::{IntoView, Element, Role, row};
 //! use kivact::geometry::{Rect, Size};
 //! use kivact::custom::{Constraints, primitive};
 //!
@@ -136,7 +136,7 @@
 //! }
 //! ```
 //!
-//! [`NodeBuilder`]: crate::view::NodeBuilder
+//! [`Element`]: crate::view::Element
 //! [`Draw`]: crate::draw::Draw
 
 pub use crate::view::descriptor::view_is_empty;

@@ -35,6 +35,8 @@ mod model;
 mod sort;
 mod state;
 
-pub use data::{SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState};
+pub use data::{
+    HeaderSort, SortOrder, TableCellState, TableFocus, TableHeaderState, TableRowState,
+};
 pub use handle::{DataTableApi, use_data_table};
 pub use model::{ColumnDef, DataTableModelApi, FilterValue, use_data_table_model};

@@ -32,7 +32,7 @@ mod tree;
 
 pub use borrowed_tree::{Flow, LayoutTree, LeafMeasurer};
 pub(crate) use columns::NodeLayoutColumns;
-pub(crate) use columns::{ChildCursor, Counted, NodeLayoutState, NodeLayoutValues};
+pub(crate) use columns::{ChildCursor, Counted, Filtering, NodeLayoutState, NodeLayoutValues};
 pub use columns::{GeometryChange, GeometryChangeKind, GeometryChanges, NodeLayout};
 pub use compare::{Geometry, LayoutDifference};
 pub use image::{image_content_size, style_known};

@@ -5,7 +5,7 @@ use kivact::interaction::TreeNode;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{DataColumn, DataTableDensity, FilterField, button, card, data_table};
-use kivact::view::{Node, NodeBuilder, column, row, text};
+use kivact::view::{Element, Node, column, row, text};
 use kivact_ui_soft::{
     DictationState, FormDirection, GridColumns, Space, ToolCall, ToolStatus, aspect_ratio, center,
     chat_dictation_button, chat_tool_calls, divider, form_layout, form_row, hstack, layout,
@@ -281,6 +281,7 @@ fn example_tree_list() -> Node {
                 TreeNode::new("main.rs", Some("src"), "main.rs"),
                 TreeNode::new("README.md", None, "README.md"),
             ],
+            signal(None),
         )
         .expanded(signal(vec!["src"]))
         .reveal(
@@ -291,7 +292,7 @@ fn example_tree_list() -> Node {
             ),
         )
         .style(style().width(240)),
-        "kivact::ui::tree(\"Files\", files).expanded(expanded).reveal(2.0, transition)",
+        "kivact::ui::tree(\"Files\", files, selected).expanded(expanded).reveal(2.0, transition)",
     )
 }
 
@@ -341,10 +342,7 @@ fn example_chat() -> Node {
 fn example_chat_dictation_button() -> Node {
     specimen(
         "Dictation available",
-        chat_dictation_button(signal(DictationState {
-            supported: true,
-            ..DictationState::default()
-        })),
+        chat_dictation_button(signal(DictationState::Idle)),
         "chat_dictation_button(dictation_state)",
     )
 }
@@ -357,7 +355,7 @@ fn example_chat_tool_calls() -> Node {
             ToolCall::new("review", "Review notes").status(ToolStatus::Running),
         ])
         .expanded(signal(true)),
-        "chat_tool_calls(calls).expanded(expanded)",
+        "chat_tool_calls(items).expanded(expanded)",
     )
 }
 

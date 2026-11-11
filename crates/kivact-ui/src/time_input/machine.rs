@@ -34,11 +34,11 @@ pub(super) enum Event {
     External(Option<TimeOfDay>),
 }
 pub(super) struct Snapshot {
-    // xtask-allow(state-fields): passive record - seconds
+    // xtask-allow(state-fields): option: the seconds flag of the caller's TimeInput format, read per event; false parses HH:MM with seconds left at zero
     pub(super) seconds: bool,
-    // xtask-allow(state-fields): passive record - min
+    // xtask-allow(state-fields): option: the caller's TimeInput min bound read for each event; absent accepts any early time
     pub(super) min: Option<TimeOfDay>,
-    // xtask-allow(state-fields): passive record - max
+    // xtask-allow(state-fields): option: the caller's TimeInput max bound read for each event; absent accepts any late time
     pub(super) max: Option<TimeOfDay>,
 }
 fn key(time: TimeOfDay) -> (u8, u8, u8) {

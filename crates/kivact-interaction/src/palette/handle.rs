@@ -8,7 +8,7 @@
 //! `group(index)` and `item(key)`, and its state is `visible` (a
 //! `Value<Vec<CommandGroup<K>>>`), `active` and `query`; the parts add the
 //! input's `controls` and `active_descendant`, the group names and the
-//! options' `selected`. [`CommandPaletteApi::show`] only manages the content's
+//! options' `selected`. [`CommandPaletteApi::while_open`] only manages the content's
 //! lifetime. A [`Command`] is plain data (key, reactive label, group, hint,
 //! keywords, disabled), and the caller draws its icon from the key. The
 //! default search is [`filter_commands`] (a substring of the label, group,
@@ -205,7 +205,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// when it closes. The shortcut that opens it (Ctrl K in most apps) is the
 /// application's to bind.
 ///
-/// It joins a modal [`DialogApi`] and a [`ComboboxApi`]: [`show`](Self::show)
+/// It joins a modal [`DialogApi`] and a [`ComboboxApi`]: [`while_open`](Self::while_open)
 /// mounts the caller's content while it is open, with
 /// [`content`](Self::content) on the caller's centered `overlay(..)`,
 /// [`input`](Self::input) on a caller-owned editing node bound to [`query`](Self::query),
@@ -236,13 +236,13 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// # pub mod prelude {
 /// # //! Role: Supply the canonical imports used by this documentation example.
 /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, Component, IntoView, NodeBuilder, Orientation, Role, column, for_each, node, node_ref, row, show, text};
+/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
 /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
 /// # }
 /// #     pub extern crate kivact_interaction as interaction;
 /// # }
 /// use kivact::interaction::{Command, use_command_palette};
-/// use kivact_core::view::NodeBuilder;
+/// use kivact_core::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -252,7 +252,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///         Command::new("theme", "Toggle theme").with_keywords(["dark", "light"]),
 ///     ];
 ///     let p = use_command_palette(commands, open).on_activate(move |key| last.set(Some(key)));
-///     p.show(move || {
+///     p.while_open(move || {
 ///         let rows = for_each(p.visible(), |g| g.index, move |group| {
 ///             let commands = memo(move || group.with(|g| g.commands.clone()));
 ///             for_each(commands, |c| *c.key(), move |command| {
@@ -331,14 +331,9 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
                 .is_some_and(|command| filter.with(|filter| filter(query, command)))
         })
     });
-    // The caller's `open` is the only open state. Each change to closed
-    // resets the query and the highlight; a notification whose value the
-    // binding no longer holds is ignored.
-    kivact_core::state::effect_on(open, move |&shown| {
-        if !shown && !open.get_untracked() {
-            combobox.reset();
-        }
-    });
+    // The caller's `open` is the one opening input: the combobox machine keeps
+    // the query and the highlight, and its close transition resets both.
+    combobox.follow_open(open);
     let visible = combobox.visible();
     let groups = memo(move || command_groups(visible, commands));
     CommandPaletteApi {
@@ -496,10 +491,10 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
     /// owner on every opening. Nothing is rendered besides the factory's view.
     ///
     /// The palette keeps its open state with its dialog, so this method,
-    /// like [`MenuApi::show`](crate::MenuApi::show), is how its content mounts;
+    /// like [`MenuApi::while_open`](crate::MenuApi::while_open), is how its content mounts;
     /// the other overlays mount theirs with `show(x.is_open(), ..)`.
     #[track_caller]
-    pub fn show<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
+    pub fn while_open<V: IntoView>(self, factory: impl kivact_core::view::IntoViewFn<V>) -> View {
         let factory = factory.into_view_fn();
         kivact_core::view::show(self.dialog.is_open(), move || factory.call(())).into_view()
     }

@@ -9,9 +9,12 @@ use super::devtools::{
     DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
     emulated_viewport,
 };
-use super::window::{HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface};
+use super::window::{
+    FRAME_STATE_KEEP_NS, HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface,
+};
 use crate::contract::{
     DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
+    TurnOutput,
 };
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{AppModel, DeferredRequest};
@@ -39,13 +42,36 @@ pub(super) enum HostPhase {
     /// The first entry after the start carries them out (`Host::enter`), and the
     /// host asks for that entry at once (`ShellControl::WakeAt(now)` while effects
     /// are queued).
-    Starting,
+    Starting {
+        /// The client's next turn deadline (`TurnOutput::Continue`).
+        next_wake: Option<u64>,
+    },
     /// Handling the shell's events.
-    Running,
-    /// The client finished (`TurnOutput::exit`): no more turns; every return asks
+    Running {
+        /// The client's next turn deadline (`TurnOutput::Continue`).
+        next_wake: Option<u64>,
+    },
+    /// The client finished (`TurnOutput::Exit`): no more turns; every return asks
     /// the shell to exit.
     Exiting,
     Closed,
+}
+
+impl HostPhase {
+    /// The client's next turn deadline: kept only while the host runs turns.
+    pub(super) fn next_wake(self) -> Option<u64> {
+        match self {
+            Self::Starting { next_wake } | Self::Running { next_wake } => next_wake,
+            Self::Exiting | Self::Closed => None,
+        }
+    }
+
+    /// Record the client's next turn deadline; nothing once it exits or closes.
+    pub(super) fn set_next_wake(&mut self, at: Option<u64>) {
+        if let Self::Starting { next_wake } | Self::Running { next_wake } = self {
+            *next_wake = at;
+        }
+    }
 }
 
 pub(crate) struct Host {
@@ -57,13 +83,11 @@ pub(crate) struct Host {
     /// Arvane's text, shared with the client's reader (`write::Reader`), which
     /// measures text for drawing: borrowed for one call at a time.
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
-    // xtask-allow(state-fields): independent fact - the client's next turn deadline, valid in every host phase
-    pub(super) next_wake: Option<u64>,
     /// Embedded handle destruction can occur inside a platform callback while
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.
     pub(super) close: crate::contract::CloseSignal,
-    // xtask-allow(state-fields): setting - the user's reduced-motion override, independent of host lifecycle
+    // xtask-allow(state-fields): option: absent means the system's reduced-motion preference applies
     pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
@@ -75,6 +99,7 @@ pub(crate) struct Host {
     pub(super) accessibility_noted: ReportOnce,
     /// The App-wide windows and their host state.
     pub(super) windows: std::collections::BTreeMap<WindowId, HostWindow>,
+    // xtask-allow(state-fields): projection: the App motion last reported to the client, written only by Host::report_app_motion
     /// The App motion input last reported to the client.
     pub(super) app_motion: Sent<(bool, u64)>,
     /// The DevTools' overlays, pick, keys and emulation.
@@ -114,8 +139,8 @@ impl Host {
     /// driver's `inject`): the start is over, and the platform effects queued
     /// meanwhile are carried out.
     pub(super) fn enter(&mut self, windows: &mut Windows<'_>) {
-        if self.phase == HostPhase::Starting {
-            self.phase = HostPhase::Running;
+        if let HostPhase::Starting { next_wake } = self.phase {
+            self.phase = HostPhase::Running { next_wake };
         }
         self.effects(windows);
     }
@@ -140,7 +165,7 @@ impl Host {
 
     /// Carry out every window's deferred effects.
     pub(super) fn effects(&mut self, windows: &mut Windows<'_>) {
-        if self.phase == HostPhase::Starting || self.phase == HostPhase::Closed {
+        if matches!(self.phase, HostPhase::Starting { .. } | HostPhase::Closed) {
             return;
         }
         for id in self.window_ids() {
@@ -191,6 +216,10 @@ impl Host {
                             }
                         }
                         PlatformResult::Done
+                    }
+                    DeferredRequest::DemandGpu => {
+                        windows.demand_gpu(id);
+                        continue;
                     }
                 };
                 if self.observe_close() {
@@ -271,9 +300,9 @@ impl Host {
             .get_mut(&id)
             .expect("invariant: an adapter is read for an open window");
         let changed = match &adapter {
-            Some(value) => host_window.adapter.update(value.clone()).is_some(),
-            None if host_window.adapter.get().is_some() => {
-                host_window.adapter = Sent::new();
+            Some(value) => host_window.reported_adapter.update(value.clone()).is_some(),
+            None if host_window.reported_adapter.get().is_some() => {
+                host_window.reported_adapter = Sent::new();
                 true
             }
             None => false,
@@ -422,9 +451,9 @@ impl Host {
         if self.observe_close() {
             return Ok(());
         }
-        self.next_wake = output.next_wake_ns;
-        if output.exit {
-            self.phase = HostPhase::Exiting;
+        match output {
+            TurnOutput::Continue { next_wake_ns } => self.phase.set_next_wake(next_wake_ns),
+            TurnOutput::Exit => self.phase = HostPhase::Exiting,
         }
         self.apply_window_changes(windows);
         self.apply_devtools_changes();
@@ -671,8 +700,36 @@ impl Host {
     /// When window `id`'s skipped frame is drawn again.
     fn retry_at(&self, id: WindowId) -> Option<u64> {
         match self.windows.get(&id)?.last_present {
-            LastPresent::Settled => None,
+            LastPresent::Shown { .. } | LastPresent::Settled => None,
             LastPresent::Skipped { retry_at_ns } => Some(retry_at_ns),
+        }
+    }
+
+    /// When window `id` releases the CPU frame state of its last shown
+    /// frame ([`FRAME_STATE_KEEP_NS`] after it).
+    fn release_at(&self, id: WindowId) -> Option<u64> {
+        match self.windows.get(&id)?.last_present {
+            LastPresent::Shown { at_ns } => Some(at_ns.saturating_add(FRAME_STATE_KEEP_NS)),
+            LastPresent::Settled | LastPresent::Skipped { .. } => None,
+        }
+    }
+
+    /// Release the CPU frame state of every window whose last shown frame
+    /// is [`FRAME_STATE_KEEP_NS`] old at `now`, unless it has a frame due
+    /// (that frame shows again). The window keeps showing its picture;
+    /// its next frame redraws everything.
+    pub(super) fn release_idle_frames(&mut self, now: u64, windows: &mut Windows<'_>) {
+        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+            if self.release_at(id).is_none_or(|at| at > now) || self.paint_due(id) {
+                continue;
+            }
+            if let Some(mut window) = windows.get(id) {
+                window.forget_frame_state();
+            }
+            self.windows
+                .get_mut(&id)
+                .expect("invariant: the released window has host state")
+                .last_present = LastPresent::Settled;
         }
     }
 
@@ -784,11 +841,18 @@ impl Host {
             Some(now_ns)
         } else {
             [
-                self.next_wake,
+                self.phase.next_wake(),
                 frame_deadline,
                 self.windows
                     .keys()
                     .filter_map(|id| self.retry_at(*id))
+                    .min(),
+                // A window with a frame due keeps its state for that frame:
+                // its release is not a wake.
+                self.windows
+                    .keys()
+                    .filter(|id| !self.paint_due(**id))
+                    .filter_map(|id| self.release_at(*id))
                     .min(),
                 // A retry that is due was asked for by the redraw of `pump`,
                 // which runs the export; only a later retry is a wake.

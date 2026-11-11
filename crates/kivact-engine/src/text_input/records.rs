@@ -21,10 +21,7 @@ pub(crate) enum Shown {
 pub(crate) struct Key {
     pub(crate) style: kivact_types::ComputedTextStyle,
     pub(crate) shown: Shown,
-    // xtask-allow(state-fields): cache key - multiline
-    pub(crate) multiline: bool,
-    // xtask-allow(state-fields): cache key - wrap width
-    pub(crate) wrap_width: Option<f64>,
+    pub(crate) breaks: crate::text_input::source::Breaks,
 }
 
 impl Key {
@@ -49,8 +46,7 @@ impl Key {
         let key = Key {
             style,
             shown,
-            multiline: source.multiline,
-            wrap_width: source.wrap_width,
+            breaks: source.breaks,
         };
         (key, align)
     }
@@ -64,21 +60,33 @@ pub(crate) struct Colored {
     pub(crate) output: LineState,
 }
 
+/// The assistive-technology run of a line: none yet, its identity, or the
+/// run it published and where it was placed.
+#[derive(Clone, Debug, Default)]
+pub(crate) enum Run {
+    /// The line has no run yet.
+    #[default]
+    Unassigned,
+    /// Its run's identity; the run itself is made when it is published.
+    Id(u64),
+    /// The run it published, with the origin it was placed at.
+    Published {
+        origin: Point,
+        run: Arc<kivact_types::SemanticsTextRun>,
+    },
+}
+
 /// What a line keeps of its colors and of assistive technology.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct Kept {
-    // xtask-allow(state-fields): pure caches (run_id is an identity) - colors
+    // xtask-allow(state-fields): cache: the line's colors, kept until they are resolved again
     pub(crate) colors: Option<Colored>,
-    // xtask-allow(state-fields): pure caches (run_id is an identity) - Its glyphs shaped with its colors, over the text color they were shaped with
+    // xtask-allow(state-fields): cache: its glyphs shaped with its colors, over the text color they were shaped with
     /// Its glyphs shaped with its colors, over the text color they were
     /// shaped with.
     pub(crate) painted: Option<(kivact_types::Rgba, kivact_types::ShapedTextSnapshot)>,
-    // xtask-allow(state-fields): pure caches (run_id is an identity) - Its text run's identity, once it has one
-    /// Its text run's identity, once it has one.
-    pub(crate) run_id: Option<u64>,
-    // xtask-allow(state-fields): pure caches (run_id is an identity) - Its text run and where it was placed
-    /// Its text run and where it was placed.
-    pub(crate) run: Option<(Point, Arc<kivact_types::SemanticsTextRun>)>,
+    /// Its text run's identity, then its run and where it was placed.
+    pub(crate) run: Run,
 }
 
 /// What became of shaping a line.

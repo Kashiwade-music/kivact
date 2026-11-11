@@ -31,5 +31,6 @@
 
 mod clocks;
 mod scroll_snap;
+pub(crate) mod sources;
 pub(crate) mod state;
 mod ticks;

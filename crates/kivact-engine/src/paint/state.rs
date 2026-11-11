@@ -48,6 +48,17 @@ pub(super) enum ListState {
     },
 }
 
+/// The nodes whose subtree facts must be derived again before the next
+/// paint list (a work queue, not a phase).
+#[derive(Default)]
+pub(crate) enum StaleFacts {
+    /// Every fact is derived again (first list, new root, layer roots changed).
+    #[default]
+    All,
+    /// Only these nodes (and, through propagation, their ancestors).
+    Nodes(BTreeSet<NodeId>),
+}
+
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -65,6 +76,8 @@ pub(crate) struct PaintState {
     pub(super) twice_reported: RefCell<BTreeSet<(NodeId, kivact_types::DrawableId)>>,
     pub(super) list: PaintList,
     pub(super) redraw: Redraw,
+    /// The nodes whose facts the next list derives again.
+    pub(crate) stale_facts: StaleFacts,
 }
 
 impl PaintState {
@@ -82,6 +95,7 @@ impl PaintState {
             twice_reported: RefCell::default(),
             list: PaintList::new(),
             redraw: Redraw::Needed,
+            stale_facts: StaleFacts::All,
         }
     }
 
@@ -114,6 +128,23 @@ impl PaintState {
     pub(crate) fn forget_missing(&mut self, live: impl Fn(NodeId) -> bool) {
         self.dropped_reported.get_mut().retain(|(id, _)| live(*id));
     }
+
+    /// Derive `id`'s subtree facts again before the next list (and its ancestors as they change).
+    pub(crate) fn stale_fact(&mut self, id: NodeId) {
+        if let StaleFacts::Nodes(set) = &mut self.stale_facts {
+            set.insert(id);
+        }
+    }
+
+    /// Derive every subtree fact again before the next list.
+    pub(crate) fn stale_all_facts(&mut self) {
+        self.stale_facts = StaleFacts::All;
+    }
+
+    /// Forget the recorded facts of `id` (the node is gone).
+    pub(crate) fn forget_fact(&mut self, id: NodeId) {
+        self.list.facts.remove(&id);
+    }
 }
 
 /// Everything a node's subtree can draw on, relative to its layout
@@ -121,11 +152,26 @@ impl PaintState {
 /// module invariants).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Ink {
+    // xtask-allow(state-fields): cache: the drawn area of the node; absent means nothing is drawn
     /// `None`: nothing (hidden).
-    pub(super) rect: Option<Rect>,
+    pub(super) rect: Option<Drawn>,
     pub(super) size: Size,
     pub(super) content: Size,
+    // xtask-allow(state-fields): identity: the ink generation (PaintList::ink_gen, advanced when fonts are added) the ink was found in; readers compare it with the current one
     pub(super) generation: Generation,
+}
+
+/// Where a drawn subtree draws (an [`Ink`]).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct Drawn {
+    /// Everything it draws on as the paint list places it: each box mapped
+    /// by the plane map of its transform.
+    pub(super) rect: Rect,
+    /// A box in it lands outside `rect` once drawn: one whose transform is
+    /// not 2D (a perspective or a 3D rendering context projects it) or a
+    /// drawable (its host's drawing places it). Its hits are not bounded
+    /// by `rect`.
+    pub(super) beyond: bool,
 }
 
 /// The compositor layer one listed node is drawn in.
@@ -157,6 +203,30 @@ pub(crate) enum Opening {
     ClipGroup,
 }
 
+/// How one listed node is drawn with its group.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum Grouping {
+    /// Neither composited in a group nor faded by the group's opacity.
+    #[default]
+    None,
+    /// Composited in a group (a clip, a filter, a blend): the group opens.
+    Effects,
+    /// Its opacity is the group's (applied by its group).
+    Opacity,
+}
+
+/// How a listed node's padding box clips its content.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum ClipShape {
+    /// Nothing clips the node.
+    #[default]
+    None,
+    /// A rect clip to the padding box.
+    Rect,
+    /// A rounded group: a layer clipped to the rounded padding box.
+    Rounded,
+}
+
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {
@@ -165,35 +235,27 @@ pub(crate) struct Step {
     /// transforms pushed around it (its own and its ancestors'
     /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
-    // xtask-allow(state-fields): passive record - The transform it is drawn through (an index into [`PaintList::transforms`])
+    // xtask-allow(state-fields): option: absent means the node is drawn without its own transform
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
-    // xtask-allow(state-fields): passive record - clips
-    pub(super) clips: bool,
-    // xtask-allow(state-fields): passive record - presence clip
+    /// The clip of its padding box (none, a rect, or a rounded group).
+    pub(super) clip_shape: ClipShape,
+    // xtask-allow(state-fields): option: absent means no presence clip applies
     pub(super) presence_clip: Option<Rect>,
-    // xtask-allow(state-fields): passive record - Its corners are rounded (a clip is a layer clipped to its rounded padding box, not a rect clip)
-    /// Its corners are rounded (a clip is a layer clipped to its rounded
-    /// padding box, not a rect clip).
-    pub(super) rounded: bool,
-    // xtask-allow(state-fields): passive record - It draws itself (else it is listed for its group only)
+    // xtask-allow(state-fields): independent: whether the node draws itself; any grouping can hold either
     /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
-    // xtask-allow(state-fields): passive record - It is composited in a group
-    /// It is composited in a group.
-    pub(super) grouped: bool,
-    // xtask-allow(state-fields): passive record - Its opacity is the group's (applied by its group)
-    /// Its opacity is the group's (applied by its group).
-    pub(super) group: bool,
+    /// How it is composited in a group.
+    pub(super) grouping: Grouping,
     /// The area its ancestors let it draw in (grown by the culling
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
-    // xtask-allow(state-fields): passive record - Its compositor layer (an index into [`PaintList::layers`])
+    // xtask-allow(state-fields): option: absent means the node is drawn in its parent's layer
     /// Its compositor layer (an index into [`PaintList::layers`]).
     pub(super) layer: Option<u32>,
 }
@@ -210,19 +272,17 @@ impl Step {
             if self.transform.is_some() {
                 out.push(Opening::Transform);
             }
-            if self.grouped {
+            if self.grouping != Grouping::None {
                 out.push(Opening::Group);
             }
         }
         if self.presence_clip.is_some() {
             out.push(Opening::Presence);
         }
-        if self.clips {
-            out.push(if self.rounded {
-                Opening::ClipGroup
-            } else {
-                Opening::Clip
-            });
+        match self.clip_shape {
+            ClipShape::None => {}
+            ClipShape::Rect => out.push(Opening::Clip),
+            ClipShape::Rounded => out.push(Opening::ClipGroup),
         }
         out
     }
@@ -255,8 +315,6 @@ pub(crate) struct PaintList {
     pub(super) state: ListState,
     /// The child indices of the containers with many children.
     pub(super) indices: HashMap<NodeId, ChildIndex>,
-    /// Layout passes so far (the indices' geometry is from one of them).
-    pub(super) pass: Generation,
     /// The generation of the nodes' inks: an ink of another is forgotten.
     pub(super) ink_gen: Generation,
 }
@@ -266,7 +324,8 @@ pub(crate) struct PaintList {
 pub(crate) enum Extent {
     /// Hidden: nothing.
     Nothing,
-    /// Its subtree may draw anywhere (its extent is not finite).
+    /// Its subtree may draw anywhere (its extent is not finite, or a box
+    /// of it is drawn outside its ink).
     Anywhere,
     /// Within this rectangle.
     Within(Rect),
@@ -282,8 +341,6 @@ pub(crate) struct Indexed {
     pub(super) sticky: bool,
     /// Its layout location in the container.
     pub(super) location: Point,
-    pub(super) size: Size,
-    pub(super) content: Size,
     pub(super) extent: Extent,
 }
 
@@ -297,6 +354,7 @@ pub(crate) enum Axis {
 #[derive(Clone, Debug)]
 pub(crate) struct ChildIndex {
     pub(super) entries: Vec<Indexed>,
+    // xtask-allow(state-fields): cache: the axis the reaches are sorted along; absent means they are not sorted
     /// The axis every reach is sorted along (by its start), if any.
     pub(super) axis: Option<Axis>,
     /// Along `axis`, per entry: where its reach starts (a hidden entry
@@ -306,13 +364,19 @@ pub(crate) struct ChildIndex {
     pub(super) furthest: Vec<f64>,
     /// The entries of the sticky children.
     pub(super) sticky: Vec<usize>,
-    /// The layout pass the entries' geometry is from.
-    pub(super) pass: Generation,
-    /// Children whose own drawing changed since.
+    /// Children whose own drawing or layout changed since.
     pub(super) touched: Vec<NodeId>,
 }
 
 impl PaintState {
+    /// `child` of `parent` moved or resized in a layout pass: its entry in
+    /// the parent's child index (if it has one) is looked at again.
+    pub(crate) fn moved_child(&mut self, parent: NodeId, child: NodeId) {
+        if let Some(index) = self.list.indices.get_mut(&parent) {
+            index.touch(child);
+        }
+    }
+
     pub(crate) fn push_slot(&mut self) {
         self.ink.push(Cell::new(None));
         self.look.push(None);

@@ -18,6 +18,7 @@ pub(crate) struct Options {
     pub(crate) package: Option<String>,
     pub(crate) module: Option<String>,
     pub(crate) report: bool,
+    pub(crate) audit: bool,
 }
 
 impl Options {
@@ -42,6 +43,7 @@ impl Options {
                     }
                 }
                 "--report" => result.report = true,
+                "--report-audit" => result.audit = true,
                 _ => shared.push(arg),
             }
         }
@@ -79,6 +81,7 @@ mod tests {
                 "--module",
                 "state",
                 "--report",
+                "--report-audit",
                 "--no-write",
             ]
             .map(String::from)
@@ -96,6 +99,7 @@ mod tests {
         assert!(!selected.selected("state-fields"));
         assert!(Options::parse(vec!["--only".into(), "api-shape,unknown".into()]).is_err());
         assert!(options.report);
+        assert!(options.audit);
         assert_eq!(options.package.as_deref(), Some("demo"));
         assert_eq!(rest, ["check", "--no-write"]);
         assert!(Options::parse(vec!["--module".into(), "state".into()]).is_err());

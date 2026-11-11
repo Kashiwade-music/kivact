@@ -1,13 +1,14 @@
 //! Role: Compare retained paint order, ink and child indices with a fresh walk.
 
 use crate::model::Model;
-use crate::paint::state::{ChildIndex, Ink, PaintList};
+use crate::paint::state::{ChildIndex, Drawn, Ink, PaintList, StaleFacts};
 
 impl Model {
     pub(crate) fn paint_self_check(&mut self) -> Vec<String> {
         // Run both walks on disposable lists. Even refreshing the retained
         // list's lazy bookkeeping must not repair the live cache for later.
         let original = std::mem::take(&mut self.paint.list);
+        let kept = std::mem::replace(&mut self.paint.stale_facts, StaleFacts::All);
         self.paint.list = original.clone();
         let inks: Vec<_> = self
             .tree
@@ -17,6 +18,14 @@ impl Model {
             .collect();
         self.paint_list();
         let retained = std::mem::take(&mut self.paint.list);
+        let mut errors = Vec::new();
+        let reference = self.layer_facts();
+        if retained.facts != reference {
+            errors.push(format!(
+                "paint subtree facts: retained {:?}, reference {reference:?}",
+                retained.facts
+            ));
+        }
         let retained_inks: Vec<_> = self
             .tree
             .nodes
@@ -24,13 +33,12 @@ impl Model {
             .map(|(id, node)| (*id, self.paint.ink[node.index.0].take()))
             .collect();
         self.paint.list = PaintList {
-            pass: retained.pass,
             ink_gen: retained.ink_gen,
             ..PaintList::default()
         };
+        self.paint.stale_facts = StaleFacts::All;
         self.paint_list();
         let rebuilt = std::mem::take(&mut self.paint.list);
-        let mut errors = Vec::new();
         compare_entries(&retained, &rebuilt, &mut errors);
         for (id, before) in &retained_inks {
             let Some(node) = self.tree.get(*id) else {
@@ -61,7 +69,7 @@ impl Model {
         for (id, after) in &rebuilt.indices {
             let before = retained.indices.get(id).map(|index| {
                 let mut index = index.clone();
-                index.refresh(self, retained.pass, retained.ink_gen);
+                index.refresh(self, retained.ink_gen);
                 index
             });
             match before.as_ref() {
@@ -80,17 +88,12 @@ impl Model {
             }
         }
         self.paint.list = original;
+        self.paint.stale_facts = kept;
         errors
     }
 }
 
-fn ink_value(
-    ink: Ink,
-) -> (
-    Option<kivact_types::Rect>,
-    kivact_types::Size,
-    kivact_types::Size,
-) {
+fn ink_value(ink: Ink) -> (Option<Drawn>, kivact_types::Size, kivact_types::Size) {
     (ink.rect, ink.size, ink.content)
 }
 
@@ -112,16 +115,12 @@ fn same_index(before: &ChildIndex, after: &ChildIndex) -> bool {
                     before.order,
                     before.sticky,
                     before.location,
-                    before.size,
-                    before.content,
                     before.extent,
                 ) == (
                     after.id,
                     after.order,
                     after.sticky,
                     after.location,
-                    after.size,
-                    after.content,
                     after.extent,
                 )
             })

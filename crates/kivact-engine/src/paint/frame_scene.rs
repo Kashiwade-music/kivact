@@ -9,7 +9,7 @@
 //!   in reverse order, after the node's draw-over and scrollbars.
 //! - A layer's raster scale enlarges what is inside it like a transform's.
 
-use super::state::{Entry, LayerSpec, Opening, PaintList, PaintPass, Step};
+use super::state::{Entry, Grouping, LayerSpec, Opening, PaintList, PaintPass, Step};
 use crate::contract::{HostEvent, NodeType};
 use crate::lower::border_image::lower_border_image;
 use crate::lower::effects::{self, Tint};
@@ -40,9 +40,10 @@ impl Model {
     /// The frame's composition: the paint list brought up to date, drawn at
     /// the window's scale into the root layer.
     pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
-        self.paint_list();
-        self.sync_playback();
-        self.sync_shader_clocks();
+        if self.paint_list() {
+            self.refresh_shader_clocks();
+            self.refresh_playback();
+        }
         let pass = PaintPass {
             scale: self.paint.scale,
             size: self.window(),
@@ -242,7 +243,11 @@ impl Model {
                 }
             }
             Opening::Group => {
-                let opacity = if step.group { place.paint.opacity } else { 1.0 };
+                let opacity = if step.grouping == Grouping::Opacity {
+                    place.paint.opacity
+                } else {
+                    1.0
+                };
                 let clip = place.clip_path.clone();
                 out.push(D::PushGroup(effects::group(place.paint, clip, opacity)));
             }

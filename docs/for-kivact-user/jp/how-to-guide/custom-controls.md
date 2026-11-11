@@ -17,7 +17,7 @@
 | 候補つきの検索ボックス | `use_combobox` | `input()`、`content()`、`item(key)` |
 | コマンドパレット | `use_command_palette` | `content()`、`input()`、`list()`、`item(key)` |
 | 開閉する本体、ポップオーバー、ツールチップ | `use_disclosure`、`use_popup`、`use_tooltip` | `trigger()`、`content()` |
-| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`dismiss()`、`pulse()` |
+| ホバーカード、遅れて出るヒント、一時的な確認表示 | `use_delayed` | `is_open()`、`hide()`、`pulse()` |
 | ダイアログ | `use_dialog` | `trigger()`、`content()`、`title()`、`description()`、`close_trigger()` |
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |
@@ -34,13 +34,12 @@
 最短のカスタムコントロールはスイッチです。動作はすべてコントローラーが持ち、コードは見た目だけを決めます。
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
 use kivact::style::Direction;
 
 /// オンのとき右へつまみが動く、ピル型のスイッチ。
-pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Component {
+pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Element {
     let api = use_switch(on);
     let state = api.control_state();
     let control = api.control();
@@ -57,7 +56,7 @@ pub fn pill_switch(label: impl IntoText, on: impl IntoBinding<bool>) -> impl Com
                 .padding(3)
                 .radius(12)
                 .background(if on { ColorToken::Accent } else { ColorToken::Border })
-                .opacity(if state.input.pressed { 0.8 } else { 1.0 })
+                .opacity(if state.input.is_pressed() { 0.8 } else { 1.0 })
         })
         .child(node().style(style().size(18, 18).radius(9).background(ColorToken::Surface)))
 }
@@ -66,7 +65,7 @@ fn app() -> impl IntoView {
     let notifications = signal(false);
     column((
         pill_switch("Notifications", notifications),
-        text(move || if notifications.get() { "On" } else { "Off" }.to_owned()),
+        text(move || if notifications.get() { "On" } else { "Off" }),
     ))
     .style(style().gap(8).padding(16))
 }
@@ -127,7 +126,7 @@ use kivact::custom::Part;
 use kivact::interaction::use_switch;
 
 fn custom_switch() -> impl IntoView {
-    component(|| {
+    scope(|| {
         let enabled = signal(false);
         let api = use_switch(enabled);
         let state = api.control_state();
@@ -146,9 +145,9 @@ fn custom_switch() -> impl IntoView {
 }
 ```
 
-キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `NodeBuilder` が提供します。
+キーボード、ポインター、アクセシビリティの振る舞いは引き続きスイッチのコントローラーが持ちます。合成した Part は同じ事実を読むだけで、チェックや押下の状態を表す別のシグナルを持ちません。`role` や `checked` のような意味の設定には `Node` 固有のメソッドを使います。ビルダーからは `.with_node(|host| ...)` でそれらのメソッドに届きます。`style`、`disabled`、`name` などの共通の modifier は `Element` が提供します。
 
-この例のように、部品専用の owner が必要ならコントローラーの作成を `component(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
+この例のように、部品専用の owner が必要ならコントローラーの作成を `scope(move || ...)` の中に置きます。その setup は mount 時に一度だけ実行され、破棄時にはコントローラーの cleanup や timer も同じ寿命で終わります。[コンポーネントの寿命](custom-components.md#setup-に独立した寿命を持たせる)を参照してください。
 
 ## キーボード操作つきでリストから選ぶ
 
@@ -157,8 +156,7 @@ fn custom_switch() -> impl IntoView {
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, ListOptions, Selection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
 
 /// 選択肢の行。矢印キーで移動と選択を行い、Tab で行の外へ出ます。
@@ -166,7 +164,7 @@ pub fn segmented<K: ItemKey>(
     label: impl IntoText,
     options: Vec<ListItem<K>>,
     selected: impl IntoBinding<Option<K>>,
-) -> impl Component {
+) -> impl Element {
     let options = options.into_value();
     let list = use_list(
         options,
@@ -192,7 +190,7 @@ pub fn segmented<K: ItemKey>(
                         .padding_y(6)
                         .background(if state.selected { ColorToken::Accent } else { ColorToken::SurfaceAlt })
                         .color(if state.selected { ColorToken::AccentText } else { ColorToken::Text })
-                        .opacity(if state.input.disabled { 0.4 } else { 1.0 })
+                        .opacity(if state.input.is_disabled() { 0.4 } else { 1.0 })
                 })
                 .child(text(move || option.with(|option| option.label())))
         },
@@ -257,10 +255,9 @@ mod tests {
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, use_select};
+use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 
 pub fn dropdown<K: ItemKey>(
     label: impl IntoText,
@@ -350,7 +347,7 @@ mod tests {
 }
 ```
 
-コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog`、`use_menu` でも使え、違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
+コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog` でも使えます。メニューは `show` の代わりに `MenuApi::while_open` で content を mount します。違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
 
 ## ドラッグで値を変える
 
@@ -366,13 +363,11 @@ mod tests {
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// 横にドラッグして変える数値。
-pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Component {
+pub fn scrub(label: impl IntoText, value: Signal<f64>, history: Rc<RefCell<Vec<EditPhase>>>) -> impl Element {
     let edit = EditSession::new(move |initial| value.set(initial))
         .on_edit(move |phase| history.borrow_mut().push(phase));
     let drag = use_drag::<f64>(DragCoordinates::Window)
@@ -457,16 +452,14 @@ AccessKit の 0 始まりの添字に変換します。標準の `data_table` �
 レイアウトの規則では表せないサイズのコントロールには、**プリミティブ**を使います。プリミティブは、サイズを関数で計算するリーフ要素です。そのうえで、描画レイヤー、入力ハンドラー、フォーカス、アクセシビリティ、テスト ID と、ノードの持つものはすべて備えています。この API は実験的です。
 
 ```rust,test_harness
-use kivact::state::Binding;
-use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::custom::{Constraints, primitive};
-use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
+use kivact::view::{A11yAction, PointerPhase};
 
 const CELL: f64 = 20.0;
 
 /// `max` 個の点の列。点灯している点の数が評価です。
-pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Component {
+pub fn rating(max: u32, value: impl IntoBinding<u32>) -> impl Element {
     let value = value.into_binding();
     primitive()
         // サイズは `max` だけで決まります。変わるとレイアウトが測り直します。
@@ -551,13 +544,11 @@ mod tests {
 `use_text_edit` はノードにネイティブのテキスト編集 (キャレット、選択、IME の変換、クリップボード、取り消し、標準のキー操作) を与えます。何も描画しないので、枠、余白、カウンターは自分で用意します。標準の `text_input` は、このコントローラーにテーマの枠を付けたものです。
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
-use kivact::style::Align;
 
 /// 文字数カウンターつきの入力欄。`max` はエディターが強制します。
-pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Component {
+pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {
     let value = value.into_binding();
     let api = use_text_edit(value).max_length(max).placeholder("Type here");
     let state = api.control_state();
@@ -565,7 +556,7 @@ pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max:
     let editor = node().part(control).name(label).style(move || {
         style()
             .grow(1)
-            .border_bottom(if state.get().focused { 2 } else { 1 }, ColorToken::Accent)
+            .border_bottom(if state.get().is_focused() { 2 } else { 1 }, ColorToken::Accent)
             .padding_y(6)
     });
     row((editor, text(move || format!("{}/{max}", value.with(|text| text.chars().count())))))
@@ -659,7 +650,7 @@ impl Machine for CopyButton {
 
 fn copy_button(text: impl IntoValue<String>) -> impl IntoView {
     let text = text.into_value();
-    component(move || {
+    scope(move || {
         let m = machine(CopyState::Idle, move || CopyButton { text: text.get() }, |_, effect| match effect {
             CopyEffect::Write(s) => { spawn(kivact::platform::copy_text(s)); }
         });

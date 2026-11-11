@@ -3,7 +3,7 @@ use super::audio_values::{TransportState, smpte};
 use super::common::line;
 use kivact::geometry::Rect;
 use kivact::interaction::MenuEntry;
-use kivact::prelude::{IntoView, Node, NodeBuilder, Role, Signal, column, node, rgb, row, text};
+use kivact::prelude::{Element, IntoView, Node, Role, Signal, column, node, rgb, row, text};
 use kivact::style::{Align, TextAlign, style};
 use kivact::view::LiveRegion;
 use kivact_ui_creative as ui;

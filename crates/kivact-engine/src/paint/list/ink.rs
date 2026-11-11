@@ -4,7 +4,7 @@ use crate::contract::NodeType;
 use crate::model::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{Ink, Look};
+use crate::paint::state::{Drawn, Ink, Look};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
@@ -74,34 +74,49 @@ pub(super) fn placed(t: Option<&kivact_types::Transform>, r: Rect, at: Point) ->
 /// The ink of `id` (its node `n`, laid out as `layout`) relative to its
 /// layout location (`None`: it draws nothing): its reach and, unless it
 /// clips, its children's inks at their scrolled locations, mapped by its
-/// transform. Kept in the node (see the module invariants).
-pub(super) fn ink(
+/// transform; and whether a box of the subtree lands outside it once drawn
+/// ([`Drawn::beyond`]). Kept in the node (see the module invariants).
+pub(super) fn drawn(
     host: &Model,
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
     generation: Generation,
-) -> Option<Rect> {
+) -> Option<Drawn> {
     if let Some(kept) = host.paint.ink[n.index.0].get()
         && kept.generation == generation
         && kept.size == layout.size
         && kept.content == layout.content_size
+        // Kept as drawing nothing while it or an ancestor was hidden: once
+        // drawn again it is looked at again (showing a node forgets the
+        // inks of the changed box and its ancestors, not of those below).
+        && (kept.rect.is_some() || !host.tree().drawn(id))
     {
         return kept.rect;
     }
-    let rect = host.tree().drawn(id).then(|| {
+    let drawn = host.tree().drawn(id).then(|| {
         let look = Look::now(host, id, n);
+        let local = drawn_local(host, id, n, layout, generation);
         // Blurred by the node's own filters, then transformed by it.
-        let local = grow(ink_local(host, id, n, layout, generation), look.fx);
-        map_rect(local_transform(host, id, n, layout).as_ref(), local)
+        let rect = map_rect(
+            local_transform(host, id, n, layout).as_ref(),
+            grow(local.rect, look.fx),
+        );
+        // A transform that is not 2D is drawn projected (by its own
+        // perspective, its parent's or its 3D rendering context's).
+        let spatial = host.element_transform(id).is_some_and(|t| !t.is_2d());
+        Drawn {
+            rect,
+            beyond: local.beyond || spatial,
+        }
     });
     host.paint.ink[n.index.0].set(Some(Ink {
-        rect,
+        rect: drawn,
         size: layout.size,
         content: layout.content_size,
         generation,
     }));
-    rect
+    drawn
 }
 
 /// The ink of `id` before its own filters and transform: its own reach
@@ -114,33 +129,50 @@ pub(super) fn ink_local(
     layout: &NodeLayout,
     generation: Generation,
 ) -> Rect {
+    drawn_local(host, id, n, layout, generation).rect
+}
+
+/// [`ink_local`], and whether a box of the subtree lands outside it once
+/// drawn: a child's does, or a drawable is mounted on it.
+fn drawn_local(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    layout: &NodeLayout,
+    generation: Generation,
+) -> Drawn {
     let look = Look::now(host, id, n);
     let mut rect = reach_local(host, id, n, layout, &look);
+    let mut beyond = false;
     if !n.clips() {
         let scroll = n.scroll();
         for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
-            let Some(c) = host
-                .node(child)
-                .filter(|c| !c.is_layer() && c.properties.drawable.is_none())
-            else {
+            let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                 continue;
             };
+            if c.properties.drawable.is_some() {
+                // Placed by this node's drawing, not by its layout.
+                beyond = true;
+                continue;
+            }
             let l = host.computed_layout(child).unwrap_or_default();
-            if let Some(r) = ink(host, child, c, &l, generation) {
+            if let Some(d) = drawn(host, child, c, &l, generation) {
+                let r = d.rect;
                 let mut at = Rect {
                     x: r.x - scroll.x + l.location.x,
                     y: r.y - scroll.y + l.location.y,
                     ..r
                 };
-                if c.place.sticky {
+                if c.place.positioning == crate::tree::node::Positioning::Sticky {
                     // Wherever its scrollport may stick it.
                     at = sticky_reach(n, layout, &l, at);
                 }
                 rect = rect.union(at);
+                beyond |= d.beyond;
             }
         }
     }
-    rect
+    Drawn { rect, beyond }
 }
 
 /// How far the text `id` paints out of its box (the font size and the

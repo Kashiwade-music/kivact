@@ -25,8 +25,8 @@ use kivact_core::geometry::Edge;
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Length, Position, pct, style, use_theme};
+use kivact_core::view::{Element, Node, column, node, row, scroll, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
-use kivact_core::view::{Node, NodeBuilder, column, node, row, scroll, text};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
 pub struct Dialog {
@@ -35,17 +35,17 @@ pub struct Dialog {
     title_hidden: Value<bool>,
     kind: DialogMode,
     placement: Placement,
-    // xtask-allow(state-fields): builder option - align
+    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): builder option - width
+    // xtask-allow(state-fields): option: absent means the component's default
     width: Option<Value<Length>>,
-    // xtask-allow(state-fields): builder option - description
+    // xtask-allow(state-fields): option: Dialog::description; absent draws no description and links none to the dialog
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): builder option - initial focus
+    // xtask-allow(state-fields): option: absent means the component's default
     initial_focus: Option<NodeRef>,
-    // xtask-allow(state-fields): builder option - return focus
+    // xtask-allow(state-fields): option: absent means the component's default
     return_focus: Option<Value<NodeRef>>,
-    // xtask-allow(state-fields): builder option - dismiss
+    // xtask-allow(state-fields): option: absent means the component's default
     dismiss: Option<DismissOn>,
     closable: Value<bool>,
     media: Option<kivact_core::view::ViewFn>,
@@ -258,7 +258,7 @@ impl Dialog {
     /// trigger publishes `expanded` and `controls`, keeps its own name and
     /// role (a button without a role becomes a `Role::Button`), and is where
     /// a [`DialogMode::Popover`] is placed and where the focus goes back to.
-    pub fn attach<T: NodeBuilder + IntoView>(self, trigger: T) -> View {
+    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         self.render(Some(trigger))
     }
 }
@@ -270,7 +270,7 @@ impl IntoView for Dialog {
 }
 
 impl Dialog {
-    fn render<T: NodeBuilder + IntoView>(self, trigger: Option<T>) -> View {
+    fn render<T: Element + IntoView>(self, trigger: Option<T>) -> View {
         let mut behavior = kivact_interaction::use_dialog(self.open, self.kind);
         if let Some(target) = self.initial_focus {
             behavior = behavior.initial_focus(target);

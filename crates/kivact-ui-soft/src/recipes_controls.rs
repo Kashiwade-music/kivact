@@ -119,14 +119,14 @@ fn button(theme: &Theme, s: &Look<ButtonState>) -> Style {
     let t = theme.ext::<Tokens>();
     let variant = s.variant::<ButtonVariant>().copied().unwrap_or_default();
     let (bg, fg, focus) = colors(&t, variant);
-    let base = action(&t, s.size, s.icon_only)
+    let base = action(&t, s.size, s.is_icon_only())
         .color(fg)
         .focus_visible(ring(&t, focus));
     let base = match variant {
         ButtonVariant::Outline => base.border(t.sizes.border_width, t.colors.border_emphasized),
         ButtonVariant::Link => {
             let base = base.height(t.typography.label.line_height_px).padding_x(0);
-            if s.input.hovered && !s.busy {
+            if s.input.is_hovered() && !s.busy {
                 base.text_decoration(TextDecorationLine::UNDERLINE)
             } else {
                 base
@@ -219,7 +219,7 @@ pub(crate) fn toggle(theme: &Theme, s: &Look<ToggleButtonState>) -> Style {
     } else {
         t.typography.weight_medium
     };
-    let base = action(&t, s.size, s.icon_only)
+    let base = action(&t, s.size, s.is_icon_only())
         .weight(weight)
         .background(bg)
         .color(t.colors.text_primary)

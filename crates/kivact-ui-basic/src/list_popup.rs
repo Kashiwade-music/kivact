@@ -4,7 +4,7 @@ use crate::theme_access::{CHECK, list_row, lit_row, popover_surface, shadow_md, 
 use crate::tokens::Tokens;
 use kivact::geometry::Point;
 use kivact::interaction::{ListItemState, SelectApi};
-use kivact::prelude::NodeBuilder;
+use kivact::prelude::Element;
 use kivact::state::Value;
 use kivact::view::{column, node, scroll, text};
 
@@ -33,7 +33,7 @@ pub(crate) fn row_style(p: &Tokens, state: &ListItemState) -> Style {
     // The check is local paint, which a state style cannot recolor, so it
     // follows the row's state.
     let input = &state.input;
-    let lit = (input.hovered || input.focused || state.active) && !input.disabled;
+    let lit = (input.is_hovered() || input.is_focused() || state.active) && !input.is_disabled();
     let check = if lit {
         p.accent_foreground
     } else {

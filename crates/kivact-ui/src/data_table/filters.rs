@@ -2,13 +2,12 @@
 use super::filter_value::{FilterField, FilterUi};
 use super::types::TypedFilters;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
-use kivact_core::custom::Sent;
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal, var};
+use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
+use kivact_core::view::Element;
 use kivact_core::view::IntoView;
-use kivact_core::view::NodeBuilder;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
 use kivact_core::view::{column, icon, node, row};
 use kivact_interaction::ListItem;
@@ -235,19 +234,23 @@ fn editor(
 
 #[derive(Clone, PartialEq)]
 enum FilterDraft {
+    /// The text parses; `value` is the value last written to, or read from, the caller's binding.
     Valid {
         text: String,
         value: Option<FilterValue>,
     },
-    Invalid {
-        text: String,
-    },
+    /// The text does not parse; nothing is written to the binding.
+    Invalid { text: String },
 }
 impl FilterDraft {
     fn text(&self) -> &str {
         match self {
             Self::Valid { text, .. } | Self::Invalid { text } => text,
         }
+    }
+    /// Whether `incoming` is the value this draft already holds (its own write echoed back).
+    fn holds(&self, incoming: Option<&FilterValue>) -> bool {
+        matches!(self, Self::Valid { value, .. } if value.as_ref() == incoming)
     }
 }
 enum FilterEvent {
@@ -256,30 +259,29 @@ enum FilterEvent {
 }
 struct FilterInput {
     field: FilterField,
-    sent: Sent<Option<FilterValue>>,
 }
 impl Machine for FilterInput {
     type State = FilterDraft;
     type Event = FilterEvent;
-    type Effect = (bool, Option<FilterValue>);
+    /// The value to write to the caller's binding.
+    type Effect = Option<FilterValue>;
     fn transition(
         &self,
-        _state: &FilterDraft,
+        state: &FilterDraft,
         event: FilterEvent,
     ) -> Step<FilterDraft, FilterEvent, Self::Effect> {
         match event {
-            FilterEvent::External(value) if self.sent.get() == Some(&value) => Step::stay(),
+            FilterEvent::External(value) if state.holds(value.as_ref()) => Step::stay(),
             FilterEvent::External(value) => Step::to(FilterDraft::Valid {
                 text: format_value(value.as_ref()),
-                value: value.clone(),
-            })
-            .with((false, value)),
+                value,
+            }),
             FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
                 Ok(value) => Step::to(FilterDraft::Valid {
                     text,
                     value: value.clone(),
                 })
-                .with((true, value)),
+                .with(value),
                 Err(()) => Step::to(FilterDraft::Invalid { text }),
             },
         }
@@ -292,9 +294,6 @@ fn text_editor(
     size: ControlSize,
 ) -> (View, Value<bool>) {
     let initial = value.get_untracked();
-    let mut last = Sent::new();
-    last.update(initial.clone());
-    let sent = var(last);
     let input = field.clone();
     let draft = machine(
         FilterDraft::Valid {
@@ -303,16 +302,8 @@ fn text_editor(
         },
         move || FilterInput {
             field: input.clone(),
-            sent: sent.get(),
         },
-        move |_, (write, next)| {
-            sent.update(|sent| {
-                sent.update(next.clone());
-            });
-            if write {
-                value.set(next);
-            }
-        },
+        move |_, next| value.set(next),
     );
     draft.feed(value.into_value(), FilterEvent::External);
     let valid = memo(move || matches!(draft.get(), FilterDraft::Valid { .. }));

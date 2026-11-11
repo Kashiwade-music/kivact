@@ -16,11 +16,11 @@ use kivact::style::Direction;
 use kivact::style::TextDecorationLine;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::view::Element;
 use kivact::view::Handled;
 use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::View;
@@ -170,7 +170,7 @@ impl Link {
     }
 }
 
-impl NodeBuilder for Link {
+impl Element for Link {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -260,17 +260,17 @@ fn name_link(
 #[derive(Clone, Copy)]
 struct LinkAppearance {
     kind: TextKind,
-    // xtask-allow(state-fields): Optional readonly font-size override shared with paint.
+    // xtask-allow(state-fields): option: readonly font-size override shared with paint.
     size: Option<Value<f64>>,
-    // xtask-allow(state-fields): Optional immutable font-weight override.
+    // xtask-allow(state-fields): option: immutable font-weight override.
     weight: Option<u16>,
-    // xtask-allow(state-fields): Readonly underline choice sampled from the builder.
+    // xtask-allow(state-fields): option: caller choice from Link::underline sampled once in into_view; false underlines only on hover of an interactive link.
     underline: bool,
     color: LinkColor,
-    // xtask-allow(state-fields): Readonly typography fallback choice sampled from the builder.
+    // xtask-allow(state-fields): option: caller choice from Link::standalone sampled once in into_view; false inherits the surrounding typography.
     standalone: bool,
     direction: Direction,
-    // xtask-allow(state-fields): Readonly presence of the caller activation callback.
+    // xtask-allow(state-fields): option: whether the caller gave Link an activation callback; false paints a static link without pointer cursor or pressed state.
     interactive: bool,
 }
 impl LinkAppearance {
@@ -310,10 +310,10 @@ impl LinkAppearance {
         if let Some(weight) = weight {
             base = base.weight(weight);
         }
-        if underline || (interactive && !input.get().disabled && input.get().hovered) {
+        if underline || (interactive && !input.get().is_disabled() && input.get().is_hovered()) {
             base = base.text_decoration(TextDecorationLine::UNDERLINE);
         }
-        if input.get().disabled {
+        if input.get().is_disabled() {
             base.opacity(t.sizes.disabled_opacity)
                 .cursor(Cursor::Default)
         } else if interactive {

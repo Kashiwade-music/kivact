@@ -133,11 +133,11 @@ pub(crate) struct Changes {
     /// again).
     pub(super) geometry: Geometry,
     pub(super) layout: LayoutReasons,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - paint
+    // xtask-allow(state-fields): independent: raised by Model::invalidate_paint (host environment and asset events) and by image and layout-motion steps; restack and fonts are raised by other inputs (paint-order writes, a font registration), so any set can be pending at a sync
     pub(super) paint: bool,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - restack
+    // xtask-allow(state-fields): independent: raised by writes and motions that change paint order (Model::apply, state and layout motion, presence); paint and fonts are raised by other inputs (host repaints, a font registration), so any set can be pending at a sync
     pub(super) restack: bool,
-    // xtask-allow(state-fields): dirty set (invalidation facts) - fonts
+    // xtask-allow(state-fields): independent: raised only by Model::fonts_added when the app registers a font; paint and restack are raised by other inputs (host repaints, paint-order writes), so any set can be pending at a sync
     pub(super) fonts: bool,
 }
 
@@ -145,11 +145,11 @@ pub(crate) struct Changes {
 pub(crate) struct Dispatched {
     dirty: HashMap<NodeId, Dirty>,
     pub(crate) geometry: Geometry,
-    // xtask-allow(state-fields): consumed work record - paint
+    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::paint as raised by its own inputs (host repaints, images, layout motion); a font registration no longer raises it, so it pairs with any fonts and restack
     pub(crate) paint: bool,
-    // xtask-allow(state-fields): consumed work record - restack
+    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::restack (paint-order writes and motions) as is; paint and fonts come from other inputs, so any set occurs
     pub(crate) restack: bool,
-    // xtask-allow(state-fields): consumed work record - fonts
+    // xtask-allow(state-fields): independent: Changes::dispatch takes Changes::fonts (Model::fonts_added) as is; sync no longer raises paint with it, so it pairs with any paint and restack
     pub(crate) fonts: bool,
 }
 
@@ -165,11 +165,6 @@ impl Dispatched {
             .iter()
             .filter(move |(_, d)| d.intersects(bits))
             .map(|(id, _)| *id)
-    }
-
-    /// Whether the layout was computed.
-    pub(crate) fn was_laid_out(&self) -> bool {
-        self.geometry == Geometry::LaidOut
     }
 
     /// The nodes whose children changed.
@@ -294,7 +289,8 @@ impl Changes {
         self.mark(id, Dirty::STUCK);
     }
 
-    /// Whether the last layout pass computed the tree.
+    /// Whether the last layout pass computed the tree (read by the debug layout lint).
+    #[cfg(debug_assertions)]
     pub(crate) fn was_laid_out(&self) -> bool {
         self.geometry == Geometry::LaidOut
     }

@@ -1,5 +1,4 @@
 //! Role: Catalog page of Button: variants, sizes, icons, loading and disabled.
-use kivact::ui::ButtonVariant;
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -12,7 +11,7 @@ pub(crate) fn page() -> Page {
         slug: "button",
         name: "Button",
         description: "操作を実行するためのボタンです。標準の kivact::ui::button に Lyra の見た目を当てたもので、種類、大きさ、アイコン、読み込み中の状態を持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ButtonVariant;\nuse kivact::ui::ControlSize;",
+        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;",
         source: include_str!("button.rs"),
         align: PreviewAlign::Center,
         examples: vec![

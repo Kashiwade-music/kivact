@@ -1,6 +1,6 @@
 //! Role: Render the sidebar shell and collapse control.
 
-use super::context::{SideNavCx, nav_cx};
+use super::context::{NavSurface, SideNavCx, nav_cx};
 use super::items::logical_row;
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
@@ -31,9 +31,9 @@ use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::tooltip;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::Node;
-use kivact::view::NodeBuilder;
 use kivact::view::Orientation;
 use kivact::view::Placement;
 use kivact::view::Role;
@@ -179,7 +179,7 @@ impl SideNav {
     }
 }
 
-impl NodeBuilder for SideNav {
+impl Element for SideNav {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -238,7 +238,7 @@ impl IntoView for SideNav {
             let expanded_width =
                 signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
             let cx = SideNavCx {
-                collapsed,
+                surface: collapsed.map_or(NavSurface::Fixed, NavSurface::Collapsible),
                 ..SideNavCx::default()
             };
             let width = sidebar_width(cx, expanded_width, resize.is_none() && collapsed.is_some());
@@ -303,7 +303,7 @@ impl SideNavCollapseButton {
     }
 }
 
-impl NodeBuilder for SideNavCollapseButton {
+impl Element for SideNavCollapseButton {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -318,8 +318,8 @@ impl IntoView for SideNavCollapseButton {
             size,
             label,
         } = self;
-        kivact::view::component(move || {
-            let Some(collapsed) = binding.or(nav_cx().collapsed) else {
+        kivact::view::scope(move || {
+            let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
                 return View::empty();
             };
             if use_app_shell_mobile().is_mobile() {
@@ -372,13 +372,13 @@ fn sidebar_collapse(
 
 struct SideNavSlots {
     children: View,
-    // xtask-allow(state-fields): Independent retained header content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::header, mounted once; absent means no sidebar header.
     header: Option<View>,
-    // xtask-allow(state-fields): Independent retained top content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::top_content, mounted once; absent means nothing above the entries.
     top: Option<View>,
-    // xtask-allow(state-fields): Independent retained footer content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::footer, mounted once; absent means no footer content.
     footer: Option<View>,
-    // xtask-allow(state-fields): Independent retained icons content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller actions from SideNav::footer_icons, mounted once; absent means no compact rail actions.
     icons: Option<View>,
 }
 impl SideNavSlots {
@@ -499,10 +499,14 @@ fn resize_grip(
             }
         },
         move |size| {
-            if let Some(collapsed) = collapsed {
-                collapsed.set(size < 160.0);
-            }
-            if size >= 160.0 {
+            if size < 160.0 {
+                if let Some(collapsed) = collapsed {
+                    collapsed.set(true);
+                }
+            } else {
+                if let Some(collapsed) = collapsed {
+                    collapsed.set(false);
+                }
                 expanded_width.set(size.clamp(resize.min, resize.max));
             }
         },
@@ -540,7 +544,7 @@ fn resize_grip(
                 .radius(t.radius.full)
                 .translate_x(if rtl() { -7.0 } else { 7.0 })
                 .opacity(
-                    if state.dragging || state.input.hovered || state.input.focused {
+                    if state.dragging || state.input.is_hovered() || state.input.is_focused() {
                         1.0
                     } else {
                         0.0

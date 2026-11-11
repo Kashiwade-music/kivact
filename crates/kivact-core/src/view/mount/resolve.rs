@@ -6,9 +6,7 @@
 //! composition of the edit callbacks, the draw-size observer), and each stage then only binds its
 //! own input, moved into it by value.
 
-use std::cell::RefCell;
 use std::panic::Location;
-use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
 use kivact_runtime::Prop;
@@ -19,7 +17,7 @@ use kivact_types::NodeId;
 use super::attachments::Attached;
 use super::create::FirstWrite;
 use super::draw::DrawInput;
-use super::facts::{LocalPaintSource, NodeFacts};
+use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
@@ -33,19 +31,19 @@ use crate::view::node_ref::NodeRef;
 pub(super) struct Resolved {
     pub(super) first: FirstWrite,
     pub(super) semantics: SemanticProps,
-    // xtask-allow(state-fields): passive mount record - disabled
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means enabled
     pub(super) disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): passive mount record - selected
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means unselected
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
     pub(super) facts: NodeFacts,
-    // xtask-allow(state-fields): passive mount record - draw
+    // xtask-allow(state-fields): option: made once by prepare_draw when the node has a draw layer or a local paint channel; None means no draw effect is bound
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
-    // xtask-allow(state-fields): passive mount record - ime
+    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no IME session
     pub(super) ime: Option<ImeSession>,
     pub(super) refs: Vec<NodeRef>,
-    // xtask-allow(state-fields): passive mount record - attached
+    // xtask-allow(state-fields): option: made once by attach_parts when the node has part bindings, regions or part constraints; None means no part router, constraints or region registry
     pub(super) attached: Option<Attached>,
 }
 
@@ -71,18 +69,29 @@ pub(super) fn resolve(
         common.handlers.selection = on_selection;
         props
     });
+    // Read before `attach_parts` takes the regions.
+    let declares_regions = !common.regions.is_empty();
     let attached = attach_parts(&mut common, cx, id, at);
     let focus_stop = common
         .focusable_source()
         .as_ref()
         .is_some_and(|f| f.fixed() != Some(false))
         || editing.is_some();
-    let local_paint = (!common.style.is_empty() && kind == NodeType::Box && editing.is_none())
-        .then(|| LocalPaintSource {
-            value: Rc::new(RefCell::new(None)),
-            revision: cx.owner.notifier(at),
-        });
-    let draw = prepare_draw(&mut common, cx, attached.as_ref(), local_paint.clone(), at);
+    let styled_box = !common.style.is_empty() && kind == NodeType::Box && editing.is_none();
+    let own_draw = common.draw.is_some()
+        || common.draw_over.is_some()
+        || common.draw_with_layout.is_some()
+        || declares_regions;
+    let local_paint = match (styled_box, own_draw) {
+        (true, true) => LocalPaint::WithDraw(LocalPaintSource::new(cx.owner, at)),
+        (true, false) => LocalPaint::OnFirstPaint,
+        (false, _) => LocalPaint::None,
+    };
+    let draw_paint = match &local_paint {
+        LocalPaint::WithDraw(source) => Some(source.clone()),
+        LocalPaint::None | LocalPaint::OnFirstPaint => None,
+    };
+    let draw = prepare_draw(&mut common, cx, attached.as_ref(), draw_paint, at);
     finish_resolve(
         common,
         kind,
@@ -264,7 +273,10 @@ fn finish_resolve(
         layout_id,
         at: _,
     } = common;
-    let (early, late) = if semantics.iter().any(|p| p.text) {
+    let (early, late) = if semantics
+        .iter()
+        .any(|p| matches!(p.input, crate::view::semantics_data::SemanticInput::Text))
+    {
         (Vec::new(), semantics)
     } else {
         (semantics, Vec::new())

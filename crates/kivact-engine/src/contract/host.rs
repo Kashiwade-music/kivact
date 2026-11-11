@@ -21,14 +21,24 @@ pub struct HostInfo {
 
 /// Result of one turn. A turn may commit several revisions (user effects
 /// that write state produce a follow-up revision within the same turn).
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TurnOutput {
-    /// Host clock time at which the client wants the next turn even without
-    /// events (timers). Frame-synchronised work uses
-    /// the bridge's `Writer::request_frame`.
-    pub next_wake_ns: Option<u64>,
+#[derive(Clone, Debug, PartialEq)]
+pub enum TurnOutput {
+    /// The App continues.
+    Continue {
+        /// Host clock time at which the client wants the next turn even
+        /// without events (timers). Frame-synchronised work uses
+        /// the bridge's `Writer::request_frame`.
+        next_wake_ns: Option<u64>,
+    },
     /// The App finished (close accepted and queues drained).
-    pub exit: bool,
+    Exit,
+}
+
+impl Default for TurnOutput {
+    /// A turn that asks for nothing more: it continues without a deadline.
+    fn default() -> Self {
+        Self::Continue { next_wake_ns: None }
+    }
 }
 
 /// A host operation failure reported to its client.
@@ -79,20 +89,32 @@ pub enum HostRequest {
     Emulate(EngineEmulation),
     /// Multiply the motion clock of every window.
     TimeScale(f64),
+    /// Start `window`'s GPU device when it waits for a reason
+    /// (`GpuStart::OnDemand`): the App reads the window's adapter to share
+    /// GPU textures with it. Nothing for a window on the CPU only or whose
+    /// device started; nothing is answered.
+    DemandGpu {
+        /// The window whose device is needed.
+        window: kivact_types::WindowId,
+    },
     /// What a drawable's export asks of the window: its frames of
     /// `generation`, as `mode`, at `scale` device px per logical px. `None`
     /// follows the window's scale.
     DrawableExport {
         id: kivact_types::DrawableId,
+        // xtask-allow(state-fields): identity: the export request's generation; the window answers with it and stale answers are dropped
         generation: u64,
         mode: ExportRequestMode,
+        // xtask-allow(state-fields): option: absent follows the window's scale
         scale: Option<f64>,
     },
     /// Where the app shows a drawable (drawable box → the viewport's local
     /// logical px), for the request of `generation`; `None` hides it.
     SetDrawableGeometry {
         id: kivact_types::DrawableId,
+        // xtask-allow(state-fields): identity: the placement request's generation; the window answers with it and stale answers are dropped
         generation: u64,
+        // xtask-allow(state-fields): option: absent hides the drawable
         geometry: Option<kivact_types::geometry3d::Matrix4>,
     },
 }

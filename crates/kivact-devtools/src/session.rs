@@ -17,6 +17,7 @@ impl Session {
     pub(crate) fn new(target: Target, connection: Signal<Connection>) -> Session {
         let source = target.source.clone();
         let windows = signal(target.windows.clone());
+        // xtask-allow(state-fields): identity: the session's target, written once before any reader exists
         let target = var(target);
         let inspected = signal(Inspected::Loading {
             window: MAIN_WINDOW,
@@ -28,6 +29,7 @@ impl Session {
         let tables = signal(Vec::new());
         let panel = signal(Panel::Elements);
         let popped = signal(Vec::new());
+        // xtask-allow(state-fields): independent: becomes Session.status, empty at setup; the target var beside it is fixed for the session whether or not a failure is shown
         let status = signal(None);
         let detail = {
             let source = source.clone();
@@ -250,6 +252,15 @@ impl Session {
     /// The configuration read at connect time.
     pub(crate) fn config(self) -> Rc<p::DevtoolsConfig> {
         self.target.with(|t| t.config.clone())
+    }
+
+    /// A resource for a method that takes no parameters (setup only).
+    pub(crate) fn read<M>(self) -> Resource<M::Result>
+    where
+        M: p::Method<Params = p::Empty> + 'static,
+        M::Result: Clone + Send + 'static,
+    {
+        read::<M>(&self.source())
     }
 
     /// The workspace root of the target.

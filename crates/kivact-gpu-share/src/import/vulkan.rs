@@ -29,21 +29,26 @@
 
 #![allow(unsafe_code, reason = "Vulkan calls below wgpu's safe API")]
 
-use crate::common::{Error, Identity, same_backend};
+use crate::common::{Error, same_backend};
 use ::wgpu::hal::api::Vulkan;
 use ash::vk;
-use kivact_types::{GpuBackend, SharedHandle, SharedTextures};
+use kivact_types::{AdapterIds, GpuBackend, SharedHandle, SharedTextures};
 use std::time::Duration;
 
 use crate::vulkan_contract::{FORMAT, MEMORY_HANDLE, SEMAPHORE_HANDLE, usage};
 
 /// The identity of a Vulkan adapter (`None`: not Vulkan).
-pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<Identity> {
+pub(crate) fn identity(adapter: &::wgpu::Adapter) -> Option<AdapterIds> {
     // SAFETY: only reads the adapter's handles while the guard lives.
     let hal = unsafe { adapter.as_hal::<Vulkan>() }?;
     let instance = hal.shared_instance().raw_instance();
     // SAFETY: the physical device belongs to the live instance retained by the guard.
-    Some(unsafe { crate::vulkan_raw::identity(instance, hal.raw_physical_device()) }.0)
+    let ids = unsafe { crate::vulkan_raw::identity(instance, hal.raw_physical_device()) };
+    Some(AdapterIds::Vulkan {
+        device_uuid: ids.device_uuid,
+        driver_uuid: ids.driver_uuid,
+        luid: ids.luid,
+    })
 }
 
 /// An interop device and its queue on `adapter`; `None` when it is not a

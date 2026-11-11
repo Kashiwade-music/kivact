@@ -7,7 +7,7 @@ use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::use_theme;
-use kivact_core::view::NodeBuilder;
+use kivact_core::view::Element;
 use kivact_core::view::{IntoView, LiveRegion, View, for_each};
 use kivact_core::view::{column, node, text};
 use kivact_interaction::ToastSwipe;
