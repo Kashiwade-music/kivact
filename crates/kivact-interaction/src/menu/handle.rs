@@ -187,10 +187,11 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     /// Replace the actual trigger's press action during setup; this is not an observer.
     /// ArrowUp/Down retain canonical opening and initial focus, and popup dismissal is unchanged.
-    pub fn trigger_action(self, action: impl Fn() + 'static) -> Self {
+    pub fn trigger_action(self, action: impl Into<Callback<()>>) -> Self {
+        let action = action.into();
         self.session
             .options
-            .update(|options| options.trigger_action = Some(callback(move |()| action())));
+            .update(|options| options.trigger_action = Some(action));
         self
     }
     /// Handle activation of a menu item.
