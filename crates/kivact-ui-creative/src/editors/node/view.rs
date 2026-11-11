@@ -324,23 +324,24 @@ fn region_control(
                 .part(drag_source)
         })
     };
-    if initial.range.is_some() {
+    if initial.range().is_some() {
         control = kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
-                .value_min(move || info.get().range.map_or(0.0, |v| v.0))
-                .value_max(move || info.get().range.map_or(0.0, |v| v.1))
-                .value_now(move || info.get().range.map_or(0.0, |v| v.2))
+                .value_min(move || info.get().range().map_or(0.0, |v| v.0))
+                .value_max(move || info.get().range().map_or(0.0, |v| v.1))
+                .value_now(move || info.get().range().map_or(0.0, |v| v.2))
         });
     }
-    if initial.checked.is_some() {
+    if initial.checked().is_some() {
         control = kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
-                .checked(move || info.get().checked.unwrap_or(false))
+                .checked(move || info.get().checked().unwrap_or(false))
         });
     }
     if matches!(target, Target::Link(..)) {
         control = kivact::custom::Part::new(control.state(), move |node| {
-            node.part(control).selected(move || info.get().selected)
+            node.part(control)
+                .selected(move || info.get().is_selected())
         });
     }
     if matches!(
@@ -360,7 +361,7 @@ fn region_actions(
     target: Target,
     state: State,
 ) -> kivact::custom::Part<kivact::custom::PartState> {
-    match (initial.role, initial.checked.is_some()) {
+    match (initial.role, initial.checked().is_some()) {
         (Role::SpinButton, _) => kivact::custom::Part::new(control.state(), move |node| {
             node.part(control)
                 .a11y_action(A11yAction::SetValue, move |event| {
