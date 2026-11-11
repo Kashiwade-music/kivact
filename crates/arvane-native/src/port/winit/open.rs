@@ -70,7 +70,7 @@ pub(super) fn create_window(
             ..Default::default()
         },
         #[cfg(windows)]
-        Some(waker.clone()),
+        waker.clone(),
     ));
     let monitor = window.current_monitor();
     let mut window = WinitWindow {

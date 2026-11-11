@@ -40,10 +40,11 @@ pub(crate) struct NativeInput {
     /// changed; the change is not announced yet.
     pub(crate) env_changed: LocalMailbox<()>,
     /// Wakes the event loop when the subclass noted something to deliver
-    /// outside a window event (a settings change); `None` for a window that
-    /// installs no subclass (an embedded child).
+    /// outside a window event (a settings change, the file drag position).
+    /// Only the subclass procedure calls it; an embedded child installs no
+    /// subclass, so its waker is never called from here.
     #[cfg(windows)]
-    waker: Option<ShellWaker>,
+    waker: ShellWaker,
     /// The touch and pen pointers of the frame of the last pointer message
     /// (Windows' `WM_POINTER*`: winit reports every pointer of the frame
     /// from it), read while winit reports them: winit reports a pen as a
@@ -74,7 +75,7 @@ pub(crate) enum Subclass {
     Installed,
 }
 impl NativeInput {
-    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: Option<ShellWaker>) -> Self {
+    pub(crate) fn new(environment: Environment, #[cfg(windows)] waker: ShellWaker) -> Self {
         Self {
             ime: RefCell::default(),
             text: RefCell::new(None),
@@ -97,10 +98,8 @@ impl NativeInput {
 
 #[cfg(windows)]
 impl NativeInput {
-    /// Wake the event loop, when the window has one to wake.
+    /// Wake the event loop.
     pub(crate) fn wake(&self, reasons: WakeReasons) {
-        if let Some(waker) = &self.waker {
-            waker.wake(reasons);
-        }
+        self.waker.wake(reasons);
     }
 }
