@@ -335,7 +335,7 @@ impl EditLines {
                     .map(|c| c.output.clone())
                     .unwrap_or_default(),
             };
-            if self.key.wrap_width.is_some() {
+            if self.key.breaks.wrap_width().is_some() {
                 self.color_wrapped_line(text, colors, i, input);
                 continue;
             }

@@ -130,7 +130,7 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
-    // xtask-allow(state-fields): cache: its base paint or a state style transforms it
+    // xtask-allow(state-fields): cache: update_place derives it from the base paint and state style transforms, a running state motion and the parent's perspective (raise_under_perspective only raises it); the walks skip untransformed nodes by it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
@@ -189,7 +189,8 @@ impl HostNode {
     /// Derive the place from the props. `moving` says a running state
     /// motion has a current transform that is not none; `under_perspective`
     /// says the parent has a perspective, which moves a node whose transform
-    /// is not 2D. The only writer of `Place::transformed`.
+    /// is not 2D. The writer that clears `Place::transformed`
+    /// (`NodeTree::raise_under_perspective` only raises it).
     pub(crate) fn update_place(&mut self, moving: bool, under_perspective: bool) {
         if self.is_transparent() {
             self.place = Place::default();

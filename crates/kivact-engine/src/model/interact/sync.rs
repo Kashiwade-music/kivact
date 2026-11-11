@@ -145,7 +145,6 @@ impl Model {
                 self.a11y.payload(id);
                 self.remeasure(id);
             }
-            self.changes.paint = true;
         }
         let mut touched: Vec<NodeId> = self.changes.touched().collect();
         for id in &touched {

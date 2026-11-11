@@ -68,12 +68,12 @@ pub(crate) struct Look {
     // xtask-allow(state-fields): cache: Its corners are rounded
     /// Its corners are rounded.
     pub(crate) rounded: bool,
-    // xtask-allow(state-fields): cache: It has a CSS filter, masks or a backdrop filter (each needs a layer)
-    /// It has a CSS filter, masks or a backdrop filter (each needs a layer).
+    // xtask-allow(state-fields): cache: Look::of derives it from a non-empty CSS filter list of the paint; Model::derive replaces the look when the props change
+    /// It has a CSS filter (it needs a layer).
     pub(crate) filtered: bool,
-    // xtask-allow(state-fields): cache: masked
+    // xtask-allow(state-fields): cache: Look::of derives it from a non-empty mask list of the paint; Model::derive replaces the look when the props change
     pub(crate) masked: bool,
-    // xtask-allow(state-fields): cache: backdropped
+    // xtask-allow(state-fields): cache: Look::of derives it from a non-empty backdrop filter list of the paint; Model::derive replaces the look when the props change
     pub(crate) backdropped: bool,
     // xtask-allow(state-fields): cache: Its blend mode is not normal
     /// Its blend mode is not normal.

@@ -76,7 +76,7 @@ pub(super) struct HostWindow {
     pub(super) last_stats: Option<kivact_types::render::FrameStats>,
     /// The kind of window this is.
     pub(super) mode: WindowMode,
-    // xtask-allow(state-fields): independent: the parent window fixed when the window opened; modal input routing reads it
+    // xtask-allow(state-fields): option: the window the app declared this one in, given by its open request (window_changes.rs) and never changed; absent for a top-level window; modal input routing reads it
     /// The window the request was declared in.
     pub(super) parent: Option<WindowId>,
 }

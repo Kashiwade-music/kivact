@@ -12,7 +12,7 @@ use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
 /// kept once in its track's source.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
-    // xtask-allow(state-fields): independent: the file drop target under the pointer; its own drag events clear it
+    // xtask-allow(state-fields): independent: the file-listening node under an OS file drag, set by the file drag events and cleared at Drop, Leave or its removal; the hover and position projections follow mouse events, so any pair occurs
     pub(super) file_target: Option<NodeId>,
     // xtask-allow(state-fields): projection: the hover last reported to the client, written only by Model::report_hover
     pub(super) hover_sent: kivact_types::cell::Sent<Option<FocusTarget>>,
@@ -144,7 +144,7 @@ pub(crate) struct TouchTrack {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PenTrack {
     pub(crate) source: PointerSource,
-    // xtask-allow(state-fields): independent: the pointer's target and the hover chain are cleared separately
+    // xtask-allow(state-fields): independent: the nearest pointer-listening ancestor of the hit, set by track_hover; clear_hover empties the hover chain but keeps it for Leave, and a non-primary pen has no chain, so every pair occurs
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
@@ -436,10 +436,10 @@ pub(crate) struct PointerSource {
     pub(crate) id: PointerId,
     /// Mouse, touch or pen.
     pub(crate) kind: PointerKind,
-    // xtask-allow(state-fields): option: absent means the event reported no pressure
+    // xtask-allow(state-fields): independent: the pressure of the pointer's last shell sample (shell.rs); platforms report pressure and tilt apart (a touch may have pressure and no tilt, a mouse neither), so every pair occurs
     /// The pressure at its last event, when reported.
     pub(crate) pressure: Option<f64>,
-    // xtask-allow(state-fields): option: absent means the event reported no tilt
+    // xtask-allow(state-fields): independent: the pen tilt of the pointer's last shell sample (shell.rs); platforms report tilt and pressure apart (a pen may lack either, a mouse has neither), so every pair occurs
     /// The pen's tilt at its last event, when reported.
     pub(crate) tilt: Option<(f64, f64)>,
     /// The buttons held after its last event (none after a `Cancel`).

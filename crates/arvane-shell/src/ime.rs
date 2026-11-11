@@ -13,11 +13,12 @@ use kivact_types::Rect;
 /// Reconversion selections emitted as [`ShellEvent::Ime`](crate::ShellEvent::Ime)
 /// use UTF-8 byte ranges relative to `text`; the engine owns the excerpt's
 /// mapping back into the complete document.
+///
+/// A password input gives an empty excerpt (no text, no selection, no
+/// composition) and only the caret's box; the window learns the purpose from
+/// `ShellWindow::set_ime_purpose`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShellImeText {
-    // xtask-allow(state-fields): independent: the input is a password; a password field can still compose, so every combination with the other snapshot values is valid
-    /// Password input: no surrounding text is supplied to native reconversion.
-    pub password: bool,
     /// The text around the caret (all of the input's text when short).
     pub text: String,
     /// Where `text` starts in the input's whole text, in UTF-16 code units
@@ -29,7 +30,6 @@ pub struct ShellImeText {
     /// The caret in UTF-16 code units: the selection's end, or its start
     /// when the selection was made backwards.
     pub caret: usize,
-    // xtask-allow(state-fields): option: the composition's `[start, end)` in UTF-16 code units; absent when not composing
     /// The composition, `[start, end)` in UTF-16 code units, if any.
     pub composition: Option<(usize, usize)>,
     /// The UTF-16 offset of the character `rects` starts with: the

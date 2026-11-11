@@ -94,35 +94,35 @@ impl Writes {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Mutation {
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// The layout style is built again (and a layout pass runs).
     pub(super) style: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// The node is measured again.
     pub(super) measure: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// An inherited text style: the texts, text inputs and images below
     /// are measured or drawn again.
     pub(super) text: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// Its transform or z-index may have moved it without a layout.
     pub(super) placed: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// The paint list is built again.
     pub(super) restack: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// Its base paint: a state transition is retargeted and its place read.
     pub(super) paint: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// Its state styles: like `paint`.
     pub(super) states: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// A composition is committed under the old read-only policy first.
     pub(super) read_only: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// Inherited semantic state changes throughout the subtree.
     pub(super) subtree: bool,
-    // xtask-allow(state-fields): independent: a fact reported by the write; any set of them can be reported
+    // xtask-allow(state-fields): independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid
     /// Only the node's own accessibility payload can change: its exposure,
     /// hierarchy, relations, regions and clipping stay (a text, a paint,
     /// state styles, a text style, an image, a placeholder).
