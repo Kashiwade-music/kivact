@@ -457,3 +457,29 @@ fn audit_file_records_open_rows() {
     assert!(text.contains("Mixed"), "{text}");
     std::fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn an_arc_callback_option_is_a_setting() {
+    let errors = run(
+        "struct Probe { a: Option<u8>, b: Option<Job>, f: Option<std::sync::Arc<dyn Fn(u32) -> bool + Send + Sync>> }",
+        "",
+        &[],
+    );
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(
+        errors[0].contains("Probe combines state fields: a, b"),
+        "{errors:?}"
+    );
+    assert!(!errors[0].contains(", f"), "{errors:?}");
+}
+
+#[test]
+fn enum_variants_named_none_are_not_option_locals() {
+    let text =
+        "fn sample() {\nlet section = signal(0usize);\nlet overlay = signal(Overlay::None);\n}";
+    assert!(run(text, "", &[]).is_empty());
+    let text = "fn sample() {\nlet section = signal(0usize);\nlet empty = signal(Option::None);\n}";
+    let errors = run(text, "", &[]);
+    assert_eq!(errors.len(), 1, "{errors:?}");
+    assert!(errors[0].contains("function combines state locals: section, empty"));
+}

@@ -218,11 +218,7 @@ fn is_scalar(expr: &syn::Expr) -> bool {
             literal.lit,
             syn::Lit::Bool(_) | syn::Lit::Int(_) | syn::Lit::Float(_)
         ),
-        syn::Expr::Path(path) => path
-            .path
-            .segments
-            .last()
-            .is_some_and(|segment| segment.ident == "None"),
+        syn::Expr::Path(_) => is_none(expr),
         _ => false,
     }
 }
@@ -260,12 +256,20 @@ fn is_refcell_new_none(expr: &syn::Expr) -> bool {
         && call.args.first().is_some_and(is_none)
 }
 
+/// Whether `expr` is `Option::None` (bare or qualified), not an enum variant named `None`.
 fn is_none(expr: &syn::Expr) -> bool {
     let syn::Expr::Path(path) = strip(expr) else {
         return false;
     };
-    path.path
+    let names: Vec<String> = path
+        .path
         .segments
-        .last()
-        .is_some_and(|segment| segment.ident == "None")
+        .iter()
+        .map(|segment| segment.ident.to_string())
+        .collect();
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    matches!(
+        names.as_slice(),
+        ["None"] | ["Option", "None"] | ["std" | "core", "option", "Option", "None"]
+    )
 }
