@@ -8,72 +8,58 @@ and `OPEN` when the field has no closure.
 
 | file:line | field | reason | closure |
 |---|---|---|---|
-| crates/arvane/src/presentation.rs:39 | RendererChange::Gpu.configure | option: how long the first swapchain took when it was configured in the background; absent otherwise | option |
-| crates/arvane/src/presentation.rs:43 | RendererChange::Gpu.interop | option: the adapter that can import shared textures; absent without gpu-interop | option |
-| crates/arvane/src/window.rs:193 | Windows.gpu | - | OPEN |
-| crates/arvane/src/window.rs:197 | Windows.observer | option: the renderer observer from ShellSetup, cloned into every presenter's Notes | option |
-| crates/arvane/src/window.rs:286 | Shell.prefer_gpu | option: prefer gpu | option |
-| crates/arvane/src/window.rs:289 | Shell.observer | option: observer | option |
-| crates/arvane/src/window.rs:346 | ShellSetup.prefer_gpu | option: prefer gpu | option |
-| crates/arvane/src/window.rs:349 | ShellSetup.observer | option: observer | option |
-| crates/arvane/src/window.rs:407 | Driver.gpu | - | OPEN |
-| crates/arvane/src/window.rs:413 | Driver.observer | option: the renderer observer from ShellSetup, cloned into every presenter's Notes | option |
+| crates/arvane/src/presentation.rs:60 | RendererChange::Gpu.configure | statistic: how long the first swapchain took when it was configured in the background, shown as `configure_ms`; absent when it was configured on the UI thread; nothing branches on it | statistic |
+| crates/arvane/src/presentation.rs:64 | RendererChange::Gpu.interop | independent: the adapter when the device can import shared textures (feature gpu-interop and an adapter that supports it), absent otherwise; it depends on the device alone, while configure depends on where the swapchain was configured, so all pairs occur | independent |
+| crates/arvane/src/window.rs:280 | Shell.prefer_gpu | option: whether the application asked to draw on the GPU (`Shell::prefer_gpu`, default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto` | option |
+| crates/arvane/src/window.rs:283 | Shell.observer | option: the renderer observer `Shell::on_renderer_change` gave; absent when the application observes no renderer change | option |
+| crates/arvane/src/window.rs:340 | ShellSetup.prefer_gpu | option: whether the host asks to draw on the GPU (default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto` | option |
+| crates/arvane/src/window.rs:343 | ShellSetup.observer | option: the renderer observer the host gives, cloned into every presenter's Notes; absent when it observes no renderer change | option |
 | crates/arvane-asset/src/store/asset_store.rs:73 | AssetStore.next_id | identity: the next image id, given to each image the store makes | identity |
 | crates/arvane-asset/src/store/asset_store.rs:75 | AssetStore.next_generation | identity: the next entry generation; a job result of another generation is dropped | identity |
 | crates/arvane-asset/src/store/entry.rs:51 | Entry.generation | identity: one incarnation of the entry, stamped on every job and checked on every result | identity |
 | crates/arvane-asset/src/store/entry.rs:52 | Entry.state | - | type |
-| crates/arvane-asset/src/store/entry.rs:129 | VariantKey.size | cache: the device size, for SVG rasters only | cache |
-| crates/arvane-asset/src/store/entry.rs:132 | VariantKey.crop | cache: the part of that size rasterized, for SVG rasters of a visible part | cache |
-| crates/arvane-asset/src/store/entry.rs:135 | VariantKey.tint | cache: the tint of the derived raster | cache |
 | crates/arvane-asset/src/store/job.rs:58 | Job::Raster.generation | identity: the entry generation the job was made for | identity |
 | crates/arvane-asset/src/store/job.rs:62 | Job::Raster.crop | option: the part of the SVG to rasterize; absent for all of it | option |
 | crates/arvane-asset/src/store/job.rs:77 | Done::Raster.generation | identity: the entry generation the job was made for | identity |
 | crates/arvane-asset/src/store/job.rs:80 | Done::Raster.crop | option: the part of the SVG that was rasterized; absent for all of it | option |
-| crates/arvane-compose/src/gpu/state.rs:29 | GpuEnv.backends | option: `WGPU_BACKEND` | option |
-| crates/arvane-compose/src/gpu/state.rs:32 | GpuEnv.power | option: `WGPU_POWER_PREF` | option |
+| crates/arvane-compose/src/gpu/state.rs:29 | GpuEnv.backends | option: the backends the `WGPU_BACKEND` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::backend` decides | option |
+| crates/arvane-compose/src/gpu/state.rs:32 | GpuEnv.power | option: the power preference the `WGPU_POWER_PREF` environment variable names, read once by `from_env`; absent when it is unset, and then the application's `GpuPreference::power` decides | option |
 | crates/arvane-compose/src/plan/bounds.rs:27 | Kind::Group.clip | option: the group's clip bounds in push coordinates; absent when it has none | option |
 | crates/arvane-compose/src/plan/bounds.rs:29 | Kind::Group.blur | option: the group's blur radius; absent when it has none | option |
-| crates/arvane-compose/src/plan/ops.rs:146 | Source::External.cpu | option: the CPU pixels; present when the CPU draws the frame | option |
+| crates/arvane-compose/src/plan/ops.rs:146 | Source::External.cpu | option: the fallback pixels the application gave with the frame (`Draw::gpu_frame_with_pixels`), which only the CPU compositor draws; absent when it gave none, and the CPU compositor then reports the frame missed | option |
 | crates/arvane-compose/src/plan/ops.rs:149 | Source::External.source | option: the source rectangle; absent for the whole frame | option |
 | crates/arvane-native/src/mirror.rs:107 | Counters.created | statistic: native windows created | statistic |
 | crates/arvane-native/src/mirror.rs:109 | Counters.reused | statistic: pooled windows handed to a new test | statistic |
 | crates/arvane-native/src/mirror.rs:111 | Counters.presented | statistic: frames shown after coalescing | statistic |
 | crates/arvane-native/src/mirror.rs:118 | MirrorBatch.frame | option: the frame a test window shows next; absent when none is pending | option |
-| crates/arvane-native/src/mirror.rs:120 | MirrorBatch.accessibility | independent: whether the accessibility tree changed, taken with the batch; any combination with the other batch values is valid | independent |
+| crates/arvane-native/src/mirror.rs:120 | MirrorBatch.accessibility | independent: set only by the accessibility tree's change callback, while frame, title, resize and gpu come from other MirrorWindow calls on the test thread; flush applies each on its own, so any mix in one batch is valid | independent |
 | crates/arvane-native/src/mirror.rs:123 | MirrorBatch.title | option: the title a test window shows next; absent when none is pending | option |
 | crates/arvane-native/src/mirror.rs:125 | MirrorBatch.resize | option: the size a test window resizes to; absent when none is pending | option |
-| crates/arvane-native/src/mirror.rs:127 | MirrorBatch.gpu | independent: whether a GPU surface presents from now on, taken with the batch; any combination with the other batch values is valid | independent |
-| crates/arvane-native/src/native_input/state.rs:16 | NativeInput.text | independent: the focused text input's state as the application last set it; any combination with the system settings is valid | independent |
-| crates/arvane-native/src/native_input/state.rs:32 | NativeInput.reduced_motion | cache: the system's reduce-motion preference as last read | cache |
-| crates/arvane-native/src/native_input/state.rs:37 | NativeInput.locale | option: the system's locale as last read; absent when the system reports none | option |
-| crates/arvane-native/src/native_input/state.rs:42 | NativeInput.waker | - | OPEN |
-| crates/arvane-native/src/native_input/state.rs:63 | ContactNote.canceled | independent: the contact ended without a release; it is recorded separately from the pen's tilt | independent |
-| crates/arvane-native/src/native_input/state.rs:66 | ContactNote.tilt | option: the pen's tilt in degrees along x and y; absent when the platform reports none | option |
+| crates/arvane-native/src/mirror.rs:127 | MirrorBatch.gpu | independent: set only by `MirrorWindow::gpu_presents`, while the other batch values come from other MirrorWindow calls; flush switches the window to GPU use on its own (a frame in the same batch is then not kept), so any mix is valid | independent |
+| crates/arvane-native/src/module.rs:20 | Retained.mapping | cache: the loader's answer for keeping this module mapped (`retain`); asking again gives the same answer, so it is asked once per process and never invalidated | cache |
+| crates/arvane-native/src/module.rs:22 | Retained.reported | independent: set by the first `retain_module` call before it logs, whatever the loader answered; a reentrant call from the log subscriber sees it set and returns, so both answers occur with it unset and set | independent |
+| crates/arvane-native/src/native_input/state.rs:16 | NativeInput.text | independent: written only by the IME port's `surrounding` when the application focuses or edits a text input, while reduced_motion and locale come from the system's settings; neither source reads the other, so every pair occurs | independent |
+| crates/arvane-native/src/native_input/state.rs:32 | NativeInput.reduced_motion | cache: the system's reduce-motion preference as last read; read again on `WM_SETTINGCHANGE` (Windows) and on the settings portal's environment wake (Linux) | cache |
+| crates/arvane-native/src/native_input/state.rs:37 | NativeInput.locale | cache: the system's locale as last read (`system_locale`); read again on `WM_SETTINGCHANGE` and when the window gains focus; absent when the system reports none | cache |
+| crates/arvane-native/src/native_input/state.rs:64 | ContactNote.canceled | independent: the platform's CANCELED flag for the contact's pointer message; tilt comes from the pen info of the same message, and a touch (no tilt) or a pen (with or without tilt) can each be canceled, so every pair occurs | independent |
+| crates/arvane-native/src/native_input/state.rs:67 | ContactNote.tilt | option: the pen's tilt in degrees along x and y; absent when the platform reports none | option |
 | crates/arvane-native/src/port/embed/child.rs:30 | Inner.state | - | type |
 | crates/arvane-native/src/port/embed/child.rs:33 | Inner.generation | identity: advanced by every host size; a negotiated size is accepted only at its generation | identity |
-| crates/arvane-native/src/port/win32/state.rs:60 | Utf16Decoder.pending | option: the unpaired high surrogate waiting for its pair; absent when none waits | option |
-| crates/arvane-native/src/port/win32/state.rs:62 | Utf16Decoder.tail | option: the incomplete character waiting for its second unit; absent when none waits | option |
 | crates/arvane-native/src/port/winit/runtime.rs:120 | Runner.phase | - | type |
-| crates/arvane-native/src/port/winit/runtime.rs:124 | Runner.wake_reasons | option: the wake reasons accumulated until the event loop receives the notification; zero when none are pending | option |
+| crates/arvane-native/src/port/winit/runtime.rs:124 | Runner.wake_reasons | independent: bits OR-ed in by the ShellWaker on any thread and swapped to zero by `user_event`; wakes arrive in every LoopPhase (before the main window, while running, after a stop) and are drained in each, so every pair with phase occurs | independent |
 | crates/arvane-native/src/port/winit/window.rs:35 | WinitWindow.subclass | option: the window's subclass, held for its drop, which removes it before the window goes; absent when it is not installed | option |
-| crates/arvane-native/src/port/winit/window.rs:53 | WinitWindow.monitor | cache: the monitor the window was last seen on; absent before the first report | cache |
-| crates/arvane-native/src/port/winit/windows.rs:25 | WindowTable.pending_show | independent: the windows to show when the current callback returns; any set of windows may wait and any placement is valid | independent |
+| crates/arvane-native/src/port/winit/window.rs:53 | WinitWindow.monitor | cache: the monitor `current_monitor` gave at open and at the last move or scale change, kept to tell when frame_period_ns must be read again; absent when the platform cannot tell the monitor | cache |
+| crates/arvane-native/src/port/winit/windows.rs:25 | WindowTable.pending_show | independent: filled when the handler opens a window during a callback and emptied by the runner once it returns; placement is fixed when the table is made, so windows wait to be shown on platforms with and without placement alike | independent |
 | crates/arvane-native/src/port/winit/windows.rs:27 | WindowTable.placement | option: whether the platform honours explicit window placement (false on Wayland) | option |
-| crates/arvane-native/src/port/x11/dnd.rs:49 | Drag::Hovering.accepts | independent: whether the source offers a URI list we take, decided at XdndEnter | independent |
-| crates/arvane-native/src/port/x11/dnd.rs:51 | Drag::Hovering.point | option: the last XdndPosition; absent before the first one | option |
-| crates/arvane-render/src/draw/canvas.rs:78 | GlyphRun.hint | option: hint vertically (only under a translation and a uniform scale) | option |
-| crates/arvane-render/src/draw/canvas.rs:81 | GlyphRun.cached | option: may come from a glyph atlas (the cached flag of this draw command) | option |
+| crates/arvane-native/src/port/x11/dnd.rs:49 | Drag::Hovering.accepts | independent: decided once at XdndEnter from the protocol version and the offered types; point is filled by every XdndPosition whether or not we accept (a refusing status is still sent), so all four pairs occur | independent |
+| crates/arvane-native/src/port/x11/dnd.rs:51 | Drag::Hovering.point | independent: the last XdndPosition, absent until the first one arrives (no status sent yet); it is filled whatever accepts says, and drop takes the URIs only for accepts with a point, so all four pairs occur | independent |
 | crates/arvane-render/src/paint.rs:50 | PatternFill.repeat_x | option: repeat along x (else the edge pixels extend) | option |
 | crates/arvane-render/src/paint.rs:53 | PatternFill.repeat_y | option: repeat along y (else the edge pixels extend) | option |
-| crates/arvane-shell/src/a11y/shared.rs:156 | PlatformUpdate.focus | option: the focus the latest accepted update supplies; absent when no node has the focus | option |
-| crates/arvane-shell/src/a11y/shared.rs:160 | PlatformUpdate.all_runs | independent: whether every text run is carried; any focus and node selection can carry all runs or only the changed ones | independent |
-| crates/arvane-shell/src/clicks.rs:41 | ClickCounter.last | independent: the last mouse press; the tap and the held buttons are kept separately and every combination is a valid history | independent |
-| crates/arvane-shell/src/clicks.rs:47 | ClickCounter.tap | independent: the last touch or pen contact's `Down`; the mouse history and the held buttons are kept separately | independent |
-| crates/arvane-shell/src/ime.rs:19 | ShellImeText.password | independent: the input is a password; a password field can still compose, so every combination with the other snapshot values is valid | independent |
-| crates/arvane-shell/src/ime.rs:33 | ShellImeText.composition | option: the composition's `[start, end)` in UTF-16 code units; absent when not composing | option |
-| crates/arvane-shell/src/window.rs:273 | StepOutcome::Idle.next_deadline | option: the next timer deadline the backend reports; absent when the backend wants no timer | option |
-| crates/arvane-shell/src/window.rs:275 | StepOutcome::Idle.redraw_requested | independent: whether any window asked for a redraw during the turn; a turn may have a deadline, a redraw or a wake in any combination | independent |
-| crates/arvane-shell/src/window.rs:278 | StepOutcome::Idle.woken | independent: whether the turn handled a wake; a turn may have a deadline, a redraw or a wake in any combination | independent |
+| crates/arvane-shell/src/clicks.rs:41 | ClickCounter.last | independent: written only by a mouse `Down`, while tap is written only by a touch or pen `Down`; a window may see either device first or only one of them, so each of None and Some occurs with any value of the other | independent |
+| crates/arvane-shell/src/clicks.rs:47 | ClickCounter.tap | independent: written only by a touch or pen `Down`, while last is written only by a mouse `Down`; a window may see either device first or only one of them, so each of None and Some occurs with any value of the other | independent |
+| crates/arvane-shell/src/window.rs:275 | StepOutcome::Idle.next_deadline | independent: the loop control's earliest timer deadline when the turn ends; timers come from the handler, apart from window redraw flags and wakes, so it is present or absent with any mix of them | independent |
+| crates/arvane-shell/src/window.rs:277 | StepOutcome::Idle.redraw_requested | independent: whether any window's redraw flag is still set when the turn ends; windows set it from their own requests, apart from the timer deadline and pending wakes, so a turn may end with any mix | independent |
+| crates/arvane-shell/src/window.rs:280 | StepOutcome::Idle.woken | independent: whether a wake is still pending when the turn ends (`WakePending::pending`); wakers set it from any thread, apart from the timer deadline and redraw flags, so a turn may end with any mix | independent |
 | crates/arvane-text/src/cache.rs:116 | SpanBits.font_size | cache: one component of a cache key; equality of the whole key is what matters | cache |
 | crates/arvane-text/src/cache.rs:118 | SpanBits.weight | cache: one component of a cache key; equality of the whole key is what matters | cache |
 | crates/arvane-text/src/cache.rs:120 | SpanBits.color | cache: one component of a cache key; equality of the whole key is what matters | cache |
@@ -126,21 +112,21 @@ and `OPEN` when the field has no closure.
 | crates/arvane-text/src/cache.rs:416 | RichKeyRef.overflow | cache: one component of a cache key | cache |
 | crates/arvane-text/src/cache.rs:418 | RichKeyRef.max_lines | cache: one component of a cache key | cache |
 | crates/arvane-text/src/cache.rs:420 | RichKeyRef.capsize | cache: one component of a cache key | cache |
-| crates/arvane-text/src/layouts.rs:47 | SpanKey.font_size | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:49 | SpanKey.weight | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:51 | SpanKey.family | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:53 | SpanKey.italic | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:55 | SpanKey.letter_spacing | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:57 | SpanKey.word_spacing | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:59 | SpanKey.kerning | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:61 | SpanKey.features | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:63 | SpanKey.variations | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:65 | SpanKey.font_width | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:123 | Key.wrap | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:125 | Key.family | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:127 | Key.italic | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:131 | Key.optical_sizing | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/arvane-text/src/layouts.rs:133 | Key.rich | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:49 | SpanKey.font_size | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:51 | SpanKey.weight | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:53 | SpanKey.family | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:55 | SpanKey.italic | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:57 | SpanKey.letter_spacing | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:59 | SpanKey.word_spacing | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:61 | SpanKey.kerning | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:63 | SpanKey.features | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:65 | SpanKey.variations | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:67 | SpanKey.font_width | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:125 | Key.wrap | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:127 | Key.family | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:129 | Key.italic | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:133 | Key.optical_sizing | cache: one component of a cache key; equality of the whole key is what matters | cache |
+| crates/arvane-text/src/layouts.rs:135 | Key.rich | cache: one component of a cache key; equality of the whole key is what matters | cache |
 | crates/arvane-virtual/src/window.rs:147 | VirtualWindow.redraw | independent: the script's redraw request is recorded separately; every combination is a valid script state | independent |
 | crates/arvane-virtual/src/window.rs:151 | VirtualWindow.min_size | independent: the size the application sets is recorded separately; every combination is a valid script state | independent |
 | crates/arvane-virtual/src/window.rs:156 | VirtualWindow.ime | independent: the script's IME caret area is recorded separately; every combination is a valid script state | independent |
@@ -150,17 +136,16 @@ and `OPEN` when the field has no closure.
 | crates/arvane-virtual/src/window.rs:172 | VirtualWindow.gpu | independent: the renderer the script requires is recorded separately; every combination is a valid script state | independent |
 | crates/arvane-virtual/src/window.rs:177 | VirtualWindow.occluded | independent: the script's occlusion is recorded separately; every combination is a valid script state | independent |
 | crates/arvane-virtual/src/window.rs:184 | VirtualWindow.focus_requests | statistic: focus requests counted for tests | statistic |
-| crates/kivact-core/src/client/trace.rs:24 | Sink.stage | option: a trace stream the test selects; any combination of the three is valid | option |
-| crates/kivact-core/src/client/trace.rs:26 | Sink.semantics | option: a trace stream the test selects; any combination of the three is valid | option |
-| crates/kivact-core/src/client/trace.rs:28 | Sink.host_events | option: a trace stream the test selects; any combination of the three is valid | option |
+| crates/kivact-core/src/client/trace.rs:24 | Sink.stage | option: whether KIVACT_TRACE names the `stage` stream, read once by Trace::new; false means stage lines are not written (a sink always has at least one stream) | option |
+| crates/kivact-core/src/client/trace.rs:26 | Sink.semantics | option: whether KIVACT_TRACE names the `semantics` stream, read once by Trace::new; false means semantic diffs are not written (a sink always has at least one stream) | option |
+| crates/kivact-core/src/client/trace.rs:28 | Sink.host_events | option: whether KIVACT_TRACE names the `host_events` stream, read once by Trace::new; false means host events are not written (a sink always has at least one stream) | option |
 | crates/kivact-core/src/custom/measurement.rs:24 | Constraints.known_width | independent: the width the layout already fixed; either dimension may be fixed on its own | independent |
 | crates/kivact-core/src/custom/measurement.rs:27 | Constraints.known_height | independent: the height the layout already fixed; either dimension may be fixed on its own | independent |
 | crates/kivact-core/src/embed.rs:37 | Parent.window | option: an optional constructor input; the default applies when absent | option |
 | crates/kivact-core/src/embed.rs:39 | Parent.scale | option: an optional host scale; the default applies when absent | option |
-| crates/kivact-core/src/embed.rs:40 | Parent.on_resize_request | - | OPEN |
 | crates/kivact-core/src/gpu_interop/import/image.rs:28 | ExternalImage.status | - | type |
-| crates/kivact-core/src/gpu_interop/import/image.rs:32 | ExternalImage.latest | independent: the newest published frame; the import status changes without it | independent |
-| crates/kivact-core/src/gpu_interop/share/app_side.rs:32 | SharedImage.current | projection: written only by import and renew from the link phase | projection |
+| crates/kivact-core/src/gpu_interop/import/image.rs:32 | ExternalImage.latest | independent: set only by the import's task when the engine calls FramePublisher::publish; the window sets the status from the import result, and a frame kept after Lost or published before Ready simply draws nothing, so every pair is valid | independent |
+| crates/kivact-core/src/gpu_interop/share/app_side.rs:32 | SharedImage.current | projection: the import of the link's current request, written only by SharedImage::replace_current | projection |
 | crates/kivact-core/src/gpu_interop/share/app_side.rs:35 | SharedImage.pixels | independent: the last pixels delivered, kept for every phase | independent |
 | crates/kivact-core/src/launch/settings.rs:20 | AppSettings.locale | option: absent means the system's locale | option |
 | crates/kivact-core/src/launch/settings.rs:24 | AppSettings.window_size | option: absent means the engine's default size | option |
@@ -170,15 +155,15 @@ and `OPEN` when the field has no closure.
 | crates/kivact-core/src/view/devtools_state.rs:65 | SessionData.next_override | identity: allocates style override ids | identity |
 | crates/kivact-core/src/view/devtools_state.rs:71 | SessionData.next_snapshot | identity: allocates snapshot ids | identity |
 | crates/kivact-core/src/view/devtools_state.rs:74 | SessionData.sent_windows | cache: the last windows report sent; the whole report is compared with the next one | cache |
-| crates/kivact-core/src/view/devtools_state.rs:76 | SessionData.errors_sent | cache: the last error count sent; the number is compared with the next one | cache |
+| crates/kivact-core/src/view/devtools_state.rs:76 | SessionData.errors_sent | cache: the seq of the last reported error already notified (S-9 `Sent`); the next turn notifies only entries of `rt.reported()` with a larger seq | cache |
 | crates/kivact-core/src/view/devtools_state.rs:94 | PropWrite.effect | statistic: a diagnostic record of the effect that wrote the prop; known only for effect-driven writes | statistic |
-| crates/kivact-core/src/view/devtools_state.rs:95 | PropWrite.changed | - | OPEN |
+| crates/kivact-core/src/view/devtools_state.rs:96 | PropWrite.changed | independent: whether this one write changed the node's value (the engine's comparison); a write from an effect and a direct write can each change the value or leave it equal, and DevTools shows all four | independent |
 | crates/kivact-core/src/view/drawable_share.rs:112 | ExportOpen.scale | option: the App's configured scale; absent means the window's own | option |
 | crates/kivact-core/src/view/drawable_share.rs:114 | ExportOpen.next_number | identity: allocates frame numbers over the drawable's life | identity |
 | crates/kivact-core/src/view/drawable_share.rs:126 | ExportRequest::Pixels.generation | identity: the generation of the App's request; a frame of another generation is dropped | identity |
-| crates/kivact-core/src/view/drawable_share.rs:128 | ExportRequest::Pixels.latest | independent: the newest frame received for this request; any request phase may have one | independent |
+| crates/kivact-core/src/view/drawable_share.rs:128 | ExportRequest::Pixels.latest | independent: set only by ExportOpen::on_frame with a frame of this request's generation; None until the first such frame, and any generation may still lack one | independent |
 | crates/kivact-core/src/view/drawable_share.rs:146 | ExportRequest::GpuProvided.generation | identity: the generation of the App's request; a frame of another generation is dropped | identity |
-| crates/kivact-core/src/view/drawable_share.rs:151 | ExportRequest::GpuProvided.latest | independent: the newest frame received for this request; any request phase may have one | independent |
+| crates/kivact-core/src/view/drawable_share.rs:151 | ExportRequest::GpuProvided.latest | independent: set only by ExportOpen::on_frame with a GPU frame of this request's generation; None until the first such frame, and any generation may still lack one | independent |
 | crates/kivact-core/src/view/editing_data.rs:98 | EditorProps.behavior | option: an editing behavior; absent means no behavior | option |
 | crates/kivact-core/src/view/editing_data.rs:100 | EditorProps.highlight | option: the highlight binding; absent means no highlight | option |
 | crates/kivact-core/src/view/editing_data.rs:102 | EditorProps.decorations | option: the decorations to bind; absent means none | option |
@@ -212,134 +197,124 @@ and `OPEN` when the field has no closure.
 | crates/kivact-core/src/view/mount/create.rs:22 | FirstWrite.roving_focus | option: a builder input carried to mount; absent means no roving focus | option |
 | crates/kivact-core/src/view/mount/create.rs:24 | FirstWrite.hit_testable | option: a builder input carried to mount; absent means the node hit-tests | option |
 | crates/kivact-core/src/view/mount/create.rs:29 | FirstWrite.intrinsic | option: a builder input carried to mount; absent means none | option |
-| crates/kivact-core/src/view/mount/create.rs:31 | FirstWrite.observe_layout | option: a builder input carried to mount; absent means no draw layer | option |
+| crates/kivact-core/src/view/mount/create.rs:31 | FirstWrite.observe_layout | option: set once by finish_resolve when the node has a draw, draw_over or draw_with_layout layer; false means the layout is not observed for a layer's size | option |
 | crates/kivact-core/src/view/mount/create.rs:34 | FirstWrite.editing | option: a builder input carried to mount; absent means the node does not edit | option |
 | crates/kivact-core/src/view/mount/draw.rs:19 | DrawInput.below | option: a draw layer below the children; absent means none | option |
 | crates/kivact-core/src/view/mount/draw.rs:21 | DrawInput.over | option: a draw layer over the children; absent means none | option |
 | crates/kivact-core/src/view/mount/draw.rs:23 | DrawInput.with_layout | option: a layout-driven draw; absent means none | option |
-| crates/kivact-core/src/view/mount/draw.rs:25 | DrawInput.local_paint | option: the style's local paint; absent means none | option |
-| crates/kivact-core/src/view/mount/draw.rs:27 | DrawInput.regions | option: the canvas regions the node declares; absent means none | option |
-| crates/kivact-core/src/view/mount/facts.rs:14 | NodeFacts.focus_stop | option: a builder input carried to mount; absent means not a focus stop | option |
-| crates/kivact-core/src/view/mount/facts.rs:18 | NodeFacts.local_paint | option: a builder input carried to mount; absent means none | option |
-| crates/kivact-core/src/view/mount/part_input.rs:40 | Selected.observed | independent: a per-event routing value; the event sets each from its hit | independent |
-| crates/kivact-core/src/view/mount/part_input.rs:42 | Selected.target | independent: a per-event routing value; the event sets each from its hit | independent |
-| crates/kivact-core/src/view/mount/part_input.rs:44 | Selected.own_canvas | independent: a per-event routing value; any combination with the targets is valid | independent |
-| crates/kivact-core/src/view/mount/parts.rs:154 | ConstraintSources.disabled | option: a builder input carried to mount; absent means enabled | option |
-| crates/kivact-core/src/view/mount/parts.rs:156 | ConstraintSources.hidden | option: a builder input carried to mount; absent means shown | option |
-| crates/kivact-core/src/view/mount/parts.rs:158 | ConstraintSources.focusable | option: a builder input carried to mount; absent means not focusable | option |
-| crates/kivact-core/src/view/mount/resolve.rs:37 | Resolved.disabled | option: a builder input carried to mount; absent means enabled | option |
-| crates/kivact-core/src/view/mount/resolve.rs:39 | Resolved.selected | option: a builder input carried to mount; absent means unselected | option |
-| crates/kivact-core/src/view/mount/resolve.rs:43 | Resolved.draw | option: a builder input carried to mount; absent means no drawing | option |
-| crates/kivact-core/src/view/mount/resolve.rs:46 | Resolved.ime | option: a builder input carried to mount; absent means no IME session | option |
-| crates/kivact-core/src/view/mount/resolve.rs:49 | Resolved.attached | option: a builder input carried to mount; absent means nothing attached | option |
-| crates/kivact-core/src/view/mount/semantics.rs:122 | SemanticProps.image_fit | option: absent means the image's own fit | option |
-| crates/kivact-core/src/view/mount/semantics.rs:124 | SemanticProps.monochrome | option: absent means the image's own colors | option |
-| crates/kivact-core/src/view/mount/semantics.rs:126 | SemanticProps.image_playing | option: absent means the image plays | option |
-| crates/kivact-core/src/view/mount/semantics.rs:128 | SemanticProps.layout_id | option: absent means no shared layout | option |
-| crates/kivact-core/src/view/mount/semantics.rs:130 | SemanticProps.focus_on_press | option: absent means the press does not focus | option |
-| crates/kivact-core/src/view/mount/style.rs:76 | NodeStyle.focusable | option: a mount input; absent means not a focus stop | option |
-| crates/kivact-core/src/view/mount/style.rs:84 | NodeStyle.fix_layout | option: a layout hook; absent means the layout is set as resolved | option |
-| crates/kivact-core/src/view/mount/style.rs:88 | NodeStyle.local_paint | option: the merged local paint; absent means none | option |
-| crates/kivact-core/src/view/overlays.rs:518 | KeyRoute.stop | independent: the topmost shown modal; any target may have one or none | independent |
-| crates/kivact-core/src/view/overlays.rs:521 | KeyRoute.activates | independent: whether the key activates the target; independent of where the chain stops | independent |
-| crates/kivact-core/src/view/part_data.rs:64 | PartState.pressed | independent: a public observation snapshot; any combination can be observed | independent |
-| crates/kivact-core/src/view/part_data.rs:68 | PartState.hovered | independent: a public observation snapshot; any combination can be observed | independent |
-| crates/kivact-core/src/view/part_data.rs:75 | PartState.disabled | independent: a public observation snapshot; any combination can be observed | independent |
-| crates/kivact-core/src/view/part_data.rs:78 | PartState.hidden | independent: a public observation snapshot; any combination can be observed | independent |
-| crates/kivact-core/src/view/semantics_data.rs:20 | SemanticsPatch.part | option: a patch the builder may set; absent leaves the prop unchanged | option |
-| crates/kivact-core/src/view/semantics_data.rs:25 | SemanticsPatch.reactive | option: a patch the builder may set; absent leaves the prop unchanged | option |
-| crates/kivact-core/src/view/semantics_data.rs:27 | SemanticsPatch.text | option: a patch the builder may set; absent leaves the prop unchanged | option |
-| crates/kivact-core/src/view/semantics_data.rs:30 | SemanticsPatch.relation | option: a patch the builder may set; absent leaves the prop unchanged | option |
-| crates/kivact-core/src/view/semantics_data.rs:32 | SemanticsPatch.orientation | option: a patch the builder may set; absent leaves the prop unchanged | option |
+| crates/kivact-core/src/view/mount/draw.rs:25 | DrawInput.local_paint | option: the local paint channel resolve made for a styled Box that does not edit text; None means the node cannot take local paint | option |
+| crates/kivact-core/src/view/mount/draw.rs:27 | DrawInput.regions | option: the region registry attach_parts made when the node has parts, regions or part constraints; None means the draw effect paints no region | option |
+| crates/kivact-core/src/view/mount/parts.rs:155 | ConstraintSources.disabled | option: a builder input carried to mount; absent means enabled | option |
+| crates/kivact-core/src/view/mount/parts.rs:157 | ConstraintSources.hidden | option: a builder input carried to mount; absent means shown | option |
+| crates/kivact-core/src/view/mount/parts.rs:159 | ConstraintSources.focusable | option: the caller's own last `focusable` modifier; absent lets the parts decide: focusable when a part requires focus, otherwise not | option |
+| crates/kivact-core/src/view/mount/resolve.rs:35 | Resolved.disabled | option: a builder input carried to mount; absent means enabled | option |
+| crates/kivact-core/src/view/mount/resolve.rs:37 | Resolved.selected | option: a builder input carried to mount; absent means unselected | option |
+| crates/kivact-core/src/view/mount/resolve.rs:41 | Resolved.draw | option: made once by prepare_draw when the node has a draw layer or a local paint channel; None means no draw effect is bound | option |
+| crates/kivact-core/src/view/mount/resolve.rs:44 | Resolved.ime | option: a builder input carried to mount; absent means no IME session | option |
+| crates/kivact-core/src/view/mount/resolve.rs:47 | Resolved.attached | option: made once by attach_parts when the node has part bindings, regions or part constraints; None means no part router, constraints or region registry | option |
+| crates/kivact-core/src/view/mount/semantics.rs:218 | SemanticProps.image_fit | option: absent means the image's own fit | option |
+| crates/kivact-core/src/view/mount/semantics.rs:220 | SemanticProps.monochrome | option: absent means the image's own colors | option |
+| crates/kivact-core/src/view/mount/semantics.rs:222 | SemanticProps.image_playing | option: absent means the image plays | option |
+| crates/kivact-core/src/view/mount/semantics.rs:224 | SemanticProps.layout_id | option: absent means no shared layout | option |
+| crates/kivact-core/src/view/mount/semantics.rs:226 | SemanticProps.focus_on_press | option: absent means the press does not focus | option |
+| crates/kivact-core/src/view/mount/style.rs:77 | NodeStyle.focusable | option: a mount input; absent means not a focus stop | option |
+| crates/kivact-core/src/view/mount/style.rs:85 | NodeStyle.fix_layout | option: a layout hook; absent means the layout is set as resolved | option |
+| crates/kivact-core/src/view/part_data.rs:66 | Availability::Enabled.pressed | independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs | independent |
+| crates/kivact-core/src/view/part_data.rs:69 | Availability::Enabled.hovered | independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs | independent |
+| crates/kivact-core/src/view/ref_data.rs:44 | NodeRefState.bound | - | type |
+| crates/kivact-core/src/view/ref_data.rs:50 | NodeRefState.rect_value | cache: the rect memo of the binding, created under the ref's owner by the first NodeRef::rect call; absent until then | cache |
+| crates/kivact-core/src/view/ref_data.rs:52 | NodeRefState.scroll_value | cache: the scroll offset memo of the binding, created under the ref's owner by the first NodeRef::scroll_offset call; absent until then | cache |
+| crates/kivact-core/src/view/semantics_data.rs:20 | SemanticsPatch.part | option: set by apply_part on the patches a part declared, false on the caller's own; the *_source readers and part constraints tell the two apart | option |
+| crates/kivact-core/src/view/semantics_data.rs:25 | SemanticsPatch.reactive | projection: written only by Common::semantic from whether the patch's source is fixed; the source itself is erased into `apply` | projection |
 | crates/kivact-core/src/view/state.rs:49 | FocusRequest.stage | - | type |
-| crates/kivact-core/src/view/state.rs:51 | FocusRequest.visible | independent: the requested indicator; any value is valid in either request stage | independent |
+| crates/kivact-core/src/view/state.rs:51 | FocusRequest.visible | independent: given once by the caller of request_focus and never changed; the stage moves from Queued to Sent on the host write whatever the indicator, so both values occur in both stages | independent |
 | crates/kivact-core/src/view/state.rs:192 | Requests.next_request | identity: allocates host request ids; no other field derives from it | identity |
-| crates/kivact-core/src/view/state.rs:198 | Requests.pending_activations | independent: a work list drained per dispatch; any length beside any id counter | independent |
+| crates/kivact-core/src/view/state.rs:198 | Requests.pending_activations | independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id | independent |
 | crates/kivact-core/src/view/state.rs:228 | ViewState.next_window | identity: allocates window ids; `WindowId::MAIN` is 1 | identity |
-| crates/kivact-core/src/view/state.rs:239 | ViewState.initial_render | independent: one-way latch: the first frame was drawn | independent |
+| crates/kivact-core/src/view/state.rs:239 | ViewState.initial_render | independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once) | independent |
 | crates/kivact-core/src/view/tree.rs:77 | Handlers.secondary_context | option: a builder subscription; absent means none | option |
 | crates/kivact-core/src/view/tree.rs:89 | Handlers.selection | option: a builder subscription; absent means none | option |
-| crates/kivact-core/src/view/tree.rs:266 | NodeObservation.measured | independent: a measured value; any value is valid on its own | independent |
-| crates/kivact-core/src/view/tree.rs:268 | NodeObservation.text_truncated | independent: whether the engine truncated the node's text; independent of the geometry | independent |
-| crates/kivact-core/src/view/tree.rs:272 | NodeObservation.image_status | - | type |
-| crates/kivact-core/src/view/tree.rs:299 | CoreNode.at | independent: a per-node resource; created only when the node has one | independent |
-| crates/kivact-core/src/view/tree.rs:307 | CoreNode.handlers | independent: a per-node resource; created only when the node has one | independent |
-| crates/kivact-core/src/view/tree.rs:312 | CoreNode.observation | independent: a per-node resource; created only when the node has one | independent |
-| crates/kivact-core/src/view/tree.rs:315 | CoreNode.presence | independent: a per-node resource; created only when the node has one | independent |
-| crates/kivact-devtools/src/panels/elements/view.rs:22 | view::owners_on | independent: the owner tree replaces the element tree; the layout overlay is shown for either | independent |
-| crates/kivact-devtools/src/panels/elements/view.rs:24 | view::layout | independent: the layout overlay is shown for whichever tree is displayed | independent |
+| crates/kivact-core/src/view/tree.rs:273 | NodeObservation.measured | independent: set from each layout report, None while the report carries no measured layout box; text_truncated is set from the same report on its own, so every pair occurs | independent |
+| crates/kivact-core/src/view/tree.rs:275 | NodeObservation.text_truncated | independent: set from every layout report, including before any measurement is published | independent |
+| crates/kivact-core/src/view/tree.rs:279 | NodeObservation.image_status | - | type |
+| crates/kivact-core/src/view/tree.rs:305 | CoreNode.at | option: the builder's call site, recorded when the node is created; absent for the root, fragments and the wrappers a builder adds, which take their nearest located ancestor's location | option |
+| crates/kivact-core/src/view/tree.rs:313 | CoreNode.handlers | independent: the declared handlers recorded when the node is created, or an empty record ViewNodes::handlers_mut and ViewNodes::observe_node create for a later observer; a node with or without a location may have either | independent |
+| crates/kivact-core/src/view/tree.rs:319 | CoreNode.rare | independent: created by the first rare resource the node gets (a reference, an exit callback, an observation, a presence source, semantic origins or DevTools style layers) and kept until removal; a node with or without a location or handlers may have one | independent |
+| crates/kivact-core/src/view/tree.rs:335 | CoreRare.observation | independent: created by ViewNodes::observe_node when a reference first needs the node's geometry, text truncation, scroll or image status; the presence source beside it is created separately by ViewNodes::presence, so either exists without the other | independent |
+| crates/kivact-core/src/view/tree.rs:338 | CoreRare.presence | independent: created by ViewNodes::presence when a reference first observes the node's lifetime; the observation beside it is created separately, so either exists without the other | independent |
+| crates/kivact-devtools/src/panels/elements/view.rs:22 | view::owners_on | independent: set only by the Owners checkbox; it swaps the element tree for the owner tree while the details pane and its layout overlay checkbox stay shown, so it pairs with either overlay value | independent |
+| crates/kivact-devtools/src/panels/elements/view.rs:24 | view::layout | independent: set only through layout_toggle by the details pane's layout overlay checkbox, which is shown under either tree, so it pairs with either value of owners_on | independent |
 | crates/kivact-devtools/src/session.rs:21 | new::target | identity: the session's target, written once before any reader exists | identity |
-| crates/kivact-devtools/src/session.rs:33 | new::status | independent: the last RPC failure is reported separately from the panel and its pop-outs | independent |
+| crates/kivact-devtools/src/session.rs:33 | new::status | independent: becomes Session.status, empty at setup; the target var beside it is fixed for the session whether or not a failure is shown | independent |
 | crates/kivact-devtools/src/state.rs:56 | Session.connection | - | type |
-| crates/kivact-devtools/src/state.rs:75 | Session.status | independent: the last RPC failure is reported separately from the panel and its pop-outs | independent |
-| crates/kivact-editing/src/behavior.rs:41 | EditContext.multiline | independent: a borrowed snapshot of the editor; every combination is valid | independent |
-| crates/kivact-editing/src/behavior.rs:44 | EditContext.read_only | independent: a borrowed snapshot of the editor; every combination is valid | independent |
-| crates/kivact-editing/src/behavior.rs:47 | EditContext.password | independent: a borrowed snapshot of the editor; every combination is valid | independent |
-| crates/kivact-editing/src/behavior.rs:50 | EditContext.layout | independent: a borrowed snapshot of the editor; every combination is valid | independent |
+| crates/kivact-devtools/src/state.rs:75 | Session.status | independent: the status bar's last RPC failure, set by Session::send when a call fails and by Session::report; it stays while connection moves to Lost, and a connected session may have none | independent |
+| crates/kivact-editing/src/behavior.rs:41 | EditContext.multiline | option: the editor's authored multiline prop the engine passes per request; false means committed text keeps no line breaks | option |
+| crates/kivact-editing/src/behavior.rs:44 | EditContext.read_only | option: the editor's authored read_only prop the engine passes per request; false lets user input change the value | option |
+| crates/kivact-editing/src/behavior.rs:47 | EditContext.password | option: whether the editor's authored input purpose is Password, passed per request; false lets copy and cut expose the value | option |
+| crates/kivact-editing/src/behavior.rs:50 | EditContext.layout | independent: the editor's laid-out lines for this request, which the engine always supplies and a caller without layout leaves out; the flags are authored props and do not decide whether lines exist | independent |
 | crates/kivact-editing/src/edit_state.rs:51 | EditState.max_length | option: absent means the editor has no scalar limit | option |
-| crates/kivact-editing/src/edit_state.rs:53 | EditState.log | - | OPEN |
-| crates/kivact-editing/src/edit_state.rs:57 | EditState.damage | independent: line-cache damage is taken by the editor, separately from the edit log | independent |
-| crates/kivact-editing/src/line_colors.rs:69 | LineStyle.color | independent: a resolved line paints each part on its own; every combination is valid | independent |
-| crates/kivact-editing/src/line_colors.rs:71 | LineStyle.background | independent: a resolved line paints each part on its own; every combination is valid | independent |
-| crates/kivact-editing/src/line_colors.rs:73 | LineStyle.decoration | independent: a resolved line paints each part on its own; every combination is valid | independent |
-| crates/kivact-engine/src/a11y/state.rs:220 | SemanticsIdAllocator.next | identity: the next synthetic semantics id, counting down | identity |
-| crates/kivact-engine/src/a11y/state.rs:222 | SemanticsIdAllocator.empty_root | identity: the id reserved for the empty root, independent of the published tree | identity |
-| crates/kivact-engine/src/check/boxes.rs:70 | Axes.x | independent: a limit may hold on either axis alone; every combination is a valid limit | independent |
-| crates/kivact-engine/src/check/boxes.rs:72 | Axes.y | independent: a limit may hold on either axis alone; every combination is a valid limit | independent |
+| crates/kivact-editing/src/edit_state.rs:54 | EditState.log | independent: the edits kivact has not taken yet (take_changes, start_log, revert clear it); the line-cache damage is cleared only by take_damage, and set_controlled leaves damage without a log, so all four combinations occur | independent |
+| crates/kivact-editing/src/edit_state.rs:58 | EditState.damage | independent: line-cache damage is taken by the editor, separately from the edit log | independent |
+| crates/kivact-editing/src/line_colors.rs:69 | LineStyle.color | option: the highlighter's text color for the range, resolved against the theme; absent keeps the editor's own text color | option |
+| crates/kivact-editing/src/line_colors.rs:71 | LineStyle.background | option: the highlighter's background for the range, resolved against the theme; absent paints no highlight behind it | option |
+| crates/kivact-editing/src/line_colors.rs:73 | LineStyle.decoration | option: the highlighter's text decoration for the range, resolved against the theme; absent draws none | option |
+| crates/kivact-engine/src/a11y/state.rs:337 | SemanticsIdAllocator.next | identity: the next synthetic semantics id, counting down | identity |
+| crates/kivact-engine/src/a11y/state.rs:339 | SemanticsIdAllocator.empty_root | identity: the id reserved for the empty root, independent of the published tree | identity |
+| crates/kivact-engine/src/check/boxes.rs:70 | Axes.x | independent: Axes::held_by clears x when the node scrolls horizontally or is a text input, y when it scrolls vertically; overflow-x and overflow-y are authored apart, so all four pairs occur | independent |
+| crates/kivact-engine/src/check/boxes.rs:72 | Axes.y | independent: Axes::held_by clears y when the node scrolls vertically, x for horizontal scrolling or a text input; overflow-x and overflow-y are authored apart, so all four pairs occur | independent |
 | crates/kivact-engine/src/contract/devtools.rs:107 | EngineEmulation.theme_hint | option: absent means the window's own theme | option |
 | crates/kivact-engine/src/contract/devtools.rs:109 | EngineEmulation.scale | option: absent means the window's own scale | option |
 | crates/kivact-engine/src/contract/devtools.rs:111 | EngineEmulation.touch | option: absent means the window's own touch support | option |
 | crates/kivact-engine/src/contract/devtools.rs:136 | ImeStateInfo::Focused.cursor_area | option: absent means the window has no cursor area to report | option |
 | crates/kivact-engine/src/contract/devtools.rs:139 | ImeStateInfo::Focused.composition | option: absent means no IME composition is in progress | option |
-| crates/kivact-engine/src/contract/host.rs:105 | HostRequest::DrawableExport.generation | independent: the generation of the export request; every combination with its other fields is valid | independent |
-| crates/kivact-engine/src/contract/host.rs:108 | HostRequest::DrawableExport.scale | option: absent follows the window's scale | option |
-| crates/kivact-engine/src/contract/host.rs:115 | HostRequest::SetDrawableGeometry.generation | independent: the generation of the placement request; every combination with its other fields is valid | independent |
-| crates/kivact-engine/src/contract/host.rs:117 | HostRequest::SetDrawableGeometry.geometry | option: absent hides the drawable | option |
-| crates/kivact-engine/src/contract/node.rs:39 | NodeProperties.editing | option: absent means the node is not a native editor | option |
-| crates/kivact-engine/src/contract/node.rs:42 | NodeProperties.ime | option: absent means the node has no IME session | option |
-| crates/kivact-engine/src/contract/node.rs:45 | NodeProperties.layout | option: absent uses the host's layout defaults | option |
-| crates/kivact-engine/src/contract/node.rs:48 | NodeProperties.paint | option: absent draws nothing | option |
-| crates/kivact-engine/src/contract/node.rs:51 | NodeProperties.text | option: absent inherits the parent's text style | option |
-| crates/kivact-engine/src/contract/node.rs:54 | NodeProperties.states | option: absent has no state styles | option |
-| crates/kivact-engine/src/contract/node.rs:59 | NodeProperties.semantics | option: absent exposes no accessible properties | option |
-| crates/kivact-engine/src/contract/node.rs:62 | NodeProperties.drawable | option: absent means it is not a drawable root | option |
-| crates/kivact-engine/src/contract/node.rs:65 | NodeProperties.layout_id | option: absent means it has no shared-layout identity | option |
-| crates/kivact-engine/src/contract/node.rs:149 | BoxData.intrinsic | option: absent means ordinary layout | option |
-| crates/kivact-engine/src/contract/node.rs:152 | BoxData.measure | option: absent means ordinary layout | option |
-| crates/kivact-engine/src/contract/node.rs:160 | EditingData.behavior | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:163 | EditingData.colors | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:166 | EditingData.decorations | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:169 | EditingData.forward_keys | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:172 | EditingData.value | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:175 | EditingData.purpose | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:178 | EditingData.read_only | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:181 | EditingData.max_length | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:184 | EditingData.placeholder | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:187 | EditingData.multiline | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:190 | EditingData.line_layout | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:193 | EditingData.report_text | option: absent means the editor's default | option |
-| crates/kivact-engine/src/contract/node.rs:196 | EditingData.report_session | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/host.rs:106 | HostRequest::DrawableExport.generation | identity: the export request's generation; the window answers with it and stale answers are dropped | identity |
+| crates/kivact-engine/src/contract/host.rs:109 | HostRequest::DrawableExport.scale | option: absent follows the window's scale | option |
+| crates/kivact-engine/src/contract/host.rs:116 | HostRequest::SetDrawableGeometry.generation | identity: the placement request's generation; the window answers with it and stale answers are dropped | identity |
+| crates/kivact-engine/src/contract/host.rs:118 | HostRequest::SetDrawableGeometry.geometry | option: absent hides the drawable | option |
+| crates/kivact-engine/src/contract/node.rs:40 | NodeProperties.editing | option: absent means the node is not a native editor | option |
+| crates/kivact-engine/src/contract/node.rs:43 | NodeProperties.ime | option: absent means the node has no IME session | option |
+| crates/kivact-engine/src/contract/node.rs:46 | NodeProperties.layout | option: absent uses the host's layout defaults | option |
+| crates/kivact-engine/src/contract/node.rs:49 | NodeProperties.paint | option: absent draws nothing | option |
+| crates/kivact-engine/src/contract/node.rs:52 | NodeProperties.text | option: absent inherits the parent's text style | option |
+| crates/kivact-engine/src/contract/node.rs:55 | NodeProperties.states | option: absent has no state styles | option |
+| crates/kivact-engine/src/contract/node.rs:60 | NodeProperties.semantics | option: absent exposes no accessible properties | option |
+| crates/kivact-engine/src/contract/node.rs:63 | NodeProperties.drawable | option: absent means it is not a drawable root | option |
+| crates/kivact-engine/src/contract/node.rs:66 | NodeProperties.layout_id | option: absent means it has no shared-layout identity | option |
+| crates/kivact-engine/src/contract/node.rs:150 | BoxData.intrinsic | option: absent means ordinary layout | option |
+| crates/kivact-engine/src/contract/node.rs:153 | BoxData.measure | option: absent means ordinary layout | option |
+| crates/kivact-engine/src/contract/node.rs:161 | EditingData.behavior | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:164 | EditingData.colors | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:167 | EditingData.decorations | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:170 | EditingData.forward_keys | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:173 | EditingData.value | option: the controlled value the app writes (InputValue, Model::controlled_value); absent until the first write, when the editor starts from empty text | option |
+| crates/kivact-engine/src/contract/node.rs:176 | EditingData.purpose | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:179 | EditingData.read_only | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:182 | EditingData.max_length | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:185 | EditingData.placeholder | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:188 | EditingData.multiline | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:191 | EditingData.line_layout | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:194 | EditingData.report_text | option: absent means the editor's default | option |
+| crates/kivact-engine/src/contract/node.rs:197 | EditingData.report_session | option: absent means the editor's default | option |
 | crates/kivact-engine/src/contract/routed.rs:11 | Routed.target | option: absent means the input is window-directed (a key with no receiving node) | option |
 | crates/kivact-engine/src/contract/routed.rs:17 | Routed.activation | option: absent until the engine supplies the adoption result before activation dispatch | option |
-| crates/kivact-engine/src/host/pump.rs:54 | Host.phase | - | type |
-| crates/kivact-engine/src/host/pump.rs:62 | Host.next_wake | independent: the client's next turn deadline, valid in every host phase | independent |
-| crates/kivact-engine/src/host/pump.rs:68 | Host.reduced_motion_override | option: absent means the system's reduced-motion preference applies | option |
-| crates/kivact-engine/src/host/pump.rs:80 | Host.app_motion | projection: the App motion last reported to the client, written only by Host::begin and Host::finish_motion | projection |
+| crates/kivact-engine/src/host/pump.rs:79 | Host.phase | - | type |
+| crates/kivact-engine/src/host/pump.rs:91 | Host.reduced_motion_override | option: absent means the system's reduced-motion preference applies | option |
+| crates/kivact-engine/src/host/pump.rs:103 | Host.app_motion | projection: the App motion last reported to the client, written only by Host::report_app_motion | projection |
 | crates/kivact-engine/src/host/testing/test_host.rs:32 | Counts.turns | statistic: turns counted for diagnostics; never used to control scheduling | statistic |
 | crates/kivact-engine/src/host/testing/test_host.rs:34 | Counts.frame_ticks | statistic: frame ticks counted for diagnostics; never used as an event or generation | statistic |
-| crates/kivact-engine/src/host/window.rs:47 | HostWindow.last_present | - | type |
-| crates/kivact-engine/src/host/window.rs:50 | HostWindow.environment | projection: the environment last reported to the client, written only by Host::environment_changed | projection |
-| crates/kivact-engine/src/host/window.rs:56 | HostWindow.soft_keyboard | projection: the software keyboard state last sent to the platform, written only by Host::synchronize_ime | projection |
-| crates/kivact-engine/src/host/window.rs:60 | HostWindow.ime_allowed | projection: the IME permission last sent to the platform, written only by Host::synchronize_ime | projection |
-| crates/kivact-engine/src/host/window.rs:62 | HostWindow.adapter | projection: the adapter last reported to the client, written only by Host::adapter_changed | projection |
-| crates/kivact-engine/src/host/window.rs:66 | HostWindow.last_stats | independent: the stats of the last shown frame stay readable while later presents are skipped | independent |
-| crates/kivact-engine/src/host/window.rs:72 | HostWindow.parent | independent: the parent window fixed when the window opened; modal input routing reads it | independent |
+| crates/kivact-engine/src/host/window.rs:55 | HostWindow.last_present | - | type |
+| crates/kivact-engine/src/host/window.rs:58 | HostWindow.environment | projection: the environment last reported to the client, written only by Host::record_environment | projection |
+| crates/kivact-engine/src/host/window.rs:64 | HostWindow.soft_keyboard | projection: the software keyboard state last sent to the platform, written only by Host::synchronize_ime | projection |
+| crates/kivact-engine/src/host/window.rs:68 | HostWindow.ime_allowed | projection: the IME permission last sent to the platform, written only by Host::synchronize_ime | projection |
+| crates/kivact-engine/src/host/window.rs:70 | HostWindow.reported_adapter | projection: the adapter last reported to the client, written only by Host::adapter_changed | projection |
+| crates/kivact-engine/src/host/window.rs:74 | HostWindow.last_stats | independent: the stats of the last shown frame stay readable while later presents are skipped | independent |
+| crates/kivact-engine/src/host/window.rs:80 | HostWindow.parent | option: the window the app declared this one in, given by its open request (window_changes.rs) and never changed; absent for a top-level window; modal input routing reads it | option |
 | crates/kivact-engine/src/layer.rs:61 | Look.grouped | cache: Its effects need a group (clip path, blend), whatever its opacity | cache |
 | crates/kivact-engine/src/layer.rs:64 | Look.clip | cache: It clips its children to its padding box | cache |
 | crates/kivact-engine/src/layer.rs:69 | Look.rounded | cache: Its corners are rounded | cache |
-| crates/kivact-engine/src/layer.rs:72 | Look.filtered | cache: It has a CSS filter, masks or a backdrop filter (each needs a layer) | cache |
-| crates/kivact-engine/src/layer.rs:75 | Look.masked | cache: masked | cache |
-| crates/kivact-engine/src/layer.rs:77 | Look.backdropped | cache: backdropped | cache |
+| crates/kivact-engine/src/layer.rs:72 | Look.filtered | cache: Look::of derives it from a non-empty CSS filter list of the paint; Model::derive replaces the look when the props change | cache |
+| crates/kivact-engine/src/layer.rs:75 | Look.masked | cache: Look::of derives it from a non-empty mask list of the paint; Model::derive replaces the look when the props change | cache |
+| crates/kivact-engine/src/layer.rs:77 | Look.backdropped | cache: Look::of derives it from a non-empty backdrop filter list of the paint; Model::derive replaces the look when the props change | cache |
 | crates/kivact-engine/src/layer.rs:79 | Look.blended | cache: Its blend mode is not normal | cache |
 | crates/kivact-engine/src/layer.rs:82 | Look.isolated | cache: It isolates its group (`isolation: isolate`) | cache |
 | crates/kivact-engine/src/layer.rs:87 | Look.preserves | cache: Its `transform-style` is `preserve-3d` | cache |
@@ -355,25 +330,25 @@ and `OPEN` when the field has no closure.
 | crates/kivact-engine/src/layer.rs:128 | SubtreeFacts.has_blend | cache: A non-normal blend mode is in the subtree | cache |
 | crates/kivact-engine/src/lower/assets.rs:51 | ArvaneAssets.fonts | identity: the generation that versions the registered fonts; readers compare it with their own | identity |
 | crates/kivact-engine/src/lower/assets.rs:54 | ArvaneAssets.revision | identity: the generation that versions the store's contents; readers compare it with their own | identity |
-| crates/kivact-engine/src/lower/assets.rs:64 | ArvaneAssets.pending | independent: diagnostics found but not yet reported; any content is valid on its own | independent |
-| crates/kivact-engine/src/lower/context.rs:58 | Context.dropped | statistic: the items dropped while lowering, counted for diagnostics | statistic |
+| crates/kivact-engine/src/lower/assets.rs:64 | ArvaneAssets.pending | independent: missing-family reports check_family queues during a layout pass and sync takes each commit; the font and store generations version other data and never gate the queue | independent |
+| crates/kivact-engine/src/lower/context.rs:58 | Context.dropped | independent: drop_command counts each undrawable command; succeeded_since compares it to a checkpoint to keep a failed scene out of the cache and offscreen fails on it; canvas hosting or not, any count occurs | independent |
 | crates/kivact-engine/src/lower/context.rs:61 | Context.drawables | option: absent unless the host scene being lowered is a canvas | option |
 | crates/kivact-engine/src/lower/glyphs.rs:29 | Colors.glyphs | option: absent means the shaped run's own color | option |
 | crates/kivact-engine/src/lower/glyphs.rs:32 | Colors.decorations | option: absent means the text's own color | option |
 | crates/kivact-engine/src/lower/glyphs.rs:35 | Colors.outline | option: absent means no outline | option |
 | crates/kivact-engine/src/measure/editor.rs:15 | EditorNode.lines | cache: the shaped lines of the input, built on its first layout | cache |
 | crates/kivact-engine/src/measure/editor.rs:19 | EditorNode.measure_lines | cache: the width-probe lines of the input, kept apart from its visible rows | cache |
-| crates/kivact-engine/src/measure/editor.rs:24 | EditorNode.reported_session | - | OPEN |
-| crates/kivact-engine/src/model/aggregate.rs:42 | Model.modifiers | projection: the modifiers last reported to the client, written only by Model::report_modifiers | projection |
-| crates/kivact-engine/src/model/aggregate.rs:55 | Model.window_request | independent: the window change queued for after the turn; absent until a write queues it | independent |
-| crates/kivact-engine/src/model/changes.rs:137 | Changes.paint | independent: an invalidation fact; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/changes.rs:139 | Changes.restack | independent: an invalidation fact; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/changes.rs:141 | Changes.fonts | independent: an invalidation fact; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/changes.rs:149 | Dispatched.paint | independent: a work fact of this dispatch; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/changes.rs:151 | Dispatched.restack | independent: a work fact of this dispatch; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/changes.rs:153 | Dispatched.fonts | independent: a work fact of this dispatch; any set of them can be pending | independent |
-| crates/kivact-engine/src/model/drawables/place.rs:65 | LayerFrame.in_3d | independent: a membership fact read from the parent; every combination with `preserves` is valid | independent |
-| crates/kivact-engine/src/model/drawables/place.rs:70 | LayerFrame.preserves | independent: a setting from the command; every combination with `in_3d` is valid | independent |
+| crates/kivact-engine/src/measure/editor.rs:25 | EditorNode.reported_session | projection: the session last sent to the selection listener, written only by EditorNode::report_session | projection |
+| crates/kivact-engine/src/model/aggregate.rs:45 | Model.modifiers | projection: the modifiers last reported to the client, written only by Model::report_modifiers | projection |
+| crates/kivact-engine/src/model/aggregate.rs:58 | Model.window_request | independent: the title and minimum size Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so either is set without the other | independent |
+| crates/kivact-engine/src/model/changes.rs:137 | Changes.paint | independent: raised by Model::invalidate_paint (host environment and asset events) and by image and layout-motion steps; restack and fonts are raised by other inputs (paint-order writes, a font registration), so any set can be pending at a sync | independent |
+| crates/kivact-engine/src/model/changes.rs:139 | Changes.restack | independent: raised by writes and motions that change paint order (Model::apply, state and layout motion, presence); paint and fonts are raised by other inputs (host repaints, a font registration), so any set can be pending at a sync | independent |
+| crates/kivact-engine/src/model/changes.rs:141 | Changes.fonts | independent: raised only by Model::fonts_added when the app registers a font; paint and restack are raised by other inputs (host repaints, paint-order writes), so any set can be pending at a sync | independent |
+| crates/kivact-engine/src/model/changes.rs:149 | Dispatched.paint | independent: Changes::dispatch takes Changes::paint as raised by its own inputs (host repaints, images, layout motion); a font registration no longer raises it, so it pairs with any fonts and restack | independent |
+| crates/kivact-engine/src/model/changes.rs:151 | Dispatched.restack | independent: Changes::dispatch takes Changes::restack (paint-order writes and motions) as is; paint and fonts come from other inputs, so any set occurs | independent |
+| crates/kivact-engine/src/model/changes.rs:153 | Dispatched.fonts | independent: Changes::dispatch takes Changes::fonts (Model::fonts_added) as is; sync no longer raises paint with it, so it pairs with any paint and restack | independent |
+| crates/kivact-engine/src/model/drawables/place.rs:65 | LayerFrame.in_3d | independent: push_layer reads it from the nearest open layer's preserves (inside_3d); preserves is this layer's own transform_style, so a flat or preserving layer sits in a flat or 3D parent | independent |
+| crates/kivact-engine/src/model/drawables/place.rs:70 | LayerFrame.preserves | independent: push_layer takes it from this layer's transform_style; in_3d is the parent layer's, so a flat or preserving layer sits in a flat or 3D parent | independent |
 | crates/kivact-engine/src/model/drawables/state.rs:25 | ExportAsk.generation | identity: the generation of the app's request in the public export protocol | identity |
 | crates/kivact-engine/src/model/drawables/state.rs:30 | ExportAsk.scale | option: absent means the frames follow the window's scale | option |
 | crates/kivact-engine/src/model/edit/state.rs:18 | InputSource.transform | cache: one component of a cache key; equality of the whole key is what matters | cache |
@@ -381,131 +356,110 @@ and `OPEN` when the field has no closure.
 | crates/kivact-engine/src/model/edit/state.rs:22 | InputSource.read_only | cache: one component of a cache key; equality of the whole key is what matters | cache |
 | crates/kivact-engine/src/model/edit/state.rs:33 | SessionSource.area | cache: one component of a cache key; equality of the whole key is what matters | cache |
 | crates/kivact-engine/src/model/edit/state.rs:35 | SessionSource.transform | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/kivact-engine/src/model/lifecycle.rs:62 | RemovedPayload.editor | independent: a value held only to be dropped after the node, in declaration order | independent |
-| crates/kivact-engine/src/model/lifecycle.rs:64 | RemovedPayload.extents | independent: a value held only to be dropped after the node, in declaration order | independent |
-| crates/kivact-engine/src/model/pointer/state.rs:16 | Pointer.file_target | independent: the file drop target under the pointer; its own drag events clear it | independent |
+| crates/kivact-engine/src/model/lifecycle.rs:62 | RemovedPayload.editor | option: absent means the node had no editor | option |
+| crates/kivact-engine/src/model/lifecycle.rs:64 | RemovedPayload.extents | option: absent means the node had no text extents | option |
+| crates/kivact-engine/src/model/pointer/state.rs:16 | Pointer.file_target | independent: the file-listening node under an OS file drag, set by the file drag events and cleared at Drop, Leave or its removal; the hover and position projections follow mouse events, so any pair occurs | independent |
 | crates/kivact-engine/src/model/pointer/state.rs:18 | Pointer.hover_sent | projection: the hover last reported to the client, written only by Model::report_hover | projection |
 | crates/kivact-engine/src/model/pointer/state.rs:20 | Pointer.position_sent | projection: the mouse position last reported to the client, written only by Model::report_mouse_position | projection |
-| crates/kivact-engine/src/model/pointer/state.rs:105 | TouchTrack.over | independent: the pointer's target and the hover chain are cleared separately | independent |
-| crates/kivact-engine/src/model/pointer/state.rs:107 | TouchTrack.hover | - | OPEN |
-| crates/kivact-engine/src/model/pointer/state.rs:115 | PenTrack.over | independent: the pointer's target and the hover chain are cleared separately | independent |
-| crates/kivact-engine/src/model/pointer/state.rs:117 | PenTrack.hover | - | OPEN |
-| crates/kivact-engine/src/model/pointer/state.rs:154 | Route.capture | independent: capture and primary press have independent lifetimes | independent |
-| crates/kivact-engine/src/model/pointer/state.rs:155 | Route.press | - | OPEN |
-| crates/kivact-engine/src/model/pointer/state.rs:382 | PointerSource.pressure | option: absent means the event reported no pressure | option |
-| crates/kivact-engine/src/model/pointer/state.rs:385 | PointerSource.tilt | option: absent means the event reported no tilt | option |
-| crates/kivact-engine/src/model/pointer/state.rs:389 | PointerSource.primary | - | OPEN |
-| crates/kivact-engine/src/mutation.rs:96 | Mutation.style | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:99 | Mutation.measure | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:102 | Mutation.text | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:106 | Mutation.placed | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:109 | Mutation.restack | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:112 | Mutation.paint | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:115 | Mutation.states | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:118 | Mutation.read_only | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:121 | Mutation.subtree | independent: a fact reported by the write; any set of them can be reported | independent |
-| crates/kivact-engine/src/mutation.rs:124 | Mutation.local_text | independent: a fact reported by the write; any set of them can be reported | independent |
+| crates/kivact-engine/src/model/pointer/state.rs:187 | Route.capture | independent: where the gesture's listener events go: set by any button's Down over a listener or by set_pointer_capture, cleared when no button is held; a secondary-button drag has it without a press | independent |
+| crates/kivact-engine/src/model/pointer/state.rs:189 | Route.press | independent: the primary button's pressed chain and activation target, set only by primary_press and taken by that button's Up; a press over a node without a pointer listener has no capture, and a listener may release the capture mid-press | independent |
+| crates/kivact-engine/src/model/pointer/state.rs:440 | PointerSource.pressure | independent: the pressure of the pointer's last shell sample (shell.rs); platforms report pressure and tilt apart (a touch may have pressure and no tilt, a mouse neither), so every pair occurs | independent |
+| crates/kivact-engine/src/model/pointer/state.rs:443 | PointerSource.tilt | independent: the pen tilt of the pointer's last shell sample (shell.rs); platforms report tilt and pressure apart (a pen may lack either, a mouse has neither), so every pair occurs | independent |
+| crates/kivact-engine/src/mutation.rs:98 | Mutation.style | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:101 | Mutation.measure | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:104 | Mutation.text | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:108 | Mutation.placed | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:111 | Mutation.restack | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:114 | Mutation.paint | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:117 | Mutation.states | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:120 | Mutation.read_only | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:123 | Mutation.subtree | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
+| crates/kivact-engine/src/mutation.rs:126 | Mutation.payload_only | independent: one flag of the invalidation set a property declares in the props table (host/write/typed.rs `mut =`); sets combine flags of distinct concerns with Mutation::and and Model::apply reads each flag in its own step, so any union is valid | independent |
 | crates/kivact-engine/src/paint/state.rs:156 | Ink.rect | cache: the drawn area of the node; absent means nothing is drawn | cache |
 | crates/kivact-engine/src/paint/state.rs:161 | Ink.generation | identity: the layout generation the ink was found for; readers compare it with their own | identity |
-| crates/kivact-engine/src/paint/state.rs:214 | Step.transform | projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk | projection |
-| crates/kivact-engine/src/paint/state.rs:221 | Step.clips | projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk | projection |
-| crates/kivact-engine/src/paint/state.rs:223 | Step.presence_clip | projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk | projection |
-| crates/kivact-engine/src/paint/state.rs:225 | Step.rounded | projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk | projection |
-| crates/kivact-engine/src/paint/state.rs:229 | Step.own | independent: whether the node draws itself; any grouping can hold either | independent |
-| crates/kivact-engine/src/paint/state.rs:238 | Step.layer | projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk | projection |
-| crates/kivact-engine/src/paint/state.rs:342 | ChildIndex.axis | cache: the axis the reaches are sorted along; absent means they are not sorted | cache |
-| crates/kivact-engine/src/paint/state.rs:352 | ChildIndex.pass | identity: the layout pass the entries' geometry is from; readers compare it with their own | identity |
-| crates/kivact-engine/src/text_input/edit_lines.rs:12 | EditLines.damage | cache: the damage the next shaping applies, from the refresh that made these lines | cache |
-| crates/kivact-engine/src/text_input/edit_lines.rs:24 | EditLines.colors | - | OPEN |
-| crates/kivact-engine/src/text_input/records.rs:25 | Key.multiline | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/kivact-engine/src/text_input/records.rs:27 | Key.wrap_width | cache: one component of a cache key; equality of the whole key is what matters | cache |
-| crates/kivact-engine/src/text_input/records.rs:87 | Kept.colors | cache: the line's colors, kept until they are resolved again | cache |
-| crates/kivact-engine/src/text_input/records.rs:89 | Kept.painted | cache: its glyphs shaped with its colors, over the text color they were shaped with | cache |
-| crates/kivact-engine/src/text_input/records.rs:92 | Kept.run | - | type |
-| crates/kivact-engine/src/text_input/source.rs:13 | Source.damage | independent: the damage since the last refresh, from the same snapshot | independent |
-| crates/kivact-engine/src/text_input/source.rs:18 | Source.password | independent: one of the input's flags in the snapshot; any combination is valid | independent |
-| crates/kivact-engine/src/text_input/source.rs:23 | Source.multiline | independent: one of the input's flags in the snapshot; any combination is valid | independent |
-| crates/kivact-engine/src/text_input/source.rs:26 | Source.wrap_width | option: absent means the text does not soft-wrap | option |
+| crates/kivact-engine/src/paint/state.rs:239 | Step.transform | option: absent means the node is drawn without its own transform | option |
+| crates/kivact-engine/src/paint/state.rs:248 | Step.presence_clip | option: absent means no presence clip applies | option |
+| crates/kivact-engine/src/paint/state.rs:250 | Step.own | independent: whether the node draws itself; any grouping can hold either | independent |
+| crates/kivact-engine/src/paint/state.rs:259 | Step.layer | option: absent means the node is drawn in its parent's layer | option |
+| crates/kivact-engine/src/paint/state.rs:360 | ChildIndex.axis | cache: the axis the reaches are sorted along; absent means they are not sorted | cache |
+| crates/kivact-engine/src/paint/state.rs:370 | ChildIndex.pass | identity: the layout pass the entries' geometry is from; readers compare it with their own | identity |
+| crates/kivact-engine/src/text_input/edit_lines.rs:12 | EditLines.damage | cache: the editor damage since these lines' revision, merged by hold_damage (EditorNode::flush_damage) and taken by refresh_lines; a hint only: absent or of another base, the lines are rebuilt from the text | cache |
+| crates/kivact-engine/src/text_input/edit_lines.rs:25 | EditLines.coloring | cache: the colorizer the kept line colors were made with and how many leading lines hold them; any pending damage can stand beside it | cache |
+| crates/kivact-engine/src/text_input/records.rs:83 | Kept.colors | cache: the line's colors, kept until they are resolved again | cache |
+| crates/kivact-engine/src/text_input/records.rs:85 | Kept.painted | cache: its glyphs shaped with its colors, over the text color they were shaped with | cache |
+| crates/kivact-engine/src/text_input/records.rs:88 | Kept.run | - | type |
+| crates/kivact-engine/src/text_input/source.rs:13 | Source.damage | independent: the damage refresh_lines takes from the visible lines (none for a width probe or before any edit); password is the node's purpose at this refresh, so edits of a masked or plain input give every pair | independent |
+| crates/kivact-engine/src/text_input/source.rs:18 | Source.password | independent: the node's password purpose (HostNode::password) at this refresh; damage comes from edits of any input, masked or not, so both pairs occur | independent |
 | crates/kivact-engine/src/tree/child_order.rs:9 | Link.previous | independent: the neighbor links of one child; each side is absent at an end of the order | independent |
 | crates/kivact-engine/src/tree/child_order.rs:11 | Link.next | independent: the neighbor links of one child; each side is absent at an end of the order | independent |
-| crates/kivact-engine/src/tree/node.rs:126 | Place.transformed | cache: its base paint or a state style transforms it | cache |
-| crates/kivact-engine/src/tree/node.rs:131 | Place.z_states | cache: a state style sets its z-index | cache |
-| crates/kivact-engine/src/tree/node_tree.rs:16 | NodeTree.pending_child_order | independent: a queue of child orders to pack; any set of parents can be pending | independent |
-| crates/kivact-engine/src/tree/node_tree.rs:20 | NodeTree.root | option: absent means the tree has no root | option |
-| crates/kivact-gpu-share/src/common.rs:14 | Identity.luid | identity: part of the adapter identity its graphics API reports | identity |
-| crates/kivact-gpu-share/src/common.rs:17 | Identity.device_uuid | identity: part of the adapter identity its graphics API reports | identity |
-| crates/kivact-gpu-share/src/common.rs:20 | Identity.driver_uuid | identity: part of the adapter identity its graphics API reports | identity |
-| crates/kivact-gpu-share/src/pool.rs:132 | Slots.next | cache: the cursor of the round robin; the next texture to draw | cache |
-| crates/kivact-gpu-share/src/pool.rs:135 | Slots.last | identity: the last frame value given out | identity |
-| crates/kivact-i18n/src/format.rs:108 | PluralForms.zero | option: absent means the locale has no form for this category | option |
-| crates/kivact-i18n/src/format.rs:111 | PluralForms.one | option: absent means the locale has no form for this category | option |
-| crates/kivact-i18n/src/format.rs:114 | PluralForms.two | option: absent means the locale has no form for this category | option |
-| crates/kivact-i18n/src/format.rs:117 | PluralForms.few | option: absent means the locale has no form for this category | option |
-| crates/kivact-i18n/src/format.rs:120 | PluralForms.many | option: absent means the locale has no form for this category | option |
-| crates/kivact-i18n/src/numbers.rs:152 | SymbolCapture.symbols | cache: the provider response, captured once when the formatter is built | cache |
-| crates/kivact-i18n/src/numbers.rs:154 | SymbolCapture.digits | cache: the provider response, captured once when the formatter is built | cache |
+| crates/kivact-engine/src/tree/node.rs:134 | Place.transformed | cache: update_place derives it from the base paint and state style transforms, a running state motion and the parent's perspective (raise_under_perspective only raises it); the walks skip untransformed nodes by it | cache |
+| crates/kivact-engine/src/tree/node.rs:139 | Place.z_states | cache: a state style sets its z-index | cache |
+| crates/kivact-engine/src/tree/node_tree.rs:25 | NodeTree.pending_child_order | independent: parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so pending work occurs with or without a root | independent |
+| crates/kivact-engine/src/tree/node_tree.rs:29 | NodeTree.root | independent: the Root-kind node, set when the client installs it and cleared when it is removed; detached subtrees queue child-order packing too, so pending work occurs with or without a root | independent |
+| crates/kivact-i18n/src/format.rs:108 | PluralForms.zero | option: the message author's template for the zero category; absent falls back to the other template | option |
+| crates/kivact-i18n/src/format.rs:111 | PluralForms.one | option: the message author's template for the one category; absent falls back to the other template | option |
+| crates/kivact-i18n/src/format.rs:114 | PluralForms.two | option: the message author's template for the two category; absent falls back to the other template | option |
+| crates/kivact-i18n/src/format.rs:117 | PluralForms.few | option: the message author's template for the few category; absent falls back to the other template | option |
+| crates/kivact-i18n/src/format.rs:120 | PluralForms.many | option: the message author's template for the many category; absent falls back to the other template | option |
+| crates/kivact-i18n/src/numbers.rs:152 | SymbolCapture.symbols | independent: the decimal symbols ICU loads through this provider while it builds the formatter; ICU loads the digits through the other slot in its own order, and NumberSymbols::new reads both once after the build | independent |
+| crates/kivact-i18n/src/numbers.rs:154 | SymbolCapture.digits | independent: the decimal digits ICU loads through this provider while it builds the formatter; ICU loads the symbols through the other slot in its own order, and NumberSymbols::new reads both once after the build | independent |
 | crates/kivact-interaction/src/combobox/handle.rs:114 | ComboboxApi.input_state | independent: the observation of the attached input part, absent until it attaches | independent |
-| crates/kivact-interaction/src/combobox/handle.rs:116 | ComboboxApi.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
+| crates/kivact-interaction/src/combobox/handle.rs:116 | ComboboxApi.content_state | independent: set by ComboboxApi::content when the list surface attaches; the input part attaches separately through ComboboxApi::input, before the surface first mounts | independent |
 | crates/kivact-interaction/src/combobox/handle.rs:126 | ComboboxApi.session | - | type |
-| crates/kivact-interaction/src/dialog.rs:65 | DismissOn.escape | option: an unhandled Escape closes it | option |
-| crates/kivact-interaction/src/dialog.rs:68 | DismissOn.outside | option: a pointer press outside it (and outside its anchor) closes it | option |
-| crates/kivact-interaction/src/disclosure.rs:55 | DisclosureApi.trigger_state | independent: the observation of the attached trigger part, absent until it attaches | independent |
-| crates/kivact-interaction/src/disclosure.rs:57 | DisclosureApi.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
-| crates/kivact-interaction/src/drag/handle.rs:112 | Step::Stop.owns_edit | independent: whether the ended drag owned the edit session | independent |
-| crates/kivact-interaction/src/drag/handle.rs:114 | Step::Stop.update | independent: what on_end receives, absent for an event with invalid coordinates | independent |
+| crates/kivact-interaction/src/dialog.rs:65 | DismissOn.escape | option: the caller's rule from DialogApi::dismiss (default true); false keeps the dialog open on an unhandled Escape or a window-close request | option |
+| crates/kivact-interaction/src/dialog.rs:68 | DismissOn.outside | option: the caller's rule from DialogApi::dismiss (default true, false for an alert modal); false keeps the dialog open on a pointer press outside it and its anchor | option |
+| crates/kivact-interaction/src/disclosure.rs:55 | DisclosureApi.trigger_state | independent: set by DisclosureApi::trigger when the kit attaches a trigger; the content part attaches through its own call, so a disclosure may have either part without the other | independent |
+| crates/kivact-interaction/src/disclosure.rs:57 | DisclosureApi.content_state | independent: set by DisclosureApi::content while the content part is mounted and emptied when that mount ends; a closed disclosure has its trigger and no content | independent |
+| crates/kivact-interaction/src/drag/handle.rs:112 | Step::Stop.owns_edit | independent: copied from the ended drag's EditOwnership (Owned when the drag began the edit); a drag with or without an edit can end with or without an update | independent |
+| crates/kivact-interaction/src/drag/handle.rs:114 | Step::Stop.update | independent: what on_end receives, absent when the delta from the drag's start is not finite; that depends on the positions alone, so it comes with either edit ownership | independent |
 | crates/kivact-interaction/src/drag/handle.rs:147 | DragApi.observed | independent: the observation of the attached source part, absent until it attaches | independent |
 | crates/kivact-interaction/src/drag/handle.rs:148 | DragApi.session | - | type |
 | crates/kivact-interaction/src/drag/handle.rs:155 | DragApi.disabled | option: the disabled value a setter supplied, absent until set | option |
 | crates/kivact-interaction/src/edit/handle.rs:83 | EditSession.session | - | type |
 | crates/kivact-interaction/src/edit/handle.rs:86 | EditSession.observer | option: the observer callback a setter supplied, absent until set | option |
-| crates/kivact-interaction/src/inline_edit.rs:67 | InlineEdit.phase | - | type |
-| crates/kivact-interaction/src/inline_edit.rs:69 | InlineEdit.reported | projection: the key last written to the caller's binding, written only by the machine's request transition | projection |
-| crates/kivact-interaction/src/list/data.rs:305 | ListItemState.selected | - | OPEN |
-| crates/kivact-interaction/src/list/data.rs:307 | ListItemState.active | projection: readonly snapshot of the row for recipes, written only by ListApi::item_state | projection |
+| crates/kivact-interaction/src/list/data.rs:306 | ListItemState.selected | independent: whether the selection holds the row; a multiple selection or a caller's binding write keeps rows selected while another row is active | independent |
+| crates/kivact-interaction/src/list/data.rs:308 | ListItemState.active | independent: whether the row is the roving or highlighted candidate; arrows under Manual activation, a combobox highlight and Ctrl+arrow move it without selecting | independent |
 | crates/kivact-interaction/src/list/state.rs:39 | State.container_state | independent: the observation of the attached container part, absent until it attaches | independent |
 | crates/kivact-interaction/src/list/state.rs:57 | State.pending | - | type |
-| crates/kivact-interaction/src/menu/level.rs:24 | Level.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
-| crates/kivact-interaction/src/menu/level.rs:37 | Level.retain_disabled_focus | option: the theme's disabled-focus policy, read when the level is built | option |
+| crates/kivact-interaction/src/menu/level.rs:26 | Level.content_state | independent: set by MenuApi::content when this level's surface mounts; a submenu level exists in its session before its surface first mounts | independent |
+| crates/kivact-interaction/src/menu/level.rs:39 | Level.retain_disabled_focus | option: the theme's disabled-focus policy, read when the level is built | option |
 | crates/kivact-interaction/src/menu/session.rs:30 | Session.machine | - | type |
 | crates/kivact-interaction/src/menu/session.rs:33 | Session.press | option: whether the theme tracks a menu press, fixed during setup | option |
-| crates/kivact-interaction/src/menu/state.rs:71 | MenuItemState.check | projection: readonly snapshot of the entry for recipes, written only by MenuApi::item | projection |
-| crates/kivact-interaction/src/menu/state.rs:74 | MenuItemState.expanded | projection: readonly snapshot of the session path for recipes, written only by MenuApi::item | projection |
-| crates/kivact-interaction/src/menu/state.rs:77 | MenuItemState.destructive | option: the entry's authored destructive mark, read for a warning color | option |
-| crates/kivact-interaction/src/menu/state.rs:161 | ItemEntry.disabled | option: whether the entry is disabled, fixed by its author modifiers | option |
-| crates/kivact-interaction/src/menu/state.rs:164 | ItemEntry.disabled_reason | option: the entry's authored disabled reason | option |
-| crates/kivact-interaction/src/menu/state.rs:166 | ItemEntry.icon | option: the entry's authored icon | option |
-| crates/kivact-interaction/src/menu/state.rs:169 | ItemEntry.description | option: the entry's authored description | option |
-| crates/kivact-interaction/src/menu/state.rs:172 | ItemEntry.destructive | option: the entry's authored destructive mark | option |
-| crates/kivact-interaction/src/menu/state.rs:175 | ItemEntry.keep_open | option: whether choosing the entry leaves the menu open | option |
-| crates/kivact-interaction/src/menubar.rs:97 | use_menubar::focus | independent: the focused trigger index of the bar; the menus and the focus move separately | independent |
+| crates/kivact-interaction/src/menu/state.rs:191 | ItemEntry.disabled | option: whether the entry is disabled, fixed by its author modifiers | option |
+| crates/kivact-interaction/src/menu/state.rs:194 | ItemEntry.disabled_reason | option: the entry's authored disabled reason | option |
+| crates/kivact-interaction/src/menu/state.rs:196 | ItemEntry.icon | option: the entry's authored icon | option |
+| crates/kivact-interaction/src/menu/state.rs:199 | ItemEntry.description | option: the entry's authored description | option |
+| crates/kivact-interaction/src/menu/state.rs:202 | ItemEntry.destructive | option: the entry's authored destructive mark | option |
+| crates/kivact-interaction/src/menu/state.rs:205 | ItemEntry.keep_open | option: whether choosing the entry leaves the menu open | option |
+| crates/kivact-interaction/src/menubar.rs:97 | use_menubar::focus | independent: the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any index or none pairs with it | independent |
 | crates/kivact-interaction/src/menubar.rs:110 | use_menubar::menus | option: the menus the bar opens, fixed when the bar is made | option |
-| crates/kivact-interaction/src/popup/api.rs:104 | PopupApi.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
-| crates/kivact-interaction/src/popup/api.rs:106 | PopupApi.trigger_state | independent: the observation of the attached trigger part, absent until it attaches | independent |
+| crates/kivact-interaction/src/popup/api.rs:104 | PopupApi.content_state | independent: set by PopupApi::content_with while the surface is mounted and emptied when it unmounts; the trigger has attached by then or is absent | independent |
+| crates/kivact-interaction/src/popup/api.rs:106 | PopupApi.trigger_state | independent: set by PopupApi::base_trigger at the trigger's mount; while the popup is closed there is a trigger and no content | independent |
 | crates/kivact-interaction/src/popup/api.rs:110 | PopupApi.machine | - | type |
-| crates/kivact-interaction/src/scalar/edit_state.rs:147 | Edit.observed | - | OPEN |
-| crates/kivact-interaction/src/scalar/edit_state.rs:155 | Edit.bounds | option: caller-supplied bounds of a thumb that another thumb limits | option |
-| crates/kivact-interaction/src/select/handle.rs:132 | SelectApi.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
+| crates/kivact-interaction/src/scalar/edit_state.rs:148 | Edit.observed | independent: the state of the part the kit attached, absent until input() or thumb() attaches it; single and range thumbs (bounds None or Some) exist both before and after attaching | independent |
+| crates/kivact-interaction/src/scalar/edit_state.rs:156 | Edit.bounds | option: caller-supplied bounds of a thumb that another thumb limits | option |
+| crates/kivact-interaction/src/select/handle.rs:132 | SelectApi.content_state | independent: set by SelectApi::content_in when the option list or sheet mounts; the preview callback beside it is set by the caller at setup, before or without any surface | independent |
 | crates/kivact-interaction/src/select/handle.rs:136 | SelectApi.preview | option: the preview callback a setter supplied, absent until set | option |
 | crates/kivact-interaction/src/select/handle.rs:142 | SelectApi.session | - | type |
 | crates/kivact-interaction/src/select/machine.rs:20 | State::Open.highlight | independent: the key the keyboard highlights in the open list | independent |
 | crates/kivact-interaction/src/select/machine.rs:22 | State::Open.hovered | independent: the key the pointer is over in the open list | independent |
-| crates/kivact-interaction/src/select/machine.rs:23 | State::Open.previewed | - | OPEN |
+| crates/kivact-interaction/src/select/machine.rs:24 | State::Open.previewed | projection: the option last reported to the preview callback, written only by Machine::transition on Event::Preview, which only track_preview sends (the hovered key, else the list's active key); Open starts it at None and Close reports None | projection |
 | crates/kivact-interaction/src/space_pan/handle.rs:19 | SpacePanApi.observed | independent: the observation of the attached surface part, absent until it attaches | independent |
 | crates/kivact-interaction/src/space_pan/handle.rs:20 | SpacePanApi.held | - | type |
 | crates/kivact-interaction/src/splitter/handle.rs:117 | SplitterApi.observed | independent: the observation of the attached handle part, absent until it attaches | independent |
 | crates/kivact-interaction/src/splitter/handle.rs:121 | SplitterApi.machine | - | type |
-| crates/kivact-interaction/src/table/data.rs:17 | Header.sortable | option: whether activating the header sorts by the column | option |
+| crates/kivact-interaction/src/table/data.rs:17 | Header.sortable | option: whether the caller gave the column a ColumnDef::compare, copied by ColumnDef::header; false leaves the header unsortable | option |
 | crates/kivact-interaction/src/table/data.rs:19 | Header.width | option: the starting width in the caller's unit; absent leaves it to layout | option |
-| crates/kivact-interaction/src/table/data.rs:22 | Header.min_width | option: the minimum width in the caller's unit | option |
-| crates/kivact-interaction/src/table/data.rs:110 | TableRowState.selected | projection: readonly snapshot of the table selection for recipes, written only by the row part | projection |
-| crates/kivact-interaction/src/table/data.rs:112 | TableRowState.active | projection: readonly snapshot of the list tab stop for recipes, written only by the row part | projection |
-| crates/kivact-interaction/src/table/data.rs:122 | TableCellState.selected | projection: readonly snapshot of the table selection for recipes, written only by the cell part | projection |
-| crates/kivact-interaction/src/table/data.rs:125 | TableCellState.active | projection: readonly snapshot of the list tab stop for recipes, written only by the cell part | projection |
-| crates/kivact-interaction/src/table/model.rs:66 | ColumnDef.width | option: width | option |
-| crates/kivact-interaction/src/table/model.rs:68 | ColumnDef.min_width | option: min width | option |
-| crates/kivact-interaction/src/table/model.rs:70 | ColumnDef.compare | option: compare | option |
-| crates/kivact-interaction/src/table/model.rs:72 | ColumnDef.matches | option: matches | option |
-| crates/kivact-interaction/src/table/model.rs:74 | ColumnDef.matches_value | option: matches value | option |
+| crates/kivact-interaction/src/table/data.rs:22 | Header.min_width | option: the caller's ColumnDef::min_width, copied by ColumnDef::header; absent keeps the resize range's own minimum | option |
+| crates/kivact-interaction/src/table/data.rs:110 | TableRowState.selected | independent: whether the table selection holds the row; Space, a pointer press and the caller's binding change it, and a multiple selection keeps rows selected while the tab stop is elsewhere | independent |
+| crates/kivact-interaction/src/table/data.rs:112 | TableRowState.active | independent: whether the row holds the tab stop (itself under TableFocus::Rows, one of its cells under TableFocus::Cells); arrows between cells and under Manual activation move it without changing the selection | independent |
+| crates/kivact-interaction/src/table/data.rs:122 | TableCellState.selected | independent: copied from the cell's row selection; Space selects the row of the focused cell, and arrows leave the selection where it is | independent |
+| crates/kivact-interaction/src/table/data.rs:125 | TableCellState.active | independent: whether the cell holds the tab stop, only under TableFocus::Cells; arrows move it between cells of selected and unselected rows alike | independent |
+| crates/kivact-interaction/src/table/model.rs:66 | ColumnDef.width | option: the caller's starting width from with_width; absent leaves the column width to layout | option |
+| crates/kivact-interaction/src/table/model.rs:68 | ColumnDef.min_width | option: the caller's resize lower bound from min_width, finite and non-negative only; absent keeps the resize range's own minimum | option |
+| crates/kivact-interaction/src/table/model.rs:70 | ColumnDef.compare | option: the caller's row ordering from compare; absent (or without_ordering) makes the column unsortable | option |
+| crates/kivact-interaction/src/table/model.rs:72 | ColumnDef.matches | option: the caller's text matcher from filter; absent leaves the column out of text filtering | option |
+| crates/kivact-interaction/src/table/model.rs:74 | ColumnDef.matches_value | option: the caller's typed-filter matcher from filter_value; absent leaves the column out of typed filtering | option |
 | crates/kivact-interaction/src/table/model.rs:301 | DataTableModelApi.sort | option: the sort order a setter supplied, absent until set | option |
 | crates/kivact-interaction/src/table/model.rs:303 | DataTableModelApi.query | option: the text query a setter supplied, absent until set | option |
 | crates/kivact-interaction/src/table/model.rs:305 | DataTableModelApi.column_queries | option: the column queries a setter supplied, absent until set | option |
@@ -516,87 +470,83 @@ and `OPEN` when the field has no closure.
 | crates/kivact-interaction/src/table/model.rs:344 | use_data_table_model::query | option: the text query a setter supplies; absent shows every row | option |
 | crates/kivact-interaction/src/table/model.rs:346 | use_data_table_model::column_queries | option: the per-column queries a setter supplies; absent shows every row | option |
 | crates/kivact-interaction/src/table/model.rs:348 | use_data_table_model::arrangement | option: the row arrangement a setter supplies; absent keeps the caller's rows | option |
-| crates/kivact-interaction/src/table/model.rs:350 | use_data_table_model::typed_queries | option: the typed queries a setter supplies; absent searches every label | option |
+| crates/kivact-interaction/src/table/model.rs:350 | use_data_table_model::typed_queries | option: the typed column filters a setter supplies; absent applies no typed filter | option |
 | crates/kivact-interaction/src/table/model.rs:352 | use_data_table_model::paging | option: the paging a setter supplies; absent shows every row | option |
 | crates/kivact-interaction/src/text_edit/handle.rs:500 | Data.observed | independent: the observation of the attached control part, absent until it attaches | independent |
 | crates/kivact-interaction/src/text_edit/handle.rs:504 | Data.control | - | type |
 | crates/kivact-interaction/src/text_edit/handle.rs:506 | Data.next_control_id | identity: allocates control ids; the mounted id lives in the machine state | identity |
-| crates/kivact-interaction/src/toaster/column.rs:42 | Effect::Dismiss.previous | independent: the focus target to restore, absent when there is none | independent |
-| crates/kivact-interaction/src/toaster/column.rs:44 | Effect::Dismiss.callback | option: the caller's dismiss callback, absent when there is none | option |
+| crates/kivact-interaction/src/toaster/column.rs:42 | Effect::Dismiss.previous | independent: the return target when the focus was inside the dismissed toast; a toast with or without an on_dismiss handler can hold the focus, so it pairs with either callback | independent |
+| crates/kivact-interaction/src/toaster/column.rs:44 | Effect::Dismiss.callback | option: the caller's on_dismiss handler, absent when the toast set none or was still waiting beyond the limit | option |
 | crates/kivact-interaction/src/toaster/data.rs:116 | Toast.body | option: the second line, if there is one | option |
-| crates/kivact-interaction/src/toaster/data.rs:121 | Toast.duration | option: how long it stays; absent until it is dismissed | option |
+| crates/kivact-interaction/src/toaster/data.rs:121 | Toast.duration | option: the caller's display time from Toast::duration (default 5 s); absent keeps the toast until it is dismissed | option |
 | crates/kivact-interaction/src/toaster/data.rs:124 | Toast.action | option: the action's label and function, if there is one | option |
 | crates/kivact-interaction/src/toggle.rs:33 | ButtonApi.observed | independent: the observation of the attached part, absent until it attaches | independent |
 | crates/kivact-interaction/src/toggle.rs:35 | ButtonApi.disabled | option: the disabled value a setter supplied, absent until set | option |
-| crates/kivact-interaction/src/tooltip/api.rs:131 | TooltipApi.trigger_state | independent: the observation of the attached trigger part, absent until it attaches | independent |
-| crates/kivact-interaction/src/tooltip/api.rs:133 | TooltipApi.content_state | independent: the observation of the attached content part, absent until it attaches | independent |
-| crates/kivact-interaction/src/tree.rs:331 | TreeItemState.selected | - | OPEN |
-| crates/kivact-interaction/src/tree.rs:333 | TreeItemState.active | projection: readonly snapshot of the row for recipes, written only by TreeApi::item | projection |
+| crates/kivact-interaction/src/tooltip/api.rs:131 | TooltipApi.trigger_state | independent: set by TooltipApi::trigger at mount; the hint content is mounted only while the tooltip shows | independent |
+| crates/kivact-interaction/src/tooltip/api.rs:133 | TooltipApi.content_state | independent: set by TooltipApi::content when the hint mounts after the show delay, after the trigger attached | independent |
+| crates/kivact-interaction/src/tree.rs:332 | TreeItemState.selected | independent: copied from the row's ListItemState; a multiple selection or a caller's binding write keeps rows selected while another row is active | independent |
+| crates/kivact-interaction/src/tree.rs:334 | TreeItemState.active | independent: copied from the row's ListItemState; Ctrl+arrow moves the active row without selecting it | independent |
 | crates/kivact-interaction/src/zoom_pan/handle.rs:22 | ZoomPanApi.observed | independent: the observation of the attached viewport part, absent until it attaches | independent |
 | crates/kivact-interaction/src/zoom_pan/handle.rs:26 | ZoomPanApi.gesture | - | type |
-| crates/kivact-layout/src/columns.rs:61 | Counted.unfiltered | cache: whether no child is filtered out, counted at one epoch | cache |
-| crates/kivact-layout/src/columns.rs:64 | Counted.at | cache: the last filtered position looked up at that epoch | cache |
-| crates/kivact-layout/src/style/node.rs:93 | NodeStyle.aspect_ratio | option: the authored property; absent means the taffy default | option |
-| crates/kivact-layout/src/style/node.rs:101 | NodeStyle.align_items | option: the authored property; absent means the taffy default | option |
-| crates/kivact-layout/src/style/node.rs:103 | NodeStyle.align_self | option: the authored property; absent means the taffy default | option |
-| crates/kivact-layout/src/style/node.rs:105 | NodeStyle.align_content | option: the authored property; absent means the taffy default | option |
-| crates/kivact-layout/src/style/node.rs:107 | NodeStyle.justify_content | option: the authored property; absent means the taffy default | option |
-| crates/kivact-layout/src/style/node.rs:111 | NodeStyle.grid_area | - | OPEN |
-| crates/kivact-layout/src/style/node.rs:114 | NodeStyle.justify_self | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:95 | NodeStyle.aspect_ratio | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:103 | NodeStyle.align_items | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:105 | NodeStyle.align_self | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:107 | NodeStyle.align_content | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:109 | NodeStyle.justify_content | option: the authored property; absent means the taffy default | option |
+| crates/kivact-layout/src/style/node.rs:114 | NodeStyle.grid_area | option: the node's placement as a grid item (column, row, justify-self); absent means auto-placed and aligned by the container's justify_items | option |
 | crates/kivact-runtime/src/motion/state.rs:103 | AnimInfo.created_at | option: absent means the owner is gone (its App is no longer registered) | option |
 | crates/kivact-runtime/src/motion/state.rs:107 | AnimInfo.status | - | type |
 | crates/kivact-runtime/src/motion/state.rs:110 | AnimInfo.decorative | independent: a fixed property of the animation; any value is valid beside its status | independent |
 | crates/kivact-runtime/src/motion/state.rs:442 | LoopCell.state | - | type |
 | crates/kivact-runtime/src/motion/state.rs:444 | LoopCell.frames | statistic: the number of frames this loop has run; a count, valid at any value beside the loop's state | statistic |
-| crates/kivact-runtime/src/reactive/data.rs:70 | Runtime.seq | statistic: the effect creation-order ID counter; any value is valid on its own | statistic |
-| crates/kivact-runtime/src/reactive/data.rs:72 | Runtime.write_epoch | independent: the write counter labels every notification; it is valid at any value beside the extension set | independent |
-| crates/kivact-runtime/src/reactive/data.rs:75 | Runtime.ext | independent: the extensions installed when the App is created; the write counter is unrelated | independent |
-| crates/kivact-runtime/src/reactive/data.rs:85 | Runtime.state | - | type |
-| crates/kivact-runtime/src/reactive/data.rs:86 | Runtime.exit | - | type |
-| crates/kivact-runtime/src/reactive/data.rs:88 | Runtime.clock | statistic: the runtime's clock reading in nanoseconds; any value is valid on its own | statistic |
-| crates/kivact-runtime/src/reactive/data.rs:174 | MemoCell.value | cache: the memo's last computed value; the graph state is CompState | cache |
-| crates/kivact-runtime/src/reactive/data.rs:177 | MemoCell.eq | cache: part of the memo's cache entry; the value and its equality function are used only together | cache |
-| crates/kivact-runtime/src/reactive/data.rs:209 | SourceNode.changed_at | independent: the write version the graph comparisons read; the diagnostic record below may be absent | independent |
-| crates/kivact-runtime/src/reactive/data.rs:212 | SourceNode.written | independent: the diagnostic record of the last value-changing write; absent until one happens | independent |
-| crates/kivact-runtime/src/reactive/data.rs:321 | OwnerEntry.parent | option: absent means the root owner, which has no parent | option |
-| crates/kivact-runtime/src/reactive/data.rs:334 | OwnerEntry.phase | - | type |
-| crates/kivact-runtime/src/reactive/data.rs:367 | Frame.owner | independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts | independent |
-| crates/kivact-runtime/src/reactive/data.rs:370 | Frame.pure | independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts | independent |
-| crates/kivact-runtime/src/reactive/data.rs:372 | Frame.writer | independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts | independent |
-| crates/kivact-runtime/src/reactive/data.rs:374 | Frame.tracking | independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts | independent |
-| crates/kivact-runtime/src/reactive/detail.rs:59 | DetailWrite.cause | - | OPEN |
-| crates/kivact-runtime/src/reactive/detail.rs:70 | DetailWrite.changed | independent: a read-only DevTools record of one write; whether it changed the value is a fact of its own | independent |
-| crates/kivact-runtime/src/reactive/detail.rs:80 | DetailRun.cause | - | OPEN |
-| crates/kivact-runtime/src/reactive/detail.rs:88 | DetailRun.changed | independent: a read-only DevTools record of one run; whether it changed the value is a fact of its own | independent |
-| crates/kivact-runtime/src/reactive/diag.rs:32 | Reported.seq | - | OPEN |
-| crates/kivact-runtime/src/reactive/diag.rs:35 | Reported.handled | independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number | independent |
+| crates/kivact-runtime/src/reactive/data.rs:71 | Runtime.seq | identity: allocates effect creation-order ids | identity |
+| crates/kivact-runtime/src/reactive/data.rs:73 | Runtime.write_epoch | identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes | identity |
+| crates/kivact-runtime/src/reactive/data.rs:76 | Runtime.ext | independent: ADR-17: filled by the constructor before it returns; never observed empty | independent |
+| crates/kivact-runtime/src/reactive/data.rs:86 | Runtime.state | - | type |
+| crates/kivact-runtime/src/reactive/data.rs:87 | Runtime.exit | - | type |
+| crates/kivact-runtime/src/reactive/data.rs:89 | Runtime.clock | independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state | independent |
+| crates/kivact-runtime/src/reactive/data.rs:175 | MemoCell.value | cache: the memo's last computed value; the graph state is CompState | cache |
+| crates/kivact-runtime/src/reactive/data.rs:178 | MemoCell.eq | option: absent means every recomputation notifies (no equality check) | option |
+| crates/kivact-runtime/src/reactive/data.rs:210 | SourceNode.changed_at | identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it | identity |
+| crates/kivact-runtime/src/reactive/data.rs:213 | SourceNode.written | statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it | statistic |
+| crates/kivact-runtime/src/reactive/data.rs:333 | OwnerEntry.parent | independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs | independent |
+| crates/kivact-runtime/src/reactive/data.rs:338 | OwnerEntry.extra | independent: the box of the rare members, created by the first object, constant, cleanup, context or error handler registered on the owner and kept until the entry is removed; either phase holds it or not (disposal empties it, never drops it) | independent |
+| crates/kivact-runtime/src/reactive/data.rs:343 | OwnerEntry.phase | - | type |
+| crates/kivact-runtime/src/reactive/data.rs:388 | Frame.owner | independent: callback_frame and handler_frame replace the owner under any frame kind | independent |
+| crates/kivact-runtime/src/reactive/data.rs:391 | Frame.pure | independent: pure_section sets it under any frame kind and owner | independent |
+| crates/kivact-runtime/src/reactive/data.rs:393 | Frame.writer | independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame) | independent |
+| crates/kivact-runtime/src/reactive/data.rs:395 | Frame.tracking | independent: untracked_frame and callback_frame clear it under any kind | independent |
+| crates/kivact-runtime/src/reactive/detail.rs:60 | DetailWrite.cause | independent: the turn's last cause when the write happened (None before the turn's first cause or after the cap dropped one); a write with or without a cause may or may not change the value | independent |
+| crates/kivact-runtime/src/reactive/detail.rs:71 | DetailWrite.changed | independent: a read-only DevTools record of one write; whether it changed the value is a fact of its own | independent |
+| crates/kivact-runtime/src/reactive/detail.rs:82 | DetailRun.cause | independent: the turn's last cause when the run happened (None before the turn's first cause or after the cap dropped one); a run with or without a cause may or may not change its value | independent |
+| crates/kivact-runtime/src/reactive/detail.rs:90 | DetailRun.changed | independent: a read-only DevTools record of one run; whether it changed the value is a fact of its own | independent |
+| crates/kivact-runtime/src/reactive/diag.rs:33 | Reported.seq | identity: the report's number in the sequence the error and diagnostic rings share; DevTools pages by it (since) and keys rows by it | identity |
+| crates/kivact-runtime/src/reactive/diag.rs:36 | Reported.handled | independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number | independent |
 | crates/kivact-runtime/src/reactive/error.rs:33 | ErrorKind::Disposed.created_at | option: absent means the location is unknown | option |
 | crates/kivact-runtime/src/reactive/error.rs:37 | ErrorKind::Disposed.disposed_by | option: absent means the location is unknown | option |
 | crates/kivact-runtime/src/reactive/error.rs:101 | Inner.at | option: absent means the error has no source position | option |
 | crates/kivact-runtime/src/reactive/error.rs:103 | Inner.source | option: absent means the error has no cause | option |
-| crates/kivact-runtime/src/reactive/host_types.rs:7 | Pending.user | independent: one of four independent wake facts; any combination can be pending | independent |
-| crates/kivact-runtime/src/reactive/host_types.rs:10 | Pending.render | independent: one of four independent wake facts; any combination can be pending | independent |
-| crates/kivact-runtime/src/reactive/host_types.rs:13 | Pending.later | independent: one of four independent wake facts; any combination can be pending | independent |
-| crates/kivact-runtime/src/reactive/host_types.rs:16 | Pending.turn_requested | independent: one of four independent wake facts; any combination can be pending | independent |
-| crates/kivact-runtime/src/task/action.rs:250 | ActionCell.last | projection: the input of the latest started run, written only when a run starts (Latest make, worker pop) | projection |
-| crates/kivact-runtime/src/task/action.rs:255 | ActionCell.next_handler | - | OPEN |
+| crates/kivact-runtime/src/reactive/host_types.rs:7 | Pending.user | independent: a snapshot of the user-effect queue taken by Runtime::pending; user effects queue whether or not render effects, deferred reports or a sent wake exist | independent |
+| crates/kivact-runtime/src/reactive/host_types.rs:10 | Pending.render | independent: a snapshot of the render and internal effect queue taken by Runtime::pending; a render effect queues with or without user effects, deferred reports or a sent wake | independent |
+| crates/kivact-runtime/src/reactive/host_types.rs:13 | Pending.later | independent: a snapshot of the deferred error reports taken by Runtime::pending; layout can report an error whatever effects are queued and whether a wake was sent | independent |
+| crates/kivact-runtime/src/reactive/host_types.rs:16 | Pending.turn_requested | independent: a snapshot of TurnState::WakeSent taken by Runtime::pending; a wake is also sent for tasks and timers, and a running turn has queued work without one, so it pairs with any queue contents | independent |
+| crates/kivact-runtime/src/task/action.rs:250 | ActionCell.last | projection: written only by ActionCell::begin_run (the input of the latest started run; None before the first run) | projection |
+| crates/kivact-runtime/src/task/action.rs:256 | ActionCell.next_handler_id | identity: allocates on_complete registration ids; each DoneHandler keeps its own id and its owner's cleanup removes it by that id | identity |
 | crates/kivact-runtime/src/task/async_state.rs:65 | AsyncCell.state | - | type |
 | crates/kivact-runtime/src/task/async_state.rs:67 | AsyncCell.latest | projection: written only by AsyncCell::publish (Ready(v) implies latest == Some(v)) | projection |
 | crates/kivact-runtime/src/task/state.rs:104 | TaskState.tokio | - | type |
 | crates/kivact-runtime/src/task/state.rs:111 | TaskState.blocking_threads | option: absent means the default worker count | option |
 | crates/kivact-runtime/src/task/state.rs:122 | TaskState.pool | - | type |
-| crates/kivact-shader/src/entry.rs:17 | Interface.params_declared | independent: read separately from the struct declaration and the entry signature; every combination is valid | independent |
-| crates/kivact-shader/src/entry.rs:20 | Interface.takes_params | independent: read separately from the struct declaration and the entry signature; every combination is valid | independent |
-| crates/kivact-style/src/draw/layer.rs:41 | Layer.area | option: an authored layer property; absent means the layer has none | option |
+| crates/kivact-style/src/draw/layer.rs:41 | Layer.area | option: set by Layer::area; absent means the group, its clip shape and its mask use the whole canvas (Draw::size) | option |
 | crates/kivact-style/src/draw/layer.rs:43 | Layer.transform | option: an authored layer property; absent means the layer has none | option |
 | crates/kivact-style/src/draw/layer.rs:47 | Layer.clip_rect | option: an authored layer property; absent means the layer has none | option |
 | crates/kivact-style/src/draw/layer.rs:49 | Layer.clip | option: an authored layer property; absent means the layer has none | option |
 | crates/kivact-style/src/draw/layer.rs:55 | Layer.mask | option: an authored layer property; absent means the layer has none | option |
 | crates/kivact-style/src/draw/layer.rs:57 | Layer.shadow | option: an authored layer property; absent means the layer has none | option |
 | crates/kivact-style/src/draw/text_run.rs:45 | TextFormat.family | option: an authored format property; absent means the inherited or default value | option |
-| crates/kivact-style/src/draw/text_run.rs:51 | TextFormat.italic | option: an authored format property; absent means the inherited or default value | option |
+| crates/kivact-style/src/draw/text_run.rs:51 | TextFormat.italic | option: set by the caller's format literal; false (the default) draws the upright face, true the family's italic face | option |
 | crates/kivact-style/src/draw/text_run.rs:54 | TextFormat.line_height | option: an authored format property; absent means the inherited or default value | option |
-| crates/kivact-style/src/draw/text_run.rs:72 | TextFormat.tabular_nums | option: an authored format property; absent means the inherited or default value | option |
+| crates/kivact-style/src/draw/text_run.rs:72 | TextFormat.tabular_nums | option: set by the caller's format literal; false (the default) keeps the font's digit widths, true adds the tnum feature | option |
 | crates/kivact-style/src/draw/text_run.rs:77 | TextFormat.decoration_color | option: an authored format property; absent means the inherited or default value | option |
 | crates/kivact-style/src/draw/text_run.rs:80 | TextFormat.fill | option: an authored format property; absent means the inherited or default value | option |
 | crates/kivact-style/src/draw/text_run.rs:83 | TextFormat.stroke | option: an authored format property; absent means the inherited or default value | option |
@@ -609,19 +559,19 @@ and `OPEN` when the field has no closure.
 | crates/kivact-style/src/grid.rs:276 | GridStyle.row | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/grid.rs:278 | GridStyle.justify_items | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/grid.rs:280 | GridStyle.justify_self | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/paint/border_image.rs:62 | BorderImage.slice_pct | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/paint/border_image.rs:64 | BorderImage.fill | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/paint/border_image.rs:62 | BorderImage.slice_pct | option: set by slice_pct() and cleared by slice(); false means the slice insets are px of the source, true percent | option |
+| crates/kivact-style/src/paint/border_image.rs:64 | BorderImage.fill | option: set by fill(); false (the CSS default) leaves the middle of the source unpainted | option |
 | crates/kivact-style/src/paint/border_image.rs:66 | BorderImage.width | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/paint/layer.rs:39 | Paint.repeat.0 | independent: the two axes of one authored repeat; every combination is valid | independent |
-| crates/kivact-style/src/paint/layer.rs:39 | Paint.repeat.1 | independent: the two axes of one authored repeat; every combination is valid | independent |
+| crates/kivact-style/src/paint/layer.rs:39 | Paint.repeat.0 | option: set by no_repeat, repeat_x and repeat_y (default (true, true)); false on an axis means one tile along that axis (CSS background-repeat) | option |
+| crates/kivact-style/src/paint/layer.rs:39 | Paint.repeat.1 | option: set by no_repeat, repeat_x and repeat_y (default (true, true)); false on an axis means one tile along that axis (CSS background-repeat) | option |
 | crates/kivact-style/src/paint/layer.rs:42 | Paint.origin | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/resolve/compile.rs:32 | CompiledStyle.retained_paint | option: absent means the style has no retained paint | option |
-| crates/kivact-style/src/resolve/compile.rs:38 | CompiledStyle.text | option: absent means every text property is inherited | option |
-| crates/kivact-style/src/resolve/compile.rs:43 | CompiledStyle.states | option: absent means the style has no state overrides | option |
-| crates/kivact-style/src/resolve/compile.rs:224 | Interactive.focusable | independent: compile inputs; every combination is valid | independent |
-| crates/kivact-style/src/resolve/compile.rs:229 | Interactive.disabled | independent: compile inputs; every combination is valid | independent |
-| crates/kivact-style/src/resolve/compile.rs:233 | Interactive.selected | independent: compile inputs; every combination is valid | independent |
-| crates/kivact-style/src/resolve/compile.rs:236 | Interactive.root | independent: compile inputs; every combination is valid | independent |
+| crates/kivact-style/src/resolve/compile.rs:32 | CompiledStyle.retained_paint | option: compile_style's copy of the style's base paint callback (Style::paint); absent when the style sets none | option |
+| crates/kivact-style/src/resolve/compile.rs:38 | CompiledStyle.text | option: compile_style's text properties, Some when the style sets one or the node is the root (which carries the theme's text defaults); absent inherits every text property | option |
+| crates/kivact-style/src/resolve/compile.rs:43 | CompiledStyle.states | option: compile_style's host state deltas (state_styles), Some when the style sets a hover, pressed, focus, group or enter/exit style; absent means none | option |
+| crates/kivact-style/src/resolve/compile.rs:224 | Interactive.focusable | option: a compile input bind_style sets from the mount's focus-stop fact; false means compile_style adds no theme focus ring or disabled opacity | option |
+| crates/kivact-style/src/resolve/compile.rs:229 | Interactive.disabled | option: a compile input bind_style reads from the caller's disabled prop on every style run; false means the disabled state style is not merged and hover/pressed looks stay | option |
+| crates/kivact-style/src/resolve/compile.rs:233 | Interactive.selected | option: a compile input bind_style reads from the caller's selected prop on every style run; false means the selected state style is not merged | option |
+| crates/kivact-style/src/resolve/compile.rs:236 | Interactive.root | option: a compile input bind_style sets when the node kind is Root; false means unset text props are left for the host to inherit instead of filled from the theme | option |
 | crates/kivact-style/src/sheet/fields.rs:21 | Sides.top | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:23 | Sides.right | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:25 | Sides.bottom | option: one authored property; absent means the inherited or default value | option |
@@ -644,53 +594,53 @@ and `OPEN` when the field has no closure.
 | crates/kivact-style/src/sheet/fields.rs:124 | FlowFields.justify | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:126 | FlowFields.align_content | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:128 | FlowFields.display | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:132 | FlowFields.visibility | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:134 | FlowFields.grid | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:137 | FlowFields.wrap | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:139 | FlowFields.position | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:141 | FlowFields.overflow | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:143 | FlowFields.scroll_axes | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:146 | FlowFields.scroll_snap | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:148 | FlowFields.z_index | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:186 | PaintFields.local_paint | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:188 | PaintFields.background | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:195 | PaintFields.ring | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:199 | PaintFields.shadows | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:201 | PaintFields.opacity | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:203 | PaintFields.isolation | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:205 | PaintFields.border_image | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:207 | PaintFields.scrollbar | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:209 | PaintFields.cursor | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:211 | PaintFields.clip | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:213 | PaintFields.filter | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:215 | PaintFields.backdrop_filter | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:217 | PaintFields.blend | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:219 | PaintFields.mask | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:221 | PaintFields.clip_path | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:276 | TransformFields.rotate | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:278 | TransformFields.scale | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:280 | TransformFields.transform | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:282 | TransformFields.transform_origin | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:284 | TransformFields.translate_z | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:286 | TransformFields.rotate_x | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:288 | TransformFields.rotate_y | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:290 | TransformFields.transform_origin_z | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:292 | TransformFields.perspective | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:294 | TransformFields.perspective_origin | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:296 | TransformFields.transform_style | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:298 | TransformFields.backface | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:300 | TransformFields.will_change | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:338 | TextFields.font_size | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:340 | TextFields.weight | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:342 | TextFields.color | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:344 | TextFields.line_height | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:346 | TextFields.text_wrap | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:348 | TextFields.text_align | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:350 | TextFields.font_family | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:352 | TextFields.italic | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:354 | TextFields.text | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:389 | StateFields.hover | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-style/src/sheet/fields.rs:390 | StateFields.group | - | OPEN |
+| crates/kivact-style/src/sheet/fields.rs:131 | FlowFields.visibility | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:133 | FlowFields.grid | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:136 | FlowFields.wrap | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:138 | FlowFields.position | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:140 | FlowFields.overflow | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:142 | FlowFields.scroll_axes | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:145 | FlowFields.scroll_snap | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:147 | FlowFields.z_index | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:185 | PaintFields.local_paint | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:187 | PaintFields.background | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:194 | PaintFields.ring | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:198 | PaintFields.shadows | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:200 | PaintFields.opacity | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:202 | PaintFields.isolation | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:204 | PaintFields.border_image | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:206 | PaintFields.scrollbar | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:208 | PaintFields.cursor | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:210 | PaintFields.clip | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:212 | PaintFields.filter | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:214 | PaintFields.backdrop_filter | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:216 | PaintFields.blend | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:218 | PaintFields.mask | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:220 | PaintFields.clip_path | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:275 | TransformFields.rotate | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:277 | TransformFields.scale | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:279 | TransformFields.transform | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:281 | TransformFields.transform_origin | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:283 | TransformFields.translate_z | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:285 | TransformFields.rotate_x | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:287 | TransformFields.rotate_y | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:289 | TransformFields.transform_origin_z | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:291 | TransformFields.perspective | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:293 | TransformFields.perspective_origin | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:295 | TransformFields.transform_style | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:297 | TransformFields.backface | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:299 | TransformFields.will_change | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:337 | TextFields.font_size | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:339 | TextFields.weight | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:341 | TextFields.color | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:343 | TextFields.line_height | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:345 | TextFields.text_wrap | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:347 | TextFields.text_align | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:349 | TextFields.font_family | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:351 | TextFields.italic | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:353 | TextFields.text | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:388 | StateFields.hover | option: one authored property; absent means the inherited or default value | option |
+| crates/kivact-style/src/sheet/fields.rs:390 | StateFields.group | option: one authored flag (style().group()); false means the node is not a group, and group_hover/group_focus read the nearest ancestor group, not this flag | option |
 | crates/kivact-style/src/sheet/fields.rs:392 | StateFields.group_hover | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:394 | StateFields.group_focus | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/sheet/fields.rs:396 | StateFields.pressed | option: one authored property; absent means the inherited or default value | option |
@@ -759,299 +709,266 @@ and `OPEN` when the field has no closure.
 | crates/kivact-style/src/text.rs:580 | StyledRange.decoration | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/text.rs:588 | TextDecoration.color | option: one authored property; absent means the inherited or default value | option |
 | crates/kivact-style/src/text.rs:590 | TextDecoration.thickness | option: one authored property; absent means the inherited or default value | option |
-| crates/kivact-test/src/facts.rs:10 | Node.kind | independent: a per-query engine fact; any combination is valid | independent |
-| crates/kivact-test/src/facts.rs:13 | Node.parent | independent: a per-query engine fact; any combination is valid | independent |
+| crates/kivact-test/src/facts.rs:10 | Node.node_type | projection: written only by Facts::new, which copies the engine reader's node type for each id | projection |
+| crates/kivact-test/src/facts.rs:13 | Node.parent | projection: written only by Facts::new, which copies the engine reader's parent for each id | projection |
 | crates/kivact-test/src/facts.rs:15 | Node.at | independent: a per-query creation location; any combination is valid | independent |
 | crates/kivact-test/src/screen/disposal_tests.rs:32 | a_cleanup_writes_signals_and_registers_on_its_disposing_owner::slots | independent: a test slot holding the branch signals; written once | independent |
-| crates/kivact-test/src/screen/disposal_tests.rs:36 | a_cleanup_writes_signals_and_registers_on_its_disposing_owner::open | independent: a test signal; the test observes it on its own | independent |
-| crates/kivact-test/src/screen/disposal_tests.rs:38 | a_cleanup_writes_signals_and_registers_on_its_disposing_owner::closed | independent: a test signal; the test observes it on its own | independent |
-| crates/kivact-test/src/screen/editing_drop_probe.rs:8 | Probe.armed | independent: a test diagnostic; the armed flag is a separate observation | independent |
+| crates/kivact-test/src/screen/disposal_tests.rs:36 | a_cleanup_writes_signals_and_registers_on_its_disposing_owner::open | independent: the show() condition the test flips to dispose the branch; the closed counter and the slot are written by other steps | independent |
+| crates/kivact-test/src/screen/disposal_tests.rs:38 | a_cleanup_writes_signals_and_registers_on_its_disposing_owner::closed | independent: the counter a late cleanup writes after the branch is gone; the test reads it whether open is true or false | independent |
+| crates/kivact-test/src/screen/editing_drop_probe.rs:8 | Probe.armed | independent: the reader and the other live node the test arms this probe with; an unarmed probe skips the drop check, and the shared counters count drops whatever it holds | independent |
 | crates/kivact-test/src/screen/editing_drop_probe.rs:10 | Probe.drops | statistic: a test counter of drops | statistic |
 | crates/kivact-test/src/screen/editing_drop_probe.rs:12 | Probe.reentered | statistic: a test counter of re-entered drops | statistic |
-| crates/kivact-test/src/screen/editing_drop_probe.rs:14 | Probe.reader | independent: a test diagnostic; the reader is set once and read on drop | independent |
 | crates/kivact-test/src/screen/host_sync_tests.rs:25 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::presses | statistic: a test counter of presses | statistic |
 | crates/kivact-test/src/screen/host_sync_tests.rs:28 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::downs | statistic: a test counter of observed downs | statistic |
 | crates/kivact-test/src/screen/host_sync_tests.rs:31 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::disabled | independent: a test slot holding the disabled signal; written once | independent |
-| crates/kivact-test/src/screen/host_sync_tests.rs:35 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::disabled | independent: a test signal; the test observes it on its own | independent |
+| crates/kivact-test/src/screen/host_sync_tests.rs:35 | rejected_pointer_down_cannot_retain_an_ended_region_gesture::disabled | independent: the canvas's disabled input the test sets to reject a pointer down; the press and down counters move only on accepted input | independent |
 | crates/kivact-test/src/screen/host_sync_tests.rs:113 | a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost::presses | statistic: a test counter of presses | statistic |
-| crates/kivact-test/src/screen/host_sync_tests.rs:116 | a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost::downs | statistic: a test counter of observed downs | statistic |
+| crates/kivact-test/src/screen/host_sync_tests.rs:116 | a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost::downs | independent: counts the Down events the canvas handler sees and lets only the first start a gesture; the press counter counts activations separately, so any pair of counts is valid | independent |
 | crates/kivact-test/src/screen/host_sync_tests.rs:353 | replacing_editing_drops_line_state_after_releasing_the_model::drops | statistic: a test counter of drops | statistic |
 | crates/kivact-test/src/screen/host_sync_tests.rs:355 | replacing_editing_drops_line_state_after_releasing_the_model::reentered | statistic: a test counter of re-entered drops | statistic |
-| crates/kivact-test/src/screen/host_sync_tests.rs:357 | replacing_editing_drops_line_state_after_releasing_the_model::reader | independent: a test slot holding the reader; written once | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:88 | virtual_time_drives_sleep_and_frame_loops_exactly::slot | independent: a test slot holding the frame loop; written once | independent |
-| crates/kivact-test/src/screen/real_window_tests.rs:119 | virtual_time_drives_sleep_and_frame_loops_exactly::shown | independent: a test signal; the test observes it on its own | independent |
+| crates/kivact-test/src/screen/real_window_tests.rs:119 | virtual_time_drives_sleep_and_frame_loops_exactly::shown | independent: set by the spawned sleep after 300 ms of virtual time; the frame-loop slot of the same test is filled at mount, before and after it flips | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:138 | a_display_rate_loop_follows_the_window_to_a_faster_display::count | statistic: a test counter of ticks | statistic |
 | crates/kivact-test/src/screen/real_window_tests.rs:140 | a_display_rate_loop_follows_the_window_to_a_faster_display::slot | independent: a test slot holding the frame loop; written once | independent |
 | crates/kivact-test/src/screen/real_window_tests.rs:227 | ticks::count | statistic: a test counter of ticks | statistic |
 | crates/kivact-test/src/screen/real_window_tests.rs:229 | ticks::slot | independent: a test slot holding the frame loop; written once | independent |
-| crates/kivact-types/src/gpu.rs:74 | GpuPreference.backend | option: absent means the default (Arvane's backend order) | option |
-| crates/kivact-types/src/gpu.rs:77 | GpuPreference.adapter | option: absent means the default (as `power` picks) | option |
-| crates/kivact-types/src/gpu.rs:94 | GpuAdapter.luid | identity: DXGI's (or Vulkan's) adapter LUID, in `AdapterMatch::Luid`'s bytes | identity |
-| crates/kivact-types/src/gpu.rs:97 | GpuAdapter.device_uuid | identity: Vulkan's `deviceUUID` | identity |
-| crates/kivact-types/src/gpu.rs:100 | GpuAdapter.driver_uuid | identity: Vulkan's `driverUUID` | identity |
-| crates/kivact-types/src/gpu.rs:103 | GpuAdapter.generation | identity: the device instance; a new generation means every image imported before is gone | identity |
-| crates/kivact-ui/src/alert.rs:25 | BannerState::Shared.shown | - | OPEN |
-| crates/kivact-ui/src/alert.rs:27 | BannerState::Shared.restore | independent: records where the focus was before the banner took it, separately from the current visibility | independent |
-| crates/kivact-ui/src/calendar/navigation.rs:74 | SwipeSnapshot.rtl | independent: a derived request fact; every combination is valid | independent |
-| crates/kivact-ui/src/calendar/navigation.rs:77 | SwipeSnapshot.at_min | independent: a derived request fact; every combination is valid | independent |
-| crates/kivact-ui/src/calendar/navigation.rs:80 | SwipeSnapshot.at_max | independent: a derived request fact; every combination is valid | independent |
-| crates/kivact-ui/src/calendar/view.rs:33 | Calendar.month | option: absent means the component's default | option |
+| crates/kivact-types/src/gpu.rs:75 | GpuPreference.backend | option: absent means the default (Arvane's backend order) | option |
+| crates/kivact-types/src/gpu.rs:78 | GpuPreference.adapter | option: absent means the default (as `power` picks) | option |
+| crates/kivact-ui/src/calendar/navigation.rs:74 | SwipeSnapshot.rtl | independent: computed per event in swipe_navigation from the inherited reading direction; it only flips the drag sign, so it pairs with any at_min/at_max taken from the caller's bounds | independent |
+| crates/kivact-ui/src/calendar/navigation.rs:77 | SwipeSnapshot.at_min | independent: computed per event in swipe_navigation as "shown month <= the caller's min month"; it is true together with at_max when min and max fall in the shown month, which resists drags both ways | independent |
+| crates/kivact-ui/src/calendar/navigation.rs:80 | SwipeSnapshot.at_max | independent: computed per event in swipe_navigation as "shown month >= the caller's max month"; it is set apart from the reading direction and is true with at_min only when both bounds fall in the shown month | independent |
+| crates/kivact-ui/src/calendar/view.rs:33 | Calendar.month | option: Calendar::default_month; absent starts at the selection's month or today, and a caller month binding (displayed_month) takes precedence over it | option |
 | crates/kivact-ui/src/calendar/view.rs:39 | Calendar.week_start | option: absent means the component's default | option |
-| crates/kivact-ui/src/calendar/view.rs:43 | Calendar.displayed_month | option: absent means the component's default | option |
-| crates/kivact-ui/src/calendar_values.rs:31 | CalendarDayVisual.today | independent: a measured value; any value is valid on its own | independent |
-| crates/kivact-ui/src/calendar_values.rs:33 | CalendarDayVisual.in_month | independent: a measured value; any value is valid on its own | independent |
-| crates/kivact-ui/src/calendar_values.rs:34 | CalendarDayVisual.mark | - | OPEN |
-| crates/kivact-ui/src/carousel.rs:144 | Layout.looping | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/carousel.rs:158 | Layout.per_view | option: absent means the component's default | option |
+| crates/kivact-ui/src/calendar/view.rs:43 | Calendar.displayed_month | option: Calendar::month binds the shown month to the caller; absent keeps it in the calendar's own signal seeded from default_month | option |
+| crates/kivact-ui/src/calendar_values.rs:31 | CalendarDayVisual.today | independent: date == the clock's today; the grid shows today inside or outside the displayed month, with or without a tone | independent |
+| crates/kivact-ui/src/calendar_values.rs:33 | CalendarDayVisual.in_month | independent: date lies in the displayed month; the grid's leading and trailing days are outside it whether or not they are today or toned | independent |
+| crates/kivact-ui/src/calendar_values.rs:35 | CalendarDayVisual.mark | independent: the tone from Calendar::marks, else Calendar::weekend, for this date; the caller's callbacks may tone any date, today or not, in the month or not | independent |
+| crates/kivact-ui/src/carousel.rs:144 | Layout.looping | option: Carousel::looping; false stops navigation at the first and last slides | option |
+| crates/kivact-ui/src/carousel.rs:158 | Layout.per_view | option: copied from Carousel::items_per_view; absent shows one slide per view and leaves scroll-mode slides at their natural size | option |
 | crates/kivact-ui/src/carousel.rs:160 | Layout.gap | option: absent means the component's default | option |
 | crates/kivact-ui/src/carousel.rs:162 | Layout.padding | option: absent means the component's default | option |
-| crates/kivact-ui/src/carousel_geometry.rs:7 | PageRequest.vertical | independent: a request fact; every combination is valid | independent |
-| crates/kivact-ui/src/carousel_geometry.rs:9 | PageRequest.rtl | independent: a request fact; every combination is valid | independent |
-| crates/kivact-ui/src/carousel_geometry.rs:11 | PageRequest.next | independent: a request fact; every combination is valid | independent |
-| crates/kivact-ui/src/carousel_geometry.rs:13 | PageRequest.looping | independent: a request fact; every combination is valid | independent |
-| crates/kivact-ui/src/chat_values.rs:78 | ChatMessageState.status | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/chat_values.rs:83 | ChatMessageState.has_reactions | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/chat_values.rs:85 | ChatMessageState.actionable | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/chat_values.rs:87 | ChatMessageState.has_header | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/chat_values.rs:89 | ChatMessageState.has_footer | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/chat_values.rs:91 | ChatMessageState.has_avatar | projection: readonly snapshot of the chat part's state for recipes, written only by its render function | projection |
+| crates/kivact-ui/src/carousel_geometry.rs:7 | PageRequest.vertical | independent: the carousel orientation read when a page step is requested; the caller sets it apart from reading direction, step sign and looping, and page() handles every pair | independent |
+| crates/kivact-ui/src/carousel_geometry.rs:9 | PageRequest.rtl | independent: the inherited reading direction at the request; page() reads it only on the horizontal axis, so a vertical request with rtl set is valid and ignores it | independent |
+| crates/kivact-ui/src/carousel_geometry.rs:11 | PageRequest.next | independent: the sign of the key or button step (delta > 0); either direction can be asked on any axis, in either reading direction, with or without looping | independent |
+| crates/kivact-ui/src/carousel_geometry.rs:13 | PageRequest.looping | option: copied from the setup-only Carousel::looping; false stops a page step at either end instead of wrapping | option |
+| crates/kivact-ui/src/chat_values.rs:78 | ChatMessageState.status | option: ChatMessage::status; absent for a message without a delivery state | option |
+| crates/kivact-ui/src/chat_values.rs:83 | ChatMessageState.has_reactions | independent: ChatMessage::reactions fills the reaction slot of a message with or without header, footer, avatar or press handler | independent |
+| crates/kivact-ui/src/chat_values.rs:85 | ChatMessageState.actionable | independent: ChatMessage::on_press makes the bubble pressable, whichever of its slots are filled | independent |
+| crates/kivact-ui/src/chat_values.rs:87 | ChatMessageState.has_header | independent: ChatMessage::header fills the slot above the bubble; header, footer and avatar are separate builder calls and each renders alone | independent |
+| crates/kivact-ui/src/chat_values.rs:89 | ChatMessageState.has_footer | independent: ChatMessage::footer fills the slot below the bubble, with or without a header | independent |
+| crates/kivact-ui/src/chat_values.rs:91 | ChatMessageState.has_avatar | independent: ChatMessage::avatar fills the avatar slot beside a bubble of any group position, with or without header or footer | independent |
 | crates/kivact-ui/src/chat_values.rs:102 | ChatComposerState.stopped | independent: copied from the caller's stop_shown and status | independent |
 | crates/kivact-ui/src/chat_values.rs:104 | ChatComposerState.status | independent: copied from the caller's stop_shown and status | independent |
 | crates/kivact-ui/src/code_block.rs:189 | CodeSource.highlight | option: absent means the component's default | option |
-| crates/kivact-ui/src/code_block.rs:193 | CodeSource.max_height | option: absent means the component's default | option |
-| crates/kivact-ui/src/code_values.rs:6 | CodeBlockState.numbered | projection: readonly snapshot of the code block's state for recipes, written only by CodeBlock::into_view | projection |
-| crates/kivact-ui/src/code_values.rs:8 | CodeBlockState.wrapped | projection: readonly snapshot of the code block's state for recipes, written only by CodeBlock::into_view | projection |
-| crates/kivact-ui/src/code_values.rs:10 | CodeBlockState.expanded | independent: the disclosure and the copy feedback are separate parts | independent |
-| crates/kivact-ui/src/code_values.rs:12 | CodeBlockState.copied | independent: the disclosure and the copy feedback are separate parts | independent |
-| crates/kivact-ui/src/code_values.rs:14 | CodeBlockState.has_header | projection: readonly snapshot of the code block's state for recipes, written only by CodeBlock::into_view | projection |
-| crates/kivact-ui/src/code_values.rs:16 | CodeBlockState.has_footer | projection: readonly snapshot of the code block's state for recipes, written only by CodeBlock::into_view | projection |
+| crates/kivact-ui/src/code_block.rs:193 | CodeSource.max_height | option: CodeBlock::max_height; absent leaves the editor without a height cap | option |
+| crates/kivact-ui/src/code_values.rs:17 | CodeBlockState.numbered | independent: CodeBlock::line_numbers shows the gutter in every collapse state, wrapped or not | independent |
+| crates/kivact-ui/src/code_values.rs:19 | CodeBlockState.wrapped | independent: CodeBlock::wrap wraps long lines whether or not the gutter shows | independent |
+| crates/kivact-ui/src/code_values.rs:22 | CodeBlockState.copied | independent: use_copy_feedback holds it for copy_feedback_ms after Copy; the feedback shows in any collapse state and Expand works while it shows | independent |
+| crates/kivact-ui/src/code_values.rs:24 | CodeBlockState.has_header_content | independent: CodeBlock::title, language, copy_button or end_content fill the header; a collapsible block shows its header even when this is false | independent |
+| crates/kivact-ui/src/code_values.rs:28 | CodeBlockState.has_footer | independent: CodeBlock::footer fills the footer slot, with or without header content | independent |
 | crates/kivact-ui/src/collection_values.rs:42 | ToolbarState.gap | option: absent means the component's default | option |
-| crates/kivact-ui/src/collection_values.rs:44 | ToolbarState.centered | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/collection_values.rs:46 | ToolbarState.rtl | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/collection_values.rs:83 | ItemRowState.has_description | projection: readonly snapshot of the item's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/collection_values.rs:85 | ItemRowState.actionable | projection: readonly snapshot of the item's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/collection_values.rs:87 | ItemRowState.position | projection: readonly snapshot of the item's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/collection_values.rs:91 | ItemRowState.title_lines | projection: readonly snapshot of the item's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/collection_values.rs:93 | ItemRowState.description_lines | projection: readonly snapshot of the item's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/combobox/data.rs:23 | Combobox.query | option: absent means the component's default | option |
-| crates/kivact-ui/src/combobox/data.rs:25 | Combobox.open | option: absent means the component's default | option |
-| crates/kivact-ui/src/combobox/data.rs:28 | Combobox.free_text | independent: a construction option; every combination is valid | independent |
+| crates/kivact-ui/src/collection_values.rs:44 | ToolbarState.centered | independent: Toolbar::center gave a centre region; it is laid out in either reading direction | independent |
+| crates/kivact-ui/src/collection_values.rs:46 | ToolbarState.rtl | independent: the reading direction from use_direction at mount; it mirrors the start and end regions with or without a centre region | independent |
+| crates/kivact-ui/src/collection_values.rs:83 | ItemRowState.has_description | independent: ItemRow::description (text or content) was given; pressable and passive rows both show one | independent |
+| crates/kivact-ui/src/collection_values.rs:85 | ItemRowState.actionable | independent: ItemRow::on_press or a delegated target makes the row pressable, with or without a description or a list position | independent |
+| crates/kivact-ui/src/collection_values.rs:87 | ItemRowState.position | option: ItemRow::position, else the enclosing item list's numbering; absent for a row outside a numbered list | option |
+| crates/kivact-ui/src/collection_values.rs:91 | ItemRowState.title_lines | option: ItemRow::title_lines, else ItemListTokens::title_lines; absent means the title is not clamped | option |
+| crates/kivact-ui/src/collection_values.rs:93 | ItemRowState.description_lines | option: ItemRow::description_lines, else ItemListTokens::description_lines; absent means no clamp, and a row without a description ignores it | option |
+| crates/kivact-ui/src/combobox/data.rs:23 | Combobox.query | option: Combobox::query binds the editor text to the caller; absent keeps the query inside the combobox behavior | option |
+| crates/kivact-ui/src/combobox/data.rs:25 | Combobox.open | option: Combobox::open binds popup visibility to the caller; absent uses a local signal, and inline mode ignores it because its list always shows | option |
+| crates/kivact-ui/src/combobox/data.rs:28 | Combobox.free_text | option: Combobox::free_text; false accepts only listed options | option |
 | crates/kivact-ui/src/combobox/data.rs:30 | Combobox.mode | option: absent means the component's default | option |
-| crates/kivact-ui/src/combobox/data.rs:32 | Combobox.chips | independent: a construction option; every combination is valid | independent |
+| crates/kivact-ui/src/combobox/data.rs:32 | Combobox.chips | option: Combobox::chips; false shows no chips for the selected keys | option |
 | crates/kivact-ui/src/combobox/data.rs:34 | Combobox.placeholder | option: absent means the component's default | option |
 | crates/kivact-ui/src/combobox/data.rs:36 | Combobox.empty | option: absent means the component's default | option |
 | crates/kivact-ui/src/combobox/data.rs:39 | Combobox.matcher | option: absent means the component's default | option |
-| crates/kivact-ui/src/combobox/data.rs:41 | Combobox.search | option: absent means the component's default | option |
-| crates/kivact-ui/src/combobox/data.rs:44 | Combobox.exclude_selected | independent: a construction option; every combination is valid | independent |
+| crates/kivact-ui/src/combobox/data.rs:41 | Combobox.search | option: Combobox::search; absent filters the caller's items locally, present fetches suggestions and skips the matcher | option |
+| crates/kivact-ui/src/combobox/data.rs:44 | Combobox.exclude_selected | option: Combobox::exclude_selected; false keeps selected options in the list | option |
 | crates/kivact-ui/src/command_palette.rs:29 | CommandPalette.filter | option: absent means the component's default | option |
-| crates/kivact-ui/src/command_palette.rs:31 | CommandPalette.close_on | option: absent means the component's default | option |
+| crates/kivact-ui/src/command_palette.rs:31 | CommandPalette.close_on | option: CommandPalette::close_on; absent means only Escape closes the palette from the field | option |
 | crates/kivact-ui/src/command_palette.rs:33 | CommandPalette.placeholder | option: absent means the component's default | option |
 | crates/kivact-ui/src/command_palette.rs:35 | CommandPalette.empty | option: absent means the component's default | option |
-| crates/kivact-ui/src/command_palette.rs:37 | CommandPalette.footer | option: absent means the component's default | option |
-| crates/kivact-ui/src/component_values.rs:12 | AlertState.dismissible | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:14 | AlertState.has_icon | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:16 | AlertState.has_actions | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:18 | AlertState.has_description | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:20 | AlertState.has_content | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:27 | CardState.input | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:30 | CardState.disabled | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:32 | CardState.interactive | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:34 | CardState.has_media | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:36 | CardState.has_footer | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:94 | InputGroupState.focused | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:96 | InputGroupState.invalid | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:98 | InputGroupState.has_start | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:100 | InputGroupState.has_end | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:102 | InputGroupState.has_block_start | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:104 | InputGroupState.has_block_end | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:114 | InputGroupMemberState.first | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:116 | InputGroupMemberState.last | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/component_values.rs:118 | InputGroupMemberState.focused | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
+| crates/kivact-ui/src/command_palette.rs:37 | CommandPalette.footer | option: CommandPalette::footer; absent draws no footer under the command list | option |
+| crates/kivact-ui/src/component_values.rs:11 | AlertState.content | independent: Alert::content fills the content slot (Some) and Alert::collapsible with the open binding choose its Expansion; it combines with any icon, actions, description or dismiss button | independent |
+| crates/kivact-ui/src/component_values.rs:15 | AlertState.dismissible | independent: Alert::dismissible shows the dismiss button, with or without content, icon or actions | independent |
+| crates/kivact-ui/src/component_values.rs:17 | AlertState.has_icon | independent: Alert::icon fills the icon slot of a dismissible or fixed alert alike | independent |
+| crates/kivact-ui/src/component_values.rs:19 | AlertState.has_actions | independent: Alert::actions fills the action slot, beside or without a dismiss button | independent |
+| crates/kivact-ui/src/component_values.rs:21 | AlertState.has_description | independent: Alert::description adds the description line, with or without content below it | independent |
+| crates/kivact-ui/src/component_values.rs:46 | CardState.disabled | independent: the caller's Card::disabled value applies to any action | independent |
+| crates/kivact-ui/src/component_values.rs:48 | CardState.has_media | independent: media and footer are separate optional slots; all four combinations render | independent |
+| crates/kivact-ui/src/component_values.rs:50 | CardState.has_footer | independent: media and footer are separate optional slots; all four combinations render | independent |
+| crates/kivact-ui/src/component_values.rs:149 | InputGroupState.focused | independent: focus is within the group (focus_within of its root); invalid and any adornment combine with it | independent |
+| crates/kivact-ui/src/component_values.rs:151 | InputGroupState.invalid | independent: the group's .invalid(..) (accessible_invalid); a group is invalid whether focused or not | independent |
+| crates/kivact-ui/src/component_values.rs:153 | InputGroupState.has_start | independent: InputGroup::start fills the inline start adornment, with or without an end one | independent |
+| crates/kivact-ui/src/component_values.rs:155 | InputGroupState.has_end | independent: InputGroup::end fills the inline end adornment, with or without a start one | independent |
+| crates/kivact-ui/src/component_values.rs:157 | InputGroupState.has_block_start | independent: InputGroup::block_start adds a row above the controls, beside any inline adornments | independent |
+| crates/kivact-ui/src/component_values.rs:159 | InputGroupState.has_block_end | independent: InputGroup::block_end adds a row below the controls, beside any inline adornments | independent |
+| crates/kivact-ui/src/component_values.rs:169 | InputGroupMemberState.first | independent: index == 0 in GroupRender::member; a single member is both first and last | independent |
+| crates/kivact-ui/src/component_values.rs:171 | InputGroupMemberState.last | independent: index + 1 == count in GroupRender::member; the middle member of three is neither | independent |
+| crates/kivact-ui/src/component_values.rs:173 | InputGroupMemberState.focused | independent: focus is within this member (focus_within of its node), at any position in the group | independent |
 | crates/kivact-ui/src/data_table/filter_value.rs:24 | FilterField::Number.min | option: absent means the filter has no bound | option |
 | crates/kivact-ui/src/data_table/filter_value.rs:26 | FilterField::Number.max | option: absent means the filter has no bound | option |
-| crates/kivact-ui/src/data_table/filters.rs:240 | FilterDraft::Valid.value | - | OPEN |
-| crates/kivact-ui/src/data_table/filters.rs:242 | FilterDraft::Valid.sent | cache: the last value handed to the caller; the transition compares it to ignore its own echo | cache |
-| crates/kivact-ui/src/data_table/rows.rs:72 | Grid.tree | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:78 | Grid.filters | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:82 | Grid.indexed | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:87 | Grid.selection | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/rows.rs:72 | Grid.tree | option: the grid's tree plan, present when DataTable::tree was given; absent draws rows without expand controls | option |
+| crates/kivact-ui/src/data_table/rows.rs:78 | Grid.filters | option: the grid's typed filter editors, present when DataTable::typed_column_filters was given; absent leaves the headers without them | option |
+| crates/kivact-ui/src/data_table/rows.rs:82 | Grid.indexed | option: the grid's row numbers, built when DataTable::row_index was given; absent draws no number gutter | option |
+| crates/kivact-ui/src/data_table/rows.rs:87 | Grid.selection | option: the grid's copy of the caller's DataTable::selection binding; absent draws no row check boxes | option |
 | crates/kivact-ui/src/data_table/rows.rs:89 | Grid.row_selectable | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:91 | Grid.sticky | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:93 | Grid.widths | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:95 | Grid.actions | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:97 | Grid.row_context_menu | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/rows.rs:91 | Grid.sticky | option: the grid's pinned-column measurements, present when DataTable::sticky_columns named a column; absent pins none | option |
+| crates/kivact-ui/src/data_table/rows.rs:93 | Grid.widths | option: the grid's copy of the DataTable::resizable widths; absent draws no resize handles | option |
+| crates/kivact-ui/src/data_table/rows.rs:95 | Grid.actions | option: the grid's row actions column from DataTable::row_actions; absent adds no actions column | option |
+| crates/kivact-ui/src/data_table/rows.rs:97 | Grid.row_context_menu | option: the grid's menu from DataTable::row_context_menu; absent opens no menu on a row's secondary click | option |
 | crates/kivact-ui/src/data_table/rows.rs:100 | Grid.cells | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:102 | Grid.details | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:104 | Grid.expanded_rows | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/rows.rs:102 | Grid.details | option: the grid's row details view from DataTable::row_details; absent puts nothing under the rows | option |
+| crates/kivact-ui/src/data_table/rows.rs:104 | Grid.expanded_rows | option: the grid's copy of DataTable::expanded_rows; absent shows details always, and without details it adds no disclosure | option |
 | crates/kivact-ui/src/data_table/rows.rs:111 | Grid.row_height | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:113 | Grid.row_status | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/rows.rs:115 | Grid.row_color | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/runtime.rs:35 | ModelPlan.tree | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/runtime.rs:37 | ModelPlan.page | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/runtime.rs:39 | ModelPlan.page_size | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/runtime.rs:41 | ModelPlan.groups | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/runtime.rs:46 | ModelPlan.grouping_key | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:63 | DataTableContext.selection | projection: readonly snapshot of the caller's bindings for recipes, written only by the table's mount | projection |
-| crates/kivact-ui/src/data_table/types.rs:69 | DataTableContext.filter | projection: readonly snapshot of the caller's bindings for recipes, written only by the table's mount | projection |
-| crates/kivact-ui/src/data_table/types.rs:72 | DataTableContext.column_filters | projection: readonly snapshot of the caller's bindings for recipes, written only by the table's mount | projection |
-| crates/kivact-ui/src/data_table/types.rs:75 | DataTableContext.typed_column_filters | projection: readonly snapshot of the caller's bindings for recipes, written only by the table's mount | projection |
-| crates/kivact-ui/src/data_table/types.rs:127 | DataTable.grouping | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:129 | DataTable.tree | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:133 | DataTable.tree_expand_all | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/data_table/types.rs:137 | DataTable.column_order | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:139 | DataTable.selection | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:141 | DataTable.row_selectable | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:143 | DataTable.sort | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:145 | DataTable.multi_sort | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:147 | DataTable.page | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:149 | DataTable.has_more | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:151 | DataTable.page_sizes | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:153 | DataTable.row_index | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:155 | DataTable.filter | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:157 | DataTable.column_filters | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:159 | DataTable.typed_column_filters | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:162 | DataTable.sticky | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:164 | DataTable.widths | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:166 | DataTable.resize_range | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:168 | DataTable.row_label | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:170 | DataTable.actions | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:172 | DataTable.row_context_menu | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:175 | DataTable.toolbar | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:177 | DataTable.footer | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:180 | DataTable.details | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:182 | DataTable.expanded_rows | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:184 | DataTable.cells | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:187 | DataTable.row_height | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:189 | DataTable.row_status | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table/types.rs:191 | DataTable.row_color | option: absent means the component's default | option |
-| crates/kivact-ui/src/data_table_tokens.rs:46 | DataTableStickyPaint.shadow_transition | option: absent means the theme's default | option |
-| crates/kivact-ui/src/data_table_tokens.rs:48 | DataTableStickyPaint.overlay_transition | option: absent means the theme's default | option |
-| crates/kivact-ui/src/date_input/machine.rs:85 | Snapshot.min | option: absent means the component's default | option |
-| crates/kivact-ui/src/date_input/machine.rs:87 | Snapshot.max | option: absent means the component's default | option |
-| crates/kivact-ui/src/date_input/view.rs:417 | EditorInputs.custom_format | option: absent means the component's default | option |
-| crates/kivact-ui/src/date_input/view.rs:419 | EditorInputs.external_invalid | option: absent means the component's default | option |
-| crates/kivact-ui/src/date_range_draft.rs:19 | Draft::Editing.start | independent: the typed start endpoint, absent while that field is empty | independent |
-| crates/kivact-ui/src/date_range_draft.rs:21 | Draft::Editing.end | independent: the typed end endpoint, absent while that field is empty | independent |
+| crates/kivact-ui/src/data_table/rows.rs:113 | Grid.row_status | option: the grid's status resolver from DataTable::row_status; absent reserves no status lane | option |
+| crates/kivact-ui/src/data_table/rows.rs:115 | Grid.row_color | option: the grid's color function from DataTable::row_color; absent gives rows no edge color | option |
+| crates/kivact-ui/src/data_table/runtime.rs:90 | ModelPlan.tree | option: the tree arrangement made from DataTable::tree; absent keeps the model's rows flat in sorted order | option |
+| crates/kivact-ui/src/data_table/runtime.rs:93 | ModelPlan.grouping | option: DataTable::group_by, as the page's groups and their key together; absent shows the page's rows ungrouped | option |
+| crates/kivact-ui/src/data_table/types.rs:94 | DataTableContext.selection | option: the caller's binding; None when the caller gave none | option |
+| crates/kivact-ui/src/data_table/types.rs:100 | DataTableContext.filter | option: the caller's binding; None when the caller gave none | option |
+| crates/kivact-ui/src/data_table/types.rs:103 | DataTableContext.column_filters | option: the caller's binding; None when the caller gave none | option |
+| crates/kivact-ui/src/data_table/types.rs:106 | DataTableContext.typed_column_filters | option: the caller's binding; None when the caller gave none | option |
+| crates/kivact-ui/src/data_table/types.rs:158 | DataTable.grouping | option: DataTable::group_by key and collapsed binding; absent shows each page's rows without group headers | option |
+| crates/kivact-ui/src/data_table/types.rs:160 | DataTable.tree | option: DataTable::tree parent key and expanded binding; absent keeps the rows flat | option |
+| crates/kivact-ui/src/data_table/types.rs:164 | DataTable.tree_expand_all | option: DataTable::expand_all_control; false leaves the tree column header without the expand/collapse-all control | option |
+| crates/kivact-ui/src/data_table/types.rs:168 | DataTable.column_order | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:170 | DataTable.selection | option: the caller's DataTable::selection binding; absent draws no check box column and selects nothing | option |
+| crates/kivact-ui/src/data_table/types.rs:172 | DataTable.row_selectable | option: DataTable::row_selectable; absent lets every row be selected | option |
+| crates/kivact-ui/src/data_table/types.rs:176 | DataTable.page_sizes | option: DataTable::page_sizes; absent offers no size picker, and it is unused without page or remote_page | option |
+| crates/kivact-ui/src/data_table/types.rs:178 | DataTable.row_index | option: DataTable::row_index start number; absent draws no row number gutter | option |
+| crates/kivact-ui/src/data_table/types.rs:180 | DataTable.filter | option: the caller's DataTable::filter query; absent shows no filter field and keeps every row | option |
+| crates/kivact-ui/src/data_table/types.rs:182 | DataTable.column_filters | option: the caller's DataTable::column_filters queries; absent applies no per-column text query | option |
+| crates/kivact-ui/src/data_table/types.rs:184 | DataTable.typed_column_filters | option: the caller's DataTable::typed_column_filters values; absent shows no typed filter editors | option |
+| crates/kivact-ui/src/data_table/types.rs:187 | DataTable.sticky | option: DataTable::sticky_columns, None when both edge lists are empty; absent pins no column | option |
+| crates/kivact-ui/src/data_table/types.rs:189 | DataTable.widths | option: the caller's DataTable::resizable widths; absent gives the headers no resize handle | option |
+| crates/kivact-ui/src/data_table/types.rs:191 | DataTable.resize_range | option: DataTable::resize_range; absent limits resizing to 18..2048 px, and it is unused without resizable | option |
+| crates/kivact-ui/src/data_table/types.rs:193 | DataTable.row_label | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:195 | DataTable.actions | option: DataTable::row_actions width and view; absent adds no last actions column | option |
+| crates/kivact-ui/src/data_table/types.rs:197 | DataTable.row_context_menu | option: DataTable::row_context_menu; absent leaves a row's secondary click without a menu | option |
+| crates/kivact-ui/src/data_table/types.rs:200 | DataTable.toolbar | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:202 | DataTable.footer | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:205 | DataTable.details | option: DataTable::row_details; absent builds no view under each row | option |
+| crates/kivact-ui/src/data_table/types.rs:207 | DataTable.expanded_rows | option: the caller's DataTable::expanded_rows keys; absent shows row details always with no disclosure, and it is unused without row_details | option |
+| crates/kivact-ui/src/data_table/types.rs:209 | DataTable.cells | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:212 | DataTable.row_height | option: absent means the component's default | option |
+| crates/kivact-ui/src/data_table/types.rs:214 | DataTable.row_status | option: DataTable::row_status; absent reserves no leading status lane | option |
+| crates/kivact-ui/src/data_table/types.rs:216 | DataTable.row_color | option: DataTable::row_color; absent draws no row edge color | option |
+| crates/kivact-ui/src/data_table_tokens.rs:46 | DataTableStickyPaint.shadow_transition | option: a theme author's tween for the pinned-column shadow; None switches the shadow without animation | option |
+| crates/kivact-ui/src/data_table_tokens.rs:48 | DataTableStickyPaint.overlay_transition | option: a theme author's tween for the pinned cells' hover overlay; None changes the overlay without animation | option |
+| crates/kivact-ui/src/date_input/machine.rs:85 | Snapshot.min | option: the caller's DateInput min bound read for each event; absent accepts any early date | option |
+| crates/kivact-ui/src/date_input/machine.rs:87 | Snapshot.max | option: the caller's DateInput max bound read for each event; absent accepts any late date | option |
+| crates/kivact-ui/src/date_input/view.rs:417 | EditorInputs.custom_format | option: DateInput::format_with; absent formats with the DateStyle set by DateInput::format | option |
+| crates/kivact-ui/src/date_input/view.rs:419 | EditorInputs.external_invalid | option: the caller's invalid flag on the DateInput node; absent leaves validity to the typed draft alone | option |
+| crates/kivact-ui/src/date_range_draft.rs:19 | Draft::Editing.start | independent: the last date the start DateInput published, None once it is cleared; the two editors publish separately, so any pair with end is a draft, and start after end shows order_invalid | independent |
+| crates/kivact-ui/src/date_range_draft.rs:21 | Draft::Editing.end | independent: the last date the end DateInput published, None once it is cleared; it is set apart from start, and an end before start is kept and reported by order_invalid | independent |
 | crates/kivact-ui/src/date_time_sheet.rs:14 | Inputs.picker_label | option: absent means the component's default | option |
 | crates/kivact-ui/src/date_time_sheet.rs:20 | Inputs.week_start | option: absent means the component's default | option |
 | crates/kivact-ui/src/dialog.rs:39 | Dialog.align | option: absent means the component's default | option |
 | crates/kivact-ui/src/dialog.rs:41 | Dialog.width | option: absent means the component's default | option |
-| crates/kivact-ui/src/dialog.rs:43 | Dialog.description | option: absent means the component's default | option |
+| crates/kivact-ui/src/dialog.rs:43 | Dialog.description | option: Dialog::description; absent draws no description and links none to the dialog | option |
 | crates/kivact-ui/src/dialog.rs:45 | Dialog.initial_focus | option: absent means the component's default | option |
 | crates/kivact-ui/src/dialog.rs:47 | Dialog.return_focus | option: absent means the component's default | option |
 | crates/kivact-ui/src/dialog.rs:49 | Dialog.dismiss | option: absent means the component's default | option |
-| crates/kivact-ui/src/disclosure_tokens.rs:10 | DisclosureMotion.animate | independent: a theme option; every combination is valid | independent |
-| crates/kivact-ui/src/disclosure_tokens.rs:13 | DisclosureMotion.transition | independent: a theme option; every combination is valid | independent |
-| crates/kivact-ui/src/disclosure_values.rs:15 | DisclosureRecipeState.open | projection: readonly snapshot of the disclosure's state for recipes, written only by Disclosure::into_view | projection |
-| crates/kivact-ui/src/disclosure_values.rs:17 | DisclosureRecipeState.group | projection: readonly snapshot of the disclosure's state for recipes, written only by Disclosure::into_view | projection |
-| crates/kivact-ui/src/group_types.rs:44 | ButtonGroupMemberState.first | independent: a derived position or construction input; every combination is valid | independent |
-| crates/kivact-ui/src/group_types.rs:46 | ButtonGroupMemberState.last | independent: a derived position or construction input; every combination is valid | independent |
+| crates/kivact-ui/src/disclosure_tokens.rs:10 | DisclosureMotion.animate | independent: the theme's default for Disclosure::animated; a disclosure that opts in with .animated(true) uses transition even when this is false | independent |
+| crates/kivact-ui/src/disclosure_tokens.rs:13 | DisclosureMotion.transition | option: the theme's size transition for animating disclosures; absent uses a duration-based ease-out tween | option |
+| crates/kivact-ui/src/disclosure_values.rs:15 | DisclosureRecipeState.open | independent: copied from the attached part's DisclosureState::open by DisclosureRecipeState::from_part; standalone panels and accordion members (group Some) both open and close | independent |
+| crates/kivact-ui/src/disclosure_values.rs:17 | DisclosureRecipeState.group | option: the panel's place in an accordion; absent for a standalone disclosure | option |
+| crates/kivact-ui/src/group_types.rs:44 | ButtonGroupMemberState.first | independent: index == 0 in ButtonGroup's member memo; a lone child is both first and last and a middle child neither, so all four pairs occur | independent |
+| crates/kivact-ui/src/group_types.rs:46 | ButtonGroupMemberState.last | independent: index + 1 == count in ButtonGroup's member memo; with first it marks a lone child (both), the two ends (one each) and middle children (neither) | independent |
 | crates/kivact-ui/src/group_types.rs:66 | ToggleGroupState.spacing | option: absent means the component's default | option |
-| crates/kivact-ui/src/group_types.rs:68 | ToggleGroupState.rtl | independent: a derived position or construction input; every combination is valid | independent |
-| crates/kivact-ui/src/group_types.rs:77 | ToggleGroupItemState.first | independent: a derived position or construction input; every combination is valid | independent |
-| crates/kivact-ui/src/group_types.rs:79 | ToggleGroupItemState.last | independent: a derived position or construction input; every combination is valid | independent |
-| crates/kivact-ui/src/indicator_values.rs:26 | BadgeState.actionable | projection: readonly snapshot of the indicator's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/indicator_values.rs:29 | BadgeState.leading_icon | projection: readonly snapshot of the indicator's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/indicator_values.rs:31 | BadgeState.trailing_icon | projection: readonly snapshot of the indicator's state for recipes, written only by its render function | projection |
+| crates/kivact-ui/src/group_types.rs:68 | ToggleGroupState.rtl | independent: the inherited reading direction at render; the caller's spacing is set apart from it, so either direction pairs with a set or default spacing | independent |
+| crates/kivact-ui/src/group_types.rs:77 | ToggleGroupItemState.first | independent: whether this toggle's key is the first of the group's items; a lone item is both first and last and a middle one neither, so all four pairs occur | independent |
+| crates/kivact-ui/src/group_types.rs:79 | ToggleGroupItemState.last | independent: whether this toggle's key is the last of the group's items; with first it marks a lone item (both), the two ends (one each) and middle ones (neither) | independent |
+| crates/kivact-ui/src/indicator_values.rs:26 | BadgeState.actionable | independent: Badge::on_press makes the badge pressable; its icons are added by separate calls | independent |
+| crates/kivact-ui/src/indicator_values.rs:29 | BadgeState.leading_icon | independent: Badge::icon fills the leading slot, with or without a trailing icon or press handler | independent |
+| crates/kivact-ui/src/indicator_values.rs:31 | BadgeState.trailing_icon | independent: Badge::trailing_icon fills the trailing slot, with or without a leading icon or press handler | independent |
 | crates/kivact-ui/src/item_row.rs:19 | RowContents.title_content | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:21 | RowContents.description | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:23 | RowContents.description_content | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:25 | RowContents.media | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:27 | RowContents.actions | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:29 | RowContents.header | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:31 | RowContents.footer | option: absent means the component's default | option |
+| crates/kivact-ui/src/item_row.rs:21 | RowContents.description | option: ItemRow::description text; absent shows no description unless description_content gives one | option |
+| crates/kivact-ui/src/item_row.rs:23 | RowContents.description_content | option: ItemRow::description_content; present it replaces the plain description text, absent falls back to that text | option |
+| crates/kivact-ui/src/item_row.rs:25 | RowContents.media | option: ItemRow::media; absent leaves the media slot out of the row body | option |
+| crates/kivact-ui/src/item_row.rs:27 | RowContents.actions | option: ItemRow::actions; absent leaves the trailing actions slot out of the row body | option |
+| crates/kivact-ui/src/item_row.rs:29 | RowContents.header | option: ItemRow::header; absent draws nothing above the row body | option |
+| crates/kivact-ui/src/item_row.rs:31 | RowContents.footer | option: ItemRow::footer; absent draws nothing below the row body | option |
 | crates/kivact-ui/src/item_row.rs:33 | RowContents.marker | option: absent means the component's default | option |
-| crates/kivact-ui/src/item_row.rs:36 | RowContents.delegate | option: absent means the component's default | option |
+| crates/kivact-ui/src/item_row.rs:36 | RowContents.delegate | option: ItemRow::delegate_to; absent lets the row itself take on_press, present forwards activation to the target instead | option |
 | crates/kivact-ui/src/item_row.rs:38 | RowContents.position | option: absent means the component's default | option |
 | crates/kivact-ui/src/item_row.rs:40 | RowContents.title_lines | option: absent means the component's default | option |
 | crates/kivact-ui/src/item_row.rs:42 | RowContents.description_lines | option: absent means the component's default | option |
 | crates/kivact-ui/src/menu.rs:38 | Menu.offset | option: absent means the component's default | option |
 | crates/kivact-ui/src/menu.rs:41 | Menu.align | option: absent means the component's default | option |
-| crates/kivact-ui/src/menu.rs:43 | Menu.at_least_anchor_width | independent: a construction option; every combination is valid | independent |
+| crates/kivact-ui/src/menu.rs:43 | Menu.at_least_anchor_width | option: Menu::at_least_anchor_width; false sizes the surface to its content | option |
 | crates/kivact-ui/src/menu.rs:45 | Menu.item | option: absent means the component's default | option |
 | crates/kivact-ui/src/menu.rs:277 | Level.align | option: absent means the component's default | option |
-| crates/kivact-ui/src/menu.rs:279 | Level.at_least_anchor_width | independent: a construction option; every combination is valid | independent |
+| crates/kivact-ui/src/menu.rs:279 | Level.at_least_anchor_width | option: copied from Menu::at_least_anchor_width for the top level; submenu levels are false | option |
 | crates/kivact-ui/src/navigation_values.rs:21 | StepperItemState.status | - | type |
-| crates/kivact-ui/src/navigation_values.rs:24 | StepperItemState.interactive | independent: whether the caller supplied an activation handler; any status can have one | independent |
-| crates/kivact-ui/src/navigation_values.rs:26 | StepperItemState.collapsed | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:28 | StepperItemState.disabled | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:30 | StepperItemState.optional | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:76 | BreadcrumbItemState.current | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:78 | BreadcrumbItemState.input | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:117 | PaginationSummary.total_items | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/navigation_values.rs:120 | PaginationSummary.has_more | projection: readonly snapshot of the stepper's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/pagination.rs:485 | ControlContent.summary | option: absent means the component's default | option |
-| crates/kivact-ui/src/pagination.rs:487 | ControlContent.input | option: absent means the component's default | option |
+| crates/kivact-ui/src/navigation_values.rs:24 | StepperItemState.interactive | independent: whether Stepper::on_step_press was given, the same for every step; a disabled, optional or collapsed step keeps it, and disabled alone refuses the press | independent |
+| crates/kivact-ui/src/navigation_values.rs:26 | StepperItemState.collapsed | independent: copied from StepperState::collapsed, the whole stepper's responsive layout; disabled and optional steps appear in either layout | independent |
+| crates/kivact-ui/src/navigation_values.rs:28 | StepperItemState.disabled | independent: StepperItem::disabled; a disabled step may also be optional and may have an activation handler on the stepper | independent |
+| crates/kivact-ui/src/navigation_values.rs:30 | StepperItemState.optional | independent: StepperItem::optional only marks the label; it combines with disabled and either layout | independent |
+| crates/kivact-ui/src/navigation_values.rs:132 | PaginationSummary.total_items | option: Pagination::total_items; absent when the caller does not know the total | option |
+| crates/kivact-ui/src/navigation_values.rs:135 | PaginationSummary.has_more | independent: Pagination::has_more for remote paging; the caller reports more pages with or without a known total | independent |
+| crates/kivact-ui/src/pagination.rs:485 | ControlContent.summary | option: the summary built from the caller's summary slot, or the page count in Count and Compact modes; absent places no summary between the controls | option |
+| crates/kivact-ui/src/pagination.rs:487 | ControlContent.input | option: the page field built only for PaginationMode::Input; absent in every other mode, and it may sit beside a caller summary | option |
 | crates/kivact-ui/src/pagination.rs:696 | PageExtras.summary | option: absent means the component's default | option |
-| crates/kivact-ui/src/pagination.rs:698 | PageExtras.page_size | option: absent means the component's default | option |
-| crates/kivact-ui/src/progress_tokens.rs:7 | ProgressMotion.animate_initial | independent: a theme option; every combination is valid | independent |
-| crates/kivact-ui/src/progress_tokens.rs:16 | ProgressMotion.reduced_period_ms | independent: a theme option; every combination is valid | independent |
-| crates/kivact-ui/src/selection_field.rs:52 | FieldMachine.bounds | independent: the trigger's measured bounds, separately from its availability | independent |
-| crates/kivact-ui/src/selection_field.rs:54 | FieldMachine.disabled | independent: the caller's availability, separately from the measured bounds | independent |
-| crates/kivact-ui/src/slider.rs:178 | Geometry.vertical | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/slider.rs:180 | Geometry.rtl | independent: a construction option; every combination is valid | independent |
-| crates/kivact-ui/src/table_values.rs:20 | RowStatus.icon | projection: readonly snapshot of the row's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/table_values.rs:22 | RowStatus.color | projection: readonly snapshot of the row's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/time_input/machine.rs:38 | Snapshot.seconds | independent: a construction snapshot; every combination is valid | independent |
-| crates/kivact-ui/src/time_input/machine.rs:40 | Snapshot.min | option: absent means the component's default | option |
-| crates/kivact-ui/src/time_input/machine.rs:42 | Snapshot.max | option: absent means the component's default | option |
-| crates/kivact-ui/src/tree_values.rs:9 | TreeRowRecipeState.is_last | projection: readonly snapshot of the tree row's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/tree_values.rs:11 | TreeRowRecipeState.has_branches | projection: readonly snapshot of the tree row's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/tree_values.rs:13 | TreeRowRecipeState.custom_marker | projection: readonly snapshot of the tree row's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:118 | ButtonState.busy | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:120 | ButtonState.expanded | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:128 | ButtonState.leading_icon | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:131 | ButtonState.trailing_icon | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:135 | ButtonState.icon_only | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:166 | ToggleButtonState.pressed | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:171 | ToggleButtonState.leading_icon | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:174 | ToggleButtonState.icon_only | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:295 | CheckableState.checked | - | type |
-| crates/kivact-ui/src/values.rs:301 | CheckableState.invalid | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:304 | CheckableState.text | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:311 | CheckableState.switch_drag | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:329 | DialogState.open | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:332 | DialogState.media | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:357 | SelectTriggerState.open | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:360 | SelectTriggerState.placeholder | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:407 | DataTableRowState.color | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:412 | DataTableRowState.height | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:432 | DataTableCheckState.header | projection: readonly snapshot of the component's state for recipes, written only by its render function | projection |
-| crates/kivact-ui/src/values.rs:434 | DataTableCheckState.checked | - | type |
-| crates/kivact-ui-basic/src/attachment.rs:74 | Cfg.has_media | independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid | independent |
-| crates/kivact-ui-basic/src/attachment.rs:76 | Cfg.actionable | independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid | independent |
-| crates/kivact-ui-basic/src/chart/model.rs:105 | Frame.horizontal | independent: options read from the chart config; every combination is valid | independent |
-| crates/kivact-ui-basic/src/chart/model.rs:107 | Frame.grid | independent: options read from the chart config; every combination is valid | independent |
-| crates/kivact-ui-basic/src/chart/model.rs:109 | Frame.axis | independent: options read from the chart config; every combination is valid | independent |
+| crates/kivact-ui/src/pagination.rs:698 | PageExtras.page_size | option: the caller's Pagination::page_size binding; absent shows no size select and counts one item per page | option |
+| crates/kivact-ui/src/progress_tokens.rs:7 | ProgressMotion.animate_initial | independent: whether the first determinate fill animates from zero; the moving-fill clock that reduced_period_ms drives is unaffected | independent |
+| crates/kivact-ui/src/progress_tokens.rs:16 | ProgressMotion.reduced_period_ms | option: the moving-fill clock's period under reduced motion; absent leaves the indeterminate fill still | option |
+| crates/kivact-ui/src/selection_field.rs:52 | FieldMachine.bounds | independent: the trigger rect read from layout for each event, None until it is first laid out; a disabled trigger still has bounds and an unmeasured one may be enabled | independent |
+| crates/kivact-ui/src/selection_field.rs:54 | FieldMachine.disabled | independent: the caller's disabled flag read for each event; it is set apart from layout, so it is true or false whether or not the trigger has been measured | independent |
+| crates/kivact-ui/src/table_values.rs:20 | RowStatus.icon | option: RowStatus::icon; absent draws the tone's default mark | option |
+| crates/kivact-ui/src/table_values.rs:22 | RowStatus.color | option: RowStatus::color; absent uses the theme's color for the tone | option |
+| crates/kivact-ui/src/time_input/machine.rs:38 | Snapshot.seconds | option: the seconds flag of the caller's TimeInput format, read per event; false parses HH:MM with seconds left at zero | option |
+| crates/kivact-ui/src/time_input/machine.rs:40 | Snapshot.min | option: the caller's TimeInput min bound read for each event; absent accepts any early time | option |
+| crates/kivact-ui/src/time_input/machine.rs:42 | Snapshot.max | option: the caller's TimeInput max bound read for each event; absent accepts any late time | option |
+| crates/kivact-ui/src/tree_values.rs:9 | TreeRowRecipeState.is_last | independent: the row is the last visible sibling at its level (TreeRow::is_last); last rows may be branches or leaves | independent |
+| crates/kivact-ui/src/tree_values.rs:11 | TreeRowRecipeState.has_branches | independent: some visible row of the whole tree has children; every row, last or not, reads the same value | independent |
+| crates/kivact-ui/src/tree_values.rs:13 | TreeRowRecipeState.custom_marker | independent: Tree::marker_content was given; it replaces the glyph on last and inner rows alike | independent |
+| crates/kivact-ui/src/values.rs:118 | ButtonState.busy | independent: busy comes from the caller's busy value and is valid with any icon or label layout | independent |
+| crates/kivact-ui/src/values.rs:120 | ButtonState.expanded | option: None for a plain button, Some(open) when a popup or the caller publishes an expanded state | option |
+| crates/kivact-ui/src/values.rs:128 | ButtonState.leading_icon | independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn | independent |
+| crates/kivact-ui/src/values.rs:131 | ButtonState.trailing_icon | independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn | independent |
+| crates/kivact-ui/src/values.rs:135 | ButtonState.label_hidden | independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn | independent |
+| crates/kivact-ui/src/values.rs:171 | ToggleButtonState.pressed | independent: the pressed state follows the toggle and is valid with any icon or label layout | independent |
+| crates/kivact-ui/src/values.rs:176 | ToggleButtonState.leading_icon | independent: the leading icon and the hidden label are set separately; all four combinations are drawn | independent |
+| crates/kivact-ui/src/values.rs:179 | ToggleButtonState.label_hidden | independent: the leading icon and the hidden label are set separately; all four combinations are drawn | independent |
+| crates/kivact-ui/src/values.rs:312 | CheckControl::Switch.on | independent: the switch's bound value; the opted-in drag starts from either value and moves the thumb whichever one the binding holds | independent |
+| crates/kivact-ui/src/values.rs:320 | CheckControl::Switch.drag | independent: the live visual of the opted-in drag gesture, None when the switch has no drag or none is running; it runs while the switch is on or off | independent |
+| crates/kivact-ui/src/values.rs:418 | DialogState.open | independent: the popup's open state (Shape::state) or the drawer's open binding; a dialog with or without media opens and closes | independent |
+| crates/kivact-ui/src/values.rs:421 | DialogState.media | independent: Dialog::media gave a header view (the drawer's drag handle reports false); it is fixed while the dialog opens and closes | independent |
+| crates/kivact-ui/src/values.rs:446 | SelectTriggerState.open | independent: the select's popup or the selection field's FieldState::Open; the list opens with or without a selected option | independent |
+| crates/kivact-ui/src/values.rs:449 | SelectTriggerState.placeholder | independent: no listed option is selected (trigger_projection; a selection field reports false); the trigger shows it while the list is open or closed | independent |
+| crates/kivact-ui/src/values.rs:496 | DataTableRowState.color | option: DataTable::row_color for this row; absent keeps the theme's row background | option |
+| crates/kivact-ui/src/values.rs:501 | DataTableRowState.height | option: DataTable::row_height (at least 18); absent uses the theme's row height | option |
+| crates/kivact-ui-basic/src/attachment.rs:74 | Cfg.has_media | option: set once in Attachment::into_view from whether the caller called .media(...); false means no media slot, the wider text padding and the 96 px vertical width | option |
+| crates/kivact-ui-basic/src/attachment.rs:76 | Cfg.actionable | option: set once in Attachment::into_view from whether the caller called .on_press(...); false means the chip is not pressable and gets no pointer cursor or hover fill | option |
+| crates/kivact-ui-basic/src/chart/model.rs:105 | Frame.horizontal | option: the caller's Chart::orientation (Horizontal), read per paint in Options::frame; false lays bars out as columns | option |
+| crates/kivact-ui-basic/src/chart/model.rs:107 | Frame.grid | option: the caller's Chart::grid (default on), read per paint in Options::frame; false skips the grid lines | option |
+| crates/kivact-ui-basic/src/chart/model.rs:109 | Frame.axis | option: the caller's Chart::axis (default on), read per paint in Options::frame; false drops the axis labels and their gutter | option |
 | crates/kivact-ui-basic/src/questionnaire.rs:105 | QuestionnaireStep.description | option: absent means the step has no description | option |
-| crates/kivact-ui-basic/src/questionnaire.rs:108 | QuestionnaireStep.optional | independent: a step can be optional with or without a description | independent |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:26 | SidebarGroup.action | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:28 | SidebarGroup.content | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:169 | SidebarMenuButton.icon | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:172 | SidebarMenuButton.badge | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:174 | SidebarMenuButton.action | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:178 | SidebarMenuButton.sub | option: absent means the component's default | option |
+| crates/kivact-ui-basic/src/questionnaire.rs:108 | QuestionnaireStep.optional | option: the caller's QuestionnaireStep::optional (default false); false means the step has no Skip button and Next waits for an answer | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:26 | SidebarGroup.action | option: the caller's SidebarGroup::action; absent means the label row has no end control | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:28 | SidebarGroup.content | option: the caller's SidebarGroup::content; absent means the group shows only its label | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:169 | SidebarMenuButton.icon | option: the caller's SidebarMenuButton::icon; absent means the row has no leading icon | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:172 | SidebarMenuButton.badge | option: the caller's SidebarMenuButton::badge; absent means the row shows no count | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:174 | SidebarMenuButton.action | option: the caller's SidebarMenuButton::action; absent means no end control and no 32 px end padding | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:178 | SidebarMenuButton.sub | option: the caller's SidebarMenuButton::sub; absent means the row has no nested list | option |
 | crates/kivact-ui-basic/src/sidebar/menu.rs:185 | ButtonCfg.cx | option: absent means the part is outside a provider | option |
-| crates/kivact-ui-basic/src/sidebar/menu.rs:189 | ButtonCfg.has_action | projection: written only by SidebarMenuButton::build from whether it has an action view | projection |
-| crates/kivact-ui-basic/src/sidebar/panel.rs:26 | Sidebar.header | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/panel.rs:28 | Sidebar.content | option: absent means the component's default | option |
-| crates/kivact-ui-basic/src/sidebar/panel.rs:30 | Sidebar.footer | option: absent means the component's default | option |
+| crates/kivact-ui-basic/src/sidebar/menu.rs:189 | ButtonCfg.has_action | projection: whether the button has an action view, written only by build_button | projection |
+| crates/kivact-ui-basic/src/sidebar/panel.rs:26 | Sidebar.header | option: the caller's Sidebar::header; absent means the panel has no top section | option |
+| crates/kivact-ui-basic/src/sidebar/panel.rs:28 | Sidebar.content | option: the caller's Sidebar::content; absent means the panel has no scrolling middle section | option |
+| crates/kivact-ui-basic/src/sidebar/panel.rs:30 | Sidebar.footer | option: the caller's Sidebar::footer; absent means the panel has no bottom section | option |
 | crates/kivact-ui-creative/src/audio/transport.rs:16 | TransportState.playing | independent: Play toggles playing and Stop clears it; Record and Cycle leave it | independent |
 | crates/kivact-ui-creative/src/audio/transport.rs:18 | TransportState.recording | independent: Record toggles recording; Play, Stop and Cycle leave it | independent |
 | crates/kivact-ui-creative/src/audio/transport.rs:20 | TransportState.cycling | independent: Cycle toggles cycling; Play, Stop and Record leave it | independent |
 | crates/kivact-ui-creative/src/dock/model.rs:57 | DockTab.icon | option: absent means the tab shows no icon | option |
-| crates/kivact-ui-creative/src/dock/model.rs:59 | DockTab.closable | independent: whether the application allows closing this tab; either value is valid | independent |
-| crates/kivact-ui-creative/src/editors/arrangement/model.rs:59 | TimelineTrack.muted | independent: Mute toggles muted; Solo, Arm and Automation Read leave it | independent |
-| crates/kivact-ui-creative/src/editors/arrangement/model.rs:61 | TimelineTrack.solo | independent: Solo toggles solo; Mute, Arm and Automation Read leave it | independent |
-| crates/kivact-ui-creative/src/editors/arrangement/model.rs:63 | TimelineTrack.armed | independent: Arm toggles armed; Mute, Solo and Automation Read leave it | independent |
-| crates/kivact-ui-creative/src/editors/arrangement/model.rs:65 | TimelineTrack.automation_read | independent: Automation Read toggles automation_read; Mute, Solo and Arm leave it | independent |
-| crates/kivact-ui-creative/src/editors/node/gesture.rs:59 | Info.checked | option: a target reports a checked state only when its role has one | option |
-| crates/kivact-ui-creative/src/editors/node/gesture.rs:60 | Info.selected | - | OPEN |
-| crates/kivact-ui-creative/src/editors/node/gesture.rs:62 | Info.range | option: a target reports a numeric range only when its role has one | option |
+| crates/kivact-ui-creative/src/dock/model.rs:59 | DockTab.closable | option: the application's DockTab::closable (default true), a constant inside the layout value; false hides the close button and makes the close commands skip the tab | option |
+| crates/kivact-ui-creative/src/editors/arrangement/model.rs:59 | TimelineTrack.muted | independent: the application's track mute, changed only on a TrackFlag::Mute request from its header toggle; a muted track may also be soloed, armed or reading automation, as on a mixer | independent |
+| crates/kivact-ui-creative/src/editors/arrangement/model.rs:61 | TimelineTrack.solo | independent: the application's track solo, changed only on a TrackFlag::Solo request from its header toggle; soloing never clears mute, arm or automation read, so it pairs with any of them | independent |
+| crates/kivact-ui-creative/src/editors/arrangement/model.rs:63 | TimelineTrack.armed | independent: the application's record arm, changed only on a TrackFlag::Arm request from its header toggle; an armed track may be muted, soloed or reading automation | independent |
+| crates/kivact-ui-creative/src/editors/arrangement/model.rs:65 | TimelineTrack.automation_read | independent: the application's automation read, set by TimelineTrack::automation and changed on a TrackFlag::AutomationRead request; the widget only shows it as a header toggle, so it pairs with any mute, solo or arm | independent |
 | crates/kivact-ui-creative/src/editors/node/model.rs:47 | NodeData.preview | option: absent means the node shows no preview image | option |
-| crates/kivact-ui-creative/src/editors/node/model.rs:50 | NodeData.muted | independent: the application's mute flag; either value is valid | independent |
-| crates/kivact-ui-creative/src/editors/shared/region_parts.rs:26 | RegionInfo.checked | independent: the a11y checked output, recomputed from the domain for any node | independent |
-| crates/kivact-ui-creative/src/editors/shared/region_parts.rs:28 | RegionInfo.selected | independent: the a11y selected output, recomputed from the domain for any node | independent |
+| crates/kivact-ui-creative/src/editors/node/model.rs:50 | NodeData.muted | independent: the application's node mute, flipped by the application on NodeRequest::ToggleMute (M key); it only dims the node in paint, so a muted node may have a preview image or not | independent |
 | crates/kivact-ui-creative/src/numeric/implementation.rs:459 | NumericView.timecode | option: absent means the field shows its value with the default format | option |
 | crates/kivact-ui-creative/src/numeric/implementation.rs:462 | NumericView.accent | option: absent means the theme's accent | option |
 | crates/kivact-ui-creative/src/numeric/implementation.rs:468 | NumericView.mode | - | type |
@@ -1059,191 +976,185 @@ and `OPEN` when the field has no closure.
 | crates/kivact-ui-creative/src/outliner/view.rs:222 | RowFactory.reveal | - | type |
 | crates/kivact-ui-creative/src/outliner/view.rs:229 | RowFactory.drag | - | type |
 | crates/kivact-ui-creative/src/outliner/view.rs:233 | RowFactory.row_height | option: absent means the theme's row height | option |
-| crates/kivact-ui-creative/src/outliner/view.rs:237 | RowFactory.has_activation | option: absent means a double click renames instead of activating | option |
-| crates/kivact-ui-creative/src/outliner_data.rs:13 | TreeItem.parent | independent: the application's hierarchy; any parent or none is valid | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:18 | TreeItem.visible | independent: the application's visibility; either value is valid with every other flag | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:20 | TreeItem.selectable | independent: the application's selectability; either value is valid with every other flag | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:22 | TreeItem.rendered | independent: the application's rendering; either value is valid with every other flag | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:26 | TreeItem.placeholder | independent: whether the item is unresolved; any item may be unresolved | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:73 | TreeDrop.target | independent: the application's new parent; any parent or none is valid | independent |
-| crates/kivact-ui-creative/src/outliner_data.rs:76 | TreeDrop.after | independent: the sibling the item lands after; any sibling or none is valid | independent |
+| crates/kivact-ui-creative/src/outliner/view.rs:237 | RowFactory.has_activation | option: whether the caller set Outliner::on_activate; false means a double click renames the row instead of activating it | option |
+| crates/kivact-ui-creative/src/outliner_data.rs:13 | TreeItem.parent | independent: the application's hierarchy, given in TreeItem::new and changed by the application after a TreeDrop; a root or a child may carry any visibility, selectability, render or placeholder flag | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:18 | TreeItem.visible | independent: the application's visibility, changed on a Restriction{flag: Visible} proposal (eye toggle or H); it only dims the label, so a hidden item can still be selectable, rendered or a placeholder | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:20 | TreeItem.selectable | independent: the application's selectability, changed on a Restriction{flag: Selectable} proposal; it only disables the tree node, so it pairs with any visibility, render or placeholder state | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:22 | TreeItem.rendered | independent: the application's render toggle, changed on a Restriction{flag: Rendered} proposal; the outliner only shows it in its toggle column, so it pairs with any visibility, selectability or placeholder state | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:26 | TreeItem.placeholder | independent: the application marks an unresolved item with TreeItem::placeholder; it only draws the label italic and muted, so the item keeps its parent and all restriction toggles | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:73 | TreeDrop.target | independent: the new parent drop_plan computes from the row under the pointer; None makes a root, and both a root and a child drop may land first (after None) or after a sibling | independent |
+| crates/kivact-ui-creative/src/outliner_data.rs:76 | TreeDrop.after | independent: the sibling under target that drop_plan puts the item after; None puts it first, which a drop into a root list and into a parent both allow | independent |
 | crates/kivact-ui-creative/src/picker.rs:61 | PickerItem.section | option: absent means the run has no heading | option |
 | crates/kivact-ui-creative/src/picker.rs:65 | PickerItem.description | option: absent means the row has no detail line | option |
 | crates/kivact-ui-creative/src/picker.rs:68 | PickerItem.shortcut | option: absent means the row has no shortcut hint | option |
 | crates/kivact-ui-creative/src/picker.rs:71 | PickerItem.icon | option: absent means the row has no icon | option |
-| crates/kivact-ui-creative/src/picker.rs:74 | PickerItem.enabled | independent: the application's availability input; an enabled and a disabled item are both valid | independent |
+| crates/kivact-ui-creative/src/picker.rs:74 | PickerItem.enabled | option: the application's PickerItem::enabled (default true), a constant inside the items value; false keeps the row listed but never active or pickable | option |
 | crates/kivact-ui-soft/src/alert_dialog.rs:31 | AlertDialog.action | option: application action configuration, independent of canonical Dialog visibility. | option |
-| crates/kivact-ui-soft/src/alert_dialog.rs:33 | AlertDialog.cancel | option: cancel-button text configuration, not an operation phase. | option |
-| crates/kivact-ui-soft/src/app_shell.rs:85 | MobileNavConfig.has_toggle | independent: whether the automatic configuration shows its toggle; unrelated to the caller's open binding | independent |
-| crates/kivact-ui-soft/src/app_shell.rs:87 | MobileNavConfig.open | option: caller binding to the existing drawer owner, not mirrored openness. | option |
-| crates/kivact-ui-soft/src/app_shell.rs:91 | MobileNavConfig.breakpoint | option: viewport threshold construction configuration. | option |
-| crates/kivact-ui-soft/src/app_shell.rs:330 | ShellPresentation.has_top | independent: readonly presence of the actual top-navigation slot. | independent |
-| crates/kivact-ui-soft/src/app_shell.rs:332 | ShellPresentation.has_side | independent: readonly presence of the actual side-navigation slot. | independent |
-| crates/kivact-ui-soft/src/app_shell.rs:334 | ShellPresentation.has_banner | independent: readonly presence of the actual banner slot. | independent |
-| crates/kivact-ui-soft/src/citation.rs:32 | CitationSource.title | option: display title is application source metadata, not an opening phase. | option |
-| crates/kivact-ui-soft/src/citation.rs:35 | CitationSource.url | option: destination is authored source metadata, not a pending navigation handle. | option |
-| crates/kivact-ui-soft/src/citation.rs:38 | CitationSource.image | option: preview asset is an independent authored visual. | option |
-| crates/kivact-ui-soft/src/citation.rs:41 | CitationSource.icon | option: fallback glyph is an independent authored visual. | option |
-| crates/kivact-ui-soft/src/container_reveal.rs:37 | RevealContent.inverted | independent: immutable hover-inversion policy, not a current hover flag. | independent |
-| crates/kivact-ui-soft/src/container_reveal.rs:40 | RevealContent.preserve_layout | independent: immutable layout-retention policy, not current visibility. | independent |
+| crates/kivact-ui-soft/src/alert_dialog.rs:33 | AlertDialog.cancel | option: caller label from AlertDialog::cancel_label; absent uses the localized "Cancel" message (soft.alert_dialog.cancel). | option |
+| crates/kivact-ui-soft/src/app_shell.rs:85 | MobileNavConfig.has_toggle | option: caller choice from MobileNavConfig::has_toggle (default true); false hides the automatic drawer toggle so the app opens the drawer through its own control or the open binding. | option |
+| crates/kivact-ui-soft/src/app_shell.rs:87 | MobileNavConfig.open | option: caller binding from MobileNavConfig::open; absent makes configure_mobile create an initially closed local signal. | option |
+| crates/kivact-ui-soft/src/app_shell.rs:91 | MobileNavConfig.breakpoint | option: caller threshold from MobileNavConfig::breakpoint (default Md); None disables viewport-driven switching to the mobile layout. | option |
+| crates/kivact-ui-soft/src/app_shell.rs:330 | ShellPresentation.has_top | option: whether the caller supplied AppShell::top_nav, captured once in into_view; false means the shell has no top navigation. | option |
+| crates/kivact-ui-soft/src/app_shell.rs:332 | ShellPresentation.has_side | option: whether the caller supplied AppShell::side_nav, captured once in into_view; false means the shell has no sidebar. | option |
+| crates/kivact-ui-soft/src/app_shell.rs:334 | ShellPresentation.has_banner | option: whether the caller supplied AppShell::banner, captured once in into_view; false means the shell has no banner. | option |
+| crates/kivact-ui-soft/src/citation.rs:32 | CitationSource.title | option: application-supplied source title; absent falls back to the url, then to the numbered "Source N" label. | option |
+| crates/kivact-ui-soft/src/citation.rs:35 | CitationSource.url | option: application-supplied destination; absent keeps the citation non-interactive even when on_open is set. | option |
+| crates/kivact-ui-soft/src/citation.rs:38 | CitationSource.image | option: application-supplied preview image; when present it is shown instead of icon. | option |
+| crates/kivact-ui-soft/src/citation.rs:41 | CitationSource.icon | option: application-supplied fallback glyph used only when image is absent; absent shows no media. | option |
+| crates/kivact-ui-soft/src/container_reveal.rs:37 | RevealContent.inverted | option: caller policy in RevealContent; true reveals away from hover and keeps layout, false reveals on hover. | option |
+| crates/kivact-ui-soft/src/container_reveal.rs:40 | RevealContent.preserve_layout | option: caller policy in RevealContent; false lets hidden content leave normal flow once the fade ends. | option |
 | crates/kivact-ui-soft/src/container_reveal.rs:43 | RevealContent.force | option: caller visibility policy override, not a stored lifecycle. | option |
 | crates/kivact-ui-soft/src/container_reveal.rs:46 | RevealContent.container_force | option: independent container hover-input override, not current hover state. | option |
 | crates/kivact-ui-soft/src/dialog_header.rs:38 | DialogHeader.subtitle | option: once-mounted subtitle slot, not dialog lifecycle. | option |
 | crates/kivact-ui-soft/src/dialog_header.rs:40 | DialogHeader.start | option: once-mounted leading slot, independent of other content slots. | option |
 | crates/kivact-ui-soft/src/dialog_header.rs:42 | DialogHeader.end | option: once-mounted trailing slot, independent of other content slots. | option |
-| crates/kivact-ui-soft/src/dialog_header.rs:45 | DialogHeader.compensation | independent: immutable optional edge-compensation geometry policy. | independent |
-| crates/kivact-ui-soft/src/disclosure_appearance.rs:28 | DisclosureVariant.density | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/disclosure_appearance.rs:31 | DisclosureVariant.dividers | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/item_values.rs:70 | ItemLook.density | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/item_values.rs:72 | ItemLook.align | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/item_values.rs:74 | ItemLook.layout | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/layout.rs:10 | LayoutInset.outer_x | independent: a measured or construction value; optional inherited outer inline padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:13 | LayoutInset.outer_y | independent: a measured or construction value; optional inherited outer block padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:16 | LayoutInset.inner_x | independent: a measured or construction value; optional inherited inner inline padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:19 | LayoutInset.inner_y | independent: a measured or construction value; optional inherited inner block padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:22 | LayoutInset.own_outer_x | independent: a measured or construction value; optional local outer inline padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:25 | LayoutInset.own_outer_y | independent: a measured or construction value; optional local outer block padding in logical pixels, not lifecycle state. | independent |
-| crates/kivact-ui-soft/src/layout.rs:174 | LayoutSlots.root_ref | option: observer reference to the actual layout root. | option |
-| crates/kivact-ui-soft/src/layout.rs:176 | LayoutSlots.header_divider | independent: readonly resolved header divider configuration. | independent |
-| crates/kivact-ui-soft/src/layout.rs:178 | LayoutSlots.footer_divider | independent: readonly resolved footer divider configuration. | independent |
-| crates/kivact-ui-soft/src/layout.rs:180 | LayoutSlots.has_start | independent: readonly presence of the actual leading panel slot. | independent |
-| crates/kivact-ui-soft/src/layout.rs:182 | LayoutSlots.has_end | independent: readonly presence of the actual trailing panel slot. | independent |
-| crates/kivact-ui-soft/src/layout.rs:184 | LayoutSlots.content_width | option: readonly width input shared with actual regions. | option |
-| crates/kivact-ui-soft/src/lightbox.rs:74 | Lightbox.index | projection: written only through LightboxHandle's state | projection |
+| crates/kivact-ui-soft/src/dialog_header.rs:45 | DialogHeader.compensation | option: caller override from header_end_compensation; absent compensates both axes when a close button exists and nothing otherwise. | option |
+| crates/kivact-ui-soft/src/disclosure_appearance.rs:28 | DisclosureVariant.density | option: theme-author padding choice; absent uses Balanced when dividers is set and no padding otherwise. | option |
+| crates/kivact-ui-soft/src/disclosure_appearance.rs:31 | DisclosureVariant.dividers | option: theme-author choice; false draws no separator between grouped panels. | option |
+| crates/kivact-ui-soft/src/item_values.rs:70 | ItemLook.density | option: theme-author row padding from ItemLook::density; absent falls back to an ItemDensity variant, then the ListLook density. | option |
+| crates/kivact-ui-soft/src/item_values.rs:72 | ItemLook.align | option: theme-author alignment from ItemLook::align; absent falls back to an ItemAlign variant, then ItemAlign::default. | option |
+| crates/kivact-ui-soft/src/item_values.rs:74 | ItemLook.layout | option: theme-author arrangement from ItemLook::layout; absent falls back to an ItemLayout variant, then ItemLayout::default. | option |
+| crates/kivact-ui-soft/src/layout.rs:10 | LayoutInset.outer_x | option: inline outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback. | option |
+| crates/kivact-ui-soft/src/layout.rs:13 | LayoutInset.outer_y | option: block outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback. | option |
+| crates/kivact-ui-soft/src/layout.rs:16 | LayoutInset.inner_x | option: inline gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback. | option |
+| crates/kivact-ui-soft/src/layout.rs:19 | LayoutInset.inner_y | option: block gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback. | option |
+| crates/kivact-ui-soft/src/layout.rs:22 | LayoutInset.own_outer | option: this Layout's padding from Layout::padding, written only in Layout::into_view; absent uses the inherited outer_x and outer_y. | option |
+| crates/kivact-ui-soft/src/layout.rs:179 | LayoutSlots.header_divider | option: header divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no header. | option |
+| crates/kivact-ui-soft/src/layout.rs:181 | LayoutSlots.footer_divider | option: footer divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no footer. | option |
+| crates/kivact-ui-soft/src/layout.rs:183 | LayoutSlots.has_start | option: whether the caller supplied Layout::start, captured once in into_view; false means no leading panel. | option |
+| crates/kivact-ui-soft/src/layout.rs:185 | LayoutSlots.has_end | option: whether the caller supplied Layout::end, captured once in into_view; false means no trailing panel. | option |
+| crates/kivact-ui-soft/src/layout.rs:187 | LayoutSlots.content_width | option: caller limit from Layout::content_width paired with the layout root ref used to centre pixel widths; absent means no width limit. | option |
+| crates/kivact-ui-soft/src/lightbox.rs:74 | Lightbox.index | option: the caller's index binding from Lightbox::index; None keeps the gallery's own index from 0 | option |
 | crates/kivact-ui-soft/src/lightbox.rs:76 | Lightbox.zoom | option: fixed at setup; absent means zoom is disabled | option |
-| crates/kivact-ui-soft/src/lightbox.rs:78 | Lightbox.view | projection: written only through LightboxHandle's state | projection |
+| crates/kivact-ui-soft/src/lightbox.rs:78 | Lightbox.view | option: absent keeps the gallery's own fit and zoom view; LightboxHandle::view passes a binding projected from its state | option |
 | crates/kivact-ui-soft/src/link.rs:264 | LinkAppearance.size | option: readonly font-size override shared with paint. | option |
 | crates/kivact-ui-soft/src/link.rs:266 | LinkAppearance.weight | option: immutable font-weight override. | option |
-| crates/kivact-ui-soft/src/link.rs:268 | LinkAppearance.underline | independent: readonly underline choice sampled from the builder. | independent |
-| crates/kivact-ui-soft/src/link.rs:271 | LinkAppearance.standalone | independent: readonly typography fallback choice sampled from the builder. | independent |
-| crates/kivact-ui-soft/src/link.rs:274 | LinkAppearance.interactive | independent: readonly presence of the caller activation callback. | independent |
-| crates/kivact-ui-soft/src/markdown.rs:808 | Marks.strong | independent: passive bold syntax mark combined during one parse. | independent |
-| crates/kivact-ui-soft/src/markdown.rs:810 | Marks.italic | independent: passive italic syntax mark independent of bold and deletion. | independent |
-| crates/kivact-ui-soft/src/markdown.rs:812 | Marks.deleted | independent: passive deletion syntax mark; no runtime UI lifecycle. | independent |
-| crates/kivact-ui-soft/src/markdown.rs:814 | Marks.code | independent: passive code syntax mark used only to compute inline paint. | independent |
-| crates/kivact-ui-soft/src/markdown_parser.rs:17 | ListEntry.number | option: ordinal is parsed list syntax, not an execution counter. | option |
-| crates/kivact-ui-soft/src/markdown_parser.rs:19 | ListEntry.checked | option: task mark describes source syntax independently of list numbering. | option |
+| crates/kivact-ui-soft/src/link.rs:268 | LinkAppearance.underline | option: caller choice from Link::underline sampled once in into_view; false underlines only on hover of an interactive link. | option |
+| crates/kivact-ui-soft/src/link.rs:271 | LinkAppearance.standalone | option: caller choice from Link::standalone sampled once in into_view; false inherits the surrounding typography. | option |
+| crates/kivact-ui-soft/src/link.rs:274 | LinkAppearance.interactive | option: whether the caller gave Link an activation callback; false paints a static link without pointer cursor or pressed state. | option |
+| crates/kivact-ui-soft/src/markdown.rs:808 | Marks.strong | independent: set by the caller's strong flag or a *** / ** / __ delimiter; nesting reaches it with any italic, deleted or code subset, and styled_span paints each mark separately. | independent |
+| crates/kivact-ui-soft/src/markdown.rs:810 | Marks.italic | independent: set only by a *** / * / _ delimiter; delimiters nest in any order, so every combination with strong, deleted and code is parsed and painted. | independent |
+| crates/kivact-ui-soft/src/markdown.rs:812 | Marks.deleted | independent: set only by a ~~ delimiter; it nests inside or around strong and italic and may wrap code, and styled_span adds the strike-through regardless of the other marks. | independent |
+| crates/kivact-ui-soft/src/markdown.rs:814 | Marks.code | independent: set only by a backtick delimiter; code stops further parsing but keeps the enclosing strong, italic and deleted marks, so all those combinations are painted. | independent |
+| crates/kivact-ui-soft/src/markdown_parser.rs:17 | ListEntry.number | option: ordinal parsed from the Markdown author's `N.` marker and incremented per sibling; None means a bullet item. | option |
+| crates/kivact-ui-soft/src/markdown_parser.rs:19 | ListEntry.checked | option: task mark parsed from the author's `[ ]` / `[x]` prefix on ordered or bullet items alike; None means a plain item. | option |
 | crates/kivact-ui-soft/src/mobile_nav.rs:57 | MobileContext.state | - | type |
-| crates/kivact-ui-soft/src/mobile_nav.rs:61 | MobileContext.auto_toggle | independent: whether the shell shows its automatic drawer toggle; independent of the drawer's open state | independent |
-| crates/kivact-ui-soft/src/nav_heading.rs:46 | NavHeadingMenuItem.description | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/nav_heading.rs:49 | NavHeadingMenuItem.disabled | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/outline.rs:252 | Navigation.viewport | option: mounted scroll-viewport reference, not scroll phase. | option |
-| crates/kivact-ui-soft/src/outline.rs:255 | Navigation.scroll_on_press | independent: immutable setup snapshot controlling whether navigation requests scrolling. | independent |
+| crates/kivact-ui-soft/src/mobile_nav.rs:61 | MobileContext.auto_toggle | option: fixed at AppShell construction as MobileNavMode::Auto with MobileNavConfig::has_toggle; false means the app supplies its own drawer control. | option |
+| crates/kivact-ui-soft/src/nav_heading.rs:46 | NavHeadingMenuItem.description | option: caller supporting text from NavHeadingMenuItem::description; absent renders the label alone. | option |
+| crates/kivact-ui-soft/src/nav_heading.rs:49 | NavHeadingMenuItem.disabled | option: caller availability from NavHeadingMenuItem::disabled; false keeps the entry selectable. | option |
+| crates/kivact-ui-soft/src/outline.rs:252 | Navigation.viewport | option: caller viewport from Outline::scroll_container; absent scrolls the window through target.scroll_into_view. | option |
+| crates/kivact-ui-soft/src/outline.rs:255 | Navigation.scroll_on_press | option: caller choice from Outline::scroll_on_press sampled once in into_view; false skips scrolling and reports navigation end immediately. | option |
 | crates/kivact-ui-soft/src/outline.rs:257 | Navigation.controlled | option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine. | option |
 | crates/kivact-ui-soft/src/outline.rs:258 | Navigation.pending | - | type |
-| crates/kivact-ui-soft/src/power_search.rs:144 | FilterDraft.field | independent: the chosen filter field; a draft may not have one yet | independent |
+| crates/kivact-ui-soft/src/power_search.rs:144 | FilterDraft.field | independent: set only by the Field select or seeded from the edited filter; operator is chosen separately and Apply requires both, so a draft missing either is a valid in-progress form. | independent |
 | crates/kivact-ui-soft/src/power_search.rs:146 | FilterDraft.operator | independent: the chosen comparison; every field offers every operator | independent |
-| crates/kivact-ui-soft/src/recipes_metrics.rs:63 | MetadataAppearance.position | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/recipes_metrics.rs:65 | MetadataAppearance.width | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/rich_block_doc.rs:25 | Kind::List.number | independent: the number of an ordered list item, absent for a bullet | independent |
-| crates/kivact-ui-soft/src/rich_block_doc.rs:27 | Kind::List.checked | independent: the check state of a task item, absent for a plain item | independent |
-| crates/kivact-ui-soft/src/side_navigation/items.rs:403 | ItemSlots.leading | independent: a measured or construction value; retained leading construction slot, without navigation state. | independent |
-| crates/kivact-ui-soft/src/side_navigation/items.rs:405 | ItemSlots.selected_icon | independent: a measured or construction value; retained selected icon construction slot, without navigation state. | independent |
-| crates/kivact-ui-soft/src/side_navigation/items.rs:407 | ItemSlots.end | independent: a measured or construction value; retained end construction slot, without navigation state. | independent |
-| crates/kivact-ui-soft/src/side_navigation/items.rs:409 | ItemSlots.actions | independent: a measured or construction value; retained actions construction slot, without navigation state. | independent |
+| crates/kivact-ui-soft/src/recipes_metrics.rs:63 | MetadataAppearance.position | option: theme-author placement from MetadataLook::label_position; absent places terms beside details in one column and above them otherwise. | option |
+| crates/kivact-ui-soft/src/recipes_metrics.rs:65 | MetadataAppearance.width | option: theme-author term column width from MetadataLook::label_width; absent sizes the term column to its max-content width. | option |
+| crates/kivact-ui-soft/src/rich_block_doc.rs:25 | Kind::List.number | independent: parsed from the `N.` marker and incremented on split; a task checkbox may sit on ordered or bullet items, so every number and checked pair comes from valid source. | independent |
+| crates/kivact-ui-soft/src/rich_block_doc.rs:27 | Kind::List.checked | independent: parsed from the `[ ]` / `[x]` prefix and toggled only by Document::task, which rewrites the head text in the same step; numbering never constrains it. | independent |
+| crates/kivact-ui-soft/src/side_navigation/items.rs:403 | ItemSlots.leading | option: caller icon from SideNavItem::icon, mounted once; absent means the row has no leading icon. | option |
+| crates/kivact-ui-soft/src/side_navigation/items.rs:405 | ItemSlots.selected_icon | option: caller icon from SideNavItem::selected_icon, mounted once; absent keeps the leading icon while selected. | option |
+| crates/kivact-ui-soft/src/side_navigation/items.rs:407 | ItemSlots.end | option: caller content from SideNavItem::end_content, mounted once; absent means no trailing row content. | option |
+| crates/kivact-ui-soft/src/side_navigation/items.rs:409 | ItemSlots.actions | option: caller controls from SideNavItem::actions, mounted once; absent means no row action controls. | option |
 | crates/kivact-ui-soft/src/side_navigation/items.rs:432 | ItemBranch::Parent.expansion | independent: whether the item has its own collapse owner (AlwaysOpen has none); independent of the shell's flyout | independent |
 | crates/kivact-ui-soft/src/side_navigation/items.rs:435 | ItemBranch::Parent.flyout | independent: whether the shell is collapsible (a fixed shell has no rail flyout); independent of the item's collapse owner | independent |
-| crates/kivact-ui-soft/src/side_navigation/shell.rs:377 | SideNavSlots.header | independent: a measured or construction value; retained header content slot; this record owns no sidebar phase. | independent |
-| crates/kivact-ui-soft/src/side_navigation/shell.rs:379 | SideNavSlots.top | independent: a measured or construction value; retained top content slot; this record owns no sidebar phase. | independent |
-| crates/kivact-ui-soft/src/side_navigation/shell.rs:381 | SideNavSlots.footer | independent: a measured or construction value; retained footer content slot; this record owns no sidebar phase. | independent |
-| crates/kivact-ui-soft/src/side_navigation/shell.rs:383 | SideNavSlots.icons | independent: a measured or construction value; retained icons content slot; this record owns no sidebar phase. | independent |
+| crates/kivact-ui-soft/src/side_navigation/shell.rs:376 | SideNavSlots.header | option: caller content from SideNav::header, mounted once; absent means no sidebar header. | option |
+| crates/kivact-ui-soft/src/side_navigation/shell.rs:378 | SideNavSlots.top | option: caller content from SideNav::top_content, mounted once; absent means nothing above the entries. | option |
+| crates/kivact-ui-soft/src/side_navigation/shell.rs:380 | SideNavSlots.footer | option: caller content from SideNav::footer, mounted once; absent means no footer content. | option |
+| crates/kivact-ui-soft/src/side_navigation/shell.rs:382 | SideNavSlots.icons | option: caller actions from SideNav::footer_icons, mounted once; absent means no compact rail actions. | option |
 | crates/kivact-ui-soft/src/soft_chat_tools.rs:79 | ToolCall.status | - | type |
-| crates/kivact-ui-soft/src/soft_chat_tools.rs:82 | ToolCall.target | independent: optional target is application-owned display metadata, not a pending command | independent |
-| crates/kivact-ui-soft/src/soft_tree.rs:9 | TreeLook.density | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/soft_tree.rs:11 | TreeLook.guides | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/stack.rs:78 | Padding.all | independent: passive optional all padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:80 | Padding.x | independent: passive optional x padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:82 | Padding.y | independent: passive optional y padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:84 | Padding.start | independent: passive optional start padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:86 | Padding.end | independent: passive optional end padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:88 | Padding.top | independent: passive optional top padding value resolved by geometric precedence, not a runtime phase. | independent |
-| crates/kivact-ui-soft/src/stack.rs:90 | Padding.bottom | independent: passive optional bottom padding value resolved by geometric precedence, not a runtime phase. | independent |
+| crates/kivact-ui-soft/src/soft_chat_tools.rs:82 | ToolCall.target | option: application-supplied target text shown beside the tool name in every status; absent hides the target label. | option |
+| crates/kivact-ui-soft/src/soft_tree.rs:9 | TreeLook.density | option: theme-author row padding from TreeLook::density; absent uses ItemDensity::Balanced. | option |
+| crates/kivact-ui-soft/src/soft_tree.rs:11 | TreeLook.guides | option: theme-author choice from TreeLook::guides; absent shows ancestor guides like Some(true). | option |
+| crates/kivact-ui-soft/src/stack.rs:78 | Padding.all | option: caller value from the padding builder; absent leaves edges without x, y or edge values on the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:80 | Padding.x | option: caller value from padding_x; absent defers inline edges to padding, then the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:82 | Padding.y | option: caller value from padding_y; absent defers top and bottom to padding, then the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:84 | Padding.start | option: caller value from padding_start; absent defers the leading edge to padding_x, then padding, then the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:86 | Padding.end | option: caller value from padding_end; absent defers the trailing edge to padding_x, then padding, then the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:88 | Padding.top | option: caller value from padding_top; absent defers the top edge to padding_y, then padding, then the container default. | option |
+| crates/kivact-ui-soft/src/stack.rs:90 | Padding.bottom | option: caller value from padding_bottom; absent defers the bottom edge to padding_y, then padding, then the container default. | option |
 | crates/kivact-ui-soft/src/tab_list.rs:103 | Tab.icon | option: mounted once when the tab is built; absent means no icon | option |
 | crates/kivact-ui-soft/src/tab_list.rs:105 | Tab.selected_icon | option: mounted once for the selected tab; absent means the resting icon | option |
 | crates/kivact-ui-soft/src/tab_list.rs:108 | Tab.end | option: mounted once when the tab is built; absent means no trailing content | option |
 | crates/kivact-ui-soft/src/tab_list.rs:110 | Tab.panel | option: caller-provided panel reference; absent means no associated panel | option |
-| crates/kivact-ui-soft/src/tab_list.rs:863 | TabRuntime.behavior | independent: existing canonical TabsApi handle, without copied selection or phase. | independent |
-| crates/kivact-ui-soft/src/tab_list.rs:866 | TabRuntime.scrollable | independent: fixed overflow presentation input, independent of the shared Tabs and focus cursor. | independent |
+| crates/kivact-ui-soft/src/tab_list.rs:863 | TabRuntime.behavior | option: TabsApi created only when the caller's TabPattern is Tabs; None makes the strip a Navigation landmark without tab semantics. | option |
+| crates/kivact-ui-soft/src/tab_list.rs:866 | TabRuntime.scrollable | option: caller TabOverflow sampled once in into_view; false lets the strip overflow without a scrolling viewport. | option |
 | crates/kivact-ui-soft/src/timestamp.rs:164 | TimestampEntry.zone | option: per-entry time zone is an immutable formatting override. | option |
 | crates/kivact-ui-soft/src/timestamp.rs:169 | TimestampEntry.label | option: prefix label is independent authored presentation text. | option |
-| crates/kivact-ui-soft/src/timestamp.rs:172 | TimestampEntry.copyable | independent: Copy permission is a presentation capability, not a clipboard phase. | independent |
-| crates/kivact-ui-soft/src/top_nav.rs:64 | Slots.heading | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/top_nav.rs:66 | Slots.start | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/top_nav.rs:68 | Slots.center | option: absent means the component's default | option |
-| crates/kivact-ui-soft/src/top_nav.rs:70 | Slots.end | option: absent means the component's default | option |
-| dev/tests/gpu-interop-producer/src/producer.rs:28 | Producer.shared | option: absent once the pool's handles are shared | option |
+| crates/kivact-ui-soft/src/timestamp.rs:172 | TimestampEntry.copyable | option: the caller's flag for a copy action on this detail row; timestamp_details does not draw a copy action yet, so both values render alike | option |
+| crates/kivact-ui-soft/src/top_nav.rs:64 | Slots.heading | option: caller content from TopNav::heading, mounted once; absent leaves the heading area empty. | option |
+| crates/kivact-ui-soft/src/top_nav.rs:66 | Slots.start | option: caller content from TopNav::start, mounted once and dropped in the mobile bar; absent leaves the start area empty. | option |
+| crates/kivact-ui-soft/src/top_nav.rs:68 | Slots.center | option: caller content from TopNav::center, mounted once and dropped in the mobile bar; absent leaves the center area empty. | option |
+| crates/kivact-ui-soft/src/top_nav.rs:70 | Slots.end | option: caller content from TopNav::end, mounted once; absent leaves the end area empty. | option |
+| dev/tests/gpu-interop-producer/src/producer.rs:28 | Producer.shared | independent: the pool's handles until shared_textures or signal_prepared takes them, once per engine; draw numbers frames before or after that, since the engine's first frames wait for the preparation signal | independent |
 | dev/tests/gpu-interop-producer/src/producer.rs:31 | Producer.next | identity: the number of the frame drawn next | identity |
-| dev/xtask/src/check_source.rs:17 | Source.target | option: absent means the source was not reached through a declared Cargo target | option |
-| dev/xtask/src/check_source.rs:19 | Source.library | independent: a fixed target-kind fact recorded while parsing; any value is valid beside the target name | independent |
 | dev/xtask/src/public_surface.rs:20 | Binding.public | independent: whether a binding is public is a fixed fact, separate from whether it names a value | independent |
 | dev/xtask/src/public_surface.rs:23 | Binding.value | independent: whether a binding names a value is a fixed fact, separate from its visibility | independent |
 | dev/xtask/src/state_fields/mode.rs:7 | Mode.report | independent: all four combinations are valid because console notes and the audit file are separate requests | independent |
 | dev/xtask/src/state_fields/mode.rs:9 | Mode.audit | independent: the audit file can be requested without console notes | independent |
-| examples/kivact/component/src/main.rs:34 | app::first | independent: each card closes from its own button | independent |
-| examples/kivact/component/src/main.rs:36 | app::second | independent: each card closes from its own button | independent |
-| examples/kivact-ui-basic/src/docs/alert_dialog.rs:78 | destructive::open | independent: the dialog can be opened again after the deletion; every open and closed state is valid | independent |
-| examples/kivact-ui-basic/src/docs/alert_dialog.rs:80 | destructive::deleted | independent: a one-way record of the deletion, kept after the dialog closes | independent |
-| examples/kivact-ui-basic/src/docs/data_table.rs:65 | payments::sort | independent: the demo sorts by any column in either direction | independent |
-| examples/kivact-ui-basic/src/docs/data_table.rs:67 | payments::page | independent: any page of the demo's rows is valid | independent |
-| examples/kivact-ui-basic/src/docs/dialog.rs:123 | confirm::open | independent: the dialog can be opened again after the deletion; every open and closed state is valid | independent |
-| examples/kivact-ui-basic/src/docs/dialog.rs:125 | confirm::deleted | independent: a one-way record of the deletion, kept after the dialog closes | independent |
-| examples/kivact-ui-basic/src/docs/drawer.rs:36 | default::open | independent: the drawer can be opened and closed freely | independent |
-| examples/kivact-ui-basic/src/docs/drawer.rs:38 | default::goal | independent: any daily goal is valid | independent |
-| examples/kivact-ui-basic/src/docs/dropdown_menu.rs:76 | checkboxes::status | independent: each checkbox of the demo is toggled separately | independent |
-| examples/kivact-ui-basic/src/docs/dropdown_menu.rs:78 | checkboxes::activity | independent: each checkbox of the demo is toggled separately | independent |
-| examples/kivact-ui-basic/src/docs/trace.rs:65 | steps::first | independent: each collapsible of the demo opens separately | independent |
-| examples/kivact-ui-basic/src/docs/trace.rs:67 | steps::second | independent: each collapsible of the demo opens separately | independent |
+| examples/kivact/component/src/main.rs:34 | app::first | independent: whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so either card or both can be closed | independent |
+| examples/kivact/component/src/main.rs:36 | app::second | independent: whether the Second card is shown, cleared only by its own close button and never set back; the First card has its own signal, so either card or both can be closed | independent |
+| examples/kivact-ui-basic/src/docs/alert_dialog.rs:78 | destructive::open | independent: "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either value of deleted | independent |
+| examples/kivact-ui-basic/src/docs/alert_dialog.rs:80 | destructive::deleted | independent: set by the alert's Delete button and never cleared; the muted line shows it while the alert is open or closed | independent |
+| examples/kivact-ui-basic/src/docs/data_table.rs:65 | payments::sort | independent: the table's sort binding, written by the data_table column headers; any sort can be shown on any page, since sorting only reorders the filtered rows | independent |
+| examples/kivact-ui-basic/src/docs/data_table.rs:67 | payments::page | independent: the table's page binding, moved by the pager and reset to 0 by a new sort or filter text; every page is reachable afterwards under any sort | independent |
+| examples/kivact-ui-basic/src/docs/dialog.rs:123 | confirm::open | independent: "Delete account" opens the dialog and Cancel or Delete closes it; reopening after the deletion keeps deleted true | independent |
+| examples/kivact-ui-basic/src/docs/dialog.rs:125 | confirm::deleted | independent: set by the dialog's Delete button and never cleared; the account line reads it with the dialog open or closed | independent |
+| examples/kivact-ui-basic/src/docs/drawer.rs:36 | default::open | independent: the drawer's open binding, set by Open Drawer and cleared by Submit or Cancel; the goal keeps its value while the drawer is closed, so either open state pairs with any goal | independent |
+| examples/kivact-ui-basic/src/docs/drawer.rs:38 | default::goal | independent: the calorie goal, stepped by the minus and plus buttons in the drawer; nothing resets it on close, so every goal pairs with either drawer state | independent |
+| examples/kivact-ui-basic/src/docs/dropdown_menu.rs:76 | checkboxes::status | independent: the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither bar can be on | independent |
+| examples/kivact-ui-basic/src/docs/dropdown_menu.rs:78 | checkboxes::activity | independent: the Activity Bar checkbox, flipped only by its own menu entry; the Status Bar entry never touches it, so both, either or neither bar can be on | independent |
+| examples/kivact-ui-basic/src/docs/trace.rs:65 | steps::first | independent: the open binding of the first trace collapsible, toggled only by its header; the second collapsible has its own binding, so both, either or neither can be open | independent |
+| examples/kivact-ui-basic/src/docs/trace.rs:67 | steps::second | independent: the open binding of the second trace collapsible, toggled only by its header; the first collapsible has its own binding, so both, either or neither can be open | independent |
 | examples/kivact-ui-creative/src/creative/audio_values.rs:15 | TransportState.playing | independent: Play and Stop toggle playing; Record and Cycle leave it | independent |
-| examples/kivact-ui-creative/src/creative/audio_values.rs:17 | TransportState.recording | independent: Record toggles recording; Play, Stop and Cycle leave it | independent |
-| examples/kivact-ui-creative/src/creative/audio_values.rs:19 | TransportState.cycling | independent: Cycle toggles cycling; Play, Stop and Record leave it | independent |
-| examples/kivact-ui-creative/src/creative/layout.rs:21 | properties::tab | independent: the inspector tab index; any tab is valid | independent |
-| examples/kivact-ui-creative/src/creative/layout.rs:24 | properties::display_name | independent: whether the name is shown; either value is valid with every other display flag | independent |
-| examples/kivact-ui-creative/src/creative/layout.rs:26 | properties::display_axes | independent: whether the axes are shown; either value is valid with every other display flag | independent |
-| examples/kivact-ui-creative/src/creative/layout.rs:28 | properties::display_wireframe | independent: whether the wireframe is shown; either value is valid with every other display flag | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:811 | CatalogControls.compact | independent: the catalog's compact-row toggle; its own controls write it | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:815 | CatalogControls.current | independent: the selected chapter index; any chapter is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:817 | CatalogControls.sidebar_open | independent: the sidebar's visibility; either value is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:821 | CatalogControls.search | independent: the search overlay's visibility; either value is valid | independent |
+| examples/kivact-ui-creative/src/creative/audio_values.rs:17 | TransportState.recording | independent: the catalog's record toggle (audio_samples.rs) and the kit transport (controls) flip it; the stop button clears only playing and the loop switches only cycling | independent |
+| examples/kivact-ui-creative/src/creative/audio_values.rs:19 | TransportState.cycling | independent: the loop switches in arrange.rs and audio_samples.rs and the kit transport set it; play, stop and record leave it | independent |
+| examples/kivact-ui-creative/src/creative/layout.rs:21 | properties::tab | independent: the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport display checkboxes, so any tab pairs with any display setting | independent |
+| examples/kivact-ui-creative/src/creative/layout.rs:24 | properties::display_name | independent: bound only to the Name checkbox of Viewport Display; Axes and Wireframe have their own signals, so every on/off mix is a valid display | independent |
+| examples/kivact-ui-creative/src/creative/layout.rs:26 | properties::display_axes | independent: bound only to the Axes checkbox of Viewport Display; Name and Wireframe have their own signals, so every on/off mix is a valid display | independent |
+| examples/kivact-ui-creative/src/creative/layout.rs:28 | properties::display_wireframe | independent: bound only to the Wireframe checkbox of Viewport Display; Name and Axes have their own signals, so every on/off mix is a valid display | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:811 | CatalogControls.compact | independent: flipped by the density button and Ctrl+Alt+D only; either row density shows with any chapter, sidebar and search overlay state | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:815 | CatalogControls.current | independent: the chapter chosen in the sidebar list; every chapter is a reachable view in either density and with the sidebar or search overlay in any state | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:817 | CatalogControls.sidebar_open | independent: the top bar's sidebar toggle; the sidebar hides or shows over any chapter and density, with the search overlay up or down | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:821 | CatalogControls.search | independent: opened by the search button, F3 and the feedback chapter's button, and closed by the overlay; it covers any chapter, density and sidebar state | independent |
 | examples/kivact-ui-creative/src/creative/shell.rs:822 | CatalogControls.pie | - | type |
-| examples/kivact-ui-creative/src/creative/shell.rs:827 | CatalogControls.shading | independent: the viewport shading mode; any mode is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:829 | CatalogControls.viewport_grid | independent: the viewport grid toggle; either value is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:837 | new::compact | independent: the compact-row toggle; its own control writes it | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:841 | new::current | independent: the selected chapter index; any chapter is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:843 | new::sidebar_open | independent: the sidebar's visibility; either value is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:848 | new::search | independent: the search overlay's visibility; either value is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:854 | new::shading | independent: the viewport shading mode; any mode is valid | independent |
-| examples/kivact-ui-creative/src/creative/shell.rs:856 | new::viewport_grid | independent: the viewport grid toggle; either value is valid | independent |
-| examples/kivact-ui-game/src/game/controls.rs:66 | buttons::grid_on | independent: the grid and filter toggles belong to their own toolbar buttons | independent |
-| examples/kivact-ui-game/src/game/controls.rs:68 | buttons::filter_on | independent: the grid and filter toggles belong to their own toolbar buttons | independent |
-| examples/kivact-ui-game/src/game/controls.rs:165 | navigation::step | independent: the wizard's step and the pagination's page are separate controls | independent |
-| examples/kivact-ui-game/src/game/controls.rs:167 | navigation::page | independent: the wizard's step and the pagination's page are separate controls | independent |
-| examples/kivact-ui-game/src/game/system.rs:73 | feedback::info | independent: each alert is dismissed on its own; every combination is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:75 | feedback::success | independent: each alert is dismissed on its own; every combination is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:77 | feedback::warning | independent: each alert is dismissed on its own; every combination is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:79 | feedback::danger | independent: each alert is dismissed on its own; every combination is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:93 | overlays::pinned | independent: a menu checkbox; any pair of the menu and popover states is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:95 | overlays::archived | independent: a menu checkbox; any pair of the menu and popover states is valid | independent |
-| examples/kivact-ui-game/src/game/system.rs:97 | overlays::user_open | independent: the popover opens from its own trigger, beside the menu checkboxes | independent |
-| examples/kivact-ui-game/src/game/system.rs:260 | layout::notify | independent: the notify switch and the opacity slider are separate settings | independent |
-| examples/kivact-ui-game/src/game/system.rs:262 | layout::opacity | independent: the notify switch and the opacity slider are separate settings | independent |
-| examples/kivact-ui-game/src/game/window.rs:45 | frame::width | independent: the explorer width set by its divider; any width is valid | independent |
-| examples/kivact-ui-game/src/game/window.rs:48 | frame::help | independent: the About dialog opens from its own menu item | independent |
-| examples/kivact-ui-pop/src/pop/components.rs:458 | switch_controls::volume | independent: the two sliders are adjusted separately | independent |
-| examples/kivact-ui-pop/src/pop/components.rs:460 | switch_controls::difficulty | independent: the two sliders are adjusted separately | independent |
-| examples/kivact-ui-pop/src/pop/components.rs:516 | check_controls::notifications | independent: each checkbox is checked on its own | independent |
-| examples/kivact-ui-pop/src/pop/components.rs:518 | check_controls::reports | independent: each checkbox is checked on its own | independent |
-| examples/kivact-ui-pop/src/pop/data.rs:42 | display::next_chip | independent: the chip suggestion index and the animated progress are unrelated | independent |
-| examples/kivact-ui-pop/src/pop/data.rs:44 | display::live | independent: the chip suggestion index and the animated progress are unrelated | independent |
-| examples/kivact-ui-pop/src/pop/data.rs:74 | table::page | independent: the page and the sort order are changed by separate controls | independent |
-| examples/kivact-ui-pop/src/pop/data.rs:76 | table::sort | independent: the page and the sort order are changed by separate controls | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:827 | CatalogControls.shading | independent: the viewport shading mode chosen in the viewport toolbar or the pie menu; every mode draws with the viewport grid on or off | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:829 | CatalogControls.viewport_grid | independent: the viewport grid flipped from the viewport toolbar or the pie menu; the grid draws over every shading mode | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:837 | new::compact | independent: flipped by the density button and Ctrl+Alt+D only; either row density shows with any chapter, sidebar and search overlay state | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:841 | new::current | independent: the chapter chosen in the sidebar list; every chapter is a reachable view in either density and with the sidebar or search overlay in any state | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:843 | new::sidebar_open | independent: the top bar's sidebar toggle; the sidebar hides or shows over any chapter and density, with the search overlay up or down | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:848 | new::search | independent: opened by the search button, F3 and the feedback chapter's button, and closed by the overlay; it covers any chapter, density and sidebar state | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:854 | new::shading | independent: the viewport shading mode chosen in the viewport toolbar or the pie menu; every mode draws with the viewport grid on or off | independent |
+| examples/kivact-ui-creative/src/creative/shell.rs:856 | new::viewport_grid | independent: the viewport grid flipped from the viewport toolbar or the pie menu; the grid draws over every shading mode | independent |
+| examples/kivact-ui-game/src/game/controls.rs:66 | buttons::grid_on | independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views | independent |
+| examples/kivact-ui-game/src/game/controls.rs:68 | buttons::filter_on | independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views | independent |
+| examples/kivact-ui-game/src/game/controls.rs:165 | navigation::step | independent: the wizard step, moved only by the stepper's controls in wizard_steps; the pagination specimen has its own page signal, so any step pairs with any page | independent |
+| examples/kivact-ui-game/src/game/controls.rs:167 | navigation::page | independent: the pagination specimen's page, moved only by its pagination control; the wizard has its own step signal, so any page pairs with any step | independent |
+| examples/kivact-ui-game/src/game/system.rs:73 | feedback::info | independent: the info alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed | independent |
+| examples/kivact-ui-game/src/game/system.rs:75 | feedback::success | independent: the success alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed | independent |
+| examples/kivact-ui-game/src/game/system.rs:77 | feedback::warning | independent: the warning alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed | independent |
+| examples/kivact-ui-game/src/game/system.rs:79 | feedback::danger | independent: the danger alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed | independent |
+| examples/kivact-ui-game/src/game/system.rs:93 | overlays::pinned | independent: the detail-column menu checkbox, flipped only by its own entry; archived and the user popover have their own signals, so it pairs with either of their states | independent |
+| examples/kivact-ui-game/src/game/system.rs:95 | overlays::archived | independent: the include-archived menu checkbox, flipped only by its own entry; pinned and the user popover have their own signals, so it pairs with either of their states | independent |
+| examples/kivact-ui-game/src/game/system.rs:97 | overlays::user_open | independent: the user popover's open binding, set by its own trigger and cleared by the popover; it never reads or writes the menu checkboxes, so it opens with any checkbox pair | independent |
+| examples/kivact-ui-game/src/game/system.rs:260 | layout::notify | independent: bound only to the inspector's notify switch; the opacity slider has its own signal, so notifications on or off pair with any opacity | independent |
+| examples/kivact-ui-game/src/game/system.rs:262 | layout::opacity | independent: bound only to the inspector's opacity slider; the notify switch has its own signal, so any opacity pairs with notifications on or off | independent |
+| examples/kivact-ui-game/src/game/window.rs:37 | frame::width | independent: the explorer width, written only by the native_window divider within explorer_range; it is layout only, so any width pairs with any editor mode, run state or About dialog | independent |
+| examples/kivact-ui-game/src/game/window.rs:40 | frame::help | independent: the About dialog's open binding, set by the Help menu's help command and cleared by the dialog; it never touches mode, run or the explorer width, so it opens over any editor state | independent |
+| examples/kivact-ui-pop/src/pop/components.rs:458 | switch_controls::volume | independent: bound only to the BGM volume slider; the difficulty slider has its own signal, so any volume pairs with any difficulty | independent |
+| examples/kivact-ui-pop/src/pop/components.rs:460 | switch_controls::difficulty | independent: bound only to the difficulty slider; the volume slider has its own signal, so any difficulty pairs with any volume | independent |
+| examples/kivact-ui-pop/src/pop/components.rs:516 | check_controls::notifications | independent: bound only to the notifications checkbox; the weekly report checkbox has its own signal, so both, either or neither can be checked | independent |
+| examples/kivact-ui-pop/src/pop/components.rs:518 | check_controls::reports | independent: bound only to the weekly report checkbox; the notifications checkbox has its own signal, so both, either or neither can be checked | independent |
+| examples/kivact-ui-pop/src/pop/data.rs:42 | display::next_chip | independent: the index of the next suggested chip tag, advanced only by the badge specimen's add button; the progress loop never reads it, so any index pairs with any progress | independent |
+| examples/kivact-ui-pop/src/pop/data.rs:44 | display::live | independent: the demo progress value, advanced only by the 900 ms spawn loop; the chip suggestion never reads it, so any progress pairs with any chip index | independent |
+| examples/kivact-ui-pop/src/pop/data.rs:74 | table::page | independent: the student table's page, moved by the pager and reset to 0 by a new sort, status filter or search; every page is reachable afterwards under any sort | independent |
+| examples/kivact-ui-pop/src/pop/data.rs:76 | table::sort | independent: the student table's sort binding, written by the column headers; sorting only reorders the filtered rows, so any sort can be shown on any page | independent |
 | examples/kivact-ui-pop/src/pop/mission.rs:18 | Mission.progress_label | option: absent shows the message mission.progress | option |
 | examples/kivact-ui-pop/src/pop/mission.rs:25 | Mission.action_label | option: absent shows the message mission.open | option |
-| examples/kivact-ui-pop/src/pop/mission.rs:29 | Mission.locked | independent: a mission is locked or open independently of its content | independent |
-| examples/kivact-ui-pop/src/pop/patterns.rs:20 | feedback::dismissed_info | independent: the two alerts are dismissed separately | independent |
-| examples/kivact-ui-pop/src/pop/patterns.rs:22 | feedback::dismissed_success | independent: the two alerts are dismissed separately | independent |
-| examples/kivact-ui-pop/src/pop/shell.rs:97 | catalog_with_mode::selected | independent: the scroll-spy section is unrelated to which overlay is open | independent |
-| examples/kivact-ui-pop/src/pop/shell.rs:102 | catalog_with_mode::overlay | - | OPEN |
-| examples/kivact-ui-pop/src/pop/shell.rs:639 | student_drawer::pin_student | independent: the two switches are set separately | independent |
-| examples/kivact-ui-pop/src/pop/shell.rs:641 | student_drawer::auto_skill | independent: the two switches are set separately | independent |
-| examples/kivact-ui-soft/src/model.rs:9 | CatalogState.dark | independent: caller-controlled appearance preference, unrelated to selected page or query | independent |
-| examples/kivact-ui-soft/src/model.rs:11 | CatalogState.selected | independent: the single selected-page index, independent of appearance and search text | independent |
+| examples/kivact-ui-pop/src/pop/mission.rs:29 | Mission.locked | option: the application's lock flag in each Mission literal (patterns.rs); true desaturates the card art, shows a lock icon and disables the action button | option |
+| examples/kivact-ui-pop/src/pop/patterns.rs:20 | feedback::dismissed_info | independent: set only by the maintenance notice's close button and never cleared; the success notice has its own signal, so both, either or neither notice can be dismissed | independent |
+| examples/kivact-ui-pop/src/pop/patterns.rs:22 | feedback::dismissed_success | independent: set only by the success notice's close button and never cleared; the maintenance notice has its own signal, so both, either or neither notice can be dismissed | independent |
+| examples/kivact-ui-pop/src/pop/shell.rs:638 | student_drawer::pin_student | independent: bound only to the pin-to-main-team switch in the student drawer; the auto-skill switch has its own signal, so both, either or neither can be on | independent |
+| examples/kivact-ui-pop/src/pop/shell.rs:640 | student_drawer::auto_skill | independent: bound only to the auto-skill switch in the student drawer; the pin switch has its own signal, so both, either or neither can be on | independent |
+| examples/kivact-ui-soft/src/model.rs:9 | CatalogState.dark | independent: the appearance, seeded from the caller's ThemeMode and flipped by the Toggle appearance button; it only picks the theme, so every page and query can be shown in light or dark | independent |
+| examples/kivact-ui-soft/src/model.rs:11 | CatalogState.selected | independent: the shown page, seeded from the caller's slug and set by the navigation buttons; the theme toggle never writes it, so any page shows in light or dark | independent |
