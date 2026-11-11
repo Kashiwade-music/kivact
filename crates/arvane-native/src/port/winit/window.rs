@@ -49,7 +49,7 @@ pub struct WinitWindow {
     pub(super) affinity: Rc<()>,
     pub(super) accessibility: NativeAccessibility,
     pub(super) services: Services,
-    // xtask-allow(state-fields): cache: the monitor the window was last seen on; absent before the first report
+    // xtask-allow(state-fields): cache: the monitor `current_monitor` gave at open and at the last move or scale change, kept to tell when frame_period_ns must be read again; absent when the platform cannot tell the monitor
     /// The monitor the window was last seen on.
     pub(super) monitor: Option<winit::monitor::MonitorHandle>,
     /// The refresh period of that monitor (`frame_period_ns`).

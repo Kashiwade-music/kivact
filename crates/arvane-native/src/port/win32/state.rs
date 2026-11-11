@@ -56,30 +56,23 @@ impl Drop for Hold<'_> {
 
 #[derive(Default)]
 pub(super) struct Utf16Decoder {
-    // xtask-allow(state-fields): option: the unpaired high surrogate waiting for its pair; absent when none waits
+    /// The unpaired high surrogate waiting for its pair.
     pending: Option<u16>,
-    // xtask-allow(state-fields): option: the incomplete character waiting for its second unit; absent when none waits
-    tail: Option<char>,
 }
 impl Utf16Decoder {
-    pub(super) fn push(&mut self, unit: u16) -> Option<char> {
+    /// The text `unit` completes: `None` while a high surrogate waits for
+    /// its pair; an unpaired surrogate decodes to U+FFFD.
+    pub(super) fn push(&mut self, unit: u16) -> Option<String> {
         if (0xd800..=0xdbff).contains(&unit) {
             return self
                 .pending
                 .replace(unit)
-                .map(|_| char::REPLACEMENT_CHARACTER);
+                .map(|_| char::REPLACEMENT_CHARACTER.to_string());
         }
-        let text = match self.pending.take() {
+        Some(match self.pending.take() {
             Some(previous) => String::from_utf16_lossy(&[previous, unit]),
             None => String::from_utf16_lossy(&[unit]),
-        };
-        let mut chars = text.chars();
-        let first = chars.next();
-        self.tail = chars.next();
-        first
-    }
-    pub(super) fn take_tail(&mut self) -> Option<char> {
-        self.tail.take()
+        })
     }
 }
 
@@ -124,4 +117,22 @@ pub(super) struct State {
     pub(super) uia: RefCell<Uia>,
     pub(super) target: Arc<super::target::Target>,
     pub(super) started: Instant,
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of UTF-16 decoding: pairs and lone surrogates decode in one push.
+    use super::Utf16Decoder;
+
+    #[test]
+    fn surrogate_pairs_and_lone_surrogates_decode_in_one_push() {
+        let mut d = Utf16Decoder::default();
+        assert_eq!(d.push(0xd83d), None);
+        assert_eq!(d.push(0xde00).as_deref(), Some("\u{1f600}"));
+        assert_eq!(d.push(0xd83d), None);
+        assert_eq!(d.push(u16::from(b'a')).as_deref(), Some("\u{fffd}a"));
+        assert_eq!(d.push(0xd83d), None);
+        assert_eq!(d.push(0xd83d).as_deref(), Some("\u{fffd}"));
+        assert_eq!(d.push(0xde00).as_deref(), Some("\u{1f600}"));
+    }
 }

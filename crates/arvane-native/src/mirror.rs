@@ -116,14 +116,14 @@ struct Counters {
 struct MirrorBatch {
     // xtask-allow(state-fields): option: the frame a test window shows next; absent when none is pending
     frame: Option<Frame>,
-    // xtask-allow(state-fields): independent: whether the accessibility tree changed, taken with the batch; any combination with the other batch values is valid
+    // xtask-allow(state-fields): independent: set only by the accessibility tree's change callback, while frame, title, resize and gpu come from other MirrorWindow calls on the test thread; flush applies each on its own, so any mix in one batch is valid
     /// The accessibility tree changed: hand the platform what it lacks.
     accessibility: bool,
     // xtask-allow(state-fields): option: the title a test window shows next; absent when none is pending
     title: Option<String>,
     // xtask-allow(state-fields): option: the size a test window resizes to; absent when none is pending
     resize: Option<(u32, u32, f64)>,
-    // xtask-allow(state-fields): independent: whether a GPU surface presents from now on, taken with the batch; any combination with the other batch values is valid
+    // xtask-allow(state-fields): independent: set only by `MirrorWindow::gpu_presents`, while the other batch values come from other MirrorWindow calls; flush switches the window to GPU use on its own (a frame in the same batch is then not kept), so any mix is valid
     /// A GPU surface presents to the window from now on.
     gpu: bool,
 }

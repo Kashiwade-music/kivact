@@ -12,7 +12,7 @@ use kivact_types::{Environment, PointerSettings};
 /// What the window's subclass shares with the window and the runner.
 pub(crate) struct NativeInput {
     pub(crate) ime: RefCell<arvane_shell::pipeline::ImeDriver>,
-    // xtask-allow(state-fields): independent: the focused text input's state as the application last set it; any combination with the system settings is valid
+    // xtask-allow(state-fields): independent: written only by the IME port's `surrounding` when the application focuses or edits a text input, while reduced_motion and locale come from the system's settings; neither source reads the other, so every pair occurs
     /// The focused text input's state, as the application last set it.
     pub(crate) text: RefCell<Option<ShellImeText>>,
     /// Physical pixels per logical pixel of the window.
@@ -28,12 +28,12 @@ pub(crate) struct NativeInput {
     /// subclass reads it.
     #[cfg(windows)]
     pub(crate) subclass_installed: Cell<Subclass>,
-    // xtask-allow(state-fields): cache: the system's reduce-motion preference as last read
+    // xtask-allow(state-fields): cache: the system's reduce-motion preference as last read; read again on `WM_SETTINGCHANGE` (Windows) and on the settings portal's environment wake (Linux)
     /// The system's reduce-motion preference as last read.
     pub(crate) reduced_motion: Cell<bool>,
     /// The system's mouse settings as last read.
     pub(crate) mouse: Cell<PointerSettings>,
-    // xtask-allow(state-fields): option: the system's locale as last read; absent when the system reports none
+    // xtask-allow(state-fields): cache: the system's locale as last read (`system_locale`); read again on `WM_SETTINGCHANGE` and when the window gains focus; absent when the system reports none
     /// The system's locale as last read (`system_locale`).
     pub(crate) locale: RefCell<Option<String>>,
     /// The reduce-motion preference, the mouse settings or the locale
@@ -60,7 +60,7 @@ pub(crate) struct ContactNote {
     pub(crate) id: u64,
     /// Touch or pen.
     pub(crate) kind: kivact_types::PointerKind,
-    // xtask-allow(state-fields): independent: the contact ended without a release; it is recorded separately from the pen's tilt
+    // xtask-allow(state-fields): independent: the platform's CANCELED flag for the contact's pointer message; tilt comes from the pen info of the same message, and a touch (no tilt) or a pen (with or without tilt) can each be canceled, so every pair occurs
     /// The contact ended without a release (the system took it over).
     pub(crate) canceled: bool,
     // xtask-allow(state-fields): option: the pen's tilt in degrees along x and y; absent when the platform reports none
