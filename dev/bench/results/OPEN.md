@@ -189,3 +189,10 @@ B0 と CP2（`dev/bench/results/CP2.md`、どちらも有効）の比較。倍�
 - 失敗 1 件（未決）：`ui_toolbar::toggle_group_icon_only_keeps_iconless_items_out_of_the_square_look`（UI-3 の commit `473a0414` に含まれる）。原因：`look.rs` の `toggle_button` が全 toggle に `min_width(height)` を付け、icon-only の group で label が全 item で隠れるため、アイコンの無い item が正方形に縮む。試験は 26 px を求める。直し方の案は次の 2 つで、設計者（ユーザー）の判断待ち：案 1（推奨）＝`min_width(height)` と label の隠しを、icon の付いた item だけに限る。案 2＝`min_width` は icon-only の toggle だけに付け、label の隠し方は変えない。試験の期待値は変えない。
 - 次：この判断の後、lane L5 で直す（merge 後の統合 tree で gate をやり直す）。判断が決まるまで W7 には進まない。
 - 注記：W6 の marker 書き換えは、xtask の state-fields lint を全 crate で通っている。`dev/xtask/state-audit.md`（AC-3 の OPEN 0 の確認）は CP2 で確かめる。
+
+## W6 の完了（2026-11-11）
+
+- 既知の失敗の直し：`wt/W6-L5-fix`（commit `389b2cc9`、統合 `d33dd3cf`）。icon-only の toggle group で、label を隠すのは icon の付いた item だけ（`toggle_group.rs` で item ごとに 1 回求める）。`min_width(height)` と試験の assert は変えていない（ユーザーの判断、案 1 の修正）。
+- gate（統合 tree、`d33dd3cf`）：fmt・check・workspace clippy（-D warnings）・xtask（state-fields を含む）は成功。workspace の全試験 2077 件成功、失敗 0。gpu-interop-producer・kivact-docs・GPU の `gpu_on_demand` は成功。
+- W6 の worktree と branch（L1〜L6、L5-fix）は merge 済みを確認のうえ削除した。
+- 次：W7（FINAL-1 → G9 → FINAL-2、1 lane）。
