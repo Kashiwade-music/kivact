@@ -17,14 +17,14 @@ use kivact::view::Handled;
 use kivact_ui_creative as ui;
 
 pub(super) fn properties() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the inspector tab index; any tab is valid
+    // xtask-allow(state-fields): independent: the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport display checkboxes, so any tab pairs with any display setting
     let tab = signal(2_usize);
     let display_color = signal(rgb(0xffffff));
-    // xtask-allow(state-fields): independent: whether the name is shown; either value is valid with every other display flag
+    // xtask-allow(state-fields): independent: bound only to the Name checkbox of Viewport Display; Axes and Wireframe have their own signals, so every on/off mix is a valid display
     let display_name = signal(false);
-    // xtask-allow(state-fields): independent: whether the axes are shown; either value is valid with every other display flag
+    // xtask-allow(state-fields): independent: bound only to the Axes checkbox of Viewport Display; Name and Wireframe have their own signals, so every on/off mix is a valid display
     let display_axes = signal(true);
-    // xtask-allow(state-fields): independent: whether the wireframe is shown; either value is valid with every other display flag
+    // xtask-allow(state-fields): independent: bound only to the Wireframe checkbox of Viewport Display; Name and Axes have their own signals, so every on/off mix is a valid display
     let display_wireframe = signal(false);
     let display_as = signal(Some("textured".to_owned()));
     row((

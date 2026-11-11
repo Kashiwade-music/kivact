@@ -30,9 +30,9 @@ fn card(
 }
 
 fn app() -> impl IntoView {
-    // xtask-allow(state-fields): independent: each card closes from its own button
+    // xtask-allow(state-fields): independent: whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so either card or both can be closed
     let first = signal(true);
-    // xtask-allow(state-fields): independent: each card closes from its own button
+    // xtask-allow(state-fields): independent: whether the Second card is shown, cleared only by its own close button and never set back; the First card has its own signal, so either card or both can be closed
     let second = signal(true);
     column((
         show(first, move || {

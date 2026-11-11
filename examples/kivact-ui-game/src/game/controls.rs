@@ -161,9 +161,9 @@ pub(super) fn setting(title: &str, description: &str, control: impl IntoView) ->
 pub(super) fn navigation() -> Node {
     let underline = signal("summary".to_owned());
     let boxed_tabs = signal("metrics".to_owned());
-    // xtask-allow(state-fields): independent: the wizard's step and the pagination's page are separate controls
+    // xtask-allow(state-fields): independent: the wizard step, moved only by the stepper's controls in wizard_steps; the pagination specimen has its own page signal, so any step pairs with any page
     let step = signal(1_usize);
-    // xtask-allow(state-fields): independent: the wizard's step and the pagination's page are separate controls
+    // xtask-allow(state-fields): independent: the pagination specimen's page, moved only by its pagination control; the wizard has its own step signal, so any page pairs with any step
     let page = signal(2_usize);
     cards(
         (

@@ -69,13 +69,13 @@ fn editing(overlay: Signal<Overlay>, which: Overlay) -> Binding<String> {
 }
 
 pub(super) fn feedback(scene: Demo) -> Node {
-    // xtask-allow(state-fields): independent: each alert is dismissed on its own; every combination is valid
+    // xtask-allow(state-fields): independent: the info alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let info = signal(true);
-    // xtask-allow(state-fields): independent: each alert is dismissed on its own; every combination is valid
+    // xtask-allow(state-fields): independent: the success alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let success = signal(true);
-    // xtask-allow(state-fields): independent: each alert is dismissed on its own; every combination is valid
+    // xtask-allow(state-fields): independent: the warning alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let warning = signal(true);
-    // xtask-allow(state-fields): independent: each alert is dismissed on its own; every combination is valid
+    // xtask-allow(state-fields): independent: the danger alert's open binding, cleared only by its own close button and never set back; the other alerts have their own bindings, so any subset of the four can be dismissed
     let danger = signal(true);
     cards(
         (
@@ -89,11 +89,11 @@ pub(super) fn feedback(scene: Demo) -> Node {
     )
 }
 pub(super) fn overlays(scene: Demo) -> Node {
-    // xtask-allow(state-fields): independent: a menu checkbox; any pair of the menu and popover states is valid
+    // xtask-allow(state-fields): independent: the detail-column menu checkbox, flipped only by its own entry; archived and the user popover have their own signals, so it pairs with either of their states
     let pinned = signal(true);
-    // xtask-allow(state-fields): independent: a menu checkbox; any pair of the menu and popover states is valid
+    // xtask-allow(state-fields): independent: the include-archived menu checkbox, flipped only by its own entry; pinned and the user popover have their own signals, so it pairs with either of their states
     let archived = signal(false);
-    // xtask-allow(state-fields): independent: the popover opens from its own trigger, beside the menu checkboxes
+    // xtask-allow(state-fields): independent: the user popover's open binding, set by its own trigger and cleared by the popover; it never reads or writes the menu checkboxes, so it opens with any checkbox pair
     let user_open = signal(false);
     cards(
         (
@@ -256,9 +256,9 @@ pub(super) fn layout() -> impl kivact::view::Element {
     let files = workspace_files(nodes, selection);
     let title = signal("第 3 区画 定期点検".to_owned());
     let priority = signal(Some("medium".to_owned()));
-    // xtask-allow(state-fields): independent: the notify switch and the opacity slider are separate settings
+    // xtask-allow(state-fields): independent: bound only to the inspector's notify switch; the opacity slider has its own signal, so notifications on or off pair with any opacity
     let notify = signal(true);
-    // xtask-allow(state-fields): independent: the notify switch and the opacity slider are separate settings
+    // xtask-allow(state-fields): independent: bound only to the inspector's opacity slider; the notify switch has its own signal, so any opacity pairs with notifications on or off
     let opacity = signal(90_f64);
     let document_body = document_preview(document, document_title);
     let inspector = document_inspector(title, priority, notify, opacity);

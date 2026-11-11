@@ -70,9 +70,9 @@ kivact::state::constant_value!(AttachmentState);
 struct Cfg {
     size: Value<AttachmentSize>,
     vertical: Value<bool>,
-    // xtask-allow(state-fields): independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid
+    // xtask-allow(state-fields): option: set once in Attachment::into_view from whether the caller called .media(...); false means no media slot, the wider text padding and the 96 px vertical width
     has_media: bool,
-    // xtask-allow(state-fields): independent: whether the chip has a media slot and whether it is pressable are separate facts; every combination is valid
+    // xtask-allow(state-fields): option: set once in Attachment::into_view from whether the caller called .on_press(...); false means the chip is not pressable and gets no pointer cursor or hover fill
     actionable: bool,
     state: Value<AttachmentState>,
 }

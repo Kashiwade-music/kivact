@@ -55,13 +55,13 @@ pub struct TimelineTrack {
     pub name: String,
     pub kind: TrackKind,
     pub color: Color,
-    // xtask-allow(state-fields): independent: Mute toggles muted; Solo, Arm and Automation Read leave it
+    // xtask-allow(state-fields): independent: the application's track mute, changed only on a TrackFlag::Mute request from its header toggle; a muted track may also be soloed, armed or reading automation, as on a mixer
     pub muted: bool,
-    // xtask-allow(state-fields): independent: Solo toggles solo; Mute, Arm and Automation Read leave it
+    // xtask-allow(state-fields): independent: the application's track solo, changed only on a TrackFlag::Solo request from its header toggle; soloing never clears mute, arm or automation read, so it pairs with any of them
     pub solo: bool,
-    // xtask-allow(state-fields): independent: Arm toggles armed; Mute, Solo and Automation Read leave it
+    // xtask-allow(state-fields): independent: the application's record arm, changed only on a TrackFlag::Arm request from its header toggle; an armed track may be muted, soloed or reading automation
     pub armed: bool,
-    // xtask-allow(state-fields): independent: Automation Read toggles automation_read; Mute, Solo and Arm leave it
+    // xtask-allow(state-fields): independent: the application's automation read, set by TimelineTrack::automation and changed on a TrackFlag::AutomationRead request; the widget only shows it as a header toggle, so it pairs with any mute, solo or arm
     pub automation_read: bool,
     pub automation: Vec<AutomationPoint>,
     /// Heading for the automation lane; empty hides the heading.

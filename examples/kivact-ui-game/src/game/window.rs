@@ -33,10 +33,10 @@ pub(super) fn frame(
     let status = signal("Ready".to_owned());
     let run = signal(Run::Idle);
     let content = signal(INITIAL_SOURCE.to_owned());
-    // xtask-allow(state-fields): independent: the explorer width set by its divider; any width is valid
+    // xtask-allow(state-fields): independent: the explorer width, written only by the native_window divider within explorer_range; it is layout only, so any width pairs with any editor mode, run state or About dialog
     let width = signal(240_f64);
     let saved = signal(content.get_untracked());
-    // xtask-allow(state-fields): independent: the About dialog opens from its own menu item
+    // xtask-allow(state-fields): independent: the About dialog's open binding, set by the Help menu's help command and cleared by the dialog; it never touches mode, run or the explorer width, so it opens over any editor state
     let help = signal(false);
     let command = move |key: &'static str| match key {
         "new" => {
