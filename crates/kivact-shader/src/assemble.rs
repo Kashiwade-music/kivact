@@ -89,10 +89,10 @@ pub fn assemble(source: &str, kind: ShaderKind) -> Result<ShaderProgram, ShaderE
     let probe = parse(&format!("{probe_prefix}{source}"), &probe_place)?;
     let interface = read_interface(&probe, kind, &probe_place)?;
 
-    let module_prefix = prefix(interface.params_declared);
+    let module_prefix = prefix(interface.params_declared());
     let text = format!(
         "{module_prefix}{source}\n{}",
-        entry_text(kind, interface.takes_params)
+        entry_text(kind, interface.takes_params())
     );
     let place = Placement::new(source, module_prefix.len());
     let module = validate(&text, &place)?;
