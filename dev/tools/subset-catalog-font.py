@@ -6,10 +6,11 @@ catalogs did not use before (`examples/kivact-ui-basic`'s test
 
     python dev/tools/subset-catalog-font.py
 
-It reads the original Google Fonts file NotoSansJP[wght].ttf from the
-working tree, or, once it is deleted, from the commit before the one that
-deleted it (`--source <file>` reads another copy). The original's SHA-256 is
-checked. The output replaces
+It reads the original Google Fonts file NotoSansJP[wght].ttf given with
+`--source <file>` (download it from
+https://github.com/google/fonts/tree/main/ofl/notosansjp), else from the
+working tree or the git history. The original's SHA-256 is checked. The output
+replaces
 examples/shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf. Needs
 fontTools (`python -m pip install --user fonttools`).
 """
@@ -50,7 +51,7 @@ def original(source):
     deleted = git("log", "--diff-filter=D", "--format=%H", "-1", "--", f":(literal){ORIGINAL}")
     deleted = deleted.decode().strip()
     if not deleted:
-        sys.exit(f"{ORIGINAL} is neither in the working tree nor in the history")
+        sys.exit(f"{ORIGINAL} is neither in the working tree nor in the history; download NotoSansJP[wght].ttf from https://github.com/google/fonts/tree/main/ofl/notosansjp and pass --source <file> (SHA-256 {ORIGINAL_SHA256})")
     return git("show", f"{deleted}^:{ORIGINAL}")
 
 

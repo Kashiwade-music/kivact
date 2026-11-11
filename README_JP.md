@@ -78,7 +78,7 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 
 ## Workspace の crate
 
-workspace は 47 package で構成します。アプリは `kivact` と必要な UI キットを使います。
+workspace は 49 package で構成します。アプリは `kivact` と必要な UI キットを使います。
 内部の library は runtime、engine、backend、test harness の責務で分かれています。
 図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) と
 [生成した依存図](architecture/) を参照してください。
@@ -109,6 +109,7 @@ flowchart TD
 | Crate | パス | 用途 |
 |---|---|---|
 | `kivact` | `crates/kivact` | アプリ・部品作者向けの公開入口。 |
+| `kivact-macros` | `crates/kivact-macros` | 部品の props のビルダーを書く `#[component]`（`kivact` が再公開）。 |
 | `kivact-core` | `crates/kivact-core` | view の記述、mount、入力、アプリ起動。 |
 | `kivact-test` | `crates/kivact-test` | kivact::test の App 全体 E2E ハーネス。 |
 | `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP・Python client が共有する通信の語彙。 |
@@ -155,12 +156,13 @@ flowchart TD
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture 共有の契約と native helper（実験的）。 |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | GPU 共有の試験で使う独立 renderer。 |
 | `xtask` | `dev/xtask` | workspace 検査と architecture 図の生成。 |
+| `kivact-bench` | `dev/bench` | 性能の指標の手動計測（CI では実行しない）。 |
 
 ## `kivact` の Cargo feature
 
 | Feature | 既定 | 説明 |
 |---|---|---|
-| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ）に device を起動します (`GpuStart::OnDemand`)。 |
+| `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ、CPU の frame が表示周期の半分を続けて超えた）に device を起動します (`GpuStart::OnDemand`。`App::gpu_preference` で `GpuStart::AtLaunch` を選べます)。 |
 | `complex-scripts` | 有効 | タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きのための ICU の辞書 (約 3 MB)。その分かち書きが要らないアプリは無効にするとバイナリが小さくなります。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
 | `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |
@@ -185,7 +187,7 @@ flowchart TD
 | `examples/` | 小さなアプリとキットのカタログ |
 | `templates/basic/` | テスト付きの最小のアプリ |
 | `docs/` | 利用者ガイド、恒久的な architecture・decisions・製品戦略 |
-| `dev/` | ワークスペースの検査と公開 API のテスト |
+| `dev/` | ワークスペースの検査、公開 API のテスト、性能の手動計測 |
 | `architecture/` | 生成した crate と module の依存関係の図 |
 
 ## 開発への参加

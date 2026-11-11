@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Collect every KPI row of SLIM_FAST_DESIGN.md 1.4 into dev/bench/results/<label>.md.
-# usage: dev/bench/run.sh <label>          (B0 before any change, B1 after)
+# Measure every KPI (K1 to K6, see dev/bench/README.md) into dev/bench/results/<label>.md.
+# usage: dev/bench/run.sh <label>   (e.g. base on the commit before a change, head after it)
 # Windows (Git Bash; wmic or PowerShell CIM) and Linux (/proc). Opens real
 # windows: run it through dev/tools/window-lock.sh, with nothing else drawing
 # on the machine. Never wired into CI. Any missing or failed measurement makes
-# the report INVALID (exit 1); an INVALID report is not a baseline.
+# the report INVALID (exit 1); never compare an INVALID report.
 set -uo pipefail
-label="${1:?label, e.g. B0}"
+label="${1:?label, e.g. base}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 out="$root/dev/bench/results/$label.md"
 target="${CARGO_TARGET_DIR:-$root/target}"
@@ -189,6 +189,6 @@ log "- K6 counter default $(wc -c < "$counter")"
 log "- K6 kv_startup default $(wc -c < "$startup")"
 log "- K6 kv_startup no-default-features $(wc -c < "$kpi/kv_startup_min$exe")"
 log "- K6 basic-catalog default $(wc -c < "$catalog")"
-log "- K6 counter_nogpu $(wc -c < "$kpi/kv_startup_nogpu$exe")"
-log "- K6 basic-catalog_nogpu $(wc -c < "$kpi/catalog_nogpu$exe")"
+log "- K6 kv_startup no-gpu $(wc -c < "$kpi/kv_startup_nogpu$exe")"
+log "- K6 basic-catalog no-gpu $(wc -c < "$kpi/catalog_nogpu$exe")"
 echo "wrote $out"

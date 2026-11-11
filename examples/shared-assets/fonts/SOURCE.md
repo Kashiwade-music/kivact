@@ -8,8 +8,8 @@ Noto Sans JP is a subset of the Google Fonts file
 catalogs, the kits and the public API tests use, ASCII, Latin-1, General
 Punctuation, Hiragana and Katakana, CJK symbols, and the full-width forms. The
 weight axis, metrics, layout features and names are kept. Run the script again
-after adding text with new characters; it takes the original from the git
-history. The SIL Open Font License allows subsets, and the family has no
+after adding text with new characters, passing the original file with
+`--source <file>` (the script checks its SHA-256). The SIL Open Font License allows subsets, and the family has no
 Reserved Font Name. The family's original `OFL.txt` notice is preserved beside
 the font. `SHA256SUMS.txt` records the hashes and byte sizes.
 

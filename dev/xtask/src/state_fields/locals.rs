@@ -20,7 +20,7 @@ pub(super) struct Function {
 
 /// The detected locals of `source`, grouped by function.
 ///
-/// A marker directly before a local records it as used and closes it (SL-7).
+/// A marker directly before a local records it as used and closes it.
 pub(super) fn scan(source: &Source) -> Vec<Function> {
     let mut visitor = Locals {
         source,
@@ -49,7 +49,7 @@ pub(super) fn collect(source: &Source, functions: &[Function]) -> Vec<String> {
         .collect()
 }
 
-/// The audit rows of functions that carry two or more state locals (design 6.4).
+/// The audit rows of functions that carry two or more state locals.
 pub(super) fn audit(source: &Source, functions: &[Function]) -> Vec<AuditRow> {
     let mut rows = Vec::new();
     for function in functions {
@@ -79,7 +79,7 @@ pub(super) fn audit(source: &Source, functions: &[Function]) -> Vec<AuditRow> {
     rows
 }
 
-/// The errors: a function with two or more unmarked locals (SL-7).
+/// The errors: a function with two or more unmarked locals.
 pub(super) fn check(source: &Source, functions: &[Function], errors: &mut Vec<String>) {
     for function in functions {
         let open: Vec<&Local> = function

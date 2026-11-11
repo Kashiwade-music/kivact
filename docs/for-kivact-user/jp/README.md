@@ -50,7 +50,7 @@ facade は既定で 2 つの feature を有効にします。`gpu`（GPU レン�
 kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features = false, features = ["gpu"] }
 ```
 
-`gpu` も一覧から外せば、GPU レンダラーのないビルドになります。`kivact-bench` の `--no-default-features` のバイナリはどちらの feature も持たず、最小のビルドを測ります。`templates/basic/Cargo.toml` の `[profile.release]`（fat LTO、codegen-units 1、描画・shaping・layout の crate だけ `opt-level = 3` でほかは `"s"`、symbol の strip）がもう半分です。バイナリが小さくなり、hot path が速くなり、release のビルドは長くなります。
+`gpu` も一覧から外せば、GPU レンダラーのないビルドになります。`templates/basic/Cargo.toml` の `[profile.release]`（fat LTO、codegen-units 1、描画・shaping・layout の crate は `opt-level = 3`、asset の worker だけで動く第三者の crate は `"z"`、ほかは `"s"`、symbol の strip）がもう半分です。バイナリが小さくなり、hot path が速くなり、release のビルドは長くなります。
 
 ## どこから読むか
 

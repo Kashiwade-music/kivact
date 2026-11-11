@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-description = "Manual KPI probes (startup, memory, CPU, frame time, update latency) for the slim-fast refactor; never run by CI"
+description = "Manual KPI probes (startup, memory, CPU, frame time, update latency, binary size); never run by CI"
 
 [features]
 # The App configurations K1/K6 compare.

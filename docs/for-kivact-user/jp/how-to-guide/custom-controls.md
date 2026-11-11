@@ -347,7 +347,7 @@ mod tests {
 }
 ```
 
-コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog`、`use_menu` でも使え、違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
+コントローラーは次のことをすべて引き受けています。閉じたトリガーでの上下キーは開かずに値を変え、Alt+Down、F4、Enter、Space、クリックで開き、リストは選択中のオプションにフォーカスを取り、Escape は選ばずに閉じ、フォーカスはトリガーに戻ります。`trigger()`、`content()`、`show` の同じ組み合わせは `use_popup`、`use_disclosure`、`use_tooltip`、`use_dialog` でも使えます。メニューは `show` の代わりに `MenuApi::while_open` で content を mount します。違うのは Part だけです。モーダルな面では、ダイアログの content が Tab を内側に閉じ込め、閉じると開いた要素にフォーカスを戻します。
 
 ## ドラッグで値を変える
 

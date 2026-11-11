@@ -65,11 +65,10 @@ everything else:
 kivact = { git = "https://github.com/Kashiwade-music/kivact", default-features = false, features = ["gpu"] }
 ```
 
-Leave `gpu` out of the list too for a build with no GPU renderer. `kivact-bench`
-builds with neither feature for its `--no-default-features` binary, which measures
-the smallest build.
+Leave `gpu` out of the list too for a build with no GPU renderer.
 The `[profile.release]` of `templates/basic/Cargo.toml` (fat LTO, one codegen
-unit, `opt-level = "s"` with `3` for the drawing, shaping and layout crates,
+unit, `opt-level = "s"` with `3` for the drawing, shaping and layout crates and
+`"z"` for the third-party crates that run only on the asset worker,
 stripped symbols) is the other half: it makes the binary smaller and its hot
 paths faster, and it makes the release build longer.
 
