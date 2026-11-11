@@ -70,11 +70,11 @@ impl LightboxMedia {
 pub struct Lightbox {
     open: Binding<bool>,
     media: Value<Vec<LightboxMedia>>,
-    // xtask-allow(state-fields): projection: written only through LightboxHandle's state
+    // xtask-allow(state-fields): option: the caller's index binding from Lightbox::index; None keeps the gallery's own index from 0
     index: Option<Binding<usize>>,
     // xtask-allow(state-fields): option: fixed at setup; absent means zoom is disabled
     zoom: bool,
-    // xtask-allow(state-fields): projection: written only through LightboxHandle's state
+    // xtask-allow(state-fields): option: absent keeps the gallery's own fit and zoom view; LightboxHandle::view passes a binding projected from its state
     view: Option<Binding<LightboxView>>,
 }
 
