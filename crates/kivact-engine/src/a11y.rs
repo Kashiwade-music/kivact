@@ -20,7 +20,7 @@
 //! - Bounds are untransformed layout boxes in content space (the scrolls
 //!   above a node undone); a scroll container carries its offset and a
 //!   transformed node the transform around its box, the one it is drawn
-//!   and hit with (G-07), so the platform maps it as it is drawn (`build`).
+//!   and hit with, so the platform maps it as it is drawn (`build`).
 //! - Changes record one `Dirt` level while a tree is published (clean,
 //!   payload-only with its nodes, moved subtrees and clip sources,
 //!   metadata with its own-node, subtree and removed sets, or full);

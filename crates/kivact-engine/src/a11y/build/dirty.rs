@@ -168,8 +168,8 @@ impl Model {
             }),
         }
     }
-    /// Enumerate the identity and order metadata of the whole tree (the one
-    /// PERF-1 exception, DEC-06). A structural change is checked by this
+    /// Enumerate the identity and order metadata of the whole tree (a PERF-1
+    /// exception). A structural change is checked by this
     /// complete comparison because no writer's notice is trusted to keep the
     /// hierarchy right; payload-only dirt never runs it.
     fn build_identity_metadata(&mut self) -> (Metadata, Vec<types::NodeId>) {

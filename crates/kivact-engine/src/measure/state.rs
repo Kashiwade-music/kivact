@@ -32,7 +32,7 @@ pub(crate) struct MeasureColumns {
     pub(crate) leaf: Vec<LeafMeasure>,
     computed_text: Vec<RefCell<Option<Rc<ComputedTextStyle>>>>,
     /// The last distinct text styles resolved or measured in this window:
-    /// the nodes with an equal style share one (M3-2).
+    /// the nodes with an equal style share one.
     recent_style: RefCell<kivact_types::cell::Recent<ComputedTextStyle>>,
 }
 impl MeasureColumns {

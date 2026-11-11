@@ -83,7 +83,7 @@ pub(crate) struct EngineLogState {
     pub(crate) frames: Log<FrameRecord>,
 }
 
-/// S-3: the ring exists only while recording.
+/// A log of recent records: the ring exists only while recording.
 #[derive(Default)]
 pub(crate) enum Log<T> {
     #[default]
