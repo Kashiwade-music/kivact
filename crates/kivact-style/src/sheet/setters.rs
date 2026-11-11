@@ -150,7 +150,7 @@ impl Style {
         overflow, flow, overflow, Overflow, |v| v);
     setter!(
         /// The background (CSS `background`): a color, a gradient, a
-        /// [`Paint`] or a tuple of them stacked like CSS layers, the first
+        /// [`Paint`](crate::paint::Paint) or a tuple of them stacked like CSS layers, the first
         /// on top (see [`Background`]). Layers are placed in the border box
         /// and clipped to its rounded shape.
         background,

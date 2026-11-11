@@ -31,7 +31,7 @@ impl App {
     /// the App runs; with it the App keeps this locale whatever the system
     /// says. To switch it at runtime, wrap the root in
     /// [`i18n::provide_locale`](crate::i18n::provide_locale) with a `Signal<Locale>`. Read it with
-    /// [`i18n::locale`](crate::i18n::locale).
+    /// [`i18n::use_locale`](crate::i18n::use_locale).
     pub fn locale(mut self, locale: Locale) -> Self {
         self.options = self.options.locale(locale);
         self

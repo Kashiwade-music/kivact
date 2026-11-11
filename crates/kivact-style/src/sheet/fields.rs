@@ -493,7 +493,7 @@ pub(crate) struct ScrollbarStyle {
     // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) colors: Option<(Color, Color)>,
 }
-/// A style value. Build with [`style()`].
+/// A style value. Build with [`style()`](crate::style).
 ///
 /// An authored style: each group of properties is allocated only when one
 /// of its properties is set. Values and merge rules are the dense style's.

@@ -2,7 +2,7 @@
 
 use kivact_types::{Rgba, SpaceColor};
 
-/// Semantic color slots of a [`Theme`](super::theme::value::Theme).
+/// Semantic color slots of a [`Theme`](crate::Theme).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ColorToken {
     Surface,
