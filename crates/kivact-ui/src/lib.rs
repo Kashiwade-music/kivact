@@ -185,10 +185,11 @@ pub use toggle::{Checkbox, Switch, checkbox, switch};
 pub use toggle_button::{ToggleButton, ToggleButtonTokens, ToggleLabelReservation, toggle_button};
 pub use tree::{Tree, TreeRows, tree, tree_rows};
 pub use values::{
-    AxisState, ButtonState, ButtonVariant, CheckableState, ControlSize, DataTableCellState,
-    DataTableCheckState, DataTablePageState, DataTableRowState, DialogState, FieldState, Lift,
-    ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState, TextInputState,
-    ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput, provide_control_size,
+    AxisState, ButtonState, ButtonVariant, CheckControl, CheckableState, ControlSize,
+    DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState, DialogState,
+    FieldState, Lift, ProgressState, RadioGroupVariant, SelectTriggerState, SwitchDragState,
+    TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState, TrackInput,
+    provide_control_size,
 };
 pub use variants::{Look, Variant};
 
@@ -408,7 +409,7 @@ pub use chat_values::{
     ComposerStatusPosition, TypingIndicatorState,
 };
 pub use code_block::{CodeBlock, code_block};
-pub use code_values::CodeBlockState;
+pub use code_values::{CodeBlockState, CodeCollapse};
 pub use recipes::{
     ChatComposerRecipes, ChatMessageRecipes, ChatThreadRecipes, CodeBlockRecipes,
     TypingIndicatorRecipes,
@@ -422,8 +423,8 @@ pub use collection_values::{
     ItemListTokens, ItemRowState, TableTokens, ToolbarEdge, ToolbarState, ToolbarTokens, TreeTokens,
 };
 pub use component_values::{
-    AlertState, CardState, EmptyStateState, Expansion, HeadingState, InputGroupMemberKind,
-    InputGroupMemberState, InputGroupState, Selectable, StatState, Trend,
+    AlertState, CardAction, CardState, EmptyStateState, Expansion, HeadingState,
+    InputGroupMemberKind, InputGroupMemberState, InputGroupState, Selectable, StatState, Trend,
 };
 pub use hover_card_values::{HoverCardSurfaceState, HoverCardTokens};
 

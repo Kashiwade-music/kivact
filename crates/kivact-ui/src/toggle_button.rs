@@ -157,7 +157,7 @@ impl ToggleButton {
     /// Keep the accessible name while omitting the visible label (while
     /// true; constant or reactive). With an [`icon`](Self::icon) the toggle_button
     /// is an icon toggle_button: the recipe knows it from
-    /// [`ToggleButtonState::icon_only`].
+    /// [`ToggleButtonState::is_icon_only`].
     #[track_caller]
     pub fn hide_label(mut self, hide: impl IntoValue<bool>) -> Self {
         self.hide_label = Some(hide.into_value());
@@ -206,7 +206,7 @@ impl IntoView for ToggleButton {
                 pressed: state.checked.is_checked(),
                 size: size.get(),
                 leading_icon,
-                icon_only: leading_icon && hide.is_some_and(|hide| hide.get()),
+                label_hidden: hide.is_some_and(|hide| hide.get()),
             });
         let state = part.state();
         let root = self.root.base_style(super::helpers::single_line_text());

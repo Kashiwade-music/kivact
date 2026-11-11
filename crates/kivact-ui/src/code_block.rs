@@ -1,5 +1,5 @@
 //! Role: Present selectable code with syntax, numbering and clipboard feedback.
-use crate::code_values::CodeBlockState;
+use crate::code_values::{CodeBlockState, CodeCollapse};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
@@ -189,7 +189,7 @@ struct CodeSource {
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: CodeBlock::max_height; absent leaves the editor without a height cap
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {
@@ -225,13 +225,16 @@ impl CodeBlock {
         let state = memo(move || CodeBlockState {
             numbered: numbered.get(),
             wrapped: wrapped.get(),
-            expanded: open.get(),
+            collapse: match (can_collapse.get(), open.get()) {
+                (false, _) => CodeCollapse::Fixed,
+                (true, true) => CodeCollapse::Expanded,
+                (true, false) => CodeCollapse::Collapsed,
+            },
             copied: copied.get(),
-            has_header: has_title
+            has_header_content: has_title
                 || (has_language && language_label.get())
                 || copy_button.get()
-                || has_end
-                || can_collapse.get(),
+                || has_end,
             has_footer,
         });
         let name = self
@@ -334,7 +337,7 @@ impl CodeBlock {
         with_recipe_style(
             node()
                 .child((label, trigger, language, end, copy, status))
-                .hidden(move || !state.get().has_header),
+                .hidden(move || !state.get().has_header()),
             |r| r.code_block_recipes().header_recipe(),
             &self.variants,
             move || state.get(),

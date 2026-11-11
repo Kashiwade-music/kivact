@@ -70,7 +70,7 @@ pub fn card_label<K: Clone + 'static>(
                 .font_size(18)
                 .weight(700)
                 .italic(true)
-                .color(if state.get().checked.is_checked() {
+                .color(if state.get().is_checked() {
                     theme.colors().accent
                 } else {
                     theme.colors().text

@@ -166,7 +166,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                                 size: size.get(),
                                 leading_icon: item.get().icon().is_some()
                                     || item.get().pressed_icon().is_some(),
-                                icon_only: icon_only.get(),
+                                label_hidden: icon_only.get(),
                             }
                         });
                 let state = part.state();

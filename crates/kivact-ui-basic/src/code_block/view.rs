@@ -89,7 +89,7 @@ fn viewport(_: &Theme, s: &Look<CodeBlockState>) -> Style {
     style()
         .min_height(0)
         .padding_x(pad)
-        .padding_top(if s.has_header { pad - 4.0 } else { pad })
+        .padding_top(if s.has_header() { pad - 4.0 } else { pad })
         .padding_bottom(if s.has_footer { pad - 4.0 } else { pad })
 }
 fn code(_: &Theme, s: &Look<CodeBlockState>) -> Style {

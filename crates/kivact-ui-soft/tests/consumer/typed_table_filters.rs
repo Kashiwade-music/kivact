@@ -116,3 +116,39 @@ fn compact_inline_filter_commits_valid_values_without_a_popup() {
     assert!(screen.query_by_role(Role::Row, "Thirty").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn inline_filter_keeps_typed_text_through_its_own_echo_and_follows_external_values() {
+    let (screen, filters) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let filters = signal(HashMap::new());
+            (
+                filters,
+                data_table(
+                    vec![("Ten", 10), ("Thirty", 30)],
+                    |row| row.1,
+                    vec![column()],
+                )
+                .typed_column_filters(filters)
+                .filter_ui(FilterUi::InlineCompact),
+            )
+        },
+    );
+    let input = screen.get_by_role(Role::TextBox, "Filter Score");
+    input.type_text("21.50");
+    assert_eq!(
+        filters.get_untracked().get(&0),
+        Some(&FilterValue::Number(21.5))
+    );
+    assert_eq!(
+        input.value().as_deref(),
+        Some("21.50"),
+        "the echo of its own write keeps the typed text"
+    );
+    filters.set(HashMap::from([(0, FilterValue::Number(30.0))]));
+    screen.run_until_idle();
+    assert_eq!(input.value().as_deref(), Some("30"));
+    assert!(screen.query_by_role(Role::Row, "Ten").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

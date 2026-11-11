@@ -209,6 +209,45 @@ fn controlled_alert_keeps_refused_visibility_and_notifies_after_acceptance() {
 }
 
 #[test]
+fn controlled_alert_shown_again_restores_focus_to_the_control_focused_while_hidden() {
+    let (screen, visible) = render_with_handle(options(), || {
+        let visible = signal(true);
+        (
+            visible,
+            column((
+                ui::button("First"),
+                ui::button("Second"),
+                ui::alert("Controlled alert")
+                    .open(visible)
+                    .dismissible(true)
+                    .dismiss_label("Dismiss controlled alert"),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "First").focus();
+    visible.set(false);
+    screen.run_until_idle();
+    assert!(
+        screen
+            .query_by_role(Role::Alert, "Controlled alert")
+            .is_none()
+    );
+    let second = screen.get_by_role(Role::Button, "Second");
+    second.focus();
+    visible.set(true);
+    screen.run_until_idle();
+    screen
+        .get_by_role(Role::Button, "Dismiss controlled alert")
+        .click();
+    assert!(!visible.get_untracked());
+    assert!(
+        second.is_focused(),
+        "focus returns to the control focused when the alert reappeared"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
 fn input_group_addons_focus_controls_without_stealing_nested_button_focus() {
     let (screen, presses) = render_with_handle(options(), || {
         let presses = signal(0usize);

@@ -20,8 +20,8 @@ use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
 use kivact_core::view::{
-    ButtonPress, CheckedState, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent,
-    PointerPhase, ReadingDirection, Role, View, dynamic, node_ref, use_direction,
+    ButtonPress, Handled, Key as KeyboardKey, MouseButton, NodeRef, PointerEvent, PointerPhase,
+    ReadingDirection, Role, View, dynamic, node_ref, use_direction,
 };
 use kivact_core::view::{Node, column, icon, node, row, text};
 use kivact_interaction::{
@@ -68,39 +68,39 @@ fn navigation_content(root: Node, content: View, enabled: bool, enter: bool) -> 
 
 /// What the header and the rows of one table share.
 pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's tree plan, present when DataTable::tree was given; absent draws rows without expand controls
     pub(super) tree: Option<super::tree::Plan<K>>,
     pub(super) behavior: DataTableApi<K, usize>,
     pub(super) navigation: super::navigation::NavigationCache<K>,
     pub(super) row_metadata: Value<super::metadata::Rows<K>>,
     pub(super) column_metadata: Value<(Option<u32>, HashMap<usize, u32>)>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's typed filter editors, present when DataTable::typed_column_filters was given; absent leaves the headers without them
     pub(super) filters: Option<super::filters::Filters>,
     /// The keys of the rows of the page.
     pub(super) keys: Value<Vec<K>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's row numbers, built when DataTable::row_index was given; absent draws no number gutter
     pub(super) indexed: Option<Value<HashMap<K, usize>>>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's copy of the caller's DataTable::selection binding; absent draws no row check boxes
     pub(super) selection: Option<Binding<Vec<K>>>,
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_selectable: Option<RowSelectable<R>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's pinned-column measurements, present when DataTable::sticky_columns named a column; absent pins none
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's copy of the DataTable::resizable widths; absent draws no resize handles
     pub(super) widths: Option<Binding<Vec<f64>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's row actions column from DataTable::row_actions; absent adds no actions column
     pub(super) actions: Option<(f64, RowSlot<R>)>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's menu from DataTable::row_context_menu; absent opens no menu on a row's secondary click
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) cells: Option<CellSlot<R>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's row details view from DataTable::row_details; absent puts nothing under the rows
     pub(super) details: Option<RowSlot<R>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's copy of DataTable::expanded_rows; absent shows details always, and without details it adds no disclosure
     pub(super) expanded_rows: Option<Binding<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
@@ -109,9 +109,9 @@ pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) focus: TableFocus,
     // xtask-allow(state-fields): option: absent means the component's default
     pub(super) row_height: Option<Value<f64>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's status resolver from DataTable::row_status; absent reserves no status lane
     pub(super) row_status: Option<RowStatusOf<R>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the grid's color function from DataTable::row_color; absent gives rows no edge color
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
 }
@@ -562,10 +562,7 @@ where
     let chosen = move || selection.with(|keys| keys.contains(&key));
     let state = {
         let chosen = chosen.clone();
-        move || DataTableCheckState {
-            header: false,
-            checked: CheckedState::from_bool(chosen()),
-        }
+        move || DataTableCheckState::Row { checked: chosen() }
     };
     let label = grid.row_label.clone();
     let name = message_with("data_table.select_named", "Select {row}", move || {

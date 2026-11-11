@@ -1,7 +1,9 @@
 //! Role: Configure one shared model and table and compose the retained regions.
 use super::column_keys;
 use super::rows::{self, Grid};
-use super::types::{DataTable, DataTableContext, Paging, RowName};
+use super::types::{
+    DataTable, DataTableContext, PagePlan, PageSetting, Paging, RowName, SortSetting,
+};
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::view::Element;
@@ -29,21 +31,69 @@ where
     }
 }
 
+/// How the rows are paged once the offered page sizes are applied.
+#[derive(Clone, Copy)]
+enum PagingPlan {
+    Off,
+    /// The table slices its rows. `size` is the writable size the footer's
+    /// picker shows: the `page_sizes` binding, which shows the first page
+    /// when written, or else a read-only view of the size `page` gave.
+    Local {
+        page: PagePlan,
+        size: Binding<usize>,
+    },
+    /// The caller's rows are the page.
+    Remote {
+        page: PagePlan,
+        has_more: kivact_core::state::Value<bool>,
+    },
+}
+
+impl PagingPlan {
+    /// The page shown and its size, when the table pages its rows.
+    fn page(self) -> Option<PagePlan> {
+        match self {
+            Self::Off => None,
+            Self::Local { page, .. } | Self::Remote { page, .. } => Some(page),
+        }
+    }
+
+    /// The paging the toolbar and footer slots see.
+    fn public(self) -> Paging {
+        match self {
+            Self::Off => Paging::Off,
+            Self::Local {
+                page: (page, _),
+                size,
+            } => Paging::Local {
+                page,
+                page_size: size,
+            },
+            Self::Remote {
+                page: (page, _),
+                has_more,
+            } => Paging::Remote { page, has_more },
+        }
+    }
+}
+
+/// The page's groups and the key that forms them; both exist exactly when
+/// the caller called `DataTable::group_by`.
+struct GroupingPlan<R: 'static> {
+    groups: super::grouped::Plan<R>,
+    key: super::types::Key<R, String>,
+}
+
 struct ModelPlan<R: 'static, K: 'static> {
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the tree arrangement made from DataTable::tree; absent keeps the model's rows flat in sorted order
     tree: Option<super::tree::Plan<K>>,
-    // xtask-allow(state-fields): option: absent means the component's default
-    page: Option<super::types::PagePlan>,
-    // xtask-allow(state-fields): option: absent means the component's default
-    page_size: Option<Binding<usize>>,
-    // xtask-allow(state-fields): option: absent means the component's default
-    groups: Option<super::grouped::Plan<R>>,
+    paging: PagingPlan,
+    // xtask-allow(state-fields): option: DataTable::group_by, as the page's groups and their key together; absent shows the page's rows ungrouped
+    grouping: Option<GroupingPlan<R>>,
     display: kivact_core::state::Value<Vec<R>>,
     page_rows: kivact_core::state::Value<Vec<R>>,
     shown: kivact_core::state::Value<Vec<kivact_interaction::ColumnDef<R, usize>>>,
-    // xtask-allow(state-fields): option: absent means the component's default
-    grouping_key: Option<super::types::Key<R, String>>,
 }
 struct NavigationPlan<R: 'static, K: kivact_core::state::ItemKey> {
     behavior: kivact_interaction::DataTableApi<K, usize>,
@@ -61,7 +111,7 @@ where
 {
     let plan = model_plan(&mut table);
     let navigation = navigation_plan(&table, &plan);
-    let paging = table_paging(&plan, table.has_more);
+    let paging = plan.paging.public();
     let context = DataTableContext {
         model: plan.model,
         selection: table.selection,
@@ -96,7 +146,7 @@ where
         toolbar,
         footer,
         grid,
-        plan.groups,
+        plan.grouping.as_ref().map(|grouping| grouping.groups),
         plan.page_rows,
         table.empty,
     )
@@ -109,7 +159,7 @@ where
     let (data, key, columns) = (table.rows, table.key.clone(), table.columns.clone());
     // A reorder keeps the caller's order, which a sort the table cannot
     // clear would break.
-    let sortable = table.sort.is_some() || table.multi_sort.is_some() || table.reorder.is_none();
+    let sortable = !matches!(table.sort, SortSetting::Own) || table.reorder.is_none();
     let definitions = columns
         .iter()
         .enumerate()
@@ -148,65 +198,62 @@ where
     if let Some(filters) = table.typed_column_filters {
         model = model.typed_column_filters(filters);
     }
-    let (page, page_size) = paging(table);
-    if let Some((index, size)) = page
-        && table.has_more.is_none()
+    let paging = paging(table);
+    if let PagingPlan::Local {
+        page: (index, size),
+        ..
+    } = paging
     {
         model = model.page(index, size);
     }
     let page_rows = model.rows();
-    let grouping_key = table.grouping.as_ref().map(|grouping| grouping.key.clone());
-    let groups = table
-        .grouping
-        .take()
-        .map(|grouping| super::grouped::plan(page_rows, grouping));
-    let display = groups.map_or(page_rows, |plan| plan.rows());
+    let grouping = table.grouping.take().map(|grouping| GroupingPlan {
+        key: grouping.key.clone(),
+        groups: super::grouped::plan(page_rows, grouping),
+    });
+    let display = grouping
+        .as_ref()
+        .map_or(page_rows, |grouping| grouping.groups.rows());
     let shown = ordered_columns(model.columns(), table.column_order);
     ModelPlan {
         model,
         tree,
-        page,
-        page_size,
-        groups,
+        paging,
+        grouping,
         display,
         page_rows,
         shown,
-        grouping_key,
     }
 }
-fn paging<R, K>(table: &DataTable<R, K>) -> (Option<super::types::PagePlan>, Option<Binding<usize>>)
+/// The table's paging, with the size chosen from `page_sizes` in place of
+/// the size `page` or `remote_page` gave.
+fn paging<R, K>(table: &DataTable<R, K>) -> PagingPlan
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
-    let page_size = table.page.and_then(|(index, _)| {
-        table.page_sizes.map(|(size, _)| {
-            binding(size, move |next: usize| {
-                size.set(next.max(1));
-                index.set(0);
-            })
-        })
-    });
-    let page = table
-        .page
-        .map(|(index, size)| (index, page_size.map_or(size, |size| size.into_value())));
-    (page, page_size)
-}
-
-/// The public paging view of the internal page plan.
-fn table_paging<R, K>(
-    plan: &ModelPlan<R, K>,
-    has_more: Option<kivact_core::state::Value<bool>>,
-) -> Paging {
-    match (plan.page, has_more) {
-        (Some((page, _)), Some(has_more)) => Paging::Remote { page, has_more },
-        (Some((page, size)), None) => Paging::Local {
-            page,
-            page_size: plan
-                .page_size
-                .unwrap_or_else(|| binding(move || size.get(), |_| ())),
+    let chosen = table.page_sizes.map(|(size, _)| size);
+    match table.paging {
+        PageSetting::Off => PagingPlan::Off,
+        PageSetting::Local((index, size)) => {
+            let picked = chosen.map(|chosen| {
+                binding(chosen, move |next: usize| {
+                    chosen.set(next.max(1));
+                    index.set(0);
+                })
+            });
+            PagingPlan::Local {
+                page: (index, picked.map_or(size, |picked| picked.into_value())),
+                size: picked.unwrap_or_else(|| binding(move || size.get(), |_| ())),
+            }
+        }
+        PageSetting::Remote {
+            page: (index, size),
+            has_more,
+        } => PagingPlan::Remote {
+            page: (index, chosen.map_or(size, |chosen| chosen.into_value())),
+            has_more,
         },
-        _ => Paging::Off,
     }
 }
 fn ordered_columns<R: kivact_core::state::PropValue>(
@@ -288,9 +335,9 @@ where
         table.rows,
         plan.model.filtered_keys(),
         table.key.clone(),
-        plan.grouping_key.clone(),
-        plan.page,
-        table.has_more.is_some(),
+        plan.grouping.as_ref().map(|grouping| grouping.key.clone()),
+        plan.paging.page(),
+        matches!(plan.paging, PagingPlan::Remote { .. }),
     );
     let table_key = table.key.clone();
     // Without the caller's table.selection, nothing is selected.
@@ -304,7 +351,7 @@ where
     );
     let (behavior, keys) = selection_policy(table, plan, behavior);
     let (behavior, label) = row_labels(table, behavior);
-    let (mut behavior, sort) = sorting(table, plan.model, plan.page, behavior);
+    let (mut behavior, sort) = sorting(table, plan.model, plan.paging.page(), behavior);
     if let Some(sizes) = table.widths {
         let range = table.resize_range.unwrap_or_else(|| {
             ScalarRange::new(MIN_WIDTH, MAX_WIDTH).expect("invariant: finite column bounds")
@@ -358,7 +405,7 @@ where
     if let Some(eligible) = eligible {
         behavior = behavior.row_selectable(move |key| eligible.with(|keys| keys.contains(key)));
     }
-    let page_keys = if plan.groups.is_some() {
+    let page_keys = if plan.grouping.is_some() {
         let key = table.key.clone();
         memo(move || display.with(|rows| rows.iter().map(|row| key(row)).collect::<Vec<_>>()))
     } else {
@@ -420,32 +467,50 @@ where
 {
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
-    let sort: super::types::Sort = if let Some(multi_sort) = table.multi_sort {
-        let multi_sort = binding(multi_sort, move |next| {
-            multi_sort.set(next);
-            if let Some((index, _)) = page {
-                index.set(0);
-            }
-        });
-        behavior = behavior.multi_sort(multi_sort);
-        model.multi_sort(multi_sort.into_value());
-        // Existing toolbar/footer and row reordering use the primary sort.
-        binding(
-            move || multi_sort.with(|keys| keys.first().copied()),
-            move |next: Option<(usize, SortOrder)>| multi_sort.set(next.into_iter().collect()),
-        )
-    } else {
-        let sort = table.sort.unwrap_or_else(|| signal(None).into_binding());
-        behavior = behavior.with_sort(binding(sort, move |next| {
-            sort.set(next);
-            if let Some((index, _)) = page {
-                index.set(0);
-            }
-        }));
-        model.sort(sort);
-        sort
+    let single = match table.sort {
+        SortSetting::Own => signal(None).into_binding(),
+        SortSetting::Single(sort) => sort,
+        SortSetting::Multi(multi_sort) => {
+            return multi_sorting(multi_sort, model, page, behavior);
+        }
     };
-    (behavior, sort)
+    behavior = behavior.with_sort(binding(single, move |next| {
+        single.set(next);
+        if let Some((index, _)) = page {
+            index.set(0);
+        }
+    }));
+    model.sort(single);
+    (behavior, single)
+}
+/// Sort by the caller's ordered keys; the toolbar, footer and row
+/// reordering see the first key.
+fn multi_sorting<R, K>(
+    multi_sort: super::types::MultiSort,
+    model: kivact_interaction::DataTableModelApi<R, K, usize>,
+    page: Option<PagePlan>,
+    mut behavior: kivact_interaction::DataTableApi<K, usize>,
+) -> (
+    kivact_interaction::DataTableApi<K, usize>,
+    super::types::Sort,
+)
+where
+    R: kivact_core::state::PropValue,
+    K: kivact_core::state::ItemKey,
+{
+    let multi_sort = binding(multi_sort, move |next| {
+        multi_sort.set(next);
+        if let Some((index, _)) = page {
+            index.set(0);
+        }
+    });
+    behavior = behavior.multi_sort(multi_sort);
+    model.multi_sort(multi_sort.into_value());
+    let primary = binding(
+        move || multi_sort.with(|keys| keys.first().copied()),
+        move |next: Option<(usize, SortOrder)>| multi_sort.set(next.into_iter().collect()),
+    );
+    (behavior, primary)
 }
 fn row_indexes<R, K>(
     table: &DataTable<R, K>,
@@ -455,20 +520,26 @@ where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
 {
-    let page = plan.page;
-    let has_more = table.has_more;
+    let paging = plan.paging;
     table.row_index.map(|start| {
         let keys = plan.model.keys();
         let pages = plan.model.page_count();
         memo(move || {
-            let offset = page.map_or(0, |(index, size)| {
-                let index = if has_more.is_some() {
-                    index.get()
-                } else {
-                    index.get().min(pages.get().saturating_sub(1))
-                };
-                index.saturating_mul(size.get().max(1))
-            });
+            // A local page past the last one shows the last page.
+            let offset = match paging {
+                PagingPlan::Off => 0,
+                PagingPlan::Local {
+                    page: (index, size),
+                    ..
+                } => index
+                    .get()
+                    .min(pages.get().saturating_sub(1))
+                    .saturating_mul(size.get().max(1)),
+                PagingPlan::Remote {
+                    page: (index, size),
+                    ..
+                } => index.get().saturating_mul(size.get().max(1)),
+            };
             keys.with(|keys| {
                 keys.iter()
                     .cloned()
@@ -503,7 +574,7 @@ where
             .map(|values| super::filters::Filters {
                 values,
                 ui: table.filter_ui,
-                page: plan.page.map(|(index, _)| index),
+                page: plan.paging.page().map(|(index, _)| index),
             }),
         keys: navigation.keys,
         indexed: row_indexes(table, plan),

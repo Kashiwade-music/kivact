@@ -13,28 +13,23 @@ use kivact_core::view::{
 use kivact_interaction::Tone;
 
 #[derive(Clone, Copy, PartialEq)]
-enum LocalBannerState {
-    Shown { restore: Option<NodeToken> },
-    Dismissed,
-}
-#[derive(Clone, Copy, PartialEq)]
 enum BannerState {
-    Local(LocalBannerState),
-    /// Application-owned visibility, mirrored from its binding.
-    Shared {
-        shown: bool,
-        // xtask-allow(state-fields): independent: records where the focus was before the banner took it, separately from the current visibility
-        restore: Option<NodeToken>,
-    },
+    /// Visible; `restore` is the last focused node outside the banner while it was visible.
+    Shown { restore: Option<NodeToken> },
+    /// Dismissed by the user (local) or hidden by the application's binding.
+    Hidden,
 }
 impl BannerState {
     fn visible(self) -> bool {
-        match self {
-            Self::Local(LocalBannerState::Shown { .. }) => true,
-            Self::Local(LocalBannerState::Dismissed) => false,
-            Self::Shared { shown, .. } => shown,
-        }
+        matches!(self, Self::Shown { .. })
     }
+}
+#[derive(Clone, Copy, PartialEq)]
+enum Ownership {
+    /// The alert owns its visibility; dismissal lasts until remount.
+    Local,
+    /// The application's `open` binding owns the visibility.
+    Application,
 }
 use crate::component_values::{AlertState, Expansion};
 
@@ -172,12 +167,11 @@ impl IntoView for Alert {
         let has_description = self.description.is_some();
         let state = move || AlertState {
             tone: tone.get(),
-            expansion: Expansion::new(has_details && collapsible.get(), details.get()),
+            content: has_details.then(|| Expansion::new(collapsible.get(), details.get())),
             dismissible: dismissible.get(),
             has_icon,
             has_actions,
             has_description,
-            has_content: has_details,
         };
         let contents = self.render_contents(state, collapsible, details, phase);
         with_base_recipe_style(
@@ -330,8 +324,10 @@ fn expansion_toggle(
 }
 
 enum BannerEvent {
-    Visibility(bool),
-    ExternalFocus {
+    /// One snapshot: the application's visibility (None when the alert owns it)
+    /// and the focused node with whether it lies inside the banner.
+    Observed {
+        shown: Option<bool>,
         focused: Option<NodeToken>,
         within: bool,
     },
@@ -343,7 +339,7 @@ enum BannerEffect {
     RequestDismiss { restore: Option<NodeToken> },
 }
 struct BannerMachine {
-    visible: Option<Binding<bool>>,
+    ownership: Ownership,
 }
 impl Machine for BannerMachine {
     type State = BannerState;
@@ -355,44 +351,40 @@ impl Machine for BannerMachine {
         event: BannerEvent,
     ) -> Step<BannerState, BannerEvent, BannerEffect> {
         match (*state, event) {
-            (BannerState::Local(_), BannerEvent::Visibility(_)) => Step::stay(),
-            (BannerState::Shared { restore, .. }, BannerEvent::Visibility(shown)) => {
-                Step::to(BannerState::Shared { shown, restore })
-            }
             (
                 state,
-                BannerEvent::ExternalFocus {
-                    focused: Some(target),
-                    within: false,
-                },
-            ) if state.visible() => Step::to(match state {
-                BannerState::Local(_) => BannerState::Local(LocalBannerState::Shown {
-                    restore: Some(target),
-                }),
-                BannerState::Shared { shown, .. } => BannerState::Shared {
+                BannerEvent::Observed {
                     shown,
-                    restore: Some(target),
+                    focused,
+                    within,
                 },
-            }),
-            (BannerState::Local(LocalBannerState::Shown { restore }), BannerEvent::Dismiss) => {
-                let step = Step::to(BannerState::Local(LocalBannerState::Dismissed));
-                let step = if let Some(target) = restore {
-                    step.with(BannerEffect::RestoreFocus(target))
-                } else {
-                    step
-                };
-                step.with(BannerEffect::NotifyDismiss)
+            ) => {
+                let outside = focused.filter(|_| !within);
+                match (state, shown) {
+                    (BannerState::Shown { .. }, Some(false)) => Step::to(BannerState::Hidden),
+                    (BannerState::Hidden, Some(true)) => {
+                        Step::to(BannerState::Shown { restore: outside })
+                    }
+                    (BannerState::Shown { .. }, _) if outside.is_some() => {
+                        Step::to(BannerState::Shown { restore: outside })
+                    }
+                    _ => Step::stay(),
+                }
             }
-            (
-                BannerState::Shared {
-                    shown: true,
-                    restore,
-                },
-                BannerEvent::Dismiss,
-            ) if self.visible.is_some_and(|visible| visible.get_untracked()) => {
-                Step::stay().with(BannerEffect::RequestDismiss { restore })
-            }
-            _ => Step::stay(),
+            (BannerState::Shown { restore }, BannerEvent::Dismiss) => match self.ownership {
+                Ownership::Local => {
+                    let step = Step::to(BannerState::Hidden);
+                    let step = match restore {
+                        Some(target) => step.with(BannerEffect::RestoreFocus(target)),
+                        None => step,
+                    };
+                    step.with(BannerEffect::NotifyDismiss)
+                }
+                Ownership::Application => {
+                    Step::stay().with(BannerEffect::RequestDismiss { restore })
+                }
+            },
+            (BannerState::Hidden, BannerEvent::Dismiss) => Step::stay(),
         }
     }
 }
@@ -401,28 +393,36 @@ fn banner_dismissal(
     callback: Option<Callback<()>>,
     visible: Option<Binding<bool>>,
 ) -> MachineHandle<BannerMachine> {
+    let initial = match visible {
+        Some(visible) if !visible.get_untracked() => BannerState::Hidden,
+        _ => BannerState::Shown { restore: None },
+    };
+    let ownership = if visible.is_some() {
+        Ownership::Application
+    } else {
+        Ownership::Local
+    };
     let phase = machine(
-        visible.map_or(
-            BannerState::Local(LocalBannerState::Shown { restore: None }),
-            |visible| BannerState::Shared {
-                shown: visible.get_untracked(),
-                restore: None,
-            },
-        ),
-        move || BannerMachine { visible },
+        initial,
+        move || BannerMachine { ownership },
         move |_, command| match command {
             BannerEffect::RestoreFocus(target) => target.restore_focus(),
             BannerEffect::RequestDismiss { restore } => {
-                if let Some(visible) = visible {
-                    visible.set(false);
+                let Some(visible) = visible else { return };
+                // The binding may already be false before this snapshot arrived.
+                if !visible.get_untracked() {
+                    return;
                 }
-                if visible.is_none_or(|visible| !visible.get_untracked()) {
-                    if let Some(target) = restore {
-                        target.restore_focus();
-                    }
-                    if let Some(callback) = callback {
-                        callback.call(());
-                    }
+                visible.set(false);
+                // A refused write keeps the alert visible: no focus move, no callback.
+                if visible.get_untracked() {
+                    return;
+                }
+                if let Some(target) = restore {
+                    target.restore_focus();
+                }
+                if let Some(callback) = callback {
+                    callback.call(());
                 }
             }
             BannerEffect::NotifyDismiss => {
@@ -432,16 +432,11 @@ fn banner_dismissal(
             }
         },
     );
-    if let Some(visible) = visible {
-        phase.feed(visible.into_value(), BannerEvent::Visibility);
-    }
     let owner = Owner::current();
     let within = reference.focus_within();
     effect(move || {
-        if let Some(visible) = visible {
-            visible.get();
-        }
-        phase.send(BannerEvent::ExternalFocus {
+        phase.send(BannerEvent::Observed {
+            shown: visible.map(|visible| visible.get()),
             focused: owner.focused_node(),
             within: within.get(),
         });

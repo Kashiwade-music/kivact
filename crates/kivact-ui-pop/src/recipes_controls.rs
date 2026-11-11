@@ -18,7 +18,7 @@ fn indicator(width: f64, height: f64) -> Style {
 
 pub(crate) fn checkbox_indicator(t: &Theme, look: &Look<CheckableState>) -> Style {
     let p = t.ext::<Tokens>();
-    let active = look.checked != CheckedState::Unchecked;
+    let active = look.checked() != CheckedState::Unchecked;
     indicator(16.0, 16.0)
         .radius(4)
         .background(if active { p.blue } else { p.surface })
@@ -26,7 +26,7 @@ pub(crate) fn checkbox_indicator(t: &Theme, look: &Look<CheckableState>) -> Styl
 }
 
 pub(crate) fn checkbox_check(_: &Theme, look: &Look<CheckableState>) -> Style {
-    let checked = look.checked == CheckedState::Checked;
+    let checked = look.is_checked();
     style()
         .position(Position::Absolute)
         .inset(0)
@@ -45,7 +45,7 @@ pub(crate) fn checkbox_check(_: &Theme, look: &Look<CheckableState>) -> Style {
 }
 
 pub(crate) fn checkbox_mixed(_: &Theme, look: &Look<CheckableState>) -> Style {
-    let mixed = look.checked == CheckedState::Indeterminate;
+    let mixed = look.is_mixed();
     style()
         .position(Position::Absolute)
         .inset(0)
@@ -65,7 +65,7 @@ pub(crate) fn switch_track(t: &Theme, look: &Look<CheckableState>) -> Style {
     let p = t.ext::<Tokens>();
     indicator(32.0, 18.0)
         .radius(9)
-        .background(if look.checked.is_checked() {
+        .background(if look.is_checked() {
             p.blue
         } else {
             p.line_strong
@@ -76,7 +76,7 @@ pub(crate) fn switch_thumb(_: &Theme, look: &Look<CheckableState>) -> Style {
     style()
         .position(Position::Absolute)
         .top(2)
-        .left(if look.checked.is_checked() { 16 } else { 2 })
+        .left(if look.is_checked() { 16 } else { 2 })
         .size(14, 14)
         .radius(7)
         .background(Color::WHITE)

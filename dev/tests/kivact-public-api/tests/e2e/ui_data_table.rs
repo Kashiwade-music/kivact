@@ -562,3 +562,138 @@ fn a_remote_page_does_not_slice_the_rows_again_and_uses_has_more() {
     assert_eq!(page.get_untracked(), 3);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+/// Mount the people table as `configure` sets it up, with a page binding at
+/// 0, a size of 2 and a remote `has_more` of true.
+fn mount_paged(
+    configure: impl FnOnce(
+        kivact::ui::DataTable<Person, u32>,
+        Signal<usize>,
+        Signal<usize>,
+        Signal<bool>,
+    ) -> kivact::ui::DataTable<Person, u32>
+    + 'static,
+) -> (Screen, (Signal<usize>, Signal<usize>)) {
+    mount_with(options(), move || {
+        let page = signal(0usize);
+        let size = signal(2usize);
+        let has_more = signal(true);
+        let table = data_table(people(), |p: &Person| p.id, columns());
+        ((page, size), configure(table, page, size, has_more))
+    })
+}
+
+#[test]
+fn a_later_remote_page_replaces_page() {
+    let (screen, _) =
+        mount_paged(|table, page, size, more| table.page(page, size).remote_page(page, size, more));
+    // The caller's rows are the page: nothing is sliced and the total is unknown.
+    assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
+    screen.get_by_text("Page 1");
+    assert!(!screen.get_by_role(Role::Button, "Next").is_disabled());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_later_page_replaces_remote_page() {
+    let (screen, (page, _)) = mount_paged(|table, page, size, more| {
+        table
+            .page(page, size)
+            .remote_page(page, size, more)
+            .page(page, size)
+    });
+    // The table slices its rows again and knows the page count.
+    assert_eq!(names(&screen), ["Ada", "Grace"]);
+    screen.get_by_text("Page 1 of 3");
+    screen.get_by_role(Role::Button, "Next").click();
+    assert_eq!(page.get_untracked(), 1);
+    assert_eq!(names(&screen), ["Linus", "Alan"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn page_sizes_given_before_page_offer_the_same_picker() {
+    let (screen, (page, size)) =
+        mount_paged(|table, page, size, _| table.page_sizes(size, vec![2, 5]).page(page, size));
+    page.set(1);
+    screen.run_until_idle();
+    screen.get_by_text("Page 2 of 3");
+    screen.get_by_role(Role::ComboBox, "Rows per page").click();
+    screen.get_by_text("5").click();
+    assert_eq!(size.get_untracked(), 5);
+    assert_eq!(page.get_untracked(), 0);
+    assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
+    screen.get_by_text("Page 1 of 1");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn page_sizes_set_the_size_of_a_remote_page_in_either_order() {
+    let (screen, _) = mount_paged(|table, page, size, more| {
+        let chosen = signal(10usize);
+        page.set(3);
+        table
+            .page_sizes(chosen, vec![10, 20])
+            .remote_page(page, size, more)
+            .row_index(1)
+    });
+    // The chosen size (10), not the given one (2), numbers the rows of page 4.
+    screen.get_by_text("31");
+    assert!(
+        screen
+            .query_by_role(Role::ComboBox, "Rows per page")
+            .is_none()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_later_multi_sort_replaces_sort() {
+    let (screen, (single, keys)) = mount_with(options(), || {
+        let single = signal(Some((0, SortOrder::Descending)));
+        let keys = signal(vec![(1, SortOrder::Ascending)]);
+        (
+            (single, keys),
+            data_table(people(), |p: &Person| p.id, columns())
+                .sort(single)
+                .multi_sort(keys),
+        )
+    });
+    // The keys sort the rows; the single binding is not read.
+    assert_eq!(names(&screen), ["Linus", "Ada", "Alan", "Grace", "Edsger"]);
+    let shift = Modifiers {
+        shift: true,
+        ..Modifiers::default()
+    };
+    screen
+        .get_by_role(Role::ColumnHeader, "Name")
+        .press_key_with(Key::Enter, shift);
+    assert_eq!(
+        keys.get_untracked(),
+        [(1, SortOrder::Ascending), (0, SortOrder::Ascending)]
+    );
+    assert_eq!(single.get_untracked(), Some((0, SortOrder::Descending)));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_later_sort_replaces_multi_sort() {
+    let (screen, (single, keys)) = mount_with(options(), || {
+        let single = signal(None::<(usize, SortOrder)>);
+        let keys = signal(vec![(1, SortOrder::Ascending)]);
+        (
+            (single, keys),
+            data_table(people(), |p: &Person| p.id, columns())
+                .sort(single)
+                .multi_sort(keys)
+                .sort(single),
+        )
+    });
+    // The single binding sorts the rows; the keys are not read.
+    assert_eq!(names(&screen), ["Ada", "Grace", "Linus", "Alan", "Edsger"]);
+    screen.get_by_role(Role::ColumnHeader, "Name").click();
+    assert_eq!(single.get_untracked(), Some((0, SortOrder::Ascending)));
+    assert_eq!(keys.get_untracked(), [(1, SortOrder::Ascending)]);
+    assert_eq!(names(&screen), ["Ada", "Alan", "Edsger", "Grace", "Linus"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

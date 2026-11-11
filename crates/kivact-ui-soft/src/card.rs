@@ -161,7 +161,7 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
         CardVariant::Yellow => c.hue.yellow.border,
     };
 
-    let selected = s.selection == Selectable::Selected;
+    let selected = s.selection() == Selectable::Selected;
     let mut base = style()
         .direction(Direction::Column)
         .position(Position::Relative)
@@ -172,14 +172,14 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
     if bordered {
         base = base.border(t.sizes.border_width, if selected { ring } else { c.border });
     }
-    if s.selection != Selectable::NotSelectable {
+    if s.selection() != Selectable::NotSelectable {
         base = base.shadow(
             Shadow::new(0, 0, 0, if selected { ring } else { Color::TRANSPARENT })
                 .spread(2)
                 .inset(),
         );
     }
-    if s.interactive {
+    if s.is_interactive() {
         base = base
             .focus_visible(crate::recipe_style::ring(&t, c.accent))
             .transition(
@@ -188,7 +188,7 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
             );
         if s.disabled {
             base = base.opacity(t.sizes.disabled_opacity);
-        } else if s.selection == Selectable::NotSelectable && bordered {
+        } else if s.selection() == Selectable::NotSelectable && bordered {
             base = base.hover(style().border_color(c.border_emphasized));
         }
     }
@@ -199,7 +199,7 @@ fn root(theme: &Theme, s: &Look<CardState>) -> Style {
 fn overlay(theme: &Theme, s: &Look<CardState>) -> Style {
     let t = theme.ext::<crate::Tokens>();
     let color = s
-        .input
+        .input()
         .filter(|input| !input.disabled)
         .map_or(Color::TRANSPARENT, |input| {
             if input.pressed {

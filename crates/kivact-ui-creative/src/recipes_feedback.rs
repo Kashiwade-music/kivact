@@ -84,7 +84,7 @@ pub(crate) fn card(r: CardRecipes) -> CardRecipes {
                 .color(p.text)
                 .border(
                     1,
-                    if s.selection == Selectable::Selected {
+                    if s.selection() == Selectable::Selected {
                         p.accent
                     } else {
                         p.hair

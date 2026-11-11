@@ -118,7 +118,7 @@ fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
         state.size,
         state.variant::<Slant>().is_some(),
     );
-    if !state.icon_only {
+    if !state.is_icon_only() {
         return s;
     }
     // An icon button is a square of the button's height with a quiet icon.

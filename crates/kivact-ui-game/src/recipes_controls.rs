@@ -7,7 +7,6 @@ use kivact::ui::{
     ButtonState, ButtonVariant, CheckableState, ControlSize, Look, TextInputState,
     ToggleButtonState,
 };
-use kivact::view::CheckedState;
 
 /// A Game look of a standard button beyond its [`ButtonVariant`]:
 /// `kivact::ui::button(..).variant(ButtonTone::Dark)`. Another theme
@@ -213,8 +212,8 @@ pub(crate) fn checkbox(_: &Theme, state: &Look<CheckableState>) -> Style {
                 kivact::draw::Layer::new()
                     .transform(Transform::new().translate_y((size.height - 16.) / 2.)),
                 |d| {
-                    let c = state.checked.is_checked();
-                    let mixed = state.checked == CheckedState::Indeterminate;
+                    let c = state.is_checked();
+                    let mixed = state.is_mixed();
                     let p = d.theme().ext::<Tokens>();
                     let primary = d.theme().colors().accent;
 
@@ -264,7 +263,7 @@ pub(crate) fn switch(_: &Theme, state: &Look<CheckableState>) -> Style {
                 kivact::draw::Layer::new()
                     .transform(Transform::new().translate_y((size.height - 20.) / 2.)),
                 |d| {
-                    let c = state.checked.is_checked();
+                    let c = state.is_checked();
                     let p = d.theme().ext::<Tokens>();
                     let primary = d.theme().colors().accent;
 
@@ -274,7 +273,10 @@ pub(crate) fn switch(_: &Theme, state: &Look<CheckableState>) -> Style {
                     );
                     d.fill_rect(Rect::new(if c { 23. } else { 3. }, 3., 14., 14.), p.on_dark);
                     d.text(
-                        &state.text.map(|text| text.get()).unwrap_or_default(),
+                        &state
+                            .switch_text()
+                            .map(|text| text.get())
+                            .unwrap_or_default(),
                         Point::new(if c { 5. } else { 20. }, 6.),
                         TextFormat {
                             size: 7.5,

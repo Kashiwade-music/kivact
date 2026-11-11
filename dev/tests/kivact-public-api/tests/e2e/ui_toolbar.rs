@@ -189,3 +189,32 @@ fn group_orientation_updates_layout_and_roving_without_losing_selection() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn toggle_group_icon_only_keeps_iconless_items_out_of_the_square_look() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            toggle_group(
+                "Tools",
+                vec![
+                    ListItem::new("pen", "Pen").with_icon("dot"),
+                    ListItem::new("text", "Text"),
+                ],
+                signal(None::<&'static str>),
+            )
+            .icon_only(true),
+        )
+    });
+    let pen = screen
+        .get_by_role(Role::Button, "Pen")
+        .rect()
+        .expect("laid out");
+    assert!((pen.width - pen.height).abs() <= 0.5, "{pen:?}");
+    let text = screen
+        .get_by_role(Role::Button, "Text")
+        .rect()
+        .expect("laid out");
+    assert!((text.width - text.height).abs() > 0.5, "{text:?}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

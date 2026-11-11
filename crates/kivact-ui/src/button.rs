@@ -182,7 +182,7 @@ impl Button {
     /// Keep the accessible name while omitting the visible label (while
     /// true; constant or reactive). A button with a leading
     /// [`icon`](Self::icon) and no visible label is an icon button: its
-    /// recipe knows it from [`ButtonState::icon_only`] and draws a square.
+    /// recipe knows it from [`ButtonState::is_icon_only`] and draws a square.
     #[track_caller]
     pub fn hide_label(mut self, hide: impl IntoValue<bool>) -> Self {
         self.hide_label = Some(hide.into_value());
@@ -252,7 +252,7 @@ impl Button {
             expanded: expanded.map(|open| open.get()),
             leading_icon,
             trailing_icon,
-            icon_only: leading_icon && hide_label.is_some_and(|hide| hide.get()),
+            label_hidden: hide_label.is_some_and(|hide| hide.get()),
         });
         // The text style, then the recipe: base layers below every `.style(..)` of the caller.
         let root = with_base_recipe_style(

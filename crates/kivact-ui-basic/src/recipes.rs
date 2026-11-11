@@ -136,7 +136,7 @@ fn button(t: &Theme, state: &kivact::ui::Look<ButtonState>) -> Style {
         s
     };
     // button.tsx `size="icon"`: a square, as wide as the button is high.
-    let s = if state.icon_only {
+    let s = if state.is_icon_only() {
         s.aspect_ratio(1.0).padding_x(0)
     } else {
         s
@@ -295,7 +295,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
         CHECK_SIDE,
         CHECK_SIDE,
     );
-    let on = state.checked != CheckedState::Unchecked;
+    let on = state.checked() != CheckedState::Unchecked;
     // `data-checked:bg-primary`; unchecked only `dark:bg-input/30`.
     d.fill_rect(rect, if on { p.primary } else { field_fill(p) });
     let (border, halo) = toggle_edge(p, &state.input, state.invalid, p.input);
@@ -307,11 +307,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
     };
     edge(d, rect, 0.0, border, halo);
     if on {
-        let glyph = if state.checked == CheckedState::Indeterminate {
-            MINUS
-        } else {
-            CHECK
-        };
+        let glyph = if state.is_mixed() { MINUS } else { CHECK };
         stroke_glyph(
             d,
             Point::new(rect.x + 1.0, rect.y + 1.0),
@@ -323,7 +319,7 @@ fn draw_checkbox(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
 }
 
 fn draw_switch(p: &Tokens, state: &CheckableState, d: &mut Draw, size: Size) {
-    let on = state.checked.is_checked();
+    let on = state.is_checked();
     let ((width, height), side) = switch_metrics(state.size);
     let track = Rect::new(LEAD, (size.height - height) / 2.0, width, height);
     let radius = height / 2.0;

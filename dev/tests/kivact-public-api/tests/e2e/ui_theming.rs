@@ -45,7 +45,7 @@ fn a_switch_thumb_recipe_animates_when_the_binding_changes() {
                 style()
                     .size(16, 16)
                     .background(rgb(RED))
-                    .translate_x(if state.checked.is_checked() { 80 } else { 0 })
+                    .translate_x(if state.is_checked() { 80 } else { 0 })
                     .transition(TransitionProp::All, Transition::tween(400, Easing::Linear))
             }
         });
