@@ -86,3 +86,29 @@ fn select_touch_opens_the_sheet() {
     assert!(screen.query_by_role(Role::Dialog, "Team").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn free_text_is_kept_when_the_list_closes() {
+    let (screen, query) = mount(|| {
+        let selected = signal(None::<&'static str>);
+        let query = signal(String::new());
+        (
+            query,
+            combobox(
+                "Fruit",
+                vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")],
+                selected,
+            )
+            .query(query)
+            .free_text(),
+        )
+    });
+    let input = screen.get_by_role(Role::ComboBox, "Fruit");
+    input.focus();
+    input.type_text("Kiwi");
+    screen.run_until_idle();
+    input.press_key(Key::Escape);
+    screen.run_until_idle();
+    assert_eq!(query.get_untracked(), "Kiwi");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

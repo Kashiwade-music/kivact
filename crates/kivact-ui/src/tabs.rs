@@ -36,7 +36,7 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     variants: Variants,
     keep_mounted: bool,
 }
-/// A themed tab list whose selected key is `binding`; give it
+/// A themed tab list whose selected key is `value`; give it
 /// [`content`](Tabs::content) when the tabs also own the selected panel.
 ///
 /// `label` is the tab list's accessible name; it is not drawn.

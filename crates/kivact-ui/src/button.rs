@@ -270,7 +270,7 @@ impl Button {
             )
         };
         // Only a button the caller gave `.busy(..)` creates the busy clock, its
-        // machine and its indicator (MEM-6): the others create no constant either.
+        // machine and its indicator (MEM-5): the others create no constant either.
         let busy_parts = busy.map(|_| busy_animation(state));
         let content = with_recipe_style(
             row((

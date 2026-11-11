@@ -120,40 +120,37 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 return Step::to(next).with(Effect::WriteOpen(true));
             }
             Event::OpenRequested(false) | Event::Close => {
-                let write = state.mode.is_open();
-                let reset = reset(state, &mut next);
+                if !state.mode.is_open() {
+                    return Step::stay();
+                }
                 next.mode = ComboMode::Closed;
-                let mut step = Step::to(next);
-                if let Some(effect) = reset {
-                    step = step.with(effect);
-                }
-                if write {
-                    step = step.with(Effect::WriteOpen(false));
-                }
-                return step;
+                next.highlight = None;
+                return Step::to(next).with(Effect::WriteOpen(false));
             }
             Event::FocusLeft { transferred } => {
                 if transferred || !state.mode.is_open() {
                     return Step::stay();
                 }
-                let reset = reset(state, &mut next);
                 next.mode = ComboMode::Closed;
-                let mut step = Step::to(next);
-                if let Some(effect) = reset {
-                    step = step.with(effect);
-                }
-                return step.with(Effect::WriteOpen(false));
+                next.highlight = None;
+                return Step::to(next).with(Effect::WriteOpen(false));
             }
             Event::Highlight(key) => next.highlight = Some(key),
             Event::Query(text) => {
+                let opens = !state.mode.is_open();
                 next.mode = ComboMode::Filtering(state.mode.surface());
                 next.highlight = None;
-                match state.query {
-                    Query::Shared(source) => {
-                        return Step::to(next).with(Effect::Query(source, text));
+                let mut step = match state.query {
+                    Query::Shared(source) => Step::to(next).with(Effect::Query(source, text)),
+                    Query::Local(_) => {
+                        next.query = Query::Local(text);
+                        Step::to(next)
                     }
-                    Query::Local(_) => next.query = Query::Local(text),
+                };
+                if opens {
+                    step = step.with(Effect::WriteOpen(true));
                 }
+                return step;
             }
             Event::Reset => {
                 if let Some(effect) = reset(state, &mut next) {

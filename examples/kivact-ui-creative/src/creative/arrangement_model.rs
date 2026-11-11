@@ -51,8 +51,8 @@ pub(super) fn edits(
 }
 /// The provisional automation point of the running edit, created once.
 fn provisional_id(txn: Signal<Txn<ArrangementEdit>>, tracks: &[ui::TimelineTrack]) -> u64 {
-    Txn::snapshot(txn)
-        .and_then(|edit| edit.provisional)
+    Txn::read(txn, |edit| edit.provisional)
+        .flatten()
         .unwrap_or_else(|| {
             let id = next_id(tracks.iter().flat_map(|t| &t.automation).map(|p| p.id));
             Txn::update_snapshot(txn, |edit| edit.provisional = Some(id));

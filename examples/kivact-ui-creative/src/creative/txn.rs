@@ -42,6 +42,14 @@ impl<T: Clone + PartialEq + 'static> Txn<T> {
         })
     }
 
+    /// Read the snapshot of the running edit without cloning it.
+    pub(super) fn read<R>(state: Signal<Self>, read: impl FnOnce(&T) -> R) -> Option<R> {
+        state.with_untracked(|txn| match txn {
+            Txn::Idle => None,
+            Txn::Editing { snapshot } => Some(read(snapshot)),
+        })
+    }
+
     /// End the edit, keeping the application's current values.
     pub(super) fn commit(state: Signal<Self>) {
         state.set(Txn::Idle);

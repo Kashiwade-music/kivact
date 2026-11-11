@@ -275,7 +275,12 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 depth,
                 key: key.clone(),
                 hovered: hovered.get() && !aiming.get() && !disabled.get() && shown.get(),
-                press: pressed_over.get(),
+                press: if aiming.get() || !shown.get() {
+                    super::state::PressOver::None
+                } else {
+                    pressed_over.get()
+                },
+                submenu,
             });
         });
     }

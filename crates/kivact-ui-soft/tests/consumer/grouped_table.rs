@@ -155,3 +155,31 @@ fn remote_pages_group_the_supplied_rows_without_slicing_them_again() {
     assert_eq!(page.get_untracked(), 7);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn remote_pages_offer_the_page_size_picker_and_reset_the_page() {
+    let (screen, (page, size)) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)).mirror(MirrorMode::Off),
+        || {
+            let page = signal(3usize);
+            let size = signal(2usize);
+            (
+                (page, size),
+                data_table(
+                    vec![(41, "Ada"), (42, "Grace")],
+                    |row| row.0,
+                    vec![DataColumn::new("Name", |row: &(i32, &str)| {
+                        row.1.to_owned()
+                    })],
+                )
+                .remote_page(page, 2, true)
+                .page_sizes(size, vec![2, 5]),
+            )
+        },
+    );
+    screen.get_by_role(Role::ComboBox, "Rows per page").click();
+    screen.get_by_role(Role::Option, "5").click();
+    assert_eq!(size.get_untracked(), 5);
+    assert_eq!(page.get_untracked(), 0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

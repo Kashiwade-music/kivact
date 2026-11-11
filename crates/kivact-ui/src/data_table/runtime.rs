@@ -42,9 +42,11 @@ enum PagingPlan {
         page: PagePlan,
         size: Binding<usize>,
     },
-    /// The caller's rows are the page.
+    /// The caller's rows are the page. `size` is the writable size, as for
+    /// `Local`.
     Remote {
         page: PagePlan,
+        size: Binding<usize>,
         has_more: kivact_core::state::Value<bool>,
     },
 }
@@ -71,8 +73,13 @@ impl PagingPlan {
             },
             Self::Remote {
                 page: (page, _),
+                size,
                 has_more,
-            } => Paging::Remote { page, has_more },
+            } => Paging::Remote {
+                page,
+                page_size: size,
+                has_more,
+            },
         }
     }
 }
@@ -236,25 +243,43 @@ where
     match table.paging {
         PageSetting::Off => PagingPlan::Off,
         PageSetting::Local((index, size)) => {
-            let picked = chosen.map(|chosen| {
-                binding(chosen, move |next: usize| {
-                    chosen.set(next.max(1));
-                    index.set(0);
-                })
-            });
+            let (shown, size) = page_size(chosen, index, size);
             PagingPlan::Local {
-                page: (index, picked.map_or(size, |picked| picked.into_value())),
-                size: picked.unwrap_or_else(|| binding(move || size.get(), |_| ())),
+                page: (index, shown),
+                size,
             }
         }
         PageSetting::Remote {
             page: (index, size),
             has_more,
-        } => PagingPlan::Remote {
-            page: (index, chosen.map_or(size, |chosen| chosen.into_value())),
-            has_more,
-        },
+        } => {
+            let (shown, size) = page_size(chosen, index, size);
+            PagingPlan::Remote {
+                page: (index, shown),
+                size,
+                has_more,
+            }
+        }
     }
+}
+/// The page size the table uses and the writable size the picker shows:
+/// the `page_sizes` binding (writing it shows the first page), or else a
+/// read-only view of `size`.
+fn page_size(
+    chosen: Option<Binding<usize>>,
+    index: Binding<usize>,
+    size: kivact_core::state::Value<usize>,
+) -> (kivact_core::state::Value<usize>, Binding<usize>) {
+    let picked = chosen.map(|chosen| {
+        binding(chosen, move |next: usize| {
+            chosen.set(next.max(1));
+            index.set(0);
+        })
+    });
+    (
+        picked.map_or(size, |picked| picked.into_value()),
+        picked.unwrap_or_else(|| binding(move || size.get(), |_| ())),
+    )
 }
 fn ordered_columns<R: kivact_core::state::PropValue>(
     shown: kivact_core::state::Value<Vec<kivact_interaction::ColumnDef<R, usize>>>,

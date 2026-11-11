@@ -395,14 +395,14 @@ pub fn top_nav_menu(
 }
 
 impl TopNavMenu {
-    /// Set the pointer-hover opening delay in milliseconds.
-    pub fn delay_ms(mut self, delay: u64) -> Self {
-        self.delays.open = Duration::from_millis(delay);
+    /// Set the pointer-hover opening delay.
+    pub fn open_delay(mut self, delay: Duration) -> Self {
+        self.delays.open = delay;
         self
     }
-    /// Set the pointer-leave closing delay in milliseconds.
-    pub fn hide_delay_ms(mut self, delay: u64) -> Self {
-        self.delays.close = Duration::from_millis(delay);
+    /// Set the pointer-leave closing delay.
+    pub fn close_delay(mut self, delay: Duration) -> Self {
+        self.delays.close = delay;
         self
     }
 }
@@ -509,14 +509,14 @@ impl TopNavMegaMenu {
         self.featured = Some(featured.into_view_fn());
         self
     }
-    /// Set the pointer-hover opening delay in milliseconds.
-    pub fn delay_ms(mut self, delay: u64) -> Self {
-        self.delays.open = Duration::from_millis(delay);
+    /// Set the pointer-hover opening delay.
+    pub fn open_delay(mut self, delay: Duration) -> Self {
+        self.delays.open = delay;
         self
     }
-    /// Set the pointer-leave closing delay in milliseconds.
-    pub fn hide_delay_ms(mut self, delay: u64) -> Self {
-        self.delays.close = Duration::from_millis(delay);
+    /// Set the pointer-leave closing delay.
+    pub fn close_delay(mut self, delay: Duration) -> Self {
+        self.delays.close = delay;
         self
     }
     /// Observe changes to the flyout's open state.

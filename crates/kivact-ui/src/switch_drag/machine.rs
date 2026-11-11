@@ -1,6 +1,6 @@
 //! Role: Decide switch direct manipulation and owner-scoped release timing.
 use super::geometry::Geometry;
-use crate::values::{Lift, SwitchDragState, TrackInput};
+use crate::values::{Lift, ThumbDrag, TrackInput};
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::{MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
@@ -85,29 +85,30 @@ pub(super) enum State {
     },
 }
 impl State {
-    pub(super) fn visual(self) -> Option<SwitchDragState> {
+    pub(super) fn visual(self) -> Option<ThumbDrag> {
         match self {
             Self::Gesture(SwitchGesture::Pressed { contact })
                 if contact.kind == PointerKind::Touch =>
             {
-                Some(SwitchDragState::TouchPressed)
+                Some(ThumbDrag::TouchPressed)
             }
             Self::Gesture(SwitchGesture::Dragging {
                 contact,
                 axis: Axis::Horizontal { offset },
-                ..
-            }) => Some(SwitchDragState::Tracking(
-                if contact.kind == PointerKind::Touch {
-                    TrackInput::Touch { offset }
+                latch,
+            }) => {
+                let on = latch.on(contact.started_on);
+                Some(ThumbDrag::Tracking(if contact.kind == PointerKind::Touch {
+                    TrackInput::Touch { offset, on }
                 } else {
-                    TrackInput::Pointer
-                },
-            )),
+                    TrackInput::Pointer { on }
+                }))
+            }
             Self::Released {
                 kind: PointerKind::Touch,
                 lift,
                 ..
-            } => Some(SwitchDragState::TouchReleased(lift)),
+            } => Some(ThumbDrag::TouchReleased(lift)),
             _ => None,
         }
     }

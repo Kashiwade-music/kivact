@@ -242,7 +242,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         kivact_core::state::effect_on(
             move || query.get(),
             move |_| {
-                session.send(machine::Event::QueryChanged);
+                // A closed list stays closed when the caller writes the query.
+                if self.shown() {
+                    session.send(machine::Event::QueryChanged);
+                }
             },
         );
         self
@@ -405,7 +408,12 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// false: an inline list whose owner closes it. Setup only.
     #[track_caller]
     pub(crate) fn follow_open(self, open: kivact_core::state::Binding<bool>) {
-        self.session.feed(open, machine::Event::OpenRequested);
+        let session = self.session;
+        kivact_core::state::effect_on(open, move |&shown| {
+            if !shown {
+                session.send(machine::Event::Reset);
+            }
+        });
     }
 
     /// Whether the list shows: the open state of a [`popup`](Self::popup), and
@@ -617,13 +625,17 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                 .on_key(move |event: KeyEvent| {
                     let m = event.modifiers();
                     if m.alt && !m.ctrl && !m.meta && !m.shift {
-                        match event.key() { Key::ArrowDown => self.show(), Key::ArrowUp => self.hide(), _ => return Handled::No }
+                        match event.key() {
+                            Key::ArrowDown => self.show(),
+                            Key::ArrowUp => self.hide(),
+                            _ => return Handled::No,
+                        }
                         return Handled::Yes;
                     }
                     if m.ctrl || m.alt || m.meta || m.shift {
                         return Handled::No;
                     }
-                    let closed = matches!(self.mode.get(), PresentationMode::Popup(open) if !open.get_untracked());
+                    let closed = !self.shown();
                     match event.key() {
                         Key::ArrowDown | Key::ArrowUp if closed => self.show(),
                         Key::ArrowDown => self.step(1),
@@ -641,7 +653,10 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                             self.hide();
                         }
                         Key::Backspace
-                            if self.session.state().with_untracked(|state| state.query.get().is_empty()) =>
+                            if self
+                                .session
+                                .state()
+                                .with_untracked(|state| state.query.get().is_empty()) =>
                         {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;

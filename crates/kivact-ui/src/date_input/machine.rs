@@ -154,8 +154,7 @@ impl Machine for Snapshot {
                     },
                     picker,
                 })
-                .with(Effect::Validity(false))
-                .with(Effect::Value(None)),
+                .with(Effect::Validity(false)),
             },
             Event::Pick(date) if self.accepts(date) => Step::to(DateField {
                 typed: TypedDate::Following(date),

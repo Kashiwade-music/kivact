@@ -17,7 +17,8 @@
 //! `control()`. The open query is `is_open()` and the commands are `show()`,
 //! `hide()` and `toggle()` on a Copy `self`: `show` and `hide` change nothing when
 //! the surface already is so, `toggle` inverts, and a kind of surface is a suffix
-//! (`show_sheet()`). State a caller may own is a
+//! (`show_sheet()`). A toaster's `dismiss(id)` removes one toast from its
+//! queue; it is not a show/hide command. State a caller may own is a
 //! builder of that name taking a `Binding` (`sort(binding)`,
 //! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
 //!
@@ -27,7 +28,7 @@
 //! is a [`DelayedApi`]. The content of a
 //! popup, tooltip or dialog is mounted with the free function
 //! `show(handle.is_open(), factory)`, in a fresh owner on every opening. A menu
-//! and a command palette keep their own `show`: a menu's top level builds its
+//! and a command palette keep their own [`while_open`](MenuApi::while_open): a menu's top level builds its
 //! content again when a request changes between the pointer and the anchor
 //! origin, and a submenu mounts its level in a new owner while it is open.
 

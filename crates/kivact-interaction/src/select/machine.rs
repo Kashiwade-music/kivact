@@ -20,7 +20,7 @@ pub(super) enum State<K> {
         highlight: Option<K>,
         // xtask-allow(state-fields): independent: the key the pointer is over in the open list
         hovered: Option<K>,
-        // xtask-allow(state-fields): projection: the option last reported to the preview callback, written only by Machine::transition on Event::Preview, which only track_preview sends (the hovered key, else the list's active key); Open starts it at None and Close reports None
+        // xtask-allow(state-fields): independent: the option last reported to the preview callback (a record of a call already made, not derivable from hovered/highlight, which change before track_preview reports); Open and OpenSheet reset it to None, Event::Preview sets it, Close reports None when it held a key
         /// The option last reported to the caller's preview callback.
         previewed: Option<K>,
         opened_by: OpenedBy,
@@ -56,6 +56,17 @@ impl<K> Machine<K> {
         Self(PhantomData)
     }
 }
+/// The open state of a list shown as a sheet, with nothing highlighted or previewed.
+fn sheet_state<K: Clone>(state: &State<K>) -> State<K> {
+    State::Open {
+        highlight: None,
+        hovered: None,
+        previewed: None,
+        opened_by: OpenedBy::Pointer,
+        surface: Surface::Sheet,
+        typeahead: state.typeahead().clone(),
+    }
+}
 impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
     type State = State<K>;
     type Event = Event<K>;
@@ -74,13 +85,16 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                 }
             }
             Event::OpenSheet => {
-                next = State::Open {
-                    highlight: None,
-                    hovered: None,
-                    previewed: None,
-                    opened_by: OpenedBy::Pointer,
-                    surface: Surface::Sheet,
-                    typeahead: state.typeahead().clone(),
+                let reported = matches!(
+                    state,
+                    State::Open {
+                        previewed: Some(_),
+                        ..
+                    }
+                );
+                next = sheet_state(state);
+                if reported {
+                    return Step::to(next).with(Effect::Preview(None));
                 }
             }
             Event::Close => {

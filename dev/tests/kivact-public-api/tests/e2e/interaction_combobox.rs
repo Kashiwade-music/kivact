@@ -112,3 +112,133 @@ fn enter_chooses_only_in_an_open_list_and_a_choice_closes_it() {
     assert!(!open.get_untracked());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_shared_query_survives_setup_and_a_hidden_hide() {
+    let (screen, query) = mount(|| {
+        let query = signal(String::from("abc"));
+        let value = signal(None::<&'static str>);
+        let combo = use_combobox(options(), Selection::Single(value.into_binding()))
+            .query_binding(query)
+            .popup(signal(false));
+        let view = column((
+            node()
+                .name("Color")
+                .part(use_text_edit(combo.query()).control())
+                .part(combo.input()),
+            button("Hide").on_press(move || combo.hide()),
+        ));
+        (query, view)
+    });
+    screen.run_until_idle();
+    assert_eq!(
+        query.get_untracked(),
+        "abc",
+        "setup keeps the caller's query"
+    );
+    screen.get_by_role(Role::Button, "Hide").click();
+    screen.run_until_idle();
+    assert_eq!(
+        query.get_untracked(),
+        "abc",
+        "hiding a hidden list changes nothing"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn typing_into_a_closed_list_shows_it_and_its_keys_work() {
+    let (screen, (open, value)) = mount(|| {
+        let open = signal(false);
+        let value = signal(None::<&'static str>);
+        ((open, value), picker(open, value, None))
+    });
+    let field = screen.get_by_role(Role::ComboBox, "Color");
+    field.focus();
+    field.type_text("gr");
+    screen.run_until_idle();
+    assert!(
+        open.get_untracked(),
+        "typing shows the list in the caller's binding too"
+    );
+    field.press_key(Key::Enter);
+    screen.run_until_idle();
+    assert_eq!(
+        value.get_untracked(),
+        Some("green"),
+        "Enter chooses the filtered option"
+    );
+    assert!(!open.get_untracked());
+    field.type_text("p");
+    screen.run_until_idle();
+    field.press_key(Key::Escape);
+    screen.run_until_idle();
+    assert!(
+        !open.get_untracked(),
+        "Escape hides a list opened by typing"
+    );
+    assert!(screen.query_by_role(Role::ListBox, "Colors").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn writing_the_query_while_closed_keeps_the_popup_closed() {
+    let (screen, (open, query, is_open)) = mount(|| {
+        let open = signal(false);
+        let query = signal(String::new());
+        let value = signal(None::<&'static str>);
+        let combo = use_combobox(options(), Selection::Single(value.into_binding()))
+            .query_binding(query)
+            .popup(open);
+        let view = column((
+            node()
+                .name("Color")
+                .part(use_text_edit(combo.query()).control())
+                .part(combo.input()),
+            button("Elsewhere"),
+        ));
+        ((open, query, combo.is_open()), view)
+    });
+    screen.run_until_idle();
+    query.set(String::from("gr"));
+    screen.run_until_idle();
+    assert!(
+        !is_open.get_untracked(),
+        "a query written while closed shows no list"
+    );
+    assert!(
+        !open.get_untracked(),
+        "the caller's open binding stays false"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn closing_clears_the_highlight() {
+    let (screen, (open, value)) = mount(|| {
+        let open = signal(false);
+        let value = signal(None::<&'static str>);
+        ((open, value), picker(open, value, None))
+    });
+    let field = screen.get_by_role(Role::ComboBox, "Color");
+    field.focus();
+    field.press_key(Key::ArrowDown);
+    screen.run_until_idle();
+    field.press_key(Key::ArrowDown);
+    assert!(screen.get_by_role(Role::Option, "Green").is_selected());
+    field.press_key(Key::Escape);
+    screen.run_until_idle();
+    assert!(!open.get_untracked());
+    open.set(true);
+    screen.run_until_idle();
+    assert!(
+        !screen.get_by_role(Role::Option, "Green").is_selected(),
+        "a list opened again does not keep the old highlight"
+    );
+    assert!(
+        screen.get_by_role(Role::Option, "Red").is_selected(),
+        "opening starts at the first option"
+    );
+    assert_eq!(value.get_untracked(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

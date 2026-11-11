@@ -102,7 +102,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> Clone for D
 /// `rows` is the caller's data in display order, `key` its stable row
 /// identity, `columns` the column definitions in display order (a
 /// [`DataTableModelApi`](super::DataTableModelApi)'s [`columns`](super::DataTableModelApi::columns) are the shown ones) and
-/// `selection` the
+/// `selected` the
 /// caller's authoritative row selection. `focus` chooses the keyboard
 /// pattern with the policy it uses ([`TableFocus`]); `TableFocus::Rows` with a
 /// policy whose mode is not `ListMode::Select` is a usage error. Rows whose

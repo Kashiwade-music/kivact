@@ -9,7 +9,7 @@ use std::future::Future;
 use std::rc::Rc;
 use std::time::Duration;
 
-/// A combobox named `label` over keyed `options`, editing one or many choices.
+/// A combobox named `label` over keyed `items`, editing the choices in `selected` (one or many).
 ///
 /// Typing filters labels, arrows highlight enabled rows, and Enter chooses.
 /// Focus remains in the editor. Multiple selection toggles keys and Backspace

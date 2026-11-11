@@ -344,3 +344,33 @@ fn canonical_avatar_overflow_tracks_real_omissions_and_keeps_its_action() {
     assert!(screen.query_by_role(Role::Button, "Show 6 more").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn collapsible_alert_open_binding_controls_details_not_visibility() {
+    let (screen, open) = render_with_handle(
+        RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
+        || {
+            let open = signal(true);
+            (
+                open,
+                kivact::ui::alert("Heads up")
+                    .content(|| kivact::view::text("Details body"))
+                    .collapsible(true)
+                    .open(open),
+            )
+        },
+    );
+    assert!(
+        screen
+            .query_by_role(Role::Button, "Collapse details")
+            .is_some()
+    );
+    open.set(false);
+    screen.run_until_idle();
+    assert!(
+        screen
+            .query_by_role(Role::Button, "Expand details")
+            .is_some()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
