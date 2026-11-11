@@ -53,6 +53,7 @@ fn layer_paint(
         FillImage::Gradient(gradient) => gradient_paint(emitter, kind, gradient, bounds),
         FillImage::Coordinate(gradient) => coordinate_paint(emitter, kind, gradient),
         FillImage::Image(_) => Err(emitter.unsupported("an image as a fill")),
+        FillImage::Shader(_) => Err(emitter.unsupported("a shader as a fill")),
     }
 }
 
@@ -137,7 +138,11 @@ fn coordinate_paint(
     kind: &str,
     gradient: &CoordinateGradient,
 ) -> Result<String> {
-    let stops = gradient.stops.clone();
+    let stops: Vec<(f64, Rgba)> = gradient
+        .stops
+        .iter()
+        .map(|(offset, color)| (*offset, color.to_srgb()))
+        .collect();
     let id = emitter.id("grad");
     match gradient.shape {
         CoordinateShape::Linear { start, end } => {
@@ -209,7 +214,7 @@ fn css_stops(stops: &[GradientStop], length: f64) -> Vec<(f64, Rgba)> {
         .map(|(stop, offset)| {
             let offset = offset.unwrap_or(0.0).clamp(0.0, 1.0).max(previous);
             previous = offset;
-            (offset, stop.color)
+            (offset, stop.color.to_srgb())
         })
         .collect()
 }

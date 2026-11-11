@@ -15,8 +15,8 @@ use kivact::state::{
 use kivact::style::{Length, pct, style};
 use kivact::task::{sleep, spawn};
 use kivact::view::{
-    Handled, HandlerResult, IntoView, MouseButton, Node, NodeBuilder, PointerEvent, PointerPhase,
-    Role, View, WheelEvent, node,
+    Element, Handled, HandlerResult, IntoView, MouseButton, Node, PointerEvent, PointerPhase, Role,
+    View, WheelEvent, node,
 };
 use std::cell::Cell;
 use std::rc::Rc;
@@ -105,7 +105,7 @@ impl Plot {
     }
 }
 
-impl NodeBuilder for Plot {
+impl Element for Plot {
     #[doc(hidden)]
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -218,10 +218,15 @@ impl IntoView for Plot {
             range,
             on_commit,
         } = self;
+        // xtask-allow(state-fields): independent: the preview range of an unfinished gesture (a drag that has moved, or a wheel step not yet settled); None draws the committed range, whether or not a button is held
         let live = signal(None::<PlotView>);
+        // xtask-allow(state-fields): independent: where the pointer is over the plot for the crosshair, kept with or without a gesture under way
         let hover = signal(None::<(f64, f64)>);
+        // xtask-allow(state-fields): cache: the canvas size the last paint measured, so a gesture maps the pointer onto the axes the way the paint did
         let size = Rc::new(Cell::new(Size::new(0.0, 0.0)));
+        // xtask-allow(state-fields): independent: the plot coordinates under the press while the primary button is held; a press without a move leaves live None, and a wheel during the drag sets live too
         let drag = Rc::new(Cell::new(None::<(f64, f64)>));
+        // xtask-allow(state-fields): identity: the number of the latest wheel step; a settle timer commits only when no later step has replaced it
         let wheel_steps = Rc::new(Cell::new(0_u64));
 
         let input = part(|state: PartState| state);

@@ -55,21 +55,26 @@ fn model() -> PlotModel {
     }
 }
 
-fn mount(range: Signal<PlotRange>, commits: Commits) -> Screen {
-    kivact::test::render_with(
+/// Mounts a plot whose range starts at `initial`; returns the screen and the range binding.
+fn mount(initial: PlotRange, commits: Commits) -> (Screen, Signal<PlotRange>) {
+    kivact::test::render_with_handle(
         kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
             .window_size(640.0, 400.0)
             .reduced_motion(),
         move || {
-            plot("Frequency", model(), range)
-                .on_range_commit(move |value| commits.borrow_mut().push(value))
+            let range = signal(initial);
+            (
+                range,
+                plot("Frequency", model(), range)
+                    .on_range_commit(move |value| commits.borrow_mut().push(value)),
+            )
         },
     )
 }
 
 #[test]
 fn a_plot_is_a_named_canvas_with_a_region_for_its_series() {
-    let screen = mount(signal(PlotRange::Auto), Commits::default());
+    let (screen, _) = mount(PlotRange::Auto, Commits::default());
     screen.find_by_role(Role::Canvas, "Frequency");
     screen.find_by_role(Role::Image, "Frequency: 2 series");
 }
@@ -82,9 +87,8 @@ fn a_double_click_returns_the_range_to_auto() {
         y_min: -2.0,
         y_max: 0.0,
     };
-    let range = signal(PlotRange::Manual(view));
     let commits = Commits::default();
-    let screen = mount(range, commits.clone());
+    let (screen, range) = mount(PlotRange::Manual(view), commits.clone());
     screen
         .find_by_role(Role::Canvas, "Frequency")
         .double_click();
@@ -94,9 +98,8 @@ fn a_double_click_returns_the_range_to_auto() {
 
 #[test]
 fn a_wheel_step_commits_once_the_wheel_has_settled() {
-    let range = signal(PlotRange::Auto);
     let commits = Commits::default();
-    let screen = mount(range, commits.clone());
+    let (screen, range) = mount(PlotRange::Auto, commits.clone());
     screen
         .find_by_role(Role::Canvas, "Frequency")
         .scroll(0.0, 40.0);
@@ -114,9 +117,8 @@ fn a_wheel_step_commits_once_the_wheel_has_settled() {
 
 #[test]
 fn a_drag_pans_and_commits_on_release() {
-    let range = signal(PlotRange::Auto);
     let commits = Commits::default();
-    let screen = mount(range, commits.clone());
+    let (screen, _) = mount(PlotRange::Auto, commits.clone());
     let element = screen.find_by_role(Role::Canvas, "Frequency");
     let rect = element.rect().expect("laid out");
     let from = Point::new(rect.width / 2.0, rect.height / 2.0);

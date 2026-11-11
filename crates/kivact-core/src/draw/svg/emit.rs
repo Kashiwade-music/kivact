@@ -73,6 +73,8 @@ impl Emitter<'_> {
                 *rect,
             ),
             DrawCmd::External { .. } => Err(self.unsupported("an external GPU frame")),
+            DrawCmd::Drawable { .. } => Err(self.unsupported("a drawable's subtree")),
+            DrawCmd::BorderImage { .. } => Err(self.unsupported("a border image")),
             DrawCmd::PushLayer(layer) => self.push_layer(layer),
             DrawCmd::PopLayer | DrawCmd::PopTransform | DrawCmd::PopClip => self.pop(),
             DrawCmd::PushTransform(transform) => {
@@ -145,8 +147,11 @@ impl Emitter<'_> {
         if !layer.filter.is_empty() {
             return Err(self.unsupported("a filter on a layer"));
         }
-        if layer.mask.is_some() {
+        if !layer.masks.is_empty() {
             return Err(self.unsupported("a mask on a layer"));
+        }
+        if layer.transform.is_some() {
+            return Err(self.unsupported("a 3D transform on a layer"));
         }
         let mut attributes = String::new();
         if layer.opacity != 1.0 {
