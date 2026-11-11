@@ -51,7 +51,6 @@ kivact-gpu-share = { git = "https://github.com/Kashiwade-music/kivact", features
 `shared_image(width, height)` が UI 側の作業を引き受けます。setup で作り、その `link()` をエンジンのスレッドに渡し、`frame()` を canvas で描きます。`pixels()` は、インポートできないウィンドウ向けに同じ画像が持つ代替です。
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions};
 use kivact::geometry::{Rect};
 use kivact::gpu_interop;
@@ -275,7 +274,7 @@ GPU デバイスを先に作るのはウィンドウで、どのアダプター�
 エンジンが特定のものを必要とする場合など、ウィンドウにグラフィックス API、アダプターの種類、特定のアダプターを選ばせたいときは、希望を設定します。
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference, GpuStart};
+use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 

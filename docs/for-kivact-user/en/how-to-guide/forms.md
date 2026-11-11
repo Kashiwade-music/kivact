@@ -426,7 +426,6 @@ an accessible name even when no visible heading is needed.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());

@@ -10,6 +10,7 @@
 use std::time::Duration;
 
 use kivact::prelude::*;
+use kivact::style::provide_theme;
 
 const LOGO: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#336699"/><path d="M6 12.5l4 4 8-9" stroke="white" stroke-width="2.5" fill="none"/></svg>"##;
 
@@ -40,7 +41,7 @@ fn task_row(tasks: Signal<Vec<Task>>, task: Binding<Task>) -> impl Element {
         checkbox(move || task.get().title, done),
         button("削除")
             .name(move || format!("{} を削除", task.get().title))
-            .variant(kivact::ui::ButtonVariant::Ghost)
+            .variant(ButtonVariant::Ghost)
             .on_press(move || tasks.update(|list| list.retain(|task| task.id != id))),
     ))
     .role(Role::ListItem)

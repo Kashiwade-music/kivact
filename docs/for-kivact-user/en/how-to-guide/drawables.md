@@ -22,10 +22,8 @@ corner goes, in the canvas's coordinates. Wrap the call in `draw.layer` to put
 it under a transform.
 
 ```rust,no_run
-use kivact::draw::{Layer, Transform};
-use kivact::geometry::Point;
+use kivact::draw::Layer;
 use kivact::prelude::*;
-use kivact::view::drawable;
 
 fn settings_card() -> impl IntoView {
     let card = drawable();
@@ -94,7 +92,7 @@ use std::time::Duration;
 use kivact::draw::Pixels;
 use kivact::geometry::Matrix4;
 use kivact::prelude::*;
-use kivact::view::{DrawableFrame, ShareError, ShareUpdate, drawable, viewport};
+use kivact::view::{DrawableFrame, ShareError, ShareUpdate, viewport};
 
 fn engine_panel() -> impl IntoView {
     let panel = drawable();

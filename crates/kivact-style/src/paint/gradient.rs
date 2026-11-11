@@ -40,7 +40,7 @@ pub(crate) enum RadialSize {
 
 /// A CSS gradient, made by [`linear_gradient`], [`radial_gradient`] or
 /// [`conic_gradient`]. Colors may be theme tokens (resolved again when the
-/// theme changes). Use it as a [`Paint`] (`style().background(gradient)`)
+/// theme changes). Use it as a [`Paint`](crate::paint::Paint) (`style().background(gradient)`)
 /// or give it a size and position first (`.size(..)`, `.position(..)`).
 ///
 /// ```

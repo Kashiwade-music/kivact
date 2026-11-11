@@ -145,14 +145,13 @@ enum Attempt {
 }
 
 /// The adapter of `backends` the device is made on: the one the
-/// application named, when it is there (feature `gpu-interop`), else the
-/// one its power preference picks.
+/// application named, when it is there, else the one its power preference
+/// picks.
 fn adapter(
     instance: &wgpu::Instance,
     backends: wgpu::Backends,
     env: &GpuEnv,
 ) -> Result<wgpu::Adapter, Attempt> {
-    #[cfg(feature = "gpu-interop")]
     if let Some(wanted) = env.preference.adapter {
         let named = pollster::block_on(instance.enumerate_adapters(backends))
             .into_iter()
@@ -200,7 +199,6 @@ fn open_device(
 }
 
 /// The report of `adapter`, whose identity is `identity`.
-#[cfg(feature = "gpu-interop")]
 fn gpu_adapter(
     adapter: &wgpu::Adapter,
     identity: kivact_gpu_share::Identity,

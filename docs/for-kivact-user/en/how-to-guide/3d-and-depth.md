@@ -64,7 +64,6 @@ uses `transform_style(TransformStyle::Preserve3d)`. Its children then keep
 their own depth and rotation relative to the container.
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
@@ -133,7 +132,6 @@ the tilt follows the pointer smoothly and keeps its speed when the pointer
 changes direction.
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::platform::window_size;
 use kivact::prelude::*;
 use kivact::view::pointer_position;

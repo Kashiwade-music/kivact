@@ -88,7 +88,6 @@ Kivact はコンポーネントの setup、イベントハンドラー (`on_pres
 ```rust,test_harness
 use kivact::ErrorKind;
 use kivact::prelude::*;
-use kivact::view::error_boundary;
 
 fn export() -> Result<(), UiError> {
     // `?` はあらゆる `std::error::Error` を `UiError` に変換します。

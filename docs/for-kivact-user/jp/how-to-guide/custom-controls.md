@@ -34,7 +34,6 @@
 最短のカスタムコントロールはスイッチです。動作はすべてコントローラーが持ち、コードは見た目だけを決めます。
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_switch;
 use kivact::prelude::*;
 use kivact::style::Direction;
@@ -157,8 +156,7 @@ fn custom_switch() -> impl IntoView {
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, ListOptions, Selection, use_list};
+use kivact::interaction::{ListOptions, use_list};
 use kivact::prelude::*;
 
 /// 選択肢の行。矢印キーで移動と選択を行い、Tab で行の外へ出ます。
@@ -257,10 +255,9 @@ mod tests {
 ```rust,test_harness
 use std::hash::Hash;
 
-use kivact::state::Binding;
-use kivact::interaction::{ListItem, use_select};
+use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 
 pub fn dropdown<K: ItemKey>(
     label: impl IntoText,
@@ -366,9 +363,7 @@ mod tests {
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::view::{EditPhase};
 use kivact::prelude::*;
 
 /// 横にドラッグして変える数値。
@@ -457,11 +452,9 @@ AccessKit の 0 始まりの添字に変換します。標準の `data_table` �
 レイアウトの規則では表せないサイズのコントロールには、**プリミティブ**を使います。プリミティブは、サイズを関数で計算するリーフ要素です。そのうえで、描画レイヤー、入力ハンドラー、フォーカス、アクセシビリティ、テスト ID と、ノードの持つものはすべて備えています。この API は実験的です。
 
 ```rust,test_harness
-use kivact::state::Binding;
-use kivact::geometry::{Point, Size};
 use kivact::prelude::*;
 use kivact::custom::{Constraints, primitive};
-use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent, PointerPhase};
+use kivact::view::{A11yAction, PointerPhase};
 
 const CELL: f64 = 20.0;
 
@@ -551,10 +544,8 @@ mod tests {
 `use_text_edit` はノードにネイティブのテキスト編集 (キャレット、選択、IME の変換、クリップボード、取り消し、標準のキー操作) を与えます。何も描画しないので、枠、余白、カウンターは自分で用意します。標準の `text_input` は、このコントローラーにテーマの枠を付けたものです。
 
 ```rust,test_harness
-use kivact::state::Binding;
 use kivact::interaction::use_text_edit;
 use kivact::prelude::*;
-use kivact::style::Align;
 
 /// 文字数カウンターつきの入力欄。`max` はエディターが強制します。
 pub fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize) -> impl Element {

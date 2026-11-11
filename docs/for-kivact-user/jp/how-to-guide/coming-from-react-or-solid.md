@@ -323,7 +323,7 @@ mod tests {
 
 - 既定値はありません。何も提供されていないと、`use_context::<T>()` は型名つきで panic します。値が省略可能なら `kivact::view::try_use_context::<T>()` を使い、`Option<T>` を受け取ります。
 - `provide` が影響するのは、その子だけです。後ろに作られた兄弟は値を見られません。
-- テーマ、ロケール、文言、読み取りの向きには、それぞれ `kivact::view` に専用の `provide_*` 関数があります([テーマ](theming.md)、[翻訳とロケール](i18n.md))。
+- テーマ、ロケール、文言、読み取りの向きには、それぞれ専用の `provide_*` 関数があります（`kivact::style::provide_theme`、`kivact::i18n::provide_locale`、`kivact::i18n::provide_messages`、`kivact::view::provide_direction`。[テーマ](theming.md)、[翻訳とロケール](i18n.md)）。
 
 ## ref
 

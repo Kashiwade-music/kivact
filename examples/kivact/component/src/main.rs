@@ -19,7 +19,7 @@ fn card(
     column((
         row((
             text(title),
-            button(move || if open.get() { "Collapse" } else { "Expand" }.to_owned())
+            button(move || if open.get() { "Collapse" } else { "Expand" })
                 .on_press(move || open.update(|open| *open = !*open)),
             close,
         ))

@@ -16,8 +16,7 @@ Coordinates are in logical pixels, measured from the canvas's own top-left
 corner.
 
 ```rust,no_run
-use kivact::view::canvas;
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn badge() -> impl IntoView {
@@ -60,9 +59,7 @@ A `Path` is a chain of moves and segments. `fill_path` fills it,
 `stroke_path` outlines it.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
-use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn wave() -> impl IntoView {
@@ -106,9 +103,8 @@ Use `arc_to(p1, p2, radius)` to round a canvas corner, and `Path::parse_svg(data
 There are two kinds, and they place color differently.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{CanvasGradient, linear_gradient};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn gradients() -> impl IntoView {
@@ -145,9 +141,8 @@ text's top-left corner unless the `TextFormat` changes its anchor with
 the same shaping the drawing uses:
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Draw, TextBaseline, TextFormat};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::TextAlign;
 
@@ -239,9 +234,8 @@ gives the frame's size on screen, and `.repeat(BorderImageRepeat::Round)` repeat
 the edge pieces so they fit a whole number of times.
 
 ```rust,no_run
-use kivact::view::canvas;
-use kivact::draw::{BorderImage, Composite, Layer, Transform};
-use kivact::geometry::{Point, Rect};
+use kivact::draw::{BorderImage, Composite, Layer};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
@@ -287,9 +281,7 @@ glyphs as a `Path`, which you can fill or stroke. A single line of
 text can give its outline directly with `draw.text_path(text, at, &format)`.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{Stroke, TextFormat, linear_gradient};
-use kivact::geometry::Point;
 use kivact::prelude::*;
 
 fn headline() -> impl IntoView {
@@ -340,9 +332,7 @@ the signal changes, only this canvas is redrawn. You do not write to a
 "dirty" flag or call a repaint function.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{LineJoin, Path, Stroke};
-use kivact::geometry::{Point};
 use kivact::prelude::*;
 
 fn sparkline(values: Signal<Vec<f64>>) -> impl IntoView {
@@ -398,7 +388,6 @@ two steps:
    `draw.region(id, rect)`.
 
 ```rust,test_harness
-use kivact::view::canvas;
 use kivact::draw::{RegionId};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
@@ -486,7 +475,6 @@ passes frames to the UI thread; no polling is needed.
 
 ```rust,no_run
 use std::time::Duration;
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions, Pixels};
 use kivact::geometry::{Rect};
 use kivact::prelude::*;
@@ -563,7 +551,7 @@ as one function and use it for both the screen and the export:
 
 ```rust
 use kivact::draw::{Draw, Offscreen};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {
@@ -601,7 +589,7 @@ In the same app, `canvas(artwork)` shows the exact function you export.
 
 ```rust,no_run
 use kivact::draw::{Draw, Offscreen};
-use kivact::geometry::{Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 fn artwork(draw: &mut Draw, size: Size) {

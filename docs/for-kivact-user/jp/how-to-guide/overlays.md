@@ -10,8 +10,6 @@
 
 ```rust,test_harness
 use kivact::prelude::*;
-use kivact::interaction::{DialogMode};
-use kivact::interaction::{DismissOn};
 
 fn app() -> impl IntoView {
     let open = signal(false);
@@ -28,10 +26,10 @@ fn app() -> impl IntoView {
             .footer(move || {
                 row((
                     button("キャンセル")
-                        .variant(kivact::ui::ButtonVariant::Outline)
+                        .variant(ButtonVariant::Outline)
                         .on_press(move || open.set(false)),
                     button("削除する")
-                        .variant(kivact::ui::ButtonVariant::Danger)
+                        .variant(ButtonVariant::Danger)
                         .on_press(move || {
                             deleted.set(true);
                             open.set(false);
@@ -124,7 +122,6 @@ fn main() -> kivact::Result<()> {
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::interaction::DialogMode;
 
 fn help() -> impl IntoView {
     let open = signal(false);
@@ -253,8 +250,6 @@ fn main() -> kivact::Result<()> {
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::interaction::{Toast, Tone, toaster};
-use kivact::ui::{toast_region};
 
 fn app() -> impl IntoView {
     let toaster = toaster();

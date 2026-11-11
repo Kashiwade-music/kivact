@@ -368,7 +368,6 @@ End で利用可能な先頭と末尾へ移動します。見出しを表示し�
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact::ui::{button_group, toggle_group, toolbar};
 
 fn editor_actions() -> impl IntoView {
     let formatting = signal(Vec::<&'static str>::new());

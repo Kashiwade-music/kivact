@@ -59,8 +59,7 @@ format's calls, and a test implements it with a fake:
 ```rust,test_harness
 use std::sync::Arc;
 
-use kivact::view::EditPhase;
-use kivact::motion::{FrameRate, frame_loop};
+use kivact::motion::FrameRate;
 use kivact::prelude::*;
 
 /// What the editor needs from the plugin. The wrapper implements it.

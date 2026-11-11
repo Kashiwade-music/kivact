@@ -114,7 +114,6 @@ last 256 errors. The app does not stop.
 ```rust,test_harness
 use kivact::ErrorKind;
 use kivact::prelude::*;
-use kivact::view::error_boundary;
 
 fn export() -> Result<(), UiError> {
     // `?` converts any `std::error::Error` into `UiError`.

@@ -43,7 +43,6 @@ fn tilted_card() -> impl IntoView {
 既定では、各要素は親の平面に平らに描かれます。表と裏を持つカードでは、表と裏が一つの 3D 空間を共有する必要があるので、コンテナに `transform_style(TransformStyle::Preserve3d)` を使います。すると子は、コンテナに対する奥行きと回転を保ったまま置かれます。
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 
@@ -96,7 +95,6 @@ fn flip_card() -> impl IntoView {
 `pointer_position()` は、ポインターが最後にあった位置を、ウィンドウの論理座標で返します。その下に何があるかとは関係ありません。ポインターがウィンドウの外にあるときは `None` になります。`window_size()` と組み合わせると、-1 から 1 の値に変換できます。その値を `animated` とばねに通すと、傾きがなめらかにポインターに追従し、ポインターの向きが変わっても勢いを保ちます。
 
 ```rust,no_run
-use kivact::motion::{Spring, Transition, animated};
 use kivact::platform::window_size;
 use kivact::prelude::*;
 use kivact::view::pointer_position;

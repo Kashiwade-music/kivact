@@ -101,7 +101,7 @@ screen.within(row).get_by_role(Role::Button, "Delete").click();
 
 ## Act like a user
 
-Actions on an `Element` do what a person would do. Before a pointer action, the
+Actions on an `Locator` do what a person would do. Before a pointer action, the
 test checks the element is something a person could use, and fails with the reason
 if not: it must be mounted, visible, have a size, be enabled, be inside the
 window and be what the pointer actually hits at its center (not covered by another
@@ -176,7 +176,7 @@ mod tests {
 
 ## Check what the user would see
 
-An `Element` answers questions about the same published state a screen reader
+An `Locator` answers questions about the same published state a screen reader
 gets, not about internal variables.
 
 | Question | Call |
@@ -333,7 +333,7 @@ the test entry point.
 
 A window is a `Screen` of its own. `screen.window("Settings")` waits for that
 window to open (the same time limit as `find_by_*`) and returns its handle;
-`screen.windows()` returns every open window in id order. `Screen::has_window()` is now `is_mirrored()` (a public rename; the meaning, whether this window is shown in a real window, is unchanged). `RenderOptions::default().single_window()` models an environment that cannot open more windows, such as an embedded editor. Keep the handle in a `let` before you take an `Element` from it:
+`screen.windows()` returns every open window in id order. `Screen::has_window()` is now `is_mirrored()` (a public rename; the meaning, whether this window is shown in a real window, is unchanged). `RenderOptions::default().single_window()` models an environment that cannot open more windows, such as an embedded editor. Keep the handle in a `let` before you take an `Locator` from it:
 
 ```rust,no_run
 # use kivact::prelude::*;
@@ -573,7 +573,6 @@ screen, as below: it compiles the WGSL on every machine.
 use kivact::draw::PaintShader;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::canvas;
 
 const WAVE: &str = r#"
 struct Params { speed: f32, tint: vec4<f32> }

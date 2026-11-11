@@ -59,7 +59,7 @@ impl AppOptions {
 
     /// Theme of the whole App, evaluated reactively under its root owner.
     /// Embedded startup accepts only a fixed theme; create reactive themes with
-    /// `view::provide_theme` inside the embedded root factory.
+    /// `style::provide_theme` inside the embedded root factory.
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.theme = theme.into_prop();
         self
@@ -70,8 +70,8 @@ impl AppOptions {
     /// system names none) and follows it when the user changes it while
     /// the App runs; with it the App keeps this locale whatever the system
     /// says. To switch it at runtime, wrap the root in
-    /// [`view::provide_locale`](crate::view::provide_locale) with a `Signal<Locale>`. Read it with
-    /// [`i18n::locale`](crate::i18n::locale).
+    /// [`i18n::provide_locale`](crate::i18n::provide_locale) with a `Signal<Locale>`. Read it with
+    /// [`i18n::use_locale`](crate::i18n::use_locale).
     pub fn locale(mut self, locale: Locale) -> Self {
         self.settings.locale = Some(locale);
         self
@@ -80,7 +80,7 @@ impl AppOptions {
     /// The App's texts: the replacements for the default (English) texts
     /// of components, by key (`"dialog.close"`). Each component lists its
     /// keys. To switch them at runtime, wrap the root in
-    /// [`view::provide_messages`](crate::view::provide_messages) with a `Signal<Messages>`.
+    /// [`i18n::provide_messages`](crate::i18n::provide_messages) with a `Signal<Messages>`.
     pub fn messages(mut self, messages: Messages) -> Self {
         self.settings.messages = messages;
         self
@@ -125,15 +125,16 @@ impl AppOptions {
         self
     }
 
-    /// What the App wishes of the window's GPU device (experimental,
-    /// feature `gpu-interop`): the kind of adapter, the graphics API and
-    /// the adapter itself (default: Arvane's own choice). A wish: the
-    /// device is made on another adapter or API when the one asked for is
-    /// not there, and the environment variables `WGPU_BACKEND` and
-    /// `WGPU_POWER_PREF` override it. Read the adapter the device is on
-    /// with [`gpu_interop::adapter`](crate::gpu_interop::adapter).
-    #[cfg(feature = "gpu-interop")]
-    pub fn gpu_preference(mut self, preference: crate::gpu_interop::GpuPreference) -> Self {
+    /// What the App wishes of the window's GPU device: when it starts
+    /// ([`GpuStart`](crate::launch::GpuStart), default on demand), the kind of
+    /// adapter, the graphics API and the adapter itself (default: Arvane's own
+    /// choice). A wish: the device is made on another adapter or API when the
+    /// one asked for is not there, and the environment variables
+    /// `ARVANE_RENDERER`, `WGPU_BACKEND` and `WGPU_POWER_PREF` override it. A
+    /// build without the feature `gpu` draws on the CPU and ignores it. Read the
+    /// adapter the device is on with `kivact::gpu_interop::adapter` (feature
+    /// `gpu-interop`).
+    pub fn gpu_preference(mut self, preference: crate::launch::GpuPreference) -> Self {
         self.settings.gpu_preference = preference;
         self
     }
@@ -185,7 +186,7 @@ impl AppOptions {
         let theme = self.theme.fixed().ok_or_else(|| {
             UiError::new(
                 ErrorKind::Unsupported,
-                "App::embed requires a fixed App theme; use view::provide_theme inside the Send root factory for an embedded reactive theme",
+                "App::embed requires a fixed App theme; use style::provide_theme inside the Send root factory for an embedded reactive theme",
                 Some(at),
             )
         })?;

@@ -734,13 +734,13 @@ impl Node {
     /// caret while it has the focus, so a node that draws and edits its own
     /// text composes and reconverts like a native editor (see
     /// [`ImeSession`]). The node must be focusable and must not be a
-    /// native editor ([`TextEditing`](super::TextEditing)). The IME's composition, commits and
+    /// native editor ([`TextEditing`](crate::custom::TextEditing)). The IME's composition, commits and
     /// reconversion ranges arrive at [`on_ime`](Self::on_ime). A later
     /// session replaces an earlier one.
     ///
     /// The session is published after the node's draw layers run in the
     /// same turn, so a value closure that reads what the drawing just made
-    /// (the caret of the [`TextParagraph`](super::TextParagraph) `Draw::layout_paragraph` laid
+    /// (the caret of the [`TextParagraph`](crate::draw::TextParagraph) `Draw::layout_paragraph` laid
     /// out, kept in a cell) sees this turn's paragraph: a draw closure
     /// cannot write a signal, so that is how geometry reaches the session.
     pub fn ime_session(mut self, session: ImeSession) -> Self {
@@ -765,8 +765,8 @@ impl Node {
     /// Publish this node's own text for assistive technology as text runs
     /// with a selection and a caret, in the node's own coordinates, so a
     /// screen reader can read, navigate and locate the text of a node that
-    /// draws it (see [`TextParagraph::semantics_text`](super::TextParagraph::semantics_text)). Constant or
-    /// reactive. A native editor ([`TextEditing`](super::TextEditing)) publishes its own and
+    /// draws it (see [`TextParagraph::semantics_text`](crate::draw::TextParagraph::semantics_text)). Constant or
+    /// reactive. A native editor ([`TextEditing`](crate::custom::TextEditing)) publishes its own and
     /// ignores this; a value that cannot be published (no run, a selection
     /// outside the runs, a rectangle that is not finite) is reported as
     /// `ErrorKind::Unsupported` and not published. Give the node a role

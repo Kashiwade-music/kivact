@@ -7,6 +7,7 @@ use kivact::ErrorKind;
 use kivact::i18n::{Locale, provide_locale, use_locale};
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::style::provide_theme;
 use kivact::test::RenderOptions;
 use kivact::view::A11yAction;
 

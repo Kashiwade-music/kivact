@@ -74,7 +74,6 @@ Two rules decide whether sharing is possible at all:
 fallback the same image carries for windows that cannot import.
 
 ```rust,no_run
-use kivact::view::canvas;
 use kivact::draw::{ImageOptions};
 use kivact::geometry::{Rect};
 use kivact::gpu_interop;
@@ -342,7 +341,7 @@ To make the window choose a graphics API, a kind of adapter or an exact adapter,
 useful when the engine needs a specific one, set a wish:
 
 ```rust,no_run
-use kivact::gpu_interop::{GpuBackend, GpuPower, GpuPreference, GpuStart};
+use kivact::launch::{GpuBackend, GpuPower, GpuPreference, GpuStart};
 use kivact::prelude::*;
 # fn app() -> impl IntoView { text("Viewport") }
 
