@@ -37,7 +37,7 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// ```
 #[derive(Clone, Debug)]
 pub struct Layer {
-    // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
+    // xtask-allow(state-fields): option: set by Layer::area; absent means the group, its clip shape and its mask use the whole canvas (Draw::size)
     pub(super) area: Option<Rect>,
     // xtask-allow(state-fields): option: an authored layer property; absent means the layer has none
     pub(super) transform: Option<Transform>,

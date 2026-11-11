@@ -18,9 +18,9 @@ const OWNERS_LABEL: &str = "Owners";
 /// The element tree, the owner tree, the details and their actions.
 pub(crate) fn view(session: Session) -> impl IntoView {
     let sizes = signal(vec![0.38, 0.62]);
-    // xtask-allow(state-fields): independent: the owner tree replaces the element tree; the layout overlay is shown for either
+    // xtask-allow(state-fields): independent: set only by the Owners checkbox; it swaps the element tree for the owner tree while the details pane and its layout overlay checkbox stay shown, so it pairs with either overlay value
     let owners_on = signal(false);
-    // xtask-allow(state-fields): independent: the layout overlay is shown for whichever tree is displayed
+    // xtask-allow(state-fields): independent: set only through layout_toggle by the details pane's layout overlay checkbox, which is shown under either tree, so it pairs with either value of owners_on
     let layout = signal(false);
     let layout_toggle = binding(
         move || layout.get(),

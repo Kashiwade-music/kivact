@@ -28,18 +28,18 @@ use crate::theme::value::Theme;
 /// [`paint_retained`]: CompiledStyle::paint_retained
 #[derive(Clone)]
 pub struct CompiledStyle {
-    // xtask-allow(state-fields): option: absent means the style has no retained paint
+    // xtask-allow(state-fields): option: compile_style's copy of the style's base paint callback (Style::paint); absent when the style sets none
     retained_paint: Option<LocalPaint>,
     /// Layout props.
     pub layout: LayoutProps,
     /// Paint props.
     pub paint: PaintProps,
-    // xtask-allow(state-fields): option: absent means every text property is inherited
+    // xtask-allow(state-fields): option: compile_style's text properties, Some when the style sets one or the node is the root (which carries the theme's text defaults); absent inherits every text property
     /// Text props: when the style sets any (only what it sets: the rest
     /// is inherited property by property), and always for the root, which
     /// carries the theme's text defaults that every node inherits.
     pub text: Option<TextStyle>,
-    // xtask-allow(state-fields): option: absent means the style has no state overrides
+    // xtask-allow(state-fields): option: compile_style's host state deltas (state_styles), Some when the style sets a hover, pressed, focus, group or enter/exit style; absent means none
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
     /// Properties set more than once (reported as diagnostics).
@@ -220,19 +220,19 @@ impl ForcedStates {
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct Interactive {
-    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
+    // xtask-allow(state-fields): option: a compile input bind_style sets from the mount's focus-stop fact; false means compile_style adds no theme focus ring or disabled opacity
     /// The node is a focus stop (focusable, or a native editor): it gets
     /// the theme's focus ring and disabled opacity unless its style sets
     /// its own.
     pub focusable: bool,
-    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
+    // xtask-allow(state-fields): option: a compile input bind_style reads from the caller's disabled prop on every style run; false means the disabled state style is not merged and hover/pressed looks stay
     /// Apply the style's `disabled` state style, and take no hover or pressed
     /// look.
     pub disabled: bool,
-    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
+    // xtask-allow(state-fields): option: a compile input bind_style reads from the caller's selected prop on every style run; false means the selected state style is not merged
     /// Apply the style's `selected` state style.
     pub selected: bool,
-    // xtask-allow(state-fields): independent: compile inputs; every combination is valid
+    // xtask-allow(state-fields): option: a compile input bind_style sets when the node kind is Root; false means unset text props are left for the host to inherit instead of filled from the theme
     /// The node is the root of the App: its text props always carry the
     /// theme's text defaults, which every node inherits.
     pub root: bool,

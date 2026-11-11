@@ -146,18 +146,32 @@ pub(crate) enum RecordState {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct ChildCursor(Cell<Option<Counted>>);
 
+/// Which children of a counted node are in flow, as counted at its epoch.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Filtering {
+    /// Every child is in flow: a flow index is the raw index.
+    Unfiltered,
+    /// Some child is out of flow; `at` is the last (filtered, raw)
+    /// position looked up (`None`: none yet at this epoch).
+    Filtered { at: Option<(usize, usize)> },
+}
+
 /// A cursor as counted at one epoch.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Counted {
     pub(crate) epoch: Epoch,
     /// The children in flow (the viewport's: its attached fixed boxes).
     pub(crate) count: usize,
-    // xtask-allow(state-fields): cache: whether no child is filtered out, counted at one epoch
+    /// Whether some child is filtered out, and where the last lookup was.
+    pub(crate) filtering: Filtering,
+}
+
+impl Counted {
     /// Whether no child is filtered out.
-    pub(crate) unfiltered: bool,
-    // xtask-allow(state-fields): cache: the last filtered position looked up at that epoch
-    /// The last (filtered, raw) position looked up.
-    pub(crate) at: Option<(usize, usize)>,
+    #[inline(always)]
+    pub(crate) fn unfiltered(self) -> bool {
+        matches!(self.filtering, Filtering::Unfiltered)
+    }
 }
 
 impl ChildCursor {
@@ -171,11 +185,15 @@ impl ChildCursor {
             return counted;
         }
         let (count, unfiltered) = count();
+        let filtering = if unfiltered {
+            Filtering::Unfiltered
+        } else {
+            Filtering::Filtered { at: None }
+        };
         let counted = Counted {
             epoch,
             count,
-            unfiltered,
-            at: None,
+            filtering,
         };
         self.0.set(Some(counted));
         counted

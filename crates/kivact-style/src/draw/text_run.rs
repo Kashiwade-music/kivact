@@ -47,7 +47,7 @@ pub struct TextFormat {
     /// `None` (the default) uses the family the
     /// node inherits (`style().font_family(..)`, else the theme's).
     pub family: Option<String>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
+    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) draws the upright face, true the family's italic face
     /// Use the italic face of the family when it has one (default `false`).
     pub italic: bool,
     // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
@@ -68,7 +68,7 @@ pub struct TextFormat {
     /// OpenType features (CSS `font-feature-settings`):
     /// `vec![("ss01", 1).into()]`.
     pub features: Vec<FontFeature>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
+    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) keeps the font's digit widths, true adds the tnum feature
     /// Digits of one width (CSS `font-variant-numeric: tabular-nums`).
     pub tabular_nums: bool,
     /// Lines drawn with the text (CSS `text-decoration-line`).
