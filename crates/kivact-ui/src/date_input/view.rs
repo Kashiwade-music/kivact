@@ -413,9 +413,9 @@ struct EditorInputs {
     label: Value<String>,
     placeholder: Value<String>,
     value: Binding<Option<CalendarDate>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: DateInput::format_with; absent formats with the DateStyle set by DateInput::format
     custom_format: Option<DateFormat>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: the caller's invalid flag on the DateInput node; absent leaves validity to the typed draft alone
     external_invalid: Option<Value<bool>>,
     described_by: Vec<kivact_core::view::NodeRef>,
 }

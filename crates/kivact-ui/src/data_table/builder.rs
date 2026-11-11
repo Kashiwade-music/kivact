@@ -1,5 +1,8 @@
 //! Role: The data table's constructor and the options a caller turns on.
-use super::types::{DataTable, DataTableContext, DataTableTreeIndent, Grouping, TreeConfig};
+use super::types::{
+    DataTable, DataTableContext, DataTableTreeIndent, Grouping, PageSetting, SortSetting,
+    TreeConfig,
+};
 use crate::column_values::DataColumn;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
@@ -104,10 +107,8 @@ where
         column_order: None,
         selection: None,
         row_selectable: None,
-        sort: None,
-        multi_sort: None,
-        page: None,
-        has_more: None,
+        sort: SortSetting::Own,
+        paging: PageSetting::Off,
         page_sizes: None,
         row_index: None,
         filter: None,
@@ -260,12 +261,12 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// reads the binding back, so the caller may set it too. Without it the
     /// headers sort in the table's own state, unless the table has an
     /// [`on_reorder`](Self::on_reorder), which then keeps the caller's order.
+    /// It replaces an earlier [`multi_sort`](Self::multi_sort).
     pub fn sort(
         mut self,
         sort: impl kivact_core::state::IntoBinding<Option<(usize, SortOrder)>>,
     ) -> Self {
-        self.sort = Some(sort.into_binding());
-        self.multi_sort = None;
+        self.sort = SortSetting::Single(sort.into_binding());
         self
     }
 
@@ -273,24 +274,24 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// a header to append or cycle that column without replacing the other
     /// keys. Normal activation replaces the sort. Each key cycles ascending,
     /// descending, and unsorted. Column indices refer to the original order.
+    /// It replaces an earlier [`sort`](Self::sort).
     pub fn multi_sort(
         mut self,
         sort: impl kivact_core::state::IntoBinding<Vec<(usize, SortOrder)>>,
     ) -> Self {
-        self.multi_sort = Some(sort.into_binding());
-        self.sort = None;
+        self.sort = SortSetting::Multi(sort.into_binding());
         self
     }
 
     /// Show `size` rows (at least 1) on each page, keeping the zero-based
     /// page in `page`, with Previous and Next buttons under the table.
+    /// It replaces an earlier [`remote_page`](Self::remote_page).
     pub fn page(
         mut self,
         page: impl kivact_core::state::IntoBinding<usize>,
         size: impl IntoValue<usize>,
     ) -> Self {
-        self.page = Some((page.into_binding(), size.into_value()));
-        self.has_more = None;
+        self.paging = PageSetting::Local((page.into_binding(), size.into_value()));
         self
     }
 
@@ -314,15 +315,17 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Show caller-supplied page rows without slicing them again. The caller
     /// loads the page indicated by the binding and supplies whether another
-    /// page is available.
+    /// page is available. It replaces an earlier [`page`](Self::page).
     pub fn remote_page(
         mut self,
         page: impl kivact_core::state::IntoBinding<usize>,
         size: impl IntoValue<usize>,
         has_more: impl IntoValue<bool>,
     ) -> Self {
-        self.page = Some((page.into_binding(), size.into_value()));
-        self.has_more = Some(has_more.into_value());
+        self.paging = PageSetting::Remote {
+            page: (page.into_binding(), size.into_value()),
+            has_more: has_more.into_value(),
+        };
         self
     }
 

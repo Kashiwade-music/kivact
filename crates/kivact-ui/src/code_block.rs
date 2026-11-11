@@ -189,7 +189,7 @@ struct CodeSource {
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: CodeBlock::max_height; absent leaves the editor without a height cap
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {
