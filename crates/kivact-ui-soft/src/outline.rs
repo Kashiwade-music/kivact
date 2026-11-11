@@ -248,10 +248,10 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
-    // xtask-allow(state-fields): option: mounted scroll-viewport reference, not scroll phase.
+    // xtask-allow(state-fields): option: caller viewport from Outline::scroll_container; absent scrolls the window through target.scroll_into_view.
     viewport: Option<NodeRef>,
     offset: f64,
-    // xtask-allow(state-fields): independent: immutable setup snapshot controlling whether navigation requests scrolling.
+    // xtask-allow(state-fields): option: caller choice from Outline::scroll_on_press sampled once in into_view; false skips scrolling and reports navigation end immediately.
     scroll_on_press: bool,
     // xtask-allow(state-fields): option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,

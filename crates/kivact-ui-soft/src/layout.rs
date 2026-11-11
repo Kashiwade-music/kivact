@@ -6,24 +6,22 @@ use kivact::state::Value;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
-    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited outer inline padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): option: inline outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Inherited inline outer padding in logical pixels; None uses the region fallback.
     pub outer_x: Option<f64>,
-    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited outer block padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): option: block outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Inherited block outer padding in logical pixels; None uses the region fallback.
     pub outer_y: Option<f64>,
-    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited inner inline padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): option: inline gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Padding between inline regions in logical pixels; None uses the region fallback.
     pub inner_x: Option<f64>,
-    // xtask-allow(state-fields): independent: a measured or construction value; optional inherited inner block padding in logical pixels, not lifecycle state.
+    // xtask-allow(state-fields): option: block gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Padding between block regions in logical pixels; None uses the region fallback.
     pub inner_y: Option<f64>,
-    // xtask-allow(state-fields): independent: a measured or construction value; optional local outer inline padding in logical pixels, not lifecycle state.
-    /// This layout’s inline outer padding override in logical pixels.
-    pub own_outer_x: Option<f64>,
-    // xtask-allow(state-fields): independent: a measured or construction value; optional local outer block padding in logical pixels, not lifecycle state.
-    /// This layout’s block outer padding override in logical pixels.
-    pub own_outer_y: Option<f64>,
+    // xtask-allow(state-fields): option: this Layout's padding from Layout::padding, written only in Layout::into_view; absent uses the inherited outer_x and outer_y.
+    /// This layout's own outer padding (`Layout::padding`) on both axes in
+    /// logical pixels; when set it replaces `outer_x` and `outer_y`.
+    pub own_outer: Option<f64>,
 }
 
 impl LayoutInset {
@@ -168,20 +166,25 @@ impl Element for Layout {
     }
 }
 
+/// A caller width limit with the layout root used to centre pixel widths.
+#[derive(Clone, Copy)]
+struct ContentWidth {
+    root: NodeRef,
+    width: Value<Length>,
+}
+
 #[derive(Clone, Copy, Default)]
 struct LayoutSlots {
-    // xtask-allow(state-fields): option: observer reference to the actual layout root.
-    root_ref: Option<NodeRef>,
-    // xtask-allow(state-fields): independent: readonly resolved header divider configuration.
+    // xtask-allow(state-fields): option: header divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no header.
     header_divider: Option<bool>,
-    // xtask-allow(state-fields): independent: readonly resolved footer divider configuration.
+    // xtask-allow(state-fields): option: footer divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no footer.
     footer_divider: Option<bool>,
-    // xtask-allow(state-fields): independent: readonly presence of the actual leading panel slot.
+    // xtask-allow(state-fields): option: whether the caller supplied Layout::start, captured once in into_view; false means no leading panel.
     has_start: bool,
-    // xtask-allow(state-fields): independent: readonly presence of the actual trailing panel slot.
+    // xtask-allow(state-fields): option: whether the caller supplied Layout::end, captured once in into_view; false means no trailing panel.
     has_end: bool,
-    // xtask-allow(state-fields): option: readonly width input shared with actual regions.
-    content_width: Option<Value<Length>>,
+    // xtask-allow(state-fields): option: caller limit from Layout::content_width paired with the layout root ref used to centre pixel widths; absent means no width limit.
+    content_width: Option<ContentWidth>,
 }
 
 impl IntoView for Layout {
@@ -207,8 +210,7 @@ impl IntoView for Layout {
             let mut insets = try_use_context::<LayoutInset>()
                 .map(|value| value.get())
                 .unwrap_or_default();
-            insets.own_outer_x = padding.map(Space::px);
-            insets.own_outer_y = insets.own_outer_x;
+            insets.own_outer = padding.map(Space::px);
             let mut header = header;
             let mut footer = footer;
             for region in [&mut header, &mut footer].into_iter().flatten() {
@@ -216,12 +218,14 @@ impl IntoView for Layout {
             }
             let root_ref = node_ref();
             let slots = LayoutSlots {
-                root_ref: Some(root_ref),
                 header_divider: header.as_ref().and_then(|region| region.divider),
                 footer_divider: footer.as_ref().and_then(|region| region.divider),
                 has_start: start.is_some(),
                 has_end: end.is_some(),
-                content_width,
+                content_width: content_width.map(|width| ContentWidth {
+                    root: root_ref,
+                    width,
+                }),
             };
             let start = start.map(|slot| slot.in_region(Region::Start));
             let end = end.map(|slot| slot.in_region(Region::End));
@@ -250,7 +254,7 @@ impl IntoView for Layout {
                                 header,
                                 node()
                                     .with_node(move |node| {
-                                        node.base_style(move || layout_row_style(slots, root_ref))
+                                        node.base_style(move || layout_row_style(slots))
                                     })
                                     .child((start, start_resize, content, end_resize, end)),
                                 footer,
@@ -401,7 +405,7 @@ fn center_gutter(root: NodeRef, width: f64) -> f64 {
 
 kivact::state::constant_value!(LayoutHeight);
 
-fn layout_row_style(slots: LayoutSlots, root_ref: NodeRef) -> kivact::style::Style {
+fn layout_row_style(slots: LayoutSlots) -> kivact::style::Style {
     let direction = if rtl() {
         Direction::RowReverse
     } else {
@@ -412,9 +416,12 @@ fn layout_row_style(slots: LayoutSlots, root_ref: NodeRef) -> kivact::style::Sty
         .grow(1)
         .min_height(0)
         .min_width(0);
-    match slots.content_width.map(|value| value.get()) {
-        Some(Length::Px(width)) if !(slots.has_start && slots.has_end) => {
-            let gutter = center_gutter(root_ref, width);
+    let Some(ContentWidth { root, width }) = slots.content_width else {
+        return base;
+    };
+    match width.get() {
+        Length::Px(width) if !(slots.has_start && slots.has_end) => {
+            let gutter = center_gutter(root, width);
             if slots.has_start {
                 base = if rtl() {
                     base.padding_right(gutter)
@@ -429,13 +436,12 @@ fn layout_row_style(slots: LayoutSlots, root_ref: NodeRef) -> kivact::style::Sty
                 };
             }
         }
-        Some(width) => {
+        width => {
             base = base
                 .width(pct(100))
                 .max_width(width)
                 .margin_x(kivact::style::auto());
         }
-        None => {}
     }
     base
 }
@@ -448,8 +454,8 @@ fn region_insets(
 ) -> (ContainerInset, f64) {
     let fallback = kivact::style::use_tokens::<crate::Tokens>().spacing.s4;
     let (outer_x, outer_y) = (
-        inset.own_outer_x.or(inset.outer_x).unwrap_or(fallback),
-        inset.own_outer_y.or(inset.outer_y).unwrap_or(fallback),
+        inset.own_outer.or(inset.outer_x).unwrap_or(fallback),
+        inset.own_outer.or(inset.outer_y).unwrap_or(fallback),
     );
     let (inner_x, inner_y) = (
         inset.inner_x.unwrap_or(fallback),
@@ -506,8 +512,8 @@ fn region_content_style(
     if kind == Region::Content
         && !slots.has_start
         && !slots.has_end
-        && let (Some(root), Some(Length::Px(width))) =
-            (slots.root_ref, slots.content_width.map(|value| value.get()))
+        && let Some(ContentWidth { root, width }) = slots.content_width
+        && let Length::Px(width) = width.get()
     {
         let gutter = center_gutter(root, width);
         let (left, right) = inset.sides();
@@ -516,7 +522,7 @@ fn region_content_style(
             .padding_right(right + gutter);
     }
     if matches!(kind, Region::Header | Region::Footer)
-        && let Some(width) = slots.content_width
+        && let Some(ContentWidth { width, .. }) = slots.content_width
     {
         base = base
             .width(pct(100))

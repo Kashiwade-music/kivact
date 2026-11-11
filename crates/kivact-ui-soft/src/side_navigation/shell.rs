@@ -372,13 +372,13 @@ fn sidebar_collapse(
 
 struct SideNavSlots {
     children: View,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained header content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::header, mounted once; absent means no sidebar header.
     header: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained top content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::top_content, mounted once; absent means nothing above the entries.
     top: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained footer content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller content from SideNav::footer, mounted once; absent means no footer content.
     footer: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained icons content slot; this record owns no sidebar phase.
+    // xtask-allow(state-fields): option: caller actions from SideNav::footer_icons, mounted once; absent means no compact rail actions.
     icons: Option<View>,
 }
 impl SideNavSlots {

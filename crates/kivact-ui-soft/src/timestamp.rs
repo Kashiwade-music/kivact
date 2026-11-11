@@ -168,8 +168,8 @@ pub struct TimestampEntry {
     // xtask-allow(state-fields): option: prefix label is independent authored presentation text.
     /// Optional label preceding the detail value.
     pub label: Option<String>,
-    // xtask-allow(state-fields): independent: Copy permission is a presentation capability, not a clipboard phase.
-    /// Whether the detail value offers a copy action.
+    // xtask-allow(state-fields): option: the caller's flag for a copy action on this detail row; timestamp_details does not draw a copy action yet, so both values render alike
+    /// Reserved for a copy action on this detail row; the timestamp details do not draw one yet, so the value has no effect.
     pub copyable: bool,
 }
 

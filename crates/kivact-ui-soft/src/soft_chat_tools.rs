@@ -78,7 +78,7 @@ pub struct ToolCall {
     pub name: String,
     /// Current execution status and its reported details.
     pub status: ToolStatus,
-    // xtask-allow(state-fields): independent: optional target is application-owned display metadata, not a pending command
+    // xtask-allow(state-fields): option: application-supplied target text shown beside the tool name in every status; absent hides the target label.
     /// Optional target description shown beside the tool name.
     pub target: Option<String>,
     /// Number of additions shown in the change summary.

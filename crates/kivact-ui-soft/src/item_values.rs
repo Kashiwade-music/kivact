@@ -66,11 +66,11 @@ kivact::state::constant_value!(ItemDensity, ItemAlign, ItemLayout, ListEdge);
 /// Reactive visual choices for a canonical item row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemLook {
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: theme-author row padding from ItemLook::density; absent falls back to an ItemDensity variant, then the ListLook density.
     pub(crate) density: Option<Value<ItemDensity>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: theme-author alignment from ItemLook::align; absent falls back to an ItemAlign variant, then ItemAlign::default.
     pub(crate) align: Option<Value<ItemAlign>>,
-    // xtask-allow(state-fields): option: absent means the component's default
+    // xtask-allow(state-fields): option: theme-author arrangement from ItemLook::layout; absent falls back to an ItemLayout variant, then ItemLayout::default.
     pub(crate) layout: Option<Value<ItemLayout>>,
     pub(crate) highlighted: Value<bool>,
 }

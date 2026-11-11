@@ -399,13 +399,13 @@ impl IntoView for SideNavSection {
 kivact::state::constant_value!(ItemCollapse);
 
 struct ItemSlots {
-    // xtask-allow(state-fields): independent: a measured or construction value; retained leading construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller icon from SideNavItem::icon, mounted once; absent means the row has no leading icon.
     leading: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained selected icon construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller icon from SideNavItem::selected_icon, mounted once; absent keeps the leading icon while selected.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained end construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller content from SideNavItem::end_content, mounted once; absent means no trailing row content.
     end: Option<View>,
-    // xtask-allow(state-fields): independent: a measured or construction value; retained actions construction slot, without navigation state.
+    // xtask-allow(state-fields): option: caller controls from SideNavItem::actions, mounted once; absent means no row action controls.
     actions: Option<View>,
     children: Option<ViewFn>,
 }

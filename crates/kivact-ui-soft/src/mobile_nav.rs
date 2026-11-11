@@ -57,7 +57,7 @@ struct MobileContext {
     state: MachineHandle<MobileMachine>,
     toggle: NodeRef,
     drawer: NodeRef,
-    // xtask-allow(state-fields): independent: whether the shell shows its automatic drawer toggle; independent of the drawer's open state
+    // xtask-allow(state-fields): option: fixed at AppShell construction as MobileNavMode::Auto with MobileNavConfig::has_toggle; false means the app supplies its own drawer control.
     auto_toggle: bool,
 }
 impl MobileContext {

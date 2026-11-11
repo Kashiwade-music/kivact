@@ -41,7 +41,7 @@ pub struct DialogHeader {
     // xtask-allow(state-fields): option: once-mounted trailing slot, independent of other content slots.
     end: Option<View>,
     close: Option<Rc<dyn Fn()>>,
-    // xtask-allow(state-fields): independent: immutable optional edge-compensation geometry policy.
+    // xtask-allow(state-fields): option: caller override from header_end_compensation; absent compensates both axes when a close button exists and nothing otherwise.
     compensation: Option<EdgeCompensation>,
     divider: kivact::state::Value<bool>,
 }

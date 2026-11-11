@@ -176,7 +176,7 @@ pub struct TabMenuOption<K> {
     key: K,
     label: Value<String>,
     icon: Option<ViewFn>,
-    // xtask-allow(state-fields): independent: immutable caller availability input, not the Menu interaction phase.
+    // xtask-allow(state-fields): option: caller availability from TabMenuOption::disabled; false keeps the option selectable in the strip menu.
     disabled: bool,
 }
 
@@ -859,10 +859,10 @@ fn focus_track<K: ItemKey>(
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,
-    // xtask-allow(state-fields): independent: existing canonical TabsApi handle, without copied selection or phase.
+    // xtask-allow(state-fields): option: TabsApi created only when the caller's TabPattern is Tabs; None makes the strip a Navigation landmark without tab semantics.
     behavior: Option<kivact::interaction::TabsApi<K>>,
     focus: FocusTrack,
-    // xtask-allow(state-fields): independent: fixed overflow presentation input, independent of the shared Tabs and focus cursor.
+    // xtask-allow(state-fields): option: caller TabOverflow sampled once in into_view; false lets the strip overflow without a scrolling viewport.
     scrollable: bool,
 }
 impl<K: ItemKey> TabRuntime<K> {

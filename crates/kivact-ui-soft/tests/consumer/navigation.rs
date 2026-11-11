@@ -708,3 +708,33 @@ fn pending_panel_button(
             Handled::No
         })
 }
+
+#[test]
+fn layout_padding_and_pixel_content_width_place_the_content() {
+    let s6 = soft::theme(ThemeMode::Light)
+        .ext::<soft::Tokens>()
+        .spacing
+        .s6;
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(800.0, 400.0),
+        || {
+            soft::layout()
+                .padding(soft::Space::S6)
+                .content_width(kivact::style::Length::Px(400.0))
+                .content(soft::layout_content(text("Body text")))
+        },
+    );
+    let body = screen
+        .get_by_text("Body text")
+        .rect()
+        .expect("mounted body text");
+    // The layout's own padding (not the region fallback) is above the content.
+    assert!(body.y >= s6 - 0.5, "{body:?}");
+    // A pixel content width without side panels is centred by a gutter.
+    assert!(body.x >= (800.0 - 400.0) / 2.0 - 0.5, "{body:?}");
+    assert!(
+        body.x + body.width <= (800.0 + 400.0) / 2.0 + 0.5,
+        "{body:?}"
+    );
+    assert!(screen.errors().is_empty());
+}

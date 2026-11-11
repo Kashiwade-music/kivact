@@ -13,9 +13,9 @@ pub(crate) enum Block<'a> {
 
 #[derive(Debug)]
 pub(crate) struct ListEntry<'a> {
-    // xtask-allow(state-fields): option: ordinal is parsed list syntax, not an execution counter.
+    // xtask-allow(state-fields): option: ordinal parsed from the Markdown author's `N.` marker and incremented per sibling; None means a bullet item.
     pub(crate) number: Option<u32>,
-    // xtask-allow(state-fields): option: task mark describes source syntax independently of list numbering.
+    // xtask-allow(state-fields): option: task mark parsed from the author's `[ ]` / `[x]` prefix on ordered or bullet items alike; None means a plain item.
     pub(crate) checked: Option<bool>,
     pub(crate) blocks: Vec<Block<'a>>,
 }
