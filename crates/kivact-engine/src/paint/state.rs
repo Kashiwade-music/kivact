@@ -215,6 +215,18 @@ pub(crate) enum Grouping {
     Opacity,
 }
 
+/// How a listed node's padding box clips its content.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) enum ClipShape {
+    /// Nothing clips the node.
+    #[default]
+    None,
+    /// A rect clip to the padding box.
+    Rect,
+    /// A rounded group: a layer clipped to the rounded padding box.
+    Rounded,
+}
+
 /// How one listed node is drawn.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct Step {
@@ -223,21 +235,17 @@ pub(crate) struct Step {
     /// transforms pushed around it (its own and its ancestors'
     /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
-    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
+    // xtask-allow(state-fields): option: absent means the node is drawn without its own transform
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
     /// The alpha its colors are faded by (outside a group: its opacity
     /// times its ancestors'; inside a layer: its ancestors' only).
     pub(super) alpha: f64,
-    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
-    pub(super) clips: bool,
-    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
+    /// The clip of its padding box (none, a rect, or a rounded group).
+    pub(super) clip_shape: ClipShape,
+    // xtask-allow(state-fields): option: absent means no presence clip applies
     pub(super) presence_clip: Option<Rect>,
-    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
-    /// Its corners are rounded (a clip is a layer clipped to its rounded
-    /// padding box, not a rect clip).
-    pub(super) rounded: bool,
     // xtask-allow(state-fields): independent: whether the node draws itself; any grouping can hold either
     /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
@@ -247,7 +255,7 @@ pub(crate) struct Step {
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
-    // xtask-allow(state-fields): projection: readonly snapshot of the node's draw state for the frame's scene, written only by the paint list walk
+    // xtask-allow(state-fields): option: absent means the node is drawn in its parent's layer
     /// Its compositor layer (an index into [`PaintList::layers`]).
     pub(super) layer: Option<u32>,
 }
@@ -271,12 +279,10 @@ impl Step {
         if self.presence_clip.is_some() {
             out.push(Opening::Presence);
         }
-        if self.clips {
-            out.push(if self.rounded {
-                Opening::ClipGroup
-            } else {
-                Opening::Clip
-            });
+        match self.clip_shape {
+            ClipShape::None => {}
+            ClipShape::Rect => out.push(Opening::Clip),
+            ClipShape::Rounded => out.push(Opening::ClipGroup),
         }
         out
     }

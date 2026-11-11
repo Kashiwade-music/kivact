@@ -42,13 +42,36 @@ pub(super) enum HostPhase {
     /// The first entry after the start carries them out (`Host::enter`), and the
     /// host asks for that entry at once (`ShellControl::WakeAt(now)` while effects
     /// are queued).
-    Starting,
+    Starting {
+        /// The client's next turn deadline (`TurnOutput::Continue`).
+        next_wake: Option<u64>,
+    },
     /// Handling the shell's events.
-    Running,
+    Running {
+        /// The client's next turn deadline (`TurnOutput::Continue`).
+        next_wake: Option<u64>,
+    },
     /// The client finished (`TurnOutput::Exit`): no more turns; every return asks
     /// the shell to exit.
     Exiting,
     Closed,
+}
+
+impl HostPhase {
+    /// The client's next turn deadline: kept only while the host runs turns.
+    pub(super) fn next_wake(self) -> Option<u64> {
+        match self {
+            Self::Starting { next_wake } | Self::Running { next_wake } => next_wake,
+            Self::Exiting | Self::Closed => None,
+        }
+    }
+
+    /// Record the client's next turn deadline; nothing once it exits or closes.
+    pub(super) fn set_next_wake(&mut self, at: Option<u64>) {
+        if let Self::Starting { next_wake } | Self::Running { next_wake } = self {
+            *next_wake = at;
+        }
+    }
 }
 
 pub(crate) struct Host {
@@ -60,8 +83,6 @@ pub(crate) struct Host {
     /// Arvane's text, shared with the client's reader (`write::Reader`), which
     /// measures text for drawing: borrowed for one call at a time.
     pub(super) engine: Rc<RefCell<arvane::Engine>>,
-    // xtask-allow(state-fields): independent: the client's next turn deadline, valid in every host phase
-    pub(super) next_wake: Option<u64>,
     /// Embedded handle destruction can occur inside a platform callback while
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.
@@ -78,7 +99,7 @@ pub(crate) struct Host {
     pub(super) accessibility_noted: ReportOnce,
     /// The App-wide windows and their host state.
     pub(super) windows: std::collections::BTreeMap<WindowId, HostWindow>,
-    // xtask-allow(state-fields): projection: the App motion last reported to the client, written only by Host::begin and Host::finish_motion
+    // xtask-allow(state-fields): projection: the App motion last reported to the client, written only by Host::report_app_motion
     /// The App motion input last reported to the client.
     pub(super) app_motion: Sent<(bool, u64)>,
     /// The DevTools' overlays, pick, keys and emulation.
@@ -118,8 +139,8 @@ impl Host {
     /// driver's `inject`): the start is over, and the platform effects queued
     /// meanwhile are carried out.
     pub(super) fn enter(&mut self, windows: &mut Windows<'_>) {
-        if self.phase == HostPhase::Starting {
-            self.phase = HostPhase::Running;
+        if let HostPhase::Starting { next_wake } = self.phase {
+            self.phase = HostPhase::Running { next_wake };
         }
         self.effects(windows);
     }
@@ -144,7 +165,7 @@ impl Host {
 
     /// Carry out every window's deferred effects.
     pub(super) fn effects(&mut self, windows: &mut Windows<'_>) {
-        if self.phase == HostPhase::Starting || self.phase == HostPhase::Closed {
+        if matches!(self.phase, HostPhase::Starting { .. } | HostPhase::Closed) {
             return;
         }
         for id in self.window_ids() {
@@ -431,7 +452,7 @@ impl Host {
             return Ok(());
         }
         match output {
-            TurnOutput::Continue { next_wake_ns } => self.next_wake = next_wake_ns,
+            TurnOutput::Continue { next_wake_ns } => self.phase.set_next_wake(next_wake_ns),
             TurnOutput::Exit => self.phase = HostPhase::Exiting,
         }
         self.apply_window_changes(windows);
@@ -820,7 +841,7 @@ impl Host {
             Some(now_ns)
         } else {
             [
-                self.next_wake,
+                self.phase.next_wake(),
                 frame_deadline,
                 self.windows
                     .keys()

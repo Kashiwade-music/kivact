@@ -76,11 +76,7 @@ impl Host {
         let viewport = emulated_viewport(size, scale, emulation.scale);
         let paint_scale = effective_scale(scale, emulation.scale);
         let surface = surface_of(&window);
-        self.windows
-            .get_mut(&id)
-            .expect("invariant: a started window has host state")
-            .environment
-            .update(native.clone());
+        self.record_environment(id, native.clone());
         self.windows
             .get_mut(&id)
             .expect("invariant: a started window has host state")
@@ -131,9 +127,7 @@ impl Host {
             None => return,
         };
         now.fonts = self.app.borrow().assets.borrow().fonts();
-        if let Some(host_window) = self.windows.get_mut(&id) {
-            host_window.environment.update(now.clone());
-        }
+        self.record_environment(id, now.clone());
         let period_before = {
             let app = self.app.borrow();
             app.model(id).map_or(0, |model| model.frame.period_ns())
@@ -215,7 +209,8 @@ impl Host {
     /// changed.
     pub(super) fn finish_motion(&mut self, now: u64) {
         let drawable = self.windows.keys().any(|id| self.drawable(*id));
-        let mut app = self.app.borrow_mut();
+        let shared = std::rc::Rc::clone(&self.app);
+        let mut app = shared.borrow_mut();
         match app.clock {
             AppClock::Running if !drawable => {
                 app.clock = AppClock::Stopped { since_ns: now };
@@ -242,11 +237,27 @@ impl Host {
             app.model(WindowId::MAIN)
                 .map_or(0, |model| model.frame.period_ns())
         };
-        if self.app_motion.update((drawable, period)).is_some() {
+        if self.report_app_motion(drawable, period) {
             app.events.push(HostEvent::AppMotion {
                 drawable,
                 frame_period_ns: period,
             });
+        }
+    }
+
+    /// Record the App motion inputs as reported to the client; whether they
+    /// changed (the only writer of `app_motion`).
+    pub(super) fn report_app_motion(&mut self, drawable: bool, frame_period_ns: u64) -> bool {
+        self.app_motion
+            .update((drawable, frame_period_ns))
+            .is_some()
+    }
+
+    /// Record `environment` as window `id`'s last read environment (the only
+    /// writer of `HostWindow::environment`).
+    fn record_environment(&mut self, id: WindowId, environment: Environment) {
+        if let Some(host_window) = self.windows.get_mut(&id) {
+            host_window.environment.update(environment);
         }
     }
 }

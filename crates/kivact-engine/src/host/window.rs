@@ -54,7 +54,7 @@ pub(super) enum ImeAllowed {
 pub(super) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
     pub(super) last_present: LastPresent,
-    // xtask-allow(state-fields): projection: the environment last reported to the client, written only by Host::environment_changed
+    // xtask-allow(state-fields): projection: the environment last reported to the client, written only by Host::record_environment
     /// The window's environment as last read: a change of the system's
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
