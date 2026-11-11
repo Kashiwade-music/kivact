@@ -269,9 +269,9 @@ pub(crate) type LayoutSeed = (Option<Measured>, bool);
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
-    // xtask-allow(state-fields): independent: a measured value; any value is valid on its own
+    // xtask-allow(state-fields): independent: set from each layout report, None while the report carries no measured layout box; text_truncated is set from the same report on its own, so every pair occurs
     pub(crate) measured: Signal<Option<Measured>>,
-    // xtask-allow(state-fields): independent: whether the engine truncated the node's text; independent of the geometry
+    // xtask-allow(state-fields): independent: set from every layout report, including before any measurement is published
     pub(crate) text_truncated: Signal<bool>,
     /// The offset, viewport and content extents of a scroll container: the
     /// one scroll fact; the offset and the scroll position are projections.
@@ -301,7 +301,7 @@ pub(crate) struct Removed {
 pub(crate) struct CoreNode {
     /// Owner whose disposal removes the node.
     pub owner: Owner,
-    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
+    // xtask-allow(state-fields): option: the builder's call site, recorded when the node is created; absent for the root, fragments and the wrappers a builder adds, which take their nearest located ancestor's location
     /// Where the builder of a host node was called (`#[track_caller]` of
     /// `node()`, `text(..)`, `button(..)`, ...). `None` for the root, for
     /// fragments, for the wrappers a builder adds (stack layers, list rows)
@@ -309,13 +309,13 @@ pub(crate) struct CoreNode {
     /// their nearest located ancestor. Snapshots and diagnostics name nodes
     /// by it.
     pub at: Option<&'static Location<'static>>,
-    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
+    // xtask-allow(state-fields): independent: the declared handlers recorded when the node is created, or an empty record ViewNodes::handlers_mut and ViewNodes::observe_node create for a later observer; a node with or without a location may have either
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
     /// The effect that last set each dynamic prop (diagnostics::why).
     pub(crate) origins: Vec<(Prop, EffectId)>,
-    // xtask-allow(state-fields): independent: the box of the per-node resources few nodes have (references, exit callback, observation, presence, semantic origins, DevTools layers), created by the first of them; set apart from the location and the handlers, so any combination with them occurs
+    // xtask-allow(state-fields): independent: created by the first rare resource the node gets (a reference, an exit callback, an observation, a presence source, semantic origins or DevTools style layers) and kept until removal; a node with or without a location or handlers may have one
     /// What only some nodes have (see [`CoreRare`]).
     pub(crate) rare: Option<Box<CoreRare>>,
 }
@@ -331,10 +331,10 @@ const _: () = assert!(
 pub(crate) struct CoreRare {
     pub(crate) references: Vec<Signal<crate::view::ref_data::RefState>>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
+    // xtask-allow(state-fields): independent: created by ViewNodes::observe_node when a reference first needs the node's geometry, text truncation, scroll or image status; the presence source beside it is created separately by ViewNodes::presence, so either exists without the other
     /// The graph sources node references read (`ViewNodes::observe_node`).
     pub(crate) observation: Option<NodeObservation>,
-    // xtask-allow(state-fields): independent: a per-node resource; created only when the node has one
+    // xtask-allow(state-fields): independent: created by ViewNodes::presence when a reference first observes the node's lifetime; the observation beside it is created separately, so either exists without the other
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     pub(crate) semantic_origins: Vec<&'static Location<'static>>,

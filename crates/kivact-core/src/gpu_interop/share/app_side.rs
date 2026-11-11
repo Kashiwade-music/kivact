@@ -28,7 +28,7 @@ pub struct SharedImage {
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
     changed: Notifier,
-    // xtask-allow(state-fields): projection: written only by import and renew from the link phase
+    // xtask-allow(state-fields): projection: the import of the link's current request, written only by SharedImage::replace_current
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
     // xtask-allow(state-fields): independent: the last pixels delivered, kept for every phase
@@ -175,13 +175,22 @@ impl SharedImage {
     fn renew(&self, mode: ShareMode, size: (u32, u32)) {
         let dropped = self.state.update(|s| s.renew(mode, size));
         drop(dropped);
-        if let Some(old) = self.current.try_get_untracked().flatten() {
-            self.current.set(None);
-            if Runtime::current().is_some() {
-                old.owner.dispose();
-            }
+        if let Some(old) = self.replace_current(None)
+            && Runtime::current().is_some()
+        {
+            old.owner.dispose();
         }
         self.changed.notify();
+    }
+
+    /// Point the image at `next` and return the import it replaces: the
+    /// only writer of `current`. Writing `None` over `None` does nothing.
+    fn replace_current(&self, next: Option<Current>) -> Option<Current> {
+        let old = self.current.try_get_untracked().flatten();
+        if old.is_some() || next.is_some() {
+            self.current.set(next);
+        }
+        old
     }
 
     /// The task of the image: import what the engine provides, keep what
@@ -207,7 +216,7 @@ impl SharedImage {
         let Some(rt) = Runtime::current() else { return };
         let child = owner.child(at);
         let image = import_in(&rt, child, textures, at);
-        self.current.set(Some(Current {
+        self.replace_current(Some(Current {
             token,
             owner: child,
             image: image.clone(),

@@ -235,7 +235,7 @@ pub(crate) struct ViewState {
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
-    // xtask-allow(state-fields): independent: one-way latch: the first frame was drawn
+    // xtask-allow(state-fields): independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once)
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
