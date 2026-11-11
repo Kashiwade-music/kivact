@@ -56,6 +56,7 @@ pub struct StageSpan {
 pub struct DetailWrite {
     /// The written node.
     pub node: NodeId,
+    // xtask-allow(state-fields): independent: the turn's last cause when the write happened (None before the turn's first cause or after the cap dropped one); a write with or without a cause may or may not change the value
     /// The index of the last cause before the write, if any.
     pub cause: Option<u32>,
     /// Value type name.
@@ -77,6 +78,7 @@ pub struct DetailWrite {
 pub struct DetailRun {
     /// The run node.
     pub node: NodeId,
+    // xtask-allow(state-fields): independent: the turn's last cause when the run happened (None before the turn's first cause or after the cap dropped one); a run with or without a cause may or may not change its value
     /// The index of the last cause before the run, if any.
     pub cause: Option<u32>,
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.

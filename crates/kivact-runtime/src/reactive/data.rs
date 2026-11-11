@@ -67,12 +67,12 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): statistic: the effect creation-order ID counter; any value is valid on its own
+    // xtask-allow(state-fields): identity: allocates effect creation-order ids
     pub(crate) seq: Cell<u64>,
-    // xtask-allow(state-fields): independent: the write counter labels every notification; it is valid at any value beside the extension set
+    // xtask-allow(state-fields): identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
-    // xtask-allow(state-fields): independent: the extensions installed when the App is created; the write counter is unrelated
+    // xtask-allow(state-fields): independent: ADR-17: filled by the constructor before it returns; never observed empty
     #[expect(
         clippy::disallowed_types,
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
@@ -174,7 +174,7 @@ pub(crate) struct MemoCell<T> {
     // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): cache: part of the memo's cache entry; the value and its equality function are used only together
+    // xtask-allow(state-fields): option: absent means every recomputation notifies (no equality check)
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -384,14 +384,14 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: callback_frame and handler_frame replace the owner under any frame kind
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: pure_section sets it under any frame kind and owner
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame)
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): independent: ADR-20: the frame kind and pure/tracking/owner/writer are separate facts
+    // xtask-allow(state-fields): independent: untracked_frame and callback_frame clear it under any kind
     pub(crate) tracking: Option<CollectorSlot>,
 }
 
