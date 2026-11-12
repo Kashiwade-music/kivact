@@ -138,6 +138,7 @@ flowchart TD
 | `kivact-i18n` | `crates/kivact-i18n` | Locales, messages and date/number formatting. |
 | `kivact-style` | `crates/kivact-style` | Styles, themes, tokens and drawing vocabulary. |
 | `kivact-shader` | `crates/kivact-shader` | Validates user WGSL shaders and assembles the complete shader modules. |
+| `kivact-svg` | `crates/kivact-svg` | Writes a recorded drawing as an SVG 1.1 document (behind `Offscreen::render_svg`). |
 | `kivact-interaction` | `crates/kivact-interaction` | Headless behavior, semantics and input controllers. |
 | `kivact-ui` | `crates/kivact-ui` | Canonical standard components and recipe contracts. |
 | `kivact-ui-basic` | `crates/kivact-ui-basic` | Neutral general-purpose kit inspired by shadcn/ui Lyra. |

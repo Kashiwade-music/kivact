@@ -4,7 +4,7 @@
 
 ## crate の境界
 
-workspace は 49 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
+workspace は 50 package からなる。アプリと公式 kit は `kivact` facade を利用する。内部 crate を直接使わせることで公開 API の不足を埋めない。依存の許可と module の向きは `dev/xtask/policy/workspace.toml` が機械的に検査する。
 
 | package | 担当と境界の理由 |
 |---|---|
@@ -15,6 +15,7 @@ workspace は 49 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-i18n` | Locale、messages、ICU4X による地域書式・日付計算。reactive context の所有は core |
 | `kivact-style` | authored Style、Theme、Draw、Path と値の解決。外部描画 library の型を公開契約に出さない |
 | `kivact-shader` | ユーザーの WGSL の検証と shader module の組み立て。naga だけに依存し、style が構築時に検証して `UiError` を返せるようにする |
+| `kivact-svg` | 記録した `DrawList` を SVG 1.1 の文書に書く。kivact-types と png だけに依存し、文字の baseline と画像の画素は core の Offscreen が `Resources` で答える |
 | `kivact-editing` | buffer、journal、editing session。window、描画、OS を知らない |
 | `kivact-layout` | layout の計算と一つの Layout owner。Taffy は内部実装 |
 | `kivact-core` | App、view、mount、context、入力配送、overlay、platform、diagnostics、embed、offscreen。turn 全体の順序を所有する |
@@ -46,7 +47,7 @@ workspace は 49 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-bench` | 性能の指標（K1〜K6）を手動で測る probe と `run.sh`。facade の公開 API だけを使い、CI では実行しない |
 | `xtask` | 依存、API、状態、style と図の検査 |
 
-library は 31、アプリは 2、雛形・小例・catalog は 11、試験・道具は 5 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
+library は 32、アプリは 2、雛形・小例・catalog は 11、試験・道具は 5 package。検査用 package も workspace の数に含める。旧 wire、reactive、task、motion、text、lower の独立 crate は復活させない。
 
 ### 境界を作る規則（B）
 

@@ -1,4 +1,4 @@
-//! Role: Writes fills and strokes as SVG paints, defining the gradients they use.
+//! Role: Writes fills and strokes as SVG paints and the gradients they use.
 //!
 //! A fill is one color or one background layer: a solid image, a CSS linear
 //! or radial gradient sized to the shape's bounds, or a coordinate gradient
@@ -7,7 +7,7 @@
 
 use super::emitter::Emitter;
 use super::encode::{hex, number, opacity_attribute};
-use crate::Result;
+use crate::SvgError;
 use kivact_types::{
     CoordinateGradient, CoordinateShape, Extend, Fill, FillImage, FillLayer, FillSize, Gradient,
     GradientKind, GradientStop, Len, Point, RadialExtent, Rect, Rgba,
@@ -20,13 +20,15 @@ pub(super) fn paint_attributes(
     kind: &str,
     fill: &Fill,
     bounds: Rect,
-) -> Result<String> {
+) -> Result<String, SvgError> {
     match fill {
         Fill::Solid(color) => Ok(solid(kind, *color)),
         Fill::Layers(layers) => match layers.as_slice() {
             [] => Ok(format!("{kind}=\"none\"")),
             [layer] => layer_paint(emitter, kind, layer, bounds),
-            _ => Err(emitter.unsupported("more than one background layer in a fill")),
+            _ => Err(SvgError::unsupported(
+                "more than one background layer in a fill",
+            )),
         },
     }
 }
@@ -44,16 +46,18 @@ fn layer_paint(
     kind: &str,
     layer: &FillLayer,
     bounds: Rect,
-) -> Result<String> {
+) -> Result<String, SvgError> {
     if layer.size != FillSize::Auto || layer.position != [Len::ZERO; 2] {
-        return Err(emitter.unsupported("a background layer sized or placed by hand"));
+        return Err(SvgError::unsupported(
+            "a background layer sized or placed by hand",
+        ));
     }
     match &layer.image {
         FillImage::Solid(color) => Ok(solid(kind, *color)),
         FillImage::Gradient(gradient) => gradient_paint(emitter, kind, gradient, bounds),
         FillImage::Coordinate(gradient) => coordinate_paint(emitter, kind, gradient),
-        FillImage::Image(_) => Err(emitter.unsupported("an image as a fill")),
-        FillImage::Shader(_) => Err(emitter.unsupported("a shader as a fill")),
+        FillImage::Image(_) => Err(SvgError::unsupported("an image as a fill")),
+        FillImage::Shader(_) => Err(SvgError::unsupported("a shader as a fill")),
     }
 }
 
@@ -64,9 +68,9 @@ fn gradient_paint(
     kind: &str,
     gradient: &Gradient,
     bounds: Rect,
-) -> Result<String> {
+) -> Result<String, SvgError> {
     if gradient.repeating {
-        return Err(emitter.unsupported("a repeating gradient"));
+        return Err(SvgError::unsupported("a repeating gradient"));
     }
     let Rect {
         x,
@@ -107,7 +111,7 @@ fn gradient_paint(
             let cy = y + center[1].of(h);
             let radius = rx.of(w);
             if radius.is_nan() || radius <= 0.0 {
-                return Err(emitter.unsupported("a radial gradient of zero size"));
+                return Err(SvgError::unsupported("a radial gradient of zero size"));
             }
             // An ellipse is the circle scaled vertically about its center.
             let scale = if circle { 1.0 } else { ry.of(h) / radius };
@@ -122,10 +126,10 @@ fn gradient_paint(
             radial_def(emitter, &id, &shape, Extend::Pad, &stops);
             Ok(format!("{kind}=\"url(#{id})\""))
         }
-        GradientKind::Radial { .. } => {
-            Err(emitter.unsupported("a radial gradient sized by a keyword"))
-        }
-        GradientKind::Conic { .. } => Err(emitter.unsupported("a conic gradient")),
+        GradientKind::Radial { .. } => Err(SvgError::unsupported(
+            "a radial gradient sized by a keyword",
+        )),
+        GradientKind::Conic { .. } => Err(SvgError::unsupported("a conic gradient")),
     }
 }
 
@@ -134,7 +138,7 @@ fn coordinate_paint(
     emitter: &mut Emitter<'_>,
     kind: &str,
     gradient: &CoordinateGradient,
-) -> Result<String> {
+) -> Result<String, SvgError> {
     let stops: Vec<(f64, Rgba)> = gradient
         .stops
         .iter()
@@ -160,7 +164,7 @@ fn coordinate_paint(
             radial_def(emitter, &id, &shape, gradient.extend, &stops);
         }
         CoordinateShape::Conic { .. } => {
-            return Err(emitter.unsupported("a conic canvas gradient"));
+            return Err(SvgError::unsupported("a conic canvas gradient"));
         }
     }
     Ok(format!("{kind}=\"url(#{id})\""))
@@ -232,7 +236,6 @@ fn linear_def(
     ));
 }
 
-/// A radial gradient centered at `center` with radius `radius`, scaled
 /// The geometry of a radial gradient: a circle of `radius` at `center`,
 /// scaled vertically by `scale` about its center. `focal` is the start
 /// circle of a two-circle gradient (its center and radius).

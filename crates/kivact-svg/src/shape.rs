@@ -1,38 +1,30 @@
-//! Role: Resolves drawn shapes to path commands and writes them as SVG path data.
+//! Role: Resolves drawn shapes to path commands and writes SVG path data.
 //!
 //! A shape becomes one list of path commands in the drawing's coordinates
-//! (the same outlines the window fills, see `Shape::outline`). Elliptical
-//! arcs of a path become SVG `A` commands; the arcs of a `PathCmd::Arc` are
-//! cut into pieces of at most a quarter turn, so a full turn is exact.
+//! (the same outlines the window fills). Elliptical arcs of a path become SVG
+//! `A` commands; the arcs of a `PathCmd::Arc` are cut into pieces of at most a
+//! quarter turn, so a full turn is exact.
 
-use super::emitter::Emitter;
 use super::encode::number;
-use crate::{Result, UiError};
-use kivact_runtime::ErrorKind;
+use crate::SvgError;
 use kivact_types::scene::{PathCmd, RoundedRect, Shape};
 use kivact_types::{ClipShape, Corners, DrawingShape, FillRule, Point, Rect};
-use std::panic::Location;
 
 /// Pieces of a `PathCmd::Arc` are at most this many degrees.
 const ARC_PIECE_DEG: f64 = 90.0;
 
-impl Emitter<'_> {
-    /// The path commands, fill rule and bounding box (from the outline's
-    /// points, control points included) of a drawn shape.
-    pub(super) fn outline_of(
-        &self,
-        shape: &DrawingShape,
-    ) -> Result<(Vec<PathCmd>, FillRule, Rect)> {
-        let (cmds, rule) = match shape {
-            DrawingShape::Path { path, rule } => (path.cmds.clone(), *rule),
-            DrawingShape::Rounded { rect, corners } => {
-                (rounded(*rect, corners).outline(), FillRule::NonZero)
-            }
-            DrawingShape::Basic { shape, rect } => basic(shape, *rect),
-        };
-        let bounds = bounds_of(&cmds);
-        Ok((cmds, rule, bounds))
-    }
+/// The path commands, fill rule and bounding box (from the outline's points,
+/// control points included) of a drawn shape.
+pub(super) fn outline_of(shape: &DrawingShape) -> (Vec<PathCmd>, FillRule, Rect) {
+    let (cmds, rule) = match shape {
+        DrawingShape::Path { path, rule } => (path.cmds.clone(), *rule),
+        DrawingShape::Rounded { rect, corners } => {
+            (rounded(*rect, corners).outline(), FillRule::NonZero)
+        }
+        DrawingShape::Basic { shape, rect } => basic(shape, *rect),
+    };
+    let bounds = bounds_of(&cmds);
+    (cmds, rule, bounds)
 }
 
 /// A CSS basic shape in its box, as the window lowers it.
@@ -246,7 +238,7 @@ impl Ellipse {
 }
 
 /// SVG path data for `cmds`. Fails only if a value is not finite.
-pub(super) fn path_data(cmds: &[PathCmd], at: &'static Location<'static>) -> Result<String> {
+pub(super) fn path_data(cmds: &[PathCmd]) -> Result<String, SvgError> {
     let mut out = String::new();
     let mut current: Option<Point> = None;
     let mut start: Option<Point> = None;
@@ -316,10 +308,8 @@ pub(super) fn path_data(cmds: &[PathCmd], at: &'static Location<'static>) -> Res
     }
     // Non-finite values format as `NaN` or `inf`, which no other segment contains.
     if out.contains("NaN") || out.contains("inf") {
-        return Err(UiError::new(
-            ErrorKind::Unsupported,
-            "SVG cannot express a path with a value that is not finite",
-            Some(at),
+        return Err(SvgError::unsupported(
+            "a path with a value that is not finite",
         ));
     }
     Ok(out)
@@ -360,4 +350,54 @@ fn xy(p: Point) -> String {
 
 fn flag(on: bool) -> u8 {
     u8::from(on)
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the SVG path data of lines, closed contours and arcs.
+
+    use super::path_data;
+    use crate::SvgError;
+    use kivact_types::Point;
+    use kivact_types::scene::PathCmd;
+
+    fn at(x: f64, y: f64) -> Point {
+        Point { x, y }
+    }
+
+    #[test]
+    fn lines_and_a_close_write_their_segments_in_order() {
+        let data = path_data(&[
+            PathCmd::MoveTo(at(0.0, 0.0)),
+            PathCmd::LineTo(at(10.0, 0.0)),
+            PathCmd::LineTo(at(10.0, 5.0)),
+            PathCmd::Close,
+        ])
+        .expect("finite lines write");
+
+        assert_eq!(data, "M0 0 L10 0 L10 5 Z");
+    }
+
+    #[test]
+    fn a_half_turn_arc_is_cut_into_two_quarter_turns() {
+        let data = path_data(&[PathCmd::Arc {
+            center: at(0.0, 0.0),
+            rx: 1.0,
+            ry: 1.0,
+            x_rotation_deg: 0.0,
+            start_deg: 0.0,
+            sweep_deg: 180.0,
+        }])
+        .expect("a finite arc writes");
+
+        assert_eq!(data, "M1 0 A1 1 0 0 1 0 1 A1 1 0 0 1 -1 0");
+    }
+
+    #[test]
+    fn a_value_that_is_not_finite_is_unsupported() {
+        let error =
+            path_data(&[PathCmd::MoveTo(at(f64::NAN, 0.0))]).expect_err("NaN cannot be written");
+
+        assert!(matches!(error, SvgError::Unsupported(_)));
+    }
 }

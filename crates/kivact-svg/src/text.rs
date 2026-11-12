@@ -1,31 +1,31 @@
 //! Role: Writes one line of drawn text as an SVG `<text>` element.
 //!
 //! The run's origin is the top of its line box; the SVG baseline is that
-//! origin plus the baseline the same text engine measures for the run, so
-//! the text sits where a window draws it. Font features and text
-//! decorations have no SVG 1.1 form and are not supported.
+//! origin plus the baseline the host's text engine measures for the run, so
+//! the text sits where a window draws it. Font features and text decorations
+//! have no SVG 1.1 form and are not supported.
 
 use super::emitter::Emitter;
 use super::encode::{escape, hex, number, opacity_attribute};
-use crate::Result;
+use crate::SvgError;
 use kivact_types::TextRun;
 
 /// The generic families SVG names without quotes.
 const GENERIC_FAMILIES: [&str; 4] = ["serif", "sans-serif", "monospace", "cursive"];
 
 impl Emitter<'_> {
-    pub(super) fn text(&mut self, run: &TextRun) -> Result<()> {
+    pub(super) fn text(&mut self, run: &TextRun) -> Result<(), SvgError> {
         if !run.features.is_empty() {
-            return Err(self.unsupported("OpenType font features on text"));
+            return Err(SvgError::unsupported("OpenType font features on text"));
         }
         if !run.decoration.lines.is_empty() {
-            return Err(self.unsupported("text decorations"));
+            return Err(SvgError::unsupported("text decorations"));
         }
-        let baseline = self.measurer.measure(run).baseline;
+        let baseline = self.resources.baseline(run);
         let family = run
             .family
             .clone()
-            .or_else(|| self.inherited.family.clone())
+            .or_else(|| self.resources.fallback_family().map(str::to_owned))
             .unwrap_or_else(|| "sans-serif".to_owned());
         let mut attributes = format!(
             "x=\"{}\" y=\"{}\" font-family=\"{}\" font-size=\"{}\" font-weight=\"{}\"",

@@ -2327,8 +2327,8 @@ dependencies = [
  "kivact-i18n",
  "kivact-runtime",
  "kivact-style",
+ "kivact-svg",
  "kivact-types",
- "png 0.18.1",
  "tracing",
 ]
 
@@ -2557,6 +2557,14 @@ dependencies = [
  "kivact-types",
  "kurbo",
  "svgtypes",
+]
+
+[[package]]
+name = "kivact-svg"
+version = "0.1.0"
+dependencies = [
+ "kivact-types",
+ "png 0.18.1",
 ]
 
 [[package]]

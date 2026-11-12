@@ -1,9 +1,7 @@
-//! Role: Number, color, XML text and PNG encoding for the SVG export.
+//! Role: Number, color, XML text and PNG encoding of the SVG document.
 
-use crate::{Result, UiError};
-use kivact_runtime::ErrorKind;
+use crate::SvgError;
 use kivact_types::Rgba;
-use std::panic::Location;
 
 /// A number with at most three decimals, trailing zeros dropped.
 pub(super) fn number(value: f64) -> String {
@@ -54,14 +52,9 @@ pub(super) fn escape(text: &str) -> String {
 }
 
 /// A `data:image/png;base64,…` URI of straight-alpha RGBA8 pixels.
-pub(super) fn png_data_uri(
-    width: u32,
-    height: u32,
-    rgba: &[u8],
-    at: &'static Location<'static>,
-) -> Result<String> {
+pub(super) fn png_data_uri(width: u32, height: u32, rgba: &[u8]) -> Result<String, SvgError> {
     let mut png = Vec::new();
-    let encode = |png: &mut Vec<u8>| -> std::result::Result<(), png::EncodingError> {
+    let encode = |png: &mut Vec<u8>| -> Result<(), png::EncodingError> {
         let mut encoder = png::Encoder::new(png, width, height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
@@ -70,11 +63,7 @@ pub(super) fn png_data_uri(
         writer.finish()
     };
     encode(&mut png).map_err(|error| {
-        UiError::new(
-            ErrorKind::Message,
-            format!("PNG encoding of an image failed: {error}"),
-            Some(at),
-        )
+        SvgError::Malformed(format!("PNG encoding of an image failed: {error}"))
     })?;
     Ok(format!("data:image/png;base64,{}", base64(&png)))
 }
@@ -102,4 +91,61 @@ fn base64(bytes: &[u8]) -> String {
         });
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of number, color, escaping and the PNG data URI.
+
+    use super::{base64, escape, hex, number, opacity_attribute, png_data_uri};
+    use kivact_types::Rgba;
+
+    fn color(r: f64, g: f64, b: f64, a: f64) -> Rgba {
+        Rgba { r, g, b, a }
+    }
+
+    #[test]
+    fn numbers_keep_three_decimals_and_drop_trailing_zeros() {
+        assert_eq!(number(10.0), "10");
+        assert_eq!(number(2.5), "2.5");
+        assert_eq!(number(0.1234), "0.123");
+        assert_eq!(number(-0.0001), "0");
+        assert_eq!(number(-2.0), "-2");
+    }
+
+    #[test]
+    fn colors_are_hex_and_a_partial_alpha_is_an_opacity() {
+        assert_eq!(hex(color(1.0, 0.5, 0.0, 1.0)), "#ff8000");
+        assert_eq!(opacity_attribute("fill", color(0.0, 0.0, 0.0, 1.0)), "");
+        assert_eq!(
+            opacity_attribute("stroke", color(0.0, 0.0, 0.0, 0.5)),
+            " stroke-opacity=\"0.502\""
+        );
+    }
+
+    #[test]
+    fn xml_special_characters_are_escaped() {
+        assert_eq!(escape("a&b<c>\"d'e"), "a&amp;b&lt;c&gt;&quot;d&apos;e");
+    }
+
+    #[test]
+    fn base64_pads_the_last_group() {
+        assert_eq!(base64(b"Man"), "TWFu");
+        assert_eq!(base64(b"Ma"), "TWE=");
+        assert_eq!(base64(b"M"), "TQ==");
+    }
+
+    #[test]
+    fn a_pixel_buffer_becomes_a_png_data_uri() {
+        let uri = png_data_uri(1, 1, &[255, 0, 0, 255]).expect("one opaque pixel encodes");
+
+        assert!(uri.starts_with("data:image/png;base64,iVBORw0KGgo"));
+    }
+
+    #[test]
+    fn a_buffer_shorter_than_its_size_is_malformed() {
+        let error = png_data_uri(2, 2, &[0, 0, 0, 0]).expect_err("the rows are missing");
+
+        assert!(matches!(error, crate::SvgError::Malformed(_)));
+    }
 }
