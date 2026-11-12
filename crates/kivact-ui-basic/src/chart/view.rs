@@ -251,7 +251,8 @@ impl IntoView for Chart {
             height,
         } = self;
         let config = Rc::new(config);
-        let format = format.unwrap_or_else(|| default_format(use_locale()));
+        let locale = use_locale();
+        let format = format.unwrap_or_else(|| default_format(locale));
         let hover = signal(ChartHover::Away);
         let (hit, at) = hover_values(hover);
         let target = node_ref();
@@ -306,7 +307,7 @@ impl IntoView for Chart {
                     }
                 }
             });
-        let (card, legend) = below_plot(&config, bounds, &format, hit, at, with_legend);
+        let (card, legend) = below_plot(&config, bounds, &format, hit, at, with_legend, locale);
         let plot_box = node()
             .style(style().width(pct(100)).direction(Direction::Column))
             .child(canvas)
@@ -323,12 +324,16 @@ fn below_plot(
     hit: Value<Option<Hit>>,
     at: Value<Point>,
     with_legend: Value<bool>,
+    locale: Value<Locale>,
 ) -> (impl IntoView, impl IntoView) {
     let card_config = config.clone();
     let format = format.clone();
+    // The card's text is written in the locale, so a locale change rebuilds it.
     let card = dynamic(
-        move || hit.get(),
-        move |hit| hit.map(|hit| super::tooltip::tooltip(&hit, at, &card_config, bounds, &*format)),
+        move || (hit.get(), locale.get()),
+        move |(hit, _locale)| {
+            hit.map(|hit| super::tooltip::tooltip(&hit, at, &card_config, bounds, &*format))
+        },
     );
     let legend_config = config.clone();
     let shown = !config.series.is_empty();

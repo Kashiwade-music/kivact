@@ -308,17 +308,24 @@ fn the_default_value_text_is_written_in_the_app_locale() {
         kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
             .window_size(640.0, 400.0)
             .reduced_motion()
-            .locale(kivact::i18n::Locale::new("de-DE")),
+            .host_locale("de-DE"),
         move || {
             let data = vec![basic::ChartRow::new("January", [1234.5, 80.0])];
             ((), basic::chart(config(), data).height(220.0))
         },
     )
     .0;
-    let text = screen
-        .find_by_role(kivact::view::Role::Image, "Bar chart: Desktop, Mobile")
-        .description();
-    assert!(text.contains("1.234,5"), "{text}");
+    let chart = || screen.find_by_role(kivact::view::Role::Image, "Bar chart: Desktop, Mobile");
+    assert!(chart().description().contains("1.234,5"));
+    // The tooltip card is written in the locale too, and follows a change.
+    let rect = chart().rect().expect("laid out");
+    screen.mouse_move(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    screen.run_until_idle();
+    assert!(screen.query_by_text("1.234,5").is_some());
+    screen.set_host_locale(Some("en-US"));
+    assert!(chart().description().contains("1,234.5"));
+    assert!(screen.query_by_text("1.234,5").is_none());
+    assert!(screen.query_by_text("1,234.5").is_some());
 }
 
 #[test]
