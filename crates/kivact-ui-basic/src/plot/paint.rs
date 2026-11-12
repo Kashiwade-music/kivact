@@ -1,10 +1,12 @@
 //! Role: Paints a plot: grid, axes, labels, series, legend and readout.
 
+use super::data::PlotData;
 use super::decimate::runs;
-use super::heatmap::{Cells, paint as paint_heatmap};
+use super::heatmap::{Grid, finite_range, paint as paint_heatmap};
 use super::input::{Readout, readout};
-use super::model::{LineDash, PlotData, PlotModel, PlotSeries, PlotSeriesKind, PlotView};
+use super::model::{PlotModel, PlotRange, PlotView};
 use super::scale::{Map, maps, plot_area, within};
+use super::series::{LineDash, PlotSeries, PlotSeriesKind};
 use super::ticks::{LogTick, axis_ticks, format_value, tick_spacing};
 use crate::tokens::Tokens;
 use kivact::draw::{Draw, Layer, LineCap, Stroke, TextBaseline, TextFormat};
@@ -27,16 +29,19 @@ const LEGEND_SWATCH: f64 = 16.0;
 /// The mark that ends a shortened name.
 const ELLIPSIS: &str = "\u{2026}";
 
-/// Paint `model` at `view` over a canvas of `size` (logical px) in the theme
-/// of `draw`, with no pointer. Its colors are the kit's tokens, its numbers
-/// are written in `locale`, and it is the same picture a plot shows, so it
-/// can go to an [`Offscreen`](kivact::draw::Offscreen) export.
-///
-/// The plot is drawn in the rectangle the canvas leaves for it: the
-/// background, grid lines, axes, tick labels, axis titles, the title, the
-/// series and the legend in the top right corner.
-pub fn draw_plot(draw: &mut Draw, size: Size, model: &PlotModel, view: PlotView, locale: &Locale) {
-    paint(draw, size, model, view, None, locale);
+impl PlotModel {
+    /// Paint the model over `range` in a canvas of `size` (logical px) of
+    /// `draw`, with no pointer. The colors are the kit's tokens of the theme
+    /// in effect, the numbers are written in `locale`, and the picture is the
+    /// one a plot shows. Pass it to an [`Offscreen`](kivact::draw::Offscreen)
+    /// `render` or `render_svg` to export it.
+    ///
+    /// The plot is drawn in the rectangle the canvas leaves for it: the
+    /// background, grid lines, axes, tick labels, axis titles, the title, the
+    /// series and the legend in the top right corner.
+    pub fn draw(&self, draw: &mut Draw, size: Size, range: PlotRange, locale: &Locale) {
+        paint(draw, size, self, self.view_of(range), None, locale);
+    }
 }
 
 /// What one paint reads: the model and its view, the plot area with its
@@ -284,9 +289,9 @@ fn paint_series(draw: &mut Draw, f: &Frame, series: &PlotSeries, color: Color) {
                 draw.polyline(run, &stroke, color);
             }
         }
-        PlotSeriesKind::Points { x, y, radius } => {
+        PlotSeriesKind::Points { x, y } => {
             for at in pixels(f, x, y).into_iter().flatten() {
-                draw.circle(at, *radius, color);
+                draw.circle(at, series.radius, color);
             }
         }
         PlotSeriesKind::Stems { x, y } => paint_stems(draw, f, series, x, y, color),
@@ -295,23 +300,26 @@ fn paint_series(draw: &mut Draw, f: &Frame, series: &PlotSeries, color: Color) {
             x_edges,
             y_edges,
             z,
-            rows,
-            cols,
-            z_min,
-            z_max,
-        } => {
-            let cells = Cells {
-                x_edges: x_edges.as_slice(),
-                y_edges: y_edges.as_slice(),
-                z: z.as_slice(),
-                rows: *rows as usize,
-                cols: *cols as usize,
-                z_min: *z_min,
-                z_max: *z_max,
-            };
-            paint_heatmap(draw, f.area, &f.x, &f.y, &cells, f.stops);
-        }
+            z_range,
+        } => paint_heatmap_series(draw, f, x_edges, y_edges, z, *z_range),
     }
+}
+
+/// Paint a heatmap as one image of its cells, colored over `z_range` or else
+/// the finite range of its values. A `z` of the wrong shape paints nothing.
+fn paint_heatmap_series(
+    draw: &mut Draw,
+    f: &Frame,
+    x_edges: &PlotData,
+    y_edges: &PlotData,
+    z: &PlotData,
+    z_range: Option<(f64, f64)>,
+) {
+    let Some(grid) = Grid::of(x_edges.as_slice(), y_edges.as_slice(), z.as_slice()) else {
+        return;
+    };
+    let range = z_range.unwrap_or_else(|| finite_range(z.as_slice()));
+    paint_heatmap(draw, f.area, &f.x, &f.y, &grid, range, f.stops);
 }
 
 /// The plot pixels of the points `(x[i], y[i])`; a point the axes cannot show is `None`.
@@ -346,7 +354,7 @@ fn paint_stems(
     let stroke = stroke_of(series);
     for at in pixels(f, x, y).into_iter().flatten() {
         draw.line(Point::new(at.x, base), at, stroke.clone(), color);
-        draw.circle(at, 3.0, color);
+        draw.circle(at, series.radius, color);
     }
 }
 

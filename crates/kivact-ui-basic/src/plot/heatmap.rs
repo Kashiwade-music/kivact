@@ -29,6 +29,55 @@ pub(super) fn cell(edges: &[f64], value: f64) -> Option<usize> {
     Some(passed.saturating_sub(1).min(n - 2))
 }
 
+/// The cells of a heatmap: the edges, and the values row by row. Its shape
+/// is derived from the edges, so it exists only when `z` holds exactly one
+/// value per cell.
+pub(super) struct Grid<'a> {
+    /// The column edges (`cols + 1`).
+    pub(super) x_edges: &'a [f64],
+    /// The row edges (`rows + 1`).
+    pub(super) y_edges: &'a [f64],
+    /// The values, row by row.
+    pub(super) z: &'a [f64],
+    /// The number of rows.
+    pub(super) rows: usize,
+    /// The number of columns.
+    pub(super) cols: usize,
+}
+
+impl<'a> Grid<'a> {
+    /// The grid of `z` between `x_edges` and `y_edges`. `None` when there is
+    /// no cell, or when `z` does not hold `rows × cols` values.
+    pub(super) fn of(x_edges: &'a [f64], y_edges: &'a [f64], z: &'a [f64]) -> Option<Self> {
+        let cols = x_edges.len().saturating_sub(1);
+        let rows = y_edges.len().saturating_sub(1);
+        if cols == 0 || rows == 0 || z.len() != rows * cols {
+            return None;
+        }
+        Some(Self {
+            x_edges,
+            y_edges,
+            z,
+            rows,
+            cols,
+        })
+    }
+}
+
+/// The smallest and largest finite value of `z`, or `(0, 0)` when it has none.
+pub(super) fn finite_range(z: &[f64]) -> (f64, f64) {
+    z.iter()
+        .copied()
+        .filter(|v| v.is_finite())
+        .fold(None::<(f64, f64)>, |range, v| {
+            Some(match range {
+                None => (v, v),
+                Some((lo, hi)) => (lo.min(v), hi.max(v)),
+            })
+        })
+        .unwrap_or((0.0, 0.0))
+}
+
 /// The color of `z` on `stops` (RGBA in `0..=1`, evenly spaced from `z_min`
 /// to `z_max`). NaN is transparent.
 fn color(z: f64, z_min: f64, z_max: f64, stops: &[[f64; 4]]) -> [u8; 4] {
@@ -58,45 +107,30 @@ fn color(z: f64, z_min: f64, z_max: f64, stops: &[[f64; 4]]) -> [u8; 4] {
     out
 }
 
-/// The cell values of a heatmap, with its edges and value range.
-pub(super) struct Cells<'a> {
-    /// The column edges (`cols + 1`).
-    pub(super) x_edges: &'a [f64],
-    /// The row edges (`rows + 1`).
-    pub(super) y_edges: &'a [f64],
-    /// The values, row by row.
-    pub(super) z: &'a [f64],
-    /// The number of rows.
-    pub(super) rows: usize,
-    /// The number of columns.
-    pub(super) cols: usize,
-    /// The value of the first color.
-    pub(super) z_min: f64,
-    /// The value of the last color.
-    pub(super) z_max: f64,
-}
-
-/// Paint `cells` into `rect` on the colormap `stops`: one image with a pixel
-/// per logical px, each pixel taking the color of the cell under its center.
+/// Paint `grid` into `rect` on the colormap `stops`, with `range` (`z_min`,
+/// `z_max`) mapped onto the colors: one image with a pixel per logical px,
+/// each pixel taking the color of the cell under its center.
 pub(super) fn paint(
     d: &mut Draw,
     rect: Rect,
     x: &Map,
     y: &Map,
-    cells: &Cells<'_>,
+    grid: &Grid<'_>,
+    range: (f64, f64),
     stops: &[[f64; 4]],
 ) {
+    let (z_min, z_max) = range;
     let width = rect.width.ceil().max(1.0) as u32;
     let height = rect.height.ceil().max(1.0) as u32;
     let mut rgba = Vec::with_capacity(width as usize * height as usize * 4);
     for row in 0..height {
-        let row_cell = cell(cells.y_edges, y.value(rect.y + f64::from(row) + 0.5));
+        let row_cell = cell(grid.y_edges, y.value(rect.y + f64::from(row) + 0.5));
         for col in 0..width {
-            let col_cell = cell(cells.x_edges, x.value(rect.x + f64::from(col) + 0.5));
+            let col_cell = cell(grid.x_edges, x.value(rect.x + f64::from(col) + 0.5));
             let pixel = match (row_cell, col_cell) {
-                (Some(r), Some(c)) if r < cells.rows && c < cells.cols => {
-                    match cells.z.get(r * cells.cols + c) {
-                        Some(z) => color(*z, cells.z_min, cells.z_max, stops),
+                (Some(r), Some(c)) if r < grid.rows && c < grid.cols => {
+                    match grid.z.get(r * grid.cols + c) {
+                        Some(z) => color(*z, z_min, z_max, stops),
                         None => [0, 0, 0, 0],
                     }
                 }
@@ -114,7 +148,7 @@ pub(super) fn paint(
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests for heatmap cells and their colors.
+    //! Role: Tests for heatmap cells, grid shapes and their colors.
 
     use super::*;
 
@@ -129,6 +163,30 @@ mod tests {
         let down = [4.0, 2.0, 1.0, 0.0];
         assert_eq!(cell(&down, 1.5), Some(1));
         assert_eq!(cell(&down, 0.0), Some(2));
+    }
+
+    #[test]
+    fn the_grid_shape_comes_from_the_edges() {
+        let x = [0.0, 1.0, 2.0];
+        let y = [0.0, 1.0];
+        let grid = Grid::of(&x, &y, &[1.0, 2.0]).expect("two cells of two columns");
+        assert_eq!((grid.rows, grid.cols), (1, 2));
+        assert!(Grid::of(&x, &y, &[1.0]).is_none(), "one value too few");
+        assert!(
+            Grid::of(&x, &y, &[1.0, 2.0, 3.0]).is_none(),
+            "one value too many"
+        );
+        assert!(Grid::of(&x[..1], &y, &[]).is_none(), "no column");
+        assert!(Grid::of(&x, &y[..1], &[]).is_none(), "no row");
+    }
+
+    #[test]
+    fn the_default_range_is_the_finite_extent() {
+        assert_eq!(
+            finite_range(&[3.0, f64::NAN, -1.0, f64::INFINITY]),
+            (-1.0, 3.0)
+        );
+        assert_eq!(finite_range(&[f64::NAN]), (0.0, 0.0));
     }
 
     #[test]

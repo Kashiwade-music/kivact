@@ -1,252 +1,22 @@
-//! Role: The plot's data: number arrays, series, axes, legend and range.
+//! Role: The plot model: axes, series and legend, and the range they fit.
 
-use kivact::style::Color;
-use std::fmt;
-use std::sync::Arc;
+use super::axis::{AxisScale, PlotAxis};
+use super::series::{PlotSeries, PlotSeriesKind};
 
-/// A numeric array shared by reference. Cloning is cheap. Two values are
-/// equal when they share the array or hold the same numbers bit for bit, so a
-/// reactive value rebuilt from the same data does not redraw.
-#[derive(Clone)]
-pub struct PlotData {
-    values: Arc<[f64]>,
-}
-
-impl PlotData {
-    /// The array `values`.
-    pub fn new(values: Vec<f64>) -> Self {
-        Self {
-            values: values.into(),
-        }
-    }
-
-    /// The values in order.
-    pub fn as_slice(&self) -> &[f64] {
-        &self.values
-    }
-
-    /// The number of values.
-    pub fn len(&self) -> usize {
-        self.values.len()
-    }
-
-    /// Whether there are no values.
-    pub fn is_empty(&self) -> bool {
-        self.values.is_empty()
-    }
-}
-
-impl From<Vec<f64>> for PlotData {
-    fn from(values: Vec<f64>) -> Self {
-        Self::new(values)
-    }
-}
-
-impl FromIterator<f64> for PlotData {
-    fn from_iter<I: IntoIterator<Item = f64>>(iter: I) -> Self {
-        Self::new(iter.into_iter().collect())
-    }
-}
-
-impl PartialEq for PlotData {
-    /// Equal when both share one array, or hold the same numbers bit for bit.
-    fn eq(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.values, &other.values)
-            || (self.values.len() == other.values.len()
-                && self
-                    .values
-                    .iter()
-                    .zip(other.values.iter())
-                    .all(|(a, b)| a.to_bits() == b.to_bits()))
-    }
-}
-
-impl fmt::Debug for PlotData {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "PlotData(len = {})", self.len())
-    }
-}
-
-/// How an axis maps values to positions.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum AxisScale {
-    /// Equal steps for equal differences.
-    Linear,
-    /// Equal steps for equal ratios; values of zero or less are not drawn.
-    Log10,
-}
-
-/// How tick labels and readouts write their values.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum TickFormat {
-    /// Four significant digits, the shortest form.
-    Plain,
-    /// SI prefixes: `1.5k`, `2M`, `10m`, `3µ`.
-    Si,
-    /// Decibels: whole numbers, or one decimal below 1.
-    Decibel,
-    /// Degrees, with a `°` suffix.
-    Degrees,
-}
-
-/// One axis: its title, scale and tick format.
-#[derive(Clone, PartialEq, Debug)]
-pub struct PlotAxis {
-    /// The title drawn beside the axis.
-    pub label: String,
-    /// The scale.
-    pub scale: AxisScale,
-    /// How ticks and readouts write values.
-    pub format: TickFormat,
-}
-
-impl PlotAxis {
-    /// A linear axis titled `label`, with plain tick labels.
-    pub fn new(label: impl Into<String>) -> Self {
-        Self {
-            label: label.into(),
-            scale: AxisScale::Linear,
-            format: TickFormat::Plain,
-        }
-    }
-
-    /// The same axis on `scale`.
-    pub fn scale(mut self, scale: AxisScale) -> Self {
-        self.scale = scale;
-        self
-    }
-
-    /// The same axis with its tick labels written in `format`.
-    pub fn format(mut self, format: TickFormat) -> Self {
-        self.format = format;
-        self
-    }
-}
-
-/// The pattern of a line.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum LineDash {
-    /// A continuous line.
-    Solid,
-    /// Long dashes.
-    Dashed,
-    /// Short dashes with round caps.
-    Dotted,
-}
-
-/// What a series draws.
-#[derive(Clone, PartialEq, Debug)]
-pub enum PlotSeriesKind {
-    /// A polyline through `(x, y)`. Hover reads the nearest point only when `x` is ascending.
-    Line {
-        /// The x values.
-        x: PlotData,
-        /// The y values, one per x.
-        y: PlotData,
-    },
-    /// Circles of `radius` logical px at `(x, y)`.
-    Points {
-        /// The x values.
-        x: PlotData,
-        /// The y values, one per x.
-        y: PlotData,
-        /// The radius in logical px.
-        radius: f64,
-    },
-    /// A vertical line from the bottom of the plot to each `y`, with a point at its top.
-    Stems {
-        /// The x values.
-        x: PlotData,
-        /// The y values, one per x.
-        y: PlotData,
-    },
-    /// A histogram: the bar of `values[i]` spans `edges[i]..edges[i + 1]`.
-    Steps {
-        /// The bin edges; `edges.len() == values.len() + 1`.
-        edges: PlotData,
-        /// The bar heights.
-        values: PlotData,
-    },
-    /// A colored grid. `z` is row-major, `rows × cols` values, with
-    /// `x_edges.len() == cols + 1` and `y_edges.len() == rows + 1`. The colors
-    /// map `z_min..z_max` onto the plot's colormap; NaN cells are transparent.
-    Heatmap {
-        /// The column edges.
-        x_edges: PlotData,
-        /// The row edges.
-        y_edges: PlotData,
-        /// The cell values, row by row.
-        z: PlotData,
-        /// The number of rows.
-        rows: u32,
-        /// The number of columns.
-        cols: u32,
-        /// The value that maps to the first color.
-        z_min: f64,
-        /// The value that maps to the last color.
-        z_max: f64,
-    },
-}
-
-/// One series of a plot.
-#[derive(Clone, PartialEq, Debug)]
-pub struct PlotSeries {
-    /// The name shown in the legend and in the description.
-    pub name: String,
-    /// The color; `None` takes the kit's chart color of the series' index.
-    pub color: Option<Color>,
-    /// The line width in logical px (lines and stems).
-    pub width: f64,
-    /// The pattern of lines and stems.
-    pub dash: LineDash,
-    /// What it draws.
-    pub kind: PlotSeriesKind,
-}
-
-impl PlotSeries {
-    /// A solid series of 2 px named `name`, in the chart color of its index.
-    pub fn new(name: impl Into<String>, kind: PlotSeriesKind) -> Self {
-        Self {
-            name: name.into(),
-            color: None,
-            width: 2.0,
-            dash: LineDash::Solid,
-            kind,
-        }
-    }
-
-    /// The same series in `color`.
-    pub fn color(mut self, color: Color) -> Self {
-        self.color = Some(color);
-        self
-    }
-
-    /// The same series with lines of `width` logical px.
-    pub fn width(mut self, width: f64) -> Self {
-        self.width = width;
-        self
-    }
-
-    /// The same series with lines in the pattern `dash`.
-    pub fn dash(mut self, dash: LineDash) -> Self {
-        self.dash = dash;
-        self
-    }
-}
-
-/// Everything a plot draws: title, axes, series and legend.
+/// Everything a plot draws: title, axes, series and legend. Build it with
+/// [`PlotModel::new`] and the setters.
 #[derive(Clone, PartialEq, Debug)]
 pub struct PlotModel {
     /// The title; empty for none.
-    pub title: String,
+    pub(super) title: String,
     /// The horizontal axis.
-    pub x: PlotAxis,
+    pub(super) x: PlotAxis,
     /// The vertical axis.
-    pub y: PlotAxis,
+    pub(super) y: PlotAxis,
     /// The series, drawn in order.
-    pub series: Vec<PlotSeries>,
+    pub(super) series: Vec<PlotSeries>,
     /// Whether the legend is drawn in the top right corner.
-    pub legend: bool,
+    pub(super) legend: bool,
 }
 
 impl PlotModel {
@@ -290,6 +60,15 @@ impl PlotModel {
             y_max,
         }
     }
+
+    /// The visible range of this model under `range`: the fit of its data
+    /// for [`PlotRange::Auto`], else the range given.
+    pub(super) fn view_of(&self, range: PlotRange) -> PlotView {
+        match range {
+            PlotRange::Auto => self.auto_view(),
+            PlotRange::Manual(view) => view,
+        }
+    }
 }
 
 kivact::state::constant_value!(PlotModel, PlotRange);
@@ -315,17 +94,6 @@ pub enum PlotRange {
     Auto,
     /// The given range.
     Manual(PlotView),
-}
-
-impl PlotRange {
-    /// The visible range of `model` under this range: the fit of its data
-    /// for `Auto`, else the given range.
-    pub fn view(self, model: &PlotModel) -> PlotView {
-        match self {
-            PlotRange::Auto => model.auto_view(),
-            PlotRange::Manual(view) => view,
-        }
-    }
 }
 
 /// Which axis of the plot.
@@ -394,18 +162,13 @@ fn padded(range: Option<(f64, f64)>, scale: AxisScale) -> (f64, f64) {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests for the data model and the automatic view range.
+    //! Role: Tests for the automatic view range and the range of a model.
 
     use super::*;
 
     fn model(x: &[f64], y: &[f64], scale: AxisScale) -> PlotModel {
-        PlotModel::new(PlotAxis::new("x").scale(scale), PlotAxis::new("y")).series(PlotSeries::new(
-            "s",
-            PlotSeriesKind::Line {
-                x: PlotData::new(x.to_vec()),
-                y: PlotData::new(y.to_vec()),
-            },
-        ))
+        PlotModel::new(PlotAxis::new("x").scale(scale), PlotAxis::new("y"))
+            .series(PlotSeries::line("s", x.to_vec(), y.to_vec()))
     }
 
     #[test]
@@ -452,22 +215,13 @@ mod tests {
     #[test]
     fn a_range_is_the_fit_or_its_manual_view() {
         let fitted = model(&[0.0, 10.0], &[0.0, 1.0], AxisScale::Linear);
-        assert_eq!(PlotRange::Auto.view(&fitted), fitted.auto_view());
+        assert_eq!(fitted.view_of(PlotRange::Auto), fitted.auto_view());
         let view = PlotView {
             x_min: 1.0,
             x_max: 2.0,
             y_min: 3.0,
             y_max: 4.0,
         };
-        assert_eq!(PlotRange::Manual(view).view(&fitted), view);
-    }
-
-    #[test]
-    fn data_are_equal_when_bit_for_bit_equal() {
-        let a = PlotData::new(vec![0.0, -0.0]);
-        assert_eq!(a, a.clone());
-        assert_eq!(a, PlotData::new(vec![0.0, -0.0]));
-        assert_ne!(a, PlotData::new(vec![0.0, 0.0]));
-        assert_eq!(format!("{a:?}"), "PlotData(len = 2)");
+        assert_eq!(fitted.view_of(PlotRange::Manual(view)), view);
     }
 }

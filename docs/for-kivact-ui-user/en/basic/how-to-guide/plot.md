@@ -4,7 +4,7 @@
 
 This guide shows how to draw numeric data as an XY plot with `kivact_ui_basic`: a `PlotModel` that describes the title, the axes and the series, a `plot` that the user can zoom, pan and read, and the range that the user edits. It assumes you have done the [tutorial](../getting-started/README.md).
 
-The plot never owns your numbers. A `PlotData` shares its array by reference, so cloning it is cheap, and a plot is redrawn only when the model or the range changes.
+The plot never owns your numbers. A series takes its data as a `Vec<f64>` or an array, and the plot shares it by reference, so cloning it is cheap. A plot is redrawn only when the model or the range changes.
 
 ## Draw a line
 
@@ -12,9 +12,7 @@ Build a `PlotModel` from two axes and add a `PlotSeries`. Pass it to `plot` with
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic::{
-    AxisScale, PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, TickFormat, plot,
-};
+use kivact_ui_basic::{AxisScale, PlotAxis, PlotModel, PlotSeries, TickFormat, plot};
 
 fn response() -> impl IntoView {
     let frequencies: Vec<f64> = (1..=100).map(|i| f64::from(i) * 10.0).collect();
@@ -29,22 +27,15 @@ fn response() -> impl IntoView {
         PlotAxis::new("Gain").format(TickFormat::Decibel),
     )
     .title("Response")
-    .series(
-        PlotSeries::new(
-            "Gain",
-            PlotSeriesKind::Line {
-                x: PlotData::new(frequencies),
-                y: PlotData::new(gain),
-            },
-        )
-        .color(rgb(0xf2aa4c)),
-    );
+    .series(PlotSeries::line("Gain", frequencies, gain).color(rgb(0xf2aa4c)));
     plot("Response", model).style(style().width(560))
 }
 ```
 
-- `PlotSeriesKind` has five kinds: `Line` (a polyline), `Points` (circles of a radius), `Stems` (a line from the bottom of the plot to each point), `Steps` (a histogram from edges and values) and `Heatmap` (a grid of cells from their edges and a row-major `z`).
-- A series takes its color from `PlotSeries::color`. Without one, it takes the kit's chart color of its index, so the series of a plot differ by default.
+- Each kind of series has its own constructor: `PlotSeries::line` (a polyline), `points` (circles), `stems` (a line from the bottom of the plot to each point), `steps` (a histogram from edges and values) and `heatmap` (a grid of cells from their edges and a row-major `z`). Each takes a name, then its data.
+- The data are `impl Into<PlotData>`: a `Vec<f64>`, an array such as `[1.0, 2.0]`, or a slice (`&[f64]`, copied). Use `.collect()` for an iterator.
+- The setters adjust a series, and each one says which kinds it applies to. `color` applies to every kind. `width` and `dash` apply to lines and stems. `radius` applies to points and to the dots at the top of stems (default 3 px). `z_range` applies to heatmaps.
+- A series without `color` takes the kit's chart color of its index, so the series of a plot differ by default.
 - The axes are `AxisScale::Linear` or `AxisScale::Log10`. On a log axis, values that are zero or less are not drawn.
 - The tick format is `TickFormat::Plain` (four significant digits), `Si` (`1.5k`, `10m`), `Decibel` or `Degrees`. Readouts use the same format. Numbers are written with the digits and the decimal separator of the app's locale.
 
@@ -86,11 +77,13 @@ fn watched(model: PlotModel) -> impl IntoView {
 
 ## Draw a heatmap
 
-A heatmap is one series of `PlotSeriesKind::Heatmap`. Its `x_edges` have `cols + 1` values and its `y_edges` have `rows + 1`. The values `z` are row by row, and `z_min`..`z_max` map onto the viridis colormap of the kit's tokens (`Tokens::heatmap`). A NaN cell is transparent, and a value outside `z_min`..`z_max` takes the nearest end color. The edges may ascend or descend.
+A heatmap is one series, made by `PlotSeries::heatmap(name, x_edges, y_edges, z)`. Its `x_edges` have one value more than its columns, and its `y_edges` one value more than its rows. The values `z` are row by row, so `z` must hold rows × columns values. A `z` of any other length draws nothing. The rows and columns are derived from the edges, so you give the edges and the values only.
+
+`z_range(min, max)` maps `min` and `max` onto the viridis colormap of the kit's tokens (`Tokens::heatmap`). Without it, the range is the smallest and largest finite value of `z`. A NaN cell is transparent, and a value outside the range takes the nearest end color. The edges may ascend or descend.
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic::{PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, plot};
+use kivact_ui_basic::{PlotAxis, PlotModel, PlotSeries, plot};
 
 fn grid() -> impl IntoView {
     let (rows, cols) = (4_u32, 6_u32);
@@ -99,40 +92,26 @@ fn grid() -> impl IntoView {
     let z: Vec<f64> = (0..rows * cols).map(f64::from).collect();
     let model = PlotModel::new(PlotAxis::new("Column"), PlotAxis::new("Row"))
         .legend(false)
-        .series(
-        PlotSeries::new(
-            "Value",
-            PlotSeriesKind::Heatmap {
-                x_edges: PlotData::new(x_edges),
-                y_edges: PlotData::new(y_edges),
-                z: PlotData::new(z),
-                rows,
-                cols,
-                z_min: 0.0,
-                z_max: 23.0,
-            },
-        ),
-    );
+        .series(PlotSeries::heatmap("Value", x_edges, y_edges, z).z_range(0.0, 23.0));
     plot("Grid", model).style(style().width(480))
 }
 ```
 
 ## Export a plot
 
-`draw_plot` paints a model at a view into any `Draw`, with no pointer, so the same picture goes to the screen, to an `Offscreen` image or to an SVG document. Its colors are the kit's tokens of the theme in effect, and its numbers are written in the locale you pass. `PlotRange::view(&model)` gives the visible range of a `PlotRange`, and `PlotModel::auto_view` the range that the data fits.
+`PlotModel::draw` paints the model over a range, with no pointer, into any `Draw`. Pass it the drawing of an `Offscreen` and the same picture goes to an image or to an SVG document. Its colors are the kit's tokens of the theme in effect, and its numbers are written in the locale you pass. `PlotRange::Auto` fits the data; `PlotRange::Manual` shows a fixed `PlotView`.
 
 ```rust,no_run
 use kivact::draw::Offscreen;
 use kivact::i18n::Locale;
 use kivact::style::ThemeMode;
-use kivact_ui_basic::{PlotModel, PlotRange, draw_plot};
+use kivact_ui_basic::{PlotModel, PlotRange};
 
 fn export(model: &PlotModel) -> kivact::Result<String> {
-    let view = PlotRange::Auto.view(model);
     let locale = Locale::new("en-US");
     let mut renderer = Offscreen::new().theme(kivact_ui_basic::theme(ThemeMode::Light));
     renderer.render_svg(640.0, 360.0, |draw, size| {
-        draw_plot(draw, size, model, view, &locale);
+        model.draw(draw, size, PlotRange::Auto, &locale);
     })
 }
 ```

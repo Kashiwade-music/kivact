@@ -145,8 +145,8 @@ pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupCont
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
 pub use plot::{
-    AxisScale, LineDash, Plot, PlotAxis, PlotData, PlotModel, PlotRange, PlotSeries,
-    PlotSeriesKind, PlotView, TickFormat, draw_plot, plot,
+    AxisScale, LineDash, Plot, PlotAxis, PlotData, PlotModel, PlotRange, PlotSeries, PlotView,
+    TickFormat, plot,
 };
 pub use primitives::{
     Label, Separator, breadcrumb_ellipsis, item_separator, kbd_group, label, separator,

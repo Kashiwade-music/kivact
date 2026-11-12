@@ -4,7 +4,7 @@
 
 このガイドでは、`kivact_ui_basic` で数値データを XY プロットとして描く方法を示します。タイトル、軸、系列を記述する `PlotModel`、ユーザーがズーム、移動、読み取りをできる `plot`、そしてユーザーが編集する範囲を扱います。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
 
-プロットは数値を所有しません。`PlotData` は配列を参照で共有するので複製は安価で、プロットが描き直されるのは model か範囲が変わったときだけです。
+プロットは数値を所有しません。系列のデータは `Vec<f64>` か配列で渡し、プロットは配列を参照で共有するので複製は安価です。プロットが描き直されるのは model か範囲が変わったときだけです。
 
 ## 折れ線を描く
 
@@ -12,9 +12,7 @@
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic::{
-    AxisScale, PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, TickFormat, plot,
-};
+use kivact_ui_basic::{AxisScale, PlotAxis, PlotModel, PlotSeries, TickFormat, plot};
 
 fn response() -> impl IntoView {
     let frequencies: Vec<f64> = (1..=100).map(|i| f64::from(i) * 10.0).collect();
@@ -29,22 +27,15 @@ fn response() -> impl IntoView {
         PlotAxis::new("Gain").format(TickFormat::Decibel),
     )
     .title("Response")
-    .series(
-        PlotSeries::new(
-            "Gain",
-            PlotSeriesKind::Line {
-                x: PlotData::new(frequencies),
-                y: PlotData::new(gain),
-            },
-        )
-        .color(rgb(0xf2aa4c)),
-    );
+    .series(PlotSeries::line("Gain", frequencies, gain).color(rgb(0xf2aa4c)));
     plot("Response", model).style(style().width(560))
 }
 ```
 
-- `PlotSeriesKind` には 5 種類あります。`Line`（折れ線）、`Points`（半径つきの円）、`Stems`（下端から各点までの線）、`Steps`（端点と値によるヒストグラム）、`Heatmap`（端点と行優先の `z` によるセルの格子）です。
-- 系列の色は `PlotSeries::color` で指定します。指定しなければ、系列の順番に対応するキットのチャートの色になるので、既定では系列ごとに色が違います。
+- 系列の種類ごとにコンストラクタがあります。`PlotSeries::line`（折れ線）、`points`（円）、`stems`（下端から各点までの線）、`steps`（端点と値によるヒストグラム）、`heatmap`（端点と行優先の `z` によるセルの格子）です。どれも、名前の次にデータを取ります。
+- データは `impl Into<PlotData>` です。`Vec<f64>`、`[1.0, 2.0]` のような配列、スライス（`&[f64]`、複製されます）を渡せます。イテレータは `.collect()` で作ります。
+- セッターで系列を調整します。各セッターがどの種類に効くかを示します。`color` はすべての種類に効きます。`width` と `dash` は折れ線と stems に効きます。`radius` は点と stems の先の点に効きます（既定は 3 px）。`z_range` はヒートマップに効きます。
+- `color` を指定しない系列は、系列の順番に対応するキットのチャートの色になるので、既定では系列ごとに色が違います。
 - 軸は `AxisScale::Linear` か `AxisScale::Log10` です。対数軸では 0 以下の値は描きません。
 - 目盛りの書式は `TickFormat::Plain`（有効数字 4 桁）、`Si`（`1.5k`、`10m`）、`Decibel`、`Degrees` から選びます。読み取りも同じ書式です。数字はアプリのロケールの桁と小数点で書かれます。
 
@@ -86,11 +77,13 @@ fn watched(model: PlotModel) -> impl IntoView {
 
 ## ヒートマップを描く
 
-ヒートマップは `PlotSeriesKind::Heatmap` の系列 1 つです。`x_edges` は `cols + 1` 個、`y_edges` は `rows + 1` 個の値を持ちます。値 `z` は行優先で、`z_min`..`z_max` がキットのトークンのビリディス配色（`Tokens::heatmap`）に対応します。NaN のセルは透明になり、`z_min`..`z_max` の外の値は近い端の色になります。端点は昇順でも降順でもかまいません。
+ヒートマップは `PlotSeries::heatmap(name, x_edges, y_edges, z)` で作る系列 1 つです。`x_edges` は列数より 1 つ多い値を、`y_edges` は行数より 1 つ多い値を持ちます。値 `z` は行優先で、行数 × 列数の値が必要です。それ以外の長さの `z` は何も描きません。行と列の数は端点から決まるので、渡すのは端点と値だけです。
+
+`z_range(min, max)` は `min` と `max` をキットのトークンのビリディス配色（`Tokens::heatmap`）に対応させます。指定しなければ、`z` の有限な最小と最大を使います。NaN のセルは透明になり、範囲の外の値は近い端の色になります。端点は昇順でも降順でもかまいません。
 
 ```rust,no_run
 use kivact::prelude::*;
-use kivact_ui_basic::{PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, plot};
+use kivact_ui_basic::{PlotAxis, PlotModel, PlotSeries, plot};
 
 fn grid() -> impl IntoView {
     let (rows, cols) = (4_u32, 6_u32);
@@ -99,40 +92,26 @@ fn grid() -> impl IntoView {
     let z: Vec<f64> = (0..rows * cols).map(f64::from).collect();
     let model = PlotModel::new(PlotAxis::new("Column"), PlotAxis::new("Row"))
         .legend(false)
-        .series(
-        PlotSeries::new(
-            "Value",
-            PlotSeriesKind::Heatmap {
-                x_edges: PlotData::new(x_edges),
-                y_edges: PlotData::new(y_edges),
-                z: PlotData::new(z),
-                rows,
-                cols,
-                z_min: 0.0,
-                z_max: 23.0,
-            },
-        ),
-    );
+        .series(PlotSeries::heatmap("Value", x_edges, y_edges, z).z_range(0.0, 23.0));
     plot("Grid", model).style(style().width(480))
 }
 ```
 
 ## プロットを書き出す
 
-`draw_plot` は model を、ある範囲で、ポインタなしに任意の `Draw` へ描きます。同じ絵を画面にも、`Offscreen` の画像にも、SVG の文書にも送れます。色はその時点のテーマのキットのトークンで、数字は渡したロケールで書かれます。`PlotRange::view(&model)` は `PlotRange` の表示範囲を、`PlotModel::auto_view` はデータに合う範囲を返します。
+`PlotModel::draw` は model を、ある範囲で、ポインタなしに任意の `Draw` へ描きます。`Offscreen` の描画に渡せば、同じ絵を画像にも SVG の文書にも書き出せます。色はその時点のテーマのキットのトークンで、数字は渡したロケールで書かれます。`PlotRange::Auto` はデータに合う範囲、`PlotRange::Manual` は固定の `PlotView` を表示します。
 
 ```rust,no_run
 use kivact::draw::Offscreen;
 use kivact::i18n::Locale;
 use kivact::style::ThemeMode;
-use kivact_ui_basic::{PlotModel, PlotRange, draw_plot};
+use kivact_ui_basic::{PlotModel, PlotRange};
 
 fn export(model: &PlotModel) -> kivact::Result<String> {
-    let view = PlotRange::Auto.view(model);
     let locale = Locale::new("ja-JP");
     let mut renderer = Offscreen::new().theme(kivact_ui_basic::theme(ThemeMode::Light));
     renderer.render_svg(640.0, 360.0, |draw, size| {
-        draw_plot(draw, size, model, view, &locale);
+        model.draw(draw, size, PlotRange::Auto, &locale);
     })
 }
 ```

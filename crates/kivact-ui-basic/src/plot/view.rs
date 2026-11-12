@@ -42,13 +42,12 @@ pub struct Plot {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact_ui_basic::{PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, plot};
+/// use kivact::prelude::*;
+/// use kivact_ui_basic::{PlotAxis, PlotModel, PlotSeries, plot};
 ///
 /// fn response() -> impl IntoView {
-///     let frequencies = PlotData::new(vec![10.0, 100.0, 1000.0]);
-///     let gain = PlotData::new(vec![0.0, -3.0, -12.0]);
 ///     let model = PlotModel::new(PlotAxis::new("Frequency"), PlotAxis::new("Gain")).series(
-///         PlotSeries::new("Gain", PlotSeriesKind::Line { x: frequencies, y: gain }),
+///         PlotSeries::line("Gain", vec![10.0, 100.0, 1000.0], vec![0.0, -3.0, -12.0]),
 ///     );
 ///     plot("Frequency response", model)
 /// }
@@ -127,7 +126,7 @@ impl IntoView for Plot {
         let dragging = drag.active_payload();
         let source = drag.source_with(move || current_view(range, model));
         let description = message_with("basic.plot.description", DESCRIPTION, move || {
-            let view = model.with(|m| range.with(|r| r.view(m)));
+            let view = model.with(|m| range.with(|r| m.view_of(*r)));
             locale.with(|locale| model.with(|m| describe(m, view, locale)))
         });
         let canvas = node()
@@ -138,7 +137,7 @@ impl IntoView for Plot {
             .style(move || style().width(pct(100)).height(height.get()).shrink(0))
             .node_ref(target)
             .draw(move |d, canvas| {
-                let view = model.with(|m| range.with(|r| r.view(m)));
+                let view = model.with(|m| range.with(|r| m.view_of(*r)));
                 let at = hover.get();
                 value_label.with(|value| {
                     let cursor = at.map(|at| Cursor {
@@ -173,7 +172,7 @@ fn session_edit(
 
 /// The visible range the plot shows now, read without tracking.
 fn current_view(range: Binding<PlotRange>, model: Value<PlotModel>) -> PlotView {
-    model.with_untracked(|m| range.get_untracked().view(m))
+    model.with_untracked(|m| m.view_of(range.get_untracked()))
 }
 
 /// The plot area of the canvas, or `None` while the canvas has no room for it.
@@ -315,18 +314,13 @@ mod tests {
     //! Role: Tests for the accessible description arguments.
 
     use super::*;
-    use crate::plot::model::{PlotAxis, PlotData, PlotSeries, PlotSeriesKind};
+    use crate::plot::axis::PlotAxis;
+    use crate::plot::series::PlotSeries;
 
     #[test]
     fn the_description_names_the_series_and_the_range_in_the_locale() {
-        let model =
-            PlotModel::new(PlotAxis::new("Hz"), PlotAxis::new("dB")).series(PlotSeries::new(
-                "Left",
-                PlotSeriesKind::Line {
-                    x: PlotData::new(vec![0.0, 1.0]),
-                    y: PlotData::new(vec![0.0, 1.0]),
-                },
-            ));
+        let model = PlotModel::new(PlotAxis::new("Hz"), PlotAxis::new("dB"))
+            .series(PlotSeries::line("Left", vec![0.0, 1.0], vec![0.0, 1.0]));
         let view = PlotView {
             x_min: 0.0,
             x_max: 0.5,

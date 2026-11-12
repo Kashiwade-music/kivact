@@ -1,8 +1,10 @@
 //! Role: Zoom, pan, key and readout arithmetic of a plot, free of signals.
 
-use super::heatmap::cell;
-use super::model::{AxisScale, PlotModel, PlotRange, PlotSeries, PlotSeriesKind, PlotView};
+use super::axis::AxisScale;
+use super::heatmap::{Grid, cell};
+use super::model::{PlotModel, PlotRange, PlotView};
 use super::scale::{Map, inverse, maps, transform, within};
+use super::series::{PlotSeries, PlotSeriesKind};
 use kivact::geometry::{Point, Rect};
 use kivact::view::Key;
 
@@ -248,8 +250,6 @@ fn heatmap_read(probe: &Probe, series: &PlotSeries) -> Option<Readout> {
         x_edges,
         y_edges,
         z,
-        rows,
-        cols,
         ..
     } = &series.kind
     else {
@@ -258,18 +258,18 @@ fn heatmap_read(probe: &Probe, series: &PlotSeries) -> Option<Readout> {
     if !within(probe.area, probe.at) {
         return None;
     }
+    let grid = Grid::of(x_edges.as_slice(), y_edges.as_slice(), z.as_slice())?;
     let (xv, yv) = (probe.pointer_x, probe.y.value(probe.at.y));
-    let c = cell(x_edges.as_slice(), xv)?;
-    let r = cell(y_edges.as_slice(), yv)?;
-    let (rows, cols) = (*rows as usize, *cols as usize);
-    if r >= rows || c >= cols {
+    let c = cell(grid.x_edges, xv)?;
+    let r = cell(grid.y_edges, yv)?;
+    if r >= grid.rows || c >= grid.cols {
         return None;
     }
     Some(Readout {
         name: series.name.clone(),
         x: xv,
         y: yv,
-        z: z.as_slice().get(r * cols + c).copied(),
+        z: grid.z.get(r * grid.cols + c).copied(),
         at: probe.at,
     })
 }
@@ -279,7 +279,7 @@ fn heatmap_read(probe: &Probe, series: &PlotSeries) -> Option<Readout> {
 fn point_read(probe: &Probe, series: &PlotSeries, nearest: &mut Option<(f64, Readout)>) {
     let (xs, ys, line) = match &series.kind {
         PlotSeriesKind::Line { x, y } => (x.as_slice(), y.as_slice(), true),
-        PlotSeriesKind::Stems { x, y } | PlotSeriesKind::Points { x, y, .. } => {
+        PlotSeriesKind::Stems { x, y } | PlotSeriesKind::Points { x, y } => {
             (x.as_slice(), y.as_slice(), false)
         }
         _ => return,
@@ -338,7 +338,7 @@ mod tests {
     //! Role: Tests for zoom, pan, keys and readout arithmetic.
 
     use super::*;
-    use crate::plot::model::{PlotAxis, PlotData, PlotSeries, PlotSeriesKind};
+    use crate::plot::axis::PlotAxis;
 
     fn area() -> Rect {
         Rect::new(0.0, 0.0, 100.0, 100.0)
@@ -355,12 +355,10 @@ mod tests {
 
     /// A linear plot with one line through (0,0), (2,2), (8,8), (10,10).
     fn model() -> PlotModel {
-        PlotModel::new(PlotAxis::new("x"), PlotAxis::new("y")).series(PlotSeries::new(
+        PlotModel::new(PlotAxis::new("x"), PlotAxis::new("y")).series(PlotSeries::line(
             "line",
-            PlotSeriesKind::Line {
-                x: PlotData::new(vec![0.0, 2.0, 8.0, 10.0]),
-                y: PlotData::new(vec![0.0, 2.0, 8.0, 10.0]),
-            },
+            vec![0.0, 2.0, 8.0, 10.0],
+            vec![0.0, 2.0, 8.0, 10.0],
         ))
     }
 
@@ -454,14 +452,9 @@ mod tests {
 
     #[test]
     fn a_descending_line_is_not_read() {
-        let descending =
-            PlotModel::new(PlotAxis::new("x"), PlotAxis::new("y")).series(PlotSeries::new(
-                "line",
-                PlotSeriesKind::Line {
-                    x: PlotData::new(vec![10.0, 8.0, 2.0, 0.0]),
-                    y: PlotData::new(vec![10.0, 8.0, 2.0, 0.0]),
-                },
-            ));
+        let descending = PlotModel::new(PlotAxis::new("x"), PlotAxis::new("y")).series(
+            PlotSeries::line("line", vec![10.0, 8.0, 2.0, 0.0], vec![10.0, 8.0, 2.0, 0.0]),
+        );
         assert!(readout(&descending, view(), area(), Point::new(22.0, 78.0)).is_none());
     }
 }

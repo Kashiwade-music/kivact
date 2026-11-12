@@ -1,6 +1,7 @@
 //! Role: Plot area and axis mapping between data values and pixels.
 
-use super::model::{AxisScale, PlotModel, PlotView};
+use super::axis::AxisScale;
+use super::model::{PlotModel, PlotView};
 use kivact::geometry::{Point, Rect, Size};
 
 /// The space the axes and the title take around the plot, in logical px.
@@ -138,7 +139,7 @@ impl Map {
 mod tests {
     //! Role: Tests for the plot area and axis mapping.
 
-    use super::super::model::PlotAxis;
+    use super::super::axis::PlotAxis;
     use super::*;
 
     fn model(title: &str) -> PlotModel {

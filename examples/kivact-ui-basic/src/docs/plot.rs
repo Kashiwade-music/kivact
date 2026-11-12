@@ -22,7 +22,7 @@ pub(crate) fn page() -> Page {
             Example::new(
                 "heatmap",
                 "Heatmap",
-                "PlotSeriesKind::Heatmap は、行と列の境界（edges）と z の値の格子を色で描きます。ポインタを重ねると、そのセルの値を読めます。",
+                "PlotSeries::heatmap は、行と列の境界（edges）と z の値の格子を色で描きます。z_range で色の範囲を決めなければ、z の有限な最小と最大を使います。ポインタを重ねると、そのセルの値を読めます。",
                 heatmap,
             ),
         ],
@@ -46,13 +46,7 @@ fn frequency() -> impl IntoView {
     )
     .title("Low-pass response")
     .legend(false)
-    .series(basic::PlotSeries::new(
-        "Gain",
-        basic::PlotSeriesKind::Line {
-            x: frequencies.into(),
-            y: gain.into(),
-        },
-    ));
+    .series(basic::PlotSeries::line("Gain", frequencies, gain));
     basic::plot("Low-pass response", model).style(style().width(560))
 }
 // end example
@@ -73,18 +67,7 @@ fn heatmap() -> impl IntoView {
     let model = basic::PlotModel::new(basic::PlotAxis::new("Column"), basic::PlotAxis::new("Row"))
         .title("Cell values")
         .legend(false)
-        .series(basic::PlotSeries::new(
-            "Value",
-            basic::PlotSeriesKind::Heatmap {
-                x_edges: x_edges.into(),
-                y_edges: y_edges.into(),
-                z: z.into(),
-                rows,
-                cols,
-                z_min: -2.0,
-                z_max: 2.0,
-            },
-        ));
+        .series(basic::PlotSeries::heatmap("Value", x_edges, y_edges, z).z_range(-2.0, 2.0));
     basic::plot("Cell values", model).style(style().width(560))
 }
 // end example

@@ -7,9 +7,7 @@ use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, Screen};
 use kivact::view::{EditPhase, Key, MouseButton, Role};
 use kivact_ui_basic as basic;
-use kivact_ui_basic::{
-    PlotAxis, PlotData, PlotModel, PlotRange, PlotSeries, PlotSeriesKind, PlotView, plot,
-};
+use kivact_ui_basic::{PlotAxis, PlotModel, PlotRange, PlotSeries, PlotView, plot};
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -19,24 +17,12 @@ type Edits = Rc<RefCell<Vec<EditPhase>>>;
 /// Linear axes, a line from x 0 to 10 and a point series in an explicit color.
 fn model() -> PlotModel {
     PlotModel::new(PlotAxis::new("Hz"), PlotAxis::new("dB"))
-        .series(PlotSeries::new(
+        .series(PlotSeries::line(
             "Left",
-            PlotSeriesKind::Line {
-                x: PlotData::new(vec![0.0, 5.0, 10.0]),
-                y: PlotData::new(vec![0.0, -3.0, -12.0]),
-            },
+            vec![0.0, 5.0, 10.0],
+            vec![0.0, -3.0, -12.0],
         ))
-        .series(
-            PlotSeries::new(
-                "Right",
-                PlotSeriesKind::Points {
-                    x: PlotData::new(vec![2.0, 8.0]),
-                    y: PlotData::new(vec![-1.0, -6.0]),
-                    radius: 3.0,
-                },
-            )
-            .color(rgb(0xe11d48)),
-        )
+        .series(PlotSeries::points("Right", vec![2.0, 8.0], vec![-1.0, -6.0]).color(rgb(0xe11d48)))
 }
 
 fn view(x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> PlotView {

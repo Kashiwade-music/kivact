@@ -1,6 +1,6 @@
 //! Role: Tick positions and the label format of plot axes and readouts.
 
-use super::model::{AxisScale, TickFormat};
+use super::axis::{AxisScale, TickFormat};
 use kivact::i18n::{FractionDigits, Grouping, Locale, NumberStyle};
 
 /// The most ticks one axis makes, whatever the target.
