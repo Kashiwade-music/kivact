@@ -122,6 +122,7 @@ flowchart TD
 | `kivact-i18n` | `crates/kivact-i18n` | locale、message、日付・数値の書式。 |
 | `kivact-style` | `crates/kivact-style` | style、theme、token、描画の語彙。 |
 | `kivact-shader` | `crates/kivact-shader` | ユーザーの WGSL の検証と shader module の組み立て。 |
+| `kivact-svg` | `crates/kivact-svg` | 記録した drawing を SVG 1.1 の文書に書く（`Offscreen::render_svg` の内側）。 |
 | `kivact-interaction` | `crates/kivact-interaction` | 表示を持たない振る舞い、semantics、入力 controller。 |
 | `kivact-ui` | `crates/kivact-ui` | 標準部品と recipe の契約。 |
 | `kivact-ui-basic` | `crates/kivact-ui-basic` | shadcn/ui Lyra 風の中立的な汎用キット。 |

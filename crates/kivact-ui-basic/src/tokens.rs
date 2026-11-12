@@ -75,6 +75,9 @@ pub struct Tokens {
     pub sidebar_ring: Color,
     /// The syntax colors of [`code_block`](kivact::ui::code_block).
     pub code: CodeColors,
+    /// The colormap of the plot's heatmaps, from the lowest value to the
+    /// highest: viridis, the same in both schemes.
+    pub heatmap: [Color; 9],
 }
 
 /// The syntax colors of a code block, one per highlighted tone.
@@ -189,6 +192,17 @@ impl Tokens {
             },
             sidebar_ring: pick(0xa1a1a1, 0x737373),
             code: CodeColors::new(mode),
+            heatmap: [
+                rgb(0x440154),
+                rgb(0x472d7b),
+                rgb(0x3b528b),
+                rgb(0x2c728e),
+                rgb(0x21918c),
+                rgb(0x28ae80),
+                rgb(0x5ec962),
+                rgb(0xaddc30),
+                rgb(0xfde725),
+            ],
         }
     }
 

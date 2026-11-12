@@ -4,7 +4,7 @@ use super::model::{ChartConfig, Hit, series_color};
 use crate::ColorName;
 
 use crate::typography::MONO;
-use kivact::geometry::{Point, Size};
+use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::Element;
 use kivact::style::{Align, Direction, Justify, Position, style};
 use kivact::view::{IntoView, Role};
@@ -14,16 +14,16 @@ use std::rc::Rc;
 /// The distance between the pointer and the card.
 const OFFSET: f64 = 14.0;
 
-/// The tooltip card for `hit` (chart.tsx `ChartTooltipContent`), placed beside the pointer `at` in a plot of `size`.
+/// The tooltip card for `hit` (chart.tsx `ChartTooltipContent`), placed beside the pointer `at` in the plot canvas whose bounds are `bounds`.
 ///
 /// The card is built once per hit; a pointer move only translates it. It is
 /// placed at the pointer's side and flipped to its left when the pointer is
-/// near the right edge.
+/// near the right edge. The bounds are read where the card positions itself.
 pub(super) fn tooltip(
     hit: &Hit,
     at: kivact::state::Value<Point>,
     config: &Rc<ChartConfig>,
-    size: Size,
+    bounds: kivact::state::Value<Option<Rect>>,
     format: &dyn Fn(f64) -> String,
 ) -> Node {
     let rows = hit.rows.iter().map(|hit_row| {
@@ -80,6 +80,9 @@ pub(super) fn tooltip(
     .style(move || {
         let p = kivact::style::use_tokens::<crate::Tokens>();
         let at = at.get();
+        let size = bounds.get().map_or(Size::new(0.0, 0.0), |rect| {
+            Size::new(rect.width, rect.height)
+        });
         let top = (at.y + OFFSET).min(size.height - height).max(0.0);
         // Laid out at the plot's top left corner (flipped: ending there),
         // and moved to the pointer.

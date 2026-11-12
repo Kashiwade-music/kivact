@@ -76,8 +76,10 @@ mod menubar;
 mod message_scroller;
 mod native_select;
 mod navigation_menu;
+mod nice;
 mod pagination;
 mod parts;
+mod plot;
 mod primitives;
 mod questionnaire;
 mod recipes;
@@ -143,6 +145,10 @@ pub use icons::ICON_NAMES;
 pub use input_group::{InputGroupButtonLook, InputGroupButtonSize, InputGroupControl};
 pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
+pub use plot::{
+    AxisScale, LineDash, Plot, PlotAxis, PlotData, PlotModel, PlotRange, PlotSeries, PlotView,
+    TickFormat, plot,
+};
 pub use primitives::{
     Label, Separator, breadcrumb_ellipsis, item_separator, kbd_group, label, separator,
     table_caption,

@@ -114,6 +114,8 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.chart.area`, `basic.chart.bar`, `basic.chart.donut`, `basic.chart.line`, `basic.chart.pie`, `basic.chart.radar`, `basic.chart.radial`, `basic.chart.stacked_bar` | Area chart, Bar chart, Donut chart, Line chart, Pie chart, Radar chart, Radial chart, Stacked bar chart |
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
+| `basic.plot.description` | {series}. {x}: {x_min} to {x_max}. {y}: {y_min} to {y_max}. |
+| `basic.plot.value` | Value |
 | `basic.questionnaire.label` | Questionnaire |
 | `basic.questionnaire.next` | Next |
 | `basic.questionnaire.previous` | Previous |

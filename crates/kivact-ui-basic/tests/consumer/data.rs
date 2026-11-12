@@ -303,6 +303,32 @@ fn every_chart_kind_draws_its_series_in_their_colors_in_both_themes() {
 }
 
 #[test]
+fn the_default_value_text_is_written_in_the_app_locale() {
+    let screen = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(640.0, 400.0)
+            .reduced_motion()
+            .host_locale("de-DE"),
+        move || {
+            let data = vec![basic::ChartRow::new("January", [1234.5, 80.0])];
+            ((), basic::chart(config(), data).height(220.0))
+        },
+    )
+    .0;
+    let chart = || screen.find_by_role(kivact::view::Role::Image, "Bar chart: Desktop, Mobile");
+    assert!(chart().description().contains("1.234,5"));
+    // The tooltip card is written in the locale too, and follows a change.
+    let rect = chart().rect().expect("laid out");
+    screen.mouse_move(rect.x + rect.width / 2.0, rect.y + rect.height / 2.0);
+    screen.run_until_idle();
+    assert!(screen.query_by_text("1.234,5").is_some());
+    screen.set_host_locale(Some("en-US"));
+    assert!(chart().description().contains("1,234.5"));
+    assert!(screen.query_by_text("1.234,5").is_none());
+    assert!(screen.query_by_text("1,234.5").is_some());
+}
+
+#[test]
 fn hovering_a_chart_shows_the_tooltip_card_with_the_values() {
     let screen = mount_chart(kivact::style::ThemeMode::Light, || {
         chart_of(basic::ChartKind::Bar)

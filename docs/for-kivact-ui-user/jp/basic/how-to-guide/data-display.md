@@ -156,7 +156,7 @@ fn visitors() -> impl IntoView {
 
 - `.kind(..)` は `Bar`（既定）、`StackedBar`、`Line`、`Area`、`Pie`、`Donut`、`Radar`、`Radial` のどれかです。円、ドーナツ、ラジアルでは、各系列がすべての行にわたる値の合計に応じた扇形やリングになります。レーダーは、行ごとに 1 本の軸を持ちます。
 - 系列にはテーマの 5 色のグラフ色が順に使われるので、テーマを切り替えると色も変わります。1 つを固定するには `ChartSeries::new(..).color(rgb(0x2563eb))` を使います。
-- `.orientation(Orientation::Horizontal)` は棒を横向きにします。`.value_format(|v| format!("{v:.0}k"))` は、軸とツールチップでの値の書き方を変えます。`.legend(false)`、`.grid(false)`、`.axis(false)`、`.tooltip(false)` は部品を消し、`.height(..)` は高さを決めます。
+- `.orientation(Orientation::Horizontal)` は棒を横向きにします。`.value_format(|v| format!("{v:.0}k"))` は、軸とツールチップでの値の書き方を変えます。既定では値はアプリのロケールで書かれ、千の位を区切り、小数は 3 桁までです（en-US では `1,234.5`、de-DE では `1.234,5`）。`.legend(false)`、`.grid(false)`、`.axis(false)`、`.tooltip(false)` は部品を消し、`.height(..)` は高さを決めます。
 - `data` に行の signal（`signal(Vec<ChartRow>)`）を渡すと、グラフがその場で更新されます。
 - ホバーすると、値を載せたツールチップが出ます。グラフにはアクセシビリティ用の要約もあり、文言は `basic.chart.*` のメッセージから来ます。
 

@@ -38,6 +38,7 @@ members = [
     "crates/arvane",
     "crates/kivact-types",
     "crates/kivact-shader",
+    "crates/kivact-svg",
     "crates/arvane-native",
     "crates/arvane-shell",
     "crates/arvane-virtual",

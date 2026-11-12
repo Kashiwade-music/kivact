@@ -156,7 +156,7 @@ fn visitors() -> impl IntoView {
 
 - `.kind(..)` is one of `Bar` (default), `StackedBar`, `Line`, `Area`, `Pie`, `Donut`, `Radar` and `Radial`. For a pie, donut or radial chart, each series is a slice or ring sized by the sum of its values over all rows. A radar chart has one axis per row.
 - Series use the theme's five chart colors in order, so a theme switch recolors them. Set `ChartSeries::new(..).color(rgb(0x2563eb))` to pin one.
-- `.orientation(Orientation::Horizontal)` lays bars out sideways. `.value_format(|v| format!("{v:.0}k"))` changes how values read in the axis and tooltips. `.legend(false)`, `.grid(false)`, `.axis(false)` and `.tooltip(false)` remove parts; `.height(..)` sets the height.
+- `.orientation(Orientation::Horizontal)` lays bars out sideways. `.value_format(|v| format!("{v:.0}k"))` changes how values read in the axis and tooltips. By default a value follows the app's locale, with grouped thousands and at most three decimals (`1,234.5` in en-US, `1.234,5` in de-DE). `.legend(false)`, `.grid(false)`, `.axis(false)` and `.tooltip(false)` remove parts; `.height(..)` sets the height.
 - Pass a signal of rows (`signal(Vec<ChartRow>)`) as `data` to update the chart live.
 - Hovering shows a tooltip with the values. The chart also has an accessible summary, from the messages `basic.chart.*`.
 
