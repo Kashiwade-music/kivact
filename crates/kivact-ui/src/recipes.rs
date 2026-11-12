@@ -543,6 +543,14 @@ recipe_table! {
 }
 
 recipe_table! {
+    /// The recipes of a [`sparkline`](super::sparkline).
+    SparklineRecipes {
+        /// The chart's box: its size. The theme's `UiTokens::sparkline` draws the line and the area in it.
+        root(root_recipe): () = look_metrics::sparkline_root,
+    }
+}
+
+recipe_table! {
     /// The recipes of a [`disclosure`](super::disclosure); all of them get
     /// the trigger's or the content's [`crate::disclosure_values::DisclosureRecipeState`].
     DisclosureRecipes {
@@ -723,6 +731,7 @@ recipe_table! {
         data_table(data_table_recipes): DataTableRecipes,
         split(split_recipes): SplitRecipes,
         progress(progress_recipes): ProgressRecipes,
+        sparkline(sparkline_recipes): SparklineRecipes,
         disclosure(disclosure_recipes): DisclosureRecipes,
         carousel(carousel_recipes): CarouselRecipes,
         dropzone(dropzone_recipes): DropzoneRecipes,

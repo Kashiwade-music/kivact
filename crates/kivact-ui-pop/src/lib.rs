@@ -7,7 +7,7 @@
 //!
 //! The theme supplies the Pop appearance for standard controls, collections,
 //! calendars, chat and metric components in `kivact::ui`. The kit adds typed
-//! appearance variants, tab labels, chart primitives and domain-specific
+//! appearance variants, tab labels and domain-specific
 //! conversation-preview and scheduling rows.
 //!
 //! The texts the components show themselves (a dialog's close button, the
@@ -55,7 +55,7 @@ pub use button::{ButtonTone, Slant};
 pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
 pub use color::ColorName;
 
-pub use display::{empty_illustration, sparkline};
+pub use display::empty_illustration;
 pub use messaging::{Thread, thread};
 pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
 pub use patterns::{AgendaItem, agenda_item};

@@ -77,6 +77,10 @@ pub(crate) fn stat(r: StatRecipes) -> StatRecipes {
     })
     .chart(|_| move |_, _| style().grid_column(2).grid_row(3).align_self(Align::Center))
 }
+/// The console's trend chart: a 96 by 28 box.
+pub(crate) fn sparkline(_: &Theme, _: &Look<()>) -> Style {
+    style().size(96, 28)
+}
 pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
     style()
         .font_family(t.ext::<Tokens>().display_family.as_str())

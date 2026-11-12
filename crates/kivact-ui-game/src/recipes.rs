@@ -23,6 +23,7 @@ fn build() -> UiRecipes {
             .field(crate::recipes_field::field)
             .heading(|_| crate::recipes_metrics::heading)
             .stat(crate::recipes_metrics::stat)
+            .sparkline(|sparkline| sparkline.root(|_| crate::recipes_metrics::sparkline))
             .description_list(crate::recipes_metrics::description_list)
             .skeleton(|_| crate::recipes_indicators::skeleton)
             .empty_state(crate::recipes_feedback::empty_state)

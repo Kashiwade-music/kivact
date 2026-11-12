@@ -48,6 +48,21 @@ pub fn theme(mode: ThemeMode) -> Theme {
         line_height: LineHeight::Scale(1.5),
         ..base.text().clone()
     };
+    base.with_mode(mode)
+        .with_colors(colors)
+        .with_space(space)
+        .with_radius(radius)
+        .with_text(text)
+        .with_focus_ring(3.0)
+        .with_control_height(36.0)
+        .with_icons(crate::icons::set())
+        .with(ui_tokens(&p))
+        .with(p)
+        .with(crate::recipes::recipes())
+}
+
+/// The standard components' tokens in the Pop look.
+fn ui_tokens(p: &Tokens) -> kivact::ui::UiTokens {
     let mut ui = kivact::ui::UiTokens::default();
     ui.indicators.reduced_period_ms = Some(1000);
     ui.code_block.font_size = 13.0;
@@ -62,20 +77,17 @@ pub fn theme(mode: ThemeMode) -> Theme {
     ui.toolbar.padding = 8.0;
     ui.toolbar.gap = 8.0;
     ui.toolbar.min_height = 36.0;
+    ui.sparkline = kivact::ui::SparklineTokens {
+        line: p.blue,
+        line_width: 2.4,
+        round: true,
+        fill: kivact::ui::SparklineFill::Fade(crate::tokens::sparkline_fill()),
+        inset: 6.0,
+    };
     ui.calendar = kivact::ui::CalendarTokens {
         cell_size: 40.0,
         month_gap: 12.0,
         week_gap: 2.0,
     };
-    base.with_mode(mode)
-        .with_colors(colors)
-        .with_space(space)
-        .with_radius(radius)
-        .with_text(text)
-        .with_focus_ring(3.0)
-        .with_control_height(36.0)
-        .with_icons(crate::icons::set())
-        .with(ui)
-        .with(p)
-        .with(crate::recipes::recipes())
+    ui
 }

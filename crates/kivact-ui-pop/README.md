@@ -4,8 +4,8 @@ A Kivact UI kit for compact desktop business applications: calm slate
 surfaces, narrow blue gradients and yellow accents.
 
 The kit depends only on the public `kivact` crate. Its theme restyles the
-standard components of `kivact::ui`, and adds timelines, scheduling rows,
-conversation-preview rows and standalone chart primitives.
+standard components of `kivact::ui`, and adds timelines, scheduling rows and
+conversation-preview rows.
 
 ```rust,no_run
 use kivact::prelude::*;
@@ -58,6 +58,7 @@ The theme fills these entries in `UiRecipes`:
 - `typing_indicator`
 - `code_block`
 - `stat`
+- `sparkline`
 - `heading`
 - `description_list`
 - `breadcrumb`
@@ -151,7 +152,7 @@ names and their replacements:
 | `Segmented` | `kivact::ui::radio_group(..).variant(kivact::ui::RadioGroupVariant::Segmented)` |
 | `skeleton`, `Skeleton` (`.rows(n)`) | `kivact::ui::skeleton().lines(n)`, with `.shape(kivact::ui::SkeletonShape::..)` |
 | `spinner` | `kivact::ui::spinner()`, with `.size(kivact::ui::ControlSize::..)` |
-| `stat_card`, `StatCard` (`.trend`, `.icon`, `.points`, `.tone`) | `kivact::ui::stat(label, value).delta(text).icon(view).chart(pop::sparkline(points)).variant(pop::StatHue::new(hue))` |
+| `stat_card`, `StatCard` (`.trend`, `.icon`, `.points`, `.tone`) | `kivact::ui::stat(label, value).delta(text).icon(view).chart(kivact::ui::sparkline(points)).variant(pop::StatHue::new(hue))` |
 | `stepper(labels, current)`, `Stepper` (`.notes`) | `kivact::ui::stepper(items, current)` with `kivact::ui::StepperItem::new(label).description(note)` and `.variant(pop::DiamondSteps)` |
 | `typing_message(initials)` | `kivact::ui::typing_indicator().avatar(kivact::ui::avatar(initials).variant(pop::AvatarLook::default().size(24)))` |
 

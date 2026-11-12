@@ -403,6 +403,10 @@ fn filled_recipe_keys(kit: &UiRecipes) -> Vec<&'static str> {
             kit.progress_recipes() != defaults.progress_recipes(),
         ),
         (
+            "sparkline",
+            kit.sparkline_recipes() != defaults.sparkline_recipes(),
+        ),
+        (
             "disclosure",
             kit.disclosure_recipes() != defaults.disclosure_recipes(),
         ),

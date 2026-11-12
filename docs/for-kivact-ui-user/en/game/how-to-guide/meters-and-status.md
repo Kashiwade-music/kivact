@@ -52,7 +52,7 @@ fn meters() -> impl IntoView {
 
 ## Format a statistic
 
-Use `stat(label, formatted_value)` with `game::StatVariant::Kpi`. The application owns numeric formatting, decimal precision, separators, units and animation. Pass reactive text to the value, `label_content` for an icon and heading, `value_content` for separately styled numbers and units, and `chart` for `game::sparkline(samples)`. The sparkline only draws application-provided samples. `delta` is the change caption; `Tone` chooses its semantic color. `trend` independently reports the direction of change.
+Use `stat(label, formatted_value)` with `game::StatVariant::Kpi`. The application owns numeric formatting, decimal precision, separators, units and animation. Pass reactive text to the value, `label_content` for an icon and heading, `value_content` for separately styled numbers and units, and `chart` for `kivact::ui::sparkline(samples)`, the standard sparkline in the console's look. The sparkline only draws application-provided samples. `delta` is the change caption; `Tone` chooses its semantic color. `trend` independently reports the direction of change.
 
 ```rust,no_run
 use kivact::interaction::Tone;
@@ -81,7 +81,7 @@ fn accuracy() -> impl IntoView {
             .style(style().gap(2).align_items(Align::Baseline)),
         )
         .delta("+12.4%")
-        .chart(game::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
+        .chart(kivact::ui::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
 }
 # fn main() {}
 ```

@@ -1,7 +1,8 @@
 //! Role: Install Game colors, metrics and standard UI recipes.
 use crate::tokens::{Density, Tokens};
 use kivact::style::theme::{Radii, Spacing, Typography};
-use kivact::style::{LineHeight, Theme, ThemeMode};
+use kivact::style::{ColorToken, LineHeight, Theme, ThemeMode};
+use kivact::ui::{SparklineFill, SparklineTokens};
 /// The console's theme for `mode`, in the comfortable [`Density`]: the
 /// light or dark color table, the metrics, the icons and the recipes of the
 /// standard components.
@@ -76,6 +77,13 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
     ui.table.cell_padding = Some(12.);
     ui.table.header_height = Some(34.);
     ui.table.font_size = Some(11.5);
+    ui.sparkline = SparklineTokens {
+        line: ColorToken::Accent.into(),
+        line_width: 1.5,
+        round: false,
+        fill: SparklineFill::Solid(tokens.primary_weak),
+        inset: 0.0,
+    };
     ui.item_list.gap = Some(0.);
     ui.item_list.padding = Some(10.);
     ui.item_list.row_gap = Some(6.);

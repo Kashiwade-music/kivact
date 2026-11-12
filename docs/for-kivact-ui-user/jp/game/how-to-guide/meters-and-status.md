@@ -52,7 +52,7 @@ fn meters() -> impl IntoView {
 
 ## 数値を整形する
 
-`stat(label, formatted_value)` に `game::StatVariant::Kpi` を指定します。数値の書式、小数桁、区切り、単位、アニメーションはアプリケーションが所有します。値にはリアクティブな文字列を渡します。`label_content` はアイコン付き見出し、`value_content` は別々に装飾する数値と単位、`chart` は `game::sparkline(samples)` などのチャートです。スパークラインは渡されたサンプルを描くだけです。`delta` は変化のキャプションで、`Tone` が意味に応じた色を選びます。`trend` は独立した変化の方向です。
+`stat(label, formatted_value)` に `game::StatVariant::Kpi` を指定します。数値の書式、小数桁、区切り、単位、アニメーションはアプリケーションが所有します。値にはリアクティブな文字列を渡します。`label_content` はアイコン付き見出し、`value_content` は別々に装飾する数値と単位、`chart` は `kivact::ui::sparkline(samples)` などのチャートです。`kivact::ui::sparkline` は標準部品で、コンソールの外観で描かれます。スパークラインは渡されたサンプルを描くだけです。`delta` は変化のキャプションで、`Tone` が意味に応じた色を選びます。`trend` は独立した変化の方向です。
 
 ```rust,no_run
 use kivact::interaction::Tone;
@@ -81,7 +81,7 @@ fn accuracy() -> impl IntoView {
             .style(style().gap(2).align_items(Align::Baseline)),
         )
         .delta("+12.4%")
-        .chart(game::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
+        .chart(kivact::ui::sparkline(vec![3.0, 5.0, 4.0, 8.0, 9.0, 12.0]))
 }
 # fn main() {}
 ```
