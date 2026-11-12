@@ -115,6 +115,7 @@ these `basic.`-prefixed keys; an App replaces them with `App::messages`.
 | `basic.chart.summary` | {kind}: {series} |
 | `basic.chart.total` | Total |
 | `basic.plot.description` | {series}. {x}: {x_min} to {x_max}. {y}: {y_min} to {y_max}. |
+| `basic.plot.value` | Value |
 | `basic.questionnaire.label` | Questionnaire |
 | `basic.questionnaire.next` | Next |
 | `basic.questionnaire.previous` | Previous |

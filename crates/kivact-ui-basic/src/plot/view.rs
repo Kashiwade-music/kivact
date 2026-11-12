@@ -2,11 +2,11 @@
 
 use super::input::{Nudge, drag_view, wheel_view};
 use super::model::{PlotModel, PlotRange, PlotView};
-use super::paint::paint;
+use super::paint::{Cursor, paint};
 use super::scale::plot_area;
 use super::ticks::format_value;
 use kivact::geometry::{Point, Rect, Size};
-use kivact::i18n::{Locale, message_with, use_locale};
+use kivact::i18n::{Locale, message, message_with, use_locale};
 use kivact::interaction::{DragApi, DragCoordinates, DragUpdate, EditSession, use_drag};
 use kivact::state::{
     Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, callback, signal,
@@ -115,6 +115,7 @@ impl IntoView for Plot {
         };
         let locale = use_locale();
         let hover = signal(None::<Point>);
+        let value_label = message("basic.plot.value", "Value");
         let target = node_ref();
         let size = target.rect();
         let edit = session_edit(range, on_edit);
@@ -139,7 +140,15 @@ impl IntoView for Plot {
             .draw(move |d, canvas| {
                 let view = model.with(|m| range.with(|r| r.view(m)));
                 let at = hover.get();
-                locale.with(|locale| model.with(|m| paint(d, canvas, m, view, at, locale)));
+                value_label.with(|value| {
+                    let cursor = at.map(|at| Cursor {
+                        at,
+                        value: value.as_str(),
+                    });
+                    locale.with(|locale| {
+                        model.with(|m| paint(d, canvas, m, view, cursor, locale));
+                    });
+                });
             })
             .on_pointer(pointer_handler(hover, edit, range))
             .on_wheel(wheel_handler(edit, range, model, size, dragging))

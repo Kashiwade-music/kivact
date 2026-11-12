@@ -55,13 +55,23 @@ struct Frame<'a> {
     locale: &'a Locale,
 }
 
-/// Paint the plot, with a crosshair and a readout when `hover` is inside it.
+/// The pointer over the plot: where it is, and the label of a heatmap cell's
+/// value in the readout.
+#[derive(Clone, Copy)]
+pub(super) struct Cursor<'a> {
+    /// The position in logical px.
+    pub(super) at: Point,
+    /// The label of a heatmap cell's value (the `basic.plot.value` message).
+    pub(super) value: &'a str,
+}
+
+/// Paint the plot, with a crosshair and a readout when the cursor is inside it.
 pub(super) fn paint(
     draw: &mut Draw,
     size: Size,
     model: &PlotModel,
     view: PlotView,
-    hover: Option<Point>,
+    cursor: Option<Cursor<'_>>,
     locale: &Locale,
 ) {
     let area = plot_area(size, model);
@@ -104,8 +114,8 @@ pub(super) fn paint(
     if model.legend && !model.series.is_empty() {
         paint_legend(draw, &frame);
     }
-    if let Some(at) = hover.filter(|at| within(area, *at)) {
-        paint_hover(draw, &frame, at);
+    if let Some(cursor) = cursor.filter(|cursor| within(area, cursor.at)) {
+        paint_hover(draw, &frame, cursor);
     }
 }
 
@@ -407,7 +417,8 @@ fn fit_name(name: &str, limit: f64, measure: impl Fn(&str) -> f64) -> String {
 }
 
 /// The crosshair through the pointer, a dot on the nearest point and the readout card.
-fn paint_hover(draw: &mut Draw, f: &Frame, at: Point) {
+fn paint_hover(draw: &mut Draw, f: &Frame, cursor: Cursor<'_>) {
+    let at = cursor.at;
     let ring = f.tokens.ring;
     draw.line(
         Point::new(at.x, f.area.y),
@@ -425,25 +436,28 @@ fn paint_hover(draw: &mut Draw, f: &Frame, at: Point) {
         return;
     };
     draw.circle(read.at, 4.0, ring);
-    paint_card(draw, f, &read, at);
+    paint_card(draw, f, &read, cursor);
 }
 
-/// The lines of the readout card: the series name, then the values.
-fn readout_lines(f: &Frame, read: &Readout) -> Vec<String> {
+/// The lines of the readout card: the series name, the x and y values under
+/// the axis titles, and for a heatmap cell its value under `value`.
+fn readout_lines(f: &Frame, read: &Readout, value: &str) -> Vec<String> {
     let mut lines = vec![
         read.name.clone(),
         format!(
-            "x: {}",
+            "{}: {}",
+            f.model.x.label,
             format_value(read.x, &f.model.x.format, 0.0, f.locale)
         ),
         format!(
-            "y: {}",
+            "{}: {}",
+            f.model.y.label,
             format_value(read.y, &f.model.y.format, 0.0, f.locale)
         ),
     ];
     if let Some(z) = read.z {
         lines.push(format!(
-            "value: {}",
+            "{value}: {}",
             format_value(z, &f.model.y.format, 0.0, f.locale)
         ));
     }
@@ -452,8 +466,9 @@ fn readout_lines(f: &Frame, read: &Readout) -> Vec<String> {
 
 /// The readout card beside the pointer, turned to the left at the right edge
 /// and kept inside the plot.
-fn paint_card(draw: &mut Draw, f: &Frame, read: &Readout, at: Point) {
-    let lines = readout_lines(f, read);
+fn paint_card(draw: &mut Draw, f: &Frame, read: &Readout, cursor: Cursor<'_>) {
+    let at = cursor.at;
+    let lines = readout_lines(f, read, cursor.value);
     let style = text_style(
         TEXT,
         f.tokens.popover_foreground,

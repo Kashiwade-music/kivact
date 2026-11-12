@@ -144,7 +144,7 @@ The same `Offscreen` can also `render` the PNG pixels of this picture, since it 
 - Give every axis a label. A plot without a title does not reserve room for one.
 - Keep the number of series small enough for the legend in the top right corner.
 - The plot draws about one tick per 80 px horizontally and 50 px vertically. A log axis spanning less than a decade uses the linear ticks of its values.
-- The readout card labels its lines `x`, `y` and `value` in English. Only the accessible description is written in the app's locale.
+- The readout card names the x and y values with the axis titles. A heatmap cell's value is labeled by the `basic.plot.value` message (default `Value`), and the accessible description is written in the app's locale.
 
 ## See also
 
