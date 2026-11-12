@@ -107,6 +107,7 @@
 | 2026-11-10 | ADR-62 | idle の window の CPU の frame state をいつ手放すか | 最後の present から 1 秒後 | 再描画のたびの再確保を避けながら、止まった window のメモリを返すため |
 | 2026-11-10 | ADR-63 | catalog の Noto Sans JP をどう持つか | 使う文字の subset を commit し、`dev/tools/subset-catalog-font.py` で作り直す | 原本（約 9.6 MB）が catalog の binary の大半を占める。OFL は subset を許す |
 | 2026-11-12 | ADR-64 | SVG の書き出しを別の型にするか | 別の型を作らず `Offscreen::render_svg` とする。SVG 1.1 で表せない命令・値は Unsupported の error にし、黙って落とさない | theme・font・cache の設定と記録の経路を PNG と一つにし、同じ描画関数で両方を書き出すため |
+| 2026-11-12 | ADR-65 | 数値の XY plot をどこに置き、範囲の操作をどう表すか | basic kit の plot とし、範囲は軸の値の座標（PlotRange）で持つ。pan は interaction の Drag、wheel・key・double click は EditSession の 1 回の編集にし、範囲の binding を直接書いて on_edit(EditPhase) で報告する。等方の ViewTransform は使わない | 構造化データは kit が描く。x と y を対数軸で別々に拡大するため等方の変換では表せない。操作の取消しと確定を他の部品と同じ EditPhase に揃え、確定だけの通知を別に作らないため |
 
 ### 実装の決定の補足
 

@@ -1,0 +1,152 @@
+# ズームできる軸の上にプロットを描く
+
+[English](../../../en/basic/how-to-guide/plot.md)
+
+このガイドでは、`kivact_ui_basic` で数値データを XY プロットとして描く方法を示します。タイトル、軸、系列を記述する `PlotModel`、ユーザーがズーム、移動、読み取りをできる `plot`、そしてユーザーが編集する範囲を扱います。[チュートリアル](../getting-started/README.md)を終えていることを前提にしています。
+
+プロットは数値を所有しません。`PlotData` は配列を参照で共有するので複製は安価で、プロットが描き直されるのは model か範囲が変わったときだけです。
+
+## 折れ線を描く
+
+2 つの軸から `PlotModel` を作り、`PlotSeries` を加えます。ラベルとともに `plot` へ渡します。範囲にバインディングを付けるまで、プロットは自分の範囲に従います（後述）。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_basic::{
+    AxisScale, PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, TickFormat, plot,
+};
+
+fn response() -> impl IntoView {
+    let frequencies: Vec<f64> = (1..=100).map(|i| f64::from(i) * 10.0).collect();
+    let gain: Vec<f64> = frequencies
+        .iter()
+        .map(|f| -20.0 * (f / 500.0).log10().max(0.0))
+        .collect();
+    let model = PlotModel::new(
+        PlotAxis::new("Frequency")
+            .scale(AxisScale::Log10)
+            .format(TickFormat::Si),
+        PlotAxis::new("Gain").format(TickFormat::Decibel),
+    )
+    .title("Response")
+    .series(
+        PlotSeries::new(
+            "Gain",
+            PlotSeriesKind::Line {
+                x: PlotData::new(frequencies),
+                y: PlotData::new(gain),
+            },
+        )
+        .color(rgb(0xf2aa4c)),
+    );
+    plot("Response", model).style(style().width(560))
+}
+```
+
+- `PlotSeriesKind` には 5 種類あります。`Line`（折れ線）、`Points`（半径つきの円）、`Stems`（下端から各点までの線）、`Steps`（端点と値によるヒストグラム）、`Heatmap`（端点と行優先の `z` によるセルの格子）です。
+- 系列の色は `PlotSeries::color` で指定します。指定しなければ、系列の順番に対応するキットのチャートの色になるので、既定では系列ごとに色が違います。
+- 軸は `AxisScale::Linear` か `AxisScale::Log10` です。対数軸では 0 以下の値は描きません。
+- 目盛りの書式は `TickFormat::Plain`（有効数字 4 桁）、`Si`（`1.5k`、`10m`）、`Decibel`、`Degrees` から選びます。読み取りも同じ書式です。数字はアプリのロケールの桁と小数点で書かれます。
+
+## ユーザーがズームとパンをできるようにする
+
+プロットは、画像の役割を持つフォーカス可能な canvas です。名前はラベルで、説明には系列、軸のタイトル、表示中の範囲がロケールで書かれます。
+
+- ドラッグするとパンします。内容はポインタに追従します。
+- ホイールはポインタの位置を中心に x 軸をズームします。Ctrl を押すと y 軸をズームします。横方向のホイールは x 軸を移動します。多くのシステムでは、縦のホイールに Shift を押すと同じ動きになります。
+- プロットにフォーカスがあるとき、`+` と `-` は x 軸を、PageUp と PageDown は y 軸をズームし、矢印キーは表示範囲の 10% ずつ移動します。`0` と Home は自動の範囲に戻します。
+- ダブルクリックで自動の範囲に戻します。
+- ポインタを重ねると、十字線、最も近い点の印、読み取りカードが出ます。折れ線は x が昇順のときだけ、最も近い x の点を読み取ります。
+
+## 範囲をアプリの状態に持つ
+
+ユーザーが選んだ範囲を読んだり、コードから設定したりするには、`PlotRange` の signal を `range` にバインドします。`PlotRange::Auto` はデータに合わせ、`PlotRange::Manual` は固定の `PlotView` を保持します。操作のたびにバインディングへ直ちに書き込まれ、別の確定用のコールバックはありません。
+
+`on_edit` は操作を `EditPhase` として報告します。ドラッグは、ポインタが最初に動かしたときに編集を始め、ボタンを離したときに確定します。Escape やポインタのキャンセルは、編集を始めた範囲に戻し、`Cancel` を報告します。ホイールの一回の操作、キー、ダブルクリックは、始まりと確定が同時に起こる 1 回の編集です。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::view::EditPhase;
+use kivact_ui_basic::{PlotModel, PlotRange, plot};
+
+fn watched(model: PlotModel) -> impl IntoView {
+    let range = signal(PlotRange::Auto);
+    plot("Response", model)
+        .range(range)
+        .on_edit(move |phase| match phase {
+            EditPhase::Begin => {}
+            EditPhase::Commit => {
+                // ここでは `range` に新しい PlotRange::Manual が入っています。
+                // たとえばセッションファイルへ保存します。
+            }
+            EditPhase::Cancel => {}
+        })
+}
+```
+
+## ヒートマップを描く
+
+ヒートマップは `PlotSeriesKind::Heatmap` の系列 1 つです。`x_edges` は `cols + 1` 個、`y_edges` は `rows + 1` 個の値を持ちます。値 `z` は行優先で、`z_min`..`z_max` がキットのトークンのビリディス配色（`Tokens::heatmap`）に対応します。NaN のセルは透明になり、`z_min`..`z_max` の外の値は近い端の色になります。端点は昇順でも降順でもかまいません。
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact_ui_basic::{PlotAxis, PlotData, PlotModel, PlotSeries, PlotSeriesKind, plot};
+
+fn grid() -> impl IntoView {
+    let (rows, cols) = (4_u32, 6_u32);
+    let x_edges: Vec<f64> = (0..=cols).map(f64::from).collect();
+    let y_edges: Vec<f64> = (0..=rows).map(f64::from).collect();
+    let z: Vec<f64> = (0..rows * cols).map(f64::from).collect();
+    let model = PlotModel::new(PlotAxis::new("Column"), PlotAxis::new("Row"))
+        .legend(false)
+        .series(
+        PlotSeries::new(
+            "Value",
+            PlotSeriesKind::Heatmap {
+                x_edges: PlotData::new(x_edges),
+                y_edges: PlotData::new(y_edges),
+                z: PlotData::new(z),
+                rows,
+                cols,
+                z_min: 0.0,
+                z_max: 23.0,
+            },
+        ),
+    );
+    plot("Grid", model).style(style().width(480))
+}
+```
+
+## プロットを書き出す
+
+`draw_plot` は model を、ある範囲で、ポインタなしに任意の `Draw` へ描きます。同じ絵を画面にも、`Offscreen` の画像にも、SVG の文書にも送れます。色はその時点のテーマのキットのトークンで、数字は渡したロケールで書かれます。`PlotRange::view(&model)` は `PlotRange` の表示範囲を、`PlotModel::auto_view` はデータに合う範囲を返します。
+
+```rust,no_run
+use kivact::draw::Offscreen;
+use kivact::i18n::Locale;
+use kivact::style::ThemeMode;
+use kivact_ui_basic::{PlotModel, PlotRange, draw_plot};
+
+fn export(model: &PlotModel) -> kivact::Result<String> {
+    let view = PlotRange::Auto.view(model);
+    let locale = Locale::new("ja-JP");
+    let mut renderer = Offscreen::new().theme(kivact_ui_basic::theme(ThemeMode::Light));
+    renderer.render_svg(640.0, 360.0, |draw, size| {
+        draw_plot(draw, size, model, view, &locale);
+    })
+}
+```
+
+同じ `Offscreen` で、この絵の PNG のピクセルを `render` で書き出すこともできます。テーマとフォントは両方で一つを共有するためです。描画の書き出しについては、[キャンバスで描く](../../../../for-kivact-user/jp/how-to-guide/canvas.md)を参照してください。
+
+## 読みやすくする
+
+- すべての軸にラベルを付けてください。タイトルのないプロットは、タイトルの場所を取りません。
+- 系列の数は、右上の凡例に収まる程度にしてください。
+- 目盛りは横に 80 px、縦に 50 px ごとに 1 本程度です。1 桁未満の対数軸は、その値の線形の目盛りを使います。
+- 読み取りカードの `x`、`y`、`value` の行の名前は英語のままです。ロケールで書かれるのは、支援技術向けの説明だけです。
+
+## 関連項目
+
+- [データを表示する](data-display.md): 表、グラフ、バッジ。
+- [キャンバスで描く](../../../../for-kivact-user/jp/how-to-guide/canvas.md): プロットが使う描画の語彙と、描画の書き出し。
