@@ -303,6 +303,25 @@ fn every_chart_kind_draws_its_series_in_their_colors_in_both_themes() {
 }
 
 #[test]
+fn the_default_value_text_is_written_in_the_app_locale() {
+    let screen = kivact::test::render_with_handle(
+        kivact::test::RenderOptions::with_theme(basic::theme(kivact::style::ThemeMode::Light))
+            .window_size(640.0, 400.0)
+            .reduced_motion()
+            .locale(kivact::i18n::Locale::new("de-DE")),
+        move || {
+            let data = vec![basic::ChartRow::new("January", [1234.5, 80.0])];
+            ((), basic::chart(config(), data).height(220.0))
+        },
+    )
+    .0;
+    let text = screen
+        .find_by_role(kivact::view::Role::Image, "Bar chart: Desktop, Mobile")
+        .description();
+    assert!(text.contains("1.234,5"), "{text}");
+}
+
+#[test]
 fn hovering_a_chart_shows_the_tooltip_card_with_the_values() {
     let screen = mount_chart(kivact::style::ThemeMode::Light, || {
         chart_of(basic::ChartKind::Bar)

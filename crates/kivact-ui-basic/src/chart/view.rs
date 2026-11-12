@@ -3,15 +3,14 @@
 use super::model::Hit;
 use super::model::{ChartConfig, ChartKind, ChartRow};
 use super::plot::{Options, hit_test, paint};
-use super::scale::format_value;
-use kivact::geometry::{Point, Size};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::i18n::{FractionDigits, Grouping, Locale, NumberStyle, use_locale};
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
-use kivact::state::{Value, memo, signal};
+use kivact::state::{Signal, Value, memo, signal};
 use kivact::style::{Direction, Length, pct, style};
-use kivact::view::{Element, Node, column, node};
+use kivact::view::{Element, Node, column, node, node_ref};
 use kivact::view::{IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show};
-use std::cell::Cell;
 use std::rc::Rc;
 
 /// The name of a kind in the chart's accessible name.
@@ -49,7 +48,7 @@ pub struct Chart {
     config: ChartConfig,
     data: Value<Vec<ChartRow>>,
     options: Options,
-    format: Rc<dyn Fn(f64) -> String>,
+    format: Option<Rc<dyn Fn(f64) -> String>>,
     tooltip: Value<bool>,
     legend: Value<bool>,
     height: Value<Length>,
@@ -90,7 +89,7 @@ pub fn chart(config: ChartConfig, data: impl IntoValue<Vec<ChartRow>>) -> Chart 
             grid: true.into_value(),
             axis: true.into_value(),
         },
-        format: Rc::new(format_value),
+        format: None,
         tooltip: true.into_value(),
         legend: true.into_value(),
         height: Length::from(240).into_value(),
@@ -117,10 +116,10 @@ impl Chart {
 
     /// Write the values the chart shows (axis ticks, the donut total, the
     /// tooltip and the description for assistive technology) with `format`.
-    /// The default groups thousands and keeps at most three decimals
-    /// (`1,234.5`).
+    /// The default writes the number in the app's locale, at most three
+    /// decimals, with grouping (`1,234.5` in en-US).
     pub fn value_format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-        self.format = Rc::new(format);
+        self.format = Some(Rc::new(format));
         self
     }
 
@@ -169,6 +168,28 @@ impl Element for Chart {
     }
 }
 
+/// The default value text: the app's locale, at most three decimals, grouped.
+/// The locale is read where the text is written, so a locale change draws and
+/// describes the chart again.
+fn default_format(locale: Value<Locale>) -> Rc<dyn Fn(f64) -> String> {
+    Rc::new(move |value: f64| {
+        if !value.is_finite() {
+            return "-".to_owned();
+        }
+        // A value that rounds to zero at three decimals is written without its sign.
+        let value = if value.abs() < 0.0005 { 0.0 } else { value };
+        locale.with(|locale| {
+            locale.format_number(
+                value,
+                NumberStyle {
+                    fraction_digits: FractionDigits::Range { min: 0, max: 3 },
+                    grouping: Grouping::Locale,
+                },
+            )
+        })
+    })
+}
+
 /// The data as text, row by row: `January: Desktop 186, Mobile 80; February: ...`.
 fn describe(config: &ChartConfig, rows: &[ChartRow], format: &dyn Fn(f64) -> String) -> String {
     rows.iter()
@@ -198,6 +219,25 @@ enum ChartHover {
     Over { hit: Hit, at: Point },
 }
 
+/// The hit under the pointer and the pointer position, as two memos of the
+/// hover. The hit and the pointer change separately: a move within a row only
+/// moves the card.
+fn hover_values(hover: Signal<ChartHover>) -> (Value<Option<Hit>>, Value<Point>) {
+    let hit = memo(move || {
+        hover.with(|hover| match hover {
+            ChartHover::Over { hit, .. } => Some(hit.clone()),
+            ChartHover::Away => None,
+        })
+    });
+    let at = memo(move || {
+        hover.with(|hover| match hover {
+            ChartHover::Over { at, .. } => *at,
+            ChartHover::Away => Point::new(0.0, 0.0),
+        })
+    });
+    (hit, at)
+}
+
 impl IntoView for Chart {
     fn into_view(self) -> View {
         let Chart {
@@ -211,23 +251,11 @@ impl IntoView for Chart {
             height,
         } = self;
         let config = Rc::new(config);
+        let format = format.unwrap_or_else(|| default_format(use_locale()));
         let hover = signal(ChartHover::Away);
-        // The hit and the pointer change separately: a move within a row only
-        // moves the card.
-        let hit = memo(move || {
-            hover.with(|hover| match hover {
-                ChartHover::Over { hit, .. } => Some(hit.clone()),
-                ChartHover::Away => None,
-            })
-        });
-        let at = memo(move || {
-            hover.with(|hover| match hover {
-                ChartHover::Over { at, .. } => *at,
-                ChartHover::Away => Point::new(0.0, 0.0),
-            })
-        });
-        // xtask-allow(state-fields): independent: measured plot size
-        let plot = Rc::new(Cell::new(Size::new(0.0, 0.0)));
+        let (hit, at) = hover_values(hover);
+        let target = node_ref();
+        let bounds = target.rect();
         let total_label = message("basic.chart.total", "Total");
         let name = chart_name(options.kind, &config);
         let details = {
@@ -239,10 +267,10 @@ impl IntoView for Chart {
             .name(name)
             .description(details)
             .style(move || style().width(pct(100)).height(height.get()).shrink(0))
+            .node_ref(target)
             .draw({
-                let (config, plot, format) = (config.clone(), plot.clone(), format.clone());
+                let (config, format) = (config.clone(), format.clone());
                 move |d, size| {
-                    plot.set(size);
                     let label = total_label.get();
                     data.with(|rows| {
                         let frame = options.frame(&config, rows, &label, &*format);
@@ -251,16 +279,19 @@ impl IntoView for Chart {
                 }
             })
             .on_pointer({
-                let (config, plot, format) = (config.clone(), plot.clone(), format.clone());
+                let (config, format) = (config.clone(), format.clone());
                 move |event: PointerEvent| {
                     if !with_tooltip.get_untracked() {
                         return;
                     }
                     match event.phase() {
                         PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
+                            let size = bounds.get_untracked().map_or(Size::new(0.0, 0.0), |rect| {
+                                Size::new(rect.width, rect.height)
+                            });
                             let next = data.with_untracked(|rows| {
                                 let frame = options.frame(&config, rows, "", &*format);
-                                hit_test(plot.get(), &frame, event.pos())
+                                hit_test(size, &frame, event.pos())
                             });
                             hover.set(match next {
                                 Some(hit) => ChartHover::Over {
@@ -275,7 +306,7 @@ impl IntoView for Chart {
                     }
                 }
             });
-        let (card, legend) = below_plot(&config, &plot, &format, hit, at, with_legend);
+        let (card, legend) = below_plot(&config, bounds, &format, hit, at, with_legend);
         let plot_box = node()
             .style(style().width(pct(100)).direction(Direction::Column))
             .child(canvas)
@@ -287,20 +318,17 @@ impl IntoView for Chart {
 /// The tooltip card that follows the hit and the legend under the plot.
 fn below_plot(
     config: &Rc<ChartConfig>,
-    plot: &Rc<Cell<Size>>,
+    bounds: Value<Option<Rect>>,
     format: &Rc<dyn Fn(f64) -> String>,
     hit: Value<Option<Hit>>,
     at: Value<Point>,
     with_legend: Value<bool>,
 ) -> (impl IntoView, impl IntoView) {
     let card_config = config.clone();
-    let plot = plot.clone();
     let format = format.clone();
     let card = dynamic(
         move || hit.get(),
-        move |hit| {
-            hit.map(|hit| super::tooltip::tooltip(&hit, at, &card_config, plot.get(), &*format))
-        },
+        move |hit| hit.map(|hit| super::tooltip::tooltip(&hit, at, &card_config, bounds, &*format)),
     );
     let legend_config = config.clone();
     let shown = !config.series.is_empty();

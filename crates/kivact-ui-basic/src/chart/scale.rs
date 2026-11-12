@@ -1,4 +1,10 @@
-//! Role: Value scales, nice ticks and number formatting shared by the chart kinds.
+//! Role: Value scales and nice ticks of the chart kinds.
+
+use crate::nice::round_step;
+
+/// The ticks a value axis aims for: about four intervals, as the round step
+/// of [`round_step`] counts them.
+const TICKS: usize = 4;
 
 /// A linear value axis from `lo` to `hi` in steps of `step`.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -12,25 +18,14 @@ impl Domain {
     /// A domain that contains zero and `min`..`max`, ending on round tick values.
     pub(super) fn nice(min: f64, max: f64) -> Self {
         let (mut lo, mut hi) = (min.min(0.0), max.max(0.0));
-        if !lo.is_finite() || !hi.is_finite() {
+        // Values that are not finite, or whose width overflows, get a unit range.
+        if !(hi - lo).is_finite() {
             (lo, hi) = (0.0, 1.0);
         }
         if hi - lo <= f64::EPSILON {
             hi = lo + 1.0;
         }
-        let raw = (hi - lo) / 4.0;
-        let magnitude = 10f64.powf(raw.log10().floor());
-        let fraction = raw / magnitude;
-        let step = magnitude
-            * if fraction <= 1.0 {
-                1.0
-            } else if fraction <= 2.0 {
-                2.0
-            } else if fraction <= 5.0 {
-                5.0
-            } else {
-                10.0
-            };
+        let step = round_step(lo, hi, TICKS).unwrap_or(hi - lo);
         Self {
             lo: (lo / step).floor() * step,
             hi: (hi / step).ceil() * step,
@@ -52,33 +47,6 @@ impl Domain {
     }
 }
 
-/// `value` as JavaScript's `toLocaleString` writes it: grouped thousands, at most three decimals.
-pub(super) fn format_value(value: f64) -> String {
-    if !value.is_finite() {
-        return String::from("-");
-    }
-    let fixed = format!("{:.3}", value.abs());
-    let (whole, fraction) = fixed.split_once('.').unwrap_or((fixed.as_str(), ""));
-    let fraction = fraction.trim_end_matches('0');
-    let mut grouped = String::new();
-    for (i, digit) in whole.chars().enumerate() {
-        if i > 0 && (whole.len() - i).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    if !fraction.is_empty() {
-        grouped.push('.');
-        grouped.push_str(fraction);
-    }
-    let negative = value < 0.0 && grouped.chars().any(|c| c.is_ascii_digit() && c != '0');
-    if negative {
-        format!("-{grouped}")
-    } else {
-        grouped
-    }
-}
-
 /// A generous estimate of the width of `text` set at `size` px.
 ///
 /// Hit testing runs outside the drawing closure, where text cannot be
@@ -93,4 +61,28 @@ pub(super) fn text_width(text: &str, size: f64) -> f64 {
         })
         .sum::<f64>()
         * size
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests for the value domains of the charts.
+
+    use super::*;
+
+    #[test]
+    fn a_domain_contains_zero_and_ends_on_multiples_of_its_step() {
+        let high = Domain::nice(0.0, 305.0);
+        assert_eq!((high.lo, high.hi, high.step), (0.0, 400.0, 100.0));
+        let mixed = Domain::nice(-3.0, 9.0);
+        assert_eq!((mixed.lo, mixed.hi, mixed.step), (-5.0, 10.0, 5.0));
+        assert_eq!(mixed.ticks(), vec![-5.0, 0.0, 5.0, 10.0]);
+    }
+
+    #[test]
+    fn an_empty_or_overflowing_range_still_has_a_finite_domain() {
+        let empty = Domain::nice(0.0, 0.0);
+        assert!(empty.step > 0.0 && empty.hi > empty.lo);
+        let wide = Domain::nice(-f64::MAX, f64::MAX);
+        assert_eq!((wide.lo, wide.hi), (0.0, 1.0));
+    }
 }

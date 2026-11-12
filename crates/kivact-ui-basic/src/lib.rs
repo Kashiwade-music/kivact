@@ -76,6 +76,7 @@ mod menubar;
 mod message_scroller;
 mod native_select;
 mod navigation_menu;
+mod nice;
 mod pagination;
 mod parts;
 mod plot;

@@ -1,6 +1,7 @@
 //! Role: Tick positions and the label format of plot axes and readouts.
 
 use super::axis::{AxisScale, TickFormat};
+use crate::nice::round_step;
 use kivact::i18n::{FractionDigits, Grouping, Locale, NumberStyle};
 
 /// The most ticks one axis makes, whatever the target.
@@ -28,34 +29,19 @@ pub(super) fn axis_ticks(scale: AxisScale, lo: f64, hi: f64, target: f64) -> Vec
     }
 }
 
-/// The tick values of `lo..hi` at about `target` ticks: a step of
-/// `10^k × {1, 2, 5}` (or `10^(k+1)`), the smallest that keeps the count at
-/// most `target`. Empty for a range of zero width or a non-finite range.
+/// The tick values of `lo..hi` at about `target` ticks, on the round step of
+/// [`round_step`]. Empty for a range of zero width or a non-finite range.
 fn linear_ticks(lo: f64, hi: f64, target: usize) -> Vec<f64> {
     let (lo, hi) = if lo <= hi { (lo, hi) } else { (hi, lo) };
-    let range = hi - lo;
-    if target == 0 || !range.is_finite() || range <= 0.0 {
+    let Some(step) = round_step(lo, hi, target) else {
         return Vec::new();
-    }
-    let base = 10f64.powf((range / target as f64).log10().floor());
-    let step = [1.0, 2.0, 5.0, 10.0]
-        .into_iter()
-        .map(|m| base * m)
-        .find(|step| count(lo, hi, *step) <= target)
-        .unwrap_or(base * 10.0);
+    };
     let first = (lo / step).ceil() as i64;
     let last = (hi / step).floor() as i64;
     (first..=last)
         .take(MAX_TICKS)
         .map(|k| k as f64 * step)
         .collect()
-}
-
-/// The number of multiples of `step` in `lo..=hi`.
-fn count(lo: f64, hi: f64, step: f64) -> usize {
-    let first = (lo / step).ceil() as i64;
-    let last = (hi / step).floor() as i64;
-    (last - first + 1).max(0) as usize
 }
 
 /// The ticks of a log axis over the values `lo..hi` (both positive).
@@ -196,7 +182,7 @@ mod tests {
     }
 
     #[test]
-    fn linear_ticks_use_one_two_or_five_steps() {
+    fn linear_ticks_lie_on_the_round_step_inside_the_range() {
         assert_eq!(linear_ticks(0.0, 10.0, 5), vec![0.0, 5.0, 10.0]);
         assert_eq!(linear_ticks(0.0, 1.0, 4), vec![0.0, 0.5, 1.0]);
         let ticks = linear_ticks(0.3, 9.7, 6);
