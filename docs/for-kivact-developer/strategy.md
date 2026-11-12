@@ -82,7 +82,7 @@ API の使いやすさは、Rust 未経験の React・SolidJS 開発者を基準
 | 多言語対応 | 中核とアプリ | 中核は shaping・双方向テキスト・IME と App の locale を持つ。地域ごとの書式は中核の担当として予定する。部品は既定の文言を持ってよいが、すべて差し替えられるようにする。翻訳の資源と言語の切替はアプリが持つ |
 | 描画（CSS の 2D と 3D transform、filter、mask、WGSL の shader（GPU のみ）、HTML-in-Canvas に相当する drawable） | 中核 | style・局所の draw layer・Canvas が同じ描画語彙を持つ。HTML Canvas と Path2D に対応させる |
 | アプリが描いた絵の表示 | 中核とアプリ | 3D viewport・合成プレビュー・scope はアプリの renderer が描く。中核は絵の表示・DPI・サイズ変更・再描画、worker からの frame の受渡し、drawable（view の部分木）の export（pixels と共有 texture）、拡大・pan・座標変換・pointer capture・重ね描き・支援技術の region を持つ。構造化データ（timeline・graph・node editor・color wheel）は kit が描き、アプリのエンジンの出力を模倣しない |
-| 画像の書き出し | 中核 | window なしの RGBA8 描画（OffscreenCanvas に相当）。HDR や浮動小数点の出力はアプリが持つ |
+| 画像の書き出し | 中核 | window なしの RGBA8 描画（OffscreenCanvas に相当）と、同じ描画の SVG 1.1 の文書。HDR や浮動小数点の出力はアプリが持つ |
 | テキスト編集の拡張口 | 中核（段階的に） | 行単位の配置結果、独自部品の IME セッション、テキストのアクセシビリティ。到達目標は「`text_field` を公開 API だけで作り直せること」で、コードエディタを作れる水準とする |
 | アニメーション | 中核 | 目標値への補間と、利用者の毎フレームの計算。任意の正の fps を指定でき、60 fps の上限を置かない。作品の時間（タイムライン、再生位置、シーク）はアプリが持つ |
 | window の起動設定と OS サービス | 中核 | サイズ・最小サイズ・複数の window（位置は親に対する相対の意図だけ）・clipboard・ファイル選択・open・reveal、他のプログラムの window への埋め込み（`App::embed`）。プラグインの規格や枠組みとの glue はアプリ。位置と display は、移植可能な不透明な値として扱える形ができるまで入れない |

@@ -91,6 +91,7 @@ mod motion;
 mod motion_easing;
 mod node_ref;
 mod offscreen;
+mod offscreen_svg;
 mod overlay;
 mod paint;
 mod parts;

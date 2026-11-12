@@ -615,6 +615,53 @@ fn exporter() -> impl IntoView {
 # fn main() -> kivact::Result<()> { App::new("Export").run(exporter) }
 ```
 
+## Write a drawing as SVG
+
+`Offscreen::render_svg` writes the same drawing as one SVG 1.1 document. It
+uses the `Draw` vocabulary, the theme and the registered fonts of the
+`Offscreen` that `render` uses too, so one `Offscreen` serves the PNG and the
+SVG export of one picture function:
+
+```rust,no_run
+use kivact::draw::{Draw, Offscreen};
+use kivact::geometry::{Point, Rect, Size};
+use kivact::prelude::*;
+
+fn artwork(draw: &mut Draw, size: Size) {
+    draw.fill_rect(Rect::new(0.0, 0.0, size.width, size.height), rgb(0x101820));
+    let center = Point::new(size.width / 2.0, size.height / 2.0);
+    draw.circle(center, size.height / 3.0, rgb(0xf2aa4c));
+}
+
+fn main() -> kivact::Result<()> {
+    let mut renderer = Offscreen::new();
+    let document = renderer.render_svg(640.0, 360.0, artwork)?;
+    assert!(document.starts_with("<?xml"));
+    let image = renderer.render(640, 360, artwork)?;
+    assert_eq!(image.rgba.len(), 640 * 360 * 4);
+    // Write `document` to a `.svg` file here.
+    Ok(())
+}
+```
+
+- The size is in logical pixels, and the `width`, `height` and `viewBox` of
+  the document are that size. The document has no background; paint one to
+  make it opaque.
+- Rectangles, rounded rectangles, lines, paths, shapes, text, clips,
+  transforms, layers with opacity, linear and radial gradients, and images
+  are written as SVG elements. Images are embedded as PNG data URIs at the
+  size they are drawn.
+- A command SVG cannot express is an `ErrorKind::Unsupported` error, not a
+  silent omission. Among them are blend modes, masks, filters and 3D
+  transforms on layers, text decorations and font features, shaped
+  paragraphs, conic gradients, and radial gradients sized by keywords. A size
+  that is not a positive finite pair is an `ErrorKind::Message` error, and
+  `paint` is not called.
+- SVG does not embed fonts. Register the fonts the text uses with
+  `renderer.font(include_bytes!("…"))` so the text is measured as the
+  drawing needs, and install the same fonts (under the same family names)
+  where the document is viewed.
+
 ## Capture a mounted node
 
 Bind a `NodeRef` with `.node_ref(target)` and await `target.snapshot()` from

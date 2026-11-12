@@ -21,6 +21,8 @@ kivact-devtools-agent = { path = "../kivact-devtools-agent", version = "0.1.0", 
 kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0", optional = true }
 # The `kivact` and `kivact::layout` tracing targets of the host side.
 tracing = { workspace = true }
+# PNG encoding of the images an SVG export embeds (`Offscreen::render_svg`).
+png = { workspace = true }
 
 [features]
 tokio = ["kivact-runtime/tokio"]

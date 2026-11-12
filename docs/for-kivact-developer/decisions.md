@@ -106,6 +106,7 @@
 | 2026-11-10 | ADR-61 | 公開の診断に a11y の走査の件数を出すか | `Stats::a11y_enumerated` を足す | E2E で a11y の全走査の後退を検出する唯一の観測点であるため |
 | 2026-11-10 | ADR-62 | idle の window の CPU の frame state をいつ手放すか | 最後の present から 1 秒後 | 再描画のたびの再確保を避けながら、止まった window のメモリを返すため |
 | 2026-11-10 | ADR-63 | catalog の Noto Sans JP をどう持つか | 使う文字の subset を commit し、`dev/tools/subset-catalog-font.py` で作り直す | 原本（約 9.6 MB）が catalog の binary の大半を占める。OFL は subset を許す |
+| 2026-11-12 | ADR-64 | SVG の書き出しを別の型にするか | 別の型を作らず `Offscreen::render_svg` とする。SVG 1.1 で表せない命令・値は Unsupported の error にし、黙って落とさない | theme・font・cache の設定と記録の経路を PNG と一つにし、同じ描画関数で両方を書き出すため |
 
 ### 実装の決定の補足
 
