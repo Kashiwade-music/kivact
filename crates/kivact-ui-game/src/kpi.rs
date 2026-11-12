@@ -81,7 +81,7 @@ impl Kpi {
         self.heading = Some(heading.into_view());
         self
     }
-    /// Trend samples drawn as a [`sparkline`](crate::sparkline) beside the change caption.
+    /// Trend samples drawn as a [`sparkline`](kivact::ui::sparkline) beside the change caption.
     pub fn trend(mut self, trend: impl IntoValue<Vec<f64>>) -> Self {
         self.trend = Some(trend.into_value());
         self
@@ -139,7 +139,7 @@ impl IntoView for Kpi {
             stat = stat.delta(change);
         }
         if let Some(trend) = trend {
-            stat = stat.chart(crate::sparkline(trend));
+            stat = stat.chart(kivact::ui::sparkline(trend));
         }
         // The caller's modifiers apply to the statistic's own group root.
         *stat.node_mut() = root.role(Role::Group);

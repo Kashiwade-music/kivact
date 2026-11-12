@@ -2,7 +2,7 @@
 use crate::{Hue, Tokens};
 use kivact::draw::Shadow;
 use kivact::state::{IntoValue, Value};
-use kivact::style::{Align, ColorToken, Direction, Display, Theme, Track, style};
+use kivact::style::{Align, ColorToken, Direction, Display, Theme, Track, pct, style};
 use kivact::ui::{
     DescriptionListRecipes, HeadingState, Look, StatRecipes, StatState, Trend, Variant,
 };
@@ -127,6 +127,10 @@ pub(crate) fn stat(r: StatRecipes) -> StatRecipes {
                     .min_width(1)
             }
         })
+}
+/// The Pop trend chart: the full width of its slot and a 52 px height.
+pub(crate) fn sparkline(_: &Theme, _: &Look<()>) -> kivact::style::Style {
+    style().height(52).width(pct(100)).min_width(1)
 }
 pub(crate) fn description_list(r: DescriptionListRecipes) -> DescriptionListRecipes {
     r.root(|prev| move |t: &Theme, s: &_| prev(t, s).gap(0))

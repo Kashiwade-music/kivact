@@ -19,7 +19,7 @@ fn summary() -> impl IntoView {
             .trend(kivact::ui::Trend::Up)
             .variant(pop::StatHue::new(pop::Hue::Mint))
             .icon(icon("users"))
-            .chart(pop::sparkline(vec![2.0, 4.0, 3.0, 7.0, 9.0])),
+            .chart(kivact::ui::sparkline(vec![2.0, 4.0, 3.0, 7.0, 9.0])),
         kivact::ui::description_list((
             kivact::ui::description("Name", text("Haruka Sato")),
             kivact::ui::description("Status", kivact::ui::badge("Active").variant(pop::Hue::Mint)),
@@ -31,7 +31,7 @@ fn summary() -> impl IntoView {
 }
 ```
 
-`stat(label, value)` accepts reactive text. `.delta(..)` supplies the formatted change, `.trend(Trend::Up | Down | Neutral)` supplies its meaning, and `pop::StatHue` optionally selects any reactive Pop hue. `.icon(..)`, `.chart(..)`, `.label_content(..)` and `.value_content(..)` are mounted view slots. `pop::sparkline(points)` remains a standalone chart primitive and can be placed in any chart slot.
+`stat(label, value)` accepts reactive text. `.delta(..)` supplies the formatted change, `.trend(Trend::Up | Down | Neutral)` supplies its meaning, and `pop::StatHue` optionally selects any reactive Pop hue. `.icon(..)`, `.chart(..)`, `.label_content(..)` and `.value_content(..)` are mounted view slots. `kivact::ui::sparkline(points)` draws the standard chart in the Pop look and can be placed in any chart slot.
 
 `heading(text, level)` exposes the semantic level. Compose a section number with a standard badge using `pop::SectionNumber`, and put optional supporting text beside or below the heading. `card(children)` supplies the bordered surface. No extra numeric state belongs to a statistic.
 

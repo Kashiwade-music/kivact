@@ -45,6 +45,7 @@ fn build() -> UiRecipes {
         .typing_indicator(crate::recipes_chat::typing)
         .code_block(crate::recipes_chat::code)
         .stat(crate::recipes_metrics::stat)
+        .sparkline(|sparkline| sparkline.root(|_| crate::recipes_metrics::sparkline))
         .heading(|_| crate::recipes_metrics::heading)
         .description_list(crate::recipes_metrics::description_list)
         .breadcrumb(crate::recipes_navigation::breadcrumb)

@@ -27,11 +27,33 @@ fn overview() -> impl IntoView {
 
 Progress takes a fraction from 0 to 1 and clamps values outside that range. `None` means indeterminate. `ProgressVariant::{Bar, Ring, Gauge}` use the same `.variant(impl Variant)` contract as custom looks: a later value of the same type replaces the earlier one. All appearances keep the progress role, range and accessible percentage. The default ring also displays the percentage; the gauge is segmented. `.size(..)` and `.moving(..)` retain their usual meaning. Motion follows the installed theme and reduced-motion preference.
 
-`stat(label, value)` exposes a group named by the label, with the application-formatted value as its accessible value. `.delta(impl IntoText)` adds a change caption, and `.trend(impl IntoValue<Trend>)` supplies `Up`, `Down` or `Neutral` to every recipe. Direction alone does not mean success or danger: choose any semantic tone with `.variant(..)` and let the theme style it. `.icon(impl IntoView)` takes a decorative view. `.label_content(..)` and `.value_content(..)` replace visible content while retaining the accessible label and value. `.chart(..)` accepts an application-owned chart, including a kit's sparkline. Numeric animation, custom formatting and units can be supplied as reactive text; these builders do not parse or animate text themselves.
+`stat(label, value)` exposes a group named by the label, with the application-formatted value as its accessible value. `.delta(impl IntoText)` adds a change caption, and `.trend(impl IntoValue<Trend>)` supplies `Up`, `Down` or `Neutral` to every recipe. Direction alone does not mean success or danger: choose any semantic tone with `.variant(..)` and let the theme style it. `.icon(impl IntoView)` takes a decorative view. `.label_content(..)` and `.value_content(..)` replace visible content while retaining the accessible label and value. `.chart(..)` accepts any view, such as a [sparkline](#draw-a-sparkline). The statistic already names its chart, so an unlabelled sparkline in the slot is decorative. Numeric animation, custom formatting and units can be supplied as reactive text; these builders do not parse or animate text themselves.
 
 `heading(text, level)` reports `Role::Heading` and clamps levels to 1 through 6. Its typography comes from the theme's heading recipe. Heading text remains reactive.
 
 `description_list(children)` exposes a list. Each `description(term, detail)` is a list item named by its term; its detail is a group labelled by the visible term. This published association updates when the term changes. Details can contain arbitrary views and controls. `.term_content(impl IntoView)` replaces the visible term (for example, with an icon and text) while keeping its canonical accessible name. Use regular layout styles or description-list recipes for column widths, grids and spacing. Application-owned disclosure and child composition can limit or expand long lists. Editable inspector rows remain in the Creative kit.
+
+## Draw a sparkline
+
+`sparkline(values)` draws a small line chart of numbers in the installed theme's look. `values` is a constant or reactive `Vec<f64>`. Values are spaced evenly across the width, and the highest and lowest sit at the top and bottom of the box. A value that is not finite breaks the line there and is left out of the range. The chart is hidden below two values, so an empty chart slot collapses, and a flat series is drawn in the middle.
+
+```rust,no_run
+use kivact::prelude::*;
+use kivact::ui::{self, Trend};
+
+fn visitors() -> impl IntoView {
+    let daily = signal(vec![3.0, 4.5, 4.0, 6.0, 5.5]);
+    column((
+        ui::stat("Visitors", "5.5k")
+            .trend(Trend::Up)
+            .chart(ui::sparkline(daily)),
+        ui::sparkline(daily).label("Visitors per day"),
+    ))
+    .style(style().gap(16).width(320))
+}
+```
+
+`.label(..)` names the chart for assistive technology as an image, and its description gives the count of values, their range and the last value, formatted in the app's locale. Without a label the chart is decorative. The line, area and inset come from the theme's `UiTokens::sparkline`; its size comes from `UiRecipes::sparkline`, which a kit sets and an application can change.
 
 For constrained media, apply the ordinary style property rather than an aspect-ratio component:
 
@@ -43,4 +65,4 @@ fn preview() -> impl IntoView {
 }
 ```
 
-Themes customize `UiRecipes::heading`, `UiRecipes::stat` and `UiRecipes::description_list`. Statistic parts are `root`, `label`, `value`, `delta`, `icon` and `chart`; description parts are `root`, `item`, `term` and `detail`. Progress keeps its `track` and `fill` recipes and adds `label` for ring text. Every part receives the component's variant values.
+Themes customize `UiRecipes::heading`, `UiRecipes::stat` and `UiRecipes::description_list`. Statistic parts are `root`, `label`, `value`, `delta`, `icon` and `chart`; description parts are `root`, `item`, `term` and `detail`; the sparkline's part is `root`. Progress keeps its `track` and `fill` recipes and adds `label` for ring text. Every part receives the component's variant values.

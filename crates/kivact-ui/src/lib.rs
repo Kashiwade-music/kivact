@@ -20,6 +20,7 @@
 //! | [`split`] | none; it takes the panes and their fractions, and names its handles "Resize" | [`use_splitter`](kivact_interaction::use_splitter), one per pair of panes |
 //! | [`toggle_button`] | the visible label, also the name | [`use_toggle_button`](kivact_interaction::use_toggle_button) |
 //! | [`progress`] | none; it takes the value (`None` is indeterminate), and the caller names it | `Role::ProgressBar` with a range of 0 to 1 |
+//! | [`sparkline`] | none; it takes the values, and is decorative until [`Sparkline::label`] names it | no role without a label; `Role::Image` with one, and a description of its values |
 //! | [`disclosure`] | the title of the trigger, also its name | [`use_disclosure`](kivact_interaction::use_disclosure) |
 //! | [`toast_region`] | none; it takes the [`ToasterApi`] | [`ToasterApi`]'s regions and items |
 //! | [`command_palette`] | none; it takes the open state and the commands, and names its search field with the message `palette.search` | [`use_command_palette`](kivact_interaction::use_command_palette) |
@@ -175,8 +176,8 @@ pub use recipes::{
     CalendarRecipes, ComboboxRecipes, CommandPaletteRecipes, DataTableRecipes, DateInputRecipes,
     DateRangeInputRecipes, DateTimeInputRecipes, DialogRecipes, DisclosureRecipes, FieldRecipes,
     ListRecipes, MenuRecipes, NumberInputRecipes, ProgressRecipes, RadioGroupRecipes, Recipe,
-    SelectRecipes, SliderRecipes, SplitRecipes, SplitterRecipes, TabsRecipes, TagInputRecipes,
-    TimeInputRecipes, ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
+    SelectRecipes, SliderRecipes, SparklineRecipes, SplitRecipes, SplitterRecipes, TabsRecipes,
+    TagInputRecipes, TimeInputRecipes, ToastRecipes, TooltipRecipes, TreeRecipes, UiRecipes,
 };
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
@@ -221,6 +222,8 @@ mod button_tokens;
 mod dialog_tokens;
 mod disclosure_tokens;
 mod progress_tokens;
+mod sparkline_tokens;
+pub use sparkline_tokens::{SparklineFill, SparklineTokens};
 mod toast_tokens;
 mod toggle_button_tokens;
 
@@ -386,6 +389,9 @@ pub use description_list::{Description, DescriptionList, description, descriptio
 pub use heading::{Heading, heading};
 pub use recipes::{DescriptionListRecipes, StatRecipes};
 pub use stat::{Stat, stat};
+
+mod sparkline;
+pub use sparkline::{Sparkline, sparkline};
 
 mod chat_composer;
 mod chat_message;

@@ -19,7 +19,7 @@ fn summary() -> impl IntoView {
             .trend(kivact::ui::Trend::Up)
             .variant(pop::StatHue::new(pop::Hue::Mint))
             .icon(icon("users"))
-            .chart(pop::sparkline(vec![2.0, 4.0, 3.0, 7.0, 9.0])),
+            .chart(kivact::ui::sparkline(vec![2.0, 4.0, 3.0, 7.0, 9.0])),
         kivact::ui::description_list((
             kivact::ui::description("Name", text("Haruka Sato")),
             kivact::ui::description("Status", kivact::ui::badge("Active").variant(pop::Hue::Mint)),
@@ -31,7 +31,7 @@ fn summary() -> impl IntoView {
 }
 ```
 
-`stat(label, value)` はリアクティブな文字列を受け取ります。`.delta(..)` は整形済みの変化量、`.trend(Trend::Up | Down | Neutral)` はその意味です。`pop::StatHue` で任意のリアクティブな Pop の色相を指定できます。`.icon(..)`、`.chart(..)`、`.label_content(..)`、`.value_content(..)` は一度だけ構築するビューのスロットです。`pop::sparkline(points)` は独立した描画部品として残り、任意の chart スロットに置けます。
+`stat(label, value)` はリアクティブな文字列を受け取ります。`.delta(..)` は整形済みの変化量、`.trend(Trend::Up | Down | Neutral)` はその意味です。`pop::StatHue` で任意のリアクティブな Pop の色相を指定できます。`.icon(..)`、`.chart(..)`、`.label_content(..)`、`.value_content(..)` は一度だけ構築するビューのスロットです。`kivact::ui::sparkline(points)` は標準のチャートを Pop の外観で描き、任意の chart スロットに置けます。
 
 `heading(text, level)` は見出しレベルを公開します。標準のバッジと `pop::SectionNumber` で節の番号を組み、説明文は見出しの横か下に置きます。`card(children)` は枠線付きの面です。統計の部品は数値の状態を別に持ちません。
 

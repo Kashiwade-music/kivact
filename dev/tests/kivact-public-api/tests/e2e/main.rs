@@ -124,6 +124,7 @@ mod ui_components;
 mod ui_controls;
 mod ui_data_table;
 mod ui_field;
+mod ui_sparkline;
 mod ui_standard;
 mod ui_theming;
 mod view;

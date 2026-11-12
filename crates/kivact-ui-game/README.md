@@ -159,6 +159,7 @@ The catalog reads byte-identical Noto Sans JP and its OFL notice from
 - `list`
 - `data_table`
 - `progress`
+- `sparkline`
 - `disclosure`
 - `command_palette`
 - `tag_input`

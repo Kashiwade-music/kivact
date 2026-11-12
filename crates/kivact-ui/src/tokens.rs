@@ -5,6 +5,7 @@ use crate::data_table_tokens::DataTableTokens;
 use crate::dialog_tokens::DialogTokens;
 use crate::disclosure_tokens::DisclosureTokens;
 use crate::progress_tokens::ProgressTokens;
+use crate::sparkline_tokens::SparklineTokens;
 use crate::toast_tokens::ToastTokens;
 use crate::toggle_button_tokens::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
@@ -32,6 +33,7 @@ pub struct UiTokens {
     pub avatar: AvatarTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
+    pub sparkline: SparklineTokens,
     pub toast: ToastTokens,
     pub toggle_button: ToggleButtonTokens,
     pub dialog: DialogTokens,

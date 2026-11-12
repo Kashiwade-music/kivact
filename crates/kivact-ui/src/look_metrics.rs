@@ -183,6 +183,9 @@ pub(super) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
             }
         })
 }
+pub(super) fn sparkline_root(_: &Theme, _: &Look<()>) -> Style {
+    style().width(pct(100)).height(32).min_width(1)
+}
 pub(super) fn progress_label(t: &Theme, _: &Look<ProgressState>) -> Style {
     style()
         .font_size(t.text().size_small)
