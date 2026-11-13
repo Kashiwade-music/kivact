@@ -5,7 +5,10 @@
 //! caller's binding. A slider attaches [`ScalarApi::thumb`] and
 //! [`ScalarApi::track`]; a number field attaches [`ScalarApi::input`] to its text
 //! field; a canvas declares the thumb as a region and maps the pointer itself
-//! with [`ScalarApi::scrub`]. The slider's thumb and the spin button share this
+//! with [`ScalarApi::scrub`]. A [`ScalarMapping`](crate::ScalarMapping) maps the
+//! value to the position the pointer and the drawing follow; key steps are in
+//! value units or, with [`ScalarStep::Position`](crate::ScalarStep::Position), in
+//! travel. The slider's thumb and the spin button share this
 //! private implementation, except that the spin button leaves the value text
 //! to the native editor. [`RangeScalarApi`](crate::RangeScalarApi) builds two ends
 //! on the same plumbing. The reading direction a horizontal track mirrors in
@@ -39,6 +42,8 @@
 //! the current value inside the range and then moves it.
 //!
 //! Invariants:
+//! - The binding always holds a value in the caller's units; a position is
+//!   never written.
 //! - A range change writes the value back only when it falls outside the new
 //!   range, through one transition per scalar however many parts are attached.
 //! - A key press, an assistive technology action and a track drag are each

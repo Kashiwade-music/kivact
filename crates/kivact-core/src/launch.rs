@@ -1,4 +1,5 @@
 //! Role: Shared application launch and read-only inspection boundary.
+mod close;
 mod inspect;
 mod runtime;
 mod settings;

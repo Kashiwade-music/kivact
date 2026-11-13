@@ -421,6 +421,10 @@ impl Host {
                     request,
                 })
             }
+            ShellEvent::PlatformAnswer { request, result } => self
+                .app
+                .borrow()
+                .push_event(HostEvent::EffectResult { request, result }),
             _ => unreachable!("invariant: matching shell event family"),
         }
     }

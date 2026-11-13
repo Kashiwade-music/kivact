@@ -183,6 +183,8 @@ pub(crate) struct VirtualWindow {
     // xtask-allow(state-fields): statistic: focus requests counted for tests
     /// How often the application asked to bring this window to the front.
     pub(crate) focus_requests: Cell<u32>,
+    /// Key presses nobody handled since a test last read them.
+    pub(crate) unhandled_keys: RefCell<Vec<kivact_types::KeyCode>>,
 }
 
 impl VirtualWindow {
@@ -228,6 +230,7 @@ impl VirtualWindow {
                 generation: std::num::NonZeroU64::MIN,
             },
             focus_requests: Cell::new(0),
+            unhandled_keys: RefCell::new(Vec::new()),
         }
     }
 
@@ -391,6 +394,9 @@ impl ShellWindow for VirtualWindow {
     }
     fn surface_generation(&self) -> Option<u64> {
         self.surface.generation()
+    }
+    fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
+        self.unhandled_keys.borrow_mut().push(code);
     }
     fn request_redraw(&self) {
         self.redraw.set(true);

@@ -22,7 +22,7 @@
 | タブ | `use_tabs` | `list()`、`item(key)`、`panel(key)` |
 | ツリー | `use_tree` | `list()`、`item(key)` |
 | テーブル | `use_data_table` | `grid()`、`header(column)`、`row(key)`、`cell(key, column)` |
-| スライダー、数値入力 | `use_scalar`、`use_range_scalar` | `thumb()`、`track(axis)`、`input()` |
+| スライダー、数値入力 | `use_scalar`、`use_range_scalar` | `thumb()`、`track(axis)`、`input()`、`mapping`、`key_step` |
 | サイズ変更できる仕切り | `use_splitter` | `handle()` |
 | ドラッグ、ズームとパン | `use_drag`、`use_zoom_pan`、`use_space_pan` | `source(..)`、`viewport()`、`control()` |
 | ネイティブのテキスト編集 | `use_text_edit`、`use_text_area` | `control()` |
@@ -423,6 +423,30 @@ mod tests {
 ```
 
 押しただけでは編集とみなしたくない場合、たとえば押下で選択し動かして初めて編集になるキャンバスでは、`edit` の代わりに `edit_on_change` を使います。よくある値のコントロールなら、これらを使わずに済みます。`use_scalar` と `use_range_scalar` が、キー、ステップ、範囲、同じ編集フェーズを備えたスライダーと数値入力 (`thumb()`、`track(axis)`、`input()`) を提供し、`use_splitter` がサイズ変更できる仕切りを提供します。
+
+値は自分の単位のまま、非線形のカーブに沿わせられます。`ScalarMapping` は値がコントロール上のどこにあるか (最小で 0、最大で 1) を決め、トラックの押下、ドラッグ、タッチ、`ScalarState::fraction` がそれに従います。binding、Home/End、値の単位のステップは変わりません。`key_step` は `ScalarStep` を受け取ります。`Value(..)` は値の単位 (既定)、`Position(..)` は移動量の割合で、矢印キー 1 回が対数ノブのどこでも移動量の 1 % になります。
+
+```rust,test_harness
+use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep, use_scalar};
+use kivact::prelude::*;
+
+fn frequency() -> impl IntoView {
+    let hz = signal(440.0);
+    let range = ScalarRange::new(20.0, 20_000.0).expect("valid range");
+    let slider = use_scalar(hz, range)
+        .mapping(ScalarMapping::logarithmic())
+        .key_step(ScalarStep::Position(0.01))
+        .expect("valid key step");
+    let state = slider.control_state();
+    node()
+        .part(slider.track(Orientation::Horizontal))
+        .style(style().size(200, 24))
+        .child(node().part(slider.thumb()).name("Frequency"))
+        .child(text(move || format!("{:.0} Hz at {:.2}", hz.get(), state.get().fraction)))
+}
+```
+
+キャンバスが自前のノブを描くときは、`ScalarMapping::position` と `value` の純粋な組を使います。`position` で描く角度を決め、`value` でドラッグした割合を値に戻します。`ScalarMapping::skewed(0.5)` は Creative のフェーダーが使う平方根カーブ、`ScalarMapping::custom(to_position, to_value)` はプラグインのパラメータ自身の正規化を受け取ります。custom の写像は値に対して位置が増える必要があり、取り付けた時点では両端だけを検査します。
 
 ## コントロールが何であるかを伝える
 

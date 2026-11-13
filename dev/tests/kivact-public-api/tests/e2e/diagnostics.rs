@@ -210,3 +210,26 @@ fn a_setup_function_in_a_handler_panics() {
     });
     screen.get_by_role(Role::Button, "Misuse").click();
 }
+
+/// A `UiError` converts into a standard boxed error and back without losing
+/// its kind, message or location.
+#[test]
+fn a_ui_error_is_a_standard_error() {
+    use std::error::Error;
+
+    fn fails() -> Result<(), Box<dyn Error + Send + Sync>> {
+        Err(kivact::UiError::msg("the disk is full"))?;
+        Ok(())
+    }
+
+    let boxed = fails().expect_err("the boxed error");
+    assert_eq!(boxed.to_string(), "the disk is full");
+
+    let original = kivact::UiError::msg("round trip");
+    let boxed: Box<dyn Error + Send + Sync> = Box::from(original.clone());
+    let back = kivact::UiError::from_boxed(boxed);
+    assert_eq!(back, original);
+    assert_eq!(back.kind(), original.kind());
+    assert_eq!(back.location(), original.location());
+    assert_eq!(original.as_error().to_string(), "round trip");
+}

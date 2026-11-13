@@ -192,7 +192,8 @@ wrapper's job.
   [Resize](#resize-in-both-directions); without the wrapper's help the request fails
   as `Unsupported`.
 - **Close.** There is no close button to react to. The wrapper drops the editor when the
-  host closes the window.
+  host closes the window. `AppHandle::close` reports `ErrorKind::Unsupported` in an
+  embedded App; drop the `Embedded` handle instead.
 - **One window.** The host owns the one window the editor occupies.
   `platform::capabilities().get().multi_window` is false, and a `window` declaration
   reports `ErrorKind::Unsupported` and stays closed (see
@@ -200,12 +201,16 @@ wrapper's job.
 - **No input injection.** DevTools can inspect the editor, but `inject_input` is
   refused with `UNSUPPORTED` (-32015); the embed ports keep their own input
   state.
-- **Keys.** The editor receives the keys the host's window gives it. Keys the editor does
-  not handle are not returned to the host, and Kivact has no workaround for a host that
-  steals keys such as Space before the editor sees them.
-- **Panics stop the editor.** A panic ends the editor and resumes in your wrapper's
-  next call on `Embedded`; don't let it reach the host. Handle failures that you
-  expect with an `error_boundary` (see
+- **Keys.** The editor receives the keys the host's window gives it. By default a
+  key the editor does not handle stays there; `Parent::forward_unhandled_keys`
+  (see [Keys and the host](#keys-and-the-host)) gives it back to the host. Kivact
+  has no workaround for a host that steals keys such as Space before the editor
+  sees them.
+- **Panics stop the editor.** A panic ends the editor and is reported by
+  `Embedded::status` as `ErrorKind::Panicked`; it never unwinds into your
+  wrapper, so a C-ABI host does not abort. The handle's methods keep
+  returning normally, and dropping it closes what is left. Handle failures
+  that you expect with an `error_boundary` (see
   [Find out why something failed or updated](diagnostics.md)).
 
 ## Open the editor (wrapper author)
@@ -269,7 +274,9 @@ The contract of `embed`:
   it runs on the App's UI thread. It runs once, and `embed` returns after it finished.
 - **Errors.** Invalid sizes or scale return `ErrorKind::Message`. An invalid or
   null parent, a missing OS resource or an unsupported OS return `ErrorKind::Platform`.
-  A panic in the root is resumed from `embed`. A failed open leaves no window.
+  A panic in the root or while opening returns `ErrorKind::Panicked`; a later
+  panic stops the editor and is reported by `Embedded::status`. Kivact never
+  unwinds into the caller. A failed open leaves no window.
 - **The handle.** `Embedded` is `Send + Sync`. Keep it for as long as the editor is
   open; keep it behind an `Arc` if several threads call its setters.
 
@@ -284,11 +291,14 @@ physical pixels per logical pixel.
 | `set_scale` / `setContentScaleFactor` before opening | Store the scale. |
 | `get_size` / `getSize` before opening | Return `round(logical size * scale)`. |
 | `set_parent` / `attached` | Pass the same scale in `Parent`, call `App::embed`, keep the handle. |
-| `set_size` / `onSize` | `Embedded::set_size(width, height)` |
+| `show` / `hide` (CLAP `gui.show` / `gui.hide`) | `Embedded::show()` / `Embedded::hide()`; `Embedded::is_visible()` reads the applied state. |
+| `set_size` / `onSize` | `Embedded::set_size(width, height)`; this also answers a pending resize request. |
 | `get_size` / `getSize` after opening | `Embedded::size()` |
 | the scale changes | `Embedded::set_scale(scale)`, then ask the host for the new physical size if you want to keep the logical size. |
 | `adjust_size` / `checkSizeConstraint` | Round to the wrapper's own limits; the host's `set_size` is not limited by `min_window_size`. |
 | `destroy` / `removed` | Drop the handle. |
+| the OS changes the display scale (Windows) | `Parent::on_notice` gives `EmbedNotice::ScaleChanged(scale)`; read `scale()` and keep the logical size by asking the host for `round(logical size * scale)`. |
+| the editor stopped (parent destroyed, failure, panic) | `Parent::on_notice` gives `EmbedNotice::Stopped`; read `status()`. |
 
 ```rust,no_run
 use kivact::embed::Embedded;
@@ -315,9 +325,10 @@ impl OpenEditor {
         }
     }
 
-    /// Why the editor stopped (a platform failure), if it did.
-    pub fn failure(&self) -> Option<kivact::UiError> {
-        self.embedded.as_ref().and_then(Embedded::error)
+    /// Why the editor stopped, if it is open: `Running`, `Closed` (the host
+    /// destroyed the parent), `Failed(error)` or `Panicked(error)`.
+    pub fn status(&self) -> Option<kivact::embed::EmbedStatus> {
+        self.embedded.as_ref().map(Embedded::status)
     }
 
     pub fn close(&mut self) {
@@ -331,26 +342,128 @@ A size of zero, a size beyond the platform limit (`i32::MAX` on Windows, `u16::M
 X11) and a scale that is not finite and positive are ignored with a warning in
 `tracing`; the editor keeps running.
 
+### Receive notices instead of polling
+
+`Parent::on_notice` wakes the wrapper when the operating system changes the
+applied scale or when the editor stops. A notice is a wake-up, not a state: read
+`status()` or `scale()` to learn what happened. Until you have a callback, poll
+`status()` from the host's idle timer (CLAP `timer-support`, the VST3 run loop).
+
+```rust,no_run
+use std::sync::Arc;
+
+use kivact::embed::{EmbedNotice, Parent};
+use kivact::embed::EmbedStatus;
+
+/// The part of a wrapper that reacts to the editor.
+#[derive(Clone)]
+pub struct Wake {
+    /// Post a message to the host's main thread (any channel works).
+    post: Arc<dyn Fn() + Send + Sync>,
+}
+
+fn notices(parent: Parent, wake: Wake) -> Parent {
+    parent.on_notice(move |notice| {
+        // Do not block here: only ask the host to run later.
+        keep_logical_size(notice);
+        let post: &(dyn Fn() + Send + Sync) = &*wake.post;
+        post();
+    })
+}
+
+/// Whether the host must keep the logical size by asking for a new physical size.
+fn keep_logical_size(notice: EmbedNotice) -> bool {
+    matches!(notice, EmbedNotice::ScaleChanged(_))
+}
+
+/// On the host's main thread, after the wake arrives: whether the editor runs.
+fn alive(status: EmbedStatus) -> bool {
+    status == EmbedStatus::Running
+}
+```
+
+The callback must not wait for the host's GUI thread and must not panic. On X11
+it can run from the editor thread while it exits; a close started by dropping
+the handle can run on the thread that drops it. `ScaleChanged` is sent only on
+Windows: X11 has a single scale (Xft), so a monitor change does not change it.
+
+### Show and hide
+
+CLAP calls `gui.show` and `gui.hide` after `set_parent`; VST3 and standalone
+windows open shown. Open with `Parent::hidden()` when the host starts the editor
+hidden, then call `Embedded::show`/`Embedded::hide`. Both are idempotent and
+queued like the other setters. A hidden editor runs its App (tasks, timers,
+signals), but draws nothing: frame loops do not tick and
+`platform::is_surface_active()` is false until `show`. Hiding returns the
+keyboard focus to the parent and cancels a pressed pointer. A queued call is not
+reflected by `is_visible` until the UI thread applies it.
+
+```rust,no_run
+use kivact::embed::{Embedded, Parent};
+
+fn hidden_until_shown(parent: Parent) -> Parent {
+    parent.hidden()
+}
+
+fn show(editor: &Embedded) {
+    editor.show();
+}
+```
+
+### Keys and the host
+
+A key press is **unhandled** when no focused text input, focus movement, IME or
+copy/paste step, `on_key` handler (a failing handler counts as handled) or
+default action (Enter/Space activation, Escape dismissal) used it. A release
+follows its press.
+
+By default the editor keeps unhandled keys. `Parent::forward_unhandled_keys`
+gives them and their releases back to the parent window: on Windows Kivact posts
+the original `WM_KEYDOWN`/`WM_KEYUP` to the parent (as JUCE editors do); on X11
+it sends a synthetic `KeyPress`/`KeyRelease` (`XSendEvent`; some toolkits ignore
+synthetic events). A host that wants its Space shortcut back opts in; the editor
+keeps handling text input and its own shortcuts first.
+
+```rust,no_run
+use kivact::embed::Parent;
+
+fn forwarding(parent: Parent) -> Parent {
+    parent.forward_unhandled_keys()
+}
+```
+
+The verdict is synchronous: Kivact probes each native press (delivers it and
+runs the turn before the native message returns), so the host receives the key
+in the same order the user pressed it. Kivact does not probe while App code is
+already on the stack (a modal dialog opened by an App handler); that press is
+not forwarded. A wrapper must not wait for the host's GUI thread inside its
+callbacks.
+
 ### Resize in both directions
 
 When the user or the host resizes the window, call `set_size`. When the UI wants a
 different size, it calls `platform::request_window_size` with a **logical** size. The
 request reaches the wrapper through `Parent::on_resize_request`, in **physical**
-pixels, on the UI thread. Return `true` once the host accepted. Kivact then resizes
-the window unless the host called `set_size` meanwhile, which wins. Returning `false`
-fails the UI's request as a platform error. Without the callback, the request fails as
-`Unsupported`.
+pixels, on the UI thread. Return what the host did:
+
+| Return | Meaning | Then |
+|---|---|---|
+| `ResizeAnswer::Accepted` | The host accepted now (CLAP `request_resize` returned true). | Kivact resizes the window itself; a later `set_size` still wins. The UI's request succeeds at once. |
+| `ResizeAnswer::Pending` | The host decides later and confirms with `set_size` (VST3 `resizeView` → `onSize`). | The window keeps its size. The request succeeds when the host's size equals the request, fails as a platform error naming the host's size when it differs, is cancelled by a newer request, or times out after two seconds. |
+| `ResizeAnswer::Refused` | The host refused. | The request fails as a platform error. |
+
+Without the callback, the request fails as `Unsupported`.
 
 ```rust,no_run
-use kivact::embed::Parent;
+use kivact::embed::{Parent, ResizeAnswer};
 
 fn resizable(parent: Parent) -> Parent {
     parent.on_resize_request(|width, height| {
-        // Ask the host for width x height physical pixels and say whether it agreed.
-        // This runs on the UI thread: post the request to the host's own run loop
-        // and answer without waiting for its GUI thread.
+        // Ask the host for width x height physical pixels. This runs on the UI
+        // thread: post the request to the host's own run loop and answer without
+        // waiting for its GUI thread.
         let _ = (width, height);
-        true
+        ResizeAnswer::Pending
     })
 }
 
@@ -363,6 +476,12 @@ async fn fit_content() -> kivact::Result<()> {
 Answering the wrapper's own size question needs one order: **store the new logical size,
 ask the host, restore the old size if the host refuses.** Some frameworks (nih-plug)
 read the editor's size again while the request is running.
+
+With `Pending`, the child does not resize before the host confirms: call
+`Embedded::set_size` from the host's size callback (`onSize`, or on X11 after the
+posted CLAP `request_resize` returns true). The request resolves from that call. A
+host that answers `Pending` and never confirms makes the UI request time out after
+two seconds; the child stays at its old size, which is the safe side.
 
 To keep the logical size when the scale changes, call `set_scale` first, then ask the
 host for `round(logical size * new scale)`.
@@ -379,11 +498,13 @@ If the editor drops its own handle from inside an App callback (a "Close" button
 the current turn finishes, cleanup follows, and no later input is delivered. Queued
 actions are not drained.
 
-If the host destroys the parent window first, the editor stops safely and `error()`
-stays `None`. A platform failure stops the App, destroys its window and makes
-`error()` return the reason. A panic stops it the same way, and the next call on
-`Embedded` resumes it instead. You still drop the handle later. Long-running `blocking`
-work should check its `CancelToken` regularly so that closing does not wait for it.
+If the host destroys the parent window first, the editor stops safely and
+`status()` returns `EmbedStatus::Closed`. A platform failure stops the App,
+destroys its window and makes `status()` return `EmbedStatus::Failed` with the
+reason. A panic stops it the same way and makes `status()` return
+`EmbedStatus::Panicked` with the panic's message; no call and no drop resumes
+it. You still drop the handle later. Long-running `blocking` work should check
+its `CancelToken` regularly so that closing does not wait for it.
 
 ### Test the wrapper
 
@@ -406,7 +527,7 @@ let editor: Embedded = App::new("Editor")
     .embed(parent.parent().scale(1.0), || text("Editor"))?;
 parent.pump(Duration::from_millis(50));
 assert_eq!(parent.capture()?.width, 320);
-assert!(editor.error().is_none());
+assert_eq!(editor.status(), kivact::embed::EmbedStatus::Running);
 drop(editor);
 # Ok(())
 # }
@@ -429,7 +550,10 @@ drop(editor);
 | Largest size (physical) | `i32::MAX` | `u16::MAX` |
 | macOS (NSView) | not supported | |
 | Wayland (native embedding) | | not supported |
-| Giving unhandled keys back to the host | not supported | not supported |
+| Giving unhandled keys back to the host | opt-in (`Parent::forward_unhandled_keys`) | opt-in, host-dependent (`XSendEvent`) |
+| Showing and hiding the editor | yes (`Embedded::show`/`hide`, `Parent::hidden`) | yes |
+| Resize requests confirmed by the host | yes (`ResizeAnswer::Pending`) | yes |
+| Operating-system scale changes | `EmbedNotice::ScaleChanged` | never (Xft has one scale) |
 
 Real plugin hosts (REAPER, Bitwig Studio, Ableton Live, Cubase and others), an IME in a
 real DAW and screen readers inside a plugin window have not been verified.

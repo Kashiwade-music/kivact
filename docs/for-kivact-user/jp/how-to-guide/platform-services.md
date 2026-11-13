@@ -312,6 +312,8 @@ mod tests {
 
 **システムに大きさの変更を頼む**には `spawn(platform::request_window_size(640, 480))` を使います。大きさは、設定した最小値に切り上げられます。これは依頼なので、システムが断ることもあり、その場合 future は `Platform` エラーで完了します。枠なしの全画面表示には `spawn(platform::set_fullscreen(true))` を呼び、状態は `platform::fullscreen()` で読みます。
 
+埋め込みのエディターでは、ホストがサイズを後から確定することがあります。その場合 future はホストの `set_size` を最大 2 秒待ち、ホストが要求どおりなら成功、別のサイズを選んだらそのサイズを名指す `Platform` エラーで失敗します。新しい要求は古い要求を取り消し（`ErrorKind::Cancelled`）、2 秒以内に答えがなければ `ErrorKind::Timeout` になります。どちらの場合もウィンドウのサイズは変わりません。
+
 環境のそのほかの読み取りも同じ規則です（追跡付きで、セットアップ・ハンドラ・タスク・エフェクトから使えます）。
 
 | 関数 | 返すもの |
@@ -323,6 +325,21 @@ mod tests {
 | `capabilities()` | プラットフォームが対応していること（タッチ、ペン、ソフトウェアキーボード、GPU など）。アプリの実行中は変わりません |
 
 テストでは、`RenderOptions` が開始時の大きさ・倍率・ダークモード・動きを減らす設定を決め、`Screen::resize`・`set_scale`・`set_dark`・`set_reduced_motion`・`set_safe_area` で画面の実行中に変えられます。[アプリをテストする](testing.md#環境を設定する) を参照してください。
+
+## アプリを終了する
+
+`platform::app_handle()` は、どのスレッドからでもアプリの run を終了できるハンドルを返します。`App::handle()` は run の前に同じハンドルを返します。`close()` は、main window の閉じるボタンと同じように終了を求めます。dismiss ではありません。
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("終了").on_press(|| platform::app_handle().close())
+}
+```
+
+`close` はすぐに返ります。キューに積んだ action は最大 3 秒まで流れ、アプリの owner は破棄され、`App::run` が `Ok(())` を返します。ハンドルは 1 回の run に属し、run が終わった後の `close` は何もしません。埋め込みのアプリでは、`close` は `ErrorKind::Unsupported` を報告します。代わりに `Embedded` ハンドルを drop してください。[コードからアプリを終了する](windows.md#コードからアプリを終了する) を参照してください。
 
 ## 呼び出したウィンドウを問い合わせる
 

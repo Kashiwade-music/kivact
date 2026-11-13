@@ -97,6 +97,15 @@ pub enum HostRequest {
         /// The window whose device is needed.
         window: kivact_types::WindowId,
     },
+    /// Nobody handled this key press: no focused text input, focus movement,
+    /// `on_key` handler or default action used it. Nothing is answered; an
+    /// embedded editor may give the native key back to its host.
+    UnhandledKey {
+        /// The window the key was aimed at.
+        window: kivact_types::WindowId,
+        /// The physical key code.
+        code: kivact_types::KeyCode,
+    },
     /// What a drawable's export asks of the window: its frames of
     /// `generation`, as `mode`, at `scale` device px per logical px. `None`
     /// follows the window's scale.

@@ -20,6 +20,8 @@ pub(super) struct Input {
     pub(super) keyboard: Keyboard,
     /// The window has the keyboard focus as last reported; reported again only on change.
     focused: WindowFocus,
+    /// The native key translated by the last `translate`, when no IME took it.
+    native_key: Option<(bool, x11rb::protocol::xproto::KeyPressEvent)>,
 }
 
 impl Input {
@@ -30,6 +32,7 @@ impl Input {
             clicks: ClickCounter::default(),
             keyboard,
             focused: WindowFocus::Blurred,
+            native_key: None,
         }
     }
     pub(super) fn translate(
@@ -48,6 +51,7 @@ impl Input {
         if filtered {
             return Ok(out);
         }
+        self.native_key = None;
 
         self.translate_event(event, window, &mut out)?;
         for event in &out {
@@ -133,11 +137,13 @@ impl Input {
             Event::KeyPress(e) => {
                 if !window.ime.borrow_mut().forward(&e, true) {
                     out.extend(self.keyboard.key(e.detail, e.state.into(), true));
+                    self.native_key = Some((true, e));
                 }
             }
             Event::KeyRelease(e) => {
                 if !window.ime.borrow_mut().forward(&e, false) {
                     out.extend(self.keyboard.key(e.detail, e.state.into(), false));
+                    self.native_key = Some((false, e));
                 }
             }
             Event::MappingNotify(_) | Event::XkbNewKeyboardNotify(_) | Event::XkbMapNotify(_) => {
@@ -221,6 +227,20 @@ impl Input {
             );
         }
         Ok(())
+    }
+
+    /// The native key translated by the last `translate`, when no IME took it.
+    pub(super) fn take_native_key(
+        &mut self,
+    ) -> Option<(bool, x11rb::protocol::xproto::KeyPressEvent)> {
+        self.native_key.take()
+    }
+
+    /// The blur a hide delivers even when XEmbed set the focus.
+    pub(super) fn blur_events(&mut self) -> Vec<ShellEvent> {
+        let mut out = Vec::new();
+        self.blur(&mut out);
+        out
     }
 
     pub(super) fn drain_ime(&mut self, window: &Window) -> Vec<ShellEvent> {

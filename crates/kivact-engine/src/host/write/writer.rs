@@ -458,6 +458,13 @@ impl Writer {
                     model.effects.push((request, DeferredRequest::DemandGpu));
                 }
             }
+            HostRequest::UnhandledKey { window, code } => {
+                if let Some(model) = app.windows.get_mut(&window) {
+                    model
+                        .effects
+                        .push((request, DeferredRequest::UnhandledKey(code)));
+                }
+            }
         }
     }
 

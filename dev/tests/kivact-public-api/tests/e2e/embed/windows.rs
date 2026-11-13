@@ -115,5 +115,5 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
     );
     wait(&parent, || parent.close_requests() == before + 1);
     assert!(!parent.is_closed());
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), kivact::embed::EmbedStatus::Running);
 }

@@ -331,6 +331,70 @@ UI スレッドでブロックする `recv()` を呼んだり、ワーカーが�
 
 独自の reactor を持つ future（たとえば `tokio` のタイマーやソケット）は、そのランタイムの中で動くことを前提にしています。そのようなランタイムは専用のスレッドで動かし、結果は上のようにチャンネルで送ってください。
 
+### ワーカーからアプリを終了する
+
+ワーカーは `AppHandle` で UI を止められます。`std::process::exit` は要りません。run の前に `App::handle()` でハンドルを取り、clone をスレッドへ move し、セッションが終わったら `close()` を呼びます。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn main() -> kivact::Result<()> {
+    let app = App::new("Session").window_size(800, 500);
+    let handle = app.handle();
+    std::thread::spawn(move || {
+        // ここでセッションを実行し、失敗か Ctrl+C で:
+        handle.close();
+    });
+    app.run(|| text("実行中"))
+}
+```
+
+次のターンが終了を始め、通常の後始末の後に `run` が `Ok(())` を返します。終了は取り消せず、`on_dismiss` も実行しません。[コードからアプリを終了する](windows.md#コードからアプリを終了する) を参照してください。
+
+## 値を積まずに UI を起こす
+
+ワーカーが伝えたいのが「何か変わったので最新の値を読んでほしい」だけなら、変更ごとに値を積まないでください。合図を 1 つ送り、タスク側で読ませます。容量 1 のチャンネルはそれだけで合流（coalesce）します。満杯のチャンネルへの `try_send` は、起こす合図がすでに待っているということなので、余分な合図は捨てます。閉じたチャンネルは、タスクがもういないということなので、ワーカーは止まります。
+
+```rust,no_run
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use kivact::prelude::*;
+
+fn level_meter() -> impl IntoView {
+    let level = signal(0u32);
+    let shared = Arc::new(Mutex::new(0u32));
+    let (changed, wake) = async_channel::bounded::<()>(1);
+
+    // 自分のスレッドを、セットアップで起動します。
+    let latest = shared.clone();
+    std::thread::spawn(move || {
+        for n in 0.. {
+            *latest.lock().expect("invariant: the level lock is not poisoned") = n;
+            match changed.try_send(()) {
+                // 満杯: 起こす合図がすでに待っているので、この変更は合流します。
+                Ok(()) | Err(async_channel::TrySendError::Full(())) => {}
+                // 閉じた: コンポーネントが破棄されたので、止まります。
+                Err(async_channel::TrySendError::Closed(())) => break,
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    });
+
+    spawn(async move {
+        while wake.recv().await.is_ok() {
+            let n = *shared.lock().expect("invariant: the level lock is not poisoned");
+            level.set(n);
+        }
+    });
+
+    text(move || format!("レベル: {}", level.get()))
+}
+# fn main() -> kivact::Result<()> { App::new("Level").run(level_meter) }
+```
+
+`try_send` は待たないので、UI スレッドが忙しくても生産側はブロックしません。送信は、UI のイベントループをシステムコールで起こします（Windows では `EventLoopProxy::send_event`、埋め込みでは投稿メッセージか eventfd）。リアルタイムのオーディオコールバックからは絶対に呼ばないでください。変更は自分のロックフリーなフラグでリアルタイムでないスレッドへ中継し、そこから起こしてください。
+
 ## 何がタスクを取り消すか
 
 タスク、resource のリクエスト、実行中の action は、それを作ったコンポーネント（最も近い*所有者*: `show` の分岐、リストの行、ルート）に属します。UI のその部分が取り除かれると次のようになります。

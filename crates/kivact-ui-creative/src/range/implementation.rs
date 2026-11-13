@@ -6,6 +6,7 @@ use kivact::custom::PartState;
 use kivact::geometry::Rect;
 use kivact::i18n::{interpolate, message};
 use kivact::interaction::ScalarRange;
+use kivact::interaction::ScalarStep;
 use kivact::interaction::{RangeThumb, use_range_scalar};
 use kivact::state::IntoBinding;
 use kivact::state::{Binding, Callback, Value, binding, machine, memo};
@@ -424,7 +425,7 @@ fn range_ends(
         })
     };
     let ends = use_range_scalar(end(0), end(1), range)
-        .key_step(step)
+        .key_step(memo(move || ScalarStep::Value(step.get())))
         .expect("invariant: positive finite range step");
     match on_edit {
         Some(observer) => ends.on_edit(move |phase| observer.call(phase)),

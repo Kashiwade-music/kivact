@@ -139,7 +139,7 @@ pub fn use_splitter(
     let binding = value.into_binding();
     let range = range.into_value();
     let settings = OptionsCell::new(SplitterOptions::default());
-    let ops = ScalarOps { binding, range };
+    let ops = ScalarOps::new(binding, range);
     let state = machine(
         machine::State {
             panel: machine::PanelSize::Expanded(binding.get()),

@@ -19,6 +19,8 @@ pub(crate) enum DeferredRequest {
     TimeScale(f64),
     /// Start the model's window GPU device (nothing is answered).
     DemandGpu,
+    /// Report a key press nobody handled at `window` (nothing is answered).
+    UnhandledKey(kivact_types::KeyCode),
 }
 
 /// The engine's state: the node tree and one field per state group.

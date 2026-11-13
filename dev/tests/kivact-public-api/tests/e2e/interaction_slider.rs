@@ -9,9 +9,13 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
+use crate::support::mount;
 use crate::support::mount_with;
 use kivact::interaction::ScalarRange;
-use kivact::interaction::{RangeThumb, ScalarApi, ScalarState, use_range_scalar, use_scalar};
+use kivact::interaction::{
+    RangeThumb, ScalarApi, ScalarMapping, ScalarState, ScalarStep, TouchSliderGesture,
+    use_range_scalar, use_scalar,
+};
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
@@ -282,5 +286,195 @@ fn a_range_keeps_its_thumbs_apart_and_moves_the_nearest_one() {
     screen.mouse_up(MouseButton::Primary);
     assert_eq!((low.get_untracked(), high.get_untracked()), (10.0, 100.0));
     assert!(low_thumb.is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_logarithmic_track_maps_the_pointer_through_the_mapping() {
+    let log = Log::default();
+    let seen = log.clone();
+    let (screen, (value, state)) = mount_with(real_window(), move || {
+        let value = signal(20.0);
+        let hz = ScalarRange::new(20.0, 20_000.0).expect("invariant: finite range");
+        let scalar = use_scalar(value, hz)
+            .mapping(ScalarMapping::logarithmic())
+            .on_edit(observer(value, &seen));
+        let state = scalar.control_state();
+        let view = node()
+            .part(scalar.track(Orientation::Horizontal))
+            .test_id("track")
+            .style(style().size(TRACK, THUMB))
+            .child(thumb(
+                "Frequency",
+                scalar.thumb(),
+                Orientation::Horizontal,
+                false,
+            ));
+        ((value, state), view)
+    });
+    let rect = track_rect(&screen);
+    screen.mouse_move(rect.x + 100.0, rect.y + 10.0);
+    screen.mouse_down(MouseButton::Primary);
+    assert!(
+        (value.get_untracked() - 632.455_532).abs() < 2.0,
+        "{}",
+        value.get_untracked()
+    );
+    assert!((state.get().fraction - 0.5).abs() < 0.01);
+    screen.mouse_up(MouseButton::Primary);
+    let log = log.borrow();
+    assert_eq!(log.first().map(|(phase, _)| *phase), Some(Begin));
+    assert_eq!(log.last().map(|(phase, _)| *phase), Some(Commit));
+    assert_eq!(log.len(), 2, "the drag is one edit");
+}
+
+#[test]
+fn a_position_key_step_moves_a_fraction_of_the_travel() {
+    let (screen, value) = mount_with(real_window(), || {
+        let value = signal(20.0);
+        let hz = ScalarRange::new(20.0, 20_000.0).expect("invariant: finite range");
+        let scalar = use_scalar(value, hz)
+            .mapping(ScalarMapping::logarithmic())
+            .key_step(ScalarStep::Position(0.1))
+            .expect("invariant: valid step");
+        (
+            value,
+            node()
+                .part(scalar.thumb())
+                .name("Frequency")
+                .focusable(true),
+        )
+    });
+    let frequency = screen.get_by_role(Role::Slider, "Frequency");
+    frequency.press_key(Key::ArrowRight);
+    assert!((value.get_untracked() - 20.0 * 1000.0_f64.powf(0.1)).abs() < 0.5);
+    frequency.press_key(Key::Home);
+    assert_eq!(value.get_untracked(), 20.0);
+    frequency.press_key(Key::End);
+    assert_eq!(value.get_untracked(), 20_000.0);
+}
+
+#[test]
+fn a_position_step_moves_at_least_one_quantization_step() {
+    let (screen, value) = mount_with(real_window(), || {
+        let value = signal(0.0);
+        let range = ScalarRange::new(0.0, 1000.0)
+            .expect("invariant: finite range")
+            .with_step(10.0)
+            .expect("invariant: valid step");
+        let scalar = use_scalar(value, range)
+            .key_step(ScalarStep::Position(0.000_001))
+            .expect("invariant: valid step");
+        (
+            value,
+            node().part(scalar.thumb()).name("Fine").focusable(true),
+        )
+    });
+    screen
+        .get_by_role(Role::Slider, "Fine")
+        .press_key(Key::ArrowRight);
+    assert_eq!(value.get_untracked(), 10.0);
+}
+
+#[test]
+fn a_range_body_keeps_positions_under_a_mapping() {
+    let (screen, (low, high)) = mount_with(real_window(), || {
+        let low = signal(100.0);
+        let high = signal(1000.0);
+        let hz = ScalarRange::new(20.0, 20_000.0).expect("invariant: finite range");
+        let ends = use_range_scalar(low, high, hz).mapping(ScalarMapping::logarithmic());
+        let view = node()
+            .part(ends.track(Orientation::Horizontal))
+            .test_id("track")
+            .style(style().size(TRACK, THUMB))
+            .child(
+                node()
+                    .part(ends.thumb(RangeThumb::Low))
+                    .name("Low")
+                    .style(style().size(THUMB, THUMB)),
+            )
+            .child(
+                node()
+                    .part(ends.thumb(RangeThumb::High))
+                    .name("High")
+                    .style(style().size(THUMB, THUMB)),
+            )
+            .child(
+                node().part(ends.body()).test_id("body").style(
+                    style()
+                        .position(Position::Absolute)
+                        .left(0)
+                        .right(0)
+                        .top(0)
+                        .bottom(0),
+                ),
+            );
+        ((low, high), view)
+    });
+    let hz = ScalarRange::new(20.0, 20_000.0).expect("invariant: finite range");
+    let mapping = ScalarMapping::logarithmic();
+    let before =
+        mapping.position(high.get_untracked(), hz) - mapping.position(low.get_untracked(), hz);
+    let rect = track_rect(&screen);
+    screen.mouse_move(rect.x + 100.0, rect.y + 10.0);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(rect.x + 120.0, rect.y + 10.0);
+    screen.mouse_up(MouseButton::Primary);
+    let after =
+        mapping.position(high.get_untracked(), hz) - mapping.position(low.get_untracked(), hz);
+    assert!((after - before).abs() < 0.01, "{before} -> {after}");
+    assert!(low.get_untracked() > 100.0 && high.get_untracked() > 1000.0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+#[should_panic(expected = "the position must increase with the value")]
+fn a_decreasing_custom_mapping_is_a_usage_error() {
+    let (_screen, ()) = mount(|| {
+        let value = signal(0.5);
+        let range = ScalarRange::new(0.0, 10.0).expect("invariant: finite range");
+        let mapping = ScalarMapping::custom(
+            |value, range| 1.0 - (value - range.min()) / (range.max() - range.min()),
+            |position, range| range.min() + (1.0 - position) * (range.max() - range.min()),
+        );
+        let scalar = use_scalar(value, range).mapping(mapping);
+        ((), node().part(scalar.thumb()).name("Reversed"))
+    });
+}
+
+#[test]
+fn a_touch_drag_half_the_track_follows_the_mapping() {
+    let (screen, value) = mount_with(real_window(), || {
+        let value = signal(20.0);
+        let hz = ScalarRange::new(20.0, 20_000.0).expect("invariant: finite range");
+        let gesture = TouchSliderGesture {
+            slop_px: 0.0,
+            projection: std::time::Duration::ZERO,
+            response: std::time::Duration::ZERO,
+        };
+        let scalar = use_scalar(value, hz)
+            .mapping(ScalarMapping::logarithmic())
+            .touch_gesture(gesture);
+        let view = node()
+            .part(scalar.track(Orientation::Horizontal))
+            .test_id("track")
+            .style(style().size(TRACK, THUMB))
+            .child(thumb(
+                "Frequency",
+                scalar.thumb(),
+                Orientation::Horizontal,
+                false,
+            ));
+        (value, view)
+    });
+    let rect = track_rect(&screen);
+    let contact = screen.contact_down(PointerKind::Touch, rect.x + 10.0, rect.y + 10.0);
+    screen.contact_move(contact, rect.x + 10.0 + TRACK / 2.0, rect.y + 10.0);
+    assert!(
+        (value.get_untracked() - 632.455_532).abs() < 20.0,
+        "{}",
+        value.get_untracked()
+    );
+    screen.contact_up(contact);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -70,7 +70,74 @@ mod tests {
 }
 ```
 
-`open` を自分で false にしたときは `on_dismiss` は呼ばれません。呼ばれるのは利用者の閉じる要求です。main window の閉じる操作は今までどおりアプリを終了し、この変更ではそれを取り消す方法を追加しません。
+`open` を自分で false にしたときは `on_dismiss` は呼ばれません。呼ばれるのは利用者の閉じる要求です。main window の閉じる操作は今までどおりアプリを終了し、その要求は取り消せません。`AppHandle::close`（後述）も dismiss ではなく、`on_dismiss` を実行しません。
+
+## コードからアプリを終了する
+
+`platform::app_handle().close()` は、利用者が main window を閉じたときと同じように、ハンドラーからアプリを終了します。
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("終了").on_press(|| platform::app_handle().close())
+}
+```
+
+`App::handle()` はアプリを実行する前に同じハンドルを返すので、どのスレッドからでも終了できます。オーディオのセッションやサーバーのワーカーが、`std::process::exit` を使わずに UI を止める方法です。
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn main() -> kivact::Result<()> {
+    let app = App::new("Synth").window_size(800, 500);
+    let handle = app.handle();
+    std::thread::spawn(move || {
+        // ここでセッションを実行し、失敗か Ctrl+C で:
+        handle.close();
+    });
+    app.run(|| text("実行中"))
+}
+```
+
+- `close` はすぐに返ります。アプリの次のターンが終了を始め、キューに積んだ `ActionMode::Queue` の実行は（最大 3 秒まで）終わりまで流れ、owner が破棄され、`App::run` が `Ok(())` を返します。
+- ハンドルは 1 回の run に属します。`App::run` は `App` を消費するので 2 回目の run はなく、run が終わった後の `close` は何もしません。`App` の clone はハンドルを共有します。
+- run の前に `close` すると、`run` はウィンドウを開かずに `Ok(())` を返します。root は実行されません。
+- 終了は dismiss ではありません。`on_dismiss` は実行されず、取り消せません。埋め込みの editor（`App::embed`）では `close` は root owner に `ErrorKind::Unsupported` を報告します。代わりに `Embedded` ハンドルを drop してください。
+- UI スレッドが OS のモーダルループ（ファイルダイアログ、システムによるウィンドウの移動・リサイズ）の中にいる間は、ループから戻ったときに終了が始まります。
+
+テストでは、root のセットアップで `platform::app_handle()` が返したハンドルを保持し、`Screen::has_exited` で確かめます。
+
+```rust,test_harness
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("終了").on_press(|| platform::app_handle().close())
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Closer").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kivact::test::render_with_handle;
+
+    #[test]
+    fn closing_from_a_handler_exits_the_app() {
+        let (screen, handle) =
+            render_with_handle(kivact::test::RenderOptions::default(), || {
+                (platform::app_handle(), app())
+            });
+        screen.get_by_role(Role::Button, "終了").click();
+        assert!(screen.has_exited());
+        handle.close(); // run が終わった後: 何も起きません
+    }
+}
+```
 
 ## ウィンドウのモードと配置
 

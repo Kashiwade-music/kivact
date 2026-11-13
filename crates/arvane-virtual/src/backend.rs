@@ -560,6 +560,15 @@ impl Probe {
     pub fn woken(&self) -> bool {
         self.woken.pending()
     }
+    /// The key presses nobody handled in `id` since the last call (what an
+    /// embedded editor would give back to its host).
+    pub fn unhandled_keys(&self, id: WindowId) -> Vec<kivact_types::KeyCode> {
+        let mut windows = self.windows.borrow_mut();
+        let Some(window) = windows.get_mut(&id) else {
+            return Vec::new();
+        };
+        std::mem::take(&mut window.unhandled_keys.borrow_mut())
+    }
     pub fn now_ns(&self) -> u64 {
         self.input.borrow().clock.now()
     }
@@ -647,6 +656,14 @@ impl WindowProbe {
     }
     pub fn surface_generation(&self) -> Option<u64> {
         self.with(|window| window.surface.generation())
+    }
+    /// The key presses nobody handled since the last call.
+    pub fn unhandled_keys(&self) -> Vec<kivact_types::KeyCode> {
+        let mut windows = self.windows.borrow_mut();
+        let window = windows
+            .get_mut(&self.window)
+            .expect("invariant: a WindowProbe names an open window");
+        std::mem::take(&mut window.unhandled_keys.borrow_mut())
     }
     /// Whether this window is mirrored into a real native window.
     pub fn has_window(&self) -> bool {

@@ -10,6 +10,8 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 pub(super) const WAKE: u32 = WM_APP + 0x521;
 pub(super) const COMMAND: u32 = WM_APP + 0x522;
+/// Private: run the App's root inside the window procedure's panic boundary.
+pub(super) const START: u32 = WM_APP + 0x523;
 pub(super) const TIMER: usize = 1;
 #[derive(Default)]
 pub(super) struct WakeCoalescer(AtomicU8);

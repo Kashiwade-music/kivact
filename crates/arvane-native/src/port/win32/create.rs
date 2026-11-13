@@ -3,15 +3,17 @@
 use super::native::{COMMAND, MAX_DIMENSION, Native};
 use super::state::{ScaleSource, State};
 use crate::port::embed::child::{Handle, Shared};
-use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
+use arvane_shell::{
+    ChildHooks, ChildStop, EmbedOptions, MakeHandler, NoticeSink, ShellChild, ShellError,
+};
 use std::num::NonZeroIsize;
 use std::rc::Rc;
 use std::sync::Arc;
 use windows_sys::Win32::System::Threading::{GetCurrentProcessId, GetCurrentThreadId};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CreateWindowExW, GetWindowThreadProcessId, IsWindow, PostMessageW, SW_SHOWNOACTIVATE,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, ShowWindow, WS_CHILD, WS_CLIPCHILDREN,
-    WS_CLIPSIBLINGS,
+    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SendMessageW, SetWindowPos, ShowWindow, WS_CHILD,
+    WS_CLIPCHILDREN, WS_CLIPSIBLINGS,
 };
 
 pub(in crate::port) fn open(
@@ -28,9 +30,7 @@ pub(in crate::port) fn open(
     validate_parent(parent)?;
     validate_options(&options)?;
     let instance = module()?;
-    let scale = options
-        .scale
-        .unwrap_or_else(|| super::dpi::scale(parent.get()));
+    let scale = initial_scale(&options, parent);
     let (width, height) = crate::port::embed::geometry::physical_size(
         kivact_types::Size {
             width: options.size.width,
@@ -40,12 +40,20 @@ pub(in crate::port) fn open(
         MAX_DIMENSION,
     )?;
     let hwnd = create_child(parent, instance, width, height)?;
-    let shared = Arc::new(Shared::new(width, height, scale, hooks.panic));
+    let shared = Arc::new(Shared::new(
+        width,
+        height,
+        scale,
+        options.visibility,
+        hooks.panic,
+        NoticeSink::new(hooks.on_notice),
+    ));
     let native = Arc::new(Native {
         hwnd,
         ui_thread: std::thread::current().id(),
         wake_pending: super::native::WakeCoalescer::default(),
     });
+    let hwnd = hwnd.get();
     let state = Rc::new(State::new(
         shared.clone(),
         native.clone(),
@@ -55,15 +63,16 @@ pub(in crate::port) fn open(
         } else {
             ScaleSource::System
         },
+        options.visibility,
+        options.unhandled_keys,
         hooks.on_resize_request,
+        make,
     ));
-    let hwnd = hwnd.get();
     if let Err(error) = super::proc::attach(&state, hwnd) {
         state.destroy();
         return Err(error);
     }
-    // From here on any early return, and a panic of the App while it starts,
-    // detaches the window procedure and destroys the child.
+    // Any early return or App panic from here on detaches and destroys the child.
     let opening = Opening::new(state.clone(), hwnd);
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
@@ -78,25 +87,19 @@ pub(in crate::port) fn open(
     state
         .environment
         .replace(super::window::environment(&state));
-    state.start(make);
-    if let Some(error) = shared.failure() {
+    // Run the root inside the window procedure's panic boundary (a same-thread send).
+    // SAFETY: the live child HWND belongs to this thread; the message only
+    // starts the App through our own window procedure.
+    unsafe {
+        SendMessageW(hwnd, super::native::START, 0, 0);
+    }
+    if let Some(error) = opening_stop(&shared) {
         return Err(error);
     }
-    if shared.panicked() {
-        return Err(ShellError::new("the embedded App panicked while opening"));
-    }
-    // The host may destroy the parent (and with it this child) while the App starts.
-    if shared.stopped() {
-        return Err(ShellError::new(
-            "the parent window was destroyed while the editor opened",
-        ));
-    }
     // Initialize UIA before visibility: showing a window can ask for its provider.
-    // SAFETY: show only this live child, retaining the host's activation.
-    unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
+    show_if_visible(hwnd, options.visibility);
     state.session.opened();
-    // Post queued start-time work: no host callback is entered during open.
-    // SAFETY: the live child HWND belongs to this thread.
+    // Post start-time work without entering a host callback; SAFETY: live child HWND on this thread.
     unsafe {
         PostMessageW(hwnd, COMMAND, 0, 0);
     }
@@ -105,6 +108,35 @@ pub(in crate::port) fn open(
         shared,
         backend: native,
     }))
+}
+
+/// The host scale when supplied, otherwise the OS scale for `parent`.
+fn initial_scale(options: &EmbedOptions, parent: NonZeroIsize) -> f64 {
+    options
+        .scale
+        .unwrap_or_else(|| super::dpi::scale(parent.get()))
+}
+
+/// Show the child only when the embed options ask for it.
+fn show_if_visible(hwnd: isize, visibility: kivact_types::embed::Visibility) {
+    if visibility == kivact_types::embed::Visibility::Shown {
+        // SAFETY: show only this live child, retaining the host's activation.
+        unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
+    }
+}
+
+/// Why an App that did not survive `START` cannot be returned, if it stopped.
+fn opening_stop(shared: &Shared) -> Option<ShellError> {
+    match shared.stop() {
+        Some(ChildStop::Failed(error)) => Some(error),
+        Some(ChildStop::Panicked) => {
+            Some(ShellError::new("the embedded App panicked while opening"))
+        }
+        Some(ChildStop::Closed) => Some(ShellError::new(
+            "the parent window was destroyed while the editor opened",
+        )),
+        None => None,
+    }
 }
 
 /// Require the parent to belong to the calling GUI thread.

@@ -401,6 +401,82 @@ Futures that bring their own reactor (for example `tokio` timers and sockets)
 expect to run inside that runtime. Run such a runtime on its own thread and
 send the results through a channel as above.
 
+### End the app from a worker
+
+A worker can stop the UI with an `AppHandle`, without `std::process::exit`.
+Take the handle before the run with `App::handle()`, move a clone into the
+thread, and call `close()` when the session ends:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn main() -> kivact::Result<()> {
+    let app = App::new("Session").window_size(800, 500);
+    let handle = app.handle();
+    std::thread::spawn(move || {
+        // Run the session here; on a failure or Ctrl+C:
+        handle.close();
+    });
+    app.run(|| text("Running"))
+}
+```
+
+The next turn begins the exit, and `run` returns `Ok(())` after the normal
+cleanup. The close cannot be cancelled and runs no `on_dismiss`; see
+[Close the app from code](windows.md#close-the-app-from-code).
+
+## Wake the UI without queueing values
+
+When the worker only has to say "something changed, read the latest", do not
+queue a value per change: send a unit and let the task pull. A channel of
+capacity 1 coalesces by itself. `try_send` on a full channel means a wake is
+already pending, so the extra one is dropped; a closed channel means the task
+is gone, so the worker stops.
+
+```rust,no_run
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use kivact::prelude::*;
+
+fn level_meter() -> impl IntoView {
+    let level = signal(0u32);
+    let shared = Arc::new(Mutex::new(0u32));
+    let (changed, wake) = async_channel::bounded::<()>(1);
+
+    // Your own thread, started in setup.
+    let latest = shared.clone();
+    std::thread::spawn(move || {
+        for n in 0.. {
+            *latest.lock().expect("invariant: the level lock is not poisoned") = n;
+            match changed.try_send(()) {
+                // Full: a wake is already pending, so this change is coalesced.
+                Ok(()) | Err(async_channel::TrySendError::Full(())) => {}
+                // Closed: the component was disposed; stop.
+                Err(async_channel::TrySendError::Closed(())) => break,
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    });
+
+    spawn(async move {
+        while wake.recv().await.is_ok() {
+            let n = *shared.lock().expect("invariant: the level lock is not poisoned");
+            level.set(n);
+        }
+    });
+
+    text(move || format!("level: {}", level.get()))
+}
+# fn main() -> kivact::Result<()> { App::new("Level").run(level_meter) }
+```
+
+`try_send` never waits, so the producer never blocks on a busy UI thread.
+Sending wakes the UI's event loop with a system call (`EventLoopProxy::send_event`
+on Windows, a posted message or an eventfd in an embedded app). Never call it
+from a real-time audio callback: relay the change through your own lock-free
+flag to a non-real-time thread and wake from there.
+
 ## What cancels a task
 
 A task, a resource request and a running action belong to the component that

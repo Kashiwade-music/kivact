@@ -941,6 +941,11 @@ impl ArvaneTestHost {
             .unwrap_or_default()
     }
 
+    /// Key presses nobody handled in `window` since the last call.
+    pub fn unhandled_keys(&self, window: WindowId) -> Vec<kivact_types::KeyCode> {
+        self.probe.unhandled_keys(window)
+    }
+
     /// The minimum window size the App set for `window` (`None`: no minimum).
     pub fn min_window_size(&self, window: WindowId) -> Option<Size> {
         self.probe.window(window).and_then(|probe| probe.min_size())

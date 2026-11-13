@@ -105,7 +105,8 @@ pub use menu::{
 pub use menubar::{MenubarApi, use_menubar};
 pub use palette::{Command, CommandGroup, CommandPaletteApi, filter_commands, use_command_palette};
 pub use policy::grid::GridMove;
-pub use policy::scalar::{ScalarRange, ScalarRangeError};
+pub use policy::scalar::{ScalarRange, ScalarRangeError, ScalarStep};
+pub use policy::scalar_mapping::ScalarMapping;
 pub use popup::{PopupApi, PopupState, use_popup};
 pub use range_scalar::{RangeScalarApi, RangeThumb, use_range_scalar};
 pub use reorder::Reorder;
@@ -140,8 +141,9 @@ mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{
-    ButtonPolicy, DisabledButtonFocus, InteractionPolicy, MenuPolicy, PressDrift, SelectPolicy,
-    SliderPolicy, SliderTouchMotion, SwitchDrag, SwitchPolicy, ToastPolicy, ToastSwipe,
+    ButtonPolicy, DisabledButtonFocus, InteractionPolicy, MenuPolicy, ModifierKey, PressDrift,
+    ScrubPolicy, SelectPolicy, SliderPolicy, SliderTouchMotion, SwitchDrag, SwitchPolicy,
+    ToastPolicy, ToastSwipe,
 };
 
 mod menu_policy;

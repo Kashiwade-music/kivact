@@ -1,5 +1,6 @@
 //! Role: Application configuration and startup validation.
 use crate::i18n::{Locale, Messages};
+use crate::platform::AppHandle;
 use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
@@ -32,6 +33,9 @@ pub(crate) struct AppSettings {
     pub(super) fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).
     pub(super) gpu_preference: kivact_types::GpuPreference,
+    /// The handle that ends this App's run from any thread (`App::handle`).
+    /// Cloned `App`s share it.
+    pub(super) handle: AppHandle,
     // xtask-allow(state-fields): option: an opt-in a test sets; absent means off
     #[cfg(feature = "devtools")]
     pub(super) devtools_in_tests: bool,
@@ -51,6 +55,7 @@ impl AppOptions {
                 blocking_threads: None,
                 fonts: Vec::new(),
                 gpu_preference: kivact_types::GpuPreference::default(),
+                handle: AppHandle::new(),
                 #[cfg(feature = "devtools")]
                 devtools_in_tests: false,
             },
@@ -177,6 +182,10 @@ impl AppOptions {
     /// The single title used for both engine startup and later window effects.
     pub fn window_title(&self) -> &str {
         &self.settings.title
+    }
+    /// The handle that ends this App's run from any thread.
+    pub(crate) fn handle(&self) -> AppHandle {
+        self.settings.handle.clone()
     }
     /// Extract only a fixed theme; reactive inputs stay on their owning thread.
     pub(crate) fn into_embed_settings(

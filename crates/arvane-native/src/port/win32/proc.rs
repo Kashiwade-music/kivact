@@ -7,7 +7,7 @@ use windows_sys::Win32::Foundation::{GetLastError, HWND, LPARAM, LRESULT, SetLas
 use windows_sys::Win32::Graphics::Gdi::{BeginPaint, EndPaint};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     CallWindowProcW, DLGC_WANTALLKEYS, DLGC_WANTCHARS, DefWindowProcW, GWLP_USERDATA, GWLP_WNDPROC,
-    GetWindowLongPtrW, HTCLIENT, KillTimer, SetWindowLongPtrW, WM_DESTROY,
+    GetWindowLongPtrW, HTCLIENT, KillTimer, PostMessageW, SetWindowLongPtrW, WM_DESTROY,
     WM_DPICHANGED_AFTERPARENT, WM_DROPFILES, WM_ERASEBKGND, WM_GETDLGCODE, WM_GETOBJECT,
     WM_IME_COMPOSITION, WM_IME_ENDCOMPOSITION, WM_IME_REQUEST, WM_IME_SETCONTEXT,
     WM_IME_STARTCOMPOSITION, WM_KILLFOCUS, WM_LBUTTONDBLCLK, WM_LBUTTONDOWN, WM_MBUTTONDBLCLK,
@@ -42,19 +42,30 @@ pub(super) unsafe extern "system" fn wndproc(
     }
     // SAFETY: this consumes precisely the increment performed for this entry.
     let state = unsafe { Rc::from_raw(raw) };
-    let result = match catch_unwind(AssertUnwindSafe(|| dispatch(&state, hwnd, message, w, l))) {
+    // The whole shutdown runs inside this one boundary: closing the handler,
+    // dropping it and destroying the root must not unwind into the host.
+    let result = match catch_unwind(AssertUnwindSafe(|| {
+        let result = dispatch(&state, hwnd, message, w, l);
+        stop_if_stopped(&state);
+        result
+    })) {
         Ok(result) => result,
         Err(payload) => {
-            // A panic must not unwind into the host's message loop. Keep it:
-            // the child stops below without running more App code, and the
-            // host's next call on `Embedded` resumes it.
+            // A panic must not unwind into the host's message loop. Keep its
+            // message: the child stops without running more App code, and
+            // `Embedded::status` reports it. Kivact never resumes it.
             state.shared.keep_panic(payload);
+            // The panic skipped the shutdown above. A queued command runs it
+            // inside this same boundary on the host's next pump; cleanup that
+            // panics there keeps the panic and skips the rest (the App's
+            // resources leak).
+            // SAFETY: posting to our child only schedules its window procedure.
+            unsafe {
+                PostMessageW(hwnd, super::native::COMMAND, 0, 0);
+            }
             0
         }
     };
-    if state.shared.stopped() && !state.in_callback.get() && state.session.active() {
-        state.stop();
-    }
     if message == WM_NCDESTROY {
         state.shared.window_gone();
         detach(&state, hwnd);
@@ -116,6 +127,7 @@ fn dispatch(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPARAM) -
         | WM_TIMER
         | super::native::WAKE
         | super::native::COMMAND
+        | super::native::START
         | WM_GETDLGCODE
         | WM_NCHITTEST
         | WM_SETCURSOR
@@ -182,7 +194,10 @@ fn window_message(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPA
         }
         WM_DPICHANGED_AFTERPARENT => {
             if state.scale_source.get() == ScaleSource::System {
-                state.shared.set_scale(super::dpi::scale(hwnd));
+                let scale = super::dpi::scale(hwnd);
+                if state.shared.set_scale(scale) {
+                    state.shared.notice_scale_changed(scale);
+                }
                 state.event(ShellEvent::Resized);
             }
             0
@@ -204,6 +219,10 @@ fn window_message(state: &Rc<State>, hwnd: HWND, message: u32, w: WPARAM, l: LPA
         }
         super::native::COMMAND => {
             state.drain();
+            0
+        }
+        super::native::START => {
+            state.start_once();
             0
         }
         WM_GETDLGCODE => (DLGC_WANTALLKEYS | DLGC_WANTCHARS) as isize,
@@ -241,6 +260,14 @@ fn original_if_alive(state: &State, hwnd: HWND, message: u32, w: WPARAM, l: LPAR
         original(state, hwnd, message, w, l)
     } else {
         0
+    }
+}
+
+/// Close the child once it stopped, unless App code is on the stack (its
+/// caller stops it) or the shutdown already ran.
+fn stop_if_stopped(state: &Rc<State>) {
+    if state.shared.stopped() && !state.in_callback.get() && state.session.active() {
+        state.stop();
     }
 }
 

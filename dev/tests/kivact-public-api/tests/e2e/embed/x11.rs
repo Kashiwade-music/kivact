@@ -36,5 +36,5 @@ fn x11_keyboard_input_works_whether_or_not_an_xim_server_runs() {
     parent.text("abc").unwrap();
     parent.key(kivact::view::KeyCode::Tab).unwrap();
     wait(&parent, || *keys.lock().unwrap() >= 3);
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), kivact::embed::EmbedStatus::Running);
 }

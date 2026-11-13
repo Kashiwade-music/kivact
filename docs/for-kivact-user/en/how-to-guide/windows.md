@@ -89,8 +89,79 @@ mod tests {
 ```
 
 Setting `open` to false yourself does not call `on_dismiss`; the user's close
-request does. Closing the main window still ends the app, and this change adds
-no way to cancel that.
+request does. Closing the main window still ends the app, and that request
+cannot be cancelled; `AppHandle::close` (below) is not a dismissal either.
+
+## Close the app from code
+
+`platform::app_handle().close()` ends the app from a handler, like the user
+closing the main window:
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("Quit").on_press(|| platform::app_handle().close())
+}
+```
+
+`App::handle()` returns the same handle before the app runs, so any thread can
+close it. This is how a worker (an audio session, a server) stops the UI
+without `std::process::exit`:
+
+```rust,no_run
+use kivact::prelude::*;
+
+fn main() -> kivact::Result<()> {
+    let app = App::new("Synth").window_size(800, 500);
+    let handle = app.handle();
+    std::thread::spawn(move || {
+        // Run the session here; on a failure or Ctrl+C:
+        handle.close();
+    });
+    app.run(|| text("Working"))
+}
+```
+
+- `close` returns at once. The app's next turn begins the exit: queued `ActionMode::Queue` runs drain (at most three seconds), owners are disposed, and `App::run` returns `Ok(())`.
+- A handle belongs to one run. `App::run` consumes the `App`, so there is no second run; a `close` after the run ended does nothing. Clones of the `App` share the handle.
+- Before the run, `close` makes `run` return `Ok(())` without opening a window; the root never runs.
+- Closing is not a dismissal: no `on_dismiss` runs and it cannot be cancelled. In an embedded editor (`App::embed`), `close` reports `ErrorKind::Unsupported` to the root owner: drop the `Embedded` handle instead.
+- While the UI thread is in a native modal loop (a file dialog, moving or resizing the window by the system), the exit starts when the loop returns.
+
+Tests keep the handle the root setup obtained with `platform::app_handle()` and
+check `Screen::has_exited`:
+
+```rust,test_harness
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("Quit").on_press(|| platform::app_handle().close())
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Closer").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kivact::test::render_with_handle;
+
+    #[test]
+    fn closing_from_a_handler_exits_the_app() {
+        let (screen, handle) =
+            render_with_handle(kivact::test::RenderOptions::default(), || {
+                (platform::app_handle(), app())
+            });
+        screen.get_by_role(Role::Button, "Quit").click();
+        assert!(screen.has_exited());
+        handle.close(); // after the run: nothing happens
+    }
+}
+```
 
 ## Window modes and placement
 

@@ -127,6 +127,14 @@ impl TestParent {
     pub fn close_requests(&self) -> u32 {
         self.0.close_requests()
     }
+    /// Whether the embedded editor's child window is visible.
+    pub fn editor_visible(&self) -> Result<bool> {
+        self.0.editor_visible().map_err(error)
+    }
+    /// Whether the embedded editor has the keyboard focus.
+    pub fn editor_focused(&self) -> Result<bool> {
+        self.0.editor_focused().map_err(error)
+    }
     /// Send native file-drop messages to the Linux editor at physical coordinates.
     // xtask-allow(os-branch): Native test environment availability is a test platform boundary.
     #[cfg(target_os = "linux")]

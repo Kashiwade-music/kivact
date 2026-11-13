@@ -11,6 +11,10 @@ pub enum PlatformResult {
     Paths(Option<Vec<PathBuf>>),
     Failed(Failure),
     Unsupported,
+    /// A deferred request was superseded by a newer one.
+    Cancelled,
+    /// A deferred answer did not arrive in time.
+    TimedOut,
     /// The family names of a registered font file (`RegisterFont`).
     Fonts(Vec<String>),
 }

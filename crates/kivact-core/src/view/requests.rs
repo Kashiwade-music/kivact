@@ -288,6 +288,16 @@ pub(crate) fn platform_result(r: PlatformResult) -> Result<PlatformResult, UiErr
             "the host does not support this platform request",
             None,
         )),
+        PlatformResult::Cancelled => Err(UiError::new(
+            ErrorKind::Cancelled,
+            "a newer request replaced this deferred platform request",
+            None,
+        )),
+        PlatformResult::TimedOut => Err(UiError::new(
+            ErrorKind::Timeout,
+            "the host did not answer this deferred platform request in time",
+            None,
+        )),
         other => Ok(other),
     }
 }

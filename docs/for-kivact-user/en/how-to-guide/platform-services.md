@@ -369,6 +369,13 @@ refuse, and the future resolves with a `Platform` error then. For borderless
 fullscreen, call `spawn(platform::set_fullscreen(true))` and read
 `platform::fullscreen()`.
 
+In an embedded editor the host may confirm a size later. The future then waits
+for the host's `set_size` (up to two seconds), resolves with the requested size
+when the host agrees, and fails with a `Platform` error naming the host's size
+when it chooses another. A newer request cancels the older one
+(`ErrorKind::Cancelled`), and no answer within two seconds is
+`ErrorKind::Timeout`; the window keeps its size in both cases.
+
 The other reads of the environment follow the same rules (tracked, usable from
 setup, handlers, tasks and effects):
 
@@ -384,6 +391,28 @@ In tests, `RenderOptions` sets the starting size, scale, dark mode and reduced
 motion, and `Screen::resize`, `set_scale`, `set_dark`, `set_reduced_motion` and
 `set_safe_area` change them while the screen runs. See
 [Test your app](testing.md#configure-the-environment).
+
+## Close the app
+
+`platform::app_handle()` returns the handle that ends the app's run from any
+thread, and `App::handle()` returns the same handle before the run starts.
+`close()` asks the app to end as the main window's close button does, without
+a dismissal:
+
+```rust,no_run
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    button("Quit").on_press(|| platform::app_handle().close())
+}
+```
+
+`close` returns at once; queued actions drain for up to three seconds, the
+app's owners are disposed, and `App::run` returns `Ok(())`. A handle belongs to
+one run, and a close after that run ended does nothing. In an embedded app
+`close` reports `ErrorKind::Unsupported`: drop the `Embedded` handle instead.
+See [Close the app from code](windows.md#close-the-app-from-code).
 
 ## Ask about the window that calls
 

@@ -118,6 +118,9 @@ Creative jobs の run/stop は独立した一つの入力であり、progress/am
 | font generation | engine の font collection。native Environment の更新で巻き戻さない |
 | 起動時の Environment | 復元した readonly snapshot。virtual の永続応答 map は台本 owner |
 | a11y の前回 accepted tree | 初期化・action 検証用の受理事実。focus や差分用 model の複製ではない |
+| App の外からの終了要求 | `AppHandle` の `AppLink`（thread をまたぐ唯一の正本）。drain は runtime の `ExitState` |
+| 埋め込み App の panic のメッセージ | 子の PanicSlot。最初の payload の文字列だけを保持し、`Embedded::status` が `ErrorKind::Panicked` として投影する |
+| scrub の起点 | Creative の Numeric の mode Machine の Anchor。直前に適用した値とポインタ位置を持ち、修飾キーの倍率が変わると付け替える |
 
 catalog でも同じ規則を使う。chat entry は Message(text)/Typing、integrated meter は Unmeasured/Measured と実 Sample/Reset、active section は単一 owner が Observed/Requested を受ける。最後の観測を保持し、geometry、scroll、playing、selection の mirror を足さない。
 
@@ -266,6 +269,8 @@ GPU の device は window ごとに必要時に起動する（既定は `GpuStar
 ## turn、Stage と時間
 
 runtime の TurnState は Quiet / WakeSent / Running(Stage)。wake は Quiet から WakeSent に一度だけ移し、turn 中の pending は finish で計算する。RunningRequested や wants_frame の mirror を持たない。thread の ThreadWaker は UI 状態を触らず host を起こせる。
+
+core の turn は開始時（idle の近道より前）に `AppHandle` の close 要求を取り、受理すれば `Runtime::request_exit` で drain を始める。embed は要求を拒否し、`ErrorKind::Unsupported` を root owner に報告して `Running` に戻す。
 
 | Stage | 担当 |
 |---|---|

@@ -13,6 +13,8 @@ pub enum ScalarRangeError {
     NonFiniteSpan,
     /// A step must be finite, positive and representable over this range.
     InvalidStep,
+    /// A mapping's exponent must be finite and positive.
+    InvalidExponent,
 }
 
 impl fmt::Display for ScalarRangeError {
@@ -22,11 +24,49 @@ impl fmt::Display for ScalarRangeError {
             Self::ReversedBounds => "scalar minimum exceeds maximum",
             Self::NonFiniteSpan => "scalar span cannot be represented as a finite value",
             Self::InvalidStep => "scalar step must be finite, positive and representable",
+            Self::InvalidExponent => "scalar mapping exponent must be finite and positive",
         })
     }
 }
 
 impl std::error::Error for ScalarRangeError {}
+
+/// What one key press, wheel notch or assistive increment moves a scalar by.
+///
+/// A plain number is a [`Value`](Self::Value) step: `key_step(0.5)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ScalarStep {
+    /// In the value's units (1 dB, 1 frame). The range's own quantization still
+    /// applies.
+    Value(f64),
+    /// A fraction of the control's travel, through its
+    /// [`ScalarMapping`](crate::ScalarMapping): 0.01 is one percent of a
+    /// logarithmic frequency knob wherever it is. A position step that the
+    /// range's quantization would round back to the current value moves one
+    /// quantization step instead.
+    Position(f64),
+}
+
+impl ScalarStep {
+    /// The amount this step moves by, in its own space.
+    pub fn amount(self) -> f64 {
+        match self {
+            Self::Value(amount) | Self::Position(amount) => amount,
+        }
+    }
+}
+
+impl From<f64> for ScalarStep {
+    fn from(amount: f64) -> Self {
+        Self::Value(amount)
+    }
+}
+
+impl From<i32> for ScalarStep {
+    fn from(amount: i32) -> Self {
+        Self::Value(f64::from(amount))
+    }
+}
 
 /// Immutable, finite scalar bounds with optional quantization anchored at `min`.
 ///

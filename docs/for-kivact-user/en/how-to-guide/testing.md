@@ -114,6 +114,7 @@ element or a modal's backdrop).
 | hover | `hover()` |
 | type into an input | `type_text("hello")` (focuses first; `\n` is Enter) |
 | press a key | `press_key(Key::Enter)`, `press_key_with(Key::Char('a'), Modifiers { ctrl: true, ..Default::default() })` |
+| keys nobody handled | `screen.unhandled_keys()` (what an embedded editor would give back to its host) |
 | move focus | `focus()`, or `screen.press_tab(false)` (`true` for Shift+Tab) |
 | flip a check box or switch | `toggle()` |
 | choose an option in a select | `select_option("Large")` |

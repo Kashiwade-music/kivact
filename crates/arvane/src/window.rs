@@ -38,6 +38,16 @@ impl Window<'_> {
     pub fn size(&self) -> Size {
         self.shell.size()
     }
+    pub fn request_size(
+        &mut self,
+        size: Size,
+        request: kivact_types::RequestId,
+    ) -> arvane_shell::SizeReply {
+        self.shell.request_size(size, request)
+    }
+    pub fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
+        self.shell.unhandled_key(code);
+    }
     pub fn scale(&self) -> f64 {
         self.shell.scale()
     }

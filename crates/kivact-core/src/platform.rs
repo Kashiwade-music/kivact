@@ -5,12 +5,14 @@
 //! the host environment (fullscreen, reduced motion, scale, window size,
 //! safe area, surface activity, capabilities) as free functions reading
 //! tracked values, owner-scoped lifecycle notifications, plus available font
-//! families as a snapshot. The
+//! families as a snapshot, and the cross-thread handle that ends the App's run
+//! (`AppHandle`, `app_handle`). The
 //! test host of `kivact::test` scripts the services (an
 //! in-memory clipboard, scripted dialogs, recorded paths), so they are
 //! testable without touching the OS. Also the entry into the engine's window loop, the only place the core
 //! starts it.
 
+mod app_handle;
 mod env;
 pub(crate) mod lifecycle;
 #[doc(inline)]
@@ -18,6 +20,9 @@ pub use lifecycle::{LifecycleEvent, on_lifecycle};
 mod services;
 mod window_loop;
 
+#[doc(inline)]
+pub use app_handle::{AppHandle, app_handle};
+pub(crate) use app_handle::{AppHandleExt, Begin};
 pub(crate) use env::missing_capabilities;
 #[doc(inline)]
 pub use env::{

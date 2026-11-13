@@ -1,5 +1,6 @@
 //! Role: Win32 mouse normalization, keyboard text and synchronous cursor answers.
 use super::state::State;
+use crate::port::embed::keys::Verdict;
 use crate::port::winit::key_code;
 use arvane_shell::ShellEvent;
 use kivact_types::{ButtonPress, Cursor, Modifiers, MouseButton, Point, PointerPhase};
@@ -16,10 +17,10 @@ use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
     VK_LMENU, VK_LWIN, VK_MENU, VK_RCONTROL, VK_RMENU, VK_RWIN, VK_SHIFT,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    LoadCursorW, PM_REMOVE, PeekMessageW, SetCursor, WM_CAPTURECHANGED, WM_CHAR, WM_DEADCHAR,
-    WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
-    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSKEYDOWN,
-    WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1,
+    GetParent, LoadCursorW, PM_REMOVE, PeekMessageW, PostMessageW, SetCursor, WM_CAPTURECHANGED,
+    WM_CHAR, WM_DEADCHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN,
+    WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_RBUTTONDOWN, WM_RBUTTONUP,
+    WM_SYSKEYDOWN, WM_SYSKEYUP, WM_XBUTTONDOWN, WM_XBUTTONUP, XBUTTON1,
 };
 
 pub(super) fn cursor(cursor: Cursor) {
@@ -298,6 +299,9 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
             self::modifiers(state),
             state.mouse.get().window_position(),
         ));
+        if message == WM_KEYUP {
+            forward_release(state, code, w, l);
+        }
         return;
     }
     let mut units = Vec::new();
@@ -331,6 +335,10 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
     } else {
         String::new()
     };
+    let probe = forwards_to_parent(state) && message == WM_KEYDOWN;
+    if probe {
+        state.session.keys().borrow_mut().open(code);
+    }
     state.event(arvane_shell::pipeline::KeyPipeline::default().key(
         arvane_shell::pipeline::RawKey {
             key: raw_key,
@@ -342,6 +350,50 @@ fn keyboard(state: &Rc<State>, message: u32, w: WPARAM, l: LPARAM) {
         self::modifiers(state),
         state.mouse.get().window_position(),
     ));
+    if probe {
+        forward_press(state, code, w, l);
+    }
+}
+
+/// Whether a native key press may be given back to the parent: opt-in, and
+/// only while no App callback owns the stack (the verdict would not be known).
+fn forwards_to_parent(state: &State) -> bool {
+    state.unhandled_keys == kivact_types::UnhandledKeys::ToParent
+        && !state.in_callback.get()
+        && state.session.live()
+        && state.shared.alive()
+}
+
+/// Run the turn that decides the press and give an unhandled one to the parent.
+fn forward_press(state: &Rc<State>, code: kivact_types::KeyCode, w: WPARAM, l: LPARAM) {
+    state.event(ShellEvent::Wake(arvane_shell::WakeReasons::CLIENT));
+    let unhandled = state.session.keys().borrow_mut().close() == Verdict::Unhandled;
+    if !unhandled || !state.session.live() || !state.shared.alive() {
+        return;
+    }
+    state.session.keys().borrow_mut().forward(code);
+    // SAFETY: the key message belongs to this child; read its parent only.
+    let parent = unsafe { GetParent(state.native.hwnd()) };
+    // SAFETY: posting to the host's parent only schedules its message loop; the
+    // original key message is sent as Windows delivered it.
+    unsafe {
+        PostMessageW(parent, WM_KEYDOWN, w, l);
+    }
+}
+
+/// Give the release of a forwarded press back to the parent.
+fn forward_release(state: &Rc<State>, code: kivact_types::KeyCode, w: WPARAM, l: LPARAM) {
+    let forwarded = state.session.keys().borrow_mut().take_forwarded(code);
+    if !forwarded || !state.shared.alive() {
+        return;
+    }
+    // SAFETY: the key message belongs to this child; read its parent only.
+    let parent = unsafe { GetParent(state.native.hwnd()) };
+    // SAFETY: posting to the host's parent only schedules its message loop; the
+    // original key message is sent as Windows delivered it.
+    unsafe {
+        PostMessageW(parent, WM_KEYUP, w, l);
+    }
 }
 
 /// Read a logical key without changing the host's dead-key state.

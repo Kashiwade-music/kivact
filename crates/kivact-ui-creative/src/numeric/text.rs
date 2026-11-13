@@ -1,8 +1,15 @@
 //! Role: Numeric formatting, finite arithmetic parsing and displayed mixed values.
+
 use kivact::i18n::message;
+use kivact::interaction::ScalarRange;
 use kivact::state::{IntoValue, Value};
 use std::rc::Rc;
+
 pub(super) type TextParser = Rc<dyn Fn(&str, f64) -> Result<f64, String>>;
+
+/// How a value reads: on the control, in the field, and to assistive technology.
+pub(super) type Formatter = Rc<dyn Fn(f64) -> String>;
+
 pub(super) fn format_scalar(value: f64, precision: usize, unit: &str, fps: Option<u32>) -> String {
     if let Some(fps) = fps {
         let f = value.max(0.0).floor() as u64;
@@ -18,6 +25,37 @@ pub(super) fn format_scalar(value: f64, precision: usize, unit: &str, fps: Optio
         format!("{value:.*}{unit}", precision)
     }
 }
+
+/// The built-in display: precision and unit, or a timecode.
+pub(super) fn builtin_formatter(
+    precision: Value<usize>,
+    unit: Value<String>,
+    timecode: Option<Value<u32>>,
+) -> Formatter {
+    Rc::new(move |value| {
+        format_scalar(
+            value,
+            precision.get(),
+            &unit.get(),
+            timecode.map(|fps| fps.get()),
+        )
+    })
+}
+
+/// The text the text field opens with: the formatter if one is set, else the
+/// built-in display without the unit.
+pub(super) fn editor_formatter(
+    format: Option<Formatter>,
+    precision: Value<usize>,
+    timecode: Option<Value<u32>>,
+) -> Formatter {
+    format.unwrap_or_else(|| {
+        Rc::new(move |value| {
+            format_scalar(value, precision.get(), "", timecode.map(|fps| fps.get()))
+        })
+    })
+}
+
 fn parse_scalar(s: &str, fps: Option<u32>, current: f64) -> Option<f64> {
     let s = s.trim();
     if let Some(fps) = fps {
@@ -46,6 +84,7 @@ fn parse_scalar(s: &str, fps: Option<u32>, current: f64) -> Option<f64> {
     }
     evaluate_expression(s)
 }
+
 /// Evaluate finite scalar arithmetic (+, -, *, /, parentheses and pi).
 pub fn evaluate_expression(s: &str) -> Option<f64> {
     let mut p = Parser {
@@ -163,27 +202,21 @@ pub(super) fn scalar_parser(
     })
 }
 
+/// The visible and accessible value text: the mixed message, else the
+/// formatter's text of the value clamped to the range.
 pub(super) fn display_value(
     mixed: Value<bool>,
     value: Value<f64>,
-    min: Value<f64>,
-    max: Value<f64>,
-    precision: Value<usize>,
-    unit: Value<String>,
-    timecode: Option<Value<u32>>,
+    range: Value<ScalarRange>,
+    shown: Formatter,
 ) -> Value<String> {
     let mixed_text = message("creative.numeric.mixed", "Mixed");
-    let suffix = unit;
     (move || {
         if mixed.get() {
             mixed_text.get()
         } else {
-            format_scalar(
-                value.get().clamp(min.get(), max.get()),
-                precision.get(),
-                &suffix.get(),
-                timecode.map(|fps| fps.get()),
-            )
+            let range = range.get();
+            shown(value.get().clamp(range.min(), range.max()))
         }
     })
     .into_value()

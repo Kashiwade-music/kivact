@@ -1,5 +1,7 @@
 //! Role: Provides an independent X11 parent and synthetic child input for E2E.
 
+mod queries;
+
 use super::conn::Native;
 use arvane_shell::ShellError;
 use kivact_types::ParentWindow;
@@ -36,8 +38,13 @@ impl TestParent {
         let (connection, screen) =
             x11rb::xcb_ffi::XCBConnection::connect(None).map_err(super::error::platform)?;
         let root = connection.setup().roots[screen].root;
-        let (native, _, _, _) =
-            Native::create_unmapped(root, width as f64, height as f64, Some(1.0))?;
+        let (native, _, _, _) = Native::create_unmapped(
+            root,
+            width as f64,
+            height as f64,
+            Some(1.0),
+            kivact_types::embed::Visibility::Shown,
+        )?;
         let protocols = native
             .connection
             .intern_atom(false, b"WM_PROTOCOLS")

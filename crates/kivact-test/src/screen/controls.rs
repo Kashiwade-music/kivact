@@ -31,6 +31,12 @@ impl Screen {
         self.send(kivact_engine::testing::ShellEvent::Focused(focused));
         self.run_until_idle();
     }
+
+    /// The key presses nobody handled since the last call (what an embedded
+    /// editor would give back to its host).
+    pub fn unhandled_keys(&self) -> Vec<kivact_core::view::KeyCode> {
+        self.host().unhandled_keys(self.window)
+    }
     /// The host reports reduced motion on or off (`EnvChanged`).
     pub fn set_reduced_motion(&self, on: bool) {
         self.log(format!("reduced motion {on}"));

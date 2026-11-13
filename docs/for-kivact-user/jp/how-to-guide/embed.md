@@ -159,11 +159,11 @@ fn gain_label(incoming: async_channel::Receiver<f64>) -> impl IntoView {
 
 - **タイトルとフルスクリーンは効かない。** ウィンドウはホストが持ちます。`App::title` は無視され、`platform::set_fullscreen` は未対応として失敗します。
 - **サイズ。** 決めるのはホストです。App の `window_size` は最初のサイズにすぎません。`min_window_size` が制限するのは自分の `platform::request_window_size` の要求であり、ホストが与えるサイズではありません。ホストに別のサイズを求める方法は[サイズ変更](#両方向のサイズ変更)を見てください。wrapper の協力がなければ、要求は `Unsupported` で失敗します。
-- **閉じる操作。** 反応すべき閉じるボタンはありません。ホストがウィンドウを閉じたとき、wrapper がエディターを drop します。
+- **閉じる操作。** 反応すべき閉じるボタンはありません。ホストがウィンドウを閉じたとき、wrapper がエディターを drop します。埋め込みの App では `AppHandle::close` は `ErrorKind::Unsupported` を返します。代わりに `Embedded` ハンドルを drop してください。
 - **ウィンドウは 1 つ。** エディターが入る 1 つのウィンドウはホストが持ちます。`platform::capabilities().get().multi_window` は false で、`window` の宣言は `ErrorKind::Unsupported` を報告して開きません（[ウィンドウが使えない環境](windows.md#ウィンドウが使えない環境) を参照）。
 - **入力の注入はできない。** DevTools はエディターを調べられますが、`inject_input` は `UNSUPPORTED`（-32015）で断られます。embed の port は自分の入力状態を持ちます。
-- **キー。** エディターが受け取るのは、ホストのウィンドウが渡すキーです。エディターが処理しなかったキーはホストに返されず、エディターに届く前に Space などを奪うホストへの対策も Kivact にはありません。
-- **パニックでエディターが止まる。** パニックはエディターを終了させ、wrapper が次に `Embedded` を呼んだときに再開されます。ホストまで届かせないでください。想定できる失敗は `error_boundary` で処理してください ([エラーや更新の原因を調べる](diagnostics.md))。
+- **キー。** エディターが受け取るのは、ホストのウィンドウが渡すキーです。既定では、エディターが処理しなかったキーはエディターに残ります。`Parent::forward_unhandled_keys`（[キーとホスト](#キーとホスト) を参照）を付けると、そのキーと release がホストへ返ります。エディターに届く前に Space などを奪うホストへの対策も Kivact にはありません。
+- **パニックでエディターが止まる。** パニックはエディターを終了させ、`Embedded::status` が `ErrorKind::Panicked` として報告します。wrapper へ巻き戻ることはないので、C ABI のホストが abort することはありません。ハンドルのメソッドはその後も普通に戻り、drop すると残りが閉じられます。想定できる失敗は `error_boundary` で処理してください ([エラーや更新の原因を調べる](diagnostics.md))。
 
 ## エディターを開く (wrapper の作者)
 
@@ -217,7 +217,7 @@ fn open(parent: Parent, params: Arc<dyn Params>) -> kivact::Result<Embedded> {
 `embed` の契約です。
 
 - **スレッド。** ホストの GUI スレッドで呼びます。root クロージャーは `Send` でなければならず、App の UI スレッドで実行されます。root は一度だけ実行され、`embed` はその完了後に戻ります。
-- **エラー。** 不正なサイズやスケールは `ErrorKind::Message` を返します。不正または null の親、OS 資源の不足、未対応の OS は `ErrorKind::Platform` を返します。root でのパニックは `embed` から再開されます。開くのに失敗したときはウィンドウが残りません。
+- **エラー。** 不正なサイズやスケールは `ErrorKind::Message` を返します。不正または null の親、OS 資源の不足、未対応の OS は `ErrorKind::Platform` を返します。root または開く途中でのパニックは `ErrorKind::Panicked` を返し、ウィンドウを残しません。そのあとのパニックはエディターを止め、`Embedded::status` が報告します。Kivact が呼び出し元へ巻き戻すことはありません。
 - **ハンドル。** `Embedded` は `Send + Sync` です。エディターが開いているあいだ保持してください。複数のスレッドから setter を呼ぶなら `Arc` に入れて持ちます。
 
 ### ホストの呼び出しに応える
@@ -229,11 +229,14 @@ setter は UI スレッドへ変更を積んですぐ戻り、getter は最後�
 | 開く前の `set_scale` / `setContentScaleFactor` | スケールを保存する。 |
 | 開く前の `get_size` / `getSize` | `round(論理サイズ * スケール)` を返す。 |
 | `set_parent` / `attached` | 同じスケールを `Parent` に渡して `App::embed` を呼び、ハンドルを保持する。 |
-| `set_size` / `onSize` | `Embedded::set_size(width, height)` |
+| `show` / `hide` (CLAP `gui.show` / `gui.hide`) | `Embedded::show()` / `Embedded::hide()`。適用済みの状態は `Embedded::is_visible()` で読む。 |
+| `set_size` / `onSize` | `Embedded::set_size(width, height)`。確定待ちのリサイズ要求にも答える。 |
 | 開いた後の `get_size` / `getSize` | `Embedded::size()` |
 | スケールの変更 | `Embedded::set_scale(scale)`。論理サイズを保ちたいなら、そのあとで新しい物理サイズをホストに求める。 |
 | `adjust_size` / `checkSizeConstraint` | wrapper 自身の制限で丸める。ホストの `set_size` は `min_window_size` では制限されません。 |
 | `destroy` / `removed` | ハンドルを drop する。 |
+| OS が表示スケールを変えた (Windows) | `Parent::on_notice` が `EmbedNotice::ScaleChanged(scale)` を渡す。`scale()` を読み、`round(論理サイズ * スケール)` をホストに求めて論理サイズを保つ。 |
+| エディターが止まった (親の破棄、失敗、パニック) | `Parent::on_notice` が `EmbedNotice::Stopped` を渡す。`status()` を読む。 |
 
 ```rust,no_run
 use kivact::embed::Embedded;
@@ -260,9 +263,10 @@ impl OpenEditor {
         }
     }
 
-    /// エディターが止まった場合の理由 (プラットフォームの失敗)。
-    pub fn failure(&self) -> Option<kivact::UiError> {
-        self.embedded.as_ref().and_then(Embedded::error)
+    /// エディターが開いている場合の停止理由。`Running`、`Closed`（ホストが親を破棄）、
+    /// `Failed(error)`、`Panicked(error)`。
+    pub fn status(&self) -> Option<kivact::embed::EmbedStatus> {
+        self.embedded.as_ref().map(Embedded::status)
     }
 
     pub fn close(&mut self) {
@@ -274,20 +278,118 @@ impl OpenEditor {
 
 サイズが 0 の場合、プラットフォームの上限 (Windows は `i32::MAX`、X11 は `u16::MAX`) を超える場合、スケールが有限の正の数でない場合は、`tracing` に警告を出して無視されます。エディターは動き続けます。
 
-### 両方向のサイズ変更
+### ポーリングではなく通知を受け取る
 
-ユーザーやホストがウィンドウのサイズを変えたときは `set_size` を呼びます。UI が別のサイズを望むときは、**論理**サイズで `platform::request_window_size` を呼びます。要求は `Parent::on_resize_request` を通って、**物理**ピクセルで、UI スレッド上の wrapper に届きます。ホストが受理したら `true` を返してください。すると Kivact はウィンドウをリサイズします。ただしその間にホストが `set_size` を呼んでいれば、そちらが優先されます。`false` を返すと、UI の要求はプラットフォームエラーで失敗します。コールバックがなければ、要求は `Unsupported` で失敗します。
+`Parent::on_notice` は、OS が適用スケールを変えたときと、エディターが止まったときに wrapper を起こします。通知は起こすためのもので、状態ではありません。`status()` や `scale()` を読んで何が起きたかを知ります。コールバックを用意するまでは、ホストの idle timer (CLAP の `timer-support`、VST3 の run loop) で `status()` をポーリングしてください。
+
+```rust,no_run
+use std::sync::Arc;
+
+use kivact::embed::{EmbedNotice, Parent};
+use kivact::embed::EmbedStatus;
+
+/// エディターに反応する wrapper の部分。
+#[derive(Clone)]
+pub struct Wake {
+    /// ホストのメインスレッドへメッセージを送る (どのチャンネルでもよい)。
+    post: Arc<dyn Fn() + Send + Sync>,
+}
+
+fn notices(parent: Parent, wake: Wake) -> Parent {
+    parent.on_notice(move |notice| {
+        // ここでは待たず、あとでホストに実行させるだけにします。
+        keep_logical_size(notice);
+        let post: &(dyn Fn() + Send + Sync) = &*wake.post;
+        post();
+    })
+}
+
+/// ホストが新しい物理サイズを求めて論理サイズを保つべきか。
+fn keep_logical_size(notice: EmbedNotice) -> bool {
+    matches!(notice, EmbedNotice::ScaleChanged(_))
+}
+
+/// ホストのメインスレッドで、起きたあとに: エディターが動いているか。
+fn alive(status: EmbedStatus) -> bool {
+    status == EmbedStatus::Running
+}
+```
+
+コールバックはホストの GUI スレッドを待たず、パニックしてもいけません。X11 ではエディタースレッドの終了処理から呼ばれることがあり、ハンドルの drop で始めた close は drop したスレッドから呼ばれることがあります。`ScaleChanged` を送るのは Windows だけです。X11 のスケールは Xft の 1 つだけなので、モニターを移しても変わりません。
+
+### 表示と非表示
+
+CLAP は `set_parent` のあとに `gui.show` / `gui.hide` を呼びます。VST3 と
+standalone のウィンドウは表示した状態で開きます。ホストが非表示でエディターを
+始める場合は `Parent::hidden()` で開き、あとから `Embedded::show` /
+`Embedded::hide` を呼びます。どちらも冪等で、他の setter と同じくキューに積まれます。
+非表示のエディターは App（task、timer、signal）を動かしますが、何も描きません。
+frame loop は動かず、`platform::is_surface_active()` は `show` まで false です。
+非表示にするとキーボードフォーカスは親へ戻り、押されているポインターは取り消されます。
+キューに積まれた呼び出しは、UI スレッドが適用するまで `is_visible` に反映されません。
+
+```rust,no_run
+use kivact::embed::{Embedded, Parent};
+
+fn hidden_until_shown(parent: Parent) -> Parent {
+    parent.hidden()
+}
+
+fn show(editor: &Embedded) {
+    editor.show();
+}
+```
+
+### キーとホスト
+
+キーの**押下**が未処理であるとは、フォーカスされたテキスト入力、フォーカスの移動、
+IME やコピー/貼り付け、`on_key` ハンドラー（失敗したハンドラーは処理済みと数える）、
+既定動作（Enter/Space の活性化、Escape の破棄）のどれも使わなかった場合です。
+release はその押下に従います。
+
+既定では未処理のキーはエディターに残ります。`Parent::forward_unhandled_keys` を
+付けると、押下とその release が親ウィンドウへ返ります。Windows では元の
+`WM_KEYDOWN`/`WM_KEYUP` を親へ post し（JUCE のエディターと同じ）、X11 では合成の
+`KeyPress`/`KeyRelease` を送ります（`XSendEvent`。合成イベントを無視するツールキットもあります）。
+Space などのショートカットを取り戻したいホストが opt-in します。テキスト入力と
+エディター自身のショートカットが先に働くことは変わりません。
 
 ```rust,no_run
 use kivact::embed::Parent;
 
+fn forwarding(parent: Parent) -> Parent {
+    parent.forward_unhandled_keys()
+}
+```
+
+判定は同期です。Kivact はネイティブの押下ごとに probe し（ネイティブメッセージが
+戻る前に配送と turn を済ませる）、ホストはユーザーが押した順にキーを受け取ります。
+App のコードがすでにスタック上にあるとき（App のハンドラーが開いたモーダルなど）は
+probe せず、その押下は返しません。wrapper のコールバックの中でホストの GUI スレッドを
+待ってはいけません。
+
+### 両方向のサイズ変更
+
+ユーザーやホストがウィンドウのサイズを変えたときは `set_size` を呼びます。UI が別のサイズを望むときは、**論理**サイズで `platform::request_window_size` を呼びます。要求は `Parent::on_resize_request` を通って、**物理**ピクセルで、UI スレッド上の wrapper に届きます。ホストがしたことを返してください。
+
+| 戻り値 | 意味 | そのあと |
+|---|---|---|
+| `ResizeAnswer::Accepted` | ホストがその場で受理した (CLAP `request_resize` が true)。 | Kivact が自分でウィンドウをリサイズする。あとから `set_size` が来ればそちらが優先。UI の要求はすぐ成功する。 |
+| `ResizeAnswer::Pending` | ホストが後で決め、`set_size` で確定する (VST3 `resizeView` → `onSize`)。 | それまでウィンドウのサイズは変わらない。ホストのサイズが要求と一致すれば成功、違えばホストが選んだサイズを名指すプラットフォームエラー、新しい要求があれば `Cancelled`、2 秒で `Timeout`。 |
+| `ResizeAnswer::Refused` | ホストが断った。 | 要求はプラットフォームエラーで失敗する。 |
+
+コールバックがなければ、要求は `Unsupported` で失敗します。
+
+```rust,no_run
+use kivact::embed::{Parent, ResizeAnswer};
+
 fn resizable(parent: Parent) -> Parent {
     parent.on_resize_request(|width, height| {
-        // ホストに width x height の物理ピクセルを求め、受理されたかを返します。
-        // これは UI スレッドで動きます。要求はホスト自身の run loop へ送り、
-        // GUI スレッドの返事は待たずに答えてください。
+        // ホストに width x height の物理ピクセルを求めます。これは UI スレッドで
+        // 動くので、要求はホスト自身の run loop へ送り、GUI スレッドの返事は
+        // 待たずに答えてください。
         let _ = (width, height);
-        true
+        ResizeAnswer::Pending
     })
 }
 
@@ -299,6 +401,8 @@ async fn fit_content() -> kivact::Result<()> {
 
 wrapper が自分のサイズを答えるときの順序は 1 つです。**新しい論理サイズを保存し、ホストに求め、拒否されたら元のサイズに戻す。** フレームワークによっては (nih-plug)、要求の実行中にエディターのサイズを読み直します。
 
+`Pending` のとき、ホストが確定するまで子ウィンドウはリサイズされません。ホストのサイズ通知 (`onSize`、X11 では post した CLAP の `request_resize` が true を返したあと) から `Embedded::set_size` を呼んでください。要求はその呼び出しで解決します。`Pending` と答えて確定しないホストでは、UI の要求は 2 秒でタイムアウトし、子は元のサイズのままです（安全な側）。
+
 スケールが変わっても論理サイズを保ちたいときは、先に `set_scale` を呼び、そのあとで `round(論理サイズ * 新しいスケール)` をホストに求めます。
 
 ### 閉じる
@@ -307,7 +411,7 @@ wrapper が自分のサイズを答えるときの順序は 1 つです。**新�
 
 エディターが App のコールバックの中 (たとえば「閉じる」ボタン) で自分のハンドルを drop した場合、実行中のターンは最後まで進み、そのあとに後始末が行われ、以後の入力は配送されません。キューにあるアクションは消化されません。
 
-ホストが先に親ウィンドウを破棄した場合、エディターは安全に停止し、`error()` は `None` のままです。プラットフォームの失敗は App を止め、ウィンドウを破棄し、`error()` が理由を返します。パニックも同じように App を止めますが、`error()` は返さず、次の `Embedded` の呼び出しがそれを再開します。ハンドルはその後でも drop する必要があります。長く走る `blocking` の仕事は `CancelToken` を定期的に確認して、閉じるときにその終了を待たなくて済むようにしてください。
+ホストが先に親ウィンドウを破棄した場合、エディターは安全に停止し、`status()` は `EmbedStatus::Closed` を返します。プラットフォームの失敗は App を止め、ウィンドウを破棄し、`status()` は理由つきの `EmbedStatus::Failed` を返します。パニックも同じように止め、`status()` はパニックのメッセージつきの `EmbedStatus::Panicked` を返します。どの呼び出しも drop もそれを再開しません。ハンドルはその後でも drop する必要があります。長く走る `blocking` の仕事は `CancelToken` を定期的に確認して、閉じるときにその終了を待たなくて済むようにしてください。
 
 ### wrapper をテストする
 
@@ -328,7 +432,7 @@ let editor: Embedded = App::new("Editor")
     .embed(parent.parent().scale(1.0), || text("Editor"))?;
 parent.pump(Duration::from_millis(50));
 assert_eq!(parent.capture()?.width, 320);
-assert!(editor.error().is_none());
+assert_eq!(editor.status(), kivact::embed::EmbedStatus::Running);
 drop(editor);
 # Ok(())
 # }
@@ -351,7 +455,10 @@ drop(editor);
 | 最大サイズ (物理) | `i32::MAX` | `u16::MAX` |
 | macOS (NSView) | 未対応 | |
 | Wayland (ネイティブの埋め込み) | | 未対応 |
-| 未処理のキーをホストへ返す | 未対応 | 未対応 |
+| 未処理のキーをホストへ返す | opt-in (`Parent::forward_unhandled_keys`) | opt-in、ホスト依存 (`XSendEvent`) |
+| エディターの表示・非表示 | 可 (`Embedded::show`/`hide`、`Parent::hidden`) | 可 |
+| ホストの確定を待つリサイズ | 可 (`ResizeAnswer::Pending`) | 可 |
+| OS の表示スケールの変更 | `EmbedNotice::ScaleChanged` | なし (Xft のスケールは 1 つ) |
 
 実際のプラグインホスト (REAPER、Bitwig Studio、Ableton Live、Cubase など)、実際の DAW での IME、プラグインウィンドウ内での読み上げソフトは、まだ検証していません。
 

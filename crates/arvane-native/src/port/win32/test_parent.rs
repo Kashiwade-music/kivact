@@ -20,20 +20,21 @@ use windows_sys::Win32::System::LibraryLoader::{
     GetModuleHandleExW,
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-    MAPVK_VK_TO_VSC_EX, MapVirtualKeyW, VK_BACK, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE, VK_F1,
-    VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME,
+    GetFocus, MAPVK_VK_TO_VSC_EX, MapVirtualKeyW, VK_BACK, VK_DELETE, VK_DOWN, VK_END, VK_ESCAPE,
+    VK_F1, VK_F2, VK_F3, VK_F4, VK_F5, VK_F6, VK_F7, VK_F8, VK_F9, VK_F10, VK_F11, VK_F12, VK_HOME,
     VK_LEFT, VK_NEXT, VK_PRIOR, VK_RETURN, VK_RIGHT, VK_SPACE, VK_TAB, VK_UP,
 };
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     AdjustWindowRectEx, CW_USEDEFAULT, CreateWindowExW, DefWindowProcW, DestroyWindow,
     DispatchMessageW, FindWindowExW, GWLP_HINSTANCE, GWLP_ID, GWLP_USERDATA, GetClientRect,
-    GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, IsWindow, PM_REMOVE,
-    PW_RENDERFULLCONTENT, PeekMessageW, PostMessageW, RegisterClassW, SC_CLOSE, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos, TranslateMessage, UnregisterClassW,
-    WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN, WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP,
-    WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL, WM_PAINT, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP,
-    WM_SYSCOMMAND, WM_XBUTTONDOWN, WM_XBUTTONUP, WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN,
-    WS_CLIPSIBLINGS, WS_OVERLAPPEDWINDOW, WS_VISIBLE, XBUTTON1, XBUTTON2,
+    GetWindowLongPtrW, GetWindowRect, HWND_NOTOPMOST, HWND_TOP, HWND_TOPMOST, IsWindow,
+    IsWindowVisible, PM_REMOVE, PW_RENDERFULLCONTENT, PeekMessageW, PostMessageW, RegisterClassW,
+    SC_CLOSE, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE, SetWindowLongPtrW, SetWindowPos,
+    TranslateMessage, UnregisterClassW, WM_CHAR, WM_KEYDOWN, WM_KEYUP, WM_LBUTTONDOWN,
+    WM_LBUTTONUP, WM_MBUTTONDOWN, WM_MBUTTONUP, WM_MOUSEHWHEEL, WM_MOUSEMOVE, WM_MOUSEWHEEL,
+    WM_PAINT, WM_QUIT, WM_RBUTTONDOWN, WM_RBUTTONUP, WM_SYSCOMMAND, WM_XBUTTONDOWN, WM_XBUTTONUP,
+    WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_OVERLAPPEDWINDOW, WS_VISIBLE,
+    XBUTTON1, XBUTTON2,
 };
 const NAME: &[u16] = &[
     65, 114, 118, 97, 110, 101, 69, 109, 98, 101, 100, 84, 101, 115, 116, 80, 97, 114, 101, 110,
@@ -385,6 +386,18 @@ impl TestParent {
     pub fn close_requests(&self) -> u32 {
         // SAFETY: this test host stores an integer counter in its own USERDATA.
         unsafe { GetWindowLongPtrW(self.hwnd, GWLP_USERDATA) as u32 }
+    }
+    /// Whether the embedded editor's child window is visible.
+    pub fn editor_visible(&self) -> Result<bool, ShellError> {
+        let child = self.child()?;
+        // SAFETY: IsWindowVisible reads only this child window's style.
+        Ok(unsafe { IsWindowVisible(child) } != 0)
+    }
+    /// Whether the embedded editor has the keyboard focus.
+    pub fn editor_focused(&self) -> Result<bool, ShellError> {
+        let child = self.child()?;
+        // SAFETY: GetFocus reads this UI thread's focus window only.
+        Ok(unsafe { GetFocus() } == child)
     }
     /// Place a colored host-owned sibling above the editor or its container.
     pub fn cover(

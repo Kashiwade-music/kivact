@@ -88,9 +88,11 @@ fn ask_platform(
 
 /// Request a content size in logical pixels for the window of the calling
 /// owner, clamped to that window's minimum. A desktop window asks the OS for that size. Embedded windows
-/// ask `Parent::on_resize_request` in physical pixels. A refusal is a
-/// platform error; an absent callback is unsupported. Invalid dimensions
-/// return a message error. Await the future to observe the result.
+/// ask `Parent::on_resize_request` in physical pixels and may wait for the
+/// host's confirmation: a `Pending` answer resolves when the host's `set_size`
+/// arrives, is cancelled by a newer request, or times out after two seconds.
+/// A refusal is a platform error; an absent callback is unsupported. Invalid
+/// dimensions return a message error. Await the future to observe the result.
 #[track_caller]
 pub fn request_window_size(
     width: impl Into<f64>,

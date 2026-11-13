@@ -3,11 +3,13 @@
 use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::port::embed::child::{ChildPort as _, Shared};
-use crate::port::embed::session::{Session, negotiate};
+use crate::port::embed::session::Session;
+use crate::port::embed::surface::ChildSurface;
 use crate::present::CpuSurface;
-use arvane_shell::{ShellError, ShellWindow};
+use arvane_shell::{ShellError, ShellWindow, SizeReply};
 use kivact_types::Environment;
-use kivact_types::{Capabilities, Cursor, Rect, Size};
+use kivact_types::embed::Visibility;
+use kivact_types::{Capabilities, Cursor, Rect, Size, UnhandledKeys};
 use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::{Cell, RefCell};
 use std::num::NonZeroU32;
@@ -33,7 +35,11 @@ pub(super) struct Window {
     pub(super) scale: f64,
     /// The frame period (ns) of the display the window's center is on.
     frame_period_ns: u64,
-    on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
+    on_resize_request: Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
+    /// Whether the child can draw; the only source of `surface_generation`.
+    surface: ChildSurface,
+    /// What happens to key presses the editor does not handle.
+    pub(super) unhandled_keys: UnhandledKeys,
     pub(super) redraw: Cell<ChildRedraw>,
     started: Instant,
     cpu: CpuSurface<Arc<Native>, Arc<Native>>,
@@ -54,11 +60,15 @@ impl Window {
         backend: Arc<Notifier>,
         size: (u32, u32),
         scale: f64,
-        on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
+        visibility: Visibility,
+        unhandled_keys: UnhandledKeys,
+        on_resize_request: Option<
+            Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
+        >,
         waker: arvane_shell::ShellWaker,
     ) -> Result<Self, ShellError> {
         let (width, height) = size;
-        shared.update(width, height, scale);
+        shared.update(width, height, scale, visibility);
         let ime = super::ime::Ime::new(&native);
         let dnd = super::dnd::Dnd::new(&native)?;
         let frame_period_ns = randr_frame_period(&native, (width, height));
@@ -72,6 +82,8 @@ impl Window {
             scale,
             frame_period_ns,
             on_resize_request,
+            surface: ChildSurface::new(visibility),
+            unhandled_keys,
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
             cpu: CpuSurface::Released,
@@ -86,8 +98,23 @@ impl Window {
     pub(super) fn resized(&mut self, width: u32, height: u32) {
         self.width = width;
         self.height = height;
-        self.shared.update(width, height, self.scale);
+        let visibility = self.shared.applied().visibility;
+        self.shared.update(width, height, self.scale, visibility);
         self.redraw.set(ChildRedraw::Needed);
+    }
+    /// Apply a show/hide on the UI thread; the boundary event, if it changed.
+    pub(super) fn set_surface(
+        &mut self,
+        visibility: Visibility,
+    ) -> Option<arvane_shell::ShellEvent> {
+        let mut surface = self.surface;
+        let event = surface.apply(visibility);
+        self.surface = surface;
+        if event.is_some() {
+            self.shared
+                .update(self.width, self.height, self.scale, visibility);
+        }
+        event
     }
     /// Read the frame period again after a configure; `true` when it changed.
     pub(super) fn refresh_frame_period(&mut self) -> bool {
@@ -146,17 +173,8 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(size) => {
-                debug_assert!(!self.session.opening());
-                negotiate(
-                    size,
-                    self.scale,
-                    MAX_DIMENSION,
-                    self.on_resize_request.as_deref(),
-                    &self.shared,
-                    || self.backend.wake(),
-                )
-                .map(|()| PlatformResult::Done)
+            PlatformRequest::RequestWindowSize(_) => {
+                unreachable!("invariant: the engine asks sizes through request_size")
             }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
         }
@@ -217,6 +235,24 @@ impl ShellWindow for Window {
     fn scale(&self) -> f64 {
         self.scale
     }
+    fn request_size(&mut self, size: Size, request: kivact_types::RequestId) -> SizeReply {
+        debug_assert!(!self.session.opening());
+        let session = self.session.clone();
+        // Answers are delivered by `deliver_commands`, outside this effect.
+        session.settle_resize(self.now_ns());
+        session.request_size(
+            size,
+            self.scale,
+            MAX_DIMENSION,
+            self.on_resize_request.as_deref(),
+            request,
+            self.now_ns(),
+            || self.backend.wake(),
+        )
+    }
+    fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
+        self.session.unhandled_key(code);
+    }
     fn now_ns(&self) -> u64 {
         self.started.elapsed().as_nanos().min(u64::MAX.into()) as u64
     }
@@ -236,8 +272,7 @@ impl ShellWindow for Window {
         }
     }
     fn surface_generation(&self) -> Option<u64> {
-        // The X window is never re-created, so its surface keeps the first generation.
-        Some(1)
+        self.surface.generation()
     }
     fn request_redraw(&self) {
         self.redraw.set(ChildRedraw::Needed);

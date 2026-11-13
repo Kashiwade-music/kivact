@@ -100,11 +100,34 @@ a boundary. What happens at a boundary depends on how the code fails:
   `Result<(), UiError>`, so `?` works on any `std::error::Error`. The error is
   reported with the location of the `?`.
 - **The code panics.** A panic is a bug: Kivact does not catch it. It ends the
-  App (or fails the test) with Rust's usual message.
+  App (or fails the test) with Rust's usual message. In an embedded editor
+  (`kivact::embed`) the panic is reported by `Embedded::status` as
+  `ErrorKind::Panicked` instead of reaching the host; Kivact never unwinds it
+  into the embedder.
 - **A Kivact function is misused.** Calling `signal` inside a handler, writing a
   signal inside a `memo`, using a handle after its owner was disposed and so on
   are bugs too. Kivact panics at the call with
   `kivact misuse: UiError(<kind>: ... at file:line)` (see the table below).
+
+### Use a `UiError` where a standard error is expected
+
+`UiError` does not implement `std::error::Error` itself, because the blanket
+`From` would then overlap `From<T> for T`. Convert it in either direction
+instead:
+
+```rust,no_run
+use std::error::Error;
+
+fn report(error: kivact::UiError) -> Box<dyn Error + Send + Sync> {
+    // `?` and `Box::from` keep the kind, message and location.
+    Box::from(error)
+}
+
+fn log(error: &kivact::UiError) {
+    // `Display` is the message; `source()` is the wrapped error.
+    eprintln!("{}", error.as_error());
+}
+```
 
 A reported error goes to the nearest `error_boundary` above the failing code. It
 runs its `on_error` handler, its `fallback`, or both. With no boundary, the error

@@ -1,8 +1,8 @@
 //! Role: Embedded window creation with the shared rendering driver.
 
 use crate::presentation::Observer;
-use crate::{Handler, RendererChange, ShellError};
-pub use arvane_shell::PanicSlot;
+use crate::{Handler, RendererChange};
+pub use arvane_shell::{ChildStop, EmbedNotice, PanicSlot};
 use arvane_shell::{MakeHandler, ShellChild};
 use kivact_types::WindowId;
 use std::cell::RefCell;
@@ -61,7 +61,7 @@ impl Embedded {
     pub fn new(child: Box<dyn ShellChild>) -> Self {
         Self(child)
     }
-    /// Resize in physical pixels.
+    /// Resize in physical pixels. Also answers a pending resize request.
     pub fn set_size(&self, width: u32, height: u32) {
         self.0.set_size(width, height);
     }
@@ -77,8 +77,16 @@ impl Embedded {
     pub fn scale(&self) -> f64 {
         self.0.scale()
     }
+    /// Show or hide the window; queued.
+    pub fn set_visibility(&self, visibility: kivact_types::embed::Visibility) {
+        self.0.set_visibility(visibility);
+    }
+    /// Last applied visibility.
+    pub fn visibility(&self) -> kivact_types::embed::Visibility {
+        self.0.visibility()
+    }
     /// Why the child stopped, or `None` while running.
-    pub fn failure(&self) -> Option<ShellError> {
-        self.0.failure()
+    pub fn stop(&self) -> Option<ChildStop> {
+        self.0.stop()
     }
 }
