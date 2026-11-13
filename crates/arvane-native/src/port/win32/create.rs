@@ -72,8 +72,8 @@ pub(in crate::port) fn open(
         state.destroy();
         return Err(error);
     }
-    // Any early return or App panic from here on detaches and destroys the child.
-    let opening = Opening::new(state.clone(), hwnd);
+    // Any early return or App panic from here on destroys the child, which runs its shutdown.
+    let opening = Opening::new(state.clone());
     // SAFETY: opt in only our newly created child to shell drop messages.
     unsafe { windows_sys::Win32::UI::Shell::DragAcceptFiles(hwnd, 1) };
     state
@@ -273,18 +273,18 @@ enum OpeningGuard {
 }
 
 /// Destroys a child whose opening did not finish: on an `Err` return and on
-/// unwind. The window procedure is detached first, so no App code runs again.
+/// unwind. The window procedure stays attached while the child is destroyed, so
+/// `WM_DESTROY` closes the App (or forgets it after a panic) inside the
+/// procedure's panic boundary, and `WM_NCDESTROY` detaches the procedure.
 struct Opening {
     state: Rc<State>,
-    hwnd: isize,
     guard: OpeningGuard,
 }
 
 impl Opening {
-    fn new(state: Rc<State>, hwnd: isize) -> Self {
+    fn new(state: Rc<State>) -> Self {
         Self {
             state,
-            hwnd,
             guard: OpeningGuard::Armed,
         }
     }
@@ -300,10 +300,8 @@ impl Drop for Opening {
         }
         super::a11y::disconnect(&self.state);
         // A child already destroyed (its parent went away) detached itself in
-        // WM_NCDESTROY, and its HWND value may now name another window.
-        if self.state.shared.alive() {
-            super::proc::detach(&self.state, self.hwnd);
-            self.state.destroy();
-        }
+        // WM_NCDESTROY, and its HWND value may now name another window; `destroy`
+        // checks that the child is still alive.
+        self.state.destroy();
     }
 }

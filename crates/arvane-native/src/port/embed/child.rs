@@ -107,10 +107,13 @@ impl Shared {
             notices,
         }
     }
+    /// A poisoned lock is recovered rather than unwrapped: unwrapping would panic on the host's
+    /// thread, outside the platform's panic boundary. The guarded state is plain data (queued
+    /// commands and applied values).
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner
             .lock()
-            .expect("invariant: the embedded child lock is never held while panicking")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
     /// Keep the message of a panic that reached a platform boundary and stop
     /// the child; the host reads it as `ChildStop::Panicked` (see [`PanicSlot`]).

@@ -301,23 +301,43 @@ impl Session {
                 return false;
             }
         };
-        if let HandlerSlot::Running { mut handler, .. } = slot {
+        if let HandlerSlot::Running { handler, .. } = slot {
             if self.shared.panicked() {
-                self.state.replace(ChildLifecycle::Leaked);
-                crate::module::retain_module();
-                std::mem::forget(handler);
+                self.forget(handler);
                 return false;
             }
+            // Held in a `ManuallyDrop`: if `close` panics, the handler is forgotten rather than
+            // dropped during the unwind.
+            let mut handler = std::mem::ManuallyDrop::new(handler);
             let mut lp = EmbedLoop {
                 window,
                 waker: self.waker.clone(),
                 injected: Vec::new(),
             };
             handler.close(&mut lp);
-            drop(handler);
+            drop(std::mem::ManuallyDrop::into_inner(handler));
             self.retention.retain();
         }
         true
+    }
+    /// Forget the App after a panic that reached the platform boundary and
+    /// could not run the normal shutdown (a window that is being destroyed
+    /// cannot run a queued command). The handler is never dropped or closed.
+    #[cfg(windows)]
+    pub(in crate::port) fn leak(&self) {
+        let previous = self.state.replace(ChildLifecycle::Leaked);
+        if let ChildLifecycle::Opening(HandlerSlot::Running { handler, .. })
+        | ChildLifecycle::Live(HandlerSlot::Running { handler, .. }) = previous
+        {
+            self.forget(handler);
+        }
+        crate::module::retain_module();
+    }
+    /// Keep a handler that must never be dropped or closed again, and its module loaded.
+    fn forget(&self, handler: Box<dyn ShellHandler>) {
+        self.state.replace(ChildLifecycle::Leaked);
+        crate::module::retain_module();
+        std::mem::forget(handler);
     }
 }
 // The session's last field: it drops after the handler state, whose drop may detach threads.

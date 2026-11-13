@@ -55,13 +55,22 @@ pub(super) unsafe extern "system" fn wndproc(
             // message: the child stops without running more App code, and
             // `Embedded::status` reports it. Kivact never resumes it.
             state.shared.keep_panic(payload);
-            // The panic skipped the shutdown above. A queued command runs it
-            // inside this same boundary on the host's next pump; cleanup that
-            // panics there keeps the panic and skips the rest (the App's
-            // resources leak).
-            // SAFETY: posting to our child only schedules its window procedure.
-            unsafe {
-                PostMessageW(hwnd, super::native::COMMAND, 0, 0);
+            if matches!(message, WM_DESTROY | WM_NCDESTROY) {
+                // The window is going away, so a queued command would never run.
+                // Forget the App now. Inside a callback, the callback's caller
+                // stops the child after it returns (see `State::invoke`).
+                if !state.in_callback.get() {
+                    state.session.leak();
+                }
+            } else {
+                // The panic skipped the shutdown above. A queued command runs it
+                // inside this same boundary on the host's next pump; cleanup that
+                // panics there keeps the panic and skips the rest (the App's
+                // resources leak).
+                // SAFETY: posting to our child only schedules its window procedure.
+                unsafe {
+                    PostMessageW(hwnd, super::native::COMMAND, 0, 0);
+                }
             }
             0
         }

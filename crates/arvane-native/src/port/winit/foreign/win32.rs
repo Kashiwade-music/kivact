@@ -7,7 +7,7 @@
 use arvane_shell::ShellError;
 use kivact_types::NativeWindow;
 use std::num::NonZeroIsize;
-use windows_sys::Win32::Foundation::{GetLastError, HWND};
+use windows_sys::Win32::Foundation::{ERROR_CLASS_ALREADY_EXISTS, GetLastError, HWND};
 use windows_sys::Win32::Graphics::Gdi::{BLACK_BRUSH, GetStockObject};
 use windows_sys::Win32::System::LibraryLoader::{
     GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT,
@@ -15,9 +15,9 @@ use windows_sys::Win32::System::LibraryLoader::{
 };
 use windows_sys::Win32::UI::Input::KeyboardAndMouse::SetFocus;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    CreateWindowExW, DefWindowProcW, DestroyWindow, GW_CHILD, GetWindow, RegisterClassW,
-    SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, WNDCLASSW, WS_CHILD, WS_CLIPCHILDREN,
-    WS_CLIPSIBLINGS, WS_EX_NOPARENTNOTIFY, WS_VISIBLE,
+    CreateWindowExW, DefWindowProcW, DestroyWindow, GW_CHILD, GetParent, GetWindow, IsWindow,
+    RegisterClassW, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetWindowPos, WNDCLASSW, WS_CHILD,
+    WS_CLIPCHILDREN, WS_CLIPSIBLINGS, WS_EX_NOPARENTNOTIFY, WS_VISIBLE,
 };
 
 const CLASS_NAME: [u16; 20] = [
@@ -63,6 +63,8 @@ impl ForeignConnections {
 /// The Win32 child window of one foreign window.
 pub(crate) struct ForeignOs {
     child: HWND,
+    /// The winit window that the child was created under.
+    parent: HWND,
 }
 
 impl ForeignOs {
@@ -100,7 +102,7 @@ impl ForeignOs {
                 last_error()
             )));
         }
-        Ok(Self { child })
+        Ok(Self { child, parent })
     }
 
     /// Resize the child to `width` x `height` physical pixels.
@@ -147,7 +149,18 @@ impl ForeignOs {
 
 impl Drop for ForeignOs {
     fn drop(&mut self) {
-        // SAFETY: destroying our own child is the only cleanup it needs.
+        // SAFETY: IsWindow validates the opaque handle without dereferencing it.
+        if unsafe { IsWindow(self.child) } == 0 {
+            return;
+        }
+        // SAFETY: GetParent reads the parent link of the handle validated above.
+        // A destroyed child's handle may now name another window; only destroy
+        // the child that is still ours.
+        if unsafe { GetParent(self.child) } != self.parent {
+            return;
+        }
+        // SAFETY: the child is still our window under our parent, so destroying it is
+        // its only cleanup.
         unsafe {
             DestroyWindow(self.child);
         }
@@ -181,6 +194,13 @@ fn register() -> Result<(), String> {
     // procedure lives in user32.
     let atom = unsafe { RegisterClassW(&class) };
     if atom == 0 {
+        // A reload of this module in the same process finds the class its earlier
+        // load registered. Windows looks classes up by module handle, so creating
+        // the child still fails if the reload maps at a different handle; that
+        // failure is reported where the child is created.
+        if last_error_code() == ERROR_CLASS_ALREADY_EXISTS {
+            return Ok(());
+        }
         return Err(format!(
             "the foreign child window class could not be registered: {}",
             last_error()
@@ -224,8 +244,11 @@ fn module_instance() -> Result<windows_sys::Win32::Foundation::HINSTANCE, ShellE
     Ok(instance)
 }
 
-fn last_error() -> String {
+fn last_error_code() -> u32 {
     // SAFETY: GetLastError reads this thread's error code.
-    let code = unsafe { GetLastError() };
-    format!("Win32 error {code}")
+    unsafe { GetLastError() }
+}
+
+fn last_error() -> String {
+    format!("Win32 error {}", last_error_code())
 }

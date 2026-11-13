@@ -12,8 +12,10 @@ use arvane_shell::{
     ChildHooks, ChildStop, EmbedOptions, MakeHandler, NoticeSink, ShellChild, ShellError,
     ShellEvent, ShellWaker, ShellWindow,
 };
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt;
 
 impl ChildPort for Arc<Notifier> {
     const MAX_DIMENSION: u32 = MAX_DIMENSION;
@@ -25,7 +27,7 @@ impl ChildPort for Arc<Notifier> {
         if shared.alive() {
             self.wake();
         }
-        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        let mut slot = thread_slot(self);
         let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
             UiThread::Running(thread) => Some(thread),
             // Nothing was spawned, or the handle was already taken.
@@ -54,7 +56,7 @@ impl ChildPort for Arc<Notifier> {
         }
     }
     fn collect_panic(&self, shared: &Shared) {
-        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        let mut slot = thread_slot(self);
         let finished = match &*slot {
             UiThread::Running(thread) => thread.is_finished(),
             UiThread::Unspawned | UiThread::Joined => false,
@@ -69,7 +71,15 @@ impl ChildPort for Arc<Notifier> {
         }
     }
 }
-const LOCK_POISONED: &str = "embedded child lock poisoned: a panic already happened";
+/// The UI thread's join handle, behind a lock that may be poisoned. A poisoned lock is recovered
+/// rather than unwrapped: these calls run on the host's thread, where a panic would unwind into the
+/// host. The slot holds only the join handle and its state.
+fn thread_slot(backend: &Notifier) -> std::sync::MutexGuard<'_, UiThread> {
+    backend
+        .thread
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// Marks the UI thread dead when it ends, by return or by unwind, so the
 /// host sees a stopped child before it joins the thread.
@@ -131,7 +141,7 @@ pub(in crate::port) fn open(
             }
         })
         .map_err(super::error::platform)?;
-    *backend.thread.lock().expect(LOCK_POISONED) = UiThread::Running(thread);
+    *thread_slot(&backend) = UiThread::Running(thread);
     let child = Handle { shared, backend };
     match receiver.recv() {
         Ok(Ok(())) => Ok(Box::new(child)),
@@ -139,7 +149,7 @@ pub(in crate::port) fn open(
         Err(_) => {
             // The UI thread ended without answering: it failed (see below) or
             // it panicked, and its message is kept for the host to read.
-            let mut slot = child.backend.thread.lock().expect(LOCK_POISONED);
+            let mut slot = thread_slot(&child.backend);
             let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
                 UiThread::Running(thread) => Some(thread),
                 _ => None,
@@ -197,27 +207,46 @@ fn run(
     )?;
     let session = window.session.clone();
     let _watch = crate::port::linux_settings::watch(session.waker());
-    session.start(make, &mut window);
-    session.opened();
-    let result = if let Some(ChildStop::Failed(error)) = shared.stop() {
-        let _ = ready.send(Err(error.clone()));
-        Err(error)
-    } else if shared.panicked() {
-        Err(ShellError::new("the embedded App panicked while opening"))
-    } else if options.visibility == kivact_types::embed::Visibility::Shown
-        && let Err(error) = window.native.show()
-    {
-        Err(error)
-    } else if ready.send(Ok(())).is_err() {
-        Ok(())
-    } else {
-        event_loop(&session, &mut window, Input::new(keyboard), waiter)
+    // The App's start and event loop run inside this panic boundary. A panic is
+    // kept as the child's message and never resumed on this thread.
+    let result = match catch_unwind(AssertUnwindSafe(|| {
+        session.start(make, &mut window);
+        session.opened();
+        if let Some(ChildStop::Failed(error)) = shared.stop() {
+            let _ = ready.send(Err(error.clone()));
+            Err(error)
+        } else if shared.panicked() {
+            Err(ShellError::new("the embedded App panicked while opening"))
+        } else if options.visibility == kivact_types::embed::Visibility::Shown
+            && let Err(error) = window.native.show()
+        {
+            Err(error)
+        } else if ready.send(Ok(())).is_err() {
+            Ok(())
+        } else {
+            event_loop(&session, &mut window, Input::new(keyboard), waiter)
+        }
+    })) {
+        Ok(result) => result,
+        Err(payload) => {
+            shared.keep_panic(payload);
+            Err(ShellError::new("the embedded App panicked"))
+        }
     };
     if let Err(error) = &result {
         shared.fail(error.clone());
     }
     shared.request_close();
-    if session.close(&mut window) {
+    // The shutdown runs inside its own boundary too: after a panic, the session
+    // forgets the App instead of closing or dropping it.
+    let closed = match catch_unwind(AssertUnwindSafe(|| session.close(&mut window))) {
+        Ok(closed) => closed,
+        Err(payload) => {
+            shared.keep_panic(payload);
+            false
+        }
+    };
+    if closed {
         drop(window);
     } else {
         std::mem::forget(window);

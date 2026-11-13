@@ -388,6 +388,16 @@ path = "crates/arvane-asset/src/svg/fonts.rs"
 reason = "The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic."
 
 [[style.exceptions]]
+rule = "poison-access"
+path = "crates/arvane-native/src/port/embed/child.rs"
+reason = "The child's command queue and applied values are plain data. The lock is taken on the host's thread and in the platform's window procedure, where unwrapping a poisoned guard would panic outside the panic boundary and unwind into the host (ADR-68)."
+
+[[style.exceptions]]
+rule = "poison-access"
+path = "crates/arvane-native/src/port/x11/thread.rs"
+reason = "The X11 UI thread's join-handle slot is plain data (the handle and its state). Its lock is taken on the host's thread in open, close and collect_panic, where unwrapping a poisoned guard would panic outside the panic boundary and unwind into the host (ADR-68)."
+
+[[style.exceptions]]
 rule = "non-leaf-implementation"
 path = "crates/kivact-macros/src/lib.rs"
 item = "component"
@@ -423,6 +433,12 @@ rule = "catch-unwind"
 path = "crates/arvane-native/src/port/win32/proc.rs"
 item = "port::win32::proc::wndproc"
 reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The whole shutdown (state.stop, Session::close, handler close/drop, root disposal) runs inside this boundary. The payload's message is kept in the child's PanicSlot, the App stops without running more App code, and `Embedded::status` reports it; it is never resumed into the host and never swallowed."
+
+[[style.exceptions]]
+rule = "catch-unwind"
+path = "crates/arvane-native/src/port/x11/thread.rs"
+item = "port::x11::thread::run"
+reason = "Defense in depth at the X11 UI thread's own boundary: the App's start, event loop and shutdown run inside it, so a panic is kept in the child's PanicSlot and the session forgets the App instead of closing or dropping it. The payload is never resumed on this thread, and `Embedded::status` reports it through `ChildStop::Panicked`."
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"

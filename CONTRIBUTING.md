@@ -19,7 +19,7 @@
 - 関数は Clippy の 80 行の上限に収めます。長い処理は責務を持つ helper に分け、lint の無効化や行の詰め込みで回避しません。
 - 所有と状態は `Machine`・binding・読み取り専用の投影で表します。公開 API の field に `Arc`・`Rc`・lock を漏らさず、asset は所有する byte 列や `AssetBytes`、保持する描画結果は snapshot の型で渡します。
 - 一度だけ mount する slot は `impl IntoView`、開くたびに作り直す内容は `impl Fn() -> V` で受け取ります。子の mount 時に setup と cleanup owner を作る場合は `scope(move || view)` を使います。
-- panic は不具合です。`catch_unwind` で隔離せず、毒された lock の中身にも触れません。
+- panic は不具合です。`catch_unwind` は host から呼ばれる入口の二か所だけに置きます（Win32 の wndproc と、X11 の埋め込み UI thread の `run`。unwind が host へ届くと abort するため）。その外では `catch_unwind` を使いません。毒された lock は `embed/child.rs` の `Shared::lock` と、X11 UI thread の join handle の slot（`x11/thread.rs` の `thread_slot`）だけで回復し、ほかでは毒された lock の中身にも触れません。
 - glob import は使いません（例・雛形・利用者側の E2E での `kivact::prelude::*` は除きます）。
 
 規則を外す場合は、Google の指針自体が認める場合（意図した prelude、外部の frame との境界での defense in depth、FRU で組み立てる option の束、変わらない enum など）だけ、`dev/xtask/policy/workspace.toml` の `[[style.exceptions]]` に設計上の理由を書きます。違反の件数を減らすための例外や、規則を逃れるためだけの module 分けはしません（style の規則が選んだ lint は source の `#[allow]` より優先されるので、`#[allow]` では外せません）。
