@@ -90,7 +90,7 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(in crate::port) fn open(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,
@@ -164,7 +164,7 @@ pub(in crate::port) fn open(
 }
 
 fn run(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,
@@ -172,7 +172,7 @@ fn run(
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = parent else {
+    let kivact_types::NativeWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) = Native::create_unmapped(

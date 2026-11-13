@@ -177,6 +177,7 @@ impl ShellWindow for Window {
                 unreachable!("invariant: the engine asks sizes through request_size")
             }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
+            PlatformRequest::ForeignChild => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
@@ -279,6 +280,7 @@ impl ShellWindow for Window {
     }
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
+    fn set_resizable(&self, _: bool) {}
     fn reduced_motion(&self) -> bool {
         crate::native_input::reduced_motion()
     }

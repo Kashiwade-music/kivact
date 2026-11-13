@@ -1,17 +1,22 @@
-//! Role: The `window` view: a portal into another OS window of the App.
+//! Role: The `window` and `foreign_window` view: a portal into another OS
+//! window of the App, whose content Kivact draws or a native child fills.
 
 use std::cell::{Cell, RefCell};
 use std::panic::Location;
 use std::rc::{Rc, Weak};
 
 use kivact_runtime::{
-    Binding, EffectKind, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, Runtime,
+    Binding, EffectKind, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, Owner, Runtime,
     UiError, Value,
 };
-use kivact_types::{DismissReason, Size, WindowId, WindowMode, WindowPlacement, WindowRequest};
+use kivact_types::{
+    DismissReason, NodeId, Size, WindowContent, WindowId, WindowMode, WindowPlacement,
+    WindowRequest,
+};
 
 use crate::geometry;
 use crate::view::descriptor::{IntoView, IntoViewFn, View, ViewFn, view_fn};
+use crate::view::foreign::{ForeignHooks, ForeignPhase, ForeignWindows};
 use crate::view::root::mount_window_root;
 use crate::view::state::{
     EnvState, FocusKeys, PointerObservation, ViewState, WindowRecord, WindowScope,
@@ -25,7 +30,7 @@ pub fn window(title: impl IntoText, open: impl IntoBinding<bool>) -> Window {
     Window {
         title: title.into_text_value(),
         open: open.into_binding(),
-        content: None,
+        content: SlotContent::Views(None),
         size: Size::new(640.0, 480.0),
         min_size: None,
         mode: WindowMode::Normal,
@@ -39,7 +44,7 @@ pub fn window(title: impl IntoText, open: impl IntoBinding<bool>) -> Window {
 pub struct Window {
     title: Value<String>,
     open: Binding<bool>,
-    content: Option<ViewFn<()>>,
+    content: SlotContent,
     size: Size,
     // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     min_size: Option<Size>,
@@ -49,10 +54,18 @@ pub struct Window {
     at: &'static Location<'static>,
 }
 
+/// What a window declaration contains.
+pub(super) enum SlotContent {
+    /// The Kivact views of a `window`, built again at each opening.
+    Views(Option<ViewFn<()>>),
+    /// The native child window machinery of a `foreign_window`.
+    Foreign(Rc<ForeignHooks>),
+}
+
 impl Window {
     /// The content, built again each time the window opens (API-6 factory).
     pub fn content<V: IntoView>(mut self, content: impl IntoViewFn<V>) -> Self {
-        self.content = Some(content.into_view_fn());
+        self.content = SlotContent::Views(Some(content.into_view_fn()));
         self
     }
 
@@ -112,7 +125,7 @@ struct WindowSlot {
     unsupported: kivact_types::cell::ReportOnce,
     title: Value<String>,
     open: Binding<bool>,
-    content: Option<ViewFn<()>>,
+    content: SlotContent,
     size: Size,
     min_size: Option<Size>,
     mode: WindowMode,
@@ -122,27 +135,58 @@ struct WindowSlot {
 
 impl WindowSlot {
     /// Show the window when `open`, hide it otherwise.
-    fn switch(self: &Rc<Self>, rt: &Rc<Runtime>, open: bool, multi_window: bool) {
+    fn switch(
+        self: &Rc<Self>,
+        rt: &Rc<Runtime>,
+        open: bool,
+        capabilities: kivact_types::Capabilities,
+    ) {
         let arm = *self.arm.borrow();
         match (arm, open) {
             (WindowArm::Open { id }, false) => self.close(rt, id, true),
             (WindowArm::Open { .. }, true) | (WindowArm::Closed, false) => {}
-            (WindowArm::Closed, true) => self.open(rt, multi_window),
+            (WindowArm::Closed, true) => self.open(rt, capabilities),
         }
     }
 
-    fn open(self: &Rc<Self>, rt: &Rc<Runtime>, multi_window: bool) {
-        let state = ViewState::of(rt);
-        if !multi_window {
-            if self.unsupported.note() {
-                self.parent.report(UiError::new(
-                    ErrorKind::Unsupported,
-                    "this platform opens no window beyond the first",
-                    Some(self.at),
-                ));
-            }
+    /// Open the window if the platform can hold it; report it once if not.
+    fn open(self: &Rc<Self>, rt: &Rc<Runtime>, capabilities: kivact_types::Capabilities) {
+        if !self.supports(capabilities) {
             return;
         }
+        let (id, owner, title) = self.begin(rt);
+        let root = match &self.content {
+            SlotContent::Views(_) => self.mount_views(rt, id, owner),
+            SlotContent::Foreign(hooks) => self.mount_foreign(rt, id, owner, title, hooks),
+        };
+        self.watch(rt, owner, id, title);
+        debug_assert_eq!(ViewState::tree(rt).root(id), Some(root));
+        *self.arm.borrow_mut() = WindowArm::Open { id };
+    }
+
+    /// Whether the platform can open this declaration; report it once if not.
+    fn supports(&self, capabilities: kivact_types::Capabilities) -> bool {
+        let supported = match &self.content {
+            SlotContent::Views(_) => capabilities.multi_window,
+            SlotContent::Foreign(_) => capabilities.foreign_window,
+        };
+        if !supported && self.unsupported.note() {
+            let message = match &self.content {
+                SlotContent::Views(_) => "this platform opens no window beyond the first",
+                SlotContent::Foreign(_) => {
+                    "this platform opens no window with a native child window"
+                }
+            };
+            self.parent
+                .report(UiError::new(ErrorKind::Unsupported, message, Some(self.at)));
+        }
+        supported
+    }
+
+    /// Record the window's owner, environment and open request; the host
+    /// opens the OS window after the turn.
+    fn begin(&self, rt: &Rc<Runtime>) -> (WindowId, Owner, Value<String>) {
+        let state = ViewState::of(rt);
         let id = state.next_window();
         let owner = self.parent.child(self.at);
         let parent_env = state
@@ -158,6 +202,10 @@ impl WindowSlot {
         let mouse = owner.signal(None, self.at);
         let title = self.title;
         let min_size = self.min_size;
+        let (foreign, content) = match &self.content {
+            SlotContent::Views(_) => (None, WindowContent::Drawn),
+            SlotContent::Foreign(hooks) => (Some(hooks.clone()), WindowContent::Foreign),
+        };
         ViewState::tree(rt).engine().open_window(WindowRequest {
             id,
             title: title.get_untracked(),
@@ -166,6 +214,7 @@ impl WindowSlot {
             mode: self.mode,
             placement: self.placement,
             parent: Some(self.parent_window),
+            content,
         });
         owner.provide(WindowScope(id));
         state.install_window(
@@ -180,11 +229,20 @@ impl WindowSlot {
                 min_size,
                 dismiss: self.dismiss.clone(),
                 open: self.open,
+                foreign,
                 mode: self.mode,
             },
         );
-        let content = self.content.clone();
-        let root = mount_window_root(
+        (id, owner, title)
+    }
+
+    /// Mount a `window`'s content as the window root.
+    fn mount_views(self: &Rc<Self>, rt: &Rc<Runtime>, id: WindowId, owner: Owner) -> NodeId {
+        let content = match &self.content {
+            SlotContent::Views(content) => content.clone(),
+            SlotContent::Foreign(_) => None,
+        };
+        mount_window_root(
             rt,
             id,
             owner,
@@ -193,21 +251,61 @@ impl WindowSlot {
                 None => View::empty(),
             }),
             self.at,
-        );
+        )
+    }
+
+    /// Mount the empty themed root of a `foreign_window` and register its
+    /// cleanup.
+    fn mount_foreign(
+        self: &Rc<Self>,
+        rt: &Rc<Runtime>,
+        id: WindowId,
+        owner: Owner,
+        title: Value<String>,
+        hooks: &Rc<ForeignHooks>,
+    ) -> NodeId {
+        hooks.phase.set(ForeignPhase::Waiting);
+        ForeignWindows::register(rt, hooks);
+        let cleanup = hooks.clone();
+        let cleanup_owner = owner;
+        owner.on_cleanup(move || {
+            cleanup_owner.run_handler(|| cleanup.release());
+        });
+        let label = title.get_untracked();
+        mount_window_root(
+            rt,
+            id,
+            owner,
+            Box::new(move || {
+                crate::view::elements::node()
+                    .role(kivact_types::Role::Group)
+                    .name(label)
+                    .into_view()
+            }),
+            self.at,
+        )
+    }
+
+    /// Keep the title, minimum size and resizable flag of `id` in sync.
+    fn watch(self: &Rc<Self>, rt: &Rc<Runtime>, owner: Owner, id: WindowId, title: Value<String>) {
+        let min_size = self.min_size;
+        let resizable = match &self.content {
+            SlotContent::Views(_) => None,
+            SlotContent::Foreign(hooks) => Some(hooks.resizable),
+        };
         let weak = Rc::downgrade(rt);
         owner.effect(
             EffectKind::Render,
             move || {
                 let Some(rt) = weak.upgrade() else { return };
                 let title = title.get();
+                let resizable = resizable.is_none_or(|resizable| resizable.get());
                 ViewState::tree(&rt)
                     .engine()
-                    .set_window(id, title, min_size);
+                    .set_window(id, title, min_size, resizable);
             },
             self.at,
         );
-        debug_assert_eq!(ViewState::tree(rt).root(id), Some(root));
-        *self.arm.borrow_mut() = WindowArm::Open { id };
     }
 
     /// Close `id`: remove its subtree, close the OS window and drop its
@@ -227,6 +325,7 @@ impl WindowSlot {
             ViewState::tree(rt).engine().close_window(id);
         }
         ViewState::of(rt).remove_window(id);
+        ViewState::of(rt).close_foreign_sizes(id);
         *self.arm.borrow_mut() = WindowArm::Closed;
     }
 }
@@ -288,12 +387,27 @@ impl IntoView for Window {
                 let Some(rt) = slot.rt.upgrade() else {
                     return;
                 };
-                let (wanted, multi_window) = kivact_runtime::pure(|| {
-                    (open.get(), capabilities.get_untracked().multi_window)
-                });
-                slot.switch(&rt, wanted, multi_window);
+                let (wanted, capabilities) =
+                    kivact_runtime::pure(|| (open.get(), capabilities.get_untracked()));
+                slot.switch(&rt, wanted, capabilities);
             });
             frag
         })
     }
+}
+
+/// The view of a `foreign_window` declaration.
+pub(super) fn foreign_window_view(hooks: Rc<ForeignHooks>, at: &'static Location<'static>) -> View {
+    Window {
+        title: hooks.title,
+        open: hooks.open,
+        size: hooks.size,
+        min_size: hooks.min_size,
+        mode: hooks.mode,
+        placement: hooks.placement,
+        dismiss: hooks.dismiss.clone(),
+        content: SlotContent::Foreign(hooks),
+        at,
+    }
+    .into_view()
 }

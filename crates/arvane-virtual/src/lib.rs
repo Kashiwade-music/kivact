@@ -17,3 +17,4 @@ pub use backend::{GpuMode, MirrorMode, Probe, VirtualBackend, VirtualOptions, Wi
 #[cfg(feature = "mirror")]
 pub use mirror::mirror_stats;
 pub use script::{Script, WindowScript};
+pub use window::is_native_window_alive;

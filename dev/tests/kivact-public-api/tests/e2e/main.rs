@@ -44,6 +44,7 @@ mod effects_filters;
 mod environment;
 mod flows;
 mod focus;
+mod foreign_window;
 mod frame_sources;
 #[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]
 mod gpu_interop;

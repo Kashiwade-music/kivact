@@ -15,7 +15,7 @@ use kivact_types::{
     Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
     WindowId, WindowRequest,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -46,6 +46,7 @@ impl VirtualBackend {
             dialogs: RefCell::new(VecDeque::new()),
             opened: RefCell::new(Vec::new()),
             revealed: RefCell::new(Vec::new()),
+            next_foreign_child: Cell::new(0),
             fail_next: RefCell::new(None),
         });
         Self {
@@ -356,7 +357,11 @@ impl ShellLoop for VirtualLoop<'_> {
         Ok(())
     }
     fn close_window(&mut self, id: WindowId) {
-        self.windows.remove(&id);
+        if let Some(window) = self.windows.remove(&id)
+            && let Some(child) = window.foreign_child.get()
+        {
+            crate::window::forget_live_native_window(child);
+        }
         self.input.windows.remove(&id);
         self.input
             .queue
@@ -636,6 +641,15 @@ impl WindowProbe {
     }
     pub fn min_size(&self) -> Option<Size> {
         self.with(|window| window.min_size.get())
+    }
+    /// The native child window of a window opened with
+    /// `WindowContent::Foreign`, once the engine asked for it.
+    pub fn foreign_child(&self) -> Option<kivact_types::NativeWindow> {
+        self.with(|window| window.foreign_child.get())
+    }
+    /// Whether the user can resize the window.
+    pub fn is_resizable(&self) -> bool {
+        self.with(|window| window.resizable.get())
     }
     pub fn ime_area(&self) -> Option<Rect> {
         self.with(|window| window.ime.get())

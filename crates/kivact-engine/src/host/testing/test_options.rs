@@ -41,6 +41,9 @@ pub struct TestHostOptions {
     pub title: String,
     /// The test platform opens no window beyond the first.
     pub single_window: bool,
+    /// The test platform opens windows whose content is one native child
+    /// window (`WindowContent::Foreign`).
+    pub foreign_windows: bool,
     /// The display refresh period frame ticks are paced at (ns).
     pub frame_period_ns: u64,
     /// The theme hint reported at start.
@@ -76,6 +79,7 @@ impl Default for TestHostOptions {
             mirror: MirrorMode::Auto,
             title: "kivact test".into(),
             single_window: false,
+            foreign_windows: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             theme: ThemeHint::Light,
             reduced_motion: false,

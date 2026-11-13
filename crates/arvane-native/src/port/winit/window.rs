@@ -31,6 +31,9 @@ pub(super) enum Surface {
 
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
+    // xtask-allow(state-fields): option: present exactly for windows opened with WindowContent::Foreign; dropped before the winit window so the child goes first
+    /// The child window that fills a foreign window's content area.
+    pub(super) foreign: Option<crate::port::winit::foreign::ForeignOs>,
     // xtask-allow(state-fields): option: the window's subclass, held for its drop, which removes it before the window goes; absent when it is not installed
     /// The window's subclass (Windows), held for its drop, which removes
     /// it before the window goes (fields drop in order).
@@ -95,6 +98,12 @@ impl ShellWindow for WinitWindow {
                 );
                 Ok(PlatformResult::Done)
             }
+            PlatformRequest::ForeignChild => match &self.foreign {
+                Some(foreign) => Ok(PlatformResult::NativeWindow(foreign.native())),
+                None => Err(ShellError::unsupported(
+                    "this window has no native child window",
+                )),
+            },
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
@@ -261,6 +270,7 @@ impl ShellWindow for WinitWindow {
             gpu: false,
             multi_window: true,
             window_placement: false,
+            foreign_window: self.has_native_child_parent(),
         }
     }
     /// The generation of the window's presentation surface: the count of
@@ -285,6 +295,10 @@ impl ShellWindow for WinitWindow {
     fn set_min_size(&self, size: Option<Size>) {
         self.window
             .set_min_inner_size(size.map(|s| LogicalSize::new(s.width, s.height)));
+    }
+    /// Whether the user can resize the window.
+    fn set_resizable(&self, resizable: bool) {
+        self.window.set_resizable(resizable);
     }
     /// Whether the system asks to reduce motion (Windows: animation effects
     /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
@@ -439,6 +453,20 @@ fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
 const SOFT_KEYBOARD: bool = cfg!(any(target_os = "android", target_os = "ios"));
 
 impl WinitWindow {
+    /// Whether the window can contain a native child: Win32 and X11 can,
+    /// Wayland and AppKit cannot.
+    fn has_native_child_parent(&self) -> bool {
+        use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+
+        let Ok(handle) = self.window.window_handle() else {
+            return false;
+        };
+        matches!(
+            handle.as_raw(),
+            RawWindowHandle::Win32(_) | RawWindowHandle::Xlib(_) | RawWindowHandle::Xcb(_)
+        )
+    }
+
     /// Whether the Windows subclass is installed: it answers the IME's reconversion and tells pens
     /// from touch.
     fn subclassed(&self) -> bool {
@@ -467,6 +495,22 @@ impl WinitWindow {
         let rate = crate::display::refresh_rate_millihertz(self.window.current_monitor());
         if let Some(millihertz) = rate {
             self.frame_period_ns = crate::display::period_ns(millihertz);
+        }
+    }
+
+    /// Fit the foreign child to the window's new physical content size.
+    pub(super) fn fit_foreign(&mut self, width: u32, height: u32) {
+        if let Some(foreign) = &mut self.foreign
+            && let Err(error) = foreign.fit(width, height)
+        {
+            tracing::warn!("the foreign child window did not resize: {error}");
+        }
+    }
+
+    /// Hand the keyboard focus to the foreign UI when its window is activated.
+    pub(super) fn focus_foreign(&self) {
+        if let Some(foreign) = &self.foreign {
+            foreign.focus_into();
         }
     }
 }

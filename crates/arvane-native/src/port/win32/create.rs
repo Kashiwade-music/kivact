@@ -17,12 +17,12 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 };
 
 pub(in crate::port) fn open(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let kivact_types::ParentWindow::Win32(parent) = parent else {
+    let kivact_types::NativeWindow::Win32(parent) = parent else {
         return Err(ShellError::unsupported(
             "Windows embedding needs a Win32 parent",
         ));

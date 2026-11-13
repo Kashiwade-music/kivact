@@ -46,7 +46,7 @@ pub use effect::{
     MorphologyOp, ParamSlot, ParamType, Primitive, PrimitiveOp, ShaderKind, ShaderProgram,
     ShaderUse, TransferFn, TurbulenceKind,
 };
-pub use embed::{EmbedOptions, ParentWindow, ResizeAnswer, UnhandledKeys};
+pub use embed::{EmbedOptions, ResizeAnswer, UnhandledKeys};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
     PointerSettings, ThemeHint,
@@ -111,7 +111,9 @@ pub use text::{
     TextWrap,
 };
 pub use text_shaping::TextShaper;
-pub use window::{WindowId, WindowMode, WindowPlacement, WindowRequest};
+pub use window::{
+    NativeWindow, SurfaceSize, WindowContent, WindowId, WindowMode, WindowPlacement, WindowRequest,
+};
 
 pub mod animatable;
 pub use animatable::Animatable;

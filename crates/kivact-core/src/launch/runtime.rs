@@ -124,6 +124,7 @@ fn start_mount(
         WindowId::MAIN,
         std::mem::take(&mut options.settings.title),
         options.settings.min_window_size,
+        true,
     );
     // The App's fonts precede the root's mount (the engine registers
     // a font when it is written, so the first layout uses them).
@@ -190,6 +191,7 @@ impl Launch {
                 let view = ViewState::new(root, info, writer.clone(), at);
                 let motion_env = install_main_window(&view, root, info, options, at);
                 let extensions = Extensions::new().with(view).with(motion_env);
+                let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
                 let extensions = extensions.with(AppHandleExt(handle.clone()));
                 let extensions = extensions.with(crate::gpu_interop::State::new(root, at));
                 #[cfg(feature = "devtools")]
@@ -347,6 +349,7 @@ fn install_main_window(
             min_size: options.settings.min_window_size,
             dismiss: None,
             open,
+            foreign: None,
             mode: WindowMode::Normal,
         },
     );

@@ -1,5 +1,6 @@
 //! Role: Winit window and input port.
 mod contacts;
+pub(crate) mod foreign;
 pub(crate) mod key_code;
 mod open;
 pub(crate) mod runtime;

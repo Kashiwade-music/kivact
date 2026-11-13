@@ -417,6 +417,13 @@ declaration, and does not open the window; the binding is not changed.
 In an embedded editor, `platform::focus_window()` also fails with
 `ErrorKind::Unsupported`.
 
+## Windows whose content another library draws
+
+`foreign_window(title, open)` opens a window whose whole content area is one
+native child window for another library's UI, such as a plugin editor. Its
+`on_ready`, `on_resize` and `on_destroy` callbacks follow the child; see
+[Show a plugin editor in its own window](foreign-windows.md).
+
 ## See also
 
 - [Show a dialog, menu, tooltip or toast](overlays.md): overlays inside one

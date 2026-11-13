@@ -1,7 +1,7 @@
 //! Role: Host window, scale and host callbacks of an embedded App.
 
 use super::EmbedNotice;
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 use kivact_types::embed::Visibility;
 use kivact_types::{ResizeAnswer, UnhandledKeys};
 use std::ffi::c_void;
@@ -14,7 +14,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Parent {
     // xtask-allow(state-fields): option: an optional constructor input; the default applies when absent
-    pub(super) window: Option<ParentWindow>,
+    pub(super) window: Option<NativeWindow>,
     // xtask-allow(state-fields): option: an optional host scale; the default applies when absent
     pub(super) scale: Option<f64>,
     pub(super) visibility: Visibility,
@@ -39,7 +39,7 @@ impl Parent {
     /// or nih-plug `ParentWindowHandle::Win32Hwnd`. Null is refused by `embed`.
     pub fn win32(hwnd: *mut c_void) -> Parent {
         Self {
-            window: NonZeroIsize::new(hwnd as isize).map(ParentWindow::Win32),
+            window: NonZeroIsize::new(hwnd as isize).map(NativeWindow::Win32),
             scale: None,
             visibility: Visibility::default(),
             unhandled_keys: UnhandledKeys::default(),
@@ -51,7 +51,7 @@ impl Parent {
     /// or nih-plug `ParentWindowHandle::X11Window`.
     pub fn x11(window: u32) -> Parent {
         Self {
-            window: NonZeroU32::new(window).map(ParentWindow::X11),
+            window: NonZeroU32::new(window).map(NativeWindow::X11),
             scale: None,
             visibility: Visibility::default(),
             unhandled_keys: UnhandledKeys::default(),

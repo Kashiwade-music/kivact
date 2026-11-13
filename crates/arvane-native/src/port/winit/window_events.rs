@@ -13,6 +13,17 @@ pub(super) fn window_events(native: &mut NativeWindow, event: WindowEvent) -> Ve
         .window
         .accessibility
         .process_event(&native.window.window, &event);
+    // The foreign child fills the content area before the client sees the
+    // resize, and takes the keyboard when its window is activated.
+    match &event {
+        WindowEvent::Resized(size) => native.window.fit_foreign(size.width, size.height),
+        WindowEvent::ScaleFactorChanged { .. } => {
+            let size = native.window.window.inner_size();
+            native.window.fit_foreign(size.width, size.height);
+        }
+        WindowEvent::Focused(true) => native.window.focus_foreign(),
+        _ => {}
+    }
     let scale = native.window.window.scale_factor();
     // The IME's character positions follow a scale change at once, even
     // when the text it answers from stays the same.

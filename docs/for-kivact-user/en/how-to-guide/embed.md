@@ -572,4 +572,6 @@ returns `UiError::Unsupported`. For a changing theme, create its signal and
 - [Run async work from a component](async-and-tasks.md) for `spawn` and `blocking`.
 - [Find out why something failed or updated](diagnostics.md) for how panics end the
   App.
+- [Show a plugin editor in its own window](foreign-windows.md): the opposite
+  direction, where a host app embeds another library's UI.
 - `cargo doc -p kivact --features embed --open`: `kivact::embed`.

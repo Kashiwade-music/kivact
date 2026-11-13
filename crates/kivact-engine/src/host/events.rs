@@ -369,6 +369,7 @@ impl Host {
             });
         }
         self.settle_window(id);
+        self.foreign_resized(id, windows);
     }
 
     fn lifecycle_event(&mut self, event: ShellEvent, id: WindowId, windows: &mut Windows<'_>) {

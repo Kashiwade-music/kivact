@@ -503,15 +503,21 @@ impl Writer {
         self.app.borrow().log.set(syncs, frames);
     }
 
-    /// Set window `window`'s title and minimum size (after the turn).
-    pub fn set_window(&self, window: WindowId, title: String, min_size: Option<Size>) {
+    /// Set window `window`'s title, minimum size and resizable flag (after the turn).
+    pub fn set_window(
+        &self,
+        window: WindowId,
+        title: String,
+        min_size: Option<Size>,
+        resizable: bool,
+    ) {
         let mut app = self.app.borrow_mut();
         let AppModel {
             windows, writes, ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window) {
             writes.command(None);
-            model.window_request = Some((title, min_size));
+            model.window_request = Some((title, min_size, resizable));
         }
     }
 

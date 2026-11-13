@@ -170,6 +170,9 @@ pub struct Capabilities {
     pub multi_window: bool,
     /// The platform honours `WindowPlacement` other than `Auto` (false on Wayland).
     pub window_placement: bool,
+    /// A window can contain one native child window for UI another library
+    /// draws (`WindowContent::Foreign`).
+    pub foreign_window: bool,
 }
 
 /// An actual application lifecycle transition or platform memory warning.

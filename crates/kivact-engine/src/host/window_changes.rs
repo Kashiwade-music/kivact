@@ -8,10 +8,10 @@
 use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::Host;
 use super::window::{HostWindow, surface_of};
-use crate::contract::HostEvent;
+use crate::contract::{ForeignChange, HostEvent};
 use crate::model::{AppClock, WindowChange};
 use arvane::Windows;
-use kivact_types::{Environment, WindowId};
+use kivact_types::{Environment, WindowContent, WindowId};
 
 impl Host {
     /// Perform the window changes of the turn, in order.
@@ -26,11 +26,33 @@ impl Host {
                             self.windows
                                 .insert(id, HostWindow::new(request.mode, request.parent));
                             let (environment, surface_active) = self.start_window(id, windows);
+                            let foreign = if request.content == WindowContent::Foreign {
+                                match self.prepare_foreign(id, windows) {
+                                    Ok((child, size)) => Some(ForeignChange::Ready { child, size }),
+                                    Err(reason) => {
+                                        windows.close(id);
+                                        self.windows.remove(&id);
+                                        self.app.borrow_mut().remove_window(id);
+                                        self.app.borrow_mut().push_event(HostEvent::WindowFailed {
+                                            window: id,
+                                            reason,
+                                        });
+                                        continue;
+                                    }
+                                }
+                            } else {
+                                None
+                            };
                             self.app.borrow().push_event(HostEvent::WindowOpened {
                                 window: id,
                                 environment,
                                 surface_active,
                             });
+                            if let Some(change) = foreign {
+                                self.app
+                                    .borrow()
+                                    .push_event(HostEvent::Foreign { window: id, change });
+                            }
                         }
                         Err(error) => {
                             self.app.borrow_mut().remove_window(id);
@@ -168,11 +190,12 @@ impl Host {
             app.model_mut(id)
                 .and_then(|model| model.window_request.take())
         };
-        if let Some((title, min_size)) = title
+        if let Some((title, min_size, resizable)) = title
             && let Some(window) = windows.get(id)
         {
             window.set_title(&title);
             window.set_min_size(min_size);
+            window.set_resizable(resizable);
         }
         if let Some(mut window) = windows.get(id) {
             self.synchronize_ime(id, &mut window);

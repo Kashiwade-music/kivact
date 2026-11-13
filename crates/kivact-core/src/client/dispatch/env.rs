@@ -151,6 +151,7 @@ pub(super) fn layout_changed(
 pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
     if window == WindowId::MAIN {
         rt.request_exit();
+        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
         return;
     }
     let Some(record) = ViewState::of(rt).window_record(window) else {

@@ -1,8 +1,8 @@
 //! Role: Engine client events contracts.
 use kivact_types::{
     A11yRequest, DrawableId, Environment, ExternalImport, ImeInput, LayoutRule, LifecycleEvent,
-    Modifiers, MotionClock, NodeId, PlatformResult, Point, Rect, RegionId, RequestId, Revision,
-    Size, WindowId,
+    Modifiers, MotionClock, NativeWindow, NodeId, PlatformResult, Point, Rect, RegionId, RequestId,
+    Revision, Size, SurfaceSize, WindowId,
 };
 
 /// What the engine tells the client. Every kind goes into one ordered
@@ -13,7 +13,8 @@ use kivact_types::{
 /// IME session (`Ime`), geometry (`ScrollChanged`,
 /// `LayoutChanged`), assistive technology and dismissal (`A11y`), time and platform answers (`FrameTick`,
 /// `EffectResult`), the window and the platform (`EnvChanged`,
-/// `Lifecycle`, `CloseRequested`), the GPU texture sharing
+/// `Lifecycle`, `CloseRequested`), a foreign window's native child (`Foreign`),
+/// the GPU texture sharing
 /// (`ExternalImported`, `GpuAdapterChanged`; a client built without its
 /// own `gpu-interop` ignores them) and reports
 /// (`HostFailure`, `TurnsCut`, `AssetFailed`, `DrawDropped`, `LayoutWarning`).
@@ -240,6 +241,11 @@ pub enum HostEvent {
         window: WindowId,
         reason: String,
     },
+    /// A foreign window's native child exists or its extent changed.
+    Foreign {
+        window: WindowId,
+        change: ForeignChange,
+    },
     /// Everything injected with `request` was delivered to the window.
     InjectDelivered {
         window: WindowId,
@@ -294,6 +300,18 @@ pub enum HostEvent {
     DrawableExportLost(kivact_types::render::ExportLoss),
     /// The window can export to the GPU again: waiting requests are made anew.
     GpuExportAvailable,
+}
+
+/// What changed about a foreign window's native child.
+#[derive(Clone, Debug, PartialEq)]
+pub enum ForeignChange {
+    /// The child exists, with the window's current surface size.
+    Ready {
+        child: NativeWindow,
+        size: SurfaceSize,
+    },
+    /// The child's physical extent or scale changed.
+    Resized(SurfaceSize),
 }
 
 /// Shared textures a window made for a drawable's export. The textures hold

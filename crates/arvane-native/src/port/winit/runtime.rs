@@ -467,7 +467,17 @@ impl Runner<'_> {
     /// Create the main window, start the handler and run the loop.
     fn start_loop(&mut self, el: &ActiveEventLoop) {
         let mut table = WindowTable::new(crate::display::placement_supported(el));
-        match create_window(el, &self.main, None, &self.waker, self.started) {
+        let mut connections = table.foreign_connections_mut();
+        let created = create_window(
+            el,
+            &self.main,
+            None,
+            &self.waker,
+            self.started,
+            &mut connections,
+        );
+        drop(connections);
+        match created {
             Ok(window) => {
                 let winit_id = window.window.id();
                 table.insert(

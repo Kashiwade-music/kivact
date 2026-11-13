@@ -121,6 +121,7 @@ Creative jobs の run/stop は独立した一つの入力であり、progress/am
 | App の外からの終了要求 | `AppHandle` の `AppLink`（thread をまたぐ唯一の正本）。drain は runtime の `ExitState` |
 | 埋め込み App の panic のメッセージ | 子の PanicSlot。最初の payload の文字列だけを保持し、`Embedded::status` が `ErrorKind::Panicked` として投影する |
 | scrub の起点 | Creative の Numeric の mode Machine の Anchor。直前に適用した値とポインタ位置を持ち、修飾キーの倍率が変わると付け替える |
+| foreign window の子 | native の `WinitWindow.foreign`。engine は `WindowContent::Foreign` に handle と最後に送った寸法を持ち、core は `ForeignPhase` で `on_destroy` の負債だけを持つ |
 
 catalog でも同じ規則を使う。chat entry は Message(text)/Typing、integrated meter は Unmeasured/Measured と実 Sample/Reset、active section は単一 owner が Observed/Requested を受ける。最後の観測を保持し、geometry、scroll、playing、selection の mirror を足さない。
 
@@ -272,6 +273,8 @@ runtime の TurnState は Quiet / WakeSent / Running(Stage)。wake は Quiet か
 
 core の turn は開始時（idle の近道より前）に `AppHandle` の close 要求を取り、受理すれば `Runtime::request_exit` で drain を始める。embed は要求を拒否し、`ErrorKind::Unsupported` を root owner に報告して `Running` に戻す。
 
+App の終了要求の turn では、core が開いている foreign window の `open` を false にし、同じ turn の安定化で owner を破棄する（`on_destroy` は子 window が生きている間に走る）。engine は turn の後に OS window を閉じる。`AppHandle::close` も同じ経路を通る。
+
 | Stage | 担当 |
 |---|---|
 | Setup | root owner と初期 view、extension の構築 |
@@ -322,6 +325,7 @@ NodeRef::snapshotはpoll時のnodeをHostのrequest/replyへ送り、layout/pain
 | window に向けた service（例 focus_window） | types の request/result/capability、shell の window SPI、native の window.perform、core/platform の 4 crate。呼んだ owner の window を対象にし、main window へ暗黙に落とさない |
 | Environment field | types、native の事実、core の readonly query の 3 crate。別の environment model を作らない |
 | OS backend | native/port に入口、shell の共有 pipeline を利用。core に外部 backend 注入 API を増やさない。virtual が常時第二の SPI 実装 |
+| foreign window の子 window | types の `WindowContent` と `PlatformRequest::ForeignChild`、native の `ForeignOs`、engine の `HostWindow.content`、core の `foreign_window`（4 crate） |
 | 入力の正規化 | native port で raw code を写し、shell/pipeline で key/IME/DnD を正規化。window ごとの `WindowInput`（native の winit・virtual・注入が共有。embed の port は別） |
 | 地域書式 | i18n の Locale と ICU4X。全 locale の compiled data を利用し、kit に en-US table や日付計算を作らない |
 | behavior | interaction の State/Event/Effect と Machine、Part の配線、一つの公開 E2E。APG の当該 pattern の keyboard/roles/states を同じ変更で確認 |

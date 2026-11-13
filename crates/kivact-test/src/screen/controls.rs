@@ -270,6 +270,17 @@ impl Screen {
         self.host().title(self.window)
     }
 
+    /// The native child window filling a window opened with
+    /// `foreign_window`, once the engine created it.
+    pub fn foreign_child(&self) -> Option<p::NativeWindow> {
+        self.host().foreign_child(self.window)
+    }
+
+    /// Whether the user can resize this window.
+    pub fn is_resizable(&self) -> bool {
+        self.host().is_resizable(self.window)
+    }
+
     /// Number of frame ticks the App has been given.
     pub fn frame_ticks(&self) -> u64 {
         self.inspect().motion_ticks()

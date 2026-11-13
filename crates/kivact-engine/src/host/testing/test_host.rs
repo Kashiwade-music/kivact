@@ -201,6 +201,7 @@ fn virtual_options(options: &TestHostOptions) -> VirtualOptions {
         capabilities: Capabilities {
             multi_window: !options.single_window,
             window_placement: !options.single_window,
+            foreign_window: options.foreign_windows,
             ..default_capabilities
         },
         restored_state: options.restored_state.clone(),
@@ -949,6 +950,19 @@ impl ArvaneTestHost {
     /// The minimum window size the App set for `window` (`None`: no minimum).
     pub fn min_window_size(&self, window: WindowId) -> Option<Size> {
         self.probe.window(window).and_then(|probe| probe.min_size())
+    }
+    /// The native child window of a foreign window, once the engine asked
+    /// for it.
+    pub fn foreign_child(&self, window: WindowId) -> Option<kivact_types::NativeWindow> {
+        self.probe
+            .window(window)
+            .and_then(|probe| probe.foreign_child())
+    }
+    /// Whether the user can resize `window`.
+    pub fn is_resizable(&self, window: WindowId) -> bool {
+        self.probe
+            .window(window)
+            .is_some_and(|probe| probe.is_resizable())
     }
 
     /// The IME caret area (logical) of `window` while a text input has the focus.

@@ -3,15 +3,6 @@
 use crate::defaults::DEFAULT_WINDOW_SIZE;
 use crate::{GpuPreference, Size};
 
-/// A host window's raw handle value; this type never dereferences it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ParentWindow {
-    /// A Win32 `HWND`.
-    Win32(std::num::NonZeroIsize),
-    /// An X11 window id.
-    X11(std::num::NonZeroU32),
-}
-
 /// Whether an embedded window is shown.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum Visibility {

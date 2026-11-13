@@ -31,6 +31,8 @@ pub use env::{
     theme_hint, window_size,
 };
 #[doc(inline)]
+pub use kivact_types::NativeWindow;
+#[doc(inline)]
 pub use services::{
     FileDialog, copy_text, focus_window, open_path, pick_file, pick_files, pick_folder, read_text,
     request_window_size, reveal_path, save_file, save_state, set_fullscreen, set_reduced_motion,

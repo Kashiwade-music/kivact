@@ -129,6 +129,9 @@ pub trait ShellWindow {
     /// Set a minimum logical content extent; `None` removes it.
     fn set_min_size(&self, size: Option<Size>);
 
+    /// Whether the user can resize the window.
+    fn set_resizable(&self, resizable: bool);
+
     /// Current reduced-motion preference, consistent with `environment`.
     fn reduced_motion(&self) -> bool;
 

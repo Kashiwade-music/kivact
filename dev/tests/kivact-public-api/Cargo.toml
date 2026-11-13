@@ -54,6 +54,12 @@ name = "e2e"
 path = "tests/e2e/main.rs"
 
 [[test]]
+name = "foreign_window_run"
+path = "tests/foreign_window_run.rs"
+harness = false
+required-features = ["embed"]
+
+[[test]]
 name = "offscreen"
 path = "tests/offscreen.rs"
 

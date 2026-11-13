@@ -474,4 +474,5 @@ root factory の中でシグナルと `provide_theme` を作ります。デス�
 - [独自の見た目のコントロールを作る](custom-controls.md): `EditPhase` と、ジェスチャーを報告するコントロール。
 - [コンポーネントから非同期処理を実行する](async-and-tasks.md): `spawn` と `blocking`。
 - [エラーや更新の原因を調べる](diagnostics.md): パニックが App を終了させるしくみ。
+- [プラグインのエディタを専用のウィンドウに表示する](foreign-windows.md): 逆向きの用途で、ホストアプリが別のライブラリの UI を埋め込む。
 - `cargo doc -p kivact --features embed --open`: `kivact::embed`。

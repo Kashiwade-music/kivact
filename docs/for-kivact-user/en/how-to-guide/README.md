@@ -88,4 +88,5 @@ These features are available but their API can change more than the rest.
 | Guide | What it solves |
 | --- | --- |
 | [Open a Kivact UI inside a plugin window](embed.md) | Run a Kivact screen inside another application's window, such as a plugin editor |
+| [Show a plugin editor in its own window](foreign-windows.md) | A window whose whole content is one native child window, for another library's UI such as a plugin editor |
 | [Show textures from your own GPU renderer](gpu-texture-sharing.md) | Show textures that your own GPU code renders inside a Kivact UI |

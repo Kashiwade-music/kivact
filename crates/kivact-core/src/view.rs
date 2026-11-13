@@ -25,6 +25,8 @@ pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
+pub(crate) mod foreign;
+pub(crate) mod foreign_window;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
@@ -111,6 +113,10 @@ pub use node_status_data::ScrollState;
 #[doc(inline)]
 pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
 
+#[doc(inline)]
+pub use foreign::ForeignChild;
+#[doc(inline)]
+pub use foreign_window::{ForeignWindow, foreign_window};
 pub(crate) use part::Part;
 #[doc(inline)]
 pub use window_view::{Window, window};

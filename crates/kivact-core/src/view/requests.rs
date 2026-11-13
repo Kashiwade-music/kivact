@@ -99,6 +99,9 @@ pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Locat
 
 /// The host answered platform effect `id`.
 pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
+    if ViewState::of(rt).resolve_foreign_size(id, result.clone()) {
+        return;
+    }
     let Some(w) = ViewState::of(rt).requests.borrow_mut().effects.remove(&id) else {
         return;
     };

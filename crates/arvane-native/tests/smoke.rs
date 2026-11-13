@@ -34,6 +34,7 @@ impl ShellHandler for Smoke {
             mode: WindowMode::Tool,
             placement: WindowPlacement::CenterOnParent,
             parent: Some(WindowId::MAIN),
+            content: kivact_types::WindowContent::Drawn,
         })?;
         for id in shell.windows() {
             if let Some(window) = shell.window(id) {

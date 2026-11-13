@@ -1,5 +1,6 @@
 //! Role: Native platform requests, dialog options and classified failures.
 use crate::Size;
+use crate::window::NativeWindow;
 use std::path::PathBuf;
 
 /// Result of a platform request; cancellation is represented by an absent path.
@@ -17,6 +18,8 @@ pub enum PlatformResult {
     TimedOut,
     /// The family names of a registered font file (`RegisterFont`).
     Fonts(Vec<String>),
+    /// The native child window of a window opened with `WindowContent::Foreign`.
+    NativeWindow(NativeWindow),
 }
 
 /// Initial location, suggested name and filters for a file dialog.
@@ -60,6 +63,9 @@ pub enum PlatformRequest {
     RevealPath(PathBuf),
     /// Bring the window to the front and give it the keyboard focus (best effort).
     FocusWindow,
+    /// Create the native child window that fills a window whose content is
+    /// `WindowContent::Foreign`; the result is `NativeWindow`.
+    ForeignChild,
 }
 
 /// Stable classification of a boundary failure, independent of external libraries.

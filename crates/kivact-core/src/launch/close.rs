@@ -24,6 +24,7 @@ pub(super) fn take_close_request(rt: &Runtime, embedded: bool) {
     }
     if accept {
         rt.request_exit();
+        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
     } else {
         rt.report(
             Some(rt.root()),

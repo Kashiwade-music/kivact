@@ -343,6 +343,10 @@ mod tests {
 
 埋め込みのエディターでは、`platform::focus_window()` も `ErrorKind::Unsupported` で失敗します。
 
+## 別のライブラリが内容を描くウィンドウ
+
+`foreign_window(title, open)` は、内容領域全体を 1 つのネイティブ子ウィンドウにしたウィンドウを開きます。プラグインのエディタなど、別のライブラリの UI を表示するためのものです。`on_ready`、`on_resize`、`on_destroy` が子ウィンドウに追随します。詳しくは [プラグインのエディタを専用のウィンドウに表示する](foreign-windows.md) を参照してください。
+
 ## 関連項目
 
 - [ダイアログ、メニュー、ツールチップ、トーストを表示する](overlays.md): 1 つのウィンドウの中の overlay と、ウィンドウが dialog と共有する閉じる規則。

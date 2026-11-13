@@ -1,6 +1,6 @@
 //! Role: Real Win32 host window for embedding end-to-end tests.
 use arvane_shell::ShellError;
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::Cell;
@@ -102,7 +102,7 @@ impl TestParent {
         y: u32,
         width: u32,
         height: u32,
-    ) -> Result<ParentWindow, ShellError> {
+    ) -> Result<NativeWindow, ShellError> {
         assert_eq!(self.owner, std::thread::current().id());
         if width == 0 || height == 0 || [x, y, width, height].iter().any(|v| *v > i32::MAX as u32) {
             return Err(ShellError::new("invalid test parent container coordinates"));
@@ -127,7 +127,7 @@ impl TestParent {
             )
         };
         std::num::NonZeroIsize::new(hwnd)
-            .map(ParentWindow::Win32)
+            .map(NativeWindow::Win32)
             .ok_or_else(|| ShellError::new("test parent container creation failed"))
     }
     /// Open a visible host with the requested physical client extent.
@@ -190,8 +190,8 @@ impl TestParent {
         })
     }
     /// Portable parent handle to pass to `embed::open`.
-    pub fn parent(&self) -> ParentWindow {
-        ParentWindow::Win32(std::num::NonZeroIsize::new(self.hwnd).expect("live native handle"))
+    pub fn parent(&self) -> NativeWindow {
+        NativeWindow::Win32(std::num::NonZeroIsize::new(self.hwnd).expect("live native handle"))
     }
     /// Raw HWND for plugin wrappers.
     pub fn win32_hwnd(&self) -> Option<*mut std::ffi::c_void> {

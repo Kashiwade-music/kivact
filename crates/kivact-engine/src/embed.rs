@@ -8,7 +8,7 @@ pub use arvane::embed::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
 use arvane::embed::{Embedded, Embedder};
 pub use arvane_native::retain_module;
 use kivact_types::EmbedOptions;
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -59,7 +59,7 @@ impl EmbeddedHost {
 /// with the close flag the returned host sets when it is dropped (the client
 /// stops delivering the rest of its event batch once it is set).
 pub fn embed_native(
-    parent: ParentWindow,
+    parent: NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     client: impl FnOnce(CloseSignal) -> Client + Send + 'static,

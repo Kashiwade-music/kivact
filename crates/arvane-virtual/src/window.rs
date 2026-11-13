@@ -11,9 +11,10 @@ use arvane_shell::{
 };
 use kivact_types::Environment;
 use kivact_types::render::{PixelRect, SemanticsTree, SemanticsUpdate};
-use kivact_types::{Capabilities, Cursor, InputPurpose, Rect, Size, WindowRequest};
+use kivact_types::{Capabilities, Cursor, InputPurpose, NativeWindow, Rect, Size, WindowRequest};
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
+use std::num::NonZeroU32;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -131,6 +132,9 @@ pub(crate) struct VirtualPlatform {
     pub(crate) opened: RefCell<Vec<PathBuf>>,
     /// Paths asked to be revealed, in order.
     pub(crate) revealed: RefCell<Vec<PathBuf>>,
+    // xtask-allow(state-fields): identity: allocates native child ids; no other field derives from it
+    /// The last native child window id handed out.
+    pub(crate) next_foreign_child: Cell<u32>,
     // xtask-allow(state-fields): option: the service failure the test fills and the window drains; absent when none is pending
     /// The service failure the next effect consumes.
     pub(crate) fail_next: RefCell<Option<ShellError>>,
@@ -166,6 +170,12 @@ pub(crate) struct VirtualWindow {
     // xtask-allow(state-fields): statistic: soft keyboard requests counted for tests
     /// How often the software keyboard was shown or hidden.
     pub(crate) soft_keyboard_requests: Cell<u32>,
+    // xtask-allow(state-fields): option: the native child window of a `WindowContent::Foreign` window; absent while the window is not foreign or before the engine asked for it
+    /// The native child window serving the whole content area.
+    pub(crate) foreign_child: Cell<Option<NativeWindow>>,
+    // xtask-allow(state-fields): independent: `ShellWindow::set_resizable` records the last request; a script may check it with any combination of the other observed values
+    /// Whether the user can resize the window.
+    pub(crate) resizable: Cell<bool>,
     /// What the window shows of the frames presented to it.
     pub(crate) shown: Shown,
     // xtask-allow(state-fields): independent: the renderer the script requires is recorded separately; every combination is a valid script state
@@ -221,6 +231,8 @@ impl VirtualWindow {
             cursor: Cell::new(Cursor::Default),
             soft_keyboard_shown: Cell::new(false),
             soft_keyboard_requests: Cell::new(0),
+            foreign_child: Cell::new(None),
+            resizable: Cell::new(true),
             shown: Shown::Nothing,
             gpu: options.gpu == GpuMode::Required,
             display,
@@ -241,6 +253,30 @@ impl VirtualWindow {
             Some(error) => Err(error),
             None => Ok(()),
         }
+    }
+
+    /// The answer to `PlatformRequest::ForeignChild`: one native child per
+    /// foreign window, from this backend's counter.
+    fn foreign_child_result(&self) -> kivact_types::PlatformResult {
+        use kivact_types::PlatformResult;
+
+        if !self.capabilities().foreign_window {
+            return PlatformResult::Unsupported;
+        }
+        if let Some(child) = self.foreign_child.get() {
+            return PlatformResult::NativeWindow(child);
+        }
+        let raw = self.platform.next_foreign_child.get() + 1;
+        self.platform.next_foreign_child.set(raw);
+        let Some(child) = NonZeroU32::new(raw).map(NativeWindow::X11) else {
+            return PlatformResult::Failed(kivact_types::Failure::new(
+                kivact_types::FailureKind::Backend,
+                "native child window id overflow",
+            ));
+        };
+        self.foreign_child.set(Some(child));
+        crate::window::note_live_native_window(child);
+        PlatformResult::NativeWindow(child)
     }
 
     /// The accessibility tree: the real window's, else the headless one.
@@ -336,6 +372,9 @@ impl ShellWindow for VirtualWindow {
             self.env.borrow_mut().fullscreen = fullscreen;
             return PlatformResult::Done;
         }
+        if let PlatformRequest::ForeignChild = request {
+            return self.foreign_child_result();
+        }
         PlatformResult::Unsupported
     }
 
@@ -409,6 +448,9 @@ impl ShellWindow for VirtualWindow {
     }
     fn set_min_size(&self, size: Option<Size>) {
         self.min_size.set(size);
+    }
+    fn set_resizable(&self, resizable: bool) {
+        self.resizable.set(resizable);
     }
     fn environment(&self) -> Environment {
         self.env.borrow().clone()
@@ -550,4 +592,61 @@ fn unique_pixels(pixels: &mut Arc<[u32]>) -> &mut [u32] {
 pub(crate) fn physical(size: Size, scale: f64) -> (u32, u32) {
     let side = |v: f64| (v * scale).round().max(0.0) as u32;
     (side(size.width), side(size.height))
+}
+
+/// The virtual native child windows and whether each is alive, per test
+/// thread, so a test can ask whether a handle it was given by a test App is
+/// still alive.
+fn live_native_windows() -> &'static std::sync::Mutex<
+    std::collections::HashMap<std::thread::ThreadId, std::collections::BTreeMap<u32, bool>>,
+> {
+    #[expect(
+        clippy::disallowed_types,
+        reason = "process-wide test registry of virtual native children"
+    )]
+    static LIVE: std::sync::OnceLock<
+        std::sync::Mutex<
+            std::collections::HashMap<std::thread::ThreadId, std::collections::BTreeMap<u32, bool>>,
+        >,
+    > = std::sync::OnceLock::new();
+    LIVE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+/// Record `window` as alive for the current test thread.
+pub(crate) fn note_live_native_window(window: NativeWindow) {
+    let NativeWindow::X11(id) = window else {
+        return;
+    };
+    let mut live = live_native_windows()
+        .lock()
+        .expect("invariant: the virtual native window registry is not poisoned");
+    live.entry(std::thread::current().id())
+        .or_default()
+        .insert(id.get(), true);
+}
+
+/// Record `window` as destroyed for the current test thread.
+pub(crate) fn forget_live_native_window(window: NativeWindow) {
+    let NativeWindow::X11(id) = window else {
+        return;
+    };
+    let mut live = live_native_windows()
+        .lock()
+        .expect("invariant: the virtual native window registry is not poisoned");
+    live.entry(std::thread::current().id())
+        .or_default()
+        .insert(id.get(), false);
+}
+
+/// Whether a native window a test App gave to the caller is alive:
+/// `None` when this test thread's virtual backend never handed it out.
+pub fn is_native_window_alive(window: NativeWindow) -> Option<bool> {
+    let NativeWindow::X11(id) = window else {
+        return None;
+    };
+    live_native_windows()
+        .lock()
+        .expect("invariant: the virtual native window registry is not poisoned")
+        .get(&std::thread::current().id())
+        .and_then(|windows| windows.get(&id.get()).copied())
 }

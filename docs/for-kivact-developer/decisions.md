@@ -119,6 +119,10 @@
 | 2026-11-12 | NUM-02 | ホイール 1 ステップの距離 | InteractionPolicy.scrub.wheel_notch（既定 60 論理 px = 3 行 × 20 px）。小さいデルタは同じ向きに積み上げ、逆向きで 0 に戻す。粗調整キーはホイールでは無視する | 精密タッチパッドで 1 イベント 1 ステップにならず、Shift がホイールを横に変える環境でも方向と量を保つため |
 | 2026-11-12 | ADR-74 | App を外から閉じる口を何にするか | `platform::AppHandle`（Send + Sync + Clone。`App::handle` と `platform::app_handle`）。close は dismiss ではなく取消し不可。embed は Unsupported。ハンドルは 1 回の run に属し、run 後の close は何もしない（rearm しない） | 別 thread の session と main thread の UI を持つ standalone（vivace K-2）が `process::exit` に頼らず正常な cleanup で終わるため。同じことの二つ目の口（`platform::quit`）は作らない |
 | 2026-11-12 | INPUT-01 補足 | probe のため turn を key ごとに進めてよいか | native の押下は配送直後に `Wake(CLIENT)` で turn を進め、`forward_unhandled_keys` の判定を message の戻りまでに得る。`key_event` は保留なので対象外 | 入力順序を保ち、ホストへ返す判定を message の戻りまでに決める |
+| 2026-11-13 | ADR-75 | `foreign_window` を `window` の option にするか、別の宣言にするか | 別の宣言 `foreign_window(title, open)` とし、`WindowSlot` の開閉・`on_dismiss`・mode・placement・`multi_window` の検査を共通にする。content の有無は `SlotContent::{Views, Foreign}` で表す | content を持たない window に `.content(..)` が意味を持つ第二の mode を作らず、開閉の実装を一つに保つため |
+| 2026-11-13 | ADR-76 | foreign window の子 window をいつ作るか | native の `open` の中で winit window の直後に作り、子の作成失敗はその open 全体の失敗として `WindowFailed` にする。engine は `PlatformRequest::ForeignChild` で handle を受け取り、`HostWindow.content` に保持する | 半端に開いた window や子のない foreign window を App に見せず、open の成否を一つの結果にするため |
+| 2026-11-13 | ADR-77 | App の終了時に foreign window をどう閉じるか | 終了要求の turn で `ForeignWindows::close_all_for_exit` が各 foreign window の `open` binding に false を書き、同じ turn の安定化で owner を破棄する（`on_destroy` は子が生きている間に走る）。終了順を全 App で変える `ShellHandler::close` への移動はしない | 終了時だけ `on_destroy` が子の破棄後に走るのを、foreign window を使う App の局所的な変更で直し、既存の全 App と test の終了順を変えないため |
+| 2026-11-13 | ADR-78 | `ParentWindow` の名前と `SurfaceSize` の所有者 | `ParentWindow` を `NativeWindow` に改名して `kivact-types::window` へ移し、別名を残さない。`SurfaceSize` も同所に移し、`kivact::view` から再公開する | 「生の native window 値」を embed 専用の名前から切り離し、`foreign_window` と `native_host` が同じ語彙を使えるようにするため（VOC-1） |
 
 ### 実装の決定の補足
 

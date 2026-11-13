@@ -56,9 +56,9 @@ pub(crate) struct Model {
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
-    // xtask-allow(state-fields): independent: the title and minimum size Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so either is set without the other
-    /// The window title and minimum size to set after the turn.
-    pub(crate) window_request: Option<(String, Option<Size>)>,
+    // xtask-allow(state-fields): independent: the title, minimum size and resizable flag Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so any of them is set without the others
+    /// The window title, minimum size and resizable flag to set after the turn.
+    pub(crate) window_request: Option<(String, Option<Size>, bool)>,
     /// The platform effects to carry out after the turn.
     pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
     /// CPU captures awaiting the next settled host boundary.

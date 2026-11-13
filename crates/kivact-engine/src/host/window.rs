@@ -6,6 +6,23 @@
 use kivact_types::WindowId;
 use kivact_types::WindowMode;
 use kivact_types::cell::Sent;
+use kivact_types::{NativeWindow, SurfaceSize};
+
+/// What a window holds for its content.
+pub(super) enum Content {
+    /// Kivact draws the window.
+    Drawn,
+    /// A native child fills the content area; `reported` is the last surface
+    /// size sent to the client.
+    Foreign {
+        #[allow(
+            dead_code,
+            reason = "the engine keeps the native child handle for the window's lifetime; the client received it in the ready event"
+        )]
+        child: NativeWindow,
+        reported: Sent<SurfaceSize>,
+    },
+}
 
 /// How long an idle window keeps the CPU frame state of its last shown
 /// frame (a later frame redraws only what changed); after it the state is
@@ -79,6 +96,8 @@ pub(super) struct HostWindow {
     // xtask-allow(state-fields): option: the window the app declared this one in, given by its open request (window_changes.rs) and never changed; absent for a top-level window; modal input routing reads it
     /// The window the request was declared in.
     pub(super) parent: Option<WindowId>,
+    /// What the window holds for its content.
+    pub(super) content: Content,
 }
 
 impl HostWindow {
@@ -93,6 +112,7 @@ impl HostWindow {
             last_stats: None,
             mode,
             parent,
+            content: Content::Drawn,
         }
     }
 }
