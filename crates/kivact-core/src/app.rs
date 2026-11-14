@@ -2,6 +2,7 @@
 use crate::Result;
 use crate::i18n::{Locale, Messages};
 use crate::launch::AppOptions;
+use crate::platform::Begin;
 use crate::view::Asset;
 use crate::view::IntoView;
 
@@ -107,6 +108,14 @@ impl App {
         self.options = self.options.gpu_preference(preference);
         self
     }
+    /// The handle that ends this App's run from any thread
+    /// ([`platform::AppHandle`](crate::platform::AppHandle)). Clones of this
+    /// `App` share it, and it belongs to the one run [`App::run`] starts.
+    /// Inside the App, [`platform::app_handle`](crate::platform::app_handle)
+    /// returns the same handle.
+    pub fn handle(&self) -> crate::platform::AppHandle {
+        self.options.handle()
+    }
     /// Open the window and run until it closes. `root` is the body of the
     /// root component (usually a plain function such as `app` or
     /// `|| counter(0)`); it runs once, in the setup of the App's root owner.
@@ -115,6 +124,11 @@ impl App {
     /// [`App::min_window_size`]; `ErrorKind::Message`, located here,
     /// before anything starts) or when the host fails to start (no window
     /// can be opened; `ErrorKind::Platform`).
+    ///
+    /// If the handle from [`App::handle`] was closed before this call, the
+    /// run returns `Ok(())` without opening the window. A close while the App
+    /// runs ends it normally (see
+    /// [`platform::AppHandle::close`](crate::platform::AppHandle::close)).
     ///
     /// ```no_run
     /// # use kivact_core as kivact;
@@ -132,6 +146,9 @@ impl App {
     #[track_caller]
     pub fn run<V: IntoView>(self, root: impl FnOnce() -> V + 'static) -> Result<()> {
         self.options.check_window_sizes()?;
+        if self.options.handle().begin() == Begin::Skip {
+            return Ok(());
+        }
         let options = self.options.host_options();
         let (client, _) = crate::launch::Launch::new(
             self.options,
@@ -215,5 +232,41 @@ mod window_size_tests {
             assert_eq!(*error.kind(), ErrorKind::Message);
             assert!(error.to_string().contains("larger than"), "{error}");
         }
+    }
+}
+
+#[cfg(test)]
+mod handle_tests {
+    //! Role: Tests for AppHandle at the run boundaries.
+
+    use super::App;
+    use crate::view::text;
+    use std::cell::Cell;
+    use std::rc::Rc;
+
+    #[test]
+    fn closing_before_the_run_returns_without_opening_a_window() {
+        let app = App::new("Closed early");
+        let handle = app.handle();
+        handle.close();
+        let ran = Rc::new(Cell::new(false));
+        let started = ran.clone();
+        let result = app.run(move || {
+            started.set(true);
+            text("never")
+        });
+        assert!(result.is_ok(), "a closed run returns Ok");
+        assert!(!ran.get(), "the root never runs");
+    }
+
+    #[test]
+    #[should_panic(expected = "one AppHandle drives one run")]
+    fn a_handle_cannot_drive_a_second_run() {
+        let app = App::new("One run");
+        app.handle().close();
+        app.clone()
+            .run(|| text("first"))
+            .expect("the closed run returns Ok");
+        let _ = app.run(|| text("second"));
     }
 }

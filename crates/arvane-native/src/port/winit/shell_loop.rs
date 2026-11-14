@@ -31,13 +31,16 @@ impl ShellLoop for NativeLoop<'_> {
 
     fn open_window(&mut self, request: WindowRequest) -> Result<(), ShellError> {
         let parent = request.parent.and_then(|id| self.table.get(id));
+        let mut connections = self.table.foreign_connections_mut();
         let window = create_window(
             self.el,
             &request,
             parent.map(|native| &native.window),
             self.waker,
             self.started,
+            &mut connections,
         )?;
+        drop(connections);
         let winit_id = window.window.id();
         #[cfg(windows)]
         let modal_parent = (request.mode == WindowMode::Modal)

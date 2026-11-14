@@ -2,13 +2,15 @@
 
 use crate::a11y::native::NativeAccessibility;
 use crate::native_input::state::NativeInput;
+use crate::port::winit::foreign::ForeignConnections;
+use crate::port::winit::foreign::ForeignOs;
 use crate::port::winit::window::{Surface, WinitWindow};
 use crate::present::CpuSurface;
 use crate::services::Services;
 use arvane_shell::{ShellError, ShellWaker};
 #[cfg(any(windows, target_os = "linux"))]
 use kivact_types::WindowMode;
-use kivact_types::{Rect, Size, WindowPlacement, WindowRequest};
+use kivact_types::{Rect, Size, WindowContent, WindowPlacement, WindowRequest};
 use std::num::NonZeroU64;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -24,6 +26,7 @@ pub(super) fn create_window(
     parent: Option<&WinitWindow>,
     waker: &ShellWaker,
     started: Instant,
+    connections: &mut ForeignConnections,
 ) -> Result<WinitWindow, ShellError> {
     let mut attributes = Window::default_attributes()
         .with_visible(false)
@@ -48,6 +51,12 @@ pub(super) fn create_window(
         }
     };
     attributes = with_mode(attributes, request, parent);
+    #[cfg(windows)]
+    if request.content == WindowContent::Foreign {
+        use winit::platform::windows::WindowAttributesExtWindows;
+        // The parent must clip the native child while Kivact draws CPU frames.
+        attributes = attributes.with_clip_children(true);
+    }
     let window = Arc::new(
         el.create_window(attributes)
             .map_err(|e| ShellError::new(e.to_string()))?,
@@ -73,7 +82,9 @@ pub(super) fn create_window(
         waker.clone(),
     ));
     let monitor = window.current_monitor();
+    let foreign = foreign_child(request, &window, connections)?;
     let mut window = WinitWindow {
+        foreign,
         #[cfg(windows)]
         subclass: crate::native_input::Subclass::install(&window, &input),
         input,
@@ -91,6 +102,21 @@ pub(super) fn create_window(
     };
     window.read_frame_period();
     Ok(window)
+}
+
+/// The child window a foreign window's content is drawn into.
+fn foreign_child(
+    request: &WindowRequest,
+    window: &Window,
+    connections: &mut ForeignConnections,
+) -> Result<Option<ForeignOs>, ShellError> {
+    match request.content {
+        WindowContent::Drawn => Ok(None),
+        WindowContent::Foreign => {
+            let size = window.inner_size();
+            ForeignOs::create(window, size.width, size.height, connections).map(Some)
+        }
+    }
 }
 
 /// Position a child window next to its parent when the platform honours it.

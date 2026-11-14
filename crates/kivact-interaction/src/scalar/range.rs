@@ -1,7 +1,7 @@
 //! Role: The ranges a scalar accepts, and the write-back when one leaves the value out.
 
 use super::range_machine::{Effect, Ends, Event, Machine};
-use crate::policy::scalar::ScalarRange;
+use crate::policy::scalar::{ScalarRange, ScalarStep};
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::state::IntoValue;
@@ -26,6 +26,20 @@ impl IntoValue<ScalarRange> for RangeInclusive<i32> {
     fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarRange> {
         let (min, max) = self.into_inner();
         (f64::from(min)..=f64::from(max)).into_prop()
+    }
+}
+
+impl IntoValue<ScalarStep> for f64 {
+    #[track_caller]
+    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarStep> {
+        kivact_core::state::__private::Prop::constant(ScalarStep::Value(self))
+    }
+}
+
+impl IntoValue<ScalarStep> for i32 {
+    #[track_caller]
+    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarStep> {
+        kivact_core::state::__private::Prop::constant(ScalarStep::Value(f64::from(self)))
     }
 }
 
@@ -62,3 +76,4 @@ pub(crate) fn follow_ranges(low: Binding<f64>, high: Binding<f64>, range: Value<
 }
 
 kivact_core::state::constant_value!(ScalarRange);
+kivact_core::state::constant_value!(ScalarStep);

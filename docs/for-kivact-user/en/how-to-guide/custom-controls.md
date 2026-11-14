@@ -31,7 +31,7 @@ official kits are built from the same ones.
 | tabs | `use_tabs` | `list()`, `item(key)`, `panel(key)` |
 | a tree | `use_tree` | `list()`, `item(key)` |
 | a table | `use_data_table` | `grid()`, `header(column)`, `row(key)`, `cell(key, column)` |
-| a slider, a number field | `use_scalar`, `use_range_scalar` | `thumb()`, `track(axis)`, `input()` |
+| a slider, a number field | `use_scalar`, `use_range_scalar` | `thumb()`, `track(axis)`, `input()`; `mapping`, `key_step` |
 | a resizable divider | `use_splitter` | `handle()` |
 | a drag, zoom and pan | `use_drag`, `use_zoom_pan`, `use_space_pan` | `source(..)`, `viewport()`, `control()` |
 | native text editing | `use_text_edit`, `use_text_area` | `control()` |
@@ -486,6 +486,41 @@ as on a canvas where a press selects and only movement edits. For the common val
 controls, skip all this: `use_scalar` and `use_range_scalar` give sliders and number
 fields (`thumb()`, `track(axis)`, `input()`) with keys, steps, ranges and the same
 edit phases, and `use_splitter` gives a resizable divider.
+
+A value can follow a non-linear curve without leaving its own units.
+`ScalarMapping` says where a value lies along the control, from 0 at the minimum
+to 1 at the maximum: the track press, the drag, a touch and `ScalarState::fraction`
+follow it, while the binding, Home/End and value steps stay in the value's units.
+`key_step` takes a `ScalarStep`: `Value(..)` in the value's units (the default),
+or `Position(..)`, a fraction of the travel, so one arrow key moves one percent of
+a logarithmic knob wherever it is.
+
+```rust,test_harness
+use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep, use_scalar};
+use kivact::prelude::*;
+
+fn frequency() -> impl IntoView {
+    let hz = signal(440.0);
+    let range = ScalarRange::new(20.0, 20_000.0).expect("valid range");
+    let slider = use_scalar(hz, range)
+        .mapping(ScalarMapping::logarithmic())
+        .key_step(ScalarStep::Position(0.01))
+        .expect("valid key step");
+    let state = slider.control_state();
+    node()
+        .part(slider.track(Orientation::Horizontal))
+        .style(style().size(200, 24))
+        .child(node().part(slider.thumb()).name("Frequency"))
+        .child(text(move || format!("{:.0} Hz at {:.2}", hz.get(), state.get().fraction)))
+}
+```
+
+`ScalarMapping::position` and `value` are the pure pair a canvas uses to place
+its own knob: `position` for the drawn angle and `value` to turn a dragged
+fraction back into a value. `ScalarMapping::skewed(0.5)` is the square-root
+curve a Creative fader uses; `ScalarMapping::custom(to_position, to_value)` takes
+a plugin parameter's own normalization. A custom mapping's position must
+increase with the value; only the endpoints are checked when it is installed.
 
 ## Say what your control is
 

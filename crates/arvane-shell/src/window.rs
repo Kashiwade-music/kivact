@@ -10,7 +10,18 @@ use crate::ime::ShellImeText;
 use crate::input::InjectedInput;
 use crate::types::{ShellControl, ShellError, ShellWaker};
 use kivact_types::render::PixelRect;
-use kivact_types::{Cursor as ShellCursor, Rect, RequestId, Size, WindowId, WindowRequest};
+use kivact_types::{
+    Cursor as ShellCursor, KeyCode, Rect, RequestId, Size, WindowId, WindowRequest,
+};
+
+/// The answer to [`ShellWindow::request_size`].
+#[derive(Clone, Debug, PartialEq)]
+pub enum SizeReply {
+    /// The request is answered now.
+    Now(kivact_types::PlatformResult),
+    /// The window answers later with `ShellEvent::PlatformAnswer { request, .. }`.
+    Later,
+}
 
 /// Pixel layout accepted by a CPU presentation surface.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -77,6 +88,23 @@ pub trait ShellWindow {
     /// Current logical content extent in pixels.
     fn size(&self) -> Size;
 
+    /// Request logical content dimensions from the platform, as one effect of
+    /// `request`. Most windows answer at once with the result of
+    /// [`ShellWindow::perform`]. A window that must ask its host (an embedded
+    /// editor) may answer `Later`; it then sends `ShellEvent::PlatformAnswer`
+    /// with the same `request` on this window.
+    fn request_size(&mut self, size: Size, request: RequestId) -> SizeReply {
+        let _ = request;
+        SizeReply::Now(self.perform(kivact_types::PlatformRequest::RequestWindowSize(size)))
+    }
+
+    /// The App did not handle the last press of `code`. Desktop windows ignore
+    /// it; an embedded editor may give it back to its host
+    /// (`Parent::forward_unhandled_keys`).
+    fn unhandled_key(&mut self, code: KeyCode) {
+        let _ = code;
+    }
+
     /// Current physical presentation width and height in pixels.
     fn physical_size(&self) -> (u32, u32);
 
@@ -100,6 +128,9 @@ pub trait ShellWindow {
 
     /// Set a minimum logical content extent; `None` removes it.
     fn set_min_size(&self, size: Option<Size>);
+
+    /// Whether the user can resize the window.
+    fn set_resizable(&self, resizable: bool);
 
     /// Current reduced-motion preference, consistent with `environment`.
     fn reduced_motion(&self) -> bool;

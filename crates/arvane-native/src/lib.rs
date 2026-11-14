@@ -66,9 +66,13 @@ mod module;
 mod native_input;
 mod open;
 mod present;
+#[cfg(feature = "test")]
+mod probe;
 mod services;
 mod wait;
 mod wake;
 
 pub use module::retain_module;
 pub use port::winit::{WinitWindow, backend};
+#[cfg(feature = "test")]
+pub use probe::native_window_alive;

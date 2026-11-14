@@ -6,6 +6,7 @@ use super::track::{self, Grip, Pointer};
 use crate::drag::DragApi;
 use crate::edit::EditSession;
 use crate::options_cell::OptionsCell;
+use crate::policy::scalar::ScalarStep;
 use kivact_core::custom::Owner;
 use kivact_core::geometry::Rect;
 use kivact_core::state::{MachineHandle, machine};
@@ -33,7 +34,7 @@ pub(crate) struct Shared {
 #[derive(Clone, Copy, Default)]
 pub(crate) struct ScalarOptions {
     pub(crate) disabled: Option<Value<bool>>,
-    pub(crate) key_step: Option<(Value<f64>, Owner)>,
+    pub(crate) key_step: Option<(Value<ScalarStep>, Owner)>,
     pub(crate) touch: Option<Touch>,
 }
 

@@ -5,6 +5,7 @@ use crate::gpu_interop::GpuFrame;
 use crate::state::{IntoValue, Value, callback, effect, memo};
 use crate::view::{Element, HandlerResult, ImageFit, IntoView, Node, Role, View, node, node_ref};
 use kivact_style::{Overflow, style};
+use kivact_types::SurfaceSize;
 use kivact_types::ViewTransform;
 use kivact_types::cell::Sent;
 use std::cell::RefCell;
@@ -16,15 +17,6 @@ pub trait ViewportTransform: 'static {
     fn attach(self, node: Node, content: Value<Rect>) -> Node;
 }
 type Attach = Box<dyn FnOnce(Node, Value<Rect>) -> Node>;
-
-/// The surface's measured logical size and physical rendering extent.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct SurfaceSize {
-    pub logical: Size,
-    pub physical_width: u32,
-    pub physical_height: u32,
-    pub scale_factor: f64,
-}
 
 /// Application pixels painted by a canvas with standard node modifiers.
 pub struct Viewport {

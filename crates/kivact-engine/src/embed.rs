@@ -1,14 +1,14 @@
 //! Role: Embedded hosts using the desktop client's turn and rendering loop.
 
 use crate::api::Client;
-use crate::contract::{CloseSignal, HostError};
+use crate::contract::CloseSignal;
+use crate::contract::HostError;
 use crate::{FrameLog, host};
-pub use arvane::embed::ChildHooks;
-pub use arvane::embed::PanicSlot;
+pub use arvane::embed::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
 use arvane::embed::{Embedded, Embedder};
 pub use arvane_native::retain_module;
 use kivact_types::EmbedOptions;
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -41,9 +41,17 @@ impl EmbeddedHost {
     pub fn scale(&self) -> f64 {
         self.host.scale()
     }
+    /// Show or hide the window; queued.
+    pub fn set_visibility(&self, visibility: kivact_types::embed::Visibility) {
+        self.host.set_visibility(visibility);
+    }
+    /// Last applied visibility.
+    pub fn visibility(&self) -> kivact_types::embed::Visibility {
+        self.host.visibility()
+    }
     /// Why the host stopped, or `None` while running.
-    pub fn failure(&self) -> Option<HostError> {
-        self.host.failure().map(|e| HostError::new(e.to_string()))
+    pub fn stop(&self) -> Option<ChildStop> {
+        self.host.stop()
     }
 }
 
@@ -51,7 +59,7 @@ impl EmbeddedHost {
 /// with the close flag the returned host sets when it is dropped (the client
 /// stops delivering the rest of its event batch once it is set).
 pub fn embed_native(
-    parent: ParentWindow,
+    parent: NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     client: impl FnOnce(CloseSignal) -> Client + Send + 'static,

@@ -3,17 +3,22 @@
 //! Invariants: snapshots describe applied values, never queued requests. Host
 //! sizes advance a generation so stale accepted negotiations cannot override
 //! corrections. ChildPort wake only schedules work and never invokes App code.
-//! Stopping cancels new App work immediately. A panic of the App is kept in
-//! the child's `PanicSlot` and stops the child like a failure; the host's next
-//! call resumes it. A panic is sticky: resuming its payload does not restart
-//! the child. The native window is `Gone` when it is destroyed (Win32
+//! Stopping cancels new App work immediately. A panic of the App keeps its
+//! message in the child's `PanicSlot` and stops the child like a failure; the
+//! host reads it as `ChildStop::Panicked` and Kivact never resumes it. A
+//! panic is sticky. The native window is `Gone` when it is destroyed (Win32
 //! `WM_DESTROY`) or the X11 UI thread ended. Cleanup of the App may still be
 //! deferred after that while an App callback is on the stack.
-use arvane_shell::{PanicSlot, ShellChild, ShellError};
+use arvane_shell::{ChildStop, NoticeSink, PanicSlot, ShellChild, ShellError};
+use kivact_types::embed::Visibility;
 use std::any::Any;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+#[allow(
+    clippy::enum_variant_names,
+    reason = "Every variant names the host operation it applies (size, scale, visibility); the shared verb keeps the queue readable."
+)]
 pub(in crate::port) enum Command {
     SetSize {
         width: u32,
@@ -21,26 +26,36 @@ pub(in crate::port) enum Command {
         generation: Option<u64>,
     },
     SetScale(f64),
+    SetVisibility(Visibility),
 }
 pub(in crate::port) struct Shared {
     inner: Mutex<Inner>,
     panic: PanicSlot,
+    /// Delivers the host's notices; the callback runs without a lock held.
+    notices: NoticeSink,
 }
 struct Inner {
     state: ChildStatus,
     applied: Applied,
-    // xtask-allow(state-fields): identity: advanced by every host size; a negotiated size is accepted only at its generation
-    /// Advanced by every host size (`queue_host_size`); negotiated sizes carry the generation they
-    /// were accepted at.
-    generation: u64,
+    /// The last size the host chose, with the generation that advanced for it.
+    host: HostSize,
     commands: VecDeque<Command>,
 }
-/// The physical size and scale the child applied last, read together.
+/// The last host size and the identity that advances with it.
+#[derive(Clone, Copy)]
+struct HostSize {
+    // xtask-allow(state-fields): identity: advanced by every host size; a negotiated size is accepted only at its generation
+    generation: u64,
+    // xtask-allow(state-fields): option: absent until the host first chooses a size
+    size: Option<(u32, u32)>,
+}
+/// The physical size, scale and visibility the child applied last, read together.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(in crate::port) struct Applied {
     pub(in crate::port) width: u32,
     pub(in crate::port) height: u32,
     pub(in crate::port) scale: f64,
+    pub(in crate::port) visibility: Visibility,
 }
 enum ChildStatus {
     /// The App runs.
@@ -53,7 +68,7 @@ enum Stop {
     Closed,
     /// The first failure.
     Failed(ShellError),
-    /// The App panicked (the payload is in the `PanicSlot`); sticky even after the host resumed it.
+    /// The App panicked (the message is in the `PanicSlot`); sticky.
     /// `failure` is a failure that came first.
     Panicked { failure: Option<ShellError> },
 }
@@ -65,7 +80,14 @@ enum NativeWindow {
     Gone,
 }
 impl Shared {
-    pub(in crate::port) fn new(width: u32, height: u32, scale: f64, panic: PanicSlot) -> Self {
+    pub(in crate::port) fn new(
+        width: u32,
+        height: u32,
+        scale: f64,
+        visibility: Visibility,
+        panic: PanicSlot,
+        notices: NoticeSink,
+    ) -> Self {
         Self {
             inner: Mutex::new(Inner {
                 state: ChildStatus::Running,
@@ -73,39 +95,58 @@ impl Shared {
                     width,
                     height,
                     scale,
+                    visibility,
                 },
-                generation: 0,
+                host: HostSize {
+                    generation: 0,
+                    size: None,
+                },
                 commands: VecDeque::new(),
             }),
             panic,
+            notices,
         }
     }
+    /// A poisoned lock is recovered rather than unwrapped: unwrapping would panic on the host's
+    /// thread, outside the platform's panic boundary. The guarded state is plain data (queued
+    /// commands and applied values).
     fn lock(&self) -> MutexGuard<'_, Inner> {
         self.inner
             .lock()
-            .expect("embedded child lock poisoned: a panic already happened")
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
     }
-    /// Keep the payload of a panic that reached a platform boundary; the
-    /// child stops and the host resumes it (see [`PanicSlot`]).
+    /// Keep the message of a panic that reached a platform boundary and stop
+    /// the child; the host reads it as `ChildStop::Panicked` (see [`PanicSlot`]).
     pub(in crate::port) fn keep_panic(&self, payload: Box<dyn Any + Send>) {
-        self.panic.put(payload);
-        let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
-            ChildStatus::Running => ChildStatus::Stopped {
-                cause: Stop::Panicked { failure: None },
-                window: NativeWindow::Live,
-            },
-            ChildStatus::Stopped { cause, window } => ChildStatus::Stopped {
-                cause: match cause {
-                    Stop::Closed => Stop::Panicked { failure: None },
-                    Stop::Failed(error) => Stop::Panicked {
-                        failure: Some(error),
-                    },
-                    panicked @ Stop::Panicked { .. } => panicked,
+        if self.panic.put(payload)
+            && let Some(message) = self.panic.message()
+        {
+            tracing::error!(target: "kivact", message = %message, "the embedded App panicked; it stopped and will not run again");
+        }
+        let left_running = {
+            let mut inner = self.lock();
+            let left_running = matches!(inner.state, ChildStatus::Running);
+            inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+                ChildStatus::Running => ChildStatus::Stopped {
+                    cause: Stop::Panicked { failure: None },
+                    window: NativeWindow::Live,
                 },
-                window,
-            },
+                ChildStatus::Stopped { cause, window } => ChildStatus::Stopped {
+                    cause: match cause {
+                        Stop::Closed => Stop::Panicked { failure: None },
+                        Stop::Failed(error) => Stop::Panicked {
+                            failure: Some(error),
+                        },
+                        panicked @ Stop::Panicked { .. } => panicked,
+                    },
+                    window,
+                },
+            };
+            left_running
         };
+        if left_running {
+            self.notices.stopped();
+        }
     }
     pub(in crate::port) fn panicked(&self) -> bool {
         matches!(
@@ -117,66 +158,93 @@ impl Shared {
         )
     }
     pub(in crate::port) fn request_close(&self) {
-        let mut inner = self.lock();
-        if matches!(inner.state, ChildStatus::Running) {
-            inner.state = ChildStatus::Stopped {
-                cause: Stop::Closed,
-                window: NativeWindow::Live,
-            };
+        let left_running = {
+            let mut inner = self.lock();
+            if matches!(inner.state, ChildStatus::Running) {
+                inner.state = ChildStatus::Stopped {
+                    cause: Stop::Closed,
+                    window: NativeWindow::Live,
+                };
+                true
+            } else {
+                false
+            }
+        };
+        if left_running {
+            self.notices.stopped();
         }
     }
     /// The native window is gone (Win32 `WM_DESTROY`; X11: the UI thread ended).
     pub(in crate::port) fn window_gone(&self) {
-        let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
-            ChildStatus::Running => ChildStatus::Stopped {
-                cause: Stop::Closed,
-                window: NativeWindow::Gone,
-            },
-            ChildStatus::Stopped { cause, .. } => ChildStatus::Stopped {
-                cause,
-                window: NativeWindow::Gone,
-            },
+        let left_running = {
+            let mut inner = self.lock();
+            let left_running = matches!(inner.state, ChildStatus::Running);
+            inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+                ChildStatus::Running => ChildStatus::Stopped {
+                    cause: Stop::Closed,
+                    window: NativeWindow::Gone,
+                },
+                ChildStatus::Stopped { cause, .. } => ChildStatus::Stopped {
+                    cause,
+                    window: NativeWindow::Gone,
+                },
+            };
+            left_running
         };
+        if left_running {
+            self.notices.stopped();
+        }
     }
     /// Record a failure and stop; the first failure wins.
     pub(in crate::port) fn fail(&self, error: ShellError) {
-        let mut inner = self.lock();
-        inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
-            ChildStatus::Running => ChildStatus::Stopped {
-                cause: Stop::Failed(error),
-                window: NativeWindow::Live,
-            },
-            ChildStatus::Stopped {
-                cause: Stop::Closed,
-                window,
-            } => ChildStatus::Stopped {
-                cause: Stop::Failed(error),
-                window,
-            },
-            ChildStatus::Stopped {
-                cause: Stop::Panicked { failure: None },
-                window,
-            } => ChildStatus::Stopped {
-                cause: Stop::Panicked {
-                    failure: Some(error),
+        let left_running = {
+            let mut inner = self.lock();
+            let left_running = matches!(inner.state, ChildStatus::Running);
+            inner.state = match std::mem::replace(&mut inner.state, ChildStatus::Running) {
+                ChildStatus::Running => ChildStatus::Stopped {
+                    cause: Stop::Failed(error),
+                    window: NativeWindow::Live,
                 },
-                window,
-            },
-            stopped @ ChildStatus::Stopped { .. } => stopped,
-        };
-    }
-    pub(in crate::port) fn failure(&self) -> Option<ShellError> {
-        match &self.lock().state {
-            ChildStatus::Stopped {
-                cause:
-                    Stop::Failed(error)
-                    | Stop::Panicked {
+                ChildStatus::Stopped {
+                    cause: Stop::Closed,
+                    window,
+                } => ChildStatus::Stopped {
+                    cause: Stop::Failed(error),
+                    window,
+                },
+                ChildStatus::Stopped {
+                    cause: Stop::Panicked { failure: None },
+                    window,
+                } => ChildStatus::Stopped {
+                    cause: Stop::Panicked {
                         failure: Some(error),
                     },
+                    window,
+                },
+                stopped @ ChildStatus::Stopped { .. } => stopped,
+            };
+            left_running
+        };
+        if left_running {
+            self.notices.stopped();
+        }
+    }
+    /// Why the child stopped, or `None` while it runs.
+    pub(in crate::port) fn stop(&self) -> Option<ChildStop> {
+        match &self.lock().state {
+            ChildStatus::Running => None,
+            ChildStatus::Stopped {
+                cause: Stop::Closed,
                 ..
-            } => Some(error.clone()),
-            _ => None,
+            } => Some(ChildStop::Closed),
+            ChildStatus::Stopped {
+                cause: Stop::Failed(error),
+                ..
+            } => Some(ChildStop::Failed(error.clone())),
+            ChildStatus::Stopped {
+                cause: Stop::Panicked { .. },
+                ..
+            } => Some(ChildStop::Panicked),
         }
     }
     pub(in crate::port) fn stopped(&self) -> bool {
@@ -207,13 +275,21 @@ impl Shared {
     pub(in crate::port) fn queue_host_size(&self, width: u32, height: u32) {
         let mut inner = self.lock();
         if matches!(inner.state, ChildStatus::Running) {
-            inner.generation += 1;
+            inner.host.generation += 1;
+            inner.host.size = Some((width, height));
             inner.push(Command::SetSize {
                 width,
                 height,
                 generation: None,
             });
         }
+    }
+    /// The host size chosen since `generation`, if the generation advanced.
+    pub(in crate::port) fn host_size_since(&self, generation: u64) -> Option<(u32, u32)> {
+        let inner = self.lock();
+        (inner.host.generation != generation)
+            .then_some(inner.host.size)
+            .flatten()
     }
     /// The next queued command (the Win32 UI loop re-checks its state between commands).
     #[cfg(windows)]
@@ -229,7 +305,7 @@ impl Shared {
         generation.is_none_or(|generation| generation == self.generation())
     }
     pub(in crate::port) fn generation(&self) -> u64 {
-        self.lock().generation
+        self.lock().host.generation
     }
     /// The applied size and scale, read together.
     pub(in crate::port) fn applied(&self) -> Applied {
@@ -251,17 +327,41 @@ impl Shared {
         inner.applied.height = height;
         changed
     }
+    /// Record the applied scale; whether it changed.
     #[cfg(windows)]
-    pub(in crate::port) fn set_scale(&self, scale: f64) {
-        self.lock().applied.scale = scale;
+    pub(in crate::port) fn set_scale(&self, scale: f64) -> bool {
+        let mut inner = self.lock();
+        let changed = inner.applied.scale != scale;
+        inner.applied.scale = scale;
+        changed
     }
-    /// Record the applied size and scale together (the X11 UI loop).
+    /// Record the applied visibility; whether it changed.
+    #[cfg(windows)]
+    pub(in crate::port) fn set_visibility(&self, visibility: Visibility) -> bool {
+        let mut inner = self.lock();
+        let changed = inner.applied.visibility != visibility;
+        inner.applied.visibility = visibility;
+        changed
+    }
+    /// Tell the host that the operating system changed the applied scale.
+    #[cfg(windows)]
+    pub(in crate::port) fn notice_scale_changed(&self, scale: f64) {
+        self.notices.scale_changed(scale);
+    }
+    /// Record the applied size, scale and visibility together (the X11 UI loop).
     #[cfg(target_os = "linux")]
-    pub(in crate::port) fn update(&self, width: u32, height: u32, scale: f64) {
+    pub(in crate::port) fn update(
+        &self,
+        width: u32,
+        height: u32,
+        scale: f64,
+        visibility: Visibility,
+    ) {
         self.lock().applied = Applied {
             width,
             height,
             scale,
+            visibility,
         };
     }
 }
@@ -282,6 +382,10 @@ impl Inner {
             Command::SetScale(_) => {
                 self.commands
                     .retain(|queued| !matches!(queued, Command::SetScale(_)));
+            }
+            Command::SetVisibility(_) => {
+                self.commands
+                    .retain(|queued| !matches!(queued, Command::SetVisibility(_)));
             }
             Command::SetSize { .. } => {}
         }
@@ -343,9 +447,21 @@ impl<B: ChildPort> ShellChild for Handle<B> {
         self.backend.collect_panic(&self.shared);
         self.shared.scale()
     }
-    fn failure(&self) -> Option<ShellError> {
+    fn set_visibility(&self, visibility: Visibility) {
         self.backend.collect_panic(&self.shared);
-        self.shared.failure()
+        if self.shared.stopped() {
+            return;
+        }
+        self.shared.queue(Command::SetVisibility(visibility));
+        self.backend.wake();
+    }
+    fn visibility(&self) -> Visibility {
+        self.backend.collect_panic(&self.shared);
+        self.shared.applied().visibility
+    }
+    fn stop(&self) -> Option<ChildStop> {
+        self.backend.collect_panic(&self.shared);
+        self.shared.stop()
     }
 }
 impl<B: ChildPort> Drop for Handle<B> {
@@ -357,8 +473,10 @@ impl<B: ChildPort> Drop for Handle<B> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests for host command coalescing and stopped-queue refusal.
+    //! Role: Tests for host command coalescing, stop notices and panic messages.
     use super::*;
+    use arvane_shell::EmbedNotice;
+    use std::sync::Mutex;
 
     fn size(width: u32, generation: Option<u64>) -> Command {
         Command::SetSize {
@@ -373,18 +491,37 @@ mod tests {
         inner
             .commands
             .iter()
-            .map(|command| match command {
+            .filter_map(|command| match command {
                 Command::SetSize {
                     width, generation, ..
-                } => (*width, *generation),
-                Command::SetScale(scale) => (1000 + *scale as u32, None),
+                } => Some((*width, *generation)),
+                Command::SetScale(scale) => Some((1000 + *scale as u32, None)),
+                Command::SetVisibility(_) => None,
             })
             .collect()
     }
 
+    fn notices() -> (Arc<Mutex<Vec<EmbedNotice>>>, NoticeSink) {
+        let seen = Arc::new(Mutex::new(Vec::new()));
+        let sink = {
+            let seen = seen.clone();
+            NoticeSink::new(Some(Arc::new(move |notice| {
+                seen.lock().expect("test lock is not poisoned").push(notice);
+            })))
+        };
+        (seen, sink)
+    }
+
     #[test]
     fn newest_unnegotiated_size_wins_and_negotiated_sizes_stay() {
-        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            Visibility::Shown,
+            PanicSlot::default(),
+            NoticeSink::default(),
+        );
         shared.queue(size(1, None));
         shared.queue(size(2, Some(7)));
         shared.queue(Command::SetScale(2.0));
@@ -398,7 +535,14 @@ mod tests {
 
     #[test]
     fn newest_scale_wins_and_keeps_order_of_the_rest() {
-        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            Visibility::Shown,
+            PanicSlot::default(),
+            NoticeSink::default(),
+        );
         shared.queue(Command::SetScale(1.0));
         shared.queue(size(5, None));
         shared.queue(Command::SetScale(3.0));
@@ -406,20 +550,80 @@ mod tests {
     }
 
     #[test]
+    fn newest_visibility_wins_and_keeps_order_of_the_rest() {
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            Visibility::Shown,
+            PanicSlot::default(),
+            NoticeSink::default(),
+        );
+        shared.queue(Command::SetVisibility(Visibility::Hidden));
+        shared.queue(size(5, None));
+        shared.queue(Command::SetVisibility(Visibility::Shown));
+        assert_eq!(queued(&shared), [(5, None)]);
+    }
+
+    #[test]
     fn stopped_queue_refuses_commands() {
-        let shared = Shared::new(1, 1, 1.0, PanicSlot::default());
+        let shared = Shared::new(
+            1,
+            1,
+            1.0,
+            Visibility::Shown,
+            PanicSlot::default(),
+            NoticeSink::default(),
+        );
         shared.queue(size(1, None));
         shared.request_close();
         shared.queue(size(2, None));
         shared.queue(Command::SetScale(2.0));
+        shared.queue(Command::SetVisibility(Visibility::Hidden));
         assert_eq!(queued(&shared), [(1, None)]);
 
-        let failed = Shared::new(1, 1, 1.0, PanicSlot::default());
-        assert!(failed.failure().is_none());
+        let failed = Shared::new(
+            1,
+            1,
+            1.0,
+            Visibility::Shown,
+            PanicSlot::default(),
+            NoticeSink::default(),
+        );
+        assert!(failed.stop().is_none());
         failed.fail(ShellError::new("first"));
         failed.fail(ShellError::new("second"));
-        assert!(failed.failure().is_some() && failed.stopped());
+        assert!(matches!(failed.stop(), Some(ChildStop::Failed(_))) && failed.stopped());
         failed.queue(size(1, None));
         assert!(queued(&failed).is_empty());
+    }
+
+    #[test]
+    fn the_first_stop_notifies_the_host_once() {
+        let (seen, sink) = notices();
+        let shared = Shared::new(1, 1, 1.0, Visibility::Shown, PanicSlot::default(), sink);
+        assert_eq!(shared.stop(), None);
+        shared.request_close();
+        shared.request_close();
+        shared.fail(ShellError::new("late"));
+        assert_eq!(
+            *seen.lock().expect("test lock is not poisoned"),
+            [EmbedNotice::Stopped]
+        );
+        assert!(matches!(shared.stop(), Some(ChildStop::Failed(_))));
+    }
+
+    #[test]
+    fn panics_keep_the_first_message_and_notify_once() {
+        let (seen, sink) = notices();
+        let shared = Shared::new(1, 1, 1.0, Visibility::Shown, PanicSlot::default(), sink);
+        shared.keep_panic(Box::new("boom"));
+        shared.keep_panic(Box::new("later"));
+        assert_eq!(shared.stop(), Some(ChildStop::Panicked));
+        assert_eq!(shared.panic.message().as_deref(), Some("boom"));
+        assert_eq!(
+            *seen.lock().expect("test lock is not poisoned"),
+            [EmbedNotice::Stopped]
+        );
     }
 }

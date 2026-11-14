@@ -94,6 +94,7 @@ screen.within(row).get_by_role(Role::Button, "削除").click();
 | ホバー | `hover()` |
 | 入力欄へ入力 | `type_text("hello")`（先にフォーカスします。`\n` は Enter） |
 | キーを押す | `press_key(Key::Enter)`、`press_key_with(Key::Char('a'), Modifiers { ctrl: true, ..Default::default() })` |
+| 誰も処理しなかったキー | `screen.unhandled_keys()`（埋め込みエディターがホストへ返すキー） |
 | フォーカスを移す | `focus()`、または `screen.press_tab(false)`（Shift+Tab は `true`） |
 | チェックボックス・スイッチを切り替える | `toggle()` |
 | セレクトの選択肢を選ぶ | `select_option("大")` |

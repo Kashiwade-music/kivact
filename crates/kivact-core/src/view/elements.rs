@@ -27,7 +27,10 @@ mod text_binding;
 mod viewport;
 #[doc(hidden)]
 pub use viewport::ViewportTransform;
-pub use viewport::{SurfaceSize, Viewport, viewport};
+pub use viewport::{Viewport, viewport};
+
+#[doc(inline)]
+pub use kivact_types::SurfaceSize;
 
 #[doc(inline)]
 pub use crate::view::element_data::Node;

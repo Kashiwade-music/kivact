@@ -1,11 +1,14 @@
 //! Role: Own the embedded UI lifecycle, handler and module-retention sentinel.
-use super::child::{Command, Shared};
+use super::child::Shared;
+use super::keys::KeyLedger;
+use super::resize::{self, ResizeWait};
 use arvane_shell::{
     EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError, ShellEvent, ShellHandler,
     ShellLoop, ShellWaker, ShellWindow,
 };
-use kivact_types::{Capabilities, RequestId, WindowId, WindowRequest};
+use kivact_types::{Capabilities, KeyCode, RequestId, WindowId, WindowRequest};
 use std::cell::RefCell;
+use std::collections::VecDeque;
 use std::sync::Arc;
 
 enum HandlerSlot {
@@ -25,6 +28,12 @@ pub(in crate::port) struct Session {
     state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
     waker: ShellWaker,
+    /// The synchronous verdict of the native key being delivered.
+    keys: RefCell<KeyLedger>,
+    /// The one size request waiting for the host's confirmation.
+    resize: RefCell<ResizeWait>,
+    /// Deferred answers waiting for the handler to return.
+    answers: RefCell<VecDeque<ShellEvent>>,
     retention: ModuleRetention,
 }
 
@@ -99,6 +108,9 @@ impl Session {
             state: RefCell::new(ChildLifecycle::Opening(HandlerSlot::Unstarted)),
             shared,
             waker,
+            keys: RefCell::new(KeyLedger::default()),
+            resize: RefCell::new(ResizeWait::Idle),
+            answers: RefCell::new(VecDeque::new()),
             retention: ModuleRetention,
         }
     }
@@ -223,11 +235,60 @@ impl Session {
         }
     }
     pub(in crate::port) fn deadline(&self) -> Option<u64> {
-        match &*self.state.borrow() {
+        let control = match &*self.state.borrow() {
             ChildLifecycle::Opening(HandlerSlot::Running { control, .. })
             | ChildLifecycle::Live(HandlerSlot::Running { control, .. }) => control.deadline(),
             _ => None,
+        };
+        let wait = resize::deadline(&self.resize);
+        match (control, wait) {
+            (Some(control), Some(wait)) => Some(control.min(wait)),
+            (control, wait) => control.or(wait),
         }
+    }
+    /// The synchronous verdict of the native key being delivered.
+    pub(in crate::port) fn keys(&self) -> &RefCell<KeyLedger> {
+        &self.keys
+    }
+    /// The engine reported that nobody handled the press of `code`.
+    pub(in crate::port) fn unhandled_key(&self, code: KeyCode) {
+        self.keys.borrow_mut().unhandled(code);
+    }
+    /// Answer a resize request whose host size arrived or whose wait ended.
+    pub(in crate::port) fn settle_resize(&self, now_ns: u64) {
+        resize::settle(&self.resize, &self.shared, &self.answers, now_ns);
+    }
+    /// Ask the host for a physical size and say what it did (see [`resize::negotiate`]).
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The host callback, request identity and wake are the negotiation contract; a bundle would hide their ordering."
+    )]
+    pub(in crate::port) fn request_size(
+        &self,
+        size: kivact_types::Size,
+        scale: f64,
+        maximum: u32,
+        callback: Option<&(dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync)>,
+        request: RequestId,
+        now_ns: u64,
+        wake: impl FnOnce(),
+    ) -> arvane_shell::SizeReply {
+        resize::negotiate(
+            size,
+            scale,
+            maximum,
+            callback,
+            &self.shared,
+            request,
+            now_ns,
+            &self.resize,
+            &self.answers,
+            wake,
+        )
+    }
+    /// Take the deferred answers queued for the handler's caller.
+    pub(in crate::port) fn take_answers(&self) -> Vec<ShellEvent> {
+        self.answers.borrow_mut().drain(..).collect()
     }
     pub(in crate::port) fn close(&self, window: &mut dyn ShellWindow) -> bool {
         self.shared.request_close();
@@ -240,56 +301,45 @@ impl Session {
                 return false;
             }
         };
-        if let HandlerSlot::Running { mut handler, .. } = slot {
+        if let HandlerSlot::Running { handler, .. } = slot {
             if self.shared.panicked() {
-                self.state.replace(ChildLifecycle::Leaked);
-                crate::module::retain_module();
-                std::mem::forget(handler);
+                self.forget(handler);
                 return false;
             }
+            // Held in a `ManuallyDrop`: if `close` panics, the handler is forgotten rather than
+            // dropped during the unwind.
+            let mut handler = std::mem::ManuallyDrop::new(handler);
             let mut lp = EmbedLoop {
                 window,
                 waker: self.waker.clone(),
                 injected: Vec::new(),
             };
             handler.close(&mut lp);
-            drop(handler);
+            drop(std::mem::ManuallyDrop::into_inner(handler));
             self.retention.retain();
         }
         true
     }
+    /// Forget the App after a panic that reached the platform boundary and
+    /// could not run the normal shutdown (a window that is being destroyed
+    /// cannot run a queued command). The handler is never dropped or closed.
+    #[cfg(windows)]
+    pub(in crate::port) fn leak(&self) {
+        let previous = self.state.replace(ChildLifecycle::Leaked);
+        if let ChildLifecycle::Opening(HandlerSlot::Running { handler, .. })
+        | ChildLifecycle::Live(HandlerSlot::Running { handler, .. }) = previous
+        {
+            self.forget(handler);
+        }
+        crate::module::retain_module();
+    }
+    /// Keep a handler that must never be dropped or closed again, and its module loaded.
+    fn forget(&self, handler: Box<dyn ShellHandler>) {
+        self.state.replace(ChildLifecycle::Leaked);
+        crate::module::retain_module();
+        std::mem::forget(handler);
+    }
 }
-pub(in crate::port) fn negotiate(
-    size: kivact_types::Size,
-    scale: f64,
-    maximum: u32,
-    callback: Option<&(dyn Fn(u32, u32) -> bool + Send + Sync)>,
-    shared: &Shared,
-    wake: impl FnOnce(),
-) -> Result<(), ShellError> {
-    if shared.stopped() {
-        return Ok(());
-    }
-    let (width, height) = super::geometry::physical_size(size, scale, maximum)?;
-    let callback =
-        callback.ok_or_else(|| ShellError::unsupported("the host has no resize callback"))?;
-    let generation = shared.generation();
-    let accepted = callback(width, height);
-    if shared.stopped() {
-        return Ok(());
-    }
-    if !accepted {
-        return Err(ShellError::new("the host refused the size"));
-    }
-    shared.queue(Command::SetSize {
-        width,
-        height,
-        generation: Some(generation),
-    });
-    wake();
-    Ok(())
-}
-
 // The session's last field: it drops after the handler state, whose drop may detach threads.
 struct ModuleRetention;
 impl ModuleRetention {

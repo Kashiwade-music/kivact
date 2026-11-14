@@ -35,7 +35,7 @@ impl Touch {
             },
             move |cx, effect| match effect {
                 Effect::Begin(values) => session.begin(values),
-                Effect::Write(target, value) => target.set(value),
+                Effect::Write(target, position) => target.set_position(position),
                 Effect::Commit => session.commit(),
                 Effect::Cancel => {
                     session.cancel();
@@ -122,7 +122,7 @@ impl Touch {
                     let Some(target) = self.pointer.thumbs.get().get(index).copied() else {
                         return Handled::Yes;
                     };
-                    target.binding.get_untracked()
+                    target.position(target.binding.get_untracked())
                 }
                 _ => 0.0,
             };

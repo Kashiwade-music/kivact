@@ -87,6 +87,8 @@
 mod options;
 mod script;
 pub use script::Script;
+mod alive;
+pub use alive::is_native_window_alive;
 mod facts;
 pub mod raw;
 mod render;

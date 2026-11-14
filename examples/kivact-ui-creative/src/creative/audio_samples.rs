@@ -6,6 +6,7 @@ use super::common::{bind, col, line, note, spec, specs};
 use super::controls::chip;
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
+use kivact::interaction::ScalarMapping;
 use kivact::prelude::{
     ColorToken, Element, IntoText, IntoView, Node, Orientation, Signal, column, effect, grid, node,
     rgb, row, signal, spacer, text,
@@ -339,7 +340,7 @@ fn knobs_rotary_knob() -> Node {
                 note("EQ BAND").style(style().font_size(10.5).width(52)),
                 ui::knob("Lo", signal(80.0))
                     .range(20.0..=2000.0)
-                    .logarithmic(true)
+                    .mapping(ScalarMapping::logarithmic())
                     .precision(0)
                     .unit(" Hz")
                     .accent_color(rgb(0x34d399))
@@ -351,7 +352,7 @@ fn knobs_rotary_knob() -> Node {
                     .style(style().size(40, 80)),
                 ui::knob("Mid", signal(1.5))
                     .range(0.02..=20.0)
-                    .logarithmic(true)
+                    .mapping(ScalarMapping::logarithmic())
                     .precision(2)
                     .unit(" kHz")
                     .accent_color(rgb(0x34d399))
@@ -363,7 +364,7 @@ fn knobs_rotary_knob() -> Node {
                     .style(style().size(40, 80)),
                 ui::knob("Hi", signal(8.0))
                     .range(0.02..=20.0)
-                    .logarithmic(true)
+                    .mapping(ScalarMapping::logarithmic())
                     .precision(2)
                     .unit(" kHz")
                     .accent_color(rgb(0x34d399))
@@ -385,12 +386,13 @@ fn knobs_channel_fader() -> Node {
         "Channel Fader",
         "フェーダー",
         row((
-            ui::fader("Volume", signal(0.0)).range(-60.0..=6.0),
+            ui::fader("Volume", signal(0.0))
+                .range(-60.0..=6.0)
+                .format(|db| format!("{db:.1} dB")),
             ui::meter("Fader Peak", 0.65).style(style().size(20, 180)),
             col((
                 note("VOLUME").style(style().font_size(10)),
-                text("0.0 dB").style(style().font_family("Geist Mono").font_size(18)),
-                note("dB カーブ（−60〜+6）。Ctrl 微調整。"),
+                note("dB カーブ（−60〜+6）。Ctrl 微調整。Shift 粗調整。"),
             )),
         ))
         .style(style().align_items(Align::Start).gap(4)),
@@ -557,11 +559,25 @@ fn meters_loudness(integrated: kivact::state::MachineHandle<Measurement>) -> Nod
 
 fn gain_knob_bank() -> Node {
     line((
-        ui::knob("Gain", signal(0.0))
-            .range(-24.0..=24.0)
-            .precision(1)
-            .unit(" dB")
-            .bipolar(true)
+        ui::knob("Gain", signal(1.0))
+            .range(0.0..=2.0)
+            .reset_to(1.0)
+            .format(|gain| {
+                if gain > 0.0 {
+                    format!("{:.1} dB", 20.0 * gain.log10())
+                } else {
+                    "-inf dB".to_owned()
+                }
+            })
+            .text_parser(|text, _| {
+                let db: f64 = text
+                    .trim()
+                    .trim_end_matches("dB")
+                    .trim()
+                    .parse()
+                    .map_err(|_| "Enter decibels, such as -6.0".to_owned())?;
+                Ok(10f64.powf(db / 20.0))
+            })
             .accent_color(rgb(0x9b9ea8)),
         ui::knob("Pan", signal(0.0))
             .range(-100.0..=100.0)
@@ -572,20 +588,21 @@ fn gain_knob_bank() -> Node {
         ui::knob("Freq", signal(1.2))
             .range(0.02..=20.0)
             .reset_to(1.0)
-            .logarithmic(true)
+            .mapping(ScalarMapping::logarithmic())
             .precision(2)
             .unit(" kHz")
             .accent_color(rgb(0x34d399)),
         ui::knob("Q", signal(0.71))
             .range(0.1..=18.0)
             .reset_to(0.71)
-            .logarithmic(true)
+            .mapping(ScalarMapping::logarithmic())
             .precision(2)
             .accent_color(rgb(0x9b9ea8)),
         ui::knob("Drive", signal(35.0))
             .range(0.0..=100.0)
             .precision(0)
             .unit(" %")
+            .text_entry(true)
             .accent_color(rgb(0xff5c6c)),
         ui::knob("Mix", signal(100.0))
             .range(0.0..=100.0)

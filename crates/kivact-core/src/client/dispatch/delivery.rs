@@ -151,6 +151,7 @@ fn event_window(event: &HostEvent) -> Option<WindowId> {
         | HostEvent::CloseRequested { window }
         | HostEvent::WindowOpened { window, .. }
         | HostEvent::WindowFailed { window, .. }
+        | HostEvent::Foreign { window, .. }
         | HostEvent::InjectDelivered { window, .. } => Some(*window),
         // App-wide events.
         HostEvent::FrameTick { .. } | HostEvent::AppMotion { .. } => None,
@@ -232,6 +233,9 @@ fn dispatch_window_host(rt: &Runtime, host_event: &HostEvent) -> bool {
             surface_active,
         } => env::window_opened(rt, *window, environment, *surface_active),
         HostEvent::WindowFailed { window, reason } => env::window_failed(rt, *window, reason),
+        HostEvent::Foreign { window, change } => {
+            crate::view::foreign_window::changed(rt, *window, change)
+        }
         HostEvent::InjectDelivered { .. } => {
             crate::view::devtools_hooks::host_event(rt, host_event)
         }

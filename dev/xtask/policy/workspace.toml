@@ -37,9 +37,9 @@ kivact-devtools-client = ["kivact-devtools", "kivact-devtools-mcp", "kivact-devt
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
 # App::run, OffscreenRenderer and the test driver share the engine API.
-# Embedded handles are Send + Sync. A panic of an embedded App is kept in a
-# PanicSlot and resumed by the embedder's next call; nothing turns it into a
-# diagnostic.
+# Embedded handles are Send + Sync. A panic of an embedded App is kept as a
+# message in a PanicSlot and reported to the embedder (`Embedded::status`);
+# Kivact never resumes it on the embedder's thread.
 # Detach facts use the single process-wide tracker in kivact-types.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
@@ -138,7 +138,7 @@ gpu_interop = ["task", "motion", "style", "view", "sync"]
 client = ["task", "motion", "style", "view", "platform", "gpu_interop", "diagnostics"]
 # Launch owns client construction; App and embedding consume that shared boundary.
 launch = ["state", "view", "platform", "diagnostics", "gpu_interop", "client", "devtools", "geometry"]
-app = ["state", "view", "launch", "geometry"]
+app = ["state", "view", "launch", "geometry", "platform"]
 custom = ["task", "motion", "style", "view", "draw"]
 devtools = ["task", "motion", "style", "state", "geometry", "sync", "view", "platform", "diagnostics", "client"]
 
@@ -388,6 +388,16 @@ path = "crates/arvane-asset/src/svg/fonts.rs"
 reason = "The locked value is a pure cache of immutable font data. Recovering a poisoned guard cannot expose a half-updated value, and the asset worker must keep parsing after an unrelated panic."
 
 [[style.exceptions]]
+rule = "poison-access"
+path = "crates/arvane-native/src/port/embed/child.rs"
+reason = "The child's command queue and applied values are plain data. The lock is taken on the host's thread and in the platform's window procedure, where unwrapping a poisoned guard would panic outside the panic boundary and unwind into the host (ADR-68)."
+
+[[style.exceptions]]
+rule = "poison-access"
+path = "crates/arvane-native/src/port/x11/thread.rs"
+reason = "The X11 UI thread's join-handle slot is plain data (the handle and its state). Its lock is taken on the host's thread in open, close and collect_panic, where unwrapping a poisoned guard would panic outside the panic boundary and unwind into the host (ADR-68)."
+
+[[style.exceptions]]
 rule = "non-leaf-implementation"
 path = "crates/kivact-macros/src/lib.rs"
 item = "component"
@@ -422,7 +432,18 @@ reason = "The DevTools app is written as a Kivact user writes an app (dogfooding
 rule = "catch-unwind"
 path = "crates/arvane-native/src/port/win32/proc.rs"
 item = "port::win32::proc::wndproc"
-reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The payload is kept in the child's PanicSlot, the App stops without running more App code, and the host's next call on Embedded resumes it (resume_unwind); it is never swallowed."
+reason = "Defense in depth at a foreign frame: Win32 calls this subclassed window procedure from the embedding host's message loop, so a panic must not unwind into it. The whole shutdown (state.stop, Session::close, handler close/drop, root disposal) runs inside this boundary. The payload's message is kept in the child's PanicSlot, the App stops without running more App code, and `Embedded::status` reports it; it is never resumed into the host and never swallowed."
+
+[[style.exceptions]]
+rule = "catch-unwind"
+path = "crates/arvane-native/src/port/x11/thread.rs"
+item = "port::x11::thread::run"
+reason = "Defense in depth at the X11 UI thread's own boundary: the App's start, event loop and shutdown run inside it, so a panic is kept in the child's PanicSlot and the session forgets the App instead of closing or dropping it. The payload is never resumed on this thread, and `Embedded::status` reports it through `ChildStop::Panicked`."
+
+[[style.exceptions]]
+rule = "non-leaf-implementation"
+path = "crates/arvane-native/src/port/x11/test_parent.rs"
+reason = "Test-only X11 host: the module owns one large TestParent implementation plus its query leaf; splitting every top-level helper into a leaf would scatter one test host's state without making an ownership boundary."
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"

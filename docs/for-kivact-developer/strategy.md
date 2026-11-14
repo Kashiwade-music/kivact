@@ -85,7 +85,7 @@ API の使いやすさは、Rust 未経験の React・SolidJS 開発者を基準
 | 画像の書き出し | 中核 | window なしの RGBA8 描画（OffscreenCanvas に相当）と、同じ描画の SVG 1.1 の文書。HDR や浮動小数点の出力はアプリが持つ |
 | テキスト編集の拡張口 | 中核（段階的に） | 行単位の配置結果、独自部品の IME セッション、テキストのアクセシビリティ。到達目標は「`text_field` を公開 API だけで作り直せること」で、コードエディタを作れる水準とする |
 | アニメーション | 中核 | 目標値への補間と、利用者の毎フレームの計算。任意の正の fps を指定でき、60 fps の上限を置かない。作品の時間（タイムライン、再生位置、シーク）はアプリが持つ |
-| window の起動設定と OS サービス | 中核 | サイズ・最小サイズ・複数の window（位置は親に対する相対の意図だけ）・clipboard・ファイル選択・open・reveal、他のプログラムの window への埋め込み（`App::embed`）。プラグインの規格や枠組みとの glue はアプリ。位置と display は、移植可能な不透明な値として扱える形ができるまで入れない |
+| window の起動設定と OS サービス | 中核 | サイズ・最小サイズ・複数の window（位置は親に対する相対の意図だけ）・clipboard・ファイル選択・open・reveal、他のプログラムの window への埋め込み（`App::embed`）、アプリの window の内容領域全体を 1 つのネイティブ子 window にして別のライブラリの UI を描かせること（`foreign_window`）。プラグインの規格や枠組みとの glue はアプリ。位置と display は、移植可能な不透明な値として扱える形ができるまで入れない |
 | 音声 | アプリ | 再生・取得・処理・デバイス管理はアプリが持つ。通知音のような単純な再生は、UI のライフサイクルと統合できる形があれば中核で再検討する |
 | 試験と診断 | 中核 | 実 window 上の `kivact::test`（E2E）を最優先する。window を開かない試験は、描画結果の検証など E2E で代えにくいものに限る。レイアウト崩れ（文字のはみ出し、意図しない折返し、縦位置のずれ）を機械的に検知する検査を持つ。DevTools（別プロセスの agent と MCP・Python の client）で更新理由・性能・意味情報を調べる |
 | 移植の境界 | 中核 | 通常の API にバックエンドの型（winit・wgpu・Vello など）を出さない。接続層の SPI は実験段階とし、二つ目の実装で検証する |
@@ -130,6 +130,7 @@ P0 の欠陥を新しい部品やデモで埋め合わせない。
 | Android・iOS | 設計と実機検証の対象。正式対応とは分ける |
 | 埋め込み（Windows、Linux X11） | 実験的に動作。正式対応には主要な DAW（REAPER、Bitwig Studio、Ableton Live、Cubase など）と両 OS での G-03（IME、アクセシビリティ）の実機確認を求める |
 | 埋め込み（macOS の NSView、Wayland） | 設計対象。macOS は実機と保守者、Wayland はホストと wrapper の対応がそろったときに実装する |
+| foreign window（Windows、Linux X11） | 実験的に動作。正式対応には主要な plugin の editor を両 OS で開閉・resize・DPI 変更・focus 往復する実機確認を求める |
 | GPU texture の共有（`gpu-interop`） | 実験的に動作。既定で有効にするのは、Linux 実機の E2E、validation layer で受渡しの error 0 件、device の喪失と release の時間切れの E2E、実アプリ 1 つでの利用、wgpu の版上げ 1 回の通過がそろったとき |
 
 ## 9. 指標と見直しの条件

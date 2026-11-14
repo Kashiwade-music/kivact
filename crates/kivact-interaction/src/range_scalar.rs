@@ -1,7 +1,9 @@
 //! Role: Two thumbs editing the ends of one range without crossing.
 
 use crate::drag::DragApi;
-use crate::policy::scalar::{ScalarRange, ScalarRangeError};
+use crate::options_cell::OptionsCell;
+use crate::policy::scalar::{ScalarRange, ScalarRangeError, ScalarStep};
+use crate::policy::scalar_mapping::ScalarMapping;
 use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, follow_ranges};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
@@ -82,11 +84,15 @@ pub fn use_range_scalar(
         low.set(from);
         high.set(to);
     });
+    // Both ends move through one mapping, so a range's body keeps the
+    // position distance under a non-linear curve.
+    let mapping = OptionsCell::new(ScalarMapping::linear());
     let (low_value, high_value) = (low.into_value(), high.into_value());
     let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
         ops: ScalarOps {
             binding: write,
             range,
+            mapping,
         },
         edit: Edit::new(shared, index, Some(bounds)),
     };
@@ -113,10 +119,17 @@ pub fn use_range_scalar(
 }
 
 impl RangeScalarApi {
+    /// Map both values to one curve, as [`ScalarApi::mapping`] does; the
+    /// track, both thumbs and the body follow it. Setup only.
+    pub fn mapping(self, mapping: ScalarMapping) -> Self {
+        // Both ends share the mapping.
+        self.low.mapping(mapping);
+        self
+    }
+
     /// Override the positive keyboard and accessibility increment of both
-    /// thumbs, as [`ScalarApi::key_step`] does.
-    pub fn key_step(self, step: impl IntoValue<f64>) -> Result<Self, ScalarRangeError> {
-        let step = step.into_value();
+    /// thumbs, as [`ScalarApi::key_step`] does: a value or a position step.
+    pub fn key_step(self, step: impl IntoValue<ScalarStep>) -> Result<Self, ScalarRangeError> {
         // Both ends share the setting.
         self.low.key_step(step)?;
         Ok(self)

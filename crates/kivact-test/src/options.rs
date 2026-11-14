@@ -53,6 +53,7 @@ pub struct RenderOptions {
     gpu: TestGpu,
     frame_period_ns: u64,
     single_window: bool,
+    foreign_windows: bool,
     restored_state: std::collections::BTreeMap<String, Vec<u8>>,
 }
 
@@ -70,6 +71,7 @@ impl Default for RenderOptions {
             gpu: TestGpu::Off,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
             single_window: false,
+            foreign_windows: false,
             restored_state: Default::default(),
         }
     }
@@ -185,6 +187,12 @@ impl RenderOptions {
         self.single_window = true;
         self
     }
+    /// The test platform opens windows whose content is one native child
+    /// window (`Capabilities.foreign_window`), as `foreign_window` needs.
+    pub fn foreign_windows(mut self) -> Self {
+        self.foreign_windows = true;
+        self
+    }
     /// Start the DevTools agent for this test App.
     #[cfg(feature = "devtools")]
     pub fn devtools(mut self) -> Self {
@@ -240,6 +248,7 @@ impl RenderOptions {
             title,
             frame_period_ns: self.frame_period_ns,
             single_window: self.single_window,
+            foreign_windows: self.foreign_windows,
             theme: if self.dark {
                 kivact_types::ThemeHint::Dark
             } else {
@@ -277,6 +286,7 @@ impl std::fmt::Debug for RenderOptions {
             .field("mirror", &self.mirror)
             .field("gpu", &self.gpu)
             .field("frame_period_ns", &self.frame_period_ns)
+            .field("foreign_windows", &self.foreign_windows)
             .finish_non_exhaustive()
     }
 }

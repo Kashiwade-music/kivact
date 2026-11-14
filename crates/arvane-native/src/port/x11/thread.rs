@@ -6,13 +6,16 @@ use super::notifier::{MAX_DIMENSION, Notifier, UiThread};
 use super::poll::Waiter;
 use super::window::{ChildRedraw, Window};
 use crate::port::embed::child::{ChildPort, Command, Handle, Shared};
+use crate::port::embed::keys::Verdict;
 use crate::port::embed::session::Session;
 use arvane_shell::{
-    ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError, ShellEvent, ShellWaker,
-    ShellWindow,
+    ChildHooks, ChildStop, EmbedOptions, MakeHandler, NoticeSink, ShellChild, ShellError,
+    ShellEvent, ShellWaker, ShellWindow,
 };
+use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::{Arc, mpsc};
 use x11rb::connection::Connection;
+use x11rb::protocol::xproto::ConnectionExt;
 
 impl ChildPort for Arc<Notifier> {
     const MAX_DIMENSION: u32 = MAX_DIMENSION;
@@ -24,7 +27,7 @@ impl ChildPort for Arc<Notifier> {
         if shared.alive() {
             self.wake();
         }
-        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        let mut slot = thread_slot(self);
         let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
             UiThread::Running(thread) => Some(thread),
             // Nothing was spawned, or the handle was already taken.
@@ -53,7 +56,7 @@ impl ChildPort for Arc<Notifier> {
         }
     }
     fn collect_panic(&self, shared: &Shared) {
-        let mut slot = self.thread.lock().expect(LOCK_POISONED);
+        let mut slot = thread_slot(self);
         let finished = match &*slot {
             UiThread::Running(thread) => thread.is_finished(),
             UiThread::Unspawned | UiThread::Joined => false,
@@ -68,7 +71,15 @@ impl ChildPort for Arc<Notifier> {
         }
     }
 }
-const LOCK_POISONED: &str = "embedded child lock poisoned: a panic already happened";
+/// The UI thread's join handle, behind a lock that may be poisoned. A poisoned lock is recovered
+/// rather than unwrapped: these calls run on the host's thread, where a panic would unwind into the
+/// host. The slot holds only the join handle and its state.
+fn thread_slot(backend: &Notifier) -> std::sync::MutexGuard<'_, UiThread> {
+    backend
+        .thread
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+}
 
 /// Marks the UI thread dead when it ends, by return or by unwind, so the
 /// host sees a stopped child before it joins the thread.
@@ -89,12 +100,19 @@ pub(super) fn waker(backend: &Arc<Notifier>) -> ShellWaker {
 }
 
 pub(in crate::port) fn open(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,
 ) -> Result<Box<dyn ShellChild>, ShellError> {
-    let shared = Arc::new(Shared::new(0, 0, 1.0, hooks.panic.clone()));
+    let shared = Arc::new(Shared::new(
+        0,
+        0,
+        1.0,
+        options.visibility,
+        hooks.panic.clone(),
+        NoticeSink::new(hooks.on_notice.clone()),
+    ));
     let backend = Arc::new(Notifier {
         wake: super::poll::eventfd()?,
         reasons: std::sync::atomic::AtomicU8::new(0),
@@ -123,15 +141,15 @@ pub(in crate::port) fn open(
             }
         })
         .map_err(super::error::platform)?;
-    *backend.thread.lock().expect(LOCK_POISONED) = UiThread::Running(thread);
+    *thread_slot(&backend) = UiThread::Running(thread);
     let child = Handle { shared, backend };
     match receiver.recv() {
         Ok(Ok(())) => Ok(Box::new(child)),
         Ok(Err(error)) => Err(error),
         Err(_) => {
             // The UI thread ended without answering: it failed (see below) or
-            // it panicked, and its payload is kept for the host to resume.
-            let mut slot = child.backend.thread.lock().expect(LOCK_POISONED);
+            // it panicked, and its message is kept for the host to read.
+            let mut slot = thread_slot(&child.backend);
             let thread = match std::mem::replace(&mut *slot, UiThread::Joined) {
                 UiThread::Running(thread) => Some(thread),
                 _ => None,
@@ -145,14 +163,18 @@ pub(in crate::port) fn open(
             }
             Err(child
                 .shared
-                .failure()
+                .stop()
+                .and_then(|stop| match stop {
+                    ChildStop::Failed(error) => Some(error),
+                    ChildStop::Closed | ChildStop::Panicked => None,
+                })
                 .unwrap_or_else(|| super::error::platform("UI thread stopped during startup")))
         }
     }
 }
 
 fn run(
-    parent: kivact_types::ParentWindow,
+    parent: kivact_types::NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,
@@ -160,7 +182,7 @@ fn run(
     backend: Arc<Notifier>,
     ready: &mpsc::SyncSender<Result<(), ShellError>>,
 ) -> Result<(), ShellError> {
-    let kivact_types::ParentWindow::X11(parent) = parent else {
+    let kivact_types::NativeWindow::X11(parent) = parent else {
         return Err(ShellError::unsupported("X11 requires an X11 parent"));
     };
     let (native, width, height, scale) = Native::create_unmapped(
@@ -168,6 +190,7 @@ fn run(
         options.size.width,
         options.size.height,
         options.scale,
+        options.visibility,
     )?;
     let keyboard = Keyboard::new(&native.connection)?;
     let waiter = Waiter::new()?;
@@ -177,28 +200,53 @@ fn run(
         backend.clone(),
         (width, height),
         scale,
+        options.visibility,
+        options.unhandled_keys,
         hooks.on_resize_request,
         waker(&backend),
     )?;
     let session = window.session.clone();
     let _watch = crate::port::linux_settings::watch(session.waker());
-    session.start(make, &mut window);
-    session.opened();
-    let result = if let Some(error) = shared.failure() {
-        let _ = ready.send(Err(error.clone()));
-        Err(error)
-    } else if let Err(error) = window.native.show() {
-        Err(error)
-    } else if ready.send(Ok(())).is_err() {
-        Ok(())
-    } else {
-        event_loop(&session, &mut window, Input::new(keyboard), waiter)
+    // The App's start and event loop run inside this panic boundary. A panic is
+    // kept as the child's message and never resumed on this thread.
+    let result = match catch_unwind(AssertUnwindSafe(|| {
+        session.start(make, &mut window);
+        session.opened();
+        if let Some(ChildStop::Failed(error)) = shared.stop() {
+            let _ = ready.send(Err(error.clone()));
+            Err(error)
+        } else if shared.panicked() {
+            Err(ShellError::new("the embedded App panicked while opening"))
+        } else if options.visibility == kivact_types::embed::Visibility::Shown
+            && let Err(error) = window.native.show()
+        {
+            Err(error)
+        } else if ready.send(Ok(())).is_err() {
+            Ok(())
+        } else {
+            event_loop(&session, &mut window, Input::new(keyboard), waiter)
+        }
+    })) {
+        Ok(result) => result,
+        Err(payload) => {
+            shared.keep_panic(payload);
+            Err(ShellError::new("the embedded App panicked"))
+        }
     };
     if let Err(error) = &result {
         shared.fail(error.clone());
     }
     shared.request_close();
-    if session.close(&mut window) {
+    // The shutdown runs inside its own boundary too: after a panic, the session
+    // forgets the App instead of closing or dropping it.
+    let closed = match catch_unwind(AssertUnwindSafe(|| session.close(&mut window))) {
+        Ok(closed) => closed,
+        Err(payload) => {
+            shared.keep_panic(payload);
+            false
+        }
+    };
+    if closed {
         drop(window);
     } else {
         std::mem::forget(window);
@@ -256,7 +304,7 @@ fn event_loop(
         // Take wake reasons together with the eventfd drain: `request` signals
         // only when the reasons go from empty to set, so reasons left set after
         // the drain would swallow the signal of a later command.
-        let reasons = deliver_commands(session, window)?;
+        let reasons = deliver_commands(session, window, &mut input)?;
         if closed(window) {
             return Ok(());
         }
@@ -374,8 +422,23 @@ fn deliver_native_events(
             // into an erroneous App-requested exit in the shared session.
             return Ok(());
         }
-        for event in input.translate(event, window)? {
-            session.deliver(event, window);
+        let translated = input.translate(event, window)?;
+        let native_key = input.take_native_key();
+        let key_at = native_key.as_ref().and_then(|_| {
+            translated
+                .iter()
+                .rposition(|event| matches!(event, ShellEvent::Key(_)))
+        });
+        for (index, translated) in translated.into_iter().enumerate() {
+            if let (ShellEvent::Key(key), Some((down, original)), Some(at)) =
+                (&translated, &native_key, key_at)
+                && index == at
+            {
+                let code = key.code;
+                deliver_native_key(session, window, translated, code, *down, original)?;
+            } else {
+                session.deliver(translated, window);
+            }
             if closed(window) {
                 return Ok(());
             }
@@ -384,11 +447,71 @@ fn deliver_native_events(
     Ok(())
 }
 
+/// Deliver one native key and give it back to the parent when nobody handled it.
+fn deliver_native_key(
+    session: &Session,
+    window: &mut Window,
+    event: ShellEvent,
+    code: kivact_types::KeyCode,
+    down: bool,
+    original: &x11rb::protocol::xproto::KeyPressEvent,
+) -> Result<(), ShellError> {
+    if window.unhandled_keys != kivact_types::UnhandledKeys::ToParent {
+        session.deliver(event, window);
+        return Ok(());
+    }
+    if !down {
+        session.deliver(event, window);
+        if session.keys().borrow_mut().take_forwarded(code) {
+            send_key(window, original, false)?;
+        }
+        return Ok(());
+    }
+    session.keys().borrow_mut().open(code);
+    session.deliver(event, window);
+    session.deliver(ShellEvent::Wake(arvane_shell::WakeReasons::CLIENT), window);
+    if session.keys().borrow_mut().close() == Verdict::Unhandled {
+        session.keys().borrow_mut().forward(code);
+        send_key(window, original, true)?;
+    }
+    Ok(())
+}
+
+/// Send a synthetic key event to the host's parent window.
+fn send_key(
+    window: &Window,
+    key: &x11rb::protocol::xproto::KeyPressEvent,
+    down: bool,
+) -> Result<(), ShellError> {
+    use x11rb::protocol::xproto::EventMask;
+    let event = x11rb::protocol::xproto::KeyPressEvent {
+        event: window.native.parent,
+        child: 0,
+        ..key.clone()
+    };
+    let mask = if down {
+        EventMask::KEY_PRESS
+    } else {
+        EventMask::KEY_RELEASE
+    };
+    window
+        .native
+        .connection
+        .send_event(false, window.native.parent, mask, event)
+        .map_err(super::error::platform)?;
+    window
+        .native
+        .connection
+        .flush()
+        .map_err(super::error::platform)
+}
+
 /// Apply host commands before accessibility, wakes, and redraw delivery.
 /// Returns the wake reasons requested up to the eventfd drain.
 fn deliver_commands(
     session: &Session,
     window: &mut Window,
+    input: &mut Input,
 ) -> Result<arvane_shell::WakeReasons, ShellError> {
     let _ = super::poll::drain(&window.backend.wake)?;
     let reasons = window.backend.take();
@@ -413,7 +536,48 @@ fn deliver_commands(
                 window.resized(window.width, window.height);
                 session.deliver(ShellEvent::Resized, window);
             }
+            Command::SetVisibility(visibility) => {
+                for event in visibility_events(window, input, visibility)? {
+                    session.deliver(event, window);
+                    if closed(window) {
+                        return Ok(reasons);
+                    }
+                }
+            }
+        }
+    }
+    session.settle_resize(window.now_ns());
+    for answer in session.take_answers() {
+        session.deliver(answer, window);
+        if closed(window) {
+            return Ok(reasons);
         }
     }
     Ok(reasons)
+}
+
+/// Map or unmap the child and return the events that report it.
+fn visibility_events(
+    window: &mut Window,
+    input: &mut Input,
+    visibility: kivact_types::embed::Visibility,
+) -> Result<Vec<ShellEvent>, ShellError> {
+    let mut events = Vec::new();
+    match visibility {
+        kivact_types::embed::Visibility::Hidden => {
+            window.native.hide()?;
+            events.extend(input.blur_events());
+        }
+        kivact_types::embed::Visibility::Shown => {
+            window.native.show()?;
+            window.redraw.set(ChildRedraw::Needed);
+        }
+    }
+    if let Some(event) = window.set_surface(visibility) {
+        events.push(event);
+    }
+    if visibility == kivact_types::embed::Visibility::Shown {
+        events.push(ShellEvent::Redraw);
+    }
+    Ok(events)
 }

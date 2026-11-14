@@ -31,6 +31,12 @@ impl Screen {
         self.send(kivact_engine::testing::ShellEvent::Focused(focused));
         self.run_until_idle();
     }
+
+    /// The key presses nobody handled since the last call (what an embedded
+    /// editor would give back to its host).
+    pub fn unhandled_keys(&self) -> Vec<kivact_core::view::KeyCode> {
+        self.host().unhandled_keys(self.window)
+    }
     /// The host reports reduced motion on or off (`EnvChanged`).
     pub fn set_reduced_motion(&self, on: bool) {
         self.log(format!("reduced motion {on}"));
@@ -262,6 +268,17 @@ impl Screen {
     /// The window title the App set.
     pub fn title(&self) -> String {
         self.host().title(self.window)
+    }
+
+    /// The native child window filling a window opened with
+    /// `foreign_window`, once the engine created it.
+    pub fn foreign_child(&self) -> Option<p::NativeWindow> {
+        self.host().foreign_child(self.window)
+    }
+
+    /// Whether the user can resize this window.
+    pub fn is_resizable(&self) -> bool {
+        self.host().is_resizable(self.window)
     }
 
     /// Number of frame ticks the App has been given.

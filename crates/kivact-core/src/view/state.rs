@@ -192,6 +192,8 @@ pub(crate) struct Requests {
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
+    /// Size requests of foreign windows' native children, by request id.
+    pub(crate) foreign_sizes: HashMap<u64, ForeignSizeRequest>,
     /// Pending CPU captures, answered at the settled host boundary.
     pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
     // xtask-allow(state-fields): independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id
@@ -206,6 +208,14 @@ pub(crate) struct SnapshotWaiter {
     pub(crate) owner: Owner,
     pub(crate) at: &'static Location<'static>,
     pub(crate) reply: Completion<Result<kivact_types::Pixels, UiError>>,
+}
+
+/// A size request of a foreign window's native child, answered by the
+/// window's effect result or by its close.
+pub(crate) struct ForeignSizeRequest {
+    pub(crate) window: WindowId,
+    pub(crate) at: &'static Location<'static>,
+    pub(crate) slot: Completion<Result<(), UiError>>,
 }
 
 impl Requests {
@@ -269,6 +279,9 @@ pub(crate) struct WindowRecord {
     pub(crate) min_size: Option<kivact_types::Size>,
     pub(crate) dismiss: Option<Handler<DismissReason>>,
     pub(crate) open: Binding<bool>,
+    // xtask-allow(state-fields): option: present exactly for a window declared with `foreign_window`; the hooks are the declaration's callbacks, not a second window state
+    /// The callbacks of a foreign window, shared with its declaration.
+    pub(crate) foreign: Option<Rc<super::foreign::ForeignHooks>>,
     #[allow(
         dead_code,
         reason = "the record keeps the window's mode for later input routing diagnostics"
@@ -368,6 +381,63 @@ impl ViewState {
         self.windows.borrow_mut().get_mut(&window).map(f)
     }
 
+    /// Resolve the size requests of `window` with `ErrorKind::Closed`; its
+    /// native window is going away.
+    pub(crate) fn close_foreign_sizes(&self, window: WindowId) {
+        let drained: Vec<ForeignSizeRequest> = {
+            let mut requests = self.requests.borrow_mut();
+            let ids: Vec<u64> = requests
+                .foreign_sizes
+                .iter()
+                .filter(|(_, request)| request.window == window)
+                .map(|(id, _)| *id)
+                .collect();
+            ids.into_iter()
+                .filter_map(|id| requests.foreign_sizes.remove(&id))
+                .collect()
+        };
+        for request in drained {
+            request.slot.complete(Err(UiError::new(
+                ErrorKind::Closed,
+                "the foreign window closed before the size request was answered",
+                Some(request.at),
+            )));
+        }
+    }
+
+    /// Resolve a pending foreign size request from the host's answer.
+    pub(crate) fn resolve_foreign_size(&self, id: u64, result: PlatformResult) -> bool {
+        let request = self.requests.borrow_mut().foreign_sizes.remove(&id);
+        let Some(request) = request else {
+            return false;
+        };
+        let outcome = match result {
+            PlatformResult::Failed(message) => Err(UiError::new(
+                ErrorKind::Platform,
+                message.to_string(),
+                Some(request.at),
+            )),
+            PlatformResult::Unsupported => Err(UiError::new(
+                ErrorKind::Unsupported,
+                "the host does not support this platform request",
+                Some(request.at),
+            )),
+            PlatformResult::Cancelled => Err(UiError::new(
+                ErrorKind::Cancelled,
+                "a newer request replaced this deferred platform request",
+                Some(request.at),
+            )),
+            PlatformResult::TimedOut => Err(UiError::new(
+                ErrorKind::Timeout,
+                "the host did not answer this deferred platform request in time",
+                Some(request.at),
+            )),
+            _ => Ok(()),
+        };
+        request.slot.complete(outcome);
+        true
+    }
+
     /// Release spare request/tree capacity. Environment memos and live
     /// reactive/user resources are authority, not rebuildable caches.
     pub(crate) fn release_capacity(&self) {
@@ -376,6 +446,7 @@ impl ViewState {
         requests.focus.order.shrink_to_fit();
         requests.focus.requests.shrink_to_fit();
         requests.effects.shrink_to_fit();
+        requests.foreign_sizes.shrink_to_fit();
         requests.snapshots.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }

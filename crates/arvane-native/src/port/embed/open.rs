@@ -7,7 +7,7 @@ use crate::port::win32 as windows;
 #[cfg(all(target_os = "linux", feature = "embed"))]
 use crate::port::x11;
 use arvane_shell::{ChildHooks, EmbedOptions, MakeHandler, ShellChild, ShellError};
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 #[cfg(all(windows, feature = "test"))]
 pub use windows::TestParent;
 #[cfg(all(target_os = "linux", feature = "test"))]
@@ -15,7 +15,7 @@ pub use x11::test_parent::TestParent;
 /// Open a child of `parent`, constructing its handler on the native window's
 /// UI thread.
 pub fn open(
-    parent: ParentWindow,
+    parent: NativeWindow,
     options: EmbedOptions,
     hooks: ChildHooks,
     make: MakeHandler,

@@ -106,7 +106,7 @@ Run it. You should see the panel from step 1 with more rows, an easing curve wit
 - **`move` closures.** `record` and `undo` use `move` so they own copies of the signal handles. Handles are `Copy`, so the same `x` is still usable after it has been moved into a closure.
 - **`color_popup(label, color)`** is a swatch button that opens a `color_wheel` in a popup. It is a transaction: `Esc` restores the color the popup opened with, and an outside click commits.
 - **`bezier_curve(binding)`** edits a `CubicBezier`, the control points of an easing curve whose ends stay at (0, 0) and (1, 1). It, too, takes its value as an argument and reports `on_edit` phases.
-- **`value_slider`** is a numeric field drawn as a filled track. `ui::knob` and `ui::fader` are other shapes of the same component and take the same arguments. The plain track-and-thumb slider is `kivact::ui::slider`.
+- **`value_slider`** is a numeric field drawn as a filled track. `ui::knob` and `ui::fader` are other shapes of the same component and take the same arguments. The plain track-and-thumb slider is `kivact::ui::slider`. All three also take `format` and `mapping` when the value needs its own text or curve; [Format, map and fine-tune knobs and faders](../how-to-guide/knobs-and-faders.md) covers them.
 
 ## Next
 

@@ -1,4 +1,4 @@
-7f0943e76a1d732753d53bbf4ce017f01286e17b0ea9e51577dbe5fe6316aeff  869572  notosansjp/NotoSansJP-subset[wght].ttf
+5d794c4876b9b882517b9659756a4e37220c7926af67e51b1737456deafef7e4  870652  notosansjp/NotoSansJP-subset[wght].ttf
 1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9  4388  notosansjp/OFL.txt
 73894e0448cae90a92b6c2f8732b7bb9acb7b94c418bff559dad4a18e1de9659  169056  geist/Geist[wght].ttf
 1781d2806a07d91c4edf4740b88449fab7d0eadad53f7c351b94cd4d4eb8c00f  4387  geist/OFL.txt

@@ -4,10 +4,11 @@ use super::data::ScalarState;
 use super::edit_state::{Edit, Shared, register_focus, register_host_disabled};
 use super::ops::ScalarOps;
 use super::range::follow_range;
-use super::track::{Grip, Target, fraction};
+use super::track::{Grip, Target};
 use crate::axis::Axis;
 use crate::drag::DragApi;
-use crate::policy::scalar::{ScalarRange, ScalarRangeError};
+use crate::policy::scalar::{ScalarRange, ScalarRangeError, ScalarStep};
+use crate::policy::scalar_mapping::ScalarMapping;
 use kivact_core::custom::{Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, memo};
@@ -87,16 +88,14 @@ pub fn use_scalar(
     range: impl IntoValue<ScalarRange>,
 ) -> ScalarApi {
     let binding = value.into_binding();
+    let range = range.into_value();
     let snapshot = memo(move || [binding.get(), 0.0]);
     let shared = Shared::new(snapshot, move |[start, _]| binding.set(start));
     let scalar = ScalarApi {
-        ops: ScalarOps {
-            binding,
-            range: range.into_value(),
-        },
+        ops: ScalarOps::new(binding, range),
         edit: Edit::new(shared, 0, None),
     };
-    follow_range(binding, scalar.ops.range);
+    follow_range(binding, range);
     shared.pointer.thumbs.set(vec![scalar.target()]);
     scalar
 }
@@ -114,21 +113,42 @@ impl ScalarApi {
                     ScalarState {
                         input: PartState::default(),
                         value,
-                        fraction: fraction(value, self.range().get()),
+                        fraction: self.ops.mapping.get().position(value, self.range().get()),
                     }
                 })
         })
     }
 
-    /// Override the positive keyboard and accessibility increment without
-    /// changing quantization. The default is the range's step, or 1 when the
-    /// range is continuous. Reactive steps are read for each action. An invalid
-    /// initial step returns an error; a later invalid step reports to the
-    /// configuring owner's error boundary and rejects the action without writing.
+    /// Map the value to a position along the control with `mapping` (default
+    /// linear): a track drag, a touch, a position step and
+    /// [`ScalarState::fraction`] follow it, while the binding, Home/End, value
+    /// steps and assistive values stay in the value's units. Setup only, before
+    /// the parts are created. A `custom` mapping whose position decreases over
+    /// the current range is a usage error.
     #[track_caller]
-    pub fn key_step(self, step: impl IntoValue<f64>) -> Result<Self, ScalarRangeError> {
+    pub fn mapping(self, mapping: ScalarMapping) -> Self {
+        let range = self.ops.range.get_untracked();
+        if range.min() < range.max()
+            && mapping.position(range.min(), range) > mapping.position(range.max(), range)
+        {
+            kivact_core::custom::raise(
+                kivact_core::ErrorKind::Message,
+                "ScalarApi::mapping: the position must increase with the value",
+            );
+        }
+        self.ops.mapping.update(|current| *current = mapping);
+        self
+    }
+
+    /// Override the keyboard and accessibility increment without changing
+    /// quantization. The default is the range's step, else 1, in value units.
+    /// Reactive steps are read for each action. An invalid initial step returns
+    /// an error; a later invalid step reports to the configuring owner's error
+    /// boundary and rejects the action without writing.
+    #[track_caller]
+    pub fn key_step(self, step: impl IntoValue<ScalarStep>) -> Result<Self, ScalarRangeError> {
         let step = step.into_value();
-        let initial = step.get_untracked();
+        let initial = step.get_untracked().amount();
         if !initial.is_finite() || initial <= 0.0 {
             return Err(ScalarRangeError::InvalidStep);
         }
@@ -209,6 +229,16 @@ impl ScalarApi {
         self.ops.set(value)
     }
 
+    /// Write the value at `position` along the control (through the mapping,
+    /// then normalized by the range). `false` writes nothing (a non-finite
+    /// position or curve value). Not an edit by itself: call it inside
+    /// [`once`](Self::once) or a [`scrub`](Self::scrub) drag.
+    #[track_caller]
+    pub fn set_position(self, position: impl Into<f64>) -> bool {
+        let position = position.into();
+        self.ops.set_position(position)
+    }
+
     /// Change the current normalized value by keyboard step units.
     #[track_caller]
     pub fn step_by(self, steps: impl Into<f64>) -> bool {
@@ -220,10 +250,11 @@ impl ScalarApi {
     /// The keyboard increment: the one given to [`key_step`](Self::key_step),
     /// else the range's step, else 1.
     #[track_caller]
-    fn current_key_step(self) -> Option<f64> {
+    fn current_key_step(self) -> Option<ScalarStep> {
         if let Some((value, owner)) = self.edit.shared.settings.get().key_step {
             let step = value.get_untracked();
-            if !step.is_finite() || step <= 0.0 {
+            let amount = step.amount();
+            if !amount.is_finite() || amount <= 0.0 {
                 owner.report(
                     kivact_core::ErrorKind::Message,
                     ScalarRangeError::InvalidStep.to_string(),
@@ -232,7 +263,9 @@ impl ScalarApi {
             }
             return Some(step);
         }
-        Some(self.ops.range.get_untracked().step().unwrap_or(1.0))
+        Some(ScalarStep::Value(
+            self.ops.range.get_untracked().step().unwrap_or(1.0),
+        ))
     }
 
     /// This scalar as a thumb the pointer moves.
@@ -240,6 +273,7 @@ impl ScalarApi {
         Target {
             binding: self.ops.binding,
             range: self.ops.range,
+            mapping: self.ops.mapping,
             thumb: self.edit.thumb,
             rect: self.edit.thumb_rect,
             bounds: self.edit.bounds,
@@ -373,13 +407,14 @@ impl ScalarApi {
     #[track_caller]
     fn part(self, role: Role) -> Part<ScalarState> {
         let (value, range) = (self.value(), self.ops.range);
+        let mapping = self.ops.mapping;
         let shared = self.edit.shared;
         let input = part(move |input| {
             let value = value.get();
             ScalarState {
                 input,
                 value,
-                fraction: fraction(value, range.get()),
+                fraction: mapping.get().position(value, range.get()),
             }
         });
         let part_state = input.state();

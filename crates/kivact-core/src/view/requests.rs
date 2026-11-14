@@ -99,6 +99,9 @@ pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Locat
 
 /// The host answered platform effect `id`.
 pub(crate) fn resolve_effect(rt: &Runtime, id: u64, result: PlatformResult) {
+    if ViewState::of(rt).resolve_foreign_size(id, result.clone()) {
+        return;
+    }
     let Some(w) = ViewState::of(rt).requests.borrow_mut().effects.remove(&id) else {
         return;
     };
@@ -286,6 +289,16 @@ pub(crate) fn platform_result(r: PlatformResult) -> Result<PlatformResult, UiErr
         PlatformResult::Unsupported => Err(UiError::new(
             ErrorKind::Unsupported,
             "the host does not support this platform request",
+            None,
+        )),
+        PlatformResult::Cancelled => Err(UiError::new(
+            ErrorKind::Cancelled,
+            "a newer request replaced this deferred platform request",
+            None,
+        )),
+        PlatformResult::TimedOut => Err(UiError::new(
+            ErrorKind::Timeout,
+            "the host did not answer this deferred platform request in time",
             None,
         )),
         other => Ok(other),

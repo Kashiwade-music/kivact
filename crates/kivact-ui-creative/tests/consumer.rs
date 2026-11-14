@@ -35,6 +35,8 @@ mod node_editor;
 mod node_support;
 #[path = "consumer/numeric_edit.rs"]
 mod numeric_edit;
+#[path = "consumer/numeric_value.rs"]
+mod numeric_value;
 #[path = "consumer/outliner.rs"]
 mod outliner;
 #[path = "consumer/picker.rs"]

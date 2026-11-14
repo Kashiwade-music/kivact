@@ -59,10 +59,12 @@ pub use types::{ShellControl, ShellError, ShellWaker, WakeReasons};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, BufferAge, CpuFormat, EventTarget, ShellHandler, ShellLoop, ShellWindow, Step,
-    StepOutcome, SteppedBackend, SteppedLoop,
+    Backend, BufferAge, CpuFormat, EventTarget, ShellHandler, ShellLoop, ShellWindow, SizeReply,
+    Step, StepOutcome, SteppedBackend, SteppedLoop,
 };
 pub use window_input::WindowInput;
 
-pub use child::{ChildHooks, MakeHandler, PanicSlot, ShellChild};
+pub use child::{
+    ChildHooks, ChildStop, EmbedNotice, MakeHandler, NoticeSink, PanicSlot, ShellChild,
+};
 pub use kivact_types::EmbedOptions;

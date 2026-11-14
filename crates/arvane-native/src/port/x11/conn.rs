@@ -39,6 +39,9 @@ pub(super) struct Native {
     pub(super) connection: Arc<XCBConnection>,
     pub(super) id: NonZeroU32,
     pub(super) xembed: u32,
+    pub(super) xembed_info: u32,
+    /// The host window the child was created in (synthetic keys go here).
+    pub(super) parent: u32,
     /// The X server still has this window (no DestroyNotify or BadWindow for it yet).
     pub(super) exists: ConnectionAlive,
     pub(super) screen: i32,
@@ -48,12 +51,39 @@ pub(super) struct Native {
 
 impl Native {
     pub(super) fn show(&self) -> Result<(), ShellError> {
+        self.set_mapped_flag(true)?;
         self.connection
             .map_window(self.id.get())
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
         self.connection.flush().map_err(super::error::platform)
+    }
+
+    /// Unmap the child and tell XEmbed toolkits it is unmapped.
+    pub(super) fn hide(&self) -> Result<(), ShellError> {
+        self.connection
+            .unmap_window(self.id.get())
+            .map_err(super::error::platform)?
+            .check()
+            .map_err(super::error::platform)?;
+        self.set_mapped_flag(false)?;
+        self.connection.flush().map_err(super::error::platform)
+    }
+
+    /// Write the XEMBED_MAPPED flag and settle the request.
+    pub(super) fn set_mapped_flag(&self, mapped: bool) -> Result<(), ShellError> {
+        self.connection
+            .change_property32(
+                PropMode::REPLACE,
+                self.id.get(),
+                self.xembed_info,
+                self.xembed_info,
+                &[0, u32::from(mapped)],
+            )
+            .map_err(super::error::platform)?
+            .check()
+            .map_err(super::error::platform)
     }
 
     /// Settles a checked request on our own window. A destroyed window means
@@ -74,6 +104,7 @@ impl Native {
         logical_width: f64,
         logical_height: f64,
         requested_scale: Option<f64>,
+        visibility: kivact_types::embed::Visibility,
     ) -> Result<(Arc<Self>, u32, u32, f64), ShellError> {
         let (connection, _) = XCBConnection::connect(None).map_err(super::error::platform)?;
         let connection = Arc::new(connection);
@@ -120,12 +151,14 @@ impl Native {
             connection,
             id,
             xembed,
+            xembed_info: info,
+            parent,
             screen: screen as i32,
             visual,
             owner: std::thread::current().id(),
             exists: ConnectionAlive(AtomicBool::new(true)),
         });
-        native.create_child(parent, width, height, info)?;
+        native.create_child(parent, width, height, info, visibility)?;
         Ok((native, width.into(), height.into(), scale))
     }
     /// Install the event mask and XEmbed identity on the new child.
@@ -135,6 +168,7 @@ impl Native {
         width: u16,
         height: u16,
         info: u32,
+        visibility: kivact_types::embed::Visibility,
     ) -> Result<(), ShellError> {
         let mask = EventMask::EXPOSURE
             | EventMask::STRUCTURE_NOTIFY
@@ -164,8 +198,9 @@ impl Native {
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;
+        let mapped = u32::from(visibility == kivact_types::embed::Visibility::Shown);
         self.connection
-            .change_property32(PropMode::REPLACE, self.id.get(), info, info, &[0, 1])
+            .change_property32(PropMode::REPLACE, self.id.get(), info, info, &[0, mapped])
             .map_err(super::error::platform)?
             .check()
             .map_err(super::error::platform)?;

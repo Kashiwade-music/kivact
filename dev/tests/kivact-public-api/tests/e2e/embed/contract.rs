@@ -1,7 +1,9 @@
 //! Role: OS-independent real-window embedding contracts.
 
 use super::support::{SERIAL, painted, panel, wait};
+use kivact::embed::EmbedStatus;
 use kivact::embed::Embedded;
+use kivact::embed::ResizeAnswer;
 use kivact::prelude::*;
 use kivact::style::Color;
 use kivact::test::TestParent;
@@ -41,9 +43,9 @@ fn native_click_key_and_text_reach_the_editor() {
         let value = clicks.load(Ordering::SeqCst);
         assert!(
             value == 1 || Instant::now() < click_deadline,
-            "click did not arrive once: count={value}, scale={}, error={:?}",
+            "click did not arrive once: count={value}, scale={}, status={:?}",
             app.scale(),
-            app.error()
+            app.status()
         );
         value == 1
     });
@@ -54,9 +56,9 @@ fn native_click_key_and_text_reach_the_editor() {
         let value = observed.lock().expect("test state lock").clone();
         assert!(
             value == "hello" || Instant::now() < typing_deadline,
-            "typed text did not arrive: value={value:?}, scale={}, error={:?}",
+            "typed text did not arrive: value={value:?}, scale={}, status={:?}",
             app.scale(),
-            app.error()
+            app.status()
         );
         value == "hello"
     });
@@ -65,7 +67,7 @@ fn native_click_key_and_text_reach_the_editor() {
         *observed.lock().expect("test state lock") == "hell"
     });
     assert_eq!(roots.load(Ordering::SeqCst), 1);
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), EmbedStatus::Running);
 }
 
 fn accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins() {
@@ -84,7 +86,7 @@ fn accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins() {
                     "callback ran before root finished"
                 );
                 calls.lock().expect("test state lock").push((w, h));
-                true
+                ResizeAnswer::Accepted
             }),
             move || {
                 let future = platform::request_window_size(150.25, 90.25);
@@ -116,7 +118,62 @@ fn accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins() {
             .capture()
             .is_ok_and(|s| (s.width, s.height) == (220, 140))
     });
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), EmbedStatus::Running);
+}
+
+fn pending_resize_waits_for_the_hosts_size() {
+    let parent = TestParent::open(640, 480).expect("parent opens");
+    let slot = Arc::new(Mutex::new(None::<Embedded>));
+    let result = Arc::new(Mutex::new(None));
+    let output = result.clone();
+    let requested = Arc::new(AtomicBool::new(false));
+    let asked = requested.clone();
+    let app = App::new("Pending resize")
+        .window_size(160, 100)
+        .embed(
+            parent
+                .parent()
+                .scale(1.0)
+                .on_resize_request(|_, _| ResizeAnswer::Pending),
+            move || {
+                node()
+                    .style(style().size(500, 500).background(Color::WHITE))
+                    .on_press(move || {
+                        asked.store(true, Ordering::SeqCst);
+                        let future = platform::request_window_size(300, 200);
+                        let output = output.clone();
+                        spawn(async move {
+                            *output.lock().expect("test state lock") =
+                                Some(future.await.map_err(|e| e.to_string()));
+                            Ok::<(), kivact::UiError>(())
+                        });
+                    })
+            },
+        )
+        .expect("editor opens");
+    *slot.lock().expect("test state lock") = Some(app);
+    painted(&parent);
+    parent.click(20.0, 20.0).expect("click delivered");
+    wait(&parent, || requested.load(Ordering::SeqCst));
+    parent.pump(Duration::from_millis(100));
+    let editor_guard = slot.lock().expect("test state lock");
+    let editor = editor_guard.as_ref().expect("editor stored");
+    assert_eq!(editor.size(), (160, 100), "the child waits for the host");
+    editor.set_size(300, 200);
+    drop(editor_guard);
+    wait(&parent, || {
+        result.lock().expect("test state lock").is_some()
+    });
+    assert_eq!(*result.lock().expect("test state lock"), Some(Ok(())));
+    wait(&parent, || {
+        slot.lock()
+            .expect("test state lock")
+            .as_ref()
+            .expect("editor stored")
+            .size()
+            == (300, 200)
+    });
+    drop(slot.lock().expect("test state lock").take());
 }
 
 fn refusal_and_missing_callback_complete_with_their_errors() {
@@ -126,7 +183,7 @@ fn refusal_and_missing_callback_complete_with_their_errors() {
         let output = result.clone();
         let mut options = parent.parent().scale(1.0);
         if callback {
-            options = options.on_resize_request(|_, _| false);
+            options = options.on_resize_request(|_, _| ResizeAnswer::Refused);
         }
         let app = App::new("Refused resize")
             .window_size(120, 80)
@@ -157,7 +214,7 @@ fn refusal_and_missing_callback_complete_with_their_errors() {
             assert!(error.1.contains("the host refused the size"));
         }
         assert_eq!(app.size(), (120, 80));
-        assert!(app.error().is_none());
+        assert_eq!(app.status(), EmbedStatus::Running);
     }
 }
 
@@ -177,7 +234,7 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
                     .as_ref()
                     .expect("editor stored")
                     .set_size(220, 140);
-                true
+                ResizeAnswer::Accepted
             }),
             move || {
                 node()
@@ -219,12 +276,15 @@ fn correction_inside_accepting_resize_callback_remains_authoritative() {
             .is_ok_and(|s| (s.width, s.height) == (220, 140))
     });
     assert!(
-        held.lock()
-            .expect("test state lock")
-            .as_ref()
-            .expect("editor stored")
-            .error()
-            .is_none()
+        matches!(
+            held.lock()
+                .expect("test state lock")
+                .as_ref()
+                .expect("editor stored")
+                .status(),
+            EmbedStatus::Running
+        ),
+        "the host correction must not stop the App"
     );
     // Break the host callback's shared handle slot before the next editor.
     drop(held.lock().expect("test state lock").take());
@@ -263,7 +323,7 @@ fn clipboard_requests_complete_through_the_host_pump() {
         result.expect("clipboard read succeeds"),
         "embedded 日本語 🦀"
     );
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), EmbedStatus::Running);
 }
 
 #[test]
@@ -292,6 +352,7 @@ fn resize_negotiation_handles_acceptance_refusal_missing_callback_and_host_corre
     accepted_startup_resize_rounds_and_changes_capture_then_host_size_wins();
     refusal_and_missing_callback_complete_with_their_errors();
     correction_inside_accepting_resize_callback_remains_authoritative();
+    pending_resize_waits_for_the_hosts_size();
 }
 
 #[test]
@@ -320,38 +381,83 @@ fn clipboard_text_round_trips_through_the_host_pump() {
     clipboard_requests_complete_through_the_host_pump();
 }
 
-#[cfg(windows)]
 fn explode() {
     panic!("editor exploded");
 }
 
-/// A panic in the editor stops it without running more App code; the wrapper's
-/// next call on `Embedded` resumes it on the calling thread.
-#[cfg(windows)]
+/// A panic in the editor stops it without running more App code; it is
+/// reported as a value and never unwinds into the wrapper.
 #[test]
-#[should_panic(expected = "editor exploded")]
-fn a_panic_in_the_editor_resumes_in_the_wrappers_next_call() {
+fn a_panic_in_the_editor_is_reported_and_never_unwinds() {
     if let Some(reason) = kivact::test::native_unavailable() {
         eprintln!("SKIPPED: {reason}");
         return;
     }
 
-    let serial = SERIAL
+    let _serial = SERIAL
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
     let parent = TestParent::open(320, 240).expect("parent opens");
+    let presses = Arc::new(AtomicUsize::new(0));
+    let counter = presses.clone();
     let app = App::new("Panicking editor")
         .window_size(320, 240)
-        .embed(parent.parent().scale(1.0), || {
-            panel().focusable(true).on_press(explode)
+        .embed(parent.parent().scale(1.0), move || {
+            panel().focusable(true).on_press(move || {
+                counter.fetch_add(1, Ordering::SeqCst);
+                explode();
+            })
         })
         .expect("editor opens");
     painted(&parent);
     parent.click(20.0, 20.0).expect("click delivered");
+    wait(
+        &parent,
+        || matches!(app.status(), EmbedStatus::Panicked(error) if error.kind() == &kivact::ErrorKind::Panicked),
+    );
+    let EmbedStatus::Panicked(error) = app.status() else {
+        panic!("status reported a panic");
+    };
+    assert_eq!(error.to_string(), "editor exploded");
     wait(&parent, || parent.capture().is_err());
-    // The panic must not poison the other embed tests.
-    drop(serial);
-    app.size();
+    // No later input runs App code; a click after the window closed is
+    // refused by the test parent.
+    let _ = parent.click(20.0, 20.0);
+    parent.pump(Duration::from_millis(50));
+    assert_eq!(
+        presses.load(Ordering::SeqCst),
+        1,
+        "no user code runs after the panic"
+    );
+    app.set_size(160, 100);
+    let _ = app.size();
+    let _ = app.scale();
+    drop(app);
+}
+
+/// A panic in the root makes `embed` return `ErrorKind::Panicked` and leaves
+/// no window.
+#[test]
+fn a_panic_in_root_returns_err() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let result = App::new("Panicking root").window_size(320, 240).embed(
+        parent.parent().scale(1.0),
+        || -> Node {
+            panic!("root exploded");
+        },
+    );
+    let error = result.err().expect("the root panic is an error");
+    assert_eq!(error.kind(), &kivact::ErrorKind::Panicked);
+    assert_eq!(error.to_string(), "root exploded");
+    assert!(parent.capture().is_err(), "a failed open leaves no window");
 }
 
 fn external_drop_joins_cleanup_after_parent_destruction() {
@@ -370,7 +476,7 @@ fn external_drop_joins_cleanup_after_parent_destruction() {
     wait(&parent, || parent.capture().is_ok());
     parent.close();
     wait(&parent, || cleaned.load(Ordering::SeqCst) == 1);
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), EmbedStatus::Closed);
     drop(app);
     assert_eq!(cleaned.load(Ordering::SeqCst), 1);
     assert!(parent.capture().is_err());
@@ -396,10 +502,10 @@ fn close_during_resize_callback(parent: &TestParent) {
                     .expect("test state lock")
                     .take()
                     .expect("editor stored");
-                assert!(app.error().is_none());
+                assert_eq!(app.status(), EmbedStatus::Running);
                 drop(app);
                 callback_returned.store(true, Ordering::SeqCst);
-                true
+                ResizeAnswer::Accepted
             }),
             move || {
                 on_cleanup(move || {

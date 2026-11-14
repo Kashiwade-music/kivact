@@ -7,6 +7,7 @@ Task-oriented guides for the Creative kit (`kivact-ui-creative`). Each page star
 | Guide | What it shows |
 |-------|---------------|
 | [Theme the Creative kit, set fonts and add icons](theme-and-icons.md) | Install the theme, choose an accent and density, switch light and dark, use your fonts, add icons, translate the kit's texts |
+| [Format, map and fine-tune knobs and faders](knobs-and-faders.md) | Value text and parsing, linear/log/skewed/custom mapping, position steps, drag distance, text entry on knobs, scrub modifiers, wheel accumulation |
 | [Edit a timeline, dope sheet, graph or arrangement](timeline-and-arrangement.md) | Show clips, keys, curves and tracks, apply or refuse the editor's requests, keep the playhead in your app, transport and mixer widgets |
 | [Connect nodes in a node graph](node-graph.md) | Typed sockets, links, node parameters and previews, connection rules, undo of a gesture |
 | [Edit colors, easing curves and gradients](color-curves-and-gradients.md) | Color popup and wheel, cubic Bezier easing with a preview, gradient stops, one undo step per edit |

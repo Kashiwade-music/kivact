@@ -80,8 +80,26 @@ fn main() {
 Kivact はコンポーネントの setup、イベントハンドラー (`on_press`、`on_key` など)、`effect`、タスク、クリーンアップ、`on_mount` であなたのコードを実行します。これらはそれぞれ境界になっていて、失敗のしかたによって扱いが変わります。
 
 - **ハンドラーが `Err` を返す。** ハンドラーは `()` か `Result<(), UiError>` を返せるので、あらゆる `std::error::Error` に `?` が使えます。エラーは `?` の位置とともに報告されます。
-- **コードがパニックする。** パニックはバグです。Kivact は捕まえません。Rust の通常のメッセージとともに、アプリが終了します (テストなら失敗します)。
+- **コードがパニックする。** パニックはバグです。Kivact は捕まえません。Rust の通常のメッセージとともに、アプリが終了します (テストなら失敗します)。埋め込みのエディター (`kivact::embed`) では、パニックはホストへ届かず、`Embedded::status` が `ErrorKind::Panicked` として報告します。Kivact が埋め込み側へ巻き戻すことはありません。
 - **Kivact の関数を誤用する。** ハンドラーの中で `signal` を呼ぶ、`memo` の中でシグナルに書き込む、所有者が破棄されたあとのハンドルを使う、などもバグです。Kivact は呼び出しの位置で `kivact misuse: UiError(<kind>: ... at file:line)` というメッセージとともにパニックします (下の表)。
+
+### 標準のエラーが要る場所で `UiError` を使う
+
+`UiError` は `std::error::Error` 自体を実装しません。実装すると blanket の `From` が `From<T> for T` と重なるためです。代わりにどちらかの向きに変換します。
+
+```rust,no_run
+use std::error::Error;
+
+fn report(error: kivact::UiError) -> Box<dyn Error + Send + Sync> {
+    // `?` も `Box::from` も、種別・メッセージ・位置を保ちます。
+    Box::from(error)
+}
+
+fn log(error: &kivact::UiError) {
+    // `Display` はメッセージ、`source()` は包んだエラーです。
+    eprintln!("{}", error.as_error());
+}
+```
 
 報告されたエラーは、失敗したコードより上にある一番近い `error_boundary` に渡されます。境界は `on_error`、`fallback`、またはその両方を実行します。境界がなければ、エラーは**既定の出力先**に届きます。`tracing::error!` の 1 行と、直近 256 件のエラーを持つリングバッファです。アプリは止まりません。
 

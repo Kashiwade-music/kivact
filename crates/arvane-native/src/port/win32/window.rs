@@ -1,9 +1,10 @@
 //! Role: Embedded ShellWindow services and synchronous CPU/GPU presentation.
 use super::native::Native;
-use super::state::{DrainGuard, ReentryGuard, ScaleSource, State};
+use super::state::{DrainGuard, ReentryGuard, ScaleSource, StartSlot, State};
 use crate::port::embed::child::{ChildPort, Command, Shared};
-use crate::port::embed::session::{Session, negotiate};
-use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow};
+use crate::port::embed::session::Session;
+use crate::port::embed::surface::ChildSurface;
+use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow, SizeReply};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
 use kivact_types::{PlatformRequest, PlatformResult};
@@ -17,10 +18,13 @@ use windows_sys::Win32::Graphics::Gdi::{
     DEVMODEW, ENUM_CURRENT_SETTINGS, EnumDisplaySettingsW, GetMonitorInfoW, InvalidateRect,
     MONITOR_DEFAULTTONEAREST, MONITORINFOEXW, MonitorFromWindow,
 };
-use windows_sys::Win32::UI::Input::KeyboardAndMouse::GetCapture;
+use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+    GetCapture, GetFocus, ReleaseCapture, SetFocus,
+};
 use windows_sys::Win32::UI::WindowsAndMessaging::{
-    DestroyWindow, GetClientRect, GetCursorPos, GetParent, KillTimer, PostMessageW, SWP_NOACTIVATE,
-    SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos, USER_TIMER_MINIMUM, WindowFromPoint,
+    DestroyWindow, GetClientRect, GetCursorPos, GetParent, IsChild, KillTimer, PostMessageW,
+    SW_HIDE, SW_SHOWNA, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOZORDER, SetTimer, SetWindowPos,
+    ShowWindow, USER_TIMER_MINIMUM, WindowFromPoint,
 };
 pub(super) struct Window(pub(super) Rc<State>);
 
@@ -131,20 +135,11 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(size) => {
-                debug_assert!(!self.0.session.opening());
-                debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
-                negotiate(
-                    size,
-                    self.scale(),
-                    super::native::MAX_DIMENSION,
-                    self.0.on_resize_request.as_deref(),
-                    &self.0.shared,
-                    || self.0.native.wake(),
-                )
-                .map(|()| PlatformResult::Done)
+            PlatformRequest::RequestWindowSize(_) => {
+                unreachable!("invariant: the engine asks sizes through request_size")
             }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
+            PlatformRequest::ForeignChild => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
@@ -208,6 +203,24 @@ impl ShellWindow for Window {
     fn physical_size(&self) -> (u32, u32) {
         self.0.shared.size()
     }
+    fn request_size(&mut self, size: Size, request: kivact_types::RequestId) -> SizeReply {
+        debug_assert!(!self.0.session.opening());
+        debug_assert_eq!(std::thread::current().id(), self.0.native.ui_thread);
+        // Answers are delivered by `State::commands`, outside this effect.
+        self.0.session.settle_resize(self.0.now());
+        self.0.session.request_size(
+            size,
+            self.scale(),
+            super::native::MAX_DIMENSION,
+            self.0.on_resize_request.as_deref(),
+            request,
+            self.0.now(),
+            || self.0.native.wake(),
+        )
+    }
+    fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
+        self.0.session.unhandled_key(code);
+    }
     fn scale(&self) -> f64 {
         self.0.shared.scale()
     }
@@ -231,7 +244,7 @@ impl ShellWindow for Window {
         }
     }
     fn surface_generation(&self) -> Option<u64> {
-        Some(1)
+        self.0.surface.get().generation()
     }
     fn request_redraw(&self) {
         if self.0.shared.alive() {
@@ -243,6 +256,7 @@ impl ShellWindow for Window {
     }
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
+    fn set_resizable(&self, _: bool) {}
     fn reduced_motion(&self) -> bool {
         self.environment().reduced_motion
     }
@@ -345,12 +359,21 @@ impl ShellWindow for Window {
 }
 
 impl State {
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "One parameter per host input; a builder would duplicate the constructor without adding an invariant."
+    )]
     pub(super) fn new(
         shared: Arc<Shared>,
         native: Arc<Native>,
         instance: isize,
         scale_source: ScaleSource,
-        on_resize_request: Option<Arc<dyn Fn(u32, u32) -> bool + Send + Sync>>,
+        visibility: kivact_types::embed::Visibility,
+        unhandled_keys: kivact_types::UnhandledKeys,
+        on_resize_request: Option<
+            Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
+        >,
+        make: MakeHandler,
     ) -> Self {
         let waker = wake_handle(&shared, &native);
         Self {
@@ -377,6 +400,9 @@ impl State {
             shared,
             native,
             on_resize_request,
+            unhandled_keys,
+            surface: Cell::new(ChildSurface::new(visibility)),
+            start: RefCell::new(StartSlot::Ready(make)),
             events: RefCell::new(VecDeque::new()),
             in_callback: ReentryGuard::default(),
             draining: DrainGuard::default(),
@@ -399,7 +425,13 @@ impl State {
     pub(super) fn waker(&self) -> ShellWaker {
         self.session.waker()
     }
-    pub(super) fn start(self: &Rc<Self>, make: MakeHandler) {
+    /// Run the root handler once, inside the window procedure's panic
+    /// boundary: `open` sends the private `START` message; a second one is an
+    /// invariant violation.
+    pub(super) fn start_once(self: &Rc<Self>) {
+        let StartSlot::Ready(make) = self.start.replace(StartSlot::Started) else {
+            unreachable!("invariant: START is sent once by open");
+        };
         {
             let _callback = self
                 .in_callback
@@ -527,12 +559,73 @@ impl State {
                     self.shared.set_scale(scale);
                     self.event(ShellEvent::Resized);
                 }
+                Some(Command::SetVisibility(visibility)) => self.apply_visibility(visibility),
                 None => break,
             }
         }
         drop(drain);
+        self.settle_deferred();
         if self.shared.stopped() {
             self.stop();
+        }
+    }
+    /// Deliver the answers of deferred platform requests whose wait ended.
+    fn settle_deferred(self: &Rc<Self>) {
+        self.session.settle_resize(self.now());
+        for event in self.session.take_answers() {
+            self.event(event);
+        }
+    }
+    /// Apply a queued show/hide on the UI thread: a hidden child has no surface.
+    fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::Visibility) {
+        if self.shared.stopped() {
+            return;
+        }
+        let hwnd = self.native.hwnd();
+        match visibility {
+            kivact_types::embed::Visibility::Hidden => {
+                // SAFETY: focus keys read this UI thread's focus window only.
+                let focused = unsafe { GetFocus() };
+                // SAFETY: the check reads this child's parent chain only.
+                if focused == hwnd || unsafe { IsChild(hwnd, focused) } != 0 {
+                    // SAFETY: read this child's parent window only.
+                    let parent = unsafe { GetParent(hwnd) };
+                    // SAFETY: return the focus to the host's parent window.
+                    unsafe {
+                        SetFocus(parent);
+                    }
+                }
+                // SAFETY: GetCapture reads this UI thread's capture window only.
+                if unsafe { GetCapture() } == hwnd {
+                    // SAFETY: release only this child's capture.
+                    unsafe {
+                        ReleaseCapture();
+                    }
+                }
+                // SAFETY: hiding only targets our live child on its UI thread.
+                unsafe {
+                    ShowWindow(hwnd, SW_HIDE);
+                }
+                self.shared.set_visibility(visibility);
+            }
+            kivact_types::embed::Visibility::Shown => {
+                // SAFETY: showing without activation only targets our live child.
+                unsafe {
+                    ShowWindow(hwnd, SW_SHOWNA);
+                }
+                self.shared.set_visibility(visibility);
+            }
+        }
+        let mut surface = self.surface.get();
+        if let Some(event) = surface.apply(visibility) {
+            self.surface.set(surface);
+            self.event(event);
+        }
+        if visibility == kivact_types::embed::Visibility::Shown {
+            // SAFETY: invalidation only targets our live child; drawing is deferred.
+            unsafe {
+                InvalidateRect(hwnd, std::ptr::null(), 0);
+            }
         }
     }
     pub(super) fn destroy(self: &Rc<Self>) {

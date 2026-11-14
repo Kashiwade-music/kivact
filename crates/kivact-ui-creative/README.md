@@ -136,19 +136,32 @@ Numeric controls (`number`, `value_slider`, `knob` and `fader`, each with a labe
 the value binding) support pointer scrubbing, direct arithmetic input, wheel,
 keyboard, finite clamped accessibility `SetValue`, cancellation and reset to
 `reset_to(..)`. They write through the core `use_scalar`, whose `scrub` makes
-the pointer scrub an edit of the same session as the keys. `precision` controls
-display formatting and preserves the consumer's numeric precision.
-`on_edit(|phase: EditPhase| ..)` reports `Begin`, `Commit` and `Cancel`
-around each scrub, each key, wheel or assistive technology write and each
-confirmed text, so an app can make one Undo step of each (a scrub that Escape or
-the engine abandons has the start value written back before `Cancel`).
-`text_parser(|text, start| Ok(value) | Err(reason))` replaces the built-in
+the pointer scrub an edit of the same session as the keys. `precision` and
+`unit` control the built-in display; `format(|value| ..)` replaces that text on
+the control, in the field and for assistive technology, and `text_parser` reads
+it back, so a linear gain can show dB. `mapping(ScalarMapping::linear() |
+logarithmic() | skewed(e) | custom(..))` maps the value to the drag and drawing
+(a fader defaults to `skewed(0.5)`); `step` takes a `ScalarStep::Value(..)` in
+value units or `ScalarStep::Position(..)` in travel. `drag_distance(px)` fixes
+how much pointer travel crosses the whole range, and `text_entry(true)` lets a
+knob or fader open its text field on Enter. `on_edit(|phase: EditPhase| ..)`
+reports `Begin`, `Commit` and `Cancel` around each scrub, each key, wheel or
+assistive technology write and each confirmed text, so an app can make one
+Undo step of each (a scrub that Escape or the engine abandons has the start
+value written back before `Cancel`).
+The modifier keys of scrubbing, the arrows and the wheel are the theme's
+`InteractionPolicy.scrub` (`ScrubPolicy`): fine and coarse modifiers and
+factors, an optional reset click and the wheel notch distance. A factor change
+mid-drag re-anchors at the last applied position instead of jumping, and the
+keys PageUp/PageDown move ten steps. The wheel accumulates scroll distance into
+notches, so a touchpad's small deltas add up, and each event that writes a
+notch is one edit. `text_parser(|text, start| Ok(value) | Err(reason))` replaces the built-in
 expression parser; it runs while the text is typed, and an `Err` marks the field
 invalid, shows the reason under it as a status that the field is `described_by`,
 and keeps the draft pending until Escape discards it; Enter, or leaving the
 field with a changed valid text, commits it (the standard
 `text_input(..).draft(..)`). `mixed(true)` shows `Mixed`, reports the field as indeterminate and turns
-off scrubbing, steps, the wheel and the double click reset: a press opens the text
+off scrubbing, steps, the wheel and the reset click: a press (or Enter) opens the text
 field, and typed text or `SetValue` are the only writes. `property_state` takes a
 reactive value (a plain `PropertyState` for a constant), so the tint changes without
 rebuilding the field. Node scalar parameters also support a direct-entry popover.
@@ -271,9 +284,10 @@ to handle seeking; the application owns frame, frame rate, loop bounds and clock
 Gain uses `gain_range(min, max)` (default 0..1); audio applications can supply
 `gain_range(-60.0, 6.0)`. Inserts default to empty labels; routing appears only with
 `routes(labels, route)` and nonempty labels. The application applies DSP and routing choices.
-`fader` maps a normalized value `t` to position `sqrt(t)` and position `n` back
-to `min + (max - min) * n²` over its configured range; audio applications can
-explicitly choose `range(-60.0, 6.0)`.
+`fader` maps its value with `ScalarMapping::skewed(0.5)`: position `sqrt(fraction)`
+and position `n` back to `min + (max - min) * n²` over its configured range;
+audio applications can explicitly choose `range(-60.0, 6.0)` and replace the
+curve with `.mapping(..)`.
 `GradientStop::new(position, color)` has no identity. `gradient_editor(stops, selected)`
 takes the selected stop as an `Option<usize>` into the stop vector; adding and
 deleting adjust that index.

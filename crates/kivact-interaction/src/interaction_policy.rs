@@ -5,6 +5,86 @@ use crate::tooltip_policy::TooltipTiming;
 use kivact_core::geometry::Edge;
 use kivact_core::motion::{Spring, Transition};
 use kivact_core::style::{Theme, ThemeExtension};
+use kivact_core::view::Modifiers;
+
+/// A modifier key a behavior reads from [`Modifiers`](kivact_core::view::Modifiers).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ModifierKey {
+    Shift,
+    Ctrl,
+    Alt,
+    /// The platform command key (`Modifiers::meta`).
+    Meta,
+}
+
+impl ModifierKey {
+    /// Whether this key is held in `modifiers`.
+    pub fn is_held(self, modifiers: Modifiers) -> bool {
+        match self {
+            Self::Shift => modifiers.shift,
+            Self::Ctrl => modifiers.ctrl,
+            Self::Alt => modifiers.alt,
+            Self::Meta => modifiers.meta,
+        }
+    }
+}
+
+/// How modifier keys scale a value control's scrub, arrow keys and wheel, and
+/// which click resets it. Read by the Creative kit's numeric controls.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ScrubPolicy {
+    // xtask-allow(state-fields): option: absent means the policy has no fine modifier
+    /// Held for a finer scrub, arrow key or wheel notch (default Ctrl).
+    pub fine: Option<ModifierKey>,
+    /// What the fine key multiplies the change by (default 0.1).
+    pub fine_factor: f64,
+    // xtask-allow(state-fields): option: absent means the policy has no coarse modifier
+    /// Held for a coarser scrub or arrow key (default Shift). The wheel ignores
+    /// it: Shift turns a wheel sideways on some platforms.
+    pub coarse: Option<ModifierKey>,
+    /// What the coarse key multiplies the change by (default 10.0).
+    pub coarse_factor: f64,
+    // xtask-allow(state-fields): option: absent means no click resets the value
+    /// Held with a primary click to reset the value, as a double click does
+    /// (default none).
+    pub reset_click: Option<ModifierKey>,
+    /// Scroll distance in logical pixels that makes one wheel step (default 60:
+    /// one notch at three lines per notch). Smaller distances, such as a
+    /// touchpad's, add up.
+    pub wheel_notch: f64,
+}
+
+impl Default for ScrubPolicy {
+    fn default() -> Self {
+        Self {
+            fine: Some(ModifierKey::Ctrl),
+            fine_factor: 0.1,
+            coarse: Some(ModifierKey::Shift),
+            coarse_factor: 10.0,
+            reset_click: None,
+            wheel_notch: 60.0,
+        }
+    }
+}
+
+impl ScrubPolicy {
+    /// The factor `modifiers` select: the fine factor when the fine key is
+    /// held, else the coarse one when that is held, else 1. A factor that is
+    /// not positive and finite acts as 1.
+    pub fn factor(&self, modifiers: Modifiers) -> f64 {
+        let selected = if self.fine.is_some_and(|key| key.is_held(modifiers)) {
+            Some(self.fine_factor)
+        } else if self.coarse.is_some_and(|key| key.is_held(modifiers)) {
+            Some(self.coarse_factor)
+        } else {
+            None
+        };
+        match selected {
+            Some(factor) if factor.is_finite() && factor > 0.0 => factor,
+            _ => 1.0,
+        }
+    }
+}
 
 /// Whether a theme keeps disabled buttons in keyboard focus order.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -55,6 +135,9 @@ pub struct InteractionPolicy {
     pub switch: SwitchPolicy,
     pub toast: ToastPolicy,
     pub select: SelectPolicy,
+    /// Modifier keys of value scrubbing (Creative's number, value_slider, knob
+    /// and fader).
+    pub scrub: ScrubPolicy,
 }
 
 #[derive(Clone, Debug, PartialEq, Default)]

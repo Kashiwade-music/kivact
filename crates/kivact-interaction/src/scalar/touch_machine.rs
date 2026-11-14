@@ -82,8 +82,8 @@ impl MachineTrait for Machine {
                 let Some(target) = self.thumbs.get(index).copied() else {
                     return Step::to(State::Idle).with(Effect::Commit);
                 };
-                let from = target.binding.get_untracked();
-                let (min, max) = target.limits();
+                let from = target.position(target.binding.get_untracked());
+                let (min, max) = target.position_limits();
                 let travel = project_release(0.0, speed_px, self.config.projection);
                 let goal = (from + travel * units * sign).clamp(min, max);
                 if !self.config.response.is_zero()
@@ -157,8 +157,7 @@ impl Machine {
             && geometry.length(rect) > 0.0
             && let Some(target) = self.thumbs.get(index).copied()
         {
-            let range = target.range.get_untracked();
-            let units = (range.max() - range.min()) / geometry.length(rect);
+            let units = 1.0 / geometry.length(rect);
             let sign = if geometry.rtl || !geometry.axis.is_horizontal() {
                 -1.0
             } else {
@@ -263,7 +262,7 @@ impl Machine {
             || ((position - run.target).abs() < run.units_per_pixel * 0.5
                 && speed.abs() < run.units_per_pixel);
         if let Some(target) = self.thumbs.get(run.index).copied() {
-            let (min, max) = target.limits();
+            let (min, max) = target.position_limits();
             let bounded = position.clamp(min, max);
             if !end && position == bounded {
                 return Step::stay().with(Effect::Write(target, bounded));

@@ -79,6 +79,7 @@
 mod client;
 mod devtools;
 mod events;
+mod foreign;
 mod launch;
 pub(crate) mod options;
 mod pump;

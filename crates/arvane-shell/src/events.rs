@@ -77,4 +77,12 @@ pub enum ShellEvent {
         /// The request of the effect that asked for the delivery.
         request: RequestId,
     },
+    /// A deferred answer to a platform request this window took with
+    /// [`crate::SizeReply::Later`].
+    PlatformAnswer {
+        /// The request of the effect that asked for it.
+        request: RequestId,
+        /// What the platform decided.
+        result: kivact_types::PlatformResult,
+    },
 }

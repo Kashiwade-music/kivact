@@ -86,5 +86,5 @@ fn native_uia_client_reads_the_embedded_button() {
     });
     client.join().unwrap();
     assert!(result.unwrap().unwrap());
-    assert!(app.error().is_none());
+    assert_eq!(app.status(), kivact::embed::EmbedStatus::Running);
 }

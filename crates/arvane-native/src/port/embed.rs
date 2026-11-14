@@ -8,4 +8,10 @@ pub(crate) mod child;
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub(crate) mod geometry;
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
+pub(crate) mod keys;
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
+pub(crate) mod resize;
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub(crate) mod session;
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
+pub(crate) mod surface;

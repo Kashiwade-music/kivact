@@ -27,8 +27,8 @@ impl TestParent {
         self.0
             .parent_in(x, y, width, height)
             .map(|parent| match parent {
-                kivact_types::ParentWindow::Win32(hwnd) => Parent::win32(hwnd.get() as *mut c_void),
-                kivact_types::ParentWindow::X11(id) => Parent::x11(id.get()),
+                kivact_types::NativeWindow::Win32(hwnd) => Parent::win32(hwnd.get() as *mut c_void),
+                kivact_types::NativeWindow::X11(id) => Parent::x11(id.get()),
             })
             .map_err(error)
     }
@@ -126,6 +126,14 @@ impl TestParent {
     #[cfg(windows)]
     pub fn close_requests(&self) -> u32 {
         self.0.close_requests()
+    }
+    /// Whether the embedded editor's child window is visible.
+    pub fn editor_visible(&self) -> Result<bool> {
+        self.0.editor_visible().map_err(error)
+    }
+    /// Whether the embedded editor has the keyboard focus.
+    pub fn editor_focused(&self) -> Result<bool> {
+        self.0.editor_focused().map_err(error)
     }
     /// Send native file-drop messages to the Linux editor at physical coordinates.
     // xtask-allow(os-branch): Native test environment availability is a test platform boundary.

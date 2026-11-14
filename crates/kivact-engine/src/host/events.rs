@@ -369,6 +369,7 @@ impl Host {
             });
         }
         self.settle_window(id);
+        self.foreign_resized(id, windows);
     }
 
     fn lifecycle_event(&mut self, event: ShellEvent, id: WindowId, windows: &mut Windows<'_>) {
@@ -421,6 +422,10 @@ impl Host {
                     request,
                 })
             }
+            ShellEvent::PlatformAnswer { request, result } => self
+                .app
+                .borrow()
+                .push_event(HostEvent::EffectResult { request, result }),
             _ => unreachable!("invariant: matching shell event family"),
         }
     }

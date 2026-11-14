@@ -1,8 +1,10 @@
 //! Role: Provides an independent X11 parent and synthetic child input for E2E.
 
+mod queries;
+
 use super::conn::Native;
 use arvane_shell::ShellError;
-use kivact_types::ParentWindow;
+use kivact_types::NativeWindow;
 use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
@@ -36,8 +38,13 @@ impl TestParent {
         let (connection, screen) =
             x11rb::xcb_ffi::XCBConnection::connect(None).map_err(super::error::platform)?;
         let root = connection.setup().roots[screen].root;
-        let (native, _, _, _) =
-            Native::create_unmapped(root, width as f64, height as f64, Some(1.0))?;
+        let (native, _, _, _) = Native::create_unmapped(
+            root,
+            width as f64,
+            height as f64,
+            Some(1.0),
+            kivact_types::embed::Visibility::Shown,
+        )?;
         let protocols = native
             .connection
             .intern_atom(false, b"WM_PROTOCOLS")
@@ -125,7 +132,7 @@ impl TestParent {
         height: u32,
         rgb: [u8; 3],
     ) -> Result<(), ShellError> {
-        let ParentWindow::X11(id) = self.parent_in(x, y, width, height)? else {
+        let NativeWindow::X11(id) = self.parent_in(x, y, width, height)? else {
             unreachable!()
         };
         self.covers.borrow_mut().push(id.get());
@@ -267,7 +274,7 @@ impl TestParent {
         y: u32,
         width: u32,
         height: u32,
-    ) -> Result<ParentWindow, ShellError> {
+    ) -> Result<NativeWindow, ShellError> {
         if x > i16::MAX as u32
             || y > i16::MAX as u32
             || width == 0
@@ -304,13 +311,13 @@ impl TestParent {
             .check()
             .map_err(super::error::platform)?;
         connection.flush().map_err(super::error::platform)?;
-        Ok(ParentWindow::X11(
+        Ok(NativeWindow::X11(
             std::num::NonZeroU32::new(id).expect("generated X11 id is nonzero"),
         ))
     }
     /// Borrow this host's portable parent identity while it remains open.
-    pub fn parent(&self) -> ParentWindow {
-        ParentWindow::X11(self.native.id)
+    pub fn parent(&self) -> NativeWindow {
+        NativeWindow::X11(self.native.id)
     }
     /// X11 has no Windows HWND.
     pub fn win32_hwnd(&self) -> Option<*mut std::ffi::c_void> {

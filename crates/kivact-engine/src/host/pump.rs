@@ -19,7 +19,9 @@ use crate::contract::{
 use crate::model::edit::state::ImeUpdate;
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
-use arvane::{ExportNotice, Presented, ShellControl, ShellError, ShellEvent, Window, Windows};
+use arvane::{
+    ExportNotice, Presented, ShellControl, ShellError, ShellEvent, SizeReply, Window, Windows,
+};
 use kivact_types::cell::{ReportOnce, Sent};
 use kivact_types::{
     DrawableId, Key, KeyInput, KeyPhase, MouseButton, NodeId, PlatformRequest, PlatformResult,
@@ -177,6 +179,15 @@ impl Host {
             };
             for (request, effect) in effects {
                 let result = match effect {
+                    DeferredRequest::Platform(PlatformRequest::RequestWindowSize(size)) => {
+                        let Some(mut window) = windows.get(id) else {
+                            continue;
+                        };
+                        match window.request_size(size, request) {
+                            SizeReply::Now(result) => result,
+                            SizeReply::Later => continue,
+                        }
+                    }
                     DeferredRequest::Platform(request) => {
                         let fullscreen_request = matches!(request, PlatformRequest::Fullscreen(_));
                         let Some(mut window) = windows.get(id) else {
@@ -219,6 +230,12 @@ impl Host {
                     }
                     DeferredRequest::DemandGpu => {
                         windows.demand_gpu(id);
+                        continue;
+                    }
+                    DeferredRequest::UnhandledKey(code) => {
+                        if let Some(mut window) = windows.get(id) {
+                            window.unhandled_key(code);
+                        }
                         continue;
                     }
                 };

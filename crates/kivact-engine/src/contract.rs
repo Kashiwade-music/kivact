@@ -12,7 +12,7 @@ pub use devtools::{
 pub use arvane::InjectedInput;
 pub use arvane_shell::pipeline::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 mod events;
-pub use events::{DrawableTexturesHandle, HostEvent};
+pub use events::{DrawableTexturesHandle, ForeignChange, HostEvent};
 mod host;
 pub use host::{ExportRequestMode, HostError, HostInfo, HostRequest, SnapshotResult, TurnOutput};
 mod measure;

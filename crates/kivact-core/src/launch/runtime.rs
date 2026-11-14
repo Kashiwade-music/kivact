@@ -9,6 +9,7 @@ use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
 use kivact_types::{WindowId, WindowMode};
 
 use crate::client::state::HostState;
+use crate::platform::{AppHandle, AppHandleExt};
 
 use crate::view::View;
 use crate::view::requests;
@@ -42,6 +43,8 @@ pub(super) enum LaunchState {
 /// concrete callbacks for the engine window loop or test driver.
 pub(super) struct Started {
     rt: Rc<Runtime>,
+    /// The run's cross-thread handle; `Drop` ends it.
+    handle: AppHandle,
 }
 
 struct ClientHost(HostWaker);
@@ -121,6 +124,7 @@ fn start_mount(
         WindowId::MAIN,
         std::mem::take(&mut options.settings.title),
         options.settings.min_window_size,
+        true,
     );
     // The App's fonts precede the root's mount (the engine registers
     // a font when it is written, so the first layout uses them).
@@ -160,8 +164,12 @@ impl Launch {
             ClientMode::Test { name, .. } => Some(name.clone()),
             _ => None,
         };
+        let handle = options.handle();
         let ready = waker.clone();
         let thread_waker = ThreadWaker::new(move || ready.wake());
+        // Bind the handle before the root mounts, so `close` from setup (or
+        // from another thread) starts the exit on the next turn.
+        handle.attach(thread_waker.clone());
         let at = self.at;
         #[cfg(feature = "devtools")]
         let mut slot = Some(crate::devtools::start::agent_slot(
@@ -183,6 +191,8 @@ impl Launch {
                 let view = ViewState::new(root, info, writer.clone(), at);
                 let motion_env = install_main_window(&view, root, info, options, at);
                 let extensions = Extensions::new().with(view).with(motion_env);
+                let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
+                let extensions = extensions.with(AppHandleExt(handle.clone()));
                 let extensions = extensions.with(crate::gpu_interop::State::new(root, at));
                 #[cfg(feature = "devtools")]
                 let extensions =
@@ -203,7 +213,10 @@ impl Launch {
         );
         let (options, root) = match std::mem::replace(
             &mut self.launch,
-            LaunchState::Started(Started { rt: rt.clone() }),
+            LaunchState::Started(Started {
+                rt: rt.clone(),
+                handle,
+            }),
         ) {
             LaunchState::Waiting { options, root } => (*options, root),
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
@@ -224,6 +237,10 @@ impl Launch {
         let rt = self.runtime().clone();
         let host = HostState::of(&rt);
         rt.advance_clock(now_ns);
+        // A close requested from any thread since the last turn starts the
+        // exit before the idle shortcut, so a bare wake always counts.
+        let embedded = matches!(self.mode, ClientMode::Embedded(_));
+        super::close::take_close_request(&rt, embedded);
         #[cfg(feature = "devtools")]
         let incoming = crate::devtools::take_incoming(&rt);
         let tree = ViewState::tree(&rt).engine().clone();
@@ -332,6 +349,7 @@ fn install_main_window(
             min_size: options.settings.min_window_size,
             dismiss: None,
             open,
+            foreign: None,
             mode: WindowMode::Normal,
         },
     );
@@ -404,6 +422,11 @@ fn output(report: TurnReport) -> TurnOutput {
 
 impl Drop for Launch {
     fn drop(&mut self) {
+        // A handle never outlives its run: later `close` calls do nothing.
+        match &self.launch {
+            LaunchState::Started(started) => started.handle.end(),
+            LaunchState::Waiting { options, .. } => options.handle().end(),
+        }
         let LaunchState::Started(started) = &self.launch else {
             return;
         };

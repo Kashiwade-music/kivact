@@ -1,15 +1,18 @@
 //! Role: Passive thumb targets, track geometry, grips and active grabs.
 use crate::axis::Axis;
+use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarRange;
+use crate::policy::scalar_mapping::ScalarMapping;
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::{Binding, Value};
 use kivact_core::view::NodeRef;
 
-/// One thumb as the pointer moves it: its writer, range and element.
+/// One thumb as the pointer moves it: its writer, range, mapping and element.
 #[derive(Clone, Copy)]
 pub(crate) struct Target {
     pub(crate) binding: Binding<f64>,
     pub(crate) range: Value<ScalarRange>,
+    pub(crate) mapping: OptionsCell<ScalarMapping>,
     pub(crate) thumb: NodeRef,
     pub(crate) rect: Value<Option<Rect>>,
     // xtask-allow(state-fields): option: caller constraints on the thumb, absent when it is unbounded
@@ -25,6 +28,21 @@ impl Target {
         }
     }
 
+    /// Where the current value lies along the control, through the mapping.
+    pub(crate) fn position(self, value: f64) -> f64 {
+        self.mapping
+            .get()
+            .position(value, self.range.get_untracked())
+    }
+
+    /// Write the value at a position along the control, through the mapping.
+    pub(crate) fn set_position(self, position: f64) {
+        let range = self.range.get_untracked();
+        if let Some(value) = self.mapping.get().value(position, range) {
+            self.binding.set(value);
+        }
+    }
+
     pub(crate) fn limits(self) -> (f64, f64) {
         if let Some((min, max)) = self.bounds {
             let min = min.get_untracked();
@@ -33,6 +51,12 @@ impl Target {
             let range = self.range.get_untracked();
             (range.min(), range.max())
         }
+    }
+
+    /// The positions of [`limits`](Self::limits), in the same order.
+    pub(crate) fn position_limits(self) -> (f64, f64) {
+        let (min, max) = self.limits();
+        (self.position(min), self.position(max))
     }
 
     pub(crate) fn length(self, geometry: Geometry) -> f64 {
@@ -65,13 +89,20 @@ pub(super) enum Grab {
     Body { from: f64, ends: [f64; 2] },
 }
 
-/// Where `value` lies in `range`, clamped to 0..=1.
-pub(crate) fn fraction(value: f64, range: ScalarRange) -> f64 {
-    let span = range.max() - range.min();
-    if !value.is_finite() || span <= 0.0 {
-        return 0.0;
+/// The thumb whose value lies nearest to `pointer` (a fraction of the
+/// range); between two thumbs at the same value, the one on the pointer's
+/// side.
+pub(crate) fn nearest(thumbs: &[Target], pointer: Option<f64>) -> usize {
+    let Some(pointer) = pointer else { return 0 };
+    let mut best = (0, f64::INFINITY);
+    for (index, thumb) in thumbs.iter().enumerate() {
+        let at = thumb.position(thumb.binding.get());
+        let distance = (pointer - at).abs();
+        if distance < best.1 || (distance == best.1 && pointer > at) {
+            best = (index, distance);
+        }
     }
-    ((value - range.min()) / span).clamp(0.0, 1.0)
+    best.0
 }
 
 /// Where a track is and which way its value grows.
@@ -120,20 +151,4 @@ impl Geometry {
             f
         })
     }
-}
-
-/// The thumb whose value lies nearest to `pointer` (a fraction of the
-/// range); between two thumbs at the same value, the one on the pointer's
-/// side.
-pub(crate) fn nearest(thumbs: &[Target], pointer: Option<f64>) -> usize {
-    let Some(pointer) = pointer else { return 0 };
-    let mut best = (0, f64::INFINITY);
-    for (index, thumb) in thumbs.iter().enumerate() {
-        let at = fraction(thumb.binding.get(), thumb.range.get());
-        let distance = (pointer - at).abs();
-        if distance < best.1 || (distance == best.1 && pointer > at) {
-            best = (index, distance);
-        }
-    }
-    best.0
 }

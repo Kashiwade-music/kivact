@@ -9,7 +9,7 @@ use kivact_core::state::{Value, Var, memo, var};
 use kivact_core::view::{ReadingDirection, use_direction};
 
 use super::track_data::Grab;
-pub(crate) use super::track_data::{Geometry, Grip, Target, fraction, nearest};
+pub(crate) use super::track_data::{Geometry, Grip, Target, nearest};
 use super::track_machine::{Event, Machine, State};
 use kivact_core::state::{MachineHandle, machine};
 
@@ -49,6 +49,10 @@ impl Pointer {
     /// Move both thumbs from where they were at the press by the pointer's
     /// travel from `from` to `pos`, keeping their distance: the travel is
     /// quantized by the range's step and stops where an end meets a bound.
+    ///
+    /// The linear mapping keeps the value distance exactly; any other mapping
+    /// keeps the position distance instead, so the ends no longer move by the
+    /// same amount of value.
     fn move_body(self, from: f64, ends: [f64; 2], pos: f64) {
         let (Some(geometry), thumbs) = (self.geometry(), self.thumbs.get()) else {
             return;
@@ -59,11 +63,29 @@ impl Pointer {
         let Some(rect) = geometry.rect.get() else {
             return;
         };
-        let range = low.range.get();
         let usable = geometry.length(rect) - low.length(geometry);
         if usable <= 0.0 {
             return;
         }
+        if low.mapping.get().is_linear() {
+            self.move_body_linear(low, high, ends, (from, pos), usable, geometry);
+        } else {
+            self.move_body_mapped(low, high, ends, (from, pos), usable, geometry);
+        }
+    }
+
+    /// The value-distance body drag of the linear mapping.
+    fn move_body_linear(
+        self,
+        low: Target,
+        high: Target,
+        ends: [f64; 2],
+        positions: (f64, f64),
+        usable: f64,
+        geometry: Geometry,
+    ) {
+        let (from, pos) = positions;
+        let range = low.range.get();
         let mut delta = (pos - from) / usable * (range.max() - range.min());
         if geometry.rtl || !geometry.axis.is_horizontal() {
             delta = -delta;
@@ -84,15 +106,40 @@ impl Pointer {
         }
     }
 
+    /// The position-distance body drag of every other mapping.
+    fn move_body_mapped(
+        self,
+        low: Target,
+        high: Target,
+        ends: [f64; 2],
+        positions: (f64, f64),
+        usable: f64,
+        geometry: Geometry,
+    ) {
+        let (from, pos) = positions;
+        let mut delta = (pos - from) / usable;
+        if geometry.rtl || !geometry.axis.is_horizontal() {
+            delta = -delta;
+        }
+        let (pa, pb) = (low.position(ends[0]), low.position(ends[1]));
+        let delta = delta.clamp(-pa.min(pb), 1.0 - pa.max(pb));
+        if delta > 0.0 {
+            high.set_position(pb + delta);
+            low.set_position(pa + delta);
+        } else {
+            low.set_position(pa + delta);
+            high.set_position(pb + delta);
+        }
+    }
+
     pub(crate) fn write(self, index: usize, pos: f64) {
         let (Some(geometry), Some(thumb)) =
             (self.geometry(), self.thumbs.get().get(index).copied())
         else {
             return;
         };
-        let range = thumb.range.get();
         if let Some(f) = geometry.fraction_at(pos, thumb.length(geometry)) {
-            thumb.set(range.min() + f * (range.max() - range.min()));
+            thumb.set_position(f);
         }
     }
 

@@ -1,8 +1,10 @@
 //! Role: The open windows of the native loop, by app id and by winit id.
 
+use crate::port::winit::foreign::ForeignConnections;
 use crate::port::winit::window::WinitWindow;
 use arvane_shell::{InjectedInput, WindowInput};
 use kivact_types::{RequestId, WindowId};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use winit::window::WindowId as WinitWindowId;
 
@@ -25,6 +27,8 @@ pub(super) struct WindowTable {
     pending_show: Vec<WindowId>,
     // xtask-allow(state-fields): option: whether the platform honours explicit window placement (false on Wayland)
     placement: bool,
+    /// The loop's connection shared by foreign child windows.
+    foreign: RefCell<ForeignConnections>,
 }
 
 impl WindowTable {
@@ -36,6 +40,7 @@ impl WindowTable {
             ids: HashMap::new(),
             pending_show: Vec::new(),
             placement,
+            foreign: RefCell::new(ForeignConnections::new()),
         }
     }
 
@@ -85,6 +90,11 @@ impl WindowTable {
     /// Whether the platform honours explicit window placement.
     pub(super) fn placement(&self) -> bool {
         self.placement
+    }
+
+    /// The loop's connection shared by foreign child windows.
+    pub(super) fn foreign_connections_mut(&self) -> std::cell::RefMut<'_, ForeignConnections> {
+        self.foreign.borrow_mut()
     }
 
     /// The first queued injection batch of the lowest open window id.

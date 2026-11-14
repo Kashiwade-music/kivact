@@ -157,7 +157,7 @@ fn host_drives_redraw_worker_wake_deadline_and_geometry() {
             .position(|event| *event == ShellEvent::Resized)
             .is_some_and(|at| seen.events[at + 1..].contains(&ShellEvent::Redraw))
     });
-    assert!(child.failure().is_none());
+    assert!(child.stop().is_none());
     drop(child);
     wait(&parent, || parent.capture().is_err());
 }
@@ -234,5 +234,52 @@ fn native_wheel_scrolls_right_and_down_by_system_settings() {
         )),
         "wheel at the existing mouse point must not duplicate pointer movement"
     );
-    assert!(child.failure().is_none());
+    assert!(child.stop().is_none());
+}
+
+/// A handler whose App code panics while it starts: `open` returns an error
+/// and keeps the panic's message instead of unwinding into the host.
+#[test]
+fn a_panic_while_the_handler_starts_is_returned_and_kept() {
+    struct Panicking;
+    impl Handler for Panicking {
+        fn start(
+            &mut self,
+            _: &mut Windows<'_>,
+            _: ShellWaker,
+        ) -> Result<ShellControl, ShellError> {
+            panic!("start exploded");
+        }
+        fn event(
+            &mut self,
+            _: EventTarget,
+            _: ShellEvent,
+            _: &mut Windows<'_>,
+        ) -> Result<ShellControl, ShellError> {
+            Ok(ShellControl::Wait)
+        }
+        fn close(&mut self, _: &mut Windows<'_>) {}
+    }
+
+    let _serial = SERIAL.lock().unwrap();
+    let parent = TestParent::open(320, 240).unwrap();
+    let panic = embed::PanicSlot::default();
+    let options = EmbedOptions {
+        size: Size {
+            width: 160.,
+            height: 100.,
+        },
+        scale: Some(1.),
+        prefer_gpu: false,
+        ..Default::default()
+    };
+    let make = embed::driver(&options, || Embedder::new(Panicking));
+    let hooks = embed::ChildHooks {
+        panic: panic.clone(),
+        ..Default::default()
+    };
+    let result = arvane_native::embed::open(parent.parent(), options, hooks, make);
+    assert!(result.is_err(), "the failed start is an error");
+    assert!(panic.is_set(), "the panic message is kept");
+    assert_eq!(panic.message().as_deref(), Some("start exploded"));
 }

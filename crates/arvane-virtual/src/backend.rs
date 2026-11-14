@@ -15,7 +15,7 @@ use kivact_types::{
     Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
     WindowId, WindowRequest,
 };
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -46,6 +46,7 @@ impl VirtualBackend {
             dialogs: RefCell::new(VecDeque::new()),
             opened: RefCell::new(Vec::new()),
             revealed: RefCell::new(Vec::new()),
+            next_foreign_child: Cell::new(0),
             fail_next: RefCell::new(None),
         });
         Self {
@@ -356,7 +357,11 @@ impl ShellLoop for VirtualLoop<'_> {
         Ok(())
     }
     fn close_window(&mut self, id: WindowId) {
-        self.windows.remove(&id);
+        if let Some(window) = self.windows.remove(&id)
+            && let Some(child) = window.foreign_child.get()
+        {
+            crate::window::forget_live_native_window(child);
+        }
         self.input.windows.remove(&id);
         self.input
             .queue
@@ -560,6 +565,15 @@ impl Probe {
     pub fn woken(&self) -> bool {
         self.woken.pending()
     }
+    /// The key presses nobody handled in `id` since the last call (what an
+    /// embedded editor would give back to its host).
+    pub fn unhandled_keys(&self, id: WindowId) -> Vec<kivact_types::KeyCode> {
+        let mut windows = self.windows.borrow_mut();
+        let Some(window) = windows.get_mut(&id) else {
+            return Vec::new();
+        };
+        std::mem::take(&mut window.unhandled_keys.borrow_mut())
+    }
     pub fn now_ns(&self) -> u64 {
         self.input.borrow().clock.now()
     }
@@ -628,6 +642,15 @@ impl WindowProbe {
     pub fn min_size(&self) -> Option<Size> {
         self.with(|window| window.min_size.get())
     }
+    /// The native child window of a window opened with
+    /// `WindowContent::Foreign`, once the engine asked for it.
+    pub fn foreign_child(&self) -> Option<kivact_types::NativeWindow> {
+        self.with(|window| window.foreign_child.get())
+    }
+    /// Whether the user can resize the window.
+    pub fn is_resizable(&self) -> bool {
+        self.with(|window| window.resizable.get())
+    }
     pub fn ime_area(&self) -> Option<Rect> {
         self.with(|window| window.ime.get())
     }
@@ -647,6 +670,14 @@ impl WindowProbe {
     }
     pub fn surface_generation(&self) -> Option<u64> {
         self.with(|window| window.surface.generation())
+    }
+    /// The key presses nobody handled since the last call.
+    pub fn unhandled_keys(&self) -> Vec<kivact_types::KeyCode> {
+        let mut windows = self.windows.borrow_mut();
+        let window = windows
+            .get_mut(&self.window)
+            .expect("invariant: a WindowProbe names an open window");
+        std::mem::take(&mut window.unhandled_keys.borrow_mut())
     }
     /// Whether this window is mirrored into a real native window.
     pub fn has_window(&self) -> bool {

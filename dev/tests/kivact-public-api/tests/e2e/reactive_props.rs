@@ -1,6 +1,6 @@
 //! Role: Verify reactive standard-control props preserve the mounted control.
 use crate::support::mount;
-use kivact::interaction::{RangeThumb, ScalarRange, use_range_scalar, use_scalar};
+use kivact::interaction::{RangeThumb, ScalarRange, ScalarStep, use_range_scalar, use_scalar};
 use kivact::prelude::*;
 use kivact::ui::ControlSize;
 
@@ -13,8 +13,12 @@ fn reactive_component_props_update_without_remounting() {
         let low = signal(20.0);
         let high = signal(80.0);
         let range = ScalarRange::new(0.0, 100.0).unwrap();
-        let scalar = use_scalar(value, range).key_step(step).unwrap();
-        let ends = use_range_scalar(low, high, range).key_step(step).unwrap();
+        let scalar = use_scalar(value, range)
+            .key_step(move || ScalarStep::Value(step.get()))
+            .unwrap();
+        let ends = use_range_scalar(low, high, range)
+            .key_step(move || ScalarStep::Value(step.get()))
+            .unwrap();
         (
             (size, step, value, low, high),
             column((

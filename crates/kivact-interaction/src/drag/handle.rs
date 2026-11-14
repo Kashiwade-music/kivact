@@ -37,12 +37,12 @@ use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::geometry::Point;
+use kivact_core::state::{Callback, MachineHandle, machine};
 use kivact_core::state::{IntoValue, callback};
-use kivact_core::state::{MachineHandle, machine};
 use kivact_core::state::{Signal, Value, Var, memo, signal, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
-    Handled, Key, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerPhase,
+    Handled, Key, KeyCode, KeyEvent, Modifiers, MouseButton, PointerEvent, PointerPhase,
 };
 use kivact_types::cell::Generation;
 use machine::State as DragSession;
@@ -151,6 +151,7 @@ pub struct DragApi<T: 'static> {
     sources: Var<Generation>,
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
+    modifiers: OptionsCell<Option<Callback<DragUpdate<T>>>>,
     // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
@@ -216,6 +217,7 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
         sources: var(Generation::new()),
         coordinates,
         settings,
+        modifiers: OptionsCell::new(None),
         disabled: signal(None),
     };
     session.feed(
@@ -505,6 +507,24 @@ impl<T: Clone + 'static> DragApi<T> {
         self
     }
 
+    /// Call `f` when a modifier key is pressed or released during a drag.
+    ///
+    /// The update sits at the drag's last position, so its `delta` names that
+    /// position from the press; it carries the modifier state of the key event.
+    /// A scrub uses it to take a new anchor when its factor changes, without
+    /// writing a value: movement so far was applied with the old factor, and
+    /// the new one applies to later movement only. A modifier key that changes
+    /// nothing in the factor is reported too, so `f` must be idempotent. Setup
+    /// only.
+    pub fn on_modifiers_changed<R: HandlerResult>(
+        self,
+        f: impl Fn(DragUpdate<T>) -> R + 'static,
+    ) -> Self {
+        let f = callback(f);
+        self.modifiers.update(|current| *current = Some(f));
+        self
+    }
+
     /// Whether a primary drag is active.
     ///
     /// This is an untracked query; calling it in a style or memo does not
@@ -676,6 +696,7 @@ impl<T: Clone + 'static> DragApi<T> {
                 })
                 .on_key(move |event: KeyEvent| -> kivact_core::Result<Handled> {
                     if event.key() != Key::Escape {
+                        self.report_modifiers(event.code(), event.modifiers())?;
                         return Ok(Handled::No);
                     }
                     if self.clear_pending() {
@@ -689,6 +710,32 @@ impl<T: Clone + 'static> DragApi<T> {
                     Ok(Handled::Yes)
                 })
         })
+    }
+
+    /// Report a modifier key's press or release during a drag at the drag's
+    /// last position; other keys and an idle session report nothing.
+    fn report_modifiers(self, code: KeyCode, modifiers: Modifiers) -> kivact_core::Result<()> {
+        if !is_modifier_key(code) {
+            return Ok(());
+        }
+        let Some(callback) = self.modifiers.get() else {
+            return Ok(());
+        };
+        let update = self
+            .session
+            .state()
+            .with_untracked(|session| match session {
+                DragSession::Active(active) => {
+                    active.update(active.last, modifiers, DragPhase::Move)
+                }
+                DragSession::Idle | DragSession::Pending { .. } | DragSession::Releasing { .. } => {
+                    None
+                }
+            });
+        match update {
+            Some(update) => callback.try_call(update),
+            None => Ok(()),
+        }
     }
 
     /// Pass the Start or Move update to its callback; a Start begins the edit
@@ -890,4 +937,19 @@ fn update<T>(
         modifiers,
         payload: start.payload,
     })
+}
+
+/// Whether `code` is a modifier key's physical position.
+fn is_modifier_key(code: KeyCode) -> bool {
+    matches!(
+        code,
+        KeyCode::ShiftLeft
+            | KeyCode::ShiftRight
+            | KeyCode::ControlLeft
+            | KeyCode::ControlRight
+            | KeyCode::AltLeft
+            | KeyCode::AltRight
+            | KeyCode::SuperLeft
+            | KeyCode::SuperRight
+    )
 }

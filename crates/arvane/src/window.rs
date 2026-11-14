@@ -38,6 +38,20 @@ impl Window<'_> {
     pub fn size(&self) -> Size {
         self.shell.size()
     }
+    /// Current physical presentation width and height in pixels.
+    pub fn physical_size(&self) -> (u32, u32) {
+        self.shell.physical_size()
+    }
+    pub fn request_size(
+        &mut self,
+        size: Size,
+        request: kivact_types::RequestId,
+    ) -> arvane_shell::SizeReply {
+        self.shell.request_size(size, request)
+    }
+    pub fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
+        self.shell.unhandled_key(code);
+    }
     pub fn scale(&self) -> f64 {
         self.shell.scale()
     }
@@ -68,6 +82,9 @@ impl Window<'_> {
     }
     pub fn set_min_size(&self, size: Option<Size>) {
         self.shell.set_min_size(size);
+    }
+    pub fn set_resizable(&self, resizable: bool) {
+        self.shell.set_resizable(resizable);
     }
     pub fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
         self.shell.set_ime_purpose(purpose);
