@@ -70,7 +70,7 @@ mod tests {
 }
 ```
 
-`open` を自分で false にしたときは `on_dismiss` は呼ばれません。呼ばれるのは利用者の閉じる要求です。main window の閉じる操作は今までどおりアプリを終了し、その要求は取り消せません。`AppHandle::close`（後述）も dismiss ではなく、`on_dismiss` を実行しません。
+`open` を自分で false にしたときは `on_dismiss` は呼ばれません。呼ばれるのは利用者の閉じる要求です。main window の閉じる操作は、`on_close_request` が続けると答えない限りアプリを終了します（後述）。`AppHandle::close`（後述）も dismiss ではなく、`on_dismiss` と `on_close_request` を実行しません。
 
 ## コードからアプリを終了する
 
@@ -104,7 +104,7 @@ fn main() -> kivact::Result<()> {
 - `close` はすぐに返ります。アプリの次のターンが終了を始め、キューに積んだ `ActionMode::Queue` の実行は（最大 3 秒まで）終わりまで流れ、owner が破棄され、`App::run` が `Ok(())` を返します。
 - ハンドルは 1 回の run に属します。`App::run` は `App` を消費するので 2 回目の run はなく、run が終わった後の `close` は何もしません。`App` の clone はハンドルを共有します。
 - run の前に `close` すると、`run` はウィンドウを開かずに `Ok(())` を返します。root は実行されません。
-- 終了は dismiss ではありません。`on_dismiss` は実行されず、取り消せません。埋め込みの editor（`App::embed`）では `close` は root owner に `ErrorKind::Unsupported` を報告します。代わりに `Embedded` ハンドルを drop してください。
+- 終了は dismiss ではありません。`on_dismiss` と `on_close_request` は実行されず、取り消せません。埋め込みの editor（`App::embed`）では `close` は root owner に `ErrorKind::Unsupported` を報告します。代わりに `Embedded` ハンドルを drop してください。
 - UI スレッドが OS のモーダルループ（ファイルダイアログ、システムによるウィンドウの移動・リサイズ）の中にいる間は、ループから戻ったときに終了が始まります。
 
 テストでは、root のセットアップで `platform::app_handle()` が返したハンドルを保持し、`Screen::has_exited` で確かめます。
@@ -135,6 +135,90 @@ mod tests {
         screen.get_by_role(Role::Button, "終了").click();
         assert!(screen.has_exited());
         handle.close(); // run が終わった後: 何も起きません
+    }
+}
+```
+
+## アプリが閉じる前に確認する
+
+利用者が main window を閉じる要求をすると（タイトルバー、Alt+F4）、アプリが終わる前に `platform::on_close_request` のハンドラーが登録した順に呼ばれます。ハンドラーが `Handled::Yes` か `Handled::PreventDefault` を返すか、失敗したとき（エラーは報告されます）はアプリは動き続けます。ほかのハンドラーも呼ばれます。`()` か `Handled::No` を返すと、閉じる操作は進みます。ハンドラーは、呼んだ owner が生きている間だけ登録されるので、`show` の枝の中のハンドラーは、その枝が unmount されると確認しなくなります。
+
+未保存の変更があるアプリは、この仕組みで閉じる前に確認します。フラグは signal で、ハンドラーはフラグが立っている間アプリを開いたままにし、dialog のボタンが決めます。「保存しない」と保存に成功した「保存」は `app_handle().close()` を呼び、「キャンセル」は dialog を閉じるだけです。
+
+```rust,test_harness
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    let dirty = signal(true);
+    let asking = signal(false);
+    platform::on_close_request(move || {
+        if dirty.get() {
+            asking.set(true);
+            Handled::Yes
+        } else {
+            Handled::No
+        }
+    });
+    column((
+        text(move || if dirty.get() { "未保存の変更があります" } else { "保存済み" }),
+        dialog("変更を保存しますか？", asking)
+            .mode(DialogMode::AlertModal)
+            .content(|| text("保存しないと変更は失われます。"))
+            .footer(move || {
+                row((
+                    button("保存しない")
+                        .variant(ButtonVariant::Outline)
+                        .on_press(|| platform::app_handle().close()),
+                    button("キャンセル")
+                        .variant(ButtonVariant::Outline)
+                        .on_press(move || asking.set(false)),
+                    button("保存").on_press(move || {
+                        if save_document().is_ok() {
+                            dirty.set(false);
+                            asking.set(false);
+                            platform::app_handle().close();
+                        }
+                    }),
+                ))
+                .style(style().gap(8))
+            }),
+    ))
+}
+
+/// 文書を書き出します。アプリ自身の保存の処理の代わりです。
+fn save_document() -> Result<(), UiError> {
+    Ok(())
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Editor").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_keeps_the_app_open_and_save_exits_it() {
+        let screen = kivact::test::render(app);
+        assert!(!screen.request_close(), "未保存の変更があるとアプリは開いたままです");
+        screen.get_by_role(Role::AlertDialog, "変更を保存しますか？");
+
+        screen.get_by_role(Role::Button, "キャンセル").click();
+        assert!(!screen.has_exited());
+
+        assert!(!screen.request_close());
+        screen.get_by_role(Role::Button, "保存").click();
+        assert!(screen.has_exited());
+    }
+
+    #[test]
+    fn dont_save_exits_without_saving() {
+        let screen = kivact::test::render(app);
+        assert!(!screen.request_close());
+        screen.get_by_role(Role::Button, "保存しない").click();
+        assert!(screen.has_exited());
     }
 }
 ```

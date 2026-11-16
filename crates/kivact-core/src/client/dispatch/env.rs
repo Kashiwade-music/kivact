@@ -5,6 +5,7 @@ use kivact_runtime::{ErrorKind, MotionState, Runtime, UiError};
 use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};
+use crate::platform::close_request;
 use crate::view::input::Handled;
 use crate::view::state::ViewState;
 use crate::view::tree::ScrollState;
@@ -150,6 +151,9 @@ pub(super) fn layout_changed(
 
 pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
     if window == WindowId::MAIN {
+        if keeps_main_open(rt) {
+            return;
+        }
         rt.request_exit();
         crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
         return;
@@ -168,6 +172,23 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
     if close {
         record.open.set(false);
     }
+}
+
+/// Run every live `on_close_request` handler in registration order, each under
+/// its owner. `true` when one answers `Yes` or `PreventDefault`, or fails (its
+/// error is reported): the App keeps running. Every handler runs either way.
+fn keeps_main_open(rt: &Runtime) -> bool {
+    let mut keeps_open = false;
+    for registration in close_request::registrations(rt) {
+        if !registration.owner.is_alive() {
+            continue;
+        }
+        let answer = run_handler(rt, Some(registration.owner), || {
+            registration.handler.call(())
+        });
+        keeps_open |= answer != Some(Handled::No);
+    }
+    keeps_open
 }
 
 /// The platform refused to open `window`: report it where the window was

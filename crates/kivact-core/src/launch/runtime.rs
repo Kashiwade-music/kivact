@@ -208,6 +208,7 @@ impl Launch {
                 };
                 extensions
                     .with(crate::platform::lifecycle::LifecycleState::default())
+                    .with(crate::platform::close_request::CloseRequestState::default())
                     .with(HostState::default())
             },
         );

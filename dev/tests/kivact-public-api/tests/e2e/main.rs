@@ -28,6 +28,7 @@ mod binding_update;
 mod borders_backgrounds;
 mod canvas;
 mod canvas_worker;
+mod close_request;
 mod color_spaces;
 mod component_macro;
 mod components;

@@ -4,16 +4,20 @@
 //! opening and revealing paths) as free functions returning futures, and
 //! the host environment (fullscreen, reduced motion, scale, window size,
 //! safe area, surface activity, capabilities) as free functions reading
-//! tracked values, owner-scoped lifecycle notifications, plus available font
-//! families as a snapshot, and the cross-thread handle that ends the App's run
-//! (`AppHandle`, `app_handle`). The
+//! tracked values, owner-scoped lifecycle notifications, owner-scoped handlers
+//! that may keep the App open when its main window is closed
+//! (`on_close_request`), plus available font families as a snapshot, and the
+//! cross-thread handle that ends the App's run (`AppHandle`, `app_handle`). The
 //! test host of `kivact::test` scripts the services (an
 //! in-memory clipboard, scripted dialogs, recorded paths), so they are
 //! testable without touching the OS. Also the entry into the engine's window loop, the only place the core
 //! starts it.
 
 mod app_handle;
+pub(crate) mod close_request;
 mod env;
+#[doc(inline)]
+pub use close_request::on_close_request;
 pub(crate) mod lifecycle;
 #[doc(inline)]
 pub use lifecycle::{LifecycleEvent, on_lifecycle};

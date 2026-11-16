@@ -89,8 +89,9 @@ mod tests {
 ```
 
 Setting `open` to false yourself does not call `on_dismiss`; the user's close
-request does. Closing the main window still ends the app, and that request
-cannot be cancelled; `AppHandle::close` (below) is not a dismissal either.
+request does. Closing the main window ends the app unless an `on_close_request` handler keeps
+it open (see [Ask before the App closes](#ask-before-the-app-closes)).
+`AppHandle::close` (below) is not a dismissal either, and no handler is asked.
 
 ## Close the app from code
 
@@ -127,7 +128,7 @@ fn main() -> kivact::Result<()> {
 - `close` returns at once. The app's next turn begins the exit: queued `ActionMode::Queue` runs drain (at most three seconds), owners are disposed, and `App::run` returns `Ok(())`.
 - A handle belongs to one run. `App::run` consumes the `App`, so there is no second run; a `close` after the run ended does nothing. Clones of the `App` share the handle.
 - Before the run, `close` makes `run` return `Ok(())` without opening a window; the root never runs.
-- Closing is not a dismissal: no `on_dismiss` runs and it cannot be cancelled. In an embedded editor (`App::embed`), `close` reports `ErrorKind::Unsupported` to the root owner: drop the `Embedded` handle instead.
+- Closing is not a dismissal: no `on_dismiss` or `on_close_request` handler runs, and it cannot be cancelled. In an embedded editor (`App::embed`), `close` reports `ErrorKind::Unsupported` to the root owner: drop the `Embedded` handle instead.
 - While the UI thread is in a native modal loop (a file dialog, moving or resizing the window by the system), the exit starts when the loop returns.
 
 Tests keep the handle the root setup obtained with `platform::app_handle()` and
@@ -159,6 +160,99 @@ mod tests {
         screen.get_by_role(Role::Button, "Quit").click();
         assert!(screen.has_exited());
         handle.close(); // after the run: nothing happens
+    }
+}
+```
+
+## Ask before the App closes
+
+When the user asks to close the main window (title bar, Alt+F4), the handlers
+of `platform::on_close_request` run in registration order before the app exits.
+If one returns `Handled::Yes` or `Handled::PreventDefault`, or fails (the error
+is reported), the app keeps running; the others still run. Return `()` or
+`Handled::No` to let the close go ahead. A handler is registered only while the
+owner it was called in is alive, so a handler inside a `show` branch stops
+asking once that branch unmounts.
+
+This is how an app with unsaved changes asks first. The flag is a signal, the
+handler keeps the app open while it is set, and the dialog's buttons decide:
+Don't save and a successful Save both call `app_handle().close()`, and Cancel
+closes only the dialog.
+
+```rust,test_harness
+use kivact::platform;
+use kivact::prelude::*;
+
+fn app() -> impl IntoView {
+    let dirty = signal(true);
+    let asking = signal(false);
+    platform::on_close_request(move || {
+        if dirty.get() {
+            asking.set(true);
+            Handled::Yes
+        } else {
+            Handled::No
+        }
+    });
+    column((
+        text(move || if dirty.get() { "Unsaved changes" } else { "Saved" }),
+        dialog("Save changes?", asking)
+            .mode(DialogMode::AlertModal)
+            .content(|| text("Your changes are lost if you do not save them."))
+            .footer(move || {
+                row((
+                    button("Don't save")
+                        .variant(ButtonVariant::Outline)
+                        .on_press(|| platform::app_handle().close()),
+                    button("Cancel")
+                        .variant(ButtonVariant::Outline)
+                        .on_press(move || asking.set(false)),
+                    button("Save").on_press(move || {
+                        if save_document().is_ok() {
+                            dirty.set(false);
+                            asking.set(false);
+                            platform::app_handle().close();
+                        }
+                    }),
+                ))
+                .style(style().gap(8))
+            }),
+    ))
+}
+
+/// Writes the document. Stands in for the app's own save code.
+fn save_document() -> Result<(), UiError> {
+    Ok(())
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Editor").run(app)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cancel_keeps_the_app_open_and_save_exits_it() {
+        let screen = kivact::test::render(app);
+        assert!(!screen.request_close(), "unsaved changes keep the app open");
+        screen.get_by_role(Role::AlertDialog, "Save changes?");
+
+        screen.get_by_role(Role::Button, "Cancel").click();
+        assert!(!screen.has_exited());
+
+        assert!(!screen.request_close());
+        screen.get_by_role(Role::Button, "Save").click();
+        assert!(screen.has_exited());
+    }
+
+    #[test]
+    fn don_t_save_exits_without_saving() {
+        let screen = kivact::test::render(app);
+        assert!(!screen.request_close());
+        screen.get_by_role(Role::Button, "Don't save").click();
+        assert!(screen.has_exited());
     }
 }
 ```

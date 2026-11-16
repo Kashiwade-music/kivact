@@ -21,8 +21,8 @@ use kivact_runtime::{Owner, Runtime, ThreadWaker};
 /// close request), owners are disposed and
 /// [`App::run`](crate::App::run) returns `Ok(())`.
 ///
-/// Closing is not a dismissal request: no `on_dismiss` runs, and it cannot be
-/// cancelled. A handle belongs to one run, and a `close` after that run ended
+/// Closing is not a dismissal request: no `on_dismiss` or `on_close_request`
+/// handler runs, and it cannot be cancelled. A handle belongs to one run, and a `close` after that run ended
 /// does nothing. An embedded App ([`App::embed`](crate::App::embed)) is
 /// closed by dropping its `Embedded` handle; there `close` reports
 /// `ErrorKind::Unsupported` to the root owner.
