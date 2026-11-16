@@ -49,13 +49,14 @@
 use super::images::{AtlasImage, GpuImage, Images};
 use super::raster::GpuRaster;
 use crate::draw;
+use crate::frame_cache::Pinned;
+use crate::images::{self, ImageScope};
 use crate::paint::PatternFill;
 use kivact_types::pixel::Pixels;
 use kivact_types::render::RenderScene;
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;
 use vello_common::geometry::RectU16;
-use vello_common::paint::ImageId;
 use vello_cpu::color::PremulRgba8;
 use vello_cpu::kurbo::{Affine, BezPath, Rect, Shape, Stroke};
 use vello_cpu::peniko::{
@@ -70,10 +71,6 @@ const PATTERN_ATLAS: u16 = 256;
 
 /// The most copies of a large pattern tile drawn as rectangles.
 const MAX_TILES: usize = 4096;
-
-/// The most pattern images in the atlas at once (16 MiB): the atlas is the
-/// glyphs' too, and vello_hybrid panics when its pages run out.
-const MAX_ATLAS_PATTERNS: usize = 64;
 
 impl GpuRaster {
     /// Record `source` into the renderer's scene for a `size` pixel target
@@ -92,28 +89,52 @@ impl GpuRaster {
             renderer,
             images,
             caches,
+            textures,
+            atlas,
         } = self;
         if (scene.width(), scene.height()) == (width, height) {
             scene.reset();
         } else {
             scene.reset_and_resize(width, height);
         }
-        images.cache.begin_frame();
         images.bindings = TextureBindings::new();
-        let mut canvas = HybridCanvas {
-            scene,
-            resources,
-            renderer,
-            device,
-            queue,
-            images,
-            uploads: None,
-        };
-        draw::draw(&mut canvas, caches, source, frame);
-        // Dropping an image's view frees its texture once the GPU is done.
-        canvas.images.cache.end_frame();
-        canvas.free_stale_patterns();
-        if let Some(uploads) = canvas.uploads.take() {
+        // The atlas slots the frame did not draw are destroyed after it. The
+        // destroys are recorded by the eviction callback and run below.
+        let mut evicted = Vec::new();
+        let mut uploads = atlas.frame_evicting(
+            |atlas| {
+                // Dropping an image's texture frees it once the GPU is done:
+                // the textures the frame did not draw are dropped when this
+                // closure ends.
+                textures.frame(|textures| {
+                    let mut canvas = HybridCanvas {
+                        scene,
+                        resources: &mut *resources,
+                        renderer: &mut *renderer,
+                        device,
+                        queue,
+                        images,
+                        textures,
+                        atlas,
+                        uploads: None,
+                    };
+                    draw::draw(&mut canvas, caches, source, frame);
+                    canvas.uploads.take()
+                })
+            },
+            |_, slot| evicted.push(slot.value.id),
+        );
+        if !evicted.is_empty() {
+            let encoder = uploads.get_or_insert_with(|| {
+                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                    label: Some("Arvane atlas uploads"),
+                })
+            });
+            for id in evicted {
+                renderer.destroy_image(resources, encoder, id);
+            }
+        }
+        if let Some(uploads) = uploads {
             queue.submit([uploads.finish()]);
         }
     }
@@ -127,25 +148,19 @@ struct HybridCanvas<'a> {
     device: &'a wgpu::Device,
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
-    /// Atlas uploads and clears of this recording, submitted before the
-    /// frame is drawn.
+    /// The textures of the images this frame draws.
+    textures: ImageScope<'a, GpuImage>,
+    /// The pattern atlas slots of this frame.
+    atlas: ImageScope<'a, AtlasImage>,
+    /// Atlas uploads of this recording, submitted before the frame is drawn.
     uploads: Option<wgpu::CommandEncoder>,
 }
 
 impl HybridCanvas<'_> {
-    fn uploads(&mut self) -> &mut wgpu::CommandEncoder {
-        self.uploads.get_or_insert_with(|| {
-            self.device
-                .create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Arvane atlas uploads"),
-                })
-        })
-    }
-
     /// `image`'s texture, bound for this frame.
     fn texture(&mut self, image: &Pixels) -> GpuImage {
         let (device, queue, next) = (self.device, self.queue, &mut self.images.next);
-        let texture = self.images.cache.get(image, || {
+        let texture = images::converted(&mut self.textures, image, || {
             *next += 1;
             upload(device, queue, TextureId(*next), image)
         });
@@ -155,62 +170,29 @@ impl HybridCanvas<'_> {
         texture
     }
 
-    /// `image`'s atlas slot (averaged down to [`PATTERN_ATLAS`] pixels a
-    /// side when larger): id and pixel size.
-    fn atlas(&mut self, image: &Pixels) -> (ImageId, u16, u16) {
-        let key = (
-            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
-            image.width,
-            image.height,
-        );
-        let frame = self.images.cache.frame();
-        if let Some(slot) = self.images.atlas.get_mut(&key) {
-            slot.frame = frame;
-            return (slot.id, slot.width, slot.height);
-        }
-        let pixmap = shrink(premultiplied(image), PATTERN_ATLAS);
-        let (width, height) = (pixmap.width(), pixmap.height());
+    /// `pattern`'s image's atlas slot (averaged down to [`PATTERN_ATLAS`]
+    /// pixels a side when larger), uploaded on a miss while the atlas has
+    /// room. `None` when it has none: the pattern is then drawn copy by copy.
+    fn atlas_slot(&mut self, pattern: &PatternFill) -> Option<AtlasImage> {
         let (device, queue) = (self.device, self.queue);
-        let encoder = self.uploads.get_or_insert_with(|| {
-            device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                label: Some("Arvane atlas uploads"),
+        let (renderer, resources, uploads) =
+            (&mut *self.renderer, &mut *self.resources, &mut self.uploads);
+        self.atlas
+            .get_or_insert_if_room(images::image_key(&pattern.image), 1, || {
+                let pixmap = shrink(premultiplied(&pattern.image), PATTERN_ATLAS);
+                let (width, height) = (pixmap.width(), pixmap.height());
+                let encoder = uploads.get_or_insert_with(|| {
+                    device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
+                        label: Some("Arvane atlas uploads"),
+                    })
+                });
+                let id = renderer.upload_image(resources, device, queue, encoder, &pixmap);
+                Pinned::new(
+                    AtlasImage { id, width, height },
+                    Arc::clone(pattern.image.rgba.as_shared()),
+                )
             })
-        });
-        let id = self
-            .renderer
-            .upload_image(self.resources, device, queue, encoder, &pixmap);
-        self.images.atlas.insert(
-            key,
-            AtlasImage {
-                _pixels: Arc::clone(image.rgba.as_shared()),
-                id,
-                width,
-                height,
-                frame,
-            },
-        );
-        (id, width, height)
-    }
-
-    /// Free the atlas slots of patterns this frame did not draw.
-    fn free_stale_patterns(&mut self) {
-        let frame = self.images.cache.frame();
-        let stale: Vec<ImageId> = self
-            .images
-            .atlas
-            .iter()
-            .filter(|(_, slot)| slot.frame != frame)
-            .map(|(_, slot)| slot.id)
-            .collect();
-        if stale.is_empty() {
-            return;
-        }
-        self.images.atlas.retain(|_, slot| slot.frame == frame);
-        self.uploads();
-        let encoder = self.uploads.as_mut().expect("invariant: just made");
-        for id in stale {
-            self.renderer.destroy_image(self.resources, encoder, id);
-        }
+            .map(|slot| slot.value)
     }
 }
 
@@ -338,15 +320,12 @@ impl draw::Canvas for HybridCanvas<'_> {
 
     fn fill_pattern(&mut self, path: &BezPath, pattern: &PatternFill, visible: Rect) {
         let small = f64::from(PATTERN_ATLAS);
-        let key = (
-            Arc::as_ptr(pattern.image.rgba.as_shared()).cast::<u8>() as usize,
-            pattern.image.width,
-            pattern.image.height,
-        );
-        let room =
-            self.images.atlas.contains_key(&key) || self.images.atlas.len() < MAX_ATLAS_PATTERNS;
-        if pattern.device_tile.0 <= small && pattern.device_tile.1 <= small && room {
-            let (id, width, height) = self.atlas(&pattern.image);
+        let slot = if pattern.device_tile.0 <= small && pattern.device_tile.1 <= small {
+            self.atlas_slot(pattern)
+        } else {
+            None
+        };
+        if let Some(AtlasImage { id, width, height }) = slot {
             let extend = |repeat: bool| if repeat { Extend::Repeat } else { Extend::Pad };
             self.scene.set_paint(PaintType::Image(Image {
                 image: ImageSource::opaque_id(id),

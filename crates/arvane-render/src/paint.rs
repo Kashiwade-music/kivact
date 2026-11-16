@@ -23,7 +23,7 @@
 //! differ slightly at the tiles' seams.
 
 use crate::convert;
-use crate::derived::Derived;
+use crate::derived::DerivedScope;
 use crate::gradient::gradient;
 use kivact_types::Rect;
 use kivact_types::pixel::Pixels;
@@ -64,7 +64,7 @@ pub(crate) struct PatternFill {
 
 /// The brush of `paint`; `device_scale` is the device pixels per unit of
 /// the current coordinates (gradient tiles are rasterized at it).
-pub(crate) fn brush(paint: &Paint, derived: &mut Derived, device_scale: f64) -> Brush {
+pub(crate) fn brush(paint: &Paint, derived: &mut DerivedScope<'_>, device_scale: f64) -> Brush {
     match paint {
         Paint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
         Paint::Gradient(g) => {

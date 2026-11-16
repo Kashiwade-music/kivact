@@ -3,7 +3,7 @@
 use super::GlyphRaster;
 use super::canvas::{Canvas, GlyphRun};
 use crate::convert;
-use crate::derived::Derived;
+use crate::derived::{Derived, DerivedScope};
 use crate::outline::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
 use crate::text;
@@ -11,7 +11,7 @@ use crate::validate::Fonts;
 use kivact_types::geometry::Transform;
 use kivact_types::render::{FontSource, GlyphStroke, Group, Paint, RenderCmd, RenderScene};
 use kivact_types::scene::Shape;
-use kivact_types::{PaintOrder, Point, Rect as LogicalRect};
+use kivact_types::{PaintOrder, Point, Rect as LogicalRect, Rgba};
 use std::collections::HashMap;
 use std::sync::Arc;
 use vello_common::filter_effects::{EdgeMode, Filter, FilterPrimitive};
@@ -77,6 +77,9 @@ pub(crate) struct Caches {
     pub(crate) fonts: FontCache,
     /// Pixels derived from the scene's values.
     pub(crate) derived: Derived,
+    /// Variation coordinates of the glyph run being drawn (refilled per run,
+    /// so its capacity is kept across runs and frames).
+    pub(crate) coords: Vec<i16>,
 }
 
 /// The frame a scene is drawn into.
@@ -96,26 +99,32 @@ pub(crate) fn draw(
     scene: &RenderScene,
     frame: &Frame,
 ) {
-    caches.derived.begin_frame();
     let root = root_transform(frame);
     canvas.set_transform(root);
-    let mut painter = Painter {
-        canvas,
-        fonts: &mut caches.fonts,
-        derived: &mut caches.derived,
-        root,
-        scale: frame.scale,
-        origin: frame.origin,
-        visible: frame.visible,
-        transform: Transform::IDENTITY,
-        device_scale: frame.scale,
-        stack: Vec::new(),
-        hidden: 0,
-    };
-    for command in &scene.commands {
-        painter.command(command);
-    }
-    caches.derived.end_frame();
+    let Caches {
+        fonts,
+        derived,
+        coords,
+        ..
+    } = caches;
+    derived.frame(|derived| {
+        let mut painter = Painter {
+            canvas,
+            fonts,
+            derived,
+            coords,
+            root,
+            scale: frame.scale,
+            origin: frame.origin,
+            visible: frame.visible,
+            transform: Transform::IDENTITY,
+            device_scale: frame.scale,
+            stack: Vec::new(),
+        };
+        for command in &scene.commands {
+            painter.command(command);
+        }
+    });
 }
 
 /// The map from the scene's logical coordinates to device pixels.
@@ -144,7 +153,9 @@ pub(super) enum Area<'a> {
 pub(super) struct Painter<'a, C: Canvas> {
     pub(super) canvas: &'a mut C,
     pub(super) fonts: &'a mut FontCache,
-    pub(super) derived: &'a mut Derived,
+    pub(super) derived: DerivedScope<'a>,
+    /// The scratch buffer of the glyph run being drawn (`glyph_coords`).
+    pub(super) coords: &'a mut Vec<i16>,
     /// The map from logical root coordinates to device pixels.
     pub(super) root: Affine,
     /// Device pixels per logical pixel.
@@ -157,9 +168,9 @@ pub(super) struct Painter<'a, C: Canvas> {
     pub(super) transform: Transform,
     /// Device pixels per unit of the current coordinates (at most).
     pub(super) device_scale: f64,
+    /// The open groups, innermost last. Drawing stops while the innermost is
+    /// [`Open::Hidden`].
     pub(super) stack: Vec<Open>,
-    /// Groups open since drawing stopped (0: drawing).
-    pub(super) hidden: usize,
 }
 
 impl<C: Canvas> Painter<'_, C> {
@@ -173,12 +184,17 @@ impl<C: Canvas> Painter<'_, C> {
     /// Hide everything up to the pop of a group being opened.
     fn hide(&mut self) {
         self.stack.push(Open::Hidden);
-        self.hidden = 1;
+    }
+
+    /// Whether drawing has stopped: a group opened while drawing nothing is
+    /// still open.
+    fn is_hidden(&self) -> bool {
+        matches!(self.stack.last(), Some(Open::Hidden))
     }
 
     /// Replay one command.
     pub(super) fn command(&mut self, command: &RenderCmd) {
-        if self.hidden > 0 {
+        if self.is_hidden() {
             self.hidden_command(command);
             return;
         }
@@ -479,18 +495,14 @@ impl<C: Canvas> Painter<'_, C> {
         }
     }
 
-    /// A command while drawing nothing: only the groups are followed.
+    /// A command while drawing nothing: only the groups are followed, each
+    /// opened group as a [`Open::Hidden`] that its pop removes.
     fn hidden_command(&mut self, command: &RenderCmd) {
         match command {
             RenderCmd::PushClip(_) | RenderCmd::PushTransform(_) | RenderCmd::PushGroup(_) => {
-                self.hidden += 1;
+                self.stack.push(Open::Hidden);
             }
-            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopGroup => {
-                self.hidden -= 1;
-                if self.hidden == 0 {
-                    self.pop();
-                }
-            }
+            RenderCmd::PopClip | RenderCmd::PopTransform | RenderCmd::PopGroup => self.pop(),
             _ => {}
         }
     }
@@ -522,7 +534,7 @@ impl<C: Canvas> Painter<'_, C> {
 
     /// Fill `area` (with `bounds`) with `paint`.
     pub(super) fn fill(&mut self, paint: &Paint, bounds: LogicalRect, area: Area<'_>) {
-        match paint::brush(paint, self.derived, self.device_scale) {
+        match paint::brush(paint, &mut self.derived, self.device_scale) {
             Brush::Paint(brush, transform) => {
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
@@ -582,7 +594,7 @@ impl<C: Canvas> Painter<'_, C> {
         }
         let style = convert::stroke(stroke);
         let grow = stroke.width * stroke.miter_limit.max(1.5);
-        match paint::brush(paint, self.derived, self.device_scale) {
+        match paint::brush(paint, &mut self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 // The stroke's outline filled with the pattern.
                 let outline = self.outline_of(&path, &style);
@@ -649,14 +661,17 @@ impl<C: Canvas> Painter<'_, C> {
 
     /// Fill a glyph run with `paint`.
     fn glyph_fill(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, paint: &Paint) {
-        match paint::brush(paint, self.derived, self.device_scale) {
+        match paint::brush(paint, &mut self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let bounds = logical(path.bounding_box());
                 self.fill_pattern(&path, bounds, &pattern);
             }
             Brush::Paint(brush, transform) => {
-                let solid = matches!(paint, Paint::Solid(_));
+                let solid = match paint {
+                    Paint::Solid(color) => Some(*color),
+                    Paint::Gradient(_) | Paint::Pattern(_) => None,
+                };
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
                     self.canvas.set_paint_transform(t);
@@ -677,7 +692,7 @@ impl<C: Canvas> Painter<'_, C> {
         stroke: &GlyphStroke,
     ) {
         let style = convert::stroke(&stroke.stroke);
-        match paint::brush(&stroke.paint, self.derived, self.device_scale) {
+        match paint::brush(&stroke.paint, &mut self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let outline = self.outline_of(&path, &style);
@@ -691,7 +706,7 @@ impl<C: Canvas> Painter<'_, C> {
                     self.canvas.set_paint_transform(t);
                 }
                 self.canvas.set_stroke(style);
-                let coords = glyph_coords(run);
+                glyph_coords(self.coords, run);
                 let font = self.fonts.get(&run.font, run.font_index);
                 // Outlines are stroked as they are: unhinted, no darkening,
                 // never from the atlas.
@@ -699,7 +714,7 @@ impl<C: Canvas> Painter<'_, C> {
                     GlyphRun {
                         font,
                         font_size: run.font_size,
-                        coords: &coords,
+                        coords: self.coords.as_slice(),
                         embolden: glifo::FontEmbolden::new(vello_cpu::kurbo::Diagonal2::new(
                             0.0, 0.0,
                         )),
@@ -718,54 +733,56 @@ impl<C: Canvas> Painter<'_, C> {
         }
     }
 
-    /// Fill a glyph run with the current paint, placed as the transform says
-    /// (`solid`: the glyphs may come from the atlas).
-    fn fill_glyphs(&mut self, run: &kivact_types::render::GlyphRun, origin: Point, solid: bool) {
-        let coords = glyph_coords(run);
+    /// Fill a glyph run with the current paint, placed as the transform says.
+    /// `solid` is the color of a solid paint, whose glyphs may come from the
+    /// atlas and are darkened by its luminance; `None` is a non-solid paint.
+    fn fill_glyphs(
+        &mut self,
+        run: &kivact_types::render::GlyphRun,
+        origin: Point,
+        solid: Option<Rgba>,
+    ) {
+        glyph_coords(self.coords, run);
         let font = self.fonts.get(&run.font, run.font_index);
         let scale = self.scale;
         let t = self.transform;
-        if t.is_identity() {
-            self.canvas.fill_glyphs(
-                GlyphRun {
-                    font,
-                    font_size: run.font_size,
-                    coords: &coords,
-                    embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale)),
-                    raster: GlyphRaster::Hinted { atlas: solid },
-                },
-                run.glyphs.iter().map(|g| Glyph {
-                    id: g.id,
-                    x: text::subpixel(g.x + origin.x, scale) as f32,
-                    y: (g.y + origin.y) as f32,
-                }),
-            );
-        } else if let Some(s) = t.uniform_scale() {
+        let uniform = t.uniform_scale();
+        // The device font size: under a translation and a uniform scale `s`
+        // (the identity has s = 1), glyphs are hinted; otherwise they are not.
+        let size = match uniform {
+            Some(s) => run.font_size * scale * s,
+            None => run.font_size * scale * t.determinant().abs().sqrt(),
+        };
+        let embolden = glifo::FontEmbolden::new(text::run_darkening(size, solid));
+        let coords = self.coords.as_slice();
+        match uniform {
             // Hinted and on quarter device pixels, through the transform.
-            self.canvas.fill_glyphs(
+            Some(s) => self.canvas.fill_glyphs(
                 GlyphRun {
                     font,
                     font_size: run.font_size,
-                    coords: &coords,
-                    embolden: glifo::FontEmbolden::new(text::darkening(run.font_size * scale * s)),
-                    raster: GlyphRaster::Hinted { atlas: solid },
+                    coords,
+                    embolden,
+                    raster: if solid.is_some() {
+                        GlyphRaster::HintedAtlas
+                    } else {
+                        GlyphRaster::Hinted
+                    },
                 },
                 run.glyphs.iter().map(|g| Glyph {
                     id: g.id,
                     x: ((text::subpixel((g.x + origin.x) * s + t.e, scale) - t.e) / s) as f32,
                     y: (g.y + origin.y) as f32,
                 }),
-            );
-        } else {
+            ),
             // Rotated, skewed or stretched: unhinted outlines where the
             // shaping put them.
-            let size = run.font_size * scale * t.determinant().abs().sqrt();
-            self.canvas.fill_glyphs(
+            None => self.canvas.fill_glyphs(
                 GlyphRun {
                     font,
                     font_size: run.font_size,
-                    coords: &coords,
-                    embolden: glifo::FontEmbolden::new(text::darkening(size)),
+                    coords,
+                    embolden,
                     raster: GlyphRaster::Outline,
                 },
                 run.glyphs.iter().map(|g| Glyph {
@@ -773,17 +790,20 @@ impl<C: Canvas> Painter<'_, C> {
                     x: (g.x + origin.x) as f32,
                     y: (g.y + origin.y) as f32,
                 }),
-            );
+            ),
         }
     }
 }
 
-/// A run's normalized variation coordinates in the rasterizers' 2.14 fixed point.
-fn glyph_coords(run: &kivact_types::render::GlyphRun) -> Vec<i16> {
-    run.normalized_coords
-        .iter()
-        .map(|v| (*v * 16384.0).round() as i16)
-        .collect()
+/// Fill `out` with a run's normalized variation coordinates in the
+/// rasterizers' 2.14 fixed point.
+fn glyph_coords(out: &mut Vec<i16>, run: &kivact_types::render::GlyphRun) {
+    out.clear();
+    out.extend(
+        run.normalized_coords
+            .iter()
+            .map(|v| (*v * 16384.0).round() as i16),
+    );
 }
 
 /// A raster rectangle as a logical one.

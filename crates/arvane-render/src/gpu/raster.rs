@@ -3,9 +3,10 @@
 //! [`GpuRaster`] is the aggregate. Recording a scene into the renderer's
 //! scene is a method of the same type in `encode.rs`.
 
-use super::images::Images;
+use super::images::{AtlasImage, GpuImage, Images, MAX_ATLAS_PATTERNS};
 use crate::draw;
 use crate::error::RenderError;
+use crate::images::{ImageCache, MAX_BYTES};
 use crate::validate;
 use kivact_types::render::RenderScene;
 use kivact_types::{Point, Rect as LogicalRect};
@@ -43,9 +44,13 @@ pub struct GpuRaster {
     /// The scene the frames are recorded into, kept for its allocations.
     pub(super) scene: vello_hybrid::Scene,
     pub(super) caches: draw::Caches,
-    /// The textures of the last frame's images and the atlas slots of its
-    /// patterns.
+    /// The bindings of the last frame's images.
     pub(super) images: Images,
+    /// The textures of the last frame's images, kept while frames draw them.
+    pub(super) textures: ImageCache<GpuImage>,
+    /// The pattern atlas slots of the last frame's patterns, at most
+    /// `MAX_ATLAS_PATTERNS`.
+    pub(super) atlas: ImageCache<AtlasImage>,
 }
 
 impl GpuRaster {
@@ -68,6 +73,8 @@ impl GpuRaster {
             scene: vello_hybrid::Scene::new(1, 1),
             caches: draw::Caches::default(),
             images: Images::new(),
+            textures: ImageCache::new(MAX_BYTES),
+            atlas: ImageCache::new(MAX_ATLAS_PATTERNS),
         };
         let target = device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Arvane raster warm-up"),

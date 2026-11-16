@@ -1,4 +1,14 @@
 //! Role: CpuRaster: rasterizes validated scenes with vello_cpu on the calling thread.
+//!
+//! Glyphs: every glyph is drawn from its outline, hinted or not. The GPU
+//! draws hinted solid runs from glifo's glyph atlas, but the CPU does not:
+//! vello_cpu 0.2 fixes each atlas page at 4096 × 4096 RGBA (64 MiB, up to
+//! eight pages, not configurable), and every raster would hold that memory.
+//! Measured at 1280 × 800 with 12,000 Inter glyphs over 100 frames, the
+//! atlas drew a steady frame in 12–13 ms against 22–23 ms from outlines, but
+//! its first frame took 34–42 ms against 24.5 ms, and most of this crate's
+//! CPU rasters are short-lived. The atlas is revisited only once vello_cpu
+//! exposes the atlas page size.
 
 use crate::draw::{self, GlyphRun};
 use crate::error::RenderError;
@@ -46,7 +56,7 @@ impl Default for CpuRaster {
             ),
             resources: Resources::new(),
             caches: draw::Caches::default(),
-            images: images::ImageCache::new(),
+            images: images::ImageCache::new(images::MAX_BYTES),
             scratch: Vec::new(),
         }
     }
@@ -122,14 +132,14 @@ impl CpuRaster {
         };
         validate::scene(scene, &mut self.caches.validation)?;
         self.context.reset_and_resize(width, height);
-        self.images.begin_frame();
-        let mut canvas = CpuCanvas {
-            context: &mut self.context,
-            resources: &mut self.resources,
-            images: &mut self.images,
-        };
-        draw::draw(&mut canvas, &mut self.caches, scene, &frame);
-        self.images.end_frame();
+        self.images.frame(|images| {
+            let mut canvas = CpuCanvas {
+                context: &mut self.context,
+                resources: &mut self.resources,
+                images,
+            };
+            draw::draw(&mut canvas, &mut self.caches, scene, &frame);
+        });
         self.context.flush();
         // A whole frame is drawn straight into `out`. Its target is covered by
         // the scene, so vello_cpu writes every pixel without clearing first.
@@ -156,7 +166,7 @@ impl CpuRaster {
 struct CpuCanvas<'a> {
     context: &'a mut RenderContext,
     resources: &'a mut Resources,
-    images: &'a mut images::ImageCache<ImageSource>,
+    images: images::ImageScope<'a, ImageSource>,
 }
 
 impl CpuCanvas<'_> {
@@ -164,7 +174,7 @@ impl CpuCanvas<'_> {
     fn source(&mut self, image: &Pixels) -> ImageSource {
         // vello_cpu premultiplies into a new pixmap for each paint; the
         // cache keeps it while frames draw it.
-        self.images.get(image, || {
+        images::converted(&mut self.images, image, || {
             ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
                 data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                 format: ImageFormat::Rgba8,
