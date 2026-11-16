@@ -70,9 +70,13 @@ pub(crate) enum GlyphRaster {
     /// Unhinted outlines where the shaping put them: stroked runs, and
     /// runs under a rotation, a skew or a non-uniform scale.
     Outline,
-    /// Hinted vertically, under a translation and a uniform scale;
-    /// `atlas`: the glyphs may come from a glyph atlas (a solid fill).
-    Hinted { atlas: bool },
+    /// Hinted vertically, under a translation and a uniform scale; drawn
+    /// from the outlines.
+    Hinted,
+    /// Hinted vertically, under a translation and a uniform scale, and
+    /// drawn from a glyph atlas (a solid fill only: the atlas holds coverage,
+    /// the color is applied when drawing).
+    HintedAtlas,
 }
 
 /// How a run of glyphs is drawn.
@@ -83,7 +87,8 @@ pub(crate) struct GlyphRun<'a> {
     pub(crate) font_size: f64,
     /// Normalized variation coordinates, in 2.14 fixed point.
     pub(crate) coords: &'a [i16],
-    /// Stem darkening of the run.
+    /// Stem darkening of the run (`text.rs`: quantized to a luminance
+    /// bucket, which the glyph atlas key includes).
     pub(crate) embolden: glifo::FontEmbolden,
     /// Hinting, and whether the glyph atlas may be used.
     pub(crate) raster: GlyphRaster,
@@ -91,14 +96,14 @@ pub(crate) struct GlyphRun<'a> {
 
 impl GlyphRun<'_> {
     /// Whether the glyphs may come from a glyph atlas (only under a
-    /// translation and a uniform scale; rotated glyphs are drawn from their
-    /// outlines).
+    /// translation and a uniform scale, for a solid fill; rotated glyphs are
+    /// drawn from their outlines).
     #[cfg_attr(
         not(feature = "gpu"),
         expect(dead_code, reason = "the GPU's glyph atlas")
     )]
     pub(crate) fn atlas(&self) -> bool {
-        matches!(self.raster, GlyphRaster::Hinted { atlas: true })
+        self.raster == GlyphRaster::HintedAtlas
     }
 
     /// `builder` set up for this run: vertical hinting and stem darkening
@@ -113,7 +118,7 @@ impl GlyphRun<'_> {
         builder
             .font_size(self.font_size as f32)
             .normalized_coords(self.coords)
-            .hint(matches!(self.raster, GlyphRaster::Hinted { .. }))
+            .hint(self.raster != GlyphRaster::Outline)
             .font_embolden(self.embolden)
     }
 }

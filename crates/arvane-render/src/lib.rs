@@ -31,6 +31,7 @@ mod cpu;
 mod derived;
 mod draw;
 mod error;
+mod frame_cache;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod gradient;

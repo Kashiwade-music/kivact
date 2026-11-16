@@ -5,16 +5,15 @@
 //! resampled to their tile's device size. Both rasterizers draw them as
 //! ordinary images (their own caches key them by these pixels' identity).
 //!
-//! Invariants (the frame cache rules of `images.rs`):
+//! Invariants (the frame cache's rules, `frame_cache.rs`):
 //! - A resampled image is keyed by its source's pixel identity (the `Arc`
-//!   address, kept alive by the entry), dimensions and new size; a tile by
-//!   the gradient's values, the tile's size and its pixel size.
-//! - An entry not used in a frame is dropped when that frame ends; at most
-//!   `MAX_BYTES` of pixels are kept (beyond that a result is made for its
-//!   frame and not kept).
+//!   address, pinned by the entry), dimensions and new size; a tile by the
+//!   gradient's values, the tile's size and its pixel size.
+//! - Both kinds share one budget of `MAX_BYTES`. An entry not used in a
+//!   frame is dropped when that frame ends; a result beyond the budget is
+//!   made for its frame and not kept.
 //! - Thread: owned by its renderer, used on the renderer's thread.
 
-use std::collections::HashMap;
 use std::sync::Arc;
 
 use kivact_types::pixel::Pixels;
@@ -24,57 +23,57 @@ use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
 use vello_cpu::{Image, ImageSource, PaintType, Pixmap, RenderContext, RenderSettings, Resources};
 
-use crate::gradient;
+use crate::frame_cache::{FrameCache, FrameScope, Pinned};
+use crate::{gradient, images};
 
-/// The derived pixels kept at most (64 MiB).
+/// The derived pixels kept at most (64 MiB, both kinds together).
 const MAX_BYTES: usize = 64 * 1024 * 1024;
 
 /// A gradient tile: the gradient's and the tile's values as bits, and the
 /// pixel size.
 type TileKey = (Vec<u64>, u16, u16);
 
-/// A resampled image: source address and size, and the new size.
-type ResampleKey = (usize, u32, u32, u16, u16);
+/// A resampled image: the source's identity and size, and the new size.
+type ResampleKey = (images::ImageKey, u16, u16);
 
-struct Entry {
-    /// Keeps a resampled image's source address from being reused.
-    _source: Option<Arc<[u8]>>,
-    image: Pixels,
-    frame: u64,
+/// What a derived pixel is made from. Both kinds share one cache.
+#[derive(Hash, PartialEq, Eq)]
+enum DerivedKey {
+    Tile(TileKey),
+    Resample(ResampleKey),
 }
 
 /// Derived pixels by what they are made from (see the module invariants).
-#[derive(Default)]
 pub(crate) struct Derived {
-    tiles: HashMap<TileKey, Entry>,
-    resampled: HashMap<ResampleKey, Entry>,
-    /// The rasterizer of gradient tiles, made on first use.
+    cache: FrameCache<DerivedKey, Pinned<Pixels>>,
+    /// The rasterizer of gradient tiles and resampled images, made on first use.
     context: Option<(RenderContext, Resources)>,
-    frame: u64,
-    bytes: usize,
+}
+
+impl Default for Derived {
+    fn default() -> Self {
+        Self {
+            cache: FrameCache::new(MAX_BYTES),
+            context: None,
+        }
+    }
 }
 
 impl Derived {
-    /// Starts a frame.
-    pub(crate) fn begin_frame(&mut self) {
-        self.frame += 1;
+    /// Draws one frame: `body` uses the derived pixels through the scope it is given.
+    pub(crate) fn frame<R>(&mut self, body: impl FnOnce(DerivedScope<'_>) -> R) -> R {
+        let Derived { cache, context } = self;
+        cache.frame(|scope| body(DerivedScope { scope, context }))
     }
+}
 
-    /// Ends the frame: drops what it did not use.
-    pub(crate) fn end_frame(&mut self) {
-        let frame = self.frame;
-        let mut freed = 0;
-        let mut keep = |e: &mut Entry| {
-            let keep = e.frame == frame;
-            if !keep {
-                freed += e.image.rgba.len();
-            }
-            keep
-        };
-        self.tiles.retain(|_, e| keep(e));
-        self.resampled.retain(|_, e| keep(e));
-        self.bytes -= freed;
-    }
+/// The derived pixels of the frame being drawn.
+pub(crate) struct DerivedScope<'a> {
+    scope: FrameScope<'a, DerivedKey, Pinned<Pixels>>,
+    context: &'a mut Option<(RenderContext, Resources)>,
+}
+
+impl DerivedScope<'_> {
     /// `gradient` over a tile of `tile`'s size, rasterized at `size` pixels
     /// (straight alpha).
     pub(crate) fn gradient_tile(
@@ -83,32 +82,25 @@ impl Derived {
         tile: Rect,
         (width, height): (u16, u16),
     ) -> Pixels {
-        let key = (tile_bits(gradient, tile), width, height);
-        if let Some(entry) = self.tiles.get_mut(&key) {
-            entry.frame = self.frame;
-            return entry.image.clone();
-        }
-        let out = self.raster((width, height), |context| {
-            context.set_transform(Affine::scale_non_uniform(
-                f64::from(width) / tile.width,
-                f64::from(height) / tile.height,
-            ));
-            let (brush, transform) = gradient::gradient(gradient);
-            context.set_paint(brush);
-            if let Some(transform) = transform {
-                context.set_paint_transform(transform);
-            }
-            context.fill_rect(&RasterRect::new(0.0, 0.0, tile.width, tile.height));
-        });
-        Self::keep(
-            &mut self.tiles,
-            &mut self.bytes,
-            self.frame,
-            key,
-            None,
-            &out,
-        );
-        out
+        let key = DerivedKey::Tile((tile_bits(gradient, tile), width, height));
+        self.scope
+            .get_or_insert_with(key, || {
+                let image = raster(&mut *self.context, (width, height), |context| {
+                    context.set_transform(Affine::scale_non_uniform(
+                        f64::from(width) / tile.width,
+                        f64::from(height) / tile.height,
+                    ));
+                    let (brush, transform) = gradient::gradient(gradient);
+                    context.set_paint(brush);
+                    if let Some(transform) = transform {
+                        context.set_paint_transform(transform);
+                    }
+                    context.fill_rect(&RasterRect::new(0.0, 0.0, tile.width, tile.height));
+                });
+                let cost = image.rgba.len();
+                (Pinned::unpinned(image), cost)
+            })
+            .value
     }
 
     /// `image` resampled (bilinear, edges clamped) to `size` pixels
@@ -118,112 +110,76 @@ impl Derived {
         if (image.width, image.height) == (u32::from(width), u32::from(height)) {
             return image.clone();
         }
-        let key = (
-            Arc::as_ptr(image.rgba.as_shared()).cast::<u8>() as usize,
-            image.width,
-            image.height,
-            width,
-            height,
-        );
-        if let Some(entry) = self.resampled.get_mut(&key) {
-            entry.frame = self.frame;
-            return entry.image.clone();
-        }
-        let source = ImageSource::from_peniko_image_data(&peniko::ImageData {
-            data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
-            format: ImageFormat::Rgba8,
-            alpha_type: ImageAlphaType::Alpha,
-            width: image.width,
-            height: image.height,
-        });
-        let out = self.raster((width, height), |context| {
-            context.set_paint(PaintType::Image(Image {
-                image: source,
-                sampler: ImageSampler {
-                    x_extend: peniko::Extend::Pad,
-                    y_extend: peniko::Extend::Pad,
-                    quality: ImageQuality::Medium,
-                    alpha: 1.0,
-                },
-            }));
-            context.set_paint_transform(Affine::scale_non_uniform(
-                f64::from(width) / f64::from(image.width),
-                f64::from(height) / f64::from(image.height),
-            ));
-            context.fill_rect(&RasterRect::new(
-                0.0,
-                0.0,
-                f64::from(width),
-                f64::from(height),
-            ));
-        });
-        let source = Some(Arc::clone(image.rgba.as_shared()));
-        Self::keep(
-            &mut self.resampled,
-            &mut self.bytes,
-            self.frame,
-            key,
-            source,
-            &out,
-        );
-        out
+        let key = DerivedKey::Resample((images::image_key(image), width, height));
+        self.scope
+            .get_or_insert_with(key, || {
+                let source = ImageSource::from_peniko_image_data(&peniko::ImageData {
+                    data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
+                    format: ImageFormat::Rgba8,
+                    alpha_type: ImageAlphaType::Alpha,
+                    width: image.width,
+                    height: image.height,
+                });
+                let out = raster(&mut *self.context, (width, height), |context| {
+                    context.set_paint(PaintType::Image(Image {
+                        image: source,
+                        sampler: ImageSampler {
+                            x_extend: peniko::Extend::Pad,
+                            y_extend: peniko::Extend::Pad,
+                            quality: ImageQuality::Medium,
+                            alpha: 1.0,
+                        },
+                    }));
+                    context.set_paint_transform(Affine::scale_non_uniform(
+                        f64::from(width) / f64::from(image.width),
+                        f64::from(height) / f64::from(image.height),
+                    ));
+                    context.fill_rect(&RasterRect::new(
+                        0.0,
+                        0.0,
+                        f64::from(width),
+                        f64::from(height),
+                    ));
+                });
+                let cost = out.rgba.len();
+                (Pinned::new(out, Arc::clone(image.rgba.as_shared())), cost)
+            })
+            .value
     }
+}
 
-    /// The straight-alpha pixels of what `draw` draws into a `width` ×
-    /// `height` frame.
-    fn raster(
-        &mut self,
-        (width, height): (u16, u16),
-        draw: impl FnOnce(&mut RenderContext),
-    ) -> Pixels {
-        let (context, resources) = self.context.get_or_insert_with(|| {
-            let settings = RenderSettings {
-                level: vello_cpu::Level::new(),
-                num_threads: 0,
-            };
-            (
-                RenderContext::new_with(width, height, settings),
-                Resources::new(),
-            )
-        });
-        context.reset_and_resize(width, height);
-        draw(context);
-        context.reset_paint_transform();
-        context.flush();
-        let mut pixmap = Pixmap::new(width, height);
-        context.render(&mut pixmap, resources);
-        let mut rgba = Vec::with_capacity(usize::from(width) * usize::from(height) * 4);
-        for pixel in pixmap.data() {
-            rgba.extend([pixel.r, pixel.g, pixel.b, pixel.a]);
-        }
-        kivact_types::color::unpremultiply(&mut rgba);
-        Pixels {
-            width: u32::from(width),
-            height: u32::from(height),
-            rgba: rgba.into(),
-        }
+/// The straight-alpha pixels of what `draw` draws into a `width` ×
+/// `height` frame, rasterized with `context` (made on first use).
+fn raster(
+    context: &mut Option<(RenderContext, Resources)>,
+    (width, height): (u16, u16),
+    draw: impl FnOnce(&mut RenderContext),
+) -> Pixels {
+    let (context, resources) = context.get_or_insert_with(|| {
+        let settings = RenderSettings {
+            level: vello_cpu::Level::new(),
+            num_threads: 0,
+        };
+        (
+            RenderContext::new_with(width, height, settings),
+            Resources::new(),
+        )
+    });
+    context.reset_and_resize(width, height);
+    draw(context);
+    context.reset_paint_transform();
+    context.flush();
+    let mut pixmap = Pixmap::new(width, height);
+    context.render(&mut pixmap, resources);
+    let mut rgba = Vec::with_capacity(usize::from(width) * usize::from(height) * 4);
+    for pixel in pixmap.data() {
+        rgba.extend([pixel.r, pixel.g, pixel.b, pixel.a]);
     }
-
-    fn keep<K: std::hash::Hash + Eq>(
-        map: &mut HashMap<K, Entry>,
-        bytes: &mut usize,
-        frame: u64,
-        key: K,
-        source: Option<Arc<[u8]>>,
-        image: &Pixels,
-    ) {
-        let size = image.rgba.len();
-        if *bytes + size <= MAX_BYTES {
-            *bytes += size;
-            map.insert(
-                key,
-                Entry {
-                    _source: source,
-                    image: image.clone(),
-                    frame,
-                },
-            );
-        }
+    kivact_types::color::unpremultiply(&mut rgba);
+    Pixels {
+        width: u32::from(width),
+        height: u32::from(height),
+        rgba: rgba.into(),
     }
 }
 

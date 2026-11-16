@@ -24,12 +24,14 @@
 //! the current transform. A group opened under a transform that flattens
 //! everything, or a fully transparent group, draws nothing up to its pop.
 //!
-//! Glyphs under the identity transform, or a translation and a uniform
-//! scale (`Transform::uniform_scale`), are hinted and put on quarter
-//! device pixels at their transformed position, and may come from the
-//! GPU's glyph atlas; under a rotation, skew or non-uniform scale they are
-//! drawn from unhinted outlines at their shaped positions (glifo's atlas
-//! does not hold rotated glyphs). See `text.rs`.
+//! Glyphs under a translation and a uniform scale (`Transform::uniform_scale`;
+//! the identity is the scale 1) are hinted and put on quarter device pixels
+//! at their transformed position; a solid fill may draw them from the GPU's
+//! glyph atlas. Under a rotation, skew or non-uniform scale they are drawn
+//! from unhinted outlines at their shaped positions (glifo's atlas does not
+//! hold rotated glyphs). Both kinds get the stem darkening of `text.rs`,
+//! which depends on the device font size and on the luminance of the paint;
+//! stroked outlines get none.
 
 mod canvas;
 mod painter;
