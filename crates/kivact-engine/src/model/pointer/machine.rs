@@ -4,10 +4,12 @@ use super::space::PointerSpace;
 use super::state::{Capture, MouseGesture, PointerSource, Press, Track};
 use crate::contract::HostEvent;
 use crate::model::Model;
+use crate::text_input::{line_range, word_range};
 use kivact_types::{
     A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
     PointerId, PointerPhase, PointerSample, RegionId,
 };
+use std::ops::Range;
 
 /// Which of a pointer's two chains a change is about.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -291,7 +293,7 @@ impl Model {
         self.track_hover(pointer, hit, modifiers, space);
         let capture = self.pointer.state.track(pointer).capture();
         if self.pointer.state.track(pointer).is_primary() {
-            self.primary_press(pointer, hit, press.button, modifiers, capture, space);
+            self.primary_press(pointer, hit, press, modifiers, capture, space);
         }
         let target =
             capture.or_else(|| hit.and_then(|h| self.ancestor_where(h, |n| n.listens_pointer())));
@@ -313,19 +315,20 @@ impl Model {
     /// What a primary pointer's press over `hit` does besides its `Down`:
     /// dismiss the overlays it lands outside of, focus (or blur), retain
     /// the pressed chain and the activation target, and place a text
-    /// input's caret. `capture` is the pointer's capture before the press.
+    /// input's caret, or select its word or line for a double or triple
+    /// click. `capture` is the pointer's capture before the press.
     fn primary_press(
         &mut self,
         pointer: PointerId,
         hit: Option<NodeId>,
-        button: MouseButton,
+        button_press: ButtonPress,
         modifiers: Modifiers,
         capture: Option<NodeId>,
         space: &PointerSpace<'_>,
     ) {
         // Outside presses dismiss overlays before the press is delivered.
         self.dismiss_outside(hit);
-        let primary = button == MouseButton::Primary;
+        let primary = button_press.button == MouseButton::Primary;
         let native_focus = self.press_native_focus(hit, primary, space);
         let focus = hit
             .and_then(|h| self.pointer_focus_destination(h, space))
@@ -371,7 +374,7 @@ impl Model {
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)
         {
-            self.place_caret(i, at, modifiers.shift);
+            self.press_text_input(i, at, button_press.clicks, modifiers.shift);
         }
         let selecting = self
             .focused()
@@ -394,6 +397,30 @@ impl Model {
                 route: std::mem::take(route),
             };
         }
+    }
+
+    /// A primary press over the text input `input` at the byte offset `at`
+    /// (`clicks`: the press's click count). A single click places the caret
+    /// (Shift extends the selection); a double click selects the word there,
+    /// and a triple click the line.
+    fn press_text_input(&mut self, input: NodeId, at: usize, clicks: u8, extend: bool) {
+        let multiline = self.tree.get(input).is_some_and(|n| n.multiline());
+        match clicks {
+            0 | 1 => self.place_caret(input, at, extend),
+            2 => self.select_text(input, |text| word_range(text, at)),
+            _ => self.select_text(input, |text| line_range(text, at, multiline)),
+        }
+    }
+
+    /// Select `range` of the value of the text input `input`: its anchor at
+    /// the start of the range and its caret at the end.
+    fn select_text(&mut self, input: NodeId, range: impl FnOnce(&str) -> Range<usize>) {
+        self.edit_input(input, |e| {
+            let range = range(e.value());
+            e.move_to(range.start, false);
+            e.move_to(range.end, true);
+            false
+        });
     }
 
     fn press_activation_target(
