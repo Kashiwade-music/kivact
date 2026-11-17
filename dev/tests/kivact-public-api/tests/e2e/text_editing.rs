@@ -299,6 +299,8 @@ fn clicking_a_centered_line_places_the_caret_under_the_pointer() {
         screen.click_at(x, from.y + from.height / 2.0);
         let ime = screen.ime_text().expect("focused");
         assert_eq!(ime.selection, at + 1..at + 1, "x {x} over character {at}");
+        // Let the double-click time pass, so the next click is a single click again.
+        screen.advance(std::time::Duration::from_secs(1));
     }
     // The box above the line still belongs to the field: the nearest
     // boundary on that side of the line.
@@ -313,6 +315,64 @@ fn clicking_a_centered_line_places_the_caret_under_the_pointer() {
             + 2.0,
     );
     assert_eq!(screen.ime_text().expect("focused").selection, 0..0);
+}
+
+/// A focused single-line field holding "hello world foo", and the window point
+/// over the middle of the `o` in "world".
+fn words_screen() -> (Screen, (f64, f64)) {
+    let screen = render(|| {
+        node()
+            .name("Words")
+            .part(use_text_edit(signal(String::from("hello world foo"))).control())
+            .style(style().width(200).height(48).padding(0))
+    });
+    let field = screen.get_by_role(Role::TextBox, "Words");
+    field.focus();
+    // The carets before and after the `o` (character 7).
+    field.press_key(Key::Home);
+    let mut stops = Vec::new();
+    for _ in 0..=8 {
+        let ime = screen.ime_text().expect("focused");
+        stops.push(*ime.char_rects.last().expect("the caret"));
+        field.press_key(Key::ArrowRight);
+    }
+    let (from, to) = (stops[7], stops[8]);
+    (screen, ((from.x + to.x) / 2.0, from.y + from.height / 2.0))
+}
+
+/// The second click of a double click selects the word under the pointer, and
+/// typing replaces the selection. A single click before it only places the caret.
+#[test]
+fn a_double_click_selects_the_word_under_the_pointer() {
+    let (screen, (x, y)) = words_screen();
+    screen.click_at(x, y);
+    let ime = screen.ime_text().expect("focused");
+    assert!(
+        ime.selection.is_empty(),
+        "a single click places the caret: {:?}",
+        ime.selection
+    );
+    screen.click_at(x, y);
+    assert_eq!(
+        screen.ime_text().expect("focused").selection,
+        6..11,
+        "\"world\""
+    );
+    screen.get_by_role(Role::TextBox, "Words").type_text("X");
+    assert_eq!(value_of(&screen, Role::TextBox, "Words"), "hello X foo");
+}
+
+/// The third click of a triple click selects the whole line; in a single-line
+/// field that is the whole value.
+#[test]
+fn a_triple_click_selects_the_whole_line() {
+    let (screen, (x, y)) = words_screen();
+    for _ in 0..3 {
+        screen.click_at(x, y);
+    }
+    assert_eq!(screen.ime_text().expect("focused").selection, 0..15);
+    screen.get_by_role(Role::TextBox, "Words").type_text("Z");
+    assert_eq!(value_of(&screen, Role::TextBox, "Words"), "Z");
 }
 
 /// `on_composition_change` reports `true` when a composition starts and
@@ -600,4 +660,20 @@ fn editing_color_count(
             pixel[channel] > 140 && pixel[(channel + 1) % 3] < 100 && pixel[(channel + 2) % 3] < 100
         })
         .count()
+}
+
+/// A field narrower than the caret's 2 px right margin settles: its caret scroll
+/// does not flip between two offsets on every frame.
+#[test]
+fn a_field_narrower_than_the_caret_margin_settles() {
+    let screen = render(|| {
+        node()
+            .name("Narrow")
+            .part(use_text_edit(signal(String::new())).control())
+            .style(style().width(1).height(24).padding(0))
+    });
+    let field = screen.get_by_role(Role::TextBox, "Narrow");
+    field.focus();
+    field.type_text("12");
+    assert_eq!(field.value().as_deref(), Some("12"));
 }

@@ -290,6 +290,7 @@ Other rules:
   composition in progress is never cut.
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
   `.purpose(InputPurpose::Password)` hides the text and blocks copy and cut.
+- A double click selects the word under the pointer, and a triple click selects its line (all of the value in a single-line field).
 
 ## Commit a single field with Enter or blur
 
