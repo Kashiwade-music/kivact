@@ -291,6 +291,7 @@ Other rules:
 - `.read_only(true)` allows selecting and copying; `.disabled(..)` blocks input;
   `.purpose(InputPurpose::Password)` hides the text and blocks copy and cut.
 - A double click selects the word under the pointer, and a triple click selects its line (all of the value in a single-line field).
+- In a text area, Up and Down move the caret to the line above or below at the same x (with Shift, they extend the selection); Up on the first line goes to the start and Down on the last line to the end. When the caret is already there, the key goes on to the handlers around the field.
 
 ## Commit a single field with Enter or blur
 

@@ -171,6 +171,69 @@ fn caret_and_deletion_step_over_graphemes_and_selections_replace() {
 }
 
 #[test]
+fn up_and_down_move_the_caret_between_lines_of_a_text_area() {
+    // Equal lines, so a column has the same x on each of them.
+    let (screen, value, _log) = field_screen(
+        "abcd
+abcd
+abcd",
+        true,
+    );
+    let notes = screen.get_by_role(Role::TextBox, "Notes");
+    notes.press_key(Key::End);
+    notes.press_key(Key::ArrowUp);
+    screen.type_text("X");
+    assert_eq!(
+        value.get(),
+        "abcd
+abcdX
+abcd",
+        "Up keeps the caret's x"
+    );
+    notes.press_key(Key::ArrowUp);
+    notes.press_key(Key::ArrowUp);
+    screen.type_text("Y");
+    assert_eq!(
+        value.get(),
+        "Yabcd
+abcdX
+abcd",
+        "Up on the first line goes to the start"
+    );
+    notes.press_key(Key::Home);
+    notes.press_key(Key::ArrowDown);
+    screen.type_text("Z");
+    assert_eq!(
+        value.get(),
+        "Yabcd
+ZabcdX
+abcd",
+        "Down keeps the caret's x"
+    );
+    notes.press_key(Key::ArrowDown);
+    notes.press_key(Key::ArrowDown);
+    screen.type_text("W");
+    assert_eq!(
+        value.get(),
+        "Yabcd
+ZabcdX
+abcdW",
+        "Down on the last line goes to the end"
+    );
+    notes.press_key_with(Key::ArrowUp, shift());
+    screen.type_text("V");
+    let edited = value.get();
+    assert!(
+        edited.starts_with(
+            "Yabcd
+Z"
+        ) && edited.ends_with('V')
+            && edited.lines().count() == 2,
+        "Shift+Up selects back into the line above: {edited:?}"
+    );
+}
+
+#[test]
 fn clipboard_chords_and_pasted_line_breaks() {
     let (screen, value, _log) = field_screen("abc", false);
     let f = screen.get_by_role(Role::TextBox, "Name");

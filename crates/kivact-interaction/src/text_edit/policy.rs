@@ -8,8 +8,8 @@ use kivact_core::view::Key;
 /// that handles some keys itself and leaves the rest to it.
 ///
 /// It moves and deletes by grapheme, selects with Shift, goes to the start
-/// and end of the text with Home and End, breaks lines with Enter in a
-/// multiline editor, and handles Ctrl/Cmd with A, C, X and V. A pasted
+/// and end of the text with Home and End, moves a line up or down with the
+/// arrow keys and breaks lines with Enter in a multiline editor, and handles Ctrl/Cmd with A, C, X and V. A pasted
 /// text has its line breaks normalized (`\r\n` to `\n`, or to spaces in a
 /// single-line editor). It keeps read-only values and hidden passwords,
 /// and leaves every other key, Tab included, to routing.
@@ -46,6 +46,9 @@ pub fn text_edit_policy(
     let multiline = context.multiline;
     let command = modifiers.ctrl || modifiers.meta;
     let shift = modifiers.shift;
+    if multiline && !command && matches!(key, Key::ArrowUp | Key::ArrowDown) {
+        return vertical_key(state, key == Key::ArrowUp, shift, context);
+    }
     let sel = state.selection();
     let caret = state.caret();
     let changed = match key {
@@ -95,6 +98,40 @@ pub fn text_edit_policy(
     } else {
         EditOutcome::Done { changed }
     }
+}
+
+/// Up (`up`) or Down in a multiline editor: move the caret a line, extending
+/// the selection with Shift. Up at the start or Down at the end goes on to
+/// routing (a composer recalls its history there), even over a selection.
+fn vertical_key(
+    state: &mut EditState,
+    up: bool,
+    shift: bool,
+    context: &EditContext<'_>,
+) -> EditOutcome {
+    match vertical_target(state, up, context) {
+        Some(to) if to != state.caret() => {
+            state.move_to(to, shift);
+            EditOutcome::Done { changed: false }
+        }
+        _ => EditOutcome::NotEditing,
+    }
+}
+
+/// Where Up (`up`) or Down moves the caret of a multiline editor: the offset
+/// under the caret's x on the laid-out line above or below; the start of the
+/// text from the first line and its end from the last. `None` without layout.
+fn vertical_target(state: &EditState, up: bool, context: &EditContext<'_>) -> Option<usize> {
+    let caret = state.caret();
+    let line = context.line_of(state, caret)?;
+    if up && line == 0 {
+        return Some(0);
+    }
+    if !up && line + 1 >= context.line_count(state)? {
+        return Some(state.value().len());
+    }
+    let next = if up { line - 1 } else { line + 1 };
+    context.offset_at(state, next, context.x_of(state, caret)?)
 }
 
 fn command_key(state: &mut EditState, key: char) -> EditOutcome {
