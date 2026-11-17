@@ -299,6 +299,8 @@ fn clicking_a_centered_line_places_the_caret_under_the_pointer() {
         screen.click_at(x, from.y + from.height / 2.0);
         let ime = screen.ime_text().expect("focused");
         assert_eq!(ime.selection, at + 1..at + 1, "x {x} over character {at}");
+        // Let the double-click time pass, so the next click is a single click again.
+        screen.advance(std::time::Duration::from_secs(1));
     }
     // The box above the line still belongs to the field: the nearest
     // boundary on that side of the line.
