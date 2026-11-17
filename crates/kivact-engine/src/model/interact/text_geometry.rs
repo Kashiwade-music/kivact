@@ -273,6 +273,26 @@ pub(crate) fn ime_text(
     Some((text, excerpt.start))
 }
 
+/// The horizontal scroll that keeps a caret at `caret_x` inside a field `width` wide whose
+/// text is `extent_x` wide, starting from the `previous` scroll: the caret may sit up to
+/// 2 px short of the right edge, or at the left edge.
+///
+/// A field narrower than that 2 px margin has no room past its left edge, so the caret
+/// sits at the left edge there. The result is a fixed point: fed back as `previous`, it
+/// returns itself, so a frame never asks for another.
+fn caret_scroll(previous: f64, caret_x: f64, extent_x: f64, width: f64) -> f64 {
+    let room = (width - 2.0).max(0.0);
+    let max_scroll = (extent_x.max(caret_x) - room).max(0.0);
+    let scroll = previous.clamp(0.0, max_scroll);
+    if caret_x - scroll > room {
+        caret_x - room
+    } else if caret_x - scroll < 0.0 {
+        caret_x.max(0.0)
+    } else {
+        scroll
+    }
+}
+
 impl Model {
     /// Scroll every text input so its caret stays inside
     /// the field: past the right edge less 2 px, or at the left edge.
@@ -293,13 +313,7 @@ impl Model {
                 .map_or((0.0, 0.0), |(lines, _)| {
                     (lines.width(), lines.len() as f64 * lines.height())
                 });
-            let max_scroll = (extent_x.max(caret.x) - width + 2.0).max(0.0);
-            let mut scroll = input_scroll(self, id).clamp(0.0, max_scroll);
-            if caret.x - scroll > width - 2.0 {
-                scroll = caret.x - width + 2.0;
-            } else if caret.x - scroll < 0.0 {
-                scroll = caret.x.max(0.0);
-            }
+            let scroll = caret_scroll(input_scroll(self, id), caret.x, extent_x, width);
             let vertical = self.node(id).is_some_and(|node| {
                 let layout = node.edit_line_layout();
                 layout.wrap || layout.rows.is_some()
@@ -466,5 +480,40 @@ fn map_snapshot_rect(
         }
     } else {
         host.drawn_rect(id, rect)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Check that caret scrolling settles, even in fields narrower than its margin.
+    use super::caret_scroll;
+
+    #[test]
+    fn the_caret_scroll_is_a_fixed_point_for_every_width() {
+        for tenths in 1..=60 {
+            let width = f64::from(tenths) / 10.0;
+            for caret_x in [0.0, 0.5, 1.0, 3.0, 10.0] {
+                for previous in [0.0, 1.0, 5.0, 20.0] {
+                    let once = caret_scroll(previous, caret_x, 12.0, width);
+                    let twice = caret_scroll(once, caret_x, 12.0, width);
+                    assert_eq!(once, twice, "width {width} caret {caret_x} from {previous}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_caret_stays_inside_a_wide_field() {
+        assert_eq!(caret_scroll(0.0, 150.0, 200.0, 100.0), 52.0);
+        assert_eq!(caret_scroll(52.0, 10.0, 200.0, 100.0), 10.0);
+        assert_eq!(caret_scroll(30.0, 50.0, 200.0, 100.0), 30.0);
+        assert_eq!(caret_scroll(30.0, 0.0, 0.0, 100.0), 0.0);
+    }
+
+    #[test]
+    fn a_field_narrower_than_the_margin_keeps_the_caret_at_its_left_edge() {
+        assert_eq!(caret_scroll(0.0, 0.0, 0.0, 1.0), 0.0);
+        assert_eq!(caret_scroll(1.0, 0.0, 0.0, 1.0), 0.0);
+        assert_eq!(caret_scroll(0.0, 7.0, 12.0, 1.5), 7.0);
     }
 }

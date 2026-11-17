@@ -661,3 +661,19 @@ fn editing_color_count(
         })
         .count()
 }
+
+/// A field narrower than the caret's 2 px right margin settles: its caret scroll
+/// does not flip between two offsets on every frame.
+#[test]
+fn a_field_narrower_than_the_caret_margin_settles() {
+    let screen = render(|| {
+        node()
+            .name("Narrow")
+            .part(use_text_edit(signal(String::new())).control())
+            .style(style().width(1).height(24).padding(0))
+    });
+    let field = screen.get_by_role(Role::TextBox, "Narrow");
+    field.focus();
+    field.type_text("12");
+    assert_eq!(field.value().as_deref(), Some("12"));
+}
