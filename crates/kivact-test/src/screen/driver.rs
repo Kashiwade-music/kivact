@@ -25,7 +25,8 @@ impl Screen {
     /// Mount `root` on the test driver with `options`, the App fonts
     /// `fonts` (as `App::font` passes them), and settle.
     #[track_caller]
-    pub(crate) fn start(
+    #[doc(hidden)]
+    pub fn start(
         options: RenderOptions,
         fonts: Vec<(Asset, &'static Location<'static>)>,
         root: Box<dyn FnOnce() -> View>,
@@ -141,9 +142,9 @@ impl Screen {
         self.advance(Duration::from_nanos(next.min(now + period) - now));
     }
 
-    /// The test driver (internal tests).
-    #[cfg(test)]
-    pub(crate) fn with_host<R>(&self, f: impl FnOnce(&mut ArvaneTestHost) -> R) -> R {
+    /// The test driver (the crate's own tests in `tests/screen`).
+    #[doc(hidden)]
+    pub fn with_host<R>(&self, f: impl FnOnce(&mut ArvaneTestHost) -> R) -> R {
         f(&mut self.app.host.borrow_mut())
     }
 

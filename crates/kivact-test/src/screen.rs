@@ -29,25 +29,3 @@ pub use results::{
     ImeText, LayoutCheck, LayoutLimit, LayoutRule, LayoutViolation, RasterDifference, Screenshot,
     SemanticNode,
 };
-
-#[cfg(test)]
-mod accessibility_tests;
-#[cfg(test)]
-mod context_tests;
-#[cfg(test)]
-mod disposal_tests;
-#[cfg(test)]
-mod editing_drop_probe;
-#[cfg(test)]
-mod gpu_tests;
-#[cfg(test)]
-mod host_sync_tests;
-#[cfg(test)]
-mod real_window_tests;
-#[cfg(test)]
-mod scene_cache_tests;
-#[cfg(test)]
-mod support;
-
-#[cfg(test)]
-mod window_tests;

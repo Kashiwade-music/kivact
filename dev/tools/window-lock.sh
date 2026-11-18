@@ -4,8 +4,11 @@
 # every worktree of this repository, so window tests never run from two
 # processes at once (concurrent real windows steal focus and can hang).
 #
-# Usage: dev/tools/window-lock.sh [--timeout SECONDS] -- <command> [args...]
-#   dev/tools/window-lock.sh -- cargo test -p kivact-public-api-tests --test e2e -- menu
+# Usage: dev/tools/window-lock.sh [--timeout SECONDS] [--if-mirror] -- <command> [args...]
+#   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- menu
+#   --if-mirror runs the command without the lock when KIVACT_TEST_MIRROR=off.
+#   Use it only for packages whose tests never force a mirror with
+#   RenderOptions::mirror(MirrorMode::Required) (see CONTRIBUTING.md).
 #
 # The lock is a directory under the repository's common git dir, so all
 # worktrees share it. A lock left by a process that no longer exists is
@@ -15,15 +18,33 @@
 set -euo pipefail
 
 limit=900
-if [[ "${1:-}" == --timeout ]]; then
-  limit="$2"
-  shift 2
-fi
+if_mirror=0
+while [[ "${1:-}" == --timeout || "${1:-}" == --if-mirror ]]; do
+  case "$1" in
+    --timeout) limit="$2"; shift 2 ;;
+    --if-mirror) if_mirror=1; shift ;;
+  esac
+done
 if [[ "${1:-}" != -- ]]; then
-  echo "usage: $0 [--timeout SECONDS] -- <command> [args...]" >&2
+  echo "usage: $0 [--timeout SECONDS] [--if-mirror] -- <command> [args...]" >&2
   exit 2
 fi
 shift
+
+run() {
+  set +e
+  timeout "$limit" "$@"
+  local status=$?
+  set -e
+  if (( status == 124 )); then
+    echo "window-lock: timed out after ${limit}s: $*" >&2
+  fi
+  return "$status"
+}
+
+if (( if_mirror )) && [[ "${KIVACT_TEST_MIRROR:-auto}" == off ]]; then
+  run "$@" && exit 0 || exit $?
+fi
 
 common="$(git rev-parse --git-common-dir)"
 lock="$common/kivact-window-tests.lock"
@@ -55,11 +76,4 @@ echo $$ > "$lock/pid"
 printf '%s (in %s)\n' "$*" "$(pwd)" > "$lock/what"
 trap 'rm -rf "$lock"' EXIT
 
-set +e
-timeout "$limit" "$@"
-status=$?
-set -e
-if (( status == 124 )); then
-  echo "window-lock: timed out after ${limit}s: $*" >&2
-fi
-exit "$status"
+run "$@" && exit 0 || exit $?

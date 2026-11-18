@@ -10,6 +10,8 @@
 # Usage: dev/tools/check-features.sh
 #
 # Shared values live in kivact-types; engine client contracts live in kivact-engine.
+# Only features with a public meaning are checked (TL-17): the facade's, the GPU
+# renderer, native embedding and the texture-sharing crate.
 # Each entry is `crate/feature`. The facade (`kivact`, `kivact-ui`) is built
 # with only that feature turned on; the first failure stops the run with a
 # non-zero status.
@@ -19,30 +21,17 @@ set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
 entries=(
-  arvane-native/embed
-  kivact-core/embed
-  kivact-core/devtools
   kivact/devtools
   kivact/embed
   kivact/gpu
   kivact/gpu-interop
   kivact/tokio
-  kivact-core/tokio
-  kivact-runtime/tokio
   kivact/test
-  kivact-test/devtools
   arvane-render/gpu
-  arvane-compose/gpu
-  arvane-compose/gpu-interop
-  arvane-native/test
-  arvane-virtual/mirror
+  arvane-native/embed
   kivact-gpu-share/export
   kivact-gpu-share/import
   kivact-gpu-share/wgpu
-  kivact-core/gpu-interop
-  kivact-test/embed
-  kivact-test/gpu-interop
-  kivact-engine/testing
 )
 
 for entry in "${entries[@]}"; do

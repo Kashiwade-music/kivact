@@ -811,10 +811,10 @@ impl<'a> Locator<'a> {
 /// Input queued without settling (internal tests): the host applies it at
 /// once and the client's turn for all of it runs at the next settle, as
 /// for input arriving between two turns of a running App.
-#[cfg(test)]
+#[doc(hidden)]
 impl Screen {
     /// Press and release the primary button at the centre of `node`.
-    pub(crate) fn queue_click(&self, node: NodeId) {
+    pub fn queue_click(&self, node: NodeId) {
         let r = self
             .host()
             .rect(node)
@@ -826,12 +826,12 @@ impl Screen {
     }
 
     /// Type `text` key by key into whatever has the focus.
-    pub(crate) fn queue_text(&self, text: &str) {
+    pub fn queue_text(&self, text: &str) {
         self.type_events(text);
     }
 
     /// The host reports a failure after the last revision it applied.
-    pub(crate) fn queue_host_failure(&self, reason: &str) {
+    pub fn queue_host_failure(&self, reason: &str) {
         let revision = kivact_types::Revision(self.inspect().reader().stats().revision);
         self.app
             .host
@@ -841,5 +841,10 @@ impl Screen {
                 revision,
                 reason: reason.into(),
             });
+    }
+
+    /// Inject one host event without settling (the crate's own tests).
+    pub fn inject(&self, event: kivact_engine::contract::HostEvent) {
+        self.app.host.borrow_mut().inject(event);
     }
 }

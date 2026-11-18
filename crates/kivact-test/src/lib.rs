@@ -53,7 +53,7 @@
 //!   the frame in [`failure_dir`]. [`Screen::assert_layout_with`] preserves
 //!   explicit check options and the same failure artifacts. A Japanese label needs Noto Sans JP given
 //!   with `TestFonts::Only` (the bundled font has no CJK). The E2E is
-//!   `dev/tests/kivact-public-api/tests/e2e/layout_check.rs`.
+//!   `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs`.
 
 //!
 //! Embedded editors can use `TestParent` to open a real host, inject native

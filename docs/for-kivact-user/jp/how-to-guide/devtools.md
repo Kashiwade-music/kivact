@@ -2,7 +2,7 @@
 
 [English](../../en/how-to-guide/devtools.md)
 
-DevTools は、動いている Kivact のアプリに接続する別のアプリケーションです。すべてのウィンドウの要素ツリーとレイアウトを表示し、スタイルと emulation を編集でき、turn と frame を記録して画面が更新された理由を調べられます。コメントとスタイルの変更を review としてまとめ、ほかの人や AI エージェントと共有できます。同じ protocol は MCP の tool と Python の script からも使えます。
+DevTools は、動いている Kivact のアプリに接続する別のアプリケーションです。すべてのウィンドウの要素ツリーとレイアウトを表示し、スタイルと emulation を編集でき、turn と frame を記録して画面が更新された理由を調べられます。コメントとスタイルの変更を review としてまとめ、ほかの人や AI エージェントと共有できます。同じ protocol は MCP の tool からも使えます。
 
 ## ツールをインストールする
 
@@ -11,14 +11,6 @@ DevTools アプリと MCP サーバーを Kivact のリポジトリーからイ�
 ```sh
 cargo install --git https://github.com/Kashiwade-music/kivact kivact-devtools kivact-devtools-mcp
 ```
-
-Python の client は pip でインストールします。この command は Kivact の checkout の外でも動きます。
-
-```sh
-pip install "kivact-devtools @ git+https://github.com/Kashiwade-music/kivact#subdirectory=python/kivact-devtools"
-```
-
-Kivact のリポジトリー自体を編集するときだけ、`pip install -e python/kivact-devtools` を使ってください。
 
 ## DevTools を有効にする
 
@@ -192,40 +184,11 @@ Emulation パネルは、theme（なし・Light・Dark）、reduced motion、loc
 claude mcp add kivact-devtools -- kivact-devtools-mcp
 ```
 
-`initialize`・`subscribe`・`show_table` を除くすべての protocol の method が、同じ名前の tool になります。これに local の 2 つを足したものが tool の一覧です。`list_targets` は起動中の target（path、アプリ名、pid、port、版、起動時刻、workspace root）を返します。token は含みません。`select_target` は `{ "target": "<path>" }` を受け取ります。選ばないときは `KIVACT_DEVTOOLS_TARGET`、起動中の target が 1 つだけならそれを使います。0 個か 2 個以上なら、`list_targets` を呼ぶよう促す error を返します。
+`initialize`・`subscribe` を除くすべての protocol の method が、同じ名前の tool になります。これに local の 2 つを足したものが tool の一覧です。`list_targets` は起動中の target（path、アプリ名、pid、port、版、起動時刻、workspace root）を返します。token は含みません。`select_target` は `{ "target": "<path>" }` を受け取ります。選ばないときは `KIVACT_DEVTOOLS_TARGET`、起動中の target が 1 つだけならそれを使います。0 個か 2 個以上なら、`list_targets` を呼ぶよう促す error を返します。
 
 tool はパネルと同じ範囲を覆います。要素とレイアウト（`get_tree`、`get_node`、12 の query、`get_owners`、`screenshot`、`highlight`、`start_pick`/`stop_pick`、`lint_layout`）、更新と性能（記録、`list_turns`、`list_frames`、`get_counters`、snapshot、`export_trace`）、スタイルと emulation（`set_style_override`、`force_state`、`set_emulation`、`set_overlays`、`set_time_scale`）、入力（`inject_input`、`list_inputs`）、review（`get_review`、`add_comment`、`edit_comment`、`remove_comment`、`export_review`）です。
 
 `inject_input` の後の turn は、`list_turns` に `wait_ms` を付けて待ちます。
-
-## Python で DevTools を操作する
-
-Python の package は[ツールをインストールする](#ツールをインストールする)の pip の command で入ります。VS Code では Pylance と pyright が型ヒントと `py.typed` を読むので、stub は要りません。
-
-```python
-import kivact_devtools as kd
-
-app = kd.connect()                       # the only running target
-win = app.window("Counter")              # by title
-button = win.get_by_role(kd.Role.BUTTON, "Increment")
-buttons = win.all_by_role(kd.Role.BUTTON)
-button.highlight()
-app.clear_highlight()
-button.click()
-win.type_text("abc")
-win.press_key("Ctrl+Enter")              # the chord syntax of the config file
-
-with app.record() as rec:
-    button.click()
-for turn in rec.turns:
-    print(turn.turn, turn.duration_ns, len(turn.changed_nodes))
-
-app.export_review()                      # [review.json, review.md] paths
-```
-
-`connect(target=...)` は discovery file の path を受け取り、`name="Counter"` はアプリ名で選びます。どちらも無いときは `KIVACT_DEVTOOLS_TARGET`、起動中の target が 1 つだけならそれを使います。`Window` の query は protocol と同じ `get_`/`query_`/`find_`/`all_` の形です。`app.rpc` は低水準の型付き method で、protocol の dataclass を受け取って返します（`app.rpc.get_tree(...)`）。手書きの `App`・`Window`・`Element`・`Recording` はそれらを継承しません。
-
-Scripts パネルは `.kivact/devtools/scripts/` の `.py` を一覧して実行します。interpreter は設定の `python`、workspace root の `.venv`、`python3`、`python` の順に探します。標準出力と標準エラーを行ごとに表示し、`show_table` の表も表示します。
 
 ## 制限
 

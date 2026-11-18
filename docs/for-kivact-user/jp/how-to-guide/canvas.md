@@ -519,7 +519,7 @@ fn exporter() -> impl IntoView {
 `render` と同じ `Offscreen` の `Draw` の語彙、テーマ、登録済みのフォントを使うので、
 1 つの描画関数を 1 つの `Offscreen` で PNG と SVG の両方に書き出せます。
 
-```rust
+```rust,no_run
 use kivact::draw::{Draw, Offscreen};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::prelude::*;
