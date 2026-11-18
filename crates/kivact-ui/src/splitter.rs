@@ -13,6 +13,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 
+// xtask-allow(state): legacy: start, end, collapse, snaps, key_step, handle
 /// Two panes and a handle between them, created by [`splitter`].
 pub struct Splitter {
     root: Node,

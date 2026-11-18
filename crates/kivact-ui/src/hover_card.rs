@@ -40,7 +40,6 @@ pub struct HoverCard {
     enabled: Value<bool>,
     focus: FocusTrigger,
     open: CardOpen,
-    // xtask-allow(state-fields): option: HoverCard::label; absent keeps the preview a Group named by the hover_card.label message, present makes it a named Dialog
     label: Option<Value<String>>,
     on_open_change: Option<kivact_core::state::Callback<bool>>,
 }

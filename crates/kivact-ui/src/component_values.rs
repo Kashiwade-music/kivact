@@ -7,17 +7,12 @@ use kivact_interaction::Tone;
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct AlertState {
     pub tone: Tone,
-    // xtask-allow(state-fields): independent: Alert::content fills the content slot (Some) and Alert::collapsible with the open binding choose its Expansion; it combines with any icon, actions, description or dismiss button
     /// The content slot ([`Alert::content`](super::Alert::content)): `None`
     /// without content, otherwise whether it can collapse and is open.
     pub content: Option<Expansion>,
-    // xtask-allow(state-fields): independent: Alert::dismissible shows the dismiss button, with or without content, icon or actions
     pub dismissible: bool,
-    // xtask-allow(state-fields): independent: Alert::icon fills the icon slot of a dismissible or fixed alert alike
     pub has_icon: bool,
-    // xtask-allow(state-fields): independent: Alert::actions fills the action slot, beside or without a dismiss button
     pub has_actions: bool,
-    // xtask-allow(state-fields): independent: Alert::description adds the description line, with or without content below it
     pub has_description: bool,
 }
 
@@ -42,11 +37,8 @@ pub struct CardState {
     /// [`input`](Self::input), [`is_interactive`](Self::is_interactive) and
     /// [`selection`](Self::selection).
     pub action: CardAction,
-    // xtask-allow(state-fields): independent: the caller's Card::disabled value applies to any action
     pub disabled: bool,
-    // xtask-allow(state-fields): independent: media and footer are separate optional slots; all four combinations render
     pub has_media: bool,
-    // xtask-allow(state-fields): independent: media and footer are separate optional slots; all four combinations render
     pub has_footer: bool,
 }
 
@@ -145,17 +137,11 @@ pub struct EmptyStateState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupState {
     pub input: kivact_core::custom::PartState,
-    // xtask-allow(state-fields): independent: focus is within the group (focus_within of its root); invalid and any adornment combine with it
     pub focused: bool,
-    // xtask-allow(state-fields): independent: the group's .invalid(..) (accessible_invalid); a group is invalid whether focused or not
     pub invalid: bool,
-    // xtask-allow(state-fields): independent: InputGroup::start fills the inline start adornment, with or without an end one
     pub has_start: bool,
-    // xtask-allow(state-fields): independent: InputGroup::end fills the inline end adornment, with or without a start one
     pub has_end: bool,
-    // xtask-allow(state-fields): independent: InputGroup::block_start adds a row above the controls, beside any inline adornments
     pub has_block_start: bool,
-    // xtask-allow(state-fields): independent: InputGroup::block_end adds a row below the controls, beside any inline adornments
     pub has_block_end: bool,
     pub size: ControlSize,
     pub direction: ReadingDirection,
@@ -165,11 +151,8 @@ pub struct InputGroupState {
 pub struct InputGroupMemberState {
     pub kind: InputGroupMemberKind,
     pub group: InputGroupState,
-    // xtask-allow(state-fields): independent: index == 0 in GroupRender::member; a single member is both first and last
     pub first: bool,
-    // xtask-allow(state-fields): independent: index + 1 == count in GroupRender::member; the middle member of three is neither
     pub last: bool,
-    // xtask-allow(state-fields): independent: focus is within this member (focus_within of its node), at any position in the group
     pub focused: bool,
 }
 /// Semantic heading level passed to its recipe.

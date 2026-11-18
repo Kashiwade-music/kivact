@@ -19,6 +19,7 @@ type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) ->
 
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<CheckableState>)>;
 
+// xtask-allow(state): legacy: item, item_node
 /// A set of mutually exclusive choices (`Role::RadioGroup`), created by
 /// [`radio_group`].
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {

@@ -33,6 +33,7 @@ enum Ownership {
 }
 use crate::component_values::{AlertState, Expansion};
 
+// xtask-allow(state): legacy: description, icon, actions, collapsible, dismiss_content, open
 /// An urgent, persistent message with optional actions and details.
 pub struct Alert {
     root: Node,

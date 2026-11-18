@@ -14,6 +14,7 @@ enum AnnouncePolicy {
 
 use crate::component_values::EmptyStateState;
 
+// xtask-allow(state): legacy: description, icon, actions
 /// A message for a region without content.
 pub struct EmptyState {
     root: Node,

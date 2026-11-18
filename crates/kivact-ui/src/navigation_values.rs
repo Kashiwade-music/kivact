@@ -20,13 +20,9 @@ pub struct StepperItemState {
     pub current: usize,
     pub status: StepStatus,
     pub indicator: StepIndicatorKind,
-    // xtask-allow(state-fields): independent: whether Stepper::on_step_press was given, the same for every step; a disabled, optional or collapsed step keeps it, and disabled alone refuses the press
     pub interactive: bool,
-    // xtask-allow(state-fields): independent: copied from StepperState::collapsed, the whole stepper's responsive layout; disabled and optional steps appear in either layout
     pub collapsed: bool,
-    // xtask-allow(state-fields): independent: StepperItem::disabled; a disabled step may also be optional and may have an activation handler on the stepper
     pub disabled: bool,
-    // xtask-allow(state-fields): independent: StepperItem::optional only marks the label; it combines with disabled and either layout
     pub optional: bool,
 }
 /// Actual responsive layout projected from the mounted root and caller data.
@@ -128,10 +124,8 @@ pub struct PaginationSummary {
     /// Zero-based actual page index.
     pub page: usize,
     pub count: usize,
-    // xtask-allow(state-fields): option: Pagination::total_items; absent when the caller does not know the total
     pub total_items: Option<u64>,
     pub page_size: u32,
-    // xtask-allow(state-fields): independent: Pagination::has_more for remote paging; the caller reports more pages with or without a known total
     pub has_more: bool,
 }
 

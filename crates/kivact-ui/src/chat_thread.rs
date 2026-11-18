@@ -8,6 +8,7 @@ use kivact_core::view::{
     Element, IntoView, Node, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
 use kivact_interaction::use_follow_end;
+// xtask-allow(state): legacy: viewport, history_revision, composer, empty, gap
 /// A scrollable message log that follows new content until the reader scrolls away.
 pub struct ChatThread {
     root: Node,

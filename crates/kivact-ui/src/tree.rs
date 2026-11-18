@@ -17,6 +17,7 @@ use std::rc::Rc;
 
 type RowContent<K> = kivact_core::view::ViewFn<(Value<TreeRow<K>>, Value<TreeItemState>)>;
 
+// xtask-allow(state): legacy: item, header, reveal
 /// A keyed tree view drawn with the current theme's tree recipes.
 pub struct Tree<K: kivact_core::state::ItemKey> {
     root: Node,

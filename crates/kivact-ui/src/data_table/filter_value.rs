@@ -19,12 +19,7 @@ pub enum FilterField {
     /// Text, with a blank value clearing the filter.
     Text,
     /// A finite number with optional inclusive bounds.
-    Number {
-        // xtask-allow(state-fields): option: absent means the filter has no bound
-        min: Option<f64>,
-        // xtask-allow(state-fields): option: absent means the filter has no bound
-        max: Option<f64>,
-    },
+    Number { min: Option<f64>, max: Option<f64> },
     /// One of the (key, label) options.
     Choice(Vec<(String, String)>),
     /// Any of the (key, label) options.

@@ -114,9 +114,7 @@ pub struct ButtonState {
     /// decoration is not a state style property).
     pub input: PartState,
     pub size: ControlSize,
-    // xtask-allow(state-fields): independent: busy comes from the caller's busy value and is valid with any icon or label layout
     pub busy: bool,
-    // xtask-allow(state-fields): option: None for a plain button, Some(open) when a popup or the caller publishes an expanded state
     /// Whether the button opens something and whether that is open: `None`
     /// for a plain button, `Some(open)` when the button publishes an
     /// expanded state (a popup, menu or disclosure attached its trigger to
@@ -124,14 +122,11 @@ pub struct ButtonState {
     /// trigger as such (shadcn's `aria-expanded:bg-muted`) and does not
     /// nudge a popup trigger while pressed.
     pub expanded: Option<bool>,
-    // xtask-allow(state-fields): independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn
     /// Whether the button shows a leading icon ([`Button::icon`](super::Button::icon)).
     pub leading_icon: bool,
-    // xtask-allow(state-fields): independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn
     /// Whether the button shows a trailing icon
     /// ([`Button::trailing`](super::Button::trailing)).
     pub trailing_icon: bool,
-    // xtask-allow(state-fields): independent: the leading icon, the trailing icon and the hidden label are set by separate builder calls and all eight combinations are drawn
     /// Whether the label is hidden ([`Button::hide_label`](super::Button::hide_label));
     /// it stays the accessible name.
     pub label_hidden: bool,
@@ -167,15 +162,12 @@ impl ButtonState {
 pub struct ToggleButtonState {
     /// The actual input state of the toggle.
     pub input: PartState,
-    // xtask-allow(state-fields): independent: the pressed state follows the toggle and is valid with any icon or label layout
     /// Whether it is pressed (on).
     pub pressed: bool,
     /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
-    // xtask-allow(state-fields): independent: the leading icon and the hidden label are set separately; all four combinations are drawn
     /// Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon)).
     pub leading_icon: bool,
-    // xtask-allow(state-fields): independent: the leading icon and the hidden label are set separately; all four combinations are drawn
     /// Whether the label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label),
     /// or [`ToggleGroup::icon_only`](super::ToggleGroup::icon_only) for a group's item).
     pub label_hidden: bool,
@@ -313,7 +305,6 @@ pub enum CheckControl {
     CheckBox(CheckedState),
     /// A switch: on or off.
     Switch {
-        // xtask-allow(state-fields): independent: the switch's bound value; the opted-in drag starts from either value and moves the thumb whichever one the binding holds
         /// Whether the switch is on.
         on: bool,
         /// The localized word for the state: `switch.on` ("ON") or
@@ -321,7 +312,6 @@ pub enum CheckControl {
         /// same for the mounted control; read it in the paint, which follows
         /// its text. It is not part of the state's equality.
         text: kivact_core::state::Value<String>,
-        // xtask-allow(state-fields): independent: the live visual of the opted-in drag gesture, None when the switch has no drag or none is running; it runs while the switch is on or off
         /// Live visual state while the opted-in drag gesture moves the thumb.
         drag: Option<ThumbDrag>,
     },
@@ -419,10 +409,8 @@ impl CheckableState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DialogState {
     pub input: PartState,
-    // xtask-allow(state-fields): independent: the popup's open state (Shape::state) or the drawer's open binding; a dialog with or without media opens and closes
     pub open: bool,
     pub kind: DialogMode,
-    // xtask-allow(state-fields): independent: Dialog::media gave a header view (the drawer's drag handle reports false); it is fixed while the dialog opens and closes
     /// The dialog has a [`media`](super::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,
@@ -447,10 +435,8 @@ pub struct TooltipArrowState {
 pub struct SelectTriggerState {
     /// The actual input state of the trigger.
     pub input: PartState,
-    // xtask-allow(state-fields): independent: the select's popup or the selection field's FieldState::Open; the list opens with or without a selected option
     /// Whether the list is open.
     pub open: bool,
-    // xtask-allow(state-fields): independent: no listed option is selected (trigger_projection; a selection field reports false); the trigger shows it while the list is open or closed
     /// Whether the trigger shows the placeholder: no option is selected
     /// (the selected key is `None` or not among the options).
     pub placeholder: bool,
@@ -497,12 +483,10 @@ pub struct DataTableRowState {
     /// The actual state of the row's attached table part: its input state,
     /// whether it is selected and whether it holds the tab stop.
     pub interaction: kivact_interaction::TableRowState,
-    // xtask-allow(state-fields): option: DataTable::row_color for this row; absent keeps the theme's row background
     /// The accent the caller gave the row with
     /// [`DataTable::row_color`](super::DataTable::row_color); the recipe
     /// resolves it in the theme in effect.
     pub color: Option<kivact_core::style::Color>,
-    // xtask-allow(state-fields): option: DataTable::row_height (at least 18); absent uses the theme's row height
     /// The height the caller gave the rows with
     /// [`DataTable::row_height`](super::DataTable::row_height), at least 18.
     pub height: Option<f64>,

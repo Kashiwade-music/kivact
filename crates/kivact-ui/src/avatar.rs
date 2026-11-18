@@ -15,6 +15,7 @@ enum AvatarStatusSource {
     None,
     Mounted { label: Value<Option<String>> },
 }
+// xtask-allow(state): legacy: status_content, name_tooltip
 pub struct Avatar {
     root: Node,
     name: Value<String>,

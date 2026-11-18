@@ -12,6 +12,7 @@ enum Controls<C> {
     Built(C),
     Scoped(Box<dyn FnOnce() -> C>),
 }
+// xtask-allow(state): legacy: start, end, block_start, block_end
 /// A labelled group of adjacent inputs and adornments.
 pub struct InputGroup<C> {
     root: Node,

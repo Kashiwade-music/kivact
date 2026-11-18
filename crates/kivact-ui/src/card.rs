@@ -9,6 +9,7 @@ use kivact_interaction::{use_button, use_checkbox};
 
 use crate::component_values::{CardAction, CardState};
 
+// xtask-allow(state): legacy: header, media, footer
 /// A surface containing optional header, media, content and footer regions.
 pub struct Card {
     root: Node,

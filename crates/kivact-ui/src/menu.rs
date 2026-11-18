@@ -34,14 +34,10 @@ type ItemContent<K> = kivact_core::view::ViewFn<(Value<MenuEntry<K>>, Value<Menu
 pub struct Menu<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     behavior: Behavior<K>,
-    // xtask-allow(state-fields): option: absent means the component's default
     offset: Option<f64>,
     placement: Placement,
-    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): option: Menu::at_least_anchor_width; false sizes the surface to its content
     at_least_anchor_width: bool,
-    // xtask-allow(state-fields): option: absent means the component's default
     item: Option<ItemContent<K>>,
     variants: Variants,
 }
@@ -273,9 +269,7 @@ struct Level<K: kivact_core::state::ItemKey> {
     behavior: Behavior<K>,
     anchor: NodeRef,
     placement: Placement,
-    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): option: copied from Menu::at_least_anchor_width for the top level; submenu levels are false
     at_least_anchor_width: bool,
     kind: LevelKind,
     label: Value<String>,

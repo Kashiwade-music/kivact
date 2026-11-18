@@ -6,6 +6,7 @@ use crate::{
 };
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, node, text};
+// xtask-allow(state): legacy: status, time, content, avatar, header, footer, metadata, media, icon, actions, reactions, align, bubble_width
 /// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
     root: Node,

@@ -13,18 +13,13 @@ pub enum CodeCollapse {
 /// Rendered source facts supplied to code-block recipes.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CodeBlockState {
-    // xtask-allow(state-fields): independent: CodeBlock::line_numbers shows the gutter in every collapse state, wrapped or not
     pub numbered: bool,
-    // xtask-allow(state-fields): independent: CodeBlock::wrap wraps long lines whether or not the gutter shows
     pub wrapped: bool,
     pub collapse: CodeCollapse,
-    // xtask-allow(state-fields): independent: use_copy_feedback holds it for copy_feedback_ms after Copy; the feedback shows in any collapse state and Expand works while it shows
     pub copied: bool,
-    // xtask-allow(state-fields): independent: CodeBlock::title, language, copy_button or end_content fill the header; a collapsible block shows its header even when this is false
     /// The header has a title, a language label, a copy button or end
     /// content, besides any collapse toggle.
     pub has_header_content: bool,
-    // xtask-allow(state-fields): independent: CodeBlock::footer fills the footer slot, with or without header content
     pub has_footer: bool,
 }
 
