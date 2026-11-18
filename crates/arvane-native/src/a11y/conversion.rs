@@ -100,7 +100,7 @@ pub(super) fn update<'a>(
             nodes
         })
         .collect();
-    let mut metadata = accesskit::Tree::new(accesskit::NodeId(root.0));
+    let mut metadata = accesskit::TreeInfo::new(accesskit::NodeId(root.0));
     metadata.toolkit_name = Some("Arvane".into());
     metadata.toolkit_version = Some(env!("CARGO_PKG_VERSION").into());
     accesskit::TreeUpdate {
