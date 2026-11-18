@@ -108,7 +108,7 @@ cargo xtask check --no-write --only state --strict --crate <P> 2>&1 | grep "stat
    - `R` = その item の本体（型なら `{` から `}` まで、関数なら本体の中）にある**最初の** `// xtask-allow(state-fields):` の理由。行頭の `independent:`・`option:`・`cache:`・`identity:`・`statistic:`・`projection:` のどれかとその後の空白を取り、末尾の `.` を取る。本体に旧い印が無ければ `R` は無し。
    - `W` = 本体の旧い印のうち `projection:` で始まり `written only by ` を含むものごとに、`<その印の直後の field 名> is written only by <"written only by " の後から最初の ; , . までの語>`。複数あれば `; ` で繋ぐ。無ければ無し。
    - 文面：`W` が無ければ `// xtask-allow(state): legacy: L; R`、`W` があれば `// xtask-allow(state): legacy: W; L; R`。`R` が無ければ `; R` を付けない。**文面は必ず `legacy: ` で始める**（設計 6.1・12 章 ST-01：この印は旧い印から機械的に作ったもので、設計者がまだ閉じ方を確かめていないことを示す。xtask は `legacy:` の数を報告し、CP1 で Orchestrator が台帳 `rework/state-ledger.md` にし、付属書 L が一件ずつ閉じる。AC-3 は `legacy:` 0 件）。共通手順 M は組合せの意味を調べたり直したりしない。
-   - 行全体（字下げを除く）が 180 文字を超えたら、`R` を 180 文字に収まる最後の空白の位置で切る（`...` は付けない）。
+   - 行の長さに上限は無い。`L` も `R` も切らずに全部書く（付属書 L が閉じ方を決めるときに読む材料なので削らない。rustfmt は comment を折り返さず、xtask も行の長さを検査しない）。
 3. 印を置く場所：その item の**一番上の行**の直前。一番上の行とは、item の直前に続く `///` の doc の行と `#[` で始まる属性の行のうち最も上の行（無ければ `struct`・`enum`・`fn` の行そのもの）。字下げは item の行と同じにする。既に `// xtask-allow(...)` の別の印（`api-shape` など）がその上に並んでいれば、その印たちの直前でも直後でもよい（検査はどちらも認める）。
 
 例（`kivact-ui/src/values.rs` の `ButtonState` が報告された場合。本体の最初の旧い印が `independent: busy comes from the caller's busy value and is valid with any icon or label layout`）：
@@ -3426,7 +3426,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e --features devtools -- devtools
   ```
 
-- **完了条件**：すべて成功。`rg -n "devtools-client|devtools_client" crates dev Cargo.toml` が何も出さない（`dev/xtask/policy/workspace.toml` は手順 9 で直す）。
+- **完了条件**：すべて成功。`rg -n "kivact-devtools-client|kivact_devtools_client" crates dev Cargo.toml` が何も出さない（`dev/xtask/policy/workspace.toml` は手順 9 で直す。試験の関数名の `..._devtools_client_...` は変えないので crate の名前だけを探す）。
 
 ## T14：`// Regression:` の札、`GRACE` の sleep、kit の README の移行表と recipe の一覧
 
@@ -4083,7 +4083,8 @@ cargo xtask check --no-write --only state --strict --crate <P>
          clippy::print_stdout,
          clippy::print_stderr,
          clippy::dbg_macro,
-         reason = "guide examples are written for readers; they are compiled here only to type-check them"
+         unsafe_code,
+         reason = "guide examples are user code written for readers (the unsafe GPU-sharing calls are public API contracts); they are compiled here only to type-check them"
      )]
      mod checked;
 
