@@ -9,11 +9,11 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
-use crate::render;
 use kivact_core::state::effect;
 use kivact_core::task::spawn;
 use kivact_core::view::{column, show, text};
 use kivact_runtime::{Owner, on_cleanup, signal};
+use kivact_test::render;
 
 type Log = Rc<RefCell<Vec<String>>>;
 
@@ -28,13 +28,10 @@ fn push(log: &Log, entry: impl Into<String>) {
 #[test]
 fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
     let log: Log = Rc::default();
-    // xtask-allow(state-fields): independent: a test slot holding the branch signals; written once
     let slots = Rc::new(Cell::new(None));
     let (seen, slot) = (log.clone(), slots.clone());
     let screen = render(move || {
-        // xtask-allow(state-fields): independent: the show() condition the test flips to dispose the branch; the closed counter and the slot are written by other steps
         let open = signal(true);
-        // xtask-allow(state-fields): independent: the counter a late cleanup writes after the branch is gone; the test reads it whether open is true or false
         let closed = signal(0);
         slot.set(Some((open, closed)));
         let seen = seen.clone();
@@ -62,7 +59,7 @@ fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
         column((branch, text(move || format!("closed {}", closed.get()))))
     });
     let (open, closed) = slots.get().expect("setup ran");
-    let residue = |screen: &crate::Screen| {
+    let residue = |screen: &kivact_test::Screen| {
         let stats = screen.stats();
         (
             stats.live_reactive,

@@ -12,8 +12,15 @@ use super::model::{Locator, Query};
 use kivact_core::diagnostics::Why;
 use kivact_core::view::{A11yAction, CheckedState, Role};
 use kivact_style::draw::RegionId;
+use kivact_types::NodeId;
 
 impl<'a> Locator<'a> {
+    /// The engine node of this locator (the crate's own tests).
+    #[doc(hidden)]
+    pub fn node_id(&self) -> NodeId {
+        self.node
+    }
+
     /// Why this element's props have their values (effects, reads, writes).
     pub fn why(&self) -> Why {
         self.screen.inspect().why(self.node)

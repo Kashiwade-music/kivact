@@ -1,8 +1,8 @@
 //! Role: Real-window regressions for layer context entry.
-use crate::{MirrorMode, RenderOptions, render_with, render_with_handle};
 use kivact_core::state::{Value, memo, signal};
 use kivact_core::view::text;
 use kivact_runtime::{pure, untrack};
+use kivact_test::{MirrorMode, RenderOptions, render_with, render_with_handle};
 use std::cell::Cell;
 
 #[test]

@@ -21,15 +21,15 @@ use kivact_engine::testing::{Renderer, gpu_unavailable};
 use kivact_style::asset::{Asset, ImageFit};
 use kivact_style::{BorderStyle, Direction, Position, rgb};
 
-use super::model::Screen;
-use super::results::Screenshot;
 use super::support::button_box;
-use crate::{MirrorMode, RenderOptions};
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::style::style;
 use kivact_core::view::canvas;
 use kivact_core::view::{IntoView, column, node, row, text};
 use kivact_style::{Align, Color, Justify, pct, rgba};
+use kivact_test::Screen;
+use kivact_test::Screenshot;
+use kivact_test::{MirrorMode, RenderOptions};
 use kivact_types::WindowId;
 
 /// A 2 × 2 RGBA PNG (stretched and sampled bilinearly) and a two-color
@@ -451,7 +451,7 @@ fn assert_close(cpu: &Screenshot, gpu: &Screenshot, name: &str) {
     let differs = !diff.within_raster_tolerance();
     // `KIVACT_GPU_SMOKE_SAVE=1` keeps both frames of a passing run too.
     if differs || std::env::var_os("KIVACT_GPU_SMOKE_SAVE").is_some() {
-        let dir = super::failure_dir();
+        let dir = kivact_test::failure_dir();
         let _ = std::fs::create_dir_all(&dir);
         let _ = cpu.save_png(dir.join(format!("{name}_cpu.png")));
         let _ = gpu.save_png(dir.join(format!("{name}_gpu.png")));

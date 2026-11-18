@@ -4,11 +4,8 @@ use kivact_types::NodeId;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 pub(super) struct Probe {
-    // xtask-allow(state-fields): independent: the reader and the other live node the test arms this probe with; an unarmed probe skips the drop check, and the shared counters count drops whatever it holds
     pub(super) armed: RefCell<Option<(Reader, NodeId)>>,
-    // xtask-allow(state-fields): statistic: a test counter of drops
     pub(super) drops: Rc<Cell<usize>>,
-    // xtask-allow(state-fields): statistic: a test counter of re-entered drops
     pub(super) reentered: Rc<Cell<usize>>,
 }
 impl Drop for Probe {

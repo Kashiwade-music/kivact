@@ -5,14 +5,14 @@ use std::rc::Rc;
 
 use kivact_types::{NodeId, WindowId};
 
-use super::model::Screen;
 use super::support::button_box;
 use super::support::{Rng, seeds};
-use crate::render;
 use kivact_core::state::Signal;
 use kivact_core::style::style;
 use kivact_core::view::{Role, column, for_each, node, text};
 use kivact_runtime::signal;
+use kivact_test::Screen;
+use kivact_test::render;
 
 #[test]
 fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
@@ -21,17 +21,13 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     use kivact_core::view::{ButtonPress, Handled, MouseButton, PointerPhase};
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Rect, RegionId};
-    // xtask-allow(state-fields): statistic: a test counter of presses
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
-    // xtask-allow(state-fields): statistic: a test counter of observed downs
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
-    // xtask-allow(state-fields): independent: a test slot holding the disabled signal; written once
     let disabled = Rc::new(Cell::new(None));
     let disabled_slot = disabled.clone();
     let screen = render(move || {
-        // xtask-allow(state-fields): independent: the canvas's disabled input the test sets to reject a pointer down; the press and down counters move only on accepted input
         let disabled = signal(false);
         disabled_slot.set(Some(disabled));
         canvas(|draw, _| draw.region(RegionId(1), Rect::new(0., 0., 100., 60.)))
@@ -62,24 +58,20 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
                 }),
             )
     });
-    let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
+    let node = screen.get_by_role(Role::Canvas, "gesture canvas").node_id();
     let press = ButtonPress {
         button: MouseButton::Primary,
         clicks: 1,
     };
     let sample = |id, phase| gesture_sample(node, id, phase);
-    let host = &screen.app.host;
-    let dispatch = |id, phase| {
-        host.borrow_mut()
-            .inject(HostEvent::Pointer(sample(id, phase)))
-    };
+    let dispatch = |id, phase| screen.inject(HostEvent::Pointer(sample(id, phase)));
     let (down, up) = (PointerPhase::Down(press), PointerPhase::Up(press));
     dispatch(11, down);
     dispatch(22, down);
     assert_eq!(downs.get(), 2, "each pointer has a capture of its own");
     dispatch(11, up);
     dispatch(22, up);
-    host.borrow_mut().inject(HostEvent::Activate {
+    screen.inject(HostEvent::Activate {
         node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(sample(22, up)),
@@ -92,7 +84,7 @@ fn rejected_pointer_down_cannot_retain_an_ended_region_gesture() {
     screen.run_until_idle();
     disabled.set(false);
     screen.run_until_idle();
-    host.borrow_mut().inject(HostEvent::Activate {
+    screen.inject(HostEvent::Activate {
         node,
         region: Some(kivact_types::RegionId(1)),
         pointer: Some(sample(33, up)),
@@ -109,10 +101,8 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
     use kivact_engine::contract::HostEvent;
     use kivact_style::draw::{Point, Rect, RegionId};
     use kivact_types::{Modifiers, PointerSample};
-    // xtask-allow(state-fields): statistic: a test counter of presses
     let presses = Rc::new(Cell::new(0));
     let calls = presses.clone();
-    // xtask-allow(state-fields): independent: counts the Down events the canvas handler sees and lets only the first start a gesture; the press counter counts activations separately, so any pair of counts is valid
     let downs = Rc::new(Cell::new(0));
     let observed = downs.clone();
     let screen = render(move || {
@@ -149,36 +139,32 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
                 }),
             )
     });
-    let node = screen.get_by_role(Role::Canvas, "gesture canvas").node;
+    let node = screen.get_by_role(Role::Canvas, "gesture canvas").node_id();
     let press = ButtonPress {
         button: MouseButton::Primary,
         clicks: 1,
     };
     // The mouse (pointer 1) starts a gesture whose Up never arrives.
-    screen
-        .app
-        .host
-        .borrow_mut()
-        .inject(HostEvent::Pointer(kivact_engine::contract::Routed {
-            window: WindowId::MAIN,
-            target: Some(region_target(node)),
-            local: Point::new(20., 20.),
-            activation: None,
-            input: PointerSample {
-                id: kivact_types::PointerId(1),
-                phase: PointerPhase::Down(press),
-                position: Point::new(20., 20.),
-                buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
-                modifiers: Modifiers::default(),
-                kind: PointerKind::Mouse,
-                button: Some(press.button),
-                press: Some(press),
-                time_ns: 0,
-                pressure: None,
-                tilt: None,
-                is_primary: true,
-            },
-        }));
+    screen.inject(HostEvent::Pointer(kivact_engine::contract::Routed {
+        window: WindowId::MAIN,
+        target: Some(region_target(node)),
+        local: Point::new(20., 20.),
+        activation: None,
+        input: PointerSample {
+            id: kivact_types::PointerId(1),
+            phase: PointerPhase::Down(press),
+            position: Point::new(20., 20.),
+            buttons: kivact_types::PointerButtons::NONE.with(MouseButton::Primary, true),
+            modifiers: Modifiers::default(),
+            kind: PointerKind::Mouse,
+            button: Some(press.button),
+            press: Some(press),
+            time_ns: 0,
+            pressure: None,
+            tilt: None,
+            is_primary: true,
+        },
+    }));
     screen.run_until_idle();
     assert_eq!(downs.get(), 1);
     // Its next click is an ordinary press that the gesture does not decline.
@@ -215,8 +201,8 @@ fn draft_screen() -> (Screen, Draft, NodeId, NodeId) {
         ))
     });
     let d = slot.get().expect("setup");
-    let field = screen.get_by_role(Role::TextBox, "draft").node;
-    let add = screen.get_by_role(Role::Button, "add").node;
+    let field = screen.get_by_role(Role::TextBox, "draft").node_id();
+    let add = screen.get_by_role(Role::Button, "add").node_id();
     screen.get_by_role(Role::TextBox, "draft").focus();
     (screen, d, field, add)
 }
@@ -313,8 +299,8 @@ fn a_host_edit_that_overrides_the_only_pending_prop_sends_nothing() {
         ))
     });
     let draft = slot.get().expect("setup");
-    let field = screen.get_by_role(Role::TextBox, "draft").node;
-    let reset = screen.get_by_role(Role::Button, "reset").node;
+    let field = screen.get_by_role(Role::TextBox, "draft").node_id();
+    let reset = screen.get_by_role(Role::Button, "reset").node_id();
     screen.get_by_role(Role::TextBox, "draft").type_text("j");
     screen.get_by_role(Role::Button, "reset").focus();
     let before = screen.stats();
@@ -349,9 +335,7 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
     use std::cell::RefCell;
     use std::rc::Weak;
 
-    // xtask-allow(state-fields): statistic: a test counter of drops
     let drops = Rc::new(Cell::new(0));
-    // xtask-allow(state-fields): statistic: a test counter of re-entered drops
     let reentered = Rc::new(Cell::new(0));
     let probes: Rc<RefCell<Vec<Weak<Probe>>>> = Rc::default();
     let (d, e, seen) = (drops.clone(), reentered.clone(), probes.clone());
@@ -382,8 +366,8 @@ fn replacing_editing_drops_line_state_after_releasing_the_model() {
         ))
     });
     screen.screenshot();
-    let editor = screen.get_by_role(Role::TextBox, "editor").node;
-    let independent = screen.get_by_test_id("independent").node;
+    let editor = screen.get_by_role(Role::TextBox, "editor").node_id();
+    let independent = screen.get_by_test_id("independent").node_id();
     let writer = screen.with_host(|host| host.writer());
     let mut live = 0;
     for weak in probes.borrow().iter() {
