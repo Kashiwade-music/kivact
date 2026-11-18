@@ -225,7 +225,7 @@ impl PaintFields {
     }
 }
 
-// xtask-allow(state): legacy: rotate, scale, transform, transform_origin, translate_z, rotate_x, rotate_y, transform_origin_z, perspective, perspective_origin, transform_style, backface, will_change
+// xtask-allow(state): legacy: rotate, scale, transform, transform_origin, translate_z, rotate_x, rotate_y, transform_origin_z, perspective, perspective_origin, transform_style, backface, will_change; option: one authored property; absent means the inherited or default value
 /// The `transform` group of a [`Style`]: the transform properties.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TransformFields {
