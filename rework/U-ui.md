@@ -2541,7 +2541,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 ## U20：`recipe_table!` を作り直し、部品ごとの `<Name>Theme` にして `UiRecipes` を消す（UI-03、UI-14、UI-24 (d)、API-19）
 
 - **wave / lane / 前提**：W7a / U1 / W6 の鎖の完了（kit は compile の外）。W7a には他の ui・interaction の unit が無い。
-- **所有**：`crates/kivact-ui/` 全体（`src/`、`Cargo.toml`）、`dev/tests/kivact-public-api/tests/e2e_ui/{indicators.rs, ui_chat_code.rs, ui_theming.rs}`、`examples/kivact/`、`templates/`、`dev/bench/` の中で `UiRecipes`・`*Recipes` を使う行（`rg -l "UiRecipes|\w+Recipes\b" examples/kivact templates dev/bench` で確かめる。今の HEAD では 0 件）。
+- **所有**：`crates/kivact-ui/` 全体（`src/`、`Cargo.toml`）、`dev/tests/kivact-public-api/tests/e2e_ui/{indicators.rs, ui_chat_code.rs, ui_theming.rs}`、`examples/kivact/`、`templates/`、`dev/bench/` の中で `UiRecipes`・`*Recipes` を使う行（`rg -l "UiRecipes|\w+Recipes\b" examples/kivact templates dev/bench` で確かめる。今の HEAD では 0 件）、`crates/kivact-devtools/src/look.rs`（手順 11）。
 - **目的**：recipe の表を部品ごとの `ThemeExtension` `<Name>Theme` に分け、一つの部品の既定値だけがその部品で作られるようにする（UI-03）。上書きは `Fn(&Theme, &Look<S>, Style) -> Style`（3 つ目は前の recipe の結果。UI-24 (d)）。`kivact::ui::theme` module を作り、kit 作者向けの型をそこへ移す（API-19）。
 - **手順**：
   1. `crates/kivact-ui/src/recipe.rs` の `Recipe<S>` と macro を次で置き換える（`From<F>`・`Deref`・`named` を消す）。`DEFAULT` の static の型と path は、W1 の時点でこの macro が使っている遅延初期化の型（annex S の `SharedDeferred`）を**そのまま**使う。下の `kivact_core::cell::SharedDeferred` はその置き場の例ではなく、今の行の path に合わせて書く。
@@ -2842,6 +2842,9 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      pub use crate::variants::{Look, Variant};
      ```
      その後に部品ごとの `pub use` を足す：U11〜U14 が `lib.rs` から再公開した「look」の型（`*State`、`*Theme`、状態の中だけで使う型：`CheckControl`、`ThumbDrag`、`TrackInput`、`Lift`、`Expansion`、`Selectable`、`DisclosureGroupPosition`、`CalendarDayVisual`、`CalendarEventVisual`、`ItemRowState`、`TreeRowRecipeState`、`DataTableCheckState`、`SelectSheetOption`、設定の型 `ButtonBusyMotion`、`DisclosureMotion`、`ProgressMotion`、`ToastRowMotion`、`SparklineFill`、`ToggleLabelReservation`、`DialogCenter`、`DataTableStickyPaint`、`DataTableRowStatusPaint`、`DataTableTreeIndent`）を、`lib.rs` の `pub use` から消して `theme.rs` の `pub use crate::<name>::look::{..};` に移す。U21 で消える型（`*Tokens`、`ButtonBusyMotion` など）もこの時点では移す。`lib.rs` の root に残すのは、部品の関数・builder の型・利用者が値として渡す enum と値の型（`ButtonVariant`、`ControlSize`、`AlertVariant`、`ProgressVariant`、`RadioGroupVariant`、`ChatMessageVariant`、`*Shape`、`PageItem`、`StepStatus`、`ToolbarEdge`、`CarouselMode` など）と `provide_control_size` だけ。
+  11. `crates/kivact-devtools/src/look.rs`（付属書 K の K01 が W2a で作った DevTools の private theme）：
+      `.with(UiRecipes::default().tabs(|tabs| tabs.list(|_| tab_list).tab(|_| tab)))` を
+      `.with(TabsTheme::default().list(|theme, look, _| tab_list(theme, look)).tab(|theme, look, _| tab(theme, look)))` にする（前の recipe の結果は使わない。`tab_list`・`tab` の本体は変えない）。`use` の `UiRecipes` を消し、`TabsTheme`・`Look`・`TabListState`・`TabState` は手順 9 の `kivact::ui::theme` から読む（compile error が示す path に合わせる）。
   10. 試験を新しい形にする（期待値は変えない）。
       - `indicators.rs::skeleton_stops_with_reduced_motion`：
         ```rust
@@ -2882,9 +2885,10 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
   cargo clippy -p kivact-ui --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-ui
   cargo check -p kivact --all-targets
+  cargo check -p kivact-devtools --all-targets
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_theming indicators ui_chat_code ui_controls ui_collections
   ```
-- **完了条件**：`rg -w "UiRecipes" crates/kivact-ui crates/kivact examples/kivact templates dev/tests/kivact-public-api/tests --glob '!theme_conformance.rs' --glob '!ui_standard.rs' --glob '!presence_kit.rs' --glob '!apg_grid_kit.rs'` が空。`rg -n "\b\w+Recipes\b" crates/kivact-ui/src` が空。`ls crates/kivact-ui/src/recipes.rs` が無い。上の命令が通る。
+- **完了条件**：`rg -w "UiRecipes" crates/kivact-ui crates/kivact crates/kivact-devtools examples/kivact templates dev/tests/kivact-public-api/tests --glob '!theme_conformance.rs' --glob '!ui_standard.rs' --glob '!presence_kit.rs' --glob '!apg_grid_kit.rs'` が空。`rg -n "\b\w+Recipes\b" crates/kivact-ui/src` が空。`ls crates/kivact-ui/src/recipes.rs` が無い。上の命令が通る。
 
 ## U21：`UiTokens` と部品の `*Tokens` を theme 変数と `<Name>Theme` の設定にする（UI-03、DEC-06）
 

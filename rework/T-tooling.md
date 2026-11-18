@@ -4135,7 +4135,6 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo clippy -p kivact-docs --all-targets --all-features -- -D warnings
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --lib
   cargo xtask check --no-write --only docs-pairs,state --strict --crate kivact-docs
-  dev/tools/window-lock.sh --timeout 1800 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc -- readme --test-threads=1
   ```
 
 - **完了条件**：すべて成功。`cargo test -p kivact-docs --doc -- --list` に `jp` を含む名前が無い。
@@ -4175,7 +4174,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
   ```bash
   cargo xtask check --no-write --only docs-pairs --strict
-  dev/tools/window-lock.sh --timeout 1800 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc -- readme for_kivact_user_en::how_to_guide::devtools --test-threads=1
+  cargo check -p kivact-docs --all-targets
   ```
 
 - **完了条件**：すべて成功。`rg -n -i "python client|pip install|kivact-devtools-client|show_table|Scripts パネル|Scripts panel" README.md README_JP.md docs/for-kivact-user` が何も出さない。
@@ -4396,10 +4395,9 @@ cargo xtask check --no-write --only state --strict --crate <P>
      dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-ui-soft --test consumer
      dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p gpu-interop-producer --all-features -- --test-threads=1
      cargo check -p kivact-docs --all-targets
-     dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc -- readme --test-threads=1
      ```
 
-     `cargo test -p kivact-docs --doc -- readme` は root の `README.md` の例だけを、`-- for_kivact_ui_user_en::basic` は basic の guide だけを検査します。
+     `cargo check -p kivact-docs --all-targets` は `README.md` と英語の guide の `no_run` の例を型検査し（link しない）、`cargo test -p kivact-docs --doc -- for_kivact_ui_user_en::basic` は basic の guide の doctest だけを実行します。
      native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件と症状を issue か PR の説明に記録します。
 
      ## feature の確認
@@ -4446,10 +4444,10 @@ cargo xtask check --no-write --only state --strict --crate <P>
   ```bash
   cargo clippy --workspace --all-targets --all-features -- -D warnings
   cargo xtask check --no-write
-  rg -n "xtask-allow\(state-fields\)|#!\[warn\(redundant_imports\)\]" crates dev examples templates
+  rg -n --glob '!dev/xtask/src/state/**' "xtask-allow\(state-fields\)|#!\[warn\(redundant_imports\)\]" crates dev examples templates
   ```
 
-- **完了条件**：1 つ目・2 つ目が成功（2 つ目は 6.3 の 5 つの検査の `pending:` の note だけを出し `ok`）。3 つ目が何も出さない。
+- **完了条件**：1 つ目・2 つ目が成功（2 つ目は 6.3 の 5 つの検査の `pending:` の note だけを出し `ok`）。3 つ目が何も出さない（`dev/xtask/src/state/` は旧い印を検出する文字列を持つので除く。T01 と同じ）。
 
 ---
 
@@ -4505,7 +4503,7 @@ cargo xtask check --no-write
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
-rg -n "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない
+rg -n --glob '!dev/xtask/src/state/**' "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない（検出の文字列の directory は除く）
 ```
 
 W5a・W5b：xtask を `--only local` にし、clippy と test に `XD` を足し、`cargo check -p kivact-docs` を行わない。

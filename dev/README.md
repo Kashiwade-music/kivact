@@ -72,10 +72,9 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-ui-soft --test consumer
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p gpu-interop-producer --all-features -- --test-threads=1
 cargo check -p kivact-docs --all-targets
-dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc -- readme --test-threads=1
 ```
 
-`cargo test -p kivact-docs --doc -- readme` は root の `README.md` の例だけを、`-- for_kivact_ui_user_en::basic` は basic の guide だけを検査します。
+`cargo check -p kivact-docs --all-targets` は `README.md` と英語の guide の `no_run` の例を型検査し（link しない）、`cargo test -p kivact-docs --doc -- for_kivact_ui_user_en::basic` は basic の guide の doctest だけを実行します。
 native 試験が並列実行中に異常終了した場合は、失敗した binary だけ `--test-threads=1` で再検証し、実行条件と症状を issue か PR の説明に記録します。
 
 ## feature の確認
