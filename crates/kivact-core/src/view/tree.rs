@@ -332,7 +332,6 @@ pub(crate) struct CoreRare {
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     pub(crate) semantic_origins: Vec<&'static Location<'static>>,
     /// The style layers the node was mounted with, for the DevTools.
-    #[cfg(feature = "devtools")]
     pub(crate) style_layers: Vec<crate::view::style_layer::StyleLayer>,
 }
 
@@ -395,6 +394,8 @@ pub(crate) struct ViewNodes {
     /// The root node (`NodeType::Root`) of each open window.
     roots: BTreeMap<WindowId, NodeId>,
     engine: Writer,
+    /// The DevTools hooks; None without DevTools.
+    devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
     /// The latest layout report of each referenced node that has no observation yet
@@ -409,7 +410,11 @@ impl ViewNodes {
     /// The tree of an App the host started: `engine` writes the engine's
     /// tree, and the main window's root node (`NodeType::Root`, of the root
     /// `owner`) is created in it.
-    pub(crate) fn new(engine: Writer, owner: Owner) -> Self {
+    pub(crate) fn new(
+        engine: Writer,
+        owner: Owner,
+        devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
+    ) -> Self {
         let root = NodeId(1);
         let mut nodes = IdMap::default();
         nodes.insert(root, CoreNode::new(owner));
@@ -421,6 +426,7 @@ impl ViewNodes {
             next_id: 1,
             roots,
             engine,
+            devtools,
             future_text_edits: Rc::new(std::cell::RefCell::new(
                 TextEditsInFlight(IdMap::default()),
             )),
@@ -702,7 +708,9 @@ impl ViewNodes {
         if tracks_live && changed && was_live != self.is_live_region(id) {
             self.live_region_revision.notify_from_render();
         }
-        crate::view::devtools_hooks::prop_written(id, prop, writer, changed);
+        if let Some(h) = &self.devtools {
+            h.prop_written(id, prop, writer, changed);
+        }
         changed
     }
 
@@ -721,7 +729,6 @@ impl ViewNodes {
     }
 
     /// Keep the style layers of `id` for the DevTools style inspector.
-    #[cfg(feature = "devtools")]
     pub(crate) fn set_style_layers(
         &mut self,
         id: NodeId,

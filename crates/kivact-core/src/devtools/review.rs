@@ -11,8 +11,8 @@ use super::convert;
 use super::node;
 use super::styles;
 use super::tree;
-use crate::view::devtools_apply;
-use crate::view::devtools_state::{DevtoolsState, Inspector};
+use crate::devtools::apply;
+use crate::devtools::state::{DevtoolsState, Inspector};
 use crate::view::state::ViewState;
 
 /// The window title, target and options of one comment, read before a screenshot wait.
@@ -186,7 +186,7 @@ fn node_style_changes(rt: &Runtime, id: NodeId) -> Vec<p::StyleChange> {
             return Vec::new();
         };
         let all = DevtoolsState::inspector(rt).hooks.overrides.get_untracked();
-        (devtools_apply::call_sites(rt, entry.owner, entry.at), all)
+        (apply::call_sites(rt, entry.owner, entry.at), all)
     };
     all.into_iter()
         .filter(|entry| scope_applies(&entry.scope, id, &sites))

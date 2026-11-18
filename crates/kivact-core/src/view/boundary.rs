@@ -108,8 +108,7 @@ pub fn provide_theme<V: IntoView>(
     view_fn(move |cx| {
         let owner = cx.owner.child(at);
         let value = theme.into_value(owner, at);
-        let value = crate::view::devtools_hooks::wrap_theme(owner, value);
-        kivact_style::internal::install_theme(owner, value);
+        install_theme(owner, value);
         let fragment = cx.fragment();
         let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
         cx.append(fragment, child);
@@ -264,7 +263,16 @@ pub(crate) fn messages_value(owner: Owner) -> Value<Messages> {
 /// The App's root and `kivact::i18n::provide_locale` use it; [`locale`]
 /// reads the nearest one above the caller.
 pub(crate) fn install_locale(owner: Owner, locale: Value<Locale>) {
+    let rt = owner.runtime();
+    let locale = crate::view::devtools_hooks::wrap_locale(&rt, owner, locale);
     owner.provide(LocaleCtx(locale));
+}
+
+/// Provide `theme` to `owner`'s subtree, as DevTools shapes it.
+pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>) {
+    let rt = owner.runtime();
+    let theme = crate::view::devtools_hooks::wrap_theme(&rt, owner, theme);
+    kivact_style::internal::install_theme(owner, theme);
 }
 
 /// Provide `messages` to `owner`'s subtree, replacing the inherited ones

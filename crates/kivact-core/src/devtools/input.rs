@@ -9,7 +9,7 @@ use kivact_runtime::Runtime;
 use kivact_types::{InputPurpose, Key, KeyCode, Modifiers, NodeId, Point, RequestId, WindowId};
 
 use super::convert;
-use crate::view::devtools_state::{DevtoolsState, Pending};
+use crate::devtools::state::{DevtoolsState, Pending};
 use crate::view::state::ViewState;
 
 fn window_not_found(raw: p::WindowId) -> p::RpcError {

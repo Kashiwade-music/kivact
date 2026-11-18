@@ -11,7 +11,7 @@ use kivact_runtime::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, R
 use kivact_types::Revision;
 
 use super::{convert, lifecycle};
-use crate::view::devtools_state::{
+use crate::devtools::state::{
     DevtoolsState, Inspector, Pending, PendingGraph, PropWrite, recording_off,
 };
 use crate::view::state::ViewState;

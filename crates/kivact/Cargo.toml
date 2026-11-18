@@ -15,6 +15,7 @@ arvane-text = { path = "../arvane-text", version = "0.1.0", optional = true }
 kivact-core = { path = "../kivact-core", version = "0.1.0", default-features = false }
 kivact-interaction = { path = "../kivact-interaction", version = "0.1.0" }
 kivact-macros = { path = "../kivact-macros", version = "0.1.0" }
+kivact-offscreen = { path = "../kivact-offscreen", version = "0.1.0" }
 kivact-ui = { path = "../kivact-ui", version = "0.1.0" }
 
 kivact-test = { path = "../kivact-test", version = "0.1.0", optional = true }

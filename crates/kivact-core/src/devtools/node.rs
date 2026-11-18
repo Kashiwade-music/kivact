@@ -12,9 +12,9 @@ use super::a11y;
 use super::convert;
 use super::styles;
 use super::tree;
+use crate::devtools::apply;
+use crate::devtools::state::DevtoolsState;
 use crate::diagnostics::why::{WhyDep, WhyProp, explain};
-use crate::view::devtools_apply;
-use crate::view::devtools_state::DevtoolsState;
 use crate::view::state::ViewState;
 use crate::view::tree::{Handlers, ViewNodes};
 
@@ -24,7 +24,7 @@ pub(super) fn call_chain(rt: &Runtime, id: NodeId) -> Vec<p::CallFrame> {
     let Some(node) = tree.get(id) else {
         return Vec::new();
     };
-    devtools_apply::call_sites(rt, node.owner, node.at)
+    apply::call_sites(rt, node.owner, node.at)
         .into_iter()
         .map(|at| p::CallFrame {
             location: convert::location(at),

@@ -15,15 +15,17 @@ targets = "lib-bin"
 # ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.
 kivact-shader = ["kivact-style"]
 
-# ----- SVG export: the SVG 1.1 writer and its PNG encoding are confined to kivact-svg, which kivact-core (Offscreen::render_svg) uses.
-kivact-svg = ["kivact-core"]
+# ----- SVG export: the SVG 1.1 writer and its PNG encoding are confined to kivact-svg, which kivact-offscreen (Offscreen::render_svg) uses.
+kivact-svg = ["kivact-offscreen"]
+# ----- Windowless rendering: a leaf the facade re-exports as kivact::draw::Offscreen.
+kivact-offscreen = ["kivact"]
 kivact-macros = ["kivact"]
 
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。
-kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test"]
+kivact-runtime = ["kivact-style", "kivact-i18n", "kivact-core", "kivact-test", "kivact-offscreen"]
 kivact-i18n = ["kivact-core", "kivact-test"]
-kivact-style = ["kivact-core", "kivact-test"]
+kivact-style = ["kivact-core", "kivact-test", "kivact-offscreen"]
 kivact-core = ["kivact", "kivact-interaction", "kivact-ui", "kivact-test"]
 kivact-test = ["kivact"]
 kivact-interaction = ["kivact", "kivact-ui"]
@@ -39,7 +41,7 @@ kivact-devtools-agent = ["kivact-core"]
 # Detach facts use the single process-wide tracker in kivact-types.
 # Only arvane-native retains the code module; task and asset contain no unsafe.
 # Shared values belong to kivact-types; pure layout belongs to kivact-layout.
-kivact-engine = ["kivact-core", "kivact-test"]
+kivact-engine = ["kivact-core", "kivact-test", "kivact-offscreen"]
 # Editing transports resolved line paints and document decorations; authored StyledRange/TextDecoration belong to style.
 kivact-editing = ["kivact-style", "kivact-engine", "kivact-core"]
 kivact-layout = ["kivact-engine"]

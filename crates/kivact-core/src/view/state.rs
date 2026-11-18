@@ -229,6 +229,8 @@ impl Requests {
 pub(crate) struct ViewState {
     /// The retained metadata and direct engine access of the whole App.
     pub(super) tree: RefCell<ViewNodes>,
+    /// The DevTools hooks; None without DevTools. Fixed at construction.
+    pub(crate) devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
     /// Removed node ids awaiting host revision cleanup.
     pub(crate) removed: RefCell<Vec<NodeId>>,
     /// The open windows' records.
@@ -310,12 +312,17 @@ impl ViewState {
         owner: Owner,
         info: &kivact_engine::contract::HostInfo,
         engine: kivact_engine::api::Writer,
+        devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
         at: &'static Location<'static>,
     ) -> Self {
         let host_capabilities = owner.signal(info.capabilities, at);
-        let capabilities = crate::view::devtools_hooks::wrap_capabilities(owner, host_capabilities);
+        let capabilities = match &devtools {
+            Some(h) => h.wrap_capabilities(owner, host_capabilities),
+            None => host_capabilities.into(),
+        };
         Self {
-            tree: RefCell::new(ViewNodes::new(engine, owner)),
+            tree: RefCell::new(ViewNodes::new(engine, owner, devtools.clone())),
+            devtools,
             removed: RefCell::new(Vec::new()),
             windows: RefCell::new(BTreeMap::new()),
             next_window: Cell::new(1),

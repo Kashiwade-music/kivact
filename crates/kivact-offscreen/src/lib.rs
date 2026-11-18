@@ -37,16 +37,15 @@
 //! - Assets load from an inline store and complete at once. Codecs, the
 //!   artwork's time and cancelling between frames are the caller's.
 
-use crate::draw::Draw;
-use crate::geometry::Size;
-use crate::{Result, UiError};
+#![forbid(unsafe_code)]
+
 use kivact_engine::api::{OffscreenError, OffscreenRenderer, TextMeasurer};
-use kivact_runtime::ErrorKind;
+use kivact_runtime::{ErrorKind, Result, UiError};
 use kivact_style::Theme;
 use kivact_style::asset::Asset;
-use kivact_style::draw::Recording;
+use kivact_style::draw::{Draw, Recording};
 use kivact_svg::{Resources, SvgError};
-use kivact_types::{ComputedTextStyle, DrawCmd, DrawList, Pixels, TextRun};
+use kivact_types::{ComputedTextStyle, DrawCmd, DrawList, Pixels, Size, TextRun};
 use std::panic::Location;
 use std::sync::Arc;
 
@@ -80,25 +79,23 @@ use std::sync::Arc;
 /// returned stay valid.
 ///
 /// ```no_run
-/// # use kivact_core as kivact;
-/// use kivact::draw::{Offscreen};
-/// use kivact::geometry::{Rect};
-/// use kivact::style::rgb;
+/// use kivact_offscreen::Offscreen;
+/// use kivact_types::Rect;
+/// use kivact_style::rgb;
 ///
 /// let mut renderer = Offscreen::new();
 /// let image = renderer.render(640, 360, |draw, _size| {
 ///     draw.fill_rect(Rect::new(10.0, 10.0, 80.0, 40.0), rgb(0xff3300));
 /// })?;
 /// assert_eq!(image.rgba.len(), 640 * 360 * 4);
-/// # Ok::<(), kivact::UiError>(())
+/// # Ok::<(), kivact_runtime::UiError>(())
 /// ```
 ///
 /// The renderer cannot move to another thread:
 ///
 /// ```compile_fail
-/// # use kivact_core as kivact;
 /// fn requires_send<T: Send>() {}
-/// requires_send::<kivact::draw::Offscreen>();
+/// requires_send::<kivact_offscreen::Offscreen>();
 /// ```
 pub struct Offscreen {
     engine: OffscreenRenderer,
@@ -279,16 +276,15 @@ impl Offscreen {
     ///   or to be measured.
     ///
     /// ```
-    /// # use kivact_core as kivact;
-    /// use kivact::draw::Offscreen;
-    /// use kivact::geometry::Rect;
-    /// use kivact::style::rgb;
+    /// use kivact_offscreen::Offscreen;
+    /// use kivact_types::Rect;
+    /// use kivact_style::rgb;
     ///
     /// let document = Offscreen::new().render_svg(64.0, 32.0, |draw, _size| {
     ///     draw.fill_rect(Rect::new(0.0, 0.0, 64.0, 32.0), rgb(0xff3300));
     /// })?;
     /// assert!(document.starts_with("<?xml"));
-    /// # Ok::<(), kivact::UiError>(())
+    /// # Ok::<(), kivact_runtime::UiError>(())
     /// ```
     #[track_caller]
     pub fn render_svg(

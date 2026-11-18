@@ -1,0 +1,19 @@
+[package]
+name = "kivact-offscreen"
+authors.workspace = true
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Kivact's windowless renderer: draw with `Draw` into RGBA pixels or an SVG 1.1 document"
+
+[dependencies]
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
+kivact-runtime = { path = "../kivact-runtime", version = "0.1.0" }
+kivact-style = { path = "../kivact-style", version = "0.1.0" }
+kivact-engine = { path = "../kivact-engine", version = "0.1.0" }
+# The SVG 1.1 writer of `Offscreen::render_svg` (it owns the PNG encoding).
+kivact-svg = { path = "../kivact-svg", version = "0.1.0" }
+
+[lints]
+workspace = true

@@ -8,7 +8,7 @@ use kivact_runtime::{LiveSnapshot, MotionState, Runtime, TaskState};
 
 use super::convert;
 use crate::client::state::HostState;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::ViewState;
 
 /// Snapshots kept for `diff_snapshots`.

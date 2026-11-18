@@ -49,8 +49,8 @@ impl Inspect<'_> {
     /// The discovery file of the running DevTools agent, if it runs.
     #[cfg(feature = "devtools")]
     pub fn devtools_target(&self) -> Option<std::path::PathBuf> {
-        let crate::view::devtools_state::DevtoolsState::Running(inspector) =
-            crate::view::devtools_state::DevtoolsState::of(self.rt())
+        let crate::devtools::state::DevtoolsState::Running(inspector) =
+            crate::devtools::state::DevtoolsState::of(self.rt())
         else {
             return None;
         };

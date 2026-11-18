@@ -16,8 +16,8 @@ use super::styles;
 use super::target;
 use super::tree;
 use super::updates;
-use crate::view::devtools_state::{DevtoolsEvent, DevtoolsState, Inspector, Pending};
-use crate::view::inspect_mode::Inspector as Inspect;
+use crate::devtools::inspect_mode::Inspector as Inspect;
+use crate::devtools::state::{DevtoolsEvent, DevtoolsState, Inspector, Pending};
 use crate::view::state::ViewState;
 
 /// Everything the agent received since the last turn.
