@@ -8,6 +8,7 @@ pub(crate) mod layout;
 pub(crate) mod model;
 pub(crate) mod paint;
 pub(crate) mod parameters;
+mod stale;
 mod view;
 pub(crate) mod view_state;
 
