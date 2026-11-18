@@ -5,7 +5,6 @@ use crate::ArrangementState;
 use crate::Clip;
 use crate::editors::arrangement::a11y::texts::ArrangementTexts;
 use crate::editors::arrangement::model::{ArrangementRequest, TimelineMarker, TimelineTrack};
-use kivact::custom::NodeRefExt;
 
 use kivact::interaction::EditSession;
 use kivact::state::{Callback, Value};
@@ -147,7 +146,10 @@ impl IntoView for Arrangement {
         let selection = state.selection;
         let gesture = super::input::drag(state);
         let availability = kivact::custom::part(|input| input);
-        observe_inputs(state, reference, availability.state());
+        state.press.watch_inputs(
+            crate::editors::shared::gesture::inputs_ok(reference, availability.state()),
+            move || state.cancel(),
+        );
         let action = callback(move |event| super::edit::a11y(state, add_track, event));
         let semantic_items = kivact::state::memo(move || super::a11y::semantic(state));
         let root = root.regions(
@@ -289,42 +291,6 @@ impl Arrangement {
             add_track,
         }
     }
-}
-
-fn observe_inputs(
-    state: State,
-    reference: kivact::view::NodeRef,
-    availability_state: Value<kivact::custom::PartState>,
-) {
-    let focus = reference.focus_within();
-    kivact::state::effect(move || {
-        let focused = focus.get();
-        let visible = reference.is_visible();
-        let clips = state.data.get();
-        let tracks = state.track_data.get();
-        let missing = state.initial().is_some_and(|v| match v {
-            super::gesture::Snapshot::Clips(initial) => initial.iter().any(|v| {
-                !clips
-                    .iter()
-                    .any(|c| c.id == v.0 && tracks.iter().any(|t| t.id == c.lane))
-            }),
-            super::gesture::Snapshot::Automation(track, id, Some(_)) => !tracks
-                .iter()
-                .any(|t| t.id == track && t.automation.iter().any(|p| p.id == id)),
-            super::gesture::Snapshot::Automation(track, _, None) => {
-                !tracks.iter().any(|t| t.id == track)
-            }
-            _ => false,
-        });
-        let input = availability_state.get();
-        state.press.inputs_changed(
-            focused,
-            visible && !input.is_hidden(),
-            !input.is_disabled(),
-            !missing,
-            move || state.cancel(),
-        );
-    });
 }
 
 fn validated_length(length: Value<f64>) -> Value<f64> {

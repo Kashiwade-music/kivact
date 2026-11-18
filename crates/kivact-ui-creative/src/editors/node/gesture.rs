@@ -126,14 +126,6 @@ enum ModeEvent {
         slot: NodeControl,
     },
     Cancel,
-    Inputs {
-        focused: bool,
-        blocked: bool,
-        data_valid: bool,
-        editing: bool,
-        dragging: bool,
-        rollback: Rc<dyn Fn()>,
-    },
 }
 struct ModeMachine;
 impl Machine for ModeMachine {
@@ -179,22 +171,6 @@ impl Machine for ModeMachine {
                 _ => Step::stay(),
             },
             ModeEvent::Cancel => Step::to(NodeMode::Idle),
-            ModeEvent::Inputs {
-                focused,
-                blocked,
-                data_valid,
-                editing,
-                dragging,
-                rollback,
-            } => {
-                if blocked || !data_valid || (!focused && (editing || dragging)) {
-                    Step::to(NodeMode::Idle).with(rollback)
-                } else if !focused && matches!(state, NodeMode::Connecting { .. }) {
-                    Step::to(NodeMode::Idle)
-                } else {
-                    Step::stay()
-                }
-            }
         }
     }
 }
@@ -236,24 +212,6 @@ impl NodeController {
     }
     pub(crate) fn get_untracked(self) -> NodeMode {
         self.machine.state().get_untracked()
-    }
-    pub(crate) fn inputs(
-        self,
-        focused: bool,
-        blocked: bool,
-        data_valid: bool,
-        editing: bool,
-        dragging: bool,
-        rollback: impl Fn() + 'static,
-    ) {
-        self.machine.send(ModeEvent::Inputs {
-            focused,
-            blocked,
-            data_valid,
-            editing,
-            dragging,
-            rollback: Rc::new(rollback),
-        });
     }
 }
 

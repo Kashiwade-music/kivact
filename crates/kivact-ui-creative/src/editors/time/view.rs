@@ -10,7 +10,6 @@ use crate::editors::time::gesture::{State, Target};
 use crate::editors::time::input::{key, pointer, wheel};
 use crate::editors::time::layout::lane_rect;
 use crate::editors::time::model::TimeItem;
-use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::EditSession;
 use kivact::interaction::ListItem;
@@ -81,7 +80,10 @@ impl<T: TimeItem> IntoView for TimeEditor<T> {
         let gesture = crate::editors::time::input::drag(state);
         let reference = node_ref();
         let availability = kivact::custom::part(|input| input);
-        observe_inputs(state, reference, availability.state());
+        state.press.watch_inputs(
+            crate::editors::shared::gesture::inputs_ok(reference, availability.state()),
+            move || state.cancel(),
+        );
         let root = super::a11y::attach(root, state, gesture, ruler.format.clone());
         let root = root
             .node_ref(reference)
@@ -215,36 +217,6 @@ impl<T: TimeItem> TimeEditor<T> {
             extensions,
         }
     }
-}
-
-fn observe_inputs<T: TimeItem>(
-    state: State<T>,
-    reference: kivact::view::NodeRef,
-    availability_state: Value<kivact::custom::PartState>,
-) {
-    let focus = reference.focus_within();
-    kivact::state::effect(move || {
-        let focused = focus.get();
-        let visible = reference.is_visible();
-        let items = state.data.get();
-        let lanes = state.visible.get();
-        let missing = state.initial().is_some_and(|snapshot| match snapshot {
-            crate::editors::time::gesture::Snapshot::Items(initial) => initial.iter().any(|v| {
-                !items
-                    .iter()
-                    .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
-            }),
-            _ => false,
-        });
-        let input = availability_state.get();
-        state.press.inputs_changed(
-            focused,
-            visible && !input.is_hidden(),
-            !input.is_disabled(),
-            !missing,
-            move || state.cancel(),
-        );
-    });
 }
 
 fn visible_lanes<T: TimeItem>(

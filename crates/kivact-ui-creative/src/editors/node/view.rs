@@ -11,7 +11,7 @@ use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};
-use kivact::state::{Callback, Value, effect, memo, signal};
+use kivact::state::{Callback, Value, memo, signal};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{ColorToken, Overflow, style};
 use kivact::view::EditPhase;
@@ -114,7 +114,9 @@ impl IntoView for NodeEditor {
                 state.texts,
             )
         });
-        observe_inputs(state);
+        let focus = state.reference.focus_within();
+        let ok = kivact::state::memo(move || focus.get() && !state.blocked.get());
+        state.press.watch_inputs(ok, move || state.cancel());
         let root = root
             .value_text(move || {
                 format!(
@@ -255,54 +257,38 @@ fn phase_observer(
         }
     })
 }
-fn observe_inputs(state: State) {
-    let focus = state.reference.focus_within();
-    effect(move || {
-        let nodes = state.nodes.get();
-        let slot_valid =
-            kivact::state::untrack(|| state.held_slot()).is_none_or(|(id, index, original)| {
-                nodes
-                    .iter()
-                    .find(|node| node.id == id)
-                    .and_then(|node| node.controls.get(index))
-                    .is_some_and(|control| {
-                        crate::editors::node::edit::same_slot(&original, control)
-                    })
-            });
-        let connection_valid = state.mode.with_untracked(|mode| match mode {
-            NodeMode::Connecting { from, output } => nodes
+/// Whether the held slot, the connecting output or the dragged items still exist.
+pub(super) fn stale(state: State) -> bool {
+    let nodes = state.nodes.get_untracked();
+    let slot_valid =
+        kivact::state::untrack(|| state.held_slot()).is_none_or(|(id, index, original)| {
+            nodes
                 .iter()
-                .find(|node| node.id == *from)
-                .is_some_and(|node| *output < node.outputs.len()),
-            _ => true,
+                .find(|node| node.id == id)
+                .and_then(|node| node.controls.get(index))
+                .is_some_and(|control| crate::editors::node::edit::same_slot(&original, control))
         });
-        let drag_valid =
-            kivact::state::untrack(|| state.drag_state()).is_none_or(|drag| match drag {
-                crate::editors::node::gesture::DragMode::Items { ids } => {
-                    ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
-                }
-                crate::editors::node::gesture::DragMode::Link { source, .. } => {
-                    let (from, output) = source.output();
-                    nodes
-                        .iter()
-                        .find(|node| node.id == from)
-                        .is_some_and(|node| output < node.outputs.len())
-                }
-                _ => true,
-            });
-        state.mode.inputs(
-            focus.get(),
-            state.blocked.get(),
-            slot_valid && connection_valid && drag_valid,
-            kivact::state::untrack(|| state.edit.is_active()),
-            kivact::state::untrack(|| state.drag_state().is_some()),
-            move || {
-                state
-                    .press
-                    .inputs_changed(true, true, false, true, move || state.cancel());
-            },
-        );
+    let connection_valid = state.mode.with_untracked(|mode| match mode {
+        NodeMode::Connecting { from, output } => nodes
+            .iter()
+            .find(|node| node.id == *from)
+            .is_some_and(|node| *output < node.outputs.len()),
+        _ => true,
     });
+    let drag_valid = kivact::state::untrack(|| state.drag_state()).is_none_or(|drag| match drag {
+        crate::editors::node::gesture::DragMode::Items { ids } => {
+            ids.iter().all(|id| nodes.iter().any(|node| node.id == *id))
+        }
+        crate::editors::node::gesture::DragMode::Link { source, .. } => {
+            let (from, output) = source.output();
+            nodes
+                .iter()
+                .find(|node| node.id == from)
+                .is_some_and(|node| output < node.outputs.len())
+        }
+        _ => true,
+    });
+    !(slot_valid && connection_valid && drag_valid)
 }
 fn region_control(
     state: State,

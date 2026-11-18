@@ -111,6 +111,16 @@ impl State {
                 move |target| self.activate(target),
                 move |_| self.reset_fields(),
             ),
+            move || {
+                let keys = self.visible.get_untracked();
+                self.drag_state().is_some_and(|gesture| match gesture.kind {
+                    DragKind::Keys(ids) => {
+                        ids.iter().any(|id| !keys.iter().any(|k| k.key.id == *id))
+                    }
+                    DragKind::Tangent(id, _) => !keys.iter().any(|k| k.key.id == id),
+                    _ => false,
+                })
+            },
         )
     }
     fn motion(self, point: Point, origin: Point, snapshot: &Snapshot) {

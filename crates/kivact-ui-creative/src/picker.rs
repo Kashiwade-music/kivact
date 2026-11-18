@@ -14,8 +14,7 @@ use kivact::interaction::{
     ComboboxApi, PopupApi, PopupCloseReason, Selection, use_combobox, use_popup,
 };
 use kivact::state::{
-    Callback, Machine, MachineHandle, Step, Value, binding, effect, machine, memo, on_cleanup,
-    signal, untrack,
+    Callback, Machine, MachineHandle, Step, Value, binding, machine, memo, on_cleanup, signal,
 };
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Icon, pct, style};
@@ -706,18 +705,18 @@ fn follow_active<K: kivact::state::ItemKey>(
     columns: MachineHandle<ColumnMachine<K>>,
 ) {
     // The preview follows the active row.
-    effect(move || {
-        let key = active.get();
-        let item = key.and_then(|key| {
+    let preview = move |key: Option<K>| {
+        key.and_then(|key| {
             lists
                 .with_untracked(|all| {
                     all.iter()
                         .position(|list| list.iter().any(|item| item.key == key))
                 })
                 .map(|index| (index, key))
-        });
-        untrack(|| columns.send(ColumnEvent::Preview(item)));
-    });
+        })
+    };
+    columns.send(ColumnEvent::Preview(preview(active.get_untracked())));
+    columns.feed(active, move |key| ColumnEvent::Preview(preview(key)));
 }
 
 fn column_combobox<K: kivact::state::ItemKey>(
@@ -758,16 +757,21 @@ fn follow_columns<K: kivact::state::ItemKey>(
     columns: MachineHandle<ColumnMachine<K>>,
 ) {
     if multiple {
-        effect(move || {
-            let query = query.get().trim().to_lowercase();
-            let available = lists.with_untracked(|all| column_availability(all, &query));
-            columns.send(ColumnEvent::QueryChanged(available));
-        });
-        effect(move || {
-            let available = lists
-                .with(|all| column_availability(all, &query.get_untracked().trim().to_lowercase()));
-            columns.send(ColumnEvent::ItemsChanged(available));
-        });
+        let by_query = move |query: String| {
+            ColumnEvent::QueryChanged(
+                lists.with_untracked(|all| column_availability(all, &query.trim().to_lowercase())),
+            )
+        };
+        let by_items = move |all: Vec<Vec<PickerItem<K>>>| {
+            ColumnEvent::ItemsChanged(column_availability(
+                &all,
+                &query.get_untracked().trim().to_lowercase(),
+            ))
+        };
+        columns.send(by_query(query.get_untracked()));
+        columns.send(by_items(lists.get_untracked()));
+        columns.feed(query, by_query);
+        columns.feed(lists, by_items);
     }
 }
 
