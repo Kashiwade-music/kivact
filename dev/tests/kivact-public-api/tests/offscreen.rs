@@ -6,10 +6,8 @@
 
 use kivact::ErrorKind;
 use kivact::draw::{Offscreen, Pixels, TextFormat};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Color;
-use kivact::style::Theme;
 use std::cell::Cell;
 
 static TUFFY: &[u8] = include_bytes!("../../../../crates/arvane/assets/fonts/Tuffy.ttf");

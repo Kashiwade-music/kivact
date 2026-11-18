@@ -1,7 +1,6 @@
 //! Role: Theme density and halo pixels follow the public game theme.
 
 use kivact::prelude::*;
-use kivact::style::pct;
 use kivact_ui_game as g;
 use kivact_ui_game::ThemeOptions;
 

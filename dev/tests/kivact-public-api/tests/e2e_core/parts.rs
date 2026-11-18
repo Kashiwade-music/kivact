@@ -7,9 +7,8 @@ use kivact::custom::{Part, PartState, part};
 use kivact::draw::RegionId;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::canvas;
-use kivact::view::{A11yAction, Handled};
-use kivact::view::{KeyCode, Modifiers, MouseButton, PointerPhase};
+use kivact::view::A11yAction;
+use kivact::view::{KeyCode, MouseButton, PointerPhase};
 use kivact_public_api_tests::support::mount;
 
 #[test]

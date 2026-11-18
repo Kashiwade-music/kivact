@@ -6,12 +6,10 @@
 //! Through the public API only.
 
 use kivact::interaction::{
-    ListItem, MenuEntry, NavOpen, Selection, use_combobox, use_menu, use_navigation_menu,
-    use_select, use_text_edit,
+    NavOpen, use_combobox, use_menu, use_navigation_menu, use_select, use_text_edit,
 };
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::for_each;
 use kivact_public_api_tests::support::mount;
 
 fn colors() -> Vec<ListItem<&'static str>> {

@@ -2,9 +2,8 @@
 
 use std::time::Duration;
 
-use kivact::interaction::{Toast, toaster};
 use kivact::prelude::*;
-use kivact::style::{ThemeMode, TransitionProp};
+use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};
 use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount_with;

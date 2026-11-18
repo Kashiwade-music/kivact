@@ -1,7 +1,7 @@
 //! Role: Keyboard routing contracts across focus changes.
 
 use kivact::prelude::*;
-use kivact::view::{Handled, KeyCode, Modifiers};
+use kivact::view::KeyCode;
 use kivact_public_api_tests::support::mount;
 
 #[test]

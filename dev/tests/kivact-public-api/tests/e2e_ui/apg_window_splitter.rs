@@ -1,7 +1,6 @@
 //! Role: Verify Window Splitter collapse/restore and primary-pane relations.
 use kivact::interaction::{ScalarRange, use_splitter};
 use kivact::prelude::*;
-use kivact::view::EditPhase;
 use kivact_public_api_tests::support::mount;
 use std::cell::RefCell;
 use std::rc::Rc;

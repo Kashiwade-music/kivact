@@ -1,11 +1,7 @@
 //! Role: Verify the public toolbar, toggle group and joined action group contracts.
 use kivact::prelude::*;
-use kivact::ui::{
-    ButtonGroupMember, button_group, button_group_separator, button_group_text, toggle_group,
-    toolbar,
-};
+use kivact::ui::{ButtonGroupMember, button_group_separator, button_group_text};
 use kivact::view::A11yAction;
-use kivact::view::Orientation;
 use kivact_public_api_tests::support::mount;
 
 #[test]

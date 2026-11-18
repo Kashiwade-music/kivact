@@ -22,7 +22,6 @@
 //! - [`set_fullscreen`] sends the request, and `platform::fullscreen()`
 //!   reads the host's state as it reports it.
 
-use std::future::Future;
 use std::panic::Location;
 use std::path::PathBuf;
 

@@ -11,12 +11,11 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::draw::RegionId;
-use kivact::draw::{BlendMode, Composite, Filter, Layer, PaintShader, Transform};
-use kivact::geometry::{Point, Rect};
+use kivact::draw::{BlendMode, Composite, Filter, Layer, PaintShader};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{Isolation, TransformStyle, WillChange, rgba};
 use kivact::test::{RenderOptions, Screenshot, render, render_with};
-use kivact::view::canvas;
 
 use kivact_public_api_tests::paint::{
     BLACK, BLUE, GREEN, RED, WHITE, at, canvas_of, distance, expect, pixel,

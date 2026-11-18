@@ -3,7 +3,6 @@
 //! `Resource<T>` (Solid `createResource`): refetch when the source changes,
 //! drop the previous future, accept only the latest request.
 
-use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 

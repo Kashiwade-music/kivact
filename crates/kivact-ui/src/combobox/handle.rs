@@ -5,7 +5,6 @@ use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoBinding, IntoText, IntoValue, ItemKey};
 use kivact_core::view::{Element, IntoView, Node, View, node};
 use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
-use std::future::Future;
 use std::rc::Rc;
 use std::time::Duration;
 

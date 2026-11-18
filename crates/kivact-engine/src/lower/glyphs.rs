@@ -286,7 +286,7 @@ pub(crate) fn decoration(
     style: kivact_types::TextDecorationStyle,
 ) {
     use kivact_types::scene::Shape;
-    use kivact_types::{FillRule, LineCap, PathCmd, Stroke, TextDecorationStyle};
+    use kivact_types::{FillRule, LineCap, PathCmd, TextDecorationStyle};
     if style == TextDecorationStyle::Solid {
         out.push(D::Rect { rect, fill: paint });
         return;

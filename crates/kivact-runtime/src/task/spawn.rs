@@ -1,6 +1,5 @@
 //! Role: This module runs owned futures on the UI thread.
 
-use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 

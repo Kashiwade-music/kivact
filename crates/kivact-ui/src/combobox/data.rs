@@ -4,7 +4,6 @@ use crate::variants::Variants;
 use kivact_core::state::{Binding, ItemKey, Value};
 use kivact_core::view::Node;
 use kivact_interaction::{ComboboxMode, ListItem, Selection};
-use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;

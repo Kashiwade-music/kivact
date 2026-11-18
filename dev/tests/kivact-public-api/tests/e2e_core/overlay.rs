@@ -9,11 +9,11 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::ErrorKind;
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::view::{A11yAction, Handled, OverlayAlign, Placement, overlay, overlay_at};
+use kivact::view::{A11yAction, OverlayAlign, overlay, overlay_at};
 
 #[test]
 fn fitted_overlays_flip_slide_and_respect_the_theme_margin() {

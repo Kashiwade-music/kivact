@@ -1,10 +1,8 @@
 //! Role: APG grid behavior with a kit's theme installed.
 
-use kivact::interaction::Tone;
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
 use kivact::ui::RowStatus;
-use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount_with;
 
 #[test]

@@ -2,7 +2,6 @@
 //! native child window for UI another library draws.
 
 use std::cell::{Cell, RefCell};
-use std::future::Future;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;

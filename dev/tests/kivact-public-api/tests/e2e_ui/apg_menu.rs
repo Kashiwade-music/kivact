@@ -1,6 +1,6 @@
 //! Role: Verify APG menu focus and submenu semantics.
 use super::interaction_menu::menu_button;
-use kivact::interaction::{MenuEntry, use_menu};
+use kivact::interaction::use_menu;
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
 use kivact::view::{A11yAction, PopupKind};

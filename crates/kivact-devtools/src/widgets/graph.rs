@@ -3,7 +3,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::view::{MouseButton, PointerPhase};

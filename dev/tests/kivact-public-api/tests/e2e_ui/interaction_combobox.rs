@@ -4,9 +4,8 @@
 //! the loss of the focus, and a combobox that takes several options and
 //! removes the last one with Backspace, through the public API only.
 
-use kivact::interaction::{ListItem, Selection, use_combobox, use_text_edit};
+use kivact::interaction::{use_combobox, use_text_edit};
 use kivact::prelude::*;
-use kivact::view::for_each;
 use kivact_public_api_tests::support::mount;
 
 fn options() -> Vec<ListItem<&'static str>> {

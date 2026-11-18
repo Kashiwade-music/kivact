@@ -8,7 +8,7 @@
 
 use kivact::draw::{Shadow, conic_gradient, linear_gradient, radial_gradient};
 use kivact::prelude::*;
-use kivact::style::{BorderStyle, Color, pct};
+use kivact::style::BorderStyle;
 use kivact::test::render;
 use kivact_public_api_tests::paint::{
     BLACK, BLUE, RED, WHITE, at, canvas_of, distance, expect, pixel,

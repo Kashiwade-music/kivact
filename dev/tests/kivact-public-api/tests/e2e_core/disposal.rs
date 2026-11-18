@@ -10,7 +10,6 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use kivact::custom::Owner;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 use kivact_public_api_tests::support::random::residue;

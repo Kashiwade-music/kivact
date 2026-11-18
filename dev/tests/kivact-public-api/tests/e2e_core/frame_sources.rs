@@ -14,7 +14,6 @@ use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::View;
 use kivact_public_api_tests::paint::{GREEN, RED, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;
 

@@ -6,9 +6,7 @@
 //! cancelled the pointer, and once the hit is hidden, removed or outside an
 //! open modal.
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
-use kivact::view::{Handled, Placement};
 use kivact::view::{MouseButton, overlay_at};
 use kivact_public_api_tests::support::mount;
 

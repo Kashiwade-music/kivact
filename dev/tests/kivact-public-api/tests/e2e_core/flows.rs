@@ -5,7 +5,6 @@
 //! `error_boundary`) with plain-function components.
 
 use kivact::prelude::*;
-use kivact::view::{RowHeight, error_boundary};
 use kivact_public_api_tests::support::mount;
 
 /// A component with its own state: a click counter.

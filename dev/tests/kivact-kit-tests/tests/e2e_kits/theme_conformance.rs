@@ -1,7 +1,5 @@
 //! Role: Check standard semantics, layout, recipes and focus paint in all kit themes.
-use kivact::interaction::ListItem;
 use kivact::prelude::*;
-use kivact::style::{Align, ColorToken, Style, ThemeMode};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
 use kivact::ui::{self, Look, Recipe, UiRecipes};
 use kivact_public_api_tests::paint::distance;

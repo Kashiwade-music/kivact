@@ -8,13 +8,10 @@
 //! the recipe, and local painting without additional semantic nodes.
 
 use kivact::prelude::*;
-use kivact::style::{Align, Justify, Style};
-use kivact::style::{Color, Direction, rgb};
+use kivact::style::Direction;
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::Look;
-use kivact::ui::{
-    ButtonState, ButtonVariant, TextInputState, UiRecipes, button, checkbox, switch, text_input,
-};
+use kivact::ui::{ButtonState, TextInputState, UiRecipes};
 use kivact::view::A11yAction;
 use kivact_public_api_tests::paint::{distance, pixel};
 use kivact_public_api_tests::support::{mount, mount_with};

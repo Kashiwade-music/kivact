@@ -1,6 +1,5 @@
 //! Role: Scroll-driven progress: a scroller's offset and a view's progress.
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::{ScrollBehavior, ViewRange, scroll_progress, view_progress};

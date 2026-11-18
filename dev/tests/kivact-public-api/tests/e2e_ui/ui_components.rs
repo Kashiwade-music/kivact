@@ -1,9 +1,8 @@
 //! Role: Standard compound components apply recipes to shared interaction parts.
 
-use kivact::interaction::{ListItem, MenuEntry, TreeNode};
+use kivact::interaction::TreeNode;
 use kivact::prelude::*;
 use kivact::ui;
-use kivact::view::{Orientation, Placement};
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 

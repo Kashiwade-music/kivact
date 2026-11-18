@@ -2,7 +2,6 @@
 
 use std::time::Duration;
 
-use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::view::Presence;

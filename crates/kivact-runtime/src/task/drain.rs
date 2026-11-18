@@ -4,7 +4,6 @@
 //! until it is drained or its deadline (default 3 s) passes; App exit waits
 //! for every queued action with the same deadline. Leftovers are reported.
 
-use std::future::Future;
 use std::pin::Pin;
 use std::rc::Weak;
 use std::task::{Context, Poll, Waker};

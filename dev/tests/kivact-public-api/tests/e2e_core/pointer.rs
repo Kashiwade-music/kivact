@@ -16,9 +16,8 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, PointerEvent, PointerId};
+use kivact::view::PointerId;
 use kivact::view::{MouseButton, PointerKind, PointerPhase};
 
 type Log = Rc<RefCell<Vec<String>>>;

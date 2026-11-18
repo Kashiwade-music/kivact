@@ -5,11 +5,10 @@
 
 use std::rc::Rc;
 
-use kivact::interaction::{ListActivation, ListItem};
+use kivact::interaction::ListActivation;
 use kivact::interaction::{TabsApi, use_tabs};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::Orientation;
 use kivact_public_api_tests::support::mount_with;
 
 type Option_ = ListItem<&'static str>;

@@ -1,5 +1,4 @@
 //! Role: Verify native drop delivery and caller-owned file validation.
-use kivact::geometry::Point;
 use kivact::interaction::FileInfo;
 use kivact::prelude::*;
 use kivact::test::raw::{RawDrop, RawInput};

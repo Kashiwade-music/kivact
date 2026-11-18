@@ -1,6 +1,5 @@
 //! Role: Shared real-host waits and fixtures for embedding contracts.
 use kivact::prelude::*;
-use kivact::style::Color;
 use kivact::test::TestParent;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};

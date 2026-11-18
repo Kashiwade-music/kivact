@@ -3,11 +3,8 @@
 use kivact::interaction::{InteractionPolicy, ModifierKey, ScalarMapping};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
-use kivact::view::EditPhase;
 use kivact::view::KeyCode;
-use kivact::view::Modifiers;
 use kivact::view::MouseButton;
-use kivact::view::Role;
 use kivact_ui_creative as ui;
 use std::cell::RefCell;
 use std::rc::Rc;

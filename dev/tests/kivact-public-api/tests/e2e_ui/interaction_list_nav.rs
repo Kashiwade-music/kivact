@@ -4,11 +4,10 @@
 //! multi-select list, the keys of an ARIA list box with multiple selection,
 //! typeahead, the press, and the active row following the rows.
 
-use kivact::interaction::ListItem;
 use kivact::interaction::{ListApi, ListOptions, use_list};
 use kivact::prelude::*;
 use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
-use kivact::view::{KeyCode, Modifiers};
+use kivact::view::KeyCode;
 use kivact_public_api_tests::support::mount_with;
 
 const NAMES: [&str; 12] = [

@@ -17,7 +17,6 @@ use kivact::interaction::{
 use kivact::prelude::*;
 use kivact::style::Position;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::EditPhase;
 use kivact::view::{MouseButton, PointerKind};
 use kivact_public_api_tests::support::mount;
 use kivact_public_api_tests::support::mount_with;

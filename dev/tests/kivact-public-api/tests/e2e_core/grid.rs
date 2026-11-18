@@ -7,7 +7,6 @@
 //! out boxes of real windows (and their resizes).
 
 use kivact::prelude::*;
-use kivact::style::pct;
 use kivact::style::{GridPlacement, Track};
 use kivact::test::render_with;
 

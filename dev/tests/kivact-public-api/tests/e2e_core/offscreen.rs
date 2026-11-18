@@ -4,15 +4,12 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use kivact::draw::Transform;
 use kivact::draw::{Draw, Layer, Offscreen, Pixels, TextBaseline, TextFormat};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Color;
-use kivact::style::{TextAlign, Theme};
+use kivact::style::TextAlign;
 use kivact::test::{RenderOptions, TestFonts, render_with};
 use kivact::view::Asset;
-use kivact::view::canvas;
 
 use kivact_public_api_tests::paint::{distance, pixel};
 

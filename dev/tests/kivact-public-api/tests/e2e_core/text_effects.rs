@@ -10,9 +10,9 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::draw::{Path, TextFormat, linear_gradient};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::{PaintOrder, rgb};
+use kivact::style::PaintOrder;
 use kivact::test::{RenderOptions, Screenshot, render_with};
 use kivact::view::Asset;
 use kivact_public_api_tests::paint::{BLACK, BLUE, RED, WHITE, at, canvas_of};

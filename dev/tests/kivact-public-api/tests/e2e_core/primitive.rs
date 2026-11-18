@@ -13,11 +13,10 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::custom::{Constraints, primitive};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::Screen;
-use kivact::view::{A11yAction, Handled, KeyEvent, PointerEvent};
+use kivact::view::A11yAction;
 use kivact_public_api_tests::support::mount;
 
 fn rect(screen: &Screen, id: &str) -> Rect {

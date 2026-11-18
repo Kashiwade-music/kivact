@@ -96,6 +96,7 @@ zbus = { version = "5.19.0", default-features = false, features = ["blocking-api
 unsafe_code = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 unreachable_pub = "warn"
+redundant_imports = "warn"
 
 [workspace.lints.clippy]
 disallowed_types = "deny"

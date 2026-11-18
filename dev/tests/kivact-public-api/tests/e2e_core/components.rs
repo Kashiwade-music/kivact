@@ -5,14 +5,11 @@
 //! bind as cheaply as constants, and the roles added for the official components
 //! reach the screen.
 
-use kivact::view::View;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::draw::{Draw, RegionId};
-use kivact::geometry::Size;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::render;
 use kivact::view::A11yAction;
 use kivact_public_api_tests::support::mount;

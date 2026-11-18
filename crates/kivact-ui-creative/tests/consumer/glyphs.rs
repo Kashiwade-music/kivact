@@ -1,7 +1,6 @@
 //! Role: The kit's icons, label tones and key glyphs: what a consumer draws with them.
 
 use crate::time_support::app_dope_sheet;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact_ui_creative as ui;

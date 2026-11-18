@@ -9,7 +9,6 @@
 //! `assert_layout` fails listing every violation.
 
 use kivact::prelude::*;
-use kivact::style::{Align, Justify};
 use kivact::style::{Overflow, TextOverflow};
 use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
 

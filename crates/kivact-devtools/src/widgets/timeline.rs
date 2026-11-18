@@ -4,9 +4,9 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::draw::{Draw, RegionId, Stroke, TextFormat};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::{MouseButton, PointerEvent, PointerPhase};
+use kivact::view::{MouseButton, PointerPhase};
 use kivact_devtools_protocol as p;
 
 /// The width of the lane labels on the left.

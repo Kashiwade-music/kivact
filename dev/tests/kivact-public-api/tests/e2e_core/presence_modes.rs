@@ -2,10 +2,10 @@
 
 use std::time::Duration;
 
-use kivact::motion::{Easing, Repeat, Transition};
+use kivact::motion::Repeat;
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
-use kivact::view::{Node, PresenceMode};
+use kivact::view::PresenceMode;
 use kivact_public_api_tests::paint::{BLUE, RED, pixel};
 use kivact_public_api_tests::support::mount;
 

@@ -4,8 +4,6 @@ use super::navigation::page;
 use crate::support::{distance, pixel};
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::ui::ButtonVariant;
-use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 fn near(a: f64, b: f64, tolerance: f64) -> bool {

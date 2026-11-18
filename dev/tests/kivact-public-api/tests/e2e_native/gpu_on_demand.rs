@@ -18,7 +18,6 @@ use std::time::Duration;
 
 use kivact::draw::{Paint, PaintShader};
 use kivact::prelude::*;
-use kivact::style::rgb;
 use kivact::test::{MirrorMode, RenderOptions, Renderer, gpu_unavailable};
 use kivact_public_api_tests::paint::{BLUE, GREEN, RED, at, expect};
 use kivact_public_api_tests::support::mount_with;

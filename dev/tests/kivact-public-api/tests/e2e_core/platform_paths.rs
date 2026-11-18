@@ -8,10 +8,8 @@
 
 use std::path::PathBuf;
 
-use kivact::UiError;
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::task::spawn;
 use kivact_public_api_tests::support::mount;
 
 fn button(name: &'static str, press: impl Into<Callback<()>>) -> impl Element {

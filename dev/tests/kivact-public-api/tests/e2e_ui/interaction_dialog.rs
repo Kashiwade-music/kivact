@@ -5,16 +5,12 @@
 //! ways to close it, and the modal containing Tab. The tests draw the frame
 //! (scrim, panel, heading, body and footer) themselves, as a kit does.
 
-use kivact::view::View;
-
 use kivact::geometry::Edge;
-use kivact::interaction::DialogMode;
 use kivact::interaction::{DialogApi, use_dialog};
 use kivact::prelude::*;
 use kivact::style::Position;
-use kivact::style::{Justify, Style, pct};
 use kivact::test::Screen;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 
 fn button(name: &'static str) -> Node {

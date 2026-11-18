@@ -3,7 +3,6 @@
 use crate::support::distance;
 use kivact::interaction::SortOrder;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::Screen;
 use kivact::view::SortDirection;
 use kivact_ui_basic as basic;

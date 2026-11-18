@@ -3,7 +3,6 @@ use crate::arrangement_model::arrangement as app_arrangement;
 use crate::graph_support::app_graph;
 use crate::node_support::app_node_editor;
 use crate::time_support::{app_dope_sheet, app_timeline};
-use kivact::geometry::{Point, Size};
 use kivact::interaction::ViewTransform;
 use kivact::prelude::*;
 use kivact::test::Screen;

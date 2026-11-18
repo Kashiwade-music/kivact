@@ -1,6 +1,5 @@
 //! Role: Buttons, checks, switches, toggles, accordion and slider through the public API.
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 

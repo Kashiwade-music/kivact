@@ -11,12 +11,9 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::draw::Transform;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::style::{Display, Position};
 use kivact::test::Screen;
-use kivact::view::View;
 use kivact_public_api_tests::paint::{RED, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;
 

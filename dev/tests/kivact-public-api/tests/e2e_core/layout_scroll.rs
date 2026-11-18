@@ -10,9 +10,7 @@
 use kivact::ErrorKind;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::{Screen, render};
-use kivact::view::View;
 use kivact_public_api_tests::support::mount;
 
 const LONG: &str = "The quick brown fox jumps over the lazy dog and keeps running \

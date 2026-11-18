@@ -5,9 +5,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::task::spawn;
 use kivact::task::{CancelToken, sleep};
-use kivact::view::error_boundary;
 use kivact_public_api_tests::support::mount;
 
 fn ms(n: u64) -> Duration {

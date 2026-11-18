@@ -1,6 +1,5 @@
 //! Role: Verify viewport coordinate sharing, fitting, and CPU snapshot output.
 use kivact::draw::Pixels;
-use kivact::geometry::Point;
 use kivact::interaction::{ViewTransform, use_zoom_pan};
 use kivact::prelude::*;
 use kivact::view::{ImageFit, viewport};

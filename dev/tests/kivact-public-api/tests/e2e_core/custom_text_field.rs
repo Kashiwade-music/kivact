@@ -2,12 +2,10 @@
 
 use kivact::custom::{NodeRefExt, TextEditing, TextSession, inline_view};
 use kivact::draw::{TextBaseline, TextFormat};
-use kivact::geometry::Point;
 use kivact::interaction::text_edit_policy;
 use kivact::prelude::*;
-use kivact::style::{Color, Position, StyledRange};
+use kivact::style::{Position, StyledRange};
 use kivact::test::Screen;
-use kivact::view::{EditPhase, Handled, KeyEvent, Modifiers, Node, NodeRef, node_ref};
 use kivact_public_api_tests::support::mount;
 use std::cell::RefCell;
 use std::rc::Rc;

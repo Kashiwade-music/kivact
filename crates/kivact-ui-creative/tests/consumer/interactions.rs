@@ -1,7 +1,5 @@
 //! Role: Tests for the interactions of Creative controls through the public API.
 
-use kivact::geometry::Point;
-use kivact::interaction::{MenuEntry, toaster};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_creative as ui;

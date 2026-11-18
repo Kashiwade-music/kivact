@@ -474,7 +474,6 @@ mod tests {
     //! Role: Tests for host command coalescing, stop notices and panic messages.
     use super::*;
     use arvane_shell::EmbedNotice;
-    use std::sync::Mutex;
 
     fn size(width: u32, generation: Option<u64>) -> Command {
         Command::SetSize {

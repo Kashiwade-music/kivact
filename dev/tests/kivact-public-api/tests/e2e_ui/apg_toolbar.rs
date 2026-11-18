@@ -4,8 +4,7 @@
 //! Perpendicular arrows remain available to child controls. Disabled controls
 //! are skipped unless the caller explicitly opts into disabled focusability.
 use kivact::prelude::*;
-use kivact::ui::toolbar;
-use kivact::view::{Orientation, ReadingDirection, provide_direction};
+use kivact::view::{ReadingDirection, provide_direction};
 use kivact_public_api_tests::support::mount;
 
 #[test]

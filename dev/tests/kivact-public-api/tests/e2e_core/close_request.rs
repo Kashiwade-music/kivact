@@ -5,7 +5,6 @@ use std::rc::Rc;
 
 use kivact::platform::{self, on_close_request};
 use kivact::prelude::*;
-use kivact::view::show;
 
 use kivact_public_api_tests::support::mount;
 

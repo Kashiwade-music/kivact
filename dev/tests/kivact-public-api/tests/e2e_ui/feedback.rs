@@ -2,7 +2,6 @@
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui::{self, AlertVariant, ControlSize};
-use kivact::view::{Key, Role};
 
 fn options() -> RenderOptions {
     RenderOptions::default().mirror(MirrorMode::Off)

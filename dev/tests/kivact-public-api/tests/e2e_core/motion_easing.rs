@@ -2,9 +2,7 @@
 
 use std::time::Duration;
 
-use kivact::motion::{
-    Animated, Easing, Keyframe, Repeat, Spring, StepPosition, Transition, animated,
-};
+use kivact::motion::{Animated, Keyframe, Repeat, StepPosition};
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
 use kivact::test::{RenderOptions, Screen};

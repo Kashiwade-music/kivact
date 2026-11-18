@@ -1,11 +1,9 @@
 //! Role: Public graph domain editing, view geometry and selective rollback contracts.
 use crate::graph_support::{app_graph, graph_edits};
 use crate::support::near;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::EditPhase;
-use kivact::view::{A11yAction, KeyCode, Modifiers};
+use kivact::view::{A11yAction, KeyCode};
 use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
 struct Model {

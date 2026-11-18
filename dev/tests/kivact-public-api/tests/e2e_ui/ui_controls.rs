@@ -8,12 +8,11 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::interaction::{ScalarRange, Toast, toaster};
+use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
-use kivact::ui::{range_slider, splitter, toast_region};
-use kivact::view::EditPhase;
-use kivact::view::{A11yAction, MouseButton, Orientation};
+use kivact::ui::{range_slider, splitter};
+use kivact::view::{A11yAction, MouseButton};
 use kivact_public_api_tests::support::mount_with;
 
 use EditPhase::{Begin, Cancel, Commit};

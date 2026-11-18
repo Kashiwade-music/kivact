@@ -6,7 +6,6 @@
 //! noticed by the awaiting future, which takes the payload from the dead
 //! thread and resumes it on the UI thread.
 
-use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
