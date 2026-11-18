@@ -1,4 +1,4 @@
-//! Role: Value types and number symbols shared by the locale caches and the date, format, locale, and number modules; it refers to no other module of this crate.
+//! Role: Shared value types and number symbols; refers to no other module of this crate.
 
 use icu_decimal::DecimalFormatter;
 use icu_decimal::provider::{Baked, DecimalDigitsV1, DecimalSymbolsV1};
