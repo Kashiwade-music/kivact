@@ -18,8 +18,10 @@
 use super::machine;
 
 use crate::Selection;
+use crate::collection::{Index, Membership};
 use crate::options_cell::OptionsCell;
 use kivact_core::state::{MachineHandle, binding, machine};
+use kivact_core::state::{Selector, Var, selector, var};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -127,6 +129,12 @@ pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
     shown: Value<Vec<ListItem<K>>>,
     visible: Value<Vec<K>>,
     active: Value<Option<K>>,
+    /// The options by key: one index shared by every option part.
+    index: Value<Index<K>>,
+    /// Whether a key is the active option, per key.
+    active_key: Selector<K>,
+    /// Which keys the selection holds, per key.
+    membership: Membership<K>,
     /// The mounted options by key, for `active_descendant`.
     rows: Signal<HashMap<K, NodeRef>>,
     input_ref: NodeRef,
@@ -179,6 +187,46 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
     );
     let query = memo(move || session.state().with(|state| state.query.get()));
     let filter = signal::<Filter<K>>(Rc::new(contains_query));
+    let (shown, visible, active) = shown_rows(options, query, filter, session);
+    let index = memo(move || options.with(|all| Index::of_items(all)));
+    let active_key = selector(active);
+    let membership = Membership::new(selection);
+    ComboboxApi {
+        input_state: signal(None),
+        content_state: signal(None),
+        item_states: signal(HashMap::new()),
+        options,
+        source,
+        debounce: OptionsCell::new(std::time::Duration::from_millis(150).into_value()),
+        search_status: OptionsCell::new(
+            (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
+        ),
+        selection,
+        mode,
+        session,
+        filter,
+        shown,
+        visible,
+        active,
+        index,
+        active_key,
+        membership,
+        rows: signal(HashMap::new()),
+        input_ref: node_ref(),
+        list_ref: node_ref(),
+    }
+}
+
+type Shown<K> = (Value<Vec<ListItem<K>>>, Value<Vec<K>>, Value<Option<K>>);
+
+/// The options the query shows, their keys, and the active option: the
+/// highlighted one while it is shown and enabled, else the first enabled one.
+fn shown_rows<K: kivact_core::state::ItemKey>(
+    options: Value<Vec<ListItem<K>>>,
+    query: Value<String>,
+    filter: Signal<Filter<K>>,
+    session: MachineHandle<machine::Machine<K>>,
+) -> Shown<K> {
     let shown = memo(move || {
         let typed = query.get();
         filter.with(|filter| {
@@ -207,27 +255,7 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
                 .or_else(|| first_enabled(rows))
         })
     });
-    ComboboxApi {
-        input_state: signal(None),
-        content_state: signal(None),
-        item_states: signal(HashMap::new()),
-        options,
-        source,
-        debounce: OptionsCell::new(std::time::Duration::from_millis(150).into_value()),
-        search_status: OptionsCell::new(
-            (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
-        ),
-        selection,
-        mode,
-        session,
-        filter,
-        shown,
-        visible,
-        active,
-        rows: signal(HashMap::new()),
-        input_ref: node_ref(),
-        list_ref: node_ref(),
-    }
+    (shown, visible, active)
 }
 
 impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
@@ -338,19 +366,15 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     }
     /// Drawing state of the actual option, or its logical selection before mounting.
     pub fn item_state(self, key: K) -> Value<ListItemState> {
+        let watch = self.membership.watch(key.clone());
         memo(move || {
             self.item_states
                 .with(|states| states.get(&key).copied())
                 .map(|state| state.get())
                 .unwrap_or_else(|| ListItemState {
                     input: PartState::default(),
-                    active: self.active.with(|active| active.as_ref() == Some(&key)),
-                    selected: match self.selection {
-                        Selection::Single(value) => {
-                            value.with(|value| value.as_ref() == Some(&key))
-                        }
-                        Selection::Multiple(values) => values.with(|values| values.contains(&key)),
-                    },
+                    active: self.active_key.is(&key),
+                    selected: self.membership.contains(&key, watch),
                 })
         })
     }
@@ -697,40 +721,41 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// the option's row.
     #[track_caller]
     pub fn item(self, key: K) -> Part<ListItemState> {
-        let options = self.options;
-        let active = self.active;
-        let rows = self.rows;
-        let selection = self.selection;
-        let item = {
-            let key = key.clone();
-            memo(move || {
-                options.with(|all| {
-                    all.iter()
-                        .find(|option| option.key == key)
-                        .map(|option| (option.label.get(), option.disabled))
-                })
-            })
-        };
-        let is_active = {
-            let key = key.clone();
-            memo(move || active.with(|active| active.as_ref() == Some(&key)))
-        };
-        let is_value = self.item_selected(key.clone());
-        let disabled = memo(move || item.with(|item| item.as_ref().is_none_or(|(_, d)| *d)));
+        let ComboboxApi {
+            options,
+            index,
+            active,
+            active_key,
+            membership,
+            rows,
+            selection,
+            item_states,
+            session,
+            ..
+        } = self;
+        let watch = membership.watch(key.clone());
+        let key = var(key);
+        let name = memo(move || {
+            let at = key.with(|key| index.with(|index| index.source(key)));
+            at.and_then(|at| options.with(|all| all.get(at).map(|option| option.label.get())))
+                .unwrap_or_default()
+        });
+        let is_active = move || key.with(|key| active_key.is(key));
+        let is_value = move || key.with(|key| membership.contains(key, watch));
+        let disabled = move || key.with(|key| !index.with(|index| index.enabled(key)));
         let input = part(move |input| ListItemState {
             input,
-            selected: is_value.get(),
-            active: is_active.get(),
+            selected: is_value(),
+            active: is_active(),
         });
         let part_state = input.state();
-        let item_states = self.item_states;
         item_states.update(|states| {
-            states.insert(key.clone(), part_state);
+            states.insert(key.get(), part_state);
         });
-        let cleanup_key = key.clone();
         on_cleanup(move || {
             if item_states.try_get_untracked().is_some() {
                 item_states.update(|states| {
+                    let cleanup_key = key.get();
                     if states.get(&cleanup_key) == Some(&part_state) {
                         states.remove(&cleanup_key);
                     }
@@ -739,49 +764,31 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         });
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
-            let attachment = host.part(input).node_ref(target);
-            let row = target;
-            let hover_key = key.clone();
-            let press_key = key.clone();
-            let held = key;
-            attachment
+            host.part(input)
+                .node_ref(target)
                 .role(Role::Option)
-                .name(move || {
-                    item.with(|item| item.as_ref().map(|(l, _)| l.clone()))
-                        .unwrap_or_default()
-                })
+                .name(name)
                 .selected(move || match selection {
-                    Selection::Single(_) => is_active.get(),
-                    Selection::Multiple(_) => is_value.get(),
+                    Selection::Single(_) => is_active(),
+                    Selection::Multiple(_) => is_value(),
                 })
                 .disabled(disabled)
                 .on_pointer(move |event: PointerEvent| {
                     if matches!(event.phase(), PointerPhase::Enter | PointerPhase::Move)
-                        && !disabled.get()
-                        && !is_active.get()
+                        && !disabled()
+                        && !active
+                            .with_untracked(|active| key.with(|key| active.as_ref() == Some(key)))
                     {
-                        self.session
-                            .send(machine::Event::Highlight(hover_key.clone()));
+                        session.send(machine::Event::Highlight(key.get()));
                     }
                     Handled::No
                 })
-                .on_press(move || self.choose(press_key.clone()))
+                .on_press(move || self.choose(key.get()))
                 .on_attach(move |_| {
-                    register_row(rows, held.clone(), row);
-                    follow_active_row(row, is_active);
+                    register_row(rows, key.get(), target);
+                    follow_active_row(target, key, active_key);
                 })
         })
-    }
-
-    fn item_selected(self, key: K) -> Value<bool> {
-        let selection = self.selection;
-        {
-            let key = key.clone();
-            memo(move || match selection {
-                Selection::Multiple(values) => values.with(|values| values.contains(&key)),
-                Selection::Single(value) => value.with(|value| value.as_ref() == Some(&key)),
-            })
-        }
     }
 
     /// Present the same combobox state with a different editor anchor.
@@ -820,14 +827,18 @@ fn register_row<K: kivact_core::state::ItemKey>(
     });
 }
 
-fn follow_active_row(row: NodeRef, is_active: Value<bool>) {
+fn follow_active_row<K: kivact_core::state::ItemKey>(
+    row: NodeRef,
+    key: Var<K>,
+    active_key: Selector<K>,
+) {
     effect(move || {
-        if is_active.get() {
+        if key.with(|key| active_key.is(key)) {
             row.scroll_into_view();
         }
     });
     on_mount(move || {
-        if is_active.get() {
+        if key.with(|key| active_key.is(key)) {
             row.scroll_into_view();
         }
     });

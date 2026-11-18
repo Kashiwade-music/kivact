@@ -1,6 +1,7 @@
 //! Role: The levels of an open menu: rows, focus, keys and pointer.
 
 use crate::Selection;
+use crate::collection::Index;
 use kivact_core::state::IntoBinding;
 
 use super::order::{Rows, edge_item, rows};
@@ -14,7 +15,9 @@ use crate::{
 use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
+use kivact_core::state::{
+    Selector, Signal, Value, Var, effect, memo, on_cleanup, selector, signal, untrack, var,
+};
 use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
 
@@ -30,6 +33,10 @@ pub(super) struct Level<K: kivact_core::state::ItemKey> {
     pub(super) prefix: Value<Vec<K>>,
     pub(super) shown: Value<bool>,
     pub(super) rows: Value<Rows<K>>,
+    /// This level's rows by key, in O(1).
+    index: Value<Index<K>>,
+    /// Whether a key is the item whose submenu is open at this level, per key.
+    open_key: Selector<K>,
     group: ListApi<K>,
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
@@ -58,6 +65,16 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             .disabled_focus
             == DisabledMenuFocus::Retain;
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
+        let index = memo(move || {
+            level_rows.with(|rows| {
+                Index::new(
+                    rows,
+                    |(_, entry)| entry.key(),
+                    |(_, entry)| !entry.is_disabled(),
+                )
+            })
+        });
+        let open_key = selector(move || session.path.with(|path| path.get(depth).cloned()));
         // A level the entries no longer keep offers no items, so its group does not
         // move focus to a sibling that is about to go away with it.
         let items = memo(move || {
@@ -109,6 +126,8 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             prefix,
             shown,
             rows: level_rows,
+            index,
+            open_key,
             group,
             anchors,
             aiming,
@@ -334,28 +353,28 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
     pub(super) fn item(self, key: K) -> Part<MenuItemState> {
         let Level {
             session,
-            depth,
             rows,
+            index,
+            open_key,
             group,
+            retain_disabled_focus,
             ..
         } = self;
-        let entry = item_entry(rows, key.clone());
+        let member = group.base_item(key.clone(), retain_disabled_focus);
+        let key = var(key);
         // The kind of an item is part of its row's identity.
-        let kind = entry.with_untracked(|entry| entry.as_ref().and_then(MenuEntry::item_kind));
+        let kind = untrack(|| with_entry(rows, index, key, |e| e.and_then(MenuEntry::item_kind)));
         let submenu = kind == Some(MenuItemKind::Submenu);
-        let retain_disabled_focus = self.retain_disabled_focus;
-        let disabled = memo(move || entry.with(|e| e.as_ref().is_none_or(MenuEntry::is_disabled)));
-        let description = item_description(entry, disabled, retain_disabled_focus);
-        let check = memo(move || entry.with(|e| e.as_ref().and_then(MenuEntry::check)));
-        let destructive =
-            memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::is_destructive)));
-        let keep_open = memo(move || entry.with(|e| e.as_ref().is_some_and(MenuEntry::keeps_open)));
-        let expanded = {
-            let key = key.clone();
-            memo(move || submenu && session.path.with(|path| path.get(depth) == Some(&key)))
+        // A Value: the menu press keeps it for its hit test.
+        let disabled =
+            memo(move || with_entry(rows, index, key, |e| e.is_none_or(MenuEntry::is_disabled)));
+        let check = move || with_entry(rows, index, key, |e| e.and_then(MenuEntry::check));
+        let destructive = move || {
+            with_entry(rows, index, key, |e| {
+                e.is_some_and(MenuEntry::is_destructive)
+            })
         };
-
-        let member = group.base_item(key.clone(), self.retain_disabled_focus);
+        let expanded = move || submenu && key.with(|key| open_key.is(key));
         let item_ref = kivact_core::view::node_ref();
         if let Some(press) = session.press {
             press.row(item_ref, disabled);
@@ -368,46 +387,33 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                     Some(false) => super::state::PressOver::Away,
                 },
             );
-
-        self.watch_item(key.clone(), submenu, item_ref, disabled, pressed_over);
-        let observed_key = key.clone();
-        let invoke_key = key;
+        self.watch_item(key.get(), submenu, item_ref, disabled, pressed_over);
         let member = member.map_state(move |state| MenuItemState {
             pressed_over: pressed_over.get(),
             input: state.input,
-            display: item_display(check.get(), submenu, expanded.get()),
-            destructive: destructive.get(),
+            display: item_display(check(), submenu, expanded()),
+            destructive: destructive(),
         });
         let part_state = member.state();
-        self.observe_item(observed_key, part_state);
+        self.observe_item(key.get(), part_state);
         Part::new(part_state, move |host| {
             let member = host
                 .part(member)
                 .node_ref(item_ref)
-                .role(match kind {
-                    Some(MenuItemKind::Radio) => Role::MenuItemRadio,
-                    Some(MenuItemKind::Checkbox) => Role::MenuItemCheckBox,
-                    _ => Role::MenuItem,
-                })
                 .disabled(disabled)
-                .description(description)
+                .description(move || {
+                    let disabled = disabled.get();
+                    with_entry(rows, index, key, |e| {
+                        item_description(e, disabled, retain_disabled_focus)
+                    })
+                })
                 .on_pointer(move |event: PointerEvent| self.item_pointer(event))
                 .on_press(move || {
-                    self.activate_item(&invoke_key, disabled.get(), submenu, keep_open.get())
+                    let keep_open =
+                        with_entry(rows, index, key, |e| e.is_some_and(MenuEntry::keeps_open));
+                    self.activate_item(&key.get(), disabled.get(), submenu, keep_open)
                 });
-            let member = if matches!(kind, Some(MenuItemKind::Checkbox | MenuItemKind::Radio)) {
-                member.checked(move || check.get().is_some_and(MenuCheck::is_checked))
-            } else {
-                member
-            };
-            if submenu {
-                member
-                    .has_popup(Some(kivact_core::view::PopupKind::Menu))
-                    .expanded(expanded)
-                    .selected(expanded)
-            } else {
-                member
-            }
+            item_role(member, kind, check, expanded)
         })
     }
 }
@@ -419,6 +425,41 @@ fn item_display(check: Option<MenuCheck>, submenu: bool, expanded: bool) -> Menu
         Some(check) => MenuItemDisplay::Check(check),
         None if submenu => MenuItemDisplay::Submenu { expanded },
         None => MenuItemDisplay::Action,
+    }
+}
+
+/// Read the entry of the item `key` in a level's rows, tracked, through
+/// the level's index in O(1); `None` when the level has no such item.
+fn with_entry<K: kivact_core::state::ItemKey, R>(
+    rows: Value<Rows<K>>,
+    index: Value<Index<K>>,
+    key: Var<K>,
+    f: impl FnOnce(Option<&MenuEntry<K>>) -> R,
+) -> R {
+    let at = key.with(|key| index.with(|index| index.source(key)));
+    rows.with(|rows| f(at.and_then(|at| rows.get(at)).map(|(_, entry)| entry)))
+}
+
+/// The role and the check or submenu state of an item's node.
+fn item_role(
+    member: kivact_core::view::Node,
+    kind: Option<MenuItemKind>,
+    check: impl Fn() -> Option<MenuCheck> + 'static,
+    expanded: impl Fn() -> bool + Copy + 'static,
+) -> kivact_core::view::Node {
+    match kind {
+        Some(MenuItemKind::Radio) => member
+            .role(Role::MenuItemRadio)
+            .checked(move || check().is_some_and(MenuCheck::is_checked)),
+        Some(MenuItemKind::Checkbox) => member
+            .role(Role::MenuItemCheckBox)
+            .checked(move || check().is_some_and(MenuCheck::is_checked)),
+        Some(MenuItemKind::Submenu) => member
+            .role(Role::MenuItem)
+            .has_popup(Some(kivact_core::view::PopupKind::Menu))
+            .expanded(expanded)
+            .selected(expanded),
+        _ => member.role(Role::MenuItem),
     }
 }
 
@@ -530,42 +571,21 @@ fn corridor<K: kivact_core::state::ItemKey>(
     }
 }
 
-fn item_description<K: kivact_core::state::ItemKey>(
-    entry: Value<Option<MenuEntry<K>>>,
-    disabled: Value<bool>,
+/// The row's description: its disabled reason while a disabled row keeps
+/// the focus, else its shortcut.
+fn item_description<K>(
+    entry: Option<&MenuEntry<K>>,
+    disabled: bool,
     retain_disabled_focus: bool,
-) -> Value<String> {
-    let shortcut = memo(move || {
-        entry.with(|e| {
-            e.as_ref()
-                .map(|e| e.shortcut().to_string())
-                .unwrap_or_default()
-        })
-    });
-    memo(move || {
-        if retain_disabled_focus
-            && disabled.get()
-            && let Some(reason) =
-                entry.with(|entry| entry.as_ref().and_then(MenuEntry::disabled_reason))
-        {
-            return reason;
-        }
-        shortcut.get()
-    })
-}
-
-fn item_entry<K: kivact_core::state::ItemKey>(
-    rows: Value<Rows<K>>,
-    key: K,
-) -> Value<Option<MenuEntry<K>>> {
+) -> String {
+    let Some(entry) = entry else {
+        return String::new();
+    };
+    if retain_disabled_focus
+        && disabled
+        && let Some(reason) = entry.disabled_reason()
     {
-        let key = key.clone();
-        memo(move || {
-            rows.with(|rows| {
-                rows.iter()
-                    .find(|(_, entry)| entry.key() == Some(&key))
-                    .map(|(_, entry)| entry.clone())
-            })
-        })
+        return reason;
     }
+    entry.shortcut().to_string()
 }
