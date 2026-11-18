@@ -37,6 +37,7 @@
 mod announcer;
 mod axis;
 mod calendar;
+mod collection;
 mod combobox;
 mod delayed;
 mod dialog;

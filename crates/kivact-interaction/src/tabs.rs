@@ -85,7 +85,6 @@ pub struct TabListState {
 /// ```
 pub struct TabsApi<K: kivact_core::state::ItemKey> {
     group: ListApi<K>,
-    options: Value<Vec<ListItem<K>>>,
     selected: Binding<K>,
     edit: crate::EditSession<K>,
     owner: Owner,
@@ -137,7 +136,6 @@ pub fn use_tabs<K: kivact_core::state::ItemKey>(
     TabsApi {
         edit,
         group,
-        options,
         selected,
         owner,
         refs,
@@ -245,20 +243,8 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     /// A tab with reactive label, selection, constraints and roving navigation.
     #[track_caller]
     pub fn item(self, key: K) -> Part<TabState> {
-        let member = self.group.item(key.clone());
         let (tab_ref, panel_ref) = self.refs(&key);
-        let options = self.options;
-        let key = var(key);
-        let label = memo(move || {
-            options.with(|rows| {
-                key.with(|key| {
-                    rows.iter()
-                        .find(|row| &row.key == key)
-                        .map(|row| row.label.get())
-                        .unwrap_or_default()
-                })
-            })
-        });
+        let member = self.group.item(key);
         let orientation = self.orientation;
         let base = member.map_state(move |state| TabState {
             input: state.input,
@@ -269,7 +255,6 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
         Part::new(part_state, move |host| {
             host.part(base)
                 .role(Role::Tab)
-                .name(label)
                 .controls(panel_ref)
                 .node_ref(tab_ref)
         })
@@ -279,14 +264,14 @@ impl<K: kivact_core::state::ItemKey> TabsApi<K> {
     #[track_caller]
     pub fn panel(self, key: K) -> Part<TabState> {
         let (tab_ref, panel_ref) = self.refs(&key);
+        let membership = self.group.membership();
+        let index = self.group.index();
+        let watch = membership.watch(key.clone());
         let key = var(key);
-        let selected = self.selected();
-        let options = self.options;
         let orientation = self.orientation;
         let shown = memo(move || {
             key.with(|key| {
-                selected.with(|selected| selected == key)
-                    && options.with(|rows| rows.iter().any(|row| &row.key == key))
+                membership.contains(key, watch) && index.with(|index| index.position(key).is_some())
             })
         });
         let input = part(move |input| TabState {

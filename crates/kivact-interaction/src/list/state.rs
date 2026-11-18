@@ -2,19 +2,22 @@
 
 use super::data::{ListGesture, ListItem, ListMode, ListOptions};
 use super::machine;
-use super::order::Order;
 use super::selection::selection_transition;
 use super::typeahead::Typeahead;
 use crate::Selection;
+use crate::collection::{Index, Membership};
 use crate::options_cell::OptionsCell;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Sent};
-use kivact_core::state::{Binding, Callback, Signal, Value, binding, effect, memo, signal};
+use kivact_core::state::{
+    Binding, Callback, Selector, Signal, Value, binding, effect, memo, selector, signal,
+};
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::state::{MachineHandle, machine};
 use kivact_core::view::NodeRef;
 use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 use std::rc::Rc;
 
 type Leave<K> = Rc<dyn Fn(&K) -> Option<K>>;
@@ -42,7 +45,13 @@ pub(super) struct State<K: kivact_core::state::ItemKey> {
     /// another root.
     pub(super) root: Owner,
     pub(super) items: Value<Vec<ListItem<K>>>,
-    pub(super) order: Value<Order<K>>,
+    pub(super) index: Value<Index<K>>,
+    /// The number of distinct items; one memo shared by every item.
+    pub(super) set_size: Value<u32>,
+    /// Which keys the selection holds, per key.
+    pub(super) membership: Membership<K>,
+    /// Whether a key is the active one, per key.
+    pub(super) active_key: Selector<K>,
     pub(super) selection: Selection<K>,
     pub(super) selected: Value<Vec<K>>,
     pub(super) anchor_value: Value<Option<K>>,
@@ -71,19 +80,14 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
 ) -> Owned<Rc<State<K>>> {
     let owner = Owner::current();
     let root = Owner::root();
-    let order = memo(move || Order::new(items.get()));
+    let index = memo(move || items.with(|items| Index::of_items(items)));
+    let set_size =
+        memo(move || index.with(|index| u32::try_from(index.count()).unwrap_or(u32::MAX)));
     let selected_value = memo(move || selected(selection));
+    let membership = Membership::new(selection);
     let roving = Roving::<K>::new();
     let requested = roving.requested;
-    let options = OptionsCell::new(ListSetupOptions {
-        retained_focus: false.into_value(),
-        reset_on_exit: true,
-        page: 10.into_value(),
-        leave: None,
-        scroll: None,
-        selectable: None,
-        anchor: signal(None::<K>).into_binding(),
-    });
+    let options = default_setup_options::<K>();
     let option_values = options.value();
     let anchor_value = memo(move || option_values.get().anchor.get());
     let mode = policy.mode;
@@ -109,25 +113,29 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     let position = memo(move || {
         requested
             .get()
-            .and_then(|key| order.with(|order| order.position(&key)))
+            .and_then(|key| index.with(|index| index.position(&key)))
             .unwrap_or(0)
     });
     let active = active_value(
-        order,
+        index,
         targets,
-        selected_value,
+        membership.keys(),
         option_values,
         pending,
         mode,
         position,
     );
+    let active_key = selector(active);
     let state = Rc::new(State {
         item_states: signal(std::collections::HashMap::new()),
         container_state: signal(None),
         owner,
         root,
         items,
-        order,
+        index,
+        set_size,
+        membership,
+        active_key,
         selection,
         selected: selected_value,
         anchor_value,
@@ -144,6 +152,18 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     stored
 }
 
+fn default_setup_options<K: kivact_core::state::ItemKey>() -> OptionsCell<ListSetupOptions<K>> {
+    OptionsCell::new(ListSetupOptions {
+        retained_focus: false.into_value(),
+        reset_on_exit: true,
+        page: 10.into_value(),
+        leave: None,
+        scroll: None,
+        selectable: None,
+        anchor: signal(None::<K>).into_binding(),
+    })
+}
+
 impl<K: kivact_core::state::ItemKey> State<K> {
     pub(super) fn retains_focus(&self) -> bool {
         self.pending.state().get_untracked().focus == machine::Focus::Retained
@@ -155,7 +175,7 @@ impl<K: kivact_core::state::ItemKey> State<K> {
     }
     /// Whether the order lets `key` take the focus or a selection.
     fn enabled(&self, key: &K) -> bool {
-        self.order.with_untracked(|order| order.enabled(key))
+        self.index.with_untracked(|order| order.enabled(key))
     }
     pub(super) fn target(&self, key: &K) -> Option<NodeRef> {
         self.roving.target(key, |key| self.enabled(key))
@@ -169,7 +189,7 @@ impl<K: kivact_core::state::ItemKey> State<K> {
     }
 
     pub(super) fn select(&self, key: K, gesture: ListGesture) -> bool {
-        if !self.order.with_untracked(|order| order.enabled(&key)) || !self.can_select(&key) {
+        if !self.index.with_untracked(|order| order.enabled(&key)) || !self.can_select(&key) {
             return false;
         }
         let anchor = self.options.get().anchor;
@@ -179,7 +199,7 @@ impl<K: kivact_core::state::ItemKey> State<K> {
                 anchor.set(Some(key));
             }
             Selection::Multiple(binding) => {
-                let visible = self.order.with_untracked(|order| {
+                let visible = self.index.with_untracked(|order| {
                     order
                         .keys()
                         .into_iter()
@@ -209,7 +229,7 @@ impl<K: kivact_core::state::ItemKey> State<K> {
                 && !self.roving.contains(key))
     }
     pub(super) fn focus(&self, key: K) -> bool {
-        if !self.order.with_untracked(|order| order.enabled(&key)) {
+        if !self.index.with_untracked(|order| order.enabled(&key)) {
             return false;
         }
         let scroll = self.options.get().scroll;
@@ -322,9 +342,9 @@ fn reconcile<K: kivact_core::state::ItemKey>(state: &State<K>) {
 }
 
 fn active_value<K: kivact_core::state::ItemKey>(
-    order: Value<Order<K>>,
+    order: Value<Index<K>>,
     targets: Roving<K>,
-    selected_value: Value<Vec<K>>,
+    selected_value: Value<HashSet<K>>,
     option_values: Value<ListSetupOptions<K>>,
     pending: MachineHandle<machine::Machine<K>>,
     mode: ListMode,
@@ -376,7 +396,7 @@ fn active_value<K: kivact_core::state::ItemKey>(
             let keys = order.keys();
             let preference = keys
                 .iter()
-                .find(|key| selected.contains(key) && order.enabled(key) && available(key));
+                .find(|key| selected.contains(*key) && order.enabled(key) && available(key));
             preference.cloned().or_else(|| {
                 // Start at the requested row's ordinal while that row is listed; otherwise at the first row.
                 let start = if mode == ListMode::Select && !selected.is_empty() {
@@ -405,7 +425,7 @@ fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Own
         if stored.try_get().is_none() {
             return;
         }
-        let next = state.order.with(|order| order.duplicates().to_vec());
+        let next = state.index.with(|order| order.duplicates().to_vec());
         let changed = duplicates.borrow_mut().update(next).map(Vec::len);
         if let Some(count) = changed
             && count > 0
