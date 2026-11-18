@@ -77,7 +77,6 @@ pub enum Easing {
         position: StepPosition,
     },
     /// CSS linear(): (input, output) points with increasing input.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     LinearPoints(Arc<[(f64, f64)]>),
     /// Pulls back before moving forward.
     BackIn,
@@ -726,7 +725,6 @@ impl Transition {
     }
 
     /// Derive timing for an interrupted component animation.
-    // xtask-allow(internal-contract): Shared component timing bridges runtime and host animation drivers.
     #[doc(hidden)]
     pub fn retargeted(&self, from: &[f64], to: &[f64], current: &[f64], target: &[f64]) -> Self {
         let mut timing = self.clone();

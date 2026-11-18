@@ -105,6 +105,7 @@ enum QueueMode {
     Newest,
 }
 
+// xtask-allow(state): legacy: phase, next_worker_id
 struct Queue<I: 'static> {
     mode: QueueMode,
     phase: RefCell<ActionPhase<I>>,
@@ -239,6 +240,7 @@ enum Acceptance {
     Closed,
 }
 
+// xtask-allow(state): legacy: last is written only by ActionCell::begin_run (the input of the latest started run; last, drained, on_complete, next_handler_id; written only by
 pub(crate) struct ActionCell<T: 'static, I: 'static> {
     app: AppId,
     /// The owner the action belongs to; runs are for it.
@@ -246,13 +248,11 @@ pub(crate) struct ActionCell<T: 'static, I: 'static> {
     run: RunFn<T, I>,
     runner: Runner<I>,
     async_state: AsyncCell<T>,
-    // xtask-allow(state-fields): projection: written only by ActionCell::begin_run (the input of the latest started run; None before the first run)
     /// The run `state` describes; `None` before the first run.
     last: RefCell<Option<Submitted<I>>>,
     /// Wakers of the `close` futures waiting for the action to drain.
     drained: RefCell<Vec<Waker>>,
     on_complete: RefCell<Vec<DoneHandler<T>>>,
-    // xtask-allow(state-fields): identity: allocates on_complete registration ids; each DoneHandler keeps its own id and its owner's cleanup removes it by that id
     /// The id the next `on_complete` registration takes.
     next_handler_id: Cell<Generation>,
     at: &'static Location<'static>,

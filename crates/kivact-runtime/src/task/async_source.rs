@@ -9,7 +9,6 @@ use super::{AsyncSnapshot, AsyncState, Retry};
 pub trait AsyncSource<T>: super::sealed::AsyncSourceSeal + Copy + 'static {
     /// Read the current tracked state.
     fn state(&self) -> AsyncState<T>;
-    // xtask-allow(internal-contract): Standard async views consume the sealed source publication identity.
     #[doc(hidden)]
     fn snapshot(&self) -> AsyncSnapshot<T>;
     /// Obtain a callback that retries this source.

@@ -53,11 +53,10 @@ pub use spawn::{Task, spawn, spawn_in};
 pub use state::{TaskEntry, TaskState, TaskStats};
 pub use time::{sleep, timeout};
 
-pub use async_publication::Retry;
-pub use async_source::AsyncSource;
-// xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
 #[doc(hidden)]
 pub use async_publication::AsyncSnapshot;
+pub use async_publication::Retry;
+pub use async_source::AsyncSource;
 mod async_adapters;
 mod async_publication;
 mod async_source;

@@ -15,7 +15,6 @@ pub struct OwnerInfo {
     /// The parent owner.
     pub parent: Option<OwnerId>,
     /// Where the owner was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 
@@ -26,7 +25,6 @@ pub struct LiveOwner {
     /// The parent owner.
     pub parent: Option<OwnerId>,
     /// Where the owner was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 
@@ -39,7 +37,6 @@ pub struct LiveObject {
     /// The name it was stored under.
     pub name: &'static str,
     /// Where it was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
 }
 

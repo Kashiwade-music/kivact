@@ -71,10 +71,8 @@ pub enum GpuStart {
 pub struct GpuPreference {
     /// The kind of adapter.
     pub power: GpuPower,
-    // xtask-allow(state-fields): option: absent means the default (Arvane's backend order)
     /// The graphics API (`None`: Arvane's order).
     pub backend: Option<GpuBackend>,
-    // xtask-allow(state-fields): option: absent means the default (as `power` picks)
     /// The adapter (`None`: as `power` picks), looked up by its identity on
     /// Windows and Linux (Direct3D 12 and Vulkan report it); as `power`
     /// picks when no adapter has it.
@@ -129,7 +127,6 @@ pub struct GpuAdapter {
     pub ids: AdapterIds,
     /// The adapter's name, for diagnostics.
     pub name: String,
-    // xtask-allow(state-fields): identity: the device instance; a new generation means every image imported before is gone
     /// The device's generation: 1 for the process's first GPU device, one
     /// more for each device made after it. A new generation means every
     /// image imported into the window before is gone.

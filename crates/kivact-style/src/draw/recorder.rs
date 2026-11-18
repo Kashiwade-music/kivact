@@ -42,7 +42,6 @@ impl Draw {
     /// Install the framework text engine before recording draw commands.
     /// Core mounting and offscreen recording supply the inherited text style
     /// automatically; application draw closures receive an initialized painter.
-    // xtask-allow(internal-contract): Core mounting and offscreen recording automatically install the backend text shaper across the style boundary.
     #[doc(hidden)]
     pub fn set_text_measurer(&mut self, shaper: impl p::TextShaper + 'static) {
         self.measurer = Some(Rc::new(shaper));

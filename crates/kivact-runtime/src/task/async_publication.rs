@@ -17,7 +17,6 @@ impl Retry {
     }
 }
 /// One canonical publication of an async source, compared by identity.
-// xtask-allow(internal-contract): Standard async views compare canonical publications across crate boundaries.
 #[doc(hidden)]
 pub struct AsyncSnapshot<T>(pub(super) Rc<AsyncState<T>>);
 impl<T> Clone for AsyncSnapshot<T> {

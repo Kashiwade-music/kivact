@@ -103,6 +103,7 @@ enum Dispatch<Ev> {
     Running(VecDeque<Ev>),
 }
 
+// xtask-allow(state): legacy: state, dispatch, timers
 struct MachineCell<M: Machine> {
     owner: Owner,
     state: Signal<M::State>,

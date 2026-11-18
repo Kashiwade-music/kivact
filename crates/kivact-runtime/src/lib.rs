@@ -39,9 +39,8 @@ pub use task::{
     sleep, spawn, spawn_in, timeout,
 };
 
+#[doc(hidden)]
+pub use task::AsyncSnapshot;
 #[cfg(feature = "tokio")]
 pub use task::on_tokio;
 pub use task::{AsyncSource, Retry};
-// xtask-allow(internal-contract): Standard async views consume sealed source publication identities.
-#[doc(hidden)]
-pub use task::AsyncSnapshot;

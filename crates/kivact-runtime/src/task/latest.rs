@@ -19,6 +19,7 @@ enum Latest {
     },
 }
 
+// xtask-allow(state): legacy: current, generation
 /// At most one run in flight; starting one cancels the previous one, and a run publishes only
 /// while it is still the current one (a `start` or `cancel` during its last poll stops it too).
 pub(crate) struct LatestRun {

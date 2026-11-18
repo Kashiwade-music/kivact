@@ -146,7 +146,6 @@ impl Draw {
             pixelated: options.pixelated,
         });
     }
-    // xtask-allow(internal-contract): Viewport records its own CPU image alongside an immutable shared frame for snapshot lowering.
     #[doc(hidden)]
     pub fn gpu_frame_with_pixels(
         &mut self,

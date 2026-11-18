@@ -60,10 +60,10 @@ pub(crate) fn cancelled(at: &'static Location<'static>) -> UiError {
     UiError::new(ErrorKind::Cancelled, "cancelled", Some(at))
 }
 
+// xtask-allow(state): legacy: latest is written only by AsyncCell::publish (Ready(v) implies latest == Some(v)); state, latest; written only by AsyncCell::publish (Ready(v)
 /// The only publication path for resource and action state.
 pub(crate) struct AsyncCell<T: 'static> {
     pub(super) state: crate::Signal<Rc<AsyncState<T>>>,
-    // xtask-allow(state-fields): projection: written only by AsyncCell::publish (Ready(v) implies latest == Some(v))
     pub(super) latest: crate::Signal<Option<T>>,
 }
 impl<T: Clone + 'static> AsyncCell<T> {

@@ -257,26 +257,18 @@ pub enum GridAutoFlow {
     ColumnDense,
 }
 
+// xtask-allow(state): legacy: columns, rows, auto_columns, auto_rows, flow, column, row, justify_items, justify_self; one authored property; absent means the inherited or default
 /// The grid props a style sets (boxed in `Style`: most styles set none).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct GridStyle {
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) columns: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) rows: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_columns: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) auto_rows: Option<Tracks>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) flow: Option<GridAutoFlow>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) column: Option<GridPlacement>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) row: Option<GridPlacement>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_items: Option<Align>,
-    // xtask-allow(state-fields): option: one authored property; absent means the inherited or default value
     pub(crate) justify_self: Option<Align>,
 }
 

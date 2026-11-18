@@ -29,10 +29,8 @@ const PER_TURN: usize = 64;
 
 /// One error or diagnostic in report order, as the DevTools reads them.
 pub struct Reported {
-    // xtask-allow(state-fields): identity: the report's number in the sequence the error and diagnostic rings share; DevTools pages by it (since) and keys rows by it
     /// The report sequence number (the rings share one counter).
     pub seq: u64,
-    // xtask-allow(state-fields): independent: a read-only error report; whether a handler handled it is a separate fact from the sequence number
     /// Whether an error handler handled it (`false` when it reached the default sink).
     pub handled: bool,
     /// The error.
@@ -249,7 +247,6 @@ impl Runtime {
     }
 
     /// Turn the detailed turn trace on or off; the DevTools reads it.
-    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
     #[doc(hidden)]
     pub fn set_detailed_trace(&self, on: bool) {
         if on {
@@ -260,7 +257,6 @@ impl Runtime {
     }
 
     /// Take the finished turns' detailed records, oldest first; the DevTools reads them.
-    // xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
     #[doc(hidden)]
     pub fn take_turn_details(&self) -> Vec<TurnDetail> {
         self.diag.borrow_mut().detail.take()

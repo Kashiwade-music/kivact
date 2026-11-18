@@ -12,7 +12,6 @@ const CAP: usize = 2000;
 const DONE: usize = 256;
 
 /// The kind of work that started a turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CauseTag {
@@ -29,7 +28,6 @@ pub enum CauseTag {
 }
 
 /// One cause of a turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 pub struct CauseEntry {
     /// What kind of work started it.
@@ -39,7 +37,6 @@ pub struct CauseEntry {
 }
 
 /// One turn stage and the time it took.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 pub struct StageSpan {
     /// The stage.
@@ -51,48 +48,38 @@ pub struct StageSpan {
 }
 
 /// One write in a turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 pub struct DetailWrite {
     /// The written node.
     pub node: NodeId,
-    // xtask-allow(state-fields): independent: the turn's last cause when the write happened (None before the turn's first cause or after the cap dropped one); a write with or without a cause may or may not change the value
     /// The index of the last cause before the write, if any.
     pub cause: Option<u32>,
     /// Value type name.
     pub ty: &'static str,
     /// Where the signal was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
     /// Where it was written.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): independent: a read-only DevTools record of one write; whether it changed the value is a fact of its own
     /// Whether the write changed the value.
     pub changed: bool,
 }
 
 /// One memo or effect run in a turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 pub struct DetailRun {
     /// The run node.
     pub node: NodeId,
-    // xtask-allow(state-fields): independent: the turn's last cause when the run happened (None before the turn's first cause or after the cap dropped one); a run with or without a cause may or may not change its value
     /// The index of the last cause before the run, if any.
     pub cause: Option<u32>,
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
     pub kind: &'static str,
     /// Where the memo or effect was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
-    // xtask-allow(state-fields): independent: a read-only DevTools record of one run; whether it changed the value is a fact of its own
     /// Whether the run changed its value.
     pub changed: bool,
 }
 
 /// One dependency edge marked in a turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 pub struct DetailEdge {
     /// The changed source or memo.
@@ -102,7 +89,6 @@ pub struct DetailEdge {
 }
 
 /// The detailed record of one turn.
-// xtask-allow(internal-contract): the core's DevTools reads the detailed trace.
 #[doc(hidden)]
 #[derive(Default)]
 pub struct TurnDetail {
