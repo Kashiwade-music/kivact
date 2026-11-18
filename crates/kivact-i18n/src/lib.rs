@@ -18,12 +18,14 @@ mod locale;
 mod messages;
 mod numbers;
 mod regional;
+mod shared;
 
 pub use date::{CalendarDate, CalendarMonth, DateRange};
 pub use format::{
-    DateStyle, DateTime, FractionDigits, Grouping, HourCycle, NameWidth, NumberStyle,
-    PluralCategory, PluralForms, TimeOfDay, TimeStyle,
+    DateStyle, DateTime, FractionDigits, Grouping, NumberStyle, PluralCategory, PluralForms,
+    TimeOfDay, TimeStyle,
 };
 pub use interpolate::interpolate;
-pub use locale::{Locale, Weekday};
+pub use locale::Locale;
 pub use messages::Messages;
+pub use shared::{HourCycle, NameWidth, Weekday};

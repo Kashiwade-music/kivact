@@ -20,14 +20,6 @@ pub struct DateTime {
     /// Wall-clock time.
     pub time: TimeOfDay,
 }
-/// The locale's default hour cycle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HourCycle {
-    /// Twelve-hour clock.
-    H12,
-    /// Twenty-four-hour clock starting at zero.
-    H23,
-}
 /// Decimal precision and digit grouping.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct NumberStyle {
@@ -75,16 +67,6 @@ pub struct TimeStyle {
     /// Include seconds.
     pub seconds: bool,
 }
-/// Width of a stand-alone calendar name.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum NameWidth {
-    /// Narrow name, which may be ambiguous.
-    Narrow,
-    /// Abbreviated name.
-    Short,
-    /// Full name.
-    Long,
-}
 /// A Unicode cardinal plural category.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PluralCategory {
@@ -121,13 +103,11 @@ pub struct PluralForms {
 kivact_runtime::constant_value!(
     TimeOfDay,
     DateTime,
-    HourCycle,
     NumberStyle,
     FractionDigits,
     Grouping,
     DateStyle,
     TimeStyle,
-    NameWidth,
     PluralCategory,
     PluralForms
 );
