@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with_handle};
-use kivact_devtools_client::{Connection, read_target};
+use kivact_devtools_protocol::client::{Connection, read_target};
 use kivact_devtools_protocol as p;
 
 /// What the client thread saw through one connection.
@@ -68,7 +68,7 @@ fn a_devtools_client_inspects_drives_and_reviews_a_test_app() {
     while !done.load(Ordering::SeqCst) {
         assert!(Instant::now() < deadline, "the client did not finish");
         screen.advance(Duration::from_millis(16));
-        std::thread::sleep(Duration::from_millis(1));
+        std::thread::park_timeout(Duration::from_millis(16));
     }
     let report = receiver
         .recv()

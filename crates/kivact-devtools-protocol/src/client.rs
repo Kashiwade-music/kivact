@@ -1,4 +1,4 @@
-//! Role: Discovery and connection to a Kivact DevTools agent.
+//! Role: Discover running targets and open a DevTools connection (feature client).
 
 mod connection;
 mod discovery;

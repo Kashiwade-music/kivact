@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use kivact_devtools_agent::{Agent, AgentConfig, Incoming};
-use kivact_devtools_client::{ClientError, Connection, read_target};
+use kivact_devtools_protocol::client::{ClientError, Connection, read_target};
 use kivact_devtools_protocol::{
     AppInfo, BuildKind, Call, ClientInfo, ClientKind, DiscoveryFile, Empty, ErrorEntry, GetAppInfo,
     GetConfig, InitializeParams, Notification, Reply, RpcError, RpcResponse, Subscribe,
@@ -38,11 +38,24 @@ fn start_agent() -> Agent {
         .expect("invariant: the agent starts")
 }
 
+/// An agent whose wake sends on the returned channel, so a test waits for arrivals.
+fn start_agent_woken() -> (Agent, mpsc::Receiver<()>) {
+    let (sender, receiver) = mpsc::channel();
+    let agent = Agent::start(
+        AgentConfig { app: sample_app() },
+        Box::new(move || {
+            let _ = sender.send(());
+        }),
+    )
+    .expect("invariant: the agent starts");
+    (agent, receiver)
+}
+
 fn discovery(agent: &Agent) -> DiscoveryFile {
     read_target(agent.discovery_path()).expect("invariant: the agent wrote its discovery file")
 }
 
-fn wait_closed(agent: &mut Agent) -> usize {
+fn wait_closed(agent: &mut Agent, wakes: &mpsc::Receiver<()>) -> usize {
     let deadline = Instant::now() + Duration::from_secs(10);
     loop {
         for incoming in agent.take_incoming() {
@@ -50,8 +63,8 @@ fn wait_closed(agent: &mut Agent) -> usize {
                 return remaining;
             }
         }
-        assert!(Instant::now() < deadline, "no Closed arrived");
-        std::thread::sleep(Duration::from_millis(10));
+        let left = deadline.saturating_duration_since(Instant::now());
+        assert!(wakes.recv_timeout(left).is_ok(), "no Closed arrived");
     }
 }
 
@@ -85,7 +98,7 @@ fn read_response(stream: &mut TcpStream) -> RpcResponse {
 
 #[test]
 fn get_app_info_is_answered_on_the_ui_thread() {
-    let mut agent = start_agent();
+    let (mut agent, wakes) = start_agent_woken();
     let file = discovery(&agent);
     let (sender, receiver) = mpsc::channel();
     let client = std::thread::spawn(move || {
@@ -97,12 +110,16 @@ fn get_app_info_is_answered_on_the_ui_thread() {
             .expect("invariant: get_app_info is answered");
         let _ = sender.send(info);
     });
-    let started = Instant::now();
-    let info = loop {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut answered = false;
+    while !answered {
+        let left = deadline.saturating_duration_since(Instant::now());
+        assert!(wakes.recv_timeout(left).is_ok(), "the call did not arrive");
         for incoming in agent.take_incoming() {
             match incoming {
                 Incoming::Call(Call::GetAppInfo(_), responder) => {
                     responder.send(Ok(Reply::GetAppInfo(agent.app().clone())));
+                    answered = true;
                 }
                 Incoming::Call(_, responder) => {
                     responder.send(Err(RpcError::new(code::INTERNAL_ERROR, "unexpected call")));
@@ -110,15 +127,10 @@ fn get_app_info_is_answered_on_the_ui_thread() {
                 Incoming::Closed { .. } => {}
             }
         }
-        if let Ok(info) = receiver.try_recv() {
-            break info;
-        }
-        assert!(
-            started.elapsed() < Duration::from_secs(10),
-            "the call was not answered"
-        );
-        std::thread::sleep(Duration::from_millis(10));
-    };
+    }
+    let info = receiver
+        .recv_timeout(Duration::from_secs(10))
+        .expect("the call was answered");
     client
         .join()
         .expect("invariant: the client thread finishes");
@@ -240,7 +252,7 @@ fn subscribe_limits_notifications_to_its_topics() {
 
 #[test]
 fn closing_a_connection_reports_the_remaining_clients() {
-    let mut agent = start_agent();
+    let (mut agent, wakes) = start_agent_woken();
     let file = discovery(&agent);
     let first = Connection::open(&file, client_info(ClientKind::Other))
         .expect("invariant: the first client connects")
@@ -249,9 +261,9 @@ fn closing_a_connection_reports_the_remaining_clients() {
         .expect("invariant: the second client connects")
         .0;
     drop(first);
-    assert_eq!(wait_closed(&mut agent), 1);
+    assert_eq!(wait_closed(&mut agent, &wakes), 1);
     drop(second);
-    assert_eq!(wait_closed(&mut agent), 0);
+    assert_eq!(wait_closed(&mut agent, &wakes), 0);
 }
 
 #[test]

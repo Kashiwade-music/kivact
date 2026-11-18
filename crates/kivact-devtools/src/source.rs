@@ -6,8 +6,8 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact_devtools_client as client;
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client;
 
 /// A live connection, or fixed answers.
 #[derive(Clone)]

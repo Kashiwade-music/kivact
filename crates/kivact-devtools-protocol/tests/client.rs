@@ -6,7 +6,7 @@ use std::sync::mpsc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
-use kivact_devtools_client::{ClientError, Connection};
+use kivact_devtools_protocol::client::{ClientError, Connection};
 use kivact_devtools_protocol::{
     AppInfo, BuildKind, ClientInfo, ClientKind, DiscoveryFile, Empty, GetAppInfo, InitializeResult,
     Notification, PROTOCOL_VERSION, RpcRequest, notification_line, parse_request, response,

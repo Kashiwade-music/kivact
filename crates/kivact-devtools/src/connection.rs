@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use kivact::prelude::*;
-use kivact_devtools_client as client;
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client;
 
 use crate::source::Source;
 use crate::state::{Connection, Target};

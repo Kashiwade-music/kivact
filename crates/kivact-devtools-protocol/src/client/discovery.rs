@@ -6,7 +6,7 @@ use std::net::{SocketAddr, TcpStream};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use kivact_devtools_protocol::{DiscoveryFile, discovery_dir_from};
+use crate::{DiscoveryFile, discovery_dir_from};
 
 /// How long a probe of a discovery file waits for a connection. A refused loopback
 /// connection takes about 2 s on Windows, so a shorter limit would mistake it for a timeout.
@@ -109,7 +109,7 @@ mod tests {
     use std::fs;
     use std::net::TcpListener;
 
-    use kivact_devtools_protocol::DiscoveryFile;
+    use crate::DiscoveryFile;
 
     use super::list_in;
 

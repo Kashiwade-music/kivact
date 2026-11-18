@@ -8,12 +8,12 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
-use kivact_devtools_protocol::{
+use crate::{
     ClientInfo, DiscoveryFile, Initialize, InitializeParams, InitializeResult, Message, Method,
     Notification, PROTOCOL_VERSION, RpcResponse, parse_message, request_line,
 };
 
-use crate::error::{ClientError, io_error};
+use super::error::{ClientError, io_error};
 
 const CALL_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -28,6 +28,7 @@ enum Calls {
     Closed(ClientError),
 }
 
+// xtask-allow(state): legacy: writer, calls, next_id, notifications
 /// A connection to one agent. `Send + Sync`: the DevTools app shares it as `Arc<Connection>`.
 pub struct Connection {
     writer: Mutex<TcpStream>,
@@ -54,7 +55,7 @@ impl Connection {
         let (sender, receiver) = mpsc::channel::<Notification>();
         let thread_calls = Arc::clone(&calls);
         std::thread::Builder::new()
-            .name("kivact-devtools-client".to_owned())
+            .name("kivact-devtools-connection".to_owned())
             .spawn(move || read_loop(reader, thread_calls, sender))
             .map_err(io_error)?;
         let connection = Connection {

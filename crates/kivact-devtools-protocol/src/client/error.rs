@@ -2,7 +2,7 @@
 
 use std::fmt;
 
-use kivact_devtools_protocol::RpcError;
+use crate::RpcError;
 
 /// Why a call or a connection failed.
 #[derive(Clone, Debug, PartialEq)]
