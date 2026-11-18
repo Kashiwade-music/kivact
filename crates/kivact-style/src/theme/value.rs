@@ -17,6 +17,7 @@ use super::{Palette, Radii, Spacing, Typography};
 use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
 use kivact_runtime::{Owner, Value};
+use kivact_types::cell::SharedDeferred;
 use kivact_types::{ColorInterpolation, ColorSpace, LineHeight, Rgba, SpaceColor, interpolate};
 use std::any::{Any, TypeId};
 use std::fmt;
@@ -195,14 +196,9 @@ pub enum ThemeMode {
     Dark,
 }
 
-/// A complete theme. Replace with `App::theme` or `kivact::style::provide_theme`.
-///
-/// Read its values with the accessors (`theme.space().md`) and change them
-/// with the `with_*` builders, which keep everything else:
-/// `Theme::light().with_focus_ring(3.0)`. A part of a table changes by
-/// copying it: `theme.with_colors(Palette { accent, ..theme.colors().clone() })`.
+/// The values of a [`Theme`], shared by its clones.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Theme {
+struct ThemeData {
     extensions: Extensions,
     mode: ThemeMode,
     colors: Palette,
@@ -215,50 +211,154 @@ pub struct Theme {
     control_height: f64,
     overlay_margin: f64,
     icons: IconSet,
+    fonts: FontFiles,
+    fallbacks: Fallbacks,
+}
+
+/// A complete theme. Replace with `App::theme` or `kivact::style::provide_theme`.
+///
+/// Read its values with the accessors (`theme.space().md`) and change them
+/// with the `with_*` builders, which keep everything else:
+/// `Theme::light().with_focus_ring(3.0)`. A part of a table changes by
+/// copying it: `theme.with_colors(Palette { accent, ..theme.colors().clone() })`.
+///
+/// A theme is a shared value: a clone costs a reference count, and two
+/// clones compare equal at once.
+#[derive(Clone, Debug)]
+pub struct Theme(Arc<ThemeData>);
+
+impl PartialEq for Theme {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0) || self.0 == other.0
+    }
+}
+
+// A theme is a `static` (`Theme::light`) and crosses to embed threads.
+const _: () = {
+    const fn shared<T: Send + Sync>() {}
+    shared::<Theme>();
+};
+
+/// Font files a theme registers, as assets (a path, embedded bytes, owned
+/// or shared bytes). `Asset` compares embedded and shared bytes by identity
+/// (address and allocation), never byte by byte; the host registers each
+/// asset once by that identity.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct FontFiles(Vec<crate::asset::Asset>);
+
+/// The fallback values of the extensions this theme lacks, built once per
+/// theme value on the first read (ST-07). A cache: it is not part of the
+/// theme's equality, and a changed copy of the theme starts empty.
+#[derive(Default)]
+struct Fallbacks(Mutex<Vec<(TypeId, Arc<dyn Any + Send + Sync>)>>);
+
+impl Clone for Fallbacks {
+    fn clone(&self) -> Self {
+        Self::default()
+    }
+}
+
+impl PartialEq for Fallbacks {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+
+impl fmt::Debug for Fallbacks {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Fallbacks")
+    }
+}
+
+impl Fallbacks {
+    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
+        let list = self
+            .0
+            .lock()
+            .expect("invariant: the theme fallback lock is not poisoned");
+        let found = list
+            .iter()
+            .find(|(id, _)| *id == TypeId::of::<T>())
+            .map(|(_, value)| Arc::clone(value));
+        drop(list);
+        found.and_then(|value| Arc::downcast::<T>(value).ok())
+    }
+
+    /// Keep `value` unless another reader stored one first; the one kept.
+    fn insert<T: Send + Sync + 'static>(&self, value: Arc<T>) -> Arc<T> {
+        let mut list = self
+            .0
+            .lock()
+            .expect("invariant: the theme fallback lock is not poisoned");
+        if let Some((_, kept)) = list.iter().find(|(id, _)| *id == TypeId::of::<T>())
+            && let Ok(kept) = Arc::downcast::<T>(Arc::clone(kept))
+        {
+            return kept;
+        }
+        list.push((
+            TypeId::of::<T>(),
+            Arc::clone(&value) as Arc<dyn Any + Send + Sync>,
+        ));
+        value
+    }
 }
 
 impl Theme {
+    /// The theme's values to change. Every write goes through here: it
+    /// copies shared values (`Arc::make_mut`) and empties the fallback
+    /// cache, so a fallback that reads what changes is built again,
+    /// whether this theme shared its values or not.
+    fn edit(&mut self) -> &mut ThemeData {
+        let data = Arc::make_mut(&mut self.0);
+        data.fallbacks = Fallbacks::default();
+        data
+    }
+
     /// Install an extension, replacing an earlier value of the same type.
     /// See [`ThemeExtension`].
     pub fn with<T: ThemeExtension>(mut self, value: T) -> Self {
-        self.extensions.insert(Entry::new(value));
+        self.edit().extensions.insert(Entry::new(value));
         self
     }
 
     /// The extension of type `T` installed in this theme, or
     /// [`ThemeExtension::fallback`] when there is none. The installed value
-    /// is shared, not copied.
+    /// is shared, not copied; a fallback is built once per theme value.
     pub fn ext<T: ThemeExtension>(&self) -> ThemeRef<T> {
-        ThemeRef(
-            self.extensions
-                .get::<T>()
-                .unwrap_or_else(|| Arc::new(T::fallback(self))),
-        )
+        if let Some(value) = self.0.extensions.get::<T>() {
+            return ThemeRef(value);
+        }
+        if let Some(value) = self.0.fallbacks.get::<T>() {
+            return ThemeRef(value);
+        }
+        // Built outside the lock: a fallback may read other extensions.
+        let built = Arc::new(T::fallback(self));
+        ThemeRef(self.0.fallbacks.insert(built))
     }
 
     /// Whether the palette is light or dark.
     pub fn mode(&self) -> ThemeMode {
-        self.mode
+        self.0.mode
     }
 
     /// The color table (the value of each [`ColorToken`](crate::ColorToken)).
     pub fn colors(&self) -> &Palette {
-        &self.colors
+        &self.0.colors
     }
 
     /// The spacing scale.
     pub fn space(&self) -> &Spacing {
-        &self.space
+        &self.0.space
     }
 
     /// The corner radii.
     pub fn radius(&self) -> &Radii {
-        &self.radius
+        &self.0.radius
     }
 
     /// The base type settings.
     pub fn text(&self) -> &Typography {
-        &self.text
+        &self.0.text
     }
 
     /// The width (px) of the ring a focusable element draws in
@@ -267,12 +367,12 @@ impl Theme {
     /// `focus` or `focus_visible` state;
     /// `style().focus_visible(style().ring_none())` draws none).
     pub fn focus_ring(&self) -> f64 {
-        self.focus_ring
+        self.0.focus_ring
     }
 
     /// The gap in logical pixels between the border box and the theme focus ring.
     pub fn focus_ring_offset(&self) -> f64 {
-        self.focus_ring_offset
+        self.0.focus_ring_offset
     }
 
     /// The opacity a disabled focusable element is drawn with, unless its
@@ -282,21 +382,21 @@ impl Theme {
     /// (`style().disabled(style().opacity(1.0))` keeps it opaque). A disabled
     /// focusable element also drops its hover and pressed looks.
     pub fn disabled_opacity(&self) -> f64 {
-        self.disabled_opacity
+        self.0.disabled_opacity
     }
 
     /// Minimum height of interactive controls (px).
     pub fn control_height(&self) -> f64 {
-        self.control_height
+        self.0.control_height
     }
     /// Viewport inset used to fit overlays, in logical pixels.
     pub fn overlay_margin(&self) -> f64 {
-        self.overlay_margin
+        self.0.overlay_margin
     }
     /// Set the viewport inset used to fit overlays, in logical pixels.
     #[must_use]
     pub fn with_overlay_margin(mut self, margin: f64) -> Self {
-        self.overlay_margin = margin;
+        self.edit().overlay_margin = margin;
         self
     }
 
@@ -304,42 +404,63 @@ impl Theme {
     /// core's set has the marks the standard components draw; a component
     /// library adds or replaces names with [`Theme::with_icon`].
     pub fn icons(&self) -> &IconSet {
-        &self.icons
+        &self.0.icons
+    }
+
+    /// The font files the theme registers, in the order added.
+    pub fn fonts(&self) -> &[crate::asset::Asset] {
+        &self.0.fonts.0
+    }
+
+    /// The theme with these font files added to the ones it has (a family
+    /// in them is then usable by name in `font_family`). `App::theme` and
+    /// `kivact::test::RenderOptions::with_theme` register them; a theme
+    /// switched to later registers its own too.
+    /// Any asset is a font file: `include_bytes!(..)`, a path, a `Vec<u8>`
+    /// read at run time, shared bytes.
+    #[must_use]
+    pub fn with_fonts(
+        mut self,
+        fonts: impl IntoIterator<Item = impl Into<crate::asset::Asset>>,
+    ) -> Theme {
+        let added: Vec<crate::asset::Asset> = fonts.into_iter().map(Into::into).collect();
+        self.edit().fonts.0.extend(added);
+        self
     }
 
     /// The theme with `mode`. Only the label changes: the palette stays as it
     /// is (a kit's constructor sets both).
     #[must_use]
     pub fn with_mode(mut self, mode: ThemeMode) -> Self {
-        self.mode = mode;
+        self.edit().mode = mode;
         self
     }
 
     /// The theme with the color table `colors`.
     #[must_use]
     pub fn with_colors(mut self, colors: Palette) -> Self {
-        self.colors = colors;
+        self.edit().colors = colors;
         self
     }
 
     /// The theme with the spacing scale `space`.
     #[must_use]
     pub fn with_space(mut self, space: Spacing) -> Self {
-        self.space = space;
+        self.edit().space = space;
         self
     }
 
     /// The theme with the corner radii `radius`.
     #[must_use]
     pub fn with_radius(mut self, radius: Radii) -> Self {
-        self.radius = radius;
+        self.edit().radius = radius;
         self
     }
 
     /// The theme with the type settings `text`.
     #[must_use]
     pub fn with_text(mut self, text: Typography) -> Self {
-        self.text = text;
+        self.edit().text = text;
         self
     }
 
@@ -347,13 +468,13 @@ impl Theme {
     /// [`focus_ring`](Self::focus_ring).
     #[must_use]
     pub fn with_focus_ring(mut self, focus_ring: impl Into<f64>) -> Self {
-        self.focus_ring = focus_ring.into();
+        self.edit().focus_ring = focus_ring.into();
         self
     }
 
     /// Set the gap in logical pixels before the theme focus ring.
     pub fn with_focus_ring_offset(mut self, offset: impl Into<f64>) -> Self {
-        self.focus_ring_offset = offset.into();
+        self.edit().focus_ring_offset = offset.into();
         self
     }
 
@@ -361,21 +482,21 @@ impl Theme {
     /// [`disabled_opacity`](Self::disabled_opacity).
     #[must_use]
     pub fn with_disabled_opacity(mut self, disabled_opacity: impl Into<f64>) -> Self {
-        self.disabled_opacity = disabled_opacity.into();
+        self.edit().disabled_opacity = disabled_opacity.into();
         self
     }
 
     /// The theme with the minimum control height `control_height` (px).
     #[must_use]
     pub fn with_control_height(mut self, control_height: impl Into<f64>) -> Self {
-        self.control_height = control_height.into();
+        self.edit().control_height = control_height.into();
         self
     }
 
     /// The theme with the icon set `icons`, replacing the whole set.
     #[must_use]
     pub fn with_icons(mut self, icons: IconSet) -> Self {
-        self.icons = icons;
+        self.edit().icons = icons;
         self
     }
 
@@ -388,13 +509,25 @@ impl Theme {
         image: impl Into<crate::asset::Asset>,
     ) -> Self {
         let name: String = name.into();
-        self.icons = self.icons.with(name, image);
+        let icons = self.0.icons.clone().with(name, image);
+        self.edit().icons = icons;
         self
     }
 
-    /// Light business-tool theme.
+    /// Light business-tool theme. A clone of one shared value.
     pub fn light() -> Theme {
-        Theme {
+        static LIGHT: SharedDeferred<Theme> = SharedDeferred::new();
+        LIGHT.get_or_init(Theme::light_theme).clone()
+    }
+
+    /// Dark theme with the same metrics. A clone of one shared value.
+    pub fn dark() -> Theme {
+        static DARK: SharedDeferred<Theme> = SharedDeferred::new();
+        DARK.get_or_init(Theme::dark_theme).clone()
+    }
+
+    fn light_theme() -> Theme {
+        Theme(Arc::new(ThemeData {
             extensions: Extensions::default(),
             mode: ThemeMode::Light,
             colors: Palette {
@@ -445,11 +578,12 @@ impl Theme {
             control_height: 28.0,
             overlay_margin: 0.0,
             icons: IconSet::standard(),
-        }
+            fonts: FontFiles::default(),
+            fallbacks: Fallbacks::default(),
+        }))
     }
 
-    /// Dark theme with the same metrics.
-    pub fn dark() -> Theme {
+    fn dark_theme() -> Theme {
         Theme::light()
             .with_mode(ThemeMode::Dark)
             .with_colors(Palette {
@@ -600,7 +734,7 @@ impl Color {
         match self.0 {
             Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
             Repr::Space(c) => c.to_srgb(),
-            Repr::Token(t, a) => theme.colors.get(t).resolve_concrete().with_alpha_mul(a),
+            Repr::Token(t, a) => theme.0.colors.get(t).resolve_concrete().with_alpha_mul(a),
             Repr::Themed(i, a) => themed_value(i)
                 .resolve(theme)
                 .resolve(theme)
@@ -615,7 +749,7 @@ impl Color {
             Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
             Repr::Space(c) => c,
             Repr::Token(t, a) => {
-                let mut c = theme.colors.get(t).resolve_space_concrete();
+                let mut c = theme.0.colors.get(t).resolve_space_concrete();
                 c.alpha *= a;
                 c
             }
@@ -697,6 +831,34 @@ impl Color {
             ColorInterpolation::DEFAULT,
         )))
     }
+
+    /// The WCAG relative luminance of the color, from 0 (black) to 1
+    /// (white). A theme token resolves in the theme in effect; the alpha
+    /// is ignored.
+    pub fn relative_luminance(self) -> f64 {
+        let c = self.resolve(&ambient_theme()).sanitize();
+        let linear = |v: f64| {
+            if v <= 0.04045 {
+                v / 12.92
+            } else {
+                ((v + 0.055) / 1.055).powf(2.4)
+            }
+        };
+        0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b)
+    }
+
+    /// The WCAG contrast ratio of two colors, from 1 to 21.
+    pub fn contrast_ratio(self, other: Color) -> f64 {
+        let (a, b) = (self.relative_luminance(), other.relative_luminance());
+        let (high, low) = if a >= b { (a, b) } else { (b, a) };
+        (high + 0.05) / (low + 0.05)
+    }
+}
+
+/// The theme a color resolves in where no theme is passed. S16 makes it
+/// the theme in effect (`try_use_theme`).
+fn ambient_theme() -> Theme {
+    Theme::light()
 }
 
 /// The Oklab premultiplied components of a color (L·α, a·α, b·α, α) that
@@ -802,6 +964,95 @@ mod tests {
         assert_eq!(
             Color::of(Kit::Edge).with_alpha(0.5).resolve(&theme).a,
             0.5 * Color::token(ColorToken::Border).resolve(&theme).a
+        );
+    }
+
+    #[derive(Debug, PartialEq)]
+    struct Height(f64);
+
+    impl ThemeExtension for Height {
+        fn fallback(theme: &Theme) -> Self {
+            Height(theme.control_height())
+        }
+    }
+
+    #[test]
+    fn clones_share_one_value_and_compare_at_once() {
+        let a = Theme::light();
+        let b = Theme::light();
+        assert!(a == b);
+        assert!(Arc::ptr_eq(&a.0, &b.0));
+    }
+
+    #[test]
+    fn a_missing_extension_falls_back_once_per_theme() {
+        use std::sync::atomic::{AtomicU32, Ordering};
+        static BUILT: AtomicU32 = AtomicU32::new(0);
+        #[derive(Debug, PartialEq)]
+        struct Probe(u32);
+        impl ThemeExtension for Probe {
+            fn fallback(_: &Theme) -> Self {
+                BUILT.fetch_add(1, Ordering::Relaxed);
+                Probe(1)
+            }
+        }
+        let theme = Theme::light();
+        assert_eq!((*theme.ext::<Probe>()).0, 1);
+        assert_eq!((*theme.ext::<Probe>()).0, 1);
+        assert_eq!(BUILT.load(Ordering::Relaxed), 1);
+    }
+
+    #[test]
+    fn a_builder_on_a_unique_theme_rebuilds_the_fallback() {
+        let t = Theme::light().with_control_height(30);
+        assert_eq!((*t.ext::<Height>()).0, 30.0);
+        let t = t.with_control_height(40);
+        assert_eq!((*t.ext::<Height>()).0, 40.0);
+    }
+
+    #[test]
+    fn a_builder_on_a_shared_theme_rebuilds_the_fallback_and_keeps_the_clone() {
+        let a = Theme::light().with_control_height(30);
+        let _ = a.ext::<Height>();
+        let b = a.clone().with_control_height(40);
+        assert_eq!((*b.ext::<Height>()).0, 40.0);
+        assert_eq!((*a.ext::<Height>()).0, 30.0);
+    }
+
+    #[test]
+    fn installing_an_extension_rebuilds_a_fallback_that_reads_it() {
+        #[derive(Debug, PartialEq)]
+        struct Base(u32);
+        impl ThemeExtension for Base {
+            fn fallback(_: &Theme) -> Self {
+                Base(1)
+            }
+        }
+        #[derive(Debug, PartialEq)]
+        struct Twice(u32);
+        impl ThemeExtension for Twice {
+            fn fallback(t: &Theme) -> Self {
+                Twice((*t.ext::<Base>()).0 * 2)
+            }
+        }
+        let t = Theme::light();
+        assert_eq!((*t.ext::<Twice>()).0, 2);
+        let t = t.with(Base(5));
+        assert_eq!((*t.ext::<Twice>()).0, 10);
+    }
+
+    #[test]
+    fn fonts_take_any_asset() {
+        use crate::asset::Asset;
+        let two = Theme::light()
+            .with_fonts([Asset::from(&b"x"[..])])
+            .with_fonts(vec![Asset::from(vec![1u8, 2])]);
+        assert_eq!(two.fonts().len(), 2);
+        assert!(
+            Theme::light()
+                .with_fonts(Vec::<Asset>::new())
+                .fonts()
+                .is_empty()
         );
     }
 }
