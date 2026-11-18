@@ -42,7 +42,7 @@ fn needs_surface(layer: &DrawingLayer, rest: &[DrawCmd]) -> bool {
     layer.transform.is_some()
         || !layer.filter.is_empty()
         || !layer.masks.is_empty()
-        || layer.composite != Composite::SourceOver
+        || layer.mix.composite() != Composite::SourceOver
         || span_has_item(rest)
 }
 
@@ -201,7 +201,7 @@ impl Context<'_> {
         state.out.push(D::PushGroup(Group {
             clip,
             opacity: layer.opacity.clamp(0.0, 1.0),
-            blend: layer.blend,
+            blend: layer.mix.blend_mode(),
             blur: None,
         }));
     }
@@ -236,8 +236,8 @@ impl Context<'_> {
             grid: RasterGrid::Target,
             effects: LayerEffects {
                 opacity: layer.opacity.clamp(0.0, 1.0),
-                blend: layer.blend,
-                composite: layer.composite,
+                blend: layer.mix.blend_mode(),
+                composite: layer.mix.composite(),
                 filters: self.layer_filters(&layer.filter),
                 clip,
                 masks: self.layer_masks(&layer.masks, area),

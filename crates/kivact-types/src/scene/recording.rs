@@ -1,8 +1,7 @@
 //! Role: Authored draw records and their geometry and text payloads.
 use crate::geometry3d::{Matrix4, Projective};
 use crate::paint::{BackfaceVisibility, BorderImage, Fill, FilterOp, MaskLayer, TransformStyle};
-use crate::pixel::BlendMode;
-use crate::pixel::Composite;
+use crate::pixel::Mix;
 use crate::scene::primitives::Stroke;
 use crate::scene::{FillRule, PathData};
 use crate::{
@@ -45,10 +44,9 @@ pub struct DrawingLayer {
     pub area: Rect,
     /// Layer opacity multiplier; one is opaque.
     pub opacity: f64,
-    /// Blend with what is beneath.
-    pub blend: BlendMode,
-    /// Porter–Duff operator with what is beneath.
-    pub composite: Composite,
+    /// How the layer combines with what is beneath (normalized: never
+    /// `Blend(Normal)` or `Composite(SourceOver)`).
+    pub mix: Mix,
     /// Filters applied in order to the layer.
     pub filter: Vec<FilterOp>,
     /// Alpha mask layers over the layer (CSS `mask`).

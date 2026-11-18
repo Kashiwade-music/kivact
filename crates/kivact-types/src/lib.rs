@@ -95,7 +95,7 @@ pub use paint::{
     MaskMode, PaintDelta, PaintProps, Perspective, RadialExtent, Ring, ScrollbarDelta,
     ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle, WillChange,
 };
-pub use pixel::{BlendMode, ColorMatrix, Composite, Pixels};
+pub use pixel::{BlendMode, ColorMatrix, Composite, Mix, Pixels};
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use presence::Presence;
 pub use scene::{

@@ -302,3 +302,45 @@ pub enum Composite {
     /// Exclusive or.
     Xor,
 }
+
+/// How a layer combines with what is beneath it: as it is, with a blend
+/// mode (CSS `mix-blend-mode`), or with a Porter–Duff operator (Canvas
+/// `globalCompositeOperation`). One value, so a blend and an operator
+/// never stand side by side.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Mix {
+    /// Source over, normal blending.
+    #[default]
+    Normal,
+    /// A blend mode with what is beneath.
+    Blend(BlendMode),
+    /// A Porter–Duff operator with what is beneath.
+    Composite(Composite),
+}
+
+impl Mix {
+    /// `Blend(Normal)` and `Composite(SourceOver)` are `Normal`; any other
+    /// value is itself.
+    pub const fn normalized(self) -> Mix {
+        match self {
+            Mix::Blend(BlendMode::Normal) | Mix::Composite(Composite::SourceOver) => Mix::Normal,
+            other => other,
+        }
+    }
+
+    /// The blend mode (`Normal` unless this is a blend).
+    pub const fn blend_mode(self) -> BlendMode {
+        match self {
+            Mix::Blend(mode) => mode,
+            Mix::Normal | Mix::Composite(_) => BlendMode::Normal,
+        }
+    }
+
+    /// The Porter–Duff operator (`SourceOver` unless this is an operator).
+    pub const fn composite(self) -> Composite {
+        match self {
+            Mix::Composite(op) => op,
+            Mix::Normal | Mix::Blend(_) => Composite::SourceOver,
+        }
+    }
+}
