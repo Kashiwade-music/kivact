@@ -9,7 +9,7 @@
 //! - A calc length becomes a handle owned by the retained node
 //!   ([`CalcAlloc`]), which taffy resolves against the same basis as a
 //!   percentage there.
-//! - An unset `justify` (or `align_content`) stays unset: taffy's `normal`,
+//! - An unset `justify` (or `align_content`) is taffy's `normal` (`NORMAL`),
 //!   the start in a flex box and stretched auto tracks in a grid.
 //! - A content size keyword (`MinContent`, `MaxContent`, `FitContent`) is
 //!   a size only as a width, a height or a basis (and in grid tracks).

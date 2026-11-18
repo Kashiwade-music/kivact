@@ -35,6 +35,10 @@
 //!   lookup by `NodeId` goes through the store's index.
 //! - A box whose own lengths are absolute is cached without its parent's size
 //!   (`relative`).
+//! - Every node is positioned (`Relative` or `Absolute`), so an absolute
+//!   box's containing block is its layout parent: the parent places it in its
+//!   own full layout (`root::place_out_of_flow`), and a root is laid out at
+//!   the origin as taffy 0.14 did (`root::layout_root`).
 
 use crate::calcs::CalcAlloc;
 use crate::calcs::Calcs;
@@ -49,10 +53,13 @@ use kivact_types::{Baseline, Insets, NodeId, Orientation, Point, Rect, Size};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
 use taffy::{
-    CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutGridContainer,
-    LayoutInput, LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId,
-    ResolveOrZero, RoundTree, RunMode, TraversePartialTree, TraverseTree,
+    CacheTree, ClearState, CoreStyle, Display, Layout, LayoutFlexboxContainer, LayoutInput,
+    LayoutOutput, LayoutPartialTree, LengthPercentageAuto, NodeId as TId, ResolveOrZero, RunMode,
+    TraversePartialTree, TraverseTree,
 };
+
+mod root;
+use root::{layout_root, place_out_of_flow};
 
 struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     tree: &'a Tree,
@@ -77,6 +84,8 @@ struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     origin: &'a mut [Option<(f32, f32)>],
     stamp: u32,
     never_rounded: &'a mut BTreeSet<usize>,
+    /// The kept grids of the grid containers with an absolute child (`root`).
+    grid_infos: &'a mut BTreeMap<usize, taffy::DetailedLayoutInfo<String>>,
     measure: &'a mut dyn LeafMeasurer,
 }
 
@@ -277,7 +286,7 @@ fn same_from_outside(before: &LayoutOutput, after: &LayoutOutput) -> bool {
     };
     LayoutOutput {
         scrollable_overflow_rect: before.scrollable_overflow_rect,
-        ..*after
+        ..after.clone()
     } == *before
         && reach(before) == reach(after)
 }
@@ -309,7 +318,9 @@ fn touch(
 /// The rounded copy of `unrounded`, whose parent's cumulative origin is `cum`
 /// (the `layout` part of taffy 0.14's `round_layout_inner`, and its
 /// `round_scrollable_overflow_rect`: the same arithmetic in the same order,
-/// with taffy's `round`).
+/// with taffy's `round`). Taffy 0.15 rounds a location from the cumulative
+/// position instead; this crate keeps the parent-relative rounding, so the
+/// upgrade moves no rounded box.
 fn rounded(unrounded: Layout, cum: (f32, f32)) -> Layout {
     let mut layout = unrounded;
     let x = cum.0 + unrounded.location.x;
@@ -347,12 +358,10 @@ fn round(value: f32) -> f32 {
     (value + 0.5).floor()
 }
 
+/// Whether `raw` is a percentage or a calc (taffy 0.15 keeps a tag in the low
+/// bits of a calc handle, so a calc is found by `is_plain_calc`, not its tag).
 fn relative_length(raw: taffy::style::CompactLength) -> bool {
-    use taffy::style::CompactLength;
-    matches!(
-        raw.tag(),
-        CompactLength::PERCENT_TAG | CompactLength::CALC_TAG
-    )
+    raw.tag() == taffy::style::CompactLength::PERCENT_TAG || raw.is_plain_calc()
 }
 
 /// Whether `s` resolves a length of its own box against its parent's size.
@@ -412,7 +421,7 @@ fn resolve_dimension(value: taffy::Dimension, basis: Option<f32>, calcs: &Calcs)
     match value.tag() {
         CompactLength::LENGTH_TAG => Some(value.value()),
         CompactLength::PERCENT_TAG => basis.map(|basis| basis * value.value()),
-        CompactLength::CALC_TAG => {
+        _ if value.into_raw().is_plain_calc() => {
             basis.map(|basis| calcs.resolve(value.into_raw().calc_value(), basis))
         }
         _ => None,
@@ -504,6 +513,7 @@ impl<Tree: LayoutTree + ?Sized> LayoutPartialTree for LayoutPass<'_, Tree> {
                 (_, false) => taffy::compute_flexbox_layout(pass, t, natural_inputs),
                 (_, true) => pass.leaf(t, natural_inputs),
             };
+            place_out_of_flow(pass, t, inputs.run_mode, &mut output);
             // A min-content probe is not the size the box is laid out at:
             // recording it would leave the next layout unrestored, scaled twice.
             let min_probe = inputs.run_mode == RunMode::ComputeSize
@@ -573,37 +583,8 @@ impl<Tree: LayoutTree + ?Sized> LayoutFlexboxContainer for LayoutPass<'_, Tree> 
     }
 }
 
-impl<Tree: LayoutTree + ?Sized> LayoutGridContainer for LayoutPass<'_, Tree> {
-    type GridContainerStyle<'a>
-        = &'a TStyle
-    where
-        Self: 'a;
-
-    type GridItemStyle<'a>
-        = &'a NodeStyle
-    where
-        Self: 'a;
-
-    #[inline(always)]
-    fn get_grid_container_style(&self, t: TId) -> Self::GridContainerStyle<'_> {
-        self.styles[usize::from(t)]
-            .display
-            .grid()
-            .unwrap_or(self.no_grid)
-    }
-
-    #[inline(always)]
-    fn get_grid_child_style(&self, t: TId) -> Self::GridItemStyle<'_> {
-        self.item_style(t)
-    }
-}
-
-impl<Tree: LayoutTree + ?Sized> RoundTree for LayoutPass<'_, Tree> {
-    #[inline(always)]
-    fn get_unrounded_layout(&self, t: TId) -> Layout {
-        self.unrounded[usize::from(t)]
-    }
-
+impl<Tree: LayoutTree + ?Sized> LayoutPass<'_, Tree> {
+    /// Store the rounded layout of `t` and report how its geometry changed.
     #[inline(always)]
     fn set_final_layout(&mut self, t: TId, layout: &Layout) {
         let index = usize::from(t);
@@ -733,6 +714,7 @@ impl NodeLayoutColumns {
             && style.position == taffy::Position::Absolute;
         self.values.relative[index] = uses_parent_size(&style);
         self.values.styles[index] = self.values.recent_styles.share(style);
+        self.values.grid_infos.remove(&index);
         state.mark_dirty();
         self.states[index].measured = Default::default();
         if root {
@@ -899,6 +881,7 @@ impl NodeLayoutColumns {
             origin,
             scaled,
             never_rounded,
+            grid_infos,
             default_style: _,
             recent_styles: _,
         } = values;
@@ -930,6 +913,7 @@ impl NodeLayoutColumns {
             origin,
             stamp: *stamp,
             never_rounded,
+            grid_infos,
             measure,
         };
         f(&mut pass)
@@ -1119,7 +1103,7 @@ impl NodeLayoutColumns {
             height: taffy::AvailableSpace::Definite(available.height as f32),
         };
         self.with_pass(tree, state, measure, |pass| {
-            taffy::compute_root_layout(pass, root, space);
+            layout_root(pass, root, space);
             let stamp = pass.stamp;
             pass.round_changed(root, (0.0, 0.0), stamp);
         });

@@ -175,10 +175,10 @@ pub(crate) fn taffy_style(l: &LayoutProps, hidden: bool, alloc: &mut CalcAlloc<'
             x: overflow(l.overflow_x),
             y: overflow(l.overflow_y),
         },
-        align_items: l.align_items.map(align),
+        align_items: l.align_items.map_or(AlignItems::NORMAL, align),
         align_self: l.align_self.map(align),
-        justify_content: l.justify.map(content),
-        align_content: l.align_content.map(content),
+        justify_content: l.justify.map_or(JustifyContent::NORMAL, content),
+        align_content: l.align_content.map_or(JustifyContent::NORMAL, content),
         grid_area: item.map(|g| {
             Box::new(GridArea {
                 column: g.column,
@@ -240,7 +240,7 @@ impl Lengths<'_, '_> {
             GridFlow::RowDense => GridAutoFlow::RowDense,
             GridFlow::ColumnDense => GridAutoFlow::ColumnDense,
         };
-        style.justify_items = c.justify_items.map(align);
+        style.justify_items = c.justify_items.map_or(AlignItems::NORMAL, align);
         style
     }
 
