@@ -75,6 +75,31 @@ pub(crate) fn try_runtime(app: AppId) -> Option<Rc<Runtime>> {
     })
 }
 
+/// Run `f` with the registered runtime of `app` without cloning its `Rc`.
+/// `f` must not register or unregister an App (the registry stays
+/// borrowed); only handle reads that run no user code use it.
+pub(crate) fn with_runtime<R>(
+    app: AppId,
+    at: &'static Location<'static>,
+    f: impl FnOnce(&Runtime) -> R,
+) -> R {
+    check_not_foreign(app, at);
+    REGISTRY.with(|r| {
+        let reg = r.borrow();
+        match reg
+            .get((app.0 as usize).wrapping_sub(1))
+            .and_then(Option::as_ref)
+        {
+            Some(rt) => f(rt),
+            None => misuse_at(
+                ErrorKind::WrongApp,
+                "handle belongs to an App that no longer exists",
+                at,
+            ),
+        }
+    })
+}
+
 /// Look up a runtime for a handle, or raise a located `WrongApp` panic when
 /// the App no longer exists or another App is executing.
 pub(crate) fn runtime(app: AppId, at: &'static Location<'static>) -> Rc<Runtime> {

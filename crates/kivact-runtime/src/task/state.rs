@@ -15,21 +15,24 @@ use std::sync::atomic::Ordering;
 use std::task::Waker;
 
 use super::executor::Executor;
-use crate::task::worker_pool::{self, Pool};
+use crate::task::worker_pool::Pool;
 use crate::{ErrorKind, OwnerId, UiError};
 use crate::{Owned, Runtime};
 
 /// Arrival identity of a registered timer.
 pub(crate) type TimerId = u64;
 
+/// The timer table's key: its deadline, then its arrival identity.
+pub(crate) type TimerKey = (u64, TimerId);
+
 /// Cancellation handoffs never borrow the timer table.
 #[derive(Default)]
-pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerId>>);
+pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerKey>>);
 
 impl CancelQueue {
-    pub(crate) fn push(&self, id: TimerId) {
+    pub(crate) fn push(&self, key: TimerKey) {
         let mut pending = self.0.take().unwrap_or_default();
-        pending.push(id);
+        pending.push(key);
         self.0.put(pending);
     }
 }
@@ -52,8 +55,8 @@ pub(crate) struct Scheduler {
 impl Scheduler {
     fn drain_cancel(&mut self) {
         while let Some(pending) = self.cancel.0.take() {
-            for id in pending {
-                self.timers.retain(|(_, timer), _| *timer != id);
+            for key in pending {
+                self.timers.remove(&key);
             }
         }
     }
@@ -95,7 +98,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
-// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, fallback_threads, pool; absent means the default worker count
+// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
@@ -118,7 +121,6 @@ pub struct TaskState {
     /// Queued actions of disposed owners still draining, with their deadline (ns).
     pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,
     /// The blocking pool, created on first use.
-    fallback_threads: RefCell<Vec<std::thread::JoinHandle<()>>>,
     pub(super) pool: RefCell<PoolState>,
 }
 
@@ -136,7 +138,6 @@ impl TaskState {
             queues: RefCell::new(Registry::new()),
             draining: RefCell::new(Vec::new()),
             pool: RefCell::new(PoolState::NotStarted),
-            fallback_threads: RefCell::new(Vec::new()),
         }
     }
 
@@ -203,7 +204,6 @@ impl TaskState {
         if let PoolState::Running(p) = pool {
             p.shutdown();
         }
-        worker_pool::wait_for_threads(self.fallback_threads.take());
     }
 }
 
@@ -278,10 +278,6 @@ impl TaskState {
 }
 
 impl TaskState {
-    pub(crate) fn retain_fallback(&self, handle: std::thread::JoinHandle<()>) {
-        self.fallback_threads.borrow_mut().push(handle);
-    }
-
     /// The App's blocking pool, created on first use.
     pub(crate) fn blocking_pool(&self) -> Arc<Pool> {
         let mut state = self.pool.borrow_mut();

@@ -15,7 +15,7 @@ fn error_entry(entry: Reported) -> p::ErrorEntry {
         message: entry.error.message().to_owned(),
         source: entry.error.location().map(convert::location),
         turn: None,
-        handled: entry.handled,
+        handled: entry.kind == kivact_runtime::ReportKind::Diagnostic,
     }
 }
 

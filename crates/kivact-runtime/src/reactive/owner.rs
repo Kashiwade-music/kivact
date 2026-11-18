@@ -39,7 +39,7 @@ use std::rc::Rc;
 use super::arena::Tomb;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
-    ConstEntry, EffectKind, Kind, NodeData, OwnerEntry, OwnerPhase, Runtime,
+    ConstEntry, EffectKind, Graveyard, Kind, NodeData, OwnerEntry, OwnerPhase, Runtime,
 };
 use crate::reactive::error::{ErrorKind, UiError, misuse_at, new_error};
 
@@ -271,7 +271,7 @@ impl Runtime {
                 c();
             }
         }
-        let mut graveyard: Vec<Box<dyn Any>> = Vec::new();
+        let mut graveyard = std::mem::take(&mut *self.graveyard.borrow_mut());
         // Releasing members may register more (cleanups, `on_dispose`
         // hooks): release those too, in bounded rounds.
         loop {
@@ -314,7 +314,7 @@ impl Runtime {
                 let removed = self.remove_disposed_owner(key, created_at);
                 self.dispose_members(key, created_at, nodes, objects, consts, &mut graveyard);
                 drop(removed);
-                drop(graveyard);
+                self.bury(graveyard);
                 return;
             }
             self.dispose_members(key, created_at, nodes, objects, consts, &mut graveyard);
@@ -324,7 +324,18 @@ impl Runtime {
         }
         let removed = self.remove_disposed_owner(key, created_at);
         drop(removed);
-        drop(graveyard);
+        self.bury(graveyard);
+    }
+
+    /// Drop what a disposal released (no borrow is held: `Drop` code may
+    /// dispose more), then keep the emptied lists for the next disposal.
+    fn bury(&self, mut graveyard: Graveyard) {
+        graveyard.nodes.clear();
+        graveyard.data.clear();
+        let mut slot = self.graveyard.borrow_mut();
+        if slot.nodes.capacity() < graveyard.nodes.capacity() {
+            *slot = graveyard;
+        }
     }
 
     fn remove_disposed_owner(
@@ -380,20 +391,27 @@ impl Runtime {
         nodes: Vec<Key>,
         objects: Vec<Key>,
         consts: Vec<Key>,
-        graveyard: &mut Vec<Box<dyn Any>>,
+        graveyard: &mut Graveyard,
     ) {
-        // Effects first (their cleanups may read memos and sources), then memos, then sources.
-        let rank = |k: &Key| -> u8 {
-            match self.graph.borrow().get(*k).map(|n| n.kind()) {
-                Some(Kind::Effect(EffectKind::User)) => 0,
-                Some(Kind::Effect(_)) => 1,
-                Some(Kind::Memo) => 2,
-                _ => 3,
-            }
+        // Effects first (their cleanups may read memos and sources), then
+        // memos, then sources. Ranks are read once; the sort is stable.
+        let mut ranked: Vec<(u8, Key)> = {
+            let g = self.graph.borrow();
+            nodes
+                .iter()
+                .map(|k| {
+                    let rank = match g.get(*k).map(|n| n.kind()) {
+                        Some(Kind::Effect(EffectKind::User)) => 0,
+                        Some(Kind::Effect(_)) => 1,
+                        Some(Kind::Memo) => 2,
+                        _ => 3,
+                    };
+                    (rank, *k)
+                })
+                .collect()
         };
-        let mut nodes = nodes;
-        nodes.sort_by_key(|k| rank(k));
-        for n in nodes {
+        ranked.sort_by_key(|(rank, _)| *rank);
+        for (_, n) in ranked {
             let cleanups = self
                 .graph
                 .borrow_mut()
@@ -411,7 +429,7 @@ impl Runtime {
                 }
             }
             if let Some(node) = self.remove_node(n, Some(created_at)) {
-                graveyard.push(Box::new(node));
+                graveyard.nodes.push(node);
             }
         }
         for o in objects {
@@ -426,7 +444,7 @@ impl Runtime {
                 if let Some(f) = obj.on_dispose.take() {
                     f(self);
                 }
-                graveyard.push(Box::new(obj.data));
+                graveyard.data.push(obj.data);
             }
         }
         for c in consts {
@@ -440,7 +458,7 @@ impl Runtime {
                 }),
             );
             if let Some(entry) = removed {
-                graveyard.push(Box::new(entry.data));
+                graveyard.data.push(entry.data);
             }
         }
     }

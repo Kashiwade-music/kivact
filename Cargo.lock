@@ -2484,6 +2484,7 @@ dependencies = [
  "icu_provider",
  "kivact",
  "kivact-runtime",
+ "kivact-types",
  "writeable",
 ]
 

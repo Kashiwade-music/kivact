@@ -25,15 +25,17 @@
 //! counter.send(Event::Increment);
 //! ```
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, VecDeque};
 use std::mem::{Discriminant, discriminant};
 use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
+use kivact_types::cell::Generation;
+
 use crate::reactive::{
-    IntoValue, Owned, Owner, Signal, Value, effect_on, require_effectful, untrack,
+    IntoValue, Owned, Owner, Signal, Value, effect_on, pure, require_effectful, untrack,
 };
 use crate::task::{Task, sleep, spawn_in};
 
@@ -103,14 +105,15 @@ enum Dispatch<Ev> {
     Running(VecDeque<Ev>),
 }
 
-// xtask-allow(state): legacy: state, dispatch, timers
+// xtask-allow(state): dispatch is the only phase (idle or running a queue); timers maps each pending timer variant to the generation and task that fire it, and next_timer only allocates those generations
 struct MachineCell<M: Machine> {
     owner: Owner,
     state: Signal<M::State>,
     input: Box<dyn Fn() -> M>,
     run: Box<dyn Fn(MachineCx<M>, M::Effect)>,
     dispatch: RefCell<Dispatch<M::Event>>,
-    timers: RefCell<HashMap<Discriminant<M::Event>, Task>>,
+    timers: RefCell<HashMap<Discriminant<M::Event>, (Generation, Task)>>,
+    next_timer: Cell<Generation>,
 }
 
 /// A copyable handle to an owner-scoped machine.
@@ -175,6 +178,7 @@ pub fn machine<M: Machine>(
             run: Box::new(run),
             dispatch: RefCell::new(Dispatch::Idle),
             timers: RefCell::new(HashMap::new()),
+            next_timer: Cell::new(Generation::new()),
         }),
         at,
     );
@@ -200,7 +204,9 @@ impl<M: Machine> MachineHandle<M> {
         let at = Location::caller();
         let mut current = event;
         loop {
-            let step = untrack(|| (cell.input)().transition(&cell.state.get_untracked(), current));
+            let step = pure(|| {
+                untrack(|| (cell.input)().transition(&cell.state.get_untracked(), current))
+            });
             if let Some(next) = step.next {
                 cell.state.set(next);
             }
@@ -211,14 +217,26 @@ impl<M: Machine> MachineHandle<M> {
                         TimerOp::Cancel(event) => (None, event),
                     };
                     let key = discriminant(&event);
-                    if let Some(task) = cell.timers.borrow_mut().remove(&key) {
+                    if let Some((_, task)) = cell.timers.borrow_mut().remove(&key) {
                         task.cancel();
                     }
                     if let Some(delay) = delay {
+                        let mut generation = cell.next_timer.get();
+                        let id = generation.next();
+                        cell.next_timer.set(generation);
                         let handle = *self;
-                        let fire: Box<dyn FnOnce()> = Box::new(move || handle.send(event));
+                        let fire: Box<dyn FnOnce()> = Box::new(move || {
+                            // A fired timer leaves the table unless a newer one replaced it.
+                            if let Some(cell) = handle.cell.try_get() {
+                                let mut timers = cell.timers.borrow_mut();
+                                if timers.get(&key).is_some_and(|(current, _)| *current == id) {
+                                    timers.remove(&key);
+                                }
+                            }
+                            handle.send(event);
+                        });
                         let task = spawn_timer(cell.owner, delay, fire, at);
-                        cell.timers.borrow_mut().insert(key, task);
+                        cell.timers.borrow_mut().insert(key, (id, task));
                     }
                 }
                 for effect in step.effects {

@@ -207,6 +207,7 @@ impl Runtime {
         let data = NodeData::Effect(EffectNode {
             kind,
             seq,
+            pass_runs: 0,
             run: Computation::new(compute),
             cleanups: Vec::new(),
         });
@@ -243,6 +244,7 @@ impl Runtime {
         let data = NodeData::Watcher(EffectNode {
             kind,
             seq: self.next_seq(),
+            pass_runs: 0,
             run: Computation::new(compute),
             cleanups: Vec::new(),
         });
@@ -564,48 +566,57 @@ impl Runtime {
         }
         let pure = matches!(effect, None | Some(EffectKind::Render));
         let changed = {
-            let guard = self.tracking_frame(key, owner, pure, is_effect);
+            let writes_for_node = matches!(effect, Some(EffectKind::Render | EffectKind::Internal));
+            let guard = self.tracking_frame(key, owner, pure, is_effect, writes_for_node);
             let changed = compute.run();
             let deps = guard.take_deps();
             drop(guard);
-            self.set_deps(key, deps);
+            self.set_deps(key, &deps);
+            self.recycle_deps(deps);
             changed
         };
         let mut diag = self.diag.borrow_mut();
         diag.detail.run(NodeId(key), label, at, changed);
-        let subs = {
+        let is_memo_change = {
             let mut g = self.graph.borrow_mut();
             let Some(n) = g.get_mut(key) else { return };
             if let Some(c) = n.computation_mut() {
                 c.state = CompState::Clean;
             }
-            match &n.data {
-                NodeData::Memo(m) if changed => m.subs.iter().map(|(s, _)| *s).collect::<Vec<_>>(),
-                _ => Vec::new(),
-            }
+            changed && matches!(n.data, NodeData::Memo(_))
         };
         if is_effect && self.write_epoch.get() != epoch_before {
             self.recheck_after_own_writes(key, epoch_before);
         }
-        if !subs.is_empty() {
-            let mut g = self.graph.borrow_mut();
-            let mut sched = self.sched.borrow_mut();
-            for s in subs {
-                let Some(n) = g.get_mut(s) else { continue };
-                let queue = match &n.data {
-                    NodeData::Effect(e) | NodeData::Watcher(e) => Some((e.kind, e.seq)),
-                    _ => None,
-                };
-                let Some(c) = n.computation_mut() else {
-                    continue;
-                };
-                // A running subscriber is pulling this memo right now and
-                // reads the new value; do not re-mark it.
-                if c.state.mark(Staleness::Dirty)
-                    && let Some((kind, seq)) = queue
-                {
-                    sched.push(&mut c.state, kind, seq, s);
-                }
+        if is_memo_change {
+            self.mark_memo_subscribers(key);
+        }
+    }
+
+    /// Mark the subscribers of a memo whose value changed as dirty and queue
+    /// the effects among them (no list is collected).
+    fn mark_memo_subscribers(&self, key: Key) {
+        let mut g = self.graph.borrow_mut();
+        let mut sched = self.sched.borrow_mut();
+        let count = g.get(key).map_or(0, |n| n.subs().len());
+        for i in 0..count {
+            let Some(s) = g.get(key).and_then(|n| n.subs().get(i)).map(|(s, _)| *s) else {
+                break;
+            };
+            let Some(n) = g.get_mut(s) else { continue };
+            let queue = match &n.data {
+                NodeData::Effect(e) | NodeData::Watcher(e) => Some((e.kind, e.seq)),
+                _ => None,
+            };
+            let Some(c) = n.computation_mut() else {
+                continue;
+            };
+            // A running subscriber is pulling this memo right now and reads
+            // the new value; do not re-mark it.
+            if c.state.mark(Staleness::Dirty)
+                && let Some((kind, seq)) = queue
+            {
+                sched.push(&mut c.state, kind, seq, s);
             }
         }
     }
@@ -664,19 +675,19 @@ impl Runtime {
     }
 
     /// Replace the dependency edges of `node` with `new` (read order).
-    fn set_deps(&self, node: Key, new: Vec<Key>) {
+    fn set_deps(&self, node: Key, new: &[Key]) {
         let mut g = self.graph.borrow_mut();
         let same = match g.get(node) {
             Some(n) => {
-                n.deps().len() == new.len() && n.deps().iter().zip(&new).all(|((a, _), b)| a == b)
+                n.deps().len() == new.len() && n.deps().iter().zip(new).all(|((a, _), b)| a == b)
             }
             None => return,
         };
         if same {
             return;
         }
-        unlink_deps(&mut g, node);
-        for src in new {
+        let emptied = unlink_deps(&mut g, node);
+        for &src in new {
             let dep_index = match g.get(node) {
                 Some(n) => n.deps().len() as u32,
                 None => return,
@@ -691,6 +702,32 @@ impl Runtime {
                 c.deps.push((src, sub_index));
             }
         }
+        drop(g);
+        self.run_unsubscribed(emptied);
+    }
+
+    /// Run `hook` once when source `key` loses its last subscriber.
+    pub(crate) fn on_unsubscribed(&self, key: Key, hook: Box<dyn FnOnce(&Runtime)>) {
+        self.unsubscribed.borrow_mut().insert(key, hook);
+    }
+
+    /// Run the hooks of the sources in `emptied` that still have no
+    /// subscriber (no graph borrow is held).
+    fn run_unsubscribed(&self, emptied: Vec<Key>) {
+        for key in emptied {
+            let unread = self
+                .graph
+                .borrow()
+                .get(key)
+                .is_some_and(|n| n.subs().is_empty());
+            if !unread {
+                continue;
+            }
+            let hook = self.unsubscribed.borrow_mut().remove(&key);
+            if let Some(hook) = hook {
+                hook(self);
+            }
+        }
     }
 
     /// Remove a node from the graph (owner disposal). Returns its cell so the
@@ -702,7 +739,7 @@ impl Runtime {
     ) -> Option<RNode> {
         self.dequeue_effect(key);
         let mut g = self.graph.borrow_mut();
-        unlink_deps(&mut g, key);
+        let emptied = unlink_deps(&mut g, key);
         // Unlink subscribers: remove this node from each subscriber's deps.
         let subs = g
             .get_mut(key)?
@@ -713,13 +750,17 @@ impl Runtime {
             remove_dep_entry(&mut g, sub, dep_index as usize);
         }
         let at = g.get(key).map(|n| n.at)?;
-        g.remove(
+        let removed = g.remove(
             key,
             Some(Tomb {
                 created_at: at,
                 disposed_by,
             }),
-        )
+        );
+        drop(g);
+        self.unsubscribed.borrow_mut().remove(&key);
+        self.run_unsubscribed(emptied);
+        removed
     }
 
     /// Remove a single owned node before its owner is disposed.
@@ -747,9 +788,10 @@ impl Runtime {
 }
 
 /// Remove all dependency edges of `node` (both directions).
-fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
+fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) -> Vec<Key> {
+    let mut emptied = Vec::new();
     let Some(c) = g.get_mut(node).and_then(RNode::computation_mut) else {
-        return;
+        return emptied;
     };
     let deps = std::mem::take(&mut c.deps);
     for (src, sub_index) in deps {
@@ -760,6 +802,9 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
                     continue;
                 }
                 subs.swap_remove(i);
+                if subs.is_empty() {
+                    emptied.push(src);
+                }
                 subs.get(i).copied().map(|(m, k)| (m, k, i))
             }
             None => None,
@@ -773,6 +818,7 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
             e.1 = i as u32;
         }
     }
+    emptied
 }
 
 /// Remove `sub.deps[index]` (whose source is being disposed) keeping read order.

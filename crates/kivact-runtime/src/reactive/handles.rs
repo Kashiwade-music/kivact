@@ -66,7 +66,9 @@ fn resolve_signal(
     track: bool,
     at: &'static Location<'static>,
 ) -> Rc<dyn Any> {
-    runtime(app, at).read_or_panic(key, track, "Signal", at)
+    crate::reactive::registry::with_runtime(app, at, |rt| {
+        rt.read_or_panic(key, track, "Signal", at)
+    })
 }
 
 // ---------------------------------------------------------------------------

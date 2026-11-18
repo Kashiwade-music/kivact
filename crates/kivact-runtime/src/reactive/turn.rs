@@ -34,8 +34,8 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Option<Key> {
-        let (_, key) = self.render.first().copied()?;
-        Self::unqueue(self, graph, key);
+        let (_, key) = self.render.pop_first()?;
+        Self::unmark(graph, key);
         Some(key)
     }
 
@@ -44,11 +44,10 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Vec<Key> {
-        self.render
-            .clone()
-            .into_iter()
+        let set = std::mem::take(&mut self.render);
+        set.into_iter()
             .map(|(_, k)| {
-                Self::unqueue(self, graph, k);
+                Self::unmark(graph, k);
                 k
             })
             .collect()
@@ -59,21 +58,22 @@ impl Sched {
         &mut self,
         graph: &mut crate::reactive::arena::Arena<RNode>,
     ) -> Vec<Key> {
-        self.user
-            .clone()
-            .into_iter()
+        let set = std::mem::take(&mut self.user);
+        set.into_iter()
             .map(|(_, k)| {
-                Self::unqueue(self, graph, k);
+                Self::unmark(graph, k);
                 k
             })
             .collect()
     }
 
-    fn unqueue(&mut self, graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
+    /// An effect taken out of its queue set is stale again, not queued.
+    fn unmark(graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
         if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
             graph.get_mut(key).map(|n| &mut n.data)
+            && let CompState::Queued(stale) = e.run.state
         {
-            e.run.state.dequeue(self, e.kind, e.seq, key);
+            e.run.state = CompState::Stale(stale);
         }
     }
     pub(crate) fn remove(&mut self, state: &mut CompState, kind: EffectKind, seq: u64, key: Key) {
@@ -123,8 +123,6 @@ impl Runtime {
     pub fn stabilize(&self) {
         let mut runs: usize = 0;
         let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
-        // Runs of each effect in this pass (the per-effect cycle limit).
-        let mut own_runs: std::collections::HashMap<Key, usize> = std::collections::HashMap::new();
         loop {
             let next = self
                 .sched
@@ -132,9 +130,8 @@ impl Runtime {
                 .pop_render(&mut self.graph.borrow_mut());
             let Some(key) = next else { break };
             runs += 1;
-            let own = own_runs.entry(key).or_insert(0);
-            *own += 1;
-            if *own > CYCLE_LIMIT || runs > limit {
+            let own = self.count_pass_run(key);
+            if usize::from(own) > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
                 let at = self.graph.borrow().get(key).map(|n| n.at);
                 self.default_sink(new_error(
@@ -147,6 +144,34 @@ impl Runtime {
                 break;
             }
             self.run_effect(key);
+        }
+        self.reset_pass_runs();
+    }
+
+    /// Count one run of effect `key` in this stabilize pass; returns the count.
+    fn count_pass_run(&self, key: Key) -> u8 {
+        let mut g = self.graph.borrow_mut();
+        let Some(NodeData::Effect(e) | NodeData::Watcher(e)) = g.get_mut(key).map(|n| &mut n.data)
+        else {
+            return 0;
+        };
+        if e.pass_runs == 0 {
+            self.pass_touched.borrow_mut().push(key);
+        }
+        e.pass_runs = e.pass_runs.saturating_add(1);
+        e.pass_runs
+    }
+
+    /// Forget the per-pass run counts of the effects that ran.
+    fn reset_pass_runs(&self) {
+        let mut touched = self.pass_touched.borrow_mut();
+        let mut g = self.graph.borrow_mut();
+        for key in touched.drain(..) {
+            if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
+                g.get_mut(key).map(|n| &mut n.data)
+            {
+                e.pass_runs = 0;
+            }
         }
     }
 

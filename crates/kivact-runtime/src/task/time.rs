@@ -18,7 +18,7 @@ enum SleepState {
         owner: Option<OwnerId>,
     },
     Registered {
-        id: super::state::TimerId,
+        key: super::state::TimerKey,
     },
     Fired,
 }
@@ -54,19 +54,16 @@ impl Future for Sleep {
                 }
                 scheduler.next_id += 1;
                 let id = scheduler.next_id;
-                self.state = SleepState::Registered { id };
+                self.state = SleepState::Registered {
+                    key: (deadline, id),
+                };
                 ((deadline, id), created_at, owner)
             }
-            SleepState::Registered { id } => {
-                let key = scheduler
-                    .timers
-                    .keys()
-                    .find(|(_, timer)| *timer == id)
-                    .copied();
-                let Some(key) = key else {
+            SleepState::Registered { key } => {
+                if !scheduler.timers.contains_key(&key) {
                     self.state = SleepState::Fired;
                     return Poll::Ready(());
-                };
+                }
                 if rt.now_ns() >= key.0 {
                     let fired = scheduler.timers.remove(&key);
                     self.state = SleepState::Fired;
@@ -102,8 +99,8 @@ impl Future for Sleep {
 
 impl Drop for Sleep {
     fn drop(&mut self) {
-        if let SleepState::Registered { id } = self.state {
-            self.cancel.push(id);
+        if let SleepState::Registered { key } = self.state {
+            self.cancel.push(key);
         }
     }
 }
@@ -136,7 +133,7 @@ pub fn sleep(d: Duration) -> impl Future<Output = ()> {
     sleep_ns(&rt, ns, at, owner)
 }
 
-fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
+pub(super) fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
     Runtime::current().unwrap_or_else(|| {
         raise(
             ErrorKind::WrongApp,

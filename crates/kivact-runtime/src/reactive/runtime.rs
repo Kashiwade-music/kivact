@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::panic::Location;
 
 use crate::reactive::arena::Arena;
-use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
+use crate::reactive::data::{Diag, Graveyard, LiveCounts, Runtime, Sched};
 use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
 use crate::reactive::identity::{OwnerId, key_raw};
 use std::rc::Rc;
@@ -62,6 +62,8 @@ impl Runtime {
             collectors: RefCell::new(Vec::new()),
             sched: RefCell::new(Sched::default()),
             scratch: RefCell::new(Vec::new()),
+            dep_pool: RefCell::new(Vec::new()),
+            pass_touched: RefCell::new(Vec::new()),
             seq: Cell::new(0),
             write_epoch: Cell::new(kivact_types::cell::Generation::new()),
             // Registration precedes root creation, which always takes the first fresh slot.
@@ -74,7 +76,6 @@ impl Runtime {
                 reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
             )]
             ext: std::cell::OnceCell::new(),
-            mount_revision: Cell::new(kivact_types::Revision(0)),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),
             host,
@@ -83,6 +84,8 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
+            graveyard: RefCell::new(Graveyard::default()),
+            unsubscribed: RefCell::new(std::collections::HashMap::new()),
         }
     }
 

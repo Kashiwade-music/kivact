@@ -54,7 +54,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, mount_revision, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
+// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -68,6 +68,10 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
+    /// Emptied dependency lists kept for the next collector.
+    pub(crate) dep_pool: RefCell<Vec<Vec<Key>>>,
+    /// The effects that ran in the current stabilize pass.
+    pub(crate) pass_touched: RefCell<Vec<Key>>,
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
@@ -76,8 +80,6 @@ pub struct Runtime {
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
     )]
     pub(crate) ext: std::cell::OnceCell<Extensions>,
-    /// Last stamp remains meaningful after every acknowledged callback was removed.
-    pub(crate) mount_revision: Cell<kivact_types::Revision>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
     pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
@@ -89,6 +91,10 @@ pub struct Runtime {
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
+    pub(crate) graveyard: RefCell<Graveyard>,
+    /// What runs when a watched source loses its last subscriber (selector
+    /// key nodes): run once, then forgotten.
+    pub(crate) unsubscribed: RefCell<std::collections::HashMap<Key, Box<dyn FnOnce(&Runtime)>>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -218,6 +224,8 @@ pub(crate) struct EffectNode {
     pub(crate) kind: EffectKind,
     /// Creation order: queued effects run in it.
     pub(crate) seq: u64,
+    /// Runs of this effect in the current stabilize pass (reset at its end).
+    pub(crate) pass_runs: u8,
     pub(crate) run: Computation,
     pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
 }
@@ -495,6 +503,14 @@ pub(crate) struct Diag {
 /// The per-App extension values, at most one per type.
 #[derive(Default)]
 pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
+
+/// What an owner's disposal released, dropped after every borrow ends
+/// (user `Drop` code may run). Kept on the runtime to reuse its capacity.
+#[derive(Default)]
+pub(crate) struct Graveyard {
+    pub(crate) nodes: Vec<RNode>,
+    pub(crate) data: Vec<Rc<dyn Any>>,
+}
 
 /// An `on_mount` callback waiting for the driver's acknowledgement.
 pub(crate) struct Mount {
