@@ -17,18 +17,14 @@ pub struct AppOptions {
 #[derive(Clone)]
 pub(crate) struct AppSettings {
     pub(super) title: String,
-    // xtask-allow(state-fields): option: absent means the system's locale
     /// `None`: the system's locale (`App::locale`).
     pub(super) locale: Option<Locale>,
     pub(super) messages: Messages,
-    // xtask-allow(state-fields): option: absent means the engine's default size
     /// The window's first size (`window_size`); the engine's default when
     /// `None`.
     pub(super) window_size: Option<Size>,
-    // xtask-allow(state-fields): option: absent means no minimum size
     /// The window's minimum size (`min_window_size`).
     pub(super) min_window_size: Option<Size>,
-    // xtask-allow(state-fields): option: absent means the runtime's default
     pub(super) blocking_threads: Option<usize>,
     pub(super) fonts: Vec<(Asset, &'static Location<'static>)>,
     /// How the window's GPU device is made (`gpu_preference`).
@@ -36,7 +32,6 @@ pub(crate) struct AppSettings {
     /// The handle that ends this App's run from any thread (`App::handle`).
     /// Cloned `App`s share it.
     pub(super) handle: AppHandle,
-    // xtask-allow(state-fields): option: an opt-in a test sets; absent means off
     #[cfg(feature = "devtools")]
     pub(super) devtools_in_tests: bool,
 }
@@ -150,7 +145,6 @@ impl AppOptions {
         self
     }
 
-    // xtask-allow(internal-contract): kivact::test starts the DevTools agent for a test App
     #[cfg(feature = "devtools")]
     #[doc(hidden)]
     pub fn devtools_in_tests(mut self) -> Self {

@@ -33,23 +33,20 @@ pub(crate) enum ForeignPhase {
     Released,
 }
 
+// xtask-allow(state): legacy: min_size, ready, resize, destroy, phase; read once when the window opens; absent means the engine's minimum
 /// The retained callbacks and reactive values of one `foreign_window`
 /// declaration.
 pub(crate) struct ForeignHooks {
     pub(crate) title: Value<String>,
     pub(crate) open: Binding<bool>,
     pub(crate) size: Size,
-    // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     pub(crate) min_size: Option<Size>,
     pub(crate) mode: WindowMode,
     pub(crate) placement: WindowPlacement,
     pub(crate) resizable: Value<bool>,
     pub(crate) dismiss: Option<Handler<DismissReason>>,
-    // xtask-allow(state-fields): option: the app's handler; absent when it gave none
     pub(crate) ready: RefCell<Option<Handler<ForeignChild>>>,
-    // xtask-allow(state-fields): option: the app's handler; absent when it gave none
     pub(crate) resize: RefCell<Option<Handler<SurfaceSize>>>,
-    // xtask-allow(state-fields): option: the app's callback; absent when it gave none
     pub(crate) destroy: RefCell<Option<Box<dyn Fn()>>>,
     /// One opening's callback lifetime.
     pub(crate) phase: Cell<ForeignPhase>,

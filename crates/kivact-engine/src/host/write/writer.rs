@@ -18,6 +18,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): legacy: app, engine
 /// Owned, cloneable write access to the engine's models, given to kivact for
 /// startup. Every write applies at once; [`Writer::commit`] ends a revision.
 #[derive(Clone)]
@@ -468,7 +469,6 @@ impl Writer {
         }
     }
 
-    // xtask-allow(internal-contract): the core's DevTools draws its overlay over a window
     #[doc(hidden)]
     /// Set the DevTools overlay of `window`; the host applies it after the
     /// turn.
@@ -478,7 +478,6 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Overlay(window, overlay));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools owns pick mode
     #[doc(hidden)]
     /// Set the window in pick mode (`None` leaves it).
     pub fn set_pick(&self, pick: Option<WindowId>) {
@@ -487,7 +486,6 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Pick(pick));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools configures the engine keys
     #[doc(hidden)]
     /// Set the keys that open the DevTools and those that open it in pick mode.
     pub fn set_devtools_keys(&self, keys: DevtoolsKeys) {
@@ -496,7 +494,6 @@ impl Writer {
             .push_devtools_change(crate::contract::DevtoolsChange::Keys(keys));
     }
 
-    // xtask-allow(internal-contract): the core's DevTools turns the engine records on
     #[doc(hidden)]
     /// Turn the engine's sync and frame records on or off.
     pub fn set_engine_recording(&self, syncs: bool, frames: bool) {

@@ -23,6 +23,7 @@ pub(crate) enum DeferredRequest {
     UnhandledKey(kivact_types::KeyCode),
 }
 
+// xtask-allow(state): legacy: modifiers is written only by Model::report_modifiers; assets, window_request; the modifiers last reported to the client, written only by Model::report_modifiers
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     /// This model's window.
@@ -43,7 +44,6 @@ pub(crate) struct Model {
     pub(crate) pointer: super::pointer::state::Pointer,
     /// The drags admitted before a modal opened (`modal`).
     pub(crate) admission: super::modal::state::Admission,
-    // xtask-allow(state-fields): projection: the modifiers last reported to the client, written only by Model::report_modifiers
     /// The keyboard modifiers the shell reports held.
     pub(super) modifiers: kivact_types::cell::Sent<Modifiers>,
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
@@ -56,7 +56,6 @@ pub(crate) struct Model {
     pub(crate) paint: PaintState,
     pub(crate) a11y: A11yState,
     pub(crate) frame: super::frame::state::Frame,
-    // xtask-allow(state-fields): independent: the title, minimum size and resizable flag Writer::set_window queues and finish_window takes after the turn; the modifiers projection follows shell key input, so any of them is set without the others
     /// The window title, minimum size and resizable flag to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>, bool)>,
     /// The platform effects to carry out after the turn.

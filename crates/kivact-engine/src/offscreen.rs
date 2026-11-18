@@ -38,6 +38,7 @@ use crate::text_measure::TextMeasurer;
 use kivact_types::render::LayerItem;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
+// xtask-allow(state): legacy: assets, scene_cache, engine
 /// Resources and rasterizer of window-independent drawing, confined to the
 /// thread that made them.
 pub struct OffscreenRenderer {

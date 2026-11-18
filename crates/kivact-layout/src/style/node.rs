@@ -78,6 +78,7 @@ pub(crate) struct GridArea {
     pub(crate) justify_self: Option<AlignSelf>,
 }
 
+// xtask-allow(state): legacy: aspect_ratio, align_items, align_self, align_content, justify_content, grid_area; the authored property; absent means the taffy default
 /// The taffy style of one layout node (see the module docs).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct NodeStyle {
@@ -91,7 +92,6 @@ pub(crate) struct NodeStyle {
     /// the layout pass, never by the props.
     pub(crate) min_width_floor: f32,
     pub(crate) max_size: Size<LengthPercentageAuto>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) aspect_ratio: Option<f32>,
     pub(crate) margin: Rect<LengthPercentageAuto>,
     pub(crate) padding: Rect<LengthPercentage>,
@@ -99,18 +99,13 @@ pub(crate) struct NodeStyle {
     pub(crate) gap: Size<LengthPercentage>,
     pub(crate) flex_direction: FlexDirection,
     pub(crate) flex_wrap: FlexWrap,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_items: Option<AlignItems>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_self: Option<AlignSelf>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) align_content: Option<AlignContent>,
-    // xtask-allow(state-fields): option: the authored property; absent means the taffy default
     pub(crate) justify_content: Option<JustifyContent>,
     pub(crate) flex_basis: Dimension,
     pub(crate) flex_grow: f32,
     pub(crate) flex_shrink: f32,
-    // xtask-allow(state-fields): option: the node's placement as a grid item (column, row, justify-self); absent means auto-placed and aligned by the container's justify_items
     /// Its place as a grid item (absent: auto-placed).
     pub(crate) grid_area: Option<Box<GridArea>>,
 }

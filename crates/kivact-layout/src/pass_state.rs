@@ -41,7 +41,6 @@ pub(crate) struct LayoutState {
     pending: Pending,
     /// The shared generation of derived child traversal cursors.
     pub(crate) epoch: Epoch,
-    // xtask-allow(state-fields): cache: the last fixed child looked up in this computation; `compute` resets it before each pass
     /// The last indexed fixed child; this is a traversal cursor only.
     pub(crate) fixed_cursor: Cell<Option<(usize, NodeId)>>,
 }

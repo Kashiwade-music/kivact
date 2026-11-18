@@ -37,6 +37,7 @@ impl Bound {
     }
 }
 
+// xtask-allow(state): legacy: bound, observation, rect_value, scroll_value; the rect memo of the binding, created under the ref's owner by the first NodeRef::rect call; absent
 /// What a [`NodeRef`](super::NodeRef) stores under its owner: the bound
 /// target and its reactive readers.
 pub(crate) struct NodeRefState {
@@ -46,9 +47,7 @@ pub(crate) struct NodeRefState {
     pub(crate) bound: Signal<RefState>,
     /// What the readers called so far need on every node the ref binds to.
     pub(crate) observation: Cell<RefObservation>,
-    // xtask-allow(state-fields): cache: the rect memo of the binding, created under the ref's owner by the first NodeRef::rect call; absent until then
     pub(crate) rect_value: Cell<Option<Value<Option<Rect>>>>,
-    // xtask-allow(state-fields): cache: the scroll offset memo of the binding, created under the ref's owner by the first NodeRef::scroll_offset call; absent until then
     pub(crate) scroll_value: Cell<Option<Value<crate::geometry::Point>>>,
 }
 

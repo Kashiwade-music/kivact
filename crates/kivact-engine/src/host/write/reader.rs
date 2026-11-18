@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): legacy: app, engine
 /// Read access to the engine's trees (kivact's view of the props and
 /// scenes it wrote): each window's tree is the one store of its node props,
 /// so kivact asks it for a prop's current value instead of keeping a copy.
@@ -301,14 +302,12 @@ impl Reader {
             .is_none_or(|model| model.admit_input(event))
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads the recorded syncs and frames
     #[doc(hidden)]
     /// Take the sync and frame records collected since the last call.
     pub fn take_engine_records(&self) -> EngineRecords {
         self.app.borrow().log.take()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools shows the box model of a node
     #[doc(hidden)]
     /// The margin, border, padding and content rectangles of `id` in window
     /// coordinates.
@@ -342,7 +341,6 @@ impl Reader {
         })
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's effective paint
     #[doc(hidden)]
     /// The paint of `id` with its state styles applied.
     pub fn effective_paint(&self, id: NodeId) -> PaintProps {
@@ -350,7 +348,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's computed text
     #[doc(hidden)]
     /// The computed text style of `id`.
     pub fn computed_text(&self, id: NodeId) -> ComputedTextStyle {
@@ -358,7 +355,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reads a node's layout props
     #[doc(hidden)]
     /// The layout props of `id`.
     pub fn layout_props(&self, id: NodeId) -> LayoutProps {
@@ -369,7 +365,6 @@ impl Reader {
         .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools picks a node under a point without the modal
     #[doc(hidden)]
     /// The node under `point` in `window`, ignoring modals.
     pub fn hit_any(&self, window: WindowId, point: Point) -> Option<NodeId> {
@@ -379,7 +374,6 @@ impl Reader {
             .and_then(|model| model.hit_any(point))
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the focused node of a window
     #[doc(hidden)]
     /// The focused target of `window`.
     pub fn focused(&self, window: WindowId) -> Option<FocusTarget> {
@@ -389,7 +383,6 @@ impl Reader {
             .and_then(|model| model.focused())
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the Tab order of a window
     #[doc(hidden)]
     /// The Tab order of `window`.
     pub fn tab_order(&self, window: WindowId) -> Vec<FocusTarget> {
@@ -400,7 +393,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports hover and press of a node
     #[doc(hidden)]
     /// Whether `id` is hovered and whether it is pressed.
     pub fn pointer_state(&self, id: NodeId) -> (bool, bool) {
@@ -408,7 +400,6 @@ impl Reader {
             .unwrap_or_default()
     }
 
-    // xtask-allow(internal-contract): the core's DevTools lists a window's layout findings
     #[doc(hidden)]
     /// The layout defects of the texts of `window`.
     pub fn layout_findings(&self, window: WindowId, check: &LayoutCheck) -> Vec<LayoutFinding> {
@@ -420,7 +411,6 @@ impl Reader {
         crate::check::layout_findings(model, &mut engine, check, None, false)
     }
 
-    // xtask-allow(internal-contract): the core's DevTools reports the IME state of a window
     #[doc(hidden)]
     /// The IME state of `window`.
     pub fn ime_state(&self, window: WindowId) -> ImeStateInfo {

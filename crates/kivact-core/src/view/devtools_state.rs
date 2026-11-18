@@ -32,6 +32,7 @@ pub(crate) enum AgentSlot {
     Running { agent: Agent, can_inject: bool },
 }
 
+// xtask-allow(state): legacy: agent, can_inject
 pub(crate) struct Inspector {
     pub(crate) agent: RefCell<Agent>,
     pub(crate) can_inject: bool,
@@ -41,6 +42,7 @@ pub(crate) struct Inspector {
     pub(crate) session: SessionData,
 }
 
+// xtask-allow(state): legacy: recording, prop_writes, overrides, forced, emulation, focus_history, input_log, next_input
 pub(crate) struct HookData {
     pub(crate) recording: RefCell<p::RecordingSettings>,
     pub(crate) prop_writes: RefCell<Vec<PropWrite>>,
@@ -54,6 +56,7 @@ pub(crate) struct HookData {
     pub(crate) next_input: Cell<u64>,
 }
 
+// xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_tree, sent_windows, errors_sent; allocates style override ids
 pub(crate) struct SessionData {
     pub(crate) events: RefCell<Vec<DevtoolsEvent>>,
     pub(crate) pending: RefCell<Vec<Pending>>,
@@ -61,18 +64,14 @@ pub(crate) struct SessionData {
     pub(crate) turns: RefCell<VecDeque<p::TurnGraph>>,
     pub(crate) frames: RefCell<BTreeMap<WindowId, VecDeque<p::FrameInfo>>>,
     pub(crate) update_counts: RefCell<HashMap<NodeId, u32>>,
-    // xtask-allow(state-fields): identity: allocates style override ids
     pub(crate) next_override: Cell<u64>,
     pub(crate) inspector: Cell<inspect_mode::Inspector>,
     pub(crate) overlays: RefCell<p::OverlaySettings>,
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
-    // xtask-allow(state-fields): identity: allocates snapshot ids
     pub(crate) next_snapshot: Cell<u64>,
     pub(crate) sent_tree: RefCell<HashMap<NodeId, p::ElementInfo>>,
-    // xtask-allow(state-fields): cache: the last windows report sent; the whole report is compared with the next one
     pub(crate) sent_windows: RefCell<Sent<Vec<p::WindowInfo>>>,
-    // xtask-allow(state-fields): cache: the seq of the last reported error already notified (S-9 `Sent`); the next turn notifies only entries of `rt.reported()` with a larger seq
     pub(crate) errors_sent: RefCell<Sent<u64>>,
     pub(crate) open_failed: ReportOnce,
 }
@@ -90,9 +89,7 @@ impl SessionData {
 pub(crate) struct PropWrite {
     pub(crate) node: NodeId,
     pub(crate) prop: Prop,
-    // xtask-allow(state-fields): statistic: a diagnostic record of the effect that wrote the prop; known only for effect-driven writes
     pub(crate) effect: Option<EffectId>,
-    // xtask-allow(state-fields): independent: whether this one write changed the node's value (the engine's comparison); a write from an effect and a direct write can each change the value or leave it equal, and DevTools shows all four
     pub(crate) changed: bool,
 }
 

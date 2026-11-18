@@ -113,6 +113,7 @@ enum Place {
     },
 }
 
+// xtask-allow(state): legacy: viewport_margin, keep_anchor_clear, modal
 /// Out-of-flow layer (popup, menu, tooltip). Built by [`overlay`] and
 /// [`overlay_at`].
 pub struct Overlay {

@@ -8,7 +8,6 @@ pub use devtools::{
 };
 // The core's DevTools agent builds injected input and cannot depend on the
 // shell itself.
-// xtask-allow(internal-contract): the core's DevTools agent builds injected input and cannot depend on the shell
 pub use arvane::InjectedInput;
 pub use arvane_shell::pipeline::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 mod events;

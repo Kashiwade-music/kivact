@@ -46,7 +46,6 @@ pub struct Window {
     open: Binding<bool>,
     content: SlotContent,
     size: Size,
-    // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     min_size: Option<Size>,
     mode: WindowMode,
     placement: WindowPlacement,
@@ -115,6 +114,7 @@ enum WindowArm {
     Open { id: WindowId },
 }
 
+// xtask-allow(state): legacy: arm, min_size
 /// The retained state of one `window`: its declaration site and arm.
 struct WindowSlot {
     rt: Weak<Runtime>,

@@ -59,7 +59,6 @@ pub struct ForeignWindow {
     title: Value<String>,
     open: Binding<bool>,
     size: Size,
-    // xtask-allow(state-fields): option: read once when the window opens; absent means the engine's minimum
     min_size: Option<Size>,
     mode: WindowMode,
     placement: WindowPlacement,

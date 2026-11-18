@@ -297,7 +297,6 @@ impl Node {
     }
 
     /// Add a kit recipe's base style layer (DevTools shows its name).
-    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
     #[doc(hidden)]
     #[track_caller]
     pub fn base_recipe_style(
@@ -414,7 +413,6 @@ impl Node {
     /// named by its own call site rather than by a line inside the
     /// component.
     #[track_caller]
-    // xtask-allow(structural-options): Diagnostic construction metadata records the caller; it does not select mounted structure.
     pub fn located_at_caller(mut self) -> Self {
         let at = Location::caller();
         self.common.at = Some(at);

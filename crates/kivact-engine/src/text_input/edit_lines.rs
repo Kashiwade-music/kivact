@@ -5,10 +5,10 @@ use crate::text_input::source::Source;
 use kivact_editing::LineColors;
 use std::ops::Range;
 
+// xtask-allow(state): legacy: damage, coloring; the editor damage since these lines' revision, merged by hold_damage (EditorNode::flush_damage) and taken by refresh_lines; a hint
 /// The lines of a text input (see the module invariants).
 #[derive(Clone, Debug)]
 pub(crate) struct EditLines {
-    // xtask-allow(state-fields): cache: the editor damage since these lines' revision, merged by hold_damage (EditorNode::flush_damage) and taken by refresh_lines; a hint only: absent or of another base, the lines are rebuilt from the text
     pub(crate) damage: Option<kivact_editing::Damage>,
     pub(crate) key: Key,
     pub(crate) align: kivact_types::TextAlign,
@@ -21,7 +21,6 @@ pub(crate) struct EditLines {
     pub(crate) before: Vec<Before>,
     /// The widest shaped line's width.
     pub(crate) width: f64,
-    // xtask-allow(state-fields): cache: the colorizer the kept line colors were made with and how many leading lines hold them; any pending damage can stand beside it
     /// The colors the lines were colored with, and how far.
     pub(crate) coloring: Option<Coloring>,
     /// The lines last drawn.

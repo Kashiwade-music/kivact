@@ -10,7 +10,6 @@ use kivact_types::ViewTransform;
 use kivact_types::cell::Sent;
 use std::cell::RefCell;
 
-// xtask-allow(internal-contract): Boundary adapter lets interaction attach its single zoom/pan model without a core dependency.
 #[doc(hidden)]
 pub trait ViewportTransform: 'static {
     fn view_transform(&self) -> Value<ViewTransform>;
