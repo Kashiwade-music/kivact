@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 publish = false
-description = "Compile checks for docs/: every ```rust block of the guides runs as a doctest"
+description = "Compile checks for docs/: the English guides' Rust blocks as doctests, their no_run blocks type-checked"
 
 [features]
 default = ["gpu", "complex-scripts"]

@@ -214,7 +214,7 @@ mod tests {
     }
 
     #[test]
-    fn dont_save_exits_without_saving() {
+    fn don_t_save_exits_without_saving() {
         let screen = kivact::test::render(app);
         assert!(!screen.request_close());
         screen.get_by_role(Role::Button, "保存しない").click();

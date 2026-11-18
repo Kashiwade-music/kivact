@@ -1,4 +1,4 @@
-//! Role: Checks over the Markdown sources themselves.
+//! Checks over the Markdown sources themselves.
 
 use std::fs;
 use std::path::{Path, PathBuf};

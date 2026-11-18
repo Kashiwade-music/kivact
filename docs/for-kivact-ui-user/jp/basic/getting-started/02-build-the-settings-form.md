@@ -93,17 +93,14 @@ fn notifications_card(
                     .align_items(Align::Center)
                     .gap(12),
             ),
-            field(
-                "メンション",
-                switch("メンション", mentions).hide_label(true),
-            )
-            .hint("自分宛てのメンションを知らせます。")
-            .style(
-                style()
-                    .direction(Direction::Row)
-                    .align_items(Align::Center)
-                    .gap(12),
-            ),
+            field("メンション", switch("メンション", mentions).hide_label(true))
+                .hint("自分宛てのメンションを知らせます。")
+                .style(
+                    style()
+                        .direction(Direction::Row)
+                        .align_items(Align::Center)
+                        .gap(12),
+                ),
             basic::field_separator(),
             field(
                 "リマインダー",
