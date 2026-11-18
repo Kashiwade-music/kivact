@@ -33,9 +33,9 @@ pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
     pub(super) anchor: Binding<Option<K>>,
 }
 
+// xtask-allow(state): legacy: item_states, container_state, typed; the observation of the attached container part, absent until it attaches
 pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
-    // xtask-allow(state-fields): independent: the observation of the attached container part, absent until it attaches
     pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has

@@ -495,14 +495,13 @@ struct TextEditOptions {
     composition: Option<Callback<bool>>,
 }
 
+// xtask-allow(state): legacy: observed, next_control_id; the observation of the attached control part, absent until it attaches
 struct Data {
-    // xtask-allow(state-fields): independent: the observation of the attached control part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     binding: Binding<String>,
     lines: Lines,
     options: OptionsCell<TextEditOptions>,
     control: MachineHandle<machine::Machine>,
-    // xtask-allow(state-fields): identity: allocates control ids; the mounted id lives in the machine state
     next_control_id: Cell<Generation>,
 }
 

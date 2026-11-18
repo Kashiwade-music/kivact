@@ -12,6 +12,7 @@ struct Row {
     disabled: Value<bool>,
 }
 
+// xtask-allow(state): legacy: surfaces, rows
 #[derive(Clone, Copy)]
 pub(super) struct Press {
     pub(super) machine: MachineHandle<Machine>,

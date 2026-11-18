@@ -22,7 +22,6 @@ pub use crate::menu_policy::{DisabledMenuFocus, SubmenuTiming};
 
 /// One level of a menu: the top level or a submenu. All handles are `Copy`.
 pub(super) struct Level<K: kivact_core::state::ItemKey> {
-    // xtask-allow(state-fields): independent: set by MenuApi::content when this level's surface mounts; a submenu level exists in its session before its surface first mounts
     pub(super) content_state: Signal<Option<Value<PopupState>>>,
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<MenuItemState>>>,
     session: Session<K>,
@@ -35,7 +34,6 @@ pub(super) struct Level<K: kivact_core::state::ItemKey> {
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
     timing: SubmenuTiming,
-    // xtask-allow(state-fields): option: the theme's disabled-focus policy, read when the level is built
     retain_disabled_focus: bool,
 }
 

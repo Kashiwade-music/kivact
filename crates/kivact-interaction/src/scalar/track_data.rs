@@ -15,7 +15,6 @@ pub(crate) struct Target {
     pub(crate) mapping: OptionsCell<ScalarMapping>,
     pub(crate) thumb: NodeRef,
     pub(crate) rect: Value<Option<Rect>>,
-    // xtask-allow(state-fields): option: caller constraints on the thumb, absent when it is unbounded
     pub(crate) bounds: Option<(Value<f64>, Value<f64>)>,
 }
 

@@ -74,6 +74,7 @@ impl<K: kivact_core::state::ItemKey> Clone for MenubarApi<K> {
 }
 impl<K: kivact_core::state::ItemKey> Copy for MenubarApi<K> {}
 
+// xtask-allow(state): legacy: focus, menus; the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any
 /// A menu bar over the triggers titled `titles` that open `menus`, in order.
 /// The number of menus is read once, when the bar is built; the titles follow
 /// the value. Setup only.
@@ -93,7 +94,6 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         })
     });
     // The triggers are a horizontal list: the arrows move the focus along it.
-    // xtask-allow(state-fields): independent: the trigger list's selection, written by use_list as the arrows and activation move along the bar; menus is fixed at setup, so any index or none pairs with it
     let focus = signal(None::<usize>);
     let list = use_list(
         items,
@@ -106,7 +106,6 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
             ..ListOptions::default()
         },
     );
-    // xtask-allow(state-fields): option: the menus the bar opens, fixed when the bar is made
     let menus = var(menus);
     let rtl = use_direction().get() == ReadingDirection::Rtl;
     menus.with(|items| {

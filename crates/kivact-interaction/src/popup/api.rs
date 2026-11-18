@@ -100,9 +100,7 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    // xtask-allow(state-fields): independent: set by PopupApi::content_with while the surface is mounted and emptied when it unmounts; the trigger has attached by then or is absent
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent: set by PopupApi::base_trigger at the trigger's mount; while the popup is closed there is a trigger and no content
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,

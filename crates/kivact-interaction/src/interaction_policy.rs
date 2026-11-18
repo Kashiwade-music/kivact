@@ -33,18 +33,15 @@ impl ModifierKey {
 /// which click resets it. Read by the Creative kit's numeric controls.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ScrubPolicy {
-    // xtask-allow(state-fields): option: absent means the policy has no fine modifier
     /// Held for a finer scrub, arrow key or wheel notch (default Ctrl).
     pub fine: Option<ModifierKey>,
     /// What the fine key multiplies the change by (default 0.1).
     pub fine_factor: f64,
-    // xtask-allow(state-fields): option: absent means the policy has no coarse modifier
     /// Held for a coarser scrub or arrow key (default Shift). The wheel ignores
     /// it: Shift turns a wheel sideways on some platforms.
     pub coarse: Option<ModifierKey>,
     /// What the coarse key multiplies the change by (default 10.0).
     pub coarse_factor: f64,
-    // xtask-allow(state-fields): option: absent means no click resets the value
     /// Held with a primary click to reset the value, as a double click does
     /// (default none).
     pub reset_click: Option<ModifierKey>,

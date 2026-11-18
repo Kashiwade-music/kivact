@@ -88,7 +88,6 @@ pub struct MenuItemState {
     pub input: PartState,
     /// What kind of row this is, with its kind's state.
     pub display: MenuItemDisplay,
-    // xtask-allow(state-fields): option: the entry's authored destructive mark, read for a warning color
     /// The entry is marked destructive ([`MenuEntry::destructive`]), for a
     /// warning color.
     pub destructive: bool,
@@ -187,21 +186,15 @@ struct ItemEntry<K> {
     role: ItemRole<K>,
     /// The shortcut text, published as the item's accessible description.
     shortcut: String,
-    // xtask-allow(state-fields): option: whether the entry is disabled, fixed by its author modifiers
     /// A disabled item cannot be chosen.
     disabled: bool,
-    // xtask-allow(state-fields): option: the entry's authored disabled reason
     disabled_reason: Option<Reactive<String>>,
-    // xtask-allow(state-fields): option: the entry's authored icon
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
-    // xtask-allow(state-fields): option: the entry's authored description
     /// A secondary line under the label.
     description: Option<Reactive<String>>,
-    // xtask-allow(state-fields): option: the entry's authored destructive mark
     /// A destructive item (delete, remove): only the drawing reads it.
     destructive: bool,
-    // xtask-allow(state-fields): option: whether choosing the entry leaves the menu open
     /// Choosing the item leaves the menu open (a check item toggled in a
     /// row of several).
     keep_open: bool,

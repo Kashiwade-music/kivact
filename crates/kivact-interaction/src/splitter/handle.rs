@@ -113,7 +113,6 @@ pub struct SplitterState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
-    // xtask-allow(state-fields): independent: the observation of the attached handle part, absent until it attaches
     observed: Signal<Option<Value<SplitterState>>>,
     ops: ScalarOps,
     axis: Axis,
