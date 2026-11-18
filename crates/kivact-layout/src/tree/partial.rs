@@ -1,4 +1,4 @@
-//! Role: The taffy partial-tree hooks of the layout pass: a child's layout with its scaled and out-of-flow steps.
+//! Role: Taffy partial-tree hooks: child layout with scaled and out-of-flow steps.
 
 use super::pass::LayoutPass;
 use super::root::place_out_of_flow;

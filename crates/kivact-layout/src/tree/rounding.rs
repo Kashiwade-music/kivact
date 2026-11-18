@@ -1,4 +1,4 @@
-//! Role: Rounds unrounded layouts to whole pixels, and marks the columns whose layout changed.
+//! Role: Rounds layouts to whole pixels and marks columns whose layout changed.
 
 use crate::LayoutTree;
 use taffy::Layout;

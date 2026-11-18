@@ -1,4 +1,4 @@
-//! Role: The layout pass: one root's borrowed columns as taffy's tree traits, and the leaf measurement.
+//! Role: Layout pass: a root's borrowed columns as taffy traits, and leaf measurement.
 //!
 //! The pass exists only while one root is computed; see `tree` for the invariants.
 
