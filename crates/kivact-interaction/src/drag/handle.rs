@@ -108,13 +108,12 @@ enum Step<T> {
     /// invalid coordinates).
     Stop {
         stop: Stop,
-        // xtask-allow(state-fields): independent: copied from the ended drag's EditOwnership (Owned when the drag began the edit); a drag with or without an edit can end with or without an update
         owns_edit: bool,
-        // xtask-allow(state-fields): independent: what on_end receives, absent when the delta from the drag's start is not finite; that depends on the positions alone, so it comes with either edit ownership
         update: Option<DragUpdate<T>>,
     },
 }
 
+// xtask-allow(state): legacy: observed, sources, disabled; the observation of the attached source part, absent until it attaches
 /// A Copy handle to one temporary drag session owned by the current setup owner.
 ///
 /// Attach a [`source`](Self::source) to each element or canvas region a drag
@@ -143,7 +142,6 @@ enum Step<T> {
 /// without calling a callback. The setters work in any order, before or
 /// after the sources are made.
 pub struct DragApi<T: 'static> {
-    // xtask-allow(state-fields): independent: the observation of the attached source part, absent until it attaches
     observed: Signal<Option<Value<DragState>>>,
     session: MachineHandle<machine::Machine<T>>,
     /// The source of the active drag, derived from `session`.
@@ -152,7 +150,6 @@ pub struct DragApi<T: 'static> {
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
     modifiers: OptionsCell<Option<Callback<DragUpdate<T>>>>,
-    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 

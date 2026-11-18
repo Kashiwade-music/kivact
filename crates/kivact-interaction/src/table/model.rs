@@ -62,15 +62,10 @@ impl FilterValue {
 pub struct ColumnDef<R, C> {
     key: C,
     label: Reactive<String>,
-    // xtask-allow(state-fields): option: the caller's starting width from with_width; absent leaves the column width to layout
     width: Option<f64>,
-    // xtask-allow(state-fields): option: the caller's resize lower bound from min_width, finite and non-negative only; absent keeps the resize range's own minimum
     pub(super) min_width: Option<f64>,
-    // xtask-allow(state-fields): option: the caller's row ordering from compare; absent (or without_ordering) makes the column unsortable
     compare: Option<Compare<R>>,
-    // xtask-allow(state-fields): option: the caller's text matcher from filter; absent leaves the column out of text filtering
     matches: Option<Matches<R>>,
-    // xtask-allow(state-fields): option: the caller's typed-filter matcher from filter_value; absent leaves the column out of typed filtering
     matches_value: Option<MatchesValue<R>>,
     visible: Reactive<bool>,
 }
@@ -297,17 +292,11 @@ pub struct DataTableModelApi<R: 'static, K: 'static, C: 'static> {
     columns: Value<Vec<ColumnDef<R, C>>>,
     count: Value<usize>,
     pages: Value<usize>,
-    // xtask-allow(state-fields): option: the sort order a setter supplied, absent until set
     sort: Signal<Option<Sort<C>>>,
-    // xtask-allow(state-fields): option: the text query a setter supplied, absent until set
     query: Signal<Option<Value<String>>>,
-    // xtask-allow(state-fields): option: the column queries a setter supplied, absent until set
     column_queries: Signal<Option<ColumnQueries<C>>>,
-    // xtask-allow(state-fields): option: the row arrangement a setter supplied, absent until set
     arrangement: Signal<Option<RowArrangement<R>>>,
-    // xtask-allow(state-fields): option: the typed queries a setter supplied, absent until set
     typed_queries: Signal<Option<TypedQueries<C>>>,
-    // xtask-allow(state-fields): option: the paging a setter supplied, absent until set
     paging: Signal<Option<Paging>>,
 }
 
@@ -319,6 +308,7 @@ impl<R: 'static, K: 'static, C: 'static> Clone for DataTableModelApi<R, K, C> {
 
 impl<R: 'static, K: 'static, C: 'static> Copy for DataTableModelApi<R, K, C> {}
 
+// xtask-allow(state): legacy: sort, query, column_queries, arrangement, typed_queries, paging; the sort order a setter supplies; absent keeps the caller's order
 /// Create a row model over `rows`, identified by `key`, with `columns` in
 /// display order. Without [`sort`](DataTableModelApi::sort),
 /// [`filter`](DataTableModelApi::filter) and [`page`](DataTableModelApi::page) it shows
@@ -338,17 +328,11 @@ where
     let key: KeyOf<R, K> = Rc::new(key);
     let key_of = key.clone();
     let columns: Rc<[ColumnDef<R, C>]> = columns.into();
-    // xtask-allow(state-fields): option: the sort order a setter supplies; absent keeps the caller's order
     let sort = signal(None::<Sort<C>>);
-    // xtask-allow(state-fields): option: the text query a setter supplies; absent shows every row
     let query = signal(None::<Value<String>>);
-    // xtask-allow(state-fields): option: the per-column queries a setter supplies; absent shows every row
     let column_queries = signal(None::<Value<Vec<(C, String)>>>);
-    // xtask-allow(state-fields): option: the row arrangement a setter supplies; absent keeps the caller's rows
     let arrangement = signal(None::<RowArrangement<R>>);
-    // xtask-allow(state-fields): option: the typed column filters a setter supplies; absent applies no typed filter
     let typed_queries = signal(None::<TypedQueries<C>>);
-    // xtask-allow(state-fields): option: the paging a setter supplies; absent shows every row
     let paging = signal(None::<Paging>);
     let shown = {
         let columns = columns.clone();

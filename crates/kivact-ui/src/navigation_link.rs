@@ -4,6 +4,7 @@ use crate::navigation_values::NavigationLinkState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
+// xtask-allow(state): legacy: description, icon
 /// A title, optional icon and description that activates and closes its navigation panel.
 pub struct NavigationMenuLink {
     root: Node,

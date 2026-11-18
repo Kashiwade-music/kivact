@@ -87,6 +87,7 @@ impl Machine for BusyInput {
     }
 }
 
+// xtask-allow(state): legacy: icon, trailing, busy, hide_label
 pub struct Button {
     root: Node,
     label: Value<String>,

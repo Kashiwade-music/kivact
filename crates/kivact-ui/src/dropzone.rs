@@ -8,6 +8,7 @@ use kivact_core::view::{
 use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
 use std::rc::Rc;
 type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
+// xtask-allow(state): legacy: icon, multiple, pick_on_press
 /// A validated file drop target. Native file metadata stays application-owned.
 pub struct Dropzone {
     root: Node,

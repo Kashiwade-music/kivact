@@ -80,6 +80,7 @@ fn toggle_label(
     .into_view()
 }
 
+// xtask-allow(state): legacy: icon, hide_label
 /// A button that stays pressed, created by [`toggle_button`]. Its behavior and
 /// semantics are those of [`use_toggle_button`].
 pub struct ToggleButton {

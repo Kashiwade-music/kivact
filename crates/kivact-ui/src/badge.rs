@@ -4,6 +4,7 @@ use crate::{BadgeState, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
+// xtask-allow(state): legacy: icon, trailing
 pub struct Badge {
     root: Node,
     label: Value<String>,

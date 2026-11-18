@@ -127,9 +127,7 @@ impl Hub {
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
-    // xtask-allow(state-fields): independent: set by TooltipApi::trigger at mount; the hint content is mounted only while the tooltip shows
     trigger_state: Signal<Option<Value<PopupState>>>,
-    // xtask-allow(state-fields): independent: set by TooltipApi::content when the hint mounts after the show delay, after the trigger attached
     content_state: Signal<Option<Value<PopupState>>>,
     delayed: DelayedApi,
     visible: Value<bool>,

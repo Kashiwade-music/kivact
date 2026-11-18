@@ -14,6 +14,7 @@ use kivact_interaction::{IntoSelection, ListItem, Selection};
 
 type ToggleItemSlot<K> = ViewFn<(Value<ListItem<K>>, Value<ToggleButtonState>)>;
 
+// xtask-allow(state): legacy: spacing, item
 /// Single or multiple toggles with native roving focus, created by [`toggle_group`].
 pub struct ToggleGroup<K: ItemKey> {
     root: Node,

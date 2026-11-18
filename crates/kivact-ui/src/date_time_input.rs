@@ -6,6 +6,7 @@ use crate::{DatePresentation, button, calendar, date_input, dialog, time_input};
 use kivact_core::i18n::{DateStyle, DateTime, TimeStyle, Weekday, message};
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
 use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
+// xtask-allow(state): legacy: picker_label, week_start
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
     root: Node,

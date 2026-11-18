@@ -12,6 +12,7 @@ use kivact_core::view::{IntoView, Role, View, dynamic};
 use kivact_interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
 use std::rc::Rc;
 
+// xtask-allow(state): legacy: month, week_start, displayed_month; Calendar::default_month; absent starts at the selection's month or today, and a caller month binding
 /// A month calendar (`Calendar`).
 ///
 /// Created by [`calendar`] with a single-date or range binding. The days form a grid: the arrow keys move by a day or a week, Home
@@ -29,17 +30,14 @@ pub struct Calendar {
     cell_size: Value<f64>,
     variants: crate::variants::Variants,
     selection: CalendarSelection,
-    // xtask-allow(state-fields): option: Calendar::default_month; absent starts at the selection's month or today, and a caller month binding (displayed_month) takes precedence over it
     month: Option<CalendarMonth>,
     disabled: Rc<dyn Fn(CalendarDate) -> bool>,
     count: Value<usize>,
     caption: Value<CalendarCaption>,
     outside: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the component's default
     week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: Value<bool>,
-    // xtask-allow(state-fields): option: Calendar::month binds the shown month to the caller; absent keeps it in the calendar's own signal seeded from default_month
     displayed_month: Option<Binding<CalendarMonth>>,
     today: Value<CalendarDate>,
     min: Value<Option<CalendarDate>>,

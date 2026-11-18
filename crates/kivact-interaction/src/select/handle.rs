@@ -128,11 +128,9 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     selected: Binding<Option<K>>,
     edit: crate::EditSession<Option<K>>,
-    // xtask-allow(state-fields): independent: set by SelectApi::content_in when the option list or sheet mounts; the preview callback beside it is set by the caller at setup, before or without any surface
     content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
     placeholder: Signal<Value<String>>,
-    // xtask-allow(state-fields): option: the preview callback a setter supplied, absent until set
     /// Reports the option being tried out; read when the surface binds.
     preview: Var<Option<Callback<Option<K>>>>,
     popup: PopupApi,

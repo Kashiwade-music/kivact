@@ -302,8 +302,6 @@ impl ListOptions {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ListItemState {
     pub input: PartState,
-    // xtask-allow(state-fields): independent: whether the selection holds the row; a multiple selection or a caller's binding write keeps rows selected while another row is active
     pub selected: bool,
-    // xtask-allow(state-fields): independent: whether the row is the roving or highlighted candidate; arrows under Manual activation, a combobox highlight and Ctrl+arrow move it without selecting
     pub active: bool,
 }

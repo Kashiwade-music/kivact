@@ -108,6 +108,7 @@ impl IntoView for TableRow {
         self.table.into_view()
     }
 }
+// xtask-allow(state): legacy: header, width
 /// A header or data cell with proportional or fixed width.
 pub struct TableCell {
     root: Node,

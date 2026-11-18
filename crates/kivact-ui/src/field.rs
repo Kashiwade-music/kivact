@@ -15,6 +15,7 @@ use kivact_core::state::{Value, memo};
 use kivact_core::view::{Element, Node, node, text};
 use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
 
+// xtask-allow(state): legacy: hint, required, error
 /// A control with its visible label, hint and error, created by [`field`].
 ///
 /// The root is a column of the label, the control, the hint and the error

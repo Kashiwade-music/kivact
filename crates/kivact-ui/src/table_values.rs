@@ -16,9 +16,7 @@ pub struct DataTableGroupState {
 pub struct RowStatus {
     pub(crate) label: String,
     pub(crate) tone: Tone,
-    // xtask-allow(state-fields): option: RowStatus::icon; absent draws the tone's default mark
     pub(crate) icon: Option<Icon>,
-    // xtask-allow(state-fields): option: RowStatus::color; absent uses the theme's color for the tone
     pub(crate) color: Option<Color>,
 }
 

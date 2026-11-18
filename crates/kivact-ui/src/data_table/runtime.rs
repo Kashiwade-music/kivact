@@ -93,10 +93,8 @@ struct GroupingPlan<R: 'static> {
 
 struct ModelPlan<R: 'static, K: 'static> {
     model: kivact_interaction::DataTableModelApi<R, K, usize>,
-    // xtask-allow(state-fields): option: the tree arrangement made from DataTable::tree; absent keeps the model's rows flat in sorted order
     tree: Option<super::tree::Plan<K>>,
     paging: PagingPlan,
-    // xtask-allow(state-fields): option: DataTable::group_by, as the page's groups and their key together; absent shows the page's rows ungrouped
     grouping: Option<GroupingPlan<R>>,
     display: kivact_core::state::Value<Vec<R>>,
     page_rows: kivact_core::state::Value<Vec<R>>,

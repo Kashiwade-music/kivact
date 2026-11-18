@@ -6,6 +6,7 @@ use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, Role, View, node, row, show, text,
 };
 use std::rc::Rc;
+// xtask-allow(state): legacy: overlap, total
 pub struct AvatarGroup {
     root: Node,
     children: Vec<View>,

@@ -22,6 +22,7 @@ enum Values {
     Two(Binding<f64>, Binding<f64>),
 }
 
+// xtask-allow(state): legacy: range, step
 /// A themed slider, created by [`slider`] or [`range_slider`].
 pub struct Slider {
     root: Node,

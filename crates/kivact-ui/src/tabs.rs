@@ -24,6 +24,7 @@ use std::rc::Rc;
 /// What a tab shows, from its item and its state.
 type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabState>)>;
 
+// xtask-allow(state): legacy: item, keep_mounted
 pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,

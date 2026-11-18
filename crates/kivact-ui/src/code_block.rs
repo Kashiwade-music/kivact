@@ -13,6 +13,7 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
+// xtask-allow(state): legacy: title, language, end_content, footer, max_height, expanded, highlight
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
     root: Node,
@@ -185,11 +186,9 @@ struct CodePresentation {
 /// Inputs consumed together when constructing the one native source editor.
 struct CodeSource {
     code: Value<String>,
-    // xtask-allow(state-fields): option: absent means the component's default
     highlight: Option<Highlight>,
     highlight_lines: Value<Vec<u32>>,
     diff: Value<bool>,
-    // xtask-allow(state-fields): option: CodeBlock::max_height; absent leaves the editor without a height cap
     max_height: Option<Value<Length>>,
 }
 impl CodeBlock {

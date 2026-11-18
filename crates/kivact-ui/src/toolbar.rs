@@ -10,6 +10,7 @@ use kivact_core::view::{
 };
 
 use crate::collection_values::{ToolbarEdge, ToolbarState};
+// xtask-allow(state): legacy: start, center, end, gap
 /// Three optional regions that share a single keyboard Tab stop.
 pub struct Toolbar {
     root: Node,

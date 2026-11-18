@@ -18,7 +18,6 @@ use std::rc::Rc;
 /// to the caller's node; drawing and content remain the caller's responsibility.
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
-    // xtask-allow(state-fields): independent: the observation of the attached viewport part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
     transform: Binding<ViewTransform>,
     settings: OptionsCell<ZoomPanOptions>,

@@ -16,11 +16,8 @@ pub(super) enum State<K> {
         typeahead: Typeahead,
     },
     Open {
-        // xtask-allow(state-fields): independent: the key the keyboard highlights in the open list
         highlight: Option<K>,
-        // xtask-allow(state-fields): independent: the key the pointer is over in the open list
         hovered: Option<K>,
-        // xtask-allow(state-fields): independent: the option last reported to the preview callback (a record of a call already made, not derivable from hovered/highlight, which change before track_preview reports); Open and OpenSheet reset it to None, Event::Preview sets it, Close reports None when it held a key
         /// The option last reported to the caller's preview callback.
         previewed: Option<K>,
         opened_by: OpenedBy,

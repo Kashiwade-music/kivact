@@ -35,17 +35,11 @@ pub struct Dialog {
     title_hidden: Value<bool>,
     kind: DialogMode,
     placement: Placement,
-    // xtask-allow(state-fields): option: absent means the component's default
     align: Option<OverlayAlign>,
-    // xtask-allow(state-fields): option: absent means the component's default
     width: Option<Value<Length>>,
-    // xtask-allow(state-fields): option: Dialog::description; absent draws no description and links none to the dialog
     description: Option<Value<String>>,
-    // xtask-allow(state-fields): option: absent means the component's default
     initial_focus: Option<NodeRef>,
-    // xtask-allow(state-fields): option: absent means the component's default
     return_focus: Option<Value<NodeRef>>,
-    // xtask-allow(state-fields): option: absent means the component's default
     dismiss: Option<DismissOn>,
     closable: Value<bool>,
     media: Option<kivact_core::view::ViewFn>,

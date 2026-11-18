@@ -29,7 +29,6 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) want: Value<Option<Want<K>>>,
     pub(super) machine: MachineHandle<super::machine::Machine<K>>,
     pub(super) typed: kivact_core::state::Binding<Typeahead>,
-    // xtask-allow(state-fields): option: whether the theme tracks a menu press, fixed during setup
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
 }

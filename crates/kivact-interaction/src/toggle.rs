@@ -29,9 +29,7 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
-    // xtask-allow(state-fields): independent: the observation of the attached part, absent until it attaches
     observed: Signal<Option<Value<PartState>>>,
-    // xtask-allow(state-fields): option: the disabled value a setter supplied, absent until set
     disabled: Signal<Option<Value<bool>>>,
 }
 

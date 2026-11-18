@@ -5,6 +5,7 @@ use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
 
 use crate::component_values::{StatState, Trend};
+// xtask-allow(state): legacy: delta, icon, chart, label_content, value_content
 /// A statistic labelled by its visible label, created by [`stat`].
 pub struct Stat {
     root: Node,
