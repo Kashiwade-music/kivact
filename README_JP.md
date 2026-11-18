@@ -112,9 +112,8 @@ flowchart TD
 | `kivact-macros` | `crates/kivact-macros` | 部品の props のビルダーを書く `#[component]`（`kivact` が再公開）。 |
 | `kivact-core` | `crates/kivact-core` | view の記述、mount、入力、アプリ起動。 |
 | `kivact-test` | `crates/kivact-test` | kivact::test の App 全体 E2E ハーネス。 |
-| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP・Python client が共有する通信の語彙。 |
+| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | DevTools の agent・アプリ・MCP が共有する通信の語彙と、client の接続（feature `client`）。 |
 | `kivact-devtools-agent` | `crates/kivact-devtools-agent` | target のアプリの中で動く DevTools の server。socket、discovery、PNG。 |
-| `kivact-devtools-client` | `crates/kivact-devtools-client` | DevTools の agent の discovery と型付きの呼び出し。 |
 | `kivact-devtools` | `crates/kivact-devtools` | DevTools のデスクトップアプリ。 |
 | `kivact-devtools-mcp` | `crates/kivact-devtools-mcp` | DevTools の target を stdio で公開する MCP server。 |
 | `kivact-public-api-tests` | `dev/tests/kivact-public-api` | 公開 API 利用者の E2E と offscreen の契約。 |
@@ -166,7 +165,7 @@ flowchart TD
 | `gpu` | 有効 | GPU で描画し、使えなければ CPU に切り替えます。無効にすると CPU だけで build します。`ARVANE_RENDERER=cpu` で実行時に CPU へ固定できます。既定ではウィンドウが GPU を必要としたとき（ユーザーの shader を描いた、App が `gpu_interop::adapter()` を読んだ、CPU の frame が表示周期の半分を続けて超えた）に device を起動します (`GpuStart::OnDemand`。`App::gpu_preference` で `GpuStart::AtLaunch` を選べます)。 |
 | `complex-scripts` | 有効 | タイ語、ラオ語、クメール語、ミャンマー語、中国語・日本語の分かち書きのための ICU の辞書 (約 3 MB)。その分かち書きが要らないアプリは無効にするとバイナリが小さくなります。 |
 | `test` | 無効 | `kivact::test` の App 全体の仮想 E2E と任意の実窓 mirror。 |
-| `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools、MCP server、Python client から使います。有効にした release build は起動時に警告を出します。 |
+| `devtools` | 無効 | アプリ内の DevTools の agent。別アプリの DevTools と MCP server から使います。有効にした release build は起動時に警告を出します。 |
 | `tokio` | 無効 | 非同期 task の Tokio 連携。 |
 | `embed` | 無効 | 実験的。ホストのウィンドウの中にアプリを開きます（オーディオプラグインの editor など）。 |
 | `gpu-interop` | 無効 | 実験的。アプリ自身の renderer の GPU texture を、読み戻さずに表示します。 |

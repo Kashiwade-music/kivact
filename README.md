@@ -128,9 +128,8 @@ flowchart TD
 | `kivact-macros` | `crates/kivact-macros` | The `#[component]` attribute that writes a component's props builder (re-exported by `kivact`). |
 | `kivact-core` | `crates/kivact-core` | View descriptions, mounting, input and application launch. |
 | `kivact-test` | `crates/kivact-test` | App-wide E2E harness exposed as kivact::test. |
-| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | Wire vocabulary shared by the DevTools agent, app, MCP server and Python client. |
+| `kivact-devtools-protocol` | `crates/kivact-devtools-protocol` | Wire vocabulary of the DevTools agent, app and MCP server, and the client connection (feature `client`). |
 | `kivact-devtools-agent` | `crates/kivact-devtools-agent` | The DevTools server inside a target app: socket, discovery and PNG images. |
-| `kivact-devtools-client` | `crates/kivact-devtools-client` | Discovery and typed calls to a DevTools agent. |
 | `kivact-devtools` | `crates/kivact-devtools` | The DevTools desktop app. |
 | `kivact-devtools-mcp` | `crates/kivact-devtools-mcp` | MCP server that exposes a DevTools target over stdio. |
 | `kivact-public-api-tests` | `dev/tests/kivact-public-api` | Public consumer E2E and offscreen contracts. |
@@ -182,7 +181,7 @@ flowchart TD
 | `gpu` | yes | GPU rendering with automatic CPU fallback. Without it the build is CPU-only. `ARVANE_RENDERER=cpu` forces the CPU renderer at run time; by default the device starts when the window needs it: a user shader drawn, the App reading `gpu_interop::adapter()`, or CPU frames that keep missing half the display period (`GpuStart::OnDemand`; choose `GpuStart::AtLaunch` with `App::gpu_preference`). |
 | `complex-scripts` | yes | ICU's word and line dictionaries for Thai, Lao, Khmer, Myanmar and Chinese/Japanese word breaking (about 3 MB). Turn it off for a smaller binary when the app does not need that segmentation. |
 | `test` | no | App-wide virtual E2E through `kivact::test`, with optional native mirrors. |
-| `devtools` | no | The DevTools agent in the app, for the separate DevTools app, MCP server and Python client. Release builds that enable it warn at startup. |
+| `devtools` | no | The DevTools agent in the app, for the separate DevTools app and MCP server. Release builds that enable it warn at startup. |
 | `tokio` | no | Tokio integration for asynchronous tasks. |
 | `embed` | no | Experimental. Open an app inside a host window, e.g. an audio plugin editor. |
 | `gpu-interop` | no | Experimental. Show GPU textures from the application's own renderer without read-back. |

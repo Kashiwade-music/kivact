@@ -6,8 +6,7 @@ DevTools is a separate application that connects to a running Kivact app. It
 shows the element tree and layout of every window, lets you edit styles and
 emulation, records turns and frames so you can see why the screen updated, and
 keeps a review of comments and style changes that you can share with another
-person or an AI agent. The same protocol is available to MCP tools and to Python
-scripts.
+person or an AI agent. The same protocol is available to MCP tools.
 
 ## Install the tools
 
@@ -18,16 +17,6 @@ it looks for the DevTools app:
 ```sh
 cargo install --git https://github.com/Kashiwade-music/kivact kivact-devtools kivact-devtools-mcp
 ```
-
-The Python client installs with pip. The command works outside a checkout of
-Kivact:
-
-```sh
-pip install "kivact-devtools @ git+https://github.com/Kashiwade-music/kivact#subdirectory=python/kivact-devtools"
-```
-
-Only when you edit the Kivact repository itself, use
-`pip install -e python/kivact-devtools`.
 
 ## Enable DevTools
 
@@ -261,7 +250,7 @@ directly in `text("...")` stays unchanged.
 claude mcp add kivact-devtools -- kivact-devtools-mcp
 ```
 
-Every protocol method except `initialize`, `subscribe` and `show_table` is a
+Every protocol method except `initialize` and `subscribe` is a
 tool with the same name, plus two local tools. `list_targets` lists the running
 targets (path, app name, pid, port, version, start time and workspace root); it
 never includes the token. `select_target` takes `{ "target": "<path>" }`.
@@ -279,46 +268,6 @@ review (`get_review`, `add_comment`, `edit_comment`, `remove_comment`,
 `export_review`).
 
 After `inject_input`, call `list_turns` with `wait_ms` to wait for the turn.
-
-## Script DevTools with Python
-
-Install the Python package with the pip command in
-[Install the tools](#install-the-tools). In VS Code, Pylance and pyright read the
-type hints and `py.typed`; no stubs are needed.
-
-```python
-import kivact_devtools as kd
-
-app = kd.connect()                       # the only running target
-win = app.window("Counter")              # by title
-button = win.get_by_role(kd.Role.BUTTON, "Increment")
-buttons = win.all_by_role(kd.Role.BUTTON)
-button.highlight()
-app.clear_highlight()
-button.click()
-win.type_text("abc")
-win.press_key("Ctrl+Enter")              # the chord syntax of the config file
-
-with app.record() as rec:
-    button.click()
-for turn in rec.turns:
-    print(turn.turn, turn.duration_ns, len(turn.changed_nodes))
-
-app.export_review()                      # [review.json, review.md] paths
-```
-
-`connect(target=...)` takes a discovery file path, and `name="Counter"` chooses
-by app name. With neither, `connect()` uses `KIVACT_DEVTOOLS_TARGET`, then the
-only running target. The `Window` queries have the same
-`get_`/`query_`/`find_`/`all_` shapes as the protocol. `app.rpc` holds the
-low-level typed methods, which take and return protocol dataclasses
-(`app.rpc.get_tree(...)`); the hand-written `App`, `Window`, `Element` and
-`Recording` classes do not inherit them.
-
-The Scripts panel lists the `.py` files in `.kivact/devtools/scripts/` and runs
-them. It finds the interpreter in the `python` setting, the workspace root's
-`.venv`, `python3`, then `python`. It shows standard output and standard error
-line by line, and shows tables produced by `show_table`.
 
 ## Limits
 
