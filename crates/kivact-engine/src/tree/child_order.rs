@@ -5,9 +5,7 @@ use std::collections::HashMap;
 
 #[derive(Clone, Debug)]
 struct Link {
-    // xtask-allow(state-fields): independent: the neighbor links of one child; each side is absent at an end of the order
     previous: Option<NodeIndex>,
-    // xtask-allow(state-fields): independent: the neighbor links of one child; each side is absent at an end of the order
     next: Option<NodeIndex>,
 }
 

@@ -59,6 +59,7 @@ pub(crate) enum StaleFacts {
     Nodes(BTreeSet<NodeId>),
 }
 
+// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -152,12 +153,10 @@ impl PaintState {
 /// module invariants).
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct Ink {
-    // xtask-allow(state-fields): cache: the drawn area of the node; absent means nothing is drawn
     /// `None`: nothing (hidden).
     pub(super) rect: Option<Drawn>,
     pub(super) size: Size,
     pub(super) content: Size,
-    // xtask-allow(state-fields): identity: the ink generation (PaintList::ink_gen, advanced when fonts are added) the ink was found in; readers compare it with the current one
     pub(super) generation: Generation,
 }
 
@@ -235,7 +234,6 @@ pub(crate) struct Step {
     /// transforms pushed around it (its own and its ancestors'
     /// translations below them applied). A layer's origin is its own box.
     pub(super) origin: Point,
-    // xtask-allow(state-fields): option: absent means the node is drawn without its own transform
     /// The transform it is drawn through (an index into
     /// [`PaintList::transforms`]).
     pub(super) transform: Option<u32>,
@@ -244,9 +242,7 @@ pub(crate) struct Step {
     pub(super) alpha: f64,
     /// The clip of its padding box (none, a rect, or a rounded group).
     pub(super) clip_shape: ClipShape,
-    // xtask-allow(state-fields): option: absent means no presence clip applies
     pub(super) presence_clip: Option<Rect>,
-    // xtask-allow(state-fields): independent: whether the node draws itself; any grouping can hold either
     /// It draws itself (else it is listed for its group only).
     pub(super) own: bool,
     /// How it is composited in a group.
@@ -255,7 +251,6 @@ pub(crate) struct Step {
     /// margin), in the space of its origin: a text input draws only the
     /// lines that reach it.
     pub(super) clip: Rect,
-    // xtask-allow(state-fields): option: absent means the node is drawn in its parent's layer
     /// Its compositor layer (an index into [`PaintList::layers`]).
     pub(super) layer: Option<u32>,
 }
@@ -354,7 +349,6 @@ pub(crate) enum Axis {
 #[derive(Clone, Debug)]
 pub(crate) struct ChildIndex {
     pub(super) entries: Vec<Indexed>,
-    // xtask-allow(state-fields): cache: the axis the reaches are sorted along; absent means they are not sorted
     /// The axis every reach is sorted along (by its start), if any.
     pub(super) axis: Option<Axis>,
     /// Along `axis`, per entry: where its reach starts (a hidden entry

@@ -14,11 +14,8 @@ pub(super) struct InputSource {
     pub(super) session: TextSession,
     pub(super) area: Rect,
     pub(super) scroll: f64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     pub(super) transform: Option<kivact_types::Projective>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     pub(super) password: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     pub(super) read_only: bool,
 }
 
@@ -29,9 +26,7 @@ pub(super) struct InputSource {
 pub(super) struct SessionSource {
     pub(super) node: NodeId,
     pub(super) session: crate::contract::ImeSessionProps,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     pub(super) area: Option<Rect>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     pub(super) transform: Option<kivact_types::Projective>,
 }
 

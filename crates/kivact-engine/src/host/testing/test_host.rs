@@ -25,12 +25,11 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
+// xtask-allow(state): legacy: turns, frame_ticks; turns counted for diagnostics; never used to control scheduling
 /// Turns and frame ticks the client was given.
 #[derive(Default)]
 struct Counts {
-    // xtask-allow(state-fields): statistic: turns counted for diagnostics; never used to control scheduling
     turns: Cell<u64>,
-    // xtask-allow(state-fields): statistic: frame ticks counted for diagnostics; never used as an event or generation
     frame_ticks: Cell<u64>,
 }
 
@@ -52,6 +51,7 @@ fn counted(client: Client, counts: Rc<Counts>) -> Client {
     )
 }
 
+// xtask-allow(state): legacy: host, renderer, injected, controls
 /// The engine driven by a test on the calling thread.
 pub struct ArvaneTestHost {
     pub(super) host: Rc<RefCell<Launch>>,
@@ -107,6 +107,7 @@ impl Observed {
     }
 }
 
+// xtask-allow(state): legacy: host, injected, controls
 struct SharedHost {
     host: Rc<RefCell<Launch>>,
     injected: Rc<RefCell<Vec<HostEvent>>>,

@@ -76,6 +76,7 @@ impl HostPhase {
     }
 }
 
+// xtask-allow(state): legacy: app_motion is written only by Host::report_app_motion; app, engine, reduced_motion_override, frame_log; absent means the system's reduced-motion preference applies
 pub(crate) struct Host {
     pub(super) client: Client,
     pub(super) phase: HostPhase,
@@ -89,7 +90,6 @@ pub(crate) struct Host {
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.
     pub(super) close: crate::contract::CloseSignal,
-    // xtask-allow(state-fields): option: absent means the system's reduced-motion preference applies
     pub(super) reduced_motion_override: Option<bool>,
     /// The platform suspended the application (in the background):
     /// nothing is drawn until it resumes. Independent of `phase`.
@@ -101,7 +101,6 @@ pub(crate) struct Host {
     pub(super) accessibility_noted: ReportOnce,
     /// The App-wide windows and their host state.
     pub(super) windows: std::collections::BTreeMap<WindowId, HostWindow>,
-    // xtask-allow(state-fields): projection: the App motion last reported to the client, written only by Host::report_app_motion
     /// The App motion input last reported to the client.
     pub(super) app_motion: Sent<(bool, u64)>,
     /// The DevTools' overlays, pick, keys and emulation.

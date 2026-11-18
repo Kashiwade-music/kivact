@@ -130,12 +130,10 @@ pub(crate) enum Notify {
 /// z-indexed children at no cost.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Place {
-    // xtask-allow(state-fields): cache: update_place derives it from the base paint and state style transforms, a running state motion and the parent's perspective (raise_under_perspective only raises it); the walks skip untransformed nodes by it
     /// Its base paint or a state style transforms it.
     pub(crate) transformed: bool,
     /// Its base paint's z-index.
     pub(crate) z: i32,
-    // xtask-allow(state-fields): cache: a state style sets its z-index
     /// A state style sets its z-index.
     pub(crate) z_states: bool,
     /// One of its children has (or had) a z-index or a state style that

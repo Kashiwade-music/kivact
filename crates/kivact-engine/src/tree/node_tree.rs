@@ -16,16 +16,15 @@ pub(crate) struct FlatChild {
     pub(crate) slot: NodeIndex,
 }
 
+// xtask-allow(state): legacy: flat, root; parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so
 /// The node tree.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct NodeTree {
     /// Cached flat children, indexed by the parent's slot.
     flat: RefCell<Vec<Option<Rc<[FlatChild]>>>>,
-    // xtask-allow(state-fields): independent: parents whose child order insert or detach edited, drained by pack_child_orders before layout; detached subtrees edit orders too, so pending work occurs with or without a root
     /// Derived packing work only; the child order remains solely in NodeLinks.
     pending_child_order: BTreeSet<NodeId>,
     pub(crate) nodes: NodeStore,
-    // xtask-allow(state-fields): independent: the Root-kind node, set when the client installs it and cleared when it is removed; detached subtrees queue child-order packing too, so pending work occurs with or without a root
     pub(crate) root: Option<NodeId>,
     pub(crate) overlays: Vec<NodeId>,
     pub(crate) scrollers: BTreeSet<NodeId>,

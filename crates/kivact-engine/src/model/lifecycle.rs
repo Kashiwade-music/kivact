@@ -58,9 +58,7 @@ impl Model {
 )]
 struct RemovedPayload {
     node: HostNode,
-    // xtask-allow(state-fields): option: absent means the node had no editor
     editor: Option<Box<crate::measure::editor::EditorNode>>,
-    // xtask-allow(state-fields): option: absent means the node had no text extents
     extents: Option<Box<crate::measure::state::TextExtents>>,
 }
 impl Drop for Model {

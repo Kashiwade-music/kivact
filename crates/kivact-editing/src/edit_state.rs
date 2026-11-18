@@ -34,6 +34,7 @@ pub enum Taken {
     Whole,
 }
 
+// xtask-allow(state): legacy: max_length, log, damage; absent means the editor has no scalar limit
 /// An owned snapshot of a native editor: its document (the text and its
 /// revision) and its [`TextSession`].
 ///
@@ -47,14 +48,11 @@ pub struct EditState {
     text: String,
     revision: u64,
     session: TextSession,
-    // xtask-allow(state-fields): option: absent means the editor has no scalar limit
     /// The scalar limit of the edits, if any.
     max_length: Option<usize>,
-    // xtask-allow(state-fields): independent: the edits kivact has not taken yet (take_changes, start_log, revert clear it); the line-cache damage is cleared only by take_damage, and set_controlled leaves damage without a log, so all four combinations occur
     /// The changes recorded since the log started; `None` when they cover
     /// nothing, which is the same as "the log starts at `revision`".
     log: Option<Log>,
-    // xtask-allow(state-fields): independent: line-cache damage is taken by the editor, separately from the edit log
     /// What changed since the editor's lines last took the damage.
     damage: Option<Damage>,
 }

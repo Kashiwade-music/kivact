@@ -33,6 +33,7 @@ pub(crate) enum AppClock {
     },
 }
 
+// xtask-allow(state): legacy: assets, focused_window
 /// Every window's model and the App-wide state.
 pub(crate) struct AppModel {
     pub(crate) windows: BTreeMap<WindowId, Model>,
