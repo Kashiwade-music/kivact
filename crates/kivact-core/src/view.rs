@@ -14,6 +14,7 @@
 
 pub(crate) mod boundary;
 pub(crate) mod descriptor;
+pub(crate) mod devtools_hook_traits;
 pub(crate) mod devtools_hooks;
 pub(crate) mod drawable;
 mod drawable_share;

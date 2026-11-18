@@ -13,7 +13,7 @@ use kivact_style::{Style, Theme};
 use kivact_types::{Capabilities, FocusTarget, NodeId, WindowId};
 
 use crate::i18n::Locale;
-use crate::view::devtools_hooks::{DevtoolsHooks, NodeStyleHook};
+use crate::view::devtools_hook_traits::{DevtoolsHooks, NodeStyleHook};
 
 use super::apply;
 use super::state::{DevtoolsEvent, Inspector, Pending, PropWrite};
