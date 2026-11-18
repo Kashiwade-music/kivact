@@ -86,7 +86,7 @@ fn snap(center: f64, width: f64, scale: f64, origin: f64) -> f64 {
 /// The blur parameter of vello's and vello_cpu's blurred rounded
 /// rectangles for a gaussian of standard deviation `std_dev`: they fade by
 /// erf(d / s), so s is √2 deviations. Both cut the blur off at 2.5 s (3.54
-/// deviations, within `kivact_types::render::SHADOW_REACH`).
+/// deviations, within `arvane_protocol::SHADOW_REACH`).
 pub(crate) fn blur_param(std_dev: f64) -> f64 {
     std_dev * std::f64::consts::SQRT_2
 }

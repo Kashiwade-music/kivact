@@ -83,8 +83,8 @@ impl ArvaneTestHost {
 }
 
 fn compare_accessibility(
-    published: Option<&kivact_types::render::SemanticsTree>,
-    rebuilt: Option<&kivact_types::render::SemanticsTree>,
+    published: Option<&arvane_protocol::SemanticsTree>,
+    rebuilt: Option<&arvane_protocol::SemanticsTree>,
     errors: &mut Vec<String>,
 ) {
     if published != rebuilt {

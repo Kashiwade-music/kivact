@@ -10,7 +10,7 @@ use kivact_engine::contract::SceneLayer;
 use kivact_engine::testing::Renderer;
 use kivact_types::NodeId;
 use kivact_types::WindowId;
-use kivact_types::render::FrameStats;
+use kivact_types::export::FrameStats;
 
 use super::model::{Screen, TestApp};
 use super::results::SemanticNode;

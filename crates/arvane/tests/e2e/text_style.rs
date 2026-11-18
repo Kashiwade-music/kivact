@@ -14,7 +14,8 @@
 use std::sync::Arc;
 
 use arvane::Engine;
-use kivact_types::render::{RichText, ShapedTextSnapshot, SpanStyle, TextSpan};
+use arvane_protocol::{RichText, SpanStyle, TextSpan};
+use kivact_types::shaped::ShapedTextSnapshot;
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
 

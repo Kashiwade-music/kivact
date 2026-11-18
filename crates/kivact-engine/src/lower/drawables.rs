@@ -14,7 +14,7 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use kivact_types::render::CompositeLayer;
+use arvane_protocol::CompositeLayer;
 use kivact_types::{DrawableId, NodeId};
 
 /// The canvas drawables of one frame.

@@ -7,7 +7,7 @@
 //! - A drawing in a node other than a drawable's host is reported once per
 //!   node and drawable.
 
-use kivact_types::render::{CompositeLayer, LayerKey};
+use arvane_protocol::{CompositeLayer, LayerKey};
 use kivact_types::{DrawableId, NodeId, Rect, Size};
 
 use crate::contract::{DrawableMode, HostEvent, SceneLayer};

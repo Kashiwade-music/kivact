@@ -4,8 +4,9 @@ use crate::cache::{Cache, TextKeyRef};
 use crate::error::TextError;
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
-use kivact_types::render::FontSource;
-use kivact_types::render::{RichText, ShapedText};
+use arvane_protocol::RichText;
+use kivact_types::shaped::FontSource;
+use kivact_types::shaped::ShapedText;
 use kivact_types::{ComputedTextStyle, TextDecoration, TextWrap};
 use kivact_types::{Rect, TextAlign, TextCaret, TextMetrics, TextOverflow, TextTransform};
 use parley::{
@@ -504,8 +505,8 @@ pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 pub(super) fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [kivact_types::render::TextSpan]>,
-) -> std::borrow::Cow<'a, [kivact_types::render::TextSpan]> {
+    spans: std::borrow::Cow<'a, [arvane_protocol::TextSpan]>,
+) -> std::borrow::Cow<'a, [arvane_protocol::TextSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }

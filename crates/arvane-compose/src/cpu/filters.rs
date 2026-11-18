@@ -1,7 +1,7 @@
 //! Role: Runs the layer filters of an Op::Filter on the CPU.
 
+use arvane_protocol::LayerFilter;
 use kivact_types::geometry::Point;
-use kivact_types::render::LayerFilter;
 
 use super::blur::gaussian;
 use super::effects::{blur_sigmas, color_matrix, drop_shadow};

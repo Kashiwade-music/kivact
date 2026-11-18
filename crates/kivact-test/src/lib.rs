@@ -95,7 +95,7 @@ mod render;
 mod screen;
 
 /// The work counts of a presented frame, as [`Screen::frame_stats`] reports them.
-pub use kivact_types::render::FrameStats;
+pub use kivact_types::export::FrameStats;
 pub use options::{MirrorMode, RenderOptions, Renderer, TestFonts};
 pub use render::{gpu_unavailable, native_unavailable, render, render_with, render_with_handle};
 

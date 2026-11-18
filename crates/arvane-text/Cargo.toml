@@ -18,6 +18,7 @@ complex-scripts = ["parley/complex-scripts"]
 # miss builds (and allocates) one.
 hashbrown = "0.17"
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }
 parley = { workspace = true }
 
 # Linux finds system fonts through fontconfig. Loading libfontconfig at run

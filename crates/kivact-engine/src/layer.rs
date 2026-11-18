@@ -119,8 +119,8 @@ impl Look {
             .filter(|s| !s.inset)
             .map(|s| {
                 // The blur's gaussian (standard deviation blur / 2) is
-                // drawn at most kivact_types::render::SHADOW_REACH deviations out.
-                let blur = extent(s.blur) / 2.0 * kivact_types::render::SHADOW_REACH;
+                // drawn at most arvane_protocol::SHADOW_REACH deviations out.
+                let blur = extent(s.blur) / 2.0 * arvane_protocol::SHADOW_REACH;
                 offset(s.offset.x).abs().max(offset(s.offset.y).abs())
                     + offset(s.spread).max(0.0)
                     + blur

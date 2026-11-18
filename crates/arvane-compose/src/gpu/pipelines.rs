@@ -3,7 +3,7 @@
 //! Made once per device; the draw modules use them by name.
 
 use arvane_render::RASTER_FORMAT;
-use kivact_types::render::Composite;
+use kivact_types::Composite;
 use std::collections::HashMap;
 
 /// The draw shader: the operations' sampling, coverage and blends.

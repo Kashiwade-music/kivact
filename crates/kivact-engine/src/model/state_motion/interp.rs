@@ -2,17 +2,17 @@
 //!
 //! Each property is a list of numbers plus the shape they are written into
 //! (`PropBasis`). Colors are premultiplied Oklab components (`L·α, a·α, b·α, α`).
-use crate::color_space::{ColorSpace, SpaceColor};
-use crate::motion::TransitionProp;
-use crate::paint::{
+use kivact_types::color_space::{ColorSpace, SpaceColor};
+use kivact_types::motion::TransitionProp;
+use kivact_types::paint::{
     CornerRadius, Corners, ElementTransform, Fill, FilterOp, Len, PaintProps, Shadow,
 };
-use crate::{Edges, Point, Rgba};
+use kivact_types::{Edges, Point, Rgba};
 
 /// One property's interpolation: the shape the numbers are written into
 /// and the numbers at both ends. Fixed when a track starts.
 #[derive(Clone, Debug, PartialEq)]
-pub struct PropInterp {
+pub(crate) struct PropInterp {
     /// The non-numeric shape the numbers are written into.
     pub basis: PropBasis,
     /// The numbers at the start.
@@ -23,7 +23,7 @@ pub struct PropInterp {
 
 /// The non-numeric shape of an interpolated value.
 #[derive(Clone, Debug, PartialEq)]
-pub enum PropBasis {
+pub(crate) enum PropBasis {
     /// Numbers written into the property of the same name (Opacity, Transform,
     /// Background, BorderColor, BorderWidth, Radius, TextColor).
     Plain(TransitionProp),
@@ -46,7 +46,7 @@ impl PropBasis {
     /// and prop; for Shadows the same length and inset at each index; for
     /// Filters the same `backdrop`, length, function kind at each index and
     /// `==` Graph and Shader ops. The numbers in the basis are not compared.
-    pub fn same_shape(&self, other: &PropBasis) -> bool {
+    pub(crate) fn same_shape(&self, other: &PropBasis) -> bool {
         match (self, other) {
             (PropBasis::Plain(a), PropBasis::Plain(b)) => a == b,
             (PropBasis::Shadows(a), PropBasis::Shadows(b)) => {
@@ -74,7 +74,7 @@ impl PropBasis {
 /// The interpolation of `prop` between two paints, or None when they cannot
 /// be interpolated (the property switches at once, as CSS discrete interpolation).
 /// `All` and `Size` are not paint properties and give None.
-pub fn prop_interp(
+pub(crate) fn prop_interp(
     prop: TransitionProp,
     from: &PaintProps,
     to: &PaintProps,
@@ -122,7 +122,12 @@ pub fn prop_interp(
 
 /// Write `values` laid out in `basis` into `out` (a copy of the target paint):
 /// the property is replaced by the basis filled with the values.
-pub fn apply_components(basis: &PropBasis, values: &[f64], out: &mut PaintProps, text: &mut Rgba) {
+pub(crate) fn apply_components(
+    basis: &PropBasis,
+    values: &[f64],
+    out: &mut PaintProps,
+    text: &mut Rgba,
+) {
     match basis {
         PropBasis::Plain(prop) => apply_plain(*prop, values, out, text),
         PropBasis::Shadows(list) => {

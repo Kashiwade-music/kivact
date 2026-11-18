@@ -101,7 +101,7 @@ impl Model {
         }
         let focus = self.semantics_focus(clipped);
         Built {
-            tree: kivact_types::render::SemanticsTree {
+            tree: arvane_protocol::SemanticsTree {
                 root: kivact_types::SemanticsId(root.0),
                 focus,
                 nodes,

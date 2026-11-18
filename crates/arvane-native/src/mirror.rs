@@ -37,10 +37,10 @@
 //! loop per process, and this display holds it.
 
 use crate::a11y::native::NativeAccessibility;
+use arvane_protocol::{SemanticsNode, SemanticsTree};
 use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
 use kivact_types::Transform;
-use kivact_types::render::{SemanticsNode, SemanticsTree};
 use kivact_types::{Point, Rect, Role, SemanticsId};
 use std::collections::HashMap;
 use std::num::NonZeroU32;

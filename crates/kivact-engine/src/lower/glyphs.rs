@@ -18,7 +18,7 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::lower::effects::Tint;
-use kivact_types::render::{GlyphStroke, Paint, RenderCmd as D};
+use arvane_protocol::{GlyphStroke, Paint, RenderCmd as D};
 use kivact_types::{ComputedTextStyle, LineJoin, PaintOrder, Rect, Stroke, TextMetrics, TextRun};
 use kivact_types::{Point, Rgba, TextShadow};
 
@@ -63,7 +63,7 @@ fn outline_line(width: f64) -> Stroke {
 /// order (see the module invariants), colored by `colors`.
 pub(crate) fn push_text(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     shadows: &[TextShadow],
@@ -109,7 +109,7 @@ pub(crate) fn push_text(
 /// in a shadow (`shadow`) every outline is the shadow's color.
 fn glyphs(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     shadow: Option<Rgba>,
@@ -138,7 +138,7 @@ fn glyphs(
 /// renderers align).
 fn lines(
     out: &mut crate::lower::SceneOut,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     colors: &Colors,
     through: bool,
@@ -159,7 +159,7 @@ fn lines(
             width: line.rect.width,
             height: (line.rect.height * device).round().max(1.0) / device,
         };
-        let paint = kivact_types::render::Paint::Solid(colors.decorations.unwrap_or(line.color));
+        let paint = arvane_protocol::Paint::Solid(colors.decorations.unwrap_or(line.color));
         decoration(out, rect, paint, line.style);
     }
 }
@@ -169,9 +169,7 @@ fn lines(
 pub(crate) fn text_reach(font_size: f64, shadows: &[TextShadow]) -> f64 {
     let shadows = shadows
         .iter()
-        .map(|s| {
-            s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * kivact_types::render::SHADOW_REACH
-        })
+        .map(|s| s.x.abs().max(s.y.abs()) + s.blur.max(0.0) / 2.0 * arvane_protocol::SHADOW_REACH)
         .fold(0.0f64, f64::max);
     font_size + shadows
 }
@@ -282,7 +280,7 @@ pub(crate) fn shape_inline_run(
 pub(crate) fn decoration(
     out: &mut crate::lower::SceneOut,
     rect: Rect,
-    paint: kivact_types::render::Paint,
+    paint: arvane_protocol::Paint,
     style: kivact_types::TextDecorationStyle,
 ) {
     use kivact_types::scene::Shape;

@@ -1,19 +1,19 @@
 //! Role: What scene fills and strokes are painted with.
 //! Plain data usable on any thread.
 
-use crate::color::Rgba;
-use crate::geometry::{Point, Rect};
-use crate::paint::Extend;
-use crate::pixel::Pixels;
+use kivact_types::color::Rgba;
+use kivact_types::geometry::{Point, Rect};
+use kivact_types::paint::Extend;
+use kivact_types::pixel::Pixels;
 
 /// A paint for fills and strokes.
 ///
 /// Coordinates are in the drawing command's coordinates (so they follow
-/// [`crate::render::RenderCmd::PushTransform`] like the geometry).
+/// [`crate::RenderCmd::PushTransform`] like the geometry).
 ///
 /// ```
 /// use kivact_types::{Extend, Point, Rgba};
-/// use kivact_types::render::{Gradient, GradientShape, Paint};
+/// use arvane_protocol::{Gradient, GradientShape, Paint};
 /// let black = Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let clear = Rgba { a: 0.0, ..black };
 /// // CSS `repeating-linear-gradient(90deg, black 0 1px, transparent 1px 24px)`

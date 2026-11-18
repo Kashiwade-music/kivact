@@ -11,7 +11,7 @@ use crate::support::Harness;
 use crate::support::commands_composition;
 use arvane::Renderer;
 use arvane::gpu_unavailable;
-use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use arvane_protocol::{Gradient, GradientShape, Paint, RenderCmd};
 use kivact_types::{ComputedTextStyle, Extend, PaintOrder, Pixels};
 use kivact_types::{Point, Size};
 

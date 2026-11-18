@@ -4,7 +4,7 @@
 //! reflected gradients with hard stops, and patterns tiling an image or a
 //! gradient tile in a constant number of commands.
 
-use kivact_types::render::{Gradient, GradientShape, Paint, RenderCmd};
+use arvane_protocol::{Gradient, GradientShape, Paint, RenderCmd};
 use kivact_types::scene::Shape;
 use kivact_types::{Extend, Rgba};
 

@@ -4,7 +4,7 @@
 //! cached: a caller asks when it needs the box.
 
 use kivact_types::Rect;
-use kivact_types::render::GlyphRun;
+use kivact_types::shaped::GlyphRun;
 use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::{FontRef, MetadataProvider};
 

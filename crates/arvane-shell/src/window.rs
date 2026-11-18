@@ -9,7 +9,7 @@ use crate::events::ShellEvent;
 use crate::ime::ShellImeText;
 use crate::input::InjectedInput;
 use crate::types::{ShellControl, ShellError, ShellWaker};
-use kivact_types::render::PixelRect;
+use arvane_protocol::PixelRect;
 use kivact_types::{
     Cursor as ShellCursor, KeyCode, Rect, RequestId, Size, WindowId, WindowRequest,
 };
@@ -56,7 +56,7 @@ pub trait ShellWindow {
     fn keeps_frames(&self) -> bool;
 
     /// Retain a frame read back by the presenter.
-    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame);
+    fn keep_frame(&mut self, frame: arvane_protocol::CpuFrame);
 
     /// Wait for UI-thread work to finish, up to `limit`. Windows backends
     /// dispatch only sent messages while waiting, never input or posted
@@ -76,13 +76,13 @@ pub trait ShellWindow {
     /// Validate and replace the accepted semantics tree transactionally. Rejection retains the old tree.
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::render::SemanticsTree,
+        tree: &arvane_protocol::SemanticsTree,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Validate and apply a semantics update transactionally. A new root requires a complete tree.
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
+        update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
     /// Current logical content extent in pixels.

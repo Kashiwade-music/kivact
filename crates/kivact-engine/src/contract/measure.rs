@@ -64,7 +64,7 @@ impl TextShaper for LeafTextMeasurer<'_> {
         self.0.shape(run, max_width)
     }
 
-    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+    fn outline(&self, run: &kivact_types::shaped::GlyphRun) -> Vec<kivact_types::PathCmd> {
         self.0.outline(run)
     }
 }

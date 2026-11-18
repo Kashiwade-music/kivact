@@ -20,8 +20,8 @@ use std::time::Duration;
 use kivact_engine::contract::ExportRequestMode;
 use kivact_types::Pixels;
 use kivact_types::cell::Mailbox;
+use kivact_types::export::{ExportFrame, ExportedFrame};
 use kivact_types::geometry3d::Matrix4;
-use kivact_types::render::{ExportFrame, ExportedFrame};
 #[cfg(feature = "gpu-interop")]
 use kivact_types::{Failure, GpuAdapter, SharedTextures};
 

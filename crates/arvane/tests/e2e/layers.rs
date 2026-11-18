@@ -4,7 +4,7 @@
 //! shadow filters, gradient masks, and how groups must nest. A group is a
 //! compositor layer (`LayerEffects`) that the root layer draws as a child.
 
-use kivact_types::render::{Composition, LayerEffects, LayerFilter, LayerItem, Paint, RenderCmd};
+use arvane_protocol::{Composition, LayerEffects, LayerFilter, LayerItem, Paint, RenderCmd};
 
 use crate::support::{
     RED, WHITE, assert_near, color, color_alpha, fill, gray, layer, node_key, open, pixel, pt,

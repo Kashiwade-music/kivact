@@ -11,9 +11,9 @@ use arvane::{
     EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
     ShellImeText, ShellSetup, ShellWaker, SteppedShell, Windows,
 };
+use arvane_protocol::SemanticsTree;
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
 use kivact_types::PointerSample;
-use kivact_types::render::SemanticsTree;
 use kivact_types::{
     Capabilities, DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeHint,
     WindowId, WindowRequest,
@@ -435,7 +435,7 @@ impl ArvaneTestHost {
 
     /// The work counts of the last frame presented by window `window`, or
     /// `None` while the host has not started or the window has presented none.
-    pub fn frame_stats(&self, window: WindowId) -> Option<kivact_types::render::FrameStats> {
+    pub fn frame_stats(&self, window: WindowId) -> Option<kivact_types::export::FrameStats> {
         match &*self.host.borrow() {
             Launch::Running(host) => host.windows.get(&window).and_then(|w| w.last_stats),
             _ => None,

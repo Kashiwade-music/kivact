@@ -1,8 +1,9 @@
 //! Role: Shape one paragraph around caller-measured in-flow objects.
 use crate::text_engine::{TextEngine, crlf_as_one_break, crlf_spans};
 use crate::{TextError, build, metrics, output, transform};
+use arvane_protocol::RichText;
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{InlineBox, InlineBoxPlacement, RichText, ShapedInlineText, ShapedText};
+use kivact_types::shaped::{InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText};
 use kivact_types::{Rect, TextAlign};
 use parley::{Alignment, AlignmentOptions, InlineBoxKind, PositionedLayoutItem};
 use std::collections::HashSet;

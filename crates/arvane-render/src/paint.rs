@@ -25,9 +25,9 @@
 use crate::convert;
 use crate::derived::DerivedScope;
 use crate::gradient::gradient;
+use arvane_protocol::{Paint, PatternSource};
 use kivact_types::Rect;
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{Paint, PatternSource};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
 

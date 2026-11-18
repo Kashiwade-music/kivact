@@ -274,3 +274,31 @@ pub enum BlendMode {
     /// Additive (CSS `plus-lighter`, canvas `lighter`).
     PlusLighter,
 }
+
+/// A Porter–Duff compositing operator.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Composite {
+    /// Source over destination.
+    #[default]
+    SourceOver,
+    /// Source in destination.
+    SourceIn,
+    /// Source out destination.
+    SourceOut,
+    /// Source atop destination.
+    SourceAtop,
+    /// Destination over source.
+    DestinationOver,
+    /// Destination in source.
+    DestinationIn,
+    /// Destination out source.
+    DestinationOut,
+    /// Destination atop source.
+    DestinationAtop,
+    /// Additive.
+    Lighter,
+    /// Replace the destination.
+    Copy,
+    /// Exclusive or.
+    Xor,
+}

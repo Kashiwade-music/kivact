@@ -13,10 +13,10 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
+use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Size};
 
 pub(crate) use crate::model::{Look, SubtreeFacts};

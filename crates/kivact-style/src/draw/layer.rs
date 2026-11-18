@@ -5,7 +5,7 @@ use crate::geometry::Rect;
 use crate::paint::Mask;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::render::Composite;
+use kivact_types::Composite;
 use kivact_types::{BackfaceVisibility, TransformStyle};
 
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a

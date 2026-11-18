@@ -1,12 +1,12 @@
 //! Role: Box shadows of a scene.
 //! Plain data usable on any thread.
 
-use crate::color::Rgba;
-use crate::geometry::Point;
-use crate::scene::RoundedRect;
+use kivact_types::color::Rgba;
+use kivact_types::geometry::Point;
+use kivact_types::scene::RoundedRect;
 
 /// A CSS `box-shadow` of a box with elliptical corners
-/// ([`crate::render::RenderCmd::BoxShadow`]).
+/// ([`crate::RenderCmd::BoxShadow`]).
 ///
 /// The shadow's shape is the box moved by `offset` and grown by `spread`
 /// (inset: shrunk), its corner radii grown (inset: shrunk) as CSS says,

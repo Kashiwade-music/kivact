@@ -20,8 +20,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use kivact_types::render::SpanStyle;
-use kivact_types::render::TextSpan;
+use arvane_protocol::SpanStyle;
+use arvane_protocol::TextSpan;
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
@@ -257,7 +257,7 @@ mod tests {
     use super::*;
     use crate::TextEngine;
     use crate::cache::TextKeyRef;
-    use kivact_types::render::RichText;
+    use arvane_protocol::RichText;
     use std::sync::Arc;
 
     /// The bundled test font (Tuffy; a copy of the `arvane` crate's file, so

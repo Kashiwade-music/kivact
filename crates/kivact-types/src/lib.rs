@@ -1,4 +1,11 @@
-//! Role: Shared pure UI values and backend-neutral text queries.
+//! Role: Pure shared UI values and small std-only synchronization helpers.
+//!
+//! The vocabulary every Kivact and Arvane crate shares: geometry, colors,
+//! ids, input, semantics, the node props a style compiles to, recorded
+//! drawing and shaped text. `cell` and `process` hold the few std-only
+//! helpers with interior mutability (latches, mailboxes, deferred
+//! values, the detach tracker). The frame protocol of Arvane is
+//! `arvane-protocol`; engine-only computation lives in the engine.
 #![forbid(unsafe_code)]
 
 pub mod asset;
@@ -11,6 +18,7 @@ pub mod drag_velocity;
 pub mod effect;
 pub mod embed;
 pub mod env;
+pub mod export;
 pub mod geometry;
 pub mod geometry3d;
 pub mod gpu;
@@ -24,11 +32,11 @@ pub mod pixel;
 pub mod platform;
 pub mod presence;
 pub mod process;
-pub mod render;
 pub mod scene;
 pub mod scroll;
 pub mod semantics;
 pub mod semantics_text;
+pub mod shaped;
 pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
@@ -51,6 +59,7 @@ pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
     PointerSettings, ThemeHint,
 };
+pub use export::{ExportFrame, ExportedFrame, FrameStats};
 pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
@@ -86,14 +95,9 @@ pub use paint::{
     MaskMode, PaintDelta, PaintProps, Perspective, RadialExtent, Ring, ScrollbarDelta,
     ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle, WillChange,
 };
-mod prop_interp;
-pub use pixel::{BlendMode, ColorMatrix, Pixels};
+pub use pixel::{BlendMode, ColorMatrix, Composite, Pixels};
 pub use platform::{Failure, FailureKind, FileDialog, PlatformRequest, PlatformResult};
 pub use presence::Presence;
-pub use prop_interp::{PropBasis, PropInterp, apply_components, prop_interp};
-pub use render::{
-    InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, ShapedTextSnapshot, TextLine,
-};
 pub use scene::{
     BorderStyle, DrawCmd, DrawList, DrawingLayer, DrawingShape, FillRule, LineCap, LineJoin,
     PathCmd, PathData, Region, ShapePaint, Stroke, TextRun,
@@ -104,6 +108,9 @@ pub use semantics::{
     Orientation, PopupKind, Role, Semantics, SortDirection, check_text,
 };
 pub use semantics_text::{SemanticsText, SemanticsTextRun, SemanticsTextRuns, TextCaret};
+pub use shaped::{
+    InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, ShapedTextSnapshot, TextLine,
+};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
     PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLen,

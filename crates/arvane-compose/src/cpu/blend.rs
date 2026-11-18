@@ -1,7 +1,7 @@
 //! Role: Blend modes and Porter–Duff operators on premultiplied colors.
 
+use kivact_types::Composite;
 use kivact_types::pixel::BlendMode;
-use kivact_types::render::Composite;
 
 use super::surface::Premul;
 

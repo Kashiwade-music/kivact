@@ -2,7 +2,7 @@
 
 use std::sync::{Arc, Mutex};
 
-use kivact_types::render::FontSource;
+use kivact_types::shaped::FontSource;
 use resvg::usvg;
 
 /// System fonts plus the App's fonts, loaded the first time an SVG with

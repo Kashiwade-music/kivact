@@ -1,14 +1,15 @@
 //! Role: Layer trees of one frame, handed from the engine to the compositor.
-use super::scene::RenderScene;
-use crate::color::Rgba;
-use crate::effect::{FilterGraph, ShaderUse};
-use crate::geometry::{Point, Rect, Transform};
-use crate::geometry3d::Matrix4;
-use crate::gpu::ExternalFrame;
-use crate::ids::{DrawableId, NodeId};
-use crate::paint::{BackfaceVisibility, MaskComposite, MaskMode};
-use crate::pixel::{ColorMatrix, Pixels};
-use crate::scene::Shape;
+use crate::scene::RenderScene;
+use kivact_types::color::Rgba;
+use kivact_types::effect::{FilterGraph, ShaderUse};
+use kivact_types::export::{ExportedFrame, FrameStats};
+use kivact_types::geometry::{Point, Rect, Transform};
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::gpu::ExternalFrame;
+use kivact_types::ids::{DrawableId, NodeId};
+use kivact_types::paint::{BackfaceVisibility, MaskComposite, MaskMode};
+use kivact_types::pixel::{ColorMatrix, Composite, Pixels};
+use kivact_types::scene::Shape;
 
 /// The most 3D context planes one context may hold. Above it the
 /// engine and the compositor draw the planes flat, in tree order.
@@ -97,7 +98,7 @@ pub struct LayerEffects {
     /// Group opacity.
     pub opacity: f64,
     /// Blend with what is beneath.
-    pub blend: crate::pixel::BlendMode,
+    pub blend: kivact_types::pixel::BlendMode,
     /// Porter–Duff operator with what is beneath.
     pub composite: Composite,
     /// Filters applied in order to the surface.
@@ -114,7 +115,7 @@ impl Default for LayerEffects {
     fn default() -> Self {
         LayerEffects {
             opacity: 1.0,
-            blend: crate::pixel::BlendMode::Normal,
+            blend: kivact_types::pixel::BlendMode::Normal,
             composite: Composite::SourceOver,
             filters: Vec::new(),
             clip: None,
@@ -122,34 +123,6 @@ impl Default for LayerEffects {
             backdrop: None,
         }
     }
-}
-
-/// A Porter–Duff compositing operator.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum Composite {
-    /// Source over destination.
-    #[default]
-    SourceOver,
-    /// Source in destination.
-    SourceIn,
-    /// Source out destination.
-    SourceOut,
-    /// Source atop destination.
-    SourceAtop,
-    /// Destination over source.
-    DestinationOver,
-    /// Destination in source.
-    DestinationIn,
-    /// Destination out source.
-    DestinationOut,
-    /// Destination atop source.
-    DestinationAtop,
-    /// Additive.
-    Lighter,
-    /// Replace the destination.
-    Copy,
-    /// Exclusive or.
-    Xor,
 }
 
 /// A filter of a compositor layer.
@@ -294,32 +267,6 @@ pub enum ExportMode {
     Gpu,
 }
 
-/// An exported drawable frame; the generation travels in ExportedFrame.
-#[derive(Clone, Debug, PartialEq)]
-pub enum ExportFrame {
-    /// The frame as pixels.
-    Pixels(Pixels),
-    /// The frame as a slot of a shared pool, released when the fence reaches `value`.
-    Gpu {
-        /// The pool slot.
-        slot: u32,
-        /// The fence value that signals the frame is ready.
-        value: u64,
-    },
-}
-
-/// One exported frame of the request `generation` of `sink`, from the
-/// compositor through arvane and the engine to core unchanged.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ExportedFrame {
-    /// The drawable that receives the frame.
-    pub sink: DrawableId,
-    /// The request this answers.
-    pub generation: u64,
-    /// The frame itself.
-    pub frame: ExportFrame,
-}
-
 /// A GPU export pool lost with the device, of the request `generation`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ExportLoss {
@@ -345,19 +292,4 @@ pub struct FrameReport {
     pub pending_exports: Vec<DrawableId>,
     /// Work counts of this frame.
     pub stats: FrameStats,
-}
-
-/// Work a frame did (statistics, S-9), for diagnostics and tests.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub struct FrameStats {
-    /// Chunks rastered by Vello.
-    pub chunks_rastered: u32,
-    /// Pixels rastered.
-    pub pixels_rastered: u64,
-    /// Surfaces reused from the cache.
-    pub surfaces_reused: u32,
-    /// Area of the damage.
-    pub damage_pixels: u64,
-    /// Targets used by the frame.
-    pub targets: u32,
 }

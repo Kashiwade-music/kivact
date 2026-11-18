@@ -1,11 +1,11 @@
 //! Role: Rich text and text styles a host hands Arvane to shape.
 //! Plain data usable on any thread.
 
-use crate::color::Rgba;
-use crate::text::{FontFeature, FontKerning, FontVariation, TextDecoration};
+use kivact_types::color::Rgba;
+use kivact_types::text::{FontFeature, FontKerning, FontVariation, TextDecoration};
 use std::ops::Range;
 
-/// What a span of rich text sets over its paragraph's [`crate::text::ComputedTextStyle`]
+/// What a span of rich text sets over its paragraph's [`kivact_types::text::ComputedTextStyle`]
 /// (`None`: the paragraph's).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct SpanStyle {
@@ -36,7 +36,7 @@ pub struct SpanStyle {
     /// Outline of its glyphs (replacing the paragraph's): width in px and color.
     pub stroke: Option<(f64, Rgba)>,
     /// Its band (one rect per line it is on) is reported in
-    /// [`crate::render::ShapedText::highlights`], for the host to fill behind the
+    /// [`kivact_types::shaped::ShapedText::highlights`], for the host to fill behind the
     /// glyphs (a `<mark>`).
     pub highlight: bool,
 }

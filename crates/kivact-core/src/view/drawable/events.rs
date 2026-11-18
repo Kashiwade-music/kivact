@@ -4,7 +4,7 @@
 //! on this thread; events for other ids are stale and dropped.
 
 use kivact_engine::contract::DrawableTexturesHandle;
-use kivact_types::render::ExportedFrame;
+use kivact_types::export::ExportedFrame;
 use kivact_types::{DrawableId, Failure};
 
 use super::registry::{all, with_link};

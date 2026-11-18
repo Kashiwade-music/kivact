@@ -9,9 +9,9 @@
 
 use crate::support::Harness;
 use arvane::{Renderer, RendererChange};
+use arvane_protocol::{Composition, ExternalItem, LayerItem};
 use arvane_virtual::VirtualOptions;
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::render::{Composition, ExternalItem, LayerItem};
 use kivact_types::{
     ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference, Transform,
 };

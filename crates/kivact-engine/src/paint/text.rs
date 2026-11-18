@@ -113,7 +113,7 @@ impl Model {
                 |c| tint.color(c),
                 |f| crate::lower::assets::family(engine, Some(f)),
             );
-            let text = kivact_types::render::RichText {
+            let text = arvane_protocol::RichText {
                 text: content,
                 spans: &rich,
             };
@@ -149,7 +149,7 @@ impl Model {
                 None => color,
             };
             Colors {
-                glyphs: Some(kivact_types::render::Paint::Solid(color)),
+                glyphs: Some(arvane_protocol::Paint::Solid(color)),
                 decorations: Some(deco),
                 ..Default::default()
             }

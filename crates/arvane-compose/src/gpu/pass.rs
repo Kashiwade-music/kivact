@@ -7,8 +7,8 @@
 use super::external;
 use super::pipelines::buffer;
 use crate::ComposeError;
+use arvane_protocol::FrameReport;
 use kivact_types::pixel::BlendMode;
-use kivact_types::render::FrameReport;
 
 /// The textures one frame draws with: its targets, by target id, and the external frames it may read.
 pub(super) struct FrameTextures<'a> {

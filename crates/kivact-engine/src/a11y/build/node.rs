@@ -63,7 +63,7 @@ impl Model {
         id: types::NodeId,
         offset: types::Point,
         clipped: &BTreeSet<types::NodeId>,
-        out: &mut Vec<kivact_types::render::SemanticsNode>,
+        out: &mut Vec<arvane_protocol::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
         engine: &mut a::Engine,
     ) {
@@ -99,7 +99,7 @@ impl Model {
         let scene_regions = scene_regions(n);
         let extras = self.node_properties(id, n);
         let authored_text = n.semantics().and_then(|props| props.text.clone());
-        let mut output = kivact_types::render::SemanticsNode {
+        let mut output = arvane_protocol::SemanticsNode {
             id: kivact_types::SemanticsId(id.0),
             children,
             bounds,
@@ -177,8 +177,8 @@ impl Model {
         id: types::NodeId,
         scene_regions: BTreeMap<types::RegionId, types::scene::Region>,
         regions: &mut BTreeSet<u64>,
-        output: &mut kivact_types::render::SemanticsNode,
-    ) -> Vec<kivact_types::render::SemanticsNode> {
+        output: &mut arvane_protocol::SemanticsNode,
+    ) -> Vec<arvane_protocol::SemanticsNode> {
         let hidden = output.semantics.hidden;
         let disabled = output.semantics.disabled;
         // A region's space starts at the padding box, where its scene is drawn.
@@ -214,7 +214,7 @@ impl Model {
                 },
                 &mut props,
             );
-            leaves.push(kivact_types::render::SemanticsNode {
+            leaves.push(arvane_protocol::SemanticsNode {
                 id: kivact_types::SemanticsId(native_id),
                 children: Vec::new(),
                 bounds: canvas.and_then(|canvas| {
@@ -520,8 +520,8 @@ pub(super) fn structural(
     scroll: kivact_types::Point,
     transform: kivact_types::Transform,
     hidden: bool,
-) -> kivact_types::render::SemanticsNode {
-    kivact_types::render::SemanticsNode {
+) -> arvane_protocol::SemanticsNode {
+    arvane_protocol::SemanticsNode {
         id: kivact_types::SemanticsId(id.0),
         children,
         bounds,

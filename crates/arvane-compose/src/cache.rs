@@ -6,10 +6,10 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use arvane_protocol::{LayerKey, PixelRect};
 use kivact_types::AssetBytes;
 use kivact_types::geometry::Rect;
-use kivact_types::render::GlyphRunSnapshot;
-use kivact_types::render::{LayerKey, PixelRect};
+use kivact_types::shaped::GlyphRunSnapshot;
 
 /// What a chunk of a layer holds (the key's second half).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]

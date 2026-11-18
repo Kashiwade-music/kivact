@@ -1,5 +1,5 @@
 //! Role: Fingerprint canonical accessible payloads and their transport geometry.
-use kivact_types::render::SemanticsNode;
+use arvane_protocol::SemanticsNode;
 use std::hash::{DefaultHasher, Hash, Hasher};
 pub(super) fn fingerprint(n: &SemanticsNode) -> u64 {
     let mut h = DefaultHasher::new();

@@ -4,7 +4,7 @@
 //! backdrops (what lies behind a shape, blurred, drawn again without reading
 //! pixels back). A backdrop is a compositor layer's effect.
 
-use kivact_types::render::{
+use arvane_protocol::{
     Composition, LayerEffects, LayerFilter, LayerItem, RenderBackdrop, RenderCmd,
 };
 use kivact_types::scene::{RoundedRect, Shape};

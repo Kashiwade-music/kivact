@@ -30,17 +30,17 @@ pub(crate) fn export_of(
     bounds: kivact_types::Rect,
     scale: f64,
     ask: &ExportAsk,
-) -> kivact_types::render::Export {
+) -> arvane_protocol::Export {
     let px = |v: f64| (v * scale).ceil().max(1.0) as u32;
-    kivact_types::render::Export {
+    arvane_protocol::Export {
         layer,
         sink,
         size: (px(bounds.width), px(bounds.height)),
         scale,
         generation: ask.generation,
         mode: match ask.mode {
-            ExportRequestMode::Gpu(_) => kivact_types::render::ExportMode::Gpu,
-            _ => kivact_types::render::ExportMode::Pixels,
+            ExportRequestMode::Gpu(_) => arvane_protocol::ExportMode::Gpu,
+            _ => arvane_protocol::ExportMode::Pixels,
         },
     }
 }

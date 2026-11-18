@@ -1,17 +1,17 @@
 //! Role: Portable display lists, CPU frames and external GPU frames.
 //! Frame bytes are premultiplied RGBA8.
 
-use super::effect::BoxShadow;
-use super::paint::Paint;
-use super::shaped::GlyphRunSnapshot;
-use crate::PaintOrder;
-use crate::color::Rgba;
-use crate::geometry::Transform;
-use crate::geometry::{Point, Rect};
-use crate::pixel::BlendMode;
-use crate::pixel::Pixels;
-use crate::scene::Stroke;
-use crate::scene::{PathCmd, Shape};
+use crate::effect::BoxShadow;
+use crate::paint::Paint;
+use kivact_types::PaintOrder;
+use kivact_types::color::Rgba;
+use kivact_types::geometry::Transform;
+use kivact_types::geometry::{Point, Rect};
+use kivact_types::pixel::BlendMode;
+use kivact_types::pixel::Pixels;
+use kivact_types::scene::Stroke;
+use kivact_types::scene::{PathCmd, Shape};
+use kivact_types::shaped::GlyphRunSnapshot;
 
 /// Portable drawing operation, usable on any thread.
 ///

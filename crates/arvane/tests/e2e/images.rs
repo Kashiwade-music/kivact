@@ -7,12 +7,12 @@
 
 use std::sync::Arc;
 
-use kivact_types::AssetBytes;
-use kivact_types::paint::{MaskComposite, MaskMode};
-use kivact_types::render::{
+use arvane_protocol::{
     BoxShadow, CompositeLayer, Composition, Gradient, GradientShape, LayerEffects, LayerFilter,
     LayerItem, Paint, Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
 };
+use kivact_types::AssetBytes;
+use kivact_types::paint::{MaskComposite, MaskMode};
 use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
 use kivact_types::{
     BlendMode, ColorMatrix, Extend, FillRule, LineCap, Pixels, Rect, Size, Stroke, Transform,

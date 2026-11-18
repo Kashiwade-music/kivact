@@ -2,7 +2,7 @@
 use crate::geometry3d::{Matrix4, Projective};
 use crate::paint::{BackfaceVisibility, BorderImage, Fill, FilterOp, MaskLayer, TransformStyle};
 use crate::pixel::BlendMode;
-use crate::render::Composite;
+use crate::pixel::Composite;
 use crate::scene::primitives::Stroke;
 use crate::scene::{FillRule, PathData};
 use crate::{

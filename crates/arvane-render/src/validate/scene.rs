@@ -3,12 +3,12 @@
 use super::Fonts;
 use crate::error::RenderError;
 use crate::limits::{MAX_BLUR, MAX_DASHES, MAX_SCENE_DEPTH};
-use kivact_types::geometry::Transform;
-use kivact_types::pixel::Pixels;
-use kivact_types::render::{
+use arvane_protocol::{
     BoxShadow, GlyphStroke, Gradient, GradientShape, Group, Paint, PatternSource, RenderCmd,
     RenderScene,
 };
+use kivact_types::geometry::Transform;
+use kivact_types::pixel::Pixels;
 use kivact_types::scene::{PathCmd, RoundedRect, Shape};
 use kivact_types::{Point, Rect, Rgba, Stroke};
 

@@ -7,10 +7,10 @@ use super::pipelines::{Words, buffer};
 use super::state::GpuContext;
 use super::targets;
 use crate::ComposeError;
+use arvane_protocol::LayerFilter;
 use kivact_types::Rgba;
 use kivact_types::geometry::{Point, Size};
 use kivact_types::pixel::ColorMatrix;
-use kivact_types::render::LayerFilter;
 
 /// The `mode` values of the filter shader (`fs_filter`).
 const MODE_SHRINK_X: u32 = 1;

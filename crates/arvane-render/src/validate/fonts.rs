@@ -1,6 +1,6 @@
 //! Role: Bounded successful font metadata with allocation lifetime protection.
 use crate::error::RenderError;
-use kivact_types::render::FontSource;
+use kivact_types::shaped::FontSource;
 use skrifa::raw::TableProvider;
 use std::sync::{Arc, Weak};
 #[derive(Default)]

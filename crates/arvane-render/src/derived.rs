@@ -16,8 +16,8 @@
 
 use std::sync::Arc;
 
+use arvane_protocol::{Gradient, GradientShape};
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{Gradient, GradientShape};
 use kivact_types::{Extend, Rect};
 use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};

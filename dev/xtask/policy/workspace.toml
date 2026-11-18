@@ -60,6 +60,8 @@ arvane-render = ["arvane", "arvane-compose"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
 arvane-compose = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
+# ----- The frame protocol: the engine builds it and the Arvane crates consume it.
+arvane-protocol = ["arvane", "arvane-shell", "arvane-native", "arvane-virtual", "arvane-text", "arvane-render", "arvane-compose", "kivact-engine"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。dev-dependency だけが使う（dev-dependency は visible_to の対象外）。
 gpu-interop-producer = []
 
@@ -272,13 +274,13 @@ paint = ["asset", "color", "color_space", "effect", "geometry", "geometry3d", "l
 platform = ["asset", "geometry"]
 process = []
 pixel = ["asset", "color"]
-prop_interp = ["color", "color_space", "geometry", "motion", "paint"]
-render =["asset", "check", "color", "color_space", "effect", "env", "geometry", "geometry3d", "gpu", "pixel", "ids", "input", "layout", "motion", "paint", "platform", "scene", "semantics", "semantics_text", "text", "text_shaping"]
-scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "render", "semantics", "text"]
+export = ["ids", "pixel"]
+shaped = ["color", "geometry", "semantics_text", "text"]
+scene = ["asset", "color", "effect", "geometry", "geometry3d", "gpu", "ids", "paint", "pixel", "semantics", "text"]
 semantics = ["geometry", "ids", "semantics_text"]
 semantics_text = ["geometry", "ids"]
 text =["color", "color_space", "geometry", "paint"]
-text_shaping = ["render", "scene", "text"]
+text_shaping = ["scene", "shaped", "text"]
 text_utf = []
 
 [style]

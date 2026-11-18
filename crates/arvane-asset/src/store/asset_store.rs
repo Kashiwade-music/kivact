@@ -169,7 +169,7 @@ impl AssetStore {
     /// or parsed is parsed again with the new fonts (its rasters are dropped,
     /// and the results of the parses of the old fonts are dropped when they
     /// land).
-    pub fn register_font(&mut self, font: kivact_types::render::FontSource) {
+    pub fn register_font(&mut self, font: kivact_types::shaped::FontSource) {
         self.fonts = Arc::new(self.fonts.with_font(font));
         let stale: Vec<Asset> = self
             .entries

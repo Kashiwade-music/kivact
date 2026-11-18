@@ -1,7 +1,7 @@
 //! Role: The groups one local scene lowering has open in the output.
 use crate::lower::SceneOut;
 use crate::lower::effects::Tint;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{ComputedTextStyle, Rect};
 /// A group a local scene opened in the output and has not closed yet.
 #[derive(Clone, Copy, Debug)]

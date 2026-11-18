@@ -13,7 +13,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-use kivact_types::render::{SemanticsNode, SemanticsTree, SemanticsUpdate};
+use arvane_protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::{SemanticsId, SemanticsTextRun};
 
 use super::error::AccessibilityError;

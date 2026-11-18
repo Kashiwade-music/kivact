@@ -25,7 +25,7 @@ use crate::lower::context::Context;
 use crate::lower::fill::gradient;
 use crate::lower::sanitize;
 use arvane::asset::PixelSize;
-use kivact_types::render::{Paint, RenderCmd as D};
+use arvane_protocol::{Paint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{
     BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect, Transform,

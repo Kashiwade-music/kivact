@@ -1,5 +1,5 @@
 //! Role: The engine's DevTools contracts: overlays, keys, pick phases and records.
-use kivact_types::render::FrameStats;
+use kivact_types::export::FrameStats;
 use kivact_types::{
     InputPurpose, Key, Modifiers, NodeId, Point, Rect, Revision, Rgba, ThemeHint, WindowId,
 };

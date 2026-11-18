@@ -17,8 +17,8 @@
 //! - Decorations and bands follow the glyphs drawn: a dropped glyph has
 //!   none, the ellipsis has the paragraph's decoration.
 
-use kivact_types::render::TextSpan;
-use kivact_types::render::{
+use arvane_protocol::TextSpan;
+use kivact_types::shaped::{
     FontSource, Glyph, GlyphRun, TextDecorationRect, TextHighlight, TextLine,
 };
 use kivact_types::{ComputedTextStyle, TextDecoration};
@@ -367,7 +367,7 @@ struct Segment {
 
 /// What a planned paragraph draws.
 pub(crate) struct Drawn {
-    pub(crate) runs: Vec<kivact_types::render::GlyphRunSnapshot>,
+    pub(crate) runs: Vec<kivact_types::shaped::GlyphRunSnapshot>,
     pub(crate) decorations: Vec<TextDecorationRect>,
     pub(crate) highlights: Vec<TextHighlight>,
 }

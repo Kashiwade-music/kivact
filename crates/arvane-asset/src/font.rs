@@ -15,7 +15,7 @@
 use std::sync::Arc;
 
 use kivact_types::Asset;
-use kivact_types::render::FontSource;
+use kivact_types::shaped::FontSource;
 use skrifa::MetadataProvider;
 use skrifa::raw::FileRef;
 use skrifa::string::StringId;

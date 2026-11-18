@@ -26,7 +26,7 @@
 
 use crate::lower::effects::{Tint, clip_group};
 use crate::lower::shape::BoxShape;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
 use kivact_types::{Rect, Rgba};
 
@@ -142,7 +142,7 @@ fn stroke_band(
     out.push(D::StrokeShape {
         shape: middle.shape(),
         stroke,
-        paint: kivact_types::render::Paint::Solid(color),
+        paint: arvane_protocol::Paint::Solid(color),
     });
 }
 
@@ -289,7 +289,7 @@ pub(crate) fn border(
         if one_color {
             out.push(D::FillShape {
                 shape: band,
-                paint: kivact_types::render::Paint::Solid(color(shown[0])),
+                paint: arvane_protocol::Paint::Solid(color(shown[0])),
             });
             return;
         }
@@ -297,7 +297,7 @@ pub(crate) fn border(
             out.push(clip_group(trapezoid(i, o, p)));
             out.push(D::FillShape {
                 shape: band.clone(),
-                paint: kivact_types::render::Paint::Solid(color(i)),
+                paint: arvane_protocol::Paint::Solid(color(i)),
             });
             out.push(D::PopGroup);
         }
@@ -333,7 +333,7 @@ pub(crate) fn shadows(
         if color.a <= 0.0 {
             continue;
         }
-        out.push(D::BoxShadow(kivact_types::render::BoxShadow {
+        out.push(D::BoxShadow(arvane_protocol::BoxShadow {
             shape: rounded,
             offset: s.offset,
             spread: s.spread,
@@ -364,7 +364,7 @@ pub(crate) fn focus_ring(
         out.push(D::StrokeShape {
             shape: clip.clone(),
             stroke: Stroke::new(2.0 * width),
-            paint: kivact_types::render::Paint::Solid(color),
+            paint: arvane_protocol::Paint::Solid(color),
         });
         return;
     }
@@ -375,7 +375,7 @@ pub(crate) fn focus_ring(
         BoxShape::Circular(r, radii) => push_stroke(out, r, radii, width, color),
         BoxShape::Rounded(_) => out.push(D::FillShape {
             shape: ring(&outer, &inner),
-            paint: kivact_types::render::Paint::Solid(color),
+            paint: arvane_protocol::Paint::Solid(color),
         }),
     }
 }

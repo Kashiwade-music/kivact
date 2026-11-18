@@ -35,7 +35,7 @@ use crate::lower::assets::ArvaneAssets;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::text_measure::TextMeasurer;
-use kivact_types::render::LayerItem;
+use arvane_protocol::LayerItem;
 use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Size};
 
 // xtask-allow(state): legacy: assets, scene_cache, engine
@@ -168,7 +168,7 @@ impl OffscreenRenderer {
     /// an error rather than an omission.
     pub(crate) fn render_composition(
         &mut self,
-        composition: &kivact_types::render::Composition,
+        composition: &arvane_protocol::Composition,
         size: (u32, u32),
     ) -> Result<OffscreenImage, OffscreenError> {
         let undrawn = composition

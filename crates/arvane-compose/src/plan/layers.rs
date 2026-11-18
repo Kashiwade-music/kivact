@@ -3,14 +3,14 @@
 use std::borrow::Cow;
 use std::f64::consts::SQRT_2;
 
+use arvane_protocol::{
+    CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop, RenderScene,
+};
+use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect, Size, Transform};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::BlendMode;
-use kivact_types::render::{
-    Composite, CompositeLayer, LayerEffects, LayerItem, Plane, RasterGrid, RenderBackdrop,
-    RenderScene,
-};
 use kivact_types::scene::Shape;
 
 use super::bounds::{mapped_bounds, points_bounds};

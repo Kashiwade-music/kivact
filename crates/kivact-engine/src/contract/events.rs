@@ -285,7 +285,7 @@ pub enum HostEvent {
         adapter: Option<kivact_types::GpuAdapter>,
     },
     /// An exported frame of a drawable; its generation travels with it.
-    DrawableFrame(kivact_types::render::ExportedFrame),
+    DrawableFrame(kivact_types::export::ExportedFrame),
     /// The drawable was resized while its GPU export runs: it needs a new pool.
     DrawableResized {
         id: kivact_types::DrawableId,
@@ -297,7 +297,7 @@ pub enum HostEvent {
         result: Result<DrawableTexturesHandle, kivact_types::Failure>,
     },
     /// A GPU export pool was lost with the device (of the request `generation`).
-    DrawableExportLost(kivact_types::render::ExportLoss),
+    DrawableExportLost(arvane_protocol::ExportLoss),
     /// The window can export to the GPU again: waiting requests are made anew.
     GpuExportAvailable,
 }

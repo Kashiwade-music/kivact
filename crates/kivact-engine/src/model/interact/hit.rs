@@ -257,7 +257,7 @@ impl Model {
         }];
         self.collect_planes(root, root_map, &root_look, &mut planes);
         let skip: HashSet<NodeId> = planes.iter().map(|plane| plane.id).collect();
-        let flat = planes.len() > kivact_types::render::MAX_CONTEXT_PLANES;
+        let flat = planes.len() > arvane_protocol::MAX_CONTEXT_PLANES;
         let mut hits: Vec<(usize, f64, Point)> = planes
             .iter()
             .enumerate()

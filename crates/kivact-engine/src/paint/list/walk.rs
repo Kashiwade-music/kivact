@@ -15,10 +15,10 @@ use crate::paint::state::{
     Step, SubtreeFacts,
 };
 use crate::tree::node::HostNode;
+use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 

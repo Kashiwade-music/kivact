@@ -3,7 +3,7 @@ use super::state::State;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::fill::gradient;
-use kivact_types::render::{GlyphStroke, Paint};
+use arvane_protocol::{GlyphStroke, Paint};
 use kivact_types::{DrawCmd, Fill, FillImage, FillLayer, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_text(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {

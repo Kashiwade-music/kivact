@@ -10,7 +10,7 @@ use super::pass::{Drawn, view, with_pass};
 use super::state::{Configured, GpuContext, GpuSurface, Presentation, Retain, Swapchain};
 use super::targets;
 use crate::{ComposeError, GpuReport};
-use kivact_types::render::{Composition, CpuFrame};
+use arvane_protocol::{Composition, CpuFrame};
 use std::time::{Duration, Instant};
 
 /// The swapchain formats the executor can present to, in order of preference.

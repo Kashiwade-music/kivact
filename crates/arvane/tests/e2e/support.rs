@@ -6,15 +6,15 @@ use arvane::{
     EventTarget, Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker,
     SteppedShell, Window, Windows, test_font,
 };
+use arvane_protocol::{
+    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
+    RenderCmd, RenderScene,
+};
 use arvane_virtual::{
     GpuMode, Probe, Script, VirtualBackend, VirtualOptions, WindowProbe, WindowScript,
 };
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{
-    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
-    RenderCmd, RenderScene,
-};
 use kivact_types::{PaintOrder, Rect, Rgba, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::rc::Rc;

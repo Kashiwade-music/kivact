@@ -1,7 +1,7 @@
 //! Role: Checks that a composition is a tree the plan can draw.
 
+use arvane_protocol::{Composition, LayerEffects, LayerItem};
 use kivact_types::geometry3d::Matrix4;
-use kivact_types::render::{Composition, LayerEffects, LayerItem};
 
 use super::ops::PlanError;
 

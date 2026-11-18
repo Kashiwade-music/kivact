@@ -3,8 +3,8 @@
 
 use crate::layouts;
 use crate::output;
+use arvane_protocol::{RichText, TextSpan};
 use hashbrown::{Equivalent, HashMap as LookupMap};
-use kivact_types::render::{RichText, TextSpan};
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextDecoration, TextWrap};
 use kivact_types::{
     DecorationLines, FontKerning, LineHeight, Rgba, TextAlign, TextOverflow, TextTransform,

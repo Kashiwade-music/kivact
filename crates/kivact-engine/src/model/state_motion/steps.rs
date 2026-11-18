@@ -2,10 +2,11 @@
 
 use std::sync::Arc;
 
+use super::interp::{apply_components, prop_interp};
 use super::state::{ColorChannels, PropTrack, StateAnimation, TrackPhase};
 use crate::model::Model;
 use kivact_types::motion::{SpringRun, Transition, TransitionProp};
-use kivact_types::{NodeId, PaintProps, Rgba, apply_components, prop_interp};
+use kivact_types::{NodeId, PaintProps, Rgba};
 
 /// The properties a state animation moves, one track each.
 const PROPS: [TransitionProp; 10] = [

@@ -5,7 +5,7 @@ use crate::lower::context::Context;
 use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{DrawCmd, DrawingShape, Edges, Fill, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
@@ -81,7 +81,7 @@ impl Context<'_> {
             // As before fills had layers.
             state.out.push(D::Rect {
                 rect: r,
-                fill: kivact_types::render::Paint::Solid(tint.color(*color)),
+                fill: arvane_protocol::Paint::Solid(tint.color(*color)),
             });
         } else {
             let boxes = Boxes::uniform(BoxShape::Rect(r));
@@ -163,7 +163,7 @@ impl Context<'_> {
             })
         };
         match &painted.paint {
-            Fill::Solid(color) => push(kivact_types::render::Paint::Solid(tint.color(*color))),
+            Fill::Solid(color) => push(arvane_protocol::Paint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 for layer in layers.iter().rev() {
                     match self.layer_paint(layer, area, origin_point) {
