@@ -17,7 +17,7 @@ raw-window-handle = "0.6"
 tracing = { workspace = true }
 accesskit = { workspace = true }
 accesskit_winit = { workspace = true }
-arboard = { version = "=3.6.1", default-features = false, features = ["wayland-data-control"] }
+arboard = { version = "=3.7.0", default-features = false, features = ["wayland-data-control"] }
 rfd = "=0.18.0"
 sys-locale = "0.3.2"
 
