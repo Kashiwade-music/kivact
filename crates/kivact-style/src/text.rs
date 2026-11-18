@@ -255,7 +255,7 @@ impl From<&str> for FontFeature {
     }
 }
 
-// xtask-allow(state): legacy: letter_spacing, word_spacing, kerning, features, tabular_nums, decoration_line, decoration_style, decoration_color, decoration_thickness, underline_offset, overflow, line_clamp, capsize, transform, shadows, caret_color, selection_color, placeholder_color, stroke, paint_order, variations, optical_sizing, font_width
+// xtask-allow(state): legacy: letter_spacing, word_spacing, kerning, features, tabular_nums, decoration_line, decoration_style, decoration_color, decoration_thickness, underline_offset, overflow, line_clamp, capsize, transform, shadows, caret_color, selection_color, placeholder_color, stroke, paint_order, variations, optical_sizing, font_width; option: one authored property; absent means the inherited or default value
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]

@@ -54,7 +54,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, mount_revision, unstamped, awaiting, state, exit, clock, diag, later
+// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, mount_revision, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
