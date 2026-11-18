@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap, VecDeque};
 use std::panic::Location;
+use std::rc::Rc;
 
 use kivact_devtools_agent::{Agent, Responder};
 use kivact_devtools_protocol as p;
@@ -19,7 +20,7 @@ use super::inspect_mode;
 /// The DevTools state of an App: off, or the running agent and its data.
 pub(crate) enum DevtoolsState {
     Off,
-    Running(Box<Inspector>),
+    Running(Rc<Inspector>),
 }
 
 /// What `devtools::start::agent_slot` returns.
@@ -184,7 +185,7 @@ impl DevtoolsState {
         let overrides: Signal<Vec<p::StyleOverride>> = root.signal(Vec::new(), at);
         let forced: Signal<BTreeMap<NodeId, ForcedStates>> = root.signal(BTreeMap::new(), at);
         let emulation: Signal<p::Emulation> = root.signal(emulation_off(), at);
-        DevtoolsState::Running(Box::new(Inspector {
+        DevtoolsState::Running(Rc::new(Inspector {
             agent: RefCell::new(agent),
             can_inject,
             hooks: HookData {
@@ -217,6 +218,18 @@ impl DevtoolsState {
                 open_failed: ReportOnce::new(),
             },
         }))
+    }
+}
+
+impl DevtoolsState {
+    /// The hooks the view calls; `None` while DevTools is off.
+    pub(crate) fn hooks(&self) -> Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>> {
+        match self {
+            DevtoolsState::Off => None,
+            DevtoolsState::Running(i) => {
+                Some(i.clone() as Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>)
+            }
+        }
     }
 }
 

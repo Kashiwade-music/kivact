@@ -6,7 +6,7 @@ use kivact_engine::contract::{EngineEmulation, HostRequest};
 use kivact_runtime::{ErrorKind, Runtime};
 use kivact_types::ThemeHint;
 
-use crate::view::devtools_state::{DevtoolsState, emulation_off};
+use crate::devtools::state::{DevtoolsState, emulation_off};
 use crate::view::requests::request_effect;
 use crate::view::state::EffectWaiter;
 

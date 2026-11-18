@@ -145,12 +145,7 @@ fn start_mount(
     debug_assert!(written > 0, "the first revision sets the window");
     setup.finish_setup();
     #[cfg(feature = "devtools")]
-    if let crate::view::devtools_state::DevtoolsState::Running(i) =
-        crate::view::devtools_state::DevtoolsState::of(rt)
-    {
-        let keys = crate::devtools::start::engine_keys(i.agent.borrow().config());
-        ViewState::tree(rt).engine().set_devtools_keys(keys);
-    }
+    crate::devtools::start::after_mount(rt);
 }
 
 impl Launch {
@@ -188,19 +183,24 @@ impl Launch {
                 at,
             },
             |_rt, root| {
-                let view = ViewState::new(root, info, writer.clone(), at);
+                #[cfg(feature = "devtools")]
+                let devtools = crate::devtools::state::DevtoolsState::from_slot(
+                    root,
+                    slot.take().expect("invariant: the build runs once"),
+                    at,
+                );
+                #[cfg(feature = "devtools")]
+                let hooks = devtools.hooks();
+                #[cfg(not(feature = "devtools"))]
+                let hooks = None;
+                let view = ViewState::new(root, info, writer.clone(), hooks, at);
                 let motion_env = install_main_window(&view, root, info, options, at);
                 let extensions = Extensions::new().with(view).with(motion_env);
                 let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
                 let extensions = extensions.with(AppHandleExt(handle.clone()));
                 let extensions = extensions.with(crate::gpu_interop::State::new(root, at));
                 #[cfg(feature = "devtools")]
-                let extensions =
-                    extensions.with(crate::view::devtools_state::DevtoolsState::from_slot(
-                        root,
-                        slot.take().expect("invariant: the build runs once"),
-                        at,
-                    ));
+                let extensions = extensions.with(devtools);
                 #[cfg(debug_assertions)]
                 let extensions = {
                     let trace = crate::client::trace::Trace::new(trace_name.as_deref());

@@ -11,9 +11,9 @@ use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;
+use crate::devtools::apply;
+use crate::devtools::state::DevtoolsState;
 use crate::view::RecipeName;
-use crate::view::devtools_apply;
-use crate::view::devtools_state::DevtoolsState;
 use crate::view::element_data::{LayerOrigin, StyleLayer};
 use crate::view::state::ViewState;
 
@@ -37,10 +37,10 @@ pub(super) fn layers(rt: &Runtime, id: NodeId) -> Vec<p::StyleLayerInfo> {
         return Vec::new();
     };
     let i = DevtoolsState::inspector(rt);
-    let applied = devtools_apply::node_overrides(
+    let applied = apply::node_overrides(
         &i.hooks.overrides.get_untracked(),
         id,
-        &devtools_apply::call_sites(rt, owner, at),
+        &apply::call_sites(rt, owner, at),
     );
     let forced = i
         .hooks
@@ -86,8 +86,7 @@ pub(super) fn set_style_override(
 ) -> Result<p::StyleOverride, p::RpcError> {
     match &params.scope {
         p::OverrideScope::Node { .. } | p::OverrideScope::CallSite { .. } => {
-            devtools_apply::override_style(&params.property, &params.value)
-                .map_err(invalid_params)?;
+            apply::override_style(&params.property, &params.value).map_err(invalid_params)?;
         }
         p::OverrideScope::Token { token } => {
             validate_token(rt, token, &params.property, &params.value)?;
@@ -193,7 +192,7 @@ pub(super) fn list_theme_tokens(
     _: p::Empty,
 ) -> Result<p::ThemeTokenList, p::RpcError> {
     let tokens = main_theme(rt)
-        .map(|theme| devtools_apply::token_list(&theme))
+        .map(|theme| apply::token_list(&theme))
         .unwrap_or_default();
     Ok(p::ThemeTokenList { tokens })
 }
@@ -325,7 +324,7 @@ fn described(style: &Style) -> Vec<p::StyleProperty> {
 
 /// `described` in the form an override takes, when the property has one.
 fn editable(name: &str, described: String) -> String {
-    devtools_apply::editable_value(name, &described).unwrap_or(described)
+    apply::editable_value(name, &described).unwrap_or(described)
 }
 
 /// Mark a property a higher layer also sets.
@@ -368,7 +367,7 @@ fn validate_token(
             "theme token \"{token}\" does not exist"
         )));
     };
-    let tokens = devtools_apply::token_list(&theme);
+    let tokens = apply::token_list(&theme);
     let Some(entry) = tokens.iter().find(|entry| entry.name == token) else {
         return Err(invalid_params(format!(
             "theme token \"{token}\" does not exist"

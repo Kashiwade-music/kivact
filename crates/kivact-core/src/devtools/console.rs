@@ -5,7 +5,7 @@ use kivact_devtools_protocol as p;
 use kivact_runtime::{Reported, Runtime};
 
 use super::convert;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 
 /// The wire form of one reported error.
 fn error_entry(entry: Reported) -> p::ErrorEntry {

@@ -12,7 +12,7 @@ use kivact_types::{
 };
 
 use super::convert;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::ViewState;
 use crate::view::tree::ViewNodes;
 

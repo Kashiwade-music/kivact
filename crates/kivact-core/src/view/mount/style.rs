@@ -110,8 +110,7 @@ pub(crate) fn bind_style(
     let owner = cx.owner;
     let window = cx.window;
     let local_paint = RefCell::new(local_paint);
-    #[cfg(feature = "devtools")]
-    if crate::view::devtools_hooks::is_running(cx.rt) {
+    if crate::view::devtools_hooks::hooks(cx.rt).is_some() {
         crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
     }
     let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);

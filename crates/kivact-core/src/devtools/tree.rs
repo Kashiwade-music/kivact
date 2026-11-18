@@ -9,7 +9,7 @@ use kivact_runtime::Runtime;
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;
-use crate::view::devtools_state::DevtoolsState;
+use crate::devtools::state::DevtoolsState;
 use crate::view::state::{ViewState, current_window};
 
 /// One element of the retained tree as the wire sees it.

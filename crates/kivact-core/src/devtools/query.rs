@@ -11,7 +11,7 @@ use kivact_types::NodeId;
 
 use super::convert;
 use super::tree::tree_node;
-use crate::view::devtools_state::{DevtoolsState, Pending, QueryBy};
+use crate::devtools::state::{DevtoolsState, Pending, QueryBy};
 use crate::view::state::ViewState;
 use crate::view::tree::ViewNodes;
 

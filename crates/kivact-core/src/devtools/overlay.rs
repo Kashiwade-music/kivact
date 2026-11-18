@@ -16,8 +16,8 @@ use kivact_types::{NodeId, Point, Rect, Rgba, WindowId};
 
 use super::convert;
 use super::lifecycle;
-use crate::view::devtools_state::{DevtoolsState, Inspector, overlays_off};
-use crate::view::inspect_mode::{Highlight, Inspector as Inspect};
+use crate::devtools::inspect_mode::{Highlight, Inspector as Inspect};
+use crate::devtools::state::{DevtoolsState, Inspector, overlays_off};
 use crate::view::state::ViewState;
 
 /// The layout outlines and gaps of the layout overlay.

@@ -6,7 +6,7 @@ use kivact_engine::contract::{DevtoolsKeys, KeyChord};
 use kivact_runtime::ThreadWaker;
 
 use crate::devtools::convert;
-use crate::view::devtools_state::AgentSlot;
+use crate::devtools::state::AgentSlot;
 
 /// Start the agent when the launch and the environment allow it.
 pub(crate) fn agent_slot(
@@ -81,4 +81,17 @@ fn chords(values: &[String]) -> Vec<KeyChord> {
         }
     }
     chords
+}
+
+/// The DevTools work after the App's root mounted: the engine learns the
+/// configured key chords.
+pub(crate) fn after_mount(rt: &kivact_runtime::Runtime) {
+    if let crate::devtools::state::DevtoolsState::Running(i) =
+        crate::devtools::state::DevtoolsState::of(rt)
+    {
+        let keys = engine_keys(i.agent.borrow().config());
+        crate::view::state::ViewState::tree(rt)
+            .engine()
+            .set_devtools_keys(keys);
+    }
 }
