@@ -1,4 +1,4 @@
-//! Role: controls specimens for the operation-console catalog.
+//! controls specimens for the operation-console catalog.
 
 use super::common::{
     cards, line, list, meta, segmented, specimen, strings, suppress_search_shortcut, wide,
@@ -58,13 +58,12 @@ pub(super) fn choice_options(items: &[(&str, &str)]) -> Vec<ListItem<String>> {
         .collect()
 }
 
+// xtask-allow(state): legacy: grid_on, filter_on; the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
 pub(super) fn buttons(scene: Demo) -> Node {
     let (sync, sync_busy) = task();
     let (verify, verify_busy) = task();
     let period = signal(Some("7d".to_owned()));
-    // xtask-allow(state-fields): independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
     let grid_on = signal(true);
-    // xtask-allow(state-fields): independent: the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
     let filter_on = signal(false);
     cards(
         (
@@ -157,13 +156,12 @@ pub(super) fn setting(title: &str, description: &str, control: impl IntoView) ->
             .border_bottom(1, ColorToken::Border),
     )
 }
+// xtask-allow(state): legacy: step, page; the wizard step, moved only by the stepper's controls in wizard_steps; the pagination specimen has its own page signal, so any step
 /// The navigation specimens.
 pub(super) fn navigation() -> Node {
     let underline = signal("summary".to_owned());
     let boxed_tabs = signal("metrics".to_owned());
-    // xtask-allow(state-fields): independent: the wizard step, moved only by the stepper's controls in wizard_steps; the pagination specimen has its own page signal, so any step pairs with any page
     let step = signal(1_usize);
-    // xtask-allow(state-fields): independent: the pagination specimen's page, moved only by its pagination control; the wizard has its own step signal, so any page pairs with any step
     let page = signal(2_usize);
     cards(
         (

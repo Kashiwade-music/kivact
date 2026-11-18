@@ -1,4 +1,4 @@
-//! Role: Animated halo demonstration for the Pop catalog.
+//! Animated halo demonstration for the Pop catalog.
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;

@@ -1,4 +1,4 @@
-//! Role: Demonstrate Neutral typography and icon sizes and colors.
+//! Demonstrate Neutral typography and icon sizes and colors.
 use super::specimen::specimen;
 use kivact::style::style;
 use kivact::ui::{avatar, avatar_group, kbd};

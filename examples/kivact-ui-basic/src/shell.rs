@@ -1,4 +1,4 @@
-//! Role: The catalog shell: top bar, searchable component list and page area.
+//! The catalog shell: top bar, searchable component list and page area.
 
 use crate::docs::PAGES;
 use crate::look::tokens;

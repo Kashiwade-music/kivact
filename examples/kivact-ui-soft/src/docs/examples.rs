@@ -1,4 +1,4 @@
-//! Role: Assemble the catalog's component demonstrations.
+//! Assemble the catalog's component demonstrations.
 use crate::PageInfo;
 use kivact::view::{Node, node};
 

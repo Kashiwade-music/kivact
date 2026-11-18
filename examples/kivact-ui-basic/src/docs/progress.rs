@@ -1,4 +1,4 @@
-//! Role: Catalog page of Progress: static, label with value and interactive.
+//! Catalog page of Progress: static, label with value and interactive.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

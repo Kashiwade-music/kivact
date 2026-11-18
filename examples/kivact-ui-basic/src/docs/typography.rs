@@ -1,4 +1,4 @@
-//! Role: Catalog page of Typography: headings, prose, lists, inline code and small text.
+//! Catalog page of Typography: headings, prose, lists, inline code and small text.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Demonstrate the standard anchored layers, dialogs and notifications.
+//! Demonstrate the standard anchored layers, dialogs and notifications.
 use super::specimen::specimen;
 use kivact::interaction::{Command, DialogMode, MenuEntry, Toast, toaster};
 use kivact::state::IntoBinding;

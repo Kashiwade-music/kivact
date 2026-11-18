@@ -1,4 +1,4 @@
-//! Role: Catalog page of Dropdown Menu: items, checkboxes, radio group and submenu.
+//! Catalog page of Dropdown Menu: items, checkboxes, radio group and submenu.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -71,10 +71,9 @@ fn basic() -> impl IntoView {
 // end example
 
 // example: checkboxes
+// xtask-allow(state): legacy: status, activity; the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither
 fn checkboxes() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the Status Bar checkbox, flipped only by its own menu entry; the Activity Bar entry never touches it, so both, either or neither bar can be on
     let status = signal(true);
-    // xtask-allow(state-fields): independent: the Activity Bar checkbox, flipped only by its own menu entry; the Status Bar entry never touches it, so both, either or neither bar can be on
     let activity = signal(false);
     let entries = move || {
         vec![

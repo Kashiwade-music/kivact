@@ -1,4 +1,4 @@
-//! Role: Catalog page of Bubble: variants, alignment, reactions and pressable.
+//! Catalog page of Bubble: variants, alignment, reactions and pressable.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

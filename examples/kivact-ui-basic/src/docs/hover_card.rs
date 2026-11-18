@@ -1,4 +1,4 @@
-//! Role: Catalog page of Hover Card: a preview that opens on hover.
+//! Catalog page of Hover Card: a preview that opens on hover.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

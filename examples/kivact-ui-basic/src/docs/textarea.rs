@@ -1,4 +1,4 @@
-//! Role: Catalog page of Textarea: basic, label, disabled and with a button.
+//! Catalog page of Textarea: basic, label, disabled and with a button.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: The catalog's offline OFL font bytes, for the app and its tests.
+//! The catalog's offline OFL font bytes, for the app and its tests.
 
 /// Application-owned, offline OFL font bytes for the catalog and its tests.
 pub fn fonts() -> &'static [&'static [u8]] {

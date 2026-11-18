@@ -1,4 +1,4 @@
-//! Role: Catalog page of Native Select: basic, sizes, disabled and invalid.
+//! Catalog page of Native Select: basic, sizes, disabled and invalid.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

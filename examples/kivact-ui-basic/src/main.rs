@@ -1,5 +1,4 @@
-//! Role: Entry point of the Basic kit catalog app.
-#![warn(redundant_imports)]
+//! Entry point of the Basic kit catalog app.
 
 use kivact::prelude::*;
 use kivact_ui_basic_catalog::{catalog, fonts};

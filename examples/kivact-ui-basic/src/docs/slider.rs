@@ -1,4 +1,4 @@
-//! Role: Catalog page of Slider: single, range, step and vertical.
+//! Catalog page of Slider: single, range, step and vertical.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::interaction::ScalarRange;

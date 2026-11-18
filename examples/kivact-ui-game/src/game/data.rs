@@ -1,4 +1,4 @@
-//! Role: data specimens for the operation-console catalog.
+//! data specimens for the operation-console catalog.
 use kivact::view::IntoView;
 
 use super::common::{cards, line, list, segmented, specimen};

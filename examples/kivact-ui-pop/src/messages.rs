@@ -1,4 +1,4 @@
-//! Role: Japanese texts of the Pop kit catalog for the keys it reads.
+//! Japanese texts of the Pop kit catalog for the keys it reads.
 //!
 //! The catalog's Japanese texts for the keys `kivact-ui-pop` reads. The kit's
 //! own texts are English; the catalog shows how an App replaces them.

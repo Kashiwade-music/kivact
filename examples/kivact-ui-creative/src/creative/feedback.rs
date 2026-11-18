@@ -1,4 +1,4 @@
-//! Role: Feedback UI including menus and toasts.
+//! Feedback UI including menus and toasts.
 
 use super::common::{SECTIONS, col, keyed_options, line, note, spec, specs};
 use super::controls::num;

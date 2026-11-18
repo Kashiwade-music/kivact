@@ -1,4 +1,4 @@
-//! Role: Catalog page of Toggle Group: multiple, single, outline and vertical.
+//! Catalog page of Toggle Group: multiple, single, outline and vertical.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Input OTP: groups, patterns and completion.
+//! Catalog page of Input OTP: groups, patterns and completion.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

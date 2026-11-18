@@ -1,4 +1,4 @@
-//! Role: Catalog page of Code Block: title, line numbers, small size, scrolling.
+//! Catalog page of Code Block: title, line numbers, small size, scrolling.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

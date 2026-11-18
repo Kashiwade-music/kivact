@@ -1,4 +1,4 @@
-//! Role: Catalog page of Collapsible: a trigger that shows and hides a region.
+//! Catalog page of Collapsible: a trigger that shows and hides a region.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

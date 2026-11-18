@@ -1,4 +1,4 @@
-//! Role: Catalog page of Radio Group: basic, descriptions, horizontal and in a field.
+//! Catalog page of Radio Group: basic, descriptions, horizontal and in a field.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

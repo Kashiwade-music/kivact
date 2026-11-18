@@ -1,4 +1,4 @@
-//! Role: Catalog page of Table: basic, footer and selectable rows.
+//! Catalog page of Table: basic, footer and selectable rows.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

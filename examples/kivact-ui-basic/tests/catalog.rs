@@ -1,7 +1,6 @@
-//! Role: Render catalog pages and interactions through the standard test backend.
+//! Render catalog pages and interactions through the standard test backend.
 //! The tests open each page from the component list, check the page structure,
 //! the example previews and code, the theme toggle_button, the search and the copy button.
-#![warn(redundant_imports)]
 
 use kivact::prelude::*;
 use kivact::style::Position;

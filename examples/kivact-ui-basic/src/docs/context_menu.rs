@@ -1,4 +1,4 @@
-//! Role: Catalog page of Context Menu: basic, submenu, checkboxes and a custom target.
+//! Catalog page of Context Menu: basic, submenu, checkboxes and a custom target.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

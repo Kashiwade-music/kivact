@@ -1,4 +1,4 @@
-//! Role: Catalog page of Item: variants, media, group and pressable.
+//! Catalog page of Item: variants, media, group and pressable.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Page and example definitions of the catalog, one file per component.
+//! Page and example definitions of the catalog, one file per component.
 //!
 //! A page file defines its demos as functions between the marker lines
 //! `// example: <id>` and `// end example`. The page reads its own source

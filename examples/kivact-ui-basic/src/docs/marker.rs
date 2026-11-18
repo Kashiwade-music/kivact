@@ -1,4 +1,4 @@
-//! Role: Catalog page of Marker: default, separator, border and icon.
+//! Catalog page of Marker: default, separator, border and icon.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

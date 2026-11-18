@@ -1,4 +1,4 @@
-//! Role: The catalog shell: top bar, section sidebar, command palette and overview.
+//! The catalog shell: top bar, section sidebar, command palette and overview.
 
 use super::common::{columns, tone_of, wrap};
 use super::components::buttons;
@@ -637,14 +637,13 @@ fn palette_commands() -> Vec<Command<PaletteCommand>> {
     commands
 }
 
+// xtask-allow(state): legacy: pin_student, auto_skill; bound only to the pin-to-main-team switch in the student drawer; the auto-skill switch has its own signal, so both, either
 fn student_drawer(
     drawer_title: Signal<String>,
     sheet: Binding<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
-    // xtask-allow(state-fields): independent: bound only to the pin-to-main-team switch in the student drawer; the auto-skill switch has its own signal, so both, either or neither can be on
     let pin_student = signal(true);
-    // xtask-allow(state-fields): independent: bound only to the auto-skill switch in the student drawer; the pin switch has its own signal, so both, either or neither can be on
     let auto_skill = signal(false);
     kivact::ui::dialog(drawer_title, sheet)
         .mode(kivact::interaction::DialogMode::Drawer(

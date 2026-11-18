@@ -1,4 +1,4 @@
-//! Role: Catalog page of Field: label, description, error, orientation and sets.
+//! Catalog page of Field: label, description, error, orientation and sets.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

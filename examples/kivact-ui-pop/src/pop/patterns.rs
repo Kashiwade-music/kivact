@@ -1,4 +1,4 @@
-//! Role: Source catalogue sections built from the public component library.
+//! Source catalogue sections built from the public component library.
 
 use super::common::{card, cards_grid, half, muted, section, third, wrap};
 use kivact::i18n::{CalendarDate, Weekday};
@@ -15,10 +15,9 @@ use kivact::view::Placement;
 use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
 
+// xtask-allow(state): legacy: dismissed_info, dismissed_success; set only by the maintenance notice's close button and never cleared; the success notice has its own signal, so
 pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
-    // xtask-allow(state-fields): independent: set only by the maintenance notice's close button and never cleared; the success notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_info = signal(false);
-    // xtask-allow(state-fields): independent: set only by the success notice's close button and never cleared; the maintenance notice has its own signal, so both, either or neither notice can be dismissed
     let dismissed_success = signal(false);
     section(
         "07",

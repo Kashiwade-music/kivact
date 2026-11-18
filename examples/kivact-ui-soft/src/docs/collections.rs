@@ -1,4 +1,4 @@
-//! Role: Demonstrate Soft layout, collection, table and chat components.
+//! Demonstrate Soft layout, collection, table and chat components.
 use super::specimen::specimen;
 use kivact::interaction::FilterValue;
 use kivact::interaction::TreeNode;

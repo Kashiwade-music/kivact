@@ -1,4 +1,4 @@
-//! Role: The Effects chapter: 3D, filters, shaders, timelines and scroll motion.
+//! The Effects chapter: 3D, filters, shaders, timelines and scroll motion.
 
 use super::common::{cards, specimen};
 use kivact::draw::Paint;

@@ -1,4 +1,4 @@
-//! Role: Source catalogue sections built from the public component library.
+//! Source catalogue sections built from the public component library.
 use kivact::state::IntoValue;
 
 use super::common::{card, cards_grid, columns, muted, section, third, wrap};
@@ -15,6 +15,7 @@ use kivact::view::Orientation;
 use kivact_ui_pop as ui;
 use std::time::Duration;
 
+// xtask-allow(state): legacy: next_chip, live; the index of the next suggested chip tag, advanced only by the badge specimen's add button; the progress loop never reads it, so
 pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     let badges = [
         ui::Hue::Blue,
@@ -38,9 +39,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     })
     .collect::<Vec<_>>();
     let chip_tags = signal(vec!["爆発".to_string(), "貫通".into(), "神秘".into()]);
-    // xtask-allow(state-fields): independent: the index of the next suggested chip tag, advanced only by the badge specimen's add button; the progress loop never reads it, so any index pairs with any progress
     let next_chip = signal(0usize);
-    // xtask-allow(state-fields): independent: the demo progress value, advanced only by the 900 ms spawn loop; the chip suggestion never reads it, so any progress pairs with any chip index
     let live = signal(35.0f64);
     spawn::<()>(async move {
         loop {
@@ -67,12 +66,11 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
     )
 }
 
+// xtask-allow(state): legacy: page, sort; the student table's page, moved by the pager and reset to 0 by a new sort, status filter or search; every page is reachable afterwards
 pub(super) fn table(sheet: Binding<bool>, drawer_title: Signal<String>) -> Node {
     let rows = signal(STUDENT_FIXTURE.to_vec());
     let status = signal(Some("all"));
-    // xtask-allow(state-fields): independent: the student table's page, moved by the pager and reset to 0 by a new sort, status filter or search; every page is reachable afterwards under any sort
     let page = signal(0usize);
-    // xtask-allow(state-fields): independent: the student table's sort binding, written by the column headers; sorting only reorders the filtered rows, so any sort can be shown on any page
     let sort = signal(None::<(usize, kivact::interaction::SortOrder)>);
     let selected = signal(Vec::<usize>::new());
     let query = signal(String::new());

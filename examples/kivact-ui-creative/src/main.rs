@@ -1,5 +1,4 @@
-//! Role: Creative example application entry point.
-#![warn(redundant_imports)]
+//! Creative example application entry point.
 
 use kivact::prelude::*;
 use kivact_ui_creative_catalog::{catalog, fonts};

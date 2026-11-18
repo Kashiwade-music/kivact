@@ -1,4 +1,4 @@
-//! Role: Catalog page of Command: the standard command palette in a dialog.
+//! Catalog page of Command: the standard command palette in a dialog.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::interaction::Command;

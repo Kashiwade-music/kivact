@@ -1,5 +1,4 @@
-//! Role: Game example application entry point.
-#![warn(redundant_imports)]
+//! Game example application entry point.
 
 use kivact::prelude::*;
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};

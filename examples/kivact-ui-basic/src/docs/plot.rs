@@ -1,4 +1,4 @@
-//! Role: Catalog page of Plot: lines, points, stems, histograms and heatmaps.
+//! Catalog page of Plot: lines, points, stems, histograms and heatmaps.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

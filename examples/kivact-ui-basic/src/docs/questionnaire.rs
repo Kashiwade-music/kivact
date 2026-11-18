@@ -1,4 +1,4 @@
-//! Role: Catalog page of Questionnaire: choices, input, optional steps and submit.
+//! Catalog page of Questionnaire: choices, input, optional steps and submit.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

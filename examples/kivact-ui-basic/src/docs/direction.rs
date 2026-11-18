@@ -1,4 +1,4 @@
-//! Role: Catalog page of Direction: provide a reading direction and read it back.
+//! Catalog page of Direction: provide a reading direction and read it back.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

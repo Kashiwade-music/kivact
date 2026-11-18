@@ -1,4 +1,4 @@
-//! Role: Page and example types shared by the catalog shell and its page files.
+//! Page and example types shared by the catalog shell and its page files.
 
 use kivact::view::{IntoView, View};
 

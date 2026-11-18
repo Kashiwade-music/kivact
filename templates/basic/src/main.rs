@@ -1,9 +1,8 @@
-//! Role: Counter app template on the standard components, with a test.
+//! Counter app template on the standard components, with a test.
 //!
 //! `cargo run -p kivact-template-basic` opens a window;
 //! `cargo test -p kivact-template-basic` drives the same UI in a test window
 //! of the Arvane host (`kivact::test`).
-#![warn(redundant_imports)]
 
 use kivact::prelude::*;
 
@@ -32,7 +31,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Tests for the counter template's buttons.
+    //! Tests for the counter template's buttons.
 
     use super::*;
 

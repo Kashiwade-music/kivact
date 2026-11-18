@@ -1,4 +1,4 @@
-//! Role: Catalog page of Accordion: single, multiple and controlled open sections.
+//! Catalog page of Accordion: single, multiple and controlled open sections.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Navigation Menu: panels with links, and plain links.
+//! Catalog page of Navigation Menu: panels with links, and plain links.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,5 +1,4 @@
-//! Role: Load a record by id with a resource and render loading, error and ready.
-#![warn(redundant_imports)]
+//! Load a record by id with a resource and render loading, error and ready.
 
 use std::time::Duration;
 
@@ -34,7 +33,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the async resource example in a test window.
+    //! Drive the async resource example in a test window.
 
     use super::*;
 

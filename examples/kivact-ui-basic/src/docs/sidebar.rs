@@ -1,4 +1,4 @@
-//! Role: Catalog page of Sidebar: groups, icon mode, sub-menus and frames.
+//! Catalog page of Sidebar: groups, icon mode, sub-menus and frames.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

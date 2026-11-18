@@ -1,4 +1,4 @@
-//! Role: Arrangement and timeline UI for the creative application.
+//! Arrangement and timeline UI for the creative application.
 use crate::creative::audio_values::TransportState;
 use kivact::state::IntoBinding;
 

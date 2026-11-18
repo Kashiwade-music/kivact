@@ -1,4 +1,4 @@
-//! Role: Catalog specimen framing and token demonstration tiles.
+//! Catalog specimen framing and token demonstration tiles.
 use kivact::draw::{Layer, Path, Shape, Transform};
 use kivact::geometry::Point;
 use kivact::state::Value;

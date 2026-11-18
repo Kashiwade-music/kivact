@@ -1,4 +1,4 @@
-//! Role: Numeric controls and sample display for creative.
+//! Numeric controls and sample display for creative.
 use crate::creative::audio_values::TransportState;
 use kivact::state::IntoBinding;
 

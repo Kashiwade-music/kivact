@@ -1,4 +1,4 @@
-//! Role: Catalog page of Breadcrumb: basic trail, ellipsis and right-to-left.
+//! Catalog page of Breadcrumb: basic trail, ellipsis and right-to-left.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

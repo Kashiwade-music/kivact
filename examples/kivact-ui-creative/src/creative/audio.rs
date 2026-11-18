@@ -1,4 +1,4 @@
-//! Role: Audio handling and timing utilities for creative.
+//! Audio handling and timing utilities for creative.
 use crate::creative::audio_values::TransportState;
 use kivact::state::IntoBinding;
 

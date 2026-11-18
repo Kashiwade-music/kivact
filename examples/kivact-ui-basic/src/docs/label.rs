@@ -1,4 +1,4 @@
-//! Role: Catalog page of Label: a label for an input and a small form.
+//! Catalog page of Label: a label for an input and a small form.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Attachment: default, sizes, states and vertical.
+//! Catalog page of Attachment: default, sizes, states and vertical.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

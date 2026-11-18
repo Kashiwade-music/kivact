@@ -1,4 +1,4 @@
-//! Role: Compose Creative catalog menus, accent choices and transport readouts.
+//! Compose Creative catalog menus, accent choices and transport readouts.
 use super::audio_values::{TransportState, smpte};
 use super::common::line;
 use kivact::geometry::Rect;

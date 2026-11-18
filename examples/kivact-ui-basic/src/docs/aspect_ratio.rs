@@ -1,4 +1,4 @@
-//! Role: Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
+//! Catalog page of Aspect Ratio: a photo at 16:9, square and portrait boxes.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

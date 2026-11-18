@@ -1,4 +1,4 @@
-//! Role: Full operation-console catalog corresponding to the game prototype.
+//! Full operation-console catalog corresponding to the game prototype.
 
 mod common;
 mod controls;

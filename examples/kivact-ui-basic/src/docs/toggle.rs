@@ -1,4 +1,4 @@
-//! Role: Catalog page of Toggle: default, outline, sizes, icons and disabled.
+//! Catalog page of Toggle: default, outline, sizes, icons and disabled.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

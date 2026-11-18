@@ -1,4 +1,4 @@
-//! Role: The catalog's landing hero: a gradient banner with actions and statistics.
+//! The catalog's landing hero: a gradient banner with actions and statistics.
 use kivact::draw::{LineCap, LineJoin, Stroke, linear_gradient};
 use kivact::state::IntoText;
 use kivact::style::use_theme;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Card: login form, small, bordered header and image.
+//! Catalog page of Card: login form, small, bordered header and image.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Creative application and its modules.
+//! Creative application and its modules.
 
 mod animation_model;
 mod arrange;

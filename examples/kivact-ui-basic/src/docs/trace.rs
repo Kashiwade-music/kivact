@@ -1,4 +1,4 @@
-//! Role: Catalog page of Trace: lines, collapsible detail and several steps.
+//! Catalog page of Trace: lines, collapsible detail and several steps.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -60,10 +60,9 @@ fn collapsible() -> impl IntoView {
 // end example
 
 // example: steps
+// xtask-allow(state): legacy: first, second; the open binding of the first trace collapsible, toggled only by its header; the second collapsible has its own binding, so both,
 fn steps() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the open binding of the first trace collapsible, toggled only by its header; the second collapsible has its own binding, so both, either or neither can be open
     let first = signal(true);
-    // xtask-allow(state-fields): independent: the open binding of the second trace collapsible, toggled only by its header; the first collapsible has its own binding, so both, either or neither can be open
     let second = signal(false);
     basic::trace((
         basic::trace_collapsible(

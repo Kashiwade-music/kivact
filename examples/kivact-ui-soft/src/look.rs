@@ -1,4 +1,4 @@
-//! Role: Style the Soft catalog shell from the active Neutral tokens.
+//! Style the Soft catalog shell from the active Neutral tokens.
 use kivact::style::{Style, pct, style};
 
 pub(super) fn canvas() -> Style {

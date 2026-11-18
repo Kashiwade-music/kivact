@@ -1,4 +1,4 @@
-//! Role: Application node graph constraints and edit reduction.
+//! Application node graph constraints and edit reduction.
 use super::editor_images as images;
 use kivact::geometry::{Point, Size};
 use kivact::state::Signal;

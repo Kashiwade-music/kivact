@@ -1,4 +1,4 @@
-//! Role: Token typography and shape samples for the Pop catalogue.
+//! Token typography and shape samples for the Pop catalogue.
 
 use kivact::draw::Shadow;
 use kivact::prelude::{ColorToken, Node, column, pct, text};

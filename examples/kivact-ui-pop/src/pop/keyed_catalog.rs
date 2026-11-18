@@ -1,4 +1,4 @@
-//! Role: Dynamic, caller-owned choice identities in the existing Pop catalogue.
+//! Dynamic, caller-owned choice identities in the existing Pop catalogue.
 
 use super::common::{card, cards_grid, half, section, wrap};
 use kivact::interaction::ListItem;

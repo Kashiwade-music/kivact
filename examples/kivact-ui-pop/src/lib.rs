@@ -1,5 +1,4 @@
-//! Role: Interactive styled component catalog for kivact-ui-pop.
-#![warn(redundant_imports)]
+//! Interactive styled component catalog for kivact-ui-pop.
 mod fonts;
 mod messages;
 mod pop;

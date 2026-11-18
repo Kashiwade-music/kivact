@@ -1,4 +1,4 @@
-//! Role: Catalog page of Tabs: default, disabled tab, vertical and the line variant.
+//! Catalog page of Tabs: default, disabled tab, vertical and the line variant.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

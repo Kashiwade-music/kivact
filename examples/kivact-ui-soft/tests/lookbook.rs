@@ -1,4 +1,4 @@
-//! Role: Capture the Soft catalog pages in both appearances for visual review.
+//! Capture the Soft catalog pages in both appearances for visual review.
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
 use kivact::view::{Key, MouseButton, Role};

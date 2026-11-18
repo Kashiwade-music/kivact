@@ -1,4 +1,4 @@
-//! Role: Catalog page of Separator: horizontal and vertical lines.
+//! Catalog page of Separator: horizontal and vertical lines.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

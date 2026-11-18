@@ -1,4 +1,4 @@
-//! Role: Control buttons and widgets for creative application.
+//! Control buttons and widgets for creative application.
 
 use super::common::{col, keyed_options, line, note, spec, specs};
 use kivact::interaction::MenuEntry;

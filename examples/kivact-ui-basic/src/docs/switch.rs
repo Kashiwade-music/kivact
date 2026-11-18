@@ -1,4 +1,4 @@
-//! Role: Catalog page of Switch: basic, description, disabled and settings.
+//! Catalog page of Switch: basic, description, disabled and settings.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

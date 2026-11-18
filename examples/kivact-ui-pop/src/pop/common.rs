@@ -1,4 +1,4 @@
-//! Role: Shared layout and text builders for Pop catalog specimens.
+//! Shared layout and text builders for Pop catalog specimens.
 
 use kivact::prelude::{ColorToken, Element, IntoView, Node, column, grid, row, text};
 use kivact::style::{Align, style};

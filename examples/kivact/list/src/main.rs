@@ -1,5 +1,4 @@
-//! Role: Keep a keyed todo list with checkboxes, removal and a remaining count.
-#![warn(redundant_imports)]
+//! Keep a keyed todo list with checkboxes, removal and a remaining count.
 
 use kivact::prelude::*;
 
@@ -64,7 +63,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the todo list example in a test window.
+    //! Drive the todo list example in a test window.
 
     use super::*;
 

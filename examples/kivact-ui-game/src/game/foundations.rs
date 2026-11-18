@@ -1,4 +1,4 @@
-//! Role: The Foundations section: tokens, type scale and shape specimens.
+//! The Foundations section: tokens, type scale and shape specimens.
 
 use super::common::{cards, line, list};
 use super::specimens::{ShapeKind, shape_tile, specimen, swatch};

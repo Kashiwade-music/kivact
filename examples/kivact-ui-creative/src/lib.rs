@@ -1,5 +1,4 @@
-//! Role: Interactive styled component catalog for kivact-ui-creative.
-#![warn(redundant_imports)]
+//! Interactive styled component catalog for kivact-ui-creative.
 mod creative;
 mod fonts;
 

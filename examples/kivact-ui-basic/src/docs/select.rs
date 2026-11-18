@@ -1,4 +1,4 @@
-//! Role: Catalog page of Select: basic, sizes, disabled item and with icon.
+//! Catalog page of Select: basic, sizes, disabled item and with icon.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

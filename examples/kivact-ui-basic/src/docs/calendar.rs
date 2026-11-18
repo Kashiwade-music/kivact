@@ -1,4 +1,4 @@
-//! Role: Catalog page of Calendar: single, range, disabled dates and dropdown caption.
+//! Catalog page of Calendar: single, range, disabled dates and dropdown caption.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};

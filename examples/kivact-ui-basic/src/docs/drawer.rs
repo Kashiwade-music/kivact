@@ -1,4 +1,4 @@
-//! Role: Catalog page of Drawer: a modal panel that is swiped away with its handle.
+//! Catalog page of Drawer: a modal panel that is swiped away with its handle.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -31,10 +31,9 @@ pub(crate) fn page() -> Page {
 }
 
 // example: default
+// xtask-allow(state): legacy: open, goal; the drawer's open binding, set by Open Drawer and cleared by Submit or Cancel; the goal keeps its value while the drawer is closed, so
 fn default() -> impl IntoView {
-    // xtask-allow(state-fields): independent: the drawer's open binding, set by Open Drawer and cleared by Submit or Cancel; the goal keeps its value while the drawer is closed, so either open state pairs with any goal
     let open = signal(false);
-    // xtask-allow(state-fields): independent: the calorie goal, stepped by the minus and plus buttons in the drawer; nothing resets it on close, so every goal pairs with either drawer state
     let goal = signal(350);
     column((
         button("Open Drawer")

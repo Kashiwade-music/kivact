@@ -1,4 +1,4 @@
-//! Role: Catalog page of Pagination: pages helper, manual links, labels and long lists.
+//! Catalog page of Pagination: pages helper, manual links, labels and long lists.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Scroll Area: vertical, horizontal and both axes.
+//! Catalog page of Scroll Area: vertical, horizontal and both axes.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

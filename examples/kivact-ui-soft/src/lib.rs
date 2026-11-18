@@ -1,4 +1,4 @@
-//! Role: Expose the Soft component catalog, its pages and embedded fonts.
+//! Expose the Soft component catalog, its pages and embedded fonts.
 mod docs;
 mod fonts;
 mod look;

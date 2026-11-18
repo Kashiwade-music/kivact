@@ -1,4 +1,4 @@
-//! Role: Catalog window frame with application-owned panes and chrome.
+//! Catalog window frame with application-owned panes and chrome.
 use kivact::i18n::message;
 use kivact::interaction::ScalarRange;
 use kivact::state::{Binding, Value};
@@ -7,6 +7,7 @@ use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::IntoView;
 use kivact::view::{Element, Node, column, row, scroll};
 use kivact_ui_game::ColorName;
+// xtask-allow(state): legacy: menu_bar, toolbar, status_bar
 /// A window frame with application-owned panes and optional chrome slots.
 pub(super) struct NativeWindow {
     root: Node,

@@ -1,4 +1,4 @@
-//! Role: Render one documentation page: header, usage and example panels with code.
+//! Render one documentation page: header, usage and example panels with code.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Demonstrate the action, feedback and choice recipes in the Soft catalog.
+//! Demonstrate the action, feedback and choice recipes in the Soft catalog.
 use super::specimen::specimen;
 use kivact::interaction::ListItem;
 use kivact::state::signal;

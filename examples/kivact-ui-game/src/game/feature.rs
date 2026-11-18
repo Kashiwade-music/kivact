@@ -1,4 +1,4 @@
-//! Role: Catalog feature presentation card.
+//! Catalog feature presentation card.
 use kivact::draw::{Path, Shape};
 use kivact::geometry::Point;
 use kivact::state::IntoText;

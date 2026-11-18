@@ -1,4 +1,4 @@
-//! Role: Catalog page of Chart: bar, stacked, line, area, pie, radar and radial.
+//! Catalog page of Chart: bar, stacked, line, area, pie, radar and radial.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
