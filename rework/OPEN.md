@@ -83,3 +83,9 @@
 
 ## 差戻し（W2b・C01、2026-11-18）
 - **C01**（W2b、lane C、commit `f4192d74`）：STOP。付属書 C01 の手順 4 の `StyleHook`（`Off` と `On`）は、devtools 無しの build で `On` が一度も作られないため、`variant On is never constructed` の警告になり、`cargo clippy -p kivact-core --all-targets -- -D warnings` が失敗する。手順の「`devtools_hooks.rs` に cfg を一つも置かない」と「`#[allow]` で黙らせない」を両立できない。修正案：(a) `On` variant だけに `#[cfg(feature = "devtools")]` を付ける（`view` に cfg が入る）、(b) `StyleHook` を `Option` の field を持つ struct にして `view` から構築する（enum の形を変える）。Orchestrator の処置：止めた。C01 の他の確認（check・devtools の clippy・xtask・e2e の 1 件）は成功。設計者が (a) か (b) を決める。
+
+## 設計者の回答（W2b・C01、2026-11-19）
+
+- **C01**：(b) の形にする（cfg も allow も置かない）。`StyleHook` を enum から `pub(crate) struct StyleHook(Option<Rc<dyn NodeStyleHook>>)` にし、node ごとの trait `NodeStyleHook`（`apply`・`forced`）を `view/devtools_hooks.rs` に足す。`DevtoolsHooks::style_hook` は `Rc<dyn NodeStyleHook>` を返し、`StyleHook::new` は `StyleHook(hooks(rt).map(|h| h.style_hook(rt, owner, id, at)))`。DevTools 側は `devtools/hooks.rs` の private の `NodeHook`（`id`・`sites`・`overrides`・`forced`）が `NodeStyleHook` を実装する。値は view が作り、view で作らない variant が無いので、devtools 無しの build で dead code にならない。付属書 C の C01 の手順 4・5・状態の閉じ方を直した。設計者が `f4192d74` にこの変更を当てて、`cargo clippy -p kivact-core --all-targets -- -D warnings`（devtools 無しと `--features devtools` の両方）と `cargo xtask check --no-write --crate kivact-core` が通るのを確かめた。
+  - 同じ型の問題が W4b の C06 にもあった（`StyleHook::Node` を DevTools 側で作る）。C06 の手順 8 を、`NodeHook` の field と `apply` を置き換える形に直した（`view/devtools_hooks.rs` は変えない）。
+  - Orchestrator：lane C の fix として `wt/rw-W2b-C` の `view/devtools_hooks.rs` と `devtools/hooks.rs` を付属書 C01 の新しい手順 4・5 のコード片どおりにし、C01 の確認を全部通してから lane C を続ける。
