@@ -1,4 +1,4 @@
-//! Role: Resolve recorded draw geometry into outlines and paint areas, shared by the engine and the SVG writer.
+//! Role: Resolve recorded draw geometry into outlines and paint areas for engine and SVG.
 
 use crate::geometry::{Point, Rect};
 use crate::paint::{ClipShape, Corners, Len};

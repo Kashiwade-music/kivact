@@ -1,4 +1,4 @@
-//! Role: Shaped text: glyph runs, lines, decoration and highlight rects, shared by the engine, Arvane and drawing.
+//! Role: Shaped text: glyph runs, lines, decoration, highlight rects for engine, Arvane.
 
 use crate::color::Rgba;
 use crate::geometry::{Rect, Size};
