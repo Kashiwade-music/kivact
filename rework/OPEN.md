@@ -19,6 +19,9 @@
   - 状態：commit `b0e84c65` は `wt/rw-W1a-S` に残し、統合 branch には merge しない。W1a の S lane は止まり、S01 の `Deferred` を前提にする unit（S02〜、R、U の一部など）も止まる。
   - 「`cargo test -p kivact-types cell`」は通っている（2 件）。
 
+- **T01**（W1a・T0 lane、commit `5beb3a38`、`wt/rw-W1a-T0` に残す）、付属書 T の「## T01：」の完了条件。確認コマンドはすべて通る（xtask の check・clippy・test 53 件）。完了条件の「`rg` で `state-fields|state_fields|report-audit|state-audit` が `dev/xtask/src` で何も出さない」は満たせない。残るのは仕様のコードそのもの（`dev/xtask/src/state/check.rs:12` の `OBSOLETE` 定数と `:129` の検査文面、`dev/xtask/src/state/tests.rs:101` の試験）。旧い印を検出するため仕様が要求する文字列で、rg の条件と仕様のコードが食い違う。Orchestrator は文字列を別の形に置き換えない。設計者に、rg の条件を「旧い印の検出のための文字列を除く」にするか、検出の文字列の書き方を決めてほしい。
+  - 状態：T0 lane は T02 へ進む（T01 の機能は要件を満たす）。W1a の merge は S01 の差戻しが解けるまで行わない。
+
 ## KPI の後退
 ## KPI の未達
 ## 台帳
