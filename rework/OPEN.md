@@ -22,6 +22,9 @@
 - **T01**（W1a・T0 lane、commit `5beb3a38`、`wt/rw-W1a-T0` に残す）、付属書 T の「## T01：」の完了条件。確認コマンドはすべて通る（xtask の check・clippy・test 53 件）。完了条件の「`rg` で `state-fields|state_fields|report-audit|state-audit` が `dev/xtask/src` で何も出さない」は満たせない。残るのは仕様のコードそのもの（`dev/xtask/src/state/check.rs:12` の `OBSOLETE` 定数と `:129` の検査文面、`dev/xtask/src/state/tests.rs:101` の試験）。旧い印を検出するため仕様が要求する文字列で、rg の条件と仕様のコードが食い違う。Orchestrator は文字列を別の形に置き換えない。設計者に、rg の条件を「旧い印の検出のための文字列を除く」にするか、検出の文字列の書き方を決めてほしい。
   - 状態：T0 lane は T02 へ進む（T01 の機能は要件を満たす）。W1a の merge は S01 の差戻しが解けるまで行わない。
 
+- **T02**（W1a・T0 lane、commit `e2879bee`、`wt/rw-W1a-T0` に残す）、付属書 T の「## T02：」。確認はすべて通る（xtask の clippy・test 54 件、全体の check は ok）。付属書の手順が `dev/xtask/policy/workspace.toml` の `[visible_to]` の `kivact-devtools-protocol` 行から `kivact-devtools-client` を消すよう求めるが、`kivact-devtools-client` は T13 まで存在して protocol に依存する。消すと全体の検査が「`kivact-devtools-client` has a normal dependency on `kivact-devtools-protocol`」で error になる。そのため行は元に戻してある（現在の行に `kivact-devtools-client` が残っている）。設計者に、この名前を消すのを T13 の client の削除に合わせるかを決めてほしい。
+  - 注記：`policy/workspace.toml` の commit の diff は、CRLF と LF の正規化で 1044 行の変更として見える（内容の差は少ない）。merge の前に行末を確かめる。
+
 ## KPI の後退
 ## KPI の未達
 ## 台帳
