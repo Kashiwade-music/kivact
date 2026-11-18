@@ -22,14 +22,17 @@ use crate::{Owned, Runtime};
 /// Arrival identity of a registered timer.
 pub(crate) type TimerId = u64;
 
+/// The timer table's key: its deadline, then its arrival identity.
+pub(crate) type TimerKey = (u64, TimerId);
+
 /// Cancellation handoffs never borrow the timer table.
 #[derive(Default)]
-pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerId>>);
+pub(crate) struct CancelQueue(kivact_types::cell::LocalMailbox<Vec<TimerKey>>);
 
 impl CancelQueue {
-    pub(crate) fn push(&self, id: TimerId) {
+    pub(crate) fn push(&self, key: TimerKey) {
         let mut pending = self.0.take().unwrap_or_default();
-        pending.push(id);
+        pending.push(key);
         self.0.put(pending);
     }
 }
@@ -52,8 +55,8 @@ pub(crate) struct Scheduler {
 impl Scheduler {
     fn drain_cancel(&mut self) {
         while let Some(pending) = self.cancel.0.take() {
-            for id in pending {
-                self.timers.retain(|(_, timer), _| *timer != id);
+            for key in pending {
+                self.timers.remove(&key);
             }
         }
     }

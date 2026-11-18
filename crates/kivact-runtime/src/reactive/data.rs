@@ -89,6 +89,10 @@ pub struct Runtime {
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
+    pub(crate) graveyard: RefCell<Graveyard>,
+    /// What runs when a watched source loses its last subscriber (selector
+    /// key nodes): run once, then forgotten.
+    pub(crate) unsubscribed: RefCell<std::collections::HashMap<Key, Box<dyn FnOnce(&Runtime)>>>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -495,6 +499,14 @@ pub(crate) struct Diag {
 /// The per-App extension values, at most one per type.
 #[derive(Default)]
 pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
+
+/// What an owner's disposal released, dropped after every borrow ends
+/// (user `Drop` code may run). Kept on the runtime to reuse its capacity.
+#[derive(Default)]
+pub(crate) struct Graveyard {
+    pub(crate) nodes: Vec<RNode>,
+    pub(crate) data: Vec<Rc<dyn Any>>,
+}
 
 /// An `on_mount` callback waiting for the driver's acknowledgement.
 pub(crate) struct Mount {

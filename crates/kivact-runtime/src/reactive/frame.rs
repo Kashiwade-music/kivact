@@ -128,6 +128,11 @@ impl Runtime {
         self.context().pure
     }
 
+    /// Whether a computation is collecting dependencies in the current frame.
+    pub(crate) fn is_tracking(&self) -> bool {
+        self.context().tracking.is_some()
+    }
+
     #[inline]
     pub(crate) fn track(&self, node: Key) {
         let Some(slot) = self.context().tracking else {

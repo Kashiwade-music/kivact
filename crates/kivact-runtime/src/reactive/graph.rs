@@ -675,7 +675,7 @@ impl Runtime {
         if same {
             return;
         }
-        unlink_deps(&mut g, node);
+        let emptied = unlink_deps(&mut g, node);
         for src in new {
             let dep_index = match g.get(node) {
                 Some(n) => n.deps().len() as u32,
@@ -691,6 +691,32 @@ impl Runtime {
                 c.deps.push((src, sub_index));
             }
         }
+        drop(g);
+        self.run_unsubscribed(emptied);
+    }
+
+    /// Run `hook` once when source `key` loses its last subscriber.
+    pub(crate) fn on_unsubscribed(&self, key: Key, hook: Box<dyn FnOnce(&Runtime)>) {
+        self.unsubscribed.borrow_mut().insert(key, hook);
+    }
+
+    /// Run the hooks of the sources in `emptied` that still have no
+    /// subscriber (no graph borrow is held).
+    fn run_unsubscribed(&self, emptied: Vec<Key>) {
+        for key in emptied {
+            let unread = self
+                .graph
+                .borrow()
+                .get(key)
+                .is_some_and(|n| n.subs().is_empty());
+            if !unread {
+                continue;
+            }
+            let hook = self.unsubscribed.borrow_mut().remove(&key);
+            if let Some(hook) = hook {
+                hook(self);
+            }
+        }
     }
 
     /// Remove a node from the graph (owner disposal). Returns its cell so the
@@ -702,7 +728,7 @@ impl Runtime {
     ) -> Option<RNode> {
         self.dequeue_effect(key);
         let mut g = self.graph.borrow_mut();
-        unlink_deps(&mut g, key);
+        let emptied = unlink_deps(&mut g, key);
         // Unlink subscribers: remove this node from each subscriber's deps.
         let subs = g
             .get_mut(key)?
@@ -713,13 +739,17 @@ impl Runtime {
             remove_dep_entry(&mut g, sub, dep_index as usize);
         }
         let at = g.get(key).map(|n| n.at)?;
-        g.remove(
+        let removed = g.remove(
             key,
             Some(Tomb {
                 created_at: at,
                 disposed_by,
             }),
-        )
+        );
+        drop(g);
+        self.unsubscribed.borrow_mut().remove(&key);
+        self.run_unsubscribed(emptied);
+        removed
     }
 
     /// Remove a single owned node before its owner is disposed.
@@ -747,9 +777,10 @@ impl Runtime {
 }
 
 /// Remove all dependency edges of `node` (both directions).
-fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
+fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) -> Vec<Key> {
+    let mut emptied = Vec::new();
     let Some(c) = g.get_mut(node).and_then(RNode::computation_mut) else {
-        return;
+        return emptied;
     };
     let deps = std::mem::take(&mut c.deps);
     for (src, sub_index) in deps {
@@ -760,6 +791,9 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
                     continue;
                 }
                 subs.swap_remove(i);
+                if subs.is_empty() {
+                    emptied.push(src);
+                }
                 subs.get(i).copied().map(|(m, k)| (m, k, i))
             }
             None => None,
@@ -773,6 +807,7 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) {
             e.1 = i as u32;
         }
     }
+    emptied
 }
 
 /// Remove `sub.deps[index]` (whose source is being disposed) keeping read order.

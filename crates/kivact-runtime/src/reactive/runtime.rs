@@ -5,7 +5,7 @@ use std::cell::{Cell, RefCell};
 use std::panic::Location;
 
 use crate::reactive::arena::Arena;
-use crate::reactive::data::{Diag, LiveCounts, Runtime, Sched};
+use crate::reactive::data::{Diag, Graveyard, LiveCounts, Runtime, Sched};
 use crate::reactive::host_types::{ExitState, Host, Stage, TurnState};
 use crate::reactive::identity::{OwnerId, key_raw};
 use std::rc::Rc;
@@ -83,6 +83,8 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
+            graveyard: RefCell::new(Graveyard::default()),
+            unsubscribed: RefCell::new(std::collections::HashMap::new()),
         }
     }
 
