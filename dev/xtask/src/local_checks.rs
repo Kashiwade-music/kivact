@@ -159,14 +159,14 @@ impl Scope<'_> {
 /// The package a workspace-wide rule reports for; `--crate` selects it by this name.
 fn workspace_rule_package(rule: &str) -> Option<&'static str> {
     match rule {
-        "devtools-codegen" => Some("kivact-devtools-protocol"),
+        "docs-pairs" => Some("kivact-docs"),
         _ => None,
     }
 }
 
 fn run_workspace_rule(rule: &str, root: &Path, errors: &mut Vec<String>) {
     match rule {
-        "devtools-codegen" => errors.extend(crate::devtools_codegen::check(root)),
+        "docs-pairs" => crate::docs_pairs::check(root, errors),
         _ => unreachable!("invariant: workspace_rule_package names only workspace rules"),
     }
 }

@@ -22,8 +22,8 @@ mod check_cli;
 mod check_policy;
 mod check_source;
 mod core_filters;
-mod devtools_codegen;
 mod diagrams;
+mod docs_pairs;
 mod effect_writes;
 mod element_shadow;
 mod hand_element;
@@ -50,9 +50,6 @@ fn main() -> ExitCode {
         .nth(2)
         .expect("dev/xtask is two levels below the repository root");
     let arguments = std::env::args().skip(1).collect::<Vec<_>>();
-    if arguments.first().map(String::as_str) == Some("devtools-codegen") {
-        return devtools_codegen::run(root, &arguments[1..]);
-    }
     if arguments.first().map(String::as_str) == Some("diagrams") {
         return diagrams::run(root, &arguments[1..]);
     }

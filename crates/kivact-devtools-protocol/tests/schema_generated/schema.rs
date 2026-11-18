@@ -1,7 +1,7 @@
 //! Role: Build the JSON Schemas of the protocol and of the configuration file.
 
-use crate::devtools_codegen::json::{Json, obj, s};
-use crate::devtools_codegen::model::{Field, Item, Protocol, Ty, snake};
+use crate::json::{Json, obj, s};
+use crate::model::{Field, Item, Protocol, Ty, snake};
 
 /// The schema of every wire type, method, notification and error code.
 pub(super) fn schema(protocol: &Protocol) -> String {

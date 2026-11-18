@@ -2,12 +2,10 @@
 
 use std::path::Path;
 
-use crate::devtools_codegen::model::{
-    ErrorCode, Field, Item, MethodDecl, NotificationDecl, Protocol, Reference, Ty,
-};
+use crate::model::{ErrorCode, Field, Item, MethodDecl, NotificationDecl, Protocol, Reference, Ty};
 
 /// Files of the protocol crate that hold no wire types.
-const SKIPPED_FILES: [&str; 7] = [
+const SKIPPED_FILES: [&str; 8] = [
     "lib.rs",
     "rpc.rs",
     "time.rs",
@@ -15,6 +13,7 @@ const SKIPPED_FILES: [&str; 7] = [
     "discovery.rs",
     "trace.rs",
     "schema.rs",
+    "client.rs",
 ];
 
 /// Read every wire type, method, notification and error code below `root`.

@@ -11,5 +11,9 @@ description = "Wire vocabulary of the Kivact DevTools: JSON-RPC methods, notific
 serde = { workspace = true }
 serde_json = { workspace = true }
 
+[dev-dependencies]
+proc-macro2 = { workspace = true }
+syn = { workspace = true }
+
 [lints]
 workspace = true

@@ -14,7 +14,7 @@ pub(crate) const RULES: [&str; 13] = [
     "hand-element",
     "unit-machine",
     "element-shadow",
-    "devtools-codegen",
+    "docs-pairs",
 ];
 
 /// The `--only` value that selects every local rule.

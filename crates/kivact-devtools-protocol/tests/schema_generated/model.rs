@@ -122,8 +122,3 @@ pub(super) fn snake(name: &str) -> String {
     }
     out
 }
-
-/// The `UPPER_SNAKE_CASE` name of a Rust identifier.
-pub(super) fn upper_snake(name: &str) -> String {
-    snake(name).to_uppercase()
-}
