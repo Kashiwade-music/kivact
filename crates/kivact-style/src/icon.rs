@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 
-use kivact_runtime::{IntoValue, Prop as Input};
+use kivact_runtime::{IntoValue, Prop};
 
 use crate::asset::Asset;
 
@@ -26,10 +26,10 @@ use crate::asset::Asset;
 /// assert!(logo.asset().is_some());
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub struct Icon(InputProp);
+pub struct Icon(IconSource);
 
 #[derive(Clone, Debug, PartialEq)]
-enum InputProp {
+enum IconSource {
     Named(Cow<'static, str>),
     Asset(Asset),
 }
@@ -37,22 +37,22 @@ enum InputProp {
 impl Icon {
     /// An icon the theme's icon set resolves by `name`.
     pub fn named(name: impl Into<String>) -> Self {
-        Icon(InputProp::Named(Cow::Owned(name.into())))
+        Icon(IconSource::Named(Cow::Owned(name.into())))
     }
 
     /// The name, for an icon made by [`named`](Self::named).
     pub fn name(&self) -> Option<&str> {
         match &self.0 {
-            InputProp::Named(name) => Some(name),
-            InputProp::Asset(_) => None,
+            IconSource::Named(name) => Some(name),
+            IconSource::Asset(_) => None,
         }
     }
 
     /// The image, for an icon made from an [`Asset`].
     pub fn asset(&self) -> Option<&Asset> {
         match &self.0 {
-            InputProp::Named(_) => None,
-            InputProp::Asset(asset) => Some(asset),
+            IconSource::Named(_) => None,
+            IconSource::Asset(asset) => Some(asset),
         }
     }
 }
@@ -60,7 +60,7 @@ impl Icon {
 impl From<Asset> for Icon {
     /// An icon drawn from this image.
     fn from(asset: Asset) -> Self {
-        Icon(InputProp::Asset(asset))
+        Icon(IconSource::Asset(asset))
     }
 }
 
@@ -83,8 +83,8 @@ macro_rules! icon_into_value {
         // only an icon here.
         #[diagnostic::do_not_recommend]
         impl IntoValue<Icon> for $t {
-            fn into_prop(self) -> Input<Icon> {
-                Input::constant(Icon::from(self))
+            fn into_prop(self) -> Prop<Icon> {
+                Prop::constant(Icon::from(self))
             }
         }
     )*};
@@ -196,8 +196,8 @@ impl IconSet {
     /// this set (`None` for a name the set does not have).
     pub fn resolve(&self, icon: &Icon) -> Option<Asset> {
         match &icon.0 {
-            InputProp::Asset(asset) => Some(asset.clone()),
-            InputProp::Named(name) => self.get(name).cloned(),
+            IconSource::Asset(asset) => Some(asset.clone()),
+            IconSource::Named(name) => self.get(name).cloned(),
         }
     }
 
