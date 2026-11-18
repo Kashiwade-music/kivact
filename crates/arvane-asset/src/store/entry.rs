@@ -47,7 +47,6 @@ pub(crate) struct Stamp {
 }
 
 pub(crate) struct Entry {
-    // xtask-allow(state-fields): identity: one incarnation of the entry, stamped on every job and checked on every result
     pub(crate) generation: u64,
     pub(crate) state: State,
     /// Encoded bytes the key keeps alive.

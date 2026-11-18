@@ -41,16 +41,13 @@ pub struct TextFormat {
     pub size: f64,
     pub weight: u16,
     pub color: Color,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// A family name or a generic family (`"system-ui"`, `"sans-serif"`,
     /// `"serif"`, `"monospace"`), or an ordered comma-separated CSS list;
     /// `None` (the default) uses the family the
     /// node inherits (`style().font_family(..)`, else the theme's).
     pub family: Option<String>,
-    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) draws the upright face, true the family's italic face
     /// Use the italic face of the family when it has one (default `false`).
     pub italic: bool,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The distance between lines (CSS `line-height`; a number is a
     /// multiple of `size`, `LineHeight::px(20)` is px). `None` (the
     /// default) uses the line height the node inherits
@@ -68,18 +65,14 @@ pub struct TextFormat {
     /// OpenType features (CSS `font-feature-settings`):
     /// `vec![("ss01", 1).into()]`.
     pub features: Vec<FontFeature>,
-    // xtask-allow(state-fields): option: set by the caller's format literal; false (the default) keeps the font's digit widths, true adds the tnum feature
     /// Digits of one width (CSS `font-variant-numeric: tabular-nums`).
     pub tabular_nums: bool,
     /// Lines drawn with the text (CSS `text-decoration-line`).
     pub decoration: TextDecorationLine,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// Their color (default: `color`).
     pub decoration_color: Option<Color>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The glyph fill: any paint (a gradient too); None fills with `color`.
     pub fill: Option<Paint>,
-    // xtask-allow(state-fields): option: an authored format property; absent means the inherited or default value
     /// The glyph outline, its stroke and paint (drawn with the fill; the
     /// order is the `paint-order` of the text: fill first by default).
     pub stroke: Option<(Stroke, Paint)>,

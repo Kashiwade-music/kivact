@@ -53,7 +53,6 @@ pub struct InlineParagraph {
 
 impl InlineParagraph {
     /// Convert a host shaping snapshot into a drawable paragraph and object positions.
-    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
     #[doc(hidden)]
     pub fn from_shaped(text: &str, shaped: p::ShapedInlineText, max_width: Option<f64>) -> Self {
         Self {
@@ -131,7 +130,6 @@ impl TextParagraph {
     ///
     /// An empty `cluster_boundaries` list in `shaped` means every grapheme
     /// boundary is a stop for hits and movement.
-    // xtask-allow(internal-contract): Core text shapers adapt engine output; applications use shape_paragraph or Draw layout.
     #[doc(hidden)]
     pub fn from_shaped(
         text: impl Into<Rc<str>>,

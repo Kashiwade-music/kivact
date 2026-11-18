@@ -25,6 +25,7 @@ pub(crate) struct Run {
     pub(crate) spring: RefCell<SpringRun>,
 }
 
+// xtask-allow(state): legacy: value, current, phase
 pub(crate) struct AnimCell<T: 'static> {
     pub(crate) owner: Owner,
     pub(crate) value: Signal<T>,

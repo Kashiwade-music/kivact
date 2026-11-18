@@ -26,6 +26,7 @@ pub(super) enum ChildRedraw {
     Needed,
 }
 
+// xtask-allow(state): legacy: redraw, ime, ime_driver
 pub(super) struct Window {
     pub(super) shared: Arc<Shared>,
     pub(super) backend: Arc<Notifier>,

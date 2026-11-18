@@ -44,9 +44,7 @@ struct Inner {
 /// The last host size and the identity that advances with it.
 #[derive(Clone, Copy)]
 struct HostSize {
-    // xtask-allow(state-fields): identity: advanced by every host size; a negotiated size is accepted only at its generation
     generation: u64,
-    // xtask-allow(state-fields): option: absent until the host first chooses a size
     size: Option<(u32, u32)>,
 }
 /// The physical size, scale and visibility the child applied last, read together.

@@ -172,7 +172,6 @@ pub enum LayerFilter {
     /// A color matrix over the surface.
     ColorMatrix(ColorMatrix),
     /// Images resolved to pixels by the engine.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Graph(std::sync::Arc<FilterGraph<Pixels>>),
     /// A filter shader.
     Shader(ShaderUse),

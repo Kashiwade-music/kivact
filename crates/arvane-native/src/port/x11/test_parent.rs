@@ -21,6 +21,7 @@ use x11rb::protocol::xproto::{
 };
 use x11rb::wrapper::ConnectionExt as _;
 
+// xtask-allow(state): legacy: point, covers, wm_frame
 /// A top-level X11 host on a separate connection from its embedded child.
 pub struct TestParent {
     point: Cell<(f64, f64)>,

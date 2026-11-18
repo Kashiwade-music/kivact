@@ -154,7 +154,6 @@ pub enum FillImage {
     /// layer's size, position and repeat do not apply to it).
     Coordinate(CoordinateGradient),
     /// A paint shader.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -470,10 +469,8 @@ pub enum FilterOp {
         color: Rgba,
     },
     /// CSS `url(#filter)`: an SVG filter graph, images as assets.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Graph(std::sync::Arc<FilterGraph<Asset>>),
     /// A filter shader.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     Shader(std::sync::Arc<ShaderSpec>),
 }
 
@@ -632,10 +629,8 @@ pub enum ShaderClock {
 #[derive(Clone, Debug, PartialEq)]
 pub struct ShaderSpec {
     /// The validated program.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub program: std::sync::Arc<crate::effect::ShaderProgram>,
     /// The parameter bytes, laid out by the program's parameter slots.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub params: std::sync::Arc<[u8]>,
     /// Slots 0..=3 of the WGSL `image(slot, uv)` helper.
     pub images: [Option<Asset>; 4],
@@ -814,7 +809,6 @@ pub struct Shadow {
 #[derive(Clone, Debug, PartialEq)]
 pub struct PaintProps {
     /// Per-property paint transitions, absent on ordinary nodes.
-    // xtask-allow(api-shape): Shared immutable payload, cloned without copying its data; one allocation is shared by all clones.
     pub transitions: Option<std::sync::Arc<[(TransitionProp, Transition)]>>,
     /// The background fill.
     pub background: Option<Fill>,

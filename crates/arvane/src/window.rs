@@ -211,7 +211,6 @@ pub struct Windows<'a> {
     shell: &'a mut dyn ShellLoop,
     presenters: &'a mut BTreeMap<WindowId, Presenter>,
     env: crate::env::Env,
-    // xtask-allow(state-fields): option: the renderer observer the application gave (`Shell::on_renderer_change` or `ShellSetup::observer`), cloned into every presenter's Notes; absent when it gave none
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }
@@ -293,10 +292,8 @@ impl<'a> Windows<'a> {
 /// application's main thread.
 pub struct Shell {
     shell: Box<dyn Backend>,
-    // xtask-allow(state-fields): option: whether the application asked to draw on the GPU (`Shell::prefer_gpu`, default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto`
     prefer_gpu: bool,
     gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): option: the renderer observer `Shell::on_renderer_change` gave; absent when the application observes no renderer change
     observer: Option<crate::presentation::Observer>,
 }
 
@@ -353,10 +350,8 @@ impl Shell {
 
 /// Presenter configuration shared by synchronous and stepped shells.
 pub struct ShellSetup {
-    // xtask-allow(state-fields): option: whether the host asks to draw on the GPU (default true); false draws on the CPU unless `ARVANE_RENDERER` is `gpu` or `auto`
     pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
-    // xtask-allow(state-fields): option: the renderer observer the host gives, cloned into every presenter's Notes; absent when it observes no renderer change
     pub observer: Option<Observer>,
 }
 impl Default for ShellSetup {
@@ -415,7 +410,6 @@ pub(crate) struct Driver<H> {
     presenters: BTreeMap<WindowId, Presenter>,
     /// The renderers' environment, read once per loop.
     env: crate::env::Env,
-    // xtask-allow(state-fields): option: the renderer observer the application gave (`Shell::on_renderer_change` or `ShellSetup::observer`), cloned into every presenter's Notes; absent when it gave none
     /// The renderer observer, cloned into the notes of every presenter.
     observer: Option<Observer>,
 }

@@ -57,7 +57,6 @@ impl<T: 'static> Prop<T> {
 
     /// A value `f` computes on every read; equal results (`PartialEq`) do
     /// not notify once it is made a memo.
-    // xtask-allow(internal-contract): Core mounting adapts deferred properties across the runtime boundary.
     #[doc(hidden)]
     pub fn computed(f: Rc<dyn Fn() -> T>) -> Self
     where
@@ -106,7 +105,6 @@ impl<T: 'static> Prop<T> {
     /// A shareable closure reading the value (for sources several effects
     /// read). A value that can never change is read once here, so the
     /// closure tracks nothing.
-    // xtask-allow(internal-contract): Core mounting adapts deferred properties across the runtime boundary.
     #[doc(hidden)]
     pub fn into_fn(self) -> Rc<dyn Fn() -> T>
     where
@@ -125,7 +123,6 @@ impl<T: 'static> Prop<T> {
     /// This input as a [`Value`]: a reactive value as it is, a constant as a
     /// new unwritable value of `owner`, a closure as a new memo of `owner`.
     /// `at` is where diagnostics locate a new node.
-    // xtask-allow(internal-contract): Core mounting adapts deferred properties across the runtime boundary.
     #[doc(hidden)]
     pub fn into_value(self, owner: Owner, at: &'static Location<'static>) -> Value<T> {
         match self.0 {
@@ -156,7 +153,6 @@ impl<T: 'static> Prop<T> {
 )]
 pub trait IntoValue<T: 'static> {
     /// This input as a [`Prop`], without creating a graph node.
-    // xtask-allow(internal-contract): Cross-crate IntoValue implementations and constant_value! expansion describe deferred inputs.
     #[doc(hidden)]
     fn into_prop(self) -> Prop<T>;
 
@@ -215,7 +211,6 @@ pub trait IntoValue<T: 'static> {
 )]
 pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
     /// This input as a [`Prop`], without creating a graph node.
-    // xtask-allow(internal-contract): Cross-crate IntoText implementations describe deferred text inputs.
     #[doc(hidden)]
     fn into_text(self) -> Prop<String>;
 

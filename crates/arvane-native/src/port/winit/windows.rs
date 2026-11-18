@@ -19,13 +19,12 @@ pub(super) struct NativeWindow {
     pub(super) modal_parent: Option<WindowId>,
 }
 
+// xtask-allow(state): legacy: placement, foreign; filled when the handler opens a window during a callback and emptied by the runner once it returns; placement is fixed when the
 /// The open windows of one running loop.
 pub(super) struct WindowTable {
     by_id: BTreeMap<WindowId, NativeWindow>,
     ids: HashMap<WinitWindowId, WindowId>,
-    // xtask-allow(state-fields): independent: filled when the handler opens a window during a callback and emptied by the runner once it returns; placement is fixed when the table is made, so windows wait to be shown on platforms with and without placement alike
     pending_show: Vec<WindowId>,
-    // xtask-allow(state-fields): option: whether the platform honours explicit window placement (false on Wayland)
     placement: bool,
     /// The loop's connection shared by foreign child windows.
     foreign: RefCell<ForeignConnections>,

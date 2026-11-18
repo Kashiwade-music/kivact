@@ -45,25 +45,15 @@ pub(crate) fn variation_bits(variations: &[FontVariation]) -> Vec<VariationBits>
 struct SpanKey {
     start: usize,
     end: usize,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_size: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     weight: Option<u16>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: Option<bool>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     letter_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     word_spacing: Option<u64>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     kerning: Option<FontKerning>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     features: Option<Vec<FontFeature>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     variations: Option<Vec<VariationBits>>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     font_width: Option<u64>,
 }
 
@@ -121,17 +111,12 @@ pub(crate) struct Key {
     font_size: u64,
     weight: u16,
     line_height: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     wrap: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     family: Option<String>,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     italic: bool,
     variations: Vec<VariationBits>,
     font_width: u64,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     optical_sizing: bool,
-    // xtask-allow(state-fields): cache: one component of a cache key; equality of the whole key is what matters
     rich: Option<Box<RichKey>>,
 }
 

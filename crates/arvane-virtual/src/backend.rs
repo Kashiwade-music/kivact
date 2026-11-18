@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+// xtask-allow(state): legacy: windows, input
 /// Backend whose input and clock are advanced explicitly.
 pub struct VirtualBackend {
     options: VirtualOptions,
@@ -181,6 +182,7 @@ enum State {
     Exited,
     Failed(ShellError),
 }
+// xtask-allow(state): legacy: windows, input
 /// The running loop: the handler, the shared window table and the input queue.
 struct Running {
     options: VirtualOptions,
@@ -536,6 +538,7 @@ fn surface_event(window: &mut VirtualWindow, live: bool) -> Option<ShellEvent> {
         _ => None,
     }
 }
+// xtask-allow(state): legacy: windows, input
 /// Cloneable read-only observations. Values never borrow backend state.
 #[derive(Clone)]
 pub struct Probe {
@@ -587,6 +590,7 @@ impl Probe {
         self.platform.revealed.borrow().clone()
     }
 }
+// xtask-allow(state): legacy: windows, input
 /// Cloneable read-only observations of one virtual window.
 #[derive(Clone)]
 pub struct WindowProbe {

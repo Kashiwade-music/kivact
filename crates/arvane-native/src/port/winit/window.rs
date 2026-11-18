@@ -29,12 +29,11 @@ pub(super) enum Surface {
     },
 }
 
+// xtask-allow(state): legacy: foreign, subclass, monitor; present exactly for windows opened with WindowContent::Foreign; dropped before the winit window so the child goes first
 /// Native window and CPU surface; deliberately !Send and !Sync through Rc.
 pub struct WinitWindow {
-    // xtask-allow(state-fields): option: present exactly for windows opened with WindowContent::Foreign; dropped before the winit window so the child goes first
     /// The child window that fills a foreign window's content area.
     pub(super) foreign: Option<crate::port::winit::foreign::ForeignOs>,
-    // xtask-allow(state-fields): option: the window's subclass, held for its drop, which removes it before the window goes; absent when it is not installed
     /// The window's subclass (Windows), held for its drop, which removes
     /// it before the window goes (fields drop in order).
     #[cfg(windows)]
@@ -52,7 +51,6 @@ pub struct WinitWindow {
     pub(super) affinity: Rc<()>,
     pub(super) accessibility: NativeAccessibility,
     pub(super) services: Services,
-    // xtask-allow(state-fields): cache: the monitor `current_monitor` gave at open and at the last move or scale change, kept to tell when frame_period_ns must be read again; absent when the platform cannot tell the monitor
     /// The monitor the window was last seen on.
     pub(super) monitor: Option<winit::monitor::MonitorHandle>,
     /// The refresh period of that monitor (`frame_period_ns`).

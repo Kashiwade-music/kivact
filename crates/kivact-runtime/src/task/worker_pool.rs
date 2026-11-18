@@ -31,12 +31,12 @@ pub(crate) enum Workers {
     Closed,
 }
 
+// xtask-allow(state): legacy: workers, fallbacks, outstanding; the submitted blocking jobs not yet finished; only TaskState::stats reads it, for DevTools and the test driver's
 /// Fixed pool of worker threads (default `min(4, CPUs)`).
 pub(crate) struct Pool {
     workers: Mutex<Workers>,
     /// Threads started for jobs when no worker could take them.
     fallbacks: Mutex<Vec<JoinHandle<()>>>,
-    // xtask-allow(state-fields): statistic: the submitted blocking jobs not yet finished; only TaskState::stats reads it, for DevTools and the test driver's settle loop
     pub(crate) outstanding: Arc<AtomicUsize>,
 }
 

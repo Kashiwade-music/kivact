@@ -30,6 +30,7 @@ mod hand_element;
 mod impl_model;
 mod interaction_view;
 mod kit_literal_color;
+mod kpi_compare;
 mod local_checks;
 mod macros;
 mod module_rules;
@@ -53,12 +54,15 @@ fn main() -> ExitCode {
     if arguments.first().map(String::as_str) == Some("diagrams") {
         return diagrams::run(root, &arguments[1..]);
     }
+    if arguments.first().map(String::as_str) == Some("kpi-compare") {
+        return kpi_compare::run(root, &arguments[1..]);
+    }
     if arguments
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).",
+            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).\n`cargo xtask kpi-compare <B0> <CPn>` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);

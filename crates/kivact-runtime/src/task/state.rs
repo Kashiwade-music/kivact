@@ -95,6 +95,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
+// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, fallback_threads, pool; absent means the default worker count
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
@@ -107,7 +108,6 @@ pub struct TaskState {
     pub(super) exec: Executor,
     /// Pending host-clock timers.
     pub(super) time: RefCell<Scheduler>,
-    // xtask-allow(state-fields): option: absent means the default worker count
     /// Worker count of the blocking pool (`None`: the default).
     pub(super) blocking_threads: Option<usize>,
     /// Owned tasks whose future completed; their objects are removed after
@@ -311,7 +311,6 @@ pub struct TaskStats {
 /// One pending timer, as [`TaskState::list`] reports it.
 pub struct TaskEntry {
     /// Where the timer was created.
-    // xtask-allow(api-shape): diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
     /// The owner that created it.
     pub owner: Option<OwnerId>,

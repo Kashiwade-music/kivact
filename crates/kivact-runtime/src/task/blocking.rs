@@ -31,6 +31,7 @@ enum Outcome<R> {
     Taken,
 }
 
+// xtask-allow(state): legacy: slot, pool
 /// Future of a blocking job.
 pub(crate) struct BlockingFuture<R> {
     slot: Arc<Mutex<Slot<R>>>,
@@ -38,6 +39,7 @@ pub(crate) struct BlockingFuture<R> {
     pool: Option<Arc<Pool>>,
 }
 
+// xtask-allow(state): legacy: slot, outstanding
 /// Held by a running job: on drop, at a normal exit and on unwind alike, it
 /// settles the slot, wakes the awaiting task and stops counting the job as
 /// outstanding.

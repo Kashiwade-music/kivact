@@ -54,6 +54,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
+// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, mount_revision, unstamped, awaiting, state, exit, clock, diag, later
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -67,12 +68,9 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
-    // xtask-allow(state-fields): identity: allocates effect creation-order ids
     pub(crate) seq: Cell<u64>,
-    // xtask-allow(state-fields): identity: the write generation stamped on each notified source (SourceNode::changed_at) and compared by effects after their own writes
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
-    // xtask-allow(state-fields): independent: ADR-17: filled by the constructor before it returns; never observed empty
     #[expect(
         clippy::disallowed_types,
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
@@ -85,7 +83,6 @@ pub struct Runtime {
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
     pub(crate) state: Cell<crate::reactive::host_types::TurnState>,
     pub(crate) exit: Cell<crate::reactive::host_types::ExitState>,
-    // xtask-allow(state-fields): independent: the App's monotonic time, written only by advance_clock from each turn's host time; timers and gestures read it, and every reading is valid in any turn or exit state
     pub(crate) clock: Cell<u64>,
     pub(crate) diag: RefCell<Diag>,
     /// Errors raised where no user code may run (inside the engine's
@@ -170,11 +167,10 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
+// xtask-allow(state): legacy: value, eq; the memo's last computed value; the graph state is CompState
 pub(crate) struct MemoCell<T> {
-    // xtask-allow(state-fields): cache: the memo's last computed value; the graph state is CompState
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
-    // xtask-allow(state-fields): option: absent means every recomputation notifies (no equality check)
     pub(crate) eq: Option<fn(&T, &T) -> bool>,
 }
 
@@ -206,10 +202,8 @@ pub(crate) enum NodeData {
 pub(crate) struct SourceNode {
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    // xtask-allow(state-fields): identity: the write epoch notify_subscribers stamps on every change or trigger; recheck_after_own_writes compares it with the epoch before an effect ran, and no running flag sits beside it
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
-    // xtask-allow(state-fields): statistic: where and in which turn the last value-changing write happened; only the node diagnostics (why chains, DevTools) read it
     /// Location and turn of the last value-changing write (why chains).
     pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
@@ -308,10 +302,8 @@ pub struct NodeInfo {
     /// Value type name.
     pub ty: &'static str,
     /// Where the node was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
     /// Location and turn of the last value-changing write (sources).
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub written: Option<(&'static Location<'static>, Turn)>,
     /// What the node read during its last run, in read order.
     pub deps: Vec<NodeId>,
@@ -328,13 +320,12 @@ pub(crate) struct OwnerExtra {
     pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
 }
 
+// xtask-allow(state): legacy: parent, extra; the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without
 pub(crate) struct OwnerEntry {
-    // xtask-allow(state-fields): independent: the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without one, a detached disposal root is disposing without one, and children keep theirs
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,
     pub(crate) children: Vec<Key>,
     pub(crate) nodes: Vec<Key>,
-    // xtask-allow(state-fields): independent: the box of the rare members, created by the first object, constant, cleanup, context or error handler registered on the owner and kept until the entry is removed; either phase holds it or not (disposal empties it, never drops it)
     pub(crate) extra: Option<Box<OwnerExtra>>,
     /// Where the boundary that created this owner was called (root, flow
     /// branch, list row, `provide`, `error_boundary`): how diagnostics name
@@ -384,14 +375,10 @@ pub(crate) struct Object {
 /// One execution context. Copies never own dependency storage.
 #[derive(Clone, Copy, Default)]
 pub(crate) struct Frame {
-    // xtask-allow(state-fields): independent: callback_frame and handler_frame replace the owner under any frame kind
     pub(crate) owner: Option<Key>,
     pub(crate) kind: FrameKind,
-    // xtask-allow(state-fields): independent: pure_section sets it under any frame kind and owner
     pub(crate) pure: bool,
-    // xtask-allow(state-fields): independent: inherited from the enclosing frame except in a non-user effect's own frame (tracking_frame)
     pub(crate) writer: Option<Key>,
-    // xtask-allow(state-fields): independent: untracked_frame and callback_frame clear it under any kind
     pub(crate) tracking: Option<CollectorSlot>,
 }
 
@@ -438,10 +425,8 @@ pub struct TraceWrite {
     /// Type name of the written value.
     pub ty: &'static str,
     /// Where the signal was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub created_at: &'static Location<'static>,
     /// Where it was written.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
 }
 
@@ -451,7 +436,6 @@ pub struct TraceRun {
     /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
     pub kind: &'static str,
     /// Where the memo or effect was created.
-    // xtask-allow(api-shape): Diagnostic source positions retain Rust caller locations.
     pub at: &'static Location<'static>,
 }
 

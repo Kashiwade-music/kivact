@@ -171,13 +171,11 @@ impl AssetBytes {
         Arc::ptr_eq(&self.0, &other.0)
     }
     /// Adopt backend-owned bytes without copying or changing allocation identity.
-    // xtask-allow(internal-contract): Asset/font/renderer adapters retain an existing backend allocation; application inputs use owned bytes.
     #[doc(hidden)]
     pub fn from_shared(bytes: Arc<[u8]>) -> Self {
         Self(bytes)
     }
     /// Borrow the retained allocation for a backend that requires shared ownership.
-    // xtask-allow(internal-contract): Asset/font/renderer adapters bridge shared backend resources without copying their bytes.
     #[doc(hidden)]
     pub fn as_shared(&self) -> &Arc<[u8]> {
         &self.0

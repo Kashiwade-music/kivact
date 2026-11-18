@@ -23,9 +23,7 @@ enum Kind {
     Transform,
     /// A group: its clip (bounds, in push coordinates) and blur.
     Group {
-        // xtask-allow(state-fields): option: the group's clip bounds in push coordinates; absent when it has none
         clip: Option<Rect>,
-        // xtask-allow(state-fields): option: the group's blur radius; absent when it has none
         blur: Option<f64>,
     },
 }

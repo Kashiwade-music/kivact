@@ -42,11 +42,8 @@ struct Heap {
     sites: HashMap<u64, Site>,
 }
 
-// xtask-allow(state-fields): independent: the probe's record of live allocations and their sites, filled by record and drained by forget under one lock; tracking only gates new records and the guard only blocks reentry, so it pairs with either of them
 static HEAP: Mutex<Option<Heap>> = Mutex::new(None);
-// xtask-allow(state-fields): independent: main turns recording on before the App starts and dump turns it off; frees are forgotten whether or not it is on, so it pairs with any recorded contents
 static TRACKING: AtomicBool = AtomicBool::new(false);
-// xtask-allow(state-fields): independent: the per-thread reentrancy guard the allocator holds while it records or forgets, and dump keeps set; any thread can be inside with tracking on or off
 thread_local! { static INSIDE: Cell<bool> = const { Cell::new(false) }; }
 
 fn record(ptr: usize, size: usize) {

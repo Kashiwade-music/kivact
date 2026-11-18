@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Measure every KPI (K1 to K6, see dev/bench/README.md) into dev/bench/results/<label>.md.
-# usage: dev/bench/run.sh <label>   (e.g. base on the commit before a change, head after it)
+# usage: dev/bench/run.sh [--no-catalog] <label>   (e.g. base on the commit before a change, head after it)
+#   --no-catalog skips every basic-catalog build and row (CP2: the kits are not migrated yet).
 # Windows (Git Bash; wmic or PowerShell CIM) and Linux (/proc). Opens real
 # windows: run it through dev/tools/window-lock.sh, with nothing else drawing
 # on the machine. Never wired into CI. Any missing or failed measurement makes
 # the report INVALID (exit 1); never compare an INVALID report.
 set -uo pipefail
-label="${1:?label, e.g. base}"
+catalog_on=1
+if [ "${1:-}" = "--no-catalog" ]; then catalog_on=0; shift; fi
+label="${1:?usage: dev/bench/run.sh [--no-catalog] <label>}"
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 out="$root/dev/bench/results/$label.md"
 target="${CARGO_TARGET_DIR:-$root/target}"
@@ -18,6 +21,7 @@ invalid() { { echo; echo "INVALID: $*"; } | tee -a "$out"; exit 1; }
 winpath() { cygpath -w "$1" 2>/dev/null || echo "$1"; }
 
 log "# KPI $label ($(date -u +%Y-%m-%dT%H:%MZ), $(uname -s), commit $(git -C "$root" rev-parse --short HEAD))"
+[ "$catalog_on" = 1 ] || log "SKIPPED: basic catalog (--no-catalog)"
 
 # ---- builds: one package per cargo invocation, so features never unify across
 # them; each binary is copied out because later builds reuse its path.
@@ -35,12 +39,12 @@ build() { # <copy as> <bin> <cargo args...>
 t0=$(date +%s)
 build counter kivact-example-counter -p kivact-example-counter
 t1=$(date +%s)
-build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog
+[ "$catalog_on" = 0 ] || build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog
 build kv_startup kv_startup -p kivact-bench --bin kv_startup
 build kv_stress kv_stress -p kivact-bench --bin kv_stress
 build kv_startup_min kv_startup -p kivact-bench --no-default-features --bin kv_startup
 build kv_startup_nogpu kv_startup -p kivact-bench --no-default-features --features complex-scripts --bin kv_startup
-build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts
+[ "$catalog_on" = 0 ] || build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts
 build kv_latency kv_latency -p kivact-bench --features latency --bin kv_latency
 CARGO_PROFILE_RELEASE_STRIP=none CARGO_PROFILE_RELEASE_DEBUG=line-tables-only   build kv_heap kv_heap -p kivact-bench --bin kv_heap
 startup="$kpi/kv_startup$exe"; stress="$kpi/kv_stress$exe"; catalog="$kpi/catalog$exe"; counter="$kpi/counter$exe"
@@ -88,16 +92,18 @@ for r in default cpu; do
   log "- K4 first_frame_raster renderer=$r median_ms=$(echo $rasters | tr ' ' '\n' | quant 0.5) samples=[$rasters ]"
 done
 unset ARVANE_RENDERER
-spawns=""
-for _ in 1 2 3 4 5; do
-  flog="$(mktemp)"; s0=$(date +%s%N)
-  KIVACT_FRAME_LOG="$(winpath "$flog")" "$catalog" 2>/dev/null &
-  wait_frame "$flog" || { kill_exe "$catalog"; invalid "catalog presented no frame"; }
-  sleep 0.3; kill_exe "$catalog"
-  spawns="$spawns $(grep -m1 '^F ' "$flog" | awk -v s="$s0" '{printf "%.1f", ($2 - s) / 1e6}')"
-  rm -f "$flog"
-done
-log "- K1 catalog_spawn_to_first_present renderer=default median_ms=$(echo $spawns | tr ' ' '\n' | quant 0.5) samples=[$spawns ] (includes OS process creation)"
+if [ "$catalog_on" = 1 ]; then
+  spawns=""
+  for _ in 1 2 3 4 5; do
+    flog="$(mktemp)"; s0=$(date +%s%N)
+    KIVACT_FRAME_LOG="$(winpath "$flog")" "$catalog" 2>/dev/null &
+    wait_frame "$flog" || { kill_exe "$catalog"; invalid "catalog presented no frame"; }
+    sleep 0.3; kill_exe "$catalog"
+    spawns="$spawns $(grep -m1 '^F ' "$flog" | awk -v s="$s0" '{printf "%.1f", ($2 - s) / 1e6}')"
+    rm -f "$flog"
+  done
+  log "- K1 catalog_spawn_to_first_present renderer=default median_ms=$(echo $spawns | tr ' ' '\n' | quant 0.5) samples=[$spawns ] (includes OS process creation)"
+fi
 
 # ---- K2/K3 idle memory and CPU
 idle() { # <exe> <renderer> <name> [env...]
@@ -121,7 +127,7 @@ log ""
 log "## K2/K3 idle (3 s settle, then 10 s sampled)"
 for r in default cpu gpu; do idle "$startup" "$r" counter >/dev/null || exit 1; done
 for r in default cpu; do
-  idle "$catalog" "$r" basic-catalog >/dev/null || exit 1
+  if [ "$catalog_on" = 1 ]; then idle "$catalog" "$r" basic-catalog >/dev/null || exit 1; fi
   idle "$stress" "$r" rows3000-still ROWS=3000 STILL=1 >/dev/null || exit 1
 done
 log ""
@@ -188,7 +194,7 @@ log "## K6 release binary size (bytes)"
 log "- K6 counter default $(wc -c < "$counter")"
 log "- K6 kv_startup default $(wc -c < "$startup")"
 log "- K6 kv_startup no-default-features $(wc -c < "$kpi/kv_startup_min$exe")"
-log "- K6 basic-catalog default $(wc -c < "$catalog")"
+[ "$catalog_on" = 0 ] || log "- K6 basic-catalog default $(wc -c < "$catalog")"
 log "- K6 kv_startup no-gpu $(wc -c < "$kpi/kv_startup_nogpu$exe")"
-log "- K6 basic-catalog no-gpu $(wc -c < "$kpi/catalog_nogpu$exe")"
+[ "$catalog_on" = 0 ] || log "- K6 basic-catalog no-gpu $(wc -c < "$kpi/catalog_nogpu$exe")"
 echo "wrote $out"

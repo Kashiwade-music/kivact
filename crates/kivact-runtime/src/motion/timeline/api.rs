@@ -482,6 +482,7 @@ enum Event {
     Call(usize),
 }
 
+// xtask-allow(state): legacy: phase, time, playback, repeat, alternate, motion, segments, labels, tracks, plan, pending, completions
 /// The state of one timeline: its structure (setup) and its playback.
 pub(crate) struct TimelineCell {
     owner: Owner,

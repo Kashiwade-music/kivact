@@ -18,6 +18,7 @@ pub(super) trait TrackSlot {
     fn publish(&self, value: &[f64]);
 }
 
+// xtask-allow(state): legacy: value, last
 pub(super) struct TrackState<T: Animatable> {
     pub(super) value: Signal<T>,
     pub(super) initial: Vec<f64>,
