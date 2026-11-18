@@ -3436,6 +3436,9 @@ says what to change:
   9. `crates/*/README.md`（5 つの kit の README）：
      - 「## Migrating from the previous release」の節が残っていれば、見出しから次の `## ` の見出しの直前まで消す（KIT-16）。
      - 「## Filled recipes」「## Filled standard recipes」の節（`<!-- kivact-recipes -->` の印を含む）が残っていれば同様に消す。
+     - T14（W1b）が上の 2 節を消した後、その後ろにあった段落が前の節の下に残っている。次の 2 か所を直す（creative・pop・game は該当なし）：
+       - `crates/kivact-ui-basic/README.md`：「## Catalog and tests」の下の、`` `kivact::ui::carousel(index, slides)` `` で始まる段落の直前に、見出し `## Standard components in this look` と空行を置く（その段落と、`` `MenuVariant::Bar` `` で始まる段落がこの節になる）。
+       - `crates/kivact-ui-soft/README.md`：「## Current native behavior」の表の後の `Pagination presentation helpers:` で始まる 1 段落を、「## Standard components」の節の最後（「## Astryx component mapping」の見出しの直前）へ移す。
      - 残りの本文と Rust の block に、付属書 K の 4 章の旧名と 3.0.6 の旧名があれば直す。`Tokens`・`ColorName` を説明している文は kit の theme 変数の文にする。
      - xtask の検査が `<!-- kivact-recipes -->` を読んでいる場合（`rg -n kivact-recipes dev/ crates/ --glob '!*.md'`）、その検査が残っていれば STOP（付属書 K・T の削除漏れ）。
 - **消すもの**：README の `scope(move || view)` の段落、`architecture/` の行、`kivact-devtools-client` の行、雛形の README の Kivact の内部 crate を並べた profile の節、kit の README の移行表と recipe の一覧。

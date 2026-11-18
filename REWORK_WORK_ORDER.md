@@ -201,7 +201,7 @@ cargo xtask check --no-write
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs
 cargo check -p kivact-docs --all-targets --all-features
-rg -n "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない
+rg -n --glob '!dev/xtask/src/state/**' "xtask-allow\(state-fields\)" crates dev examples templates     # W1c の後：何も出ない（検出の文字列の directory は除く）
 ```
 
 - W5a・W5b：xtask を `--only local` にし、clippy と test に `XD` を足し、`cargo check -p kivact-docs` を行わない。
@@ -339,7 +339,7 @@ tier b の compile の対象外：なし。
 | T0 | T22 | T | `workspace.toml`、`[workspace.lints.rust]`、`redundant_imports` の警告の file（全体） | — |
 
 前提の確認：W1b の全 lane。
-tier b の compile の対象外：なし。`rg -n "xtask-allow\(state-fields\)"` が空。
+tier b の compile の対象外：なし。`rg -n --glob '!dev/xtask/src/state/**' "xtask-allow\(state-fields\)" crates dev examples templates` が空。
 
 ### W2a：protocol の新設と各 crate の内部（公開 API は変えない）
 
