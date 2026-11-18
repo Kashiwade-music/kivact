@@ -49,7 +49,12 @@ impl Default for LayoutState {
     /// A new state has its first computation pending.
     fn default() -> Self {
         Self {
-            no_grid: TStyle::default(),
+            // Positioned like every node (`NodeStyle::default`), so a grid
+            // container without tracks is the containing block of its absolute children.
+            no_grid: TStyle {
+                position: taffy::Position::Relative,
+                ..TStyle::default()
+            },
             pending: Pending::Dirty {
                 relayout: Vec::new(),
             },

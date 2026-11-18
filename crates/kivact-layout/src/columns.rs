@@ -263,6 +263,10 @@ pub(crate) struct NodeLayoutValues {
     /// a cached ancestor still needs a final layout (`finish_rounding` rounds it
     /// from its nearest rounded ancestor).
     pub(crate) never_rounded: BTreeSet<usize>,
+    /// The track geometry of each grid container (`position + 1`) that has an
+    /// absolute child, from its last full layout: the out-of-flow pass places
+    /// that child by its grid lines (`tree::root`). Other slots have no entry.
+    pub(crate) grid_infos: BTreeMap<usize, taffy::DetailedLayoutInfo<String>>,
 }
 
 impl Default for NodeLayoutValues {
@@ -285,6 +289,7 @@ impl Default for NodeLayoutValues {
             origin: vec![None],
             scaled: BTreeSet::new(),
             never_rounded: BTreeSet::new(),
+            grid_infos: BTreeMap::new(),
         }
     }
 }
@@ -391,6 +396,7 @@ impl NodeLayoutColumns {
         values.below[index] = 0;
         values.origin[index] = None;
         values.scaled.remove(&index);
+        values.grid_infos.remove(&index);
         values.never_rounded.insert(index);
     }
 }
@@ -469,7 +475,7 @@ fn scaled_dimension(
     match value.tag() {
         CompactLength::LENGTH_TAG => taffy::Dimension::length(value.value() * scale as f32),
         CompactLength::PERCENT_TAG => taffy::Dimension::percent(value.value() * scale as f32),
-        CompactLength::CALC_TAG => taffy::Dimension::calc(scaled_calc(
+        _ if value.into_raw().is_plain_calc() => taffy::Dimension::calc(scaled_calc(
             value.into_raw().calc_value(),
             scale,
             calcs,
@@ -493,7 +499,7 @@ fn scaled_length(
         CompactLength::PERCENT_TAG => {
             taffy::LengthPercentageAuto::percent(value.into_raw().value() * scale as f32)
         }
-        CompactLength::CALC_TAG => taffy::LengthPercentageAuto::calc(scaled_calc(
+        _ if value.into_raw().is_plain_calc() => taffy::LengthPercentageAuto::calc(scaled_calc(
             value.into_raw().calc_value(),
             scale,
             calcs,

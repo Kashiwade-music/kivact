@@ -110,6 +110,87 @@ fn rounding_matches_taffy_at_negative_half_offsets() {
 }
 
 #[test]
+fn an_absolute_child_is_placed_from_its_parent_and_a_root_stays_at_the_origin() {
+    let zero = kivact_types::Edges {
+        top: Dimension::Px(0.0),
+        right: Dimension::Px(0.0),
+        bottom: Dimension::Px(0.0),
+        left: Dimension::Px(0.0),
+    };
+    let mut tree = Two::new(10.0);
+    tree.props[0].margin = kivact_types::Edges {
+        top: Dimension::Px(9.0),
+        left: Dimension::Px(7.0),
+        ..zero
+    };
+    tree.props[1].margin = zero;
+    tree.props[1].position = kivact_types::Position::Absolute;
+    tree.props[1].inset = kivact_types::Edges {
+        top: Dimension::Px(30.0),
+        right: Dimension::Auto,
+        bottom: Dimension::Auto,
+        left: Dimension::Px(20.0),
+    };
+    let layout = laid_out(&tree);
+    let root = layout.layout_at(0).expect("root laid out");
+    assert_eq!((root.location.x, root.location.y), (0.0, 0.0));
+    let child = layout.layout_at(1).expect("child laid out");
+    assert_eq!((child.location.x, child.location.y), (20.0, 30.0));
+    assert_eq!((child.size.width, child.size.height), (10.0, 10.0));
+}
+
+#[test]
+fn an_absolute_grid_child_is_placed_in_the_area_of_its_grid_lines() {
+    use kivact_types::{
+        Breadth, GridContainer, GridLine, GridPos, GridProps, GridTrack, TrackSize,
+    };
+    let track = |px: f64| {
+        GridTrack::Single(TrackSize {
+            min: Breadth::Size(Dimension::Px(px)),
+            max: Breadth::Size(Dimension::Px(px)),
+        })
+    };
+    let second = GridLine {
+        start: GridPos::Line(2),
+        end: GridPos::Line(3),
+    };
+    let mut tree = Two::new(10.0);
+    tree.props[0].display = kivact_types::Display::Grid;
+    tree.props[0].grid = Some(Box::new(GridProps {
+        container: Some(GridContainer {
+            columns: vec![track(30.0), track(70.0)],
+            rows: vec![track(40.0), track(60.0)],
+            ..Default::default()
+        }),
+        ..Default::default()
+    }));
+    tree.props[1].margin = kivact_types::Edges {
+        top: Dimension::Px(0.0),
+        right: Dimension::Px(0.0),
+        bottom: Dimension::Px(0.0),
+        left: Dimension::Px(0.0),
+    };
+    tree.props[1].position = kivact_types::Position::Absolute;
+    tree.props[1].inset = kivact_types::Edges {
+        top: Dimension::Px(5.0),
+        right: Dimension::Auto,
+        bottom: Dimension::Auto,
+        left: Dimension::Px(5.0),
+    };
+    tree.props[1].grid = Some(Box::new(GridProps {
+        column: second,
+        row: second,
+        ..Default::default()
+    }));
+    let layout = laid_out(&tree);
+    // The area of column line 2..3 and row line 2..3 starts at (30, 40);
+    // the insets move the box 5 px into it.
+    let child = layout.layout_at(1).expect("child laid out");
+    assert_eq!((child.location.x, child.location.y), (35.0, 45.0));
+    assert_eq!((child.size.width, child.size.height), (10.0, 10.0));
+}
+
+#[test]
 fn rebuild_all_rounds_every_node_again() {
     let tree = Two::new(50.0);
     let mut layout = laid_out(&tree);
