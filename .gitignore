@@ -26,16 +26,16 @@ target
 /.claude/
 /CLAUDE.md
 
-# DevTools and Python artifacts
+# DevTools artifacts and Python caches (dev/tools and example scripts)
 __pycache__/
 *.pyc
 .venv/
 *.egg-info/
-python/kivact-devtools/build/
 .kivact/review/
 .kivact/traces/
 
-# Local reports: the KPI reports of dev/bench/run.sh and the state audit of
-# `cargo xtask check --only state-fields --report-audit`.
+# Local reports: the KPI reports of dev/bench/run.sh.
 /dev/bench/results/
-/dev/xtask/state-audit.md
+
+# Generated architecture diagrams (`cargo xtask diagrams`).
+/architecture/

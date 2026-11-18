@@ -81,7 +81,7 @@ API リファレンスは rustdoc です: `cargo doc -p kivact --open`
 workspace は 49 package で構成します。アプリは `kivact` と必要な UI キットを使います。
 内部の library は runtime、engine、backend、test harness の責務で分かれています。
 図は主な依存経路です。全体は [アーキテクチャ](docs/for-kivact-developer/architecture.md) と
-[生成した依存図](architecture/) を参照してください。
+`cargo xtask diagrams` が `architecture/` に生成する依存図を参照してください。
 
 ```mermaid
 flowchart TD
@@ -155,7 +155,7 @@ flowchart TD
 | `arvane-asset` | `crates/arvane-asset` | 画像・font の読込、decode、asset cache。 |
 | `kivact-gpu-share` | `crates/kivact-gpu-share` | GPU texture 共有の契約と native helper（実験的）。 |
 | `gpu-interop-producer` | `dev/tests/gpu-interop-producer` | GPU 共有の試験で使う独立 renderer。 |
-| `xtask` | `dev/xtask` | workspace 検査と architecture 図の生成。 |
+| `xtask` | `dev/xtask` | workspace 検査。`cargo xtask diagrams` が architecture 図を生成する。 |
 | `kivact-bench` | `dev/bench` | 性能の指標の手動計測（CI では実行しない）。 |
 
 ## `kivact` の Cargo feature
@@ -188,7 +188,7 @@ flowchart TD
 | `templates/basic/` | テスト付きの最小のアプリ |
 | `docs/` | 利用者ガイド、恒久的な architecture・decisions・製品戦略 |
 | `dev/` | ワークスペースの検査、公開 API のテスト、性能の手動計測 |
-| `architecture/` | 生成した crate と module の依存関係の図 |
+| `architecture/` | `cargo xtask diagrams` が生成する crate と module の依存関係の図（commit しない） |
 
 ## 開発への参加
 
