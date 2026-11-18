@@ -56,11 +56,9 @@ pub enum RendererChange {
         adapter: String,
         /// Creating the device.
         init: Duration,
-        // xtask-allow(state-fields): statistic: how long the first swapchain took when it was configured in the background, shown as `configure_ms`; absent when it was configured on the UI thread; nothing branches on it
         /// Configuring the window's first swapchain, when it was configured
         /// in the background.
         configure: Option<Duration>,
-        // xtask-allow(state-fields): independent: the adapter when the device can import shared textures (feature gpu-interop and an adapter that supports it), absent otherwise; it depends on the device alone, while configure depends on where the swapchain was configured, so all pairs occur
         /// The adapter, when the device can import textures an external
         /// render engine shares (feature `gpu-interop`): a new
         /// [`GpuAdapter::generation`] means the images imported before are

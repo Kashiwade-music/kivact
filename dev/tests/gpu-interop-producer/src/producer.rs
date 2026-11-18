@@ -18,16 +18,15 @@ enum Kind {
     Wgpu,
 }
 
+// xtask-allow(state): legacy: shared, next; the pool's handles until shared_textures or signal_prepared takes them, once per engine; draw numbers frames before or after that,
 /// An engine sharing its frames as one image of a window.
 pub struct Producer {
     image: ExternalImageId,
     width: u32,
     height: u32,
     engine: Box<dyn Engine>,
-    // xtask-allow(state-fields): independent: the pool's handles until shared_textures or signal_prepared takes them, once per engine; draw numbers frames before or after that, since the engine's first frames wait for the preparation signal
     /// The pool's handles, until they are shared.
     shared: Option<SharedTextures>,
-    // xtask-allow(state-fields): identity: the number of the frame drawn next
     /// The frame drawn next.
     next: u64,
 }

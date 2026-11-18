@@ -57,6 +57,7 @@ impl FrameClock {
     }
 }
 
+// xtask-allow(state): legacy: next_id, next_generation; the next image id, given to each image the store makes
 /// Loads, decodes and keeps images for one host instance (see the module
 /// invariants).
 pub struct AssetStore {
@@ -69,9 +70,7 @@ pub struct AssetStore {
     pub(super) frame: FrameClock,
     /// Ticks once per use; orders uses within a frame.
     pub(super) tick: u64,
-    // xtask-allow(state-fields): identity: the next image id, given to each image the store makes
     pub(super) next_id: u64,
-    // xtask-allow(state-fields): identity: the next entry generation; a job result of another generation is dropped
     pub(super) next_generation: u64,
     pub(super) budget: usize,
     pub(super) bytes: usize,

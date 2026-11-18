@@ -98,6 +98,7 @@ impl Uia {
     }
 }
 
+// xtask-allow(state): legacy: surface, start, events, original_proc, cursor, decoder, mouse, modifiers, clicks, environment, scale_source, cpu, services, uia
 pub(super) struct State {
     pub(super) shared: Arc<Shared>,
     pub(super) native: Arc<Native>,

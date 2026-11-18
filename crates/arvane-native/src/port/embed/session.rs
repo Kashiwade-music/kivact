@@ -24,6 +24,7 @@ enum ChildLifecycle {
     Disposed,
     Leaked,
 }
+// xtask-allow(state): legacy: state, keys, resize, answers
 pub(in crate::port) struct Session {
     state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
