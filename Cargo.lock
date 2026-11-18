@@ -252,6 +252,7 @@ dependencies = [
  "arvane-asset",
  "arvane-compose",
  "arvane-native",
+ "arvane-protocol",
  "arvane-render",
  "arvane-shell",
  "arvane-text",
@@ -277,6 +278,7 @@ dependencies = [
 name = "arvane-compose"
 version = "0.1.0"
 dependencies = [
+ "arvane-protocol",
  "arvane-render",
  "kivact-gpu-share",
  "kivact-types",
@@ -294,6 +296,7 @@ dependencies = [
  "accesskit_windows",
  "accesskit_winit",
  "arboard",
+ "arvane-protocol",
  "arvane-shell",
  "kivact-types",
  "libc",
@@ -312,9 +315,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "arvane-protocol"
+version = "0.1.0"
+dependencies = [
+ "kivact-types",
+]
+
+[[package]]
 name = "arvane-render"
 version = "0.1.0"
 dependencies = [
+ "arvane-protocol",
  "glifo",
  "kivact-types",
  "skrifa",
@@ -328,6 +339,7 @@ dependencies = [
 name = "arvane-shell"
 version = "0.1.0"
 dependencies = [
+ "arvane-protocol",
  "kivact-types",
  "raw-window-handle",
 ]
@@ -336,6 +348,7 @@ dependencies = [
 name = "arvane-text"
 version = "0.1.0"
 dependencies = [
+ "arvane-protocol",
  "fontique",
  "hashbrown 0.17.1",
  "kivact-types",
@@ -347,6 +360,7 @@ name = "arvane-virtual"
 version = "0.1.0"
 dependencies = [
  "arvane-native",
+ "arvane-protocol",
  "arvane-shell",
  "kivact-types",
 ]
@@ -2401,6 +2415,7 @@ version = "0.1.0"
 dependencies = [
  "arvane",
  "arvane-native",
+ "arvane-protocol",
  "arvane-shell",
  "arvane-virtual",
  "kivact-editing",

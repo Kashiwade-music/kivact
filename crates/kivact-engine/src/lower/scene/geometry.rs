@@ -5,8 +5,8 @@ use crate::lower::context::Context;
 use crate::lower::fill::Boxes;
 use crate::lower::sanitize;
 use crate::lower::shape::BoxShape;
-use kivact_types::render::RenderCmd as D;
-use kivact_types::{DrawCmd, DrawingShape, Edges, Fill, Point, Rect};
+use arvane_protocol::RenderCmd as D;
+use kivact_types::{DrawCmd, Edges, Fill, Point, Rect};
 impl Context<'_> {
     pub(super) fn paint_geometry(&self, cmd: &DrawCmd, state: &mut State<'_>) -> bool {
         let origin = state.origin;
@@ -81,7 +81,7 @@ impl Context<'_> {
             // As before fills had layers.
             state.out.push(D::Rect {
                 rect: r,
-                fill: kivact_types::render::Paint::Solid(tint.color(*color)),
+                fill: arvane_protocol::RasterPaint::Solid(tint.color(*color)),
             });
         } else {
             let boxes = Boxes::uniform(BoxShape::Rect(r));
@@ -105,19 +105,13 @@ impl Context<'_> {
             unreachable!("invariant: matching command family");
         };
         let origin = state.origin;
-        let rect = |r: Rect| Rect {
-            x: origin.x + r.x,
-            y: origin.y + r.y,
-            width: r.width,
-            height: r.height,
-        };
         let origin_point = Point {
             x: origin.x,
             y: origin.y,
         };
         let tint = &state.current_tint;
 
-        let shape = crate::lower::scene_shape::shape(&painted.shape);
+        let shape = painted.shape.to_shape();
         // Before lowering arcs and before any paint resource.
         if let kivact_types::scene::Shape::Path { cmds, .. } = &shape
             && !sanitize::path(cmds)
@@ -125,30 +119,17 @@ impl Context<'_> {
             self.drop_command();
             return;
         }
-        let shape = crate::lower::path::shifted(
-            shape,
-            Point {
-                x: origin.x,
-                y: origin.y,
-            },
-        );
-        let mut area = match &painted.shape {
-            DrawingShape::Basic { rect: bounds, .. }
-            | DrawingShape::Rounded { rect: bounds, .. } => rect(*bounds),
-            DrawingShape::Path { .. } => shape.bounds(),
+        let shape = shape.translated(Point {
+            x: origin.x,
+            y: origin.y,
+        });
+        let local = painted.paint_area();
+        let area = Rect {
+            x: origin.x + local.x,
+            y: origin.y + local.y,
+            width: local.width,
+            height: local.height,
         };
-        if let Some(stroke) = &painted.stroke {
-            // A straight line still has a nonzero paint area.
-            let pad = stroke.width.max(0.0) / 2.0;
-            if area.width == 0.0 {
-                area.x -= pad;
-                area.width = 2.0 * pad;
-            }
-            if area.height == 0.0 {
-                area.y -= pad;
-                area.height = 2.0 * pad;
-            }
-        }
         let mut push = |paint| {
             state.out.push(match &painted.stroke {
                 Some(stroke) => D::StrokeShape {
@@ -163,7 +144,7 @@ impl Context<'_> {
             })
         };
         match &painted.paint {
-            Fill::Solid(color) => push(kivact_types::render::Paint::Solid(tint.color(*color))),
+            Fill::Solid(color) => push(arvane_protocol::RasterPaint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 for layer in layers.iter().rev() {
                     match self.layer_paint(layer, area, origin_point) {

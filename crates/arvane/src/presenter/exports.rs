@@ -1,7 +1,7 @@
 //! Role: The GPU export pools the window has made, and pending engine notices.
 
+use arvane_protocol::ExportLoss;
 use kivact_types::ids::DrawableId;
-use kivact_types::render::ExportLoss;
 use std::collections::HashMap;
 
 /// A change of the GPU export pools that the engine must act on.

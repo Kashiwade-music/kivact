@@ -7,12 +7,13 @@
 
 use std::sync::Arc;
 
+use arvane_protocol::{
+    BoxShadow, CompositeLayer, Composition, GradientShape, LayerEffects, LayerFilter, LayerItem,
+    Pattern, PatternSource, RasterGradient, RasterPaint, RenderBackdrop, RenderCmd, RenderMask,
+    RenderScene,
+};
 use kivact_types::AssetBytes;
 use kivact_types::paint::{MaskComposite, MaskMode};
-use kivact_types::render::{
-    BoxShadow, CompositeLayer, Composition, Gradient, GradientShape, LayerEffects, LayerFilter,
-    LayerItem, Paint, Pattern, PatternSource, RenderBackdrop, RenderCmd, RenderMask, RenderScene,
-};
 use kivact_types::scene::{PathCmd, Radius, RoundedRect, Shape};
 use kivact_types::{
     BlendMode, ColorMatrix, Extend, FillRule, LineCap, Pixels, Rect, Size, Stroke, Transform,
@@ -98,7 +99,7 @@ fn vocabulary_root(checker: &Pixels) -> CompositeLayer {
             },
             raster(vec![RenderCmd::FillShape {
                 shape: Shape::RoundedRect(RoundedRect::new(rect(10.0, 150.0, 70.0, 40.0), 12.0)),
-                paint: Paint::Solid(color_alpha(WHITE, 0.3)),
+                paint: RasterPaint::Solid(color_alpha(WHITE, 0.3)),
             }]),
             LayerItem::Layer {
                 index: 5,
@@ -132,7 +133,7 @@ fn masked_group() -> CompositeLayer {
                 scene: RenderScene {
                     commands: vec![RenderCmd::FillShape {
                         shape: Shape::Rect(rect(160.0, 10.0, 70.0, 50.0)),
-                        paint: Paint::Gradient(Gradient {
+                        paint: RasterPaint::Gradient(RasterGradient {
                             shape: GradientShape::Linear {
                                 start: pt(160.0, 35.0),
                                 end: pt(230.0, 35.0),
@@ -167,7 +168,7 @@ fn shadow_group() -> CompositeLayer {
         },
         vec![raster(vec![RenderCmd::FillShape {
             shape: Shape::Rect(rect(10.0, 80.0, 50.0, 30.0)),
-            paint: Paint::Gradient(Gradient {
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Radial {
                     center: pt(35.0, 95.0),
                     radius_x: 25.0,
@@ -287,7 +288,7 @@ fn transformed_scene() -> Vec<RenderCmd> {
                 rect: rect(10.0, 10.0, 60.0, 40.0),
                 radii: [Radius { x: 20.0, y: 10.0 }; 4],
             }),
-            paint: Paint::Gradient(Gradient {
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Radial {
                     center: pt(40.0, 30.0),
                     radius_x: 30.0,
@@ -319,7 +320,7 @@ fn tiled_scene(checker: Pixels) -> Vec<RenderCmd> {
         // A tile larger than the atlas takes: drawn copy by copy.
         RenderCmd::FillShape {
             shape: Shape::Rect(rect(90.0, 180.0, 150.0, 20.0)),
-            paint: Paint::Pattern(Pattern {
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image { image: checker },
                 tile: rect(0.0, 0.0, 300.0, 300.0),
                 repeat_x: true,
@@ -333,7 +334,7 @@ fn stroke_scene(checker: Pixels) -> Vec<RenderCmd> {
     vec![
         RenderCmd::FillShape {
             shape: Shape::Rect(rect(120.0, 80.0, 50.0, 30.0)),
-            paint: Paint::Pattern(Pattern {
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image {
                     image: checker.clone(),
                 },
@@ -407,7 +408,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 rule: FillRule::NonZero,
             },
             stroke: Stroke::new(5.0),
-            paint: Paint::Gradient(Gradient {
+            paint: RasterPaint::Gradient(RasterGradient {
                 shape: GradientShape::Linear {
                     start: pt(150.0, 66.0),
                     end: pt(230.0, 66.0),
@@ -428,7 +429,7 @@ fn shadow_scene(checker: Pixels) -> Vec<RenderCmd> {
                 cap: LineCap::Square,
                 ..Stroke::new(5.0)
             },
-            paint: Paint::Pattern(Pattern {
+            paint: RasterPaint::Pattern(Pattern {
                 source: PatternSource::Image { image: checker },
                 tile: rect(0.0, 0.0, 4.0, 4.0),
                 repeat_x: true,

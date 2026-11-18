@@ -4,7 +4,7 @@
 //! Colors are clamped before lowering. These adaptations do not certify a
 //! complete scene: Arvane rendering validation is the final boundary.
 
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{
     ClipShape, CoordinateShape, Corners, Fill, FillImage, FillLayer, FillSize, GradientKind, Len,
     PaintProps, Point, RadialExtent, Rect, Rgba,
@@ -193,18 +193,16 @@ fn stops(stops: &[(f64, Rgba)]) -> bool {
 }
 /// A gradient Arvane draws: valid stops and finite geometry (a conic one
 /// sweeps forward).
-fn gradient(value: &kivact_types::render::Gradient) -> bool {
+fn gradient(value: &arvane_protocol::RasterGradient) -> bool {
     stops(&value.stops)
         && match value.shape {
-            kivact_types::render::GradientShape::Linear { start, end } => {
-                point(start) && point(end)
-            }
-            kivact_types::render::GradientShape::Radial {
+            arvane_protocol::GradientShape::Linear { start, end } => point(start) && point(end),
+            arvane_protocol::GradientShape::Radial {
                 center,
                 radius_x,
                 radius_y,
             } => point(center) && length(radius_x) && length(radius_y),
-            kivact_types::render::GradientShape::RadialTwoCircle {
+            arvane_protocol::GradientShape::RadialTwoCircle {
                 start_center,
                 start_radius,
                 end_center,
@@ -215,25 +213,25 @@ fn gradient(value: &kivact_types::render::Gradient) -> bool {
                     && length(start_radius)
                     && length(end_radius)
             }
-            kivact_types::render::GradientShape::Conic {
+            arvane_protocol::GradientShape::Conic {
                 center,
                 start_deg,
                 end_deg,
             } => point(center) && finite(&[start_deg, end_deg]) && end_deg > start_deg,
         }
 }
-pub(crate) fn fill(value: &kivact_types::render::Paint) -> bool {
+pub(crate) fn fill(value: &arvane_protocol::RasterPaint) -> bool {
     match value {
-        kivact_types::render::Paint::Solid(_) => true,
-        kivact_types::render::Paint::Pattern(p) => {
+        arvane_protocol::RasterPaint::Solid(_) => true,
+        arvane_protocol::RasterPaint::Pattern(p) => {
             (match &p.source {
-                kivact_types::render::PatternSource::Gradient(g) => gradient(g),
-                kivact_types::render::PatternSource::Image { .. } => true,
+                arvane_protocol::PatternSource::Gradient(g) => gradient(g),
+                arvane_protocol::PatternSource::Image { .. } => true,
             }) && rect(p.tile)
                 && p.tile.width > 0.0
                 && p.tile.height > 0.0
         }
-        kivact_types::render::Paint::Gradient(g) => gradient(g),
+        arvane_protocol::RasterPaint::Gradient(g) => gradient(g),
     }
 }
 /// Whether the commands form contours with finite points and arcs.

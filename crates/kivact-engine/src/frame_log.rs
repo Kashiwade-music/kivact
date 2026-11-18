@@ -79,7 +79,7 @@ impl FrameLog {
 
     /// Record a frame that was just handed to the platform, with the work
     /// it did.
-    pub(crate) fn frame(&mut self, times: FrameTimes, stats: &kivact_types::render::FrameStats) {
+    pub(crate) fn frame(&mut self, times: FrameTimes, stats: &kivact_types::export::FrameStats) {
         if self.file.is_none() {
             return;
         }

@@ -3,8 +3,8 @@
 use crate::error::{Failure, FailureKind};
 use crate::presentation::Renderer;
 use kivact_types::Size;
+use kivact_types::export::{ExportedFrame, FrameStats};
 use kivact_types::ids::DrawableId;
-use kivact_types::render::{ExportedFrame, FrameStats};
 use std::time::Duration;
 
 /// A frame's logical extent and the physical scale it is rasterized at:

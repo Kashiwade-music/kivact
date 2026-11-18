@@ -101,7 +101,7 @@ impl TextShaper for TextMeasurer {
         )
     }
 
-    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+    fn outline(&self, run: &kivact_types::shaped::GlyphRun) -> Vec<kivact_types::PathCmd> {
         arvane::glyph_outline(run)
     }
 }

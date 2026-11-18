@@ -10,6 +10,7 @@ description = "Arvane native backend: windows, input, presentation and native ac
 [dependencies]
 arvane-shell = { path = "../arvane-shell", version = "0.1.0" }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }
 winit = { workspace = true }
 softbuffer = "0.4.8"
 raw-window-handle = "0.6"

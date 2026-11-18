@@ -20,8 +20,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use kivact_types::render::SpanStyle;
-use kivact_types::render::TextSpan;
+use arvane_protocol::ResolvedSpan;
+use arvane_protocol::ResolvedSpanStyle;
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
@@ -58,8 +58,8 @@ struct SpanKey {
 }
 
 impl SpanKey {
-    fn new(span: &TextSpan) -> Self {
-        let SpanStyle {
+    fn new(span: &ResolvedSpan) -> Self {
+        let ResolvedSpanStyle {
             font_size,
             weight,
             family,
@@ -125,7 +125,7 @@ impl Key {
     /// apart (the text before its case conversion).
     pub(crate) fn new(
         text: &str,
-        spans: &[TextSpan],
+        spans: &[ResolvedSpan],
         style: &ComputedTextStyle,
         line_height: f64,
     ) -> Self {
@@ -257,7 +257,7 @@ mod tests {
     use super::*;
     use crate::TextEngine;
     use crate::cache::TextKeyRef;
-    use kivact_types::render::RichText;
+    use arvane_protocol::RichText;
     use std::sync::Arc;
 
     /// The bundled test font (Tuffy; a copy of the `arvane` crate's file, so

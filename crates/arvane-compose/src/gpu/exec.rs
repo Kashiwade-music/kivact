@@ -12,11 +12,10 @@ use super::targets;
 use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
 use crate::plan::{self, ChunkTask, Op, Plan, PlannedExport, Redraw, TargetKind, TargetSpec};
+use arvane_protocol::{Composition, FrameReport, LayerKey, RenderScene};
 use arvane_render::Canvas;
+use kivact_types::export::{ExportedFrame, FrameStats};
 use kivact_types::geometry::Point;
-use kivact_types::render::{
-    Composition, ExportedFrame, FrameReport, FrameStats, LayerKey, RenderScene,
-};
 
 /// What drawing a frame's operations and sending its exports produced: the exported frames, the external frames missed, and the sinks whose GPU frame waits for a slot.
 type DrawOutcome = (
@@ -223,7 +222,7 @@ impl GpuContext {
         &self,
         encoder: &mut wgpu::CommandEncoder,
         target: u32,
-        rect: Option<kivact_types::render::PixelRect>,
+        rect: Option<arvane_protocol::PixelRect>,
         frame: &FrameTextures<'_>,
     ) -> Result<(), ComposeError> {
         let view = view(frame.target(target)?);

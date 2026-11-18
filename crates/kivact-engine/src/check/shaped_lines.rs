@@ -118,7 +118,7 @@ pub(super) fn shape(
 }
 
 fn line_inks(
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     origin: Point,
     ink: bool,
 ) -> Vec<Option<Rect>> {

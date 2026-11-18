@@ -494,7 +494,7 @@ impl HostNode {
                     return false;
                 };
                 match &r.shape {
-                    Some(shape) => crate::lower::scene_shape::shape(shape).contains(point),
+                    Some(shape) => shape.to_shape().contains(point),
                     None => r.local_rect.contains(point),
                 }
             })

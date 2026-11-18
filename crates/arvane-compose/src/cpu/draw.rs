@@ -2,11 +2,12 @@
 
 use std::collections::HashMap;
 
+use arvane_protocol::PixelRect;
+use kivact_types::Composite;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::geometry3d::Projective;
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::{Composite, PixelRect};
 
 use super::blend::combine;
 use super::surface::{Pixmap, Premul, Texels, sample_bilinear, sample_nearest};

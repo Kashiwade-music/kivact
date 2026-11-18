@@ -13,8 +13,8 @@
 use crate::draw::{self, GlyphRun};
 use crate::error::RenderError;
 use crate::{images, paint, validate};
+use arvane_protocol::{PixelRect, RenderScene};
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{PixelRect, RenderScene};
 use kivact_types::{Point, Rect as LogicalRect};
 use std::sync::Arc;
 use vello_common::filter_effects::Filter;

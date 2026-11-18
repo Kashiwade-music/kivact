@@ -35,8 +35,11 @@
 //! - A text color delta colors the text below the node; the nearest
 //!   ancestor-or-self with an active one wins.
 
-use kivact_types::{ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, StateStyles};
+use kivact_types::{
+    ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, StateSet, StateStyles, StyleState,
+};
 
+use crate::contract::HostEvent;
 use crate::model::Model;
 use crate::mutation::Mutation;
 
@@ -89,42 +92,79 @@ impl Model {
     /// The state deltas of `id` that apply now, lowest first; with `entering`,
     /// its enter paint too.
     fn deltas(&self, id: NodeId, entering: bool) -> Vec<&PaintDelta> {
-        let Some(node) = self.tree.get(id) else {
+        let Some(s) = self.tree.get(id).and_then(|n| n.states()) else {
             return Vec::new();
         };
-        let Some(s) = node.states() else {
-            return Vec::new();
+        let mut wanted = StateSet::EMPTY;
+        for state in StyleState::HOST {
+            if s.delta(state).is_some() {
+                wanted.insert(state);
+            }
+        }
+        let active = self.active_states(id, entering, wanted);
+        StyleState::HOST
+            .into_iter()
+            .filter(|state| active.contains(*state))
+            .filter_map(|state| s.delta(state))
+            .collect()
+    }
+
+    /// The states among `wanted` that `id` is in now. Only those are
+    /// evaluated (a group lookup walks the ancestors).
+    pub(crate) fn active_states(&self, id: NodeId, entering: bool, wanted: StateSet) -> StateSet {
+        let me = Some(kivact_types::FocusTarget {
+            node: id,
+            region: None,
+        });
+        let mut active = StateSet::EMPTY;
+        for state in StyleState::HOST {
+            if !wanted.contains(state) {
+                continue;
+            }
+            let on = match state {
+                StyleState::Focus => self.focused() == me,
+                StyleState::FocusVisible => self.focus.visible() && self.focused() == me,
+                StyleState::GroupFocus => self.is_group_focused(id),
+                StyleState::GroupHover => self.is_group_hovered(id),
+                StyleState::Hover => self.is_hovered(id),
+                StyleState::Active => self.is_pressed(id),
+                StyleState::Enter => entering,
+                StyleState::Exit => self.tree.leaving(id),
+                StyleState::Disabled | StyleState::Selected => false,
+            };
+            if on {
+                active.insert(state);
+            }
+        }
+        active
+    }
+
+    /// Tell the client the states `id` reports (`StateStyles::report`)
+    /// when they differ from the ones told last (`Model::reported_states`).
+    pub(crate) fn report_states(&mut self, id: NodeId) {
+        let report = self
+            .tree
+            .get(id)
+            .and_then(|n| n.states())
+            .map_or(StateSet::EMPTY, |s| s.report);
+        let now = if report.is_empty() {
+            StateSet::EMPTY
+        } else {
+            self.active_states(id, false, report)
         };
-        [
-            s.focus.as_deref().filter(|_| {
-                self.focused()
-                    == Some(kivact_types::FocusTarget {
-                        node: id,
-                        region: None,
-                    })
-            }),
-            s.focus_visible.as_deref().filter(|_| {
-                self.focus.visible()
-                    && self.focused()
-                        == Some(kivact_types::FocusTarget {
-                            node: id,
-                            region: None,
-                        })
-            }),
-            s.group_focus
-                .as_deref()
-                .filter(|_| self.is_group_focused(id)),
-            s.group_hover
-                .as_deref()
-                .filter(|_| self.is_group_hovered(id)),
-            s.hover.as_deref().filter(|_| self.is_hovered(id)),
-            s.pressed.as_deref().filter(|_| self.is_pressed(id)),
-            s.enter.as_deref().filter(|_| entering),
-            s.exit.as_deref().filter(|_| self.tree.leaving(id)),
-        ]
-        .into_iter()
-        .flatten()
-        .collect()
+        let told = self.reported_states.get(&id).copied().unwrap_or_default();
+        if now == told {
+            return;
+        }
+        if now.is_empty() {
+            self.reported_states.remove(&id);
+        } else {
+            self.reported_states.insert(id, now);
+        }
+        self.events.push(HostEvent::StatesChanged {
+            node: id,
+            states: now,
+        });
     }
 
     /// Replace the state styles of `id` when they differ. A node made a
@@ -141,7 +181,9 @@ impl Model {
             .get(id)
             .is_some_and(|n| n.states().is_some_and(|s| s.group) != states.group);
         let members = if regrouped {
-            self.group_members(id, |s| s.group_hover.is_some() || s.group_focus.is_some())
+            self.group_members(id, |s| {
+                s.wants(StyleState::GroupHover) || s.wants(StyleState::GroupFocus)
+            })
         } else {
             Vec::new()
         };
@@ -157,6 +199,7 @@ impl Model {
         for x in members {
             self.restyled(x);
         }
+        self.report_states(id);
         changed
     }
 
@@ -176,6 +219,7 @@ impl Model {
                 .insert(crate::model::changes::LayoutReasons::PASS);
             self.changes.moved();
         }
+        self.report_states(id);
     }
 
     /// The paint of `id` with its active state deltas applied.

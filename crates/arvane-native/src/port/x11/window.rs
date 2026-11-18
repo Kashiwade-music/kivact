@@ -215,13 +215,13 @@ impl ShellWindow for Window {
     }
     fn replace_accessibility(
         &mut self,
-        tree: &kivact_types::render::SemanticsTree,
+        tree: &arvane_protocol::SemanticsTree,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.replace(tree)
     }
     fn update_accessibility(
         &mut self,
-        update: &kivact_types::render::SemanticsUpdate,
+        update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }
@@ -348,7 +348,7 @@ impl ShellWindow for Window {
         &mut self,
         width: u32,
         height: u32,
-        damage: Option<&[kivact_types::render::PixelRect]>,
+        damage: Option<&[arvane_protocol::PixelRect]>,
         draw: &mut dyn FnMut(&mut [u32], arvane_shell::BufferAge) -> bool,
     ) -> Result<bool, ShellError> {
         let (Some(w), Some(h)) = (NonZeroU32::new(width), NonZeroU32::new(height)) else {

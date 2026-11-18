@@ -6,7 +6,7 @@
 //! changed the target: a paint or state style write (a signal, a style
 //! change), the host's hover, pressed or focus, a group state, an
 //! entrance or an exit. Each property has a track (`PropTrack`) that moves
-//! the numbers `kivact_types::prop_interp` takes from the paint and the
+//! the numbers `interp::prop_interp` takes from the paint and the
 //! text color: the canonical transform's parts and origin component by
 //! component (so `rotate(0)` to `rotate(360)` turns once); what it does
 //! not interpolate switches to the target at once.
@@ -24,5 +24,6 @@
 //! - While nothing can be drawn the transitions keep their place in time
 //!   (`Model::shift_state_times`): they go on from where they paused.
 
+pub(crate) mod interp;
 pub(crate) mod state;
 mod steps;

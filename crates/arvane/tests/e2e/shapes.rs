@@ -4,7 +4,7 @@
 //! their fill rule, what is drawn agreeing with `Shape::contains`, and
 //! stroke caps, joins, dashes and dots.
 
-use kivact_types::render::RenderCmd;
+use arvane_protocol::RenderCmd;
 use kivact_types::scene::{PathCmd, Shape};
 use kivact_types::{FillRule, LineCap, LineJoin, Stroke};
 

@@ -8,7 +8,7 @@ use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::scene_cache::Entry;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{ComputedTextStyle, DrawList, Rect};
 use std::sync::Arc;
 

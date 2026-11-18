@@ -2,7 +2,7 @@
 
 use super::state::GpuContext;
 use crate::ComposeError;
-use kivact_types::render::{Composition, CpuFrame};
+use arvane_protocol::{Composition, CpuFrame};
 use std::sync::mpsc;
 use std::time::Duration;
 

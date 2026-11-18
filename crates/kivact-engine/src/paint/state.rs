@@ -3,7 +3,7 @@
 //! The fields are the paint modules' alone; the model, the host and the
 //! layout pass use the methods (`PaintState`).
 //!
-//! The caches have one role each: a node's normalized base paint (`Look`)
+//! The caches have one role each: a node's normalized base paint (`LayerTraits`)
 //! and its ink, indexed by structural slot beside the model's
 //! placement (`Place`); none copies the
 //! typed props into a general record of facts. While there is no surface
@@ -13,13 +13,13 @@
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 
+use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Size};
 
-pub(crate) use crate::model::{Look, SubtreeFacts};
+pub(crate) use crate::model::{LayerTraits, SubtreeFacts};
 
 /// The parameters of one walk over a paint list; nothing in [`PaintState`]
 /// is changed for its duration (it replaces temporary scale and list swaps).
@@ -64,7 +64,7 @@ pub(crate) enum StaleFacts {
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
     pub(crate) ink: Vec<Cell<Option<Ink>>>,
-    pub(crate) look: Vec<Option<Look>>,
+    pub(crate) look: Vec<Option<LayerTraits>>,
     pub(super) scale: f64,
     pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,

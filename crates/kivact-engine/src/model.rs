@@ -83,7 +83,7 @@ pub(crate) mod states;
 pub(crate) mod text;
 pub(crate) mod transform;
 
-pub(crate) use crate::layer::{EVERYWHERE, Look, SubtreeFacts};
+pub(crate) use crate::layer::{EVERYWHERE, LayerTraits, SubtreeFacts};
 pub(crate) use aggregate::ExternalWrite;
 pub(crate) use aggregate::{DeferredRequest, Model};
 pub(crate) use app_model::{AppClock, AppModel, WindowChange};

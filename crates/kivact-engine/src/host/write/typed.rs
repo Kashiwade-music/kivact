@@ -27,7 +27,7 @@
 //!   semantics, listeners and editing limits never do. `Paint`,
 //!   `TextStyle` and `States` do not name it: they restack when the
 //!   stacking facts they changed differ (`Model::set_prop`, `changed`
-//!   and `sync` compare the node's `Place` and paint `Look`), so a color
+//!   and `sync` compare the node's `Place` and paint `LayerTraits`), so a color
 //!   alone only redraws.
 
 use super::Writer;

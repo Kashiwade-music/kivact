@@ -8,16 +8,16 @@
 
 use std::borrow::Cow;
 
+use arvane_protocol::ResolvedSpan;
 use kivact_types::TextTransform;
-use kivact_types::render::TextSpan;
 
 /// `text` converted by `transform`, and `spans` moved onto it. Borrowed as
 /// they are when nothing changes.
 pub(crate) fn apply<'a>(
     text: &'a str,
-    spans: &'a [TextSpan],
+    spans: &'a [ResolvedSpan],
     transform: TextTransform,
-) -> (Cow<'a, str>, Cow<'a, [TextSpan]>) {
+) -> (Cow<'a, str>, Cow<'a, [ResolvedSpan]>) {
     if transform == TextTransform::None {
         return (Cow::Borrowed(text), Cow::Borrowed(spans));
     }
@@ -50,7 +50,7 @@ pub(crate) fn apply<'a>(
     };
     let spans = spans
         .iter()
-        .map(|span| TextSpan {
+        .map(|span| ResolvedSpan {
             range: moved(span.range.start)..moved(span.range.end),
             style: span.style.clone(),
         })

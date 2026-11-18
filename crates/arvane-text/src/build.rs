@@ -7,8 +7,8 @@
 //! word spacing are parley's: added to each cluster's (each space's)
 //! advance.
 
+use arvane_protocol::ResolvedSpan;
 use kivact_types::FontKerning;
-use kivact_types::render::TextSpan;
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use parley::{
     FontContext, FontFamily, FontFamilyName, FontStyle, FontWeight, FontWidth, GenericFamily,
@@ -23,7 +23,7 @@ pub(crate) fn shape_layout(
     fonts: &mut FontContext,
     contexts: &mut LayoutContext<u32>,
     text: &str,
-    spans: &[TextSpan],
+    spans: &[ResolvedSpan],
     style: &ComputedTextStyle,
     height: f64,
 ) -> parley::Layout<u32> {
@@ -34,7 +34,7 @@ pub(crate) fn shape_inline_layout(
     fonts: &mut FontContext,
     contexts: &mut LayoutContext<u32>,
     text: &str,
-    spans: &[TextSpan],
+    spans: &[ResolvedSpan],
     style: &ComputedTextStyle,
     height: f64,
     boxes: &[parley::InlineBox],
@@ -90,7 +90,7 @@ pub(crate) fn shape_inline_layout(
 /// Apply each span's shaping overrides to the paragraph builder.
 fn apply_spans(
     builder: &mut parley::RangedBuilder<'_, u32>,
-    spans: &[TextSpan],
+    spans: &[ResolvedSpan],
     style: &ComputedTextStyle,
     height: f64,
     emoji: bool,
@@ -202,7 +202,7 @@ fn axis_settings(
 
 /// Whether `spans` may shape `text`: sorted, not overlapping, within the
 /// text and on character boundaries.
-pub(crate) fn valid_spans(text: &str, spans: &[TextSpan]) -> bool {
+pub(crate) fn valid_spans(text: &str, spans: &[ResolvedSpan]) -> bool {
     let mut end = 0;
     spans.iter().all(|span| {
         let ok = span.range.start >= end

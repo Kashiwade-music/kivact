@@ -105,4 +105,4 @@ pub use crate::paint::{
 };
 pub use crate::shader::{FilterShader, PaintShader, ShaderFilter, ShaderPaint, ShaderValue};
 pub use drawable::DrawableSource;
-pub use kivact_types::render::Composite;
+pub use kivact_types::Composite;

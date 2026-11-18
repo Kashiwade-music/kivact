@@ -29,7 +29,7 @@
 use super::canvas::Canvas;
 use super::painter::Painter;
 use crate::convert;
-use kivact_types::render::BoxShadow;
+use arvane_protocol::BoxShadow;
 use kivact_types::scene::RoundedRect as Rounded;
 use kivact_types::scene::{Radius, Shape};
 use kivact_types::{Rect as LogicalRect, Rgba};

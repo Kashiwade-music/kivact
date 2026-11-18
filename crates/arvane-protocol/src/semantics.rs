@@ -8,10 +8,10 @@
 //! carries its own transform the same way: it maps the node's bounds and
 //! everything below it, so changing it changes one node.
 
-use crate::geometry::Transform;
-use crate::geometry::{Point, Rect};
-use crate::ids::SemanticsId;
-use crate::semantics::Semantics;
+use kivact_types::geometry::Transform;
+use kivact_types::geometry::{Point, Rect};
+use kivact_types::ids::SemanticsId;
+use kivact_types::semantics::Semantics;
 
 /// One accessibility node, usable on any thread.
 #[derive(Clone, Debug, PartialEq)]

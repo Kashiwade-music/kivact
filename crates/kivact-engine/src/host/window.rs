@@ -85,7 +85,7 @@ pub(super) struct HostWindow {
     pub(super) reported_adapter: Sent<kivact_types::GpuAdapter>,
     /// The work counts of the last frame presented (`Presented::Shown`),
     /// overwritten by every one; `None` before the first.
-    pub(super) last_stats: Option<kivact_types::render::FrameStats>,
+    pub(super) last_stats: Option<kivact_types::export::FrameStats>,
     /// The kind of window this is.
     pub(super) mode: WindowMode,
     /// The window the request was declared in.

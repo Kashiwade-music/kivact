@@ -9,8 +9,8 @@
 //! - Each animated background layer shows the frame of its own playback
 //!   (slot 1 + its index).
 
-use kivact_types::render::ShapedText;
 use kivact_types::scene::Shape;
+use kivact_types::shaped::ShapedText;
 use kivact_types::{
     BackgroundClip, Edges, Fill, FillRule, NodeId, PaintProps, PathCmd, Point, Rect,
 };

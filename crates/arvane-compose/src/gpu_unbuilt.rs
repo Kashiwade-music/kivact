@@ -1,8 +1,8 @@
 //! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
 
 use crate::{ComposeError, GpuReport};
+use arvane_protocol::{Composition, CpuFrame};
 use kivact_types::ids::DrawableId;
-use kivact_types::render::{Composition, CpuFrame};
 use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, SharedTextures};
 use std::time::Duration;
 

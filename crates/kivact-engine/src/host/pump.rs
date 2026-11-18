@@ -411,7 +411,7 @@ impl Host {
         id: WindowId,
         end_ns: u64,
         times: FrameTimes,
-        stats: &kivact_types::render::FrameStats,
+        stats: &kivact_types::export::FrameStats,
         renderer: arvane::Renderer,
     ) {
         let log = self.app.borrow().log.clone();

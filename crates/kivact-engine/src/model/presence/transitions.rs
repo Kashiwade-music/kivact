@@ -4,7 +4,7 @@ use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::mutation::Mutation;
 use crate::tree::node::{ArrivalPhase, LeavingRole, NodePresence, Notify};
-use kivact_types::{Dimension, Edges, NodeId, Position};
+use kivact_types::{Dimension, Edges, NodeId, Position, StyleState};
 
 impl Model {
     /// Update authoritative presence and its scheduling indexes together.
@@ -65,7 +65,7 @@ impl Model {
                 .tree
                 .get(id)
                 .and_then(|n| n.states())
-                .is_some_and(|s| s.enter.is_some())
+                .is_some_and(|s| s.delta(StyleState::Enter).is_some())
                 || self.size_shown(id, true);
             if !enters {
                 self.transition_presence(id, NodePresence::Mounted);
@@ -74,7 +74,9 @@ impl Model {
             if !self.tree.attached(id) {
                 continue;
             }
-            if self.transition_shown(id, |s| s.enter.is_some()) || self.size_shown(id, true) {
+            if self.transition_shown(id, |s| s.delta(StyleState::Enter).is_some())
+                || self.size_shown(id, true)
+            {
                 // Writing its props captured it at its paint: it starts at
                 // its enter paint instead.
                 self.transition_presence(id, NodePresence::Arriving(ArrivalPhase::Animating));
@@ -137,7 +139,7 @@ impl Model {
             .iter()
             .copied()
             .filter(|x| {
-                self.transition_shown(*x, |s| s.exit.is_some())
+                self.transition_shown(*x, |s| s.delta(StyleState::Exit).is_some())
                     || (!pop_layout && self.size_shown(*x, false))
                     || self.tree.leaving(*x)
             })

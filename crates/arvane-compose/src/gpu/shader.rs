@@ -10,11 +10,11 @@ use super::state::GpuContext;
 use crate::ComposeError;
 use crate::plan::{DrawOp, Sampling, Scissor, ShaderOp, Source};
 use arvane_render::RASTER_FORMAT;
+use kivact_types::Composite;
 use kivact_types::effect::{ShaderProgram, ShaderUse};
 use kivact_types::geometry::{Point, Size};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::{BlendMode, Pixels};
-use kivact_types::render::Composite;
 
 /// The texture of `pixels` (straight alpha) premultiplied, as the shader's images read them.
 fn premultiplied_texture(

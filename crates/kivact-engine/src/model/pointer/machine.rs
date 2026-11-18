@@ -7,7 +7,7 @@ use crate::model::Model;
 use crate::text_input::{line_range, word_range};
 use kivact_types::{
     A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
-    PointerId, PointerPhase, PointerSample, RegionId,
+    PointerId, PointerPhase, PointerSample, RegionId, StyleState,
 };
 use std::ops::Range;
 
@@ -147,7 +147,7 @@ impl Model {
         let dependents = if which == Chain::Pressed {
             Vec::new()
         } else {
-            self.group_dependents(&touched, |s| s.group_hover.is_some())
+            self.group_dependents(&touched, |s| s.wants(StyleState::GroupHover))
         };
         let shown = |model: &Model, id: NodeId| (model.is_hovered(id), model.is_pressed(id));
         let before: Vec<_> = touched.iter().map(|id| shown(self, *id)).collect();
@@ -178,10 +178,10 @@ impl Model {
             self.restyled(id);
         }
         for (id, hover, press) in flipped {
-            let has =
-                self.tree.get(id).and_then(|n| n.states()).is_some_and(|s| {
-                    (hover && s.hover.is_some()) || (press && s.pressed.is_some())
-                });
+            self.report_states(id);
+            let has = self.tree.get(id).and_then(|n| n.states()).is_some_and(|s| {
+                (hover && s.wants(StyleState::Hover)) || (press && s.wants(StyleState::Active))
+            });
             if has {
                 self.repaint(id);
                 if self

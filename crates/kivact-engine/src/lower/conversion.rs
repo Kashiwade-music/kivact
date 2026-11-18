@@ -46,7 +46,7 @@ pub(crate) fn spans(
     font_size: f64,
     tint: impl Fn(types::Rgba) -> kivact_types::Rgba,
     mut family: impl FnMut(&str) -> Option<String>,
-) -> Vec<kivact_types::render::TextSpan> {
+) -> Vec<arvane_protocol::ResolvedSpan> {
     spans
         .iter()
         .map(|span| {
@@ -55,9 +55,9 @@ pub(crate) fn spans(
                 .font_size
                 .filter(|v| v.is_finite() && *v > 0.0)
                 .unwrap_or(font_size);
-            kivact_types::render::TextSpan {
+            arvane_protocol::ResolvedSpan {
                 range: span.range.clone(),
-                style: kivact_types::render::SpanStyle {
+                style: arvane_protocol::ResolvedSpanStyle {
                     font_size: s.font_size.map(|_| size),
                     weight: s.weight,
                     color: s.color.map(&tint),

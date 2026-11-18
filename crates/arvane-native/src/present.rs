@@ -1,6 +1,6 @@
 //! Role: The softbuffer CPU surface of a window and whether it shows a frame.
+use arvane_protocol::PixelRect;
 use arvane_shell::{BufferAge, ShellError};
-use kivact_types::render::PixelRect;
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use std::num::NonZeroU32;
 

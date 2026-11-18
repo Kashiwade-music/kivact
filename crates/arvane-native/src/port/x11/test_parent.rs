@@ -3,9 +3,9 @@
 mod queries;
 
 use super::conn::Native;
+use arvane_protocol::CpuFrame;
 use arvane_shell::ShellError;
 use kivact_types::NativeWindow;
-use kivact_types::render::CpuFrame;
 use kivact_types::{KeyCode, MouseButton};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;

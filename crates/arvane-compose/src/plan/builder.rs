@@ -2,9 +2,10 @@
 
 use std::collections::{HashMap, HashSet};
 
+use arvane_protocol::{Composition, LayerKey, Plane};
 use kivact_types::Matrix4;
+use kivact_types::export::FrameStats;
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::render::{Composition, FrameStats, LayerKey, Plane};
 
 use super::frame::{Behind, Dest, ItemCtx, area, inline_candidate};
 use super::ops::{
@@ -138,7 +139,7 @@ impl<'a> Builder<'a> {
     pub(crate) fn layer(
         &self,
         index: u32,
-    ) -> Result<&'a kivact_types::render::CompositeLayer, PlanError> {
+    ) -> Result<&'a arvane_protocol::CompositeLayer, PlanError> {
         self.comp
             .layers
             .get(index as usize)

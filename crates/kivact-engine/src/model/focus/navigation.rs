@@ -3,7 +3,7 @@
 use super::state::{FocusVisibility, Focused, Reveal};
 use crate::contract::{HostEvent, RovingFocus};
 use crate::model::Model;
-use kivact_types::{FocusTarget, NodeId};
+use kivact_types::{FocusTarget, NodeId, StyleState};
 use std::collections::HashSet;
 
 impl Model {
@@ -269,8 +269,10 @@ impl Model {
         for n in [old_target, target].into_iter().flatten().map(|t| t.node) {
             self.prepare_state_motion(n);
             self.repaint(n);
+            self.report_states(n);
             if self.tree.get(n).and_then(|x| x.states()).is_some_and(|s| {
-                (s.focus.is_some() || s.focus_visible.is_some()) && crate::tree::states_place(s)
+                (s.wants(StyleState::Focus) || s.wants(StyleState::FocusVisible))
+                    && crate::tree::states_place(s)
             }) {
                 self.changes
                     .layout
@@ -298,7 +300,7 @@ impl Model {
                 .chain(new.iter().filter(|x| !left.contains(x)))
                 .copied()
                 .collect();
-            for id in self.group_dependents(&touched, |s| s.group_focus.is_some()) {
+            for id in self.group_dependents(&touched, |s| s.wants(StyleState::GroupFocus)) {
                 self.prepare_state_motion(id);
                 self.restyled(id);
             }
@@ -352,7 +354,7 @@ impl Model {
             .focused()
             .filter(|f| self.tree.is_in_subtree(f.node, removed))?;
         let left = self.tree.chain(Some(focus.node));
-        for x in self.group_dependents(&left, |s| s.group_focus.is_some()) {
+        for x in self.group_dependents(&left, |s| s.wants(StyleState::GroupFocus)) {
             self.prepare_state_motion(x);
         }
         Some(left)

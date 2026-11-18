@@ -13,7 +13,7 @@ use super::fill::paint_attributes;
 use super::shape::{outline_of, path_data};
 use crate::SvgError;
 use kivact_types::{
-    BlendMode, DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Point, Rect, Rgba, ShapePaint,
+    DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Mix, Point, Rect, Rgba, ShapePaint,
     Stroke, Transform,
 };
 
@@ -160,7 +160,7 @@ impl Emitter<'_> {
 
     /// A clip to a drawn outline, defined once as a clip path; the attributes of its group.
     fn outline_clip(&mut self, clip: &DrawingShape) -> Result<String, SvgError> {
-        let (cmds, rule, _) = outline_of(clip);
+        let (cmds, rule) = outline_of(clip);
         let d = path_data(&cmds)?;
         let id = self.id("clip");
         self.defs.push_str(&format!(
@@ -173,8 +173,10 @@ impl Emitter<'_> {
     /// The attributes of the group of a layer, which the SVG form can express
     /// only as opacity and a clip.
     fn layer_attributes(&mut self, layer: &DrawingLayer) -> Result<String, SvgError> {
-        if layer.blend != BlendMode::Normal {
-            return Err(SvgError::unsupported("a blend mode on a layer"));
+        if layer.mix != Mix::Normal {
+            return Err(SvgError::unsupported(
+                "a blend mode or a composite operation on a layer",
+            ));
         }
         if !layer.filter.is_empty() {
             return Err(SvgError::unsupported("a filter on a layer"));
@@ -228,7 +230,8 @@ impl Emitter<'_> {
     }
 
     fn shape(&mut self, shape: &ShapePaint) -> Result<(), SvgError> {
-        let (cmds, rule, bounds) = outline_of(&shape.shape);
+        let (cmds, rule) = outline_of(&shape.shape);
+        let bounds = shape.paint_area();
         let d = path_data(&cmds)?;
         let attributes = match &shape.stroke {
             None => {

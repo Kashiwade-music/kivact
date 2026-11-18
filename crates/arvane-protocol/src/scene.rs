@@ -1,17 +1,17 @@
 //! Role: Portable display lists, CPU frames and external GPU frames.
 //! Frame bytes are premultiplied RGBA8.
 
-use super::effect::BoxShadow;
-use super::paint::Paint;
-use super::shaped::GlyphRunSnapshot;
-use crate::PaintOrder;
-use crate::color::Rgba;
-use crate::geometry::Transform;
-use crate::geometry::{Point, Rect};
-use crate::pixel::BlendMode;
-use crate::pixel::Pixels;
-use crate::scene::Stroke;
-use crate::scene::{PathCmd, Shape};
+use crate::effect::BoxShadow;
+use crate::paint::RasterPaint;
+use kivact_types::PaintOrder;
+use kivact_types::color::Rgba;
+use kivact_types::geometry::Transform;
+use kivact_types::geometry::{Point, Rect};
+use kivact_types::pixel::BlendMode;
+use kivact_types::pixel::Pixels;
+use kivact_types::scene::Stroke;
+use kivact_types::scene::{PathCmd, Shape};
+use kivact_types::shaped::GlyphRunSnapshot;
 
 /// Portable drawing operation, usable on any thread.
 ///
@@ -49,8 +49,8 @@ pub enum RenderCmd {
     Rect {
         /// Bounds.
         rect: Rect,
-        /// Paint.
-        fill: Paint,
+        /// RasterPaint.
+        fill: RasterPaint,
     },
     /// Filled bounds with uniform corner radius.
     RoundedRect {
@@ -58,8 +58,8 @@ pub enum RenderCmd {
         rect: Rect,
         /// Radius.
         radius: f64,
-        /// Paint.
-        fill: Paint,
+        /// RasterPaint.
+        fill: RasterPaint,
     },
     /// Filled bounds with independent corner radii.
     RoundedRectCorners {
@@ -67,8 +67,8 @@ pub enum RenderCmd {
         rect: Rect,
         /// Top-left, top-right, bottom-right, bottom-left radii.
         radii: [f64; 4],
-        /// Paint.
-        fill: Paint,
+        /// RasterPaint.
+        fill: RasterPaint,
     },
     /// Stroked bounds with uniform corner radius.
     StrokeRect {
@@ -135,7 +135,7 @@ pub enum RenderCmd {
         /// Logical translation before the active scene transform.
         origin: Point,
         /// Fill paint; `None` fills with the shaped run's color.
-        fill: Option<Paint>,
+        fill: Option<RasterPaint>,
         /// Outline stroke drawn with the fill (CSS `-webkit-text-stroke`).
         stroke: Option<GlyphStroke>,
         /// Which of fill and stroke is drawn first.
@@ -158,8 +158,8 @@ pub enum RenderCmd {
     FillShape {
         /// Shape.
         shape: Shape,
-        /// Paint.
-        paint: Paint,
+        /// RasterPaint.
+        paint: RasterPaint,
     },
     /// A shape's outline stroked with a paint. A zero-length contour (or
     /// dash) with round or square caps draws a dot.
@@ -169,8 +169,8 @@ pub enum RenderCmd {
         shape: Shape,
         /// Line style.
         stroke: Stroke,
-        /// Paint.
-        paint: Paint,
+        /// RasterPaint.
+        paint: RasterPaint,
     },
     /// A CSS box shadow, outer or inset, of a box with elliptical corners.
     BoxShadow(BoxShadow),
@@ -210,8 +210,8 @@ pub struct Group {
 pub struct GlyphStroke {
     /// Line style of the outline.
     pub stroke: Stroke,
-    /// Paint of the outline.
-    pub paint: Paint,
+    /// RasterPaint of the outline.
+    pub paint: RasterPaint,
 }
 
 /// How many standard deviations beyond its rect a [`RenderCmd::Shadow`]

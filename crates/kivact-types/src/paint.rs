@@ -915,36 +915,16 @@ pub struct PaintDelta {
 /// core because the core owns those states.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct StateStyles {
-    /// Applied while hovered.
-    pub hover: Option<Box<PaintDelta>>,
-    /// Applied while pressed.
-    pub pressed: Option<Box<PaintDelta>>,
-    /// Applied while focused.
-    pub focus: Option<Box<PaintDelta>>,
-    /// Applied over `focus` while the focus is visible (the host asks for a
-    /// focus indication: keyboard focus, not a pointer press).
-    pub focus_visible: Option<Box<PaintDelta>>,
-    /// Applied while the nearest ancestor that is a `group` is hovered (in
-    /// the hover chain: the pointer is over it or a node below it), under
-    /// the node's own `hover`.
-    pub group_hover: Option<Box<PaintDelta>>,
-    /// Applied while the focus is on the nearest ancestor that is a `group`
-    /// or on a node below it, under the node's own `focus`.
-    pub group_focus: Option<Box<PaintDelta>>,
+    /// The paint deltas of the host states, indexed by
+    /// [`StyleState::host_slot`](crate::StyleState::host_slot).
+    pub deltas: [Option<Box<PaintDelta>>; 8],
     /// The node is a group for the `group_hover` and `group_focus` of the
     /// nodes below it.
     pub group: bool,
-    /// The paint the node starts from when it is first attached (CSS
-    /// `@starting-style`): its paint transition moves it to its paint. A
-    /// node without a paint transition, or under reduced motion with a
-    /// decorative one, shows its paint at once.
-    pub enter: Option<Box<PaintDelta>>,
-    /// The paint a removed node moves to by its paint transition before it
-    /// goes: until every exit in the removed subtree ends, the subtree is
-    /// drawn where it was but takes no hit, focus or accessibility node.
-    /// Without a transition (or under reduced motion with a decorative
-    /// one) the node goes at once.
-    pub exit: Option<Box<PaintDelta>>,
+    /// The host states whose activation the host reports to the client
+    /// (`HostEvent::StatesChanged`): the states whose style sets more than
+    /// paint, which the core compiles into the node's style.
+    pub report: crate::StateSet,
 }
 
 const _: () = assert!(
@@ -953,20 +933,28 @@ const _: () = assert!(
 );
 
 impl StateStyles {
+    /// The paint delta of `state`, if the style sets one.
+    pub fn delta(&self, state: crate::StyleState) -> Option<&PaintDelta> {
+        state.host_slot().and_then(|i| self.deltas[i].as_deref())
+    }
+
+    /// Set the paint delta of a host state (`Disabled` and `Selected` are
+    /// not host states; setting them does nothing).
+    pub fn set_delta(&mut self, state: crate::StyleState, delta: Option<Box<PaintDelta>>) {
+        if let Some(i) = state.host_slot() {
+            self.deltas[i] = delta;
+        }
+    }
+
+    /// Whether the host must evaluate `state` for this node: it has a delta,
+    /// or the core asked for its reports.
+    pub fn wants(&self, state: crate::StyleState) -> bool {
+        self.delta(state).is_some() || self.report.contains(state)
+    }
+
     /// Every delta it sets.
     pub fn deltas(&self) -> impl Iterator<Item = &PaintDelta> {
-        [
-            self.hover.as_deref(),
-            self.pressed.as_deref(),
-            self.focus.as_deref(),
-            self.focus_visible.as_deref(),
-            self.group_hover.as_deref(),
-            self.group_focus.as_deref(),
-            self.enter.as_deref(),
-            self.exit.as_deref(),
-        ]
-        .into_iter()
-        .flatten()
+        self.deltas.iter().flatten().map(|d| &**d)
     }
 }
 

@@ -2,8 +2,9 @@
 
 use crate::asset;
 use crate::error::{self, Failure};
+use arvane_protocol::RichText;
 use kivact_types::ComputedTextStyle;
-use kivact_types::render::{FontSource, InlineBox, RichText, ShapedInlineText};
+use kivact_types::shaped::{FontSource, InlineBox, ShapedInlineText};
 use kivact_types::{Size, TextMetrics};
 use std::cell::RefCell;
 use std::marker::PhantomData;

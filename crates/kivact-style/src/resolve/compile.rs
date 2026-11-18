@@ -2,7 +2,9 @@
 
 use kivact_runtime::UiError;
 use kivact_types as p;
-use kivact_types::{Edges, LayoutProps, PaintProps, ScrollAxes, StateStyles, TextStyle};
+use kivact_types::{
+    Edges, LayoutProps, PaintProps, ScrollAxes, StateStyles, StyleState, TextStyle,
+};
 
 use super::describe::unsupported_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
@@ -306,44 +308,40 @@ fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
         || states.focus_visible.is_some()
         || states.enter.is_some()
         || states.exit.is_some())
-    .then(|| StateStyles {
-        hover: states
-            .hover
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        pressed: states
-            .pressed
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        focus: states
-            .focus
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        focus_visible: states.focus_visible.as_ref().map(|h| {
-            // Over the focus state, as the host applies it.
-            let focused = match &states.focus {
-                Some(focus) => s.clone().merge(focus),
-                None => s.clone(),
-            };
-            Box::new(paint_delta(&focused, h, theme))
-        }),
-        group_hover: states
-            .group_hover
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        group_focus: states
-            .group_focus
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        group: states.group,
-        enter: states
-            .enter
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
-        exit: states
-            .exit
-            .as_ref()
-            .map(|h| Box::new(paint_delta(s, h, theme))),
+    .then(|| {
+        let mut out = StateStyles {
+            group: states.group,
+            ..StateStyles::default()
+        };
+        let delta = |h: &Style| Some(Box::new(paint_delta(s, h, theme)));
+        out.set_delta(StyleState::Hover, states.hover.as_deref().and_then(delta));
+        out.set_delta(
+            StyleState::Active,
+            states.pressed.as_deref().and_then(delta),
+        );
+        out.set_delta(StyleState::Focus, states.focus.as_deref().and_then(delta));
+        out.set_delta(
+            StyleState::GroupHover,
+            states.group_hover.as_deref().and_then(delta),
+        );
+        out.set_delta(
+            StyleState::GroupFocus,
+            states.group_focus.as_deref().and_then(delta),
+        );
+        out.set_delta(StyleState::Enter, states.enter.as_deref().and_then(delta));
+        out.set_delta(StyleState::Exit, states.exit.as_deref().and_then(delta));
+        // Over the focus state, as the host applies it.
+        out.set_delta(
+            StyleState::FocusVisible,
+            states.focus_visible.as_deref().map(|h| {
+                let focused = match &states.focus {
+                    Some(focus) => s.clone().merge(focus),
+                    None => s.clone(),
+                };
+                Box::new(paint_delta(&focused, h, theme))
+            }),
+        );
+        out
     })
 }
 

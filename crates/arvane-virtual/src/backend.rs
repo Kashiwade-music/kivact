@@ -5,12 +5,12 @@ use crate::script::{Item, Script, VirtualInput, VirtualWindowInput, WindowItem};
 use crate::surface::TestSurface;
 use crate::window::{Display, VirtualPlatform, VirtualWindow};
 pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
+use arvane_protocol::SemanticsTree;
 use arvane_shell::{
     Accessibility, InjectedInput, ShellControl, ShellError, ShellEvent, ShellHandler, ShellImeText,
     ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome, SteppedBackend, SteppedLoop,
     WakeReasons,
 };
-use kivact_types::render::SemanticsTree;
 use kivact_types::{
     Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
     WindowId, WindowRequest,

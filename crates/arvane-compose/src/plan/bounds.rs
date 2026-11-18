@@ -5,10 +5,11 @@
 //! are the three kinds of nested group. The bounds are generous (strokes,
 //! glyphs and blurs grow them) so the damage they give is never too small.
 
+use arvane_protocol::{BoxShadow, Group, RenderCmd, RenderScene, SHADOW_REACH};
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect, Transform};
-use kivact_types::render::{BoxShadow, Glyph, Group, RenderCmd, RenderScene, SHADOW_REACH};
 use kivact_types::scene::{LineJoin, Shape, Stroke};
+use kivact_types::shaped::Glyph;
 
 use super::ops::PlanError;
 

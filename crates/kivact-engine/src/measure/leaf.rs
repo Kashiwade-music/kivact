@@ -131,7 +131,7 @@ impl<'a> Measure<'a> {
     fn node_text(
         &mut self,
         node: &crate::tree::node::HostNode,
-        text: kivact_types::render::RichText<'_>,
+        text: arvane_protocol::RichText<'_>,
         mut style: kivact_types::ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Option<LeafSize> {
@@ -236,7 +236,7 @@ impl Measure<'_> {
                         .check_family(self.engine, id, span.style.family.as_deref());
                 }
                 let spans = rich_spans(self.engine, n.spans(), &style);
-                let text = kivact_types::render::RichText {
+                let text = arvane_protocol::RichText {
                     text: n.content().unwrap_or(""),
                     spans: &spans,
                 };
@@ -377,7 +377,7 @@ pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
     spans: &[kivact_types::TextSpan],
     style: &kivact_types::ComputedTextStyle,
-) -> Vec<kivact_types::render::TextSpan> {
+) -> Vec<arvane_protocol::ResolvedSpan> {
     if spans.is_empty() {
         return Vec::new();
     }
@@ -450,7 +450,7 @@ impl kivact_types::TextShaper for LeafText<'_> {
         )
     }
 
-    fn outline(&self, run: &kivact_types::render::GlyphRun) -> Vec<kivact_types::PathCmd> {
+    fn outline(&self, run: &kivact_types::shaped::GlyphRun) -> Vec<kivact_types::PathCmd> {
         arvane::glyph_outline(run)
     }
 }

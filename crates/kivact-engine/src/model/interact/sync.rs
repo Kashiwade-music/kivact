@@ -14,7 +14,7 @@
 //! them, the leaving subtrees that stopped moving, the final layout styles
 //! of the changed nodes and their dirty chains, registered fonts (every
 //! text, text input and measured leaf is measured again and its input lines
-//! split again), the paint metrics (`Look`) and image assets of the touched
+//! split again), the paint metrics (`LayerTraits`) and image assets of the touched
 //! nodes, the assets of the changed scene layers, the cached image
 //! failures, then the redraw, restack and ink of the paint list, the
 //! accessibility rebuild (`a11y::state`) and the editors' sessions to
@@ -202,8 +202,8 @@ impl Model {
             return;
         };
         let look = n.paint().map_or_else(
-            || crate::paint::state::Look::of(&kivact_types::PaintProps::default()),
-            crate::paint::state::Look::of,
+            || crate::paint::state::LayerTraits::of(&kivact_types::PaintProps::default()),
+            crate::paint::state::LayerTraits::of,
         );
         // The list is built again when what its steps are made of changed
         // (a node not derived before has no list step yet).

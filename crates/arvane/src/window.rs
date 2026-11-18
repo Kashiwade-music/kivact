@@ -6,6 +6,7 @@ use crate::{
     AccessibilityError, Failure, FramePlan, Presented, RendererChange, ShellControl, ShellError,
     ShellEvent, ShellImeText, ShellWaker,
 };
+use arvane_protocol::{Composition, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
     Backend, EventTarget, InjectedInput, ShellHandler, ShellLoop, ShellWindow, Step, StepOutcome,
     SteppedBackend, SteppedLoop, WakeReasons,
@@ -13,7 +14,6 @@ use arvane_shell::{
 use kivact_types::Environment;
 use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
-use kivact_types::render::{Composition, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use std::cell::RefCell;

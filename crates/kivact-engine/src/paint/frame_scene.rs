@@ -21,7 +21,7 @@ use crate::model::Model;
 use crate::model::drawables::export_of;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use kivact_types::render::{Composition, LayerEffects, LayerKey, Paint, RenderCmd as D};
+use arvane_protocol::{Composition, LayerEffects, LayerKey, RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
 
@@ -72,7 +72,7 @@ impl Model {
             let base = out.layers.len() as u32;
             for mut layer in layers {
                 for item in &mut layer.items {
-                    if let kivact_types::render::LayerItem::Layer { index, .. } = item {
+                    if let arvane_protocol::LayerItem::Layer { index, .. } = item {
                         *index += base;
                     }
                 }
@@ -153,7 +153,7 @@ impl Model {
         (p, bounds, canvas)
     }
 
-    /// Paint `step`'s node up to its children: open what it opens, draw its
+    /// RasterPaint `step`'s node up to its children: open what it opens, draw its
     /// box (when its own paint shows), then (inside its clips when it clips)
     /// its canvas scene and its content.
     fn paint_open(
@@ -176,7 +176,7 @@ impl Model {
             .effects
             .as_ref()
             .and_then(|e| e.clip_path.as_ref())
-            .map(|s| shape::clip_path(s, bounds));
+            .map(|s| s.in_rect(bounds));
         let place = Place {
             step,
             list,
@@ -279,16 +279,16 @@ impl Model {
             .unwrap_or(LayerSpec {
                 matrix: kivact_types::geometry3d::Matrix4::IDENTITY,
                 bounds: place.bounds,
-                plane: kivact_types::render::Plane::Flat,
+                plane: arvane_protocol::Plane::Flat,
                 backface: kivact_types::paint::BackfaceVisibility::Visible,
-                grid: kivact_types::render::RasterGrid::Target,
+                grid: arvane_protocol::RasterGrid::Target,
             });
         let context = self.painting(pass);
         let effects = place.paint.effects.as_deref();
         let layer_effects = LayerEffects {
             opacity: sanitize::unit(place.paint.opacity, 1.0),
             blend: effects.map_or(BlendMode::Normal, |e| e.blend),
-            composite: kivact_types::render::Composite::SourceOver,
+            composite: kivact_types::Composite::SourceOver,
             filters: effects.map_or_else(Vec::new, |e| context.layer_filters(&e.filter)),
             clip: place.clip_path.clone(),
             masks: effects.map_or_else(Vec::new, |e| context.layer_masks(&e.masks, place.bounds)),
@@ -350,7 +350,7 @@ impl Model {
         }
     }
 
-    /// Paint `step`'s node after its children: its `DrawOver` scene and its
+    /// RasterPaint `step`'s node after its children: its `DrawOver` scene and its
     /// scrollbars, then close what it opened, innermost first.
     fn paint_close(
         &self,
@@ -401,7 +401,7 @@ impl Model {
                 };
                 out.push(D::FillShape {
                     shape: Shape::Rect(rect),
-                    paint: Paint::Solid(tint.color(color)),
+                    paint: RasterPaint::Solid(tint.color(color)),
                 });
             }
         }

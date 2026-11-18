@@ -8,7 +8,7 @@ use crate::draw;
 use crate::error::RenderError;
 use crate::images::{ImageCache, MAX_BYTES};
 use crate::validate;
-use kivact_types::render::RenderScene;
+use arvane_protocol::RenderScene;
 use kivact_types::{Point, Rect as LogicalRect};
 use vello_hybrid::{
     AtlasConfig, MemorySettings, RenderSettings, RenderTargetConfig, Renderer, Resources,

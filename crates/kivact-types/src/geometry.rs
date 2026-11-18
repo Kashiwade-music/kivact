@@ -187,8 +187,8 @@ impl<T: Copy> Edges<T> {
 /// `x' = a·x + c·y + e`, `y' = b·x + d·y + f` (y grows downwards, so a
 /// positive rotation turns clockwise on screen).
 ///
-/// [`crate::render::RenderCmd::PushTransform`] applies one to every command until
-/// the matching [`crate::render::RenderCmd::PopTransform`].
+/// `arvane_protocol::RenderCmd::PushTransform` applies one to every command until
+/// the matching `arvane_protocol::RenderCmd::PopTransform`.
 ///
 /// ```
 /// use kivact_types::Point;

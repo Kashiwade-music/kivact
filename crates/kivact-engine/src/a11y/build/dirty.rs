@@ -24,7 +24,7 @@ pub(in crate::a11y) enum MetadataUpdate {
 /// A semantics tree built for publication and what it changes in the
 /// accepted identity metadata.
 pub(in crate::a11y) struct Built {
-    pub(in crate::a11y) tree: kivact_types::render::SemanticsTree,
+    pub(in crate::a11y) tree: arvane_protocol::SemanticsTree,
     pub(in crate::a11y) metadata: MetadataUpdate,
 }
 
@@ -34,7 +34,7 @@ impl Model {
     pub(crate) fn build_semantics(
         &mut self,
         engine: &mut a::Engine,
-    ) -> kivact_types::render::SemanticsTree {
+    ) -> arvane_protocol::SemanticsTree {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
 
@@ -103,7 +103,7 @@ impl Model {
         subtree_roots: &BTreeSet<types::NodeId>,
         mut dirty: BTreeSet<types::NodeId>,
         engine: &mut a::Engine,
-    ) -> kivact_types::render::SemanticsTree {
+    ) -> arvane_protocol::SemanticsTree {
         let order = self.semantic_order();
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
         let mut inherited = BTreeSet::new();
@@ -127,7 +127,7 @@ impl Model {
             self.a11y.constructed += nodes.len() as u64;
         }
         let focus = self.semantics_focus(metadata.clipping.rows());
-        kivact_types::render::SemanticsTree {
+        arvane_protocol::SemanticsTree {
             root: kivact_types::SemanticsId(root.0),
             focus,
             nodes,
@@ -157,7 +157,7 @@ impl Model {
             self.a11y.constructed += 1;
         }
         Built {
-            tree: kivact_types::render::SemanticsTree {
+            tree: arvane_protocol::SemanticsTree {
                 root: kivact_types::SemanticsId(id),
                 focus: None,
                 nodes: vec![node],
@@ -297,7 +297,7 @@ impl Model {
         dirty: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
         engine: &mut a::Engine,
-    ) -> Vec<kivact_types::render::SemanticsNode> {
+    ) -> Vec<arvane_protocol::SemanticsNode> {
         let mut nodes = Vec::new();
         let mut active = BTreeSet::new();
         let mut stack = vec![(root, types::Point::default())];

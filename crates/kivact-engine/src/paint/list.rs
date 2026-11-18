@@ -13,7 +13,7 @@
 //!   again with their current content: O(visible nodes), not O(nodes). A
 //!   write of a paint, a text style or state styles asks for a rebuild
 //!   only when what the steps are made of changed: the node's `Place`
-//!   (transform, z-index, sticky, fixed), its paint's [`Look::stacking`]
+//!   (transform, z-index, sticky, fixed), its paint's [`LayerTraits::stacking`]
 //!   facts (opacity, group, items, rounding, overflow,
 //!   border, filter reach, clip) or, for a text, how far it paints out of
 //!   its box.
@@ -22,7 +22,7 @@
 //!   pixel the clip lets through partially is never lost): its box, the
 //!   extent of its content (taffy's, text overflowing a short box
 //!   included), its shadows (an outer one reaches its offset plus its
-//!   spread plus `kivact_types::render::SHADOW_REACH` × blur / 2) and focus ring, a
+//!   spread plus `arvane_protocol::SHADOW_REACH` × blur / 2) and focus ring, a
 //!   text's glyph overhang (one font size) and text shadows, and its
 //!   canvas scenes' commands (a scene text run counted at two font sizes
 //!   and its letter spacing per character, a stroke at its width × its

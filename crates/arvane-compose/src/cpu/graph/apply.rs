@@ -15,6 +15,7 @@
 
 use std::rc::Rc;
 
+use kivact_types::Composite;
 use kivact_types::Rgba;
 use kivact_types::effect::{
     Channel, CompositeOp, FilterColorSpace, FilterGraph, FilterInput, Light, MorphologyOp,
@@ -22,7 +23,6 @@ use kivact_types::effect::{
 };
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::pixel::{BlendMode, ColorMatrix, Pixels};
-use kivact_types::render::Composite;
 
 use super::component_transfer;
 use super::composite;

@@ -3,7 +3,7 @@
 use crate::lower::effects::Tint;
 use crate::lower::input_paint::{InputPaintColor, InputPaintOp};
 use crate::model::Model;
-use kivact_types::render::{Paint, RenderCmd as D};
+use arvane_protocol::{RasterPaint, RenderCmd as D};
 use kivact_types::{NodeId, Rect, Rgba};
 
 impl Model {
@@ -31,7 +31,7 @@ fn paint_op(op: InputPaintOp, tint: &Tint, out: &mut crate::lower::SceneOut) {
     match op {
         InputPaintOp::Rect { rect, color } => out.push(D::Rect {
             rect,
-            fill: kivact_types::render::Paint::Solid(match color {
+            fill: arvane_protocol::RasterPaint::Solid(match color {
                 InputPaintColor::Source(color) => tint.color(color),
                 InputPaintColor::Render(color) => tint.arvane(color),
             }),
@@ -53,7 +53,7 @@ fn paint_op(op: InputPaintOp, tint: &Tint, out: &mut crate::lower::SceneOut) {
         InputPaintOp::Decoration { rect, color, style } => crate::lower::glyphs::decoration(
             out,
             rect,
-            kivact_types::render::Paint::Solid(tint.color(color)),
+            arvane_protocol::RasterPaint::Solid(tint.color(color)),
             style,
         ),
         InputPaintOp::Glyphs {
@@ -65,7 +65,7 @@ fn paint_op(op: InputPaintOp, tint: &Tint, out: &mut crate::lower::SceneOut) {
                 out.push(D::Glyphs {
                     run: run.clone(),
                     origin,
-                    fill: Some(Paint::Solid(match color {
+                    fill: Some(RasterPaint::Solid(match color {
                         Some(color) => tint.color(color),
                         None => tint.arvane(run.color),
                     })),
@@ -84,7 +84,7 @@ fn paint_decoration(
     color: Rgba,
 ) {
     use kivact_editing::RangeDecorationKind;
-    let fill = Paint::Solid(color);
+    let fill = RasterPaint::Solid(color);
     match kind {
         RangeDecorationKind::Background => out.push(D::Rect { rect, fill }),
         RangeDecorationKind::Underline(style) => crate::lower::glyphs::decoration(

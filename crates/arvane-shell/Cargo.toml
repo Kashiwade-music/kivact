@@ -10,6 +10,7 @@ description = "Portable Arvane shell vocabulary, input normalization and the bac
 [dependencies]
 raw-window-handle = { workspace = true }
 kivact-types = { path = "../kivact-types", version = "0.1.0" }
+arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }
 
 [lints]
 workspace = true

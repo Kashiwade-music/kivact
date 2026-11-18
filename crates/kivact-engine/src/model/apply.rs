@@ -568,6 +568,7 @@ impl Model {
 
     /// `id` is destroyed: it leaves the motion index.
     fn forget_sources(&mut self, id: NodeId) {
+        self.reported_states.remove(&id);
         self.sources.file(id, None);
     }
 

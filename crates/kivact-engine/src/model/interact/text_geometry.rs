@@ -67,7 +67,7 @@ pub(crate) fn shape_static_text(
         engine.shape_glyphs(content, &style, width).ok()
     } else {
         let spans = crate::measure::leaf::rich_spans(engine, node.spans(), &style);
-        let text = kivact_types::render::RichText {
+        let text = arvane_protocol::RichText {
             text: content,
             spans: &spans,
         };
@@ -441,7 +441,7 @@ pub(crate) fn layout_snapshot(
 
 fn append_snapshot_carets(
     out: &mut kivact_editing::TextLayout,
-    shaped: &kivact_types::render::ShapedText,
+    shaped: &kivact_types::shaped::ShapedText,
     shift: impl Fn(Rect) -> Rect,
     offset: u32,
     crlf: bool,

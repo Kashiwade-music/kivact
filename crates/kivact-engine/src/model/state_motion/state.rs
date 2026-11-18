@@ -3,8 +3,9 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use super::interp::{PropBasis, PropInterp, apply_components};
 use kivact_types::motion::{SpringRun, Transition, TransitionProp};
-use kivact_types::{NodeId, PaintProps, PropBasis, PropInterp, Rgba, apply_components};
+use kivact_types::{NodeId, PaintProps, Rgba};
 
 /// The state motion group: the transitions of the nodes whose state
 /// styles are moving (allocated only while one moves).

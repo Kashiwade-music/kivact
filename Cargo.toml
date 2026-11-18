@@ -37,6 +37,7 @@ members = [
     "examples/kivact-ui-soft",
     "crates/arvane",
     "crates/kivact-types",
+    "crates/arvane-protocol",
     "crates/kivact-shader",
     "crates/kivact-svg",
     "crates/arvane-native",

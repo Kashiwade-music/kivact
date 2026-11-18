@@ -64,7 +64,7 @@ impl Model {
         let accepted = if replace {
             window.replace_accessibility(&candidate)
         } else {
-            window.update_accessibility(&kivact_types::render::SemanticsUpdate {
+            window.update_accessibility(&arvane_protocol::SemanticsUpdate {
                 root: new_root,
                 focus,
                 nodes: candidate.nodes,

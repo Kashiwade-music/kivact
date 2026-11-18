@@ -11,14 +11,14 @@ use crate::layer::LayerView;
 use crate::model::Model;
 use crate::model::transform::map_rect;
 use crate::paint::state::{
-    ChildIndex, ClipShape, Entry, Grouping, LayerSpec, ListState, Look, PaintList, StaleFacts,
-    Step, SubtreeFacts,
+    ChildIndex, ClipShape, Entry, Grouping, LayerSpec, LayerTraits, ListState, PaintList,
+    StaleFacts, Step, SubtreeFacts,
 };
 use crate::tree::node::HostNode;
+use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{Plane, RasterGrid};
 use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 
@@ -121,7 +121,7 @@ impl Walk<'_> {
             return;
         }
         let layout = host.layout_at(n.index).unwrap_or_default();
-        let look = Look::now(host, id, n);
+        let look = LayerTraits::now(host, id, n);
         let local = local_transform(host, id, n, &layout);
         let own = reach(host, id, n, &layout, &look);
         // A parent's perspective moves only a node that has a transform of
@@ -202,7 +202,7 @@ impl Walk<'_> {
     /// clip (`clip` is in its space, `o` its box's origin).
     fn child_clip(
         &self,
-        look: &Look,
+        look: &LayerTraits,
         o: Point,
         size: kivact_types::Size,
         clip: Rect,
@@ -231,7 +231,7 @@ impl Walk<'_> {
         id: NodeId,
         n: &HostNode,
         layout: &kivact_layout::NodeLayout,
-        look: &Look,
+        look: &LayerTraits,
         origin: Point,
         parent_perspective: Option<Matrix4>,
     ) -> Option<LayerPlan> {
@@ -408,9 +408,9 @@ impl Walk<'_> {
 
 impl Model {
     /// The facts of `id`'s target paint (its base paint with its active
-    /// state deltas) that its paint list steps are made of ([`Look::stacking`]).
+    /// state deltas) that its paint list steps are made of ([`LayerTraits::stacking`]).
     pub(crate) fn paint_stacking(&self, id: NodeId) -> impl PartialEq + use<> {
-        Look::of(&self.target_paint(id)).stacking()
+        LayerTraits::of(&self.target_paint(id)).stacking()
     }
 
     /// Bring the paint list up to date for the next frame: rebuilt if
@@ -597,7 +597,7 @@ fn opacity(
     host: &Model,
     id: NodeId,
     n: &HostNode,
-    look: &Look,
+    look: &LayerTraits,
     parent_alpha: f64,
 ) -> (Grouping, f64) {
     // Group opacity over more than one thing it draws.

@@ -6,11 +6,11 @@
 use crate::clock::Clock;
 use crate::script::Responder;
 use crate::surface::TestSurface;
+use arvane_protocol::{PixelRect, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
     Accessibility, AccessibilityError, BufferAge, ShellError, ShellImeText, ShellWindow,
 };
 use kivact_types::Environment;
-use kivact_types::render::{PixelRect, SemanticsTree, SemanticsUpdate};
 use kivact_types::{Capabilities, Cursor, InputPurpose, NativeWindow, Rect, Size, WindowRequest};
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
@@ -379,7 +379,7 @@ impl ShellWindow for VirtualWindow {
     fn keeps_frames(&self) -> bool {
         true
     }
-    fn keep_frame(&mut self, frame: kivact_types::render::CpuFrame) {
+    fn keep_frame(&mut self, frame: arvane_protocol::CpuFrame) {
         self.shown = Shown::Kept(Kept {
             width: frame.width,
             height: frame.height,

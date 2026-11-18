@@ -11,7 +11,7 @@
 //! - One group carries the clip path, the group opacity and the blend
 //!   mode (CSS order: clip, opacity, blend).
 
-use kivact_types::render::{Group, Paint, PatternSource, RenderCmd};
+use arvane_protocol::{Group, PatternSource, RasterPaint, RenderCmd};
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, FilterOp, PaintProps, Rgba};
 
@@ -40,26 +40,26 @@ impl Tint {
 
     /// A paint as drawn (every stop faded; a pattern's image is drawn at
     /// full opacity: a tile image has no opacity of its own).
-    pub(crate) fn paint(&self, paint: Paint) -> Paint {
+    pub(crate) fn paint(&self, paint: RasterPaint) -> RasterPaint {
         if self.alpha == 1.0 {
             return paint;
         }
-        let fade = |g: &mut kivact_types::render::Gradient| {
+        let fade = |g: &mut arvane_protocol::RasterGradient| {
             for stop in &mut g.stops {
                 stop.1 = self.arvane(stop.1);
             }
         };
         match paint {
-            Paint::Solid(color) => Paint::Solid(self.arvane(color)),
-            Paint::Gradient(mut g) => {
+            RasterPaint::Solid(color) => RasterPaint::Solid(self.arvane(color)),
+            RasterPaint::Gradient(mut g) => {
                 fade(&mut g);
-                Paint::Gradient(g)
+                RasterPaint::Gradient(g)
             }
-            Paint::Pattern(mut p) => {
+            RasterPaint::Pattern(mut p) => {
                 if let PatternSource::Gradient(g) = &mut p.source {
                     fade(g);
                 }
-                Paint::Pattern(p)
+                RasterPaint::Pattern(p)
             }
         }
     }
@@ -74,13 +74,13 @@ fn blur(px: f64) -> f64 {
 pub(crate) fn filter_reach(ops: &[FilterOp]) -> f64 {
     ops.iter()
         .map(|op| match *op {
-            FilterOp::Blur(px) => blur(px) * kivact_types::render::SHADOW_REACH,
+            FilterOp::Blur(px) => blur(px) * arvane_protocol::SHADOW_REACH,
             FilterOp::DropShadow {
                 offset, blur: b, ..
             } => {
                 let offset = offset.x.abs().max(offset.y.abs());
                 (if offset.is_finite() { offset } else { 0.0 })
-                    + blur(b) / 2.0 * kivact_types::render::SHADOW_REACH
+                    + blur(b) / 2.0 * arvane_protocol::SHADOW_REACH
             }
             _ => 0.0,
         })

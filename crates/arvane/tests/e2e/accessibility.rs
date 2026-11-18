@@ -5,8 +5,8 @@
 //! it.
 
 use arvane::ShellEvent;
+use arvane_protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::Transform;
-use kivact_types::render::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use kivact_types::{A11yAction, A11yRequest, DismissReason, Point, Role, SemanticsId};
 
 use crate::support::{open, rect};

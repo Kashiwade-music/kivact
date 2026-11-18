@@ -17,7 +17,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use kivact_types::render::{SemanticsNode, SemanticsTree};
+use arvane_protocol::{SemanticsNode, SemanticsTree};
 
 use super::error::AccessibilityError;
 

@@ -3,9 +3,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
+use arvane_protocol::{PixelRect, RenderCmd, RenderScene};
 use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
-use kivact_types::render::{PixelRect, RenderCmd, RenderScene};
 
 use super::bounds::{mapped_bounds, scene_bounds};
 use super::builder::Builder;

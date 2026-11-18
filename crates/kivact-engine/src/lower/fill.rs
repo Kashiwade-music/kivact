@@ -18,7 +18,7 @@
 //!   repeating gradient repeats from its first stop to its last. Colors
 //!   are interpolated in the gradient's space and mapped to sRGB, with
 //!   stops added where that drifts from the sRGB ramp; color hints are
-//!   honored that way (`expand_gradient`).
+//!   honored that way (`kivact_types::expand_gradient`).
 //!   A repeating radial gradient repeats its stops shifted by the phase of
 //!   its first stop. A conic gradient's angles are CSS's (0° up, turned to
 //!   Arvane's 0° right); a non-repeating one is one whole turn drawn with
@@ -40,29 +40,26 @@
 use super::context::Context;
 use crate::lower::effects::Tint;
 use crate::lower::shape::BoxShape;
-use kivact_types::render::RenderCmd as D;
+use arvane_protocol::RenderCmd as D;
 use kivact_types::{
     BackgroundClip, BackgroundOrigin, CoordinateGradient, CoordinateShape, Fill, FillImage,
     FillLayer, FillSize, Gradient, GradientKind, RadialExtent,
 };
-use kivact_types::{BlendMode, ColorInterpolation, Len, Rgba, Size, SpaceColor, interpolate};
+use kivact_types::{BlendMode, Rgba, Size, color_at, expand_gradient, normalized_stops};
 
-use kivact_types::render::{GradientShape, Group, Pattern, PatternSource};
+use arvane_protocol::{GradientShape, Group, Pattern, PatternSource};
 use kivact_types::scene::Shape;
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
 const FEW: u32 = 4;
 
-/// The deepest bisection of a gradient interval (at most 4096 pieces).
-const MAX_DEPTH: u32 = 12;
-
 impl BoxShape {
     /// Fill the outline with `paint`.
     pub(crate) fn fill(
         &self,
         out: &mut crate::lower::SceneOut,
-        paint: kivact_types::render::Paint,
+        paint: arvane_protocol::RasterPaint,
     ) {
         match *self {
             BoxShape::Rect(rect) => out.push(D::RoundedRect {
@@ -215,8 +212,8 @@ impl Tiles {
     }
 
     /// The pattern repeating `source` from the first copy.
-    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> kivact_types::render::Paint {
-        kivact_types::render::Paint::Pattern(Pattern {
+    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> arvane_protocol::RasterPaint {
+        arvane_protocol::RasterPaint::Pattern(Pattern {
             source,
             tile: self.first,
             repeat_x: layer.repeat_x,
@@ -239,7 +236,7 @@ impl Context<'_> {
         match fill {
             Fill::Solid(color) => boxes
                 .border
-                .fill(out, kivact_types::render::Paint::Solid(tint.color(*color))),
+                .fill(out, arvane_protocol::RasterPaint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 // Layers that blend with what is beneath them draw as a group
                 // of their own, all of them within one group (CSS
@@ -271,7 +268,7 @@ impl Context<'_> {
         &self,
         out: &mut crate::lower::SceneOut,
         shape: &BoxShape,
-        paint: kivact_types::render::Paint,
+        paint: arvane_protocol::RasterPaint,
     ) {
         if crate::lower::sanitize::fill(&paint) {
             shape.fill(out, paint);
@@ -371,7 +368,7 @@ impl Context<'_> {
         };
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = kivact_types::render::Paint::Solid(tint.color(*color));
+                let paint = arvane_protocol::RasterPaint::Solid(tint.color(*color));
                 if tiles.covers(cover) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
@@ -393,7 +390,7 @@ impl Context<'_> {
                         y: 0.0,
                         ..tiles.first
                     };
-                    if let Some(kivact_types::render::Paint::Gradient(g)) = gradient(g, local) {
+                    if let Some(arvane_protocol::RasterPaint::Gradient(g)) = gradient(g, local) {
                         let paint = tiles.pattern(layer, PatternSource::Gradient(g));
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -427,7 +424,7 @@ impl Context<'_> {
         out: &mut crate::lower::SceneOut,
         shape: &BoxShape,
         tiles: &Tiles,
-        paint: impl Fn(Rect) -> Option<kivact_types::render::Paint>,
+        paint: impl Fn(Rect) -> Option<arvane_protocol::RasterPaint>,
     ) {
         let area = shape.rect();
         for copy in tiles.each().take(FEW as usize) {
@@ -449,7 +446,7 @@ impl Context<'_> {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<kivact_types::render::Paint> {
+    ) -> Option<arvane_protocol::RasterPaint> {
         if let FillImage::Coordinate(g) = &layer.image {
             return coordinate(g, origin);
         }
@@ -458,12 +455,12 @@ impl Context<'_> {
         match &layer.image {
             FillImage::Solid(color) => {
                 let paint =
-                    kivact_types::render::Paint::Solid(kivact_types::Rgba::sanitize(*color));
+                    arvane_protocol::RasterPaint::Solid(kivact_types::Rgba::sanitize(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     Some(paint)
                 } else {
                     // A solid tile is a one-stop gradient tile.
-                    let g = kivact_types::render::Gradient {
+                    let g = arvane_protocol::RasterGradient {
                         shape: GradientShape::Linear {
                             start: Point { x: 0.0, y: 0.0 },
                             end: Point { x: 1.0, y: 0.0 },
@@ -484,7 +481,7 @@ impl Context<'_> {
                     ..tiles.first
                 };
                 match gradient(g, local)? {
-                    kivact_types::render::Paint::Gradient(g) => {
+                    arvane_protocol::RasterPaint::Gradient(g) => {
                         Some(tiles.pattern(layer, PatternSource::Gradient(g)))
                     }
                     other => Some(other),
@@ -506,173 +503,6 @@ impl Context<'_> {
     }
 }
 
-/// A position `l` as a fraction of a line `length` px long (a conic
-/// gradient's: 360°); a non-finite one is zero.
-fn fraction(l: Len, length: f64) -> f64 {
-    let t = if length > 0.0 {
-        l.px / length + l.pct / 100.0
-    } else {
-        l.pct / 100.0
-    };
-    if t.is_finite() { t } else { 0.0 }
-}
-
-/// The stops of `g` as fractions of its line (CSS color stop fixup), with
-/// its color hints expanded (see [`expand_gradient`]): `length` is the
-/// line's length in px (a conic gradient's: 360°).
-fn stops(g: &Gradient, length: f64) -> Vec<(f64, Rgba)> {
-    let n = g.stops.len();
-    let mut at: Vec<Option<f64>> = g
-        .stops
-        .iter()
-        .map(|s| s.at.map(|l| fraction(l, length)))
-        .collect();
-    if n == 0 {
-        return Vec::new();
-    }
-    if at[0].is_none() {
-        at[0] = Some(0.0);
-    }
-    if at[n - 1].is_none() {
-        at[n - 1] = Some(1.0);
-    }
-    // No position before an earlier one.
-    let mut max = f64::NEG_INFINITY;
-    for t in at.iter_mut().flatten() {
-        max = max.max(*t);
-        *t = max;
-    }
-    // Missing positions spread evenly between their neighbours.
-    let mut i = 0;
-    while i < n {
-        if at[i].is_some() {
-            i += 1;
-            continue;
-        }
-        let start = i - 1;
-        let end = (i..n).find(|j| at[*j].is_some()).unwrap_or(n - 1);
-        let (a, b) = (at[start].unwrap_or(0.0), at[end].unwrap_or(1.0));
-        let span = (end - start) as f64;
-        for (k, slot) in at.iter_mut().enumerate().take(end).skip(i) {
-            *slot = Some(a + (b - a) * (k - start) as f64 / span);
-        }
-        i = end;
-    }
-    let resolved: Vec<(f64, SpaceColor)> = g
-        .stops
-        .iter()
-        .zip(at)
-        .map(|(s, t)| (t.unwrap_or(0.0), s.color))
-        .collect();
-    let hints: Vec<Option<f64>> = g
-        .hints
-        .iter()
-        .map(|h| h.map(|l| fraction(l, length)))
-        .collect();
-    expand_gradient(&resolved, &hints, g.interpolation)
-}
-
-/// The sRGB stops of a gradient whose authored stops are `stops` (offsets
-/// in order) with color `hints` between them (`hints[i]` between stop i and
-/// i + 1, an absolute offset; a missing hint is the midpoint). The colors
-/// are interpolated in `how` and mapped to sRGB; where that ramp drifts from
-/// the sRGB line between its stops, stops are added. Two stops at one
-/// offset make a hard edge.
-pub(crate) fn expand_gradient(
-    stops: &[(f64, SpaceColor)],
-    hints: &[Option<f64>],
-    how: ColorInterpolation,
-) -> Vec<(f64, Rgba)> {
-    let Some((p, c)) = stops.first().copied() else {
-        return Vec::new();
-    };
-    let mut out = vec![(p, c.to_srgb().sanitize())];
-    for (i, pair) in stops.windows(2).enumerate() {
-        let hint = hints.get(i).copied().flatten();
-        expand_interval(&mut out, pair[0], pair[1], hint, how);
-    }
-    out
-}
-
-/// Append the stops of the interval from `a` to `b` (both authored), ending
-/// at `b`; `hint` is its color hint's absolute offset.
-fn expand_interval(
-    out: &mut Vec<(f64, Rgba)>,
-    a: (f64, SpaceColor),
-    b: (f64, SpaceColor),
-    hint: Option<f64>,
-    how: ColorInterpolation,
-) {
-    let ((p0, c0), (p1, c1)) = (a, b);
-    let end = c1.to_srgb().sanitize();
-    let span = p1 - p0;
-    if span.is_nan() || span <= 0.0 {
-        out.push((p1, end));
-        return;
-    }
-    let h = hint.map_or(0.5, |h| (h - p0) / span);
-    if h == 0.0 {
-        // The hint is at the start: the second color at once.
-        out.push((p0, end));
-        out.push((p1, end));
-        return;
-    }
-    if h == 1.0 {
-        // The hint is at the end: the first color to the end.
-        out.push((p1, c0.to_srgb().sanitize()));
-        out.push((p1, end));
-        return;
-    }
-    let h = if h.is_nan() {
-        0.5
-    } else {
-        h.clamp(0.001, 0.999)
-    };
-    // CSS's hint: the weight of the second color is t^(ln 0.5 / ln h), so
-    // it is one half at the hint.
-    let exponent = 0.5f64.ln() / h.ln();
-    let ramp = |t: f64| {
-        interpolate(c0, c1, t.powf(exponent), how)
-            .to_srgb()
-            .sanitize()
-    };
-    let (f_hint, f_end) = (ramp(h), ramp(1.0));
-    let place = (p0, span);
-    refine(out, &ramp, place, (0.0, ramp(0.0)), (h, f_hint), 0);
-    refine(out, &ramp, place, (h, f_hint), (1.0, f_end), 0);
-}
-
-/// Bisect the ramp between `a` and `b` (offsets within the interval) until
-/// its midpoint is within half a sRGB step of the premultiplied mix of the
-/// ends, pushing each piece's end at its place `(start, length)` on the line.
-fn refine(
-    out: &mut Vec<(f64, Rgba)>,
-    ramp: &impl Fn(f64) -> Rgba,
-    place: (f64, f64),
-    a: (f64, Rgba),
-    b: (f64, Rgba),
-    depth: u32,
-) {
-    let m = (a.0 + b.0) / 2.0;
-    let mid = ramp(m);
-    let linear = color_at(&[(0.0, a.1), (1.0, b.1)], 0.5);
-    if depth >= MAX_DEPTH || within_step(mid, linear) {
-        out.push((place.0 + b.0 * place.1, b.1));
-        return;
-    }
-    refine(out, ramp, place, a, (m, mid), depth + 1);
-    refine(out, ramp, place, (m, mid), b, depth + 1);
-}
-
-/// Whether every channel of `a` and `b` differs by at most half a step of
-/// an 8-bit channel.
-fn within_step(a: Rgba, b: Rgba) -> bool {
-    const TOLERANCE: f64 = 0.5 / 255.0;
-    [(a.r, b.r), (a.g, b.g), (a.b, b.b), (a.a, b.a)]
-        .iter()
-        .all(|(x, y)| (x - y).abs() <= TOLERANCE)
-}
-
 /// The render group that blends its commands with `blend`.
 fn blend_group(blend: BlendMode) -> Group {
     Group {
@@ -681,46 +511,6 @@ fn blend_group(blend: BlendMode) -> Group {
         blend,
         blur: None,
     }
-}
-
-/// Stops spanning `[lo, hi]` mapped onto `[0, 1]`.
-fn normalized(stops: &[(f64, Rgba)], lo: f64, hi: f64) -> Vec<(f64, Rgba)> {
-    let span = (hi - lo).max(f64::MIN_POSITIVE);
-    stops
-        .iter()
-        .map(|(t, c)| (((t - lo) / span).clamp(0.0, 1.0), *c))
-        .collect()
-}
-
-/// The color of the stops at `t` (premultiplied interpolation).
-fn color_at(stops: &[(f64, Rgba)], t: f64) -> Rgba {
-    let Some(first) = stops.first() else {
-        return Rgba::default();
-    };
-    if t <= first.0 {
-        return first.1;
-    }
-    for pair in stops.windows(2) {
-        let ((t0, c0), (t1, c1)) = (pair[0], pair[1]);
-        if t <= t1 {
-            let k = if t1 > t0 { (t - t0) / (t1 - t0) } else { 1.0 };
-            let a = c0.a + (c1.a - c0.a) * k;
-            let mix = |x: f64, y: f64| {
-                if a > 0.0 {
-                    (x * c0.a + (y * c1.a - x * c0.a) * k) / a
-                } else {
-                    x + (y - x) * k
-                }
-            };
-            return Rgba {
-                r: mix(c0.r, c1.r),
-                g: mix(c0.g, c1.g),
-                b: mix(c0.b, c1.b),
-                a,
-            };
-        }
-    }
-    stops.last().map_or(first.1, |l| l.1)
 }
 
 /// One period of stops (in `[0, 1]`) shifted by `phase` (a fraction of
@@ -751,7 +541,7 @@ fn rotated(period: &[(f64, Rgba)], phase: f64) -> Vec<(f64, Rgba)> {
 
 /// A CSS gradient over the box `rect` as an Arvane paint (`None`: no
 /// stops).
-pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Paint> {
+pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     if g.stops.is_empty() {
         return None;
     }
@@ -760,24 +550,15 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
         y: a.y + (b.y - a.y) * t,
     };
     let solid = |stops: &[(f64, Rgba)]| {
-        Some(kivact_types::render::Paint::Solid(
+        Some(arvane_protocol::RasterPaint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
     let (shape, stops, extend) = match g.kind {
-        GradientKind::Linear { angle_deg } => {
-            let angle = if angle_deg.is_finite() {
-                angle_deg
-            } else {
-                180.0
-            };
-            let GradientShape::Linear { start, end } =
-                GradientShape::linear_angle(rect, angle - 90.0)
-            else {
-                return None;
-            };
+        GradientKind::Linear { .. } => {
+            let (start, end) = g.line(rect)?;
             let length = (end.x - start.x).hypot(end.y - start.y);
-            let s = stops(g, length);
+            let s = g.srgb_stops(length);
             let (first, last) = (s[0].0, s[s.len() - 1].0);
             let (lo, hi, extend) = if g.repeating {
                 if last - first <= 0.0 {
@@ -792,7 +573,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
                     start: lerp(start, end, lo),
                     end: lerp(start, end, hi),
                 },
-                normalized(&s, lo, hi),
+                normalized_stops(&s, lo, hi),
                 extend,
             )
         }
@@ -801,7 +582,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
             let cx = rect.x + center[0].of(rect.width);
             let cy = rect.y + center[1].of(rect.height);
             let from = if from_deg.is_finite() { from_deg } else { 0.0 } - 90.0;
-            let s = stops(g, 360.0);
+            let s = g.srgb_stops(360.0);
             let (first, last) = (s[0].0, s[s.len() - 1].0);
             let (lo, hi, extend) = if g.repeating {
                 if last - first <= 0.0 {
@@ -820,13 +601,13 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
                     start_deg: from + lo * 360.0,
                     end_deg: from + hi * 360.0,
                 },
-                normalized(&s, lo, hi),
+                normalized_stops(&s, lo, hi),
                 extend,
             )
         }
     };
-    Some(kivact_types::render::Paint::Gradient(
-        kivact_types::render::Gradient {
+    Some(arvane_protocol::RasterPaint::Gradient(
+        arvane_protocol::RasterGradient {
             shape,
             stops,
             extend,
@@ -841,7 +622,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render:
 pub(crate) fn coordinate(
     g: &CoordinateGradient,
     origin: Point,
-) -> Option<kivact_types::render::Paint> {
+) -> Option<arvane_protocol::RasterPaint> {
     let at = |p: kivact_types::Point| Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
@@ -879,7 +660,7 @@ pub(crate) fn coordinate(
             Extend::Repeat,
         ),
     };
-    let paint = kivact_types::render::Paint::Gradient(kivact_types::render::Gradient {
+    let paint = arvane_protocol::RasterPaint::Gradient(arvane_protocol::RasterGradient {
         shape,
         stops,
         extend,
@@ -887,7 +668,7 @@ pub(crate) fn coordinate(
     super::sanitize::fill(&paint).then_some(paint)
 }
 
-fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Paint> {
+fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     let GradientKind::Radial {
         circle,
         extent,
@@ -897,7 +678,7 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Pai
         unreachable!("invariant: radial gradient");
     };
     let solid = |stops: &[(f64, Rgba)]| {
-        Some(kivact_types::render::Paint::Solid(
+        Some(arvane_protocol::RasterPaint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
@@ -906,9 +687,10 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Pai
     let cy = rect.y + center[1].of(rect.height);
     let (rx, ry) = radial_radii(rect, cx, cy, circle, extent);
     if !(rx.is_finite() && ry.is_finite() && rx > 0.0 && ry > 0.0) {
-        return solid(&stops(g, 0.0));
+        return solid(&g.srgb_stops(0.0));
     }
-    let s: Vec<_> = stops(g, rx)
+    let s: Vec<_> = g
+        .srgb_stops(rx)
         .into_iter()
         .map(|(t, c)| (t.max(0.0), c))
         .collect();
@@ -918,11 +700,11 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Pai
         if period <= 0.0 {
             return solid(&s);
         }
-        let one = normalized(&s, first, last);
+        let one = normalized_stops(&s, first, last);
         (period, rotated(&one, first / period), Extend::Repeat)
     } else {
         let hi = last.max(1.0);
-        (hi, normalized(&s, 0.0, hi), Extend::Pad)
+        (hi, normalized_stops(&s, 0.0, hi), Extend::Pad)
     };
     let (shape, stops, extend) = (
         GradientShape::Radial {
@@ -933,8 +715,8 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<kivact_types::render::Pai
         stops,
         extend,
     );
-    Some(kivact_types::render::Paint::Gradient(
-        kivact_types::render::Gradient {
+    Some(arvane_protocol::RasterPaint::Gradient(
+        arvane_protocol::RasterGradient {
             shape,
             stops,
             extend,

@@ -5,7 +5,8 @@ use crate::geometry::Rect;
 use crate::paint::Mask;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::render::Composite;
+use kivact_types::Composite;
+use kivact_types::Mix;
 use kivact_types::{BackfaceVisibility, TransformStyle};
 
 /// What [`Draw::layer`](super::Draw::layer) applies to the commands its closure draws: a
@@ -44,8 +45,7 @@ pub struct Layer {
     pub(super) clip_rect: Option<Rect>,
     pub(super) clip: Option<Shape>,
     pub(super) opacity: f64,
-    pub(super) blend: BlendMode,
-    pub(super) composite: Composite,
+    pub(super) mix: Mix,
     pub(super) filter: Filter,
     pub(super) mask: Option<Mask>,
     pub(super) shadow: Option<Shadow>,
@@ -68,8 +68,7 @@ impl Layer {
             clip_rect: None,
             clip: None,
             opacity: 1.0,
-            blend: BlendMode::Normal,
-            composite: Composite::SourceOver,
+            mix: Mix::Normal,
             filter: Filter::new(),
             mask: None,
             shadow: None,
@@ -116,16 +115,14 @@ impl Layer {
     /// The blend mode with what is beneath (CSS `mix-blend-mode`). It sets
     /// the composite to source-over, as a blend does.
     pub fn blend(mut self, blend: BlendMode) -> Self {
-        self.blend = blend;
-        self.composite = Composite::SourceOver;
+        self.mix = Mix::Blend(blend).normalized();
         self
     }
     /// The Porter–Duff composite with what is beneath (Canvas
     /// `globalCompositeOperation`). It sets the blend to normal, so the
     /// last of `blend` and `composite` wins.
     pub fn composite(mut self, composite: Composite) -> Self {
-        self.composite = composite;
-        self.blend = BlendMode::Normal;
+        self.mix = Mix::Composite(composite).normalized();
         self
     }
     pub fn filter(mut self, filter: Filter) -> Self {
@@ -150,8 +147,7 @@ impl Layer {
     pub(super) fn groups(&self) -> bool {
         self.clip.is_some()
             || self.opacity != 1.0
-            || self.blend != BlendMode::Normal
-            || self.composite != Composite::SourceOver
+            || self.mix != Mix::Normal
             || self.filter != Filter::new()
             || self.mask.is_some()
             || self.shadow.is_some()
@@ -217,8 +213,7 @@ impl Draw {
                 area,
                 clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
                 opacity: layer.opacity,
-                blend: layer.blend,
-                composite: layer.composite,
+                mix: layer.mix,
                 filter: filter_ops(&filter, &self.theme),
                 masks: layer
                     .mask

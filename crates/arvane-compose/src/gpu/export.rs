@@ -9,8 +9,9 @@ use super::pass::unpremultiply;
 use super::state::GpuContext;
 use crate::ComposeError;
 use crate::plan::PlannedExport;
+use arvane_protocol::{Composition, Export, ExportMode};
+use kivact_types::export::{ExportFrame, ExportedFrame};
 use kivact_types::ids::DrawableId;
-use kivact_types::render::{Composition, Export, ExportFrame, ExportMode, ExportedFrame};
 use kivact_types::{GpuAdapter, SharedTextures};
 
 impl GpuContext {

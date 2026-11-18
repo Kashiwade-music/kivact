@@ -16,8 +16,8 @@
 
 use std::sync::Arc;
 
+use arvane_protocol::{GradientShape, RasterGradient};
 use kivact_types::pixel::Pixels;
-use kivact_types::render::{Gradient, GradientShape};
 use kivact_types::{Extend, Rect};
 use vello_cpu::kurbo::{Affine, Rect as RasterRect};
 use vello_cpu::peniko::{self, Blob, ImageAlphaType, ImageFormat, ImageQuality, ImageSampler};
@@ -78,7 +78,7 @@ impl DerivedScope<'_> {
     /// (straight alpha).
     pub(crate) fn gradient_tile(
         &mut self,
-        gradient: &Gradient,
+        gradient: &RasterGradient,
         tile: Rect,
         (width, height): (u16, u16),
     ) -> Pixels {
@@ -184,7 +184,7 @@ fn raster(
 }
 
 /// A gradient tile's values as bits.
-fn tile_bits(g: &Gradient, tile: Rect) -> Vec<u64> {
+fn tile_bits(g: &RasterGradient, tile: Rect) -> Vec<u64> {
     let mut bits = Vec::with_capacity(12 + g.stops.len() * 5);
     bits.extend([tile.width, tile.height].map(f64::to_bits));
     bits.push(match g.extend {

@@ -6,8 +6,8 @@
 //! hinted and cached by glifo).
 
 use kivact_types::Point;
-use kivact_types::render::GlyphRun;
 use kivact_types::scene::PathCmd;
+use kivact_types::shaped::GlyphRun;
 use skrifa::instance::{LocationRef, NormalizedCoord, Size};
 use skrifa::outline::{DrawSettings, OutlinePen};
 use skrifa::{FontRef, GlyphId, MetadataProvider};

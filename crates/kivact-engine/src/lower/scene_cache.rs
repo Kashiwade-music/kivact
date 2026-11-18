@@ -64,7 +64,7 @@ pub(crate) struct Entry {
     pub(crate) inherited: Option<ComputedTextStyle>,
     pub(crate) raster: u64,
     pub(crate) tint: Tint,
-    pub(crate) lowered: kivact_types::render::RenderScene,
+    pub(crate) lowered: arvane_protocol::RenderScene,
     pub(crate) max_depth: usize,
     pub(crate) dependencies: Vec<Dependency>,
 }

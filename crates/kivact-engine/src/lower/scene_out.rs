@@ -12,12 +12,12 @@
 //! - `space` is the transform from the open layer's space to the chunk's
 //!   current space. Clips and items are kept in layer space.
 
-use kivact_types::geometry3d::Matrix4;
-use kivact_types::paint::BackfaceVisibility;
-use kivact_types::render::{
+use arvane_protocol::{
     CompositeLayer, Composition, Group, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid,
     RenderCmd as D, RenderScene,
 };
+use kivact_types::geometry3d::Matrix4;
+use kivact_types::paint::BackfaceVisibility;
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, NodeId, Point, Rect, Size, Transform};
 

@@ -9,9 +9,9 @@ use crate::env::RendererStart;
 use crate::error::{self, Failure, FailureKind};
 use crate::presentation::{GpuStartCause, Notes, Renderer, RendererChange};
 use arvane_compose::{CpuCompositor, CpuOutput, Damage, GpuContext, GpuSurface, Presentation};
+use arvane_protocol::{Composition, FrameReport, PixelRect};
 use arvane_render::RenderError;
 use arvane_shell::{BufferAge, ShellWindow};
-use kivact_types::render::{Composition, FrameReport, PixelRect};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 

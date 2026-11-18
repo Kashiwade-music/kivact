@@ -5,7 +5,7 @@
 //! space alone never wraps, and bad input is classified.
 
 use kivact_types::Size;
-use kivact_types::render::InlineBox;
+use kivact_types::shaped::InlineBox;
 use kivact_types::{ComputedTextStyle, TextWrap};
 
 use crate::support::engine;
