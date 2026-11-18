@@ -84,8 +84,7 @@ fn windows_stay_on_cpu(options: RenderOptions) {
         screen.run_until_idle();
         let child = screen.window("Child");
         read_again(&screen, reads);
-        std::thread::sleep(GRACE);
-        screen.run_until_idle();
+        screen.advance(GRACE);
         assert_eq!(
             child.renderer(),
             Renderer::Cpu,

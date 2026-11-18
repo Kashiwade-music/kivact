@@ -409,18 +409,6 @@ fn counter_example_end_to_end() {
     let _ = Cell::new(0);
 }
 
-// ---------------------------------------------------------------------------
-// Regression: a rejected edit of a bound text field is not reverted on the host.
-
-// ---------------------------------------------------------------------------
-// Regression: NodeRef::rect keeps the last rect after the node is unmounted.
-
-// ---------------------------------------------------------------------------
-// Regression: virtual_list host child order does not follow item order.
-
-// ---------------------------------------------------------------------------
-// Regression: on_mount of a component without host nodes waits for an unrelated batch.
-
 #[test]
 fn closure_child_updates_text() {
     let (screen, value) = mount(|| {

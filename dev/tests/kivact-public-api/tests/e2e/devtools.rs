@@ -8,8 +8,8 @@ use std::time::{Duration, Instant};
 
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render_with_handle};
-use kivact_devtools_protocol::client::{Connection, read_target};
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client::{Connection, read_target};
 
 /// What the client thread saw through one connection.
 struct ClientReport {

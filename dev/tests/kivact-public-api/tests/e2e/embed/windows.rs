@@ -1,4 +1,4 @@
-//! Role: Win32 embedding input, clipping and UIA regressions.
+//! Role: Win32 embedding: native hit tests, capture during chords, Alt+F4 to the host.
 #![allow(
     unsafe_code,
     reason = "queries and input target only owned Win32 test windows"
@@ -55,7 +55,7 @@ fn chord_keeps_drag_and_alt_f4_reaches_host() {
         return;
     }
 
-    let _serial = SERIAL.lock().expect("Windows screen regression lock");
+    let _serial = SERIAL.lock().expect("Windows embed serial lock");
     let parent = TestParent::open(320, 240).unwrap();
     let phases = Arc::new(Mutex::new(Vec::new()));
     let output = phases.clone();

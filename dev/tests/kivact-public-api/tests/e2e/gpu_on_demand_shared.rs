@@ -66,8 +66,7 @@ fn shares_pixels_on_cpu(options: RenderOptions) {
     let (screen, go, image) = mount(options);
     go.set(true);
     screen.run_until_idle();
-    std::thread::sleep(GRACE);
-    screen.run_until_idle();
+    screen.advance(GRACE);
     let image = image.borrow().clone().expect("the window made its image");
     assert_eq!(
         image.status(),

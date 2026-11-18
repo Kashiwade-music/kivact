@@ -26,7 +26,7 @@ use kivact::test::{MirrorMode, RenderOptions, Renderer, gpu_unavailable};
 /// A paint shader that returns blue (its fallback in the tests is red).
 const BLUE_PAINT: &str = "fn paint(position: vec2<f32>, context: Context) -> vec4<f32> {\n    return vec4<f32>(0.0, 0.0, 1.0, 1.0);\n}\n";
 
-/// The real time a device that must not start is given to start.
+/// The virtual time a device that must not start is given to start.
 pub(crate) const GRACE: Duration = Duration::from_millis(300);
 
 /// Whether the GPU lane can run here; says why when it cannot.
@@ -86,8 +86,7 @@ fn shader_stays_on_cpu(options: RenderOptions) {
     });
     shaded.set(true);
     screen.run_until_idle();
-    std::thread::sleep(GRACE);
-    screen.run_until_idle();
+    screen.advance(GRACE);
     assert_eq!(
         screen.renderer(),
         Renderer::Cpu,
