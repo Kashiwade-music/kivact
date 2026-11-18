@@ -30,11 +30,12 @@ mod macros;
 mod module_rules;
 mod name_collision;
 mod os_branch;
+mod pending;
 mod policy;
 mod public_surface;
 mod public_type_edges;
 mod report;
-mod state_fields;
+mod state;
 mod structural_options;
 
 fn main() -> ExitCode {
@@ -51,7 +52,7 @@ fn main() -> ExitCode {
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <{}> [--crate <crate> [--module <path>]] [--report] [--report-audit]",
+            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);
@@ -77,7 +78,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
-    if options.only.is_some() {
+    if options.only.is_some() || options.package.is_some() {
         return local_checks::selected(&options, &local);
     }
     let rules = match policy::prepare(&mut config) {
@@ -101,16 +102,11 @@ fn main() -> ExitCode {
         Err(error) => report.errors.push(format!("module rules: {error}")),
     }
     report.errors.extend(impl_model::check(&config.root));
+    report.notes.extend(local.notes);
     if options.report {
         report.notes.extend(local.errors);
     } else {
         report.errors.extend(local.errors);
-    }
-    if local.audit_open > 0 {
-        report.errors.push(format!(
-            "state-audit: {} open row(s) in dev/xtask/state-audit.md",
-            local.audit_open
-        ));
     }
     report::print(&report)
 }

@@ -86,18 +86,6 @@ impl Source {
         self.marker_before(rule, span)
             .and_then(|(line, explained)| explained.then_some(line))
     }
-    /// The line of the marker directly before `span`, even when its reason is empty.
-    pub(crate) fn marker_line(&self, rule: &str, span: proc_macro2::Span) -> Option<usize> {
-        self.marker_before(rule, span).map(|(line, _)| line)
-    }
-    /// The reason written after `// xtask-allow(rule):` on `line`.
-    pub(crate) fn allow_reason(&self, rule: &str, line: usize) -> Option<String> {
-        let marker = format!("// xtask-allow({rule}):");
-        let text = self.text.lines().nth(line.checked_sub(1)?)?;
-        text.trim_start()
-            .strip_prefix(&marker)
-            .map(|reason| reason.trim().to_owned())
-    }
     /// Record that the marker on `line` explained a counted field or static.
     pub(crate) fn use_allow(&self, line: usize) {
         self.used_allows.borrow_mut().insert(line);
@@ -457,6 +445,21 @@ pub(crate) fn type_names(ty: &syn::Type) -> BTreeSet<String> {
     names.0
 }
 
+/// The last path segment of an impl's self type (`Foo` for `crate::a::Foo<T>`).
+pub(crate) fn self_type_name(ty: &syn::Type) -> Option<String> {
+    match ty {
+        syn::Type::Path(path) => path
+            .path
+            .segments
+            .last()
+            .map(|segment| segment.ident.to_string()),
+        syn::Type::Reference(reference) => self_type_name(&reference.elem),
+        syn::Type::Paren(paren) => self_type_name(&paren.elem),
+        syn::Type::Group(group) => self_type_name(&group.elem),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 // An official kit identity keeps kit-only rules active in checker fixtures.
 pub(crate) fn fixture(text: &str) -> Source {
@@ -498,12 +501,16 @@ mod tests {
         .unwrap();
         std::fs::write(
             directory.join("src/lib.rs"),
-            "pub struct Shared { pub x: f32 } pub struct State { a: bool, b: bool }",
+            "pub struct Shared { pub x: f32 } pub struct State { a: Cell<bool>, b: Cell<bool> }",
         )
         .unwrap();
-        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: bool, b: bool } impl Element for State {}").unwrap();
+        std::fs::write(directory.join("src/main.rs"), "pub struct Shared { pub y: f32 } pub struct State { a: Cell<bool>, b: Cell<bool> } impl Element for State {}").unwrap();
         for path in ["tool.rs", "src/bin/helper.rs", "src/bin/nested/main.rs"] {
-            std::fs::write(directory.join(path), "struct Model { a: bool, b: bool }").unwrap();
+            std::fs::write(
+                directory.join(path),
+                "struct Model { a: Cell<bool>, b: Cell<bool> }",
+            )
+            .unwrap();
         }
         let sources = super::load(&root).unwrap();
         assert_eq!(sources.len(), 5);
@@ -520,7 +527,7 @@ mod tests {
         let policy = root.join("policy.toml");
         std::fs::write(&policy, "").unwrap();
         let options = crate::check_cli::Options {
-            only: Some("state-fields".into()),
+            only: Some("state".into()),
             package: Some("kivact-ui-soft".into()),
             ..Default::default()
         };
@@ -529,7 +536,7 @@ mod tests {
                 .unwrap()
                 .errors
                 .len(),
-            4
+            5
         );
         std::fs::remove_dir_all(root).unwrap();
     }

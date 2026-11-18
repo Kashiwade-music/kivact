@@ -1,27 +1,54 @@
-//! Role: List function-local state guesses for the state-fields report and audit.
+//! Role: Find functions that keep two or more state locals.
 
-use super::audit::{AuditRow, marker_closure};
 use crate::check_source::Source;
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 
-/// One detected local: its line, name, and the marker that explains it.
+/// One detected local: its line and name.
 pub(super) struct Local {
     pub(super) line: usize,
     pub(super) name: String,
-    pub(super) marker: Option<usize>,
 }
 
 /// One function and the state locals it declares.
 pub(super) struct Function {
     pub(super) name: String,
+    /// The line of the `// xtask-allow(state):` marker before the function.
+    pub(super) marker: Option<usize>,
     pub(super) locals: Vec<Local>,
 }
 
+/// Report functions with two or more state locals and no marker; record the markers used.
+pub(super) fn check(source: &Source, errors: &mut Vec<String>) {
+    for function in scan(source) {
+        if function.locals.len() < 2 {
+            continue;
+        }
+        match function.marker {
+            Some(line) => source.use_allow(line),
+            None => {
+                let names = function
+                    .locals
+                    .iter()
+                    .map(|local| local.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                source.error_at_line(
+                    "state",
+                    function.locals[0].line,
+                    &format!(
+                        "function {} combines state locals {names}; close them with an enum, or put one `// xtask-allow(state): <how the combinations are closed>` line before the function",
+                        function.name
+                    ),
+                    errors,
+                );
+            }
+        }
+    }
+}
+
 /// The detected locals of `source`, grouped by function.
-///
-/// A marker directly before a local records it as used and closes it.
-pub(super) fn scan(source: &Source) -> Vec<Function> {
+fn scan(source: &Source) -> Vec<Function> {
     let mut visitor = Locals {
         source,
         stack: Vec::new(),
@@ -31,77 +58,6 @@ pub(super) fn scan(source: &Source) -> Vec<Function> {
         visitor.visit_item(item);
     }
     visitor.functions
-}
-
-/// The `--report` notes: one line per detected local.
-pub(super) fn collect(source: &Source, functions: &[Function]) -> Vec<String> {
-    functions
-        .iter()
-        .flat_map(|function| &function.locals)
-        .map(|local| {
-            format!(
-                "state-locals: {}:{} {}",
-                source.path.display(),
-                local.line,
-                local.name
-            )
-        })
-        .collect()
-}
-
-/// The audit rows of functions that carry two or more state locals.
-pub(super) fn audit(source: &Source, functions: &[Function]) -> Vec<AuditRow> {
-    let mut rows = Vec::new();
-    for function in functions {
-        if function.locals.len() < 2 {
-            continue;
-        }
-        for local in &function.locals {
-            let (reason, closure) = match local.marker {
-                Some(line) => {
-                    let reason = source
-                        .allow_reason("state-fields", line)
-                        .unwrap_or_default();
-                    let closure = marker_closure(&reason);
-                    (reason, closure)
-                }
-                None => ("-".to_owned(), "OPEN".to_owned()),
-            };
-            rows.push(AuditRow {
-                path: source.path.clone(),
-                line: local.line,
-                field: format!("{}::{}", function.name, local.name),
-                reason,
-                closure,
-            });
-        }
-    }
-    rows
-}
-
-/// The errors: a function with two or more unmarked locals.
-pub(super) fn check(source: &Source, functions: &[Function], errors: &mut Vec<String>) {
-    for function in functions {
-        let open: Vec<&Local> = function
-            .locals
-            .iter()
-            .filter(|local| local.marker.is_none())
-            .collect();
-        if open.is_empty() || function.locals.len() < 2 {
-            continue;
-        }
-        let names = open
-            .iter()
-            .map(|local| local.name.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        source.error_at_line(
-            "state-fields",
-            open[0].line,
-            &format!("function combines state locals: {names}"),
-            errors,
-        );
-    }
 }
 
 struct Locals<'a> {
@@ -114,6 +70,7 @@ impl<'ast> Visit<'ast> for Locals<'_> {
     fn visit_item_fn(&mut self, node: &'ast syn::ItemFn) {
         self.stack.push(Function {
             name: node.sig.ident.to_string(),
+            marker: self.source.allow_line("state", node.span()),
             locals: Vec::new(),
         });
         syn::visit::visit_item_fn(self, node);
@@ -123,6 +80,7 @@ impl<'ast> Visit<'ast> for Locals<'_> {
     fn visit_impl_item_fn(&mut self, node: &'ast syn::ImplItemFn) {
         self.stack.push(Function {
             name: node.sig.ident.to_string(),
+            marker: self.source.allow_line("state", node.span()),
             locals: Vec::new(),
         });
         syn::visit::visit_impl_item_fn(self, node);
@@ -137,14 +95,10 @@ impl<'ast> Visit<'ast> for Locals<'_> {
             && let Some(name) = pattern_name(&local.pat)
         {
             let line = local.span().start().line;
-            if self.source.owns_line(line) {
-                let marker = self.source.allow_line("state-fields", local.span());
-                if let Some(marker) = marker {
-                    self.source.use_allow(marker);
-                }
-                if let Some(function) = self.stack.last_mut() {
-                    function.locals.push(Local { line, name, marker });
-                }
+            if self.source.owns_line(line)
+                && let Some(function) = self.stack.last_mut()
+            {
+                function.locals.push(Local { line, name });
             }
         }
         syn::visit::visit_local(self, local);
