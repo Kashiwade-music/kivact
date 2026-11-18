@@ -120,6 +120,7 @@ pub(crate) fn timeline(
     .style(style().gap(2))
 }
 
+// xtask-allow(state): legacy: turns, frames, zoom, drag, width
 /// The signals and the plot width the pointer handler reads.
 #[derive(Clone)]
 struct Pointing {

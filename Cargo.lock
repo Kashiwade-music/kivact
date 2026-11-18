@@ -2337,7 +2337,6 @@ name = "kivact-devtools"
 version = "0.1.0"
 dependencies = [
  "kivact",
- "kivact-devtools-client",
  "kivact-devtools-protocol",
  "kivact-ui-basic",
  "serde_json",
@@ -2347,7 +2346,6 @@ dependencies = [
 name = "kivact-devtools-agent"
 version = "0.1.0"
 dependencies = [
- "kivact-devtools-client",
  "kivact-devtools-protocol",
  "png 0.18.1",
  "serde_json",
@@ -2355,18 +2353,9 @@ dependencies = [
 ]
 
 [[package]]
-name = "kivact-devtools-client"
-version = "0.1.0"
-dependencies = [
- "kivact-devtools-protocol",
- "serde_json",
-]
-
-[[package]]
 name = "kivact-devtools-mcp"
 version = "0.1.0"
 dependencies = [
- "kivact-devtools-client",
  "kivact-devtools-protocol",
  "serde_json",
 ]
@@ -2492,6 +2481,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "kivact-kit-tests"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+ "kivact-public-api-tests",
+ "kivact-ui-basic",
+ "kivact-ui-creative",
+ "kivact-ui-game",
+ "kivact-ui-pop",
+ "kivact-ui-soft",
+]
+
+[[package]]
 name = "kivact-layout"
 version = "0.1.0"
 dependencies = [
@@ -2516,14 +2518,8 @@ dependencies = [
  "gpu-interop-producer",
  "image",
  "kivact",
- "kivact-devtools-client",
  "kivact-devtools-protocol",
  "kivact-gpu-share",
- "kivact-ui-basic",
- "kivact-ui-creative",
- "kivact-ui-game",
- "kivact-ui-pop",
- "kivact-ui-soft",
  "wgpu",
  "windows",
  "windows-sys 0.52.0",

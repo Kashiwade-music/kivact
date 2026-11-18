@@ -1,8 +1,10 @@
-//! Role: Wire vocabulary of the Kivact DevTools: methods, notifications and values.
+//! Role: Wire vocabulary of the Kivact DevTools; with feature client, the connection.
 
 mod a11y;
 mod app;
 mod call;
+#[cfg(feature = "client")]
+pub mod client;
 pub mod code;
 mod common;
 mod config;

@@ -1,5 +1,6 @@
-//! Role: Public API consumer tests. The tests live in tests/ (e2e,
-//! offscreen); code that must not compile is checked by the doc tests below.
+//! Role: Public API consumer tests and the E2E helpers their test binaries share.
+//! The tests live in tests/ (e2e_core, e2e_ui, e2e_native and offscreen); code
+//! that must not compile is checked by the doc tests below.
 //!
 //! # What `#[component]` rejects
 //!
@@ -78,3 +79,6 @@
 //!     text(title.into())
 //! }
 //! ```
+
+pub mod paint;
+pub mod support;

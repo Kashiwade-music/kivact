@@ -3,8 +3,8 @@
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use kivact_devtools_client as client;
 use kivact_devtools_protocol as p;
+use kivact_devtools_protocol::client;
 use serde_json::{Value, json};
 
 /// The target the tools talk to.

@@ -28,7 +28,7 @@ kivact-core = ["kivact", "kivact-interaction", "kivact-ui", "kivact-test"]
 kivact-test = ["kivact"]
 kivact-interaction = ["kivact", "kivact-ui"]
 kivact-ui = ["kivact"]
-kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]
+kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]
 kivact-devtools-agent = ["kivact-core"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
@@ -354,6 +354,11 @@ reason = "Public API E2E tests are written from the user's side and import `kiva
 
 [[style.exceptions]]
 rule = "glob-imports"
+path = "dev/tests/kivact-kit-tests/*"
+reason = "Kit E2E tests are written from the user's side and import `kivact::prelude::*`."
+
+[[style.exceptions]]
+rule = "glob-imports"
 path = "dev/bench/src/bin/*"
 reason = "The bench binaries are measurement programs written from the user's side and start from `use kivact::prelude::*`."
 
@@ -511,7 +516,7 @@ mirror = ["port", "present", "a11y"]
 state = [
     "arvane", "arvane-asset", "arvane-compose", "arvane-native", "arvane-render", "arvane-shell", "arvane-text", "arvane-virtual",
     "gpu-interop-producer", "kivact", "kivact-bench", "kivact-core", "kivact-devtools", "kivact-devtools-agent",
-    "kivact-devtools-client", "kivact-devtools-mcp", "kivact-devtools-protocol", "kivact-docs", "kivact-editing", "kivact-engine",
+    "kivact-devtools-mcp", "kivact-devtools-protocol", "kivact-docs", "kivact-editing", "kivact-engine",
     "kivact-example-async", "kivact-example-component", "kivact-example-counter", "kivact-example-form", "kivact-example-list",
     "kivact-gpu-share", "kivact-i18n", "kivact-interaction", "kivact-layout", "kivact-macros", "kivact-public-api-tests",
     "kivact-runtime", "kivact-shader", "kivact-style", "kivact-svg", "kivact-template-basic", "kivact-test", "kivact-types",
