@@ -1,10 +1,16 @@
 //! Role: The DevTools app's own theme: neutral colors, square corners and 12 px text.
 //!
 //! The values are the Lyra Neutral ones the app used through the Basic kit;
-//! the standard components keep their own recipes.
+//! the standard components keep their own recipes, except the tabs, which
+//! stay tight so that the eleven panel tabs fit an 800 px window.
 
+use kivact::interaction::{TabListState, TabState};
 use kivact::style::theme::{Palette, Radii, Spacing, Typography};
-use kivact::style::{Color, LineHeight, Theme, ThemeMode, rgb, rgba};
+use kivact::style::{
+    Align, Color, ColorToken, Direction, LineHeight, Style, Theme, ThemeMode, pct, rgb, rgba, style,
+};
+use kivact::ui::{Look, UiRecipes};
+use kivact::view::Orientation;
 
 /// The app's theme in `mode`.
 pub(crate) fn theme(mode: ThemeMode) -> Theme {
@@ -60,4 +66,41 @@ pub(crate) fn theme(mode: ThemeMode) -> Theme {
         .with_text(text)
         .with_focus_ring(1.0)
         .with_control_height(32.0)
+        .with(UiRecipes::default().tabs(|tabs| tabs.list(|_| tab_list).tab(|_| tab)))
+}
+
+/// The tab list: a muted strip with no gap between the tabs.
+fn tab_list(_: &Theme, look: &Look<TabListState>) -> Style {
+    let base = style().padding(3).background(ColorToken::SurfaceAlt);
+    if look.orientation == Orientation::Vertical {
+        base.direction(Direction::Column)
+    } else {
+        base.direction(Direction::Row)
+            .align_self(Align::Start)
+            .height(32)
+    }
+}
+
+/// A tab: 6 px on each side, 12 px medium text; the selected one is raised.
+fn tab(_: &Theme, look: &Look<TabState>) -> Style {
+    let base = style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .padding_x(6)
+        .padding_y(2)
+        .border(1, Color::TRANSPARENT)
+        .font_size(12)
+        .weight(500)
+        .text_wrap(false)
+        .color(ColorToken::TextMuted);
+    let base = if look.orientation == Orientation::Vertical {
+        base.width(pct(100))
+    } else {
+        base.height(pct(100))
+    };
+    if look.selected {
+        base.background(ColorToken::Surface).color(ColorToken::Text)
+    } else {
+        base
+    }
 }
