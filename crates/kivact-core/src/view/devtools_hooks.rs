@@ -56,7 +56,7 @@ pub(crate) trait DevtoolsHooks {
         owner: Owner,
         id: NodeId,
         at: &'static Location<'static>,
-    ) -> StyleHook;
+    ) -> Rc<dyn NodeStyleHook>;
 }
 
 /// The DevTools hooks of `rt`'s App; `None` without DevTools.
@@ -140,16 +140,18 @@ pub(crate) fn pseudo(text: String) -> String {
 }
 
 /// The style overrides and forced states of one node, read by its style
-/// effect. `Off` for every node of an App without DevTools.
+/// effect. Empty for every node of an App without DevTools.
 #[derive(Clone)]
-pub(crate) enum StyleHook {
-    Off,
-    On {
-        /// The parsed overrides of the node (tracked: it reads the
-        /// DevTools override signal), merged over its style.
-        overrides: Rc<dyn Fn() -> Option<Style>>,
-        forced: Value<ForcedStates>,
-    },
+pub(crate) struct StyleHook(Option<Rc<dyn NodeStyleHook>>);
+
+/// What DevTools does to the style of one node. Implemented by the DevTools
+/// inspector only.
+pub(crate) trait NodeStyleHook {
+    /// `style` with the node's overrides merged over it (tracked: it reads
+    /// the DevTools override signal).
+    fn apply(&self, style: Style) -> Style;
+    /// The states a tool forces on the node.
+    fn forced(&self) -> ForcedStates;
 }
 
 impl StyleHook {
@@ -160,28 +162,22 @@ impl StyleHook {
         id: NodeId,
         at: &'static Location<'static>,
     ) -> StyleHook {
-        match hooks(rt) {
-            Some(h) => h.style_hook(rt, owner, id, at),
-            None => StyleHook::Off,
-        }
+        StyleHook(hooks(rt).map(|h| h.style_hook(rt, owner, id, at)))
     }
 
     /// Apply the node's overrides over `style`.
     pub(crate) fn apply(&self, style: Style) -> Style {
-        match self {
-            StyleHook::Off => style,
-            StyleHook::On { overrides, .. } => match overrides() {
-                Some(over) => style.merge(&over),
-                None => style,
-            },
+        match &self.0 {
+            Some(hook) => hook.apply(style),
+            None => style,
         }
     }
 
     /// The states a tool forces on the node.
     pub(crate) fn forced(&self) -> ForcedStates {
-        match self {
-            StyleHook::Off => ForcedStates::default(),
-            StyleHook::On { forced, .. } => forced.get(),
+        match &self.0 {
+            Some(hook) => hook.forced(),
+            None => ForcedStates::default(),
         }
     }
 }

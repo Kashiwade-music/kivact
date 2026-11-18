@@ -8,11 +8,12 @@ use kivact_engine::api::Prop;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::NodeId as EffectId;
 use kivact_runtime::{Handled, Owner, Runtime, Signal, Value};
-use kivact_style::Theme;
+use kivact_style::internal::ForcedStates;
+use kivact_style::{Style, Theme};
 use kivact_types::{Capabilities, FocusTarget, NodeId, WindowId};
 
 use crate::i18n::Locale;
-use crate::view::devtools_hooks::{DevtoolsHooks, StyleHook};
+use crate::view::devtools_hooks::{DevtoolsHooks, NodeStyleHook};
 
 use super::apply;
 use super::state::{DevtoolsEvent, Inspector, Pending, PropWrite};
@@ -196,30 +197,49 @@ impl DevtoolsHooks for Inspector {
         owner: Owner,
         id: NodeId,
         at: &'static Location<'static>,
-    ) -> StyleHook {
-        let sites = apply::call_sites(rt, owner, Some(at));
-        let overrides = self.hooks.overrides;
+    ) -> Rc<dyn NodeStyleHook> {
         let forced = self.hooks.forced;
-        StyleHook::On {
-            overrides: Rc::new(move || {
-                let pairs = apply::node_overrides(&overrides.get(), id, &sites);
-                let mut merged: Option<kivact_style::Style> = None;
-                for (property, value) in pairs {
-                    if let Ok(over) = apply::override_style(&property, &value) {
-                        merged = Some(match merged {
-                            Some(style) => style.merge(&over),
-                            None => over,
-                        });
-                    }
-                }
-                merged
-            }),
+        Rc::new(NodeHook {
+            id,
+            sites: apply::call_sites(rt, owner, Some(at)),
+            overrides: self.hooks.overrides,
             forced: owner.with_setup(|| {
                 kivact_runtime::memo(move || {
                     forced.with(|all| all.get(&id).copied().unwrap_or_default())
                 })
             }),
+        })
+    }
+}
+
+/// The DevTools style hook of one node.
+struct NodeHook {
+    id: NodeId,
+    sites: Vec<&'static Location<'static>>,
+    overrides: Signal<Vec<p::StyleOverride>>,
+    forced: Value<ForcedStates>,
+}
+
+impl NodeStyleHook for NodeHook {
+    fn apply(&self, style: Style) -> Style {
+        let pairs = apply::node_overrides(&self.overrides.get(), self.id, &self.sites);
+        let mut merged: Option<Style> = None;
+        for (property, value) in pairs {
+            if let Ok(over) = apply::override_style(&property, &value) {
+                merged = Some(match merged {
+                    Some(style) => style.merge(&over),
+                    None => over,
+                });
+            }
         }
+        match merged {
+            Some(over) => style.merge(&over),
+            None => style,
+        }
+    }
+
+    fn forced(&self) -> ForcedStates {
+        self.forced.get()
     }
 }
 
