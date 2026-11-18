@@ -82,8 +82,8 @@ pub struct PopupState {
 /// before the next flush is skipped, and an explicit live focus request wins.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{Element, node, node_ref, text, Placement, Role, overlay, show}};
-/// use kivact_interaction::use_popup;
+/// use kivact::{state::signal, view::{Element, node, node_ref, text, Placement, Role, overlay, show}};
+/// use kivact::interaction::use_popup;
 /// let open = signal(false);
 /// let menu = use_popup(open);
 /// let trigger = menu.trigger();

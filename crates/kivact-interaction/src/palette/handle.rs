@@ -49,10 +49,6 @@ use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 /// set or an image, which a palette draws at the start of the row.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::Command;
 /// let commands = vec![
 ///     Command::new("new", "New file").with_group("File").with_hint("Ctrl N").with_icon("file"),
@@ -230,19 +226,8 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// `Role::Option` named by its label, `selected` while active.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{Command, use_command_palette};
-/// use kivact_core::view::Element;
+/// use kivact::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -263,7 +248,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///             })
 ///         });
 ///         overlay(node_ref(), Placement::Center, column((
-///             kivact_core::view::node().name("").part(kivact_interaction::use_text_edit(p.query()).control()).part(p.input()),
+///             node().name("").part(kivact::interaction::use_text_edit(p.query()).control()).part(p.input()),
 ///             column(rows).part(p.list()),
 ///         )))
 ///         .with_node(|node| node.part(p.content()))

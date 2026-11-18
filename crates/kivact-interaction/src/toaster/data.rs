@@ -95,10 +95,6 @@ pub struct ToastId(pub(super) Generation);
 /// afterwards. Its fields are what the caller's drawing of a toast reads.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use std::time::Duration;
 /// use kivact::interaction::{Toast, Tone};
 ///

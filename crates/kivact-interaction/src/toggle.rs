@@ -36,9 +36,9 @@ pub struct ButtonApi {
 /// Create a momentary button without creating a view. Setup only.
 ///
 /// ```no_run
-/// use kivact_core::view::node;
-/// use kivact_core::view::Element;
-/// use kivact_interaction::use_button;
+/// use kivact::view::node;
+/// use kivact::view::Element;
+/// use kivact::interaction::use_button;
 /// let control = use_button().control();
 /// let view = node().part(control).name("Save").on_press(|| {});
 /// ```
@@ -172,10 +172,10 @@ struct ToggleOptions {
 /// [`indeterminate`](CheckboxApi::indeterminate). Setup only.
 ///
 /// ```no_run
-/// use kivact_core::state::{signal};
-/// use kivact_core::{view::node};
-/// use kivact_core::view::Element;
-/// use kivact_interaction::use_checkbox;
+/// use kivact::state::{signal};
+/// use kivact::{view::node};
+/// use kivact::view::Element;
+/// use kivact::interaction::use_checkbox;
 /// let checked = signal(false);
 /// let control = use_checkbox(checked).control();
 /// let state = control.state();

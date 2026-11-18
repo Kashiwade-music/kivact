@@ -42,8 +42,8 @@ pub enum DelayedPhase {
 ///
 /// ```no_run
 /// use std::time::Duration;
-/// use kivact_core::{state::signal, view::{Element, column, node, text, show}};
-/// use kivact_interaction::{Delays, use_delayed};
+/// use kivact::{state::signal, view::{Element, column, node, text, show}};
+/// use kivact::interaction::{Delays, use_delayed};
 /// let hovered = signal(false);
 /// let card = use_delayed(hovered, Delays {
 ///     open: Duration::from_millis(300),

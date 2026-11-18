@@ -15,10 +15,6 @@ use std::rc::Rc;
 /// [`linear`](Self::linear) is the default.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ScalarMapping, ScalarRange};
 /// let hz = ScalarRange::new(20.0, 20_000.0)?;
 /// let log = ScalarMapping::logarithmic();

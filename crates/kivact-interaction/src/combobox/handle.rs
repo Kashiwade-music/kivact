@@ -94,8 +94,8 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// is a `Role::Option` named by its label, `selected` while active.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{Element, column, node, text, for_each}};
-/// use kivact_interaction::{ListItem, use_combobox, use_text_edit};
+/// use kivact::{state::signal, view::{Element, column, node, text, for_each}};
+/// use kivact::interaction::{ListItem, use_combobox, use_text_edit};
 /// let options = vec![ListItem::new("red", "Red"), ListItem::new("green", "Green")];
 /// let chosen = signal(None::<&'static str>);
 /// let colors = use_combobox(options.clone(), chosen);

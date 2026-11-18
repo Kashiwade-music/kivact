@@ -66,8 +66,8 @@ pub struct TabListState {
 /// for it.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{Element, column, node, text, for_each}};
-/// use kivact_interaction::{use_tabs, ListItem};
+/// use kivact::{state::signal, view::{Element, column, node, text, for_each}};
+/// use kivact::interaction::{use_tabs, ListItem};
 /// let options = signal(vec![ListItem::new("general", "General"),
 ///     ListItem::new("keys", "Keys")]);
 /// let selected = signal("general");
