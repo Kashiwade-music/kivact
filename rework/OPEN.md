@@ -15,6 +15,10 @@
 ## 差戻し
 （設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
 
+- **S01**（W1a・S lane）、付属書 S の「## S01：」の手順 2・3。`crates/kivact-types/src/cell.rs` の `Deferred::new`（構成式 `Self(std::cell::OnceCell::new())`、337 行）と `SharedDeferred::new`（`Self(std::sync::OnceLock::new())`、371 行）が `clippy::disallowed_types`（`clippy.toml`）で error になる。付属書の `#[expect(clippy::disallowed_types, ...)]` は struct の field にだけ付き、構成式の path は覆わない（手順 3 の位置の変更でも消えない）。clippy と `cargo xtask check --crate kivact-types` の 2 件が失敗する。Orchestrator は expect・allow を足さない（作業指示書 0.2 の 4）。設計者に、構成式の書き方か覆う印の文面を決めてほしい。
+  - 状態：commit `b0e84c65` は `wt/rw-W1a-S` に残し、統合 branch には merge しない。W1a の S lane は止まり、S01 の `Deferred` を前提にする unit（S02〜、R、U の一部など）も止まる。
+  - 「`cargo test -p kivact-types cell`」は通っている（2 件）。
+
 ## KPI の後退
 ## KPI の未達
 ## 台帳
