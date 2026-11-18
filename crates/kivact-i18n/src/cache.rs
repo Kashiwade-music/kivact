@@ -17,8 +17,7 @@ use icu_datetime::{FixedCalendarDateTimeFormatter, NoCalendarFormatter};
 use icu_decimal::DecimalFormatter;
 use kivact_types::cell::Deferred;
 
-use crate::numbers::NumberSymbols;
-use crate::{HourCycle, NameWidth, Weekday};
+use crate::shared::{HourCycle, NameWidth, NumberSymbols, Weekday};
 
 /// How many locales one thread keeps (an App uses one or two).
 const CACHED_LOCALES: usize = 16;

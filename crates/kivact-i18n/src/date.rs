@@ -1,6 +1,6 @@
 //! Role: Gregorian dates, months and date ranges with the arithmetic calendars need.
 
-use crate::Weekday;
+use crate::shared::Weekday;
 use std::fmt;
 use std::time::{SystemTime, UNIX_EPOCH};
 
