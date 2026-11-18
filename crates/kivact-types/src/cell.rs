@@ -333,6 +333,10 @@ pub struct Deferred<T>(
 
 impl<T> Deferred<T> {
     /// Nothing built yet.
+    #[expect(
+        clippy::disallowed_types,
+        reason = "the one wrapper of std::cell::OnceCell the workspace allows (DEC-13)"
+    )]
     pub const fn new() -> Self {
         Self(std::cell::OnceCell::new())
     }
@@ -367,6 +371,10 @@ pub struct SharedDeferred<T>(
 
 impl<T> SharedDeferred<T> {
     /// Nothing built yet.
+    #[expect(
+        clippy::disallowed_types,
+        reason = "the one wrapper of std::sync::OnceLock the workspace allows (DEC-13)"
+    )]
     pub const fn new() -> Self {
         Self(std::sync::OnceLock::new())
     }
