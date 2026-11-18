@@ -19,7 +19,7 @@
 //! of the space it lays out in. (Taffy 0.15's whole-root layout function would move
 //! a root by its margins and insets and size an absolute root to fit.)
 
-use super::LayoutPass;
+use super::pass::LayoutPass;
 use crate::LayoutTree;
 use crate::style::node::{NodeStyle, TStyle};
 use taffy::{
