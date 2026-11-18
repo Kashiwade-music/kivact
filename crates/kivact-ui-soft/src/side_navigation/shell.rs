@@ -111,6 +111,7 @@ impl SideNavResize {
     }
 }
 
+// xtask-allow(state): legacy: header, top, footer, icons, collapse, resize
 /// A sidebar with a scrollable entry region and retained header and footer slots.
 pub struct SideNav {
     root: Node,
@@ -267,6 +268,7 @@ impl IntoView for SideNav {
     }
 }
 
+// xtask-allow(state): legacy: binding, label
 /// A control that toggles the sidebar's collapsed rail.
 pub struct SideNavCollapseButton {
     root: Node,
@@ -372,13 +374,9 @@ fn sidebar_collapse(
 
 struct SideNavSlots {
     children: View,
-    // xtask-allow(state-fields): option: caller content from SideNav::header, mounted once; absent means no sidebar header.
     header: Option<View>,
-    // xtask-allow(state-fields): option: caller content from SideNav::top_content, mounted once; absent means nothing above the entries.
     top: Option<View>,
-    // xtask-allow(state-fields): option: caller content from SideNav::footer, mounted once; absent means no footer content.
     footer: Option<View>,
-    // xtask-allow(state-fields): option: caller actions from SideNav::footer_icons, mounted once; absent means no compact rail actions.
     icons: Option<View>,
 }
 impl SideNavSlots {

@@ -60,13 +60,9 @@ struct TopNavCx {
 
 #[derive(Default)]
 struct Slots {
-    // xtask-allow(state-fields): option: caller content from TopNav::heading, mounted once; absent leaves the heading area empty.
     heading: Option<View>,
-    // xtask-allow(state-fields): option: caller content from TopNav::start, mounted once and dropped in the mobile bar; absent leaves the start area empty.
     start: Option<View>,
-    // xtask-allow(state-fields): option: caller content from TopNav::center, mounted once and dropped in the mobile bar; absent leaves the center area empty.
     center: Option<View>,
-    // xtask-allow(state-fields): option: caller content from TopNav::end, mounted once; absent leaves the end area empty.
     end: Option<View>,
 }
 
@@ -193,6 +189,7 @@ impl IntoView for TopNav {
     }
 }
 
+// xtask-allow(state): legacy: content, icon
 /// A top navigation action with optional icon and custom retained label content.
 pub struct TopNavItem {
     root: Node,
@@ -604,6 +601,7 @@ impl IntoView for TopNavMegaMenu {
     }
 }
 
+// xtask-allow(state): legacy: description, icon
 /// An action item with a title, supporting text and an optional icon in a mega menu.
 pub struct TopNavMegaMenuItem {
     root: Node,
@@ -730,6 +728,7 @@ fn title_style() -> kivact::style::Style {
         .color(t.colors.text_primary)
 }
 
+// xtask-allow(state): legacy: description, image, content, link
 /// A featured mega-menu card with retained image, body and link slots.
 pub struct TopNavMegaMenuFeaturedCard {
     root: Node,

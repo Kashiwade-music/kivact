@@ -101,10 +101,8 @@ enum StepKind {
 #[derive(Clone, Debug, PartialEq)]
 pub struct QuestionnaireStep {
     title: String,
-    // xtask-allow(state-fields): option: absent means the step has no description
     description: Option<String>,
     kind: StepKind,
-    // xtask-allow(state-fields): option: the caller's QuestionnaireStep::optional (default false); false means the step has no Skip button and Next waits for an answer
     optional: bool,
 }
 

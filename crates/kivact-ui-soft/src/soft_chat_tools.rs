@@ -78,7 +78,6 @@ pub struct ToolCall {
     pub name: String,
     /// Current execution status and its reported details.
     pub status: ToolStatus,
-    // xtask-allow(state-fields): option: application-supplied target text shown beside the tool name in every status; absent hides the target label.
     /// Optional target description shown beside the tool name.
     pub target: Option<String>,
     /// Number of additions shown in the change summary.
@@ -119,6 +118,7 @@ impl ToolCall {
 
 type ToolDetails = kivact::view::ViewFn<Value<ToolCall>>;
 
+// xtask-allow(state): legacy: label, expanded, detail
 /// A labelled collection of tool calls with keyboard-operable group and detail disclosures.
 pub struct ChatToolCalls {
     root: Node,

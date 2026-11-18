@@ -140,9 +140,7 @@ impl<K: ItemKey> IntoView for PowerSearch<K> {
 
 #[derive(Clone, PartialEq)]
 struct FilterDraft<K> {
-    // xtask-allow(state-fields): independent: set only by the Field select or seeded from the edited filter; operator is chosen separately and Apply requires both, so a draft missing either is a valid in-progress form.
     field: Option<K>,
-    // xtask-allow(state-fields): independent: the chosen comparison; every field offers every operator
     operator: Option<SearchOperator>,
     value: String,
 }

@@ -5,6 +5,7 @@ use kivact::view::{Element, IntoView, Node, View, text};
 
 type SelectionLabel = kivact::view::ViewFn<Value<usize>>;
 
+// xtask-allow(state): legacy: selection_label, actions
 /// Bulk table actions shown while the external selection contains keys.
 pub struct TableSelectionToolbar<K: PropValue> {
     root: kivact::ui::Toolbar,

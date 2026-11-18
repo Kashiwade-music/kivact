@@ -64,6 +64,7 @@ pub enum ItemCollapse {
     Controlled(Binding<bool>),
 }
 
+// xtask-allow(state): legacy: icon, selected_icon, end, actions
 /// A sidebar entry with optional nested navigation and row actions.
 pub struct SideNavItem {
     root: Node,
@@ -287,6 +288,7 @@ pub(crate) fn side_row_style(
     }
 }
 
+// xtask-allow(state): legacy: subtitle, end
 /// A titled group of sidebar entries with optional supporting header content.
 pub struct SideNavSection {
     root: Node,
@@ -399,13 +401,9 @@ impl IntoView for SideNavSection {
 kivact::state::constant_value!(ItemCollapse);
 
 struct ItemSlots {
-    // xtask-allow(state-fields): option: caller icon from SideNavItem::icon, mounted once; absent means the row has no leading icon.
     leading: Option<View>,
-    // xtask-allow(state-fields): option: caller icon from SideNavItem::selected_icon, mounted once; absent keeps the leading icon while selected.
     selected_icon: Option<View>,
-    // xtask-allow(state-fields): option: caller content from SideNavItem::end_content, mounted once; absent means no trailing row content.
     end: Option<View>,
-    // xtask-allow(state-fields): option: caller controls from SideNavItem::actions, mounted once; absent means no row action controls.
     actions: Option<View>,
     children: Option<ViewFn>,
 }
@@ -428,10 +426,8 @@ enum ItemBranch {
     Leaf,
     /// A children factory exists.
     Parent {
-        // xtask-allow(state-fields): independent: whether the item has its own collapse owner (AlwaysOpen has none); independent of the shell's flyout
         /// `None` for `ItemCollapse::AlwaysOpen`.
         expansion: Option<ItemExpansion>,
-        // xtask-allow(state-fields): independent: whether the shell is collapsible (a fixed shell has no rail flyout); independent of the item's collapse owner
         /// The rail flyout panel; present only inside a collapsible sidebar.
         flyout: Option<crate::navigation_session::NavPanel>,
     },

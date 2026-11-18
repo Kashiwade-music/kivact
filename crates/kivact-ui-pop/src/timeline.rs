@@ -10,6 +10,7 @@ use kivact::view::icon;
 use kivact::view::{Element, Node, column, node, row, text};
 use kivact::view::{IntoView, View, show};
 
+// xtask-allow(state): legacy: title_content, glyph
 /// An activity entry. Created by [`timeline_item`].
 pub struct TimelineItem {
     root: Node,

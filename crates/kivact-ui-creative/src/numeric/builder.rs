@@ -32,6 +32,7 @@ pub enum PropertyState {
 
 kivact::state::constant_value!(PropertyState);
 
+// xtask-allow(state): legacy: format, drag_distance, text_entry, timecode, accent, text_parser
 /// A range control supporting pointer scrubbing, keyboard, wheel and direct editing.
 pub struct Numeric {
     pub(super) root: Node,

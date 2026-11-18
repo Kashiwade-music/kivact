@@ -11,6 +11,7 @@ pub fn trace(children: impl IntoView) -> Node {
     column(children).style(style().width(pct(100)).min_width(0).gap(8))
 }
 
+// xtask-allow(state): legacy: icon, description
 /// One line of a [`trace`]: an optional icon, a title and a description.
 /// Created by [`trace_line`].
 pub struct TraceLine {

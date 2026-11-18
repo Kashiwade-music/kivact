@@ -47,6 +47,7 @@ pub enum LinkColor {
     Inherit,
 }
 
+// xtask-allow(state): legacy: label, new_tab_label, size, weight
 /// Inline-sized link or link-shaped action.
 pub struct Link {
     root: Node,
@@ -260,17 +261,12 @@ fn name_link(
 #[derive(Clone, Copy)]
 struct LinkAppearance {
     kind: TextKind,
-    // xtask-allow(state-fields): option: readonly font-size override shared with paint.
     size: Option<Value<f64>>,
-    // xtask-allow(state-fields): option: immutable font-weight override.
     weight: Option<u16>,
-    // xtask-allow(state-fields): option: caller choice from Link::underline sampled once in into_view; false underlines only on hover of an interactive link.
     underline: bool,
     color: LinkColor,
-    // xtask-allow(state-fields): option: caller choice from Link::standalone sampled once in into_view; false inherits the surrounding typography.
     standalone: bool,
     direction: Direction,
-    // xtask-allow(state-fields): option: whether the caller gave Link an activation callback; false paints a static link without pointer cursor or pressed state.
     interactive: bool,
 }
 impl LinkAppearance {

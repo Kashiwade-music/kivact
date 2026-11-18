@@ -13,6 +13,7 @@ use kivact::state::{IntoBinding, IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
+// xtask-allow(state): legacy: header, content, footer; the caller's Sidebar::header; absent means the panel has no top section
 /// The panel of a sidebar (sidebar.tsx). Created by [`sidebar`].
 ///
 /// The root is the box that takes the sidebar's width in the layout, so
@@ -22,11 +23,8 @@ pub struct Sidebar {
     pub(super) side: SidebarSide,
     pub(super) variant: SidebarVariant,
     pub(super) collapsible: SidebarCollapsible,
-    // xtask-allow(state-fields): option: the caller's Sidebar::header; absent means the panel has no top section
     header: Option<kivact::view::View>,
-    // xtask-allow(state-fields): option: the caller's Sidebar::content; absent means the panel has no scrolling middle section
     content: Option<kivact::view::View>,
-    // xtask-allow(state-fields): option: the caller's Sidebar::footer; absent means the panel has no bottom section
     footer: Option<kivact::view::View>,
     rail: Value<bool>,
 }

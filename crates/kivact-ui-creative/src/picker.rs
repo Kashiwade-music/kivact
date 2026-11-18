@@ -57,20 +57,15 @@ pub struct PickerItem<K> {
     pub key: K,
     /// What the row says; also its accessible name.
     pub label: Reactive<String>,
-    // xtask-allow(state-fields): option: absent means the run has no heading
     /// The heading of the run of rows this one belongs to. Rows with no
     /// section have no heading.
     pub section: Option<Reactive<String>>,
-    // xtask-allow(state-fields): option: absent means the row has no detail line
     /// A line of detail after the label; also the row's accessible description.
     pub description: Option<Reactive<String>>,
-    // xtask-allow(state-fields): option: absent means the row has no shortcut hint
     /// A shortcut hint at the end of the row. It does not bind a key.
     pub shortcut: Option<Reactive<String>>,
-    // xtask-allow(state-fields): option: absent means the row has no icon
     /// An icon before the label: a name in the theme's icon set or an image.
     pub icon: Option<Icon>,
-    // xtask-allow(state-fields): option: the application's PickerItem::enabled (default true), a constant inside the items value; false keeps the row listed but never active or pickable
     /// A disabled item stays in the list but is never active and cannot be
     /// picked.
     pub enabled: bool,
@@ -597,7 +592,6 @@ struct Session<K: kivact::state::ItemKey> {
     active: Value<Option<K>>,
     combo: ComboboxApi<K>,
     field: NodeRef,
-    // xtask-allow(state-fields): option: absent means a single column
     column: Option<MachineHandle<ColumnMachine<K>>>,
 }
 

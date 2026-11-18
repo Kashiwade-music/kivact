@@ -41,6 +41,7 @@ pub enum GridColumns {
     },
 }
 
+// xtask-allow(state): legacy: row_gap, column_gap, row_height
 /// Grid container with theme spacing and reactive column configuration.
 pub struct LayoutGrid {
     root: Node,

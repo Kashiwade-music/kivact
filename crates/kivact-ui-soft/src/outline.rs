@@ -84,6 +84,7 @@ pub enum OutlineDensity {
     Compact,
 }
 
+// xtask-allow(state): legacy: active, viewport, content
 /// Heading navigation with optional scroll tracking and controlled active state.
 pub struct Outline {
     root: Node,
@@ -248,12 +249,9 @@ impl Machine for FocusMachine {
 
 #[derive(Clone, Copy)]
 struct Navigation {
-    // xtask-allow(state-fields): option: caller viewport from Outline::scroll_container; absent scrolls the window through target.scroll_into_view.
     viewport: Option<NodeRef>,
     offset: f64,
-    // xtask-allow(state-fields): option: caller choice from Outline::scroll_on_press sampled once in into_view; false skips scrolling and reports navigation end immediately.
     scroll_on_press: bool,
-    // xtask-allow(state-fields): option: caller-owned active-heading binding; pending lifecycle belongs to ScrollMachine.
     controlled: Option<Binding<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,

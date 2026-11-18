@@ -733,10 +733,8 @@ fn focus_track<K: ItemKey>(
 struct TabRuntime<K: ItemKey> {
     binding: Binding<K>,
     look: Look,
-    // xtask-allow(state-fields): option: TabsApi created only when the caller's TabPattern is Tabs; None makes the strip a Navigation landmark without tab semantics.
     behavior: Option<kivact::interaction::TabsApi<K>>,
     focus: FocusTrack,
-    // xtask-allow(state-fields): option: caller TabOverflow sampled once in into_view; false lets the strip overflow without a scrolling viewport.
     scrollable: bool,
 }
 impl<K: ItemKey> TabRuntime<K> {

@@ -14,6 +14,7 @@ use kivact::view::{IntoView, Role, View};
 
 use crate::PropertyState;
 
+// xtask-allow(state): legacy: leading, trailing
 /// A property of an inspector: its label, its value control and the slots
 /// around them. See [`property_row`].
 pub struct PropertyRow {
