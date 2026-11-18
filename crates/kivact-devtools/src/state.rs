@@ -65,8 +65,6 @@ pub(crate) struct Session {
     pub(crate) frames: Signal<Vec<p::FrameInfo>>,
     /// The reported errors.
     pub(crate) errors: Signal<Vec<p::ErrorEntry>>,
-    /// The `show_table` results.
-    pub(crate) tables: Signal<Vec<p::ShowTableParams>>,
     /// The selected panel.
     pub(crate) panel: Signal<Panel>,
     /// Panels shown in their own window.
@@ -225,8 +223,6 @@ pub(crate) const MAX_TURNS: usize = 1000;
 pub(crate) const MAX_FRAMES: usize = 3000;
 /// The greatest number of errors kept.
 pub(crate) const MAX_ERRORS: usize = 1000;
-/// The greatest number of tables kept.
-pub(crate) const MAX_TABLES: usize = 50;
 
 /// All overlays off; protocol's `OverlaySettings` has no `Default`.
 pub(crate) fn overlays_off() -> p::OverlaySettings {
@@ -264,13 +260,11 @@ pub(crate) enum Panel {
     Emulation,
     /// The review.
     Review,
-    /// Scripts and their tables.
-    Scripts,
 }
 
 impl Panel {
     /// Every panel, in tab order.
-    pub(crate) const ALL: [Panel; 12] = [
+    pub(crate) const ALL: [Panel; 11] = [
         Panel::Elements,
         Panel::Updates,
         Panel::Performance,
@@ -282,7 +276,6 @@ impl Panel {
         Panel::Console,
         Panel::Emulation,
         Panel::Review,
-        Panel::Scripts,
     ];
 
     /// The tab title.
@@ -299,7 +292,6 @@ impl Panel {
             Panel::Console => "Console",
             Panel::Emulation => "Emulation",
             Panel::Review => "Review",
-            Panel::Scripts => "Scripts",
         }
     }
 }

@@ -124,7 +124,7 @@ fn assert_tools(mcp: &mut Mcp) {
     let mut expected: BTreeSet<&str> = p::METHOD_NAMES
         .iter()
         .copied()
-        .filter(|name| !["initialize", "subscribe", "show_table"].contains(name))
+        .filter(|name| !["initialize", "subscribe"].contains(name))
         .collect();
     expected.insert("list_targets");
     expected.insert("select_target");

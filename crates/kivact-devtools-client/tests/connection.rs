@@ -29,7 +29,7 @@ fn client_info() -> ClientInfo {
     ClientInfo {
         name: "test-client".to_owned(),
         version: "0.1.0".to_owned(),
-        kind: ClientKind::Python,
+        kind: ClientKind::Other,
     }
 }
 

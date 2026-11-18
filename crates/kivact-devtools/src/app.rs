@@ -103,7 +103,6 @@ fn panel_view(panel: Panel, session: Session) -> View {
         Panel::Console => panels::console::view(session).into_view(),
         Panel::Emulation => panels::emulation::view(session).into_view(),
         Panel::Review => panels::review::view(session).into_view(),
-        Panel::Scripts => panels::scripts::view(session).into_view(),
     }
 }
 

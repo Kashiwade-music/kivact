@@ -102,7 +102,7 @@ fn responses_and_notifications_round_trip() {
 
 #[test]
 fn methods_are_complete() {
-    assert_eq!(METHOD_NAMES.len(), 60);
+    assert_eq!(METHOD_NAMES.len(), 59);
     assert_eq!(METHOD_NAMES[0], "initialize");
     assert_eq!(<GetByTestId as Method>::NAME, "get_by_test_id");
 }
