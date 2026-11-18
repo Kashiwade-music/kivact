@@ -25,28 +25,35 @@ impl Locale {
         decimal.round(-i16::from(max));
         decimal.trim_end();
         decimal.pad_end(-i16::from(min));
-        let mut options = DecimalFormatterOptions::default();
-        options.grouping_strategy = Some(match style.grouping {
-            Grouping::None => GroupingStrategy::Never,
-            Grouping::Locale => GroupingStrategy::Auto,
+        let cache = self.cache();
+        let index = match style.grouping {
+            Grouping::None => 0,
+            Grouping::Locale => 1,
+        };
+        let formatter = cache.decimals[index].get_or_init(|| {
+            let mut options = DecimalFormatterOptions::default();
+            options.grouping_strategy = Some(match style.grouping {
+                Grouping::None => GroupingStrategy::Never,
+                Grouping::Locale => GroupingStrategy::Auto,
+            });
+            DecimalFormatter::try_new(cache.icu().clone().into(), options)
+                .expect("invariant: compiled ICU decimal data includes locale fallback")
         });
-        self.decimal_formatter(options).format(&decimal).to_string()
+        formatter.format(&decimal).to_string()
     }
 
     /// Parse a finite decimal using the locale's symbols and numbering system.
     pub fn parse_number(&self, text: &str) -> Option<f64> {
-        let symbols = NumberSymbols::new(self);
-        symbols.parse(text)
-    }
-
-    fn decimal_formatter(&self, options: DecimalFormatterOptions) -> DecimalFormatter {
-        DecimalFormatter::try_new(self.icu().into(), options)
-            .expect("invariant: compiled ICU decimal data includes locale fallback")
+        let cache = self.cache();
+        cache
+            .symbols
+            .get_or_init(|| NumberSymbols::new(self))
+            .parse(text)
     }
 }
 
 /// Symbols are resolved by ICU's formatter, including numbering-system overrides.
-struct NumberSymbols {
+pub(crate) struct NumberSymbols {
     digits: [String; 10],
     decimal: String,
     group: String,
@@ -171,7 +178,8 @@ impl DataProvider<DecimalDigitsV1> for SymbolCapture {
 
 /// Extract numeric date fields with the same resolved digits as number parsing.
 pub(crate) fn date_fields(locale: &Locale, text: &str, pattern: &str) -> Option<Vec<String>> {
-    let symbols = NumberSymbols::new(locale);
+    let cache = locale.cache();
+    let symbols = cache.symbols.get_or_init(|| NumberSymbols::new(locale));
     let mut fields = Vec::new();
     let mut number = String::new();
     let mut rest = text;

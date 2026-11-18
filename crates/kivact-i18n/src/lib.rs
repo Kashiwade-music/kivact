@@ -10,6 +10,7 @@
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
 
+mod cache;
 mod date;
 mod format;
 mod interpolate;

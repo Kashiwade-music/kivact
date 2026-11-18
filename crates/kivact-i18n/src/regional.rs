@@ -1,5 +1,6 @@
 //! Role: Apply ICU calendar patterns, display names, plural rules, and collation.
 
+use crate::cache::NameKey;
 use crate::{
     CalendarDate, DateStyle, HourCycle, Locale, NameWidth, PluralCategory, TimeOfDay, TimeStyle,
     Weekday,
@@ -28,9 +29,19 @@ impl Locale {
             DateStyle::Medium => YMD::medium(),
             DateStyle::Long | DateStyle::Iso => YMD::long(),
         };
-        let formatter =
-            FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(self.icu().into(), fields)
-                .expect("invariant: compiled ICU Gregorian date data includes locale fallback");
+        let index = match style {
+            DateStyle::Short => 0,
+            DateStyle::Medium => 1,
+            DateStyle::Long | DateStyle::Iso => 2,
+        };
+        let cache = self.cache();
+        let formatter = cache.dates[index].get_or_init(|| {
+            FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(
+                cache.icu().clone().into(),
+                fields,
+            )
+            .expect("invariant: compiled ICU Gregorian date data includes locale fallback")
+        });
         formatter.format(&icu).to_string()
     }
 
@@ -44,11 +55,14 @@ impl Locale {
         {
             return CalendarDate::checked(year, month, day);
         }
-        let formatter = FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(
-            self.icu().into(),
-            YMD::short(),
-        )
-        .expect("invariant: compiled ICU Gregorian date data includes locale fallback");
+        let cache = self.cache();
+        let formatter = cache.dates[0].get_or_init(|| {
+            FixedCalendarDateTimeFormatter::<Gregorian, _>::try_new(
+                cache.icu().clone().into(),
+                YMD::short(),
+            )
+            .expect("invariant: compiled ICU Gregorian date data includes locale fallback")
+        });
         let date = sample_date(CalendarDate::new(2006, 11, 22));
         let formatted = formatter.format(&date);
         let pattern = formatted.pattern().write_to_string().into_owned();
@@ -89,27 +103,33 @@ impl Locale {
         } else {
             TimePrecision::Minute
         };
-        let formatter = NoCalendarFormatter::try_new(
-            self.icu().into(),
-            T::medium().with_time_precision(precision),
-        )
-        .expect("invariant: compiled ICU time data includes locale fallback");
+        let cache = self.cache();
+        let formatter = cache.times[usize::from(style.seconds)].get_or_init(|| {
+            NoCalendarFormatter::try_new(
+                cache.icu().clone().into(),
+                T::medium().with_time_precision(precision),
+            )
+            .expect("invariant: compiled ICU time data includes locale fallback")
+        });
         formatter.format(&time).to_string()
     }
 
     /// Return the resolved locale hour cycle, including Unicode preferences.
     pub fn hour_cycle(&self) -> HourCycle {
-        let formatter = NoCalendarFormatter::try_new(self.icu().into(), T::medium())
-            .expect("invariant: compiled ICU time data includes locale fallback");
-        let time = Time::try_new(13, 0, 0, 0).expect("invariant: valid literal time");
-        let formatted = formatter.format(&time);
-        let components =
-            icu_datetime::provider::fields::components::Bag::from(&formatted.pattern());
-        use icu_locale_core::preferences::extensions::unicode::keywords::HourCycle as IcuHourCycle;
-        match components.hour_cycle {
-            Some(IcuHourCycle::H11 | IcuHourCycle::H12) => HourCycle::H12,
-            _ => HourCycle::H23,
-        }
+        let cache = self.cache();
+        *cache.hour_cycle.get_or_init(|| {
+            let formatter = NoCalendarFormatter::try_new(cache.icu().clone().into(), T::medium())
+                .expect("invariant: compiled ICU time data includes locale fallback");
+            let time = Time::try_new(13, 0, 0, 0).expect("invariant: valid literal time");
+            let formatted = formatter.format(&time);
+            let components =
+                icu_datetime::provider::fields::components::Bag::from(&formatted.pattern());
+            use icu_locale_core::preferences::extensions::unicode::keywords::HourCycle as IcuHourCycle;
+            match components.hour_cycle {
+                Some(IcuHourCycle::H11 | IcuHourCycle::H12) => HourCycle::H12,
+                _ => HourCycle::H23,
+            }
+        })
     }
 
     /// Return a stand-alone Gregorian month name, or empty for an invalid month.
@@ -117,55 +137,60 @@ impl Locale {
         if !(1..=12).contains(&month) {
             return String::new();
         }
-        let mut names: FixedCalendarDateTimeNames<
-            Gregorian,
-            icu_datetime::fieldsets::enums::DateFieldSet,
-        > = FixedCalendarDateTimeNames::try_new(self.icu().into())
-            .expect("invariant: compiled ICU date names include locale fallback");
-        let (length, pattern) = match width {
-            NameWidth::Narrow => (MonthNameLength::StandaloneNarrow, "LLLLL"),
-            NameWidth::Short => (MonthNameLength::StandaloneAbbreviated, "LLL"),
-            NameWidth::Long => (MonthNameLength::StandaloneWide, "LLLL"),
-        };
-        names
-            .include_month_names(length)
-            .expect("invariant: Gregorian month names are available");
-        let pattern: DateTimePattern = pattern
-            .parse()
-            .expect("invariant: valid literal month pattern");
-        names
-            .with_pattern_unchecked(&pattern)
-            .format(&sample_date(CalendarDate::new(2026, month, 1)))
-            .try_write_to_string()
-            .expect("invariant: requested month names were loaded")
-            .into_owned()
+        self.cache().name(NameKey::Month(width, month), || {
+            let mut names: FixedCalendarDateTimeNames<
+                Gregorian,
+                icu_datetime::fieldsets::enums::DateFieldSet,
+            > = FixedCalendarDateTimeNames::try_new(self.icu().into())
+                .expect("invariant: compiled ICU date names include locale fallback");
+            let (length, pattern) = match width {
+                NameWidth::Narrow => (MonthNameLength::StandaloneNarrow, "LLLLL"),
+                NameWidth::Short => (MonthNameLength::StandaloneAbbreviated, "LLL"),
+                NameWidth::Long => (MonthNameLength::StandaloneWide, "LLLL"),
+            };
+            names
+                .include_month_names(length)
+                .expect("invariant: Gregorian month names are available");
+            let pattern: DateTimePattern = pattern
+                .parse()
+                .expect("invariant: valid literal month pattern");
+            names
+                .with_pattern_unchecked(&pattern)
+                .format(&sample_date(CalendarDate::new(2026, month, 1)))
+                .try_write_to_string()
+                .expect("invariant: requested month names were loaded")
+                .into_owned()
+        })
     }
 
     /// Return a stand-alone weekday name.
     pub fn weekday_name(&self, day: Weekday, width: NameWidth) -> String {
-        let mut names: FixedCalendarDateTimeNames<
-            Gregorian,
-            icu_datetime::fieldsets::enums::DateFieldSet,
-        > = FixedCalendarDateTimeNames::try_new(self.icu().into())
-            .expect("invariant: compiled ICU date names include locale fallback");
-        let (length, pattern) = match width {
-            NameWidth::Narrow => (WeekdayNameLength::StandaloneNarrow, "ccccc"),
-            NameWidth::Short => (WeekdayNameLength::StandaloneAbbreviated, "ccc"),
-            NameWidth::Long => (WeekdayNameLength::StandaloneWide, "cccc"),
-        };
-        names
-            .include_weekday_names(length)
-            .expect("invariant: weekday names are available");
-        let pattern: DateTimePattern = pattern
-            .parse()
-            .expect("invariant: valid literal weekday pattern");
-        let date = CalendarDate::new(2026, 11, 2).add_days(day.days_since(Weekday::Monday) as i32);
-        names
-            .with_pattern_unchecked(&pattern)
-            .format(&sample_date(date))
-            .try_write_to_string()
-            .expect("invariant: requested weekday names were loaded")
-            .into_owned()
+        self.cache().name(NameKey::Weekday(width, day), || {
+            let mut names: FixedCalendarDateTimeNames<
+                Gregorian,
+                icu_datetime::fieldsets::enums::DateFieldSet,
+            > = FixedCalendarDateTimeNames::try_new(self.icu().into())
+                .expect("invariant: compiled ICU date names include locale fallback");
+            let (length, pattern) = match width {
+                NameWidth::Narrow => (WeekdayNameLength::StandaloneNarrow, "ccccc"),
+                NameWidth::Short => (WeekdayNameLength::StandaloneAbbreviated, "ccc"),
+                NameWidth::Long => (WeekdayNameLength::StandaloneWide, "cccc"),
+            };
+            names
+                .include_weekday_names(length)
+                .expect("invariant: weekday names are available");
+            let pattern: DateTimePattern = pattern
+                .parse()
+                .expect("invariant: valid literal weekday pattern");
+            let date =
+                CalendarDate::new(2026, 11, 2).add_days(day.days_since(Weekday::Monday) as i32);
+            names
+                .with_pattern_unchecked(&pattern)
+                .format(&sample_date(date))
+                .try_write_to_string()
+                .expect("invariant: requested weekday names were loaded")
+                .into_owned()
+        })
     }
 
     /// Return the Unicode cardinal category; non-finite values use Other.
@@ -173,9 +198,13 @@ impl Locale {
         let Ok(operands) = n.abs().to_string().parse::<icu_decimal::input::Decimal>() else {
             return PluralCategory::Other;
         };
-        let rules = icu_plurals::PluralRules::try_new_cardinal(self.icu().into())
-            .expect("invariant: compiled ICU plural rules include locale fallback");
-        match rules.category_for(&operands) {
+        let cache = self.cache();
+        let category = cache.plurals.get_or_init(|| {
+            let rules = icu_plurals::PluralRules::try_new_cardinal(cache.icu().clone().into())
+                .expect("invariant: compiled ICU plural rules include locale fallback");
+            Box::new(move |operands: &icu_decimal::input::Decimal| rules.category_for(operands))
+        });
+        match category(&operands) {
             icu_plurals::PluralCategory::Zero => PluralCategory::Zero,
             icu_plurals::PluralCategory::One => PluralCategory::One,
             icu_plurals::PluralCategory::Two => PluralCategory::Two,
@@ -187,9 +216,14 @@ impl Locale {
 
     /// Compare strings using the locale collation rules.
     pub fn compare(&self, a: &str, b: &str) -> Ordering {
-        icu_collator::Collator::try_new(self.icu().into(), Default::default())
-            .expect("invariant: compiled ICU collation data includes locale fallback")
-            .compare(a, b)
+        let cache = self.cache();
+        let compare = cache.collator.get_or_init(|| {
+            let collator =
+                icu_collator::Collator::try_new(cache.icu().clone().into(), Default::default())
+                    .expect("invariant: compiled ICU collation data includes locale fallback");
+            Box::new(move |a: &str, b: &str| collator.compare(a, b))
+        });
+        compare(a, b)
     }
 }
 
