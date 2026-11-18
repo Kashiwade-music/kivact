@@ -223,11 +223,11 @@ impl DevtoolsState {
 
 impl DevtoolsState {
     /// The hooks the view calls; `None` while DevTools is off.
-    pub(crate) fn hooks(&self) -> Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>> {
+    pub(crate) fn hooks(&self) -> Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>> {
         match self {
             DevtoolsState::Off => None,
             DevtoolsState::Running(i) => {
-                Some(i.clone() as Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>)
+                Some(i.clone() as Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>)
             }
         }
     }

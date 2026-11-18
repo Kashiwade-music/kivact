@@ -395,7 +395,7 @@ pub(crate) struct ViewNodes {
     roots: BTreeMap<WindowId, NodeId>,
     engine: Writer,
     /// The DevTools hooks; None without DevTools.
-    devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
+    devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
     /// The latest layout report of each referenced node that has no observation yet
@@ -413,7 +413,7 @@ impl ViewNodes {
     pub(crate) fn new(
         engine: Writer,
         owner: Owner,
-        devtools: Option<Rc<dyn crate::view::devtools_hooks::DevtoolsHooks>>,
+        devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     ) -> Self {
         let root = NodeId(1);
         let mut nodes = IdMap::default();
