@@ -47,7 +47,10 @@ mod tests {
 
     use super::write;
     use crate::{Resources, SvgError};
-    use kivact_types::{DrawCmd, DrawList, Fill, Pixels, Rect, Rgba, TextRun};
+    use kivact_types::{
+        ColorInterpolation, DrawCmd, DrawList, Fill, FillImage, FillLayer, Gradient, GradientKind,
+        GradientStop, Pixels, Rect, Rgba, SpaceColor, TextRun,
+    };
 
     /// A host with no images and no text: nothing a test below draws asks it.
     struct NoResources;
@@ -192,5 +195,32 @@ mod tests {
         .expect_err("a pop closes the innermost group, so the clip group stays open");
 
         assert!(matches!(error, SvgError::Malformed(_)));
+    }
+
+    #[test]
+    fn a_gradient_interpolates_in_oklab_like_the_window() {
+        let stop = |r: f64, b: f64| GradientStop {
+            color: SpaceColor::from_rgba(Rgba {
+                r,
+                g: 0.0,
+                b,
+                a: 1.0,
+            }),
+            at: None,
+        };
+        let gradient = Gradient {
+            kind: GradientKind::Linear { angle_deg: 90.0 },
+            stops: vec![stop(1.0, 0.0), stop(0.0, 1.0)],
+            hints: vec![None],
+            repeating: false,
+            interpolation: ColorInterpolation::DEFAULT,
+        };
+        let document = write_list(vec![DrawCmd::Rect {
+            rect: square(),
+            fill: Fill::Layers(vec![FillLayer::cover(FillImage::Gradient(gradient))]),
+        }])
+        .expect("a linear gradient writes");
+
+        assert!(document.matches("<stop ").count() > 2);
     }
 }

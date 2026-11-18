@@ -13,9 +13,7 @@
 use super::state::{Frame, State};
 use crate::lower::LayerProps;
 use crate::lower::context::Context;
-use crate::lower::path;
 use crate::lower::sanitize;
-use crate::lower::scene_shape;
 use arvane_protocol::{Group, LayerEffects, Plane, RasterGrid, RenderCmd as D};
 use kivact_types::Composite;
 use kivact_types::geometry3d::Matrix4;
@@ -189,13 +187,10 @@ impl Context<'_> {
         }
         let origin = state.origin;
         let clip = layer.clip.as_ref().map(|shape| {
-            path::shifted(
-                scene_shape::shape(shape),
-                Point {
-                    x: origin.x,
-                    y: origin.y,
-                },
-            )
+            shape.to_shape().translated(Point {
+                x: origin.x,
+                y: origin.y,
+            })
         });
         state.frames.push(Frame::Group);
         state.out.push(D::PushGroup(Group {
@@ -211,13 +206,10 @@ impl Context<'_> {
         let origin = state.origin;
         let area = moved(layer.area, origin);
         let clip: Option<Shape> = layer.clip.as_ref().map(|shape| {
-            path::shifted(
-                scene_shape::shape(shape),
-                Point {
-                    x: origin.x,
-                    y: origin.y,
-                },
-            )
+            shape.to_shape().translated(Point {
+                x: origin.x,
+                y: origin.y,
+            })
         });
         let plane = if layer.transform_style == TransformStyle::Preserve3d {
             Plane::Preserve3d

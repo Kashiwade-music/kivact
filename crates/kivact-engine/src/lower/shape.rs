@@ -21,9 +21,8 @@
 //!   are those of the node's base paint: a state style that changes its
 //!   corners or clip path changes how it is drawn, not where it is hit.
 
-use kivact_types::{Border, ClipShape, Corners, Edges, Len, PaintProps, Point, Rect};
+use kivact_types::{Border, Corners, Edges, PaintProps, Point, Rect};
 
-use kivact_types::FillRule;
 use kivact_types::scene::{Radius, RoundedRect, Shape};
 
 /// A box's outline: a plain rect, circular corners (drawn with Arvane's
@@ -46,10 +45,7 @@ impl BoxShape {
         if radius.is_zero() {
             return BoxShape::Rect(r);
         }
-        let radii = radius.each().map(|cr| Radius {
-            x: positive(cr.x.of(rect.width)),
-            y: positive(cr.y.of(rect.height)),
-        });
+        let radii = radius.radii_in(rect);
         if radii.iter().all(|r| r.x == r.y) {
             BoxShape::Circular(r, radii.map(|r| r.x))
         } else {
@@ -147,10 +143,6 @@ impl BoxShape {
     }
 }
 
-fn positive(v: f64) -> f64 {
-    if v.is_finite() { v.max(0.0) } else { 0.0 }
-}
-
 /// The widths of the visible border sides (a side without width or color
 /// draws nothing and insets nothing).
 pub(crate) fn border_widths(border: Option<&Border>) -> Edges<f64> {
@@ -163,80 +155,6 @@ pub(crate) fn border_widths(border: Option<&Border>) -> Edges<f64> {
         right: side(b.widths.right, b.colors.right.a),
         bottom: side(b.widths.bottom, b.colors.bottom.a),
         left: side(b.widths.left, b.colors.left.a),
-    }
-}
-
-/// The clip path `shape` in the box `rect` (CSS basic shapes).
-pub(crate) fn clip_path(shape: &ClipShape, rect: Rect) -> Shape {
-    let at = |[x, y]: [Len; 2]| Point {
-        x: rect.x + x.of(rect.width),
-        y: rect.y + y.of(rect.height),
-    };
-    match shape {
-        ClipShape::Path { cmds, even_odd } => {
-            let shape = Shape::Path {
-                cmds: cmds.clone(),
-                rule: if *even_odd {
-                    FillRule::EvenOdd
-                } else {
-                    FillRule::NonZero
-                },
-            };
-            super::path::shifted(
-                shape,
-                Point {
-                    x: rect.x,
-                    y: rect.y,
-                },
-            )
-        }
-        ClipShape::Inset { edges, radius } => {
-            let inner = Rect {
-                x: rect.x + edges.left.of(rect.width),
-                y: rect.y + edges.top.of(rect.height),
-                width: (rect.width - edges.left.of(rect.width) - edges.right.of(rect.width))
-                    .max(0.0),
-                height: (rect.height - edges.top.of(rect.height) - edges.bottom.of(rect.height))
-                    .max(0.0),
-            };
-            BoxShape::of(inner, radius).shape()
-        }
-        ClipShape::Circle { radius, center } => {
-            let reference = (rect.width.hypot(rect.height)) / std::f64::consts::SQRT_2;
-            let r = positive(radius.of(reference));
-            let c = at(*center);
-            Shape::RoundedRect(RoundedRect::ellipse(Rect {
-                x: c.x - r,
-                y: c.y - r,
-                width: 2.0 * r,
-                height: 2.0 * r,
-            }))
-        }
-        ClipShape::Ellipse {
-            radius_x,
-            radius_y,
-            center,
-        } => {
-            let (rx, ry) = (
-                positive(radius_x.of(rect.width)),
-                positive(radius_y.of(rect.height)),
-            );
-            let c = at(*center);
-            Shape::RoundedRect(RoundedRect::ellipse(Rect {
-                x: c.x - rx,
-                y: c.y - ry,
-                width: 2.0 * rx,
-                height: 2.0 * ry,
-            }))
-        }
-        ClipShape::Polygon { points, even_odd } => Shape::Polygon {
-            points: points.iter().map(|p| at(*p)).collect(),
-            rule: if *even_odd {
-                FillRule::EvenOdd
-            } else {
-                FillRule::NonZero
-            },
-        },
     }
 }
 
@@ -256,7 +174,7 @@ pub(crate) fn hits(paint: Option<&PaintProps>, rect: Rect, p: Point) -> bool {
 /// `rect` (true without one).
 pub(crate) fn in_clip_path(paint: &PaintProps, rect: Rect, p: Point) -> bool {
     match paint.effects.as_ref().and_then(|e| e.clip_path.as_ref()) {
-        Some(shape) => clip_path(shape, rect).contains(p),
+        Some(shape) => shape.in_rect(rect).contains(p),
         None => true,
     }
 }

@@ -176,7 +176,7 @@ impl Model {
             .effects
             .as_ref()
             .and_then(|e| e.clip_path.as_ref())
-            .map(|s| shape::clip_path(s, bounds));
+            .map(|s| s.in_rect(bounds));
         let place = Place {
             step,
             list,

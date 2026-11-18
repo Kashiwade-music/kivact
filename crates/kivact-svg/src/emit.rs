@@ -160,7 +160,7 @@ impl Emitter<'_> {
 
     /// A clip to a drawn outline, defined once as a clip path; the attributes of its group.
     fn outline_clip(&mut self, clip: &DrawingShape) -> Result<String, SvgError> {
-        let (cmds, rule, _) = outline_of(clip);
+        let (cmds, rule) = outline_of(clip);
         let d = path_data(&cmds)?;
         let id = self.id("clip");
         self.defs.push_str(&format!(
@@ -230,7 +230,8 @@ impl Emitter<'_> {
     }
 
     fn shape(&mut self, shape: &ShapePaint) -> Result<(), SvgError> {
-        let (cmds, rule, bounds) = outline_of(&shape.shape);
+        let (cmds, rule) = outline_of(&shape.shape);
+        let bounds = shape.paint_area();
         let d = path_data(&cmds)?;
         let attributes = match &shape.stroke {
             None => {

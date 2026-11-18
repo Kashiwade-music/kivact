@@ -92,29 +92,6 @@ pub enum GradientShape {
     },
 }
 
-impl GradientShape {
-    /// The linear geometry of a CSS angle (degrees clockwise from left to
-    /// right) over `rect`: the gradient line passes through the bounds'
-    /// center and is as long as the bounds are across in its direction.
-    pub fn linear_angle(rect: Rect, angle_deg: f64) -> GradientShape {
-        let angle = angle_deg.to_radians();
-        let (dy, dx) = angle.sin_cos();
-        let span = rect.width * dx.abs() + rect.height * dy.abs();
-        let cx = rect.x + rect.width / 2.0;
-        let cy = rect.y + rect.height / 2.0;
-        GradientShape::Linear {
-            start: Point {
-                x: cx - dx * span / 2.0,
-                y: cy - dy * span / 2.0,
-            },
-            end: Point {
-                x: cx + dx * span / 2.0,
-                y: cy + dy * span / 2.0,
-            },
-        }
-    }
-}
-
 /// A gradient: geometry, color stops and how it extends.
 ///
 /// Two stops at the same offset make a hard edge. The stops are sRGB: the

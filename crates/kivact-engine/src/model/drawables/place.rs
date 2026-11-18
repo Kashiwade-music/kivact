@@ -139,7 +139,7 @@ fn push_layer(layer: &DrawingLayer, frames: &mut Vec<Frame>) {
     if let Some(clip) = &layer.clip
         && let Some(map) = fold(frames).invert()
     {
-        frames.push(Frame::Clip(map, crate::lower::scene_shape::shape(clip)));
+        frames.push(Frame::Clip(map, clip.to_shape()));
     }
 }
 

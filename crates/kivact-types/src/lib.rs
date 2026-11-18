@@ -22,6 +22,7 @@ pub mod export;
 pub mod geometry;
 pub mod geometry3d;
 pub mod gpu;
+pub mod gradient_stops;
 pub mod ids;
 pub mod image_status;
 pub mod input;
@@ -68,6 +69,7 @@ pub use gpu::{
     GpuBackend, GpuPower, GpuPreference, GpuStart, SHARED_PREPARED, SharedHandle,
     SharedTextureFormat, SharedTextures,
 };
+pub use gradient_stops::{color_at, expand_gradient, normalized_stops};
 pub use ids::{
     DrawableId, FocusTarget, IdHasher, IdMap, NodeId, RegionId, RequestId, Revision, SemanticsId,
     TextRunId,

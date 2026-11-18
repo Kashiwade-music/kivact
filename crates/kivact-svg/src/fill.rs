@@ -10,7 +10,7 @@ use super::encode::{hex, number, opacity_attribute};
 use crate::SvgError;
 use kivact_types::{
     CoordinateGradient, CoordinateShape, Extend, Fill, FillImage, FillLayer, FillSize, Gradient,
-    GradientKind, GradientStop, Len, Point, RadialExtent, Rect, Rgba,
+    GradientKind, Len, Point, RadialExtent, Rect, Rgba, normalized_stops,
 };
 
 /// The SVG attributes of a paint `kind` (`fill` or `stroke`) for `fill`,
@@ -79,27 +79,23 @@ fn gradient_paint(
         height: h,
     } = bounds;
     match gradient.kind {
-        GradientKind::Linear { angle_deg } => {
-            // CSS: 0 points to the top, 90 to the right; the line is as long
-            // as needed for the corners to take the end colors.
-            let theta = angle_deg.to_radians();
-            let (dx, dy) = (theta.sin(), -theta.cos());
-            let length = (w * dx).abs() + (h * dy).abs();
-            let center = Point {
-                x: x + w / 2.0,
-                y: y + h / 2.0,
+        GradientKind::Linear { .. } => {
+            let Some((start, end)) = gradient.line(bounds) else {
+                return Err(SvgError::unsupported("a linear gradient without a line"));
             };
-            let start = Point {
-                x: center.x - dx * length / 2.0,
-                y: center.y - dy * length / 2.0,
+            let length = (end.x - start.x).hypot(end.y - start.y);
+            let stops = gradient.srgb_stops(length);
+            let (Some(first), Some(last)) = (stops.first(), stops.last()) else {
+                return Ok(format!("{kind}=\"none\""));
             };
-            let end = Point {
-                x: center.x + dx * length / 2.0,
-                y: center.y + dy * length / 2.0,
+            let (lo, hi) = (first.0.min(0.0), last.0.max(1.0));
+            let at = |t: f64| Point {
+                x: start.x + (end.x - start.x) * t,
+                y: start.y + (end.y - start.y) * t,
             };
-            let stops = css_stops(&gradient.stops, length);
+            let stops = normalized_stops(&stops, lo, hi);
             let id = emitter.id("grad");
-            linear_def(emitter, &id, start, end, Extend::Pad, &stops);
+            linear_def(emitter, &id, at(lo), at(hi), Extend::Pad, &stops);
             Ok(format!("{kind}=\"url(#{id})\""))
         }
         GradientKind::Radial {
@@ -115,7 +111,11 @@ fn gradient_paint(
             }
             // An ellipse is the circle scaled vertically about its center.
             let scale = if circle { 1.0 } else { ry.of(h) / radius };
-            let stops = css_stops(&gradient.stops, radius);
+            let stops: Vec<(f64, Rgba)> = gradient
+                .srgb_stops(radius)
+                .into_iter()
+                .map(|(t, c)| (t.clamp(0.0, 1.0), c))
+                .collect();
             let id = emitter.id("grad");
             let shape = Radial {
                 center: Point { x: cx, y: cy },
@@ -168,53 +168,6 @@ fn coordinate_paint(
         }
     }
     Ok(format!("{kind}=\"url(#{id})\""))
-}
-
-/// Stop offsets and colors of a CSS gradient whose line is `length` long.
-/// A stop without a position takes the place CSS gives it: the first and
-/// the last default to 0 and 1, the others are spread evenly between their
-/// positioned neighbours. Offsets are clamped to `0..=1` and never decrease.
-fn css_stops(stops: &[GradientStop], length: f64) -> Vec<(f64, Rgba)> {
-    let mut at: Vec<Option<f64>> = stops
-        .iter()
-        .map(|stop| {
-            stop.at.map(|len| {
-                if length > 0.0 {
-                    len.of(length) / length
-                } else {
-                    0.0
-                }
-            })
-        })
-        .collect();
-    if let Some(first) = at.first_mut() {
-        first.get_or_insert(0.0);
-    }
-    if let Some(last) = at.last_mut() {
-        last.get_or_insert(1.0);
-    }
-    let mut known: Option<usize> = None;
-    for i in 0..at.len() {
-        let Some(known_at) = at[i] else { continue };
-        if let Some(p) = known {
-            let from = at[p].unwrap_or(0.0);
-            let steps = (i - p) as f64;
-            for (step, slot) in at[p + 1..i].iter_mut().enumerate() {
-                *slot = Some(from + (known_at - from) * (step + 1) as f64 / steps);
-            }
-        }
-        known = Some(i);
-    }
-    let mut previous = 0.0_f64;
-    stops
-        .iter()
-        .zip(at)
-        .map(|(stop, offset)| {
-            let offset = offset.unwrap_or(0.0).clamp(0.0, 1.0).max(previous);
-            previous = offset;
-            (offset, stop.color.to_srgb())
-        })
-        .collect()
 }
 
 fn linear_def(

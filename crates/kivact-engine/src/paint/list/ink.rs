@@ -311,7 +311,7 @@ fn plain_scene_reach(cmds: &[DrawCmd], canvas: Rect) -> Option<Rect> {
                 });
             }
             DrawCmd::Shape(p) => add(grow(
-                at(crate::lower::scene_shape::shape(&p.shape).bounds()),
+                at(p.shape.to_shape().bounds()),
                 p.stroke
                     .as_ref()
                     .map_or(0.0, |s| s.width.abs() * s.miter_limit.max(1.0)),

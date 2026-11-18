@@ -2,6 +2,7 @@
 mod path;
 pub mod primitives;
 mod recording;
+mod resolve;
 mod shape;
 
 pub use primitives::{BorderStyle, FillRule, LineCap, LineJoin, Stroke};
