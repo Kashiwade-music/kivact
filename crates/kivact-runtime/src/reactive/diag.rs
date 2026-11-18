@@ -27,12 +27,21 @@ use crate::reactive::host_types::Stage;
 const RING: usize = 256;
 const PER_TURN: usize = 64;
 
+/// What a [`Reported`] entry is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReportKind {
+    /// An error that reached the default sink (no `on_error` took it).
+    Error,
+    /// A non-fatal diagnostic (a write after dispose, a stale event, ...).
+    Diagnostic,
+}
+
 /// One error or diagnostic in report order, as the DevTools reads them.
 pub struct Reported {
     /// The report sequence number (the rings share one counter).
     pub seq: u64,
-    /// Whether an error handler handled it (`false` when it reached the default sink).
-    pub handled: bool,
+    /// Whether it is an error or a non-fatal diagnostic.
+    pub kind: ReportKind,
     /// The error.
     pub error: UiError,
 }
@@ -278,14 +287,42 @@ impl Runtime {
         let mut reported = Vec::with_capacity(diag.errors.len() + diag.diagnostics.len());
         reported.extend(diag.errors.iter().map(|(seq, error)| Reported {
             seq: *seq,
-            handled: false,
+            kind: ReportKind::Error,
             error: error.clone(),
         }));
         reported.extend(diag.diagnostics.iter().map(|(seq, error)| Reported {
             seq: *seq,
-            handled: true,
+            kind: ReportKind::Diagnostic,
             error: error.clone(),
         }));
+        reported.sort_by_key(|entry| entry.seq);
+        reported
+    }
+
+    /// Errors and diagnostics reported after sequence number `since`, in
+    /// report order (bounded rings).
+    pub fn reported_since(&self, since: u64) -> Vec<Reported> {
+        let diag = self.diag.borrow();
+        let mut reported = Vec::new();
+        for (seq, error) in diag.errors.iter().rev().take_while(|(seq, _)| *seq > since) {
+            reported.push(Reported {
+                seq: *seq,
+                kind: ReportKind::Error,
+                error: error.clone(),
+            });
+        }
+        for (seq, error) in diag
+            .diagnostics
+            .iter()
+            .rev()
+            .take_while(|(seq, _)| *seq > since)
+        {
+            reported.push(Reported {
+                seq: *seq,
+                kind: ReportKind::Diagnostic,
+                error: error.clone(),
+            });
+        }
         reported.sort_by_key(|entry| entry.seq);
         reported
     }

@@ -133,7 +133,7 @@ pub fn sleep(d: Duration) -> impl Future<Output = ()> {
     sleep_ns(&rt, ns, at, owner)
 }
 
-fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
+pub(super) fn timer_runtime(api: &'static str, at: &'static Location<'static>) -> Rc<Runtime> {
     Runtime::current().unwrap_or_else(|| {
         raise(
             ErrorKind::WrongApp,

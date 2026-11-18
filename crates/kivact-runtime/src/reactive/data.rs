@@ -54,7 +54,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, mount_revision, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
+// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -80,8 +80,6 @@ pub struct Runtime {
         reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
     )]
     pub(crate) ext: std::cell::OnceCell<Extensions>,
-    /// Last stamp remains meaningful after every acknowledged callback was removed.
-    pub(crate) mount_revision: Cell<kivact_types::Revision>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
     pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,

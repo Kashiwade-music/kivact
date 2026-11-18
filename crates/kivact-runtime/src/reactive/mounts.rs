@@ -9,10 +9,9 @@ impl Runtime {
     pub(crate) fn stamp_mounts(&self, revision: Revision) {
         let mut awaiting = self.awaiting.borrow_mut();
         assert!(
-            self.mount_revision.get() <= revision,
+            awaiting.back().is_none_or(|(last, _)| *last <= revision),
             "invariant: mount revisions only grow"
         );
-        self.mount_revision.set(revision);
         awaiting.extend(self.unstamped.borrow_mut().drain(..).map(|m| (revision, m)));
     }
     pub(crate) fn run_mounts_acked(&self, acked: Revision) {

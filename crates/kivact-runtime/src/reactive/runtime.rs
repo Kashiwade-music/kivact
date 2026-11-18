@@ -76,7 +76,6 @@ impl Runtime {
                 reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
             )]
             ext: std::cell::OnceCell::new(),
-            mount_revision: Cell::new(kivact_types::Revision(0)),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),
             host,
