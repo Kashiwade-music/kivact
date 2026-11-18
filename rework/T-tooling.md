@@ -1213,7 +1213,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo xtask check --no-write --only local
   ```
 
-- **完了条件**：上のコマンドがすべて成功する。最後の 2 つは `ok` を出す（最後のものは他の package の `state` の結果を `pending:` の note として出す）。共通手順 M が xtask に `legacy:` の印を書いたなら、最後のものは `state: <N> legacy marker(s) ...` の note も出す（N はその数）。`rg -n "state-fields|state_fields|report-audit|state-audit" dev/xtask/src` が何も出さない。
+- **完了条件**：上のコマンドがすべて成功する。最後の 2 つは `ok` を出す（最後のものは他の package の `state` の結果を `pending:` の note として出す）。共通手順 M が xtask に `legacy:` の印を書いたなら、最後のものは `state: <N> legacy marker(s) ...` の note も出す（N はその数）。`rg -n "state-fields|state_fields|report-audit|state-audit" dev/xtask/src` が出すのは、旧い印を検出する仕様の文字列だけ（`dev/xtask/src/state/check.rs` の `OBSOLETE` の定数とその検査の文面、`dev/xtask/src/state/tests.rs` の旧い印の試験）。それ以外の行が出たら消し残し。
 
 ---
 
@@ -1431,7 +1431,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
    | 変更前 | 変更後 |
    |---|---|
-   | `kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp", "kivact-public-api-tests"]` | `kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]` |
+   | `kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp", "kivact-public-api-tests"]` | `kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]`（`kivact-devtools-client` は crate が T13 まで残り protocol に依存するので、ここでは残す。T13 が消す） |
    | `kivact-devtools-client = [...]` の行 | 消す |
    | `arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]` | `arvane-native = ["kivact-engine", "arvane-virtual", "kivact"]` |
    | `arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]` | `arvane-virtual = ["kivact-engine", "kivact-test"]` |
@@ -1442,7 +1442,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
    - `[visible_to]` の見出しの直後に comment `# dev-dependency は visible_to の対象外（dev/xtask の core_filters.rs。設計 6.3）。` を足す。
    - `[structural_options]` の表（見出しから `list = [ ... ]` の閉じ括弧まで、その上の 2 行の comment を含む）を消す。
 
-- **消すもの**：`dev/xtask/src/structural_options.rs`、policy の `[structural_options]`、`visible_to` の `kivact-devtools-client` と 17 個の `= []` の行、先頭の 4 行の comment。
+- **消すもの**：`dev/xtask/src/structural_options.rs`、policy の `[structural_options]`、`visible_to` の `kivact-devtools-client = [...]` の行と 17 個の `= []` の行、先頭の 4 行の comment（`kivact-devtools-protocol` の行の中の `"kivact-devtools-client"` は T13 が消す）。
 - **状態の閉じ方**：新しい型は無い。
 - **試験**：足す：`dev/xtask/src/core_filters.rs::tests::drops_dev_visibility_and_exempt_role_findings`、`dev/xtask/src/api_shape.rs::tests::accepts_caller_locations_and_immutable_arcs`、`dev/xtask/src/check_source.rs::tests::hidden_items_of_implementation_crates_need_no_marker`。
 - **確認（tier a）**：
@@ -2326,7 +2326,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo xtask check --no-write
   ```
 
-- **完了条件**：上のコマンドが成功し、最後の 2 つが `ok`。`cargo xtask check --no-write --only docs-pairs --strict` は `canvas.md` と `windows.md` の 2 件を error にする（T17 が直す）。それ以外の error（`does not lex`、`invalid escape`、`twin ... is missing`）が出たら、その行を unit の報告に書く（T17 が同じ規則で直すか STOP する）。`rg -n "devtools-codegen|devtools_codegen" dev crates` が何も出さない。`python/` が無い。
+- **完了条件**：上のコマンドが成功し、最後の 2 つが `ok`。`cargo xtask check --no-write --only docs-pairs --strict` は 4 件を error にする（すべて T17 が直す）：`docs/for-kivact-user/jp/how-to-guide/canvas.md`、`.../windows.md`、`docs/for-kivact-ui-user/jp/basic/getting-started/02-build-the-settings-form.md`、`.../03-dark-mode-and-feedback.md`。それ以外の error（`does not lex`、`invalid escape`、`twin ... is missing`）が出たら、その行を unit の報告に書く（T17 が同じ規則で直すか STOP する）。`rg -n "devtools-codegen|devtools_codegen" dev crates` が出すのは `dev/README.md` の 1 行だけ（T21 が file ごと置き換える）。`python/` が無い。
 
 ---
 
@@ -3299,7 +3299,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 ## T13：`kivact-devtools-client` を `kivact-devtools-protocol` の `client` へ統合
 
 - **wave / lane / 前提**：W1b / T5 / T23
-- **所有**：`crates/kivact-devtools-client/`（削除）、`crates/kivact-devtools-protocol/**`、`crates/kivact-devtools-agent/**`、`crates/kivact-devtools-mcp/**`、`crates/kivact-devtools/**`、root の `Cargo.toml` の `members`、`Cargo.lock`、`dev/tests/kivact-public-api/Cargo.toml`、`dev/tests/kivact-public-api/tests/e2e/devtools.rs`
+- **所有**：`crates/kivact-devtools-client/`（削除）、`crates/kivact-devtools-protocol/**`、`crates/kivact-devtools-agent/**`、`crates/kivact-devtools-mcp/**`、`crates/kivact-devtools/**`、root の `Cargo.toml` の `members`、`Cargo.lock`、`dev/tests/kivact-public-api/Cargo.toml`、`dev/tests/kivact-public-api/tests/e2e/devtools.rs`、`dev/xtask/policy/workspace.toml` の `"kivact-devtools-client"` の 2 か所（手順 9）
 - **目的**：client と protocol を一つの crate にする（TL-08、設計 4.1）。agent の試験の 10 ms の polling を wake の channel に、DevTools の E2E の 1 ms の sleep を `park_timeout` にする（TL-14(3)）。DevTools の 4 crate の state の印を移す（TL-04）。
 - **手順**：
   1. 移す。
@@ -3409,6 +3409,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
      ```
   7. `dev/tests/kivact-public-api/tests/e2e/devtools.rs` の `a_devtools_client_inspects_drives_and_reviews_a_test_app` の loop の `std::thread::sleep(Duration::from_millis(1));` を `std::thread::park_timeout(Duration::from_millis(16));` にする（agent の wake が driver を作った thread を unpark する）。
   8. 共通手順 M を `kivact-devtools-protocol`、`kivact-devtools-agent`、`kivact-devtools-mcp`、`kivact-devtools` の順に行う（`<DIRS>` は各 `crates/<P>/src`）。
+  9. `dev/xtask/policy/workspace.toml`：`[visible_to]` の `kivact-devtools-protocol = [...]` の行から `"kivact-devtools-client", ` を消す。`[rework.pending]` の `state = [ ... ]` の列から `"kivact-devtools-client", ` を消す（xtask-core は存在しない package の名前を拒む）。他の行は変えない（同じ file の `[[style.exceptions]]` は同じ lane の後の T15 が足す）。
 - **消すもの**：`crates/kivact-devtools-client/`（全体）、`kivact_devtools_client` の名前。
 - **状態の閉じ方**：新しい型は無い。移した `client::Connection` などが `state` で報告されたら共通手順 M2。
 - **試験**：移す：`crates/kivact-devtools-client/tests/connection.rs` → `crates/kivact-devtools-protocol/tests/client.rs`（試験の名前は変えない）。直す：`crates/kivact-devtools-agent/tests/agent.rs` の `get_app_info_is_answered_on_the_ui_thread`、`closing_a_connection_reports_the_remaining_clients`（期待値は変えない）。
@@ -3425,7 +3426,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e --features devtools -- devtools
   ```
 
-- **完了条件**：すべて成功。`rg -n "devtools-client|devtools_client" crates dev Cargo.toml` が何も出さない（`dev/xtask/policy/workspace.toml` は T02 で直してある）。
+- **完了条件**：すべて成功。`rg -n "devtools-client|devtools_client" crates dev Cargo.toml` が何も出さない（`dev/xtask/policy/workspace.toml` は手順 9 で直す）。
 
 ## T14：`// Regression:` の札、`GRACE` の sleep、kit の README の移行表と recipe の一覧
 
@@ -3788,8 +3789,8 @@ cargo xtask check --no-write --only state --strict --crate <P>
 ## T17：docs の doctest を英語だけにし、`no_run` を型検査の module にする
 
 - **wave / lane / 前提**：W1b / T6 / T16
-- **所有**：`dev/tests/docs/**`、`docs/for-kivact-user/jp/how-to-guide/canvas.md`、`docs/for-kivact-user/jp/how-to-guide/windows.md`
-- **目的**：英語の木と `README.md` だけを doctest にし、`no_run` の block は link しない型検査の module にする（TL-03、設計 6.4）。日本語の 2 ファイルを `docs-pairs` に合わせる。`dev/tests/docs` の `//! Role:` を消す（設計 4.3）。
+- **所有**：`dev/tests/docs/**`、`docs/for-kivact-user/jp/how-to-guide/canvas.md`、`docs/for-kivact-user/jp/how-to-guide/windows.md`、`docs/for-kivact-ui-user/jp/basic/getting-started/02-build-the-settings-form.md`、`docs/for-kivact-ui-user/jp/basic/getting-started/03-dark-mode-and-feedback.md`
+- **目的**：英語の木と `README.md` だけを doctest にし、`no_run` の block は link しない型検査の module にする（TL-03、設計 6.4）。日本語の 4 ファイルを `docs-pairs` に合わせる。`dev/tests/docs` の `//! Role:` を消す（設計 4.3）。
 - **手順**：
   1. `dev/tests/docs/build.rs` を次に置き換える。
 
@@ -4090,9 +4091,37 @@ cargo xtask check --no-write --only state --strict --crate <P>
      mod tests;
      ```
   4. `dev/tests/docs/src/guides.rs` と `src/tests.rs` の 1 行目 `//! Role: ` の `Role: ` を消す（`perl -pi -e 's{^//! Role: }{//! }' dev/tests/docs/src/*.rs`）。`dev/tests/docs/Cargo.toml` の `description` を `"Compile checks for docs/: the English guides' Rust blocks as doctests, their no_run blocks type-checked"` にする。
-  5. 日本語の 2 ファイルを英語に合わせる。`cargo xtask check --no-write --only docs-pairs --strict` がこの 2 件の他の error（`does not lex`、`invalid escape`、`twin ... is missing`、別のファイルの不一致）を出したら、その行を書いて STOP する（文書の中身を決めるのは付属書 G）。
+  5. 日本語の 4 ファイルを英語に合わせる。`cargo xtask check --no-write --only docs-pairs --strict` がこの 4 件の他の error（`does not lex`、`invalid escape`、`twin ... is missing`、別のファイルの不一致）を出したら、その行を書いて STOP する（文書の中身を決めるのは付属書 G）。
      - `docs/for-kivact-user/jp/how-to-guide/canvas.md`：`use kivact::draw::{Draw, Offscreen};` で始まる Rust の block の開始の fence ```` ```rust ```` を ```` ```rust,no_run ```` にする（英語の `canvas.md` の同じ block が `no_run`）。
      - `docs/for-kivact-user/jp/how-to-guide/windows.md`：`fn dont_save_exits_without_saving()` を `fn don_t_save_exits_without_saving()` にする。
+    - `docs/for-kivact-ui-user/jp/basic/getting-started/02-build-the-settings-form.md` と `03-dark-mode-and-feedback.md`（どちらも最初の Rust の block）：英語の block は `field("Mentions", switch("Mentions", mentions).hide_label(true))` を 1 行に書き、日本語は複数行の形で `hide_label(true),` の後に末尾の comma があるので token が 1 つ多い。日本語の次の 11 行を
+
+      ```text
+                  field(
+                      "メンション",
+                      switch("メンション", mentions).hide_label(true),
+                  )
+                  .hint("自分宛てのメンションを知らせます。")
+                  .style(
+                      style()
+                          .direction(Direction::Row)
+                          .align_items(Align::Center)
+                          .gap(12),
+                  ),
+      ```
+
+      英語と同じ形の次の 8 行にする（字下げは周りの行と同じ。文字列の中身は日本語のまま）。
+
+      ```text
+                  field("メンション", switch("メンション", mentions).hide_label(true))
+                      .hint("自分宛てのメンションを知らせます。")
+                      .style(
+                          style()
+                              .direction(Direction::Row)
+                              .align_items(Align::Center)
+                              .gap(12),
+                      ),
+      ```
   6. `cargo check -p kivact-docs --all-targets --all-features` を実行する。`checked` の中の error は、生成した module の名前（`<prefix>_block_<n>`）から guide のファイルと何番目の `no_run` の block かが分かる。block のコードが今の API で compile できないなら、英語と日本語の両方の guide のその block を同じに直す（rustdoc の `no_run` でも同じ error になるはずのもの）。直せない（API の不足）なら STOP。
 - **消すもの**：日本語の木と `README_JP.md` の doctest、`dev/tests/docs` の `Role: ` の語。
 - **状態の閉じ方**：`Output`（`String` 2 つ）、`Fence`（enum、variant の payload は `NoRun` の 1 つ）。build script は xtask の対象外。
@@ -4693,6 +4722,6 @@ TL-13 は採用（設計 7.8）。kit の移行（W9・W10）の後に行う。*
 - **横断の検査（INCONSISTENCIES.md）への対応**：INC-09（除外は `--exclude` だけ、4.1）、INC-12（W10 は `XT`、4.1）、INC-13（AC-4 の正本は作業指示書 2 章、`EXCL` に `decisions.md`・`REWORK_*.md`・`rework/**`、4.2）、INC-14（4.4 の通す unit と G15 の削除の手順）、INC-15・INC-43（lock の一覧に `catalog-shell`・`kivact-plot`、全コマンドを `window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test` の形に）、INC-29（CP2 の `--strict` の記録、4.1）、INC-38（protocol の `TokenKind` は残す、4.2）、INC-45（wave の表記を SCHEDULE.md の sub-wave に。本付属書の unit の配置は SCHEDULE.md と同じ）。
 - **外部レビュー（設計 12 章）への対応**：ST-01（共通手順 M の印は `legacy:`、T01 は名前・derive の除外を消し `legacy:` の数を note にする、AC-3 の検査は 4.1）、PLAN-02（T24：`run.sh --no-catalog`・`kpi.toml`・`kpi-compare`、W1b / T3）、PLAN-03（CP3 は `--strict` を使わない、4.1）、PLAN-04（3 章の共通の約束、`ROOT=$(git rev-parse --show-toplevel)`）、PLAN-05（W0 の基点の gate、4.1）、PLAN-06（`members` の規則、4.1）、PLAN-07（binary ごとのコマンドと 0 件は失敗、3 章と 4.1）、TV-01（`tests/schema_generated/main.rs`）、TV-04（T16 は 24 の試験をすべて `tests/screen/` へ移す）、TV-05（tier c の package ごとの CPU の確認と `cargo tree`）、TV-06（docs-pairs は file の集合の和と token の列）、TV-10（T23 の検索は固有の名前と DevTools の file に限る）。親の追加：`hand-element` の許可は policy の `[hand_element] allowed_impls`（`kivact_ui::tooltip::Tooltip` と file）。
 - **W1a と W1b のファイルの重なり**：T23（W1a）は `crates/kivact-core/src/devtools*`・DevTools の 5 crate を変えるが、W1a は 1 lane で W1b より前に終わる。W1b で同じファイルを持つ T07（kivact-core）と T13（DevTools の crate）は T23 の結果の上で作業する。
-- **同じ wave の二つの unit が同じファイルを持たないか**：W1a は 1 lane（T01 → T02 → T03 → T04 → T23 の順）。W1b の 6 lane は 2 章の末尾のとおり directory で分かれる。root の `Cargo.toml`（`members`）と `Cargo.lock` は T5 の lane の T13 と T15 だけ（同じ lane の順）。`dev/xtask/policy/workspace.toml` は W1b では T15 だけ（1 件の例外を足す）。`README.md`・`README_JP.md` は T6 の lane の T18 と T20 だけ（同じ lane の順）。`crates/kivact-ui-*/README.md` は T14（T5）、`crates/kivact-ui-*/src` は T11（T4）。`crates/kivact-core/src/custom.rs` の doc は T07（T2）が直し、T15 は触らない。`crates/kivact-types/src/cell.rs` は付属書 S の W1a の unit の所有で、T09 は除く。W1c は 1 lane。
+- **同じ wave の二つの unit が同じファイルを持たないか**：W1a は 1 lane（T01 → T02 → T03 → T04 → T23 の順）。W1b の 6 lane は 2 章の末尾のとおり directory で分かれる。root の `Cargo.toml`（`members`）と `Cargo.lock` は T5 の lane の T13 と T15 だけ（同じ lane の順）。`dev/xtask/policy/workspace.toml` は W1b では T5 の lane の T13（`kivact-devtools-client` の 2 か所）と T15（1 件の例外を足す）だけ（同じ lane の順）。`README.md`・`README_JP.md` は T6 の lane の T18 と T20 だけ（同じ lane の順）。`crates/kivact-ui-*/README.md` は T14（T5）、`crates/kivact-ui-*/src` は T11（T4）。`crates/kivact-core/src/custom.rs` の doc は T07（T2）が直し、T15 は触らない。`crates/kivact-types/src/cell.rs` は付属書 S の W1a の unit の所有で、T09 は除く。W1c は 1 lane。
 - **状態の閉じ方**：新しい型の field は 1 章ごとに書いた。`check_cli::Options` は `Options` の接尾辞で対象外、`Fence` は enum。新しい `xtask-allow(state)` の印は本付属書の新しいコードには要らない。
 - **試験**：足す試験・直す試験・消す試験・移す試験を名前で挙げた（T01〜T04、T13、T14、T16、T17）。期待値を緩めた試験は無い。`GRACE` の置換えは assert を変えない（仮想時計で同じ時間を与える）。過去の不具合の札は、試験の無い札だけを消した（試験は 026e7d59 で既に消えている）。
