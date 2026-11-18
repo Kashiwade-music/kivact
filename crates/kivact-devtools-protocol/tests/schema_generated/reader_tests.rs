@@ -1,6 +1,6 @@
-//! Role: Verify reading protocol source, the schemas and the Python output.
+//! Role: Verify reading protocol source and the schema built from it.
 
-use crate::devtools_codegen::model::Protocol;
+use crate::model::Protocol;
 
 const SOURCE: &str = r#"
 /// A point.
@@ -84,7 +84,7 @@ protocol_notifications! {
 
 fn protocol() -> Protocol {
     let mut protocol = Protocol::default();
-    super::read::read_source("fixture.rs", SOURCE, &mut protocol).unwrap();
+    super::read::read_source("fixture.rs", SOURCE, &mut protocol).expect("the fixture reads");
     protocol
 }
 
@@ -92,24 +92,9 @@ fn protocol() -> Protocol {
 fn reads_records_choices_unions_aliases_and_methods() {
     let protocol = protocol();
     let schema = super::schema::schema(&protocol);
-    let python = super::python::python(&protocol);
     assert!(schema.contains(r##""$ref": "#/$defs/Point""##), "{schema}");
     assert!(schema.contains(r#""x-methods""#), "{schema}");
     assert!(schema.contains(r#""name": "get_tree""#), "{schema}");
-    assert!(python.contains("class Point:"), "{python}");
-    assert!(python.contains("label: str | None = None"), "{python}");
-    assert!(python.contains("class Role(str, Enum):"), "{python}");
-    assert!(python.contains(r#"BUTTON = "button""#), "{python}");
-    assert!(python.contains("class OverrideScopeNode:"), "{python}");
-    assert!(
-        python.contains("def get_tree(self, params: GetTreeParams) -> TreeSnapshot:"),
-        "{python}"
-    );
-    assert!(
-        python.contains("def get_app_info(self) -> AppInfo:"),
-        "{python}"
-    );
-    assert!(python.contains("NodeId = int"), "{python}");
 }
 
 #[test]
@@ -156,10 +141,9 @@ fn refuses_choices_without_rename_all() {
 }
 
 #[test]
-fn names_convert_to_snake_and_upper_snake() {
+fn names_convert_to_snake_case() {
     assert_eq!(super::model::snake("TestId"), "test_id");
     assert_eq!(super::model::snake("FocusVisible"), "focus_visible");
-    assert_eq!(super::model::upper_snake("CheckBox"), "CHECK_BOX");
 }
 
 #[test]

@@ -14,14 +14,6 @@
       "description": "Path of the DevTools app (relative to the workspace root, or absolute).",
       "type": "string"
     },
-    "python": {
-      "description": "Path of the Python interpreter for scripts.",
-      "type": "string"
-    },
-    "scripts_dir": {
-      "description": "Directory of the scripts (relative to the workspace root, or absolute).",
-      "type": "string"
-    },
     "editor": {
       "description": "The command that opens a source location; `{file}`, `{line}` and `{column}` are replaced.\nEmpty means the default.",
       "type": "array",

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "kivact-devtools.schema.json",
   "title": "Kivact DevTools protocol",
-  "x-protocol": 1,
+  "x-protocol": 2,
   "x-errors": [
     {
       "name": "PARSE_ERROR",
@@ -408,7 +408,6 @@
       "enum": [
         "devtools",
         "mcp",
-        "python",
         "other"
       ]
     },
@@ -544,7 +543,6 @@
         "pick",
         "errors",
         "devtools",
-        "scripts",
         "windows"
       ]
     },
@@ -837,14 +835,6 @@
         },
         "app": {
           "description": "Path of the DevTools app (relative to the workspace root, or absolute).",
-          "type": "string"
-        },
-        "python": {
-          "description": "Path of the Python interpreter for scripts.",
-          "type": "string"
-        },
-        "scripts_dir": {
-          "description": "Directory of the scripts (relative to the workspace root, or absolute).",
           "type": "string"
         },
         "editor": {
@@ -2706,37 +2696,6 @@
       ],
       "additionalProperties": false
     },
-    "ShowTableParams": {
-      "description": "The parameters of `show_table`.",
-      "type": "object",
-      "properties": {
-        "title": {
-          "description": "The title of the table.",
-          "type": "string"
-        },
-        "columns": {
-          "description": "The column headers.",
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "rows": {
-          "description": "The rows.",
-          "type": "array",
-          "items": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          }
-        }
-      },
-      "required": [
-        "title"
-      ],
-      "additionalProperties": false
-    },
     "OverrideScope": {
       "description": "What a style override applies to.",
       "oneOf": [
@@ -4018,12 +3977,6 @@
       "params": "Empty",
       "result": "ExportedReview",
       "description": "Write the review as `review.json` and `review.md` and return their paths."
-    },
-    {
-      "name": "show_table",
-      "params": "ShowTableParams",
-      "result": "Empty",
-      "description": "Show a table in the DevTools app (for scripts)."
     }
   ],
   "x-notifications": [
@@ -4062,12 +4015,6 @@
       "params": "Empty",
       "topic": "devtools",
       "description": "A key asked for DevTools while a DevTools app is already connected."
-    },
-    {
-      "name": "script_table",
-      "params": "ShowTableParams",
-      "topic": "scripts",
-      "description": "A script showed a table."
     },
     {
       "name": "windows_changed",

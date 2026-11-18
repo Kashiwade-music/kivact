@@ -6,7 +6,7 @@ use crate::common::{BuildKind, Rect, WindowId, WindowMode};
 
 /// The wire version. Bump it when a wire type loses, renames or retypes a
 /// field, or a method or notification is removed or renamed; additions keep it.
-pub const PROTOCOL_VERSION: u32 = 1;
+pub const PROTOCOL_VERSION: u32 = 2;
 
 /// The app behind the agent.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -63,8 +63,6 @@ pub enum ClientKind {
     Devtools,
     /// An MCP server.
     Mcp,
-    /// The Python client.
-    Python,
     /// Another client.
     Other,
 }
@@ -137,8 +135,6 @@ pub enum Topic {
     Errors,
     /// Requests for the DevTools.
     Devtools,
-    /// Script output.
-    Scripts,
     /// Window changes.
     Windows,
 }

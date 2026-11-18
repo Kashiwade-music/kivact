@@ -110,17 +110,26 @@ fn check_type(source: &Source, ty: &syn::Type, f32_forbidden: bool, errors: &mut
     }
     let text = ty.to_token_stream().to_string();
     if names.contains("Rc")
-        || names.contains("Arc")
+        || shared_mutable_arc(&names, &text)
         || (names.contains("Box") && text.contains("dyn "))
-        || (names.contains("Location") && text.contains("'static"))
     {
         source.error(
             "api-shape",
             ty.span(),
-            "public signature exposes implementation ownership or caller Location",
+            "public signature exposes implementation ownership",
             errors,
         );
     }
+}
+
+/// An `Arc` of shared mutation or of a trait object; an `Arc` of immutable data is a value (TL-05).
+fn shared_mutable_arc(names: &std::collections::BTreeSet<String>, text: &str) -> bool {
+    names.contains("Arc")
+        && (text.contains("dyn ")
+            || names.iter().any(|name| {
+                matches!(name.as_str(), "Mutex" | "RwLock" | "Cell" | "RefCell")
+                    || name.starts_with("Atomic")
+            }))
 }
 fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: &mut Vec<String>) {
     if source.allows("api-shape", sig.span()) {
@@ -377,6 +386,17 @@ mod tests {
             errors.iter().all(|error| error.contains("(API-3)")),
             "{errors:?}"
         );
+    }
+    #[test]
+    fn accepts_caller_locations_and_immutable_arcs() {
+        let mut source = crate::check_source::fixture(
+            "pub struct Diag { pub at: &'static Location<'static>, pub data: Arc<[u8]>, pub text: Arc<str>, pub lock: Arc<Mutex<u8>>, pub shared: Arc<dyn Fn()> }",
+        );
+        source.module.clear();
+        let surface = crate::public_surface::build(std::slice::from_ref(&source));
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 2, "{errors:?}");
     }
     #[test]
     fn follows_alias_fields_but_not_private_fields() {

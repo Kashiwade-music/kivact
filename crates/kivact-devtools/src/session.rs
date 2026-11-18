@@ -1,15 +1,13 @@
 //! Role: The actions of one connected DevTools session.
 
-use std::rc::Rc;
-
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 
 use crate::editor;
 use crate::source::Source;
 use crate::state::{
-    Connection, Inspected, MAIN_WINDOW, MAX_ERRORS, MAX_FRAMES, MAX_TABLES, MAX_TURNS, Panel,
-    Session, Target, overlays_off, push_capped,
+    Connection, Inspected, MAIN_WINDOW, MAX_ERRORS, MAX_FRAMES, MAX_TURNS, Panel, Session, Target,
+    overlays_off, push_capped,
 };
 
 impl Session {
@@ -26,7 +24,6 @@ impl Session {
         let turns = signal(Vec::new());
         let frames = signal(Vec::new());
         let errors = signal(Vec::new());
-        let tables = signal(Vec::new());
         let panel = signal(Panel::Elements);
         let popped = signal(Vec::new());
         // xtask-allow(state-fields): independent: becomes Session.status, empty at setup; the target var beside it is fixed for the session whether or not a failure is shown
@@ -62,7 +59,6 @@ impl Session {
             turns,
             frames,
             errors,
-            tables,
             panel,
             popped,
             status,
@@ -92,7 +88,6 @@ impl Session {
                     p::Topic::Pick,
                     p::Topic::Errors,
                     p::Topic::Devtools,
-                    p::Topic::Scripts,
                     p::Topic::Windows,
                 ],
             },
@@ -142,10 +137,6 @@ impl Session {
                 spawn(async {
                     let _ = kivact::platform::focus_window().await;
                 });
-            }
-            p::Notification::ScriptTable(table) => {
-                self.tables
-                    .update(|tables| push_capped(tables, table, MAX_TABLES));
             }
             p::Notification::WindowsChanged(windows) => self.on_windows(windows.windows),
         }
@@ -247,11 +238,6 @@ impl Session {
     /// Where the session gets its data.
     pub(crate) fn source(self) -> Source {
         self.target.with(|t| t.source.clone())
-    }
-
-    /// The configuration read at connect time.
-    pub(crate) fn config(self) -> Rc<p::DevtoolsConfig> {
-        self.target.with(|t| t.config.clone())
     }
 
     /// A resource for a method that takes no parameters (setup only).

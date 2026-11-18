@@ -12,7 +12,6 @@ mod overlay;
 mod perf;
 mod query;
 mod review;
-mod scripts;
 pub(crate) mod start;
 mod styles;
 mod target;

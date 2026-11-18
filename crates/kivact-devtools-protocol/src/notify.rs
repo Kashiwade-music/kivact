@@ -6,7 +6,6 @@ use crate::app::{Topic, WindowList};
 use crate::common::Empty;
 use crate::console::ErrorEntry;
 use crate::overlay::PickEvent;
-use crate::scripts::ShowTableParams;
 use crate::tree::TreeChanged;
 use crate::updates::{FrameInfo, TurnGraph};
 
@@ -45,8 +44,6 @@ protocol_notifications! {
     ErrorReported => "error_reported" (ErrorEntry) in Errors;
     /// A key asked for DevTools while a DevTools app is already connected.
     FocusRequested => "focus_requested" (Empty) in Devtools;
-    /// A script showed a table.
-    ScriptTable => "script_table" (ShowTableParams) in Scripts;
     /// A window opened, closed or changed its title.
     WindowsChanged => "windows_changed" (WindowList) in Windows;
 }

@@ -3,7 +3,7 @@
 use serde_json::{Map, Value, json};
 
 /// The methods that are not tools: the connection handshake and the app-side table.
-const EXCLUDED: [&str; 3] = ["initialize", "subscribe", "show_table"];
+const EXCLUDED: [&str; 2] = ["initialize", "subscribe"];
 
 /// How deep a `$ref` may be followed before the input schema gives up.
 const MAX_DEPTH: usize = 16;

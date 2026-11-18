@@ -22,12 +22,6 @@ pub struct DevtoolsConfig {
     /// Path of the DevTools app (relative to the workspace root, or absolute).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub app: Option<String>,
-    /// Path of the Python interpreter for scripts.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub python: Option<String>,
-    /// Directory of the scripts (relative to the workspace root, or absolute).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub scripts_dir: Option<String>,
     /// The command that opens a source location; `{file}`, `{line}` and `{column}` are replaced.
     /// Empty means the default.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -39,7 +33,6 @@ pub struct DevtoolsConfig {
 
 const OPEN_KEYS: [&str; 2] = ["F12", "Ctrl+Shift+I"];
 const PICK_KEYS: [&str; 1] = ["Ctrl+Shift+C"];
-const SCRIPTS_DIR: &str = ".kivact/devtools/scripts";
 const EDITOR: [&str; 3] = ["code", "--goto", "{file}:{line}:{column}"];
 
 fn owned(items: &[&str]) -> Vec<String> {
@@ -61,12 +54,6 @@ impl DevtoolsConfig {
             None => owned(&PICK_KEYS),
         }
     }
-    /// The scripts directory text (the default when not set).
-    pub fn scripts_dir(&self) -> String {
-        self.scripts_dir
-            .clone()
-            .unwrap_or_else(|| SCRIPTS_DIR.to_owned())
-    }
     /// The editor command (the default when empty).
     pub fn editor_command(&self) -> Vec<String> {
         if self.editor.is_empty() {
@@ -82,7 +69,6 @@ impl DevtoolsConfig {
                 open: Some(self.open_keys()),
                 pick: Some(self.pick_keys()),
             }),
-            scripts_dir: Some(self.scripts_dir()),
             editor: self.editor_command(),
             schema: None,
             ..self.clone()

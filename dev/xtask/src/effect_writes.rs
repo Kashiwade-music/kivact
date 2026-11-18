@@ -10,7 +10,20 @@ use std::collections::{BTreeMap, BTreeSet};
 use syn::spanned::Spanned;
 use syn::visit::Visit;
 
+/// Effects in framework crates do not write signals. kivact-ui is checked by `ui-machine`.
 pub(crate) fn check(source: &Source, errors: &mut Vec<String>) {
+    if source.package == "kivact-ui" {
+        return;
+    }
+    scan(source, "effect-writes", false, errors);
+}
+
+/// The same scan under `rule`, where no marker excuses a write.
+pub(crate) fn check_strict(source: &Source, rule: &'static str, errors: &mut Vec<String>) {
+    scan(source, rule, true, errors);
+}
+
+fn scan(source: &Source, rule: &'static str, strict: bool, errors: &mut Vec<String>) {
     let path = source.path.to_string_lossy().replace('\\', "/");
     if !(path.starts_with("crates/") || path.contains("/crates/"))
         || !(source.package.starts_with("kivact-") || source.package == "kivact")
@@ -37,6 +50,8 @@ pub(crate) fn check(source: &Source, errors: &mut Vec<String>) {
     let mut visitor = Effects {
         source,
         errors,
+        rule,
+        strict,
         depth: 0,
         signals: BTreeMap::new(),
         fields,
@@ -54,6 +69,10 @@ fn signal_type(ty: &syn::Type) -> bool {
 struct Effects<'a> {
     source: &'a Source,
     errors: &'a mut Vec<String>,
+    /// The rule that reports a write.
+    rule: &'static str,
+    /// Report every write, ignoring `xtask-allow` markers.
+    strict: bool,
     depth: usize,
     signals: BTreeMap<String, bool>,
     fields: BTreeMap<String, BTreeSet<String>>,
@@ -168,12 +187,14 @@ impl<'ast> Visit<'ast> for Effects<'_> {
             && matches!(call.method.to_string().as_str(), "set" | "update")
             && self.signal_value(&call.receiver)
         {
-            self.source.error(
-                "effect-writes",
-                call.span(),
-                "Signal/Var write inside an effect closure",
-                self.errors,
-            );
+            let detail = "Signal/Var write inside an effect closure";
+            if self.strict {
+                self.source
+                    .error_at(self.rule, call.span(), detail, self.errors);
+            } else {
+                self.source
+                    .error(self.rule, call.span(), detail, self.errors);
+            }
         }
         syn::visit::visit_expr_method_call(self, call);
     }

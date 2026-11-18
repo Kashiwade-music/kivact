@@ -23,7 +23,6 @@ use crate::review::{
     AddCommentParams, EditCommentParams, ExportedReview, RemoveCommentParams, ReviewDocument,
     ReviewItem,
 };
-use crate::scripts::ShowTableParams;
 use crate::style::{
     ClearStyleOverridesParams, ForceStateParams, SetStyleOverrideParams, StyleOverride,
     StyleOverrideList, ThemeTokenList,
@@ -205,6 +204,4 @@ protocol_methods! {
     RemoveComment => "remove_comment" (RemoveCommentParams) -> Empty;
     /// Write the review as `review.json` and `review.md` and return their paths.
     ExportReview => "export_review" (Empty) -> ExportedReview;
-    /// Show a table in the DevTools app (for scripts).
-    ShowTable => "show_table" (ShowTableParams) -> Empty;
 }

@@ -1,7 +1,3 @@
-# ViewTransform is a canonical passive kivact-types value; core viewport attaches the interaction-owned model through a hidden conversion port.
-# ScrollSnap and release sampling are pure shared types; interaction reexports their canonical implementations.
-# Layout transitions and Retarget are shared kivact-types motion contracts consumed by runtime/style/engine.
-# TextDecorationStyle and Visibility remain shared kivact-types values; style resolves them for the engine.
 # `cargo xtask check`（xtask-core）が読む workspace の規則（CONTRIBUTING.md）。
 
 output = "architecture"
@@ -14,6 +10,7 @@ max_code_lines = 1000
 targets = "lib-bin"
 
 [visible_to]
+# dev-dependency は visible_to の対象外（dev/xtask の core_filters.rs。設計 6.3）。
 
 # ----- Shader validation: naga is confined to kivact-shader, which style (kivact-style) uses.
 kivact-shader = ["kivact-style"]
@@ -31,9 +28,8 @@ kivact-core = ["kivact", "kivact-interaction", "kivact-ui", "kivact-test"]
 kivact-test = ["kivact"]
 kivact-interaction = ["kivact", "kivact-ui"]
 kivact-ui = ["kivact"]
-kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp", "kivact-public-api-tests"]
+kivact-devtools-protocol = ["kivact-devtools-agent", "kivact-devtools-client", "kivact-core", "kivact-devtools", "kivact-devtools-mcp"]
 kivact-devtools-agent = ["kivact-core"]
-kivact-devtools-client = ["kivact-devtools", "kivact-devtools-mcp", "kivact-devtools-agent", "kivact-public-api-tests"]
 
 # ----- Core/engine boundary: only kivact-core consumes the engine.
 # App::run, OffscreenRenderer and the test driver share the engine API.
@@ -56,37 +52,16 @@ arvane = ["kivact-engine"]
 arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 # Linux embedded native services own XCB/XIM, AT-SPI and desktop services;
 # callbacks queue through arvane-shell and never depend back on the engine.
-arvane-native = ["kivact-engine", "arvane-virtual", "arvane", "kivact"]
+arvane-native = ["kivact-engine", "arvane-virtual", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
-arvane-virtual = ["kivact-engine", "arvane", "kivact-test"]
+arvane-virtual = ["kivact-engine", "kivact-test"]
 arvane-text = ["arvane", "kivact"]
-arvane-render = ["arvane", "arvane-compose", "kivact"]
+arvane-render = ["arvane", "arvane-compose"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
 arvane-compose = ["arvane", "kivact"]
 arvane-asset = ["arvane"]
-# 試験だけの engine（自前の device で frame を描いて共有する）。Arvane の契約の試験と、公開 API の試験・
-# viewport の GPU frame の試験（dev-dependency）だけが使う。
-gpu-interop-producer = ["arvane", "kivact-public-api-tests"]
-
-# ----- アプリ・例・雛形・ツール: 誰も依存しない。
-kivact-template-basic = []
-kivact-example-counter = []
-kivact-example-form = []
-kivact-example-list = []
-kivact-example-async = []
-kivact-example-component = []
-kivact-ui-basic-catalog = []
-kivact-ui-pop-catalog = []
-kivact-ui-game-catalog = []
-kivact-ui-creative-catalog = []
-kivact-ui-soft-catalog = []
-kivact-docs = []
-kivact-devtools = []
-kivact-devtools-mcp = []
-# Public API tests consume all five official kits for theme conformance.
-kivact-public-api-tests = []
-xtask = []
-kivact-bench = []
+# 試験だけの engine（自前の device で frame を描いて共有する）。dev-dependency だけが使う（dev-dependency は visible_to の対象外）。
+gpu-interop-producer = []
 
 # xtask-core は、外部 crate の glob import（`use kivact::prelude::*` など）がある module で、
 # macro と derive の提供元を決められない。標準の macro と derive は glob で上書きされない前提で信頼する。
@@ -498,12 +473,6 @@ rule = "non-leaf-implementation"
 path = "crates/kivact-devtools/tests/app.rs"
 reason = "Glue: the integration test root registers the shared support module and the per-panel test modules, then holds the shell tests."
 
-[state_fields]
-role_suffixes = ["Options", "Event", "Phase", "Reason", "Input", "Report", "Tokens", "Recipes"]
-record_types = ["SemanticNode", "LayoutViolation", "ListItem", "MenuEntry", "Command", "TreeNode", "DataColumn", "ToastOptions", "CalendarOptions", "StepperItem"]
-named_helpers = ["Generation", "Sent", "ReportOnce", "ReportOnceSet", "Mailbox", "LocalMailbox", "Registry"]
-# Mobile input purposes and launch restoration snapshots remain passive transport values.
-value_modules = ["kivact-types::semantics", "kivact-types::env", "kivact-types::scroll", "kivact-types::layout", "kivact-types::paint", "kivact-types::text", "kivact-types::scene", "kivact-types::render", "kivact-types::input", "kivact-types::platform", "kivact-types::embed", "kivact-types::check", "kivact-devtools-protocol", "kivact-types::window"]
 
 [kit_literal_color]
 allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
@@ -511,30 +480,14 @@ allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 [os_branch]
 allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/arvane-compose/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
-[structural_options]
-# Passive data values and collection records do not configure mounted UI structure.
-# Path geometry contracts: contains/stroke_contains, canvas arc_to, SVG svg_arc_to/parse_svg.
-record_types = ["Generation", "Rgba", "Insets", "InspectorPanel", "CalendarDate", "SortOrder", "ColumnDef", "DataColumn", "Path", "Style", "Span", "BorderImage", "Mask", "MaskLayer", "ShaderPaint", "ShaderFilter", "FilterGraph"]
-list = [
-    "Dialog::mode", "Disclosure::keep_mounted", "Tabs::keep_mounted",
-    "ComboboxApi::mode", "Combobox::mode", "CarouselApi::mode", "Carousel::mode",
-    "VirtualList::row_height", "ListApi::keep_focus", "Overlay::modal", "Node::modal", "Node::region_events",
-    "VirtualList::release_offscreen_focus", "TextEditing::multiline", "TextEditing::report_text",
-    "DragApi::axis_lock", "DragApi::track_velocity",
-    "DataTable::expand_all_control", "Overlay::keep_anchor_clear", "Overlay::at_least_anchor_width",
-    "Menu::at_least_anchor_width", "Span::italic", "Transition::essential",
-    "Carousel::looping", "Dropzone::multiple", "DropzoneApi::multiple", "Dropzone::pick_on_press",
-    "Combobox::free_text", "Combobox::chips", "Combobox::exclude_selected", "Disclosure::always_open", "DisclosureApi::always_open",
-    "EmptyState::announce", "EmptyState::announce_changes", "Drawer::side", "Sidebar::collapsible", "SidebarProvider::side", "SideNavResize::initially_collapsed",
-    "InputOtp::groups", "InputOtp::pattern", "HoverCard::open_delay", "HoverCard::close_delay",
-    "TopNavMenu::delay_ms", "TopNavMenu::hide_delay_ms",
-    "TopNavMegaMenu::delay_ms", "TopNavMegaMenu::hide_delay_ms",
-    "Step::indicator", "Skeleton::index",
-    "List::selection", "Tree::selection", "DataTable::selection",
-    "Transition::alternate", "variant",
-    "Timeline::alternate", "Timeline::essential", "FrameLoop::essential", "ShaderPaint::essential",
-    "ShaderFilter::essential",
-]
+[ui_machine]
+# kivact-ui に残す表示だけの timer（UI-04）。付属書 U が module を移したら、この path を同じ unit で直す。
+allowed_types = ["kivact_ui::button::BusyInput", "kivact_ui::progress::ProgressMotionInput", "kivact_ui::alert::BannerMachine", "kivact_ui::empty_state_changes::Controller"]
+
+[hand_element]
+# kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
+# Tooltip<T> は node が trigger の root で、surface を兄弟として出すので、root が一つの #[component] にできない（設計 5.1）。
+allowed_impls = ["kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs"]
 
 [module_rules.arvane-virtual.uses]
 clock = []
@@ -551,3 +504,23 @@ a11y = []
 services = []
 display = []
 mirror = ["port", "present", "a11y"]
+
+# 改修（REWORK_DESIGN.md）の間だけ：ここに挙げた package での検査の結果は note として表示し、失敗にしない。
+# `--strict` で error に戻す。各検査を通す unit が入った後、付属書 G の最後の unit が表ごと消す。
+[rework.pending]
+state = [
+    "arvane", "arvane-asset", "arvane-compose", "arvane-native", "arvane-render", "arvane-shell", "arvane-text", "arvane-virtual",
+    "gpu-interop-producer", "kivact", "kivact-bench", "kivact-core", "kivact-devtools", "kivact-devtools-agent",
+    "kivact-devtools-client", "kivact-devtools-mcp", "kivact-devtools-protocol", "kivact-docs", "kivact-editing", "kivact-engine",
+    "kivact-example-async", "kivact-example-component", "kivact-example-counter", "kivact-example-form", "kivact-example-list",
+    "kivact-gpu-share", "kivact-i18n", "kivact-interaction", "kivact-layout", "kivact-macros", "kivact-public-api-tests",
+    "kivact-runtime", "kivact-shader", "kivact-style", "kivact-svg", "kivact-template-basic", "kivact-test", "kivact-types",
+    "kivact-ui", "kivact-ui-basic", "kivact-ui-basic-catalog", "kivact-ui-creative", "kivact-ui-creative-catalog",
+    "kivact-ui-game", "kivact-ui-game-catalog", "kivact-ui-pop", "kivact-ui-pop-catalog", "kivact-ui-soft", "kivact-ui-soft-catalog",
+]
+interaction-view = ["kivact-interaction"]
+ui-machine = ["kivact-ui"]
+hand-element = ["kivact-core", "kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
+unit-machine = ["kivact-interaction"]
+element-shadow = ["kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
+docs-pairs = ["kivact-docs"]

@@ -15,6 +15,7 @@ pub(crate) fn prepare(
     for rule in crate::check_cli::RULES {
         table.remove(&rule.replace('-', "_"));
     }
+    table.remove("rework");
     let core = toml::to_string(&table).map_err(|error| error.to_string())?;
     let mut analysis = xtask_core::Policy::from_toml(&core)
         .map_err(located)?
