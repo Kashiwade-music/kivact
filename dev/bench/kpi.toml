@@ -1,0 +1,183 @@
+# KPI rows of REWORK_DESIGN.md chapter 2, read by `cargo xtask kpi-compare <B0 report> <checkpoint report>`.
+# line   : the start of the report row after "- " (K1 uses renderer=default, K2 to K5 the CPU rows).
+# field  : the `key=value` read from that row; "last" = the row's last word (K6 bytes).
+# kind   : "time" (no regression up to 1.05) or "size" (up to 1.02).
+# target : the recorded goal ratio; improve : the required improvement ratio (chapter 2, PF-01).
+# floor  : below this B0 value the ratio is not used; the checkpoint value must be <= floor.
+# catalog: a basic-catalog row (skipped by `run.sh --no-catalog`); warning: an fps/interval row a WARNING invalidates.
+
+[[row]]
+name = "K1 kv_startup main_to_first_present"
+line = "K1 main_to_first_present renderer=default"
+field = "median_ms"
+kind = "time"
+target = 0.85
+
+[[row]]
+name = "K1 basic catalog startup"
+line = "K1 catalog_spawn_to_first_present renderer=default"
+field = "median_ms"
+kind = "time"
+target = 0.80
+catalog = true
+
+[[row]]
+name = "K2 counter idle WS"
+line = "counter renderer=cpu"
+field = "ws_kib"
+kind = "size"
+target = 0.90
+
+[[row]]
+name = "K2 3000 rows idle WS"
+line = "rows3000-still renderer=cpu"
+field = "ws_kib"
+kind = "size"
+target = 0.85
+
+[[row]]
+name = "K2 per_item box"
+line = "K2 per_item mode=box"
+field = "kib_per_item"
+kind = "size"
+target = 0.85
+floor = 0.1
+
+[[row]]
+name = "K2 per_item text"
+line = "K2 per_item mode=text"
+field = "kib_per_item"
+kind = "size"
+target = 0.85
+improve = 0.95
+floor = 0.1
+
+[[row]]
+name = "K2 per_item button"
+line = "K2 per_item mode=button"
+field = "kib_per_item"
+kind = "size"
+target = 0.85
+floor = 0.1
+
+[[row]]
+name = "K2 per_item row"
+line = "K2 per_item mode=row"
+field = "kib_per_item"
+kind = "size"
+target = 0.85
+improve = 0.95
+floor = 0.1
+
+[[row]]
+name = "K3 counter idle CPU"
+line = "counter renderer=cpu"
+field = "idle_cpu_ms_per_s"
+kind = "time"
+target = 1.00
+floor = 1.0
+
+[[row]]
+name = "K3 3000 rows continuous CPU"
+line = "rows=3000 renderer=cpu"
+field = "cpu_pct_of_core"
+kind = "time"
+target = 0.60
+improve = 0.85
+
+[[row]]
+name = "K4 3000 rows work p95"
+line = "rows=3000 renderer=cpu"
+field = "p95"
+kind = "time"
+target = 0.60
+improve = 0.80
+
+[[row]]
+name = "K4 3000 rows work p99"
+line = "rows=3000 renderer=cpu"
+field = "p99"
+kind = "time"
+target = 0.60
+
+[[row]]
+name = "K4 3000 rows interval p99"
+line = "rows=3000 renderer=cpu"
+field = "interval_p99"
+kind = "time"
+target = 0.95
+warning = true
+
+[[row]]
+name = "K5 pointer p95 n3000"
+line = "L pointer_move_n3000"
+field = "p95"
+kind = "time"
+target = 0.70
+improve = 0.85
+
+[[row]]
+name = "K5 wheel p95 n3000"
+line = "L wheel_n3000"
+field = "p95"
+kind = "time"
+target = 0.70
+
+[[row]]
+name = "K5 row update p95 n3000"
+line = "L row_update_n3000"
+field = "p95"
+kind = "time"
+target = 0.70
+
+[[row]]
+name = "K5 unrelated text update p95 n3000"
+line = "L unrelated_update_n3000"
+field = "p95"
+kind = "time"
+target = 0.70
+
+[[row]]
+name = "K5 mount n3000"
+line = "L mount_n3000"
+field = "p50"
+kind = "time"
+target = 0.90
+
+[[row]]
+name = "K5 counter click p95"
+line = "L counter_click"
+field = "p95"
+kind = "time"
+target = 1.00
+
+[[row]]
+name = "K6 kv_startup no-gpu"
+line = "K6 kv_startup no-gpu"
+field = "last"
+kind = "size"
+target = 0.95
+
+[[row]]
+name = "K6 counter default"
+line = "K6 counter default"
+field = "last"
+kind = "size"
+target = 0.95
+
+[[row]]
+name = "K6 basic-catalog default"
+line = "K6 basic-catalog default"
+field = "last"
+kind = "size"
+target = 0.95
+catalog = true
+
+[[row]]
+name = "K6 basic-catalog no-gpu"
+line = "K6 basic-catalog no-gpu"
+field = "last"
+kind = "size"
+target = 0.90
+improve = 0.97
+catalog = true
