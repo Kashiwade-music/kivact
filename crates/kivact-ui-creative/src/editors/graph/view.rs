@@ -1,11 +1,10 @@
 //! Role: The GraphEditor builder and the curve canvas view it builds.
 
-use crate::editors::graph::gesture::{DragKind, Settings, State};
+use crate::editors::graph::gesture::{Settings, State};
 use crate::editors::graph::model::Curve;
 use crate::editors::shared::lane::{GRAPH_LANE_WIDTH, LaneExtensions, graph_lane_y};
 use crate::editors::shared::model::{EditorContext, Lane};
 use crate::editors::shared::ruler::{Ruler, RulerTicks};
-use kivact::custom::NodeRefExt;
 use kivact::custom::part;
 use kivact::interaction::ListItem;
 use kivact::interaction::{EditSession, use_space_pan};
@@ -137,7 +136,10 @@ impl IntoView for GraphEditor {
         let selected = state.selected;
         let gesture = state.drag();
         let availability = kivact::custom::part(|input| input);
-        observe_inputs(state, reference, availability.state());
+        state.press.watch_inputs(
+            crate::editors::shared::gesture::inputs_ok(reference, availability.state()),
+            move || state.cancel(),
+        );
         let root = crate::editors::graph::a11y::attach(
             root.value_text(move || {
                 format!(
@@ -278,35 +280,6 @@ impl GraphEditor {
             extensions,
         }
     }
-}
-
-fn observe_inputs(
-    state: State,
-    reference: kivact::view::NodeRef,
-    availability_state: Value<kivact::custom::PartState>,
-) {
-    let focus = reference.focus_within();
-    kivact::state::effect(move || {
-        let focused = focus.get();
-        let visible = reference.is_visible();
-        let keys = state.visible.get();
-        let gesture = state.drag_state();
-        if let Some(gesture) = gesture {
-            let missing = match gesture.kind {
-                DragKind::Keys(ids) => ids.iter().any(|id| !keys.iter().any(|k| k.key.id == *id)),
-                DragKind::Tangent(id, _) => !keys.iter().any(|k| k.key.id == id),
-                _ => false,
-            };
-            let input = availability_state.get();
-            state.press.inputs_changed(
-                focused,
-                visible && !input.is_hidden(),
-                !input.is_disabled(),
-                !missing,
-                move || state.cancel(),
-            );
-        }
-    });
 }
 
 fn graph_lanes(lanes: Option<Value<Vec<Lane>>>, curves: Value<Vec<Curve>>) -> Value<Vec<Lane>> {

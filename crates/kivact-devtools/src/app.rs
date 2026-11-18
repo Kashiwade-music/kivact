@@ -32,12 +32,7 @@ fn shell(connection: Signal<Connection>) -> impl IntoView {
                 kivact::platform::ThemeHint::Dark => ThemeMode::Dark,
                 kivact::platform::ThemeHint::Light => ThemeMode::Light,
             };
-            let theme = kivact_ui_basic::theme(mode);
-            let text = kivact::style::theme::Typography {
-                family: Some("Inter, sans-serif".into()),
-                ..theme.text().clone()
-            };
-            theme.with_text(text)
+            crate::look::theme(mode)
         },
         move || {
             dynamic(

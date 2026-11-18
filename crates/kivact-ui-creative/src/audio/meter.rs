@@ -4,7 +4,7 @@ use kivact::geometry::Rect;
 use kivact::view::{Element, Node, node};
 
 use kivact::state::{IntoText, IntoValue};
-use kivact::state::{Machine, Step, Value, effect, machine, memo};
+use kivact::state::{Machine, Step, Value, machine, memo};
 use kivact::style::{Color, ColorToken, style};
 use kivact::view::{IntoView, Orientation, Role, View};
 
@@ -113,9 +113,8 @@ impl IntoView for Meter {
         } = self;
         let clip = machine(MeterClip::Clear, || ClipMachine, |_, ()| {});
         let clipped = clip.state();
-        effect(move || {
-            clip.send(ClipEvent::LevelChanged(level.get()));
-        });
+        clip.send(ClipEvent::LevelChanged(level.get_untracked()));
+        clip.feed(level, ClipEvent::LevelChanged);
         root.value_now(move || level.get().clamp(0.0, 1.0))
             .value_text(move || format!("{:.1} dB", 20.0 * level.get().max(0.001).log10()))
             .orientation(move || {

@@ -4,9 +4,9 @@ use kivact::draw::{Draw, Stroke, TextFormat};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
-use kivact_ui_basic as basic;
 
 use crate::state::{Session, push_capped};
+use crate::widgets::counters_chart::counters_chart as counters_lines;
 use crate::widgets::flame;
 
 /// The most frames the bar chart draws.
@@ -205,38 +205,23 @@ fn paint_frame_bars(draw: &mut Draw, size: Size, frames: &[p::FrameInfo]) {
 
 /// The counters history and a button that samples again.
 fn counters_chart(session: Session, counters: Signal<Vec<(u64, p::Counters)>>) -> impl IntoView {
-    let config = basic::ChartConfig::new([
-        basic::ChartSeries::new("reactive", "Reactive"),
-        basic::ChartSeries::new("owners", "Owners"),
-        basic::ChartSeries::new("objects", "Objects"),
-        basic::ChartSeries::new("constants", "Constants"),
-        basic::ChartSeries::new("nodes", "Nodes"),
-        basic::ChartSeries::new("timers", "Timers"),
-        basic::ChartSeries::new("frame_loops", "Frame loops"),
-        basic::ChartSeries::new("animations", "Animations"),
-        basic::ChartSeries::new("turns", "Turns"),
-        basic::ChartSeries::new("blocking", "Blocking"),
-    ]);
     let rows = memo(move || {
         counters
             .get()
             .iter()
-            .map(|(sample, counters)| {
-                basic::ChartRow::new(
-                    format!("#{sample}"),
-                    [
-                        counters.live_reactive as f64,
-                        counters.live_owners as f64,
-                        counters.live_objects as f64,
-                        counters.live_constants as f64,
-                        counters.tree_nodes as f64,
-                        counters.timers as f64,
-                        counters.frame_loops as f64,
-                        counters.animations as f64,
-                        counters.turns as f64,
-                        counters.outstanding_blocking as f64,
-                    ],
-                )
+            .map(|(_, counters)| {
+                [
+                    counters.live_reactive as f64,
+                    counters.live_owners as f64,
+                    counters.live_objects as f64,
+                    counters.live_constants as f64,
+                    counters.tree_nodes as f64,
+                    counters.timers as f64,
+                    counters.frame_loops as f64,
+                    counters.animations as f64,
+                    counters.turns as f64,
+                    counters.outstanding_blocking as f64,
+                ]
             })
             .collect::<Vec<_>>()
     });
@@ -247,9 +232,7 @@ fn counters_chart(session: Session, counters: Signal<Vec<(u64, p::Counters)>>) -
             button("Refresh counters").on_press(move || refresh_counters(session, counters)),
         ))
         .style(style().gap(8).align_items(Align::Center)),
-        basic::chart(config, rows)
-            .kind(basic::ChartKind::Line)
-            .height(180),
+        counters_lines(rows),
     ))
     .style(style().gap(6))
 }

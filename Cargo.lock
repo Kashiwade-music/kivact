@@ -2352,7 +2352,6 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-devtools-protocol",
- "kivact-ui-basic",
  "serde_json",
 ]
 

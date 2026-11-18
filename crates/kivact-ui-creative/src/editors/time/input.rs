@@ -98,6 +98,20 @@ pub(crate) fn drag<T: TimeItem>(s: State<T>) -> Gesture<Snapshot> {
             move |target| s.activate(target),
             move |_| s.reset_fields(),
         ),
+        move || {
+            let items = s.data.get_untracked();
+            let lanes = s.visible.get_untracked();
+            s.initial().is_some_and(|snapshot| match snapshot {
+                crate::editors::time::gesture::Snapshot::Items(initial) => {
+                    initial.iter().any(|v| {
+                        !items
+                            .iter()
+                            .any(|i| i.id() == v.0 && lanes.iter().any(|lane| lane.id == i.lane()))
+                    })
+                }
+                _ => false,
+            })
+        },
     )
 }
 fn start<T: TimeItem>(s: State<T>, drag: Drag, e: &PointerEvent, pending: Option<u64>) {

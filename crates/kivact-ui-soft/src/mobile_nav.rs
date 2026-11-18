@@ -54,90 +54,46 @@ pub struct AppShellMobile {
 }
 #[derive(Clone, Copy)]
 struct MobileContext {
-    state: MachineHandle<MobileMachine>,
+    layout: MachineHandle<LayoutMachine>,
+    open: Binding<bool>,
     toggle: NodeRef,
     drawer: NodeRef,
     auto_toggle: bool,
 }
 impl MobileContext {
     fn is_mobile(self) -> bool {
-        matches!(self.state.get(), AppShellMobileState::Mobile { .. })
+        self.layout.get() == Layout::Mobile
     }
     fn is_open(self) -> bool {
-        matches!(self.state.get(), AppShellMobileState::Mobile { open: true })
+        self.is_mobile() && self.open.get()
     }
+    /// Closing always applies; opening only in the mobile layout.
     fn set_open(self, open: bool) {
-        self.state.send(AppShellMobileEvent::SetOpen(open));
+        if !open || self.is_mobile() {
+            self.open.set(open);
+        }
     }
 }
-#[derive(Clone, Copy, PartialEq)]
-enum AppShellMobileState {
+/// Whether the shell uses its mobile layout.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Layout {
     Desktop,
-    Mobile {
-        /// Whether the drawer is open.
-        open: bool,
-    },
+    Mobile,
 }
-#[derive(Clone, Copy, PartialEq)]
-enum AppShellMobileEvent {
+/// The layout follows the viewport; leaving the mobile layout closes the drawer.
+struct LayoutMachine;
+
+impl Machine for LayoutMachine {
+    type State = Layout;
     /// Whether the viewport is below the mobile breakpoint.
-    Resize(bool),
-    /// The caller's open binding changed.
-    Sync(bool),
-    /// Open or close the drawer.
-    SetOpen(bool),
-    /// Invert the drawer's open state.
-    Toggle,
-}
-/// Readonly snapshot read for each viewport-width event.
-struct MobileMachine {
-    /// Whether the drawer binding is open when the width event arrives.
-    open: bool,
-}
-impl Machine for MobileMachine {
-    type State = AppShellMobileState;
-    type Event = AppShellMobileEvent;
-    /// The value to write to the caller's open binding.
-    type Effect = bool;
-    fn transition(
-        &self,
-        state: &AppShellMobileState,
-        event: AppShellMobileEvent,
-    ) -> Step<AppShellMobileState, AppShellMobileEvent, bool> {
-        match (state, event) {
-            (AppShellMobileState::Mobile { .. }, AppShellMobileEvent::Resize(true)) => Step::stay(),
-            (_, AppShellMobileEvent::Resize(true)) => {
-                Step::to(AppShellMobileState::Mobile { open: self.open })
-            }
-            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Resize(false)) => {
-                let step = Step::to(AppShellMobileState::Desktop);
-                if *open { step.with(false) } else { step }
-            }
-            (AppShellMobileState::Desktop, AppShellMobileEvent::Resize(false)) => Step::stay(),
-            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Sync(next)) => {
-                if *open == next {
-                    Step::stay()
-                } else {
-                    Step::to(AppShellMobileState::Mobile { open: next })
-                }
-            }
-            (AppShellMobileState::Desktop, AppShellMobileEvent::Sync(_)) => Step::stay(),
-            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::SetOpen(next)) => {
-                if *open == next {
-                    Step::stay()
-                } else {
-                    Step::to(AppShellMobileState::Mobile { open: next }).with(next)
-                }
-            }
-            (AppShellMobileState::Desktop, AppShellMobileEvent::SetOpen(false)) => {
-                Step::stay().with(false)
-            }
-            (AppShellMobileState::Desktop, AppShellMobileEvent::SetOpen(true)) => Step::stay(),
-            (AppShellMobileState::Mobile { open }, AppShellMobileEvent::Toggle) => {
-                let next = !*open;
-                Step::to(AppShellMobileState::Mobile { open: next }).with(next)
-            }
-            (AppShellMobileState::Desktop, AppShellMobileEvent::Toggle) => Step::stay(),
+    type Event = bool;
+    /// Close the drawer.
+    type Effect = ();
+    fn transition(&self, state: &Layout, mobile: bool) -> Step<Layout, bool, ()> {
+        match (state, mobile) {
+            (Layout::Desktop, true) => Step::to(Layout::Mobile),
+            (Layout::Mobile, false) => Step::to(Layout::Desktop).with(()),
+            _ => Step::stay(),
         }
     }
 }
@@ -157,28 +113,26 @@ impl AppShellMobile {
             return Self::default();
         };
         let initial = if mobile.is_some_and(|mobile| mobile.get_untracked()) {
-            AppShellMobileState::Mobile {
-                open: open.get_untracked(),
-            }
+            Layout::Mobile
         } else {
-            AppShellMobileState::Desktop
+            Layout::Desktop
         };
-        let state = machine(
+        let layout = machine(
             initial,
-            move || MobileMachine { open: open.get() },
-            move |_, write: bool| {
-                if open.get_untracked() != write {
-                    open.set(write);
+            || LayoutMachine,
+            move |_, ()| {
+                if open.get_untracked() {
+                    open.set(false);
                 }
             },
         );
         if let Some(mobile) = mobile {
-            state.feed(mobile, AppShellMobileEvent::Resize);
+            layout.feed(mobile, |mobile| mobile);
         }
-        state.feed(move || open.get(), AppShellMobileEvent::Sync);
         Self {
             context: Some(MobileContext {
-                state,
+                layout,
+                open,
                 toggle: node_ref(),
                 drawer: node_ref(),
                 auto_toggle,
@@ -224,7 +178,7 @@ impl AppShellMobile {
         if let Some(context) = self.context
             && context.is_mobile()
         {
-            context.state.send(AppShellMobileEvent::Toggle);
+            context.set_open(!context.open.get_untracked());
         }
     }
     /// The drawer's open state as a binding written back to the shell machine.

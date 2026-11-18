@@ -2,6 +2,7 @@
 
 pub(crate) mod box_model;
 pub(crate) mod color_input;
+pub(crate) mod counters_chart;
 pub(crate) mod flame;
 pub(crate) mod graph;
 pub(crate) mod override_row;

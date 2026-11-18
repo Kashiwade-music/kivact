@@ -4,7 +4,7 @@ use kivact::UiError;
 use kivact::custom::Generation;
 use kivact::draw::RegionId;
 use kivact::state::callback;
-use kivact::state::{Machine, MachineHandle, Step, Value, effect, machine, memo};
+use kivact::state::{Machine, MachineHandle, Step, Value, machine, memo};
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
 use std::rc::Rc;
@@ -175,6 +175,8 @@ pub(crate) fn targets<T: kivact::state::ItemKey, A: kivact::state::PropValue>(
         || TargetController(std::marker::PhantomData),
         move |_, error| report.call(error),
     );
-    effect(move || controller.send(TargetEvent::Synchronize(source())));
+    let source = kivact::state::memo(source);
+    controller.send(TargetEvent::Synchronize(source.get_untracked()));
+    controller.feed(source, TargetEvent::Synchronize);
     Targets { controller }
 }
