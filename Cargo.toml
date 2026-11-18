@@ -9,6 +9,7 @@ members = [
     "crates/kivact-devtools",
     "crates/kivact-devtools-mcp",
     "dev/tests/kivact-public-api",
+    "dev/tests/kivact-kit-tests",
     "crates/kivact-runtime",
     "crates/kivact-i18n",
     "crates/kivact-style",

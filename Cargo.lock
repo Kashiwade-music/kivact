@@ -2481,6 +2481,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "kivact-kit-tests"
+version = "0.1.0"
+dependencies = [
+ "kivact",
+ "kivact-public-api-tests",
+ "kivact-ui-basic",
+ "kivact-ui-creative",
+ "kivact-ui-game",
+ "kivact-ui-pop",
+ "kivact-ui-soft",
+]
+
+[[package]]
 name = "kivact-layout"
 version = "0.1.0"
 dependencies = [
@@ -2507,11 +2520,6 @@ dependencies = [
  "kivact",
  "kivact-devtools-protocol",
  "kivact-gpu-share",
- "kivact-ui-basic",
- "kivact-ui-creative",
- "kivact-ui-game",
- "kivact-ui-pop",
- "kivact-ui-soft",
  "wgpu",
  "windows",
  "windows-sys 0.52.0",

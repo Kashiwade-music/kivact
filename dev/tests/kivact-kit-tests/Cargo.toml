@@ -1,0 +1,31 @@
+[package]
+name = "kivact-kit-tests"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish = false
+autotests = false
+description = "Kit E2E tests: the five official kits against the standard components (e2e_kits)"
+
+[features]
+default = ["gpu", "complex-scripts"]
+complex-scripts = ["kivact/complex-scripts"]
+gpu = ["kivact/gpu"]
+
+[dependencies]
+kivact = { path = "../../../crates/kivact", default-features = false, features = ["test"] }
+
+[dev-dependencies]
+kivact-public-api-tests = { path = "../kivact-public-api" }
+kivact-ui-basic = { path = "../../../crates/kivact-ui-basic" }
+kivact-ui-creative = { path = "../../../crates/kivact-ui-creative" }
+kivact-ui-game = { path = "../../../crates/kivact-ui-game" }
+kivact-ui-pop = { path = "../../../crates/kivact-ui-pop" }
+kivact-ui-soft = { path = "../../../crates/kivact-ui-soft" }
+
+[[test]]
+name = "e2e_kits"
+path = "tests/e2e_kits/main.rs"
+
+[lints]
+workspace = true

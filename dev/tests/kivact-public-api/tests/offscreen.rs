@@ -2,7 +2,7 @@
 //!
 //! `kivact::draw::Offscreen`: fixed-resolution RGBA images drawn without an
 //! App or a window. This binary opens no window (the comparison with a
-//! canvas in a window is `e2e/offscreen.rs`).
+//! canvas in a window is `e2e_core/offscreen.rs`).
 
 use kivact::ErrorKind;
 use kivact::draw::{Offscreen, Pixels, TextFormat};
