@@ -23,6 +23,17 @@ pub(crate) enum Target {
     Binary(String),
 }
 
+/// The implementation crates whose `#[doc(hidden)]` items need no `internal-contract` marker.
+const INTERNAL_CONTRACT_PACKAGES: [&str; 7] = [
+    "kivact-types",
+    "kivact-runtime",
+    "kivact-style",
+    "kivact-engine",
+    "kivact-core",
+    "kivact-test",
+    "arvane-protocol",
+];
+
 pub(crate) struct Source {
     pub(crate) package: String,
     pub(crate) target: Target,
@@ -102,6 +113,8 @@ impl Source {
                 .iter()
                 .any(|(start, end)| *start <= line && line <= *end)
     }
+    /// A `#[doc(hidden)]` item is an internal contract: in the implementation crates behind the
+    /// facade without a marker (TL-05), elsewhere with `// xtask-allow(internal-contract): <reason>`.
     pub(crate) fn internal_contract(
         &self,
         attrs: &[syn::Attribute],
@@ -110,7 +123,8 @@ impl Source {
         attrs.iter().any(|attribute| {
             attribute.path().is_ident("doc")
                 && attribute.meta.to_token_stream().to_string() == "doc (hidden)"
-        }) && self.allows("internal-contract", span)
+        }) && (INTERNAL_CONTRACT_PACKAGES.contains(&self.package.as_str())
+            || self.allows("internal-contract", span))
     }
     pub(crate) fn error(
         &self,
@@ -610,5 +624,17 @@ mod tests {
             }
         }
         assert_eq!(errors.len(), 1);
+    }
+    #[test]
+    fn hidden_items_of_implementation_crates_need_no_marker() {
+        use syn::spanned::Spanned;
+        let mut source = super::fixture("#[doc(hidden)]\npub fn bridge() {}");
+        let syn::Item::Fn(item) = &source.items[0] else {
+            panic!("the fixture is one function");
+        };
+        let (attrs, span) = (item.attrs.clone(), item.span());
+        assert!(!source.internal_contract(&attrs, span));
+        source.package = "kivact-runtime".into();
+        assert!(source.internal_contract(&attrs, span));
     }
 }

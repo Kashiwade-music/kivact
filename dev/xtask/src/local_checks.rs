@@ -35,14 +35,9 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Out
     if !RULES.iter().any(|rule| active(rule)) {
         return Ok(outcome);
     }
-    let public_needed = [
-        "api-shape",
-        "canonical-path",
-        "name-collision",
-        "structural-options",
-    ]
-    .iter()
-    .any(|rule| active(rule));
+    let public_needed = ["api-shape", "canonical-path", "name-collision"]
+        .iter()
+        .any(|rule| active(rule));
     let surface = crate::public_surface::build_for(&sources, public_needed);
     let index = crate::state::Index::build(&sources);
     let scope = Scope {
@@ -148,9 +143,6 @@ impl Scope<'_> {
             "name-collision" => crate::name_collision::check(source, self.surface, errors),
             "kit-literal-color" => crate::kit_literal_color::check(source, settings, errors),
             "os-branch" => crate::os_branch::check(source, settings, errors),
-            "structural-options" => {
-                crate::structural_options::check(source, settings, self.surface, errors)
-            }
             _ => unreachable!("invariant: RULES contains only implemented checks"),
         }
     }
@@ -199,10 +191,7 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
                 .as_table()
                 .ok_or_else(|| format!("{rule}: expected a table"))?;
             for (key, value) in table {
-                if !matches!(
-                    key.as_str(),
-                    "record_types" | "allowed_files" | "allowed_paths" | "list"
-                ) {
+                if !matches!(key.as_str(), "allowed_files" | "allowed_paths") {
                     return Err(format!("{rule}: unknown setting {key}"));
                 }
                 if !value

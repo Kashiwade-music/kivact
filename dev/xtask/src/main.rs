@@ -1,4 +1,4 @@
-//! Role: Run the shared xtask-core checks plus this workspace's module rules.
+//! Role: Run the shared xtask-core checks plus local checks; draw diagrams on request.
 //!
 //! `dev/xtask/policy/workspace.toml` holds both the xtask-core policy and
 //! the `[module_rules]` this binary adds (`module_rules.rs`). xtask-core
@@ -21,7 +21,9 @@ mod canonical_path;
 mod check_cli;
 mod check_policy;
 mod check_source;
+mod core_filters;
 mod devtools_codegen;
+mod diagrams;
 mod effect_writes;
 mod impl_model;
 mod kit_literal_color;
@@ -36,7 +38,6 @@ mod public_surface;
 mod public_type_edges;
 mod report;
 mod state;
-mod structural_options;
 
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -47,12 +48,15 @@ fn main() -> ExitCode {
     if arguments.first().map(String::as_str) == Some("devtools-codegen") {
         return devtools_codegen::run(root, &arguments[1..]);
     }
+    if arguments.first().map(String::as_str) == Some("diagrams") {
+        return diagrams::run(root, &arguments[1..]);
+    }
     if arguments
         .iter()
         .any(|argument| matches!(argument.as_str(), "--help" | "-h"))
     {
         println!(
-            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.",
+            "Local checks: --only <local|{}> [--crate <crate> [--module <path>]] [--strict] [--report]\n--crate runs only the local checks.\n`cargo xtask diagrams` writes architecture/ (needs Node.js).",
             check_cli::RULES.join("|")
         );
         return xtask_core::main(root);
@@ -71,6 +75,8 @@ fn main() -> ExitCode {
             return ExitCode::from(2);
         }
     };
+    // The check validates the diagram model but never writes it; `cargo xtask diagrams` does (TL-02).
+    config.no_write = true;
     let local = match local_checks::check(&config.root, &config.policy, &options) {
         Ok(errors) => errors,
         Err(error) => {
@@ -95,6 +101,7 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
     };
+    core_filters::apply(&config.root, &mut report.errors);
     match xtask_core::analyze(&config) {
         Ok(analysis) => report
             .errors

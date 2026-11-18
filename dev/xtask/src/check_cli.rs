@@ -1,7 +1,7 @@
 //! Role: Parse local check selection independently of the shared xtask CLI.
 
 /// The local rules, in report order.
-pub(crate) const RULES: [&str; 9] = [
+pub(crate) const RULES: [&str; 8] = [
     "state",
     "effect-writes",
     "api-shape",
@@ -9,7 +9,6 @@ pub(crate) const RULES: [&str; 9] = [
     "name-collision",
     "kit-literal-color",
     "os-branch",
-    "structural-options",
     "devtools-codegen",
 ];
 
