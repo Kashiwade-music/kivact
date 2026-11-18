@@ -7,41 +7,12 @@ use kivact::platform;
 use kivact::view::{node, text};
 
 use kivact::state::IntoText;
-use kivact::state::{Machine, Step, machine, memo, signal};
+use kivact::state::{memo, signal};
 use kivact::style::use_theme;
 use kivact::style::{ColorToken, pct, style};
 use kivact::view::{IntoView, node_ref};
 
 use crate::Tokens;
-
-/// Whether the halo's decorative rotation runs.
-#[derive(Clone, Copy, PartialEq)]
-enum HaloMotionPhase {
-    Stopped,
-    Running,
-}
-struct HaloMotionInput;
-impl Machine for HaloMotionInput {
-    type State = HaloMotionPhase;
-    type Event = bool;
-    type Effect = HaloMotionPhase;
-    fn transition(
-        &self,
-        state: &HaloMotionPhase,
-        running: bool,
-    ) -> Step<HaloMotionPhase, bool, HaloMotionPhase> {
-        let next = if running {
-            HaloMotionPhase::Running
-        } else {
-            HaloMotionPhase::Stopped
-        };
-        if *state == next {
-            Step::stay()
-        } else {
-            Step::to(next).with(next)
-        }
-    }
-}
 
 /// Two opposite cut corners, measured in logical pixels.
 pub fn cut_corner(cut: impl Into<f64>) -> Shape {
@@ -102,22 +73,21 @@ pub fn halo() -> impl kivact::view::Element {
     let time = signal(0_f64);
     let node_ref = node_ref();
     let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64())).while_present(node_ref);
-    let motion = machine(
-        HaloMotionPhase::Stopped,
-        || HaloMotionInput,
-        move |_, phase| match phase {
-            HaloMotionPhase::Running => clock.start(FrameRate::Hz(30.)),
-            HaloMotionPhase::Stopped => clock.stop(),
-        },
-    );
     let running = memo(move || {
         let visible = node_ref.rect().get().is_some_and(|rect| {
             rect.y < platform::window_size().get().height && rect.y + rect.height > 0.
         });
         visible && !platform::is_motion_reduced().get() && platform::is_surface_active().get()
     });
-    motion.send(running.get_untracked());
-    motion.feed(running, |running| running);
+    let run = move |running: bool| {
+        if running {
+            clock.start(FrameRate::Hz(30.));
+        } else {
+            clock.stop();
+        }
+    };
+    run(running.get_untracked());
+    kivact::state::effect_on(running, move |running| run(*running));
     node()
         .node_ref(node_ref)
         .style(style().size(180, 180))
