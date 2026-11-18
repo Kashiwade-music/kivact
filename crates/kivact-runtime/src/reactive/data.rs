@@ -68,6 +68,10 @@ pub struct Runtime {
     pub(crate) collectors: RefCell<Vec<Collector>>,
     pub(crate) sched: RefCell<Sched>,
     pub(crate) scratch: RefCell<Vec<(Key, Staleness)>>,
+    /// Emptied dependency lists kept for the next collector.
+    pub(crate) dep_pool: RefCell<Vec<Vec<Key>>>,
+    /// The effects that ran in the current stabilize pass.
+    pub(crate) pass_touched: RefCell<Vec<Key>>,
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
@@ -222,6 +226,8 @@ pub(crate) struct EffectNode {
     pub(crate) kind: EffectKind,
     /// Creation order: queued effects run in it.
     pub(crate) seq: u64,
+    /// Runs of this effect in the current stabilize pass (reset at its end).
+    pub(crate) pass_runs: u8,
     pub(crate) run: Computation,
     pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
 }

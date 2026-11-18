@@ -62,6 +62,8 @@ impl Runtime {
             collectors: RefCell::new(Vec::new()),
             sched: RefCell::new(Sched::default()),
             scratch: RefCell::new(Vec::new()),
+            dep_pool: RefCell::new(Vec::new()),
+            pass_touched: RefCell::new(Vec::new()),
             seq: Cell::new(0),
             write_epoch: Cell::new(kivact_types::cell::Generation::new()),
             // Registration precedes root creation, which always takes the first fresh slot.

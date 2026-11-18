@@ -43,13 +43,15 @@ impl Runtime {
         owner: Key,
         pure: bool,
         effect: bool,
+        writes_for_node: bool,
     ) -> FrameGuard<'_> {
+        let deps = self.dep_pool.borrow_mut().pop().unwrap_or_default();
         let slot = {
             let mut collectors = self.collectors.borrow_mut();
             let slot = CollectorSlot(collectors.len());
             collectors.push(Collector {
                 node,
-                deps: Vec::new(),
+                deps,
                 set: None,
             });
             slot
@@ -58,13 +60,7 @@ impl Runtime {
             owner: Some(owner),
             kind: FrameKind::Computation { node, effect },
             pure,
-            writer: if effect
-                && !matches!(
-                    self.graph.borrow().get(node).map(|n| n.kind()),
-                    Some(crate::reactive::Kind::Effect(
-                        crate::reactive::EffectKind::User
-                    ))
-                ) {
+            writer: if writes_for_node {
                 Some(node)
             } else {
                 self.context().writer
@@ -73,6 +69,12 @@ impl Runtime {
         });
         guard.collector = Some(slot);
         guard
+    }
+
+    /// Return an emptied dependency list to the pool.
+    pub(crate) fn recycle_deps(&self, mut deps: Vec<Key>) {
+        deps.clear();
+        self.dep_pool.borrow_mut().push(deps);
     }
 
     pub(crate) fn pure_section(&self) -> FrameGuard<'_> {
