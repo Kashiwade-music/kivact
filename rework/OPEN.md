@@ -89,3 +89,11 @@
 - **C01**：(b) の形にする（cfg も allow も置かない）。`StyleHook` を enum から `pub(crate) struct StyleHook(Option<Rc<dyn NodeStyleHook>>)` にし、node ごとの trait `NodeStyleHook`（`apply`・`forced`）を `view/devtools_hooks.rs` に足す。`DevtoolsHooks::style_hook` は `Rc<dyn NodeStyleHook>` を返し、`StyleHook::new` は `StyleHook(hooks(rt).map(|h| h.style_hook(rt, owner, id, at)))`。DevTools 側は `devtools/hooks.rs` の private の `NodeHook`（`id`・`sites`・`overrides`・`forced`）が `NodeStyleHook` を実装する。値は view が作り、view で作らない variant が無いので、devtools 無しの build で dead code にならない。付属書 C の C01 の手順 4・5・状態の閉じ方を直した。設計者が `f4192d74` にこの変更を当てて、`cargo clippy -p kivact-core --all-targets -- -D warnings`（devtools 無しと `--features devtools` の両方）と `cargo xtask check --no-write --crate kivact-core` が通るのを確かめた。
   - 同じ型の問題が W4b の C06 にもあった（`StyleHook::Node` を DevTools 側で作る）。C06 の手順 8 を、`NodeHook` の field と `apply` を置き換える形に直した（`view/devtools_hooks.rs` は変えない）。
   - Orchestrator：lane C の fix として `wt/rw-W2b-C` の `view/devtools_hooks.rs` と `devtools/hooks.rs` を付属書 C01 の新しい手順 4・5 のコード片どおりにし、C01 の確認を全部通してから lane C を続ける。
+
+## 差戻し（W2b・D03、2026-11-19）
+- **D03**（W2b、lane D2、commit `fda3cd6e`）：STOP。`rfd 0.18.0` が `objc2-app-kit 0.3.2` の feature を有効にし、その先で `objc2-uniform-type-identifiers 0.3.2` が新しく入る（HEAD の lock は 0.2.2 だけだった）。付属書 D の 1.3 節の DUP-AFTER の 1 つ目の comm が空でない。付属書の 4.2 節と 1.1 節は pollster と rfd の組だけを見ていて、この二重は予期されていなかった。二重の 2 crate（0.2.2 と 0.3.2）は、`arboard` と `objc2-app-kit` の経路。選択肢：(a) 二重を許容する（D03 はこの commit のまま完了）、(b) `rfd 0.18` を見送り、D03 を組ごと取り下げる（`pollster 0.4` と `rfd 0.17.2` のまま）。Orchestrator の処置：D03 の commit は lane D2 に残し、統合 branch へ merge していない。D04 は設計者の判断後。設計者が (a) か (b) を決める。
+
+## 設計者の回答（W2b・D03、2026-11-19）
+
+- **D03**：(a) 許容する（`fda3cd6e` はそのまま受け入れる）。`objc2-uniform-type-identifiers` 0.2.2 を lock に持つのは iOS の `objc2-ui-kit` 0.2.2（winit 0.30 の objc2 0.5 系の経路）で、0.3.2 は macOS の rfd 0.18.0 と `objc2-app-kit` 0.3.2 が引く。2 つの版は別の target でしか build されず、一つの binary に両方が入ることは無いので、K6（binary の大きさ）は後退しない（objc2 0.5 と 0.6 の系は既に同じ理由で二重）。rfd 0.18 を見送ると pollster 1.0 の再入の deadlock の修正も失う。付属書 D の D03 の目的と完了条件（DUP-AFTER の 1 つ目の `comm` は `"objc2-uniform-type-identifiers" 2` の 1 行だけ）と 5 章の 1 文を直した。D04 の DUP-BEFORE は D03 の後に取るので、D04 の完了条件（両方の `comm` が空）は変えない。
+  - Orchestrator：D03 を完了として lane D2 を D04 へ進める（D03 のやり直しは不要）。
