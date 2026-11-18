@@ -1,4 +1,4 @@
-//! Role: Share diagnostic latches, caches, generations and mailboxes.
+//! Role: Share diagnostic latches, caches, generations, mailboxes and deferred values.
 //!
 //! Fields stay private so their one update rule is enforced by these methods.
 //! These helpers store a latch, cache, identity or take-once value; they are not
@@ -316,5 +316,112 @@ impl<T: PartialEq> Recent<T> {
         self.last = self.next;
         self.next = (self.next + 1) % RECENT;
         rc
+    }
+}
+
+/// A value built on first use on the UI thread (PERF-2, PERF-10): an ICU
+/// formatter, a GPU pipeline, a parsed table. Not for repairing state or
+/// filling a half-built object later (S-7). `!Sync`: use
+/// [`SharedDeferred`] in a `static` or across threads.
+pub struct Deferred<T>(
+    #[expect(
+        clippy::disallowed_types,
+        reason = "the one wrapper of std::cell::OnceCell the workspace allows (DEC-13)"
+    )]
+    std::cell::OnceCell<T>,
+);
+
+impl<T> Deferred<T> {
+    /// Nothing built yet.
+    pub const fn new() -> Self {
+        Self(std::cell::OnceCell::new())
+    }
+
+    /// The value, built by `f` on the first call; `f` runs at most once.
+    pub fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
+        self.0.get_or_init(f)
+    }
+
+    /// The value if it was built.
+    pub fn get(&self) -> Option<&T> {
+        self.0.get()
+    }
+}
+
+impl<T> Default for Deferred<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// A value built on first use and shared across threads (`Sync`), for a
+/// `static`: `static TABLE: SharedDeferred<Table> = SharedDeferred::new();`.
+/// The same rules as [`Deferred`].
+pub struct SharedDeferred<T>(
+    #[expect(
+        clippy::disallowed_types,
+        reason = "the one wrapper of std::sync::OnceLock the workspace allows (DEC-13)"
+    )]
+    std::sync::OnceLock<T>,
+);
+
+impl<T> SharedDeferred<T> {
+    /// Nothing built yet.
+    pub const fn new() -> Self {
+        Self(std::sync::OnceLock::new())
+    }
+
+    /// The value, built by `f` on the first call; a racing caller waits and
+    /// then shares the one value.
+    pub fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
+        self.0.get_or_init(f)
+    }
+
+    /// The value if it was built.
+    pub fn get(&self) -> Option<&T> {
+        self.0.get()
+    }
+}
+
+impl<T> Default for SharedDeferred<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+#[cfg(test)]
+mod deferred_tests {
+    //! Role: Tests of the deferred values.
+    use super::{Deferred, SharedDeferred};
+
+    #[test]
+    fn deferred_builds_once_on_first_use() {
+        let calls = std::cell::Cell::new(0);
+        let value = Deferred::new();
+        assert!(value.get().is_none());
+        assert_eq!(
+            *value.get_or_init(|| {
+                calls.set(calls.get() + 1);
+                7
+            }),
+            7
+        );
+        assert_eq!(
+            *value.get_or_init(|| {
+                calls.set(calls.get() + 1);
+                8
+            }),
+            7
+        );
+        assert_eq!(calls.get(), 1);
+        assert_eq!(value.get(), Some(&7));
+    }
+
+    static SHARED: SharedDeferred<String> = SharedDeferred::new();
+
+    #[test]
+    fn shared_deferred_is_a_static() {
+        assert_eq!(SHARED.get_or_init(|| "a".to_owned()), "a");
+        assert_eq!(SHARED.get_or_init(|| "b".to_owned()), "a");
     }
 }
