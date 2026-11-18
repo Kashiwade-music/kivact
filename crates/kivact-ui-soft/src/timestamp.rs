@@ -1,5 +1,6 @@
 //! Role: Format timestamps as calendar dates, wall-clock times, or relative ages.
 use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
+use kivact::i18n::CalendarDate;
 use kivact::i18n::message;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -60,10 +61,12 @@ impl TimestampValue {
         {
             return None;
         }
-        let days = days_from_civil(year, month, day);
-        if civil_from_days(days) != (year, month, day) {
-            return None;
-        }
+        let date = CalendarDate::checked(
+            i32::try_from(year).ok()?,
+            u8::try_from(month).ok()?,
+            u8::try_from(day).ok()?,
+        )?;
+        let days = date.to_days();
         let Some(clock) = clock else {
             return Some(Self::unix_seconds(days * 86_400));
         };
@@ -443,7 +446,12 @@ fn calendar_text(
     let unix = instant.0.div_euclid(1000);
     let local = unix + i64::from(zone.offset_seconds);
     let days = local.div_euclid(86_400);
-    let (year, month, day) = civil_from_days(days);
+    let date = CalendarDate::from_days(days);
+    let (year, month, day) = (
+        i64::from(date.year()),
+        i64::from(date.month()),
+        i64::from(date.day()),
+    );
     let hour = local.div_euclid(3600).rem_euclid(24);
     let minute = local.div_euclid(60).rem_euclid(60);
     let second = local.rem_euclid(60);
@@ -479,33 +487,6 @@ fn calendar_text(
         TimestampFormat::UnixSeconds => unix.to_string(),
         _ => format!("{short} {day}, {year}, {clock}"),
     }
-}
-
-// Gregorian civil dates expressed as March-based 400-year cycles.
-fn days_from_civil(year: i64, month: i64, day: i64) -> i64 {
-    let year = year - i64::from(month <= 2);
-    let era = year.div_euclid(400);
-    let year_of_era = year.rem_euclid(400);
-    let month = if month > 2 { month - 3 } else { month + 9 };
-    let day_of_year = (153 * month + 2) / 5 + day - 1;
-    era * 146_097 + year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year - 719_468
-}
-
-fn civil_from_days(days: i64) -> (i64, i64, i64) {
-    let days = days + 719_468;
-    let era = days.div_euclid(146_097);
-    let day_of_era = days.rem_euclid(146_097);
-    let year_of_era =
-        (day_of_era - day_of_era / 1460 + day_of_era / 36_524 - day_of_era / 146_096) / 365;
-    let day_of_year = day_of_era - (365 * year_of_era + year_of_era / 4 - year_of_era / 100);
-    let march_month = (5 * day_of_year + 2) / 153;
-    let day = day_of_year - (153 * march_month + 2) / 5 + 1;
-    let month = if march_month < 10 {
-        march_month + 3
-    } else {
-        march_month - 9
-    };
-    (era * 400 + year_of_era + i64::from(month <= 2), month, day)
 }
 
 #[derive(Clone, PartialEq)]
