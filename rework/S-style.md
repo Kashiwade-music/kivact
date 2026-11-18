@@ -50,7 +50,7 @@
 
 ### 1.3 後の付属書に渡すもの
 
-- 付属書 U・K：theme 変数（`ThemeVar`、中核の `color`・`space`・`radius`・`font`、部品・kit の変数の宣言の型）、旧 `Palette`・`Spacing`・`Radii`・`Typography` からの対応表（4.2〜4.4 節）、`Theme::set/get`、`cached_theme`、`Theme::with_fonts`、`TypeMap`（4.8 節）、新しい setter の名前の対応表（4.5 節）、`kivact::draw` から `kivact::style` へ移る型の一覧（4.6 節）。
+- 付属書 U・K：theme 変数（`ThemeVar`、中核の `color`・`space`・`radius`・`font`、部品・kit の変数の宣言の型）、旧 `Palette`・`Spacing`・`Radii`・`Typography` からの対応表（4.2〜4.4 節）、`Theme::set/get`（すべての型の別名）、`kivact::style::control`、`Theme::with_fonts`（`Asset`）、`TypeMap`（4.8 節）、新しい setter の名前の対応表（4.5 節）、`kivact::draw` から `kivact::style` へ移る型の一覧（4.6 節）。
 - 付属書 C：`kivact_style::internal::{StyleProperty, style_property}`（S17。C19 が S17 の直後に使う。INC-03）、`Theme::with_fonts`・`Theme::fonts`（App と `RenderOptions::with_theme` が font を登録する。USR-12）、`kivact_style::internal` の新しい入口、prelude に足す名前（4.7 節）。
 - 付属書 E・A：`arvane-protocol` の型の一覧、W6 の鎖が触る engine・layout・arvane のファイルの一覧（4.10 節。W6 の間、E・A の lane はそのファイルを編集しない）。
 - 付属書 G：移行ガイドに載せる旧名→新名（4.5・4.6 節）。
@@ -92,6 +92,8 @@ wave は作業指示書 4 章（SCHEDULE）の sub-wave：S01 は W1a、S02〜S0
 - シェルは Windows の Git Bash。`perl -pi -e` を使う。`rg` が無い環境では `git grep -n -E` を使う（同じ正規表現）。
 - 新しいファイルの先頭に `//! Role: <英語 1 文>` を書く（CONTRIBUTING）。コメントと rustdoc は英語。
 - 手で書いたコードの後に `cargo fmt -p <crate>` を通す。sweep の後に未使用の `use` が残ったら `cargo fix --allow-dirty --allow-staged -p <crate> --all-targets` で消す（未使用の import の削除だけを目的に使う。ほかの提案が出たら適用せずに戻す）。
+- 試験のコマンドは test binary ごとに一行で、filter は一行に一つ（作業指示書 PLAN-07）。filter が 0 件の試験しか実行しなかったら失敗として扱う（module の名前は付属書 T の T15 の表で確かめた。「上のコマンドが通る」は各行が 1 件以上の試験を実行して成功すること）。
+- コマンドは worktree の root で実行する。固定の `cd` は書かない（場所が要るときは `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1`）。
 - 「確認（tier a）」の window を開きうる package の `cargo test` は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で書く（INC-15・INC-43）。
 
 ---
@@ -501,7 +503,8 @@ impl Mix {
   cargo clippy -p kivact-types -p kivact-engine -p kivact-svg -p kivact-style --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-types
   cargo test -p kivact-svg
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- compositor canvas
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- compositor
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas
   ```
 - **完了条件**：`rg -n "layer\.blend\b|layer\.composite\b" crates/kivact-engine/src/lower/scene crates/kivact-svg/src crates/kivact-style/src/draw` が 0 件。上のコマンドが通る。
 
@@ -866,7 +869,10 @@ impl StateStyles {
   cargo xtask check --no-write --crate kivact-types
   cargo xtask check --no-write --crate kivact-engine
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-engine
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- hover focus pointer motion
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- hover
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- focus
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- pointer
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- motion
   ```
 - **完了条件**：`rg -n "\.(hover|pressed|focus_visible|group_hover|group_focus)\.(is_some|as_deref)\(\)" crates/kivact-engine/src` が 0 件。上のコマンドが通る。
 
@@ -1154,7 +1160,10 @@ impl ShapePaint {
   cargo xtask check --no-write --crate kivact-svg
   cargo test -p kivact-types
   cargo test -p kivact-svg
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- offscreen_svg paint borders_backgrounds canvas
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- offscreen_svg
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- paint
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- borders_backgrounds
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas
   ```
 - **完了条件**：`rg -n "scene_shape|lower::path|fn css_stops|fn clip_path\(|linear_angle" crates` が 0 件。上のコマンドが通る。
 
@@ -1395,11 +1404,11 @@ fn fnv1a64(text: &str) -> u64 {
 
 ---
 
-## S09：`Theme(Arc)`、fallback の cache、既定の theme の static、`with_fonts`、`cached_theme`、輝度
+## S09：`Theme(Arc)` と一つの編集の入口、fallback の cache、既定の theme の static、`with_fonts`、輝度
 
 - **wave / lane / 前提**：W2a / S / S08
-- **所有**：`crates/kivact-style/src/theme/value.rs`、`crates/kivact-style/src/theme.rs`、`crates/kivact-style/src/theme/cache.rs`（新設）、`crates/kivact-style/src/lib.rs`、`crates/kivact-style/src/facade.rs`
-- **目的**：ST-26（`Theme` を `Arc<ThemeData>` にし、比較を `Arc::ptr_eq` から始める。`light()`・`dark()` は static の clone）、ST-07（拡張が無いときの fallback を theme の値ごとに一度だけ作る）、ST-03 のうち足す API（`Color::relative_luminance`・`Color::contrast_ratio`）、KIT-08 の `cached_theme`、USR-12 の `Theme::with_fonts`。公開の署名は足すだけ（非破壊）。
+- **所有**：`crates/kivact-style/src/theme/value.rs`、`crates/kivact-style/src/theme.rs`、`crates/kivact-style/src/lib.rs`、`crates/kivact-style/src/facade.rs`
+- **目的**：ST-26（`Theme` を `Arc<ThemeData>` にし、比較を `Arc::ptr_eq` から始める。`light()`・`dark()` は static の clone）、ST-07（拡張が無いときの fallback を theme の値ごとに一度だけ作る）、設計書 12 章 UI-S-01（`Theme` のすべての書込みは一つの編集の入口 `Theme::edit` を通り、拡張の fallback の cache を必ず空にする。`Arc` が共有でも一意でも同じ）、ST-03 のうち足す API（`Color::relative_luminance`・`Color::contrast_ratio`）、USR-12・API-13 の `Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`。`cached_theme` は作らない（12 章 PF-02：関数の address は同一性を保証しない。kit は `thread_local!` の static で theme を保つ。4.4 節）。公開の署名は足すだけ（非破壊）。
 - **手順**：
   1. `crates/kivact-style/src/theme/value.rs` の `pub struct Theme { extensions: ..., icons: IconSet, }` を、同じ field の private な `struct ThemeData` に改名し、field を 2 つ足して、`Theme` を包みにする：
 
@@ -1443,21 +1452,12 @@ const _: () = {
     shared::<Theme>();
 };
 
-/// Font files a theme registers, compared by identity (address and length):
-/// the bytes are `'static` and never compared byte by byte.
-#[derive(Clone, Debug, Default)]
-struct FontFiles(Vec<&'static [u8]>);
-
-impl PartialEq for FontFiles {
-    fn eq(&self, other: &Self) -> bool {
-        self.0.len() == other.0.len()
-            && self
-                .0
-                .iter()
-                .zip(&other.0)
-                .all(|(a, b)| std::ptr::eq(*a, *b))
-    }
-}
+/// Font files a theme registers, as assets (a path, embedded bytes, owned
+/// or shared bytes). `Asset` compares embedded and shared bytes by identity
+/// (address and allocation), never byte by byte; the host registers each
+/// asset once by that identity.
+#[derive(Clone, Debug, Default, PartialEq)]
+struct FontFiles(Vec<crate::asset::Asset>);
 
 /// The fallback values of the extensions this theme lacks, built once per
 /// theme value on the first read (ST-07). A cache: it is not part of the
@@ -1515,7 +1515,19 @@ impl Fallbacks {
 ```
 
      `use std::sync::{Arc, Mutex};` は既にある。`use std::any::{Any, TypeId};` と `use std::fmt;` も既にある。
-  2. `impl Theme` の各 method を `self.0` 経由にする：読み取り（`self.mode` など）は `self.0.mode`、builder（`mut self` で field を書くもの）は `Arc::make_mut(&mut self.0).<field> = ...;` にする。`with_icon` は `let icons = self.0.icons.clone().with(name, image); Arc::make_mut(&mut self.0).icons = icons;`。`with` は `Arc::make_mut(&mut self.0).extensions.insert(Entry::new(value));`。`impl Color` の解決（`theme.colors.get(t)`）は `theme.0.colors.get(t)` にする。
+  2. **一つの編集の入口**（UI-S-01）：`impl Theme` に次の private な method を足し、`Theme` のすべての書込みをこれだけで行う：
+     ```rust
+     /// The theme's values to change. Every write goes through here: it
+     /// copies shared values (`Arc::make_mut`) and empties the fallback
+     /// cache, so a fallback that reads what changes is built again,
+     /// whether this theme shared its values or not.
+     fn edit(&mut self) -> &mut ThemeData {
+         let data = Arc::make_mut(&mut self.0);
+         data.fallbacks = Fallbacks::default();
+         data
+     }
+     ```
+     `impl Theme` の各 method を `self.0` 経由にする：読み取り（`self.mode` など）は `self.0.mode`、builder（`mut self` で field を書くもの）は `self.edit().<field> = ...;` にする。`Arc::make_mut(&mut self.0)` を `edit` の外で書かない（`rg -n "make_mut\(&mut self.0\)" crates/kivact-style/src/theme` が `edit` の 1 か所だけ）。`with_icon` は `let icons = self.0.icons.clone().with(name, image); self.edit().icons = icons;`。`with` は `self.edit().extensions.insert(Entry::new(value));`。`impl Color` の解決（`theme.colors.get(t)`）は `theme.0.colors.get(t)` にする。
   3. `pub fn ext<T: ThemeExtension>(&self) -> ThemeRef<T>` の本体を次にする：
      ```rust
      if let Some(value) = self.0.extensions.get::<T>() {
@@ -1549,69 +1561,24 @@ impl Fallbacks {
      /// in them is then usable by name in `font_family`). `App::theme` and
      /// `kivact::test::RenderOptions::with_theme` register them; a theme
      /// switched to later registers its own too.
+     /// Any asset is a font file: `include_bytes!(..)`, a path, a `Vec<u8>`
+     /// read at run time, shared bytes.
      #[must_use]
-     pub fn with_fonts(mut self, fonts: &'static [&'static [u8]]) -> Theme {
-         Arc::make_mut(&mut self.0).fonts.0.extend_from_slice(fonts);
+     pub fn with_fonts(
+         mut self,
+         fonts: impl IntoIterator<Item = impl Into<crate::asset::Asset>>,
+     ) -> Theme {
+         let added: Vec<crate::asset::Asset> = fonts.into_iter().map(Into::into).collect();
+         self.edit().fonts.0.extend(added);
          self
      }
 
      /// The font files the theme registers, in the order added.
-     pub fn fonts(&self) -> &[&'static [u8]] {
+     pub fn fonts(&self) -> &[crate::asset::Asset] {
          &self.0.fonts.0
      }
      ```
-  6. `crates/kivact-style/src/theme/cache.rs` を作る：
-
-```rust
-//! Role: Build a component library's theme once per thread and share it.
-
-use super::value::Theme;
-use std::cell::RefCell;
-
-thread_local! {
-    /// The themes `cached_theme` built, by the address of their builder.
-    static BUILT: RefCell<Vec<(usize, Theme)>> = const { RefCell::new(Vec::new()) };
-}
-
-/// The theme `build` returns, built on the first call on this thread and
-/// shared after it. A kit's `theme(mode)` uses one builder per look:
-///
-/// ```
-/// use kivact::style::{Theme, ThemeMode, cached_theme};
-/// fn light() -> Theme { Theme::light() }
-/// fn dark() -> Theme { Theme::dark() }
-/// pub fn theme(mode: ThemeMode) -> Theme {
-///     match mode {
-///         ThemeMode::Light => cached_theme(light),
-///         ThemeMode::Dark => cached_theme(dark),
-///     }
-/// }
-/// assert!(theme(ThemeMode::Dark) == theme(ThemeMode::Dark));
-/// ```
-///
-/// The function is the key: every call with the same function returns the
-/// same shared theme, so a theme switch back and forth restyles nothing
-/// that did not change. A builder whose result depends on anything but its
-/// code (options, the time) must not be cached this way.
-pub fn cached_theme(build: fn() -> Theme) -> Theme {
-    let key = build as usize;
-    let known = BUILT.with_borrow(|built| {
-        built
-            .iter()
-            .find(|(k, _)| *k == key)
-            .map(|(_, theme)| theme.clone())
-    });
-    if let Some(theme) = known {
-        return theme;
-    }
-    // Built outside the borrow: a builder may call `cached_theme` itself.
-    let theme = build();
-    BUILT.with_borrow_mut(|built| built.push((key, theme.clone())));
-    theme
-}
-```
-
-     `crates/kivact-style/src/theme.rs` に `mod cache;` と `pub use cache::cached_theme;` を足し、Role 行の後の文の「`provide_theme` is in `kivact::view`」を「`provide_theme` is in `kivact::style`」に直す（ST-29）。`crates/kivact-style/src/lib.rs` の `pub use theme::value::{...}` の次に `pub use theme::cached_theme;` を足す。`crates/kivact-style/src/facade.rs` の `pub use crate::{ ... }` の一覧に `cached_theme` を足す（アルファベット順の位置）。
+  6. `crates/kivact-style/src/theme.rs` の Role 行の後の文の「`provide_theme` is in `kivact::view`」を「`provide_theme` is in `kivact::style`」に直す（ST-29）。
   7. 輝度（`crates/kivact-style/src/theme/value.rs` の `impl Color` の中）：
 
 ```rust
@@ -1647,12 +1614,15 @@ pub fn cached_theme(build: fn() -> Theme) -> Theme {
      }
      ```
 - **消すもの**：なし（公開の署名は増えるだけ）。
-- **状態の閉じ方**：`ThemeData` は passive な値の record で `&mut self` の method を持たない（`Arc::make_mut` で値として書く builder）：6.1 の対象外（名前が `Theme` で終わる型は除外。`ThemeData` は `Data` で終わるので、xtask が対象とした場合は印 `// xtask-allow(state): value record of a theme: written only by Theme's by-value builders through Arc::make_mut` を struct の直前に書く）。`Fallbacks` は field 一つ（cache）。
+- **状態の閉じ方**：`ThemeData` は値の record で `&mut self` の method を持たない（書くのは `Theme::edit` だけ）。bool・Option・counter の field を持たないので 6.1 の (a) に当たらない。`Theme` は field 一つ（`Arc`）。`Fallbacks` は field 一つ（cache。書くのは `ext` の挿入と `edit` の空にすることだけ）。
 - **試験**：`crates/kivact-style/src/theme/value.rs` の `mod tests` に足す：
   - `fn clones_share_one_value_and_compare_at_once()`：`let a = Theme::light(); let b = Theme::light(); assert!(a == b); assert!(Arc::ptr_eq(&a.0, &b.0));`
   - `fn a_missing_extension_falls_back_once_per_theme()`：`#[derive(Debug, PartialEq)] struct Probe(u32);`、`impl ThemeExtension for Probe { fn fallback(_: &Theme) -> Self { BUILT.fetch_add(1, Ordering::Relaxed); Probe(1) } }`（試験の中の `static BUILT: AtomicU32`）。同じ `Theme` で `ext::<Probe>()` を 2 回読んで `BUILT` が 1 であること。
-  - `fn luminance_and_contrast_follow_wcag()`：`Color::WHITE.relative_luminance()` が 1.0 に（誤差 1e-9）、`Color::BLACK.relative_luminance()` が 0.0、`Color::WHITE.contrast_ratio(Color::BLACK)` が 21.0（誤差 1e-9）。
-  - `crates/kivact-style/src/theme/cache.rs` の doc の例が doctest として通ること。
+  - UI-S-01 の不変条件（fallback が theme の値を読む型 `#[derive(Debug, PartialEq)] struct Height(f64); impl ThemeExtension for Height { fn fallback(t: &Theme) -> Self { Height(t.control_height()) } }`）：
+    - `fn a_builder_on_a_unique_theme_rebuilds_the_fallback()`：`let t = Theme::light().with_control_height(30); assert_eq!(t.ext::<Height>().0, 30.0); let t = t.with_control_height(40); assert_eq!(t.ext::<Height>().0, 40.0);`（`t` の `Arc` は一意）。
+    - `fn a_builder_on_a_shared_theme_rebuilds_the_fallback_and_keeps_the_clone()`：`let a = Theme::light().with_control_height(30); let _ = a.ext::<Height>(); let b = a.clone().with_control_height(40);` で `b.ext::<Height>().0 == 40.0` かつ `a.ext::<Height>().0 == 30.0`（旧い clone は変わらない）。
+    - `fn installing_an_extension_rebuilds_a_fallback_that_reads_it()`：fallback が別の拡張を読む型（`struct Twice(u32); fallback(t) = Twice(t.ext::<Base>().0 * 2)`、`struct Base(u32)` の fallback は `Base(1)`）で、`let t = Theme::light(); assert_eq!(t.ext::<Twice>().0, 2); let t = t.with(Base(5)); assert_eq!(t.ext::<Twice>().0, 10);`。
+  - `fn fonts_take_any_asset()`：`Theme::light().with_fonts([Asset::from(&b"x"[..])]).with_fonts(vec![Asset::from(vec![1u8, 2])]).fonts().len() == 2`、`Theme::light().with_fonts(Vec::<Asset>::new()).fonts().is_empty()`（`Asset` の `From` は 2b8df5ac の `kivact_types::asset` のもの。名前は `use crate::asset::Asset`）。
 - **確認（tier a）**：
   ```
   cargo fmt -p kivact-style
@@ -1661,7 +1631,7 @@ pub fn cached_theme(build: fn() -> Theme) -> Theme {
   cargo xtask check --no-write --crate kivact-style
   cargo test -p kivact-style
   ```
-- **完了条件**：`rg -n "pub struct Theme \{" crates/kivact-style/src` が 0 件。上のコマンドが通る。
+- **完了条件**：`rg -n "pub struct Theme \{" crates/kivact-style/src` が 0 件。`rg -n "make_mut\(&mut self.0\)" crates/kivact-style/src/theme` が `fn edit` の 1 件だけ。`rg -n "cached_theme" crates` が 0 件。上のコマンドが通る。
 
 ---
 
@@ -1809,7 +1779,7 @@ type_map!(
 ```
 
      `(x.eq)(&*x.value, &*y.value)` の `&*x.value` は `&(dyn Any + Send + Sync)` で、`&dyn Any` に coerce される。compile が coerce しない場合は `(x.eq)(&*x.value as &dyn Any, &*y.value as &dyn Any)` と書く（`debug` の呼出しも同じ）。`crates/kivact-types/src/lib.rs` に `pub mod type_map;` と `pub use type_map::{LocalTypeMap, SharedTypeMap};` を足す。`dev/xtask/policy/workspace.toml` の `[module_rules.kivact-types.uses]` に `type_map = []` を足す。
-  2. `crates/kivact-style/src/theme/value.rs`：`struct Entry`、`impl Entry`、`impl fmt::Debug for Entry`、`struct Extensions`、`impl PartialEq for Extensions`、`impl Extensions` を消す。`ThemeData` の `extensions: Extensions,` を `extensions: SharedTypeMap,` にし、`Theme::with` の本体を `let data = Arc::make_mut(&mut self.0); data.extensions = std::mem::take(&mut data.extensions).with(value); self` にする。`Theme::ext` の `self.0.extensions.get::<T>()` を `self.0.extensions.get_shared::<T>()` にする。`light_theme()` の `extensions: Extensions::default()` を `extensions: SharedTypeMap::new()` にする。`use kivact_types::SharedTypeMap;` を足す。module の doc の Invariants の「A theme with no extension allocates no table」の文はそのまま正しい。
+  2. `crates/kivact-style/src/theme/value.rs`：`struct Entry`、`impl Entry`、`impl fmt::Debug for Entry`、`struct Extensions`、`impl PartialEq for Extensions`、`impl Extensions` を消す。`ThemeData` の `extensions: Extensions,` を `extensions: SharedTypeMap,` にし、`Theme::with` の本体を `let data = self.edit(); data.extensions = std::mem::take(&mut data.extensions).with(value); self` にする（S09 の編集の入口。fallback の cache が空になる）。`Theme::ext` の `self.0.extensions.get::<T>()` を `self.0.extensions.get_shared::<T>()` にする。`light_theme()` の `extensions: Extensions::default()` を `extensions: SharedTypeMap::new()` にする。`use kivact_types::SharedTypeMap;` を足す。module の doc の Invariants の「A theme with no extension allocates no table」の文はそのまま正しい。
 - **消すもの**：`theme/value.rs` の `Entry`・`Extensions`。
 - **状態の閉じ方**：`SharedTypeMap`・`LocalTypeMap` は field 一つ。
 - **試験**：`crates/kivact-types/src/type_map.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of the type maps.`）：
@@ -1988,7 +1958,7 @@ type_map!(
   cargo check -p kivact-style -p kivact-core --all-targets
   cargo clippy -p kivact-style -p kivact-core --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-style
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas region
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test offscreen
   ```
 - **完了条件**：`rg -n "set_text_measurer|declare_regions" crates` が 0 件。上のコマンドが通る。
@@ -2068,7 +2038,10 @@ type_map!(
   cargo xtask check --no-write --crate kivact-types
   cargo test -p kivact-types
   cargo test -p kivact-layout
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- layout text_style environment input_platform
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- layout
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_style
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- environment
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- input_platform
   ```
 - **完了条件**：`rg -n -w "Dimension|TextLen|GridFlow|Insets|ThemeHint" crates dev examples templates --type rust | rg -v "kivact-ui-|D3D12|d3d12|dx12"` が 0 件。`rg -n "\.hidden\b" crates/kivact-layout/src/style/convert.rs` が `hidden` の引数だけ。上のコマンドが通る。
 
@@ -2164,7 +2137,7 @@ for my $f (@ARGV) {
   1. **types**：`crates/kivact-types/src/theme_var.rs` を作り、`lib.rs` に `pub mod theme_var;` と `pub use theme_var::{ThemeVar, ThemeVarId};`、policy の `[module_rules.kivact-types.uses]` に `theme_var = []` と `length = ["paint", "theme_var"]`（`length` の行が S13 で入っていれば `"theme_var"` を足す）を足す：
 
 ```rust
-//! Role: Theme variables: a typed name with a fallback value, which a theme may set.
+//! Role: Theme variables: a typed name with a fallback, which a theme may set or alias.
 
 use std::fmt;
 use std::hash::{Hash, Hasher};
@@ -2175,21 +2148,40 @@ use std::hash::{Hash, Hasher};
 /// `const` beside it:
 ///
 /// ```
-/// use kivact::style::{Color, ThemeVar, rgb};
+/// use kivact::style::{Color, Length, ThemeVar, radius, rgb};
 /// pub static BRAND_VAR: ThemeVar<Color> = ThemeVar::new("brand", rgb(0x7c3aed));
 /// pub const BRAND: Color = Color::var(&BRAND_VAR);
+/// // A component's variable that follows the core radius unless set.
+/// pub static FIELD_RADIUS_VAR: ThemeVar<f64> = ThemeVar::alias("field.radius", &radius::MD_VAR);
+/// pub const FIELD_RADIUS: Length = Length::var(&FIELD_RADIUS_VAR);
 /// ```
 ///
 /// Two variables are equal only when they are the same `static`.
 pub struct ThemeVar<T: 'static> {
     name: &'static str,
-    fallback: T,
+    fallback: VarValue<T>,
+}
+
+/// What a variable holds: a value, or another variable of the same type
+/// (an alias, CSS `--a: var(--b)`), followed when it is read.
+#[derive(Clone, Debug, PartialEq)]
+pub enum VarValue<T: 'static> {
+    /// A value.
+    Value(T),
+    /// The value of another variable.
+    Var(&'static ThemeVar<T>),
 }
 
 impl<T: 'static> ThemeVar<T> {
     /// A variable named `name` (diagnostics and DevTools) with `fallback`.
     pub const fn new(name: &'static str, fallback: T) -> Self {
-        Self { name, fallback }
+        Self { name, fallback: VarValue::Value(fallback) }
+    }
+
+    /// A variable whose fallback is the value of `of`: a theme that sets
+    /// `of` changes this one too, unless it sets this one.
+    pub const fn alias(name: &'static str, of: &'static ThemeVar<T>) -> Self {
+        Self { name, fallback: VarValue::Var(of) }
     }
 
     /// The name.
@@ -2197,11 +2189,32 @@ impl<T: 'static> ThemeVar<T> {
         self.name
     }
 
-    /// The value where a theme does not set the variable.
-    pub const fn fallback(&self) -> &T {
+    /// What the variable holds where a theme does not set it.
+    pub const fn fallback(&self) -> &VarValue<T> {
         &self.fallback
     }
 }
+
+impl<T: 'static> From<&'static ThemeVar<T>> for VarValue<T> {
+    fn from(var: &'static ThemeVar<T>) -> Self {
+        VarValue::Var(var)
+    }
+}
+
+/// The values of the pure types a variable may hold, from what converts
+/// to them (`Theme::set(&radius::MD_VAR, 20)`).
+macro_rules! value_from {
+    ($t:ty: $($src:ty),*) => {$(
+        impl From<$src> for VarValue<$t> {
+            fn from(v: $src) -> Self {
+                VarValue::Value(<$t>::from(v))
+            }
+        }
+    )*};
+}
+value_from!(f64: f64, f32, i32, u32);
+value_from!(u16: u16);
+value_from!(crate::LineHeight: crate::LineHeight);
 
 impl<T: 'static> PartialEq for ThemeVar<T> {
     fn eq(&self, other: &Self) -> bool {
@@ -2236,15 +2249,130 @@ impl ThemeVarId {
 }
 ```
 
-  2. **Length の変数**：`crates/kivact-types/src/length.rs` の `pub enum Length` に variant を足す（`FitContent` の後）：
-     ```rust
-     /// A theme variable (`space::MD`), resolved where the style is
-     /// compiled. It takes no part in `+` and `-` (the sum is `Auto`).
-     Var(&'static crate::ThemeVar<f64>),
-     ```
-     `impl Length` に `pub const fn var(v: &'static crate::ThemeVar<f64>) -> Length { Length::Var(v) }` を足す。`fn parts` の `match` の `None` の腕に `Length::Var(_)` を足す。`Length` の derive の `PartialEq` は variant の参照を `ThemeVar` の `PartialEq`（同一性）で比べる。`Default` は `Auto` のまま。
-     - `crates/kivact-layout/src/style/convert.rs` の `Length` の `match`（S13 で `Dimension` から変わったもの）に `Length::Var(v) => <Px と同じ処理>(*v.fallback())` の腕を足す。コメント：`// compile_style resolves variables; one reaching layout takes its fallback.` 足す場所は `match` ごとに `Length::Px(v) =>` の腕を探し、その次の行。
-  3. **style の color module の改名**（新しい `color` module のための場所を空ける）：
+     `lib.rs` の再公開は `pub use theme_var::{ThemeVar, ThemeVarId, VarValue};` にする。`LineHeight` が `From<f64>` を持つなら（`rg -n "impl From<f64> for LineHeight" crates/kivact-types/src`）、`value_from!(crate::LineHeight: crate::LineHeight, f64);` にする（`line_height(1.5)` と同じ書き方で `set` できる）。
+
+  2. **Length：変数・`em`・式（calc）**（12 章 UI-S-03）：`crates/kivact-types/src/length.rs` の `pub enum Length` を次にし（doc は今の段落に「`em(1.5)` is 1.5 times the font size this style sets, or the theme's base size (`font::SIZE`) when it sets none. A sum with a theme variable is resolved again when the theme changes. A sum the host cannot take (auto or a content size in `+`/`-`, or two different variables) is `Invalid` and reported as `Unsupported` where it is used; it is never silently `Auto`.」を足す）、演算を書き直す：
+
+```rust
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
+pub enum Length {
+    #[default]
+    Auto,
+    Px(f64),
+    Percent(f64),
+    /// A multiple of the font size (see the type's doc).
+    Em(f64),
+    /// A theme variable (`space::MD`), resolved where the style is compiled.
+    Var(&'static crate::ThemeVar<f64>),
+    /// A sum (CSS `calc(..)`): px, a percentage of the reference, an `em`
+    /// multiple and at most one theme variable times a factor.
+    Calc {
+        percent: f64,
+        px: f64,
+        em: f64,
+        var: Option<(&'static crate::ThemeVar<f64>, f64)>,
+    },
+    /// (`MinContent`, `MaxContent`, `FitContent`: the docs as today)
+    MinContent,
+    MaxContent,
+    FitContent,
+    /// A sum the host cannot take; reported as `Unsupported` where used.
+    Invalid,
+}
+
+/// One term list of a sum: px, percent, em and one variable with its factor.
+type Terms = (f64, f64, f64, Option<(&'static crate::ThemeVar<f64>, f64)>);
+
+impl Length {
+    /// The theme variable `v` as a length.
+    pub const fn var(v: &'static crate::ThemeVar<f64>) -> Length {
+        Length::Var(v)
+    }
+
+    fn terms(self) -> Option<Terms> {
+        match self {
+            Length::Px(v) => Some((v, 0.0, 0.0, None)),
+            Length::Percent(p) => Some((0.0, p, 0.0, None)),
+            Length::Em(e) => Some((0.0, 0.0, e, None)),
+            Length::Var(v) => Some((0.0, 0.0, 0.0, Some((v, 1.0)))),
+            Length::Calc { percent, px, em, var } => Some((px, percent, em, var)),
+            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent | Length::Invalid => None,
+        }
+    }
+
+    fn from_terms((px, percent, em, var): Terms) -> Length {
+        match (percent != 0.0, em != 0.0, var) {
+            (false, false, None) => Length::Px(px),
+            (true, false, None) if px == 0.0 => Length::Percent(percent),
+            (false, true, None) if px == 0.0 => Length::Em(em),
+            (false, false, Some((v, k))) if px == 0.0 && k == 1.0 => Length::Var(v),
+            _ => Length::Calc { percent, px, em, var },
+        }
+    }
+
+    /// `self + sign * rhs`, or `Invalid` (see the type's doc).
+    fn combine(self, rhs: Length, sign: f64) -> Length {
+        let (Some((px1, p1, e1, v1)), Some((px2, p2, e2, v2))) = (self.terms(), rhs.terms()) else {
+            return Length::Invalid;
+        };
+        let var = match (v1, v2) {
+            (None, None) => None,
+            (Some(a), None) => Some(a),
+            (None, Some((v, k))) => Some((v, sign * k)),
+            (Some((a, k1)), Some((b, k2))) if std::ptr::eq(a, b) => Some((a, k1 + sign * k2)),
+            (Some(_), Some(_)) => return Length::Invalid,
+        };
+        Length::from_terms((px1 + sign * px2, p1 + sign * p2, e1 + sign * e2, var))
+    }
+}
+
+impl<T: Into<Length>> std::ops::Add<T> for Length {
+    type Output = Length;
+    /// The sum (CSS `calc(a + b)`); see the type's doc for what it keeps.
+    fn add(self, rhs: T) -> Length {
+        self.combine(rhs.into(), 1.0)
+    }
+}
+
+impl<T: Into<Length>> std::ops::Sub<T> for Length {
+    type Output = Length;
+    /// The difference (CSS `calc(a - b)`).
+    fn sub(self, rhs: T) -> Length {
+        self.combine(rhs.into(), -1.0)
+    }
+}
+
+/// `v` times the font size (CSS `em`; see [`Length`]).
+pub fn em(v: impl Into<f64>) -> Length {
+    Length::Em(v.into())
+}
+```
+
+     元の `fn parts`、`fn from_parts` と元の `impl Add`・`impl Sub` を消す。`pub fn is_content` は `Calc` の腕を `Length::Calc { .. }` に直す。`pub fn to_len(self) -> Len` は `Px`・`Percent`・`Calc { percent, px, .. }` を写し（`em` と `var` は解決の後には 0）、ほかは `Len::ZERO`（S18 が数える）。doc の例の `assert_eq!(pct(100) - 20, Length::Calc { percent: 100.0, px: -20.0 });` を `assert_eq!(pct(100) - 20, Length::Calc { percent: 100.0, px: -20.0, em: 0.0, var: None });` にする。`crates/kivact-types/src/lib.rs` の `pub use length::{Length, auto, pct};` を `pub use length::{Length, auto, em, pct};` にし、S13 で `text/properties.rs` に移した `pub fn em(..) -> TextLength` と、その再公開（`text.rs`・`lib.rs` の `em`）を消す（`em` は `Length` を返すものだけ）。`TextLength` は wire の型として残す（style の公開から外す：手順 2b）。
+     - `crates/kivact-layout/src/style/convert.rs` の `Length` の各 `match`（S13 で `Dimension` から変わったもの）に腕を足す：`Length::Calc { percent, px, .. }` の形にし（`em`・`var` は compile が解決して 0）、`Length::Em(_) | Length::Var(_) | Length::Invalid => <Auto と同じ処理>` を `Length::Auto =>` の腕の次に足す。コメント：`// compile_style resolves em, variables and invalid sums; none reaches layout.`
+     2b. **文字の長さ**：style の文字の長さの入力（`letter_spacing`、`word_spacing`、`text_decoration_thickness`、`text_underline_offset`、`text_stroke` の幅。`sheet/text_setters.rs`）の引数を `impl Into<TextLength>` から `impl Into<Length>` にし、`TextExtras` の同じ field の型を `Length` にする。同じ変更を `crates/kivact-style/src/text.rs` の `SpanStyle`・`TextDecoration`（作者の装飾）、`crates/kivact-style/src/draw/text_run.rs` の `TextFormat`（`letter_spacing`・`word_spacing` など `TextLength` の field）、`crates/kivact-core/src/view/span.rs` の `Span` の setter に行う。`crates/kivact-style/src/text.rs` に足し、wire の `TextLength` を作る所（`resolve_extras`、`compile_span_style`、`compile_text_decoration`、`text_run`）でこれを使う：
+       ```rust
+       /// The text length of an authored `length`: px (a number or a theme
+       /// variable) or em; a percentage, a content size, `auto` or a sum with
+       /// both px and em counts in `dropped` and is `None`.
+       pub(crate) fn text_length(length: Length, theme: &Theme, dropped: &mut u32) -> Option<p::TextLength> {
+           match length {
+               Length::Px(v) => Some(p::TextLength::Px(v)),
+               Length::Em(e) => Some(p::TextLength::Em(e)),
+               Length::Var(v) => Some(p::TextLength::Px(theme.get(v))),
+               Length::Calc { percent: 0.0, px, em, var } if em == 0.0 => {
+                   Some(p::TextLength::Px(px + var.map_or(0.0, |(v, k)| k * theme.get(v))))
+               }
+               Length::Calc { percent: 0.0, px: 0.0, em, var: None } => Some(p::TextLength::Em(em)),
+               _ => {
+                   *dropped += 1;
+                   None
+               }
+           }
+       }
+       ```
+       `Draw` の `text_run` では `dropped` に `&mut self.unsupported` を渡す。`crates/kivact-style/src/lib.rs`・`facade.rs` の公開から `TextLength` を消す（setter は `Length` を受け、`em` は `Length` を返す）。
+（新しい `color` module のための場所を空ける）：
      ```
      git mv crates/kivact-style/src/color.rs crates/kivact-style/src/color_value.rs
      git mv crates/kivact-style/src/color crates/kivact-style/src/color_value
@@ -2264,16 +2392,16 @@ impl ThemeVarId {
 use std::fmt;
 use std::sync::Arc;
 
-use kivact_types::{LineHeight, ThemeVar, ThemeVarId};
+use kivact_types::{LineHeight, ThemeVar, ThemeVarId, VarValue};
 
 use super::value::Theme;
 use crate::color_value::Color;
 
-/// How many aliases (a color variable set to another) a lookup follows.
+/// How many aliases a lookup follows.
 const MAX_ALIASES: usize = 8;
 
-/// A font family list of a theme (`font::FAMILY`): a CSS family list, or
-/// the system UI font.
+/// A font family list of a theme (`font::FAMILY_VAR`): a CSS family list,
+/// or the system UI font.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct FontFamily(Option<Arc<str>>);
 
@@ -2299,94 +2427,170 @@ impl From<String> for FontFamily {
     }
 }
 
+impl From<FontFamily> for VarValue<FontFamily> {
+    fn from(v: FontFamily) -> Self {
+        VarValue::Value(v)
+    }
+}
+
+impl From<&str> for VarValue<FontFamily> {
+    fn from(v: &str) -> Self {
+        VarValue::Value(FontFamily::from(v))
+    }
+}
+
+impl From<String> for VarValue<FontFamily> {
+    fn from(v: String) -> Self {
+        VarValue::Value(FontFamily::from(v))
+    }
+}
+
+impl From<Color> for VarValue<Color> {
+    fn from(v: Color) -> Self {
+        VarValue::Value(v)
+    }
+}
+
 mod sealed {
     pub trait Sealed {}
 }
 
-/// The value a stored variable holds.
+/// What a theme stores for a variable.
 #[doc(hidden)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum VarSlot {
-    Color(Color),
-    Number(f64),
-    Weight(u16),
-    LineHeight(LineHeight),
-    Family(FontFamily),
+    Color(VarValue<Color>),
+    Number(VarValue<f64>),
+    Weight(VarValue<u16>),
+    LineHeight(VarValue<LineHeight>),
+    Family(VarValue<FontFamily>),
 }
 
 /// A type a [`ThemeVar`] holds: [`Color`], `f64` (lengths in px), `u16`
-/// (font weights), [`LineHeight`] and [`FontFamily`].
+/// (font weights), [`LineHeight`] and [`FontFamily`]. Every one may be an
+/// alias of another variable of its type, as a set value and as a fallback.
 pub trait ThemeValue: Clone + PartialEq + fmt::Debug + Send + Sync + 'static + sealed::Sealed {
     #[doc(hidden)]
-    fn into_slot(self) -> VarSlot;
+    fn into_slot(value: VarValue<Self>) -> VarSlot;
     #[doc(hidden)]
-    fn from_slot(slot: &VarSlot) -> Option<Self>;
-    /// The value of `var` in `theme`.
+    fn from_slot(slot: &VarSlot) -> Option<VarValue<Self>>;
+    /// A value that is itself a variable (a `Color::var`), with its alpha.
     #[doc(hidden)]
-    fn lookup(theme: &Theme, var: &'static ThemeVar<Self>) -> Self {
-        theme
-            .slot(ThemeVarId::of(var))
-            .and_then(Self::from_slot)
-            .unwrap_or_else(|| var.fallback().clone())
+    fn as_alias(&self) -> Option<(&'static ThemeVar<Self>, f64)> {
+        None
     }
+    /// The value with the alphas of the aliases followed applied.
+    #[doc(hidden)]
+    fn with_alias_alpha(self, _alpha: f64) -> Self {
+        self
+    }
+    /// The value of a chain that does not end and whose first fallback is an alias.
+    #[doc(hidden)]
+    fn on_cycle() -> Self;
 }
 
 macro_rules! plain_value {
-    ($($t:ty => $variant:ident),*) => {$(
+    ($($t:ty => $variant:ident, $cycle:expr;)*) => {$(
         impl sealed::Sealed for $t {}
         impl ThemeValue for $t {
-            fn into_slot(self) -> VarSlot {
-                VarSlot::$variant(self)
+            fn into_slot(value: VarValue<Self>) -> VarSlot {
+                VarSlot::$variant(value)
             }
-            fn from_slot(slot: &VarSlot) -> Option<Self> {
+            fn from_slot(slot: &VarSlot) -> Option<VarValue<Self>> {
                 match slot {
                     VarSlot::$variant(v) => Some(v.clone()),
                     _ => None,
                 }
             }
+            fn on_cycle() -> Self {
+                $cycle
+            }
         }
     )*};
 }
 
-plain_value!(f64 => Number, u16 => Weight, LineHeight => LineHeight, FontFamily => Family);
+plain_value! {
+    f64 => Number, 0.0;
+    u16 => Weight, 400;
+    LineHeight => LineHeight, LineHeight::Normal;
+    FontFamily => Family, FontFamily::SYSTEM;
+}
 
 impl sealed::Sealed for Color {}
 
 impl ThemeValue for Color {
-    fn into_slot(self) -> VarSlot {
-        VarSlot::Color(self)
+    fn into_slot(value: VarValue<Self>) -> VarSlot {
+        VarSlot::Color(value)
     }
-    fn from_slot(slot: &VarSlot) -> Option<Self> {
+    fn from_slot(slot: &VarSlot) -> Option<VarValue<Self>> {
         match slot {
-            VarSlot::Color(c) => Some(*c),
+            VarSlot::Color(v) => Some(v.clone()),
             _ => None,
         }
     }
-    /// Follow aliases (a value that is itself a variable) up to
-    /// `MAX_ALIASES`, multiplying their alphas. A chain that does not end
-    /// takes the first variable's fallback when that is not a variable, else
-    /// opaque black; `Theme::var_problems` names it.
-    fn lookup(theme: &Theme, var: &'static ThemeVar<Self>) -> Self {
-        let mut at = var;
-        let mut alpha = 1.0;
-        for _ in 0..=MAX_ALIASES {
-            let value = theme
-                .slot(ThemeVarId::of(at))
-                .and_then(Color::from_slot)
-                .unwrap_or(*at.fallback());
-            match value.var_target() {
-                Some((next, a)) => {
-                    alpha *= a;
-                    at = next;
-                }
-                None => return value.with_alpha(alpha),
+    fn as_alias(&self) -> Option<(&'static ThemeVar<Self>, f64)> {
+        self.var_target()
+    }
+    fn with_alias_alpha(self, alpha: f64) -> Self {
+        self.with_alpha(alpha)
+    }
+    fn on_cycle() -> Self {
+        Color::BLACK
+    }
+}
+
+/// What `var` holds in `theme`: the value it sets, else its fallback.
+fn held<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> VarValue<T> {
+    theme
+        .slot(ThemeVarId::of(var))
+        .and_then(T::from_slot)
+        .unwrap_or_else(|| var.fallback().clone())
+}
+
+/// The next variable an alias leads to, with the alpha it applies.
+fn next_of<T: ThemeValue>(held: &VarValue<T>) -> Option<(&'static ThemeVar<T>, f64)> {
+    match held {
+        VarValue::Var(next) => Some((next, 1.0)),
+        VarValue::Value(v) => v.as_alias(),
+    }
+}
+
+/// The value of `var` in `theme`, aliases followed up to `MAX_ALIASES`. A
+/// chain that does not end takes the first variable's fallback when that
+/// is a plain value, else `T::on_cycle()`; `Theme::var_problems` names it.
+pub(crate) fn lookup<T: ThemeValue>(theme: &Theme, var: &'static ThemeVar<T>) -> T {
+    let mut at = var;
+    let mut alpha = 1.0;
+    for _ in 0..=MAX_ALIASES {
+        let value = held(theme, at);
+        match next_of(&value) {
+            Some((next, a)) => {
+                alpha *= a;
+                at = next;
             }
-        }
-        match var.fallback().var_target() {
-            None => *var.fallback(),
-            Some(_) => Color::BLACK,
+            None => match value {
+                VarValue::Value(v) => return v.with_alias_alpha(alpha),
+                VarValue::Var(_) => unreachable!("invariant: next_of follows every Var"),
+            },
         }
     }
+    match var.fallback() {
+        VarValue::Value(v) if v.as_alias().is_none() => v.clone(),
+        _ => T::on_cycle(),
+    }
+}
+
+/// Whether the chain starting at `start` reaches a plain value within
+/// `MAX_ALIASES` steps.
+fn ends<T: ThemeValue>(theme: &Theme, start: &VarValue<T>) -> bool {
+    let mut value = start.clone();
+    for _ in 0..=MAX_ALIASES {
+        let Some((next, _)) = next_of(&value) else {
+            return true;
+        };
+        value = held(theme, next);
+    }
+    false
 }
 
 /// The variables a theme sets, sorted by identity.
@@ -2408,65 +2612,54 @@ impl VarTable {
             .map(|i| &self.0[i].2)
     }
 
-    /// The names of the color variables whose aliases do not end within
-    /// `MAX_ALIASES` steps (a cycle or too long a chain).
+    /// The names of the variables (of every type) whose aliases do not
+    /// end within `MAX_ALIASES` steps (a cycle or too long a chain).
     pub(crate) fn problems(&self, theme: &Theme) -> Vec<&'static str> {
         self.0
             .iter()
-            .filter_map(|(_, name, slot)| match slot {
-                VarSlot::Color(c) => (!ends(theme, *c)).then_some(*name),
-                _ => None,
+            .filter(|(_, _, slot)| match slot {
+                VarSlot::Color(v) => !ends(theme, v),
+                VarSlot::Number(v) => !ends(theme, v),
+                VarSlot::Weight(v) => !ends(theme, v),
+                VarSlot::LineHeight(v) => !ends(theme, v),
+                VarSlot::Family(v) => !ends(theme, v),
             })
+            .map(|(_, name, _)| *name)
             .collect()
     }
 }
-
-/// Whether the alias chain starting at `c` reaches a color that is not a
-/// variable within `MAX_ALIASES` steps.
-fn ends(theme: &Theme, c: Color) -> bool {
-    let mut value = c;
-    for _ in 0..=MAX_ALIASES {
-        let Some((next, _)) = value.var_target() else {
-            return true;
-        };
-        value = theme
-            .slot(ThemeVarId::of(next))
-            .and_then(Color::from_slot)
-            .unwrap_or(*next.fallback());
-    }
-    false
-}
 ```
 
-     `crates/kivact-style/src/color_value/value.rs` の `impl Color` に足す：`pub(crate) fn var_target(self) -> Option<(&'static ThemeVar<Color>, f64)> { match self.0 { Repr::Var(v, a) => Some((v, a)), _ => None } }`。
+     （`theme.rs` の再公開は `pub(crate) use vars::{VarSlot, VarTable, lookup};` も可。`Theme::get` は `super::vars::lookup` を呼ぶ。）`crates/kivact-style/src/color_value/value.rs` の `impl Color` に足す：`pub(crate) fn var_target(self) -> Option<(&'static ThemeVar<Color>, f64)> { match self.0 { Repr::Var(v, a) => Some((v, a)), _ => None } }`。
   6. **Theme**：`crates/kivact-style/src/theme/value.rs`：
-     - `ThemeData` の `colors: Palette, space: Spacing, radius: Radii, text: Typography,` を `vars: VarTable,` にする。
+     - `ThemeData` の `colors: Palette, space: Spacing, radius: Radii, text: Typography,` を `vars: VarTable,` にし、`disabled_opacity`・`control_height`・`overlay_margin` の 3 field を消す（`light_theme()` の同じ 3 行も消す。値は `control` の変数の fallback）。`impl Theme` から `disabled_opacity`、`with_disabled_opacity`、`control_height`、`with_control_height`、`overlay_margin`、`with_overlay_margin` を消す。S09 の試験（`Height` の fallback が `t.control_height()` を読む 3 つ）を `t.get(&crate::control::HEIGHT_VAR)` と `.set(&crate::control::HEIGHT_VAR, 30)`／`40` に書き換える（期待値は同じ）。`resolve/compile.rs` の `fn interactive_defaults` の `theme.disabled_opacity()` を `theme.get(&crate::control::DISABLED_OPACITY_VAR)` にする。
      - `impl Theme` から `colors`、`space`、`radius`、`text`、`with_colors`、`with_space`、`with_radius`、`with_text` を消し、次を足す：
        ```rust
-       /// The theme with `var` set to `value`. A color may be another color
-       /// variable (an alias, CSS `--accent: var(--primary)`), followed up to
-       /// 8 steps; a cycle uses the fallback and is reported once
-       /// (`ErrorKind::Unsupported`) where the theme is provided.
+       /// The theme with `var` set to `value`: a value, or another variable
+       /// of the same type (an alias, CSS `--accent: var(--primary)`:
+       /// `.set(&color::ACCENT_VAR, PRIMARY)`, `.set(&FIELD_RADIUS_VAR, &radius::MD_VAR)`),
+       /// followed up to 8 steps; a cycle uses the fallback and is reported
+       /// once (`ErrorKind::Unsupported`) where the theme is provided.
        #[must_use]
-       pub fn set<T: ThemeValue>(mut self, var: &'static ThemeVar<T>, value: impl Into<T>) -> Theme {
-           Arc::make_mut(&mut self.0)
+       pub fn set<T: ThemeValue>(mut self, var: &'static ThemeVar<T>, value: impl Into<VarValue<T>>) -> Theme {
+           self.edit()
                .vars
-               .insert(ThemeVarId::of(var), var.name(), value.into().into_slot());
+               .insert(ThemeVarId::of(var), var.name(), T::into_slot(value.into()));
            self
        }
 
        /// The value of `var` in this theme: the value it sets, else the
-       /// variable's fallback.
+       /// variable's fallback, aliases followed.
        pub fn get<T: ThemeValue>(&self, var: &'static ThemeVar<T>) -> T {
-           T::lookup(self, var)
+           super::vars::lookup(self, var)
        }
 
        pub(crate) fn slot(&self, id: ThemeVarId) -> Option<&VarSlot> {
            self.0.vars.get(id)
        }
 
-       /// The names of the color variables of this theme whose aliases do
-       /// not end (reported by `install_theme`).
+       /// The names of the variables of this theme whose aliases do not
+       /// end (reported by `install_theme`).
        #[doc(hidden)]
        pub fn var_problems(&self) -> Vec<&'static str> {
            self.0.vars.problems(self)
@@ -2599,7 +2792,8 @@ color_vars! {
      /// The family list of text that sets none.
      pub static FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::new("font.family", FontFamily::SYSTEM);
      ```
-     `macro_rules! length_vars` は `space.rs` に置いて `pub(crate) use length_vars;` で `radius.rs`・`font.rs` から使う（同じ macro を三つ書かない）。`crates/kivact-style/src/lib.rs` に `pub mod color; pub mod font; pub mod radius; pub mod space;` を足し、`pub use kivact_types::ThemeVar;`、`pub use theme::{FontFamily, ThemeValue};` を足す。`crates/kivact-style/src/facade.rs` の一覧に `ThemeVar, ThemeValue, FontFamily, color, font, radius, space` を足し、`ColorToken`、`ThemeColor`、`use_tokens` を消す。`crates/kivact-style/src/lib.rs` の `pub use color_value::{Color, ColorToken, ...}` から `ColorToken` を、`pub use theme::value::{...}` から `ThemeColor`、`use_tokens` を消す。`crates/kivact-style/src/theme.rs` の `pub use tokens::{Palette, Radii, Spacing, Typography};` と `mod tokens;` を消し、`git rm crates/kivact-style/src/theme/tokens.rs`。
+     `control.rs`（`//! Role: The core control metrics of a theme: control height, disabled opacity and overlay margin.`。親の決定：2b8df5ac の `Theme` の field `control_height`・`disabled_opacity`・`overlay_margin` を変数にする）：`length_vars!` で `HEIGHT_VAR / HEIGHT = "control.height", 28.0` と `OVERLAY_MARGIN_VAR / OVERLAY_MARGIN = "control.overlay_margin", 0.0`、それに値の形を持たない `/// The opacity a disabled focusable element is drawn with, unless its style's disabled state sets one.` `pub static DISABLED_OPACITY_VAR: ThemeVar<f64> = ThemeVar::new("control.disabled_opacity", 0.5);`。`focus_ring`・`focus_ring_offset` は `Theme` の field のまま（style の一部。親の決定）。
+     `macro_rules! length_vars` は `space.rs` に置いて `pub(crate) use length_vars;` で `radius.rs`・`font.rs`・`control.rs` から使う（同じ macro を何度も書かない）。`crates/kivact-style/src/lib.rs` に `pub mod color; pub mod control; pub mod font; pub mod radius; pub mod space;` を足し、`pub use kivact_types::ThemeVar;`、`pub use theme::{FontFamily, ThemeValue};` を足す。`crates/kivact-style/src/facade.rs` の一覧に `ThemeVar, ThemeValue, VarValue, FontFamily, color, control, font, radius, space` を足し（`pub use kivact_types::VarValue;` も `lib.rs` に足す）、`ColorToken`、`ThemeColor`、`use_tokens` を消す。`crates/kivact-style/src/lib.rs` の `pub use color_value::{Color, ColorToken, ...}` から `ColorToken` を、`pub use theme::value::{...}` から `ThemeColor`、`use_tokens` を消す。`crates/kivact-style/src/theme.rs` の `pub use tokens::{Palette, Radii, Spacing, Typography};` と `mod tokens;` を消し、`git rm crates/kivact-style/src/theme/tokens.rs`。
   8. **style の中の利用**：
      - setter と builder の色の引数：`rg -l "ThemeColor" crates/kivact-style/src | xargs perl -pi -e 's/impl ThemeColor\b/impl Into<Color>/g; s/\b(\w+): ThemeColor\b/$1: Into<Color>/g; s/Color::of\((\w+)\)/$1.into()/g; s/\.map\(Color::of\)/.map(Into::into)/g'`。残った `Color::of(`（引数が式のもの。`rg -n "Color::of\(" crates/kivact-style/src`）は `Color::from(<式>)` にする。`use crate::theme::value::ThemeColor;` の行は `cargo fix` で消す。
      - `crates/kivact-style/src/resolve/compile.rs`：`ColorToken::Focus` を `crate::color::FOCUS` に。root の text の既定（`if state.root { ... }`）を次にする：
@@ -2611,7 +2805,31 @@ color_vars! {
        t.line_height = t.line_height.or(Some(theme.get(&crate::font::LINE_HEIGHT_VAR)));
        ```
      - `crates/kivact-style/src/resolve/paint.rs` の `fn border` の `.unwrap_or(theme.colors().border)` を `.unwrap_or(crate::color::BORDER)` に。
-     - `Length` の変数を解決する：`crates/kivact-style/src/resolve/compile.rs` に `pub(crate) fn resolved(l: Length, theme: &Theme) -> Length { match l { Length::Var(v) => Length::Px(theme.get(v)), other => other } }` を足し、`fn dim(l: Option<Length>, default: Length) -> Length` を `fn dim(l: Option<Length>, default: Length, theme: &Theme) -> Length { l.map(|l| resolved(l, theme)).unwrap_or(default) }` に、`fn edges` に `theme` を足して渡す（`fn layout(s: &Style)` を `fn layout(s: &Style, theme: &Theme)` にして呼出しを直す）。`Length::to_len` を呼ぶ所（paint.rs、geometry.rs の `corner`、paint/*.rs の位置・大きさ。`rg -n "to_len\(\)" crates/kivact-style/src`）は `resolved(l, theme).to_len()` にする（theme を引数に持たない関数は、その関数に `theme: &Theme` を足して呼出しを直す）。`Length::to_len` は `Var` を受けたら `Len::ZERO` を返し、S18 が数える（ST-31）。
+     - `Length` を解決する（変数・`em`・式。UI-S-03）：`crates/kivact-style/src/resolve/compile.rs` に足す：
+       ```rust
+       /// `l` with its theme variables and `em` resolved (`em_px` is the font
+       /// size `em` is of); an `Invalid` sum counts in `misplaced` and is `Auto`.
+       pub(crate) fn resolved(l: Length, theme: &Theme, em_px: f64, misplaced: &mut u32) -> Length {
+           match l {
+               Length::Var(v) => Length::Px(theme.get(v)),
+               Length::Em(e) => Length::Px(e * em_px),
+               Length::Calc { percent, px, em, var } => {
+                   let px = px + em * em_px + var.map_or(0.0, |(v, k)| k * theme.get(v));
+                   if percent == 0.0 {
+                       Length::Px(px)
+                   } else {
+                       Length::Calc { percent, px, em: 0.0, var: None }
+                   }
+               }
+               Length::Invalid => {
+                   *misplaced += 1;
+                   Length::Auto
+               }
+               other => other,
+           }
+       }
+       ```
+       `compile_style` の中で `em_px` を一度作る：その style が設定する `font_size`（`Px`、変数、`em`（基準は `font::SIZE`）の解決）があればその px、無ければ `theme.get(&crate::font::SIZE_VAR)`。`fn dim(l, default)` を `fn dim(l: Option<Length>, default: Length, cx: &mut Resolve<'_>) -> Length { l.map(|l| resolved(l, cx.theme, cx.em_px, cx.misplaced)).unwrap_or(default) }` にし、`struct Resolve<'a> { theme: &'a Theme, em_px: f64, misplaced: &'a mut u32 }` を `compile.rs` に置いて `fn layout`・`fn edges` に `&mut Resolve` を渡す（`misplaced` は `CompiledStyle.misplaced_content` に足す。S18 が `misplaced_lengths` に改名する）。`Length::to_len` を呼ぶ所（paint.rs、geometry.rs の `corner`、paint/*.rs の位置・大きさ。`rg -n "to_len\(\)" crates/kivact-style/src`）は `resolved(l, theme, em_px, misplaced).to_len()` にする（theme・`em_px`・`misplaced` を引数に持たない関数は、その関数に `cx: &mut Resolve<'_>` を足して呼出しを直す）。
   9. **掃引**（範囲の全体。style 自身は `crate`、core と kivact-test は `kivact_style`、interaction と ui は `kivact_core::style`、それ以外は `kivact::style` を prefix にする）。次の script を scratch に `theme_vars.pl` として保存する：
 
 ```perl
@@ -2634,6 +2852,12 @@ for my $f (@ARGV) {
         s/\.radius\(\)\.(sm|md|lg)\b/".get(&${q}::radius::".uc($1)."_VAR)"/ge;
         s/\.text\(\)\.(size_small|size_large|size|weight_strong|weight|line_height)\b/".get(&${q}::font::".uc($1)."_VAR)"/ge;
         s/\buse_tokens::<([^>]+)>\(\)/"${q}::use_theme().with(${q}::Theme::ext::<$1>)"/ge;
+        s/\.control_height\(\)/".get(&${q}::control::HEIGHT_VAR)"/ge;
+        s/\.disabled_opacity\(\)/".get(&${q}::control::DISABLED_OPACITY_VAR)"/ge;
+        s/\.overlay_margin\(\)/".get(&${q}::control::OVERLAY_MARGIN_VAR)"/ge;
+        s/\.with_control_height\(/".set(&${q}::control::HEIGHT_VAR, "/ge;
+        s/\.with_disabled_opacity\(/".set(&${q}::control::DISABLED_OPACITY_VAR, "/ge;
+        s/\.with_overlay_margin\(/".set(&${q}::control::OVERLAY_MARGIN_VAR, "/ge;
     }
     open my $out, '>', $f or die "$f: $!";
     print $out @lines;
@@ -2642,10 +2866,10 @@ for my $f (@ARGV) {
 ```
 
      ```
-     perl theme_vars.pl crate $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens" crates/kivact-style/src)
-     perl theme_vars.pl kivact_style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens" crates/kivact-core/src crates/kivact-test/src)
-     perl theme_vars.pl kivact_core::style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens" crates/kivact-interaction/src crates/kivact-ui/src)
-     perl theme_vars.pl kivact::style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens" crates/kivact-devtools crates/kivact/src $W6_TESTS dev/bench examples/kivact templates/basic)
+     perl theme_vars.pl crate $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens|control_height|disabled_opacity|overlay_margin" crates/kivact-style/src)
+     perl theme_vars.pl kivact_style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens|control_height|disabled_opacity|overlay_margin" crates/kivact-core/src crates/kivact-test/src)
+     perl theme_vars.pl kivact_core::style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens|control_height|disabled_opacity|overlay_margin" crates/kivact-interaction/src crates/kivact-ui/src)
+     perl theme_vars.pl kivact::style $(rg -l "ColorToken|\.colors\(\)|\.space\(\)|\.radius\(\)|\.text\(\)\.|use_tokens|control_height|disabled_opacity|overlay_margin" crates/kivact-devtools crates/kivact/src $W6_TESTS dev/bench examples/kivact templates/basic)
      ```
      置換は同じ型を返す読みに置き換える（`theme.space().md`（f64）→ `theme.get(&space::MD_VAR)`（f64）、`theme.colors().accent`（Color）→ `theme.get(&color::ACCENT_VAR)`（Color）、`ColorToken::Accent`（`impl Into<Color>` に渡す）→ `color::ACCENT`（Color））。`git diff` で `.text().` を置換した行のうち、受け手が `Theme` でないもの（`Locator::text()` など。変数名が `theme`・`t`・`th` 以外のもの）があれば戻す。
   10. 手で直す残り（`rg -n "ColorToken|ThemeColor|Color::of|Color::token|Palette|Spacing|Radii|Typography|with_colors|with_space|with_radius|with_text|\.colors\(\)|\.text\(\)\.family|use_tokens" $W6_SCOPE $W6_TESTS --type rust` が返す行。`CommandPalette` などの別の名前は除く）。規則：
@@ -2667,7 +2891,9 @@ for my $f (@ARGV) {
             ("hover", &color::HOVER_VAR), ("pressed", &color::PRESSED_VAR),
             ("raised", &color::RAISED_VAR),
         ];
-        const LENGTH_TOKENS: [(&str, &'static ThemeVar<f64>); 11] = [
+        const LENGTH_TOKENS: [(&str, &'static ThemeVar<f64>); 14] = [
+            ("disabled_opacity", &control::DISABLED_OPACITY_VAR), ("control_height", &control::HEIGHT_VAR),
+            ("overlay_margin", &control::OVERLAY_MARGIN_VAR),
             ("space.xs", &space::XS_VAR), ("space.sm", &space::SM_VAR), ("space.md", &space::MD_VAR),
             ("space.lg", &space::LG_VAR), ("space.xl", &space::XL_VAR),
             ("radius.sm", &radius::SM_VAR), ("radius.md", &radius::MD_VAR), ("radius.lg", &radius::LG_VAR),
@@ -2678,22 +2904,26 @@ for my $f (@ARGV) {
             ("text.weight", &font::WEIGHT_VAR), ("text.weight_strong", &font::WEIGHT_STRONG_VAR),
         ];
         ```
-        DevTools の token の名前（`"surface"`、`"space.md"`、`"text.size"`、`"text.line_height"`、`"focus_ring"` など）と protocol の `TokenKind` は変えない（protocol を変えない。親の決定。soft の `TokenKind` は付属書 K の K41 が消す。INC-38）。`apply_token` は：色の名前なら `theme.set(var, color)`、`LENGTH_TOKENS` の名前なら `theme.set(var, number)`、`WEIGHT_TOKENS` なら `theme.set(var, number as u16)`、`"text.line_height"` なら `theme.set(&font::LINE_HEIGHT_VAR, value)`、それ以外は今の `apply_scalar`。`token_list` は同じ表を回して `theme.get(var)` を読む（色は `hex(theme.get(var).components_in(theme))`。`components_in` は S16 で `components` に改名される）。`Color::token(token)` を返していた所（`fn color` の token 名の解釈）は `Color::var(var)` を返す。
+        DevTools の token の名前（`"surface"`、`"space.md"`、`"text.size"`、`"text.line_height"`、`"focus_ring"` など）と protocol の `TokenKind` は変えない（protocol を変えない。親の決定。soft の `TokenKind` は付属書 K の K41 が消す。INC-38）。`apply_token` は：色の名前なら `theme.set(var, color)`、`LENGTH_TOKENS` の名前なら `theme.set(var, number)`（`disabled_opacity`・`control_height`・`overlay_margin` も、今の `apply_scalar` から外してこの表で扱う）、`WEIGHT_TOKENS` なら `theme.set(var, number as u16)`、`"text.line_height"` なら `theme.set(&font::LINE_HEIGHT_VAR, value)`、それ以外は今の `apply_scalar`。`token_list` は同じ表を回して `theme.get(var)` を読む（色は `hex(theme.get(var).components_in(theme))`。`components_in` は S16 で `components` に改名される）。`Color::token(token)` を返していた所（`fn color` の token 名の解釈）は `Color::var(var)` を返す。
       - `crates/kivact-ui/src/data_table/sticky_paint.rs` の `fn over` は `.resolve(theme)` を使い続ける（S16 で直す）。
   11. **prelude**：`crates/kivact/src/prelude.rs` の `pub use crate::style::{...}` から `ColorToken`、`ThemeColor`、`use_tokens` を消し（付属書 C の W5 がすでに消していればそのまま）、`color, font, radius, space` を足す（設計書 5.11 の一覧）。
 - **消すもの**：`ColorToken`、`Color::token`、`Color::of`、`ThemeColor`、`Themed`、`THEMED`、`Repr::Token`、`Repr::Themed`、`Palette`、`Spacing`、`Radii`、`Typography`（`theme/tokens.rs`）、`Theme::{colors, space, radius, text, with_colors, with_space, with_radius, with_text}`、`use_tokens`、core の `style::theme` module。
 - **状態の閉じ方**：`ThemeVar` は field 二つ（名前と fallback、どちらも constructor だけが書く）：6.1 の対象外。`VarTable` は field 一つ。`FontFamily` は field 一つ。
 - **試験**：
   - `crates/kivact-style/src/theme/value.rs` の `mod tests` に：`a_variable_takes_the_theme_value_or_its_fallback`（`Theme::light().get(&color::ACCENT_VAR) == rgb(0x2563eb)`、`.set(&color::ACCENT_VAR, rgb(0xff0000))` の後は `rgb(0xff0000)`）、`an_alias_resolves_through_another_variable`（試験の中の `static PRIMARY_VAR: ThemeVar<Color> = ThemeVar::new("test.primary", rgb(0x00ff00));`、`Theme::light().set(&color::ACCENT_VAR, Color::var(&PRIMARY_VAR)).get(&color::ACCENT_VAR).resolve(&..)` が緑）、`alpha_multiplies_through_an_alias`（`Color::var(&PRIMARY_VAR).with_alpha(0.5)` を設定し、解決の alpha が 0.5）、`a_cycle_takes_the_fallback_and_is_named`（`static A_VAR`（fallback `rgb(0x010203)`）と `B_VAR` を互いに別名にし、`get(&A_VAR)` が `rgb(0x010203)`、`var_problems()` が `"test.a"` と `"test.b"` を含む）、`dark_sets_the_core_colors`（`Theme::dark().get(&color::SURFACE_VAR) == rgb(0x111827)`）。
+  - UI-U-02（すべての型の別名）：同じ `mod tests` に `fn every_type_aliases_as_a_value_and_as_a_fallback()`：試験の中の `static FIELD_VAR: ThemeVar<f64> = ThemeVar::alias("test.field", &radius::MD_VAR);`、`static WEIGHT_ALIAS_VAR: ThemeVar<u16> = ThemeVar::alias("test.weight", &font::WEIGHT_STRONG_VAR);`、`static FAMILY_ALIAS_VAR: ThemeVar<FontFamily> = ThemeVar::new("test.family", FontFamily::SYSTEM);`。`Theme::light().get(&FIELD_VAR) == 6.0`；`Theme::light().set(&radius::MD_VAR, 20).get(&FIELD_VAR) == 20.0`（共通の値が届く）；`Theme::light().set(&radius::MD_VAR, 20).set(&FIELD_VAR, 4).get(&FIELD_VAR) == 4.0`（個別の値が勝つ）；`Theme::light().get(&WEIGHT_ALIAS_VAR) == 600`；`Theme::light().set(&FAMILY_ALIAS_VAR, &font::FAMILY_VAR).set(&font::FAMILY_VAR, "Inter").get(&FAMILY_ALIAS_VAR).as_str() == Some("Inter")`（set の値としての別名）；`LineHeight` も `set(&X, &font::LINE_HEIGHT_VAR)` で同じ。`fn a_number_cycle_takes_the_fallback_and_is_named()`：`f64` の A・B を互いの別名にした theme で、A の fallback が値なら `get(&A)` がその値、`var_problems()` が A と B の名前を含む。
+  - UI-S-03（式）：`crates/kivact-types/src/length.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of length sums.`）：`fn a_sum_keeps_its_variable()`（試験の中の `static V: ThemeVar<f64> = ThemeVar::new("t.v", 8.0);` で `Length::var(&V) + 2 == Length::Calc { percent: 0.0, px: 2.0, em: 0.0, var: Some((&V, 1.0)) }`）、`fn sums_of_like_terms_collapse()`（`pct(50) - pct(50) + 3 == Length::Px(3.0)`、`em(1) + em(0.5) == Length::Em(1.5)`）、`fn unsupported_sums_are_invalid()`（`Length::Auto + 2 == Length::Invalid`、`Length::var(&V) - Length::var(&W) == Length::Invalid`（別の変数）、`Length::MaxContent - 1 == Length::Invalid`）。`crates/kivact-style/src/resolve/compile.rs` の `mod tests`（無ければ作る：`//! Role: Tests of style compilation.`）に `fn a_sum_with_a_variable_resolves_in_each_theme()`（`style().width(space::MD + 2)` を `Theme::light()` で compile した `layout.width == Length::Px(10.0)`、`Theme::light().set(&space::MD_VAR, 20)` で `Length::Px(22.0)`）、`fn em_is_of_the_font_size_the_style_sets()`（`style().font_size(10).width(em(2))` の `layout.width == Length::Px(20.0)`、`style().width(em(2))` は `Length::Px(28.0)`（`font::SIZE` 14））、`fn an_invalid_sum_is_counted()`（`style().width(Length::Auto + 2)` の `misplaced_content == 1` で `layout.width == Length::Auto`）。
   - 公開 E2E：`dev/tests/kivact-public-api/tests/e2e_core/theme_vars.rs`（binary の `main.rs` に `mod theme_vars;` を足す）に 2 つ：
     - `fn a_theme_variable_restyles_on_a_theme_switch()`：`let theme = signal(Theme::light());` の `provide_theme(move || theme.get(), node().style(style().size(20, 20).background(color::ACCENT)))` を描き、`screen.screenshot()` の (10, 10) が `rgb(0x2563eb)`（`shaders.rs` の `expect(.., tolerance 2, ..)` と同じ helper）；`theme.set(Theme::light().set(&color::ACCENT_VAR, rgb(0xff0000)))` の後 settle して赤。style に closure を使わないこと（ST-01 の契約）。
     - `fn a_variable_cycle_is_reported_once()`：A と B を互いの別名にした theme を provide し、`screen.errors()` のうち `ErrorKind::Unsupported` で message が `theme variable` を含むものが、theme の再描画（signal を同じ値で 2 回 set）の後も 2 件（A と B）であること。
+    - `fn a_sum_with_a_variable_follows_the_theme()`：`node().test_id("box").style(style().height(10).width(space::MD + 2))` を `provide_theme(move || theme.get(), ..)` の中に描き、box の幅が 10；`theme.set(Theme::light().set(&space::MD_VAR, 20))` の後 22（box の大きさは同じ binary の `layout_units.rs` の既存の試験の読み方で読む）。
+    - `fn an_invalid_sum_is_reported()`：`style().width(Length::Auto + 2)` の node を描き、`screen.errors()` に `ErrorKind::Unsupported` で message が `length` を含むものが 1 件。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
   cargo clippy -p kivact-core -p kivact-ui -p kivact-interaction -p kivact-devtools -p kivact-test -p kivact-layout --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-types
   cargo test -p kivact-style
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- theme_vars theme
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- theme_vars
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- devtools
   ```
 - **完了条件**：`rg -n -w "ColorToken|ThemeColor|Palette|Spacing|Radii|Typography|use_tokens|THEMED" $W6_SCOPE $W6_TESTS --type rust` が 0 件（`CommandPalette` などの別の識別子の一部は `-w` で除かれる）。上のコマンドが通る。
@@ -2744,7 +2974,8 @@ for my $f (@ARGV) {
 - **確認（tier a）**：鎖の共通確認と次：
   ```
   cargo test -p kivact-style
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- motion theme
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- motion
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- theme_vars
   ```
 - **完了条件**：`rg -n "components_in|mix_in" $W6_SCOPE $W6_TESTS` が 0 件。`rg -n "pub fn resolve\(self" crates/kivact-style/src` が 0 件。上のコマンドが通る。
 
@@ -2819,10 +3050,10 @@ for my $f (@ARGV) {
      | `BorderRightStyle(BorderStyle)` | `border_right_style(..)` 同 | Delta | Paint | `paint.border_style[1]` |
      | `BorderBottomStyle(BorderStyle)` | `border_bottom_style(..)` 同 | Delta | Paint | `paint.border_style[2]` |
      | `BorderLeftStyle(BorderStyle)` | `border_left_style(..)` 同 | Delta | Paint | `paint.border_style[3]` |
-     | `RadiusTopLeft(CornerRadius)` | `radius_top_left(v: impl Into<CornerRadius>) = v.into()` | Delta | Paint | `paint.radius[0]` |
-     | `RadiusTopRight(CornerRadius)` | `radius_top_right(..)` 同 | Delta | Paint | `paint.radius[1]` |
-     | `RadiusBottomRight(CornerRadius)` | `radius_bottom_right(..)` 同 | Delta | Paint | `paint.radius[2]` |
-     | `RadiusBottomLeft(CornerRadius)` | `radius_bottom_left(..)` 同 | Delta | Paint | `paint.radius[3]` |
+     | `RadiusTopLeft(Box<CornerRadius>)` | `radius_top_left(v: impl Into<CornerRadius>) = Box::new(v.into())` | Delta | Paint | `paint.radius[0]`（`Some(**v)`） |
+     | `RadiusTopRight(Box<CornerRadius>)` | `radius_top_right(..)` 同 | Delta | Paint | `paint.radius[1]` |
+     | `RadiusBottomRight(Box<CornerRadius>)` | `radius_bottom_right(..)` 同 | Delta | Paint | `paint.radius[2]` |
+     | `RadiusBottomLeft(Box<CornerRadius>)` | `radius_bottom_left(..)` 同 | Delta | Paint | `paint.radius[3]` |
      | `RingWidth(f64)` | — | Delta | Paint | `paint.ring_width` |
      | `RingOffset(f64)` | — | Delta | Paint | `paint.ring_offset` |
      | `RingColor(Color)` | — | Delta | Paint | `paint.ring_color` |
@@ -2863,21 +3094,21 @@ for my $f (@ARGV) {
      | `TextAlign(TextAlign)` | `text_align(v: TextAlign) = v` | Rest | Text | `text.text_align` |
      | `FontFamily(String)` | `font_family(v: impl Into<String>) = v.into()` | Rest | Text | `text.font_family` |
      | `Italic(bool)` | `italic(v: bool) = v` | Rest | Text | `text.italic` |
-     | `LetterSpacing(TextLength)` | `letter_spacing(v: impl Into<TextLength>) = v.into()` | Rest | Text | `text.text.letter_spacing`（`text` は `get_or_insert_with(Default::default)`。以下 `x.` と書く） |
-     | `WordSpacing(TextLength)` | `word_spacing(..)` 同 | Rest | Text | `x.word_spacing` |
+     | `LetterSpacing(Length)` | `letter_spacing(v: impl Into<Length>) = v.into()` | Rest | Text | `text.text.letter_spacing`（`text` は `get_or_insert_with(Default::default)`。以下 `x.` と書く） |
+     | `WordSpacing(Length)` | `word_spacing(..)` 同 | Rest | Text | `x.word_spacing` |
      | `FontKerning(FontKerning)` | `font_kerning(v: FontKerning) = v` | Rest | Text | `x.kerning` |
      | `FontFeatureSettings(Vec<FontFeature>)` | —（`font_feature_settings(iter)`） | Rest | Text | `x.features` |
      | `TabularNums(bool)` | —（`tabular_nums()`） | Rest | Text | `x.tabular_nums` |
      | `TextDecorationLine(TextDecorationLine)` | `text_decoration(v: TextDecorationLine) = v` | Rest | Text | `x.decoration_line` |
      | `TextDecorationStyle(TextDecorationStyle)` | `text_decoration_style(v: TextDecorationStyle) = v` | Rest | Text | `x.decoration_style` |
      | `TextDecorationColor(Color)` | `text_decoration_color(v: impl Into<Color>) = v.into()` | Rest | Text | `x.decoration_color` |
-     | `TextDecorationThickness(TextLength)` | `text_decoration_thickness(v: impl Into<TextLength>) = v.into()` | Rest | Text | `x.decoration_thickness` |
-     | `TextUnderlineOffset(TextLength)` | `text_underline_offset(..)` 同 | Rest | Text | `x.underline_offset` |
+     | `TextDecorationThickness(Length)` | `text_decoration_thickness(v: impl Into<Length>) = v.into()` | Rest | Text | `x.decoration_thickness` |
+     | `TextUnderlineOffset(Length)` | `text_underline_offset(..)` 同 | Rest | Text | `x.underline_offset` |
      | `TextOverflow(TextOverflow)` | `text_overflow(v: TextOverflow) = v` | Rest | Text | `x.overflow` |
      | `LineClamp(u32)` | `line_clamp(v: u32) = v` | Rest | Text | `x.line_clamp` |
      | `TextCapsize(bool)` | `text_capsize(v: bool) = v` | Rest | Text | `x.capsize` |
      | `TextTransform(TextTransform)` | `text_transform(v: TextTransform) = v` | Rest | Text | `x.transform` |
-     | `TextStrokeWidth(TextLength)` | — | Rest | Text | `x.stroke_width` |
+     | `TextStrokeWidth(Length)` | — | Rest | Text | `x.stroke_width` |
      | `TextStrokeColor(Color)` | — | Rest | Text | `x.stroke_color` |
      | `PaintOrder(PaintOrder)` | `paint_order(v: PaintOrder) = v` | Rest | Text | `x.paint_order` |
      | `FontVariationSettings(Vec<FontVariation>)` | —（`font_variation_settings(iter)`） | Rest | Text | `x.variations` |
@@ -2890,6 +3121,7 @@ for my $f (@ARGV) {
      | `ExitSize(Orientation)` | `exit_size(v: Orientation) = v` | Rest | Motion | `motion.exit_size` |
      | `LayoutTransition(Box<Transition>)` | `layout_transition(v: Transition) = Box::new(v)` | Rest | Motion | `motion.layout_transition` |
 
+     `CornerRadius` は `Length` 二つ（S15 の後 96 byte）なので `Box` に入れる（`Decl` の大きさ 64 byte 以下を保つ）。文字の長さ（`LetterSpacing` など）は `Length` を受け、S18 が `text_length`（S15 手順 2b）で wire の `TextLength` にする。
      表の外の 5 つ（`sheet/decl.rs` に手で書く。手順 3）：`BoxShadow(Vec<Shadow>)`（Delta、Paint、`paint.shadows`）、`TextShadow(Vec<Shadow>)`（Rest、Text、`x.shadows`）、`Transition(TransitionProp, Box<Transition>)`（Rest、Motion、`motion.transitions` の同じ prop を置き換えて push）、`State(StyleState, Box<Style>)`（Rest、States）、`Group`（Rest、States、`states.group = true`）。
 
   2. `crates/kivact-style/src/sheet/props.rs` の macro と表：
@@ -2904,7 +3136,7 @@ use kivact_types::{
     Visibility, WillChange,
 };
 
-use super::decl::{Decl, PropClass, PropGroup};
+use super::decl::{PropClass, PropGroup};
 use super::Style;
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
@@ -3008,7 +3240,6 @@ style_props! {
 
 use kivact_types::StyleState;
 
-use super::Style;
 pub(crate) use super::props::Decl;
 
 /// Whether a declaration can be a host-evaluated paint delta of a state
@@ -3068,41 +3299,22 @@ impl Decl {
         }
     }
 
-    /// Whether `self` and `other` set the same property (the same variant;
-    /// for a transition, the same property group; for a state, the same
-    /// state).
-    pub(crate) fn same_property(&self, other: &Decl) -> bool {
-        match (self, other) {
-            (Decl::Transition(a, _), Decl::Transition(b, _)) => a == b,
-            (Decl::State(a, _), Decl::State(b, _)) => a == b,
-            _ => std::mem::discriminant(self) == std::mem::discriminant(other),
-        }
-    }
-
     /// Whether setting it twice in one style is a duplicate (states nest,
-    /// shadows stack, a group flag repeats harmlessly).
+    /// shadows stack, transitions are per property group, a group flag
+    /// repeats harmlessly).
     fn counts_twice(&self) -> bool {
         !matches!(
             self,
-            Decl::State(..) | Decl::BoxShadow(_) | Decl::TextShadow(_) | Decl::Group
+            Decl::State(..) | Decl::BoxShadow(_) | Decl::TextShadow(_) | Decl::Transition(..) | Decl::Group
         )
     }
 }
 
 /// A style value: an ordered list of declarations, the later winning.
 /// Build with [`style()`](crate::style).
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Style {
     pub(crate) decls: Vec<Decl>,
-    /// Setter calls that replaced an earlier value of the same style
-    /// (diagnostics); not part of equality.
-    pub(crate) duplicates: u32,
-}
-
-impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        self.decls == other.decls
-    }
 }
 
 const _: () = assert!(
@@ -3111,11 +3323,8 @@ const _: () = assert!(
 );
 
 impl Style {
-    /// Append `decl`, counting a property this style already sets.
+    /// Append `decl` (constant time: a setter never scans the list, PF-01).
     pub(crate) fn push(mut self, decl: Decl) -> Self {
-        if decl.counts_twice() && self.decls.iter().any(|d| d.same_property(&decl)) {
-            self.duplicates += 1;
-        }
         self.decls.push(decl);
         self
     }
@@ -3123,8 +3332,19 @@ impl Style {
     /// Overlay `o` on `self`: its declarations come after, so they win.
     pub fn merge(mut self, o: &Style) -> Style {
         self.decls.extend(o.decls.iter().cloned());
-        self.duplicates += o.duplicates;
         self
+    }
+
+    /// How many declarations set a property an earlier declaration of this
+    /// style sets (debug diagnostics, counted only when asked: core asks
+    /// once per style layer in debug builds).
+    pub(crate) fn duplicates(&self) -> u32 {
+        let mut seen = std::collections::HashSet::new();
+        self.decls
+            .iter()
+            .filter(|d| d.counts_twice())
+            .filter(|d| !seen.insert(std::mem::discriminant(*d)))
+            .count() as u32
     }
 
     /// The style of `state`: every `state` style of this style merged in
@@ -3251,7 +3471,7 @@ impl Style {
      - `sheet.rs`：`mod fields; mod grid_setters; mod setters; mod style; mod text_setters;` を `mod decl; mod fields; mod props; mod shorthands;`（と分けた場合の `mod state_setters;`）にし、`pub use fields::{ScrollbarWidth, Style};` を `pub use decl::Style; pub use fields::ScrollbarWidth;`、`pub use setters::with_scroll_axes; pub use style::style;` を `pub use shorthands::{style, with_scroll_axes};` にする。`pub(crate) use fields::{...}` に `Groups` を足し、`Sides` 以下はそのまま、`pub(crate) use decl::{Decl, PropClass, PropGroup};` を足す。`git rm crates/kivact-style/src/sheet/setters.rs crates/kivact-style/src/sheet/text_setters.rs crates/kivact-style/src/sheet/grid_setters.rs crates/kivact-style/src/sheet/style.rs`。module の doc の段落のうち state の説明（「A state style changes paint only ...」）はこの unit では残す（S19 で直す）。
   6. **resolve を新しい storage に合わせる**（`group_or_default!` を通さない直接の読み書き）：
      - `crates/kivact-style/src/resolve/compile.rs`：
-       - `compile_style` の `let retained_paint = s.paint.as_deref().and_then(|paint| paint.local_paint.clone());` を `let retained_paint = s.local_paint();` に。`strip_state_paint(&mut s);` を `s.strip_local_paint();` にし、`fn strip_state_paint` を消す。
+       - `compile_style` の `let retained_paint = s.paint.as_deref().and_then(|paint| paint.local_paint.clone());` と `strip_state_paint(&mut s);` の 2 行を消し、`fn strip_state_paint` を消す。代わりに、`s = merge_forced(s, state.forced);` の **後** に `let retained_paint = s.local_paint();` と `s.strip_local_paint();` を置く（12 章 UI-S-02：選ばれた `selected`・`disabled`・forced の状態の style が持つ paint の callback は、merge された後で選ばれる。状態の callback を先に消さない）。
        - `if state.selected && let Some(v) = s.states_mut().selected.take() { s = s.merge(&v); }` を `if state.selected && let Some(v) = s.take_state(StyleState::Selected) { s = s.merge(&v); }` に。disabled も同じ。
        - `fn merge_forced`：`s.states_mut().focus.take()` などの 4 か所を `s.take_state(StyleState::Focus)`、`FocusVisible`、`Hover`、`Active` にする。
        - `fn interactive_defaults` を次にする：
@@ -3327,7 +3547,7 @@ impl Style {
        値の文字列は `Decl::value_debug`（macro が生成する。variant の中身の `Debug`：`Px(8.0)` の形で、2b8df5ac の describe の値と同じ）を使う。
      - `crates/kivact-style/src/resolve/paint.rs`：`paint.ring.map(|(width, offset, c)| Ring { width, offset, color: c.resolve(theme) })` を `paint.ring_width.map(|width| Ring { width, offset: paint.ring_offset.unwrap_or(0.0), color: paint.ring_color.unwrap_or(crate::color::FOCUS).resolve(theme) })` に。`fn scrollbar` の `let style = paint.scrollbar.as_ref()?;` 以下を `paint.scrollbar_width`・`scrollbar_thumb`・`scrollbar_track` を読む形にする（三つとも `None` なら `None` を返す。thumb と track は片方だけなら他方を `ScrollbarProps::default()` の値にする）。`paint_delta` の `ring: st_paint.ring.and(full.ring)` を `ring: (st_paint.ring_width.is_some() || st_paint.ring_offset.is_some() || st_paint.ring_color.is_some()).then_some(full.ring).flatten()` にする。`scrollbar` の delta も同じ規則（三つのどれかが設定されていれば `ScrollbarDelta { width: style.scrollbar_width.map(|_| full.width), colors: (thumb か track が Some).then(|| (full.thumb, full.track)) }`）。
      - `crates/kivact-style/src/text.rs` の `fn resolve_extras`：`t.stroke = x.stroke.map(|(width, c)| ...)` を `t.stroke = x.stroke_width.map(|width| p::TextStroke { width, color: x.stroke_color.unwrap_or(crate::color::TEXT).resolve(theme) });` に、`t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);` を `t.decoration_style = x.decoration_style;` にし、`enum DecorationStyleValue` とその 4 つの impl を消す。
-     - `crates/kivact-style/src/resolve/compile.rs` の `fn text` の `font_size: text.font_size,` を `font_size: text.font_size.and_then(|l| match resolved(l, theme) { Length::Px(px) => Some(px), _ => None }),` にする（px と変数だけを受ける。ほかは S18 が数えて報告する）。
+     - `crates/kivact-style/src/resolve/compile.rs` の `fn text` の `font_size: text.font_size,` を `font_size: text.font_size.and_then(|l| match resolved(l, theme, theme.get(&crate::font::SIZE_VAR), misplaced) { Length::Px(px) => Some(px), _ => { *misplaced += 1; None } }),` にする（`em` は theme の基準の大きさ `font::SIZE` の倍。百分率と内容の大きさは数えて報告する。`fn text` に引数 `misplaced: &mut u32` を足し、`compile_style` の `misplaced` を渡す）。
   7. **掃引**：`text_decoration_style(` の呼出しで closure や `Signal` を渡している所（`rg -n "text_decoration_style\(" $W6_SCOPE $W6_TESTS`）は、`.style(move || style().text_decoration_style(sig.get()))` の形にする（reactive な style は closure。設計書 5.7 の 5）。`font_size(` に `f32` 以外の数値の式を渡す所は変更なし（`impl Into<Length>`）。`font_size(x)` の `x` が `Option<f64>` などで compile error になれば、その場で `Length::Px(..)` にする。
   8. **DevTools の property の表**（付属書 C の S-REQ-2。C19 がこの unit の直後に使う。INC-03）：
      - `crates/kivact-style/src/sheet/edit_text.rs` を作る（`sheet.rs` に `mod edit_text;` と `pub(crate) use edit_text::{EditText, STYLE_PROPERTIES, StyleProperty};`）：
@@ -3379,8 +3599,13 @@ impl EditText for Length {
             Length::MinContent => "min-content".to_owned(),
             Length::MaxContent => "max-content".to_owned(),
             Length::FitContent => "fit-content".to_owned(),
-            Length::Calc { percent, px } => format!("calc({percent}% + {px}px)"),
+            Length::Em(v) => format!("{v}em"),
+            Length::Calc { percent, px, em, var } => {
+                let var = var.map_or(String::new(), |(v, k)| format!(" + {k} * {}", v.name()));
+                format!("calc({percent}% + {px}px + {em}em{var})")
+            }
             Length::Var(v) => v.name().to_owned(),
+            Length::Invalid => "invalid".to_owned(),
         }
     }
     fn from_edit_text(text: &str) -> Result<Self, String> {
@@ -3394,6 +3619,9 @@ impl EditText for Length {
         }
         if let Some(var) = LENGTH_VARS.into_iter().find(|v| v.name() == text) {
             return Ok(Length::var(var));
+        }
+        if let Some(em) = text.strip_suffix("em") {
+            return em.trim().parse::<f64>().map(Length::Em).map_err(|_| expected("a length", text));
         }
         if let Some(percent) = text.strip_suffix('%') {
             return percent.trim().parse::<f64>().map(Length::Percent).map_err(|_| expected("a length", text));
@@ -3534,9 +3762,9 @@ fn expected(what: &str, text: &str) -> String {
        （`sheet.rs` の `pub(crate) use edit_text::{..}` の `StyleProperty` は `pub use` にする：`internal` が再公開するため。）
      - 試験（`crates/kivact-style/src/sheet/decl.rs` の `mod tests`）：`fn style_properties_round_trip()`：`(style_property("width").unwrap().parse)("50%")` の style の `describe` が `Some("50%")`、`"space.md"` は `Some("space.md")`、`(style_property("color").unwrap().parse)("#2563eb")` の describe が `Some("#2563eb")`、`style_property("nope")` が `None`。
 - **消すもの**：`sheet/setters.rs`、`sheet/text_setters.rs`、`sheet/grid_setters.rs`、`sheet/style.rs`、旧い `Style` の group の field と `*_mut`、`group_eq`、各 group の `merge`、`ScrollbarStyle`、`DecorationStyleValue`、`describe.rs` の `DELTA`・`classify_properties!`・名前の配列、`strip_state_paint`。
-- **状態の閉じ方**：`Style` は `Vec<Decl>` と diagnostics の counter `duplicates`：bool・Option・counter の field は 1 つ（6.1 の対象外）。`Groups` は値の record（`&mut self` の `apply` を持つ。`Option` の field は各 group の中）：印 `// xtask-allow(state): fold of one style's declarations: apply writes each authored property once per declaration and resolution only reads the result`（`pub(crate) struct Groups` の直前）。各 `XFields` は W1b で付属書 T が印を処理した状態のまま（6.1 の新しい規則では、`&mut self` の method を持たない値の record は対象外。この unit で `merge` を消すので対象外になる）。
+- **状態の閉じ方**：`Style` は `Vec<Decl>` の field 一つ（6.1 の対象外）。重複は field に持たず、`Style::duplicates()` が求める（PF-01）。`Groups` は値の record（`&mut self` の `apply` を持つ。`Option` の field は各 group の中）：印 `// xtask-allow(state): fold of one style's declarations: apply writes each authored property once per declaration and resolution only reads the result`（`pub(crate) struct Groups` の直前）。各 `XFields` は W1b で付属書 T が印を処理した状態のまま（6.1 の新しい規則では、`&mut self` の method を持たない値の record は対象外。この unit で `merge` を消すので対象外になる）。
 - **試験**：
-  - `crates/kivact-style/src/sheet/decl.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of the declaration list.`）：`fn the_later_declaration_wins()`（`style().width(10).width(20).fold().size.width == Some(Length::Px(20.0))`）、`fn merge_appends_and_the_overlay_wins()`（`style().width(10).merge(&style().width(30))` の fold が 30、`duplicates` が 0）、`fn a_repeated_setter_counts_a_duplicate()`（`style().width(1).width(2).duplicates == 1`）、`fn equality_ignores_the_duplicate_count()`、`fn shadows_stack_in_one_style_and_a_later_layer_replaces_them()`、`fn nested_state_styles_merge()`（`style().hover(style().width(1)).hover(style().height(2))` の `state(StyleState::Hover)` が width と height の両方を持つ）。
+  - `crates/kivact-style/src/sheet/decl.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of the declaration list.`）：`fn the_later_declaration_wins()`（`style().width(10).width(20).fold().size.width == Some(Length::Px(20.0))`）、`fn merge_appends_and_the_overlay_wins()`（`style().width(10).merge(&style().width(30))` の fold が 30、`.duplicates()` が 1（同じ style の中の二つ目。core は層ごとに数えるので層の上書きは数えない））、`fn a_repeated_setter_counts_a_duplicate()`（`style().width(1).width(2).duplicates() == 1`、`style().width(1).height(2).duplicates() == 0`、`style().hover(style()).hover(style()).duplicates() == 0`）、`fn shadows_stack_in_one_style_and_a_later_layer_replaces_them()`、`fn nested_state_styles_merge()`（`style().hover(style().width(1)).hover(style().height(2))` の `state(StyleState::Hover)` が width と height の両方を持つ）。
   - 公開 E2E の style の試験（`style_paint.rs`、`text_style.rs`、`layout_*.rs`、`hover.rs`、`motion.rs`、`devtools.rs` の style の表示）がそのまま通ること。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
@@ -3545,7 +3773,7 @@ fn expected(what: &str, text: &str) -> String {
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- devtools
   ```
-- **完了条件**：`ls crates/kivact-style/src/sheet` が `decl.rs fields.rs props.rs shorthands.rs`（と `state_setters.rs`）だけ。`rg -n "DecorationStyleValue|ScrollbarStyle|classify_properties|DELTA" crates/kivact-style/src` が 0 件。上のコマンドが通る。
+- **完了条件**：`ls crates/kivact-style/src/sheet` が `decl.rs edit_text.rs fields.rs props.rs shorthands.rs`（と `state_setters.rs`）だけ。`rg -n "DecorationStyleValue|ScrollbarStyle|classify_properties|DELTA" crates/kivact-style/src` が 0 件。上のコマンドが通る。
 
 ---
 
@@ -3561,11 +3789,11 @@ fn expected(what: &str, text: &str) -> String {
   2. `pub fn compile_style(s: &Style, theme: &Theme, state: Interactive) -> CompiledStyle` を `pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> CompiledStyle` にし（ST-06：呼出し側の merge の結果を move で受け、`s.clone()` をしない）、本体を次の順にする：
      ```rust
      state.forced 由来の disabled / selected（今のまま）
-     let retained_paint = s.local_paint();
-     s.strip_local_paint();
      if state.focusable { interactive_defaults(&mut s, theme, state.disabled); }
      selected / disabled の state を take_state して merge（今のまま）
      s = merge_forced(s, state.forced);
+     let retained_paint = s.local_paint();   // after the merged states (UI-S-02)
+     s.strip_local_paint();
      let g = s.fold();                       // the one fold of this compilation
      let states = state_styles(&s, &g, theme);
      let mut misplaced = misplaced(&g);
@@ -3573,11 +3801,11 @@ fn expected(what: &str, text: &str) -> String {
      let text = (s.has_text() || state.root).then(|| { let (mut t, dropped) = text(&g, theme); unsupported_text = dropped; root の既定（今のまま）; t });
      let mut paint = paint(&g, theme, &mut misplaced);
      paint.transitions = paint_transitions(&g);
-     CompiledStyle { retained_paint, layout: layout(&g, theme), paint, text, states, duplicates: s.duplicates, misplaced_lengths: misplaced, unsupported_text, unsupported_in_states: unsupported_in_states(&s), reports: reports(&g, theme) }
+     CompiledStyle { retained_paint, layout: layout(&g, theme), paint, text, states, misplaced_lengths: misplaced, unsupported_text, unsupported_in_states: unsupported_in_states(&s), reports: reports(&g, theme) }
      ```
-     `CompiledStyle` の field `misplaced_content` を `misplaced_lengths` に改名する（doc：「Lengths a property cannot take (a content size outside width, height and basis; `auto`, a content size or a non-px value in a paint position or radius), counted and reported as `Unsupported`.」）。
+     `CompiledStyle` の field `duplicates` を消す（PF-01：重複は core が層ごとに数える。手順 6）。`CompiledStyle` の field `misplaced_content` を `misplaced_lengths` に改名する（doc：「Lengths a property cannot take (a content size outside width, height and basis; `auto`, a content size or a non-px value in a paint position or radius), counted and reported as `Unsupported`.」）。
   3. state の delta（ST-06）：`fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta` を `fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta` のまま残すが、本体の `let merged = base.clone().merge(st); let full = paint(&merged, theme);` の `paint(..)` を `paint(&merged.fold(), theme, &mut 0)` にし、`st` の group を読む所は `let sg = st.fold();` を一度だけ作って `&sg.paint` などを読む。`state_styles` の focus_visible の `s.clone().merge(focus)` はそのまま（state を持つ style だけの費用）。`fn interactive_defaults` は S17 の形のまま（`Style` を作るのは focusable な node で focus の look が無いときだけ）。
-  4. ST-31：`crates/kivact-types/src/length.rs` の `pub fn to_len(self) -> Len` を `pub fn to_len(self, misplaced: &mut u32) -> Len` にする：`Px`・`Percent`・`Calc` はそのまま、`Auto`・`MinContent`・`MaxContent`・`FitContent`・`Var` は `*misplaced += 1;` して `Len::ZERO`（`Var` は呼出し側が先に `resolved(..)` するので、ここに来るのは解決し忘れ）。style の `to_len()` の呼出し（`rg -n "to_len\(" crates/kivact-style/src`：`geometry.rs` の `corner`、`resolve/paint.rs` の `element_transform`・`perspective`、`paint/*.rs` の gradient の中心・stop、背景の大きさと位置、mask、clip path の点、border image）に `&mut misplaced` を渡す。`misplaced` は `paint(g, theme, misplaced: &mut u32)` の引数で受け、その中で呼ぶ関数（`fill`、`fill_layer`、`corners`、`effects` の `clip_shape`、mask の `wire`、border image の `wire`）に `&mut u32` の引数を足して渡す。`Draw`（`draw/*.rs`）が `to_len` を呼ぶ所は `&mut self.unsupported` を渡す（canvas の命令の未対応の数え方と同じ）。`fn misplaced(g: &Groups) -> u32` は旧 `misplaced_content` の本体（内容の大きさを最小・最大・padding・margin・inset・gap に置いた数）。
+  4. ST-31：`crates/kivact-types/src/length.rs` の `pub fn to_len(self) -> Len` を `pub fn to_len(self, misplaced: &mut u32) -> Len` にする：`Px`・`Percent`・`Calc { percent, px, .. }` は写し、`Auto`・`MinContent`・`MaxContent`・`FitContent`・`Var`・`Em`・`Invalid` は `*misplaced += 1;` して `Len::ZERO`（`Var`・`Em`・`Invalid` は呼出し側が先に `resolved(..)` するので、ここに来るのは解決し忘れ）。文字の長さ（`TextFields`・`TextExtras` の `Length` の field）は `crate::text::text_length(l, theme, &mut dropped)`（S15）で wire の `TextLength` にする。style の `to_len()` の呼出し（`rg -n "to_len\(" crates/kivact-style/src`：`geometry.rs` の `corner`、`resolve/paint.rs` の `element_transform`・`perspective`、`paint/*.rs` の gradient の中心・stop、背景の大きさと位置、mask、clip path の点、border image）に `&mut misplaced` を渡す。`misplaced` は `paint(g, theme, misplaced: &mut u32)` の引数で受け、その中で呼ぶ関数（`fill`、`fill_layer`、`corners`、`effects` の `clip_shape`、mask の `wire`、border image の `wire`）に `&mut u32` の引数を足して渡す。`Draw`（`draw/*.rs`）が `to_len` を呼ぶ所は `&mut self.unsupported` を渡す（canvas の命令の未対応の数え方と同じ）。`fn misplaced(g: &Groups) -> u32` は旧 `misplaced_content` の本体（内容の大きさを最小・最大・padding・margin・inset・gap に置いた数）。
      `crates/kivact-core/src/view/mount/style.rs` の報告の文（`"{} content size(s) (Length::MinContent, ...) outside width, height and basis; they are auto there"`）を `"{} length(s) the property cannot take: a content size outside width, height and basis, or auto, a content size or a variable left unresolved in a paint position or radius; they are 0 or auto there"` にし、`resolved.misplaced_content` を `resolved.misplaced_lengths` にする。
   5. ST-09（style・core）：`crates/kivact-style/src/resolve/compile.rs` の `pub struct ForcedStates(u8)` とその impl を消し、`Interactive.forced` の型を `kivact_types::StateSet` にする。`state.forced.contains(ForcedStates::DISABLED)` を `state.forced.contains(StyleState::Disabled)`、`SELECTED` → `Selected`、`FOCUS` → `Focus`、`FOCUS_VISIBLE` → `FocusVisible`、`HOVER` → `Hover`、`PRESSED` → `Active` にする。`crates/kivact-style/src/resolve.rs` と `internal.rs` の再公開から `ForcedStates` を消す。core：
      - `crates/kivact-core/src/view/devtools_state.rs`、`crates/kivact-core/src/view/devtools_hooks.rs`：`ForcedStates` を `kivact_types::StateSet` に（`use kivact_style::internal::ForcedStates;` を `use kivact_types::StateSet;` に、型名を置換）。`ForcedStates::default()` は `StateSet::EMPTY`。
@@ -3585,18 +3813,31 @@ fn expected(what: &str, text: &str) -> String {
      - `crates/kivact-core/src/devtools/styles.rs` の `"hover" => ForcedStates::HOVER,` などの 6 行も同じ。`let mut states = ForcedStates::default();` は `StateSet::EMPTY`。
      - `crates/kivact-core/src/devtools/node.rs` の `forced` の読み（`all.get(&id)` などで `ForcedStates` を `contains` で調べる所）を `StateSet::contains(StyleState::..)` に。
   6. core の ST-06：
-     - `crates/kivact-core/src/view/mount/style.rs` の `pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style` を次にする：
+     - `crates/kivact-core/src/view/mount/style.rs` の `pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style` を次にする（PF-01：重複は debug build でだけ、層ごとに数える）：
        ```rust
-       pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
-           let mut it = layers.iter();
-           let first = it.next().map(|layer| (layer.f)()).unwrap_or_default();
-           it.fold(first, |s, layer| s.merge(&(layer.f)()))
+       /// The layers merged in order, and in debug builds how many
+       /// declarations repeat a property within their own layer.
+       pub(crate) fn merge_layers(layers: &[StyleLayer]) -> (Style, u32) {
+           let mut duplicates = 0;
+           let mut out: Option<Style> = None;
+           for layer in layers {
+               let s = (layer.f)();
+               if cfg!(debug_assertions) {
+                   duplicates += kivact_style::internal::duplicates(&s);
+               }
+               out = Some(match out {
+                   Some(acc) => acc.merge(&s),
+                   None => s,
+               });
+           }
+           (out.unwrap_or_default(), duplicates)
        }
        ```
+       `crates/kivact-style/src/internal.rs` に `pub fn duplicates(style: &Style) -> u32 { style.duplicates() }` を足す。`bind_style` の `hook.apply(merge_layers(&layers))` を `let (merged, duplicates) = merge_layers(&layers); let s = hook.apply(merged);` にし、`StyleReports::report` に引数 `duplicates: u32` を足して `if resolved.duplicates > 0 && cfg!(debug_assertions)` を `if duplicates > 0 && cfg!(debug_assertions)`（文の `resolved.duplicates` も `duplicates`）にする。`merge_layers` のほかの呼出し（`rg -n "merge_layers" crates/kivact-core/src`）は `.0` を使う。
      - `bind_style` の effect：`kivact_style::internal::compile_style(&s, theme, state)` を `compile_style(s, theme, state)`（move）に。`resolved` を作った後の `tree.update(id, PropValue::Paint(resolved.paint.clone()), writer);` などの 4 行の前で `let CompiledStyle { layout, paint, text, states, .. } = resolved;` と分解できないのは `feed_local_paint` と `reports.report` が `&resolved` を使うため。順を次にする：`feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);` と `reports.report(&rt, owner, id, &resolved, at);` を先に呼び（report は tree を借りない）、その後 `let kivact_style::CompiledStyle { mut layout, paint, text, states, .. } = resolved;` と分解して `tree.update(id, PropValue::Layout(layout), writer)`（`fix_layout` は分解の後の `layout` に当てる）、`PropValue::Paint(paint)`、`PropValue::TextStyle(text)`、`PropValue::States(states.unwrap_or_default())` を move で渡す。`CompiledStyle` に `pub(crate)` な field があり分解できない場合は、`CompiledStyle` に `pub fn into_props(self) -> (LayoutProps, PaintProps, Option<TextStyle>, Option<StateStyles>)` を足して使う。
      - `crates/kivact-core/src/view/mount/facts.rs` の `LocalPaintSource` の `value: RefCell<Option<Box<CompiledStyle>>>` を `value: RefCell<Option<kivact_style::draw::LocalPaint>>` にし、`feed_local_paint`（mount/style.rs）の `Some(Box::new(resolved.clone()))` を `resolved.retained_paint()`（`CompiledStyle` に `pub fn retained_paint(&self) -> Option<LocalPaint> { self.retained_paint.clone() }` を足す）に、`!old.same_retained_paint(resolved)` を `Some(old) != resolved.retained_paint().as_ref()` の比較（`LocalPaint` の `PartialEq` は identity）にする。`crates/kivact-core/src/view/mount/draw.rs` の `compiled.paint_retained(d, sz)` を `paint.draw(d, sz)`（`let paint = source.value.borrow().clone(); if let Some(paint) = paint { paint.draw(d, sz); }`）にする。`LocalPaint` が `kivact_style::draw` から公開されていなければ、`crates/kivact-style/src/draw.rs` の `pub use local_paint::LocalPaint;` を `#[doc(hidden)] pub use` で足す（core の mount だけが使う内部の橋。理由のコメント `// Core's mount keeps the retained paint callback; not a user API.`）。`CompiledStyle::same_retained_paint` と `paint_retained` は使われなくなるので消す。
   7. `crates/kivact-style/src/sheet/fields.rs` のファイル名を中身に合わせる：`git mv crates/kivact-style/src/sheet/fields.rs crates/kivact-style/src/sheet/folded.rs`、`sheet.rs` の `mod fields;` を `mod folded;`、`fields::` を `folded::` に。Role 行を `//! Role: A style's declarations folded into one record of authored values, which resolution reads.` にする。各 `XFields` の doc の「The `size` group of a [`Style`]」の形の文を「The size properties of a folded style.」の形にする。
-- **消すもの**：`group_or_default!`、`ForcedStates`、`CompiledStyle::misplaced_content` の名前、`CompiledStyle::{same_retained_paint, paint_retained}`、`LocalPaintSource` の `CompiledStyle`。
+- **消すもの**：`group_or_default!`、`ForcedStates`、`CompiledStyle::duplicates`、`CompiledStyle::misplaced_content` の名前、`CompiledStyle::{same_retained_paint, paint_retained}`、`LocalPaintSource` の `CompiledStyle`。
 - **状態の閉じ方**：`CompiledStyle` は compile の結果の値の record（`&mut self` の method なし）：対象外。`Interactive` は compile の入力（名前は対象外の接尾辞ではないが `&mut self` の method なし）：対象外。
 - **試験**：
   - `crates/kivact-style/src/resolve/compile.rs` に `#[cfg(test)] mod tests`（`//! Role: Tests of style compilation.`）：`fn a_paint_position_that_is_auto_is_counted()`（`style().border_radius(Length::Auto)` は S20 の後の名前。この unit では `style().radius(Length::Auto)` を `compile_style(.., Interactive::default())` して `misplaced_lengths == 4`（4 隅））、`fn forced_states_merge_their_styles()`（`Interactive { forced: StateSet::EMPTY.with(StyleState::Hover), .. }` で `hover(style().opacity(0.5))` の opacity が base の paint に入る）。
@@ -3620,8 +3861,11 @@ fn expected(what: &str, text: &str) -> String {
 - **手順**：
   1. style（`crates/kivact-style/src/resolve/compile.rs`）：
      - `Interactive` に field を足す：doc `/// The host states the engine reported active for this node (HostEvent::StatesChanged): their non-paint declarations are compiled into the style.` を付けた `pub active: StateSet,`。
-     - `compile_style` の `s = merge_forced(s, state.forced);` の直後に足す：
+     - `compile_style` の `s = merge_forced(s, state.forced);` の直後（S18 の `let retained_paint = s.local_paint(); s.strip_local_paint();` より **前**。12 章 UI-S-02：状態の report は callback を含む元の宣言から決め、選ばれた状態の Rest（callback を含む）を合成してから callback を選ぶ）に足す：
        ```rust
+       // What the host must report: decided from the declarations as written,
+       // paint callbacks included, before anything is stripped.
+       let report = report_of(&s);
        // The host states that set more than paint, in the order their deltas stack.
        for host in StyleState::HOST {
            if state.active.contains(host)
@@ -3632,19 +3876,25 @@ fn expected(what: &str, text: &str) -> String {
            }
        }
        ```
-       `crates/kivact-style/src/sheet/decl.rs` の `impl Style` に `pub(crate) fn rest(&self) -> Style { Style { decls: self.decls.iter().filter(|d| d.class() == PropClass::Rest && !matches!(d, Decl::State(..) | Decl::Group)).cloned().collect(), duplicates: 0 } }` を足す。
-     - `fn state_styles(s: &Style, g: &Groups, theme: &Theme) -> Option<StateStyles>` の作る `StateStyles` に `report` を入れる：
+       `crates/kivact-style/src/sheet/decl.rs` の `impl Style` に `pub(crate) fn rest(&self) -> Style { Style { decls: self.decls.iter().filter(|d| d.class() == PropClass::Rest && !matches!(d, Decl::State(..) | Decl::Group)).cloned().collect() } }` を足す（`LocalPaint` は `Rest` なので、active な状態の callback は base に入り、その後の `s.local_paint()` が最後のもの（`StyleState::HOST` の順で後の状態が勝つ）を選ぶ）。
+     - 同じファイルに足す：
        ```rust
-       for host in StyleState::HOST {
-           if matches!(host, StyleState::Enter | StyleState::Exit) {
-               continue;
+       /// The host states whose style sets more than paint (a paint callback
+       /// included): the engine reports them for this node (ST-05).
+       fn report_of(s: &Style) -> StateSet {
+           let mut report = StateSet::EMPTY;
+           for host in StyleState::HOST {
+               if matches!(host, StyleState::Enter | StyleState::Exit) {
+                   continue;
+               }
+               if s.state(host).is_some_and(|st| !st.rest().decls.is_empty()) {
+                   report.insert(host);
+               }
            }
-           if s.state(host).is_some_and(|st| !st.rest().decls.is_empty()) {
-               out.report.insert(host);
-           }
+           report
        }
        ```
-       （`.then(|| { ... })` の中で `out` を作った後、`out` を返す前。）
+       `fn state_styles` に引数 `report: StateSet` を足し、作る `StateStyles` に `report` を入れる（`.then(|| { ... })` の中で `out.report = report;`）。`state_styles` の `.then` の条件に `|| !report.is_empty()` を足す（callback だけの状態でも表を作る）。
      - `CompiledStyle` から `unsupported_in_states` を消し、`describe.rs` の `pub(super) fn unsupported_in_states` を消す。
      - `crates/kivact-style/src/resolve/paint.rs` の `paint_delta` の `sets_border` を、border の色か line style が設定されているときだけにする（幅は `Rest` で、状態が active のとき base に入る）：`let sets_border = st_paint.border_color.iter().any(Option::is_some) || st_paint.border_style.iter().any(Option::is_some);`。
   2. style の doc：`crates/kivact-style/src/sheet.rs` の module の doc の「Interaction states:」の最初の項を次にする：
@@ -3722,11 +3972,22 @@ pub(crate) fn states_changed(rt: &Runtime, node: NodeId, states: StateSet) {
   - `fn active_applies_a_layout_property()`：`.active(..)`（S20 の後の名前。S19 の時点では `.pressed(..)`）で `height(40)`。press して離す前に高さ 40、離した後に 20。
   - `fn focus_applies_a_text_property()`：focusable な `node()` の `.focus(style().font_size(30))` の子の text の高さが focus の前より大きい。
   - `fn a_paint_only_state_stays_a_host_delta()`：`hover(style().background(rgb(0xff0000)))` だけの node を hover すると、screenshot の node の中心が赤になり、`screen.errors()` が空。
-  - `crates/kivact-style/src/resolve/compile.rs` の `mod tests` に `fn only_states_with_more_than_paint_ask_for_reports()`：`style().hover(style().background(rgb(0xff0000)))` を compile した `states.unwrap().report` が空、`style().hover(style().width(10))` では `report.contains(StyleState::Hover)`。
+  - UI-S-02（状態の paint callback）。同じ `state_styles.rs` に、`node().test_id("box").style(style().size(40, 40).<状態>(style().paint(|d, size| d.fill_rect(size.to_rect(), rgb(0xff0000)))))` の形で、screenshot の box の中心で確かめる：
+    - `fn hover_draws_its_paint_callback()`：hover の前は赤でない、hover の間は赤、離れた後は赤でない。
+    - `fn active_paint_replaces_hover_paint()`：`hover` の callback が青、`active` の callback が赤。hover で青、press の間は赤、release で青（後の状態が勝つ）。
+    - `fn focus_draws_its_paint_callback()`：focusable な node（`node().focusable(true)` など focus を取れる形）を focus すると赤、blur で赤でない。
+    - `fn disabled_and_selected_draw_their_paint_callbacks()`：`disabled` の callback が赤、`selected` の callback が緑の node を、node の disabled・selected の modifier（`bind_states` が読むもの）に `signal(false)` を渡して描き、disabled を true にすると赤、false に戻して selected を true にすると緑、両方 false で赤でも緑でもない。
+    - `fn a_base_paint_comes_back_after_the_state()`：base の `paint` が青、`hover` の callback が赤。hover で赤、離れて青（置き換えと復帰）。
+  - `crates/kivact-style/src/resolve/compile.rs` の `mod tests` に `fn a_state_paint_callback_asks_for_reports()`（`style().hover(style().paint(|_, _| {}))` の `states.unwrap().report.contains(StyleState::Hover)` で、hover の外の compile（`active` 空）の `has_retained_paint()` が false、`Interactive { active: StateSet::EMPTY.with(StyleState::Hover), .. }` の compile で true）と `fn only_states_with_more_than_paint_ask_for_reports()`：`style().hover(style().background(rgb(0xff0000)))` を compile した `states.unwrap().report` が空、`style().hover(style().width(10))` では `report.contains(StyleState::Hover)`。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
   cargo test -p kivact-style
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- state_styles hover pointer focus motion presence
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- state_styles
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- hover
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- pointer
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- focus
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- motion
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- presence
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui
   ```
 - **完了条件**：`rg -n "unsupported_in_states|state cannot change" crates` が 0 件。`state_styles` の 4 試験が通る。上のコマンドが通る。
@@ -3862,7 +4123,9 @@ for my $f (@ARGV) {
 - **試験**：上の 4 ファイルの書換えだけ（期待値は変えない）。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas compositor offscreen_svg
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- canvas
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- compositor
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- offscreen_svg
   ```
 - **完了条件**：`rg -n "pub fn (blend|composite)\(" crates/kivact-style/src/draw/layer.rs` が 0 件。上のコマンドが通る。
 
@@ -3938,7 +4201,9 @@ for my $f (@ARGV) {
   ```
   cargo clippy -p kivact-engine --all-targets -- -D warnings
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-engine
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_style text_editing custom_text_field
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_style
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_editing
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- custom_text_field
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_chat_code
   ```
 - **完了条件**：`rg -n -w "SpanProps|SpanStyle|CompiledSpanStyle|compile_span_style|compile_text_decoration" crates dev --type rust` が `ResolvedSpanStyle` 以外で 0 件。上のコマンドが通る。
@@ -3973,50 +4238,60 @@ for my $f (@ARGV) {
 
 ## 4. 他の付属書との接点
 
-### 4.1 `ThemeVar` の API と、部品・kit の変数の宣言の型（付属書 U・K）
+### 4.1 `ThemeVar` の API と、部品・kit の変数の宣言の型（付属書 U・K・G）
 
 S15 の後の API（`kivact::style` の公開）：
 
 ```rust
 // kivact-types（kivact::style が再公開）
-pub struct ThemeVar<T: 'static> { /* name, fallback */ }
+pub struct ThemeVar<T: 'static> { /* name, fallback: VarValue<T> */ }
+pub enum VarValue<T: 'static> { Value(T), Var(&'static ThemeVar<T>) }
 impl<T: 'static> ThemeVar<T> {
-    pub const fn new(name: &'static str, fallback: T) -> Self;
+    pub const fn new(name: &'static str, fallback: T) -> Self;                       // 値の fallback
+    pub const fn alias(name: &'static str, target: &'static ThemeVar<T>) -> Self;    // fallback = target の解決した値
     pub const fn name(&self) -> &'static str;
-    pub const fn fallback(&self) -> &T;
+    pub const fn fallback(&self) -> &VarValue<T>;
 }
+impl<T> From<&'static ThemeVar<T>> for VarValue<T>;  // set の値としての別名
+// 値の From：VarValue<f64> ← f64/f32/i32/u32、VarValue<u16> ← u16、VarValue<LineHeight> ← LineHeight、
+// VarValue<Color> ← Color、VarValue<FontFamily> ← FontFamily/&str/String
 // PartialEq / Eq / Hash は同一性（static の address）。Debug は "var(--name)"。
 
 impl Color  { pub const fn var(v: &'static ThemeVar<Color>) -> Color; }   // alpha は with_alpha で掛けられる
-impl Length { pub const fn var(v: &'static ThemeVar<f64>) -> Length; }   // + と - には参加しない（Auto になる）
+impl Length { pub const fn var(v: &'static ThemeVar<f64>) -> Length; }   // + と - の式（calc）に入る
+pub fn em(v: impl Into<f64>) -> Length;                                    // style が設定する font の大きさ、無ければ font::SIZE の倍
 
 // kivact-style
 pub trait ThemeValue: Clone + PartialEq + Debug + Send + Sync + 'static { /* sealed */ }
-// 実装：Color、f64、u16、LineHeight、FontFamily
+// 実装：Color、f64、u16、LineHeight、FontFamily。すべて別名を持てる
 impl Theme {
-    pub fn set<T: ThemeValue>(self, var: &'static ThemeVar<T>, value: impl Into<T>) -> Theme;
+    pub fn set<T: ThemeValue>(self, var: &'static ThemeVar<T>, value: impl Into<VarValue<T>>) -> Theme;
     pub fn get<T: ThemeValue>(&self, var: &'static ThemeVar<T>) -> T;
-    pub fn with_fonts(self, fonts: &'static [&'static [u8]]) -> Theme;   // S09
-    pub fn fonts(&self) -> &[&'static [u8]];                              // S09
+    pub fn with_fonts(self, fonts: impl IntoIterator<Item = impl Into<Asset>>) -> Theme;   // S09
+    pub fn fonts(&self) -> &[Asset];                                                      // S09
 }
-pub fn cached_theme(build: fn() -> Theme) -> Theme;                       // S09
 pub fn try_use_theme() -> Option<Theme>;                                  // S16
 pub struct FontFamily; // FontFamily::SYSTEM, From<&str>, From<String>, as_str()
 ```
+
+**別名の書き方は一つ**（親の決定）：fallback は `ThemeVar::alias(name, &TARGET_VAR)`、theme での設定は `theme.set(&VAR, &TARGET_VAR)`（値なら `theme.set(&VAR, value)`）。`set_alias` は作らない。色は `Color::var(&TARGET_VAR)` を値として置いても同じく別名として辿る（`Color` は値の中に変数を持てるため。新しい書き方を勧めるときは `&TARGET_VAR` の形）。
 
 宣言の型（部品の module、kit、`kivact-plot` が同じ形で書く。**変数は必ず `static`**。`const` で宣言すると使う所ごとに別の address になり、theme の値が届かない）：
 
 ```rust
 // kivact::ui::theme::button（付属書 U の部品の module）
-use kivact::style::{Length, ThemeVar, Color, color};
+use kivact::style::{Color, Length, ThemeVar, color, control, radius};
 
-/// The height of a medium button.
-pub static HEIGHT_MD_VAR: ThemeVar<f64> = ThemeVar::new("button.height_md", 32.0);
-/// The height of a medium button, as a length a style takes.
+/// The height of a medium button: the theme's control height unless set.
+pub static HEIGHT_MD_VAR: ThemeVar<f64> = ThemeVar::alias("button.height_md", &control::HEIGHT_VAR);
 pub const HEIGHT_MD: Length = Length::var(&HEIGHT_MD_VAR);
 
+/// A button's corner radius: the theme's medium radius unless set.
+pub static RADIUS_VAR: ThemeVar<f64> = ThemeVar::alias("button.radius", &radius::MD_VAR);
+pub const RADIUS: Length = Length::var(&RADIUS_VAR);
+
 /// A button's fill; by default the theme's accent.
-pub static FILL_VAR: ThemeVar<Color> = ThemeVar::new("button.fill", color::ACCENT);
+pub static FILL_VAR: ThemeVar<Color> = ThemeVar::alias("button.fill", &color::ACCENT_VAR);
 pub const FILL: Color = Color::var(&FILL_VAR);
 
 // kit（付属書 K）
@@ -4025,21 +4300,29 @@ pub const PRIMARY: Color = Color::var(&PRIMARY_VAR);
 fn light() -> Theme {
     Theme::light()
         .set(&PRIMARY_VAR, rgb(0x171717))
-        .set(&color::ACCENT_VAR, PRIMARY) // alias: --accent: var(--primary)
+        .set(&color::ACCENT_VAR, &PRIMARY_VAR) // alias: --accent: var(--primary)
+}
+// 12 章 PF-02：theme は thread_local! の static で一度だけ作る（cached_theme は無い）
+thread_local! {
+    static LIGHT: Theme = light();
+    static DARK: Theme = dark();
 }
 pub fn theme(mode: ThemeMode) -> Theme {
-    match mode { ThemeMode::Light => cached_theme(light), ThemeMode::Dark => cached_theme(dark) }
+    match mode {
+        ThemeMode::Light => LIGHT.with(Theme::clone),
+        ThemeMode::Dark => DARK.with(Theme::clone),
+    }
 }
 ```
 
 規則：
 - 名前は `"<領域>.<名前>"`（中核の色だけは DevTools の token と同じ短い名前。4.2 節）。名前は診断と Debug にだけ使い、同一性は address。
-- 色の変数の値は別の色の変数でもよい（別名。8 段まで。循環は fallback になり、`install_theme`（`App::theme` と `provide_theme` が呼ぶ）が名前ごとに一度 `ErrorKind::Unsupported` を報告する）。数の変数に別名は無い（値は数）。
-- fallback に別の変数を置いてよい（`ThemeVar::new("button.fill", color::ACCENT)`）。kit が中核の変数を set すれば、fallback の別名を通して部品にも届く。
-- 値の形（`const`）を持つのは `Color` と `Length`（`f64` の変数）。`u16`（font の太さ）・`LineHeight`・`FontFamily` の変数は `static` だけで、recipe（`Fn(&Theme, &Look<S>, Style) -> Style`。付属書 U）が `theme.get(&font::WEIGHT_STRONG_VAR)` で読む。
-- style の setter のうち変数をそのまま受けるもの：色の引数（`impl Into<Color>`）すべて、`Length` の引数（`width`・`padding`・`gap`・`top`・`font_size`・`translate_x` など `impl Into<Length>`）すべて、`border_radius`（`impl Into<CornerRadius>`、`Length` から変換）。`f64` の引数（`opacity`、`flex_grow`、`border` の幅、`outline` の幅）は変数を受けない（理由：CSS の `<number>` で、変数の解決の場所が要る。必要になった部品は recipe で `theme.get(..)` を読む）。
+- **すべての型の変数**（`Color`・`f64`・`u16`・`LineHeight`・`FontFamily`）が、値としても fallback としても別の同じ型の変数を指せる（12 章 UI-U-02）。8 段まで辿り、循環は最初の変数の fallback（値なら）を使い、`install_theme`（`App::theme` と `provide_theme` が呼ぶ）が名前ごとに一度 `ErrorKind::Unsupported` を報告する。
+- 部品と kit の変数の既定は、意味の同じ中核の変数への別名にする（`ThemeVar::alias(.., &radius::MD_VAR)`）。共通の値（`theme.set(&radius::MD_VAR, 20)`）がすべての部品に届き、部品の変数を set すればそれが勝つ。中核に同じ意味の変数が無い値だけ `ThemeVar::new(.., value)`。
+- 値の形（`const`）を持つのは `Color` と `Length`（`f64` の変数）。`u16`（font の太さ）・`LineHeight`・`FontFamily`・不透明度（`control::DISABLED_OPACITY_VAR`）の変数は `static` だけで、recipe（`Fn(&Theme, &Look<S>, Style) -> Style`。付属書 U）が `theme.get(..)` で読む。
+- style の setter のうち変数をそのまま受けるもの：色の引数（`impl Into<Color>`）すべて、`Length` の引数（`width`・`padding`・`gap`・`top`・`font_size`・`translate_x`・`letter_spacing` など `impl Into<Length>`）すべて、`border_radius`（`impl Into<CornerRadius>`、`Length` から変換）。`Length` の `+`・`-` は変数・`em`・`pct`・px の式として保ち theme ごとに解決し直す（`space::MD + 2`）。受けられない式（`auto` や内容の大きさとの和、二つの別の変数）は `Unsupported` を報告する（12 章 UI-S-03）。`f64` の引数（`opacity`、`flex_grow`、`border` の幅、`outline` の幅）は変数を受けない（CSS の `<number>`。部品は recipe で `theme.get(..)` を読む）。
 
-### 4.2 中核の theme 変数（S15。`kivact::style::{color, space, radius, font}`）
+### 4.2 中核の theme 変数（S15。`kivact::style::{color, space, radius, font, control}`）
 
 fallback は 2b8df5ac の `Theme::light()` の値、dark は `Theme::dark()` が set する値（空欄は light と同じで set しない）。
 
@@ -4077,8 +4360,11 @@ fallback は 2b8df5ac の `Theme::light()` の値、dark は `Theme::dark()` が
 | `font::WEIGHT_STRONG_VAR`（static だけ） | `u16` | `font.weight_strong` | 600 | |
 | `font::LINE_HEIGHT_VAR`（static だけ） | `LineHeight` | `font.line_height` | `LineHeight::Scale(1.35)` | |
 | `font::FAMILY_VAR`（static だけ） | `FontFamily` | `font.family` | `FontFamily::SYSTEM` | |
+| `control::HEIGHT` | Length（`f64`） | `control.height` | 28 | |
+| `control::OVERLAY_MARGIN` | Length（`f64`） | `control.overlay_margin` | 0 | |
+| `control::DISABLED_OPACITY_VAR`（static だけ） | `f64` | `control.disabled_opacity` | 0.5 | |
 
-`Theme` に field として残るもの（変数にしない。builder と accessor は今のまま）：`mode`（`ThemeMode`）、`focus_ring`、`focus_ring_offset`、`disabled_opacity`、`control_height`、`overlay_margin`、`icons`、`fonts`、拡張（`with`／`ext`。recipe の表と `InteractionPolicy` だけに使う）。
+`Theme` に field として残るもの（変数にしない。builder と accessor は今のまま）：`mode`（`ThemeMode`）、`focus_ring`、`focus_ring_offset`（focus の ring は style の一部。親の決定）、`icons`、`fonts`、拡張（`with`／`ext`。recipe の表と `InteractionPolicy` だけに使う）。
 
 ### 4.3 旧い名前から theme 変数への対応表（付属書 U・K・G が使う）
 
@@ -4103,6 +4389,11 @@ fallback は 2b8df5ac の `Theme::light()` の値、dark は `Theme::dark()` が
 | `Color::components()`（theme なし） / `components_in(theme)` | `components(&theme)` |
 | `Color::mix(other, t)`（theme なし） / `mix_in(other, t, theme)` | `mix(other, t, &theme)` |
 | `Color::resolve(theme)`（style の外） | core：`kivact_style::internal::resolve_color(c, theme)`、それ以外：`c.components(theme)` |
+| `theme.control_height()` / `.with_control_height(x)` | `theme.get(&control::HEIGHT_VAR)` / `.set(&control::HEIGHT_VAR, x)`。style には `control::HEIGHT` |
+| `theme.disabled_opacity()` / `.with_disabled_opacity(x)` | `theme.get(&control::DISABLED_OPACITY_VAR)` / `.set(&control::DISABLED_OPACITY_VAR, x)` |
+| `theme.overlay_margin()` / `.with_overlay_margin(x)` | `theme.get(&control::OVERLAY_MARGIN_VAR)` / `.set(&control::OVERLAY_MARGIN_VAR, x)`。style には `control::OVERLAY_MARGIN` |
+| `UiTokens` の `Option<f64>` の token で `None` のとき中核の値を使っていたもの（`tokens.field_radius.unwrap_or(t.radius().md)`） | 部品の変数を中核の変数の別名で宣言する（`ThemeVar::alias("combobox.field_radius", &radius::MD_VAR)`。4.1 節。12 章 UI-U-02） |
+| `cached_theme(build)`（2b8df5ac には無い。旧版の本付属書の案） | kit の `thread_local! { static LIGHT: Theme = light(); }` と `LIGHT.with(Theme::clone)`（12 章 PF-02） |
 | `kivact::platform::ThemeHint` | `kivact::style::ThemeMode`（S13） |
 | `kivact::geometry::Insets` | `kivact::geometry::Edges<f64>`（S13） |
 
@@ -4112,7 +4403,9 @@ W6 の S15 は、ui・core・devtools の呼出しを上の表で **同じ型の
 
 - `UiTokens` の値の field は、部品の module の theme 変数（4.1 節の `HEIGHT_MD` の形）にする（DEC-06）。fallback は 2b8df5ac の `UiTokens::default()`（または `fallback(theme)`）が作る値。`fallback(theme)` が palette から作っていた値は、fallback に中核の変数を置く（`ThemeVar::new("x", color::BORDER)`）。
 - recipe の上書き `Fn(&Theme, &Look<S>, Style) -> Style` の中の値の読みは `theme.get(..)`。
-- `Theme::ext` は表だけ（recipe、`InteractionPolicy`）。S09 で、拡張が無い theme の fallback は theme の値ごとに一度だけ作られる。
+- `Theme::ext` は表だけ（recipe、`InteractionPolicy`）。S09 で、拡張が無い theme の fallback は theme の値ごとに一度だけ作られ、theme のどの書込み（`set`・`with`・builder）でも作り直される（12 章 UI-S-01）。
+- 部品の token のうち、旧い `UiTokens` で `None` のとき theme の値（`t.radius().md` など）を使っていたものは、その中核の変数への別名で宣言する（4.1 節。値の数に固定しない。12 章 UI-U-02）。
+- 付属書 K への申し送り（12 章 PF-02）：kit の `theme(mode)` は `thread_local!` の static（4.1 節の例）で theme を一度だけ作る。`cached_theme` は無い。
 
 ### 4.5 setter の名前（S17・S20）と AC-4 の検査（付属書 G・U・K・作業指示書）
 
@@ -4140,15 +4433,15 @@ W6 の S15 は、ui・core・devtools の呼出しを上の表で **同じ型の
 
 ### 4.6 `kivact::draw` と `kivact::style` の分担（S20・S21。付属書 C・G・U・K）
 
-- `kivact::style` に移るもの：`Shadow`、`Filter`、`Transform`、`Paint`、`Gradient`、`CanvasGradient`、`GradientExtend`、`RadialExtent`、`linear_gradient`、`radial_gradient`、`conic_gradient`、`Shape`、`CornerRadius`、`BlendMode`、`Mask`、`MaskLayer`、`MaskMode`、`MaskComposite`、`BorderImage`、`BorderImageRepeat`、`BackgroundClip`、`BackgroundOrigin`、`PaintShader`、`FilterShader`、`ShaderPaint`、`ShaderFilter`、`ShaderValue`、`FilterGraph`、`FilterInput`、module `filter`、`FontStyle`（新）、`FlexDirection`（`Direction` の改名）、`ThemeVar`・`ThemeValue`・`FontFamily`・`cached_theme`・`try_use_theme`・module `color`・`space`・`radius`・`font`（新）。
+- `kivact::style` に移るもの：`Shadow`、`Filter`、`Transform`、`Paint`、`Gradient`、`CanvasGradient`、`GradientExtend`、`RadialExtent`、`linear_gradient`、`radial_gradient`、`conic_gradient`、`Shape`、`CornerRadius`、`BlendMode`、`Mask`、`MaskLayer`、`MaskMode`、`MaskComposite`、`BorderImage`、`BorderImageRepeat`、`BackgroundClip`、`BackgroundOrigin`、`PaintShader`、`FilterShader`、`ShaderPaint`、`ShaderFilter`、`ShaderValue`、`FilterGraph`、`FilterInput`、module `filter`、`FontStyle`（新）、`FlexDirection`（`Direction` の改名）、`ThemeVar`・`VarValue`・`ThemeValue`・`FontFamily`・`try_use_theme`・module `color`・`control`・`space`・`radius`・`font`（新）。
 - `kivact::draw` に残るもの：`Draw`、`Path`、`PathContour`、`Layer`、`Mix`、`Composite`（`Mix::Composite` の中身。設計書 5.8 の一覧に無いが、`Mix::Composite(Composite::DestinationOut)` を書くのに要る）、`Stroke`、`LineCap`、`LineJoin`、`FillRule`、`TextFormat`、`TextBaseline`、`TextMetrics`、`TextParagraph`、`InlineParagraph`、`InlineBox`、`InlineBoxPlacement`、`ImageOptions`、`Pixels`、`RegionId`、`Offscreen`。
 - `kivact::view` に移るもの：`IntrinsicSize`（`node().intrinsic_size(..)` の値）。
 - 公開から消えるもの：`kivact::draw::{TextRun, text_run}`（engine の wire の型）。core の内部は `kivact_style::draw::text_run` を使い続ける。
 
 ### 4.7 付属書 C への申し送り
 
-- **prelude**（設計書 5.11）：`color`・`space`・`radius`・`font` の module は W6 の S15 で生まれる。付属書 C が W5 で prelude を書くときは、この 4 つを除いた 5.11 の一覧を書き、S15 が足す。`ColorToken`・`ThemeColor`・`use_tokens` は W5 で prelude から外してよい（名前は S15 まで `kivact::style` に残る）。`Transform` は 5.11 に無い（S20 が prelude から消す）。`Shadow` は S20 の後 `kivact::style::Shadow`。
-- **font の登録**（USR-12）：S09 が `Theme::with_fonts(&'static [&'static [u8]])` と `Theme::fonts() -> &[&'static [u8]]` を W2 で足す。`App::theme(t)` と `RenderOptions::with_theme(t)` は `t.fonts()` を登録する（`App::fonts`・`TestFonts::Only` の削除は付属書 C）。`provide_theme` で後から切り替えた theme の font の登録も付属書 C（`install_theme` と同じ場所）。
+- **prelude**（設計書 5.11）：`color`・`space`・`radius`・`font` の module は W6 の S15 で生まれる。`control` の module（S15）は prelude に入れない（`kivact::style::control` から import する）。付属書 C が W5 で prelude を書くときは、この 4 つを除いた 5.11 の一覧を書き、S15 が足す。`ColorToken`・`ThemeColor`・`use_tokens` は W5 で prelude から外してよい（名前は S15 まで `kivact::style` に残る）。`Transform` は 5.11 に無い（S20 が prelude から消す）。`Shadow` は S20 の後 `kivact::style::Shadow`。
+- **font の登録**（USR-12・12 章 API-13）：S09 が `Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)` と `Theme::fonts() -> &[Asset]` を W2a で足す（path・`Vec<u8>`・共有 bytes・`include_bytes!` を同じ入口で受ける。`.leak()` は要らない）。登録済みかどうかは `Asset` の同一性（`PartialEq`：static と共有 bytes は address と allocation、path は値）で判定し、同じ font を二度読まない。`App::theme(t)` と `RenderOptions::with_theme(t)` は `t.fonts()` を登録する（`App::fonts`・`TestFonts::Only` の削除は付属書 C）。`provide_theme` で後から切り替えた theme の font の登録も付属書 C（`install_theme` と同じ場所）。
 - **style の内部の橋**（`kivact_style::internal`）の S12・S16・S18・S22 の後の形：`record(size, RecordContext { theme, shaper, regions }, f) -> Recording`、`compile_style(s: Style /*値で*/, theme, Interactive { focusable, disabled, selected, root, forced: StateSet, active: StateSet }) -> CompiledStyle`、`resolve_color(color, theme) -> Rgba`、`compile_span(&Style, &Theme) -> (TextStyle, Option<Fill>, u32)`、`describe_style`・`describe_state_styles`、`install_theme`・`theme_of`、`with_scroll_axes`。`ForcedStates` は `kivact_types::StateSet` になる（S18）。
 - **Offscreen の crate 化**（RC-29）：付属書 C の C02（W2b）が `crates/kivact-core/src/draw/offscreen.rs` を `crates/kivact-offscreen/src/lib.rs` に移している。S12（W3a）はその場所を直す。S15・S16 も同じ path（`crates/kivact-offscreen/src/lib.rs` の `self.theme.text().family` など。付属書 C の S-REQ-4）を直す。
 - **ST-23（`prefer_gpu` と `GpuStart::Never`）**：付属書 A の A05（W5 の鎖）が実装する。`crates/kivact-types/src/{embed.rs, gpu.rs}` の変更は A05 の所有。本付属書に unit は無い。
@@ -4190,12 +4483,13 @@ W2 の lane A（S02〜S06）は kivact-types・engine・arvane-*・svg の全体
 1. （解決済み）AC-4 の旧 setter の名前の検査は作業指示書 2 章（INC-37。4.5 節）。
 2. 決定済み（採用）：**`TextFormat`（`Draw` の文字の書式）を ST-11 の「`style: TextStyle` を持つ形」にしない**。理由：`TextStyle` は解決した値（`Rgba`）で、`TextFormat` は作者の値（`Color`、theme 変数を含む）の FRU の公開 struct。設計書 7.4 の ST-10 の判定（作者の値と解決した値の組は別の事実として残す）と同じ理由で、作者の書式に解決した型を埋め込まない。S22 は span と編集の range を一つの語彙（作者は `Style`、解決は `TextStyle`）にし、span の装飾の style の不具合を直す。推奨：この形で確定。
 3. 決定済み（採用）：**`Typography` を全部消す**（設計書 5.7 は「`Typography` の大きさ」を消すと書く）。family・太さ・行の高さも `font::*` の変数にした（`with_text` が消えると残りの field を設定する道が無く、変数の方が一つの書き方になるため）。`Theme::text()` も消える。推奨：この形で確定。
+4. `Length` の `em`（12 章 UI-S-03）：layout・塗りの長さの `em` は、その style が設定する `font_size` の倍、設定しなければ theme の `font::SIZE` の倍（compile の時点で解決する。先祖の style の font の大きさは継がない）。`font_size(em(x))` は `font::SIZE` の倍。文字の長さ（`letter_spacing` など）の `em` は従来どおり engine が文字の font の大きさで解決する（wire の `TextLength::Em`）。
 
 ## 5. 自己点検
 
 - **採用・変更して採用の全所見がどれかの unit にある**：ST-01（S15）、ST-02（S15）、ST-03（S09・S16）、ST-04（S15）、ST-05（S04・S19）、ST-06（S18）、ST-07（S09）、ST-08（S17・S18）、ST-09（S04・S18）、ST-10（S13。同一の組の 6 つだけ）、ST-11（S06・S22。`TextFormat` は 4.13 の 2）、ST-12（S17）、ST-13（S05）、ST-14（S05）、ST-15（S11）、ST-16（S05）、ST-17（S03・S21）、ST-18（S12）、ST-19（S13）、ST-20（S02。`kivact-cell` は作らない）、ST-21（S06・S14。`EmbedVisibility` は付属書 C、4.7 節）、ST-22（S20。`Color::resolve` の非公開は S16）、ST-23（付属書 A の A05、4.7 節）、ST-25（S07）、ST-26（S09）、ST-27（S10。ui 側は 4.8 節）、ST-28（S23。規則の変更は付属書 T）、ST-29（S09・S20・S23）、ST-30（S08・S17・S20）、ST-31（S18）、DEC-13（S01）。ST-24 は不採用（unit なし）。
-- **設計書 5.7・5.8 の契約**：`ThemeVar<T>`（S15）、`Color::var`・`Length::var`（S15）、`Theme::set/get`（S15）、中核の `color`・`space`・`radius`・`font`（S15）、全状態が全 property を受ける（S19）、CSS の名前（S20）、CSS の値の型は `kivact::style` だけ（S20）、`Theme(Arc)`（S09）、`Theme::with_fonts`（S09）、`Theme::with_icons`（2b8df5ac に既にある。変更なし）、`cached_theme`（S09）、`components(&Theme)`・`mix(.., &Theme)`（S16）、`relative_luminance`・`contrast_ratio`（S09）、`ThemeMode` を types に（S13）、`kivact::draw` は描画者の型（S20・S21）、`Mix`（S03・S21）、`Pixels` の premultiplied の doc は付属書 A（AR-10）、SVG の方針 DEC-11（S11）、`text_decoration_style(v: TextDecorationStyle)`（S17）。5.12 の削除名のうち本付属書が消すもの：`ThemeColor`、`ColorToken`、`Palette`、`Spacing`、`Radii`、`use_tokens`（S15）、`ThemeHint`、`Dimension`、`TextLen`、`GridFlow`、`Insets`（S13）、`SpanStyle`（S22）、`TextExtras`（S17 で作者の構造ではなくなり、畳んだ record の中の private な型になる。S23 の手順 5 で `TextRareFields` に改名する）、`DecorationStyleValue`（S17）、`Composite` を `Layer::composite` として（S21）、旧 style setter（S20）。
-- **unit に設計の判断を残していない**：判断の要る 3 点は 4.13 節に推奨とともに書き、unit はその推奨で書いた。各 unit の「手順」は名前・署名・コード・コマンドを与え、compile の error に応じる手直しは規則（どの error に何をするか）で与えた。
+- **設計書 5.7・5.8 の契約**：`ThemeVar<T>`（S15）、`Color::var`・`Length::var`（S15）、`Theme::set/get`（S15）、中核の `color`・`space`・`radius`・`font`（S15）、全状態が全 property を受ける（S19）、CSS の名前（S20）、CSS の値の型は `kivact::style` だけ（S20）、`Theme(Arc)`（S09）、`Theme::with_fonts`（S09）、`Theme::with_icons`（2b8df5ac に既にある。変更なし）、`cached_theme` は作らない（12 章 PF-02。4.4 節）、`Theme` の一つの編集の入口（S09。UI-S-01）、すべての型の別名（S15。UI-U-02）、`Length` の式（S15。UI-S-03）、状態の paint callback（S17・S18・S19。UI-S-02）、`kivact::style::control`（S15）、`components(&Theme)`・`mix(.., &Theme)`（S16）、`relative_luminance`・`contrast_ratio`（S09）、`ThemeMode` を types に（S13）、`kivact::draw` は描画者の型（S20・S21）、`Mix`（S03・S21）、`Pixels` の premultiplied の doc は付属書 A（AR-10）、SVG の方針 DEC-11（S11）、`text_decoration_style(v: TextDecorationStyle)`（S17）。5.12 の削除名のうち本付属書が消すもの：`ThemeColor`、`ColorToken`、`Palette`、`Spacing`、`Radii`、`use_tokens`（S15）、`ThemeHint`、`Dimension`、`TextLen`、`GridFlow`、`Insets`（S13）、`SpanStyle`（S22）、`TextExtras`（S17 で作者の構造ではなくなり、畳んだ record の中の private な型になる。S23 の手順 5 で `TextRareFields` に改名する）、`DecorationStyleValue`（S17）、`Composite` を `Layer::composite` として（S21）、旧 style setter（S20）。
+- **unit に設計の判断を残していない**：4.13 節の 3 点は親が決定済み。`em` の基準（style が設定する font の大きさ、無ければ `font::SIZE`）は S15 に書いた。各 unit の「手順」は名前・署名・コード・コマンドを与え、compile の error に応じる手直しは規則（どの error に何をするか）で与えた。
 - **同じ wave の二つの unit が同じファイルを所有しない**：W1a は S01 だけ。W2 は lane A（S02〜S06。順番に実行）と lane S（S07〜S09。順番に実行）で、lane S は kivact-types・engine・arvane・svg のファイルを持たない（S07 の `kivact-shader`、`kivact-style` の shader、core・kivact の `Cargo.toml`、e2e の `shaders.rs`；S08 の style の effect と icon；S09 の style の theme）。lane A が持つ style のファイルは `draw.rs`・`draw/layer.rs`（S02・S03）と `resolve/compile.rs`（S04）で、lane S の unit はこれらを持たない。lane A が持つ core のファイル（`view/drawable/events.rs`、`view/drawable_share.rs`、`launch/runtime.rs`、S04 の手順 10 の `match`）と、S02 の root `Cargo.toml`・`workspace.toml`、S07 の core・kivact の `Cargo.toml` は、付属書 C の C01・C02 と重なるので、C01・C02 は W2b に置かれた（作業指示書 4 章。INC-23）。W3a の S の lane は S10〜S12（順番）。W6a は S13・S14、W6b は S15〜S23 と C19 の鎖（順番）。
 - **新しい状態の型の閉じ方**：`StateStyles`（S04：印の 1 行）、`FilterGraph`（S08：印の 1 行）、`ThemeData`（S09：対象外、印の文面も用意）、`Groups`（S17：印の 1 行）、`Draw`（S12：印の 1 行）、`Mix`・`StyleState`・`Units`・`FontStyle`（enum）、`StateSet`・`TypeMap`・`VarTable`・`FontFamily`・`ThemeVar`・`Style`（field 一つか constructor だけが書く）。
 - **unit の大きさ**：手で書くコードが 600 行を超えうるのは S17（表の行と shorthand。表の行は機械的な転記）と S15（変数の module と `vars.rs`、devtools の表）。どちらも残りは perl の置換。

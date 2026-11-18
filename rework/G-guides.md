@@ -27,7 +27,7 @@
 1. **公開 API は設計 5 章のとおり実装済み**（付属書 R・C・S・U・K）。名前の正本は各付属書の 4 章の対応表である。本付属書のコードがそれと違う名前を使っていて compile できないときは、**その付属書の 4 章の名前に直す**（推測で別の名前を作らない）。4 章にも無いときは STOP。
 2. **付属書 T（W1）**：
    - `dev/tests/docs/build.rs` は英語の木（`for-kivact-user/en`、`for-kivact-ui-user/en`）と `README.md` だけを doctest にする（TL-03）。
-   - xtask の検査 `docs-pairs` がある：対になる日本語のファイル（`/en/` → `/jp/`、`README.md` → `README_JP.md`）の「info 文字列が `rust` で始まる fenced code block の列」が英語と文字列として同一であることを確かめる。
+   - xtask の検査 `docs-pairs` がある（12 章 TV-06）：en と jp のファイルの集合の和を比べ（片方にしか無いファイルは error）、対になるファイル（`/en/` → `/jp/`、`README.md` → `README_JP.md`）の「info 文字列が `rust` で始まる fenced code block の列」を `proc-macro2` の token の列で比べる。文字列の literal は中身だけを無視し、形は確かめる。
    - 6.3 節の新しい検査のうち W11 まで error にできないものは、`dev/xtask/policy/workspace.toml` の報告だけの一覧 `[rework.pending]` に入っている（T 4.4）。`state` と `docs-pairs` の行は T22（W1c）が消している。残りの行（`interaction-view`、`ui-machine`、`unit-machine`、`hand-element`、`element-shadow`）は U・C・K が通し、G15 が表と pending のコードを消す。
    - 公開 API の E2E は `kivact-public-api-tests` の `e2e_core`・`e2e_ui`・`e2e_native` と、新しい package `kivact-kit-tests`（`dev/tests/kivact-kit-tests`）の `e2e_kits` に分かれている（T15。workspace は 54 package）。`python/` と xtask の `devtools_codegen*` は消えている。`kivact-devtools-client` は `kivact-devtools-protocol` の feature `client` に統合済み。`architecture/` は git から外れ、図は `cargo xtask diagrams`。`state-fields` は `state` に置き換わっている。
    - `CONTRIBUTING.md` の「テスト」と「merge 前の検査」は付属書 T が書き直している（tier a/b/c、e2e の binary、window-lock、state の検査、Python と `--report-audit` と `git diff --quiet -- architecture` の削除）。G15 はそれを確かめるだけで、残っていれば直す。
@@ -72,7 +72,7 @@
 ### 1.4 文書の unit に共通の規則
 
 1. 英語のファイルを先に直し、doctest で compile を確かめてから、日本語のファイルを直す。
-2. 日本語のファイルの Rust の code block（info 文字列が `rust` で始まる fenced block）は、英語の同じ順番の block と**一字一句同じ**にする（コメント・文字列も英語のまま。docs-pairs）。手で写さず、3.0.2 の script で写す。日本語の本文（説明の文章）は、英語の新しい本文を日本語に訳して書く。既存の日本語の文体（です・ます、用語）に合わせる。
+2. 日本語のファイルの Rust の code block（info 文字列が `rust` で始まる fenced block）は、英語の同じ順番の block と**一字一句同じ**にする（コメント・文字列も英語のまま）。docs-pairs は token の列を比べ文字列の中身を無視するが、本改修では訳さずに写す（判断を残さないため）。手で写さず、3.0.2 の script で写す。日本語だけにある file・英語だけにある file を作らない（docs-pairs は file の集合も比べる）。日本語の本文（説明の文章）は、英語の新しい本文を日本語に訳して書く。既存の日本語の文体（です・ます、用語）に合わせる。
 3. 文書の中の「部品」は 1 つの書き方だけを教える：`#[component]`。3.0.4 の規則で変換する。
 4. 旧名（設計 5.12、3.0.3 の表の左の列）を、移行ガイド `migrating-to-rework.md` 以外の文書に残さない。
 5. 内部の作業の言葉（付属書、unit、wave、AC、所見 ID、`REWORK_*`）を利用者向けの文書・README・rustdoc に書かない。非公開の利用者のリポジトリの名前や内容を書かない。
@@ -125,6 +125,8 @@ cargo xtask check --no-write --only docs-pairs
 ```
 
 - doctest が 1 つでも失敗したら、その block を直してから次へ進む。期待値（test の assert）を緩めない。
+- `KIVACT_DOCS_ONLY` の絞り込みで doctest が 0 件だったら失敗とする（path の書き間違い）。出力の `test result: ok. N passed` の N が、所有するファイルの Rust の block の数（`ignore` を除く）と同じであることを確かめる。`cargo test` は一つのコマンドで一つの package・binary だけを実行する（12 章 PLAN-07）。
+- コマンドは worktree の root で実行する。固定の path へ `cd` しない（必要なら `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1`。12 章 PLAN-04）。
 - `docs-pairs` は W1c から error である（付属書 T の T22 が pending から外す）。W11b では別の lane が同時に他の対を直しているので、出力に自分の所有するファイルの名前が出ないことを確かめる。
 - 試験を実行する `cargo test` は、作業指示書の全体の指示（INC-15）のとおり必ず `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で実行する（環境変数は `env` の後に並べる）。`kivact-docs` は `--all-features` だけで実行し、`--no-default-features` では実行しない（docs は feature が無いと compile できない。T 4.1、INC-31）。
 
@@ -200,7 +202,7 @@ PERL
 | `try_use_context::<T>()` returned `Option<Value<T>>` | it returns `Option<T>` |
 | `signal.update(f)` returned `R` and panicked on the signal of a removed component | it returns nothing: a write to the signal of a removed component is reported and does nothing; read a computed value with `with` after the update |
 | `Callback::bind(..)`, `Callback::to_fn()` | pass the `Callback` itself: every `on_*` and every callback prop accepts it |
-| `let c: Callback<()> = (move \|\| ..).into();` | `let c = callback(move \|\| ..);` |
+| `let c: Callback<()> = (move \|\| ..).into();` | `let c = callback(move \|_\| ..);` |
 | `kivact::custom::Reactive<T>` | store a `Value<T>` |
 | `IntoReactive<bool>` in the bounds of `show`, `show_some`, `dynamic` | `impl IntoValue<bool>`; call sites do not change |
 | `kivact::state::Owner` | `kivact::custom::Owner` |
@@ -213,11 +215,11 @@ PERL
 | `on_press(impl Into<Callback<()>>)` | a handler without an event (`on_press` and every `Callback<()>` prop) takes a closure `move \|\| ..` or a `Callback<()>` |
 | a handler with an event (`on_key`, `on_activate`, `on_commit`, `on_edit`, a `Callback<E>` prop) | unchanged: a closure `move \|event\| ..`; to pass a shared `Callback<E>`, write `move \|e\| cb.call(e)` |
 | `.on_draft_commit(f)` | `.on_commit(f)` |
-| `stepper(items, current).on_step_press(f)` | `stepper(items, current)` with `current: Signal<usize>`; read the signal |
+| `stepper(items, current).on_step_press(f)` | `stepper(items, current)` with `current: Signal<usize>`; read the signal, and `.on_edit(\|phase\| ..)` reports each edit phase |
 | `tag_input(label, tags).on_add(f).on_remove(g)` | `tag_input(tags).label(label)` with `tags: Signal<Vec<String>>` |
 | `avatar(..).on_open(f)` | removed: what the avatar opens takes a `Signal<bool>`; see the `avatar` rustdoc |
 | `hover_card(..).on_open_change(f)`, `navigation_menu(..).on_open_change(f)` | `.open(signal)` and read the signal |
-| a handler shared by two controls built with `Callback::from(..)` | `let save = callback(move \|\| ..);` and pass `save` to both |
+| a closure shared by two handlers (`let save = move \|\| ..;` passed twice), or one built with `Callback::from(..)` | `let save = callback(move \|_\| ..);` and pass `save` to both: every shared handler is a `Callback`, with or without an event |
 
 ## Views and elements: `kivact::view`
 
@@ -228,7 +230,6 @@ PERL
 | `kivact::task::AsyncSnapshot` | `AsyncState` |
 | `card(..).disabled(..)`, `card(..).on_press(..)` (methods of one component) | the same calls, now the `Element` methods every component has |
 | `.variant(..)` defined by each component | the same call, now `Element::variant` |
-| `provide_direction(dir, ..)` took a constant | it takes a constant, a signal or a closure |
 | `use_direction()` returned `Value<ReadingDirection>` | it returns `ReadingDirection` |
 | an invisible node and a timer to make the focused field commit its draft before saving | `kivact::view::commit_focused_edit().await` |
 | `spacer()` could not shrink below its content | `spacer()` has a minimum size of 0 |
@@ -243,6 +244,7 @@ PERL
 | `text_area("Bio", value)`, `select("Color", items, value)`, `combobox("Colors", items, value)`, `slider("Volume", value)`, `number_input("Count", value)`, `date_input("Date", day)`, `date_range_input(..)`, `time_input(..)`, `date_time_input(..)` | the name moves to `.label("..")` or to the enclosing `field("..", ..)` |
 | `button(label)`, `checkbox(label, value)`, `switch(label, value)`, `radio_group(name, items, value)` | unchanged: their label is visible |
 | a focusable control without a name | reported when it mounts (an error in debug builds and in `kivact::test`) |
+| `tooltip(text).attach(trigger)` | `tooltip(text, trigger)` |
 | `toaster()` | `use_toaster()` |
 | `announcer()` | `use_announcer()` |
 | `selection_field(label, value_label).content(f)` | `select(items, value).label(label).trigger(view)` |
@@ -267,7 +269,7 @@ PERL
 | `action(ActionMode::Queue, f)`, `action(ActionMode::QueueLatest, f)` | `queued_action(f)`: runs go one at a time, in order, and every run is kept |
 | `action.close()` | gone: a queued action finishes with its owner |
 | `.on_complete(\|outcome\| match outcome { ActionOutcome::Succeeded(v) => .., ActionOutcome::Failed(e) => .. })` | `.on_complete(\|result: Result<T, UiError>\| ..)` |
-| a channel plus `spawn` to receive values from your thread | `let (value, sender) = kivact::task::remote(initial);`: `value` is a `Signal<T>`, `sender` is `Send` and has `set` and `update` |
+| a channel plus `spawn` to receive values from your thread | `let (value, sender) = kivact::task::remote(initial);`: `value` is a `Signal<T>`, `sender` is `Send` and has `set`; the UI gets the latest value once per turn, and a `set` after the component is removed is dropped |
 | a capacity-1 channel to wake the UI from your thread | `let (changed, wake) = kivact::task::remote_trigger();`: `wake.notify()` never blocks |
 | a timer per widget for a clock | `kivact::task::clock(every)`: one shared timer per period |
 | `blocking(..)` outside a running App | reported as `WrongApp` at the call site |
@@ -276,14 +278,14 @@ PERL
 
 | Before | After |
 |---|---|
-| `App::new(..).fonts(fonts)` | `App::new(..).theme(Theme::light().with_fonts(FONTS))` with `const FONTS: &[&[u8]] = &[..];` |
+| `App::new(..).fonts(fonts)`, `App::new(..).font(bytes)` | `App::new(..).theme(Theme::light().with_fonts([regular, bold]))`: each item is a `Vec<u8>`, static bytes (`include_bytes!(..).as_slice()`), a path or shared bytes |
 | `kivact::launch::{GpuPreference, GpuPower, GpuBackend, GpuStart, AdapterMatch}` | `kivact::platform::{GpuPreference, GpuPower, GpuBackend, GpuStart, AdapterMatch}` |
 | `prefer_gpu(false)`, `EmbedOptions.prefer_gpu` | `GpuStart::Never` in `GpuPreference` |
 | `ARVANE_RENDERER=cpu` / `gpu` | `cpu`, `gpu` or `auto` = `GpuStart::Never`, `AtLaunch` or `OnDemand` |
 | `app.clone()` | `App` is not `Clone`; take `App::handle()` before `run` to reach it from elsewhere |
 | `kivact::AppOptions`, `kivact_core::launch::AppOptions` | the setters of `App` |
 | `platform::on_close_request(f)` covered the main window only | it covers the window of the component that calls it (the main window, a `window(..)`, a foreign window) |
-| `kivact::test::TestFonts::Only(fonts)` | `RenderOptions::with_theme(theme.with_fonts(FONTS))` |
+| `kivact::test::TestFonts::Only(fonts)` | `RenderOptions::with_theme(theme.with_fonts([font]))` |
 
 ## Embedding: `kivact::embed`
 
@@ -307,6 +309,9 @@ PERL
 | `use_tokens()` | theme variables |
 | `.style(move \|\| { let t = use_theme().get(); style().padding(t.space().md) })` | `.style(style().padding(space::MD))`: no closure, the value follows the theme |
 | a `ThemeExtension` that holds colors or sizes | your own `ThemeVar` statics; `ThemeExtension` stays for tables of functions |
+| `theme.with_control_height(h)`, `theme.control_height()` | `theme.set(&control::HEIGHT_VAR, h)`, `theme.get(&control::HEIGHT_VAR)`; `control::HEIGHT` in a style (`kivact::style::control`) |
+| `theme.with_disabled_opacity(o)`, `theme.disabled_opacity()` | `theme.set(&control::DISABLED_OPACITY_VAR, o)`, `theme.get(&control::DISABLED_OPACITY_VAR)` |
+| `theme.with_overlay_margin(m)`, `theme.overlay_margin()` | `theme.set(&control::OVERLAY_MARGIN_VAR, m)`, `theme.get(&control::OVERLAY_MARGIN_VAR)` |
 | `ThemeHint` | `ThemeMode` |
 | `.weight(700)` | `.font_weight(700)` |
 | `.italic(true)` | `.font_style(FontStyle::Italic)` |
@@ -369,6 +374,8 @@ PERL
 8. 書き換えた関数の呼出し側は変えない（位置引数の順は宣言の順）。`#[prop(optional)]` を消し、`Option<..>` の型だけ残す。
 9. compile で「the name `X` is defined multiple times」や型の衝突が出たら、関数の名前に `_view` を足す（`fn toast()` → `fn toast_view()`）。
 10. `.with_node(|n| n.role(..))` のように `with_node` で root の `Node` の method を呼んでいた builder は、本体の root が `node()` なら `.role(..)` を直接呼ぶ。部品の呼出しの後ろの `with_node` は残す。
+11. 二つ以上の handler に渡す closure（`let add = move || { .. };` を `.on_submit(add)` と `.on_press(add)` に渡すなど）は、`let add = callback(move |_| { .. });` にする（閉じ括弧は `});`）。payload のある handler で共有するときも `callback(move |e| ..)` で作り、渡すときは `move |e| add.call(e)` と書く（設計 5.5、12 章 API-7）。
+12. 開くたびに作り直す中身（`show`・dialog・popover の content）を受ける props は `ViewFn`、一度だけ mount する slot は `View`（12 章 API-8）。props で関数を受けるもの（formatter など、handler でないもの）は `Rc<dyn Fn(A) -> T>`（呼出し側は closure を渡す。5.1 規則 3 の Func）。
 
 
 #### 3.0.5 how-to のガイドを直す unit（G04〜G08）の共通の手順
@@ -395,7 +402,8 @@ rg -n -w -e Binding -e IntoBinding -e IntoReactive -e Notifier -e notifier -e Ac
   -e CodeColors -e GameInputGroupVariant -e GameCellVariant -e PopBubble <files>
 rg -n -e '\.(weight|italic|radius|radius_[a-z_]+|ring|ring_offset|ring_none|basis|grow|shrink|direction|pressed|blend|composite|project)\(' \
   -e 'DialogMode::Popover' -e 'kivact::launch' -e '\bscope\(' -e '\bDirection::' -e 'TestFonts::Only' \
-  -e 'kivact::custom::Reactive' -e '#\[prop\(optional\)\]' -e 'Color::token' -e 'Color::of' <files>
+  -e 'kivact::custom::Reactive' -e '#\[prop\(optional\)\]' -e 'Color::token' -e 'Color::of' \
+  -e '\.(with_control_height|with_disabled_opacity|with_overlay_margin|control_height|disabled_opacity|overlay_margin)\(' <files>
 ```
 
 `ButtonTone` は game の kit の旧名だけ（pop の `ButtonTone` は残る。設計 5.12）なので、game の文書（`docs/for-kivact-ui-user/*/game`）だけで `rg -n -w ButtonTone` を探す。`TokenKind` は DevTools の protocol の型として残るので文書では探さない（kit の syntax の色の旧名は付属書 K の 4 章の表で探す）。
@@ -824,13 +832,13 @@ fn app() -> impl IntoView {
     let draft = signal(String::new());
     let last_added = signal(String::new());
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             last_added.set(title);
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(),
@@ -891,8 +899,9 @@ debug build or a test that report is an error.
 
 **`.on_submit(add)`** runs when you press Enter inside the field.
 **`.on_press(add)`** runs when you press the button. Both use the same
-closure. This works because `add` only captures `Copy` signal handles, so the
-closure is `Copy` itself and can be passed twice.
+action: `callback(move |_| ..)` turns the closure into a `Callback`, a small
+`Copy` handle that any number of handlers can share. The `_` is the event the
+handler receives; Enter and a press carry none.
 
 **`.disabled(move || ..)`** takes a closure that reads state, like `text` does.
 The Add button is disabled while the draft is empty or only spaces. Here
@@ -975,7 +984,7 @@ fn app() -> impl IntoView {
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -983,7 +992,7 @@ fn app() -> impl IntoView {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(),
@@ -1136,7 +1145,7 @@ fn tasks_screen(dark: Signal<bool>) -> impl Element {
     let draft = signal(String::new());
     let left = memo(move || tasks.with(|list| list.iter().filter(|task| !task.done).count()));
 
-    let add = move || {
+    let add = callback(move |_| {
         let title = draft.get().trim().to_owned();
         if !title.is_empty() {
             let id = next_id.get();
@@ -1144,7 +1153,7 @@ fn tasks_screen(dark: Signal<bool>) -> impl Element {
             tasks.update(|list| list.push(Task { id, title, done: false }));
             draft.set(String::new());
         }
-    };
+    });
 
     column((
         header(dark),
@@ -1203,9 +1212,10 @@ build time. For bytes produced at runtime, `kivact::view::AssetBytes::new(bytes)
 retains an owned `Vec<u8>`. Generated RGBA pixels use
 `kivact::draw::Pixels::new(width, height, rgba)`, where `rgba` can also be an
 owned vector containing four bytes per pixel. Clone an existing `AssetBytes`
-when reusing unchanged bytes. Fonts belong to the theme: declare
-`const FONTS: &[&[u8]] = &[include_bytes!("Inter.ttf")];` and start the app
-with `App::new("Tasks").theme(Theme::light().with_fonts(FONTS))`.
+when reusing unchanged bytes. Fonts belong to the theme: start the app with
+`App::new("Tasks").theme(Theme::light().with_fonts([include_bytes!("Inter.ttf").as_slice()]))`.
+`with_fonts` takes a list of fonts, each one static bytes, a `Vec<u8>` read at
+run time or a path.
 
 **Button variants.** A button is the main action by default (`Primary`, filled with the accent color). `.variant(ButtonVariant::Ghost)` gives Remove a quiet look with no fill until you hover it. The other variants are `Secondary`, `Outline`, `Danger` and `Link`.
 
@@ -1454,7 +1464,7 @@ This is the model of SolidJS. Two consequences:
 | Props | props object | props object | arguments of the component: `Value<T>` for a value that may change, `Signal<T>` for a value the component writes, `View` for children, `Callback<E>` for handlers; required ones are positional, `Option<..>` ones become setters |
 | Children | `children` | `props.children` | a `View` prop (one slot), `Vec<View>` (several), or `ViewFn` (built again on every opening) |
 | Callback prop | `onSave` prop | `onSave` prop | a `Callback<()>` prop takes a closure or a `Callback<()>`; a `Callback<E>` prop takes a closure `move \|e\| ..` |
-| Shared handler | `useCallback` | a function | `callback(f)` makes a `Copy` `Callback<E>` |
+| Shared handler | `useCallback` | a function | `callback(move \|_\| ..)` makes a `Copy` `Callback`; pass it to several handlers |
 | State machine | `useReducer` plus effects | reducer plus effects | `Machine`: explicit states, events, effects and timers |
 | State | `useState` | `createSignal` | `signal(value)`; `get`, `with`, `set`, `update` on one `Signal<T>` |
 | Two-way value | `value` + `onChange` | `value` + `onInput` | pass a `Signal<T>`; `bind!(form.name)` for one field of a struct; `binding(get, set)` for a converted value |
@@ -1849,8 +1859,9 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-Writes are merged: the UI sees the latest value once per turn, however often
-the thread writes. When the thread only has to say "something changed",
+Writes are merged: the UI sees the latest value once, at the start of its next
+turn, however often the thread writes. When the component is removed, the
+sender closes and later values are dropped. When the thread only has to say "something changed",
 `remote_trigger()` gives a `Trigger` for the UI and a `Send` sender whose
 `notify()` never blocks. See
 [Run async work from a component](async-and-tasks.md#receive-values-from-another-thread).
@@ -2360,8 +2371,8 @@ use kivact::test::{RenderOptions, render_with};
 
 /// The colors of `status_dot`. Without a value in the theme, they follow the
 /// core success and muted colors.
-pub static ONLINE_VAR: ThemeVar<Color> = ThemeVar::new("status.online", color::SUCCESS);
-pub static OFFLINE_VAR: ThemeVar<Color> = ThemeVar::new("status.offline", color::TEXT_MUTED);
+pub static ONLINE_VAR: ThemeVar<Color> = ThemeVar::alias("status.online", &color::SUCCESS_VAR);
+pub static OFFLINE_VAR: ThemeVar<Color> = ThemeVar::alias("status.offline", &color::TEXT_MUTED_VAR);
 pub const ONLINE: Color = Color::var(&ONLINE_VAR);
 pub const OFFLINE: Color = Color::var(&OFFLINE_VAR);
 
@@ -2411,7 +2422,10 @@ mod tests {
   `const` anywhere a value goes; when the theme changes, every style that uses it
   follows, like `var(--x)` in CSS.
 - `theme.set(&VAR, value)` gives the variable a value in that theme. The value
-  may be another variable (`theme.set(&ONLINE_VAR, color::ACCENT)`).
+  may be another variable: `theme.set(&ONLINE_VAR, &color::ACCENT_VAR)`.
+- A variable that follows another one until a theme sets it is declared with
+  `ThemeVar::alias(name, &OTHER_VAR)`, as both variables above are. This is the
+  one way to write an alias, for every kind of variable.
 - The name identifies the variable in diagnostics and DevTools; prefix it with
   the name of your library.
 - `ThemeExtension` is for tables that are not values, such as the recipe tables
@@ -2547,6 +2561,43 @@ mounts; in debug builds and in `kivact::test` the report is an error.
 Focus needs no forwarding: pressing a field's label activates the control
 inside it, as the second test shows.
 
+## Read what the caller set
+
+A component of a library sometimes depends on what its caller wrote after the
+call: a tag looks pressable only when the caller gave it `.on_press(..)`. Add an
+argument marked `#[caller]`: Kivact passes a snapshot of the modifiers the
+caller set on this component (its variant, disabled state, description and
+whether it has a press handler). The caller does not pass it.
+
+```rust,no_run
+use kivact::custom::Caller;
+use kivact::prelude::*;
+
+/// A tag that looks pressable only when the caller gave it `on_press`.
+#[component]
+pub fn tag(label: Value<String>, #[caller] caller: Caller) -> impl Element {
+    let pressable = caller.has_press();
+    text(label).style(
+        style()
+            .padding_x(8)
+            .border_radius(radius::SM)
+            .background(color::SURFACE_ALT)
+            .cursor(if pressable { Cursor::Pointer } else { Cursor::Default }),
+    )
+}
+
+fn app() -> impl IntoView {
+    row((tag("Draft"), tag("Open").on_press(|| println!("open")))).style(style().gap(8))
+}
+
+fn main() -> kivact::Result<()> {
+    App::new("Tags").run(app)
+}
+```
+
+The snapshot is taken when the component mounts. Read it in the body, as above;
+apps rarely need it.
+
 ## Report misuse of your component
 
 When a component gets an argument it cannot honor, fail where the developer can
@@ -2603,6 +2654,7 @@ says what to change:
   `kivact::view::Node`, `kivact::component`, `kivact::style::{Theme, ThemeVar, IconSet}`.
 ````
 
+- 「Read what the caller set」の節（`#[caller] caller: Caller`。設計 5.1 の規則 10）の `Caller` の path と method の名前（`has_press`）は、付属書 U の 4.2 節 R3 に合わせる（`kivact::custom::Caller`。method は `variants`、`disabled`、`expanded`、`invalid`、`name`、`description`、`labelled_by`、`has_press`）。
 - 「What `#[component]` rejects」の箇条書きは、付属書 C の 4 章が macro の拒否の一覧を書いていれば、その一覧に合わせる（型引数は受け、lifetime と const の引数は拒む。設計 5.1 の規則 9）。
 - **消すもの**：両ファイルの `scope(..)`、`constant_value!`、`#[prop(optional)]`、`ThemeExtension` で色を持つ例、`use_theme().get().ext::<..>()`、`impl IntoText` と `.into_text_value()`、`Binding`、`ColorToken`、「When you need an `Element`」の節、「Give a plain function its own setup lifetime」の節。
 - **状態の閉じ方**：新しい型なし。
@@ -2660,6 +2712,7 @@ says what to change:
       ```
       （info 文字列は元の `rust,no_run` のまま）。節の最初の段落を次にする：「`.attach(trigger)` makes the trigger open the dialog and returns the trigger and the dialog together. For a non-modal panel next to its trigger, use the popup behavior: `use_popup(open)` gives the trigger its Part, and `surface(placement, content)` places the panel at the trigger. A second press on the trigger closes it again.」
     - `fn rename(name: ..)` の中の `text_input("Name", draft)` → `text_input(draft).label("Name")`。
+    - tooltip の節：code の `tooltip("Save the document (Ctrl+S)").attach(button("Save"))` を `tooltip("Save the document (Ctrl+S)", button("Save"))` に、`tooltip("Open another file").attach(button("Open"))` を `tooltip("Open another file", button("Open"))` にする。節の最初の文の「`tooltip(text).attach(trigger)` shows a hint ...」を「`tooltip(text, trigger)` shows a hint ...」にする（React の `<Tooltip content><Button/></Tooltip>` と同じ形。12 章 API-3）。最後の段落の `.placement(..)`・`.align(..)`・`.offset(px)`・`.content(|| view)` は、付属書 U の 4 章の tooltip の setter の一覧に無いものを文から消す。
     - toast の節：`let toaster = toaster();` → `let toasts = use_toaster();`、`toaster.push(` → `toasts.push(`、`toast_region(toaster)` → `toast_region(toasts)`。本文の「`toaster()` returns the app's single shared queue」→「`use_toaster()` returns the app's single shared queue」、`toaster.max_visible(n)` → `toasts.max_visible(n)`、`toaster.dismiss(id)` → `toasts.dismiss(id)`。
   - **windows.md**
     - `use_context::<Draft>()` の後の `draft.get().dirty.get()` → `draft.dirty.get()`。
@@ -2670,20 +2723,18 @@ says what to change:
     - `fn form_grid()` の `text_input("Name", signal(String::new()))` → `text_input(signal(String::new())).label("Name")`、`"Email"` も同様。
   - **images-and-fonts.md**
     - `.radius(` → `.border_radius(`、`.weight(` → `.font_weight(`、`ColorToken::Warning` → `color::WARNING`。
-    - 「Register your own fonts」の節の最初の段落を「Fonts belong to the theme. `Theme::with_fonts(fonts)` takes TTF, OTF or TTC files, and the App loads them before the first screen. After that you can use the font's **family name** (the name written in the font, which is often not the file name) in `style().font_family(..)`:」にする。
+    - 「Register your own fonts」の節の最初の段落を「Fonts belong to the theme. `Theme::with_fonts([..])` takes TTF, OTF or TTC fonts, each one as static bytes, a `Vec<u8>` read at run time or a path, and the App loads them before the first screen. After that you can use the font's **family name** (the name written in the font, which is often not the file name) in `style().font_family(..)`:」にする。
     - その節の `fn main` を次にする：
       ```rust
       fn main() -> kivact::Result<()> {
           // In an app, embed the files instead:
-          // const FONTS: &[&[u8]] = &[include_bytes!("../assets/Inter-Regular.ttf"), include_bytes!("../assets/Inter-Bold.ttf")];
-          // Bytes read at run time must live as long as the app: leak them once at startup.
-          let regular: &'static [u8] = std::fs::read("assets/Inter-Regular.ttf").expect("font file").leak();
-          let bold: &'static [u8] = std::fs::read("assets/Inter-Bold.ttf").expect("font file").leak();
-          let fonts: &'static [&'static [u8]] = vec![regular, bold].leak();
-          App::new("Fonts").theme(Theme::light().with_fonts(fonts)).run(app)
+          // .with_fonts([include_bytes!("../assets/Inter-Regular.ttf").as_slice(), include_bytes!("../assets/Inter-Bold.ttf").as_slice()])
+          let regular = std::fs::read("assets/Inter-Regular.ttf").expect("font file");
+          let bold = std::fs::read("assets/Inter-Bold.ttf").expect("font file");
+          App::new("Fonts").theme(Theme::light().with_fonts([regular, bold])).run(app)
       }
       ```
-    - 箇条：「Call `.font(..)` once per file. Regular and bold are usually separate files; register both and pick the face with `style().weight(700)`. `italic(true)` picks ...」を「Give every file to `with_fonts`. Regular and bold are usually separate files; register both and pick the face with `style().font_weight(700)`. `font_style(FontStyle::Italic)` picks an italic face when the family has one.」にする。「For one default font in the whole app, set the theme's text family: `theme.with_text(Typography { .. })` ...」の箇条を「For one default font in the whole app, set `font_family` on the root view: it is inherited by everything below.」にする。
+    - 箇条：「Call `.font(..)` once per file. Regular and bold are usually separate files; register both and pick the face with `style().weight(700)`. `italic(true)` picks ...」を「Put every file in the list given to `with_fonts`. Regular and bold are usually separate files; register both and pick the face with `style().font_weight(700)`. `font_style(FontStyle::Italic)` picks an italic face when the family has one.」にする。「For one default font in the whole app, set the theme's text family: `theme.with_text(Typography { .. })` ...」の箇条を「For one default font in the whole app, set `font_family` on the root view: it is inherited by everything below.」にする。
 - **消すもの**：上の各ファイルの旧名、overlays の Popover の mode の説明。
 - **状態の閉じ方**：新しい型なし。
 - **試験**：6 ファイルの doctest（既存の `#[test]` の名前と期待値はそのまま）。
@@ -2703,7 +2754,7 @@ says what to change:
 - **目的**：標準部品の個別のガイドを新しい API と `kivact::ui::theme` に直す（UI-03、UI-12、UI-13、UI-14、UI-20、DEC-05、DEC-06、AC-5）。
 - **手順**：3.0.5 の手順。部品の theme の型・変数の名前（`<Name>Theme`、部品の theme 変数の module）は付属書 U の 4 章の対応表を正本とする。ファイルごとの注：
   - **collections.md**：「Install `UiTokens` to adjust `table`, `item_list`, and `tree` metrics. Override `UiRecipes::table`, `item_list`, or `tree` ...」の文を「Set the theme variables of the `table`, `item_list` and `tree` components (in `kivact::ui::theme`) to adjust their metrics, and wrap `TableTheme`, `ItemListTheme` or `TreeTheme` to style individual parts; each component accepts kit variants with `.variant(..)`.」にする（元の文の残りの部分はそのまま続ける）。
-  - **navigation.md**：`stepper(items, current)` の `current` が signal でなければ `signal(..)` にする。「`.on_step_press` reports activation; the application ...」の文を「Pressing an enabled step writes its index to the `current` signal; the application decides what the new step shows.」にする。`interaction::use_menu_with_open(items, open_binding)` → `interaction::use_menu(items, open)`。
+  - **navigation.md**：`stepper(items, current)` の `current` が signal でなければ `signal(..)` にする。「`.on_step_press` reports activation; the application ...」の文を「Pressing an enabled step writes its index to the `current` signal; the application decides what the new step shows. `.on_edit(|phase| ..)` reports the begin, commit and cancel of each change, like other editing components.」にする（12 章 UI-U-03）。`interaction::use_menu_with_open(items, open_binding)` → `interaction::use_menu(items, open)`。
   - **keyed-suggestions.md**：冒頭の「`kivact::ui::combobox(label, items, selected)` edits ... The label names the editor.」を「`kivact::ui::combobox(items, selected)` edits ... `.label(..)` names the editor.」にする。code の `combobox("Colors", options.clone(), many)` → `combobox(options.clone(), many).label("Colors")`、`select("Color", options, one)` → `select(options, one).label("Color")`。「Themes supply `UiTokens::combobox` and `UiRecipes::combobox`.」→「Themes supply the combobox theme variables and `ComboboxTheme`.」。「For caller-owned chooser content, use `selection_field(label, value_label).content(factory)`. ...」の文を「For a chooser with your own trigger content, give `select` the trigger view with `.trigger(view)`; it keeps the select's surface, keys and recipes.」にする（その文の後ろの `.presentation(...)` の説明は残す）。
   - **disclosure-and-previews.md**：`on_open_change` の文を「Read the open state from the signal you give `.open(signal)`.」にする（hover card の節）。`UiTokens` の文を部品の theme 変数の文にする。
   - **feedback.md**：`project(..)` → `bind!(..)`。`ui::input_group_with("Website", || (` → `ui::input_group("Website", (`（閉じ括弧の数を合わせる）。`ui::text_input("Host", signal(String::new()))` → `ui::text_input(signal(String::new())).label("Host")`。「`input_group(label, children)` accepts already built children. `input_group_with(label, || children)` constructs children once in the inherited `.size(..)` scope, so explicit sizes on a child still win.」を「`input_group(label, children)` takes the children, built or as a closure that builds them; a closure runs once inside the group's `.size(..)`, so explicit sizes on a child still win.」にする。
@@ -2756,22 +2807,35 @@ says what to change:
           App::new("Theme variables").run(|| card(spaced(text("Hello"))))
       }
       ```
-      節の最初の文を「Theme variables resolve against the theme they are drawn in, so they follow a switch for free:」にし、箇条を次の 3 つにする：
-      - 「The color variables in `color`: `SURFACE`, `SURFACE_ALT`, `TEXT`, `TEXT_MUTED`, `ACCENT`, `ACCENT_TEXT`, `BORDER`, `FOCUS`, `DANGER`, `SUCCESS`, `WARNING`, `OVERLAY`, `SHADOW`, `SELECTION`, `HOVER`, `PRESSED` and `RAISED`. `space::XS` to `space::XL`, `radius::SM` to `radius::LG` and `font::SIZE`, `font::SIZE_SMALL` and `font::SIZE_LARGE` are lengths. `rgb(0x2563eb)` and `rgba(..)` give fixed colors.」
-      - 「Other theme values are read with accessors: `theme.focus_ring()`, `theme.focus_ring_offset()`, `theme.disabled_opacity()` and `theme.control_height()`. `theme.get(&color::ACCENT_VAR)` reads the value of a variable, for example to draw on a canvas.」
+      `fn spaced` の style を `style().padding(space::LG).gap(space::SM).width(pct(100) - space::XL)` にする。節の最初の文を「Theme variables resolve against the theme they are drawn in, so they follow a switch for free:」にし、箇条を次の 3 つにする：
+      - 「The color variables in `color`: `SURFACE`, `SURFACE_ALT`, `TEXT`, `TEXT_MUTED`, `ACCENT`, `ACCENT_TEXT`, `BORDER`, `FOCUS`, `DANGER`, `SUCCESS`, `WARNING`, `OVERLAY`, `SHADOW`, `SELECTION`, `HOVER`, `PRESSED` and `RAISED`. `space::XS` to `space::XL`, `radius::SM` to `radius::LG` and `font::SIZE`, `font::SIZE_SMALL` and `font::SIZE_LARGE` are lengths. `rgb(0x2563eb)` and `rgba(..)` give fixed colors. Lengths combine with `+` and `-`, like CSS `calc()`: `pct(100) - space::XL` mixes a percentage and a theme variable and is computed again when the theme changes.」
+      - 「Other theme values: `theme.focus_ring()` and `theme.focus_ring_offset()` are read with accessors; the control height, the disabled opacity and the overlay margin are the variables `control::HEIGHT_VAR`, `control::DISABLED_OPACITY_VAR` and `control::OVERLAY_MARGIN_VAR` (in `kivact::style::control`), read with `theme.get(..)`. `theme.get(&color::ACCENT_VAR)` reads the value of a variable, for example to draw on a canvas.」
       - 「`use_theme()` returns the theme in effect; read it inside a style closure when a style depends on more than variables.」
-    - 「Change tokens」の節を「Set theme variables」に改題し、code block の `fn brand()` を次にする（`use kivact::style::theme::Palette;` を消す）：
+    - 「Change tokens」の節を「Set theme variables」に改題し、code block の `use kivact::style::theme::Palette;` を `use kivact::style::control;` にし、`fn brand()` を次にする：
       ```rust
       fn brand() -> Theme {
           Theme::light()
               .with_focus_ring(3.0)
               .with_focus_ring_offset(2.0)
               .set(&color::ACCENT_VAR, rgb(0x7c3aed))
-              .set(&color::FOCUS_VAR, color::ACCENT)
-              .with_disabled_opacity(0.4)
+              .set(&color::FOCUS_VAR, &color::ACCENT_VAR)
+              .set(&control::DISABLED_OPACITY_VAR, 0.4)
       }
       ```
-      最初の文を「`set(&VAR, value)` returns a new theme with one variable changed and keeps the rest; the value may be another variable, as `FOCUS` follows `ACCENT` here:」にする。後ろの段落の「The same works for `with_space`, `with_radius`, `with_text` (type sizes and the default font family), `with_control_height` and `with_icons`.」を「The same works for the `space`, `radius` and `font` variables (`space::MD_VAR` and so on). `with_control_height` and `with_icons` set the other theme values.」にする。
+      最初の文を「`set(&VAR, value)` returns a new theme with one variable changed and keeps the rest; the value may be another variable, as `FOCUS` follows `ACCENT` here:」にする。code block の直後に次の段落を足す：「Every kind of theme variable can take another variable as its value, sizes included: a component's own variables, such as the button height, default to the core variables, so changing a core value reaches every component that follows it. A loop of variables is reported once and falls back to the fallback value.」その段落の後に次の code block（info 文字列 `rust,no_run`）を足す：
+      ```rust
+      use kivact::prelude::*;
+      use kivact::style::ThemeVar;
+
+      /// The gap of a toolbar: the theme's medium spacing until a theme sets it.
+      pub static TOOLBAR_GAP_VAR: ThemeVar<f64> = ThemeVar::alias("toolbar.gap", &space::MD_VAR);
+
+      fn roomy() -> Theme {
+          Theme::light().set(&TOOLBAR_GAP_VAR, &space::LG_VAR)
+      }
+      # fn main() { let _ = roomy(); }
+      ```
+      その後ろに「An alias is written one way: `ThemeVar::alias(name, &OTHER_VAR)` for the default, and `theme.set(&VAR, &OTHER_VAR)` in a theme.」の 1 文を足す（12 章 UI-U-02、付属書 S 4.1）。後ろの段落の「The same works for `with_space`, `with_radius`, `with_text` (type sizes and the default font family), `with_control_height` and `with_icons`.」を「The same works for the `space`, `radius` and `font` variables (`space::MD_VAR` and so on). `with_icons` sets the icons; the control height, the disabled opacity and the overlay margin are `control::HEIGHT_VAR`, `control::DISABLED_OPACITY_VAR` and `control::OVERLAY_MARGIN_VAR`, set the same way.」にする。続く段落の「Use `theme.with_overlay_margin(16.0)` to fit overlays inside a 16 px viewport margin.」を「Use `theme.set(&control::OVERLAY_MARGIN_VAR, 16.0)` to fit overlays inside a 16 px viewport margin.」にする。
     - 「Change how one standard component looks」：code block を次にする：
       ```rust
       use kivact::prelude::*;
@@ -2786,7 +2850,7 @@ says what to change:
           App::new("Square").theme(square_buttons()).run(|| button("Save"))
       }
       ```
-      節の最初の段落を「Theme variables change everything at once. To change one part of one component, wrap its **recipe**: a function from the theme, the part's look and the style made so far to a `Style`. Each standard component has a table in `kivact::ui::theme`, such as `ButtonTheme`, installed with `Theme::with`.」にする。箇条の 1 つ目を「A method named after a part (`root` and the other parts of the table) adds your function after the theme's recipe for that part: `base` is the style the theme made, and `look` holds the part's state and variant.」に、2 つ目を「Build the theme **once** (at start, or with `kivact::style::cached_theme(square_buttons)`, which builds it on first use and returns the same theme afterwards). A recipe table is compared by identity, so a theme rebuilt on every run restyles everything under it each time.」にする。checkbox・switch の parts の段落の recipe 名（`checkbox_check`、`checkbox_mixed`、`checkbox_indicator`、`switch_thumb`、`switch_track`、radio の `mark`）を `CheckboxTheme`・`SwitchTheme`・`RadioGroupTheme` の part の名前（付属書 U の 4 章）にする。
+      節の最初の段落を「Theme variables change everything at once. To change one part of one component, wrap its **recipe**: a function from the theme, the part's look and the style made so far to a `Style`. Each standard component has a table in `kivact::ui::theme`, such as `ButtonTheme`, installed with `Theme::with`.」にする。箇条の 1 つ目を「A method named after a part (`root` and the other parts of the table) adds your function after the theme's recipe for that part: `base` is the style the theme made, and `look` holds the part's state and variant.」に、2 つ目を「Build the theme **once**, at start, and keep it: pass it to `App::theme` or keep it in a signal for `provide_theme`. A recipe table is compared by identity, so a theme rebuilt on every run restyles everything under it each time.」にする。checkbox・switch の parts の段落の recipe 名（`checkbox_check`、`checkbox_mixed`、`checkbox_indicator`、`switch_thumb`、`switch_track`、radio の `mark`）を `CheckboxTheme`・`SwitchTheme`・`RadioGroupTheme` の part の名前（付属書 U の 4 章）にする。
     - 「Variants」：`kivact::ui::Variant` → `kivact::ui::theme::Variant`。
     - 「Hover, pressed, focus and disabled looks」を「Hover, active, focus and disabled looks」に改題する。code の `ColorToken::*` → `color::*`、`.pressed(` → `.active(`、`.ring(2, ColorToken::Focus)` → `.outline(2, color::FOCUS)`。箇条の `pressed` を `active` に、`ring_none()` を `outline_none()` にする。「A state style changes paint only (background, border, ring, radius, opacity, shadow, transform, cursor, filters, color); anything else set in it is reported and ignored. `disabled` and `selected` can change any property.」を「A state style can set any property, including layout ones such as padding or width; the node is laid out again when the state changes.」にする。
     - 「Icons」：`ColorToken::Warning` → `color::WARNING`。
@@ -2879,8 +2943,56 @@ says what to change:
       }
       # fn main() -> kivact::Result<()> { App::new("Drafts").run(drafts) }
       ```
-      後ろの段落の「Use `Queue` or `QueueLatest` for work that must finish ...」を「Use `queued_action` for work that must finish even if the user moves on, such as writing a file.」にする（続く文は残す）。「`on_complete(|outcome| …)`」を「`on_complete(|result| …)`, which gets a `Result<T, UiError>`,」にする。
+      後ろの段落（「Use `Queue` or `QueueLatest` for work that must finish ...」で始まり「... for the same time.」で終わる段落）を、次の段落と code block（info 文字列 `rust,no_run`）にする（12 章 ST-08）：
+
+      「An action belongs to the component that created it. When that component is removed (its screen closes, its row disappears), its runs are cancelled, queued ones included. For a save that must finish even when the user leaves the screen, create the action in the root function and hand it to the screens through context. Closing the app waits up to three seconds for the runs still queued.」
+
+      ```rust
+      use std::time::Duration;
+
+      use kivact::prelude::*;
+      use kivact::task::queued_action;
+
+      /// The app's saves. The root creates them, so closing a screen does not cancel them.
+      #[derive(Clone)]
+      struct Saves {
+          document: Action<usize, String>,
+      }
+
+      #[component]
+      fn editor_screen() -> impl Element {
+          let save = use_context::<Saves>().document;
+          let draft = signal(String::new());
+          column((
+              text_input(draft).label("Draft"),
+              button("Save").on_press(move || save.run(draft.get())),
+          ))
+      }
+
+      fn app() -> impl IntoView {
+          let saves = Saves {
+              document: queued_action(|text: String| async move {
+                  kivact::task::sleep(Duration::from_millis(500)).await;
+                  Ok(text.len())
+              }),
+          };
+          let editing = signal(true);
+          provide(saves, move || {
+              column((
+                  button("Close editor").on_press(move || editing.set(false)),
+                  show(editing, editor_screen),
+              ))
+          })
+      }
+
+      fn main() -> kivact::Result<()> {
+          App::new("Saves").run(app)
+      }
+      ```
+
+      `Action` の型引数の順（出力、入力）と `Clone`/`Copy` は付属書 R の 4 章に合わせる（`Action` が `Copy` なら `#[derive(Clone, Copy)]` にする）。「`on_complete(|outcome| …)`」を「`on_complete(|result| …)`, which gets a `Result<T, UiError>`,」にする。
     - `remaining.get_untracked()`（countdown）→ `remaining.get()`（`spawn` の中の async block は追跡しないので同じ意味）。
+    - 「What cancels a task」の箇条の「a queued `Action` finishes what is waiting, within three seconds.」を「an action's runs are cancelled, queued ones included (an action created by the root lives as long as the app; closing the app waits up to three seconds for its queued runs).」にする（12 章 ST-08）。
     - 「Receive values from another thread」の節：最初の段落を「If your own code produces values in the background (a game or audio engine, a file watcher, a network client on its own runtime), give it the sender of a `remote` signal. `remote(initial)` returns a `Signal<T>` for the UI and a `Remote<T>` that is `Send`, so it can go to any thread.」にし、code block を次にする（info 文字列はそのまま）：
       ```rust
       use std::sync::Arc;
@@ -2913,7 +3025,7 @@ says what to change:
       }
       # fn main() -> kivact::Result<()> { App::new("Sensor").run(sensor) }
       ```
-      その後ろの 2 段落（「The channel's waker asks the UI to run a turn, ...」と「Do not call a blocking `recv()` ...」）を次の 2 段落にする：「`set` wakes the UI, so values show up even when the user is not touching the window. Writes are merged: the UI sees the latest value once per turn, however often the thread writes. `update(|value| ..)` changes the value in place from the thread. A write after the component is gone does nothing, so stop the thread with your own flag, as `on_cleanup` does here.」「Do not block the UI thread waiting for a worker, and do not hold a `Mutex` that a worker also takes for a long time. For continuous pictures from your own renderer, see [Draw with a canvas](canvas.md#show-frames-from-your-own-renderer).」。「Futures that bring their own reactor ...」の段落は「... send the results through a `remote` sender as above.」で終える。
+      その後ろの 2 段落（「The channel's waker asks the UI to run a turn, ...」と「Do not call a blocking `recv()` ...」）を次の 2 段落にする：「`set` wakes the UI, so values show up even when the user is not touching the window. Writes are merged: the UI sees the latest value once, at the start of its next turn, however often the thread writes. `set` is the only operation: compute the new value in your thread and send it whole. When the component is removed the sender closes, and a later `set` drops the value; stop the thread with your own flag, as `on_cleanup` does here.」「Do not block the UI thread waiting for a worker, and do not hold a `Mutex` that a worker also takes for a long time. For continuous pictures from your own renderer, see [Draw with a canvas](canvas.md#show-frames-from-your-own-renderer).」。「Futures that bring their own reactor ...」の段落は「... send the results through a `remote` sender as above.」で終える。
     - 「Wake the UI without queueing values」の節：最初の段落を「When the worker only has to say "something changed, read the latest", it does not need to send a value at all. `remote_trigger()` returns a `Trigger` for the UI and a `RemoteTrigger` for the worker: `notify()` never blocks, and several notifications before the next turn count as one.」にし、code block を次にする：
       ```rust
       use std::sync::{Arc, Mutex};
@@ -2951,7 +3063,7 @@ says what to change:
   - **testing.md**
     - `text_input("New task", draft)` → `text_input(draft).label("New task")`。
     - `fn stepper(value: ..)`（ガイドの中の独自の部品）は、名前が prelude の外の `kivact::ui::stepper` と衝突しないが、`#[component]` にすると型名 `Stepper` を作る。3.0.4 の 9. のとおり、compile で衝突したら `stepper_view` にする。`value.get_untracked()` → `value.get()`（試験の中で読むだけ）。
-    - 「Configure the environment」の「set `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` with a font file you ship, or `TestFonts::System` to use the machine's fonts (layout then depends on the machine)」を「start the test with `RenderOptions::with_theme(theme.with_fonts(FONTS))` and the font files you ship, or set `.fonts(TestFonts::System)` to use the machine's fonts (layout then depends on the machine)」にする。
+    - 「Configure the environment」の「set `.fonts(TestFonts::Only(vec![Asset::from(bytes)]))` with a font file you ship, or `TestFonts::System` to use the machine's fonts (layout then depends on the machine)」を「start the test with `RenderOptions::with_theme(theme.with_fonts([font_bytes]))` and the font files you ship, or set `.fonts(TestFonts::System)` to use the machine's fonts (layout then depends on the machine)」にする。
   - **diagnostics.md**：`button("Retry").on_press(move || reset.run())` と試験の `get_by_role(Role::Button, "Retry")` の文字列 `"Retry"` を両方 `"Try again"` にする（AC-4 の検査で旧名 `Retry` と区別するため。同じ試験の同じ文字列なので期待値の意味は変わらない）。`reset.run()` が `Callback<()>` になっていれば `reset.call(())`、または `.on_press(reset)` にする。「let one side read with `get_untracked`」の文を「let one side read with `untrack(|| ..)`」にする。
   - **devtools.md**（TL-09、DEC-10）
     - 冒頭の段落の「The same protocol is available to MCP tools and to Python scripts.」を「The same protocol is available to MCP tools.」にする。
@@ -3019,7 +3131,7 @@ says what to change:
   3. `pub fn <name>(label: impl IntoText, ..: impl IntoBinding<T>) -> impl Element` の形の関数（`segmented`、`dropdown` など）を 3.0.4 で `#[component]` にする。generic な関数（`<K: ..>`）は 3.0.4 の 7. に従う。本体の `scope(|| ..)`・`scope(move || ..)` の包みを外す。`.with_node(|host| host.part(..))` は本体の root が `node()` なら `.part(..)` を直接呼ぶ。
   4. 「Open and close a list」の節：`use_select(options, value)` などの開閉の behavior を、付属書 U の 4 章の署名（`open: Signal<bool>` を位置引数に取る）にする。`MenuApi::while_open` の説明の文（「content with `MenuApi::while_open` instead of `show`」）を「content with the Api's `surface(placement, content)`, which wires the anchor, the opening and the content Part」にする。
   5. 「Drag to change a value」：`value.get_untracked()` を `value.get()` にする（`source_with` と `edit` の closure は handler の中で呼ばれ、追跡しない）。「Use `.source_with(move || value.get_untracked())`」の本文も同様にする。
-  6. 「Edit text with your own frame」：`fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize)` を `#[component] fn limited_input(label: Value<String>, value: Signal<String>, max: usize) -> impl Element` にする。`.grow(1)` → `.flex_grow(1)`。`text_area(` の呼出しがあれば `.label(..)` を付ける。「Paint native editing text」の本文の「Reactive content」は一般語なので「Content that changes」にする。
+  6. 「Edit text with your own frame」：`fn limited_input(label: impl IntoText, value: impl IntoBinding<String>, max: usize)` を `#[component] fn limited_input(label: Value<String>, value: Signal<String>, max: usize) -> impl Element` にする。`.grow(1)` → `.flex_grow(1)`。`text_area(` の呼出しがあれば `.label(..)` を付ける。「Paint native editing text」の本文の「Reactive content」は一般語なので「Content that changes」にする。「Edit text with your own frame」の節の最後に次の段落を足す（日本語のファイルにも訳を足す）：「`EditContext` answers for every line of the text and shapes only the lines you ask about; it is valid during the request that gave it to you, so do not keep it.」（付属書 E 4.4、E17）。
   7. 「Write behavior with a state machine」：`fn copy_button(text: impl IntoValue<String>) -> impl IntoView` を `#[component] fn copy_button(text: Value<String>) -> impl Element` にし、`let text = text.into_value();` と `scope(move || { .. })` の包みを外す。その後ろの本文の「its own mount lifetime, convert `text` once, then return `scope(move || { ... })`」の文を「A component body runs once per mount, so the Machine belongs to this instance.」にする。
   8. `ColorToken::*` → `color::*`、`.radius(` → `.border_radius(`、`Direction` → `FlexDirection`。
 - **消すもの**：`scope(..)`、`IntoBinding`、`IntoText`、`into_value`、`into_text_value`、`*_state()` の getter、`while_open`、`ColorToken`。
@@ -3398,14 +3510,14 @@ workspace は 54 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-devtools` | DevTools の GUI。公開 API と標準部品だけで作り（P-07 の dogfooding）、私有の theme を持つ。kit に依存しない。パネルは module にする |
 | `kivact-devtools-mcp` | MCP の仕様への追従と stdio。GUI を link しない |
 | `kivact-engine` | window ごとの tree/model（`Model`）と App 全体の `AppModel`、計測、入力と配送の受理（admission）、paint と per-node の draw cache、a11y、host pump。lower と text_input は内部 module。多数の内部情報を共有する処理を偽の crate 境界で分けない |
-| `arvane` | window driver と presenter。GPU の device は process（Driver）に一つで、window ごとには frame の状態だけを持つ。他の crate を再公開しない |
+| `arvane` | window driver と presenter。GPU の device は Driver（一つの App の event loop）に一つで、window ごとには frame の状態だけを持つ。他の crate を再公開しない |
 | `arvane-shell` | OS 非依存の window SPI、入力語彙と正規化 pipeline。winit、softbuffer、AccessKit を持ち込まない |
 | `arvane-native` | Windows/Linux の実 window、OS port、入力 mapping、present、支援技術、services、embed、mirror |
 | `arvane-virtual` | 台本、仮想 clock、window、surface と SteppedBackend。native mirror を任意に接続する |
 | `arvane-text` | text shaping と計測。Parley を内部に閉じる |
-| `arvane-render` | RenderScene のラスタライズ（Vello）。Vello と wgpu を内部に閉じる |
-| `arvane-compose` | Composition の plan と、その CPU・GPU の合成。3D、cache、shader、外部 texture を Vello の外で一つの合成として扱う（Chrome の Skia と cc の分担と同じ） |
-| `arvane-asset` | image、SVG、font の読み込みと decode。SVG は usvg で `RenderScene` にして vector で描き、2 つ目の rasterizer・shaper・font DB を持たない |
+| `arvane-render` | RenderScene のラスタライズ（Vello）。vello は内に閉じる。wgpu は GPU の device を持つ arvane-compose と共有する |
+| `arvane-compose` | Composition の plan と、その CPU・GPU の合成。GPU の device を Driver ごとに一つ持つ。3D、cache、shader、外部 texture を Vello の外で一つの合成として扱う（Chrome の Skia と cc の分担と同じ） |
+| `arvane-asset` | image、SVG、font の読み込みと decode（premultiplied）、resvg の SVG（font は arvane-text の `FontLookup`。system font を二度走査しない）、遅延して起こす worker |
 | `kivact-gpu-share` | UI に依存しない GPU texture の import/export 契約 |
 | `kivact-ui-basic` / `kivact-ui-pop` / `kivact-ui-game` / `kivact-ui-creative` / `kivact-ui-soft` | 五つの公式 kit。共通の骨格（`theme(mode)`、kit の theme 変数、`recipes_<group>.rs`、`variants.rs`、分野の部品は `src/<domain>/`）。共通 behavior を複製しない |
 | `kivact-plot` | 数値の XY plot（`PlotModel` を受けて view を返す）。色は `kivact_plot::color` の theme 変数で受け、どの kit とも組み合わせられる |
@@ -3415,7 +3527,7 @@ workspace は 54 package からなる。アプリと公式 kit は `kivact` faca
 | `kivact-catalog-shell` | 五つの catalog の shell・page 一覧・検索・scroll-spy（`examples/catalog-shell`、`publish = false`）。入力は page の一覧と theme の関数 |
 | `kivact-public-api-tests` | facade の公開契約の試験。test binary は `e2e_core`・`e2e_ui`・`e2e_native` の 3 つ |
 | `kivact-kit-tests` | kit に依存する公開 API の E2E（`e2e_kits`。theme_conformance と kit の crate が要る試験）。`dev/tests/kivact-kit-tests` |
-| `kivact-docs` | 英語の文書と README の Rust のコンパイル。日本語は xtask の `docs-pairs` が英語と同じであることを確かめる |
+| `kivact-docs` | 英語の文書と README の Rust のコンパイル。日本語は xtask の `docs-pairs` が英日のファイルの集合と Rust のブロックの token の列（文字列の中身を除く）を確かめる |
 | `gpu-interop-producer` | GPU 共有を検証する別の描画 producer |
 | `kivact-bench` | 性能の指標（K1〜K6）を手動で測る probe と `run.sh`。facade の公開 API だけを使い、CI では実行しない |
 | `xtask` | 依存、API、状態、style、文書の対の検査。図の生成は gate の外の `cargo xtask diagrams` |
@@ -3468,9 +3580,11 @@ library は 34、アプリは 2、雛形・小例・catalog と catalog の shel
 
 - (a) `bool`、`Option<_>`、整数の counter、`Cell`/`RefCell`/`Signal`/`Var`/`Atomic*` の field を二つ以上持つ。
 - (b) `&mut self` の method を持つか、内部可変の field を constructor の外で書く。
-- 名前が `Api`、`Options`、`Policy`、`Props`、`Report`、`Event`、`Phase`、`Reason`、`Recipes`、`State`（recipe の状態）、`Theme`、`Tokens`、`Builder`、`Key`、`Bits` で終わる型と、`Hash + Eq` を derive して map の key だけに使う型は対象外。
+- 名前の接尾辞や derive による除外は置かない（名前を変えるだけで状態が見えなくなるため）。
 
 対象の型は、型の直前の一行の印 `// xtask-allow(state): <組合せの閉じ方>` が無ければ error になる。閉じ方は「すべての組合せが有効な理由」か「どの組合せをどの遷移が排除しているか」を一行で書く。constructor、`Default`、値渡しの builder（`fn x(mut self, ..) -> Self`）だけで書く field は状態ではなく、印も検査も要らない。関数の中の状態の local（`signal(false)` と `signal(None)` の組など）の検査は残る。例・雛形・docs は検査の対象外。
+
+既存の印から機械的に作った印は `// xtask-allow(state): legacy: ...` と書き、閉じ方をまだ確かめていないことを示す。xtask は `legacy:` の数を報告する。`legacy:` の印は台帳で一件ずつ閉じ方（enum にする、一つの持ち主にする、正当な独立の組合せとして理由を書き直す）を決めて消し、新しく足さない。
 
 検査は意味の誤り（真に排他な組合せを独立と書いた等）までは見つけられない。新しい状態の型を足す変更では、印の一行が型の実際の遷移と合っていることを review で確かめる。
 
@@ -3540,7 +3654,7 @@ API-11 の診断の段落（「API-11 の診断は blanket impl の ...」）は
 ````markdown
 | ID | 規約 |
 |---|---|
-| KIT-1 | `theme(mode) -> Theme`。実際の option があるときだけ `ThemeOptions` と `theme_with(mode, options)`。Theme の extension trait を作らない。theme の作り直しは `kivact::style::cached_theme(build)` で避ける |
+| KIT-1 | `theme(mode) -> Theme`。実際の option があるときだけ `ThemeOptions` と `theme_with(mode, options)`。Theme の extension trait を作らない。kit は theme を `thread_local!` の static で一度だけ作る（fn pointer を key にする cache は作らない） |
 | KIT-2 | kit の色・大きさは kit の theme 変数（`<kit>::PRIMARY` などの `const` と `PRIMARY_VAR` などの `static`）。`theme()` が中核の変数（`color::ACCENT_VAR` など）を kit の変数に向ける。`ColorName` と Tokens の値の field を持たない。色 literal は theme 変数の定義と `theme()` だけに置く |
 | KIT-3 | 形の差は `recipes_<group>.rs` の `<Name>Theme` の上書き、値の差は theme 変数。全 recipe を無差別に上書きせず、上書きしない部品は中核の既定を使う |
 | KIT-4 | 公開名は API-10 に従う。kit 名の接頭辞を型名に付けない（`GameCellVariant` としない） |
@@ -3561,10 +3675,10 @@ API-11 の診断の段落（「API-11 の診断は blanket impl の ...」）は
 ````markdown
 | PERF-6 | frame の描画は、描き直した node だけを lower し直す（per-node の draw cache、描画中の node だけが持つ）。paint list の並べ直し（restack）は、重なりの事実（stacking context、z、layer の事実、子の組の変化）が変わったときだけ行う |
 | PERF-7 | Arvane は engine が渡す layer ごとの `content_version` で変化を知る。command の hash は変化した chunk だけ。debug build では hash による照合で版の上げ忘れを検出する |
-| PERF-8 | GPU の device は process（Driver）に一つ。window ごとに持つのは frame の状態だけ |
+| PERF-8 | GPU の device は Driver（一つの App の event loop）に一つ。window ごとに持つのは frame の状態だけ。同じ process の二つの埋め込み editor は、それぞれの Driver の device を持つ |
 | PERF-9 | 診断の記録（turn の trace、原因の文字列、node の provenance）は、DevTools・`kivact::test` の trace・debug の trace sink が有効にしたときだけ行う。release で常に持つのは counter だけ |
-| PERF-10 | 起動の critical path（main から最初の present まで）で、system font の走査・DevTools agent の起動・asset worker の起動・使わない GPU pipeline の compile をしない |
-| PERF-11 | 項目の多い collection（list、combobox、menu、select、tabs、tree、table、palette）は、collection ごとに一つの key の索引（`Index<K>`）と `selector` を使い、項目あたりの memo は最大 2 つ |
+| PERF-10 | 起動の critical path（main から最初の present まで）で、DevTools agent の起動・asset worker の起動・使わない GPU pipeline の compile をしない。system font の走査は process の開始時に別 thread で始めて window と GPU の準備に重ね、最初の文字の計測は残りの時間だけ待つ |
+| PERF-11 | 項目の多い collection（list、combobox、menu、select、tabs、tree、table、palette）は、collection ごとに一つの key の索引（`Index<K>`）と `selector` を使い、項目あたりの memo は最大 2 つ。例外：menu の項目は最大 5 つ（press-drag の間の pointer の移動ごとに全行の effect と submenu の timer を動かさないため） |
 ````
 
 表の下（MEM-8 の行の後の空行の後）に次の 2 段落を足す：
@@ -3572,7 +3686,7 @@ API-11 の診断の段落（「API-11 の診断は blanket impl の ...」）は
 ````markdown
 PERF-1 の Metadata の経路の例外は残す。ただし Metadata の経路で semantic order を二度数えず、clip の計算は attached な node だけを回る。
 
-遅延初期化の道具は一つ：`clippy.toml` は `OnceCell`・`OnceLock`・`LazyCell`・`LazyLock` を禁止する。使う時に作る重い資源（PERF-2、PERF-10：ICU の formatter、GPU の pipeline、system font、既定の theme など）は、`kivact_types::cell::Deferred<T>`（UI thread の中、`!Sync`）と `kivact_types::cell::SharedDeferred<T>`（`static` と thread をまたぐもの、`Sync`）だけで持つ。どちらも `const fn new()`、`get_or_init(&self, f) -> &T`、`get(&self) -> Option<&T>` を持つ。std の型を使うのはこの二つの実装の中だけ。状態の補修や「未完成の object を後で埋める」（S-7）には使わない。
+遅延初期化の道具は一つ：`clippy.toml` は `OnceCell`・`OnceLock`・`LazyCell`・`LazyLock` を禁止する。使う時に作る重い資源（PERF-2、PERF-10：ICU の formatter、GPU の pipeline、system font、既定の theme など）は、`kivact_types::cell::Deferred<T>`（UI thread の中、`!Sync`）と `kivact_types::cell::SharedDeferred<T>`（`static` と thread をまたぐもの、`Sync`）だけで持つ。どちらも `const fn new()`、`get_or_init(&self, f) -> &T`、`get(&self) -> Option<&T>` を持つ。std の型を使うのはこの二つの実装の中だけ。状態の補修や「未完成の object を後で埋める」（S-7）には使わない。唯一の明記した例外は runtime の `Runtime.app`：App の構築の中（利用者のコードが動く前）で一度だけ設定し、設定前の読出しは debug の assert で落とす。
 ````
 
 ### G13.8 feature と OS（DEP）
@@ -3587,7 +3701,7 @@ PERF-1 の Metadata の経路の例外は残す。ただし Metadata の経路�
 表の下の 2 段落目の後の GPU の段落（「GPU の device は window ごとに必要時に起動する（既定は `GpuStart::OnDemand`）。...」）を次にする：
 
 ````markdown
-GPU の device は process に一つで、必要時に起動する（既定は `GpuStart::OnDemand`）。起動の入口は presenter の `Gpu` の二つだけで、`begin`（`AtLaunch` のとき window の作成時）と `demand`（OnDemand で待っているとき）である。需要は、composition の user shader（CPU で代わりの見た目を描いた報告）、core の `gpu_interop::adapter()` の読取り（`HostRequest::DemandGpu`）、CPU の frame が表示周期の半分を 8 frame 続けて超えたこと、の三つ。`GpuStart::Never`、gpu feature の無い build、環境変数 `ARVANE_RENDERER=cpu` の window は需要があっても起動しない。`ARVANE_RENDERER` の `cpu`・`gpu`・`auto` は `Never`・`AtLaunch`・`OnDemand` に対応する。試験は `RenderOptions::gpu_on_demand()` で OnDemand を選び、`Screen::renderer()` で何が描いているかを確かめる。
+GPU の device は Driver（一つの App の event loop）に一つで、必要時に起動する（既定は `GpuStart::OnDemand`）。起動の入口は presenter の `Gpu` の二つだけで、`begin`（`AtLaunch` のとき window の作成時）と `demand`（OnDemand で待っているとき）である。需要は、composition の user shader（CPU で代わりの見た目を描いた報告）、core の `gpu_interop::adapter()` の読取り（`HostRequest::DemandGpu`）、CPU の frame が表示周期の半分を 8 frame 続けて超えたこと、の三つ。`GpuStart::Never`、gpu feature の無い build、環境変数 `ARVANE_RENDERER=cpu` の window は需要があっても起動しない。`ARVANE_RENDERER` の `cpu`・`gpu`・`auto` は `Never`・`AtLaunch`・`OnDemand` に対応する。試験は `RenderOptions::gpu_on_demand()` で OnDemand を選び、`Screen::renderer()` で何が描いているかを確かめる。
 ````
 
 ### G13.9 用語の置換（「用語」の節に当てる）
@@ -3614,7 +3728,7 @@ GPU の device は process に一つで、必要時に起動する（既定は `
 
 性能は `dev/bench` の K1（起動）、K2（メモリ）、K3（CPU）、K4（フレーム時間）、K5（更新の遅延）、K6（バイナリの大きさ）で測る。比べる二つの commit を同じ機械で `run.sh` にかけ、比で判定する（機械ごとに絶対値が違うため）。K6 は Kivact 自身の大きさを GPU 一式を除く build（`--no-default-features --features complex-scripts`）で比べ、既定の build（`gpu` 込み）は大きくしないことを確かめる。結果は commit しない。E2E の `Stats` の a11y の走査の件数（`a11y_enumerated`）と資源の回収（mount の前の `live_reactive`・`live_owners`・`tree_nodes` に戻ること）で PERF-1 と回収の後退を検出する。
 
-試験は App 全体の E2E（実 window と `kivact::test`）である。過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden は足さない。公開 API の E2E は依存の軸で 4 つの test binary に分ける：`kivact-public-api-tests` の `e2e_core`（`kivact` だけ）、`e2e_ui`（ui・apg・interaction。`kivact` だけ）、`e2e_native`（embed、GPU、foreign window、DevTools、GPU 共有）と、`kivact-kit-tests` の `e2e_kits`（theme_conformance と kit の crate が要るもの）。docs の doctest は英語の木と `README.md` だけを compile し、日本語の Rust の code block は `docs-pairs` が英語と同一であることを確かめる。gate は 3 段（tier a：変更ごと、tier b：まとまりごと、tier c：merge 前）で、正確なコマンドと window-lock・GPU の試験の直列化は [CONTRIBUTING](../../CONTRIBUTING.md) の「テスト」と「merge 前の検査」に書く。
+試験は App 全体の E2E（実 window と `kivact::test`）である。過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden は足さない。ただし最適化の正しさを守る最小の不変条件の試験（cache の無効化、資源の寿命、状態の遷移）は、その変更が所有する試験の file に足してよい。kivact-test の自己試験（host の非同期の資源・font・cache の契約）は `crates/kivact-test/tests/` に置く。CPU だけの build は、package ごとの `cargo check -p <crate> --no-default-features --lib`（`kivact`、`kivact-offscreen`、`arvane-render`、`arvane-compose`、`kivact-style`）と、`cargo tree -e normal -p kivact --no-default-features` に wgpu が無いことで確かめる（workspace の `--no-default-features` は dev-dependency の feature で GPU が混ざる）。公開 API の E2E は依存の軸で 4 つの test binary に分ける：`kivact-public-api-tests` の `e2e_core`（`kivact` だけ）、`e2e_ui`（ui・apg・interaction。`kivact` だけ）、`e2e_native`（embed、GPU、foreign window、DevTools、GPU 共有）と、`kivact-kit-tests` の `e2e_kits`（theme_conformance と kit の crate が要るもの）。docs の doctest は英語の木と `README.md` だけを compile し、日本語の Rust の code block は `docs-pairs` が token の列で英語と比べる（文字列の中身は除く）。gate は 3 段（tier a：変更ごと、tier b：まとまりごと、tier c：merge 前）で、正確なコマンドと window-lock・GPU の試験の直列化は [CONTRIBUTING](../../CONTRIBUTING.md) の「テスト」と「merge 前の検査」に書く。
 
 変更後の意味情報も実 node から検証する。AsyncView の既定 pending は Status Loading、picker エラーは Alert、Contents は layout の透明性と a11y Group/論理階層を両立する。Desktop 操作を検証する date fixture は明示 Desktop、一般の Adaptive fixture は touch の Save を保つ。icon は実 install 済み glyph で確かめ、timeout や description relation 欠落を期待値の緩和で隠さない。
 
@@ -3648,7 +3762,7 @@ NodeRef::snapshot は poll 時の node を Host の request/reply へ送り、la
 
 - **wave / lane / 前提**：W11a / G4 / —（W1〜W10 の完了）
 - **所有**：`docs/for-kivact-developer/decisions.md`、`docs/for-kivact-developer/strategy.md`、`docs/for-kivact-developer/manual-verification.md`
-- **目的**：改修の決定（設計 8 章の DEC-01〜DEC-14 と、採用した主な所見）を decisions.md に記録し、置き換えられた行を消す。strategy.md は二か所だけ直す（設計 7.5 Q1、DEC-10）。manual-verification.md の link と名前を新しい構成に合わせる（AC-5）。
+- **目的**：改修の決定（設計 8 章の DEC-01〜DEC-18、12 章の外部レビューへの決定、採用した主な所見）を decisions.md に記録し、置き換えられた行を消す。strategy.md は二か所だけ直す（設計 7.5 Q1、DEC-10）。manual-verification.md の link と名前を新しい構成に合わせる（AC-5）。
 - **手順**：
   1. **decisions.md の行を消す**（後の決定が置き換えたもの。各行は ID で探す。「補足」の箇条も同じ ID のものを消す）：
      - 実装の決定の表：`ADR-27`、`ADR-37`、`ADR-47`、`ADR-52`、`ADR-64`、`ADR-65`、`ADR-67`、`ADR-72` の行。
@@ -3678,21 +3792,23 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
 | 2026-11-18 | DEC-05 | 入力部品の見えない名前 | 位置引数をやめ `.label()` と `field()`。名前の欠落は mount の位置付きの診断（debug build と `kivact::test` では error） | JS の `<label>` と `<input>` の感覚。a11y の保証は compile 時から実行時と試験に移る |
 | 2026-11-18 | DEC-06 | 部品の token（ADR-37 を置き換える） | theme 変数に統一し、`UiTokens` と kit の `Tokens` の値の field を消す。形（recipe）は `kivact::ui::theme` の `<Name>Theme` | 値の仕組みと形の仕組みを一つずつにする |
 | 2026-11-18 | DEC-07 | style の名前 | CSS の名前（`font_weight`、`font_style`、`border_radius`、`flex_*`、`outline`、`active`、`FlexDirection`） | CSS の利用者が推測できる |
-| 2026-11-18 | DEC-08 | GPU の device | process に一つ。window ごとには frame の状態だけ | 起動とメモリが window の数に比例しない |
-| 2026-11-18 | DEC-09 | SVG の asset | usvg で `RenderScene` にして vector で描く。resvg・tiny-skia・fontdb を消す | 2 つ目の rasterizer・shaper・font DB を持たない |
+| 2026-11-18 | DEC-08 | GPU の device | Driver（一つの App の event loop）に一つ。window ごとには frame の状態だけ。同じ process の二つの埋め込み editor はそれぞれの Driver の device を持つ | 起動とメモリが window の数に比例しない。process 全体の仲介は持たない |
+| 2026-11-18 | DEC-09 | SVG の asset | resvg・tiny-skia による今の描画を保つ。usvg に arvane-text の font を渡し、fontdb の system font の二度目の走査だけを消す（`RenderScene` への変換はしない） | mask・pattern・filter などの既存の SVG の能力を、性能の改修のついでに黙って落とさない |
 | 2026-11-18 | DEC-10 | Python の DevTools client（ADR-51 の Python の部分を置き換える） | 消す。xtask の codegen も消し、JSON Schema は protocol から作る | 利用者がいない。MCP が同じ役目を持つ |
 | 2026-11-18 | DEC-11 | SVG の書き出しで同等のものが無い機能（ADR-64 を置き換える） | SVG 1.1 と CSS に同等があれば書き（font-feature-settings、font-variation-settings、mix-blend-mode、文字の装飾、塗りと線）、無いものだけ Unsupported の error にする。書き出しは `kivact-offscreen` の `Offscreen::render_svg` と `kivact-svg` | plot の書き出し（`tnum` など）が失敗しない |
 | 2026-11-18 | DEC-12 | 性能の必達 | 全 KPI で後退しない（≤ 1.00、時間の行は 1.05、大きさの行は 1.02 までの雑音を許す）。改善の目標は記録する | 未達で設計が止まらず、後退は確実に防ぐ |
 | 2026-11-18 | DEC-13 | 遅延初期化 | `kivact_types::cell::Deferred<T>`（UI thread）と `SharedDeferred<T>`（static）だけ。std の lazy 型の禁止は続ける。ADR-17・ADR-21 の内部の OnceCell はこの二つに読み替える | 性能の規則が求める「使う時に作る」と、S-7（未完成の object を作らない）の区別を一つの道具で表す |
+| 2026-11-18 | DEC-17 | 状態の印の機械的な変換 | 既存の印から機械的に作った印は `// xtask-allow(state): legacy: ...` と書いて区別する。CP1 で全件を台帳（`rework/state-ledger.md`）にし、設計者が一件ずつ閉じ方を決めて実装する。`legacy:` が 0 件で完了 | 印の件数 0 は状態機械の解消の証拠にならない |
+| 2026-11-18 | DEC-18 | 依存の fork | しない。依存は二つの群（いま上げる群と、wgpu・vello・parley・skrifa・usvg などの連動する群）で更新する | 主な依存は活発に版が出ており、fork の追従の費用が性能の利益を上回る |
 | 2026-11-18 | DEC-15 | `update` の戻り値 | 返さない（`Signal`・`Var` とも）。破棄された signal への `set` と `update` は位置付きの `WriteAfterDispose` を一度記録して何もしない | 監査の提案（`Option<R>`）では最も多い `on_press(move \|\| x.update(..))` が handler の結果の型に合わなくなる |
 | 2026-11-18 | DEC-16 | payload のある handler の型 | `impl Fn(E) -> R`。`IntoHandler` は payload の無い handler だけ | closure の引数の型の推論は `Fn` の bound からしか働かない。`Callback<E>` は `Fn` を実装できない |
 | 2026-11-18 | DEC-14 | 改修の途中の kit | style の改修から kit の移行までの間、5 つの kit・catalog・kit の試験を compile から外し、kit は最終の API に一度で移す | 途中の API への追従を二度するより安い |
 | 2026-11-18 | RW-01 | handler の受け方（CONTRACT-10 を置き換える。DEC-16） | 二つだけ。payload の無い handler は sealed な `IntoHandler<(), M>`（closure と `Callback<()>`）、payload のある handler は `impl Fn(E) -> R + 'static`（共有の `Callback<E>` は `move \|e\| cb.call(e)`）。どちらも `Handler<E>`（`Rc<dyn Fn>`、arena の object を作らない）にする。`From<F> for Callback<()>`、`Callback::bind`・`to_fn` を消す | closure の引数の型の推論は `Fn` の bound からしか働かず、`Callback<E>` は `Fn` を実装できない。payload の無い press では `Callback<()>` を包み直す必要と press ごとの arena の object が消える |
 | 2026-11-18 | RW-02 | context の読み出しの型 | `use_context::<T>() -> T`、`try_use_context -> Option<T>`。context の置き場は runtime と core の二つを一つにする | 定数の `Value` を二度 `.get()` する必要が無い。reactive にしたいときは中に `Signal` を入れる（Solid と同じ） |
 | 2026-11-18 | RW-03 | prelude の範囲 | 設計で決めた約 120 の名前の明示の一覧。変換 trait（IntoValue、IntoText、IntoHandler）、kit 寄りの型、`scope` を入れない。`provide_theme`・`use_theme`・`color`・`space`・`radius`・`font` を入れる（CONTRACT-14 を置き換える） | 初めての利用者が見る名前を減らし、theme 変数を import なしで書けるようにする |
-| 2026-11-18 | RW-04 | 非同期の action の形（CONTRACT-05 を置き換える） | `action(f)` は新しい実行が古いものを取り消す。順に実行するものは `queued_action(f)`。`ActionMode`・`ActionOutcome`・`Action::close` を消し、`on_complete` は `Result<T, UiError>` を受ける。`Retry` は `Callback<()>`。非同期の表示は `async_view` だけを教える | 既定の意味を一つにし、完了の結果を std の型で表す |
-| 2026-11-18 | RW-05 | 他の thread から reactive な状態に値を入れる口 | `task::remote(initial) -> (Signal<T>, Remote<T>)` と `task::remote_trigger() -> (Trigger, RemoteTrigger)`。書込みは UI の turn ごとに一度にまとめ、event loop を起こし、block しない。`Notifier` は `Trigger` に改名する | channel と `spawn` の定型を利用者に書かせない |
-| 2026-11-18 | RW-06 | font の持ち主（ADR-25 の font の部分を置き換える） | theme が持つ（`Theme::with_fonts(&'static [&'static [u8]])`）。`App::fonts` と `TestFonts::Only` を消し、`App::theme` と `RenderOptions::with_theme` が登録する | kit の theme と font を一緒に配れ、試験と本番が同じ経路を使う |
+| 2026-11-18 | RW-04 | 非同期の action の形（CONTRACT-05 を置き換える） | `action(f)` は新しい実行が古いものを取り消す。順に実行するものは `queued_action(f)`。owner の破棄でその owner の action（queued を含む）を取り消し、画面をまたぐ保存は App の root の owner で作った action で行う。期限つきの drain は App の終了だけ（12 章 ST-08）。`ActionMode`・`ActionOutcome`・`Action::close` を消し、`on_complete` は `Result<T, UiError>` を受ける。`Retry` は `Callback<()>`。非同期の表示は `async_view` だけを教える | 既定の意味を一つにし、完了の結果を std の型で表す |
+| 2026-11-18 | RW-05 | 他の thread から reactive な状態に値を入れる口 | `task::remote(initial) -> (Signal<T>, Remote<T>)` と `task::remote_trigger() -> (Trigger, RemoteTrigger)`。`Remote` は `set(T)` だけ（利用者の closure を他の thread で動かさない）。最新の値だけを `Open { latest }`／`Closed` の mailbox に保ち、runtime の driver が turn の始めに一度だけ届け、event loop を起こし、block しない。owner の破棄で閉じ、その後の `set` は値を捨てる（12 章 API-9〜11）。`Notifier` は `Trigger` に改名する | channel と `spawn` の定型を利用者に書かせない |
+| 2026-11-18 | RW-06 | font の持ち主（ADR-25 の font の部分を置き換える） | theme が持つ（`Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`：static bytes・`Vec<u8>`・path・共有 bytes を同じ入口で受け、`.leak()` は要らない。12 章 API-13）。`App::fonts` と `TestFonts::Only` を消し、`App::theme` と `RenderOptions::with_theme` が登録する | kit の theme と font を一緒に配れ、試験と本番が同じ経路を使う |
 | 2026-11-18 | RW-07 | GPU の起動の希望の置き場（CONTRACT-11 を置き換える） | 5 つの型を `kivact::platform` に置き、`kivact::launch` を消す。`GpuStart::Never` を足し、`prefer_gpu` を消す。`ARVANE_RENDERER=cpu\|gpu\|auto` は `Never\|AtLaunch\|OnDemand` | 1 つの型のための module をなくし、CPU だけの起動を同じ型で表す |
 | 2026-11-18 | RW-08 | close request の handler が効く window（CONTRACT-15 を置き換える） | `platform::on_close_request(f)` は呼んだ owner の window（main window、`window()`、foreign window）に効く。main 以外の window では handler が `Handled::Yes` を返さなければ `on_dismiss(DismissReason::WindowClose)` が続く。`AppHandle::close` と埋め込み App は handler を呼ばない | 別 window の未保存の確認も同じ口で書け、`on_dismiss` の規則と揃う |
 | 2026-11-18 | RW-09 | 埋め込みの停止と名前（ADR-72 を置き換える） | `EmbedNotice::{ScaleChanged(f64), Stopped(EmbedStatus)}`。停止は `Closed`・`Failed`・`Panicked` を payload で一度だけ知らせる。`embed::Visibility` を `EmbedVisibility` に改名し、`kivact::embed` は全 OS で compile できる（未対応の環境の `App::embed` は `Unsupported`） | wrapper が通知の後に status を読み直す手間と、OS ごとの cfg を利用者から除く |
@@ -3706,11 +3822,24 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
 | 2026-11-18 | RW-17 | DevTools の client の crate | `kivact-devtools-client` を `kivact-devtools-protocol` の feature `client` に統合する | client と protocol は同じ理由で同時に変わり、client だけを使う利用者がいない |
 | 2026-11-18 | RW-18 | 開閉の語彙（CONTRACT-12 を置き換える） | interaction の surface の Api は `use_x(.., open: Signal<bool>)` で open を必須の位置引数に取り、`show`・`hide`・`toggle`・`is_open`、`trigger()`・`content()` の Part、`surface(placement, content)` を持つ。`use_menu_with_open`、`on_open_change`、`DialogMode::Popover`、`while_open` を消す | 開閉の書き方を一つにする。`surface` が anchor・`show`・overlay・content の Part の配線をまとめる |
 | 2026-11-18 | RW-19 | 部品の状態と recipe の形 | part の状態を読む唯一の方法は `Part::state()`。recipe の上書きは `Fn(&Theme, &Look<S>, Style) -> Style`（3 つ目は前の recipe の結果）。ui は入力で動く Machine を持たず、interaction は view を返さない（`surface()` を除く） | 状態の getter・slot・map の写しをなくし、上書きを前の結果の上に重ねられるようにする |
-| 2026-11-18 | RW-20 | 状態の検査の単位（ADR-52・STATE-AUDIT・STATE-CLAIMS を置き換える） | 型の単位の検査 `state`：状態の field を二つ以上持ち、`&mut self` か内部可変の書込みを持つ型は、型の直前の印 `// xtask-allow(state): <閉じ方>` が無ければ error。constructor・`Default`・値渡しの builder だけで書く field は状態ではない。field ごとの印、`--report-audit`、`state-audit.md` を消す | field ごとの印は受動的な record に 1000 行以上の定型文を書かせ、意味の誤りは見つけられなかった。検査を可変の状態に絞り、閉じ方は型の横の一行に置く |
+| 2026-11-18 | RW-20 | 状態の検査の単位（ADR-52・STATE-AUDIT・STATE-CLAIMS を置き換える） | 型の単位の検査 `state`：状態の field を二つ以上持ち、`&mut self` か内部可変の書込みを持つ型は、型の直前の印 `// xtask-allow(state): <閉じ方>` が無ければ error。名前の接尾辞や derive による除外は置かない。constructor・`Default`・値渡しの builder だけで書く field は状態ではない。field ごとの印、`--report-audit`、`state-audit.md` を消す（機械的に変換した印は DEC-17 の `legacy:`） | field ごとの印は受動的な record に 1000 行以上の定型文を書かせ、意味の誤りは見つけられなかった。名前を変えるだけで状態が見えなくなる除外も持たない |
 | 2026-11-18 | RW-21 | 公開 API の E2E と文書の compile | E2E を `kivact-public-api-tests` の `e2e_core`・`e2e_ui`・`e2e_native` と、新しい package `kivact-kit-tests` の `e2e_kits` の 4 つの binary に分ける。文書の doctest は英語だけを compile し、日本語の Rust の code block は `docs-pairs` で英語と同一であることを確かめる。生成した図（`architecture/`）は git から外し、`cargo xtask diagrams` で作る | 変更した crate に合う binary だけを link でき、日本語の同じ例の二度目の compile を省く |
 | 2026-11-18 | RW-22 | kit の骨格 | 5 つの kit を一つの骨格に揃える：`theme(mode)`、option があるときだけ `theme_with`、kit の theme 変数、`recipes_<group>.rs`、`variants.rs` の `<Component>Variant`、分野の部品は `src/<domain>/`。kit 名の接頭辞を型名に付けない。kit の README の移行表と recipe の一覧を消す | kit の間の差を見た目と分野の部品だけにする。公開していない kit に旧版からの移行表は要らない |
 | 2026-11-18 | RW-23 | 診断の記録 | turn の trace・原因の文字列・node の provenance は DevTools・`kivact::test` の trace・debug の trace sink が有効なときだけ記録し、release で常に持つのは counter だけにする。DevTools は feature で外さず、実行時の `Option` の hook で費用を消す | 常時の記録がメモリと起動の大半を占めていた。機能の有無で API を分けない |
 | 2026-11-18 | RW-24 | engine の配送の受理 | pointer の source の写しを消し、配送の受理（admission）は engine が持つ | 入力の route と modal の受理の正本を一つにする |
+| 2026-11-18 | RV-01 | 部品の props の特別な形 | 型引数そのものの props（`control: C`）は `Into` で包まずに受け、関数の props は `Rc<dyn Fn(..) -> T>`（closure を受ける）。部品は型引数を持て、lifetime・const の引数は持たない | `field("Name", text_input(v))` の型を推論でき、formatter などを closure で渡せる |
+| 2026-11-18 | RV-02 | 呼出し側の modifier を部品が読む方法 | `#[component]` の引数 `#[caller] caller: Caller` に macro が吸収した modifier の snapshot を渡す。最終の variant・disabled・押下の有無は `Node::authored()` 一つで求める。thread-local の stack（`custom::caller()`）は使わない | 部品ごとの読み方を一つにし、隠れた global の状態を持たない |
+| 2026-11-18 | RV-03 | 共有の handler と callback の props | 共有の handler は `callback(move \|_\| ..)`（payload の無いものも同じ形）。`Callback` の props は body の実行の前に一度だけ owner に登録し、呼出しの `Result<Handled, UiError>` を保つ | ガイドの書き方を一つにし、inline の closure・共有の `Callback`・props の経由で同じ結果にする |
+| 2026-11-18 | RV-04 | `Remote` の操作 | `set(T)` だけ（`update` は持たない）。mailbox は `Open { latest }`／`Closed` の二状態で owner の cleanup で閉じ、配送は runtime の driver が turn の始めに一度だけ行う | 利用者の closure を他の thread や lock の中で動かさない |
+| 2026-11-18 | RV-05 | `tooltip` と `provide_direction` の形 | `tooltip(label, trigger) -> impl Element`（`Tooltip::attach` を消す）。`provide_direction` は定数のまま | React の `<Tooltip content><Button/></Tooltip>` と同じ形。読み方向は画面の途中で変わらない |
+| 2026-11-18 | RV-06 | font の入口（RW-06 を補う） | `Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`。static bytes・`Vec<u8>`・path・共有 bytes を受ける | `.leak()` を利用者に書かせない |
+| 2026-11-18 | RV-07 | 非同期の寿命 | owner から切り離された action は publish しない。owner の破棄でその owner の action（queued を含む）を取り消し、画面をまたぐ保存は App の root の owner の action で行う。deferred の実行も turn の仕事量の予算に数え、超えたら `Cycle` を一度報告して次の turn に回す | 期限つきの drain は App の終了だけに使い、画面の破棄の後に仕事を残さない |
+| 2026-11-18 | RV-08 | 寿命の掃除 | selector の node は最後の購読者が外れたときに消す。motion の登録は token を返し、token の `Drop` で全 map から消す。`devtools` feature の build は node の型と作成の位置を常に持つ | owner の cleanup や診断の呼出しを掃除の契機にしない |
+| 2026-11-18 | RV-09 | `Runtime.app` の一度だけの設定 | App の構築の中（利用者のコードが動く前）に限る明記した例外。設定前の読出しは debug の assert で落とす。型での二段階の分離はしない | 公開 handle が thread-local の runtime を読む構造を変える範囲が大きく、得る安全が小さい |
+| 2026-11-18 | RV-10 | theme の編集と変数 | `Theme` の書込みはすべて一つの編集の入口を通り、拡張の fallback の cache を空にする。すべての型の theme 変数は別の変数を値（別名）に持て、部品の変数の既定は中核の変数への別名にする。`Length` の `+`・`-` は theme 変数・`em`・`pct` を含む式として保つ。`cached_theme` は作らず、kit は theme を `thread_local!` の static で保つ | 共通の値の変更がすべての部品に届き、式を黙って `Auto` にしない。関数の address は同一性を保証しない |
+| 2026-11-18 | RV-11 | system font の走査 | process の開始時に別 thread で始め、window・GPU の準備と重ねる。最初の文字の計測は残りを待つ | 走査を critical path から外しきれないので、重ねて待ちを最小にする |
+| 2026-11-18 | RV-12 | 試験と検証の範囲 | 最適化の正しさを守る最小の不変条件の試験（cache の無効化、資源の寿命、状態の遷移）は、その変更の試験の file に足してよい。kivact-test の自己試験は `crates/kivact-test/tests/` へ移す。CPU だけの build は package ごとの `--no-default-features --lib` の check と、`cargo tree` に wgpu が無いことで確かめる。docs-pairs は英日のファイルの集合と、Rust の block の token の列（文字列の中身を除く）を比べる | 過去の不具合の再現の試験は足さないまま、性能の改修が壊しやすい不変条件を守る |
+| 2026-11-18 | RV-13 | stepper の編集 | `stepper(items, current)` は `on_edit(EditPhase)` を持つ | 値を書き換える部品は `on_edit` を出す（戦略 5 章の編集の取消し） |
 ````
 
   4. **strategy.md**（この三か所だけ。他は変えない）：
@@ -3720,9 +3849,9 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
   5. **manual-verification.md**：
      - ファイルの中の相対 link（`](../../...)`）をすべて列挙し、link 先が存在するか確かめる：
        ```bash
-       cd docs/for-kivact-developer
-       grep -o '](\.\./\.\./[^)]*)' manual-verification.md | sed 's/^](//; s/)$//' | sort -u | while read p; do [ -e "$p" ] || echo "missing: $p"; done
-       cd ../..
+       ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
+       D=docs/for-kivact-developer
+       grep -o '](\.\./\.\./[^)]*)' "$D/manual-verification.md" | sed 's/^](//; s/)$//' | sort -u | while read p; do [ -e "$D/$p" ] || echo "missing: $p"; done
        ```
      - 無い link 先は、同じファイル名を `git ls-files | grep -F '/<ファイル名>'` で探し、見つかった path に直す（`dev/tests/kivact-public-api/tests/e2e/x.rs` が `tests/e2e_core/x.rs` などへ移った場合）。候補が二つ以上か 0 個なら、その link を含む行の「変更経路の参照」の列からその link だけを消し、報告に書く。
      - 「`Embedded::status` が `Panicked` を返し」の文の後に「、`Parent::on_notice` が `EmbedNotice::Stopped(EmbedStatus::Panicked(..))` を一度受け取り」を足す（ADR-72 の置換 RW-09）。
@@ -3736,7 +3865,7 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
   rg -n -i python docs/for-kivact-developer/strategy.md
   git diff --stat -- docs/for-kivact-developer/strategy.md
   ```
-- **完了条件**：1 つ目の rg が、新しい節の「置き換える」の説明の中の ID（`（CONTRACT-10 を置き換える）` など）だけを返す（表の ID の列には無い）。2 つ目が何も返さない。strategy.md の diff が 3 行（標準部品の行、試験と診断の行、6 章 4. の行）だけ。decisions.md に DEC-01〜DEC-16 と RW-01〜RW-24 の行がある。manual-verification.md の link 先がすべて存在する。
+- **完了条件**：1 つ目の rg が、新しい節の「置き換える」の説明の中の ID（`（CONTRACT-10 を置き換える）` など）だけを返す（表の ID の列には無い）。2 つ目が何も返さない。strategy.md の diff が 3 行（標準部品の行、試験と診断の行、6 章 4. の行）だけ。decisions.md に DEC-01〜DEC-18、RV-01〜RV-13 と RW-01〜RW-24 の行がある。manual-verification.md の link 先がすべて存在する。
 
 ## G15：最終の整合（W11c）
 
@@ -3756,7 +3885,7 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
      | `rg -n -e '--exclude kivact-docs' CONTRIBUTING.md` | 「merge 前の検査」の `cargo test --workspace` の行の `--exclude kivact-docs` はそのまま（kivact-docs は別の行で直列に実行する）。`kivact-docs` を `--test-threads=1` で実行する行が `--all-features` の一つだけあることを確かめる（`--no-default-features` の `kivact-docs` の行があれば消す。T 4.1、INC-31）。無ければ現在の CONTRIBUTING の書式で `--all-features` の一行を足す |
      続いて「ドキュメント」の節の「英語と日本語は同じファイル名で対にし、...」の段落を次にする：
      ````markdown
-     英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。日本語のファイルの Rust のコードブロックは、英語の同じ順番のブロックと一字一句同じにします（コメントと文字列も英語のまま。`cargo xtask check` の `docs-pairs` が確かめます）。`docs/` の英語の木と `README.md` の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。直したガイドだけを確かめるには `KIVACT_DOCS_ONLY=<docs/ からの path をコンマ区切り>` を付けて `cargo test -p kivact-docs --doc` を実行します（root の README は `README.md`）。GPU texture 共有のガイドの例は `kivact-docs` の `gpu-interop` feature（`--all-features` で有効）のときだけコンパイルされます。公開 API を変えたときは、移行ガイド `docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md` には足さず、ガイドの本文を新しい使い方に揃えます。
+     英語と日本語は同じファイル名で対にし、同じ変更で両方を更新します。日本語のファイルの Rust のコードブロックは、英語の同じ順番のブロックと token の列を同じにします。文字列の literal の中身だけは訳してかまいません（`cargo xtask check` の `docs-pairs` が、英日のファイルの集合と、ブロックの token の列を確かめます）。`docs/` の英語の木と `README.md` の Rust のコードブロックは `dev/tests/docs`（`kivact-docs`）の doctest としてコンパイルされます。新しいページの登録は不要です。直したガイドだけを確かめるには `KIVACT_DOCS_ONLY=<docs/ からの path をコンマ区切り>` を付けて `cargo test -p kivact-docs --doc` を実行します（root の README は `README.md`）。GPU texture 共有のガイドの例は `kivact-docs` の `gpu-interop` feature（`--all-features` で有効）のときだけコンパイルされます。公開 API を変えたときは、移行ガイド `docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md` には足さず、ガイドの本文を新しい使い方に揃えます。
      ````
      「ドキュメント」の表の `strategy.md` の行の後に `| docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md | 改修前の API からの移行の表（改修の時点で固定） |` を足す。
   2. **報告だけの検査の一覧と pending のコードを消す**（付属書 T の 4.4 の最後の段落のとおり）。
@@ -3824,7 +3953,7 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
 | R | `Signal<T>`（`get`、`with`、`set`、`update`（値を返さない。DEC-15）、`optional`）、`binding(get, set) -> Signal<T>`、`bind!(s.a)`、`var(v) -> Var<T>`（`get`、`with`、`set`、`update`）、`callback(f)`、`trigger() -> Trigger`（`track`、`notify`）、`use_context::<T>() -> T`、`try_use_context::<T>() -> Option<T>`、`untrack`、`kivact::state::selector`、`kivact::state::{IntoValue, IntoText, IntoHandler}` | G02、G03、G04〜G08 |
 | R | `kivact::task::{remote, remote_trigger, queued_action, clock}`、`action(f)`（nullary と unary の closure）、`Action::on_complete(Fn(Result<T, UiError>))`、`Resource::refetch`、`resource((), f)`（`()` の source） | G02、G03、G07 |
 | C | `#[component]` が `-> impl Element` と `-> impl IntoView` を受け、生成する struct の名前は関数名の UpperCamel（`task_row` → `TaskRow`）。`Option<X>` の props は setter。`#[prop(default = ..)]`。`#[derive(Prop)]`。prelude（設計 5.11）。`App::new(..).theme(..)`、`App::gpu_preference`、`App::handle`。`kivact::platform::{GpuPreference, GpuPower, GpuBackend, GpuStart, AdapterMatch}`。`kivact::view::commit_focused_edit`。`kivact::custom::{scope, raise, Owner}`。`kivact::draw::Offscreen`（`render(width, height)`、`render_svg(width, height)`、`.scale(f64)`）。`kivact::embed::{EmbedNotice::Stopped(EmbedStatus), EmbedVisibility}`。`kivact::test::RenderOptions::with_theme`、`TestFonts::System` | G02〜G12 |
-| S | 1.2 の 5. の theme 変数の名前、`ThemeVar::new` が `const fn`、`rgb` が `const fn`（`static` の初期化子に置くため）、`Color::var`、`Length::var`（`kivact::style::Length`）、`Theme::{set, get, with_fonts, with_icon, with}`、`kivact::style::cached_theme`、`FlexDirection`、`FontStyle`、CSS の名前の setter、`Mix`、`TextStyle`（`StyledRange` の形） | G02、G03、G04、G06 |
+| S | 1.2 の 5. の theme 変数の名前、`ThemeVar::new` が `const fn`、`rgb` が `const fn`（`static` の初期化子に置くため）、`Color::var`、`Length::var`（`kivact::style::Length`）、`Theme::{set, get, with_fonts, with_icon, with}`、`FlexDirection`、`FontStyle`、CSS の名前の setter、`Mix`、`TextStyle`（`StyledRange` の形） | G02、G03、G04、G06 |
 | U | `kivact::ui::theme::{ButtonTheme, Variant, ..}` と部品ごとの `<Name>Theme` の part の名前、部品の theme 変数の module、`text_input(value).label(..)` などの setter、`field(label, control)`、`icon_button`、`use_toaster`、`use_popup(open)` と `surface(placement, content)`、`use_menu(items, open)`、`Part::state()`、`select(..).trigger(view)`、`input_group(label, children)` が closure を受けること、`stepper(items, current: Signal<usize>)`、`tag_input(tags)` | G04〜G08 |
 | K | 付属書 K の 4 章の kit ごとの旧名→新名の表、kit の theme 変数（`<kit>::PRIMARY`、`PRIMARY_VAR`）、`kivact_plot` の公開名と `kivact_plot::color::SERIES_1..SERIES_5`、catalog の shell の package 名 | G10、G11、G12、G13 |
 | T | `docs-pairs` の検査（`cargo xtask check --only docs-pairs`）、`dev/tests/docs/build.rs` が英語の木と `README.md` だけを生成すること、報告だけの検査の一覧 `[rework.pending]` と、それを読む xtask のコード（T 4.4。G15 が消す）、e2e の binary（`kivact-kit-tests` の `e2e_kits` を含む）、`cargo xtask diagrams`、CONTRIBUTING の「テスト」「merge 前の検査」の書換え、JSON Schema の再生成の手順 | G01、G13、G15 |
@@ -3861,7 +3990,7 @@ API の抜本的な改修で行った決定。設計者が決め、作者が PR 
 | AC-5（文書・README・例・雛形・移行ガイド・開発者向け 3 文書） | G02〜G14 |
 | 設計 3 章の profile と版の固定の案内（USR-01、USR-13） | G02（01）、G09（移行ガイド・入口）、G12（README・雛形） |
 | 設計 4 章・6 章を architecture.md へ | G13 |
-| 設計 7・8 章を decisions.md へ（DEC-01〜DEC-14 と主な採用所見、置き換えた行の削除） | G14 |
+| 設計 7・8 章を decisions.md へ（DEC-01〜DEC-18、12 章の決定（RV-01〜RV-13）と主な採用所見、置き換えた行の削除） | G14 |
 | strategy.md の 2 か所（7.5 Q1、DEC-10） | G14 |
 | `kivact-docs` を compile と gate に戻す | G01（workspace・依存）、G15（CONTRIBUTING・全体の doctest） |
 | 報告だけの検査の一覧を消す | G15 |

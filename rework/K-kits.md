@@ -12,7 +12,7 @@
 | `examples/kivact-ui-{basic,pop,game,creative,soft}`（以下「catalog」） | `examples/catalog-shell` への移行、英語化（KIT-12） |
 | 新しい crate `crates/kivact-plot` | basic の `plot` を移す（KIT-15、設計 5.10） |
 | 新しい crate `examples/catalog-shell`（`publish = false`） | 5 つの catalog の共通の shell・page 一覧・検索・試験の walker（KIT-12、KIT-20） |
-| kit が要る中核の追加 | kivact-style：`IconSet::shared`、`icons!`（KIT-08）。kivact-ui：`Slant`・`Striped`（KIT-04）、`SyntaxKind` と構文色の theme 変数（KIT-05）、`sidebar`（KIT-10）、`TabOverflow::{Menu, Scroll}`（KIT-09）。kivact-core：`NodeRef::once_visible`（KIT-11）。`task::clock`（KIT-17、設計 5.5）は付属書 R の R23（W5a）が作り、K42 が使う |
+| kit が要る中核の追加 | kivact-style：`icons!`（KIT-08）。kivact-ui：`Slant`・`Striped`（KIT-04）、`SyntaxKind` と構文色の theme 変数（KIT-05）、`sidebar`（KIT-10）、`TabOverflow::{Menu, Scroll}`（KIT-09）。kivact-core：`NodeRef::once_visible`（KIT-11）。`task::clock`（KIT-17、設計 5.5）は付属書 R の R23（W5a）が作り、K42 が使う |
 | `crates/kivact-devtools` | kit への依存を消す（KIT-18） |
 | `dev/tests/kivact-kit-tests`（package `kivact-kit-tests`、binary `e2e_kits`。T15 が作る） | W11a の K44 だけ（theme_conformance の書き直しと TL-13 の共通の検査） |
 
@@ -24,7 +24,7 @@
 |---|---|---|
 | W1 | T | `state` 検査（struct 単位の `// xtask-allow(state): ...`）、`xtask-allow(state-fields)` の全削除、e2e の分割（`e2e_kits` binary）、`structural-options` 検査の削除 |
 | W5 | R・C | `#[component]`（設計 5.1 の規則 1〜8）、`Signal<T>` への統合（`Binding`・`IntoBinding` の削除）、`IntoHandler`・`Callback<E>`、`#[derive(Prop)]`（`constant_value!` は `#[doc(hidden)]`）、`Element::variant<V: Variant>(self, v: impl IntoValue<V>)`、`Trigger`、`use_context -> T`、prelude（5.11） |
-| W6 | S | `ThemeVar<T>`、`Color::var`、`Length::var`、`Theme::set`・`Theme::get`、中核の変数 `kivact::style::{color, space, radius, font}`、`kivact::style::cached_theme`、`Theme::with_fonts`・`Theme::with_icons`、`Color::relative_luminance`・`Color::contrast_ratio`、CSS の名前（`font_weight` など）、`ThemeColor`・`ColorToken`・`Palette`・`Spacing`・`Radii`・`use_tokens` の削除、DEC-14 の除外（kit・catalog・kit の試験・`e2e_kits` を compile から外す） |
+| W6 | S | `ThemeVar<T>`、`Color::var`、`Length::var`、`Theme::set`・`Theme::get`、中核の変数 `kivact::style::{color, space, radius, font}`、`Theme::with_fonts`・`Theme::with_icons`、`Color::relative_luminance`・`Color::contrast_ratio`、CSS の名前（`font_weight` など）、`ThemeColor`・`ColorToken`・`Palette`・`Spacing`・`Radii`・`use_tokens` の削除、DEC-14 の除外（kit・catalog・kit の試験・`e2e_kits` を compile から外す） |
 | W7〜W8 | U | `kivact::ui::theme::{<Name>Theme, <Name>State, Look, Variant}`、部品の theme 変数（`kivact::ui::theme::<component>::*`）、`UiRecipes`・`UiTokens` の削除、`kivact::ui` の部品の `#[component]` 化、開閉の語彙、`Look::variant::<V>()` |
 
 ### 1.3 本付属書が後の wave に渡すもの
@@ -34,7 +34,7 @@
 
 ### 1.4 設計の決定の要約（本付属書が前提にする 7.6 節の判定）
 
-KIT-05：中核は `SyntaxKind` と構文色の theme 変数だけを持ち、Rust の tokenizer は basic に残す。KIT-07：`theme_colors!` macro は作らず、theme 変数で `ColorName` ごと消す。KIT-08：`IconSet::shared` と `icons!`、kit の theme は `cached_theme`。KIT-09：soft の `tab_list` の overflow は中核の `tabs` へ。KIT-12：catalog の文言は英語。KIT-16：日本語の docs は全ページ残す、migration 表と recipe の一覧は消す。KIT-17：時計は `task::clock`。Q1：soft の大きな分野の部品（markdown、rich_blocks など）は soft に残し、使われていない関数だけ消す。Q3：`kivact-plot`。Q6：sidebar は中核へ。
+KIT-05：中核は `SyntaxKind` と構文色の theme 変数だけを持ち、Rust の tokenizer は basic に残す。KIT-07：`theme_colors!` macro は作らず、theme 変数で `ColorName` ごと消す。KIT-08：`icons!`。kit の theme と icon set は `thread_local!` の static（設計 12 章 PF-02 が `cached_theme` と fn pointer の共有をやめた）。KIT-09：soft の `tab_list` の overflow は中核の `tabs` へ。KIT-12：catalog の文言は英語。KIT-16：日本語の docs は全ページ残す、migration 表と recipe の一覧は消す。KIT-17：時計は `task::clock`。Q1：soft の大きな分野の部品（markdown、rich_blocks など）は soft に残し、使われていない関数だけ消す。Q3：`kivact-plot`。Q6：sidebar は中核へ。
 
 ## 2. unit の一覧
 
@@ -48,15 +48,15 @@ KIT-05：中核は `SyntaxKind` と構文色の theme 変数だけを持ち、Ru
 | K04 | W2a | K | K03 | `crates/kivact-ui-game/src/surface.rs` | KIT-11（halo） | S |
 | K05 | W2a | K | K04 | `crates/kivact-ui-soft/src/timestamp.rs` | KIT-03（日付の計算） | S |
 | K06 | W9 | K6 | W8 の完了 | root `Cargo.toml`（`members` の行）、`crates/kivact-plot/`（新：`Cargo.toml`、`src/lib.rs`）、`examples/catalog-shell/`（新：`Cargo.toml`、`src/lib.rs`）、`dev/xtask/policy/workspace.toml`、`Cargo.lock` | KIT-12、KIT-15 | S |
-| K07 | W9 | K6 | K06 | `crates/kivact-style/src/icon.rs`、`crates/kivact-style/src/icon_shared.rs`（新）、`crates/kivact-style/src/icons_macro.rs`（新）、`crates/kivact-style/src/lib.rs`、`crates/kivact-style/src/facade.rs` | KIT-08 | S |
+| K07 | W9 | K6 | K06 | `crates/kivact-style/src/icons_macro.rs`（新）、`crates/kivact-style/src/lib.rs`、`crates/kivact-style/src/facade.rs` | KIT-08 | S |
 | K08 | W9 | K6 | K07 | `crates/kivact-ui/src/variant_marks.rs`（新）、`crates/kivact-ui/src/syntax.rs`（新）、`crates/kivact-ui/src/syntax_colors.rs`（新）、`crates/kivact-ui/src/lib.rs`、`crates/kivact-ui/src/theme.rs` | KIT-04、KIT-05 | M |
 | K09 | W9 | K6 | K08 | `crates/kivact-core/src/view/node_ref_visibility.rs`（新）、`crates/kivact-core/src/view.rs`（`mod` 行）、`dev/tests/kivact-public-api/tests/e2e_core/node_ref.rs` | KIT-11 | S |
 | K10 | W9 | K6 | K09 | `crates/kivact-plot/`（全体）、`crates/kivact-ui-basic/src/plot.rs`、`crates/kivact-ui-basic/src/plot/`、`crates/kivact-ui-basic/src/nice.rs`、`crates/kivact-ui-basic/tests/consumer/plot.rs`（移動して消す） | KIT-15、KIT-10（目盛り） | L |
 | K11 | W9 | K6 | K10 | `crates/kivact-ui/src/sidebar.rs` と `crates/kivact-ui/src/sidebar/`（新）、`crates/kivact-ui/src/lib.rs`、`crates/kivact-ui/src/theme.rs`、`crates/kivact-ui-basic/src/sidebar.rs`、`crates/kivact-ui-basic/src/sidebar/`（移動して消す）、`dev/tests/kivact-public-api/tests/e2e_ui/ui_sidebar.rs`（新）と `e2e_ui` の `main.rs` の `mod` 行 | KIT-10（sidebar） | L |
 | K12 | W9 | K6 | K11 | `crates/kivact-ui/src/sidebar/`、`crates/kivact-ui/src/lib.rs`、`dev/tests/kivact-public-api/tests/e2e_ui/ui_sidebar.rs` | KIT-10（soft の分） | M |
-| K13 | W9 | K6 | K12 | `crates/kivact-ui/src/tabs.rs`、`crates/kivact-ui/src/tabs/` と `crates/kivact-ui/src/tabs/overflow.rs`（新）、`crates/kivact-ui/src/lib.rs`、`dev/tests/kivact-public-api/tests/e2e_ui/ui_tabs_overflow.rs`（新）と `e2e_ui` の `main.rs` の `mod` 行 | KIT-09（overflow） | M |
+| K13 | W9 | K6 | K12 | `crates/kivact-ui/src/tabs.rs`、`crates/kivact-ui/src/tabs/` と `crates/kivact-ui/src/tabs/overflow.rs`（新）、`crates/kivact-ui/src/lib.rs`、`dev/tests/kivact-public-api/tests/e2e_ui/ui_tabs_overflow.rs`（新）と `e2e_ui` の `main.rs` の `mod` 行 | KIT-09（overflow）、UI-K-01、UI-K-02 | L |
 | K14 | W9 | K6 | K13 | `examples/catalog-shell/`（全体） | KIT-12、KIT-20 | M |
-| K15 | W9 | K1 | W8 の完了 | `crates/kivact-ui-basic/`（`src/plot.rs`・`src/plot/`・`src/nice.rs`・`src/sidebar.rs`・`src/sidebar/`・`tests/consumer/plot.rs` を除く）、root `Cargo.toml` の basic の `members` 行 | KIT-06、KIT-07、KIT-08（theme の cache） | M |
+| K15 | W9 | K1 | W8 の完了 | `crates/kivact-ui-basic/`（`src/plot.rs`・`src/plot/`・`src/nice.rs`・`src/sidebar.rs`・`src/sidebar/`・`tests/consumer/plot.rs` を除く） | KIT-06、KIT-07、KIT-08（theme の cache） | M |
 | K16 | W9 | K1 | K15 | 同上 | KIT-06（recipe 1） | M |
 | K17 | W9 | K1 | K16 | 同上 | KIT-06（recipe 2） | M |
 | K18 | W9 | K1 | K17 | 同上 | DEC-03（部品 1） | L |
@@ -99,7 +99,7 @@ KIT-05：中核は `SyntaxKind` と構文色の theme 変数だけを持ち、Ru
 
 | kit の unit | 要る K6 の unit | 使うもの |
 |---|---|---|
-| K34（basic） | K07、K08、K10、K11 | `IconSet::shared`・`icons!`、`SyntaxKind`・構文色、`kivact_plot::nice::round_step`、中核の `sidebar` と `SidebarTheme` |
+| K34（basic） | K07、K08、K10、K11 | `icons!`、`SyntaxKind`・構文色、`kivact_plot::nice::round_step`、中核の `sidebar` と `SidebarTheme` |
 | K35（basic catalog） | K14 | `catalog_shell` |
 | K36（pop） | K07、K08 | `icons!`、`Slant`・`Striped` |
 | K37（pop catalog） | K14 | `catalog_shell` |
@@ -110,7 +110,7 @@ KIT-05：中核は `SyntaxKind` と構文色の theme 変数だけを持ち、Ru
 | K42（soft） | K11、K12（と R23 の `kivact::task::clock`） | R23 の `task::clock`、中核の `sidebar`・`SidebarTheme` と soft のための拡張 |
 | K43（soft catalog） | K14 | `catalog_shell` |
 
-W9 の kit の unit（K15〜K33）は K6 の unit を一つも要らない。W9 の間、kit の `icons.rs` は今の `OnceLock` の実装をそのまま使い（変えない）、W10 の unit が `IconSet::shared` に置き換える。
+W9 の kit の unit（K15〜K33）は K6 の unit を一つも要らない。W9 の間、kit の `icons.rs` は今の `OnceLock` の実装をそのまま使い（変えない）、W10 の unit が `thread_local!` の static に置き換える。
 
 ## 3. unit の手順
 
@@ -124,13 +124,13 @@ crates/kivact-ui-<kit>/
   README.md               3.0.10 の雛形（移行表・recipe の一覧を置かない）
   assets/icons/*.svg      kit 自身の icon（今の file をそのまま）
   src/lib.rs              crate doc（1 段落と使い方の例）→ mod 行 → pub use（群ごとに空行。群の順は下の file の順）
-  src/theme.rs            pub fn theme(mode: ThemeMode) -> Theme（cached_theme。3.0.7）
+  src/theme.rs            pub fn theme(mode: ThemeMode) -> Theme（thread_local! の static。3.0.7）
                           ThemeOptions と theme_with(mode, options) は game と creative だけ
                           fn build(mode: ThemeMode[, options: &ThemeOptions]) -> Theme
   src/color.rs            kit の色の theme 変数と pub(crate) fn set_colors(theme: Theme, mode: ThemeMode) -> Theme
   src/size.rs             kit の長さの theme 変数と pub(crate) fn set_sizes(theme: Theme[, ..]) -> Theme（f64 の token がある kit だけ）
   src/fonts.rs            kit の font family の theme 変数（`pub static <NAME>_VAR: ThemeVar<FontFamily>` だけ。const は作らない：S 4.1。game の DISPLAY_FAMILY_VAR・MONO_FAMILY_VAR、creative の MONO_FAMILY_VAR だけ）
-  src/icons.rs            icons! の一覧と pub(crate) fn set() -> IconSet（IconSet::shared。W10 で入れる）
+  src/icons.rs            icons! の一覧と pub(crate) fn set() -> IconSet（thread_local! の static。W10 で入れる）
   src/variants.rs         kit が標準部品に足す variant の型（enum・marker・newtype）と impl Variant。他は置かない
   src/recipe_parts.rs     二つ以上の recipes_<group>.rs が使う recipe の helper（pub(crate)。要らない kit は作らない）
   src/recipes_<group>.rs  <Name>Theme の recipe と pub(crate) fn install(theme: Theme) -> Theme（3.0.3）
@@ -166,13 +166,15 @@ crates/kivact-ui-<kit>/
 T1. kit の `Tokens` の `Color` の field `x` は `src/color.rs` の theme 変数にする。名前は field 名の大文字（`muted_foreground` → `MUTED_FOREGROUND`）。
 
 ```rust
-use kivact::style::{Color, ThemeMode, ThemeVar, rgb, rgba};
+use kivact::style::{Color, ThemeMode, ThemeVar, color, rgb, rgba};
 
 /// `--muted-foreground`: secondary text.            // 今の field の doc をそのまま写す
 pub static MUTED_FOREGROUND_VAR: ThemeVar<Color> =
-    ThemeVar::new("basic.muted_foreground", rgb(0x737373)); // 名前は "<kit>.<field>"、fallback は light の値
+    ThemeVar::alias("basic.muted_foreground", &color::TEXT_MUTED_VAR); // 名前は "<kit>.<field>"、fallback は T1a（別名でない変数は `ThemeVar::new("basic.card", rgb(0xffffff))`）
 pub const MUTED_FOREGROUND: Color = Color::var(&MUTED_FOREGROUND_VAR);
 ```
+
+T1a. fallback（設計 12 章 UI-U-02、5.7）：今の `theme.rs` が中核の値（`Palette` の field、`Spacing`・`Radii`・`Typography` の field、`control::HEIGHT_VAR` などの変数）に kit の token **そのもの**を入れている行（`surface: p.background` のように、式でなく token の読みだけの行）ごとに、その kit の変数の fallback を対応する中核の変数の別名にする（`pub static BACKGROUND_VAR: ThemeVar<Color> = ThemeVar::alias("basic.background", &color::SURFACE_VAR);`。別名の書き方はこれ一つ：annex S 4.1、INC2 N-11。値の形の `Color::var(&X)` を fallback に書かない）。kit の theme が無い所（素の theme や他の kit の下）でも、kit の部品が中核の値（mode・利用者の set）に従う。別名にする対象は kit の theme.rs を見て決まり、kit ごとの表（K15、K20、K22、K26、K28 の「別名の fallback」）が全部を挙げる。その他の変数の fallback は今の `Tokens::new(ThemeMode::Light)` の値。kit の theme の中では `set_colors`・`set_sizes` が全部の kit の変数に値を set するので、中核の変数 → kit の変数 → 中核の変数の循環は起きない。色以外の型（`f64`、`FontFamily`）の別名も同じ `ThemeVar::alias(name, &X_VAR)`。kit ごとの表の「`X` ← `color::Y`」は `ThemeVar::alias("<kit>.<x>", &color::Y_VAR)` と読む。
 
 T2. 配列の field `xs: [Color; N]` は `XS_1`〜`XS_N`（例 basic `chart` → `CHART_1`〜`CHART_5`）。
 T3. `f64` の field は `src/size.rs` の `ThemeVar<f64>` にし、`pub const X: Length = Length::var(&X_VAR);` を置く。
@@ -193,7 +195,7 @@ pub(crate) fn set_colors(theme: Theme, mode: ThemeMode) -> Theme {
 
 1 関数が 80 code 行を越えるときは、群ごとに `fn set_colors_<群>(theme: Theme, dark: bool) -> Theme` に分け、`set_colors` はそれを順に呼ぶ。
 
-T6. `theme.rs` の今の `Palette`・`Spacing`・`Radii`・`Typography` は、annex S 4.2 節の表「中核の theme 変数」（以下「S 表」。`color::{SURFACE, SURFACE_ALT, TEXT, TEXT_MUTED, ACCENT, ACCENT_TEXT, BORDER, FOCUS, DANGER, SUCCESS, WARNING, OVERLAY, SHADOW, SELECTION, HOVER, PRESSED, RAISED}`、`space::{XS, SM, MD, LG, XL}`、`radius::{SM, MD, LG}`、`font::{SIZE, SIZE_SMALL, SIZE_LARGE}`（const と `_VAR`）、`font::{FAMILY_VAR, WEIGHT_VAR, WEIGHT_STRONG_VAR, LINE_HEIGHT_VAR}`（static だけ））の `_VAR` への `set` に置き換える（`Palette::text_muted` → `color::TEXT_MUTED_VAR`、`Typography::family` → `font::FAMILY_VAR` など field の大文字。旧い名前の対応は S 4.3 節の表）。`with_mode`・`with_focus_ring`・`with_focus_ring_offset`・`with_control_height`・`with_disabled_opacity`・`with_overlay_margin`・`with_icons`・`with_fonts` は `Theme` の field のまま（S 4.2 節の最後の段落）なので、今の builder の呼出しをそのまま書く。今の値が kit の token のとき、中核の変数に kit の変数を set する（色だけの別名。設計 5.7 の `.set(&color::ACCENT_VAR, PRIMARY)`）。今の値が式（`p.ring.with_alpha(0.5)`）のときは、その式を `Theme::get` で計算して set する（例 `let ring = theme.get(&RING_VAR); theme.set(&color::FOCUS_VAR, ring.with_alpha(0.5))`。`theme` は kit の変数を set した後の値）。長さ・数・font の変数には別名が無い（S 4.1）ので、値を書く。
+T6. `theme.rs` の今の `Palette`・`Spacing`・`Radii`・`Typography` は、annex S 4.2 節の表「中核の theme 変数」（以下「S 表」。`color::{SURFACE, SURFACE_ALT, TEXT, TEXT_MUTED, ACCENT, ACCENT_TEXT, BORDER, FOCUS, DANGER, SUCCESS, WARNING, OVERLAY, SHADOW, SELECTION, HOVER, PRESSED, RAISED}`、`space::{XS, SM, MD, LG, XL}`、`radius::{SM, MD, LG}`、`font::{SIZE, SIZE_SMALL, SIZE_LARGE}`（const と `_VAR`）、`font::{FAMILY_VAR, WEIGHT_VAR, WEIGHT_STRONG_VAR, LINE_HEIGHT_VAR}`（static だけ））の `_VAR` への `set` に置き換える（`Palette::text_muted` → `color::TEXT_MUTED_VAR`、`Typography::family` → `font::FAMILY_VAR` など field の大文字。旧い名前の対応は S 4.3 節の表）。`with_control_height(x)`・`with_disabled_opacity(x)`・`with_overlay_margin(x)` は `Theme` から消える（annex S の S15、INC2 N-05）ので、`.set(&control::HEIGHT_VAR, x)`・`.set(&control::DISABLED_OPACITY_VAR, x)`・`.set(&control::OVERLAY_MARGIN_VAR, x)`（`kivact::style::control`）にする。`with_mode`・`with_focus_ring`・`with_focus_ring_offset`・`with_icons`・`with_fonts` は `Theme` の builder のまま書く。今の値が kit の token のとき、中核の変数に kit の変数を別名として set する：`.set(&color::ACCENT_VAR, &PRIMARY_VAR)`（変数を値にする書き方はこれ一つ。INC2 N-11）。各 unit の表の「`A_VAR` ← `B`」で `B` が変数（kit の const の名前か `_VAR`）のときは `.set(&A_VAR, &B_VAR)` と書く。今の値が式（`p.ring.with_alpha(0.5)`）のときは、その式を `Theme::get` で計算して set する（例 `let ring = theme.get(&RING_VAR); theme.set(&color::FOCUS_VAR, ring.with_alpha(0.5))`。`theme` は kit の変数を set した後の値）。
 T7. 今の `UiTokens`（`kivact::ui::UiTokens { .. }` と `ui.<部品>.<field> = ..`）は、annex U 4.3 節の表「UiTokens → 部品の theme 変数」（以下「U 変数表」）の変数への `set` に置き換える。今の値が `Some(x)` の `Option` の field は `x` を set する。U 変数表に行が無い field は 4.5 節に書いた kit ごとの扱いに従う。
 T8. 呼出し側の置換（recipe、draw、style、分野の部品のすべて）：
 
@@ -298,7 +300,7 @@ C3. props の型（設計 5.1 規則 3）：
 | 値の setter で、field が `Option<..>` だった | `s: Option<<型>>` |
 | その他の型 `T` | `T`（macro が `impl Into<T>` を受ける） |
 
-C4. setter の名前が `Element` の method と同じもの（`disabled`、`variant`、`name`、`label`、`test_id`、`node_ref`、`style`、`role` など。annex C の `Element` の method の一覧）は props にしない（API-13）。本体がその値を要るときは `kivact_core::custom::caller()`（U25。`caller().variants().get::<V>()` など）で読む（4.2 節の 3）。
+C4. setter の名前が `Element` の method と同じもの（`disabled`、`variant`、`name`、`label`、`test_id`、`node_ref`、`style`、`role` など。annex C の `Element` の method の一覧）は props にしない（API-13）。本体がその値を要るときは、部品の引数に `#[caller] caller: Caller` を書いて読む（設計 5.1 規則 10。thread-local の `custom::caller()` は無い）。
 C5. handler の名前（設計 5.3）：payload のない押下は `on_press`、key の項目の実行は `on_activate`、確定は `on_commit`、編集の段階は `on_edit`。`on_open_change` のような開閉の通知は消し、`open: Signal<bool>`（位置引数か setter。設計 5.9 の規則）にする。
 C6. 見えない名前（DEC-05）：kit の部品が text field・slider・spin button・combobox を作り、今その accessible name を位置引数で取るときは、位置引数から外す。呼出し側は `.label("Name")`（`Element` の modifier）か `field("Name", control)` で名前を付ける。各 unit の表で該当する部品を挙げる。
 C7. 引数のない `pub fn x() -> impl Element`・`-> Node`・`-> impl IntoView` の部品は `#[component] pub fn x() -> impl Element`。
@@ -306,6 +308,7 @@ C8. 部品でない公開の関数（`Shape` を返す game `cut_corner`、data 
 C9. 部品の data の型（`ListItem` に入る record、model の struct、options の struct）はそのまま。`ThemeOptions` 以外の options の struct（creative `ToolWindowOptions`）もそのまま。
 C10. 今 `xtask-allow(...)` の印が付いていた field は、部品の引数になって field ではなくなるので、印も消える。新しく `state` 検査の対象になる型（設計 6.1）を作ったときだけ、その unit が印の文面を決める。
 C11. generic な builder（`<K: ItemKey>`）は generic な `#[component]` にする（`#[component] pub fn x<K: ItemKey>(..)`）。
+C12. tooltip（設計 12 章 API-3、5.9）：`tooltip(label)<setter…>.attach(trigger)` は `tooltip(label, trigger)<setter…>` にする（`Tooltip::attach` は無い。setter の `.placement(..)` などは順のまま後ろに付ける）。kit と catalog の対象は `rg -n "tooltip\(" crates/kivact-ui-<kit>/src examples/kivact-ui-<kit>/src crates/kivact-ui-<kit>/tests` で探し、`.attach(` が続く呼出しを全部直す（今は basic `menubar.rs`・`chart/view.rs`・`chart/tooltip.rs`、soft `more_menu.rs`・`text.rs`・`thumbnail.rs`・`timestamp.rs`、creative `property_row.rs`、basic・creative・soft の catalog の tooltip の page。`side_navigation/` は K42 で消える）。recipe の `ToastTheme`・`TooltipTheme` の part の setter（`.tooltip(..)` の表）は別物で、U recipe 表のまま。
 
 #### 3.0.6 段階的な compile（W9 の kit の lane）
 
@@ -317,32 +320,33 @@ S3. lane の途中の unit の確認は `--lib` だけにし、clippy は `-A de
 S4. lane の最後の unit（W10 の K34・K36・K38・K39・K41〜K43）は、`--all-targets` と `-D warnings` だけで通す。kit の試験（`tests/consumer`）を戻すのは各 kit の catalog の unit（K35、K37、K38、K40、K43）。それまで `tests/` は compile されない（`cargo check -p <kit> --lib` は試験を読まない）。
 S5. `crates/kivact-ui-<kit>/Cargo.toml` の `[dev-dependencies]` は今のまま（`kivact` の feature `test`）。
 
-#### 3.0.7 theme の cache と icon（KIT-08）
+#### 3.0.7 theme の cache と icon（KIT-08、設計 12 章 PF-02）
+
+kit の theme は UI thread ごとに一度だけ作り、`thread_local!` の static に保って clone する（同じ mode は同じ `Arc` の theme：`PartialEq` が `Arc::ptr_eq` で真になり、入れ直しても restyle しない）。fn pointer を key にする `cached_theme` は使わない（関数の address は同一性を保証しない）。`thread_local!` の初期化は最初の参照のときに一度だけ走るので、`OnceCell` などの遅延の型は要らない。
 
 ```rust
 // src/theme.rs（basic・pop・soft）
-use kivact::style::{Theme, ThemeMode, cached_theme};
+use kivact::style::{Theme, ThemeMode};
+
+thread_local! {
+    /// The kit's light theme, built once per UI thread on first use.
+    static LIGHT: Theme = build(ThemeMode::Light);
+    /// The kit's dark theme, built once per UI thread on first use.
+    static DARK: Theme = build(ThemeMode::Dark);
+}
 
 /// The complete theme of the kit in `mode`. The same mode returns the same
 /// shared theme, so installing it again never restyles.
 pub fn theme(mode: ThemeMode) -> Theme {
     match mode {
-        ThemeMode::Light => cached_theme(light),
-        ThemeMode::Dark => cached_theme(dark),
+        ThemeMode::Light => LIGHT.with(Theme::clone),
+        ThemeMode::Dark => DARK.with(Theme::clone),
     }
-}
-
-fn light() -> Theme {
-    build(ThemeMode::Light)
-}
-
-fn dark() -> Theme {
-    build(ThemeMode::Dark)
 }
 
 fn build(mode: ThemeMode) -> Theme {
     let theme = Theme::light();                       // dark の kit も Theme::light() から始める（今の kit と同じ。creative だけ今のとおり mode で選ぶ）
-    let theme = crate::color::set_colors(theme.with_mode(mode), mode); // with_mode は S 表で置き換わった API
+    let theme = crate::color::set_colors(theme.with_mode(mode), mode);
     let theme = crate::size::set_sizes(theme);        // size.rs がある kit だけ
     let theme = set_core(theme, mode);                // T6・T7。theme.rs の private 関数
     let theme = theme.with_icons(crate::icons::set());
@@ -353,10 +357,15 @@ fn build(mode: ThemeMode) -> Theme {
 game と creative：
 
 ```rust
+thread_local! {
+    static LIGHT: Theme = build(ThemeMode::Light, &ThemeOptions::default());
+    static DARK: Theme = build(ThemeMode::Dark, &ThemeOptions::default());
+}
+
 pub fn theme(mode: ThemeMode) -> Theme {
     match mode {
-        ThemeMode::Light => cached_theme(light),
-        ThemeMode::Dark => cached_theme(dark),
+        ThemeMode::Light => LIGHT.with(Theme::clone),
+        ThemeMode::Dark => DARK.with(Theme::clone),
     }
 }
 
@@ -367,14 +376,6 @@ pub fn theme_with(mode: ThemeMode, options: ThemeOptions) -> Theme {
     } else {
         build(mode, &options)
     }
-}
-
-fn light() -> Theme {
-    build(ThemeMode::Light, &ThemeOptions::default())
-}
-
-fn dark() -> Theme {
-    build(ThemeMode::Dark, &ThemeOptions::default())
 }
 ```
 
@@ -402,8 +403,13 @@ const fn names() -> [&'static str; N] {
     out
 }
 
+thread_local! {
+    /// The kit's icon set, built once per UI thread and shared by its light and dark themes.
+    static SET: IconSet = build();
+}
+
 pub(crate) fn set() -> IconSet {
-    IconSet::shared(build)
+    SET.with(IconSet::clone)
 }
 
 fn build() -> IconSet {
@@ -455,7 +461,7 @@ fn main() -> kivact::Result<()> {
 }
 ```
 
-`theme(mode)` は `<kit>::theme(mode).with_fonts(FONTS)`（`FONTS` は `catalog_shell::FONTS` か、kit の font を足した catalog の `static FONTS`）に、S 表の font family の変数の set を足したもの。
+`theme(mode)` は `<kit>::theme(mode).with_fonts(FONTS.iter().copied())`（設計 12 章 API-13：`with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`。static の bytes をそのまま渡し、`.leak()` は書かない。`FONTS` は `catalog_shell::FONTS` か、kit の font を足した catalog の `static FONTS: &[&[u8]]`）に、S 表の font family の変数の set を足したもの。
 
 catalog の文言（title、説明、demo の中の文字）は英語にする（KIT-12、Q4）。demo の中の `Toast::icon(<view の関数>)` は annex U の `Toast::icon_name(<その kit の icon set の名前>)` にする（`rg -n "\.icon\(\|\|" examples/kivact-ui-<kit>/src` で toast の行を探す。今あるのは basic の `docs/toast.rs` と pop の `pop/shell.rs` だけ。kit の recipe の `ToastTheme` の `icon` の part は別物で、U recipe 表のまま）。日本語の文字を含む行は 0 行にする（確認：`rg -c '[\p{Hiragana}\p{Katakana}\p{Han}]' examples/kivact-ui-<kit>` が何も出さない）。ただし catalog の font が日本語を含むことを確かめる試験（basic の `every_page_character_is_in_the_catalog_fonts`）は catalog-shell の check に移し、文字列の literal は試験の中だけに置く。
 
@@ -659,7 +665,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   cargo check -p kivact-devtools --all-targets
   cargo clippy -p kivact-devtools --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-devtools
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-devtools
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-devtools
   ```
 
 - **完了条件**：`rg -n "kivact-ui-basic|kivact_ui_basic" crates/kivact-devtools` が何も出さない。`cargo tree -p kivact-devtools -e normal | rg kivact-ui-` が何も出さない。上の command がすべて通る。
@@ -774,7 +780,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-ui-soft --test consumer -- navigation
   ```
 
-- **完了条件**：`rg -n "AppShellMobileEvent|MobileMachine|::Sync" crates/kivact-ui-soft/src/mobile_nav.rs` が何も出さない。上の command が通る。
+- **完了条件**：`rg -n "AppShellMobileEvent|MobileMachine|::Sync" crates/kivact-ui-soft/src/mobile_nav.rs` が何も出さない。上の command が通り、filter `navigation` が 1 件以上を実行する（0 件は失敗）。
 
 ## K03：creative の effect を Machine の入力にする（`observe_inputs` の 4 つの写し）
 
@@ -1097,62 +1103,13 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 - **完了条件**：`cargo metadata --format-version 1 --no-deps | rg -c '"name":"(kivact-plot|catalog-shell)"'` が 2。上の command が通る。
 
-## K07：`IconSet::shared` と `icons!`（kivact-style）
+## K07：`icons!`（kivact-style）
 
 - **wave / lane / 前提**：W9 / K6 / K06
-- **所有**：`crates/kivact-style/src/icon_shared.rs`（新）、`crates/kivact-style/src/icons_macro.rs`（新）、`crates/kivact-style/src/lib.rs`（`mod` の 2 行）、kivact-style の facade（今は `crates/kivact-style/src/facade.rs`。W6 で `kivact::style` の名前を出す file が変わっていればその file）
-- **目的**：5 つの kit が写していた「icon set を process に一つだけ作る `OnceLock`」と、名前を二度書く icon の一覧をやめる（KIT-08）。
+- **所有**：`crates/kivact-style/src/icons_macro.rs`（新）、`crates/kivact-style/src/lib.rs`（`mod` の 1 行）、kivact-style の facade（今は `crates/kivact-style/src/facade.rs`。W6 で `kivact::style` の名前を出す file が変わっていればその file）
+- **目的**：名前を二度書く icon の一覧をやめる（KIT-08）。icon set の共有は各 kit の `icons.rs` の `thread_local!` の static で行う（3.0.7。設計 12 章 PF-02：fn pointer を key にする共有の表は作らない。KIT-08 の `IconSet::shared` は作らない）。
 - **手順**：
-  1. `crates/kivact-style/src/icon_shared.rs`：
-
-     ```rust
-     //! Role: One shared icon set per builder function for the whole process.
-
-     use crate::icon::IconSet;
-     use kivact_types::cell::SharedDeferred;
-     use std::sync::{Mutex, PoisonError};
-
-     /// The sets built so far, by the address of their builder.
-     static SHARED: SharedDeferred<Mutex<Vec<(usize, IconSet)>>> = SharedDeferred::new();
-
-     impl IconSet {
-         /// The set `build` returns, built once per process and shared: two
-         /// themes that install it compare their icons by identity. `build`
-         /// must not call `shared` itself.
-         pub fn shared(build: fn() -> IconSet) -> IconSet {
-             let key = build as usize;
-             let table = SHARED.get_or_init(|| Mutex::new(Vec::new()));
-             let mut table = table.lock().unwrap_or_else(PoisonError::into_inner);
-             if let Some((_, set)) = table.iter().find(|(built, _)| *built == key) {
-                 return set.clone();
-             }
-             let set = build();
-             table.push((key, set.clone()));
-             set
-         }
-     }
-
-     #[cfg(test)]
-     mod tests {
-         //! Role: Tests for the shared icon sets.
-
-         use super::*;
-
-         fn one() -> IconSet {
-             IconSet::new().with("one", crate::Asset::svg(br#"<svg xmlns="http://www.w3.org/2000/svg"/>"#.to_vec()))
-         }
-
-         #[test]
-         fn the_same_builder_returns_the_same_set() {
-             let first = IconSet::shared(one);
-             let second = IconSet::shared(one);
-             assert!(std::sync::Arc::ptr_eq(&first.0, &second.0));
-         }
-     }
-     ```
-
-     `IconSet` の field が `pub(crate)` でなく private なら、`crates/kivact-style/src/icon.rs` の `pub struct IconSet(std::sync::Arc<..>)` の field を `pub(crate)` にする（この 1 語の変更は所有に含める）。試験の `Asset` の作り方は、`icon.rs` の既存の試験か `IconSet::standard` の中の作り方と同じにする（`rg -n "Asset::" crates/kivact-style/src/icon.rs`）。
-  2. `crates/kivact-style/src/icons_macro.rs`：
+  1. `crates/kivact-style/src/icons_macro.rs`：
 
      ```rust
      //! Role: The `icons!` list: each icon name written once, its svg embedded from a directory.
@@ -1172,11 +1129,11 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      }
      ```
 
-  3. `crates/kivact-style/src/lib.rs` に `mod icon_shared;` と `mod icons_macro;` を足す（`mod icon;` の次）。
-  4. facade に `pub use crate::icons;` を足す（`IconSet` を出している行の近く）。`kivact::style::icons!` と `kivact::style::IconSet::shared` が使えることを、手順 5 の確認で見る。
-- **消すもの**：なし（kit の `OnceLock` は各 kit の W10 の unit が消す）。
-- **状態の閉じ方**：`SHARED` は static の表（型ではない）。新しい型なし。
-- **試験**：`crates/kivact-style/src/icon_shared.rs` の `the_same_builder_returns_the_same_set`（上）。
+  2. `crates/kivact-style/src/lib.rs` に `mod icons_macro;` を足す（`mod icon;` の次）。
+  3. facade に `pub use crate::icons;` を足す（`IconSet` を出している行の近く）。
+- **消すもの**：なし（kit の `OnceLock` は各 kit の W10 の unit が `thread_local!` にして消す）。
+- **状態の閉じ方**：新しい型なし。
+- **試験**：足さない（`icons!` は W10 の各 kit の `icons.rs` が使い、名前の svg が無ければ compile が失敗する）。
 - **確認（tier a）**：
 
   ```
@@ -1184,7 +1141,6 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   cargo check -p kivact-style --all-targets
   cargo clippy -p kivact-style --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-style
-  cargo test -p kivact-style --lib icon_shared
   ```
 
 - **完了条件**：上の command が通る。`rg -n "macro_rules! icons" crates/kivact-style/src` が 1 行。
@@ -1222,32 +1178,32 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      use kivact_core::style::{Color, ThemeVar, color, rgb};
 
      macro_rules! syntax_color {
-         ($var:ident, $name:ident, $key:literal, $fallback:expr, $doc:literal) => {
+         ($var:ident, $name:ident, $init:expr, $doc:literal) => {
              #[doc = $doc]
-             pub static $var: ThemeVar<Color> = ThemeVar::new($key, $fallback);
+             pub static $var: ThemeVar<Color> = $init;
              #[doc = $doc]
              pub const $name: Color = Color::var(&$var);
          };
      }
 
-     syntax_color!(KEYWORD_VAR, KEYWORD, "ui.syntax.keyword", rgb(0xcf222e), "Keywords (`fn`, `let`).");
-     syntax_color!(TYPE_VAR, TYPE, "ui.syntax.type", rgb(0x953800), "Type names.");
-     syntax_color!(STRING_VAR, STRING, "ui.syntax.string", rgb(0x0a3069), "String and character literals.");
-     syntax_color!(COMMENT_VAR, COMMENT, "ui.syntax.comment", rgb(0x6e7781), "Comments.");
-     syntax_color!(OPERATOR_VAR, OPERATOR, "ui.syntax.operator", color::TEXT, "Operators.");
-     syntax_color!(PUNCTUATION_VAR, PUNCTUATION, "ui.syntax.punctuation", color::TEXT, "Punctuation.");
-     syntax_color!(NUMBER_VAR, NUMBER, "ui.syntax.number", rgb(0x0550ae), "Numeric literals.");
-     syntax_color!(CONSTANT_VAR, CONSTANT, "ui.syntax.constant", rgb(0x0550ae), "Constants and literals other than numbers.");
-     syntax_color!(FUNCTION_VAR, FUNCTION, "ui.syntax.function", rgb(0x8250df), "Called or defined functions.");
-     syntax_color!(VARIABLE_VAR, VARIABLE, "ui.syntax.variable", color::TEXT, "Variables.");
-     syntax_color!(TAG_VAR, TAG, "ui.syntax.tag", rgb(0x116329), "Markup tags.");
-     syntax_color!(ATTRIBUTE_VAR, ATTRIBUTE, "ui.syntax.attribute", rgb(0x6639ba), "Attributes.");
-     syntax_color!(PROPERTY_VAR, PROPERTY, "ui.syntax.property", color::TEXT, "Properties and fields.");
-     syntax_color!(MACRO_VAR, MACRO, "ui.syntax.macro", rgb(0x0550ae), "Macro invocations.");
-     syntax_color!(LIFETIME_VAR, LIFETIME, "ui.syntax.lifetime", rgb(0x116329), "Lifetimes and labels.");
+     syntax_color!(KEYWORD_VAR, KEYWORD, ThemeVar::new("ui.syntax.keyword", rgb(0xcf222e)), "Keywords (`fn`, `let`).");
+     syntax_color!(TYPE_VAR, TYPE, ThemeVar::new("ui.syntax.type", rgb(0x953800)), "Type names.");
+     syntax_color!(STRING_VAR, STRING, ThemeVar::new("ui.syntax.string", rgb(0x0a3069)), "String and character literals.");
+     syntax_color!(COMMENT_VAR, COMMENT, ThemeVar::new("ui.syntax.comment", rgb(0x6e7781)), "Comments.");
+     syntax_color!(OPERATOR_VAR, OPERATOR, ThemeVar::alias("ui.syntax.operator", &color::TEXT_VAR), "Operators.");
+     syntax_color!(PUNCTUATION_VAR, PUNCTUATION, ThemeVar::alias("ui.syntax.punctuation", &color::TEXT_VAR), "Punctuation.");
+     syntax_color!(NUMBER_VAR, NUMBER, ThemeVar::new("ui.syntax.number", rgb(0x0550ae)), "Numeric literals.");
+     syntax_color!(CONSTANT_VAR, CONSTANT, ThemeVar::new("ui.syntax.constant", rgb(0x0550ae)), "Constants and literals other than numbers.");
+     syntax_color!(FUNCTION_VAR, FUNCTION, ThemeVar::new("ui.syntax.function", rgb(0x8250df)), "Called or defined functions.");
+     syntax_color!(VARIABLE_VAR, VARIABLE, ThemeVar::alias("ui.syntax.variable", &color::TEXT_VAR), "Variables.");
+     syntax_color!(TAG_VAR, TAG, ThemeVar::new("ui.syntax.tag", rgb(0x116329)), "Markup tags.");
+     syntax_color!(ATTRIBUTE_VAR, ATTRIBUTE, ThemeVar::new("ui.syntax.attribute", rgb(0x6639ba)), "Attributes.");
+     syntax_color!(PROPERTY_VAR, PROPERTY, ThemeVar::alias("ui.syntax.property", &color::TEXT_VAR), "Properties and fields.");
+     syntax_color!(MACRO_VAR, MACRO, ThemeVar::new("ui.syntax.macro", rgb(0x0550ae)), "Macro invocations.");
+     syntax_color!(LIFETIME_VAR, LIFETIME, ThemeVar::new("ui.syntax.lifetime", rgb(0x116329)), "Lifetimes and labels.");
      ```
 
-     `color::TEXT` は S 表の「文字の色」の変数（`Palette::text` の行）。`ThemeVar::new` の fallback に別の変数の `Color` を置けること（別名）は S 4.1 で色の変数だけ可（4.2 節の 4）。`kivact_core::style` の path は kivact-ui の他の file と同じ書き方にする。
+     `color::TEXT` は S 表の「文字の色」の変数（`Palette::text` の行）。別名の fallback は `ThemeVar::alias(..)`（4.2 節の 4）。`kivact_core::style` の path は kivact-ui の他の file と同じ書き方にする。
   3. `crates/kivact-ui/src/syntax.rs`：
 
      ```rust
@@ -1463,7 +1419,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- once_visible
   ```
 
-- **完了条件**：上の試験が通る。`rg -n "pub fn once_visible\b" crates/kivact-core/src` が 1 行。
+- **完了条件**：上の試験が通り、`e2e_core` の filter `once_visible` が 1 件を実行する（0 件は失敗）。`rg -n "pub fn once_visible\b" crates/kivact-core/src` が 1 行。
 
 ## K10：`kivact-plot`（basic の plot を移す）
 
@@ -1479,7 +1435,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   2. path の書換え：
 
      ```
-     cd crates/kivact-plot
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-plot" || exit 1
      perl -pi -e 's/\bsuper::super::(axis|data|decimate|heatmap|input|model|paint|scale|series|ticks|view)\b/crate::$1/g; s/\bcrate::plot::/crate::/g' src/*.rs
      perl -pi -e 's/\bsuper::(axis|data|decimate|heatmap|input|model|paint|scale|series|ticks|view)\b/crate::$1/g' src/*.rs
      perl -pi -e 's/\bpub\(super\)/pub(crate)/g' src/*.rs
@@ -1531,21 +1487,21 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      use kivact::style::{Color, ThemeVar, color};
 
      macro_rules! plot_color {
-         ($var:ident, $name:ident, $key:literal, $fallback:expr, $doc:literal) => {
+         ($var:ident, $name:ident, $init:expr, $doc:literal) => {
              #[doc = $doc]
-             pub static $var: ThemeVar<Color> = ThemeVar::new($key, $fallback);
+             pub static $var: ThemeVar<Color> = $init;
              #[doc = $doc]
              pub const $name: Color = Color::var(&$var);
          };
      }
 
-     plot_color!(SERIES_1_VAR, SERIES_1, "plot.series_1", color::ACCENT, "The first series without its own color.");
-     plot_color!(SERIES_2_VAR, SERIES_2, "plot.series_2", color::SUCCESS, "The second series.");
-     plot_color!(SERIES_3_VAR, SERIES_3, "plot.series_3", color::WARNING, "The third series.");
-     plot_color!(SERIES_4_VAR, SERIES_4, "plot.series_4", color::DANGER, "The fourth series.");
-     plot_color!(SERIES_5_VAR, SERIES_5, "plot.series_5", color::TEXT_MUTED, "The fifth series.");
-     plot_color!(GRID_VAR, GRID, "plot.grid", color::BORDER, "Grid lines and the plot frame.");
-     plot_color!(AXIS_VAR, AXIS, "plot.axis", color::TEXT_MUTED, "Axis labels, ticks and titles.");
+     plot_color!(SERIES_1_VAR, SERIES_1, ThemeVar::alias("plot.series_1", &color::ACCENT_VAR), "The first series without its own color.");
+     plot_color!(SERIES_2_VAR, SERIES_2, ThemeVar::alias("plot.series_2", &color::SUCCESS_VAR), "The second series.");
+     plot_color!(SERIES_3_VAR, SERIES_3, ThemeVar::alias("plot.series_3", &color::WARNING_VAR), "The third series.");
+     plot_color!(SERIES_4_VAR, SERIES_4, ThemeVar::alias("plot.series_4", &color::DANGER_VAR), "The fourth series.");
+     plot_color!(SERIES_5_VAR, SERIES_5, ThemeVar::alias("plot.series_5", &color::TEXT_MUTED_VAR), "The fifth series.");
+     plot_color!(GRID_VAR, GRID, ThemeVar::alias("plot.grid", &color::BORDER_VAR), "Grid lines and the plot frame.");
+     plot_color!(AXIS_VAR, AXIS, ThemeVar::alias("plot.axis", &color::TEXT_MUTED_VAR), "Axis labels, ticks and titles.");
 
      /// The series colors in order; series `i` without a color uses entry `i % 5`.
      pub(crate) const SERIES: [Color; 5] = [SERIES_1, SERIES_2, SERIES_3, SERIES_4, SERIES_5];
@@ -1721,10 +1677,11 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   `sidebar` は provider の外で使うと、開いた sidebar として描く（今の basic と同じ）。provider は `SidebarSide`・`SidebarFrame`・`SidebarCollapsible` と `open` を context で `sidebar` と部品に渡す（今の `SidebarCx`）。`Ctrl/Cmd+B` で開閉する（今のまま）。
 - **手順**：
   1. 移す：`git mv crates/kivact-ui-basic/src/sidebar crates/kivact-ui/src/sidebar` と `git mv crates/kivact-ui-basic/src/sidebar.rs crates/kivact-ui/src/sidebar.rs`（`mod.rs` は作らない。annex U 1.4 節）。
+  1a. 移した `sidebar/menu.rs` の `menu_tooltip` の `tooltip(..).attach(..)` は C12 の `tooltip(label, trigger)` にする。
   2. path と名前の書換え：
 
      ```
-     cd crates/kivact-ui/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-ui/src" || exit 1
      perl -pi -e 's/\bSidebarVariant\b/SidebarFrame/g; s/\bkivact::/kivact_core::/g' sidebar.rs sidebar/*.rs
      ```
 
@@ -1737,23 +1694,23 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      use kivact_core::style::{Color, Length, ThemeVar, color, radius};
 
      macro_rules! sidebar_color {
-         ($var:ident, $name:ident, $key:literal, $fallback:expr, $doc:literal) => {
+         ($var:ident, $name:ident, $init:expr, $doc:literal) => {
              #[doc = $doc]
-             pub static $var: ThemeVar<Color> = ThemeVar::new($key, $fallback);
+             pub static $var: ThemeVar<Color> = $init;
              #[doc = $doc]
              pub const $name: Color = Color::var(&$var);
          };
      }
 
-     sidebar_color!(BACKGROUND_VAR, BACKGROUND, "ui.sidebar.background", color::SURFACE_ALT, "The panel.");
-     sidebar_color!(FOREGROUND_VAR, FOREGROUND, "ui.sidebar.foreground", color::TEXT, "Text on the panel.");
-     sidebar_color!(PRIMARY_VAR, PRIMARY, "ui.sidebar.primary", color::ACCENT, "A primary mark on the panel.");
-     sidebar_color!(PRIMARY_FOREGROUND_VAR, PRIMARY_FOREGROUND, "ui.sidebar.primary_foreground", color::ACCENT_TEXT, "Text on the primary mark.");
-     sidebar_color!(ACCENT_VAR, ACCENT, "ui.sidebar.accent", color::HOVER, "The active and hovered row.");
-     sidebar_color!(ACCENT_FOREGROUND_VAR, ACCENT_FOREGROUND, "ui.sidebar.accent_foreground", color::TEXT, "Text on the active row.");
-     sidebar_color!(BORDER_VAR, BORDER, "ui.sidebar.border", color::BORDER, "The panel's edge and separators.");
-     sidebar_color!(RING_VAR, RING, "ui.sidebar.ring", color::FOCUS, "The focus ring of rows.");
-     sidebar_color!(PAGE_VAR, PAGE, "ui.sidebar.page", color::SURFACE, "The page beside an inset sidebar.");
+     sidebar_color!(BACKGROUND_VAR, BACKGROUND, ThemeVar::alias("ui.sidebar.background", &color::SURFACE_ALT_VAR), "The panel.");
+     sidebar_color!(FOREGROUND_VAR, FOREGROUND, ThemeVar::alias("ui.sidebar.foreground", &color::TEXT_VAR), "Text on the panel.");
+     sidebar_color!(PRIMARY_VAR, PRIMARY, ThemeVar::alias("ui.sidebar.primary", &color::ACCENT_VAR), "A primary mark on the panel.");
+     sidebar_color!(PRIMARY_FOREGROUND_VAR, PRIMARY_FOREGROUND, ThemeVar::alias("ui.sidebar.primary_foreground", &color::ACCENT_TEXT_VAR), "Text on the primary mark.");
+     sidebar_color!(ACCENT_VAR, ACCENT, ThemeVar::alias("ui.sidebar.accent", &color::HOVER_VAR), "The active and hovered row.");
+     sidebar_color!(ACCENT_FOREGROUND_VAR, ACCENT_FOREGROUND, ThemeVar::alias("ui.sidebar.accent_foreground", &color::TEXT_VAR), "Text on the active row.");
+     sidebar_color!(BORDER_VAR, BORDER, ThemeVar::alias("ui.sidebar.border", &color::BORDER_VAR), "The panel's edge and separators.");
+     sidebar_color!(RING_VAR, RING, ThemeVar::alias("ui.sidebar.ring", &color::FOCUS_VAR), "The focus ring of rows.");
+     sidebar_color!(PAGE_VAR, PAGE, ThemeVar::alias("ui.sidebar.page", &color::SURFACE_VAR), "The page beside an inset sidebar.");
 
      /// The width of an open sidebar.
      pub static WIDTH_VAR: ThemeVar<f64> = ThemeVar::new("ui.sidebar.width", 256.0);
@@ -1774,7 +1731,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   3b. `crates/kivact-ui/src/sidebar/recipes.rs`（新）：決定の表の part ごとに既定の recipe `fn <part>(t: &Theme, s: &Look<<状態>>, _base: Style) -> Style` を置く。本体は「今の style」の列の式を写し、手順 4 の置換を当て、今 closure の中で読んでいた reactive な値（`cx.open.get()`、`cx.icon_only()`、`active.get()`、`cfg.size.get()`、`rtl` など）を状態の field（`s.open`、`s.icon_only`、`s.active`、`s.size`、`s.rtl`）にする。basic の Lyra の literal は次の中核の値にする（kit の形は K34・K42 が part で差し替える）：`.radius(0)` → `vars::ITEM_RADIUS`、`.font_size(12)` → S 表の `font::SIZE_SMALL`、行の `padding(8)`・`gap(8)` → S 表の `space::SM`。高さ（`SidebarMenuButtonSize` の 32・28・48）と幅（`WIDTH`・`WIDTH_ICON`）は今の値のまま。
   3c. 部品の本体：移した code の各 node の `.style(..)` を、annex U が部品に recipe を当てるのと同じ書き方（U 3 章の button の例の「part を node に付ける」行）で `SidebarTheme` の part に置き換える。状態は本体で `memo` にして渡す（`SidebarState` は `cx` から、`SidebarItemState` は `active`・`cx.icon_only()`・`has_action`・`use_direction()`・`size` から）。
   4. 色の置換（移した file の中）：`use_tokens::<crate::Tokens>()` と `p.<field>` と `crate::ColorName::<Name>` を次で置き換える：`sidebar` → `vars::BACKGROUND`、`sidebar_foreground` → `vars::FOREGROUND`、`sidebar_primary` → `vars::PRIMARY`、`sidebar_primary_foreground` → `vars::PRIMARY_FOREGROUND`、`sidebar_accent` → `vars::ACCENT`、`sidebar_accent_foreground` → `vars::ACCENT_FOREGROUND`、`sidebar_border` → `vars::BORDER`、`sidebar_ring` → `vars::RING`、`background`（inset の page と `sidebar_input` の背景）→ `vars::PAGE`、その他の basic の token（`muted`、`border` など）→ S 表の対応する中核の変数。`state.rs` の `pub(crate) const WIDTH: f64 = 256.0;` と `WIDTH_ICON` は消し、読んでいた所を `vars::WIDTH`・`vars::WIDTH_ICON` にする（`width_of` が `f64` を返して計算していたら `Theme::get(&vars::WIDTH_VAR)` で読む）。`.radius(0)` は `.border_radius(vars::ITEM_RADIUS)`。style の closure が token だけを読んでいたら closure を外す（T8 の最後の行）。
-  5. 部品を `#[component]` にする（3.0.5 の C1〜C7）：`Sidebar`+`sidebar()`、`SidebarGroup`+`sidebar_group`、`SidebarMenuButton`+`sidebar_menu_button`、`SidebarMenuSubButton`+`sidebar_menu_sub_button`、`SidebarTrigger`+`sidebar_trigger`、`sidebar_provider`、`sidebar_menu`、`sidebar_separator`、`sidebar_input`、`sidebar_menu_skeleton`。決定の署名に合わせ、`Sidebar::{side, variant, collapsible}` の setter は provider の props に移す。provider の本体は、今 `sidebar.side` などを読んでいた所を自分の props から読み、`sidebar.build(cx)` を `provide(cx, move || sidebar)`（`sidebar` は `View`。context から `cx` を読む）にする。`sidebar` の本体は `state::current()` から `cx` を読み、無いとき（provider の外）は今の `impl IntoView for Sidebar` と同じ「開いた sidebar」の `cx` を作る。`SidebarMenuButton::size` の setter は消し、本体が `SidebarMenuButtonSize` を読む所は `.variant(..)` で付いた値を `kivact_core::custom::caller().variants().get::<SidebarMenuButtonSize>().unwrap_or_default()`（U25。INC-41）で読む。`sidebar_input(label, value)` は `label` の位置引数を消す。
+  5. 部品を `#[component]` にする（3.0.5 の C1〜C7）：`Sidebar`+`sidebar()`、`SidebarGroup`+`sidebar_group`、`SidebarMenuButton`+`sidebar_menu_button`、`SidebarMenuSubButton`+`sidebar_menu_sub_button`、`SidebarTrigger`+`sidebar_trigger`、`sidebar_provider`、`sidebar_menu`、`sidebar_separator`、`sidebar_input`、`sidebar_menu_skeleton`。決定の署名に合わせ、`Sidebar::{side, variant, collapsible}` の setter は provider の props に移す。provider の本体は、今 `sidebar.side` などを読んでいた所を自分の props から読み、`sidebar.build(cx)` を `provide(cx, move || sidebar)`（`sidebar` は `View`。context から `cx` を読む）にする。`sidebar` の本体は `state::current()` から `cx` を読み、無いとき（provider の外）は今の `impl IntoView for Sidebar` と同じ「開いた sidebar」の `cx` を作る。`SidebarMenuButton::size` の setter は消し、本体が `SidebarMenuButtonSize` を読む所は、`sidebar_menu_button` の引数に `#[caller] caller: Caller` を足し（設計 5.1 規則 10、12 章 API-4）、`.variant(..)` で付いた値を `caller.variants().get::<SidebarMenuButtonSize>().unwrap_or_default()` で読む（`Caller` の読み方は annex C・U の `Caller` の API のまま）。`sidebar_input(label, value)` は `label` の位置引数を消す。
   6. message の key：`rg -n '"basic\.sidebar\.' crates/kivact-ui/src/sidebar*` の key を `ui.sidebar.` の接頭辞にする（`perl -pi -e 's/"basic\.sidebar\./"ui.sidebar./g'`）。
   7. 公開：`crates/kivact-ui/src/lib.rs` に `mod sidebar;` と `pub use sidebar::{SidebarCollapsible, SidebarFrame, SidebarMenuButtonSize, SidebarSide, sidebar, sidebar_group, sidebar_input, sidebar_menu, sidebar_menu_button, sidebar_menu_skeleton, sidebar_menu_sub_button, sidebar_provider, sidebar_separator, sidebar_trigger};` を足す（`Sidebar` などの生成された struct も同じ行に足す）。`crates/kivact-ui/src/theme.rs` に `pub use crate::sidebar::vars as sidebar;` を足す。
   8. 試験 `dev/tests/kivact-public-api/tests/e2e_ui/ui_sidebar.rs`（新。basic の `navigation_layout.rs` の `sidebar_toggles_by_trigger_shortcut_and_rail_between_256_and_48` を中核の API に写したもの。その試験の本体をそのまま写し、`basic::` を `kivact::ui::` に、theme を `Theme::light()` に、`.collapsible(..)` を provider の props にする。幅の期待値 256 と 48 は変えない）。名前は `sidebar_toggles_by_trigger_shortcut_and_rail_between_256_and_48`。`e2e_ui` の `main.rs` に `mod ui_sidebar;`。
@@ -1791,7 +1748,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_sidebar
   ```
 
-- **完了条件**：`rg -n "Tokens|ColorName|basic" crates/kivact-ui/src/sidebar*` が何も出さない。`rg -n "\.style\(" crates/kivact-ui/src/sidebar` が `recipes.rs` の外で、part を当てる書き方以外の行を出さない。上の試験が通る。
+- **完了条件**：`e2e_ui` の filter `ui_sidebar` が 1 件以上を実行する（0 件は失敗）。`rg -n "Tokens|ColorName|basic" crates/kivact-ui/src/sidebar*` が何も出さない。`rg -n "\.style\(" crates/kivact-ui/src/sidebar` が `recipes.rs` の外で、part を当てる書き方以外の行を出さない。上の試験が通る。
 
 ## K12：中核の sidebar に soft の side navigation が要る部分を足す
 
@@ -1837,13 +1794,13 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_sidebar
   ```
 
-- **完了条件**：`ui_sidebar` の 3 つの試験が通る。
+- **完了条件**：`ui_sidebar` の 3 つの試験が通り、filter `ui_sidebar` が 3 件を実行する（0 件は失敗）。
 
 ## K13：中核の `tabs` の overflow（`TabOverflow::{Menu, Scroll}`）
 
 - **wave / lane / 前提**：W9 / K6 / K12
 - **所有**：`crates/kivact-ui/src/tabs.rs` と `crates/kivact-ui/src/tabs/`（以下 `<tabs>`。annex U 4.4 節の module 表）、`crates/kivact-ui/src/tabs/overflow.rs`（新）、`crates/kivact-ui/src/lib.rs`（`TabOverflow` の公開）、`dev/tests/kivact-public-api/tests/e2e_ui/ui_tabs_overflow.rs`（新）、`e2e_ui` の `main.rs`（`mod` の 1 行）
-- **目的**：soft の `tab_list`（966 行、自前の roving と overflow）が持つ「幅に収まらない tab」の扱いを中核の `tabs` に移す（KIT-09、設計 5.9）。soft は K41 で `tab_list` を消し、中核の tabs を recipe で描く。
+- **目的**：soft の `tab_list`（966 行、自前の roving と overflow）が持つ「幅に収まらない tab」の扱いを中核の `tabs` に移す（KIT-09、設計 5.9）。Menu は溢れた tab の自然な大きさを測り続けて振動しない（UI-K-01）。Scroll は選択と layout の変化から選んだ tab を見える所へ出す（UI-K-02）。soft は K41 で `tab_list` を消し、中核の tabs を recipe で描く。
 - **決定（API）**：
 
   ```rust
@@ -1898,18 +1855,59 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      }
      ```
 
-  2. tabs の部品の本体（tab の行を作る所。`rg -n "fn tabs" <tabs>`）：
-     - `overflow: Option<TabOverflow>` の props を足す。
-     - `Some(TabOverflow::Scroll)`：tab の行を `scroll(行).axes(<orientation の軸>)` で包み、scrollbar を見せない（今 kivact-ui が見えない scrollbar に使う style。`rg -n "scrollbar" crates/kivact-ui/src | head -3`）。選んだ tab が変わったら、その tab の `NodeRef::scroll_into_view()` を呼ぶ（tab の選択の handler の中で。effect にしない）。
-     - `Some(TabOverflow::Menu)`：各 tab の node に `NodeRef` を付け、行の `NodeRef` と合わせて `rect()` の幅を読み、`let shown = memo(move || visible_count(行の幅, &tab の幅, gap, MORE_WIDTH))`（`MORE_WIDTH = 32.0`、gap は行の gap と同じ値）を作る。`index >= shown` の tab は `hidden(true)` にし（`show` で消さない：幅を測り続けるため）、行の最後に "More" の button（icon `more-horizontal`。中核の icon set に無ければ `chevron-down`。名前は message `ui.tabs.more` の既定 "More tabs"）と、隠れた tab の `menu` を置く。menu の項目を選ぶと、その tab を選ぶ（tabs の選択の signal に書く）。`shown` が全部のときは "More" を置かない。
-  3. `lib.rs` の tabs の `pub use` に `TabOverflow` を足す。
-  4. 試験 `dev/tests/kivact-public-api/tests/e2e_ui/ui_tabs_overflow.rs`：
-     - `scroll_overflow_brings_the_selected_tab_into_view`：幅 200 の箱に 8 つの tab（label "Tab 1".."Tab 8"）、`overflow(TabOverflow::Scroll)`。最後の tab を key（End）で選ぶ → その tab の rect が箱の rect の中。
-     - `menu_overflow_moves_the_tabs_that_do_not_fit_into_more`：同じ 8 つ、`overflow(TabOverflow::Menu)`。button "More tabs" がある。click → menu の項目 "Tab 8" を click → 選択の signal が 8 番目の key。箱の幅を 2000 にすると "More tabs" が無い（`screen.resize(..)` か箱の幅の signal）。
-     `e2e_ui` の `main.rs` に `mod ui_tabs_overflow;`。
+  2. tabs の部品の本体（tab の行を作る所。`rg -n "fn tabs" crates/kivact-ui/src/tabs.rs crates/kivact-ui/src/tabs`）に `overflow: Option<TabOverflow>` の props を足す。`None` のときは今のまま。以下の「軸」は `orientation` が `Horizontal` なら幅（`rect.width`）、`Vertical` なら高さ（`rect.height`）。
+  3. `Some(TabOverflow::Scroll)`（UI-K-02。設計 12 章）：
+     - tab の行を `scroll(行).axes(<軸に合う ScrollAxes>)` で包み、scrollbar を見せない（今 kivact-ui が見えない scrollbar に使う style。`rg -n "scrollbar" crates/kivact-ui/src | head -3`）。行の外側の `scroll` に `let strip = node_ref();` を付ける。
+     - 選択の key の `selector`（設計 5.2）を本体で一つ作る：`let is_selected = selector(selected);`（`selected` は tabs が今の選択を読む `Value<K>`／`Signal<K>`）。
+     - 各 tab の項目の setup（`for_each` の行の関数の中）で、その tab の node に `let me = node_ref();` を付け、次の effect を一つ作る。effect は host への要求（`scroll_into_view`）だけを行い、signal を書かない（設計 12 章 UI-K-02。xtask の `effect-writes` の対象外）：
+
+       ```rust
+       effect(move || {
+           if is_selected.is(&key) {
+               // Re-run when the strip's layout changes (resize, label, font, theme).
+               let _ = strip.rect().get();
+               let _ = me.rect().get();
+               me.scroll_into_view();
+           }
+       });
+       ```
+
+       選ばれていない tab の effect は `is(&key)` だけを追跡し、layout を追跡しない。選択の handler の中の `scroll_into_view` の呼出し（今あれば）は消す（経路は上の effect 一つ）。
+  4. `Some(TabOverflow::Menu)`（UI-K-01。設計 12 章）：溢れた tab は layout から外さず、`position: absolute` と `visibility: hidden` で自然な大きさを測り続ける。
+     - 行の style に `position(Position::Relative)`、`width(pct(100))`（縦は `height(pct(100))`）、`min_width(0)`（縦は `min_height(0)`）を足す。行に `let strip = node_ref();`。
+     - 各 tab の項目の setup で `let me = node_ref();` を付け、本体の `let sizes: Signal<BTreeMap<K, Value<Option<Rect>>>> = signal(BTreeMap::new());` に `sizes.update(|m| { m.insert(key.clone(), me.rect()); })` で登録し、`on_cleanup(move || { sizes.update(|m| { m.remove(&key); }); })` で外す（setup と cleanup の書込み。effect ではない）。
+     - "More" の button（icon `more-horizontal`、無ければ `chevron-down`。名前は message `ui.tabs.more` の既定 "More tabs"。style は `TabsTheme` の tab の recipe と同じ part を使う）に `let more = node_ref();` を付け、常に描く。
+     - 見える数：
+
+       ```rust
+       let shown = memo(move || {
+           let axis = |r: Rect| if vertical { r.height } else { r.width };
+           let Some(strip) = strip.rect().get() else { return usize::MAX };
+           let more = more.rect().get().map_or(0.0, axis);
+           let lengths: Vec<f64> = items.with(|items| {
+               sizes.with(|m| items.iter().map(|k| m.get(k).and_then(|r| r.get()).map_or(0.0, axis)).collect())
+           });
+           overflow::visible_count(axis(strip), &lengths, gap, more)
+       });
+       ```
+
+       `items` は tabs の項目の key の列、`gap` は行の gap の値（`theme.get(..)` で読む長さ）、`vertical` は `orientation == Vertical`。`MORE_WIDTH` の定数は置かない（More の実際の大きさを測る。UI-K-01）。
+     - tab の index が `shown` 以上の間、その tab の node に `style(style().position(Position::Absolute).left(0).top(0).visibility(Visibility::Hidden))`、`.focusable(false)`、`.hit_testable(false)` を当てる（`Visibility::Hidden` は「layout を保ち、描画・支援技術・入力から隠す」。`hidden(..)` は使わない：layout から外れて幅が 0 になり、見える数が振動する）。`shown` 以上の tab が無い間は、More の button に同じ 3 つを当てる（測るために残す）。
+     - More の button を押すと、`shown` 以上の tab を項目にした `menu` を開く。項目は radio の印を持ち、今の選択の tab に印が付く。項目を選ぶと、その tab を選ぶ（tabs の選択の signal に書く。handler の中）。
+     - 溢れた tab に focus があった（`me.focused().get_untracked()`）ときに `shown` が変わってその tab が溢れたら、More の button に focus を移す：上の Scroll の effect と同じ形の、host への要求だけの effect（`if is_hidden && me.focused().get() { more.focus(); }`）。
+  5. `lib.rs` の tabs の `pub use` に `TabOverflow` を足す。
+  6. 試験 `dev/tests/kivact-public-api/tests/e2e_ui/ui_tabs_overflow.rs`（8 つの tab、label "Tab 1".."Tab 8"、幅 200 の箱。`e2e_ui` の `main.rs` に `mod ui_tabs_overflow;`）：
+     - `scroll_overflow_shows_an_initially_last_selection`：選択の初期値が 8 番目、`overflow(TabOverflow::Scroll)`。mount の後、"Tab 8" の rect が箱の rect の中。
+     - `scroll_overflow_follows_an_external_selection`：`selected.set(<8 番目の key>)`（tabs の外から）→ "Tab 8" が箱の中。`selected.set(<1 番目>)` → "Tab 1" が箱の中。
+     - `scroll_overflow_keeps_the_selection_visible_after_a_resize`：8 番目を選び、箱の幅の signal を 120 にして `run_until_idle` → "Tab 8" が箱の中。
+     - `menu_overflow_is_stable_across_flushes`：`overflow(TabOverflow::Menu)`。`role(Tab)` の見える数を数え、`screen.run_until_idle()` を 3 回続けても同じ数で、"More tabs" の button がある。
+     - `menu_overflow_follows_a_resize_both_ways`：箱の幅を 120 → 2000 → 200 に変える。2000 で "More tabs" が無く 8 つ全部が見え、120 で見える数が 200 のときより少ない。
+     - `menu_overflow_follows_label_and_theme_changes`：一つ目の label の signal を長い文字列にすると見える数が減る。theme の `font::SIZE_VAR` を 24 にした theme に変えると見える数が減る。
+     - `menu_overflow_works_for_vertical_tabs`：`orientation(Orientation::Vertical)`、高さ 120 の箱。"More tabs" があり、項目に "Tab 8" がある。
+     - `menu_overflow_moves_the_selected_tab_into_more`：8 番目を選んでから幅を 120 にする。`query_by_role(Role::Tab, "Tab 8")` が `None`（支援技術から隠れる）、"More tabs" を押すと menu の "Tab 8" の項目が checked。menu の "Tab 2" を選ぶと選択の signal が 2 番目。
 - **消すもの**：なし（soft の `tab_list` は K41）。
-- **状態の閉じ方**：新しい状態の型なし（`shown` は memo）。
-- **試験**：上の 2 つと `overflow.rs` の unit 試験。
+- **状態の閉じ方**：`shown` は memo、`sizes` は関数の中の signal（項目の setup と cleanup だけが書く登録）。新しい型なし。
+- **試験**：上の 8 つと `overflow.rs` の unit 試験。
 - **確認（tier a）**：
 
   ```
@@ -1921,7 +1919,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_tabs_overflow
   ```
 
-- **完了条件**：上の試験が通る。`rg -n "pub enum TabOverflow" crates/kivact-ui/src` が 1 行。
+- **完了条件**：上の試験が通り、`e2e_ui` の filter `ui_tabs_overflow` が 8 件を実行する（0 件は失敗）。`rg -n "pub enum TabOverflow" crates/kivact-ui/src` が 1 行。`rg -n "MORE_WIDTH|hidden\(true\)" crates/kivact-ui/src/tabs.rs crates/kivact-ui/src/tabs` が何も出さない。
 
 ## K14：`catalog-shell`（5 つの catalog の共通の shell）
 
@@ -2030,7 +2028,8 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   2. `src/color.rs` を書き直す（T1〜T5）。変数（名前 ← 今の `Tokens` の field。fallback は今の `Tokens::new(ThemeMode::Light)` の値）：
      `BACKGROUND`、`FOREGROUND`、`CARD`、`CARD_FOREGROUND`、`POPOVER`、`POPOVER_FOREGROUND`、`PRIMARY`、`PRIMARY_FOREGROUND`、`SECONDARY`、`SECONDARY_FOREGROUND`、`MUTED`、`BUBBLE_TINTED`、`BUBBLE_TINTED_HOVER`、`MUTED_FOREGROUND`、`ACCENT`、`ACCENT_FOREGROUND`、`DESTRUCTIVE`、`BORDER`、`INPUT`、`RING`、`SWITCH_THUMB`、`CHART_1`〜`CHART_5`（← `chart[0..5]`）、`SIDEBAR`、`SIDEBAR_FOREGROUND`、`SIDEBAR_PRIMARY`、`SIDEBAR_PRIMARY_FOREGROUND`、`SIDEBAR_ACCENT`、`SIDEBAR_ACCENT_FOREGROUND`、`SIDEBAR_BORDER`、`SIDEBAR_RING`（変数の名前の文字列は `"basic.<field>"`、`chart` は `"basic.chart_1"`〜）。
      `pub(crate) fn set_colors(theme: Theme, mode: ThemeMode) -> Theme` は今の `Tokens::new(mode)` の値を全部 set する。`code: CodeColors` と `heatmap` は basic の変数にしない（`code` は K34 で中核の構文色に set、`heatmap` は K10 で `kivact-plot` の定数になった）。
-  3. `src/theme.rs` を書き直す（3.0.7 の `theme`・`light`・`dark`・`build`。basic は `size.rs` を作らない）。`set_core` は次の対応で set する（T6・T7。左は今の `theme.rs` の値、右の変数名は S 4.2 節の表の名前）：
+  2a. 別名の fallback（T1a）：`BACKGROUND` ← `color::SURFACE`、`FOREGROUND` ← `color::TEXT`、`MUTED` ← `color::SURFACE_ALT`、`MUTED_FOREGROUND` ← `color::TEXT_MUTED`、`PRIMARY` ← `color::ACCENT`、`PRIMARY_FOREGROUND` ← `color::ACCENT_TEXT`、`BORDER` ← `color::BORDER`、`DESTRUCTIVE` ← `color::DANGER`、`POPOVER` ← `color::RAISED`。他は light の literal。
+  3. `src/theme.rs` を書き直す（3.0.7 の `theme`・`build`。basic は `size.rs` を作らない）。`set_core` は次の対応で set する（T6・T7。左は今の `theme.rs` の値、右の変数名は S 4.2 節の表の名前）：
 
      | 今 | set する変数 ← 値 |
      |---|---|
@@ -2052,7 +2051,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      | `Spacing { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 }` | `space::{XS,SM,MD,LG,XL}_VAR` に同じ値 |
      | `Radii { sm: 0, md: 0, lg: 0 }` | `radius::{SM,MD,LG}_VAR` に 0 |
      | `Typography { size: 12, size_small: 12, size_large: 14, weight: 400, weight_strong: 500, line_height: Scale(16/12) }` | `font::{SIZE,SIZE_SMALL,SIZE_LARGE,WEIGHT,WEIGHT_STRONG,LINE_HEIGHT}_VAR` に同じ値 |
-     | `with_focus_ring(1.0)`、`with_control_height(32.0)` | `Theme` の builder のまま `.with_focus_ring(1.0).with_control_height(32.0)`（S 4.2） |
+     | `with_focus_ring(1.0)`、`with_control_height(32.0)` | `.with_focus_ring(1.0)` は builder のまま、`.set(&control::HEIGHT_VAR, 32.0)`（S 4.3。INC2 N-05） |
      | `UiTokens.chat.follow_slack: 1.5`、`code_block {font_size 14, line_height 23, copy_feedback_ms 2000}`、`indicators.reduced_period_ms: Some(1000)`、`calendar {cell_size 28, month_gap 16, week_gap 8}`、`combobox {list_height 252, popup_offset 4, field_radius Some(0), chip_radius 0, option_radius 0}` | U 変数表の各行の変数に同じ値 |
 
      今の `.with(p)`（Tokens）と `.with(standard_tokens())` と `.with(crate::recipes::recipes())` は書かない。`build` の `install` の呼出しは K16・K17 が足す。
@@ -2183,7 +2182,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 - **wave / lane / 前提**：W10 / K1 / K19、K07、K08、K10、K11
 - **所有**：`crates/kivact-ui-basic/`（全体）、`crates/kivact-ui-basic/Cargo.toml`、`Cargo.lock`
-- **目的**：中核の追加が要る残りを変換し、basic を完成させる：chart の目盛りを `kivact-plot` と共有（KIT-10）、構文色を中核の `SyntaxKind` に（KIT-05）、sidebar を中核の変数の set と `SidebarTheme` の part に（KIT-10）、icon を `IconSet::shared` と `icons!` に（KIT-08）。
+- **目的**：中核の追加が要る残りを変換し、basic を完成させる：chart の目盛りを `kivact-plot` と共有（KIT-10）、構文色を中核の `SyntaxKind` に（KIT-05）、sidebar を中核の変数の set と `SidebarTheme` の part に（KIT-10）、icon を `icons!` と `thread_local!` に（KIT-08）。
 - **手順**：
   1. `Cargo.toml` の `[dependencies]` に `kivact-plot = { path = "../kivact-plot", version = "0.1.0" }` を足す（4.1 節の 1、parent 採用）。
   2. chart：`src/chart/scale.rs` の `use crate::nice::round_step;` を `use kivact_plot::nice::round_step;` にする。`text_width`（字幅の見積り）は残す（hit test は描画の外で文字を測れないため。KIT-10 の「測った幅に置き換える」は `kivact-plot` の `plot_area` が描画の中で測る方法で、chart の hit test には使えない。4.2 節の 5、決定済み）。`chart.rs`・`chart/*.rs` の `Chart` builder と `chart(config, rows)` を `#[component]` にする（3.0.5）。`ChartConfig`、`ChartKind`、`ChartRow`、`ChartSeries` は data のまま。色の `tokens.chart[i]` は `[CHART_1, .., CHART_5][i % 5]`（T8）。
@@ -2224,7 +2223,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      - `src/docs.rs` の `PAGES` の `LazyLock` をやめて `pub fn pages() -> Vec<Page> { vec![accordion::page(), ..] }`（今の `PAGES` の順）にする（file 名と module 名は `docs` のまま）。`#[expect(clippy::disallowed_types)]` を消す。
      - 文言を英語にする：各 page の `description`、`Example` の説明、demo の中の日本語の文字（ボタンの label など）を英語に訳す。`usage` の import の例は新しい API の path にする。
      - demo の中の API を新しい API に直す（3.0.2〜3.0.5 と同じ置換：`basic::ColorName::X` → `basic::X`、`*Look` → 分けた variant、`basic::plot` → `kivact_plot::plot`、`basic::sidebar*` → `kivact::ui::sidebar*`）。toast の icon：annex U が `Toast::icon`（`ViewFn`）を `Toast::icon_name(Option<&'static str>)`（icon set の名前）にした。`src/docs/toast.rs` の "Loading toast" の例の `.icon(|| kivact::ui::spinner().with_node(|node| node.role(Role::Generic)))` を `.icon_name("loader-circle")`（basic の icon set にある Lucide の `loader-circle`。回らない静止の icon になる）にし、その上の comment「The spinner is a status of its own; ...」を消す。`plot.rs` の page の `usage` は `use kivact_plot::{plot, PlotModel, ..};`。catalog の `Cargo.toml` の `[dependencies]` に `kivact-plot = { path = "../../crates/kivact-plot" }` を足す。
-     - `src/lib.rs`：`mod docs;`、`pub use docs::pages;`、`pub fn theme(mode: ThemeMode) -> Theme { kivact_ui_basic::theme(mode).with_fonts(catalog_shell::FONTS).set(&kivact::style::font::FAMILY_VAR, "Inter, 'Noto Sans JP', sans-serif") }`、`pub const THEME: CatalogTheme = CatalogTheme::new(theme);`、`pub const START: &str = "button";`（K1 の計測が今と同じ画面で始まる）。
+     - `src/lib.rs`：`mod docs;`、`pub use docs::pages;`、`pub fn theme(mode: ThemeMode) -> Theme { kivact_ui_basic::theme(mode).with_fonts(catalog_shell::FONTS.iter().copied()).set(&kivact::style::font::FAMILY_VAR, "Inter, 'Noto Sans JP', sans-serif") }`、`pub const THEME: CatalogTheme = CatalogTheme::new(theme);`、`pub const START: &str = "button";`（K1 の計測が今と同じ画面で始まる）。
      - `src/main.rs`：3.0.8 の形（title "Basic"）。
      - 消す：`src/shell.rs`、`src/page.rs`、`src/model.rs`、`src/look.rs`、`src/fonts.rs`、`src/pages.rs`（今の `PageInfo` の写し。`docs::pages` が代わる）。
      - `tests/catalog.rs`：次の 3 つの試験にする。今の `theme_toggle_keeps_the_page_and_the_input_state` と `search_filters_the_list_and_the_keyboard_walks_it` は catalog-shell の振る舞いの試験なので、`catalog_shell::check::mount` を使って本体を写し、`catalog_with_mode(mode)` を `check::mount("Basic", pages, THEME, mode)` にする。全 page の walker は：
@@ -2268,6 +2267,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      - 引数のある関数（`avatar_halo(hue)`、`avatar_glow(hue)`、`avatar_gradient_start(hue)`、`avatar_gradient_end(hue)`）：今の本体のまま `color.rs` の `pub(crate) fn` に移す。
      - KIT-14：`button.rs` の `p.blue.mix_in(p.cyan, 0.3, t)` は新しい変数 `BLUE_GRADIENT_END`（`set_colors` で `rgb(<blue>).mix(rgb(<cyan>), 0.3, &theme)` を set。S の `mix` の署名）にし、recipe は `BLUE_GRADIENT_END` を読む。`rg -n "mix_in|\.mix\(" crates/kivact-ui-pop/src` が出す他の式で、引数がすべて pop の色と定数のものも、同じく `<結果の意味>` の名前の変数にする（変数名は「式の一つ目の色の名前」＋`_` ＋「用途」。用途は式の置かれた recipe の関数名：例 `SURFACE_ACTIVE_BUTTON_HOVER`）。引数に state（hover など）が入る式は recipe に残し `t.get(&X_VAR)` で読む。
   3. `src/size.rs`（T3）：`PANEL_PADDING`、`CONTROL_HEIGHT`、`CONTROL_RADIUS`、`PANEL_RADIUS`（名前の文字列 `"pop.<field>"`）と `set_sizes`（今の値。mode で変わらない）。
+  3a. 別名の fallback（T1a）：`SURFACE` ← `color::SURFACE`、`SURFACE_ACTIVE` ← `color::SURFACE_ALT`、`TEXT` ← `color::TEXT`、`TEXT_MUTED` ← `color::TEXT_MUTED`、`BLUE` ← `color::ACCENT`、`LINE` ← `color::BORDER`、`RED` ← `color::DANGER`、`MINT` ← `color::SUCCESS`、`YELLOW` ← `color::WARNING`（今の `theme.rs` の `Palette` の token の行）。他は light の literal。
   4. `Hue`（`tokens.rs` → `variants.rs`）：`#[derive(Prop)]`（C09 が付けた。V7）を保つ。`impl Variant for Hue {}` を `variants.rs` に置く。`Tokens::hue(&self, hue)` を `impl Hue { pub fn colors(self) -> (Color, Color) }`（`BLUE_BACKGROUND, BLUE_FOREGROUND` などの組を返す）に、`Tokens::accent(&self, hue)` を `impl Hue { pub fn accent(self) -> Color }`（Blue → `BLUE`、Mint → `MINT`、Yellow → `YELLOW`、Pink → `PINK`、Red → `RED`、Gray → `TEXT_MUTED`）にする。呼出し `p.hue(h)` → `h.colors()`、`p.accent(h)` → `h.accent()`。
   5. `src/variants.rs`（新）：
      - そのまま移す：`ButtonTone`（V2：中核に `ButtonVariant` があるので Tone のまま）、`Slant`・`Striped`（W9 の間はここ。K36 で消す）、`BadgeVariant`、`SectionNumber`、`DiamondSteps`、`Segments`、`Hue`。
@@ -2315,7 +2315,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 - **wave / lane / 前提**：W10 / K2 / K21、K07、K08
 - **所有**：`crates/kivact-ui-pop/`
-- **目的**：pop と game が別々に定義していた `Slant`・`Striped` を中核の `kivact::ui::{Slant, Striped}` にする（KIT-04）。icon を `IconSet::shared`・`icons!` にする（KIT-08）。
+- **目的**：pop と game が別々に定義していた `Slant`・`Striped` を中核の `kivact::ui::{Slant, Striped}` にする（KIT-04）。icon を `icons!` と `thread_local!` の icon set にする（KIT-08）。
 - **手順**：
   1. `src/variants.rs` の `Slant` と `Striped` の定義と `impl Variant` を消す。`rg -l "\bSlant\b|\bStriped\b" crates/kivact-ui-pop/src | xargs perl -pi -e 's/\bcrate::(Slant|Striped)\b/kivact::ui::$1/g; s/\bcrate::variants::(Slant|Striped)\b/kivact::ui::$1/g'` の後、`use crate::{.., Slant, ..}` の import を `use kivact::ui::{Slant, Striped};` にする。`lib.rs` の `pub use variants::{..}` から 2 つを消す。
   2. `src/icons.rs` を 3.0.7 の icon の形にする（`ICON_NAMES` は出さない）。並べる名前は今の `NAMES` と `IMAGES` の両方にある名前（3.0.7 の最後の段落）。`OnceLock` と `#[expect(clippy::disallowed_types)]` を消す。
@@ -2344,7 +2344,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   2. 試験：4.6 節の pop の表。
   3. catalog（3.0.8）：今の 13 の section（`shell.rs` の `catalog_sections` の順：overview、tokens、buttons、forms、selection、display、table、feedback、overlays、navigation、messaging、schedule、cards）を、それぞれ一つの page にする。`src/pages/<slug>.rs` の slug は `overview`、`tokens`、`buttons`、`forms`、`selection`、`display`、`table`、`feedback`、`overlays`、`navigation`、`messaging`、`schedule`、`cards`。各 page は `Page::new(slug, <英語の名前>, <4.7 節の category>, include_str!("<slug>.rs"))` と、今の section の関数の中身を `// example: <slug>` … `// end example` の間に置いた一つの `Example`（`Example::new("<slug>", <英語の名前>, "", <slug>_demo)`）。section の関数が shell の signal（`confirm`、`form_dialog`、`command`、`sheet`、`drawer_title`、`notify`）を引数に取っていたら、その signal を page の demo の関数の中で作る（`signal(false)` など）。shell だけが使う関数（`install_scroll_spy`、`section_navigation`、`catalog_sidebar`、`catalog_topbar`、`catalog_content`、`catalog_body`、`select_section`、`catalog_brand`、`activity_counter`、`is_palette_shortcut`、`palette_commands`）は消す。overlay の demo（`student_drawer`、`request_dialog`、`operation_confirmation`）は `overlays` の page の demo に移す。`hero.rs` の hero は `overview` の page の demo にする。toast の icon（annex U の `Toast::icon_name`）：`shell.rs` の `notification_callback` の `toast.icon(|| kivact::view::icon("gift"))` と `toast.icon(|| kivact::view::icon("sword"))` を `toast.icon_name("gift")`・`toast.icon_name("sword")`（pop の icon set にある名前）にし、この関数を使う page（`tokens`・`buttons` などの `notify` を受ける page）の helper として `src/pages/common.rs` に移す。条件の `toast.title.contains("報酬")`・`contains("作戦開始")`・`== "コピーしました"` は、手順 4 で訳した英語の title（呼出し側の文字列と同じ訳）で比べる。
   4. 英語化：catalog の日本語の文字列（`rg -n '[\p{Hiragana}\p{Katakana}\p{Han}]' examples/kivact-ui-pop/src`、約 660 行）を英語に訳す。`src/messages.rs`（日本語の message の表）と `locale()` を消す。
-  5. `src/lib.rs`・`src/main.rs`：3.0.8 の形。`theme(mode)` は `kivact_ui_pop::theme(mode).with_fonts(FONTS)`。`FONTS` は catalog の `static FONTS: &[&[u8]]`（Inter、`assets/fonts/barlow/Barlow-BoldItalic.ttf`、`Barlow-ExtraBoldItalic.ttf`、Noto Sans JP。今の `fonts.rs` の 4 つ）。`START = "overview"`。消す：`src/fonts.rs`、`src/messages.rs`、`src/pop.rs`、`src/pop/shell.rs`、`src/pop/keyed_catalog.rs`、`src/pop/loader.rs`（page に移した中身以外）。`src/pop/{common,components_helpers,data}.rs` の helper と data は `src/pages/common.rs`・`src/pages/data.rs` に移す。
+  5. `src/lib.rs`・`src/main.rs`：3.0.8 の形。`theme(mode)` は `kivact_ui_pop::theme(mode).with_fonts(FONTS.iter().copied())`。`FONTS` は catalog の `static FONTS: &[&[u8]]`（Inter、`assets/fonts/barlow/Barlow-BoldItalic.ttf`、`Barlow-ExtraBoldItalic.ttf`、Noto Sans JP。今の `fonts.rs` の 4 つ）。`START = "overview"`。消す：`src/fonts.rs`、`src/messages.rs`、`src/pop.rs`、`src/pop/shell.rs`、`src/pop/keyed_catalog.rs`、`src/pop/loader.rs`（page に移した中身以外）。`src/pop/{common,components_helpers,data}.rs` の helper と data は `src/pages/common.rs`・`src/pages/data.rs` に移す。
   6. `tests/catalog.rs`：`every_page_opens_from_the_list_and_renders_cleanly`（`check::every_page_opens_cleanly("Pop", pages, THEME, &[])`）と `every_page_character_is_in_the_catalog_fonts` を置く。今の 5 つの試験（`pop_source_chapters_scroll_in_the_original_shell`、`pop_forms_edit_drag_choose_date_and_keep_state_in_dark_theme`、`pop_modals_drawer_calendar_and_conversation_use_live_models`、`pop_palette_commands_open_their_dialogs`、`pop_two_quick_messages_both_get_a_reply`）のうち、`pop_source_chapters_scroll_in_the_original_shell` と `pop_palette_commands_open_their_dialogs` は shell の振る舞い（scroll-spy と palette）なので消す。残りの 3 つは `check::open(&screen, "<slug>")` で page を開いてから今の操作を行い、英語にした label で要素を取る。期待値は変えない。
   7. `crates/kivact-ui-pop/README.md` を 3.0.10 の雛形にする（「Migrating from the previous release」（122 行目〜）と recipe の一覧を消す。「prefixed with `pop.`」の誤った文も消える）。
 - **消すもの**：上の catalog の file と試験、README の 2 つの節。
@@ -2365,6 +2365,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **手順**：
   1. root `Cargo.toml` は変えない（kit・catalog は workspace の member のまま。gate の `--exclude` が外していたのをやめるだけ。INC-09）。
   2. `src/color.rs`（T1〜T5。`"creative.<field>"`）：`CANVAS`、`ISLAND`、`HEADER`、`STRONG`、`FIELD`、`HAIR`、`HAIR_STRONG`、`TEXT`、`TEXT_HIGH`、`MUTED`、`DIM`、`ACCENT`、`ACCENT_HIGH`、`ACCENT_INK`、`SELECTION`、`KEY`、`X`、`Y`、`Z`、`SUCCESS`、`WARNING`。`set_colors(theme, mode, accent: Accent)`：`ACCENT`・`ACCENT_HIGH`・`ACCENT_INK` は今の `accent.colors()` の 3 つの値、他は今の `Tokens::new(mode, ..)` の値。今の `color.rs` の引数なしの関数（`transparent_ink`、`menu_hover`、`overlay_surface`、`modal_backdrop` など。`rg -n "^pub\(crate\) fn [a-z_]+\(\)" crates/kivact-ui-creative/src/color.rs`）は同じ名前の大文字の変数にする。
+  2a. 別名の fallback（T1a）：`ISLAND` ← `color::SURFACE`、`TEXT` ← `color::TEXT`、`MUTED` ← `color::TEXT_MUTED`、`HAIR` ← `color::BORDER`、`X` ← `color::DANGER`、`SUCCESS` ← `color::SUCCESS`、`WARNING` ← `color::WARNING`、`STRONG` ← `color::PRESSED`（今の `theme_with` の `Palette` の token の行）。他は light の literal。
   3. `src/size.rs`：`ROW`、`GAP`（`"creative.row"`、`"creative.gap"`）と `set_sizes(theme, density: Density)`（今の `Tokens::new` の density ごとの値）。
   4. font（INC-18）：`body_font` は `font::FAMILY_VAR`（S 表。static だけ）に今の値を set する。`mono_font` は `src/fonts.rs`（新）の `pub static MONO_FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::new("creative.mono_family", FontFamily::from("monospace"));`（const は作らない）にし、`build` で `.set(&MONO_FAMILY_VAR, <今の mono_font の値>)` する。`lib.rs` で `pub use fonts::MONO_FAMILY_VAR;`。読んでいた所（`t.ext::<Tokens>().mono_font.as_str()` など）は `.font_family(t.get(&MONO_FAMILY_VAR).as_str())`。`FontFamily::from` が const fn でなければ、fallback は `FontFamily::SYSTEM` にし、`build` で必ず set する。
   5. `Accent`・`Density`・`LabelTone`（`tokens.rs` → `theme.rs` の隣の `src/options.rs`。`ThemeOptions` と一緒）：`Accent::colors` はそのまま（`set_colors` が使う。`pub(crate)` にしない：今 pub）。`LabelTone::color(self, palette: &Tokens) -> Color` を `LabelTone::color(self) -> Color` にし、今の `match` の腕の `palette.<field>` を変数（`TEXT`、`MUTED`、`ACCENT`、`WARNING`、`X` など今の field）にする。
@@ -2423,7 +2424,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   1. `src/icons.rs` を 3.0.7 の icon の形にする（`ICON_NAMES` は出さない）。`OnceLock` を消す。3.0.6 の S4 で lib を通す。
   2. root `Cargo.toml` は変えない（kit・catalog は workspace の member のまま。gate の `--exclude` が外していたのをやめるだけ。INC-09）。
   3. 試験：4.6 節の creative の表。
-  4. catalog（3.0.8）：今の `common.rs` の `SECTIONS`（22 個）を、それぞれ一つの page にする（slug は section の英語の名前の kebab-case：`buttons`、`numeric-fields`、`selection-input`、`indicators-labels`、`transport`、`knobs-faders`、`meters`、`mixer-console`、… 今の 22 個の順）。`category` は section の group の番号（今の `Category::{Controls, Audio, Layout, Animation, Compositing, Feedback}`）の英語名。section の view の関数（`shell.rs` の `use super::..` で並ぶ `buttons`、`selection`、`knobs` など）を page の demo にする。shell の chrome（`accent_controls`、`application_menus`、`catalog_status`、`performance_meters`、`transport_readout`）は `overview` の page の demo にまとめる（accent の切り替えの demo は `provide_theme(move || creative::theme_with(mode, ThemeOptions { accent: accent.get(), ..Default::default() }), ..)` で page の中だけに効かせる）。`editors.rs` の `fn mix` を消し、`Color::mix`（S の署名）を使う。`src/creative/shell.rs`、`src/creative.rs`、`src/fonts.rs` を消す。日本語の文字列（約 86 行）を英語に訳す。`theme(mode)` は `kivact_ui_creative::theme(mode).with_fonts(&[Geist、Geist Mono、Noto Sans JP の 3 つの bytes])`（今の `fonts.rs` の 3 つ。`static FONTS` を catalog の `lib.rs` に置く）。`START = "buttons"`。
+  4. catalog（3.0.8）：今の `common.rs` の `SECTIONS`（22 個）を、それぞれ一つの page にする（slug は section の英語の名前の kebab-case：`buttons`、`numeric-fields`、`selection-input`、`indicators-labels`、`transport`、`knobs-faders`、`meters`、`mixer-console`、… 今の 22 個の順）。`category` は section の group の番号（今の `Category::{Controls, Audio, Layout, Animation, Compositing, Feedback}`）の英語名。section の view の関数（`shell.rs` の `use super::..` で並ぶ `buttons`、`selection`、`knobs` など）を page の demo にする。shell の chrome（`accent_controls`、`application_menus`、`catalog_status`、`performance_meters`、`transport_readout`）は `overview` の page の demo にまとめる（accent の切り替えの demo は `provide_theme(move || creative::theme_with(mode, ThemeOptions { accent: accent.get(), ..Default::default() }), ..)` で page の中だけに効かせる）。`editors.rs` の `fn mix` を消し、`Color::mix`（S の署名）を使う。`src/creative/shell.rs`、`src/creative.rs`、`src/fonts.rs` を消す。日本語の文字列（約 86 行）を英語に訳す。`theme(mode)` は `kivact_ui_creative::theme(mode).with_fonts(FONTS.iter().copied())`（`FONTS` は Geist、Geist Mono、Noto Sans JP の 3 つの bytes の `static FONTS: &[&[u8]]`）``（今の `fonts.rs` の 3 つ。`static FONTS` を catalog の `lib.rs` に置く）。`START = "buttons"`。
   5. `tests/catalog.rs`：`every_page_opens_from_the_list_and_renders_cleanly`（`check::every_page_opens_cleanly("Creative", pages, THEME, &[])`）と `every_page_character_is_in_the_catalog_fonts`。今の試験（`rg -n "^fn |#\[test\]" examples/kivact-ui-creative/tests/catalog.rs`）のうち shell の chrome（chapter の sidebar、scroll）を確かめるものは消し、部品を操作するものは `check::open(&screen, "<slug>")` で page を開いてから今の操作を行う。期待値は変えない。
   6. `crates/kivact-ui-creative/README.md` を 3.0.10 の雛形にする（「Migrating from the previous release」（309 行目〜）と recipe の一覧を消す。Tabler の license の節は残す）。
 - **消すもの**：`OnceLock`、catalog の shell、`fn mix`、README の 2 つの節。
@@ -2444,8 +2445,9 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **手順**：
   1. root `Cargo.toml` は変えない（kit・catalog は workspace の member のまま。gate の `--exclude` が外していたのをやめるだけ。INC-09）。
   2. `src/color.rs`（`"game.<field>"`）：`PRIMARY_HOVER`、`PRIMARY_STRONG`、`PRIMARY_WEAK`、`SUCCESS_WEAK`、`WARNING_WEAK`、`DANGER_WEAK`、`ON_DARK`、`DARK_SHADOW`、`TOAST_TEXT`、`TAPE_STRIPE`、`DROPZONE_STRIPE`、`CYAN`、`YELLOW`、`NAVY`、`CANVAS`、`SURFACE_3`、`LINE_STRONG`、`TEXT_2`、`TEXT_3`、`SIDEBAR`、`SIDEBAR_ALT`、`SIDEBAR_TEXT`、`SIDEBAR_DIM`。`set_colors(theme, mode)` は今の `Tokens::light()` と dark の値（`rg -n "fn (light|dark)|ThemeMode::Dark" crates/kivact-ui-game/src/tokens.rs` の各 table）。
+  2a. 別名の fallback（T1a）：`TEXT_2` ← `color::TEXT_MUTED`、`PRIMARY_WEAK` ← `color::SELECTION`、`YELLOW` ← `color::FOCUS`、`SURFACE_3` ← `color::PRESSED`（今の `Tokens::palette` の token の行）。size の `CONTROL_HEIGHT` は今 `with_control_height` に入れていたので `ThemeVar::alias("game.control_height", &control::HEIGHT_VAR)`、theme では `.set(&control::HEIGHT_VAR, &CONTROL_HEIGHT_VAR)` と書く（density の値は `CONTROL_HEIGHT_VAR` に set）。他は light の literal。
   3. `src/size.rs`：`CONTROL_HEIGHT`、`ROW_HEIGHT`、`PADDING` と `set_sizes(theme, density: Density)`（今の `Tokens::new(mode, density)` の density ごとの値）。
-  4. font（KIT-13、INC-18）：`src/fonts.rs`（新）に `pub static DISPLAY_FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::new("game.display_family", FontFamily::SYSTEM);` と `pub static MONO_FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::new("game.mono_family", FontFamily::from("monospace"));`（`FontFamily::from` が const fn でなければ fallback は `FontFamily::SYSTEM` にし、`build` で `"monospace"` を必ず set する）を置く。別名にしない（S 4.1：別名は色の変数だけ）。const の `DISPLAY_FAMILY`・`MONO_FAMILY` は作らない。`light`・`dark` の `build` は `.set(&DISPLAY_FAMILY_VAR, <今の `Tokens::light()` の `display_family` の値>)` と `.set(&MONO_FAMILY_VAR, <今の `mono_family` の値>)` をする。recipe の `.font_family(t.ext::<Tokens>().display_family.as_str())` は `.font_family(t.get(&DISPLAY_FAMILY_VAR).as_str())`、`mono_family` と literal の `.font_family("monospace")` は `.font_family(t.get(&MONO_FAMILY_VAR).as_str())`（`rg -n "font_family\(" crates/kivact-ui-game/src`。recipe の外の分野の部品は `use_theme().get().get(&..)` で読む）。
+  4. font（KIT-13、INC-18）：`src/fonts.rs`（新）に `DISPLAY_FAMILY_VAR`（名前 `"game.display_family"`。`pub static DISPLAY_FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::alias("game.display_family", &font::FAMILY_VAR);`。設計 12 章 UI-U-02 が INC-18 の `FontFamily::SYSTEM` を置き換える） と `pub static MONO_FAMILY_VAR: ThemeVar<FontFamily> = ThemeVar::new("game.mono_family", FontFamily::from("monospace"));`（`FontFamily::from` が const fn でなければ fallback は `FontFamily::SYSTEM` にし、`build` で `"monospace"` を必ず set する）を置く。const の `DISPLAY_FAMILY`・`MONO_FAMILY` は作らない。`light`・`dark` の `build` は `.set(&DISPLAY_FAMILY_VAR, <今の `Tokens::light()` の `display_family` の値>)` と `.set(&MONO_FAMILY_VAR, <今の `mono_family` の値>)` をする。recipe の `.font_family(t.ext::<Tokens>().display_family.as_str())` は `.font_family(t.get(&DISPLAY_FAMILY_VAR).as_str())`、`mono_family` と literal の `.font_family("monospace")` は `.font_family(t.get(&MONO_FAMILY_VAR).as_str())`（`rg -n "font_family\(" crates/kivact-ui-game/src`。recipe の外の分野の部品は `use_theme().get().get(&..)` で読む）。
   5. `src/theme.rs`（3.0.7 の options の形）：
 
      ```rust
@@ -2527,7 +2529,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      }
 
      pub fn theme(mode: ThemeMode) -> Theme {
-         kivact_ui_game::theme_with(mode, options()).with_fonts(FONTS)
+         kivact_ui_game::theme_with(mode, options()).with_fonts(FONTS.iter().copied())
      }
      ```
 
@@ -2557,6 +2559,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      - `Colors.hue.<色>.<部分>`（色 = red、orange、yellow、green、teal、cyan、blue、purple、pink、gray。部分 = bg、border、icon、text）：`HUE_<色>_<部分>`（例 `HUE_RED_BG`）。
      - `Colors.data.<名前>`（blue、cyan、orange、red、purple、teal、green、brown、pink、indigo、neutral）：`DATA_<名前>`。`<名前>_ramp: [Color; 5]`（blue、shamrock、orange、pink、purple、red、teal、yellow、gray）：`DATA_<名前>_RAMP_1`〜`_5`。
      - `Colors.syntax`：`keyword`〜`property` の 13 個は soft の変数にしない（K41 で中核の構文色に set）。`background`、`added`、`removed`、`diff_header`、`added_marker`、`removed_marker`：`SYNTAX_BACKGROUND` など。
+     - 別名の fallback（T1a）：今の `theme.rs` の `fn palette(tokens)` で `Palette` の field に `tokens.colors.<x>` をそのまま入れている行ごとに、`<X>` の fallback を `color::<その field の大文字>` にする（`rg -n "tokens\.colors\.[a-z_]+," crates/kivact-ui-soft/src/theme.rs` の行）。`SPACE_*`・`RADIUS_*` で今の `Spacing`・`Radii` に入れているものは `space::*`・`radius::*` の別名。他は light の literal。
      - `set_colors` は 80 行を越えるので、`set_colors_base`、`set_colors_status`、`set_colors_hue`、`set_colors_data`、`set_colors_syntax` に分ける（T5）。
   3. `src/space.rs`（新。公開）：`SpaceTokens` の field（`s0`、`s0_5`、`s1`、`s1_5`、`s2`〜`s12`、`card_padding`、`section_padding`、`dialog_padding`、`layer_viewport_gutter`）を `SPACE_<field の大文字>`（例 `SPACE_S0_5`、`SPACE_CARD_PADDING`）の `ThemeVar<f64>` と `Length` の const に。`src/radius.rs`（新。公開）：`RadiusTokens`（`none`、`inner`、`element`、`container`、`page`、`chat`、`full`）を `RADIUS_<大文字>`。`set_space`・`set_radius` を置く（mode によらない今の値）。
   4. crate の中だけの定数（KIT-19。公開しない）：
@@ -2689,7 +2692,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 - **wave / lane / 前提**：W10 / K5 / K33、K07、K08、K13
 - **所有**：`crates/kivact-ui-soft/`
-- **目的**：soft の tab の見た目を中核の `tabs`（`TabOverflow`）の recipe にする（KIT-09）。`TokenKind` と `SyntaxColors` を中核の `SyntaxKind` と構文色にする（KIT-05）。icon を `IconSet::shared`・`icons!` に（KIT-08）。
+- **目的**：soft の tab の見た目を中核の `tabs`（`TabOverflow`）の recipe にする（KIT-09）。`TokenKind` と `SyntaxColors` を中核の `SyntaxKind` と構文色にする（KIT-05）。icon を `icons!` と `thread_local!` の icon set に（KIT-08）。
 - **手順**：
   1. tabs：今の `tab_list.rs`（K28 で消した。`git show HEAD~<n>:crates/kivact-ui-soft/src/tab_list.rs` か `git log --diff-filter=D -- crates/kivact-ui-soft/src/tab_list.rs` で最後の版を読む）の tab と strip の style を、`recipes_navigation.rs` の `tabs` の recipe に足す。variant を 2 つ `variants.rs` に足す：`pub enum TabsVariant { #[default] Tabs, Navigation }`（今の `TabPattern`）と `pub enum TabsLayout { #[default] Hug, Fill }`（今の `TabLayout`）。recipe は `s.variant::<TabsVariant>()`・`s.variant::<TabsLayout>()` で今の `tab_list` の `pattern`・`layout` の分岐を写す。overflow は中核の `tabs(..).overflow(TabOverflow::Scroll)`（今の `TabOverflow::Scroll` の既定は、呼出し側が付ける）。今の `tab_list` の `divider`・`full_bleed` は `TabsDivider(pub bool)`、`TabsFullBleed(pub bool)` の newtype の variant（V4）。
   2. 構文：`code_syntax.rs` の `TokenKind` を消し、tokenizer の `TokenKind::X` を `SyntaxKind::X`（同名）にする。`type Tokenizer` を消し `kivact::ui::Tokenizer` を使う。`code_highlight(language, line, palette: &SyntaxColors)` を `code_highlight(language: &CodeLanguageInput, line: &str) -> Vec<StyledRange>` にし、本体を `kivact::ui::syntax_ranges(line, &language.tokenize(line))` にする。呼出し（`rg -n "code_highlight" crates/kivact-ui-soft/src`）から palette の引数を消す。`theme.rs` の `set_core` に、今の `SyntaxColors::light()`・`dark()` の 13 個（`keyword`、`r#type`、`string`、`comment`、`operator`、`punctuation`、`number`、`constant`、`function`、`variable`、`tag`、`attribute`、`property`）を `kivact::ui::theme::syntax::<大文字>_VAR` に set する行を足す。`MACRO_VAR` ← function の値、`LIFETIME_VAR` ← constant の値。
@@ -2753,7 +2756,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **手順**：
   1. root `Cargo.toml` は変えない（kit・catalog は workspace の member のまま。gate の `--exclude` が外していたのをやめるだけ。INC-09）。
   2. 試験：4.6 節の soft の表。`navigation.rs` の side nav の試験（`rail_navigation_has_one_actual_panel_and_rearms_after_expansion`、`domain_navigation_shares_hover_pinned_and_menu_focus_authority`、`shell_adapts_navigation_and_opens_the_mobile_drawer`）は K42 の表で中核の sidebar の部品に書き換え、期待値は変えない。`metrics.rs` の `MetadataLook::default().columns(columns)` は `.variant(columns)`。
-  3. catalog（3.0.8）：今の `pages.rs` の 113 の `PageInfo { slug, name, category }` を、それぞれ一つの `Page::new(slug, name, category, include_str!(..))` にする。page の demo は、今の `docs/*.rs` の `match` で slug ごとに分かれた腕の view。腕ごとに `fn <slug の snake_case>() -> impl IntoView` を作り、`// example: <slug>` … `// end example` で囲み、`Example::new("<slug>", name, "", <その関数>)` で page に足す。page の file は今の `docs/<群>.rs`（`collections`、`content`、`controls`、`dates`、`feedback`、`forms`、`navigation`、`overlays`、`utilities`）のまま `src/pages/<群>.rs` に移し、`include_str!` はその群の file を指す（同じ群の page は同じ source を持つ。snippet は印で切り出すので page ごとに正しい）。`pages()` は今の `PAGES` の順に `Page` を並べる。消す：`src/pages.rs` の `PageInfo` と `PAGES`、`src/docs.rs`、`src/docs/examples.rs`（slug の文字列の `match` の連鎖）、`src/docs/specimen.rs`、`src/shell.rs`、`src/page.rs`、`src/model.rs`、`src/look.rs`、`src/fonts.rs`。`theme(mode)` は `kivact_ui_soft::theme(mode).with_fonts(FONTS)`（`FONTS` は今の 2 つの Figtree）。`START = "button"`。demo の中の API は新しい API（K28 の束の分解、K42 の sidebar の表、`TableRowAppearance::new(true, true, false)` → `.variant(TableRowDividers(true)).variant(TableRowHover(true))`）。
+  3. catalog（3.0.8）：今の `pages.rs` の 113 の `PageInfo { slug, name, category }` を、それぞれ一つの `Page::new(slug, name, category, include_str!(..))` にする。page の demo は、今の `docs/*.rs` の `match` で slug ごとに分かれた腕の view。腕ごとに `fn <slug の snake_case>() -> impl IntoView` を作り、`// example: <slug>` … `// end example` で囲み、`Example::new("<slug>", name, "", <その関数>)` で page に足す。page の file は今の `docs/<群>.rs`（`collections`、`content`、`controls`、`dates`、`feedback`、`forms`、`navigation`、`overlays`、`utilities`）のまま `src/pages/<群>.rs` に移し、`include_str!` はその群の file を指す（同じ群の page は同じ source を持つ。snippet は印で切り出すので page ごとに正しい）。`pages()` は今の `PAGES` の順に `Page` を並べる。消す：`src/pages.rs` の `PageInfo` と `PAGES`、`src/docs.rs`、`src/docs/examples.rs`（slug の文字列の `match` の連鎖）、`src/docs/specimen.rs`、`src/shell.rs`、`src/page.rs`、`src/model.rs`、`src/look.rs`、`src/fonts.rs`。`theme(mode)` は `kivact_ui_soft::theme(mode).with_fonts(FONTS.iter().copied())`（`FONTS` は今の 2 つの Figtree）。`START = "button"`。demo の中の API は新しい API（K28 の束の分解、K42 の sidebar の表、`TableRowAppearance::new(true, true, false)` → `.variant(TableRowDividers(true)).variant(TableRowHover(true))`）。
   4. `tests/catalog.rs`：`every_page_opens_through_search_in_both_appearances` と `search_opens_a_page_and_the_appearance_toggle_keeps_it_open` を消し、`every_page_opens_from_the_list_and_renders_cleanly`（`check::every_page_opens_cleanly("Soft", pages, THEME, &["carousel"])`）と `every_page_character_is_in_the_catalog_fonts` を置く。残りの 6 つ（`carousel_example_moves_the_slides_and_reveals_the_previous_control`、`carousel_example_snaps_after_horizontal_wheel_input`、`table_example_filters_and_expands_projects`、`standard_examples_keep_their_controls_when_the_appearance_changes`、`file_example_uses_picker_storage_and_clear_without_accepting_field_drops`、`item_list_examples_keep_native_positions_in_both_appearances`）は `check::mount` と `check::open` を使って今の操作と期待値のまま。`tests/lookbook.rs` は page を開く部分を `check::open` にし、期待値は変えない。
   5. `crates/kivact-ui-soft/README.md` を 3.0.10 の雛形にする（「Migrating from the previous release」（283 行目〜）と recipe の一覧を消す）。
 - **消すもの**：上の catalog の file と試験、README の 2 つの節。
@@ -2779,6 +2782,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      - `all_kit_themes_preserve_standard_component_contracts` と `standard_button_respects_the_theme_focus_ring_offset` は新しい API（`Theme::light()` の focus ring offset は S 表の変数の `set`、部品は `#[component]` の呼び方、`.label(..)`）に直し、期待値は変えない。
      - 新しい試験を 2 つ足す（kit は今の 5 つの `(name, theme)` の表、mode は Light と Dark）：
        - `all_kit_themes_restyle_on_switch_and_keep_component_state`：`contract_view` を `provide_theme(move || if dark.get() { kit(Dark) } else { kit(Light) }, ..)` で mount し、text input に入力、checkbox を check、tab を選び、slider を動かす。`dark.set(true)` の後、4 つの値が同じで、`screen.errors()` が空で、`painted_differently`（前後の screenshot）が真。移す元：basic `theme_switch_restyles_mounted_components_and_keeps_their_state`、pop `theme_switch_changes_existing_nodes_and_pixels_without_remounting_state`・`theme_change_preserves_the_shared_tab_and_range_semantic_tree`、creative `creative_segments_and_numeric_semantics_survive_a_theme_change`（creative の numeric の部分は creative の `consumer/numeric_value.rs` に残す）。
+       - `all_kit_themes_are_one_shared_theme_per_mode`（TV-09、PF-02）：5 つの kit の `theme(Light)` を二度呼んだ値が `==`（`Arc::ptr_eq` が先に判定する）、`theme(Light) != theme(Dark)`。game と creative は `theme_with(mode, ThemeOptions::default()) == theme(mode)`。
        - `all_kit_themes_keep_the_toast_lifetime`：`toast_region(use_toaster())` に title と description の toast を出し、live region の role で読め、pointer を乗せている間は時間が進んでも消えず、外して既定の時間が過ぎると消える。移す元：basic `toast_shows_title_description_and_leaves_after_five_seconds`、pop `notification_has_live_semantics_and_expires_on_the_host_clock`、game `consumer_toast_expiry_and_hover_pause`、creative `toasts_are_live_pause_for_the_pointer_and_expire_on_the_host_clock`。時間は移す元の試験の値（basic 5 秒など）ではなく中核の既定の時間（U 変数表の toast の時間の変数を `theme.get` で読む）で進める。
   3. 移した元の試験を消す：上の 6 つの関数（creative の numeric の部分を除く）を消し、file が空になったら file と `tests/consumer.rs` の `#[path]`・`mod` の行を消す。
   4. annex T（T15）が `e2e_kits` に入れた他の kit の試験（`presence_kit.rs`、`apg_grid_kit.rs`、`ui_standard.rs`）を新しい API に直す（`UiRecipes::default().toast(..)` は `ToastTheme::default().<part>(..)`、`kivact_ui_soft::theme(..)` などはそのまま）。期待値は変えない。
@@ -2813,13 +2817,13 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 ### 4.2 他の付属書の名前・仕組み（すべて照合済み・決定済み）
 
 1. **DEC-14 の除外の仕組み**（解決済み、INC-09）：除外は gate の `--exclude` だけで行い、root `Cargo.toml` の `members`/`exclude` は変えない。kit・catalog・`kivact-kit-tests` は workspace の member のまま。本付属書の unit は root `Cargo.toml` の kit・catalog の行を変えない（K06 の新しい 2 crate の行だけを足す）。`kivact-kit-tests` の `Cargo.toml` は T15 が作ったまま（kit の dev-dependency と `e2e_kits` の `[[test]]` を持つ）で、K44 は変えない。
-2. **S 表の名前**（解決済み、INC-18）：本付属書の code の中核の変数の名前は S 4.2 節の表のとおり：`color::{SURFACE, SURFACE_ALT, TEXT, TEXT_MUTED, ACCENT, ACCENT_TEXT, BORDER, FOCUS, DANGER, SUCCESS, WARNING, OVERLAY, SHADOW, SELECTION, HOVER, PRESSED, RAISED}`（const と `_VAR`）、`space::{XS, SM, MD, LG, XL}`、`radius::{SM, MD, LG}`、`font::{SIZE, SIZE_SMALL, SIZE_LARGE}`（const と `_VAR`）と `font::{FAMILY_VAR, WEIGHT_VAR, WEIGHT_STRONG_VAR, LINE_HEIGHT_VAR}`（static だけ）。`with_mode`・`with_focus_ring`・`with_focus_ring_offset`・`with_control_height`・`with_disabled_opacity`・`with_overlay_margin` は `Theme` の field と builder のまま（T6）。`Color::mix` は `mix(other, t, &Theme)`、`Color::resolve(theme)` は `components(&theme)`（S 4.3）。font family の型は `FontFamily`（`FontFamily::SYSTEM`、`From<&str>`、`as_str()`）。
-3. **部品の本体が `Element` の modifier の値を読む方法**（解決済み、INC-41）：U25 の `kivact_core::custom::caller()`（`Caller::variants`、W7a）。K11 手順 5 は `caller().variants().get::<SidebarMenuButtonSize>()` で読む。
-4. **`ThemeVar::new` の fallback に別の変数の値**（解決済み、INC-41）：S 4.1 で色の変数だけ可（K08・K10・K11 の色の fallback の `color::*`）。font・長さ・数の変数は不可（K22・K26 は INC-18 の値を書く）。
+2. **S 表の名前**（解決済み、INC-18）：本付属書の code の中核の変数の名前は S 4.2 節の表のとおり：`color::{SURFACE, SURFACE_ALT, TEXT, TEXT_MUTED, ACCENT, ACCENT_TEXT, BORDER, FOCUS, DANGER, SUCCESS, WARNING, OVERLAY, SHADOW, SELECTION, HOVER, PRESSED, RAISED}`（const と `_VAR`）、`space::{XS, SM, MD, LG, XL}`、`radius::{SM, MD, LG}`、`font::{SIZE, SIZE_SMALL, SIZE_LARGE}`（const と `_VAR`）と `font::{FAMILY_VAR, WEIGHT_VAR, WEIGHT_STRONG_VAR, LINE_HEIGHT_VAR}`（static だけ）。`with_mode`・`with_focus_ring`・`with_focus_ring_offset` は `Theme` の builder のまま、control height・disabled opacity・overlay margin は `control::{HEIGHT_VAR, DISABLED_OPACITY_VAR, OVERLAY_MARGIN_VAR}` の set（T6、INC2 N-05）。`Color::mix` は `mix(other, t, &Theme)`、`Color::resolve(theme)` は `components(&theme)`（S 4.3）。font family の型は `FontFamily`（`FontFamily::SYSTEM`、`From<&str>`、`as_str()`）。
+3. **部品の本体が `Element` の modifier の値を読む方法**（決定、設計 5.1 規則 10・12 章 API-4）：`#[component]` の引数 `#[caller] caller: Caller`（macro が吸収した modifier の snapshot を渡す）。K11 手順 5 が使う。
+4. **別名**（決定、設計 12 章 UI-U-02・5.7、INC2 N-11）：すべての型で可。書き方は一つ：fallback は `ThemeVar::alias(name, &X_VAR)`、theme の中は `theme.set(&VAR, &X_VAR)`。kit の変数の fallback は T1a。
 5. **basic chart の `text_width`**（決定済み、parent 採用）：K34 は `text_width`（字幅の見積り）を残す。chart の hit test は描画の外で行うので、plot が描画の中で測る幅は使えない。
 6. **`#[prop(default = expr)]`**（決定済み）：annex C の C09 は `Option` でない全ての props の型（`Value<T>` を含む）に `#[prop(default = expr)]` を受ける。本付属書の `#[prop(default = ..)]` はそのまま書く。
 7. **annex U の名前**（確定）：U recipe 表は annex U 4.4 節、U 変数表は 4.3 節。部品の module 表（4.4 節の最後）：`theme` = `crates/kivact-ui/src/theme.rs`、`Slant`・`Striped` = 新しい `crates/kivact-ui/src/variant_marks.rs`、`tabs` = `crates/kivact-ui/src/tabs.rs` と `tabs/`、`sidebar` = `crates/kivact-ui/src/sidebar.rs` と `sidebar/`（`mod.rs` は作らない）、`code_block` = `crates/kivact-ui/src/code_block.rs` と `code_block/`。`Look::variant::<V>()` は `Option<V>`。
-8. **`kivact::style::cached_theme(build: fn() -> Theme) -> Theme`**（解決済み、INC-41）：annex S の S09（W6b）が作る。本付属書は作らない。
+8. **`cached_theme`**（決定、設計 12 章 PF-02）：作らない・使わない。kit の theme と icon set は `thread_local!` の static（3.0.7）。
 9. **`Color::relative_luminance()`・`Color::contrast_ratio(other)`**（解決済み、INC-41）：annex S の S09 が作る。K31 が soft の `theme_scope.rs` で使う。
 10. **e2e の directory**（解決済み、INC-10・INC-11）：annex T の分割の後、`dev/tests/kivact-public-api/tests/{e2e_core, e2e_ui, e2e_native}/` と、別の package `dev/tests/kivact-kit-tests/tests/e2e_kits/`（package `kivact-kit-tests`）がある。kit の部分の module は `apg_grid_kit`・`presence_kit`・`ui_standard`・`theme_conformance`。`crate::support::mount` は各 binary にある（K09・K11・K12・K13・K44）。
 11. **`TestFonts::Only` の削除**（解決済み、INC-41）：annex C の C14。catalog-shell の `check::mount` は font を theme（`Theme::with_fonts`）で渡す。
@@ -2828,7 +2832,6 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 | 名前 | 場所 | unit |
 |---|---|---|
-| `IconSet::shared(build: fn() -> IconSet) -> IconSet` | `kivact::style` | K07 |
 | `icons!($dir:literal, [$($name:literal),*])` | `kivact::style::icons` | K07 |
 | `Slant`、`Striped`（marker、`Variant`） | `kivact::ui` | K08 |
 | `SyntaxKind`（15 値）、`Tokenizer`、`syntax_ranges(line, tokens) -> Vec<StyledRange>`、`SyntaxKind::color(self) -> Color` | `kivact::ui` | K08 |
@@ -3030,7 +3033,7 @@ soft：
 | KIT-05 | K08（`SyntaxKind`・構文色）、K34（basic）、K41（soft） |
 | KIT-06 | 3.0.1 の骨格、K15〜K19、K20〜K21、K22〜K25、K26〜K27、K28〜K33（改名・recipe の置き場・lib.rs） |
 | KIT-07（変更して採用） | K15、K20、K22、K26、K28（`ColorName` ごと theme 変数） |
-| KIT-08 | K07（`IconSet::shared`・`icons!`）、3.0.7（`cached_theme`）、K34・K36・K38・K39・K41（kit の置換） |
+| KIT-08 | K07（`icons!`）、3.0.7（theme と icon set の `thread_local!`。PF-02）、K34・K36・K38・K39・K41（kit の置換） |
 | KIT-09 | K28（使われない関数・`aspect_ratio`・`tab_list`）、K13（中核の overflow）、K41（soft の tab の見た目） |
 | KIT-10 | K10（目盛りの共有）、K11・K12（中核の sidebar と `SidebarTheme`）、K34（basic の `SidebarTheme` の part）、K42（soft の `SidebarTheme` の part）。chat の recipe は kit ごと（監査の判断のまま） |
 | KIT-11 | K04（halo、W2a）、K09（`once_visible`）、K39（kpi） |

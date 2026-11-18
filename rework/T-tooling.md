@@ -19,6 +19,8 @@
 | `architecture/` を git から外す、`window-lock.sh --if-mirror`、`check-features.sh` の縮小 | TL-01、TL-02、TL-16、TL-17 |
 | README の「Migrating from the previous release」と「Filled recipes」（5 kit）と、それを検査する試験 | KIT-16（設計 4.3 で本付属書へ） |
 | `CONTRIBUTING.md`・`dev/README.md` の gate の 3 段 | TL-01、TL-16、設計 6.4 |
+| KPI の計測の選択（`run.sh --no-catalog`）と判定の道具（`dev/bench/kpi.toml`、`cargo xtask kpi-compare`） | 設計 2 章、12 章 PLAN-02・TV-08・PF-01 |
+| 外部レビューへの対応（12 章）：`legacy:` の印と除外の撤廃（ST-01）、W0 の基点の gate（PLAN-05）、CP3 で `--strict` を使わない（PLAN-03）、`members` の規則（PLAN-06）、filter と binary（PLAN-07）、作業場所（PLAN-04）、schema の試験の root（TV-01）、kivact-test の自己試験を残す（TV-04）、CPU だけの build の確認（TV-05）、docs-pairs の token の比較（TV-06）、T23 の検索の範囲（TV-10） | 12 章 |
 
 ### 1.2 本付属書が扱わないもの（4 章で引き渡す）
 
@@ -45,7 +47,7 @@
 | T01 | W1a | T0 | — | `dev/xtask/src/{state.rs,state/,state_fields.rs,state_fields/,local_checks.rs,check_cli.rs,check_source.rs,main.rs,pending.rs,policy.rs,public_surface.rs}`、`dev/xtask/policy/workspace.toml`、`dev/xtask/state-audit.md`（未追跡なら削除だけ） | TL-04、6.1 | L |
 | T02 | W1a | T0 | T01 | `dev/xtask/src/{main.rs,check_cli.rs,local_checks.rs,check_source.rs,api_shape.rs,structural_options.rs,diagrams.rs,core_filters.rs}`、`dev/xtask/policy/workspace.toml` | TL-02、TL-05、TL-06、TL-07、4.3 | M |
 | T03 | W1a | T0 | T02 | `dev/xtask/src/{main.rs,check_cli.rs,local_checks.rs,effect_writes.rs,interaction_view.rs,ui_machine.rs,hand_element.rs,unit_machine.rs,element_shadow.rs}`、`dev/xtask/policy/workspace.toml` | 6.3、UI-04、UI-09、API-13 | M |
-| T04 | W1a | T0 | T03 | `dev/xtask/src/{main.rs,check_cli.rs,local_checks.rs,docs_pairs.rs,devtools_codegen.rs,devtools_codegen/}`、`dev/xtask/policy/workspace.toml`、`crates/kivact-devtools-protocol/{Cargo.toml,tests/schema_generated.rs,tests/schema_generated/}`、`python/` | TL-03（docs-pairs）、TL-09 | M |
+| T04 | W1a | T0 | T03 | `dev/xtask/src/{main.rs,check_cli.rs,local_checks.rs,docs_pairs.rs,devtools_codegen.rs,devtools_codegen/}`、`dev/xtask/policy/workspace.toml`、`crates/kivact-devtools-protocol/{Cargo.toml,tests/schema_generated/}`、`python/` | TL-03（docs-pairs）、TL-09 | M |
 | T23 | W1a | T0 | T04 | `crates/kivact-devtools-protocol/src/{scripts.rs,lib.rs,call.rs,notify.rs,app.rs,config.rs}`、`crates/kivact-devtools-protocol/schema/*.json`、`crates/kivact-devtools-protocol/tests/protocol.rs`、`crates/kivact-devtools-client/tests/connection.rs`、`crates/kivact-core/src/devtools.rs`、`crates/kivact-core/src/devtools/{scripts.rs,target.rs}`、`crates/kivact-devtools/src/{panels.rs,panels/scripts.rs,app.rs,state.rs,session.rs}`、`crates/kivact-devtools/tests/{app.rs,app/panels/scripts.rs}`、`crates/kivact-devtools-mcp/{src/tools.rs,tests/mcp.rs}` | TL-09、DEC-10（親の決定） | M |
 | T05 | W1b | T1 | T23 | `crates/kivact-ui/src/**` | TL-04 | L |
 | T06 | W1b | T1 | T05 | `crates/kivact-interaction/src/**` | TL-04 | M |
@@ -53,12 +55,13 @@
 | T08 | W1b | T2 | T07 | `crates/kivact-engine/src/**`、`crates/kivact-layout/src/**`、`crates/kivact-editing/src/**` | TL-04、TL-05 | L |
 | T09 | W1b | T3 | T23 | `crates/kivact-runtime/src/**`、`crates/kivact-i18n/src/**`、`crates/kivact-style/src/**`、`crates/kivact-types/src/**`（`cell.rs` を除く）、`crates/kivact-shader/src/**`、`crates/kivact-svg/src/**`、`crates/kivact-gpu-share/src/**` | TL-04、TL-05 | L |
 | T10 | W1b | T3 | T09 | `crates/arvane/src/**`、`crates/arvane-*/src/**`、`dev/bench/src/**`、`dev/tests/gpu-interop-producer/src/**` | TL-04 | M |
+| T24 | W1b | T3 | T10 | `dev/bench/{run.sh,kpi.toml,README.md}`、`dev/xtask/src/{main.rs,kpi_compare.rs,kpi_compare/}` | PLAN-02、TV-08、PF-01（12 章） | M |
 | T11 | W1b | T4 | T23 | `crates/kivact-ui-{basic,pop,game,creative,soft}/src/**` | TL-04、KIT-16 | L |
 | T12 | W1b | T4 | T11 | `examples/**`（`examples/shared-assets` を除く）、`templates/**` | TL-04、4.3 | M |
 | T13 | W1b | T5 | T23 | `crates/kivact-devtools-client/`（削除）、`crates/kivact-devtools-protocol/**`、`crates/kivact-devtools-agent/**`、`crates/kivact-devtools-mcp/**`、`crates/kivact-devtools/**`、`Cargo.toml` の `members`、`Cargo.lock`、`dev/tests/kivact-public-api/Cargo.toml`、`dev/tests/kivact-public-api/tests/e2e/devtools.rs` | TL-08、TL-14(3)、TL-04 | M |
 | T14 | W1b | T5 | T13 | `dev/tests/kivact-public-api/tests/e2e/{flows,runtime,task,view,gpu_on_demand,gpu_on_demand_shared,gpu_on_demand_windows,theme_conformance}.rs`、`.../e2e/embed/windows.rs`、`crates/kivact-ui-{basic,pop,game,creative,soft}/README.md` | TL-14、KIT-16 | M |
 | T15 | W1b | T5 | T14 | `dev/tests/kivact-public-api/**`、`dev/tests/kivact-kit-tests/`（新設）、`Cargo.toml` の `members`、`Cargo.lock`、`dev/xtask/policy/workspace.toml` の `[[style.exceptions]]` 1 件 | TL-15、6.4 | L |
-| T16 | W1b | T6 | T23 | `crates/kivact-test/**` | TL-12、TL-04、TL-05 | M |
+| T16 | W1b | T6 | T23 | `crates/kivact-test/**`（自己試験を一つも消さず `tests/screen/` へ移す） | TL-12、TV-04、TL-04、TL-05 | M |
 | T17 | W1b | T6 | T16 | `dev/tests/docs/**`、`docs/for-kivact-user/jp/how-to-guide/{canvas,windows}.md` | TL-03 | M |
 | T18 | W1b | T6 | T17 | `docs/for-kivact-user/{en,jp}/how-to-guide/{devtools,README}.md`、`README.md`、`README_JP.md`、`docs/for-kivact-developer/strategy.md` | TL-09、TL-08 | S |
 | T19 | W1b | T6 | T18 | `dev/tools/window-lock.sh`、`dev/tools/check-features.sh` | TL-01、TL-17 | S |
@@ -66,11 +69,17 @@
 | T21 | W1b | T6 | T20 | `CONTRIBUTING.md`、`dev/README.md`、`docs/for-kivact-developer/manual-verification.md` | TL-01、TL-16、6.4 | M |
 | T22 | W1c | T0 | T05〜T21 全部 | `dev/xtask/policy/workspace.toml`、`Cargo.toml` の `[workspace.lints.rust]`、`redundant_imports` の警告が出たファイル（workspace 全体） | TL-04、4.3 | M |
 
-W1b の lane とファイルの排他：T1＝ui・interaction、T2＝core・facade・macros・engine・layout・editing、T3＝runtime・i18n・style・types・shader・svg・gpu-share・arvane*・bench・producer、T4＝5 kit の `src`・examples・templates、T5＝DevTools の crate・`dev/tests/kivact-public-api`・新しい `dev/tests/kivact-kit-tests`・kit の README、T6＝`kivact-test`・`dev/tests/docs`・docs・README・scripts・architecture・CONTRIBUTING。二つの lane が同じファイルを持つのは root の `Cargo.toml` の `members` 配列と `Cargo.lock` だけで、これは T5 の中だけ（T13 と T15。同じ lane の順）。README.md・README_JP.md は T6 だけが持つ。
+W1b の lane とファイルの排他：T1＝ui・interaction、T2＝core・facade・macros・engine・layout・editing、T3＝runtime・i18n・style・types・shader・svg・gpu-share・arvane*・bench（`src` は T10、`run.sh`・`kpi.toml`・`README.md` は T24）・producer・xtask の `main.rs` と `kpi_compare*`（T24。W1b で `dev/xtask/src` を持つのは T24 だけ）、T4＝5 kit の `src`・examples・templates、T5＝DevTools の crate・`dev/tests/kivact-public-api`・新しい `dev/tests/kivact-kit-tests`・kit の README、T6＝`kivact-test`・`dev/tests/docs`・docs・README・scripts・architecture・CONTRIBUTING。二つの lane が同じファイルを持つのは root の `Cargo.toml` の `members` 配列と `Cargo.lock` だけで、これは T5 の中だけ（T13 と T15。同じ lane の順）。README.md・README_JP.md は T6 だけが持つ。
 
 W1b の後に W1c（T22、単独の lane）を置く。W1c は W1b のすべての lane の merge の後に走る（`state` を pending から外すため。4.4 節）。
 
 ## 3. unit の手順
+
+### 全 unit の共通の約束
+
+- **作業場所**：すべてのコマンドは渡された worktree の root で実行する。directory を移る手順は `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/<相対 path>" || exit 1` で始め、`cd "$ROOT" || exit 1` で戻る。固定の絶対 path を使わない（12 章 PLAN-04）。
+- **試験のコマンド**：lock の一覧（4.1 節）の package の試験は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で、一つのコマンドに window-lock を一つだけ書く。`--test <binary>` を付けるコマンドは binary ごとに一つにし、別の binary の module の filter を混ぜない（4.5 節の表で binary を確かめる）。
+- **0 件は失敗**（12 章 PLAN-07）：filter を付けた試験のコマンドは、出力のすべての `test result:` の行の passed（skip した GPU の試験を含む）の合計が 1 以上でなければ失敗とする。filter を二つ以上書いたコマンドは、filter ごとに同じコマンドの `-- <filter> --list` を実行し、`: test` で終わる行が 1 つ以上あることも確かめる（一つの filter だけが空でも全体は成功に見えるため）。各 unit の「完了条件」の「すべて成功」はこれを含む。
 
 ### 共通手順 M：`state-fields` の印の変換（T05〜T13、T15〜T17 が使う）
 
@@ -98,14 +107,14 @@ cargo xtask check --no-write --only state --strict --crate <P> 2>&1 | grep "stat
    - `L` = 報告の行にある field の列（`a, b, c` や `V.a, V.b`、関数なら local の列）をそのまま写す。
    - `R` = その item の本体（型なら `{` から `}` まで、関数なら本体の中）にある**最初の** `// xtask-allow(state-fields):` の理由。行頭の `independent:`・`option:`・`cache:`・`identity:`・`statistic:`・`projection:` のどれかとその後の空白を取り、末尾の `.` を取る。本体に旧い印が無ければ `R` は無し。
    - `W` = 本体の旧い印のうち `projection:` で始まり `written only by ` を含むものごとに、`<その印の直後の field 名> is written only by <"written only by " の後から最初の ; , . までの語>`。複数あれば `; ` で繋ぐ。無ければ無し。
-   - 文面：`W` が無ければ `// xtask-allow(state): independent: L; R`、`W` があれば `// xtask-allow(state): W; independent: L; R`。`R` が無ければ `; R` を付けない。
+   - 文面：`W` が無ければ `// xtask-allow(state): legacy: L; R`、`W` があれば `// xtask-allow(state): legacy: W; L; R`。`R` が無ければ `; R` を付けない。**文面は必ず `legacy: ` で始める**（設計 6.1・12 章 ST-01：この印は旧い印から機械的に作ったもので、設計者がまだ閉じ方を確かめていないことを示す。xtask は `legacy:` の数を報告し、CP1 で Orchestrator が台帳 `rework/state-ledger.md` にし、付属書 L が一件ずつ閉じる。AC-3 は `legacy:` 0 件）。共通手順 M は組合せの意味を調べたり直したりしない。
    - 行全体（字下げを除く）が 180 文字を超えたら、`R` を 180 文字に収まる最後の空白の位置で切る（`...` は付けない）。
 3. 印を置く場所：その item の**一番上の行**の直前。一番上の行とは、item の直前に続く `///` の doc の行と `#[` で始まる属性の行のうち最も上の行（無ければ `struct`・`enum`・`fn` の行そのもの）。字下げは item の行と同じにする。既に `// xtask-allow(...)` の別の印（`api-shape` など）がその上に並んでいれば、その印たちの直前でも直後でもよい（検査はどちらも認める）。
 
 例（`kivact-ui/src/values.rs` の `ButtonState` が報告された場合。本体の最初の旧い印が `independent: busy comes from the caller's busy value and is valid with any icon or label layout`）：
 
 ```rust
-// xtask-allow(state): independent: busy, expanded, leading_icon, trailing_icon, label_hidden; busy comes from the caller's busy value and is valid with any icon or label layout
+// xtask-allow(state): legacy: busy, expanded, leading_icon, trailing_icon, label_hidden; busy comes from the caller's busy value and is valid with any icon or label layout
 /// The state a button's recipe reads.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ButtonState {
@@ -178,10 +187,11 @@ cargo xtask check --no-write --only state --strict --crate <P>
    //! an impl of its package has a `&mut self` method, it has an
    //! interior-mutable field, or one of its methods writes a `Signal`/`Var`
    //! field. Fields written only by constructors, `Default` and by-value
-   //! builders are a passive record and need nothing. Names ending in the
-   //! policy's `exempt_suffixes`, `*State` in `recipe_state_packages`, and
-   //! `Hash + Eq` keys are not checked. A function with two or more state
-   //! locals needs the same line before the function (design 6.1).
+   //! builders are a passive record and need nothing. No name or derive
+   //! exempts a type. A function with two or more state locals needs the same
+   //! line before the function. A marker whose text starts with `legacy:` was
+   //! converted mechanically from the replaced rule; the run reports how many
+   //! are left (design 6.1, chapter 12 ST-01).
 
    mod check;
    mod fields;
@@ -190,14 +200,14 @@ cargo xtask check --no-write --only state --strict --crate <P>
    #[cfg(test)]
    mod tests;
 
-   pub(crate) use check::check;
+   pub(crate) use check::{check, legacy_count};
    pub(crate) use index::Index;
    ```
 
 4. `dev/xtask/src/state/fields.rs` を新設する。
 
    ```rust
-   //! Role: Classify one field's type as plain state, interior-mutable state, a handle or nothing.
+   //! Role: Classify one field type as plain state, interior state, a handle or nothing.
 
    /// How one field takes part in the state of its type.
    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -479,7 +489,6 @@ cargo xtask check --no-write --only state --strict --crate <P>
    use super::fields::{Counted, Kind, counted};
    use super::index::Index;
    use super::locals;
-   use crate::check_policy::strings;
    use crate::check_source::Source;
    use syn::spanned::Spanned;
 
@@ -487,18 +496,15 @@ cargo xtask check --no-write --only state --strict --crate <P>
    const RULE: &str = "state";
    /// The marker of the replaced rule; every one left is an error.
    const OBSOLETE: &str = "// xtask-allow(state-fields):";
+   /// A marker converted mechanically in W1 and not yet closed by the designer.
+   const LEGACY: &str = "// xtask-allow(state): legacy:";
 
    /// Run the rule over one source.
-   pub(crate) fn check(
-       source: &Source,
-       policy: &toml::Table,
-       index: &Index,
-       errors: &mut Vec<String>,
-   ) {
+   pub(crate) fn check(source: &Source, index: &Index, errors: &mut Vec<String>) {
        for item in &source.items {
            match item {
-               syn::Item::Struct(item) => check_struct(source, policy, index, item, errors),
-               syn::Item::Enum(item) => check_enum(source, policy, index, item, errors),
+               syn::Item::Struct(item) => check_struct(source, index, item, errors),
+               syn::Item::Enum(item) => check_enum(source, index, item, errors),
                _ => {}
            }
        }
@@ -506,17 +512,20 @@ cargo xtask check --no-write --only state --strict --crate <P>
        report_markers(source, errors);
    }
 
-   fn check_struct(
-       source: &Source,
-       policy: &toml::Table,
-       index: &Index,
-       item: &syn::ItemStruct,
-       errors: &mut Vec<String>,
-   ) {
+   /// How many `legacy:` markers the lines this source owns hold.
+   pub(crate) fn legacy_count(source: &Source) -> usize {
+       source
+           .text
+           .lines()
+           .enumerate()
+           .filter(|(index, line)| {
+               source.owns_line(index + 1) && line.trim_start().starts_with(LEGACY)
+           })
+           .count()
+   }
+
+   fn check_struct(source: &Source, index: &Index, item: &syn::ItemStruct, errors: &mut Vec<String>) {
        let name = item.ident.to_string();
-       if exempt(source, policy, &name, &item.attrs) {
-           return;
-       }
        let fields = counted(&item.fields, "");
        if fields.len() < 2 {
            return;
@@ -527,17 +536,8 @@ cargo xtask check --no-write --only state --strict --crate <P>
        }
    }
 
-   fn check_enum(
-       source: &Source,
-       policy: &toml::Table,
-       index: &Index,
-       item: &syn::ItemEnum,
-       errors: &mut Vec<String>,
-   ) {
+   fn check_enum(source: &Source, index: &Index, item: &syn::ItemEnum, errors: &mut Vec<String>) {
        let name = item.ident.to_string();
-       if exempt(source, policy, &name, &item.attrs) {
-           return;
-       }
        let mut fields = Vec::new();
        for variant in &item.variants {
            let variant_fields = counted(&variant.fields, &variant.ident.to_string());
@@ -597,32 +597,6 @@ cargo xtask check --no-write --only state --strict --crate <P>
            .map(|field| field.label.as_str())
            .collect::<Vec<_>>()
            .join(", ")
-   }
-
-   /// Passive roles by name (design 6.1 (c)) and map keys (`Hash + Eq`).
-   fn exempt(source: &Source, policy: &toml::Table, name: &str, attrs: &[syn::Attribute]) -> bool {
-       let suffix = strings(policy, "exempt_suffixes")
-           .iter()
-           .any(|suffix| name.ends_with(suffix.as_str()));
-       let recipe_state = name.ends_with("State")
-           && strings(policy, "recipe_state_packages").contains(&source.package);
-       suffix || recipe_state || (derives(attrs, "Hash") && derives(attrs, "Eq"))
-   }
-
-   fn derives(attrs: &[syn::Attribute], wanted: &str) -> bool {
-       attrs
-           .iter()
-           .filter(|attribute| attribute.path().is_ident("derive"))
-           .any(|attribute| {
-               let mut found = false;
-               let _ = attribute.parse_nested_meta(|meta| {
-                   if meta.path.segments.last().is_some_and(|segment| segment.ident == wanted) {
-                       found = true;
-                   }
-                   Ok(())
-               });
-               found
-           })
    }
 
    /// Report the replaced rule's markers and `state` markers no counted item used.
@@ -698,26 +672,24 @@ cargo xtask check --no-write --only state --strict --crate <P>
    ```rust
    //! Role: Verify the state rule on passive records, mutated types, markers and locals.
 
-   fn run(text: &str, policy: &str) -> Vec<String> {
+   fn run(text: &str) -> Vec<String> {
        let source = crate::check_source::fixture(text);
        let index = super::Index::build(std::slice::from_ref(&source));
-       let policy: toml::Table = policy.parse().expect("the fixture policy parses");
        let mut errors = Vec::new();
-       super::check(&source, &policy, &index, &mut errors);
+       super::check(&source, &index, &mut errors);
        errors
    }
 
    #[test]
    fn passive_records_need_no_marker() {
        let text = "struct Record { a: bool, b: Option<u8> }\nimpl Record { fn new() -> Self { Self { a: false, b: None } } fn a(mut self, a: bool) -> Self { self.a = a; self } }";
-       assert!(run(text, "").is_empty());
+       assert!(run(text).is_empty());
    }
 
    #[test]
    fn a_mut_self_method_makes_fields_state() {
        let errors = run(
            "struct Model { open: bool, pending: Option<u8> }\nimpl Model { fn open(&mut self) { self.open = true; } }",
-           "",
        );
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("Model holds state fields open, pending"), "{errors:?}");
@@ -725,7 +697,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
    #[test]
    fn an_interior_mutable_field_makes_fields_state() {
-       let errors = run("struct Cache { hit: Cell<bool>, last: Option<u8> }", "");
+       let errors = run("struct Cache { hit: Cell<bool>, last: Option<u8> }");
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("interior-mutable field `hit`"), "{errors:?}");
    }
@@ -733,54 +705,57 @@ cargo xtask check --no-write --only state --strict --crate <P>
    #[test]
    fn a_signal_field_is_state_only_when_a_method_writes_it() {
        let written = "struct Handle { open: Signal<bool>, busy: Signal<bool> }\nimpl Handle { fn show(&self) { self.open.set(true); } }";
-       assert_eq!(run(written, "").len(), 1);
+       assert_eq!(run(written).len(), 1);
        let read = "struct Handle { open: Signal<bool>, busy: Signal<bool> }\nimpl Handle { fn open(self) -> Signal<bool> { self.open } }";
-       assert!(run(read, "").is_empty());
+       assert!(run(read).is_empty());
    }
 
    #[test]
    fn one_marker_before_the_type_closes_it_and_an_unused_one_is_an_error() {
-       let closed = "// xtask-allow(state): independent: open, pending; probe\nstruct Model { open: bool, pending: Option<u8> }\nimpl Model { fn open(&mut self) {} }";
-       assert!(run(closed, "").is_empty());
-       let unused = run("// xtask-allow(state): independent: a; probe\nstruct Plain { a: bool }", "");
+       let closed = "// xtask-allow(state): open and pending are set by separate calls; probe\nstruct Model { open: bool, pending: Option<u8> }\nimpl Model { fn open(&mut self) {} }";
+       assert!(run(closed).is_empty());
+       let unused = run("// xtask-allow(state): probe\nstruct Plain { a: bool }");
        assert_eq!(unused.len(), 1, "{unused:?}");
        assert!(unused[0].contains("unused marker"), "{unused:?}");
    }
 
    #[test]
-   fn exempt_names_and_hash_keys_need_no_marker() {
-       let text = "struct ListApi { a: Cell<bool>, b: Cell<bool> }\n#[derive(Clone, PartialEq, Eq, Hash)]\nstruct Slot { a: bool, b: Option<u8> }\nimpl Slot { fn f(&mut self) {} }";
-       assert!(run(text, "exempt_suffixes = [\"Api\"]").is_empty());
+   fn names_and_derives_do_not_exempt_a_type() {
+       let text = "struct ListApi { a: Cell<bool>, b: Cell<bool> }\n#[derive(Clone, PartialEq, Eq, Hash)]\nstruct Slot { a: bool, b: Option<u8> }\nimpl Slot { fn f(&mut self) {} }\nstruct ButtonState { a: Cell<bool>, b: Cell<bool> }\nstruct ViewOptions { a: Cell<bool>, b: Option<u8> }";
+       assert_eq!(run(text).len(), 4);
    }
 
    #[test]
-   fn recipe_states_are_exempt_only_in_recipe_packages() {
-       let text = "struct ButtonState { a: Cell<bool>, b: Cell<bool> }";
-       assert!(run(text, "recipe_state_packages = [\"kivact-ui-soft\"]").is_empty());
-       assert_eq!(run(text, "").len(), 1);
+   fn legacy_markers_close_a_type_and_are_counted() {
+       let text = "// xtask-allow(state): legacy: open, pending; probe\nstruct Model { open: bool, pending: Option<u8> }\nimpl Model { fn open(&mut self) {} }";
+       assert!(run(text).is_empty());
+       let source = crate::check_source::fixture(text);
+       assert_eq!(super::legacy_count(&source), 1);
+       let plain = crate::check_source::fixture("// xtask-allow(state): probe\nstruct Model { open: bool, pending: Option<u8> }");
+       assert_eq!(super::legacy_count(&plain), 0);
    }
 
    #[test]
    fn enum_variants_need_one_marker_on_the_enum() {
-       let errors = run("enum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }", "");
+       let errors = run("enum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }");
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("Mode has variants with state fields Open.a, Open.b"), "{errors:?}");
-       let closed = "// xtask-allow(state): independent: Open.a, Open.b; probe\nenum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }";
-       assert!(run(closed, "").is_empty());
+       let closed = "// xtask-allow(state): legacy: Open.a, Open.b; probe\nenum Mode { Open { a: Cell<bool>, b: Option<u8> }, Closed }";
+       assert!(run(closed).is_empty());
    }
 
    #[test]
    fn state_locals_need_one_marker_on_the_function() {
-       let errors = run("fn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}", "");
+       let errors = run("fn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}");
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("function sample combines state locals a, b"), "{errors:?}");
-       let closed = "// xtask-allow(state): independent: a, b; probe\nfn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}";
-       assert!(run(closed, "").is_empty());
+       let closed = "// xtask-allow(state): legacy: a, b; probe\nfn sample() {\nlet a = signal(false);\nlet b = signal(None);\n}";
+       assert!(run(closed).is_empty());
    }
 
    #[test]
    fn the_replaced_marker_is_an_error() {
-       let errors = run("struct Fact {\n// xtask-allow(state-fields): independent: probe\na: bool,\n}", "");
+       let errors = run("struct Fact {\n// xtask-allow(state-fields): independent: probe\na: bool,\n}");
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("obsolete"), "{errors:?}");
    }
@@ -788,12 +763,12 @@ cargo xtask check --no-write --only state --strict --crate <P>
    #[test]
    fn callback_options_and_values_are_not_state() {
        let text = "struct Row { on_press: Option<Callback<()>>, render: Option<Box<dyn Fn()>>, title: String, open: bool }\nimpl Row { fn f(&mut self) {} }";
-       assert!(run(text, "").is_empty());
+       assert!(run(text).is_empty());
    }
 
    #[test]
    fn tuple_elements_count_one_by_one() {
-       let errors = run("struct Pair { values: (bool, Option<u8>) }\nimpl Pair { fn f(&mut self) {} }", "");
+       let errors = run("struct Pair { values: (bool, Option<u8>) }\nimpl Pair { fn f(&mut self) {} }");
        assert_eq!(errors.len(), 1, "{errors:?}");
        assert!(errors[0].contains("values.0, values.1"), "{errors:?}");
    }
@@ -802,7 +777,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 9. `dev/xtask/src/pending.rs` を新設する。
 
    ```rust
-   //! Role: Read the rework's pending table: rules whose findings in listed packages only print.
+   //! Role: Read the rework pending table: rules that only print in listed packages.
    //!
    //! `[rework.pending]` maps a local rule to the packages whose findings are
    //! notes until the units that fix them land; `--strict` makes them errors.
@@ -1062,13 +1037,22 @@ cargo xtask check --no-write --only state --strict --crate <P>
                    .get(&rule.replace('-', "_"))
                    .and_then(toml::Value::as_table)
                    .unwrap_or(&empty);
+               let mut legacy = 0;
                for source in self.sources {
                    if !selected_source(source, options) {
                        continue;
                    }
+                   if rule == "state" {
+                       legacy += crate::state::legacy_count(source);
+                   }
                    let mut found = Vec::new();
                    self.run_rule(rule, source, settings, &mut found);
                    self.route(rule, &source.package, found, options, outcome);
+               }
+               if legacy > 0 {
+                   outcome.notes.push(format!(
+                       "state: {legacy} legacy marker(s) (`// xtask-allow(state): legacy:`) are left to close (REWORK_DESIGN.md 6.1)"
+                   ));
                }
            }
        }
@@ -1099,7 +1083,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
            errors: &mut Vec<String>,
        ) {
            match rule {
-               "state" => crate::state::check(source, settings, self.index, errors),
+               "state" => crate::state::check(source, self.index, errors),
                "effect-writes" => crate::effect_writes::check(source, errors),
                "api-shape" => crate::api_shape::check(source, self.surface, errors),
                "canonical-path" => crate::canonical_path::check(source, self.surface, errors),
@@ -1159,9 +1143,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
                for (key, value) in table {
                    if !matches!(
                        key.as_str(),
-                       "exempt_suffixes"
-                           | "recipe_state_packages"
-                           | "record_types"
+                       "record_types"
                            | "allowed_files"
                            | "allowed_paths"
                            | "list"
@@ -1193,14 +1175,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 13. `dev/xtask/src/public_surface.rs`：`struct Binding` の中の `// xtask-allow(state-fields): ...` の 2 行を消す。
 
 14. `dev/xtask/policy/workspace.toml`：
-   - `[state_fields]` の表（見出しと `role_suffixes`・`record_types`・`named_helpers`・value_modules の前の comment 行・`value_modules` の行）を次に置き換える。
-
-   ```toml
-   [state]
-   # 設計 6.1 (c)：名前で決まる受動的な役割。`State` は recipe の状態を持つ package でだけ対象外。
-   exempt_suffixes = ["Api", "Options", "Policy", "Props", "Report", "Event", "Phase", "Reason", "Recipes", "Theme", "Tokens", "Builder", "Key", "Bits"]
-   recipe_state_packages = ["kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft"]
-   ```
+   - `[state_fields]` の表（見出しと `role_suffixes`・`record_types`・`named_helpers`・value_modules の前の comment 行・`value_modules` の行）を消す。`state` の検査は policy の設定を持たない（名前・derive による除外を置かない。設計 6.1・12 章 ST-01）。
 
    - ファイルの末尾に次を足す（`state` の列は xtask を除く全 package。W1c の T22 が消す）。
 
@@ -1225,7 +1200,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 16. xtask 自身に共通手順 M を行う（`<P>` = `xtask`、`<DIRS>` = `dev/xtask/src`）。
 
 - **消すもの**：`dev/xtask/src/state_fields.rs`、`dev/xtask/src/state_fields/`（`audit.rs`、`check.rs`、`claims.rs`、`classify.rs`、`locals.rs`、`mode.rs`、`tests.rs`）、`Mode`、`AuditRow`、`--report-audit`、`dev/xtask/state-audit.md`、`local_checks::model_types`、`Source::{marker_line, allow_reason}`、policy の `[state_fields]`。
-- **状態の閉じ方**：`check_cli::Options`（`Option` 3 個と `bool` 2 個）は名前が `Options` で終わるので対象外（policy の `exempt_suffixes`）。`Index`・`Pending`・`Outcome`・`Scope`・`Counted`・`SelfWrites` は数える種類の field を 2 つ持たない。`Kind` は enum。
+- **状態の閉じ方**：`check_cli::Options`（`Option` 3 個と `bool` 2 個）は `parse` が自分の local を組み立てるだけで、`&mut self` の method も内部可変の field も持たないので対象にならない（受動的な記録）。`Index`・`Pending`・`Outcome`・`Scope`・`Counted`・`SelfWrites` は数える種類の field を 2 つ持たない。`Kind` は enum。
 - **試験**：新設 `dev/xtask/src/state/tests.rs` の 12 個（上のとおり）。直す：`dev/xtask/src/check_cli.rs::tests::parses_selection_and_rejects_invalid_scopes`、`dev/xtask/src/local_checks.rs::tests::crate_and_module_selectors_restrict_scope`、`dev/xtask/src/check_source.rs::tests::loads_library_and_binary_targets_without_mixing_type_identities`。消す：`state_fields/tests.rs` の全試験（規則ごと消える）。
 - **確認（tier a）**：
 
@@ -1238,7 +1213,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo xtask check --no-write --only local
   ```
 
-- **完了条件**：上のコマンドがすべて成功する。最後の 2 つは `ok` を出す（最後のものは他の package の `state` の結果を `pending:` の note として出す）。`rg -n "state-fields|state_fields|report-audit|state-audit" dev/xtask/src` が何も出さない。
+- **完了条件**：上のコマンドがすべて成功する。最後の 2 つは `ok` を出す（最後のものは他の package の `state` の結果を `pending:` の note として出す）。共通手順 M が xtask に `legacy:` の印を書いたなら、最後のものは `state: <N> legacy marker(s) ...` の note も出す（N はその数）。`rg -n "state-fields|state_fields|report-audit|state-audit" dev/xtask/src` が何も出さない。
 
 ---
 
@@ -1252,7 +1227,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 1. `dev/xtask/src/diagrams.rs` を新設する。
 
    ```rust
-   //! Role: Write the architecture diagrams on request; `cargo xtask check` never writes them.
+   //! Role: Write the architecture diagrams on request; the check never writes them.
 
    use std::path::Path;
    use std::process::ExitCode;
@@ -1353,7 +1328,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
    ```
    - `let mut report = match xtask_core::run(&config) { ... };` の直後に `core_filters::apply(&config.root, &mut report.errors);` を足す。
    - help の `println!` の文字列の末尾に `\n\`cargo xtask diagrams\` writes architecture/ (needs Node.js).` を足す。
-   - 先頭の crate doc の 1 行目を `//! Role: Run the shared xtask-core checks plus this workspace's local checks; draw diagrams on request.` にする。
+   - 先頭の crate doc の 1 行目を `//! Role: Run the shared xtask-core checks plus local checks; draw diagrams on request.` にする。
 
 4. `structural-options` を消す：`git rm -q dev/xtask/src/structural_options.rs`。`check_cli.rs` の `RULES` から `"structural-options"` を消し、配列の長さを `8` にする。`local_checks.rs` の `public_needed` の配列から `"structural-options"` を消し、`run_rule` の `"structural-options" => { ... }` の arm を消し、`validate_policy` の許す key から `"record_types"` と `"list"` を消す。
 
@@ -1423,12 +1398,13 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
    ```rust
    /// The implementation crates whose `#[doc(hidden)]` items need no `internal-contract` marker.
-   const INTERNAL_CONTRACT_PACKAGES: [&str; 6] = [
+   const INTERNAL_CONTRACT_PACKAGES: [&str; 7] = [
        "kivact-types",
        "kivact-runtime",
        "kivact-style",
        "kivact-engine",
        "kivact-core",
+       "kivact-test",
        "arvane-protocol",
    ];
    ```
@@ -1494,7 +1470,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 1. `dev/xtask/src/interaction_view.rs` を新設する。
 
    ```rust
-   //! Role: Keep views out of kivact-interaction: only an Api's `surface` returns one (design 6.3, UI-04).
+   //! Role: Keep views out of kivact-interaction except an Api `surface` (design 6.3).
 
    use crate::check_source::{Source, type_names};
    use syn::spanned::Spanned;
@@ -1558,20 +1534,27 @@ cargo xtask check --no-write --only state --strict --crate <P>
    }
    ```
 
-2. `dev/xtask/src/hand_element.rs` を新設する。
+2. `dev/xtask/src/hand_element.rs` を新設する。kivact-core の `view` の外で手書きを許すのは、policy の `[hand_element] allowed_impls` に「型の定義 path と file」の組で挙げたものだけ（設計 5.1：`kivact_ui::Tooltip<T>` は node が trigger の root で、surface を兄弟として出すので、root が一つの `#[component]` にできない）。印（comment）では許さない。
 
    ```rust
-   //! Role: Allow hand-written `impl Element` and `impl IntoView` only in kivact-core's view module (design 5.1, 6.3).
+   //! Role: Allow hand-written Element and IntoView impls only in the core view module.
+   //!
+   //! The one other place is listed in the policy's `allowed_impls` as
+   //! "<definition path> <file>", e.g. `kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs`.
 
-   use crate::check_source::Source;
+   use crate::check_policy::strings;
+   use crate::check_source::{Source, self_type_name};
+   use crate::public_surface::definition;
    use syn::spanned::Spanned;
 
-   pub(crate) fn check(source: &Source, errors: &mut Vec<String>) {
+   pub(crate) fn check(source: &Source, policy: &toml::Table, errors: &mut Vec<String>) {
        if source.package == "kivact-core"
            && (source.module == "view" || source.module.starts_with("view::"))
        {
            return;
        }
+       let allowed = strings(policy, "allowed_impls");
+       let file = source.path.to_string_lossy().replace('\\', "/");
        for item in &source.items {
            let syn::Item::Impl(item) = item else {
                continue;
@@ -1582,12 +1565,23 @@ cargo xtask check --no-write --only state --strict --crate <P>
            let Some(segment) = path.segments.last() else {
                continue;
            };
-           if segment.ident == "Element" || segment.ident == "IntoView" {
+           if segment.ident != "Element" && segment.ident != "IntoView" {
+               continue;
+           }
+           let identity = self_type_name(&item.self_ty).map(|name| definition(source, &name));
+           let listed = identity.is_some_and(|identity| {
+               allowed.iter().any(|entry| {
+                   entry.split_once(' ').is_some_and(|(path, listed_file)| {
+                       path == identity && file.ends_with(listed_file)
+                   })
+               })
+           });
+           if !listed {
                source.error_at(
                    "hand-element",
                    item.span(),
                    &format!(
-                       "hand-written `impl {} for`; write a `#[component]` function (only kivact-core's view module defines elements)",
+                       "hand-written `impl {} for`; write a `#[component]` function (only kivact-core's view module and `[hand_element] allowed_impls` define elements)",
                        segment.ident
                    ),
                    errors,
@@ -1599,22 +1593,27 @@ cargo xtask check --no-write --only state --strict --crate <P>
    #[cfg(test)]
    mod tests {
        //! Role: Check where element impls may be written by hand.
-       fn run(package: &str, module: &str) -> usize {
+       fn run(package: &str, module: &str, policy: &str) -> usize {
            let mut source = crate::check_source::fixture(
                "struct Card; impl Element for Card {} impl IntoView for Card {} impl Clone for Card {}",
            );
            source.package = package.into();
            source.module = module.into();
+           let policy: toml::Table = policy.parse().expect("the fixture policy parses");
            let mut errors = Vec::new();
-           super::check(&source, &mut errors);
+           super::check(&source, &policy, &mut errors);
            errors.len()
        }
 
        #[test]
-       fn only_core_view_writes_element_impls() {
-           assert_eq!(run("kivact-ui-soft", "widgets"), 2);
-           assert_eq!(run("kivact-core", "view::elements"), 0);
-           assert_eq!(run("kivact-core", "custom"), 2);
+       fn only_core_view_and_listed_impls_write_element_impls() {
+           assert_eq!(run("kivact-ui-soft", "widgets", ""), 2);
+           assert_eq!(run("kivact-core", "view::elements", ""), 0);
+           assert_eq!(run("kivact-core", "custom", ""), 2);
+           let listed = "allowed_impls = [\"kivact_ui_soft::widgets::Card crates/kivact-ui-soft/src/widgets.rs\"]";
+           assert_eq!(run("kivact-ui-soft", "widgets", listed), 0);
+           let other_file = "allowed_impls = [\"kivact_ui_soft::widgets::Card crates/kivact-ui-soft/src/other.rs\"]";
+           assert_eq!(run("kivact-ui-soft", "widgets", other_file), 2);
        }
    }
    ```
@@ -1622,7 +1621,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 3. `dev/xtask/src/element_shadow.rs` を新設する。
 
    ```rust
-   //! Role: Forbid inherent methods named like an `Element` method on a type that implements `Element` (design 5.4, API-13).
+   //! Role: Forbid inherent methods that shadow Element methods on element types.
 
    use crate::check_source::{Source, self_type_name};
    use std::collections::BTreeSet;
@@ -1733,7 +1732,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 4. `dev/xtask/src/unit_machine.rs` を新設する。
 
    ```rust
-   //! Role: Forbid Machines without state: `machine(())` and `type State = ()` (design 6.3, UI-09).
+   //! Role: Forbid Machines without state: `machine(())` and `type State = ()`.
 
    use crate::check_source::Source;
    use syn::spanned::Spanned;
@@ -1833,7 +1832,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 6. `dev/xtask/src/ui_machine.rs` を新設する。
 
    ```rust
-   //! Role: Keep input-driven Machines and signal-writing effects out of kivact-ui (design 6.3, UI-04).
+   //! Role: Keep input-driven Machines and signal-writing effects out of kivact-ui.
    //!
    //! The policy's `allowed_types` lists the presentation timers that stay in
    //! kivact-ui (button busy reveal, progress motion, alert collapse, empty
@@ -1924,11 +1923,11 @@ cargo xtask check --no-write --only state --strict --crate <P>
    ```rust
                "interaction-view" => crate::interaction_view::check(source, errors),
                "ui-machine" => crate::ui_machine::check(source, settings, errors),
-               "hand-element" => crate::hand_element::check(source, errors),
+               "hand-element" => crate::hand_element::check(source, settings, errors),
                "unit-machine" => crate::unit_machine::check(source, errors),
                "element-shadow" => crate::element_shadow::check(source, self.elements, errors),
    ```
-   - `validate_policy` の許す key に `"allowed_types"` を足す。
+   - `validate_policy` の許す key に `"allowed_types"` と `"allowed_impls"` を足す。
 
 9. `dev/xtask/src/main.rs`：`mod element_shadow;`、`mod hand_element;`、`mod interaction_view;`、`mod ui_machine;`、`mod unit_machine;` をアルファベット順の位置に足す。
 
@@ -1939,6 +1938,11 @@ cargo xtask check --no-write --only state --strict --crate <P>
    [ui_machine]
    # kivact-ui に残す表示だけの timer（UI-04）。付属書 U が module を移したら、この path を同じ unit で直す。
    allowed_types = ["kivact_ui::button::BusyInput", "kivact_ui::progress::ProgressMotionInput", "kivact_ui::alert::BannerMachine", "kivact_ui::empty_state_changes::Controller"]
+
+   [hand_element]
+   # kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
+   # Tooltip<T> は node が trigger の root で、surface を兄弟として出すので、root が一つの #[component] にできない（設計 5.1）。
+   allowed_impls = ["kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs"]
    ```
    - `[rework.pending]` の `state = [...]` の後に次を足す。
 
@@ -1954,7 +1958,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
 - **消すもの**：なし。
 - **状態の閉じ方**：`Effects` に足す field は `rule`（`&'static str`）と `strict`（`bool`）で、数える種類は `strict` だけ（`depth` は名前の付いた counter ではない）。`Elements` は集合 2 つ。印は要らない。
-- **試験**：足す：`interaction_view::tests::only_surface_returns_a_view`、`hand_element::tests::only_core_view_writes_element_impls`、`element_shadow::tests::inherent_methods_may_not_shadow_element_methods`、`unit_machine::tests::unit_state_machines_are_reported`、`ui_machine::tests::ui_has_no_machines_and_no_effect_writes`。既存の `effect_writes::tests` の 4 つはそのまま通る（fixture の package は `kivact-ui-soft`）。
+- **試験**：足す：`interaction_view::tests::only_surface_returns_a_view`、`hand_element::tests::only_core_view_and_listed_impls_write_element_impls`、`element_shadow::tests::inherent_methods_may_not_shadow_element_methods`、`unit_machine::tests::unit_state_machines_are_reported`、`ui_machine::tests::ui_has_no_machines_and_no_effect_writes`。既存の `effect_writes::tests` の 4 つはそのまま通る（fixture の package は `kivact-ui-soft`）。
 - **確認（tier a）**：
 
   ```bash
@@ -1971,38 +1975,46 @@ cargo xtask check --no-write --only state --strict --crate <P>
 ## T04：`docs-pairs` 検査、DevTools の schema の生成の移動、codegen と Python の削除
 
 - **wave / lane / 前提**：W1a / T0 / T03
-- **所有**：`dev/xtask/src/main.rs`、`dev/xtask/src/check_cli.rs`、`dev/xtask/src/local_checks.rs`、`dev/xtask/src/docs_pairs.rs`（新設）、`dev/xtask/src/devtools_codegen.rs` と `dev/xtask/src/devtools_codegen/`（削除）、`dev/xtask/policy/workspace.toml`、`crates/kivact-devtools-protocol/Cargo.toml`、`crates/kivact-devtools-protocol/tests/schema_generated.rs` と `tests/schema_generated/`（新設）、`python/`（削除）
+- **所有**：`dev/xtask/src/main.rs`、`dev/xtask/src/check_cli.rs`、`dev/xtask/src/local_checks.rs`、`dev/xtask/src/docs_pairs.rs`（新設）、`dev/xtask/src/devtools_codegen.rs` と `dev/xtask/src/devtools_codegen/`（削除）、`dev/xtask/policy/workspace.toml`、`crates/kivact-devtools-protocol/Cargo.toml`、`crates/kivact-devtools-protocol/tests/schema_generated/`（新設。`main.rs` を root とする directory の test target）、`python/`（削除）
 - **目的**：日本語の guide の Rust の code block の列が英語と同じであることを確かめる `docs-pairs`（TL-03、設計 6.4）。Python の client と codegen を消し、JSON schema の生成と照合を protocol の試験にする（TL-09、DEC-10）。
 - **手順**：
 
-1. `dev/xtask/src/docs_pairs.rs` を新設する。
+1. `dev/xtask/src/docs_pairs.rs` を新設する（12 章 TV-06：英語と日本語の file の集合の和を比べ、Rust の block は `proc-macro2` の token の列で比べる。`proc-macro2` は xtask の既存の依存）。
 
    ```rust
-   //! Role: Check that each Japanese guide has the same Rust code blocks as its English twin.
+   //! Role: Check that each Japanese guide has the Rust code blocks of its English twin.
    //!
-   //! Comments, whitespace and the text of string literals may differ (they are
-   //! translated or wrapped differently); the info string and everything else of
-   //! each fenced Rust block must match (design 6.4, TL-03).
+   //! The English and Japanese trees must hold the same files. The Rust blocks of
+   //! a pair are compared as token streams: comments, whitespace and the text of
+   //! string literals may differ (translated or wrapped), while every token
+   //! boundary, identifier, punctuation and other literal must match, and every
+   //! string literal must be valid Rust (design 6.4, chapter 12 TV-06).
 
+   use proc_macro2::{Delimiter, Spacing, TokenStream, TokenTree};
+   use std::collections::BTreeSet;
    use std::path::{Path, PathBuf};
 
    /// The guide trees with an `en` and a `jp` side.
    const TREES: [&str; 2] = ["docs/for-kivact-user", "docs/for-kivact-ui-user"];
 
    pub(crate) fn check(root: &Path, errors: &mut Vec<String>) {
-       let mut pairs = vec![(root.join("README.md"), root.join("README_JP.md"))];
+       compare(&root.join("README.md"), &root.join("README_JP.md"), errors);
        for tree in TREES {
+           let english = root.join(tree).join("en");
            let japanese = root.join(tree).join("jp");
-           let mut files = Vec::new();
-           markdown_files(&japanese, &mut files);
-           for jp in files {
-               if let Ok(relative) = jp.strip_prefix(&japanese) {
-                   pairs.push((root.join(tree).join("en").join(relative), jp.clone()));
-               }
+           let mut names = BTreeSet::new();
+           for side in [&english, &japanese] {
+               let mut files = Vec::new();
+               markdown_files(side, &mut files);
+               names.extend(
+                   files
+                       .iter()
+                       .filter_map(|file| file.strip_prefix(side).ok().map(Path::to_path_buf)),
+               );
            }
-       }
-       for (en, jp) in pairs {
-           compare(&en, &jp, errors);
+           for name in names {
+               compare(&english.join(&name), &japanese.join(&name), errors);
+           }
        }
    }
 
@@ -2022,15 +2034,15 @@ cargo xtask check --no-write --only state --strict --crate <P>
    }
 
    fn compare(en: &Path, jp: &Path, errors: &mut Vec<String>) {
-       let Ok(english) = std::fs::read_to_string(en) else {
+       let (Ok(english), Ok(japanese)) = (std::fs::read_to_string(en), std::fs::read_to_string(jp)) else {
+           let (present, missing) = if en.is_file() { (en, jp) } else { (jp, en) };
            errors.push(format!(
-               "docs-pairs: {}: the English twin {} is missing",
-               jp.display(),
-               en.display()
+               "docs-pairs: {}: the twin {} is missing",
+               present.display(),
+               missing.display()
            ));
            return;
        };
-       let japanese = std::fs::read_to_string(jp).unwrap_or_default();
        let (english, japanese) = (rust_blocks(&english), rust_blocks(&japanese));
        if english.len() != japanese.len() {
            errors.push(format!(
@@ -2041,19 +2053,22 @@ cargo xtask check --no-write --only state --strict --crate <P>
            ));
            return;
        }
-       for (index, (a, b)) in english.iter().zip(&japanese).enumerate() {
-           if a != b {
-               errors.push(format!(
-                   "docs-pairs: {}: Rust block {} differs from {} beyond comments, whitespace and string text",
+       for (index, ((en_info, en_code), (jp_info, jp_code))) in english.iter().zip(&japanese).enumerate() {
+           let block = index + 1;
+           match (tokens(en_code), tokens(jp_code)) {
+               (Err(error), _) => errors.push(format!("docs-pairs: {}: Rust block {block}: {error}", en.display())),
+               (_, Err(error)) => errors.push(format!("docs-pairs: {}: Rust block {block}: {error}", jp.display())),
+               (Ok(a), Ok(b)) if en_info != jp_info || a != b => errors.push(format!(
+                   "docs-pairs: {}: Rust block {block} differs from {} beyond comments, whitespace and string text",
                    jp.display(),
-                   index + 1,
                    en.display()
-               ));
+               )),
+               _ => {}
            }
        }
    }
 
-   /// The info string and the normalized code of every fenced block whose info string starts with `rust`.
+   /// The info string and the code of every fenced block whose info string starts with `rust`.
    fn rust_blocks(text: &str) -> Vec<(String, String)> {
        let mut blocks = Vec::new();
        let mut open: Option<(String, String)> = None;
@@ -2062,7 +2077,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
                (None, Some(info)) => open = Some((info.trim().to_owned(), String::new())),
                (Some((info, body)), Some(_)) => {
                    if info.starts_with("rust") {
-                       blocks.push((info, normalize(&body)));
+                       blocks.push((info, body));
                    }
                }
                (Some((info, mut body)), None) => {
@@ -2076,119 +2091,144 @@ cargo xtask check --no-write --only state --strict --crate <P>
        blocks
    }
 
-   /// `code` without comments and whitespace, each string literal emptied.
-   fn normalize(code: &str) -> String {
-       let chars: Vec<char> = code.chars().collect();
-       let mut out = String::new();
-       let mut i = 0;
-       while i < chars.len() {
-           let c = chars[i];
-           let next = chars.get(i + 1).copied();
-           if c == '/' && next == Some('/') {
-               while i < chars.len() && chars[i] != '\n' {
-                   i += 1;
-               }
-           } else if c == '/' && next == Some('*') {
-               i += 2;
-               while i < chars.len() && !(chars[i] == '*' && chars.get(i + 1) == Some(&'/')) {
-                   i += 1;
-               }
-               i += 2;
-           } else if c == '"' {
-               i = skip_string(&chars, i + 1);
-               out.push_str("\"\"");
-           } else if c == 'r' && matches!(next, Some('"' | '#')) && !after_word(&chars, i) {
-               if let Some(end) = skip_raw_string(&chars, i + 1) {
-                   i = end;
-                   out.push_str("\"\"");
-               } else {
-                   out.push(c);
-                   i += 1;
-               }
-           } else if c == '\'' && (next == Some('\\') || chars.get(i + 2) == Some(&'\'')) {
-               let end = skip_char(&chars, i + 1);
-               out.extend(&chars[i..end]);
-               i = end;
-           } else {
-               if !c.is_whitespace() {
-                   out.push(c);
-               }
-               i += 1;
-           }
-       }
-       out
+   /// The block as comparable tokens: the text of string literals is blanked, everything else kept.
+   fn tokens(code: &str) -> Result<Vec<String>, String> {
+       let stream: TokenStream = code.parse().map_err(|error| format!("does not lex: {error}"))?;
+       let mut out = Vec::new();
+       flatten(stream, &mut out)?;
+       Ok(out)
    }
 
-   fn skip_string(chars: &[char], mut i: usize) -> usize {
-       while i < chars.len() {
-           match chars[i] {
-               '\\' => i += 2,
-               '"' => return i + 1,
-               _ => i += 1,
+   fn flatten(stream: TokenStream, out: &mut Vec<String>) -> Result<(), String> {
+       for tree in stream {
+           match tree {
+               TokenTree::Group(group) => {
+                   let (open, close) = match group.delimiter() {
+                       Delimiter::Parenthesis => ("(", ")"),
+                       Delimiter::Brace => ("{", "}"),
+                       Delimiter::Bracket => ("[", "]"),
+                       Delimiter::None => ("", ""),
+                   };
+                   out.push(open.to_owned());
+                   flatten(group.stream(), out)?;
+                   out.push(close.to_owned());
+               }
+               TokenTree::Ident(ident) => out.push(ident.to_string()),
+               TokenTree::Punct(punct) => {
+                   let joint = if punct.spacing() == Spacing::Joint { "+" } else { "" };
+                   out.push(format!("{}{joint}", punct.as_char()));
+               }
+               TokenTree::Literal(literal) => out.push(literal_token(&literal.to_string())?),
            }
        }
-       chars.len()
+       Ok(())
    }
 
-   fn skip_raw_string(chars: &[char], mut i: usize) -> Option<usize> {
-       let mut hashes = 0;
-       while chars.get(i) == Some(&'#') {
-           hashes += 1;
-           i += 1;
+   /// A string literal with its text blanked after checking its escapes; any other literal as written.
+   fn literal_token(text: &str) -> Result<String, String> {
+       let Some(start) = text.find('"') else {
+           return Ok(text.to_owned());
+       };
+       let prefix = &text[..start];
+       if !matches!(prefix.trim_end_matches('#'), "" | "b" | "c" | "r" | "br" | "cr") {
+           return Ok(text.to_owned());
        }
-       if chars.get(i) != Some(&'"') {
-           return None;
+       let end = text.rfind('"').unwrap_or(start);
+       let raw = prefix.contains('r');
+       if !raw && end > start && !valid_escapes(&text[start + 1..end]) {
+           return Err(format!("invalid escape in the string literal {text}"));
        }
-       i += 1;
-       while i < chars.len() {
-           if chars[i] == '"' && (1..=hashes).all(|k| chars.get(i + k) == Some(&'#')) {
-               return Some(i + 1 + hashes);
+       Ok(format!("{prefix}\"\"{}", &text[end + 1..]))
+   }
+
+   /// Whether every backslash of a (non-raw) string literal's text starts a valid Rust escape.
+   fn valid_escapes(body: &str) -> bool {
+       let mut chars = body.chars().peekable();
+       while let Some(c) = chars.next() {
+           if c != '\\' {
+               continue;
            }
-           i += 1;
-       }
-       Some(chars.len())
-   }
-
-   fn skip_char(chars: &[char], mut i: usize) -> usize {
-       while i < chars.len() {
-           match chars[i] {
-               '\\' => i += 2,
-               '\'' => return i + 1,
-               _ => i += 1,
+           match chars.next() {
+               Some('n' | 'r' | 't' | '\\' | '0' | '\'' | '"' | '\n') => {}
+               Some('\r') if chars.peek() == Some(&'\n') => {
+                   chars.next();
+               }
+               Some('x') => {
+                   let digits: String = chars.by_ref().take(2).collect();
+                   if digits.len() != 2 || !digits.chars().all(|d| d.is_ascii_hexdigit()) {
+                       return false;
+                   }
+               }
+               Some('u') => {
+                   if chars.next() != Some('{') {
+                       return false;
+                   }
+                   let mut count = 0;
+                   loop {
+                       match chars.next() {
+                           Some('}') if count > 0 => break,
+                           Some(d) if d.is_ascii_hexdigit() && count < 6 => count += 1,
+                           _ => return false,
+                       }
+                   }
+               }
+               _ => return false,
            }
        }
-       chars.len()
-   }
-
-   fn after_word(chars: &[char], i: usize) -> bool {
-       i > 0 && (chars[i - 1].is_alphanumeric() || chars[i - 1] == '_')
+       true
    }
 
    #[cfg(test)]
    mod tests {
        //! Role: Check what may and may not differ between a guide and its twin.
-       use super::{normalize, rust_blocks};
+       use super::{rust_blocks, tokens};
 
-       #[test]
-       fn comments_whitespace_and_string_text_may_differ() {
-           let en = "```rust\nlet name = \"Name\"; // the name\nfield(name).hint(\"Shown\")\n```\n";
-           let jp = "```rust\nlet name = \"名前\"; // 名前\nfield(name)\n    .hint(\"表示\")\n```\n";
-           assert_eq!(rust_blocks(en), rust_blocks(jp));
+       fn same(a: &str, b: &str) -> bool {
+           tokens(a).expect("the fixture lexes") == tokens(b).expect("the fixture lexes")
        }
 
        #[test]
-       fn code_and_info_strings_must_match() {
-           assert_ne!(rust_blocks("```rust\nfn don_t() {}\n```\n"), rust_blocks("```rust\nfn dont() {}\n```\n"));
+       fn comments_whitespace_and_string_text_may_differ() {
+           assert!(same(
+               "let name = \"Name\"; // the name\nfield(name).hint(\"Shown\")",
+               "let name = \"名前\"; // 名前\nfield(name)\n    .hint(\"表示\")"
+           ));
+           assert!(same("/* a /* nested */ b */ x", "x"));
+       }
+
+       #[test]
+       fn token_boundaries_and_names_must_match() {
+           assert!(!same("let x = ab;", "letx = ab;"));
+           assert!(!same("a <= b", "a < = b"));
+           assert!(!same("fn don_t() {}", "fn dont() {}"));
+       }
+
+       #[test]
+       fn string_literals_must_be_valid() {
+           assert!(tokens("let s = \"\\q\";").is_err());
+           assert!(tokens("let s = \"\\n\\u{1F600}\\x41\"; let r = r#\"\\q\"#;").is_ok());
+       }
+
+       #[test]
+       fn info_strings_are_kept_and_other_blocks_ignored() {
            assert_ne!(rust_blocks("```rust,no_run\nfn a() {}\n```\n"), rust_blocks("```rust\nfn a() {}\n```\n"));
            assert!(rust_blocks("```text\nanything\n```\n").is_empty());
        }
 
        #[test]
-       fn char_literals_and_raw_strings_are_not_strings() {
-           assert_eq!(
-               normalize("let q = '\"'; let r = r#\"a \"b\"\"#; // c"),
-               "letq='\"';letr=\"\";"
-           );
+       fn a_missing_twin_on_either_side_is_an_error() {
+           let root = std::env::temp_dir().join(format!("kivact-docs-pairs-{}", std::process::id()));
+           for side in ["en", "jp"] {
+               std::fs::create_dir_all(root.join("docs/for-kivact-user").join(side)).unwrap();
+           }
+           std::fs::write(root.join("README.md"), "").unwrap();
+           std::fs::write(root.join("README_JP.md"), "").unwrap();
+           std::fs::write(root.join("docs/for-kivact-user/en/only-en.md"), "").unwrap();
+           std::fs::write(root.join("docs/for-kivact-user/jp/only-jp.md"), "").unwrap();
+           let mut errors = Vec::new();
+           super::check(&root, &mut errors);
+           std::fs::remove_dir_all(&root).unwrap();
+           assert_eq!(errors.len(), 2, "{errors:?}");
        }
    }
    ```
@@ -2211,10 +2251,10 @@ cargo xtask check --no-write --only state --strict --crate <P>
    - `tests/schema_generated/read.rs`：`const SKIPPED_FILES: [&str; 7]` を `[&str; 8]` にし、列の最後に `"client.rs",` を足す（T13 が置く `client.rs` は wire の型を持たない）。
    - `tests/schema_generated/model.rs`：`pub(super) fn upper_snake` を doc ごと消す（Python だけが使っていた）。
    - `tests/schema_generated/reader_tests.rs`：1 行目を `//! Role: Verify reading protocol source and the schema built from it.` にする。`fn reads_records_choices_unions_aliases_and_methods` から `let python = super::python::python(&protocol);` の行と、`python.contains(` を含む `assert!` 文（1 行のもの 6 つと複数行のもの 2 つ）をすべて消す。`fn names_convert_to_snake_and_upper_snake` を `fn names_convert_to_snake_case` に改名し、`upper_snake` の `assert_eq!` の行を消す。
-   - `crates/kivact-devtools-protocol/tests/schema_generated.rs` を新設する。
+   - `crates/kivact-devtools-protocol/tests/schema_generated/main.rs` を新設する（Cargo は `tests/<name>/main.rs` を test target `<name>` として自動で見つける。`main.rs` の `mod x;` は同じ directory の `x.rs` を読む。`tests/schema_generated.rs` を root にすると `mod committed;` が `tests/committed.rs` を探して E0583 になるので、そうしない）。
 
    ```rust
-   //! Role: Generate the DevTools JSON schemas from the protocol source and compare them with the committed files.
+   //! Role: Generate the DevTools JSON schemas from source; compare the committed ones.
    //!
    //! `KIVACT_WRITE_SCHEMA=1 cargo test -p kivact-devtools-protocol --test schema_generated`
    //! rewrites `schema/*.json` after a change of the wire types.
@@ -2274,7 +2314,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
 - **消すもの**：`dev/xtask/src/devtools_codegen.rs`、`dev/xtask/src/devtools_codegen/{check.rs,cli.rs,python.rs}`、`model::upper_snake`、`python/`（全体）、`cargo xtask devtools-codegen` の subcommand。
 - **状態の閉じ方**：新しい型は無い（`docs_pairs` は関数だけ）。
-- **試験**：足す：`dev/xtask/src/docs_pairs.rs` の 3 つ、`crates/kivact-devtools-protocol/tests/schema_generated/committed.rs::committed_schemas_match_the_source`。移す：`reader_tests.rs` の 8 つ（`names_convert_to_snake_and_upper_snake` は `names_convert_to_snake_case` に改名、Python の assert を消す）。
+- **試験**：足す：`dev/xtask/src/docs_pairs.rs` の 5 つ（`comments_whitespace_and_string_text_may_differ`、`token_boundaries_and_names_must_match`、`string_literals_must_be_valid`、`info_strings_are_kept_and_other_blocks_ignored`、`a_missing_twin_on_either_side_is_an_error`）、`crates/kivact-devtools-protocol/tests/schema_generated/committed.rs::committed_schemas_match_the_source`。移す：`reader_tests.rs` の 8 つ（`names_convert_to_snake_and_upper_snake` は `names_convert_to_snake_case` に改名、Python の assert を消す）。
 - **確認（tier a）**：
 
   ```bash
@@ -2286,7 +2326,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo xtask check --no-write
   ```
 
-- **完了条件**：上のコマンドが成功し、最後の 2 つが `ok`。`cargo xtask check --no-write --only docs-pairs --strict` は `canvas.md` と `windows.md` の 2 件だけを error にする（T17 が直す）。`rg -n "devtools-codegen|devtools_codegen" dev crates` が何も出さない。`python/` が無い。
+- **完了条件**：上のコマンドが成功し、最後の 2 つが `ok`。`cargo xtask check --no-write --only docs-pairs --strict` は `canvas.md` と `windows.md` の 2 件を error にする（T17 が直す）。それ以外の error（`does not lex`、`invalid escape`、`twin ... is missing`）が出たら、その行を unit の報告に書く（T17 が同じ規則で直すか STOP する）。`rg -n "devtools-codegen|devtools_codegen" dev crates` が何も出さない。`python/` が無い。
 
 ---
 
@@ -2300,7 +2340,14 @@ cargo xtask check --no-write --only state --strict --crate <P>
   - `crates/kivact-devtools/src/{panels.rs,panels/scripts.rs（削除）,app.rs,state.rs,session.rs}`、`crates/kivact-devtools/tests/app.rs`、`crates/kivact-devtools/tests/app/panels/scripts.rs`（削除）
   - `crates/kivact-devtools-mcp/src/tools.rs`、`crates/kivact-devtools-mcp/tests/mcp.rs`
 - **目的**：Python の client を消す（TL-09、DEC-10）と、Scripts パネル（`.py` を実行し `show_table` の表を出す）は使い道が無くなる。パネルと、それだけが使う protocol の method・通知・型・config の field・topic・client の種類を消し、`PROTOCOL_VERSION` を上げる（親の決定。protocol の版の規則：method・通知の削除と field の削除は版を上げる。`crates/kivact-devtools-protocol/src/app.rs` の `PROTOCOL_VERSION` の doc と `docs/for-kivact-developer/architecture.md` の「DevTools の method」の行）。
-- **それだけが使うことの確認**（2b8df5ac で `rg` 済み。実装の前にもう一度 `rg -n "ShowTable|show_table|ScriptTable|script_table|Topic::Scripts|scripts_dir|SCRIPTS_DIR|ClientKind::Python|\.python\b|MAX_TABLES|\btables\b" crates dev --glob '!**/schema/*.json'` を実行し、次の表の外に結果があれば STOP）：
+- **それだけが使うことの確認**（12 章 TV-10：検索は DevTools の固有の名前と、DevTools の crate の中の field 名に限る。`tables` のような一般の語を workspace 全体で探さない）。実装の前に次の 2 つを実行する。
+
+  ```bash
+  rg -n "ShowTableParams|\bShowTable\b|show_table|ScriptTable|script_table|Topic::Scripts|scripts_dir|SCRIPTS_DIR|ClientKind::Python|Panel::Scripts|MAX_TABLES|panels::scripts" crates dev --glob '!**/schema/*.json'
+  rg -n "\.tables\b|\btables:|\.python\b|\bpython:" crates/kivact-devtools/src crates/kivact-devtools-protocol/src crates/kivact-core/src/devtools crates/kivact-core/src/devtools.rs
+  ```
+
+  分類の規則：1 つ目の各行は、下の表の「使う場所」の file にあれば消す対象。表に無い file の行があれば STOP（その名前を他が使っている）。2 つ目の各行は、`crates/kivact-devtools/src/{state.rs,session.rs,panels/scripts.rs}` と `crates/kivact-devtools-protocol/src/config.rs` にあれば消す対象、それ以外の file にあれば消さずに残す（別の意味の `tables`・`python`）。2b8df5ac では 1 つ目が表の外に 0 件、2 つ目が上の 4 file の外に 0 件であることを確かめてある。表：
 
   | 名前 | 使う場所（全部消す） |
   |---|---|
@@ -2358,7 +2405,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
 - **wave / lane / 前提**：W1b / T1 / T23
 - **所有**：`crates/kivact-ui/src/**`
 - **目的**：`kivact-ui` の 208 行の `xtask-allow(state-fields)` を `state` 規則に移す（TL-04）。
-- **手順**：共通手順 M を `<P>` = `kivact-ui`、`<DIRS>` = `crates/kivact-ui/src` で行う。`ButtonState` など `*State` で終わる型は `recipe_state_packages` で対象外なので報告されない。
+- **手順**：共通手順 M を `<P>` = `kivact-ui`、`<DIRS>` = `crates/kivact-ui/src` で行う。名前や derive による除外は無いので、`ButtonState` など recipe の状態の型も、作った後に変更される（`&mut self`・内部可変・自分の method が書く `Signal`）なら報告され、`legacy:` の印を書く。
 - **消すもの**：`crates/kivact-ui/src` の全 `// xtask-allow(state-fields):` の行。
 - **状態の閉じ方**：報告された型・関数ごとに共通手順 M2 の 1 行。
 - **試験**：なし（comment だけの変更）。
@@ -2492,6 +2539,716 @@ cargo xtask check --no-write --only state --strict --crate <P>
 
 - **完了条件**：すべて `ok`。`rg -c "xtask-allow\(state-fields\)" crates/arvane* dev/bench dev/tests/gpu-interop-producer` が何も出さない。
 
+## T24：KPI の測定の選択（`run.sh --no-catalog`）と判定の道具（`kpi.toml`、`cargo xtask kpi-compare`）
+
+- **wave / lane / 前提**：W1b / T3 / T10
+- **所有**：`dev/bench/run.sh`、`dev/bench/kpi.toml`（新設）、`dev/bench/README.md`、`dev/xtask/src/main.rs`、`dev/xtask/src/kpi_compare.rs`（新設）、`dev/xtask/src/kpi_compare/`（新設：`cli.rs`、`config.rs`、`judge.rs`、`report.rs`、`tests.rs`）
+- **目的**：CP2（W8 の後）は kit と catalog が未移行で compile できないので、`run.sh` に basic catalog の build・起動・idle・大きさの行をすべて外す選択を足す（12 章 PLAN-02）。KPI の判定を設計 2 章の規則（行の key、renderer、必達と許容、改善の必達、雑音の下限、`INVALID`・`WARNING` の扱い）で機械的に行う `dev/bench/kpi.toml` と `cargo xtask kpi-compare <B0> <CPn>` を作る（12 章 TV-08、PF-01）。3 回中 2 回の測り直しは Orchestrator が行い、道具は二つの report を比べるだけ。
+- **手順**：
+  1. `dev/bench/run.sh`：
+     - 2・3 行目の comment を `# usage: dev/bench/run.sh [--no-catalog] <label>   (e.g. base on the commit before a change, head after it)` と `#   --no-catalog skips every basic-catalog build and row (CP2: the kits are not migrated yet).` にする。
+     - `label="${1:?label, e.g. base}"` を次の 3 行にする。
+
+       ```bash
+       catalog_on=1
+       if [ "${1:-}" = "--no-catalog" ]; then catalog_on=0; shift; fi
+       label="${1:?usage: dev/bench/run.sh [--no-catalog] <label>}"
+       ```
+     - `log "# KPI $label (...)"` の行の直後に `[ "$catalog_on" = 1 ] || log "SKIPPED: basic catalog (--no-catalog)"` を足す。
+     - `build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog` を `[ "$catalog_on" = 0 ] || build catalog kivact-ui-basic-catalog -p kivact-ui-basic-catalog` にし、`build catalog_nogpu kivact-ui-basic-catalog -p kivact-ui-basic-catalog --no-default-features --features complex-scripts` も同じく先頭に `[ "$catalog_on" = 0 ] || ` を付ける。
+     - K1 の `spawns=""` の行から `log "- K1 catalog_spawn_to_first_present ..."` の行までを `if [ "$catalog_on" = 1 ]; then` と `fi` で囲む。
+     - `idle "$catalog" "$r" basic-catalog >/dev/null || exit 1` を `if [ "$catalog_on" = 1 ]; then idle "$catalog" "$r" basic-catalog >/dev/null || exit 1; fi` にする。
+     - K6 の `log "- K6 basic-catalog default ..."` と `log "- K6 basic-catalog no-gpu ..."` の 2 行の先頭に `[ "$catalog_on" = 0 ] || ` を付ける。
+  2. `dev/bench/kpi.toml` を新設する。
+
+     ```toml
+     # KPI rows of REWORK_DESIGN.md chapter 2, read by `cargo xtask kpi-compare <B0 report> <checkpoint report>`.
+     # line   : the start of the report row after "- " (K1 uses renderer=default, K2 to K5 the CPU rows).
+     # field  : the `key=value` read from that row; "last" = the row's last word (K6 bytes).
+     # kind   : "time" (no regression up to 1.05) or "size" (up to 1.02).
+     # target : the recorded goal ratio; improve : the required improvement ratio (chapter 2, PF-01).
+     # floor  : below this B0 value the ratio is not used; the checkpoint value must be <= floor.
+     # catalog: a basic-catalog row (skipped by `run.sh --no-catalog`); warning: an fps/interval row a WARNING invalidates.
+
+     [[row]]
+     name = "K1 kv_startup main_to_first_present"
+     line = "K1 main_to_first_present renderer=default"
+     field = "median_ms"
+     kind = "time"
+     target = 0.85
+
+     [[row]]
+     name = "K1 basic catalog startup"
+     line = "K1 catalog_spawn_to_first_present renderer=default"
+     field = "median_ms"
+     kind = "time"
+     target = 0.80
+     catalog = true
+
+     [[row]]
+     name = "K2 counter idle WS"
+     line = "counter renderer=cpu"
+     field = "ws_kib"
+     kind = "size"
+     target = 0.90
+
+     [[row]]
+     name = "K2 3000 rows idle WS"
+     line = "rows3000-still renderer=cpu"
+     field = "ws_kib"
+     kind = "size"
+     target = 0.85
+
+     [[row]]
+     name = "K2 per_item box"
+     line = "K2 per_item mode=box"
+     field = "kib_per_item"
+     kind = "size"
+     target = 0.85
+     floor = 0.1
+
+     [[row]]
+     name = "K2 per_item text"
+     line = "K2 per_item mode=text"
+     field = "kib_per_item"
+     kind = "size"
+     target = 0.85
+     improve = 0.95
+     floor = 0.1
+
+     [[row]]
+     name = "K2 per_item button"
+     line = "K2 per_item mode=button"
+     field = "kib_per_item"
+     kind = "size"
+     target = 0.85
+     floor = 0.1
+
+     [[row]]
+     name = "K2 per_item row"
+     line = "K2 per_item mode=row"
+     field = "kib_per_item"
+     kind = "size"
+     target = 0.85
+     improve = 0.95
+     floor = 0.1
+
+     [[row]]
+     name = "K3 counter idle CPU"
+     line = "counter renderer=cpu"
+     field = "idle_cpu_ms_per_s"
+     kind = "time"
+     target = 1.00
+     floor = 1.0
+
+     [[row]]
+     name = "K3 3000 rows continuous CPU"
+     line = "rows=3000 renderer=cpu"
+     field = "cpu_pct_of_core"
+     kind = "time"
+     target = 0.60
+     improve = 0.85
+
+     [[row]]
+     name = "K4 3000 rows work p95"
+     line = "rows=3000 renderer=cpu"
+     field = "p95"
+     kind = "time"
+     target = 0.60
+     improve = 0.80
+
+     [[row]]
+     name = "K4 3000 rows work p99"
+     line = "rows=3000 renderer=cpu"
+     field = "p99"
+     kind = "time"
+     target = 0.60
+
+     [[row]]
+     name = "K4 3000 rows interval p99"
+     line = "rows=3000 renderer=cpu"
+     field = "interval_p99"
+     kind = "time"
+     target = 0.95
+     warning = true
+
+     [[row]]
+     name = "K5 pointer p95 n3000"
+     line = "L pointer_move_n3000"
+     field = "p95"
+     kind = "time"
+     target = 0.70
+     improve = 0.85
+
+     [[row]]
+     name = "K5 wheel p95 n3000"
+     line = "L wheel_n3000"
+     field = "p95"
+     kind = "time"
+     target = 0.70
+
+     [[row]]
+     name = "K5 row update p95 n3000"
+     line = "L row_update_n3000"
+     field = "p95"
+     kind = "time"
+     target = 0.70
+
+     [[row]]
+     name = "K5 unrelated text update p95 n3000"
+     line = "L unrelated_update_n3000"
+     field = "p95"
+     kind = "time"
+     target = 0.70
+
+     [[row]]
+     name = "K5 mount n3000"
+     line = "L mount_n3000"
+     field = "p50"
+     kind = "time"
+     target = 0.90
+
+     [[row]]
+     name = "K5 counter click p95"
+     line = "L counter_click"
+     field = "p95"
+     kind = "time"
+     target = 1.00
+
+     [[row]]
+     name = "K6 kv_startup no-gpu"
+     line = "K6 kv_startup no-gpu"
+     field = "last"
+     kind = "size"
+     target = 0.95
+
+     [[row]]
+     name = "K6 counter default"
+     line = "K6 counter default"
+     field = "last"
+     kind = "size"
+     target = 0.95
+
+     [[row]]
+     name = "K6 basic-catalog default"
+     line = "K6 basic-catalog default"
+     field = "last"
+     kind = "size"
+     target = 0.95
+     catalog = true
+
+     [[row]]
+     name = "K6 basic-catalog no-gpu"
+     line = "K6 basic-catalog no-gpu"
+     field = "last"
+     kind = "size"
+     target = 0.90
+     improve = 0.97
+     catalog = true
+     ```
+  3. `dev/xtask/src/kpi_compare.rs` を新設する。
+
+     ```rust
+     //! Role: Compare two run.sh KPI reports row by row under dev/bench/kpi.toml.
+
+     mod cli;
+     mod config;
+     mod judge;
+     mod report;
+     #[cfg(test)]
+     mod tests;
+
+     pub(crate) use cli::run;
+     ```
+  4. `dev/xtask/src/kpi_compare/config.rs` を新設する。
+
+     ```rust
+     //! Role: Read the KPI rows of dev/bench/kpi.toml.
+
+     /// Whether a row measures time (noise allowance 1.05) or size (1.02).
+     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+     pub(super) enum Kind {
+         Time,
+         Size,
+     }
+
+     impl Kind {
+         /// The largest ratio that still counts as no regression (design chapter 2).
+         pub(super) fn allowance(self) -> f64 {
+             match self {
+                 Kind::Time => 1.05,
+                 Kind::Size => 1.02,
+             }
+         }
+     }
+
+     /// One KPI row of the table.
+     #[derive(Clone, Debug, PartialEq)]
+     pub(super) struct Row {
+         pub(super) name: String,
+         pub(super) line: String,
+         pub(super) field: String,
+         pub(super) kind: Kind,
+         pub(super) target: f64,
+         pub(super) improve: Option<f64>,
+         pub(super) floor: f64,
+         pub(super) catalog: bool,
+         pub(super) warning: bool,
+     }
+
+     pub(super) fn parse(text: &str) -> Result<Vec<Row>, String> {
+         let table: toml::Table = text.parse().map_err(|error| format!("kpi.toml: {error}"))?;
+         let rows = table
+             .get("row")
+             .and_then(toml::Value::as_array)
+             .ok_or("kpi.toml: expected [[row]] tables")?;
+         rows.iter().enumerate().map(|(index, value)| row(index, value)).collect()
+     }
+
+     fn row(index: usize, value: &toml::Value) -> Result<Row, String> {
+         let table = value
+             .as_table()
+             .ok_or_else(|| format!("kpi.toml: row {index} is not a table"))?;
+         let text = |key: &str| {
+             table
+                 .get(key)
+                 .and_then(toml::Value::as_str)
+                 .map(str::to_owned)
+                 .ok_or_else(|| format!("kpi.toml: row {index}: `{key}` is required"))
+         };
+         let number = |key: &str| -> Result<Option<f64>, String> {
+             table
+                 .get(key)
+                 .map(|value| {
+                     value
+                         .as_float()
+                         .or_else(|| value.as_integer().map(|integer| integer as f64))
+                         .ok_or_else(|| format!("kpi.toml: row {index}: `{key}` must be a number"))
+                 })
+                 .transpose()
+         };
+         let flag = |key: &str| table.get(key).and_then(toml::Value::as_bool).unwrap_or(false);
+         let kind = match text("kind")?.as_str() {
+             "time" => Kind::Time,
+             "size" => Kind::Size,
+             other => return Err(format!("kpi.toml: row {index}: unknown kind {other}")),
+         };
+         Ok(Row {
+             name: text("name")?,
+             line: text("line")?,
+             field: text("field")?,
+             kind,
+             target: number("target")?
+                 .ok_or_else(|| format!("kpi.toml: row {index}: `target` is required"))?,
+             improve: number("improve")?,
+             floor: number("floor")?.unwrap_or(0.0),
+             catalog: flag("catalog"),
+             warning: flag("warning"),
+         })
+     }
+     ```
+  5. `dev/xtask/src/kpi_compare/report.rs` を新設する。
+
+     ```rust
+     //! Role: Read the measured values and status lines of one run.sh report.
+
+     /// One report: its lines as written.
+     pub(super) struct Report {
+         lines: Vec<String>,
+     }
+
+     impl Report {
+         /// The report, or an error when run.sh marked it INVALID.
+         pub(super) fn parse(text: &str) -> Result<Self, String> {
+             if text.lines().any(|line| line.trim_start().starts_with("INVALID:")) {
+                 return Err("the report is INVALID; measure again".into());
+             }
+             Ok(Self {
+                 lines: text.lines().map(str::to_owned).collect(),
+             })
+         }
+
+         /// Whether `run.sh --no-catalog` skipped the basic catalog.
+         pub(super) fn skipped_catalog(&self) -> bool {
+             self.lines
+                 .iter()
+                 .any(|line| line.trim_start().starts_with("SKIPPED: basic catalog"))
+         }
+
+         /// Whether the OS throttled the frames of the run that `line` names (`rows=.. renderer=..`).
+         pub(super) fn warned(&self, line: &str) -> bool {
+             let wanted = format!("WARNING {line}:");
+             self.lines
+                 .iter()
+                 .any(|row| row.trim_start().starts_with(&wanted))
+         }
+
+         /// The value of `field` on the row that starts with `line` (`last` = the row's last word).
+         pub(super) fn value(&self, line: &str, field: &str) -> Option<f64> {
+             let row = self.lines.iter().filter_map(|row| row.strip_prefix("- ")).find(|row| {
+                 row.strip_prefix(line)
+                     .is_some_and(|rest| rest.is_empty() || rest.starts_with(' '))
+             })?;
+             if field == "last" {
+                 return row.split_whitespace().last()?.parse().ok();
+             }
+             row.split_whitespace().find_map(|word| {
+                 word.split_once('=')
+                     .filter(|(key, _)| *key == field)
+                     .and_then(|(_, value)| value.parse().ok())
+             })
+         }
+     }
+     ```
+  6. `dev/xtask/src/kpi_compare/judge.rs` を新設する。
+
+     ```rust
+     //! Role: Judge one KPI row from its B0 and checkpoint values (design chapter 2).
+
+     use super::config::Row;
+
+     /// The verdict of one row.
+     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+     pub(super) enum Verdict {
+         /// No regression, and the required improvement (if any) is reached.
+         Ok,
+         /// Worse than the allowance.
+         Regressed,
+         /// No regression, but the required improvement is not reached.
+         ImprovementMissed,
+         /// The OS throttled the frames in one of the reports.
+         Unverified,
+         /// `run.sh --no-catalog` skipped the row.
+         Skipped,
+     }
+
+     /// One judged row: its ratio (none when the noise floor decides) and its verdict.
+     pub(super) struct Judged {
+         pub(super) ratio: Option<f64>,
+         pub(super) verdict: Verdict,
+         pub(super) met_target: bool,
+     }
+
+     pub(super) fn judge(row: &Row, base: f64, after: f64) -> Judged {
+         if base < row.floor || base <= 0.0 {
+             let ok = after <= row.floor.max(0.0);
+             let verdict = if ok { Verdict::Ok } else { Verdict::Regressed };
+             return Judged {
+                 ratio: None,
+                 verdict,
+                 met_target: ok,
+             };
+         }
+         let ratio = after / base;
+         let verdict = if ratio > row.kind.allowance() {
+             Verdict::Regressed
+         } else if row.improve.is_some_and(|limit| ratio > limit) {
+             Verdict::ImprovementMissed
+         } else {
+             Verdict::Ok
+         };
+         Judged {
+             ratio: Some(ratio),
+             verdict,
+             met_target: ratio <= row.target,
+         }
+     }
+     ```
+  7. `dev/xtask/src/kpi_compare/cli.rs` を新設する。
+
+     ```rust
+     //! Role: The cargo xtask kpi-compare command: read two reports, print the table.
+
+     use super::config::{self, Row};
+     use super::judge::{Judged, Verdict, judge};
+     use super::report::Report;
+     use std::path::{Path, PathBuf};
+     use std::process::ExitCode;
+
+     /// Exit 0: every row passes; 1: a row regressed; 3: only required improvements are missed; 2: bad input.
+     pub(crate) fn run(root: &Path, arguments: &[String]) -> ExitCode {
+         match compare(root, arguments) {
+             Ok((table, code)) => {
+                 print!("{table}");
+                 ExitCode::from(code)
+             }
+             Err(error) => {
+                 eprintln!("kpi-compare: {error}");
+                 ExitCode::from(2)
+             }
+         }
+     }
+
+     fn compare(root: &Path, arguments: &[String]) -> Result<(String, u8), String> {
+         let (base, after, config) = paths(root, arguments)?;
+         let read = |path: &Path| {
+             std::fs::read_to_string(path).map_err(|error| format!("{}: {error}", path.display()))
+         };
+         let rows = config::parse(&read(&config)?)?;
+         let base = Report::parse(&read(&base)?).map_err(|error| format!("B0: {error}"))?;
+         let after = Report::parse(&read(&after)?).map_err(|error| format!("checkpoint: {error}"))?;
+         table(&rows, &base, &after)
+     }
+
+     fn paths(root: &Path, arguments: &[String]) -> Result<(PathBuf, PathBuf, PathBuf), String> {
+         match arguments {
+             [base, after] => Ok((base.into(), after.into(), root.join("dev/bench/kpi.toml"))),
+             [base, after, flag, config] if flag == "--config" => {
+                 Ok((base.into(), after.into(), config.into()))
+             }
+             _ => Err(
+                 "usage: cargo xtask kpi-compare <B0 report> <checkpoint report> [--config <kpi.toml>]"
+                     .into(),
+             ),
+         }
+     }
+
+     /// The Markdown table of every row and the exit code.
+     pub(super) fn table(rows: &[Row], base: &Report, after: &Report) -> Result<(String, u8), String> {
+         let mut out = String::from(
+             "| 行 | B0 | checkpoint | 比 | 必達 | 改善の必達 | 目標 | 判定 |\n|---|---|---|---|---|---|---|---|\n",
+         );
+         let (mut regressed, mut missed) = (false, false);
+         for row in rows {
+             let (verdict, cells) = line(row, base, after)?;
+             regressed |= verdict == Verdict::Regressed;
+             missed |= verdict == Verdict::ImprovementMissed;
+             out.push_str(&cells);
+         }
+         let code = if regressed { 1 } else if missed { 3 } else { 0 };
+         Ok((out, code))
+     }
+
+     fn line(row: &Row, base: &Report, after: &Report) -> Result<(Verdict, String), String> {
+         let improve = row.improve.map_or("-".to_owned(), |limit| format!("≤ {limit:.2}"));
+         let limits = format!("≤ {:.2} | {improve} | ≤ {:.2}", row.kind.allowance(), row.target);
+         if row.catalog && after.skipped_catalog() {
+             return Ok((Verdict::Skipped, format!("| {} | - | - | - | {limits} | skipped |\n", row.name)));
+         }
+         let value = |report: &Report, which: &str| {
+             report
+                 .value(&row.line, &row.field)
+                 .ok_or_else(|| format!("{which}: no `{}` on the row `{}`", row.field, row.line))
+         };
+         let (b, a) = (value(base, "B0")?, value(after, "checkpoint")?);
+         let judged = if row.warning && (base.warned(&row.line) || after.warned(&row.line)) {
+             Judged {
+                 ratio: None,
+                 verdict: Verdict::Unverified,
+                 met_target: false,
+             }
+         } else {
+             judge(row, b, a)
+         };
+         let ratio = judged.ratio.map_or("floor".to_owned(), |ratio| format!("{ratio:.3}"));
+         let verdict = match judged.verdict {
+             Verdict::Ok if judged.met_target => "ok（目標）",
+             Verdict::Ok => "ok",
+             Verdict::Regressed => "後退",
+             Verdict::ImprovementMissed => "改善未達",
+             Verdict::Unverified => "未検証（WARNING）",
+             Verdict::Skipped => "skipped",
+         };
+         Ok((judged.verdict, format!("| {} | {b} | {a} | {ratio} | {limits} | {verdict} |\n", row.name)))
+     }
+     ```
+  8. `dev/xtask/src/kpi_compare/tests.rs` を新設する。
+
+     ```rust
+     //! Role: Verify row parsing, value reading, verdicts and exit codes of kpi-compare.
+
+     use super::config::{Kind, Row, parse};
+     use super::judge::{Verdict, judge};
+     use super::report::Report;
+
+     fn row(field: &str, line: &str, kind: Kind, improve: Option<f64>, floor: f64) -> Row {
+         Row {
+             name: line.to_owned(),
+             line: line.to_owned(),
+             field: field.to_owned(),
+             kind,
+             target: 0.5,
+             improve,
+             floor,
+             catalog: false,
+             warning: false,
+         }
+     }
+
+     const REPORT: &str = "# KPI x\n- rows=3000 renderer=cpu frames=300 fps=60.0 frame_period_ns=16666666 cpu_pct_of_core=12.50 ws_kib=1 work_ms p50=1.0 p95=2.0 p99=3.0 scene_p95=0.5 raster_p95=0.4 interval_p99=17.0\n- K6 counter default 1000\n- L pointer_move_n3000 n=50 mean=1.0 p50=0.9 p95=1.5 p99=2.0\n";
+
+     #[test]
+     fn reads_values_by_key_and_by_last_word() {
+         let report = Report::parse(REPORT).unwrap();
+         assert_eq!(report.value("rows=3000 renderer=cpu", "p95"), Some(2.0));
+         assert_eq!(report.value("rows=3000 renderer=cpu", "interval_p99"), Some(17.0));
+         assert_eq!(report.value("rows=3000 renderer=cpu", "cpu_pct_of_core"), Some(12.5));
+         assert_eq!(report.value("K6 counter default", "last"), Some(1000.0));
+         assert_eq!(report.value("L pointer_move_n3000", "p95"), Some(1.5));
+         assert_eq!(report.value("rows=0 renderer=cpu", "p95"), None);
+     }
+
+     #[test]
+     fn judges_allowances_improvements_and_floors() {
+         let timed = row("p95", "x", Kind::Time, Some(0.80), 0.0);
+         assert_eq!(judge(&timed, 10.0, 7.9).verdict, Verdict::Ok);
+         assert_eq!(judge(&timed, 10.0, 10.4).verdict, Verdict::ImprovementMissed);
+         assert_eq!(judge(&timed, 10.0, 10.6).verdict, Verdict::Regressed);
+         let sized = row("ws_kib", "x", Kind::Size, None, 0.0);
+         assert_eq!(judge(&sized, 100.0, 102.0).verdict, Verdict::Ok);
+         assert_eq!(judge(&sized, 100.0, 102.5).verdict, Verdict::Regressed);
+         let floored = row("idle_cpu_ms_per_s", "x", Kind::Time, None, 1.0);
+         assert_eq!(judge(&floored, 0.0, 0.5).verdict, Verdict::Ok);
+         assert!(judge(&floored, 0.0, 0.5).ratio.is_none());
+         assert_eq!(judge(&floored, 0.2, 1.5).verdict, Verdict::Regressed);
+     }
+
+     #[test]
+     fn invalid_warned_and_skipped_reports() {
+         assert!(Report::parse("- a 1\n\nINVALID: build failed\n").is_err());
+         let warned = Report::parse("  WARNING rows=3000 renderer=cpu: 30 fps\n- rows=3000 renderer=cpu interval_p99=40.0\n").unwrap();
+         assert!(warned.warned("rows=3000 renderer=cpu"));
+         assert!(!warned.warned("rows=0 renderer=cpu"));
+         let mut catalog = row("last", "K6 basic-catalog no-gpu", Kind::Size, Some(0.97), 0.0);
+         catalog.catalog = true;
+         let base = Report::parse("- K6 basic-catalog no-gpu 1000\n").unwrap();
+         let skipped = Report::parse("SKIPPED: basic catalog (--no-catalog)\n").unwrap();
+         let (table, code) = super::cli::table(&[catalog.clone()], &base, &skipped).unwrap();
+         assert!(table.contains("skipped"), "{table}");
+         assert_eq!(code, 0);
+         let missing = Report::parse("- K6 counter default 1\n").unwrap();
+         assert!(super::cli::table(&[catalog], &base, &missing).is_err());
+     }
+
+     #[test]
+     fn exit_codes_follow_the_worst_row() {
+         let rows = [row("last", "K6 counter default", Kind::Size, Some(0.97), 0.0)];
+         let base = Report::parse("- K6 counter default 1000\n").unwrap();
+         let worse = Report::parse("- K6 counter default 1100\n").unwrap();
+         let same = Report::parse("- K6 counter default 1000\n").unwrap();
+         let better = Report::parse("- K6 counter default 900\n").unwrap();
+         assert_eq!(super::cli::table(&rows, &base, &worse).unwrap().1, 1);
+         assert_eq!(super::cli::table(&rows, &base, &same).unwrap().1, 3);
+         assert_eq!(super::cli::table(&rows, &base, &better).unwrap().1, 0);
+     }
+
+     #[test]
+     fn the_committed_table_parses() {
+         let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/kpi.toml")).unwrap();
+         let rows = parse(&text).unwrap();
+         assert_eq!(rows.len(), 23);
+         assert_eq!(rows.iter().filter(|row| row.improve.is_some()).count(), 6);
+         assert_eq!(rows.iter().filter(|row| row.catalog).count(), 3);
+     }
+
+     /// A report as the BASE `dev/bench/run.sh` (2b8df5ac, before this unit) writes it: B0 is measured
+     /// with that script in W0 (headings, row lines and their order copied from its `log` calls).
+     const BASE_REPORT: &str = "# KPI B0 (2026-11-18T09:00Z, MINGW64_NT-10.0-26200, commit 2b8df5a)
+
+     release build of kivact-example-counter (cold for its own target dir): 95 s
+
+     ## K1 startup (5 runs, median) and the first frame
+     - K1 main_to_first_present renderer=default median_ms=181.4 samples=[ 180.9 181.4 182.0 181.1 183.2 ]
+     - K4 first_frame_raster renderer=default median_ms=11.2 samples=[ 11.0 11.2 11.3 11.1 11.4 ]
+     - K1 main_to_first_present renderer=cpu median_ms=175.0 samples=[ 174.8 175.0 175.3 174.9 176.0 ]
+     - K4 first_frame_raster renderer=cpu median_ms=11.0 samples=[ 10.9 11.0 11.1 11.0 11.2 ]
+     - K1 catalog_spawn_to_first_present renderer=default median_ms=420.5 samples=[ 419.0 420.5 421.0 420.1 422.3 ] (includes OS process creation)
+
+     ## K2/K3 idle (3 s settle, then 10 s sampled)
+     - counter renderer=default ws_kib=61234 private_kib=40210 idle_cpu_ms_per_s=0.150 idle_frames=0 cpu_ticks_100ns=15000 [renderer=gpu adapter=x]
+     - counter renderer=cpu ws_kib=52100 private_kib=35000 idle_cpu_ms_per_s=0.120 idle_frames=0 cpu_ticks_100ns=12000
+     - counter renderer=gpu ws_kib=70100 private_kib=48000 idle_cpu_ms_per_s=0.300 idle_frames=0 cpu_ticks_100ns=30000 [renderer=gpu adapter=x]
+     - basic-catalog renderer=default ws_kib=120000 private_kib=90000 idle_cpu_ms_per_s=0.200 idle_frames=0 cpu_ticks_100ns=20000
+     - rows3000-still renderer=default ws_kib=150000 private_kib=110000 idle_cpu_ms_per_s=0.100 idle_frames=0 cpu_ticks_100ns=10000
+     - basic-catalog renderer=cpu ws_kib=110000 private_kib=85000 idle_cpu_ms_per_s=0.180 idle_frames=0 cpu_ticks_100ns=18000
+     - rows3000-still renderer=cpu ws_kib=140000 private_kib=100000 idle_cpu_ms_per_s=0.090 idle_frames=0 cpu_ticks_100ns=9000
+
+     ## K2 memory per item (kv_stress STILL, CPU renderer, (WS(3000) - WS(0)) / 3000)
+     - item-box-0 renderer=cpu ws_kib=50000 private_kib=34000 idle_cpu_ms_per_s=0.080 idle_frames=0 cpu_ticks_100ns=8000
+     - item-box-3000 renderer=cpu ws_kib=52000 private_kib=35000 idle_cpu_ms_per_s=0.080 idle_frames=0 cpu_ticks_100ns=8000
+     - K2 per_item mode=box kib_per_item=0.67
+     - K2 per_item mode=text kib_per_item=1.20
+     - K2 per_item mode=button kib_per_item=2.10
+     - K2 per_item mode=row kib_per_item=3.40
+
+     ## K2 diagnostics (kv_heap, CPU, live heap bytes; not a KPI row)
+     - heap mode=box live_bytes_per_item=600
+         [box] H site 120 allocs kivact_engine::tree::node::Node::new
+
+     ## K3/K4 frame time and CPU under continuous update (kv_stress, 5 s)
+     - rows=0 renderer=default frames=300 fps=60.0 frame_period_ns=16666666 cpu_pct_of_core=5.00 ws_kib=60000 work_ms p50=0.5 p95=0.9 p99=1.2 scene_p95=0.2 raster_p95=0.3 interval_p99=17.1
+       WARNING rows=3000 renderer=cpu: 40.0 fps for a 60.0 Hz display (the OS throttled the window; work times stay valid, fps and interval do not)
+     - rows=3000 renderer=cpu frames=200 fps=40.0 frame_period_ns=16666666 cpu_pct_of_core=35.20 ws_kib=150000 work_ms p50=4.0 p95=6.5 p99=8.0 scene_p95=2.0 raster_p95=3.0 interval_p99=30.0
+
+     ## K5 update latency (kv_latency, test driver, CPU, mirror off)
+     - L mount_counter n=1 mean=20.000 p50=20.000 p95=20.000 p99=20.000
+     - L counter_click n=200 mean=0.800 p50=0.750 p95=1.100 p99=1.400
+     - L mount_n3000 n=1 mean=900.000 p50=900.000 p95=900.000 p99=900.000
+     - L unrelated_update_n3000 n=100 mean=1.000 p50=0.900 p95=1.500 p99=2.000
+     - L row_update_n3000 n=100 mean=1.200 p50=1.100 p95=1.800 p99=2.200
+     - L pointer_move_n3000 n=100 mean=2.000 p50=1.900 p95=2.600 p99=3.000
+     - L wheel_n3000 n=100 mean=3.000 p50=2.800 p95=3.900 p99=4.500
+     - S stats_n3000 Stats { nodes: 9000 }
+
+     ## K6 release binary size (bytes)
+     - K6 counter default 9000000
+     - K6 kv_startup default 9100000
+     - K6 kv_startup no-default-features 5000000
+     - K6 basic-catalog default 15000000
+     - K6 kv_startup no-gpu 7000000
+     - K6 basic-catalog no-gpu 12000000
+     ";
+
+     #[test]
+     fn reads_a_report_in_the_base_run_sh_format() {
+         let text = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/../bench/kpi.toml")).unwrap();
+         let rows = parse(&text).unwrap();
+         let base = Report::parse(BASE_REPORT).unwrap();
+         for row in &rows {
+             assert!(base.value(&row.line, &row.field).is_some(), "the base report has no `{}` on `{}`", row.field, row.line);
+         }
+         assert_eq!(base.value("K1 main_to_first_present renderer=default", "median_ms"), Some(181.4));
+         assert_eq!(base.value("counter renderer=cpu", "idle_cpu_ms_per_s"), Some(0.12));
+         assert_eq!(base.value("K6 basic-catalog no-gpu", "last"), Some(12_000_000.0));
+         assert!(base.warned("rows=3000 renderer=cpu"));
+         assert!(!base.skipped_catalog());
+         let (table, code) = super::cli::table(&rows, &base, &base).unwrap();
+         assert!(table.contains("未検証（WARNING）"), "{table}");
+         assert_eq!(code, 3, "the same report misses every required improvement:\n{table}");
+     }
+     ```
+
+     fixture の行の形は、基点の `run.sh` の `log` の呼出し（`git show 2b8df5ac:dev/bench/run.sh`）と一字一句同じ形にする。上の文字列を写す前に、`git show 2b8df5ac:dev/bench/run.sh | grep -n 'log "'` で見出しと行の先頭の語（`- K1 main_to_first_present renderer=`、`- counter renderer=`、`- K2 per_item mode=`、`- rows=`、`- K6 ` など）が上と同じであることを確かめ、違えば基点の形に合わせて fixture を直す（期待値の数は変えない）。値の数字は試験の fixture の値で、実測ではない。
+  9. `dev/xtask/src/main.rs`：`mod kpi_compare;` をアルファベット順の位置に足し、`if arguments.first().map(String::as_str) == Some("diagrams") { ... }` の塊の直後に次を足す。help の `println!` の文字列の末尾に `\n\`cargo xtask kpi-compare <B0> <CPn>\` compares two dev/bench/run.sh reports (dev/bench/kpi.toml).` を足す。
+
+     ```rust
+         if arguments.first().map(String::as_str) == Some("kpi-compare") {
+             return kpi_compare::run(root, &arguments[1..]);
+         }
+     ```
+  10. `dev/bench/README.md`：最初のコードブロックの後に次の段落を足す。
+
+      ```markdown
+      `run.sh --no-catalog <label>` は basic catalog の build・起動・idle・大きさの行をすべて外し、report に `SKIPPED: basic catalog (--no-catalog)` を書く（kit と catalog が compile できない間の計測。改修の CP2）。二つの report の比較は `cargo xtask kpi-compare <基準の report> <比べる report>` が `dev/bench/kpi.toml` の行（行の key、単位、許容、改善の必達、雑音の下限）で行い、Markdown の表を出す。終了の状態は 0（全行が合格）、1（後退した行がある）、3（改善の必達に届かない行がある）、2（`INVALID:` の report、行の欠落、表の誤り）。`WARNING` の run の描画間隔の行は「未検証」になる。
+      ```
+- **消すもの**：なし。
+- **状態の閉じ方**：`config::Row`（`Option` 1 つと `bool` 2 つ）は値渡しで作るだけの記録で、`&mut self` の method も内部可変の field も無いので対象にならない。`Verdict` は enum。`Judged` は `Option` 1 つと `bool` 1 つで、作った後に書かない。`Report` は数える種類の field を持たない。
+- **試験**：足す：`dev/xtask/src/kpi_compare/tests.rs` の `reads_values_by_key_and_by_last_word`、`judges_allowances_improvements_and_floors`、`invalid_warned_and_skipped_reports`、`exit_codes_follow_the_worst_row`、`the_committed_table_parses`、`reads_a_report_in_the_base_run_sh_format`（基点の `run.sh` が W0 で書く B0 の形を読めること。N-07）。`run.sh` は実 window と release の build を使うので、この unit では実行しない（`bash -n` と次の `grep` で形を確かめ、実際の計測は CP の Orchestrator が行う）。
+- **確認（tier a）**：
+
+  ```bash
+  cargo fmt -p xtask
+  cargo clippy -p xtask --all-targets -- -D warnings
+  cargo test -p xtask kpi_compare
+  bash -n dev/bench/run.sh
+  test "$(grep -c 'catalog_on' dev/bench/run.sh)" -ge 7
+  cargo xtask kpi-compare dev/bench/kpi.toml dev/bench/kpi.toml; test $? -eq 2
+  cargo xtask check --no-write --only local --crate xtask
+  ```
+
+  （最後から 2 つ目は、report でない入力が「入力の誤り」の 2 で終わることを確かめる。）
+- **完了条件**：すべて成功し、`cargo test -p xtask kpi_compare` の passed が 6。`grep -n "build catalog\|basic-catalog" dev/bench/run.sh` の各行が `catalog_on` の条件の中にある。
+
 ## T11：5 つの kit の印の変換
 
 - **wave / lane / 前提**：W1b / T4 / T23
@@ -2558,7 +3315,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   2. `crates/kivact-devtools-protocol/src/client.rs` を新設する。
 
      ```rust
-     //! Role: Discover running targets and open a DevTools connection to one (feature `client`).
+     //! Role: Discover running targets and open a DevTools connection (feature client).
 
      mod connection;
      mod discovery;
@@ -2568,7 +3325,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
      pub use discovery::*;
      pub use error::*;
      ```
-  3. `crates/kivact-devtools-protocol/src/lib.rs`：`mod call;` の次の行に `#[cfg(feature = "client")]` と `pub mod client;` の 2 行を足す。crate doc の 1 行目を `//! Role: Wire vocabulary of the Kivact DevTools and, with feature \`client\`, the client connection.` にする。
+  3. `crates/kivact-devtools-protocol/src/lib.rs`：`mod call;` の次の行に `#[cfg(feature = "client")]` と `pub mod client;` の 2 行を足す。crate doc の 1 行目を `//! Role: Wire vocabulary of the Kivact DevTools; with feature client, the connection.` にする。
   4. `crates/kivact-devtools-protocol/Cargo.toml`：`description` を `"Wire vocabulary of the Kivact DevTools (JSON-RPC methods, notifications, values) and the client connection (feature client)."` にし、次を足す。
 
      ```toml
@@ -2679,12 +3436,12 @@ cargo xtask check --no-write --only state --strict --crate <P>
   1. `// Regression:` の札を消す。flows.rs・runtime.rs・task.rs・view.rs の札の下にはもう試験が無い（commit `026e7d59` で消えた）。札の塊（`// ---` の区切りの行、`// Regression:` の行、続く `// ` の行、その後の空行 1 つ）を消す。
 
      ```bash
-     cd dev/tests/kivact-public-api/tests/e2e
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/dev/tests/kivact-public-api/tests/e2e" || exit 1
      perl -0pi -e 's{^// -{10,}\n// Regression:[^\n]*\n(?://(?!/)(?! -)[^\n]*\n)*\n?}{}mg' flows.rs runtime.rs task.rs view.rs
-     cd -
+     cd "$ROOT" || exit 1
      ```
      消した後の各ファイルの末尾が空行で終わっていれば `cargo fmt` が直す。
-  2. `embed/windows.rs`：1 行目を `//! Role: Win32 embedding contracts: native hit testing, pointer capture during chords and system-key fallthrough to the host.` にする。`SERIAL.lock().expect("Windows screen regression lock")` を `SERIAL.lock().expect("Windows embed serial lock")` にする。試験は二つとも残す（名前が契約を述べている）。
+  2. `embed/windows.rs`：1 行目を `//! Role: Win32 embedding: native hit tests, capture during chords, Alt+F4 to the host.` にする。`SERIAL.lock().expect("Windows screen regression lock")` を `SERIAL.lock().expect("Windows embed serial lock")` にする。試験は二つとも残す（名前が契約を述べている）。
   3. `GRACE`：
      - `gpu_on_demand.rs`：`/// The real time a device that must not start is given to start.` を `/// The virtual time a device that must not start is given to start.` にする。`fn shader_stays_on_cpu` の `std::thread::sleep(GRACE);` と直後の `screen.run_until_idle();` の 2 行を `screen.advance(GRACE);` の 1 行にする。
      - `gpu_on_demand_shared.rs` の `fn shares_pixels_on_cpu`、`gpu_on_demand_windows.rs` の `fn windows_stay_on_cpu`：同じ 2 行を `screen.advance(GRACE);` にする。
@@ -2719,12 +3476,12 @@ cargo xtask check --no-write --only state --strict --crate <P>
   1. 共有の helper を package の lib へ移す。
 
      ```bash
-     cd dev/tests/kivact-public-api
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/dev/tests/kivact-public-api" || exit 1
      git mv tests/e2e/support.rs src/support.rs
      git mv tests/e2e/support src/support
      perl -pi -e 's/^pub\(crate\) mod /pub mod /; s/^pub\(crate\) use /pub use /' src/support.rs
      perl -pi -e 's/\bpub\(crate\) /pub /g' src/support/*.rs
-     cd -
+     cd "$ROOT" || exit 1
      ```
   2. `dev/tests/kivact-public-api/src/paint.rs` を新設する（`tests/e2e/paint.rs` の helper を写す）。
 
@@ -2792,9 +3549,9 @@ cargo xtask check --no-write --only state --strict --crate <P>
   4. helper の path を書き換える（`embed/` の中は自分の `support` を持つので除く）。
 
      ```bash
-     cd dev/tests/kivact-public-api/tests/e2e
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/dev/tests/kivact-public-api/tests/e2e" || exit 1
      rg -l "(crate|super)::(support|paint)::" . --glob '!embed/**' | xargs -r perl -pi -e 's/\b(?:crate|super)::(support|paint)::/kivact_public_api_tests::$1::/g'
-     cd -
+     cd "$ROOT" || exit 1
      ```
      `paint.rs`（試験の残り）には compile error に従って `use kivact_public_api_tests::paint::{...};` を足す。
   5. `canvas.rs` の試験 `snapshot_of_a_gpu_frame_is_unsupported`（直前の `#[cfg(all(feature = "gpu-interop", any(windows, target_os = "linux")))]` と `#[test]` を含む）を切り取り、`gpu_interop.rs` の末尾に `#[test]` から貼る（`#[cfg(..)]` の行は貼らない。module が同じ cfg を持つ）。貼った中の `super::gpu_interop::unread_frame()` を `unread_frame()` にする。足りない `use` は compile error に従って足す。
@@ -2852,7 +3609,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
   7. 残りの module を 3 つの directory に分ける。
 
      ```bash
-     cd dev/tests/kivact-public-api/tests
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/dev/tests/kivact-public-api/tests" || exit 1
      mkdir -p e2e_core e2e_ui e2e_native
      for m in a11y_incremental app_handle assets async_tests binding_update borders_backgrounds canvas canvas_worker close_request color_spaces component_macro components compositor custom_text_field diagnostics disposal drawables effects_filters environment flows focus frame_sources grid hover i18n image_semantics images_animated input_platform keyboard keys_unhandled landmark_roles launch_fonts launch_platform launch_real_window launch_support launch_window layout layout_check layout_scroll layout_units lifecycle machine motion motion_easing node_ref offscreen offscreen_svg overlay paint parts path_algebra platform_paths pointer presence presence_modes primitive relations resource_reclaim runtime scroll_timeline setup_functions shaders shared_layout style_paint svg_embedded_text task text_editing text_effects text_primitives text_style timeline touch_scroll transform transform_3d view viewport windows; do git mv e2e/$m.rs e2e_core/$m.rs; done
      for m in apg_accordion apg_alert apg_breadcrumb apg_carousel apg_combobox apg_date_picker apg_grid apg_listbox apg_menu apg_menu_button apg_menubar apg_radio_group apg_slider apg_spinbutton apg_tabs apg_toolbar apg_tooltip apg_tree_view apg_window_splitter interaction_calendar interaction_combobox interaction_delayed interaction_dialog interaction_drag_edit interaction_edit interaction_list_nav interaction_menu interaction_palette interaction_select interaction_show_hide interaction_slider interaction_splitter interaction_state interaction_table interaction_tabs interaction_toast interaction_toggle interaction_tooltip interaction_tree interaction_zoom_pan ui_calendar ui_carousel ui_chat_code ui_collections ui_combobox ui_command_palette ui_components ui_controls ui_data_table ui_disclosure_surfaces ui_dropzone ui_field ui_navigation ui_sparkline ui_theming ui_toolbar feedback indicators metrics_and_description reactive_props; do git mv e2e/$m.rs e2e_ui/$m.rs; done
@@ -2860,12 +3617,12 @@ cargo xtask check --no-write --only state --strict --crate <P>
      git mv e2e/embed e2e_native/embed
      git rm -q e2e/main.rs
      ls e2e 2>/dev/null && echo "STOP: files left in tests/e2e"
-     cd -
+     cd "$ROOT" || exit 1
      ```
      最後の行が `STOP` を出したら、残ったファイルの名前を STOP の行に書く。
   8. 3 つの `main.rs` を新設する。
-     - `tests/e2e_core/main.rs`：1 行目 `//! Role: End-to-end tests of the reactive core, views, style, layout, text, input and a11y through kivact.`、空行、手順 7 の 1 つ目の列の各名前を `mod <name>;` の行にしてアルファベット順に並べる。
-     - `tests/e2e_ui/main.rs`：1 行目 `//! Role: End-to-end tests of kivact::ui, kivact::interaction and the APG patterns through kivact.`、2 つ目の列を同じく。
+     - `tests/e2e_core/main.rs`：1 行目 `//! Role: End-to-end tests of the reactive core, views, style, layout, text and input.`、空行、手順 7 の 1 つ目の列の各名前を `mod <name>;` の行にしてアルファベット順に並べる。
+     - `tests/e2e_ui/main.rs`：1 行目 `//! Role: End-to-end tests of kivact::ui, kivact::interaction and the APG patterns.`、2 つ目の列を同じく。
      - `tests/e2e_native/main.rs`：1 行目 `//! Role: End-to-end tests of embedding, GPU interop, foreign windows and DevTools.`、空行、次。
 
      ```rust
@@ -2934,78 +3691,99 @@ cargo xtask check --no-write --only state --strict --crate <P>
   cargo xtask check --no-write --only state --strict --crate kivact-kit-tests
   ```
 
-- **完了条件**：すべて成功。手順 1 の前（T14 の後の状態）に `cargo test -p kivact-public-api-tests --test e2e --all-features -- --list 2>/dev/null | grep -c ': test$'` で数えた数が、分割後の `cargo test -p kivact-public-api-tests --test e2e_core --test e2e_ui --test e2e_native --all-features -- --list 2>/dev/null | grep -c ': test$'` と `cargo test -p kivact-kit-tests --test e2e_kits -- --list 2>/dev/null | grep -c ': test$'` の合計と等しい（手順 1 の前に数を記録しておく）。`rg -n "\-\-test e2e\b|tests/e2e/" dev crates` が `dev/README.md`・`dev/tools/window-lock.sh`（T19・T21 が直す）、`crates/kivact-core/src/custom.rs`（T07 が直す）、`crates/kivact-test/src/lib.rs`（T16 が直す）、`crates/arvane`（Arvane 自身の `e2e`）の外で何も出さない。
+- **完了条件**：すべて成功。手順 1 の前（T14 の後の状態）に `cargo test -p kivact-public-api-tests --test e2e --all-features -- --list 2>/dev/null | grep -c ': test$'` で数えた数が、分割後の binary ごとの 3 つ（`cargo test -p kivact-public-api-tests --test <e2e_core|e2e_ui|e2e_native> --all-features -- --list 2>/dev/null | grep -c ": test$"` を binary ごとに一回ずつ）と `cargo test -p kivact-kit-tests --test e2e_kits -- --list 2>/dev/null | grep -c ': test$'` の合計と等しい（手順 1 の前に数を記録しておく）。`rg -n "\-\-test e2e\b|tests/e2e/" dev crates` が `dev/README.md`・`dev/tools/window-lock.sh`（T19・T21 が直す）、`crates/kivact-core/src/custom.rs`（T07 が直す）、`crates/kivact-test/src/lib.rs`（T16 が直す）、`crates/arvane`（Arvane 自身の `e2e`）の外で何も出さない。
 
 ---
 
-## T16：`kivact-test` の自己試験の移動と削除
+## T16：`kivact-test` の自己試験を `tests/` へ移す
 
 - **wave / lane / 前提**：W1b / T6 / T23
 - **所有**：`crates/kivact-test/**`
-- **目的**：crate の doc（「no unit test of internal modules」）と食い違う `src/screen/*_tests.rs` を、公開 API だけを使うものは `tests/` へ移し、内部を確かめるものは消す（TL-12）。印を移す（TL-04、TL-05）。
+- **目的**：crate の doc（「no unit test of internal modules」）と食い違う `src/screen/*_tests.rs` を、**一つも消さずに** `crates/kivact-test/tests/` の一つの test target へ移す（TL-12、設計 6.4・12 章 TV-04：host の非同期の資源・font・cache・寿命の契約を、最適化の unit の前に失わない）。試験が使う内部の入口は `kivact-test` の中に `#[doc(hidden)] pub` として残す（公開の API を増やさない）。印を移す（TL-04、TL-05）。
 - **手順**：
-  1. ファイルごとの扱い。
+  1. 移す先は directory の test target `crates/kivact-test/tests/screen/`（root は `main.rs`。test の名前は `screen`）。一つの binary にするので、共有の helper（`support.rs`・`editing_drop_probe.rs`）を写さずに使える。
 
-     | ファイル | 扱い | 理由 |
+     | 元のファイル（`crates/kivact-test/src/screen/`） | 新しい場所（`crates/kivact-test/tests/screen/`） | 使う内部の入口（`#[doc(hidden)] pub`） |
      |---|---|---|
-     | `src/screen/accessibility_tests.rs` | 削除 | engine の `Writer` を直に使い、公開 API で作れない root のない host の publication を確かめる |
-     | `src/screen/context_tests.rs` | `tests/pure_context.rs` へ移す | 公開の `render_with` と runtime の `pure`・`untrack`・`memo` だけを使う |
-     | `src/screen/disposal_tests.rs` | 削除 | runtime の内部の `Owner::{current, signal, with_setup}` を使う。公開の範囲は `e2e_core/disposal.rs` が確かめる |
-     | `src/screen/editing_drop_probe.rs` | 削除 | `host_sync_tests` だけが使う engine の reader の probe |
-     | `src/screen/gpu_tests.rs` | `tests/gpu.rs` へ移す | GPU と CPU の frame の一致は公開の `RenderOptions::gpu` と `Screen::renderer` で確かめられる |
-     | `src/screen/host_sync_tests.rs` | 削除 | 生の `HostEvent` の注入と同じ turn の queue 入力（非公開）で host の内部を確かめる |
-     | `src/screen/real_window_tests.rs` | 削除 | 4 つの試験すべてが `with_host`（`set_now`・`set_display_period`・`redraw_requested`）か `display_stats` を使う |
-     | `src/screen/scene_cache_tests.rs` | 削除 | scene・raster・font の cache の内部を `ArvaneTestHost` で直に確かめる |
-     | `src/screen/window_tests.rs` | 削除 | `with_host(|h| h.min_window_size(..))` だけで確かめる（公開の getter が無い） |
-     | `src/screen/support.rs` | 削除 | 上の試験だけが使う helper（`gpu.rs` は `button_box` を写す） |
+     | `accessibility_tests.rs` | `accessibility.rs` | なし（`kivact_engine::{api, contract, testing}` の公開の item） |
+     | `context_tests.rs` | `context.rs` | なし（`kivact_test` の公開の関数と `kivact_runtime::{pure, untrack}`） |
+     | `disposal_tests.rs` | `disposal.rs` | なし（`kivact_runtime::Owner` の公開の method） |
+     | `editing_drop_probe.rs` | `editing_drop_probe.rs`（試験の helper） | なし（`kivact_engine::api::Reader`） |
+     | `gpu_tests.rs` | `gpu.rs` | `Screen::start`、`Screen::with_host` |
+     | `host_sync_tests.rs` | `host_sync.rs` | `Screen::with_host`、`Screen::inject`（新設）、`Screen::{queue_click, queue_text, queue_host_failure}`、`Locator::node_id`（新設） |
+     | `real_window_tests.rs` | `real_window.rs` | `Screen::with_host` |
+     | `scene_cache_tests.rs` | `scene_cache.rs` | なし（`kivact_core::launch` と `kivact_engine::testing` の公開の item） |
+     | `window_tests.rs` | `window.rs` | `Screen::with_host` |
+     | `support.rs` | `support.rs`（試験の helper） | なし |
 
      ```bash
-     cd crates/kivact-test
-     mkdir -p tests
-     git mv src/screen/context_tests.rs tests/pure_context.rs
-     git mv src/screen/gpu_tests.rs tests/gpu.rs
-     git rm -q src/screen/{accessibility_tests,disposal_tests,editing_drop_probe,host_sync_tests,real_window_tests,scene_cache_tests,window_tests,support}.rs
-     cd -
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-test" || exit 1
+     mkdir -p tests/screen
+     for f in accessibility context disposal gpu host_sync real_window scene_cache window; do git mv src/screen/${f}_tests.rs tests/screen/$f.rs; done
+     git mv src/screen/editing_drop_probe.rs tests/screen/editing_drop_probe.rs
+     git mv src/screen/support.rs tests/screen/support.rs
+     perl -pi -e 's/\bsuper::model::/kivact_test::/g; s/\bsuper::results::/kivact_test::/g; s/\bsuper::artifacts::/kivact_test::/g; s/\bsuper::failure_dir\b/kivact_test::failure_dir/g; s/\bcrate::/kivact_test::/g' tests/screen/*.rs
+     perl -0pi -e 's/^[ \t]*let host = &screen\.app\.host;\n//mg; s/\bhost\.borrow_mut\(\)\s*\.inject\(/screen.inject(/g; s/\bscreen\s*\.app\s*\.host\s*\.borrow_mut\(\)\s*\.inject\(/screen.inject(/g; s/\)\.node;/).node_id();/g' tests/screen/host_sync.rs
+     cd "$ROOT" || exit 1
      ```
-  2. `src/screen.rs`：`#[cfg(test)]` と `mod accessibility_tests;` … `mod window_tests;` の 10 組（20 行）を消す。
-  3. `src/screen/driver.rs`：`/// The test driver (internal tests).`、`#[cfg(test)]` と `pub(crate) fn with_host<R>(...)` の関数全体を消す。`src/screen/input.rs`：`/// Input queued without settling (internal tests): ...` の doc の 3 行と、`#[cfg(test)] impl Screen { queue_click, queue_text, queue_host_failure }` の塊全体を消す。`cargo clippy -p kivact-test --all-targets -- -D warnings` が他に `#[cfg(test)]` の item の `dead_code` を報告したら、その item を消す。
-  4. `tests/pure_context.rs`：1 行目を `//! Role: A pure context rejects writes, keeps memo tracking and reports memo cycles in a real window.` にし、`use crate::{MirrorMode, RenderOptions, render_with, render_with_handle};` を `use kivact_test::{MirrorMode, RenderOptions, render_with, render_with_handle};` にする。
-  5. `tests/gpu.rs`：
-     - 9 行目の `//! public \`RenderOptions::gpu\` and verify \`Screen::renderer\`; these internal` から `//! helpers additionally inspect the shell surface directly.` までを `//! public \`RenderOptions::gpu\` and verify \`Screen::renderer\`.` にする。
-     - `use std::panic::Location;`、`use super::model::Screen;`、`use super::results::Screenshot;`、`use super::support::button_box;`、`use crate::{MirrorMode, RenderOptions};`、`use kivact_types::WindowId;` を消し、`use kivact_test::{MirrorMode, RenderOptions, Screenshot, render_with};` を足す。`use kivact_engine::testing::{Renderer, gpu_unavailable};` を `use kivact_test::{Renderer, gpu_unavailable};` にする。
-     - `Screen::start(options, Vec::new(), Box::new(scene), Location::caller())` を `render_with(options, scene)` にする。`Screen::start(\n options,\n Vec::new(),\n Box::new(<closure>),\n Location::caller(),\n )` の 2 か所（`gpu_host_state_transition_matches_the_cpu_intermediate_frame` と `gpu_frames_follow_a_scale_change`）を `render_with(options, <closure>)` にする。
-     - `screen.with_host(|host| host.renderer(WindowId::MAIN))` と `gpu.with_host(|host| host.renderer(WindowId::MAIN))` を `Some(screen.renderer())`・`Some(gpu.renderer())` にする（`Option` の比較はそのまま）。
-     - `super::failure_dir()` を `kivact_test::failure_dir()` にする。
-     - `include_bytes!("../../../../dev/tests/kivact-public-api/tests/fixtures/rgba.png")` と `.../shapes.svg` の `../../../../` を `../../../` にする。
-     - ファイルの末尾に次を足す（足りない `use` は compile error に従って足す）。
+     （`super::support::` と `super::editing_drop_probe::` は同じ test crate の兄弟の module を指すので、そのまま動く。`include_bytes!` の相対 path は `src/screen/` と `tests/screen/` が同じ深さなので変えない。）
+  2. `crates/kivact-test/tests/screen/main.rs` を新設する（`clippy::type_complexity` の allow は、これらの試験が今 `src/lib.rs` の crate の allow の下で compile されていることをそのまま保つ）。
 
      ```rust
-     /// A focusable button-like box labelled `label` (as the deleted `screen/support.rs` made it).
-     fn button_box(label: &'static str) -> Node {
-         node()
-             .role(Role::Button)
-             .focusable(true)
-             .name(label)
-             .child(text(label))
-     }
+     //! Role: Contract tests of the kivact::test host: caches, windows, GPU frames, sync.
+     #![allow(
+         clippy::type_complexity,
+         reason = "the tests store handler and effect closures as boxed trait objects, as the library does"
+     )]
+
+     mod accessibility;
+     mod context;
+     mod disposal;
+     mod editing_drop_probe;
+     mod gpu;
+     mod host_sync;
+     mod real_window;
+     mod scene_cache;
+     mod support;
+     mod window;
      ```
-     `use kivact_core::view::{IntoView, column, node, row, text};` を `use kivact_core::view::{IntoView, Node, Role, column, node, row, text};` にする。
-  6. `src/lib.rs` の `` `dev/tests/kivact-public-api/tests/e2e/layout_check.rs` `` を `` `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs` `` にする。
-  7. `src/screen/results.rs` の `// xtask-allow(api-shape): existing test diagnostic contract reports the original builder location.` と `// xtask-allow(api-shape): semantic snapshots retain the nearest builder location for diagnostics.` の 2 行を消す（`&'static Location` は規則が認める。T02）。
-  8. 共通手順 M を `kivact-test`（`crates/kivact-test/src`）に行う。
-- **消すもの**：上の表の削除 8 ファイル、`Screen::with_host`、`Screen::{queue_click, queue_text, queue_host_failure}`、`results.rs` の `api-shape` の印 2 行。
+  3. `src/screen.rs`：`#[cfg(test)]` と `mod accessibility_tests;` … `mod window_tests;` の 10 組（20 行）を消す。
+  4. 内部の入口を `#[doc(hidden)] pub` にする（`kivact-test` は T02 の `INTERNAL_CONTRACT_PACKAGES` に入っているので、`internal-contract` の印は要らない）。
+     - `src/screen/driver.rs`：`pub(crate) fn start(` の直前に `#[doc(hidden)]` を足し、`pub(crate) fn start(` を `pub fn start(` にする。`/// The test driver (internal tests).`、`#[cfg(test)]`、`pub(crate) fn with_host<R>(` を `/// The test driver (the crate's own tests in \`tests/screen\`).`、`#[doc(hidden)]`、`pub fn with_host<R>(` にする。
+     - `src/screen/input.rs`：`/// Input queued without settling (internal tests): ...` の doc の下の `#[cfg(test)]` を `#[doc(hidden)]` にし、その `impl Screen` の中の 3 つの `pub(crate) fn` を `pub fn` にする。同じ `impl` の最後に次を足す。
+
+       ```rust
+           /// Inject one host event without settling (the crate's own tests).
+           pub fn inject(&self, event: kivact_engine::contract::HostEvent) {
+               self.app.host.borrow_mut().inject(event);
+           }
+       ```
+     - `src/screen/model.rs`：`rg -n "impl<'a> Locator<'a>" crates/kivact-test/src/screen` の最初の行の `impl` 塊の中に次を足す。
+
+       ```rust
+           /// The engine node of this locator (the crate's own tests).
+           #[doc(hidden)]
+           pub fn node_id(&self) -> NodeId {
+               self.node
+           }
+       ```
+  5. `src/lib.rs` の `` `dev/tests/kivact-public-api/tests/e2e/layout_check.rs` `` を `` `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs` `` にする。crate の doc の「no unit test of internal modules」はそのまま正しい（試験は `tests/` にある）。
+  6. `src/screen/results.rs` の `// xtask-allow(api-shape): existing test diagnostic contract reports the original builder location.` と `// xtask-allow(api-shape): semantic snapshots retain the nearest builder location for diagnostics.` の 2 行を消す（`&'static Location` は規則が認める。T02）。
+  7. 共通手順 M を `kivact-test`（`<DIRS>` = `crates/kivact-test/src`）に行う。`tests/screen/*.rs` の `// xtask-allow(state-fields):` の行（`host_sync.rs`、`real_window.rs`、`disposal.rs`、`editing_drop_probe.rs`）は、xtask が test target を読まないので、M3 の perl を `crates/kivact-test/tests/screen` にも行って消すだけにする。
+  8. compile error に従って `use` の過不足だけを直す。期待値・assert は一つも変えない。
+- **消すもの**：`src/screen/*_tests.rs`・`src/screen/editing_drop_probe.rs`・`src/screen/support.rs`（すべて移す）、`src/screen.rs` の `#[cfg(test)]` の `mod` の 10 組、`with_host` と queue の `#[cfg(test)]`、`results.rs` の `api-shape` の印 2 行。**試験は一つも消さない。**
 - **状態の閉じ方**：新しい型は無い。
-- **試験**：移す：`pure_setup_rejects_writes_even_through_untrack`、`pure_section_inside_a_memo_keeps_tracking`、`a_memo_cycle_through_copied_contexts_panics`（→ `tests/pure_context.rs`）、`gpu_frames_in_a_real_window_match_cpu_frames`、`gpu_host_state_transition_matches_the_cpu_intermediate_frame`、`gpu_frames_follow_a_scale_change`（→ `tests/gpu.rs`）。消す：`empty_real_empty_and_replaced_roots_publish_without_stale_nodes`、`a_cleanup_writes_signals_and_registers_on_its_disposing_owner`、`rejected_pointer_down_cannot_retain_an_ended_region_gesture`、`a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost`、`input_with_host_failure_keeps_host_core_and_binding_in_sync`、`input_with_host_failure_and_typing_after_a_click`、`host_edit_after_a_programmatic_reset_in_the_same_turn_is_kept`、`a_host_edit_that_overrides_the_only_pending_prop_sends_nothing`、`replacing_editing_drops_line_state_after_releasing_the_model`、`virtual_time_drives_sleep_and_frame_loops_exactly`、`a_display_rate_loop_follows_the_window_to_a_faster_display`、`a_minimized_window_asks_for_no_redraws_until_it_is_restored`、`failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel`、`pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reuse`、`registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping`、`a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_replacement`、`a_depth_fallback_reports_a_dropped_local_command_only_once`、`the_minimum_window_size_reaches_the_window`。
+- **試験**：移す（名前は変えない。path は `screen::<module>::<fn>`）：`accessibility::empty_real_empty_and_replaced_roots_publish_without_stale_nodes`、`context::{pure_setup_rejects_writes_even_through_untrack, pure_section_inside_a_memo_keeps_tracking, a_memo_cycle_through_copied_contexts_panics}`、`disposal::a_cleanup_writes_signals_and_registers_on_its_disposing_owner`、`gpu::{gpu_frames_in_a_real_window_match_cpu_frames, gpu_host_state_transition_matches_the_cpu_intermediate_frame, gpu_frames_follow_a_scale_change}`、`host_sync::{rejected_pointer_down_cannot_retain_an_ended_region_gesture, a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost, input_with_host_failure_keeps_host_core_and_binding_in_sync, input_with_host_failure_and_typing_after_a_click, host_edit_after_a_programmatic_reset_in_the_same_turn_is_kept, a_host_edit_that_overrides_the_only_pending_prop_sends_nothing, replacing_editing_drops_line_state_after_releasing_the_model}`、`real_window::{virtual_time_drives_sleep_and_frame_loops_exactly, a_display_rate_loop_follows_the_window_to_a_faster_display, a_minimized_window_asks_for_no_redraws_until_it_is_restored, failures_leave_artifacts_windows_are_pooled_and_tests_run_in_parallel}`、`scene_cache::{pending_canvas_assets_complete_after_a_presented_frame_and_remain_live_on_reuse, registering_a_font_after_a_cached_canvas_frame_replaces_fallback_shaping, a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_replacement, a_depth_fallback_reports_a_dropped_local_command_only_once}`、`window::the_minimum_window_size_reaches_the_window`（合計 24）。後の unit（A・E の最適化）はこの binary の試験を、自分の変更が触れる資源・cache の契約の確認に使ってよい。
 - **確認（tier a）**：
 
   ```bash
   cargo fmt -p kivact-test
   cargo clippy -p kivact-test --all-targets --all-features -- -D warnings
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-test --test pure_context --test gpu
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-test --test screen
   cargo xtask check --no-write --only state,api-shape --strict --crate kivact-test
   ```
 
-- **完了条件**：すべて成功（GPU が無ければ `gpu` の 3 つは理由を出して skip）。`rg -n "#\[cfg\(test\)\]" crates/kivact-test/src/screen.rs` が何も出さず、`ls crates/kivact-test/src/screen/*_tests.rs` が何も出さない。
+- **完了条件**：すべて成功（GPU が無ければ `gpu` の 3 つは理由を出して skip する。skip も passed に数える）。`cargo test` の出力の `test result:` の passed が 24（0 件や 24 未満は移し漏れで失敗）。`ls crates/kivact-test/src/screen/*_tests.rs` が何も出さず、`rg -n "#\[cfg\(test\)\]" crates/kivact-test/src/screen.rs` が何も出さない。
 
 ## T17：docs の doctest を英語だけにし、`no_run` を型検査の module にする
 
@@ -3312,7 +4090,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
      mod tests;
      ```
   4. `dev/tests/docs/src/guides.rs` と `src/tests.rs` の 1 行目 `//! Role: ` の `Role: ` を消す（`perl -pi -e 's{^//! Role: }{//! }' dev/tests/docs/src/*.rs`）。`dev/tests/docs/Cargo.toml` の `description` を `"Compile checks for docs/: the English guides' Rust blocks as doctests, their no_run blocks type-checked"` にする。
-  5. 日本語の 2 ファイルを英語に合わせる。
+  5. 日本語の 2 ファイルを英語に合わせる。`cargo xtask check --no-write --only docs-pairs --strict` がこの 2 件の他の error（`does not lex`、`invalid escape`、`twin ... is missing`、別のファイルの不一致）を出したら、その行を書いて STOP する（文書の中身を決めるのは付属書 G）。
      - `docs/for-kivact-user/jp/how-to-guide/canvas.md`：`use kivact::draw::{Draw, Offscreen};` で始まる Rust の block の開始の fence ```` ```rust ```` を ```` ```rust,no_run ```` にする（英語の `canvas.md` の同じ block が `no_run`）。
      - `docs/for-kivact-user/jp/how-to-guide/windows.md`：`fn dont_save_exits_without_saving()` を `fn don_t_save_exits_without_saving()` にする。
   6. `cargo check -p kivact-docs --all-targets --all-features` を実行する。`checked` の中の error は、生成した module の名前（`<prefix>_block_<n>`）から guide のファイルと何番目の `no_run` の block かが分かる。block のコードが今の API で compile できないなら、英語と日本語の両方の guide のその block を同じに直す（rustdoc の `no_run` でも同じ error になるはずのもの）。直せない（API の不足）なら STOP。
@@ -3508,7 +4286,7 @@ cargo xtask check --no-write --only state --strict --crate <P>
      | `dev/tests/docs` | 英語の guide と README のコードブロック |
      | `dev/tests/gpu-interop-producer` | GPU texture 共有の試験で使う描画エンジン |
      ```
-     - GPU lane の文の `KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required dev/tools/window-lock.sh -- cargo test -p kivact-public-api-tests --test e2e --all-features -- --test-threads=1` を `dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_core --test e2e_native --all-features -- --test-threads=1` にする。
+     - GPU lane の文の `KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required dev/tools/window-lock.sh -- cargo test -p kivact-public-api-tests --test e2e --all-features -- --test-threads=1` を、binary ごとの 2 つのコマンド `dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_core --all-features -- --test-threads=1` と `dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_native --all-features -- --test-threads=1` にする（文の「のように」の後に 2 つを並べる）。
      - `アプリを起動する試験と実 window を開くコマンドは、...` の段落を次にする。
 
      ```markdown
@@ -3665,7 +4443,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 gate の workspace の試験（tier b・tier c）だけは `--timeout 5400` を使う。
 
-**除外する package**（DEC-14 と作業指示書の枠）。**compile の対象外にする仕組みは gate の `--exclude` だけ**である（INC-09）。root の `Cargo.toml` の `members`・`exclude` は W1 の後どの wave でも変えない（kit・catalog・`kivact-kit-tests`・`kivact-docs` は workspace の member のまま。対象外の期間が終わったら gate が `--exclude` を付けなくなるだけ）。付属書の手順が「`members` から消す／戻す」と書いていたら何もしない。
+**除外する package**（DEC-14 と作業指示書の枠）。**compile の対象外にする仕組みは gate の `--exclude` だけ**である（INC-09）。**禁止は「未移行の package を一時的に外すために root の `Cargo.toml` の `members`・`exclude` を変えること」だけ**（12 章 PLAN-06）。kit・catalog・`kivact-kit-tests`・`kivact-docs` は workspace の member のまま、対象外の期間が終わったら gate が `--exclude` を付けなくなるだけ。付属書の手順が「未移行の package を `members` から消す／戻す」と書いていたら何もしない。一方、新しい crate を `members` に足すこと（T15 の `dev/tests/kivact-kit-tests`、S02 の `arvane-protocol`、C02 の `kivact-offscreen`、K06 の `kivact-plot`・`examples/catalog-shell`）と、統合で消える crate を `members` から消すこと（T13 の `kivact-devtools-client`）は、その unit の手順どおりに行う。
 
 - `XD`（W5a〜W10 の tier b、CP2）：`--exclude kivact-docs`
 - `XK`（W6a〜W9 の tier b、CP2）：`--exclude kivact-ui-basic --exclude kivact-ui-pop --exclude kivact-ui-game --exclude kivact-ui-creative --exclude kivact-ui-soft --exclude kivact-ui-basic-catalog --exclude kivact-ui-pop-catalog --exclude kivact-ui-game-catalog --exclude kivact-ui-creative-catalog --exclude kivact-ui-soft-catalog --exclude kivact-kit-tests`
@@ -3716,10 +4494,15 @@ dev/tools/window-lock.sh --timeout 5400 -- cargo test -p gpu-interop-producer --
 cargo check -p kivact-docs --all-targets --all-features
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc --all-features -- --test-threads=1
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
-dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_core --test e2e_native --all-features -- --test-threads=1
-dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-test --test gpu -- --test-threads=1
+for c in kivact kivact-offscreen arvane-render arvane-compose kivact-style; do cargo check -p "$c" --no-default-features --lib || exit 1; done
+tree=$(mktemp) && cargo tree -e normal -p kivact --no-default-features --prefix none > "$tree" && ! grep -Eq '^wgpu(-[a-z-]+)? v' "$tree"
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_core --all-features -- --test-threads=1
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_native --all-features -- --test-threads=1
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-test --test screen -- gpu:: --test-threads=1
 dev/tools/check-features.sh
 ```
+
+CPU だけの build の確認（12 章 TV-05）：workspace の `--no-default-features` は dev-dependency の feature（`kivact-style` の dev-dependency `kivact` の `gpu-interop`、`arvane` の dev-dependency `arvane-compose` の `gpu-interop`）で GPU が混ざるので、上の `for c in ...` の行が package ごとに `--lib` だけを compile して確かめ、次の行が `kivact` の CPU だけの通常の依存の木に `wgpu`（`wgpu`・`wgpu-core`・`wgpu-hal`・`wgpu-types`）が一つも無いことを確かめる（`grep` が見つけると `!` で非 0 になり、`cargo tree` が失敗しても `&&` で非 0 になる）。GPU lane は binary ごとに一つのコマンドにする（PLAN-07）。
 
 CP2（W8 の後）：xtask を `--only local` にし、clippy と 2 つの workspace の test に `XD` と `XK` を足し、`kivact-docs` の 2 行を行わない。GPU lane の 2 行と `check-features.sh` はそのまま（kit を含まない）。加えて、pending の残りを記録するために次の 2 つを実行し、結果（error の行の数と検査の名前）を `rework/PROGRESS.md` に書く。**失敗しても先に進む**（W5a〜W10 の tier b は `--only local` で pending を note にするので、ここで残りを知る。INC-29）。`--crate` は 1 回しか書けないので 2 つに分ける。
 
@@ -3728,7 +4511,49 @@ cargo xtask check --no-write --only local --strict --crate kivact-ui
 cargo xtask check --no-write --only local --strict --crate kivact-interaction
 ```
 
-CP1（W4b の後）と CP3（最終、W11c の後）は上の形のまま。CP3 は加えて作業指示書 2 章の AC-4 の検査（4.2 節が基）を行う。CP3 の `cargo xtask check --no-write` は、G15 が `[rework.pending]` と `--strict` を消した後なので、すべての検査の結果が error になる（AC-3）。
+CP1（W4b の後）と CP3（最終、W11c の後）は上の形のまま。**CP3 は `--strict` を使わない**（G15 が `--strict` と `[rework.pending]` を消した後なので、`--strict` は未知の引数で exit 2 になる。12 章 PLAN-03）。CP3 の `cargo xtask check --no-write` は pending が無いので、すべての検査の結果が error になる。CP3 は加えて作業指示書 2 章の AC-4 の検査（4.2 節が基）と、次の AC-3 の検査を行う。
+
+**AC-3 の検査**（設計 6.1・12 章 ST-01）：次の二つが成功し、二つ目が何も出さない。
+
+```bash
+cargo xtask check --no-write
+rg -n "xtask-allow\(state\): legacy:" crates dev examples templates
+```
+
+`cargo xtask check` は `legacy:` の印が残っていれば note `state: <N> legacy marker(s) ...` を出す（失敗にはしない。数の確認は `rg` で行う）。**CP1 の台帳**：CP1 で Orchestrator は `rg -n "xtask-allow\(state\): legacy:" crates dev examples templates > rework/state-ledger.md.raw` で全件を集め、各行の次の item（型・関数）・file・field の列を `rework/state-ledger.md` の表にし、`rework/OPEN.md` で設計者に返す（付属書 L が閉じ方を決める）。
+
+**W0 の基点の gate**（12 章 PLAN-05。基点 `2b8df5ac` の構成：E2E は単一の `e2e`、`kivact-kit-tests`・`kivact-offscreen` は無い、`window-lock.sh` に `--if-mirror` は無い、`cargo xtask check` は `--no-write` を付けないと図を書く）。W0 の基点の失敗の記録はこの形だけで行い、上の tier c を基点に使わない。
+
+```bash
+cargo fmt --all -- --check
+cargo xtask check --no-write
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test -p gpu-interop-producer --all-features -- --test-threads=1
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --all-features -- --test-threads=1
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e --all-features -- --test-threads=1
+dev/tools/check-features.sh
+```
+
+基点の試験の名前の一覧（作業指示書 W0 の手順 2）は、終了の状態を確かめてから stderr を捨てる：
+
+```bash
+list=$(mktemp)
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --all-features -- --list > "$list" 2> "$list.err" || { echo "STOP: the baseline test list failed (see $list.err)"; exit 1; }
+grep ': test$' "$list" | sort > rework/baseline-tests.txt
+```
+
+**KPI の比較**（設計 2 章、T24）：
+
+```bash
+dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh B0            # W0（基点）
+dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh CP1           # CP1・CP3
+dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh --no-catalog CP2   # CP2 だけ（kit と catalog が未移行）
+cargo xtask kpi-compare rework/kpi/B0.md dev/bench/results/CP<n>.md > rework/kpi/CP<n>-ratio.md
+```
+
+`kpi-compare` の終了の状態：0＝全行が必達と改善の必達を満たす、1＝後退した行がある（同じ条件で 2 回測り直し、3 回中 2 回で判定するのは Orchestrator）、3＝後退は無いが改善の必達に届かない行がある（`rework/OPEN.md` の「KPI の未達」へ）、2＝入力の誤り（`INVALID:` の report、行の欠落、`kpi.toml` の誤り。測り直す）。表の「未検証（WARNING）」の行は同じ条件で測り直し、2 回とも WARNING なら未検証として記録する（合否に数えない）。CP2 の report の basic catalog の行は `skipped` になる（`--no-catalog`）。B0 は基点で測るので `--no-catalog` を付けない。
 
 `gpu-interop-producer` の `--no-default-features` と `kivact-docs` の `--no-default-features` は行わない（producer は既定の feature なしでは振る舞いを持たず、docs は feature が無いと compile できない。TL-01）。GPU lane は GPU の無い環境では `kivact::test::gpu_unavailable()` の理由を出して skip する。
 
@@ -3774,8 +4599,8 @@ rg -n -P 'pub fn (weight|italic|radius\w*|ring\w*|basis|grow|shrink|wrap|directi
 | `cargo xtask diagrams` | 図を `architecture/` に書く（要 Node.js、commit しない） |
 | `[rework.pending]` | 4.4 節 |
 | `[ui_machine] allowed_types` | kivact-ui に残す表示だけの Machine の定義 path（`kivact_ui::<module>::<Type>`）。`button.rs`・`progress.rs`・`alert.rs`・`empty_state_changes.rs` の Machine を別の module に移すのは付属書 U。path の更新は W8 の U4 の **U52** にまとめる（W7b・W8 で二つの lane が `workspace.toml` を持たないため。INC-14） |
-| `[state] exempt_suffixes`、`recipe_state_packages` | 設計 6.1 (c)。**付属書 K** の `kivact-plot` の新設の unit は `recipe_state_packages` に `"kivact-plot"` を足す（`<Name>State` の recipe の状態を持つなら） |
-| `check_source::INTERNAL_CONTRACT_PACKAGES` | `#[doc(hidden)]` が印なしで内部の契約になる package。`arvane-protocol` を先に入れてある（**付属書 S** が `kivact-types/src/render/shaped.rs` などを移すため）。`kivact-offscreen` などに `#[doc(hidden)]` の契約を置く付属書は、この const に名前を足す |
+| `legacy:` の印 | `// xtask-allow(state): legacy: ...` は W1 の共通手順 M が機械的に作った印。xtask の `state` は残りの数を note `state: <N> legacy marker(s) ...` で出す。CP1 で Orchestrator が台帳 `rework/state-ledger.md` にし、付属書 L が閉じる。他の付属書の unit は `legacy:` の印を新しく書かない（新しい状態の型の印は閉じ方を書いた通常の印） |
+| `check_source::INTERNAL_CONTRACT_PACKAGES` | `#[doc(hidden)]` が印なしで内部の契約になる package。`kivact-test`（T16 の試験の入口 `Screen::{start, with_host, inject, queue_*}`・`Locator::node_id`）と `arvane-protocol` を入れてある（**付属書 S** が `kivact-types/src/render/shaped.rs` などを移すため）。`kivact-offscreen` などに `#[doc(hidden)]` の契約を置く付属書は、この const に名前を足す |
 | `visible_to` | 新しい crate（`arvane-protocol`、`kivact-offscreen`、`kivact-plot`）の `visible_to` の行は、その crate を作る unit（付属書 S・C・K）が足す。xtask-core は存在しない package の名前を拒むので、W1 では足さない。dev-dependency は対象外なので、試験の package を一覧に入れない |
 
 ### 4.4 `[rework.pending]`：どの unit が通し、誰が消すか
@@ -3787,7 +4612,7 @@ rg -n -P 'pub fn (weight|italic|radius\w*|ring\w*|basis|grow|shrink|wrap|directi
 | `interaction-view` | `kivact-interaction` | 付属書 U（UI-04・UI-24：`Announcer::outlet`、`while_open`、`Toast::icon` を消し `surface()` だけにする）。W8 の各 U の lane の最後の unit（U54 など）が `--strict --only interaction-view,ui-machine,unit-machine --crate kivact-interaction` で確かめる |
 | `ui-machine` | `kivact-ui` | 付属書 U（UI-04：入力で動く 13 の Machine を interaction の `use_*` へ。`combobox/labels.rs` などの signal を書く effect をなくす）。W8 の各 U の lane の最後の unit が `--strict --only interaction-view,ui-machine,unit-machine --crate kivact-ui` で確かめる。`[ui_machine] allowed_types` の path は U52 が直す |
 | `unit-machine` | `kivact-interaction` | 付属書 U（UI-09：`scalar/focus_machine.rs`、`scalar/range_machine.rs`）。確かめ方は `interaction-view` と同じ |
-| `hand-element` | `kivact-core`、`kivact-ui`、5 つの kit、`kivact-ui-game-catalog`、`kivact-ui-pop-catalog` | 付属書 C（C09 か C18：`kivact-core/src/custom/measured_leaf.rs` の `Primitive` を `view` に移し `--strict --only hand-element --crate kivact-core`）、付属書 U（U24：`--strict --only element-shadow,hand-element --crate kivact-ui`）、付属書 K（各 kit の W10 の最後の unit K35・K37・K38・K40・K43：`--strict --only hand-element,element-shadow --crate kivact-ui-<kit>`。game と pop は catalog の package も） |
+| `hand-element` | `kivact-core`、`kivact-ui`、5 つの kit、`kivact-ui-game-catalog`、`kivact-ui-pop-catalog` | `kivact_ui::tooltip::Tooltip`（`crates/kivact-ui/src/tooltip.rs`）は policy の `[hand_element] allowed_impls` で許してある（設計 5.1。付属書 U はこの path と file を変えない。変えるなら同じ unit で policy の行を直す）。付属書 C（C09 か C18：`kivact-core/src/custom/measured_leaf.rs` の `Primitive` を `view` に移し `--strict --only hand-element --crate kivact-core`）、付属書 U（U24：`--strict --only element-shadow,hand-element --crate kivact-ui`）、付属書 K（各 kit の W10 の最後の unit K35・K37・K38・K40・K43：`--strict --only hand-element,element-shadow --crate kivact-ui-<kit>`。game と pop は catalog の package も） |
 | `element-shadow` | `kivact-ui`、5 つの kit、`kivact-ui-game-catalog`、`kivact-ui-pop-catalog` | 付属書 U（U24。API-13 の `Card::disabled` など）、付属書 K（`hand-element` と同じ unit） |
 
 W5a〜W10 の tier b は `--only local` で pending を note にするので、残りは CP2 の記録（4.1 節）と、上の各 unit の `--strict` の確認で知る（INC-29）。
@@ -3801,10 +4626,9 @@ W5a〜W10 の tier b は `--only local` で pending を note にするので、�
    - `use crate::pending::Pending;` と `let pending = Pending::parse(&policy)?;` を消す。
    - `struct Scope` の field `pending: &'a Pending,` と、`Scope { .. }` の初期化の `pending: &pending,` を消す。
    - `Scope::run` の中の `self.route(rule, package, found, options, outcome);` と `self.route(rule, &source.package, found, options, outcome);` の 2 か所を `outcome.errors.extend(found);` にし、`fn route`（doc を含む）を消す。`run` の引数 `options` が使われなくなる場合は compile の警告に従って消し、呼出し `scope.run(root, options, &mut outcome)` も合わせる。
-   - `struct Outcome` の field `notes`（doc の文の「notes are findings of a pending rule」も）を消し、`Outcome { errors: Vec::new(), notes: Vec::new() }` を `Outcome { errors: Vec::new() }` にする。`for list in [&mut outcome.errors, &mut outcome.notes] { list.sort(); list.dedup(); }` を `outcome.errors.sort();` と `outcome.errors.dedup();` の 2 行にする。
-   - `fn selected` の `for note in &local.notes { println!("{note}"); }` を消す。
+   - `struct Outcome` の doc を `/// The findings of one run: errors fail it; notes (the count of `legacy:` state markers) only print.` にする。field `notes` と、notes を表示する箇所（`fn selected` の表示、`main.rs` の `report.notes.extend(local.notes)`）は残す（`legacy:` の数の note が使う。AC-3 の時点では 0 件で何も出ない）。
 5. `dev/xtask/src/check_cli.rs`：`Options` の field `strict`（doc を含む 2 行）と、`parse` の `"--strict" => result.strict = true,` を消す。`mod tests` の引数の列から `"--strict",` を、`assert!(options.strict);` を消す。
-6. `dev/xtask/src/main.rs`：`report.notes.extend(local.notes);` を消す。help の文字列の `[--strict] ` を消す。
+6. `dev/xtask/src/main.rs`：help の文字列の `[--strict] ` を消す（`report.notes.extend(local.notes);` は残す）。
 7. `dev/xtask/src/policy.rs`：`table.remove("rework");` を消す。
 8. `CONTRIBUTING.md`：`改修の間だけ、` で始まる段落（`[rework.pending]` と `--strict` の説明）を消す。`dev/README.md`：「xtask の検査を絞る」のコードブロックの `--strict ` を消し、その下の段落の `` `--strict` は `[rework.pending]` の note を error にします。`` の文を消す。
 9. 確認：
@@ -3814,10 +4638,10 @@ W5a〜W10 の tier b は `--only local` で pending を note にするので、�
    cargo clippy -p xtask --all-targets -- -D warnings
    cargo test -p xtask
    cargo xtask check --no-write
-   rg -n "Pending|rework\.pending|--strict|\.strict\b|\bnotes: Vec|local\.notes" dev/xtask CONTRIBUTING.md dev/README.md
+   rg -n "Pending|rework\.pending|--strict|\.strict\b|\"pending: " dev/xtask CONTRIBUTING.md dev/README.md
    ```
 
-   最後の `rg` が何も出さない（`xtask-core` の `report.notes` は残る：`main.rs` の `report.notes.extend(local.errors)`（`--report`）はそのまま）。
+   最後の `rg` が何も出さない（`Outcome::notes` と `legacy:` の数の note は残る。`state/fields.rs` の `"pending_"` は counter の名前の規則で、この `rg` には当たらない）。`Scope::route` の中の `format!("pending: {finding}")` は手順 4 で `fn route` ごと消えている。
 
 ### 4.5 E2E の構成（全付属書が試験の名前を書くときに使う）
 
@@ -3834,7 +4658,7 @@ W5a〜W10 の tier b は `--only local` で pending を note にするので、�
 
 1 と 2 と 4〜7 は推奨どおり採用（設計 4.1・6.1・6.4 を改訂済み、作業指示書 0.6 節は親が直す）。3 は推奨を採らず、Scripts パネルとそれだけが使う protocol を消す（T23）。
 
-1. **`State` の接尾辞の対象外**（採用）：設計 6.1 (c) は `State`（recipe の状態）を対象外とする。すべての `*State` を対象外にすると engine の `PointerState` などの本物の状態の型が検査から抜ける。**決定**：`State` は `recipe_state_packages`（`kivact-ui` と 5 kit。後で `kivact-plot`）の中でだけ対象外（T01 の実装）。
+1. **`State` の接尾辞の対象外**：親が設計 12 章 ST-01 で取り消した。`state` の検査は名前の接尾辞と `Hash + Eq` による除外を一つも持たない（T01）。
 2. **`e2e_kits` を別の package にする**：Cargo の dev-dependency は package のすべての test target に compile されるので、`kivact-public-api-tests` の中に `e2e_kits` を置くと、W6a〜W9 に kit を compile から外せず `e2e_core` なども compile できなくなる（DEC-14）。feature で kit を optional にする方法は tier c の `--all-features` と衝突する。**決定（採用）**：新しい package `kivact-kit-tests`（`dev/tests/kivact-kit-tests`、`publish = false`）に `e2e_kits` を置く（T15）。package の数は設計 4.1 の 53 から 54 になる。
 3. **DevTools の Scripts パネル**（親の決定：消す）：Scripts パネル、method `show_table`、通知 `script_table`、`ShowTableParams`、`Topic::Scripts`、`DevtoolsConfig::{python, scripts_dir}`、`ClientKind::Python` を消し、`PROTOCOL_VERSION` を 1 から 2 にし、MCP の除外の列から `show_table` を消す（T23、W1a）。`rg` で確かめた範囲では、これらを使うのは Scripts パネル・core の `devtools/scripts.rs`・MCP の除外の列・試験だけで、残す必要のあるものは無い（`push_capped` は他の列も使うので残す）。利用者の文書の側は T18。
 4. **TL-10（core の DevTools の hook）**：設計 7.8 で採用だが kivact-core の内部の再構成（`client/dispatch/*` と `view/devtools_*.rs`）。**決定（採用）**：付属書 C が W3a〜W4b の C の lane の unit として持つ（`devtools` module が `Option<Box<dyn DevtoolsHooks>>` を一つ公開し、dispatch は `hooks.on_pointer(..)` などだけを呼ぶ。`view/devtools_*` を `devtools/` へ畳む）。
@@ -3867,6 +4691,7 @@ TL-13 は採用（設計 7.8）。kit の移行（W9・W10）の後に行う。*
 - **所見の割当て**：TL-01（T19、T21、4.1）、TL-02（T02、T20、T21）、TL-03（T04、T17）、TL-04（T01、T05〜T17、T22）、TL-05（T02、T07〜T09、T16）、TL-06（T02、T07）、TL-07（T02）、TL-08（T13、T18）、TL-09（T04、T18、T23）、TL-10（4.9 で付属書 C へ。4.6 節の 4）、TL-11（不採用）、TL-12（T16）、TL-13（4.8 で付属書 K へ）、TL-14（T13、T14）、TL-15（T15）、TL-16（T01、T20、T21）、TL-17（T19）。設計 6.1（T01、T22）、6.3（T02、T03、4.4）、6.4（T15、T17、4.1）、4.1（T13、T04）、4.3（T04、T07〜T12、T14、T20、T22）、KIT-16 の README の部分（T14）。採用の所見はすべてどれかの unit か引き渡しにある。
 - **設計の判断を残していないか**：共通手順 M の印の文面は報告の行と旧い印の理由から機械的に決まる。分割の module の行き先は T15 の 3 つの列で全部決めてある（列に無いファイルが残れば STOP）。設計の判断が要った 7 点は親が決定し（4.6 節）、本文はその決定で書いてある。T23 の削除の範囲は `rg` の結果の表で閉じており、表の外の利用が見つかれば STOP。
 - **横断の検査（INCONSISTENCIES.md）への対応**：INC-09（除外は `--exclude` だけ、4.1）、INC-12（W10 は `XT`、4.1）、INC-13（AC-4 の正本は作業指示書 2 章、`EXCL` に `decisions.md`・`REWORK_*.md`・`rework/**`、4.2）、INC-14（4.4 の通す unit と G15 の削除の手順）、INC-15・INC-43（lock の一覧に `catalog-shell`・`kivact-plot`、全コマンドを `window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test` の形に）、INC-29（CP2 の `--strict` の記録、4.1）、INC-38（protocol の `TokenKind` は残す、4.2）、INC-45（wave の表記を SCHEDULE.md の sub-wave に。本付属書の unit の配置は SCHEDULE.md と同じ）。
+- **外部レビュー（設計 12 章）への対応**：ST-01（共通手順 M の印は `legacy:`、T01 は名前・derive の除外を消し `legacy:` の数を note にする、AC-3 の検査は 4.1）、PLAN-02（T24：`run.sh --no-catalog`・`kpi.toml`・`kpi-compare`、W1b / T3）、PLAN-03（CP3 は `--strict` を使わない、4.1）、PLAN-04（3 章の共通の約束、`ROOT=$(git rev-parse --show-toplevel)`）、PLAN-05（W0 の基点の gate、4.1）、PLAN-06（`members` の規則、4.1）、PLAN-07（binary ごとのコマンドと 0 件は失敗、3 章と 4.1）、TV-01（`tests/schema_generated/main.rs`）、TV-04（T16 は 24 の試験をすべて `tests/screen/` へ移す）、TV-05（tier c の package ごとの CPU の確認と `cargo tree`）、TV-06（docs-pairs は file の集合の和と token の列）、TV-10（T23 の検索は固有の名前と DevTools の file に限る）。親の追加：`hand-element` の許可は policy の `[hand_element] allowed_impls`（`kivact_ui::tooltip::Tooltip` と file）。
 - **W1a と W1b のファイルの重なり**：T23（W1a）は `crates/kivact-core/src/devtools*`・DevTools の 5 crate を変えるが、W1a は 1 lane で W1b より前に終わる。W1b で同じファイルを持つ T07（kivact-core）と T13（DevTools の crate）は T23 の結果の上で作業する。
 - **同じ wave の二つの unit が同じファイルを持たないか**：W1a は 1 lane（T01 → T02 → T03 → T04 → T23 の順）。W1b の 6 lane は 2 章の末尾のとおり directory で分かれる。root の `Cargo.toml`（`members`）と `Cargo.lock` は T5 の lane の T13 と T15 だけ（同じ lane の順）。`dev/xtask/policy/workspace.toml` は W1b では T15 だけ（1 件の例外を足す）。`README.md`・`README_JP.md` は T6 の lane の T18 と T20 だけ（同じ lane の順）。`crates/kivact-ui-*/README.md` は T14（T5）、`crates/kivact-ui-*/src` は T11（T4）。`crates/kivact-core/src/custom.rs` の doc は T07（T2）が直し、T15 は触らない。`crates/kivact-types/src/cell.rs` は付属書 S の W1a の unit の所有で、T09 は除く。W1c は 1 lane。
 - **状態の閉じ方**：新しい型の field は 1 章ごとに書いた。`check_cli::Options` は `Options` の接尾辞で対象外、`Fence` は enum。新しい `xtask-allow(state)` の印は本付属書の新しいコードには要らない。

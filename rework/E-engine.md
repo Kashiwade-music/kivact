@@ -44,6 +44,12 @@
 | 付属書 C 向け：入力の出所 `InputOrigin`・`Routed::origin`（E-REQ-6） | RC-28 | E30 |
 | 付属書 C 向け：InputValue の echo の抑止・`LayoutReport`・`NodeFlags`・`font_generation`（E-REQ-1〜4） | RC-20 | E31 |
 | 付属書 A 向け：layer の `content_version`（AR-03）の engine 側 | 設計書 6.2 PERF-7 | E14 |
+| EA-01 検証の描き直しと内容の変化を分ける | 採用（設計書 12 章） | E12（照合を別の出力に）、E14（持ち越しの規則と試験） |
+| EA-02 scroll の部分 rewalk が transform・layer を増やす | 採用 | E13（`compact`）、E32（試験） |
+| EA-03 部分 rewalk で外れた node の draw cache が残る | 採用 | E13（`forget_left_draws`）、E32（試験） |
+| EA-11・EA-12・EA-16 `EditContext` の全文の走査・3 行の窓・cluster の境界 | 採用 | E17（W5a の鎖） |
+| EA-13 self_check の参照の hit walk が索引を使う | 採用 | E24 |
+| EA-14 照合が cache の paint を使う | 採用 | E12（`verify_draw`）、E32（試験） |
 
 ### 1.2 前提（他の付属書が先に済ませたこと）
 
@@ -56,19 +62,30 @@
 
 ### 1.3 wave・lane の使い方
 
-- 配置は作業指示書 4 章の wave の表（SCHEDULE）のとおり：W3b（E1：E01 → E02、E2：E03 → E04）、W4（E1：E05 → E06 → E07 → E08 → E09 → E30、E2：E10 → E11）、W4b（lane E：E31）、W5a（鎖：… → E17 → E18 → E20、E1：E15 → E16、E2：E12 → E13）、W6b（E1：E19 → E21、E2：E14 → E24）、W7a（E1：E22 → E23 → E25 → E26）、W7b（E1：E27 → E28）、W8（E1：E29）。
+- 配置は作業指示書 4 章の wave の表（SCHEDULE）のとおり：W3b（E1：E01 → E02、E2：E03 → E04）、W4（E1：E05 → E06 → E07 → E08 → E09 → E30、E2：E10 → E11）、W4b（lane E：E31）、W5a（鎖：… → C18 → E15 → E17 → E18 → E20、E1：E16、E2：E12 → E13）、W6b（E1：E19 → E21、E2：E14 → E32 → E24）、W7a（E1：E22 → E23 → E25 → E26）、W7b（E1：E27 → E28）、W8（E1：E29）。
 - lane は wave ごとに、表の順に unit を一つずつ実行する（同じ lane の中は直列）。同じ wave の二つの lane は一つもファイルを共有しない（5.3 節）。
-- W5a の鎖（1 lane）に置く unit は E17・E18・E20。付属書 R と C の鎖の unit の後に、E17 → E18 → E20 の順で走らせる。A の鎖（A05〜A10）は W5b で、本書の W5a の unit と同時に走らない。
+- W5a の鎖（1 lane）に置く unit は E15・E17・E18・E20。付属書 R と C の鎖の unit の後に、E15 → E17 → E18 → E20 の順で走らせる（E15 を E1 から鎖へ移したのは E17 の EA-11 の設計のため：E17 は E15 の後の `host/events.rs` と `host/testing/self_check.rs` を直す）。A の鎖（A05〜A10）は W5b で、本書の W5a の unit と同時に走らない。
 - 本書の「`src/...`」は `crates/kivact-engine/src/...` を指す。
 
 ### 1.4 試験の実行の約束（全 unit 共通）
 
-- アプリを起動する試験は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で実行する（作業指示書 0.6、INC-15・INC-43）。
-- E2E の module は次の binary にある：`interaction_*`・`ui_*`・`apg_*` は `e2e_ui`、`theme_conformance` は package `kivact-kit-tests` の `e2e_kits`（`-p kivact-kit-tests --test e2e_kits`）、`devtools`・`embed`・`gpu_*`・`foreign_window`・`drawable_export_gpu`・`viewport_gpu_interop` は `e2e_native`、それ以外は `e2e_core`。cargo が「0 passed」を出した module は、残りの三つの binary で同じ filter を実行する。
-- 各 unit の「確認」の `E2E: a, b, c` は、列挙した module 名 `<m>` を一つずつ次の形で実行することを指す：
+- コマンドはすべて worktree の root で実行する（PLAN-04）。手順の中で別の directory に入る所は `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/..." || exit 1` で入り、`cd "$ROOT" || exit 1` で戻る。
+- アプリを起動する試験は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で実行する。window-lock は一つのコマンドに一度だけ（作業指示書 0.6、PLAN-01・INC-15・INC-43）。
+- E2E の module と test binary の対応は付属書 T の T15 の手順 7 の三つの列（と `e2e_kits` へ移す四つ）のとおり。本書の確認が使う module はすべて次の表にある（`e2e_core` の行は T15 の一つ目の列そのもの。PLAN-07）。
+  | binary（package） | 本書が使う module |
+  |---|---|
+  | `e2e_core`（`kivact-public-api-tests`） | `a11y_incremental`、`app_handle`、`assets`、`async_tests`、`binding_update`、`borders_backgrounds`、`canvas`、`canvas_worker`、`close_request`、`color_spaces`、`component_macro`、`components`、`compositor`、`custom_text_field`、`diagnostics`、`disposal`、`drawables`、`effects_filters`、`environment`、`flows`、`focus`、`frame_sources`、`grid`、`hover`、`i18n`、`image_semantics`、`images_animated`、`input_platform`、`keyboard`、`keys_unhandled`、`landmark_roles`、`launch_fonts`、`launch_platform`、`launch_real_window`、`launch_support`、`launch_window`、`layout`、`layout_check`、`layout_scroll`、`layout_units`、`lifecycle`、`machine`、`motion`、`motion_easing`、`node_ref`、`offscreen`、`offscreen_svg`、`overlay`、`paint`、`parts`、`path_algebra`、`platform_paths`、`pointer`、`presence`、`presence_modes`、`primitive`、`relations`、`resource_reclaim`、`runtime`、`scroll_timeline`、`setup_functions`、`shaders`、`shared_layout`、`style_paint`、`svg_embedded_text`、`task`、`text_editing`、`text_effects`、`text_primitives`、`text_style`、`timeline`、`touch_scroll`、`transform`、`transform_3d`、`view`、`viewport`、`windows` |
+  | `e2e_ui`（`kivact-public-api-tests`） | `apg_*`、`interaction_*`、`ui_*`（`ui_standard` を除く）、`metrics_and_description`、`reactive_props` |
+  | `e2e_native`（`kivact-public-api-tests`） | `devtools`、`embed`、`foreign_window`、`gpu_on_demand` |
+  | `e2e_kits`（`kivact-kit-tests`） | `ui_standard`、`theme_conformance` |
+- 各 unit の「確認」の `E2E: a, b, c` は、列挙した module 名 `<m>` を一つずつ、上の表の binary の一つのコマンドで実行することを指す。一つのコマンドに二つの binary の module を混ぜない。
   ```
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- <m>::
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- <m>::
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- <m>::
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-kit-tests --test e2e_kits -- <m>::
   ```
+- **0 件は失敗**：filter が一つの試験も実行しなかったコマンド（cargo の出力が `running 0 tests`）は、その unit の確認の失敗とする。別の binary で探し直さない（module が表の binary に無ければ STOP）。engine の試験（`--test content_version` など）と `-p kivact-editing --lib -- <filter>` も同じ。
 
 ### 1.5 共通の確認（tier a）
 
@@ -126,19 +143,20 @@ cargo test -p kivact-editing
 | E10 | W4 | E2 | — | `src/model/changes.rs`、`src/model/interact/{sync,text_geometry,caret,geometry}.rs`、`src/model/aggregate.rs`、`src/host/pump.rs` | EN-07 | S |
 | E11 | W4 | E2 | E10 | `src/layer.rs`、`src/paint/list/{look,walk}.rs`、`src/model/interact/{hit,geometry}.rs` | EN-23（Look）、EN-29（Look・SubtreeFacts） | S |
 | E31 | W4b | E | E30 | `src/host/write/{reader,writer,typed}.rs`、`src/contract.rs`、`src/contract/events.rs`、`src/model/app_model.rs`、`src/model/semantics.rs`、`src/host/pump.rs`、`crates/kivact-core/src/launch/runtime.rs`（1 行）、`crates/kivact-core/src/client/dispatch/delivery.rs`（1 腕） | 付属書 C の E-REQ-1〜4（RC-20） | M |
-| E12 | W5a | E2 | — | `src/paint/{state,frame_scene,canvas,snapshot}.rs`、`src/paint/list/invalidation.rs`、`src/lower/scene_out.rs`、`src/model/{aggregate,states,scrollbar,transform}.rs`、`src/model/interact/{sync,visual,geometry,hit}.rs`、`src/model/pointer/hover.rs`、`src/model/frame/ticks.rs` | EN-03 | L |
-| E13 | W5a | E2 | E12 | `src/model/interact/sync.rs`、`src/model/changes.rs`、`src/model/frame/ticks.rs`、`src/model/state_motion/*`、`src/model/layout_motion/steps.rs`、`src/paint/list/{walk,invalidation}.rs`、`src/paint/{state,frame_scene}.rs` | EN-04 | L |
-| E14 | W6b | E2 | E13、A09（W5b） | `src/lower/scene_out.rs`、`src/lower/content_versions.rs`、`src/host/testing/test_host.rs`、`crates/kivact-engine/{Cargo.toml,tests/content_version.rs}`、`src/paint/{frame_scene,state,canvas,snapshot}.rs`、`src/paint/list/walk.rs`（`paint_list`） | AR-03（engine 側） | S |
-| E15 | W5a | E1 | — | `src/host/*`（`window.rs` は `src/model/window.rs` へ移す）、`src/model/{app_model.rs}`、`src/model.rs`、`src/host.rs` | EN-15 | M |
-| E16 | W5a | E1 | E15 | `src/a11y/build/{dirty,identity,node}.rs` | EN-10（S） | S |
-| E17 | W5a | 鎖 | R・C の鎖 | `crates/kivact-editing/src/*`、`src/model/{keys,apply}.rs`、`src/model/edit/*`、`src/model/pointer/machine.rs`、`src/text_input/shaping.rs`、`src/measure/editor.rs`、core・interaction・ui・ui-soft の editing の呼出し元、`dev/tests/kivact-public-api/tests/e2e/text_editing.rs` | EN-14、EN-31、監査 4 章 | M |
+| E12 | W5a | E2 | — | `src/paint/{state,frame_scene,canvas,snapshot}.rs`、`src/paint/list/invalidation.rs`、`src/lower/scene_out.rs`、`src/model/{aggregate,states,scrollbar,transform}.rs`、`src/model/interact/{sync,visual,geometry,hit}.rs`、`src/model/pointer/hover.rs`、`src/model/frame/ticks.rs` | EN-03、EA-01・EA-14（照合） | L |
+| E13 | W5a | E2 | E12 | `src/model/interact/sync.rs`、`src/model/changes.rs`、`src/model/frame/ticks.rs`、`src/model/state_motion/*`、`src/model/layout_motion/steps.rs`、`src/paint/list/{walk,invalidation}.rs`、`src/paint/{state,frame_scene}.rs` | EN-04、EA-02、EA-03 | L |
+| E14 | W6b | E2 | E13、A09（W5b） | `src/lower/scene_out.rs`、`src/lower/content_versions.rs`、`src/host/testing/test_host.rs`、`crates/kivact-engine/{Cargo.toml,tests/content_version.rs}`、`src/paint/{frame_scene,state,canvas,snapshot}.rs`、`src/paint/list/walk.rs`（`paint_list`） | AR-03（engine 側）、EA-01 | S |
+| E32 | W6b | E2 | E14 | `src/paint/state.rs`（thread-local と試験用の method）、`src/paint/list/invalidation.rs`（3 行）、`src/host/testing/test_host.rs`（method 二つ）、`src/host/testing.rs`（1 行）、`crates/kivact-engine/{Cargo.toml,tests/draw_cache.rs}` | EA-02・EA-03・EA-14 の試験（設計書 12 章） | S |
+| E15 | W5a | 鎖 | R・C の鎖 | `src/host/*`（`window.rs` は `src/model/window.rs` へ移す）、`src/model/{app_model.rs}`、`src/model.rs`、`src/host.rs` | EN-15 | M |
+| E16 | W5a | E1 | — | `src/a11y/build/{dirty,identity,node}.rs` | EN-10（S） | S |
+| E17 | W5a | 鎖 | E15（R・C の鎖） | `crates/kivact-editing/{src/*,tests/geometry.rs}`、`src/model/{keys,apply}.rs`、`src/model/edit/*`、`src/model/pointer/machine.rs`、`src/text_input/shaping.rs`、`src/text_input.rs`、`src/measure/{editor,input}.rs`、`src/host/events.rs`（2 行）、`src/host/testing/self_check.rs`（2 行）、core・interaction・ui・ui-soft の editing の呼出し元、`dev/tests/kivact-public-api/tests/e2e_core/{text_editing,custom_text_field}.rs` | EN-14、EN-31、監査 4 章、EA-11、EA-12、EA-16 | M |
 | E18 | W5a | 鎖 | E17 | `src/contract/{node.rs,contract.rs}`、`src/host/write/typed.rs`、`src/tree/node.rs`、`src/model/apply.rs`、`src/model/pointer/shell.rs`、`crates/kivact-core/src/view/tree.rs`、`crates/kivact-test/src/facts.rs` | EN-23（NodeInput） | S |
-| E19 | W6b | E1 | — | `src/model/{aggregate,app_model}.rs`、`src/model.rs`、`src/host/write/writer.rs`、`src/host/{pump,launch}.rs`、`src/embed.rs`、`src/frame_log.rs`、`src/lib.rs`、`src/host/testing/test_host.rs` | EN-16、EN-19 | S |
-| E20 | W5a | 鎖 | E18（E17） | `crates/kivact-editing/src/edit_state.rs`、`src/model/pointer/{machine,state,touch}.rs`、`src/text_input/word.rs`（削除）、`src/text_input.rs`、`src/model/edit/ime.rs`、`dev/tests/kivact-public-api/tests/e2e/text_editing.rs` | EN-01、EN-21 | S |
+| E19 | W6b | E1 | — | `src/model/{aggregate,app_model}.rs`、`src/model.rs`、`src/host/write/writer.rs`、`src/host/{pump,launch}.rs`、`src/embed.rs`、`src/frame_log.rs`、`src/lib.rs` | EN-16、EN-19 | S |
+| E20 | W5a | 鎖 | E18（E17） | `crates/kivact-editing/src/edit_state.rs`、`src/model/pointer/{machine,state,touch}.rs`、`src/text_input/word.rs`（削除）、`src/text_input.rs`、`src/model/edit/ime.rs`、`dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs` | EN-01、EN-21 | S |
 | E21 | W6b | E1 | E19 | `src/model/pointer/*` | EN-26（変更） | M |
 | E22 | W7a | E1 | — | `src/mutation.rs`、`src/host/write.rs`、`src/host/write/{writer,reader,typed}.rs`、`src/a11y/{state,publish}.rs`、`src/a11y/build/{dirty,payload}.rs`、`src/model/{apply,states,changes,model.rs}`、`src/model/edit/inputs.rs`、`src/model/presence/transitions.rs`、`src/lib.rs` | EN-18、EN-29（Mutation） | M |
 | E23 | W7a | E1 | E22 | `src/model/window.rs`、`src/host/foreign.rs`、`crates/kivact-layout/{Cargo.toml,src/*}`、`crates/kivact-engine/Cargo.toml`、`src/text_input/refresh.rs` | EN-28（devtools 以外） | S |
-| E24 | W6b | E2 | E14 | `src/model/interact/hit.rs`（`src/paint/list/hit.rs` へ移す）、`src/paint/list/{hit_reach.rs（削除）,facts.rs（新設）}`、`src/paint.rs`、`src/paint/list.rs`、`src/paint/state.rs`、`src/paint/list/walk.rs`、`src/layer.rs`、`src/model/interact.rs`、`src/model/interact/geometry.rs`、`src/model/drawables/hit.rs`、`src/model/drawables.rs`、`src/lower/shape.rs` | EN-09、EN-29（LayerView・HitInk） | M |
+| E24 | W6b | E2 | E32 | `src/model/interact/hit.rs`（`src/paint/list/hit.rs` へ移す）、`src/paint/list/{hit_reach.rs（削除）,facts.rs（新設）}`、`src/paint.rs`、`src/paint/list.rs`、`src/paint/state.rs`、`src/paint/list/walk.rs`、`src/layer.rs`、`src/model/interact.rs`、`src/model/interact/geometry.rs`、`src/model/drawables/hit.rs`、`src/model/drawables.rs`、`src/lower/shape.rs`、`src/host/testing/test_host.rs`（method 一つ）、`crates/kivact-engine/{Cargo.toml,tests/hit_reference.rs}` | EN-09、EN-29（LayerView・HitInk）、EA-13 | M |
 | E25 | W7a | E1 | E23 | `src/model/interact/sync.rs`、`src/model/changes.rs`、`src/tree/node_tree.rs`、`src/model/keys.rs`、`src/model/edit/ime.rs`、`src/model/pointer/shell.rs`、`src/model/apply.rs`、`src/paint/state.rs`、`src/lower/assets.rs` | EN-27 | S |
 | E26 | W7a | E1 | E25 | `src/tree/{node,node_tree}.rs` と `scroll`・`shift` を読む約 20 ファイル | EN-23（HostNode） | M（機械的） |
 | E27 | W7b | E1 | — | `src/model/changes.rs`、`src/model/interact/{geometry,sync}.rs`、`src/model/{states,apply}.rs`、`src/model/focus/navigation.rs`、`src/model/state_motion/steps.rs`、`src/model/pointer/machine.rs`、`src/model/drawables/request.rs`、`src/check/layout_reference.rs` | EN-08 | M |
@@ -751,11 +769,11 @@ cargo test -p kivact-editing
   2. `struct Model` の `pub(crate) measure: crate::measure::state::MeasureColumns,` と `pub(crate) editors: Vec<Option<Box<...EditorNode>>>,` を消し、`pub(crate) tree: NodeTree,` の次に `pub(crate) slots: Slots,` を足す。`Model::new` の `measure: Default::default(),` と `editors: Vec::new(),` を消して `slots: Slots::default(),` を足す。
   3. 置換（Git Bash、repository の root で）：
      ```
-     cd crates/kivact-engine/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-engine/src" || exit 1
      rg -l '\b(self|host|model)\.editors\b' . | xargs perl -pi -e 's/\b(self|host|model)\.editors\b/$1.slots.editors/g'
      for f in check/layout_reference.rs a11y/text.rs model/lifecycle.rs model/apply.rs model/edit/inputs.rs model/interact/geometry.rs model/interact/sync.rs model/text.rs; do perl -pi -e 's/\bself\.measure\b(?!\s*\()/self.slots.measure/g' "$f"; done
      rg -l '\b(self|host|model)\.paint\.(ink|look)\b' . | xargs perl -pi -e 's/\b(self|host|model)\.paint\.(ink|look)\b/$1.slots.$2/g'
-     cd ../../..
+     cd "$ROOT" || exit 1
      ```
      `src/measure/leaf.rs` の `self.measure.measure(...)`（`EngineMeasure` の field）と `src/mutation.rs` の `self.measure || other.measure`（`Mutation` の field）は置換しない（上の一覧に入れていない）。
   4. `src/paint/state.rs`：`struct PaintState` から `ink` と `look` の field を消し、`PaintState::new` からその初期化を、`impl PaintState` から `push_slot` と `reset_slot` を消す。
@@ -1457,12 +1475,12 @@ cargo test -p kivact-editing
      - crate の doc の項目を直す：「such keys report `changed: false`, so the host sends no `TextChanged`」を「the host sends `TextChanged` only when the text changed」に、「Every change of the text, recorded or not, joins the state's damage ... (`text_lines`).」を「Every change of the text is kept in a short record by revision, so each line cache asks what changed since its own revision (`EditState::damage_since`).」にする。
   5. engine の `use` の置換：
      ```
-     cd crates/kivact-engine/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-engine/src" || exit 1
      perl -pi -e 's/use kivact_editing::\{EditState, Editor, Journal\};/use kivact_editing::EditState;\nuse kivact_editing::host::{Editor, Journal};/' measure/editor.rs
      perl -pi -e 's/use kivact_editing::\{EditState, Editor, Taken, TextSession\};/use kivact_editing::host::{Editor, Taken};\nuse kivact_editing::{EditState, TextSession};/' model/edit/inputs.rs
      perl -pi -e 's/use kivact_editing::Journal;/use kivact_editing::host::Journal;/' model/keys.rs
      rg -l 'kivact_editing::Damage' . | xargs perl -pi -e 's/kivact_editing::Damage/kivact_editing::host::Damage/g'
-     cd ../../..
+     cd "$ROOT" || exit 1
      ```
      残りは `rg -n "kivact_editing::(Editor|Journal|Incoming|Taken|Damage)\b" crates` で探し、`kivact_editing::host::` に直す。
   6. `src/text_input/edit_lines.rs`：`EditLines` の `pub(crate) damage: Option<kivact_editing::host::Damage>,` とその上の注釈、`EditLines::new` の `damage: None,`、`pub(crate) fn hold_damage` を消す。
@@ -1982,7 +2000,7 @@ cargo test -p kivact-editing
 
 - **wave / lane / 前提**：W5a / E2 / なし（W3b・W4・W4b の E unit は済んでいる）
 - **所有**：`src/paint/state.rs`、`src/paint/frame_scene.rs`、`src/paint/canvas.rs`、`src/paint/snapshot.rs`、`src/paint/list/invalidation.rs`、`src/lower/scene_out.rs`、`src/model/aggregate.rs`、`src/model/states.rs`、`src/model/interact/sync.rs`、`src/model/interact/visual.rs`、`src/model/interact/geometry.rs`、`src/model/interact/hit.rs`、`src/model/scrollbar.rs`、`src/model/transform.rs`、`src/model/pointer/hover.rs`、`src/model/frame/ticks.rs`
-- **目的**：list に載った node ごとに、前の frame の描画（sanitize した paint と、node 自身が出した `RenderCmd` の列）を slot の列に残し、描き直しの印（`Dirty::WRITTEN|REDRAW|SCROLLED`）が無く、置き場（origin・alpha・clip・scale）が同じなら lower し直さずに複写する。描画中の node だけが持ち、list から外れた node の分は捨てる（EN-03、設計書 7.3 Q4）。`effective_paint` の clone を避ける借用版と、cursor だけを読む関数を足す。
+- **目的**：list に載った node ごとに、前の frame の描画（sanitize した paint と、node 自身が出した `RenderCmd` の列）を slot の列に残し、描き直しの印（`Dirty::WRITTEN|REDRAW|SCROLLED`）が無く、置き場（origin・alpha・clip・scale）が同じなら lower し直さずに複写する。描画中の node だけが持ち、list から外れた node の分は捨てる（EN-03、設計書 7.3 Q4）。debug と `testing` の照合は、kept の paint を使わず node の今の paint と箱から別の出力に描き直して比べ、frame の出力・kept の drawing・layer の版には混ぜない（EA-01・EA-14、設計書 12 章）。`effective_paint` の clone を避ける借用版と、cursor だけを読む関数を足す。
 - **手順**：
   1. `src/paint/state.rs` に次を足す（`use std::rc::Rc;` と `use std::collections::HashSet;` と、`RenderCmd`・`PaintProps` の `use` を足す。`RenderCmd` は 1.2 節の path）。
      ```rust
@@ -2060,7 +2078,7 @@ cargo test -p kivact-editing
      `struct PaintState` に field を足し、`PaintState::new` で `draw_owners: RefCell::default(),` にする：
      ```rust
      /// The nodes (and their slots) that keep a drawing in `Slots::draws`.
-     pub(super) draw_owners: RefCell<HashSet<(NodeId, usize)>>,
+     pub(crate) draw_owners: RefCell<HashSet<(NodeId, usize)>>,
      ```
   2. `src/model/aggregate.rs` の `struct Slots` に `pub(crate) draws: Vec<Cell<Option<Box<crate::paint::state::NodeDraw>>>>,` を足し（doc：`/// The drawing each listed node made in the last frame (\`paint::frame_scene\`).`）、`push` に `self.draws.push(Cell::new(None));`、`reset` に `self.draws[slot].set(None);` を足す。
   3. `src/lower/scene_out.rs`：
@@ -2141,7 +2159,7 @@ cargo test -p kivact-editing
      - `next_scene_key`、`open_layer`、`close_layer`、`item`、`drawable` の本体の最初の行に `self.spoil();` を置く（`scope` は置かない：名前を決めるだけで何も描かず、各 scene の描画が自分で先に呼ぶ）。
   4. `PaintPass { .. }` を作る所に `cache` を足す：`src/paint/frame_scene.rs` の `composition` は `cache: true`、`src/paint/canvas.rs` と `src/paint/snapshot.rs` は `cache: false`（`..pass` で写す所はそのまま）。
   5. `src/paint/frame_scene.rs`：
-     - `const VERIFY_DRAWS: bool = cfg!(all(debug_assertions, feature = "testing"));` を足す（doc：`/// In debug builds with the test driver every replayed drawing is drawn again and compared: a change that did not forget a drawing panics, naming the node.`）。
+     - `const VERIFY_DRAWS: bool = cfg!(all(debug_assertions, feature = "testing"));` を足す（doc：`/// In debug builds with the test driver every kept drawing is checked before it is replayed: its paint against the node's paint now, its commands against the ones that paint draws now into a scratch output. A change that did not forget a drawing panics, naming the node; the frame, the kept drawings and the layers' versions are the replay's.`）。
      - `fn placed(&self, id, o) -> (PaintProps, Rect, Rect)` を次に置き換える。
        ```rust
        /// The box and the canvas (inside the border) of `id` when its layout
@@ -2244,7 +2262,28 @@ cargo test -p kivact-editing
        }
        ```
        `Place` の `paint: &'a PaintProps` はそのまま。`draw_box` と `draw_content` の本体は元の `paint_open` の該当部分を写し、`id`・`n`・`p`・`bounds`・`tint`・`outline`・`clip_path` は `place` と `step` から作る（`let tint = tint(place.step); let outline = BoxShape::of(place.bounds, &place.paint.radius);`）。
-     - `paint_open` を次にする。
+     - `src/paint/frame_scene.rs` の `use` に `RenderCmd`（1.2 節の path）と `kivact_types::PaintProps` が無ければ足す。次の method を足す（`paint_open` と照合が同じ置き方を使う）。
+       ```rust
+       /// Where `step`'s node is drawn with `paint`: its place and its canvas
+       /// (inside the border).
+       fn place_at<'a>(&self, step: &'a Step, list: &'a PaintList, paint: &'a PaintProps) -> (Place<'a>, Rect) {
+           let (bounds, canvas) = self.boxes_at(step.id, step.origin, paint);
+           let clip_path = paint
+               .effects
+               .as_ref()
+               .and_then(|e| e.clip_path.as_ref())
+               .map(|s| shape::clip_path(s, bounds));
+           let place = Place {
+               step,
+               list,
+               paint,
+               bounds,
+               clip_path,
+           };
+           (place, canvas)
+       }
+       ```
+     - `paint_open` を次にする。kept の drawing は、`Commands` なら再生し、`Live` なら（paint だけを保ったまま）描く。照合（`VERIFY_DRAWS`）は再生の前に別の出力で行い、frame の出力・kept の drawing・layer の版は照合の無い build と同じになる（EA-01・EA-14）。
        ```rust
        fn paint_open(
            &self,
@@ -2259,22 +2298,13 @@ cargo test -p kivact-editing
                return;
            }
            let kept = self.take_draw(step, pass);
+           if VERIFY_DRAWS && let Some(draw) = &kept {
+               self.verify_draw(step, list, draw, pass, engine);
+           }
            let paint = kept
                .as_ref()
                .map_or_else(|| Rc::new(visual::paint(self, id)), |d| Rc::clone(&d.paint));
-           let (bounds, canvas) = self.boxes_at(id, step.origin, &paint);
-           let clip_path = paint
-               .effects
-               .as_ref()
-               .and_then(|e| e.clip_path.as_ref())
-               .map(|s| shape::clip_path(s, bounds));
-           let place = Place {
-               step,
-               list,
-               paint: &paint,
-               bounds,
-               clip_path,
-           };
+           let (place, canvas) = self.place_at(step, list, &paint);
            let (outer, inner): (Vec<Opening>, Vec<Opening>) = step
                .opened()
                .into_iter()
@@ -2283,26 +2313,26 @@ cargo test -p kivact-editing
                self.open(kind, &place, pass, out);
            }
            let (draw, fresh) = match kept {
-               Some(draw) if !VERIFY_DRAWS && matches!(draw.recorded, Recorded::Commands { .. }) => {
-                   let Recorded::Commands { boxed, content, .. } = &draw.recorded else {
-                       unreachable!("invariant: matched as commands")
-                   };
-                   out.replay(boxed);
-                   for kind in inner {
-                       self.open(kind, &place, pass, out);
+               Some(draw) => {
+                   match &draw.recorded {
+                       Recorded::Commands { boxed, content, .. } => {
+                           out.replay(boxed);
+                           for kind in inner {
+                               self.open(kind, &place, pass, out);
+                           }
+                           out.replay(content);
+                       }
+                       Recorded::Live => {
+                           self.draw_box(&place, pass, engine, out);
+                           for kind in inner {
+                               self.open(kind, &place, pass, out);
+                           }
+                           self.draw_content(&place, canvas, pass, engine, out);
+                       }
                    }
-                   out.replay(content);
                    (draw, false)
                }
-               Some(draw) if matches!(draw.recorded, Recorded::Live) => {
-                   self.draw_box(&place, pass, engine, out);
-                   for kind in inner {
-                       self.open(kind, &place, pass, out);
-                   }
-                   self.draw_content(&place, canvas, pass, engine, out);
-                   (draw, false)
-               }
-               kept => {
+               None => {
                    out.begin_record();
                    self.draw_box(&place, pass, engine, out);
                    let boxed = out.end_record();
@@ -2312,33 +2342,50 @@ cargo test -p kivact-editing
                    out.begin_record();
                    self.draw_content(&place, canvas, pass, engine, out);
                    let content = out.end_record();
-                   if let Some(old) = &kept {
-                       verify_draw(id, old, boxed.as_deref(), content.as_deref());
-                   }
                    let draw = Box::new(NodeDraw {
                        key: DrawKey::of(step, pass),
                        paint: Rc::clone(&paint),
                        recorded: Recorded::of(boxed, content),
                    });
-                   (draw, kept.is_none())
+                   (draw, true)
                }
            };
            self.keep_draw(id, draw, fresh, pass);
        }
        ```
-       関数が 80 行を超えるときは、`match` の三つの腕の中身をそれぞれ `fn replay_open`、`fn draw_open_live`、`fn record_open` に分ける（引数は `place`、`inner`、`canvas`、`pass`、`engine`、`out` と各腕の値）。
-     - 次の自由関数を足す。
+       関数が 80 行を超えるときは、`match kept` の二つの腕の中身をそれぞれ `fn replay_open`、`fn record_open` に分ける（引数は `place`、`inner`、`canvas`、`pass`、`engine`、`out` と各腕の値）。
+     - 次の method を足す。照合は kept の paint と記録を使わない：node の今の paint（`visual::paint`）と今の箱から描き直し、別の `SceneOut` に記録して比べる（EA-14）。
        ```rust
-       /// Check a replayed drawing against what it draws now (`VERIFY_DRAWS`).
-       fn verify_draw(id: NodeId, old: &NodeDraw, boxed: Option<&[RenderCmd]>, content: Option<&[RenderCmd]>) {
-           if let Recorded::Commands { boxed: b, content: c, .. } = &old.recorded {
-               assert!(
-                   boxed == Some(b.as_slice()) && content == Some(c.as_slice()),
-                   "the kept drawing of node {id:?} is stale: a change it is drawn from did not forget it"
-               );
-           }
+       /// Check a kept drawing against one made now (`VERIFY_DRAWS`): its
+       /// paint against the paint the node is drawn with now, and its box and
+       /// content against the ones that paint and the node's boxes draw now,
+       /// recorded in a scratch output. The check only reads: the frame, the
+       /// kept drawing and the layers' versions are the replay's.
+       fn verify_draw(&self, step: &Step, list: &PaintList, draw: &NodeDraw, pass: PaintPass, engine: &mut arvane::Engine) {
+           let id = step.id;
+           let paint = visual::paint(self, id);
+           assert!(
+               *draw.paint == paint,
+               "the kept paint of node {id:?} is stale: a change it is drawn from did not forget it"
+           );
+           let Recorded::Commands { boxed, content, .. } = &draw.recorded else {
+               return;
+           };
+           let (place, canvas) = self.place_at(step, list, &paint);
+           let mut scratch = SceneOut::default();
+           scratch.begin_record();
+           self.draw_box(&place, pass, engine, &mut scratch);
+           let now_boxed = scratch.end_record();
+           scratch.begin_record();
+           self.draw_content(&place, canvas, pass, engine, &mut scratch);
+           let now_content = scratch.end_record();
+           assert!(
+               now_boxed.as_ref() == Some(boxed) && now_content.as_ref() == Some(content),
+               "the kept drawing of node {id:?} is stale: a change it is drawn from did not forget it"
+           );
        }
        ```
+       （記録した命令は出力の transform・clip に依らない：opening は記録の外で描く。`Live` の drawing は毎 frame 描くので paint だけを比べる。）
      - `paint_close` を次にする。
        ```rust
        fn paint_close(&self, step: &Step, pass: PaintPass, engine: &mut arvane::Engine, out: &mut SceneOut) {
@@ -2363,33 +2410,50 @@ cargo test -p kivact-editing
            }
        }
 
-       /// Draw the kept node's draw-over part: replayed when recorded, else
-       /// drawn and recorded (or checked, `VERIFY_DRAWS`).
+       /// Draw the kept node's draw-over part: replayed when recorded (checked
+       /// first, `VERIFY_DRAWS`), drawn when live, else drawn and recorded.
        fn close_kept(&self, step: &Step, draw: &mut NodeDraw, pass: PaintPass, engine: &mut arvane::Engine, out: &mut SceneOut) {
            let paint = Rc::clone(&draw.paint);
-           match &mut draw.recorded {
-               Recorded::Commands { over: Some(over), .. } if !VERIFY_DRAWS => out.replay(over),
-               Recorded::Live => self.draw_over(step, &paint, pass, engine, out),
+           let spoiled = match &mut draw.recorded {
+               Recorded::Commands { over: Some(over), .. } => {
+                   if VERIFY_DRAWS {
+                       self.verify_over(step, over, pass, engine);
+                   }
+                   out.replay(over);
+                   false
+               }
+               Recorded::Live => {
+                   self.draw_over(step, &paint, pass, engine, out);
+                   false
+               }
                Recorded::Commands { over, .. } => {
                    out.begin_record();
                    self.draw_over(step, &paint, pass, engine, out);
                    let fresh = out.end_record();
-                   if let Some(old) = over.as_ref() {
-                       assert!(
-                           fresh.as_ref() == Some(old),
-                           "the kept draw-over of node {:?} is stale",
-                           step.id
-                       );
-                   }
-                   match fresh {
-                       Some(commands) => *over = Some(commands),
-                       None => draw.recorded = Recorded::Live,
-                   }
+                   let spoiled = fresh.is_none();
+                   *over = fresh;
+                   spoiled
                }
+           };
+           if spoiled {
+               draw.recorded = Recorded::Live;
            }
        }
+
+       /// Check a kept draw-over part against the one the node's paint now
+       /// draws, recorded in a scratch output (`VERIFY_DRAWS`).
+       fn verify_over(&self, step: &Step, over: &[RenderCmd], pass: PaintPass, engine: &mut arvane::Engine) {
+           let paint = visual::paint(self, step.id);
+           let mut scratch = SceneOut::default();
+           scratch.begin_record();
+           self.draw_over(step, &paint, pass, engine, &mut scratch);
+           assert!(
+               scratch.end_record().as_deref() == Some(over),
+               "the kept draw-over of node {:?} is stale",
+               step.id
+           );
+       }
        ```
-       （`draw.recorded = Recorded::Live` は `match &mut draw.recorded` の借用の中では書けないので、腕は `let spoiled = ...;` で結果だけ返し、`match` の後で `if spoiled { draw.recorded = Recorded::Live; }` と書く。）
      - `composition` の `if self.paint_list() { self.refresh_shader_clocks(); self.refresh_playback(); }` を `if self.paint_list() { self.evict_draws(); self.refresh_shader_clocks(); self.refresh_playback(); }` にする。
   6. `src/paint/list/invalidation.rs`：`PaintState::outdate_paint` の引数の最後に `draws: &[std::cell::Cell<Option<Box<NodeDraw>>>]` を足し、本体の最後（`self.list = list;` の後）に次を足す。
      ```rust
@@ -2470,7 +2534,7 @@ cargo test -p kivact-editing
   11. `rg -n "fn placed\(|self\.placed\(" crates/kivact-engine/src` が空であることを確かめる。
 - **消すもの**：`Model::placed`。
 - **状態の閉じ方**：`NodeDraw` は enum の `Recorded` と値だけを持ち対象外。`Recording` は bool が一つで対象外。`SceneOut` は手順 3 の印。`PaintState` は `RefCell` の field が一つ増える：W1 の `PaintState` の印の文の最後に `; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws)` を足す（印が無ければ `// xtask-allow(state): the paint group's derived caches, each with one writer; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws)` を struct の直前に置く）。
-- **試験**：足さない。debug build と `testing`（E2E の build）では手順 5 の照合が、描き直しの印の漏れを panic で示す。
+- **試験**：本 unit では足さない（engine の試験の入口 `src/host/testing/test_host.rs` は W5a では鎖の E15 が持つ）。debug build と `testing`（E2E の build）では手順 5 の照合が、描き直しの印の漏れを panic で示す。照合が paint の無効化の漏れを必ず見つけること（fault injection）は E32（W6b）の `draw_cache::a_paint_change_that_does_not_forget_the_drawing_is_caught` が確かめる（EA-14）。
 - **確認（tier a）**：`ENGINE-A`、`E2E: compositor, frame_sources, style_paint, paint, borders_backgrounds, text_effects, effects_filters, canvas, drawables, hover, motion, images_animated, text_editing, custom_text_field, input_platform, layout_scroll, touch_scroll, transform, transform_3d, a11y_incremental, offscreen, offscreen_svg, viewport, color_spaces, text_style, text_primitives, svg_embedded_text`、`E2E: ui_controls, ui_standard, ui_theming, interaction_tooltip, interaction_slider`
 - **完了条件**：手順 11 の `rg` が空。確認がすべて通る（照合の panic が一つも出ない）。
 
@@ -2478,7 +2542,7 @@ cargo test -p kivact-editing
 
 - **wave / lane / 前提**：W5a / E2 / E12
 - **所有**：`src/model/interact/sync.rs`、`src/model/changes.rs`、`src/model/frame/ticks.rs`、`src/model/state_motion/state.rs`、`src/model/state_motion/steps.rs`、`src/model/layout_motion/steps.rs`、`src/paint/list/walk.rs`、`src/paint/state.rs`、`src/paint/frame_scene.rs`
-- **目的**：paint list の全再構築を、重なりの事実（stacking context、z、layer の事実、子の組）の変化だけに絞る（EN-04）。具体的に：(1) transition の毎 tick の restack をやめ、動く layer は list を作り直さず matrix だけを毎 frame 置き直す。(2) 状態の style の変化は、list を作ったときの look の重なりの事実と比べて違うときだけ restack する。(3) scroll は scroll container の subtree だけを歩き直して list に差し込む。
+- **目的**：paint list の全再構築を、重なりの事実（stacking context、z、layer の事実、子の組）の変化だけに絞る（EN-04）。具体的に：(1) transition の毎 tick の restack をやめ、動く layer は list を作り直さず matrix だけを毎 frame 置き直す。(2) 状態の style の変化は、list を作ったときの look の重なりの事実と比べて違うときだけ restack する。(3) scroll は scroll container の subtree だけを歩き直して list に差し込む。歩き直しは置き換えた範囲の古い transform・layer を消し（list の vector は scroll を何度繰り返しても作り直した list と同じ長さ。EA-02）、list から外れた node の歩きの記録と draw cache を消す（EA-03。設計書 12 章）。
 - **手順**：
   1. `src/paint/state.rs`：次の型を足し、`struct PaintList` に field を足す（`Default` の derive はそのまま）。
      ```rust
@@ -2615,6 +2679,8 @@ cargo test -p kivact-editing
        /// Walk the subtrees of the scrolled containers again in place of
        /// their old steps; `false` when one cannot be (it is not listed with a
        /// close, or a layer's window origin moved): the caller builds the list.
+       /// The old steps' transforms and layers are dropped (`compact`); the
+       /// nodes that left the list lose their walk records and kept drawings.
        fn rewalk_scrolled(&self, list: &mut PaintList) -> bool {
            if self.layers() != list.layer_origins {
                return false;
@@ -2674,13 +2740,32 @@ cargo test -p kivact-editing
                } = walk;
                list.transforms = transforms;
                list.layers = layers;
+               let left = left_ids(&list.entries[open..=close], &out);
                list.moving.retain(|m| !tree.is_in_subtree(m.id, id));
                list.moving.extend(moving);
+               list.scrollers.retain(|node, _| !left.contains(node));
                list.scrollers.extend(scrollers);
+               list.looks.retain(|node, _| !left.contains(node));
                list.looks.extend(looks);
                list.entries.splice(open..=close, out);
+               self.forget_left_draws(&left);
            }
+           compact(list);
            true
+       }
+
+       /// Drop the kept drawings of the nodes `left` (they left the list).
+       fn forget_left_draws(&self, left: &HashSet<NodeId>) {
+           if left.is_empty() {
+               return;
+           }
+           self.paint.draw_owners.borrow_mut().retain(|(id, slot)| {
+               let keep = !left.contains(id);
+               if !keep {
+                   self.slots.draws[*slot].set(None);
+               }
+               keep
+           });
        }
 
        /// Set the matrices of the moving layers for this frame.
@@ -2702,7 +2787,71 @@ cargo test -p kivact-editing
            self.paint.list = list;
        }
        ```
-       （歩き直しで古い step が指していた `transforms`・`layers` の要素は、次の作り直しまで使われずに残る。）
+       （`draw_owners` と `Slots::draws` は E12 のもの。`rewalk_scrolled` が 80 行を超えるときは、`for` の中の `walk.node(..)` から `list.entries.splice(..)` までを `fn splice_rewalk(&self, list: &mut PaintList, id: NodeId, at: ScrollerWalk, open: usize, close: usize, margin: f64)` に移す。）
+     - 次の自由関数を `src/paint/list/walk.rs` の最後に足す。
+       ```rust
+       /// The node of a list entry.
+       fn entry_id(entry: &Entry) -> NodeId {
+           match entry {
+               Entry::Open(step) | Entry::Close(step) => step.id,
+           }
+       }
+
+       /// The nodes the old steps `old` list and the new steps `new` do not.
+       fn left_ids(old: &[Entry], new: &[Entry]) -> HashSet<NodeId> {
+           let listed: HashSet<NodeId> = new.iter().map(entry_id).collect();
+           old.iter()
+               .map(entry_id)
+               .filter(|id| !listed.contains(id))
+               .collect()
+       }
+
+       /// Drop the transforms and layers no listed step refers to (a walk
+       /// again of a scroll container leaves its old ones behind), renumbering
+       /// them in the order the steps first refer to them: the order a walk
+       /// pushes them, so the list equals one built anew. A moving layer no
+       /// step refers to any more is dropped too.
+       fn compact(list: &mut PaintList) {
+           let PaintList {
+               entries,
+               transforms,
+               layers,
+               moving,
+               ..
+           } = list;
+           let mut transform_at = vec![None; transforms.len()];
+           let mut layer_at = vec![None; layers.len()];
+           let mut kept_transforms = Vec::new();
+           let mut kept_layers = Vec::new();
+           for entry in entries.iter_mut() {
+               let (Entry::Open(step) | Entry::Close(step)) = entry;
+               if let Some(t) = &mut step.transform {
+                   let old = *t as usize;
+                   *t = *transform_at[old].get_or_insert_with(|| {
+                       kept_transforms.push(transforms[old]);
+                       (kept_transforms.len() - 1) as u32
+                   });
+               }
+               if let Some(l) = &mut step.layer {
+                   let old = *l as usize;
+                   *l = *layer_at[old].get_or_insert_with(|| {
+                       kept_layers.push(layers[old]);
+                       (kept_layers.len() - 1) as u32
+                   });
+               }
+           }
+           moving.retain_mut(|m| match layer_at.get(m.index as usize).copied().flatten() {
+               Some(index) => {
+                   m.index = index;
+                   true
+               }
+               None => false,
+           });
+           *transforms = kept_transforms;
+           *layers = kept_layers;
+       }
+       ```
+       （walk は step を list に載せるときにだけ transform と layer を積む（`place` の後の `listed`）ので、積まれた要素はどれも `Open` の step に指される。歩き直しの後の list は、作り直した list と entries・transforms・layers が等しい：`paint/list/self_check.rs` の比較もそのまま通る。）
   3. `src/paint/frame_scene.rs` の `composition`：`if self.paint_list() { ... }` に `else { self.refresh_moving_layers(); }` を足す。
   4. `src/model/frame/ticks.rs` の `tick`：`if self.motion.is_active() { self.changes.restack = true; ... }` の塊全体を消す。
   5. `src/model/state_motion/state.rs`：`impl StateAnimation` に次を足し、`StateMotion::moves_layer` の本体を `self.0.get(&id).is_some_and(StateAnimation::moves_layer)` にする。
@@ -2751,8 +2900,8 @@ cargo test -p kivact-editing
      - E04 の `if changes.geometry != Geometry::Kept { self.forget_origins(); }` を `if changes.geometry != Geometry::Kept || changes.any(Dirty::SCROLLED.union(Dirty::STUCK)) { self.forget_origins(); }` にする。
   10. `src/paint/list.rs` の module doc の「The list is rebuilt only when something may move, show, hide, restack or reclip nodes (typed setter invalidation for writes, `Model::sync` for layout passes, scrolls and state styles)」を「The list is rebuilt only when stacking facts change: a write's stacking, the children of a box, a layout pass, a state style or transition whose look's stacking facts differ from the listed look, a layer that starts or stops moving. A scroll walks the scrolled container's subtree again (`Model::rewalk_scrolled`); a moving layer's matrix is set every frame (`Model::refresh_moving_layers`) and it is never culled.」にする。
 - **消すもの**：`tick` の motion の restack の塊、`step_states` の `changes.moved()`、`step_layout_motion` の毎 tick の restack と `paint = true`、`Changes::scrolled` の `moved()`、`!restyled.is_empty()` による restack。
-- **状態の閉じ方**：新しい型は値だけ（`MovingLayer`、`ScrollerWalk`）。`PaintList` は field が増えるが `&mut self` の method を持たない（`Clone, Debug, Default` の値）。
-- **試験**：足さない。
+- **状態の閉じ方**：新しい型は値だけ（`MovingLayer`、`ScrollerWalk`）。`PaintList` は field が増えるが `&mut self` の method を持たない（`Clone, Debug, Default` の値。`compact` は自由関数）。
+- **試験**：本 unit では足さない（engine の試験の入口 `src/host/testing/test_host.rs` は W5a では鎖の E15 が持つ）。歩き直しの不変条件は E32（W6b）が確かめる：`draw_cache::scrolling_back_and_forth_keeps_the_paint_list_the_size_it_was`（EA-02）と `draw_cache::rows_scrolled_out_drop_their_kept_drawings`（EA-03）。`paint/list/self_check.rs` の比較（歩き直した list と作り直した list の entries・transforms・layers が等しい）は E2E の `layout_scroll`・`touch_scroll` の中で毎回働く。
 - **確認（tier a）**：`ENGINE-A`、`E2E: compositor, motion, shared_layout, presence, presence_modes, layout_scroll, touch_scroll, scroll_timeline, transform, transform_3d, hover, style_paint, frame_sources, a11y_incremental, drawables, overlay, layout`、`E2E: interaction_tooltip, interaction_show_hide, ui_collections, ui_data_table`
 - **完了条件**：`rg -n "restack = true" crates/kivact-engine/src/model/frame/ticks.rs crates/kivact-engine/src/model/layout_motion/steps.rs` が `update_env` の reduced motion の 1 行と、run が終わった時の 1 行だけを返す。確認がすべて通る。
 
@@ -2760,7 +2909,7 @@ cargo test -p kivact-editing
 
 - **wave / lane / 前提**：W6b / E2 / E13（W5a）、A09（W5b。`CompositeLayer::content_version` の field と `src/lower/content_versions.rs` の `fresh_content_version()`）
 - **所有**：`src/lower/scene_out.rs`、`src/lower/content_versions.rs`、`src/paint/frame_scene.rs`、`src/paint/state.rs`、`src/paint/canvas.rs`、`src/paint/snapshot.rs`、`src/paint/list/walk.rs`（`paint_list` だけ）、`src/host/testing/test_host.rs`（method を一つ足すだけ）、`crates/kivact-engine/Cargo.toml`（`[[test]]` を一つ）、`crates/kivact-engine/tests/content_version.rs`（新設）
-- **目的**：Arvane が layer の中身の変化を版で知る（PERF-7、AR-03、付属書 A 4.2 の契約）。A09 は engine に「毎回新しい版」（`fresh_content_version()`）を書いた。本 unit はそれを、window の frame の layer では「描き直した node（draw cache の外れ）・list の作り直しと歩き直しで版を上げ、それ以外は前の frame の同じ `LayerKey` の版を保つ」に置き換える。数えない layer（drawable の layer、export、snapshot）と DevTools の overlay は `fresh_content_version()` のまま（A 4.2：上げすぎは正しさを損なわない）。版の値はいつも `fresh_content_version()` から取る（process で一意に増えるので、同じ window の同じ `key` に一度使った値を別の内容に使わない）。
+- **目的**：Arvane が layer の中身の変化を版で知る（PERF-7、AR-03、付属書 A 4.2 の契約）。A09 は engine に「毎回新しい版」（`fresh_content_version()`）を書いた。本 unit はそれを、window の frame の layer では「描き直した node（draw cache の外れ）・毎 frame 描く `Live` の node・list の作り直しと歩き直しで版を上げ、それ以外は前の frame の同じ `LayerKey` の版を保つ」に置き換える。検証のための描き直し（E12 の `VERIFY_DRAWS`）は内容の変化ではない：別の出力に描くので、照合して同じだった kept の drawing は持ち越しのまま（EA-01、設計書 12 章）。数えない layer（drawable の layer、export、snapshot）と DevTools の overlay は `fresh_content_version()` のまま（A 4.2：上げすぎは正しさを損なわない）。版の値はいつも `fresh_content_version()` から取る（process で一意に増えるので、同じ window の同じ `key` に一度使った値を別の内容に使わない）。
 - **手順**：
   1. `src/lower/scene_out.rs`：
      - 次の型を足す。
@@ -2808,8 +2957,9 @@ cargo test -p kivact-editing
      （`Composition` の `use` は `src/lower/scene_out.rs` と同じ path。）
   3. `src/paint/frame_scene.rs`：
      - `compose_list` の返り値を `(Composition, Vec<LayerChange>)` にする（最後の行 `out.into_composition(pass.size)` の型に合わせる）。
-     - `paint_open` の `let kept = self.take_draw(step, pass);` の次に `out.set_keeping(kept.is_some());` を、関数の最後（`keep_draw` の後）に `out.set_keeping(false);` を置く。ただし `match` の三つ目の腕（記録して作り直す腕）の最初で `out.set_keeping(false);` にする（作り直した node の命令は新しい）。
-     - `paint_close` の `let kept = self.take_draw(step, pass);` の次に `out.set_keeping(kept.as_ref().is_some_and(|d| !matches!(d.recorded, Recorded::Commands { over: None, .. })));` を、関数の最後に `out.set_keeping(false);` を置く。
+     - `paint_open` の `if VERIFY_DRAWS && let Some(draw) = &kept { .. }` の次に `out.set_keeping(kept.as_ref().is_some_and(|d| matches!(d.recorded, Recorded::Commands { .. })));` を、関数の最後（`keep_draw` の後）に `out.set_keeping(false);` を置く。
+     - `paint_close` の `let kept = self.take_draw(step, pass);` の次に `out.set_keeping(kept.as_ref().is_some_and(|d| matches!(d.recorded, Recorded::Commands { over: Some(_), .. })));` を、関数の最後に `out.set_keeping(false);` を置く。
+     - 持ち越しとして数えるのは、再生した命令（`Recorded::Commands`）とその node の opening だけ。`Recorded::Live` の node は、kept の paint を使っても毎 frame 新しい命令として数える：画像や pattern の中身（animation の frame、外部の画像の更新）と scene の layer・item は命令に表れずに変わるので、版を保つと Arvane が古い layer を使う（付属書 A 4.2：上げすぎは正しさを損なわない）。照合（`VERIFY_DRAWS`）は E12 のとおり別の `SceneOut` に描くので `out` の印に触れず、照合した kept の drawing は照合の無い build と同じく持ち越しになる。
      - `composition` を次の形にする。
        ```rust
        let rebuilt = self.paint_list();
@@ -2890,10 +3040,11 @@ cargo test -p kivact-editing
      //! Role: Tests that an unchanged layer keeps its content version and a changed one bumps it.
 
      use kivact_engine::api::Client;
-     use kivact_engine::contract::{NodeKind, TurnOutput};
+     use kivact_engine::contract::{BoxData, NodeKind, TurnOutput};
      use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
      use kivact_types::paint::Fill;
-     use kivact_types::{NodeId, PaintProps, Rgba, WindowId};
+     use kivact_types::render::LayerKey;
+     use kivact_types::{Dimension, LayoutProps, NodeId, PaintProps, Rgba, WillChange, WindowId};
 
      const ROOT: NodeId = NodeId(1);
 
@@ -2944,17 +3095,305 @@ cargo test -p kivact-editing
          host.redraw();
          assert!(root_version(&host) > first, "the root's background changed");
      }
+
+     const A: NodeId = NodeId(2);
+     const B: NodeId = NodeId(3);
+
+     /// The version of the layer `key` in the last frame.
+     fn version_of(host: &ArvaneTestHost, key: LayerKey) -> u64 {
+         host.layer_versions(WindowId::MAIN)
+             .into_iter()
+             .find(|(k, _)| *k == key)
+             .map(|(_, version)| version)
+             .expect("the layer is drawn")
+     }
+
+     /// A 100 × 100 box painted `hex` that is a compositor layer of its own.
+     fn layer_painted(hex: u32) -> PaintProps {
+         PaintProps {
+             will_change: WillChange::Transform,
+             ..painted(hex)
+         }
+     }
+
+     #[test]
+     fn a_changed_layer_bumps_its_version_and_a_sibling_layer_keeps_its_own() {
+         let mut host = ArvaneTestHost::new(
+             Client::new(
+                 |_, _, writer| {
+                     writer.create(WindowId::MAIN, ROOT, NodeKind::Root);
+                     for (id, hex) in [(A, 0x2563eb), (B, 0x16a34a)] {
+                         writer.create(WindowId::MAIN, id, NodeKind::Box(BoxData::default()));
+                         writer.insert(ROOT, id, None);
+                         writer.set_layout(
+                             id,
+                             LayoutProps {
+                                 width: Dimension::Px(100.0),
+                                 height: Dimension::Px(100.0),
+                                 ..LayoutProps::default()
+                             },
+                         );
+                         writer.set_paint(id, layer_painted(hex));
+                     }
+                     writer.commit();
+                 },
+                 |_, _, _| TurnOutput::default(),
+             ),
+             TestHostOptions {
+                 mirror: MirrorMode::Off,
+                 ..TestHostOptions::default()
+             },
+         )
+         .expect("the test host starts");
+         host.redraw();
+         let (a, b) = (version_of(&host, LayerKey::Node(A)), version_of(&host, LayerKey::Node(B)));
+
+         // A's new background draws A again; B is replayed (and, in debug
+         // builds with `testing`, checked) without a new command.
+         host.writer().set_paint(A, layer_painted(0xdc2626));
+         host.writer().commit();
+         host.redraw();
+         assert!(version_of(&host, LayerKey::Node(A)) > a, "A's background changed");
+         assert_eq!(version_of(&host, LayerKey::Node(B)), b, "nothing in B changed");
+     }
      ```
-     （`Client::new` の二つの閉包の引数の形は `tests/host_locale.rs` と同じ。`Fill` の path が `kivact_types::paint::Fill` でなければ `rg -n "pub enum Fill" crates/kivact-types/src` の場所にする。）
+     （`Client::new` の二つの閉包の引数の形は `tests/host_locale.rs` と同じ。`Fill`・`LayerKey`・`LayoutProps` などの path と名前は、W2・W6a の後の名前にする（1.2 節：`rg -n "pub enum Fill|pub enum LayerKey|pub struct LayoutProps" crates`）。二つ目の試験の B は `will_change` で自分の layer を持ち、その drawing は A の書込みで描き直しの印を受けない。）
 - **消すもの**：`into_layer` の `fresh_content_version()` の呼出し（window の frame は stamp、他は `stamp_fresh`）。
 - **状態の閉じ方**：`LayerVersions` は map 一つの値で対象外。`Layer`・`SceneOut`・`PaintState` は手順 1・5 の印の文を足す。
-- **試験**：`crates/kivact-engine/tests/content_version.rs` の `an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it` を足す（付属書 A 4.2 が求める試験。`kivact::test` から composition を見られないので engine の試験にした）。付属書 A の debug の hash の照合が、E2E の中で版の上げ忘れを検出する。
-- **確認（tier a）**：`ENGINE-A`（`content_version` の試験を含む）、`E2E: compositor, frame_sources, motion, layout_scroll, canvas, drawables, images_animated, effects_filters, offscreen, viewport`
-- **完了条件**：`rg -n "content_version" crates/kivact-engine/src` が、`src/paint/state.rs`（`stamp_versions`）、`src/lower/content_versions.rs`（`stamp_fresh` と A09 の関数）、`src/lower/scene_out.rs` の `content_version: 0`（置き場）、`src/host/devtools.rs` の overlay の `fresh_content_version()` だけを返す。新しい試験を含め確認がすべて通る。
+- **試験**：`crates/kivact-engine/tests/content_version.rs` の `an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it` と `a_changed_layer_bumps_its_version_and_a_sibling_layer_keeps_its_own` を足す（付属書 A 4.2 が求める試験。`kivact::test` から composition を見られないので engine の試験にした）。二つは debug build と `testing`（照合が働く）と release（照合が無い）の両方で走らせる：照合の有無で版が変わらないこと（EA-01）。付属書 A の debug の hash の照合が、E2E の中で版の上げ忘れを検出する。
+- **確認（tier a）**：`ENGINE-A`（`content_version` の試験を含む）、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test --release -p kivact-engine --features testing --test content_version`、`E2E: compositor, frame_sources, motion, layout_scroll, canvas, drawables, images_animated, effects_filters, offscreen, viewport`
+- **完了条件**：どのコマンドも 0 件でない（1.4 節）。`rg -n "content_version" crates/kivact-engine/src` が、`src/paint/state.rs`（`stamp_versions`）、`src/lower/content_versions.rs`（`stamp_fresh` と A09 の関数）、`src/lower/scene_out.rs` の `content_version: 0`（置き場）、`src/host/devtools.rs` の overlay の `fresh_content_version()` だけを返す。新しい試験を含め確認がすべて通る。
+
+## E32：draw cache と歩き直しの不変条件の試験（EA-02・EA-03・EA-14）
+
+- **wave / lane / 前提**：W6b / E2 / E14（E14 → E32 → E24。E12・E13 は W5a で済んでいる）
+- **所有**：`src/paint/state.rs`（thread-local 一つと試験用の method 一つ）、`src/paint/list/invalidation.rs`（`outdate_paint` の loop に 3 行）、`src/host/testing/test_host.rs`（method を二つ足すだけ）、`src/host/testing.rs`（再公開の 1 行）、`crates/kivact-engine/Cargo.toml`（`[[test]]` を一つ）、`crates/kivact-engine/tests/draw_cache.rs`（新設）
+- **目的**：E12・E13 の不変条件を engine の試験で確かめる（設計書 12 章、6.4 節の TV-09）。(1) 描き直しの印の漏れ（試験の driver が入れる誤り）を、E12 の照合が今の paint から必ず見つける（EA-14）。(2) scroll の歩き直しを何度繰り返しても、list の entries・transforms・layers と draw cache は最初の frame と同じ大きさ（EA-02）。(3) list から外れた行は kept の drawing を持たない（EA-03）。W5a では engine の試験の入口（`test_host.rs`）を鎖の E15 が持つので、E12・E13 と同じ wave に置けない。
+- **手順**：
+  1. `src/paint/state.rs` に次を足す。
+     ```rust
+     #[cfg(feature = "testing")]
+     thread_local! {
+         /// A node whose kept drawing a redraw mark does not forget: the test
+         /// driver's injected invalidation fault (`ArvaneTestHost::keep_stale_draw`),
+         /// which the debug check of kept drawings must catch.
+         pub(crate) static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+     }
+
+     /// The sizes of a window's paint list and draw cache (the test driver reads them).
+     #[cfg(feature = "testing")]
+     #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+     pub struct PaintListSizes {
+         /// The list's entries (opens and closes).
+         pub entries: usize,
+         /// The transforms the steps refer to.
+         pub transforms: usize,
+         /// The compositor layers the steps refer to.
+         pub layers: usize,
+         /// The nodes that keep a drawing.
+         pub kept_draws: usize,
+     }
+     ```
+     `impl PaintState` に次を足す。
+     ```rust
+     /// The sizes of the list and the draw cache (the test driver reads them).
+     #[cfg(feature = "testing")]
+     pub(crate) fn list_sizes(&self) -> PaintListSizes {
+         PaintListSizes {
+             entries: self.list.entries.len(),
+             transforms: self.list.transforms.len(),
+             layers: self.list.layers.len(),
+             kept_draws: self.draw_owners.borrow().len(),
+         }
+     }
+     ```
+  2. `src/paint/list/invalidation.rs`：E12 が `outdate_paint` に足した `for id in changes.redrawn() {` の loop の最初に次を置く。
+     ```rust
+     #[cfg(feature = "testing")]
+     if crate::paint::state::KEEP_STALE_DRAW.with(std::cell::Cell::get) == Some(id) {
+         continue;
+     }
+     ```
+  3. `src/host/testing.rs` の再公開の並びに `pub use crate::paint::state::PaintListSizes;` を足す。`src/host/testing/test_host.rs` の `impl ArvaneTestHost` に次を足す（`#[doc(hidden)]` は同じファイルの他の試験用 method に合わせる。window の model は E14 の `layer_versions` と同じ書き方で取る）。
+     ```rust
+     /// The sizes of window `window`'s paint list and draw cache after its last frame.
+     pub fn paint_list_sizes(&self, window: WindowId) -> PaintListSizes {
+         // the model of `window` as `layer_versions` reaches it, then:
+         // model.paint.list_sizes(), or `PaintListSizes::default()` without it
+     }
+
+     /// Leave `node`'s kept drawing in place when a change marks it for a
+     /// redraw (`None`: leave none): an injected fault the debug check of
+     /// kept drawings must catch.
+     pub fn keep_stale_draw(&self, node: Option<NodeId>) {
+         crate::paint::state::KEEP_STALE_DRAW.with(|kept| kept.set(node));
+     }
+     ```
+     （`paint_list_sizes` の本体：`layer_versions` が `Launch::Running(host)` から model を取る形を写し、`.map(|model| model.paint.list_sizes()).unwrap_or_default()` を返す。）
+  4. `crates/kivact-engine/Cargo.toml` に `tests/host_locale.rs` と同じ形の `[[test]]` を足す：`name = "draw_cache"`、`required-features = ["testing"]`。`crates/kivact-engine/tests/draw_cache.rs` を作る（型の path と名前は W2・W6a の後のもの。1.2 節）。
+     ```rust
+     //! Role: Tests that the draw cache and the paint list keep their invariants:
+     //! a stale kept drawing is caught, and scrolling keeps the list bounded.
+
+     use kivact_engine::api::Client;
+     use kivact_engine::contract::{BoxData, NodeKind, TurnOutput};
+     use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
+     use kivact_types::paint::Fill;
+     use kivact_types::{
+         Dimension, ElementTransform, LayoutProps, NodeId, Overflow, PaintProps, Point, Rgba,
+         WillChange, WindowId,
+     };
+
+     const ROOT: NodeId = NodeId(1);
+     const LIST: NodeId = NodeId(2);
+     /// How many rows the list scrolls: 20 px each in a list 200 px tall.
+     const ROWS: u64 = 200;
+
+     /// Row `i` of the list.
+     fn row(i: u64) -> NodeId {
+         NodeId(100 + i)
+     }
+
+     fn painted(hex: u32) -> PaintProps {
+         PaintProps {
+             background: Some(Fill::Solid(Rgba::from_hex(hex, 1.0))),
+             ..PaintProps::default()
+         }
+     }
+
+     /// A row's paint: even rows are compositor layers of their own, odd rows
+     /// are drawn through a transform (the list keeps both kinds).
+     fn row_paint(i: u64, hex: u32) -> PaintProps {
+         if i % 2 == 0 {
+             PaintProps {
+                 will_change: WillChange::Transform,
+                 ..painted(hex)
+             }
+         } else {
+             PaintProps {
+                 transform: ElementTransform {
+                     scale: [0.9, 1.0, 1.0],
+                     ..ElementTransform::default()
+                 },
+                 ..painted(hex)
+             }
+         }
+     }
+
+     fn sized(width: f64, height: f64) -> LayoutProps {
+         LayoutProps {
+             width: Dimension::Px(width),
+             height: Dimension::Px(height),
+             ..LayoutProps::default()
+         }
+     }
+
+     /// A 200 × 200 list scrolling `ROWS` rows.
+     fn start() -> ArvaneTestHost {
+         ArvaneTestHost::new(
+             Client::new(
+                 |_, _, writer| {
+                     writer.create(WindowId::MAIN, ROOT, NodeKind::Root);
+                     writer.create(WindowId::MAIN, LIST, NodeKind::Box(BoxData::default()));
+                     writer.insert(ROOT, LIST, None);
+                     writer.set_layout(
+                         LIST,
+                         LayoutProps {
+                             overflow_y: Overflow::Scroll,
+                             ..sized(200.0, 200.0)
+                         },
+                     );
+                     for i in 0..ROWS {
+                         writer.create(WindowId::MAIN, row(i), NodeKind::Box(BoxData::default()));
+                         writer.insert(LIST, row(i), None);
+                         writer.set_layout(
+                             row(i),
+                             LayoutProps {
+                                 shrink: 0.0,
+                                 ..sized(180.0, 20.0)
+                             },
+                         );
+                         writer.set_paint(row(i), row_paint(i, 0x2563eb));
+                     }
+                     writer.commit();
+                 },
+                 |_, _, _| TurnOutput::default(),
+             ),
+             TestHostOptions {
+                 mirror: MirrorMode::Off,
+                 ..TestHostOptions::default()
+             },
+         )
+         .expect("the test host starts")
+     }
+
+     /// Scroll the list to `y` and draw the frame.
+     fn scroll_to(host: &mut ArvaneTestHost, y: f64) {
+         host.writer().scroll_to(LIST, Point { x: 0.0, y });
+         host.writer().commit();
+         host.redraw();
+     }
+
+     /// A paint change whose redraw mark is left out (an injected fault) is
+     /// caught by the check of the kept drawing, which draws from the node's
+     /// paint now, not the kept one (the check runs in debug builds with
+     /// `testing` only).
+     #[cfg(debug_assertions)]
+     #[test]
+     #[should_panic(expected = "is stale")]
+     fn a_paint_change_that_does_not_forget_the_drawing_is_caught() {
+         let mut host = start();
+         host.redraw();
+         host.keep_stale_draw(Some(row(0)));
+         host.writer().set_paint(row(0), row_paint(0, 0xdc2626));
+         host.writer().commit();
+         host.redraw();
+     }
+
+     /// Scrolling down and back 10 000 times walks the list's subtree again
+     /// each time; at the top the list is the size it was in the first frame.
+     #[test]
+     fn scrolling_back_and_forth_keeps_the_paint_list_the_size_it_was() {
+         let mut host = start();
+         host.redraw();
+         let top = host.paint_list_sizes(WindowId::MAIN);
+         assert!(top.transforms > 0 && top.layers > 0, "the rows hold transforms and layers: {top:?}");
+         for round in 1..=10_000 {
+             scroll_to(&mut host, 400.0);
+             scroll_to(&mut host, 0.0);
+             if round % 1_000 == 0 {
+                 assert_eq!(host.paint_list_sizes(WindowId::MAIN), top, "after {round} round trips");
+             }
+         }
+     }
+
+     /// Rows scrolled out of the list drop their kept drawings: scrolling
+     /// through every row keeps no more drawings than the list has entries.
+     #[test]
+     fn rows_scrolled_out_drop_their_kept_drawings() {
+         let mut host = start();
+         host.redraw();
+         for step in 1..=38_u32 {
+             scroll_to(&mut host, f64::from(step) * 100.0);
+             let sizes = host.paint_list_sizes(WindowId::MAIN);
+             assert!(sizes.kept_draws <= sizes.entries, "at {} px: {sizes:?}", step * 100);
+         }
+     }
+     ```
+     （一つ目の試験は、E32 の誤りの注入が無ければ印が kept の drawing を消し、照合は起きない。注入すると row 0 の kept の drawing が残り、E12 の `verify_draw` の paint の比較が panic する。三つ目の試験は、E13 の `forget_left_draws` が無いと、通り過ぎた行の drawing が残って `kept_draws` が `entries` を超える。）
+- **消すもの**：無い。
+- **状態の閉じ方**：`PaintListSizes` は値だけ（`&mut self` の method が無い）で対象外。`KEEP_STALE_DRAW` は `testing` の build だけの thread-local で、struct の field ではない。
+- **試験**：手順 4 の 3 本を足す。
+- **確認（tier a）**：
+  ```
+  ENGINE-A
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-engine --features testing --test draw_cache
+  ```
+- **完了条件**：二つ目のコマンドが 3 本の試験を実行して通る（0 件・2 件は失敗。1.4 節）。確認がすべて通る。
 
 ## E15：window の表を一つにする、close の信号を phase に写さない
 
-- **wave / lane / 前提**：W5a / E1 / なし
+- **wave / lane / 前提**：W5a / 鎖 / 付属書 R・C の W5a の鎖の unit のすべて（鎖の順は R05〜R31 → C07〜C18 → E15 → E17 → E18 → E20。E17 が E15 の後の `src/host/events.rs` と `src/host/testing/self_check.rs` の 2 行ずつを直すので、E15 は E17 の直前に鎖で走る。E15 の file は鎖の R・C の unit の file と重ならない）
 - **所有**：`src/host/window.rs`（`src/model/window.rs` へ移す）、`src/host.rs`、`src/model.rs`、`src/model/app_model.rs`、`src/host/pump.rs`、`src/host/events.rs`、`src/host/window_changes.rs`、`src/host/foreign.rs`、`src/host/launch.rs`、`src/host/devtools.rs`、`src/host/write/reader.rs`、`src/host/write/writer.rs`、`src/host/testing/test_host.rs`、`src/host/testing/self_check.rs`
 - **目的**：`Host.windows` と `AppModel.windows` の二つの表を、`AppModel.windows: BTreeMap<WindowId, Window { model, host }>` の一つにする。`HostPhase::Closed` と `observe_close` を消し、close は `CloseSignal` を直接読む（EN-15）。`HostWindow` は host が使う受け身の状態として `model::window` に置く（model は host を使えないので、型は model の葉に置き、host がそれを使う）。
 - **手順**：
@@ -3001,9 +3440,9 @@ cargo test -p kivact-editing
      - `drawable` を `!self.closed() && self.presence == AppPresence::Foreground && self.app.borrow().host(id).is_some_and(|w| matches!(w.surface, Surface::Drawable { .. }))` にする。
   5. host の全ファイルで次の置換をする：`self.observe_close()` → `self.closed()`、`self.phase == HostPhase::Closed` → `self.closed()`、`self.phase != HostPhase::Closed` → `!self.closed()`、`matches!(self.phase, HostPhase::Starting { .. } | HostPhase::Closed)` → `matches!(self.phase, HostPhase::Starting { .. }) || self.closed()`。コマンド：
      ```
-     cd crates/kivact-engine/src/host
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-engine/src/host" || exit 1
      rg -l "observe_close|HostPhase::Closed" . | xargs perl -pi -e 's/self\.observe_close\(\)/self.closed()/g; s/self\.phase == HostPhase::Closed/self.closed()/g; s/self\.phase != HostPhase::Closed/!self.closed()/g; s/matches!\(self\.phase, HostPhase::Starting \{ \.\. \} \| HostPhase::Closed\)/(matches!(self.phase, HostPhase::Starting { .. }) || self.closed())/g'
-     cd ../../../..
+     cd "$ROOT" || exit 1
      ```
      残る `HostPhase::Closed` の match の腕（`control` など）は、その腕の処理を `if self.closed() { ... }` として match の前に移す。
   6. `self.windows`（`Host` の field）を使う所を、`self.app` の `Window` で書き直す。規則：(a) host の状態だけを読む所は `self.app.borrow().host(id)`、書く所は `self.app.borrow_mut().host_mut(id)`。(b) model と host の状態を両方使う所は `let mut app = self.app.borrow_mut(); let Some(window) = app.windows.get_mut(&id) else { ... };` で一度だけ借り、`window.model`・`window.host` を使う。(c) `self.windows.keys()` は `self.window_ids()` にする（`AppModel::windows()` の写し）。(d) `self.app` の借用を、`self.client.*`、`self.turn`、`self.effects`、`self.present`、`self.drawable`、その他 `self.app` を借りる `Host` の method の呼出しをまたいで持たない（借用は block で閉じる）。
@@ -3014,12 +3453,12 @@ cargo test -p kivact-editing
 - **消すもの**：`Host::windows`、`HostPhase::Closed`、`Host::observe_close`、`src/host/window.rs`（移動）。
 - **状態の閉じ方**：`Window` は二つの field の組で対象外。`HostWindow` の印（W1 の後にあれば）はそのまま移る。
 - **試験**：足さない・直さない。
-- **確認（tier a）**：`ENGINE-A`、`E2E: windows, close_request, app_handle, foreign_window, launch_window, launch_platform, launch_fonts, environment, lifecycle, launch_real_window`、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- embed`、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed --test foreign_window_run`
+- **確認（tier a）**：`ENGINE-A`、`E2E: windows, close_request, app_handle, foreign_window, launch_window, launch_platform, launch_fonts, environment, lifecycle, launch_real_window`、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- embed::`、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed --test foreign_window_run`
 - **完了条件**：手順 10 の `rg` が空。確認がすべて通る。
 
 ## E16：a11y の Metadata で順序を一度だけ数える
 
-- **wave / lane / 前提**：W5a / E1 / E15
+- **wave / lane / 前提**：W5a / E1 / なし（E15 は鎖へ移った。E16 の file は E15 の file と重ならない）
 - **所有**：`src/a11y/build/dirty.rs`、`src/a11y/build/identity.rs`、`src/a11y/build/node.rs`
 - **目的**：一回の Metadata の構築で `semantic_order()` を一度だけ呼び、`clipping_of_all` は全 slot ではなくその順序（付いている node だけ）を回る（EN-10 の S の部分。設計書 6.2 の PERF-1 の Metadata の例外は残す）。
 - **手順**：
@@ -3051,17 +3490,70 @@ cargo test -p kivact-editing
 - **消すもの**：`clipping_of_all`（`clipping_of` に替わる）、二つの余分な `semantic_order()`。
 - **状態の閉じ方**：新しい状態は無い。
 - **試験**：足さない。`a11y_incremental` の `a11y_enumerated` の数の期待値は変えない（数える所は一度のまま）。
-- **確認（tier a）**：`ENGINE-A`、`E2E: a11y_incremental, landmark_roles, relations, metadata_and_description, image_semantics, layout_scroll, components`、`E2E: apg_listbox, apg_grid, ui_collections`
+- **確認（tier a）**：`ENGINE-A`、`E2E: a11y_incremental, landmark_roles, relations, metrics_and_description, image_semantics, layout_scroll, components`、`E2E: apg_listbox, apg_grid, ui_collections`
 - **完了条件**：手順 4 のとおり。確認がすべて通る。
 
 ## E17：editing の公開 API（`EditOutcome` から `changed` を消す、`EditRequest::Paste(String)`、寿命の無い `EditContext`、goal column）
 
-- **wave / lane / 前提**：W5a / 鎖 / 付属書 R・C の W5a の鎖の unit のすべて（鎖の順は R05〜R31 → C07〜C18 → E17 → E18 → E20）
-- **所有**：`crates/kivact-editing/src/behavior.rs`、`crates/kivact-editing/src/session.rs`、`crates/kivact-editing/src/edit_state.rs`、`crates/kivact-editing/src/editor.rs`、`crates/kivact-editing/src/journal.rs`、`crates/kivact-editing/src/host.rs`、`crates/kivact-editing/src/lib.rs`、`src/model/keys.rs`、`src/model/apply.rs`（`unmark` の 1 行）、`src/model/edit/inputs.rs`、`src/model/edit/ime.rs`、`src/model/pointer/machine.rs`（`select_text`）、`src/measure/editor.rs`、`src/text_input/shaping.rs`、`crates/kivact-core/src/custom/text_editing.rs`、`crates/kivact-core/src/view/editing_data.rs`、`crates/kivact-core/src/view/mount/editing.rs`、`crates/kivact-core/src/custom.rs`（再公開の行）、`crates/kivact-interaction/src/text_edit/policy.rs`、`crates/kivact-ui/src/code_editing.rs`、`crates/kivact-ui-soft/src/rich_blocks.rs`、`dev/tests/kivact-public-api/tests/e2e/text_editing.rs`
+- **wave / lane / 前提**：W5a / 鎖 / 付属書 R・C の W5a の鎖の unit のすべてと E15（鎖の順は R05〜R31 → C07〜C18 → E15 → E17 → E18 → E20。E15 が `src/host/events.rs` と `src/host/testing/self_check.rs` を書き終えた後に、その 2 行・2 行を直す）
+- **所有**：`crates/kivact-editing/src/behavior.rs`、`crates/kivact-editing/src/session.rs`、`crates/kivact-editing/src/edit_state.rs`、`crates/kivact-editing/src/editor.rs`、`crates/kivact-editing/src/journal.rs`、`crates/kivact-editing/src/host.rs`、`crates/kivact-editing/src/lib.rs`、`src/model/keys.rs`、`src/model/apply.rs`（`unmark` の 1 行）、`src/model/edit/inputs.rs`、`src/model/edit/ime.rs`、`src/model/pointer/machine.rs`（`select_text`）、`src/measure/editor.rs`、`src/measure/input.rs`（1 行）、`src/text_input/shaping.rs`、`src/text_input.rs`（1 行）、`src/host/events.rs`（2 行）、`src/host/testing/self_check.rs`（2 行）、`crates/kivact-core/src/custom/text_editing.rs`、`crates/kivact-core/src/view/editing_data.rs`、`crates/kivact-core/src/view/mount/editing.rs`、`crates/kivact-core/src/custom.rs`（再公開の行）、`crates/kivact-interaction/src/text_edit/policy.rs`、`crates/kivact-ui/src/code_editing.rs`、`crates/kivact-ui-soft/src/rich_blocks.rs`、`crates/kivact-editing/tests/geometry.rs`（新設）、`dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs`、`dev/tests/kivact-public-api/tests/e2e_core/custom_text_field.rs`
 - **目的**：
   - 編集の behavior が「変えたか」を申告せず、host が text の revision の変化で `TextChanged` を決める（EN-14）。上限（`max_length`）と読み取り専用は journal の間だけ持つ（`Limits`）。終わりの手順を固定の関数 `close_edit` にする。
-  - `EditRequest::Paste(String)` と寿命の無い `EditContext`（行の snapshot を `Rc` で持つ）にし、利用者の behavior の型に寿命を出さない（監査 4 章、設計書 5 章の「Rust 特有の作法を出さない」）。
+  - `EditRequest::Paste(String)` と寿命の無い `EditContext` にし、利用者の behavior の型に寿命を出さない（監査 4 章、設計書 5 章の「Rust 特有の作法を出さない」）。`EditContext` は editor の行の cache を `Rc` で共有し、文書の全部の行に lazy に答える：request ごとに行を写さず、caret の近くの窓に限らない（EA-11・EA-16。設計書 12 章）。caret の停止位置は既存の `TextGeometry` の合法な境界（grapheme と shaping cluster の共通部分）で、第二の実装を作らない（EA-12）。文字数は `max_length` があるときだけ数える（EA-11）。
   - 上下の caret 移動に goal column を持つ（EN-31）。`EditState::select(range)` を足す。
+- **測定（手順 1 の前に一度）**：大きな文書の key の速さを、本 unit の変更の前に測って残す（EA-11。設計書 12 章「大きな文書の p95 が悪くならない」）。
+  1. `dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs` の最後に次を足す（公開 API だけなので、本 unit の前の code でも後の code でも compile する）。
+     ```rust
+     /// The 95th percentile of the time `press` takes, over `n` presses.
+     fn p95(n: usize, mut press: impl FnMut(usize)) -> std::time::Duration {
+         let mut times: Vec<std::time::Duration> = (0..n)
+             .map(|i| {
+                 let start = std::time::Instant::now();
+                 press(i);
+                 start.elapsed()
+             })
+             .collect();
+         times.sort_unstable();
+         times[n * 95 / 100]
+     }
+
+     /// Key latency in a 1 MB document of many lines and in a 1 MB single
+     /// line: a key that moves the caret, a typed character and (many lines)
+     /// a move by a line. A measurement run by hand in release: E17 compares
+     /// it before and after; it asserts nothing.
+     #[test]
+     #[ignore = "a measurement, run by hand in release"]
+     fn large_document_key_latency() {
+         let line = "0123456789abcdef".repeat(4);
+         let lines = vec![line.as_str(); 16_384].join("\n");
+         let one_line = "0123456789abcdef".repeat(65_536);
+         for (name, text, area) in [("lines", lines.as_str(), true), ("one line", one_line.as_str(), false)] {
+             let (screen, _value, _log) = field_screen(text, area);
+             let field = screen.get_by_role(Role::TextBox, if area { "Notes" } else { "Name" });
+             field.press_key(Key::End);
+             let left = p95(200, |_| {
+                 field.press_key(Key::ArrowLeft);
+             });
+             eprintln!("latency {name} ArrowLeft p95 {left:?}");
+             let typed = p95(200, |_| {
+                 field.type_text("x");
+             });
+             eprintln!("latency {name} type p95 {typed:?}");
+             if area {
+                 let vertical = p95(200, |i| {
+                     field.press_key(if i % 2 == 0 { Key::ArrowUp } else { Key::ArrowDown });
+                 });
+                 eprintln!("latency {name} ArrowUp/Down p95 {vertical:?}");
+             }
+         }
+     }
+     ```
+  2. 次を実行し、出力を残す（`latency` で始まる 5 行が出る）。
+     ```
+     dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test --release -p kivact-public-api-tests --test e2e_core -- text_editing::large_document_key_latency --ignored --nocapture > target/e17-latency-before.txt 2>&1
+     grep -c "^latency" target/e17-latency-before.txt
+     ```
+     二つ目のコマンドが `5` でなければ STOP する。
 - **手順**：
   1. `crates/kivact-editing/src/behavior.rs`：
      - `EditOutcome` を次にする。
@@ -3083,13 +3575,19 @@ cargo test -p kivact-editing
        }
        ```
      - `EditRequest<'a>` の寿命を消し、`Paste(&'a str)` を `Paste(String)` にする。derive に `Clone, Debug, PartialEq` が無ければ足す。
-     - `EditContext<'a>`・`EditLayout<'a>`・`trait Lines` を次に置き換える（`EditContext` の四つの公開 method の名前・引数・意味は今のまま）。
+     - `EditContext<'a>`・`EditLayout<'a>`・`trait Lines` を次に置き換える（`EditContext` の五つの公開 method の名前・引数・意味は今のまま。答える行は caret の近くに限らず文書の全部）。`EditContext` と各 field の上の注釈（W1 の印の行）はそのまま残し、`layout` の field の型だけを変える。`use kivact_types::{Key, Modifiers, Rect};` から `Rect` を消す。
        ```rust
-       /// The constraints and laid-out lines an editing request may read. The
-       /// lines are the caret's and the ones next to it, as the host laid them
-       /// out for the state's current revision; once the behavior changes the
-       /// text (a new revision), the line queries answer `None`.
-       #[derive(Clone, Debug)]
+       /// What an editing behavior is given beside the state and the request:
+       /// the editor's native constraints and its laid-out lines.
+       ///
+       /// The layout queries take the state the behavior was given and answer
+       /// for its text as the request found it, for every line of the text
+       /// (`None` once the behavior changed the text, or when the editor is not
+       /// laid out or shows its placeholder). The host shapes only the lines a
+       /// query asks about. Lines are hard lines (a single-line editor has
+       /// one); `x` is in logical pixels from the start of the editor's text
+       /// box, before the editor's horizontal scroll. A context serves one
+       /// request: it is neither cloned nor kept.
        pub struct EditContext {
            /// Whether committed text may contain line breaks.
            pub multiline: bool,
@@ -3097,118 +3595,99 @@ cargo test -p kivact-editing
            pub read_only: bool,
            /// Whether clipboard copy and cut must hide the value.
            pub password: bool,
-           lines: Option<Rc<LineSnapshot>>,
+           layout: Option<EditLayout>,
        }
 
        impl EditContext {
-           /// The context the host builds for one request.
+           /// The constraints and the lines of one editing request (the host
+           /// builds it; `layout` answers the line queries).
            #[doc(hidden)]
-           pub fn new(multiline: bool, read_only: bool, password: bool, lines: Option<LineSnapshot>) -> Self {
-               EditContext {
+           pub fn new(multiline: bool, read_only: bool, password: bool, layout: Option<EditLayout>) -> Self {
+               Self {
                    multiline,
                    read_only,
                    password,
-                   lines: lines.map(Rc::new),
+                   layout,
                }
            }
 
            /// The lines, when they are of `state`'s text.
-           fn lines(&self, state: &EditState) -> Option<&LineSnapshot> {
-               self.lines
-                   .as_deref()
-                   .filter(|l| l.revision == state.revision())
+           fn layout(&self, state: &EditState) -> Option<&EditLayout> {
+               self.layout.as_ref().filter(|l| l.revision == state.revision())
            }
 
-           /// The number of laid-out lines.
+           /// The number of lines of `state`'s text.
            pub fn line_count(&self, state: &EditState) -> Option<usize> {
-               Some(self.lines(state)?.count)
+               self.layout(state)?.lines.count()
            }
 
-           /// The laid-out line holding byte offset `at` (the caret's line or a line next to it).
+           /// The line holding byte offset `at` of `state`'s text (a line break
+           /// belongs to the line it ends).
            pub fn line_of(&self, state: &EditState, at: usize) -> Option<usize> {
-               self.lines(state)?.line_of(at)
+               self.layout(state)?.lines.line_of(at)
            }
 
-           /// The byte range of laid-out line `line` without its break.
+           /// The byte range of `line`'s text, without its line break.
            pub fn line_range(&self, state: &EditState, line: usize) -> Option<Range<usize>> {
-               Some(self.lines(state)?.line(line)?.content.clone())
+               self.layout(state)?.lines.content(line)
            }
 
-           /// Where the caret at byte offset `at` is drawn: its `x`.
+           /// Where the caret at byte offset `at` of `state`'s text is drawn: its
+           /// `x`.
            pub fn x_of(&self, state: &EditState, at: usize) -> Option<f64> {
-               self.lines(state)?.x_of(at)
+               let l = self.layout(state)?;
+               l.lines.caret_x(state.value(), at, l.width)
            }
 
-           /// The byte offset on line `line` whose caret is nearest `x`.
+           /// The editing stop of `line` (a grapheme and shaping-cluster
+           /// boundary) whose caret is nearest `x` (the line's end past its last
+           /// character), as a byte offset of `state`'s text.
            pub fn offset_at(&self, state: &EditState, line: usize, x: f64) -> Option<usize> {
-               self.lines(state)?.line(line)?.nearest(x)
+               let l = self.layout(state)?;
+               l.lines.nearest(state.value(), line, x, l.width)
            }
        }
 
-       /// The host's snapshot of the laid-out lines around the caret.
+       /// The host's laid-out lines of one revision of the text, as an
+       /// [`EditContext`] reads them. Offsets and ranges are UTF-8 byte offsets
+       /// into that text; content ranges exclude line breaks. A break belongs to
+       /// the line it ends, and the byte right after it to the next line. Every
+       /// query answers `None` when the host cannot answer it now: the lines are
+       /// no longer of that revision, they show the placeholder, or the host is
+       /// using them.
        #[doc(hidden)]
-       #[derive(Clone, Debug, Default, PartialEq)]
-       pub struct LineSnapshot {
+       pub trait Lines {
+           /// How many lines there are.
+           fn count(&self) -> Option<usize>;
+           /// The line holding byte offset `at`, including its terminating break.
+           fn line_of(&self, at: usize) -> Option<usize>;
+           /// Line `i`'s text, without its break.
+           fn content(&self, i: usize) -> Option<Range<usize>>;
+           /// The `x` of the caret at byte offset `at` of `text`, in a box
+           /// `width` wide.
+           fn caret_x(&self, text: &str, at: usize, width: f64) -> Option<f64>;
+           /// The editing stop of line `i` whose caret is nearest `x`: the
+           /// stops of [`crate::TextGeometry`] (grapheme and shaping-cluster
+           /// boundaries); `None` past the last line.
+           fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> Option<usize>;
+       }
+
+       /// The lines an [`EditContext`] reads, the revision of the text they are
+       /// of and the width of the box they are aligned in.
+       #[doc(hidden)]
+       pub struct EditLayout {
+           /// The host's lines, shared with its line cache for the request.
+           pub lines: Box<dyn Lines>,
            /// The revision of the text the lines are of.
            pub revision: u64,
-           /// How many lines the text has.
-           pub count: usize,
-           /// The caret's line and the ones next to it, in order.
-           pub lines: Vec<SnapshotLine>,
-       }
-
-       /// One laid-out line of a [`LineSnapshot`].
-       #[doc(hidden)]
-       #[derive(Clone, Debug, PartialEq)]
-       pub struct SnapshotLine {
-           /// Its index among all lines.
-           pub index: usize,
-           /// Its bytes without its break.
-           pub content: Range<usize>,
-           /// Each grapheme boundary of the line (byte offset) and the `x` its caret is drawn at, in order.
-           pub stops: Vec<(usize, f64)>,
-       }
-
-       impl LineSnapshot {
-           fn line(&self, index: usize) -> Option<&SnapshotLine> {
-               self.lines.iter().find(|l| l.index == index)
-           }
-
-           /// The line holding `at`; a boundary that ends a soft-wrapped line
-           /// starts the next one.
-           fn line_of(&self, at: usize) -> Option<usize> {
-               self.lines
-                   .iter()
-                   .rev()
-                   .find(|l| l.content.start <= at && at <= l.content.end)
-                   .map(|l| l.index)
-           }
-
-           fn x_of(&self, at: usize) -> Option<f64> {
-               let line = self.line(self.line_of(at)?)?;
-               line.stops
-                   .iter()
-                   .rev()
-                   .find(|(stop, _)| *stop <= at)
-                   .or(line.stops.first())
-                   .map(|(_, x)| *x)
-           }
-       }
-
-       impl SnapshotLine {
-           /// The stop whose caret is nearest `x` (the first of equals).
-           fn nearest(&self, x: f64) -> Option<usize> {
-               self.stops
-                   .iter()
-                   .min_by(|a, b| (a.1 - x).abs().total_cmp(&(b.1 - x).abs()))
-                   .map(|(at, _)| *at)
-           }
+           /// The width of the box the lines are aligned in.
+           pub width: f64,
        }
        ```
-       `use std::rc::Rc;` を足す。
+       （`EditContext` は `Clone` を持たず、behavior には `&EditContext` で渡るので、request の後に残らない。`Lines` の実装（engine の `SharedLines`、手順 6）は文書を写さず、問われた行だけを shape する。）
      - `type Behave` と `EditBehavior::new`・`invoke` の署名から寿命を消す：`dyn Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome`。
   2. `crates/kivact-editing/src/edit_state.rs`：
-     - `max_length` の field と `set_max_length` を消す。`replace` の「`text` を `self.max_length` まで切る」処理、`compose` の `max_length` の退避と戻し、`unmark` の「composition を `max_length` まで切る」処理を消す（上限は手順 4 の `close_edit` が journal の終わりに一度だけ掛ける）。
+     - `max_length` の field と `set_max_length` を消す。`replace` の「`text` を `self.max_length` まで切る」処理、`compose` の `max_length` の退避と戻し、`unmark` の「composition を `max_length` まで切る」処理を消す（上限は手順 5 の `close_edit` が journal の終わりに一度だけ掛ける）。
      - 次の method を足す。
        ```rust
        /// Select `range`: the anchor at its start, the caret at its end.
@@ -3260,31 +3739,31 @@ cargo test -p kivact-editing
      - 次の自由関数を足す（`edit_editor_with` の前）。
        ```rust
        /// The end of every edit, in the host's fixed order: a composition is
-       /// never cut; the text is cut to the limit (never below what it already
-       /// held); a read-only editor takes every change of the text back; a value
-       /// the core set during a composition is adopted. Whether the text changed
-       /// is the journal's answer afterwards.
-       fn close_edit(journal: &mut Journal<'_>, controlled: &mut ControlledValue, held: usize) {
-           let limits = journal.limits();
+       /// never cut; the text is cut to `limit` scalars (the editor's limit,
+       /// never below what the text held when the edit began; `None` without a
+       /// limit); a read-only editor takes every change of the text back; a
+       /// value the core set during a composition is adopted. Whether the text
+       /// changed is the journal's answer afterwards.
+       fn close_edit(journal: &mut Journal<'_>, controlled: &mut ControlledValue, limit: Option<usize>) {
            if !journal.state().is_composing()
-               && let Some(max) = limits.max_length.map(|max| max.max(held))
+               && let Some(max) = limit
                && let Some((end, _)) = journal.state().value().char_indices().nth(max)
            {
                journal.truncate(end);
            }
-           if limits.read_only && (journal.text_changed() || journal.state().is_composing()) {
+           if journal.limits().read_only && (journal.text_changed() || journal.state().is_composing()) {
                journal.revert();
            }
            EditorNode::adopt_pending_controlled(controlled, journal);
        }
        ```
-       （`ControlledValue` と `EditorNode` の path は `src/measure/editor.rs` のもの。`held` は journal を開いた時の text の scalar 数：上限が後から下がっても、今ある text は切らない。）
+       （`ControlledValue` と `EditorNode` の path は `src/measure/editor.rs` のもの。text の scalar を数えるのは `limit` が `Some` のとき、つまり editor に `max_length` があるときだけ。上限が後から下がっても、今ある text は切らない。）
      - `edit_editor_with` を次にする。
        ```rust
        pub(super) fn edit_editor_with(
            &mut self,
            id: NodeId,
-           f: impl FnOnce(&mut Journal<'_>, Option<&mut EditLines>),
+           f: impl FnOnce(&mut Journal<'_>, &Rc<RefCell<Option<EditLines>>>),
        ) -> Option<bool> {
            let n = self.tree.get_mut(id)?;
            if n.disabled() {
@@ -3302,13 +3781,17 @@ cargo test -p kivact-editing
                ..
            } = self.slots.editors[n.index.0].as_deref_mut()?;
            let mut journal = editor.journal(limits);
-           let held = if journal.state().is_composing() {
-               0
-           } else {
-               journal.state().value().chars().count()
-           };
-           f(&mut journal, lines.get_mut().as_mut());
-           close_edit(&mut journal, controlled, held);
+           // Counted only under a limit: the edit never cuts below the scalars
+           // the text holds now (a composition is never cut).
+           let limit = limits.max_length.map(|max| {
+               if journal.state().is_composing() {
+                   max
+               } else {
+                   max.max(journal.state().value().chars().count())
+               }
+           });
+           f(&mut journal, lines);
+           close_edit(&mut journal, controlled, limit);
            // A read-only editor reports nothing (an adopted core value included).
            let changed = journal.text_changed() && !limits.read_only;
            let changes = journal.finish();
@@ -3329,31 +3812,56 @@ cargo test -p kivact-editing
            Some(changed)
        }
        ```
-       （`self.slots` を借りる行は、`n` の借用と重ならないよう E03 の後の形に合わせる。`held` の 0 は、composition 中は `close_edit` が切らないので値は使われない。）
-     - `edit_input(&mut self, id, f: impl FnOnce(&mut EditState) -> bool)` を `f: impl FnOnce(&mut EditState)` にし、本体を `self.edit_editor_with(id, |journal, _| f(journal.state_mut()))` にする。`edit_input_with(&mut self, id, engine, f: impl FnOnce(&mut EditState, &Shaping<'_>, f64) -> bool)` も `-> bool` を消す。
+       （`self.slots` を借りる行は、`n` の借用と重ならないよう E03 の後の形に合わせる。`lines` は `&mut Rc<..>` で分解され、`f` には `&Rc<..>` として渡る。）
+     - `edit_input(&mut self, id, f: impl FnOnce(&mut EditState) -> bool)` を `f: impl FnOnce(&mut EditState)` にし、本体を `self.edit_editor_with(id, |journal, _| f(journal.state_mut()))` にする。`edit_input_with` を次にする（shaper は行を揃える間だけ借り、behavior の間は借りない）。
+       ```rust
+       /// Run `f` (a behavior's request) on the text input `id`, its lines
+       /// brought up to its text first and shared with `f`'s context: the
+       /// lines a query asks about are shaped then.
+       pub(crate) fn edit_input_with(
+           &mut self,
+           id: NodeId,
+           engine: &Rc<RefCell<arvane::Engine>>,
+           f: impl FnOnce(&mut EditState, Option<EditLayout>),
+       ) -> Option<bool> {
+           let width = self.lay_out_lines(id, &mut engine.borrow_mut());
+           self.edit_editor_with(id, |journal, lines| {
+               let revision = lines.borrow().as_ref().map(|l| l.revision());
+               let layout = revision.map(|revision| EditLayout {
+                   lines: Box::new(SharedLines::new(Rc::clone(lines), Rc::clone(engine), revision)),
+                   revision,
+                   width,
+               });
+               f(journal.state_mut(), layout);
+           })
+       }
+       ```
      - 閉包が `bool` を返していた呼出しをすべて直す：`rg -n "edit_input\(|edit_input_with\(|edit_editor_with\(" crates/kivact-engine/src` の各所で、閉包の最後の `true` / `false` の行を消す（`insert_text`、`compose_text`、`place_caret`、`set_input_value`、`ime_select`、`src/model/pointer/machine.rs` の `select_text`、`src/model/edit/inputs.rs` の `replace_edit_state`（閉包を `|journal, _| journal.take(incoming)` にし、`reported` の計算を消す）と `replace_edit_session`）。`src/model/apply.rs` の `self.edit_input(id, kivact_editing::EditState::unmark);` を `self.edit_input(id, |e| { e.unmark(); });` にする。
      - `commit_composition`：`let mut journal = editor.journal(n.max_length());` から `EditorNode::adopt_pending_controlled(controlled, &mut journal);` までを次にする（確定した composition は、composition の前の text の長さを下限として上限まで切る。これは前の `unmark` の切り詰めと同じ結果）。
        ```rust
-       let mut journal = editor.journal(Limits {
+       let limits = Limits {
            max_length: n.max_length(),
            read_only: n.read_only(),
-       });
-       let held = {
+       };
+       let mut journal = editor.journal(limits);
+       // Counted only under a limit: never below the text the composition was typed into.
+       let limit = limits.max_length.map(|max| {
            let state = journal.state();
            let marked = state.marked().map_or(0, |r| state.value()[r].chars().count());
-           state.value().chars().count() - marked
-       };
+           max.max(state.value().chars().count() - marked)
+       });
        if !journal.state_mut().unmark() {
            return;
        }
-       close_edit(&mut journal, controlled, held);
+       close_edit(&mut journal, controlled, limit);
        ```
      - `handle_key` の behavior の呼出しを次にする。
        ```rust
        let mut outcome = EditOutcome::NotEditing;
        if let Some(behavior) = behavior.filter(|_| !spin_boundary) {
-           self.edit_input_with(i, engine, |state, lines, width| {
-               let context = context(flags, lines, width, state);
+           self.edit_input_with(i, engine, |state, layout| {
+               let (multiline, read_only, password) = flags;
+               let context = EditContext::new(multiline, read_only, password, layout);
                outcome = behavior.invoke(state, EditRequest::Key { key, modifiers }, &context);
            });
        }
@@ -3366,93 +3874,100 @@ cargo test -p kivact-editing
        ```
      - `paste_input` の閉包を次にする。
        ```rust
-       self.edit_input_with(id, engine, |state, lines, width| {
-           let context = context(flags, lines, width, state);
+       self.edit_input_with(id, engine, |state, layout| {
+           let (multiline, read_only, password) = flags;
+           let context = EditContext::new(multiline, read_only, password, layout);
            behavior.invoke(state, EditRequest::Paste(text.to_string()), &context);
        });
        ```
-     - `fn context` を次にする。
-       ```rust
-       fn context(flags: (bool, bool, bool), lines: &Shaping<'_>, width: f64, state: &EditState) -> EditContext {
-           let (multiline, read_only, password) = flags;
-           EditContext::new(
-               multiline,
-               read_only,
-               password,
-               lines.snapshot(state.value(), state.caret(), width),
-           )
-       }
+     - 自由関数 `fn context`（`flags` と `Shaping` から `EditContext` を作る）を消す。
+     - keys.rs の module doc の「(a behavior that returns `changed: false`)」を含む文を「A change of the text is reported when the text changed (`close_edit`), whatever the behavior answered.」にする。`use` 行を `use kivact_editing::host::{EditLayout, Journal, Limits};`、`use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState};`、`use crate::text_input::{EditLines, SharedLines};` にする。
+  6. 行の cache の共有（EA-11・EA-12・EA-16）：
+     - `src/measure/editor.rs`：`EditorNode` の `pub(crate) lines: RefCell<Option<crate::text_input::EditLines>>,` を `pub(crate) lines: Rc<RefCell<Option<crate::text_input::EditLines>>>,` にし、doc の最後に `/// Shared, for one request, with an editing behavior's context (\`text_input::SharedLines\`).` の 1 行を足す（上の印の行はそのまま）。`EditorNode::new` の `lines: RefCell::default(),` を `lines: Rc::default(),` にする（`Rc` は同じファイルが `use` している）。
+     - `src/measure/input.rs`：`refresh_lines` の `let cache = if measurement { &node.measure_lines } else { &node.lines };` の `&node.lines` を `&*node.lines` にする（二つの腕の型を `&RefCell<..>` に揃える）。
+     - `src/host/testing/self_check.rs`：次を実行する（`Rc` の中の `RefCell` は `get_mut` できない）。
        ```
-     - keys.rs の module doc の「(a behavior that returns `changed: false`)」を含む文を「A change of the text is reported when the text changed (`close_edit`), whatever the behavior answered.」にする。`use` 行から `EditLayout` を消し、`kivact_editing::host::{Journal, Limits}` を使う。
-  6. `src/text_input/shaping.rs`：
-     - `impl Lines for Shaping<'_> { ... }` を消す。`use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};` から `Lines` を消す。
-     - `impl EditLines` に次を足す（`use unicode_segmentation::UnicodeSegmentation as _;` を足す）。
+       perl -pi -e 's/std::mem::replace\(node\.lines\.get_mut\(\), independent\)/std::mem::replace(&mut *node.lines.borrow_mut(), independent)/; s/\.get_mut\(\) = original;/.borrow_mut() = original;/' crates/kivact-engine/src/host/testing/self_check.rs
+       ```
+     - `src/model/interact/sync.rs` の `editor.lines = Default::default();` は型が変わっても同じ意味（新しい空の cache）なので触らない。
+     - `src/text_input/shaping.rs`：`struct Shaping<'a>`（doc を含む）、`impl<'a> Shaping<'a>`、`impl Lines for Shaping<'_>` を消し、`use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};` から `Lines` を消す。ファイルの最後に次を足す（`use std::cell::RefCell;` と `use std::rc::Rc;` を足す）。
        ```rust
-       /// Each grapheme boundary of line `i` (byte offset into `text`) and
-       /// the `x` its caret is drawn at in a box `width` wide, in order.
-       pub(crate) fn stops(
-           &mut self,
-           text: &str,
-           i: usize,
-           width: f64,
-           engine: &mut arvane::Engine,
-       ) -> Vec<(usize, f64)> {
-           let Some(content) = self.content(i) else {
-               return Vec::new();
-           };
-           if !self.shows_value() {
-               return vec![(content.start, self.aligned(0.0, width))];
-           }
-           let x = self.offset(text, i, width, engine);
-           let shaped = self.shaped(text, i, engine).filter(|s| !s.carets.is_empty());
-           let line = &text[content.clone()];
-           let mut out = Vec::new();
-           let mut scalar = 0;
-           let mut chars = line.char_indices().peekable();
-           for at in line
-               .grapheme_indices(true)
-               .map(|(at, _)| at)
-               .chain(std::iter::once(line.len()))
-           {
-               while chars.next_if(|(c, _)| *c < at).is_some() {
-                   scalar += 1;
+       /// An input's lines as an editing behavior reads them for one request:
+       /// the input's own line cache and the shaper, shared, shaping only the
+       /// lines a query asks about. It answers for the revision it was made for
+       /// while nobody else holds the cache or the shaper.
+       pub(crate) struct SharedLines {
+           lines: Rc<RefCell<Option<EditLines>>>,
+           engine: Rc<RefCell<arvane::Engine>>,
+           revision: u64,
+       }
+
+       impl SharedLines {
+           /// The lines of the input whose line cache is `lines`, of `revision`.
+           pub(crate) fn new(
+               lines: Rc<RefCell<Option<EditLines>>>,
+               engine: Rc<RefCell<arvane::Engine>>,
+               revision: u64,
+           ) -> Self {
+               SharedLines {
+                   lines,
+                   engine,
+                   revision,
                }
-               let cx = shaped.as_ref().map_or(0.0, |s| caret_at(s, scalar).x);
-               out.push((content.start + at, x + cx));
            }
-           out
+
+           /// `f` on the lines, when they answer.
+           fn read<T>(&self, f: impl FnOnce(&EditLines) -> T) -> Option<T> {
+               let lines = self.lines.try_borrow().ok()?;
+               lines.as_ref().filter(|l| self.answers(l)).map(f)
+           }
+
+           /// `f` on the lines and the shaper (it may shape a line), when the
+           /// lines answer.
+           fn shape<T>(&self, f: impl FnOnce(&mut EditLines, &mut arvane::Engine) -> T) -> Option<T> {
+               let mut lines = self.lines.try_borrow_mut().ok()?;
+               let lines = lines.as_mut().filter(|l| self.answers(l))?;
+               let mut engine = self.engine.try_borrow_mut().ok()?;
+               Some(f(lines, &mut engine))
+           }
+
+           /// The lines are of the revision and show the value.
+           fn answers(&self, lines: &EditLines) -> bool {
+               lines.revision() == self.revision && lines.shows_value()
+           }
+       }
+
+       impl kivact_editing::host::Lines for SharedLines {
+           fn count(&self) -> Option<usize> {
+               self.read(EditLines::len)
+           }
+           fn line_of(&self, at: usize) -> Option<usize> {
+               self.read(|l| l.line_of(at))
+           }
+           fn content(&self, i: usize) -> Option<Range<usize>> {
+               self.read(|l| l.content(i)).flatten()
+           }
+           fn caret_x(&self, text: &str, at: usize, width: f64) -> Option<f64> {
+               self.shape(|l, engine| l.caret(text, at, width, engine).x)
+           }
+           fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> Option<usize> {
+               self.shape(|l, engine| {
+                   l.content(i)
+                       .map(|_| l.nearest(text, i, x, width, engine))
+               })
+               .flatten()
+           }
        }
        ```
-       （`self.shaped(..)` の返り値の型が参照なら `shaped.as_ref()` は `shaped` にする。`caret` の実装（同じファイル）と同じ呼び方にする。）
-     - `impl<'a> Shaping<'a>` に次を足す。
-       ```rust
-       /// The lines around the caret at `caret`, for an editing request
-       /// (`None` while the placeholder shows).
-       pub(crate) fn snapshot(&self, text: &str, caret: usize, width: f64) -> Option<kivact_editing::host::LineSnapshot> {
-           let (lines, engine) = &mut *self.lines.borrow_mut();
-           if !lines.shows_value() {
-               return None;
-           }
-           let count = lines.len();
-           let at = lines.line_of(caret);
-           let first = at.saturating_sub(1);
-           let last = (at + 1).min(count.saturating_sub(1));
-           let mut out = Vec::new();
-           for index in first..=last {
-               let Some(content) = lines.content(index) else {
-                   continue;
-               };
-               let stops = lines.stops(text, index, width, engine);
-               out.push(kivact_editing::host::SnapshotLine { index, content, stops });
-           }
-           Some(kivact_editing::host::LineSnapshot {
-               revision: self.revision,
-               count,
-               lines: out,
-           })
-       }
+       （`caret` と `nearest` は今の `EditLines` の method で、`nearest` は `TextGeometry::hit_scalar_in_line` を通る。caret の停止位置は grapheme と shaping cluster の共通の境界だけで、行の外の別の実装を作らない。）
+     - `src/text_input.rs`：`pub(crate) use shaping::Shaping;` を `pub(crate) use shaping::SharedLines;` にする。
+     - `crates/kivact-editing/src/host.rs`（E09 が作った）に `pub use crate::behavior::{EditLayout, Lines};` の行を足し、`lib.rs` の `pub use behavior::{EditBehavior, EditContext, EditLayout, EditOutcome, EditRequest, Lines};` を `pub use behavior::{EditBehavior, EditContext, EditOutcome, EditRequest};` にする。
+     - shaper を behavior の間に借りっぱなしにしない：host は shaper を `Rc` のまま model に渡し、model は自分が使う間だけ借りる。
        ```
-     - `crates/kivact-editing/src/host.rs` の再公開に `pub use crate::behavior::{LineSnapshot, SnapshotLine};` を足し、`lib.rs` の `pub use behavior::{EditBehavior, EditContext, EditLayout, EditOutcome, EditRequest, Lines};` を `pub use behavior::{EditBehavior, EditContext, EditOutcome, EditRequest};` にする。
+       perl -pi -e 's/model\.key\(input, physical, &mut self\.engine\.borrow_mut\(\)\)/model.key(input, physical, &self.engine)/; s/model\.paste\(node, &text, &mut self\.engine\.borrow_mut\(\)\)/model.paste(node, &text, &self.engine)/' crates/kivact-engine/src/host/events.rs
+       ```
+       `src/model/keys.rs` の `key`、`paste`、`handle_key`、`paste_input`、`edit_input_with` の引数 `engine: &mut arvane::Engine` を `engine: &Rc<RefCell<arvane::Engine>>` にする（`use std::cell::RefCell;` と `use std::rc::Rc;` を足す）。`key` と `paste` の中の `engine` の受け渡しはそのまま（型が変わるだけ）。`lay_out_lines` は `&mut arvane::Engine` のまま。
+     - `rg -n "borrow_mut\(\)" crates/kivact-engine/src/host/events.rs | rg "model\.(key|paste)"` が空、`rg -n "model\.(key|paste)\(" crates/kivact-engine/src` が `&self.engine` を渡す 2 行だけを返すことを確かめる。
   7. kivact-core：
      - `src/custom/text_editing.rs` の `behavior<F>` の `where` を `F: Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome + 'static,` にする。
      - `src/view/editing_data.rs` の `pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome;` を `dyn Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome;` にする。
@@ -3507,7 +4022,7 @@ cargo test -p kivact-editing
      }
      ```
   10. kivact-ui-soft `src/rich_blocks.rs`：`key_command` の `request: &EditRequest<'_>, context: &EditContext<'_>` を `request: &EditRequest, context: &EditContext` にする。他の寿命の error を同じ規則で直す。
-  11. `dev/tests/kivact-public-api/tests/e2e/text_editing.rs` に次の試験を足す（`up_and_down_move_the_caret_between_lines_of_a_text_area` の後）。
+  11. `dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs` に次の試験を足す（`up_and_down_move_the_caret_between_lines_of_a_text_area` の後）。
       ```rust
       /// Down through a short line and on to a long one comes back to the
       /// column it started from (the goal column), and so does Up.
@@ -3543,11 +4058,124 @@ cargo test -p kivact-editing
           );
       }
       ```
-      （`field_screen` は同じファイルの helper。一つ目の `type_text` の後、caret は 1 行目の 7 文字目にあり、goal は消える。Down は 7 文字目の x を goal に、2 行目の端を経て 3 行目の端（6 文字目の後）へ行く。）
-  12. `rg -n "changed: (true|false)|EditRequest<'_>|EditContext<'_>|EditLayout|\bLines\b|max_length" crates/kivact-editing/src crates/kivact-interaction/src crates/kivact-ui/src/code_editing.rs crates/kivact-ui-soft/src/rich_blocks.rs crates/kivact-core/src` が、`max_length` の node の prop（`EditingData::max_length`、`Writer::set_max_length`、core の `max_length` の setter）だけを返すことを確かめる。
-- **消すもの**：`EditOutcome::Done { changed }`・`Copy { text, changed }` の形、`EditRequest` の寿命、`EditContext` の寿命、`EditLayout`、`Lines`、`EditState::{max_length, set_max_length}`、`Editor::journal` の `max_length` 引数、`edit_editor_with` の「申告と違えば戻す」処理、`impl Lines for Shaping`。
-- **状態の閉じ方**：`EditContext` の bool は三つとも constructor だけで書く値（`&mut self` の method が無い）で対象外。`Limits` は値。`TextSession` は `goal_x: Option<f64>` と `marked: Option<Range>` の二つの Option を持ち、`EditState` の method が書く：`TextSession` の直前に `// xtask-allow(state): marked is the IME composition; goal_x is the column of the last vertical move (move_vertically sets it, every other move or edit clears it); independent` を置く。
-- **試験**：手順 11 の `text_editing::up_and_down_keep_their_column_across_a_short_line` を足す。
+       （`field_screen` は同じファイルの helper。一つ目の `type_text` の後、caret は 1 行目の 7 文字目にあり、goal は消える。Down は 7 文字目の x を goal に、2 行目の端を経て 3 行目の端（6 文字目の後）へ行く。）
+  12. `dev/tests/kivact-public-api/tests/e2e_core/custom_text_field.rs`：先頭の `use kivact::custom::{NodeRefExt, TextEditing, TextSession, inline_view};` を `use kivact::custom::{EditContext, EditOutcome, EditRequest, EditState, NodeRefExt, TextEditing, TextSession, inline_view};` にし、ファイルの最後に次を足す（`mount` は同じファイルの他の試験と同じ import のもの）。
+      ```rust
+      /// The text of the page test: 60 lines `line 00` to `line 59`, 8 bytes a
+      /// line with its break.
+      fn page_text() -> String {
+          (0..60).map(|i| format!("line {i:02}")).collect::<Vec<_>>().join("\n")
+      }
+
+      /// PageUp and PageDown move the caret 40 lines to the same `x`, through
+      /// the public line queries alone; every other key is the standard policy.
+      fn page_keys(state: &mut EditState, request: EditRequest, context: &EditContext) -> EditOutcome {
+          let (key, modifiers) = match request {
+              EditRequest::Key {
+                  key: key @ (Key::PageUp | Key::PageDown),
+                  modifiers,
+              } => (key, modifiers),
+              request => return text_edit_policy(state, request, context),
+          };
+          let caret = state.caret();
+          let to = context.line_of(state, caret).and_then(|line| {
+              let last = context.line_count(state)?.checked_sub(1)?;
+              let next = if key == Key::PageUp {
+                  line.saturating_sub(40)
+              } else {
+                  (line + 40).min(last)
+              };
+              context.offset_at(state, next, context.x_of(state, caret)?)
+          });
+          match to {
+              Some(to) => {
+                  state.move_to(to, modifiers.shift);
+                  EditOutcome::Done
+              }
+              None => EditOutcome::NotEditing,
+          }
+      }
+
+      /// A behavior built from the public line queries reaches lines far from
+      /// the caret: a page (40 lines) up and down in a 60-line document.
+      #[test]
+      fn a_behavior_moves_a_page_with_the_line_queries() {
+          let (screen, pages) = mount(|| {
+              let pages = node_ref();
+              let view = node()
+                  .node_ref(pages)
+                  .role(Role::TextBox)
+                  .name("Pages")
+                  .focusable(true)
+                  .style(style().size(420, 180).font_size(16).font_family("monospace"))
+                  .text_editing(TextEditing::new(page_text()).multiline().behavior(page_keys));
+              (pages, view)
+          });
+          let field = screen.get_by_role(Role::TextBox, "Pages");
+          let caret = || pages.edit_state().expect("mounted native editor").caret();
+          field.press_key(Key::End);
+          assert_eq!(caret(), 59 * 8 + 7, "End goes to the end of `line 59`");
+          field.press_key(Key::PageUp);
+          assert_eq!(caret(), 19 * 8 + 7, "40 lines up: the end of `line 19`");
+          field.press_key(Key::PageUp);
+          assert_eq!(caret(), 7, "the first page stops at the first line");
+          field.press_key(Key::PageDown);
+          assert_eq!(caret(), 40 * 8 + 7, "40 lines down: the end of `line 40`");
+          assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+      }
+      ```
+      （前の 3 行の窓の `EditContext` では、19 行目は caret の近くに無いので `offset_at` が `None` を返し、この試験は落ちる：EA-16 の試験。）
+  13. `crates/kivact-editing/tests/geometry.rs` を作る（`ShapedText` は `src/geometry.rs` の `use` 行と同じ path。1.2 節）。
+      ```rust
+      //! Role: Tests that a caret stop is never inside a shaping cluster.
+
+      use kivact_editing::TextGeometry;
+      use kivact_types::render::ShapedText;
+      use kivact_types::{Point, Rect, TextCaret};
+
+      /// `ffix` shaped with `ffi` as one cluster (a ligature): carets 10 px
+      /// apart at every scalar, stops at scalars 0, 3 and 4.
+      fn ligature() -> ShapedText {
+          ShapedText {
+              carets: (0..=4u32)
+                  .map(|offset| TextCaret {
+                      offset,
+                      rect: Rect {
+                          x: 10.0 * f64::from(offset),
+                          y: 0.0,
+                          width: 1.0,
+                          height: 20.0,
+                      },
+                  })
+                  .collect(),
+              cluster_boundaries: vec![0, 3, 4],
+              ..ShapedText::default()
+          }
+      }
+
+      #[test]
+      fn a_hit_or_a_move_never_lands_inside_a_shaping_cluster() {
+          let shaped = ligature();
+          let geometry = TextGeometry::new(&shaped, "ffix");
+          let bounds = Rect {
+              x: 0.0,
+              y: 0.0,
+              width: 40.0,
+              height: 20.0,
+          };
+          let hit = |x: f64| geometry.hit_scalar_in_line(Point { x, y: 0.0 }, 0..4, bounds);
+          assert_eq!(hit(9.0), 0, "the caret at 10 px is inside the cluster: the start is the nearest stop");
+          assert_eq!(hit(21.0), 3, "the caret at 20 px is inside the cluster: its end is the nearest stop");
+          assert_eq!(hit(38.0), 4);
+          assert_eq!(geometry.next_boundary(0), 3, "a move steps over the whole cluster");
+          assert_eq!(geometry.prev_boundary(4), 3);
+      }
+      ```
+      （`EditContext::offset_at` は engine の `SharedLines::nearest` から `EditLines::nearest`、この `hit_scalar_in_line` を通る：host の答えは同じ規則。）
+  14. `rg -n "changed: (true|false)|EditRequest<'_>|EditContext<'_>|EditLayout<'|LineSnapshot|SnapshotLine|max_length" crates/kivact-editing/src crates/kivact-interaction/src crates/kivact-ui/src/code_editing.rs crates/kivact-ui-soft/src/rich_blocks.rs crates/kivact-core/src` が、`max_length` の node の prop（`EditingData::max_length`、`Writer::set_max_length`、core の `max_length` の setter）だけを返すことを確かめる。`rg -n "\bShaping\b|fn stops\b|fn snapshot\b" crates/kivact-engine/src` が空、`rg -n "chars\(\)\.count\(\)" crates/kivact-engine/src/model/keys.rs` が `limits.max_length.map(` の中の 2 か所（`edit_editor_with` と `commit_composition`）だけを返すことを確かめる。
+- **消すもの**：`EditOutcome::Done { changed }`・`Copy { text, changed }` の形、`EditRequest` の寿命、`EditContext` の寿命と公開の constructor（`#[doc(hidden)]` になる）、`EditLayout<'a>`（寿命の無い `kivact_editing::host::EditLayout` になる）、crate root の `EditLayout`・`Lines` の再公開、`Lines::{shows_value, len, is_empty, caret}`（`count`・`caret_x` と `None` を返す形になる）、`EditState::{max_length, set_max_length}`、`Editor::journal` の `max_length` 引数、`edit_editor_with` の「申告と違えば戻す」処理と、上限の無い editor での text の数え、`Shaping` と `impl Lines for Shaping`、`fn context`、host の `model.key`・`model.paste` に渡す shaper の借用。
+- **状態の閉じ方**：`EditContext` の bool は三つとも constructor だけで書く値（`&mut self` の method が無い）で対象外。`EditLayout` と `SharedLines` は constructor だけで書く値（`&mut self` の method が無い）で対象外。`EditorNode::lines` は型だけが変わり、印の文はそのまま。`Limits` は値。`TextSession` は `goal_x: Option<f64>` と `marked: Option<Range>` の二つの Option を持ち、`EditState` の method が書く：`TextSession` の直前に `// xtask-allow(state): marked is the IME composition; goal_x is the column of the last vertical move (move_vertically sets it, every other move or edit clears it); independent` を置く。
+- **試験**：手順 11 の `text_editing::up_and_down_keep_their_column_across_a_short_line`、手順 12 の `custom_text_field::a_behavior_moves_a_page_with_the_line_queries`（EA-16）、手順 13 の `geometry::a_hit_or_a_move_never_lands_inside_a_shaping_cluster`（EA-12）、測定の `text_editing::large_document_key_latency`（EA-11。`#[ignore]`、手で実行する）を足す。
 - **確認（tier a）**：
   ```
   EDITING-A
@@ -3556,11 +4184,13 @@ cargo test -p kivact-editing
   cargo clippy -p kivact-core -p kivact-interaction -p kivact-ui -p kivact-ui-soft --all-targets -- -D warnings
   cargo xtask check --no-write --crate kivact-interaction
   cargo xtask check --no-write --crate kivact-ui
+  cargo test -p kivact-editing --test geometry -- a_hit_or_a_move_never_lands_inside_a_shaping_cluster
   E2E: text_editing, custom_text_field, input_platform, keyboard, components, launch_real_window
   E2E: interaction_edit, ui_chat_code, ui_field, ui_controls
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-ui-soft
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test --release -p kivact-public-api-tests --test e2e_core -- text_editing::large_document_key_latency --ignored --nocapture > target/e17-latency-after.txt 2>&1
   ```
-- **完了条件**：手順 12 の `rg` のとおり。新しい試験を含め確認がすべて通る。
+- **完了条件**：手順 14 の `rg` のとおり。新しい試験を含め確認がすべて通る（どのコマンドも 0 件でない。1.4 節）。`grep latency target/e17-latency-before.txt target/e17-latency-after.txt` の 5 行（`lines` の三つと `one line` の二つ）それぞれで、after の p95 が before の p95 の 1.05 倍以下。超えた行があれば STOP し、両方の file を設計者に渡す。
 
 ## E18：`NodeInput` の 8 個の `Option<bool>` を bit にする
 
@@ -3878,7 +4508,7 @@ cargo test -p kivact-editing
 ## E20：二度・三度クリックの drag を単語・行で伸ばす、単語と行を editing へ
 
 - **wave / lane / 前提**：W5a / 鎖 / E18（鎖の最後。手順が使う `EditState::select` は E17）
-- **所有**：`crates/kivact-editing/src/edit_state.rs`、`src/model/pointer/machine.rs`、`src/model/pointer/state.rs`、`src/model/pointer/touch.rs`、`src/model/pointer/shell.rs`、`src/model/edit/ime.rs`、`src/text_input.rs`、`src/text_input/word.rs`（削除）、`dev/tests/kivact-public-api/tests/e2e/text_editing.rs`
+- **所有**：`crates/kivact-editing/src/edit_state.rs`、`src/model/pointer/machine.rs`、`src/model/pointer/state.rs`、`src/model/pointer/touch.rs`、`src/model/pointer/shell.rs`、`src/model/edit/ime.rs`、`src/text_input.rs`、`src/text_input/word.rs`（削除）、`dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs`
 - **目的**：二度・三度クリックで選んだ単語・行の範囲を drag の間も保ち、単語・行の境界まで伸ばす。touch と pen も同じ gesture で選ぶ（EN-01）。単語は UAX #29 の単語境界で、`EditState::word_at`・`line_at` として kivact-editing に置き、engine の `text_input/word.rs` を消す（EN-21）。
 - **手順**：
   1. `crates/kivact-editing/src/edit_state.rs` に次を足す（`floor_char_boundary` は `kivact_types::text_utf::floor_char_boundary`）。
@@ -4090,7 +4720,7 @@ cargo test -p kivact-editing
   4. `src/model/pointer/touch.rs` と `src/model/pointer/shell.rs`：`TouchGesture` と `PenTrack` の `match` で `cargo check` が出す error を、手順 2 の規則で直す（`SelectText` は `Route` と同じく経路を持つ。touch の pan の判定は `Route` と `SelectText` のどちらからも始まらない：`Pending` に入るのは `Route` からだけのまま）。
   5. `src/model/edit/ime.rs` の `ime_select`：E05 が書いた `e.move_to(start.min(end), false); e.move_to(start.max(end), true);` を `e.select(start.min(end)..start.max(end));` にする。
   6. `src/text_input.rs` の `mod word;` と `pub(crate) use word::{line_range, word_range};` の行を消し、`git rm crates/kivact-engine/src/text_input/word.rs` を実行する（中の単体試験も消える。同じことは手順 7 の E2E が確かめる）。
-  7. `dev/tests/kivact-public-api/tests/e2e/text_editing.rs`：`words_screen` を、`o` の中点に加えて `foo` の `f` と `o` の間の中点も返す形にし（`stops` を 14 まで集め、`(stops[13].x + stops[14].x) / 2.0` を二つ目の x にする）、既存の二つの試験はその一つ目の点を使う。次の試験を足す。
+  7. `dev/tests/kivact-public-api/tests/e2e_core/text_editing.rs`：`words_screen` を、`o` の中点に加えて `foo` の `f` と `o` の間の中点も返す形にし（`stops` を 14 まで集め、`(stops[13].x + stops[14].x) / 2.0` を二つ目の x にする）、既存の二つの試験はその一つ目の点を使う。次の試験を足す。
      ```rust
      /// A drag after a double click extends the selection word by word: from
      /// the clicked word to the end of the word under the pointer.
@@ -4315,9 +4945,9 @@ cargo test -p kivact-editing
        （今の `when` の本体が「`on` なら self、でなければ `NONE`」でなければ、今の意味のとおりに書く。）
   2. `Mutation` の field の読みを直す：
      ```
-     cd crates/kivact-engine/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-engine/src" || exit 1
      rg -l 'mutation\.(style|measure|text|placed|restack|paint|states|read_only|subtree|payload_only)\b' . | xargs perl -pi -e 's/\bmutation\.(style|measure|text|placed|restack|paint|states|read_only|subtree|payload_only)\b(?!\s*\|=)/"mutation.has(Mutation::".uc($1).")"/ge'
-     cd ../../..
+     cd "$ROOT" || exit 1
      ```
      手で直す所：`src/model/apply.rs` の `mutation.placed |= <式>;` は `if <式> { mutation.insert(Mutation::PLACED); }`、`mutation.restack |= <式>;` は `if <式> { mutation.insert(Mutation::RESTACK); }` にする。`let Mutation { style, measure, ... } = mutation;`（`changed` の中）は、分解していた名前ごとに `let style = mutation.has(Mutation::STYLE);` の行に置き換える。
   3. `src/a11y/state.rs`：`constructed`・`published`・`enumerated` の field と `Default` の初期化の `#[cfg(feature = "testing")]` を消す。`src/a11y/publish.rs`・`src/a11y/build/dirty.rs`（2 か所）・`src/a11y/build/payload.rs` の `#[cfg(feature = "testing")] { self.a11y.X += ...; }` を、cfg と block を外した一行にする。
@@ -4388,9 +5018,9 @@ cargo test -p kivact-editing
 
 ## E24：hit test を paint へ移し、子の索引と重ね順を使う
 
-- **wave / lane / 前提**：W6b / E2 / E14
-- **所有**：`src/model/interact/hit.rs`（`src/paint/list/hit.rs` へ移す）、`src/model/interact.rs`、`src/paint/list/hit_reach.rs`（削除）、`src/paint/list/facts.rs`（新設）、`src/paint/list.rs`、`src/paint.rs`、`src/paint/state.rs`、`src/paint/list/walk.rs`、`src/layer.rs`、`src/model/interact/geometry.rs`、`src/model/drawables/hit.rs`、`src/model/drawables.rs`、`src/lower/shape.rs`（doc だけ）
-- **目的**：hit test と paint list は同じ単位なので、実装一つの trait `HitInk` と `LayerView` を消し、hit test を `paint::list` に置く（EN-29）。hit test は、list が持つ子の索引（32 個以上の子）で点の近くの子だけを調べ、重ね順は walk が作った順を使う（EN-09）。
+- **wave / lane / 前提**：W6b / E2 / E32（E14 → E32 → E24）
+- **所有**：`src/model/interact/hit.rs`（`src/paint/list/hit.rs` へ移す）、`src/model/interact.rs`、`src/paint/list/hit_reach.rs`（削除）、`src/paint/list/facts.rs`（新設）、`src/paint/list.rs`、`src/paint.rs`、`src/paint/state.rs`、`src/paint/list/walk.rs`、`src/layer.rs`、`src/model/interact/geometry.rs`、`src/model/drawables/hit.rs`、`src/model/drawables.rs`、`src/lower/shape.rs`（doc だけ）、`src/host/testing/test_host.rs`（method を一つ足すだけ）、`crates/kivact-engine/Cargo.toml`（`[[test]]` を一つ）、`crates/kivact-engine/tests/hit_reference.rs`（新設）
+- **目的**：hit test と paint list は同じ単位なので、実装一つの trait `HitInk` と `LayerView` を消し、hit test を `paint::list` に置く（EN-29）。hit test は、list が持つ子の索引（32 個以上の子）で点の近くの子だけを調べ、重ね順は walk が作った順を使う（EN-09）。debug の self_check の参照の walk（`HitWalk::Complete`）は索引も walk の順も使わず、すべての子を model の重ね順で調べる：最適化の誤りを参照が同じ誤りで隠さない（EA-13、設計書 12 章）。
 - **手順**：
   1. `git mv crates/kivact-engine/src/model/interact/hit.rs crates/kivact-engine/src/paint/list/hit.rs` を実行する。`src/model/interact.rs` の `pub(crate) mod hit;` を消し、`src/paint/list.rs` の module の並びに `mod hit;` と `mod facts;` を足し、`mod hit_reach;` を消して `git rm crates/kivact-engine/src/paint/list/hit_reach.rs` を実行する。
   2. `HitWalk` の定義を `src/paint/list/hit.rs` から `src/model/drawables/hit.rs` に移し（`pub(crate) enum HitWalk`、derive と variant の cfg はそのまま）、`src/paint/list/hit.rs` は `use crate::model::drawables::hit::HitWalk;` で使う。`src/model/drawables/hit.rs` の `use crate::model::interact::hit::HitWalk;` を消す。`src/model/drawables.rs` で `hit` が `pub(crate) mod hit;` でなければそうする。他の `crate::model::interact::hit::HitWalk` は `crate::model::drawables::hit::HitWalk` にする（`rg -n "interact::hit" crates/kivact-engine/src`）。`src/lower/shape.rs` の doc の `model::interact::hit` を `paint::list::hit` にする。
@@ -4409,14 +5039,43 @@ cargo test -p kivact-editing
          self.stack_orders.insert(id, Rc::clone(order));
      }
      ```
-     `build_list` で `list.stack_orders = stack_orders;`、E13 の `rewalk_scrolled` で `list.stack_orders.extend(stack_orders);` にする。
-  5. `src/paint/list/hit.rs` に次を足し、`hit_box` の `for c in self.stacked(n).rev() {` を `for c in self.hit_candidates(id, n, p, scroll) {` にする（loop の中身はそのまま）。
+     `build_list` で `list.stack_orders = stack_orders;` にする。E13 の `rewalk_scrolled` では、`Walk { .. } = walk` の分解に `stack_orders` を足し、`list.looks.extend(looks);` の次に `list.stack_orders.retain(|node, _| !left.contains(node));` と `list.stack_orders.extend(stack_orders);` を置く（list から外れた container の順は残さない）。
+  5. `src/paint/list/hit.rs`：`hit_box` の `for c in self.stacked(n).rev() {` を次にする（loop の中身はそのまま。参照の walk は索引と walk の順を使わない）。
+     ```rust
+     let candidates: Vec<NodeId> = match walk {
+         HitWalk::Pruned => self.hit_candidates(id, n, p, scroll),
+         // The reference looks at every child in the model's stacked order:
+         // neither the list's child index nor its stacked orders.
+         #[cfg(all(debug_assertions, feature = "testing"))]
+         HitWalk::Complete => self.stacked(n).rev().collect(),
+     };
+     for c in candidates {
+     ```
+     次の二つの method を足す（`listed_candidates` が候補を作り、`hit_candidates` は試験の driver が入れる誤りを足す）。
+     ```rust
+     /// The children of `n` (the box `id`) the point `p` may hit, topmost
+     /// first (`listed_candidates`); the test driver may leave one out
+     /// (`ArvaneTestHost::drop_hit_candidate`), a fault the reference walk
+     /// must catch.
+     fn hit_candidates(&self, id: NodeId, n: &HostNode, p: Point, scroll: Point) -> Vec<NodeId> {
+         let found = self.listed_candidates(id, n, p, scroll);
+         #[cfg(feature = "testing")]
+         let found = {
+             let mut found = found;
+             if let Some(dropped) = crate::paint::state::DROP_HIT_CANDIDATE.with(std::cell::Cell::get) {
+                 found.retain(|c| *c != dropped);
+             }
+             found
+         };
+         found
+     }
+     ```
      ```rust
      /// The children of `n` (the box `id`) the point `p` (in its box) may
      /// hit, topmost first: the listed stacked order of a container that sorts
      /// its children; the child index of a container with many, when the list
      /// keeps a fresh one; else every child in stacked order.
-     fn hit_candidates(&self, id: NodeId, n: &HostNode, p: Point, scroll: Point) -> Vec<NodeId> {
+     fn listed_candidates(&self, id: NodeId, n: &HostNode, p: Point, scroll: Point) -> Vec<NodeId> {
          let list = &self.paint.list;
          if list.state != ListState::Stale {
              if let Some(order) = list.stack_orders.get(&id) {
@@ -4449,11 +5108,94 @@ cargo test -p kivact-editing
      - `src/model/interact/geometry.rs` の `impl layer::LayerView for Model { ... }` を `impl Model { ... }` にし、`flat_children` の method を消し、残る五つ（`drawn_look`、`is_layer_node`、`scene_facts`、`moves_layer`、`layer_roots`）を `pub(crate) fn` にする。同じファイルの `Model::layer_facts` と `Model::subtree_facts` を `src/paint/list/facts.rs` の `impl Model` に移し、中で同じファイルの自由関数を呼ぶ。
      - `src/paint/list/walk.rs` の `use crate::layer::LayerView;` を消し、`crate::layer::node_facts(self, ...)` を `super::facts::node_facts(self, ...)` にする。`src/model.rs` の `pub(crate) use crate::layer::{EVERYWHERE, Look, SubtreeFacts};` はそのまま。
   7. `rg -n "HitInk|HitReach|LayerView|hit_reach|interact::hit" crates/kivact-engine/src` が空であることを確かめる。
+  8. 参照の walk が候補の誤りを見つけることの試験（EA-13）：
+     - `src/paint/state.rs` に次を足す（E32 の `KEEP_STALE_DRAW` の隣）。
+       ```rust
+       #[cfg(feature = "testing")]
+       thread_local! {
+           /// A child the hit test's candidates leave out: the test driver's
+           /// injected fault (`ArvaneTestHost::drop_hit_candidate`), which the
+           /// debug self-check's complete walk must catch.
+           pub(crate) static DROP_HIT_CANDIDATE: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+       }
+       ```
+     - `src/host/testing/test_host.rs` の `impl ArvaneTestHost` に次を足す（`#[doc(hidden)]` は同じファイルの他の試験用 method に合わせる）。
+       ```rust
+       /// Leave `node` out of the hit test's candidates (`None`: leave none
+       /// out): an injected fault the self-check's reference walk must catch.
+       pub fn drop_hit_candidate(&self, node: Option<NodeId>) {
+           crate::paint::state::DROP_HIT_CANDIDATE.with(|dropped| dropped.set(node));
+       }
+       ```
+     - `crates/kivact-engine/Cargo.toml` に `tests/host_locale.rs` と同じ形の `[[test]]` を足す：`name = "hit_reference"`、`required-features = ["testing"]`。`crates/kivact-engine/tests/hit_reference.rs` を作る。
+       ```rust
+       //! Role: Tests that the hit self-check's reference walk does not share the hit test's candidates.
+
+       use kivact_engine::api::Client;
+       use kivact_engine::contract::{BoxData, NodeKind, TurnOutput};
+       use kivact_engine::testing::{ArvaneTestHost, MirrorMode, TestHostOptions};
+       use kivact_types::{Dimension, LayoutProps, NodeId, WindowId};
+
+       const ROOT: NodeId = NodeId(1);
+       const CHILD: NodeId = NodeId(2);
+
+       /// A root and one child box covering the whole window.
+       fn start() -> ArvaneTestHost {
+           ArvaneTestHost::new(
+               Client::new(
+                   |_, _, writer| {
+                       writer.create(WindowId::MAIN, ROOT, NodeKind::Root);
+                       writer.create(WindowId::MAIN, CHILD, NodeKind::Box(BoxData::default()));
+                       writer.insert(ROOT, CHILD, None);
+                       writer.set_layout(
+                           CHILD,
+                           LayoutProps {
+                               width: Dimension::Percent(100.0),
+                               height: Dimension::Percent(100.0),
+                               ..LayoutProps::default()
+                           },
+                       );
+                       writer.commit();
+                   },
+                   |_, _, _| TurnOutput::default(),
+               ),
+               TestHostOptions {
+                   mirror: MirrorMode::Off,
+                   ..TestHostOptions::default()
+               },
+           )
+           .expect("the test host starts")
+       }
+
+       /// The self-check's hit errors.
+       fn hit_errors(host: &mut ArvaneTestHost) -> Vec<String> {
+           host.self_check()
+               .into_iter()
+               .filter(|error| error.starts_with("hit at"))
+               .collect()
+       }
+
+       /// The hit test's candidates leave out the child under the window's
+       /// center (an injected fault): the complete reference walk still finds
+       /// it, and the self-check reports the difference.
+       #[cfg(debug_assertions)]
+       #[test]
+       fn the_reference_hit_walk_finds_a_child_the_candidates_left_out() {
+           let mut host = start();
+           host.redraw();
+           assert!(hit_errors(&mut host).is_empty(), "without a fault the walks agree");
+           host.drop_hit_candidate(Some(CHILD));
+           let found = hit_errors(&mut host);
+           host.drop_hit_candidate(None);
+           assert!(!found.is_empty(), "the reference walk must not share the candidates");
+       }
+       ```
+       （`self_check` の参照の walk は debug build と `testing` にだけあるので、試験も `debug_assertions` の時だけ compile する。）
 - **消すもの**：`HitInk`、`HitReach`、`src/paint/list/hit_reach.rs`、`LayerView`、`src/model/interact/hit.rs`（移動）。
 - **状態の閉じ方**：新しい状態は無い（`PaintList` の値の field が一つ増える）。
-- **試験**：足さない・直さない。
-- **確認（tier a）**：`ENGINE-A`（`cargo xtask check` の module の向きの検査を含む）、`E2E: hover, pointer, transform, transform_3d, compositor, drawables, a11y_incremental, layout_scroll, overlay, canvas`、`E2E: ui_collections, ui_data_table, interaction_list_nav, interaction_table`
-- **完了条件**：手順 7 の `rg` が空。確認がすべて通る。
+- **試験**：`crates/kivact-engine/tests/hit_reference.rs` の `the_reference_hit_walk_finds_a_child_the_candidates_left_out` を足す（手順 8。EA-13）。既存の試験は直さない。
+- **確認（tier a）**：`ENGINE-A`（`cargo xtask check` の module の向きの検査と `hit_reference` の試験を含む）、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-engine --features testing --test hit_reference -- the_reference_hit_walk_finds_a_child_the_candidates_left_out`、`E2E: hover, pointer, transform, transform_3d, compositor, drawables, a11y_incremental, layout_scroll, overlay, canvas`、`E2E: ui_collections, ui_data_table, interaction_list_nav, interaction_table`
+- **完了条件**：手順 7 の `rg` が空。新しい試験を含め確認がすべて通る（どのコマンドも 0 件でない。1.4 節）。
 
 ## E25：何も無いときの sync を省く、消えた node の記録をその場で消す
 
@@ -4719,11 +5461,11 @@ E01 は W3b で、W3a の S10 が変えた後の `crates/kivact-types/src/lib.rs
 
 - **field**：付属書 A の A09（W5b の鎖）が `arvane_protocol::CompositeLayer` に `pub content_version: u64` を足し、engine の `src/lower/content_versions.rs` に `fresh_content_version()`（process で一意に増える値）を置き、`into_layer` と `append_overlay_layer` にそれを書く。契約は付属書 A 4.2 節（同じ window の連続する 2 frame で同じ `key` に同じ版を渡すのは items が等しい約束。上げすぎは正しさを損なわない）。
 - **engine が上げる規則（E14、W6b。A09 の後）**：
-  - window の frame の layer：list を作り直した frame と、scroll で一部を歩き直した frame は、すべての layer が新しい版。それ以外の frame では、layer に「前の frame から持ち越した命令でない命令」が一つでも入れば新しい版、入らなければ前の frame の同じ `LayerKey` の版。持ち越しとは、draw cache が当たった node の再生（`Recorded::Commands`）と、当たった node の生きた描画（`Recorded::Live`。node の描き直しの印が無いので同じ命令になる）と、当たった node の opening。
+  - window の frame の layer：list を作り直した frame と、scroll で一部を歩き直した frame は、すべての layer が新しい版。それ以外の frame では、layer に「前の frame から持ち越した命令でない命令」が一つでも入れば新しい版、入らなければ前の frame の同じ `LayerKey` の版。持ち越しとは、draw cache が当たった node の再生（`Recorded::Commands`）と、その node の opening。当たった node でも `Recorded::Live`（画像・pattern・scene の layer と item を描く node）は毎 frame 新しい命令と数える：画像の中身（animation の frame、外部の画像の更新）は命令に表れずに変わる（EA-01）。debug と `testing` の照合（E12 の `VERIFY_DRAWS`）は別の出力に描くので、照合した kept の drawing も持ち越し：照合の有無で版は変わらない（EA-01）。
   - 新しい版の値はいつも `fresh_content_version()` から取る。
   - 数えない layer（drawable の layer、export、snapshot など window の frame 以外の composition）は毎回 `fresh_content_version()`（`content_versions::stamp_fresh`）。DevTools の overlay は `append_overlay_layer` の `fresh_content_version()` のまま（INC-04）。
   - 動く layer の matrix（`LayerSpec::matrix` → `CompositeLayer::transform`）の変化は中身の変化ではないので版を上げない。
-  - 版の上げ忘れは、付属書 A の debug build の hash の照合（PERF-7）が検出する。E14 は A 4.2 節が求める試験 `an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it` を engine の試験（`crates/kivact-engine/tests/content_version.rs`）として足す。
+  - 版の上げ忘れは、付属書 A の debug build の hash の照合（PERF-7）が検出する。E14 は A 4.2 節が求める試験 `an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it` と `a_changed_layer_bumps_its_version_and_a_sibling_layer_keeps_its_own` を engine の試験（`crates/kivact-engine/tests/content_version.rs`）として足し、debug（照合あり）と release（照合なし）の両方で走らせる。
 - **順序**：A の鎖（A05〜A10）は W5b、E14 は W6b、A16（hash と inline）の前提に E14 が入る。
 - **AR-06（engine が arvane-text・arvane-compose・arvane-asset・arvane-shell を直接使う）の engine 側の `use` の書換え**：A06 が W5b の鎖で `kivact-engine/` 全体を持って行う（作業指示書 4 章。前の版の要調整 A-2 は解決済み）。
 
@@ -4734,14 +5476,14 @@ E01 は W3b で、W3a の S10 が変えた後の `crates/kivact-types/src/lib.rs
 | `EditOutcome::Done { changed: bool }` | `EditOutcome::Done`（text の変化は host が revision で知る） |
 | `EditOutcome::Copy { text, changed }` | `EditOutcome::Copy(String)` |
 | `EditRequest<'a>`、`EditRequest::Paste(&'a str)` | `EditRequest`、`EditRequest::Paste(String)` |
-| `EditContext<'a>`（`EditLayout<'a>` で行を借りる） | `EditContext`（`Clone`。caret の行と前後の行の snapshot を `Rc` で持つ。`line_count`、`line_of`、`line_range`、`x_of`、`offset_at` は名前も引数も同じ。答えるのは caret の行と前後の行だけ） |
-| `EditContext::new(.., Option<EditLayout>)`（公開） | `#[doc(hidden)] EditContext::new(.., Option<LineSnapshot>)`（host だけが作る） |
-| `kivact_editing::{EditLayout, Lines}` | 消す。`kivact_editing::host::{LineSnapshot, SnapshotLine}`（`#[doc(hidden)]`） |
+| `EditContext<'a>`（`EditLayout<'a>` で行を借りる） | `EditContext`（寿命が無い。`Clone` を持たず、behavior へは `&EditContext` で渡る。editor の行の cache を `Rc` で共有し、文書の全部の行に問われた時に答える（写さない）。`line_count`、`line_of`、`line_range`、`x_of`、`offset_at` は名前も引数も同じ。`offset_at` の答えは `TextGeometry` の停止位置（grapheme と shaping cluster の共通の境界）） |
+| `EditContext::new(.., Option<EditLayout>)`（公開） | `#[doc(hidden)] EditContext::new(.., Option<kivact_editing::host::EditLayout>)`（host だけが作る） |
+| `kivact_editing::{EditLayout, Lines}` | `kivact_editing::host::{EditLayout, Lines}`（`#[doc(hidden)]`。寿命が無く、`Lines` の query は `Option` を返す。engine の `SharedLines` だけが実装する） |
 | — | `EditState::select(range)`、`EditState::move_vertically(to, extend, goal_x)`、`EditState::goal_x()`（E17）、`EditState::word_at(at)`、`EditState::line_at(at, multiline)`（E20） |
 | behavior の型 `Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome` | `Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome` |
 | `kivact_editing::{Editor, Journal, Incoming, Taken, Damage}` | `kivact_editing::host::{...}`（`#[doc(hidden)]`、engine だけが使う。E09） |
 
-付属書 G（docs）と付属書 C（`custom` の doc）は、`EditContext` が caret の行と前後の行だけに答えることを書く。付属書 U（W7b の U36 の interaction の作り直し）は、E17・E20 の名前（`goal_x()`、`move_vertically(to, extend, goal_x)`、`word_at(at)`、`line_at(at, multiline)`。`set_goal_x` は無い。目標の列は `move_vertically` だけが持ち、他の移動と編集で消える）を使い、`text_edit_policy` の goal column（E17 の形）を残す（INC-05）。
+付属書 G（docs）と付属書 C（`custom` の doc）は、`EditContext` が文書の全部の行に答え（問われた行だけを shape する）、request の間だけ使えることを書く。付属書 U（W7b の U36 の interaction の作り直し）は、E17・E20 の名前（`goal_x()`、`move_vertically(to, extend, goal_x)`、`word_at(at)`、`line_at(at, multiline)`。`set_goal_x` は無い。目標の列は `move_vertically` だけが持ち、他の移動と編集で消える）を使い、`text_edit_policy` の goal column（E17 の形）を残す（INC-05）。
 
 ### 4.5 engine の crate 間の内部 API の変化
 
@@ -4759,8 +5501,9 @@ E01 は W3b で、W3a の S10 が変えた後の `crates/kivact-types/src/lib.rs
 
 - 時刻：host の ns と App の motion の ns の二つ。motion の ns は App に一つの `kivact_types::clock::Clock`（どの window も描けない間は止まる、DevTools の速さ）だけが作る。motion の記録はすべて motion の ns。frame の要求と期限は host の ns。開始時刻を後からずらさない。
 - slot の列：node の slot ごとの列は `model::aggregate::Slots` が持ち、push と reset は `Model::create_slot` と `Model::remove_slots` の一か所。layout の列は slot の数まで自分で伸びる。
-- PERF-6 の実装：draw cache は `Slots::draws`（描画中の node だけ、list の作り直しで外れた node の分を捨てる）。描き直しの印（`WRITTEN|REDRAW|SCROLLED`）、文字色を変える state の変化の subtree、font、host の全描き直し（`invalidate_paint`）、reduced motion の切替えで捨てる。debug の `testing` では再生ごとに描き直して照合する。restack は重なりの事実の変化だけ。scroll は container の subtree の歩き直し。動く layer は culling せず matrix を毎 frame 置き直す。
-- hit test は `paint::list::hit`（paint list の ink・子の索引・重ね順を使う）。`HitInk` と `LayerView` は無い。layer の facts は `paint::list::facts`。
+- PERF-6 の実装：draw cache は `Slots::draws`（描画中の node だけ、list の作り直しで外れた node の分を捨てる）。描き直しの印（`WRITTEN|REDRAW|SCROLLED`）、文字色を変える state の変化の subtree、font、host の全描き直し（`invalidate_paint`）、reduced motion の切替えで捨てる。debug の `testing` では再生の前に、node の今の paint と箱から別の出力に描き直して照合する（frame・cache・layer の版には混ぜない）。restack は重なりの事実の変化だけ。scroll は container の subtree の歩き直し：置き換えた範囲の古い transform・layer を消して番号を詰め（作り直した list と等しい）、list から外れた node の歩きの記録と draw cache を消す。動く layer は culling せず matrix を毎 frame 置き直す。
+- hit test は `paint::list::hit`（paint list の ink・子の索引・重ね順を使う）。debug の self_check の参照の walk は索引も list の順も使わず、すべての子を model の重ね順で調べる。`HitInk` と `LayerView` は無い。layer の facts は `paint::list::facts`。
+- editing の behavior の `EditContext` は editor の行の cache を `Rc` で共有し、問われた行だけを shape する（文書を写さない）。caret の停止位置は `TextGeometry` の一つの実装（grapheme と shaping cluster の共通の境界）。host は shaper を behavior の間に借りない。
 - 入力の配送の受理（`Admission`：modal が開く前に受理した drag と adoption）は engine が持つ（設計書 7.3 の EN-26）。pointer の track は engine が決めたこと（over、hover、gesture）だけを持ち、sample は渡して転送する。
 - PERF-1 の例外の文：Tab 押下の一覧（`focus_order`）は利用者の操作の速さで全体を数える（4.7 の D-2 で決定済み）。a11y の Metadata の経路は順序を一度だけ数える。
 
@@ -4768,7 +5511,7 @@ E01 は W3b で、W3a の S10 が変えた後の `crates/kivact-types/src/lib.rs
 
 - **D-1（決定済み・採用）（EN-30）**：`Launch::Starting` は `Handler::start` の中で `LaunchArgs` を所有のまま取り出すための置き場で、外から観測されない（`host()`・`host_mut()` は `Running` でない時に panic する）。消すには `Client` と `arvane::Engine` を既定値で作れる必要があるが、`Client` に既定値は無く、作ると S-7（未完成の object）に反する。**推奨：EN-30 は実装しない**（`HostPhase::Starting` と同じ事実の重複ではない）。採るなら別の unit が要る。
 - **D-2（決定済み・採用）（EN-11 の Tab 押下）**：`move_focus`（Tab・Shift+Tab）と `roving_targets` は roving group を一つの stop にまとめる規則（`grouped_tab_stops`）を全体の順序の上で行う。前後どちらにも一歩ずつ進む走査に作り直すと APG の試験の範囲の挙動が変わる危険がある。**推奨：E06 のとおり、毎 frame・毎書込みの経路（再検証、削除、scene の書込み）だけを一歩ずつの走査にし、利用者の操作の速さの Tab 押下は全体の順序のまま残す**（`focus_order` の doc に理由を書く。E06 手順 2）。
-- **D-3（決定済み・採用）（EN-12 の折返しの splice）**：折返しの editor の行は hard line を幅で折った row で、`chunks.rs` の `splice` は hard line で切るだけで row を作り直せない。触れた hard line を折り直す splice は `rows()` を使う新しい処理で、本書の手順に書ける確度が無い。**推奨：後続（設計書 11 章）に送る**。E09 は damage の記録の一本化と、幅を測る cache（`measure_lines`）への damage の受渡しだけを行う（幅を測る時は折返しの幅が無く splice が効く）。
+- **D-3（決定済み・採用）（EN-12 の折返しの splice）**：折返しの editor の行は hard line を幅で折った row で、`chunks.rs` の `splice` は hard line で切るだけで row を作り直せない。触れた hard line を折り直す splice は `rows()` を使う新しい処理で、本書の手順に書ける確度が無い。**推奨：後続（設計書 13 章）に送る**。E09 は damage の記録の一本化と、幅を測る cache（`measure_lines`）への damage の受渡しだけを行う（幅を測る時は折返しの幅が無く splice が効く）。
 - **D-4（決定済み・採用）（EN-23 の kivact-layout の `unrounded` の廃止）**：差分の layout の丸め（`tree.rs` の `unrounded_top`、`round_changed`）は、その pass で触れない祖先の `unrounded` を読むので、pass の間だけの作業域にはできない。**推奨：`unrounded` と `final_layout` は今のまま残し、taffy の cache の遅い確保（E28）だけを行う**。
 
 ## 5. 自己点検
@@ -4776,6 +5519,8 @@ E01 は W3b で、W3a の S10 が変えた後の `crates/kivact-types/src/lib.rs
 ### 5.1 所見の割当て
 
 EN-01〜EN-29、EN-31、EN-32 はすべて 1.1 節の unit に割り当てた（EN-10 は S の部分、EN-26 は `PointerSource` の写しだけ。設計書 7.3 のとおり）。EN-30 は D-1 で parent の判断を待つ。EN-11 の Tab 押下（D-2）、EN-12 の折返しの splice（D-3）、EN-23 の `unrounded`（D-4）は、所見のそれ以外の部分を E06・E09・E28 で実装し、残りを要設計判断にした。付属書 C 向けは E08・E30（W4）と E31（W4b）、付属書 A 向け（E14）は W6b（A09 の後）。
+
+外部の review（`20261118_1237_CODEX_REVIEW.md`、設計書 12 章の決定）の本書の分：EA-01（E12 の照合を別の出力に、E14 の持ち越しの規則と試験）、EA-02・EA-03（E13 の `compact`・`left_ids`・`forget_left_draws`、E32 の試験）、EA-11・EA-12・EA-16（E17 の `SharedLines`・共有する行の cache・`max_length` のときだけの数え、E17 の三つの試験と測定）、EA-13（E24 の `HitWalk::Complete` の全子の列挙と試験）、EA-14（E12 の `verify_draw`・`verify_over`、E32 の試験）。PLAN-01・PLAN-04・PLAN-07 は 1.4 節と各 unit の確認、TV-09 は E14・E24・E32 の不変条件の試験。
 
 ### 5.2 実装者に残した判断が無いこと
 
@@ -4790,10 +5535,12 @@ EN-01〜EN-29、EN-31、EN-32 はすべて 1.1 節の unit に割り当てた（
 | W3b | E01・E02：`kivact-types/src/{clock,lib}.rs`（S10 の後）、`model/frame/*`、`model/frame.rs`、`model/app_model.rs`、`model.rs`、`model/state_motion*`、`model/presence/{state,size}.rs`、`model/layout_motion/*`、`model/playback/{tick,state}.rs`、`model/motion_run.rs`、`host/{pump,events,window_changes}.rs` | E03・E04：`model/{aggregate,lifecycle}.rs`、`editors`・`measure`・`paint.ink/look` を読むファイル（`model/keys.rs`、`model/edit/*`、`model/interact/*`、`model/focus/navigation.rs`、`model/pointer/{machine,hover}.rs`、`model/semantics.rs`、`model/text.rs`、`model/apply.rs`、`measure/*`、`paint/*`、`a11y/*`、`check/*`、`host/write/reader.rs`、`host/testing/*`）、`tree/*`、`kivact-layout/*` | 無し（E03 の置換の一覧に `host/{pump,events,window_changes}.rs`、`model/frame/*`、motion の directory は入らない） |
 | W4 | E05〜E09・E30：`model/edit/*`、`model/focus/navigation.rs`、`model/keys.rs`、`host/events.rs`、`host/write/{reader,writer,typed}.rs`、`measure/{state,editor,input}.rs`、`model/apply.rs`、`paint/state.rs`、`tree/node_tree.rs`、`contract/{devtools,routed}.rs`、`contract.rs`、`model/events.rs`、`model/lifecycle.rs`、`model/frame/state.rs`、`model/app_model.rs`、`model/pointer/{machine,shell}.rs`、`kivact-editing/*`、`text_input/*`、`text_input.rs`、`kivact-test/src/screen/host_sync_tests.rs` | E10・E11：`model/changes.rs`、`model/interact/{sync,text_geometry,caret,geometry,hit}.rs`、`model/aggregate.rs`、`host/pump.rs`、`layer.rs`、`paint/list/{look,walk}.rs` | 無し |
 | W4b | E31（lane E）：`host/write/{reader,writer,typed}.rs`、`contract.rs`、`contract/events.rs`、`model/app_model.rs`、`model/semantics.rs`、`host/pump.rs`、core `launch/runtime.rs`（1 行）、core `client/dispatch/delivery.rs`（1 腕） | — | 付属書 C の C06（core の `devtools/`、`view/devtools_hooks.rs`、`view/mount/style.rs`、`launch/inspect.rs`、`kivact-devtools-agent`、`kivact-test/src/screen/state.rs`）と重ならない |
-| W5a | E15・E16：`host/*`（`write/{reader,writer}.rs`、`testing/*` を含み `write/typed.rs` を除く）、`host.rs`、`model/window.rs`、`model.rs`、`model/app_model.rs`、`a11y/build/{dirty,identity,node}.rs` | E12・E13：`paint/{state,frame_scene,canvas,snapshot}.rs`、`paint/list/{invalidation,walk}.rs`、`lower/scene_out.rs`、`model/{aggregate,states,scrollbar,transform,changes}.rs`、`model/interact/{sync,visual,geometry,hit}.rs`、`model/pointer/hover.rs`、`model/frame/ticks.rs`、`model/state_motion/*`、`model/layout_motion/steps.rs` | 無し。鎖の E17・E18・E20（`kivact-editing/*`、`model/{keys,apply}.rs`、`model/edit/*`、`model/pointer/{machine,state,touch,shell}.rs`、`measure/editor.rs`、`text_input.rs`、`text_input/{shaping,word}.rs`、`contract/{node.rs,contract.rs}`、`host/write/typed.rs`、`tree/node.rs`）とも共有しない。`src/embed.rs` は W5a の鎖の C11・C13 だけが持つ（E-REQ-7） |
-| W6b | E19・E21：`model/{aggregate,app_model}.rs`、`model.rs`、`host/write/writer.rs`、`host/{pump,launch}.rs`、`embed.rs`、`frame_log.rs`、`lib.rs`、`model/pointer/*`、`model/pointer.rs` | E14・E24：`lower/{scene_out,content_versions,shape}.rs`、`paint/*`、`paint/list/*`、`paint.rs`、`layer.rs`、`model/interact.rs`、`model/interact/{hit,geometry}.rs`、`model/drawables/hit.rs`、`model/drawables.rs`、`host/testing/test_host.rs`（E14 の method 一つ）、`crates/kivact-engine/{Cargo.toml,tests/content_version.rs}` | 無し |
+| W5a | E16（lane E1）：`a11y/build/{dirty,identity,node}.rs` | E12・E13：`paint/{state,frame_scene,canvas,snapshot}.rs`、`paint/list/{invalidation,walk}.rs`、`lower/scene_out.rs`、`model/{aggregate,states,scrollbar,transform,changes}.rs`、`model/interact/{sync,visual,geometry,hit}.rs`、`model/pointer/hover.rs`、`model/frame/ticks.rs`、`model/state_motion/*`、`model/layout_motion/steps.rs` | 無し。鎖の E15・E17・E18・E20 とも共有しない：E15 は `host/*`（`write/{reader,writer}.rs`、`testing/*` を含み `write/typed.rs` を除く。手順 2 の path の置換が当たる file も `host/*` だけ）、`host.rs`、`model/window.rs`、`model.rs`、`model/app_model.rs`。E17・E18・E20 は `kivact-editing/*`、`model/{keys,apply}.rs`、`model/edit/*`、`model/pointer/{machine,state,touch,shell}.rs`、`measure/{editor,input}.rs`、`text_input.rs`、`text_input/{shaping,word}.rs`、`host/events.rs` と `host/testing/self_check.rs`（E17 の 2 行ずつ。鎖の中で E15 の後）、`contract/{node.rs,contract.rs}`、`host/write/typed.rs`、`tree/node.rs`。`src/model/interact/sync.rs`（E2）は E17 が触らない。`src/embed.rs` は W5a の鎖の C11・C13 だけが持つ（E-REQ-7） |
+| W6b | E19・E21：`model/{aggregate,app_model}.rs`、`model.rs`、`host/write/writer.rs`、`host/{pump,launch}.rs`、`embed.rs`、`frame_log.rs`、`lib.rs`、`model/pointer/*`、`model/pointer.rs` | E14・E32・E24：`lower/{scene_out,content_versions,shape}.rs`、`paint/*`、`paint/list/*`、`paint.rs`、`layer.rs`、`model/interact.rs`、`model/interact/{hit,geometry}.rs`、`model/drawables/hit.rs`、`model/drawables.rs`、`host/testing.rs`（E32 の 1 行）、`host/testing/test_host.rs`（E14 の method 一つ、E32 の二つ、E24 の一つ）、`crates/kivact-engine/{Cargo.toml,tests/content_version.rs,tests/draw_cache.rs,tests/hit_reference.rs}` | 無し |
 | W7a | E22・E23・E25・E26（lane は E1 だけ） | — | — |
 | W7b | E27・E28（lane は E1 だけ） | — | — |
 | W8 | E29（lane は E1 だけ） | — | — |
+
+外部の review の修正（設計書 12 章）で作業指示書 4 章の表が変わる所：W5a の E15 を E1 から鎖へ移した（鎖の順は … C18 → E15 → E17 → E18 → E20、E1 は E16 だけ）。W6b の E2 に E32 を足した（E14 → E32 → E24）。E15 の file は鎖の R・C の unit の file と重ならず、E32 の file は W6b の E1（E19・E21）の file と重ならない。
 
 W6a の S の鎖（S13・S14）は engine・layout・editing を持つ。本書の W6b 以降の unit はその後の名前で書く（1.2 節）。前の版の要調整 A-3 は W5a/W5b の分割で解決した（INC-27）。

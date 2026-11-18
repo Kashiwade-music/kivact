@@ -24,7 +24,7 @@
 ### 1.3 後の付属書に渡すもの
 
 - W5a の鎖の先頭（R05、R06、R08、R09、R20〜R31）が、状態・handler・非同期・診断の公開 API を最終形にし、全 crate の呼出し元を直す。付属書 C の鎖の unit は R31 の後に始まる。
-- C が使う名前（4 章の表）：`Handler<E>`、`IntoHandler<E, M>`、`Callback::from_handler`、`Prop<T>`（hidden）、`AppParts`、`Runtime::app_state`、`Runtime::defer`、`Runtime::has_work`、`RecordBits`、`Cause`、`driver` module。
+- C が使う名前（4 章の表）：`Handler<E>`、`IntoHandler<E, M>`、`Callback::from_handler`、`Prop<T>`（hidden）、`AppParts`、`Runtime::app_state`、`Runtime::defer`、`Runtime::has_work`、`Runtime::has_mail`、`RecordBits`、`Cause`、`driver` module。
 
 ## 2. unit の一覧
 
@@ -33,23 +33,23 @@ wave と lane は設計書 9 章の枠に従う。R の lane は各 wave に一�
 | ID | wave | lane | 前提の unit | 所有するファイル・directory | 所見 | 規模 |
 |---|---|---|---|---|---|---|
 | R01 | W2a | R | S の W1a（Deferred） | `crates/kivact-i18n/`（`Cargo.toml`、`src/lib.rs`、`src/locale.rs`、`src/numbers.rs`、`src/regional.rs`、新規 `src/cache.rs`） | RC-14 | M |
-| R02 | W2a | R | R01 | runtime `src/reactive/{selector.rs,owner.rs,frame.rs,data.rs,runtime.rs}`、`src/task/{state.rs,time.rs}` | RC-24、RC-25、RC-26 | M |
+| R02 | W2a | R | R01 | runtime `src/reactive/{selector.rs,owner.rs,frame.rs,data.rs,runtime.rs,graph.rs}`、`src/task/{state.rs,time.rs}` | RC-24、RC-25、RC-26、ST-04 | M |
 | R03 | W2a | R | R02 | runtime `src/reactive/{graph.rs,frame.rs,turn.rs,data.rs,runtime.rs,registry.rs,handles.rs}` | RC-07 | M |
 | R04 | W2a | R | R03 | runtime `src/machine.rs`、`src/task/{blocking.rs,state.rs,time.rs}`、`src/reactive/{diag.rs,data.rs,mounts.rs,runtime.rs}`、`src/reactive.rs`、`src/lib.rs`、core `src/devtools/console.rs` | RC-17、RC-38、RC-39、RC-41（`mount_revision`）、C の R-REQ-9（`reported_since`） | M |
-| R05 | W5a | 鎖（先頭） | CP1、R04、R07、S の W1a | runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{data.rs,ext.rs,runtime.rs,registry.rs,selector.rs,owner.rs}`、`src/motion/**`、`src/task/**`、core `src/launch/{runtime.rs,inspect.rs,close.rs}`、`src/client/{state.rs,trace.rs,dispatch/env.rs}`、`src/platform/{app_handle.rs,close_request.rs,lifecycle.rs}`、`src/gpu_interop/import/registry.rs`、`src/view/{state.rs,foreign.rs,devtools_state.rs}`、`src/devtools/{perf.rs,motion.rs}`、新規 core `src/app_state.rs`、core `src/lib.rs`（`mod` 行） | RC-04 | L |
-| R06 | W5a | 鎖 | R05 | runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{host.rs,host_types.rs,clock.rs,turn.rs,reactive.rs}`、core `src/launch/{runtime.rs,inspect.rs,turn.rs(新規)}`、`src/launch.rs`、`src/view/{requests.rs,state.rs,node_ref.rs}`、`src/client/dispatch.rs`、`src/client/dispatch/pointer.rs`、`src/app_state.rs` | RC-01、RC-02、RC-03、RC-41（`report_now`） | L |
-| R07 | W3a | R | R04 | runtime `src/motion/{state.rs,frame_loop.rs,animated.rs,timeline/api.rs}` | RC-08 | M |
+| R05 | W5a | 鎖（先頭） | CP1、R04、R07、S の W1a | runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{data.rs,ext.rs,runtime.rs,registry.rs,selector.rs,owner.rs}`、`src/motion/**`、`src/task/**`、core `src/launch/{runtime.rs,inspect.rs,close.rs}`、`src/client/{state.rs,trace.rs,dispatch/env.rs}`、`src/platform/{app_handle.rs,close_request.rs,lifecycle.rs}`、`src/gpu_interop/import/registry.rs`、`src/view/{state.rs,foreign.rs,devtools_state.rs}`、`src/devtools/{perf.rs,motion.rs}`、新規 core `src/app_state.rs`、core `src/lib.rs`（`mod` 行） | RC-04、ST-02（`app_slot` の debug_assert）、ST-05（frame loop の dispose の試験） | L |
+| R06 | W5a | 鎖 | R05 | runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{host.rs,host_types.rs,clock.rs,turn.rs,reactive.rs}`、core `src/launch/{runtime.rs,inspect.rs,turn.rs(新規)}`、`src/launch.rs`、`src/view/{requests.rs,state.rs,node_ref.rs}`、`src/client/dispatch.rs`、`src/client/dispatch/pointer.rs`、`src/app_state.rs`、`dev/tests/kivact-public-api/tests/*/node_ref.rs`（試験 1 件） | RC-01、RC-02、RC-03、RC-41（`report_now`）、ST-03 | L |
+| R07 | W3a | R | R04 | runtime `src/motion/{state.rs,frame_loop.rs,animated.rs,timeline/api.rs}` | RC-08、ST-05（`MotionToken`） | M |
 | R08 | W5a | 鎖 | R06 | runtime `src/reactive/{diag.rs,detail.rs,data.rs,graph.rs,host.rs,runtime.rs,reactive.rs}`、`src/host.rs`、`src/lib.rs`、core `src/launch/runtime.rs`、`src/launch/turn.rs`、`src/client/trace.rs`、`src/devtools/lifecycle.rs` | RC-05（記録の opt-in。型は変えない） | M |
-| R09 | W5a | 鎖 | R08 | runtime `src/reactive/{data.rs,graph.rs,turn.rs,owner.rs,arena.rs,selector.rs,frame.rs,handles.rs,host.rs,diag.rs,scope.rs,object.rs,trigger.rs}` | RC-06 | L |
+| R09 | W5a | 鎖 | R08 | runtime `src/reactive/{data.rs,graph.rs,turn.rs,owner.rs,arena.rs,selector.rs,frame.rs,handles.rs,host.rs,diag.rs,scope.rs,object.rs,trigger.rs}`、runtime と core の `Cargo.toml`（`devtools` feature） | RC-06、ST-06 | L |
 | R10 | W3a | R | R07 | core `src/view/flow/virtual_list.rs`、新規 core `src/view/flow/virtual_list/heights.rs` | RC-23（`virtual_list` の部分） | M |
 | R20 | W5a | 鎖 | R09 | runtime `src/reactive/{data.rs,handles.rs,setup.rs,props.rs,sealed.rs,reactive.rs}`、`src/lib.rs` | API-02、API-15、API-11（`Callback`）、RC-31（runtime の半分） | L |
-| R21 | W5a | 鎖 | R20 | runtime `src/reactive/{handler.rs,handles.rs,data.rs,setup.rs,sealed.rs,reactive.rs}`、`src/lib.rs`、`src/motion/{animated.rs,timeline/api.rs,state.rs,frame_loop.rs}`、`src/task/action.rs`、`dev/xtask/src/api_shape.rs` | API-03、RC-33（runtime の部分） | M |
-| R22 | W5a | 鎖 | R21 | runtime `src/task/**`、`src/task.rs`、`src/lib.rs`、`src/host.rs` | RC-15、RC-16、RC-35、RC-37 | L |
-| R23 | W5a | 鎖 | R22 | runtime `src/reactive/{trigger.rs,setup.rs,owner_handle.rs,handles.rs,reactive.rs}`、`src/task/{remote.rs(新規),clock.rs(新規),resource.rs,state.rs}`、`src/task.rs`、`src/motion/{frame_loop.rs,state.rs,timeline/api.rs}`、`src/lib.rs` | USR-02、USR-03、KIT-17、RC-34（runtime） | M |
+| R21 | W5a | 鎖 | R20 | runtime `src/reactive/{handler.rs,handles.rs,data.rs,setup.rs,sealed.rs,reactive.rs}`、`src/lib.rs`、`src/motion/{animated.rs,timeline/api.rs,state.rs,frame_loop.rs}`、`src/task/action.rs`、`dev/xtask/src/api_shape.rs` | API-03、API-14（`Callback::call` は `()`、hidden `invoke`）、API-7（`callback` の doc）、RC-33（runtime の部分） | M |
+| R22 | W5a | 鎖 | R21 | runtime `src/task/**`、`src/task.rs`、`src/lib.rs`、`src/host.rs` | RC-15、RC-16、RC-35、RC-37、ST-01（`AsyncPhase` の `last`）、ST-07・ST-08（`Lifecycle`、dispose で queue を捨てる） | L |
+| R23 | W5a | 鎖 | R22 | runtime `src/reactive/{trigger.rs,setup.rs,owner_handle.rs,handles.rs,host.rs,reactive.rs}`、`src/task/{remote.rs(新規),clock.rs(新規),resource.rs,state.rs}`、`src/task.rs`、`src/motion/{frame_loop.rs,state.rs,timeline/api.rs}`、`src/lib.rs` | USR-02、USR-03、KIT-17、RC-34（runtime）、API-9・API-10・API-11（`remote` の mailbox と配送） | M |
 | R24 | W5a | 鎖 | R23 | runtime `src/reactive/{props.rs,sealed.rs,reactive.rs}`、`src/motion/animated.rs`、`src/lib.rs` | RC-32、API-06（runtime） | M |
 | R25 | W5a | 鎖 | R24 | runtime 全体（`src/lib.rs`、新規 `src/driver.rs`、`src/reactive/{diag.rs,detail.rs,data.rs,graph.rs,host.rs,owner_handle.rs,scope.rs}`、`src/task/spawn.rs`、`src/machine.rs`、`src/motion/**` の `Owner::current` 呼出し） | RC-05（型の統合）、RC-30、RC-35（`spawn_in`）、RC-41（`Owner` の改名） | L |
 | R26 | W5a | 鎖 | R25 | `crates/kivact-core/`（R20〜R22 の変更の追従）、`crates/kivact-macros/src/{expand.rs,parse.rs}`、`crates/kivact/src/prelude.rs` | R20〜R22 の呼出し元、RC-23（list の部分） | L |
-| R27 | W5a | 鎖 | R26 | `crates/kivact-core/`（R23〜R25 の変更の追従）、`crates/kivact-macros/src/{expand.rs,parse.rs}`、`crates/kivact/src/{prelude.rs,lib.rs}`、`dev/xtask/policy/workspace.toml`（`except` の 1 項目）、`crates/kivact-i18n/`、`crates/kivact-style/` | R23〜R25 の呼出し元、RC-34（core） | L |
+| R27 | W5a | 鎖 | R26 | `crates/kivact-core/`（R23〜R25 の変更の追従）、`crates/kivact-macros/src/{expand.rs,parse.rs}`、`crates/kivact/src/{prelude.rs,lib.rs}`、`dev/xtask/policy/workspace.toml`（`except` の 1 項目）、`crates/kivact-i18n/`、`crates/kivact-style/` | R23〜R25 の呼出し元、RC-34（core）、12 章 API-9〜API-11（idle の判定の `has_mail`） | L |
 | R28 | W5a | 鎖 | R27 | `crates/kivact-interaction/` | 全 API の呼出し元 | L（機械的） |
 | R29 | W5a | 鎖 | R28 | `crates/kivact-ui/` | 全 API の呼出し元 | L（機械的） |
 | R30 | W5a | 鎖 | R29 | `crates/kivact-ui-basic/`、`crates/kivact-ui-soft/`、`crates/kivact-ui-pop/`、`crates/kivact-ui-game/`、`crates/kivact-ui-creative/`、`examples/kivact-ui-*/` | 全 API の呼出し元 | L（機械的） |
@@ -65,6 +65,9 @@ wave と lane は設計書 9 章の枠に従う。R の lane は各 wave に一�
 - 「確認（tier a）」の `cargo xtask check` が `state` 検査で落ちたら、本書のその unit の「状態の閉じ方」に書いた印の 1 行だけを使う。それ以外の印・`#[allow]`・`#[expect]` を足さない。
 - `perl` は Git Bash で実行する。ファイルの列挙は `git ls-files '<dir>/*.rs'`（git の pathspec の `*` は `/` をまたぐので再帰的に列挙される）。
 - 「`cargo check` の誤りに従って直す」と書いた箇所は、本書がその誤りの種類ごとに書いた直し方だけを使う。種類が本書に無い誤りが出たら STOP する。
+- 命令はすべて worktree の root で実行する（固定の絶対 path へ `cd` しない）。root が要る手順は `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1` を先に置き、相対 path か `git -C "$ROOT"` を使う（12 章 PLAN-04）。
+- 「確認」の `cargo test` は一つの命令が一つの test binary（`--lib`、`--test e2e_core`、`--test e2e_ui`、`--test e2e_native` など）だけを走らせる。filter に挙げる module はその binary にあるもの（付属書 T の T15 の振り分け）だけにする（12 章 PLAN-07）。窓を開く package の命令は一つにつき window-lock を一回だけ通す。
+- **filter のある `cargo test` の命令が 0 件の試験しか走らせなかったら失敗とする**（出力の `running 0 tests` が全 binary で 0、または `test result: ok. 0 passed`）。filter の名前を推測で直さず STOP する。各 unit の完了条件の「上の命令がすべて成功する」はこの条件を含む。
 
 ## R01：i18n の ICU object を locale ごとに一度だけ作る
 
@@ -348,13 +351,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'try_new' crates/kivact-i18n/src/regional.rs crates/kivact-i18n/src/numbers.rs crates/kivact-i18n/src/locale.rs` の各行が `get_or_init` の closure の中にある（`NumberSymbols::new` の中の `try_new_unstable` を除く）。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R02：selector の key node、timer の取消し、owner の破棄の割当て
 
 - **wave / lane / 前提**：W2a / R / R01。
-- **所有**：`crates/kivact-runtime/src/reactive/selector.rs`、`reactive/owner.rs`、`reactive/frame.rs`、`reactive/data.rs`、`reactive/runtime.rs`、`task/state.rs`、`task/time.rs`。
-- **目的**：selector が追跡のない呼出しで node を作ることと、key の表を掃除（prune）で直すことをやめる（RC-24）。timer の取消しと poll を O(log N) にする（RC-25）。owner の破棄で解放する member を一つずつ box しない（RC-26）。
+- **所有**：`crates/kivact-runtime/src/reactive/selector.rs`、`reactive/owner.rs`、`reactive/frame.rs`、`reactive/data.rs`、`reactive/runtime.rs`、`reactive/graph.rs`、`task/state.rs`、`task/time.rs`。
+- **目的**：selector が追跡のない呼出しで node を作ることと、key の表を掃除（prune）で直すことをやめ、最後の購読者が外れた key node を消す（RC-24、12 章 ST-04）。timer の取消しと poll を O(log N) にする（RC-25）。owner の破棄で解放する member を一つずつ box しない（RC-26）。
 
 ### 手順
 
@@ -405,20 +408,23 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
                  .entry(k.clone())
                  .or_default()
                  .push((reader, n));
-             // The reader's disposal forgets the pair (its node goes with it).
+             // When its last reader stops reading it (a re-run reads another
+             // key, or the reader is disposed), the node and its pair go.
              let cache = Rc::downgrade(&state.cache);
              let key = k.clone();
-             rt.add_cleanup(
-                 reader,
-                 Box::new(move || {
-                     let Some(cache) = cache.upgrade() else { return };
-                     let mut cache = cache.borrow_mut();
-                     if let Some(nodes) = cache.nodes.get_mut(&key) {
-                         nodes.retain(|(_, node)| *node != n);
-                         if nodes.is_empty() {
-                             cache.nodes.remove(&key);
+             rt.on_unsubscribed(
+                 n,
+                 Box::new(move |rt: &Runtime| {
+                     if let Some(cache) = cache.upgrade() {
+                         let mut cache = cache.borrow_mut();
+                         if let Some(nodes) = cache.nodes.get_mut(&key) {
+                             nodes.retain(|(_, node)| *node != n);
+                             if nodes.is_empty() {
+                                 cache.nodes.remove(&key);
+                             }
                          }
                      }
+                     drop(rt.remove_owned_node(n));
                  }),
              );
              n
@@ -427,7 +433,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      rt.read_node(node, true, at);
      state.cache.borrow().current.as_ref() == Some(k)
      ```
-   - module の doc の最後の文 `Unread key nodes are pruned as the key set grows.` を `A key node is forgotten when the owner that read it is disposed.` にする。
+   - module の doc の最後の文 `Unread key nodes are pruned as the key set grows.` を `A key node is removed when its last reader stops reading it (12 章 ST-04).` にする。
 3. `reactive/selector.rs` の `mod tests` の `remounted_readers_do_not_accumulate_key_entries`：二か所の
    ```rust
    row.with_setup(|| {
@@ -519,6 +525,69 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      for (_, n) in ranked {
      ```
    - 使われなくなった `use std::any::Any;` を消す（`cargo check` の unused の警告に従う）。`Graveyard` を `use crate::reactive::data::{..}` に足す。
+8. 購読者を失った source の hook（12 章 ST-04。selector の key node が使う）：
+   - `reactive/data.rs` の `Runtime` に field を足し、`reactive/runtime.rs` の `with_id` で `RefCell::new(HashMap::new())` で初期化する（`use std::collections::HashMap;`）。
+     ```rust
+     /// What runs when a watched source loses its last subscriber (selector
+     /// key nodes): run once, then forgotten.
+     pub(crate) unsubscribed: RefCell<std::collections::HashMap<Key, Box<dyn FnOnce(&Runtime)>>>,
+     ```
+   - `reactive/graph.rs` の `fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key)` を `-> Vec<Key>` にし、`subs.swap_remove(i);` の直後に `if subs.is_empty() { emptied.push(src); }` を置き（関数の先頭で `let mut emptied = Vec::new();`、`let Some(c) = .. else { return emptied; };`）、最後に `emptied` を返す。
+   - `impl Runtime` に次を足す。
+     ```rust
+     /// Run `hook` once when source `key` loses its last subscriber.
+     pub(crate) fn on_unsubscribed(&self, key: Key, hook: Box<dyn FnOnce(&Runtime)>) {
+         self.unsubscribed.borrow_mut().insert(key, hook);
+     }
+
+     /// Run the hooks of the sources in `emptied` that still have no
+     /// subscriber (no graph borrow is held).
+     fn run_unsubscribed(&self, emptied: Vec<Key>) {
+         for key in emptied {
+             let unread = self.graph.borrow().get(key).is_some_and(|n| n.subs().is_empty());
+             if !unread {
+                 continue;
+             }
+             let hook = self.unsubscribed.borrow_mut().remove(&key);
+             if let Some(hook) = hook {
+                 hook(self);
+             }
+         }
+     }
+     ```
+   - `fn set_deps`：`unlink_deps(&mut g, node);` を `let emptied = unlink_deps(&mut g, node);` にし、関数の最後（新しい deps の `for` の後）に `drop(g); self.run_unsubscribed(emptied);` を置く（新しい deps で読み直された source は `run_unsubscribed` の判定で飛ばされる）。
+   - `pub(crate) fn remove_node`：`unlink_deps(&mut g, key);` を `let emptied = unlink_deps(&mut g, key);` にし、最後の式 `g.remove(key, Some(Tomb { created_at: at, disposed_by }))` を次にする。
+     ```rust
+     let removed = g.remove(key, Some(Tomb { created_at: at, disposed_by }));
+     drop(g);
+     self.unsubscribed.borrow_mut().remove(&key);
+     self.run_unsubscribed(emptied);
+     removed
+     ```
+9. `reactive/selector.rs` の `mod tests` に次の試験を足す（`EffectKind` の import は手順 3 のもの）。
+   ```rust
+   #[test]
+   fn a_reader_switching_keys_keeps_its_nodes_bounded() {
+       let rt = Runtime::register(Rc::new(Quiet), 0);
+       let at = Location::caller();
+       assert_eq!(rt.create_owner(None, at), rt.root);
+       rt.enter(|| {
+           let root = rt.root();
+           let source = root.signal(None::<u32>, at);
+           let key = root.signal(0u32, at);
+           let sel = root.with_setup(|| super::selector(source));
+           root.effect(EffectKind::Internal, move || { let _ = sel.is(&key.get()); }, at);
+           let before = rt.live_counts().reactive;
+           for k in 1..=10_000u32 {
+               key.set(k);
+               rt.stabilize();
+           }
+           let after = rt.live_counts().reactive;
+           assert!(after <= before, "one live reader switching keys keeps {before} nodes, not {after}");
+       });
+       rt.shutdown();
+   }
+   ```
 
 ### 消すもの
 
@@ -528,11 +597,12 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - `SelectorCache<K>`：`current: Option<K>` と `nodes: HashMap` で、bool・Option・counter・Cell の field は一つだけ。検査の対象外。
 - `Graveyard`：`Vec` 二つ。対象外。
-- `Runtime`：field の追加だけ。T の W1b が置いた `Runtime` の印の文面は変えない。
+- `Runtime`：field の追加（`graveyard`、`unsubscribed`）だけ。T の W1b が置いた `Runtime` の印の文面は変えない。
 
 ### 試験
 
 - 変更：`crates/kivact-runtime/src/reactive/selector.rs` の `remounted_readers_do_not_accumulate_key_entries`（手順 3。期待値は同じ）。
+- 追加：同じ file の `a_reader_switching_keys_keeps_its_nodes_bounded`（手順 9。12 章 ST-04 の不変条件）。
 - 既存：e2e の `setup_functions::handle_constructors_create_under_the_setup_owner`（selector を effect の中で読む）、`task` module、`disposal` module。
 
 ### 確認（tier a）
@@ -549,7 +619,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'PruneSchedule|SELECTOR_PRUNE_MIN|fn prune|keys\(\)\s*\.find|Vec<Box<dyn Any>>' crates/kivact-runtime/src` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R03：再計算と stabilize の割当てをなくす
 
@@ -749,7 +819,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'own_runs|fn unqueue|\.clone\(\)\s*\.into_iter\(\)' crates/kivact-runtime/src/reactive/turn.rs crates/kivact-runtime/src/reactive/graph.rs` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R04：Machine の純粋な遷移、blocking の pool 一本化、報告の種類、mount の版
 
@@ -909,7 +979,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - `rg -n 'fallback_threads|retain_fallback|mount_revision|\.handled\b' crates/kivact-runtime/src crates/kivact-core/src/devtools/console.rs` が何も返さない。
 - `rg -n 'struct Completion' crates/kivact-runtime/src/task/blocking.rs` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R05：`Extensions` をやめ、runtime の状態を field に、core の状態を一つの struct にする
 
@@ -974,22 +1044,28 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      （`AppSlot` を `reactive` から `pub(crate) use` で見えるようにする：`src/reactive.rs` の `pub use data::{..}` の後に `pub(crate) use data::AppSlot;` を足す。）
    - `impl Runtime` に次の 4 つを足す。
      ```rust
-     /// The host layer's per-App state given by `AppParts::state`.
-     pub fn app_state(&self) -> &dyn std::any::Any {
+     /// The app slot. Design 6.2 names `Runtime.app` as the one exception to
+     /// "no object filled later": it is set once inside `Runtime::new`, before
+     /// any user code runs (12 章 ST-02). Reading it while the App is still
+     /// being constructed is a bug of the host layer.
+     fn app_slot(&self) -> &AppSlot {
+         debug_assert!(
+             self.app.get().is_some(),
+             "invariant: the app parts are read while the App is being constructed (Runtime::new has not installed them)"
+         );
          self.app
              .get()
              .expect("invariant: Runtime::new installs the app parts before it returns")
-             .state
-             .as_ref()
+     }
+
+     /// The host layer's per-App state given by `AppParts::state`.
+     pub fn app_state(&self) -> &dyn std::any::Any {
+         self.app_slot().state.as_ref()
      }
 
      /// The motion environment given by `AppParts::motion_env`.
      pub(crate) fn motion_env(&self) -> &MotionEnv {
-         &self
-             .app
-             .get()
-             .expect("invariant: Runtime::new installs the app parts before it returns")
-             .motion_env
+         &self.app_slot().motion_env
      }
 
      /// The tasks, timers and blocking pool of this App.
@@ -1105,6 +1181,47 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
       },
       ```
 11. `dev/xtask/policy/workspace.toml` は変えない（`app_state` は `module_rules.kivact-core.uses` の key に無いので、どの module からも参照できる。4 章 4.3 で付属書 T に伝える）。
+12. 試験（12 章 ST-05。R07 の `MotionToken` は、`Runtime::register` が `MotionState` を持つこの unit から runtime の試験で確かめられる）：`src/motion/state.rs` の末尾に次を足す。
+    ```rust
+    #[cfg(test)]
+    mod tests {
+        //! Role: A registration leaves every motion map when its owner is disposed, without any diagnostic call.
+
+        use std::panic::Location;
+        use std::rc::Rc;
+
+        use crate::reactive::host_types::Host;
+
+        struct Quiet;
+        impl Host for Quiet {
+            fn wake(&self) {}
+        }
+
+        #[test]
+        fn a_disposed_frame_loop_leaves_every_motion_map() {
+            let rt = crate::reactive::data::Runtime::register(
+                Rc::new(Quiet),
+                0,
+                crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            );
+            let at = Location::caller();
+            assert_eq!(rt.create_owner(None, at), rt.root);
+            rt.enter(|| {
+                let child = rt.root().child(at);
+                child.with_setup(|| {
+                    let looped = crate::frame_loop(|_| ());
+                    looped.start(crate::FrameRate::Display);
+                });
+                assert_eq!(rt.motion().loops.borrow().len(), 1);
+                assert_eq!(rt.motion().running_loops.borrow().len(), 1);
+                child.dispose();
+                assert!(rt.motion().loops.borrow().is_empty(), "the registration left with its owner");
+                assert!(rt.motion().running_loops.borrow().is_empty());
+            });
+            rt.shutdown();
+        }
+    }
+    ```
 
 ### 消すもの
 
@@ -1115,13 +1232,14 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - `Runtime.app: Deferred<AppSlot>`：`Runtime::new` の中で一度だけ書き、`Runtime::new` が返った後は読むだけ。`Runtime` の印（T の W1b が置いた 1 行）の後ろに次の文を足す（同じ 1 行の中に `; ` で続ける）。
   `app is written once inside Runtime::new before it returns and only read afterwards`
-  付属書 S・設計書 6.2 節は `Deferred` を「未完成の object を後で埋める」用途に使わないと定める。この field の使い方は親が決定済み（4 章 4.4 の 1）：`Runtime::new` の中で一度だけ書く。
+  設計書 6.2 節は `Runtime.app` をこの規則の唯一の明記した例外とする（12 章 ST-02）：App の構築の中（利用者のコードが動く前）で一度だけ書き、構築の途中の読出しは `app_slot` の `debug_assert!` で落とす。型による二段階の分離はしない（12 章 ST-02）。
 - `AppSlot`、`AppParts`：`Box` と `MotionEnv`（Copy）。対象外。
 - `AppState`：各 field は subsystem の状態で、互いに独立。field 自身の型がそれぞれの印を持つ。`AppState` に内部可変の field は無い。対象外。
 
 ### 試験
 
-- 新しい試験は無い。e2e の `e2e_core` の `launch_window`・`motion`・`task`・`close_request`・`windows`・`app_handle` module と、`kivact-test` の自己試験を変えずに通す。
+- 追加：`crates/kivact-runtime/src/motion/state.rs` の `a_disposed_frame_loop_leaves_every_motion_map`（手順 12。統計や DevTools の呼出しをしない）。
+- 既存：e2e の `e2e_core` の `launch_window`・`motion`・`task`・`close_request`・`windows`・`app_handle` module と、`kivact-test` の自己試験を変えずに通す。
 
 ### 確認（tier a）
 
@@ -1140,23 +1258,23 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n '\bExtensions\b|\.ext::<|TaskState::of|MotionState::of|missing_extension' crates/kivact-runtime/src crates/kivact-core/src` が、kivact-style の `Theme` の `ext::<`（core の中の `theme.ext::<..>()` などの theme の呼出し）以外を返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R06：turn を一本の順にし、仕事の有無を一つの述語にする
 
 - **wave / lane / 前提**：W5a / 鎖 / R05。公開 API は変えない（core の `launch/runtime.rs` を持つので鎖に置く）。
-- **所有**：runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{host.rs,host_types.rs,clock.rs,turn.rs,data.rs}`、`src/reactive.rs`、core `src/launch.rs`、`src/launch/{runtime.rs,inspect.rs}`、新規 core `src/launch/turn.rs`、`src/view/{requests.rs,state.rs,node_ref.rs}`、`src/client/dispatch.rs`、`src/client/dispatch/pointer.rs`、`src/app_state.rs`。
-- **目的**：「待っている仕事があるか」の四つの定義を一つの `Runtime::has_work` にし、core だけが知る activation の列を runtime の deferred の列にする（RC-02）。idle の近道が `WakeSent` のまま残る不具合を直す（RC-01、RC-41 の `report_now`）。settle の繰返しと入れ子の上限を一つの `TurnGuard::settle` にし、turn の順を `launch/turn.rs` の一つの関数にする（RC-03）。
+- **所有**：runtime `src/host.rs`、`src/lib.rs`、`src/reactive/{host.rs,host_types.rs,clock.rs,turn.rs,data.rs}`、`src/reactive.rs`、core `src/launch.rs`、`src/launch/{runtime.rs,inspect.rs}`、新規 core `src/launch/turn.rs`、`src/view/{requests.rs,state.rs,node_ref.rs}`、`src/client/dispatch.rs`、`src/client/dispatch/pointer.rs`、`src/app_state.rs`、`dev/tests/kivact-public-api/tests/*/node_ref.rs`（試験の追加）。
+- **目的**：「待っている仕事があるか」の四つの定義を一つの `Runtime::has_work` にし、core だけが知る activation の列を runtime の deferred の列にする（RC-02）。idle の近道が `WakeSent` のまま残る不具合を直す（RC-01、RC-41 の `report_now`）。settle の繰返しと入れ子の上限を一つの `TurnGuard::settle` にし、turn の順を `launch/turn.rs` の一つの関数にする（RC-03）。 deferred の実行も timer・task と同じ turn の予算（`ASYNC_ROUNDS`）に数え、超えたら位置付きの `Cycle` を一度報告して残りを次の turn に回す（12 章 ST-03）。
 
 ### 手順
 
 1. runtime `src/reactive/data.rs`：
-   - `pub struct TurnGuard<'a>` に field `pub(crate) async_rounds: std::cell::Cell<u32>,` を足す。
+   - `pub struct TurnGuard<'a>` に field `pub(crate) work_rounds: std::cell::Cell<u32>,` を足す（この turn の deferred と timer・task の round の数。12 章 ST-03）。
    - `Runtime` の `later` の後に次を足す（`runtime.rs` の `with_id` で `RefCell::new(VecDeque::new())` で初期化）。
      ```rust
      /// Handlers deferred until the running one returns (`Runtime::defer`),
-     /// each with the owner it runs for.
-     pub(crate) deferred: RefCell<VecDeque<(Key, Box<dyn FnOnce()>)>>,
+     /// each with the owner it runs for and where it was deferred.
+     pub(crate) deferred: RefCell<VecDeque<(Key, &'static Location<'static>, Box<dyn FnOnce()>)>>,
      ```
 2. runtime `src/reactive/host_types.rs`：`pub struct Pending { .. }` を（4 つの field と印を含めて）削除する。
 3. runtime `src/reactive/host.rs`：
@@ -1181,27 +1299,34 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
      /// Run `f` for `owner` once the running handler has returned (in the
      /// same turn): a handler frame of `owner`, skipped when the owner is
-     /// gone. `NodeRef::activate` uses it.
-     pub fn defer(&self, owner: Owner, f: Box<dyn FnOnce()>) {
-         self.deferred.borrow_mut().push_back((owner.key, f));
+     /// gone. `at` locates a `Cycle` when deferred work exceeds the turn's
+     /// budget. `NodeRef::activate` uses it.
+     pub fn defer(&self, owner: Owner, at: &'static Location<'static>, f: Box<dyn FnOnce()>) {
+         self.deferred.borrow_mut().push_back((owner.key, at, f));
          self.request_turn();
      }
      ```
-   - `fn begin(&self, stage: Stage) -> TurnGuard<'_>` の構造体式に `async_rounds: std::cell::Cell::new(0),` を足す。
+   - `fn begin(&self, stage: Stage) -> TurnGuard<'_>` の構造体式に `work_rounds: std::cell::Cell::new(0),` を足す。
    - `TurnGuard::stabilize` はそのまま。`impl TurnGuard` に次を足す。
      ```rust
      /// Run the deferred handlers queued so far (those they defer wait for
-     /// the next call). Returns whether any ran.
+     /// the next call). The batch counts as one round of the turn's budget;
+     /// over the budget nothing runs and the queue waits for the next turn.
+     /// Returns whether any ran.
      pub fn run_deferred(&self) -> bool {
+         let first = self.rt.deferred.borrow().front().map(|(_, at, _)| *at);
+         let Some(first) = first else { return false };
+         if !self.count_round(Some(first)) {
+             return false;
+         }
          let batch = std::mem::take(&mut *self.rt.deferred.borrow_mut());
-         let ran = !batch.is_empty();
-         for (owner, f) in batch {
+         for (owner, _, f) in batch {
              if self.rt.owner_alive(owner) {
                  let _frame = self.rt.handler_frame(Some(owner));
                  f();
              }
          }
-         ran
+         true
      }
      ```
    - `Runtime::stabilize`（`turn.rs`）と `Runtime::run_user_effects`（`turn.rs`）を `pub(crate)` にする。`rg -n '\.stabilize\(\)|\.run_user_effects\(\)' crates --glob '!crates/kivact-runtime/**'` が core の `launch/runtime.rs` 以外を返したら STOP。
@@ -1223,15 +1348,40 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```
    - ファイルの先頭の `use` の後（module の段）に次の定数を置く。
      ```rust
-     /// The tasks and timers rounds one turn may run (shared by all its settles).
+     /// The work rounds (deferred handlers, timers and tasks) one turn may
+     /// run, shared by all its settles (12 章 ST-03).
      const ASYNC_ROUNDS: u32 = 1000;
      ```
-     `TurnGuard::settle_async` を削除し、`impl TurnGuard<'_>` に次の二つを足す。
+     `TurnGuard::settle_async` を削除し、`impl TurnGuard<'_>` に次の三つを足す。
      ```rust
+     /// Count one work round of this turn. Returns `false` when the budget
+     /// is used up: the work that would run waits for the next turn (it stays
+     /// queued, so `finish` requests one). The first round over the budget
+     /// reports one `Cycle` located at `at`.
+     fn count_round(&self, at: Option<&'static Location<'static>>) -> bool {
+         let rounds = self.work_rounds.get();
+         if rounds > ASYNC_ROUNDS {
+             return false;
+         }
+         self.work_rounds.set(rounds + 1);
+         if rounds == ASYNC_ROUNDS {
+             self.rt.report(
+                 None,
+                 UiError::new(
+                     ErrorKind::Cycle { path: at.into_iter().collect() },
+                     "deferred work, tasks and timers did not settle within 1000 rounds of one turn; the rest runs in the next turn",
+                     at,
+                 ),
+             );
+             return false;
+         }
+         true
+     }
+
      /// One round of due timers and ready tasks. Returns whether any ran.
      fn poll_async_round(&self) -> bool {
          let rt = self.rt;
-         if self.async_rounds.get() >= ASYNC_ROUNDS {
+         if self.work_rounds.get() >= ASYNC_ROUNDS {
              return false;
          }
          self.stage(Stage::Async);
@@ -1249,12 +1399,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          }
          let ran = woke || polled > 0;
          if ran {
-             let rounds = self.async_rounds.get() + 1;
-             self.async_rounds.set(rounds);
-             if rounds == ASYNC_ROUNDS {
-                 rt.report(None, UiError::new(ErrorKind::Cycle { path: Vec::new() },
-                     "tasks and timers did not settle within 1000 rounds of one turn; the rest runs in the next turn", None));
-             }
+             // The round already ran; at the limit it reports once.
+             self.count_round(None);
          }
          ran
      }
@@ -1304,6 +1450,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
    let app = self.app;
    rt.defer(
        rt.root(),
+       Location::caller(),
        Box::new(move || {
            if let Some(rt) = Runtime::get(app) {
                (crate::app_state::AppState::of(&rt).activate)(&rt, node);
@@ -1496,14 +1643,64 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 ### 状態の閉じ方
 
-- `TurnGuard<'a>`：`rt`、`started`、`async_rounds: Cell<u32>`。counter は一つ。`Guard` の名の型で 1 turn の間だけ生きる。対象外。
+- `TurnGuard<'a>`：`rt`、`started`、`work_rounds: Cell<u32>`。counter は一つ。`Guard` の名の型で 1 turn の間だけ生きる。対象外。
 - `Runtime.deferred`：列。`Runtime` の印の文面は変えない。
 - `AppState.activate`：fn pointer（constructor でだけ書く）。対象外。
 
 ### 試験
 
 - 既存（変えずに通す）：e2e の `node_ref` module（`NodeRef::activate`）、`focus` module、`lifecycle`、`task`、`async_tests`、`runtime`、`flows`、`app_handle`、kivact-test の自己試験。
-- 追加しない（RC-01 は過去の不具合の再現だけの試験になるため、設計書 6.4 節に従い足さない）。
+- RC-01 の試験は足さない（過去の不具合の再現だけの試験になる。設計書 6.4 節）。
+- 追加（12 章 ST-03 の不変条件）：`dev/tests/kivact-public-api/tests/*/node_ref.rs`（`e2e_core`）に次の試験を足す（所有に含める）。自分を、または互いを activate し続ける handler があっても turn は予算で切れ、残りは次の turn に回り、最後まで進む。
+  ```rust
+  /// Handlers that activate themselves or each other run in budgeted turns:
+  /// a turn over its budget reports a cycle and the rest runs in the next one.
+  #[test]
+  fn activating_itself_or_each_other_does_not_hang() {
+      const TIMES: u32 = 2500;
+      let (screen, (own, mutual)) = mount(|| {
+          let own = signal(0u32);
+          let mutual = signal(0u32);
+          let me = node_ref();
+          let (x, y) = (node_ref(), node_ref());
+          (
+              (own, mutual),
+              column((
+                  button("self").node_ref(me).on_press(move || {
+                      own.update(|n| *n += 1);
+                      if own.get_untracked() < TIMES {
+                          me.activate();
+                      }
+                  }),
+                  button("x").node_ref(x).on_press(move || {
+                      mutual.update(|n| *n += 1);
+                      if mutual.get_untracked() < TIMES {
+                          y.activate();
+                      }
+                  }),
+                  button("y").node_ref(y).on_press(move || {
+                      mutual.update(|n| *n += 1);
+                      if mutual.get_untracked() < TIMES {
+                          x.activate();
+                      }
+                  }),
+              )),
+          )
+      });
+      screen.get_by_role(Role::Button, "self").click();
+      screen.run_until_idle();
+      assert_eq!(own.get_untracked(), TIMES);
+      screen.get_by_role(Role::Button, "x").click();
+      screen.run_until_idle();
+      assert_eq!(mutual.get_untracked(), TIMES);
+      let errors = screen.errors();
+      assert!(!errors.is_empty(), "a turn over its budget reports a cycle");
+      assert!(
+          errors.iter().all(|e| matches!(e.kind(), kivact::ErrorKind::Cycle { .. })),
+          "{errors:?}"
+      );
+  }
+  ```
 
 ### 確認（tier a）
 
@@ -1523,13 +1720,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - 手順 12 の `rg` が何も返さない。
 - `crates/kivact-core/src/launch/turn.rs` があり、`fn turn` がそこにだけある（`rg -n 'fn turn\(' crates/kivact-core/src`）。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R07：motion を動いているものだけで回す
 
 - **wave / lane / 前提**：W3a / R / R04。
 - **所有**：runtime `src/motion/{state.rs,frame_loop.rs,animated.rs,timeline/api.rs}`。
-- **目的**：commit と tick ごとに全 animation と全 frame loop を `Vec` に集めて走査するのをやめ、動いているものの集合（phase の遷移だけが書く）を回す。frame loop が tick ごとに signal を書くこと、Animated が step ごとに `Vec` を二つ作ることと、Animated ごとの `running` memo をやめる（RC-08）。
+- **目的**：commit と tick ごとに全 animation と全 frame loop を `Vec` に集めて走査するのをやめ、動いているものの集合（phase の遷移だけが書く）を回す。frame loop が tick ごとに signal を書くこと、Animated が step ごとに `Vec` を二つ作ることと、Animated ごとの `running` memo をやめる（RC-08）。登録は token（`MotionToken`）にし、token の `Drop` が全 map から消す（12 章 ST-05）。
 
 ### 手順
 
@@ -1538,7 +1735,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```rust
      pub struct MotionState {
          clock: RefCell<FrameClock>,
-         /// Allocates the ids of loops and animations (creation order).
+         /// Allocates the ids of registrations (creation order).
          next_id: Cell<u64>,
          /// Every live frame loop by id (DevTools, stats, the clock shift).
          loops: RefCell<BTreeMap<u64, Weak<LoopCell>>>,
@@ -1552,13 +1749,36 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          time_scale: Cell<TimeScale>,
      }
      ```
-   - `register_loop(&self, l: &Rc<LoopCell>)` と `register_anim(&self, a: &Rc<dyn Anim>)` を次の 5 つに置き換える。
+   - `register_loop(&self, l: &Rc<LoopCell>)` と `register_anim(&self, a: &Rc<dyn Anim>)` を次のものに置き換える。下の code の `struct MotionToken` と `impl Drop for MotionToken` は `pub struct MotionState` の直前に、残りの fn（`token`、`forget`、`register_loop`、`register_anim`、`set_loop_running`、`set_anim_running`）は `impl MotionState` に置く（12 章 ST-05：登録は token を返し、token の `Drop` が全 map から消す。診断の呼出しを掃除の契機にしない）。
      ```rust
-     /// A new id for a loop or an animation.
-     pub(crate) fn next_id(&self) -> u64 {
+     /// A loop's or an animation's registration. Its cell holds it; when the
+     /// cell drops (its owner was disposed), the id leaves every map.
+     pub(crate) struct MotionToken {
+         app: crate::AppId,
+         pub(crate) id: u64,
+     }
+
+     impl Drop for MotionToken {
+         fn drop(&mut self) {
+             if let Some(rt) = Runtime::get(self.app) {
+                 MotionState::of(&rt).forget(self.id);
+             }
+         }
+     }
+
+     /// A new registration id of `app`.
+     pub(crate) fn token(&self, app: crate::AppId) -> MotionToken {
          let id = self.next_id.get() + 1;
          self.next_id.set(id);
-         id
+         MotionToken { app, id }
+     }
+
+     /// Remove `id` from every map (`MotionToken::drop`).
+     fn forget(&self, id: u64) {
+         self.loops.borrow_mut().remove(&id);
+         self.anims.borrow_mut().remove(&id);
+         self.running_loops.borrow_mut().remove(&id);
+         self.running_anims.borrow_mut().remove(&id);
      }
 
      pub(crate) fn register_loop(&self, id: u64, l: &Rc<LoopCell>) {
@@ -1583,40 +1803,34 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```
    - `fn live_loops` と `fn live_anims` を次にし、動いているものだけを返す二つを足す。
      ```rust
+     // The maps hold only live registrations (`MotionToken::drop` removes
+     // the others), so reading them prunes nothing.
      fn live_loops(&self) -> Vec<Rc<LoopCell>> {
-         let mut loops = self.loops.borrow_mut();
-         loops.retain(|_, l| l.strong_count() > 0);
-         loops.values().filter_map(Weak::upgrade).collect()
+         self.loops.borrow().values().filter_map(Weak::upgrade).collect()
      }
 
      fn live_anims(&self) -> Vec<Rc<dyn Anim>> {
-         let mut anims = self.anims.borrow_mut();
-         anims.retain(|_, a| a.strong_count() > 0);
-         anims.values().filter_map(Weak::upgrade).collect()
+         self.anims.borrow().values().filter_map(Weak::upgrade).collect()
      }
 
-     /// The started loops, in creation order (ids of dropped loops are forgotten).
+     /// The started loops, in creation order.
      fn running_loops(&self) -> Vec<Rc<LoopCell>> {
          let loops = self.loops.borrow();
-         let mut running = self.running_loops.borrow_mut();
-         let mut out = Vec::with_capacity(running.len());
-         running.retain(|id| match loops.get(id).and_then(Weak::upgrade) {
-             Some(l) => { out.push(l); true }
-             None => false,
-         });
-         out
+         self.running_loops
+             .borrow()
+             .iter()
+             .filter_map(|id| loops.get(id).and_then(Weak::upgrade))
+             .collect()
      }
 
      /// The running animations, in creation order.
      fn running_anims(&self) -> Vec<Rc<dyn Anim>> {
          let anims = self.anims.borrow();
-         let mut running = self.running_anims.borrow_mut();
-         let mut out = Vec::with_capacity(running.len());
-         running.retain(|id| match anims.get(id).and_then(Weak::upgrade) {
-             Some(a) => { out.push(a); true }
-             None => false,
-         });
-         out
+         self.running_anims
+             .borrow()
+             .iter()
+             .filter_map(|id| anims.get(id).and_then(Weak::upgrade))
+             .collect()
      }
      ```
    - `plan_frame` の先頭に次を足す。
@@ -1633,9 +1847,10 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
    - `pub(crate) enum LoopState { Stopped, Running(LoopRun) }` を削除する。
    - `LoopCell` を次にする（`FrameInfo::frame` の意味（今までに走った回数）を保つため `frames` は残す。4 章 4.5 に記録）。
      ```rust
-     // xtask-allow(state): run is the loop's phase (None when stopped); rate is its reactive projection, written only when the requested rate changes, never per tick; frames counts callbacks; gate and motion are setup options
+     // xtask-allow(state): run is the loop's phase (None when stopped); rate is its reactive projection, written only when the requested rate changes, never per tick; frames counts callbacks; gate and motion are setup options; registration is the motion token
      pub(crate) struct LoopCell {
-         pub(crate) id: u64,
+         /// Its registration: dropping the cell removes it from every map.
+         pub(crate) registration: MotionToken,
          pub(crate) owner: Owner,
          pub(crate) f: Handler<FrameInfo>,
          /// The running schedule (`None`: stopped), advanced at each tick.
@@ -1657,16 +1872,17 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          if was != run.is_some()
              && let Some(rt) = Runtime::get(self.owner.app())
          {
-             MotionState::of(&rt).set_loop_running(self.id, run.is_some());
+             MotionState::of(&rt).set_loop_running(self.registration.id, run.is_some());
          }
      }
      ```
 3. `src/motion/frame_loop.rs`：
    - `frame_loop` の `let state = owner.signal(LoopState::Stopped, at); let rate = crate::memo(..);` を `let rate = owner.signal(None, at);` にし、`let cell = Rc::new(LoopCell { owner, f, state, frames, gate, rate, motion })` を次にする。
      ```rust
-     let id = MotionState::of(&rt).next_id();
+     let registration = MotionState::of(&rt).token(rt.id());
+     let id = registration.id;
      let cell = Rc::new(LoopCell {
-         id,
+         registration,
          owner,
          f: crate::reactive::Handler::from_fn(f),
          run: Cell::new(None),
@@ -1681,7 +1897,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
    - `rate()` の本体を `self.cell(Location::caller()).1.rate.into()` にする。
    - `use super::state::{..}` から `LoopState` を消す。
 4. `src/motion/animated.rs`：
-   - `pub(crate) struct AnimCell<T>` に field `pub(crate) motion_id: u64,` を足す。`create` の `let cell = Rc::new(AnimCell { owner, value, transition, current: .., phase: .. });` の前に `let motion_id = MotionState::of(&rt).next_id();` を置き、構造体式に `motion_id,` を足す。`MotionState::of(&rt).register_anim(&anim);`（今の行）を `MotionState::of(&rt).register_anim(motion_id, &anim);` にする。
+   - `pub(crate) struct AnimCell<T>` に field `pub(crate) registration: MotionToken,` を足す（`use super::state::MotionToken;`）。`create` の `let cell = Rc::new(AnimCell { owner, value, transition, current: .., phase: .. });` の前に `let registration = MotionState::of(&rt).token(rt.id()); let motion_id = registration.id;` を置き、構造体式に `registration,` を足す。`MotionState::of(&rt).register_anim(&anim);`（今の行）を `MotionState::of(&rt).register_anim(motion_id, &anim);` にする。
    - `impl<T: Animatable> AnimCell<T>` に次を足し、このファイルの `self.phase.set(`・`cell.phase.set(` をすべて `self.set_phase(`・`cell.set_phase(` にする。`complete` の `self.phase.update(|phase| *phase = AnimPhase::Completed { target });` は `self.set_phase(AnimPhase::Completed { target });` にする。
      ```rust
      /// The only write of `phase`: keeps the motion system's running set.
@@ -1692,7 +1908,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          if was != now
              && let Some(rt) = Runtime::get(self.owner.app())
          {
-             MotionState::of(&rt).set_anim_running(self.motion_id, now);
+             MotionState::of(&rt).set_anim_running(self.registration.id, now);
          }
      }
      ```
@@ -1730,16 +1946,17 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```
    - `pub struct Animated<T>` の field `running: Value<bool>,` を `phase: Signal<AnimPhase>,` にする。`create` の `let phase = cell.phase; let running = crate::memo(..);` を `let phase = cell.phase;` にし、`Animated { app, cell: stored, value: Value::from(value), running }` を `Animated { app, cell: stored, value: Value::from(value), phase }` にする。`pub fn is_running(&self) -> bool` の本体を `self.phase.with(|p| matches!(p, AnimPhase::Running { .. }))` にする。手で書いた `Clone`・`Copy` はそのまま（`Signal` は Copy）。
 5. `src/motion/timeline/api.rs`：
-   - `pub(crate) struct TimelineCell` に field `pub(crate) motion_id: u64,` を足す。`TimelineCell::new(owner, at)` に引数 `motion_id: u64` を足して構造体式に入れ、`timeline()` の `let cell = Rc::new(TimelineCell::new(owner, at));` を次の 2 行にする。`register_anim(&anim)` を `register_anim(motion_id, &anim)` にする。
+   - `pub(crate) struct TimelineCell` に field `pub(crate) registration: MotionToken,` を足す。`TimelineCell::new(owner, at)` に引数 `registration: MotionToken` を足して構造体式に入れ、`timeline()` の `let cell = Rc::new(TimelineCell::new(owner, at));` を次の 2 行にする。`register_anim(&anim)` を `register_anim(motion_id, &anim)` にする。
      ```rust
-     let motion_id = MotionState::of(&rt).next_id();
-     let cell = Rc::new(TimelineCell::new(owner, at, motion_id));
+     let registration = MotionState::of(&rt).token(rt.id());
+     let motion_id = registration.id;
+     let cell = Rc::new(TimelineCell::new(owner, at, registration));
      ```
-   - `impl TimelineCell` に、手順 4 と同じ形の `fn set_phase(&self, next: TimelinePhase)` を足す（`self.is_running()` は `impl Anim for TimelineCell` の `is_running`、`set_anim_running(self.motion_id, now)`。`self.owner` の名前が違えば TimelineCell の owner の field を使う）。このファイルの `self.phase.set(` と `cell.phase.set(`（`TimelinePhase` を書く行）をすべて `set_phase(` にする。`TimelinePhase` が `PartialEq` を実装していなければ STOP。
+   - `impl TimelineCell` に、手順 4 と同じ形の `fn set_phase(&self, next: TimelinePhase)` を足す（`self.is_running()` は `impl Anim for TimelineCell` の `is_running`、`set_anim_running(self.registration.id, now)`。`self.owner` の名前が違えば TimelineCell の owner の field を使う）。このファイルの `self.phase.set(` と `cell.phase.set(`（`TimelinePhase` を書く行）をすべて `set_phase(` にする。`TimelinePhase` が `PartialEq` を実装していなければ STOP。
 
 ### 消すもの
 
-- `LoopState`、`LoopCell.state`、`frame_loop` の `rate` memo、`Animated.running` memo、`MotionState` の `Registry` の 2 つの field、step ごとの `current.borrow().clone()` と `to_vec()`。
+- `LoopState`、`LoopCell.state`、`frame_loop` の `rate` memo、`Animated.running` memo、`MotionState` の `Registry` の 2 つの field と診断の呼出しでの掃除（`live()`・`retain`）、step ごとの `current.borrow().clone()` と `to_vec()`。
 
 ### 状態の閉じ方
 
@@ -1748,7 +1965,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 - `LoopCell`：手順 2 の印。
 - `AnimCell<T>`：`value`・`phase`（Signal）と `current`（RefCell）を持つので検査の対象。定義の直前に次の 1 行を置く（T の W1b が置いた印があれば、この行で置き換える）。
   `// xtask-allow(state): phase is the only phase and set_phase its only writer (it keeps the running set); current is the value now, stepped in place while running and published to value`
-- `TimelineCell`：`motion_id` は constructor でだけ書く。T の W1b の印の文面の最後に `; set_phase is the only writer of phase` を足す。
+- `TimelineCell`：`registration` は constructor でだけ書く。T の W1b の印の文面の最後に `; set_phase is the only writer of phase` を足す。
 
 ### 試験
 
@@ -1769,7 +1986,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'LoopState|Registry<|\.live\(\)|running: Value<bool>|current\.borrow\(\)\.clone\(\)' crates/kivact-runtime/src/motion` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R08：診断の記録を記録者が有効にしたときだけにする
 
@@ -1922,12 +2139,12 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'set_detailed_trace' crates` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R09：graph の node を 96 byte 以下にし、診断の情報を別の表に置く
 
 - **wave / lane / 前提**：W5a / 鎖 / R08。公開 API は変えない。
-- **所有**：runtime `src/reactive/{data.rs,graph.rs,turn.rs,owner.rs,arena.rs,selector.rs,frame.rs,handles.rs,host.rs,diag.rs,scope.rs,object.rs,trigger.rs,owner_handle.rs}`。
+- **所有**：runtime `src/reactive/{data.rs,graph.rs,turn.rs,owner.rs,arena.rs,selector.rs,frame.rs,handles.rs,host.rs,diag.rs,scope.rs,object.rs,trigger.rs,owner_handle.rs}`、`crates/kivact-runtime/Cargo.toml`（`devtools` feature）、`crates/kivact-core/Cargo.toml`（`devtools` feature の 1 行）。
 - **目的**：`RNode`（今は約 160 byte）から診断用の `at`・`ty`・`written` と、同じ allocation を指す二つ目の太い pointer をなくし、effect の `cleanups` を box に入れ、大きさを `const` の assert で守る（RC-06、MEM-6）。診断の情報は `Diag.node_meta` の表に置き、debug build か記録者が有効なときだけ書く。
 
 ### 手順
@@ -2040,17 +2257,25 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```
    - `pub struct NodeInfo` は変えない。その直前に次を足す。
      ```rust
-     /// The diagnostics of one graph node (`Diag::node_meta`): kept in debug
-     /// builds and while a recorder is on, never in the node itself.
+     /// The type and creation site of one graph node (`Diag::node_meta`):
+     /// always kept in a build with the `devtools` feature (recording may
+     /// start later, and `why` still names every node), else only for nodes
+     /// created while a recorder is on (12 章 ST-06). Never in the node itself.
      #[derive(Clone, Copy)]
      pub(crate) struct NodeMeta {
          pub(crate) at: &'static Location<'static>,
          pub(crate) ty: &'static str,
-         /// Location and turn of the last value-changing write (sources).
-         pub(crate) written: Option<(&'static Location<'static>, Turn)>,
      }
      ```
-   - `pub(crate) struct Diag` に field `pub(crate) node_meta: std::collections::HashMap<Key, NodeMeta>,` を足す。
+   - `pub(crate) struct Diag` に次の 2 つの field を足す。
+     ```rust
+     /// The type and creation site of nodes (see `NodeMeta`).
+     pub(crate) node_meta: std::collections::HashMap<Key, NodeMeta>,
+     /// Location and turn of each source's last value-changing write while a
+     /// recorder is on (`why` chains).
+     pub(crate) node_written: std::collections::HashMap<Key, (&'static Location<'static>, Turn)>,
+     ```
+   - `crates/kivact-runtime/Cargo.toml` の `[features]` に `devtools = []` を足し、`crates/kivact-core/Cargo.toml` の `devtools = ["dep:kivact-devtools-agent", "dep:kivact-devtools-protocol"]` を `devtools = ["dep:kivact-devtools-agent", "dep:kivact-devtools-protocol", "kivact-runtime/devtools"]` にする。
 2. `src/reactive/arena.rs` の `pub(crate) struct Tomb` の `pub(crate) created_at: &'static Location<'static>,` を `pub(crate) created_at: Option<&'static Location<'static>>,` にする。次の命令で読む側を直し、`cargo check -p kivact-runtime` の残りの E0308 を「作る側は `Some(..)` で包む、読む側は `.and_then(|t| t.created_at)` にする」の二つの形だけで直す。
    ```
    git ls-files 'crates/kivact-runtime/*.rs' | xargs perl -pi -e 's/tomb\.map\(\|t\| t\.created_at\)/tomb.and_then(|t| t.created_at)/g'
@@ -2059,9 +2284,11 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 3. `src/reactive/graph.rs`：
    - `impl Runtime` に次を足す。
      ```rust
-     /// Whether graph nodes keep their diagnostics (`Diag::node_meta`).
+     /// Whether new graph nodes keep their type and creation site
+     /// (`Diag::node_meta`): always with the `devtools` feature, else while
+     /// a recorder is on (12 章 ST-06).
      fn keeps_node_meta(&self) -> bool {
-         cfg!(debug_assertions) || self.diag.borrow().record.any()
+         cfg!(feature = "devtools") || self.diag.borrow().record.any()
      }
 
      /// Where node `key` was created, if its diagnostics are kept.
@@ -2086,7 +2313,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          self.diag
              .borrow_mut()
              .node_meta
-             .insert(key, NodeMeta { at, ty, written: None });
+             .insert(key, NodeMeta { at, ty });
      }
      ```
    - `create_source`：`NodeData::Source(SourceNode { cell, subs: Links::default(), changed_at: Generation::new() })` を作り、`self.insert_node(owner, data, at, ty)` を呼ぶ（`written: None` を消す）。
@@ -2108,10 +2335,10 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```rust
      let turn = self.diag.borrow().turn();
      let mut diag = self.diag.borrow_mut();
-     let meta = diag.node_meta.get_mut(&key).map(|m| {
-         m.written = Some((at, turn));
-         *m
-     });
+     if diag.record.any() {
+         diag.node_written.insert(key, (at, turn));
+     }
+     let meta = diag.node_meta.get(&key).copied();
      if let Some(meta) = meta {
          diag.record_write(meta.ty, meta.at, at);
          diag.detail.write(NodeId(key), meta.ty, meta.at, at, true);
@@ -2140,22 +2367,26 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
    - `recheck_after_own_writes`：`Some(NodeData::Memo(m)) if m.run.state.staleness().is_some()` を `Some(NodeData::Memo(_)) if g.get(*d).is_some_and(|m| m.state.staleness().is_some())` にし、最後の `e.run.state.mark(stale);` を `n.state.mark(stale);`（`n` は `g.get_mut(key)`）にする。
    - `run_node_cleanups`：`std::mem::take(&mut e.cleanups)` を `e.cleanups.take()` にし、`if cleanups.is_empty()` の判定を `let Some(cleanups) = cleanups else { return };` にして `for c in cleanups.into_iter().rev()` で回す。
    - `set_deps`：`c.deps.push(..)` を `if let Some(deps) = g.get_mut(node).and_then(RNode::deps_mut) { deps.push((src, sub_index)); }` にする。
-   - `remove_node`：`let at = g.get(key).map(|n| n.at)?;` を消し、`g.remove(key, Some(Tomb { created_at: at, disposed_by }))` を次にする。
+   - `remove_node`：`let at = g.get(key).map(|n| n.at)?;` を消し、R02 が書いた `let removed = g.remove(key, Some(Tomb { created_at: at, disposed_by }));` を次の 2 行にする（その後の `drop(g);`・`unsubscribed` の削除・`run_unsubscribed`・`removed` はそのまま）。`g.get_mut(key)?` の行が node の有無を確かめるので、`?` で返る点は変わらない。
      ```rust
      let created_at = self.diag.borrow_mut().node_meta.remove(&key).map(|m| m.at);
-     g.remove(key, Some(Tomb { created_at, disposed_by }))
+     self.diag.borrow_mut().node_written.remove(&key);
+     let removed = g.remove(key, Some(Tomb { created_at, disposed_by }));
      ```
    - `fn unlink_deps`・`fn remove_dep_entry`：`computation_mut()` と `c.deps` の参照を `deps_mut()` にする。
    - `node_snapshot`：本体を次にする。
      ```rust
-     let meta = self.diag.borrow().node_meta.get(&key).copied()?;
+     let (meta, written) = {
+         let diag = self.diag.borrow();
+         (diag.node_meta.get(&key).copied()?, diag.node_written.get(&key).copied())
+     };
      let g = self.graph.borrow();
      let n = g.get(key)?;
      Some(NodeInfo {
          kind: n.kind(),
          ty: meta.ty,
          at: meta.at,
-         written: meta.written,
+         written,
          deps: n.deps().iter().map(|(d, _)| NodeId(*d)).collect(),
      })
      ```
@@ -2178,6 +2409,43 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
            std::mem::size_of::<SourceNode>(), std::mem::size_of::<crate::reactive::links::Links>());
    }
    ```
+8. 試験（12 章 ST-06）：`src/reactive/graph.rs` の末尾に次の test module を足す。
+   ```rust
+   #[cfg(test)]
+   mod meta_tests {
+       //! Role: Node diagnostics are kept with the devtools feature from the start, and without it only while recording.
+
+       use std::panic::Location;
+       use std::rc::Rc;
+
+       use crate::reactive::data::Runtime;
+       use crate::reactive::diag::RecordBits;
+       use crate::reactive::host_types::Host;
+       use crate::reactive::NodeId;
+
+       struct Quiet;
+       impl Host for Quiet {
+           fn wake(&self) {}
+       }
+
+       #[test]
+       fn node_meta_follows_the_devtools_feature() {
+           let rt = Runtime::register(Rc::new(Quiet), 0, crate::TaskState::new(None, crate::ThreadWaker::new(|| {})));
+           let at = Location::caller();
+           assert_eq!(rt.create_owner(None, at), rt.root);
+           let key = rt.create_source(rt.root, 1u32, at);
+           // Recording starts after the node was created.
+           rt.set_recorder(RecordBits::DEVTOOLS, true);
+           let info = rt.node_info(NodeId(key));
+           assert_eq!(info.is_some(), cfg!(feature = "devtools"), "type and site are kept exactly with the feature");
+           if let Some(info) = info {
+               assert_eq!(info.ty, "u32");
+           }
+           rt.shutdown();
+       }
+   }
+   ```
+   （試験の中の `Runtime::register` は R05 の後の 3 引数の形。R09 は R05 の後なのでこの形で書く。）
 
 ### 消すもの
 
@@ -2189,12 +2457,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
   `// xtask-allow(state): state is the node's only phase (always Clean for a source); owner_index is its position in the owner's node list`
 - `EffectNode`：R03 の印を次の 1 行で置き換える。
   `// xtask-allow(state): seq is the creation-order identity, pass_runs the per-pass run count reset when each stabilize ends, cleanups the registered cleanups taken by each run; the phase is RNode::state`
-- `NodeMeta`：`Copy` の記録。constructor と `write_node` の `written` の更新だけで書く。`written` の Option は一つ。対象外。
-- `Diag`：field の追加。R08 の文面の最後に `; node_meta holds the diagnostics of nodes created while it is kept` を足す。
+- `NodeMeta`：`Copy` の記録（`at`、`ty`）。constructor でだけ書く。対象外。
+- `Diag`：field の追加。R08 の文面の最後に `; node_meta holds the type and site of nodes (always with the devtools feature), node_written the last writes recorded while a recorder is on` を足す。
 
 ### 試験
 
-- 既存（変えずに通す）：runtime の unit 試験、e2e の `runtime`、`diagnostics`（`why` の `last_write` を読む試験は test の画面＝debug build で動く）、`disposal`（`Disposed` の `created_at`）、`flows`、`lifecycle`。
+- 追加：`crates/kivact-runtime/src/reactive/graph.rs` の `node_meta_follows_the_devtools_feature`（手順 8。feature ありとなしの両方で走らせる。`release` と `devtools` の組でも走らせる）。
+- 既存（変えずに通す）：runtime の unit 試験、e2e の `runtime`、`diagnostics`（`why` の `last_write` を読む試験は test の画面が `RecordBits::TEST` で最初から記録するので動く）、`disposal`、`flows`、`lifecycle`。
 
 ### 確認（tier a）
 
@@ -2205,13 +2474,15 @@ cargo check -p kivact-runtime --all-targets --release
 cargo clippy -p kivact-runtime --all-targets -- -D warnings
 cargo xtask check --no-write --crate kivact-runtime
 KIVACT_TEST_MIRROR=off cargo test -p kivact-runtime --lib
+KIVACT_TEST_MIRROR=off cargo test -p kivact-runtime --release --features devtools --lib node_meta_follows_the_devtools_feature
 dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- runtime diagnostics disposal flows lifecycle
 ```
 
 ### 完了条件
 
-- `rg -n 'struct Computation|fn computation|\bwritten: Option' crates/kivact-runtime/src/reactive/data.rs` が `NodeMeta` の `written` 以外を返さない。
+- `rg -n 'struct Computation|fn computation|\bwritten: Option' crates/kivact-runtime/src/reactive/data.rs` が何も返さない。
 - `const _: () = assert!(std::mem::size_of::<RNode>() <= 96` が `data.rs` にあり、上の命令（release の check を含む）がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R10：計測する `virtual_list` の scroll を O(log N) にする
 
@@ -2516,7 +2787,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 完了条件
 
 - `rg -n 'enum Held|Held::|HashSet::new\(\)' crates/kivact-core/src/view/flow/virtual_list.rs` が何も返さない。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## W5 の鎖の runtime の API unit（R20〜R25）の共通の約束
 
@@ -2884,6 +3155,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - `rg -n '\bBinding\b|IntoBinding|BindingRepr|fn bind\(|fn to_fn' crates/kivact-runtime/src` が何も返さない。
 - `rg -n 'pub fn update' crates/kivact-runtime/src/reactive/handles.rs` の 2 行（Signal と Var）がどちらも戻り値の型を持たない。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R21：`IntoHandler` と `Handler`、`Callback` の格納
 
@@ -2935,13 +3207,28 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      impl crate::reactive::sealed::IntoHandlerSeal<(), Handle> for crate::Callback<()> {}
      impl IntoHandler<(), Handle> for crate::Callback<()> {
          fn into_handler(self) -> Handler<()> {
-             Handler(Rc::new(move |()| self.try_call(()).map(|()| Handled::No)))
+             // The handler's own result goes through (12 章 API-14).
+             Handler(Rc::new(move |()| self.invoke(())))
          }
      }
      ```
 3. `src/reactive/data.rs` の `pub(crate) struct CallbackFn<E> { owner: Key, f: Box<dyn Fn(E) -> Result<(), UiError>> }` の `f` を `pub(crate) f: crate::reactive::Handler<E>,` にする。
-4. `src/reactive/handles.rs`：
-   - `Callback::invoke` の `(cb.f)(e)` を `cb.f.call(e).map(|_| ())` にする。
+4. `src/reactive/handles.rs`（12 章 API-14：`Callback` の内部の呼出しは handler の `Result<Handled, UiError>` を保つ）：
+   - 今の private の関連関数 `fn invoke(rt: &Runtime, cb: &CallbackFn<E>, e: E) -> Result<(), UiError>` を `fn run(rt: &Runtime, cb: &CallbackFn<E>, e: E) -> Result<Handled, UiError>` に改名し、本体の最後の `(cb.f)(e)` を `cb.f.call(e)` にする。`call`・`call_if_alive`・`try_call` の中の `Self::invoke(&rt, &cb, e)` を `Self::run(&rt, &cb, e)` にし、`call`・`call_if_alive` は `if let Err(err) = Self::run(..)` のまま（`Ok` の値は捨てる。公開の `call(e)` は `()` を返す）、`try_call` は `Self::run(&rt, &cb, e).map(|_| ())` にする。`use crate::reactive::Handled;` を足す。
+   - `impl<E: 'static> Callback<E>` に次を足す（付属書 C の C09 の試験がこの名前と署名を使う）。
+     ```rust
+     /// Call and return the handler's own result (`Handled` included); a
+     /// disposed callback or one of another App is an `Err`. `IntoHandler`
+     /// for `Callback<()>` and the `#[component]` callback props use it, so
+     /// an inline closure, a shared `Callback` and a prop answer the same.
+     #[doc(hidden)]
+     #[track_caller]
+     pub fn invoke(&self, e: E) -> Result<Handled, UiError> {
+         let at = Location::caller();
+         let (rt, cb) = self.lookup(at)?;
+         Self::run(&rt, &cb, e)
+     }
+     ```
    - `impl<F, R> From<F> for Callback<()>` を削除し、`impl<E: 'static> Callback<E>` に次を足す。
      ```rust
      /// A `Callback` of the running owner calling `handler` (one arena
@@ -2956,7 +3243,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          Self::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
      }
      ```
-5. `src/reactive/setup.rs` の `callback` の `f: Box::new(move |e| f(e).into_outcome().map(|_| ())),` を `f: crate::reactive::Handler::from_fn(f),` にする。
+5. `src/reactive/setup.rs` の `callback` の `f: Box::new(move |e| f(e).into_outcome().map(|_| ())),` を `f: crate::reactive::Handler::from_fn(f),` にする。署名（`f: impl Fn(E) -> R + 'static`）は変えない（12 章 API-7）。doc の例の `let reload = callback(|_| load());` の上に `/// A shared handler without a payload takes `_` too: `callback(move |_| ..)`.` の 1 行を足す。
 6. `src/reactive.rs`：`pub use handler::{Handled, Handler, HandlerResult};` を `pub use handler::{Handled, Handler, HandlerResult, IntoHandler};` にし、`src/lib.rs` の `pub use reactive::{..}` に `IntoHandler` を足す。
 7. runtime の中の `impl Into<Callback<()>>`（3 か所）を `IntoHandler` にする。
    - `src/motion/animated.rs` の `pub fn on_complete(self, f: impl Into<crate::Callback<()>>) -> Self` を `pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Self` にし、本体の `f.into()` を `crate::Callback::from_handler(f.into_handler())` にする。
@@ -2992,6 +3279,45 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 ### 試験
 
 - 追加：e2e の `component_macro` module に R31 が `callback_prop_closure_infers_its_parameter` を足す（DEC-16 の compile 試験：payload のある `Callback<E>` の props は `impl Fn(E) -> R` を受け、closure の引数の型が推論される）。
+- 追加（12 章 API-14 の不変条件。R31 の `cargo test -p kivact-runtime` で走る）：`src/reactive/handler.rs` の末尾に次を足す。inline の closure と共有の `Callback` が同じ `Handled` を返す。`on_close_request` を通す E2E は付属書 C の C12 が持つ（4 章 4.3）。
+  ```rust
+  #[cfg(test)]
+  mod tests {
+      //! Role: A shared Callback answers with its handler's own result.
+
+      use std::panic::Location;
+      use std::rc::Rc;
+
+      use super::{Handled, IntoHandler};
+      use crate::reactive::host_types::Host;
+
+      struct Quiet;
+      impl Host for Quiet {
+          fn wake(&self) {}
+      }
+
+      #[test]
+      fn a_callback_keeps_the_handler_result() {
+          let rt = crate::reactive::data::Runtime::register(
+              Rc::new(Quiet),
+              0,
+              crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+          );
+          let at = Location::caller();
+          assert_eq!(rt.create_owner(None, at), rt.root);
+          rt.root().with_setup(|| {
+              let inline = (|| Handled::Yes).into_handler();
+              let shared = crate::callback(move |()| Handled::Yes);
+              let via_handler = crate::Callback::from_handler((|| Handled::PreventDefault).into_handler());
+              assert_eq!(inline.call(()), Ok(Handled::Yes));
+              assert_eq!(shared.into_handler().call(()), Ok(Handled::Yes));
+              assert_eq!(shared.invoke(()), Ok(Handled::Yes));
+              assert_eq!(via_handler.into_handler().call(()), Ok(Handled::PreventDefault));
+          });
+          rt.shutdown();
+      }
+  }
+  ```
 - `cargo test -p xtask api_shape`を通す。
 
 ### 確認（tier a）
@@ -3004,12 +3330,13 @@ cargo test -p xtask api_shape
 ### 完了条件
 
 - `rg -n 'From<F> for Callback|Into<[\w:]*Callback<\(\)>>' crates/kivact-runtime/src dev/xtask/src` が何も返さない（xtask の試験の文字列で、拒否される形の例として残すものを除く）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R22：非同期の結果を `Result` に、Action を一つの状態と一つの drain にする
 
 - **wave / lane / 前提**：W5a / 鎖 / R21。
 - **所有**：runtime `src/task/**`、`src/task.rs`、`src/host.rs`、`src/lib.rs`。
-- **目的**：`ActionOutcome` を消して `on_complete(Fn(Result<T, UiError>))` にし、`Retry` を `Callback<()>` にする（RC-35）。`action(f)` は Latest、順に実行するものは `queued_action(f)`、`ActionMode` を消す（設計書 5.5、Q4）。非同期の状態を一つの signal（`AsyncCellState`）にし、`AsyncSnapshot` を消す（RC-15）。Action の受付の状態を一つの `lifecycle` にする（RC-16）。`Action::close`・`CloseFuture`・drain の期限の仕組みを消し、所有者が破棄された queued action が終わるのを App の終了が一つの期限で待つだけにする（RC-37）。`ActionFn`・`BlockingWork` を `#[doc(hidden)]` にする。
+- **目的**：`ActionOutcome` を消して `on_complete(Fn(Result<T, UiError>))` にし、`Retry` を `Callback<()>` にする（RC-35）。`action(f)` は Latest、順に実行するものは `queued_action(f)`、`ActionMode` を消す（設計書 5.5、Q4）。非同期の状態を一つの signal（`AsyncCellState`）にし、`AsyncSnapshot` を消す（RC-15）。Action の受付の状態を一つの `lifecycle`（`Open`・`Disposed`）にし、状態の書込みを一か所（`ActionCell::publish`）にまとめ、破棄の後は publish しない（RC-16、12 章 ST-07）。owner の破棄はその action の run を（queued を含めて）取り消す。`Action::close`・`CloseFuture`・drain の期限の仕組みを消し、期限つきの drain は App の終了にだけ使う（RC-37、12 章 ST-08）。`AsyncPhase` は `Ready` で値が無い組合せを表せない形にする（12 章 ST-01）。`ActionFn`・`BlockingWork` を `#[doc(hidden)]` にする。
 
 ### 手順
 
@@ -3027,19 +3354,39 @@ cargo test -p xtask api_shape
        }
    }
 
-   /// Where a resource or an action stands; a `Ready` value is `latest`.
-   #[derive(Clone, Debug, PartialEq)]
-   pub(crate) enum AsyncPhase {
+   /// Where a resource or an action stands (12 章 ST-01). `last` is the last
+   /// successful value, kept while a new run is pending or failed; a `Ready`
+   /// phase always has its value, so no combination misses it.
+   pub(crate) enum AsyncPhase<T> {
        Idle,
-       Pending,
-       Ready,
-       Failed(UiError),
+       Pending { last: Option<Rc<T>> },
+       Ready(Rc<T>),
+       Failed { error: UiError, last: Option<Rc<T>> },
    }
 
-   // xtask-allow(state): phase is the only phase; latest is the last success (kept while Pending and Failed), run is the run the phase describes, waiting counts queued runs and publications counts writes; each is valid in every phase
+   impl<T> AsyncPhase<T> {
+       /// The last successful value, in any phase.
+       fn last(&self) -> Option<&Rc<T>> {
+           match self {
+               AsyncPhase::Idle => None,
+               AsyncPhase::Pending { last } | AsyncPhase::Failed { last, .. } => last.as_ref(),
+               AsyncPhase::Ready(value) => Some(value),
+           }
+       }
+
+       /// This phase taken out (left `Idle`), to build the next one from it.
+       fn take_last(&mut self) -> Option<Rc<T>> {
+           match std::mem::replace(self, AsyncPhase::Idle) {
+               AsyncPhase::Idle => None,
+               AsyncPhase::Pending { last } | AsyncPhase::Failed { last, .. } => last,
+               AsyncPhase::Ready(value) => Some(value),
+           }
+       }
+   }
+
+   // xtask-allow(state): phase is the only phase and holds the last value; run is the run the phase describes, waiting counts queued runs and publications counts writes; each is valid in every phase
    pub(crate) struct AsyncCellState<T, I> {
-       pub(crate) phase: AsyncPhase,
-       pub(crate) latest: Option<Rc<T>>,
+       pub(crate) phase: AsyncPhase<T>,
        pub(crate) run: Option<RunInfo<I>>,
        pub(crate) waiting: usize,
        pub(crate) publications: u64,
@@ -3052,7 +3399,7 @@ cargo test -p xtask api_shape
 
    impl<T: Clone + 'static, I: 'static> AsyncCell<T, I> {
        pub(super) fn new(owner: crate::Owner, at: &'static Location<'static>) -> Self {
-           let initial = AsyncCellState { phase: AsyncPhase::Idle, latest: None, run: None, waiting: 0, publications: 0 };
+           let initial = AsyncCellState { phase: AsyncPhase::Idle, run: None, waiting: 0, publications: 0 };
            Self { state: owner.signal(initial, at) }
        }
 
@@ -3066,7 +3413,8 @@ cargo test -p xtask api_shape
        /// A run starts; `waiting` more wait behind it.
        pub(super) fn begin(&self, run: RunInfo<I>, waiting: usize) {
            self.publish(|s| {
-               s.phase = AsyncPhase::Pending;
+               let last = s.phase.take_last();
+               s.phase = AsyncPhase::Pending { last };
                s.run = Some(run);
                s.waiting = waiting;
            });
@@ -3075,7 +3423,8 @@ cargo test -p xtask api_shape
        /// Work is pending (a resource fetch, or runs queued behind one).
        pub(super) fn pending(&self, waiting: usize) {
            self.publish(|s| {
-               s.phase = AsyncPhase::Pending;
+               let last = s.phase.take_last();
+               s.phase = AsyncPhase::Pending { last };
                s.waiting = waiting;
            });
        }
@@ -3084,13 +3433,11 @@ cargo test -p xtask api_shape
        pub(super) fn finish(&self, result: Result<T, UiError>, waiting: usize) {
            self.publish(|s| {
                s.waiting = waiting;
-               match result {
-                   Ok(value) => {
-                       s.latest = Some(Rc::new(value));
-                       s.phase = AsyncPhase::Ready;
-                   }
-                   Err(error) => s.phase = AsyncPhase::Failed(error),
-               }
+               let last = s.phase.take_last();
+               s.phase = match result {
+                   Ok(value) => AsyncPhase::Ready(Rc::new(value)),
+                   Err(error) => AsyncPhase::Failed { error, last },
+               };
            });
        }
 
@@ -3098,21 +3445,19 @@ cargo test -p xtask api_shape
        pub(super) fn state(&self) -> AsyncState<T> {
            self.state.with(|s| match &s.phase {
                AsyncPhase::Idle => AsyncState::Idle,
-               AsyncPhase::Pending => AsyncState::Pending,
-               AsyncPhase::Ready => AsyncState::Ready(T::clone(
-                   s.latest.as_deref().expect("invariant: a Ready state keeps its value in latest"),
-               )),
-               AsyncPhase::Failed(e) => AsyncState::Failed(e.clone()),
+               AsyncPhase::Pending { .. } => AsyncState::Pending,
+               AsyncPhase::Ready(value) => AsyncState::Ready(T::clone(value)),
+               AsyncPhase::Failed { error, .. } => AsyncState::Failed(error.clone()),
            })
        }
 
        pub(super) fn latest(&self) -> Option<T> {
-           self.state.with(|s| s.latest.as_deref().cloned())
+           self.state.with(|s| s.phase.last().map(|v| T::clone(v)))
        }
 
        pub(super) fn error(&self) -> Option<UiError> {
            self.state.with(|s| match &s.phase {
-               AsyncPhase::Failed(e) => Some(e.clone()),
+               AsyncPhase::Failed { error, .. } => Some(error.clone()),
                _ => None,
            })
        }
@@ -3221,15 +3566,16 @@ cargo test -p xtask api_shape
        next_worker_id: Generation,
    }
 
-   /// Whether the action's owner still shows it; a detached queued action
-   /// finishes its runs for the exit drain and publishes nothing.
+   /// Whether the action's owner still shows it. Disposing the owner cancels
+   /// every run (queued ones included) and the action never publishes again
+   /// (12 章 ST-07, ST-08).
    #[derive(Clone, Copy, PartialEq, Eq)]
    enum Lifecycle {
        Open,
-       Detached,
+       Disposed,
    }
 
-   // xtask-allow(state): lifecycle is the only phase (open, or detached after the owner's disposal); on_complete is a registration list and next_handler_id an id allocator, both valid in either phase
+   // xtask-allow(state): lifecycle is the only phase (open, or disposed with its owner); on_complete is a registration list and next_handler_id an id allocator, both valid in either phase
    pub(crate) struct ActionCell<T: 'static, I: 'static> {
        app: AppId,
        owner: Owner,
@@ -3267,8 +3613,9 @@ cargo test -p xtask api_shape
    }
 
    /// An action whose runs wait for each other and run in submission order.
-   /// When its component is removed, the runs already submitted still
-   /// finish (App exit waits for them). Setup only.
+   /// Removing its component cancels its runs, the queued ones included
+   /// (work that must outlive a screen uses an action made in the App's
+   /// root). App exit waits for the queued runs of live actions. Setup only.
    #[track_caller]
    pub fn queued_action<T, M, F>(run: F) -> Action<T, F::Input>
    where
@@ -3319,18 +3666,14 @@ cargo test -p xtask api_shape
            rt.tasks().queues.borrow_mut().insert(&drain);
        }
        let weak = Rc::downgrade(&cell);
-       let on_dispose = move |rt: &Runtime| {
+       // Disposing the owner cancels every run of the action, queued ones
+       // included, and it publishes nothing afterwards (12 章 ST-07, ST-08).
+       // Work that must outlive a screen uses an action of the App's root owner.
+       let on_dispose = move |_rt: &Runtime| {
            let Some(cell) = weak.upgrade() else { return };
-           // A `Latest` run is a task of the owner: the same disposal cancels it.
-           if !matches!(cell.runner, Runner::Queue(_)) {
-               return;
-           }
-           cell.lifecycle.set(Lifecycle::Detached);
+           cell.lifecycle.set(Lifecycle::Disposed);
            cell.on_complete.borrow_mut().clear();
-           if cell.busy() {
-               let drain: Rc<dyn Drain> = cell;
-               rt.tasks().draining.borrow_mut().push(drain);
-           }
+           cell.abandon_at(cell.at);
        };
        Action { handle: owner.store_with("Action", cell, on_dispose, at) }
    }
@@ -3352,8 +3695,12 @@ cargo test -p xtask api_shape
    }
 
    impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
-       fn is_detached(&self) -> bool {
-           self.lifecycle.get() == Lifecycle::Detached
+       /// The only way the action writes its public state: nothing once its
+       /// owner is disposed (12 章 ST-07).
+       fn publish(&self, f: impl FnOnce(&AsyncCell<T, I>)) {
+           if self.lifecycle.get() == Lifecycle::Open {
+               f(&self.async_state);
+           }
        }
 
        fn waiting(&self) -> usize {
@@ -3376,29 +3723,30 @@ cargo test -p xtask api_shape
                    n
                }
            };
-           if n > 0 && !self.is_detached() {
-               self.async_state.finish(Err(cancelled(at)), 0);
+           if n > 0 {
+               self.publish(|state| state.finish(Err(cancelled(at)), 0));
            }
            n
        }
 
        fn begin_run(&self, run: &RunInfo<I>) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>> {
-           self.async_state.begin(run.clone(), self.waiting());
+           let waiting = self.waiting();
+           self.publish(|state| state.begin(run.clone(), waiting));
            (self.run)(&run.input)
        }
 
        fn finish(&self, result: Result<T, UiError>) {
-           if self.is_detached() {
-               if let (Err(e), Some(rt)) = (&result, Runtime::get(self.app)) {
-                   rt.report(None, e.clone());
-               }
+           if self.lifecycle.get() == Lifecycle::Disposed {
                return;
            }
            let waiting = self.waiting();
-           self.async_state.finish(result.clone(), waiting);
-           if matches!(self.runner, Runner::Queue(_)) && self.busy() {
-               self.async_state.pending(waiting);
-           }
+           let more = matches!(self.runner, Runner::Queue(_)) && self.busy();
+           self.publish(|state| {
+               state.finish(result.clone(), waiting);
+               if more {
+                   state.pending(waiting);
+               }
+           });
            let handlers: Vec<(Owner, Handler<Result<T, UiError>>)> =
                self.on_complete.borrow().iter().map(|h| (h.owner, h.f.clone())).collect();
            if Runtime::get(self.app).is_none() {
@@ -3410,15 +3758,6 @@ cargo test -p xtask api_shape
                        owner.report(err);
                    }
                });
-           }
-       }
-
-       /// A detached queued action stopped: the exit drain forgets it.
-       fn stopped(&self) {
-           if self.is_detached()
-               && let Some(rt) = Runtime::get(self.app)
-           {
-               rt.tasks().forget_drained();
            }
        }
 
@@ -3456,7 +3795,6 @@ cargo test -p xtask api_shape
                let worker = std::mem::replace(&mut q.worker, Worker::Stopped);
                drop(q);
                drop(worker);
-               self.stopped();
                return None;
            };
            q.worker = match std::mem::replace(&mut q.worker, Worker::Stopped) {
@@ -3510,7 +3848,6 @@ cargo test -p xtask api_shape
                    let Some(more) = cell.after_run(id) else { return };
                    cell.finish(result);
                    if !more {
-                       cell.stopped();
                        return;
                    }
                }
@@ -3641,16 +3978,9 @@ cargo test -p xtask api_shape
    - effect の中の `cell.async_state.start();` を `cell.async_state.pending(0);`、`cell.async_state.finish(r);` を `cell.async_state.finish(r, 0);` にする。
    - `state` の本体を `self.cell(Location::caller()).async_state.state()`、`latest` を `.async_state.latest()`、`error` を `.async_state.error()` にする。`snapshot` を削除し、`pub(super) fn publications(&self) -> u64 { self.cell(Location::caller()).async_state.publications() }` を足す。`cancel` の `cell.async_state.finish(Err(err));` を `cell.async_state.finish(Err(err), 0);` にする。
 5. `src/task/state.rs`：
-   - `pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,` を `pub(super) draining: RefCell<Vec<Rc<dyn Drain>>>,` にし、doc を `/// Queued actions of disposed owners that still run (App exit waits for them).` にする。`struct DrainEntry` とその `impl` を削除する。
-   - `pub fn check_draining(&self, rt: &Runtime)` を削除し、次を足す。
-     ```rust
-     /// Forget the drained actions that have stopped.
-     pub(crate) fn forget_drained(&self) {
-         self.draining.borrow_mut().retain(|d| d.busy());
-     }
-     ```
+   - `pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,`（と doc）、`struct DrainEntry` とその `impl`、`pub fn check_draining(&self, rt: &Runtime)` を削除し、`TaskState::new` の `draining: RefCell::new(Vec::new()),` を消す（owner の破棄は action を取り消すので、破棄の後に走り続ける action は無い。期限つきの drain は App の終了にだけ使う。12 章 ST-08）。
    - `next_deadline` の本体を `self.time.borrow_mut().next_deadline()` にする。
-   - `queues_busy` の `self.draining.borrow().iter().any(|entry| entry.action.busy())` を `self.draining.borrow().iter().any(|d| d.busy())` にし、`abandon_all_queues` の `.map(|entry| entry.action.clone())` を消す（`drain(..)` の要素がそのまま `Rc<dyn Drain>`）。
+   - `queues_busy` の本体を `self.queues.borrow_mut().live().into_iter().any(|a| a.busy())` にし、`abandon_all_queues` の本体を `self.queues.borrow_mut().live().iter().map(|a| a.abandon()).sum()` にする。
    - `TaskState` に field `pub(super) clocks: RefCell<Vec<Rc<super::clock::ClockEntry>>>,` を足すのは R23（この unit では足さない）。
 6. `src/task/drain.rs` を削除し、`src/task.rs` の `mod drain;` と `pub use drain::DEFAULT_DRAIN_NS;` を消す。`src/host.rs` の `DEFAULT_DRAIN_NS` を、ファイルの先頭に置く次の定数に置き換える（`request_exit` の中の名前も `EXIT_DRAIN_NS` にする）。
    ```rust
@@ -3668,7 +3998,7 @@ cargo test -p xtask api_shape
 
 ### 消すもの
 
-- `ActionMode`、`ActionOutcome`、`QueueMode`、`ActionPhase`、`QueueDrain`、`Acceptance`、`ActionCell.last`、`ActionCell.drained`、`Action::close`、`CloseFuture`、`drain.rs`、`DEFAULT_DRAIN_NS`、`DrainEntry`、`TaskState::check_draining`、`TurnGuard::check_draining`、`Retry`、`AsyncSnapshot`、`async_publication.rs`、`AsyncSource::snapshot`、`AsyncCell` の二つの signal、`queue_status`。
+- `ActionMode`、`ActionOutcome`、`QueueMode`、`ActionPhase`、`QueueDrain`、`Acceptance`、`ActionCell.last`、`ActionCell.drained`、`Action::close`、`CloseFuture`、`drain.rs`、`DEFAULT_DRAIN_NS`、`DrainEntry`、`TaskState::draining`、`TaskState::check_draining`、`TurnGuard::check_draining`、`Retry`、`AsyncSnapshot`、`async_publication.rs`、`AsyncSource::snapshot`、`AsyncCell` の二つの signal、`queue_status`。
 
 ### 状態の閉じ方
 
@@ -3678,6 +4008,7 @@ cargo test -p xtask api_shape
 ### 試験
 
 - 書換え・削除は R31（4 章 4.6）：`task::queue_orders_coalesces_recovers_and_drains`（`QueueLatest` の半分を消して `queue_orders_recovers_and_drains` に改名）、`task::action_latest_wins_retry_cancel_and_multiple_done_handlers`（`ActionOutcome` の match を消す）、`ActionMode` を使う e2e の試験。
+- 追加は R31（4 章 4.6）：`task::disposing_the_owner_cancels_its_queued_runs`（12 章 ST-07・ST-08：owner の破棄で queued の run も取り消され、後で終わる run は無く、破棄した action に publish しない）。
 - `rg -n 'fn .*drain|close\(' crates/kivact-runtime/src/task` で `Action::close` の試験が runtime に無いことを確かめる（2b8df5ac で無い）。
 
 ### 確認（tier a）
@@ -3687,12 +4018,13 @@ cargo test -p xtask api_shape
 ### 完了条件
 
 - `rg -n 'ActionMode|ActionOutcome|CloseFuture|DEFAULT_DRAIN_NS|AsyncSnapshot|\bRetry\b|check_draining|QueueDrain|Acceptance' crates/kivact-runtime/src` が何も返さない。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R23：`Trigger`、`remote`、`remote_trigger`、`clock`、`FrameLoop::while_present`
 
 - **wave / lane / 前提**：W5a / 鎖 / R22。
-- **所有**：runtime `src/reactive/{trigger.rs,setup.rs,owner_handle.rs,handles.rs}`、`src/reactive.rs`、新規 `src/task/remote.rs`、新規 `src/task/clock.rs`、`src/task/{resource.rs,state.rs,spawn.rs}`、`src/task.rs`、`src/motion/{frame_loop.rs,timeline/api.rs}`、`src/lib.rs`。
-- **目的**：`Notifier`・`notifier()` を `Trigger`・`trigger()` に改名し（USR-03）、`Signal::notify` を消す（設計書 5.2）。`notify_from_render` は core が使い続けるので `Trigger::notify_from_render` として残す（付属書 C の R-REQ-6）。他の thread から UI に値と通知を届ける `task::remote`・`task::remote_trigger`（USR-02、CAP-05）と、周期で進む共有の時計 `task::clock`（KIT-17）を足す。`FrameLoop::while_present(impl IntoValue<bool>)` を公開し、`with_presence_gate` とその効かない effect を消す（RC-34 の runtime の部分）。
+- **所有**：runtime `src/reactive/{trigger.rs,setup.rs,owner_handle.rs,handles.rs,host.rs}`、`src/reactive.rs`、新規 `src/task/remote.rs`、新規 `src/task/clock.rs`、`src/task/{resource.rs,state.rs,spawn.rs}`、`src/task.rs`、`src/motion/{frame_loop.rs,timeline/api.rs}`、`src/lib.rs`。
+- **目的**：`Notifier`・`notifier()` を `Trigger`・`trigger()` に改名し（USR-03）、`Signal::notify` を消す（設計書 5.2）。`notify_from_render` は core が使い続けるので `Trigger::notify_from_render` として残す（付属書 C の R-REQ-6）。他の thread から UI に値と通知を届ける `task::remote`・`task::remote_trigger`（USR-02、CAP-05）を足す。12 章 API-9〜API-11 のとおり、`Remote` は `set` だけを持ち（利用者の closure を他の thread や lock の中で動かさない）、mailbox は owner の cleanup で閉じ（閉じた後の値は保持せず lock の外で捨てる）、配送は runtime の driver が turn の始めに全 mailbox を一度だけ行う（常駐の task の loop は使わない。連続して書く producer があっても signal の書込みは turn ごとに高々一回）。あわせて周期で進む共有の時計 `task::clock`（KIT-17）を足す。`FrameLoop::while_present(impl IntoValue<bool>)` を公開し、`with_presence_gate` とその効かない effect を消す（RC-34 の runtime の部分）。
 
 ### 手順
 
@@ -3710,125 +4042,141 @@ cargo test -p xtask api_shape
      ```
      使われなくなった import（`Signal`）を消す（`cargo check` の unused の警告に従う）。
 3. `src/reactive/handles.rs` の `Signal::notify` を削除する。runtime の中の `.notify()` で receiver が `Signal` のものは無い（`trigger.rs` の 1 か所は手順 2 で消えた）。
-4. 新規 `src/task/remote.rs`：
+4. 新規 `src/task/remote.rs`（12 章 API-9〜API-11：`Remote` は `set` だけ。mailbox は `Open { latest }`・`Closed` の二状態。owner の cleanup で閉じ、閉じた後の値は lock の外で捨てる。配送は runtime の driver が turn の始めに一度だけ行い、task の loop は使わない。利用者の closure を他の thread や lock の中で動かさない）：
    ```rust
    //! Role: Values and notifications sent to the UI from other threads.
    //!
    //! `remote(initial)` returns a `Signal` read on the UI thread and a
-   //! `Remote` any thread may write. A write stores the value in a mailbox and
-   //! wakes the App's task that delivers it: the waker schedules that task on
-   //! the App's executor, whose `ThreadWaker` asks the host for a turn (the
-   //! path a finished `blocking` job takes). Writes made before the task runs
-   //! are merged: the signal is written once with the latest value (and the
-   //! edits made after it, in order).
+   //! `Remote` any thread may `set`. The mailbox keeps the latest value only.
+   //! A set marks the App's inbox and wakes its event loop through the App's
+   //! `ThreadWaker` (the path a finished `blocking` job takes). The runtime
+   //! driver delivers every mailbox once at the start of a turn
+   //! (`Runtime::begin_turn`), so the signal is written at most once per
+   //! turn. The owner's cleanup closes the mailbox; a later set drops its
+   //! value. No user code runs on another thread or under the lock.
 
-   use std::future::Future;
    use std::panic::Location;
-   use std::pin::Pin;
-   use std::sync::atomic::{AtomicBool, Ordering};
+   use std::rc::Rc;
+   use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
    use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
-   use std::task::{Context, Poll, Waker};
 
-   use crate::{Owner, Signal, Trigger};
-
-   /// What other threads sent since the UI took it last.
-   enum RemoteMail<T> {
-       /// Nothing waits and the delivering task is not parked.
-       Idle,
-       /// Nothing waits; the delivering task waits for this waker.
-       Parked(Waker),
-       /// A new value replaces the signal's.
-       Value(T),
-       /// Edits to apply, in order, to the signal's value.
-       Edits(Vec<Box<dyn FnOnce(&mut T) + Send>>),
-   }
+   use crate::{Owner, Runtime, Signal, ThreadWaker, Trigger};
 
    fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
        m.lock().unwrap_or_else(PoisonError::into_inner)
    }
 
+   /// What an App's remotes share with other threads: whether a mailbox has
+   /// mail, and the waker of the App's event loop.
+   #[derive(Clone)]
+   pub(crate) struct RemoteWake {
+       pending: Arc<AtomicBool>,
+       waker: ThreadWaker,
+   }
+
+   impl RemoteWake {
+       pub(crate) fn new(waker: ThreadWaker) -> Self {
+           RemoteWake { pending: Arc::new(AtomicBool::new(false)), waker }
+       }
+
+       /// A mailbox got mail: wake the loop once until the next delivery.
+       fn post(&self) {
+           if !self.pending.swap(true, Ordering::AcqRel) {
+               self.waker.wake();
+           }
+       }
+
+       /// Whether mail waits (`Runtime::has_mail`).
+       pub(crate) fn is_pending(&self) -> bool {
+           self.pending.load(Ordering::Acquire)
+       }
+
+       /// Take the mark before a delivery; mail that arrives later marks it again.
+       pub(crate) fn take(&self) -> bool {
+           self.pending.swap(false, Ordering::AcqRel)
+       }
+   }
+
+   /// The UI side of one mailbox, registered with the App's task state.
+   pub(crate) trait Deliver {
+       /// Write what arrived since the last delivery (at most one write).
+       fn deliver(&self);
+   }
+
+   /// A value mailbox: open with the latest value not yet delivered, or
+   /// closed with its owner.
+   enum Mailbox<T> {
+       Open { latest: Option<T> },
+       Closed,
+   }
+
    /// The writing half of [`remote`]: `Clone + Send + Sync`, usable from any
-   /// thread. Writes never wait for the UI thread.
+   /// thread. `set` never waits for the UI thread and runs no user code.
    pub struct Remote<T> {
-       mail: Arc<Mutex<RemoteMail<T>>>,
+       mail: Arc<Mutex<Mailbox<T>>>,
+       wake: RemoteWake,
    }
 
    impl<T> Clone for Remote<T> {
        fn clone(&self) -> Self {
-           Remote { mail: Arc::clone(&self.mail) }
+           Remote { mail: Arc::clone(&self.mail), wake: self.wake.clone() }
        }
    }
 
    impl<T: Send + 'static> Remote<T> {
-       /// Replace the value; the UI sees the latest one at its next turn.
+       /// Replace the value; the UI shows the latest one at its next turn.
+       /// After the signal's component is removed, the value is dropped.
        pub fn set(&self, value: T) {
-           let parked = match std::mem::replace(&mut *lock(&self.mail), RemoteMail::Value(value)) {
-               RemoteMail::Parked(waker) => Some(waker),
-               _ => None,
-           };
-           if let Some(waker) = parked {
-               waker.wake();
-           }
-       }
-
-       /// Change the value with `f` at the UI's next turn (after the writes
-       /// made before it). `f` runs on this thread when a value set from here
-       /// is still waiting, else on the UI thread.
-       pub fn update(&self, f: impl FnOnce(&mut T) + Send + 'static) {
-           let parked = {
+           let (open, replaced) = {
                let mut mail = lock(&self.mail);
-               match std::mem::replace(&mut *mail, RemoteMail::Idle) {
-                   RemoteMail::Idle => {
-                       *mail = RemoteMail::Edits(vec![Box::new(f)]);
-                       None
-                   }
-                   RemoteMail::Parked(waker) => {
-                       *mail = RemoteMail::Edits(vec![Box::new(f)]);
-                       Some(waker)
-                   }
-                   RemoteMail::Value(mut value) => {
-                       f(&mut value);
-                       *mail = RemoteMail::Value(value);
-                       None
-                   }
-                   RemoteMail::Edits(mut edits) => {
-                       edits.push(Box::new(f));
-                       *mail = RemoteMail::Edits(edits);
-                       None
-                   }
+               match &mut *mail {
+                   Mailbox::Open { latest } => (true, latest.replace(value)),
+                   Mailbox::Closed => (false, Some(value)),
                }
            };
-           if let Some(waker) = parked {
-               waker.wake();
+           // Dropped outside the lock.
+           drop(replaced);
+           if open {
+               self.wake.post();
            }
        }
    }
 
-   /// The delivering task's wait for mail.
-   struct Receive<T> {
-       mail: Arc<Mutex<RemoteMail<T>>>,
+   struct RemoteInbox<T: 'static> {
+       mail: Arc<Mutex<Mailbox<T>>>,
+       signal: Signal<T>,
    }
 
-   impl<T> Future for Receive<T> {
-       type Output = RemoteMail<T>;
-
-       fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<RemoteMail<T>> {
-           let mut mail = lock(&self.mail);
-           match std::mem::replace(&mut *mail, RemoteMail::Idle) {
-               RemoteMail::Idle | RemoteMail::Parked(_) => {
-                   *mail = RemoteMail::Parked(cx.waker().clone());
-                   Poll::Pending
-               }
-               ready => Poll::Ready(ready),
+   impl<T: Send + 'static> Deliver for RemoteInbox<T> {
+       fn deliver(&self) {
+           let value = match &mut *lock(&self.mail) {
+               Mailbox::Open { latest } => latest.take(),
+               Mailbox::Closed => None,
+           };
+           if let Some(value) = value {
+               self.signal.update(move |slot| *slot = value);
            }
        }
+   }
+
+   /// Register `inbox` with `owner`'s App; the owner's cleanup runs `close`
+   /// (outside every lock) and forgets the inbox.
+   fn register(owner: Owner, inbox: Rc<dyn Deliver>, close: impl FnOnce() + 'static) {
+       let rt = owner.runtime();
+       rt.tasks().remotes.borrow_mut().push(Rc::clone(&inbox));
+       let app = rt.id();
+       owner.on_cleanup(move || {
+           close();
+           if let Some(rt) = Runtime::get(app) {
+               rt.tasks().remotes.borrow_mut().retain(|r| !Rc::ptr_eq(r, &inbox));
+           }
+       });
    }
 
    /// A signal other threads write through the returned [`Remote`] (setup
    /// only). Writes from other threads wake the event loop and are merged:
-   /// each UI turn writes the signal at most once with what arrived since
-   /// the last one. Disposing the owner stops the delivery; later writes are
-   /// dropped.
+   /// each turn writes the signal at most once, with the latest value.
+   /// Removing the component closes it; later values are dropped.
    ///
    /// ```ignore
    /// let (progress, sender) = remote(0.0);
@@ -3838,102 +4186,125 @@ cargo test -p xtask api_shape
    pub fn remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>) {
        let at = Location::caller();
        let owner = Owner::current("remote", at);
-       let rt = owner.runtime();
+       let wake = owner.runtime().tasks().remote_wake.clone();
        let signal = owner.signal(initial, at);
-       let mail = Arc::new(Mutex::new(RemoteMail::Idle));
-       let inbox = Arc::clone(&mail);
-       let _task = super::spawn::spawn_owned(
-           &rt,
+       let mail = Arc::new(Mutex::new(Mailbox::Open { latest: None }));
+       let closing = Arc::clone(&mail);
+       register(
            owner,
-           async move {
-               loop {
-                   match (Receive { mail: Arc::clone(&inbox) }).await {
-                       RemoteMail::Value(value) => signal.update(move |slot| *slot = value),
-                       RemoteMail::Edits(edits) => signal.update(move |slot| {
-                           for edit in edits {
-                               edit(slot);
-                           }
-                       }),
-                       RemoteMail::Idle | RemoteMail::Parked(_) => {}
-                   }
-               }
+           Rc::new(RemoteInbox { mail: Arc::clone(&mail), signal }),
+           move || {
+               // The value left is dropped after the lock is released.
+               let left = std::mem::replace(&mut *lock(&closing), Mailbox::Closed);
+               drop(left);
            },
-           at,
        );
-       (signal, Remote { mail })
+       (signal, Remote { mail, wake })
    }
 
-   // xtask-allow(state): notified is the only pending fact; waker is the parked delivering task, taken by the notify that sets notified
+   /// A trigger's mailbox: 0 open, 1 open and notified, 2 closed.
    struct TriggerMail {
-       notified: AtomicBool,
-       waker: Mutex<Option<Waker>>,
+       state: AtomicU8,
    }
+
+   const OPEN: u8 = 0;
+   const NOTIFIED: u8 = 1;
+   const CLOSED: u8 = 2;
 
    /// The notifying half of [`remote_trigger`]: `Clone + Send + Sync`.
    #[derive(Clone)]
    pub struct RemoteTrigger {
        mail: Arc<TriggerMail>,
+       wake: RemoteWake,
    }
 
    impl RemoteTrigger {
-       /// Notify the trigger's readers at the UI's next turn. Never waits for
-       /// the UI thread; notifications before that turn are one.
+       /// Notify the trigger's readers at the UI's next turn. Never blocks;
+       /// notifications before that turn are one; after the component is
+       /// removed it does nothing.
        pub fn notify(&self) {
-           if self.mail.notified.swap(true, Ordering::AcqRel) {
-               return;
-           }
-           let parked = lock(&self.mail.waker).take();
-           if let Some(waker) = parked {
-               waker.wake();
+           if self
+               .mail
+               .state
+               .compare_exchange(OPEN, NOTIFIED, Ordering::AcqRel, Ordering::Acquire)
+               .is_ok()
+           {
+               self.wake.post();
            }
        }
    }
 
-   struct Notified {
+   struct TriggerInbox {
        mail: Arc<TriggerMail>,
+       trigger: Trigger,
    }
 
-   impl Future for Notified {
-       type Output = ();
-
-       fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<()> {
-           if self.mail.notified.swap(false, Ordering::AcqRel) {
-               return Poll::Ready(());
+   impl Deliver for TriggerInbox {
+       fn deliver(&self) {
+           if self
+               .mail
+               .state
+               .compare_exchange(NOTIFIED, OPEN, Ordering::AcqRel, Ordering::Acquire)
+               .is_ok()
+           {
+               self.trigger.notify();
            }
-           *lock(&self.mail.waker) = Some(cx.waker().clone());
-           // A notify between the first check and parking took no waker.
-           if self.mail.notified.swap(false, Ordering::AcqRel) {
-               return Poll::Ready(());
-           }
-           Poll::Pending
        }
    }
 
    /// A [`Trigger`] other threads notify through the returned
-   /// [`RemoteTrigger`] (setup only), for state the App keeps outside
-   /// signals (a buffer a worker fills).
+   /// [`RemoteTrigger`] (setup only), for state the App keeps outside signals
+   /// (a buffer a worker fills). It closes with its component, as `remote`.
    #[track_caller]
    pub fn remote_trigger() -> (Trigger, RemoteTrigger) {
        let at = Location::caller();
        let owner = Owner::current("remote_trigger", at);
-       let rt = owner.runtime();
+       let wake = owner.runtime().tasks().remote_wake.clone();
        let trigger = owner.trigger(at);
-       let mail = Arc::new(TriggerMail { notified: AtomicBool::new(false), waker: Mutex::new(None) });
-       let inbox = Arc::clone(&mail);
-       let _task = super::spawn::spawn_owned(
-           &rt,
+       let mail = Arc::new(TriggerMail { state: AtomicU8::new(OPEN) });
+       let closing = Arc::clone(&mail);
+       register(
            owner,
-           async move {
-               loop {
-                   (Notified { mail: Arc::clone(&inbox) }).await;
-                   trigger.notify();
-               }
-           },
-           at,
+           Rc::new(TriggerInbox { mail: Arc::clone(&mail), trigger }),
+           move || closing.state.store(CLOSED, Ordering::Release),
        );
-       (trigger, RemoteTrigger { mail })
+       (trigger, RemoteTrigger { mail, wake })
    }
    ```
+   `src/task/state.rs` の `TaskState` に次の 2 つの field を足し、`TaskState::new(blocking_threads, waker)` で `remotes: RefCell::new(Vec::new()), remote_wake: super::remote::RemoteWake::new(waker.clone()),` を初期化する（`exec: Executor::new(waker)` より前に置く）。
+   ```rust
+   /// The UI side of every open `remote` and `remote_trigger` mailbox.
+   pub(crate) remotes: RefCell<Vec<Rc<dyn super::remote::Deliver>>>,
+   /// The mark and waker other threads use to reach the mailboxes.
+   pub(crate) remote_wake: super::remote::RemoteWake,
+   ```
+   `src/reactive/host.rs`：
+   - R06 が置いた `has_work` は変えない（mail を `has_work` に入れると、producer が書き続ける間 `commit_rounds` の繰返しが終わらず、偽の `Cycle` を報告する。mail は turn の始めにだけ届けるので、turn の中の仕事ではない）。`has_work` の後に次を足す。core の idle の近道と `Inspect::pending` は R27 の手順 14 でこれを見る。
+     ```rust
+     /// Whether another thread sent values or notifications
+     /// (`task::remote`, `task::remote_trigger`) that the next turn delivers.
+     /// The host runs a turn for them even without an event.
+     pub fn has_mail(&self) -> bool {
+         self.tasks.remote_wake.is_pending()
+     }
+     ```
+   - `pub fn begin_turn(&self, events: usize) -> TurnGuard<'_>` の `self.begin_turn_record(events);` の後に `self.deliver_remotes();` を置き、`impl Runtime` に次を足す。
+     ```rust
+     /// Deliver what other threads sent (`task::remote`, `task::remote_trigger`):
+     /// every mailbox once, at the start of the turn.
+     fn deliver_remotes(&self) {
+         if !self.tasks.remote_wake.take() {
+             return;
+         }
+         let inboxes: Vec<Rc<dyn crate::task::Deliver>> = self.tasks.remotes.borrow().clone();
+         self.enter(|| {
+             for inbox in inboxes {
+                 inbox.deliver();
+             }
+         });
+     }
+     ```
+     （`src/task.rs` に `pub(crate) use remote::Deliver;` を足す。）
 5. 新規 `src/task/clock.rs`：
    ```rust
    //! Role: Wall-clock values shared by everything that ticks at one period.
@@ -4029,14 +4400,15 @@ cargo test -p xtask api_shape
 
 ### 状態の閉じ方
 
-- `RemoteMail<T>`：enum（4 状態）。対象外。
-- `TriggerMail`：手順 4 の印。
+- `Mailbox<T>`：enum（`Open { latest }`・`Closed` の 2 状態）。`Mutex` の中だけで変わり、`Closed` から戻らない。対象外。
+- `TriggerMail`：`AtomicU8` の 3 値（open・notified・closed）。遷移は open→notified（`notify`）、notified→open（配送）、any→closed（cleanup）だけで、closed から戻らない。一つの atomic なので対象外。
+- `RemoteWake`：`AtomicBool` 一つ（mail の有無）。対象外。
 - `ClockEntry`：`users: Cell<u32>` だけが内部可変（counter 一つ）。対象外。
-- `TaskState`：field の追加。T の W1b の印の文面の最後に `; clocks lists the shared clocks and their users` を足す。
+- `TaskState`：field の追加。T の W1b の印の文面の最後に `; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users` を足す。
 
 ### 試験
 
-- 追加は R31（4 章 4.6）：`task::remote_writes_from_another_thread_coalesce_into_one_update`、`task::remote_trigger_notifies_from_another_thread`、`task::clock_shares_one_timer_per_period`。
+- 追加は R31（4 章 4.6）：`task::remote_writes_from_another_thread_coalesce_into_one_update`、`task::remote_trigger_notifies_from_another_thread`、`task::a_remote_of_a_removed_component_drops_later_values`、`task::remote_delivers_at_most_once_per_turn_under_a_continuous_producer`（12 章 API-9〜API-11 の検証）、`task::clock_shares_one_timer_per_period`。
 
 ### 確認（tier a）
 
@@ -4046,6 +4418,8 @@ cargo test -p xtask api_shape
 
 - `rg -n '\bNotifier\b|\bnotifier\b|with_presence_gate' crates/kivact-runtime/src` が何も返さない。
 - `rg -n 'pub fn notify' crates/kivact-runtime/src` が `Trigger::notify` と `RemoteTrigger::notify` だけを返す。
+- `rg -n 'pub fn update|fn spawn|loop \{' crates/kivact-runtime/src/task/remote.rs` が何も返さない（`Remote` は `set` だけで、配送は task の loop ではない。12 章 API-9〜API-11）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R24：prop の変換 trait を `IntoValue`・`IntoText`・`IntoHandler` にする
 
@@ -4102,6 +4476,7 @@ cargo test -p xtask api_shape
 ### 完了条件
 
 - `rg -n 'IntoReactive|\bReactive\b|IntoValue<Rc<str>>|constant_value!\(Rc<str>\)' crates/kivact-runtime/src` が何も返さない。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R25：host の driver の名前を `driver` にまとめ、記録の型を一つにし、`Owner` の二つの入口を改名する
 
@@ -4134,7 +4509,24 @@ cargo test -p xtask api_shape
    #[doc(hidden)]
    pub mod driver;
    ```
-   runtime の内部の `use crate::{.., Runtime, ..}` などは、`cargo check -p kivact-runtime --lib` の E0432 に従って `crate::driver::Runtime`（または `crate::reactive::Runtime`）にする。
+   runtime の内部の path（`crate::Runtime`、`use crate::{.., Runtime, ..}` など。試験の module も含む）を次の命令で `crate::driver::` に直す（`driver.rs` と `lib.rs` 自身は除く）。一つ目の置換は `use crate::{..};` の列（入れ子の `{}` の無いもの）から driver の名前を抜いて `use crate::driver::{..};` の行に移し、二つ目は残りの単独の path を直す。
+   ```
+   git ls-files 'crates/kivact-runtime/*.rs' | grep -v -e 'src/driver\.rs$' -e 'src/lib\.rs$' | xargs perl -0pi -e '
+   BEGIN { %d = map { $_ => 1 } qw(Runtime RuntimeConfig AppParts TurnGuard ExitState TurnReport Host ThreadWaker LiveCounts LiveObject LiveOwner LiveSnapshot OwnerInfo Kind EffectKind NodeInfo RecordBits TaskState TaskStats TaskEntry MotionState MotionEnv MotionStats AnimInfo AnimKind RunStatus spawn_in); }
+   s{use\s+crate::\{([^{}]*)\};}{
+       my @items = grep { /\S/ } map { s/^\s+|\s+$//gr } split /,/, $1;
+       my @drv = grep { $d{ (split /\s+as\s+/, $_)[0] } } @items;
+       my @rest = grep { !$d{ (split /\s+as\s+/, $_)[0] } } @items;
+       my @out;
+       push @out, "use crate::{" . join(", ", @rest) . "};" if @rest;
+       push @out, "use crate::driver::{" . join(", ", @drv) . "};" if @drv;
+       join("\n", @out)
+   }ge;
+   s{(?<![\w\$])crate::(\w+)\b}{ $d{$1} ? "crate::driver::$1" : "crate::$1" }ge;
+   '
+   cargo fmt -p kivact-runtime
+   ```
+   この後に `cargo check -p kivact-runtime --lib` が E0432・E0433 を出したら、それは入れ子の `use crate::{a::{..}, Runtime}` の形である。その行の driver の名前を手で `use crate::driver::{..};` の行に移す（他の直し方はしない）。`$crate::` の path（`macro_rules!` の中）は二つ目の置換の対象外で、`$crate::Runtime` などがあれば同じく `$crate::driver::Runtime` に手で直す。
 2. 記録の型（`src/reactive/detail.rs` を次の内容で置き換え、`src/reactive/data.rs` の `TraceWrite`、`TraceRun`、`TurnRecord` を削除する。`Turn` は `data.rs` に残す）：
    ```rust
    //! Role: The turn trace: what each turn did, kept while a recorder is on.
@@ -4324,6 +4716,7 @@ cargo test -p xtask api_shape
 
 - `rg -n 'TurnDetail|CauseEntry|DetailWrite|DetailRun|DetailEdge|DetailLog|take_turn_details|cause_with|Owner::ambient|Owner::current\(' crates/kivact-runtime/src` が何も返さない。
 - `rg -n '^pub use' crates/kivact-runtime/src/lib.rs` に `Runtime`、`TurnGuard`、`TaskState`、`MotionState`、`ThreadWaker`、`RuntimeConfig`、`spawn_in` が無い。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## W5 の鎖の掃引（R26〜R31）の共通の道具
 
@@ -4533,6 +4926,7 @@ cargo check -p kivact-macros
 ### 完了条件
 
 - `rg -n '\bBinding\b|IntoBinding|into_binding|\bRetry\b|AsyncSnapshot|ActionMode|ActionOutcome|check_draining' crates/kivact-core/src crates/kivact-macros/src crates/kivact/src` が何も返さない（`"Retry"` の文字列を除く）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R27：core・facade・style・i18n を R23〜R25 に合わせ、core の `FrameLoop` の写しを消す
 
@@ -4636,6 +5030,10 @@ cargo check -p kivact-macros
 11. `crates/kivact-macros/src/expand.rs`：`PropKind::Text => quote! { ::kivact::custom::Reactive<String> },` を `PropKind::Text => quote! { ::kivact::custom::Prop<String> },`、`PropKind::Value(ty) => quote! { ::kivact::custom::Reactive<#ty> },` を `PropKind::Value(ty) => quote! { ::kivact::custom::Prop<#ty> },`、`PropKind::Text => quote! { ::kivact::custom::Reactive::from_text(#input) },` を `PropKind::Text => quote! { ::kivact::custom::Prop::from_text(#input) },`、`PropKind::Value(_) => quote! { ::kivact::custom::Reactive::new(#input) },` を `PropKind::Value(_) => quote! { ::kivact::custom::Prop::new(#input) },` にする。`parse.rs` の doc の `kept as \`Reactive<String>\``・`kept as \`Reactive<T>\`` を `kept as \`Prop<String>\``・`kept as \`Prop<T>\`` にする。
 12. `crates/kivact/src/prelude.rs`：`constant_value` を `pub use crate::state::{..}` の列から消す（隠した名前は prelude に置かない）。`crates/kivact/src/lib.rs` が `kivact_core::state` などを module ごと再公開していることを確かめる（個々の名前を列挙していれば、R20〜R25 で消えた名前を消し、`Trigger`・`trigger` を足す）。
 13. F0〜F9 の直しで `cargo check` を通す。core の `.notify()` の receiver はすべて `Trigger`（R23 の前提で `notify_from_render` は無い）。
+14. 他の thread の mail で turn を走らせる（12 章 API-9〜API-11。R23 の `Runtime::has_mail`）：
+    - `crates/kivact-core/src/launch/turn.rs` の idle の判定の `&& !rt.has_work();` を `&& !rt.has_work() && !rt.has_mail();` にし（行の分け方は `cargo fmt` に任せる）、その上の comment `// A host call with no event, no due mount callback and no queued` `// work runs no turn.` を `// A host call with no event, no due mount callback, no queued work` `// and no mail from other threads runs no turn.` にする。
+    - `crates/kivact-core/src/launch/inspect.rs` の `Inspect::pending` の本体 `rt.turn_requested() || rt.has_work()` を `rt.turn_requested() || rt.has_work() || rt.has_mail()` にし、doc に `Mail from other threads (\`task::remote\`) counts: the next turn delivers it.` の 1 行を足す。
+    - `commit_rounds` の `rt.has_work()` は変えない（turn の中で届いた mail は次の turn に回る）。
 
 ### 消すもの
 
@@ -4667,7 +5065,7 @@ cargo xtask check --no-write --crate kivact-macros
 ### 完了条件
 
 - `rg -n '\bNotifier\b|\bnotifier\b|\bReactive\b|IntoReactive|__private|Owner::ambient|TurnDetail|CauseEntry|cause_with|take_turn_details|with_presence_gate' crates/kivact-core/src crates/kivact-style/src crates/kivact-i18n/src crates/kivact/src` が何も返さない（`PointerObservation::Reactive` と `view/state.rs` の enum の variant `Reactive(..)`、doc の文の `Reactive` という英単語を除く）。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R28：kivact-interaction の呼出し元を直す
 
@@ -4716,6 +5114,7 @@ cargo xtask check --no-write --crate kivact-interaction
 ### 完了条件
 
 - `rg -n '\bBinding\b|IntoBinding|into_binding|\bNotifier\b|\bReactive\b|IntoReactive|__private|Into<[\w:]*Callback<\(\)>>' crates/kivact-interaction/src` が何も返さない（doc の英単語を除く）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R29：kivact-ui の呼出し元を直す
 
@@ -4824,6 +5223,7 @@ cargo xtask check --no-write --crate kivact-ui
 ### 完了条件
 
 - `rg -n '\bBinding\b|IntoBinding|into_binding|\bNotifier\b|\bReactive\b|IntoReactive|AsyncSnapshot|\bRetry\b|Into<[\w:]*Callback<\(\)>>' crates/kivact-ui/src` が何も返さない（`"Retry"` の文字列と doc の英単語を除く）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R30：5 つの kit と kit の例の呼出し元を直す
 
@@ -4878,6 +5278,7 @@ cargo xtask check --no-write --crate kivact-ui-creative
 ### 完了条件
 
 - `rg -n '\bBinding\b|IntoBinding|into_binding|\bNotifier\b|\bReactive\b|IntoReactive|Into<[\w:]*Callback<\(\)>>|ActionMode' crates/kivact-ui-basic crates/kivact-ui-soft crates/kivact-ui-pop crates/kivact-ui-game crates/kivact-ui-creative examples/kivact-ui-*` が何も返さない（doc の英単語を除く）。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## R31：devtools・test・試験・bench・例・雛形を直し、新しい E2E を足す
 
@@ -4925,9 +5326,10 @@ cargo check --workspace --all-targets
 cargo check -p kivact-kit-tests --all-targets
 cargo clippy --workspace --all-targets -- -D warnings
 cargo xtask check --no-write
-KIVACT_TEST_MIRROR=off cargo test -p kivact-runtime -p kivact-i18n
-dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- task runtime setup_functions diagnostics focus node_ref component_macro lifecycle windows app_handle async_tests binding_update reactive_props flows
-dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_
+KIVACT_TEST_MIRROR=off cargo test -p kivact-runtime
+KIVACT_TEST_MIRROR=off cargo test -p kivact-i18n
+dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- task runtime setup_functions diagnostics focus node_ref component_macro lifecycle windows app_handle async_tests binding_update flows
+dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_ reactive_props
 ```
 （`cargo xtask check --no-write` は workspace 全体の静的検査で、試験を走らせない。全体の試験は checkpoint が行う。）
 
@@ -4935,7 +5337,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - 設計書 5.12 節のうち本付属書が消す名前（`Binding`、`IntoBinding`、`IntoReactive`、`Reactive`、`Notifier`、`notifier`、`ActionOutcome`、`ActionMode`、`Retry`、`AsyncSnapshot`）が `rg -w` で `crates/ examples/ templates/ dev/` に識別子として残っていない（`"Retry"` の文字列、`PointerObservation::Reactive` と `view/state.rs` の variant `Reactive`、`dev/xtask` の局所の型 `Binding`、arvane-native の private な `Notifier` を除く）。
 - `constant_value` が 4 章 4.7 の許す場所の外に無い（付属書 C の `#[derive(Prop)]` の unit が終わった後に確かめる。R31 の時点では kit・ui・interaction に残っていてよい）。
-- 上の命令がすべて成功する。
+- 上の命令がすべて成功し、`cargo test` の命令がどれも 1 件以上の試験を走らせる（0 件は失敗。3 章の共通の約束）。
 
 ## 4. 他の付属書との接点
 
@@ -4949,12 +5351,14 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 | `Signal::update(&self, f: impl FnOnce(&mut T))`、`Var::update(&self, f: impl FnOnce(&mut T))`（戻り値なし。DEC-15） | — | R20 |
 | `use_context<T: Clone + 'static>() -> T`、`try_use_context<T: Clone + 'static>() -> Option<T>` | `kivact::state` | R20（core の `provide` の 1 行は R26） |
 | `pub trait IntoHandler<E, M>`（sealed、`fn into_handler(self) -> Handler<E>`）。実装：`F: Fn() -> R`（`E = ()`、`M = Nullary`）、`Callback<()>`（`M = Handle`）。payload のある handler は `impl Fn(E) -> R + 'static`（共有の `Callback<E>` は `move \|e\| cb.call(e)`）（設計 5.3、DEC-16） | `kivact::state::IntoHandler` | R21 |
+| `callback<E, R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> Callback<E>`（契約は `Fn(E) -> R` のまま。payload の無い共有の handler も `callback(move |_| ..)` で作る。12 章 API-7） | `kivact::state::callback` | R21（doc） |
+| `Callback::invoke(&self, e: E) -> Result<Handled, UiError>`（hidden。handler の結果を保つ。`call(e)` は `()` を返す。12 章 API-14） | — | R21 |
 | `pub struct Handler<E>`、`Handler::from_fn`（hidden）、`Handler::call(&self, E) -> Result<Handled, UiError>` | `kivact::custom::Handler`（hidden） | R21、R26 |
 | `Callback::<E>::from_handler(handler: Handler<E>) -> Callback<E>`（hidden。実行中の owner に登録） | — | R21 |
 | `action(run) -> Action<T, I>`（Latest）、`queued_action(run) -> Action<T, I>`、`Action::on_complete(Fn(Result<T, UiError>) -> R)` | `kivact::task` | R22 |
 | `AsyncSource<T>::{state, retry -> Callback<()>, publications (hidden)}` | `kivact::task::AsyncSource` | R22 |
 | `Trigger`、`trigger()`、`Owner::trigger(at)`、`Trigger::{track, notify, notify_from_render}` | `kivact::state` | R23 |
-| `remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>)`、`Remote::{set, update}`、`remote_trigger() -> (Trigger, RemoteTrigger)`、`RemoteTrigger::notify`、`clock(every: Duration) -> Value<SystemTime>` | `kivact::task` | R23、R27 |
+| `remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>)`、`Remote::set`（`update` は無い。12 章 API-9）、`remote_trigger() -> (Trigger, RemoteTrigger)`、`RemoteTrigger::notify`、`clock(every: Duration) -> Value<SystemTime>` | `kivact::task` | R23、R27 |
 | `FrameLoop::while_present(self, present: impl IntoValue<bool>) -> Self`（core の写しは消える） | `kivact::motion::FrameLoop` | R23、R27 |
 | `Prop<T>`（hidden）：`constant`、`new(impl IntoValue<T>)`、`from_text(impl IntoText)`（`Prop<String>`）、`get`、`get_untracked`、`with`、`fixed`、`PartialEq`、`Debug`。`IntoValue::into_prop`（hidden） | `kivact::custom::Prop`（hidden） | R24、R27 |
 | `constant_value!`（hidden） | `kivact::state::constant_value`（hidden） | R24、R27 |
@@ -4962,7 +5366,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 | `Owner::setup(api, at)`（旧 `Owner::current`）、`Owner::running(api, at)`（旧 `Owner::ambient`）（runtime の `Owner`） | — | R25 |
 | `Cause { tag, event, node }`、`CauseTag`、`TurnRecord`（一つの記録の型）、`TraceWrite`、`TraceRun`、`TraceEdge`、`StageSpan`、`Stage`、`Runtime::last_turn()`、`TurnGuard::cause(Cause)` | `kivact::diagnostics` | R25、R27 |
 | `RecordBits::{DEVTOOLS, TEST, TRACE_SINK}`、`Runtime::set_recorder(bits, on)`、`Runtime::is_recording()`、`RuntimeConfig.record` | driver | R08 |
-| `Runtime::defer(owner, Box<dyn FnOnce()>)`、`Runtime::has_work()`、`Runtime::turn_requested()`、`Runtime::end_idle() -> TurnReport`、`TurnGuard::{settle, run_deferred}`、`TurnGuard::finish(ops)` | driver | R06 |
+| `Runtime::defer(owner, at, Box<dyn FnOnce()>)`、`Runtime::has_work()`、`Runtime::has_mail()`（R23）、`Runtime::turn_requested()`、`Runtime::end_idle() -> TurnReport`、`TurnGuard::{settle, run_deferred}`、`TurnGuard::finish(ops)` | driver | R06 |
 | core `src/launch/turn.rs`（`Launch::turn`、`commit_rounds`、`cause_of`） | — | R06、R27 |
 | `AppParts { state: Box<dyn Any>, motion_env: MotionEnv }`、`Runtime::{app_state, tasks, motion}`、core `crate::app_state::AppState::of(rt)`（`ViewState::of`・`HostState::of` などは名前と戻りの型を変えない。C の R-REQ-11） | driver | R05 |
 | `ReportKind::{Error, Diagnostic}`、`Reported.kind`、`Runtime::reported_since(since: u64) -> Vec<Reported>`（C の R-REQ-9） | `kivact::diagnostics` は C が決める | R04 |
@@ -5026,13 +5430,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 - 付属書 S：W1a の `Deferred` を R01・R05 が使う。
 - 付属書 T：新しい core の module `app_state`（R05）は `module_rules.kivact-core.uses` の key に入れない（入れると `view` から参照できなくなる）。`motion::frame_loop -> view::node_ref` の例外は R27 が消す。xtask の `api-shape` の handler の規則は R21 が「`impl IntoHandler<(), M>` か `impl Fn(E) -> R`」を受けるように直す。T が W1 で `api_shape.rs` を書き換える場合は、R21 の手順 8 と同じ受け入れの規則を入れること。
-- 付属書 C：C の鎖の unit は R31 の後。C11 は `Runtime::end_idle()` を使う。C の `#[derive(Prop)]` の unit は `::kivact::custom::Prop::constant(self)` に展開し、kivact-interaction、kivact-ui、5 つの kit、例の `constant_value!` の呼出しを `#[derive(Prop)]` に置き換える（4.7 節の場所を除く）。C09 は macro の handler の props を DEC-16（4.4 節の 2）のとおりにする。
+- 付属書 C：C の鎖の unit は R31 の後。C11 は `Runtime::end_idle()` を使う。C の `#[derive(Prop)]` の unit は `::kivact::custom::Prop::constant(self)` に展開し、kivact-interaction、kivact-ui、5 つの kit、例の `constant_value!` の呼出しを `#[derive(Prop)]` に置き換える（4.7 節の場所を除く）。C09 は macro の handler の props を DEC-16（4.4 節の 2）のとおりにする。C09 の `Callback` props の本体側の利用は R21 の `#[doc(hidden)] Callback::invoke(&self, e: E) -> Result<Handled, UiError>` を使う（12 章 API-14。C の R-REQ-15）。C12 は `dev/tests/kivact-public-api/tests/*/close_request.rs` に `close_request_handled_is_the_same_inline_shared_and_through_a_prop` を足す（12 章 API-14 の「inline・共有・props の経由で同じ結果」の検証。R21 の `IntoHandler<(), Handle> for Callback<()>` が `invoke` を通ることを window の経路で確かめる）：(a) inline の `on_close_request(|| Handled::Yes)`、(b) 共有の `let guard = callback(move |_| Handled::Yes); on_close_request(guard)`、(c) `#[component] fn guard(on_close: Callback<()>) -> impl IntoView { on_close_request(on_close); text("guard") }` に `guard(|| Handled::Yes)` を渡す、の 3 つの App を順に mount し、それぞれ `assert!(!screen.request_close(), "the handler kept the window open")` とする。
 - 付属書 E：R27 の `cause_of` は `HostEvent` の全 variant を並べる。E が variant を足し・消すと R27 の時点の compile で分かる（R27 の手順 7 の規則で直す）。
 - 付属書 U・K：W7〜W10 で書き直す ui と kit の部品は、本付属書の名前（4.1 節）と、payload のある handler の props の形（DEC-16、4.4 節の 2）に従う。
 
 ### 4.4 設計判断（すべて決定済み）
 
-1. **決定済み：`Runtime.app` を `Deferred` で一度だけ書く（R05）。** core の状態（`ViewState` など）は root の owner の signal を持つので runtime を登録した後でしか作れず、runtime はそれを field に持つ必要がある。この循環は構造上避けられない。決定：`Runtime::new` の中で `get_or_init` で一度だけ書き、読む側は `expect` する（R05 のとおり。今の `ext: OnceCell` と同じ性質を、設計書 6.2 節の許す道具で書く）。親がこの形を受け入れた（`OnceCell` は残さない）。
+1. **決定済み：`Runtime.app` を `Deferred` で一度だけ書く（R05）。** 設計書 6.2 節の明記した例外（12 章 ST-02）。App の構築の中（利用者のコードが動く前）で `get_or_init` で一度だけ書き、構築の途中の読出しは debug の assert で落とす（R05 の `app_slot`）。型による二段階の分離は行わない。
 2. **決定済み（DEC-16）：payload のある handler の型。** rustc は closure の引数の型を `Fn`・`FnMut`・`FnOnce` の bound からだけ推論し、`Callback<E>` は `Fn` を実装できない。そのため：
    - payload の無い handler（`on_press` など、`Callback<()>` の props）は `impl IntoHandler<(), M>`（closure と共有の `Callback<()>` の両方を受ける。R21 の impl はこの二つだけ）。
    - payload のある `Callback<E>` の props と payload のある `on_*`（`on_key`、`on_pointer` など）は `impl Fn(E) -> R + 'static`（`R: HandlerResult`）を受け、共有の `Callback<E>` は `move |e| cb.call(e)` で渡す。macro は内部で `Handler::from_fn` にする（RC-33 の割当ての削減はこちらでも得られる）。
@@ -5046,7 +5450,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 - RC-41 の `notify_from_render` の削除は行わない（C の R-REQ-6：core が使い続ける）。
 - RC-37 の「`done()` を待つ」は足さない（設計書 5.5 の `Action` の API に無い）。終わりは `state()` と `on_complete` で知る。
 - RC-15 の `with_state` は足さない（5.5 節に無い）。async の view は hidden の `AsyncSource::publications` で変化を知る。
-- RC-06：`Disposed` の `created_at` は debug build と記録中だけ分かる（release では `None`）。
+- RC-06：`Disposed` の `created_at` は feature `devtools` があるときと記録中だけ分かる（それ以外は build の種類によらず `None`。12 章 ST-06、R09 の `keeps_node_meta`）。
 - RC-05：記録は DevTools と同じ一つの型になり、`TurnRecord.writes` は値を変えなかった書込みも `changed: false` で持つ。
 - RC-23：書ける行の書込みは、行の key で list の位置を探し（O(N) の探索、list の複製は無い）、その要素だけを `update` で書く。
 - RC-07：`with_runtime` は source の読み（user code を実行しない）にだけ使う。
@@ -5061,7 +5465,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 | `dev/tests/kivact-public-api/tests/*/setup_functions.rs` | `context_is_found_in_setup_and_in_handlers` | `r_sweep.pl` の変更だけ（`.get()` が消える） |
 | `dev/tests/kivact-public-api/tests/*/task.rs` | `queue_orders_coalesces_recovers_and_drains` | 名前を `queue_orders_recovers_and_drains` にする。`let latest = action(ActionMode::QueueLatest, ..);` の文全体、`let (fifo, latest)` の `latest`（`let (screen, fifo) = mount(..)`、返す組を `(fifo, text(..))` にする）、`latest.run(1);`、ループの `latest.run(n);`、`assert_eq!(latest.pending_len(), 1, ..)`、最後の `latest_order` の 2 文を消す。`(la, lb)` の `lb` を消す。`matches!(r, kivact::task::ActionOutcome::Succeeded(_))`（掃引の後は `matches!(r, Ok(_))`）を `r.is_ok()` にする。fifo の期待値は変えない |
 | `dev/tests/kivact-public-api/tests/*/task.rs` | `action_latest_wins_retry_cancel_and_multiple_done_handlers` | 掃引の後の `let result = match r { Ok(value) => Ok(value), Err(error) => Err(error), };` を `let result = r;` にする。期待値は変えない |
-| `dev/tests/kivact-public-api/tests/*/task.rs` | 追加 `remote_writes_from_another_thread_coalesce_into_one_update`、`remote_trigger_notifies_from_another_thread`、`clock_shares_one_timer_per_period` | 下のコード |
+| `dev/tests/kivact-public-api/tests/*/task.rs` | 追加 `remote_writes_from_another_thread_coalesce_into_one_update`、`a_remote_of_a_removed_component_drops_later_values`、`remote_delivers_at_most_once_per_turn_under_a_continuous_producer`（12 章 API-9〜API-11）、`remote_trigger_notifies_from_another_thread`、`clock_shares_one_timer_per_period`、`disposing_the_owner_cancels_its_queued_runs`（12 章 ST-08） | 下のコード |
 | `dev/tests/kivact-public-api/tests/*/diagnostics.rs` | `trace_records_causes_writes_reruns_ops_and_duration` | `t.causes.iter().any(\|c\| c.starts_with("Activate"))` を `t.causes.iter().any(\|c\| c.event == "Activate")` にする。`t.writes` を読む前に `let writes: Vec<_> = t.writes.iter().filter(\|w\| w.changed).collect();` を置き、`t.writes.len()`・`t.writes.iter()`・`t.writes[i]` を `writes.len()`・`writes.iter()`・`writes[i]` にする（値を変えた書込みだけを数える。今の期待値と同じ事実）。後半の `t.writes.iter().all(..)` を `t.writes.iter().filter(\|w\| w.changed).all(..)` にする |
 | `dev/tests/kivact-public-api/tests/*/focus.rs` | helper `focus_results` | `.filter(\|c\| c.starts_with("FocusResult"))` を `.filter(\|c\| c.event == "FocusResult")` にする |
 | `dev/tests/kivact-public-api/tests/*/node_ref.rs` | `.while_present(target)` を使う試験 | `frame_loop(..).while_present(target)` を `{ let presence = target.presence(); frame_loop(..).while_present(move \|\| presence.get() == kivact::view::Presence::Present) }` の形にする（`presence()` は setup で呼ぶ） |
@@ -5070,7 +5474,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 | `crates/kivact-runtime/src/reactive/selector.rs` | `remounted_readers_do_not_accumulate_key_entries` | R02 で書換え済み |
 | `crates/kivact-i18n/src/cache.rs`、`crates/kivact-core/src/view/flow/virtual_list/heights.rs` | `the_same_tag_reuses_one_cache`、`prefix_set_and_index_at_match_a_plain_sum` | R01・R10 で追加済み |
 
-追加する試験のコード（`task.rs` の先頭の `use` に `use kivact::task::{clock, remote, remote_trigger};` を、`runtime.rs` に `use std::cell::Cell;` と `use std::rc::Rc;` が無ければ足す）：
+追加する試験のコード（`task.rs` の先頭の `use` に `use kivact::task::{Remote, clock, queued_action, remote, remote_trigger};` と `use std::sync::Arc;` を（掃引が `queued_action(` にした既存の試験もこの import を使う）、`runtime.rs` に `use std::cell::Cell;` と `use std::rc::Rc;` が無ければ足す）：
 
 ```rust
 // runtime.rs
@@ -5111,7 +5515,7 @@ fn writes_to_a_removed_signal_are_ignored() {
 
 // task.rs
 /// Writes from another thread wake the App and arrive merged: the signal
-/// is written once with the latest value and the later edits.
+/// is written once, with the latest value.
 #[test]
 fn remote_writes_from_another_thread_coalesce_into_one_update() {
     let (screen, (sender, runs)) = mount(|| {
@@ -5130,12 +5534,76 @@ fn remote_writes_from_another_thread_coalesce_into_one_update() {
         for n in 1..=100 {
             worker.set(n);
         }
-        worker.update(|v| *v += 1);
     })
     .join()
     .expect("the writing thread ends");
-    screen.find_by_text("v 101");
-    assert_eq!(runs.get(), before + 1, "a hundred and one writes arrive as one update");
+    screen.find_by_text("v 100");
+    assert_eq!(runs.get(), before + 1, "a hundred writes arrive as one update");
+}
+
+/// After the component of a remote is removed, values set from another
+/// thread are dropped at once, not kept for a delivery that never comes.
+#[test]
+fn a_remote_of_a_removed_component_drops_later_values() {
+    let slot: Rc<RefCell<Option<Remote<Arc<u32>>>>> = Rc::new(RefCell::new(None));
+    let child_slot = slot.clone();
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let child_slot = child_slot.clone();
+        (
+            shown,
+            show(shown, move || {
+                let (value, sender) = remote(Arc::new(0u32));
+                *child_slot.borrow_mut() = Some(sender);
+                text(move || format!("v {}", value.get()))
+            }),
+        )
+    });
+    screen.find_by_text("v 0");
+    let sender = slot.borrow_mut().take().expect("the child was set up");
+    shown.set(false);
+    screen.run_until_idle();
+    let probe = Arc::new(7u32);
+    let sent = Arc::clone(&probe);
+    std::thread::spawn(move || sender.set(sent))
+        .join()
+        .expect("the writing thread ends");
+    assert_eq!(Arc::strong_count(&probe), 1, "the closed mailbox kept no value");
+    screen.run_until_idle();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A producer that writes while the App turns does not flood it: each
+/// turn writes the signal at most once, and the last value arrives.
+#[test]
+fn remote_delivers_at_most_once_per_turn_under_a_continuous_producer() {
+    const WRITES: u64 = 200_000;
+    let (screen, (sender, runs)) = mount(|| {
+        let (value, sender) = remote(0u64);
+        let runs = var(0u64);
+        effect(move || {
+            value.get();
+            runs.update(|r| *r += 1);
+        });
+        ((sender, runs), text(move || format!("v {}", value.get())))
+    });
+    screen.run_until_idle();
+    let (runs_before, turns_before) = (runs.get(), screen.stats().turns);
+    let producer = std::thread::spawn(move || {
+        for n in 1..=WRITES {
+            sender.set(n);
+        }
+    });
+    while !producer.is_finished() {
+        screen.run_until_idle();
+    }
+    producer.join().expect("the producer ends");
+    screen.find_by_text(&format!("v {WRITES}"));
+    let runs = runs.get() - runs_before;
+    let turns = screen.stats().turns - turns_before;
+    assert!(runs > 0, "values arrived");
+    assert!(runs <= turns, "at most one delivery per turn: {runs} deliveries in {turns} turns");
+    assert!(runs < WRITES, "writes between turns were merged");
 }
 
 /// A trigger notified from another thread wakes the App; notifications
@@ -5186,6 +5654,46 @@ fn clock_shares_one_timer_per_period() {
         screen.advance(ms(1000));
     }
     assert_eq!(ticks.get(), before + 3);
+}
+
+/// Removing the component of a queued action cancels its runs, the
+/// waiting ones included: none of them finishes later.
+#[test]
+fn disposing_the_owner_cancels_its_queued_runs() {
+    let log = Rc::new(RefCell::new(Vec::new()));
+    let slot: Rc<Cell<Option<Action<(), u32>>>> = Rc::new(Cell::new(None));
+    let (l2, s2) = (log.clone(), slot.clone());
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let (l2, s2) = (l2.clone(), s2.clone());
+        (
+            shown,
+            show(shown, move || {
+                let l3 = l2.clone();
+                let queue = queued_action(move |n: u32| {
+                    let l4 = l3.clone();
+                    async move {
+                        sleep(ms(10)).await;
+                        l4.borrow_mut().push(n);
+                        Ok::<(), UiError>(())
+                    }
+                });
+                s2.set(Some(queue));
+                text("queue")
+            }),
+        )
+    });
+    let queue = slot.get().expect("the branch was set up");
+    for n in 1..=3 {
+        queue.run(n);
+    }
+    screen.run_until_idle();
+    assert_eq!(queue.pending_len(), 2, "one run running, two waiting");
+    shown.set(false);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    assert!(log.borrow().is_empty(), "no run finished after its owner was removed: {:?}", log.borrow());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
 // component_macro.rs
@@ -5257,6 +5765,19 @@ kivact-interaction、kivact-ui、5 つの kit、例、試験の呼出しは、�
 | USR-03 | R23 |
 | KIT-17 | R23（`clock`）、R31（E2E） |
 | PERF-9 | R08、R09 |
+| 12 章 API-7 | R21（`callback` の doc を `callback(move \|_\| ..)` の形に。4.1 節） |
+| 12 章 API-9〜API-11 | R23（`Remote::set` だけ、`Mailbox` の `Open`/`Closed`、owner の cleanup で閉じる、turn の始めの配送 `deliver_remotes`、`Runtime::has_mail`）、R27（core の idle の判定と `Inspect::pending` が `has_mail` を見る）、R31（E2E 3 件） |
+| 12 章 API-14 | R21（`Callback::call` は `()`、hidden の `Callback::invoke`、`IntoHandler<(), Handle> for Callback<()>` は `invoke` を通す、試験 `a_callback_keeps_the_handler_result`）。props の経路は C09、window の経路は C12（4.3 節の求め） |
+| 12 章 ST-01 | R22（`AsyncPhase` の `Pending`/`Failed` が `last` を持ち、`Ready` は値を必ず持つ） |
+| 12 章 ST-02 | R05（`Runtime.app` は `Deferred` を一度だけ書き、`app_slot` の debug の assert。4.4 節の 1） |
+| 12 章 ST-03 | R06（deferred を `ASYNC_ROUNDS` の予算に数える、`NodeRef::activate` の位置、試験 `activating_itself_or_each_other_does_not_hang`） |
+| 12 章 ST-04 | R02（selector の key の node を `on_unsubscribed` で消す、試験 `a_reader_switching_keys_keeps_its_nodes_bounded`） |
+| 12 章 ST-05 | R07（`MotionToken` の `Drop` で motion の表から外す）、R05（試験 `a_disposed_frame_loop_leaves_every_motion_map`） |
+| 12 章 ST-06 | R09（`NodeMeta` は feature `devtools` か記録中だけ、試験 `node_meta_follows_the_devtools_feature`） |
+| 12 章 ST-07 | R22（`Lifecycle`、`ActionCell::publish` だけが書く、破棄の後は publish しない） |
+| 12 章 ST-08 | R22（owner の破棄で queued を含む run を取り消す、drain は App の終了だけ）、R31（試験 `disposing_the_owner_cancels_its_queued_runs`） |
+| 12 章 PLAN-04・PLAN-07 | 3 章の共通の約束（固定の `cd` なし、binary ごとの命令、0 件は失敗）、R31（`reactive_props` を `e2e_ui` の命令へ） |
+| 12 章 TV-09 | R02・R05・R06・R09・R21・R31 の不変条件の試験（上の各行） |
 
 ### 5.2 設計の判断を実装者に残していないか
 

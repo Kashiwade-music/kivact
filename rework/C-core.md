@@ -77,7 +77,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 - **手順**：
   1. ファイルを移す（Git Bash）：
      ```sh
-     cd /w/w/kivact/crates/kivact-core/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-core/src" || exit 1
      git mv view/devtools_state.rs devtools/state.rs
      git mv view/devtools_apply.rs devtools/apply.rs
      git mv view/inspect_mode.rs devtools/inspect_mode.rs
@@ -445,7 +445,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo xtask check --no-write --crate kivact-core
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features devtools --test e2e_native -- devtools
   ```
-- **完了条件**：`rg -n 'cfg\(not\(feature = "devtools"\)\)' crates/kivact-core/src/view` が 0 件。`rg -n "devtools_state|devtools_apply|inspect_mode" crates/kivact-core/src/view` が 0 件（`devtools_hooks.rs` の中を除き 0 件）。`rg -n "fn is_running|fn wrap_capabilities" crates/kivact-core/src/view` が 0 件。上のコマンドが通る。
+- **完了条件**：`rg -n 'cfg\(not\(feature = "devtools"\)\)' crates/kivact-core/src/view` が 0 件。`rg -n "devtools_state|devtools_apply|inspect_mode" crates/kivact-core/src/view` が 0 件（`devtools_hooks.rs` の中を除き 0 件）。`rg -n "fn is_running|fn wrap_capabilities" crates/kivact-core/src/view` が 0 件。上のコマンドが通る。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C02：`kivact-offscreen` crate を作り、`Offscreen` を core から出す
 
@@ -544,7 +544,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test offscreen
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- offscreen
   ```
-- **完了条件**：`rg -n "kivact-svg|kivact_svg" crates/kivact-core` が 0 件。`rg -n "Offscreen" crates/kivact-core/src` が 0 件。上のコマンドが通る。
+- **完了条件**：`rg -n "kivact-svg|kivact_svg" crates/kivact-core` が 0 件。`rg -n "Offscreen" crates/kivact-core/src` が 0 件。上のコマンドが通る。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C03：host への要求の帳簿を型付きの 2 つの表にし、小さな矛盾と dead code を消す
 
@@ -707,7 +707,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   7. `view/foreign_window.rs`：`requests.foreign_sizes.insert(id, ForeignSizeRequest { window, at, slot })` を `requests.waiters.insert(id, Waiter::ForeignSize { window, at, slot })` にする。
   8. `client/dispatch/*` と `platform/services.rs` の `EffectWaiter::` を `Waiter::` に置き換える：
      ```sh
-     cd /w/w/kivact/crates/kivact-core/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-core/src" || exit 1
      rg -l "EffectWaiter" . | xargs perl -pi -e 's/\bEffectWaiter\b/Waiter/g'
      ```
      `platform/services.rs` は所有に無いが、この置換だけは同じ unit の機械的な追従として行う。
@@ -743,7 +743,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      - `gpu_interop/import/registry.rs` の `State::of(rt)`（`rt.ext::<State>()` を呼ぶ関数）を、`ViewState` が持つ `gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>` から `get_or_init(|| State::new(rt.root(), Location::caller()))` で取る形にする。`ViewState` に field `pub(crate) gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>,`（doc：`/// GPU interop state, made on the first adapter query or import.`）を足し、`ViewState::new` で `gpu_interop: kivact_types::cell::Deferred::new(),` とする。`State::new(root, at)` の署名は変えない。`State::of` を呼ぶ全箇所は `ViewState::of(rt).gpu_interop.get_or_init(|| State::new(rt.root(), Location::caller()))` を返す 1 つの関数 `pub(crate) fn state(rt: &Runtime) -> &State` を通す（`registry.rs` に置き、`#[track_caller]` を付ける）。
 - **消すもの**：`RequestStage`、`FocusRequests.order`、`EffectWaiter`、`SnapshotWaiter`、`ForeignSizeRequest`、`Requests.{effects,foreign_sizes,snapshots}`、`ViewState::resolve_foreign_size`、`Launch::turn` の `initial_render.set(false)`、`report_session` のための偽 handler、引数 `_kind`・`_at`、`gpu_interop::State` の常時の install。
 - **状態の閉じ方**：`FocusRequests`（`queued` と `sent` は別の段階の別の要求で、同じ事実を二度持たない。`Vec` と `HashMap` は 6.1 の対象の field 型ではない）。`Waiter` は enum。`AppLink` は `Mutex<LinkState>` と `AtomicBool` を持つ。対象の field は `AtomicBool` 一つなので印は要らない。`FocusRequest.visible` は bool 一つ。
-- **試験**：足す試験は無い。`crates/kivact-core/src/platform/app_handle.rs` の単体試験と、`e2e_core` の `focus`・`app_handle`・`foreign_window`・`windows`、`e2e_native` の `gpu_interop` が通ること。
+- **試験**：足す試験は無い。`crates/kivact-core/src/platform/app_handle.rs` の単体試験と、`e2e_core` の `focus`・`app_handle`・`windows`、`e2e_native` の `foreign_window`・`gpu_interop` が通ること。
 - **確認（tier a）**：
   ```sh
   cargo fmt -p kivact-core
@@ -752,9 +752,10 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo clippy -p kivact-core --all-targets --features gpu-interop,devtools,embed -- -D warnings
   cargo xtask check --no-write --crate kivact-core
   KIVACT_TEST_MIRROR=off cargo test -p kivact-core
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- focus app_handle foreign_window windows
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- focus app_handle windows
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- foreign_window
   ```
-- **完了条件**：`rg -n "RequestStage|EffectWaiter|SnapshotWaiter|ForeignSizeRequest|resolve_foreign_size" crates/kivact-core` が 0 件。`rg -n "initial_render.set" crates/kivact-core/src/launch` が `start_mount` の 1 件だけ。`rg -n "map_or\(WindowId::MAIN" crates/kivact-core` が 0 件。上のコマンドが通る。
+- **完了条件**：`rg -n "RequestStage|EffectWaiter|SnapshotWaiter|ForeignSizeRequest|resolve_foreign_size" crates/kivact-core` が 0 件。`rg -n "initial_render.set" crates/kivact-core/src/launch` が `start_mount` の 1 件だけ。`rg -n "map_or\(WindowId::MAIN" crates/kivact-core` が 0 件。上のコマンドが通る。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C04：mount の費用を下げる（style の memo、境界の関数一つ、provenance の側表）
 
@@ -887,9 +888,9 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo check -p kivact-core --all-targets --features devtools
   cargo clippy -p kivact-core --all-targets --features devtools -- -D warnings
   cargo xtask check --no-write --crate kivact-core
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- diagnostics flows setup_functions i18n styles
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- diagnostics flows setup_functions i18n style_paint
   ```
-- **完了条件**：`rg -n "fn bind_states|\.origins\b" crates/kivact-core/src/view/mount` が 0 件。`rg -n "owner.signal\(theme" crates/kivact-core/src/view/root.rs` が 0 件。`boundary.rs` の `view_fn(` が `boundary` 関数の 1 件だけ。
+- **完了条件**：`rg -n "fn bind_states|\.origins\b" crates/kivact-core/src/view/mount` が 0 件。`rg -n "owner.signal\(theme" crates/kivact-core/src/view/root.rs` が 0 件。`boundary.rs` の `view_fn(` が `boundary` 関数の 1 件だけ。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C05：window の記録を一つにする（main を含む）と、環境の field を使う時に作る
 
@@ -1056,17 +1057,18 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   10. dead field：`ViewState.host_capabilities` を消し（`ViewState::new` の `let host_capabilities = owner.signal(..)` は `capabilities` を作るためにだけ残し、field にしない）、host から capabilities が変わる event があればその書き込み先を `capabilities` の元の signal にする。書き込みが無ければ（`rg -n "host_capabilities" crates/kivact-core` で `state.rs` 以外に 0 件）field を消すだけでよい。`WindowRecord.title`・`WindowRecord.mode` は手順 1 で `WindowDecl` に移り、DevTools の `list_windows` などが読む（`rg -n "record.title|record.mode|\.title\b" crates/kivact-core/src/devtools` で読む箇所を `record.decl.title` に直す）。
 - **消すもの**：`PointerObservation`、`ForeignWindows`、`foreign_window_view`、`hover::install`、`ViewNodes::new` の main の root、`EnvState::field`、`EnvState.fields: RefCell<Vec<(&str, Box<dyn Any>)>>`、`ViewState::{hover,set_hover,mouse,set_mouse}`、`ViewState.host_capabilities`、`ForeignHooks` の 7 つの宣言の field。
 - **状態の閉じ方**：`WindowRecord` は signal を 2 つ（`hover`・`mouse`）持ち、`&mut self` の method を持たない。内部可変の field（signal）は構築の後に書かれる。対象になるので、`WindowRecord` の上に次の 1 行を置く：`// xtask-allow(state): hover と mouse は host の報告の別々の事実（指している node と指の位置）で、どの組合せも起きる`。`EnvFields` は `Deferred` だけ（6.1 の対象の型を持たない）。`ForeignHooks` は `Option` 3 つ（builder が作った後は読むだけ）と `Cell<ForeignPhase>`（enum）。対象の field は `Cell` 一つなので印は要らない。
-- **試験**：足す試験は無い。`e2e_core` の `windows`（全 10 本）、`foreign_window`、`hover`、`environment`、`lifecycle`、`dev/tests/kivact-public-api/tests/foreign_window_run.rs`（`--features embed`）が通ること。
+- **試験**：足す試験は無い。`e2e_core` の `windows`（全 10 本）・`hover`・`environment`・`lifecycle`、`e2e_native` の `foreign_window`、`dev/tests/kivact-public-api/tests/foreign_window_run.rs`（`--features embed`）が通ること。
 - **確認（tier a）**：
   ```sh
   cargo fmt -p kivact-core
   cargo check -p kivact-core --all-targets --features devtools,embed,gpu-interop
   cargo clippy -p kivact-core --all-targets --features devtools,embed,gpu-interop -- -D warnings
   cargo xtask check --no-write --crate kivact-core
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- windows foreign_window hover environment lifecycle
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- windows hover environment lifecycle
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- foreign_window
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed --test foreign_window_run
   ```
-- **完了条件**：`rg -n "PointerObservation|ForeignWindows|foreign_window_view|fn field\(" crates/kivact-core/src` が 0 件。`rg -n "WindowRecord \{" crates/kivact-core/src` が `open_window_record` の 1 件だけ。
+- **完了条件**：`rg -n "PointerObservation|ForeignWindows|foreign_window_view|fn field\(" crates/kivact-core/src` が 0 件。`rg -n "WindowRecord \{" crates/kivact-core/src` が `open_window_record` の 1 件だけ。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C06：DevTools の agent を UI thread の外で起動し、木の通知・find・剪定を engine の変更記録で行う、入力の出所を型で持つ
 
@@ -1405,7 +1407,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo xtask check --no-write --crate kivact-devtools-agent
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features devtools --test e2e_native -- devtools
   ```
-- **完了条件**：`rg -n "sent_tree|current_nodes|AgentSlot::Running|AgentSlot::Off" crates/kivact-core/src` が 0 件。`rg -n "Rc<str>" crates/kivact-devtools-agent/src` が 0 件。上のコマンドが通る。
+- **完了条件**：`rg -n "sent_tree|current_nodes|AgentSlot::Running|AgentSlot::Off" crates/kivact-core/src` が 0 件。`rg -n "Rc<str>" crates/kivact-devtools-agent/src` が 0 件。上のコマンドが通る。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C07：engine の事実を core に写して同期させるのをやめる
 
@@ -1415,7 +1417,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 - **手順**：
   1. 未配送の文字の編集（E-REQ-1）：engine が `Writer::set(id, PropValue::InputValue(..))` を未配送の `TextChanged` がある間は無視する。core の写しを消す：
      ```sh
-     cd /w/w/kivact/crates/kivact-core/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-core/src" || exit 1
      git rm view/text_edits.rs
      ```
      `view.rs` の `pub(crate) mod text_edits;` を消す。`view/tree.rs` の `future_text_edits` field・`TextEditsInFlight`・`update` の `if prop == Prop::InputValue && self.future_text_edits ... { return false; }`・`remove` の `self.future_text_edits.borrow_mut().0.remove(id);`・`release_capacity` の `future_text_edits` の行を消す。turn の関数（`launch/turn.rs` の `Launch::turn`。R06 が移した）の `let edits = TextEditsAhead::begin(...);` と `edits.deliver(event);` と `use crate::view::text_edits::TextEditsAhead;` を消す。
@@ -1542,7 +1544,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_editing custom_text_field layout images_animated assets launch_fonts
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- interaction_toast apg_toolbar apg_radio_group
   ```
-- **完了条件**：`rg -n "TextEditsAhead|TextEditsInFlight|layout_seeds|note_layout|visibility_revision|live_region_revision|asset_failures|fonts_value" crates/kivact-core` が `CoreRare.asset_failures` と `note_asset_failure` の 2 行を除いて 0 件。
+- **完了条件**：`rg -n "TextEditsAhead|TextEditsInFlight|layout_seeds|note_layout|visibility_revision|live_region_revision|asset_failures|fonts_value" crates/kivact-core` が `CoreRare.asset_failures` と `note_asset_failure` の 2 行を除いて 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C08：`use_direction` は値、`Owner` は `custom` だけ
 
@@ -1568,11 +1570,11 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
              .expect("invariant: the App's root provides the reading direction")
      }
      ```
-     （`Owner::running` は付属書 R の R25 が `Owner::ambient` から改名した runtime の関数。）`provide` は R26 の後 `T` をそのまま置くので、`provide(dir, ..)` の `ReadingDirection` は `owner.context::<ReadingDirection>()` で読める。
+     （`Owner::running` は付属書 R の R25 が `Owner::ambient` から改名した runtime の関数。`provide_direction` は `ReadingDirection` の定数を受けるまま（`impl IntoValue` にしない。12 章 API-16）。）`provide` は R26 の後 `T` をそのまま置くので、`provide(dir, ..)` の `ReadingDirection` は `owner.context::<ReadingDirection>()` で読める。
      `view/root.rs` の `install_app_contexts` の `crate::view::boundary::install_locale(owner, locale);` の次の行に `owner.provide(crate::view::ReadingDirection::Ltr);` を足す（`view/root.rs` はこの 1 行だけ編集してよい）。
   2. 呼出し元の掃引（use_direction）：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l "use_direction\(\)\.get\(\)" crates dev examples templates | xargs perl -pi -e 's/use_direction\(\)\.get\(\)/use_direction()/g'
      ```
      残りの compile error は次のとおり機械的に直す：`let x = use_direction();` の後の `x.get()` → `x`、`x.get_untracked()` → `x`、`Value<ReadingDirection>` 型の field・引数 → `ReadingDirection`、`move || x.get() == ReadingDirection::Rtl` のような closure はそのまま（`x` は `Copy`）。`crate::view::use_direction().get()` も perl で直る。
@@ -1587,7 +1589,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- setup_functions
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- apg_toolbar apg_slider apg_tabs apg_radio_group
   ```
-- **完了条件**：`rg -n "use_direction\(\)\.get" crates dev examples templates` が 0 件。`rg -n "fn use_direction\(\) -> Value" crates` が 0 件。`rg -n "pub use crate::view::owner::\{Owner" crates/kivact-core` が 0 件。
+- **完了条件**：`rg -n "use_direction\(\)\.get" crates dev examples templates` が 0 件。`rg -n "fn use_direction\(\) -> Value" crates` が 0 件。`rg -n "pub use crate::view::owner::\{Owner" crates/kivact-core` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C09：`#[component]` を 5.1 節の契約どおりに作り直す（`impl Element`、`Node::absorb`、path の解決、`Option`、`Callback` は `Handler`、`#[derive(Prop)]`）
 
@@ -1697,13 +1699,16 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          Children,
          /// `ViewFn`: takes `IntoViewFn<V>`, kept as `ViewFn<()>`.
          ViewFn,
+         /// A type parameter of the component itself (`control: C`): takes `C`
+         /// as it is (rule 3: wrapping it in `Into` stops inference).
+         Param(Type),
          /// Any other type `T`: takes `impl Into<T>`.
          Other(Type),
      }
      ```
      - `returns_into_view` を `fn returns(output: &ReturnType) -> Option<Returns>` にする：`impl` の bound の最後の segment が `Element` なら `Returns::Element`、`IntoView` なら `Returns::IntoView`、それ以外は `None`（error：`"a #[component] function returns `impl Element` or `impl IntoView`"`）。
      - `required(attrs, ty)`：`optional` を受けない。`#[prop(..)]` は `default = expr` だけを受け、他は error `"#[prop] accepts only `default = <expr>`; an optional prop is written `Option<T>`"`。型が `Option<X>`（最後の segment が `Option`）なら `(Required::Optional, X)`。`Option<X>` に `default` を付けたら error `"an `Option<..>` prop is optional already; remove `#[prop(default = ..)]`"`。それ以外は `default` があれば `Default`、無ければ `Positional`。
-     - `kind(ty)`：最後の segment の字面で決める：`"Value"`（中が字面 `String` なら `Text`）、`"Signal"`、`"Callback"`、`"View"`、`"Vec"`（中が字面 `View`）、`"ViewFn"`、それ以外は `Other`。`"Callback"` は中が `()` なら `Callback0`、それ以外は `Callback(inner)`（R26 の形のまま）。型別名は `Other`（字面で決めるため自動でそうなる）。
+     - `kind(ty, params)`（`params` は部品の型引数の ident の一覧。`kind` を呼ぶ前に手順の「型引数」の `generics` を作る）：型が `Type::Path` で、`qself` が無く、segment が 1 つで型引数（`<..>`）を持たず、その ident が `params` のどれかと等しければ `Param(ty)`（設計書 5.1 規則 3、12 章 API-1。`Option<C>` も `Required::Optional` の `Param`）。それ以外は最後の segment の字面で決める：`"Value"`（中が字面 `String` なら `Text`）、`"Signal"`、`"Callback"`、`"View"`、`"Vec"`（中が字面 `View`）、`"ViewFn"`、それ以外は `Other`。`"Callback"` は中が `()` なら `Callback0`、それ以外は `Callback(inner)`（R26 の形のまま）。型別名は `Other`（字面で決めるため自動でそうなる）。
      - `Prop.written` には `Option` を外す前の内側の型（`Option<Value<String>>` なら `Value<String>`）を入れる。
      - 型引数（5.1 規則 9）：`check_signature` の `if !sig.generics.params.is_empty() || sig.generics.where_clause.is_some() { return Err(..) }` を消し、次の検査にする（新しい関数 `fn generics(sig: &syn::Signature) -> syn::Result<syn::Generics>`）：
        - `GenericParam::Lifetime` があれば error `"a #[component] takes type parameters only; remove the lifetime parameter"`（span はその引数）。
@@ -1711,6 +1716,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
        - 型引数の名前が予約の接頭辞 `__Kv` で始まれば error `"type parameter names starting with `__Kv` are reserved for #[component]"`（4.8 節）。
        - prop の名前が `__` で始まれば error `"prop names starting with `__` are reserved for #[component]"`（生成する field と局所変数 `__root`・`__phantom`・`__body`・`__default`・`__n` のため）。
        - 各 `GenericParam::Type` の bounds に `'static` を足した `Generics` を返す（`tp.bounds.push(syn::parse_quote!('static))`。既に `'static` があっても足す。重複は rustc が受ける）。where-clause はそのまま持つ。
+     - 引数の属性：`#[prop(default = ..)]` 以外の属性を持つ引数は error `"a #[component] prop takes only #[prop(default = ..)]"`（span はその属性）。設計書 5.1 規則 10 の `#[caller] caller: Caller` は付属書 U の U25 がこの検査に `caller` を足して受ける（C09 の時点では error でよい。U25 の手順が parser を広げる）。
      - `phantom`：各型引数の ident が、どの prop の `written`（`Option` を外す前の型も含め、prop の型全体）の token にも現れなければ `phantom` に入れる。判定は `quote!(#ty).into_iter()` を再帰で辿り（`proc_macro2::TokenTree::Group` の中も）、`TokenTree::Ident` が型引数の ident と等しいものがあるか、で行う。
   4. `expand.rs` を全部書き直す。生成するものの形（`root` は手順 2 の path。以下 `R` と書く）：
      ```rust
@@ -1785,6 +1791,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      | View | `impl R::view::IntoView` | `R::view::View` | `R::view::IntoView::into_view(x)` | なし |
      | Children | `impl R::view::IntoChildren` | `Vec<R::view::View>` | `R::view::IntoChildren::into_views(x)` | なし |
      | ViewFn | `impl R::view::IntoViewFn<V_x>`（`V_x: R::view::IntoView` の generic。名前は `__KvV` + `upper_camel(name)`。4.8 節） | `R::view::ViewFn<()>` | `R::view::IntoViewFn::into_view_fn(x)` | なし |
+     | Param(C) | `C`（部品の型引数そのもの。`impl Into<C>` で包まない：包むと `field("Name", text_input(v))` の `C` が推論できない。scratchpad の rustc の試し（`p1.rs`・`p2.rs`）で、`control: C` は注釈なしで推論され、`control: impl Into<C>` は E0283 になることを確かめた） | `C` | `x` | なし |
      | Other(T) | `impl ::std::convert::Into<T>` | `T` | `::std::convert::Into::into(x)` | なし |
 
      - Optional（`Option<X>`）：field の型は `Option<保存の型>`、constructor では `None`、setter は上の入力型を取り `Some(保存の式)` を入れる、scope の中の変換は `x.map(|x| 変換の式)`（変換が無い kind は何もしない）。
@@ -1810,9 +1817,11 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          }
          ```
      - `Returns::IntoView` のとき：`__root` field、`node()` の初期化、`impl Element`、`absorb` を出さない。scope の最後は `__body`。
+     - `Callback0`・`Callback(E)` の props の `Callback::from_handler` は、scope の中で本体の statements の**前に**一度だけ呼ぶ（その部品の owner に一度だけ登録する。設計書 5.1 規則 7、12 章 API-15。子に渡すときまで遅らせることはしない）。上の生成の形の `let on_close = on_close.map(R::state::Callback::from_handler);` がそれで、`__body` の closure の前に置く。
+     - 呼出しの結果は保つ（12 章 API-14）：`Callback0` の保存は `IntoHandler::into_handler` の `Handler<()>`、`Callback(E)` の保存は `Handler::from_fn(f)`（`HandlerResult::into_outcome` で `Result<Handled, UiError>` にする）。本体に渡す `Callback<E>` は `Callback::from_handler` で同じ `Handler` を包み、本体が結果の要る所（子の `on_key` など）へ渡すときは `move |e| cb.invoke(e)`（付属書 R の `#[doc(hidden)] Callback::invoke(&self, e) -> Result<Handled, UiError>`）で呼ぶので、inline の closure と同じ `Handled` が返る。`Callback<()>` の props を子の `on_press` などへ渡すときは `IntoHandler<(), Handle> for Callback<()>`（R が `invoke` で実装）が結果を保つ。公開の `Callback::call(e)` は `()` を返す（利用者が手で転送する `move |e| cb.call(e)` は結果を捨てる。設計どおり）。4.1 節 R-REQ-15。
      - `mut` の prop は今までどおり scope の中で `#[allow(unused_mut)] let mut x = x;` を変換の後に出す。
      - 関数の statements は `(move || { #(#statements)* })()` の closure の中に置く（本体の `return` がこの closure から返るため）。
-     - API-18 の確認：認識した kind（Other 以外）の prop ごとに、`Prop.written` を左、`R` で名指した型（Text は `R::state::Value<String>`、Value(T) は `R::state::Value<T>`、Signal(T) は `R::state::Signal<T>`、Callback0 は `R::state::Callback<()>`、Callback(E) は `R::state::Callback<E>`、View は `R::view::View`、Children は `Vec<R::view::View>`、ViewFn は `R::view::ViewFn`）を右にした tuple を、上の `fn(..) -> .. = |written| written` の形で 1 つにまとめる。型が利用者の型引数を含むことがある（`Value<Vec<K>>`）ので、item の `const _` ではなく **constructor の本体の先頭** に `let _: fn(::std::marker::PhantomData<(..written..)>) -> ::std::marker::PhantomData<(..kivact..)> = |written| written;` として置く（constructor の中では型引数が見える）。tuple が空なら出さない。上の生成例の `const _` の形は型引数の無い部品の場合の見え方で、生成は常にこの `let _` の形にする。利用者が `Value` などを import していない、または別の `Value` 型を書いた場合、ここが型の不一致の error になる（API-18 の「foreign な型ははっきりした error で失敗」）。
+     - API-18 の確認：認識した kind（Other と Param 以外。Param は利用者の型引数そのもので、確かめる Kivact の型が無い）の prop ごとに、`Prop.written` を左、`R` で名指した型（Text は `R::state::Value<String>`、Value(T) は `R::state::Value<T>`、Signal(T) は `R::state::Signal<T>`、Callback0 は `R::state::Callback<()>`、Callback(E) は `R::state::Callback<E>`、View は `R::view::View`、Children は `Vec<R::view::View>`、ViewFn は `R::view::ViewFn`）を右にした tuple を、上の `fn(..) -> .. = |written| written` の形で 1 つにまとめる。型が利用者の型引数を含むことがある（`Value<Vec<K>>`）ので、item の `const _` ではなく **constructor の本体の先頭** に `let _: fn(::std::marker::PhantomData<(..written..)>) -> ::std::marker::PhantomData<(..kivact..)> = |written| written;` として置く（constructor の中では型引数が見える）。tuple が空なら出さない。上の生成例の `const _` の形は型引数の無い部品の場合の見え方で、生成は常にこの `let _` の形にする。利用者が `Value` などを import していない、または別の `Value` 型を書いた場合、ここが型の不一致の error になる（API-18 の「foreign な型ははっきりした error で失敗」）。
      - `#[track_caller]`、`docs`、`attrs`、`deprecated` の付け方は今の `expand.rs` のまま（constructor に `attrs`・`deprecated`・`docs`、生成する各 item に `attrs`）。
      - 1 関数 80 行の上限があるので、`expand.rs` は `field`、`constructor`、`setter`、`element_impl`、`into_view`、`check`、`input_type`、`keep_type`、`store`、`convert` の関数に分ける。1000 行を超えるなら `expand/kinds.rs`（kind の表）と `expand.rs`（組立て）の 2 ファイルにする。
   5. `#[derive(Prop)]`（API-06）：`lib.rs` に足す。
@@ -1827,7 +1836,11 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
              Err(error) => return error.to_compile_error().into(),
          };
          let name = &input.ident;
-         let (impl_generics, ty_generics, where_clause) = input.generics.split_for_impl();
+         // Keep the type's own where-clause and add `Self: 'static` (a prop value
+         // lives in the App's arena; 12 章 API-6).
+         let mut generics = input.generics.clone();
+         generics.make_where_clause().predicates.push(syn::parse_quote!(Self: 'static));
+         let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
          quote! {
              impl #impl_generics #root::state::IntoValue<#name #ty_generics> for #name #ty_generics #where_clause {
                  fn into_prop(self) -> #root::custom::Prop<#name #ty_generics> {
@@ -1838,6 +1851,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          .into()
      }
      ```
+     （`where Self: 'static` を足した形が generic の struct で compile することは scratchpad の `p1.rs`（`impl<T: Clone> IntoValue<Pair<T>> for Pair<T> where T: PartialEq, Self: 'static`）で確かめた。）
      `lib.rs` の `component` の doc を「Required arguments are positional; `Option<..>` arguments and `#[prop(default = ..)]` arguments are setters. Return `impl Element` to let callers style the component.」にする。`mod root;` を足す。
   6. `Node::absorb`（core）：`crates/kivact-core/src/view/elements/builders.rs` の `impl Node` に足す。
      ```rust
@@ -1860,7 +1874,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      `resolve_modifiers` が `Modifier::Caller` の段を順に `apply_caller` で重ねる（style の層は後ろに、handler は `merge_caller` が前に、semantic patch は後のものが勝つ）ので、規則 2 の順になる。`Modifier` を `pub(crate)` から見えるように（既に `pub(crate)`）。
   7. `scope` を `kivact::custom` へ（5.1 規則 8）：`crates/kivact-core/src/view.rs` の `pub use boundary::{ReadingDirection, provide_direction, scope, use_direction};` から `scope,` を消す。`crates/kivact-core/src/custom.rs` に `pub use crate::view::boundary::scope;` を足す。利用者の掃引：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l "view::\{[^}]*\bscope\b|view::scope\b" crates dev examples templates --type rust | xargs perl -0pi -e 's/view::scope\b/custom::scope/g'
      rg -n "\bscope\(" crates/kivact-ui-soft examples dev templates --type rust
      ```
@@ -1869,7 +1883,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      - `crates/kivact-ui/Cargo.toml` と `crates/kivact-interaction/Cargo.toml` の `[dependencies]` に `kivact-macros = { path = "../kivact-macros", version = "0.1.0" }` を足す（ui・interaction の `#[derive(Prop)]` と、付属書 U の W7〜W8 の `#[component]` のため）。`dev/xtask/policy/workspace.toml` の `kivact-macros = ["kivact"]` を `kivact-macros = ["kivact", "kivact-ui", "kivact-interaction"]` にする。
      - 置換の対象：
        ```sh
-       cd /w/w/kivact
+       ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
        rg -n "constant_value!" crates/kivact-interaction crates/kivact-ui crates/kivact-ui-basic crates/kivact-ui-pop crates/kivact-ui-game crates/kivact-ui-creative crates/kivact-ui-soft examples dev templates --type rust
        ```
        （約 62 か所。付属書 R の 4.7 節の場所、すなわち runtime・i18n・style・core は対象外。）各呼出し `…::constant_value!(A, B, ..);` について、型 `A`・`B` .. の定義（`rg -n "pub(\(crate\))? (enum|struct) A\b" <その crate>/src`）の `#[derive(..)]` に `Prop` を足し、呼出しの文を消す。derive の import：kivact-ui・kivact-interaction は `use kivact_macros::Prop;`、kit・例・試験は `use kivact::Prop;`（prelude を使うファイルは C18 の後 prelude に入るが、この unit では明示の `use` を足す）。型の定義が別の crate にある場合（orphan の規則で derive を足せない）は STOP する。
@@ -1877,15 +1891,14 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   9. API-07：`crates/kivact-core/src/lib.rs` の module doc の「created by the setup functions (`signal`, `memo`, `effect`, ... like Solid's `createSignal`, `createMemo`, `createEffect`) or by `Type::new`.」から「 or by `Type::new`」を消す。`crates/kivact-core/src/view/element_data.rs` の `Element::style` の doc の例 `.style(move || { let t = &use_theme(); style().padding(t.space().md) })` を `.style(move || use_theme().with(|t| style().padding(t.space().md)))` にする（付属書 S が W6 で theme 変数の例に書き換える）。
   9b. 手書きの `impl Element`・`impl IntoView` を `view` module だけにする（設計書 6.3、xtask の `hand-element` 検査。INC-14）：`crates/kivact-core/src/custom/measured_leaf.rs` の `Primitive`（`impl Element for Primitive`・`impl IntoView for Primitive`）は `custom` にある唯一の手書きの要素。
      ```sh
-     cd /w/w/kivact/crates/kivact-core/src
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-core/src" || exit 1
      git mv custom/measured_leaf.rs view/measured_leaf.rs
      ```
      - `view/measured_leaf.rs` の `use super::measurement::{Constraints, Measurement, constraints, sanitize};` を `use crate::custom::measurement::{Constraints, Measurement, constraints, sanitize};` にする。`custom.rs` の `mod measurement;` を `pub(crate) mod measurement;` にする（`custom/measurement.rs` の `pub(super) fn constraints` と `pub(super) fn sanitize` を `pub(crate)` にする）。
      - `custom.rs` の `mod measured_leaf;` を消し、`pub use measured_leaf::{Primitive, primitive};` を `pub use crate::view::measured_leaf::{Primitive, primitive};` にする。`view.rs` に `pub(crate) mod measured_leaf;` を足す（`kivact::view` から再公開はしない。公開の path は `kivact::custom::{Primitive, primitive}` のまま）。
-     - `custom.rs` の module doc の「The E2E test is `dev/tests/kivact-public-api/tests/e2e/primitive.rs`.」の path を `dev/tests/kivact-public-api/tests/e2e_core/primitive.rs` にする。
   10. 利用者の移行：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l "#\[prop\(optional\)\]" examples templates dev crates --type rust | xargs perl -pi -e 's/#\[prop\(optional\)\]\s*//g'
      ```
      - `dev/tests/kivact-public-api/tests/*/component_macro.rs`：payload のある `Callback<E>` の props は closure だけを受ける（DEC-16）。`payload_callback_infers_the_argument`（`picker().on_pick(|n| ..)`）と `default_payload_callback_infers_the_argument` は closure の形のまま通る。`Callback<E>` の handle を payload の prop にそのまま渡している箇所（`rg -n "on_pick\(on_pick\)|\(on_[a-z_]+\)" dev/tests/kivact-public-api/tests/*/component_macro.rs` で探す）は `move |e| cb.call(e)` の形に書き換える（期待値は変えない）。`Callback<()>` の props は handle も closure も受ける。既存の 10 本の試験の期待値は変えない。`#[component] fn card(..) -> impl IntoView` のうち 1 つ（`card`）を `-> impl Element` にした新しい試験を足す（次の「試験」）。
@@ -1899,6 +1912,9 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   - `a_payload_callback_prop_infers_its_closure_parameter_in_a_generic_component`：下の `choice` の `on_pick(move |k| log.update(|l| l.push(k)))`（`k` の型を書かない）が compile し、「2」を押すと `log == [2]`（DEC-16 の推論を型引数の上でも確かめる）。
   - `a_generic_component_takes_its_type_parameter_from_its_props`：`#[component] fn choice<K: Clone + PartialEq + std::fmt::Display>(items: Value<Vec<K>>, value: Signal<Option<K>>, on_pick: Option<Callback<K>>) -> impl Element`（本体は items を `for_each` で button にし、押すと `value.set(Some(k))` と `on_pick` を呼ぶ）を `choice(vec![1u32, 2, 3], picked).on_pick(move |k: u32| log.update(|l| l.push(k)))` で mount し、"2" を押すと `picked == Some(2)`、`log == [2]`。`K` は props から推論される（turbofish なし）。
   - `a_type_parameter_no_prop_names_is_kept_in_a_phantom_field`：`#[component] fn zero_of<T: Default + std::fmt::Display + Clone + PartialEq>(label: Value<String>) -> impl Element { let v = signal(T::default()); text(move || format!("{} {}", label.get(), v.get())) }` を `zero_of::<u8>("n")` で mount し、text が `"n 0"`。（callback と `ViewFn` の props が無い部品なので turbofish が書ける。4.8 節。）
+  - `a_component_taking_its_type_parameter_as_a_prop_infers_it`（12 章 API-1）：`#[component] fn labelled<C: Element>(label: Value<String>, control: C) -> impl Element { column((text(label), control)) }` を `labelled("Name", button("Go"))`（`C = Button`）と `labelled("Box", node().test_id("n"))`（`C = Node`）で mount する（型注釈なし。設計書 5.1 規則 3 の `field("Name", text_input(v))` と同じ形）。button と node が label の下に出る。
+  - `a_callback_prop_keeps_the_handled_result`（12 章 API-14。props の経路を確かめる。手で転送する `call` は試さない）：`#[component] fn keys(on_key_prop: Callback<KeyEvent>) -> impl Element { node().focusable(true).test_id("k").on_key(move |e| on_key_prop.invoke(e)) }` を、`.on_key(move |_| { parent_saw.set(true); Handled::No })` を持つ column の中に置く。(a) `keys(|_| Handled::Yes)`："k" に focus して Enter を押すと `parent_saw == false`。(b) `keys(|_| Handled::No)`：`true`。(c) `Callback<()>` の prop：`#[component] fn press_through(on_go: Callback<()>) -> impl Element { node().focusable(true).test_id("p").on_key(move |_| on_go.invoke(())) }` に共有の `let go = callback(|_: ()| Handled::Yes);` を `press_through(go)` で渡し、"p" で Enter を押すと `parent_saw == false`（共有の `Callback<()>` の props の経路でも `Handled` が保たれる）。
+  - `derive_prop_on_a_generic_type`（12 章 API-6）：`#[derive(Clone, Debug, PartialEq, Prop)] struct Pair<T: Clone + PartialEq + std::fmt::Debug> where T: Default { a: T }` を `#[component] fn shows_pair(pair: Value<Pair<u8>>) -> impl Element { text(move || format!("{}", pair.get().a)) }` に定数 `Pair { a: 7 }` で渡して `"7"`。
   - `a_generic_component_with_a_where_clause`：`#[component] fn shown<T>(value: Value<T>) -> impl Element where T: Clone + PartialEq + std::fmt::Display { text(move || value.get().to_string()) }` を `shown(3.5f64)` と `shown(move || n.get())`（`n: Signal<i32>`）で mount し、`"3.5"` と `n` の値が出て、`n.set(..)` で変わる。
 - **確認（tier a）**：
   ```sh
@@ -1911,7 +1927,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- component_macro
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --doc
   ```
-- **完了条件**：`rg -n "prop\(optional\)" crates dev examples templates` が 0 件（`kivact-macros` の error の文言を除く）。`rg -n "::kivact::" crates/kivact-macros/src` が 0 件（`#root` を使う）。`rg -n "pub use boundary::\{[^}]*scope" crates/kivact-core/src/view.rs` が 0 件。
+- **完了条件**：`rg -n "prop\(optional\)" crates dev examples templates` が 0 件（`kivact-macros` の error の文言を除く）。`rg -n "::kivact::" crates/kivact-macros/src` が 0 件（`#root` を使う）。`rg -n "pub use boundary::\{[^}]*scope" crates/kivact-core/src/view.rs` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C10：`Element::variant` と `Variant`・`Variants` を core に置く
 
@@ -2047,7 +2063,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- components
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_
   ```
-- **完了条件**：`rg -n "pub trait Variant" crates` が `kivact-core/src/view/variant.rs` の 1 件だけ。
+- **完了条件**：`rg -n "pub trait Variant" crates` が `kivact-core/src/view/variant.rs` の 1 件だけ。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C11：`App` を唯一の builder にし（`!Clone`）、launch の内部を隠し、GPU の希望の型を `platform` へ
 
@@ -2179,7 +2195,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      pub mod __test {
          //! Role: The launch contract kivact-test drives; not an App API.
          pub use crate::launch::{Inspect, LaunchHandle, LaunchPolicy};
-         pub use crate::app::test_launch::{app_theme_fonts, check_window_sizes, host_options, launch, retitle, window_title};
+         pub use crate::app::test_launch::{app_theme_has_fonts, check_window_sizes, host_options, launch, retitle, window_title};
      }
      ```
      （`internal-contract` の印は C08 の手順 7 と同じ規則で付けるか決める。）`app.rs` の末尾に：
@@ -2201,11 +2217,11 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          #[track_caller]
          pub fn check_window_sizes(app: &App) -> crate::Result<()> { app.check_window_sizes() }
          pub fn retitle(app: App, title: impl Into<String>) -> App { app.retitle(title) }
-         /// The fonts of the App's theme when it is fixed (C14 fills it).
-         pub fn app_theme_fonts(app: &App) -> Vec<&'static [u8]> { let _ = app; Vec::new() }
+         /// Whether the App's fixed theme carries fonts (C14 fills it).
+         pub fn app_theme_has_fonts(app: &App) -> bool { let _ = app; false }
      }
      ```
-     （`app_theme_fonts` は C14 で本体を書く。この unit では空を返す。）
+     （`app_theme_has_fonts` は C14 で本体を書く。この unit では `false` を返す。）
   7. `App::run`：
      ```rust
      #[track_caller]
@@ -2243,7 +2259,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   9. facade：`crates/kivact/src/launch.rs` を消し、`lib.rs` の `/// What an App wishes ...` と `pub mod launch;` を消す。
   10. kivact-test：
      ```sh
-     cd /w/w/kivact/crates/kivact-test
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates/kivact-test" || exit 1
      rg -l "kivact_core::launch::" src | xargs perl -pi -e 's/kivact_core::launch::\{?Inspect\}?/kivact_core::__test::Inspect/g; s/kivact_core::launch::\{Inspect, LaunchHandle\}/kivact_core::__test::{Inspect, LaunchHandle}/g; s/kivact_core::launch::GpuPreference/kivact_core::platform::GpuPreference/g'
      ```
      - `options.rs`：`RenderOptions` の `#[derive(Clone)]` を消す。`app: kivact_core::launch::AppOptions` を `app: kivact_core::App` にし、`devtools: bool` field を足す（`Default` で `false`、`pub fn devtools(mut self) -> Self { self.devtools = true; self }`）。`AppOptions::new(..)` を `kivact_core::App::new(..)`、`self.app.title(title)` を `kivact_core::__test::retitle(self.app, title)`、`app.check_window_sizes()` を `kivact_core::__test::check_window_sizes(&app)`、`app.window_title()` を `kivact_core::__test::window_title(&app)`、`app.host_options()` を `kivact_core::__test::host_options(&app)` にする。`into_host` は `(kivact_core::App, bool /*devtools*/, TestHostOptions)` を返す。`Debug` の `self.app.window_title()` なども同じく直す。
@@ -2251,7 +2267,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      - `kivact-test` の中の `ClientMode::Window` と `Launch::new(AppOptions::new(..), ..)` を使う自己試験（`rg -n "ClientMode|AppOptions" crates/kivact-test dev/tests` で見つかる箇所。W1 で `dev/tests` へ移っていればそこ）は `kivact_core::__test::launch(kivact_core::App::new(..), kivact_core::__test::LaunchPolicy::plain_window(), ..)` にする。
   11. GPU の型の呼出し元：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l "kivact::launch::" crates dev examples templates --type rust | xargs perl -pi -e 's/kivact::launch::/kivact::platform::/g'
      rg -l "crate::launch::Gpu" crates/kivact-core | xargs perl -pi -e 's/crate::launch::Gpu/crate::platform::Gpu/g'
      ```
@@ -2267,7 +2283,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- app_handle launch_window launch_platform
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed,devtools --test e2e_native -- embed devtools
   ```
-- **完了条件**：`rg -nw "AppOptions|ClientMode|TestTiming|devtools_in_tests" crates dev examples templates` が 0 件。`rg -n "kivact::launch|pub mod launch" crates dev examples templates` が 0 件。`rg -n "derive\(Clone\)\]\s*pub struct App\b" crates/kivact-core` が 0 件。
+- **完了条件**：`rg -nw "AppOptions|ClientMode|TestTiming|devtools_in_tests" crates dev examples templates` が 0 件。`rg -n "kivact::launch|pub mod launch" crates dev examples templates` が 0 件。`rg -n "derive\(Clone\)\]\s*pub struct App\b" crates/kivact-core` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C12：`on_close_request` を呼んだ owner の window に効かせ、終了の経路を一つにする
 
@@ -2377,12 +2393,13 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   - `a_close_request_handler_in_a_window_keeps_only_that_window_open`：main の root と `window("Editor", open).content(|| { on_close_request(|| Handled::Yes); text("editor") })` を mount。`screen.window("Editor").request_close()` が `false` で window は開いたまま、`screen.request_close()`（main）は App を終える（main には handler が無い）。
   - `a_window_close_handler_that_allows_runs_the_dismiss_handler`：window の中の `on_close_request(|| Handled::No)` と `.on_dismiss(|_| Handled::PreventDefault)`：`request_close()` は `false`（dismiss が止める）。`on_close_request(|| ())` と `.on_dismiss(|_| ())`：`true` で閉じる。
   - `on_close_request_outside_setup_is_a_setup_only_error`：button の `on_press` の中で `on_close_request(|| ())` を呼ぶと、`screen.errors()` に `SetupOnly` の error が 1 つ（位置は呼んだ行）。
+  - `close_request_handled_is_the_same_inline_shared_and_through_a_prop`（`e2e_core` の `close_request.rs`。T15 で `close_request` は `e2e_core`。12 章 API-14 の window の経路。R-REQ-16）：三つの window をそれぞれ `window(..).content(..)` で開き、content の setup で (a) `on_close_request(|| Handled::Yes)`（inline）、(b) `let keep = callback(move |_: ()| Handled::Yes); on_close_request(keep);`（共有の `Callback<()>`）、(c) `#[component] fn guard(on_close: Callback<()>) -> impl IntoView { on_close_request(on_close); text("guard") }` を `guard(|| Handled::Yes)` で置く（`#[component]` の `Callback<()>` の prop を通す）。三つとも `screen.window(..).request_close()` が `false` で window が開いたまま。同じ形で `Handled::No` を返す三つは `true` で閉じる。
 - **確認（tier a）**：4.6 節の `W5_CHECK` と：
   ```sh
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- close_request windows app_handle
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed --test foreign_window_run
   ```
-- **完了条件**：`rg -n "CloseRequestState|keeps_main_open" crates` が 0 件。`rg -n "request_exit\(\)" crates/kivact-core/src` が `begin_exit` の 1 件だけ。
+- **完了条件**：`rg -n "CloseRequestState|keeps_main_open" crates` が 0 件。`rg -n "request_exit\(\)" crates/kivact-core/src` が `begin_exit` の 1 件だけ。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C13：embed を全 OS で compile、停止は `EmbedNotice::Stopped(EmbedStatus)`、`EmbedVisibility`
 
@@ -2392,7 +2409,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 - **手順**：
   1. 改名（型を kivact-types で改名し、使う全ファイルを直す）：
      ```sh
-     cd /w/w/kivact/crates
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT/crates" || exit 1
      perl -pi -e 's/\bpub enum Visibility\b/pub enum EmbedVisibility/; s/\bVisibility\b/EmbedVisibility/g' kivact-types/src/embed.rs
      FILES="kivact-core/src/embed.rs kivact-core/src/embed/embedded.rs kivact-core/src/embed/parent.rs kivact-engine/src/embed.rs arvane/src/embed.rs arvane-shell/src/child.rs arvane-native/src/port/embed/child.rs arvane-native/src/port/embed/resize.rs arvane-native/src/port/embed/surface.rs arvane-native/src/port/win32/create.rs arvane-native/src/port/win32/window.rs arvane-native/src/port/x11/conn.rs arvane-native/src/port/x11/test_parent.rs arvane-native/src/port/x11/thread.rs arvane-native/src/port/x11/window.rs"
      for f in $FILES; do rg -q "\bVisibility\b" $f && perl -pi -e 's/embed::Visibility\b/embed::EmbedVisibility/g; s/\bVisibility::(Shown|Hidden)\b/EmbedVisibility::$1/g' $f; done
@@ -2508,32 +2525,33 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo test -p arvane-shell
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features embed --test e2e_native -- embed
   ```
-- **完了条件**：`rg -n "embed::Visibility\b|EmbedNotice::Stopped\b[^(]" crates dev` が 0 件。`rg -n "ErrorKind::Platform, error.message" crates/kivact-core/src/embed` が 0 件。
+- **完了条件**：`rg -n "embed::Visibility\b|EmbedNotice::Stopped\b[^(]" crates dev` が 0 件。`rg -n "ErrorKind::Platform, error.message" crates/kivact-core/src/embed` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C14：font は theme が持つ（`App::font`・`App::fonts`・`TestFonts::Only` を消す）
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C13、付属書 S の S09（W2a。`Theme::with_fonts`・`Theme::fonts`。4.3 節 S-REQ-1）
 - **所有**：`crates/kivact-core/src/{app.rs,launch/settings.rs,launch/runtime.rs,view/root.rs,view/boundary.rs,view/state.rs,view/requests.rs,platform/env.rs}`、`crates/kivact-test/src/{options.rs,lib.rs,render.rs,screen/driver.rs,screen/gpu_tests.rs}`（`gpu_tests.rs` は W1 で `dev/tests` へ移っていればその path）、`crates/kivact-types/src/asset.rs`（doc の例 1 行）、`App::font`・`App::fonts` の呼出し元（`crates/kivact-devtools/src/main.rs`、`examples/kivact-ui-{basic,pop,game,soft,creative}/src/main.rs`）、`RenderOptions::font` と `TestFonts::Only` の呼出し元（`examples/kivact-ui-*/tests/*.rs`、`dev/tests/kivact-kit-tests/tests/e2e_kits/theme_conformance.rs`、`dev/tests/kivact-public-api/tests/*/{text_style.rs,offscreen.rs,text_effects.rs,images_animated.rs,launch_fonts.rs}`）（呼出し元の `dev/` は `dev/tests/kivact-public-api`・`dev/tests/kivact-kit-tests`・`dev/tests/gpu-interop-producer`・`dev/bench` を含む。W5 では kit・catalog・`kivact-kit-tests` も compile するので直す。INC-33）
-- **目的**：USR-12、設計書 5.6。font は theme が持つ：`Theme::with_fonts(&'static [&'static [u8]])` の font を、`App::theme(t)`・`provide_theme(..)`・`kivact::test::RenderOptions::{with_theme, theme}` が登録する。`App::font`・`App::fonts`・`RenderOptions::font`・`TestFonts::Only` を消す。
+- **目的**：USR-12、設計書 5.6。font は theme が持つ（12 章 API-13）：`Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)` の `Asset`（path・`Vec<u8>`・共有 bytes・static bytes。`'static` は要らない）を theme が持ち、その font を、`App::theme(t)`・`provide_theme(..)`・`kivact::test::RenderOptions::{with_theme, theme}` が登録する。`App::font`・`App::fonts`・`RenderOptions::font`・`TestFonts::Only` を消す。
 - **手順**：
   1. 登録の一か所：`view/requests.rs` に：
      ```rust
-     /// Register the fonts of `theme` the App has not registered yet (by the
-     /// address of their bytes), located at `at`. The first layout after this
-     /// call sees them (the engine registers a font when it is written). A file
-     /// that is not a usable font is reported as `ErrorKind::Asset` at `at`.
+     /// Register the fonts of `theme` the App has not registered yet (by asset
+     /// identity: the path, the static address and length, or the shared
+     /// allocation), located at `at`. The first layout after this call sees
+     /// them (the engine registers a font when it is written). A file that is
+     /// not a usable font is reported as `ErrorKind::Asset` at `at`.
      pub(crate) fn register_theme_fonts(rt: &Runtime, theme: &kivact_style::Theme, at: &'static Location<'static>) {
-         let fonts: Vec<&'static [u8]> = {
+         let fonts: Vec<Asset> = {
              let mut seen = ViewState::of(rt).registered_fonts.borrow_mut();
-             theme.fonts().iter().copied().filter(|bytes| seen.insert(bytes.as_ptr() as usize)).collect()
+             theme.fonts().iter().filter(|asset| seen.insert((*asset).clone())).cloned().collect()
          };
-         for bytes in fonts {
+         for font in fonts {
              let waiter = Waiter::Report { owner: None, at, failed: ErrorKind::Asset };
-             request_effect(rt, HostRequest::RegisterFont(Asset::from(bytes)), waiter);
+             request_effect(rt, HostRequest::RegisterFont(font), waiter);
          }
      }
      ```
-     `register_app_fonts` を消す（その本体はここに入った）。`ViewState` に `pub(crate) registered_fonts: RefCell<std::collections::HashSet<usize>>,`（doc：`/// The fonts of themes already registered, by the address of their bytes.`）を足す。`Asset::from(&'static [u8])` が無い場合は `Asset::Static(bytes)`（`kivact_style::asset::Asset` の variant）。
+     `register_app_fonts` を消す（その本体はここに入った）。`ViewState` に `pub(crate) registered_fonts: RefCell<std::collections::HashSet<Asset>>,`（doc：`/// The theme fonts already registered, by asset identity.`）を足す（`Asset` は `Eq + Hash` で、等しさは同一性：path、static の address と長さ、共有の allocation）。
   2. App の theme：
      - `app.rs` の `App::theme` に `#[track_caller]` を付ける。`launch/settings.rs` の `AppSettings` に `pub(crate) theme_at: &'static Location<'static>,` を足し（`App::new` に `#[track_caller]` を付けて `Location::caller()`、`App::theme` で `Location::caller()` に上書き）、`AppSettings.fonts: Vec<(Asset, &'static Location<'static>)>` を消す。
      - `launch/runtime.rs` の `start_mount` の `requests::register_app_fonts(rt, std::mem::take(&mut options.settings.fonts));` と、その上の comment 2 行を消す。
@@ -2562,27 +2580,28 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      }
      ```
      （`owner.effect(kind, f, at)` は `window_view.rs` が使う既存の runtime の API。）呼出し元（`provide_theme` と `install_app_contexts`）に `at` を渡す（`provide_theme` は自分の `Location::caller()`、root は `theme_at`）。登録済みの font は手順 1 が飛ばすので、固定の theme の二重登録は起きない。
-  4. `App::font` と `App::fonts` を消す（`app.rs`。C11 で `AppOptions` から `App` に移った 2 つの method）。doc の参照を直す：`platform/env.rs` の `font_families` の doc の `[`crate::App::font`]` を `` `Theme::with_fonts` ``、`view/requests.rs` の「Register the App's fonts (`App::font`)」の doc は手順 1 で消える、`crates/kivact-types/src/asset.rs` の doc の例 `App::new("Editor").font(include_bytes!(..));` を `Theme::default().with_fonts(&[include_bytes!(..)]);` の説明に替えるのではなく、`Asset` の例として `Asset::from(&include_bytes!("../assets/Inter-Regular.ttf")[..])` の 1 行にする。呼出し元：
-     - `crates/kivact-devtools/src/main.rs` の `.fonts(kivact_devtools::fonts::fonts().iter().copied())` を消し、その App の `.theme(X)` の `X` を `X.with_fonts(kivact_devtools::fonts::fonts())` にする（`.theme(..)` が無ければ `.theme(kivact::style::Theme::default().with_fonts(kivact_devtools::fonts::fonts()))` を足す）。
-     - `examples/kivact-ui-basic/src/main.rs`、`examples/kivact-ui-pop/src/main.rs`、`examples/kivact-ui-game/src/main.rs`（`.fonts(fonts().iter().copied())`）と `examples/kivact-ui-soft/src/main.rs`、`examples/kivact-ui-creative/src/main.rs`（`for &font in fonts() { app = app.font(font); }` の loop）も同じ形にする（`fonts()` は各 crate の `fonts.rs` の `-> &'static [&'static [u8]]`。loop と `let mut app` の `mut` を消す）。
+  4. `App::font` と `App::fonts` を消す（`app.rs`。C11 で `AppOptions` から `App` に移った 2 つの method）。doc の参照を直す：`platform/env.rs` の `font_families` の doc の `[`crate::App::font`]` を `` `Theme::with_fonts` ``、`view/requests.rs` の「Register the App's fonts (`App::font`)」の doc は手順 1 で消える、`crates/kivact-types/src/asset.rs` の doc の例 `App::new("Editor").font(include_bytes!(..));` を `Theme::default().with_fonts([include_bytes!("../assets/Inter-Regular.ttf")]);` にする。呼出し元：
+     - `crates/kivact-devtools/src/main.rs` の `.fonts(kivact_devtools::fonts::fonts().iter().copied())` を消し、その App の `.theme(X)` の `X` を `X.with_fonts(kivact_devtools::fonts::fonts().iter().copied())` にする（`.theme(..)` が無ければ `.theme(kivact::style::Theme::default().with_fonts(kivact_devtools::fonts::fonts().iter().copied()))` を足す。`&'static [u8]` は `Into<Asset>`）。
+     - `examples/kivact-ui-basic/src/main.rs`、`examples/kivact-ui-pop/src/main.rs`、`examples/kivact-ui-game/src/main.rs`（`.fonts(fonts().iter().copied())`）と `examples/kivact-ui-soft/src/main.rs`、`examples/kivact-ui-creative/src/main.rs`（`for &font in fonts() { app = app.font(font); }` の loop）も同じ形にする（`fonts()` は各 crate の `fonts.rs` の `-> &'static [&'static [u8]]` なので `.with_fonts(fonts().iter().copied())`。loop と `let mut app` の `mut` を消す）。
   5. kivact-test：
      - `options.rs`：`RenderOptions::font` を消す。`TestFonts::Only` を消す（`#[default] Bundled` と `System` が残る）。`RenderOptions::theme` と `RenderOptions::with_theme` に `#[track_caller]` を付ける（登録の失敗が利用者の試験の行に located になる）。
-     - `into_host(self, fonts: Vec<(Asset, &Location)>)` の引数 `fonts` と、`for (font, _) in fonts { app = app.font(font); }` を消す。App の theme が font を持ち（`!kivact_core::__test::app_theme_fonts(&app).is_empty()`）`self.fonts` が `Bundled` のとき、engine の test host の font を `kivact_engine::testing::TestFonts::Only(Vec::new())`（font の無い host）にする。theme の font は App が最初の layout の前に登録する（手順 2）ので、旧 `TestFonts::Only(fonts)` と同じく theme の font だけで形を作る。壊れた font を host の作成に渡さないので、host の作成は失敗しない。`System` のときは `System` のまま。
+     - `into_host(self, fonts: Vec<(Asset, &Location)>)` の引数 `fonts` と、`for (font, _) in fonts { app = app.font(font); }` を消す。App の theme が font を持ち（`kivact_core::__test::app_theme_has_fonts(&app)`）`self.fonts` が `Bundled` のとき、engine の test host の font を `kivact_engine::testing::TestFonts::Only(Vec::new())`（font の無い host）にする。theme の font は App が最初の layout の前に登録する（手順 2）ので、旧 `TestFonts::Only(fonts)` と同じく theme の font だけで形を作る。壊れた font を host の作成に渡さないので、host の作成は失敗しない。`System` のときは `System` のまま。
      - `screen/driver.rs` の `Screen::start(options, fonts, root, at)` の引数 `fonts` を消し、`render.rs` の `Screen::start(options, Vec::new(), ..)` と `gpu_tests.rs` の 3 か所の `Screen::start(options, Vec::new(), ..)` から `Vec::new(),` を消す。
-     - C11 の `app_theme_fonts` の本体：
+     - C11 の `app_theme_has_fonts` の本体を次にする：
        ```rust
-       pub fn app_theme_fonts(app: &App) -> Vec<&'static [u8]> {
-           app.theme.fixed().map(|theme| theme.fonts().to_vec()).unwrap_or_default()
+       /// Whether the App's fixed theme carries fonts (the test host then starts without any).
+       pub fn app_theme_has_fonts(app: &App) -> bool {
+           app.theme.fixed().is_some_and(|theme| !theme.fonts().is_empty())
        }
        ```
      - engine の `kivact_engine::testing::TestFonts::Only` は engine の試験の API として残す（kivact-test の公開から消えるだけ）。`lib.rs` の doc の「with `TestFonts::Only` (the bundled font has no CJK)」を「with a theme that has the fonts (`Theme::with_fonts`)」にする。
   6. `TestFonts::Only` と `RenderOptions::font` の呼出し元：
-     - 形 A：`RenderOptions::with_theme(T)` … `.fonts(TestFonts::Only(fonts().iter().map(|&bytes| bytes.into()).collect()))` → `RenderOptions::with_theme(T.with_fonts(fonts()))` にし `.fonts(..)` を消す。
-     - 形 B：`RenderOptions::from_env().fonts(TestFonts::Only(fonts()...))` → `RenderOptions::from_env().theme(kivact::style::Theme::default().with_fonts(fonts()))`。同じ式に `.theme(T)` が既にあれば `T.with_fonts(fonts())` にする。
-     - 形 C：`.fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))`（`text_style.rs`、`theme_conformance.rs`、`offscreen.rs`）と `.font(Asset::from(INTER))`（`text_effects.rs`、`images_animated.rs`）→ ファイルの先頭に `static INTER_FONTS: &[&[u8]] = &[INTER];`（`TUFFY` は `TUFFY_FONTS`）を足し、形 B と同じく theme に `.with_fonts(INTER_FONTS)` を付ける。
+     - 形 A：`RenderOptions::with_theme(T)` … `.fonts(TestFonts::Only(fonts().iter().map(|&bytes| bytes.into()).collect()))` → `RenderOptions::with_theme(T.with_fonts(fonts().iter().copied()))` にし `.fonts(..)` を消す。
+     - 形 B：`RenderOptions::from_env().fonts(TestFonts::Only(fonts()...))` → `RenderOptions::from_env().theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied()))`。同じ式に `.theme(T)` が既にあれば `T.with_fonts(fonts().iter().copied())` にする。
+     - 形 C：`.fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))`（`text_style.rs`、`theme_conformance.rs`、`offscreen.rs`）と `.font(Asset::from(INTER))`（`text_effects.rs`、`images_animated.rs`）→ 形 B と同じく theme に `.with_fonts([INTER])` を付ける（`TUFFY` は `[TUFFY]`）。
      - `use kivact::test::{.., TestFonts, ..}` と `use kivact::view::Asset` の未使用の import を消す。
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -n "TestFonts::Only|RenderOptions::[a-z_]+\(\)[^;]*\.font\(|\.font\(Asset|app\.font\(|\.fonts\(fonts" crates dev examples templates --type rust
      ```
      が 0 件になるまで直す（engine の `testing` の中を除く）。
@@ -2591,18 +2610,20 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
        ```rust
        /// A screen whose App theme carries `fonts`.
        #[track_caller]
-       fn screen<V: IntoView>(fonts: &'static [&'static [u8]], root: impl FnOnce() -> V + 'static) -> Screen {
+       fn screen<V: IntoView>(fonts: Vec<Asset>, root: impl FnOnce() -> V + 'static) -> Screen {
            kivact::test::render_with(RenderOptions::default().theme(Theme::default().with_fonts(fonts)), root)
        }
-       static TUFFY_FONTS: &[&[u8]] = &[TUFFY];
-       static NOT_A_FONT: &[&[u8]] = &[b"wOFF\0\x01\0\0"];
+       static NOT_A_FONT: &[u8] = b"wOFF\0\x01\0\0";
+       /// Tuffy's file in the repository (the same bytes as `TUFFY`).
+       const TUFFY_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../crates/arvane/assets/fonts/Tuffy.ttf");
        ```
-     - `app_fonts_register_before_the_first_layout` → `theme_fonts_register_before_the_first_layout`：`screen(TUFFY_FONTS, root)` と `screen(&[], root)` で、旧と同じ 3 つの assert（`with` に asset の error なし、`without` に 1 つ、幅が違う）。
-     - `a_rejected_app_font_is_located_at_its_call` → `a_rejected_theme_font_is_located_at_the_theme_call`：`let line = line!() + 1; let s = screen(NOT_A_FONT, || text("x"));` の後、旧と同じ 3 つの assert（error が 1 つ、"TTF or OTF" を含む、location の行が `line`）。`screen` は `#[track_caller]`、`RenderOptions::theme` と `App::theme` も `#[track_caller]` なので、位置は試験の行になる。
-     - 新しい試験 `a_switched_theme_registers_its_fonts`：`let theme = signal(Theme::default());` で `provide_theme(theme, || text("WWWW").test_id("t").style(style().font_family("Tuffy")))` を mount し、`platform::font_families()` に `"Tuffy"` が無い。`theme.set(Theme::default().with_fonts(TUFFY_FONTS))` と `run_until_idle` の後に現れ、幅が変わる。
+     - `app_fonts_register_before_the_first_layout` → `theme_fonts_register_before_the_first_layout`：`screen(vec![Asset::from(TUFFY)], root)` と `screen(Vec::new(), root)` で、旧と同じ 3 つの assert（`with` に asset の error なし、`without` に 1 つ、幅が違う）。
+     - `a_rejected_app_font_is_located_at_its_call` → `a_rejected_theme_font_is_located_at_the_theme_call`：`let line = line!() + 1; let s = screen(vec![Asset::from(NOT_A_FONT)], || text("x"));` の後、旧と同じ 3 つの assert（error が 1 つ、"TTF or OTF" を含む、location の行が `line`）。`screen` は `#[track_caller]`、`RenderOptions::theme` と `App::theme` も `#[track_caller]` なので、位置は試験の行になる。
+     - 新しい試験 `a_switched_theme_registers_its_fonts`：`let theme = signal(Theme::default());` で `provide_theme(theme, || text("WWWW").test_id("t").style(style().font_family("Tuffy")))` を mount し、`platform::font_families()` に `"Tuffy"` が無い。`theme.set(Theme::default().with_fonts([TUFFY]))` と `run_until_idle` の後に現れ、幅が変わる。
+     - 新しい試験 `theme_fonts_from_owned_bytes_and_a_path_register`（12 章 API-13：`'static` でない font）：`screen(vec![Asset::from(std::fs::read(TUFFY_PATH).expect("the font file is readable"))], root)` と `screen(vec![Asset::from(std::path::PathBuf::from(TUFFY_PATH))], root)` の両方で、`theme_fonts_register_before_the_first_layout` と同じく asset の error が無く、`"Tuffy"` の text の幅が font なしの screen と違う。
 - **消すもの**：`App::font`、`App::fonts`、`AppSettings.fonts`、`register_app_fonts`、`RenderOptions::font`、`kivact::test::TestFonts::Only`、`Screen::start` の `fonts` 引数、`into_host` の `fonts` 引数、試験 `app_fonts_register_before_the_first_layout`・`a_rejected_app_font_is_located_at_its_call`（同じ契約の theme の試験に置き換え）。
 - **状態の閉じ方**：`ViewState.registered_fonts` は「見た」集合（単調に増える表。6.1 の対象の型ではない）。`AppSettings.theme_at` は値の field。
-- **試験**：手順 7 の 3 本。`text_style`、`text_effects`、`images_animated`、`offscreen` の既存の試験が期待を変えずに通る。
+- **試験**：手順 7 の 4 本。`text_style`、`text_effects`、`images_animated`、`offscreen` の既存の試験が期待を変えずに通る。
 - **確認（tier a）**：4.6 節の `W5_CHECK` と：
   ```sh
   cargo xtask check --no-write --crate kivact-core
@@ -2611,7 +2632,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-kit-tests --test e2e_kits -- theme_conformance
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-ui-basic-catalog --test catalog
   ```
-- **完了条件**：`rg -n "TestFonts::Only|fn font\(mut self|fn fonts\(mut self|register_app_fonts" crates/kivact-core crates/kivact-test crates/kivact dev examples templates` が 0 件。
+- **完了条件**：`rg -n "TestFonts::Only|fn font\(mut self|fn fonts\(mut self|register_app_fonts" crates/kivact-core crates/kivact-test crates/kivact dev examples templates` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C15：`commit_focused_edit`、`PointerEvent::target_size`、`spacer` の最小の大きさ
 
@@ -2787,7 +2808,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- text_editing input_platform layout
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_ui -- ui_field interaction_drag_edit
   ```
-- **完了条件**：上の 4 本の新しい試験が通る。`rg -n "pub fn commit_focused_edit|pub fn target_size" crates/kivact-core/src/view` が 2 件。
+- **完了条件**：上の 4 本の新しい試験が通る。`rg -n "pub fn commit_focused_edit|pub fn target_size" crates/kivact-core/src/view` が 2 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C16：開くときに作る content の引数をそろえ、小さな API の誤りを直す
 
@@ -2803,7 +2824,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 - **状態の閉じ方**：なし。
 - **試験**：`e2e_ui` の `async_tests.rs`（`e2e_core` に分かれていればそちら）の `loading` を使う試験が通る。足す試験は無い。
 - **確認（tier a）**：4.6 節の `W5_CHECK` と `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- async_tests`。
-- **完了条件**：`rg -n "fn loading<V: IntoView>\(mut self, f: impl Fn\(\)" crates` が 0 件。
+- **完了条件**：`rg -n "fn loading<V: IntoView>\(mut self, f: impl Fn\(\)" crates` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C17：`Offscreen::render(f64, f64)` と `.scale(f64)`
 
@@ -2859,7 +2880,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      `Draw::layer` の transform は canvas の原点のまわり（`kivact-style/src/transform.rs` の module doc「about the canvas origin」）。`Transform::default().scale(..)` の名前が違えば `kivact_style::transform::Transform` の `scale` を持つ constructor に合わせる。型の doc の「Coordinates are output pixels at scale 1」を「Coordinates are logical pixels; [`scale`](Self::scale) sets the pixels per logical pixel」にし、doc の例の `render(640, 360, ..)` を `render(640.0, 360.0, ..)` にする。
   3. 呼出し元：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -n "\.render\(\s*[0-9a-z_]+\s*,\s*[0-9a-z_]+\s*,\s*\|" crates dev examples templates --type rust
      ```
      の各箇所で、`u32` の引数を `f64` にする（整数の literal は `640.0` に、`u32` の変数は `f64::from(x)` に）。`render(w * 2, h * 2, ..)` のように画素を倍にしていた箇所は `.scale(2.0)` と論理の大きさにする。
@@ -2872,7 +2893,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test offscreen
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- offscreen
   ```
-- **完了条件**：`rg -n "width: u32,\s*$" crates/kivact-offscreen/src/lib.rs` が 0 件。
+- **完了条件**：`rg -n "width: u32,\s*$" crates/kivact-offscreen/src/lib.rs` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C18：prelude を 5.11 節の一覧にし、全利用者に import を足す。例と雛形の工程の痕跡を消す
 
@@ -2937,7 +2958,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      | `DataColumn`、`PageItem`、`StepStatus`、`StepperItem`、`breadcrumb`、`button_group`、`combobox`、`data_table`、`navigation_menu`、`pagination`、`selection_field`、`stepper`、`toggle_group`、`toolbar`、`calendar`、`date_input`、`date_range_input`、`date_time_input`、`time_input`、`item_list`、`item_row`、`table`、`table_body`、`table_cell`、`table_footer`、`table_head`、`table_header`、`table_row`、`tree` | `kivact::ui::NAME` |
      手順（package ごと）：
      ```sh
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      for p in kivact-ui-basic kivact-ui-pop kivact-ui-game kivact-ui-creative kivact-ui-soft kivact-ui-basic-catalog kivact-ui-pop-catalog kivact-ui-game-catalog kivact-ui-creative-catalog kivact-ui-soft-catalog kivact-devtools kivact-public-api-tests kivact-bench kivact-template-basic kivact-example-counter kivact-example-form kivact-example-list kivact-example-async kivact-example-component; do
        cargo check -p $p --all-targets --message-format short 2>&1 | rg "cannot find (type|function|value|macro|trait|struct|enum) \`(\w+)\`" -o -r '$2' | sort -u > /tmp/missing-$p.txt
        echo "$p: $(tr '\n' ' ' < /tmp/missing-$p.txt)"
@@ -2950,7 +2971,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 - **状態の閉じ方**：なし。
 - **試験**：足す試験は無い。`e2e_core` の全体を一度（鎖の最後の C の unit なので）：`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core`。
 - **確認（tier a）**：4.6 節の `W5_CHECK` と上の `e2e_core`。`cargo xtask check --no-write --crate kivact`。
-- **完了条件**：`crates/kivact/src/prelude.rs` の名前が 5.11 節の一覧から `icon_button`、`use_toaster`、`color`、`space`、`radius`、`font` を除いたものと一致する（4.3・4.5 節の unit が足す）。`rg -n "warn\(redundant_imports\)|xtask-allow" examples/kivact templates` が 0 件。
+- **完了条件**：`crates/kivact/src/prelude.rs` の名前が 5.11 節の一覧から `icon_button`、`use_toaster`、`color`、`space`、`radius`、`font` を除いたものと一致する（4.3・4.5 節の unit が足す）。`rg -n "warn\(redundant_imports\)|xtask-allow" examples/kivact templates` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ## C19：DevTools の style の parser を消し、kivact-style の property の表を使う
 
@@ -2978,7 +2999,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo xtask check --no-write --crate kivact-core
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --features devtools --test e2e_native -- devtools
   ```
-- **完了条件**：`rg -n "fn (override_layout|editable_value|color_text|background_text)" crates/kivact-core` が 0 件。
+- **完了条件**：`rg -n "fn (override_layout|editable_value|color_text|background_text)" crates/kivact-core` が 0 件。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
 
 ---
 
@@ -3006,6 +3027,8 @@ C の W5 の unit は R の鎖の後に走り、次が R の unit で入って�
 | R-REQ-12 | **解決済み**：`use_context::<T>() -> T`・`try_use_context::<T>() -> Option<T>` は R20（runtime）、core の `provide` が `T` をそのまま置く 1 行は R26、呼出し元の `.get()` の削除は R26〜R31 の掃引が行う。C08 は `use_direction`・`provide_direction`・`Owner` の path・`Owner::store` の hidden だけを行う | R20、R26〜R31 | C08 |
 | R-REQ-13 | `virtual_list` の `Held`（RC-40） | R10（W3） | — |
 | R-REQ-14 | `Retry` を `Callback<()>` にし、`AsyncSnapshot` を消し、`kivact-ui/src/async_view.rs` を直す | R29 | C16 |
+| R-REQ-15 | 12 章 API-14（親の決定）：公開の `Callback::call(e)` は `()` を返すまま。`#[doc(hidden)] pub fn Callback::<E>::invoke(&self, e: E) -> Result<Handled, UiError>` が handler の結果を保つ。`IntoHandler<(), Handle> for Callback<()>` は `invoke` で実装する。macro の `Callback` props の本体側の利用（`a_callback_prop_keeps_the_handled_result`）は `invoke` を使う | R21・R26（12 章に合わせた改訂） | C09 |
+| R-REQ-16 | 12 章 API-14 の window の経路の E2E（`on_close_request` に inline の closure・共有の `Callback<()>`・`#[component]` の `Callback<()>` の prop を渡して同じ `Handled`）は C12 の `close_request_handled_is_the_same_inline_shared_and_through_a_prop` が持つ。`IntoHandler<(), Handle> for Callback<()>` が `invoke` で結果を保つこと（R-REQ-15）に依る | R21（受け手） | C12 |
 
 R から C へ（付属書 R の 4.4 節）：
 - R26 は `kivact-macros` の handler の props を DEC-16 の形にする（C09 の手順 0 に、R26・R27 が済ませた macro の状態と C09 が変えることを書いた）。R31 は e2e の `component_macro` に `callback_prop_closure_infers_its_parameter` を足す。C09 はこの試験を変えない。
@@ -3029,7 +3052,7 @@ engine の `Reader::box_model` は `#[doc(hidden)]` の DevTools 用の API だ�
 
 | ID | 内容 |
 |---|---|
-| S-REQ-1 | `impl Theme { pub fn with_fonts(self, fonts: &'static [&'static [u8]]) -> Theme; pub fn fonts(&self) -> &[&'static [u8]] }`：`with_fonts` は既存の font に足す（二度呼べば両方）。付属書 S の S09（W2a）が作る |
+| S-REQ-1 | `impl Theme { pub fn with_fonts(self, fonts: impl IntoIterator<Item = impl Into<Asset>>) -> Theme; pub fn fonts(&self) -> &[Asset] }`（12 章 API-13。theme が `Asset` を持つ。`'static` は要らない）：`with_fonts` は既存の font に足す（二度呼べば両方）。付属書 S の S09（W2a）が作る |
 | S-REQ-2 | S17（W6b の鎖。宣言の表）が `kivact_style::internal::{StyleProperty, style_property}` を作る：`pub struct StyleProperty { pub name: &'static str, pub describe: fn(&Style) -> Option<String>, pub parse: fn(&str) -> Result<Style, String> }`、`pub fn style_property(name: &str) -> Option<&'static StyleProperty>`。`describe` は DevTools の override の書式（`12`、`50%`、`auto`、`#2563eb`、theme 変数の名前）。C19 がその直後に使う |
 | S-REQ-3 | W6 の鎖で S が prelude（`crates/kivact/src/prelude.rs`）の `pub use crate::style::{..}` に `color, font, radius, space` を足し、`pub use crate::draw::{Draw, Path, Shadow, Stroke};` の `Shadow` を `crate::style::Shadow` へ移す（5.8 節：`Shadow` は style だけ）。`ThemeHint`→`ThemeMode` の掃引は core の `view/state.rs` の `EnvFields.theme_hint`（C05）も直す |
 | S-REQ-4 | W6 の S の掃引は C の次のファイルを直す：`kivact-core/src/devtools/apply.rs`（`Palette`・`ColorToken`・`Spacing`・`Radii` の token の override）、`view/root.rs`（root の `ColorToken::Surface`）、`view/elements/container.rs`（`spacer` の `grow`）、`kivact-offscreen/src/lib.rs`（`self.theme.text().family`） |
@@ -3055,15 +3078,17 @@ engine の `Reader::box_model` は `#[doc(hidden)]` の DevTools 用の API だ�
 | U-REQ-5 | `on_draft_commit`→`on_commit` の改名の unit は C15 の新しい試験 `commit_focused_edit_commits_a_draft_and_resolves_after_the_value_is_written` の 1 行を直す |
 | U-REQ-6 | `async_view` の `loading` は C16 で `IntoViewFn`。U が `async_view` を `#[component]` にするとき、この型を変えない |
 | K-REQ-1 | `kivact-plot` は `kivact::draw::Offscreen`（C17 の後の `render(f64, f64)`・`.scale(f64)`）を使う。`kivact-ui-basic/src/plot/paint.rs` の呼出しは C17 が直してある |
-| K-REQ-2 | kit の catalog の `main.rs` は C14 で `Theme::with_fonts(fonts())` を使う形になっている |
+| K-REQ-2 | kit の catalog の `main.rs` は C14 で `Theme::with_fonts(fonts().iter().copied())` を使う形になっている |
 | G-REQ-1 | 利用者の docs（`docs/for-kivact-user`）の `#[prop(optional)]`、`scope`、`use_context().get()`、`use_direction().get()`、`App::font`、`App::fonts`、`RenderOptions::font`、`TestFonts::Only`、`kivact::launch`、`EmbedNotice::Stopped`、`embed::Visibility`、`Offscreen::render(u32, u32)`、prelude の名前、`README.md` の `scope` の段落（API-07）は W11 の付属書 G が直す。`architecture.md` の「core の AppClient」（RC-41）は G が「`launch` の turn の関数（付属書 R の `launch/turn.rs`）」に直す |
 
 ### 4.6 W5a の鎖の共通の確認（`W5_CHECK`）
 
+試験の command の規則（12 章 PLAN-01・PLAN-07）：`cargo test` は binary ごとに 1 行（`--test e2e_core`・`e2e_ui`・`e2e_native`・`e2e_kits` の module を一つの command に混ぜない。module の binary は付属書 T の T15 の表のとおり）。window を開く package の試験は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test ...` の形で、window-lock は 1 回だけ。各 unit の「完了条件」には、その unit の試験の command が**どれも 1 件以上の試験を走らせた**ことを含む（出力の `running N tests` の `N` が 0 の command があれば失敗）。
+
 C08〜C18 の「確認」は、次の一式と、unit ごとの試験のコマンドからなる。`kivact-docs` は W5 では compile しない（設計書 9 章）。
 
 ```sh
-cd /w/w/kivact
+ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
 W5_PACKAGES="kivact-runtime kivact-i18n kivact-style kivact-core kivact-macros kivact-offscreen kivact-interaction kivact-ui kivact kivact-ui-basic kivact-ui-pop kivact-ui-game kivact-ui-creative kivact-ui-soft kivact-ui-basic-catalog kivact-ui-pop-catalog kivact-ui-game-catalog kivact-ui-creative-catalog kivact-ui-soft-catalog kivact-devtools kivact-devtools-mcp kivact-test kivact-public-api-tests kivact-kit-tests kivact-bench kivact-template-basic kivact-example-counter kivact-example-form kivact-example-list kivact-example-async kivact-example-component"
 cargo fmt --all
 for p in $W5_PACKAGES; do cargo check -p $p --all-targets || break; done
@@ -3086,7 +3111,7 @@ cargo clippy -p kivact-core --all-targets --features devtools,embed,gpu-interop 
 ### 4.8 `#[component]` の型引数と、macro が生成する名前（付属書 U・K・G 向け）
 
 - 利用者の型引数（5.1 規則 9）は、生成する struct・constructor・setter の `impl`・`impl Element`・`impl IntoView` にそのまま（bound と where-clause ごと）付き、各型引数に `'static` が足される。どの prop の型にも現れない型引数は隠した field `__phantom: PhantomData<fn() -> (..)>` が持つ。lifetime 引数と const 引数は compile error。
-- macro が足す generic は prop ごとの 3 種類だけ：`Callback<()>` の props の `__KvM<PropName>`（`IntoHandler` の marker）、`Callback<E>`（E が `()` でない）の props の `__KvR<PropName>`（`Fn(E) -> R` の `R: HandlerResult`。DEC-16）、`ViewFn` の props の `__KvV<PropName>`（`V: IntoView`）。`<PropName>` は prop の名前の UpperCamel（`on_pick` → `__KvMOnPick`）。constructor では利用者の型引数が先、生成の generic が後。setter の generic は setter の method にだけ付く。
+- macro が足す generic は prop ごとの 3 種類だけ：`Callback<()>` の props の `__KvM<PropName>`（`IntoHandler` の marker）、`Callback<E>`（E が `()` でない）の props の `__KvR<PropName>`（`Fn(E) -> R` の `R: HandlerResult`。DEC-16）、`ViewFn` の props の `__KvV<PropName>`（`V: IntoView`）。`<PropName>` は prop の名前の UpperCamel（`on_pick` → `__KvMOnPick`）。constructor では利用者の型引数が先、生成の generic が後。setter の generic は setter の method にだけ付く。 部品の型引数そのものの prop（`control: C`。5.1 規則 3）は `C` のまま受け、生成の generic を足さず、`__phantom` にも入らない。
 - 予約：型引数の名前の接頭辞 `__Kv`（使うと compile error）、prop の名前の接頭辞 `__`（生成の `__root`・`__phantom`・`__body`・`__default`・`__n` のため。使うと compile error）。これで利用者の型引数（`K`、`V`、`T`、`M` など）と生成の名前は衝突しない。
 - turbofish：constructor が生成の generic を持つ（必須の `Callback`・`ViewFn` の props がある）部品では、利用者の型引数を `x::<K>(..)` で書けない（Rust は明示の generic 引数をすべて要求する）。型引数は props から推論させる。必須の `Callback`・`ViewFn` の props が無い部品では turbofish が書ける（`impl Trait` の引数は明示の generic 引数の数に入らない）。付属書 U の 49 の generic な constructor（`select<K>`、`list<K>`、`data_table<R, K>`、`async_view<T, V>`、`field<C>` など）は、型引数が props の型に現れれば推論で足りる。props の型に現れない型引数（`__phantom` が持つもの）を持ち、かつ生成の generic も持つ部品は、呼び出し側が型を書けないので作らない（U・K が部品を移すときの規則）。
 
@@ -3132,6 +3157,12 @@ cargo clippy -p kivact-core --all-targets --features devtools,embed,gpu-interop 
 | USR-16 | C15（core）、U-REQ-2（interaction） |
 | USR-17 | C15（`spacer`）、U-REQ-3（`icon_button`） |
 | 5.1 規則 9（型引数を持つ部品） | C09（4.8 節） |
+| 12 章 API-1（型引数そのものの prop は `C`）、API-6（`#[derive(Prop)]` の `Self: 'static`）、API-14（`Handled` を保つ）、API-15（body の前に一度だけ登録） | C09 |
+| 12 章 API-8（再び開く中身は `ViewFn`） | 本付属書の例に再び開く `Vec<View>` は無い（C09 の例の `children` は一度だけ mount する） |
+| 12 章 API-13（font は theme の `Asset`） | C14、S-REQ-1 |
+| 12 章 API-16（`provide_direction` は定数） | C08 |
+| 設計書 5.1 規則 10（`#[caller]`） | C09 は `#[prop(..)]` 以外の引数の属性を error にし、付属書 U の U25 が `caller` を受けるよう parser を広げる |
+| 12 章 PLAN-04・PLAN-07・PLAN-01 | 全 unit（固定の `cd` なし、binary ごとの command、window-lock 1 回、0 件は失敗。4.6 節） |
 | 5.4（`Element::variant`） | C10 |
 | 5.6（GPU の型、`App: !Clone`、`on_close_request`、`use_direction`、embed、font） | C11、C12、C08、C13、C14 |
 | 5.8（`Offscreen`） | C02、C17 |

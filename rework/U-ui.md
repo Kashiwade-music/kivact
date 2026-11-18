@@ -40,7 +40,7 @@
 - W5・W6 の後のコードを前提にする unit（W7a 以降）は、その時点の型名で書く。引用した現在の行が W5・W6 で形を変えていたら、同じ役割の行を探す。
 - W6〜W10 の間、5 つの kit（`crates/kivact-ui-*`）、その catalog、`crates/kivact-ui-*/tests`、`e2e_kits` は compile しない。この付属書の W7・W8 の unit はそれらを直さない。
 - handler の受け方は設計書 5.3（DEC-16）：payload の無い handler（`on_press`、`Callback<()>`）は `impl IntoHandler<(), M>`、payload のある handler は `impl Fn(E) -> R + 'static`。共有した `Callback<E>` は `move |e| cb.call(e)` で渡す。`Signal::update`・`Var::update` は `()` を返す（DEC-15）。W2a・W3a・W4 の unit は W5 の前に走るので、HEAD の名前（`Binding`、`IntoBinding`、`Notifier`）で書いてある。
-- 試験は annex T の T15 の後の置き場で書く：`dev/tests/kivact-public-api/tests/e2e_ui/`（`apg_*`・`interaction_*`・`ui_*`・`feedback`・`indicators`・`metrics_and_description`・`reactive_props`）、`dev/tests/kivact-public-api/tests/e2e_core/`（`component_macro`・`components`・`async_tests`・`environment`・`i18n`・`text_editing` ほか）、kit を使う試験は package `kivact-kit-tests` の `e2e_kits`（`theme_conformance`・`ui_standard`・`apg_grid_kit`・`presence_kit`。W6〜W10 は compile しない）。E2E の命令は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test <binary> -- <module>`。
+- 試験は annex T の T15 の後の置き場で書く：`dev/tests/kivact-public-api/tests/e2e_ui/`（`apg_*`・`interaction_*`・`ui_*`・`feedback`・`indicators`・`metrics_and_description`・`reactive_props`）、`dev/tests/kivact-public-api/tests/e2e_core/`（`component_macro`・`components`・`async_tests`・`environment`・`i18n`・`text_editing` ほか）、kit を使う試験は package `kivact-kit-tests` の `e2e_kits`（`theme_conformance`・`ui_standard`・`apg_grid_kit`・`presence_kit`。W6〜W10 は compile しない）。E2E の命令は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test <binary> -- <module>` で、一つの命令は一つの binary の module だけを filter に持つ。filter が 0 件の試験を走らせたら失敗（完了条件を満たさない）。命令は worktree の root で走らせる（固定の `cd` は書かない。要るときは `ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1`）。
 
 ## 2. unit の一覧
 
@@ -126,7 +126,7 @@ W7b の 4 lane は次のように分ける。各 unit の所有の欄はこの�
 | 部品（関数） | W8 unit | module | `<Name>Theme` の part（状態） | 設定 | W7a・W7b の呼出しの変更 | 開閉 | 特別な扱い | 試験（`--test e2e_ui -- ..`） |
 |---|---|---|---|---|---|---|---|---|
 | `button` | U40 | `button` | `ButtonTheme`：root, content, busy, icon（`ButtonState`） | — | `child`→`children`、`default_size` 削除（U23） | — | U40 のとおり | `ui_controls ui_theming ui_toolbar` |
-| `icon_button` | U40 | `button` | `ButtonTheme` を使う | — | 新設（U23） | — | U40 のとおり | `ui_controls` |
+| `icon_button` | U40 | `button` | `ButtonTheme` を使う | — | 新設（U23。`tooltip(label, button)` の形） | — | U40 のとおり | `ui_controls ui_theming` |
 | `checkbox` | U44 | `toggle` | `CheckboxTheme`：root, indicator, check, mixed（`CheckableState`） | — | — | — | `indeterminate: Option<Value<bool>>`。indicator の part は `has_parts()` の間だけ置く（今の `toggle/parts.rs`） | `ui_controls interaction_toggle ui_theming` |
 | `switch` | U44 | `toggle` | `SwitchTheme`：root, track, thumb（`CheckableState`） | — | drag は `use_switch_drag`（U32） | — | 同上 | 同上 |
 | `toggle_button` | U44 | `toggle_button` | `ToggleButtonTheme`：root（`ToggleButtonState`） | `label_reservation: ToggleLabelReservation` | — | — | — | `ui_controls` |
@@ -136,15 +136,15 @@ W7b の 4 lane は次のように分ける。各 unit の所有の欄はこの�
 | `text_input`、`text_area` | U45 | `text_input` | `TextInputTheme`：root、`TextAreaTheme`：root（`TextInputState`） | — | `.label()`（U22）、`on_commit`（U23）、`control_state` 削除（U31） | — | 名前の欠落の診断は `caller().accessible_name()` と `accessible_labelled_by()` で読む。`text_area` は同じ module の別の `#[component]` | `ui_field text_editing interaction_edit` |
 | `number_input` | U45 | `number_input` | `NumberInputTheme`：root, input（`PartState`） | — | `.label()`（U22）、draft は `use_draft`（U34）、disabled は node（U42） | — | — | `apg_spinbutton ui_controls` |
 | `tag_input` | U45 | `tag_input` | `TagInputTheme`：root, tag, remove, input（`PartState`） | — | `tag_input(tags: Signal<Vec<String>>)`・`.label()`（U22）、`on_add`・`on_remove` 削除（U23） | — | — | `ui_controls` |
-| `field` | U45 | `field` | `FieldTheme`：root, label, hint, error（`FieldState`） | — | — | — | `control` は型引数 `C: Element + IntoView` の props（`control: C`。5.1 規則 9。props が型引数を名指すので可）。本体が `control` に `labelled_by`・`described_by`・`invalid` を付けてから view にする | `ui_field` |
+| `field` | U45 | `field` | `FieldTheme`：root, label, hint, error（`FieldState`） | — | — | — | `#[component] pub fn field<C: Element + IntoView>(label: Value<String>, control: C, ..)`：`control` は型引数そのものの props（U25 の Param。`C` をそのまま受け、`Into` で包まない。12 章 API-1）。本体が `control` に `labelled_by`・`described_by`・`invalid` を付けてから view にする。試験を足す（`ui_field.rs`）：`field_takes_a_standard_or_custom_control_without_annotations`：`field("Name", text_input(name))` と、同じ file の `#[component] fn custom_input() -> impl Element { node().role(Role::TextBox).focusable(true) }` を `field("Code", custom_input())` で、型注釈も turbofish も無しに mount し、`get_by_role(Role::TextBox, "Name")` と `get_by_role(Role::TextBox, "Code")` がある | `ui_field` |
 | `input_group`、`input_addon` | U45 | `input_group` | `InputGroupTheme`：root, label, members, addon, block_start, block_end（`InputGroupState`）、member（`InputGroupMemberState`） | — | `input_group_with` 削除（U23） | — | 子：遅延（input group の context） | `ui_field ui_components` |
 | `slider`、`range_slider` | U46 | `slider` | `SliderTheme`：track, range, thumb（`AxisState`） | — | `.label()`（U22）、disabled は node（U42） | — | `range_slider` は同じ module の別の `#[component]` | `apg_slider interaction_slider` |
 | `splitter` | U46 | `splitter` | `SplitterTheme`：handle（`AxisState`） | — | disabled は node（U42） | — | — | `apg_window_splitter interaction_splitter` |
 | `split` | U46 | `split` | `SplitTheme`：grip（`AxisState`） | — | — | — | — | `interaction_splitter` |
 | `dropzone` | U46 | `dropzone` | `DropzoneTheme`：root, icon, label, hint, status（`DropzoneState`） | — | — | — | `validate: Option<Rc<dyn Fn(&FileInfo) -> Option<String>>>`、`on_files: Option<Callback<Vec<FileInfo>>>` | `ui_dropzone` |
-| `async_view` | U46 | `async_view` | **新** `AsyncViewTheme`：root（`()`。既定 `style().flex_direction(FlexDirection::Column)`）を `async_view/look.rs` に作る（5.10 節） | — | — | — | 型引数 `T`（`source` が名指す）。`ready: Rc<dyn Fn(T) -> View>`（位置引数）、`loading: Option<ViewFn>`（C の U-REQ-6：`IntoViewFn` のまま）、`fallback: Option<Rc<dyn Fn(UiError, Callback<()>) -> View>>` | `async_tests`（e2e_core） |
+| `async_view` | U46 | `async_view` | **新** `AsyncViewTheme`：root（`()`。既定 `style().flex_direction(FlexDirection::Column)`）を `async_view/look.rs` に作る（5.10 節） | — | — | — | `#[component] pub fn async_view<T: Clone + 'static, S: AsyncSource<T>>(source: S, ready: Rc<dyn Fn(T) -> View>, loading: Option<ViewFn>, fallback: Option<Rc<dyn Fn(UiError, Callback<()>) -> View>>) -> impl Element`（12 章 API-1：`source` は型引数そのものの props。`T` は `S: AsyncSource<T>` の bound と `ready` が名指す。`loading` は C の U-REQ-6 のとおり `IntoViewFn`）。試験を足す（`async_tests.rs`、e2e_core）：`async_view_takes_a_resource_or_an_action_and_an_unannotated_ready_closure`：`let data = resource(|| async { Ok::<u32, UiError>(7) });` と `async_view(data, |n| text(n.to_string()))`、同じく `action` の結果を source にした `async_view(save, |n| text(format!("saved {n}")))` を型注釈無しで mount し、`run_until_idle` の後に「7」が見える | `async_tests`（e2e_core） |
 | `dialog` | U47 | `dialog` | `DialogTheme`：surface, title, description, header, media, body, footer, scrim, close, drag_handle（`DialogState`） | `center: DialogCenter = DialogCenter::Anchor` | `mode(DialogKind)`、`description` は `Element::description`（U23）、drawer は `use_swipe_dismiss`（U32） | `dialog(title, open: Signal<bool>)`（位置） | 見える説明は `caller().accessible_description()` | `interaction_dialog ui_disclosure_surfaces` |
-| `tooltip` | U47 | `tooltip` | `TooltipTheme`：surface（`PopupState`）、arrow（`TooltipArrowState`） | — | `use_tooltip(enabled)`（U30a） | 開閉は hover と focus（setter なし） | `content: Option<ViewFn>` | `interaction_tooltip apg_tooltip` |
+| `tooltip` | U47 | `tooltip` | `TooltipTheme`：surface（`PopupState`）、arrow（`TooltipArrowState`） | — | `tooltip(label, trigger)`・`Tooltip::attach` の削除（U23。12 章 API-3）、`use_tooltip(enabled)`（U30a） | 開閉は hover と focus（setter なし） | `#[component]` にしない（親の決定。設計 5.1 の手書きの builder の例外）：U23 の `Tooltip<T>` のまま、`node_mut` は trigger の root の node、`into_view` は trigger（tooltip の trigger の part 付き）と `show(open, surface)` の兄弟の二つの fragment。U47 はこの部品の recipe の variants を `into_view` の先頭で trigger の node の `authored().variants()` から読む形になっていることを確かめるだけ（U24 が `variants` field を消している） | `interaction_tooltip apg_tooltip ui_components` |
 | `hover_card` | U47 | `hover_card` | `HoverCardTheme`：surface（`HoverCardSurfaceState`） | — | `on_open_change` 削除（U30c） | `.open(signal)`（U30c） | `content: ViewFn`（位置引数） | `ui_disclosure_surfaces` |
 | `disclosure`、`disclosure_group` | U47 | `disclosure` | `DisclosureTheme`：root, trigger, indicator, content（`DisclosureRecipeState`） | `motion: DisclosureMotion` | U30a の形 | U30a の形（`open` の受け方は U30a のとおり） | `disclosure_group` は型引数 `K`、`panel` slot は `Rc<dyn Fn(..) -> View>` | `apg_accordion ui_disclosure_surfaces interaction_show_hide` |
 | `announcer_outlet` | U47 | `announcer_outlet` | **新** `AnnouncerOutletTheme`：root（`()`。既定は今の outlet の node の style）を作る | — | 新設（U32） | — | — | `interaction_toast` |
@@ -161,12 +161,12 @@ W7b の 4 lane は次のように分ける。各 unit の所有の欄はこの�
 | `data_table` | U50 | `data_table` | `DataTableTheme`：frame, toolbar, footer（`PartState`）、header, sort（`TableHeaderState`）、row（`DataTableRowState`）、group_header（`DataTableGroupState`）、cell（`DataTableCellState`）、check（`DataTableCheckState`）、page（`DataTablePageState`） | `sticky_shadow_transition: Option<Transition> = None`、`sticky_overlay_transition: Option<Transition> = None`、`row_status_header_key: &'static str = "data_table.row_status.column_header"` | `DataColumn` は `data_table/column.rs`、`ColumnDef::width`（U23）、filter と row drag は interaction（U43） | — | 型引数 `R`・`K`（`rows`・`key` が名指す）。`key: Rc<dyn Fn(&R) -> K>`（位置）、`row_selectable`・`row_label`・`row_color` は `Option<Rc<dyn Fn(&R) -> ..>>`、`row_details: Option<Rc<dyn Fn(Value<R>) -> View>>`、`cell_controls: Option<Rc<dyn Fn(Value<R>, usize) -> View>>`、`empty: Option<ViewFn>` | `ui_data_table interaction_table` |
 | `pagination` | U51 | `pagination` | `PaginationTheme`：root, ellipsis, dots（`()`）、item（`PaginationItemState`）、controls, sizes, input, summary（`PaginationSummary`） | — | draft は `use_draft`（U34） | — | `item: Option<Rc<dyn Fn(PageItem) -> View>>`、`label_format: Option<Rc<dyn Fn(usize) -> String>>` | `ui_navigation` |
 | `breadcrumb` | U51 | `breadcrumb` | `BreadcrumbTheme`：root, list, separator（`()`）、item（`BreadcrumbItemState`） | — | — | — | 型引数 `K`。`item: Option<Rc<dyn Fn(ListItem<K>) -> View>>`、`separator: Option<ViewFn>`、`on_activate: Option<Callback<K>>` | `apg_breadcrumb ui_navigation` |
-| `stepper` | U51 | `stepper` | `StepperTheme`：root, previous, next（`StepperState`）、item, layout, track, leading, trailing, progress, body, indicator, label, description, content, end_content（`StepperItemState`） | — | `stepper(items, current: Signal<usize>)`、`on_step_press` 削除、`disabled` は Element（U23） | — | `StepperItem` は値の型のまま（builder ではない） | `ui_navigation` |
+| `stepper` | U51 | `stepper` | `StepperTheme`：root, previous, next（`StepperState`）、item, layout, track, leading, trailing, progress, body, indicator, label, description, content, end_content（`StepperItemState`） | — | `stepper(items, current: Signal<usize>)`、`on_step_press` 削除、`on_edit` と EditSession（12 章 UI-U-03）、`disabled` は Element（U23） | — | `StepperItem` は値の型のまま（builder ではない）。`on_edit: Option<Callback<EditPhase>>`。利用者の書込みはすべて U23 の `write` を通す | `ui_navigation interaction_edit` |
 | `carousel` | U51 | `carousel` | `CarouselTheme`：root, viewport, track, slide, previous, next（`CarouselSurfaceState`） | — | `Snap` は interaction の path（U23） | — | `slides: Vec<View>`。carousel の machine 化（UI-07 の残り）は 3.4 節の「U51 の carousel」の手順 | `ui_carousel apg_carousel` |
 | `item_list`、`item_row` | U51 | `item_list` | `ItemListTheme`：list_header, root（`PartState`）、marker, item, body, content, title, description, media, actions, header, footer（`ItemRowState`） | `title_lines: Option<u32> = None`、`description_lines: Option<u32> = None` | `item_row` の `on_press`・`description` は Element（U23） | — | `item_list` は子：遅延（item の context） | `ui_collections` |
 | `table`、`table_header`、`table_body`、`table_footer`、`table_row`、`table_head`、`table_cell` | U51 | `table` | `TableTheme`：root, header, body, footer, row, head, cell（`PartState`） | — | — | — | 7 つの `#[component]`。`table_header`・`table_body`・`table_footer` は今 `Table` を返す：それぞれ別の生成された struct（`TableHeader`・`TableBody`・`TableFooter`）になる（呼出しの形は同じ） | `ui_collections` |
 | `alert` | U52 | `alert` | `AlertTheme`：root, header, message, controls, title, description, icon, actions, content, dismiss, toggle（`AlertState`） | — | `description` は Element（U23） | — | `content: Option<ViewFn>`。見える説明は `caller().accessible_description()` | `apg_alert feedback` |
-| `card` | U52 | `card` | `CardTheme`：root, header, media, content, footer, overlay（`CardState`） | — | `on_press`・`disabled` は Element（U23） | — | press は `caller().press_handler()`、disabled は `caller().accessible_disabled()` | `ui_components` |
+| `card` | U52 | `card` | `CardTheme`：root, header, media, content, footer, overlay（`CardState`） | — | `on_press`・`disabled` は Element（U23） | — | press は `caller.has_press()`、disabled は `caller.disabled()`（`#[caller] caller: Caller`） | `ui_components` |
 | `empty_state` | U52 | `empty_state` | `EmptyStateTheme`：root, title, description, icon, actions（`EmptyStateState`） | — | `description` は Element（U23）、outlet は `announcer_outlet`（U32） | — | — | `feedback` |
 | `badge` | U52 | `badge` | `BadgeTheme`：root, label（`BadgeState`） | — | `on_press` は Element（U23） | — | — | `indicators` |
 | `kbd`、`kbd_combo` | U52 | `kbd` | `KbdTheme`：root（`()`）、key（`KbdKeyState`） | — | — | — | `kbd_combo` は同じ module の別の `#[component]` | `indicators` |
@@ -213,13 +213,13 @@ unit は wave の順に並べる。W7a の実行の順は U20 → U21 → U25 �
      ```
   2. shim を消す。`--path-separator //` は Git Bash が `/` を path に展開するのを防ぐためのもの。改行は `\R` で CRLF と LF の両方に合う。shim の最後は必ず `#     pub extern crate kivact_interaction as interaction;` と `# }` の 2 行（26 個すべてで確認済み）。
      ```
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l --path-separator // "# mod kivact \{" crates/kivact-interaction/src | xargs perl -0pi -e 's{^[ \t]*//[/!] # mod kivact \{\R(?:[ \t]*//[/!] #.*\R)*?[ \t]*//[/!] #[ \t]+pub extern crate kivact_interaction as interaction;\R[ \t]*//[/!] # \}\R}{}mg'
      ```
      （26 個すべてが消え、`# Ok::<(), kivact::interaction::ScalarRangeError>(())` など shim の後の隠し行は残る。）
   3. 手順 2 の後で、doctest の中で内部 crate を直接 `use` している行をすべて facade に直す。`kivact::state`・`kivact::view`・`kivact::style` は `kivact_core` の同じ module の再公開、`kivact::interaction` は `kivact_interaction` そのものなので、path の頭だけを置き換えればよい。
      ```
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l --path-separator // "^\s*//[/!]\s*use kivact_(core|interaction)::" crates/kivact-interaction/src | xargs perl -pi -e 's{^(\s*//[/!]\s*)use kivact_core::}{$1use kivact::}; s{^(\s*//[/!]\s*)use kivact_interaction::}{$1use kivact::interaction::}'
      perl -pi -e 's{kivact_core::view::node\(\)\.name\(""\)\.part\(kivact_interaction::use_text_edit}{node().name("").part(kivact::interaction::use_text_edit}' crates/kivact-interaction/src/palette/handle.rs
      ```
@@ -542,7 +542,7 @@ unit は wave の順に並べる。W7a の実行の順は U20 → U21 → U25 �
   4. `src/list.rs`：`mod order;` の行を消す。`git rm crates/kivact-interaction/src/list/order.rs`。
   5. `src/list/input.rs`：`use super::order::Movement;` を `use crate::collection::Movement;` にする。続けて、field の名前を一括で変える：
      ```
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      perl -pi -e 's/\b(state|self)\.order\b/$1.index/g' crates/kivact-interaction/src/list/state.rs crates/kivact-interaction/src/list/input.rs
      ```
      （`state.order.with_untracked(|order| …)` は `state.index.with_untracked(|order| …)` になる。closure の引数の名前 `order` はそのままでよい。`Index` は `navigate`・`enabled`・`keys` を同じ署名で持つ。）
@@ -2361,10 +2361,10 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 6. 移動のあと、各 file の `use` を直す（`super::values::ButtonState` → `crate::button::look::ButtonState` など）。他の部品の look 関数を使う look（`toggle_group` が `toggle_button` を使うなど）は `crate::<他の部品>::look::<関数>` で呼ぶ。これは compile の誤りを手がかりに機械的に直す。
 7. `lib.rs` の `pub use` は、移した型を新しい path から同じ名前で再公開する（例：`pub use values::{ButtonState, ..}` から `ButtonState` を消し、`pub use button::look::ButtonState;` を足す）。`mod` の行も移動に合わせる。公開の名前の集合は変えない。確かめ方：unit の前後で次の出力が同じ（並びは問わない）。
    ```
-   cd /w/w/kivact
-   cargo doc -p kivact-ui --no-deps 2>/dev/null; ls target/doc/kivact_ui | sort > /tmp/u_doc_after.txt
+   ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
+   cargo doc -p kivact-ui --no-deps 2>/dev/null; ls target/doc/kivact_ui | sort > target/u_doc_after.txt
    ```
-   （unit を始める前に同じ命令で `/tmp/u_doc_before.txt` を作り、`diff` が空であること。`target/doc/kivact_ui/` の直下の `struct.*.html`・`enum.*.html`・`fn.*.html` の一覧が公開名の一覧になる。）
+   （unit を始める前に同じ命令で `target/u_doc_before.txt` を作り、`diff` が空であること。`target/doc/kivact_ui/` の直下の `struct.*.html`・`enum.*.html`・`fn.*.html` の一覧が公開名の一覧になる。）
 8. file の名前を変えるときは `git mv` を使う（例：`git mv crates/kivact-ui/src/toggle_parts.rs crates/kivact-ui/src/toggle/parts.rs`）。移した file の `mod` 宣言は root の file に移し（`mod parts;`）、中の `super::`・`crate::` の path を直す。
 9. 共有の look 関数（2 つ以上の部品の表が使うもの）は `crates/kivact-ui/src/look_common.rs`（U11 で作る）に移す。名前が重なるものは表のとおり改名する。
 10. 移動が終わって空になった file は `git rm` する。各 unit の「消すもの」に名前がある。
@@ -2701,7 +2701,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      `tables { .. }` の節は無くなる（部品の表は互いを含まない）。
   2. 表の型名を改名する（`UiRecipes` 以外の `*Recipes` → `*Theme`）。ui・試験・例に同じ命令をかける：
      ```
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l --path-separator // "\b[A-Z]\w*Recipes\b" crates/kivact-ui/src dev/tests/kivact-public-api/tests examples/kivact templates \
        | xargs perl -pi -e 's/\b(?!UiRecipes\b)([A-Z]\w*)Recipes\b/$1Theme/g'
      ```
@@ -2789,8 +2789,8 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      `use_theme().get()` と `recipe_style`・`base_recipe_style` の名前は W5・W6 の後の形に合わせる（今の行と同じ役割の呼出し）。`Variants` の path は U24 で core に変わる。
   7. 読み手の closure を機械的に書き換える。次の perl を `crates/kivact-ui/src` の全 `.rs` に一度だけかける：
      ```
-     cd /w/w/kivact
-     cat > /tmp/u20_readers.pl <<'EOF'
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
+     cat > target/u20_readers.pl <<'EOF'
      my %flat = (
        button => ['Button','root'], button_content => ['Button','content'], button_busy => ['Button','busy'],
        button_icon => ['Button','icon'], checkbox => ['Checkbox','root'], checkbox_indicator => ['Checkbox','indicator'],
@@ -2809,7 +2809,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      s{\|(\w+)\|\s*\1\s*\.\s*(\w+)_recipe\(\)}{exists $flat{$2} ? "|r: &$flat{$2}[0]Theme| r.$flat{$2}[1]_recipe()" : $&}ge;
      print;
      EOF
-     for f in $(rg -l --path-separator // "_recipe\(\)" crates/kivact-ui/src); do perl /tmp/u20_readers.pl "$f" > /tmp/u20.tmp && mv /tmp/u20.tmp "$f"; done
+     for f in $(rg -l --path-separator // "_recipe\(\)" crates/kivact-ui/src); do perl target/u20_readers.pl "$f" > target/u20.tmp && mv target/u20.tmp "$f"; done
      ```
      その後 `rg -n "_recipes\(\)" crates/kivact-ui/src` が空であること。閉じた表の型（`ButtonTheme` など）を各 file の `use` に足す（`use crate::button::look::ButtonTheme;` のように。compile の誤りで分かる）。
   8. perl で直らない読み手を手で直す（今の file の中の引用で探す）：
@@ -2900,7 +2900,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      /// [`FIELD_HEIGHT_VAR`] as a length for a style.
      pub const FIELD_HEIGHT: Length = Length::var(&FIELD_HEIGHT_VAR);
      /// The text color of the combobox.
-     pub static FOREGROUND_VAR: ThemeVar<Color> = ThemeVar::new("combobox.foreground", color::TEXT);
+     pub static FOREGROUND_VAR: ThemeVar<Color> = ThemeVar::alias("combobox.foreground", &color::TEXT_VAR);
      /// [`FOREGROUND_VAR`] as a color for a style.
      pub const FOREGROUND: Color = Color::var(&FOREGROUND_VAR);
      /// The busy spin period in milliseconds.
@@ -2908,7 +2908,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      ```
      - 規則：`f64` の大きさ（px）は `<NAME>_VAR`（`ThemeVar<f64>`）と `<NAME>`（`Length`）の 2 つ。色は `<NAME>_VAR`（`ThemeVar<Color>`）と `<NAME>`（`Color`）の 2 つ。時間（ms）と数（倍率、透明度、行数でない数）は `<NAME>_VAR` だけ。
      - 変数の文字列名は `"<部品>.<field 名（snake_case）>"`（付属書 S 4.1 節の形：`"button.height_md"`）。変数は必ず `static`（`const` にしない。S 4.1 節）。
-     - fallback は、W6 の後の Tokens の `impl Default` に書いてある値をそのまま写す（W6 が `ColorToken::X` を `color::X` に直しているので、色はその定数を書く）。`Option<f64>` で `None` だった field は、look の関数がその `None` の代わりに使っている値（`unwrap_or(16.0)` なら `16.0`。`unwrap_or(<中核の変数>)` なら、その中核の変数を `Theme::light()` で読んだ数）を fallback にする。4.3 節の表の「既定」の列に値がある行は、その値を使う。
+     - fallback は、W6 の後の Tokens の `impl Default` に書いてある値をそのまま写す（W6 が `ColorToken::X` を `color::X` に直しているので、色が中核の色なら `ThemeVar::alias(name, &color::X_VAR)`、`Color::TRANSPARENT` などの固定の色は `ThemeVar::new(name, Color::TRANSPARENT)`）。**旧い token が theme の共通の値に従っていたもの**（`Option<f64>` で `None` のとき `unwrap_or(<中核の値>)` を使っていたもの、`fallback(theme)` が palette から作っていたもの）は、fallback を**中核の変数への別名**にする（12 章 UI-U-02。設計 5.7：どの型の変数も fallback を別の変数にできる）。f64 の変数の別名は付属書 S 4.1 の `ThemeVar::alias("combobox.field_radius", &radius::MD_VAR)` で書く。旧い `control_height`・`disabled_opacity`・`overlay_margin` に従っていたものは `control::HEIGHT_VAR`・`control::DISABLED_OPACITY_VAR`・`control::OVERLAY_MARGIN_VAR` への別名、`focus_ring` に従っていたものは数（2）にする。`unwrap_or(16.0)` のような固定の数は数のまま。4.3 節の表の「fallback」の列が正本である。
      - `ThemeVar`・`Length::var`・`Color::var`・`color::*` の path は annex S が W6 で置いた path を使う（`rg -n "pub static ACCENT_VAR" crates/kivact-style` で場所を確かめる）。
   2. 読み手を書き換える。
      - style の setter にそのまま渡している所（`.height(tokens.field_height)`）は定数（`.height(FIELD_HEIGHT)`）にする。
@@ -2994,8 +2994,8 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
   3. `tag_input` の `tags` は `Signal<Vec<String>>` を位置引数で受け、追加と削除はその signal を書く。`TagInput::on_add`・`on_remove` は U23 で消す（この unit では、内部で `on_add`・`on_remove` を呼んでいた所を `tags.update(|v| v.push(t))`・`tags.update(|v| { v.remove(i); })` に置き換え、method は残す）。
   4. 呼出し元を一度だけ次の perl で直す（**二度かけない**。二度目は 2 つ目の引数を label と見誤る）。対象：`crates/kivact-ui/src`、`crates/kivact/src`、`crates/kivact-devtools/src`、`crates/kivact-test/src`、`dev/tests/kivact-public-api/tests`（kit の 4 file を除く）、`dev/bench`、`examples/kivact`、`templates`。
      ```
-     cd /w/w/kivact
-     cat > /tmp/u22_label.pl <<'EOF'
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
+     cat > target/u22_label.pl <<'EOF'
      # Move the first argument of the named-input constructors into .label(..).
      use strict; use warnings;
      my $names = qr/text_input|text_area|select|combobox|slider|range_slider|number_input|date_input|date_range_input|date_time_input|time_input|tag_input/;
@@ -3024,7 +3024,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      $out .= substr($s, $pos);
      print $out;
      EOF
-     for f in $(rg -l --path-separator // "\b(text_input|text_area|select|combobox|slider|range_slider|number_input|date_input|date_range_input|date_time_input|time_input|tag_input)\(" crates/kivact-ui/src crates/kivact/src crates/kivact-devtools/src crates/kivact-test/src dev/tests/kivact-public-api/tests dev/bench examples/kivact templates --glob '!theme_conformance.rs' --glob '!ui_standard.rs' --glob '!presence_kit.rs' --glob '!apg_grid_kit.rs'); do perl /tmp/u22_label.pl "$f" > /tmp/u22.tmp && mv /tmp/u22.tmp "$f"; done
+     for f in $(rg -l --path-separator // "\b(text_input|text_area|select|combobox|slider|range_slider|number_input|date_input|date_range_input|date_time_input|time_input|tag_input)\(" crates/kivact-ui/src crates/kivact/src crates/kivact-devtools/src crates/kivact-test/src dev/tests/kivact-public-api/tests dev/bench examples/kivact templates --glob '!theme_conformance.rs' --glob '!ui_standard.rs' --glob '!presence_kit.rs' --glob '!apg_grid_kit.rs'); do perl target/u22_label.pl "$f" > target/u22.tmp && mv target/u22.tmp "$f"; done
      ```
      その後、手で確かめて直す：
      - 関数の定義（`pub fn select<K..>(`）は `fn ` の後なので変わらない。`use` の行の `select,` などは `(` が続かないので変わらない。
@@ -3068,7 +3068,16 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 - **手順**：
   1. **handler と値（UI-13）**
      - `text_input.rs`：`pub fn on_draft_commit` を `pub fn on_commit` に改名。`rg -l "on_draft_commit" ... | xargs perl -pi -e 's/\bon_draft_commit\b/on_commit/g'`（対象の木は所有の欄の木）。
-     - `stepper.rs`：`pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper`。項目の押下は `current.set(index)` を書く。`pub fn on_step_press` を消す。呼出し元の `.on_step_press(move |i| x.set(i))` は消し、`stepper(items, x)` の 2 つ目を `x`（signal）にする。
+     - `stepper.rs`（UI-13、12 章 UI-U-03）：`pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper`。`pub fn on_step_press` を消し、`pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self`（field `on_edit: Option<Callback<EditPhase>>`、`callback(f)` で持つ）を足す。`into_view` の先頭で `let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));` を作り、`on_edit` が `Some(cb)` なら `edit.on_edit(move |phase| cb.call(phase))` にする。利用者の操作で値を書く所（項目の押下、前・次の button、項目の key 操作、項目の a11y の Activate）は、すべて次の一つの関数を通す：
+       ```rust
+       let write = move |index: usize| {
+           let index = index.min(items.with_untracked(|items| items.len().saturating_sub(1)));
+           if index != current.get_untracked() {
+               edit.once(current.get_untracked(), move || current.set(index));
+           }
+       };
+       ```
+       外からの `current.set(..)` は `write` を通らないので phase を報告しない。呼出し元の `.on_step_press(move |i| x.set(i))` は消し、`stepper(items, x)` の 2 つ目を `x`（signal）にする。
      - `tag_input.rs`：`pub fn on_add`・`pub fn on_remove` を消す（U22 で内部の利用は消えている）。呼出し元の `.on_add(..)`・`.on_remove(..)` を消す（tags の signal が値を持つ）。
      - `avatar.rs`：`pub fn on_open` を消す。`avatar()` は `.on_press(..)` が呼ばれたときだけ `use_button()` の part を一度付ける（今 `on_open` と `on_press` がそれぞれ part を付けている所を、`into_view` で `press: Option<Callback<()>>` が `Some` のときに一度だけ付ける形にする）。呼出し元の `.on_open(f)` は `.on_press(f).role(Role::Link)` にする。
   2. **`input_group_with` を消す（UI-13 (d)）**：`input_group.rs` の `pub fn input_group_with` と `enum Controls` の `Scoped` を消す。呼出し元 `input_group_with(label, move || children)` は `input_group(label, children)` にする（`IntoChildren` は `into_view` の中、group の context の中で view になるので、子の setup は今と同じく group の中で走る）。
@@ -3092,9 +3101,9 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      - `description`：`alert.rs`、`dialog.rs`、`empty_state.rs`、`item_row.rs`、`navigation_link.rs`（`StepperItem::description` は値の型なので残す）
      消した method の代わりに、builder は `into_view`（`finish`）の先頭で root の node から呼出し側の値を読む：
      - disabled：`root.accessible_disabled()`（今ある）。
-     - 押下：`root.press_handler() -> Option<Callback<()>>`（U25 が core に足す accessor）。押下で `use_button()` の part を付ける builder は、`Some` のときだけ一度付ける。
-     - 見える説明：`root.accessible_description() -> Option<Value<String>>`（U25 が core に足す accessor）。builder は、その値を今 `description` の field から描いていた node に描く。値はそのまま root の accessible description でもある（見える説明と支援技術の説明が同じになる）。
-     呼出し元は変わらない（`.description("..")`・`.on_press(..)`・`.disabled(..)` は `Element` の method に解決される）。`Card` の `.on_press` が `CardKind::Press` を選んでいた所は、`press_handler()` が `Some` かどうかで選ぶ。`variant` はこの unit では消さない（U24）。
+     - 押下：`self.root.authored().has_press()`（U25 の `Node::authored`。handler を複写しない）。押下で `use_button()` の part を付ける builder は、`true` のときだけ一度付ける。
+     - 見える説明：`self.root.authored().description()`（`Option<Value<String>>`）。builder は、その値を今 `description` の field から描いていた node に描く。値はそのまま root の accessible description でもある（見える説明と支援技術の説明が同じになる）。
+     呼出し元は変わらない（`.description("..")`・`.on_press(..)`・`.disabled(..)` は `Element` の method に解決される）。`Card` の `.on_press` が `CardKind::Press` を選んでいた所は、`authored().has_press()` で選ぶ。`variant` はこの unit では消さない（U24）。
   6. **`#[track_caller]`（API-14）**：`crates/kivact-ui/src` の `pub fn` のうち、本体で `into_value`・`into_text_value`・`into_text`・`into_prop` を呼ぶものすべてに `#[track_caller]` を付ける（`text_area` を含む）。一覧：`rg -n -B3 "into_(text_)?value\(\)|into_text\(\)|into_prop\(\)" crates/kivact-ui/src | rg "pub fn"`。
   7. **改名（API-19、UI-04）**：`crates/kivact-interaction/src/toaster/api.rs` の `pub fn toaster()` → `pub fn use_toaster()`、`announcer.rs` の `pub fn announcer()` → `pub fn use_announcer()`。`rg -l "\btoaster\(\)|\bannouncer\(\)" <所有の木> | xargs perl -pi -e 's/\btoaster\(\)/use_toaster()/g; s/\bannouncer\(\)/use_announcer()/g'`。`crates/kivact/src/prelude.rs` の `toaster` を `use_toaster` にする（W5 で済んでいれば確かめるだけ）。
   8. **`DialogKind`（UI-12 の ui 側。W7b の U30a が interaction の `DialogMode::Popover` を消せるように、ui の呼出しの形を先に変える）**：`dialog.rs` に
@@ -3114,9 +3123,10 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
      /// A button that shows only `icon` and is named `label`, with the label as its tooltip.
      /// Its variant is `Ghost` unless the caller gives another with `.variant(..)`.
      #[track_caller]
-     pub fn icon_button(icon: impl IntoValue<kivact_core::style::Icon>, label: impl IntoText) -> View {
+     pub fn icon_button(icon: impl IntoValue<kivact_core::style::Icon>, label: impl IntoText) -> crate::Tooltip<Button> {
          let label = label.into_text_value();
-         crate::tooltip(label).attach(
+         crate::tooltip(
+             label,
              button(label)
                  .icon(kivact_core::view::icon(icon))
                  .hide_label(true)
@@ -3124,7 +3134,92 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
          )
      }
      ```
-     （W8 の U40 で `impl Element` を返す `#[component]` にする。）`lib.rs` の `pub use button::{..}` に `icon_button` を足し、`crates/kivact/src/prelude.rs` に `icon_button` が無ければ足す。
+     （手順 12 の `tooltip(label, trigger)` を使う。W8 の U40 で `impl Element` を返す `#[component]` にする。）`lib.rs` の `pub use button::{..}` に `icon_button` を足し、`crates/kivact/src/prelude.rs` に `icon_button` が無ければ足す。
+  12. **`tooltip(label, trigger)`（12 章 API-3）**：`Tooltip::attach` を消し、trigger を位置引数にする。`tooltip.rs` の builder を次の形にする（中の behavior の配線は今の `attach` の本体のまま）：
+     ```rust
+     pub struct Tooltip<T> {
+         trigger: T,
+         label: Value<String>,
+         enabled: Value<bool>,
+         placement: Placement,
+         align: Option<OverlayAlign>,
+         offset: f64,
+         content: Option<ViewFn>,
+         variants: Variants,
+     }
+     /// A tooltip showing `label` (or `.content(..)`) for `trigger`, which stays
+     /// the element the caller styles: `tooltip("Save", button("Save"))`.
+     #[track_caller]
+     pub fn tooltip<T: Element + IntoView>(label: impl IntoText, trigger: T) -> Tooltip<T> { /* fields as before, trigger */ }
+     impl<T: Element + IntoView> Element for Tooltip<T> {
+         fn node_mut(&mut self) -> &mut Node {
+             self.trigger.node_mut()
+         }
+     }
+     impl<T: Element + IntoView> IntoView for Tooltip<T> {
+         fn into_view(self) -> View {
+             // The body of the old `attach(self, trigger)` with `self.trigger` as `trigger`,
+             // unchanged: the trigger (with the tooltip's trigger part) and the
+             // `show(open, surface)` are SIBLINGS of one two-item fragment, so pointer
+             // input on the tooltip never routes to the trigger. The caller's modifiers
+             // are on the trigger already (`node_mut` is the trigger's root node).
+             // let trigger = self.trigger.node_ref(anchor).with_node(|node| node.part(part).part(fallback));
+             // (trigger, surface).into_view()
+         }
+     }
+     ```
+     `enabled`・`content`・`align`・`offset`・`placement`・`variant` の method は残す（`variant` は U24 で消える）。呼出し元を直す（`rg -n "tooltip\(" crates/kivact-ui/src dev/tests/kivact-public-api examples/kivact templates`）：
+     - `avatar.rs`：`crate::tooltip(name).enabled(show).attach(root)` → `crate::tooltip(name, root).enabled(show).into_view()`（今の式の型に合わせ、`View` が要る所は `.into_view()`）
+     - `alert.rs`：`crate::tooltip(label).attach(with_recipe_style(..))` → `crate::tooltip(label, with_recipe_style(..))`
+     - `data_table/row_status.rs`：`tooltip(label).attach(mark)` → `tooltip(label, mark)`
+     - `menu.rs`：`crate::tooltip(move || reason.get().unwrap_or_default())` の `.attach(x)` → `crate::tooltip(move || reason.get().unwrap_or_default(), x)`
+     - 試験：`apg_tooltip.rs`、`ui_components.rs` の `tooltip("..")…attach(t)` → `tooltip("..", t)…`（期待値は変えない）。kit と catalog の呼出しは annex K（4.4 節の表）。
+     試験を足す（`ui_components.rs`、e2e_ui）：
+     ```rust
+     #[test]
+     fn a_tooltip_styles_its_trigger_and_a_press_on_it_does_not_press_the_trigger() {
+         let (screen, pressed) = crate::support::mount(|| {
+             let pressed = signal(0u32);
+             (pressed, ui::tooltip("Save the file", ui::button("Save").on_press(move || pressed.update(|n| *n += 1)))
+                 .test_id("save")
+                 .style(style().width(120)))
+         });
+         let save = screen.get_by_role(Role::Button, "Save");
+         assert_eq!(screen.find_by_test_id("save").expect("invariant: mounted").bounds().width, 120.0);
+         assert_eq!(save.description().as_deref(), Some("Save the file"));
+         save.hover();
+         screen.advance(std::time::Duration::from_millis(1500));
+         let tip = screen.get_by_text("Save the file");
+         tip.click();
+         assert_eq!(pressed.get_untracked(), 0, "a press on the tooltip does not press its trigger");
+         screen.press_key(Key::Escape);
+         assert!(screen.find_text("Save the file").is_none());
+         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+     }
+
+     #[test]
+     fn a_tooltip_wraps_a_custom_component_and_follows_enabled() {
+         #[component]
+         fn chip(label: Value<String>) -> impl Element {
+             node().role(Role::Button).name(label).focusable(true)
+         }
+         let (screen, enabled) = crate::support::mount(|| {
+             let enabled = signal(false);
+             (enabled, ui::tooltip("Chip hint", chip("Chip")).enabled(enabled))
+         });
+         let chip = screen.get_by_role(Role::Button, "Chip");
+         chip.focus();
+         screen.advance(std::time::Duration::from_millis(1500));
+         assert!(screen.find_text("Chip hint").is_none());
+         enabled.set(true);
+         chip.blur();
+         chip.focus();
+         screen.advance(std::time::Duration::from_millis(1500));
+         assert!(screen.find_text("Chip hint").is_some());
+         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+     }
+     ```
+     （`hover`・`advance`・`get_by_text`・`find_text`・`blur`・`description`・`bounds` は `ui_components.rs` と support が今使う名前に合わせる。surface は trigger の兄弟なので、tooltip の上の押下は trigger に届かない。）
   11. **button の子と group の大きさ**（W8 の `#[component]` と同じ呼出しの形にする）：
      - `Button::child(child)`（呼ぶたびに足す）を `Button::children(children: impl IntoChildren)`（一度だけ）に改名する。呼出し元の `.child(a).child(b)` は `.children((a, b))` にする（`Button` に `child` が無くなるので compile の誤りで全部見つかる）。
      - `Button::default_size` を消す。`Button` の `size` を `Option<Value<ControlSize>>` にし、`finish` の中で `size.unwrap_or_else(|| default_control_size().into_value())` とする（`finish` は group の `provide_control_size` の中で走るので、group の大きさになる）。
@@ -3134,6 +3229,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 - **消すもの**：`on_draft_commit`、`Stepper::on_step_press`、`TagInput::{on_add, on_remove}`、`Avatar::on_open`、`input_group_with`、`selection_field`、`SelectionField`、`ui::ComboboxMode` の再公開と interaction の `ComboboxMode`、`ui::Snap` の再公開、`ColumnDef::with_width`、手順 5 の固有 method、`toaster`、`announcer`、ui の呼出しの `DialogMode`。
 - **状態の閉じ方**：`Select` に足す `trigger: Option<View>` は値渡しの builder だけが書く（対象外）。`Avatar` の press は `Option<Callback<()>>` 一つ。
 - **試験**：perl・手で直した試験の期待値は変えない。`rg -l "on_draft_commit|on_step_press|on_add|on_remove|on_open\b|input_group_with|selection_field|ComboboxMode|with_width|toaster\(\)|announcer\(\)|DialogMode" dev/tests/kivact-public-api/tests` の e2e_ui・e2e_core の file を直す。足す試験は無い。
+- **stepper の試験（UI-U-03）**：`interaction_edit.rs`（e2e_ui）の `every_value_writing_standard_component_reports_on_edit` に stepper を足す：`logs` を `vec![Vec::new(); 7]` に、mount の中で `let step = signal(0usize);` と `kivact::ui::stepper(vec![StepperItem::new("One"), StepperItem::new("Two")], step).on_edit(observe(6))` を column の最後に足し、返す tuple に `step` を足す。操作の最後に `screen.get_by_role(Role::Button, "Two").click();`（stepper の項目の role と名前は今の stepper の項目の押下の part の role に合わせる）、`assert_eq!(step.get_untracked(), 1);`。全 log が `[Begin, Commit]` の確かめはそのまま。新しい試験 `stepper_reports_no_phase_for_an_outside_write`：同じ stepper を `on_edit` 付きで mount し、`step.set(1)` の後 `run_until_idle` で log が空のまま。
 - **確認（tier a）**：
   ```
   cargo fmt --all
@@ -3148,11 +3244,16 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 
 ## U25：ui が `#[component]` で要る core と macro の受け口（W8 の前提）
 
-- **wave / lane / 前提**：W7a / U1 / U21（**U22 より前に行う**。W7a の順は U20 → U21 → U25 → U22 → U23 → U24）。annex C の C09（macro）・C10（`Variant`・`Variants`）の後。W7 の他の lane（E・A）は kivact-core と kivact-macros を持たないので、この unit が持てる。
-- **所有**：`crates/kivact-macros/src/{parse.rs, expand.rs}`、`crates/kivact-core/src/view/{variant.rs, node_modifiers.rs, children.rs, view.rs の mod・pub use の行}`、`crates/kivact-core/src/custom.rs`（`mod`・`pub use` の行）、新 `crates/kivact-core/src/custom/caller.rs`、`dev/tests/kivact-public-api/tests/e2e_core/component_macro.rs`。
-- **目的**：4.2 節の要求 R2〜R5 を満たす。W8 の ui の部品（約 80）を `#[component]` で書くには次の 4 つが要る：(R2) 引数のある slot・関数の props で closure の引数の型が推論されること、(R3) 本体が呼出し側の modifier（disabled、expanded、name、description、press、variant）を読めること、(R4) 子に context を provide する部品が、子を本体の中で遅れて view にできること、(R5) `Look<S>` が core の `Variants` に値を足せること。
+- **wave / lane / 前提**：W7a / U1 / U21（**U22 より前に行う**。W7a の順は U20 → U21 → U25 → U22 → U23 → U24）。annex C の C09（macro）・C10（`Variant`・`Variants`、`Node::absorb`）の後。W7 の他の lane（E・A）は kivact-core と kivact-macros を持たないので、この unit が持てる。
+- **所有**：`crates/kivact-macros/src/{parse.rs, expand.rs}`、`crates/kivact-core/src/view/{variant.rs, children.rs, view.rs の mod・pub use の行, elements/builders.rs（`Node::absorb` と新しい `Node::authored`）}`、新 `crates/kivact-core/src/view/authored.rs`、`crates/kivact-core/src/custom.rs`（`pub use` の行）、試験 `dev/tests/kivact-public-api/tests/e2e_core/component_macro.rs`。
+- **目的**：設計 5.1 規則 3 と 12 章 API-1・API-2・API-4・API-5・ST-09 の受け口を作る。
+  - (A) `Rc<dyn Fn(A..) -> T>` の props（Func）：`impl Fn(A..) -> T + 'static` を受け、closure の引数の型が推論される（API-2）。
+  - (B) 部品の型引数そのものの props（`control: C`）：`C` をそのまま受け、`Into` で包まない（API-1）。
+  - (C) 呼出し側の modifier の **snapshot**：`#[component]` の引数に `#[caller] caller: Caller` と書くと、macro がその部品の `__root` の authored な modifier を畳んだ値を渡す。thread-local の stack と `custom::caller()` は作らない（API-4・API-5・ST-09）。畳む関数は一つ（`Node::authored() -> Authored`）で、recipe・root・部分が同じ値を使う。
+  - (D) disabled の合成の規則：本体が root に付けた disabled と、呼出し側の disabled は **OR** で合わさる（busy の button が呼出し側の `.disabled(false)` で押せるようにならない）。
+  - (E) 遅れて view にする子 `kivact::view::Children`。(F) `Variants::with`（`Look::with_variant` のため）。
 - **手順**：
-  1. **R5（`Variants` の公開の builder と node の読み出し）**：`view/variant.rs` の `impl Variants` に足す：
+  1. **(F)** `view/variant.rs` の `impl Variants` に足す：
      ```rust
      /// These values with `value` set for its type (a constant), replacing an earlier one.
      pub fn with<V: Variant>(mut self, value: V) -> Self {
@@ -3160,117 +3261,119 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
          self
      }
      ```
-     （`V` が `IntoValue<V>` を満たさないときは、W5 の後の `Prop` の定数の constructor を使う：`rg -n "pub fn constant|fn from_value" crates/kivact-runtime/src/reactive/props.rs` で名前を確かめる。）`node_modifiers.rs` の `impl Node` に足す：
+     （`V` は `#[derive(Prop)]` で `IntoValue<V>` を持つ。C10 の `set(&mut self, Prop<V>)` を使う。）
+  2. **(C) `Node::authored`**：新 `view/authored.rs`（`view.rs` に `mod authored; pub use authored::Authored;`）：
      ```rust
-     /// The variant values given to this node so far (`.variant(..)`); empty when none.
-     #[doc(hidden)]
-     pub fn variants(&self) -> crate::view::Variants {
-         self.common.variants.as_deref().cloned().unwrap_or_default()
-     }
-     /// The accessible description given so far (`.description(..)`), without allocating a value.
-     #[track_caller]
-     pub fn accessible_description(&mut self) -> Option<kivact_runtime::Value<String>> {
-         self.description_source().map(kivact_runtime::IntoValue::into_value)
-     }
-     /// The press handler given so far (`.on_press(..)`), if any.
-     #[doc(hidden)]
-     pub fn press_handler(&self) -> Option<kivact_runtime::Callback<()>> {
-         self.common.press.clone()
-     }
-     /// Remove and return the disabled-state input, so that a component that
-     /// combines it with its own (busy) gives its root one disabled value.
-     #[doc(hidden)]
-     #[track_caller]
-     pub fn take_disabled(&mut self) -> Option<kivact_runtime::Value<bool>> {
-         self.take_disabled_source().map(kivact_runtime::IntoValue::into_value)
-     }
-     ```
-     `description_source`・`take_disabled_source`・`common.press` は、今 `has_description`・`accessible_disabled`・`on_press` が使っている field を使う（`take_disabled_source` は `disabled_source` の隣に、`Option::take` で外す版として足す。press の field の名前は `on_press` の本体で確かめる）。
-  2. **R3（`caller()`）**：新 `custom/caller.rs`：
-     ```rust
-     //! Role: Let a #[component] body read the modifiers its caller put on the returned element.
+     //! Role: Fold every authored modifier segment of a node, in order, into one snapshot.
      use crate::view::{Node, NodeRef, Variants};
-     use kivact_runtime::{Callback, Value};
-     use std::cell::RefCell;
+     use kivact_runtime::{IntoValue, Value};
 
-     thread_local! {
-         static CALLERS: RefCell<Vec<Node>> = const { RefCell::new(Vec::new()) };
+     /// What the authors of a node wrote on it so far, folded over its modifier
+     /// segments in order (the segments a part or `absorb` closed, then the
+     /// open one): later values win, variants merge by type. A `#[component]`
+     /// body receives it as its `#[caller]` argument; the recipe of the root and
+     /// of every part read the same value.
+     #[derive(Clone, Default)]
+     pub struct Authored {
+         variants: Variants,
+         disabled: Option<Value<bool>>,
+         expanded: Option<Value<bool>>,
+         invalid: Option<Value<bool>>,
+         name: Option<Value<String>>,
+         description: Option<Value<String>>,
+         labelled_by: Vec<NodeRef>,
+         has_press: bool,
      }
 
-     /// The caller's modifiers of the #[component] whose body is running.
-     /// Outside a body every read returns nothing.
-     #[derive(Clone, Copy)]
-     pub struct Caller(());
-
-     /// The caller of the running #[component] body.
-     pub fn caller() -> Caller {
-         Caller(())
-     }
-
-     /// Holds the caller's node while a body runs; generated code only.
-     #[doc(hidden)]
-     pub struct CallerGuard(());
-
-     impl CallerGuard {
+     impl Node {
+         /// The authored modifiers of this node so far (see [`Authored`]).
          #[doc(hidden)]
-         pub fn enter(root: Node) -> Self {
-             CALLERS.with(|c| c.borrow_mut().push(root));
-             Self(())
+         #[track_caller]
+         pub fn authored(&self) -> Authored {
+             let mut variants = Variants::default();
+             let mut has_press = false;
+             for common in self.authored_segments() {
+                 if let Some(v) = common.variants.as_deref() {
+                     variants.merge(v);
+                 }
+                 has_press |= common.handlers.activate.is_some();
+             }
+             Authored {
+                 variants,
+                 disabled: self.disabled_source().map(IntoValue::into_value),
+                 expanded: self.expanded_source().map(IntoValue::into_value),
+                 invalid: self.invalid_source().map(IntoValue::into_value),
+                 name: self.name_source().map(IntoValue::into_value),
+                 description: self.description_source().map(IntoValue::into_value),
+                 labelled_by: self.labelled_by_sources(),
+                 has_press,
+             }
          }
-         #[doc(hidden)]
-         pub fn exit(self) -> Node {
-             std::mem::forget(self);
-             CALLERS
-                 .with(|c| c.borrow_mut().pop())
-                 .expect("invariant: exit follows enter")
+
+         /// The closed caller segments in order, then the open one.
+         fn authored_segments(&self) -> impl Iterator<Item = &crate::view::element_data::Common> {
+             self.modifiers
+                 .iter()
+                 .filter_map(|m| match m {
+                     crate::view::element_data::Modifier::Caller(c) => Some(c.as_ref()),
+                     crate::view::element_data::Modifier::Part(_) => None,
+                 })
+                 .chain(std::iter::once(&self.common))
          }
      }
 
-     impl Drop for CallerGuard {
-         fn drop(&mut self) {
-             // A body that panicked leaves no caller behind.
-             CALLERS.with(|c| c.borrow_mut().pop());
-         }
-     }
-
-     impl Caller {
-         fn with<R>(self, f: impl FnOnce(&mut Node) -> R) -> Option<R> {
-             CALLERS.with(|c| c.borrow_mut().last_mut().map(f))
-         }
-         pub fn accessible_disabled(self) -> Option<Value<bool>> { self.with(Node::accessible_disabled).flatten() }
-         pub fn take_disabled(self) -> Option<Value<bool>> { self.with(Node::take_disabled).flatten() }
-         pub fn accessible_expanded(self) -> Option<Value<bool>> { self.with(Node::accessible_expanded).flatten() }
-         pub fn accessible_invalid(self) -> Option<Value<bool>> { self.with(Node::accessible_invalid).flatten() }
-         pub fn accessible_name(self) -> Option<Value<String>> { self.with(Node::accessible_name).flatten() }
-         pub fn accessible_description(self) -> Option<Value<String>> { self.with(Node::accessible_description).flatten() }
-         pub fn accessible_labelled_by(self) -> Vec<NodeRef> { self.with(Node::accessible_labelled_by).unwrap_or_default() }
-         pub fn press_handler(self) -> Option<Callback<()>> { self.with(|n| n.press_handler()).flatten() }
-         pub fn variants(self) -> Variants { self.with(|n| n.variants()).unwrap_or_default() }
+     impl Authored {
+         pub fn variants(&self) -> Variants { self.variants.clone() }
+         pub fn disabled(&self) -> Option<Value<bool>> { self.disabled }
+         pub fn expanded(&self) -> Option<Value<bool>> { self.expanded }
+         pub fn invalid(&self) -> Option<Value<bool>> { self.invalid }
+         pub fn name(&self) -> Option<Value<String>> { self.name }
+         pub fn description(&self) -> Option<Value<String>> { self.description }
+         pub fn labelled_by(&self) -> &[NodeRef] { &self.labelled_by }
+         /// Whether an author gave the node a press handler (no handler is copied).
+         pub fn has_press(&self) -> bool { self.has_press }
      }
      ```
-     `custom.rs` に `mod caller; pub use caller::{Caller, CallerGuard, caller};`。`expand.rs` が生成する `into_view`（`impl Element` を返す部品だけ。`impl IntoView` を返す部品は `__root` を持たないので変えない）の `let __body = ..;` の前後を次にする：
+     `disabled_source`・`expanded_source`・`invalid_source`・`name_source`・`description_source`・`labelled_by_sources` は今の `elements/builders.rs` の関数（`semantic_inputs()` が `Modifier::Caller` の段と開いた段と `semantic_reads` を順に畳む）をそのまま使う。`Variants::merge` は C10 の `pub(crate)`。`common.handlers.activate` は W5 の後の press の field（`Node::on_press` が書く field。`rg -n "fn on_press" crates/kivact-core/src/view/node_modifiers.rs` の本体で名前を確かめる）。`Value<T>` が `Copy` でない型があれば `.clone()` にする。
+     `custom.rs` に `pub use crate::view::Authored as Caller;` を足す（公開の名前は `kivact::custom::Caller`。`Authored` は `#[doc(hidden)]` の core の名前）。
+  3. **(D) disabled の OR**：C09 の `Node::absorb` の本体を次にする（`debug_assert` と modifiers の移しは C09 のまま）：
      ```rust
-     let __guard = R::custom::CallerGuard::enter(__root);
-     let __body = (move || { /* the function's statements */ })();
-     let __root = __guard.exit();
-     R::view::Element::with_node(__body, move |__n| __n.absorb(__root))
+     #[doc(hidden)]
+     pub fn absorb(mut self, caller: Node) -> Node {
+         let body_disabled = self.disabled_source().map(kivact_runtime::IntoValue::into_value);
+         let caller_disabled = caller.disabled_source().map(kivact_runtime::IntoValue::into_value);
+         let Node { common, children, modifiers, .. } = caller;
+         debug_assert!(children.is_empty(), "a #[component] caller adds no children to its root");
+         self.modifiers.push(crate::view::element_data::Modifier::Caller(Box::new(std::mem::take(&mut self.common))));
+         self.modifiers.extend(modifiers);
+         self.common = common;
+         if let (Some(body), Some(outer)) = (body_disabled, caller_disabled) {
+             // Either side disables the root: a busy body stays disabled under the caller's `.disabled(false)`.
+             self.common.set_disabled(kivact_runtime::IntoValue::into_prop(move || body.get() || outer.get()));
+         }
+         self
+     }
      ```
-  3. **R2（引数のある関数の props）**：`parse.rs` の `PropKind` に足す：
+     `Node::absorb` の doc の「its name, description, disabled, …over the body's」を「its name, description, test id, variants and node refs over the body's; a disabled state of either side disables the root」に直す。設計 5.1 規則 2（disabled は本体と呼出し側の OR）のとおり。
+  4. **(C) macro の `#[caller]`**：`parse.rs`：
+     - 関数の引数の属性 `#[caller]` を受ける。その引数は props にしない（setter も constructor の引数も作らない）。型の最後の segment が字面 `Caller` でなければ error `"a #[caller] argument has the type `Caller`"`。`#[caller]` は一つまで（二つ目は error `"only one #[caller] argument"`）。戻り値が `impl IntoView` の部品に付けたら error `"#[caller] needs a component that returns impl Element"`。`Model` に `caller: Option<syn::Ident>` を足す。
+     - `expand.rs`：`into_view` の `let __body = (move || { .. })();` の前に、`caller` が `Some(ident)` のとき `let #ident: R::custom::Caller = __root.authored();` を置く（`__root` は分解した後の値。snapshot は body の前に一度だけ作る。body はこの値を capture でき、後で他の部品の値を読むことは無い）。
+  5. **(A) Func の props**：`parse.rs` の `PropKind` に足す：
      ```rust
      /// `Rc<dyn Fn(A, ..) -> T>`: takes `impl Fn(A, ..) -> T + 'static`; when `T` is literally
      /// `View`, takes `impl Fn(A, ..) -> V + 'static` with `V: IntoView`.
      Func { args: Vec<syn::Type>, output: syn::Type, view: bool },
      ```
-     `kind(ty)`：型の最後の segment が字面 `Rc` で、その型引数が `dyn Fn(..) -> ..`（`syn::TypeTraitObject` の bound の path の最後の segment が `Fn` で、引数が parenthesized）なら `Func`。`output` の最後の segment が字面 `View` なら `view: true`。
-     `expand.rs` の kind の表（C09 の表）に足す行：
+     `kind(ty)`：型の最後の segment が字面 `Rc` で、その型引数が `dyn Fn(..) -> ..`（`syn::TypeTraitObject` の bound の path の最後の segment が `Fn`、引数が parenthesized）なら `Func`。`-> T` が無い `dyn Fn(..)` は `output` を `()` にする。`output` の最後の segment が字面 `View` なら `view: true`。`expand.rs` の kind の表（C09）に足す行：
 
      | kind | 位置引数・setter の型 | 保存の型 | 保存の式 | scope の中の変換 |
      |---|---|---|---|---|
      | Func（view でない） | `impl Fn(A0, A1, ..) -> T + 'static` | `::std::rc::Rc<dyn Fn(A0, A1, ..) -> T>` | `::std::rc::Rc::new(x)` | なし |
-     | Func（view） | `impl Fn(A0, A1, ..) -> __KvV<Name> + 'static`（`__KvV<Name>: R::view::IntoView` の generic。名前の規則は C09 の `ViewFn` と同じ） | `::std::rc::Rc<dyn Fn(A0, A1, ..) -> R::view::View>` | `::std::rc::Rc::new(move \|__a0: A0, __a1: A1, ..\| R::view::IntoView::into_view(x(__a0, __a1, ..)))` | なし |
+     | Func（view） | `impl Fn(A0, A1, ..) -> __KvV<Name> + 'static`（`__KvV<Name>: R::view::IntoView`。名前の規則は C09 の `ViewFn` と同じ） | `::std::rc::Rc<dyn Fn(A0, A1, ..) -> R::view::View>` | `::std::rc::Rc::new(move \|__a0: A0, __a1: A1, ..\| R::view::IntoView::into_view(x(__a0, __a1, ..)))` | なし |
 
-     引数の型が参照（`&R`）のときは閉包の引数を `__a0: &R` と書く。API-18 の確かめの tuple には `Func` を入れない（`Rc` は std の型）。DEC-16 のとおり、この setter は `Fn` の bound を直接持つので closure の引数の型が推論される。
-  4. **R4（遅れて view にする子）**：`view/children.rs` に足し、`view.rs` に `pub use children::Children;` を足す：
+     引数の型が参照（`&R`）のときは閉包の引数を `__a0: &R` と書く。`Option<Rc<dyn Fn ..>>` は optional（setter）、`#[prop(default = expr)]` は `Rc::new(expr)`。API-18 の確かめの tuple に `Func` は入れない（`Rc` は std の型）。型の別名（`type Render = Rc<dyn Fn(u32) -> View>`）は「それ以外」で、`impl Into<Render>` を受ける（5.1 規則 3）。
+  6. **(B) 型引数そのものの props**：`PropKind` に `Param(syn::Ident)` を足す。`kind(ty)`：型が path の segment 一つで、その ident が部品の関数の型引数の一つと等しければ `Param`（`Option<C>` も同じ判定で optional）。expand の行：位置引数・setter の型は `C`、保存の型は `C`、保存の式は `x`、変換なし。`C` は他の props と同じく struct の型引数として残る（`phantom` の判定で `C` は「props に現れる」）。
+  7. **(E)** `view/children.rs` に足し、`view.rs` に `pub use children::Children;`：
      ```rust
      /// Children made into views when the component asks: a component that
      /// provides a context to its children calls [`Children::into_views`]
@@ -3288,29 +3391,82 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
          }
      }
      ```
-     macro は変えない（字面 `Children` は `Other` の kind で、`impl Into<Children>` を受ける）。
-  5. 試験：`component_macro.rs` に次の 3 つを足す（`mount`・`find_text` はこの file が今使う support の名前に合わせる）。
+     macro は変えない（字面 `Children` は「それ以外」で `impl Into<Children>` を受ける）。
+  8. 試験：`component_macro.rs` に次を足す（`mount`・`find_text`・`get_by_role` はこの file が今使う support の名前に合わせる。file の先頭の `use` に `kivact::custom::Caller` と `kivact::Prop` を足す）。
      ```rust
+     #[derive(Clone, Copy, Debug, PartialEq, Prop)]
+     enum Look3 { Plain, Ghost, Bold }
+     impl kivact::ui::theme::Variant for Look3 {}
+
+     #[component]
+     fn leaf(seen: Signal<Option<Look3>>, #[caller] caller: Caller) -> impl Element {
+         seen.set(caller.variants().get::<Look3>());
+         node()
+     }
+     #[component]
+     fn inner(seen: Signal<Option<Look3>>) -> impl Element {
+         leaf(seen).variant(Look3::Ghost)
+     }
+     #[component]
+     fn outer(seen: Signal<Option<Look3>>) -> impl Element {
+         inner(seen)
+     }
+
      #[test]
-     fn a_component_body_reads_the_callers_disabled_and_variant() {
-         #[derive(Clone, Debug, PartialEq)]
-         struct Big;
-         impl kivact::ui::theme::Variant for Big {}
+     fn a_wrapper_default_variant_reaches_the_leaf_and_an_outer_variant_overrides_it() {
+         let (_, (a, b)) = crate::support::mount(|| {
+             let (a, b) = (signal(None), signal(None));
+             ((a, b), column((outer(a), outer(b).variant(Look3::Bold))))
+         });
+         assert_eq!(a.get_untracked(), Some(Look3::Ghost));
+         assert_eq!(b.get_untracked(), Some(Look3::Bold));
+     }
+
+     #[test]
+     fn a_variant_before_or_after_a_part_is_the_same_variant() {
+         let (_, (a, b)) = crate::support::mount(|| {
+             let (a, b) = (signal(None), signal(None));
+             let part = || kivact::custom::Part::new(Value::from(()), |n: Node| n);
+             (
+                 (a, b),
+                 column((
+                     leaf(a).variant(Look3::Bold).with_node(|n| n.part(part())),
+                     leaf(b).with_node(|n| n.part(part())).variant(Look3::Bold),
+                 )),
+             )
+         });
+         assert_eq!(a.get_untracked(), Some(Look3::Bold));
+         assert_eq!(b.get_untracked(), Some(Look3::Bold));
+     }
+
+     #[test]
+     fn a_busy_body_stays_disabled_under_the_callers_enabled_state() {
          #[component]
-         fn probe(seen: Signal<(bool, bool)>) -> impl Element {
-             let c = kivact::custom::caller();
-             seen.set((
-                 c.accessible_disabled().is_some_and(|d| d.get_untracked()),
-                 c.variants().get::<Big>().is_some(),
-             ));
+         fn busy_button(pressed: Signal<u32>) -> impl Element {
+             node().role(Role::Button).name("Busy").focusable(true).disabled(true)
+                 .on_press(move || pressed.update(|n| *n += 1))
+         }
+         let (screen, pressed) = crate::support::mount(|| {
+             let pressed = signal(0);
+             (pressed, busy_button(pressed).disabled(false))
+         });
+         screen.get_by_role(Role::Button, "Busy").click();
+         assert_eq!(pressed.get_untracked(), 0);
+     }
+
+     #[test]
+     fn the_caller_snapshot_reports_a_press_handler_without_copying_it() {
+         #[component]
+         fn probe(seen: Signal<bool>, #[caller] caller: Caller) -> impl Element {
+             seen.set(caller.has_press());
              node()
          }
-         let (screen, seen) = crate::support::mount(|| {
-             let seen = signal((false, false));
-             (seen, probe(seen).disabled(true).variant(Big))
+         let (_, (a, b)) = crate::support::mount(|| {
+             let (a, b) = (signal(false), signal(true));
+             ((a, b), column((probe(a).on_press(|| {}), probe(b))))
          });
-         assert_eq!(seen.get_untracked(), (true, true));
-         assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+         assert!(a.get_untracked());
+         assert!(!b.get_untracked());
      }
 
      #[test]
@@ -3322,6 +3478,20 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
          }
          let (screen, _) = crate::support::mount(|| ((), labels(vec![1, 2]).render(|n| text(format!("#{n}")))));
          assert!(screen.find_text("#2").is_some());
+     }
+
+     #[test]
+     fn a_type_parameter_prop_takes_its_argument_without_annotations() {
+         #[component]
+         fn labelled<C: Element + IntoView>(label: Value<String>, control: C) -> impl Element {
+             column((text(label), control))
+         }
+         #[component]
+         fn custom_input() -> impl Element {
+             node().role(Role::TextBox).name("Custom").focusable(true)
+         }
+         let (screen, _) = crate::support::mount(|| ((), labelled("Name", custom_input())));
+         assert!(screen.find_text("Name").is_some());
      }
 
      #[test]
@@ -3340,9 +3510,10 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
          assert!(screen.find_text("7").is_some());
      }
      ```
-- **消すもの**：なし。
-- **状態の閉じ方**：`Caller`・`CallerGuard` は field を持たない（`()` だけ）。`CALLERS` は thread-local の stack（struct の field ではない）。`Children` は `Box<dyn FnOnce>` 一つ。
-- **試験**：上の 3 つを足す。
+     （`Look3` の `#[derive(Prop)]` は C09 の derive。`kivact::custom::Part::new(state, apply)` の形は今の `Part::new` に合わせ、state は `()` の定数の value にする。）
+- **消すもの**：なし。（以前の版の `custom::caller()`・thread-local の stack・`Node::{variants, press_handler, take_disabled}` は作らない。）
+- **状態の閉じ方**：`Authored`（`Caller`）は値の snapshot で、`authored()` の中で一度だけ作り、`&mut self` の method も内部可変の field も持たない（6.1 節の (b) を満たさないので対象外）。`Children` は `Box<dyn FnOnce>` 一つ。
+- **試験**：上の 7 つを足す（`e2e_core` の `component_macro`）。
 - **確認（tier a）**：
   ```
   cargo fmt -p kivact-core -p kivact-macros
@@ -3353,7 +3524,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
   KIVACT_TEST_MIRROR=off cargo test -p kivact-macros
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- component_macro
   ```
-- **完了条件**：新しい 3 つの試験が通る。上の命令が通る。
+- **完了条件**：上の 7 つの試験が通る（filter が 0 件を走らせたら失敗）。`rg -n "thread_local|fn caller\(" crates/kivact-core/src/custom` が空。上の命令が通る。
 
 ## U24：`Element::variant` を使い、68 個の `variant` の写しと ui の `Variants` を消す（UI-14、5.4 節）
 
@@ -3401,21 +3572,21 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
   2. `layer.rs` の `crate::variants::Variants` を `kivact_core::view::Variants`、`variants.look(state())` を `Look::of(state(), variants.clone())` にする。
   3. ui の look の `.variant::<X>().copied()`・`.cloned()` を `.variant::<X>()` にする（値で返るため）：
      ```
-     cd /w/w/kivact
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
      rg -l --path-separator // "variant::<" crates/kivact-ui/src | xargs perl -0pi -e 's/(\.variant::<[^>]+>\(\))\s*\.(copied|cloned)\(\)/$1/g'
      ```
      `Option<&X>` を受けていた `match`（`Some(&X::A)`）は `Some(X::A)` にする（compile の誤りで分かる）。
-  4. 各 builder から `variants: Variants` の field と `pub fn variant(..)`（68 件：`rg -n "pub fn variant\(" crates/kivact-ui/src`）を消す。`self.variants` を使っていた所は、`into_view`（`finish`）の先頭で `let variants = self.root.variants();`（U25 の `Node::variants`）を読む。root が `Node` でない builder は `Element::with_node` の中で読む。既定を足していた所（`variants.with(SelectSheetOption(size.get()))`）は core の `Variants::with` を使う。`inherited`・`with_defaults`・`merge` を使っていた所は、`Variants::with` を足す順（既定を先、呼出し側の値を後）で同じ結果にする。
+  4. 各 builder から `variants: Variants` の field と `pub fn variant(..)`（68 件：`rg -n "pub fn variant\(" crates/kivact-ui/src`）を消す。`self.variants` を使っていた所は、`into_view`（`finish`）の先頭で `let variants = self.root.authored().variants();`（U25 の `Node::authored`。part の前後と absorb の段をすべて順に畳む）を読む。root が `Node` でない builder は `Element::with_node` の中で読む。既定を足していた所（`variants.with(SelectSheetOption(size.get()))`）は core の `Variants::with` を使う。`inherited`・`with_defaults`・`merge` を使っていた所は、`Variants::with` を足す順（既定を先、呼出し側の値を後）で同じ結果にする。
   5. `impl Variant for X {}` の `X` が `Clone` を derive していなければ足す（C10 が W5 で行っていれば確かめるだけ）。
   6. 試験：`rg -l "kivact::ui::(Variant|Look)\b|ui::\{[^}]*\b(Variant|Look)\b" dev/tests/kivact-public-api/tests` の e2e_ui の file の import を `kivact::ui::theme::{Look, Variant}` にする。
 - **消すもの**：`crates/kivact-ui/src/variants.rs`（ui の `Variants`・`Extensions`・`Extension`・`DebugWith`・旧 `Look`）、68 個の `variant` method、すべての `variants: Variants` の field。
 - **状態の閉じ方**：`Look<S>` は値（constructor と値渡しの `with_variant` だけが書く）。
 - **試験**：期待値は変えない。`ui_theming.rs`・`ui_controls.rs` の variant の試験が通ること。
-- **確認（tier a）**：U20 と同じ命令（test は `-- ui_ apg_`）に、W7a の最後の確認として次を足す（annex T 4.4 の pending の検査を、この時点で厳密に通す）：
+- **確認（tier a）**：U20 と同じ命令（test は `--test e2e_ui -- ui_` と `--test e2e_ui -- apg_` の 2 つ）に、W7a の最後の確認として次を走らせ、結果を**報告だけ**する（W7a では ui の手書きの builder が W8 まで残るので `hand-element` は失敗する。失敗しても STOP しない。通るのは W8 の後）：
   ```
   cargo xtask check --no-write --strict --only element-shadow,hand-element --crate kivact-ui
   ```
-- **完了条件**：`rg -n "pub fn variant\(" crates/kivact-ui/src` が空。`rg -n "variants: Variants" crates/kivact-ui/src` が空。`ls crates/kivact-ui/src/variants.rs` が無い。上の命令が通る。
+- **完了条件**：`rg -n "pub fn variant\(" crates/kivact-ui/src` が空。`rg -n "variants: Variants" crates/kivact-ui/src` が空。`ls crates/kivact-ui/src/variants.rs` が無い。上の命令のうち報告だけの `--strict` の行を除くものが通る。
 
 ### 3.3 W7b（lane U1〜U4）
 
@@ -3763,7 +3934,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
       - `attach`：`trigger.with_node(|root| root.part(details.trigger()))` を `trigger.with_node(|root| match disabled { Some(d) => root.disabled(d), None => root }.part(details.trigger()))` にする。
       - `into_view`：trigger の `node().part(part).name(title)` を `match disabled { Some(d) => node().disabled(d), None => node() }.part(part).name(title)` にする（`.disabled` は必ず `.part` の前）。
       - `DisclosureApi::disabled` の呼出しはこの 2 か所だけである。
-  8. **ui `tooltip.rs`**：`kivact_interaction::use_tooltip().disabled(move || !self.enabled.get())` を `kivact_interaction::use_tooltip(self.enabled)` にする。
+  8. **ui `tooltip.rs`**：`impl IntoView for Tooltip<T>`（U23 で `attach` から移した本体）の `kivact_interaction::use_tooltip().disabled(move || !self.enabled.get())` を `kivact_interaction::use_tooltip(self.enabled)` にする。
   9. **ui `data_table/rows.rs`**：`use_disclosure(open)` と `is_open()` だけを使うので変えない。
 - **消すもの**：
   - interaction：`DialogMode::Popover`、`DialogOptionsMode`、`DialogApi::anchor`・`fn popover`・`fn bind`・`title`/`description` の field、`DisclosureApi::disabled`、`DisclosureOptions`、`DisclosureApi` の field `settings`・`host_disabled`、`fn is_disabled`・`fn register_host_disabled`、`TooltipApi::disabled`、`TooltipOptions`、`PopupApi::hide(reason)`（→ `pub(crate) close`）、private の `PopupApi::toggle`、`PopupApi::return_focus_target`、`PopupOptions::return_focus_target`、`InlineEditApi::{show, is_open}`。
@@ -4696,7 +4867,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 - **wave / lane / 前提**：W7b / U2 / W7a の全 unit（U20 → U21 → U25 → U22 → U23 → U24 の順）が完了。この unit は次の状態から始める。
   - W5・W6 の API：`Signal<T>`（`Binding`・`IntoBinding` は無い）、`binding(get, set) -> Signal<T>`、`Callback<E>`／`callback(f)`（`f: impl Fn(E) -> R`。`Callback<()>` なら `callback(move |()| ..)`）、`IntoHandler<(), M>`（`kivact_core::state::IntoHandler`）、`Callback::from_handler`、`use_direction() -> ReadingDirection`（Value で包まない）、`Theme::light()`、`theme.with(ext)`、`Trigger`。`Signal::update`・`Var::update` は `()` を返す（DEC-15）。この unit のどの手順も `update` の戻り値を使わない。
   - handler の形（DEC-16）：payload のある handler（`on_edit`、`on_pointer`、`on_key` など）は `impl Fn(E) -> R + 'static`（`R: HandlerResult`）を受ける。payload の無い handler だけが `impl IntoHandler<(), M>` を受ける。共有した `Callback<E>` は `move |e| cb.call(e)` で渡す。
-  - W7a の結果：U22 の `.label()` の呼出しの形、U23 の `on_commit`・`use_toaster()`・`use_announcer()`（`toaster()`・`announcer()` は U23 で改名済み。試験と ui の呼出し元も U23 が直している）、U23 の ui の `DialogKind`（ui の `DialogMode` の呼出しはすべて `DialogKind` になっている）、U20 の `<Name>Theme` と `crates/kivact-ui/src/theme.rs`（recipe の状態の型と `ThumbDrag`・`TrackInput`・`Lift` はここから再公開されている）、U21 の theme 変数、U24 の `Element::variant`、U25 の `kivact_core::custom::caller()`・`kivact::view::Children`・`Rc<dyn Fn(..)>` の props。
+  - W7a の結果：U22 の `.label()` の呼出しの形、U23 の `on_commit`・`use_toaster()`・`use_announcer()`（`toaster()`・`announcer()` は U23 で改名済み。試験と ui の呼出し元も U23 が直している）、U23 の ui の `DialogKind`（ui の `DialogMode` の呼出しはすべて `DialogKind` になっている）、U20 の `<Name>Theme` と `crates/kivact-ui/src/theme.rs`（recipe の状態の型と `ThumbDrag`・`TrackInput`・`Lift` はここから再公開されている）、U21 の theme 変数、U24 の `Element::variant`、U25 の `#[caller] caller: Caller`（`Node::authored` の snapshot）・`kivact::view::Children`・`Rc<dyn Fn(..)>` の props。
   - W4 の移動（U11〜U14）の後の配置：`crates/kivact-ui/src/toggle.rs` と `toggle/{look.rs, parts.rs, switch_drag.rs, switch_drag/}`（`switch_drag/` は `geometry.rs`・`handle.rs`・`machine.rs`。`mod switch_drag;` は `toggle.rs` にある）、`toast.rs` と `toast/{look.rs, swipe.rs, swipe/}`（`swipe/` は `handle.rs`・`machine.rs`。`mod swipe;` は `toast.rs` にある）、`dialog.rs` と `dialog/{look.rs, drawer_swipe.rs}`、`empty_state.rs` と `empty_state/changes.rs`。module の root は `<name>.rs`（clippy `mod_module_files` は deny。`mod.rs` は作らない）。
   - W1 で `xtask-allow(state-fields)` の印はすべて消えている。e2e の binary は annex T の割当てどおり：`view.rs` は `--test e2e_core`、`interaction_*`・`ui_*` は `--test e2e_ui`。
   - 同じ W7b の他の lane との境界（2.2 節）：`dialog.rs`・`dialog/look.rs` は U30a が持つ。この unit は `dialog/drawer_swipe.rs` だけを持ち、`dialog.rs` が呼ぶ関数の署名を変えない。`combobox/notices.rs` はこの unit だけが持つ（U30b・U31・U33 は触らない）。
@@ -5517,7 +5688,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 - **wave / lane / 前提**：W7b / U3 / W7a の全 unit（U20 → U21 → U25 → U22 → U23 → U24 の順）が完了。この unit は次の状態から始める。
   - W5・W6 の API：`Signal<T>`（`Binding`・`IntoBinding` は無い）、`binding(get: impl IntoValue<T>, set) -> Signal<T>`、`Callback<E>`／`callback(f)`（`f: impl Fn(E) -> R`、setup の中だけ）、`effect_on`（`kivact_core::state::effect_on`）、`use_direction() -> ReadingDirection`、`Theme::light()`、`theme.with(ext)`、`Trigger`。`Signal::update`・`Var::update` は `()` を返す（DEC-15）。この unit のどの手順も `update` の戻り値を使わない（`DraftApi::update` は別の method で、`()` を返す）。
   - handler の形（DEC-16）：payload のある handler・setter（`on_commit`、`on_key`、`on_write` など）は `impl Fn(E) -> R + 'static`（`R: HandlerResult`）を受ける。payload の無い handler だけが `impl IntoHandler<(), M>` を受ける。共有した `Callback<E>` は `move |e| cb.call(e)` で渡す。
-  - W7a の結果：U22 の `.label()` の呼出しの形（`text_input(value).label(..)`、`date_input(value).label(..)`、`time_input(value).label(..)`、`number_input(value, range).label(..)`）、U23 の `on_commit`（旧 `on_draft_commit`）と ui の `DialogKind`（`date_input/view.rs` の `DialogMode` の行は U23 で済んでいる）、U20 の `<Name>Theme`、U21 の theme 変数、U24 の `Element::variant`、U25 の `kivact_core::custom::caller()`。
+  - W7a の結果：U22 の `.label()` の呼出しの形（`text_input(value).label(..)`、`date_input(value).label(..)`、`time_input(value).label(..)`、`number_input(value, range).label(..)`）、U23 の `on_commit`（旧 `on_draft_commit`）と ui の `DialogKind`（`date_input/view.rs` の `DialogMode` の行は U23 で済んでいる）、U20 の `<Name>Theme`、U21 の theme 変数、U24 の `Element::variant`、U25 の `#[caller] caller: Caller`（`Node::authored` の snapshot）。
   - W3 の U08 の結果：date・range・time の view の `kivact_core::state::effect(move || state.send(Event::External(value.get())))` は `state.feed(value, Event::External)` の形（range は `draft.feed(value, DraftEvent::External)`）になっている。
   - W4 の移動（U11〜U14）の後の配置：`crates/kivact-ui/src/date_input.rs` と `date_input/{look.rs, machine.rs, view.rs}`、`time_input.rs` と `time_input/{look.rs, machine.rs, view.rs, parse.rs}`（旧 `time_parse.rs`）、`date_time_input.rs` と `date_time_input/{look.rs, model.rs, sheet.rs}`、`date_range_input.rs` と `date_range_input/{look.rs, draft.rs}`、`pagination.rs` と `pagination/{look.rs, draft.rs}`、`number_input.rs` と `number_input/{look.rs, draft.rs}`。module の root は `<name>.rs`（clippy `mod_module_files` は deny。`mod.rs` は作らない）。
   - W1 で `xtask-allow(state-fields)` の印はすべて消えている。e2e の binary は annex T の割当てどおり：`interaction_*`・`ui_*`・`apg_*` は `--test e2e_ui`。
@@ -6109,7 +6280,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 
 ## U35：UI-04 `use_history`、calendar の month swipe、date sheet の panel
 - **wave / lane / 前提**：W7b / U3 / U34（同じ lane の前の unit）。前提にする状態：
-  - W7a の全 unit が U20 → U21 → U25 → U22 → U23 → U24 の順に済んでいる（DEC-05 の `.label()` の呼出しの形、`on_commit`、`<Name>Theme`、theme 変数、`Element::variant`、`kivact_core::custom::caller()`、`kivact::view::Children`）。
+  - W7a の全 unit が U20 → U21 → U25 → U22 → U23 → U24 の順に済んでいる（DEC-05 の `.label()` の呼出しの形、`on_commit`、`<Name>Theme`、theme 変数、`Element::variant`、`#[caller] caller: Caller`（`Node::authored` の snapshot）、`kivact::view::Children`）。
   - W5・W6 の API：`Signal<T>`（`Binding`・`IntoBinding` は無い）、`binding(get, set) -> Signal<T>`、`Callback<E>`／`callback(f)`、`use_direction() -> ReadingDirection`（`Value` で包まない）、`Theme::light()`、`theme.with(ext)`。payload のある handler は `impl Fn(E) -> R + 'static`（DEC-16）、`Signal::update` は `()` を返す（DEC-15）。
   - U08（W3）で calendar の `MonthEvent`・`MonthSnapshot`・`month_navigation` は消えている。`calendar/view.rs` の `into_view` の `base_month` と `month` は同じ signal である。
   - U14（W4）で `composer_history.rs` は `crates/kivact-ui/src/chat_composer/history.rs`、`date_sheet.rs` は `crates/kivact-ui/src/date_parts/sheet.rs` に移っている。W1 で `xtask-allow(state-fields)` の印はすべて消えている。
@@ -6694,18 +6865,21 @@ builder の constructor の位置引数は、同じ順で必須の props にす�
 | `impl Fn(E) -> R`（`R: HandlerResult`、E は `()` 以外の payload） | `Callback<E>`（setter は `impl Fn(E) -> R + 'static`。共有した `Callback<E>` は `move \|e\| cb.call(e)` で渡す） |
 | `impl Fn(A, ..) -> V`（`V: IntoView`、slot） | `Rc<dyn Fn(A, ..) -> View>`（4.2 節 R2） |
 | `impl Fn(A, ..) -> T`（view でも handler でもない関数：書式、判定、比較） | `Rc<dyn Fn(A, ..) -> T>`（4.2 節 R2） |
+| 型引数そのもの（`field` の `control: C`、`tooltip` の `trigger: C`、`async_view` の `source: S`） | `C`（U25 の Param の kind。`Into` で包まない） |
 | `bool`、`f64`、`usize`、enum などの定数 | その型 `T`（`impl Into<T>` を受ける） |
 
 既定値がある定数（今の builder が constructor で入れている値）は `#[prop(default = <その値>)]` にする。`Option<T>` の props は、呼ばれなかったときの既定を本体で `unwrap_or(..)` する（今の builder の constructor の値と同じにする）。
 
 ### 規則 C3：呼出し側の modifier を読む
-本体は、今の `finish`・`into_view` が `self.root.accessible_*()` で読んでいた呼出し側の値を、`kivact_core::custom::caller()`（4.2 節 R3）から読む：`caller().accessible_disabled()`、`accessible_expanded()`、`accessible_name()`、`accessible_labelled_by()`、`accessible_description()`、`accessible_invalid()`、`press_handler()`、`variants()`。本体が root に別の値で付け直す disabled（busy との OR など）は `caller().take_disabled()` で読み、absorb が上書きしないようにする。
+今の `finish`・`into_view` が `self.root.accessible_*()`・`authored()` で読んでいた呼出し側の値は、関数の引数 `#[caller] caller: Caller`（`kivact_core::custom::Caller`。U25）から読む：`caller.variants()`、`caller.disabled()`、`caller.expanded()`、`caller.invalid()`、`caller.name()`、`caller.description()`、`caller.labelled_by()`、`caller.has_press()`。`Caller` は body の前に一度だけ作る snapshot で、body の後に読んでも他の部品の値にはならない。本体が root に付ける disabled（busy など）は、呼出し側の disabled と absorb で OR になる（U25）ので、本体は自分の値だけを付ける。
 
 ### 規則 C4：look と recipe
-`with_recipe_style(node, |r: &XTheme| r.part_recipe(), &variants, state)` の形は変えない。`variants` は本体の先頭の `let variants = caller().variants();`。
+`with_recipe_style(node, |r: &XTheme| r.part_recipe(), &variants, state)` の形は変えない。`variants` は本体の先頭の `let variants = caller.variants();`（root と全部の part が同じ値を使う）。
 
 ### 規則 C5：消すもの
 部品の builder struct、その `impl Element for`・`impl IntoView for`、`finish`、builder の setter。生成された struct の名前は関数名の UpperCamelCase（4.2 節 R1）で、今の builder の型名と同じになる（`Button`）。`lib.rs` の `pub use` の型名はそのまま（生成された struct を再公開する）。
+
+例外：`tooltip` は `Tooltip<T>`（手書きの `Element`・`IntoView`）のまま残す（親の決定。surface を trigger の兄弟に置くため、一つの root を返す `#[component]` にできない）。
 
 ### 規則 C6：試験
 W8 の unit は試験の期待値を変えない。`rg -n "\b<型名>\b" dev/tests/kivact-public-api/tests` で builder の型名を書いている試験（`let b: Button = ..` など）だけを、生成された struct の名前に合わせる（名前は同じなので通常は直す所が無い）。
@@ -6747,8 +6921,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          BUSY_REDUCED_SPIN_MS_VAR, BUSY_REVEAL_DELAY_MS_VAR, BUSY_REVEAL_FADE_MS_VAR, BUSY_SPIN_MS_VAR,
          ButtonState, ButtonTheme,
      };
-     use kivact_core::component;
-     use kivact_core::custom::caller;
+     use kivact_macros::component;
+     use kivact_core::custom::Caller;
      use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
      use kivact_core::state::{IntoValue, Machine, Step, Value, machine, memo, signal};
      use kivact_core::style::{Icon, style, use_theme};
@@ -6795,16 +6969,14 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          size: Option<Value<ControlSize>>,
          busy: Option<Value<bool>>,
          hide_label: Option<Value<bool>>,
+         #[caller] caller: Caller,
      ) -> impl Element {
-         let caller = caller();
          let variants = caller.variants();
          let part = use_button().control();
          let input = part.state();
          let size = size.unwrap_or_else(|| default_control_size().into_value());
-         let expanded = caller.accessible_expanded();
-         // Busy ignores presses as the caller's `.disabled(..)` does: the root
-         // gets one disabled value, so the caller's is taken, not overwritten.
-         let disabled = caller.take_disabled();
+         let expanded = caller.expanded();
+         // Busy ignores presses; `absorb` ORs this with the caller's `.disabled(..)`.
          let mut root = node()
              .part(part)
              .focusable_when_disabled(move || {
@@ -6817,10 +6989,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
          if let Some(busy) = busy {
              root = root.busy(busy);
          }
-         if busy.is_some() || disabled.is_some() {
-             root = root.disabled(move || {
-                 busy.is_some_and(|busy| busy.get()) || disabled.is_some_and(|d| d.get())
-             });
+         if let Some(busy) = busy {
+             root = root.disabled(busy);
          }
          let (leading_icon, trailing_icon) = (icon.is_some(), trailing.is_some());
          let state = memo(move || ButtonState {
@@ -6873,13 +7043,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      /// its tooltip. Its variant is `Ghost` unless the caller gives another.
      #[component]
      pub fn icon_button(icon: Value<Icon>, label: Value<String>) -> impl Element {
-         let tip = use_tooltip(true);
-         button(label)
-             .icon(kivact_core::view::icon(icon))
-             .hide_label(true)
-             .variant(ButtonVariant::Ghost)
-             .with_node(|n| n.part(tip.trigger()))
-             .children(tip.surface(Placement::Top, move || text(label)))
+         crate::tooltip(
+             label,
+             button(label)
+                 .icon(kivact_core::view::icon(icon))
+                 .hide_label(true)
+                 .variant(ButtonVariant::Ghost),
+         )
      }
 
      // busy_indicator(state, variants: &Variants, phase) and busy_animation(state): copy from
@@ -6887,7 +7057,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
      ```
      注：
      - `button_group::member_style(root: Node, variants: &Variants) -> Node` は、W7a の U23 手順 11 で `finish` の中に書いた group の角と区切り線の式を、`button_group.rs` に `pub(crate) fn member_style` として切り出したものである（この unit で切り出す。`button_group.rs` の所有はこの関数の追加だけ。他の行は U44）。
-     - `use_tooltip(true)`・`tip.surface(..)` は W7b の U30a の後の tooltip の形（`use_tooltip(enabled)`、`surface(placement, content)`）。U30a の形が違えば、その形で「trigger の part を button の root に付け、surface を子に置く」。
+     - `icon_button` の caller の modifier（`.variant(..)`、`.style(..)`）は tooltip の root（＝button）に absorb され、button の `#[caller]` の snapshot で `Ghost` より後に畳まれる（U25）。
      - 生成された struct は `Button`・`IconButton`。`lib.rs` は `pub use button::{Button, ButtonVariant, IconButton, button, icon_button};`。
   2. `crates/kivact-ui/src/button/look.rs` は変えない（U20・U21 で `ButtonTheme` と変数がある）。
 - **消すもの**：`struct Button`（手書き）、`enum ButtonSize`、`impl Button`、`impl Element for Button`、`impl IntoView for Button`、`Button::finish`、W7a の `fn icon_button(..) -> View`。
@@ -6905,7 +7075,39 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
   }
   ```
   （`find_text`・`role`・`name` は `ui_controls.rs` が今使う support の名前に合わせる。）
-- **確認（tier a）**：規則 C7。`<tests>` = `ui_controls ui_theming ui_toolbar interaction_toggle feedback components`。
+  さらに `ui_controls.rs` に足す（12 章 API-4・API-5）：
+  ```rust
+  #[test]
+  fn a_busy_button_is_not_pressed_even_when_its_caller_enables_it() {
+      let (screen, pressed) = crate::support::mount(|| {
+          let pressed = signal(0u32);
+          (pressed, button("Save").busy(true).disabled(false).on_press(move || pressed.update(|n| *n += 1)))
+      });
+      screen.get_by_role(Role::Button, "Save").click();
+      assert_eq!(pressed.get_untracked(), 0);
+      assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+  }
+
+  #[test]
+  fn the_root_content_and_icon_recipes_read_the_same_variant() {
+      let seen = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+      let (root, content, icon) = (seen.clone(), seen.clone(), seen.clone());
+      let theme = Theme::light().with(
+          ButtonTheme::default()
+              .root(move |_, look, base| { root.borrow_mut().push(("root", look.variant::<ButtonVariant>())); base })
+              .content(move |_, look, base| { content.borrow_mut().push(("content", look.variant::<ButtonVariant>())); base })
+              .icon(move |_, look, base| { icon.borrow_mut().push(("icon", look.variant::<ButtonVariant>())); base }),
+      );
+      let screen = kivact::test::render_with(kivact::test::RenderOptions::default().theme(theme), || {
+          icon_button("x", "Close").variant(ButtonVariant::Danger)
+      });
+      assert!(!seen.borrow().is_empty());
+      assert!(seen.borrow().iter().all(|(_, v)| *v == Some(ButtonVariant::Danger)), "{:?}", seen.borrow());
+      assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+  }
+  ```
+  （Ghost と呼出し側の override は `ui_theming.rs` に足す `an_icon_button_draws_the_ghost_look_by_default` で確かめる：`Theme::light().with(ButtonTheme::default().root(|_, look, base| if look.variant::<ButtonVariant>() == Some(ButtonVariant::Ghost) { base.background(rgb(RED)) } else { base.background(rgb(BLUE)) }))` の下で `icon_button("x", "Close").test_id("a")` と `icon_button("x", "Open").variant(ButtonVariant::Primary).test_id("b")` を mount し、`at(&screen, "a", 4.0, 4.0)` が RED に、`at(&screen, "b", 4.0, 4.0)` が BLUE に近い（`distance(..) <= 8`）。）
+- **確認（tier a）**：規則 C7。`<tests>` = e2e_ui の `ui_controls ui_theming ui_toolbar interaction_toggle feedback` と e2e_core の `components`。
 - **完了条件**：`rg -n "impl (Element|IntoView) for" crates/kivact-ui/src/button.rs` が空。`rg -c "#\[component\]" crates/kivact-ui/src/button.rs` が 2。命令が通る。
 
 ## U42：scalar・range scalar・splitter の disabled を node だけにする（UI-11 の scalar の部分）
@@ -7297,7 +7499,7 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
   ```
   cargo xtask check --no-write --strict --only interaction-view,unit-machine --crate kivact-interaction
   ```
-  kivact-ui 全体を見る検査（`ui-machine`、`hand-element`、`element-shadow`）は 4 つの lane の部品がそろうまで通らないので、U54 は W8 の 4 lane の merge の後（作業指示書の W8 の tier b の直前）に次を走らせ、結果を報告する。通らなければ STOP。
+  kivact-ui 全体を見る検査（`ui-machine`、`hand-element`、`element-shadow`）は 4 つの lane の部品がそろうまで通らないので、どの unit も走らせない。作業指示書の W8 の merge の後の確認（Orchestrator が統合 branch で tier b の前に走らせる。失敗は U4 の lane の fix）が次の 2 行である：
   ```
   cargo xtask check --no-write --strict --only interaction-view,ui-machine,unit-machine,hand-element,element-shadow --crate kivact-ui
   cargo xtask check --no-write --strict --only interaction-view,ui-machine,unit-machine --crate kivact-interaction
@@ -7396,13 +7598,14 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 |---|---|---|---|
 | R1 | `#[component]` の生成する struct の名前は関数名の UpperCamelCase（`button` → `Button`）で、関数と同じ可視性。generic の部品（5.1 規則 9） | annex C の C09（既にある） | W8 の `lib.rs` の `pub use` が型名を保つため |
 | R2 | 字面 `Rc<dyn Fn(A, ..) -> T>` の props は `impl Fn(A, ..) -> T + 'static` を受ける。`T` が字面 `View` なら `impl Fn(A, ..) -> V + 'static`（`V: IntoView`） | U25 | slot（`item`、`row_details`）と関数の props（`format_with`、`filter`）の closure の引数の型を推論させる（DEC-16 と同じ理由。`impl Into<T>` の「それ以外」では推論されない） |
-| R3 | `kivact_core::custom::{caller, Caller, CallerGuard}`。`Caller` の method：`accessible_disabled`、`take_disabled`、`accessible_expanded`、`accessible_invalid`、`accessible_name`、`accessible_description`、`accessible_labelled_by`、`press_handler`、`variants` | U25 | 本体は absorb の前に走るので、呼出し側が返り値に付けた modifier（disabled、popup の trigger の expanded、variant）を読む方法が他に無い。今の builder は `finish` でそれを読んでいる |
+| R3 | `#[component]` の引数 `#[caller] caller: Caller`（`kivact_core::custom::Caller` = core の `Authored`）。macro が body の前に `__root.authored()` の snapshot を一度だけ作って渡す。method：`variants`、`disabled`、`expanded`、`invalid`、`name`、`description`、`labelled_by`、`has_press`。`Node::authored()` は `Modifier::Caller` の段と開いた段を順に畳む一つの関数で、recipe・root・部分が同じ値を使う。absorb は本体と呼出し側の disabled を OR にする | U25 | 本体は absorb の前に走るので、呼出し側が返り値に付けた modifier を読む方法が要る。thread-local の stack は呼出し元に束縛されない暗黙の状態になる（12 章 API-4・API-5・ST-09） |
 | R4 | `kivact_core::view::Children`（`From<C: IntoChildren>`、`into_views(self)`） | U25 | C09 の `Vec<View>` は constructor で view にするので、子は部品の context の外で setup が走る。button_group・toolbar・input_group・item_list・navigation_menu は子に context を provide する |
-| R5 | `Variants::with<V: Variant>(self, V) -> Variants`、`Node::variants() -> Variants`、`Node::accessible_description()`、`Node::press_handler()`、`Node::take_disabled()` | U25 | `Look::with_variant`、builder の variant の読み出し（U24）、API-13 の固有 method の削除（U23） |
+| R5 | `Variants::with<V: Variant>(self, V) -> Variants` | U25 | `Look::with_variant` |
+| R6 | 型引数そのものの props（`control: C`）は `C` を受ける（Param の kind） | U25 | 12 章 API-1：`field`・`tooltip`・`async_view` |
 
 ### 4.3 表「UiTokens → 部品の theme 変数」（U 変数表。U21 が作り、annex K が kit の `set` に使う）
 
-書き方：`<module>::<NAME>` は `kivact::ui::theme::<module>::<NAME>`（`static <NAME>_VAR` と、長さ・色なら `const <NAME>`）。「設定」は `<Name>Theme` の `settings`（`theme.with(XTheme::default().<setting>(v))`、読みは `<setting>_value()`）。名前の文字列は `"<module>.<NAME の小文字>"`。fallback の「中核」は Color の別名（`color::X` をそのまま置く）。`Option<f64>` だった field の fallback は `Theme::light()` の数（space：xs 2、sm 4、md 8、lg 12、xl 16。radius：sm 3、md 6、lg 10。font：size 14、size_small 12。`control_height` 28、`focus_ring` 2、`disabled_opacity` 0.5）で、下の表に書いた。
+書き方：`<module>::<NAME>` は `kivact::ui::theme::<module>::<NAME>`（`static <NAME>_VAR` と、長さ・色なら `const <NAME>`）。「設定」は `<Name>Theme` の `settings`（`theme.with(XTheme::default().<setting>(v))`、読みは `<setting>_value()`）。名前の文字列は `"<module>.<NAME の小文字>"`。fallback の「→ `x::Y`」と「中核 `color::X`」は中核の変数への**別名**（12 章 UI-U-02。中核の値を変えると部品にも届く。部品の変数を set すれば部品だけが変わる）。別名は色も数も**必ず** `ThemeVar::alias(name, &X_VAR)` で書く（`ThemeVar::new(name, color::X)` の値の形は使わない。付属書 S 4.1）。`f64` でも `Length` でない値（不透明度）は `_VAR` だけで、別名は `ThemeVar::alias(.., &control::DISABLED_OPACITY_VAR)`。旧い theme の field `control_height`・`disabled_opacity`・`overlay_margin` は付属書 S の中核の変数 `kivact::style::control::{HEIGHT, OVERLAY_MARGIN}`（const と `_VAR`）と `kivact::style::control::DISABLED_OPACITY_VAR`（`static` だけ） への別名にする。`focus_ring` は theme の field（style）のままで変数ではないので、それに従っていた部品の変数は数の fallback（2）にする。
 
 | 旧（`UiTokens` の field） | 新 | 型 | fallback |
 |---|---|---|---|
@@ -7418,10 +7621,10 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 | `code_block.font_size`・`line_height` | `code_block::FONT_SIZE`・`LINE_HEIGHT` | Length | 14・22 |
 | `code_block.copy_feedback_ms` | `code_block::COPY_FEEDBACK_MS_VAR` | f64（ms） | 2000 |
 | `combobox.foreground`・`muted`・`background`・`border`・`active_background`・`chip_background`・`focus` | `combobox::FOREGROUND`・`MUTED`・`BACKGROUND`・`BORDER`・`ACTIVE_BACKGROUND`・`CHIP_BACKGROUND`・`FOCUS` | Color | 中核 `color::TEXT`・`TEXT_MUTED`・`SURFACE`・`BORDER`・`HOVER`・`SELECTION`・`FOCUS` |
-| `combobox.field_radius` | `combobox::FIELD_RADIUS` | Length | 6（radius md） |
-| `combobox.focus_ring` | `combobox::FOCUS_RING` | Length | 2 |
-| `combobox.disabled_opacity` | `combobox::DISABLED_OPACITY_VAR` | f64 | 0.5 |
-| `combobox.empty_font_size` | `combobox::EMPTY_FONT_SIZE` | Length | 12（font size_small。look が今 `t.text()` の何を使うかで 12 か 14。U21 の時点の look の式に合わせる） |
+| `combobox.field_radius` | `combobox::FIELD_RADIUS` | Length | → `radius::MD` |
+| `combobox.focus_ring` | `combobox::FOCUS_RING` | Length | 2（`focus_ring` は theme の field で変数ではない） |
+| `combobox.disabled_opacity` | `combobox::DISABLED_OPACITY_VAR` | f64 | → `control::DISABLED_OPACITY_VAR` |
+| `combobox.empty_font_size` | `combobox::EMPTY_FONT_SIZE` | Length | → `font::SIZE_SMALL`（look の今の `unwrap_or(t.text().size_small)`） |
 | `combobox.field_height`・`field_padding`・`chip_height`・`chip_radius`・`option_height`・`option_padding_x`・`option_padding_y`・`option_radius`・`list_height`・`popup_offset` | `combobox::FIELD_HEIGHT`・`FIELD_PADDING`・`CHIP_HEIGHT`・`CHIP_RADIUS`・`OPTION_HEIGHT`・`OPTION_PADDING_X`・`OPTION_PADDING_Y`・`OPTION_RADIUS`・`LIST_HEIGHT`・`POPUP_OFFSET` | Length | 32・4・24・4・32・8・6・4・292・6 |
 | `data_table.sticky.surface`・`hover`・`selected`・`shadow` | `data_table::STICKY_SURFACE`・`STICKY_HOVER`・`STICKY_SELECTED`・`STICKY_SHADOW` | Color | 中核 `color::SURFACE`・`HOVER`・`SURFACE_ALT`・`Color::TRANSPARENT` |
 | `data_table.sticky.shadow_width` | `data_table::STICKY_SHADOW_WIDTH` | Length | 0 |
@@ -7446,10 +7649,10 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 | `toggle_button.label_reservation` | `ToggleButtonTheme` の設定 `label_reservation` | `ToggleLabelReservation` | `Natural` |
 | `toolbar.background`・`border` | `toolbar::BACKGROUND`・`BORDER` | Color | `Color::TRANSPARENT` |
 | `toolbar.padding`・`gap`・`min_height` | `toolbar::PADDING`・`GAP`・`MIN_HEIGHT` | Length | 8・4・32 |
-| `tree.marker_width`・`indent`・`padding`・`gap`・`row_height`・`radius` | `tree::MARKER_WIDTH`・`INDENT`・`PADDING`・`GAP`・`ROW_HEIGHT`・`RADIUS` | Length | 16・16・（look の `unwrap_or` の数）・（同）・28・6 |
-| `item_list.gap`・`padding`・`row_gap`・`description_size` | `item_list::GAP`・`PADDING`・`ROW_GAP`・`DESCRIPTION_SIZE` | Length | 2（space xs）・（look の `unwrap_or` の数）・（同）・12 |
+| `tree.marker_width`・`indent`・`padding`・`gap`・`row_height`・`radius` | `tree::MARKER_WIDTH`・`INDENT`・`PADDING`・`GAP`・`ROW_HEIGHT`・`RADIUS` | Length | 16・16・→ look の `unwrap_or` の中核の変数・→ 同・→ `control::HEIGHT`・→ `radius::MD` |
+| `item_list.gap`・`padding`・`row_gap`・`description_size` | `item_list::GAP`・`PADDING`・`ROW_GAP`・`DESCRIPTION_SIZE` | Length | → `space::XS`・→ look の `unwrap_or` の中核の変数・→ 同・→ `font::SIZE_SMALL` |
 | `item_list.title_lines`・`description_lines` | `ItemListTheme` の設定 `title_lines`・`description_lines` | `Option<u32>` | None |
-| `table.cell_padding`・`header_height`・`font_size` | `table::CELL_PADDING`・`HEADER_HEIGHT`・`FONT_SIZE` | Length | （look の `unwrap_or` の数） |
+| `table.cell_padding`・`header_height`・`font_size` | `table::CELL_PADDING`・`HEADER_HEIGHT`・`FONT_SIZE` | Length | → look の `unwrap_or` の中核の変数 |
 | `button_group.gap`・`radius` | `button_group::GAP`・`RADIUS` | Length | 0・0 |
 | `button_group.joined` | `ButtonGroupTheme` の設定 `joined` | bool | true |
 | `button_group.divider`・`solid_divider`・`text_background`・`text_color` | `button_group::DIVIDER`・`SOLID_DIVIDER`・`TEXT_BACKGROUND`・`TEXT_COLOR` | Color | `TRANSPARENT`・`TRANSPARENT`・`TRANSPARENT`・`Color::BLACK` |
@@ -7462,7 +7665,7 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 | `indicators.line_height`・`gap` | `skeleton::LINE_HEIGHT`・`GAP` | Length | 16・6 |
 | `indicators.avatar_overlap` | `avatar_group::OVERLAP` | Length | 8 |
 
-「look の `unwrap_or` の数」の行は、U21 の時点の look の関数がその `None` の代わりに使っている式を `Theme::light()` で読んだ数を fallback にする（この節の冒頭の数の表）。`indicators.*` のうち、どの部品が読むかは `rg -n "indicators\." crates/kivact-ui/src` の結果で決める：読む部品ごとに変数を作り、読まない部品には作らない。
+「→ look の `unwrap_or` の中核の変数」の行は、U21 の時点の look の関数がその `None` の代わりに使っている式の中核の変数（`space::SM` など）への別名を fallback にする（数にしない）。U21 は別名が中核の値に従うことを確かめる試験を `ui_theming.rs` に足す：`component_variables_follow_the_core_variable_they_alias`：`Theme::light().set(&radius::MD_VAR, 20.0)` の下で `kivact::ui::theme::combobox::FIELD_RADIUS_VAR` を `theme.get(..)` で読むと 20、さらに `.set(&combobox::FIELD_RADIUS_VAR, 3.0)` なら 3（部品の値が共通の値より優先する）。同じ確かめを `tree::INDENT_VAR`→ その中核の変数、`item_list::GAP_VAR`→`space::XS_VAR` について行う。`indicators.*` のうち、どの部品が読むかは `rg -n "indicators\." crates/kivact-ui/src` の結果で決める：読む部品ごとに変数を作り、読まない部品には作らない。
 
 ### 4.4 表「UiRecipes → <Name>Theme」（U recipe 表）と annex K への対応（W7〜W8 の後）
 
@@ -7506,6 +7709,8 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 | `selection_field(label, value_label).content(f)` | `select(items, selected).label(label).trigger(view)` | U23 |
 | `ColumnDef::with_width` | `ColumnDef::width` | U23 |
 | `toaster()`・`announcer()` | `use_toaster()`・`use_announcer()` | U23 |
+| `tooltip(label).attach(trigger)`、`tooltip(label).enabled(x).attach(t)` | `tooltip(label, trigger)`、`tooltip(label, t).enabled(x)`（`Tooltip<T>` は `Element`：caller の modifier は trigger に付く。trigger と surface は兄弟。12 章 API-3） | U23・U47 |
+| `stepper(..).on_step_press(f)` | `stepper(items, current: Signal<usize>).on_edit(f)`（値は signal で受ける） | U23 |
 | `Dialog::mode(DialogMode::..)` | `Dialog::mode(DialogKind::..)`（`Popover` を含む） | U23・U30a |
 | `Button::child(x)`（複数回） | `Button::children((x, ..))`（一回） | U23 |
 | `Button::default_size`、`ButtonGroupMember::{from, solid, keep_size}` | 消す（group の中の button は group の大きさ。`solid` は variant が `Primary`・`Danger` の button） | U23 |
@@ -7525,7 +7730,7 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 
 - **U-Q1**：`flatten_tree_rows` は公開のまま `#[doc(hidden)]` を付ける（ui の data table が使うため。設計 5.9 の pub(crate) の一覧から外す）。`filter_commands` は `pub(crate)`。
 - **U-Q2**：`Variant` の公開の path は `kivact::ui::theme::Variant` だけ（`kivact::view` からは再公開しない。annex C の C10 が `#[doc(hidden)]` にする。INC-22）。
-- **U-Q3**：R2〜R5（`Rc<dyn Fn>` の props、`custom::caller()`、`view::Children`、`Variants::with` と node の読み出し）は W7a の U25 が kivact-core と kivact-macros に作る。
+- **U-Q3**：R2〜R6（`Rc<dyn Fn>` の props、`#[caller] caller: Caller` と `Node::authored`、absorb の disabled の OR、`view::Children`、`Variants::with`、型引数そのものの props）は W7a の U25 が kivact-core と kivact-macros に作る（12 章 API-1・API-2・API-4・API-5・ST-09）。
 - **U-Q4**：context を子に provide する部品（button_group、toolbar、input_group、item_list、navigation_menu）は `Children` を使う。
 - **U-Q5**：状態の型は一つにまとめず、名前も変えない（`kivact::ui::theme` に移すだけ）。
 - **U-Q6**：DEC-05 の `.label()` は見えない名前を持つ入力の 12 関数だけ。
@@ -7543,7 +7748,7 @@ U51 は carousel を `#[component]` にする前に、次を行う（所有：`c
 2. **設計の判断を実装者に残していない**：判断はすべて 4.5 節のとおり決定済みで、各 unit の本文に入っている。下書きの統合の注記と読み替えの段落は残っていない（各 unit の所有・前提・手順に入れた）。DEC-15・DEC-16 は手順のコードに直接書いてある。
 3. **同じ wave の二つの unit が同じファイルを持たない**：W2a・W3a・W4 は lane U だけで順に行う。W7a は lane U1 だけで順に行う（U20 → U21 → U25 → U22 → U23 → U24）。W7b は 2.2 節の表で排他にした（`lib.rs` の `mod`・`pub use` の行だけ「両方残す」）。W8 は lane ごとに部品の module が別（2.3 節・U44〜U54 の表）。W8 で `button_group.rs` を U40 と U44 が持つが、同じ lane の順。`dev/xtask/policy/workspace.toml` の `[ui_machine]` の行は W8 では U52 だけが持つ。U41 は interaction の policy の file と `hover_card.rs`（interaction）を持ち、W8 の他の unit は interaction を持たない（U42 の scalar・splitter、U43 の `reorder_drag.rs` を除く。これらは互いに重ならない）。
 4. **kit を直していない**：W7・W8 の unit は kit・catalog・`e2e_kits` を直さない。annex K は 4.3・4.4 節の表で移行する。sidebar・tabs の overflow・`Slant`・`Striped`・`SyntaxKind` は実装しない（annex K の K08・K11〜K13）。
-5. **試験を緩めていない**：書き換える試験は期待値を保つ。足す試験：`ui_theming.rs::a_recipe_override_receives_the_previous_recipes_style`（U20）、`ui_field.rs::a_text_input_without_a_name_reports_an_error_and_a_field_names_it`（U22）、`component_macro.rs` の 3 つ（U25）、`ui_controls.rs::an_icon_button_is_named_by_its_label_and_hides_it`（U40）、`ui_sparkline.rs::a_sparkline_recipe_draws_the_line_from_its_state`（U52）、3 章の U36 の text 編集の試験。
+5. **試験を緩めていない**：書き換える試験は期待値を保つ。12 章の対応で足した試験：`component_macro.rs` の 7 つ（U25：wrapper の variant、part の前後の variant、busy と disabled の OR、`has_press`、Func の推論、型引数の props、遅延の子）、`ui_components.rs` の tooltip の 2 つ（U23）、`interaction_edit.rs` の stepper の 2 か所（U23）、`ui_controls.rs`・`ui_theming.rs` の icon_button と busy の 3 つ（U40）、`ui_theming.rs` の別名の試験（U21）、`ui_field.rs`（U45）と `async_tests.rs`（U46）の注釈なしの試験。足す試験：`ui_theming.rs::a_recipe_override_receives_the_previous_recipes_style`（U20）、`ui_field.rs::a_text_input_without_a_name_reports_an_error_and_a_field_names_it`（U22）、`component_macro.rs` の 3 つ（U25）、`ui_controls.rs::an_icon_button_is_named_by_its_label_and_hides_it`（U40）、`ui_sparkline.rs::a_sparkline_recipe_draws_the_line_from_its_state`（U52）、3 章の U36 の text 編集の試験。
 
 ### E2E の試験の一覧（この付属書の unit が直す・走らせる file）
 

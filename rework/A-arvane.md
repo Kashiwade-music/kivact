@@ -18,11 +18,11 @@
 | AR-08 描けるかの判定、embed の表示 | 変更して採用（`ShellEvent::Visibility(bool)`。モバイルの event は残す） | A08（W5b の鎖） |
 | AR-09 CPU の frame の三重保持 | 採用 | A08（engine の部分）、A15 |
 | AR-10 画像の三重保持、`Pixels` は premultiplied | 採用 | A10（W5b の鎖） |
-| AR-11 SVG は usvg → `RenderScene` | 採用（4.6 節の解釈） | A04 |
+| AR-11 SVG の二つ目の font DB・shaper・rasterizer | 変更して採用（DEC-09 版 2、12 章 EA-15：resvg・tiny-skia の描画を保ち、usvg の font を arvane-text から渡して fontdb の system の走査だけを消す） | A04 |
 | AR-12 起動の仕事を UI thread から外す | 採用 | A02（文字）、A04（asset の worker） |
 | AR-13 pipeline の遅延 compile | 採用 | A03 |
 | AR-14 export の変化の検出と pool の写し | 採用 | A10（CPU の記録の署名）、A13（registry） |
-| AR-15 embed の子の寿命の所有者 | 採用 | A14 |
+| AR-15 embed の子の寿命の所有者 | 採用（12 章 EA-04〜EA-06 の形） | A14 |
 | AR-16 設定の運び手と handler | 採用 | A05（W5b の鎖） |
 | AR-17 font の知識 | 採用（要設計判断 J-1 の推奨どおりに範囲を限る） | A02（family の解決）、A01（outline と ink の重複の統合） |
 | AR-18 kivact-gpu-share の feature と module | 採用 | A16 |
@@ -41,7 +41,7 @@
 - W1（付属書 T）：xtask の `state` 規則（6.1 節）。`xtask-allow(state-fields)` の印は消え、対象の struct には T が `// xtask-allow(state): ...` を付けた。e2e は `e2e_core`・`e2e_ui`・`e2e_kits`・`e2e_native` に分かれ、ファイルは `dev/tests/kivact-public-api/tests/<binary>/<topic>.rs` にある。本付属書は試験を **topic（ファイル名）と関数名** で指す。binary は `ls dev/tests/kivact-public-api/tests/*/<topic>.rs` で確かめる。
 - W1a（付属書 S の S01）：`kivact_types::cell::{Deferred, SharedDeferred}`。本付属書は `SharedDeferred::get_or_init` が std の `OnceLock::get_or_init` と同じく「他の thread が初期化している間は待つ」ことを前提にする（S01 は `OnceLock` で実装する）。
 - W2（付属書 S の S02〜S06）：`arvane-protocol` ができ、`kivact_types::render::*` の大半は `arvane_protocol::*`（crate root に平らに再公開）へ移った。`FontSource`・`GlyphRun` などは `kivact_types::shaped::*`。`Composite`・`ExportFrame`・`ExportedFrame`・`FrameStats` は `kivact_types` に残る。本付属書のコードはこの W2 後の path で書く。S06 の改名（ST-21、ST-11）が型名を変えた場合は、S06 の改名表の新しい名前を使う。
-- W5b の鎖：本付属書の鎖の unit（A05〜A10）は W5b に置き、W5a（付属書 R・C の鎖の unit（C18 まで）、付属書 E の鎖の unit（E17・E18・E20）と E の lane（E12〜E16））の **後** に続く。C11（launch・`kivact-engine/src/embed.rs`）と C13（embed：`arvane/src/embed.rs`、`arvane-shell/src/child.rs`、`arvane-native/src/{port/embed/*,port/win32/*,port/x11/*}`、`kivact-types/src/embed.rs`、`embed::Visibility` → `EmbedVisibility`）が先に終わっている。本付属書の手順は名前で場所を指すので、C の変更の後でも当てはまる。C13 で `kivact_types::embed::Visibility` は `EmbedVisibility` になっている。
+- W5b の鎖：本付属書の鎖の unit（A05〜A10）は W5b に置き、W5a（付属書 R・C の鎖の unit（C18 まで）、付属書 E の鎖の unit（E15・E17・E18・E20）と E の lane（E12・E13・E16））の **後** に続く。C11（launch・`kivact-engine/src/embed.rs`）と C13（embed：`arvane/src/embed.rs`、`arvane-shell/src/child.rs`、`arvane-native/src/{port/embed/*,port/win32/*,port/x11/*}`、`kivact-types/src/embed.rs`、`embed::Visibility` → `EmbedVisibility`）が先に終わっている。本付属書の手順は名前で場所を指すので、C の変更の後でも当てはまる。C13 で `kivact_types::embed::Visibility` は `EmbedVisibility` になっている。
 
 ### 1.3 後の付属書に渡すもの
 
@@ -67,7 +67,7 @@
 | A01 | W3a | A1 | S02〜S06 | `arvane-render/src/{cpu.rs,draw.rs,draw/painter.rs,derived.rs,validate.rs,validate/fonts.rs,validate/scene.rs,text.rs,outline.rs,ink.rs,glyph.rs(新),lib.rs,gpu/raster.rs,gpu/encode.rs}`、`arvane-compose/src/cpu/compositor.rs` | AR-01（CPU）、AR-04（CPU）、AR-24、AR-19（`dilation`）、AR-17（outline と ink の重複） | M |
 | A02 | W3a | A2 | S02〜S06 | `arvane-text/`、`arvane-asset/src/{font.rs,lib.rs}`、`arvane/src/{engine.rs,asset.rs}` | AR-12（文字）、AR-17（family の解決） | L |
 | A03 | W4 | A1 | A01 | `arvane-render/src/{gpu.rs,gpu/raster.rs,gpu/encode.rs,lib.rs}`、`arvane-compose/src/`（`plan/` を除く）、`arvane-compose/Cargo.toml` | AR-01（GPU）、AR-04（GPU）、AR-13、AR-20（`ComposeError`、`DeviceLost`、`Retain`） | L |
-| A04 | W4 | A2 | A01、A02 | `arvane-asset/`、`Cargo.lock`、`dev/xtask/policy/workspace.toml`（`visible_to` 3 行）、`crates/arvane/tests/e2e/assets.rs` | AR-11、AR-12（asset の worker） | L |
+| A04 | W4 | A2 | A02 | `arvane-asset/`、`Cargo.lock`、`dev/xtask/policy/workspace.toml`（`visible_to` の `arvane-text` の 1 行） | AR-11（DEC-09 版 2）、AR-12（asset の worker） | M |
 | A05 | W5b | 鎖 | W5a の鎖と E の lane | `kivact-types/src/{gpu.rs,embed.rs}`、`arvane/src/{env.rs,window.rs,embed.rs,presentation.rs,presenter/frame_policy.rs,lib.rs}`、`arvane/tests/e2e/{support.rs,embed.rs,presenter.rs}`、`kivact-engine/src/{host/launch.rs,embed.rs,host/testing/test_host.rs}`、`kivact-core/src/embed/open.rs`、`kivact-test/src/options.rs`、`dev/xtask/policy/workspace.toml`（`arvane::ShellSetup` の 1 行） | AR-16、5.6、AR-20（`limits_noted`） | M |
 | A06 | W5b | 鎖 | A05 | `arvane/`（facade の削除）、`arvane-text/src/{text_engine.rs,inline.rs,error.rs,lib.rs}`、`arvane-render/src/{error.rs,lib.rs}`、`kivact-engine/`（`use` と型 path の掃引、`Cargo.toml`）、`kivact-test/src/`（`kivact_engine::testing` 経由の名前だけ）、`Cargo.toml`（root の profile 1 行）、`templates/basic/README.md` の profile 1 行、`dev/xtask/policy/workspace.toml`、`dev/tools/check-features.sh` | AR-06、AR-19（`test` feature）、AR-20（`RefCell`） | L（機械的） |
 | A07 | W5b | 鎖 | A06 | `arvane-shell/src/{window.rs,ime.rs,lib.rs}`、`arvane-native/src/port/{winit,win32,x11}/window.rs`、`arvane-native/src/port/winit/open.rs`、`arvane-native/tests/smoke.rs`、`arvane-virtual/src/window.rs`、`arvane/src/{window.rs,presenter/*}`、`kivact-types/src/platform.rs`、`kivact-engine/src/{host/pump.rs,host/window.rs,host/foreign.rs,host/write/writer.rs,contract/host.rs}`、`kivact-core/src/{platform/services.rs,view/foreign_window.rs}`、`arvane/tests/e2e/environment.rs` | AR-07、AR-19（`frame_sink`）、AR-21（`ForeignChild`） | L |
@@ -77,8 +77,8 @@
 | A11 | W6b | A1 | A03、A10 | `arvane-compose/src/{gpu.rs,gpu/*,gpu_unbuilt.rs,lib.rs}`、`arvane/src/{presenter/gpu.rs,presenter/frame_policy.rs,test_hooks.rs}`（手順 5：新しい compose の API への追従だけ） | AR-02（compose） | L |
 | A12 | W6b | A2 | A08 | `arvane-native/src/{wake.rs(削除),lib.rs,mirror.rs,module.rs,native_input/windows.rs,port/win32/{dpi.rs,native.rs,window.rs,create.rs},port/x11/{poll.rs,thread.rs,notifier.rs,dnd.rs,window.rs},port/winit/{runtime.rs,window.rs,foreign/win32.rs},port/embed/session.rs}`、`arvane-native/Cargo.toml`、`arvane-shell/src/{types.rs,window.rs,a11y/shared.rs}`、`arvane-virtual/src/window.rs` | AR-05、AR-19（DPI）、AR-20（native 4 件）、AR-21（lib doc）、AR-25、DEC-13 | M |
 | A13 | W7a | A1 | A11 | `arvane/src/{window.rs,presenter.rs,presenter/*,gpu_driver.rs(新),test_hooks.rs,lib.rs}`、`arvane/tests/e2e/presenter.rs`、`arvane-compose/src/gpu/{export.rs,device.rs,state.rs}`・`arvane-compose/src/{gpu.rs,lib.rs,gpu_unbuilt.rs}`（2 関数の追加だけ） | AR-02（driver）、AR-14（registry）、AR-23 | L |
-| A14 | W7a | A2 | A12 | `arvane-native/src/port/embed/{child.rs,session.rs,resize.rs}`、`arvane-native/src/port/win32/{state.rs,window.rs,proc.rs,create.rs,native.rs}`、`arvane-native/src/port/x11/{window.rs,thread.rs}`、`arvane-shell/src/child.rs` | AR-15 | L |
-| A15 | W7b | A1 | A13 | `arvane-compose/src/cpu/{compositor.rs,filters.rs,draw.rs}`、`arvane/src/presenter/frame_policy.rs` | AR-09（compose と presenter） | M |
+| A14 | W7a | A2 | A12 | `arvane-native/src/port/embed/{child.rs,session.rs}`、`arvane-native/src/port/win32/{state.rs,window.rs,proc.rs,create.rs}`、`arvane-native/src/port/x11/{window.rs,thread.rs}` | AR-15（EA-04〜EA-06） | L |
+| A15 | W7b | A1 | A13 | `arvane-compose/src/cpu/{compositor.rs,filters.rs,draw.rs}`、`arvane/src/presenter/frame_policy.rs` | AR-09（compose と presenter）、EA-07、EA-17 | M |
 | A16 | W8 | A2 | A09、A11、E14 | `arvane-compose/src/plan/{hash.rs,builder.rs,layers.rs}`、`arvane-compose/Cargo.toml`、`arvane-compose/src/gpu/device.rs`（import 1 行）、`kivact-gpu-share/`、`dev/tests/gpu-interop-producer/src/{vulkan.rs,d3d12.rs}`（path だけ） | AR-03（hash、inline）、AR-18 | M |
 
 A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない（A15 は `cpu/*` と presenter、A16 は `plan/*`・`gpu/device.rs`・`Cargo.toml`）。
@@ -89,25 +89,29 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 - 関数は 80 行、ファイルは 1000 行まで。新しいコードで超える場合は、手順が指定する分割に従う。
 - `unwrap()` は使わない（`expect("invariant: ...")`）。
 - 窓を開く試験は `dev/tools/window-lock.sh --` を前に付けて実行する（CONTRIBUTING）。下の確認のコマンドはそう書いてある。
-- 「試験が通る」は `KIVACT_TEST_MIRROR=off` で通ること。GPU の試験は GPU を使えない機械では理由を表示して skip する（失敗ではない）。
+- 「試験が通る」は `KIVACT_TEST_MIRROR=off` で通り、各 command（filter）が 1 件以上の試験を実行すること（0 件は失敗。PLAN-07）。commands は作業 tree の root（`git rev-parse --show-toplevel`）で実行する（PLAN-04）。GPU の試験は GPU を使えない機械では理由を表示して skip する（失敗ではない）。
 
 ### 2.2 E2E の試験の束（確認で名前を引く）
 
-| 束 | コマンド |
-|---|---|
-| `ARV` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane --test e2e`（A06 の後は `-p arvane --features test --test e2e`） |
-| `NATIVE-SMOKE` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane-native --features test --test smoke` |
-| `GPU-DEMAND` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- gpu_on_demand` （topic `gpu_on_demand`・`gpu_on_demand_shared`・`gpu_on_demand_windows` の 3 本が一致する） |
-| `GPU-SHARE` | 同じ binary で `-- drawable_export_gpu gpu_interop shaders` |
-| `EMBED` | 同じ binary で `-- embed` （directory `embed/` の `contract`・`panic_boundary`・`visibility`・`windows`・`x11`・`uia` と topic `embed`） |
-| `FOREIGN` | `foreign_window` の topic がある binary（`ls dev/tests/kivact-public-api/tests/*/foreign_window.rs`）で `-- foreign_window`。加えて `dev/tests/kivact-public-api/tests/foreign_window_run.rs` を `--test foreign_window_run` で |
-| `ASSETS` | topic `assets`・`images_animated`・`svg_embedded_text`・`offscreen_svg`・`image_semantics` の各 binary で、その topic 名を filter に |
-| `OFFSCREEN` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test offscreen` と topic `offscreen` |
-| `TEXT` | topic `text_primitives`・`text_style`・`text_editing`・`launch_fonts`・`input_platform` の各 binary で、その topic 名を filter に |
-| `DRAW` | topic `canvas`・`canvas_worker`・`drawables`・`viewport`・`compositor`・`effects_filters`・`borders_backgrounds`・`paint`・`style_paint` の各 binary で、その topic 名を filter に |
-| `LIFE` | topic `lifecycle`・`environment`・`windows`・`close_request`・`resource_reclaim` の各 binary で、その topic 名を filter に |
+1 行が 1 つの command（1 つの binary）。module の binary は付属書 T の T15 の表のとおり（`e2e_core`・`e2e_native`）。filter が 1 件の試験も実行しない command は失敗として扱う（出力の `running 0 tests` は失敗。各 unit の完了条件）。
 
-各 binary は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test <binary> -- <filter>` で実行する。
+| 束 | command |
+|---|---|
+| `ARV` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane --test e2e`（A06 の後は `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane --features test --test e2e`） |
+| `NATIVE-SMOKE` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane-native --features test --test smoke` |
+| `GPU-DEMAND` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- gpu_on_demand` |
+| `GPU-SHARE` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- drawable_export_gpu gpu_interop` と `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- shaders` |
+| `EMBED` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- embed` |
+| `FOREIGN` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- foreign_window` と `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test foreign_window_run` |
+| `ASSETS` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- assets images_animated svg_embedded_text offscreen_svg image_semantics` |
+| `OFFSCREEN` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test offscreen` と `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- offscreen` |
+| `TEXT` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- text_primitives text_style text_editing launch_fonts input_platform` |
+| `DRAW` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- canvas drawables viewport compositor effects_filters borders_backgrounds paint style_paint` |
+| `LIFE` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- lifecycle environment windows close_request resource_reclaim` |
+| `DEVTOOLS` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_native -- devtools` |
+| `A11Y` | `dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --all-features --test e2e_core -- a11y_incremental` |
+
+GPU の機械で GPU の試験を実際に走らせるときは、同じ command の `env` の後に `KIVACT_TEST_GPU=1` を足し、`KIVACT_TEST_MIRROR=off` を `KIVACT_TEST_MIRROR=required` にし、末尾に `--test-threads=1` を足す（window-lock は 1 つのまま）。
 
 ## 3. unit の手順
 
@@ -333,37 +337,55 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 
 - **wave / lane / 前提**：W3a / A2 / S01、S02〜S06
 - **所有**：`crates/arvane-text/`（`Cargo.toml` を含む）、`crates/arvane-asset/src/{font.rs,lib.rs}`、`crates/arvane/src/{engine.rs,asset.rs}`
-- **目的**：AR-12（文字）：`TextEngine::new` は system font を走査しない。走査は process に一度、別の thread で行い、最初に font を要する呼出しがそれを待つ。AR-17（family の解決）：family 名と総称 family の解決を arvane-text が fontique の総称の表で行い、arvane-asset の OS ごとの手書きの表（`Os`、`GenericFamily::candidates`）と facade のカンマの特例を消す。SVG の `<text>` 用に、UI thread の外で使える font の検索 `FontLookup` を作る（A04 が使う）。
+- **目的**：AR-12（文字、12 章 EA-08・EA-09）：`TextEngine::new` は system font を走査しない。走査の worker は process に一つで、一度だけ起動し、`DetachedThreads` に登録する（埋め込みの host が module を保つ契約）。engine は launch と embed の最初に `arvane_text::start_system_font_scan()` を呼ぶ（A06）ので、走査は window と GPU の準備と重なり、最初の文字の計測は残りだけを待つ（PERF-10）。AR-17（family の解決）：family 名と総称 family の解決を arvane-text が fontique の総称の表で行い、arvane-asset の OS ごとの手書きの表（`Os`、`GenericFamily::candidates`）と facade のカンマの特例を消す。SVG の `<text>` 用に、UI thread の外で使える font の検索 `FontLookup` を作る（A04 が使う）。
 - **手順**：
-  1. 新しいファイル `crates/arvane-text/src/system_fonts.rs`：
+  1. 新しいファイル `crates/arvane-text/src/system_fonts.rs`（EA-08・EA-09：worker は process に一つ、一度だけ起動し、`DetachedThreads` に登録する）：
      ```rust
-     //! Role: The process's system font scan, made once on a thread of its own.
+     //! Role: The process's system font scan, made once on a worker thread of its own.
 
-     use parley::fontique::{Collection, CollectionOptions};
      use kivact_types::cell::SharedDeferred;
+     use kivact_types::process::DetachedThreads;
+     use parley::fontique::{Collection, CollectionOptions};
+     use std::sync::atomic::{AtomicBool, Ordering};
+     use std::time::Instant;
 
      /// The system fonts, scanned once per process. The scan runs on the
-     /// thread `start` spawns; a caller that needs it before it ends waits
-     /// for it (`SharedDeferred` initializes once and makes later callers
-     /// wait), and a caller that comes before the thread starts scans itself.
+     /// worker `start` spawns; a caller that needs it before it ends waits for
+     /// the rest of it (`SharedDeferred` initializes once and makes later
+     /// callers wait); a caller that comes before any worker ran scans itself.
      static SCAN: SharedDeferred<Collection> = SharedDeferred::new();
 
-     /// Start the system font scan on a thread of its own (PERF-10). Spawning
-     /// failure is ignored: the first caller that needs the fonts scans them.
-     pub(crate) fn start() {
-         if SCAN.get().is_some() {
+     /// Whether the scan worker was started (once per process).
+     static STARTED: AtomicBool = AtomicBool::new(false);
+
+     /// Start the system font scan on its worker, once per process (PERF-10:
+     /// it overlaps window and GPU setup). The worker is detached: it is noted
+     /// in `DetachedThreads`, so an embedding host keeps the module loaded
+     /// while it may run (`arvane-native`'s module retention).
+     pub fn start_system_font_scan() {
+         if STARTED.swap(true, Ordering::AcqRel) {
              return;
          }
-         let _ = std::thread::Builder::new()
+         let spawned = std::thread::Builder::new()
              .name("arvane-fonts".to_owned())
              .spawn(|| {
                  SCAN.get_or_init(scan);
              });
+         if spawned.is_ok() {
+             DetachedThreads::note();
+         }
      }
 
-     /// A collection of the system fonts, waiting for the scan when it runs.
+     /// A collection of the system fonts, waiting for the rest of the scan.
      pub(crate) fn collection() -> Collection {
-         SCAN.get_or_init(scan).clone()
+         let since = Instant::now();
+         let collection = SCAN.get_or_init(scan).clone();
+         tracing::debug!(
+             target: "arvane_text::fonts",
+             waited_us = since.elapsed().as_micros() as u64,
+             "system fonts joined"
+         );
+         collection
      }
 
      fn scan() -> Collection {
@@ -375,8 +397,24 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
          fn shared<T: Send + Sync>() {}
          shared::<Collection>();
      };
+
+     #[cfg(test)]
+     mod tests {
+         use super::*;
+
+         #[test]
+         fn the_font_scan_worker_starts_once_and_is_noted_as_detached() {
+             let threads: Vec<_> = (0..4).map(|_| std::thread::spawn(start_system_font_scan)).collect();
+             for thread in threads {
+                 thread.join().expect("start does not panic");
+             }
+             assert!(STARTED.load(Ordering::Acquire));
+             assert!(DetachedThreads::any());
+             assert!(collection().family_names().next().is_some() || cfg!(not(any(windows, target_os = "linux"))));
+         }
+     }
      ```
-     `lib.rs` に `mod system_fonts;` を足す。最後の `const _` が compile できない（`Collection` が `Send + Sync` でない）場合は STOP して報告する。
+     `lib.rs` に `mod system_fonts;` と `pub use system_fonts::start_system_font_scan;` を足す。`Cargo.toml` に `tracing = { workspace = true }` が無ければ足す（workspace の依存。新しい crate ではない）。最後の `const _` が compile できない（`Collection` が `Send + Sync` でない）場合は STOP して報告する。`DetachedThreads` の path は `kivact_types::process::DetachedThreads`（`note()` と `any()`）。`family_names` が `&mut self` を要るなら試験の中で `let mut c = collection();` にする。
   2. `text_engine.rs`：`#[derive(Default)] pub struct TextEngine` の `#[derive(Default)]` を消し、field を 1 つ足す：
      ```rust
      pub struct TextEngine {
@@ -403,7 +441,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
      /// An engine that sees the system fonts. Their scan starts now on a
      /// thread of its own; the first call that needs fonts waits for it.
      pub fn new() -> Self {
-         crate::system_fonts::start();
+         crate::system_fonts::start_system_font_scan();
          Self {
              cache: Cache::default(),
              fonts: FontContext {
@@ -637,7 +675,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo test -p arvane-text -p arvane-asset
   ```
   E2E：`ARV`、`TEXT`、`ASSETS`。
-- **完了条件**：`rg -w "Os|candidates|resolve_family" crates/arvane-asset/src` が 0 件。`rg -n "contains\(','\)" crates/arvane/src` が 0 件。`TextEngine::new` の中に `CollectionOptions { .. system_fonts: true }` が無い。上のコマンドと E2E が通る。
+- **完了条件**：`rg -w "Os|candidates|resolve_family" crates/arvane-asset/src` が 0 件。`rg -n "contains\(','\)" crates/arvane/src` が 0 件。`TextEngine::new` の中に `CollectionOptions { .. system_fonts: true }` が無い。`the_font_scan_worker_starts_once_and_is_noted_as_detached` が実行され通る（`cargo test -p arvane-text --lib -- system_fonts` が 1 件以上を実行する）。測定（記録だけ、合否に使わない）：最初の文字の計測が待った時間は `tracing` の `arvane_text::fonts` の debug の `waited_us` に出る。Orchestrator は CP1 の K1 の測定で `kv_startup` をこの log を有効にして起動し、`waited_us` を K1 と一緒に記録する（4.12 節）。上のコマンドと E2E が通る。
 
 ## A03：GPU の frame の scope、chunk ごとに 1 回の submit、pipeline の遅延 compile、compose の小さな整理
 
@@ -884,33 +922,32 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo xtask check --no-write --crate arvane-compose
   cargo test -p arvane-render -p arvane-compose --all-features
   ```
-  E2E：`ARV`、`GPU-DEMAND`、`GPU-SHARE`、`DRAW`。GPU の機械では `KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required` で `ARV` と `GPU-SHARE` を `--test-threads=1` でも実行する。
+  E2E：`ARV`、`GPU-DEMAND`、`GPU-SHARE`、`DRAW`。GPU の機械では `ARV` と `GPU-SHARE` を 2.2 節の GPU の形でも実行する。
 - **完了条件**：`rg -w ComposeError crates/` が 0 件。`rg -n "Arvane chunk patch" crates/` が 0 件。`rg -n "draw_pipelines|Mailbox" crates/arvane-compose/src` が 0 件。上のコマンドと E2E が通る。
 
-## A04：SVG を `RenderScene` にする（usvg だけ）、asset の worker を初めての仕事で起こす
+## A04：SVG の `<text>` の font を arvane-text から渡す（fontdb の 2 度目の走査をやめる）、asset の worker を初めての仕事で起こす
 
-- **wave / lane / 前提**：W4 / A2 / A01、A02
-- **所有**：`crates/arvane-asset/`（`Cargo.toml` を含む）、`Cargo.lock`、`dev/xtask/policy/workspace.toml`（`visible_to` の `arvane-text`・`arvane-render`・`arvane-protocol` の 3 行）、`crates/arvane/tests/e2e/assets.rs`
-- **目的**：AR-11（DEC-09）：resvg の描画・tiny-skia・fontdb の system の走査を消す。usvg で読んだ木を `RenderScene` に変換して保持し、要る device の大きさで arvane-render の CPU raster（vello_cpu）で描く（4.6 節）。SVG の `<text>` は usvg が path にし、その font は arvane-text の `FontLookup`（A02）から来る。AR-12（asset）：`AssetStore::new` は worker の thread を作らず、最初の仕事で作る。
+- **wave / lane / 前提**：W4 / A2 / A02
+- **所有**：`crates/arvane-asset/`（`Cargo.toml` を含む）、`Cargo.lock`、`dev/xtask/policy/workspace.toml`（`visible_to` の `arvane-text` の 1 行）
+- **目的**：AR-11（DEC-09 の版 2）：resvg・tiny-skia による SVG の描画は **今のまま保つ**（mask・pattern・filter・clipPath などの能力を落とさない。12 章 EA-15）。usvg の `<text>` の font は `usvg::Options::font_resolver` で arvane-text の `FontLookup`（A02）から渡し、`fontdb::Database::load_system_fonts`（system font の 2 度目の走査）と resvg の feature `system-fonts` を消す。AR-12（asset）：`AssetStore::new` は worker の thread を作らず、最初の仕事で作る（PERF-10）。
 - **手順**：
-  1. `crates/arvane-asset/Cargo.toml`：`resvg = { version = "0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }` とその上のコメント 2 行を消し、次を足す：
+  1. `crates/arvane-asset/Cargo.toml`：`resvg = { version = "0.46.0", default-features = false, features = ["text", "system-fonts", "raster-images"] }` の feature から `"system-fonts"` を消し、その上のコメントを次の 2 行にする。arvane-text の依存を足す：
      ```toml
-     # usvg parses SVG and turns `<text>` into paths with the fonts arvane-text
-     # finds (`text`); no system font database of its own (`system-fonts` off).
-     usvg = { version = "0.46.0", default-features = false, features = ["text"] }
+     # `text` turns SVG `<text>` into paths with the fonts arvane-text finds (no
+     # system font database of its own); `raster-images` draws data URL images.
+     resvg = { version = "0.46.0", default-features = false, features = ["text", "raster-images"] }
      arvane-text = { path = "../arvane-text", version = "0.1.0" }
-     # The SVG scene is drawn by the CPU rasterizer every other scene uses.
-     arvane-render = { path = "../arvane-render", version = "0.1.0" }
      ```
-     `[dependencies]` に `arvane-protocol = { path = "../arvane-protocol", version = "0.1.0" }` も足す（`scene.rs` が `RenderScene` などを使う）。`dev/xtask/policy/workspace.toml` の `visible_to` で、`arvane-text = [...]`、`arvane-render = [...]`、`arvane-protocol = [...]` の各一覧に `"arvane-asset"` を足す（INC-32）。`scene.rs` の `Gradient`・`Paint` などは S06 の改名の後の名前（1.2 節）。`cargo update -p usvg --precise 0.46.0` は要らない（同じ版）。`cargo check` が `Cargo.lock` を書き換えるのを受け入れる。
-  2. `crates/arvane-asset/src/svg/fonts.rs` を次の全文にする：
+     `dev/xtask/policy/workspace.toml` の `visible_to` の `arvane-text = [...]` の一覧に `"arvane-asset"` を足す。`cargo check` が `Cargo.lock` を書き換えるのを受け入れる（fontdb の `fs`・`fontconfig`・`memmap` の feature と、それだけが引く crate が消える）。
+  2. `crates/arvane-asset/src/svg/fonts.rs` を次の全文にする（`fn has_text` とその doc は今のファイルのものを末尾にそのまま残す）：
      ```rust
      //! Role: The fonts SVG `<text>` is turned into paths with.
 
      use arvane_text::{FamilyQuery, FontFace, FontLookup};
      use kivact_types::shaped::FontSource;
+     use resvg::usvg;
+     use resvg::usvg::fontdb;
      use std::sync::{Arc, Mutex};
-     use usvg::fontdb;
 
      /// The App's font files for SVG text, in registration order. The system
      /// fonts come from arvane-text's process-wide scan when a document has text.
@@ -931,9 +968,9 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
              Self { app }
          }
 
-         /// The font resolver usvg uses for `svg`: no font at all when the
-         /// document has no text, else the system and App fonts, loaded into
-         /// usvg's database face by face as the text asks for them.
+         /// The font resolver usvg uses for `svg`: no font when the document
+         /// has no text, else the system and App fonts, loaded into usvg's
+         /// database face by face as the text asks for them.
          pub(crate) fn resolver(&self, svg: &[u8]) -> usvg::FontResolver<'static> {
              if !has_text(svg) {
                  return usvg::FontResolver {
@@ -946,7 +983,8 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
              usvg::FontResolver {
                  select_font: Box::new(move |font, db| {
                      let families: Vec<FamilyQuery<'_>> = font.families().iter().map(family).collect();
-                     let face = lock(&lookup).face(&families, f32::from(font.weight()), font.style() != usvg::FontStyle::Normal, width(font.stretch()))?;
+                     let italic = font.style() != usvg::FontStyle::Normal;
+                     let face = lock(&lookup).face(&families, f32::from(font.weight()), italic, width(font.stretch()))?;
                      load(db, &face)
                  }),
                  select_fallback: Box::new(move |c, used, db| {
@@ -993,116 +1031,18 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
          }
      }
 
-     /// Load `face` into usvg's database and give its id there.
+     /// Load `face` into usvg's database and give its id there (a font
+     /// collection's faces are loaded in index order).
      fn load(db: &mut Arc<fontdb::Database>, face: &FontFace) -> Option<fontdb::ID> {
          let ids = Arc::make_mut(db).load_font_source(fontdb::Source::Binary(Arc::clone(&face.data)));
          ids.get(face.index as usize).copied()
      }
      ```
-     今のファイルの `fn has_text(svg: &[u8]) -> bool` とその doc はそのまま末尾に残す。`load_font_source` は font collection の face を index の順に読み込むので、`ids[index]` がその face。
-  3. `crates/arvane-asset/src/svg/scene.rs` を作る。usvg の木を `RenderScene` にする変換。対応表（4.6 節に同じ表）：
-
-     | usvg | `RenderScene` |
-     |---|---|
-     | `Node::Group(g)` | `g.transform()` が単位でなければ `PushTransform(t)`…`PopTransform`。`g.opacity() < 1` か `g.blend_mode() != Normal` か clip がある（下）なら `PushGroup(Group { clip, opacity, blend, blur: None })`…`PopGroup`。子を順に変換 |
-     | `g.clip_path()` | clip path の `root()` の子がちょうど 1 つの `Node::Path`（`clip_path.clip_path()` が `None`、その path の `is_visible()`）なら、その path を `clip_path.transform()` で写した `Shape::Path { cmds, rule }`（rule は path の fill の rule、fill が無ければ `NonZero`）を `Group.clip` に。それ以外は clip なしで描き、`clip-path` を Unsupported として報告 |
-     | `g.mask()` | mask なしで描き、`mask` を Unsupported として報告 |
-     | `g.filters()` が空でない | filter なしで描き、`filter` を Unsupported として報告 |
-     | `Node::Path(p)`（`p.is_visible()`） | `p.paint_order()` の順に、fill があれば `FillShape { shape: Shape::Path { cmds, rule }, paint }`、stroke があれば `StrokeShape { shape: Shape::Path { cmds, rule: NonZero }, stroke, paint }` |
-     | path の segment | `MoveTo`→`PathCmd::MoveTo`、`LineTo`→`LineTo`、`QuadTo(p1, p)`→`QuadTo(p1, p)`、`CubicTo(p1, p2, p)`→`CubicTo(p1, p2, p)`、`Close`→`Close`（点は `f64::from`） |
-     | `Paint::Color(c)` と opacity `o` | `Paint::Solid(Rgba { r: c.red / 255, g, b, a: o })` |
-     | `Paint::LinearGradient(lg)` | `Paint::Gradient(Gradient { shape: Linear { start: (x1, y1), end: (x2, y2) }, stops, extend })`。`lg.transform()` が単位でなければ、その shape の命令を `PushTransform(gt)`…`PopTransform` で包み、path の点を `gt` の逆変換で写す |
-     | `Paint::RadialGradient(rg)` | `(fx, fy) == (cx, cy)` なら `Radial { center: (cx, cy), radius_x: r, radius_y: r }`、違えば `RadialTwoCircle { start_center: (fx, fy), start_radius: 0, end_center: (cx, cy), end_radius: r }`。transform は linear と同じ |
-     | stop | `(offset, Rgba(color, stop.opacity × paint の opacity))` |
-     | `SpreadMethod` | `Pad`→`Extend::Pad`、`Reflect`→`Extend::Reflect`、`Repeat`→`Extend::Repeat` |
-     | `Paint::Pattern` | その fill か stroke を描かず、`pattern` を Unsupported として報告 |
-     | stroke | `Stroke { width, cap, join, miter_limit, dash, dash_offset }`。`LineCap` は同名、`LineJoin::MiterClip`→`Miter`、他は同名。`dasharray()` が `None` なら空 |
-     | `Node::Image(i)`（`is_visible()`）、PNG・JPEG・GIF・WebP | bytes を `raster::decode_still`（手順 4）で `Pixels` にし、`Image { image, rect: Rect { x: 0, y: 0, width: i.size().width(), height: i.size().height() }, opacity: 1.0 }`。`rendering_mode()` が `OptimizeSpeed`・`CrispEdges`・`Pixelated` なら `ImageSampled { image, rect, source: None, opacity: 1.0, pixelated: true }`。decode に失敗した画像は描かない |
-     | `Node::Image(i)`、`ImageKind::SVG(tree)` | `PushClip(Rect { 0, 0, i.size() })`、`PushTransform(Transform::scale_xy(i.size().width() / tree.size().width(), i.size().height() / tree.size().height()))`、`tree.root()` を group として変換、`PopTransform`、`PopClip` |
-     | `Node::Text(t)` | `t.flattened()` を group として変換 |
-     | usvg の `Transform { sx, ky, kx, sy, tx, ty }` | `kivact_types::Transform { a: sx, b: ky, c: kx, d: sy, e: tx, f: ty }`（`f64::from`） |
-     | `BlendMode` | 同名の `kivact_types::BlendMode`（16 種とも同名） |
-
-     ファイルの形：
+     usvg 0.46.0 の型：`FontResolver { select_font: Box<dyn Fn(&Font, &mut Arc<fontdb::Database>) -> Option<fontdb::ID> + Send + Sync>, select_fallback: Box<dyn Fn(char, &[fontdb::ID], &mut Arc<fontdb::Database>) -> Option<fontdb::ID> + Send + Sync> }`、`FontResolver::default_fallback_selector()`、`Font::{families, style, stretch, weight}`、`FontFamily` は `svgtypes::FontFamily` の再公開（`usvg::FontFamily`）、`usvg::fontdb` の再公開。`FontLookup` が `Send` でないため closure が compile できない場合は STOP して報告する。
+  3. `crates/arvane-asset/src/svg/document.rs` の `pub(crate) fn parse`：`usvg::Options { .. fontdb: fonts.for_document(bytes), .. }` の `fontdb: ..` の行を `font_resolver: fonts.resolver(bytes),` にする（`fontdb` は `usvg::Options::default()` の空の database のまま）。`fonts` の型 `FontDb = Arc<super::SvgFonts>` と、`resvg::render` による `rasterize` は変えない。`svg.rs` の crate の doc の「`<text>` is drawn with the store's font database (the system fonts and the fonts registered with it ...)」の文を「`<text>` is turned into paths with the system and registered fonts arvane-text finds (`svg/fonts.rs`); no second system font database is built」にする。`lib.rs` の doc の「no external type (image, resvg, skrifa)」はそのまま。
+  4. worker を初めての仕事で起こす（AR-12）：`crates/arvane-asset/src/store/asset_store.rs` の `pub(super) enum Runner { Inline, Worker(Worker) }` に variant を足す：
      ```rust
-     //! Role: A parsed SVG tree turned into Arvane's portable scene.
-
-     use arvane_protocol::{Gradient, GradientShape, Group, Paint, RenderCmd, RenderScene};
-     use kivact_types::scene::{FillRule, LineCap, LineJoin, PathCmd, Shape, Stroke};
-     use kivact_types::{BlendMode, Extend, Point, Rect, Rgba, Transform};
-     use std::collections::BTreeSet;
-
-     /// An SVG feature Arvane draws the document without.
-     #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-     pub(crate) enum Unsupported {
-         /// `<filter>` on a group.
-         Filter,
-         /// `<mask>` on a group.
-         Mask,
-         /// A `<clipPath>` of more than one plain path.
-         ClipPath,
-         /// A `<pattern>` fill or stroke.
-         Pattern,
-     }
-
-     /// `tree` as a scene in the SVG's own units (its natural size), and the
-     /// features it was drawn without (each once).
-     pub(crate) fn convert(tree: &usvg::Tree) -> (RenderScene, BTreeSet<Unsupported>) {
-         let mut out = Converter { commands: Vec::new(), unsupported: BTreeSet::new() };
-         out.group(tree.root());
-         (RenderScene { commands: out.commands }, out.unsupported)
-     }
-
-     struct Converter {
-         commands: Vec<RenderCmd>,
-         unsupported: BTreeSet<Unsupported>,
-     }
-     ```
-     `impl Converter` に次の method を、上の表のとおりに書く：`fn group(&mut self, g: &usvg::Group)`、`fn node(&mut self, node: &usvg::Node)`、`fn path(&mut self, p: &usvg::Path)`、`fn fill(&mut self, cmds: &[PathCmd], fill: &usvg::Fill)`、`fn stroke(&mut self, cmds: &[PathCmd], stroke: &usvg::Stroke)`、`fn image(&mut self, i: &usvg::Image)`、`fn clip(&mut self, clip: &usvg::ClipPath) -> Option<Shape>`。free 関数：`fn path_cmds(data: &usvg::tiny_skia_path::Path) -> Vec<PathCmd>`、`fn transform(t: usvg::Transform) -> Transform`、`fn rgba(c: usvg::Color, opacity: f32) -> Rgba`、`fn blend(mode: usvg::BlendMode) -> BlendMode`、`fn gradient(paint: &usvg::Paint, opacity: f32) -> Option<(Gradient, Transform)>`（Pattern と Color は `None`）、`fn extend(s: usvg::SpreadMethod) -> Extend`、`fn map_cmds(cmds: &[PathCmd], t: Transform) -> Vec<PathCmd>`（点ごとに `t` を掛ける。`Transform` に点の写像の method があればそれを使う：`rg -n "pub fn (apply|map|transform_point)" crates/kivact-types/src/geometry.rs`）。group の nest の深さは usvg の木の深さで、`nesting::check` が既に 256 で止めている。関数が 80 行を超えないように、`path` は fill と stroke を別の method に分けてある。ファイルが 1000 行を超えることはない（目安 300 行）。
-  4. `crates/arvane-asset/src/raster.rs`：`fn decode_still(bytes: &[u8], format: Format, max_bytes: u64) -> Result<Pixels, RasterError>` を `pub(crate) fn` にする。`scene.rs` の `image` は、`ImageKind::PNG/JPEG/GIF/WEBP(data)` をそれぞれ `crate::format::Format` の PNG・JPEG・GIF・WebP の variant（`rg -n "pub\(crate\) enum Format" -A12 crates/arvane-asset/src/format.rs` の名前）と `max_bytes = crate::limits::MAX_ENCODED_BYTES as u64` で `decode_still` に渡す。
-  5. `crates/arvane-asset/src/svg/document.rs`：`pub(crate) struct Svg { tree: usvg::Tree, bytes: usize }` を次にする：
-     ```rust
-     /// A parsed SVG as a scene, shared between the store and the worker for re-rasters.
-     pub(crate) struct Svg {
-         scene: RenderScene,
-         natural: Size,
-         /// An estimate of the memory the scene holds (see [`Svg::bytes`]).
-         bytes: usize,
-     }
-     ```
-     - `pub(crate) fn parse(bytes: &[u8], fonts: &FontDb, budget: usize) -> Result<Svg, ParseError>`：`usvg::Options { resources_dir: None, fontdb: fonts.for_document(bytes), image_href_resolver: .., ..usvg::Options::default() }` の `fontdb: ..` 行を `font_resolver: fonts.resolver(bytes),` にする（`fontdb` は既定の空の database）。`usvg::Tree::from_data` の後、`let (scene, unsupported) = super::scene::convert(&tree);` とし、`unsupported` が空でなければ `tracing::warn!(features = ?unsupported, "SVG drawn without features Arvane does not draw")` を 1 回出す（4.6 節：asset の読込みは 1 回なので、資産ごとに 1 回）。`natural` は今の `fn natural` の式（`tree.size()`）。`bytes` は `fn estimate(scene: &RenderScene) -> usize`：`commands.len() * size_of::<RenderCmd>()` に、`FillShape`・`StrokeShape` の `Shape::Path` の `cmds.len() * size_of::<PathCmd>()` と、`Image`・`ImageSampled` の `image.rgba.len()` を足したもの。今の `fn estimate(tree)`・`fn image_bytes` と定数 `TEXT_CHAR_BYTES` を消す（`SVG_SHARE` と `TooLarge` の検査は残す）。
-     - `pub(crate) fn natural(&self) -> Size` は `self.natural`。
-     - `pub(crate) fn rasterize(&self, size: PixelSize, crop: Option<Crop>) -> Pixels` を `pub(crate) fn rasterize(&self, raster: &mut CpuRaster, size: PixelSize, crop: Option<Crop>) -> Pixels` にし、本体を次にする：
-       ```rust
-       let area = crop.unwrap_or(Crop { x: 0, y: 0, width: size.width, height: size.height });
-       let scale = Transform::scale_xy(
-           f64::from(size.width) / self.natural.width,
-           f64::from(size.height) / self.natural.height,
-       );
-       let mut commands = Vec::with_capacity(self.scene.commands.len() + 2);
-       commands.push(RenderCmd::PushTransform(scale));
-       commands.extend(self.scene.commands.iter().cloned());
-       commands.push(RenderCmd::PopTransform);
-       let scene = RenderScene { commands };
-       let mut rgba = vec![0u8; area.width as usize * area.height as usize * 4];
-       let origin = Point { x: f64::from(area.x), y: f64::from(area.y) };
-       let target = (
-           u16::try_from(area.width).expect("invariant: SVG rasters are at most MAX_SVG_RASTER_EDGE wide"),
-           u16::try_from(area.height).expect("invariant: SVG rasters are at most MAX_SVG_RASTER_EDGE high"),
-       );
-       if let Err(error) = raster.frame(|frame| frame.raster(&scene, origin, 1.0, target, None, &mut rgba)) {
-           tracing::warn!(%error, "SVG scene could not be drawn");
-       }
-       kivact_types::color::unpremultiply(&mut rgba);
-       Pixels { width: area.width, height: area.height, rgba: rgba.into() }
-       ```
-       （`unpremultiply` は A10 が消す。それまで `Pixels` は straight。）scene の clone を毎回しないため、`Svg::new` の時に `PushTransform` を付けずに持ち、ここで包む形は上のとおり（commands の clone は raster ごとに 1 回）。
-     - `use resvg::{tiny_skia, usvg};` を `use arvane_protocol::{RenderCmd, RenderScene}; use arvane_render::CpuRaster;` などに直し、`tiny_skia` を使う行を残さない。
-     `crates/arvane-asset/src/svg.rs` に `mod scene;` を足し、crate の doc の「rasterization (resvg on tiny-skia)」を「drawn by arvane-render's CPU rasterizer from the scene usvg's tree converts to」に、「The rasterizer's premultiplied pixels are converted to straight alpha.」は A10 まで残す。
-  6. worker と job（AR-12 と raster）：`crates/arvane-asset/src/store/job.rs` の `pub(crate) fn run(job: Job) -> Done` を `pub(crate) fn run(job: Job, raster: &mut CpuRaster) -> Done` にし、`let bitmap = svg.rasterize(size, crop);` を `let bitmap = svg.rasterize(raster, size, crop);` にする。`store/worker.rs`：worker の thread の closure の `while let Ok(job) = job_rx.recv() {` の前に `let mut raster = arvane_render::CpuRaster::new();` を置き、`job::run(job)` を `job::run(job, &mut raster)` にする。`pub(crate) fn run_on_job_stack(job: Job) -> Done` の中の `job::run(job)`（scoped thread の中と、spawn に失敗した時の inline の両方）は `job::run(job, &mut arvane_render::CpuRaster::new())` にする。
-     `store/asset_store.rs`：`pub(super) enum Runner { Inline, Worker(Worker) }` に variant を足す：
-     ```rust
-     /// The worker thread is made by the first job (PERF-10).
+     /// No job yet: the worker thread is made by the first job (PERF-10).
      Idle(Box<dyn Fn() + Send>),
      ```
      `pub fn new(waker: impl Fn() + Send + 'static) -> AssetStore` の本体を `AssetStore::with_runner(Runner::Idle(Box::new(waker)))` にする。`fn submit(&mut self, job: Job)` の先頭に次を足す：
@@ -1114,22 +1054,31 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
          self.runner = Worker::spawn(waker).map_or(Runner::Inline, Runner::Worker);
      }
      ```
-     `Runner` を match する他の箇所（`poll` など。`rg -n "Runner::" crates/arvane-asset/src`）では、`Runner::Idle(_)` は「仕事が無い」として `Runner::Inline` と同じ扱いの arm に入れる（poll では何も受け取らない）。
-  7. `crates/arvane/tests/e2e/assets.rs` の `the_worker_decodes_png_jpeg_and_svg_by_their_content`：期待値は変えない（SVG の raster は vello_cpu になったが、試験の点は塗りの内側の画素で、straight の値は同じ）。この試験が SVG の点の値で失敗した場合は、期待値を変えずに STOP して報告する。
-- **消すもの**：`resvg`（依存）、`tiny_skia` の利用、`fontdb::Database::load_system_fonts` の呼出し、`SvgFonts::for_document` と `SvgFonts.db`、`Svg.tree`、`estimate(tree)`・`image_bytes`・`TEXT_CHAR_BYTES`。
-- **状態の閉じ方**：`Runner` は enum（Idle / Inline / Worker）。`Svg`・`SvgFonts`・`Converter` は `&mut self` で書く field に `bool`・`Option`・counter を 2 つ以上持たない（`Converter.unsupported` は集合 1 つ）。
-- **試験**：足す試験は 1 つ。`crates/arvane-asset/src/svg/scene.rs` の末尾に `#[cfg(test)] mod tests` を作り、次を置く：
+     `Runner` を match する他の箇所（`rg -n "Runner::" crates/arvane-asset/src`）では、`Runner::Idle(_)` を「受け取る仕事が無い」として `Runner::Inline` と同じ arm に入れる。
+- **消すもの**：resvg の feature `system-fonts`、`SvgFonts::for_document` と `SvgFonts.db`（`Mutex<Option<Arc<Database>>>`）、`fontdb::Database::load_system_fonts` の呼出し。resvg・tiny-skia・`rasterize` は消さない。
+- **状態の閉じ方**：`Runner` は enum（Idle / Inline / Worker）。`SvgFonts` は `Vec` 1 つ。
+- **試験**：足す試験は 2 つ（TV-09 の不変条件）。`crates/arvane-asset/src/svg/fonts.rs` の末尾の `#[cfg(test)] mod tests`：
   ```rust
   #[test]
-  fn a_filtered_group_is_drawn_without_its_filter_and_reported_once() {
-      let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><filter id="b"><feGaussianBlur stdDeviation="1"/></filter><g filter="url(#b)"><rect width="4" height="4" fill="red"/></g><g filter="url(#b)"><rect width="2" height="2" fill="blue"/></g></svg>"#;
-      let tree = usvg::Tree::from_data(svg, &usvg::Options::default()).expect("valid SVG");
-      let (scene, unsupported) = convert(&tree);
-      assert_eq!(unsupported.into_iter().collect::<Vec<_>>(), vec![Unsupported::Filter]);
-      assert_eq!(scene.commands.iter().filter(|c| matches!(c, RenderCmd::FillShape { .. })).count(), 2);
+  fn svg_text_uses_a_registered_font_without_a_system_font_database() {
+      let tuffy: std::sync::Arc<[u8]> = std::sync::Arc::from(&include_bytes!("../../../arvane/assets/fonts/Tuffy.ttf")[..]);
+      let fonts = SvgFonts::new().with_font(kivact_types::shaped::FontSource::from_shared(tuffy));
+      let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="40" height="20"><text x="0" y="15" font-family="Tuffy" font-size="12">Ab</text></svg>"#;
+      let options = usvg::Options { font_resolver: fonts.resolver(svg), ..usvg::Options::default() };
+      let tree = usvg::Tree::from_data(svg, &options).expect("valid SVG");
+      assert!(tree.root().has_children(), "the text became paths");
+      assert!(tree.fontdb().faces().all(|face| matches!(face.source, usvg::fontdb::Source::Binary(_))), "no font was read from the system font directories");
+  }
+
+  #[test]
+  fn an_svg_without_text_loads_no_font() {
+      let svg = br#"<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"><rect width="4" height="4"/></svg>"#;
+      let options = usvg::Options { font_resolver: SvgFonts::new().resolver(svg), ..usvg::Options::default() };
+      let tree = usvg::Tree::from_data(svg, &options).expect("valid SVG");
+      assert_eq!(tree.fontdb().len(), 0);
   }
   ```
-  usvg が filter の付いた group の中の rect を `Path` 以外の形にした場合（数が 2 にならない場合）は、数の assert を `>= 1` に変えず STOP して報告する。
+  `FontSource::from_shared` の名前は `rg -n "pub fn from_shared|pub fn from_static" crates/kivact-types/src` で確かめる（`FontBytes::to_source` が使っている constructor）。`fontdb::Database::len`・`faces()`・`FaceInfo::source` の名前は fontdb 0.23 のもの。`crates/arvane/tests/e2e/assets.rs` と `ASSETS`（`svg_embedded_text` を含む）の試験は期待値を変えずに通ること。
 - **確認（tier a）**：
   ```
   cargo fmt -p arvane-asset
@@ -1137,15 +1086,14 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo clippy -p arvane-asset --all-targets --all-features -- -D warnings
   cargo xtask check --no-write --crate arvane-asset
   cargo test -p arvane-asset
-  cargo tree -p arvane-asset -i tiny-skia
   cargo tree -p arvane-asset -e features -i fontdb
   ```
-  最後の 2 つ：`tiny-skia` は「nothing to print」、`fontdb` の feature に `fs`・`fontconfig`・`memmap` が無いこと。E2E：`ARV`、`ASSETS`、`OFFSCREEN`。
-- **完了条件**：`rg -n "resvg|tiny_skia|load_system_fonts" crates/arvane-asset` が 0 件（コメントの歴史の記述も消す）。上のコマンドと E2E が通る。
+  最後の 1 つ：fontdb の feature に `fs`・`fontconfig`・`memmap` が無いこと。E2E：`ARV`、`ASSETS`、`OFFSCREEN`。
+- **完了条件**：`rg -n "load_system_fonts|system-fonts" crates/arvane-asset` が 0 件。`rg -n "resvg::render" crates/arvane-asset/src` が 1 件（描画は残る）。上のコマンドと E2E が通り、各 filter が 1 件以上の試験を実行する。
 
 ## A05：`GpuStart::Never`、`prefer_gpu` の削除、`DriverOptions`
 
-- **wave / lane / 前提**：W5b / 鎖 / W5a の鎖の全 unit（C13 を含む）と W5a の E の lane（E12〜E16）
+- **wave / lane / 前提**：W5b / 鎖 / W5a の鎖の全 unit（C13 を含む）と W5a の E の lane（E12・E13・E16）
 - **所有**：`crates/kivact-types/src/{gpu.rs,embed.rs}`、`crates/arvane/src/{env.rs,window.rs,embed.rs,presentation.rs,presenter/frame_policy.rs,lib.rs}`、`crates/arvane/tests/e2e/{support.rs,embed.rs,presenter.rs}`、`crates/kivact-engine/src/{host/launch.rs,embed.rs,host/testing/test_host.rs}`、`crates/kivact-core/src/embed/open.rs`、`crates/kivact-test/src/options.rs`、`dev/xtask/policy/workspace.toml`（`"arvane::ShellSetup"` の行）
 - **目的**：5.6 節と AR-16：GPU の起動の希望は `GpuPreference.start` 一つにし、CPU だけは `GpuStart::Never`。`prefer_gpu` をすべての運び手から消す。driver の設定を `DriverOptions` 一つにし、`Shell`・`ShellSetup`・`Embedder`・`Embedded` を消す。AR-20：`limits_noted` を bool にし、`RendererChange::LimitExceeded` を `GpuLimit` にする。
 - **手順**：
@@ -1395,8 +1343,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   5. engine の `arvane::` を移す。4.3 節の表が正本。手順：
      - 型と関数の path（`use` の group 以外）を置換する：
        ```
-       cd crates/kivact-engine
-       rg -l 'arvane::' src | xargs perl -pi -e '
+       rg -l 'arvane::' crates/kivact-engine/src | xargs perl -pi -e '
          s/\barvane::asset::(FamilyChoice|FamilyResolution)\b/arvane_text::$1/g;
          s/\barvane::asset::/arvane_asset::/g;
          s/\barvane::Engine\b/arvane_text::TextEngine/g;
@@ -1407,15 +1354,16 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
          s/\barvane::(Failure|FailureKind)\b/kivact_types::$1/g;
          s/\barvane::(Accessibility|AccessibilityError|EventTarget|FileDialog|InjectedInput|ShellControl|ShellError|ShellEvent|ShellImeText|ShellWaker|SizeReply|WakeReasons)\b/arvane_shell::$1/g;
        '
-       cd ../..
        ```
+       （作業 tree の root で実行する。`ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1` を先に。）
      - `use arvane::{..};` の group は perl で分けられないので手で分ける：group の中の名前のうち、**残す名前**（`Window`、`Windows`、`Handler`、`Presented`、`ExportNotice`、`FramePlan`、`Renderer`、`RendererChange`、`GpuStartCause`、`Observer`、`observer`、`DriverOptions`、`SteppedShell`、`run`、`start_stepped`、`embed_driver`、`test_font`、`gpu_unavailable`、`lose_gpu_device`）は `use arvane::{..}` に残し、それ以外は 4.3 節の表の crate の `use` に移す。対象の group（`rg -n "use arvane::\{" crates/kivact-engine/src` が全部を出す）：`host/events.rs`、`host/pump.rs`、`host/launch.rs`、`host/testing/test_host.rs`、`host/testing.rs`、`contract.rs`、`embed.rs`、`lower/assets.rs`。
+     - `crates/kivact-engine/src/host/launch.rs` の `pub fn run_native` と `crates/kivact-engine/src/embed.rs` の `pub fn embed_native` の本体の最初の行に `arvane_text::start_system_font_scan();` を足す（EA-09：window と GPU の準備の前に走査を始める。二度目の呼出しは何もしない）。
      - `crates/kivact-engine/src/a11y/build/{payload.rs,node.rs,dirty.rs}` の `use arvane as a;` を消し、`a::Engine` を `arvane_text::TextEngine` にする（`perl -pi -e 's/\ba::Engine\b/arvane_text::TextEngine/g'` をその 3 ファイルに）。
      - facade の method 名の違いを直す（呼出し元は次の 7 箇所だけ。`TextEngine` が receiver のものだけを変える）：`lower/assets.rs` の `engine.resolve_font_family(name)` → `engine.resolve_family(name)`；`host/write/reader.rs` の `font_families()` の呼出し → `family_names()`（`TextEngine::family_names` は `&mut self`。reader が `&` しか持たないなら、その field の `Rc<RefCell<..>>` を `borrow_mut()` で取る）；`host/testing/test_host.rs` の `ArvaneTestHost::has_font_family` の中の `engine.has_font_family(family)` → `engine.has_family(family)`（`ArvaneTestHost::has_font_family` という engine 側の method 名は変えない）；`lower/glyphs.rs` と `measure/leaf.rs` の `.text_metrics(` → `.measure(`；`host/testing/test_host.rs` の `arvane_text::TextEngine::with_fonts_only(` → `arvane_text::TextEngine::isolated(`。
      - `crates/kivact-engine/src/offscreen.rs`：field `rasterizer: arvane::Rasterizer` を `compositor: arvane_compose::CpuCompositor` にし、`arvane::Rasterizer::new()` → `arvane_compose::CpuCompositor::new()`、`self.rasterizer.release_caches()` → `self.compositor.release_caches()`、`arvane::Rasterizer::check_size(width, height).is_ok()` → `arvane_render::dimensions(kivact_types::Size { width: f64::from(width), height: f64::from(height) }, 1.0).is_ok()`、`self.rasterizer.render(composition, size.0, size.1).map_err(OffscreenError::Failed)?` → `self.compositor.render(composition, (size.0, size.1), 1.0).map(|rendered| rendered.image).map_err(|e| OffscreenError::Failed(kivact_types::Failure::from(e)))?`。
      - `TextEngine` の method が `Failure` を返すようになったので、engine の `map_err` の型の不一致が出た箇所は `Failure` をそのまま受ける形にする（facade の `Engine` も `Failure` を返していたので、型は同じになる）。
   6. kivact-test：`kivact_engine::testing::{ShellEvent, ShellImeText}` は engine の `host/testing.rs` の `pub use arvane_shell::{ShellEvent, ShellImeText};`（手順 5 の結果）から来るので、kivact-test の変更は要らない。`cargo check -p kivact-test` が失敗する場合だけ、その名前の path を 4.3 節の表で直す。
-  7. arvane の試験 `crates/arvane/tests/e2e/*.rs`：手順 5 の perl と同じ置換を `crates/arvane/tests/e2e` に実行し、`use arvane::{..}` の group を同じ規則で分ける。`Engine::with_fonts_only(&[test_font()])` は `arvane_text::TextEngine::isolated(&[arvane::test_font()])`、`Engine::new()` は `arvane_text::TextEngine::new()`。`arvane::asset::{Asset, ..}` の `Asset` は `kivact_types::Asset`。
+  7. arvane の試験 `crates/arvane/tests/e2e/*.rs`：手順 5 の perl と同じ置換を、対象の path を `crates/arvane/tests/e2e` にして実行し、`use arvane::{..}` の group を同じ規則で分ける。`Engine::with_fonts_only(&[test_font()])` は `arvane_text::TextEngine::isolated(&[arvane::test_font()])`、`Engine::new()` は `arvane_text::TextEngine::new()`。`arvane::asset::{Asset, ..}` の `Asset` は `kivact_types::Asset`。
   8. `dev/tools/check-features.sh` の feature の一覧に `arvane/test` を足す（既存の行の書き方に合わせる）。
 - **消すもの**：`arvane::{Engine, Rasterizer, asset, spi, embed, Failure, FailureKind}` と arvane の `pub use arvane_*` のすべて、`crates/arvane/src/{engine.rs,rasterizer.rs,asset.rs,spi.rs,availability.rs,test_font.rs,error.rs,embed.rs}`、`arvane_text::TextError` の公開。
 - **状態の閉じ方**：新しい状態の型は無い。`RefCell<TextEngine>`（facade の `Engine`）は消える。
@@ -1565,7 +1513,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo xtask check --no-write --crate arvane-native
   cargo xtask check --no-write --crate arvane
   ```
-  E2E：`ARV`、`NATIVE-SMOKE`、`EMBED`、`FOREIGN`、`TEXT`（IME：`text_editing`・`input_platform`）、`LIFE`。
+  E2E：`ARV`、`NATIVE-SMOKE`、`EMBED`、`FOREIGN`、`TEXT`、`LIFE`。
 - **完了条件**：`rg -n "set_ime_(purpose|allowed|cursor_area|text)|set_soft_keyboard|CpuFormat|frame_period_ns\(\)|RequestWindowSize\(|PlatformRequest::ForeignChild|keeps_frames|keep_frame" crates/ dev/` が 0 件（`frame_period_ns` の field は残る）。上のコマンドと E2E が通る。
 
 ## A08：描けるかの判定を `Drawable` 一つに、embed の表示を `ShellEvent::Visibility`、foreign window に presenter を作らない
@@ -1815,10 +1763,10 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo test -p kivact-types -p arvane-asset -p arvane-render -p arvane-compose --all-features
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p gpu-interop-producer --all-features -- --test-threads=1
   ```
-  E2E：`ARV`、`ASSETS`、`OFFSCREEN`、`DRAW`、`GPU-SHARE`、topic `devtools`（PNG の screenshot）。
+  E2E：`ARV`、`ASSETS`、`OFFSCREEN`、`DRAW`、`GPU-SHARE`、`DEVTOOLS`（PNG の screenshot）。
 - **完了条件**：`rg -n "unpremultiply" crates/ dev/` が `kivact-types/src/color.rs` の定義と、4.7 節の表の「PNG に書く前」の 3 箇所だけ。`rg -n "ImageAlphaType::Alpha\b" crates/` が 0 件。上のコマンドと E2E が通る。
 
-## A11：compose の GPU を `GpuDevice`（process）と `GpuContext`（window）に分ける
+## A11：compose の GPU を `GpuDevice`（Driver）と `GpuContext`（window）に分ける
 
 - **wave / lane / 前提**：W6b / A1 / A03、A10
 - **所有**：`crates/arvane-compose/src/{gpu.rs,gpu/*,gpu_unbuilt.rs,lib.rs}`、`crates/arvane/src/{presenter/gpu.rs,presenter/frame_policy.rs,test_hooks.rs}`
@@ -1826,7 +1774,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 - **手順**：
   1. `crates/arvane-compose/src/gpu/device.rs`（新）：
      ```rust
-     //! Role: The process's GPU device: adapter, queue, pipelines, rasterizer, shaders and imported images.
+     //! Role: A driver's GPU device: adapter, queue, pipelines, rasterizer, shaders and imported images.
 
      /// One GPU device shared by every window of a driver (PERF-8). Made on a
      /// worker thread (`GpuDevice::new` blocks), then used on the UI thread.
@@ -1867,10 +1815,11 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
      `impl GpuContext { pub fn new(gpu: std::rc::Rc<GpuDevice>) -> GpuContext }`（他の field は空）と `pub fn device(&self) -> &std::rc::Rc<GpuDevice>` を `context.rs` に置く。`pub fn release_caches(&mut self)` は今のまま（per-window の cache だけ）。
   3. compose の GPU の module の中の field の参照を移す（`impl GpuContext` の中の本体。手順 1 で `GpuDevice` に移した method は除く）：
      ```
-     cd crates/arvane-compose/src/gpu
-     perl -pi -e 's/\bself\.(instance|adapter|device|queue|interop|failure|pipelines)\b/self.gpu.$1/g' exec.rs draw.rs mask.rs graph.rs filters.rs shader.rs surface.rs offscreen.rs export.rs external.rs shared_images.rs pass.rs context.rs
-     perl -pi -e 's/&mut self\.raster\b/&mut self.gpu.raster.borrow_mut()/g; s/\bself\.shaders\./self.gpu.shaders.borrow_mut()./g; s/\bself\.external\b/self.gpu.external/g' exec.rs draw.rs mask.rs graph.rs filters.rs shader.rs surface.rs offscreen.rs export.rs external.rs shared_images.rs pass.rs context.rs
-     cd ../../../..
+     ROOT=$(git rev-parse --show-toplevel) && cd "$ROOT" || exit 1
+     G=crates/arvane-compose/src/gpu
+     FILES="$G/exec.rs $G/draw.rs $G/mask.rs $G/graph.rs $G/filters.rs $G/shader.rs $G/surface.rs $G/offscreen.rs $G/export.rs $G/external.rs $G/shared_images.rs $G/pass.rs $G/context.rs"
+     perl -pi -e 's/\bself\.(instance|adapter|device|queue|interop|failure|pipelines)\b/self.gpu.$1/g' $FILES
+     perl -pi -e 's/&mut self\.raster\b/&mut self.gpu.raster.borrow_mut()/g; s/\bself\.shaders\./self.gpu.shaders.borrow_mut()./g; s/\bself\.external\b/self.gpu.external/g' $FILES
      ```
      手で直すもの：(a) `device.rs` の中は `self.gpu.` でなく `self.`（perl の対象外のファイル）；(b) `exec.rs` の `std::mem::take(&mut self.external)` は `std::mem::take(&mut *self.gpu.external.borrow_mut())`、戻す行は `*self.gpu.external.borrow_mut() = ..`；(c) `self.gpu.shaders.borrow_mut()` が参照を返して borrow が文を越える箇所は、`let mut shaders = self.gpu.shaders.borrow_mut();` を先に作って使う；(d) 一つの文で同じ `RefCell` を 2 回 `borrow_mut` しない（compile は通っても実行で panic する）。`rg -n "borrow_mut\(\).*borrow_mut\(\)" crates/arvane-compose/src/gpu` が同じ cell を 2 回含む行を出したら、その行を分ける。
   4. `crates/arvane-compose/src/gpu.rs`・`lib.rs`：`pub use device::{GpuDevice, SurfaceConfigurer};` を足す。`gpu_unbuilt.rs` に同じ名前の空の型を足す：`pub enum GpuDevice {}`（`new` は `Err(RenderError::NoAdapter("built without the gpu feature".into()))`、他は `match *self {}`）と `#[derive(Clone)] pub enum SurfaceConfigurer {}`（`configure` は `match *self {}`）。`GpuContext::new(gpu: Rc<GpuDevice>)` は `match *gpu {}`。
@@ -1893,7 +1842,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo xtask check --no-write --crate arvane-compose
   cargo test -p arvane-compose --all-features
   ```
-  E2E：`ARV`（`--features test`。GPU の機械では `KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required` と `--test-threads=1` でも）、`GPU-DEMAND`、`GPU-SHARE`。
+  E2E：`ARV`（`--features test`。GPU の機械では 2.2 節の GPU の形でも）、`GPU-DEMAND`、`GPU-SHARE`。
 - **完了条件**：`rg -n "pub(crate)? (instance|adapter|device|queue|pipelines|raster|shaders|external):" crates/arvane-compose/src/gpu/state.rs` が 0 件。上のコマンドと E2E が通る。
 
 ## A12：native の小さな整理、embed の注入入力、a11y の二度目の検証、lazy の static
@@ -1993,14 +1942,14 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo xtask check --no-write --crate arvane-shell
   cargo test -p arvane-shell
   ```
-  E2E：`NATIVE-SMOKE`、`EMBED`、`ARV`、topic `devtools`、`a11y_incremental`。
+  E2E：`NATIVE-SMOKE`、`EMBED`、`ARV`、`DEVTOOLS`、`A11Y`。
 - **完了条件**：`rg -n "OnceLock|GetProcAddress|timerfd|wake::(encode|decode)" crates/arvane-native/src crates/arvane-virtual/src` が 0 件。上のコマンドと E2E が通る。
 
 ## A13：GPU の device を Driver に一つ、`State` の三つの意味を分け、export の registry の写しを消す
 
 - **wave / lane / 前提**：W7a / A1 / A11
 - **所有**：`crates/arvane/src/{window.rs,presenter.rs,presenter/*,gpu_driver.rs(新),test_hooks.rs,lib.rs}`、`crates/arvane/tests/e2e/presenter.rs`、`crates/arvane-compose/src/gpu/{export.rs,device.rs,state.rs}`、`crates/arvane-compose/src/{gpu.rs,lib.rs,gpu_unbuilt.rs}`（手順 5・6 の 2 関数 `export_losses`・`probe_adapter` の追加と公開だけ）
-- **目的**：AR-02（driver の側。DEC-08）：GPU の device の起動・再起動・失敗の状態機械を `Presenter` から `Driver` へ移し、process（Driver）に device を一つにする。window の presenter は自分の surface と `FrameHealth` だけを持つ。AR-23：`State::Off` の三つの意味を variant に分ける。AR-14：device が window より長く生きるので、`ExportRegistry.pools` の写しを消す。
+- **目的**：AR-02（driver の側。DEC-08、12 章 EA-10）：GPU の device の起動・再起動・失敗の状態機械を `Presenter` から `Driver` へ移し、Driver（一つの App の event loop）に device を一つにする。process に一つではない：同じ process の二つの埋め込み editor は Driver が二つなので device も二つで、片方の close や device の喪失は他方に及ばない。window の presenter は自分の surface と `FrameHealth` だけを持つ。AR-23：`State::Off` の三つの意味を variant に分ける。AR-14：device が window より長く生きるので、`ExportRegistry.pools` の写しを消す。
 - **手順**：
   1. `crates/arvane/src/gpu_driver.rs`（新）に `presenter/gpu.rs` の `Gpu`・`State`・`Background`・`Step`・`Worker` 系・`start_device`・`cpu_session`・`poll_start`・`ready_note`・`cpu` を移し、次の形にする：
      ```rust
@@ -2053,7 +2002,9 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   6. `crates/arvane/src/test_hooks.rs` の `gpu_unavailable` を、device を作らず adapter だけを求める形にする：compose に `pub fn probe_adapter(env: &GpuEnv) -> Result<String, RenderError>`（`GpuDevice` の `adapter(..)` の選び方と同じで、device を開かず、adapter の名前を返す。`device.rs` に置く。所有に含める）を足し、`gpu_unavailable()` は `arvane_compose::probe_adapter(&GpuEnv::from_env(GpuPreference::default())).err().map(|e| e.to_string())`。`lose_gpu_device(window)` は driver の device の失敗を起こす（`window.gpu.failed(&RenderError::Backend("test: device lost".into()), ..)` と全 window の `lose_device`）。
 - **消すもの**：`Presenter.gpu`（`Gpu`）、`State::Off`、presenter の `begin`、`ExportRegistry.pools`・`made`・`dropped`、window ごとの device の起動。
 - **状態の閉じ方**：`State` は 6 variant の enum（AR-23）。`WindowGpu` は 3 variant の enum。`GpuDriver` は field 2 つ（`env`、`state`）で対象外。`Presenter` は `bool` を 1 つ（`gpu_limit_noted`）だけ持つ。
-- **試験**：足す試験は 1 つ。`crates/arvane/tests/e2e/presenter.rs` に `two_windows_share_one_gpu_device`：`GpuStart::AtLaunch` の driver で window を 2 つ開き、両方が GPU で描いたとき（`Presented::Shown { renderer: Renderer::Gpu, .. }`）、observer が受けた `RendererChange::Gpu { .. }` が 1 回であることを確かめる。GPU を使えない機械では `arvane::gpu_unavailable()` の理由で skip する（この binary の他の GPU の試験と同じ形）。
+- **試験**：足す試験は 2 つ（`crates/arvane/tests/e2e/presenter.rs`。GPU を使えない機械では `arvane::gpu_unavailable()` の理由で skip する、この binary の他の GPU の試験と同じ形）：
+  - `two_windows_of_one_driver_share_one_gpu_device`：`GpuStart::AtLaunch` の driver（`arvane::start_stepped`）で window を 2 つ開き、両方が GPU で描いたとき（`Presented::Shown { renderer: Renderer::Gpu, .. }`）、observer が受けた `RendererChange::Gpu { .. }` が 1 回であること（device は Driver に一つ）。
+  - `two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing`：同じ thread で `arvane::start_stepped` を 2 回（二つの App、埋め込み editor 二つと同じ形）、それぞれの observer が `RendererChange::Gpu { .. }` を 1 回ずつ受けること（device は 2 つ）。一つ目の driver を閉じた（`SteppedShell` を drop した）後も、二つ目の window が `Renderer::Gpu` で `Presented::Shown` を返すこと。
 - **確認（tier a）**：
   ```
   cargo fmt -p arvane -p arvane-compose
@@ -2061,55 +2012,141 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo clippy -p arvane -p arvane-compose --all-targets --all-features -- -D warnings
   cargo xtask check --no-write --crate arvane
   ```
-  E2E：`ARV`（GPU の機械では `KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required --test-threads=1` でも）、`GPU-DEMAND`、`GPU-SHARE`、`EMBED`、`LIFE`（`windows`）。
+  E2E：`ARV`（GPU の機械では 2.2 節の GPU の形でも）、`GPU-DEMAND`、`GPU-SHARE`、`EMBED`、`LIFE`（`windows`）。
 - **完了条件**：`rg -n "State::Off|fn begin" crates/arvane/src/presenter` が 0 件。`GpuDevice::new` を呼ぶのは `gpu_driver.rs` の 1 箇所だけ。上のコマンドと E2E が通る。
 
-## A14：embed の子の寿命を一つの所有者 `ChildMachine` に
+## A14：embed の子の寿命を一つの状態機械 `Child` に（貸出し・停止・片付けを明示する）
 
 - **wave / lane / 前提**：W7a / A2 / A12
-- **所有**：`crates/arvane-native/src/port/embed/{child.rs,session.rs,resize.rs}`、`crates/arvane-native/src/port/win32/{state.rs,window.rs,proc.rs,create.rs,native.rs}`、`crates/arvane-native/src/port/x11/{window.rs,thread.rs}`、`crates/arvane-shell/src/child.rs`
-- **目的**：AR-15：子が App のコードを動かしているかを、`ChildStatus`・`ChildLifecycle`・`HandlerSlot`・`StartSlot` の四つから導くのをやめ、UI thread の一つの enum が持つ。可視性・大きさ・scale を一度だけ保存する。panic の message は `PanicSlot` だけ、`Stop::Panicked` は payload を持たない。
+- **所有**：`crates/arvane-native/src/port/embed/{child.rs,session.rs}`、`crates/arvane-native/src/port/win32/{state.rs,window.rs,proc.rs,create.rs}`、`crates/arvane-native/src/port/x11/{window.rs,thread.rs}`
+- **目的**：AR-15（12 章 EA-04〜EA-06）：子が App のコードを動かしてよいか、handler が callback に貸し出されているか、停止した子の片付けが残っているかを、`ChildLifecycle`・`HandlerSlot`・`StartSlot` の三つから導くのをやめ、UI thread の一つの enum `Child` で表す。callback は handler を `HandlerSlot::Calling` で借り、RAII（unwind を含む）で戻す。停止は `Stopped { cause, cleanup }` で、handler の `close` と native の資源の解放はちょうど一度。cross-thread の `Shared` の `ChildStatus { Running, Stopped { cause: Stop, window: NativeWindow } }` は和型のまま残す（window の消滅は停止の一つの形で、`window_gone: bool` のような組にしない）。x11 の `Window` の `width`・`height`・`scale` の重複を消す。
 - **手順**：
-  1. `crates/arvane-native/src/port/embed/session.rs` に次を作り、`enum HandlerSlot`・`enum ChildLifecycle` と win32 の `StartSlot`（`port/win32/state.rs`）を消す：
+  1. `crates/arvane-native/src/port/embed/session.rs` の `enum HandlerSlot` と `enum ChildLifecycle` を次の 3 つの型に置き換える。win32 の `crates/arvane-native/src/port/win32/state.rs` の `pub(super) enum StartSlot` と `State.start: RefCell<StartSlot>` を消す（`MakeHandler` は `Session::new` の引数で `Child::Opening` に入る）：
      ```rust
-     /// The embedded child's life on its UI thread: the one owner of
-     /// whether App code runs (AR-15).
+     /// The embedded child's life on its UI thread (AR-15): whether App code
+     /// may run, whether its handler is lent to a callback, and what is left
+     /// to clean up once it stopped.
      pub(in crate::port) enum Child {
          /// The window is being made; the handler is made at start.
          Opening { make: MakeHandler },
-         /// The App runs.
-         Live { handler: Box<dyn ShellHandler>, control: ShellControl },
-         /// The App stopped; its handler is kept until disposal (`None` once closed).
-         Stopped { cause: ChildStop, handler: Option<Box<dyn ShellHandler>> },
-         /// The handler was forgotten after a panic (it is never dropped).
+         /// The App runs. Its handler is in its slot or lent to a callback.
+         Live { handler: HandlerSlot, control: ShellControl },
+         /// The App stopped (`cause`, as `Shared` records it); the handler is
+         /// still to be closed, and the native resources released, once.
+         Stopped { cause: ChildStop, cleanup: Cleanup },
+         /// A callback panicked: the handler was forgotten (never dropped)
+         /// and the native resources are left as the panic left them.
          Leaked,
      }
+
+     /// Where a live child's handler is.
+     pub(in crate::port) enum HandlerSlot {
+         /// In the slot, between callbacks.
+         Idle(Box<dyn ShellHandler>),
+         /// Lent to the callback running now (`Lent` gives it back).
+         Calling,
+     }
+
+     /// What a stopped child still has to release.
+     pub(in crate::port) enum Cleanup {
+         /// The handler's `close` and the native resources (exactly once).
+         Pending(Option<Box<dyn ShellHandler>>),
+         /// Released.
+         Done,
+     }
      ```
-     `Session.state: RefCell<ChildLifecycle>` を `child: RefCell<Child>` にする。今の遷移を次の対応で書き換える：`Session::new` は `Opening { make }`（`make` は win32 の `StartSlot::Ready(make)` と x11 の `run` が持っていた `MakeHandler` を `Session::new` の引数で受ける）；`start`（win32 の `State::start_once` と x11 の `run` から）は `Opening` → `Live { handler: make(), control: ShellControl::Wait }`；`opened()` は消す（`Opening` と `Live` の区別は start の前後で足りる）；`accept` は `Live { control }` を書く、error か exit は `shared.fail(..)` の後 `Stopped { cause: <the failure>, handler }`；`close` は `Stopped { handler: None, .. }` へ（今の `Disposed`）；`leak`・`forget` は `Leaked`；`callback()`/`Callback::drop` の貸し出しは `Live` の handler を `std::mem::replace` で借り、`Drop` で戻す形をそのまま `Child` に当てる。`opening()`・`live()`・`active()` は `matches!(*self.child.borrow(), Child::Opening { .. })`・`Child::Live { .. }`・`Child::Opening { .. } | Child::Live { .. }`。
-  2. `crates/arvane-native/src/port/embed/child.rs`：`Inner.state: ChildStatus` と `ChildStatus` を消し、`Inner` に `stop: Option<Stop>` と `window_gone: bool` を持たせる（`ChildStatus::Stopped { cause, window: NativeWindow }` の二つの事実を分けたもの：停止の理由と、native の window が無くなったか）。`keep_panic`・`request_close`・`window_gone`・`fail` は今の遷移の表のとおりに `stop`・`window_gone` を書く（「Running」は `stop.is_none()`）。`Stop::Panicked { failure: Option<ShellError> }` を `Stop::Panicked` にし、panic の message は `PanicSlot` から読む（今 `failure` を読んでいた箇所は `PanicSlot::message()` を使う）。
-  3. 可視性・大きさ・scale：x11 の `Window` の field `width`・`height`・`scale` を消し、読む箇所は `self.shared.applied()` の `width`・`height`・`scale` にする。書く箇所（`Window::new`、`resized`、`thread.rs` の `window.scale = scale`）は `self.shared.update(width, height, scale, visibility)` だけにする。win32 は `Shared::set_size`・`set_scale`・`set_visibility` が既に唯一の保存先（A08 で `ChildSurface` は消えた）。
-- **消すもの**：`HandlerSlot`、`ChildLifecycle`、`StartSlot`、`ChildStatus`、`NativeWindow`（child.rs の private の enum）、`Session::opened`、x11 の `Window::{width, height, scale}`、`Stop::Panicked` の payload。
-- **状態の閉じ方**：`Child` は 4 variant の enum。`Inner` は `Option<Stop>` と `bool` の 2 つを持ち `&mut self` で書かれるので、宣言の直前に次の 1 行を置く：`// xtask-allow(state): stop is why the App stopped and window_gone is whether the native window is gone; a window can go before or after the stop, so all four combinations happen`。
-- **試験**：足す試験は無い。`EMBED` の全試験（`panic_boundary`・`contract`・`visibility`・`windows`・`x11`）が期待値を変えずに通る。
+     `Cleanup::Pending(None)` は「start の前に停止した（handler は作られていない）が、native の資源はまだ」。
+  2. 遷移は次の表だけ。各行を `impl Child`（`session.rs`）の method として書き、`Session` の外から `Child` を直接書かない：
+
+     | method（`Child`） | 前 | 後 | 呼ぶもの |
+     |---|---|---|---|
+     | `start(&mut self) -> bool` | `Opening { make }` | `Live { handler: Idle(make()), control: Wait }`、`true` | `Session::start`（win32 の `State::start_once`、x11 の `run`）。他の状態では何もせず `false` |
+     | `lend(&mut self) -> Option<Box<dyn ShellHandler>>` | `Live { handler: Idle(h), .. }` | `Live { handler: Calling, .. }`、`Some(h)` | `Session::callback`（`deliver`・`start`・`deliver_injected` の前）。他の状態では `None`（callback を走らせない） |
+     | `give_back(&mut self, h, stop: Option<ChildStop>)` | `Live { handler: Calling, control }` | `stop` が `None` なら `Live { handler: Idle(h), control }`、`Some(cause)` なら `Stopped { cause, cleanup: Pending(Some(h)) }` | `Lent::drop`（unwind でないとき）。`stop` は `shared.stop()` の写し |
+     | `leak(&mut self, h)` | `Live { handler: Calling, .. }` | `Leaked`、`std::mem::forget(h)` | `Lent::drop`（`std::thread::panicking()` のとき） |
+     | `stop_idle(&mut self, cause)` | `Opening { .. }` | `Stopped { cause, cleanup: Pending(None) }` | `Session::stopped_outside_callback`（`Shared` が callback の外で停止した時：host の先行破棄・`WM_DESTROY`・X11 の thread の終わり） |
+     | 同上 | `Live { handler: Idle(h), .. }` | `Stopped { cause, cleanup: Pending(Some(h)) }` | 同上 |
+     | `set_control(&mut self, control)` | `Live { control: _, .. }` | `Live { control, .. }` | `Session::accept`（Ok の結果） |
+     | `take_cleanup(&mut self) -> Option<Option<Box<dyn ShellHandler>>>` | `Stopped { cleanup: Pending(h), cause }` | `Stopped { cleanup: Done, cause }`、`Some(h)` | `Session::dispose` |
+     | 同上 | `Opening { .. }` | `Stopped { cause: ChildStop::Closed, cleanup: Done }`、`Some(None)` | 同上 |
+     | 同上 | `Live { handler: Idle(h), .. }` | `Stopped { cause: ChildStop::Closed, cleanup: Done }`、`Some(Some(h))` | 同上 |
+     | 同上 | `Live { handler: Calling, .. }` | 変えない、`None`、`debug_assert!(false, "invariant: disposal is deferred while a callback runs")` | 同上（win32 の `in_callback` の guard と x11 の loop が callback 中の破棄を遅らせる） |
+     | 同上 | `Stopped { cleanup: Done, .. }`・`Leaked` | 変えない、`None` | 同上（二度目の破棄） |
+
+     述語：`fn accepts_callbacks(&self) -> bool`（`Live { handler: Idle(_), .. }`）、`fn opening(&self) -> bool`、`fn live(&self) -> bool`（`Live { .. }`）、`fn active(&self) -> bool`（`Opening | Live`。今の `active()` と同じ意味：App の仕事を始めてよい）、`fn needs_cleanup(&self) -> bool`（`Opening | Live | Stopped { cleanup: Pending(_), .. }`）。
+  3. `Session`：field `state: RefCell<ChildLifecycle>` を `child: RefCell<Child>` にする。`fn callback(&self)` は `Child::lend` を呼び、`Some(h)` なら次の guard を返す（`None` なら callback を走らせない）：
+     ```rust
+     /// A handler lent to one callback; dropping it gives the handler back
+     /// (or leaks it when the callback panicked), so unwinding restores the
+     /// child too.
+     struct Lent<'a> {
+         session: &'a Session,
+         handler: Option<Box<dyn ShellHandler>>,
+     }
+
+     impl Drop for Lent<'_> {
+         fn drop(&mut self) {
+             let Some(handler) = self.handler.take() else {
+                 return;
+             };
+             let mut child = self.session.child.borrow_mut();
+             if std::thread::panicking() {
+                 child.leak(handler);
+             } else {
+                 child.give_back(handler, self.session.shared.stop());
+             }
+         }
+     }
+     ```
+     `Lent` は `fn handler(&mut self) -> &mut dyn ShellHandler`（`self.handler.as_deref_mut().expect("invariant: lent until dropped")`）を持つ。`deliver`・`start`・`deliver_injected`（A12）・`accept` は今の `Callback` の代わりに `Lent` を使い、`child` の `RefCell` の borrow を callback の間に持たない（`lend` と `give_back` の中だけ）。`accept` は Err・Exit で今のとおり `shared.fail(..)` を呼び、`Child` は書かない（停止は `Lent::drop` の `give_back` が `shared.stop()` を見て書く）。Ok は `set_control`。
+     `pub(in crate::port) fn stopped_outside_callback(&self)`：`shared.stop()` が `Some(cause)` なら `child.stop_idle(cause)`。win32 の `State::stop`、`proc.rs` の `WM_DESTROY`・`WM_NCDESTROY` の後、x11 の `thread.rs` の `UiThreadExit::drop` と `run` の終わりで、`shared.window_gone()`・`shared.request_close()` の直後に呼ぶ。
+     `pub(in crate::port) fn dispose(&self, window: &mut dyn ShellWindow) -> bool`：`let Some(cleanup) = self.child.borrow_mut().take_cleanup() else { return false; };`、`Some(handler)` なら今の `close` と同じく `handler.close(&mut lp)` を呼ぶ（`lp` は `EmbedLoop`）、`true` を返す。`true` は「呼出し元が native の資源をこの 1 回だけ解放する」。今の `close` と `forget` は `dispose` と `Child::leak` に統合する（`Session::leak`（win32 `proc.rs` の panic の後）は `Child` が既に `Leaked` なら何もしない）。
+  4. 呼出し元の判定を直す：
+     - win32 `window.rs` の破棄（`fn dispose`。今 `if !self.session.active() { return; }` で始まる）：`if !self.session.dispose(&mut window) { return; }` の後に、今の native の解放（CPU の surface、UIA の disconnect、`events.clear()`）を続ける（`dispose` が `true` を返した 1 回だけ）。
+     - win32 の `State::stop` と `proc.rs` の `active()` の判定（App の callback を始めてよいか）は `accepts_callbacks()` を使う。`live()`・`opening()` の今の使い方は同じ名前の述語のまま。
+     - x11 の `thread.rs` の終わりの `session.close(window)` を `if session.dispose(window) { <the native teardown that follows today> }` にする。
+  5. `crates/arvane-native/src/port/embed/child.rs` の `ChildStatus` と `Stop` は変えない（`Stop::Panicked { failure }` の `failure` は panic の前に記録された失敗という別の事実なので残す）。`Shared::stop() -> Option<ChildStop>` が無ければ、`ChildStatus::Stopped { cause, .. }` を `ChildStop` に写す関数として足す（`Handle::stop` が使っている写しを共用する）。
+  6. x11 の `Window` の field `width`・`height`・`scale` を消し、読む箇所は `self.shared.applied()` の `width`・`height`・`scale` を使う。書く箇所（`Window::new`、`resized`、`thread.rs` の `window.scale = scale`）は `self.shared.update(width, height, scale, visibility)` だけにする（`visibility` は `self.shared.applied().visibility`）。
+- **消すもの**：`HandlerSlot::{Unstarted, Running}`（旧）、`ChildLifecycle`、`StartSlot`、`Callback`（旧の guard）、`Session::{close, forget}`、x11 の `Window::{width, height, scale}`。
+- **状態の閉じ方**：`Child`・`HandlerSlot`・`Cleanup` は enum。`Session` の `child: RefCell<Child>` は今の `state: RefCell<ChildLifecycle>` を置き換えるだけで、`Session` の対象の field の数は変わらない（T・A12 の印の文面の `state` を `child` に直す）。`Lent` は `Option` を 1 つ持つ guard（`&mut self` の method は `handler` だけで、`handler` は書かない）。
+- **試験**：`session.rs` の末尾の `#[cfg(test)] mod tests` に、`Child` の遷移の単体試験を足す（TV-09）。`make` は close の回数を数える handler を作る：
+  ```rust
+  struct Counted(std::rc::Rc<std::cell::Cell<u32>>);
+  impl ShellHandler for Counted {
+      fn start(&mut self, _: &mut dyn ShellLoop, _: ShellWaker) -> Result<ShellControl, ShellError> { Ok(ShellControl::Wait) }
+      fn event(&mut self, _: EventTarget, _: ShellEvent, _: &mut dyn ShellLoop) -> Result<ShellControl, ShellError> { Ok(ShellControl::Wait) }
+      fn close(&mut self, _: &mut dyn ShellLoop) { self.0.set(self.0.get() + 1); }
+  }
+  ```
+  試験は handler を `take_cleanup` が返した数（= close される回数）で数える：
+  - `a_child_stopped_before_start_cleans_up_natively_once`：`Opening` → `stop_idle(Closed)` → `take_cleanup()` が `Some(None)`、二度目は `None`。
+  - `an_error_in_a_callback_keeps_the_handler_for_one_close`：`start` → `lend` → `give_back(h, Some(Failed(..)))` → `accepts_callbacks()` が false、`needs_cleanup()` が true、`take_cleanup()` が `Some(Some(_))`、二度目は `None`。
+  - `exit_from_a_callback_stops_and_closes_once`：`give_back(h, Some(ChildStop::Closed))` の後の `take_cleanup` が 1 回だけ handler を返す。
+  - `a_host_side_close_of_an_idle_child_closes_once`：`start` → `stop_idle(Closed)` → `take_cleanup` が handler を 1 回。
+  - `a_panic_in_a_callback_leaks_the_handler`：`lend` → `leak(h)` → `take_cleanup()` が `None`、`needs_cleanup()` が false。
+  - `no_callback_starts_after_the_window_is_gone`：`start` → `stop_idle(Closed)` → `lend()` が `None`。
+  E2E：`EMBED` の `panic_boundary`・`contract`・`visibility`・`windows`・`x11` が期待値を変えずに通る。
 - **確認（tier a）**：
   ```
-  cargo fmt -p arvane-native -p arvane-shell
+  cargo fmt -p arvane-native
   cargo check -p arvane-native --all-targets --all-features
-  cargo clippy -p arvane-native -p arvane-shell --all-targets --all-features -- -D warnings
+  cargo clippy -p arvane-native --all-targets --all-features -- -D warnings
   cargo xtask check --no-write --crate arvane-native
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p arvane-native --all-features --lib -- port::embed::session
   ```
-  E2E：`EMBED`、`NATIVE-SMOKE`。Linux（WSLg）で `x11` の embed の試験も実行する（Orchestrator が Linux の lane を持つ場合）。
-- **完了条件**：`rg -n "HandlerSlot|ChildLifecycle|StartSlot|ChildStatus" crates/arvane-native/src` が 0 件。上のコマンドと E2E が通る。
+  E2E：`EMBED`、`NATIVE-SMOKE`。Linux（WSLg）では `EMBED` の `x11` も（作業指示書 0.6 節の WSL の確認）。
+- **完了条件**：`rg -n "ChildLifecycle|StartSlot|Unstarted" crates/arvane-native/src` が 0 件。上の 6 つの単体試験が実行され（filter が 6 件を実行する）通る。上のコマンドと E2E が通る。
 
-## A15：CPU の compositor のメモリ（root の直接 raster、target の pool、filter の借用、GPU への切替えでの解放）
+## A15：CPU の compositor のメモリ（target の pool、filter の借用、GPU への切替えでの解放）
 
 - **wave / lane / 前提**：W7b / A1 / A13
 - **所有**：`crates/arvane-compose/src/cpu/{compositor.rs,filters.rs,draw.rs}`、`crates/arvane/src/presenter/frame_policy.rs`
-- **目的**：AR-09：既定の効果の root の chunk を `output` に直接描いて chunk の写しを持たない、一時の target を大きさで再利用する、`Op::Filter` が入力の pixmap を clone しない、GPU が最初の frame を描いたら CPU の frame の状態を捨てる。
+- **目的**：AR-09：一時の target を大きさで再利用する（合計 64 MiB まで。idle の解放（MEM-8）で全部手放す。12 章 EA-17）、`Op::Filter` が入力の pixmap を clone しない、GPU が最初の frame を描いたら CPU の frame の状態を捨てる。root の chunk を `output` に直接描く最適化は行わない（12 章 EA-07：chunk の記録と画素の所有が食い違うため）。
 - **手順**：
-  1. `CpuCompositor` に field `/// Temporary targets kept for reuse by size (like the GPU's pool).` `pool: Vec<Pixmap>` を足す。`fn make_targets` の `_ => Pixmap::new(spec.size.0, spec.size.1)` を `_ => take_target(pool, spec.size)` に、`run` の終わりで target 0 と kept 以外の target を `give_target(pool, px)` に返す：
+  1. `CpuCompositor` に field `/// Temporary targets kept for reuse by size, at most POOL_BYTES in all (EA-17).` `pool: Vec<Pixmap>` を足す。`fn make_targets` の `_ => Pixmap::new(spec.size.0, spec.size.1)` を `_ => take_target(pool, spec.size)` に、`run` の終わりで target 0 と kept 以外の target を `give_target(pool, px)` に返す：
      ```rust
-     const POOL_LIMIT: usize = 8;
+     /// The most bytes of temporary targets kept between frames (EA-17).
+     const POOL_BYTES: usize = 64 * 1024 * 1024;
 
      fn take_target(pool: &mut Vec<Pixmap>, size: (u32, u32)) -> Pixmap {
          match pool.iter().position(|px| px.size() == size) {
@@ -2122,19 +2159,23 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
          }
      }
 
+     /// Keep `px` for reuse while the pool stays within `POOL_BYTES`; a target
+     /// that does not fit is freed (a large window's targets are not kept).
      fn give_target(pool: &mut Vec<Pixmap>, px: Pixmap) {
-         if pool.len() < POOL_LIMIT {
+         let kept: usize = pool.iter().map(|p| p.data.len()).sum();
+         if kept + px.data.len() <= POOL_BYTES {
              pool.push(px);
          }
      }
      ```
-     `invalidate` と `release_caches` で `pool.clear()`。
+     `invalidate`（`forget_frame_state` が呼ぶ idle の解放、MEM-8）と `release_caches`（memory の不足）で `self.pool = Vec::new();`（容量ごと手放す）。
   2. `Op::Filter`：`exec` の `let source = targets[*input as usize].clone(); targets[*output as usize] = filters::apply(filter, &source, ..)?;` を、`input != output` のときは `split_at_mut` で `&targets[input]` を借り、出力を pool の target に書く形にする：`filters::apply` の署名を `pub(crate) fn apply(filter: &LayerFilter, input: &Pixmap, out: &mut Pixmap, px_per_unit: f64, origin: Point) -> Result<(), RenderError>` にし、各 arm（`gaussian`、`drop_shadow`、`color_matrix`、`graph::apply`、`Shader` の写し）は戻り値の pixmap を `*out = ..` に入れる（内部の関数の割当ては変えない）。`input == output` のときだけ今のとおり clone する。
-  3. root の直接 raster：`plan` が root の layer を `chunk_shortcut`（効果なし、raster の item が 1 つ）で `Source::Chunk(key)` として `Op::Draw` で target 0 に描く場合、CPU の executor はその chunk を `stores.chunks` に保たず、`raster_chunk` で `output` へ直接 damage の矩形を描く：`run` で、plan の ops が「`Op::Clear { target: 0, .. }` と、`source: Source::Chunk(key)`・`target: 0`・恒等の写像の `Op::Draw` だけ」であることを確かめ（`fn root_only(plan) -> Option<ChunkKey>`）、そうなら該当の `ChunkTask` を `output` に対して `raster_rects`（damage があるとき）か `raster`（全体）で描き、ops の実行と `stores.chunks` への保存を飛ばす。それ以外の plan は今のまま。
-  4. `crates/arvane/src/presenter/frame_policy.rs` の `draw_native` の GPU の枝（`Some(Ok((presentation, present, report)))`）で、`window.surface().release_cpu_surface();` の直後に `self.cpu.invalidate();` を足す（GPU が描いた後に CPU の output・chunk を持たない）。
-- **消すもの**：`Op::Filter` の入力の clone（`input != output` のとき）、root だけの frame の chunk の写し。
+  3. `crates/arvane/src/presenter/frame_policy.rs` の `draw_native` の GPU の枝（`Some(Ok((presentation, present, report)))`）で、`window.surface().release_cpu_surface();` の直後に `self.cpu.invalidate();` を足す（GPU が描いた後に CPU の output・chunk を持たない）。
+- **消すもの**：`Op::Filter` の入力の clone（`input != output` のとき）。
 - **状態の閉じ方**：`CpuCompositor` は `Vec` を 1 つ足すだけ（対象の field は増えない）。
-- **試験**：足す試験は無い。
+- **試験**：足す試験は 2 つ（TV-09。`crates/arvane-compose/src/cpu/compositor.rs` の末尾の `#[cfg(test)] mod tests`）：
+  - `the_target_pool_keeps_at_most_64_mib`：`give_target` に 4096 × 2048（32 MiB）の `Pixmap` を 3 つ渡すと pool に 2 つだけ残り、`take_target` で同じ大きさを 2 回取ると両方が pool から出る（3 回目は新しく作る）。
+  - `forget_frame_state_releases_every_pooled_target`：`CpuCompositor::frame` を 1 回描いた後（一時の target を使う composition：effect を持つ子の layer）、`invalidate()` の後に pool が空。
 - **確認（tier a）**：
   ```
   cargo fmt -p arvane-compose -p arvane
@@ -2144,7 +2185,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
   cargo test -p arvane-compose --all-features
   ```
   E2E：`ARV`、`DRAW`、`OFFSCREEN`、`GPU-DEMAND`。
-- **完了条件**：`rg -n "targets\[\*input as usize\]\.clone\(\)" crates/arvane-compose/src` が `input == output` の枝の 1 件だけ。上のコマンドと E2E が通る。
+- **完了条件**：`rg -n "targets\[\*input as usize\]\.clone\(\)" crates/arvane-compose/src` が `input == output` の枝の 1 件だけ。`cargo test -p arvane-compose --all-features --lib -- cpu::compositor` が上の 2 つを含めて 1 件以上を実行し通る。上のコマンドと E2E が通る。
 
 ## A16：plan の hash を語の単位に、inline の選択を一括に、kivact-gpu-share の feature と module
 
@@ -2246,7 +2287,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 | `arvane_shell::{Drawable, ImeRequest, WindowSurface, FrameSink, SurfacePresence}`、`ShellEvent::Visibility(bool)`、`ShellWindow::{set_ime, foreign_child, drawable, surface, request_accessibility_action}` | A07・A08・A12 | E（engine の host） |
 | `arvane::Presented::NotDrawable(Drawable)` | A08 | E |
 | `HostRequest::RequestWindowSize { window, size }`、`DeferredRequest::RequestSize(Size)` | A07 | C（`request_window_size`・foreign window の `request_size`）、E |
-| `arvane_text::{TextEngine::resolve_family, FamilyChoice, FamilyResolution, FontLookup, FamilyQuery, FontFace}` | A02 | E（`lower/assets.rs`） |
+| `arvane_text::{TextEngine::resolve_family, FamilyChoice, FamilyResolution, FontLookup, FamilyQuery, FontFace, start_system_font_scan}` | A02 | E（`lower/assets.rs`、launch・embed の始め（A06）） |
 | `arvane_render::{CpuFrameRaster, GpuFrameRaster}` | A01・A03 | 本付属書の中だけ |
 | `impl From<arvane_render::RenderError> for kivact_types::Failure` | A06 | E（offscreen） |
 | `kivact_types::color::premultiply` | A10 | S（kivact-types の所有者。W5b の鎖の間はこの unit が `color.rs` を持つ） |
@@ -2258,7 +2299,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 - **engine が上げる時（付属書 E の unit が実装する）**：layer の `items` を作る node のどれかが lower し直されて出力が変わり得るとき、子の layer の組（順・index・clip）が変わったとき、外部の frame・shader の item・drawable の出力が変わったとき。迷う場合は上げる（上げすぎは正しさを損なわず、hash の省略が減るだけ）。値は window ごとに単調に増える `u64` の counter から取り、一度使った値を同じ window の同じ `key` の別の内容に使わない。A09 の `fresh_content_version()`（`lower/content_versions.rs`。process で一意の値を毎回）は、この契約を常に満たす最小の実装で、E14 がこれを「変わらない layer は前の値を保つ」実装に替える。DevTools の overlay の layer は毎 frame 新しい値のままでよい。
 - **compose が仮定してよいこと**：`(key, content_version)` が前の frame の chunk の記録と等しく、chunk の grid（scale・origin・size）が等しければ、その layer の `ChunkRole::Content(_)` の chunk の命令は等しい。その chunk は hash も差分もせず、記録を引き継ぎ、raster しない。clip・mask・coverage・fallback・backdrop の chunk（effects から作る scene）は版を使わず今のとおり hash する。
 - **debug の照合**：`#[cfg(debug_assertions)]` では、版で省いた chunk も hash し、前の記録の index と比べ、違えば `content_version {v} of {key:?} was kept though the layer's commands changed` で panic する（`kivact::test` と debug の App で上げ忘れが見つかる）。release は照合しない。
-- **E の unit（E14、W6b）**：`into_layer` の `fresh_content_version()` を layer の版の stamp に置き換え、DevTools の overlay（`append_overlay_layer`）は `fresh_content_version()` のまま（INC-04）。E14 が足す試験は 1 つ：`e2e_core` の `compositor` の topic に `an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it`（engine の composition を `kivact::test` から見られない場合は engine の単体試験で、二度 lower した同じ木の layer の版が等しく、text を変えた node の layer の版が増えることを確かめる）。
+- **E の unit（E14、W6b）**：`into_layer` の `fresh_content_version()` を layer の版の stamp に置き換え、DevTools の overlay（`append_overlay_layer`）は `fresh_content_version()` のまま（INC-04）。E14 が足す試験は 2 つ（engine の試験 `crates/kivact-engine/tests/content_version.rs`、`required-features = ["testing"]`。`kivact::test` から composition を見られないため）：`an_unchanged_layer_keeps_its_content_version_and_a_changed_one_bumps_it` と `a_changed_layer_bumps_its_version_and_a_sibling_layer_keeps_its_own`。二つは debug（照合あり）と release（照合なし）の両方で走らせ、照合の有無で版が変わらないことも確かめる（付属書 E の E14）。
 
 ### 4.3 facade の削除の対応表（A06。engine と試験の import の正本）
 
@@ -2281,7 +2322,7 @@ A15（W7b）と A16（W8）は別の wave で、ファイルも重ならない�
 
 ### 4.4 engine の host の変更（付属書 E への通知）
 
-A05〜A10 は W5b の鎖で engine の次のファイルを変える。A の鎖は W5b、E の W5 の lane（E12〜E16）と E の鎖の unit（E17・E18・E20）は W5a なので、同じファイルを同時に持たない（INC-27）。A09 の `fresh_content_version()` を置き換える E14 は W6b。
+A05〜A10 は W5b の鎖で engine の次のファイルを変える。A の鎖は W5b、E の W5 の lane（E12・E13・E16）と E の鎖の unit（E15・E17・E18・E20）は W5a なので、同じファイルを同時に持たない（INC-27）。A09 の `fresh_content_version()` を置き換える E14 は W6b。
 
 | unit | engine のファイル | 変更 |
 |---|---|---|
@@ -2296,12 +2337,11 @@ A05〜A10 は W5b の鎖で engine の次のファイルを変える。A の鎖�
 
 vello_hybrid 0.2.0 は render ごとに `queue.write_buffer_with` で自分の buffer を書く（`render/wgpu/mod.rs`）。queue の書込みは次の submit の **前** に実行されるので、複数の render を一つの encoder に録って 1 回で submit すると、前の render の buffer が後の render の値で上書きされる。したがって A03 は「frame の全 chunk を一つの encoder で 1 回の submit」（監査の案）をせず、**chunk ごとに 1 回の submit**（raster と damage の矩形の copy を同じ encoder に）にする。damage の矩形ごとの texture の新規確保と submit（今 1 矩形あたり 2 回）は無くなる。
 
-### 4.6 SVG の扱い（AR-11、DEC-09、7.7 Q3）
+### 4.6 SVG の扱い（AR-11、DEC-09 版 2、12 章 EA-15）
 
-- usvg 0.46 は feature `text` で fontdb と rustybuzz に依存する。SVG の `<text>` を path にするのに usvg の text の layout を使うので、**fontdb と rustybuzz の crate は残り、fontdb の system の走査（`fs`・`fontconfig`・`memmap` の feature）と resvg・tiny-skia が消える**。font は `usvg::Options::font_resolver` の `select_font`（`Fn(&usvg::Font, &mut Arc<fontdb::Database>) -> Option<fontdb::ID>`）と `select_fallback`（`Fn(char, &[fontdb::ID], &mut Arc<fontdb::Database>) -> Option<fontdb::ID>`）で、arvane-text の `FontLookup` が見つけた face の bytes を `Database::load_font_source(Source::Binary(..))` で読み込ませる（A04 手順 2）。`FontLookup` は fontique 0.11.1 の `Collection`（system の走査は A02 の process に一つの scan の clone）を使う。
-- 解釈：DEC-09 の「vector で描く」を、**usvg の木を `RenderScene` にし、その scene を arvane-render の CPU raster（vello_cpu）で要る device の大きさに描く**こととする。engine の画像の API（`AssetStore::pixels`・`pixels_in` が device の大きさの画素を返す）は変えない。背景・mask・border-image・pattern は画素を要するので、`Image` の node だけを scene として engine の描画に差し込む経路は二つ目の経路になるため作らない（要設計判断 J-3）。
-- 描かない機能（その機能なしで描き、asset ごとに 1 回 `tracing::warn!` で `Unsupported` の集合を報告する）：`<filter>`（7.7 Q3）、`<mask>`、要素が 2 つ以上・入れ子・path 以外の子を持つ `<clipPath>`、`<pattern>` の塗り・線。stroke の gradient に一様でない `gradientTransform` がある場合は、`PushTransform` の中で線を描くので線の太さが変形する（報告はしない。usvg の木の形の制約）。`isolation` だけの group は普通の group として描く（見た目は同じ）。
-- `Unsupported` の報告が engine の診断（`AssetFailed`）にならないのは、画像が描ける（失敗ではない）ため。engine の診断に載せる要求が出た場合は後続の作業とする。
+- SVG は今のとおり **resvg・tiny-skia で描く**。mask・pattern・filter・clipPath・入れ子の画像と text の能力は変えない（性能の改修のついでに能力を落とさない）。
+- 変えるのは font だけ：usvg（resvg の `text` feature）の `<text>` の font は `usvg::Options::font_resolver` の `select_font`（`Fn(&usvg::Font, &mut Arc<fontdb::Database>) -> Option<fontdb::ID>`）と `select_fallback`（`Fn(char, &[fontdb::ID], &mut Arc<fontdb::Database>) -> Option<fontdb::ID>`）で、arvane-text の `FontLookup`（A02。process の一つの system font の走査の clone と App の font）が見つけた face の bytes を `Database::load_font_source(Source::Binary(..))` で読み込ませる。`fontdb::Database::load_system_fonts`（system font の 2 度目の走査）と resvg の feature `system-fonts` を消す。
+- K6 の効果は小さい：resvg・tiny-skia・rustybuzz・fontdb の crate は残り、消えるのは fontdb の `fs`・`fontconfig`・`memmap` の feature と、それだけが引く依存。K1 の効果（文字のある最初の SVG の system の走査の 2 度目が無くなる）が主。設計書 2 章の K6 の行の「resvg・tiny-skia・fontdb の削除（AR-11）」は付属書 G が「fontdb の system の走査の削除」に直す（4.9 節）。
 
 ### 4.7 `Pixels` を premultiplied にするファイルの表（A10）
 
@@ -2341,21 +2381,26 @@ vello_hybrid 0.2.0 は render ごとに `queue.write_buffer_with` で自分の b
 
 ### 4.8 依存の向きと `visible_to` の変更
 
-- A04：`arvane-asset` → `arvane-text`（`FontLookup`）、`arvane-asset` → `arvane-render`（`CpuRaster`）、`arvane-asset` → `arvane-protocol`（`RenderScene`）。`visible_to` の `arvane-text`・`arvane-render`・`arvane-protocol` に `arvane-asset` を足す。設計書 4.2 節の図に `arvane-text, arvane-render, arvane-protocol ← arvane-asset` を足す（付属書 G が architecture.md に書く）。
+- A04：`arvane-asset` → `arvane-text`（`FontLookup`）。`visible_to` の `arvane-text` に `arvane-asset` を足す。設計書 4.2 節の図に `arvane-text ← arvane-asset` を足す（付属書 G が architecture.md に書く）。`arvane-asset` は `arvane-protocol`・`arvane-render` に依存しない（INC-32 の追加は DEC-09 版 2 で不要になった）。
 - A06：`kivact-engine` → `arvane-text`、`arvane-asset`、`arvane-render`、`arvane-compose`（4.2 節の図は engine → arvane-render を挙げていないが、`dimensions`・`glyph_outline`・`glyph_ink_bounds`・`MAX_SCENE_DEPTH`・`RenderError` を直接使うので足す）。`arvane` は arvane-text と arvane-asset に依存しなくなる。
 - 付属書 T の W1 の `visible_to` の既定（dev-dependency は対象外）を前提にする（arvane の試験の dev-dependency）。
 
 ### 4.9 付属書 G へ（W11）
 
-- architecture.md の crate の表：`arvane` は「window の driver と presenter（frame の方針、GPU の device は Driver に一つ）。他の crate を再公開しない」。`arvane-text` は「Parley の shaping と、family の解決・総称 family・system font の遅延の走査・SVG の font の検索」。`arvane-asset` は「decode（premultiplied）、usvg → `RenderScene` の SVG、遅延して起こす worker」。`arvane-render` の「Vello と wgpu を閉じる」の文を「vello は内に閉じる。wgpu は device を持つ arvane-compose と共有する」に（AR-21）。
-- decisions.md に：J-1〜J-3 の結論、4.5 節の submit の制約、4.6 節の SVG の描かない機能。
+- architecture.md の crate の表：`arvane` は「window の driver と presenter（frame の方針、GPU の device は Driver に一つ）。他の crate を再公開しない」。`arvane-text` は「Parley の shaping と、family の解決・総称 family・system font の遅延の走査・SVG の font の検索」。`arvane-asset` は「decode（premultiplied）、resvg の SVG（font は arvane-text の `FontLookup`）、遅延して起こす worker」。`arvane-render` の「Vello と wgpu を閉じる」の文を「vello は内に閉じる。wgpu は device を持つ arvane-compose と共有する」に（AR-21）。
+- decisions.md に：J-1〜J-3 の結論、4.5 節の submit の制約、4.6 節の SVG の font の経路。設計書 2 章の K6 の行の手段を「fontdb の system の走査の削除（AR-11）」に直す。
 - 利用者の docs：`GpuStart::Never`（`ARVANE_RENDERER=cpu` と同じ）、`prefer_gpu` が無いこと、`Pixels` が premultiplied であること（canvas.md・drawables.md・gpu-texture-sharing.md・show-app-rendered-images.md の straight の記述。4.7 節の表の doc の行と同じ文に）。
 
 ### 4.10 設計判断の結果（親が決定済み）
 
 - **J-1（AR-17 の範囲）**：決定済み（採用。設計書 7.7 節）。監査は `load_font`・`glyph_outline`・`glyph_ink_bounds` も arvane-text へ移すとしている。しかし (a) `glyph_outline` は arvane-render の painter が変形した glyph を描くのに使う（`draw/painter.rs`）ので、移すと arvane-render → arvane-text の依存ができる；(b) `load_font` はファイルを読む（`read::read`、上限、path を書いた error）ので、移すと arvane-text → arvane-asset の依存ができ、SVG の font のために足す arvane-asset → arvane-text と循環する。**推奨**：family の解決（重複していた知識）だけを arvane-text へ移し（A02）、`glyph_outline`・`glyph_ink_bounds` は arvane-render に一つの module として残し（A01 で重複を統合）、`load_font` は arvane-asset に残す。本付属書はこの推奨で書いた。
 - **J-2（`prefer_gpu` の担当）**：決定済み（INC-07）。ST-23（`prefer_gpu` の削除と `GpuStart::Never`）は A05 が実装し、`kivact-types/src/{embed.rs,gpu.rs}` の変更は A05 の所有。付属書 S・C には手順が無い。
-- **J-3（SVG の「vector で描く」）**：決定済み（採用。設計書 DEC-09）。4.6 節の解釈（scene を vello_cpu で device の大きさに描く。engine の画像の API は変えない）で書いた。**推奨**：この解釈で進め、`Image` の node の SVG を engine の scene に直接差し込む経路は、mask・背景などの画素の経路と二つになるので作らない。
+- **J-3（SVG）**：決定済み（DEC-09 版 2、12 章 EA-15）。SVG を `RenderScene` に変換する案は撤回。resvg・tiny-skia の描画を保ち、usvg の font だけを arvane-text から渡す（4.6 節、A04）。
+
+### 4.12 Orchestrator への依頼（測定）
+
+- CP1 の K1（`kv_startup`）の測定で、`arvane_text::fonts` の debug の log（`waited_us`：最初の文字の計測が system font の走査を待った時間）を有効にして 1 回起動し、K1 と一緒に記録する（12 章 EA-09。合否には使わない）。
+- CP2 の K2（idle の WS）で、A15 の pool が idle の解放の後に空であることは単体試験で確かめてある（`forget_frame_state_releases_every_pooled_target`）。
 
 ### 4.11 他の付属書の wave との関係
 
@@ -2367,15 +2412,15 @@ vello_hybrid 0.2.0 は render ごとに `queue.write_buffer_with` で自分の b
 
 ## 5. 自己点検
 
-- **採用・変更して採用の全所見が unit にあるか**：AR-01（A01・A03）、AR-02（A11・A13）、AR-03（A09・A16）、AR-04（A01・A03）、AR-05（A12）、AR-06（A06）、AR-07（A07）、AR-08（A08、変更して採用のとおりモバイルの event を残す）、AR-09（A08・A15）、AR-10（A10）、AR-11（A04）、AR-12（A02・A04）、AR-13（A03）、AR-14（A10・A13）、AR-15（A14）、AR-16（A05）、AR-17（A01・A02、J-1）、AR-18（A16）、AR-19（A01・A06・A07・A12）、AR-20（9 項目：`limits_noted` A05、`wake.rs` A12、`ComposeError` A03、`DeviceLost` A03、`GpuSurface` A03、DPI A12、X11 の timerfd A12、`RefCell<TextEngine>` A06、Win32 の `Environment` A12）、AR-21（native の doc A12、architecture.md は G、`ForeignChild` A07、arvane の lib doc A06）、AR-22（A08）、AR-23（A13）、AR-24（A01）、AR-25（A12）、AR-26（T）。Q2（stem darkening）は変えない：A01 は `dilation` の引数の形だけを変え、定数と bucket は変えない。Q5 は不採用のとおり `Suspended` などを残す。
+- **採用・変更して採用の全所見が unit にあるか**：AR-01（A01・A03）、AR-02（A11・A13）、AR-03（A09・A16）、AR-04（A01・A03）、AR-05（A12）、AR-06（A06）、AR-07（A07）、AR-08（A08、変更して採用のとおりモバイルの event を残す）、AR-09（A08・A15）、AR-10（A10）、AR-11（A04。DEC-09 版 2）、AR-12（A02・A04）、AR-13（A03）、AR-14（A10・A13）、AR-15（A14。EA-04〜EA-06 の形）、AR-16（A05）、AR-17（A01・A02、J-1）、AR-18（A16）、AR-19（A01・A06・A07・A12）、AR-20（9 項目：`limits_noted` A05、`wake.rs` A12、`ComposeError` A03、`DeviceLost` A03、`GpuSurface` A03、DPI A12、X11 の timerfd A12、`RefCell<TextEngine>` A06、Win32 の `Environment` A12）、AR-21（native の doc A12、architecture.md は G、`ForeignChild` A07、arvane の lib doc A06）、AR-22（A08）、AR-23（A13）、AR-24（A01）、AR-25（A12）、AR-26（T）。Q2（stem darkening）は変えない：A01 は `dilation` の引数の形だけを変え、定数と bucket は変えない。Q5 は不採用のとおり `Suspended` などを残す。
 - **設計の判断を実装者に残していないか**：選択が要る箇所は 4.10 節の J-1〜J-3 に推奨つきで出した。実装者に残る「確かめる」手順は、名前の照合（`rg` で場所を出す）と、前提が崩れたときの STOP（Collection の `Send + Sync`、usvg の木の形、embed の注入の helper の有無、`encode_png` の呼出し元）だけ。
 - **同じ wave の unit が同じファイルを持たないか**：
   - W3a：A01（arvane-render の列挙したファイル、compose の `cpu/compositor.rs`）と A02（arvane-text、arvane-asset の `font.rs`・`lib.rs`、arvane の `engine.rs`・`asset.rs`）。重ならない。
-  - W4：A03（arvane-render の `gpu.rs`・`gpu/*`・`lib.rs`、compose の `plan/` 以外）と A04（arvane-asset、`Cargo.lock`、`workspace.toml` の 2 行、arvane の試験 `assets.rs`）。重ならない。A03 は `Cargo.lock` を変えない（依存を足さない）。
+  - W4：A03（arvane-render の `gpu.rs`・`gpu/*`・`lib.rs`、compose の `plan/` 以外）と A04（arvane-asset、`Cargo.lock`、`workspace.toml` の `arvane-text` の 1 行）。重ならない。A03 は `Cargo.lock` を変えない（依存を足さない）。
   - W5b：本付属書の鎖 A05〜A10 だけ（順に一つずつ）。
   - W6b：A11（compose の `gpu*`・`lib.rs`、arvane の `presenter/gpu.rs`・`presenter/frame_policy.rs`・`test_hooks.rs`。2 章と A11 の所有も同じ）と A12（arvane-native、arvane-shell の `types.rs`・`window.rs`・`a11y/shared.rs`、arvane-virtual の `window.rs`）。重ならない。
   - W7a：A13（arvane の `window.rs`・`presenter*`・`gpu_driver.rs`・`test_hooks.rs`・`lib.rs`、compose の `gpu/{export.rs,device.rs,state.rs}`・`gpu.rs`・`lib.rs`・`gpu_unbuilt.rs`、arvane の試験 `presenter.rs`）と A14（arvane-native の embed・win32・x11、arvane-shell の `child.rs`）。重ならない。
   - W7b：A15（compose の `cpu/*`、arvane の `presenter/frame_policy.rs`）。A2 は無い。
   - W8：A16（compose の `plan/{hash.rs,builder.rs,layers.rs}`・`Cargo.toml`・`gpu/device.rs`、kivact-gpu-share、gpu-interop-producer の 2 ファイル）。A1 は無い。
-- **新しい状態の型の閉じ方**：`SystemFonts`・`Runner`・`Drawable`・`SurfacePresence`・`State`（driver）・`WindowGpu`・`Child`・`Retain` は enum。印を書くのは `Pipelines`（A03）、`GpuDevice`（A11）、`Inner`（A14）の 3 つと、既存の印の文面の更新（`Presenter`・`HostWindow`・`Session`）。
-- **試験**：足す試験は 6 つ（`generic_and_quoted_family_names_resolve_without_reporting`、`a_filtered_group_is_drawn_without_its_filter_and_reported_once`、`a_surface_made_again_has_a_new_generation`、`injected_input_reaches_an_embedded_app`、`two_windows_share_one_gpu_device`、`equal_input_hashes_equal_and_one_byte_differs`）。期待値を変える試験は A10 の表の行だけで、確かめる事実は変えず premultiplied の表し方に直す。消す試験は A02 の `resolve_family`・`candidates` の単体試験と、A16 の hash の値を固定した単体試験（あれば。名前を報告する）。
+- **新しい状態の型の閉じ方**：`SystemFonts`・`Runner`・`Drawable`・`SurfacePresence`・`State`（driver）・`WindowGpu`・`Child`・`HandlerSlot`・`Cleanup`・`Retain` は enum。印を書くのは `Pipelines`（A03）と `GpuDevice`（A11）の 2 つと、既存の印の文面の更新（`Presenter`・`HostWindow`・`Session`）。組合せの印で状態を通す箇所は無い（EA-06）。
+- **試験**：足す試験は 16（`generic_and_quoted_family_names_resolve_without_reporting`、`the_font_scan_worker_starts_once_and_is_noted_as_detached`、`svg_text_uses_a_registered_font_without_a_system_font_database`、`an_svg_without_text_loads_no_font`、`a_surface_made_again_has_a_new_generation`、`injected_input_reaches_an_embedded_app`、`two_windows_of_one_driver_share_one_gpu_device`、`two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing`、A14 の 6 つ、`the_target_pool_keeps_at_most_64_mib`・`forget_frame_state_releases_every_pooled_target`（A15）、`equal_input_hashes_equal_and_one_byte_differs`（A16））。期待値を変える試験は A10 の表の行だけで、確かめる事実は変えず premultiplied の表し方に直す。消す試験は A02 の `resolve_family`・`candidates` の単体試験と、A16 の hash の値を固定した単体試験（あれば。名前を報告する）。SVG の機能を落とす試験・baseline は無い（A04 は描画を変えない）。

@@ -1,6 +1,6 @@
 # Kivact 抜本改修（Rework）設計書
 
-版 1.0（2026-11-18）。作業ブランチ `refactor/kashiwade/fundamental-rework`（基点 `2b8df5ac` = main）。
+版 1.1（2026-11-18。12 章で外部レビューを反映し、依存の更新を足した）。作業ブランチ `refactor/kashiwade/fundamental-rework`（基点 `2b8df5ac` = main）。
 
 本書は、Kivact の破壊的で根本的なリファクタリングと性能改善の**設計の正本**である。実装者は本書・付属書（`rework/*.md`）・作業指示書（[REWORK_WORK_ORDER.md](REWORK_WORK_ORDER.md)）だけを読み、設計や探索をせずに実装できることを目標に書いた。
 
@@ -34,7 +34,7 @@
 |---|---|---|
 | AC-1 正しさ | 作業指示書の full gate（tier c）がすべて成功する | 最終 checkpoint |
 | AC-2 性能 | 2 章の KPI の「必達」行をすべて満たす。「目標」行は満たさなくても完了を妨げないが、結果を記録する | 最終 checkpoint |
-| AC-3 状態 | 6.1 節の新しい状態の検査が全 workspace で 0 件。監査報告の STATE 所見で「採用」としたものがすべて閉じている | 最終 checkpoint |
+| AC-3 状態 | 6.1 節の新しい状態の検査が全 workspace で 0 件、`legacy:` の印が 0 件（付属書 L ですべて閉じた）、監査報告の STATE 所見で「採用」としたものと 12 章の状態の所見がすべて閉じている | 最終 checkpoint |
 | AC-4 公開 API | 5 章の契約がすべて実装され、5.12 節の削除名が workspace に残っていない（`rg` で確かめる。作業指示書の検査コマンド） | 最終 checkpoint |
 | AC-5 文書と移行 | 利用者向け文書・README・例・雛形が新しい API だけを使う。`docs/for-kivact-developer/` の 3 文書が新しい構成と規則を書く。利用者向けの移行ガイド `docs/for-kivact-user/{en,jp}/how-to-guide/migrating-to-rework.md` がある | 最終 wave |
 
@@ -60,11 +60,30 @@
 | K5 | pointer p95 / wheel / row 更新 / unrelated text 更新（n3000） | ≤ 1.00 | ≤ 0.70 | hit test の索引（EN-09）、PERF-1 違反の解消（EN-05〜EN-08、EN-11）、selector（UI-02） |
 | K5 | mount n3000 | ≤ 1.00 | ≤ 0.90 | style の compile の削減（ST-06、RC-22）、境界の fragment 削減（RC-22） |
 | K5 | counter click | ≤ 1.00 | ≤ 1.00 | — |
-| K6 | GPU を除く build の `kv_startup` | ≤ 1.00 | ≤ 0.95 | naga を GPU build だけに（ST-25）、resvg・tiny-skia・fontdb の削除（AR-11） |
+| K6 | GPU を除く build の `kv_startup` | ≤ 1.00 | ≤ 0.95 | naga を GPU build だけに（ST-25）、fontdb の system font の読込みの feature を外す（AR-11。resvg・tiny-skia は残す：12 章 EA-15） |
 | K6 | 既定 build（`gpu` 込み）の counter と basic catalog | ≤ 1.00 | ≤ 0.95 | 同上＋ gpu-share の import/export を gpu-interop だけに（AR-18） |
 | K6 | GPU を除く build の basic catalog | ≤ 1.00 | ≤ 0.90 | recipe 表の分割（UI-03）、plot の crate 化（KIT-15） |
 
 「必達」はどの行も**後退しない**こと（≤ 1.00）とする。時間の行（K1・K3・K4・K5）は雑音を考えて 1.05 まで許す。大きさの行（K2・K6）は 1.02 まで許す。
+
+**改善の必達**（版 1.1。12 章 PF-01：後退しないだけでは「性能の向上」の受入れにならないため、主対象の少数の行に改善を必達として課す。値は監査の見積りより控えめにした）：
+
+| 行（`run.sh` の report の行） | 必達 |
+|---|---|
+| K4 3000 行の work p95（`kv_stress`、毎 frame 更新、CPU） | ≤ 0.80 |
+| K3 3000 行・毎 frame 更新の CPU | ≤ 0.85 |
+| K5 pointer p95（n3000） | ≤ 0.85 |
+| K2 per_item（mode = text と mode = row） | ≤ 0.95 |
+| K6 basic-catalog no-gpu | ≤ 0.97 |
+
+改善の必達に届かない行は、Orchestrator が直すのではなく、`rework/OPEN.md` の「KPI の未達」に書いて設計者に返す（設計者は原因の unit を見直すか、複雑さを撤回するかを決める）。
+
+**判定の規則**（12 章 TV-08。付属書 T の unit が `dev/bench/kpi.toml`（行の key・renderer・単位・閾値・雑音の下限）と `cargo xtask kpi-compare <B0> <CPn>` に実装する。Orchestrator は手で比を計算しない）：
+
+- 行の key は `run.sh` の report の行（`K1 main_to_first_present renderer=default` など）。K1 は `renderer=default`、K2〜K5 は `run.sh` が測る CPU の renderer の行を使う。
+- **雑音の下限**：B0 がその下限より小さい行（idle の CPU が 1.0 ms/s 未満、per_item が 0.1 KiB 未満など。`kpi.toml` に行ごとに書く）は比を使わず、改修後の値が下限以下であることで判定する（0 による割り算を避ける）。
+- report の末尾が `INVALID:` なら測り直す。`WARNING`（OS が描画を間引いた）の行の fps と描画間隔は使わず、同じ条件で測り直す。2 回とも `WARNING` なら「未検証」として記録し、合否に数えない。
+- 必達に届かない行は同じ条件で 2 回測り直し、3 回中 2 回で判定する。
 
 ## 3. 利用者の必須経路
 
@@ -118,7 +137,7 @@
 ```
 kivact-types ← arvane-protocol ← arvane-render ← arvane-compose ← arvane (driver)
 kivact-types ← arvane-shell ← arvane-native, arvane-virtual
-kivact-types ← arvane-text ← arvane-asset → arvane-render、arvane-protocol（asset は SVG の文字に text の font を、SVG を RenderScene にするのに protocol と render を使う）
+kivact-types ← arvane-text ← arvane-asset（asset は SVG の文字に arvane-text の font を使う。SVG の描画は resvg のまま）
 kivact-engine → arvane, arvane-shell, arvane-native, arvane-virtual, arvane-text, arvane-render, arvane-compose, arvane-asset, arvane-protocol, kivact-layout, kivact-editing
 kivact-runtime ← kivact-style, kivact-i18n, kivact-core
 kivact-offscreen → kivact-runtime（`UiError` などの error 型だけ）, kivact-style, kivact-engine, kivact-svg, kivact-types
@@ -144,7 +163,7 @@ kivact-devtools (GUI) → kivact, kivact-devtools-protocol(client)   ※ kivact-
 
 ### 5.1 部品の書き方は一つ：`#[component]`
 
-アプリ・`kivact-ui`・5 つの kit・`kivact-plot` の部品は、すべて `#[component]` の関数で書く（API-01、USR-09）。手書きの builder struct と `impl Element for` / `impl IntoView for` は、kivact-core が定義する基本要素（`node`、`text`、`column`、`row`、`stack`、`grid`、`scroll`、`spacer`、`image`、`icon`、`canvas`、`window`、`overlay` など）だけに残す。
+アプリ・`kivact-ui`・5 つの kit・`kivact-plot` の部品は、すべて `#[component]` の関数で書く（API-01、USR-09）。手書きの builder struct と `impl Element for` / `impl IntoView for` は、kivact-core が定義する基本要素（`node`、`text`、`column`、`row`、`stack`、`grid`、`scroll`、`spacer`、`image`、`icon`、`canvas`、`window`、`overlay` など）だけに残す。例外は kivact-ui の `Tooltip<T>` 一つ（node は trigger の root で、表示部分を trigger の兄弟として出すため、一つの root を返す `#[component]` では書けない。xtask の `hand-element` 検査はこの型だけを許す）。
 
 ```rust
 use kivact::prelude::*;
@@ -152,19 +171,19 @@ use kivact::prelude::*;
 #[component]
 pub fn card(
     title: Value<String>,              // 必須の props は位置引数（宣言順）
-    children: Vec<View>,               // 子
+    content: ViewFn,                   // 開くたびに作り直す中身
     on_close: Option<Callback<()>>,    // Option<..> は任意の props。同名の setter になる
     #[prop(default = 1)] level: u8,    // 既定値つきの任意の props
 ) -> impl Element {                    // impl Element を返すと呼び出し側が .style(..) などを付けられる
     let open = signal(true);
     column((
         row((text(title), on_close.map(|close| button("Close").on_press(close)))),
-        show(open, move || children.clone()),
+        show(open, content),
     ))
 }
 
 // 呼び出し側
-card("First", vec![text("body").into_view()])
+card("First", || text("body"))
     .on_close(move || first.set(false))
     .style(style().width(320))
 ```
@@ -172,14 +191,15 @@ card("First", vec![text("body").into_view()])
 規則：
 
 1. 戻り値の型は `impl Element`（ui・kit・plot はこれだけ）か `impl IntoView`（アプリで、root に modifier を付けさせないもの）。
-2. `impl Element` のとき、macro が生成する struct は隠した field `__root: Node`（空の `node()`）を持ち、`Element::node_mut` はそれを返す。`into_view` は本体を `scope` の中で一度だけ実行し、本体の root に `Node::absorb(__root)` で呼び出し側の modifier を移す。`absorb` の規則：呼び出し側の style の層を本体の層の後ろに足す、handler は本体の handler より前に足す（`prepend_key` と同じ順の規則）、node_ref は本体の ref に**追加**する（本体の ref を外さない）、name・description・disabled・test_id・variant は呼び出し側の値で上書きする。
-3. props の種類は型の**字面の名前**で決まる：`Value<T>`（定数・closure・`Signal`・`Value` を受ける）、`Signal<T>`（双方向。`Signal` だけを受ける）、`Callback<()>`（`IntoHandler<(), _>` を満たすものを受ける）、`Callback<E>`（`E` が `()` 以外。`impl Fn(E) -> R + 'static` を受ける。5.3 節）、`View`（`IntoView` を受ける）、`ViewFn`（`IntoViewFn` を受ける）、`Vec<View>`（`IntoChildren` を受ける）。それ以外の型 `T` は `impl Into<T>` を受ける。別名（`type Title = Value<String>`）は「それ以外」として扱う。macro は認識した props ごとに、`::kivact::state::Value<T>` などの実在を確かめる式を出す（API-18）。
+2. `impl Element` のとき、macro が生成する struct は隠した field `__root: Node`（空の `node()`）を持ち、`Element::node_mut` はそれを返す。`into_view` は本体を `scope` の中で一度だけ実行し、本体の root に `Node::absorb(__root)` で呼び出し側の modifier を移す。`absorb` の規則：呼び出し側の style の層を本体の層の後ろに足す、handler は本体の handler より前に足す（`prepend_key` と同じ順の規則）、node_ref は本体の ref に**追加**する（本体の ref を外さない）、disabled は本体と呼び出し側の OR（busy の部品を呼び出し側の `.disabled(false)` で押せるようにしない）、name・description・test_id・variant は呼び出し側の値で上書きする。
+3. props の種類は型の**字面の名前**で決まる：`Value<T>`（定数・closure・`Signal`・`Value` を受ける）、`Signal<T>`（双方向。`Signal` だけを受ける）、`Callback<()>`（`IntoHandler<(), _>` を満たすものを受ける）、`Callback<E>`（`E` が `()` 以外。`impl Fn(E) -> R + 'static` を受ける。5.3 節）、`View`（`IntoView` を受ける）、`ViewFn`（`IntoViewFn` を受ける）、`Vec<View>`（`IntoChildren` を受ける）、`Rc<dyn Fn(A..) -> T>`（Func。`impl Fn(A..) -> T + 'static` を受け、引数の型は推論される）、部品の型引数そのもの（`control: C`。`C` をそのまま受け、`Into` で包まない。包むと `field("Name", text_input(v))` の型が推論できない）。それ以外の型 `T` は `impl Into<T>` を受ける。別名（`type Title = Value<String>`）は「それ以外」として扱う。macro は認識した props ごとに、`::kivact::state::Value<T>` などの実在を確かめる式を出す（API-18）。
 4. `Option<X>` だけで任意になる。`#[prop(optional)]` は消す。`#[prop(default = expr)]` は残す。
 5. 引数なしの部品も `#[component]` で書く（`#[component] fn header() -> impl Element`）。
 6. macro は自分の crate の path を `proc-macro-crate` で解決する：依存に `kivact-core` があれば `::kivact_core`（kivact-ui と kivact-interaction のため。この二つは `kivact` を dev-dependency に持ち、`proc-macro-crate` は dev-dependency を区別できないので、`kivact-core` を先に調べる）、無ければ `::kivact`。アプリと kit は `visible_to` により `kivact-core` に依存できないので `::kivact` になる。生成するコードは解決した path だけを使う。
-7. `Callback<E>` の props は内部では runtime の `Handler<E>`（`Rc<dyn Fn>`）で持ち、本体には `Callback<E>`（Copy）として渡す。owner への登録は本体が子に渡すときだけ行う（RC-33）。
+7. `Callback<E>` の props は内部では runtime の `Handler<E>`（`Rc<dyn Fn>`）で持ち、body の実行の前に一度だけ owner に登録して、本体には `Callback<E>`（Copy）として渡す（RC-33。二重の box をやめる）。呼出しの結果（`Handled`）は保つ（12 章 API-14）。
 8. `scope(FnOnce)` は `kivact::custom` へ移す（kit 作者の逃げ道。prelude から外す）。
 9. 部品の関数は型引数を持てる（`#[component] pub fn select<K: ItemKey>(items: Value<Vec<ListItem<K>>>, value: Signal<Option<K>>) -> impl Element`）。生成する struct は同じ型引数と bound（`where` を含む）を持ち、すべての型引数に `'static` を要求する。props の field に現れない型引数は `PhantomData<fn() -> K>` の隠した field で持つ。lifetime 引数と const 引数は受けない（compile error で「型引数だけ」と案内する）。
+10. 部品が呼び出し側の modifier（variant・disabled・押下の有無・description）を読むときは、引数に `#[caller] caller: Caller` を書く。macro がその部品の吸収した modifier の snapshot を渡す（thread-local の stack は使わない）。値は `Node::authored()`（すべての authored modifier を順に畳む一つの関数）で求める（12 章 API-4）。
 
 ### 5.2 状態（`kivact::state`）
 
@@ -242,15 +262,16 @@ handler の名前（UI-13）：payload のない押下は `on_press`、key の�
 - `resource(fetch)`、`spawn`、`blocking`、`sleep`、`timeout`、`on_tokio`（feature）は変更なし。`blocking` を App の外で呼ぶと位置付きの `WrongApp`（RC-38）。
 - `action(f) -> Action<T, I>` は Latest（新しい実行が古いものを取り消す）。順に実行するものは `queued_action(f)`。`ActionMode` は消す。`Action::close` を消す（RC-37）。
 - `on_complete(Fn(Result<T, UiError>))`。`ActionOutcome` を消す。`Retry` は `Callback<()>` にする（RC-35）。
-- `remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>)`（新設、USR-02）：`Remote<T>: Clone + Send + Sync` は `set(T)` と `update(impl FnOnce(&mut T) + Send)`。書込みはまとめられ（UI の turn ごとに最新の値を一度だけ届ける）、event loop を起こす。
-- `remote_trigger() -> (Trigger, RemoteTrigger)`（新設）：`RemoteTrigger::notify()` は `Send + Sync`、決して block しない、まとめられる。
+- `remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>)`（新設、USR-02）：`Remote<T>: Clone + Send + Sync` は `set(T)` だけを持つ。最新の値だけを保ち、runtime の driver が turn の始めに一度だけ届け、event loop を起こす。owner が破棄されると閉じ、その後の `set` は値を捨てる（12 章 API-9〜11）。
+- `remote_trigger() -> (Trigger, RemoteTrigger)`（新設）：`RemoteTrigger::notify()` は `Send + Sync`、決して block しない、まとめられる。閉じ方は `Remote` と同じ。
+- 共有の handler は `callback(move |_| ..)` で作る（payload の無いものも同じ形）。
 - `clock(every: Duration) -> Value<SystemTime>`（新設、KIT-17）：同じ `every` の呼出しは一つの timer を共有する。
 - `async_view(source, ready).loading(f).fallback(f)` を非同期の表示の唯一の標準形にする（API-08）。
 
 ### 5.6 アプリと platform（`kivact::App`、`kivact::platform`）
 
 - `App` は `Clone` を実装しない。`App::run(self, root)`。`launch::AppOptions` は非公開の field 型にする（RC-13）。
-- `App::fonts` と `App::font` を消す。font は theme が持つ（`Theme::with_fonts(&'static [&'static [u8]])`。`App::theme(t)` と `kivact::test::RenderOptions::with_theme(t)` がその font を登録する）。`TestFonts::Only` を消す（USR-12）。
+- `App::fonts` と `App::font` を消す。font は theme が持つ（`Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`。static bytes・`Vec<u8>`・path・共有 bytes を同じ入口で受ける。`App::theme(t)` と `kivact::test::RenderOptions::with_theme(t)` がその font を登録する）。`TestFonts::Only` を消す（USR-12）。
 - GPU の起動の希望 5 型（`GpuPreference`、`GpuPower`、`GpuBackend`、`GpuStart`、`AdapterMatch`）は `kivact::platform` に移し、`kivact::launch` を消す（API-11）。`GpuStart::Never`（CPU だけ）を足し、`prefer_gpu` を全部消す（AR-16、ST-23）。環境変数 `ARVANE_RENDERER=cpu|gpu|auto` は `Never|AtLaunch|OnDemand` に対応する。
 - `platform::on_close_request(handler: impl IntoHandler<(), M>)` は setup の中だけで呼べ、**呼んだ owner の window**（main window、`window()`、foreign window）に効く。main 以外の window では、handler が `Handled::Yes` を返さなければ従来どおり `on_dismiss(DismissReason::WindowClose)` が続く（RC-11）。
 - `use_direction() -> ReadingDirection`（Value で包まない。RC-18）。
@@ -277,17 +298,23 @@ theme 変数：
 
 ```rust
 // kivact-types（純粋）
-pub struct ThemeVar<T: 'static> { name: &'static str, fallback: T }
-impl<T> ThemeVar<T> { pub const fn new(name: &'static str, fallback: T) -> Self }
+pub struct ThemeVar<T: 'static> { name: &'static str, fallback: VarValue<T> }
+pub enum VarValue<T: 'static> { Value(T), Var(&'static ThemeVar<T>) }   // 値か、別の変数（別名）
+impl<T> ThemeVar<T> {
+    pub const fn new(name: &'static str, fallback: T) -> Self
+    pub const fn alias(name: &'static str, target: &'static ThemeVar<T>) -> Self   // どの型でも
+}
 // Color と Length は theme 変数を指す const の値を持てる（Color は Copy のまま）
 impl Color { pub const fn var(v: &'static ThemeVar<Color>) -> Color }
 impl Length { pub const fn var(v: &'static ThemeVar<f64>) -> Length }
 // kivact-style
 impl Theme {
-    pub fn set<T: ThemeValue>(self, var: &'static ThemeVar<T>, value: impl Into<T>) -> Theme; // 値は別の変数でもよい（別名。深さ 8 まで。循環は Unsupported を一度報告して fallback）
+    pub fn set<T: ThemeValue>(self, var: &'static ThemeVar<T>, value: impl Into<VarValue<T>>) -> Theme; // どの型の変数も、値は別の変数でもよい（別名。深さ 8 まで。循環は Unsupported を一度報告して fallback）。変数の fallback も別の変数にできる
     pub fn get<T: ThemeValue>(&self, var: &'static ThemeVar<T>) -> T;
 }
-// 中核の変数：kivact::style::{color, space, radius, font} の module に pub const を置く
+// 中核の変数：kivact::style::{color, space, radius, font, control} の module に pub const を置く
+//   control は部品に共通の値：control::HEIGHT（旧 Theme の control_height）、control::DISABLED_OPACITY_VAR（f64 の static だけ。const の値の形は Color と Length にしか無い）、control::OVERLAY_MARGIN。
+//   focus_ring は値ではなく style なので Theme の field のまま。
 pub mod color { pub static ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("accent", rgb(0x2563eb)); pub const ACCENT: Color = Color::var(&ACCENT_VAR); /* SURFACE, TEXT, TEXT_MUTED, BORDER, ... の全一覧は付属書 S の 4 章 */ }
 // kit：pub const PRIMARY: Color = Color::var(&PRIMARY_VAR); fn theme(mode) -> Theme { Theme::light().set(&PRIMARY_VAR, ..).set(&color::ACCENT_VAR, PRIMARY) }
 ```
@@ -295,7 +322,8 @@ pub mod color { pub static ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("accent",
 - 解決する場所は `compile_style` のまま（O-1 は (a)。theme の切替えは style の effect の再実行になる）。
 - 消すもの：`ThemeColor`、`Color::of`、`Color::token`、`ColorToken`、process 全体の `THEMED` 表、`Palette`、`Spacing`、`Radii`、`Typography` の大きさ、`Theme::{colors, space, radius, with_colors, with_space, with_radius, with_text}`、`use_tokens`、kit の `ColorName` と `Tokens` の色・大きさの field、ui の `UiTokens`。`ThemeExtension` は値ではない表（`<Name>Theme` の recipe、`InteractionPolicy`）にだけ使う。
 - 部品の token（button の高さなど）も theme 変数にする：`kivact::ui::theme::button::HEIGHT_MD` のように部品の module に置く（UI-03 の「部品の Tokens」を theme 変数に統一する。決定 DEC-06）。
-- `Theme` は `Arc<ThemeData>`。`PartialEq` は `Arc::ptr_eq` で先に判定する。`Theme::light()`・`dark()` は static の clone（ST-26）。`Theme::ext` の fallback は theme ごとに一度だけ作る（ST-07）。`Theme::with_fonts`、`Theme::with_icons`。kit の theme の作り直しを避ける `kivact::style::cached_theme(build: fn() -> Theme) -> Theme`（fn pointer を key にする。KIT-08）。
+- `Theme` は `Arc<ThemeData>`。`PartialEq` は `Arc::ptr_eq` で先に判定する。`Theme::light()`・`dark()` は static の clone（ST-26）。`Theme::ext` の fallback は theme ごとに一度だけ作る（ST-07）。`Theme::with_fonts`、`Theme::with_icons`。`Theme` の書込みはすべて一つの編集の入口を通り、拡張の fallback の cache を空にする（12 章 UI-S-01）。kit は theme を `thread_local!` の static で一度だけ作る（KIT-08。fn pointer を key にする `cached_theme` は作らない：関数の address は同一性を保証しない）。
+- `Length` の `+`・`-` は px・`pct`・`em`・theme 変数を含む式（calc）として保ち、theme が変われば解決し直す。解決できない組合せは黙って `Auto` にせず Unsupported を報告する（12 章 UI-S-03）。
 - `ThemeMode` は名前を変えない（`ThemeHint` を消して `ThemeMode` を kivact-types に置く）。
 - CSS の名前に揃える（ST-22）：`weight`→`font_weight`、`italic(bool)`→`font_style(FontStyle)`、`radius*`→`border_radius*`、`ring*`→`outline*`（`outline_offset`）、`basis`/`grow`/`shrink`/`wrap`/`direction`→`flex_basis`/`flex_grow`/`flex_shrink`/`flex_wrap`/`flex_direction`、`pressed`→`active`、`Direction`→`FlexDirection`。
 - CSS の値の型（`Shadow`、`Filter`、`Transform`、`Paint`、gradient、`Shape`、`CornerRadius`、`BlendMode`、`Mask*`、`BorderImage*`、`PaintShader`、`FilterShader`、`FilterGraph`）は `kivact::style` だけに置く。
@@ -311,7 +339,7 @@ pub mod color { pub static ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("accent",
 
 ### 5.9 標準部品（`kivact::ui`）と behavior（`kivact::interaction`）
 
-- `kivact::ui`：部品の関数（`#[component]`）、部品の variant の enum（`ButtonVariant`、`ControlSize` など）、`icon_button(icon, label)`（新設、USR-17）、`Slant`・`Striped`（kit から移す汎用の variant の印、KIT-04）、`SyntaxKind`（KIT-05）、`sidebar`（basic と soft から移す、KIT-10）、`tabs` の overflow（`TabOverflow::{Menu, Scroll}`、KIT-09）。
+- `kivact::ui`：部品の関数（`#[component]`）、部品の variant の enum（`ButtonVariant`、`ControlSize` など）、`icon_button(icon, label)`（新設、USR-17）、`tooltip(label, trigger) -> impl Element`（`Tooltip::attach` を置き換える。12 章 API-3。Element の node は trigger の root。表示部分は trigger の子にせず、trigger の兄弟として出す：tooltip の上の pointer の操作が trigger に伝わらないため）、`stepper(items, current)` は `on_edit` を持つ（12 章 UI-U-03）、`Slant`・`Striped`（kit から移す汎用の variant の印、KIT-04）、`SyntaxKind`（KIT-05）、`sidebar`（basic と soft から移す、KIT-10）、`tabs` の overflow（`TabOverflow::{Menu, Scroll}`、KIT-09）。
 - `kivact::ui::theme`：部品ごとの `<Name>Theme`（recipe 表、`ThemeExtension`）、`<Name>State`（recipe が読む状態）、部品の theme 変数、`Look<S>`、`Variant`。`UiRecipes`・`UiTokens` と 46 個の look/values/tokens の別ファイルを消す（UI-03、UI-14、API-19）。recipe の上書きは `Fn(&Theme, &Look<S>, Style) -> Style`（3 つ目は前の recipe の結果。UI-24）：
 
 ```rust
@@ -358,7 +386,7 @@ ListItem, MenuEntry, Toast, ButtonVariant, ControlSize, message
 
 作業指示書の最終 checkpoint は、次の名前が `crates/`、`examples/`、`templates/`、`docs/`、`dev/` に識別子として残っていないことを `rg -w` で確かめる（改名の旧名を含む）。
 
-`Binding`、`IntoBinding`、`IntoReactive`、`Reactive`（`custom::Reactive`）、`Notifier`、`notifier`、`ActionOutcome`、`ActionMode`、`Retry`、`AsyncSnapshot`、`constant_value`（`#[doc(hidden)]` の定義と内部の利用だけ許す。付属書 R が許す場所を列挙）、`AppOptions`（公開の path として）、`ThemeColor`、`ColorToken`、`ColorName`、`Palette`、`Spacing`、`Radii`、`UiRecipes`、`UiTokens`、`use_tokens`、`ThemeHint`、`Dimension`、`TextLen`、`GridFlow`、`Insets`、`SpanStyle`（style 側）、`TextExtras`、`DecorationStyleValue`、`prefer_gpu`、`use_menu_with_open`、`on_open_change`、`on_step_press`、`on_draft_commit`、`selection_field`、`input_group_with`、`while_open`、`DialogMode::Popover`、`ViewTransform`（interaction）、`toaster`、`announcer`、`BadgeHue`、`ItemHue`、`StatHue`、`ProgressHue`、`WeekendHue`、`ButtonTone`（game のもの。pop の `ButtonTone` は残す）、`CodeTone`、`CodeColors`、`TokenKind`（soft のもの。DevTools の protocol の `TokenKind` は残す）、`GameInputGroupVariant`、`GameCellVariant`、`PopBubble`、`Composite`（`Layer::composite` として。`Mix::Composite` の中は許す）、旧 style setter（`.weight(`、`.italic(`、`.radius(`、`.ring(`、`.basis(`、`.grow(`、`.shrink(`、`.wrap(`、`.direction(`、`.pressed(`）。
+`Binding`、`IntoBinding`、`IntoReactive`、`Reactive`（`custom::Reactive`）、`Notifier`、`notifier`、`ActionOutcome`、`ActionMode`、`Retry`、`AsyncSnapshot`、`constant_value`（`#[doc(hidden)]` の定義と内部の利用だけ許す。付属書 R が許す場所を列挙）、`AppOptions`（公開の path として）、`ThemeColor`、`ColorToken`、`ColorName`、`Palette`、`Spacing`、`Radii`、`UiRecipes`、`UiTokens`、`use_tokens`、`ThemeHint`、`Dimension`、`TextLen`、`GridFlow`、`Insets`、`SpanStyle`（style 側）、`TextExtras`、`DecorationStyleValue`、`prefer_gpu`、`use_menu_with_open`、`on_open_change`、`on_step_press`、`on_draft_commit`、`selection_field`、`input_group_with`、`while_open`、`DialogMode::Popover`、`ViewTransform`（interaction）、`toaster`、`announcer`、`BadgeHue`、`ItemHue`、`StatHue`、`ProgressHue`、`WeekendHue`、`ButtonTone`（game のもの。pop の `ButtonTone` は残す）、`CodeTone`、`CodeColors`、`TokenKind`（soft のもの。DevTools の protocol の `TokenKind` は残す）、`GameInputGroupVariant`、`GameCellVariant`、`PopBubble`、`Composite`（`Layer::composite` として。`Mix::Composite` の中は許す）、`Tooltip::attach`、`Theme` の `control_height`・`with_control_height`・`disabled_opacity`・`with_disabled_opacity`・`overlay_margin`・`with_overlay_margin`、`App::font`、`App::fonts`、`TestFonts::Only`、旧 style setter（`.weight(`、`.italic(`、`.radius(`、`.ring(`、`.basis(`、`.grow(`、`.shrink(`、`.wrap(`、`.direction(`、`.pressed(`）。
 
 ## 6. 内部の規則（architecture.md を置き換える部分）
 
@@ -367,7 +395,8 @@ ListItem, MenuEntry, Toast, ButtonVariant, ControlSize, message
 ### 6.1 状態の規則と検査（S 規則と state-fields の置き換え、TL-04）
 
 - 規則 S-1〜S-9 の内容（三つ以上の状態は enum、排他の事実は variant の payload、同じ事実を二度保存しない、遷移だけが状態を書く、effect で状態を補修しない、未完成の object を作って後から埋めない）は残す。
-- **検査の単位を変える**：新しい xtask 検査 `state`（`state-fields` を置き換える）は、(a) `bool`・`Option<_>`・整数の counter・`Cell`/`RefCell`/`Signal`/`Var`/`Atomic*` の field を 2 つ以上持ち、(b) `&mut self` の method を持つか、内部可変の field を constructor の外で書く struct・enum variant を対象にする。(c) 名前が `Api`、`Options`、`Policy`、`Props`、`Report`、`Event`、`Phase`、`Reason`、`Recipes`、`Theme`、`Tokens`、`Builder`、`Key`、`Bits` で終わる型、`State` で終わる型のうち recipe の状態（kivact-ui と 5 つの kit の中だけ。engine の `PointerState` などは対象のまま）と、`Hash + Eq` を derive して map の key だけに使う型は対象外。対象の型は **struct 単位の印一つ** `// xtask-allow(state): <組合せの閉じ方を 1 行>` が無ければ error。
+- **検査の単位を変える**：新しい xtask 検査 `state`（`state-fields` を置き換える）は、(a) `bool`・`Option<_>`・整数の counter・`Cell`/`RefCell`/`Signal`/`Var`/`Atomic*` の field を 2 つ以上持ち、(b) `&mut self` の method を持つか、内部可変の field を constructor の外で書く struct・enum variant を対象にする。名前の接尾辞や derive による除外は置かない（名前を変えるだけで状態が見えなくなるため。12 章 ST-01）。対象の型は **struct 単位の印一つ** `// xtask-allow(state): <組合せの閉じ方を 1 行>` が無ければ error。
+- W1 の印の変換が既存の印から機械的に作る印は `// xtask-allow(state): legacy: ...` と書き、設計者が閉じ方を確かめていないことを示す。xtask は `legacy:` の数を報告する。CP1 で `legacy:` の全件を台帳（`rework/state-ledger.md`）にし、設計者が付属書 L で一件ずつ閉じ方（enum にする、一つの持ち主にする、正当な独立の組合せとして理由を書き直す）を決める。AC-3 は `legacy:` が 0 件であること。
 - constructor・`Default`・値渡しの builder（`fn x(mut self, ..) -> Self`）だけで書く field は状態ではない。印も検査も要らない。
 - 関数の中の状態の local（`signal(false)` と `signal(None)` の組など）の検査（`locals.rs`）は残す。
 - `independent:` の理由文の重複検査、`--report-audit`、`state-audit.md` を消す。
@@ -378,24 +407,25 @@ PERF-1〜PERF-5、MEM-1〜MEM-8 は残し、次を加える。
 
 - PERF-6：frame の描画は、描き直した node だけを lower し直す（per-node の draw cache、EN-03）。paint list の並べ直し（restack）は重なりの事実（stacking context、z、layer の事実、子の組の変化）が変わったときだけ（EN-04）。
 - PERF-7：Arvane は engine が渡す layer ごとの `content_version` で変化を知る。command の hash は変化した chunk だけ（AR-03）。debug build では hash による照合で版の上げ忘れを検出する。
-- PERF-8：GPU の device は process（Driver）に一つ。window ごとに持つのは frame の状態だけ（AR-02）。
+- PERF-8：GPU の device は Driver（一つの App の event loop）に一つ。window ごとに持つのは frame の状態だけ（AR-02）。同じ process の二つの埋め込み editor は、それぞれの Driver の device を持つ（12 章 EA-10）。
 - PERF-9：診断の記録（turn の trace、原因の文字列、node の provenance）は、DevTools・`kivact::test` の trace・debug の trace sink が有効にしたときだけ行う。release で常に持つのは counter だけ（RC-05、RC-06、RC-22）。
-- PERF-10：起動の critical path（main から最初の present まで）で、system font の走査・DevTools agent の起動・asset worker の起動・使わない GPU pipeline の compile をしない（AR-12、AR-13、RC-10）。
+- PERF-10：起動の critical path（main から最初の present まで）で、DevTools agent の起動・asset worker の起動・使わない GPU pipeline の compile をしない（AR-12、AR-13、RC-10）。system font の走査は process の開始時に別 thread で始めて window と GPU の準備に重ね、最初の文字の計測は残りの時間だけ待つ（12 章 EA-09）。
 - PERF-11：項目の多い collection（list、combobox、menu、select、tabs、tree、table、palette）は、collection ごとに一つの key の索引（`Index<K>`）と `selector` を使い、項目あたりの memo は最大 2 つ（UI-02）。例外：menu の項目は最大 5 つ（press-drag の間の pointer の移動ごとに、全行の effect の再実行と submenu の timer の再開を起こさないため。付属書 U の U03）。
 - PERF-1 の Metadata の例外は残す。ただし Metadata の経路で semantic order を二度数えない（EN-10 の S の部分）。
-- 遅延初期化の道具は一つ（DEC-13）：`clippy.toml` は `OnceCell`・`OnceLock`・`LazyCell`・`LazyLock` を禁止したままにする。使う時に作る重い資源（PERF-2、PERF-10：ICU の formatter、GPU の pipeline、system font、既定の theme など）は、`kivact_types::cell::Deferred<T>`（UI thread の中、`!Sync`）と `kivact_types::cell::SharedDeferred<T>`（`static` と thread をまたぐもの、`Sync`）だけで持つ。どちらも `const fn new()`、`get_or_init(&self, f: impl FnOnce() -> T) -> &T`、`get(&self) -> Option<&T>` を持つ。std の型を使うのはこの二つの実装の中だけ（`#[expect(clippy::disallowed_types, reason = "...")]` を各 1 か所）。状態の補修や「未完成の object を後で埋める」（S-7）には使わない。付属書 S の unit が W1a で作る。
+- 遅延初期化の道具は一つ（DEC-13）：`clippy.toml` は `OnceCell`・`OnceLock`・`LazyCell`・`LazyLock` を禁止したままにする。使う時に作る重い資源（PERF-2、PERF-10：ICU の formatter、GPU の pipeline、system font、既定の theme など）は、`kivact_types::cell::Deferred<T>`（UI thread の中、`!Sync`）と `kivact_types::cell::SharedDeferred<T>`（`static` と thread をまたぐもの、`Sync`）だけで持つ。どちらも `const fn new()`、`get_or_init(&self, f: impl FnOnce() -> T) -> &T`、`get(&self) -> Option<&T>` を持つ。std の型を使うのはこの二つの実装の中だけ（`#[expect(clippy::disallowed_types, reason = "...")]` を各 1 か所）。状態の補修や「未完成の object を後で埋める」（S-7）には使わない。付属書 S の unit が W1a で作る。唯一の明記した例外は `Runtime.app`：App の構築の中（利用者のコードが動く前）で一度だけ設定し、設定前の読出しは debug の assert で落とす（12 章 ST-02）。
 
 ### 6.3 crate・module の規則
 
 - B-1〜B-5 は残す。`visible_to` は「dev-dependency は対象外」を全体の既定にする（TL-06）。
 - interaction は `View` を返さない（`surface()` を除く）。ui は入力 event で動く `impl Machine` と、signal を書く `effect` を持たない。xtask の `module-rules` か新しい検査で確かめる（付属書 T が実装）。
-- `impl Element for` / `impl IntoView for` を手で書けるのは kivact-core の `view` module だけ（5.1 節）。xtask で確かめる。
+- `impl Element for` / `impl IntoView for` を手で書けるのは kivact-core の `view` module だけ（5.1 節。kivact-ui の `Tooltip<T>` を除く）。xtask で確かめる。
 - `machine(()` と `type State = ()` を禁止する（UI-09）。
 - 公開 API の 17 規則（API-1〜API-17）は残し、本書 5 章と矛盾する部分（API-13 の入力部品の label、API-3 の handler の形）は 5 章で置き換える。`structural-options` の検査は消す（TL-06）。
 
 ### 6.4 試験と gate
 
-- 試験は App 全体の E2E のまま（実 window、`kivact::test`）。過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden は足さない。
+- 試験は App 全体の E2E のまま（実 window、`kivact::test`）。過去の不具合の再現だけの試験、画素や時間の厳密な比較、golden は足さない。ただし、最適化の正しさを守る最小の不変条件の試験（cache の無効化、資源の寿命、状態の遷移）は、付属書が名前を挙げていなくても、その unit が所有する試験の file に足してよい（12 章 TV-09）。kivact-test の自己試験（host の非同期の資源・font・cache の契約）は消さずに `crates/kivact-test/tests/` へ移す（12 章 TV-04）。
+- CPU だけの build を、package ごとの `cargo check -p <crate> --no-default-features --lib`（`kivact`、`kivact-offscreen`、`arvane-render`、`arvane-compose`、`kivact-style`）と、`cargo tree -e normal -p kivact --no-default-features` に wgpu が無いことで確かめる（workspace の `--no-default-features` は dev-dependency の feature で GPU が混ざるため。12 章 TV-05）。
 - 公開 API の E2E は 4 つの test binary に分ける：`e2e_core`（`kivact` だけ）、`e2e_ui`（ui・apg・interaction。`kivact` だけ）、`e2e_kits`（theme_conformance と kit の crate が要るもの。別 package `kivact-kit-tests`）、`e2e_native`（embed、GPU、foreign window、DevTools、GPU 共有）（TL-15。kit を分けるのは DEC-14 のため）。
 - docs の doctest は英語の木だけを compile する。日本語の Rust の code block の列が英語と同じであることを xtask の `docs-pairs` 検査で確かめる（TL-03）。
 - gate は 3 段（tier a：unit ごと、tier b：wave ごと、tier c：checkpoint）。正確なコマンドは作業指示書 0.6 節。
@@ -448,7 +478,7 @@ open question：Q1 は分割しない（strategy.md の「標準部品」の行�
 
 ### 7.6 kit（`kits.md`）
 
-採用：KIT-01、KIT-02、KIT-03、KIT-04、KIT-05（中核は `SyntaxKind` と theme 変数の色だけを持つ。Rust の tokenizer は basic に残す）、KIT-06、KIT-08（`IconSet::shared` と `icons!`、theme は `cached_theme`）、KIT-09（soft の `tab_list` の overflow は中核の `tabs` へ）、KIT-10、KIT-11、KIT-12（catalog の文言は英語）、KIT-13、KIT-14、KIT-15、KIT-16（日本語の docs は全ページ残す。migration 表と recipe の一覧は消す）、KIT-17（時計は `task::clock`）、KIT-18、KIT-19、KIT-20。
+採用：KIT-01、KIT-02、KIT-03、KIT-04、KIT-05（中核は `SyntaxKind` と theme 変数の色だけを持つ。Rust の tokenizer は basic に残す）、KIT-06、KIT-08（`icons!` だけを中核に足す。theme と icon の set は kit が `thread_local!` の static で一度だけ作る。`IconSet::shared`・`cached_theme` は作らない。12 章 PF-02）、KIT-09（soft の `tab_list` の overflow は中核の `tabs` へ）、KIT-10、KIT-11、KIT-12（catalog の文言は英語）、KIT-13、KIT-14、KIT-15、KIT-16（日本語の docs は全ページ残す。migration 表と recipe の一覧は消す）、KIT-17（時計は `task::clock`）、KIT-18、KIT-19、KIT-20。
 
 変更して採用：KIT-07（`theme_colors!` macro ではなく theme 変数で `ColorName` ごと消す）。
 
@@ -487,8 +517,10 @@ open question：Q1 は Python を消す。Q2 は struct 単位の規則。Q3 は
 | DEC-05 | 入力部品の見えない名前 | 位置引数をやめ `.label()` と `field()`。名前の欠落は実行時の診断 | JS の `<label>` と `<input>` の感覚。a11y の保証は compile 時から実行時と試験に移る |
 | DEC-06 | 部品の token | theme 変数に統一し、`UiTokens` と kit の `Tokens` の値の field を消す。recipe（形）は `<Name>Theme` | 値の仕組みと形の仕組みを一つずつにする |
 | DEC-07 | style の名前 | CSS の名前（`font_weight`、`border_radius`、`flex_grow`、`outline`、`active`） | CSS の利用者が推測できる |
-| DEC-08 | GPU の device | process に一つ | 起動とメモリが window の数に比例しない |
-| DEC-09 | SVG の asset | usvg で `RenderScene` にし、vello で device の大きさに描く（engine の画素の API は変えない）。resvg の描画・tiny-skia・fontdb の system font の走査を消す。fontdb と rustybuzz の crate は usvg の文字の処理が使うので残し、font は arvane-text から渡す | 2 つ目の rasterizer と system font の 2 度目の走査を持たない |
+| DEC-08 | GPU の device | Driver（一つの App の event loop）に一つ | 起動とメモリが window の数に比例しない。process 全体の仲介は持たない（12 章 EA-10） |
+| DEC-09 | SVG の asset | resvg・tiny-skia による今の描画を保つ。usvg に arvane-text の font を渡し、fontdb の system font の 2 度目の走査だけを消す（版 1.0 の「RenderScene への変換」は撤回。12 章 EA-15） | mask・pattern・filter などの既存の SVG の能力を、性能の改修のついでに黙って落とさない |
+| DEC-17 | 状態の印の機械的な変換 | `legacy:` の印として区別し、CP1 で台帳にして設計者が閉じる | 印の件数 0 は状態機械の解消の証拠にならない（12 章 ST-01） |
+| DEC-18 | 依存の fork | しない。依存は付属書 D の 2 群で更新する | 主な依存は活発に版が出ており、fork の追従の費用が性能の利益を上回る |
 | DEC-10 | Python の DevTools client | 消す | 利用者がいない。MCP が同じ役目 |
 | DEC-11 | SVG の書き出しで同等のものが無い機能 | SVG 1.1 と CSS に同等があれば書き、無いものだけ失敗にする | plot の書き出し（`tnum` など）が失敗しない |
 | DEC-12 | 性能の必達 | 全行で後退しない（≤ 1.00、雑音の許容つき）。改善の目標は記録 | 未達で設計が止まらず、後退は確実に防ぐ |
@@ -499,7 +531,7 @@ open question：Q1 は Python を消す。Q2 は struct 単位の規則。Q3 は
 
 ## 9. 作業の段階（付属書の unit が従う枠）
 
-詳細な手順は作業指示書。下の表は最初の枠である。付属書の間の所有ファイルの重なりと lane の上限を解いた**確定の配置は作業指示書 4 章**（W1a・W1b・W1c・W2a・W2b・W3a・W3b・W4・W4b・CP1・W5a・W5b・W6a・W6b・W7a・W7b・W8・CP2・W9・W10・W11a・W11b・W11c・CP3）で、本表と食い違うときは作業指示書が正しい。
+詳細な手順は作業指示書。下の表は最初の枠である。付属書の間の所有ファイルの重なりと lane の上限を解いた**確定の配置は作業指示書 4 章**（W1a・W1b・W1c・W2a・W2b（付属書 D を含む）・W3a・W3b・W4・W4b・CP1・W5a・W5b・W6a・W6b・W7a・W7b・W8・W8L（付属書 L）・CP2・W9・W10・W11a・W11b・W11c・CP3）で、本表と食い違うときは作業指示書が正しい。
 
 | wave | 内容 | lane（最大 6） | 排他の規則 |
 |---|---|---|---|
@@ -537,12 +569,69 @@ unit の書き方（全付属書で共通。付属書の書き手が守る）：
 | [rework/U-ui.md](rework/U-ui.md) | kivact-interaction、kivact-ui（5.9 節） | UI-*、API-19 |
 | [rework/K-kits.md](rework/K-kits.md) | 5 つの kit、catalog、kivact-plot、catalog-shell（5.10 節） | KIT-* |
 | [rework/A-arvane.md](rework/A-arvane.md) | arvane*、kivact-gpu-share | AR-* |
+| [rework/D-deps.md](rework/D-deps.md) | 依存の更新（12.2 節） | — |
+| [rework/L-ledger.md](rework/L-ledger.md) | CP1 の後に設計者が書く：`legacy:` の印の閉じ方（12 章 ST-01）。CP1 までは存在しない | 台帳 `rework/state-ledger.md` |
 | [rework/G-guides.md](rework/G-guides.md) | 利用者向け docs、README、例、雛形、移行ガイド、開発者向けの 3 文書、bench の probe の最終確認 | API-07〜API-09、AC-5 |
 
-## 11. 後続（本改修では行わない）
+## 12. 外部レビューへの対応（`20261118_1237_CODEX_REVIEW.md`）
+
+版 1.1（2026-11-18）。レビューの全 66 件を、目的（性能と単純な内部）と 6 つの基準に照らして判定した。この章は 5・6 章と同じく付属書より優先する。下の決定に合わせて本文（5・6・8・9 章）も直した。
+
+### 12.1 判定（ID はレビューのもの）
+
+**実行計画の不備（すべて採用。付属書と作業指示書を直す）**：PLAN-01（二重の window-lock）、PLAN-02（CP2 の KPI：`run.sh` に catalog を外す選択を足す。付属書 T）、PLAN-03（CP3 は `--strict` を使わない）、PLAN-04（固定の `cd` をやめ、作業場所は `git rev-parse --show-toplevel`。全付属書）、PLAN-05（W0 は基点の構成の gate）、PLAN-06（新しい crate の `members` への追加と T13 の削除は許す。禁止は「未移行の package を一時的に外すため」だけ）、PLAN-07（filter は binary ごとに分け、0 件は失敗）、TV-01（schema の試験は `tests/schema_generated/main.rs`）、TV-10（T23 の検索を DevTools の型名に限る）、UI-S-04（S17 の重複 import）、API-12（`use kivact_macros::component`）。
+
+**公開 API（採用）**
+
+| ID | 決定 |
+|---|---|
+| API-1 | 型引数そのものの props（`control: C`）は `impl Into<C>` で包まず、`C` で受ける（5.1 規則 3）。`async_view` は `S: AsyncSource<T>` を型引数で受ける |
+| API-2 | `Rc<dyn Fn(..) -> T>` の props（Func）を 5.1 規則 3 に加える。入力は `impl Fn(..) -> T + 'static` |
+| API-3 | `tooltip(label, trigger) -> impl Element`（React の `<Tooltip content><Button/></Tooltip>` と同じ形）。`Tooltip::attach` は消す |
+| API-4・API-5・ST-9 | `custom::caller()`（thread-local の stack）をやめる。`#[component]` の引数に `#[caller] caller: Caller` を書くと、macro がその部品の吸収した modifier の**snapshot**を渡す。最終の variant・disabled・押下の有無は、すべての authored modifier を順に畳む一つの関数 `Node::authored() -> Authored` で求め、recipe・root・部分で共有する。押下は `has_press() -> bool`（Callback を作らない） |
+| API-6 | `#[derive(Prop)]` は `where Self: 'static` を付ける |
+| API-7 | 共有の handler は `callback(move \|_\| ..)`（payload の無いものも同じ形）。ガイドで統一する |
+| API-8 | 5.1 の例は `content: ViewFn` と `show(open, content)` |
+| API-9〜API-11 | `Remote<T>` は `set(T)` だけ（`update` を消す：利用者の closure を他の thread や lock の中で動かさない）。mailbox は `Open { latest: Option<T> }` / `Closed` の二状態で、owner の cleanup で `Closed` にし、閉じた後の `set` は値を捨てる。配送は runtime の driver が turn の始めに一度だけ drain する（task の loop ではない）。`remote_trigger` も同じ形 |
+| API-13 | font は `Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)`。`Asset`（path・Vec・共有 bytes・static bytes）を theme が持つ。`.leak()` は要らない |
+| API-14 | `Callback` の内部の呼出しは `Result<Handled, UiError>` を保つ。inline の closure・共有の `Callback`・props の経由で同じ結果になる |
+| API-15 | `Callback` props は body の実行の前に一度だけ owner に登録する（今の macro の動き）。5.1 規則 7 の「子に渡すときだけ」を消す |
+| API-16 | `provide_direction` は定数のまま。ガイドを直す |
+
+**状態と寿命（採用）**
+
+| ID | 決定 |
+|---|---|
+| ST-01 | W1 の印の変換が書く印は `// xtask-allow(state): legacy: ...` とし、通常の印と区別する。xtask は `legacy:` の数を報告する。CP1 で Orchestrator が `legacy:` の全件を `rework/state-ledger.md`（型、file、field、`rg` で見た書き手）に書き出し、設計者に返す（`rework/OPEN.md`）。設計者は閉じ方を付属書 L（`rework/L-ledger.md`）に書き、作業指示書の W8L で実装する。**AC-3 は `legacy:` 0 件と、監査の STATE 所見の全件の終結**。6.1 節の検査から名前の接尾辞と `Hash + Eq` による除外を消す（(a)(b) の条件と、constructor・値渡しの builder だけで書く field の除外で足りる）。`AsyncCellState` は `AsyncPhase::{Idle, Pending { last: Option<Rc<T>> }, Ready(Rc<T>), Failed { error, last: Option<Rc<T>> }}` にし、`Ready` で値が無い組合せを表せなくする |
+| ST-02 | `Runtime.app` の一度だけの設定は、App の構築の中（利用者のコードが動く前）に限る**明記した例外**とする（6.2 節）。構築の途中で `app_state` を読んだら debug の assert で落とす。型での二段階の分離は行わない（runtime の公開 handle が thread-local の runtime を読む今の構造を変える範囲が大きく、得る安全が小さい） |
+| ST-03 | deferred の実行も turn の仕事量の予算（`ASYNC_ROUNDS` と共有）に数える。予算を超えたら位置付きの `Cycle` を一度報告し、残りを次の turn に回す |
+| ST-04 | selector の node は、最後の購読者が外れたとき（graph の unsubscribe）に消す。owner の cleanup だけに頼らない |
+| ST-05 | motion の登録は token を返し、token の `Drop`（owner の破棄）で全 map から消す。診断の呼出しを掃除の契機にしない |
+| ST-06 | `devtools` feature の build では、node の型と作成の位置（約 24 byte）を常に持つ（後から記録を始めても why が働く）。feature なしの build では持たない |
+| ST-07 | owner から切り離された action は AsyncCell に publish しない（遷移を一か所にまとめる） |
+| ST-08 | owner の破棄で、その owner の action（queued を含む）を取り消す。画面をまたぐ保存は、App の root の owner で作った action で行う（ガイドに書く）。期限つきの drain は App の終了にだけ使う |
+
+**engine・描画・native（採用）**：EA-01（検証のための描き直しと内容の変化を分ける）、EA-02（scroll の部分 rewalk は置き換えた範囲の transform・layer を消す）、EA-03（部分 rewalk でも外れた node の draw cache を消す）、EA-04〜EA-06（embed の `Child` の状態を作り直す：`Live { handler: HandlerSlot::{Idle(Box), Calling} }`、`Stopped { cause, cleanup: Pending | Done }`。`window_gone` は `Stopped` の理由に含め、組合せの印で通さない。cleanup はちょうど一度）、EA-07（A15 の「root を output へ直接描く」最適化は**やめる**。pool と filter の借用だけ残す）、EA-08（font の worker は `DetachedThreads::note()` に登録し、一度だけ起動する）、EA-10（GPU の device は Driver（一つの App の event loop）に一つ。process に一つではない。8 章 DEC-08 と 6.2 節 PERF-8 を直した）、EA-11・EA-12・EA-16（E17 の `EditContext` は、editor の行の cache を `Rc` で共有した全文の lazy な照会にし、毎回の複写と全文の数えをやめる。caret の停止位置は既存の `TextGeometry` の合法な境界（grapheme と shaping cluster の共通部分）を使う。文字数は `max_length` があるときだけ数える）、EA-13（self_check の参照の hit walk は索引を使わない）、EA-14（検証の描き直しは cache の paint ではなく最新の paint から作る）、EA-17（CPU の target の pool は合計 64 MiB まで。idle の解放（MEM-8）で全部手放す）。
+
+**変更して採用**：EA-09（system font の走査は process の開始時に別 thread で始め、window・GPU の準備と重ねる。最初の文字の計測は残りを待つ。PERF-10 を「起動の critical path から外す」から「重ねる」に直す）。EA-15（**SVG を `RenderScene` へ変換する案（DEC-09）をやめる**。resvg・tiny-skia による今の描画を保ち、usvg に arvane-text の font を渡して system font の 2 度目の走査だけを消す。機能を黙って落とさない。DEC-09 を直した）。
+
+**theme・style・UI・kit（採用）**：UI-S-01（`Theme` のすべての書込みは一つの編集の入口を通り、拡張の fallback の cache を必ず空にする）、UI-S-02（状態の style の paint callback を消さない：状態の report を元の宣言から決め、選ばれた状態の Rest を合成した後で callback を選ぶ）、UI-K-01（tabs の Menu の overflow は、溢れた tab を `position: absolute` と `visibility: hidden` にして自然な幅を測り続ける。`hidden` で layout から外さない）、UI-K-02（tabs は選択の変化と layout の変化から `scroll_into_view` を要求する effect を持つ。host への要求であり signal の書込みではない）、UI-U-02（**すべての型の theme 変数**は値として別の変数（別名）を持てる。部品の変数の既定は中核の変数への別名にし、共通の値の変更がすべての部品に届くようにする）、UI-U-03（Stepper に `on_edit` を足す）、UI-S-03（`Length` の `+`・`-` は theme 変数・`em`・`pct` を含む式（calc）として保つ。黙って `Auto` にしない）、PF-02（`cached_theme` を消す。kit は `thread_local!` の static で theme を保つ）。
+
+**検証と測定（採用）**：TV-04（T16 は kivact-test の自己試験を消さず、`crates/kivact-test/tests/` へ移す）、TV-05（tier c に、`kivact`・`kivact-offscreen`・`arvane-render`・`arvane-compose`・`kivact-style` の `cargo check -p <crate> --no-default-features --lib` と、`cargo tree -e normal -p kivact --no-default-features` に wgpu が無いことの確認を足す）、TV-06（docs-pairs は en と jp の file の集合の和を比べ、Rust の block を `proc-macro2` の token の列で比べる。文字列の literal は中身だけを無視し、形の正しさは確かめる）、TV-08（KPI の判定を 2.1 節の規則で機械的にする）、TV-09（付属書が名前を挙げていなくても、契約を変えない最小の不変条件の試験（cache の無効化、資源の寿命、状態の遷移）は、その unit が所有する試験の file に足してよい。期待値の緩和は引き続き禁止）、PF-01（2 章に改善の必達を足した）。
+
+### 12.2 依存の更新（作者の指示で追加）
+
+付属書 D（`rework/D-deps.md`）が担う。
+
+- **いま上げる群**（他と版が絡まない）：taffy 0.14 → 0.15、accesskit 0.24 → 0.25（`accesskit_winit` 0.34、`accesskit_windows`・`accesskit_unix` も）、rfd 0.18 と pollster 1.0（同時に上げないと pollster が二重になる）、arboard 3.7、svgtypes・flate2 の patch。wave は W2b（engine・Arvane の性能の unit より前）。zbus は 5.19 のまま（accesskit_unix 0.24 と atspi が zbus 5 を要する）、xim は 0.5 のまま（0.6 は x11rb 0.14 を要し、winit 0.30 などの x11rb 0.13 と二重になる）。taffy の更新は今の layout の結果を変えない（grid の中の absolute な子の grid 線による配置も保つ）。
+- **待つ群**（連動するので一度に上げる）：wgpu・naga 30、vello_cpu・vello_common・vello_hybrid・glifo、parley・fontique 0.13、skrifa 0.49、harfrust 0.15、usvg・resvg 0.50。今は `vello_hybrid` の最新（0.2）が wgpu 29 と `vello_common` 0.2 に固定され、`glifo` が skrifa 0.44 に固定されているので、parley や usvg だけを上げると skrifa・harfrust が二重になり K6 が後退する。**再開の条件**：wgpu 30 以降と、vello_cpu の最新と同じ `vello_common` に依存する `vello_hybrid` が release されたとき。そのとき usvg 0.50 に上げると、archive された `rustybuzz` が消える。条件の確認は CP2 と CP3 で Orchestrator が行い（`cargo search`・crates.io）、満たしていれば作者に報告する（自分では上げない）。
+- 方針：依存を fork しない。性能の問題は upstream への報告と、Kivact 側の回避（付属書の unit）で扱う。
+
+## 13. 後続（本改修では行わない）
 
 - a11y の Metadata の経路の増分化（EN-10 の M の部分）。
 - 折り返す editor の行の splice（EN-12 の一部）。
+- layout の長さの `em` が祖先の font size を継ぐこと（今回は、その要素の style が設定した font size、無ければ `font::SIZE` に対して解決する。engine の計算済みの text style を layout の解決に渡す改修が要る。付属書 S 4.13 の 4。ガイドに制限を書く）。
 - `lower`・`text_input` の crate 化（狭い API ができたら）。
 - 色の f32 化（ST-24）。
 - drop target、combobox の trigger 文字、audio control の kit の統一（作者の判断）。
