@@ -1,5 +1,4 @@
-//! Role: Compose a reusable card with props, children and a close callback.
-#![warn(redundant_imports)]
+//! Compose a reusable card with props, children and a close callback.
 
 use kivact::prelude::*;
 
@@ -29,10 +28,9 @@ fn card(
     .style(style().padding(12).gap(8))
 }
 
+// xtask-allow(state): legacy: first, second; whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so
 fn app() -> impl IntoView {
-    // xtask-allow(state-fields): independent: whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so either card or both can be closed
     let first = signal(true);
-    // xtask-allow(state-fields): independent: whether the Second card is shown, cleared only by its own close button and never set back; the First card has its own signal, so either card or both can be closed
     let second = signal(true);
     column((
         show(first, move || {
@@ -58,7 +56,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the card component example in a test window.
+    //! Drive the card component example in a test window.
 
     use super::*;
 

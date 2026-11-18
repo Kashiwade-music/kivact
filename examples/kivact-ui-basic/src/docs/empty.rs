@@ -1,4 +1,4 @@
-//! Role: Catalog page of EmptyState: icon media, outline and with actions.
+//! Catalog page of EmptyState: icon media, outline and with actions.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

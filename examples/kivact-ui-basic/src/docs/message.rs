@@ -1,4 +1,4 @@
-//! Role: Catalog page of Message: received, sent and a conversation.
+//! Catalog page of Message: received, sent and a conversation.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

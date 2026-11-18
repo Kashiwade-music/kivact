@@ -1,4 +1,4 @@
-//! Role: Editors and input controls for creative editing.
+//! Editors and input controls for creative editing.
 use crate::creative::audio_values::TransportState;
 use kivact::state::IntoBinding;
 

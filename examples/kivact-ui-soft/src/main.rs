@@ -1,4 +1,4 @@
-//! Role: Open the Soft component catalog with application-owned fonts.
+//! Open the Soft component catalog with application-owned fonts.
 use kivact::App;
 use kivact_ui_soft_catalog::{catalog, fonts};
 

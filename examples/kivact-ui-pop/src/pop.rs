@@ -1,4 +1,4 @@
-//! Role: Catalogue of the Pop kit with thirteen sections.
+//! Catalogue of the Pop kit with thirteen sections.
 //!
 //! A full thirteen-section Pop catalogue, retaining the source shell and component density.
 

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Message Scroller: a long log and a conversation that grows.
+//! Catalog page of Message Scroller: a long log and a conversation that grows.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

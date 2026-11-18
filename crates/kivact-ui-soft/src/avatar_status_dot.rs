@@ -66,6 +66,7 @@ pub(crate) fn status_metrics(side: f64) -> StatusMetrics {
     }
 }
 
+// xtask-allow(state): legacy: label, icon
 /// A small presence indicator, usable with or without an avatar.
 pub struct AvatarStatusDot {
     root: Node,

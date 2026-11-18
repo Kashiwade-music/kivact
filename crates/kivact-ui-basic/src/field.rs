@@ -17,6 +17,7 @@ pub enum FieldLegendVariant {
     Label,
 }
 
+// xtask-allow(state): legacy: legend, description
 /// A group of fields with an optional legend and description (`FieldSet`).
 ///
 /// Created by [`field_set`]; a `Role::Group` named by the legend.

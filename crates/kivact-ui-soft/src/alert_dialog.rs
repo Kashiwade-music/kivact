@@ -27,9 +27,7 @@ use std::rc::Rc;
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
     open: Binding<bool>,
-    // xtask-allow(state-fields): option: application action configuration, independent of canonical Dialog visibility.
     action: Option<(String, Rc<dyn Fn()>)>,
-    // xtask-allow(state-fields): option: caller label from AlertDialog::cancel_label; absent uses the localized "Cancel" message (soft.alert_dialog.cancel).
     cancel: Option<String>,
     variant: ButtonVariant,
     loading: Value<bool>,

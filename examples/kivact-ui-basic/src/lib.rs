@@ -1,9 +1,8 @@
-//! Role: Document-style component catalog for kivact-ui-basic.
+//! Document-style component catalog for kivact-ui-basic.
 //!
 //! A top bar with the theme toggle_button, a searchable component list and one
 //! documentation page per component. Every code block shows the source of
 //! the demo above it.
-#![warn(redundant_imports)]
 mod docs;
 mod fonts;
 mod look;

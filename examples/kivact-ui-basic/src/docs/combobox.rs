@@ -1,4 +1,4 @@
-//! Role: Catalog page of Combobox: basic, clear, multiple and disabled.
+//! Catalog page of Combobox: basic, clear, multiple and disabled.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

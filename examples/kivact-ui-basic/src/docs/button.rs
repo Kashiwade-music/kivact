@@ -1,4 +1,4 @@
-//! Role: Catalog page of Button: variants, sizes, icons, loading and disabled.
+//! Catalog page of Button: variants, sizes, icons, loading and disabled.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

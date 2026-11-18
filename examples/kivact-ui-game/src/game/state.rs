@@ -1,4 +1,4 @@
-//! Role: Shared signal handles for Game catalog specimen commands.
+//! Shared signal handles for Game catalog specimen commands.
 
 use kivact::state::{Binding, Signal, binding};
 
@@ -12,6 +12,7 @@ pub(super) enum Overlay {
     Palette,
 }
 
+// xtask-allow(state): legacy: overlay, rows, selected
 #[derive(Clone, Copy)]
 pub(super) struct Demo {
     pub(super) overlay: Signal<Overlay>,

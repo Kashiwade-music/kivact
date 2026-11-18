@@ -1,4 +1,4 @@
-//! Role: Japanese localization messages for the game catalog.
+//! Japanese localization messages for the game catalog.
 //!
 //! The catalog's Japanese texts for the keys `kivact-ui-game` reads. The kit's
 //! own texts are English; the catalog shows how an App replaces them.

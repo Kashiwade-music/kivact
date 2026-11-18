@@ -1,5 +1,4 @@
-//! Role: Increment one signal from a button and show a memo derived from it.
-#![warn(redundant_imports)]
+//! Increment one signal from a button and show a memo derived from it.
 
 use kivact::prelude::*;
 
@@ -20,7 +19,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the counter example in a test window.
+    //! Drive the counter example in a test window.
 
     use super::*;
 

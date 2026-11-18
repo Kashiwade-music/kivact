@@ -152,6 +152,7 @@ pub enum TextJustify {
     End,
 }
 
+// xtask-allow(state): legacy: heading, size, color, weight, wrap
 /// Reactive text with a Soft typography role and optional truncation tooltip.
 pub struct StyledText {
     root: Node,

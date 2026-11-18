@@ -1,4 +1,4 @@
-//! Role: Catalog page of Skeleton: an avatar row and a card placeholder.
+//! Catalog page of Skeleton: an avatar row and a card placeholder.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

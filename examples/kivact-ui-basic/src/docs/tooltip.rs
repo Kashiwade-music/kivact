@@ -1,4 +1,4 @@
-//! Role: Catalog page of Tooltip: default, sides, icon buttons and keyboard shortcut.
+//! Catalog page of Tooltip: default, sides, icon buttons and keyboard shortcut.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

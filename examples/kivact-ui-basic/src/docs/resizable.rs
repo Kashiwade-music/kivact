@@ -1,4 +1,4 @@
-//! Role: Catalog page of Resizable: horizontal, vertical and a grip handle.
+//! Catalog page of Resizable: horizontal, vertical and a grip handle.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

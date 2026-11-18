@@ -1,4 +1,4 @@
-//! Role: Catalog page of Menubar: basic menus, checks and radios, and a submenu.
+//! Catalog page of Menubar: basic menus, checks and radios, and a submenu.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Input Group: icons, text, buttons and block addons.
+//! Catalog page of Input Group: icons, text, buttons and block addons.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

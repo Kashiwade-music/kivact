@@ -1,4 +1,4 @@
-//! Role: Every catalog page and its examples, as the catalog tests read them.
+//! Every catalog page and its examples, as the catalog tests read them.
 
 /// One example of a catalog page, as the tests read it.
 #[derive(Clone, Debug)]

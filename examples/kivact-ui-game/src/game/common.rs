@@ -1,4 +1,4 @@
-//! Role: Shared layout and input helpers for Game catalog specimens.
+//! Shared layout and input helpers for Game catalog specimens.
 
 use kivact::interaction::ListItem;
 use kivact::prelude::{

@@ -1,8 +1,7 @@
-//! Role: All source chapters remain reachable in the complete, font-matched shell.
+//! All source chapters remain reachable in the complete, font-matched shell.
 //! Optional artifacts are produced by the same public test driver with optional window mirroring
 //! that consumers use; no library reaches into an implementation crate.
 //! Public-driver interaction and visual evidence for the complete Creative catalog.
-#![warn(redundant_imports)]
 
 use kivact::geometry::Point;
 use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, TestFonts, render_with};

@@ -1,4 +1,4 @@
-//! Role: Source catalogue sections built from the public component library.
+//! Source catalogue sections built from the public component library.
 
 use super::common::{card, cards_grid, columns, half, muted, section, third, wrap};
 use super::components_helpers::{cut_corner_sample, shape_samples, type_samples};
@@ -453,10 +453,9 @@ fn upload_controls() -> kivact::ui::Card {
     )
 }
 
+// xtask-allow(state): legacy: volume, difficulty; bound only to the BGM volume slider; the difficulty slider has its own signal, so any volume pairs with any difficulty
 fn switch_controls() -> kivact::ui::Card {
-    // xtask-allow(state-fields): independent: bound only to the BGM volume slider; the difficulty slider has its own signal, so any volume pairs with any difficulty
     let volume = signal(64.0f64);
-    // xtask-allow(state-fields): independent: bound only to the difficulty slider; the volume slider has its own signal, so any difficulty pairs with any volume
     let difficulty = signal(2.0f64);
     card(
         "スイッチ・スライダー",
@@ -511,10 +510,9 @@ fn switch_controls() -> kivact::ui::Card {
     )
 }
 
+// xtask-allow(state): legacy: notifications, reports; bound only to the notifications checkbox; the weekly report checkbox has its own signal, so both, either or neither can be
 fn check_controls() -> kivact::ui::Card {
-    // xtask-allow(state-fields): independent: bound only to the notifications checkbox; the weekly report checkbox has its own signal, so both, either or neither can be checked
     let notifications = signal(true);
-    // xtask-allow(state-fields): independent: bound only to the weekly report checkbox; the notifications checkbox has its own signal, so both, either or neither can be checked
     let reports = signal(false);
     let mode = signal(Some("normal".to_owned()));
     let modes = signal(vec![

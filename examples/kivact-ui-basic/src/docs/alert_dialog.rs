@@ -1,4 +1,4 @@
-//! Role: Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
+//! Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -73,10 +73,9 @@ fn default() -> impl IntoView {
 // end example
 
 // example: destructive
+// xtask-allow(state): legacy: open, deleted; "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either
 fn destructive() -> impl IntoView {
-    // xtask-allow(state-fields): independent: "Delete Chat" opens the alert and Cancel or Delete closes it; it opens again after a deletion, so it is true or false with either value of deleted
     let open = signal(false);
-    // xtask-allow(state-fields): independent: set by the alert's Delete button and never cleared; the muted line shows it while the alert is open or closed
     let deleted = signal(false);
     column((
         button("Delete Chat")

@@ -22,6 +22,7 @@ use super::text::{
     Formatter, TextParser, builtin_formatter, display_value, editor_formatter, scalar_parser,
 };
 
+// xtask-allow(state): legacy: accent, drag_distance, text_entry, wheel_rest; absent means the theme's accent
 /// The state a numeric control hands to its scrub, key and paint handlers.
 pub(super) struct NumericView {
     pub(super) label: Value<String>,
@@ -31,7 +32,6 @@ pub(super) struct NumericView {
     pub(super) reset: Value<f64>,
     pub(super) tint: Value<PropertyState>,
     pub(super) label_visible: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the theme's accent
     pub(super) accent: Option<Value<Color>>,
     pub(super) bipolar: Value<bool>,
     pub(super) horizontal: Value<bool>,
@@ -47,9 +47,7 @@ pub(super) struct NumericView {
     pub(super) shown: Value<String>,
     pub(super) edit_text: Formatter,
     pub(super) mapping: kivact::interaction::ScalarMapping,
-    // xtask-allow(state-fields): option: absent means the kind's default scrub distance
     pub(super) drag_distance: Option<Value<f64>>,
-    // xtask-allow(state-fields): option: the builder always sets this flag; false disables text entry
     pub(super) text_entry: bool,
     pub(super) theme: Value<Theme>,
     pub(super) wheel_rest: Var<f64>,

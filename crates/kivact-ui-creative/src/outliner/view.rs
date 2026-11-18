@@ -212,11 +212,11 @@ impl IntoView for Outliner {
     }
 }
 
+// xtask-allow(state): legacy: generation, row_height, has_activation; generation of registered rows
 struct RowFactory {
     by_id: Value<HashMap<u64, TreeItem>>,
     data: Value<Vec<TreeItem>>,
     rename_edit: kivact::interaction::InlineEditApi<u64>,
-    // xtask-allow(state-fields): identity: generation of registered rows
     generation: Rc<Cell<Generation>>,
     mounted: super::controls::Rows,
     reveal: kivact::state::MachineHandle<super::reveal::Reveal>,
@@ -229,11 +229,9 @@ struct RowFactory {
     drag: kivact::state::MachineHandle<DragMachine>,
     active: Value<Option<u64>>,
     restrictions: Value<bool>,
-    // xtask-allow(state-fields): option: absent means the theme's row height
     row_height: Option<Value<f64>>,
     levels: Value<HashMap<u64, u32>>,
     item_drop: Option<Callback<TreeDrop>>,
-    // xtask-allow(state-fields): option: whether the caller set Outliner::on_activate; false means a double click renames the row instead of activating it
     has_activation: bool,
 }
 impl RowFactory {

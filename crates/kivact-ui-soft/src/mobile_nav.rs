@@ -57,7 +57,6 @@ struct MobileContext {
     state: MachineHandle<MobileMachine>,
     toggle: NodeRef,
     drawer: NodeRef,
-    // xtask-allow(state-fields): option: fixed at AppShell construction as MobileNavMode::Auto with MobileNavConfig::has_toggle; false means the app supplies its own drawer control.
     auto_toggle: bool,
 }
 impl MobileContext {
@@ -251,6 +250,7 @@ pub enum DrawerSide {
     Auto,
 }
 
+// xtask-allow(state): legacy: open, label, header
 /// A modal navigation drawer whose content is rebuilt on each opening.
 pub struct MobileNav {
     root: Node,
@@ -366,6 +366,7 @@ impl IntoView for MobileNav {
     }
 }
 
+// xtask-allow(state): legacy: label, icon
 /// An app-shell drawer toggle with an optional custom icon.
 pub struct MobileNavToggle {
     root: Node,

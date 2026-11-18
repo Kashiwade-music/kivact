@@ -6,19 +6,14 @@ use kivact::state::Value;
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct LayoutInset {
-    // xtask-allow(state-fields): option: inline outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Inherited inline outer padding in logical pixels; None uses the region fallback.
     pub outer_x: Option<f64>,
-    // xtask-allow(state-fields): option: block outer padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Inherited block outer padding in logical pixels; None uses the region fallback.
     pub outer_y: Option<f64>,
-    // xtask-allow(state-fields): option: inline gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Padding between inline regions in logical pixels; None uses the region fallback.
     pub inner_x: Option<f64>,
-    // xtask-allow(state-fields): option: block gap padding announced by the enclosing AppShell, Card or Section (LayoutInset::from_padding); None uses the spacing.s4 fallback.
     /// Padding between block regions in logical pixels; None uses the region fallback.
     pub inner_y: Option<f64>,
-    // xtask-allow(state-fields): option: this Layout's padding from Layout::padding, written only in Layout::into_view; absent uses the inherited outer_x and outer_y.
     /// This layout's own outer padding (`Layout::padding`) on both axes in
     /// logical pixels; when set it replaces `outer_x` and `outer_y`.
     pub(crate) own_outer: Option<f64>,
@@ -67,6 +62,7 @@ pub enum LayoutHeight {
     Auto,
 }
 
+// xtask-allow(state): legacy: header, footer, start, end, content, start_resize, end_resize, padding, content_width
 /// Page regions arranged around a central content area.
 pub struct Layout {
     root: Node,
@@ -175,15 +171,10 @@ struct ContentWidth {
 
 #[derive(Clone, Copy, Default)]
 struct LayoutSlots {
-    // xtask-allow(state-fields): option: header divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no header.
     header_divider: Option<bool>,
-    // xtask-allow(state-fields): option: footer divider resolved at into_view from LayoutRegion::divider or Layout::default_dividers; None means the layout has no footer.
     footer_divider: Option<bool>,
-    // xtask-allow(state-fields): option: whether the caller supplied Layout::start, captured once in into_view; false means no leading panel.
     has_start: bool,
-    // xtask-allow(state-fields): option: whether the caller supplied Layout::end, captured once in into_view; false means no trailing panel.
     has_end: bool,
-    // xtask-allow(state-fields): option: caller limit from Layout::content_width paired with the layout root ref used to centre pixel widths; absent means no width limit.
     content_width: Option<ContentWidth>,
 }
 
@@ -275,6 +266,7 @@ enum Region {
     End,
 }
 
+// xtask-allow(state): legacy: divider, padding, padding_bottom, width
 /// Content slot with padding, size, scrolling and divider settings for a page layout.
 pub struct LayoutRegion {
     root: Node,

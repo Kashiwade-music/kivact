@@ -4,6 +4,7 @@ use kivact::state::{IntoText, Value};
 use kivact::style::{Align, Direction, style, use_tokens};
 use kivact::view::{Element, IntoView, Node, View, column, node, row, text};
 
+// xtask-allow(state): legacy: description, action
 /// The header of a standard `kivact::ui::card`: a title, a description and
 /// an action. Created by [`card_header`]; pass it to the card's `.header(..)`.
 /// The card's header region draws the spacing and, with

@@ -1,4 +1,4 @@
-//! Role: Demonstrate scoped themes, localization and native link callbacks.
+//! Demonstrate scoped themes, localization and native link callbacks.
 use super::specimen::specimen;
 use kivact::i18n::Messages;
 use kivact::i18n::provide_messages;

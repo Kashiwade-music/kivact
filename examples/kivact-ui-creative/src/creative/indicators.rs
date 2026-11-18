@@ -1,4 +1,4 @@
-//! Role: Visual indicators and status displays.
+//! Visual indicators and status displays.
 
 use super::common::{col, line, note, spec, specs};
 use super::controls::chip;

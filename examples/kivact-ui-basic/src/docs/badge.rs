@@ -1,4 +1,4 @@
-//! Role: Catalog page of Badge: variants, with icon and as a pressable badge.
+//! Catalog page of Badge: variants, with icon and as a pressable badge.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

@@ -1,4 +1,4 @@
-//! Role: Stateful source conversation, including delayed typing and replies.
+//! Stateful source conversation, including delayed typing and replies.
 
 use super::common::section;
 use kivact::draw::linear_gradient;

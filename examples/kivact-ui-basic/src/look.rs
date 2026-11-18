@@ -1,4 +1,4 @@
-//! Role: The kit tokens of the theme in effect, for the catalog's own styles.
+//! The kit tokens of the theme in effect, for the catalog's own styles.
 
 use kivact::style::use_theme;
 use kivact_ui_basic as basic;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
+//! Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
 use kivact::ui::Paging;
 
 use crate::model::{Example, Page, PreviewAlign};
@@ -57,13 +57,12 @@ fn payment_rows() -> Vec<Payment> {
     ]
 }
 
+// xtask-allow(state): legacy: sort, page; the table's sort binding, written by the data_table column headers; any sort can be shown on any page, since sorting only reorders the
 fn payments() -> impl IntoView {
     let data = payment_rows();
     let query = signal(String::new());
     let selected = signal(Vec::<u32>::new());
-    // xtask-allow(state-fields): independent: the table's sort binding, written by the data_table column headers; any sort can be shown on any page, since sorting only reorders the filtered rows
     let sort = signal(None);
-    // xtask-allow(state-fields): independent: the table's page binding, moved by the pager and reset to 0 by a new sort or filter text; every page is reachable afterwards under any sort
     let page = signal(0_usize);
     let visible = signal(vec![true; 3]);
     let copied = signal(String::new());

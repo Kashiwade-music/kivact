@@ -25,7 +25,6 @@ pub(crate) struct TimeEditor<T: TimeItem> {
     pub(crate) root: Node,
     pub(crate) items: Value<Vec<T>>,
     pub(crate) state: crate::TimeState,
-    // xtask-allow(state-fields): option: the caller's .lanes(...) builder; absent means one unnamed lane per distinct item lane id (visible_lanes)
     pub(crate) lanes: Option<Value<Vec<Lane>>>,
     pub(crate) snap: Value<bool>,
     pub(crate) step: Value<f64>,

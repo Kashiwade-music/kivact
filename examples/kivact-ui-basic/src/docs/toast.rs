@@ -1,4 +1,4 @@
-//! Role: Catalog page of Toast: pushed notifications, variants, actions and durations.
+//! Catalog page of Toast: pushed notifications, variants, actions and durations.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

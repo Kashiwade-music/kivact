@@ -1,4 +1,4 @@
-//! Role: Media pool and asset browser for creative application.
+//! Media pool and asset browser for creative application.
 use kivact::state::IntoBinding;
 
 use super::common::{col, keyed_options, line, note};

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Spinner: default, in a button and with text.
+//! Catalog page of Spinner: default, in a button and with text.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

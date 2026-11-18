@@ -18,14 +18,10 @@ pub struct Tab<K> {
     pub(crate) root: Node,
     pub(crate) key: K,
     pub(crate) label: Value<String>,
-    // xtask-allow(state-fields): option: mounted once when the tab is built; absent means no icon
     pub(crate) icon: Option<View>,
-    // xtask-allow(state-fields): option: mounted once for the selected tab; absent means the resting icon
     pub(crate) selected_icon: Option<View>,
     pub(crate) label_hidden: Value<bool>,
-    // xtask-allow(state-fields): option: mounted once when the tab is built; absent means no trailing content
     pub(crate) end: Option<View>,
-    // xtask-allow(state-fields): option: caller-provided panel reference; absent means no associated panel
     pub(crate) panel: Option<NodeRef>,
 }
 
@@ -97,7 +93,6 @@ pub struct TabMenuOption<K> {
     pub(crate) key: K,
     pub(crate) label: Value<String>,
     pub(crate) icon: Option<ViewFn>,
-    // xtask-allow(state-fields): option: caller availability from TabMenuOption::disabled; false keeps the option selectable in the strip menu.
     pub(crate) disabled: bool,
 }
 

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Dialog: default, form, no close button and confirmation.
+//! Catalog page of Dialog: default, form, no close button and confirmation.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
@@ -118,10 +118,9 @@ fn no_close_button() -> impl IntoView {
 // end example
 
 // example: confirm
+// xtask-allow(state): legacy: open, deleted; "Delete account" opens the dialog and Cancel or Delete closes it; reopening after the deletion keeps deleted true
 fn confirm() -> impl IntoView {
-    // xtask-allow(state-fields): independent: "Delete account" opens the dialog and Cancel or Delete closes it; reopening after the deletion keeps deleted true
     let open = signal(false);
-    // xtask-allow(state-fields): independent: set by the dialog's Delete button and never cleared; the account line reads it with the dialog open or closed
     let deleted = signal(false);
     column((
         button("Delete account")

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Date Picker: single, format, range and options.
+//! Catalog page of Date Picker: single, format, range and options.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::i18n::{CalendarDate, DateRange};

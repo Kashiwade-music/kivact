@@ -1,4 +1,4 @@
-//! Role: Catalog page of Button Group: horizontal, vertical, separator and text.
+//! Catalog page of Button Group: horizontal, vertical, separator and text.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

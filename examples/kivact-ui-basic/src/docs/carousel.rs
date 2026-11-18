@@ -1,4 +1,4 @@
-//! Role: Catalog page of Carousel: default, several per view, vertical and loop.
+//! Catalog page of Carousel: default, several per view, vertical and loop.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

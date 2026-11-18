@@ -1,4 +1,4 @@
-//! Role: Catalog page of Alert: default, destructive and with an action.
+//! Catalog page of Alert: default, destructive and with an action.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

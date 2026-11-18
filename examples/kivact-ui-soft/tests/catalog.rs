@@ -1,4 +1,4 @@
-//! Role: Exercise the Soft catalog through its public navigation and appearance controls.
+//! Exercise the Soft catalog through its public navigation and appearance controls.
 use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, TestFonts, render_with};
 use kivact::view::{Key, Modifiers, Role};

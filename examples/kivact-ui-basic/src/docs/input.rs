@@ -1,4 +1,4 @@
-//! Role: Catalog page of Input: basic, label, disabled, invalid and with a button.
+//! Catalog page of Input: basic, label, disabled, invalid and with a button.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

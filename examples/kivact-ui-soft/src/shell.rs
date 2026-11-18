@@ -1,4 +1,4 @@
-//! Role: Mount the Soft catalog with searchable navigation and a theme toggle.
+//! Mount the Soft catalog with searchable navigation and a theme toggle.
 use crate::look::canvas;
 use crate::model::CatalogState;
 use crate::page::page_view;

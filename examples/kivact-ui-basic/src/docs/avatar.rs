@@ -1,4 +1,4 @@
-//! Role: Catalog page of Avatar: picture, fallback, sizes, badge and group.
+//! Catalog page of Avatar: picture, fallback, sizes, badge and group.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

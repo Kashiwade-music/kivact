@@ -1,4 +1,4 @@
-//! Role: Demonstrate standard form recipes through controlled public components.
+//! Demonstrate standard form recipes through controlled public components.
 use super::specimen::specimen;
 use kivact::interaction::ListItem;
 use kivact::interaction::ScalarRange;

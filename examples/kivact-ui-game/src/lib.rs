@@ -1,5 +1,4 @@
-//! Role: Interactive styled component catalog for kivact-ui-game.
-#![warn(redundant_imports)]
+//! Interactive styled component catalog for kivact-ui-game.
 mod fonts;
 mod game;
 mod messages;

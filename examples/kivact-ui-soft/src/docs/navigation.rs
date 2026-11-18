@@ -1,4 +1,4 @@
-//! Role: Demonstrate responsive navigation and application shells.
+//! Demonstrate responsive navigation and application shells.
 use super::specimen::specimen;
 use kivact::state::signal;
 use kivact::style::style;

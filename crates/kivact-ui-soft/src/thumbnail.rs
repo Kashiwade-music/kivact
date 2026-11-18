@@ -50,6 +50,7 @@ pub enum RemoveReveal {
     Always,
 }
 
+// xtask-allow(state): legacy: source, alt, label
 /// A preview of an image attachment.
 pub struct Thumbnail {
     root: Node,

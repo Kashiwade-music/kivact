@@ -1,4 +1,4 @@
-//! Role: Render a component's catalog heading and documentation content.
+//! Render a component's catalog heading and documentation content.
 use crate::pages::PageInfo;
 use kivact::style::style;
 use kivact::view::{Element, Scroll, column, scroll, text};

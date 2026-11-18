@@ -1,4 +1,4 @@
-//! Role: Audio time formatting and level calculations for catalog views.
+//! Audio time formatting and level calculations for catalog views.
 
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::state::IntoValue;
@@ -11,11 +11,8 @@ use kivact_ui_creative as ui;
 pub(super) struct TransportState {
     pub frame: f64,
     pub fps: f64,
-    // xtask-allow(state-fields): independent: Play and Stop toggle playing; Record and Cycle leave it
     pub playing: bool,
-    // xtask-allow(state-fields): independent: the catalog's record toggle (audio_samples.rs) and the kit transport (controls) flip it; the stop button clears only playing and the loop switches only cycling
     pub recording: bool,
-    // xtask-allow(state-fields): independent: the loop switches in arrange.rs and audio_samples.rs and the kit transport set it; play, stop and record leave it
     pub cycling: bool,
     pub loop_start: f64,
     pub loop_end: f64,

@@ -1,4 +1,4 @@
-//! Role: Register the Astryx component catalog pages in docsite category order.
+//! Register the Astryx component catalog pages in docsite category order.
 
 /// One component's page in the catalog.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

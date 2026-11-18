@@ -1,4 +1,4 @@
-//! Role: The catalog shell: theme, palette, section sidebar, hero and app frame.
+//! The catalog shell: theme, palette, section sidebar, hero and app frame.
 use super::common::{line, meta};
 use super::controls::{buttons, inputs, navigation, selection};
 use super::data::{display, records, table};

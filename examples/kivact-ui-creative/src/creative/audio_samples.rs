@@ -1,4 +1,4 @@
-//! Role: Audio sample management for the creative application.
+//! Audio sample management for the creative application.
 use crate::creative::audio_values::TransportState;
 
 use super::audio_values::{level, smpte};

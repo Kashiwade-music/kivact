@@ -1,4 +1,4 @@
-//! Role: Application reducer and gesture snapshots for arrangement requests.
+//! Application reducer and gesture snapshots for arrangement requests.
 use super::txn::Txn;
 use kivact::state::Signal;
 use kivact_ui_creative as ui;

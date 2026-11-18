@@ -18,13 +18,12 @@ fn icon_only(cx: Option<SidebarCx>) -> impl Fn() -> bool + Copy + 'static {
     move || cx.is_some_and(|cx| cx.icon_only())
 }
 
+// xtask-allow(state): legacy: action, content; the caller's SidebarGroup::action; absent means the label row has no end control
 /// A labelled section of the sidebar (`SidebarGroup`). Created by [`sidebar_group`].
 pub struct SidebarGroup {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): option: the caller's SidebarGroup::action; absent means the label row has no end control
     action: Option<kivact::view::View>,
-    // xtask-allow(state-fields): option: the caller's SidebarGroup::content; absent means the group shows only its label
     content: Option<kivact::view::View>,
 }
 
@@ -160,32 +159,27 @@ impl SidebarMenuButtonSize {
     }
 }
 
+// xtask-allow(state): legacy: icon, badge, action, sub; the caller's SidebarMenuButton::icon; absent means the row has no leading icon
 /// A row of a [`sidebar_menu`] (`SidebarMenuItem` with `SidebarMenuButton`).
 /// Created by [`sidebar_menu_button`].
 pub struct SidebarMenuButton {
     root: Node,
     label: Value<String>,
-    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::icon; absent means the row has no leading icon
     icon: Option<View>,
     active: Value<bool>,
-    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::badge; absent means the row shows no count
     badge: Option<Value<String>>,
-    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::action; absent means no end control and no 32 px end padding
     action: Option<kivact::view::View>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
     on_press: Option<Callback<()>>,
-    // xtask-allow(state-fields): option: the caller's SidebarMenuButton::sub; absent means the row has no nested list
     sub: Option<kivact::view::View>,
 }
 
 /// What the root style of a [`SidebarMenuButton`] reads.
 #[derive(Clone, Copy)]
 struct ButtonCfg {
-    // xtask-allow(state-fields): option: absent means the part is outside a provider
     cx: Option<SidebarCx>,
     active: Value<bool>,
     size: kivact::state::Value<SidebarMenuButtonSize>,
-    // xtask-allow(state-fields): projection: whether the button has an action view, written only by build_button
     has_action: bool,
 }
 

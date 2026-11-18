@@ -274,7 +274,6 @@ pub(crate) enum DragMode {
     Link {
         to: Point,
         source: LinkSource,
-        // xtask-allow(state-fields): independent: the socket under the pointer at release, for either source
         released: Option<(u64, usize)>,
     },
     Marquee {

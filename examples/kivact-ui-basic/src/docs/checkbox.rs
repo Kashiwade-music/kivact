@@ -1,4 +1,4 @@
-//! Role: Catalog page of Checkbox: basic, description, disabled and select all.
+//! Catalog page of Checkbox: basic, description, disabled and select all.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

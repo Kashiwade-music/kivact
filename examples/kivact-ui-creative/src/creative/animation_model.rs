@@ -1,4 +1,4 @@
-//! Role: Domain projection for graph and dope edits of the same animation.
+//! Domain projection for graph and dope edits of the same animation.
 use super::common::bind;
 use kivact::prelude::{Signal, rgb};
 use kivact::state::Binding;

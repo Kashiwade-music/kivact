@@ -1,4 +1,4 @@
-//! Role: Demonstrate the Soft calendar and controlled date and time fields.
+//! Demonstrate the Soft calendar and controlled date and time fields.
 use super::specimen::specimen;
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::state::signal;

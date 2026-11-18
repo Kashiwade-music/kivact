@@ -1,4 +1,4 @@
-//! Role: Application reducers for catalog hierarchy and row order.
+//! Application reducers for catalog hierarchy and row order.
 
 use kivact::state::{Signal, signal};
 use kivact_ui_creative as ui;

@@ -1,4 +1,4 @@
-//! Role: Catalog page of Kbd: key caps, groups and use inside a button.
+//! Catalog page of Kbd: key caps, groups and use inside a button.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

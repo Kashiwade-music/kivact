@@ -1,4 +1,4 @@
-//! Role: Demonstrate Soft badges, placeholders and status indicators.
+//! Demonstrate Soft badges, placeholders and status indicators.
 use super::specimen::specimen;
 use kivact::style::{Align, style};
 use kivact::ui::badge;

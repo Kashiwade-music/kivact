@@ -1,4 +1,4 @@
-//! Role: Job and task management for creative application.
+//! Job and task management for creative application.
 
 use super::common::{TextRow, bind, col, line, note, spec, specs, text_table};
 use kivact::draw::{LineCap, LineJoin, Stroke};

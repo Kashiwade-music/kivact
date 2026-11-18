@@ -75,6 +75,7 @@ impl TokenColor {
     }
 }
 
+// xtask-allow(state): legacy: icon, end, description
 /// A static, pressable, or removable entity chip.
 pub struct Token {
     root: Node,

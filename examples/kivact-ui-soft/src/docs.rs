@@ -1,4 +1,4 @@
-//! Role: Route each catalog page to its interactive example gallery.
+//! Route each catalog page to its interactive example gallery.
 mod collections;
 mod content;
 mod controls;

@@ -1,4 +1,4 @@
-//! Role: Application CPU image examples, independent of the UI kit renderer.
+//! Application CPU image examples, independent of the UI kit renderer.
 use kivact::draw::Pixels;
 use kivact::prelude::{Signal, signal};
 use kivact::style::Color;

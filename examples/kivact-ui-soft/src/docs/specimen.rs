@@ -1,4 +1,4 @@
-//! Role: Frame an interactive catalog specimen and show its source.
+//! Frame an interactive catalog specimen and show its source.
 use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::{Node, column, text};

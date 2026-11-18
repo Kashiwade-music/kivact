@@ -14,7 +14,6 @@ pub(crate) struct LaneExtensions {
     pub(crate) cells: Vec<(Value<f64>, CellRenderer)>,
     pub(crate) lane_activate: Option<Callback<u64>>,
     pub(crate) item_activate: Option<Callback<u64>>,
-    // xtask-allow(state-fields): option: absent means the editor has no context menu
     pub(crate) menu: Option<MenuFactory>,
 }
 pub(crate) const GRAPH_LANE_WIDTH: f64 = crate::editors::shared::metrics::SIDEBAR - 72.0;

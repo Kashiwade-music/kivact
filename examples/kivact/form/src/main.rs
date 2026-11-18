@@ -1,5 +1,4 @@
-//! Role: Validate a sign-up form with memos and show messages with show_some.
-#![warn(redundant_imports)]
+//! Validate a sign-up form with memos and show messages with show_some.
 
 use kivact::prelude::*;
 
@@ -39,7 +38,7 @@ fn main() -> kivact::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    //! Role: Drive the sign-up form example in a test window.
+    //! Drive the sign-up form example in a test window.
 
     use super::*;
 

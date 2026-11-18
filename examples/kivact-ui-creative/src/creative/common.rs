@@ -1,4 +1,4 @@
-//! Role: Shared values and view builders for Creative catalog specimens.
+//! Shared values and view builders for Creative catalog specimens.
 
 use kivact::prelude::{IntoText, IntoValue, IntoView, Node, Role, column, grid, node, row, text};
 use kivact::state::Binding;

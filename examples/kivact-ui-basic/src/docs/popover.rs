@@ -1,4 +1,4 @@
-//! Role: Catalog page of Popover: the dialog at a trigger, its placement and alignment.
+//! Catalog page of Popover: the dialog at a trigger, its placement and alignment.
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
