@@ -5,6 +5,7 @@ pub mod args;
 mod connection;
 mod editor;
 pub mod fonts;
+mod look;
 mod panels;
 mod session;
 pub mod source;

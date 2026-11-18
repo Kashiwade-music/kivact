@@ -13,7 +13,6 @@ gpu = ["kivact/gpu"]
 
 [dependencies]
 kivact = { path = "../kivact", version = "0.1.0", default-features = false }
-kivact-ui-basic = { path = "../kivact-ui-basic", version = "0.1.0" }
 kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0", features = ["client"] }
 serde_json = { workspace = true }
 
