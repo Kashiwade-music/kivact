@@ -25,6 +25,10 @@
 - **T02**（W1a・T0 lane、commit `e2879bee`、`wt/rw-W1a-T0` に残す）、付属書 T の「## T02：」。確認はすべて通る（xtask の clippy・test 54 件、全体の check は ok）。付属書の手順が `dev/xtask/policy/workspace.toml` の `[visible_to]` の `kivact-devtools-protocol` 行から `kivact-devtools-client` を消すよう求めるが、`kivact-devtools-client` は T13 まで存在して protocol に依存する。消すと全体の検査が「`kivact-devtools-client` has a normal dependency on `kivact-devtools-protocol`」で error になる。そのため行は元に戻してある（現在の行に `kivact-devtools-client` が残っている）。設計者に、この名前を消すのを T13 の client の削除に合わせるかを決めてほしい。
   - 注記：`policy/workspace.toml` の commit の diff は、CRLF と LF の正規化で 1044 行の変更として見える（内容の差は少ない）。merge の前に行末を確かめる。
 
+- **T04**（W1a・T0 lane、commit `a75087ab`、`wt/rw-W1a-T0` に残す）、付属書 T の「## T04：」。確認はすべて通る（xtask 56 件、protocol の試験、全体の check は ok）。完了条件の二つが満たせない。
+  - `rg -n "devtools-codegen|devtools_codegen" dev crates` が 1 件出る：`dev/README.md:41`（「`kit-literal-color`・`os-branch`・`structural-options`・`devtools-codegen` を選べます」）。この file は付属書で T21（W1b・T6 lane）の所有で、T04 の所有外のため変えていない。T21 で直す。
+  - `cargo xtask check --no-write --only docs-pairs --strict` が 4 件出る。付属書の想定の canvas.md・windows.md は含む。残り 2 件は `docs/for-kivact-ui-user/jp/basic/getting-started/02-build-the-settings-form.md` と `03-dark-mode-and-feedback.md` の Rust block 1 が en 側と字句で違う（jp 02 は `signal(Some("ja"))`、en は `Some("en")` など）。この 2 件は付属書 T17 の所有に無い。設計者に、どの unit が直すかを決めてほしい。`docs-pairs` は `[rework.pending]` にあるため通常の `--only local` は失敗しない。
+
 ## KPI の後退
 ## KPI の未達
 ## 台帳
