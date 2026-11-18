@@ -109,9 +109,9 @@ impl Hub {
 /// trigger is `described_by` it while it is shown.
 ///
 /// ```no_run
-/// use kivact_core::view::{Element, node, node_ref, text};
-/// use kivact_core::view::{Placement, Role, overlay, show};
-/// use kivact_interaction::use_tooltip;
+/// use kivact::view::{Element, node, node_ref, text};
+/// use kivact::view::{Placement, Role, overlay, show};
+/// use kivact::interaction::use_tooltip;
 /// let tip = use_tooltip();
 /// let trigger = tip.trigger();
 /// let anchor = node_ref();

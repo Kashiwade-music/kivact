@@ -1,10 +1,10 @@
 //! Role: ListApi input enters the shared selection and navigation state.
 
 use super::data::{ListActivation, ListGesture, ListMode};
-use super::order::Movement;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
 use crate::Selection;
+use crate::collection::Movement;
 use kivact_core::view::{
     ButtonPress, Handled, Key, KeyEvent, Modifiers, MouseButton, Orientation, PointerEvent,
     PointerPhase,
@@ -187,7 +187,7 @@ fn destination<K: kivact_core::state::ItemKey>(
     logical: bool,
 ) -> Option<K> {
     let available = |key: &K| logical || state.focus_available(key);
-    state.order.with_untracked(|order| {
+    state.index.with_untracked(|order| {
         if let Some(movement) = movement {
             return order.navigate(from, movement, state.policy().boundary, available);
         }
@@ -274,7 +274,7 @@ pub(super) fn key_selection<K: kivact_core::state::ItemKey>(
 
 pub(super) fn select_all<K: kivact_core::state::ItemKey>(state: &State<K>) {
     if let Selection::Multiple(binding) = state.selection {
-        let keys = state.order.with_untracked(|order| {
+        let keys = state.index.with_untracked(|order| {
             order
                 .keys()
                 .into_iter()

@@ -138,10 +138,6 @@ impl MenuItemState {
 /// reactive source.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::MenuEntry;
 /// let entries = vec![
 ///     MenuEntry::item("new", "New").with_shortcut("Ctrl N").with_icon("file-plus"),
@@ -536,10 +532,6 @@ impl<K> MenuEntry<K> {
     /// menu reports the chosen key.
     ///
     /// ```
-    /// # mod kivact {
-    /// #     //! Role: Supply facade paths for this documentation example.
-    /// #     pub extern crate kivact_interaction as interaction;
-    /// # }
     /// use kivact::interaction::MenuEntry;
     /// let app = vec![
     ///     MenuEntry::item("new", "New"),

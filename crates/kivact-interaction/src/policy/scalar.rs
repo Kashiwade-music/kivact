@@ -76,10 +76,6 @@ impl From<i32> for ScalarStep {
 /// the step grid. This type stores neither a value nor a writer.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::ScalarRange;
 /// let range = ScalarRange::new(0.0, 10.0)?.with_step(2.0)?;
 /// assert_eq!(range.normalize(3.0), Some(4.0));

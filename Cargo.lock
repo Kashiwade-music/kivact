@@ -2492,6 +2492,7 @@ dependencies = [
 name = "kivact-interaction"
 version = "0.1.0"
 dependencies = [
+ "kivact",
  "kivact-core",
  "kivact-types",
 ]

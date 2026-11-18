@@ -15,10 +15,6 @@
 /// politely (`Role::Status`, after the current speech).
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::Tone;
 /// assert_eq!(Tone::default(), Tone::Neutral);
 /// assert!(Tone::Danger.is_urgent());

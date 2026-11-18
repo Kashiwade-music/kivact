@@ -5,7 +5,9 @@ use super::state::State;
 use super::{input, parts, state, typeahead};
 use crate::Selection;
 use crate::axis::check_list_axis;
+use crate::collection::{Index, Membership};
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
+use kivact_core::state::Selector;
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
@@ -60,6 +62,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     /// Drawing state of the actual mounted item, or its logical selection before mounting.
     pub fn item_state(self, key: K) -> Value<ListItemState> {
         let state = self.state();
+        let watch = state.membership.watch(key.clone());
         kivact_core::state::memo(move || {
             state
                 .item_states
@@ -67,8 +70,8 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
                 .map(|part| part.get())
                 .unwrap_or_else(|| ListItemState {
                     input: PartState::default(),
-                    selected: state.selected.with(|keys| keys.contains(&key)),
-                    active: state.active.with(|active| active.as_ref() == Some(&key)),
+                    selected: state.membership.contains(&key, watch),
+                    active: state.active_key.is(&key),
                 })
         })
     }
@@ -241,6 +244,19 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         let state = self.state();
         require_setup("ListApi::item");
         parts::item(state, key, retain_disabled_focus).0
+    }
+
+    /// The list's index of its items, read per key in O(1), for composites.
+    pub(crate) fn index(self) -> Value<Index<K>> {
+        self.state().index
+    }
+    /// Which keys the selection holds, per key, for composites.
+    pub(crate) fn membership(self) -> Membership<K> {
+        self.state().membership
+    }
+    /// Whether a key is the active one, per key, for composites.
+    pub(crate) fn active_key(self) -> Selector<K> {
+        self.state().active_key
     }
 
     pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {

@@ -128,8 +128,8 @@ enum DialogOptionsMode {
 /// press, which keeps the pressed destination.
 ///
 /// ```no_run
-/// use kivact_core::{state::signal, view::{Element, column, node, text, Placement, Role, node_ref, overlay, show}};
-/// use kivact_interaction::{DialogMode, use_dialog};
+/// use kivact::{state::signal, view::{Element, column, node, text, Placement, Role, node_ref, overlay, show}};
+/// use kivact::interaction::{DialogMode, use_dialog};
 /// let open = signal(false);
 /// let confirm = use_dialog(open, DialogMode::AlertModal);
 /// let view = show(confirm.is_open(), move || {

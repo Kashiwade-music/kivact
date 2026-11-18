@@ -19,6 +19,7 @@
 //! the scroll height and the look are the caller's drawing.
 
 use crate::Selection;
+use crate::collection::Index;
 use kivact_core::custom::Reactive;
 use kivact_core::view::HandlerResult;
 use std::rc::Rc;
@@ -49,10 +50,6 @@ use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 /// set or an image, which a palette draws at the start of the row.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::Command;
 /// let commands = vec![
 ///     Command::new("new", "New file").with_group("File").with_hint("Ctrl N").with_icon("file"),
@@ -230,19 +227,8 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// `Role::Option` named by its label, `selected` while active.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{Command, use_command_palette};
-/// use kivact_core::view::Element;
+/// use kivact::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -263,7 +249,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 ///             })
 ///         });
 ///         overlay(node_ref(), Placement::Center, column((
-///             kivact_core::view::node().name("").part(kivact_interaction::use_text_edit(p.query()).control()).part(p.input()),
+///             node().name("").part(kivact::interaction::use_text_edit(p.query()).control()).part(p.input()),
 ///             column(rows).part(p.list()),
 ///         )))
 ///         .with_node(|node| node.part(p.content()))
@@ -298,6 +284,15 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
     let commands = commands.into_value();
     let run = kivact_core::state::var(callback(|_: K| ()));
     let filter = signal::<CommandFilter<K>>(Rc::new(filter_commands));
+    let index = memo(move || {
+        commands.with(|all| {
+            Index::new(
+                all,
+                |command| Some(&command.key),
+                |command| !command.disabled,
+            )
+        })
+    });
     let options = memo(move || {
         commands.with(|all| {
             all.iter()
@@ -325,17 +320,19 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
         },
     );
     let combobox = use_combobox(options, Selection::Single(chosen)).filter(move |query, option| {
-        commands.with(|all| {
-            all.iter()
-                .find(|command| command.key == option.key)
-                .is_some_and(|command| filter.with(|filter| filter(query, command)))
+        let at = index.with(|index| index.source(&option.key));
+        at.is_some_and(|at| {
+            commands.with(|all| {
+                all.get(at)
+                    .is_some_and(|command| filter.with(|filter| filter(query, command)))
+            })
         })
     });
     // The caller's `open` is the one opening input: the combobox machine keeps
     // the query and the highlight, and its close transition resets both.
     combobox.follow_open(open);
     let visible = combobox.visible();
-    let groups = memo(move || command_groups(visible, commands));
+    let groups = memo(move || command_groups(visible, commands, index));
     CommandPaletteApi {
         run,
         open,
@@ -503,28 +500,31 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
 fn command_groups<K: kivact_core::state::ItemKey>(
     visible: Value<Vec<K>>,
     commands: Value<Vec<Command<K>>>,
+    index: Value<Index<K>>,
 ) -> Vec<CommandGroup<K>> {
     let mut out = Vec::<CommandGroup<K>>::new();
     let mut last: Option<Option<String>> = None;
     visible.with(|keys| {
-        commands.with(|all| {
-            for key in keys {
-                let Some(command) = all.iter().find(|command| command.key == *key) else {
-                    continue;
-                };
-                let group = command.group.as_ref().map(|g| g.get());
-                if last.as_ref() != Some(&group) {
-                    out.push(CommandGroup {
-                        index: out.len(),
-                        heading: command.group.clone(),
-                        commands: Vec::new(),
-                    });
-                    last = Some(group);
+        index.with(|index| {
+            commands.with(|all| {
+                for key in keys {
+                    let Some(command) = index.source(key).and_then(|at| all.get(at)) else {
+                        continue;
+                    };
+                    let group = command.group.as_ref().map(|g| g.get());
+                    if last.as_ref() != Some(&group) {
+                        out.push(CommandGroup {
+                            index: out.len(),
+                            heading: command.group.clone(),
+                            commands: Vec::new(),
+                        });
+                        last = Some(group);
+                    }
+                    if let Some(run) = out.last_mut() {
+                        run.commands.push(command.clone());
+                    }
                 }
-                if let Some(run) = out.last_mut() {
-                    run.commands.push(command.clone());
-                }
-            }
+            })
         })
     });
     out

@@ -83,19 +83,8 @@ struct SelectOptions {
 /// while the list is open, such as showing a theme before it is chosen.
 ///
 /// ```no_run
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// # pub use kivact_core::{view, state, style};
-/// # pub mod prelude {
-/// # //! Role: Supply the canonical imports used by this documentation example.
-/// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-/// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-/// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-/// # }
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::{ListItem, use_select};
-/// use kivact_core::view::Element;
+/// use kivact::view::Element;
 /// use kivact::prelude::*;
 /// use kivact::view::{Placement, overlay};
 ///
@@ -306,17 +295,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// what the binding receives. Setup only.
     ///
     /// ```no_run
-    /// # mod kivact {
-    /// #     //! Role: Supply facade paths for this documentation example.
-    /// # pub use kivact_core::{view, state, style};
-    /// # pub mod prelude {
-    /// # //! Role: Supply the canonical imports used by this documentation example.
-    /// # pub use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, binding, effect, memo, on_cleanup, on_mount, signal};
-    /// # pub use kivact_core::view::{EditPhase, IntoView, Element, Orientation, Role, column, for_each, node, node_ref, row, show, text};
-    /// # pub use kivact_core::style::{ColorToken, Cursor, Style, style};
-    /// # }
-    /// #     pub extern crate kivact_interaction as interaction;
-    /// # }
     /// use kivact::interaction::{ListItem, use_select};
     /// use kivact::prelude::*;
     ///
@@ -684,30 +662,24 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             popup,
             list,
             hovered,
+            settings,
             ..
         } = self;
-        let keep_trigger_focus = if sheet {
-            false.into_value()
-        } else {
-            memo(move || {
-                self.settings
+        let keep_trigger_focus = move || {
+            !sheet
+                && settings
                     .value()
                     .with(|options| options.keep_trigger_focus.get())
-            })
         };
         let member = list.base_item(key.clone(), false);
-        let base = member;
-        let active_key = key.clone();
-        let popup_selected = memo(move || {
-            list.active()
-                .with(|active| active.as_ref() == Some(&active_key))
-        });
-        let part_state = base.state();
+        let active_key = list.active_key();
+        let part_state = member.state();
         Part::new(part_state, move |host| {
             let option_ref = kivact_core::view::node_ref();
-            let member = host.part(base).node_ref(option_ref);
-            let member = if keep_trigger_focus.get() {
-                member.selected(popup_selected)
+            let member = host.part(member).node_ref(option_ref);
+            let member = if keep_trigger_focus() {
+                let selected_key = key.clone();
+                member.selected(move || active_key.is(&selected_key))
             } else {
                 member
             };
@@ -726,7 +698,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .on_pointer(move |event: PointerEvent| {
                     match event.phase() {
                         PointerPhase::Enter | PointerPhase::Move => {
-                            if keep_trigger_focus.get() {
+                            if keep_trigger_focus() {
                                 list.highlight_mounted(hover_key.clone());
                             } else {
                                 hovered.set(Some(hover_key.clone()));

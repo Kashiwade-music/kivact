@@ -25,10 +25,6 @@ use kivact_core::view::{Modifiers, Orientation};
 /// behaviors only read the key, the label and the availability.
 ///
 /// ```
-/// # mod kivact {
-/// #     //! Role: Supply facade paths for this documentation example.
-/// #     pub extern crate kivact_interaction as interaction;
-/// # }
 /// use kivact::interaction::ListItem;
 /// let item = ListItem::new("inbox", "Inbox").with_icon("inbox").with_description("12 unread");
 /// assert_eq!(item.icon().and_then(|icon| icon.name()), Some("inbox"));

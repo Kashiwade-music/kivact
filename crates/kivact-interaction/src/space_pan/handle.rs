@@ -7,8 +7,8 @@ use kivact_core::view::{Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPh
 /// Whether Space is held on a focused surface.
 ///
 /// ```no_run
-/// use kivact_core::view::{Element, node};
-/// use kivact_interaction::use_space_pan;
+/// use kivact::view::{Element, node};
+/// use kivact::interaction::use_space_pan;
 /// let space = use_space_pan();
 /// let canvas = node().part(space.control());
 /// let panning = space.armed();
