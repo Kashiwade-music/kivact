@@ -25,7 +25,10 @@ mod core_filters;
 mod devtools_codegen;
 mod diagrams;
 mod effect_writes;
+mod element_shadow;
+mod hand_element;
 mod impl_model;
+mod interaction_view;
 mod kit_literal_color;
 mod local_checks;
 mod macros;
@@ -38,6 +41,8 @@ mod public_surface;
 mod public_type_edges;
 mod report;
 mod state;
+mod ui_machine;
+mod unit_machine;
 
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))

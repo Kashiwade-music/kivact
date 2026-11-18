@@ -480,6 +480,15 @@ allowed_files = ["tokens.rs", "theme.rs", "color.rs"]
 [os_branch]
 allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/arvane-render/src/gpu/", "crates/arvane-compose/src/gpu/", "crates/kivact-types/src/gpu.rs", "crates/arvane-asset/", "crates/arvane-text/"]
 
+[ui_machine]
+# kivact-ui に残す表示だけの timer（UI-04）。付属書 U が module を移したら、この path を同じ unit で直す。
+allowed_types = ["kivact_ui::button::BusyInput", "kivact_ui::progress::ProgressMotionInput", "kivact_ui::alert::BannerMachine", "kivact_ui::empty_state_changes::Controller"]
+
+[hand_element]
+# kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
+# Tooltip<T> は node が trigger の root で、surface を兄弟として出すので、root が一つの #[component] にできない（設計 5.1）。
+allowed_impls = ["kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs"]
+
 [module_rules.arvane-virtual.uses]
 clock = []
 script = ["clock"]
@@ -509,3 +518,8 @@ state = [
     "kivact-ui", "kivact-ui-basic", "kivact-ui-basic-catalog", "kivact-ui-creative", "kivact-ui-creative-catalog",
     "kivact-ui-game", "kivact-ui-game-catalog", "kivact-ui-pop", "kivact-ui-pop-catalog", "kivact-ui-soft", "kivact-ui-soft-catalog",
 ]
+interaction-view = ["kivact-interaction"]
+ui-machine = ["kivact-ui"]
+hand-element = ["kivact-core", "kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
+unit-machine = ["kivact-interaction"]
+element-shadow = ["kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]

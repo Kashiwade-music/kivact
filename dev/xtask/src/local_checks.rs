@@ -40,10 +40,12 @@ pub(crate) fn check(root: &Path, policy: &Path, options: &Options) -> Result<Out
         .any(|rule| active(rule));
     let surface = crate::public_surface::build_for(&sources, public_needed);
     let index = crate::state::Index::build(&sources);
+    let elements = crate::element_shadow::Elements::build(&sources);
     let scope = Scope {
         sources: &sources,
         surface: &surface,
         index: &index,
+        elements: &elements,
         policy: &policy,
         pending: &pending,
     };
@@ -60,6 +62,7 @@ struct Scope<'a> {
     sources: &'a [crate::check_source::Source],
     surface: &'a crate::public_surface::Surface,
     index: &'a crate::state::Index,
+    elements: &'a crate::element_shadow::Elements,
     policy: &'a toml::Table,
     pending: &'a Pending,
 }
@@ -143,6 +146,11 @@ impl Scope<'_> {
             "name-collision" => crate::name_collision::check(source, self.surface, errors),
             "kit-literal-color" => crate::kit_literal_color::check(source, settings, errors),
             "os-branch" => crate::os_branch::check(source, settings, errors),
+            "interaction-view" => crate::interaction_view::check(source, errors),
+            "ui-machine" => crate::ui_machine::check(source, settings, errors),
+            "hand-element" => crate::hand_element::check(source, settings, errors),
+            "unit-machine" => crate::unit_machine::check(source, errors),
+            "element-shadow" => crate::element_shadow::check(source, self.elements, errors),
             _ => unreachable!("invariant: RULES contains only implemented checks"),
         }
     }
@@ -191,7 +199,10 @@ fn validate_policy(policy: &toml::Table) -> Result<(), String> {
                 .as_table()
                 .ok_or_else(|| format!("{rule}: expected a table"))?;
             for (key, value) in table {
-                if !matches!(key.as_str(), "allowed_files" | "allowed_paths") {
+                if !matches!(
+                    key.as_str(),
+                    "allowed_files" | "allowed_paths" | "allowed_types" | "allowed_impls"
+                ) {
                     return Err(format!("{rule}: unknown setting {key}"));
                 }
                 if !value
