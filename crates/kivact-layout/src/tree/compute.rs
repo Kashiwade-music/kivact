@@ -1,4 +1,4 @@
-//! Role: Computes the roots in order, relayouts the parents of absolute boxes, and finishes the rounding.
+//! Role: Computes roots in order, relayouts absolute-box parents, finishes rounding.
 
 use super::pass::LayoutPass;
 use super::root::layout_root;

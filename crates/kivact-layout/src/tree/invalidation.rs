@@ -1,4 +1,4 @@
-//! Role: Invalidates the derived layout of a node and its parent chain when its style or content changes.
+//! Role: Invalidates a node's layout and its parent chain on style or content change.
 
 use crate::calcs::CalcAlloc;
 use crate::style::node::NodeStyle;
