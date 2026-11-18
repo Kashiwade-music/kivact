@@ -161,30 +161,6 @@ fn filter_graph_rejects_non_finite_numbers() {
 }
 
 #[test]
-fn filter_graph_rejects_handles_of_other_graphs() {
-    // A handle of graph A used in graph B is replaced by the source and
-    // reported once. SOURCE is valid in every graph.
-    let screen = render(|| {
-        let mut a = FilterGraph::new();
-        let from_a = a.flood(rgb(RED));
-        let mut b = FilterGraph::new();
-        b.blur(from_a, 2.0);
-        let mut c = FilterGraph::new();
-        c.blur(FilterInput::SOURCE, 2.0);
-        canvas_of((
-            node().style(at(0, 0, 40, 40).filter(Filter::new().graph(b))),
-            node().style(at(60, 0, 40, 40).filter(Filter::new().graph(c))),
-        ))
-    });
-    assert_eq!(
-        screen.errors().len(),
-        1,
-        "the foreign handle is reported once: {:?}",
-        screen.errors()
-    );
-}
-
-#[test]
 fn backdrop_drop_shadow_is_applied() {
     // A backdrop root (a layer with an effect; here opacity 0.999, which is
     // invisible in the output) with a transparent

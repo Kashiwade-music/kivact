@@ -1,13 +1,10 @@
 //! Role: The filter graph builder (SVG filter primitives written as values).
 //!
 //! A [`FilterGraph`] is built by method calls, each of which adds a
-//! primitive and returns a [`FilterInput`] handle to its result. The handles
-//! name their graph, so a handle of another graph is refused. `Filter::graph`
+//! primitive and returns a [`FilterInput`] handle to its result. `Filter::graph`
 //! consumes the builder into an [`AuthoredGraph`] (a `Clone` value with its
 //! colors still theme-dependent); style resolution turns that into the
 //! engine's `kivact_types::FilterGraph<Asset>`.
-
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use kivact_types as p;
 use kivact_types::{
@@ -20,27 +17,15 @@ use crate::color::Color;
 use crate::geometry::Rect;
 use crate::theme::value::ThemeColor;
 
-/// The graph ids: a process-wide counter from 1 (0 is "no graph").
-static NEXT_GRAPH: AtomicU64 = AtomicU64::new(1);
-
-/// A handle to a primitive's result, or to the element itself. Copy.
+/// A handle to a primitive's result, or to the element itself. Copy. A handle of a primitive the graph does not have yet is replaced by the element and reported.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FilterInput {
-    pub(crate) graph: u64,
-    pub(crate) input: p::FilterInput,
-}
+pub struct FilterInput(pub(crate) p::FilterInput);
 
 impl FilterInput {
-    /// The element's own pixels (belongs to no graph: valid in every graph).
-    pub const SOURCE: FilterInput = FilterInput {
-        graph: 0,
-        input: p::FilterInput::Source,
-    };
-    /// The element's alpha (belongs to no graph: valid in every graph).
-    pub const SOURCE_ALPHA: FilterInput = FilterInput {
-        graph: 0,
-        input: p::FilterInput::SourceAlpha,
-    };
+    /// The element's own pixels (valid in every graph).
+    pub const SOURCE: FilterInput = FilterInput(p::FilterInput::Source);
+    /// The element's alpha (valid in every graph).
+    pub const SOURCE_ALPHA: FilterInput = FilterInput(p::FilterInput::SourceAlpha);
 }
 
 /// One primitive as authored: its operation (a color placeholder where the
@@ -51,8 +36,8 @@ pub(crate) struct AuthoredPrimitive {
     color: Option<Color>,
 }
 
-/// A filter graph being built. Not Clone: a handle names one graph, so a
-/// copy would let handles of one graph slip into another unnoticed.
+// xtask-allow(state): builder of one graph: margin is an authored option and error keeps the first build problem; each is written by its own method and both combinations occur
+/// A filter graph being built. Not Clone: it is consumed by `Filter::graph`.
 /// `Filter::graph` consumes it and keeps the built graph (which is Clone).
 ///
 /// ```
@@ -68,11 +53,11 @@ pub(crate) struct AuthoredPrimitive {
 /// ```
 #[derive(Debug)]
 pub struct FilterGraph {
-    id: u64,
     prims: Vec<AuthoredPrimitive>,
     margin: Option<Insets>,
     color_space: FilterColorSpace,
-    errors: Vec<String>,
+    /// The first problem found while building; the later ones are not kept.
+    error: Option<String>,
 }
 
 impl Default for FilterGraph {
@@ -85,11 +70,10 @@ impl FilterGraph {
     /// An empty graph (add primitives with the methods).
     pub fn new() -> FilterGraph {
         FilterGraph {
-            id: NEXT_GRAPH.fetch_add(1, Ordering::Relaxed),
             prims: Vec::new(),
             margin: None,
             color_space: FilterColorSpace::LinearRgb,
-            errors: Vec::new(),
+            error: None,
         }
     }
 
@@ -109,35 +93,29 @@ impl FilterGraph {
     fn push(&mut self, op: PrimitiveOp<Asset>, color: Option<Color>) -> FilterInput {
         let index = self.prims.len() as u32;
         self.prims.push(AuthoredPrimitive { op, color });
-        FilterInput {
-            graph: self.id,
-            input: p::FilterInput::Result(index),
-        }
+        FilterInput(p::FilterInput::Result(index))
     }
 
-    /// An input of the primitive being added: a handle of this graph, or the
-    /// element. A handle of another graph becomes the element and is reported.
+    /// An input of the primitive being added: a result of this graph, or the
+    /// element. A result the graph does not have yet is replaced by the element and reported.
     fn input(&mut self, h: FilterInput) -> p::FilterInput {
-        if h.graph == 0 {
-            return h.input;
-        }
-        if h.graph != self.id {
-            self.errors.push(format!(
-                "primitive {}: an input of another filter graph was replaced by the element",
-                self.prims.len() + 1
-            ));
-            return p::FilterInput::Source;
-        }
-        if let p::FilterInput::Result(n) = h.input
+        if let p::FilterInput::Result(n) = h.0
             && n as usize >= self.prims.len()
         {
-            self.errors.push(format!(
-                "primitive {}: an input names a later result",
+            self.report(format!(
+                "primitive {}: an input names a result the graph does not have yet; the element is used",
                 self.prims.len() + 1
             ));
             return p::FilterInput::Source;
         }
-        h.input
+        h.0
+    }
+
+    /// Keep the first problem found; the later ones are dropped.
+    fn report(&mut self, message: String) {
+        if self.error.is_none() {
+            self.error = Some(message);
+        }
     }
 
     /// Add a primitive whose inputs are checked.
@@ -522,17 +500,17 @@ pub(crate) struct AuthoredGraph {
     prims: Vec<AuthoredPrimitive>,
     margin: Option<Insets>,
     color_space: FilterColorSpace,
-    errors: Vec<String>,
+    error: Option<String>,
 }
 
 impl FilterGraph {
-    /// The graph as a value, with the problems the builder found.
+    /// The graph as a value, with the problem the builder found.
     pub(crate) fn built(self) -> AuthoredGraph {
         AuthoredGraph {
             prims: self.prims,
             margin: self.margin,
             color_space: self.color_space,
-            errors: self.errors,
+            error: self.error,
         }
     }
 }
@@ -544,7 +522,7 @@ impl AuthoredGraph {
         &self,
         theme: &crate::theme::value::Theme,
     ) -> Result<p::FilterGraph<Asset>, String> {
-        if let Some(e) = self.errors.first() {
+        if let Some(e) = &self.error {
             return Err(e.clone());
         }
         let primitives = self
