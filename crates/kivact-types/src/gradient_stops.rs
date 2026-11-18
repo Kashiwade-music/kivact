@@ -1,4 +1,4 @@
-//! Role: Expand a CSS gradient's authored stops into sRGB stops, as the engine and the SVG writer draw them.
+//! Role: Expand a CSS gradient's authored stops into sRGB stops for engine and SVG.
 use crate::color::Rgba;
 use crate::color_space::{ColorInterpolation, SpaceColor, interpolate};
 use crate::geometry::{Point, Rect};

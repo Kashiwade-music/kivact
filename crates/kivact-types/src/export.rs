@@ -1,4 +1,4 @@
-//! Role: Exported drawable frames and frame statistics shared by the engine, Arvane and core.
+//! Role: Exported drawable frames and frame statistics shared by engine, Arvane and core.
 use crate::ids::DrawableId;
 use crate::pixel::Pixels;
 
