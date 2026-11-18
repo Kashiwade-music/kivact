@@ -2318,6 +2318,7 @@ dependencies = [
  "kivact-core",
  "kivact-interaction",
  "kivact-macros",
+ "kivact-offscreen",
  "kivact-test",
  "kivact-ui",
 ]
@@ -2341,7 +2342,6 @@ dependencies = [
  "kivact-i18n",
  "kivact-runtime",
  "kivact-style",
- "kivact-svg",
  "kivact-types",
  "tracing",
 ]
@@ -2524,6 +2524,17 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
+]
+
+[[package]]
+name = "kivact-offscreen"
+version = "0.1.0"
+dependencies = [
+ "kivact-engine",
+ "kivact-runtime",
+ "kivact-style",
+ "kivact-svg",
+ "kivact-types",
 ]
 
 [[package]]

@@ -31,7 +31,3 @@ pub use kivact_style::draw::{
     FilterInput, FilterShader, Mask, MaskComposite, MaskLayer, MaskMode, PaintShader, ShaderFilter,
     ShaderPaint, ShaderValue,
 };
-
-mod offscreen;
-#[doc(inline)]
-pub use offscreen::Offscreen;
