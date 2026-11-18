@@ -1,7 +1,7 @@
 //! Role: The Updates panel.
 
 use kivact::draw::{Draw, TextFormat};
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 

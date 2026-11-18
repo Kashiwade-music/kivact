@@ -1,6 +1,6 @@
 //! Role: Verify the APG menu button popup relationship.
 use super::interaction_menu::menu_button;
-use kivact::interaction::{MenuEntry, use_menu};
+use kivact::interaction::use_menu;
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
 use kivact::view::PopupKind;

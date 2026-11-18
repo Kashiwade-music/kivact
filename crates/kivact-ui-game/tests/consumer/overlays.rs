@@ -1,6 +1,6 @@
 //! Role: Modal menus, command search, toasts, tooltips and dialogs via the public API.
 
-use kivact::interaction::{Command, MenuEntry, Toast, Tone, toaster};
+use kivact::interaction::Command;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact::view::{rich_text, span};

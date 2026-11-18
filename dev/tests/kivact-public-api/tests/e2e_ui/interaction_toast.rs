@@ -10,10 +10,10 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::interaction::ToastId;
-use kivact::interaction::{Toast, ToastOptions, ToasterApi, toaster};
+use kivact::interaction::{ToastOptions, ToasterApi};
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::{LiveRegion, View};
+use kivact::view::LiveRegion;
 use kivact_public_api_tests::support::mount;
 
 fn ms(n: u64) -> Duration {

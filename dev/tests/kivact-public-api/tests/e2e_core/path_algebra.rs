@@ -1,12 +1,9 @@
 //! Role: Tests for path rendering and transformation.
 //! paths and stroke outlines are what pixels and hit regions show.
 use kivact::draw::Path;
-use kivact::draw::{Stroke, Transform};
-use kivact::geometry::Point;
+use kivact::draw::Stroke;
 use kivact::prelude::*;
-use kivact::style::Color;
 use kivact::test::render;
-use kivact::view::canvas;
 use kivact_public_api_tests::paint::{BLACK, RED, WHITE, expect};
 
 fn circle(center: Point, radius: f64) -> Path {

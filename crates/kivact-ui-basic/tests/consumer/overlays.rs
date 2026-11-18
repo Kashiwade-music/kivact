@@ -2,13 +2,11 @@
 
 use crate::support::{distance, pixel};
 use kivact::geometry::Edge;
-use kivact::interaction::{Command, DialogMode};
+use kivact::interaction::Command;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::LayoutCheck;
-use kivact::ui::ButtonVariant;
 use kivact::ui::command_palette;
-use kivact::view::{A11yAction, Key};
+use kivact::view::A11yAction;
 use kivact_ui_basic as basic;
 use std::time::Duration;
 

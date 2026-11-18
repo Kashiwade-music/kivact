@@ -12,9 +12,8 @@ use std::rc::Rc;
 
 use kivact::custom::{Constraints, Primitive, primitive};
 use kivact::draw::{InlineBox, InlineParagraph, TextFormat, TextParagraph};
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact_public_api_tests::support::mount;
 
 /// The text style the tests shape in: a fixed size, so widths are stable.

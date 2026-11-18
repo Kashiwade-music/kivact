@@ -1,7 +1,7 @@
 //! Role: Key presses nobody handles are reported; used ones are not.
 
 use kivact::prelude::*;
-use kivact::view::{Handled, Key, KeyCode, Modifiers};
+use kivact::view::KeyCode;
 use kivact_public_api_tests::support::mount;
 
 #[test]

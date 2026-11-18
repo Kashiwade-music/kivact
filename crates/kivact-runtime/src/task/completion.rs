@@ -1,7 +1,6 @@
 //! Role: This module provides one-shot futures for host results.
 
 use std::cell::RefCell;
-use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll, Waker};

@@ -2,10 +2,9 @@
 
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::table_rows::{line, lines};
-use kivact::geometry::Point;
 use kivact::prelude::*;
 
-use kivact::view::{A11yAction, Handled, KeyCode, Modifiers, MouseButton};
+use kivact::view::{A11yAction, KeyCode, MouseButton};
 use kivact_ui_creative as ui;
 use std::time::Duration;
 

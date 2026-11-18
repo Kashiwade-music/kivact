@@ -2,7 +2,7 @@
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
 use kivact::ui;
-use kivact::view::{LiveRegion, Role};
+use kivact::view::LiveRegion;
 
 #[test]
 fn apg_alert_is_assertive_persistent_and_does_not_take_focus() {

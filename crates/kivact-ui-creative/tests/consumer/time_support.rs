@@ -1,7 +1,6 @@
 //! Role: Consumer-owned clip and keyframe edits for the timeline and dope sheet.
 
 use kivact::prelude::*;
-use kivact::state::callback;
 use kivact_ui_creative as ui;
 
 pub(crate) fn apply_clips(items: &mut Vec<ui::Clip>, request: &ui::TimeRequest) {
@@ -64,34 +63,31 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
     let items = items.into_binding();
     let initial = signal(None::<Vec<T>>);
     let observer = callback(observer);
-    move |event| {
-        use kivact::view::EditPhase;
-        match event {
-            ui::EditorEvent::Begin => {
-                initial.set(Some(items.get_untracked()));
-                observer.call(EditPhase::Begin);
-            }
-            ui::EditorEvent::Request(request) => {
+    move |event| match event {
+        ui::EditorEvent::Begin => {
+            initial.set(Some(items.get_untracked()));
+            observer.call(EditPhase::Begin);
+        }
+        ui::EditorEvent::Request(request) => {
+            let mut next = items.get_untracked();
+            apply(&mut next, &request);
+            items.set(next);
+        }
+        ui::EditorEvent::Commit => {
+            initial.set(None);
+            observer.call(EditPhase::Commit);
+        }
+        ui::EditorEvent::Cancel => {
+            if let Some(value) = initial.get_untracked() {
                 let mut next = items.get_untracked();
-                apply(&mut next, &request);
+                apply(
+                    &mut next,
+                    &ui::TimeRequest::Retime(value.iter().map(TestTime::timing).collect()),
+                );
                 items.set(next);
             }
-            ui::EditorEvent::Commit => {
-                initial.set(None);
-                observer.call(EditPhase::Commit);
-            }
-            ui::EditorEvent::Cancel => {
-                if let Some(value) = initial.get_untracked() {
-                    let mut next = items.get_untracked();
-                    apply(
-                        &mut next,
-                        &ui::TimeRequest::Retime(value.iter().map(TestTime::timing).collect()),
-                    );
-                    items.set(next);
-                }
-                initial.set(None);
-                observer.call(EditPhase::Cancel);
-            }
+            initial.set(None);
+            observer.call(EditPhase::Cancel);
         }
     }
 }

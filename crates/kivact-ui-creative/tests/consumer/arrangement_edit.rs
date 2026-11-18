@@ -1,11 +1,9 @@
 //! Role: Arrangement edits transact exactly the model fields they own.
 use crate::arrangement_model;
 use crate::arrangement_model::arrangement as app_arrangement;
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::EditPhase;
-use kivact::view::{Modifiers, MouseButton};
+use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]

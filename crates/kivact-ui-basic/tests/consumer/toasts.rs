@@ -1,7 +1,6 @@
 //! Role: Toast tests: variants, actions, timing and the stack that opens on hover.
 
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::Screen;
 use kivact_ui_basic as basic;
 use std::time::Duration;

@@ -2,7 +2,6 @@
 
 use crate::support::{distance, pixel};
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::Screen;
 use kivact::ui::ControlSize;
 use kivact_ui_basic as basic;

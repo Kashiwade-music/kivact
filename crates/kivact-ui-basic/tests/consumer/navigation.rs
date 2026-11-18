@@ -1,10 +1,8 @@
 //! Role: Menu component tests: dropdown, use_context menu, menu bar and navigation menu.
 
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::Screen;
-use kivact::ui::{ButtonVariant, button};
-use kivact::view::{Modifiers, MouseButton};
+use kivact::view::MouseButton;
 use kivact_ui_basic as basic;
 
 /// A page painted with the `background` token of the theme in effect.

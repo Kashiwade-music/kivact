@@ -1,5 +1,5 @@
 //! Role: Verify APG tab entry after manual focus navigation.
-use kivact::interaction::{ListActivation, ListItem};
+use kivact::interaction::ListActivation;
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 

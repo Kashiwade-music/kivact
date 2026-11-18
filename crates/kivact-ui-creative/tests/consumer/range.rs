@@ -1,6 +1,5 @@
 //! Role: The two-endpoint range on the range scalar's track, thumbs and body.
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact_ui_creative as ui;
 

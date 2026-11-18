@@ -2,7 +2,6 @@
 //!
 //! In tests the clock is virtual and only moves with `advance`.
 
-use std::future::Future;
 use std::panic::Location;
 use std::pin::Pin;
 use std::rc::{Rc, Weak};

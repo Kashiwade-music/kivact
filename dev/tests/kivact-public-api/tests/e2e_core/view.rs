@@ -7,7 +7,7 @@ use kivact::ErrorKind;
 use kivact::interaction::announcer;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::{Handled, KeyEvent, LiveRegion, RowHeight, rich_text, span};
+use kivact::view::{LiveRegion, rich_text, span};
 use kivact_public_api_tests::support::mount;
 
 type Log = Rc<RefCell<Vec<String>>>;

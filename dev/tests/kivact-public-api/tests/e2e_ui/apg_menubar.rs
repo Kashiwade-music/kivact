@@ -1,8 +1,8 @@
 //! Role: Verify APG menubar navigation across popup surfaces.
-use kivact::interaction::{MenuEntry, use_menu, use_menubar};
+use kivact::interaction::{use_menu, use_menubar};
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 use kivact_public_api_tests::support::mount_with;
 
 #[test]

@@ -5,7 +5,6 @@ use raw_window_handle::{
     DisplayHandle, HandleError, HasDisplayHandle, HasWindowHandle, RawWindowHandle,
     Win32WindowHandle, WindowHandle,
 };
-use std::future::Future;
 use std::num::NonZeroIsize;
 use std::os::windows::ffi::OsStringExt;
 use std::path::PathBuf;

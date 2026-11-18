@@ -1,6 +1,5 @@
 //! Role: Tests for component interactions.
 
-use kivact::interaction::ListItem;
 use kivact::prelude::*;
 use kivact_ui_pop as ui;
 use std::time::Duration;

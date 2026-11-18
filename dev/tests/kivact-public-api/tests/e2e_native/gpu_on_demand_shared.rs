@@ -18,7 +18,6 @@ use kivact::geometry::Rect;
 use kivact::gpu_interop::{self, ShareMode, ShareStatus, SharedImage};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Renderer, Screen};
-use kivact::view::canvas;
 
 use super::gpu_on_demand::{GRACE, cpu_forced, cpu_only, gpu_lane, on_demand};
 use kivact_public_api_tests::support::mount_with;

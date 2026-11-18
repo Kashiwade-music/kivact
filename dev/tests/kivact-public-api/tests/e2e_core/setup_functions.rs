@@ -4,13 +4,11 @@
 //! `on_cleanup`, `on_mount`, `context`, `context`) and the associated
 //! constructors of the reactive handles, called with no setup-context argument.
 
-use kivact::state::{callback, selector};
+use kivact::state::selector;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use kivact::prelude::*;
-use kivact::state::effect_on;
-use kivact::state::use_context;
 use kivact::test::render;
 use kivact_public_api_tests::support::mount;
 

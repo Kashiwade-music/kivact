@@ -4,10 +4,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact::motion::{
-    Animated, At, Easing, Repeat, Stagger, StaggerFrom, StepPosition, Timeline, Transition,
-    animated, timeline,
-};
+use kivact::motion::{Animated, At, Repeat, Stagger, StaggerFrom, StepPosition, Timeline};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
 use kivact_public_api_tests::support::mount_with;

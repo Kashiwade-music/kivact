@@ -2,10 +2,7 @@
 
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::state::callback;
-use kivact::style::{Align, Color};
-use kivact::task::spawn;
-use kivact::view::{KeyCode, LiveRegion, Modifiers, Orientation, SortDirection};
+use kivact::view::{KeyCode, LiveRegion, SortDirection};
 use kivact_public_api_tests::support::mount;
 
 #[test]

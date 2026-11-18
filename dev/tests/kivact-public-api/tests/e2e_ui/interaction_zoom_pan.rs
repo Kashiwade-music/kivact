@@ -1,9 +1,8 @@
 //! Role: Verify shared zoom and pan through real-window input and owner cleanup.
-use kivact::geometry::{Point, Rect};
+use kivact::geometry::Rect;
 use kivact::interaction::{ViewTransform, use_zoom_pan};
 use kivact::prelude::*;
-use kivact::view::EditPhase;
-use kivact::view::{KeyCode, Modifiers, MouseButton};
+use kivact::view::{KeyCode, MouseButton};
 use kivact_public_api_tests::support::mount;
 use std::cell::RefCell;
 use std::rc::Rc;

@@ -1,7 +1,7 @@
 //! Role: Check select popup listbox active-option semantics with retained focus.
-use kivact::interaction::{ListItem, use_select};
+use kivact::interaction::use_select;
 use kivact::prelude::*;
-use kivact::view::{Modifiers, Placement, overlay};
+use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 
 #[test]

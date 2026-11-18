@@ -499,7 +499,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     );
     let title = text(title).style(crate::helpers::single_line_text());
     let content = if inline {
-        use kivact_core::style::{Align, Direction};
+        use kivact_core::style::Align;
         content
             .style(
                 style()

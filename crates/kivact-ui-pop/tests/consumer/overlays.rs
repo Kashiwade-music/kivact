@@ -1,6 +1,6 @@
 //! Role: Modal, notification, command search and menu through the public API.
 
-use kivact::interaction::{Command, MenuEntry, toaster};
+use kivact::interaction::Command;
 use kivact::prelude::*;
 use kivact::view::LiveRegion;
 use std::time::Duration;

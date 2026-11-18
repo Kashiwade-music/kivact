@@ -35,7 +35,7 @@ use kivact::gpu_interop::{
 use kivact::launch::{AdapterMatch, GpuBackend, GpuPreference};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
-use kivact::view::{ShareError, canvas};
+use kivact::view::ShareError;
 
 use kivact_public_api_tests::support::mount_with;
 

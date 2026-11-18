@@ -13,11 +13,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::draw::Draw;
-use kivact::draw::Transform;
-use kivact::geometry::{Point, Rect, Size};
+use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::canvas;
-use kivact::view::{Handled, PointerEvent};
 use kivact::view::{MouseButton, WheelEvent};
 
 use kivact_public_api_tests::paint::{BLUE, WHITE, at, canvas_of, expect};

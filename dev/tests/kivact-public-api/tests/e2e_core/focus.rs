@@ -5,8 +5,7 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::View;
-use kivact::view::{Handled, Placement, overlay};
+use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 
 fn states(values: &[Value<bool>]) -> Vec<bool> {

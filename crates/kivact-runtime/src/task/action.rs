@@ -30,7 +30,6 @@
 use kivact_types::cell::Generation;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
-use std::future::Future;
 use std::panic::Location;
 use std::pin::Pin;
 use std::rc::Rc;

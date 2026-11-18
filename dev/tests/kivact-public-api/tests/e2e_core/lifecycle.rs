@@ -5,7 +5,6 @@ use std::rc::Rc;
 
 use kivact::platform::{self, LifecycleEvent, on_lifecycle};
 use kivact::prelude::*;
-use kivact::view::{error_boundary, show};
 use kivact_public_api_tests::support::mount;
 
 #[test]

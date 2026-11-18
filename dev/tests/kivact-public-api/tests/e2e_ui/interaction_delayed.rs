@@ -9,7 +9,6 @@ use std::time::Duration;
 use kivact::interaction::{DelayedApi, Delays, use_delayed};
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::View;
 use kivact_public_api_tests::support::mount;
 
 fn ms(n: u64) -> Duration {

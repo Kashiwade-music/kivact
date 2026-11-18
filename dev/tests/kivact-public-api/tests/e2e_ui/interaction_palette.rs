@@ -3,17 +3,14 @@
 //! The unstyled `CommandPaletteApi`: opening, the active row, keys, filtering,
 //! running, groups, the empty list, scrolling and the App's texts.
 
-use kivact::view::View;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::i18n::message;
 use kivact::interaction::Command;
 use kivact::interaction::{CommandPaletteApi, use_command_palette};
 use kivact::prelude::*;
-use kivact::state::callback;
 use kivact::test::{Locator, Screen};
-use kivact::view::{Placement, overlay};
+use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 
 type Cmd = Command<&'static str>;

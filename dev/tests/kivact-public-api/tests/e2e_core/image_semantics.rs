@@ -1,7 +1,6 @@
 //! Role: Image primitives preserve sizing, decoration policy and inherited state tint.
 
 use kivact::prelude::*;
-use kivact::style::pct;
 use kivact::test::{SemanticNode, render};
 
 /// A 24×24 square (an original test shape).

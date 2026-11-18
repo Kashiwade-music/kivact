@@ -11,8 +11,7 @@ use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::style::Cursor;
 use kivact::test::RenderOptions;
-use kivact::view::{Handled, KeyEvent};
-use kivact::view::{MouseButton, Orientation};
+use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 
 fn real_window() -> RenderOptions {

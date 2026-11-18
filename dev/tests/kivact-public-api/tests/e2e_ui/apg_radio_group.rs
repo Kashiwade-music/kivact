@@ -1,5 +1,4 @@
 //! Role: Verify APG radio-group entry follows the checked radio.
-use kivact::interaction::ListItem;
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 

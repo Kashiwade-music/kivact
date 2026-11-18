@@ -2,7 +2,6 @@
 //! aborting the host process.
 
 use super::support::{SERIAL, painted, panel, wait};
-use kivact::App;
 use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::prelude::*;

@@ -1,11 +1,9 @@
 //! Role: Plot tests: the description, the range edits and the locale.
 
-use kivact::geometry::Point;
 use kivact::i18n::Locale;
 use kivact::prelude::*;
-use kivact::style::ThemeMode;
 use kivact::test::{RenderOptions, Screen};
-use kivact::view::{EditPhase, Key, MouseButton, Role};
+use kivact::view::MouseButton;
 use kivact_ui_basic as basic;
 use kivact_ui_basic::{PlotAxis, PlotModel, PlotRange, PlotSeries, PlotView, plot};
 use std::cell::RefCell;

@@ -1,9 +1,6 @@
 //! Role: Failure reports (snapshots), the structured trace and why chains.
 
-use kivact::style::use_theme;
-
 use kivact::prelude::*;
-use kivact::style::{Align, Justify};
 use kivact::test::render;
 
 fn app() -> impl Element {

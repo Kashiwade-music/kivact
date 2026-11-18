@@ -1,7 +1,6 @@
 //! Role: The one in-flight run of latest-wins work (a resource fetch, a `Latest` run).
 
 use std::cell::Cell;
-use std::future::Future;
 use std::panic::Location;
 use std::rc::Rc;
 

@@ -1,7 +1,7 @@
 //! Role: Pixel helpers the E2E binaries share: colors, boxes on a canvas and comparisons.
 
 use kivact::prelude::*;
-use kivact::style::{Color, Position, Style};
+use kivact::style::Position;
 use kivact::test::Screenshot;
 
 pub const RED: u32 = 0xff0000;

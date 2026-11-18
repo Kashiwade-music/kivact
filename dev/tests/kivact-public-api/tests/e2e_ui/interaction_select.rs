@@ -3,14 +3,10 @@
 //! closed trigger, opening, keys in the list, choosing, closing, focus return
 //! and semantics.
 
-use kivact::view::View;
-
-use kivact::interaction::ListItem;
 use kivact::interaction::{SelectApi, use_select};
 use kivact::prelude::*;
 use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
-use kivact::view::Modifiers;
-use kivact::view::{A11yAction, Placement, overlay};
+use kivact::view::{A11yAction, overlay};
 use kivact_public_api_tests::support::mount_with;
 
 type Opt = ListItem<&'static str>;

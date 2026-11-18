@@ -13,7 +13,6 @@ use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::view::A11yAction;
-use kivact::view::EditPhase;
 use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 

@@ -15,7 +15,6 @@ use kivact::draw::{Filter, FilterShader, Paint, PaintShader};
 use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
-use kivact::style::rgb;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable, render, render_with};
 use kivact_public_api_tests::paint::{RED, at, canvas_of, expect, pixel};
 

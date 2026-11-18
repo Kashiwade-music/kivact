@@ -13,7 +13,6 @@
 //!   queues stop, and cancelled runnables are collected on the UI thread.
 
 use std::collections::VecDeque;
-use std::future::Future;
 use std::sync::{Arc, Mutex};
 
 use crate::{OwnerId, ThreadWaker};

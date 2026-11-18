@@ -513,19 +513,8 @@ mirror = ["port", "present", "a11y"]
 # 改修（REWORK_DESIGN.md）の間だけ：ここに挙げた package での検査の結果は note として表示し、失敗にしない。
 # `--strict` で error に戻す。各検査を通す unit が入った後、付属書 G の最後の unit が表ごと消す。
 [rework.pending]
-state = [
-    "arvane", "arvane-asset", "arvane-compose", "arvane-native", "arvane-render", "arvane-shell", "arvane-text", "arvane-virtual",
-    "gpu-interop-producer", "kivact", "kivact-bench", "kivact-core", "kivact-devtools", "kivact-devtools-agent",
-    "kivact-devtools-mcp", "kivact-devtools-protocol", "kivact-docs", "kivact-editing", "kivact-engine",
-    "kivact-example-async", "kivact-example-component", "kivact-example-counter", "kivact-example-form", "kivact-example-list",
-    "kivact-gpu-share", "kivact-i18n", "kivact-interaction", "kivact-layout", "kivact-macros", "kivact-public-api-tests",
-    "kivact-runtime", "kivact-shader", "kivact-style", "kivact-svg", "kivact-template-basic", "kivact-test", "kivact-types",
-    "kivact-ui", "kivact-ui-basic", "kivact-ui-basic-catalog", "kivact-ui-creative", "kivact-ui-creative-catalog",
-    "kivact-ui-game", "kivact-ui-game-catalog", "kivact-ui-pop", "kivact-ui-pop-catalog", "kivact-ui-soft", "kivact-ui-soft-catalog",
-]
 interaction-view = ["kivact-interaction"]
 ui-machine = ["kivact-ui"]
 hand-element = ["kivact-core", "kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
 unit-machine = ["kivact-interaction"]
 element-shadow = ["kivact-ui", "kivact-ui-basic", "kivact-ui-creative", "kivact-ui-game", "kivact-ui-pop", "kivact-ui-soft", "kivact-ui-game-catalog", "kivact-ui-pop-catalog"]
-docs-pairs = ["kivact-docs"]

@@ -9,12 +9,10 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::custom::part;
-use kivact::geometry::Point;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::EditPhase;
-use kivact::view::{Handled, KeyEvent, MouseButton};
+use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 
 /// What the drag reported: its edit phases with the value at that time, the

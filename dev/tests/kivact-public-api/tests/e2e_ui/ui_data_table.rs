@@ -8,7 +8,7 @@
 use kivact::interaction::{ScalarRange, SortOrder, TableFocus};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::{A11yAction, Modifiers, MouseButton, SortDirection};
+use kivact::view::{A11yAction, MouseButton, SortDirection};
 use kivact_public_api_tests::support::mount_with;
 
 #[derive(Clone, Debug, PartialEq)]

@@ -3,17 +3,13 @@
 //! The unstyled `Menu` from a button and as a context menu: opening, keys,
 //! typeahead, submenus, choosing, focus return, changing entries and semantics.
 
-use kivact::interaction::MenuEntry;
-use kivact::view::View;
 use std::time::Duration;
 
-use kivact::geometry::Point;
 use kivact::interaction::{MenuApi, MenuItemKind, MenuOrigin, MenuRow, use_menu};
 use kivact::prelude::*;
-use kivact::style::Align;
 use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
-use kivact::view::{A11yAction, Placement, overlay};
-use kivact::view::{Modifiers, MouseButton, overlay_at};
+use kivact::view::{A11yAction, overlay};
+use kivact::view::{MouseButton, overlay_at};
 use kivact_public_api_tests::support::mount_with;
 
 type Entry = MenuEntry<&'static str>;

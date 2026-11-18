@@ -1,5 +1,4 @@
 //! Role: Own the lifecycle of the App's single Tokio executor.
-use std::future::Future;
 
 /// Lifecycle of the App's single Tokio executor.
 pub(super) enum TokioState {

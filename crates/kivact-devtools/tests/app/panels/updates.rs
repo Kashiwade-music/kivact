@@ -2,7 +2,6 @@
 
 use std::rc::Rc;
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact_devtools_protocol as p;
 

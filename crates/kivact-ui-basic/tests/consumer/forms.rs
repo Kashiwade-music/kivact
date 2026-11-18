@@ -1,10 +1,7 @@
 //! Role: Forms tests: fields, selects, choices, sliders, dates and questionnaire.
 
 use kivact::i18n::{CalendarDate, CalendarMonth};
-use kivact::interaction::ListItem;
 use kivact::prelude::*;
-use kivact::style::Align;
-use kivact::view::Key;
 use kivact_ui_basic as basic;
 
 /// A page painted with the `background` token of the theme in effect.

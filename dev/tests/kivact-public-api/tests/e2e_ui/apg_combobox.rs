@@ -1,5 +1,5 @@
 //! Role: Check editable popup combobox semantics and bounded keyboard navigation.
-use kivact::interaction::{ListItem, use_combobox, use_text_edit};
+use kivact::interaction::{use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 

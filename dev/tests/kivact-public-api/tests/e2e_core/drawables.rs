@@ -10,7 +10,7 @@ use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
 use kivact::draw::{Draw, Layer, Pixels};
-use kivact::geometry::{Matrix4, Point, Rect, Size};
+use kivact::geometry::{Matrix4, Rect};
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 use kivact::test::{Screen, Screenshot};

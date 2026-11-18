@@ -1,6 +1,5 @@
 //! Role: Verify the tooltip pointer interaction required by the APG pattern.
 use kivact::prelude::*;
-use kivact::view::Placement;
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 

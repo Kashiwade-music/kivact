@@ -7,7 +7,6 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use kivact::App;
 use kivact::ErrorKind;
 use kivact::platform::NativeWindow;
 use kivact::platform::app_handle;

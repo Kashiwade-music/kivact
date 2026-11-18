@@ -6,9 +6,7 @@ use std::time::Duration;
 
 use kivact::draw::{Filter, Shadow};
 use kivact::motion::FrameRate;
-use kivact::motion::{
-    Animated, Easing, FrameInfo, FrameLoop, Repeat, Spring, Transition, animated, frame_loop,
-};
+use kivact::motion::{Animated, FrameInfo, FrameLoop, Repeat};
 use kivact::prelude::*;
 use kivact::style::{TransitionProp, rgba};
 use kivact::test::{RenderOptions, Screen, Screenshot};

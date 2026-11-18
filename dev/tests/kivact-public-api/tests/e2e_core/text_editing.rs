@@ -13,8 +13,6 @@ use std::rc::Rc;
 use kivact::interaction::{use_text_area, use_text_edit};
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
-use kivact::view::KeyEvent;
-use kivact::view::Modifiers;
 
 /// A family emoji: one grapheme of five scalars.
 const FAMILY: &str = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";

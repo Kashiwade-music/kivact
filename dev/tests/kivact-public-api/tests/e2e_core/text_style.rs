@@ -15,7 +15,6 @@ use std::rc::Rc;
 use kivact::draw::Shadow;
 use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::{Align, Color};
 use kivact::style::{TextDecorationLine, TextOverflow, em};
 use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render, render_with};
 use kivact::view::{Span, rich_text, span};

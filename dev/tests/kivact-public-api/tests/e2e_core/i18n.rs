@@ -4,7 +4,7 @@
 //! default text, the App's replacement, a switch at runtime and a subtree's
 //! own.
 
-use kivact::i18n::{Locale, Messages, message, message_with, use_locale};
+use kivact::i18n::{Locale, Messages, message_with, use_locale};
 use kivact::i18n::{provide_locale, provide_messages};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};

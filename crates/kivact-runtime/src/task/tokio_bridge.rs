@@ -1,6 +1,5 @@
 //! Role: Run Send futures on one lazily created Tokio runtime per App.
 use super::TaskState;
-use std::future::Future;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 

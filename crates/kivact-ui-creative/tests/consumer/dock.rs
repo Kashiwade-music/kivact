@@ -5,8 +5,7 @@
 
 use crate::dock_model::{Layout, container_of, editor_layout, weights};
 use crate::support::near;
-use kivact::geometry::{Point, Rect};
-use kivact::interaction::MenuEntry;
+use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::test::{Locator, Screen};
 use kivact::view::{A11yAction, MouseButton};

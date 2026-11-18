@@ -1,6 +1,5 @@
 //! Role: Inputs, the tag editor and the dropzone commit and report publicly.
 
-use kivact::geometry::Point;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
 use kivact_ui_pop as ui;

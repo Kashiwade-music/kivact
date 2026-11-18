@@ -1,10 +1,9 @@
 //! Role: Verify shared node observations and node-gated frame scheduling.
 
-use kivact::geometry::Point;
-use kivact::motion::{Easing, FrameRate, Transition, frame_loop};
+use kivact::motion::FrameRate;
 use kivact::prelude::*;
 use kivact::style::TransitionProp;
-use kivact::view::{Asset, ImageStatus, ScrollAxes, ScrollBehavior, ScrollState};
+use kivact::view::{Asset, ImageStatus, ScrollBehavior, ScrollState};
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 
