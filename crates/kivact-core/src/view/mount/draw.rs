@@ -15,15 +15,10 @@ use crate::view::state::ViewState;
 
 /// Stage 5's input: the draw layers, the style's local paint and the canvas regions.
 pub(super) struct DrawInput {
-    // xtask-allow(state-fields): option: a draw layer below the children; absent means none
     pub(super) below: Option<DrawFn>,
-    // xtask-allow(state-fields): option: a draw layer over the children; absent means none
     pub(super) over: Option<DrawFn>,
-    // xtask-allow(state-fields): option: a layout-driven draw; absent means none
     pub(super) with_layout: Option<LayoutDrawFn>,
-    // xtask-allow(state-fields): option: the local paint channel resolve made for a styled Box that does not edit text; None means the node cannot take local paint
     pub(super) local_paint: Option<LocalPaintSource>,
-    // xtask-allow(state-fields): option: the region registry attach_parts made when the node has parts, regions or part constraints; None means the draw effect paints no region
     pub(super) regions: Option<Rc<Registry>>,
     /// The node's layout size, written by the layout observer `resolve` installed.
     pub(super) size: Signal<Size>,

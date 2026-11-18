@@ -13,9 +13,7 @@ use std::sync::Arc;
 /// If the parent dies first, the child stops safely without undefined behavior.
 #[derive(Clone)]
 pub struct Parent {
-    // xtask-allow(state-fields): option: an optional constructor input; the default applies when absent
     pub(super) window: Option<NativeWindow>,
-    // xtask-allow(state-fields): option: an optional host scale; the default applies when absent
     pub(super) scale: Option<f64>,
     pub(super) visibility: Visibility,
     pub(super) unhandled_keys: UnhandledKeys,

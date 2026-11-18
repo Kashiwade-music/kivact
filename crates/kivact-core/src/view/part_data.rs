@@ -62,10 +62,8 @@ pub enum Focus {
 pub enum Availability {
     /// The target takes input.
     Enabled {
-        // xtask-allow(state-fields): independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs
         /// A primary pointer or focused activation key is held down.
         pressed: bool,
-        // xtask-allow(state-fields): independent: a held activation key presses the target while the pointer is elsewhere, and the pointer rests over it unpressed, so every pair occurs
         /// The pointer is over this exact target.
         hovered: bool,
     },

@@ -16,21 +16,15 @@ use crate::view::tree::Handlers;
 pub(super) struct FirstWrite {
     pub(super) exit_layout: crate::view::ExitLayout,
     pub(super) exit_complete: Option<kivact_runtime::Handler<()>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means not focusable while disabled
     pub(super) focusable_when_disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means no roving focus
     pub(super) roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node hit-tests
     pub(super) hit_testable: Option<InputProp<bool>>,
     /// The accessibility actions the node offers, its own and its parts'.
     /// The final handlers (routed through the parts' defaults when the node has parts).
     pub(super) handlers: Handlers,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means none
     pub(super) intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): option: set once by finish_resolve when the node has a draw, draw_over or draw_with_layout layer; false means the layout is not observed for a layer's size
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
-    // xtask-allow(state-fields): option: a builder input carried to mount; absent means the node does not edit
     pub(super) editing: Option<EditorProps>,
 }
 

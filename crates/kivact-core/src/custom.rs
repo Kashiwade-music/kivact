@@ -110,7 +110,7 @@
 //!   not rebuilt. Debug builds check that only a Box carries `Measure`, and
 //!   that a node with it has no children.
 //!
-//! The E2E test is `dev/tests/kivact-public-api/tests/e2e/primitive.rs`.
+//! The E2E test is `dev/tests/kivact-public-api/tests/e2e_core/primitive.rs`.
 //!
 //! ```no_run
 //! # use kivact_core as kivact;

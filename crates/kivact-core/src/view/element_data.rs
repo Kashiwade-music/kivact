@@ -258,7 +258,6 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     }
 
     /// Add a kit recipe's style layer (DevTools shows its name).
-    // xtask-allow(internal-contract): kit recipes tag their style layers with the recipe's name for DevTools
     #[doc(hidden)]
     fn recipe_style(mut self, name: RecipeName, s: impl IntoValue<Style>) -> Self {
         self.node_mut()
@@ -513,12 +512,12 @@ pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
+// xtask-allow(state): legacy: exit_layout, focusable_when_disabled, roving_focus, hit_testable, focus_on_press, text_editing, ime, part_region_events, part_modal, draw, draw_over, draw_with_layout, intrinsic, image_fit, monochrome, image_playing, layout_id, at; an exit layout; absent means no exit layout
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
     pub(crate) deferred_parts:
         Vec<Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>>,
-    // xtask-allow(state-fields): option: an exit layout; absent means no exit layout
     pub(crate) exit_layout: Option<super::exit_layout::ExitLayout>,
     pub(crate) exit_complete: Option<kivact_runtime::Handler<()>>,
     /// NodeRefs bound at mount (each once, in order).
@@ -527,21 +526,15 @@ pub(crate) struct Common {
     pub style: Vec<StyleLayer>,
     /// Canonical authored semantic patches, in declaration order.
     pub semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
-    // xtask-allow(state-fields): option: absent means not focusable while disabled
     pub focusable_when_disabled: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means no roving focus
     pub roving_focus: Option<InputProp<kivact_engine::contract::RovingFocus>>,
-    // xtask-allow(state-fields): option: absent means the node hit-tests
     /// `Some(false)`: the pointer passes through the subtree.
     pub hit_testable: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means the pointer press does not focus
     /// Native pointer focus destination, resolved through the reference binding.
     pub(crate) focus_on_press: Option<crate::view::node_ref::NodeRef>,
     /// Event handlers.
     pub handlers: Handlers,
-    // xtask-allow(state-fields): option: absent means the node does not edit text
     pub(crate) text_editing: Option<Box<crate::view::editing_data::TextEditing>>,
-    // xtask-allow(state-fields): option: absent means no IME session
     /// The IME session of a node that edits its own text.
     pub(crate) ime: Option<crate::view::ime_session::ImeSession>,
     /// Behavior requirements cannot be erased by later caller modifiers.
@@ -550,41 +543,30 @@ pub(crate) struct Common {
     /// parts, which remain defaults even after later customizations. Their
     /// key, pointer and wheel handlers are entries of `handlers`.
     pub(crate) part_actions: crate::view::tree::PartActions,
-    // xtask-allow(state-fields): option: absent means the part takes no region defaults
     /// This part opts its own defaults into unhandled canvas-region input.
     pub(crate) part_region_events: bool,
     /// Mount hooks and references of attached parts, in attachment order.
     pub(crate) part_bindings: Vec<crate::view::part_data::PartBinding>,
-    // xtask-allow(state-fields): option: absent means no modal focus scope
     /// An attached behavior requires the existing Overlay modal focus scope.
     pub(crate) part_modal: bool,
     /// Setup declarations; drawing supplies only geometry for these identities.
     pub(crate) regions: Vec<Declaration>,
-    // xtask-allow(state-fields): option: absent means no layer below
     /// Draw layer behind the children.
     pub draw: Option<DrawFn>,
-    // xtask-allow(state-fields): option: absent means no layer above
     /// Draw layer over the children.
     pub draw_over: Option<DrawFn>,
-    // xtask-allow(state-fields): option: absent means no layout-driven drawing
     pub draw_with_layout: Option<LayoutDrawFn>,
-    // xtask-allow(state-fields): option: absent means the style's size
     /// Size hints for layout.
     pub intrinsic: Option<IntrinsicSize>,
-    // xtask-allow(state-fields): option: absent means the image's own fit
     /// How an image fills its box (image nodes only).
     pub image_fit: Option<InputProp<ImageFit>>,
-    // xtask-allow(state-fields): option: absent means the image's own colors
     /// Paint an image in the text color (image nodes only).
     pub monochrome: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means the image plays
     /// Whether an animated image plays (image nodes only; default true).
     pub image_playing: Option<InputProp<bool>>,
-    // xtask-allow(state-fields): option: absent means no shared layout
     /// The shared-layout id: a node that departs with it leaves its box for
     /// the next node of the same id to animate from.
     pub layout_id: Option<std::sync::Arc<str>>,
-    // xtask-allow(state-fields): option: absent means the builder's call site
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
@@ -763,6 +745,7 @@ pub(super) enum RegistryPhase {
     Mounted,
 }
 
+// xtask-allow(state): legacy: state, phase, gestures
 /// One canvas identity owns this lookup for its entire mounted lifetime.
 pub(crate) struct Registry {
     pub(super) node: NodeId,

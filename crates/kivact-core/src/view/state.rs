@@ -47,7 +47,6 @@ pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
     pub(crate) reply: FocusReply,
     pub(crate) stage: RequestStage,
-    // xtask-allow(state-fields): independent: given once by the caller of request_focus and never changed; the stage moves from Queued to Sent on the host write whatever the indicator, so both values occur in both stages
     /// The requested focus indicator, independent of request progress.
     pub(crate) visible: bool,
 }
@@ -62,6 +61,7 @@ pub(crate) struct FocusCompletion {
     pub(crate) at: &'static Location<'static>,
 }
 
+// xtask-allow(state): legacy: env, surface_active, fields
 /// The App's host environment: one signal holding the whole `Environment` the
 /// client writes, and one memo per field a reader asked for, so a change of
 /// one field notifies only the readers of that field.
@@ -188,7 +188,6 @@ pub(crate) enum EffectWaiter {
 /// Outstanding host requests of an App.
 #[derive(Default)]
 pub(crate) struct Requests {
-    // xtask-allow(state-fields): identity: allocates host request ids; no other field derives from it
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
     pub(crate) effects: HashMap<u64, EffectWaiter>,
@@ -196,7 +195,6 @@ pub(crate) struct Requests {
     pub(crate) foreign_sizes: HashMap<u64, ForeignSizeRequest>,
     /// Pending CPU captures, answered at the settled host boundary.
     pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
-    // xtask-allow(state-fields): independent: pushed by request_activation (NodeRef::activate) and taken whole by the client after each event; the id counter grows only on host requests, so any queue length goes with any id
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
@@ -225,6 +223,7 @@ impl Requests {
     }
 }
 
+// xtask-allow(state): legacy: tree, removed, windows, next_window, host_capabilities, fonts_value, initial_render, app_motion, pointer_modality, modifiers, requests; allocates
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {
@@ -234,7 +233,6 @@ pub(crate) struct ViewState {
     pub(crate) removed: RefCell<Vec<NodeId>>,
     /// The open windows' records.
     pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
-    // xtask-allow(state-fields): identity: allocates window ids; `WindowId::MAIN` is 1
     /// The last window id handed out (`WindowId::MAIN` is 1).
     next_window: Cell<u64>,
     /// What the host's platform can do (host events alone write it).
@@ -245,7 +243,6 @@ pub(crate) struct ViewState {
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
-    // xtask-allow(state-fields): independent: one-way latch: true until the first frame is drawn (launch::runtime sets it false once)
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
@@ -260,6 +257,7 @@ pub(crate) struct ViewState {
     pub(crate) requests: RefCell<Requests>,
 }
 
+// xtask-allow(state): legacy: hover, mouse, min_size, foreign; `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
 /// One window's view record: the owner that declared it, its environment,
 /// focus source, pointer observations and open state.
 #[derive(Clone)]
@@ -275,11 +273,9 @@ pub(crate) struct WindowRecord {
         reason = "the record keeps the window's title for DevTools and diagnostics"
     )]
     pub(crate) title: Value<String>,
-    // xtask-allow(state-fields): option: `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
     pub(crate) min_size: Option<kivact_types::Size>,
     pub(crate) dismiss: Option<Handler<DismissReason>>,
     pub(crate) open: Binding<bool>,
-    // xtask-allow(state-fields): option: present exactly for a window declared with `foreign_window`; the hooks are the declaration's callbacks, not a second window state
     /// The callbacks of a foreign window, shared with its declaration.
     pub(crate) foreign: Option<Rc<super::foreign::ForeignHooks>>,
     #[allow(

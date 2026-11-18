@@ -16,12 +16,10 @@ pub(crate) enum Relation {
 /// A patch retains its declaration site and its place in the modifier sequence.
 #[derive(Clone)]
 pub(crate) struct SemanticsPatch {
-    // xtask-allow(state-fields): option: set by apply_part on the patches a part declared, false on the caller's own; the *_source readers and part constraints tell the two apart
     pub(crate) part: bool,
     pub(crate) input: SemanticInput,
     pub(crate) layer: usize,
     pub(crate) at: &'static Location<'static>,
-    // xtask-allow(state-fields): projection: written only by Common::semantic from whether the patch's source is fixed; the source itself is erased into `apply`
     pub(super) reactive: bool,
     pub(crate) apply: Rc<dyn Fn(&mut Semantics<FocusTarget>)>,
 }

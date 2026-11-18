@@ -10,6 +10,7 @@ use kivact_types::NodeId;
 
 use kivact_runtime::Runtime;
 
+// xtask-allow(state): legacy: stats, asset_failures
 /// Everything the client keeps per App about the host link.
 #[derive(Default)]
 pub(crate) struct HostState {

@@ -16,6 +16,7 @@ use crate::sync::Inbox;
 use kivact_runtime::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 
+// xtask-allow(state): legacy: current is written only by SharedImage::replace_current; current, pixels, size; the import of the link's current request, written only by
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///
@@ -28,10 +29,8 @@ pub struct SharedImage {
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
     changed: Notifier,
-    // xtask-allow(state-fields): projection: the import of the link's current request, written only by SharedImage::replace_current
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
-    // xtask-allow(state-fields): independent: the last pixels delivered, kept for every phase
     pixels: Signal<Option<Pixels>>,
     size: Signal<(u32, u32)>,
 }

@@ -229,6 +229,7 @@ impl ShowArm {
     }
 }
 
+// xtask-allow(state): legacy: fallback, arm
 /// The state of one `show`: its arm and the builders it mounts.
 struct ShowSlot {
     site: Site,
@@ -393,6 +394,7 @@ impl<T: 'static> SomeArm<T> {
     }
 }
 
+// xtask-allow(state): legacy: fallback, arm
 /// The state of one `show_some`: its arm and the builders it mounts.
 struct SomeSlot<T: 'static> {
     site: Site,

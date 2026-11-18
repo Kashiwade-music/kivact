@@ -10,6 +10,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 
+// xtask-allow(state): legacy: imports, adapter
 /// What `gpu_interop` keeps per App: its imports and the adapter of each
 /// window's device. The client installs it as a runtime extension when the
 /// App is created.
