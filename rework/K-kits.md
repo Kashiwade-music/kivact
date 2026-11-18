@@ -521,7 +521,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 
 - **wave / lane / 前提**：W2a / K / なし
 - **所有**：`crates/kivact-devtools/Cargo.toml`、`crates/kivact-devtools/src/app.rs`、`crates/kivact-devtools/src/look.rs`（新）、`crates/kivact-devtools/src/lib.rs`（`mod look;` の 1 行）、`crates/kivact-devtools/src/panels/performance.rs`、`crates/kivact-devtools/src/widgets.rs`、`crates/kivact-devtools/src/widgets/counters_chart.rs`（新）、`Cargo.lock`
-- **目的**：DevTools の GUI が basic kit の全体（chart、plot、sidebar…）を link しているのをやめる。theme は 100 行未満の private の theme、counters の折れ線は canvas で描く（KIT-18 の決定「private theme」）。W6 以後 kit は gate の compile から外れるので W2a で済ませる（DEC-14）。
+- **目的**：DevTools の GUI が basic kit の全体（chart、plot、sidebar…）を link しているのをやめる。theme は約 100 行の private の theme、counters の折れ線は canvas で描く（KIT-18 の決定「private theme」）。private theme は tab の recipe だけを持つ：標準の tab の recipe（左右の padding 12 px と tab の間の gap 4 px）では、11 個の panel の tab の行が 800 px の窓に収まらず、`tests/app` の `review::` の 3 試験が失敗する（W2a の差戻し。basic の幅の tab で 39 件が通ることを設計者が確かめた）。W6 以後 kit は gate の compile から外れるので W2a で済ませる（DEC-14）。
 - **手順**：
   1. `crates/kivact-devtools/Cargo.toml` の `[dependencies]` から `kivact-ui-basic = { path = "../kivact-ui-basic", version = "0.1.0" }` の行を消す。
   2. `crates/kivact-devtools/src/look.rs` を作る（今の API で書く。W6 の S の掃引が後で直す）：
@@ -530,10 +530,16 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
      //! Role: The DevTools app's own theme: neutral colors, square corners and 12 px text.
      //!
      //! The values are the Lyra Neutral ones the app used through the Basic kit;
-     //! the standard components keep their own recipes.
+     //! the standard components keep their own recipes, except the tabs, which
+     //! stay tight so that the eleven panel tabs fit an 800 px window.
 
+     use kivact::interaction::{TabListState, TabState};
      use kivact::style::theme::{Palette, Radii, Spacing, Typography};
-     use kivact::style::{Color, LineHeight, Theme, ThemeMode, rgb, rgba};
+     use kivact::style::{
+         Align, Color, ColorToken, Direction, LineHeight, Style, Theme, ThemeMode, pct, rgb, rgba, style,
+     };
+     use kivact::ui::{Look, UiRecipes};
+     use kivact::view::Orientation;
 
      /// The app's theme in `mode`.
      pub(crate) fn theme(mode: ThemeMode) -> Theme {
@@ -576,6 +582,43 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
              .with_text(text)
              .with_focus_ring(1.0)
              .with_control_height(32.0)
+             .with(UiRecipes::default().tabs(|tabs| tabs.list(|_| tab_list).tab(|_| tab)))
+     }
+
+     /// The tab list: a muted strip with no gap between the tabs.
+     fn tab_list(_: &Theme, look: &Look<TabListState>) -> Style {
+         let base = style().padding(3).background(ColorToken::SurfaceAlt);
+         if look.orientation == Orientation::Vertical {
+             base.direction(Direction::Column)
+         } else {
+             base.direction(Direction::Row)
+                 .align_self(Align::Start)
+                 .height(32)
+         }
+     }
+
+     /// A tab: 6 px on each side, 12 px medium text; the selected one is raised.
+     fn tab(_: &Theme, look: &Look<TabState>) -> Style {
+         let base = style()
+             .direction(Direction::Row)
+             .align_items(Align::Center)
+             .padding_x(6)
+             .padding_y(2)
+             .border(1, Color::TRANSPARENT)
+             .font_size(12)
+             .weight(500)
+             .text_wrap(false)
+             .color(ColorToken::TextMuted);
+         let base = if look.orientation == Orientation::Vertical {
+             base.width(pct(100))
+         } else {
+             base.height(pct(100))
+         };
+         if look.selected {
+             base.background(ColorToken::Surface).color(ColorToken::Text)
+         } else {
+             base
+         }
      }
      ```
 
