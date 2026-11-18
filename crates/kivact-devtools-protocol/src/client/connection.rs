@@ -8,9 +8,11 @@ use std::sync::mpsc;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
+use crate::call::Initialize;
+use crate::notify::Notification;
 use crate::{
-    ClientInfo, DiscoveryFile, Initialize, InitializeParams, InitializeResult, Message, Method,
-    Notification, PROTOCOL_VERSION, RpcResponse, parse_message, request_line,
+    ClientInfo, DiscoveryFile, InitializeParams, InitializeResult, Message, Method,
+    PROTOCOL_VERSION, RpcResponse, parse_message, request_line,
 };
 
 use super::error::{ClientError, io_error};
