@@ -30,7 +30,7 @@ pub(crate) const EVERYWHERE: f64 = f64::MAX / 4.0;
 /// the classification takes it as a parameter, so it names no model type.
 pub(crate) trait LayerView {
     /// The look of `id` now, or `None` for a node that is missing or not drawn.
-    fn drawn_look(&self, id: NodeId) -> Option<Look>;
+    fn drawn_look(&self, id: NodeId) -> Option<LayerTraits>;
     /// The flat children of `id`, in paint order.
     fn flat_children(&self, id: NodeId) -> Vec<NodeId>;
     /// Whether `id` is a layer of its own: an overlay or a fixed box.
@@ -48,7 +48,7 @@ pub(crate) trait LayerView {
 /// `paint::sanitize_paint` (read in place: most nodes have no state
 /// styles, and their paint is not copied).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct Look {
+pub(crate) struct LayerTraits {
     pub(crate) opacity: f64,
     /// How far its outer shadows and focus ring reach outside its box.
     pub(crate) overflow: f64,
@@ -90,8 +90,8 @@ pub(crate) struct Look {
 }
 
 const _: () = assert!(
-    std::mem::size_of::<Look>() <= 72,
-    "Look grew: box the new rare field"
+    std::mem::size_of::<LayerTraits>() <= 72,
+    "LayerTraits grew: box the new rare field"
 );
 
 /// What a subtree holds that decides its layers: whether the node
@@ -110,7 +110,7 @@ pub(crate) struct SubtreeFacts {
     pub(crate) has_blend: bool,
 }
 
-impl Look {
+impl LayerTraits {
     /// The look of the paint `p`.
     pub(crate) fn of(p: &PaintProps) -> Self {
         let shadows = p
@@ -139,7 +139,7 @@ impl Look {
         .filter(|x| **x)
         .count() as u8;
         let effects = p.effects.as_deref();
-        Look {
+        LayerTraits {
             opacity: unit(p.opacity, 1.0),
             overflow: shadows.max(ring),
             border: Edges {
@@ -205,7 +205,7 @@ pub(crate) fn layer_facts(view: &impl LayerView) -> HashMap<NodeId, SubtreeFacts
 pub(crate) fn subtree_facts(
     view: &impl LayerView,
     id: NodeId,
-    parent: Option<&Look>,
+    parent: Option<&LayerTraits>,
     out: &mut HashMap<NodeId, SubtreeFacts>,
 ) -> SubtreeFacts {
     let Some(look) = view.drawn_look(id) else {
@@ -244,7 +244,7 @@ pub(crate) fn subtree_facts(
 pub(crate) fn node_facts(
     view: &impl LayerView,
     id: NodeId,
-    parent: Option<&Look>,
+    parent: Option<&LayerTraits>,
     facts: &HashMap<NodeId, SubtreeFacts>,
 ) -> SubtreeFacts {
     let Some(look) = view.drawn_look(id) else {
@@ -278,8 +278,13 @@ pub(crate) fn node_facts(
 /// Whether `id` is a layer for its own reasons, given its parent's look: an
 /// overlay or fixed box, a filter, a mask or a backdrop filter, a `will-change`,
 /// a motion, or a part of a 3D rendering context.
-fn own_layer(view: &impl LayerView, id: NodeId, look: &Look, parent: Option<&Look>) -> bool {
-    let parent_plane_3d = parent.is_some_and(Look::plane_3d);
+fn own_layer(
+    view: &impl LayerView,
+    id: NodeId,
+    look: &LayerTraits,
+    parent: Option<&LayerTraits>,
+) -> bool {
+    let parent_plane_3d = parent.is_some_and(LayerTraits::plane_3d);
     let parent_perspective = parent.is_some_and(|p| p.perspective);
     let overlay = view.is_layer_node(id);
     let moves = view.moves_layer(id);
@@ -298,7 +303,7 @@ fn own_layer(view: &impl LayerView, id: NodeId, look: &Look, parent: Option<&Loo
 /// Whether the node with `look` is promoted to a layer by what its inner
 /// subtree holds: a group over a layer or an item, a backdrop root over a
 /// backdrop filter, or an isolated node over a blend mode and a layer.
-fn promoted(look: &Look, inner: &SubtreeFacts) -> bool {
+fn promoted(look: &LayerTraits, inner: &SubtreeFacts) -> bool {
     let group = look.opacity < 1.0 || look.grouped;
     let backdrop_root =
         look.opacity < 1.0 || look.filtered || look.masked || look.grouped || look.backdropped;

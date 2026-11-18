@@ -18,7 +18,7 @@
 //!   so culling never drops a shadow's pixels.
 
 use crate::lower::effects::Tint;
-use arvane_protocol::{GlyphStroke, Paint, RenderCmd as D};
+use arvane_protocol::{GlyphStroke, RasterPaint, RenderCmd as D};
 use kivact_types::{ComputedTextStyle, LineJoin, PaintOrder, Rect, Stroke, TextMetrics, TextRun};
 use kivact_types::{Point, Rgba, TextShadow};
 
@@ -26,7 +26,7 @@ use kivact_types::{Point, Rgba, TextShadow};
 #[derive(Default)]
 pub(crate) struct Colors {
     /// The paint of every glyph run (`None`: the shaped run's own color).
-    pub(crate) glyphs: Option<Paint>,
+    pub(crate) glyphs: Option<RasterPaint>,
     /// Every decoration line's color (plain text's `currentColor`).
     pub(crate) decorations: Option<Rgba>,
     /// The outline of the glyphs (CSS `-webkit-text-stroke`), when there is one.
@@ -44,7 +44,7 @@ impl Colors {
             let width = stroke.width.px(style.font_size);
             width.is_finite().then(|| GlyphStroke {
                 stroke: outline_line(width),
-                paint: Paint::Solid(tint.color(stroke.color)),
+                paint: RasterPaint::Solid(tint.color(stroke.color)),
             })
         });
         self
@@ -84,11 +84,11 @@ pub(crate) fn push_text(
             out.push(crate::lower::effects::blur_group(shadow.blur / 2.0));
         }
         let all = Colors {
-            glyphs: Some(Paint::Solid(color)),
+            glyphs: Some(RasterPaint::Solid(color)),
             decorations: Some(color),
             outline: colors.outline.as_ref().map(|o| GlyphStroke {
                 stroke: o.stroke.clone(),
-                paint: Paint::Solid(color),
+                paint: RasterPaint::Solid(color),
             }),
             order: colors.order,
         };
@@ -118,7 +118,7 @@ fn glyphs(
         let stroke = match run.stroke {
             Some((width, color)) => Some(GlyphStroke {
                 stroke: outline_line(width),
-                paint: Paint::Solid(shadow.unwrap_or(color)),
+                paint: RasterPaint::Solid(shadow.unwrap_or(color)),
             }),
             None => colors.outline.clone(),
         };
@@ -159,7 +159,7 @@ fn lines(
             width: line.rect.width,
             height: (line.rect.height * device).round().max(1.0) / device,
         };
-        let paint = arvane_protocol::Paint::Solid(colors.decorations.unwrap_or(line.color));
+        let paint = arvane_protocol::RasterPaint::Solid(colors.decorations.unwrap_or(line.color));
         decoration(out, rect, paint, line.style);
     }
 }
@@ -276,11 +276,11 @@ pub(crate) fn shape_inline_run(
         .ok()
 }
 
-/// Paint one resolved decoration band, retaining its pattern.
+/// RasterPaint one resolved decoration band, retaining its pattern.
 pub(crate) fn decoration(
     out: &mut crate::lower::SceneOut,
     rect: Rect,
-    paint: arvane_protocol::Paint,
+    paint: arvane_protocol::RasterPaint,
     style: kivact_types::TextDecorationStyle,
 ) {
     use kivact_types::scene::Shape;

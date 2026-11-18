@@ -4,7 +4,7 @@
 //! shadow filters, gradient masks, and how groups must nest. A group is a
 //! compositor layer (`LayerEffects`) that the root layer draws as a child.
 
-use arvane_protocol::{Composition, LayerEffects, LayerFilter, LayerItem, Paint, RenderCmd};
+use arvane_protocol::{Composition, LayerEffects, LayerFilter, LayerItem, RasterPaint, RenderCmd};
 
 use crate::support::{
     RED, WHITE, assert_near, color, color_alpha, fill, gray, layer, node_key, open, pixel, pt,
@@ -27,7 +27,7 @@ fn group_opacity_fades_the_group_not_each_command() {
     for x in [50.0, 70.0] {
         loose.push(RenderCmd::Rect {
             rect: rect(x, 0.0, 30.0, 40.0),
-            fill: Paint::Solid(color_alpha(RED, 0.5)),
+            fill: RasterPaint::Solid(color_alpha(RED, 0.5)),
         });
     }
     let group_effects = LayerEffects {

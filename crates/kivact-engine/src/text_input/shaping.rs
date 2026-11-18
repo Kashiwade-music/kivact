@@ -444,14 +444,14 @@ impl EditLines {
         let shown = display(&text[content], false);
         let shaped = shape_long(&shown, |r| {
             // The spans of the piece `r`, from its start.
-            let spans: Vec<arvane_protocol::TextSpan> = colored
+            let spans: Vec<arvane_protocol::ResolvedSpan> = colored
                 .spans
                 .iter()
                 .filter(|style| style.range.start < r.end && style.range.end > r.start)
-                .map(|span| arvane_protocol::TextSpan {
+                .map(|span| arvane_protocol::ResolvedSpan {
                     range: span.range.start.max(r.start) - r.start
                         ..span.range.end.min(r.end) - r.start,
-                    style: arvane_protocol::SpanStyle {
+                    style: arvane_protocol::ResolvedSpanStyle {
                         color: span.color.map(kivact_types::Rgba::sanitize),
                         decoration: span.decoration,
                         highlight: span.background.is_some(),

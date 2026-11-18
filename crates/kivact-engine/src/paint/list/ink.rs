@@ -4,7 +4,7 @@ use crate::contract::NodeType;
 use crate::model::EVERYWHERE;
 use crate::model::Model;
 use crate::model::transform::map_rect;
-use crate::paint::state::{Drawn, Ink, Look};
+use crate::paint::state::{Drawn, Ink, LayerTraits};
 use crate::tree::node::HostNode;
 use kivact_layout::NodeLayout;
 use kivact_types::cell::Generation;
@@ -18,14 +18,20 @@ pub(super) fn reach(
     id: NodeId,
     n: &HostNode,
     layout: &NodeLayout,
-    look: &Look,
+    look: &LayerTraits,
 ) -> Rect {
     grow(reach_local(host, id, n, layout, look), look.fx)
 }
 
 /// Everything one node itself can draw on, before its own filters (the
 /// box, its content, shadows, glyphs and canvas scenes).
-fn reach_local(host: &Model, id: NodeId, n: &HostNode, layout: &NodeLayout, look: &Look) -> Rect {
+fn reach_local(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    layout: &NodeLayout,
+    look: &LayerTraits,
+) -> Rect {
     let bounds = Rect {
         x: 0.0,
         y: 0.0,
@@ -95,7 +101,7 @@ pub(super) fn drawn(
         return kept.rect;
     }
     let drawn = host.tree().drawn(id).then(|| {
-        let look = Look::now(host, id, n);
+        let look = LayerTraits::now(host, id, n);
         let local = drawn_local(host, id, n, layout, generation);
         // Blurred by the node's own filters, then transformed by it.
         let rect = map_rect(
@@ -141,7 +147,7 @@ fn drawn_local(
     layout: &NodeLayout,
     generation: Generation,
 ) -> Drawn {
-    let look = Look::now(host, id, n);
+    let look = LayerTraits::now(host, id, n);
     let mut rect = reach_local(host, id, n, layout, &look);
     let mut beyond = false;
     if !n.clips() {

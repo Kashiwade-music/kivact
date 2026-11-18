@@ -20,7 +20,7 @@ pub use composition::{
     RasterGrid, RenderBackdrop, RenderMask, ShaderItem,
 };
 pub use effect::BoxShadow;
-pub use paint::{Gradient, GradientShape, Paint, Pattern, PatternSource};
+pub use paint::{GradientShape, Pattern, PatternSource, RasterGradient, RasterPaint};
 pub use scene::{CpuFrame, GlyphStroke, Group, RenderCmd, RenderScene, SHADOW_REACH};
 pub use semantics::{SemanticsNode, SemanticsTree, SemanticsUpdate};
-pub use text::{RichText, SpanStyle, TextSpan};
+pub use text::{ResolvedSpan, ResolvedSpanStyle, RichText};

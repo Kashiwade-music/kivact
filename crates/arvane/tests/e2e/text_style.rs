@@ -14,7 +14,7 @@
 use std::sync::Arc;
 
 use arvane::Engine;
-use arvane_protocol::{RichText, SpanStyle, TextSpan};
+use arvane_protocol::{ResolvedSpan, ResolvedSpanStyle, RichText};
 use kivact_types::shaped::ShapedTextSnapshot;
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
@@ -112,23 +112,23 @@ fn spans_style_their_ranges_and_highlight_across_lines() {
     let mut engine = inter();
     let text = "find the matching words in a wrapped line";
     let spans = [
-        TextSpan {
+        ResolvedSpan {
             range: 9..17,
-            style: SpanStyle {
+            style: ResolvedSpanStyle {
                 weight: Some(700),
                 color: Some(RED),
-                ..SpanStyle::default()
+                ..ResolvedSpanStyle::default()
             },
         },
-        TextSpan {
+        ResolvedSpan {
             range: 18..32,
-            style: SpanStyle {
+            style: ResolvedSpanStyle {
                 highlight: true,
                 decoration: Some(TextDecoration {
                     lines: DecorationLines::UNDERLINE,
                     ..TextDecoration::default()
                 }),
-                ..SpanStyle::default()
+                ..ResolvedSpanStyle::default()
             },
         },
     ];
@@ -153,8 +153,8 @@ fn spans_style_their_ranges_and_highlight_across_lines() {
     assert!(narrow.highlights[1].rect.y > narrow.highlights[0].rect.y);
     // Colors draw only: the same extent, no new shaping key for layout.
     let recolored = [
-        TextSpan {
-            style: SpanStyle {
+        ResolvedSpan {
+            style: ResolvedSpanStyle {
                 color: Some(Rgba { r: 0.0, ..RED }),
                 ..spans[0].style.clone()
             },

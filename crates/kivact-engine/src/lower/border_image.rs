@@ -25,7 +25,7 @@ use crate::lower::context::Context;
 use crate::lower::fill::gradient;
 use crate::lower::sanitize;
 use arvane::asset::PixelSize;
-use arvane_protocol::{Paint, RenderCmd as D};
+use arvane_protocol::{RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{
     BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect, Transform,
@@ -39,7 +39,7 @@ enum Source {
     /// The image's pixels, and how many of them span one source px.
     Image { pixels: Pixels, scale: f64 },
     /// A paint over the border image area, in that area's coordinates.
-    Paint { paint: Paint, area: Rect },
+    Paint { paint: RasterPaint, area: Rect },
 }
 
 /// One run of tiles along an axis: where it lies in the destination and
@@ -131,7 +131,7 @@ fn resolve(source: &FillImage, area: Rect, ctx: &Context<'_>) -> Option<(Source,
             Some((Source::Paint { paint, area }, area_size))
         }
         FillImage::Solid(color) => {
-            let paint = Paint::Solid(color.sanitize());
+            let paint = RasterPaint::Solid(color.sanitize());
             Some((Source::Paint { paint, area }, area_size))
         }
         FillImage::Coordinate(_) | FillImage::Shader(_) => None,

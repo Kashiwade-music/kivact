@@ -18,7 +18,7 @@ use std::sync::Arc;
 
 use arvane::asset::PixelSize;
 use arvane_protocol::{
-    LayerFilter, LayerItem, Paint, RenderBackdrop, RenderCmd as D, RenderMask, RenderScene,
+    LayerFilter, LayerItem, RasterPaint, RenderBackdrop, RenderCmd as D, RenderMask, RenderScene,
     ShaderItem,
 };
 use kivact_types::effect::ShaderUse;
@@ -197,7 +197,7 @@ impl Context<'_> {
         let coverage = scene_of(|tmp| {
             shape.fill(
                 tmp,
-                Paint::Solid(Rgba {
+                RasterPaint::Solid(Rgba {
                     r: 1.0,
                     g: 1.0,
                     b: 1.0,

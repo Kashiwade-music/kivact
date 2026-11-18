@@ -81,7 +81,7 @@ impl Context<'_> {
             // As before fills had layers.
             state.out.push(D::Rect {
                 rect: r,
-                fill: arvane_protocol::Paint::Solid(tint.color(*color)),
+                fill: arvane_protocol::RasterPaint::Solid(tint.color(*color)),
             });
         } else {
             let boxes = Boxes::uniform(BoxShape::Rect(r));
@@ -144,7 +144,7 @@ impl Context<'_> {
             })
         };
         match &painted.paint {
-            Fill::Solid(color) => push(arvane_protocol::Paint::Solid(tint.color(*color))),
+            Fill::Solid(color) => push(arvane_protocol::RasterPaint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 for layer in layers.iter().rev() {
                     match self.layer_paint(layer, area, origin_point) {

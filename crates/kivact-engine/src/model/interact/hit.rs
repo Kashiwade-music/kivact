@@ -24,7 +24,7 @@
 //!   syncs. The debug self-check compares every settled hit with the complete
 //!   walk (`hit_reference`), drawables included.
 
-use crate::layer::Look;
+use crate::layer::LayerTraits;
 use crate::model::Model;
 use crate::tree::node::HostNode;
 use kivact_types::geometry3d::Matrix4;
@@ -162,7 +162,7 @@ impl Model {
         if self.backface_hidden_at(id, &map) {
             return None;
         }
-        if Look::now(self, id, n).plane_3d() {
+        if LayerTraits::now(self, id, n).plane_3d() {
             return self.hit_context(id, map, p, walk);
         }
         // Into its own box space.
@@ -250,7 +250,7 @@ impl Model {
         p: Point,
         walk: HitWalk,
     ) -> Option<NodeId> {
-        let root_look = Look::now(self, root, self.tree.get(root)?);
+        let root_look = LayerTraits::now(self, root, self.tree.get(root)?);
         let mut planes = vec![ContextPlane {
             id: root,
             map: root_map,
@@ -284,7 +284,7 @@ impl Model {
         &self,
         parent: NodeId,
         parent_map: Matrix4,
-        parent_look: &Look,
+        parent_look: &LayerTraits,
         out: &mut Vec<ContextPlane>,
     ) {
         let Some(pn) = self.tree.get(parent) else {
@@ -309,7 +309,7 @@ impl Model {
             };
             let map = step.then(parent_map);
             out.push(ContextPlane { id: child, map });
-            let look = Look::now(self, child, cn);
+            let look = LayerTraits::now(self, child, cn);
             if look.plane_3d() {
                 self.collect_planes(child, map, &look, out);
             }

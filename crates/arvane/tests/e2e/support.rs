@@ -7,7 +7,7 @@ use arvane::{
     SteppedShell, Window, Windows, test_font,
 };
 use arvane_protocol::{
-    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
+    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
 use arvane_virtual::{
@@ -82,7 +82,7 @@ pub(crate) fn color_alpha(rgb: u32, a: f64) -> Rgba {
 pub(crate) fn fill(x: f64, y: f64, width: f64, height: f64, rgb: u32) -> RenderCmd {
     RenderCmd::Rect {
         rect: rect(x, y, width, height),
-        fill: Paint::Solid(color(rgb)),
+        fill: RasterPaint::Solid(color(rgb)),
     }
 }
 
@@ -203,8 +203,8 @@ pub(crate) fn assert_near(actual: u32, expected: u32, tolerance: u8, what: &str)
 }
 
 /// A solid paint from 0x00RRGGBB.
-pub(crate) fn solid(rgb: u32) -> Paint {
-    Paint::Solid(color(rgb))
+pub(crate) fn solid(rgb: u32) -> RasterPaint {
+    RasterPaint::Solid(color(rgb))
 }
 
 pub(crate) fn pt(x: f64, y: f64) -> kivact_types::Point {

@@ -13,12 +13,12 @@ use kivact_types::pixel::Pixels;
 ///
 /// ```
 /// use kivact_types::{Extend, Point, Rgba};
-/// use arvane_protocol::{Gradient, GradientShape, Paint};
+/// use arvane_protocol::{RasterGradient, GradientShape, RasterPaint};
 /// let black = Rgba { r: 0.0, g: 0.0, b: 0.0, a: 1.0 };
 /// let clear = Rgba { a: 0.0, ..black };
 /// // CSS `repeating-linear-gradient(90deg, black 0 1px, transparent 1px 24px)`
 /// // from x = 0: a 1 px line every 24 px, two stops at 1/24 making a hard edge.
-/// let lines = Paint::Gradient(Gradient {
+/// let lines = RasterPaint::Gradient(RasterGradient {
 ///     shape: GradientShape::Linear {
 ///         start: Point { x: 0.0, y: 0.0 },
 ///         end: Point { x: 24.0, y: 0.0 },
@@ -29,11 +29,11 @@ use kivact_types::pixel::Pixels;
 /// # let _ = lines;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub enum Paint {
+pub enum RasterPaint {
     /// One color.
     Solid(Rgba),
     /// A linear, radial or conic gradient with its own geometry.
-    Gradient(Gradient),
+    Gradient(RasterGradient),
     /// A tiled image or gradient tile.
     Pattern(Pattern),
 }
@@ -97,7 +97,7 @@ pub enum GradientShape {
 /// Two stops at the same offset make a hard edge. The stops are sRGB: the
 /// engine expands the authored gradient into them before it reaches here.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Gradient {
+pub struct RasterGradient {
     /// Geometry.
     pub shape: GradientShape,
     /// Stops: offsets in `0.0..=1.0`, not decreasing, at least one.
@@ -140,5 +140,5 @@ pub enum PatternSource {
     /// rasterizes it once at the tile's device size and repeats the
     /// pixels; a 1D period is better drawn as an [`Extend::Repeat`]
     /// gradient.
-    Gradient(Gradient),
+    Gradient(RasterGradient),
 }

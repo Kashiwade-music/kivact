@@ -13,7 +13,7 @@
 //!   again with their current content: O(visible nodes), not O(nodes). A
 //!   write of a paint, a text style or state styles asks for a rebuild
 //!   only when what the steps are made of changed: the node's `Place`
-//!   (transform, z-index, sticky, fixed), its paint's [`Look::stacking`]
+//!   (transform, z-index, sticky, fixed), its paint's [`LayerTraits::stacking`]
 //!   facts (opacity, group, items, rounding, overflow,
 //!   border, filter reach, clip) or, for a text, how far it paints out of
 //!   its box.

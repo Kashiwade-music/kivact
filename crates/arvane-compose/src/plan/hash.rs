@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use arvane_protocol::{ExternalItem, Group};
 use arvane_protocol::{
-    Gradient, GradientShape, LayerEffects, LayerFilter, LayerKey, Paint, PatternSource,
+    GradientShape, LayerEffects, LayerFilter, LayerKey, PatternSource, RasterGradient, RasterPaint,
     RenderBackdrop, RenderCmd, RenderMask, RenderScene, ShaderItem,
 };
 use kivact_types::color::Rgba;
@@ -157,17 +157,17 @@ fn rule(h: &mut Fnv, rule: FillRule) {
 }
 
 /// Fold in a paint.
-pub(crate) fn paint(h: &mut Fnv, p: &Paint, retain: &mut Vec<Retained>) {
+pub(crate) fn paint(h: &mut Fnv, p: &RasterPaint, retain: &mut Vec<Retained>) {
     match p {
-        Paint::Solid(c) => {
+        RasterPaint::Solid(c) => {
             h.tag(0);
             h.rgba(*c);
         }
-        Paint::Gradient(g) => {
+        RasterPaint::Gradient(g) => {
             h.tag(1);
             gradient(h, g);
         }
-        Paint::Pattern(pattern) => {
+        RasterPaint::Pattern(pattern) => {
             h.tag(2);
             h.rect(pattern.tile);
             h.bool(pattern.repeat_x);
@@ -187,7 +187,7 @@ pub(crate) fn paint(h: &mut Fnv, p: &Paint, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a gradient's geometry, stops and extension.
-fn gradient(h: &mut Fnv, g: &Gradient) {
+fn gradient(h: &mut Fnv, g: &RasterGradient) {
     match g.shape {
         GradientShape::Linear { start, end } => {
             h.tag(0);

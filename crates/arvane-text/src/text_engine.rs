@@ -505,8 +505,8 @@ pub(super) fn crlf_as_one_break(text: &str) -> std::borrow::Cow<'_, str> {
 /// are in `text`, the layout is built on the normalized text.
 pub(super) fn crlf_spans<'a>(
     text: &str,
-    spans: std::borrow::Cow<'a, [arvane_protocol::TextSpan]>,
-) -> std::borrow::Cow<'a, [arvane_protocol::TextSpan]> {
+    spans: std::borrow::Cow<'a, [arvane_protocol::ResolvedSpan]>,
+) -> std::borrow::Cow<'a, [arvane_protocol::ResolvedSpan]> {
     if spans.is_empty() || !text.contains("\r\n") {
         return spans;
     }

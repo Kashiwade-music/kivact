@@ -3,7 +3,7 @@
 
 use crate::layouts;
 use crate::output;
-use arvane_protocol::{RichText, TextSpan};
+use arvane_protocol::{ResolvedSpan, RichText};
 use hashbrown::{Equivalent, HashMap as LookupMap};
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextDecoration, TextWrap};
 use kivact_types::{
@@ -466,7 +466,7 @@ impl FeaturesRef<'_> {
 /// as the `Vec<SpanBits>` that [`RichKey`] keeps.
 #[derive(Clone, Copy)]
 struct SpansRef<'a> {
-    spans: &'a [TextSpan],
+    spans: &'a [ResolvedSpan],
     drawn: bool,
 }
 
@@ -501,7 +501,7 @@ impl SpansRef<'_> {
 
 /// One span's bits, borrowing the span's text; it hashes and compares as
 /// the [`SpanBits`] the cache keeps.
-fn span_bits_ref(span: &TextSpan, drawn: bool) -> SpanBitsRef<'_> {
+fn span_bits_ref(span: &ResolvedSpan, drawn: bool) -> SpanBitsRef<'_> {
     let s = &span.style;
     SpanBitsRef {
         start: span.range.start,
@@ -532,7 +532,7 @@ fn span_bits_ref(span: &TextSpan, drawn: bool) -> SpanBitsRef<'_> {
 }
 
 /// One span's bits; drawing-only fields are left out unless `drawn`.
-fn span_bits(span: &TextSpan, drawn: bool) -> SpanBits {
+fn span_bits(span: &ResolvedSpan, drawn: bool) -> SpanBits {
     let s = &span.style;
     SpanBits {
         start: span.range.start,

@@ -25,7 +25,7 @@
 use crate::convert;
 use crate::derived::DerivedScope;
 use crate::gradient::gradient;
-use arvane_protocol::{Paint, PatternSource};
+use arvane_protocol::{PatternSource, RasterPaint};
 use kivact_types::Rect;
 use kivact_types::pixel::Pixels;
 use vello_cpu::PaintType;
@@ -62,14 +62,18 @@ pub(crate) struct PatternFill {
 
 /// The brush of `paint`; `device_scale` is the device pixels per unit of
 /// the current coordinates (gradient tiles are rasterized at it).
-pub(crate) fn brush(paint: &Paint, derived: &mut DerivedScope<'_>, device_scale: f64) -> Brush {
+pub(crate) fn brush(
+    paint: &RasterPaint,
+    derived: &mut DerivedScope<'_>,
+    device_scale: f64,
+) -> Brush {
     match paint {
-        Paint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
-        Paint::Gradient(g) => {
+        RasterPaint::Solid(c) => Brush::Paint(PaintType::Solid(convert::color(*c)), None),
+        RasterPaint::Gradient(g) => {
             let (paint, transform) = gradient(g);
             Brush::Paint(paint, transform)
         }
-        Paint::Pattern(p) => {
+        RasterPaint::Pattern(p) => {
             let device_tile = (p.tile.width * device_scale, p.tile.height * device_scale);
             let image = match &p.source {
                 PatternSource::Image { image } => {

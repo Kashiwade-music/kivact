@@ -20,8 +20,8 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 
-use arvane_protocol::SpanStyle;
-use arvane_protocol::TextSpan;
+use arvane_protocol::ResolvedSpan;
+use arvane_protocol::ResolvedSpanStyle;
 use kivact_types::{ComputedTextStyle, FontFeature, FontVariation, TextWrap};
 use kivact_types::{FontKerning, TextTransform};
 
@@ -58,8 +58,8 @@ struct SpanKey {
 }
 
 impl SpanKey {
-    fn new(span: &TextSpan) -> Self {
-        let SpanStyle {
+    fn new(span: &ResolvedSpan) -> Self {
+        let ResolvedSpanStyle {
             font_size,
             weight,
             family,
@@ -125,7 +125,7 @@ impl Key {
     /// apart (the text before its case conversion).
     pub(crate) fn new(
         text: &str,
-        spans: &[TextSpan],
+        spans: &[ResolvedSpan],
         style: &ComputedTextStyle,
         line_height: f64,
     ) -> Self {

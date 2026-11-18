@@ -56,7 +56,11 @@ const FEW: u32 = 4;
 
 impl BoxShape {
     /// Fill the outline with `paint`.
-    pub(crate) fn fill(&self, out: &mut crate::lower::SceneOut, paint: arvane_protocol::Paint) {
+    pub(crate) fn fill(
+        &self,
+        out: &mut crate::lower::SceneOut,
+        paint: arvane_protocol::RasterPaint,
+    ) {
         match *self {
             BoxShape::Rect(rect) => out.push(D::RoundedRect {
                 rect,
@@ -208,8 +212,8 @@ impl Tiles {
     }
 
     /// The pattern repeating `source` from the first copy.
-    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> arvane_protocol::Paint {
-        arvane_protocol::Paint::Pattern(Pattern {
+    fn pattern(&self, layer: &FillLayer, source: PatternSource) -> arvane_protocol::RasterPaint {
+        arvane_protocol::RasterPaint::Pattern(Pattern {
             source,
             tile: self.first,
             repeat_x: layer.repeat_x,
@@ -232,7 +236,7 @@ impl Context<'_> {
         match fill {
             Fill::Solid(color) => boxes
                 .border
-                .fill(out, arvane_protocol::Paint::Solid(tint.color(*color))),
+                .fill(out, arvane_protocol::RasterPaint::Solid(tint.color(*color))),
             Fill::Layers(layers) => {
                 // Layers that blend with what is beneath them draw as a group
                 // of their own, all of them within one group (CSS
@@ -264,7 +268,7 @@ impl Context<'_> {
         &self,
         out: &mut crate::lower::SceneOut,
         shape: &BoxShape,
-        paint: arvane_protocol::Paint,
+        paint: arvane_protocol::RasterPaint,
     ) {
         if crate::lower::sanitize::fill(&paint) {
             shape.fill(out, paint);
@@ -364,7 +368,7 @@ impl Context<'_> {
         };
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = arvane_protocol::Paint::Solid(tint.color(*color));
+                let paint = arvane_protocol::RasterPaint::Solid(tint.color(*color));
                 if tiles.covers(cover) || (layer.repeat_x && layer.repeat_y) {
                     self.put(out, shape, paint);
                 } else {
@@ -386,7 +390,7 @@ impl Context<'_> {
                         y: 0.0,
                         ..tiles.first
                     };
-                    if let Some(arvane_protocol::Paint::Gradient(g)) = gradient(g, local) {
+                    if let Some(arvane_protocol::RasterPaint::Gradient(g)) = gradient(g, local) {
                         let paint = tiles.pattern(layer, PatternSource::Gradient(g));
                         self.put(out, shape, tint.paint(paint));
                     }
@@ -420,7 +424,7 @@ impl Context<'_> {
         out: &mut crate::lower::SceneOut,
         shape: &BoxShape,
         tiles: &Tiles,
-        paint: impl Fn(Rect) -> Option<arvane_protocol::Paint>,
+        paint: impl Fn(Rect) -> Option<arvane_protocol::RasterPaint>,
     ) {
         let area = shape.rect();
         for copy in tiles.each().take(FEW as usize) {
@@ -442,7 +446,7 @@ impl Context<'_> {
         layer: &FillLayer,
         area: Rect,
         origin: Point,
-    ) -> Option<arvane_protocol::Paint> {
+    ) -> Option<arvane_protocol::RasterPaint> {
         if let FillImage::Coordinate(g) = &layer.image {
             return coordinate(g, origin);
         }
@@ -450,12 +454,13 @@ impl Context<'_> {
         let tiles = Tiles::of(layer, area, area, size)?;
         match &layer.image {
             FillImage::Solid(color) => {
-                let paint = arvane_protocol::Paint::Solid(kivact_types::Rgba::sanitize(*color));
+                let paint =
+                    arvane_protocol::RasterPaint::Solid(kivact_types::Rgba::sanitize(*color));
                 if tiles.covers(area) || (layer.repeat_x && layer.repeat_y) {
                     Some(paint)
                 } else {
                     // A solid tile is a one-stop gradient tile.
-                    let g = arvane_protocol::Gradient {
+                    let g = arvane_protocol::RasterGradient {
                         shape: GradientShape::Linear {
                             start: Point { x: 0.0, y: 0.0 },
                             end: Point { x: 1.0, y: 0.0 },
@@ -476,7 +481,7 @@ impl Context<'_> {
                     ..tiles.first
                 };
                 match gradient(g, local)? {
-                    arvane_protocol::Paint::Gradient(g) => {
+                    arvane_protocol::RasterPaint::Gradient(g) => {
                         Some(tiles.pattern(layer, PatternSource::Gradient(g)))
                     }
                     other => Some(other),
@@ -536,7 +541,7 @@ fn rotated(period: &[(f64, Rgba)], phase: f64) -> Vec<(f64, Rgba)> {
 
 /// A CSS gradient over the box `rect` as an Arvane paint (`None`: no
 /// stops).
-pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Paint> {
+pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     if g.stops.is_empty() {
         return None;
     }
@@ -545,7 +550,7 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Pain
         y: a.y + (b.y - a.y) * t,
     };
     let solid = |stops: &[(f64, Rgba)]| {
-        Some(arvane_protocol::Paint::Solid(
+        Some(arvane_protocol::RasterPaint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
@@ -601,8 +606,8 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Pain
             )
         }
     };
-    Some(arvane_protocol::Paint::Gradient(
-        arvane_protocol::Gradient {
+    Some(arvane_protocol::RasterPaint::Gradient(
+        arvane_protocol::RasterGradient {
             shape,
             stops,
             extend,
@@ -614,7 +619,10 @@ pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Pain
 /// (`None`: what `sanitize::fill` rejects: no stop, offsets that are not
 /// finite, outside `0..=1` or out of order, a point or angle that is not
 /// finite, a negative radius).
-pub(crate) fn coordinate(g: &CoordinateGradient, origin: Point) -> Option<arvane_protocol::Paint> {
+pub(crate) fn coordinate(
+    g: &CoordinateGradient,
+    origin: Point,
+) -> Option<arvane_protocol::RasterPaint> {
     let at = |p: kivact_types::Point| Point {
         x: origin.x + p.x,
         y: origin.y + p.y,
@@ -652,7 +660,7 @@ pub(crate) fn coordinate(g: &CoordinateGradient, origin: Point) -> Option<arvane
             Extend::Repeat,
         ),
     };
-    let paint = arvane_protocol::Paint::Gradient(arvane_protocol::Gradient {
+    let paint = arvane_protocol::RasterPaint::Gradient(arvane_protocol::RasterGradient {
         shape,
         stops,
         extend,
@@ -660,7 +668,7 @@ pub(crate) fn coordinate(g: &CoordinateGradient, origin: Point) -> Option<arvane
     super::sanitize::fill(&paint).then_some(paint)
 }
 
-fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Paint> {
+fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     let GradientKind::Radial {
         circle,
         extent,
@@ -670,7 +678,7 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Paint> {
         unreachable!("invariant: radial gradient");
     };
     let solid = |stops: &[(f64, Rgba)]| {
-        Some(arvane_protocol::Paint::Solid(
+        Some(arvane_protocol::RasterPaint::Solid(
             stops.last().map(|s| s.1).unwrap_or_default(),
         ))
     };
@@ -707,8 +715,8 @@ fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::Paint> {
         stops,
         extend,
     );
-    Some(arvane_protocol::Paint::Gradient(
-        arvane_protocol::Gradient {
+    Some(arvane_protocol::RasterPaint::Gradient(
+        arvane_protocol::RasterGradient {
             shape,
             stops,
             extend,

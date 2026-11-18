@@ -37,32 +37,32 @@ use crate::contract::{HostEvent, NodeType, SyncRecord};
 use kivact_types::{NodeId, OverlayAt, Point, Rect};
 use std::collections::HashMap;
 
-use crate::layer::{self, Look, SubtreeFacts};
+use crate::layer::{self, LayerTraits, SubtreeFacts};
 use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
 use crate::tree::node::HostNode;
 use kivact_types::PaintProps;
 
-impl Look {
+impl LayerTraits {
     /// The look of `id` now: its base paint's, or with state styles its
     /// paint's with the active deltas.
     pub(crate) fn now(host: &Model, id: NodeId, n: &HostNode) -> Self {
         if n.states().is_some() || host.motion.get(id).is_some() {
-            Look::of(&host.effective_paint(id))
+            LayerTraits::of(&host.effective_paint(id))
         } else {
             host.paint.look[n.index.0].unwrap_or_else(|| {
                 n.paint()
-                    .map_or_else(|| Look::of(&PaintProps::default()), Look::of)
+                    .map_or_else(|| LayerTraits::of(&PaintProps::default()), LayerTraits::of)
             })
         }
     }
 }
 
 impl layer::LayerView for Model {
-    fn drawn_look(&self, id: NodeId) -> Option<Look> {
+    fn drawn_look(&self, id: NodeId) -> Option<LayerTraits> {
         let n = self.node(id)?;
-        self.tree().drawn(id).then(|| Look::now(self, id, n))
+        self.tree().drawn(id).then(|| LayerTraits::now(self, id, n))
     }
 
     fn flat_children(&self, id: NodeId) -> Vec<NodeId> {
@@ -111,7 +111,7 @@ impl Model {
     pub(crate) fn subtree_facts(
         &self,
         id: NodeId,
-        parent: Option<&Look>,
+        parent: Option<&LayerTraits>,
         out: &mut HashMap<NodeId, SubtreeFacts>,
     ) -> SubtreeFacts {
         layer::subtree_facts(self, id, parent, out)

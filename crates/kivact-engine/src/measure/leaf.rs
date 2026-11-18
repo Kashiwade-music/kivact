@@ -377,7 +377,7 @@ pub(crate) fn rich_spans(
     engine: &mut arvane::Engine,
     spans: &[kivact_types::TextSpan],
     style: &kivact_types::ComputedTextStyle,
-) -> Vec<arvane_protocol::TextSpan> {
+) -> Vec<arvane_protocol::ResolvedSpan> {
     if spans.is_empty() {
         return Vec::new();
     }

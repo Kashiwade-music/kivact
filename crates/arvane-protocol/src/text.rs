@@ -8,7 +8,7 @@ use std::ops::Range;
 /// What a span of rich text sets over its paragraph's [`kivact_types::text::ComputedTextStyle`]
 /// (`None`: the paragraph's).
 #[derive(Clone, Debug, PartialEq, Default)]
-pub struct SpanStyle {
+pub struct ResolvedSpanStyle {
     /// Font size.
     pub font_size: Option<f64>,
     /// Weight.
@@ -43,12 +43,12 @@ pub struct SpanStyle {
 
 /// A range of rich text and its style.
 #[derive(Clone, Debug, PartialEq)]
-pub struct TextSpan {
+pub struct ResolvedSpan {
     /// Half-open UTF-8 byte range of the original input text, on Unicode
     /// scalar boundaries. Case conversion remaps it before shaping.
     pub range: Range<usize>,
     /// What it sets.
-    pub style: SpanStyle,
+    pub style: ResolvedSpanStyle,
 }
 
 /// A paragraph: its text and its spans (sorted, not overlapping; text
@@ -61,7 +61,7 @@ pub struct RichText<'a> {
     /// The text.
     pub text: &'a str,
     /// Its spans.
-    pub spans: &'a [TextSpan],
+    pub spans: &'a [ResolvedSpan],
 }
 
 impl<'a> From<&'a str> for RichText<'a> {

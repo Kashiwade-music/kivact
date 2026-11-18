@@ -4,8 +4,8 @@ use super::Fonts;
 use crate::error::RenderError;
 use crate::limits::{MAX_BLUR, MAX_DASHES, MAX_SCENE_DEPTH};
 use arvane_protocol::{
-    BoxShadow, GlyphStroke, Gradient, GradientShape, Group, Paint, PatternSource, RenderCmd,
-    RenderScene,
+    BoxShadow, GlyphStroke, GradientShape, Group, PatternSource, RasterGradient, RasterPaint,
+    RenderCmd, RenderScene,
 };
 use kivact_types::geometry::Transform;
 use kivact_types::pixel::Pixels;
@@ -87,7 +87,7 @@ fn stops(stops: &[(f64, Rgba)]) -> bool {
         && stops.windows(2).all(|pair| pair[0].0 <= pair[1].0)
 }
 
-fn gradient(value: &Gradient) -> bool {
+fn gradient(value: &RasterGradient) -> bool {
     stops(&value.stops)
         && match value.shape {
             GradientShape::Linear { start, end } => point(start) && point(end),
@@ -115,11 +115,11 @@ fn gradient(value: &Gradient) -> bool {
         }
 }
 
-fn fill(value: &Paint) -> Result<bool, RenderError> {
+fn fill(value: &RasterPaint) -> Result<bool, RenderError> {
     Ok(match value {
-        Paint::Solid(value) => color(*value),
-        Paint::Gradient(g) => gradient(g),
-        Paint::Pattern(p) => {
+        RasterPaint::Solid(value) => color(*value),
+        RasterPaint::Gradient(g) => gradient(g),
+        RasterPaint::Pattern(p) => {
             let source = match &p.source {
                 PatternSource::Image { image } => {
                     image_is_valid(image)?;

@@ -142,7 +142,7 @@ fn stroke_band(
     out.push(D::StrokeShape {
         shape: middle.shape(),
         stroke,
-        paint: arvane_protocol::Paint::Solid(color),
+        paint: arvane_protocol::RasterPaint::Solid(color),
     });
 }
 
@@ -289,7 +289,7 @@ pub(crate) fn border(
         if one_color {
             out.push(D::FillShape {
                 shape: band,
-                paint: arvane_protocol::Paint::Solid(color(shown[0])),
+                paint: arvane_protocol::RasterPaint::Solid(color(shown[0])),
             });
             return;
         }
@@ -297,7 +297,7 @@ pub(crate) fn border(
             out.push(clip_group(trapezoid(i, o, p)));
             out.push(D::FillShape {
                 shape: band.clone(),
-                paint: arvane_protocol::Paint::Solid(color(i)),
+                paint: arvane_protocol::RasterPaint::Solid(color(i)),
             });
             out.push(D::PopGroup);
         }
@@ -364,7 +364,7 @@ pub(crate) fn focus_ring(
         out.push(D::StrokeShape {
             shape: clip.clone(),
             stroke: Stroke::new(2.0 * width),
-            paint: arvane_protocol::Paint::Solid(color),
+            paint: arvane_protocol::RasterPaint::Solid(color),
         });
         return;
     }
@@ -375,7 +375,7 @@ pub(crate) fn focus_ring(
         BoxShape::Circular(r, radii) => push_stroke(out, r, radii, width, color),
         BoxShape::Rounded(_) => out.push(D::FillShape {
             shape: ring(&outer, &inner),
-            paint: arvane_protocol::Paint::Solid(color),
+            paint: arvane_protocol::RasterPaint::Solid(color),
         }),
     }
 }

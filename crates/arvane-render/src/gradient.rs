@@ -1,11 +1,11 @@
 //! Role: Converts gradient paints without renderer cache state.
 
 use crate::convert;
-use arvane_protocol::{Gradient, GradientShape};
+use arvane_protocol::{GradientShape, RasterGradient};
 use kivact_types::{Extend, Rgba};
 use vello_cpu::PaintType;
 use vello_cpu::kurbo::Affine;
-use vello_cpu::peniko::{self, Gradient as RasterGradient};
+use vello_cpu::peniko;
 
 /// Stops as the rasterizers take them.
 ///
@@ -44,7 +44,7 @@ pub(crate) fn stops_of(stops: &[(f64, Rgba)], pad: bool) -> Vec<RasterStop> {
 type RasterStop = (f32, peniko::color::AlphaColor<peniko::color::Srgb>);
 
 /// A gradient's brush and paint transform.
-pub(crate) fn gradient(g: &Gradient) -> (PaintType, Option<Affine>) {
+pub(crate) fn gradient(g: &RasterGradient) -> (PaintType, Option<Affine>) {
     if let GradientShape::Radial {
         radius_x, radius_y, ..
     } = g.shape
@@ -72,10 +72,10 @@ pub(crate) fn gradient(g: &Gradient) -> (PaintType, Option<Affine>) {
 
 /// The raster gradient of a geometry, and its paint transform when the
 /// geometry is not one vello has (an ellipse: a unit circle stretched).
-fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
+fn gradient_shape(shape: &GradientShape) -> (peniko::Gradient, Option<Affine>) {
     match *shape {
         GradientShape::Linear { start, end } => (
-            RasterGradient::new_linear(convert::point(start), convert::point(end)),
+            peniko::Gradient::new_linear(convert::point(start), convert::point(end)),
             None,
         ),
         GradientShape::Radial {
@@ -85,12 +85,12 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
         } => {
             if radius_x == radius_y {
                 (
-                    RasterGradient::new_radial(convert::point(center), radius_x as f32),
+                    peniko::Gradient::new_radial(convert::point(center), radius_x as f32),
                     None,
                 )
             } else {
                 (
-                    RasterGradient::new_radial((0.0, 0.0), 1.0),
+                    peniko::Gradient::new_radial((0.0, 0.0), 1.0),
                     Some(
                         Affine::translate((center.x, center.y))
                             * Affine::scale_non_uniform(radius_x, radius_y),
@@ -104,7 +104,7 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
             end_center,
             end_radius,
         } => (
-            RasterGradient::new_two_point_radial(
+            peniko::Gradient::new_two_point_radial(
                 convert::point(start_center),
                 start_radius as f32,
                 convert::point(end_center),
@@ -117,7 +117,7 @@ fn gradient_shape(shape: &GradientShape) -> (RasterGradient, Option<Affine>) {
             start_deg,
             end_deg,
         } => (
-            RasterGradient::new_sweep(
+            peniko::Gradient::new_sweep(
                 convert::point(center),
                 start_deg.to_radians() as f32,
                 end_deg.to_radians() as f32,

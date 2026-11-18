@@ -2,7 +2,7 @@
 use crate::contract::{DevtoolsKeys, DevtoolsOverlay, EngineEmulation, KeyChord, OverlayBox};
 use arvane::Engine;
 use arvane_protocol::{
-    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Paint, Plane, RasterGrid,
+    CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
 use kivact_types::geometry3d::Matrix4;
@@ -150,7 +150,7 @@ fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut Engine) -> RenderScene 
     for fill in &overlay.fills {
         commands.push(RenderCmd::Rect {
             rect: fill.rect,
-            fill: Paint::Solid(fill.color),
+            fill: RasterPaint::Solid(fill.color),
         });
     }
     for outline in &overlay.outlines {
@@ -177,7 +177,7 @@ fn push_box(commands: &mut Vec<RenderCmd>, overlay_box: &OverlayBox) {
     for (rect, color) in colors {
         commands.push(RenderCmd::Rect {
             rect,
-            fill: Paint::Solid(color),
+            fill: RasterPaint::Solid(color),
         });
     }
 }
@@ -205,7 +205,7 @@ fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut
             width: shaped.size.width,
             height: shaped.size.height,
         },
-        fill: Paint::Solid(Rgba {
+        fill: RasterPaint::Solid(Rgba {
             r: 0.0,
             g: 0.0,
             b: 0.0,
@@ -216,7 +216,7 @@ fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut
         commands.push(RenderCmd::Glyphs {
             run: run.clone(),
             origin: at,
-            fill: Some(Paint::Solid(white)),
+            fill: Some(RasterPaint::Solid(white)),
             stroke: None,
             order: Default::default(),
         });

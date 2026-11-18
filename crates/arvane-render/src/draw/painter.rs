@@ -8,7 +8,7 @@ use crate::outline::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
 use crate::text;
 use crate::validate::Fonts;
-use arvane_protocol::{GlyphStroke, Group, Paint, RenderCmd, RenderScene};
+use arvane_protocol::{GlyphStroke, Group, RasterPaint, RenderCmd, RenderScene};
 use kivact_types::geometry::Transform;
 use kivact_types::scene::Shape;
 use kivact_types::shaped::FontSource;
@@ -534,7 +534,7 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Fill `area` (with `bounds`) with `paint`.
-    pub(super) fn fill(&mut self, paint: &Paint, bounds: LogicalRect, area: Area<'_>) {
+    pub(super) fn fill(&mut self, paint: &RasterPaint, bounds: LogicalRect, area: Area<'_>) {
         match paint::brush(paint, &mut self.derived, self.device_scale) {
             Brush::Paint(brush, transform) => {
                 self.canvas.set_paint(brush);
@@ -588,7 +588,7 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Stroke a shape's outline with `paint`.
-    fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &Paint) {
+    fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &RasterPaint) {
         let mut path = convert::shape(shape);
         if stroke.cap != kivact_types::LineCap::Butt {
             path = convert::dots(path);
@@ -638,11 +638,11 @@ impl<C: Canvas> Painter<'_, C> {
         &mut self,
         run: &kivact_types::shaped::GlyphRun,
         origin: Point,
-        fill: Option<&Paint>,
+        fill: Option<&RasterPaint>,
         outline: Option<&GlyphStroke>,
         order: PaintOrder,
     ) {
-        let shaped = Paint::Solid(run.color);
+        let shaped = RasterPaint::Solid(run.color);
         let fill = fill.unwrap_or(&shaped);
         match order {
             PaintOrder::FillStroke => {
@@ -661,7 +661,12 @@ impl<C: Canvas> Painter<'_, C> {
     }
 
     /// Fill a glyph run with `paint`.
-    fn glyph_fill(&mut self, run: &kivact_types::shaped::GlyphRun, origin: Point, paint: &Paint) {
+    fn glyph_fill(
+        &mut self,
+        run: &kivact_types::shaped::GlyphRun,
+        origin: Point,
+        paint: &RasterPaint,
+    ) {
         match paint::brush(paint, &mut self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
@@ -670,8 +675,8 @@ impl<C: Canvas> Painter<'_, C> {
             }
             Brush::Paint(brush, transform) => {
                 let solid = match paint {
-                    Paint::Solid(color) => Some(*color),
-                    Paint::Gradient(_) | Paint::Pattern(_) => None,
+                    RasterPaint::Solid(color) => Some(*color),
+                    RasterPaint::Gradient(_) | RasterPaint::Pattern(_) => None,
                 };
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {

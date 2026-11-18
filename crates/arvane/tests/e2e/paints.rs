@@ -1,24 +1,24 @@
-//! Role: Paint rendering contract tests.
+//! Role: RasterPaint rendering contract tests.
 //!
 //! Paints: radial (circle and ellipse) and conic gradients, repeating and
 //! reflected gradients with hard stops, and patterns tiling an image or a
 //! gradient tile in a constant number of commands.
 
-use arvane_protocol::{Gradient, GradientShape, Paint, RenderCmd};
+use arvane_protocol::{GradientShape, RasterGradient, RasterPaint, RenderCmd};
 use kivact_types::scene::Shape;
 use kivact_types::{Extend, Rgba};
 
 use crate::support::{BLUE, RED, assert_near, color, open, pixel, pt, rect, show};
 
-fn fill_rect(x: f64, y: f64, width: f64, height: f64, paint: Paint) -> RenderCmd {
+fn fill_rect(x: f64, y: f64, width: f64, height: f64, paint: RasterPaint) -> RenderCmd {
     RenderCmd::FillShape {
         shape: Shape::Rect(rect(x, y, width, height)),
         paint,
     }
 }
 
-fn gradient(shape: GradientShape, stops: Vec<(f64, Rgba)>, extend: Extend) -> Paint {
-    Paint::Gradient(Gradient {
+fn gradient(shape: GradientShape, stops: Vec<(f64, Rgba)>, extend: Extend) -> RasterPaint {
+    RasterPaint::Gradient(RasterGradient {
         shape,
         stops,
         extend,

@@ -193,7 +193,7 @@ fn stops(stops: &[(f64, Rgba)]) -> bool {
 }
 /// A gradient Arvane draws: valid stops and finite geometry (a conic one
 /// sweeps forward).
-fn gradient(value: &arvane_protocol::Gradient) -> bool {
+fn gradient(value: &arvane_protocol::RasterGradient) -> bool {
     stops(&value.stops)
         && match value.shape {
             arvane_protocol::GradientShape::Linear { start, end } => point(start) && point(end),
@@ -220,10 +220,10 @@ fn gradient(value: &arvane_protocol::Gradient) -> bool {
             } => point(center) && finite(&[start_deg, end_deg]) && end_deg > start_deg,
         }
 }
-pub(crate) fn fill(value: &arvane_protocol::Paint) -> bool {
+pub(crate) fn fill(value: &arvane_protocol::RasterPaint) -> bool {
     match value {
-        arvane_protocol::Paint::Solid(_) => true,
-        arvane_protocol::Paint::Pattern(p) => {
+        arvane_protocol::RasterPaint::Solid(_) => true,
+        arvane_protocol::RasterPaint::Pattern(p) => {
             (match &p.source {
                 arvane_protocol::PatternSource::Gradient(g) => gradient(g),
                 arvane_protocol::PatternSource::Image { .. } => true,
@@ -231,7 +231,7 @@ pub(crate) fn fill(value: &arvane_protocol::Paint) -> bool {
                 && p.tile.width > 0.0
                 && p.tile.height > 0.0
         }
-        arvane_protocol::Paint::Gradient(g) => gradient(g),
+        arvane_protocol::RasterPaint::Gradient(g) => gradient(g),
     }
 }
 /// Whether the commands form contours with finite points and arcs.

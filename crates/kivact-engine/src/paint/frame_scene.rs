@@ -21,7 +21,7 @@ use crate::model::Model;
 use crate::model::drawables::export_of;
 use crate::model::interact::visual;
 use arvane::asset::{PixelSize, fit_image};
-use arvane_protocol::{Composition, LayerEffects, LayerKey, Paint, RenderCmd as D};
+use arvane_protocol::{Composition, LayerEffects, LayerKey, RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
 
@@ -153,7 +153,7 @@ impl Model {
         (p, bounds, canvas)
     }
 
-    /// Paint `step`'s node up to its children: open what it opens, draw its
+    /// RasterPaint `step`'s node up to its children: open what it opens, draw its
     /// box (when its own paint shows), then (inside its clips when it clips)
     /// its canvas scene and its content.
     fn paint_open(
@@ -350,7 +350,7 @@ impl Model {
         }
     }
 
-    /// Paint `step`'s node after its children: its `DrawOver` scene and its
+    /// RasterPaint `step`'s node after its children: its `DrawOver` scene and its
     /// scrollbars, then close what it opened, innermost first.
     fn paint_close(
         &self,
@@ -401,7 +401,7 @@ impl Model {
                 };
                 out.push(D::FillShape {
                     shape: Shape::Rect(rect),
-                    paint: Paint::Solid(tint.color(color)),
+                    paint: RasterPaint::Solid(tint.color(color)),
                 });
             }
         }

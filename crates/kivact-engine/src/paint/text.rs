@@ -149,7 +149,7 @@ impl Model {
                 None => color,
             };
             Colors {
-                glyphs: Some(arvane_protocol::Paint::Solid(color)),
+                glyphs: Some(arvane_protocol::RasterPaint::Solid(color)),
                 decorations: Some(deco),
                 ..Default::default()
             }
