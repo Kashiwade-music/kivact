@@ -68,7 +68,7 @@ use crate::source::{Placement, check_source};
 ///
 /// let source = "fn paint(position: vec2<f32>, context: Context) -> vec4<f32> {\n    return vec4<f32>(1.0, 1.0;\n}\n";
 /// let error = assemble(source, ShaderKind::Paint).unwrap_err();
-/// assert_eq!((error.line, error.column), (2, 30));
+/// assert_eq!(error.position, Some((2, 30)));
 /// ```
 ///
 /// `filter` is a WGSL reserved word, so a filter shader cannot name its entry
@@ -80,7 +80,7 @@ use crate::source::{Placement, check_source};
 ///
 /// let source = "fn filter(position: vec2<f32>, context: Context) -> vec4<f32> {\n    return vec4<f32>(0.0);\n}\n";
 /// let error = assemble(source, ShaderKind::Filter).unwrap_err();
-/// assert_eq!((error.line, error.column), (1, 4));
+/// assert_eq!(error.position, Some((1, 4)));
 /// ```
 pub fn assemble(source: &str, kind: ShaderKind) -> Result<ShaderProgram, ShaderError> {
     check_source(source)?;

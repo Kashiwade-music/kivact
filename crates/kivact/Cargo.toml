@@ -23,7 +23,7 @@ kivact-test = { path = "../kivact-test", version = "0.1.0", optional = true }
 tokio = ["kivact-core/tokio"]
 default = ["gpu", "complex-scripts"]
 complex-scripts = ["dep:arvane-text", "arvane-text/complex-scripts"]
-gpu = ["dep:arvane-compose", "arvane-compose/gpu"]
+gpu = ["dep:arvane-compose", "arvane-compose/gpu", "kivact-core/shader-validation"]
 gpu-interop = ["gpu", "arvane-compose/gpu-interop", "kivact-core/gpu-interop", "kivact-test?/gpu-interop"]
 embed = ["dep:arvane-native", "arvane-native/embed", "kivact-core/embed", "kivact-test?/embed"]
 test = ["dep:kivact-test"]

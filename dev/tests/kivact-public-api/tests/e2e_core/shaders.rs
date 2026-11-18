@@ -11,7 +11,9 @@
 use std::time::Duration;
 
 use kivact::ErrorKind;
-use kivact::draw::{Filter, FilterShader, Paint, PaintShader};
+#[cfg(feature = "gpu")]
+use kivact::draw::Paint;
+use kivact::draw::{Filter, FilterShader, PaintShader};
 use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
@@ -45,6 +47,7 @@ fn gpu_options() -> RenderOptions {
     RenderOptions::from_env().gpu().mirror(MirrorMode::Required)
 }
 
+#[cfg(feature = "gpu")]
 #[test]
 fn invalid_wgsl_reports_line_and_column() {
     // CPU: a syntax error on line 2 at column 9 of the user's source (the
@@ -59,6 +62,7 @@ fn invalid_wgsl_reports_line_and_column() {
     );
 }
 
+#[cfg(feature = "gpu")]
 #[test]
 fn forbidden_bindings_are_rejected() {
     // CPU: a binding of the user, an entry point and a compute entry are
@@ -77,6 +81,7 @@ fn forbidden_bindings_are_rejected() {
     assert_eq!(*filter_error.kind(), ErrorKind::Shader, "{filter_error:?}");
 }
 
+#[cfg(feature = "gpu")]
 #[test]
 fn wrong_entry_signature_is_rejected() {
     // CPU: an entry that returns something but a vec4, or takes a vec3
@@ -114,6 +119,7 @@ fn cpu_draws_the_fallback() {
     expect(&screen.screenshot(), 50, 50, RED, 2, "the fallback");
 }
 
+#[cfg(feature = "gpu")]
 #[test]
 fn param_type_mismatch_is_reported() {
     // CPU: `speed` is an f32, and a vec3 is given for it: the parameter is
@@ -133,6 +139,7 @@ fn param_type_mismatch_is_reported() {
 
 /// A dropped parameter of a fallback shader is reported like one of the
 /// primary shader.
+#[cfg(feature = "gpu")]
 #[test]
 fn fallback_shader_problems_are_reported() {
     let source = "struct Params { speed: f32 }\nfn paint(position: vec2<f32>, context: Context, params: Params) -> vec4<f32> {\n    return vec4<f32>(params.speed, 0.0, 0.0, 1.0);\n}\n";

@@ -88,6 +88,10 @@ fn fits(ty: ParamType, value: &ShaderValue) -> bool {
 
 /// The problem with setting `name` to `value` in `program`'s `Params`, if any.
 fn param_problem(program: &ShaderProgram, name: &str, value: &ShaderValue) -> Option<String> {
+    if !cfg!(feature = "shader-validation") {
+        // Without validation the parameters are unknown; the CPU never runs the shader.
+        return None;
+    }
     match program.params.iter().find(|slot| slot.name == name) {
         None => Some(format!("shader has no parameter `{name}`")),
         Some(slot) if !fits(slot.ty, value) => {
