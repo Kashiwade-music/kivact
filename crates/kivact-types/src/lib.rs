@@ -37,6 +37,7 @@ pub mod scroll;
 pub mod semantics;
 pub mod semantics_text;
 pub mod shaped;
+pub mod style_state;
 pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
@@ -111,6 +112,7 @@ pub use semantics_text::{SemanticsText, SemanticsTextRun, SemanticsTextRuns, Tex
 pub use shaped::{
     InlineBox, InlineBoxPlacement, ShapedInlineText, ShapedText, ShapedTextSnapshot, TextLine,
 };
+pub use style_state::{StateSet, StyleState};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
     PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLen,

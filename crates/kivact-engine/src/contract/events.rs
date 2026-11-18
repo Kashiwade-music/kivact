@@ -7,8 +7,9 @@ use kivact_types::{
 
 /// What the engine tells the client. Every kind goes into one ordered
 /// queue, in the order produced (never one list per kind), handed whole to
-/// each turn: input (`Pointer`, `Wheel`, `File`, `Key`, `Activate`), focus
-/// and hover (`FocusChanged`, `FocusResult`, `HoverChanged`), text editing
+/// each turn: input (`Pointer`, `Wheel`, `File`, `Key`, `Activate`), focus,
+/// hover and the reported states (`FocusChanged`, `FocusResult`, `HoverChanged`,
+/// `StatesChanged`), text editing
 /// (`TextChanged`, `SelectionChanged`), the input method of a node with an
 /// IME session (`Ime`), geometry (`ScrollChanged`,
 /// `LayoutChanged`), assistive technology and dismissal (`A11y`), time and platform answers (`FrameTick`,
@@ -67,6 +68,13 @@ pub enum HostEvent {
     HoverChanged {
         window: WindowId,
         target: Option<kivact_types::FocusTarget>,
+    },
+    /// The host states of a node whose style asked for them
+    /// (`StateStyles::report`) changed: the reported states active now.
+    /// Sent once with the empty set when the node stops asking.
+    StatesChanged {
+        node: NodeId,
+        states: kivact_types::StateSet,
     },
     /// Passive mouse location in logical window pixels, even without a hit.
     MousePosition {

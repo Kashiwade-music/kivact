@@ -49,6 +49,10 @@ pub(crate) struct Model {
     pub(crate) key_down_targets: super::focus::state::KeyDownTargets,
     pub(crate) edits: super::edit::state::Edits,
     pub(crate) motion: super::state_motion::state::StateMotion,
+    /// The reported states last told to the client per node
+    /// (`HostEvent::StatesChanged`), the dedupe cache of S-9. A node is in
+    /// it only while the set told is not empty.
+    pub(crate) reported_states: std::collections::HashMap<NodeId, kivact_types::StateSet>,
     pub(crate) presence: super::presence::state::Presences,
     pub(crate) assets: Rc<RefCell<crate::lower::assets::ArvaneAssets>>,
     /// What the DevTools records, shared by every model and the host.
@@ -107,6 +111,7 @@ impl Model {
             key_down_targets: super::focus::state::KeyDownTargets::default(),
             edits: super::edit::state::Edits::default(),
             motion: super::state_motion::state::StateMotion::default(),
+            reported_states: std::collections::HashMap::new(),
             presence: super::presence::state::Presences::default(),
             assets: Rc::clone(&shared.assets),
             log: shared.log.clone(),
