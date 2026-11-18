@@ -16,9 +16,10 @@
     - 失敗はすべて基点で既に起きていたもので、改修の失敗ではない。直していない。
   - gate のログ：`rework/baseline-gate/`（生成物で commit しない）
 
-## W1a（進行中・ブロック中）
+## W1a 完了（merge 済み・tier b 成功）
+- 設計者の回答（2026-11-18、`rework/OPEN.md` の「設計者の回答」）を受けて解消：S01（構成式の expect）、T01（rg の完了条件）、T02（`kivact-devtools-client` は T13 まで残す）、T04（docs-pairs の 2 件は T17、`dev/README.md:41` は T21）。
+- lane T0（`wt/rw-W1a-T0`）：T01 `5beb3a38`、T02 `e2879bee`、T03 `0a0cc403`、T04 `a75087ab`、T23 `50333d86`、T02 の行末修正 `58206caa`（`workspace.toml` を基点と同じ CRLF に戻した）。merge `39c3c0cb`。
+- lane S（`wt/rw-W1a-S`）：S01 `b0e84c65`、expect の追加 `ceb72b64`（`Deferred::new`・`SharedDeferred::new`）、行末の統一 `aea207ea`（`cell.rs` を LF に。もとは行ごとに CRLF と LF が混在）。merge `7e7e85d3`。
+- tier b（統合 branch、`V:/kv-target/rw-main`、試験は `--no-fail-fast`）：fmt・xtask（`--no-write`）・clippy（workspace all-targets all-features）・`kivact-docs` の check は成功。test は失敗 1 件（`chat_keyboard`、基点の失敗と同じ。`rework/OPEN.md`）。それ以外は成功。GPU E2E は KIVACT_TEST_GPU を付けない tier b の形で実行（基点の 4 件は tier c で見る）。
 - worktree の作り方の注意：submodule `vendor/xtask-core` の初期化は、worktree では `git -c protocol.file.allow=always submodule update --init vendor/xtask-core` が要る（既定の file transport の禁止）。
-- lane T0（`wt/rw-W1a-T0`、worktree `W:/w/kv-wt/rw-W1a-T0`、target `V:/kv-target/rw-T0`）：T01 `5beb3a38`、T02 `e2879bee`、T03 `0a0cc403`、T04 `a75087ab`、T23 `50333d86`。すべて commit 済み。いずれも差戻しが付く（`rework/OPEN.md` の「差戻し」）。
-- lane S（`wt/rw-W1a-S`、worktree `W:/w/kv-wt/rw-W1a-S`、target `V:/kv-target/rw-S`）：S01 `b0e84c65` は clippy の `disallowed_types` で失敗（差戻し）。統合 branch には merge しない。
-- 統合 branch へは W1a を merge していない。全 lane が完了し差戻しが解けるまで、merge と tier b は行わない（作業指示書 1.3）。
-- 次の判断（設計者）：S01 の構成式の覆い方、T01 の rg 条件、T02 の visible_to の `kivact-devtools-client`、T04 の 2 件（`dev/README.md:41` と jp の docs-pairs 2 件）。解けたら W1a の merge → tier b → W1b へ進む。
+- 行末の注意：この環境は `core.autocrlf=true`。CRLF の blob を commit するときは `git -c core.autocrlf=false add` と `commit` を使う（でないと LF に戻る）。
