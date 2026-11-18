@@ -570,6 +570,7 @@ lane D1 と D2 と C（C01・C02）は同じ wave（W2b）で並ぶ。root `Carg
 - **wave / lane / 前提**：W2b / D2 / D02
 - **所有**：root `Cargo.toml` の `[workspace.dependencies]` の `pollster =` の行、`crates/arvane-native/Cargo.toml` の `rfd =` の行、`crates/arvane-native/src/port/win32/services.rs`（comment 1 行）、`Cargo.lock`
 - **目的**：設計 12.2 の rfd 0.18 と pollster 1.0。rfd 0.18.0 の Linux の portal の経路は `pollster ^1.0`、rfd 0.17.2 は `pollster ^0.4` を使うので、**同じ unit で両方を上げる**（片方だけだと pollster が二重になる）。pollster 1.0.2 は再入の deadlock を直す。
+  rfd 0.18.0 は macOS で `objc2-uniform-type-identifiers` 0.3 を直接使うので、lock に 0.3.2 が入り、既にある 0.2.2（iOS の `objc2-ui-kit` 0.2.2 の依存。winit 0.30 の objc2 0.5 系の経路）と lock の上で二重になる。この二重は**許容する**：2 つの版は別の target（0.3.2 は macOS、0.2.2 は iOS）でしか build されず、一つの target の binary に両方が入ることは無いので、K6（binary の大きさ）は後退しない。objc2 0.5 と 0.6 の系（`objc2`・`objc2-foundation`・`objc2-app-kit`・`block2` など）は既に同じ理由で二重で、winit が objc2 0.6 に移るまで残る（12 章の外）。
 - **手順**：
   0. 1.3 節の DUP-BEFORE を実行する。
   1. root `Cargo.toml` の `[workspace.dependencies]`：`pollster = "0.4.0"` → `pollster = "1.0.2"`。
@@ -602,7 +603,7 @@ lane D1 と D2 と C（C01・C02）は同じ wave（W2b）で並ぶ。root `Carg
   Linux の target の check の失敗の扱いは D02 と同じ（WSL の形。`rw-D2-linux` の target を使う）。`gpu_on_demand::` は GPU が無ければ `gpu_unavailable` の理由で skip する試験を含む（skip は成功に数える。0 件の実行は失敗）。最後に 1.3 節の DUP-AFTER。
 - **完了条件**：
   - 手順 3 の出力が 2 行のとおり。
-  - DUP-AFTER の 1 つ目と 2 つ目の `comm` が空。
+  - DUP-AFTER の 1 つ目の `comm` が `"objc2-uniform-type-identifiers" 2` の 1 行だけ（目的に書いた、許容する二重）。`cargo tree -i objc2-uniform-type-identifiers@0.3.2 --target all -e normal,build` が rfd 0.18.0 と `objc2-app-kit` 0.3.2 の経路だけを示す。それ以外の行が出たら 1.3 節のとおり STOP。2 つ目の `comm` は空。
   - 上の確認のコマンドがすべて成功した。
 
 ## D04：arboard、svgtypes、flate2 を上げる
@@ -712,7 +713,7 @@ C01・C02 の所有（core の DevTools、`kivact-offscreen`、core・kivact の
 ## 5. 自己点検
 
 - 設計 12.2 の「いま上げる群」の全 crate が unit か理由のある見送りにある：taffy（D01）、accesskit・accesskit_winit・accesskit_windows・accesskit_unix（D02）、rfd・pollster（D03）、arboard・svgtypes・flate2（D04）、zbus（見送り、6.3 節）、xim（見送り、6.3 節）。「待つ群」は 6 章（unit なし）。
-- 各 unit は K6 の確認（DUP-BEFORE・DUP-AFTER）と、`Cargo.lock` の版の確認を持つ。二重を作る組合せ（pollster と rfd、xim と x11rb、zbus と accesskit_unix）は同じ unit にするか見送った。
+- 各 unit は K6 の確認（DUP-BEFORE・DUP-AFTER）と、`Cargo.lock` の版の確認を持つ。二重を作る組合せ（pollster と rfd、xim と x11rb、zbus と accesskit_unix）は同じ unit にするか見送った。D03 の `objc2-uniform-type-identifiers`（0.2.2 は iOS、0.3.2 は macOS）は、別の target でしか build されない lock の上だけの二重なので許容した（D03 の目的）。
 - 設計の判断を実装者に残していない：版、Cargo.toml の文字列、コードの差し替え、試験、E2E の module と binary、Linux の check の代わりの経路（作業指示書 0.6 の規則のとおり）をすべて書いた。D01 の挙動の違いは 4.4 節で決めた。
 - 同じ wave の二つの unit が同じ file を持たない：D01（lane D1）と D02〜D04（lane D2）は crate の file を共有しない。root `Cargo.toml` と `Cargo.lock` だけは行・項目の単位で C・D1・D2 が分け、merge の後の版の確認を 4.2 節に書いた。lane D2 の中の三つは直列。
 - 互換のコードは無い（`accesskit::Tree` の別名を使わず `TreeInfo` にする。`RoundTree` の空の実装を残さない）。新しい依存の crate は足さない（taffy 0.15 が引く `smallvec` は既に lock にある）。`#[allow]`・`#[expect]`・`xtask-allow` は足さない。

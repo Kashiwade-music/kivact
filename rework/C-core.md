@@ -149,7 +149,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          /// `text` in the pseudo-locale, when one is on.
          fn pseudo(&self, text: String) -> String;
          /// The overrides and forced states of node `id`.
-         fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> StyleHook;
+         fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> Rc<dyn NodeStyleHook>;
      }
 
      /// The DevTools hooks of `rt`'s App; `None` without DevTools.
@@ -228,47 +228,44 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      }
 
      /// The style overrides and forced states of one node, read by its style
-     /// effect. `Off` for every node of an App without DevTools.
+     /// effect. Empty for every node of an App without DevTools.
      #[derive(Clone)]
-     pub(crate) enum StyleHook {
-         Off,
-         On {
-             /// The parsed overrides of the node (tracked: it reads the
-             /// DevTools override signal), merged over its style.
-             overrides: Rc<dyn Fn() -> Option<Style>>,
-             forced: Value<ForcedStates>,
-         },
+     pub(crate) struct StyleHook(Option<Rc<dyn NodeStyleHook>>);
+
+     /// What DevTools does to the style of one node. Implemented by the DevTools
+     /// inspector only.
+     pub(crate) trait NodeStyleHook {
+         /// `style` with the node's overrides merged over it (tracked: it reads
+         /// the DevTools override signal).
+         fn apply(&self, style: Style) -> Style;
+         /// The states a tool forces on the node.
+         fn forced(&self) -> ForcedStates;
      }
 
      impl StyleHook {
          /// The hook of node `id`.
          pub(crate) fn new(rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> StyleHook {
-             match hooks(rt) {
-                 Some(h) => h.style_hook(rt, owner, id, at),
-                 None => StyleHook::Off,
-             }
+             StyleHook(hooks(rt).map(|h| h.style_hook(rt, owner, id, at)))
          }
 
          /// Apply the node's overrides over `style`.
          pub(crate) fn apply(&self, style: Style) -> Style {
-             match self {
-                 StyleHook::Off => style,
-                 StyleHook::On { overrides, .. } => match overrides() {
-                     Some(over) => style.merge(&over),
-                     None => style,
-                 },
+             match &self.0 {
+                 Some(hook) => hook.apply(style),
+                 None => style,
              }
          }
 
          /// The states a tool forces on the node.
          pub(crate) fn forced(&self) -> ForcedStates {
-             match self {
-                 StyleHook::Off => ForcedStates::default(),
-                 StyleHook::On { forced, .. } => forced.get(),
+             match &self.0 {
+                 Some(hook) => hook.forced(),
+                 None => ForcedStates::default(),
              }
          }
      }
      ```
+     `StyleHook` は enum にしない：view の中で作らない variant は、devtools 無しの build で `dead_code`（never constructed）になる。`StyleHook` の値は view が作り（`None` か、DevTools が返す trait object）、DevTools の型は view に現れない。
      消すもの（旧ファイルにあり、新しい内容に無いもの）：`prop_written`（自由関数）、`is_running`、`wrap_capabilities`（自由関数）、`input_description`（次の手順で `devtools/hooks.rs` へ移す）、`#[cfg(not(feature = "devtools"))]` の stub すべて。
   5. 新しい `devtools/hooks.rs` を作る。旧 `view/devtools_hooks.rs` の `#[cfg(feature = "devtools")]` 側の本体を、`impl DevtoolsHooks for Inspector` の method に移す。規則：
      - 各関数の先頭の `let DevtoolsState::Running(i) = DevtoolsState::of(rt) else { return ...; };` を消し、`i` を `self` に読み替える（`i.hooks.x` → `self.hooks.x`、`i.session.x` → `self.session.x`）。
@@ -288,29 +285,48 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
            })
        }
        ```
-     - `style_hook` の本体：旧 `StyleHook::new` の devtools 側。`Style` は `PartialEq` を実装しない（`kivact-style/src/sheet/fields.rs` の `#[derive(Clone, Debug, Default)] pub struct Style`）ので memo にしない。解析した `Style` を返す closure を渡し、node の style effect がそれを呼ぶ（読みは effect に追跡される）：
+     - `style_hook` の本体：旧 `StyleHook::new` の devtools 側。`Style` は `PartialEq` を実装しない（`kivact-style/src/sheet/fields.rs` の `#[derive(Clone, Debug, Default)] pub struct Style`）ので memo にしない。node ごとの `NodeHook`（private の struct。`impl DevtoolsHooks for Inspector` の後に置く）を返し、node の style effect がその `apply` を呼ぶ（override の signal の読みは effect に追跡される）。`use` に `kivact_style::internal::ForcedStates`、`kivact_style::Style`、`crate::view::devtools_hooks::NodeStyleHook` を足す：
        ```rust
-       fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> StyleHook {
-           let sites = super::apply::call_sites(rt, owner, Some(at));
-           let overrides = self.hooks.overrides;
+       fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> Rc<dyn NodeStyleHook> {
            let forced = self.hooks.forced;
-           StyleHook::On {
-               overrides: Rc::new(move || {
-                   let pairs = super::apply::node_overrides(&overrides.get(), id, &sites);
-                   let mut merged: Option<Style> = None;
-                   for (property, value) in pairs {
-                       if let Ok(over) = super::apply::override_style(&property, &value) {
-                           merged = Some(match merged {
-                               Some(style) => style.merge(&over),
-                               None => over,
-                           });
-                       }
-                   }
-                   merged
-               }),
+           Rc::new(NodeHook {
+               id,
+               sites: super::apply::call_sites(rt, owner, Some(at)),
+               overrides: self.hooks.overrides,
                forced: owner.with_setup(|| {
                    kivact_runtime::memo(move || forced.with(|all| all.get(&id).copied().unwrap_or_default()))
                }),
+           })
+       }
+
+       /// The DevTools style hook of one node.
+       struct NodeHook {
+           id: NodeId,
+           sites: Vec<&'static Location<'static>>,
+           overrides: Signal<Vec<p::StyleOverride>>,
+           forced: Value<ForcedStates>,
+       }
+
+       impl NodeStyleHook for NodeHook {
+           fn apply(&self, style: Style) -> Style {
+               let pairs = super::apply::node_overrides(&self.overrides.get(), self.id, &self.sites);
+               let mut merged: Option<Style> = None;
+               for (property, value) in pairs {
+                   if let Ok(over) = super::apply::override_style(&property, &value) {
+                       merged = Some(match merged {
+                           Some(style) => style.merge(&over),
+                           None => over,
+                       });
+                   }
+               }
+               match merged {
+                   Some(over) => style.merge(&over),
+                   None => style,
+               }
+           }
+
+           fn forced(&self) -> ForcedStates {
+               self.forced.get()
            }
        }
        ```
@@ -433,7 +449,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      ```
   12. compile error が残る箇所（`DevtoolsState::Running(i)` の `i` が `&Box<Inspector>` から `&Rc<Inspector>` に変わる、`hooks(rt)` の引数）を直す。`client/dispatch/*` の `crate::view::devtools_hooks::{handler_ran,input_event,focus_changed,focus_result,host_event}` と `view/requests.rs` の `focus_requested`、`view/boundary.rs` の `pseudo` は自由関数の名前と引数が同じなので変えない。
 - **消すもの**：`is_running`、自由関数 `prop_written`・`wrap_capabilities`、`devtools_hooks.rs` の cfg の stub 全部（約 20 組）、`view.rs` の 3 つの cfg 付き `mod`。
-- **状態の閉じ方**：`ViewState.devtools`・`ViewNodes.devtools` は constructor だけが書く（6.1 節「constructor だけで書く field は状態ではない」）。`StyleHook` は enum（`Off`/`On`）。印は要らない。
+- **状態の閉じ方**：`ViewState.devtools`・`ViewNodes.devtools` は constructor だけが書く（6.1 節「constructor だけで書く field は状態ではない」）。`StyleHook` は `Option` の 1 field の値（node の mount で一度だけ作る）、`NodeHook` は constructor だけが書く。印は要らない。
 - **試験**：足す試験は無い。既存の `e2e_native` の `devtools.rs`（`a_devtools_client_inspects_drives_and_reviews_a_test_app`）と、locale emulation の試験がそのまま通ること。
 - **確認（tier a）**：
   ```sh
@@ -1278,76 +1294,56 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
        }
        ```
        `p::OverrideScope` が上の 2 つ以外の variant を持つ場合（`rg -n "enum OverrideScope" -A12 crates/kivact-devtools-protocol/src` で見る）、旧 `node_overrides` の `_ => {}` と同じく何もしない arm `_ => {}` を足す。`NodeId(node)` の構築は旧コードの `*node == id.0` の比較に合わせる。
-     - `view/devtools_hooks.rs` の `StyleHook` を次にする（C01 の `On` を置き換える）：
+     - `devtools/hooks.rs` の `NodeHook`（C01）を次にする（field の `overrides` を消し、`table`・`changed` を足す）。`view/devtools_hooks.rs` の `StyleHook`・`NodeStyleHook` は変えない。`NodeOverrides` は `super::state` から読む：
        ```rust
-       #[derive(Clone)]
-       pub(crate) enum StyleHook {
-           Off,
-           /// The node and its call sites; its overrides are looked up in the
-           /// App's one table, and only when the table is not empty.
-           Node {
-               id: NodeId,
-               sites: Rc<[&'static Location<'static>]>,
-               table: Rc<std::cell::RefCell<NodeOverrides>>,
-               changed: kivact_runtime::Notifier,
-               forced: Value<ForcedStates>,
-           },
+       /// The DevTools style hook of one node: its call sites; its overrides are
+       /// looked up in the App's one table, and only when the table is not empty.
+       struct NodeHook {
+           id: NodeId,
+           sites: Vec<&'static Location<'static>>,
+           table: Rc<std::cell::RefCell<NodeOverrides>>,
+           changed: kivact_runtime::Notifier,
+           forced: Value<ForcedStates>,
        }
 
-       impl StyleHook {
-           /// The hook of node `id`.
-           pub(crate) fn new(rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> StyleHook {
-               match hooks(rt) {
-                   Some(h) => h.style_hook(rt, owner, id, at),
-                   None => StyleHook::Off,
-               }
-           }
-
-           /// Apply the node's overrides over `style`.
-           pub(crate) fn apply(&self, style: Style) -> Style {
-               let StyleHook::Node { id, sites, table, changed, .. } = self else {
-                   return style;
-               };
-               changed.track();
-               let table = table.borrow();
+       impl NodeStyleHook for NodeHook {
+           fn apply(&self, style: Style) -> Style {
+               self.changed.track();
+               let table = self.table.borrow();
                if table.by_node.is_empty() && table.by_site.is_empty() {
                    return style;
                }
                let mut style = style;
                for (file, line, column, over) in &table.by_site {
-                   if sites.iter().any(|s| s.file() == file && s.line() == *line && s.column() == *column) {
+                   if self.sites.iter().any(|s| s.file() == file && s.line() == *line && s.column() == *column) {
                        style = style.merge(over);
                    }
                }
-               if let Some(over) = table.by_node.get(id) {
+               if let Some(over) = table.by_node.get(&self.id) {
                    style = style.merge(over);
                }
                style
            }
 
-           /// The states a tool forces on the node.
-           pub(crate) fn forced(&self) -> ForcedStates {
-               match self {
-                   StyleHook::Off => ForcedStates::default(),
-                   StyleHook::Node { forced, .. } => forced.get(),
-               }
+           fn forced(&self) -> ForcedStates {
+               self.forced.get()
            }
        }
        ```
        （順序は旧 `node_overrides` と同じ：call site の override が先、node の override が後で勝つ。）
      - `devtools/hooks.rs` の `style_hook`：
        ```rust
-       fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> StyleHook {
+       fn style_hook(&self, rt: &Rc<Runtime>, owner: Owner, id: NodeId, at: &'static Location<'static>) -> Rc<dyn NodeStyleHook> {
            let forced = self.hooks.forced;
-           StyleHook::Node {
+           Rc::new(NodeHook {
                id,
-               sites: Rc::from(super::apply::call_sites(rt, owner, Some(at))),
+               sites: super::apply::call_sites(rt, owner, Some(at)),
                table: self.hooks.node_overrides.clone(),
                changed: self.hooks.node_overrides_changed,
                forced: owner.with_setup(|| {
                    kivact_runtime::memo(move || forced.with(|all| all.get(&id).copied().unwrap_or_default()))
                }),
-           }
+           })
        }
        ```
        node ごとの memo は `forced` の 1 つだけになり、override の解析は override の一覧が変わったときに一度だけになる。
@@ -1393,7 +1389,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      };
      ```
      `fn input_origin(event: &HostEvent) -> Option<InputOrigin>` は `input_description` の隣に置き、`HostEvent::Pointer(route) | Wheel(route) | Key(route) | File(route)` の `route.origin` を返す（`Ime` は `None`）。
-- **消すもの**：`AgentSlot::{Off, Running}`、`SessionData.sent_tree`、`current_nodes`、`apply::node_overrides`、`StyleHook::On`、`errors_sent` の `Sent`、`input_event` の `pending` の走査、`after_mount` の中の engine の key の設定（昇格へ移る）。
+- **消すもの**：`AgentSlot::{Off, Running}`、`SessionData.sent_tree`、`current_nodes`、`apply::node_overrides`、C01 の `NodeHook` の `overrides` field、`errors_sent` の `Sent`、`input_event` の `pending` の走査、`after_mount` の中の engine の key の設定（昇格へ移る）。
 - **状態の閉じ方**：`AgentSlot` は enum。`Inspector` は既存の `HookData`・`SessionData`（DevTools の記録。field の多くは独立な記録の表）で、名前が `Data` で終わる。W1 の T の新しい `state` 検査で対象になる場合、`HookData` の上に `// xtask-allow(state): DevTools の記録の表の集まり。各表は別の購読・記録の設定が書き、互いの値から導かれない`、`SessionData` の上に `// xtask-allow(state): DevTools の session の表の集まり。待ちの呼出し・frame・overlay・snapshot は別々の要求が書く` を置く。`NodeOverrides` は値（`&mut self` の method なし）。
 - **試験**：`e2e_native` の `devtools.rs` の `a_devtools_client_inspects_drives_and_reviews_a_test_app` が通る（agent が後から起動しても `devtools_target` が待つ）。足す試験は無い。
 - **確認（tier a）**：
