@@ -202,7 +202,7 @@ fn build_graph(
 
 /// The agent's name hint for a source location.
 fn hint(i: &Inspector, at: &'static Location<'static>) -> Option<String> {
-    i.agent.borrow_mut().name_hint(&convert::location(at))
+    i.ready_agent().name_hint(&convert::location(at))
 }
 
 /// One cause graph while it is assembled.

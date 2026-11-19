@@ -251,7 +251,8 @@ fn wait(rt: &Runtime, by: QueryBy, reply: Responder) {
 }
 
 /// Answer the `find_*` calls whose element appeared or whose deadline passed.
-pub(super) fn after_turn(rt: &Runtime) {
+/// A turn that changed no node only checks the deadlines.
+pub(super) fn after_turn(rt: &Runtime, tree_changed: bool) {
     let i = DevtoolsState::inspector(rt);
     let pending = std::mem::take(&mut *i.session.pending.borrow_mut());
     for item in pending {
@@ -265,6 +266,19 @@ pub(super) fn after_turn(rt: &Runtime) {
             i.session.pending.borrow_mut().push(item);
             continue;
         };
+        if !tree_changed {
+            if rt.now_ns() >= deadline_ns {
+                reply.send(Err(timed_out()));
+            } else {
+                i.session.pending.borrow_mut().push(Pending::Find {
+                    by,
+                    window,
+                    deadline_ns,
+                    reply,
+                });
+            }
+            continue;
+        }
         let found = match search(rt, &by) {
             Ok(found) => found,
             Err(error) => {

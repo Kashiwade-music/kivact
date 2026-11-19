@@ -304,7 +304,7 @@ fn handler_info(handlers: Option<&Handlers>) -> Vec<p::HandlerInfo> {
 fn why_props(rt: &Runtime, id: NodeId) -> Vec<p::WhyProp> {
     let why = explain(rt, id);
     let i = DevtoolsState::inspector(rt);
-    let mut agent = i.agent.borrow_mut();
+    let mut agent = i.ready_agent();
     why.props
         .iter()
         .map(|prop| why_prop(&mut agent, prop))
