@@ -2,14 +2,14 @@
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
-use crate::toolbar::ToolbarEdge;
+
 use kivact_core::style::{Align, Color, Direction, Justify, Length, Track, pct, style};
 use kivact_core::view::Orientation;
 pub(crate) fn root_style(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToolbarState>,
+    look: &crate::variants::Look<ToolbarState>,
 ) -> kivact_core::style::Style {
-    let t = &theme.ext::<crate::UiTokens>().toolbar;
+    let t = &theme.ext::<crate::tokens::UiTokens>().toolbar;
     let vertical = look.orientation == Orientation::Vertical;
     let mut base = style()
         .background(t.background)
@@ -88,4 +88,13 @@ recipe_table! {
     ToolbarRecipes {
         root(root_recipe): ToolbarState = root_style,
     }
+}
+
+/// Logical edges on which a toolbar draws a divider.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ToolbarEdge {
+    Top,
+    Bottom,
+    Start,
+    End,
 }

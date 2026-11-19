@@ -7,7 +7,7 @@ use kivact_core::style::{Align, Direction, style};
 use kivact_core::view::Orientation;
 pub(crate) fn toggle_root(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupState>,
+    look: &crate::variants::Look<ToggleGroupState>,
 ) -> kivact_core::style::Style {
     style()
         .direction(if look.orientation == Orientation::Vertical {
@@ -18,19 +18,17 @@ pub(crate) fn toggle_root(
             Direction::Row
         })
         .align_items(Align::Stretch)
-        .gap(
-            look.spacing
-                .map_or(theme.ext::<crate::UiTokens>().toggle_group.gap, |spacing| {
-                    spacing * 4.0
-                }),
-        )
+        .gap(look.spacing.map_or(
+            theme.ext::<crate::tokens::UiTokens>().toggle_group.gap,
+            |spacing| spacing * 4.0,
+        ))
 }
 
 pub(crate) fn toggle_item(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupItemState>,
+    look: &crate::variants::Look<ToggleGroupItemState>,
 ) -> kivact_core::style::Style {
-    crate::toggle_button::look::toggle_button(theme, &crate::Look::new(look.toggle))
+    crate::toggle_button::look::toggle_button(theme, &crate::variants::Look::new(look.toggle))
 }
 
 /// Passive spacing for toggle groups.

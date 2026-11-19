@@ -86,7 +86,7 @@ pub(crate) fn toast_close(t: &Theme, _: &ToastState) -> Style {
 
 /// Shared by all kits: the row owns size presence independently of card paint.
 pub(crate) fn toast_row(t: &Theme, _: &PartState) -> Style {
-    let tokens = t.ext::<crate::UiTokens>();
+    let tokens = t.ext::<crate::tokens::UiTokens>();
     let motion = &tokens.toast.row_motion;
     let base = style()
         .shrink(0)

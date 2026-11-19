@@ -1,6 +1,6 @@
 //! Role: The date parts recipe state, tokens, recipe table and default looks.
 
-use crate::UiTokens;
+use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
 pub(crate) fn input(t: &Theme, _: &PartState) -> Style {

@@ -1,7 +1,7 @@
 //! Role: The dropzone recipe state, tokens, recipe table and default looks.
 
-use crate::UiTokens;
 use crate::recipe::recipe_table;
+use crate::tokens::UiTokens;
 use kivact_core::style::{Align, BorderStyle, ColorToken, Direction, Style, Theme, style};
 use kivact_interaction::DropzoneState;
 pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {

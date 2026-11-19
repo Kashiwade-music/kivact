@@ -1,5 +1,4 @@
 //! Role: The card recipe state, tokens, recipe table and default looks.
-use crate::card::CardAction;
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
@@ -113,4 +112,23 @@ recipe_table! {
         footer(footer_recipe): CardState = card_region,
         overlay(overlay_recipe): CardState = card_overlay,
     }
+}
+
+/// What activating a card does, with the actual input of the part that does it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CardAction {
+    /// A plain surface; nothing activates it.
+    Plain,
+    /// Pressing activates it ([`Card::on_press`](super::Card::on_press)).
+    Press {
+        /// The actual input state of the card's button part.
+        input: kivact_core::custom::PartState,
+    },
+    /// It is a check box ([`Card::selected`](super::Card::selected)).
+    Select {
+        /// The actual input state of the card's check box part.
+        input: kivact_core::custom::PartState,
+        /// Whether the card is selected.
+        selected: bool,
+    },
 }

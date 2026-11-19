@@ -1,7 +1,7 @@
 //! Role: The table recipe state, tokens, recipe table and default looks.
 
-use crate::UiTokens;
 use crate::recipe::recipe_table;
+use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
 pub(crate) fn table(t: &Theme, _: &PartState) -> Style {

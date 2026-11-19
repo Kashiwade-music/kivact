@@ -6,7 +6,7 @@ use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
 use kivact_core::view::{ReadingDirection, use_direction};
 pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
     let rtl = use_direction().get() == ReadingDirection::Rtl;
-    let tokens = t.ext::<crate::UiTokens>();
+    let tokens = t.ext::<crate::tokens::UiTokens>();
     let tree = &tokens.tree;
     let padding = tree.padding.unwrap_or(t.space().md);
     let indent = padding + row.level.saturating_sub(1) as f64 * tree.indent.unwrap_or(16.0);
@@ -30,7 +30,12 @@ pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
 
 pub(crate) fn tree_marker(t: &Theme, _: &TreeRowRecipeState) -> Style {
     style()
-        .width(t.ext::<crate::UiTokens>().tree.marker_width.unwrap_or(16.0))
+        .width(
+            t.ext::<crate::tokens::UiTokens>()
+                .tree
+                .marker_width
+                .unwrap_or(16.0),
+        )
         .shrink(0)
 }
 

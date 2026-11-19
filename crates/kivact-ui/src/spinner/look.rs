@@ -1,7 +1,7 @@
 //! Role: The spinner recipe state, tokens, recipe table and default looks.
 use crate::look_common::side;
 
-use crate::ControlSize;
+use crate::control_size::ControlSize;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{ColorToken, Style, Theme, style};

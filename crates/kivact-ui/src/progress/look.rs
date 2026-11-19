@@ -2,9 +2,8 @@
 use crate::look_common::metric_height;
 
 use crate::control_size::ControlSize;
-use crate::progress::ProgressVariant;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
+use crate::variants::{Look, Variant};
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::{Point, Rect};
 use kivact_core::motion::Easing;
@@ -183,7 +182,7 @@ pub struct ProgressMotion {
     pub reduced_period_ms: Option<u64>,
 }
 
-impl crate::Variant for ProgressMotion {}
+impl crate::variants::Variant for ProgressMotion {}
 
 impl Default for ProgressMotion {
     fn default() -> Self {
@@ -214,3 +213,17 @@ recipe_table! {
         label(label_recipe): ProgressState = progress_label,
     }
 }
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+
+impl Variant for ProgressVariant {}

@@ -1,7 +1,6 @@
 //! Role: The button recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
 
-use crate::button::ButtonVariant;
 use crate::control_size::ControlSize;
 use crate::variants::Look;
 use kivact_core::custom::PartState;
@@ -205,3 +204,32 @@ impl Default for ButtonBusyMotion {
 pub struct ButtonTokens {
     pub busy_motion: ButtonBusyMotion,
 }
+
+/// What a button does, which its recipe draws (shadcn's `variant`).
+///
+/// These are meanings every theme draws; a kit's own looks (a tone, a
+/// shape) are further [`Variant`](super::Variant) values:
+/// [`Button::variant`](super::Button::variant) takes this and a kit's type
+/// alike, and a recipe reads each with
+/// [`Look::variant`](super::Look::variant) (a button without a
+/// `ButtonVariant` is the default, `Primary`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ButtonVariant {
+    /// The main action of its area, filled with the accent.
+    #[default]
+    Primary,
+    /// A secondary action on the surface.
+    Secondary,
+    /// A bordered button on the surface for a secondary action beside a
+    /// primary one; the default look is a 1px border on the surface.
+    Outline,
+    /// A button with no fill until it is hovered, for toolbars and quiet actions.
+    Ghost,
+    /// An action that destroys or removes something.
+    Danger,
+    /// A text-only button in the accent color that reads as an inline link;
+    /// the default look underlines it only while hovered.
+    Link,
+}
+
+impl crate::variants::Variant for ButtonVariant {}

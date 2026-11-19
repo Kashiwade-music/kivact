@@ -1,9 +1,9 @@
 //! Role: The chat message recipe state, tokens, recipe table and default looks.
-use crate::chat_message::{ChatMessageStatus, ChatSender};
 use crate::look_common::{column, row};
 
 use crate::recipe::recipe_table;
-use crate::{ChatAlign, ChatBubbleGroup, ChatMessageVariant, ChatReactionsSide, Look};
+use crate::variants::Look;
+use crate::variants::Variant;
 use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
 pub(crate) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
     style()
@@ -103,19 +103,82 @@ pub struct ChatMessageState {
 recipe_table! {
     /// Styles for the persistent parts of ChatMessage.
     ChatMessageRecipes {
-        root(root_recipe): crate::ChatMessageState = message_root,
-        body(body_recipe): crate::ChatMessageState = message_body,
-        author(author_recipe): crate::ChatMessageState = author,
-        time(time_recipe): crate::ChatMessageState = crate::look_common::muted,
-        status(status_recipe): crate::ChatMessageState = crate::look_common::muted,
-        content(content_recipe): crate::ChatMessageState = crate::look_common::slot,
-        avatar(avatar_recipe): crate::ChatMessageState = crate::look_common::slot,
-        header(header_recipe): crate::ChatMessageState = crate::look_common::slot,
-        footer(footer_recipe): crate::ChatMessageState = crate::look_common::slot,
-        metadata(metadata_recipe): crate::ChatMessageState = crate::look_common::slot,
-        media(media_recipe): crate::ChatMessageState = crate::look_common::slot,
-        icon(icon_recipe): crate::ChatMessageState = crate::look_common::slot,
-        actions(actions_recipe): crate::ChatMessageState = crate::look_common::slot,
-        reactions(reactions_recipe): crate::ChatMessageState = reactions,
+        root(root_recipe): ChatMessageState = message_root,
+        body(body_recipe): ChatMessageState = message_body,
+        author(author_recipe): ChatMessageState = author,
+        time(time_recipe): ChatMessageState = crate::look_common::muted,
+        status(status_recipe): ChatMessageState = crate::look_common::muted,
+        content(content_recipe): ChatMessageState = crate::look_common::slot,
+        avatar(avatar_recipe): ChatMessageState = crate::look_common::slot,
+        header(header_recipe): ChatMessageState = crate::look_common::slot,
+        footer(footer_recipe): ChatMessageState = crate::look_common::slot,
+        metadata(metadata_recipe): ChatMessageState = crate::look_common::slot,
+        media(media_recipe): ChatMessageState = crate::look_common::slot,
+        icon(icon_recipe): ChatMessageState = crate::look_common::slot,
+        actions(actions_recipe): ChatMessageState = crate::look_common::slot,
+        reactions(reactions_recipe): ChatMessageState = reactions,
     }
 }
+
+/// The participant role; the author name remains caller supplied text.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatSender {
+    User,
+    #[default]
+    Assistant,
+    System,
+}
+
+/// Delivery state of a message.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChatMessageStatus {
+    Sending,
+    Sent,
+    Delivered,
+    Read,
+    Error,
+}
+
+/// A built-in chat appearance, interpreted by recipes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatMessageVariant {
+    #[default]
+    Bubble,
+    Plain,
+}
+
+impl Variant for ChatMessageVariant {}
+
+/// The edge at which chat content is aligned.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatAlign {
+    #[default]
+    Start,
+    End,
+}
+
+/// Joining position of a bubble in a group from the same participant.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatBubbleGroup {
+    #[default]
+    Single,
+    First,
+    Middle,
+    Last,
+}
+
+/// The edge a message's reaction slot overlaps.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatReactionsSide {
+    Top,
+    #[default]
+    Bottom,
+}
+
+kivact_core::state::constant_value!(
+    ChatSender,
+    ChatBubbleGroup,
+    ChatReactionsSide,
+    ChatMessageStatus,
+    ChatAlign
+);
