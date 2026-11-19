@@ -424,7 +424,7 @@ impl Reader {
             ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
-                let Some(editor) = model.editors[slot.0.0].as_deref() else {
+                let Some(editor) = model.slots.editors[slot.0.0].as_deref() else {
                     return ImeStateInfo::Focused {
                         node: id,
                         purpose,

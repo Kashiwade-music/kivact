@@ -44,7 +44,7 @@ fn reach_local(
         ..bounds
     };
     let glyphs = match n.kind() {
-        _ if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() => {
+        _ if n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some() => {
             text_reach(host, id)
         }
         _ => 0.0,
@@ -89,7 +89,7 @@ pub(super) fn drawn(
     layout: &NodeLayout,
     generation: Generation,
 ) -> Option<Drawn> {
-    if let Some(kept) = host.paint.ink[n.index.0].get()
+    if let Some(kept) = host.slots.ink[n.index.0].get()
         && kept.generation == generation
         && kept.size == layout.size
         && kept.content == layout.content_size
@@ -116,7 +116,7 @@ pub(super) fn drawn(
             beyond: local.beyond || spatial,
         }
     });
-    host.paint.ink[n.index.0].set(Some(Ink {
+    host.slots.ink[n.index.0].set(Some(Ink {
         rect: drawn,
         size: layout.size,
         content: layout.content_size,

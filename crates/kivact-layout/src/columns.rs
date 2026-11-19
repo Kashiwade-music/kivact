@@ -305,9 +305,9 @@ impl Default for NodeLayoutValues {
 /// are laid out in. There is no layout-only id table, no copy of the
 /// links and no replay of layout operations.
 ///
-/// Each instance belongs to one structural slot-allocation domain. Allocate a
-/// column slot when the matching tree slot is created; reset it before removal,
-/// replacement or reuse. All tree-taking operations require that same domain:
+/// Each instance belongs to one structural slot-allocation domain. Columns grow
+/// to the tree's slot count when a computation reads them (`ensure`); a freed
+/// slot is forgotten (`forget`). All tree-taking operations require that same domain:
 /// a live identity must resolve to the slot whose derived state is held here.
 /// Clone columns together with their tree/state to obtain an independent domain
 /// with the same mapping; unrelated trees or reordered slot allocations are not
@@ -350,11 +350,16 @@ impl NodeLayoutColumns {
 }
 
 impl NodeLayoutColumns {
+    /// Grow every column to hold `slots` structural slots (plus the viewport).
+    pub(crate) fn ensure(&mut self, slots: usize) {
+        while self.states.len() < slots + 1 {
+            self.push_slot();
+        }
+    }
+
     /// Append one fresh structural node slot to every derived column.
     /// Default columns already contain the synthetic viewport at slot zero.
-    /// The new slot must match the next newly allocated slot of this instance's
-    /// tree domain; reusing an existing reset slot does not append columns.
-    pub(crate) fn push(&mut self) {
+    pub(crate) fn push_slot(&mut self) {
         let index = self.states.len();
         self.cursors.push(ChildCursor::default());
         self.states.push(NodeLayoutState::default());
@@ -372,11 +377,15 @@ impl NodeLayoutColumns {
         values.never_rounded.insert(index);
     }
 
-    /// Release calcs and reset every derived component before a slot is reused.
-    /// `slot` must be a zero-based allocated slot in this instance's domain,
-    /// still owned by the node being removed or replaced. Reset before publishing
-    /// its availability for reuse; reset does not change authoritative links.
-    pub(crate) fn reset(&mut self, slot: usize) {
+    /// Release calcs and reset every derived component of a freed slot.
+    /// `slot` must be a zero-based slot in this instance's domain, still owned
+    /// by the node being removed or replaced; a slot the columns never grew to
+    /// holds nothing. Forget before publishing the slot for reuse; forgetting
+    /// does not change authoritative links.
+    pub(crate) fn forget(&mut self, slot: usize) {
+        if slot + 1 >= self.states.len() {
+            return;
+        }
         let index = slot + 1;
         self.calcs
             .free

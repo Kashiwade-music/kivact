@@ -23,7 +23,7 @@ pub(crate) fn text_reach_of(text: &ComputedTextStyle) -> f64 {
 impl Model {
     /// The inherited text style of `id`, resolved once per change.
     pub(crate) fn text_props(&self, id: NodeId) -> Rc<ComputedTextStyle> {
-        crate::measure::computed_text(&self.tree, &self.measure, id)
+        crate::measure::computed_text(&self.tree, &self.slots.measure, id)
     }
 
     /// How far the text `id` paints out of its box.
@@ -37,7 +37,7 @@ impl Model {
         id: NodeId,
         engine: &mut arvane::Engine,
     ) -> kivact_types::ComputedTextStyle {
-        crate::measure::input_style(&self.tree, &self.measure, id, engine)
+        crate::measure::input_style(&self.tree, &self.slots.measure, id, engine)
     }
 
     /// The kept text styles that differ from a fresh resolution (none when
@@ -48,7 +48,7 @@ impl Model {
             .nodes
             .iter()
             .filter_map(|(id, node)| {
-                let kept = self.measure.computed_text(node.index.0)?;
+                let kept = self.slots.measure.computed_text(node.index.0)?;
                 let fresh = crate::measure::text_props(&self.tree, *id);
                 (*kept != fresh).then(|| {
                     format!(
@@ -67,7 +67,7 @@ impl Model {
         while let Some(x) = stack.pop() {
             let Some(n) = self.tree.get(x) else { continue };
             stack.extend(self.tree.children_ids(n));
-            self.measure.forget_computed_text(n.index.0);
+            self.slots.measure.forget_computed_text(n.index.0);
         }
     }
 }

@@ -82,7 +82,7 @@ impl InputPaint<'_> {
                 node: id,
                 region: None,
             })
-            && let Some(edit) = host.editors[n.index.0]
+            && let Some(edit) = host.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         {

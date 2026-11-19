@@ -456,9 +456,9 @@ impl Model {
             let Some(n) = self.tree.get(x) else { continue };
             stack.extend(self.tree.children_ids(n));
             let (slot, kind) = (n.index.0, n.kind());
-            let drawn = kind == NodeType::Text || self.editors[slot].is_some();
-            let before = self.measure.computed_text(slot);
-            self.measure.forget_computed_text(slot);
+            let drawn = kind == NodeType::Text || self.slots.editors[slot].is_some();
+            let before = self.slots.measure.computed_text(slot);
+            self.slots.measure.forget_computed_text(slot);
             if drawn {
                 self.changes.mark(x, Dirty::MEASURE.union(Dirty::REDRAW));
                 self.a11y.payload(x);
@@ -525,7 +525,7 @@ impl Model {
                     continue;
                 };
                 stack.extend(self.tree.children_ids(node));
-                if (node.kind() == NodeType::Text || self.editors[node.index.0].is_some())
+                if (node.kind() == NodeType::Text || self.slots.editors[node.index.0].is_some())
                     || node.measure().is_some()
                 {
                     self.changes.mark(child, Dirty::MEASURE);

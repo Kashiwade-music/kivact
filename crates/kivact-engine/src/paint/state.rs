@@ -10,7 +10,7 @@
 //! no redraw is asked for (`Host::paint_due`); `Redraw::Needed` stays set
 //! and the restored surface draws the frame.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap};
 
 use arvane_protocol::{Plane, RasterGrid};
@@ -63,8 +63,6 @@ pub(crate) enum StaleFacts {
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
-    pub(crate) ink: Vec<Cell<Option<Ink>>>,
-    pub(crate) look: Vec<Option<LayerTraits>>,
     pub(super) scale: f64,
     pub(crate) scene_cache: RefCell<crate::lower::SceneCache>,
     pub(super) dropped_reported: RefCell<BTreeSet<(NodeId, u8)>>,
@@ -85,8 +83,6 @@ impl PaintState {
     /// Initialize an empty retained list that needs its first frame.
     pub(crate) fn new() -> Self {
         Self {
-            ink: Vec::new(),
-            look: Vec::new(),
             scale: 1.0,
             scene_cache: RefCell::default(),
             dropped_reported: RefCell::default(),
@@ -369,14 +365,5 @@ impl PaintState {
         if let Some(index) = self.list.indices.get_mut(&parent) {
             index.touch(child);
         }
-    }
-
-    pub(crate) fn push_slot(&mut self) {
-        self.ink.push(Cell::new(None));
-        self.look.push(None);
-    }
-    pub(crate) fn reset_slot(&mut self, slot: usize) {
-        self.ink[slot].set(None);
-        self.look[slot] = None;
     }
 }

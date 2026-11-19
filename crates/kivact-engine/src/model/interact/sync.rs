@@ -46,6 +46,7 @@ impl Model {
     /// The window was resized.
     pub(crate) fn set_viewport(&mut self, window: Size) {
         if self.viewport != window {
+            self.forget_origins();
             self.viewport = window;
             if let Some(root) = self.tree.root() {
                 self.a11y.subtree(root);
@@ -92,6 +93,30 @@ impl Model {
         self.changes.fonts = true;
     }
 
+    /// Measure every text and input again after the fonts changed.
+    fn remeasure_for_fonts(&mut self) {
+        let texts: Vec<NodeId> = self
+            .tree
+            .iter()
+            .filter(|(_, n)| {
+                (n.kind() == NodeType::Text || self.slots.editors[n.index.0].is_some())
+                    || n.measure().is_some()
+            })
+            .map(|(id, _)| id)
+            .collect();
+        for id in texts {
+            // New fonts can change fallback: an input's lines are
+            // shaped again.
+            if let Some(slot) = self.tree.nodes.index_of(id)
+                && let Some(editor) = self.slots.editors[slot.0].as_mut()
+            {
+                editor.lines = Default::default();
+            }
+            self.a11y.payload(id);
+            self.remeasure(id);
+        }
+    }
+
     /// Dispatch pending writes and input changes into derived work once.
     pub(crate) fn sync(&mut self) {
         let reasons = self.changes.layout.bits();
@@ -125,26 +150,7 @@ impl Model {
             .borrow_mut()
             .prune_reports(|id| tree.contains(id));
         if self.changes.fonts {
-            let texts: Vec<NodeId> = self
-                .tree
-                .iter()
-                .filter(|(_, n)| {
-                    (n.kind() == NodeType::Text || self.editors[n.index.0].is_some())
-                        || n.measure().is_some()
-                })
-                .map(|(id, _)| id)
-                .collect();
-            for id in texts {
-                // New fonts can change fallback: an input's lines are
-                // shaped again.
-                if let Some(slot) = self.tree.nodes.index_of(id)
-                    && let Some(editor) = self.editors[slot.0].as_mut()
-                {
-                    editor.lines = Default::default();
-                }
-                self.a11y.payload(id);
-                self.remeasure(id);
-            }
+            self.remeasure_for_fonts();
         }
         let mut touched: Vec<NodeId> = self.changes.touched().collect();
         for id in &touched {
@@ -153,6 +159,9 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
+        if changes.geometry != Geometry::Kept {
+            self.forget_origins();
+        }
         self.record_sync(reasons, &changes);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint
@@ -171,8 +180,14 @@ impl Model {
             }
         }
         let restack = changes.restack || moved || !restyled.is_empty();
-        self.paint
-            .outdate_paint(&self.tree, &changes, redraw, changes.fonts, restack);
+        self.paint.outdate_paint(
+            &self.tree,
+            &changes,
+            redraw,
+            changes.fonts,
+            restack,
+            &self.slots.ink,
+        );
         self.report_sessions();
     }
 
@@ -207,7 +222,7 @@ impl Model {
         );
         // The list is built again when what its steps are made of changed
         // (a node not derived before has no list step yet).
-        let kept = self.paint.look[n.index.0].replace(look);
+        let kept = self.slots.look[n.index.0].replace(look);
         if kept.is_none_or(|kept| kept.stacking() != look.stacking()) {
             self.changes.restack = true;
         }
@@ -271,7 +286,7 @@ impl Model {
         if changed {
             for id in &images {
                 let node = self.tree.get(*id);
-                let used = node.and_then(|n| self.measure.natural(n.index.0));
+                let used = node.and_then(|n| self.slots.measure.natural(n.index.0));
                 let image = node.and_then(|n| n.image());
                 if self.assets.borrow_mut().natural_changed(image, used) {
                     self.remeasure(*id);

@@ -29,6 +29,8 @@ pub trait LayoutTree {
     fn overlays(&self) -> &[kivact_types::NodeId];
     /// Fixed candidates in identity order; detached candidates remain present.
     fn fixed(&self) -> &std::collections::BTreeSet<kivact_types::NodeId>;
+    /// The number of structural slots (live or vacant): every slot is below it.
+    fn slot_count(&self) -> usize;
     /// Resolve a live logical identity to its structural slot.
     fn index_of(&self, id: kivact_types::NodeId) -> Option<usize>;
     /// The identity at a slot, or None for a vacant slot.

@@ -907,7 +907,7 @@ impl ArvaneTestHost {
                 .focused_input()
                 .and_then(|i| model.node(i))
                 .and_then(|n| {
-                    model.editors[n.index.0]
+                    model.slots.editors[n.index.0]
                         .as_deref()
                         .map(|editor| editor.editor.state())
                 })

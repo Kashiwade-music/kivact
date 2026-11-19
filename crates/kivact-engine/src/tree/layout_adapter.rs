@@ -20,6 +20,10 @@ impl LayoutTree for NodeTree {
         &self.fixed
     }
     #[inline]
+    fn slot_count(&self) -> usize {
+        self.nodes.slot_count()
+    }
+    #[inline]
     fn index_of(&self, id: NodeId) -> Option<usize> {
         self.nodes.index_of(id).map(|i| i.0)
     }

@@ -42,6 +42,11 @@ pub(crate) struct NodeStore {
 }
 
 impl NodeStore {
+    /// The number of slots (live or free): every slot index is below it.
+    pub(crate) fn slot_count(&self) -> usize {
+        self.entries.len()
+    }
+
     #[inline(always)]
     pub(crate) fn get(&self, id: &NodeId) -> Option<&HostNode> {
         self.by_id.get(id).map(|index| self.at(*index))

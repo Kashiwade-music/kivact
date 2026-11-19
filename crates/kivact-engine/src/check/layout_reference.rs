@@ -7,9 +7,9 @@ impl Model {
         fresh.pack_child_orders();
         let mut columns = self.layout.clone();
         columns.rebuild_all(&fresh);
-        let cache = self.measure.clone();
+        let cache = self.slots.measure.clone();
         cache.forget_extents();
-        let editors = self.editors.clone();
+        let editors = self.slots.editors.clone();
         let mut differences = {
             let mut assets = self.assets.borrow_mut();
             let mut measure = Measure::new(engine, &mut assets, &cache, &editors);

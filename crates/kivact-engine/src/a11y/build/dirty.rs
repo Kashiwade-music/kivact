@@ -211,7 +211,7 @@ impl Model {
                     metadata.reverse.entry(target.node).or_default().insert(id);
                 }
             }
-            if semantic_role(n, self.editors[n.index.0].is_some()).is_some() {
+            if semantic_role(n, self.slots.editors[n.index.0].is_some()).is_some() {
                 for r in n
                     .scenes()
                     .iter()

@@ -94,8 +94,8 @@ impl Model {
     pub(crate) fn exposed(&self, id: NodeId) -> Option<Exposed> {
         let n = self.tree.get(id)?;
         Some(Exposed {
-            role: semantic_role(n, self.editors[n.index.0].is_some())?,
-            name: accessible_name(n, self.editors[n.index.0].is_some()).to_string(),
+            role: semantic_role(n, self.slots.editors[n.index.0].is_some())?,
+            name: accessible_name(n, self.slots.editors[n.index.0].is_some()).to_string(),
             actions: self.accessible_actions(id),
         })
     }
@@ -116,7 +116,7 @@ impl Model {
                 out.push(*a);
             }
         }
-        if self.editors[n.index.0].is_some()
+        if self.slots.editors[n.index.0].is_some()
             && !n.read_only()
             && !out.contains(&A11yAction::SetValue)
         {

@@ -86,6 +86,7 @@ impl PaintState {
         redraw: bool,
         fonts: bool,
         restack: bool,
+        ink: &[std::cell::Cell<Option<Ink>>],
     ) {
         if redraw {
             self.redraw = Redraw::Needed;
@@ -97,7 +98,7 @@ impl PaintState {
         if restack {
             list.state = ListState::Stale;
         }
-        list.invalidate(changes, tree, &self.ink);
+        list.invalidate(changes, tree, ink);
         self.list = list;
     }
 }

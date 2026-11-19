@@ -54,6 +54,7 @@ impl Model {
                 && n.shift != shift
             {
                 n.shift = shift;
+                self.forget_origins();
                 self.changes.stuck(id);
                 self.a11y.moved(id);
             }

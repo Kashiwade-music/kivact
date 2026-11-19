@@ -44,6 +44,9 @@ impl LayoutTree for Two {
     fn root(&self) -> Option<NodeId> {
         Some(NodeId(1))
     }
+    fn slot_count(&self) -> usize {
+        2
+    }
     fn overlays(&self) -> &[NodeId] {
         &[]
     }
@@ -91,8 +94,6 @@ impl LeafMeasurer for Empty {
 
 fn laid_out(tree: &Two) -> Layout {
     let mut layout = Layout::default();
-    layout.push();
-    layout.push();
     layout.rebuild_style(tree, NodeId(1));
     layout.rebuild_style(tree, NodeId(2));
     assert!(layout.compute(tree, Size::new(100.0, 100.0), &mut Empty));
@@ -208,6 +209,9 @@ impl LayoutTree for WithDetachedOverlay {
     fn root(&self) -> Option<NodeId> {
         self.0.root()
     }
+    fn slot_count(&self) -> usize {
+        3
+    }
     fn overlays(&self) -> &[NodeId] {
         &[]
     }
@@ -251,9 +255,6 @@ impl LayoutTree for WithDetachedOverlay {
 fn detached_overlay_gets_no_layout() {
     let tree = WithDetachedOverlay(Two::new(50.0));
     let mut layout = Layout::default();
-    for _ in 0..3 {
-        layout.push();
-    }
     for id in 1..=3 {
         layout.rebuild_style(&tree, NodeId(id));
     }

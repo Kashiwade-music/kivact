@@ -72,7 +72,10 @@ impl NodeLayoutColumns {
             let Some(id) = tree.id_at(slot) else {
                 continue;
             };
-            for (ask, retained) in &self.states[slot + 1].measured.sizes {
+            let Some(record) = self.states.get(slot + 1) else {
+                continue;
+            };
+            for (ask, retained) in &record.measured.sizes {
                 let request = ask.request();
                 let rebuilt = measure.measure(id, request);
                 if Measured::of(&rebuilt) != *retained {
@@ -132,7 +135,13 @@ impl NodeLayoutColumns {
                 continue;
             };
             let at = slot + 1;
-            if before.final_layout[at].is_none() && after.final_layout[at].is_none() {
+            // A column the other side never grew to holds no result: skip the slot.
+            let (Some(retained), Some(rebuilt)) =
+                (before.final_layout.get(at), after.final_layout.get(at))
+            else {
+                continue;
+            };
+            if retained.is_none() && rebuilt.is_none() {
                 continue;
             }
             if let Some(input) = before.performed.get(&(at as u64)).copied() {
