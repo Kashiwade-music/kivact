@@ -286,17 +286,18 @@ impl Model {
     /// was hidden or shown: the children its flat parent lays out and
     /// draws changed.
     fn reflattened(&mut self, id: NodeId) {
-        self.tree.forget_flat();
-        self.paint.stale_all_facts();
+        self.tree.forget_flat_through(id);
         self.changes.restack = true;
         self.changes
             .layout
             .insert(crate::model::changes::LayoutReasons::STYLE);
         if let Some(parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+            self.stale_fact(parent);
             self.changes.mark(parent, Dirty::LAYOUT_CHAIN);
             self.changes.regroup(parent);
             self.a11y.node(parent);
         }
+        self.stale_fact(id);
     }
 
     /// [`Model::set_prop`] for a boxed property: the borrowed value is
@@ -371,8 +372,13 @@ impl Model {
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
             self.changes.mark(id, Dirty::LAYOUT_STYLE);
             if fixed != was_fixed {
-                // A fixed box came or went: it is a layer root of its own.
-                self.paint.stale_all_facts();
+                // It became or stopped being a layer root: its facts and its box
+                // parent's facts are derived again.
+                self.paint.forget_fact(id);
+                self.stale_fact(id);
+                if let Some(box_parent) = self.tree.get(id).and_then(|n| self.tree.flat_parent(n)) {
+                    self.stale_fact(box_parent);
+                }
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::STYLE);
@@ -520,8 +526,6 @@ impl Model {
         self.a11y.subtree(id);
         self.changes.restack = true;
         if self.tree.insert(parent, id, before).is_none() {
-            // Not attached: the facts of the detached subtree are unreachable.
-            self.paint.stale_all_facts();
             return;
         }
         // Its ancestors changed: so did the text style it inherits.
@@ -547,14 +551,9 @@ impl Model {
                 self.a11y.node(child);
             }
         }
-        if self
-            .tree
-            .get(id)
-            .is_some_and(|n| n.kind() == NodeType::Overlay)
-        {
-            // An overlay is a layer root of its own.
-            self.paint.stale_all_facts();
-        }
+        // The attached subtree (built while detached, an overlay, or moved)
+        // derives its facts again, its ancestors as they change.
+        self.stale_subtree_facts(id);
         self.changes.regroup(parent);
         self.a11y.node(parent);
         self.stale_children_of(parent);
@@ -627,11 +626,6 @@ impl Model {
             self.forget_presence(gone);
             self.presence.sizes.remove(&gone);
         }
-        let had_root = self.tree.root().is_some();
-        let was_overlay = self
-            .tree
-            .get(id)
-            .is_some_and(|n| n.kind() == NodeType::Overlay);
         for gone in self.remove_slots(id) {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
@@ -642,10 +636,6 @@ impl Model {
             self.changes.forget(gone);
             self.paint.forget_fact(gone);
             self.forget_sources(gone);
-        }
-        if was_overlay || (had_root && self.tree.root().is_none()) {
-            // An overlay or the root went: the set of layer roots changed.
-            self.paint.stale_all_facts();
         }
         self.focus.forget_missing(&self.tree);
         self.clear_removed_hits();
