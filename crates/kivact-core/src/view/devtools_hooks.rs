@@ -4,6 +4,8 @@
 //! target (`crate::devtools`, feature `devtools`) implements them. An App
 //! without DevTools holds `None`, so every hook below costs one `if let`.
 
+#[cfg(feature = "devtools")]
+use std::collections::BTreeMap;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -95,6 +97,15 @@ pub(crate) fn pseudo(text: String) -> String {
         Some(h) => h.pseudo(text),
         None => text,
     }
+}
+
+/// The DevTools style overrides, parsed once when they change: by node and
+/// by call site (file, line, column). The node overrides win.
+#[cfg(feature = "devtools")]
+#[derive(Default)]
+pub(crate) struct NodeOverrides {
+    pub(crate) by_node: BTreeMap<NodeId, Style>,
+    pub(crate) by_site: Vec<(String, u32, u32, Style)>,
 }
 
 /// The style overrides and forced states of one node, read by its style

@@ -12,10 +12,11 @@ use kivact_engine::contract::{DevtoolsOverlay, PickPhase};
 use kivact_runtime::NodeId as EffectId;
 use kivact_runtime::{LiveSnapshot, Owner, Runtime, Signal};
 use kivact_style::internal::ForcedStates;
-use kivact_types::cell::{LocalMailbox, ReportOnce, Sent};
+use kivact_types::cell::{LocalMailbox, ReportOnce};
 use kivact_types::{FocusTarget, NodeId, RequestId, Revision, WindowId};
 
 use super::inspect_mode;
+use crate::view::devtools_hooks::NodeOverrides;
 
 /// The DevTools state of an App: off, or the running agent and its data.
 pub(crate) enum DevtoolsState {
@@ -23,19 +24,25 @@ pub(crate) enum DevtoolsState {
     Running(Rc<Inspector>),
 }
 
-/// What `devtools::start::agent_slot` returns.
-#[allow(
-    clippy::large_enum_variant,
-    reason = "one agent per process, moved once at startup; boxing would only add noise"
-)]
+/// The agent of an App whose launch allows DevTools.
 pub(crate) enum AgentSlot {
-    Off,
-    Running { agent: Agent, can_inject: bool },
+    /// Starting on a background thread; the first turn after it is ready promotes it.
+    Starting(std::sync::mpsc::Receiver<std::io::Result<Agent>>),
+    Ready(Box<Agent>),
+    /// It could not start (already warned).
+    Failed,
+}
+
+/// What a launch that allows DevTools asks for: the agent's receiver, once the
+/// background start finishes, and whether the agent may inject input.
+pub(crate) struct AgentStart {
+    pub(crate) receiver: std::sync::mpsc::Receiver<std::io::Result<Agent>>,
+    pub(crate) can_inject: bool,
 }
 
 // xtask-allow(state): legacy: agent, can_inject
 pub(crate) struct Inspector {
-    pub(crate) agent: RefCell<Agent>,
+    pub(crate) agent: RefCell<AgentSlot>,
     pub(crate) can_inject: bool,
     /// What the view hooks read and write.
     pub(crate) hooks: HookData,
@@ -55,9 +62,12 @@ pub(crate) struct HookData {
     pub(crate) input_log: RefCell<VecDeque<p::InputLogEntry>>,
     /// The last `InputLogEntry.seq` given (S-8 id allocator; 1-based, in log order).
     pub(crate) next_input: Cell<u64>,
+    /// The style overrides parsed once when they change, read by the style hooks.
+    pub(crate) node_overrides: Rc<RefCell<NodeOverrides>>,
+    pub(crate) node_overrides_changed: kivact_runtime::Notifier,
 }
 
-// xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_tree, sent_windows, errors_sent; allocates style override ids
+// xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_windows, errors_sent; allocates style override ids
 pub(crate) struct SessionData {
     pub(crate) events: RefCell<Vec<DevtoolsEvent>>,
     pub(crate) pending: RefCell<Vec<Pending>>,
@@ -71,9 +81,10 @@ pub(crate) struct SessionData {
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
     pub(crate) next_snapshot: Cell<u64>,
-    pub(crate) sent_tree: RefCell<HashMap<NodeId, p::ElementInfo>>,
-    pub(crate) sent_windows: RefCell<Sent<Vec<p::WindowInfo>>>,
-    pub(crate) errors_sent: RefCell<Sent<u64>>,
+    /// The open windows the last turn saw.
+    pub(crate) sent_windows: RefCell<Vec<WindowId>>,
+    /// The last error sequence number sent to the Errors subscribers.
+    pub(crate) errors_sent: Cell<u64>,
     pub(crate) open_failed: ReportOnce,
 }
 
@@ -176,17 +187,21 @@ impl DevtoolsState {
     /// Build the state of an App from the agent slot the launch asked for.
     pub(crate) fn from_slot(
         root: Owner,
-        slot: AgentSlot,
+        slot: Option<AgentStart>,
         at: &'static Location<'static>,
     ) -> DevtoolsState {
-        let AgentSlot::Running { agent, can_inject } = slot else {
+        let Some(AgentStart {
+            receiver,
+            can_inject,
+        }) = slot
+        else {
             return DevtoolsState::Off;
         };
         let overrides: Signal<Vec<p::StyleOverride>> = root.signal(Vec::new(), at);
         let forced: Signal<BTreeMap<NodeId, ForcedStates>> = root.signal(BTreeMap::new(), at);
         let emulation: Signal<p::Emulation> = root.signal(emulation_off(), at);
         DevtoolsState::Running(Rc::new(Inspector {
-            agent: RefCell::new(agent),
+            agent: RefCell::new(AgentSlot::Starting(receiver)),
             can_inject,
             hooks: HookData {
                 recording: RefCell::new(recording_off()),
@@ -198,6 +213,8 @@ impl DevtoolsState {
                 programmatic_focus: LocalMailbox::new(),
                 input_log: RefCell::new(VecDeque::new()),
                 next_input: Cell::new(0),
+                node_overrides: Rc::default(),
+                node_overrides_changed: root.notifier(at),
             },
             session: SessionData {
                 events: RefCell::new(Vec::new()),
@@ -212,9 +229,8 @@ impl DevtoolsState {
                 sent_overlays: RefCell::new(BTreeMap::new()),
                 snapshots: RefCell::new(VecDeque::new()),
                 next_snapshot: Cell::new(0),
-                sent_tree: RefCell::new(HashMap::new()),
-                sent_windows: RefCell::new(Sent::new()),
-                errors_sent: RefCell::new(Sent::new()),
+                sent_windows: RefCell::new(Vec::new()),
+                errors_sent: Cell::new(0),
                 open_failed: ReportOnce::new(),
             },
         }))
@@ -234,14 +250,31 @@ impl DevtoolsState {
 }
 
 impl Inspector {
+    /// The ready agent; `None` while it starts or after it failed.
+    pub(crate) fn agent(&self) -> Option<std::cell::RefMut<'_, Agent>> {
+        std::cell::RefMut::filter_map(self.agent.borrow_mut(), |slot| match slot {
+            AgentSlot::Ready(agent) => Some(&mut **agent),
+            AgentSlot::Starting(_) | AgentSlot::Failed => None,
+        })
+        .ok()
+    }
+
+    /// The ready agent, for a call that only a ready agent delivers.
+    pub(crate) fn ready_agent(&self) -> std::cell::RefMut<'_, Agent> {
+        self.agent()
+            .expect("invariant: calls arrive only from a ready agent")
+    }
+
     /// Whether a connection subscribes to `topic`.
     pub(crate) fn wants(&self, topic: p::Topic) -> bool {
-        self.agent.borrow().wants(topic)
+        self.agent().is_some_and(|agent| agent.wants(topic))
     }
 
     /// Send a notification to the connections subscribed to its topic.
     pub(crate) fn notify(&self, notification: p::Notification) {
-        self.agent.borrow().notify(notification)
+        if let Some(agent) = self.agent() {
+            agent.notify(notification);
+        }
     }
 }
 

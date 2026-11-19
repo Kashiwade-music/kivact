@@ -1,11 +1,12 @@
 //! Role: The Inspector's answers to the view hooks: what DevTools records and shapes.
 
+use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_devtools_protocol as p;
 use kivact_engine::api::Prop;
-use kivact_engine::contract::HostEvent;
+use kivact_engine::contract::{HostEvent, InputOrigin};
 use kivact_runtime::NodeId as EffectId;
 use kivact_runtime::{Handled, Owner, Runtime, Signal, Value};
 use kivact_style::internal::ForcedStates;
@@ -14,9 +15,10 @@ use kivact_types::{Capabilities, FocusTarget, NodeId, WindowId};
 
 use crate::i18n::Locale;
 use crate::view::devtools_hook_traits::{DevtoolsHooks, NodeStyleHook};
+use crate::view::devtools_hooks::NodeOverrides;
 
 use super::apply;
-use super::state::{DevtoolsEvent, Inspector, Pending, PropWrite};
+use super::state::{DevtoolsEvent, Inspector, PropWrite};
 
 impl DevtoolsHooks for Inspector {
     fn prop_written(&self, id: NodeId, prop: Prop, writer: Option<EffectId>, changed: bool) {
@@ -63,13 +65,9 @@ impl DevtoolsHooks for Inspector {
         let Some((target, kind, detail)) = input_description(event) else {
             return;
         };
-        let injected = self.session.pending.borrow().iter().any(|pending| {
-            matches!(pending, Pending::Inject { window: pending_window, .. } if *pending_window == window)
-        });
-        let source = if injected {
-            p::InputSource::Injected
-        } else {
-            p::InputSource::Platform
+        let source = match input_origin(event) {
+            Some(InputOrigin::Injected(_)) => p::InputSource::Injected,
+            _ => p::InputSource::Platform,
         };
         let seq = self.hooks.next_input.get() + 1;
         self.hooks.next_input.set(seq);
@@ -202,7 +200,8 @@ impl DevtoolsHooks for Inspector {
         Rc::new(NodeHook {
             id,
             sites: apply::call_sites(rt, owner, Some(at)),
-            overrides: self.hooks.overrides,
+            table: self.hooks.node_overrides.clone(),
+            changed: self.hooks.node_overrides_changed,
             forced: owner.with_setup(|| {
                 kivact_runtime::memo(move || {
                     forced.with(|all| all.get(&id).copied().unwrap_or_default())
@@ -212,34 +211,52 @@ impl DevtoolsHooks for Inspector {
     }
 }
 
-/// The DevTools style hook of one node.
+/// The DevTools style hook of one node: its call sites; its overrides are
+/// looked up in the App's one table, and only when the table is not empty.
 struct NodeHook {
     id: NodeId,
     sites: Vec<&'static Location<'static>>,
-    overrides: Signal<Vec<p::StyleOverride>>,
+    table: Rc<RefCell<NodeOverrides>>,
+    changed: kivact_runtime::Notifier,
     forced: Value<ForcedStates>,
 }
 
 impl NodeStyleHook for NodeHook {
     fn apply(&self, style: Style) -> Style {
-        let pairs = apply::node_overrides(&self.overrides.get(), self.id, &self.sites);
-        let mut merged: Option<Style> = None;
-        for (property, value) in pairs {
-            if let Ok(over) = apply::override_style(&property, &value) {
-                merged = Some(match merged {
-                    Some(style) => style.merge(&over),
-                    None => over,
-                });
+        self.changed.track();
+        let table = self.table.borrow();
+        if table.by_node.is_empty() && table.by_site.is_empty() {
+            return style;
+        }
+        let mut style = style;
+        for (file, line, column, over) in &table.by_site {
+            if self
+                .sites
+                .iter()
+                .any(|s| s.file() == file && s.line() == *line && s.column() == *column)
+            {
+                style = style.merge(over);
             }
         }
-        match merged {
-            Some(over) => style.merge(&over),
-            None => style,
+        if let Some(over) = table.by_node.get(&self.id) {
+            style = style.merge(over);
         }
+        style
     }
 
     fn forced(&self) -> ForcedStates {
         self.forced.get()
+    }
+}
+
+/// Where a routed input came from: the engine marks the inputs DevTools injected.
+fn input_origin(event: &HostEvent) -> Option<InputOrigin> {
+    match event {
+        HostEvent::Pointer(route) => Some(route.origin),
+        HostEvent::Wheel(route) => Some(route.origin),
+        HostEvent::Key(route) => Some(route.origin),
+        HostEvent::File(route) => Some(route.origin),
+        _ => None,
     }
 }
 

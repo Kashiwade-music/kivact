@@ -29,7 +29,7 @@ struct PreparedComment {
 pub(super) fn get_review(rt: &Runtime, _: p::Empty) -> Result<p::ReviewDocument, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    Ok(i.agent.borrow_mut().review().document().clone())
+    Ok(i.ready_agent().review().document().clone())
 }
 
 pub(super) fn add_comment(rt: &Runtime, params: p::AddCommentParams, reply: Responder) {
@@ -66,8 +66,7 @@ pub(super) fn edit_comment(
 ) -> Result<p::ReviewItem, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .edit(&params.comment, params.text, now_ms())
         .map_err(|error| p::RpcError::new(p::code::INVALID_PARAMS, error))
@@ -79,8 +78,7 @@ pub(super) fn remove_comment(
 ) -> Result<p::Empty, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .remove(&params.comment, now_ms())
         .map_err(|error| p::RpcError::new(p::code::INVALID_PARAMS, error))?;
@@ -90,8 +88,7 @@ pub(super) fn remove_comment(
 pub(super) fn export_review(rt: &Runtime, _: p::Empty) -> Result<p::ExportedReview, p::RpcError> {
     let i = DevtoolsState::inspector(rt);
     sync_environment(i);
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .export()
         .map_err(|error| internal(error.to_string()))
@@ -252,8 +249,7 @@ fn submit(
         image_png,
         text: prepared.text,
     };
-    i.agent
-        .borrow_mut()
+    i.ready_agent()
         .review()
         .add(comment, now_ms())
         .map_err(|error| internal(error.to_string()))
@@ -262,7 +258,7 @@ fn submit(
 /// Record the current emulation in the review document.
 fn sync_environment(i: &Inspector) {
     let environment = i.hooks.emulation.get_untracked();
-    i.agent.borrow_mut().review().set_environment(environment);
+    i.ready_agent().review().set_environment(environment);
 }
 
 fn internal(message: impl Into<String>) -> p::RpcError {

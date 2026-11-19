@@ -12,8 +12,9 @@ use kivact_types::{NodeId, WindowId};
 
 use super::convert;
 use crate::devtools::apply;
-use crate::devtools::state::DevtoolsState;
+use crate::devtools::state::{DevtoolsState, Inspector};
 use crate::view::RecipeName;
+use crate::view::devtools_hooks::NodeOverrides;
 use crate::view::element_data::{LayerOrigin, StyleLayer};
 use crate::view::state::ViewState;
 
@@ -77,7 +78,36 @@ pub(super) fn layers(rt: &Runtime, id: NodeId) -> Vec<p::StyleLayerInfo> {
 pub(super) fn clear_all(rt: &Runtime) {
     let i = DevtoolsState::inspector(rt);
     i.hooks.overrides.set(Vec::new());
+    rebuild_node_overrides(i);
     i.hooks.forced.set(BTreeMap::new());
+}
+
+/// Parse the override list once into the table the style hooks read.
+fn rebuild_node_overrides(i: &Inspector) {
+    let mut table = NodeOverrides::default();
+    for entry in i.hooks.overrides.get_untracked() {
+        let Ok(style) = apply::override_style(&entry.property, &entry.value) else {
+            continue;
+        };
+        match entry.scope {
+            p::OverrideScope::CallSite { location } => {
+                table
+                    .by_site
+                    .push((location.file, location.line, location.column, style));
+            }
+            p::OverrideScope::Node { node } => {
+                let id = NodeId(node);
+                let merged = match table.by_node.remove(&id) {
+                    Some(before) => before.merge(&style),
+                    None => style,
+                };
+                table.by_node.insert(id, merged);
+            }
+            _ => {}
+        }
+    }
+    *i.hooks.node_overrides.borrow_mut() = table;
+    i.hooks.node_overrides_changed.notify();
 }
 
 pub(super) fn set_style_override(
@@ -106,6 +136,7 @@ pub(super) fn set_style_override(
         },
     );
     i.hooks.overrides.set(all);
+    rebuild_node_overrides(i);
     Ok(entry)
 }
 
@@ -148,6 +179,7 @@ pub(super) fn clear_style_overrides(
             .update(|all| all.retain(|entry| entry.id != id)),
         None => i.hooks.overrides.set(Vec::new()),
     }
+    rebuild_node_overrides(i);
     Ok(p::Empty {})
 }
 

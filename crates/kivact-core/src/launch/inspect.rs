@@ -54,8 +54,20 @@ impl Inspect<'_> {
         else {
             return None;
         };
-        let path = inspector.agent.borrow().discovery_path().to_owned();
-        Some(path)
+        inspector.promote(self.rt());
+        inspector
+            .agent()
+            .map(|agent| agent.discovery_path().to_owned())
+    }
+
+    /// Whether the DevTools agent is still starting.
+    #[cfg(feature = "devtools")]
+    pub fn devtools_starting(&self) -> bool {
+        matches!(
+            crate::devtools::state::DevtoolsState::of(self.rt()),
+            crate::devtools::state::DevtoolsState::Running(i)
+                if matches!(&*i.agent.borrow(), crate::devtools::state::AgentSlot::Starting(_))
+        )
     }
 }
 

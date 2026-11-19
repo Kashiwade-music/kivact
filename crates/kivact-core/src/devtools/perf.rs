@@ -195,7 +195,7 @@ pub(super) fn export_trace(
         .collect();
     frames.sort_by_key(|frame| frame.end_ns);
     let json = kivact_devtools_protocol::chrome_trace(&turns, &frames);
-    let written = i.agent.borrow().write_trace(&json, params.path.as_deref());
+    let written = i.ready_agent().write_trace(&json, params.path.as_deref());
     let path = written.map_err(|error| {
         p::RpcError::new(
             p::code::INTERNAL_ERROR,

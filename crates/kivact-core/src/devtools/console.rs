@@ -42,19 +42,19 @@ pub(super) fn list_errors(
 /// Notify the Errors subscribers of the errors reported since the last turn.
 pub(super) fn after_turn(rt: &Runtime) {
     let i = DevtoolsState::inspector(rt);
-    let reported = rt.reported();
+    let since = i.session.errors_sent.get();
+    let reported = rt.reported_since(since);
     let last = reported.last().map_or(0, |entry| entry.seq);
-    let since = i.session.errors_sent.borrow().get().copied().unwrap_or(0);
     if last <= since {
         return;
     }
     let wanted = i.wants(p::Topic::Errors);
-    for entry in reported.into_iter().filter(|entry| entry.seq > since) {
+    for entry in reported {
         if wanted {
             i.notify(p::Notification::ErrorReported(error_entry(entry)));
         }
     }
-    i.session.errors_sent.borrow_mut().update(last);
+    i.session.errors_sent.set(last);
 }
 
 pub(super) fn route(rt: &Runtime, call: p::Call, reply: Responder) -> Option<(p::Call, Responder)> {
