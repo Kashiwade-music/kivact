@@ -9,7 +9,7 @@
 use std::time::Duration;
 
 use kivact_core::state::IntoValue;
-use kivact_core::state::{MachineHandle, Value, effect, machine, memo};
+use kivact_core::state::{MachineHandle, Value, machine, memo};
 
 use super::machine::{Effect, Event, Machine, State};
 
@@ -109,7 +109,8 @@ pub(crate) fn delayed(
         phase,
         shown,
     };
-    effect(move || state.send(Event::Wanted(wanted.get())));
+    state.send(Event::Wanted(wanted.get_untracked()));
+    state.feed(wanted, Event::Wanted);
     this
 }
 

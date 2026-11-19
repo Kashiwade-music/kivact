@@ -197,6 +197,7 @@ fn time_controller(
         },
         move |_, next| value.set(next),
     );
-    kivact_core::state::effect(move || state.send(Event::External(value.get())));
+    state.send(Event::External(value.get_untracked()));
+    state.feed(value, Event::External);
     state
 }

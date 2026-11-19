@@ -299,7 +299,7 @@ impl IntoView for Calendar {
             .displayed_month
             .unwrap_or_else(|| signal(self.month.unwrap_or(focus_day.month_of())).into_binding());
         let base_month = month;
-        let (month, announcement) = month_navigation(base_month);
+        let announcement = month_announcement(base_month);
         let swipe = swipe_navigation(base_month, month, self.min, self.max);
         let autofocus = initial_focus(self.autofocus);
         let rules = CalendarRules {
@@ -383,23 +383,19 @@ struct CalendarRules {
     on_commit: Option<Callback<()>>,
     on_activate: Option<Callback<CalendarDate>>,
 }
-/// Connect month navigation announcements to its authoritative displayed binding.
-fn month_navigation(base_month: Binding<CalendarMonth>) -> (Binding<CalendarMonth>, Value<String>) {
+/// The shown month's announcement: its long name and year in the locale.
+fn month_announcement(month: Binding<CalendarMonth>) -> Value<String> {
     let locale = kivact_core::i18n::use_locale();
-    let navigation = kivact_core::state::machine(
-        String::new(),
-        move || super::navigation::MonthSnapshot {
-            locale: locale.get(),
-        },
-        move |_, next| base_month.set(next),
-    );
-    kivact_core::state::effect(move || {
-        navigation.send(super::navigation::MonthEvent::Observe(base_month.get()))
-    });
-    let month = kivact_core::state::binding(base_month, move |month| {
-        navigation.send(super::navigation::MonthEvent::Navigate(month))
-    });
-    (month, navigation.state())
+    kivact_core::state::memo(move || {
+        let month = month.get();
+        locale.with(|locale| {
+            format!(
+                "{} {}",
+                locale.month_name(month.month(), kivact_core::i18n::NameWidth::Long),
+                month.year()
+            )
+        })
+    })
 }
 /// Apply horizontal swipe commands within the caller's date bounds.
 fn swipe_navigation(

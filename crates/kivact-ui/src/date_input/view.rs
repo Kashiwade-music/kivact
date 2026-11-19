@@ -177,7 +177,8 @@ impl DateInput {
         let locale = use_locale();
         let (state, announcement) = date_controller(value, valid, min, max, locale);
         let open = picker_open(state);
-        kivact_core::state::effect(move || state.send(Event::External(value.get())));
+        state.send(Event::External(value.get_untracked()));
+        state.feed(value, Event::External);
         let draft = draft_binding(state, format, custom_format.clone(), locale);
         let error_ref = kivact_core::view::node_ref();
         let error = date_diagnostic(state, locale, error_ref);

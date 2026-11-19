@@ -151,13 +151,14 @@ pub fn toaster() -> ToasterApi {
         ToasterApi {
             column,
             visible: memo(move || {
-                let state = column.get();
-                state
-                    .queue
-                    .iter()
-                    .take(state.limit)
-                    .map(|entry| (entry.id, entry.toast.clone()))
-                    .collect()
+                column.state().with(|state| {
+                    state
+                        .queue
+                        .iter()
+                        .take(state.limit)
+                        .map(|entry| (entry.id, entry.toast.clone()))
+                        .collect()
+                })
             }),
             next: signal(Generation::new()),
         }
@@ -249,7 +250,10 @@ impl ToasterApi {
     pub fn hold_while(self, held: impl IntoValue<bool>) {
         let held = held.into_value();
         let id = HoldId(self.next.update(Generation::next));
-        effect(move || self.column.send(ColumnEvent::Hold(id, held.get())));
+        self.column
+            .send(ColumnEvent::Hold(id, held.get_untracked()));
+        self.column
+            .feed(held, move |held| ColumnEvent::Hold(id, held));
         on_cleanup(move || self.column.send(ColumnEvent::Hold(id, false)));
     }
 

@@ -1,6 +1,5 @@
 //! Role: Month navigation announcements and touch swipe ownership.
 use kivact_core::geometry::Point;
-use kivact_core::i18n::{CalendarMonth, Locale, NameWidth};
 use kivact_core::state::{Machine, Step};
 use kivact_core::view::{PointerEvent, PointerId, PointerKind, PointerPhase};
 use kivact_interaction::{DragAxis, DragVelocity, project_release};
@@ -217,34 +216,6 @@ impl Machine for SwipeSnapshot {
         }
     }
 }
-pub(super) enum MonthEvent {
-    Navigate(CalendarMonth),
-    Observe(CalendarMonth),
-}
-pub(super) struct MonthSnapshot {
-    pub(super) locale: Locale,
-}
-impl Machine for MonthSnapshot {
-    type State = String;
-    type Event = MonthEvent;
-    type Effect = CalendarMonth;
-    fn transition(&self, _: &String, event: MonthEvent) -> Step<String, MonthEvent, CalendarMonth> {
-        let month = match event {
-            MonthEvent::Navigate(month) | MonthEvent::Observe(month) => month,
-        };
-        let label = format!(
-            "{} {}",
-            self.locale.month_name(month.month(), NameWidth::Long),
-            month.year()
-        );
-        let next = Step::to(label);
-        match event {
-            MonthEvent::Navigate(month) => next.with(month),
-            MonthEvent::Observe(_) => next,
-        }
-    }
-}
-
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum InitialFocus {
     Pending,
