@@ -521,7 +521,12 @@ tier b の compile の対象外：XD＋XK。
 
 | lane | unit（順に） | 付属書 | 所有の要約 | 追加の指示 |
 |---|---|---|---|---|
-| L1〜L6 | 付属書 L の 2 章の表のとおり | L | 付属書 L が書く | 付属書 L（`rework/L-ledger.md`）は CP1 の台帳を基に設計者が書く。W8 の merge の時点で付属書 L が無ければ、作業を止めて人間に報告する（Orchestrator は閉じ方を決めない） |
+| L1 | L1 | L | `crates/kivact-core/` | 付属書 L の 2 章の共通手順 L。差戻しの行は他の行を止めない |
+| L2 | L2 | L | `crates/kivact-runtime/`、`crates/kivact-interaction/` | 同上 |
+| L3 | L3 | L | `crates/kivact-engine/`、`crates/kivact-layout/`、`crates/kivact-editing/` | 同上 |
+| L4 | L4 | L | `crates/kivact-style/`、`crates/kivact-i18n/`、`crates/kivact-test/`、`crates/kivact-devtools/`、`crates/kivact-devtools-protocol/` | 同上 |
+| L5 | L5 | L | `crates/arvane-asset/`、`crates/arvane-native/`、`crates/arvane-shell/`、`crates/arvane-virtual/`、`dev/tests/gpu-interop-producer/` | 同上 |
+| L6 | L6 | L | `crates/kivact-ui/`、`examples/kivact/` | 同上 |
 
 前提の確認：W8 の全 unit、CP1 の台帳。
 tier b の compile の対象外：W8 と同じ（XD＋XK）。
@@ -550,11 +555,11 @@ tier b の compile の対象外：XD＋XK（kit は W10 の終わりまで外す
 
 | lane | unit（順に） | 付属書 | 所有の要約 | 追加の指示 |
 |---|---|---|---|---|
-| K1 | K34 → K35 | K | `crates/kivact-ui-basic/`、`examples/kivact-ui-basic/` | — |
-| K2 | K36 → K37 | K | `crates/kivact-ui-pop/`、`examples/kivact-ui-pop/` | — |
-| K3 | K38 | K | `crates/kivact-ui-creative/`、`examples/kivact-ui-creative/` | — |
-| K4 | K39 → K40 | K | `crates/kivact-ui-game/`、`examples/kivact-ui-game/` | — |
-| K5 | K41 → K42 → K43 | K | `crates/kivact-ui-soft/`、`examples/kivact-ui-soft/` | K42 の時計は `kivact::task::clock`（R23） |
+| K1 | K34 → K35 → L7 | K・L | `crates/kivact-ui-basic/`、`examples/kivact-ui-basic/` | L7 は付属書 L（kit の `legacy:` の印） |
+| K2 | K36 → K37 → L8 | K・L | `crates/kivact-ui-pop/`、`examples/kivact-ui-pop/` | L8 は付属書 L |
+| K3 | K38 → L9 | K・L | `crates/kivact-ui-creative/`、`examples/kivact-ui-creative/` | L9 は付属書 L |
+| K4 | K39 → K40 → L10 | K・L | `crates/kivact-ui-game/`、`examples/kivact-ui-game/` | L10 は付属書 L |
+| K5 | K41 → K42 → K43 → L11 | K・L | `crates/kivact-ui-soft/`、`examples/kivact-ui-soft/` | K42 の時計は `kivact::task::clock`（R23）。L11 は付属書 L |
 
 前提の確認：W9 の K6（K07・K08・K09・K10・K11・K12・K13・K14）と各 kit の W9 の unit、W5a の R23（K42）。
 tier b の compile の対象外：`kivact-docs`、`kivact-kit-tests`（K44 が W11a で戻す。INC-12）。
@@ -569,6 +574,7 @@ tier b の compile の対象外：`kivact-docs`、`kivact-kit-tests`（K44 が W
 | G3 | G13 | G | `docs/for-kivact-developer/architecture.md` | — |
 | G4 | G14 | G | `docs/for-kivact-developer/{decisions,strategy,manual-verification}.md` | — |
 | K | K44 | K | `dev/tests/kivact-kit-tests/{Cargo.toml,tests/e2e_kits/}`、`crates/kivact-ui-*/tests/consumer/` の「移す」file | module は `apg_grid_kit`・`presence_kit`（INC-11） |
+| L | L12 | L | `dev/xtask/src/{local_checks.rs,state.rs,state/check.rs,state/tests.rs}` | 付属書 L。前提は L1〜L11 の merge（`legacy:` の印が 0 件） |
 
 前提の確認：W10 の全 kit の unit（K35・K37・K38・K40・K43）、W1〜W10 の完了（G01）。
 tier b の compile の対象外：なし（基本の形に戻る）。
@@ -665,7 +671,9 @@ tier c（除外なし）、AC-4 のコマンド、`cargo xtask check --no-write`
 | U52, U53, U54 | W8 | U4 |
 | E29 | W8 | E1 |
 | A16 | W8 | A2 |
-| 付属書 L の全 unit（CP1 の後に設計者が書く） | W8L | L1〜L6 |
+| L1, L2, L3, L4, L5, L6 | W8L | L1〜L6 |
+| L7, L8, L9, L10, L11 | W10 | K1〜K5（各 kit の lane の最後） |
+| L12 | W11a | L |
 | K15, K16, K17, K18, K19 | W9 | K1 |
 | K20, K21 | W9 | K2 |
 | K22, K23, K24, K25 | W9 | K3 |
@@ -687,7 +695,7 @@ tier c（除外なし）、AC-4 のコマンド、`cargo xtask check --no-write`
 | G07, G10, G11 | W11b | G4 |
 | G15 | W11c | G1 |
 
-数：T 24、S 23、R 22、C 19、D 4、E 32、A 16、U 44、K 44、G 15。合計 243（と付属書 L の unit）。wave（sub-wave を一つずつ数え、checkpoint を除く）は 22：W1a・W1b・W1c・W2a・W2b・W3a・W3b・W4・W4b・W5a・W5b・W6a・W6b・W7a・W7b・W8・W8L・W9・W10・W11a・W11b・W11c。最大の lane の数は 6（W1b、W3a、W4、W7b、W8、W9。W8L は付属書 L が 6 以下で決める）。
+数：T 24、S 23、R 22、C 19、D 4、E 32、A 16、U 44、K 44、G 15。合計 243、付属書 L 12、総計 255。wave（sub-wave を一つずつ数え、checkpoint を除く）は 22：W1a・W1b・W1c・W2a・W2b・W3a・W3b・W4・W4b・W5a・W5b・W6a・W6b・W7a・W7b・W8・W8L・W9・W10・W11a・W11b・W11c。最大の lane の数は 6（W1b、W3a、W4、W7b、W8、W9。W8L は 6）。
 
 ### 変更した配置（付属書の最初の表との違い）
 
@@ -715,7 +723,7 @@ tier c（除外なし）、AC-4 のコマンド、`cargo xtask check --no-write`
 | A13、A14 | W7 / A1・A2 | W7a / A1・A2 | W7b は U の 4 lane で、残りは 2 lane（INC-29） |
 | A15 | W8 / A1 | W7b / A1 | W7b を 6 lane にし、性能の unit を CP2 の前に早く終える |
 | U30c（12 章で新設） | — | W7b / U1（U30a の後） | hover_card・navigation_menu を U30a から分けた。同じ lane の順 |
-| 付属書 L | — | W8L（W8 の後、CP2 の前） | 12 章 ST-01：CP1 の台帳の閉じ方 |
+| 付属書 L | — | W8L（L1〜L6）、W10（L7〜L11、kit の lane の最後）、W11a（L12） | 12 章 ST-01：CP1 の台帳の閉じ方 |
 | K44 | W11 / K | W11a / K | W10 の tier b は `kivact-kit-tests` を外す（INC-12） |
 | G02〜G12（G13・G14 を除く） | W11a | W11b | G03・G04・G07 が同じ wave の別 lane の G01 を前提にする（INC-30） |
 | G15 | W11b | W11c | 上の分割に合わせた |

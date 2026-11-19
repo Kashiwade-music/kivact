@@ -570,7 +570,7 @@ unit の書き方（全付属書で共通。付属書の書き手が守る）：
 | [rework/K-kits.md](rework/K-kits.md) | 5 つの kit、catalog、kivact-plot、catalog-shell（5.10 節） | KIT-* |
 | [rework/A-arvane.md](rework/A-arvane.md) | arvane*、kivact-gpu-share | AR-* |
 | [rework/D-deps.md](rework/D-deps.md) | 依存の更新（12.2 節） | — |
-| [rework/L-ledger.md](rework/L-ledger.md) | CP1 の後に設計者が書く：`legacy:` の印の閉じ方（12 章 ST-01）。CP1 までは存在しない | 台帳 `rework/state-ledger.md` |
+| [rework/L-ledger.md](rework/L-ledger.md) | `legacy:` の印の閉じ方（12 章 ST-01）。CP1 の台帳を基に設計者が書いた（2026-11-19）。W8L・W10・W11a で実装する | 台帳 `rework/state-ledger.md` |
 | [rework/G-guides.md](rework/G-guides.md) | 利用者向け docs、README、例、雛形、移行ガイド、開発者向けの 3 文書、bench の probe の最終確認 | API-07〜API-09、AC-5 |
 
 ## 12. 外部レビューへの対応（`20261118_1237_CODEX_REVIEW.md`）

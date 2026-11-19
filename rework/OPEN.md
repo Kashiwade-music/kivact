@@ -61,7 +61,6 @@
 ## KPI の未達
 - 改善の必達の未達（3 回中 2 回以上で未達）：K3 3000 rows continuous CPU（0.92・1.02 は改善未達、3 回目 1.07 は後退。改善の必達 ≤0.85）、K5 pointer p95 n3000（3 回とも 0.86〜0.93、改善の必達 ≤0.85）、K6 basic-catalog no-gpu（3 回とも 1.011、改善の必達 ≤0.97）。設計者に返す。
 ## 台帳
-- CP1 時点の状態の台帳：`rework/state-ledger.md`（`legacy:` の印 194 件。型・関数、file と行、印の文面、field の書く式の場所を書いた。E31 の `AppModel` の行には印に無い `text_ahead`・`font_generation` を足した）。閉じ方（付属書 L）は設計者が書く。
 
 
 ## 差戻しの判断（W1c・T22、2026-11-18）
@@ -169,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R08（lane X、commit `686e8409`）：(a) `Diag` に印の文面の 1 文を足す手順は、`Diag` に `xtask-allow(state)` の行が無いので、足さなかった（xtask は指摘しない。表の「印の文の編集」の行に準じて、無いものは足さない）。(b) `set_recorder`・`is_recording`・`RecordBits` は付属書 4.1 の名前どおり pub（`#[doc(hidden)]` は付けない）。受け入れる。
+- 設計者への注意（R08、STOP ではない）：`crates/kivact-core/src/devtools/turn.rs:41` の `turn.cause_with(CauseTag::Devtools, format!(..))` は付属書の一覧に無いので触っていない。記録は `record_cause_with` のゲートで残らないが、`format!` は毎回走る。設計者が一覧に足すかを決める。
+
 - W5a・R06（lane X、commit `13942301`）：(a) `count_round` を `pub(crate)` にした（private のままだと `reactive/host.rs` の `run_deferred` から呼べない。可視性だけの変更）。(b) `launch/turn.rs` の `ViewState::of(&rt).initial_render.set(false);` を書かなかった。`start_mount` がすでに false にしていて、どの turn より前なので効果が無い。表の「付属書のコード片が効果を持たない」の判断（同じ意味で既に済んでいる）。(c) `use` は現行の import に合わせた。以上は表の範囲で受け入れる。
 - 設計者への注意（R06、STOP ではない）：`commit_rounds` の `if !mounts && !rt.has_work() break` は、予算切れで残った deferred があると `has_work` が真のままで、100 回回ってから「user effects did not settle within 100 rounds」の Cycle を余分に一つ報告する（メッセージも不正確）。付属書の形のまま書いた。直すかどうかは設計者が決める。試験は全エラーが Cycle であることしか見ていないので通る。
 
@@ -298,3 +300,15 @@
   - **改善の必達の未達**（K3 の continuous CPU、K5 pointer p95、K6 no-gpu）：CP1 では返さない。手段の unit（E12 の draw cache、E13 の restack、hit test の索引、recipe 表の分割、plot の crate 化）の多くは CP1 の後にあり、判定は最終 checkpoint の AC-2。作業指示書 5.1 節の 3 に「CP1・CP2 では記録だけ」と書いた。
 - **Orchestrator の判断**（`ViewState::new` の `hooks`、`gpu` の遅延、`SceneOut` の印の除去、E13 の完了条件の残り行、E12 の `outdate_draws` の分割と代用）：すべて受け入れる。CP1 の `--test gpu` は `--test screen -- gpu::` が正しい。作業指示書 2 章の行を直した。
 - **付属書 L**（`legacy:` の印 194 件）：設計者が書く。W8L の前に用意するので、待たずに W5a 以降を進めてよい（作業指示書の W8L の行のとおり、W8 の merge の時点で無ければ止める）。
+
+## 設計者の回答（付属書 L、2026-11-19）
+
+- 付属書 L（`rework/L-ledger.md`）を書いた。台帳の 194 件の内訳：
+  - 書く 176 件
+  - 変える 5 件（`TimelineCell` の時刻の二重の保存、`EditorNode` の `measure_lines` を font の登録で捨てない不具合、型の別名に隠れた setting 3 件）
+  - 他 unit 8 件（A14・E17・C07・R22・S17・U54 が型を直す、または消す）
+  - 外す 5 件（xtask 自身の `legacy:` の文字列）
+- 配置：W8L は L1〜L6（crate ごと）。kit とその example の印は、W9〜W10 の K の unit が型を書き直すので、W10 の各 kit の lane の最後（L7〜L11）に置く。xtask の `legacy:` の仕組みは、最後に W11a の L12 が消す。作業指示書の W8L・W10・W11a の表と unit の一覧を直した。
+- 台帳の後に型が移った、改名された、field が足された・消えた場合の扱いは、付属書 L の 2 章の共通手順 L に書いた（印の field の並びで台帳の行に対応させる。後の unit が足した節は残す。無い field の名前は消す。新しい状態の field の説明が無ければ差戻し）。
+- 「台帳」節の項目（付属書 L を書くこと）は済んだので消した。
+
