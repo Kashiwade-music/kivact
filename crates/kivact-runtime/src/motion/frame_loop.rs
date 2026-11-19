@@ -7,9 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{
-    Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, LoopState, MotionState, motion_now,
-};
+use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, MotionState, motion_now};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -29,21 +27,20 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
     let at = Location::caller();
     let owner = Owner::current("frame_loop", at);
     let rt = owner.runtime();
-    let state = owner.signal(LoopState::Stopped, at);
-    let rate = crate::memo(move || match state.get() {
-        LoopState::Stopped => None,
-        LoopState::Running(run) => Some(run.rate),
-    });
+    let rate = owner.signal(None, at);
+    let registration = MotionState::of(&rt).token(rt.id());
+    let id = registration.id;
     let cell = Rc::new(LoopCell {
+        registration,
         owner,
         f: crate::reactive::Handler::from_fn(f),
-        state,
+        run: Cell::new(None),
+        rate,
         frames: Cell::new(0),
         gate: Cell::new(LoopGate::Always),
-        rate,
         motion: Cell::new(LoopMotion::Decorative),
     });
-    MotionState::of(&rt).register_loop(&cell);
+    MotionState::of(&rt).register_loop(id, &cell);
     FrameLoop {
         handle: owner.store("FrameLoop", cell, at),
     }
@@ -106,10 +103,7 @@ impl FrameLoop {
             );
             return;
         }
-        let current = match cell.state.get_untracked() {
-            LoopState::Stopped => None,
-            LoopState::Running(run) => Some(run),
-        };
+        let current = cell.run.get();
         if current.is_some_and(|r| r.rate == rate) {
             return;
         }
@@ -141,6 +135,6 @@ impl FrameLoop {
     /// Current rate (`None` when stopped).
     #[track_caller]
     pub fn rate(&self) -> Value<Option<FrameRate>> {
-        self.cell(Location::caller()).1.rate
+        self.cell(Location::caller()).1.rate.into()
     }
 }

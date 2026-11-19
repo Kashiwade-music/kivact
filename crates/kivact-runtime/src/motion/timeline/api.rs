@@ -19,7 +19,7 @@ use kivact_types::motion::{PlayDirection, Transition};
 use super::super::Repeat;
 use super::super::animated::shift;
 use super::super::state::{
-    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, RunStatus, motion_now,
+    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, MotionToken, RunStatus, motion_now,
 };
 use super::super::transition::Kind;
 use super::super::values::Animatable;
@@ -45,9 +45,11 @@ pub fn timeline() -> Timeline {
     let at = Location::caller();
     let owner = Owner::current("timeline", at);
     let rt = owner.runtime();
-    let cell = Rc::new(TimelineCell::new(owner, at));
+    let registration = MotionState::of(&rt).token(rt.id());
+    let motion_id = registration.id;
+    let cell = Rc::new(TimelineCell::new(owner, at, registration));
     let anim: Rc<dyn Anim> = cell.clone();
-    MotionState::of(&rt).register_anim(&anim);
+    MotionState::of(&rt).register_anim(motion_id, &anim);
     drop(anim);
     let events = cell.events;
     let weak = Rc::downgrade(&cell);
@@ -296,7 +298,7 @@ impl Timeline {
         require_setup("Timeline::drive");
         let cell = self.cell(at);
         let source = progress.into_prop();
-        cell.phase.set(TimelinePhase::Driven);
+        cell.set_phase(TimelinePhase::Driven);
         cell.drive_to(crate::untrack(|| source.get()), at);
         let weak = Rc::downgrade(&cell);
         crate::reactive::watch(
@@ -482,9 +484,11 @@ enum Event {
     Call(usize),
 }
 
-// xtask-allow(state): legacy: phase, time, playback, repeat, alternate, motion, segments, labels, tracks, plan, pending, completions
+// xtask-allow(state): legacy: phase, time, playback, repeat, alternate, motion, segments, labels, tracks, plan, pending, completions; set_phase is the only writer of phase
 /// The state of one timeline: its structure (setup) and its playback.
 pub(crate) struct TimelineCell {
+    /// Its registration: dropping the cell removes it from every map.
+    registration: MotionToken,
     owner: Owner,
     phase: Signal<TimelinePhase>,
     /// The time last published (ms).
@@ -504,8 +508,21 @@ pub(crate) struct TimelineCell {
 }
 
 impl TimelineCell {
-    fn new(owner: Owner, at: &'static Location<'static>) -> Self {
+    /// The only write of `phase`: keeps the motion system's running set.
+    fn set_phase(&self, next: TimelinePhase) {
+        let was = self.is_running();
+        self.phase.set(next);
+        let now = self.is_running();
+        if was != now
+            && let Some(rt) = crate::Runtime::get(self.owner.app())
+        {
+            MotionState::of(&rt).set_anim_running(self.registration.id, now);
+        }
+    }
+
+    fn new(owner: Owner, at: &'static Location<'static>, registration: MotionToken) -> Self {
         Self {
+            registration,
             owner,
             phase: owner.signal(TimelinePhase::Idle { time: 0.0 }, at),
             time: owner.signal(0.0, at),
@@ -770,7 +787,7 @@ impl TimelineCell {
     fn finish_at_end(&self) {
         let end = self.end_time();
         self.apply(end);
-        self.phase.set(TimelinePhase::Finished { time: end });
+        self.set_phase(TimelinePhase::Finished { time: end });
         self.announce(Event::Complete);
     }
 
@@ -782,7 +799,7 @@ impl TimelineCell {
         } else {
             let time = self.current_time();
             self.apply(time);
-            self.phase.set(TimelinePhase::Paused { time });
+            self.set_phase(TimelinePhase::Paused { time });
         }
     }
 
@@ -820,7 +837,7 @@ impl TimelineCell {
             self.stop_for_reduced();
             return;
         }
-        self.phase.set(TimelinePhase::Playing {
+        self.set_phase(TimelinePhase::Playing {
             start_ns: self.now(),
             from_time: time,
         });
@@ -859,7 +876,7 @@ impl TimelineCell {
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
             let time = self.current_time();
             self.apply(time);
-            self.phase.set(TimelinePhase::Paused { time });
+            self.set_phase(TimelinePhase::Paused { time });
         }
     }
 
@@ -872,7 +889,7 @@ impl TimelineCell {
         playback.direction = playback.direction.flipped();
         self.playback.set(playback);
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: self.now(),
                 from_time: time,
             });
@@ -927,7 +944,7 @@ impl TimelineCell {
             TimelinePhase::Driven => return,
         };
         self.apply(time);
-        self.phase.set(next);
+        self.set_phase(next);
         self.wake();
     }
 
@@ -940,7 +957,7 @@ impl TimelineCell {
         playback.rate = rate;
         self.playback.set(playback);
         if let TimelinePhase::Playing { .. } = self.phase.get_untracked() {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: self.now(),
                 from_time: time,
             });
@@ -992,7 +1009,7 @@ impl Anim for TimelineCell {
             from_time,
         } = self.phase.get_untracked()
         {
-            self.phase.set(TimelinePhase::Playing {
+            self.set_phase(TimelinePhase::Playing {
                 start_ns: shift(start_ns, paused, now),
                 from_time,
             });
