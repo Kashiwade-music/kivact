@@ -25,18 +25,18 @@ pub use reactive::{
     AppId, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,
     ErrorKind, ExitState, Handled, Handler, HandlerResult, Host, IntoHandler, IntoReactive,
     IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner, LiveSnapshot, NodeId,
-    NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Prop, PropValue, Reactive, RecordBits,
-    ReportKind, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan, ThreadWaker,
-    TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport, UiError,
-    UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo, notifier,
-    on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector, signal,
+    NodeInfo, Owned, Owner, OwnerId, OwnerInfo, Prop, PropValue, Reactive, RecordBits, ReportKind,
+    Reported, Result, Runtime, Selector, Signal, Stage, StageSpan, ThreadWaker, TraceRun,
+    TraceWrite, Trigger, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport, UiError,
+    UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo, on_cleanup,
+    on_mount, pure, raise, require_effectful, require_setup, selector, signal, trigger,
     try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{
-    Action, ActionFn, AsyncState, BlockingWork, CancelToken, Completion, Resource, Task, TaskEntry,
-    TaskState, TaskStats, action, blocking, queued_action, resource, sleep, spawn, spawn_in,
-    timeout,
+    Action, ActionFn, AsyncState, BlockingWork, CancelToken, Completion, Remote, RemoteTrigger,
+    Resource, Task, TaskEntry, TaskState, TaskStats, action, blocking, clock, queued_action,
+    remote, remote_trigger, resource, sleep, spawn, spawn_in, timeout,
 };
 
 pub use task::AsyncSource;

@@ -97,7 +97,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
-// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count
+// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
@@ -117,6 +117,12 @@ pub struct TaskState {
     pub(super) finished: RefCell<Vec<Owned<Rc<TaskCell>>>>,
     /// Live queued actions (for the exit drain).
     pub(super) queues: RefCell<Registry<dyn Drain>>,
+    /// The UI side of every open `remote` and `remote_trigger` mailbox.
+    pub(crate) remotes: RefCell<Vec<Rc<dyn super::remote::Deliver>>>,
+    /// The mark and waker other threads use to reach the mailboxes.
+    pub(crate) remote_wake: super::remote::RemoteWake,
+    /// The shared clocks and their users (`task::clock`).
+    pub(super) clocks: RefCell<Vec<Rc<super::clock::ClockEntry>>>,
     /// The blocking pool, created on first use.
     pub(super) pool: RefCell<PoolState>,
 }
@@ -128,11 +134,14 @@ impl TaskState {
         TaskState {
             #[cfg(feature = "tokio")]
             tokio: RefCell::new(super::tokio_state::TokioState::NotStarted),
+            remotes: RefCell::new(Vec::new()),
+            remote_wake: super::remote::RemoteWake::new(waker.clone()),
             exec: Executor::new(waker),
             time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
             queues: RefCell::new(Registry::new()),
+            clocks: RefCell::new(Vec::new()),
             pool: RefCell::new(PoolState::NotStarted),
         }
     }

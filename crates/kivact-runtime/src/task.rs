@@ -4,9 +4,10 @@
 //! queue policies) and host-clock time. Futures run on the UI thread and
 //! may write signals after `await` directly.
 //!
-//! There are five async entries: [`resource`], [`action`] and
+//! There are seven async entries: [`resource`], [`action`] and
 //! [`queued_action`] (one constructor for runs with and without an input, so
-//! a run without one is `run(())`), [`spawn`] and [`blocking`]. Fetchers and
+//! a run without one is `run(())`), [`spawn`], [`blocking`], [`remote`] (and
+//! [`remote_trigger`]) and [`clock`]. Fetchers and
 //! runners return `Result<T, UiError>`; `?` converts other errors. A
 //! spawned future returns `()` or `Result<(), UiError>`, and an `Err`
 //! reaches the `on_error` of the task's owner like a handler's `Err`. A
@@ -33,9 +34,11 @@
 mod action;
 mod async_state;
 mod blocking;
+mod clock;
 mod completion;
 mod executor;
 mod latest;
+mod remote;
 mod resource;
 mod sealed;
 mod spawn;
@@ -46,7 +49,10 @@ mod worker_pool;
 pub use action::{Action, ActionFn, action, queued_action};
 pub use async_state::AsyncState;
 pub use blocking::{BlockingWork, CancelToken, blocking};
+pub use clock::clock;
 pub use completion::Completion;
+pub(crate) use remote::Deliver;
+pub use remote::{Remote, RemoteTrigger, remote, remote_trigger};
 pub use resource::{Resource, resource};
 pub use spawn::{Task, spawn, spawn_in};
 pub use state::{TaskEntry, TaskState, TaskStats};

@@ -309,12 +309,6 @@ impl<T: 'static> Signal<T> {
         }
     }
 
-    /// Notify readers without changing the value (removed with `Trigger`, R23).
-    #[track_caller]
-    pub fn notify(&self) {
-        self.modify(Location::caller(), |_| true);
-    }
-
     /// A two-way view of one field (setup only): what `bind!` expands to.
     #[doc(hidden)]
     #[track_caller]

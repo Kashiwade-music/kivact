@@ -28,7 +28,7 @@ use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
 use crate::{
-    Callback, EffectKind, ErrorKind, IntoValue, Notifier, Owned, Owner, Signal, UiError, Value,
+    Callback, EffectKind, ErrorKind, IntoValue, Owned, Owner, Signal, Trigger, UiError, Value,
     require_effectful, require_setup,
 };
 
@@ -494,7 +494,7 @@ pub(crate) struct TimelineCell {
     /// The time last published (ms).
     time: Signal<f64>,
     /// Wakes the watcher that runs `pending`.
-    events: Notifier,
+    events: Trigger,
     playback: Cell<Playback>,
     repeat: Cell<Repeat>,
     alternate: Cell<PlayDirection>,
@@ -526,7 +526,7 @@ impl TimelineCell {
             owner,
             phase: owner.signal(TimelinePhase::Idle { time: 0.0 }, at),
             time: owner.signal(0.0, at),
-            events: owner.notifier(at),
+            events: owner.trigger(at),
             playback: Cell::new(Playback {
                 rate: 1.0,
                 direction: Direction::Forward,

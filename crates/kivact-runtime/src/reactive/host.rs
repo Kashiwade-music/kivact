@@ -58,6 +58,13 @@ impl Runtime {
             || self.tasks.has_ready()
     }
 
+    /// Whether another thread sent values or notifications
+    /// (`task::remote`, `task::remote_trigger`) that the next turn delivers.
+    /// The host runs a turn for them even without an event.
+    pub fn has_mail(&self) -> bool {
+        self.tasks.remote_wake.is_pending()
+    }
+
     /// Whether a turn was requested of the host and has not started.
     pub fn turn_requested(&self) -> bool {
         self.state.get() == TurnState::WakeSent
@@ -98,7 +105,22 @@ impl Runtime {
     pub fn begin_turn(&self, events: usize) -> TurnGuard<'_> {
         let turn = self.begin(Stage::Begin);
         self.begin_turn_record(events);
+        self.deliver_remotes();
         turn
+    }
+
+    /// Deliver what other threads sent (`task::remote`, `task::remote_trigger`):
+    /// every mailbox once, at the start of the turn.
+    fn deliver_remotes(&self) {
+        if !self.tasks.remote_wake.take() {
+            return;
+        }
+        let inboxes: Vec<Rc<dyn crate::task::Deliver>> = self.tasks.remotes.borrow().clone();
+        self.enter(|| {
+            for inbox in inboxes {
+                inbox.deliver();
+            }
+        });
     }
     /// Route `err` to the nearest error boundary of `owner`, or, without an
     /// owner or a boundary, to the App's default sink (`tracing` and

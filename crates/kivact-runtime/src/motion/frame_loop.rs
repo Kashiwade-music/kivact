@@ -59,22 +59,14 @@ impl FrameLoop {
         self
     }
 
-    /// Host adapter bridge: restrict scheduling to an observed node lifetime.
-    #[doc(hidden)]
+    /// Run callbacks only while `present` is true (for example
+    /// `move || node.is_present()`), resuming the requested rate when it is
+    /// true again; the start/stop state is kept. Setup only.
     #[track_caller]
-    pub fn with_presence_gate(self, gate: Value<bool>) -> Self {
-        crate::require_setup("FrameLoop::with_presence_gate");
-        let (rt, cell) = self.cell(Location::caller());
-        cell.gate.set(LoopGate::While(gate));
-        let app = rt.id();
-        cell.owner.with_setup(move || {
-            crate::effect(move || {
-                let _ = gate.get();
-                if let Some(rt) = Runtime::get(app) {
-                    rt.request_turn();
-                }
-            })
-        });
+    pub fn while_present(self, present: impl crate::IntoValue<bool>) -> Self {
+        crate::require_setup("FrameLoop::while_present");
+        let (_rt, cell) = self.cell(Location::caller());
+        cell.gate.set(LoopGate::While(present.into_value()));
         self
     }
 

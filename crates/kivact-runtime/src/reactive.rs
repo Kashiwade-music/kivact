@@ -11,7 +11,7 @@
 //!   handles ([`Signal`], [`Value`], [`Var`], [`Callback`], [`Selector`]),
 //!   the setup functions, [`IntoValue`] and [`UiError`];
 //! - the layers above (view, task, motion, style): [`Owner`] and [`Owned`]
-//!   for owners and the objects stored under them, [`Notifier`], [`Prop`],
+//!   for owners and the objects stored under them, [`Trigger`], [`Prop`],
 //!   [`keyed`], [`pure`], [`require_setup`] and [`require_effectful`];
 //! - the host that runs an App's turns: [`Runtime`] and [`Host`].
 //!
@@ -74,7 +74,7 @@ pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Rea
 pub use runtime::{LiveObject, LiveOwner, LiveSnapshot, OwnerInfo};
 pub use selector::{Selector, selector};
 pub use setup::{
-    binding, callback, effect, effect_on, memo, notifier, on_cleanup, on_mount, signal,
+    binding, callback, effect, effect_on, memo, on_cleanup, on_mount, signal, trigger,
     try_use_context, use_context, var,
 };
-pub use trigger::Notifier;
+pub use trigger::Trigger;

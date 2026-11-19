@@ -240,10 +240,10 @@ pub(crate) fn lookup_context<T: Clone + 'static>(rt: &Runtime, owner: Key) -> Op
         .and_then(|v| v.downcast_ref::<T>().cloned())
 }
 
-/// A value-free dependency owned by the current component setup.
+/// A dependency without a value (Solid `createTrigger`): computations that call `track` re-run after `notify`. Setup only.
 #[track_caller]
-pub fn notifier() -> crate::Notifier {
+pub fn trigger() -> crate::Trigger {
     let at = Location::caller();
-    let (rt, owner) = setup_scope("notifier", at);
-    crate::Notifier::from_key(rt.id(), rt.create_source(owner, (), at))
+    let (rt, owner) = setup_scope("trigger", at);
+    crate::Trigger::from_key(rt.id(), rt.create_source(owner, (), at))
 }
