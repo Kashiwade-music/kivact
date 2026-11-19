@@ -1,6 +1,5 @@
 //! Role: The alert recipe state, tokens, recipe table and default looks.
 
-use crate::alert::AlertVariant;
 use crate::recipe::recipe_table;
 use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
@@ -129,3 +128,13 @@ recipe_table! {
         toggle(toggle_recipe): AlertState = alert_control,
     }
 }
+
+/// The structural presentation of an alert.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AlertVariant {
+    #[default]
+    Default,
+    Banner,
+}
+
+impl crate::variants::Variant for AlertVariant {}

@@ -1,7 +1,7 @@
 //! Role: The avatar recipe state, tokens, recipe table and default looks.
 use crate::look_common::{side, tone};
 
-use crate::{AvatarShape, ControlSize};
+use crate::ControlSize;
 use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 pub(crate) fn avatar(t: &Theme, s: &AvatarState) -> Style {
@@ -66,3 +66,13 @@ pub struct AvatarTokens {
     /// Whether an avatar shows its name in a tooltip when the caller leaves it to the theme.
     pub name_tooltip: bool,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AvatarShape {
+    #[default]
+    Circle,
+    Rounded,
+    Square,
+}
+
+kivact_core::state::constant_value!(AvatarShape);
