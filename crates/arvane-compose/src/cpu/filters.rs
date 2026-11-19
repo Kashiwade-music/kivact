@@ -7,7 +7,7 @@ use super::blur::gaussian;
 use super::effects::{blur_sigmas, color_matrix, drop_shadow};
 use super::graph;
 use super::surface::Pixmap;
-use crate::ComposeError;
+use crate::RenderError;
 
 /// `input` filtered by `filter`, of the same size. `px_per_unit` and `origin` map layer space to the pixels.
 pub(crate) fn apply(
@@ -15,7 +15,7 @@ pub(crate) fn apply(
     input: &Pixmap,
     px_per_unit: f64,
     origin: Point,
-) -> Result<Pixmap, ComposeError> {
+) -> Result<Pixmap, RenderError> {
     Ok(match filter {
         LayerFilter::Blur { std_dev } => {
             let sigma = std_dev * px_per_unit;

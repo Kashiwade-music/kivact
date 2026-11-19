@@ -11,10 +11,10 @@ use super::targets::Pool;
 use crate::cache::{CacheIndex, ChunkKey};
 use arvane_protocol::LayerKey;
 use arvane_render::GpuRaster;
-use kivact_types::cell::Mailbox;
+use kivact_types::cell::SharedDeferred;
 use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
 use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
@@ -98,39 +98,26 @@ pub struct GpuContext {
 
 /// The first failure the device reported (validation error or loss).
 #[derive(Default)]
-pub(crate) struct DeviceLost {
-    message: Mailbox<String>,
-    /// Serialize the mailbox's read-and-restore operations to retain the first failure.
-    access: Mutex<()>,
-}
+pub(crate) struct DeviceLost(SharedDeferred<String>);
 
 impl DeviceLost {
-    /// Keep `message` unless an earlier failure is already recorded.
+    /// Keep `message` unless one was kept before.
     pub(crate) fn record(&self, message: String) {
-        let _access = self
-            .access
-            .lock()
-            .expect("invariant: device loss lock is not poisoned");
-        self.message.put(self.message.take().unwrap_or(message));
+        self.0.get_or_init(|| message);
     }
 
-    /// The first recorded failure, if any.
+    /// The kept message.
     pub(crate) fn message(&self) -> Option<String> {
-        let _access = self
-            .access
-            .lock()
-            .expect("invariant: device loss lock is not poisoned");
-        let message = self.message.take()?;
-        self.message.put(message.clone());
-        Some(message)
+        self.0.get().cloned()
     }
 }
 
-/// Whether a frame's surface is kept for [`GpuContext::read_back`].
-#[derive(Clone, Copy, PartialEq, Eq)]
+/// Whether a surface keeps its last presented frame for read-back.
 pub(crate) enum Retain {
+    /// Presented frames go back to the pool.
     Drop,
-    Keep,
+    /// The last presented frame is kept (none yet: `None`).
+    Keep(Option<wgpu::Texture>),
 }
 
 /// What [`GpuContext::present`] did.
@@ -147,10 +134,8 @@ pub enum Presentation {
 pub struct GpuSurface {
     pub(crate) surface: wgpu::Surface<'static>,
     pub(crate) swapchain: Swapchain,
-    /// Keep each presented frame for [`GpuContext::read_back`].
-    pub(crate) keep: Retain,
-    /// The last presented frame's output, kept only when `keep` is [`Retain::Keep`].
-    pub(crate) last: Option<wgpu::Texture>,
+    /// Whether each presented frame is kept for [`GpuContext::read_back`].
+    pub(crate) kept: Retain,
 }
 
 /// Whether a surface's swapchain is configured yet.

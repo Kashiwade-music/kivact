@@ -7,7 +7,7 @@ use super::pass::{FrameTextures, copy, view, with_pass};
 use super::pipelines::buffer;
 use super::shader_cache::{IMAGE_SLOTS, make_pipeline};
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::plan::{DrawOp, Sampling, Scissor, ShaderOp, Source};
 use arvane_render::RASTER_FORMAT;
 use kivact_types::Composite;
@@ -111,7 +111,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let key = (op.shader.program.hash, true);
         if self.pipeline(op.shader.program.as_ref(), key).is_none() {
             return self.record_fallback(encoder, op, frame);
@@ -119,7 +119,7 @@ impl GpuContext {
         let coverage = self
             .chunks
             .get(&op.coverage)
-            .ok_or_else(|| ComposeError::Backend("a shader's coverage chunk is missing".into()))?;
+            .ok_or_else(|| RenderError::Backend("a shader's coverage chunk is missing".into()))?;
         let draw = Draw {
             shader: op.shader,
             size: (op.size.width as f32, op.size.height as f32),
@@ -128,7 +128,7 @@ impl GpuContext {
             content: None,
             coverage: Coverage::Texture(coverage),
             map: map_columns(&op.map).try_into().map_err(|_| {
-                ComposeError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
+                RenderError::InvalidComposition("a shader map has no 3 × 3 matrix".into())
             })?,
         };
         let target = frame.target(op.target)?;
@@ -144,7 +144,7 @@ impl GpuContext {
         dest: &wgpu::Texture,
         shader: &ShaderUse,
         (px_per_unit, origin, bounds): (f64, Point, Size),
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let key = (shader.program.hash, false);
         if self.pipeline(shader.program.as_ref(), key).is_none() {
             copy(encoder, source, dest);
@@ -208,7 +208,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         op: &ShaderOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let fallback = DrawOp {
             target: op.target,
             source: Source::Chunk(op.fallback),
@@ -233,9 +233,9 @@ impl GpuContext {
         vertices: &[f32],
         target: &wgpu::Texture,
         draw: Draw<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let Some(pipeline) = self.shaders.pipelines.get(&key).and_then(Option::as_ref) else {
-            return Err(ComposeError::Backend(
+            return Err(RenderError::Backend(
                 "a shader pipeline is missing for a draw".into(),
             ));
         };

@@ -23,4 +23,4 @@ mod encode;
 mod images;
 mod raster;
 
-pub use raster::{Canvas, GpuRaster, RASTER_FORMAT};
+pub use raster::{Canvas, GpuFrameRaster, GpuRaster, RASTER_FORMAT};

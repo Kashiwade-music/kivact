@@ -7,7 +7,7 @@
 use super::export_pool::{ExportPool, ExportRecord, Pool};
 use super::pass::unpremultiply;
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::plan::PlannedExport;
 use arvane_protocol::{Composition, Export, ExportMode};
 use kivact_types::export::{ExportFrame, ExportedFrame};
@@ -23,7 +23,7 @@ impl GpuContext {
         generation: u64,
         adapter: &GpuAdapter,
         size: (u32, u32),
-    ) -> Result<SharedTextures, ComposeError> {
+    ) -> Result<SharedTextures, RenderError> {
         self.drop_export(sink);
         let (pool, shared) = make_pool(&self.device, adapter, size)?;
         self.exports.pools.insert(
@@ -52,7 +52,7 @@ impl GpuContext {
         exports: &[PlannedExport],
         composition: &Composition,
         textures: &[wgpu::Texture],
-    ) -> Result<(Vec<ExportedFrame>, Vec<DrawableId>), ComposeError> {
+    ) -> Result<(Vec<ExportedFrame>, Vec<DrawableId>), RenderError> {
         let mut frames = Vec::new();
         let mut pending = Vec::new();
         for (export, planned) in composition.exports.iter().zip(exports) {
@@ -67,7 +67,7 @@ impl GpuContext {
                 continue;
             }
             let texture = textures.get(planned.target as usize).ok_or_else(|| {
-                ComposeError::InvalidComposition("an export target is missing".into())
+                RenderError::InvalidComposition("an export target is missing".into())
             })?;
             let frame = match export.mode {
                 ExportMode::Pixels => {
@@ -105,7 +105,7 @@ impl GpuContext {
         &mut self,
         export: &Export,
         texture: &wgpu::Texture,
-    ) -> Result<Option<(u32, u64)>, ComposeError> {
+    ) -> Result<Option<(u32, u64)>, RenderError> {
         let Some(pool) = self.exports.pools.get_mut(&export.sink) else {
             return Ok(None);
         };
@@ -128,10 +128,10 @@ fn make_pool(
     device: &wgpu::Device,
     adapter: &GpuAdapter,
     size: (u32, u32),
-) -> Result<(Pool, SharedTextures), ComposeError> {
+) -> Result<(Pool, SharedTextures), RenderError> {
     let config = kivact_gpu_share::PoolConfig::new(size.0, size.1);
     kivact_gpu_share::wgpu::Pool::new(device, adapter, config)
-        .map_err(|error| ComposeError::Backend(error.to_string()))
+        .map_err(|error| RenderError::Backend(error.to_string()))
 }
 
 /// Without `gpu-interop` there is no pool to make.
@@ -140,8 +140,8 @@ fn make_pool(
     _device: &wgpu::Device,
     _adapter: &GpuAdapter,
     _size: (u32, u32),
-) -> Result<(Pool, SharedTextures), ComposeError> {
-    Err(ComposeError::Backend(
+) -> Result<(Pool, SharedTextures), RenderError> {
+    Err(RenderError::Backend(
         "drawable export pools need the gpu-interop feature".into(),
     ))
 }
@@ -155,16 +155,16 @@ fn publish(
     queue: &wgpu::Queue,
     texture: &wgpu::Texture,
     size: (u32, u32),
-) -> Result<Option<(u32, u64)>, ComposeError> {
+) -> Result<Option<(u32, u64)>, RenderError> {
     if (texture.width(), texture.height()) != size {
-        return Err(ComposeError::InvalidComposition(
+        return Err(RenderError::InvalidComposition(
             "an export target does not match its export size".into(),
         ));
     }
     // Never waits on the window: a slot the window has not released stays pending.
     let target = pool
         .try_acquire()
-        .map_err(|error| ComposeError::Backend(error.to_string()))?;
+        .map_err(|error| RenderError::Backend(error.to_string()))?;
     let Some(target) = target else {
         return Ok(None);
     };
@@ -206,7 +206,7 @@ fn hand_off(
     target: kivact_gpu_share::wgpu::Target<'_>,
     queue: &wgpu::Queue,
     commands: wgpu::CommandBuffer,
-) -> Result<kivact_gpu_share::FrameReady, ComposeError> {
+) -> Result<kivact_gpu_share::FrameReady, RenderError> {
     // SAFETY: the contract of `Target::submit` is: "`queue` is the queue of the pool's device. No other thread
     // uses that queue during the call (`Queue::submit`, `Surface::present`, `Device::poll` and the like)."
     // The first part holds because the pool is made on `self.device` (`export_drawable`) and `self.queue` comes from the same
@@ -214,7 +214,7 @@ fn hand_off(
     // thread at a time (it moves between threads by value and is never shared), so the queue is used only by that thread, and the
     // retiring thread of `retire` drops its pool without any queue submission.
     unsafe { target.submit(queue, std::iter::once(commands)) }
-        .map_err(|error| ComposeError::Backend(error.to_string()))
+        .map_err(|error| RenderError::Backend(error.to_string()))
 }
 
 /// Without `gpu-interop` no pool exists, so nothing is published.
@@ -225,7 +225,7 @@ fn publish(
     _queue: &wgpu::Queue,
     _texture: &wgpu::Texture,
     _size: (u32, u32),
-) -> Result<Option<(u32, u64)>, ComposeError> {
+) -> Result<Option<(u32, u64)>, RenderError> {
     Ok(None)
 }
 
