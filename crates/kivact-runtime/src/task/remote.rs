@@ -102,6 +102,7 @@ impl<T: Send + 'static> Remote<T> {
     }
 }
 
+// xtask-allow(state): independent: mail is the mailbox other threads fill through Remote::set and the owner's cleanup closes; signal is the UI value that only deliver writes, once per turn with the latest mail
 struct RemoteInbox<T: 'static> {
     mail: Arc<Mutex<Mailbox<T>>>,
     signal: Signal<T>,
