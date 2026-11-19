@@ -72,6 +72,7 @@ pub(crate) mod keys;
 mod layout_motion;
 mod lifecycle;
 pub(crate) mod modal;
+pub(crate) mod motion_run;
 pub(crate) mod playback;
 pub(crate) mod pointer;
 pub(crate) mod presence;
