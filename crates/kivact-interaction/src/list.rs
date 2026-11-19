@@ -75,4 +75,5 @@ pub use data::{
     ListActivation, ListBoundary, ListCommandModifier, ListGesture, ListItem, ListItemState,
     ListMissingAnchor, ListMode, ListOptions, ListRangeMode, ListRangeOptions,
 };
+pub(crate) use handle::use_list_retaining;
 pub use handle::{ListApi, use_list};

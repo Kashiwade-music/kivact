@@ -1,5 +1,4 @@
 //! Role: Select opening, surface and shared navigation state transitions.
-use crate::list::typeahead::{TYPEAHEAD_WINDOW, Typeahead};
 use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::Key;
 use std::marker::PhantomData;
@@ -12,9 +11,7 @@ pub(super) enum OpenedBy {
 pub(crate) use crate::surface::Surface;
 #[derive(Clone, PartialEq)]
 pub(super) enum State<K> {
-    Closed {
-        typeahead: Typeahead,
-    },
+    Closed,
     Open {
         highlight: Option<K>,
         hovered: Option<K>,
@@ -22,15 +19,7 @@ pub(super) enum State<K> {
         previewed: Option<K>,
         opened_by: OpenedBy,
         surface: Surface,
-        typeahead: Typeahead,
     },
-}
-impl<K> State<K> {
-    pub(super) fn typeahead(&self) -> &Typeahead {
-        match self {
-            Self::Closed { typeahead } | Self::Open { typeahead, .. } => typeahead,
-        }
-    }
 }
 pub(super) enum Event<K> {
     Open(OpenedBy),
@@ -40,9 +29,6 @@ pub(super) enum Event<K> {
     Highlight(Option<K>),
     /// The option to report to the caller's preview callback.
     Preview(Option<K>),
-    Typeahead(Typeahead),
-    /// The type-to-find window ended.
-    Expire,
 }
 pub(super) enum Effect<K> {
     Preview(Option<K>),
@@ -54,14 +40,13 @@ impl<K> Machine<K> {
     }
 }
 /// The open state of a list shown as a sheet, with nothing highlighted or previewed.
-fn sheet_state<K: Clone>(state: &State<K>) -> State<K> {
+fn sheet_state<K>() -> State<K> {
     State::Open {
         highlight: None,
         hovered: None,
         previewed: None,
         opened_by: OpenedBy::Pointer,
         surface: Surface::Sheet,
-        typeahead: state.typeahead().clone(),
     }
 }
 impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
@@ -71,14 +56,13 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
     fn transition(&self, state: &State<K>, event: Event<K>) -> Step<State<K>, Event<K>, Effect<K>> {
         let mut next = state.clone();
         match event {
-            Event::Open(opened_by) if matches!(state, State::Closed { .. }) => {
+            Event::Open(opened_by) if matches!(state, State::Closed) => {
                 next = State::Open {
                     highlight: None,
                     hovered: None,
                     previewed: None,
                     opened_by,
                     surface: Surface::Popover,
-                    typeahead: state.typeahead().clone(),
                 }
             }
             Event::OpenSheet => {
@@ -89,7 +73,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                         ..
                     }
                 );
-                next = sheet_state(state);
+                next = sheet_state();
                 if reported {
                     return Step::to(next).with(Effect::Preview(None));
                 }
@@ -97,11 +81,9 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
             Event::Close => {
                 let previewed = match state {
                     State::Open { previewed, .. } => previewed.is_some(),
-                    State::Closed { .. } => false,
+                    State::Closed => false,
                 };
-                next = State::Closed {
-                    typeahead: state.typeahead().clone(),
-                };
+                next = State::Closed;
                 if previewed {
                     return Step::to(next).with(Effect::Preview(None));
                 }
@@ -119,7 +101,7 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
             Event::Preview(key) => {
                 let changed = match state {
                     State::Open { previewed, .. } => *previewed != key,
-                    State::Closed { .. } => false,
+                    State::Closed => false,
                 };
                 if let State::Open { previewed, .. } = &mut next {
                     *previewed = key.clone();
@@ -128,22 +110,6 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
                     return Step::to(next).with(Effect::Preview(key));
                 }
             }
-            Event::Typeahead(typed) => {
-                let typing = matches!(typed, Typeahead::Typing { .. });
-                match &mut next {
-                    State::Closed { typeahead } | State::Open { typeahead, .. } => {
-                        *typeahead = typed
-                    }
-                }
-                if typing {
-                    return Step::to(next).after(TYPEAHEAD_WINDOW, Event::Expire);
-                }
-            }
-            Event::Expire => match &mut next {
-                State::Closed { typeahead } | State::Open { typeahead, .. } => {
-                    *typeahead = Typeahead::Idle
-                }
-            },
             _ => return Step::stay(),
         }
         Step::to(next)

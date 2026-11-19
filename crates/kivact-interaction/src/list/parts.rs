@@ -1,7 +1,6 @@
 //! Role: ListApi parts bind and unregister exact mounted focus targets.
 
 use super::data::ListItemState;
-use super::machine;
 use super::state::State;
 use crate::Selection;
 use crate::roving::Member;
@@ -68,7 +67,7 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
         let attachment = host.part(input);
         let keys = state.clone();
         let pointers = state.clone();
-        let focus_mode = state.pending;
+        let retained = state.retained_focus;
         let attachment = attachment
             .role(Role::Option)
             .name(name)
@@ -87,9 +86,7 @@ pub(super) fn item<K: kivact_core::state::ItemKey>(
                 bound.get() == ItemMount::Rejected
                     || key.with(|key| !index.with(|index| index.enabled(key)))
             })
-            .focusable(move || {
-                focus_mode.state().get().focus == machine::Focus::Physical && active()
-            })
+            .focusable(move || !retained.get() && active())
             .focusable_when_disabled(retain_disabled_focus)
             .on_key(move |event| super::input::key(&keys, &key.get(), event, None))
             .on_pointer(move |event| super::input::pointer(&pointers, &key.get(), event));
@@ -127,13 +124,7 @@ fn mount_item<K: kivact_core::state::ItemKey>(
         return;
     }
     // Resolve structural focus only after validating the mounting App.
-    let retained_focus = state.options.get().retained_focus.get_untracked();
-    let focus = if retained_focus {
-        machine::Focus::Retained
-    } else {
-        machine::Focus::Physical
-    };
-    state.pending.send(machine::Event::MountFocus(focus));
+    let retained_focus = state.retained_focus.get_untracked();
     state.roving.insert(
         item_key.clone(),
         Member {

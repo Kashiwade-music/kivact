@@ -1,7 +1,6 @@
 //! Role: Pure menu session transitions own levels, focus requests and submenu timers.
 use super::order::{item_enabled, kept_levels};
 use super::state::{Edge, MenuEntry, Opened, PressOver, Target, Want};
-use crate::list::typeahead::Typeahead;
 
 /// The complete state of one menu, shared by every rendered level.
 #[derive(Clone, PartialEq)]
@@ -11,7 +10,6 @@ pub(super) enum State<K> {
         opened_by: Opened,
         levels: Levels<K>,
         want: Option<Want<K>>,
-        typeahead: Typeahead,
     },
 }
 /// The open levels of one menu and its one highlighted item. Level `d + 1`
@@ -173,9 +171,6 @@ pub(super) enum Event<K> {
     Focus(usize, Option<K>),
     OpenSubmenu(usize, K),
     Truncate(usize),
-    Typeahead(Typeahead),
-    /// The type-to-find window ended.
-    Expire,
     OpenAfter(usize, K),
     CloseAfter(usize, K),
 }
@@ -209,7 +204,6 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
                         opened_by,
                         levels: Levels::new(),
                         want: None,
-                        typeahead: Typeahead::default(),
                     }
                 }
                 State::Open {
@@ -217,17 +211,10 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
                 } => *opened = opened_by,
             }
         }
-        let State::Open {
-            levels,
-            want,
-            typeahead,
-            ..
-        } = &mut next
-        else {
+        let State::Open { levels, want, .. } = &mut next else {
             return Step::stay();
         };
-        let typing = matches!(&event, Event::Typeahead(Typeahead::Typing { .. }));
-        let timer = update_level_event(levels, want, typeahead, event);
+        let timer = update_level_event(levels, want, event);
         // All topology repairs happen in this transition, before publishing state.
         let path = levels.path();
         let kept = kept_levels(&self.entries, &path, levels.focus.as_ref());
@@ -253,9 +240,6 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
             *want = None;
         }
         let mut step = Step::to(next);
-        if typing {
-            step = step.after(crate::list::typeahead::TYPEAHEAD_WINDOW, Event::Expire);
-        }
         if let Some((opens, depth, key)) = timer {
             let timing = self.timing;
             step = if opens {
@@ -271,7 +255,6 @@ impl<K: kivact_core::state::ItemKey> kivact_core::state::Machine for Machine<K> 
 fn update_level_event<K: kivact_core::state::ItemKey>(
     levels: &mut Levels<K>,
     want: &mut Option<Want<K>>,
-    typeahead: &mut Typeahead,
     event: Event<K>,
 ) -> Option<(bool, usize, K)> {
     match event {
@@ -297,8 +280,6 @@ fn update_level_event<K: kivact_core::state::ItemKey>(
         Event::Focus(depth, key) => levels.set_focus(depth, key),
         Event::OpenSubmenu(depth, key) => levels.open(depth, key),
         Event::Truncate(depth) => levels.truncate(depth),
-        Event::Typeahead(typed) => *typeahead = typed,
-        Event::Expire => *typeahead = Typeahead::Idle,
         Event::OpenAfter(depth, key) => {
             if matches!(levels.timer(depth), Some(SubmenuTimer::Opening { key: current }) if *current == key)
             {

@@ -1,6 +1,7 @@
 //! Role: The `ListApi` handle: setup options, reads, selection commands and parts.
 
 use super::data::{ListGesture, ListItem, ListItemState, ListOptions};
+use super::machine;
 use super::state::State;
 use super::{input, parts, state, typeahead};
 use crate::Selection;
@@ -47,7 +48,23 @@ pub fn use_list<K: kivact_core::state::ItemKey>(
     let selection = selected.into_selection();
     check_list_axis(policy.axis, "use_list");
     ListApi {
-        state: state::create(items.into_value(), selection, policy),
+        state: state::create(items.into_value(), selection, policy, false.into_value()),
+    }
+}
+
+/// A list whose items leave the focus on another node while `retained`
+/// is true: a select's trigger keeps the focus and shows the active item
+/// as its `active_descendant`. Setup only.
+#[track_caller]
+pub(crate) fn use_list_retaining<K: kivact_core::state::ItemKey>(
+    items: Value<Vec<ListItem<K>>>,
+    selection: Selection<K>,
+    policy: ListOptions,
+    retained: Value<bool>,
+) -> ListApi<K> {
+    check_list_axis(policy.axis, "use_list");
+    ListApi {
+        state: state::create(items, selection, policy, retained),
     }
 }
 
@@ -259,13 +276,6 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         self.state().active_key
     }
 
-    pub(crate) fn retain_focus(self, enabled: impl IntoValue<bool>) {
-        let enabled = enabled.into_value();
-        self.state()
-            .options
-            .update(|options| options.retained_focus = enabled);
-    }
-
     pub(crate) fn active_ref(self) -> Option<kivact_core::view::NodeRef> {
         let state = self.state();
         let key = state.active.get()?;
@@ -284,7 +294,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     pub(crate) fn reset_highlight(self) {
         let state = self.state();
         state.roving.requested.set(None);
-        state.typed.get().set(typeahead::Typeahead::default());
+        state
+            .typeahead_owner()
+            .send(machine::Event::Typeahead(typeahead::Typeahead::Idle));
     }
 
     pub(crate) fn route_focused_key(
@@ -327,11 +339,25 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
             .update(|options| options.reset_on_exit = false);
         self
     }
+    /// Type into `owner`'s type-to-find prefix instead of one of this
+    /// list's own: a select's open list continues the search begun at its
+    /// closed trigger. Setup only.
     #[track_caller]
-    pub(crate) fn shared_typeahead(self, typed: Binding<typeahead::Typeahead>) -> Self {
-        let state = self.state();
-        require_setup("ListApi::shared_typeahead");
-        state.typed.set(typed);
+    pub(crate) fn typeahead_from(self, owner: ListApi<K>) -> Self {
+        require_setup("ListApi::typeahead_from");
+        let owner = owner.state().pending;
+        self.state()
+            .options
+            .update(|options| options.typeahead = Some(owner));
         self
+    }
+    /// End the type-to-find prefix this list types into. Nothing happens
+    /// once the list is gone.
+    pub(crate) fn clear_typeahead(self) {
+        if let Some(state) = self.state.try_get() {
+            state
+                .typeahead_owner()
+                .send(machine::Event::Typeahead(typeahead::Typeahead::Idle));
+        }
     }
 }

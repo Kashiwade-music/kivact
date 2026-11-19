@@ -1,6 +1,7 @@
 //! Role: ListApi input enters the shared selection and navigation state.
 
 use super::data::{ListActivation, ListGesture, ListMode};
+use super::machine;
 use super::state::{State, selected};
 use super::typeahead::typeahead_find;
 use crate::Selection;
@@ -217,10 +218,12 @@ pub(super) fn typed<K: kivact_core::state::ItemKey>(
     c: char,
     logical: bool,
 ) -> Handled {
-    let slot = state.typed.get();
-    let mut typed = slot.get_untracked();
+    let owner = state.typeahead_owner();
+    let mut typed = owner
+        .state()
+        .with_untracked(|current| current.typed.clone());
     let query = typed.push(c);
-    slot.set(typed);
+    owner.send(machine::Event::Typeahead(typed));
     let items = state.items.with_untracked(|items| {
         let mut seen = std::collections::HashSet::new();
         items
