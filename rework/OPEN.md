@@ -169,6 +169,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・C04 の memo patch（設計者の patch `C04-memo.diff`、lane X の fix commit）：`view/mount/{node,style}.rs` と `e2e_core/diagnostics.rs` に当てた。`diagnostics.rs` の試験の期待値は、memo の読みを「無い」に変えた（`why` の trace の内部の細部。0.5 節の「`why`・trace の読みの期待値を unit の後の事実に直す」の行）。確認（tier a）は fmt・check・clippy（devtools）・xtask・e2e_core の `diagnostics flows setup_functions i18n style_paint` で、すべて成功（38 件）。
+- W5a・E1・E2 の merge（設計者の回答どおり）：E13 の確認（tier a の全部。ENGINE-A と e2e_core 17 module・e2e_ui 4 module）を実行し、全部成功（e2e_core 153 件、e2e_ui 33 件）。その後 `a5944729`（E1）と `1d6538f6`（E2）を merge した。
+
 - W5a・E13（lane E2、commit `3694e0e1`）：完了条件の rg（`restack = true`）の残り行 `model/layout_motion/steps.rs:141`（run 開始）は、付属書 E13 の「目的」にも「消すもの」にも挙がっていない既存の行なので受け入れる（表の「完了条件の rg が既存の行に当たる」の行）。
 
 - W5a・E12（lane E2、commit `c5e568ee`）：(a) `SceneOut` の `xtask-allow(state)` の印を外した（xtask が「未使用の印」の error にした。表の「印を外す」の行）。(b) `outdate_paint` の引数が clippy の too_many_arguments に当たったので、draw の無効化を `PaintState::outdate_draws`（別関数）に分けた（表の「引数を struct にまとめる・helper に分ける」。STOP にしない）。(c) `shape::clip_path` は無いので既存の `s.in_rect(bounds)` を使った、`Paint` は `arvane_protocol::RasterPaint`、`Look::now` は `LayerTraits::now`（同じ意味のものが一つだけある。表の行）。(d) 付属書に無い追加：`model/frame/ticks.rs` で、tick の先頭で動いている text color の node の子の draw を忘れる（`VERIFY_DRAWS` の stale 検出を直した。E2E の `motion` が一回だけ失敗し、この修正で全 32 module が通った）。E13 が `state_motion` の steps に触るとき、この分岐との関係を確かめる。

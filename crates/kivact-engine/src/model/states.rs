@@ -35,6 +35,8 @@
 //! - A text color delta colors the text below the node; the nearest
 //!   ancestor-or-self with an active one wins.
 
+use std::borrow::Cow;
+
 use kivact_types::{
     ComputedTextStyle, NodeId, PaintDelta, PaintProps, Rgba, StateSet, StateStyles, StyleState,
 };
@@ -256,6 +258,30 @@ impl Model {
             paint.radius = crate::model::layout_motion::unscaled_corners(paint.radius, sx, sy);
         }
         paint
+    }
+
+    /// The paint `id` is drawn with now, borrowed when nothing changes it:
+    /// no state delta applies, no transition runs and no layout run scales it.
+    pub(crate) fn paint_now(&self, id: NodeId) -> Cow<'_, PaintProps> {
+        if self.motion.get(id).is_none()
+            && self.layout_motion_scale(id).is_none()
+            && self.active_deltas(id).is_empty()
+            && let Some(p) = self.tree.get(id).and_then(|n| n.paint())
+        {
+            return Cow::Borrowed(p);
+        }
+        Cow::Owned(self.effective_paint(id))
+    }
+
+    /// The cursor `id` names now: its paint's, with its active state
+    /// deltas' (a cursor does not transition).
+    pub(crate) fn cursor_now(&self, id: NodeId) -> kivact_types::Cursor {
+        self.active_deltas(id)
+            .iter()
+            .rev()
+            .find_map(|d| d.cursor)
+            .or_else(|| self.tree.get(id).and_then(|n| n.paint()).map(|p| p.cursor))
+            .unwrap_or(PaintProps::default().cursor)
     }
 
     /// The text style of `id`: the inherited `Text` prop, colored by the

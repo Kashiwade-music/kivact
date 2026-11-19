@@ -14,7 +14,7 @@ use kivact_types::{NodeId, PaintProps, Rect};
 
 /// The paint `id` is drawn with now (state deltas applied), sanitized.
 pub(crate) fn paint(host: &Model, id: NodeId) -> PaintProps {
-    let mut p = host.effective_paint(id);
+    let mut p = host.paint_now(id).into_owned();
     crate::lower::sanitize::paint(&mut p);
     p
 }

@@ -34,6 +34,7 @@ use crate::contract::{HostEvent, NodeType, SyncRecord};
 use crate::lower::AssetEvent;
 use crate::model::Model;
 use crate::model::changes::{Dirty, Dispatched, Geometry};
+use crate::paint::state::LayerTraits;
 use kivact_types::{NodeId, Size};
 
 /// Whether settling performed pending layout and geometry work.
@@ -90,6 +91,76 @@ impl Model {
 
     pub(crate) fn invalidate_paint(&mut self) {
         self.changes.paint = true;
+        self.forget_draws();
+    }
+
+    /// Every kept drawing is drawn again (the host repaints everything:
+    /// scale, surface, reduced motion).
+    pub(crate) fn forget_draws(&mut self) {
+        for (_, slot) in self.paint.draw_owners.get_mut().drain() {
+            self.slots.draws[slot].set(None);
+        }
+    }
+
+    /// `id` and every node below it draw again: an inherited text color
+    /// changed with `id`'s state.
+    pub(crate) fn forget_draws_below(&mut self, id: NodeId) {
+        let mut stack = vec![id];
+        while let Some(x) = stack.pop() {
+            if let Some(n) = self.tree.get(x) {
+                self.slots.draws[n.index.0].set(None);
+                stack.extend(self.tree.children_ids(n));
+            }
+        }
+    }
+
+    /// The nodes a transition moves this sync (a prop's transition too, not
+    /// only a state style's): their facts are derived again, and whether
+    /// their look changed what their list steps are made of.
+    fn relook_moving(&mut self, changes: &Dispatched) -> bool {
+        let mut relook = false;
+        for id in changes.marked(Dirty::REDRAW) {
+            if self.motion.get(id).is_none() {
+                continue;
+            }
+            self.stale_fact(id);
+            let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+            for child in children {
+                self.stale_fact(child);
+            }
+            relook |= self.relooked(id);
+        }
+        relook
+    }
+
+    /// Whether `id`'s look changed what its list steps are made of since
+    /// the list was built; a node the list did not record changes it.
+    pub(crate) fn relooked(&self, id: NodeId) -> bool {
+        let Some(n) = self.node(id) else {
+            return false;
+        };
+        let Some(listed) = self.paint.listed_look(id) else {
+            return true;
+        };
+        let now = LayerTraits::now(self, id, n);
+        if self.motion.moves_layer(id) || self.layout_motion_transform(id).is_some() {
+            // A moving layer applies its opacity itself: only the other facts count.
+            let steady = |look: LayerTraits| LayerTraits {
+                opacity: 1.0,
+                ..look
+            };
+            steady(now).stacking() != steady(listed).stacking()
+        } else {
+            now.stacking() != listed.stacking()
+        }
+    }
+
+    /// Whether a state of `id` (or its transition) colors the text below it.
+    pub(crate) fn colors_text_below(&self, id: NodeId) -> bool {
+        self.node(id)
+            .and_then(|n| n.states())
+            .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()))
+            || self.motion.get(id).is_some_and(|a| a.colors_text(|| true))
     }
 
     /// A font file was registered: every text, text input and measured
@@ -165,7 +236,7 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
-        if changes.geometry != Geometry::Kept {
+        if changes.geometry != Geometry::Kept || changes.any(Dirty::SCROLLED.union(Dirty::STUCK)) {
             self.forget_origins();
         }
         self.record_sync(reasons, &changes);
@@ -173,19 +244,24 @@ impl Model {
         let redraw = changes.paint
             || changes.fonts
             || moved
-            || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW));
+            || changes.any(Dirty::WRITTEN.union(Dirty::REDRAW).union(Dirty::SCROLLED));
         let restyled: Vec<NodeId> = changes
             .marked(Dirty::REDRAW)
             .filter(|id| self.node(*id).is_some_and(|n| n.states().is_some()))
             .collect();
+        let mut relook = self.relook_moving(&changes);
         for id in &restyled {
+            relook |= self.relooked(*id);
             self.stale_fact(*id);
             let children: Vec<NodeId> = self.tree.flat_children(*id).collect();
             for child in children {
                 self.stale_fact(child);
             }
+            if self.colors_text_below(*id) {
+                self.forget_draws_below(*id);
+            }
         }
-        let restack = changes.restack || moved || !restyled.is_empty();
+        let restack = changes.restack || moved || relook;
         self.paint.outdate_paint(
             &self.tree,
             &changes,
@@ -194,6 +270,9 @@ impl Model {
             restack,
             &self.slots.ink,
         );
+        self.paint.rewalk_after(changes.marked(Dirty::SCROLLED));
+        self.paint
+            .outdate_draws(&self.tree, &changes, changes.fonts, &self.slots.draws);
         self.report_sessions();
     }
 

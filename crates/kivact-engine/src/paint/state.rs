@@ -11,13 +11,14 @@
 //! and the restored surface draws the frame.
 
 use std::cell::RefCell;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::rc::Rc;
 
-use arvane_protocol::{Plane, RasterGrid};
+use arvane_protocol::{Plane, RasterGrid, RenderCmd};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::{NodeId, Point, Rect, Size};
+use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
 
 pub(crate) use crate::model::{LayerTraits, SubtreeFacts};
 
@@ -30,6 +31,74 @@ pub(crate) struct PaintPass {
     pub(crate) scale: f64,
     /// The logical size of the root layer.
     pub(crate) size: Size,
+    /// Whether the walk reads and keeps the nodes' drawings (the window's
+    /// frame only; exports and snapshots draw afresh).
+    pub(crate) cache: bool,
+}
+
+/// What one listed node drew in the last frame it was drawn, kept while
+/// nothing it is drawn from changes (`paint::frame_scene`). Only listed
+/// nodes keep one; the list's rebuild drops the others (`Model::evict_draws`).
+#[derive(Debug)]
+pub(crate) struct NodeDraw {
+    /// Where and at which scale it was drawn.
+    pub(super) key: DrawKey,
+    /// Its paint as drawn: state deltas, transition and layout-run radii
+    /// applied, sanitized (`interact::visual::paint`).
+    pub(super) paint: Rc<PaintProps>,
+    pub(super) recorded: Recorded,
+}
+
+/// The place and scale a node's drawing was made for: a step with
+/// another one draws it again.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct DrawKey {
+    pub(super) origin: Point,
+    pub(super) alpha: f64,
+    pub(super) clip: Rect,
+    pub(super) scale: f64,
+}
+
+impl DrawKey {
+    /// The key of `step` drawn in `pass`.
+    pub(crate) fn of(step: &Step, pass: PaintPass) -> Self {
+        DrawKey {
+            origin: step.origin,
+            alpha: step.alpha,
+            clip: step.clip,
+            scale: pass.scale,
+        }
+    }
+}
+
+/// What a node's drawing left to replay.
+#[derive(Debug)]
+pub(crate) enum Recorded {
+    /// Its own commands: the box (between the outer and inner openings),
+    /// the content (after the inner openings) and, once its close was
+    /// drawn, the draw-over scene and scrollbars.
+    Commands {
+        boxed: Vec<RenderCmd>,
+        content: Vec<RenderCmd>,
+        over: Option<Vec<RenderCmd>>,
+    },
+    /// It opens layers or items, or draws pixels (images, patterns): it
+    /// is lowered every frame (its paint is still kept).
+    Live,
+}
+
+impl Recorded {
+    /// The record of a box and a content part (`None`: a part could not be recorded).
+    pub(crate) fn of(boxed: Option<Vec<RenderCmd>>, content: Option<Vec<RenderCmd>>) -> Self {
+        match (boxed, content) {
+            (Some(boxed), Some(content)) => Recorded::Commands {
+                boxed,
+                content,
+                over: None,
+            },
+            _ => Recorded::Live,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -59,7 +128,7 @@ pub(crate) enum StaleFacts {
     Nodes(BTreeSet<NodeId>),
 }
 
-// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported
+// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws)
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -77,6 +146,8 @@ pub(crate) struct PaintState {
     pub(super) redraw: Redraw,
     /// The nodes whose facts the next list derives again.
     pub(crate) stale_facts: StaleFacts,
+    /// The nodes (and their slots) that keep a drawing in `Slots::draws`.
+    pub(crate) draw_owners: RefCell<HashSet<(NodeId, usize)>>,
 }
 
 impl PaintState {
@@ -93,6 +164,7 @@ impl PaintState {
             list: PaintList::new(),
             redraw: Redraw::Needed,
             stale_facts: StaleFacts::All,
+            draw_owners: RefCell::default(),
         }
     }
 
@@ -290,6 +362,30 @@ pub(crate) enum Entry {
     Close(Step),
 }
 
+/// A listed layer that moves every frame (a running opacity or transform
+/// transition, or a layout run): its matrix is set again before each
+/// frame without a new list (`Model::refresh_moving_layers`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct MovingLayer {
+    pub(super) id: NodeId,
+    /// Its index in `PaintList::layers`.
+    pub(super) index: u32,
+    /// Its box's origin in its parent's space, as walked.
+    pub(super) origin: Point,
+    /// The parent's perspective it was walked with.
+    pub(super) perspective: Option<Matrix4>,
+}
+
+/// Where a listed scroll container was walked from, to walk its subtree
+/// again after it scrolls (`Model::rewalk_scrolled`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollerWalk {
+    pub(super) origin: Point,
+    pub(super) alpha: f64,
+    pub(super) clip: Rect,
+    pub(super) perspective: Option<Matrix4>,
+}
+
 /// The paint list and what it was built for.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PaintList {
@@ -308,6 +404,16 @@ pub(crate) struct PaintList {
     pub(super) indices: HashMap<NodeId, ChildIndex>,
     /// The generation of the nodes' inks: an ink of another is forgotten.
     pub(super) ink_gen: Generation,
+    /// The listed layers that move every frame.
+    pub(super) moving: Vec<MovingLayer>,
+    /// The listed scroll containers and where they were walked from.
+    pub(super) scrollers: HashMap<NodeId, ScrollerWalk>,
+    /// The window origins of the layers (`Model::layers`) the list was built with.
+    pub(super) layer_origins: Vec<(NodeId, Point)>,
+    /// The look each listed node with state styles or a transition was walked with.
+    pub(super) looks: HashMap<NodeId, LayerTraits>,
+    /// The scroll containers whose subtrees are walked again before the next frame.
+    pub(super) rewalk: BTreeSet<NodeId>,
 }
 
 /// What one child can draw on, relative to its layout location.
@@ -376,5 +482,16 @@ impl PaintState {
         if let Some(index) = self.list.indices.get_mut(&parent) {
             index.touch(child);
         }
+    }
+
+    /// The look `id` was listed with, if it has state styles or a transition.
+    pub(crate) fn listed_look(&self, id: NodeId) -> Option<LayerTraits> {
+        self.list.looks.get(&id).copied()
+    }
+
+    /// The scroll containers `scrolled` moved their content: their subtrees
+    /// are walked again before the next frame (a list built anew does it all).
+    pub(crate) fn rewalk_after(&mut self, scrolled: impl IntoIterator<Item = NodeId>) {
+        self.list.rewalk.extend(scrolled);
     }
 }

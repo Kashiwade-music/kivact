@@ -273,7 +273,6 @@ impl Changes {
     /// The scroll container `id` moved its content.
     pub(crate) fn scrolled(&mut self, id: NodeId) {
         self.layout.insert(LayoutReasons::PASS);
-        self.moved();
         self.mark(id, Dirty::SCROLLED);
     }
 

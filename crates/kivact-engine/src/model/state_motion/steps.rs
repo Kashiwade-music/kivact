@@ -283,6 +283,8 @@ impl Model {
             return false;
         }
         let mut animations = std::mem::take(&mut self.motion.0);
+        let mut switched = Vec::new();
+        let mut finished = Vec::new();
         animations.retain(|id, a| {
             if self.tree.get(*id).is_none() {
                 return false;
@@ -290,7 +292,17 @@ impl Model {
             if !a.running() {
                 return true;
             }
+            let was = a.moves_layer();
             a.step(now, reduced);
+            if was != a.moves_layer() {
+                switched.push(*id);
+            }
+            // A moving text color is inherited below the node, and each step
+            // changes it: the drawings below are made again (the last step,
+            // which settles the run, included).
+            if a.colors_text(|| true) {
+                self.forget_draws_below(*id);
+            }
             let moving = !a.current_paint().transform.is_none();
             self.refresh_place(*id, moving);
             self.repaint(*id);
@@ -301,12 +313,36 @@ impl Model {
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::PASS);
-                self.changes.moved();
             }
-            !a.settled()
+            if a.settled() {
+                finished.push(*id);
+                return false;
+            }
+            true
         });
         let active = animations.values().any(StateAnimation::running);
         self.motion.0 = animations;
+        // A node that starts or stops moving its opacity or transform is a
+        // layer now, or no longer: only then is the list built again.
+        for id in switched {
+            self.motion_changed(id);
+        }
+        for id in finished {
+            self.motion_ended(id);
+        }
         active
+    }
+
+    /// A state transition of `id` ended: its facts are derived again, and the
+    /// list is built again when its look now lists differently.
+    fn motion_ended(&mut self, id: NodeId) {
+        self.stale_fact(id);
+        let children: Vec<NodeId> = self.tree.flat_children(id).collect();
+        for child in children {
+            self.stale_fact(child);
+        }
+        if self.relooked(id) {
+            self.changes.restack = true;
+        }
     }
 }
