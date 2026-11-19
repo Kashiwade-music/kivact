@@ -28,6 +28,13 @@ pub(in crate::a11y) struct Built {
     pub(in crate::a11y) metadata: MetadataUpdate,
 }
 
+/// The identity metadata one build enumerated, with the semantic order it
+/// walked.
+struct Enumerated<'a> {
+    metadata: &'a Metadata,
+    order: &'a [types::NodeId],
+}
+
 impl Model {
     /// Independent full reference; callers isolate mutable identities and caches.
     #[cfg(all(debug_assertions, feature = "testing"))]
@@ -86,7 +93,11 @@ impl Model {
                 }
             }
         }
-        let tree = self.build_semantics_tail(root, full, &metadata, subtree_roots, dirty, engine);
+        let enumerated = Enumerated {
+            metadata: &metadata,
+            order: &order,
+        };
+        let tree = self.build_semantics_tail(root, full, enumerated, subtree_roots, dirty, engine);
         Built {
             tree,
             metadata: MetadataUpdate::Replace(metadata),
@@ -99,15 +110,15 @@ impl Model {
         &mut self,
         root: types::NodeId,
         full: bool,
-        metadata: &Metadata,
+        enumerated: Enumerated<'_>,
         subtree_roots: &BTreeSet<types::NodeId>,
         mut dirty: BTreeSet<types::NodeId>,
         engine: &mut a::Engine,
     ) -> arvane_protocol::SemanticsTree {
-        let order = self.semantic_order();
+        let Enumerated { metadata, order } = enumerated;
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
         let mut inherited = BTreeSet::new();
-        for &id in &order {
+        for &id in order {
             let parent_dirty = metadata
                 .parents
                 .get(&id)
@@ -118,7 +129,7 @@ impl Model {
                 dirty.insert(id);
             }
         }
-        self.expand_overlay_dirt(&order, &inherited, &mut dirty);
+        self.expand_overlay_dirt(order, &inherited, &mut dirty);
         self.expand_relation_dirt(metadata, &mut dirty);
         self.invalidate_boxless_ancestors(&mut dirty);
         let nodes = self.build_dirty_nodes(root, full, &dirty, metadata, engine);
@@ -173,14 +184,14 @@ impl Model {
     /// complete comparison because no writer's notice is trusted to keep the
     /// hierarchy right; payload-only dirt never runs it.
     fn build_identity_metadata(&mut self) -> (Metadata, Vec<types::NodeId>) {
-        self.prepare_region_ids();
-        let clipping = self.clipping_of_all();
+        let order = self.semantic_order();
+        self.prepare_region_ids(&order);
+        let clipping = self.clipping_of(&order);
         let mut metadata = Metadata {
             clipping,
             modal: self.modal(),
             ..Default::default()
         };
-        let order = self.semantic_order();
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
             metadata.parents.insert(id, self.tree().parent_id(n));

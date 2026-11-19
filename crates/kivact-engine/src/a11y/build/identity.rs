@@ -55,10 +55,10 @@ impl Model {
         }
     }
 
-    pub(super) fn prepare_region_ids(&mut self) {
-        let targets: Vec<_> = self
-            .semantic_order()
-            .into_iter()
+    pub(super) fn prepare_region_ids(&mut self, order: &[types::NodeId]) {
+        let targets: Vec<_> = order
+            .iter()
+            .copied()
             .flat_map(|node| {
                 self.node(node).into_iter().flat_map(move |n| {
                     n.scenes()

@@ -411,10 +411,11 @@ impl Model {
         }
     }
 
-    /// The clipping of every shown clipping list-like container (a complete enumeration).
-    pub(super) fn clipping_of_all(&self) -> Clipping {
+    /// The clipping of every shown clipping list-like container among
+    /// `order` (the attached nodes in semantic order).
+    pub(super) fn clipping_of(&self, order: &[types::NodeId]) -> Clipping {
         let mut clipping = Clipping::default();
-        for (list, _) in self.tree().iter() {
+        for &list in order {
             if let Some((_, clipped)) = self.list_rows(list) {
                 clipping.set_list(list, clipped);
             }
