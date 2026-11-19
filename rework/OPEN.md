@@ -133,3 +133,37 @@
 ## 差戻し（W3a・C04、2026-11-19）
 - **C04**（W3a、lane C）：STOP。`crates/kivact-core/src/view/root.rs:install_app_contexts` で、固定の theme を `owner.constant` にすると、Paint の why が Theme の signal を読まなくなり、`e2e_core` の `diagnostics::why_follows_the_prop_to_the_write_through_a_memo`（`dev/tests/kivact-public-api/tests/e2e_core/diagnostics.rs:114`）が失敗する（Paint の reads が memo `Merged` だけになる）。同じ試験を `diagnostics` の filter で実行し、1 件だけ失敗（残りは成功）を確認した。試験の期待値は変えていない。選択肢：(a) 固定 theme も signal にする（付属書の手順 2 の取り消し）、(b) 試験の期待値を変える（「button の style は theme の signal を読む」を別の形に直す）、(c) 試験の対象を別の node にする。作業の差分は worktree に未 commit で残っている（commit していない）。
 - **C04**（付属の所有外の変更）：`crates/kivact-core/src/view/mount/semantics.rs` の `semantic_origins` の書込み（bind の 1 行）を `set_semantic_origins` の呼出しに置き換えた（`CoreRare.semantic_origins` を消した結果の同一 crate の機械的な追従）。設計者が許容しないなら戻す。
+
+## 設計者の回答（W3a・C04、2026-11-19）
+
+- **C04**：(b) 試験の期待値を直す（固定の theme は constant のまま。付属書の手順 2 は取り消さない）。`diagnostics::why_follows_the_prop_to_the_write_through_a_memo` の最後の assert が見ていた「button の Paint が theme の signal を読む」は、C04 の目的（固定の theme は constant）が消す実装の細部で、利用者に見える振る舞いではない。`dev/tests/kivact-public-api/tests/e2e_core/diagnostics.rs` の該当の 7 行を次にする（`dev/tests/kivact-public-api/tests/e2e_core/diagnostics.rs` を C04 の所有に足す）：
+  ```rust
+      // A button's style is a render effect reading the memo of its merged
+      // style layers; the App's fixed theme is a constant, not a read.
+      let other = screen.get_by_test_id("other").why();
+      let paint = other.props.iter().find(|p| p.prop == "Paint");
+      assert!(
+          paint.is_some_and(|p| p.reads.iter().any(|d| d.kind == "memo")
+              && !p.reads.iter().any(|d| d.ty.ends_with("Theme"))),
+          "{other}"
+      );
+  ```
+  設計者が lane C の未 commit の C04 の差分（`b8d666b0` の上）にこの変更を当てて、`e2e_core -- diagnostics::` が全件通るのを確かめた。
+- **C04**（所有外の `view/mount/semantics.rs` の 1 行）：受け入れる（同じ crate の機械的な追従。作業指示書 0.2 の 11）。
+- Orchestrator：lane C で上の試験の変更を当て、C04 の確認を全部通して commit する。
+
+## 作業指示書 0.5 節の表に足した行で決着するもの（2026-11-19）
+
+作業指示書 0.5 節の判断表に 8 行を足した（状態の印を xtask が「未使用」と言う、完了条件の rg が既存の行や検出用の文字列に当たる、Role・doc の文の長さ、`module_rules` の 1 参照、付属書の script の機械的な欠陥、名前だけ違う method・field、目的が消す実装の細部を見る試験、別 target だけの lock の二重）。表に当たるものは差戻しではなく「Orchestrator の判断」節に 1 行で書き、作業を続ける。これまでの次の差戻しは、Orchestrator の処置のまま受け入れ、決着とする（付属書の文は直さない。付属書の印の文は無効とみなす）：
+
+- 状態の印：R03（`EffectNode`）、K02（`MobileContext`）、S04（`StateStyles`）、R10（`VState`）、S12（`Draw`）。
+- 完了条件の rg：T22、R07（`animated.rs` の 2 件）。R07 の `set_run` の逸脱も受け入れる。
+- Role の文の長さ（W2a の types）と W2b の layout。`module_rules` の `scene` → `shaped`。
+- S06 の `rename_protocol.pl` の欠陥と手順 2 の別名の衝突（subagent の直し方を受け入れる）。
+- S11 の `tabular_nums` の名前の差。
+
+設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
+
+## Orchestrator の判断
+
+（作業指示書 0.5 節の表で決めたものを 1 行ずつ書く。unit、場所、表のどの行か、commit。）
