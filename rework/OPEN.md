@@ -169,6 +169,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・E12（lane E2、commit `c5e568ee`）：(a) `SceneOut` の `xtask-allow(state)` の印を外した（xtask が「未使用の印」の error にした。表の「印を外す」の行）。(b) `outdate_paint` の引数が clippy の too_many_arguments に当たったので、draw の無効化を `PaintState::outdate_draws`（別関数）に分けた（表の「引数を struct にまとめる・helper に分ける」。STOP にしない）。(c) `shape::clip_path` は無いので既存の `s.in_rect(bounds)` を使った、`Paint` は `arvane_protocol::RasterPaint`、`Look::now` は `LayerTraits::now`（同じ意味のものが一つだけある。表の行）。(d) 付属書に無い追加：`model/frame/ticks.rs` で、tick の先頭で動いている text color の node の子の draw を忘れる（`VERIFY_DRAWS` の stale 検出を直した。E2E の `motion` が一回だけ失敗し、この修正で全 32 module が通った）。E13 が `state_motion` の steps に触るとき、この分岐との関係を確かめる。
+
 - W5a・R05（lane X、commit `683b4d4d`）：(a) `ViewState::new` の引数に `hooks`（`devtools.hooks()`）を入れ、devtools を先に作る順序は変えない。付属書 R の R05 の build closure の `ViewState::new(root, info, writer.clone(), at)` は、C の後の形（`hooks` を足した形）と違う。表の「同じ意味のものが一つだけある → それを使う」の行。(b) `AppState.gpu` は付属書の eager の `gpu_interop::State::new` にせず、base の `StateSlot(Deferred<State>)`（遅延）を使う。C-core の RC-41 の文（launch で常に作るのをやめる）と base の形に合う。表の「同じ意味のものが一つだけある」の行。
 
 - CP1（2.4 節）の `cargo test -p kivact-test --test gpu` は、その binary が無いので実行できなかった。GPU の試験は `kivact-test` の `tests/screen/main.rs` の `gpu` module にある。`cargo test -p kivact-test --test screen -- gpu::` に代えて実行し、3 件とも成功した（`KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required`、`--test-threads=1`）。作業指示書の該当行は直していない。
