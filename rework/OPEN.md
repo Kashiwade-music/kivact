@@ -168,6 +168,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R21（lane X、commit `26b7c350`）：完了条件（rg の 0 件、確認の共通の形、xtask の api_shape の 6 件）は満たす。`dev/xtask/src/api_shape.rs` のテスト文字列を新しい形（`IntoHandler`）に直したのは、この unit の一部として受け入れる（期待する error の数は変えていない）。
+
 - W5a・R20（lane X、commit `ba0406f7`）：(a) `reactive/keyed.rs` を、所有の一覧に無いが同じ crate 内の署名の変更に伴う機械的な追従として直した（`Row::new` の `item.key` を let-else に）。0.2 の 11 の範囲で受け入れる。(b) `binding` の closure の型注釈、`Row::new` の let-else は、付属書のコード片を実コードに合わせた形（同じ意味）。受け入れる。(c) 確認は R20〜R25 の共通の形（fmt・check --lib・clippy --lib・xtask）。完了条件の rg は 0 件、`update` は両方とも戻り値なし。
 
 - W5a・R09（lane X、commit `c6e8979e`）：(a) `RNode` の `xtask-allow(state)` の印は、xtask が「未使用の印」の error にしたので外した（表の「未使用の印」の行）。(b) rg の残り `NodeInfo.written` は、付属書が「`NodeInfo` は変えない」と書く公開の field なので受け入れる（表の「既存の行に当たる」の行）。(c) `EffectNode` の R03 の印の置換は、基点に R03 の印が無いので何もしなかった（xtask は指摘しない）。
@@ -317,3 +319,7 @@
 - 台帳の後に型が移った、改名された、field が足された・消えた場合の扱いは、付属書 L の 2 章の共通手順 L に書いた（印の field の並びで台帳の行に対応させる。後の unit が足した節は残す。無い field の名前は消す。新しい状態の field の説明が無ければ差戻し）。
 - 「台帳」節の項目（付属書 L を書くこと）は済んだので消した。
 
+## 差戻し（W5a・R21、2026-11-20）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R21**（W5a、lane X、commit `26b7c350`）：`crates/kivact-runtime/src/reactive/handler.rs` の `mod tests` を追加していない。付属書 R21 の試験のコードに `assert_eq!(rt.create_owner(None, at), rt.root);` があり、`create_owner`（`reactive/owner.rs:66`）は新しい owner の key を挿入するので、root の key と等しくならず、そのまま走ると失敗する。試験の型と関数（`Runtime::register`・`Owner::with_setup`・`shutdown`・`TaskState::new`・`ThreadWaker::new`・`Host::wake`）は存在する。R21 の完了条件は満たしている。設計者は、この assert を消すか、別の検査にするかを決める。この差戻しの間、lane X（鎖）は止める。
