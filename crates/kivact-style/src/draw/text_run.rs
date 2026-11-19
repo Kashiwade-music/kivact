@@ -221,9 +221,7 @@ impl Draw {
     /// The outline of `text` drawn at `pos` with `style` as a path (Canvas
     /// has none; SVG does), placed as `text` places it.
     pub fn text_path(&self, text: &str, pos: Point, style: &TextFormat) -> Path {
-        let Some(m) = &self.measurer else {
-            return Path::new();
-        };
+        let m = &self.measurer;
         let origin = self.anchored(text, pos, style);
         let run = text_run(
             text,
@@ -261,11 +259,8 @@ impl Draw {
     /// # let _ = pill;
     /// ```
     pub fn measure_text(&self, text: &str, style: &TextFormat) -> TextMetrics {
-        let Some(m) = &self.measurer else {
-            return TextMetrics::default();
-        };
         let origin = p::Point { x: 0.0, y: 0.0 };
         let run = text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
-        m.measure(&run)
+        self.measurer.measure(&run)
     }
 }

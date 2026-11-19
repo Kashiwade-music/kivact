@@ -330,12 +330,14 @@ impl Offscreen {
             ..Default::default()
         };
         let measurer = self.engine.text_measurer(inherited.clone());
+        let cx = kivact_style::internal::RecordContext {
+            theme: self.theme.clone(),
+            shaper: std::rc::Rc::new(measurer.clone()),
+            regions: Vec::new(),
+        };
         let Recording {
             scene, unsupported, ..
-        } = kivact_style::internal::record(size, &self.theme, |draw| {
-            draw.set_text_measurer(measurer.clone());
-            paint(draw, size);
-        });
+        } = kivact_style::internal::record(size, cx, |draw| paint(draw, size));
         if unsupported != 0 {
             return Err(rejected(at));
         }

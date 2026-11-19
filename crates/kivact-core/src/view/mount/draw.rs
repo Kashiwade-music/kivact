@@ -5,7 +5,8 @@ use std::rc::Rc;
 
 use kivact_engine::contract::SceneLayer;
 use kivact_runtime::{EffectKind, Signal, UiError};
-use kivact_style::draw::{Recording, Size};
+use kivact_style::Theme;
+use kivact_style::draw::{RecordContext, Recording, Size};
 use kivact_types::NodeId;
 
 use super::facts::LocalPaintSource;
@@ -55,9 +56,12 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
         cx.effect(EffectKind::Render, at, move || {
             let sz = size.get();
             let theme = theme.map(|t| t.get()).unwrap_or_default();
-            let measurer = weak
+            let Some(measurer) = weak
                 .upgrade()
-                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id));
+                .map(|rt| ViewState::tree_mut(&rt).reader().text_measurer(id))
+            else {
+                return;
+            };
             let layout = observation.and_then(|observation| {
                 observation.editing_revision.track();
                 observation.measured.get();
@@ -65,17 +69,12 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 let rt = weak.upgrade()?;
                 ViewState::tree_mut(&rt).reader().editing_canvas_layout(id)
             });
+            let cx = record_context(theme, measurer, region_paint.as_ref());
             let Recording {
                 scene,
                 unsupported: issues,
                 region_errors,
-            } = kivact_style::internal::record(sz, &theme, |d| {
-                if let Some(measurer) = measurer {
-                    d.set_text_measurer(measurer);
-                }
-                if let Some(regions) = &region_paint {
-                    d.declare_regions(regions.resolve());
-                }
+            } = kivact_style::internal::record(sz, cx, |d| {
                 if let Some(f) = &f {
                     f(d, sz);
                 }
@@ -105,6 +104,20 @@ pub(super) fn bind(cx: &Mcx<'_>, id: NodeId, input: DrawInput, at: &'static Loca
                 report_unsupported(&rt, owner, id, issues, &reported, at);
             }
         });
+    }
+}
+
+/// What one layer's recording takes from its host: the theme in effect, the
+/// node's text engine and its declared canvas regions.
+fn record_context(
+    theme: Theme,
+    shaper: impl kivact_types::TextShaper + 'static,
+    regions: Option<&Rc<Registry>>,
+) -> RecordContext {
+    RecordContext {
+        theme,
+        shaper: Rc::new(shaper),
+        regions: regions.map(|regions| regions.resolve()).unwrap_or_default(),
     }
 }
 
