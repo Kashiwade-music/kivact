@@ -169,6 +169,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R06（lane X、commit `13942301`）：(a) `count_round` を `pub(crate)` にした（private のままだと `reactive/host.rs` の `run_deferred` から呼べない。可視性だけの変更）。(b) `launch/turn.rs` の `ViewState::of(&rt).initial_render.set(false);` を書かなかった。`start_mount` がすでに false にしていて、どの turn より前なので効果が無い。表の「付属書のコード片が効果を持たない」の判断（同じ意味で既に済んでいる）。(c) `use` は現行の import に合わせた。以上は表の範囲で受け入れる。
+- 設計者への注意（R06、STOP ではない）：`commit_rounds` の `if !mounts && !rt.has_work() break` は、予算切れで残った deferred があると `has_work` が真のままで、100 回回ってから「user effects did not settle within 100 rounds」の Cycle を余分に一つ報告する（メッセージも不正確）。付属書の形のまま書いた。直すかどうかは設計者が決める。試験は全エラーが Cycle であることしか見ていないので通る。
+
 - W5a・C04 の memo patch（設計者の patch `C04-memo.diff`、lane X の fix commit）：`view/mount/{node,style}.rs` と `e2e_core/diagnostics.rs` に当てた。`diagnostics.rs` の試験の期待値は、memo の読みを「無い」に変えた（`why` の trace の内部の細部。0.5 節の「`why`・trace の読みの期待値を unit の後の事実に直す」の行）。確認（tier a）は fmt・check・clippy（devtools）・xtask・e2e_core の `diagnostics flows setup_functions i18n style_paint` で、すべて成功（38 件）。
 - W5a・E1・E2 の merge（設計者の回答どおり）：E13 の確認（tier a の全部。ENGINE-A と e2e_core 17 module・e2e_ui 4 module）を実行し、全部成功（e2e_core 153 件、e2e_ui 33 件）。その後 `a5944729`（E1）と `1d6538f6`（E2）を merge した。
 
