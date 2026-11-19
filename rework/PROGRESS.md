@@ -49,3 +49,10 @@
 - tier b の過程で出た xtask の error を fix lane で直した：types の Role 行（`0f52ef4a`）、types の scene→shaped 規則（同）、i18n の module 循環（`2757bc1f`）、ui-creative の module 循環（`e3e54ab7`）、i18n の shared の Role 行（`cda5080d`）。すべて merge 済み。
 - tier b（統合 branch）：fmt・xtask（`--no-write`）・clippy（workspace）・kivact-docs の check は成功。test は 1563 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。
 - 状態の印の逸脱（R03・K02・S04・S06 など）と、付属書の script の欠陥（S06）は `rework/OPEN.md` の差戻しに記録。
+
+## W2b 完了（merge 済み・tier b 成功）
+- lane C（C01・C02）、lane D1（D01）、lane D2（D02・D03・D04）を統合 branch に merge（`0a49fd0d`・`8d4acff9`・`59413203`）。
+- C01 の StyleHook は設計者の (b) の形（`1e24383f`）で直した（`71bfe580`、`5e4c3463`）。D03 は設計者の (a)（二重の許容。`d23b397f`）。
+- tier b の過程で出た xtask の error を fix lane で直した：facade `draw.rs` の glob を explicit な一覧に（`d30c894b`）、core の view の循環を leaf の trait module で（同）、layout の tree を leaf 群に分けて循環を解消（`9559f8aa`）、layout と core の Role 行を 80 字以内に（`2b4cb2db`・`cda5080d` の系）。すべて merge 済み。
+- tier b（統合 branch）：fmt・xtask（`--no-write`）・clippy（workspace）・kivact-docs の check は成功。test は 1565 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。
+- 注記（`rework/OPEN.md`）：Linux の x11rb の未使用 import 2 件（D02 の所見）、kivact-svg の lib.rs の doc が `Offscreen` の所在（`kivact-core`）を古く書いている（C02 の所見、S 系の後で直す）。
