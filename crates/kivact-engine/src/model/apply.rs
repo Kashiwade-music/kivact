@@ -76,13 +76,25 @@ impl Model {
 
     /// Set the scene of one draw layer of `id`.
     pub(crate) fn set_scene(&mut self, id: NodeId, layer: SceneLayer, scene: Arc<DrawList>) {
-        self.changes.restack = true;
         self.stale_fact(id);
-        let old_order = if self.focused().is_some_and(|focus| focus.node == id) {
-            self.focus_order()
+        let focus = self.focused().filter(|focus| focus.node == id);
+        let old_targets = if focus.is_some() {
+            self.node_targets(id)
         } else {
             Vec::new()
         };
+        let before = self.tree.get(id).and_then(|n| {
+            n.scenes()[layer_index(layer)]
+                .as_deref()
+                .map(crate::lower::scene::scene_layers)
+        });
+        // A new layer or item in the scene changes the node's layer facts;
+        // a node the list does not draw may show now: the list is built again.
+        // Otherwise the write forgets the node's ink (WRITTEN) and it is
+        // drawn again in place.
+        if before != Some(crate::lower::scene::scene_layers(&scene)) || !self.paint.lists_own(id) {
+            self.changes.restack = true;
+        }
         if let Some(n) = self.tree.get_mut(id) {
             n.scenes[layer_index(layer)] = Some(scene);
             self.changes.mark(id, Dirty::WRITTEN);
@@ -104,17 +116,18 @@ impl Model {
         for root in roots {
             self.a11y.moved(root);
         }
-        if let Some(focus) = self
-            .focused()
-            .filter(|f| f.node == id && !self.is_focus_target(*f))
-        {
-            let start = old_order.iter().position(|t| *t == focus).unwrap_or(0);
-            let next = old_order[start..]
+        if let Some(focus) = focus.filter(|f| !self.is_focus_target(*f)) {
+            let start = old_targets.iter().position(|t| *t == focus).unwrap_or(0);
+            let next = old_targets[start..]
                 .iter()
-                .chain(old_order[..start].iter())
+                .chain(old_targets[..start].iter())
                 .copied()
                 .find(|t| self.is_focus_target(*t) && self.in_scope(t.node))
-                .or_else(|| self.tab_stops().into_iter().next());
+                .or_else(|| {
+                    self.next_target_after(focus, |t| {
+                        self.is_focus_target(t) && self.in_scope(t.node)
+                    })
+                });
             self.move_focus_to(next);
         }
     }
