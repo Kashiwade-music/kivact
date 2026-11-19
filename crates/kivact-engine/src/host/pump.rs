@@ -459,7 +459,9 @@ impl Host {
                 model.set_surface(drawable);
             }
         }
+        self.app.borrow_mut().hold_text(events);
         let output = self.client.turn(events, boundaries, now);
+        self.app.borrow_mut().text_ahead.clear();
         if self.observe_close() {
             return Ok(());
         }

@@ -288,6 +288,9 @@ impl Launch {
             #[cfg(debug_assertions)]
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
             edits.deliver(event);
+            crate::view::state::ViewState::tree(&rt)
+                .engine()
+                .deliver(event);
             turn.cause_with(kivact_runtime::CauseTag::Input, describe(event));
             crate::client::dispatch::dispatch(&rt, event);
             if crate::client::dispatch::run_requested_activations(&rt) {

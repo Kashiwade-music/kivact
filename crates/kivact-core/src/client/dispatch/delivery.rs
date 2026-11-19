@@ -78,6 +78,7 @@ fn deliver(rt: &Runtime, host_event: &HostEvent) {
         HostEvent::Key(_) => key::key(rt, host_event),
         // Recorded by `track_modifiers` above; nothing else to deliver.
         HostEvent::ModifiersChanged { .. } => {}
+        HostEvent::NodeFlagsChanged { .. } => {}
         HostEvent::TextChanged {
             node,
             changes,

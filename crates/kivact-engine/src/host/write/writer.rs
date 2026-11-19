@@ -405,6 +405,7 @@ impl Writer {
                 model.fonts_added();
                 model.update_env(|env, _| env.fonts = fonts);
             }
+            app.font_generation += 1;
         }
         app.events.push(HostEvent::EffectResult { request, result });
     }
@@ -583,6 +584,28 @@ impl Writer {
         app.client_frames.0.insert(at_ns);
     }
 
+    /// The client dispatches `event` now (before its handlers run): a text
+    /// edit stops holding back its node's input-value echoes.
+    pub fn deliver(&self, event: &HostEvent) {
+        self.app.borrow_mut().delivered(event);
+    }
+
+    /// Watch (or stop watching) the visibility facts of `id`: a commit that
+    /// changes them queues `HostEvent::NodeFlagsChanged`.
+    pub fn watch_flags(&self, id: NodeId, watch: bool) {
+        let mut app = self.app.borrow_mut();
+        if watch {
+            let flags = app
+                .window_of(id)
+                .and_then(|window| app.model(window))
+                .map(|model| model.node_flags(id))
+                .unwrap_or_default();
+            app.watched.insert(id, flags);
+        } else {
+            app.watched.remove(&id);
+        }
+    }
+
     /// End the writes of one revision and return it: every window prepares
     /// its commit, one revision is committed for the whole App, and every
     /// window syncs.
@@ -597,6 +620,7 @@ impl Writer {
         for model in app.windows.values_mut() {
             model.sync();
         }
+        app.report_flags();
         revision
     }
 
