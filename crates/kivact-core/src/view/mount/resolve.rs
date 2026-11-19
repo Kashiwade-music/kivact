@@ -89,7 +89,6 @@ pub(super) fn resolve(
     let draw = prepare_draw(&mut common, cx, attached.as_ref(), draw_paint, at);
     finish_resolve(
         common,
-        kind,
         editing,
         attached,
         draw,
@@ -207,11 +206,6 @@ fn prepare_draw(
     local_paint: Option<LocalPaintSource>,
     at: &'static Location<'static>,
 ) -> Option<DrawInput> {
-    if common.draw_with_layout.is_some() && common.handlers.selection.is_none() {
-        common.handlers.selection = Some(kivact_runtime::Handler::from_fn(
-            |_: kivact_editing::TextSession| {},
-        ));
-    }
     let observe_layout =
         common.draw.is_some() || common.draw_over.is_some() || common.draw_with_layout.is_some();
     (observe_layout || local_paint.is_some()).then(|| {
@@ -230,7 +224,6 @@ fn prepare_draw(
 
 fn finish_resolve(
     common: Common,
-    _kind: NodeType,
     editing: Option<crate::view::editing_data::EditorProps>,
     attached: Option<Attached>,
     draw: Option<DrawInput>,
@@ -279,6 +272,8 @@ fn finish_resolve(
     let observe_layout = draw.as_ref().is_some_and(|draw| {
         draw.below.is_some() || draw.over.is_some() || draw.with_layout.is_some()
     });
+    let report_session = handlers.selection.is_some()
+        || draw.as_ref().is_some_and(|draw| draw.with_layout.is_some());
     Resolved {
         first: FirstWrite {
             exit_layout: exit_layout.unwrap_or_default(),
@@ -289,6 +284,7 @@ fn finish_resolve(
             handlers,
             intrinsic,
             observe_layout,
+            report_session,
             editing,
         },
         semantics: SemanticProps {

@@ -6,8 +6,7 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{EffectKind, UiError};
+use kivact_runtime::{EffectKind, UiError, Value};
 use kivact_style::{Interactive, Style};
 use kivact_types::{LayoutProps, NodeId};
 
@@ -25,23 +24,18 @@ pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
 
 /// The readers of the disabled and selected states, for the style effect.
 pub(super) struct States {
-    disabled: Option<Rc<dyn Fn() -> bool>>,
-    selected: Option<Rc<dyn Fn() -> bool>>,
+    pub(super) disabled: Option<Rc<dyn Fn() -> bool>>,
+    pub(super) selected: Option<Rc<dyn Fn() -> bool>>,
 }
 
-/// Stage 3: retain the semantic inputs read by the state style effect.
-/// The semantic publisher owns the corresponding engine writes.
-pub(super) fn bind_states(
-    cx: &Mcx<'_>,
-    id: NodeId,
-    disabled: Option<InputProp<bool>>,
-    selected: Option<InputProp<bool>>,
-    at: &'static Location<'static>,
-) -> States {
-    let _ = (cx, id, at);
-    let disabled = disabled.map(InputProp::into_fn);
-    let selected = selected.map(InputProp::into_fn);
-    States { disabled, selected }
+/// The merged layers of one node. Each recomputation is a new value, so
+/// equality is identity: the memo notifies only when it ran again.
+#[derive(Clone)]
+struct Merged(Rc<Style>);
+impl PartialEq for Merged {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
 }
 
 /// Stage 4: bind the style effect when the node has style layers, owns part
@@ -116,6 +110,14 @@ pub(crate) fn bind_style(
     let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);
     let reports = StyleReports::default();
     let theme = cx.theme();
+    // The layers' closures run again only when what they read changes, not
+    // when the disabled or selected state or the forced states change.
+    let merge_hook = hook.clone();
+    let merged: Value<Merged> = cx.owner.with_setup(|| {
+        kivact_runtime::memo(move || {
+            kivact_runtime::pure(|| Merged(Rc::new(merge_hook.apply(merge_layers(&layers)))))
+        })
+    });
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
         let Some(theme_sig) = theme else { return };
@@ -124,15 +126,16 @@ pub(crate) fn bind_style(
         // an Internal effect feeding a paint transition.
         let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                let s = hook.apply(merge_layers(&layers));
-                let state = Interactive {
-                    focusable,
-                    disabled: disabled.as_ref().is_some_and(|f| f()),
-                    selected: selected.as_ref().is_some_and(|f| f()),
-                    root: kind == NodeType::Root,
-                    forced: hook.forced(),
-                };
-                kivact_style::internal::compile_style(&s, theme, state)
+                merged.with(|s| {
+                    let state = Interactive {
+                        focusable,
+                        disabled: disabled.as_ref().is_some_and(|f| f()),
+                        selected: selected.as_ref().is_some_and(|f| f()),
+                        root: kind == NodeType::Root,
+                        forced: hook.forced(),
+                    };
+                    kivact_style::internal::compile_style(&s.0, theme, state)
+                })
             })
         });
         let mcx = Mcx {
@@ -141,22 +144,23 @@ pub(crate) fn bind_style(
             window,
         };
         feed_local_paint(&mcx, id, &local_paint, &resolved, &reports, at);
-        let mut layout = resolved.layout.clone();
+        reports.report(&rt, owner, id, &resolved, at);
+        let kivact_style::CompiledStyle {
+            mut layout,
+            paint,
+            text,
+            states,
+            ..
+        } = resolved;
         if let Some(fix) = fix_layout {
             fix(&mut layout);
         }
         let writer = rt.running_effect();
         let mut tree = ViewState::tree_mut(&rt);
         tree.update(id, PropValue::Layout(layout), writer);
-        tree.update(id, PropValue::Paint(resolved.paint.clone()), writer);
-        tree.update(id, PropValue::TextStyle(resolved.text.clone()), writer);
-        tree.update(
-            id,
-            PropValue::States(resolved.states.clone().unwrap_or_default()),
-            writer,
-        );
-        drop(tree);
-        reports.report(&rt, owner, id, &resolved, at);
+        tree.update(id, PropValue::Paint(paint), writer);
+        tree.update(id, PropValue::TextStyle(text), writer);
+        tree.update(id, PropValue::States(states.unwrap_or_default()), writer);
     });
 }
 

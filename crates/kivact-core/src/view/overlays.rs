@@ -398,7 +398,7 @@ impl IntoView for Overlay {
                     ),
                 );
             }
-            let id = mount_host(cx, NodeType::Overlay, common, at);
+            let id = mount_host(cx, NodeType::Overlay, common, Some(at));
             let weak = cx.weak();
             cx.effect(EffectKind::Render, at, move || {
                 let at_place = match &place {
@@ -406,7 +406,7 @@ impl IntoView for Overlay {
                         node,
                         at_least_width,
                     } => kivact_types::OverlayAt::Anchor {
-                        node: node_ref::node_value(node, at),
+                        node: node_ref::node_value(node),
                         at_least_width: *at_least_width,
                     },
                     Place::Point { point, .. } => {

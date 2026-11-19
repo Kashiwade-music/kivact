@@ -144,6 +144,7 @@ fn start_mount(
     let written = commit(&setup, rt, writer);
     debug_assert!(written > 0, "the first revision sets the window");
     setup.finish_setup();
+    rt.enter(|| ViewState::of(rt).initial_render.set(false));
     #[cfg(feature = "devtools")]
     crate::devtools::start::after_mount(rt);
 }
@@ -198,7 +199,6 @@ impl Launch {
                 let extensions = Extensions::new().with(view).with(motion_env);
                 let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
                 let extensions = extensions.with(AppHandleExt(handle.clone()));
-                let extensions = extensions.with(crate::gpu_interop::State::new(root, at));
                 #[cfg(feature = "devtools")]
                 let extensions = extensions.with(devtools);
                 #[cfg(debug_assertions)]
@@ -268,7 +268,6 @@ impl Launch {
         if events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision)) {
             turn.cause_with(kivact_runtime::CauseTag::Mount, "mounts".into());
         }
-        ViewState::of(&rt).initial_render.set(false);
         turn.run_mounts(kivact_types::Revision(before));
         turn.deliver_reports();
         turn.stabilize();

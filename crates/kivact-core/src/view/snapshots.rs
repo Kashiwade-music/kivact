@@ -6,7 +6,7 @@ use kivact_engine::contract::{HostRequest, SnapshotResult};
 use kivact_runtime::{Completion, ErrorKind, Owner, Runtime, UiError};
 use kivact_types::{NodeId, Pixels, RequestId};
 
-use super::state::{SnapshotWaiter, ViewState};
+use super::state::{ViewState, Waiter};
 
 pub(crate) fn request(
     rt: &Runtime,
@@ -17,9 +17,9 @@ pub(crate) fn request(
     let reply = Completion::new();
     let mut requests = ViewState::of(rt).requests.borrow_mut();
     let id = requests.request_id();
-    requests.snapshots.insert(
+    requests.waiters.insert(
         id,
-        SnapshotWaiter {
+        Waiter::Snapshot {
             owner,
             at,
             reply: reply.clone(),
@@ -34,16 +34,20 @@ pub(crate) fn request(
 }
 
 pub(crate) fn resolve(rt: &Runtime, request: RequestId, result: &SnapshotResult) {
-    let Some(waiter) = ViewState::of(rt)
+    let waiter = ViewState::of(rt)
         .requests
         .borrow_mut()
-        .snapshots
-        .remove(&request.0)
-    else {
+        .waiters
+        .remove(&request.0);
+    let Some(Waiter::Snapshot { owner, at, reply }) = waiter else {
+        debug_assert!(
+            waiter.is_none(),
+            "invariant: a SnapshotResult answers a snapshot request"
+        );
         return;
     };
-    let fail = |kind, message| UiError::new(kind, message, Some(waiter.at));
-    let result = if !waiter.owner.is_alive() {
+    let fail = |kind, message| UiError::new(kind, message, Some(at));
+    let result = if !owner.is_alive() {
         Err(fail(
             ErrorKind::Disposed {
                 created_at: None,
@@ -61,12 +65,10 @@ pub(crate) fn resolve(rt: &Runtime, request: RequestId, result: &SnapshotResult)
                 ErrorKind::Unsupported,
                 "snapshot contains an unsupported command or a GPU frame without CPU pixels",
             )),
-            SnapshotResult::Failed(message) => Err(UiError::new(
-                ErrorKind::Asset,
-                message.clone(),
-                Some(waiter.at),
-            )),
+            SnapshotResult::Failed(message) => {
+                Err(UiError::new(ErrorKind::Asset, message.clone(), Some(at)))
+            }
         }
     };
-    waiter.reply.complete(result);
+    reply.complete(result);
 }

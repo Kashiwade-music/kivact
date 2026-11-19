@@ -18,7 +18,7 @@ use kivact_types::{
 use crate::geometry;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::foreign::{ForeignChild, ForeignHooks, ForeignPhase};
-use crate::view::state::{ForeignSizeRequest, ViewState};
+use crate::view::state::{ViewState, Waiter};
 
 /// An OS window of this App whose whole content area is a native child window
 /// for UI another library draws, such as a plugin editor (CLAP, VST3).
@@ -253,9 +253,9 @@ impl ForeignChild {
         let id = {
             let mut requests = ViewState::of(&rt).requests.borrow_mut();
             let id = requests.request_id();
-            requests.foreign_sizes.insert(
+            requests.waiters.insert(
                 id,
-                ForeignSizeRequest {
+                Waiter::ForeignSize {
                     window: self.window,
                     at,
                     slot: slot.clone(),

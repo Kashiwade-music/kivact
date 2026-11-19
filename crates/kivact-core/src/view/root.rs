@@ -59,11 +59,9 @@ pub(crate) fn install_app_contexts(
             })
         }
     };
-    // The root publishes a theme source even for a fixed startup value, so
-    // style dependencies retain the same theme identity in diagnostics.
-    // Reactive inputs keep their existing source and update semantics.
+    // A fixed theme is a constant; DevTools makes it reactive through its wrap.
     let theme = match theme.fixed() {
-        Some(theme) => owner.signal(theme, at).into_value(),
+        Some(theme) => owner.constant(theme, at),
         None => owner.with_setup(|| theme.into_value(owner, at)),
     };
     crate::view::boundary::install_theme(owner, theme);

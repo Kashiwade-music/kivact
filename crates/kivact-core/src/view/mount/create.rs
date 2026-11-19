@@ -25,6 +25,9 @@ pub(super) struct FirstWrite {
     pub(super) intrinsic: Option<IntrinsicSize>,
     /// The node has an explicit draw layer: its layout is observed for the layer's size.
     pub(super) observe_layout: bool,
+    /// The engine reports the node's text sessions: it has a session handler
+    /// or draws with its text layout.
+    pub(super) report_session: bool,
     pub(super) editing: Option<EditorProps>,
 }
 
@@ -68,7 +71,13 @@ fn is_default_handlers(handlers: &Handlers) -> bool {
 /// Stage 1: decide the listener flags from the final handlers, then write the node's first
 /// properties (test id, role, focusable, hit_testable, actions, listeners, intrinsic size, text
 /// editing). This is the only stage that borrows the engine tree for its writes at once.
-pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Location<'static>) {
+pub(super) fn write(
+    cx: &Mcx<'_>,
+    id: NodeId,
+    first: FirstWrite,
+    site: Option<&'static Location<'static>>,
+    at: &'static Location<'static>,
+) {
     let FirstWrite {
         exit_layout,
         exit_complete,
@@ -78,18 +87,17 @@ pub(super) fn write(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, at: &'static Lo
         handlers,
         intrinsic,
         observe_layout,
+        report_session,
         editing,
     } = first;
     let listen_file = !handlers.file.is_empty();
     let listen_pointer = !handlers.pointer.is_empty() || handlers.secondary_context.is_some();
     let listen_wheel = !handlers.wheel.is_empty();
-    // The engine reports the selection sessions of a node that has a session handler.
-    let report_session = handlers.selection.is_some();
     {
         let writer = cx.rt.running_effect();
         let mut tree = ViewState::tree_mut(cx.rt);
         if let Some(n) = tree.get_mut(id) {
-            n.at = Some(at);
+            n.at = site;
             n.exit_layout = exit_layout;
             if exit_complete.is_some() {
                 n.rare_mut().exit_complete = exit_complete;

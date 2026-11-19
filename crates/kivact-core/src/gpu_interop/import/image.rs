@@ -1,6 +1,6 @@
 //! Role: Import an external image: its handle, status, frames and frame publisher.
 
-use super::registry::{ImportPhase, ImportStatus, State};
+use super::registry::{ImportPhase, ImportStatus, state};
 use crate::sync::Inbox;
 use crate::view::state::{ViewState, current_window};
 use kivact_runtime::Signal;
@@ -188,7 +188,7 @@ pub(crate) fn import_in(
     let size = (textures.width, textures.height);
     let window = current_window(owner);
     let status: Signal<ImportPhase> = owner.signal(ImportPhase::Pending, at);
-    let id = State::of(rt).register(window, status, at);
+    let id = state(rt).register(window, status, at);
     ViewState::tree(rt)
         .engine()
         .import_external(id, window, textures);
@@ -224,7 +224,7 @@ pub(crate) fn import_in(
     owner.on_cleanup(move || {
         closing.update(|p| *p = Published::Closed);
         let Some(rt) = weak.upgrade() else { return };
-        State::of(&rt).forget(id);
+        state(&rt).forget(id);
         ViewState::tree(&rt).engine().drop_external(id);
     });
     ExternalImage {

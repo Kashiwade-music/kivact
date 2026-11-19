@@ -61,9 +61,8 @@ impl Common {
 
     #[track_caller]
     pub(crate) fn semantic_relation(&mut self, relation: Relation, target: crate::view::NodeRef) {
-        let at = Location::caller();
         self.semantic(
-            kivact_runtime::Prop::computed(Rc::new(move || target.target_value(at))),
+            kivact_runtime::Prop::computed(Rc::new(move || target.target_value())),
             move |s, target| {
                 let list = match relation {
                     Relation::DescribedBy => &mut s.described_by,

@@ -1,7 +1,7 @@
 //! Role: Retain what only core knows about a node and write directly to the engine.
 //!
 //! Engine nodes, including transparent flow boxes, own all topology and props.
-//! CoreNodes retains only owner resources, handlers and diagnostic origins.
+//! CoreNodes retains only owner resources and handlers; diagnostic origins are a side table.
 //! ViewNodes owns the writer and host-wide bookkeeping, borrowing the model
 //! only during a Reader or Writer call. Removed user resources are dropped
 //! after this service's borrow ends.
@@ -309,8 +309,6 @@ pub(crate) struct CoreNode {
     /// Event handlers, if any.
     pub handlers: Option<Box<Handlers>>,
     pub(crate) exit_layout: crate::view::ExitLayout,
-    /// The effect that last set each dynamic prop (diagnostics::why).
-    pub(crate) origins: Vec<(Prop, EffectId)>,
     /// What only some nodes have (see [`CoreRare`]).
     pub(crate) rare: Option<Box<CoreRare>>,
 }
@@ -330,20 +328,18 @@ pub(crate) struct CoreRare {
     pub(crate) observation: Option<NodeObservation>,
     /// Created only when a reference observes this node's lifetime.
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
-    pub(crate) semantic_origins: Vec<&'static Location<'static>>,
     /// The style layers the node was mounted with, for the DevTools.
     pub(crate) style_layers: Vec<crate::view::style_layer::StyleLayer>,
 }
 
 impl CoreNode {
-    /// Metadata for a node of `owner`, without handlers or origins yet.
+    /// Metadata for a node of `owner`, without handlers yet.
     fn new(owner: Owner) -> CoreNode {
         CoreNode {
             owner,
             at: None,
             handlers: None,
             exit_layout: Default::default(),
-            origins: Vec::new(),
             rare: None,
         }
     }
@@ -369,11 +365,6 @@ impl CoreNode {
         self.rare.as_ref().is_some_and(|r| !r.references.is_empty())
     }
 
-    /// The locations of the semantic patches that set the node's semantics.
-    pub(crate) fn semantic_origins(&self) -> &[&'static Location<'static>] {
-        self.rare.as_ref().map_or(&[], |r| &r.semantic_origins)
-    }
-
     /// The style layers the node was mounted with.
     #[cfg(feature = "devtools")]
     pub(crate) fn style_layers(&self) -> Vec<crate::view::style_layer::StyleLayer> {
@@ -381,6 +372,15 @@ impl CoreNode {
             .as_ref()
             .map_or_else(Vec::new, |r| r.style_layers.clone())
     }
+}
+
+/// The diagnostic origins of one node (`diagnostics::why`, DevTools).
+#[derive(Default)]
+pub(crate) struct Provenance {
+    /// The effect that last set each dynamic prop.
+    pub(crate) origins: Vec<(Prop, EffectId)>,
+    /// Where the semantic patches that set the node's semantics were declared.
+    pub(crate) semantic_origins: Vec<&'static Location<'static>>,
 }
 
 /// Metadata keyed by the authoritative engine node IDs.
@@ -398,6 +398,10 @@ pub(crate) struct ViewNodes {
     devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
+    /// Which effect last set each dynamic prop and where semantics were
+    /// declared, kept only while a recorder runs (DevTools, a test trace)
+    /// or in debug builds.
+    provenance: IdMap<Provenance>,
     /// The latest layout report of each referenced node that has no observation yet
     /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
     layout_seeds: IdMap<LayoutSeed>,
@@ -431,6 +435,7 @@ impl ViewNodes {
                 TextEditsInFlight(IdMap::default()),
             )),
             leaving: IdMap::default(),
+            provenance: IdMap::default(),
             layout_seeds: IdMap::default(),
             visibility_revision: owner.notifier(Location::caller()),
             live_region_revision: owner.notifier(Location::caller()),
@@ -473,10 +478,8 @@ impl ViewNodes {
     /// Release excess metadata capacity without discarding live nodes,
     /// reactive handles, pending edits or user resources.
     pub(crate) fn release_capacity(&mut self) {
-        for node in self.nodes.0.values_mut() {
-            node.origins.shrink_to_fit();
-        }
         self.nodes.0.shrink_to_fit();
+        self.provenance.shrink_to_fit();
         self.future_text_edits.borrow_mut().0.shrink_to_fit();
     }
 
@@ -680,13 +683,14 @@ impl ViewNodes {
         writer: Option<EffectId>,
     ) -> bool {
         let prop = value.prop();
-        let Some(node) = self.nodes.0.get_mut(&id) else {
+        if !self.contains(id) {
             return false;
-        };
-        if let Some(writer) = writer {
-            match node.origins.iter_mut().find(|(set, _)| *set == prop) {
+        }
+        if let Some(writer) = writer.filter(|_| self.records_provenance()) {
+            let provenance = self.provenance.entry(id).or_default();
+            match provenance.origins.iter_mut().find(|(set, _)| *set == prop) {
                 Some(entry) => entry.1 = writer,
-                None => node.origins.push((prop, writer)),
+                None => provenance.origins.push((prop, writer)),
             }
         }
         if prop == Prop::InputValue
@@ -712,6 +716,37 @@ impl ViewNodes {
             h.prop_written(id, prop, writer, changed);
         }
         changed
+    }
+
+    /// Whether provenance is recorded: a recorder runs (DevTools) or the
+    /// build has debug assertions.
+    fn records_provenance(&self) -> bool {
+        cfg!(debug_assertions) || self.devtools.is_some()
+    }
+
+    /// The diagnostic origins of node `id`, if any were recorded.
+    pub(crate) fn provenance(&self, id: NodeId) -> Option<&Provenance> {
+        self.provenance.get(&id)
+    }
+
+    /// The locations of the semantic patches that set node `id`'s semantics.
+    pub(crate) fn semantic_origins(&self, id: NodeId) -> &[&'static Location<'static>] {
+        self.provenance
+            .get(&id)
+            .map_or(&[], |p| &p.semantic_origins)
+    }
+
+    /// Record where the semantic patches of node `id` were declared (only
+    /// while provenance is recorded).
+    pub(crate) fn set_semantic_origins(
+        &mut self,
+        id: NodeId,
+        origins: Vec<&'static Location<'static>>,
+    ) {
+        if !self.contains(id) || !self.records_provenance() {
+            return;
+        }
+        self.provenance.entry(id).or_default().semantic_origins = origins;
     }
 
     pub(crate) fn scene(&self, id: NodeId, layer: SceneLayer) -> Option<Arc<DrawList>> {
@@ -774,6 +809,7 @@ impl ViewNodes {
         for id in &ids {
             self.future_text_edits.borrow_mut().0.remove(id);
             self.layout_seeds.remove(id);
+            self.provenance.remove(id);
             if let Some(record) = self.nodes.0.remove(id) {
                 for reference in record.rare.iter().flat_map(|r| r.references.iter()) {
                     if reference
@@ -818,8 +854,8 @@ impl ViewNodes {
             .as_deref_mut()
             .and_then(|r| r.exit_complete.take());
         let notify = callback.is_some();
-        if notify {
-            self.leaving.insert(id, Leaving { on_exit: callback });
+        if let Some(on_exit) = callback {
+            self.leaving.insert(id, Leaving { on_exit });
         }
         let removed = self.engine().remove_with_exit(id, pop, notify);
         let mut ids = Vec::with_capacity(descendants.len() + removed.len());
@@ -869,7 +905,7 @@ impl ViewNodes {
     }
 
     pub(crate) fn take_exit_callback(&mut self, id: NodeId) -> Option<kivact_runtime::Handler<()>> {
-        self.leaving.remove(&id).and_then(|leaving| leaving.on_exit)
+        self.leaving.remove(&id).map(|leaving| leaving.on_exit)
     }
 
     /// Nearest ancestor-or-self host node with handlers matching `f`, not
@@ -991,7 +1027,7 @@ impl ViewNodes {
 }
 
 struct Leaving {
-    on_exit: Option<kivact_runtime::Handler<()>>,
+    on_exit: kivact_runtime::Handler<()>,
 }
 
 pub(super) struct TextEditsInFlight(pub(super) IdMap<u32>);

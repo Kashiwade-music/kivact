@@ -40,6 +40,23 @@ pub(crate) fn mount_in(
     Mcx { rt, owner, window }.mount_child(view)
 }
 
+/// The one owner boundary: a child owner of the mounting owner, `install`
+/// run in it, then `build` set up in it and mounted under a fragment.
+fn boundary<V: IntoView>(
+    at: &'static Location<'static>,
+    install: impl FnOnce(Owner) + 'static,
+    build: impl FnOnce() -> V + 'static,
+) -> View {
+    view_fn(move |cx| {
+        let owner = cx.owner.child(at);
+        install(owner);
+        let fragment = cx.fragment();
+        let child = mount_in(cx.rt, owner, cx.window, move || build().into_view());
+        cx.append(fragment, child);
+        fragment
+    })
+}
+
 /// Run `build` once at mount in a new owner (a scope): its hooks and cleanups belong to it.
 ///
 /// The initializer inherits context from the mounting parent. Its signals, effects,
@@ -48,14 +65,7 @@ pub(crate) fn mount_in(
 /// Use a factory for content that must be constructed again on later mounts.
 #[track_caller]
 pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
-    let at = Location::caller();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || build().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(Location::caller(), |_| {}, build)
 }
 
 /// Provide `value` to the subtree built by `child` (Solid's
@@ -73,15 +83,14 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     child: impl FnOnce() -> V + 'static,
 ) -> View {
     let at = Location::caller();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = owner.constant(value, at);
-        owner.provide(value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| {
+            let value = owner.constant(value, at);
+            owner.provide(value);
+        },
+        child,
+    )
 }
 
 /// Use `theme` for the subtree built by `child`. Pass a `Signal<Theme>` (or
@@ -105,15 +114,11 @@ pub fn provide_theme<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let theme = theme.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = theme.into_value(owner, at);
-        install_theme(owner, value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| install_theme(owner, theme.into_value(owner, at)),
+        child,
+    )
 }
 
 /// Use `locale` for the subtree built by `child` (like
@@ -144,15 +149,11 @@ pub fn provide_locale<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let locale = locale.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let value = locale.into_value(owner, at);
-        install_locale(owner, value);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    boundary(
+        at,
+        move |owner| install_locale(owner, locale.into_value(owner, at)),
+        child,
+    )
 }
 
 /// Use `messages` for the subtree built by `child`, on top of the messages
@@ -181,16 +182,12 @@ pub fn provide_messages<V: IntoView>(
 ) -> View {
     let at = Location::caller();
     let messages = messages.into_prop();
-    view_fn(move |cx| {
-        let owner = cx.owner.child(at);
-        let own = messages.into_value(owner, at);
-        // Layered over the messages `owner` inherits from `cx.owner`.
-        install_layered_messages(owner, own, at);
-        let fragment = cx.fragment();
-        let child = mount_in(cx.rt, owner, cx.window, move || child().into_view());
-        cx.append(fragment, child);
-        fragment
-    })
+    // Layered over the messages `owner` inherits from the mounting owner.
+    boundary(
+        at,
+        move |owner| install_layered_messages(owner, messages.into_value(owner, at), at),
+        child,
+    )
 }
 
 /// The reading direction of a subtree (the HTML `dir` attribute, base-ui's

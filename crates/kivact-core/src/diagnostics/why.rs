@@ -92,7 +92,7 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
     let (label, origins, semantic_origins) = {
         let tree = ViewState::tree(rt);
         match tree.get(id) {
-            Some(n) => {
+            Some(_) => {
                 let role = match tree.role(id) {
                     Some(r) => format!("{r:?}"),
                     _ => tree.with_node(id, |node| {
@@ -105,8 +105,9 @@ pub(crate) fn explain(rt: &Runtime, id: NodeId) -> Why {
                 };
                 (
                     format!("{role} {name:?}"),
-                    n.origins.clone(),
-                    n.semantic_origins().to_vec(),
+                    tree.provenance(id)
+                        .map_or_else(Vec::new, |p| p.origins.clone()),
+                    tree.semantic_origins(id).to_vec(),
                 )
             }
             None => ("(removed)".to_string(), Vec::new(), Vec::new()),
