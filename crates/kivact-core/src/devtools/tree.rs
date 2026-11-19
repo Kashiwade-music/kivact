@@ -153,19 +153,35 @@ fn window_not_found(raw: p::WindowId) -> p::RpcError {
 pub(crate) fn notify_windows_changed(rt: &Runtime) -> Vec<WindowId> {
     let i = DevtoolsState::inspector(rt);
     let open = ViewState::tree(rt).reader().windows();
-    let before = std::mem::replace(&mut *i.session.sent_windows.borrow_mut(), open.clone());
-    if before == open {
-        return Vec::new();
+    let closed = {
+        let mut sent = i.session.sent_windows.borrow_mut();
+        let closed = sent
+            .open
+            .iter()
+            .copied()
+            .filter(|window| !open.contains(window))
+            .collect();
+        sent.open = open;
+        closed
+    };
+    if !i.wants(p::Topic::Windows) {
+        return closed;
     }
-    if i.wants(p::Topic::Windows)
-        && let Ok(list) = list_windows(rt, p::Empty {})
-    {
+    let Ok(list) = list_windows(rt, p::Empty {}) else {
+        return closed;
+    };
+    let changed = {
+        let mut sent = i.session.sent_windows.borrow_mut();
+        let changed = sent.listed.as_ref() != Some(&list.windows);
+        if changed {
+            sent.listed = Some(list.windows.clone());
+        }
+        changed
+    };
+    if changed {
         i.notify(p::Notification::WindowsChanged(list));
     }
-    before
-        .into_iter()
-        .filter(|window| !open.contains(window))
-        .collect()
+    closed
 }
 
 /// Notify the Tree subscribers of the nodes the turn created, changed or

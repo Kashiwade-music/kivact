@@ -81,11 +81,20 @@ pub(crate) struct SessionData {
     pub(crate) sent_overlays: RefCell<BTreeMap<WindowId, DevtoolsOverlay>>,
     pub(crate) snapshots: RefCell<VecDeque<(u64, LiveSnapshot)>>,
     pub(crate) next_snapshot: Cell<u64>,
-    /// The open windows the last turn saw.
-    pub(crate) sent_windows: RefCell<Vec<WindowId>>,
+    /// The open windows the last turn saw, and the list last sent.
+    pub(crate) sent_windows: RefCell<SentWindows>,
     /// The last error sequence number sent to the Errors subscribers.
     pub(crate) errors_sent: Cell<u64>,
     pub(crate) open_failed: ReportOnce,
+}
+
+/// What the last turn saw of the windows: the open windows, for sweeping the
+/// records of a closed one, and the list last sent to the Windows subscribers,
+/// so a title, size or focus change is sent too.
+#[derive(Default)]
+pub(crate) struct SentWindows {
+    pub(crate) open: Vec<WindowId>,
+    pub(crate) listed: Option<Vec<p::WindowInfo>>,
 }
 
 impl SessionData {
@@ -229,7 +238,7 @@ impl DevtoolsState {
                 sent_overlays: RefCell::new(BTreeMap::new()),
                 snapshots: RefCell::new(VecDeque::new()),
                 next_snapshot: Cell::new(0),
-                sent_windows: RefCell::new(Vec::new()),
+                sent_windows: RefCell::default(),
                 errors_sent: Cell::new(0),
                 open_failed: ReportOnce::new(),
             },
