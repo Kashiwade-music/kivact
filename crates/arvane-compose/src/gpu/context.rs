@@ -8,7 +8,7 @@ use super::pipelines::Pipelines;
 use super::shader_cache::Shaders;
 use super::state::{DeviceLost, GpuContext, GpuEnv};
 use super::targets::Pool;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::cache::CacheIndex;
 use arvane_render::GpuRaster;
 use std::collections::HashMap;
@@ -27,9 +27,9 @@ impl GpuContext {
     /// Requests a hardware adapter and creates the executor's pipelines,
     /// as `env` says. Any thread may do it (windows' surfaces are made
     /// later, on their windows' threads: [`GpuContext::surface`]). Fails
-    /// with [`ComposeError::NoAdapter`] when no backend has a hardware
+    /// with [`RenderError::NoAdapter`] when no backend has a hardware
     /// adapter.
-    pub fn new(env: &GpuEnv) -> Result<Self, ComposeError> {
+    pub fn new(env: &GpuEnv) -> Result<Self, RenderError> {
         let mut failures = Vec::new();
         let mut adapter_found = false;
         for backends in backend_order(env) {
@@ -44,9 +44,9 @@ impl GpuContext {
         }
         let message = failures.join("; ");
         Err(if adapter_found {
-            ComposeError::Backend(message)
+            RenderError::Backend(message)
         } else {
-            ComposeError::NoAdapter(message)
+            RenderError::NoAdapter(message)
         })
     }
 
@@ -128,9 +128,9 @@ impl GpuContext {
     }
 
     /// Fail when the device reported a failure.
-    pub(crate) fn check(&self) -> Result<(), ComposeError> {
+    pub(crate) fn check(&self) -> Result<(), RenderError> {
         match self.failure() {
-            Some(message) => Err(ComposeError::Backend(message)),
+            Some(message) => Err(RenderError::Backend(message)),
             None => Ok(()),
         }
     }

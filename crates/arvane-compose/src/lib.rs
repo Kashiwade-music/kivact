@@ -15,7 +15,7 @@ mod plan;
 mod tables;
 
 pub use arvane_protocol::{FrameReport, PixelRect};
-pub use arvane_render::RenderError as ComposeError;
+pub(crate) use arvane_render::RenderError;
 pub use build::{GPU_BUILT, GPU_INTEROP_BUILT};
 pub use cpu::{CpuCompositor, CpuOutput, Rendered};
 #[cfg(feature = "gpu")]

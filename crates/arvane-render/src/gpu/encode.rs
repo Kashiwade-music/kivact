@@ -47,7 +47,7 @@
 //!   shrunk, so it is coarser on the GPU than on the CPU.
 
 use super::images::{AtlasImage, GpuImage, Images};
-use super::raster::GpuRaster;
+use super::raster::GpuFrameRaster;
 use crate::draw;
 use crate::frame_cache::Pinned;
 use crate::images::{self, ImageScope};
@@ -72,79 +72,50 @@ const PATTERN_ATLAS: u16 = 256;
 /// The most copies of a large pattern tile drawn as rectangles.
 const MAX_TILES: usize = 4096;
 
-impl GpuRaster {
+impl GpuFrameRaster<'_> {
     /// Record `source` into the renderer's scene for a `size` pixel target
-    /// under `frame`.
+    /// under `frame`. Atlas uploads are submitted before the draw.
     pub(super) fn record(
         &mut self,
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
         source: &RenderScene,
         frame: &draw::Frame,
         (width, height): (u16, u16),
     ) {
-        let GpuRaster {
-            scene,
-            resources,
-            renderer,
-            images,
-            caches,
-            derived,
-            textures,
-            atlas,
-        } = self;
-        if (scene.width(), scene.height()) == (width, height) {
-            scene.reset();
+        if (self.scene.width(), self.scene.height()) == (width, height) {
+            self.scene.reset();
         } else {
-            scene.reset_and_resize(width, height);
+            self.scene.reset_and_resize(width, height);
         }
-        images.bindings = TextureBindings::new();
-        // The atlas slots the frame did not draw are destroyed after it. The
-        // destroys are recorded by the eviction callback and run below.
-        let mut evicted = Vec::new();
-        let mut uploads = atlas.frame_evicting(
-            |atlas| {
-                // Dropping an image's texture frees it once the GPU is done:
-                // the textures the frame did not draw are dropped when this
-                // closure ends.
-                textures.frame(|textures| {
-                    let mut canvas = HybridCanvas {
-                        scene,
-                        resources: &mut *resources,
-                        renderer: &mut *renderer,
-                        device,
-                        queue,
-                        images,
-                        textures,
-                        atlas,
-                        uploads: None,
-                    };
-                    derived.frame(|mut derived| {
-                        draw::draw(&mut canvas, caches, &mut derived, source, frame);
-                    });
-                    canvas.uploads.take()
-                })
-            },
-            |_, slot| evicted.push(slot.value.id),
-        );
-        if !evicted.is_empty() {
-            let encoder = uploads.get_or_insert_with(|| {
-                device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-                    label: Some("Arvane atlas uploads"),
-                })
-            });
-            for id in evicted {
-                renderer.destroy_image(resources, encoder, id);
-            }
-        }
+        self.images.bindings = TextureBindings::new();
+        let uploads = {
+            let mut canvas = HybridCanvas {
+                scene: &mut *self.scene,
+                resources: &mut *self.resources,
+                renderer: &mut *self.renderer,
+                device: self.device,
+                queue: self.queue,
+                images: &mut *self.images,
+                textures: &mut self.textures,
+                atlas: &mut self.atlas,
+                uploads: None,
+            };
+            draw::draw(
+                &mut canvas,
+                &mut *self.caches,
+                &mut self.derived,
+                source,
+                frame,
+            );
+            canvas.uploads.take()
+        };
         if let Some(uploads) = uploads {
-            queue.submit([uploads.finish()]);
+            self.queue.submit([uploads.finish()]);
         }
     }
 }
 
 /// The GPU renderer's [`draw::Canvas`].
-struct HybridCanvas<'a> {
+struct HybridCanvas<'a, 'b> {
     scene: &'a mut vello_hybrid::Scene,
     resources: &'a mut Resources,
     renderer: &'a mut Renderer,
@@ -152,18 +123,18 @@ struct HybridCanvas<'a> {
     queue: &'a wgpu::Queue,
     images: &'a mut Images,
     /// The textures of the images this frame draws.
-    textures: ImageScope<'a, GpuImage>,
+    textures: &'a mut ImageScope<'b, GpuImage>,
     /// The pattern atlas slots of this frame.
-    atlas: ImageScope<'a, AtlasImage>,
+    atlas: &'a mut ImageScope<'b, AtlasImage>,
     /// Atlas uploads of this recording, submitted before the frame is drawn.
     uploads: Option<wgpu::CommandEncoder>,
 }
 
-impl HybridCanvas<'_> {
+impl HybridCanvas<'_, '_> {
     /// `image`'s texture, bound for this frame.
     fn texture(&mut self, image: &Pixels) -> GpuImage {
         let (device, queue, next) = (self.device, self.queue, &mut self.images.next);
-        let texture = images::converted(&mut self.textures, image, || {
+        let texture = images::converted(self.textures, image, || {
             *next += 1;
             upload(device, queue, TextureId(*next), image)
         });
@@ -199,7 +170,7 @@ impl HybridCanvas<'_> {
     }
 }
 
-impl draw::Canvas for HybridCanvas<'_> {
+impl draw::Canvas for HybridCanvas<'_, '_> {
     fn set_transform(&mut self, transform: Affine) {
         self.scene.set_transform(transform);
     }

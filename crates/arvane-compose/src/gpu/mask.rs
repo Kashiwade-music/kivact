@@ -7,7 +7,7 @@ use super::pass::{CLEAR, FrameTextures, view, with_pass};
 use super::pipelines::Words;
 use super::state::GpuContext;
 use super::targets;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::cache::ChunkKey;
 use kivact_types::paint::{MaskComposite, MaskMode};
 
@@ -19,7 +19,7 @@ impl GpuContext {
         target: u32,
         masks: &[(ChunkKey, MaskMode, MaskComposite)],
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let texture = frame.target(target)?;
         let size = (texture.width(), texture.height());
         let Some(((bottom, bottom_mode, _), upper)) = masks.split_last() else {
@@ -51,7 +51,7 @@ impl GpuContext {
         target: u32,
         coverage: ChunkKey,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let texture = frame.target(target)?;
         let (cover, _) = self.chunk_view(&coverage)?;
         self.apply_to(encoder, texture, &cover, &self.pipelines.apply_alpha)
@@ -66,7 +66,7 @@ impl GpuContext {
         mode: MaskMode,
         composite: MaskComposite,
         prev: Option<&wgpu::Texture>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let (mask, _) = self.chunk_view(key)?;
         let mode_index = match mode {
             MaskMode::Alpha => 0,
@@ -107,7 +107,7 @@ impl GpuContext {
         });
         let out_view = view(out);
         with_pass(encoder, &out_view, CLEAR, |pass| {
-            pass.set_pipeline(&self.pipelines.mask_step);
+            pass.set_pipeline(self.pipelines.mask_step(&self.device));
             pass.set_bind_group(0, &group, &[]);
             pass.draw(0..3, 0..1);
         });
@@ -121,7 +121,7 @@ impl GpuContext {
         target: &wgpu::Texture,
         source: &wgpu::TextureView,
         pipeline: &wgpu::RenderPipeline,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Arvane apply"),
             layout: &self.pipelines.apply_layout,

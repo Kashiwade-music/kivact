@@ -6,7 +6,7 @@
 
 use super::external;
 use super::pipelines::buffer;
-use crate::ComposeError;
+use crate::RenderError;
 use arvane_protocol::FrameReport;
 use kivact_types::pixel::BlendMode;
 
@@ -18,10 +18,10 @@ pub(super) struct FrameTextures<'a> {
 
 impl FrameTextures<'_> {
     /// The texture of target `id`.
-    pub(super) fn target(&self, id: u32) -> Result<&wgpu::Texture, ComposeError> {
+    pub(super) fn target(&self, id: u32) -> Result<&wgpu::Texture, RenderError> {
         self.targets
             .get(id as usize)
-            .ok_or_else(|| ComposeError::InvalidComposition(format!("target {id} is out of range")))
+            .ok_or_else(|| RenderError::InvalidComposition(format!("target {id} is out of range")))
     }
 }
 

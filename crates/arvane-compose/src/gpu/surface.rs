@@ -9,7 +9,7 @@
 use super::pass::{Drawn, view, with_pass};
 use super::state::{Configured, GpuContext, GpuSurface, Presentation, Retain, Swapchain};
 use super::targets;
-use crate::{ComposeError, GpuReport};
+use crate::{GpuReport, RenderError};
 use arvane_protocol::{Composition, CpuFrame};
 use std::time::{Duration, Instant};
 
@@ -33,14 +33,15 @@ impl GpuSurface {
         Self {
             surface,
             swapchain: Swapchain::Unconfigured,
-            keep: Retain::Drop,
-            last: None,
+            kept: Retain::Drop,
         }
     }
 
     /// Keep each presented frame for [`GpuContext::read_back`] (tests).
     pub fn keep_frames(&mut self) {
-        self.keep = Retain::Keep;
+        if matches!(self.kept, Retain::Drop) {
+            self.kept = Retain::Keep(None);
+        }
     }
 }
 
@@ -54,7 +55,7 @@ impl GpuContext {
         composition: &Composition,
         scale: f64,
         physical: (u32, u32),
-    ) -> Result<(Presentation, Duration, GpuReport), ComposeError> {
+    ) -> Result<(Presentation, Duration, GpuReport), RenderError> {
         let (width, height) = physical;
         if width == 0 || height == 0 {
             return Ok((Presentation::Skipped, Duration::ZERO, GpuReport::default()));
@@ -74,12 +75,12 @@ impl GpuContext {
         surface: &mut GpuSurface,
         pixels: &[u32],
         (width, height): (u32, u32),
-    ) -> Result<(Presentation, Duration), ComposeError> {
+    ) -> Result<(Presentation, Duration), RenderError> {
         if width == 0 || height == 0 {
             return Ok((Presentation::Skipped, Duration::ZERO));
         }
         if pixels.len() != width as usize * height as usize {
-            return Err(ComposeError::InvalidSize);
+            return Err(RenderError::InvalidSize);
         }
         self.reconfigure(surface, width, height, false)?;
         let bytes: Vec<u8> = pixels
@@ -111,12 +112,11 @@ impl GpuContext {
 
     /// Read back the last frame presented to `surface` (over white), which keeps its frames
     /// ([`GpuSurface::keep_frames`]).
-    pub fn read_back(&self, surface: &GpuSurface) -> Result<CpuFrame, ComposeError> {
-        let texture = surface
-            .last
-            .as_ref()
-            .filter(|_| surface.keep == Retain::Keep)
-            .ok_or_else(|| ComposeError::Surface("no frame was kept".into()))?;
+    pub fn read_back(&self, surface: &GpuSurface) -> Result<CpuFrame, RenderError> {
+        let texture = match &surface.kept {
+            Retain::Keep(Some(texture)) => texture,
+            _ => return Err(RenderError::Surface("no frame was kept".into())),
+        };
         let mut frame = self.read_frame(texture)?;
         for px in frame.rgba.as_chunks_mut::<4>().0 {
             let clear = 255 - u32::from(px[3]);
@@ -133,7 +133,7 @@ impl GpuContext {
         &mut self,
         surface: &mut GpuSurface,
         source: &wgpu::Texture,
-    ) -> Result<(Presentation, Duration), ComposeError> {
+    ) -> Result<(Presentation, Duration), RenderError> {
         let (width, height) = (source.width(), source.height());
         let waiting = Instant::now();
         let Some((texture, suboptimal)) = self.acquire(surface, width, height)? else {
@@ -180,9 +180,9 @@ impl GpuContext {
 
     /// Keep `output` for [`GpuContext::read_back`] when the surface keeps its frames, else pool it.
     fn retain(&mut self, surface: &mut GpuSurface, output: wgpu::Texture) {
-        match surface.keep {
-            Retain::Keep => {
-                if let Some(old) = surface.last.replace(output) {
+        match &mut surface.kept {
+            Retain::Keep(last) => {
+                if let Some(old) = last.replace(output) {
                     self.pool.give(old);
                 }
             }
@@ -196,7 +196,7 @@ impl GpuContext {
         surface: &mut GpuSurface,
         width: u32,
         height: u32,
-    ) -> Result<Option<(wgpu::SurfaceTexture, bool)>, ComposeError> {
+    ) -> Result<Option<(wgpu::SurfaceTexture, bool)>, RenderError> {
         for attempt in 0..2 {
             match surface.surface.get_current_texture() {
                 wgpu::CurrentSurfaceTexture::Success(texture) => return Ok(Some((texture, false))),
@@ -212,13 +212,13 @@ impl GpuContext {
                     self.reconfigure(surface, width, height, true)?;
                 }
                 wgpu::CurrentSurfaceTexture::Outdated | wgpu::CurrentSurfaceTexture::Lost => {
-                    return Err(ComposeError::Surface(
+                    return Err(RenderError::Surface(
                         "the window surface stayed lost after reconfiguring".into(),
                     ));
                 }
                 wgpu::CurrentSurfaceTexture::Validation => {
                     self.check()?;
-                    return Err(ComposeError::Backend(
+                    return Err(RenderError::Backend(
                         "the window surface failed validation".into(),
                     ));
                 }
@@ -233,7 +233,7 @@ impl GpuContext {
         surface: &mut GpuSurface,
         width: u32,
         height: u32,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         self.reconfigure(surface, width.max(1), height.max(1), true)
     }
 
@@ -243,13 +243,13 @@ impl GpuContext {
         width: u32,
         height: u32,
         again: bool,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         configure(&self.device, &self.adapter, surface, width, height, again)?;
         self.check()
     }
 
     /// A window surface made on this context's instance and adapter.
-    pub fn surface<T>(&self, target: T) -> Result<GpuSurface, ComposeError>
+    pub fn surface<T>(&self, target: T) -> Result<GpuSurface, RenderError>
     where
         T: raw_window_handle::HasWindowHandle
             + raw_window_handle::HasDisplayHandle
@@ -263,7 +263,7 @@ impl GpuContext {
     /// A function making a window surface on this context's instance, for another thread.
     pub fn surface_maker<T>(
         &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, ComposeError> + Send + 'static + use<T>
+    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T>
     where
         T: raw_window_handle::HasWindowHandle
             + raw_window_handle::HasDisplayHandle
@@ -284,7 +284,7 @@ fn configure(
     width: u32,
     height: u32,
     again: bool,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     if let Swapchain::Configured(configured) = &mut surface.swapchain {
         if !again && (configured.config.width, configured.config.height) == (width, height) {
             return Ok(());
@@ -306,12 +306,12 @@ fn surface_config(
     surface: &wgpu::Surface<'static>,
     width: u32,
     height: u32,
-) -> Result<wgpu::SurfaceConfiguration, ComposeError> {
+) -> Result<wgpu::SurfaceConfiguration, RenderError> {
     let capabilities = surface.get_capabilities(adapter);
     let format = SURFACE_FORMATS
         .into_iter()
         .find(|f| capabilities.formats.contains(f))
-        .ok_or_else(|| ComposeError::Surface("no 8-bit unorm surface format".into()))?;
+        .ok_or_else(|| RenderError::Surface("no 8-bit unorm surface format".into()))?;
     let present_mode = if capabilities
         .present_modes
         .contains(&wgpu::PresentMode::Mailbox)
@@ -345,7 +345,7 @@ fn make_surface<T>(
     instance: &wgpu::Instance,
     adapter: &wgpu::Adapter,
     target: T,
-) -> Result<GpuSurface, ComposeError>
+) -> Result<GpuSurface, RenderError>
 where
     T: raw_window_handle::HasWindowHandle
         + raw_window_handle::HasDisplayHandle
@@ -355,9 +355,9 @@ where
 {
     let surface = instance
         .create_surface(target)
-        .map_err(|e| ComposeError::Surface(e.to_string()))?;
+        .map_err(|e| RenderError::Surface(e.to_string()))?;
     if !adapter.is_surface_supported(&surface) {
-        return Err(ComposeError::Surface(
+        return Err(RenderError::Surface(
             "the GPU adapter cannot present to this window".into(),
         ));
     }

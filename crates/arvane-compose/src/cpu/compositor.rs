@@ -18,7 +18,6 @@ use super::draw::{self, Chunks};
 use super::filters;
 use super::mask;
 use super::surface::Pixmap;
-use crate::ComposeError;
 use crate::cache::{CacheIndex, ChunkKey, ChunkRecord, LayerRecord};
 use crate::plan::{self, ChunkTask, Damage, DrawOp, Op, Redraw, Sampling, Source, TargetKind};
 
@@ -156,7 +155,7 @@ impl CpuCompositor {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<CpuOutput<'_>, ComposeError> {
+    ) -> Result<CpuOutput<'_>, RenderError> {
         if self.output.size() != size {
             self.invalidate();
             self.output = Pixmap::new(size.0, size.1);
@@ -200,7 +199,7 @@ impl CpuCompositor {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<Rendered, ComposeError> {
+    ) -> Result<Rendered, RenderError> {
         let mut stores = Stores::default();
         let done = run(
             &mut self.raster,
@@ -231,11 +230,11 @@ fn run(
     composition: &Composition,
     size: (u32, u32),
     scale: f64,
-) -> Result<Executed, ComposeError> {
+) -> Result<Executed, RenderError> {
     let plan = plan::build(composition, size, scale, cache, false)
-        .map_err(|error| ComposeError::InvalidComposition(error.message))?;
+        .map_err(|error| RenderError::InvalidComposition(error.message))?;
     let mut counts = Counts::default();
-    raster.frame(|frame| -> Result<(), ComposeError> {
+    raster.frame(|frame| -> Result<(), RenderError> {
         for task in &plan.chunks {
             raster_chunk(frame, task, &mut stores.chunks, &mut counts)?;
         }
@@ -285,7 +284,7 @@ fn raster_chunk(
     task: &ChunkTask<'_>,
     chunks: &mut Chunks,
     counts: &mut Counts,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     let (w, h) = task.size;
     let size = (
         u16::try_from(w).map_err(|_| RenderError::InvalidSize)?,
@@ -356,7 +355,7 @@ fn exec(
     targets: &mut [Pixmap],
     chunks: &Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     match op {
         Op::Clear { target, rect } => targets[*target as usize].clear(*rect),
         Op::Draw(draw_op) => draw::draw(draw_op, targets, chunks, missed)?,
@@ -403,7 +402,7 @@ fn exec(
 }
 
 /// The chunk `key` of this frame or a kept one.
-fn chunk<'a>(chunks: &'a Chunks, key: &ChunkKey) -> Result<&'a Pixmap, ComposeError> {
+fn chunk<'a>(chunks: &'a Chunks, key: &ChunkKey) -> Result<&'a Pixmap, RenderError> {
     chunks.get(key).ok_or_else(|| draw::missing_chunk(*key))
 }
 
