@@ -222,7 +222,7 @@
   - xtask-core の push は利用者の OK 待ち。それまで kivact の統合 branch を push しない（submodule の commit が origin に無いため）。
   - 追記（2026-11-19）：同じ修正を xtask-core の最新 main（`2d230a7`）に当て直し、`94cf072` として origin の main に push した（利用者の OK あり）。
     - kivact は `94cf072` に上げられない。`2d230a7` で xtask-core の library API が変わり、kivact の `dev/xtask` が compile できない（15 件、`Command` の field、`TargetGraph`、`Policy::analysis` など）。
-    - 統合 branch は、`1aeabaf` の上の `afbfd83` を指したまま。`afbfd83` はまだ origin に無いので、kivact の push は引き続き止める。
+    - 統合 branch は、`1aeabaf` の上の `afbfd83` を指したまま。`afbfd83` は xtask-core の origin の branch `fix/kashiwade/value-path-prefix-1aeabaf` に push した（利用者の OK あり）。kivact の push の止めは解除。
     - 新しい xtask-core への移行は rework とは別の作業にする。
 - **質問 2（大きい SCC）**：1 も 2 も採らない。`UiTokens` の形と公開の名前は変えない。部品の token の型を、look の葉から新しい葉 `X/tokens.rs` へ移す。また、look_common と radio_group にある 2 つの循環を直す。
   - token の型：23 個の部品の token の型と、その field の型を `X/tokens.rs` に移す。field の型は `ToastRowMotion`、`ButtonBusyMotion`、`DataTableRowStatusPaint`、`DataTableStickyPaint`、`DialogCenter`、`DisclosureMotion`、`ProgressMotion`、`SparklineFill`、`ToggleLabelReservation`。
