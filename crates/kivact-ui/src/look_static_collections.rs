@@ -53,7 +53,7 @@ pub(super) fn head(t: &Theme, s: &PartState) -> Style {
         )
         .weight(600)
 }
-pub(super) fn list(t: &Theme, _: &PartState) -> Style {
+pub(super) fn item_list_root(t: &Theme, _: &PartState) -> Style {
     style()
         .direction(Direction::Column)
         .width(pct(100))

@@ -399,7 +399,7 @@ recipe_table! {
     ItemListRecipes {
         list_header(list_header_recipe): PartState = look_static_collections::list_header,
         marker(marker_recipe): crate::collection_values::ItemRowState = look_static_collections::marker,
-        root(root_recipe): PartState = look_static_collections::list,
+        root(root_recipe): PartState = look_static_collections::item_list_root,
         item(item_recipe): crate::collection_values::ItemRowState = look_static_collections::item,
         body(body_recipe): crate::collection_values::ItemRowState = look_static_collections::item_body,
         content(content_recipe): crate::collection_values::ItemRowState = look_static_collections::content,
