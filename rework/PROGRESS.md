@@ -69,3 +69,13 @@
 - E04 の paint walk の失敗（visibility_hidden の試験、`display: contents` の経路）は E2 の fix で直した（`0e93e878`、merge `324e2e8c`）。
 - tier b（統合 branch）：fmt・xtask（`--no-write`）・clippy（workspace）・kivact-docs の check は成功。test は 1580 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。
 - 注記（`rework/OPEN.md`）：E02 の SizeMotion の spring と reduced 時の step（振る舞いの注記）、E04 の木の編集と origin cache（設計者の判断待ち）。
+
+## W4 完了（merge 済み・tier b 成功）
+- lane C（C05）、E1、E2、A1、A2、U を統合 branch に merge（最後の lane 統合 `8d4a156d`、U は `b26716f3`）。
+- tier b の過程で出た error を、次の順に直した。
+  - xtask の Role 行 5 件：lane `wt/rw-W4-fix`（`9eb3db5a`、merge `902fc181`）。
+  - resource_reclaim（stabilize の上限を pass の開始時に 1 度だけ決めていた）：lane `wt/rw-W4-R-fix`（`0937a649`、merge `2eff3e50`）。設計者の回答 1 のとおり、上限を loop の中で数え直す。kivact-runtime に試験 2 本を足した。
+  - kivact-ui の module 構造（非葉 627 件）：lane `wt/rw-W4-U-fix` の batch 1/7〜7/7（`8f28886f`〜`9429591e`、merge `9929d520`）。X.rs は mod と pub use だけにし、コードは X/view.rs などの葉へ移した。
+  - 設計者の patch（xtask-core の解決、tokens の型を X/tokens.rs へ、look_common と progress、radio_group の循環）：lane の commit `eda141df`（merge `f9f03d65`）。xtask-core は `afbfd83` を使う。
+- tier b（統合 branch `f9f03d65`、`V:/kv-target/rw-main`）：fmt・xtask（`--no-write`、error 0 件）・clippy（workspace all-targets all-features）・kivact-docs の check は成功。test は 1585 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。rg が無かったので、同じ確認を grep で行い、`xtask-allow(state-fields)` は 0 件。
+- 注記（`rework/OPEN.md`）：xtask の legacy 印は 189 件（CP1 の台帳で閉じる）。e2e に名前の一致する試験が無い部品（number_input・tag_input・typing_indicator・spinner・avatar_group・badge・date_parts）がある。
