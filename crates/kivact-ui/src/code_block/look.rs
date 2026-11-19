@@ -1,10 +1,9 @@
 //! Role: The code block recipe state, tokens, recipe table and default looks.
 use crate::chat_thread::look::viewport;
-use crate::code_block::CodeCollapse;
 use crate::look_common::{column, row};
 
-use crate::Look;
 use crate::recipe::recipe_table;
+use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, LineHeight, Style, Theme, pct, style};
 pub(crate) fn code_root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     column(t, s)
@@ -110,4 +109,15 @@ recipe_table! {
         gutter(gutter_recipe): CodeBlockState = code_gutter,
         footer(footer_recipe): CodeBlockState = crate::look_common::row,
     }
+}
+
+/// Whether a code block can collapse and, if so, whether it shows every line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeCollapse {
+    /// The block cannot collapse; every line shows.
+    Fixed,
+    /// The block can collapse and shows every line.
+    Expanded,
+    /// The block can collapse and shows its first lines only.
+    Collapsed,
 }

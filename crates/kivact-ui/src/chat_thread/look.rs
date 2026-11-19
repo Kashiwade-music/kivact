@@ -1,8 +1,8 @@
 //! Role: The chat thread recipe state, tokens, recipe table and default looks.
 use crate::look_common::column;
 
-use crate::Look;
 use crate::recipe::recipe_table;
+use crate::variants::Look;
 use kivact_core::style::{Style, Theme, style};
 pub(crate) fn thread_root<S>(t: &Theme, s: &Look<S>) -> Style {
     column(t, s)
@@ -30,10 +30,10 @@ pub struct ChatThreadState {
 recipe_table! {
     /// Styles for the persistent parts of ChatThread.
     ChatThreadRecipes {
-        root(root_recipe): crate::ChatThreadState = thread_root,
-        viewport(viewport_recipe): crate::ChatThreadState = viewport,
-        content(content_recipe): crate::ChatThreadState = crate::look_common::column,
-        scroll_button(scroll_button_recipe): crate::ChatThreadState = jump,
-        composer(composer_recipe): crate::ChatThreadState = crate::look_common::slot,
+        root(root_recipe): ChatThreadState = thread_root,
+        viewport(viewport_recipe): ChatThreadState = viewport,
+        content(content_recipe): ChatThreadState = crate::look_common::column,
+        scroll_button(scroll_button_recipe): ChatThreadState = jump,
+        composer(composer_recipe): ChatThreadState = crate::look_common::slot,
     }
 }
