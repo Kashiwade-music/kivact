@@ -687,6 +687,8 @@ fn empty_text(
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests of TextEngine font registration, measuring and shaping.
+
     use super::*;
 
     #[test]

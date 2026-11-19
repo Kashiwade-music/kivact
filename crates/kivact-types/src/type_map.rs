@@ -1,4 +1,4 @@
-//! Role: A map from a type to one value of that type, shared across threads or kept on one.
+//! Role: A map from a type to one value of it, shared across threads or kept on one.
 
 use std::any::{Any, TypeId};
 use std::fmt;
