@@ -15,6 +15,8 @@
 //! separate slots of the recipe table, and both get the item's actual
 //! `MenuItemState`; the meaning of a mark is never switched by faking the
 //! state. A menu bar uses the headless menu parts to coordinate its triggers.
+pub(crate) mod look;
+
 use super::layer::with_recipe_style;
 use super::variants::{Variant, Variants};
 use kivact_core::state::Value;

@@ -1,6 +1,6 @@
 //! Role: Render rich navigation links using the closest existing panel's close request.
 use crate::layer::with_recipe_style;
-use crate::navigation_values::NavigationLinkState;
+use crate::navigation_menu::look::NavigationLinkState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
@@ -51,7 +51,7 @@ impl Element for NavigationMenuLink {
 }
 impl IntoView for NavigationMenuLink {
     fn into_view(mut self) -> View {
-        let context = crate::navigation_context::current();
+        let context = crate::navigation_menu::context::current();
         if let Some(context) = &context {
             self.variants = self.variants.with_defaults(&context.variants);
         }

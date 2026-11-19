@@ -2,11 +2,11 @@
 use crate::avatar_tokens::AvatarTokens;
 use crate::button::look::ButtonTokens;
 use crate::data_table_tokens::DataTableTokens;
-use crate::dialog_tokens::DialogTokens;
-use crate::disclosure_tokens::DisclosureTokens;
+use crate::dialog::look::DialogTokens;
+use crate::disclosure::look::DisclosureTokens;
 use crate::progress_tokens::ProgressTokens;
 use crate::sparkline_tokens::SparklineTokens;
-use crate::toast_tokens::ToastTokens;
+use crate::toast::look::ToastTokens;
 use crate::toggle_button::look::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -39,7 +39,7 @@ pub struct UiTokens {
     pub dialog: DialogTokens,
     pub disclosure: DisclosureTokens,
     pub data_table: DataTableTokens,
-    pub hover_card: crate::hover_card_values::HoverCardTokens,
+    pub hover_card: crate::hover_card::look::HoverCardTokens,
 }
 impl ThemeExtension for UiTokens {
     fn fallback(_: &Theme) -> Self {

@@ -2,7 +2,8 @@
 
 use crate::control_size::ControlSize;
 use kivact_core::draw::Shadow;
-use kivact_core::style::{Color, Style, Theme, style};
+use kivact_core::style::{Align, Color, ColorToken, Direction, Style, Theme, style};
+use kivact_interaction::PopupState;
 /// The font size of a control.
 pub(crate) fn font_size(theme: &Theme, size: ControlSize) -> f64 {
     match size {
@@ -43,4 +44,42 @@ pub(crate) fn flat(_: &Theme) -> Style {
                 .border_color(Color::TRANSPARENT)
                 .ring(0, Color::TRANSPARENT),
         )
+}
+
+pub(crate) fn trigger(t: &Theme) -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .gap(t.space().md)
+        .height(t.control_height())
+        .padding_x(t.space().md)
+        .border(1, ColorToken::Border)
+        .radius(t.radius().md)
+        .background(ColorToken::Surface)
+}
+
+pub(crate) fn surface(t: &Theme, _: &PopupState) -> Style {
+    style()
+        .padding(4)
+        .background(ColorToken::Surface)
+        .border(1, ColorToken::Border)
+        .radius(t.radius().md)
+        .min_width(160)
+        .max_height(320)
+}
+
+/// The secondary line of an option or a menu item.
+pub(crate) fn description(t: &Theme) -> Style {
+    style()
+        .font_size(t.text().size_small)
+        .color(ColorToken::TextMuted)
+}
+
+/// The box of a mark icon, centred.
+pub(crate) fn mark() -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .justify_content(kivact_core::style::Justify::Center)
+        .shrink(0)
 }

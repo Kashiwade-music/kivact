@@ -1,4 +1,6 @@
 //! Role: Render a themed delayed preview attached to a caller-owned trigger.
+pub(crate) mod look;
+
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, effect_on, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
@@ -8,7 +10,7 @@ use kivact_core::view::{
 use kivact_interaction::{HoverCardTiming, InteractionPolicy, use_hover_card};
 use std::time::Duration;
 
-use crate::hover_card_values::HoverCardSurfaceState;
+use crate::hover_card::look::HoverCardSurfaceState;
 
 /// Whether the trigger participates in focus opening.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]

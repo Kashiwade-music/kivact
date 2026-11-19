@@ -25,9 +25,7 @@
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
 use crate::control_size::ControlSize;
-use kivact_core::custom::PartState;
 use kivact_core::view::CheckedState;
-use kivact_interaction::DialogMode;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
 ///
@@ -111,60 +109,6 @@ impl PartialEq for ProgressState {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value && self.size == other.size
     }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DialogState {
-    pub input: PartState,
-    pub open: bool,
-    pub kind: DialogMode,
-    /// The dialog has a [`media`](super::Dialog::media) view in its header,
-    /// which the header recipe lays out beside or above the title.
-    pub media: bool,
-}
-
-/// Where a tooltip's arrow points, for the tooltip's arrow recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TooltipArrowState {
-    /// The side of the trigger the tooltip shows on (base-ui's
-    /// `data-side`): `Top` when it is above the trigger, so the arrow sits
-    /// at the tooltip's bottom edge. It follows the host's flip once the
-    /// tooltip is placed; before that, it is the requested placement.
-    pub side: kivact_core::geometry::Edge,
-    /// Where the trigger's centre is along that edge, in logical pixels
-    /// from the tooltip's left (`Top`, `Bottom`) or top (`Left`, `Right`)
-    /// edge, within the tooltip.
-    pub offset: f64,
-}
-
-/// The state of a select's trigger for its recipe.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct SelectTriggerState {
-    /// The actual input state of the trigger.
-    pub input: PartState,
-    /// Whether the list is open.
-    pub open: bool,
-    /// Whether the trigger shows the placeholder: no option is selected
-    /// (the selected key is `None` or not among the options).
-    pub placeholder: bool,
-    /// The size the caller chose with `Select::size` (default `Medium`).
-    pub size: ControlSize,
-}
-
-/// The state of one live region's column of toasts in a
-/// [`toast_region`](super::toast_region), for its recipe.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct ToastGroupState {
-    /// The actual input state of the column.
-    pub input: PartState,
-    /// The assertive group (warnings and errors), below the polite one.
-    pub assertive: bool,
-    /// How many toasts the group shows.
-    pub count: usize,
-    /// How many toasts the groups above this one show (the polite group's
-    /// for the assertive group, 0 for the polite group), so a look puts
-    /// space between two groups only when both show toasts.
-    pub above: usize,
 }
 
 /// The state of a main row of a [`data_table`](super::data_table) for its
