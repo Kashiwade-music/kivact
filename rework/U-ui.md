@@ -2382,6 +2382,10 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 8. file の名前を変えるときは `git mv` を使う（例：`git mv crates/kivact-ui/src/toggle_parts.rs crates/kivact-ui/src/toggle/parts.rs`）。移した file の `mod` 宣言は root の file に移し（`mod parts;`）、中の `super::`・`crate::` の path を直す。
 9. 共有の look 関数（2 つ以上の部品の表が使うもの）は `crates/kivact-ui/src/look_common.rs`（U11 で作る）に移す。名前が重なるものは表のとおり改名する。
 10. 移動が終わって空になった file は `git rm` する。各 unit の「消すもの」に名前がある。
+11. 部品の module の依存は view → look → `crate::tokens` → `X::tokens` の一方向にする（W4 の差戻し）。
+    - 部品の token の型（`XTokens` とその field の型）は `X/tokens.rs` に置く。`X/tokens.rs` は kivact_core の型だけを読む。
+    - look が使う型（variant など）は look に置き、view から読む。look は view を読まない。
+    - 確認は `cargo xtask check --no-write`（workspace 全体）。`--crate` は style の規則を検査しない。
 
 ### 共有の file（U11 で作る）
 
@@ -2396,7 +2400,7 @@ U11〜U14 は W4 の lane U で、この順に一つずつ行う。どれも**�
 | `look_extra.rs` | `trigger`、`description`、`mark`、`surface` | 同じ | U12 |
 | `look_collections.rs` | `list` | 同じ | U13 |
 | `look_navigation.rs` | `part` | 同じ | U13 |
-| `look_metrics.rs` | `height` | `metric_height` | U14 |
+| `look_metrics.rs` | `height` | `metric_height`（progress の look の private な fn。look_common には置かない。W4 の差戻し） | U14 |
 | `look_indicators.rs` | `side`、`tone` | 同じ | U14 |
 | `look_chat.rs` | `column`、`row`、`slot`、`muted` | 同じ | U14 |
 

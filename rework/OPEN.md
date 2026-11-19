@@ -214,3 +214,24 @@
   - 確認は `cargo xtask check --no-write`（workspace 全体）で kivact-ui の error が 0 件になること。`--crate` は style の規則を検査しないので使わない。
   - 処置：lane `wt/rw-W4-U-fix`（worktree `W:/w/kv-wt/rw-W4-U-fix`、基点 `902fc181`）。61 部品を 7 batch に分け、同じ worktree で順番に直す（batch ごとに commit）。
 - **W4 の Role 行の修正**：lane `wt/rw-W4-fix`（`9eb3db5a`）を `902fc181` で統合 branch に merge した。
+
+## 設計者の回答（W4 の統合後の xtask 54 行、2026-11-19）
+
+- **質問 1（あいまい 25 箇所）と質問 3（kbd の循環）**：1 を採る。ただし原因は scope ではない。xtask-core の `resolve_path`（`crates/xtask-modules/src/symbols.rs`）が、後ろに segment が続く途中の segment でも値の名前空間の項目を残していた。`lib.rs` は `pub use avatar::{.., avatar}` のように、部品の module と同じ名前の関数を crate root に再公開している。そのため `crate::avatar::..` を通る path が、関数の module（`crate::avatar::view`）も指していた。`crate::kbd::labels::KeyNames::new` が `kbd::view` も指したのも、`labels` から `crate::kbd::look::..` 経由の偽の辺が出たのも、同じ原因。
+  - 設計者が直した：xtask-core の branch `fix/kashiwade/value-path-prefix` の `afbfd83`（途中の segment は型の名前空間だけを残す。回帰試験 `a_function_named_like_a_module_is_not_a_path_prefix` は修正前に失敗し、修正後に通る。`cargo test -p xtask-modules` と clippy が通る）。統合 branch の `vendor/xtask-core` をこの commit に上げた。
+  - xtask-core の push は利用者の OK 待ち。それまで kivact の統合 branch を push しない（submodule の commit が origin に無いため）。
+- **質問 2（大きい SCC）**：1 も 2 も採らない。`UiTokens` の形と公開の名前は変えない。部品の token の型を、look の葉から新しい葉 `X/tokens.rs` へ移す。また、look_common と radio_group にある 2 つの循環を直す。
+  - token の型：23 個の部品の token の型と、その field の型を `X/tokens.rs` に移す。field の型は `ToastRowMotion`、`ButtonBusyMotion`、`DataTableRowStatusPaint`、`DataTableStickyPaint`、`DialogCenter`、`DisclosureMotion`、`ProgressMotion`、`SparklineFill`、`ToggleLabelReservation`。
+    - `tokens.rs` は `X::tokens` の葉だけを読む。look は今までどおり theme から `UiTokens` を読む。
+    - 依存は view → look → `crate::tokens` → `X::tokens` の一方向になる。`X::tokens` は kivact_core の型だけを読む。
+  - look_common：`metric_height` は progress だけが使う（Role の「2 つ以上の部品」に当たらない）。progress の look の private な fn に移す。`ProgressState` は動かさない。付属書 U の U14 の表の誤り。
+  - radio_group：循環 `layer`・`radio_group::look`・`radio_group::view`・`recipes` が 3 つ目にある。`radio_group/look.rs` が view にある `RadioGroupVariant` を読んでいた。`RadioGroupVariant`（と `impl Variant`）を look に移す。root は `pub use look::RadioGroupVariant;`。
+  - 設計者の確認：`9929d520` に xtask-core の修正と上の 3 つを当てて、次を確かめた。
+    - `cargo xtask check --no-write`（workspace 全体）が error 0 件で通る。
+    - `cargo clippy -p kivact-ui --all-targets -- -D warnings` と `cargo test -p kivact-ui` が通る。
+    - `cargo doc -p kivact-ui` の公開名の一覧が、`9929d520` と同じ。
+  - patch は `W:/w/kivact/target/rework-designer/W4-U-fix2.diff`（`9929d520` に `git apply` できる。80 file）。
+- **処置**：
+  - lane U の fix（`wt/rw-W4-U-fix`）を統合 branch の今の HEAD に進めて、patch を当てる。
+  - `cargo xtask check --no-write` と kivact-ui の clippy・test を通して commit する。
+  - その後、予定どおり R・U の fix lane を統合して tier b を 1 回回す。push は xtask-core の push の後。
