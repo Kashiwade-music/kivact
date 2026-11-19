@@ -1,6 +1,6 @@
 //! Role: The toggle button builder, its label and its rendering.
 
-use crate::toggle_button::look::ToggleLabelReservation;
+use crate::toggle_button::tokens::ToggleLabelReservation;
 
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;

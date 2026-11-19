@@ -1,6 +1,6 @@
 //! Role: The disclosure builder, its trigger and content rendering, and its motion.
 
-use crate::disclosure::look::DisclosureMotion;
+use crate::disclosure::tokens::DisclosureMotion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};

@@ -3,4 +3,5 @@
 pub(crate) mod look;
 mod view;
 
-pub use view::{RadioGroup, RadioGroupVariant, radio_group};
+pub use look::RadioGroupVariant;
+pub use view::{RadioGroup, radio_group};

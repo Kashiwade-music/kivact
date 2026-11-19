@@ -7,6 +7,7 @@
 //! assistive technology with a description of its values; without one it is
 //! decorative, which suits a statistic's chart slot.
 pub(crate) mod look;
+pub(crate) mod tokens;
 mod view;
 
 pub use view::{Sparkline, sparkline};

@@ -314,12 +314,3 @@ fn radio_option<K: kivact_core::state::ItemKey>(
         None => target.into_view(),
     }
 }
-
-/// Standard presentation of a radio group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RadioGroupVariant {
-    /// Adjacent choices drawn as a segmented control.
-    Segmented,
-}
-
-impl Variant for RadioGroupVariant {}

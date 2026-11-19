@@ -40,14 +40,6 @@ pub(crate) fn dropzone_icon(_: &Theme, _: &DropzoneState) -> Style {
     style()
 }
 
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct DropzoneTokens {
-    /// Root padding; None uses the standard recipe.
-    pub padding: Option<f64>,
-    /// Minimum target height; None uses the standard recipe.
-    pub min_height: Option<f64>,
-}
-
 recipe_table! {
     /// Styles for a file drop target and its feedback.
     DropzoneRecipes {

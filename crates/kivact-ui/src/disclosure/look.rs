@@ -2,7 +2,6 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, style};
-use std::time::Duration;
 /// A disclosure: the trigger over the content.
 pub(crate) fn disclosure_root(_: &Theme, _: &DisclosureRecipeState) -> Style {
     style().direction(Direction::Column)
@@ -69,29 +68,6 @@ impl DisclosureRecipeState {
             input: state.input,
             open: state.open,
             group,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct DisclosureTokens {
-    pub motion: DisclosureMotion,
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct DisclosureMotion {
-    pub animate: bool,
-    pub duration: Duration,
-    /// Optional theme transition; absent uses the duration-based ease-out tween.
-    pub transition: Option<kivact_core::motion::Transition>,
-}
-
-impl Default for DisclosureMotion {
-    fn default() -> Self {
-        Self {
-            animate: false,
-            duration: Duration::from_millis(200),
-            transition: None,
         }
     }
 }

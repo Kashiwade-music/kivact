@@ -1,7 +1,7 @@
 //! Role: The dialog builder, its header and content layout, and panel placement.
 
 use crate::DialogState;
-use crate::dialog::look::DialogCenter;
+use crate::dialog::tokens::DialogCenter;
 use crate::layer::with_recipe_style;
 use crate::recipe::Recipe;
 use crate::recipes::UiRecipes;

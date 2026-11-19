@@ -60,13 +60,6 @@ pub struct AvatarState {
     pub status: Option<Tone>,
 }
 
-/// A theme's avatar defaults.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct AvatarTokens {
-    /// Whether an avatar shows its name in a tooltip when the caller leaves it to the theme.
-    pub name_tooltip: bool,
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum AvatarShape {
     #[default]

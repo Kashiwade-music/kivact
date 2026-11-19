@@ -2,7 +2,8 @@
 
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::progress::look::{ProgressMotion, ProgressState, ProgressVariant};
+use crate::progress::look::{ProgressState, ProgressVariant};
+use crate::progress::tokens::ProgressMotion;
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};

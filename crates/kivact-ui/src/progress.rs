@@ -7,7 +7,9 @@
 //! window while the bar is indeterminate or [`Progress::moving`] is true.
 
 pub(crate) mod look;
+pub(crate) mod tokens;
 mod view;
 
-pub use look::{ProgressMotion, ProgressTokens, ProgressVariant};
+pub use look::ProgressVariant;
+pub use tokens::{ProgressMotion, ProgressTokens};
 pub use view::{Progress, progress};

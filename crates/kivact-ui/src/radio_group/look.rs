@@ -1,9 +1,10 @@
 //! Role: The radio group recipe state, tokens, recipe table and default looks.
 
+use crate::Look;
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::toggle::look::CheckableState;
-use crate::{Look, RadioGroupVariant};
+use crate::variants::Variant;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
 pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
@@ -124,3 +125,12 @@ impl RadioGroupRecipes {
         !self.mark.same(&Self::default_table().mark)
     }
 }
+
+/// Standard presentation of a radio group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RadioGroupVariant {
+    /// Adjacent choices drawn as a segmented control.
+    Segmented,
+}
+
+impl Variant for RadioGroupVariant {}

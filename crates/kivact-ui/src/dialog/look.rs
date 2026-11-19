@@ -89,19 +89,6 @@ pub struct DialogState {
     pub media: bool,
 }
 
-/// Where a theme centers modal dialogs opened by an attached trigger.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum DialogCenter {
-    #[default]
-    Anchor,
-    Window,
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct DialogTokens {
-    pub center: DialogCenter,
-}
-
 recipe_table! {
     /// The recipes of a [`dialog`](super::dialog).
     DialogRecipes {
