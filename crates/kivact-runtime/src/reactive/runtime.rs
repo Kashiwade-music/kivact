@@ -87,6 +87,7 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
+            deferred: RefCell::new(std::collections::VecDeque::new()),
             graveyard: RefCell::new(Graveyard::default()),
             unsubscribed: RefCell::new(std::collections::HashMap::new()),
         }

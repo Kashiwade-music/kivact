@@ -225,23 +225,6 @@ pub(crate) fn request_restore_focus(
     request_focus(rt, Some(node), reply, visible);
 }
 
-/// Run the default action of `node` (`NodeRef::activate`) once the current
-/// handler has returned: the client takes the queue after each event and
-/// before each flush of the turn.
-pub(crate) fn request_activation(rt: &Runtime, node: kivact_types::FocusTarget) {
-    ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .pending_activations
-        .push(node);
-    rt.request_turn();
-}
-
-/// Take the activations asked for since the last call.
-pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_types::FocusTarget> {
-    std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_activations)
-}
-
 /// Bridge an actual engine capture release to the current part router.
 pub(crate) fn request_pointer_release(
     rt: &Runtime,
@@ -276,15 +259,6 @@ pub(crate) fn clear_pointer_releases(rt: &Runtime) {
         .borrow_mut()
         .pointer_releases
         .clear();
-}
-
-/// Whether activations wait to run.
-pub(crate) fn has_activations(rt: &Runtime) -> bool {
-    !ViewState::of(rt)
-        .requests
-        .borrow()
-        .pending_activations
-        .is_empty()
 }
 
 /// A platform result as `Ok`, or the error it reports.

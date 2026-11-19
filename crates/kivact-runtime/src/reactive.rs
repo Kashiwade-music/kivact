@@ -68,7 +68,7 @@ pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
 pub use handler::{Handled, Handler, HandlerResult};
 pub use handles::IntoBinding;
-pub use host_types::{ExitState, Host, Pending, Stage, ThreadWaker, TurnReport};
+pub use host_types::{ExitState, Host, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
 pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Reactive};

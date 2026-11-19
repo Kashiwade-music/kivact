@@ -236,9 +236,6 @@ pub(crate) struct Requests {
     pub(crate) focus: FocusRequests,
     /// The answers the host owes, by request id.
     pub(crate) waiters: HashMap<u64, Waiter>,
-    /// Activations `NodeRef::activate` asked for, run by the client after
-    /// the handler that asked.
-    pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
 }
@@ -435,7 +432,6 @@ impl ViewState {
         requests.focus.queued.shrink_to_fit();
         requests.focus.sent.shrink_to_fit();
         requests.waiters.shrink_to_fit();
-        requests.pending_activations.shrink_to_fit();
     }
 
     /// The view state of `rt`'s App.

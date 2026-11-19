@@ -1,11 +1,12 @@
-//! Role: Concrete host callbacks and the ordered App turn loop.
+//! Role: Concrete host callbacks and the App's start (the turn's order is
+//! in `turn`).
 
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
-use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
+use kivact_engine::api::{Client, HostWaker, Writer};
+use kivact_engine::contract::{HostInfo, TurnOutput};
 use kivact_types::{WindowId, WindowMode};
 
 use crate::client::state::HostState;
@@ -14,15 +15,10 @@ use crate::platform::{AppHandle, AppHandleExt};
 use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
-use crate::view::text_edits::TextEditsAhead;
 use kivact_runtime::{
-    AppParts, ErrorKind, ExitState, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage,
-    ThreadWaker, TurnGuard, TurnReport, UiError,
+    AppParts, ExitState, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage, ThreadWaker,
+    TurnGuard, TurnReport,
 };
-
-/// Rounds of `on_mount` callbacks and user effects one turn runs before
-/// the rest is cut as a `Cycle`.
-const USER_EFFECT_ROUNDS: usize = 100;
 
 use super::settings::AppOptions;
 /// Whether the host started the App.
@@ -203,6 +199,7 @@ impl Launch {
                     lifecycle: crate::platform::lifecycle::LifecycleState::default(),
                     close: crate::platform::close_request::CloseRequestState::default(),
                     host: HostState::default(),
+                    activate: crate::client::dispatch::run_activation,
                 };
                 AppParts {
                     state: Box::new(state),
@@ -225,100 +222,6 @@ impl Launch {
         start_mount(&rt, &writer, options, root, at);
         #[cfg(debug_assertions)]
         crate::client::trace::record(&rt);
-    }
-
-    /// One turn: every queued event, then everything
-    /// they cause (tasks and timers, activations, commits, `on_mount` and
-    /// user effects) until nothing is left, the writes committed. The
-    /// boundaries among the events only decide when the `on_mount`
-    /// callbacks of their revisions run.
-    fn turn(&mut self, events: &[HostEvent], boundaries: &[Boundary], now_ns: u64) -> TurnOutput {
-        let rt = self.runtime().clone();
-        let host = HostState::of(&rt);
-        rt.advance_clock(now_ns);
-        // A close requested from any thread since the last turn starts the
-        // exit before the idle shortcut, so a bare wake always counts.
-        let embedded = matches!(self.mode, ClientMode::Embedded(_));
-        super::close::take_close_request(&rt, embedded);
-        #[cfg(feature = "devtools")]
-        let incoming = crate::devtools::take_incoming(&rt);
-        let tree = ViewState::tree(&rt).engine().clone();
-        // Commit boundaries that carry no event and release no callback
-        // make no turn.
-        let idle = events.is_empty()
-            && boundaries
-                .last()
-                .is_some_and(|b| !rt.mounts_due(b.revision));
-        #[cfg(feature = "devtools")]
-        let idle = idle && incoming.is_empty();
-        if idle {
-            return output(rt.report_now());
-        }
-        // The revisions done before the events: all but those whose
-        // boundaries this turn delivers.
-        let before = boundaries
-            .first()
-            .map_or(tree.stats().revision, |b| b.revision.0.saturating_sub(1));
-        let mut stats = host.stats.get();
-        stats.turns += 1;
-        host.stats.set(stats);
-        let turn = rt.begin_turn(events.len());
-        if events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision)) {
-            turn.cause_with(kivact_runtime::CauseTag::Mount, "mounts".into());
-        }
-        turn.run_mounts(kivact_types::Revision(before));
-        turn.deliver_reports();
-        turn.stabilize();
-        let edits = TextEditsAhead::begin(&mut ViewState::tree_mut(&rt), events);
-        let mut boundaries = boundaries.iter().peekable();
-        let mut acknowledge = |delivered: usize| {
-            while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
-                turn.run_mounts(b.revision);
-                turn.stabilize();
-            }
-        };
-        acknowledge(0);
-        #[cfg(feature = "devtools")]
-        crate::devtools::run_incoming(&rt, &turn, incoming);
-        let mut delivered = 0;
-        for event in events {
-            if matches!(&self.mode, ClientMode::Embedded(closing) if closing.is_set()) {
-                break;
-            }
-            turn.stage(Stage::Dispatch);
-            #[cfg(debug_assertions)]
-            crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
-            edits.deliver(event);
-            crate::view::state::ViewState::tree(&rt)
-                .engine()
-                .deliver(event);
-            turn.cause_with(kivact_runtime::CauseTag::Input, describe(event));
-            crate::client::dispatch::dispatch(&rt, event);
-            if crate::client::dispatch::run_requested_activations(&rt) {
-                turn.stabilize();
-            }
-            turn.stabilize();
-            delivered += 1;
-            acknowledge(delivered);
-        }
-        acknowledge(events.len());
-        #[cfg(feature = "devtools")]
-        crate::devtools::run_events(&rt);
-        let done = kivact_types::Revision(tree.stats().revision);
-        turn.check_draining();
-        turn.settle_async();
-        let writes = settle_user_effects(&turn, &rt, &tree, done);
-
-        let report = turn.finish(writes, requests::has_activations(&rt));
-        #[cfg(feature = "devtools")]
-        crate::devtools::after_turn(&rt);
-        let output = output(report);
-        #[cfg(debug_assertions)]
-        {
-            crate::client::trace::record(&rt);
-            crate::client::trace::event(&rt, format_args!("host_events output {output:?}"));
-        }
-        output
     }
 }
 /// Install the main window's record and build the App motion clock from it.
@@ -362,56 +265,7 @@ fn install_main_window(
     }
 }
 
-fn settle_user_effects(
-    turn: &TurnGuard<'_>,
-    rt: &Runtime,
-    tree: &Writer,
-    done: kivact_types::Revision,
-) -> usize {
-    let mut writes = 0;
-    let mut round = 0;
-    loop {
-        if crate::client::dispatch::run_requested_activations(rt) {
-            turn.stabilize();
-            turn.settle_async();
-        }
-        writes += commit(turn, rt, tree);
-        let mounts = rt.mounts_due(done);
-        // The commit may queue render work too (a failed focus request
-        // reaching an error boundary): it runs and commits in this turn.
-        let pending = rt.pending();
-        if !mounts && !pending.user && !pending.render {
-            break;
-        }
-        round += 1;
-        if round > USER_EFFECT_ROUNDS {
-            let abandoned = turn.abandon_user_effects();
-            let path: Vec<_> = abandoned
-                .iter()
-                .filter_map(|k| rt.node_info(*k).map(|n| n.at))
-                .collect();
-            rt.report(
-                None,
-                UiError::new(
-                    ErrorKind::Cycle { path: path.clone() },
-                    "user effects did not settle within 100 rounds",
-                    path.first().copied(),
-                ),
-            );
-            break;
-        }
-        if mounts {
-            turn.run_mounts(done);
-            rt.stabilize();
-        }
-        turn.run_user_effects();
-        rt.stabilize();
-        turn.settle_async();
-    }
-    writes
-}
-
-fn output(report: TurnReport) -> TurnOutput {
+pub(super) fn output(report: TurnReport) -> TurnOutput {
     if matches!(report.exit, ExitState::Exited) {
         return TurnOutput::Exit;
     }
@@ -459,71 +313,7 @@ impl Drop for Launch {
     }
 }
 
-/// The name of a pointer phase without its press data (trace labels carry
-/// no values).
-fn phase_name(phase: kivact_types::PointerPhase) -> &'static str {
-    use kivact_types::PointerPhase as P;
-    match phase {
-        P::Down(_) => "Down",
-        P::Move => "Move",
-        P::Up(_) => "Up",
-        P::Cancel => "Cancel",
-        P::Enter => "Enter",
-        P::Leave => "Leave",
-    }
-}
-
-/// Short cause label of an event for the structured trace (no values).
-fn describe(e: &kivact_engine::contract::HostEvent) -> String {
-    use kivact_engine::contract::HostEvent as E;
-    match e {
-        E::Pointer(route) => format!(
-            "Pointer {} {:?}",
-            phase_name(route.input.phase),
-            route.target.map(|target| target.node)
-        ),
-        E::Wheel(route) => format!("Wheel {:?}", route.target.map(|target| target.node)),
-        E::Key(route) => format!(
-            "Key {:?} {:?} region {:?}",
-            route.input.key,
-            route.target.map(|target| target.node),
-            route.target.and_then(|target| target.region)
-        ),
-        E::Activate { node, region, .. } => {
-            format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))
-        }
-        E::FocusChanged {
-            node,
-            region,
-            visible,
-            ..
-        } => format!(
-            "FocusChanged {:?} region {:?} visible {visible}",
-            node.map(|n| n.0),
-            region.map(|r| r.0)
-        ),
-        E::HoverChanged { target, .. } => {
-            format!("HoverChanged {:?}", target.map(|t| (t.node.0, t.region)))
-        }
-        E::MousePosition { position, .. } => format!("MousePosition {position:?}"),
-        E::TextChanged { node, .. } => format!("TextChanged n{}", node.0),
-        E::SelectionChanged { node, .. } => format!("SelectionChanged n{}", node.0),
-        E::Ime { node, .. } => format!("Ime n{}", node.0),
-        E::ScrollChanged { node, .. } => format!("ScrollChanged n{}", node.0),
-        E::LayoutChanged { node, .. } => format!("LayoutChanged n{}", node.0),
-        E::A11y { node, request, .. } => format!("A11y {:?} n{}", request.action(), node.0),
-        E::SnapshotResult { request, .. } => format!("SnapshotResult {}", request.0),
-        other => {
-            let s = format!("{other:?}");
-            s.split([' ', '{', '('])
-                .next()
-                .unwrap_or_default()
-                .to_string()
-        }
-    }
-}
-
-fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
+pub(super) fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
     turn.stage(Stage::Commit);
     if let Some(at_ns) = turn.plan_frame() {
         writer.request_frame(at_ns);

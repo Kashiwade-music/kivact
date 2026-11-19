@@ -22,22 +22,14 @@ pub(super) fn activate(rt: &Runtime, id: NodeId, region: Option<RegionId>) -> bo
     true
 }
 
-/// Run the activations `NodeRef::activate` asked for (`requests`): the
-/// default action of each target that is still mounted, enabled and
-/// admitted by the open modal, as a click would run it. Returns whether
-/// there were any. An activation asked for by one of them waits for the
-/// next call.
-pub(crate) fn run_requested_activations(rt: &Runtime) -> bool {
-    let pending = requests::take_activations(rt);
-    let any = !pending.is_empty();
-    for target in pending {
-        let in_scope = ViewState::tree(rt).reader().in_modal_scope(target.node);
-        if ViewState::tree(rt).get(target.node).is_none() || !in_scope {
-            continue;
-        }
-        activate(rt, target.node, target.region);
+/// Run the default action of `target` that `NodeRef::activate` asked for,
+/// as a click would, if it is still mounted and admitted by the open modal.
+pub(crate) fn run_activation(rt: &Runtime, target: kivact_types::FocusTarget) {
+    let in_scope = ViewState::tree(rt).reader().in_modal_scope(target.node);
+    if ViewState::tree(rt).get(target.node).is_none() || !in_scope {
+        return;
     }
-    any
+    activate(rt, target.node, target.region);
 }
 
 pub(super) fn pointer(

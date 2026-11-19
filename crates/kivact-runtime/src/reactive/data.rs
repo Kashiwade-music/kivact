@@ -37,6 +37,8 @@ pub(crate) const CYCLE_LIMIT: usize = 100;
 pub struct TurnGuard<'a> {
     pub(crate) rt: &'a Runtime,
     pub(crate) started: std::time::Instant,
+    /// The deferred, timer and task rounds this turn ran (12 章 ST-03).
+    pub(crate) work_rounds: std::cell::Cell<u32>,
 }
 
 /// Live-object counts (lifecycle leak checks).
@@ -86,6 +88,9 @@ pub struct Runtime {
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
+    /// Handlers deferred until the running one returns (`Runtime::defer`),
+    /// each with the owner it runs for and where it was deferred.
+    pub(crate) deferred: RefCell<VecDeque<(Key, &'static Location<'static>, Box<dyn FnOnce()>)>>,
     /// Tasks, timers, the blocking pool and the exit drain of this App.
     pub(crate) tasks: crate::task::TaskState,
     /// Frame loops and animations of this App.

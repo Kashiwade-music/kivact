@@ -121,7 +121,7 @@ impl Runtime {
     /// each run: an effect may mount many nodes, so the bound grows during
     /// the pass, and a large App whose effects each run a few times is not
     /// cut. Either cut is reported as a `Cycle` to the default sink.
-    pub fn stabilize(&self) {
+    pub(crate) fn stabilize(&self) {
         let mut runs: usize = 0;
         loop {
             let next = self
@@ -193,7 +193,7 @@ impl Runtime {
     }
 
     /// Run the user effects queued so far (one round). Returns whether any ran.
-    pub fn run_user_effects(&self) -> bool {
+    pub(crate) fn run_user_effects(&self) -> bool {
         let batch = self
             .sched
             .borrow_mut()

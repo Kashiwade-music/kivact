@@ -156,3 +156,53 @@ fn rect_called_after_binding_follows_the_node() {
     assert_eq!(rect.get().map(|r| r.width), Some(160.0));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+/// Handlers that activate themselves or each other run in budgeted turns:
+/// a turn over its budget reports a cycle and the rest runs in the next one.
+#[test]
+fn activating_itself_or_each_other_does_not_hang() {
+    const TIMES: u32 = 2500;
+    let (screen, (own, mutual)) = mount(|| {
+        let own = signal(0u32);
+        let mutual = signal(0u32);
+        let me = node_ref();
+        let (x, y) = (node_ref(), node_ref());
+        (
+            (own, mutual),
+            column((
+                button("self").node_ref(me).on_press(move || {
+                    own.update(|n| *n += 1);
+                    if own.get_untracked() < TIMES {
+                        me.activate();
+                    }
+                }),
+                button("x").node_ref(x).on_press(move || {
+                    mutual.update(|n| *n += 1);
+                    if mutual.get_untracked() < TIMES {
+                        y.activate();
+                    }
+                }),
+                button("y").node_ref(y).on_press(move || {
+                    mutual.update(|n| *n += 1);
+                    if mutual.get_untracked() < TIMES {
+                        x.activate();
+                    }
+                }),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "self").click();
+    screen.run_until_idle();
+    assert_eq!(own.get_untracked(), TIMES);
+    screen.get_by_role(Role::Button, "x").click();
+    screen.run_until_idle();
+    assert_eq!(mutual.get_untracked(), TIMES);
+    let errors = screen.errors();
+    assert!(!errors.is_empty(), "a turn over its budget reports a cycle");
+    assert!(
+        errors
+            .iter()
+            .all(|e| matches!(e.kind(), kivact::ErrorKind::Cycle { .. })),
+        "{errors:?}"
+    );
+}

@@ -6,7 +6,7 @@ use std::rc::Rc;
 use crate::reactive::data::{NodeInfo, Runtime, TurnGuard};
 use crate::reactive::detail::CauseTag;
 use crate::reactive::error::UiError;
-use crate::reactive::host_types::{Pending, Stage, TurnState};
+use crate::reactive::host_types::{Stage, TurnState};
 use crate::reactive::{AppId, NodeId, Owner, OwnerId};
 
 impl Runtime {
@@ -46,15 +46,32 @@ impl Runtime {
     pub fn root(&self) -> Owner {
         Owner::from_key(self.id, self.root)
     }
-    /// Snapshot of queued reactive work.
-    pub fn pending(&self) -> Pending {
-        Pending {
-            user: self.has_user_effects(),
-            render: self.has_render_effects(),
-            later: self.has_later_reports(),
-            turn_requested: self.state.get() == TurnState::WakeSent,
-        }
+    /// Whether work waits that a turn would run: queued render or user
+    /// effects, deferred handlers, deferred error reports, or ready tasks.
+    /// Mount callbacks are asked separately (`mounts_due`), with the
+    /// revision the host acknowledged.
+    pub fn has_work(&self) -> bool {
+        self.has_render_effects()
+            || self.has_user_effects()
+            || !self.deferred.borrow().is_empty()
+            || self.has_later_reports()
+            || self.tasks.has_ready()
     }
+
+    /// Whether a turn was requested of the host and has not started.
+    pub fn turn_requested(&self) -> bool {
+        self.state.get() == TurnState::WakeSent
+    }
+
+    /// Run `f` for `owner` once the running handler has returned (in the
+    /// same turn): a handler frame of `owner`, skipped when the owner is
+    /// gone. `at` locates a `Cycle` when deferred work exceeds the turn's
+    /// budget. `NodeRef::activate` uses it.
+    pub fn defer(&self, owner: Owner, at: &'static Location<'static>, f: Box<dyn FnOnce()>) {
+        self.deferred.borrow_mut().push_back((owner.key, at, f));
+        self.request_turn();
+    }
+
     #[track_caller]
     fn begin(&self, stage: Stage) -> TurnGuard<'_> {
         assert!(
@@ -66,6 +83,7 @@ impl Runtime {
         let turn = TurnGuard {
             rt: self,
             started: std::time::Instant::now(),
+            work_rounds: std::cell::Cell::new(0),
         };
         self.record_stage(stage, turn.started.elapsed());
         turn
@@ -169,5 +187,24 @@ impl TurnGuard<'_> {
     /// Abandon queued user effects after a cycle.
     pub fn abandon_user_effects(&self) -> Vec<NodeId> {
         self.rt.abandon_user_effects()
+    }
+    /// Run the deferred handlers queued so far (those they defer wait for
+    /// the next call). The batch counts as one round of the turn's budget;
+    /// over the budget nothing runs and the queue waits for the next turn.
+    /// Returns whether any ran.
+    pub fn run_deferred(&self) -> bool {
+        let first = self.rt.deferred.borrow().front().map(|(_, at, _)| *at);
+        let Some(first) = first else { return false };
+        if !self.count_round(Some(first)) {
+            return false;
+        }
+        let batch = std::mem::take(&mut *self.rt.deferred.borrow_mut());
+        for (owner, _, f) in batch {
+            if self.rt.owner_alive(owner) {
+                let _frame = self.rt.handler_frame(Some(owner));
+                f();
+            }
+        }
+        true
     }
 }

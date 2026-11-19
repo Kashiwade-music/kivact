@@ -109,8 +109,8 @@ impl Inspect<'_> {
         self.rt().errors()
     }
     pub fn pending(&self) -> bool {
-        let pending = self.rt().pending();
-        pending.turn_requested || pending.user || pending.render || self.rt().tasks().has_ready()
+        let rt = self.rt();
+        rt.turn_requested() || rt.has_work()
     }
     pub fn outstanding_blocking(&self) -> usize {
         self.rt().tasks().stats().outstanding_blocking

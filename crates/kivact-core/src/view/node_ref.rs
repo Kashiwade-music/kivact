@@ -447,7 +447,16 @@ impl NodeRef {
         let target = ViewState::tree(&rt).first_focus_target(root);
         if let Some(node) = target {
             super::requests::request_restore_focus(&rt, node, None, false);
-            super::requests::request_activation(&rt, node);
+            let app = self.app;
+            rt.defer(
+                rt.root(),
+                Location::caller(),
+                Box::new(move || {
+                    if let Some(rt) = Runtime::get(app) {
+                        (crate::app_state::AppState::of(&rt).activate)(&rt, node);
+                    }
+                }),
+            );
         }
     }
 
