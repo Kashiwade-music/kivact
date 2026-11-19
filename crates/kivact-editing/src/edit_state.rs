@@ -2,9 +2,13 @@
 
 use crate::change::{Damage, TextChange};
 use crate::session::TextSession;
+use std::collections::VecDeque;
 use std::ops::Range;
 use std::sync::atomic::{AtomicU64, Ordering};
 use unicode_segmentation::UnicodeSegmentation as _;
+
+/// How many changes of the text `EditState::damage_since` can fold.
+const DAMAGE_LOG: usize = 64;
 
 /// The revision of a new text: unique for the process.
 fn next_revision() -> u64 {
@@ -20,7 +24,7 @@ struct Logged {
 }
 
 /// How a state taken from kivact changed the editor's text
-/// ([`Editor::incoming`](crate::Editor::incoming)).
+/// ([`Editor::incoming`](crate::host::Editor::incoming)).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Taken {
     /// The same text: only the session is taken, and the text keeps its
@@ -28,13 +32,13 @@ pub enum Taken {
     /// nothing that has to be reported or taken back).
     Same,
     /// By the changes the state recorded since it was read from this editor
-    /// ([`Editor::snapshot`](crate::Editor::snapshot)).
+    /// ([`Editor::snapshot`](crate::host::Editor::snapshot)).
     Recorded,
     /// Replaced as a whole.
     Whole,
 }
 
-// xtask-allow(state): legacy: max_length, log, damage; absent means the editor has no scalar limit
+// xtask-allow(state): legacy: max_length, log; absent means the editor has no scalar limit
 /// An owned snapshot of a native editor: its document (the text and its
 /// revision) and its [`TextSession`].
 ///
@@ -53,8 +57,8 @@ pub struct EditState {
     /// The changes recorded since the log started; `None` when they cover
     /// nothing, which is the same as "the log starts at `revision`".
     log: Option<Log>,
-    /// What changed since the editor's lines last took the damage.
-    damage: Option<Damage>,
+    /// The last changes of the text, oldest first, each from the revision before it (`Damage::base`); at most `DAMAGE_LOG`.
+    damage: VecDeque<Damage>,
 }
 
 /// The changes recorded since `base`, never empty: a log of no change is
@@ -87,7 +91,7 @@ impl EditState {
             session: TextSession::caret_at(value.len()),
             max_length: None,
             log: None,
-            damage: None,
+            damage: VecDeque::new(),
         }
     }
 
@@ -475,25 +479,31 @@ impl EditState {
         self.session = state.session;
     }
 
-    /// `range` of the text at revision `before` (the current one when
-    /// damage is already pending) was replaced by `len` bytes: join it to
-    /// the damage.
+    /// `range` of the text at revision `before` was replaced by `len` bytes:
+    /// keep it in the short record of the changes.
     fn damaged(&mut self, before: u64, range: Range<usize>, len: usize) {
-        let damage = match self.damage {
-            Some(damage) => damage.then(range, len),
-            None => Damage {
-                base: before,
-                start: range.start,
-                old_end: range.end,
-                new_end: range.start + len,
-            },
-        };
-        self.damage = Some(damage);
+        if self.damage.len() == DAMAGE_LOG {
+            self.damage.pop_front();
+        }
+        self.damage.push_back(Damage {
+            base: before,
+            start: range.start,
+            old_end: range.end,
+            new_end: range.start + len,
+        });
     }
 
-    /// What changed since the editor's lines last took it (`None`: nothing
-    /// recorded since this state was made).
-    pub(crate) fn take_damage(&mut self) -> Option<Damage> {
-        self.damage.take()
+    /// What changed in the text since revision `revision`, folded into one
+    /// range; `None` when the record does not reach back to it (the
+    /// caller splits the whole text again). Equal revisions give `None`
+    /// too: nothing to splice.
+    pub fn damage_since(&self, revision: u64) -> Option<Damage> {
+        let first = self.damage.iter().position(|d| d.base == revision)?;
+        let mut changes = self.damage.iter().skip(first);
+        let mut folded = *changes.next()?;
+        for d in changes {
+            folded = folded.then(d.start..d.old_end, d.new_end - d.start);
+        }
+        Some(folded)
     }
 }

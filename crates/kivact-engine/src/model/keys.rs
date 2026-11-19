@@ -68,7 +68,7 @@ use crate::measure::editor::EditorNode;
 use crate::model::Model;
 use crate::model::changes::Dirty;
 use crate::text_input::{EditLines, Shaping};
-use kivact_editing::Journal;
+use kivact_editing::host::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
 
 /// What became of a key press ([`Model::handle_key`]).
@@ -286,9 +286,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         });
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         if let Some(e) = event {
             self.changes.mark(id, Dirty::MEASURE);
@@ -540,9 +537,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         };
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         // A controlled value held during the composition may be adopted.
         self.remeasure(id);

@@ -81,11 +81,9 @@ pub(crate) fn refresh_lines<'a>(
     let source = Source {
         value: edit.value(),
         revision: editor.revision(),
-        damage: if measurement {
-            None
-        } else {
-            slot.as_mut().and_then(|lines| lines.damage.take())
-        },
+        damage: slot
+            .as_ref()
+            .and_then(|lines| edit.damage_since(lines.revision)),
         placeholder: n.placeholder(),
         password: n.password(),
         breaks: if n.multiline() {
