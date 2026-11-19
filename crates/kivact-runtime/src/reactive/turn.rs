@@ -69,11 +69,11 @@ impl Sched {
 
     /// An effect taken out of its queue set is stale again, not queued.
     fn unmark(graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
-        if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
-            graph.get_mut(key).map(|n| &mut n.data)
-            && let CompState::Queued(stale) = e.run.state
+        if let Some(n) = graph.get_mut(key)
+            && matches!(n.data, NodeData::Effect(_) | NodeData::Watcher(_))
+            && let CompState::Queued(stale) = n.state
         {
-            e.run.state = CompState::Stale(stale);
+            n.state = CompState::Stale(stale);
         }
     }
     pub(crate) fn remove(&mut self, state: &mut CompState, kind: EffectKind, seq: u64, key: Key) {
@@ -134,7 +134,7 @@ impl Runtime {
             let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
             if usize::from(own) > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
-                let at = self.graph.borrow().get(key).map(|n| n.at);
+                let at = self.node_at(key);
                 self.default_sink(new_error(
                     ErrorKind::Cycle {
                         path: at.into_iter().collect(),
@@ -186,8 +186,10 @@ impl Runtime {
         keys.push(current);
         let mut g = self.graph.borrow_mut();
         for k in keys {
-            if let Some(c) = g.get_mut(k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
     }
@@ -213,8 +215,10 @@ impl Runtime {
             .take_user(&mut self.graph.borrow_mut());
         let mut g = self.graph.borrow_mut();
         for k in &v {
-            if let Some(c) = g.get_mut(*k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(*k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
         v

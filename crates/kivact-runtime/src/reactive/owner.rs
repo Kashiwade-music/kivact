@@ -88,7 +88,7 @@ impl Runtime {
             owners.remove(
                 key,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by,
                 }),
             );
@@ -143,7 +143,7 @@ impl Runtime {
         if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
             self.graph.borrow_mut().get_mut(effect).map(|n| &mut n.data)
         {
-            e.cleanups.push(f);
+            e.cleanups.get_or_insert_with(Default::default).push(f);
         }
     }
 
@@ -346,7 +346,7 @@ impl Runtime {
         self.owners.borrow_mut().remove(
             key,
             Some(Tomb {
-                created_at,
+                created_at: Some(created_at),
                 disposed_by: Some(created_at),
             }),
         )
@@ -370,7 +370,7 @@ impl Runtime {
                 objects.remove(
                     key,
                     Some(Tomb {
-                        created_at,
+                        created_at: Some(created_at),
                         disposed_by,
                     }),
                 )
@@ -417,12 +417,10 @@ impl Runtime {
                 .borrow_mut()
                 .get_mut(n)
                 .and_then(|r| match &mut r.data {
-                    NodeData::Effect(e) | NodeData::Watcher(e) => {
-                        Some(std::mem::take(&mut e.cleanups))
-                    }
+                    NodeData::Effect(e) | NodeData::Watcher(e) => e.cleanups.take(),
                     _ => None,
                 });
-            if let Some(cleanups) = cleanups.filter(|c| !c.is_empty()) {
+            if let Some(cleanups) = cleanups {
                 let _g = self.handler_frame(Some(key));
                 for c in cleanups.into_iter().rev() {
                     c();
@@ -436,7 +434,7 @@ impl Runtime {
             let removed = self.objects.borrow_mut().remove(
                 o,
                 Some(Tomb {
-                    created_at,
+                    created_at: Some(created_at),
                     disposed_by: Some(created_at),
                 }),
             );
@@ -453,7 +451,7 @@ impl Runtime {
             let removed = self.consts.borrow_mut().remove(
                 c,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by: Some(created_at),
                 }),
             );
@@ -486,7 +484,7 @@ impl Runtime {
             let removed = self.consts.borrow_mut().remove(
                 key,
                 Some(Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by,
                 }),
             );
@@ -506,7 +504,7 @@ impl Runtime {
         let tomb = self.consts.borrow().tomb(key);
         misuse_at(
             ErrorKind::Disposed {
-                created_at: tomb.map(|t| t.created_at),
+                created_at: tomb.and_then(|t| t.created_at),
                 disposed_by: tomb.and_then(|t| t.disposed_by),
             },
             "Value read after its owner was disposed",

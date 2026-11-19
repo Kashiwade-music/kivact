@@ -168,6 +168,8 @@ pub enum Kind {
 /// Erased computation of a memo or effect. Returns whether the value changed.
 pub(crate) trait Compute {
     fn run(&self) -> bool;
+    /// The cell itself as `Any` (a memo's value is read through it).
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any>;
     /// The value is borrowed (a `with` closure is running), so it cannot be
     /// recomputed now (memos).
     fn busy(&self) -> bool {
@@ -195,12 +197,15 @@ pub(crate) struct EffectCell {
 pub(crate) struct RNode {
     pub(crate) owner: Key,
     pub(crate) owner_index: u32,
-    pub(crate) cell: Rc<dyn Any>,
-    pub(crate) at: &'static Location<'static>,
-    /// Value type name (diagnostics; values themselves are never recorded).
-    pub(crate) ty: &'static str,
+    /// Where a memo or an effect stands; a source is always `Clean`.
+    pub(crate) state: CompState,
     pub(crate) data: NodeData,
 }
+
+const _: () = assert!(
+    std::mem::size_of::<RNode>() <= 96,
+    "RNode grew: diagnostics belong in Diag::node_meta, rare members in a box"
+);
 
 /// What a graph node is, with the data only that kind has.
 pub(crate) enum NodeData {
@@ -214,47 +219,34 @@ pub(crate) enum NodeData {
 }
 
 pub(crate) struct SourceNode {
+    /// The value (a `SourceCell<T>`).
+    pub(crate) cell: Rc<dyn Any>,
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
     /// Write generation of the last change.
     pub(crate) changed_at: kivact_types::cell::Generation,
-    /// Location and turn of the last value-changing write (why chains).
-    pub(crate) written: Option<(&'static Location<'static>, Turn)>,
 }
 
 pub(crate) struct MemoNode {
+    /// The memo (a `MemoCell<T>`; its value is read through `into_any`).
+    pub(crate) comp: Rc<dyn Compute>,
     /// (subscriber, index of this node in subscriber.deps).
     pub(crate) subs: Links,
-    pub(crate) run: Computation,
+    /// (source, index of this node in source.subs), in read order.
+    pub(crate) deps: Links,
 }
 
 pub(crate) struct EffectNode {
-    pub(crate) kind: EffectKind,
-    /// Creation order: queued effects run in it.
-    pub(crate) seq: u64,
-    /// Runs of this effect in the current stabilize pass (reset at its end).
-    pub(crate) pass_runs: u8,
-    pub(crate) run: Computation,
-    pub(crate) cleanups: Vec<Box<dyn FnOnce()>>,
-}
-
-/// The part of a memo or an effect that computes.
-pub(crate) struct Computation {
-    pub(crate) compute: Rc<dyn Compute>,
+    pub(crate) comp: Rc<dyn Compute>,
     /// (source, index of this node in source.subs), in read order.
     pub(crate) deps: Links,
-    pub(crate) state: CompState,
-}
-
-impl Computation {
-    /// A computation that has not run yet (dirty).
-    pub(crate) fn new(compute: Rc<dyn Compute>) -> Self {
-        Computation {
-            compute,
-            deps: Links::default(),
-            state: CompState::Stale(Staleness::Dirty),
-        }
-    }
+    pub(crate) kind: EffectKind,
+    /// Runs in the current stabilize pass (R03).
+    pub(crate) pass_runs: u8,
+    /// Creation order: queued effects run in it.
+    pub(crate) seq: u64,
+    /// Cleanups registered by the running effect (most effects have none).
+    pub(crate) cleanups: Option<Box<Vec<Box<dyn FnOnce()>>>>,
 }
 
 impl RNode {
@@ -265,6 +257,11 @@ impl RNode {
             NodeData::Memo(_) => Kind::Memo,
             NodeData::Effect(e) | NodeData::Watcher(e) => Kind::Effect(e.kind),
         }
+    }
+
+    /// Whether this node computes (a memo or an effect).
+    pub(crate) fn is_computation(&self) -> bool {
+        !matches!(self.data, NodeData::Source(_))
     }
 
     /// The readers of a source or a memo; nothing reads an effect.
@@ -285,29 +282,49 @@ impl RNode {
     }
 
     /// The computation of a memo or an effect.
-    pub(crate) fn computation(&self) -> Option<&Computation> {
+    pub(crate) fn comp(&self) -> Option<&Rc<dyn Compute>> {
         match &self.data {
             NodeData::Source(_) => None,
-            NodeData::Memo(m) => Some(&m.run),
-            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&e.run),
-        }
-    }
-
-    pub(crate) fn computation_mut(&mut self) -> Option<&mut Computation> {
-        match &mut self.data {
-            NodeData::Source(_) => None,
-            NodeData::Memo(m) => Some(&mut m.run),
-            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&mut e.run),
+            NodeData::Memo(m) => Some(&m.comp),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&e.comp),
         }
     }
 
     /// What a memo or an effect read during its last run (empty for a source).
     pub(crate) fn deps(&self) -> &[(Key, u32)] {
-        match self.computation() {
-            Some(c) => &c.deps,
-            None => &[],
+        match &self.data {
+            NodeData::Source(_) => &[],
+            NodeData::Memo(m) => &m.deps,
+            NodeData::Effect(e) | NodeData::Watcher(e) => &e.deps,
         }
     }
+
+    pub(crate) fn deps_mut(&mut self) -> Option<&mut Links> {
+        match &mut self.data {
+            NodeData::Source(_) => None,
+            NodeData::Memo(m) => Some(&mut m.deps),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Some(&mut e.deps),
+        }
+    }
+
+    /// The cell a handle reads: a source's value or a memo's cell.
+    pub(crate) fn cell(&self) -> Rc<dyn Any> {
+        match &self.data {
+            NodeData::Source(s) => Rc::clone(&s.cell),
+            NodeData::Memo(m) => Rc::clone(&m.comp).into_any(),
+            NodeData::Effect(e) | NodeData::Watcher(e) => Rc::clone(&e.comp).into_any(),
+        }
+    }
+}
+
+/// The type and creation site of one graph node (`Diag::node_meta`):
+/// always kept in a build with the `devtools` feature (recording may
+/// start later, and `why` still names every node), else only for nodes
+/// created while a recorder is on (12 章 ST-06). Never in the node itself.
+#[derive(Clone, Copy)]
+pub(crate) struct NodeMeta {
+    pub(crate) at: &'static Location<'static>,
+    pub(crate) ty: &'static str,
 }
 
 /// Read-only snapshot of one graph node, for diagnostics (`why` chains).
@@ -508,6 +525,11 @@ pub(crate) struct Diag {
     pub(crate) detail: DetailLog,
     /// The sequence number of the last error or diagnostic put in a ring.
     pub(crate) next_seq: u64,
+    /// The type and creation site of nodes (see `NodeMeta`).
+    pub(crate) node_meta: std::collections::HashMap<Key, NodeMeta>,
+    /// Location and turn of each source's last value-changing write while a
+    /// recorder is on (`why` chains).
+    pub(crate) node_written: std::collections::HashMap<Key, (&'static Location<'static>, Turn)>,
 }
 
 /// What an owner's disposal released, dropped after every borrow ends

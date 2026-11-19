@@ -40,7 +40,7 @@ pub(crate) fn owner_scope(api: &'static str, at: &'static Location<'static>) -> 
         let tomb = rt.owners.borrow().tomb(owner);
         misuse_at(
             ErrorKind::Disposed {
-                created_at: tomb.map(|t| t.created_at),
+                created_at: tomb.and_then(|t| t.created_at),
                 disposed_by: tomb.and_then(|t| t.disposed_by),
             },
             format!("`{api}` ran for an owner that was already disposed"),

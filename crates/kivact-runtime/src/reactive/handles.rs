@@ -486,7 +486,7 @@ impl<E: 'static> Callback<E> {
                 let tomb = rt.objects.borrow().tomb(self.key);
                 Err(new_error(
                     ErrorKind::Disposed {
-                        created_at: tomb.map(|t| t.created_at),
+                        created_at: tomb.and_then(|t| t.created_at),
                         disposed_by: tomb.and_then(|t| t.disposed_by),
                     },
                     "Callback used after its owner was disposed",

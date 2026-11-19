@@ -82,7 +82,7 @@ impl Runtime {
                 let tomb = self.objects.borrow().tomb(key);
                 misuse_at(
                     ErrorKind::Disposed {
-                        created_at: tomb.map(|t| t.created_at),
+                        created_at: tomb.and_then(|t| t.created_at),
                         disposed_by: tomb.and_then(|t| t.disposed_by),
                     },
                     format!("{what} used after its owner was disposed"),
@@ -102,7 +102,7 @@ impl Runtime {
         let tomb = self.owners.borrow().tomb(owner);
         misuse_at(
             ErrorKind::Disposed {
-                created_at: tomb.map(|t| t.created_at),
+                created_at: tomb.and_then(|t| t.created_at),
                 disposed_by: tomb.and_then(|t| t.disposed_by),
             },
             format!("{what} used after its owner was disposed"),
@@ -143,7 +143,7 @@ impl Runtime {
             objects.remove(
                 key,
                 Some(arena::Tomb {
-                    created_at: at,
+                    created_at: Some(at),
                     disposed_by: None,
                 }),
             )
