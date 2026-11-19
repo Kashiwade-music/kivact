@@ -57,8 +57,12 @@
 - **T22**：受け入れる（`7c2b0460` はそのまま）。T22 の確認の rg と、作業指示書 4.1・W1c の `rg -n "xtask-allow\(state-fields\)"` に `--glob '!dev/xtask/src/state/**'` を足した（旧い印を検出する文字列の directory。T01 と同じ）。
 
 ## KPI の後退
+- CP1（commit `d615568c`、W4b の後。基準は B0 `c9518946`）。同じ条件で 3 回測り（`rework/kpi/CP1.md`・`CP1-r2.md`・`CP1-r3.md`、比は `*-ratio.md`）、行ごとに 3 回中 2 回で判定した。後退と判定した行（必達の上限を超えた）：K1 kv_startup main_to_first_present（1.16〜1.24、≤1.05）、K1 basic catalog startup（1.08、≤1.05）、K2 counter idle WS（1.03、≤1.02）、K2 3000 rows idle WS（1.59〜1.60、≤1.02）、K2 per_item box（1.62〜1.64）・text（1.68〜1.70）・button（1.71〜1.73）・row（1.76〜1.81）（≤1.02）、K4 3000 rows work p95（1.14〜1.42、≤1.05）と p99（1.11〜1.36、≤1.05）、K5 wheel p95 n3000（1 回目 0.99、2 回目 1.60、3 回目 1.14。判定は後退、≤1.05）、K5 counter click p95（1.24〜1.49、≤1.05）。Orchestrator は直さない。設計者に返す。
 ## KPI の未達
+- 改善の必達の未達（3 回中 2 回以上で未達）：K3 3000 rows continuous CPU（0.92・1.02 は改善未達、3 回目 1.07 は後退。改善の必達 ≤0.85）、K5 pointer p95 n3000（3 回とも 0.86〜0.93、改善の必達 ≤0.85）、K6 basic-catalog no-gpu（3 回とも 1.011、改善の必達 ≤0.97）。設計者に返す。
 ## 台帳
+- CP1 時点の状態の台帳：`rework/state-ledger.md`（`legacy:` の印 194 件。型・関数、file と行、印の文面、field の書く式の場所を書いた。E31 の `AppModel` の行には印に無い `text_ahead`・`font_generation` を足した）。閉じ方（付属書 L）は設計者が書く。
+
 
 ## 差戻しの判断（W1c・T22、2026-11-18）
 - **T22**（W1c、lane T0、commit `7c2b0460`）：STOP。完了条件 3 つ目の `rg -n "xtask-allow\(state-fields\)|#!\[warn\(redundant_imports\)\]" crates dev examples templates` が、xtask 自身の旧い印の検出文字列 3 行（`dev/xtask/src/state/check.rs:12`・`check.rs:129`・`state/tests.rs:101`）に当たる。T01 の判断（検出仕様の文字列は除く）と同じ型。Orchestrator の処置：検査の文字列は消さず、T01 と同じ扱いで受け入れた（rg が出すのは検出仕様の文字列だけ）。付属書 T22 の完了条件は設計者が直す。
@@ -165,6 +169,7 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- CP1（2.4 節）の `cargo test -p kivact-test --test gpu` は、その binary が無いので実行できなかった。GPU の試験は `kivact-test` の `tests/screen/main.rs` の `gpu` module にある。`cargo test -p kivact-test --test screen -- gpu::` に代えて実行し、3 件とも成功した（`KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required`、`--test-threads=1`）。作業指示書の該当行は直していない。
 
 （作業指示書 0.5 節の表で決めたものを 1 行ずつ書く。unit、場所、表のどの行か、commit。）
 
