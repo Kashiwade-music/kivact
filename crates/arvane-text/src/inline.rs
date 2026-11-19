@@ -24,6 +24,7 @@ impl TextEngine {
         max_width: Option<f64>,
         boxes: &[InlineBox],
     ) -> Result<ShapedInlineText, TextError> {
+        self.join_system_fonts();
         if boxes.is_empty() {
             return Ok(ShapedInlineText {
                 text: self.shape_glyphs(text, style, max_width)?,
