@@ -197,6 +197,7 @@ impl Launch {
                 let view = ViewState::new(root, info, writer.clone(), hooks, at);
                 let motion_env = install_main_window(&view, root, info, options, at);
                 let extensions = Extensions::new().with(view).with(motion_env);
+                let extensions = extensions.with(crate::gpu_interop::StateSlot::default());
                 let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
                 let extensions = extensions.with(AppHandleExt(handle.clone()));
                 #[cfg(feature = "devtools")]

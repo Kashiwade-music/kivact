@@ -440,18 +440,6 @@ reason = "Glue that ties the event modules together: it routes each HostEvent va
 
 [[style.exceptions]]
 rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/view/mount.rs"
-item = "view::mount::mount_host_with"
-reason = "Glue that ties the mounting stages together: it runs the child modules' stages in the one order mounting requires and implements none of them."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
-path = "crates/kivact-core/src/view/mount.rs"
-item = "view::mount::mount_host"
-reason = "The stage sequence of mount_host_with without a layout fix-up; glue over the mounting stages."
-
-[[style.exceptions]]
-rule = "non-leaf-implementation"
 path = "crates/arvane-native/src/port/embed/open.rs"
 item = "port::embed::open::open"
 reason = "Glue: `open` only selects the Win32 or X11 child backend by cfg; other platforms report Unsupported."

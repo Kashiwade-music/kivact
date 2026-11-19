@@ -249,8 +249,6 @@ pub(crate) struct ViewState {
     modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(crate) requests: RefCell<Requests>,
-    /// GPU interop state, made on the first adapter query or import.
-    pub(crate) gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>,
 }
 
 // xtask-allow(state): legacy: hover, mouse, min_size, foreign; `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
@@ -336,7 +334,6 @@ impl ViewState {
             pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
-            gpu_interop: kivact_types::cell::Deferred::new(),
         }
     }
 
