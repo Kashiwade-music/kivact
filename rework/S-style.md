@@ -1812,7 +1812,7 @@ type_map!(
 ## S11：SVG の書き出しの欠落をなくす（DEC-11）
 
 - **wave / lane / 前提**：W3a / S / S10
-- **所有**：`crates/kivact-svg/src/`（`emit.rs`、`text.rs`、`encode.rs`、`lib.rs` の doc、`document.rs` の試験）、`dev/tests/kivact-public-api/tests/*/offscreen_svg.rs`
+- **所有**：`crates/kivact-svg/src/`（`emit.rs`、`text.rs`、`encode.rs`、`resources.rs`、`lib.rs` の doc、`document.rs` の試験）、`crates/kivact-offscreen/src/lib.rs`（`Resources` の実装の 1 関数）、`dev/tests/kivact-public-api/tests/*/offscreen_svg.rs`
 - **目的**：ST-15 と DEC-11。SVG 1.1 と CSS に同等のものがある機能（`mix-blend-mode`、文字の塗り（gradient）と線、`font-stretch`、`font-kerning`、`font-feature-settings`、`font-variation-settings`、文字の装飾）は書き出す。同等のものが無い機能（層の Porter–Duff の operator、層の filter・mask・3D の transform）だけを失敗にする。黙って落とすものを無くす。
 - **手順**：
   1. `crates/kivact-svg/src/encode.rs` に CSS の名前を足す：
@@ -1859,8 +1859,8 @@ type_map!(
      関数の doc を「The attributes of the group of a layer: opacity, a clip and a blend mode (CSS `mix-blend-mode`). A composite operation, a filter, a mask and a 3D transform have no SVG 1.1 or CSS form.」にする。
   3. `crates/kivact-svg/src/text.rs` の `fn text` を次の規則で書き換える（module の doc の「Font features and text decorations have no SVG 1.1 form and are not supported.」を「Fill and stroke paints, font stretch, kerning, features, variations and decorations are written as SVG presentation attributes and CSS properties.」にする）：
      - `features` と `decoration` で `Err` を返す 2 つの `if` を消す。
-     - 塗り：`run.fill` が `None` なら今の `fill="#hex"` と `opacity_attribute("fill", run.color)` のまま。`Some(fill)` なら `paint_attributes(self, "fill", fill, UNIT_BOX, Units::ObjectBox)?` を使う。文字の幅は `Resources` から得られないので、文字の gradient は `gradientUnits="objectBoundingBox"`（`<text>` 自身の箱に対する 0..1 の座標）で書く：`const UNIT_BOX: Rect = Rect { x: 0.0, y: 0.0, width: 1.0, height: 1.0 };` を `text.rs` に置き、`crates/kivact-svg/src/fill.rs` に `pub(super) enum Units { UserSpace, ObjectBox }` を足して `paint_attributes`・`linear_def`・`radial_def` の最後の引数にする。`Units::UserSpace` は今の出力（`gradientUnits="userSpaceOnUse"` またはその属性を書かない今の形）、`Units::ObjectBox` は `gradientUnits="objectBoundingBox"` を書く。既存の呼出し（emit.rs の塗りと線）はすべて `Units::UserSpace` を渡す。
-     - 線：`run.stroke` が `Some((stroke, paint))` なら `paint_attributes(self, "stroke", paint, UNIT_BOX, Units::ObjectBox)?` と、emit.rs の既存の `fn stroke_attributes(stroke: &Stroke) -> String`（`stroke-width` などを書く。`pub(super)` にする）の結果を足す。
+     - 塗り：`run.fill` が `None` なら今の `fill="#hex"` と `opacity_attribute("fill", run.color)` のまま。`Some(fill)` なら `paint_attributes(self, "fill", fill, bounds)?` を使う。`bounds` は window が文字の gradient を塗る箱と同じ、run の原点と測った大きさの箱（engine の `lower/scene/text.rs` の `paint_run` は `Rect { origin, shaped.size }` で塗る）：`crates/kivact-svg/src/resources.rs` の `fn baseline(&self, run: &TextRun) -> f64` を `fn metrics(&self, run: &TextRun) -> TextMetrics`（doc：`/// The size of a run's line box and the distance from its top to the baseline, as the text engine measures it.`、`kivact_types::TextMetrics`）にし、`crates/kivact-offscreen/src/lib.rs` の実装を `self.measurer.measure(run)` にする。`text` の `let baseline = self.resources.baseline(run);` を `let metrics = self.resources.metrics(run); let baseline = metrics.baseline; let bounds = Rect { x: run.origin.x, y: run.origin.y, width: metrics.size.width, height: metrics.size.height };` にする。gradient は shape と同じ `gradientUnits="userSpaceOnUse"` で書く（px の stop・半径と canvas の座標の gradient がそのまま正しい）。`fill.rs` に単位の enum は足さない。
+     - 線：`run.stroke` が `Some((stroke, paint))` なら `paint_attributes(self, "stroke", paint, bounds)?` と、emit.rs の既存の `fn stroke_attributes(stroke: &Stroke) -> String`（`stroke-width` などを書く。`pub(super)` にする）の結果を足す。
      - `run.font_width != 100.0` なら ` font-stretch="{number(run.font_width)}%"`。
      - 次の CSS を一つの `style="..."` にまとめる（空なら書かない）。各項目は `;` で区切る：
        - `run.kerning`：`FontKerning::Normal` → `font-kerning:normal`、`FontKerning::None` → `font-kerning:none`、`Auto` → 書かない。
@@ -1870,11 +1870,11 @@ type_map!(
      - 属性の値の中の `'` と `"` は `escape` を通す。
   4. 既存の試験：`dev/tests/kivact-public-api/tests/*/offscreen_svg.rs` の `a_layer_svg_cannot_express_is_an_error` を、`Layer::new().blend(BlendMode::Multiply)` から `Layer::new().composite(Composite::DestinationOut)` に替える（`.expect_err` の文を `"a composite operation has no SVG 1.1 form"` に）。これは仕様の変更（DEC-11：blend は書き出せる）による期待値の更新で、緩めではない。`use kivact::draw::{...}` に `Composite` を足す。
 - **消すもの**：`text.rs` の features と decoration の `Err`、`emit.rs` の blend の `Err`。
-- **状態の閉じ方**：`Units` は field の無い enum。
+- **状態の閉じ方**：新しい型は無い。
 - **試験**（`crates/kivact-svg/src/document.rs` の `mod tests` に足す。`write_list(vec![...])` の形で、`DrawCmd::PushLayer`・`DrawCmd::Text` などを既存の試験の組み立て方で作る）：
   - `fn a_blended_layer_writes_its_css_blend_mode()`：`mix: Mix::Blend(BlendMode::Multiply)` の層 → 出力に `mix-blend-mode:multiply`。
   - `fn a_composited_layer_is_unsupported()`：`mix: Mix::Composite(Composite::DestinationOut)` → `Err(SvgError::Unsupported(_))`。
-  - `fn text_writes_its_gradient_fill_and_stroke()`：`fill: Some(Fill::Layers(..gradient..))` と `stroke: Some((Stroke 幅 2, Fill::Solid(..)))` の `TextRun` → 出力に `fill="url(#` と `stroke-width="2"` と `gradientUnits="objectBoundingBox"`。
+  - `fn text_writes_its_gradient_fill_and_stroke()`：`fill: Some(Fill::Layers(..gradient..))` と `stroke: Some((Stroke 幅 2, Fill::Solid(..)))` の `TextRun` → 出力に `fill="url(#` と `stroke-width="2"` と `gradientUnits="userSpaceOnUse"`（試験の `Resources` の `metrics` は `TextMetrics { size: Size::new(80.0, 20.0), baseline: 0.0 }`）。
   - `fn text_writes_features_variations_and_stretch()`：`features: vec![FontFeature { tag: *b"tnum", value: 1 }]`、`variations: vec![FontVariation { tag: *b"wght", value: 650.0 }]`、`font_width: 75.0` → 出力に `font-feature-settings:'tnum' 1`、`font-variation-settings:'wght' 650`、`font-stretch="75%"`。
   - `fn text_writes_its_decoration()`：`decoration.lines = DecorationLines::UNDERLINE`、`style = Wavy` → `text-decoration-line:underline` と `text-decoration-style:wavy`。
   - `dev/tests/kivact-public-api/tests/*/offscreen_svg.rs` に `fn tabular_numbers_export_as_a_font_feature()` を足す：`Offscreen::new().render_svg(100.0, 40.0, |draw, _| { draw.text("12:34", Point::new(0.0, 0.0), &TextFormat::new().tabular_nums()) })`（`TextFormat` に `tabular_nums` が無ければ `font_feature_settings([("tnum", 1)])` の同等の method。`rg -n "pub fn (tabular_nums|font_feature_settings|features)" crates/kivact-style/src/draw/text_run.rs` で確かめる）が `Ok` で `font-feature-settings` を含む。DEC-11 の理由（plot の `tnum`）の公開の契約の試験。

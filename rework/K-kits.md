@@ -913,7 +913,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
        ```
 
      - `node/gesture.rs` の `pub(crate) fn inputs(..)`（`state.mode` の入力）を呼んでいたのは消した `observe_inputs` だけなので、`inputs` とその event を消す（`rg -n "\.inputs\(" crates/kivact-ui-creative/src/editors/node` が他を出さないことを確かめる）。focus を失ったときに接続の mode を終える動き（試験 `a_keyboard_connection_ends_when_the_editor_loses_focus`）は、`state.cancel()` が mode を `Idle` に戻すことで保つ。`state.cancel()` が mode を戻さないときは、`cancel` の本体の最初に今の `inputs` が focus を失ったときに行っていた遷移の event を mode の machine に送る文を足す。
-     - `node/input.rs` の `state.press.install(` の最後の引数に `move || super::view::stale(state)` を足す。key の handler で `NodeMode::Connecting` を扱う関数（`rg -n "Connecting" crates/kivact-ui-creative/src/editors/node/input.rs` の最初の関数）の先頭に `if super::view::stale(state) { state.cancel(); return Handled::Yes; }` を足す。
+     - `node/input.rs` の `state.press.install(` の最後の引数に `move || super::view::stale(state)` を足す。key の handler には何も足さない：接続を確定するのは `edit.rs` の `invoke` で、`connect` → `write_links` の `valid_link` が消えた出力からの接続を拒み、その後 `self.mode.cancel()` が接続の mode を終える（W2a の差戻しで設計者が試験で確かめた）。
   5. `editors/shared/targets.rs` の関数 `targets`：`effect(move || controller.send(TargetEvent::Synchronize(source())));` を次にする：
 
      ```rust
