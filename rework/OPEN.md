@@ -169,6 +169,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R05（lane X、commit `683b4d4d`）：(a) `ViewState::new` の引数に `hooks`（`devtools.hooks()`）を入れ、devtools を先に作る順序は変えない。付属書 R の R05 の build closure の `ViewState::new(root, info, writer.clone(), at)` は、C の後の形（`hooks` を足した形）と違う。表の「同じ意味のものが一つだけある → それを使う」の行。(b) `AppState.gpu` は付属書の eager の `gpu_interop::State::new` にせず、base の `StateSlot(Deferred<State>)`（遅延）を使う。C-core の RC-41 の文（launch で常に作るのをやめる）と base の形に合う。表の「同じ意味のものが一つだけある」の行。
+
 - CP1（2.4 節）の `cargo test -p kivact-test --test gpu` は、その binary が無いので実行できなかった。GPU の試験は `kivact-test` の `tests/screen/main.rs` の `gpu` module にある。`cargo test -p kivact-test --test screen -- gpu::` に代えて実行し、3 件とも成功した（`KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required`、`--test-threads=1`）。作業指示書の該当行は直していない。
 
 （作業指示書 0.5 節の表で決めたものを 1 行ずつ書く。unit、場所、表のどの行か、commit。）
@@ -255,3 +257,8 @@
   - Orchestrator：lane C の fix として `wt/rw-W4b-C` に patch を当て、C06 の確認（tier a。e2e の `devtools` を含む）を通して commit し、merge する。
 - **質問 7（E31 の印の文）**：1。印の文は変えない。`AppModel` の印は W1 の `legacy:` の印で、CP1 の状態の台帳に載り、付属書 L が閉じ方を書く。台帳の `AppModel` の行に `text_ahead`・`font_generation` も挙げること。付属書 E の E31 の手順 3 と「状態の閉じ方」を直した。E31 はこのまま merge してよい。
 - 作業指示書 0.5 節の表に 4 行足した（clippy の構造の lint、module の循環を断つ配置、消すはずのものに別の経路の呼出しが残る、印の文の編集が権限の判定で拒否される）。同じ型の STOP は今後 Orchestrator が判断し、「Orchestrator の判断」節に書く。
+
+## 差戻し（W5a・R05、2026-11-19）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R05**（W5a、lane X、commit `683b4d4d`）：`crates/kivact-core/src/app_state.rs` の `AppState` の field `foreign: ForeignWindows`。`ForeignWindows` は C05（W4）で消えているので、付属書 R の R05 の AppState の field 一覧（`foreign: crate::view::foreign::ForeignWindows::default()`）は base に合わない。付属書の R05 の節は、消えた型の扱いを書いていない（表の「状態の unit の対象が、前の unit で消えている」の行に当たり、付属書に扱いが無いので差戻し）。lane の commit では field を作っていない（ext の読みは 8 か所で全部置換済み）。設計者は、この field を消す（付属書の一覧から外す）か、別の扱いにするかを決める。この差戻しの間、lane X（W5a の鎖）は止める。他の lane（E1・E2）は続ける。
