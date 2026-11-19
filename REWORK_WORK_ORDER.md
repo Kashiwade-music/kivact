@@ -238,7 +238,7 @@ cargo check -p kivact-docs --all-targets --all-features
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-docs --doc --all-features -- --test-threads=1
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_MIRROR=off cargo test --workspace --exclude gpu-interop-producer --exclude kivact-docs --no-default-features
 dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-public-api-tests --test e2e_core --test e2e_native --all-features -- --test-threads=1
-dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-test --test gpu -- --test-threads=1
+dev/tools/window-lock.sh --timeout 5400 -- env KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required cargo test -p kivact-test --test screen -- gpu:: --test-threads=1
 dev/tools/check-features.sh
 for c in kivact kivact-offscreen arvane-render arvane-compose kivact-style; do cargo check -p $c --no-default-features --lib || exit 1; done
 ! cargo tree -e normal -p kivact --no-default-features --prefix none | grep -E '^(wgpu|naga) '     # wgpu・naga が出たら失敗
@@ -729,8 +729,8 @@ tier c（除外なし）、AC-4 のコマンド、`cargo xtask check --no-write`
 ### 5.1 CP1（W4b の後）・CP2（W8L の後）
 
 1. 2 章の **tier c** を実行する（compile の対象外は 2 章の表のとおり）。失敗した試験は、`rework/baseline-tests.txt` と `rework/OPEN.md` の「基点の失敗」と照らし、改修による失敗だけを、その試験の領域の付属書の最後の unit の lane に fix として回す（1.3 節の fix の手順）。
-2. KPI を測る：`dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh CP<n>`（CP2 は `run.sh --no-catalog CP2`）。`rework/kpi/CP<n>.md` に写し、`cargo xtask kpi-compare rework/kpi/B0.md rework/kpi/CP<n>.md > rework/kpi/CP<n>-ratio.md` で比と合否を出す（設計書 2 章の判定の規則。手で計算しない）。終了の状態：0＝合格、1＝後退、3＝改善の必達の未達、2＝入力の誤り（`INVALID:` の report、行の欠落、`kpi.toml` の誤り）。2 なら測り直し、2 回とも 2 なら作業を止めて人間に報告する。CP2 では catalog の行だけが欠け、他の行がすべて埋まっていることを確かめる。
-3. 必達（設計書 2 章。後退の上限と改善の必達）を満たさない行は、同じ条件で 2 回測り直し、3 回中 2 回で判定する。それでも満たさない行は、後退なら `rework/OPEN.md` の「KPI の後退」、改善の必達の未達なら「KPI の未達」に書き、設計者に返す（Orchestrator は直さない）。
+2. KPI を測る：まず基点を同じ環境で測り直す。基点 `c9518946`（`2b8df5ac` と crate が同じ）の worktree で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh B0-CP<n>`（CP2 は `--no-catalog`）を実行し、続けて checkpoint の commit で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh CP<n>` を実行する（間に他の作業をしない。CP1 で、UI Automation の client が動いている環境では基点のコードでも a11y の木が作られ、K2 が 1.3〜1.5 倍になることが分かった。B0 を測った日とは環境が違いうる）。両方の report の K2 の診断（kv_heap の site）に `arvane_shell::a11y::state::AcceptedTree` があるかを見て、片方にだけあれば測り直す。`rework/kpi/B0-CP<n>.md` と `rework/kpi/CP<n>.md` に写し、`cargo xtask kpi-compare rework/kpi/B0-CP<n>.md rework/kpi/CP<n>.md > rework/kpi/CP<n>-ratio.md` で比と合否を出す（設計書 2 章の判定の規則。手で計算しない）。終了の状態：0＝合格、1＝後退、3＝改善の必達の未達、2＝入力の誤り（`INVALID:` の report、行の欠落、`kpi.toml` の誤り）。2 なら測り直し、2 回とも 2 なら作業を止めて人間に報告する。CP2 では catalog の行だけが欠け、他の行がすべて埋まっていることを確かめる。
+3. 必達（設計書 2 章。後退の上限と改善の必達）を満たさない行は、同じ条件で 2 回測り直し（基点も一緒に測り直す）、3 回中 2 回で判定する。CP1・CP2 では**改善の必達**の未達は「KPI の未達」に記録するだけで設計者に返さない（その手段の unit の多くは CP1 の後にある。判定は最終 checkpoint の AC-2）。後退だけを返す。それでも満たさない行は、後退なら `rework/OPEN.md` の「KPI の後退」、改善の必達の未達なら「KPI の未達」に書き、設計者に返す（Orchestrator は直さない）。
 4. push する。
 5. **CP1 だけ：状態の台帳**。`rg -n "xtask-allow\(state\): legacy:" crates dev examples templates` の全件について、型（または関数）・file・印の文面・その field を書く式の場所（`rg -n "<field 名> *=|\.<field 名>\.set\(|\.<field 名>\.replace\(" <その crate>`）を `rework/state-ledger.md` の表に書き、commit・push して、人間に「付属書 L を書いてほしい」と報告する（`rework/OPEN.md` の「台帳」節にも 1 行）。Orchestrator は閉じ方を決めない。W5a 以降は待たずに進めてよい。付属書 L の unit は W8L で行う。
 
@@ -739,7 +739,7 @@ tier c（除外なし）、AC-4 のコマンド、`cargo xtask check --no-write`
 1. 2 章の tier c を、compile の対象外なしで実行する。
 2. 設計書 5.12 節の削除名の検査（2 章の「AC-4 の検査」のコマンド）を実行し、0 件であることを確かめる。
 3. xtask の `state` 検査が全 workspace で 0 件（`cargo xtask check --no-write`）であることを確かめる（AC-3）。
-4. KPI を測る：`dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh CP3`、`cargo xtask kpi-compare rework/kpi/B0.md rework/kpi/CP3.md > rework/kpi/CP3-ratio.md`（終了の状態の扱いは 5.1 節の 2）。必達（後退の上限と改善の必達）を満たさない行は 5.1 節の 3 と同じに扱う。
+4. KPI を測る：5.1 節の 2 と同じく、基点（`B0-CP3`）と `CP3` を続けて測り、`cargo xtask kpi-compare rework/kpi/B0-CP3.md rework/kpi/CP3.md > rework/kpi/CP3-ratio.md`（終了の状態の扱いは 5.1 節の 2）。必達（後退の上限と改善の必達）を満たさない行は 5.1 節の 3 と同じに扱う。
 5. 受入れの判定：AC-1〜AC-5 をすべて満たし、`rework/OPEN.md` の「差戻し」「KPI の後退」「KPI の未達」「台帳」が空なら完了。そうでなければ、残りを書いた `rework/OPEN.md` を commit し、push して人間に報告する。
 6. 完了したら PR の説明の下書きを `rework/PR_DRAFT.md` に書く：目的、変更の要約（領域ごと 3 行）、公開 API の破壊的変更の一覧（移行ガイドへの link）、KPI の比の表、実施した検証、未実施の検証とその理由、残る制限（設計書 13 章）。PR は作らない。
 

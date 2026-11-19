@@ -169,6 +169,12 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・E13（lane E2、commit `3694e0e1`）：完了条件の rg（`restack = true`）の残り行 `model/layout_motion/steps.rs:141`（run 開始）は、付属書 E13 の「目的」にも「消すもの」にも挙がっていない既存の行なので受け入れる（表の「完了条件の rg が既存の行に当たる」の行）。
+
+- W5a・E12（lane E2、commit `c5e568ee`）：(a) `SceneOut` の `xtask-allow(state)` の印を外した（xtask が「未使用の印」の error にした。表の「印を外す」の行）。(b) `outdate_paint` の引数が clippy の too_many_arguments に当たったので、draw の無効化を `PaintState::outdate_draws`（別関数）に分けた（表の「引数を struct にまとめる・helper に分ける」。STOP にしない）。(c) `shape::clip_path` は無いので既存の `s.in_rect(bounds)` を使った、`Paint` は `arvane_protocol::RasterPaint`、`Look::now` は `LayerTraits::now`（同じ意味のものが一つだけある。表の行）。(d) 付属書に無い追加：`model/frame/ticks.rs` で、tick の先頭で動いている text color の node の子の draw を忘れる（`VERIFY_DRAWS` の stale 検出を直した。E2E の `motion` が一回だけ失敗し、この修正で全 32 module が通った）。E13 が `state_motion` の steps に触るとき、この分岐との関係を確かめる。
+
+- W5a・R05（lane X、commit `683b4d4d`）：(a) `ViewState::new` の引数に `hooks`（`devtools.hooks()`）を入れ、devtools を先に作る順序は変えない。付属書 R の R05 の build closure の `ViewState::new(root, info, writer.clone(), at)` は、C の後の形（`hooks` を足した形）と違う。表の「同じ意味のものが一つだけある → それを使う」の行。(b) `AppState.gpu` は付属書の eager の `gpu_interop::State::new` にせず、base の `StateSlot(Deferred<State>)`（遅延）を使う。C-core の RC-41 の文（launch で常に作るのをやめる）と base の形に合う。表の「同じ意味のものが一つだけある」の行。
+
 - CP1（2.4 節）の `cargo test -p kivact-test --test gpu` は、その binary が無いので実行できなかった。GPU の試験は `kivact-test` の `tests/screen/main.rs` の `gpu` module にある。`cargo test -p kivact-test --test screen -- gpu::` に代えて実行し、3 件とも成功した（`KIVACT_TEST_GPU=1 KIVACT_TEST_MIRROR=required`、`--test-threads=1`）。作業指示書の該当行は直していない。
 
 （作業指示書 0.5 節の表で決めたものを 1 行ずつ書く。unit、場所、表のどの行か、commit。）
@@ -255,3 +261,34 @@
   - Orchestrator：lane C の fix として `wt/rw-W4b-C` に patch を当て、C06 の確認（tier a。e2e の `devtools` を含む）を通して commit し、merge する。
 - **質問 7（E31 の印の文）**：1。印の文は変えない。`AppModel` の印は W1 の `legacy:` の印で、CP1 の状態の台帳に載り、付属書 L が閉じ方を書く。台帳の `AppModel` の行に `text_ahead`・`font_generation` も挙げること。付属書 E の E31 の手順 3 と「状態の閉じ方」を直した。E31 はこのまま merge してよい。
 - 作業指示書 0.5 節の表に 4 行足した（clippy の構造の lint、module の循環を断つ配置、消すはずのものに別の経路の呼出しが残る、印の文の編集が権限の判定で拒否される）。同じ型の STOP は今後 Orchestrator が判断し、「Orchestrator の判断」節に書く。
+
+## 差戻し（W5a・R05、2026-11-19）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R05**（W5a、lane X、commit `683b4d4d`）：`crates/kivact-core/src/app_state.rs` の `AppState` の field `foreign: ForeignWindows`。`ForeignWindows` は C05（W4）で消えているので、付属書 R の R05 の AppState の field 一覧（`foreign: crate::view::foreign::ForeignWindows::default()`）は base に合わない。付属書の R05 の節は、消えた型の扱いを書いていない（表の「状態の unit の対象が、前の unit で消えている」の行に当たり、付属書に扱いが無いので差戻し）。lane の commit では field を作っていない（ext の読みは 8 か所で全部置換済み）。設計者は、この field を消す（付属書の一覧から外す）か、別の扱いにするかを決める。この差戻しの間、lane X（W5a の鎖）は止める。他の lane（E1・E2）は続ける。
+
+## 差戻し（W5a・E13、2026-11-19）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **E13**（W5a、lane E2、commit `3694e0e1`）：E13 の最初の E2E で motion の 2 件が debug の self_check（保持した list と作り直した list の比較）で失敗し、subagent はそれを直した。0.4 節は self_check の不一致を STOP にし、直さないと定めている。直した内容は付属書に無い：(1) `model/interact/sync.rs` に `relook_moving` を足し、`model/state_motion/steps.rs` の transition の終了時に `motion_ended` を入れた（prop の transition は restyled に入らない）。(2) 動いている不透明度の layer の grouping を、不透明度 1.0 として数えるように `paint/list/walk.rs` の opacity 関数を変えた。(3) E12 が tick の先頭に足した text color の分岐（`model/frame/ticks.rs`）を消し、`model/state_motion/steps.rs` の `step_states` の step の後へ移した（付属書の E13 にはこの移動の記述が無い）。commit `3694e0e1` は lane E2 にある。設計者は、この 3 点を受け入れるかを決める。受け入れないなら、E13 を STOP のとおり直し直す。この差戻しの間、lane E2 は止める（merge しない）。
+
+## 設計者の回答（W5a の R05・E13、CP1 の KPI、2026-11-19）
+
+- **R05 の `AppState.foreign`**：(a) 外す。`ForeignWindows` は C05 で消え、window の記録に入った。付属書 R の R05 の `AppState`・手順 9・build closure を直した（`foreign` を消す。build closure は lane の形：DevTools を先に作り `ViewState::new(.., hooks, at)`、`gpu: StateSlot::default()`（遅延））。Orchestrator の判断（`hooks` を渡す、`gpu` の遅延）は受け入れ、付属書に書いた。lane X（鎖）を再開する。
+- **E13 の付属書外の 3 点**：3 点とも受け入れる。付属書の手順 4 が tick の塊を消すと、動いている node の事実を毎 tick 作り直す処理も消えた。3 点はその穴を埋めるもので、E13 の目的（重なりの事実が変わったときだけ restack）のまま。付属書 E の E13 に「W5a で足したもの」として書いた。ただし subagent の報告だけでは merge しない：Orchestrator が lane E2 で E13 の確認（tier a の E2E の全部）を自分で実行し、通ってから merge する。今後、subagent が self_check の不一致を直していたら、同じように STOP として差戻しに書いてよい（今回の扱いは正しい）。
+- **CP1 の KPI**：
+  - **測定の環境**：設計者が基点 `c9518946` と CP1 `d615568c` の kv_heap を、いま同じ環境で測った。**どちらのコードでも** a11y の木（`AcceptedTree::new`、`NativeAccessibility::hand_over`）が作られた。B0（11-18）の report には無い。AccessKit は、UI Automation の client が window に問い合わせたときだけ木を作る。CP1 の測定中にはその client が動いていて、B0 のときには動いていなかった。a11y だけで row は約 11 KB/item、box は約 1.4 KB/item になる。つまり CP1 の K2 の 1.6〜1.8 倍の大半は環境の差で、K1・K4・K5 の時間の行にも同じ差が入っている可能性がある。CP1 の比は、B0 との比較としては使わない。
+  - **同じ環境で比べた K2**（MiB、3000 items）：
+
+    | mode | 基点 | CP1 | 修正後 |
+    |---|---|---|---|
+    | box | 16.2 | 18.5 | 16.0 |
+    | text | 14.3 | 14.1 | 14.1 |
+    | button | 77.3 | 94.2 | 77.0 |
+    | row | 103.2 | 131.4 | 102.5 |
+
+    残った後退は C04 の style の memo（全 node に merge 済みの `Style` と memo を持つ）だった。設計者が直した：patch `W:/w/kivact/target/rework-designer/C04-memo.diff`（3 file。`18460fae` と lane X の `683b4d4d` に `git apply` できる）。memo は disabled・selected が変わりうる node と DevTools の hook のある App だけに置く。設計者の確認：`cargo clippy -p kivact-core --all-targets --features devtools -- -D warnings`、`cargo xtask check --no-write --crate kivact-core`、`e2e_core` の全件（436 件。`KIVACT_TEST_MIRROR=off`）が通る。付属書 C の C04 に追記した。
+  - **処置**：(1) patch を lane X（鎖）に R05 の次の fix の commit として当て、C04 の確認（tier a）を通す。(2) KPI の測り方を直した（作業指示書 5.1 節の 2・3、5.2 の 4、設計書 2 章）：checkpoint では、基点 `c9518946` のコードを同じ環境で続けて測り直し（`B0-CP<n>`）、それと比べる。両方の report の kv_heap の site に `arvane_shell::a11y::state::AcceptedTree` があるかを見て、片方だけなら測り直す。(3) CP1 は測り直す：W5a の merge（E1・E2・鎖の R05 と上の fix）の後で、`B0-CP1` と `CP1b` を続けて測り、`kpi-compare rework/kpi/B0-CP1.md rework/kpi/CP1b.md` の結果で「KPI の後退」を書き直す。それでも後退する行だけを設計者に返す（時間の行 K1・K4・K5 は、この測り直しの結果を見て決める）。
+  - **改善の必達の未達**（K3 の continuous CPU、K5 pointer p95、K6 no-gpu）：CP1 では返さない。手段の unit（E12 の draw cache、E13 の restack、hit test の索引、recipe 表の分割、plot の crate 化）の多くは CP1 の後にあり、判定は最終 checkpoint の AC-2。作業指示書 5.1 節の 3 に「CP1・CP2 では記録だけ」と書いた。
+- **Orchestrator の判断**（`ViewState::new` の `hooks`、`gpu` の遅延、`SceneOut` の印の除去、E13 の完了条件の残り行、E12 の `outdate_draws` の分割と代用）：すべて受け入れる。CP1 の `--test gpu` は `--test screen -- gpu::` が正しい。作業指示書 2 章の行を直した。
+- **付属書 L**（`legacy:` の印 194 件）：設計者が書く。W8L の前に用意するので、待たずに W5a 以降を進めてよい（作業指示書の W8L の行のとおり、W8 の merge の時点で無ければ止める）。

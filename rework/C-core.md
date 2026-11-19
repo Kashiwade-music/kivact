@@ -922,6 +922,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      }
      ```
      （旧の `(0..modifiers.len()).map(|index| modifiers[index + 1..]...collect())` を置き換える。順序は旧と同じ：index より後の Caller の semantics を前から順に、その後に `final_caller.semantics`。）
+- **CP1 の後の修正（設計者。patch `target/rework-designer/C04-memo.diff`）**：merge した層の memo を全 node に置くと、node ごとに merge 済みの `Style` と memo の graph node が残り、K2 の item あたりが row で約 1.28 倍、box で約 1.15 倍になった（CP1 の kv_heap。同じ環境で基点と比べた値）。memo は、disabled か selected の読み手が変わりうる（`Prop::fixed()` が `None`）node と、DevTools の hook がある App だけに置く。それ以外の node は style の effect の中で層を merge する（effect が走り直すのは層の読みか theme が変わったときだけなので、層の closure を状態の変化で呼び直すことは無い。RC-22 の目的のまま）。`mount/style.rs` に `enum Layers { Memo(Value<Merged>), Direct(Vec<StyleLayer>) }`、`States.change` と `NodeStyle.states_change` を足す。`e2e_core::diagnostics` の `why_follows_the_prop_to_the_write_through_a_memo` の最後の assert は、状態の無い node の Paint が memo を読まないことを確かめる形にする。
 - **消すもの**：`bind_states`、`CoreNode.origins`、`CoreRare.semantic_origins`、5 つの境界の写し、root の固定 theme の signal、`Leaving.on_exit` の `Option`。
 - **状態の閉じ方**：`Provenance` は `Vec` 2 つで、対象の field 型を持たない。`ViewNodes.provenance` は `IdMap`（対象外）。
 - **試験**：足す試験は無い。`e2e_core` の `diagnostics`（why の試験）、`flows`、`setup_functions`、`i18n` が通ること。

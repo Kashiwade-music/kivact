@@ -1116,9 +1116,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
    pub(crate) struct AppState {
        pub(crate) view: ViewState,
-       pub(crate) foreign: crate::view::foreign::ForeignWindows,
        pub(crate) handle: crate::platform::app_handle::AppHandleExt,
-       pub(crate) gpu: crate::gpu_interop::State,
+       pub(crate) gpu: crate::gpu_interop::StateSlot,
        #[cfg(feature = "devtools")]
        pub(crate) devtools: crate::view::devtools_state::DevtoolsState,
        #[cfg(debug_assertions)]
@@ -1138,7 +1137,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
        }
    }
    ```
-   core `src/lib.rs` の `mod` 行の並びに `mod app_state;` を足す。上の型のうち `pub(crate)` でないもの（`ForeignWindows`、`AppHandleExt`、`gpu_interop::State`、`DevtoolsState`、`Trace`、`LifecycleState`、`CloseRequestState`、`HostState`、`ViewState`）があれば `pub(crate)` にする（中身は変えない）。
+   core `src/lib.rs` の `mod` 行の並びに `mod app_state;` を足す。上の型のうち `pub(crate)` でないもの（`AppHandleExt`、`gpu_interop::StateSlot`、`DevtoolsState`、`Trace`、`LifecycleState`、`CloseRequestState`、`HostState`、`ViewState`）があれば `pub(crate)` にする（中身は変えない）。
 9. core の `ext` の読みを置き換える（各ファイルの関数の本体を次の 1 行にする）：
    - `client/state.rs` の `HostState::of`：`&crate::app_state::AppState::of(rt).host`
    - `client/trace.rs` の `Trace::of`：`&crate::app_state::AppState::of(rt).trace`
@@ -1146,7 +1145,7 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
    - `gpu_interop/import/registry.rs` の `State::of`：`&crate::app_state::AppState::of(rt).gpu`
    - `view/devtools_state.rs` の `DevtoolsState::of`：`&crate::app_state::AppState::of(rt).devtools`
    - `view/state.rs` の `ViewState::of`：`&crate::app_state::AppState::of(rt).view`
-   - `view/foreign.rs` の二か所の `let windows = rt.ext::<ForeignWindows>();`：`let windows = &crate::app_state::AppState::of(rt).foreign;`
+   - （`ForeignWindows` は付属書 C の C05（W4）で消えたので、`AppState` に `foreign` の field は無い。`view/foreign.rs` に `ext::<` が残っていれば差戻し。W5a の R05）
    - `platform/close_request.rs` の二か所の `.ext::<CloseRequestState>()`：その式を `crate::app_state::AppState::of(<同じ runtime の式>).close` にする（`rt.ext::<CloseRequestState>()` は `crate::app_state::AppState::of(rt).close`、`owner.runtime().ext::<CloseRequestState>()` の形なら `crate::app_state::AppState::of(&owner.runtime()).close`）。
    - `platform/lifecycle.rs` の `let state = rt.ext::<LifecycleState>();` を `let state = &crate::app_state::AppState::of(&rt).lifecycle;`（`rt` が `&Runtime` なら `&` を付けない）、`rt.ext::<LifecycleState>().registrations` を `crate::app_state::AppState::of(&rt).lifecycle.registrations` にする。
    - `rg -n 'ext::<' crates/kivact-core/src` が theme の `ext::<`（`kivact-style` の `Theme::ext`）以外を返さないことを確かめる。
@@ -1155,19 +1154,26 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
     - `Runtime::new(..)` の build closure（`|_rt, root| { let view = ...; ... .with(HostState::default()) }`）を次にする。
       ```rust
       |_rt, root| {
-          let view = ViewState::new(root, info, writer.clone(), at);
+          // DevTools first: the view state takes its hooks (付属書 C の C01・C06).
+          #[cfg(feature = "devtools")]
+          let devtools = crate::devtools::state::DevtoolsState::from_slot(
+              root,
+              slot.take().expect("invariant: the build runs once"),
+              at,
+          );
+          #[cfg(feature = "devtools")]
+          let hooks = devtools.hooks();
+          #[cfg(not(feature = "devtools"))]
+          let hooks = None;
+          let view = ViewState::new(root, info, writer.clone(), hooks, at);
           let motion_env = install_main_window(&view, root, info, options, at);
           let state = crate::app_state::AppState {
               view,
-              foreign: crate::view::foreign::ForeignWindows::default(),
+              // Deferred: built on the first GPU interop use (付属書 C の C03、RC-41).
+              gpu: crate::gpu_interop::StateSlot::default(),
               handle: AppHandleExt(handle.clone()),
-              gpu: crate::gpu_interop::State::new(root, at),
               #[cfg(feature = "devtools")]
-              devtools: crate::view::devtools_state::DevtoolsState::from_slot(
-                  root,
-                  slot.take().expect("invariant: the build runs once"),
-                  at,
-              ),
+              devtools,
               #[cfg(debug_assertions)]
               trace: crate::client::trace::Trace::new(trace_name.as_deref()),
               lifecycle: crate::platform::lifecycle::LifecycleState::default(),
