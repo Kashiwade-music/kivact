@@ -800,19 +800,21 @@ impl Node {
             return self;
         }
         let final_caller = std::mem::take(&mut self.common);
-        let later_callers: Vec<_> = (0..modifiers.len())
-            .map(|index| {
-                modifiers[index + 1..]
-                    .iter()
-                    .filter_map(|m| match m {
-                        Modifier::Caller(c) => Some(c.semantics.iter().cloned()),
-                        _ => None,
-                    })
-                    .flatten()
-                    .chain(final_caller.semantics.iter().cloned())
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+        // Built from the end: each step puts one caller's semantics in front of
+        // the suffix, so the pass visits each modifier once (no rescan of the
+        // later modifiers per part).
+        let mut later_callers: Vec<Vec<crate::view::semantics_data::SemanticsPatch>> =
+            vec![Vec::new(); modifiers.len()];
+        let mut suffix: Vec<crate::view::semantics_data::SemanticsPatch> =
+            final_caller.semantics.clone();
+        for index in (0..modifiers.len()).rev() {
+            later_callers[index] = suffix.clone();
+            if let Modifier::Caller(c) = &modifiers[index] {
+                let mut with_this: Vec<_> = c.semantics.clone();
+                with_this.extend(suffix);
+                suffix = with_this;
+            }
+        }
         let outer_reads = std::mem::take(&mut self.semantic_reads);
         for (index, modifier) in modifiers.into_iter().enumerate() {
             match modifier {

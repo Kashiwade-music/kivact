@@ -34,6 +34,7 @@ use super::element_data::Common;
 use resolve::Resolved;
 
 use kivact_engine::contract::NodeType;
+use kivact_runtime::Prop as InputProp;
 use kivact_types::{LayoutProps, NodeId};
 
 use super::descriptor::Mcx;
@@ -61,7 +62,7 @@ pub(crate) fn mount_host(
 /// order the effects are created in:
 /// 1. `create::write`: the first write (handlers, listener flags, focusability, text editing).
 /// 2. `semantics::bind_props`: semantics and image properties.
-/// 3. `style::bind_states`: disabled and selected.
+/// 3. `style::States`: the disabled and selected readers (no effect).
 /// 4. `style::bind_node_style`: the style effect.
 /// 5. `draw::bind`: the draw effect.
 /// 6. `semantics::bind_late` and `editing::bind_session`: effects that read what the drawing made.
@@ -104,7 +105,10 @@ fn mount_node(
     } = resolve::resolve(cx, id, kind, c, at);
     create::write(cx, id, first, site, at);
     semantics::bind_props(cx, id, semantics, at);
-    let states = style::bind_states(cx, id, disabled, selected, at);
+    let states = style::States {
+        disabled: disabled.map(InputProp::into_fn),
+        selected: selected.map(InputProp::into_fn),
+    };
     style::bind_node_style(cx, id, style, &facts, states, fix_layout, at);
     if let Some(draw) = draw {
         draw::bind(cx, id, draw, at);

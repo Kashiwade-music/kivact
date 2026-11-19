@@ -167,9 +167,7 @@ fn bind(
         return;
     }
     patches.sort_by_key(|p| p.layer);
-    if let Some(node) = ViewState::tree_mut(cx.rt).get_mut(id) {
-        node.rare_mut().semantic_origins = patches.iter().map(|p| p.at).collect();
-    }
+    ViewState::tree_mut(cx.rt).set_semantic_origins(id, patches.iter().map(|p| p.at).collect());
     let text_at = patches
         .iter()
         .rev()
