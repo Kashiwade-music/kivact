@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R22（lane X、commit `629fb246`）：完了条件の rg 0 件、共通の形（fmt・check・clippy・xtask）は成功。(a) `ActionCell::enqueue` の pending の書込みを `publish`（lifecycle の guard）経由にした（同じ効果。dispose の後に publish しない ST-07 を守る）。(b) `on_complete` の `let (_, cell)`（同じ挙動）。(c) `xtask-allow(state)` の印が未使用と言われた `AsyncCellState` の印は外した（表の「未使用の印」の行）。(d) `state.rs` の `TaskState` の印の文は `draining`（削除済みの field）を挙げたままにした。文は R26 以降の掃引か L の閉じ方で直す。以上は受け入れる。
+- 設計者への注意（R22、STOP ではない）：(i) `kivact-core`（`task.rs`・`error_boundary.rs`・`launch/turn.rs:105` の `check_draining`）と `kivact-ui` の `async_view.rs`、devtools が壊れる。付属書どおり R26 以降で直す。(ii) 破棄済みの owner に対する action の run を、旧「閉じた action の run は無視」の検査を消したあとどう扱うか、`Owned::get_at` が破棄済み owner を既に弾くかを確かめていない。設計者が確かめる。
+
 - W5a・R21（lane X、commit `26b7c350`）：完了条件（rg の 0 件、確認の共通の形、xtask の api_shape の 6 件）は満たす。`dev/xtask/src/api_shape.rs` のテスト文字列を新しい形（`IntoHandler`）に直したのは、この unit の一部として受け入れる（期待する error の数は変えていない）。
 
 - W5a・R20（lane X、commit `ba0406f7`）：(a) `reactive/keyed.rs` を、所有の一覧に無いが同じ crate 内の署名の変更に伴う機械的な追従として直した（`Row::new` の `item.key` を let-else に）。0.2 の 11 の範囲で受け入れる。(b) `binding` の closure の型注釈、`Row::new` の let-else は、付属書のコード片を実コードに合わせた形（同じ意味）。受け入れる。(c) 確認は R20〜R25 の共通の形（fmt・check --lib・clippy --lib・xtask）。完了条件の rg は 0 件、`update` は両方とも戻り値なし。
