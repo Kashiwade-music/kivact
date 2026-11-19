@@ -1,50 +1,73 @@
-//! Role: Bounded successful font metadata with allocation lifetime protection.
+//! Role: Glyph counts of the fonts scenes draw with, read once per font face.
+
 use crate::error::RenderError;
 use kivact_types::shaped::FontSource;
 use skrifa::raw::TableProvider;
+use std::collections::HashMap;
 use std::sync::{Arc, Weak};
+
+/// The most font faces remembered; past it the table starts again.
+const MAX_FACES: usize = 256;
+
+/// The glyph count of each font face drawn lately, by the address and
+/// length of its bytes and its index in the file.
 #[derive(Default)]
 pub(crate) struct Fonts {
-    entries: Vec<Entry>,
+    entries: HashMap<(usize, usize, u32), Entry>,
 }
+
 struct Entry {
+    /// A face whose bytes were freed is pruned before its address can be
+    /// reused by other bytes.
     bytes: Weak<dyn AsRef<[u8]> + Send + Sync>,
-    index: u32,
     glyphs: u32,
-    len: usize,
 }
+
 impl Fonts {
+    /// Forget every face.
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
     }
+
+    /// Forget the faces whose bytes were freed (once per frame scope).
+    pub(crate) fn prune(&mut self) {
+        self.entries
+            .retain(|_, entry| entry.bytes.strong_count() != 0);
+    }
+
+    /// The glyph count of face `index` of `bytes`.
     pub(super) fn glyphs(&mut self, bytes: &FontSource, index: u32) -> Result<u32, RenderError> {
-        self.entries.retain(|entry| entry.bytes.strong_count() != 0);
-        if let Some(at) = self.entries.iter().position(|entry| {
-            entry.index == index
-                && entry.bytes.as_ptr().cast::<u8>() as usize == bytes.id()
-                && entry.len == bytes.len()
-        }) {
-            let entry = self.entries.remove(at);
-            let glyphs = entry.glyphs;
-            self.entries.push(entry);
-            return Ok(glyphs);
+        let key = (bytes.id(), bytes.len(), index);
+        if let Some(entry) = self.entries.get(&key)
+            && entry.bytes.strong_count() != 0
+        {
+            return Ok(entry.glyphs);
         }
-        let font =
-            skrifa::FontRef::from_index(bytes, index).map_err(|_| RenderError::InvalidFont)?;
-        let glyphs = u32::from(
-            font.maxp()
-                .map_err(|_| RenderError::InvalidFont)?
-                .num_glyphs(),
+        let glyphs = read_glyph_count(bytes, index)?;
+        if self.entries.len() >= MAX_FACES {
+            self.prune();
+            if self.entries.len() >= MAX_FACES {
+                self.entries.clear();
+            }
+        }
+        self.entries.insert(
+            key,
+            Entry {
+                bytes: Arc::downgrade(bytes.source()),
+                glyphs,
+            },
         );
-        if self.entries.len() == 256 {
-            self.entries.remove(0);
-        }
-        self.entries.push(Entry {
-            bytes: Arc::downgrade(bytes.source()),
-            len: bytes.len(),
-            index,
-            glyphs,
-        });
         Ok(glyphs)
     }
+}
+
+/// The glyph count of face `index` of `bytes`, read from the font file.
+fn read_glyph_count(bytes: &FontSource, index: u32) -> Result<u32, RenderError> {
+    let font = skrifa::FontRef::from_index(bytes, index).map_err(|_| RenderError::InvalidFont)?;
+    let glyphs = u32::from(
+        font.maxp()
+            .map_err(|_| RenderError::InvalidFont)?
+            .num_glyphs(),
+    );
+    Ok(glyphs)
 }

@@ -89,6 +89,7 @@ impl GpuRaster {
             renderer,
             images,
             caches,
+            derived,
             textures,
             atlas,
         } = self;
@@ -118,7 +119,9 @@ impl GpuRaster {
                         atlas,
                         uploads: None,
                     };
-                    draw::draw(&mut canvas, caches, source, frame);
+                    derived.frame(|mut derived| {
+                        draw::draw(&mut canvas, caches, &mut derived, source, frame);
+                    });
                     canvas.uploads.take()
                 })
             },

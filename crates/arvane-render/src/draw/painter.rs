@@ -3,8 +3,8 @@
 use super::GlyphRaster;
 use super::canvas::{Canvas, GlyphRun};
 use crate::convert;
-use crate::derived::{Derived, DerivedScope};
-use crate::outline::glyph_outline;
+use crate::derived::DerivedScope;
+use crate::glyph::glyph_outline;
 use crate::paint::{self, Brush, PatternFill};
 use crate::text;
 use crate::validate::Fonts;
@@ -76,8 +76,6 @@ pub(crate) struct Caches {
     pub(crate) validation: Fonts,
     /// Font data handed to the rasterizer.
     pub(crate) fonts: FontCache,
-    /// Pixels derived from the scene's values.
-    pub(crate) derived: Derived,
     /// Variation coordinates of the glyph run being drawn (refilled per run,
     /// so its capacity is kept across runs and frames).
     pub(crate) coords: Vec<i16>,
@@ -97,35 +95,29 @@ pub(crate) struct Frame {
 pub(crate) fn draw(
     canvas: &mut impl Canvas,
     caches: &mut Caches,
+    derived: &mut DerivedScope<'_>,
     scene: &RenderScene,
     frame: &Frame,
 ) {
     let root = root_transform(frame);
     canvas.set_transform(root);
-    let Caches {
+    let Caches { fonts, coords, .. } = caches;
+    let mut painter = Painter {
+        canvas,
         fonts,
         derived,
         coords,
-        ..
-    } = caches;
-    derived.frame(|derived| {
-        let mut painter = Painter {
-            canvas,
-            fonts,
-            derived,
-            coords,
-            root,
-            scale: frame.scale,
-            origin: frame.origin,
-            visible: frame.visible,
-            transform: Transform::IDENTITY,
-            device_scale: frame.scale,
-            stack: Vec::new(),
-        };
-        for command in &scene.commands {
-            painter.command(command);
-        }
-    });
+        root,
+        scale: frame.scale,
+        origin: frame.origin,
+        visible: frame.visible,
+        transform: Transform::IDENTITY,
+        device_scale: frame.scale,
+        stack: Vec::new(),
+    };
+    for command in &scene.commands {
+        painter.command(command);
+    }
 }
 
 /// The map from the scene's logical coordinates to device pixels.
@@ -151,10 +143,10 @@ pub(super) enum Area<'a> {
     Path(&'a BezPath),
 }
 
-pub(super) struct Painter<'a, C: Canvas> {
+pub(super) struct Painter<'a, 'd, C: Canvas> {
     pub(super) canvas: &'a mut C,
     pub(super) fonts: &'a mut FontCache,
-    pub(super) derived: DerivedScope<'a>,
+    pub(super) derived: &'a mut DerivedScope<'d>,
     /// The scratch buffer of the glyph run being drawn (`glyph_coords`).
     pub(super) coords: &'a mut Vec<i16>,
     /// The map from logical root coordinates to device pixels.
@@ -174,7 +166,7 @@ pub(super) struct Painter<'a, C: Canvas> {
     pub(super) stack: Vec<Open>,
 }
 
-impl<C: Canvas> Painter<'_, C> {
+impl<C: Canvas> Painter<'_, '_, C> {
     /// Make the current transform the canvas's.
     pub(super) fn set_transform(&mut self) {
         self.canvas
@@ -535,7 +527,7 @@ impl<C: Canvas> Painter<'_, C> {
 
     /// Fill `area` (with `bounds`) with `paint`.
     pub(super) fn fill(&mut self, paint: &RasterPaint, bounds: LogicalRect, area: Area<'_>) {
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Paint(brush, transform) => {
                 self.canvas.set_paint(brush);
                 if let Some(t) = transform {
@@ -595,7 +587,7 @@ impl<C: Canvas> Painter<'_, C> {
         }
         let style = convert::stroke(stroke);
         let grow = stroke.width * stroke.miter_limit.max(1.5);
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 // The stroke's outline filled with the pattern.
                 let outline = self.outline_of(&path, &style);
@@ -667,7 +659,7 @@ impl<C: Canvas> Painter<'_, C> {
         origin: Point,
         paint: &RasterPaint,
     ) {
-        match paint::brush(paint, &mut self.derived, self.device_scale) {
+        match paint::brush(paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let bounds = logical(path.bounding_box());
@@ -698,7 +690,7 @@ impl<C: Canvas> Painter<'_, C> {
         stroke: &GlyphStroke,
     ) {
         let style = convert::stroke(&stroke.stroke);
-        match paint::brush(&stroke.paint, &mut self.derived, self.device_scale) {
+        match paint::brush(&stroke.paint, self.derived, self.device_scale) {
             Brush::Pattern(pattern) => {
                 let path = self.glyph_path(run, origin);
                 let outline = self.outline_of(&path, &style);

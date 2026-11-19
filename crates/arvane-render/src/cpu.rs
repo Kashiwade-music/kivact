@@ -10,6 +10,7 @@
 //! CPU rasters are short-lived. The atlas is revisited only once vello_cpu
 //! exposes the atlas page size.
 
+use crate::derived::{Derived, DerivedScope};
 use crate::draw::{self, GlyphRun};
 use crate::error::RenderError;
 use crate::{images, paint, validate};
@@ -37,6 +38,8 @@ pub struct CpuRaster {
     context: RenderContext,
     resources: Resources,
     caches: draw::Caches,
+    /// Pixels derived from the scenes' values, kept from frame to frame.
+    derived: Derived,
     /// Premultiplied images of the last frame, by their pixels' identity.
     images: images::ImageCache<ImageSource>,
     /// The raster of a partial frame's region, copied out row by row.
@@ -56,6 +59,7 @@ impl Default for CpuRaster {
             ),
             resources: Resources::new(),
             caches: draw::Caches::default(),
+            derived: Derived::default(),
             images: images::ImageCache::new(images::MAX_BYTES),
             scratch: Vec::new(),
         }
@@ -78,10 +82,58 @@ impl CpuRaster {
         self.scratch = Vec::new();
     }
 
-    /// Rasterize `scene` mapped by scale(scale) · translate(−origin) into
-    /// `out` (size.0 × size.1 premultiplied RGBA8, row-major, no padding).
-    /// With `clip`, only that rect of `out` is drawn and the rest is left as
-    /// it is; without it `out` is cleared to transparent first.
+    /// Run `body` as one frame: every raster it makes shares the frame's
+    /// image and derived-tile caches (AR-01).
+    pub fn frame<R>(&mut self, body: impl FnOnce(&mut CpuFrameRaster<'_>) -> R) -> R {
+        let CpuRaster {
+            context,
+            resources,
+            caches,
+            derived,
+            images,
+            scratch,
+        } = self;
+        caches.validation.prune();
+        images.frame(|images| {
+            derived.frame(|derived| {
+                body(&mut CpuFrameRaster {
+                    context,
+                    resources,
+                    caches,
+                    images,
+                    derived,
+                    scratch,
+                })
+            })
+        })
+    }
+}
+
+/// One window frame of rasters. Images converted and tiles derived for
+/// any raster of the frame stay cached for the next frame; what no raster
+/// of the frame drew is dropped when the frame ends.
+pub struct CpuFrameRaster<'a> {
+    context: &'a mut RenderContext,
+    resources: &'a mut Resources,
+    caches: &'a mut draw::Caches,
+    images: images::ImageScope<'a, ImageSource>,
+    derived: DerivedScope<'a>,
+    scratch: &'a mut Vec<u8>,
+}
+
+/// Where a scene is drawn: the logical point at the frame's top left, the
+/// device pixels per logical pixel, and the frame's size in device pixels.
+#[derive(Clone, Copy)]
+struct Target {
+    origin: Point,
+    scale: f64,
+    size: (u16, u16),
+}
+
+impl CpuFrameRaster<'_> {
+    /// Draw `scene` (logical px, `origin` at the frame's top left, `scale`
+    /// device px per logical px) into `out`, a premultiplied RGBA8 frame of
+    /// `size` device px; only `clip` when given.
     pub fn raster(
         &mut self,
         scene: &RenderScene,
@@ -91,6 +143,59 @@ impl CpuRaster {
         clip: Option<PixelRect>,
         out: &mut [u8],
     ) -> Result<(), RenderError> {
+        let full = PixelRect {
+            x: 0,
+            y: 0,
+            width: u32::from(size.0),
+            height: u32::from(size.1),
+        };
+        let region = clip.unwrap_or(full);
+        let target = Target {
+            origin,
+            scale,
+            size,
+        };
+        self.render(scene, target, region, &[region], out)
+    }
+
+    /// Draw `scene` into the damaged `rects` of `out` with one validation
+    /// and one encode (AR-04): the rects' bounding box is rendered once and
+    /// only the rects are copied.
+    pub fn raster_rects(
+        &mut self,
+        scene: &RenderScene,
+        origin: Point,
+        scale: f64,
+        size: (u16, u16),
+        rects: &[PixelRect],
+        out: &mut [u8],
+    ) -> Result<(), RenderError> {
+        let Some(bounds) = bounding(rects) else {
+            return Ok(());
+        };
+        let target = Target {
+            origin,
+            scale,
+            size,
+        };
+        self.render(scene, target, bounds, rects, out)
+    }
+
+    /// Draw `scene` into `region` of the frame, then copy the `copy` rects
+    /// of `region` into `out` (the whole frame, `target.size` device px).
+    fn render(
+        &mut self,
+        scene: &RenderScene,
+        target: Target,
+        region: PixelRect,
+        copy: &[PixelRect],
+        out: &mut [u8],
+    ) -> Result<(), RenderError> {
+        let Target {
+            origin,
+            scale,
+            size,
+        } = target;
         if !scale.is_finite() || scale <= 0.0 {
             return Err(RenderError::InvalidSize);
         }
@@ -99,13 +204,6 @@ impl CpuRaster {
         if out.len() != frame_width as usize * frame_height as usize * 4 {
             return Err(RenderError::InvalidSize);
         }
-        // The rectangle drawn: the whole frame, or `clip` within it.
-        let region = clip.unwrap_or(PixelRect {
-            x: 0,
-            y: 0,
-            width: frame_width,
-            height: frame_height,
-        });
         if region.width == 0
             || region.height == 0
             || u64::from(region.x) + u64::from(region.width) > u64::from(frame_width)
@@ -132,49 +230,93 @@ impl CpuRaster {
         };
         validate::scene(scene, &mut self.caches.validation)?;
         self.context.reset_and_resize(width, height);
-        self.images.frame(|images| {
-            let mut canvas = CpuCanvas {
-                context: &mut self.context,
-                resources: &mut self.resources,
-                images,
-            };
-            draw::draw(&mut canvas, &mut self.caches, scene, &frame);
-        });
+        let mut canvas = CpuCanvas {
+            context: &mut *self.context,
+            resources: &mut *self.resources,
+            images: &mut self.images,
+        };
+        draw::draw(
+            &mut canvas,
+            &mut *self.caches,
+            &mut self.derived,
+            scene,
+            &frame,
+        );
         self.context.flush();
-        // A whole frame is drawn straight into `out`. Its target is covered by
-        // the scene, so vello_cpu writes every pixel without clearing first.
-        if region.width == frame_width && region.height == frame_height {
+        // A single rect that is the whole frame is drawn straight into `out`.
+        // Its target is covered by the scene, so vello_cpu writes every pixel
+        // without clearing first.
+        if copy.len() == 1 && region.width == frame_width && region.height == frame_height {
             let target = PixmapMut::new(width, height, out).ok_or(RenderError::InvalidSize)?;
-            self.context.render(target, &mut self.resources);
+            self.context.render(target, &mut *self.resources);
             return Ok(());
         }
         let len = usize::from(width) * usize::from(height) * 4;
         self.scratch.resize(len, 0);
         let target = PixmapMut::new(width, height, &mut self.scratch[..len])
             .ok_or(RenderError::InvalidSize)?;
-        self.context.render(target, &mut self.resources);
-        let row_bytes = usize::from(width) * 4;
-        for (y, row) in self.scratch[..len].chunks_exact(row_bytes).enumerate() {
-            let start = ((region.y as usize + y) * frame_width as usize + region.x as usize) * 4;
-            out[start..start + row_bytes].copy_from_slice(row);
-        }
+        self.context.render(target, &mut *self.resources);
+        copy_rects(&self.scratch[..len], region, frame_width, copy, out);
         Ok(())
     }
 }
 
-/// The CPU rasterizer's [`draw::Canvas`].
-struct CpuCanvas<'a> {
-    context: &'a mut RenderContext,
-    resources: &'a mut Resources,
-    images: images::ImageScope<'a, ImageSource>,
+/// Copy each of `copy` (rects inside `region`) from `scratch`, the region's
+/// pixels, into `out`, the frame's pixels `frame_width` device px a row.
+fn copy_rects(
+    scratch: &[u8],
+    region: PixelRect,
+    frame_width: u32,
+    copy: &[PixelRect],
+    out: &mut [u8],
+) {
+    let region_stride = region.width as usize * 4;
+    let frame_stride = frame_width as usize * 4;
+    for rect in copy {
+        let span = rect.width as usize * 4;
+        let left = (rect.x - region.x) as usize * 4;
+        let top = (rect.y - region.y) as usize;
+        for row in 0..rect.height as usize {
+            let from = (top + row) * region_stride + left;
+            let to = (rect.y as usize + row) * frame_stride + rect.x as usize * 4;
+            out[to..to + span].copy_from_slice(&scratch[from..from + span]);
+        }
+    }
 }
 
-impl CpuCanvas<'_> {
+/// The smallest rect holding every rect of `rects`; `None` when empty.
+fn bounding(rects: &[PixelRect]) -> Option<PixelRect> {
+    let mut iter = rects.iter();
+    let first = *iter.next()?;
+    let (mut x0, mut y0) = (first.x, first.y);
+    let (mut x1, mut y1) = (first.x + first.width, first.y + first.height);
+    for r in iter {
+        x0 = x0.min(r.x);
+        y0 = y0.min(r.y);
+        x1 = x1.max(r.x + r.width);
+        y1 = y1.max(r.y + r.height);
+    }
+    Some(PixelRect {
+        x: x0,
+        y: y0,
+        width: x1 - x0,
+        height: y1 - y0,
+    })
+}
+
+/// The CPU rasterizer's [`draw::Canvas`].
+struct CpuCanvas<'a, 'b> {
+    context: &'a mut RenderContext,
+    resources: &'a mut Resources,
+    images: &'a mut images::ImageScope<'b, ImageSource>,
+}
+
+impl CpuCanvas<'_, '_> {
     /// `image` premultiplied, kept while frames draw it.
     fn source(&mut self, image: &Pixels) -> ImageSource {
         // vello_cpu premultiplies into a new pixmap for each paint; the
         // cache keeps it while frames draw it.
-        images::converted(&mut self.images, image, || {
+        images::converted(self.images, image, || {
             ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
                 data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                 format: ImageFormat::Rgba8,
@@ -186,7 +328,7 @@ impl CpuCanvas<'_> {
     }
 }
 
-impl draw::Canvas for CpuCanvas<'_> {
+impl draw::Canvas for CpuCanvas<'_, '_> {
     fn set_transform(&mut self, transform: Affine) {
         self.context.set_transform(transform);
     }
