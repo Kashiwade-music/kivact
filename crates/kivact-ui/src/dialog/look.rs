@@ -84,7 +84,7 @@ pub struct DialogState {
     pub input: PartState,
     pub open: bool,
     pub kind: DialogMode,
-    /// The dialog has a [`media`](super::Dialog::media) view in its header,
+    /// The dialog has a [`media`](crate::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,
 }
@@ -109,7 +109,7 @@ recipe_table! {
         title(title_recipe): DialogState = dialog_title,
         description(description_recipe): DialogState = dialog_description,
         header(header_recipe): DialogState = dialog_header,
-        /// The box around the header's [`media`](super::Dialog::media) view.
+        /// The box around the header's [`media`](crate::Dialog::media) view.
         media(media_recipe): DialogState = dialog_media,
         body(body_recipe): DialogState = dialog_body,
         footer(footer_recipe): DialogState = dialog_footer,
