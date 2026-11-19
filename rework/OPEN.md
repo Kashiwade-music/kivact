@@ -168,6 +168,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R24（lane X、commit `9176ce98`）：完了条件の rg の残り 4 件は、すべて `//!` の英語の説明文（「Reactive runtime」など）で、API の名前ではない。手順のコードに無い既存の行で、0.5 節の「既存の行に当たる」の行で受け入れる。
+
 - W5a・R22（lane X、commit `629fb246`）：完了条件の rg 0 件、共通の形（fmt・check・clippy・xtask）は成功。(a) `ActionCell::enqueue` の pending の書込みを `publish`（lifecycle の guard）経由にした（同じ効果。dispose の後に publish しない ST-07 を守る）。(b) `on_complete` の `let (_, cell)`（同じ挙動）。(c) `xtask-allow(state)` の印が未使用と言われた `AsyncCellState` の印は外した（表の「未使用の印」の行）。(d) `state.rs` の `TaskState` の印の文は `draining`（削除済みの field）を挙げたままにした。文は R26 以降の掃引か L の閉じ方で直す。以上は受け入れる。
 - 設計者への注意（R22、STOP ではない）：(i) `kivact-core`（`task.rs`・`error_boundary.rs`・`launch/turn.rs:105` の `check_draining`）と `kivact-ui` の `async_view.rs`、devtools が壊れる。付属書どおり R26 以降で直す。(ii) 破棄済みの owner に対する action の run を、旧「閉じた action の run は無視」の検査を消したあとどう扱うか、`Owned::get_at` が破棄済み owner を既に弾くかを確かめていない。設計者が確かめる。
 
