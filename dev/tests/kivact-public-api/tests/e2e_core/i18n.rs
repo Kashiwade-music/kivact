@@ -8,6 +8,7 @@ use kivact::i18n::{Locale, Messages, message_with, use_locale};
 use kivact::i18n::{provide_locale, provide_messages};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
+use kivact::ui::carousel;
 
 /// A part that shows one of its texts the way a component library does.
 fn close_label() -> impl Element {
@@ -359,5 +360,29 @@ fn collation_sorts_by_locale() {
     });
     screen.get_by_text("de: a, ä, z");
     screen.get_by_text("sv: a, z, ä");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn standard_components_name_their_controls_through_messages() {
+    let screen = render_with(
+        RenderOptions::from_env().messages(
+            Messages::new()
+                .with("carousel.label", "スライド")
+                .with("combobox.toggle", "候補を開閉"),
+        ),
+        || {
+            column((
+                carousel(signal(0usize), (text("One"), text("Two"))),
+                combobox(
+                    "Fruit",
+                    vec![ListItem::new("a", "Apple")],
+                    signal(None::<&'static str>),
+                ),
+            ))
+        },
+    );
+    assert!(screen.query_by_role(Role::Group, "スライド").is_some());
+    assert!(screen.query_by_role(Role::Button, "候補を開閉").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

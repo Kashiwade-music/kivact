@@ -41,7 +41,8 @@ pub(super) struct Level<K: kivact_core::state::ItemKey> {
     anchors: Signal<Vec<(K, Rect)>>,
     aiming: Value<bool>,
     timing: SubmenuTiming,
-    retain_disabled_focus: bool,
+    /// The theme's disabled-focus policy; rows built at an opening read it then.
+    retain_disabled_focus: Value<bool>,
 }
 
 impl<K: kivact_core::state::ItemKey> Clone for Level<K> {
@@ -58,12 +59,13 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         let depth = prefix.len();
         let entries = session.entries;
         let prefix = prefix.into_value();
-        let retain_disabled_focus = use_theme()
-            .get()
-            .ext::<crate::InteractionPolicy>()
-            .menu
-            .disabled_focus
-            == DisabledMenuFocus::Retain;
+        let theme = use_theme();
+        let retain_disabled_focus = memo(move || {
+            theme.with(|theme| {
+                theme.ext::<crate::InteractionPolicy>().menu.disabled_focus
+                    == DisabledMenuFocus::Retain
+            })
+        });
         let level_rows = memo(move || prefix.with(|prefix| entries.with(|e| rows(e, prefix))));
         let index = memo(move || {
             level_rows.with(|rows| {
@@ -88,7 +90,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                             key,
                             label: entry.label.clone(),
                             // Menu activation is independently guarded by the row part.
-                            disabled: entry.is_disabled() && !retain_disabled_focus,
+                            disabled: entry.is_disabled() && !retain_disabled_focus.get(),
                             icon: None,
                             pressed_icon: None,
                             description: None,
@@ -168,7 +170,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             .on_key(move |event: KeyEvent| {
                 // Core skips handlers on a disabled row itself. Its menu still
                 // routes navigation through the same roving list from that row.
-                if retain_disabled_focus
+                if retain_disabled_focus.get_untracked()
                     && let Some(key) = session.focused_at(depth)
                     && rows.with(|rows| {
                         rows.iter()
@@ -240,8 +242,9 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             };
             match target {
                 Target::Edge(edge) => {
-                    let target =
-                        rows.with_untracked(|rows| edge_item(rows, edge, retain_disabled_focus));
+                    let target = rows.with_untracked(|rows| {
+                        edge_item(rows, edge, retain_disabled_focus.get_untracked())
+                    });
                     if let Some(key) = target {
                         group.focus(key);
                     }
@@ -249,7 +252,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
                 Target::Key(key) => {
                     if !group.focus(key) {
                         let target = rows.with_untracked(|rows| {
-                            edge_item(rows, Edge::First, retain_disabled_focus)
+                            edge_item(rows, Edge::First, retain_disabled_focus.get_untracked())
                         });
                         if let Some(key) = target {
                             group.focus(key);
@@ -361,6 +364,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             retain_disabled_focus,
             ..
         } = self;
+        let retain_disabled_focus = retain_disabled_focus.get_untracked();
         let member = group.base_item(key.clone(), retain_disabled_focus);
         let key = var(key);
         // The kind of an item is part of its row's identity.

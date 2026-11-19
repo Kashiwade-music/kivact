@@ -120,16 +120,20 @@ pub fn button(label: impl IntoText) -> Button {
     let label = label.into_text_value();
     let part = use_button().control();
     let input = part.state();
+    let theme = use_theme();
     let root = node()
         .part(part)
-        .focusable_when_disabled(matches!(
-            use_theme()
-                .get()
-                .ext::<kivact_interaction::InteractionPolicy>()
-                .button
-                .disabled_focus,
-            DisabledButtonFocus::Retain
-        ))
+        .focusable_when_disabled(move || {
+            theme.with(|theme| {
+                matches!(
+                    theme
+                        .ext::<kivact_interaction::InteractionPolicy>()
+                        .button
+                        .disabled_focus,
+                    DisabledButtonFocus::Retain
+                )
+            })
+        })
         .name(label);
     Button {
         root,

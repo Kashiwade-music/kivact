@@ -14,6 +14,8 @@ use std::time::Duration;
 /// Focus remains in the editor. Multiple selection toggles keys and Backspace
 /// in an empty editor removes the last choice. Use `.chips()` to draw removals.
 ///
+/// The clear and toggle buttons are named by the messages `combobox.clear` ("Clear") and `combobox.toggle` ("Toggle options").
+///
 /// ```no_run
 /// use kivact::prelude::*;
 /// fn colors() -> impl IntoView {

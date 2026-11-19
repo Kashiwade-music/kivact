@@ -28,11 +28,12 @@ pub struct Carousel {
     edge_fade: Value<bool>,
 }
 /// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
+/// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
 #[track_caller]
 pub fn carousel(index: impl IntoBinding<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
         variants: crate::variants::Variants::default(),
-        root: node().name("Carousel"),
+        root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
         index: index.into_binding(),
         orientation: Orientation::Horizontal.into_value(),
@@ -301,21 +302,21 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
         }
     });
 }
-/// Feed the actual native scroll position back into the carousel authority.
+/// Report the slide nearest the viewport's start to the carousel each time
+/// the native scroll offset changes.
 fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
-    effect(move || {
-        let offset = c.viewport.scroll_offset().get();
-        if let Some(view) = c.viewport.rect().get_untracked() {
-            let nearest = nearest_slide(
-                &navigation_refs,
-                view,
-                c.vertical.get_untracked(),
-                c.rtl.get() == ReadingDirection::Rtl,
-            );
-            if let Some(at) = nearest {
-                let _ = offset;
-                c.api.scrolling(at);
-            }
+    kivact_core::state::effect_on(c.viewport.scroll_offset(), move |_: &Point| {
+        let Some(view) = c.viewport.rect().get_untracked() else {
+            return;
+        };
+        let nearest = nearest_slide(
+            &navigation_refs,
+            view,
+            c.vertical.get_untracked(),
+            c.rtl.get_untracked() == ReadingDirection::Rtl,
+        );
+        if let Some(at) = nearest {
+            c.api.scrolling(at);
         }
     });
 }
@@ -365,7 +366,19 @@ fn slide_items(
             )
             .node_ref(refs[at])
             .with_node(|n| n.role(Role::Group))
-            .name(format!("Slide {} / {}", at + 1, c.count))
+            .name({
+                let count = c.count;
+                kivact_core::i18n::message_with(
+                    "carousel.slide",
+                    "Slide {index} / {count}",
+                    move || {
+                        [
+                            ("index", (at + 1).to_string()),
+                            ("count", count.to_string()),
+                        ]
+                    },
+                )
+            })
             .style(move || {
                 style()
                     .grow(0)
@@ -563,41 +576,45 @@ fn navigation_button(
     ),
     next: bool,
 ) -> View {
-    let button = crate::button(if next { "Next slide" } else { "Previous slide" })
-        .hide_label(true)
-        .icon(kivact_core::view::icon(move || {
-            kivact_core::style::Icon::named(
-                match (c.vertical.get(), c.rtl.get() == ReadingDirection::Rtl, next) {
-                    (true, _, true) => "chevron-down",
-                    (true, _, false) => "chevron-up",
-                    (false, true, true) | (false, false, false) => "chevron-left",
-                    _ => "chevron-right",
-                },
-            )
-        }))
-        .hidden(move || !c.buttons.get())
-        .disabled(move || {
-            c.disabled.get()
-                || if c.mode == CarouselMode::Scroll {
-                    !crate::carousel_geometry::can_scroll(
-                        c.viewport,
-                        edges,
-                        c.vertical.get(),
-                        c.rtl.get() == ReadingDirection::Rtl,
-                        next,
-                        c.looping,
-                    )
-                } else {
-                    c.last.get() == 0
-                        || (!c.looping
-                            && if next {
-                                c.shown.get() >= c.last.get()
-                            } else {
-                                c.shown.get() == 0
-                            })
-                }
-        })
-        .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
+    let button = crate::button(if next {
+        kivact_core::i18n::message("carousel.next", "Next slide")
+    } else {
+        kivact_core::i18n::message("carousel.previous", "Previous slide")
+    })
+    .hide_label(true)
+    .icon(kivact_core::view::icon(move || {
+        kivact_core::style::Icon::named(
+            match (c.vertical.get(), c.rtl.get() == ReadingDirection::Rtl, next) {
+                (true, _, true) => "chevron-down",
+                (true, _, false) => "chevron-up",
+                (false, true, true) | (false, false, false) => "chevron-left",
+                _ => "chevron-right",
+            },
+        )
+    }))
+    .hidden(move || !c.buttons.get())
+    .disabled(move || {
+        c.disabled.get()
+            || if c.mode == CarouselMode::Scroll {
+                !crate::carousel_geometry::can_scroll(
+                    c.viewport,
+                    edges,
+                    c.vertical.get(),
+                    c.rtl.get() == ReadingDirection::Rtl,
+                    next,
+                    c.looping,
+                )
+            } else {
+                c.last.get() == 0
+                    || (!c.looping
+                        && if next {
+                            c.shown.get() >= c.last.get()
+                        } else {
+                            c.shown.get() == 0
+                        })
+            }
+    })
+    .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
     let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<CarouselSurfaceState> =
         if next {
             |r| r.carousel_recipes().next_recipe()

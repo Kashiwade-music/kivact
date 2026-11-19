@@ -597,7 +597,7 @@ fn editor_actions<K: ItemKey>(
             show(
                 move || clear.get() && value.with(Option::is_some),
                 move || {
-                    button("Clear")
+                    button(kivact_core::i18n::message("combobox.clear", "Clear"))
                         .variant(ButtonVariant::Ghost)
                         .hide_label(true)
                         .icon(icon("x"))
@@ -615,15 +615,18 @@ fn editor_actions<K: ItemKey>(
         Selection::Multiple(_) => None,
     };
     let toggle = (!inline).then(|| {
-        button("Toggle options")
-            .variant(ButtonVariant::Ghost)
-            .hide_label(true)
-            .icon(icon("chevron-down"))
-            .disabled(disabled)
-            .focusable(false)
-            .with_node(move |node| node.focus_on_press(input_ref))
-            .on_press(move || list.toggle())
-            .into_view()
+        button(kivact_core::i18n::message(
+            "combobox.toggle",
+            "Toggle options",
+        ))
+        .variant(ButtonVariant::Ghost)
+        .hide_label(true)
+        .icon(icon("chevron-down"))
+        .disabled(disabled)
+        .focusable(false)
+        .with_node(move |node| node.focus_on_press(input_ref))
+        .on_press(move || list.toggle())
+        .into_view()
     });
     (clear_button, toggle)
 }

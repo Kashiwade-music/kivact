@@ -2,7 +2,7 @@
 use kivact_core::style::{Color, ColorToken};
 
 /// The look of a standard sparkline. Configure it through [`crate::UiTokens`].
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SparklineTokens {
     /// The line color (default the theme's accent).
     pub line: Color,

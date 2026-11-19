@@ -13,6 +13,7 @@ pub struct AsyncView<T> {
     fallback: Rc<dyn Fn(UiError, Retry) -> View>,
 }
 /// Display an async source. Failures include a retry button by default.
+/// The button is named by the message `async_view.retry` ("Retry").
 pub fn async_view<T: Clone + 'static, V: IntoView>(
     source: impl AsyncSource<T>,
     ready: impl Fn(T) -> V + 'static,
@@ -57,6 +58,9 @@ fn default_loading() -> View {
 fn default_fallback(error: UiError, retry: Retry) -> View {
     super::alert(format!("Error: {error}"))
         .tone(kivact_interaction::Tone::Danger)
-        .actions(super::button("Retry").on_press(move || retry.run()))
+        .actions(
+            super::button(kivact_core::i18n::message("async_view.retry", "Retry"))
+                .on_press(move || retry.run()),
+        )
         .into_view()
 }
