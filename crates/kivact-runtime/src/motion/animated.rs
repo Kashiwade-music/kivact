@@ -12,8 +12,8 @@ use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
 use crate::{
-    AppId, EffectKind, ErrorKind, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal, UiError,
-    Value, require_effectful,
+    AppId, EffectKind, ErrorKind, IntoValue, Owned, Owner, Runtime, Signal, UiError, Value,
+    require_effectful,
 };
 use kivact_types::motion::{PlayDirection, SpringRun};
 
@@ -583,5 +583,3 @@ impl<T: Animatable> IntoValue<T> for Animated<T> {
         crate::Prop::value(self.value())
     }
 }
-
-impl<T: Animatable> IntoReactive<T> for Animated<T> {}

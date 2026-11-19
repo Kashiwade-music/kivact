@@ -70,7 +70,7 @@ pub use handler::{Handled, Handler, HandlerResult, IntoHandler};
 pub use host_types::{ExitState, Host, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};
-pub use props::{IntoReactive, IntoText, IntoValue, ItemKey, Prop, PropValue, Reactive};
+pub use props::{IntoText, IntoValue, ItemKey, Prop, PropValue};
 pub use runtime::{LiveObject, LiveOwner, LiveSnapshot, OwnerInfo};
 pub use selector::{Selector, selector};
 pub use setup::{
