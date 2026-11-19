@@ -3,7 +3,7 @@ use super::runtime::{ClientMode, Launch, LaunchState, TestTiming};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
 use kivact_engine::api::Client;
-use kivact_runtime::{Runtime, TaskState, UiError};
+use kivact_runtime::{Runtime, UiError};
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
@@ -76,7 +76,7 @@ impl Inspect<'_> {
         let ts = ViewState::tree(self.rt()).engine().stats();
         let host = HostState::of(self.rt());
         let live = self.rt().live_counts();
-        let motion = kivact_runtime::MotionState::of(self.rt()).stats();
+        let motion = self.rt().motion().stats();
         crate::diagnostics::Stats {
             live_reactive: live.reactive,
             live_owners: live.owners,
@@ -84,7 +84,7 @@ impl Inspect<'_> {
             live_constants: live.constants,
             arena_slots: live.slots,
             tree_nodes: ViewState::tree(self.rt()).len(),
-            timers: TaskState::of(self.rt()).stats().timers,
+            timers: self.rt().tasks().stats().timers,
             frame_loops: motion.loops,
             animations: motion.animations,
             batches: ts.batches,
@@ -110,16 +110,13 @@ impl Inspect<'_> {
     }
     pub fn pending(&self) -> bool {
         let pending = self.rt().pending();
-        pending.turn_requested
-            || pending.user
-            || pending.render
-            || TaskState::of(self.rt()).has_ready()
+        pending.turn_requested || pending.user || pending.render || self.rt().tasks().has_ready()
     }
     pub fn outstanding_blocking(&self) -> usize {
-        TaskState::of(self.rt()).stats().outstanding_blocking
+        self.rt().tasks().stats().outstanding_blocking
     }
     pub fn motion_ticks(&self) -> u64 {
-        kivact_runtime::MotionState::of(self.rt()).stats().ticks
+        self.rt().motion().stats().ticks
     }
 }
 

@@ -19,7 +19,7 @@ use kivact_types::motion::{PlayDirection, Transition};
 use super::super::Repeat;
 use super::super::animated::shift;
 use super::super::state::{
-    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, MotionToken, RunStatus, motion_now,
+    Anim, AnimInfo, AnimKind, LoopMotion, MotionToken, RunStatus, motion_now,
 };
 use super::super::transition::Kind;
 use super::super::values::Animatable;
@@ -45,11 +45,11 @@ pub fn timeline() -> Timeline {
     let at = Location::caller();
     let owner = Owner::current("timeline", at);
     let rt = owner.runtime();
-    let registration = MotionState::of(&rt).token(rt.id());
+    let registration = rt.motion().token(rt.id());
     let motion_id = registration.id;
     let cell = Rc::new(TimelineCell::new(owner, at, registration));
     let anim: Rc<dyn Anim> = cell.clone();
-    MotionState::of(&rt).register_anim(motion_id, &anim);
+    rt.motion().register_anim(motion_id, &anim);
     drop(anim);
     let events = cell.events;
     let weak = Rc::downgrade(&cell);
@@ -516,7 +516,7 @@ impl TimelineCell {
         if was != now
             && let Some(rt) = crate::Runtime::get(self.owner.app())
         {
-            MotionState::of(&rt).set_anim_running(self.registration.id, now);
+            rt.motion().set_anim_running(self.registration.id, now);
         }
     }
 
@@ -549,7 +549,7 @@ impl TimelineCell {
 
     fn reduced(&self) -> bool {
         let rt = self.owner.runtime();
-        MotionState::of(&rt).reduced_motion(&rt)
+        rt.motion().reduced_motion(&rt)
     }
 
     fn wake(&self) {

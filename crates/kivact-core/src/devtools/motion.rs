@@ -3,7 +3,7 @@
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::HostRequest;
-use kivact_runtime::{ErrorKind, MotionState, Runtime, TaskState};
+use kivact_runtime::{ErrorKind, Runtime};
 
 use super::convert;
 use crate::view::requests::request_effect;
@@ -20,7 +20,7 @@ fn engine_effect(rt: &Runtime, request: HostRequest) {
 }
 
 pub(super) fn list_animations(rt: &Runtime, _: p::Empty) -> Result<p::AnimationList, p::RpcError> {
-    let motion = MotionState::of(rt);
+    let motion = rt.motion();
     let animations = motion
         .animations()
         .into_iter()
@@ -55,13 +55,13 @@ pub(super) fn set_time_scale(
             "time scale must be between 0 and 4",
         ));
     }
-    MotionState::of(rt).set_time_scale(rt, params.scale);
+    rt.motion().set_time_scale(rt, params.scale);
     engine_effect(rt, HostRequest::TimeScale(params.scale));
     Ok(p::Empty {})
 }
 
 pub(super) fn list_tasks(rt: &Runtime, _: p::Empty) -> Result<p::TaskList, p::RpcError> {
-    let state = TaskState::of(rt);
+    let state = rt.tasks();
     let mut tasks = Vec::new();
     for (index, timer) in state.list().into_iter().enumerate() {
         tasks.push(p::TaskInfo {
@@ -97,7 +97,7 @@ pub(super) fn list_tasks(rt: &Runtime, _: p::Empty) -> Result<p::TaskList, p::Rp
 
 /// Restore the animation clock to its normal speed.
 pub(super) fn reset_time_scale(rt: &Runtime) {
-    MotionState::of(rt).set_time_scale(rt, 1.0);
+    rt.motion().set_time_scale(rt, 1.0);
     engine_effect(rt, HostRequest::TimeScale(1.0));
 }
 

@@ -7,7 +7,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::Repeat;
-use super::state::{Anim, AnimInfo, AnimKind, MotionState, MotionToken, RunStatus, motion_now};
+use super::state::{Anim, AnimInfo, AnimKind, MotionToken, RunStatus, motion_now};
 use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
@@ -151,7 +151,7 @@ impl<T: Animatable> AnimCell<T> {
         if was != now
             && let Some(rt) = Runtime::get(self.owner.app())
         {
-            MotionState::of(&rt).set_anim_running(self.registration.id, now);
+            rt.motion().set_anim_running(self.registration.id, now);
         }
     }
 
@@ -376,7 +376,7 @@ impl<T: Animatable> Animated<T> {
             ));
         }
         let value: Signal<T> = owner.signal(initial, at);
-        let registration = MotionState::of(&rt).token(rt.id());
+        let registration = rt.motion().token(rt.id());
         let motion_id = registration.id;
         let cell = Rc::new(AnimCell {
             registration,
@@ -387,7 +387,7 @@ impl<T: Animatable> Animated<T> {
             phase: owner.signal(AnimPhase::Idle, at),
         });
         let anim: Rc<dyn Anim> = cell.clone();
-        MotionState::of(&rt).register_anim(motion_id, &anim);
+        rt.motion().register_anim(motion_id, &anim);
         drop(anim);
         let stored = owner.store("Animated", cell.clone(), at);
         let weak = Rc::downgrade(&cell);
@@ -395,7 +395,7 @@ impl<T: Animatable> Animated<T> {
             let Some(rt) = Runtime::get(app) else { return };
             let Some(cell) = weak.upgrade() else { return };
             let now = motion_now(&rt);
-            let reduced = MotionState::of(&rt).reduced_motion(&rt);
+            let reduced = rt.motion().reduced_motion(&rt);
             crate::untrack(|| cell.retarget(t, now, reduced));
             rt.request_turn();
         };
@@ -489,7 +489,7 @@ impl<T: Animatable> Animated<T> {
         } = cell.phase.get_untracked()
         {
             let now = motion_now(&rt);
-            let reduced = MotionState::of(&rt).reduced_motion(&rt);
+            let reduced = rt.motion().reduced_motion(&rt);
             run.shift_last(at_ns, now);
             cell.begin(run, shift(start_ns, at_ns, now), reduced);
             rt.request_turn();
@@ -526,7 +526,7 @@ impl<T: Animatable> Animated<T> {
             AnimPhase::Idle | AnimPhase::Completed { .. } => {
                 let target = cell.target();
                 let run = cell.make_run(now, one_shot(&cell.transition), target, v);
-                let reduced = MotionState::of(&rt).reduced_motion(&rt);
+                let reduced = rt.motion().reduced_motion(&rt);
                 cell.start_run(run, now, reduced);
             }
         }

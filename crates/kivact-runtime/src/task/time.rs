@@ -41,7 +41,7 @@ impl Future for Sleep {
             self.state = SleepState::Fired;
             return Poll::Ready(());
         };
-        let mut scheduler = super::TaskState::of(&rt).time.borrow_mut();
+        let mut scheduler = rt.tasks().time.borrow_mut();
         let (key, created_at, owner) = match self.state {
             SleepState::Unregistered {
                 deadline,
@@ -118,7 +118,7 @@ pub(crate) fn sleep_ns(
             created_at,
             owner,
         },
-        cancel: super::TaskState::of(rt).time.borrow().cancel.clone(),
+        cancel: rt.tasks().time.borrow().cancel.clone(),
     }
 }
 

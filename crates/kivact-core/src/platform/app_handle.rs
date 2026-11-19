@@ -110,7 +110,7 @@ pub(crate) struct AppHandleExt(pub(crate) AppHandle);
 impl AppHandleExt {
     /// The handle of `rt`'s App.
     pub(crate) fn of(rt: &Runtime) -> &Self {
-        rt.ext::<Self>()
+        &crate::app_state::AppState::of(rt).handle
     }
 }
 

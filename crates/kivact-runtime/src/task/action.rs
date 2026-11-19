@@ -389,7 +389,7 @@ where
     if matches!(cell.runner, Runner::Queue(_)) {
         // Queued actions are listed for the exit drain.
         let drain: Rc<dyn Drain> = cell.clone();
-        let mut queues = super::TaskState::of(&rt).queues.borrow_mut();
+        let mut queues = rt.tasks().queues.borrow_mut();
         queues.insert(&drain);
     }
     let weak = Rc::downgrade(&cell);
@@ -404,7 +404,7 @@ where
         if cell.busy() {
             let deadline = rt.now_ns().saturating_add(DEFAULT_DRAIN_NS);
             let d: Rc<dyn Drain> = cell;
-            super::TaskState::of(rt)
+            rt.tasks()
                 .draining
                 .borrow_mut()
                 .push(super::state::DrainEntry::new(d, deadline));
@@ -574,48 +574,46 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
         // The worker runs for the action's owner (see the module doc); once
         // the owner is disposed that owner is dead and owner-relative
         // functions report `Disposed`.
-        let task = super::TaskState::of(rt)
-            .exec
-            .spawn(Some(self.owner.id()), async move {
-                loop {
-                    let fut = {
-                        let Some(cell) = weak.upgrade() else { return };
-                        let queue = cell.queue();
-                        if !queue.is_worker(id) {
-                            return;
-                        }
-                        let next = queue.phase.borrow_mut().parts_mut().1.pop_front();
-                        let Some(submitted) = next else {
-                            // The worker ends: its own task handle goes.
-                            drop(queue.replace_worker(Worker::Stopped));
-                            cell.queue_status();
-                            cell.wake_drained();
-                            return;
-                        };
-                        queue.set_running(true);
-                        cell.begin_run(&submitted, |cell| cell.queue_status())
-                    };
-                    let result = fut.await;
+        let task = rt.tasks().exec.spawn(Some(self.owner.id()), async move {
+            loop {
+                let fut = {
                     let Some(cell) = weak.upgrade() else { return };
                     let queue = cell.queue();
                     if !queue.is_worker(id) {
                         return;
                     }
-                    let has_waiting = !queue.phase.borrow().parts().1.is_empty();
-                    if has_waiting {
-                        queue.set_running(false);
-                    } else {
+                    let next = queue.phase.borrow_mut().parts_mut().1.pop_front();
+                    let Some(submitted) = next else {
+                        // The worker ends: its own task handle goes.
                         drop(queue.replace_worker(Worker::Stopped));
-                    }
-                    cell.finish(result);
-                    if has_waiting {
                         cell.queue_status();
-                    } else {
                         cell.wake_drained();
                         return;
-                    }
+                    };
+                    queue.set_running(true);
+                    cell.begin_run(&submitted, |cell| cell.queue_status())
+                };
+                let result = fut.await;
+                let Some(cell) = weak.upgrade() else { return };
+                let queue = cell.queue();
+                if !queue.is_worker(id) {
+                    return;
                 }
-            });
+                let has_waiting = !queue.phase.borrow().parts().1.is_empty();
+                if has_waiting {
+                    queue.set_running(false);
+                } else {
+                    drop(queue.replace_worker(Worker::Stopped));
+                }
+                cell.finish(result);
+                if has_waiting {
+                    cell.queue_status();
+                } else {
+                    cell.wake_drained();
+                    return;
+                }
+            }
+        });
         queue.replace_worker(Worker::Picking { task, id });
         rt.request_turn();
     }

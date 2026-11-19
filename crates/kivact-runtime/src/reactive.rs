@@ -21,7 +21,7 @@
 //! (nodes and edges, push-pull), `owner` (owners and disposal), `object`
 //! (owner-bound objects), `report` (error routing), `turn` (effect
 //! scheduling), `mounts` (`on_mount`), `clock` (clock and turn requests),
-//! `ext` (per-App extensions), `diag` (the trace ring), `host` (the host's
+//! `diag` (the trace ring), `host` (the host's
 //! entry points).
 
 mod arena;
@@ -31,7 +31,6 @@ mod detail;
 mod diag;
 mod error;
 mod execution;
-mod ext;
 mod frame;
 mod graph;
 pub mod handler;
@@ -57,9 +56,10 @@ mod trigger;
 mod turn;
 
 pub use clock::clock_now;
+pub(crate) use data::AppSlot;
 pub use data::{
-    Binding, Callback, EffectKind, Extensions, Kind, LiveCounts, NodeInfo, Runtime, Signal,
-    TraceRun, TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
+    Binding, Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, TraceRun,
+    TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use detail::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, StageSpan, TurnDetail};
 pub use diag::{ReportKind, Reported};

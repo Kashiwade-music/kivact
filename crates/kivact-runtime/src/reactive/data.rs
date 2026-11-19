@@ -54,7 +54,7 @@ pub struct LiveCounts {
     pub slots: usize,
 }
 
-// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids
+// xtask-allow(state): legacy: graph, owners, objects, consts, frames, collectors, sched, scratch, seq, write_epoch, unstamped, awaiting, state, exit, clock, diag, later; identity: allocates effect creation-order ids; app is written once inside Runtime::new before it returns and only read afterwards
 /// The reactive runtime of one App: arenas, frame stack, scheduler, trace
 /// ring, its driver and the extensions of the higher crates.
 pub struct Runtime {
@@ -75,11 +75,6 @@ pub struct Runtime {
     pub(crate) seq: Cell<u64>,
     pub(crate) write_epoch: Cell<kivact_types::cell::Generation>,
     pub(crate) root: Key,
-    #[expect(
-        clippy::disallowed_types,
-        reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
-    )]
-    pub(crate) ext: std::cell::OnceCell<Extensions>,
     pub(crate) unstamped: RefCell<Vec<Mount>>,
     pub(crate) awaiting: RefCell<VecDeque<(kivact_types::Revision, Mount)>>,
     pub(crate) host: Rc<dyn crate::reactive::host_types::Host>,
@@ -91,6 +86,13 @@ pub struct Runtime {
     /// layout), delivered at the start of the next turn
     /// ([`Runtime::report_later`]).
     pub(crate) later: RefCell<Vec<(Option<Key>, UiError)>>,
+    /// Tasks, timers, the blocking pool and the exit drain of this App.
+    pub(crate) tasks: crate::task::TaskState,
+    /// Frame loops and animations of this App.
+    pub(crate) motion: crate::motion::MotionState,
+    /// What the host layer installs while `Runtime::new` runs: written once,
+    /// before `Runtime::new` returns, and only read afterwards.
+    pub(crate) app: kivact_types::cell::Deferred<AppSlot>,
     pub(crate) graveyard: RefCell<Graveyard>,
     /// What runs when a watched source loses its last subscriber (selector
     /// key nodes): run once, then forgotten.
@@ -500,16 +502,18 @@ pub(crate) struct Diag {
     pub(crate) next_seq: u64,
 }
 
-/// The per-App extension values, at most one per type.
-#[derive(Default)]
-pub struct Extensions(pub(crate) Vec<(TypeId, Box<dyn Any>)>);
-
 /// What an owner's disposal released, dropped after every borrow ends
 /// (user `Drop` code may run). Kept on the runtime to reuse its capacity.
 #[derive(Default)]
 pub(crate) struct Graveyard {
     pub(crate) nodes: Vec<RNode>,
     pub(crate) data: Vec<Rc<dyn Any>>,
+}
+
+/// The host layer's part of the runtime (`AppParts`, stored).
+pub(crate) struct AppSlot {
+    pub(crate) motion_env: crate::motion::MotionEnv,
+    pub(crate) state: Box<dyn Any>,
 }
 
 /// An `on_mount` callback waiting for the driver's acknowledgement.
@@ -597,36 +601,6 @@ pub(crate) enum BindingRepr<T: 'static> {
 /// A two-way input binding: a value and a setter.
 pub struct Binding<T: 'static> {
     pub(crate) repr: BindingRepr<T>,
-}
-
-impl Extensions {
-    /// No extensions.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Add `value`. Panics (invariant) if a value of the same type is
-    /// already present: each type is installed by exactly one subsystem.
-    pub fn with<T: 'static>(mut self, value: T) -> Self {
-        let id = TypeId::of::<T>();
-        assert!(
-            self.0.iter().all(|(k, _)| *k != id),
-            "invariant: extension {} installed twice",
-            std::any::type_name::<T>()
-        );
-        self.0.push((id, Box::new(value)));
-        self
-    }
-
-    /// The value of type `T`, if installed.
-    #[inline]
-    pub(crate) fn get<T: 'static>(&self) -> Option<&T> {
-        let id = TypeId::of::<T>();
-        self.0
-            .iter()
-            .find(|(k, _)| *k == id)
-            .and_then(|(_, v)| v.downcast_ref::<T>())
-    }
 }
 
 impl<T: 'static> Clone for BindingRepr<T> {

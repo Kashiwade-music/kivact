@@ -203,7 +203,11 @@ mod tests {
 
     #[test]
     fn remounted_readers_do_not_accumulate_key_entries() {
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         // The root owner takes the first owner slot, as `Runtime::new` makes it.
         assert_eq!(rt.create_owner(None, at), rt.root);
@@ -239,7 +243,11 @@ mod tests {
 
     #[test]
     fn a_reader_switching_keys_keeps_its_nodes_bounded() {
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
         rt.enter(|| {

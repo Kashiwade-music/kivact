@@ -141,12 +141,6 @@ impl TaskState {
         }
     }
 
-    /// The task state installed in `rt`'s App.
-    #[inline]
-    pub fn of(rt: &Runtime) -> &TaskState {
-        rt.ext::<TaskState>()
-    }
-
     /// Whether a spawned future is ready to be polled (the next turn has
     /// tasks to run).
     pub fn has_ready(&self) -> bool {

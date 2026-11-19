@@ -55,6 +55,7 @@ pub mod embed;
 mod embed;
 
 mod app;
+mod app_state;
 mod client;
 pub mod custom;
 #[cfg(feature = "devtools")]

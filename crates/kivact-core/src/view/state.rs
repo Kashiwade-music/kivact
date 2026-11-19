@@ -441,7 +441,7 @@ impl ViewState {
     /// The view state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &ViewState {
-        rt.ext::<ViewState>()
+        &crate::app_state::AppState::of(rt).view
     }
 
     /// Read the retained tree of `rt`'s App.

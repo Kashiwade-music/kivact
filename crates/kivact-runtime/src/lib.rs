@@ -13,7 +13,7 @@ mod motion;
 mod reactive;
 mod task;
 
-pub use host::RuntimeConfig;
+pub use host::{AppParts, RuntimeConfig};
 pub use machine::{Machine, MachineCx, MachineHandle, Step, machine};
 pub use motion::{
     AnimInfo, AnimKind, Animatable, Animated, At, Easing, FrameInfo, FrameLoop, FrameRate,
@@ -23,14 +23,14 @@ pub use motion::{
 };
 pub use reactive::{
     AppId, Binding, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,
-    ErrorKind, ExitState, Extensions, Handled, Handler, HandlerResult, Host, IntoBinding,
-    IntoReactive, IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner,
-    LiveSnapshot, NodeId, NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Pending, Prop,
-    PropValue, Reactive, ReportKind, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan,
-    ThreadWaker, TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport,
-    UiError, UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo,
-    notifier, on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector,
-    signal, try_use_context, untrack, use_context, var,
+    ErrorKind, ExitState, Handled, Handler, HandlerResult, Host, IntoBinding, IntoReactive,
+    IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner, LiveSnapshot, NodeId,
+    NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Pending, Prop, PropValue, Reactive,
+    ReportKind, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan, ThreadWaker,
+    TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport, UiError,
+    UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo, notifier,
+    on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector, signal,
+    try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{

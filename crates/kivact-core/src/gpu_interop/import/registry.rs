@@ -39,7 +39,8 @@ pub(crate) struct StateSlot(kivact_types::cell::Deferred<State>);
 #[track_caller]
 pub(crate) fn state(rt: &Runtime) -> &State {
     let at = Location::caller();
-    rt.ext::<StateSlot>()
+    crate::app_state::AppState::of(rt)
+        .gpu
         .0
         .get_or_init(|| State::new(rt.root(), at))
 }

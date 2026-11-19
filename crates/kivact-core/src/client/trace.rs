@@ -29,7 +29,7 @@ struct Sink {
 
 impl Trace {
     pub(crate) fn of(rt: &Runtime) -> &Self {
-        rt.ext::<Self>()
+        &crate::app_state::AppState::of(rt).trace
     }
 
     /// The trace of an App whose test is `name`; opens the file when

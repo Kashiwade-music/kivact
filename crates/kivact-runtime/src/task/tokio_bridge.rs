@@ -11,7 +11,7 @@ pub fn on_tokio<T: Send + 'static>(
 ) -> impl Future<Output = T> {
     let runtime = crate::Runtime::current().expect("invariant: on_tokio is called inside an App");
     crate::require_effectful("on_tokio");
-    let state = TaskState::of(&runtime);
+    let state = runtime.tasks();
     TokioFuture(state.tokio.borrow_mut().spawn(fut))
 }
 struct TokioFuture<T>(tokio::task::JoinHandle<T>);

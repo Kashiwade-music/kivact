@@ -261,7 +261,11 @@ mod tests {
     #[test]
     fn a_pass_that_mounts_three_thousand_effects_is_not_a_cycle() {
         const MOUNTED: usize = 3_000;
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
         rt.enter(|| {
@@ -309,7 +313,11 @@ mod tests {
 
     #[test]
     fn an_effect_that_reruns_itself_is_a_cycle() {
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
         rt.enter(|| {

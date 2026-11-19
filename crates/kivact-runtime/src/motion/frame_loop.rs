@@ -7,7 +7,7 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, MotionState, motion_now};
+use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, motion_now};
 use super::values::{FrameInfo, FrameRate};
 
 use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
@@ -28,7 +28,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
     let owner = Owner::current("frame_loop", at);
     let rt = owner.runtime();
     let rate = owner.signal(None, at);
-    let registration = MotionState::of(&rt).token(rt.id());
+    let registration = rt.motion().token(rt.id());
     let id = registration.id;
     let cell = Rc::new(LoopCell {
         registration,
@@ -40,7 +40,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         gate: Cell::new(LoopGate::Always),
         motion: Cell::new(LoopMotion::Decorative),
     });
-    MotionState::of(&rt).register_loop(id, &cell);
+    rt.motion().register_loop(id, &cell);
     FrameLoop {
         handle: owner.store("FrameLoop", cell, at),
     }

@@ -124,7 +124,7 @@ fn start<R: Send + 'static>(
     }));
     let s2 = slot.clone();
     let runtime = super::time::timer_runtime("blocking", at);
-    let pool = super::TaskState::of(&runtime).blocking_pool();
+    let pool = runtime.tasks().blocking_pool();
     let outstanding = Arc::clone(&pool.outstanding);
     outstanding.fetch_add(1, Ordering::SeqCst);
     let job: Job = Box::new(move || {

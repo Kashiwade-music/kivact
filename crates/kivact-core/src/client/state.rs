@@ -26,7 +26,7 @@ impl HostState {
     /// The host-link state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &HostState {
-        rt.ext::<HostState>()
+        &crate::app_state::AppState::of(rt).host
     }
 
     /// Turns run so far.

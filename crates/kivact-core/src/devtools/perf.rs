@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{LiveSnapshot, MotionState, Runtime, TaskState};
+use kivact_runtime::{LiveSnapshot, Runtime};
 
 use super::convert;
 use crate::client::state::HostState;
@@ -66,8 +66,8 @@ fn window_not_found(raw: p::WindowId) -> p::RpcError {
 pub(super) fn get_counters(rt: &Runtime, params: p::Empty) -> Result<p::Counters, p::RpcError> {
     let _ = params;
     let live = rt.live_counts();
-    let motion = MotionState::of(rt).stats();
-    let tasks = TaskState::of(rt).stats();
+    let motion = rt.motion().stats();
+    let tasks = rt.tasks().stats();
     Ok(p::Counters {
         live_reactive: live.reactive as u64,
         live_owners: live.owners as u64,

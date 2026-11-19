@@ -1,7 +1,7 @@
 //! Role: Window and environment events: the environment, the frame clock,
 //! close, and the geometry reports (`ScrollChanged`, `LayoutChanged`).
 
-use kivact_runtime::{ErrorKind, MotionState, Runtime, UiError};
+use kivact_runtime::{ErrorKind, Runtime, UiError};
 use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};
@@ -28,9 +28,9 @@ pub(super) fn env_changed(rt: &Runtime, window: WindowId, env: &Environment, sur
     // at the next tick: nothing needs another frame to see it. Turning it
     // off counts the decorative loops from now, as a resumed surface does.
     if env.reduced_motion {
-        MotionState::of(rt).reduce_motion(rt);
+        rt.motion().reduce_motion(rt);
     } else if was_reduced {
-        MotionState::of(rt).restore_motion(rt);
+        rt.motion().restore_motion(rt);
     }
 }
 
@@ -58,7 +58,8 @@ pub(super) fn frame_tick(
 ) {
     // The turn advanced the App's clock with host time; `now_ns` is the
     // frame (motion) clock and is not applied to the App's clock again.
-    MotionState::of(rt).on_frame_tick(rt, now_ns, estimated_present_ns, clock);
+    rt.motion()
+        .on_frame_tick(rt, now_ns, estimated_present_ns, clock);
 }
 
 pub(super) fn scroll_changed(

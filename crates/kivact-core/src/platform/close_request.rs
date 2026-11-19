@@ -60,9 +60,8 @@ pub fn on_close_request<R: HandlerResult>(f: impl Fn() -> R + 'static) {
         owner,
         handler: Handler::from_fn(move |()| f()),
     });
-    owner
-        .runtime()
-        .ext::<CloseRequestState>()
+    crate::app_state::AppState::of(&owner.runtime())
+        .close
         .registrations
         .borrow_mut()
         .insert(&registration);
@@ -71,7 +70,8 @@ pub fn on_close_request<R: HandlerResult>(f: impl Fn() -> R + 'static) {
 
 /// The live registrations in registration order; dead ones are removed.
 pub(crate) fn registrations(rt: &Runtime) -> Vec<Rc<Registration>> {
-    rt.ext::<CloseRequestState>()
+    crate::app_state::AppState::of(rt)
+        .close
         .registrations
         .borrow_mut()
         .live()

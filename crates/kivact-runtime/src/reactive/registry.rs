@@ -44,13 +44,17 @@ pub(crate) fn check_not_foreign(app: AppId, at: &'static Location<'static>) {
 }
 
 impl Runtime {
-    /// Create and register a new runtime (App) with its extensions. Ids are
+    /// Create and register a new runtime (App) with its tasks. Ids are
     /// never reused.
-    pub(crate) fn register(host: Rc<dyn Host>, start_ns: u64) -> Rc<Runtime> {
+    pub(crate) fn register(
+        host: Rc<dyn Host>,
+        start_ns: u64,
+        tasks: crate::task::TaskState,
+    ) -> Rc<Runtime> {
         REGISTRY.with(|r| {
             let mut reg = r.borrow_mut();
             let id = AppId(reg.len() as u32 + 1);
-            let rt = Rc::new(Runtime::with_id(id, host, start_ns));
+            let rt = Rc::new(Runtime::with_id(id, host, start_ns, tasks));
             reg.push(Some(rt.clone()));
             rt
         })

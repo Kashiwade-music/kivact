@@ -130,7 +130,7 @@ pub(crate) struct MotionToken {
 impl Drop for MotionToken {
     fn drop(&mut self) {
         if let Some(rt) = Runtime::get(self.app) {
-            MotionState::of(&rt).forget(self.id);
+            rt.motion().forget(self.id);
         }
     }
 }
@@ -156,7 +156,7 @@ pub struct MotionState {
 
 /// The motion clock (ns) of `rt`: host time through the DevTools time scale.
 pub(crate) fn motion_now(rt: &Runtime) -> u64 {
-    MotionState::of(rt).time_scale.get().motion_ns(rt.now_ns())
+    rt.motion().time_scale.get().motion_ns(rt.now_ns())
 }
 
 /// Where the owner that owns an animation was created, if its App is still registered.
@@ -166,12 +166,6 @@ pub(super) fn owner_source(owner: Owner) -> Option<&'static std::panic::Location
 }
 
 impl MotionState {
-    /// The motion state installed in `rt`'s App.
-    #[inline]
-    pub fn of(rt: &Runtime) -> &MotionState {
-        rt.ext::<MotionState>()
-    }
-
     /// Set how fast motion time runs (0 pauses, 1 is normal) from now on.
     pub fn set_time_scale(&self, rt: &Runtime, scale: f64) {
         self.time_scale
@@ -206,21 +200,21 @@ impl MotionState {
     /// Whether the host asks for reduced motion (untracked; a disposed root
     /// reads as no).
     pub(crate) fn reduced_motion(&self, rt: &Runtime) -> bool {
-        let v = rt.ext::<MotionEnv>().reduced_motion;
+        let v = rt.motion_env().reduced_motion;
         crate::untrack(|| v.try_get()).unwrap_or(false)
     }
 
     /// Whether a surface can be drawn on (untracked; a disposed root reads as
     /// yes).
     fn surface_active(&self, rt: &Runtime) -> bool {
-        let v = rt.ext::<MotionEnv>().surface_active;
+        let v = rt.motion_env().surface_active;
         crate::untrack(|| v.try_get()).unwrap_or(true)
     }
 
     /// The display refresh period; `None` once the view root is disposed (the
     /// App is closing and no frame work is left).
     fn period(&self, rt: &Runtime) -> Option<NonZeroU64> {
-        let v = rt.ext::<MotionEnv>().frame_period_ns;
+        let v = rt.motion_env().frame_period_ns;
         let ns = crate::untrack(|| v.try_get())?;
         Some(NonZeroU64::new(ns).expect(
             "invariant: hosts report a positive frame period (`Environment::frame_period_ns`)",
@@ -626,7 +620,50 @@ impl LoopCell {
         if before.is_some() != run.is_some()
             && let Some(rt) = Runtime::get(self.owner.app())
         {
-            MotionState::of(&rt).set_loop_running(self.registration.id, run.is_some());
+            rt.motion()
+                .set_loop_running(self.registration.id, run.is_some());
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: A registration leaves every motion map when its owner is disposed, without any diagnostic call.
+
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    #[test]
+    fn a_disposed_frame_loop_leaves_every_motion_map() {
+        let rt = crate::Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
+        let at = Location::caller();
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        rt.enter(|| {
+            let child = rt.root().child(at);
+            child.with_setup(|| {
+                let looped = crate::frame_loop(|_| ());
+                looped.start(crate::FrameRate::Display);
+            });
+            assert_eq!(rt.motion().loops.borrow().len(), 1);
+            assert_eq!(rt.motion().running_loops.borrow().len(), 1);
+            child.dispose();
+            assert!(
+                rt.motion().loops.borrow().is_empty(),
+                "the registration left with its owner"
+            );
+            assert!(rt.motion().running_loops.borrow().is_empty());
+        });
+        rt.shutdown();
     }
 }

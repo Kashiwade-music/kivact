@@ -15,9 +15,8 @@ use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
 use crate::view::text_edits::TextEditsAhead;
-use kivact_runtime::TaskState;
 use kivact_runtime::{
-    ErrorKind, ExitState, Extensions, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage,
+    AppParts, ErrorKind, ExitState, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage,
     ThreadWaker, TurnGuard, TurnReport, UiError,
 };
 
@@ -193,20 +192,22 @@ impl Launch {
                 let hooks = None;
                 let view = ViewState::new(root, info, writer.clone(), hooks, at);
                 let motion_env = install_main_window(&view, root, info, options, at);
-                let extensions = Extensions::new().with(view).with(motion_env);
-                let extensions = extensions.with(crate::gpu_interop::StateSlot::default());
-                let extensions = extensions.with(AppHandleExt(handle.clone()));
-                #[cfg(feature = "devtools")]
-                let extensions = extensions.with(devtools);
-                #[cfg(debug_assertions)]
-                let extensions = {
-                    let trace = crate::client::trace::Trace::new(trace_name.as_deref());
-                    extensions.with(trace)
+                let state = crate::app_state::AppState {
+                    view,
+                    gpu: crate::gpu_interop::StateSlot::default(),
+                    handle: AppHandleExt(handle.clone()),
+                    #[cfg(feature = "devtools")]
+                    devtools,
+                    #[cfg(debug_assertions)]
+                    trace: crate::client::trace::Trace::new(trace_name.as_deref()),
+                    lifecycle: crate::platform::lifecycle::LifecycleState::default(),
+                    close: crate::platform::close_request::CloseRequestState::default(),
+                    host: HostState::default(),
                 };
-                extensions
-                    .with(crate::platform::lifecycle::LifecycleState::default())
-                    .with(crate::platform::close_request::CloseRequestState::default())
-                    .with(HostState::default())
+                AppParts {
+                    state: Box::new(state),
+                    motion_env,
+                }
             },
         );
         let (options, root) = match std::mem::replace(
@@ -430,7 +431,7 @@ impl Drop for Launch {
             return;
         };
         let rt = &started.rt;
-        let tasks = TaskState::of(rt);
+        let tasks = rt.tasks();
         // A propagating panic ends the App: run no more App code. Only the
         // worker threads are stopped.
         if !std::thread::panicking() {

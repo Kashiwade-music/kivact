@@ -56,9 +56,9 @@ pub(super) fn spawn_owned(
     let wrapped = async move {
         fut.await;
         let Some(rt) = Runtime::get(app) else { return };
-        TaskState::of(&rt).finished.borrow_mut().push(key);
+        rt.tasks().finished.borrow_mut().push(key);
     };
-    let task = TaskState::of(rt).exec.spawn(Some(owner.id()), wrapped);
+    let task = rt.tasks().exec.spawn(Some(owner.id()), wrapped);
     assert!(
         cell.task.set(task).is_ok(),
         "invariant: a task cell gets its task once"

@@ -545,7 +545,12 @@ mod tests {
 
     #[test]
     fn disposing_an_owner_releases_its_context_cleanup_error_handler_object_and_const() {
-        let rt = Runtime::with_id(AppId(1), Rc::new(Quiet), 0);
+        let rt = Runtime::with_id(
+            AppId(1),
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         let log = Rc::new(RefCell::new(Vec::<&'static str>::new()));
         let owner = rt.create_owner(None, at);
