@@ -114,13 +114,13 @@ pub(crate) enum TrackPhase {
         /// The interrupted spring state.
         spring: SpringRun,
     },
-    /// Moving from `interp.from` to `interp.to` since `start` (host ns).
+    /// Moving from `interp.from` to `interp.to` since `start` (motion ns).
     Running {
         /// The interpolation.
         interp: PropInterp,
         /// The numbers drawn now.
         current: Vec<f64>,
-        /// When it started (host ns).
+        /// When it started (motion ns).
         start: u64,
         /// A spring's velocity, step time and iteration.
         spring: SpringRun,

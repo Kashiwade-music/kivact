@@ -332,19 +332,4 @@ impl Model {
         self.motion.0 = animations;
         active
     }
-
-    pub(crate) fn shift_state_times(&mut self, paused: u64, now: u64) {
-        for a in self.motion.0.values_mut() {
-            for track in &mut a.tracks {
-                if let TrackPhase::Running { start, spring, .. } = &mut track.phase {
-                    *start = if *start <= paused {
-                        start.saturating_add(now.saturating_sub(paused))
-                    } else {
-                        now
-                    };
-                    spring.last_ns = now;
-                }
-            }
-        }
-    }
 }

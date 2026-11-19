@@ -29,7 +29,7 @@ pub(super) struct Entry {
 /// Where a playback is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum PlaybackState {
-    /// Playing since `start` (host ns).
+    /// Playing since `start` (motion ns).
     Playing { start: u64 },
     /// The repeat count is spent: the last frame is shown.
     Finished,

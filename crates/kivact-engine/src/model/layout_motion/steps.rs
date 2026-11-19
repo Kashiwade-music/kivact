@@ -206,19 +206,6 @@ impl Model {
         !self.layout_motion.runs.is_empty()
     }
 
-    /// Move the runs' times past a stop that ended at `now` (the stop began
-    /// at `since`): they go on from where they stood.
-    pub(crate) fn shift_layout_times(&mut self, since: u64, now: u64) {
-        for a in self.layout_motion.runs.values_mut() {
-            a.start = if a.start <= since {
-                a.start.saturating_add(now.saturating_sub(since))
-            } else {
-                now
-            };
-            a.spring.last_ns = now;
-        }
-    }
-
     /// The window layout box of `id`: its layout position, moved by each
     /// ancestor's position less its scroll, with no transform applied.
     /// `None` when it has no layout yet.

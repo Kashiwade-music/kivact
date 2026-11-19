@@ -11,6 +11,7 @@
 pub mod asset;
 pub mod cell;
 pub mod check;
+pub mod clock;
 pub mod color;
 pub mod color_space;
 pub mod defaults;

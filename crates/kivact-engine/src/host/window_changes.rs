@@ -9,7 +9,7 @@ use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::Host;
 use super::window::{HostWindow, surface_of};
 use crate::contract::{ForeignChange, HostEvent};
-use crate::model::{AppClock, WindowChange};
+use crate::model::WindowChange;
 use arvane::Windows;
 use kivact_types::{Environment, WindowContent, WindowId};
 
@@ -112,11 +112,11 @@ impl Host {
             .unwrap_or_default();
         let env = {
             let mut app = self.app.borrow_mut();
+            app.set_now(id, now);
             let model = app
                 .model_mut(id)
                 .expect("invariant: a started window has a model");
             model.set_viewport(viewport);
-            model.frame.set_now(now);
             let mut env = native;
             env.scale_factor = paint_scale;
             env.window_size = size;
@@ -234,19 +234,10 @@ impl Host {
         let drawable = self.windows.keys().any(|id| self.drawable(*id));
         let shared = std::rc::Rc::clone(&self.app);
         let mut app = shared.borrow_mut();
-        match app.clock {
-            AppClock::Running if !drawable => {
-                app.clock = AppClock::Stopped { since_ns: now };
-            }
-            AppClock::Stopped { since_ns } if drawable => {
-                app.motion.offset_ns = app
-                    .motion
-                    .offset_ns
-                    .saturating_add(now.saturating_sub(since_ns));
-                app.motion.resumed_ns = now;
-                app.clock = AppClock::Running;
-            }
-            _ => {}
+        if drawable {
+            app.clock.resume(now);
+        } else {
+            app.clock.stop(now);
         }
         let period = if drawable {
             let id = self

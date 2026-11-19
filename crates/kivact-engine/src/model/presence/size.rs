@@ -104,15 +104,4 @@ impl Model {
         self.presence.sizes = sizes;
         active
     }
-
-    pub(crate) fn shift_size_times(&mut self, paused: u64, now: u64) {
-        for m in self.presence.sizes.values_mut() {
-            m.start = if m.start <= paused {
-                m.start.saturating_add(now.saturating_sub(paused))
-            } else {
-                now
-            };
-            m.spring.last_ns = now;
-        }
-    }
 }

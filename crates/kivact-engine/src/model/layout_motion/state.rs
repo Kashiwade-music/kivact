@@ -30,7 +30,7 @@ pub(super) struct LayoutAnimation {
     pub(super) current: Vec<f64>,
     /// The timing of the run (it plays once, forward).
     pub(super) timing: Transition,
-    /// When the run started (host ns).
+    /// When the run started (motion ns).
     pub(super) start: u64,
     /// The spring's velocity and step state.
     pub(super) spring: SpringRun,
