@@ -1,7 +1,6 @@
 //! Role: The item list recipe state, tokens, recipe table and default looks.
-use crate::UiTokens;
-use crate::item_list::{ItemListMarker, ItemPosition};
 use crate::recipe::recipe_table;
+use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
 pub(crate) fn item_list_root(t: &Theme, _: &PartState) -> Style {
@@ -132,3 +131,22 @@ recipe_table! {
         footer(footer_recipe): ItemRowState = band,
     }
 }
+
+/// Actual zero-based position and collection size; this record owns no ordering state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemPosition {
+    pub index: usize,
+    pub count: usize,
+}
+
+/// Structural marker used by a semantic static list.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ItemListMarker {
+    #[default]
+    None,
+    Disc,
+    Circle,
+    Decimal,
+}
+
+kivact_core::state::constant_value!(ItemListMarker);

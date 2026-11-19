@@ -1,10 +1,10 @@
 //! Role: The navigation menu recipe state, tokens, recipe table and default looks.
 
-use crate::Look;
 use crate::recipe::recipe_table;
+use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
 pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
-    let p = &t.ext::<crate::UiTokens>().navigation_menu;
+    let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
         .direction(Direction::Row)
         .gap(p.gap)
@@ -14,7 +14,7 @@ pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) 
 }
 
 pub(crate) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
-    let p = &t.ext::<crate::UiTokens>().navigation_menu;
+    let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
         .direction(Direction::Column)
         .padding(p.panel_padding)
