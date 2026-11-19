@@ -168,6 +168,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R20（lane X、commit `ba0406f7`）：(a) `reactive/keyed.rs` を、所有の一覧に無いが同じ crate 内の署名の変更に伴う機械的な追従として直した（`Row::new` の `item.key` を let-else に）。0.2 の 11 の範囲で受け入れる。(b) `binding` の closure の型注釈、`Row::new` の let-else は、付属書のコード片を実コードに合わせた形（同じ意味）。受け入れる。(c) 確認は R20〜R25 の共通の形（fmt・check --lib・clippy --lib・xtask）。完了条件の rg は 0 件、`update` は両方とも戻り値なし。
+
 - W5a・R09（lane X、commit `c6e8979e`）：(a) `RNode` の `xtask-allow(state)` の印は、xtask が「未使用の印」の error にしたので外した（表の「未使用の印」の行）。(b) rg の残り `NodeInfo.written` は、付属書が「`NodeInfo` は変えない」と書く公開の field なので受け入れる（表の「既存の行に当たる」の行）。(c) `EffectNode` の R03 の印の置換は、基点に R03 の印が無いので何もしなかった（xtask は指摘しない）。
 - 設計者への注意（R09、STOP ではない）：`frame_path`（cycle の path）が `node_meta` を読むようになり、devtools の feature が無い build、または記録中でない build では、Cycle の `path` が空になる。付属書の R09 に書かれておらず、試験は path を見ていない（`node_ref.rs` は kind だけ）。エラーの内容が変わるので、設計者が影響を見て決める。
 
