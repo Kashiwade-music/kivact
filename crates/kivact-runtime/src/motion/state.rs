@@ -1,8 +1,9 @@
 //! Role: This module stores motion state and frame loop records.
 
 use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, BTreeSet};
 use std::num::NonZeroU64;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 use std::time::Duration;
 
 use crate::Signal;
@@ -11,7 +12,6 @@ use crate::reactive::Handler;
 use crate::{Owner, Runtime};
 use kivact_types::MotionClock;
 use kivact_types::TimeScale;
-use kivact_types::cell::Registry;
 
 use super::values::{FrameInfo, FrameRate};
 
@@ -120,13 +120,36 @@ impl AnimInfo {
     }
 }
 
-// xtask-allow(state): legacy: clock, loops, anims, time_scale
+/// A loop's or an animation's registration. Its cell holds it; when the
+/// cell drops (its owner was disposed), the id leaves every map.
+pub(crate) struct MotionToken {
+    app: crate::AppId,
+    pub(crate) id: u64,
+}
+
+impl Drop for MotionToken {
+    fn drop(&mut self) {
+        if let Some(rt) = Runtime::get(self.app) {
+            MotionState::of(&rt).forget(self.id);
+        }
+    }
+}
+
+// xtask-allow(state): loops and anims hold every registration by id; running_loops and running_anims hold the ids whose phase is running and are written only by those phase changes; clock is the frame request phase; next_id allocates ids and time_scale is a DevTools setting
 /// Per-App frame clock and weak registrations driven by host frame ticks.
 #[derive(Default)]
 pub struct MotionState {
     clock: RefCell<FrameClock>,
-    loops: RefCell<Registry<LoopCell>>,
-    anims: RefCell<Registry<dyn Anim>>,
+    /// Every live frame loop by id (DevTools, stats, the clock shift).
+    loops: RefCell<BTreeMap<u64, Weak<LoopCell>>>,
+    /// Every live animation and timeline by id.
+    anims: RefCell<BTreeMap<u64, Weak<dyn Anim>>>,
+    /// The loops that are started; written only by `LoopCell::set_run`.
+    running_loops: RefCell<BTreeSet<u64>>,
+    /// The animations whose phase is running; written only by their phase changes.
+    running_anims: RefCell<BTreeSet<u64>>,
+    /// Allocates the ids of registrations (creation order).
+    next_id: Cell<u64>,
     /// How fast motion time runs for DevTools.
     time_scale: Cell<TimeScale>,
 }
@@ -169,7 +192,7 @@ impl MotionState {
                 kind: AnimKind::FrameLoop,
                 created_at: owner_source(l.owner),
                 owner: l.owner.id(),
-                status: if matches!(l.state.get_untracked(), LoopState::Running(_)) {
+                status: if l.run.get().is_some() {
                     RunStatus::Running
                 } else {
                     RunStatus::Idle
@@ -204,22 +227,87 @@ impl MotionState {
         ))
     }
 
+    /// A new registration id of `app`.
+    pub(crate) fn token(&self, app: crate::AppId) -> MotionToken {
+        let id = self.next_id.get() + 1;
+        self.next_id.set(id);
+        MotionToken { app, id }
+    }
+
+    /// Remove `id` from every map (`MotionToken::drop`).
+    fn forget(&self, id: u64) {
+        self.loops.borrow_mut().remove(&id);
+        self.anims.borrow_mut().remove(&id);
+        self.running_loops.borrow_mut().remove(&id);
+        self.running_anims.borrow_mut().remove(&id);
+    }
+
     /// Track a frame loop without owning it.
-    pub(crate) fn register_loop(&self, l: &Rc<LoopCell>) {
-        self.loops.borrow_mut().insert(l);
+    pub(crate) fn register_loop(&self, id: u64, l: &Rc<LoopCell>) {
+        self.loops.borrow_mut().insert(id, Rc::downgrade(l));
     }
 
     /// Track an animation without owning it.
-    pub(crate) fn register_anim(&self, a: &Rc<dyn Anim>) {
-        self.anims.borrow_mut().insert(a);
+    pub(crate) fn register_anim(&self, id: u64, a: &Rc<dyn Anim>) {
+        self.anims.borrow_mut().insert(id, Rc::downgrade(a));
     }
 
+    /// A loop started (`true`) or stopped.
+    pub(crate) fn set_loop_running(&self, id: u64, running: bool) {
+        let mut set = self.running_loops.borrow_mut();
+        if running {
+            set.insert(id);
+        } else {
+            set.remove(&id);
+        }
+    }
+
+    /// An animation's phase became running (`true`) or left it.
+    pub(crate) fn set_anim_running(&self, id: u64, running: bool) {
+        let mut set = self.running_anims.borrow_mut();
+        if running {
+            set.insert(id);
+        } else {
+            set.remove(&id);
+        }
+    }
+
+    // The maps hold only live registrations (`MotionToken::drop` removes
+    // the others), so reading them prunes nothing.
     fn live_loops(&self) -> Vec<Rc<LoopCell>> {
-        self.loops.borrow_mut().live()
+        self.loops
+            .borrow()
+            .values()
+            .filter_map(Weak::upgrade)
+            .collect()
     }
 
     fn live_anims(&self) -> Vec<Rc<dyn Anim>> {
-        self.anims.borrow_mut().live()
+        self.anims
+            .borrow()
+            .values()
+            .filter_map(Weak::upgrade)
+            .collect()
+    }
+
+    /// The started loops, in creation order.
+    fn running_loops(&self) -> Vec<Rc<LoopCell>> {
+        let loops = self.loops.borrow();
+        self.running_loops
+            .borrow()
+            .iter()
+            .filter_map(|id| loops.get(id).and_then(Weak::upgrade))
+            .collect()
+    }
+
+    /// The running animations, in creation order.
+    fn running_anims(&self) -> Vec<Rc<dyn Anim>> {
+        let anims = self.anims.borrow();
+        self.running_anims
+            .borrow()
+            .iter()
+            .filter_map(|id| anims.get(id).and_then(Weak::upgrade))
+            .collect()
     }
 
     /// An enabled preference completes active decorative runs immediately.
@@ -228,7 +316,7 @@ impl MotionState {
     /// frame is needed to see it.
     pub fn reduce_motion(&self, rt: &Runtime) {
         rt.enter(|| {
-            for animation in self.live_anims() {
+            for animation in self.running_anims() {
                 animation.finish_decorative();
             }
         });
@@ -241,11 +329,11 @@ impl MotionState {
     pub fn restore_motion(&self, rt: &Runtime) {
         let now = motion_now(rt);
         rt.enter(|| {
-            for l in self.live_loops() {
+            for l in self.running_loops() {
                 if l.motion.get() != LoopMotion::Decorative {
                     continue;
                 }
-                if let LoopState::Running(run) = l.state.get_untracked() {
+                if let Some(run) = l.run.get() {
                     l.set_run(Some(LoopRun {
                         rate: run.rate,
                         cadence: Cadence::Fresh { start_ns: now },
@@ -268,7 +356,7 @@ impl MotionState {
                 a.shift_clock(paused, clock.resumed_ns);
             }
             for l in self.live_loops() {
-                if let LoopState::Running(run) = l.state.get_untracked() {
+                if let Some(run) = l.run.get() {
                     l.set_run(Some(LoopRun {
                         rate: run.rate,
                         cadence: Cadence::Fresh { start_ns: now },
@@ -294,11 +382,11 @@ impl MotionState {
         };
         let period = period.get();
         let reduced = self.reduced_motion(rt);
-        for l in self.live_loops() {
+        for l in self.running_loops() {
             if !l.is_present() || skips_under(&l, reduced) {
                 continue;
             }
-            let LoopState::Running(run) = l.state.get_untracked() else {
+            let Some(run) = l.run.get() else {
                 continue;
             };
             if run.due(period) > now {
@@ -335,10 +423,8 @@ impl MotionState {
         }
         // Animation steps run no user code.
         rt.enter(|| {
-            for a in self.live_anims() {
-                if a.is_running() {
-                    a.step(now);
-                }
+            for a in self.running_anims() {
+                a.step(now);
             }
         });
     }
@@ -353,16 +439,16 @@ impl MotionState {
         let last = self.clock.borrow().phase.last_tick();
         let reduced = self.reduced_motion(rt);
         let mut want: Option<u64> = None;
-        for l in self.live_loops() {
+        for l in self.running_loops() {
             if !l.is_present() || skips_under(&l, reduced) {
                 continue;
             }
-            if let LoopState::Running(run) = l.state.get_untracked() {
+            if let Some(run) = l.run.get() {
                 let d = run.due(period);
                 want = Some(want.map_or(d, |w| w.min(d)));
             }
         }
-        if self.live_anims().iter().any(|a| a.is_running()) {
+        if !self.running_anims().is_empty() {
             let d = last.map(|t| t + period).unwrap_or(now).max(now);
             want = Some(want.map_or(d, |w| w.min(d)));
         }
@@ -372,6 +458,9 @@ impl MotionState {
     /// The time (ns) of a new `RequestFrame` the host must send, if new frame
     /// work appeared (recorded as the outstanding request).
     pub fn plan_frame(&self, rt: &Runtime) -> Option<u64> {
+        if self.running_loops.borrow().is_empty() && self.running_anims.borrow().is_empty() {
+            return None;
+        }
         let want = self.wanted_frame(rt)?;
         let mut m = self.clock.borrow_mut();
         if matches!(m.phase, FramePhase::Requested { at, .. } if at <= want) {
@@ -412,12 +501,6 @@ pub(crate) trait Anim {
     fn shift_clock(&self, paused_ns: u64, now_ns: u64);
 }
 
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum LoopState {
-    Stopped,
-    Running(LoopRun),
-}
-
 /// An optional host observation restricts scheduling independently of run state.
 #[derive(Clone, Copy)]
 pub(crate) enum LoopGate {
@@ -434,15 +517,18 @@ pub(crate) enum LoopMotion {
     Essential,
 }
 
-// xtask-allow(state): legacy: state, frames, gate, motion; the number of frames this loop has run; a count, valid at any value beside the loop's state
+// xtask-allow(state): run is the loop's phase (None when stopped); rate is its reactive projection, written only when the requested rate changes, never per tick; frames counts callbacks; gate and motion are setup options; registration is the motion token
 pub(crate) struct LoopCell {
+    /// Its registration: dropping the cell removes it from every map.
+    pub(crate) registration: MotionToken,
     pub(crate) owner: Owner,
     pub(crate) f: Handler<FrameInfo>,
-    pub(crate) state: Signal<LoopState>,
+    /// The running schedule (`None`: stopped), advanced at each tick.
+    pub(crate) run: Cell<Option<LoopRun>>,
+    /// The requested rate, for `FrameLoop::rate`.
+    pub(crate) rate: Signal<Option<FrameRate>>,
     pub(crate) frames: Cell<u64>,
     pub(crate) gate: Cell<LoopGate>,
-    /// The memo `FrameLoop::rate` returns, created in `frame_loop`'s setup.
-    pub(crate) rate: crate::Value<Option<super::values::FrameRate>>,
     /// Set in setup by `FrameLoop::essential`.
     pub(crate) motion: Cell<LoopMotion>,
 }
@@ -531,7 +617,16 @@ impl LoopCell {
 
     /// Start, change or stop (`None`) the loop.
     pub(crate) fn set_run(&self, run: Option<LoopRun>) {
-        self.state
-            .set(run.map_or(LoopState::Stopped, LoopState::Running));
+        let before = self.run.get();
+        self.run.set(run);
+        // The rate signal changes only with the requested rate, never per tick.
+        if before.map(|r| r.rate) != run.map(|r| r.rate) {
+            self.rate.set(run.map(|r| r.rate));
+        }
+        if before.is_some() != run.is_some()
+            && let Some(rt) = Runtime::get(self.owner.app())
+        {
+            MotionState::of(&rt).set_loop_running(self.registration.id, run.is_some());
+        }
     }
 }
