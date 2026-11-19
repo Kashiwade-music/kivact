@@ -309,6 +309,18 @@ impl Reader {
     }
 
     #[doc(hidden)]
+    /// Start (keeping what is recorded) or stop recording the tree changes.
+    pub fn record_tree_changes(&self, on: bool) {
+        self.app.borrow().log.record_tree(on);
+    }
+
+    #[doc(hidden)]
+    /// The tree changes recorded since the last call (empty when not recording).
+    pub fn take_tree_changes(&self) -> crate::contract::TreeChanges {
+        self.app.borrow().log.take_tree()
+    }
+
+    #[doc(hidden)]
     /// The margin, border, padding and content rectangles of `id` in window
     /// coordinates.
     pub fn box_model(&self, id: NodeId) -> Option<BoxModelRects> {

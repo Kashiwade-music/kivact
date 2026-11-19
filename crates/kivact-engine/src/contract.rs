@@ -4,7 +4,7 @@ pub(crate) use devtools::DevtoolsChange;
 pub use devtools::{
     BoxModelRects, DevtoolsKeys, DevtoolsOverlay, EngineEmulation, EngineRecords, FrameRecord,
     ImeStateInfo, KeyChord, OverlayBox, OverlayFill, OverlayLabel, OverlayOutline, PickPhase,
-    SyncRecord,
+    SyncRecord, TreeChanges,
 };
 // The core's DevTools agent builds injected input and cannot depend on the
 // shell itself.

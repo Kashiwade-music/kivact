@@ -421,6 +421,7 @@ impl Writer {
                 let changed = write(model);
                 if changed {
                     writes.field(id);
+                    model.log.tree_upserted(model.window, [id]);
                 }
                 changed
             })

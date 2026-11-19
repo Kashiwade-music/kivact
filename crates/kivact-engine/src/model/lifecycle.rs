@@ -22,24 +22,30 @@ impl Model {
         }
     }
     pub(crate) fn remove_slots(&mut self, id: NodeId) -> Vec<NodeId> {
-        let Self {
-            tree,
-            layout,
-            slots,
-            ..
-        } = self;
-        tree.remove_with(id, |index, node| {
-            let (editor, extents) = slots.reset(index.0);
-            // Own user-bearing fields before a reset can fail, as the old
-            // removed HostNode did. Slot publication still follows all resets.
-            let payload = RemovedPayload {
-                node,
-                editor,
-                extents,
-            };
-            layout.forget(index.0);
-            payload
-        })
+        let gone = {
+            let Self {
+                tree,
+                layout,
+                slots,
+                ..
+            } = self;
+            tree.remove_with(id, |index, node| {
+                let (editor, extents) = slots.reset(index.0);
+                // Own user-bearing fields before a reset can fail, as the old
+                // removed HostNode did. Slot publication still follows all resets.
+                let payload = RemovedPayload {
+                    node,
+                    editor,
+                    extents,
+                };
+                layout.forget(index.0);
+                payload
+            })
+        };
+        for removed in &gone {
+            self.log.tree_removed(self.window, *removed);
+        }
+        gone
     }
 }
 

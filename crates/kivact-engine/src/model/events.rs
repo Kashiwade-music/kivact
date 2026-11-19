@@ -6,9 +6,9 @@
 
 use crate::contract::{EngineRecords, FrameRecord, HostEvent, SyncRecord};
 use crate::lower::assets::ArvaneAssets;
-use kivact_types::Revision;
+use kivact_types::{NodeId, Revision, WindowId};
 use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::collections::{BTreeSet, VecDeque};
 use std::rc::Rc;
 
 #[derive(Clone, Debug, Default)]
@@ -81,6 +81,18 @@ pub(crate) struct EngineLog(Rc<RefCell<EngineLogState>>);
 pub(crate) struct EngineLogState {
     pub(crate) syncs: Log<SyncRecord>,
     pub(crate) frames: Log<FrameRecord>,
+    pub(crate) tree: TreeJournal,
+}
+
+/// The tree changes the DevTools records (see `contract::TreeChanges`).
+#[derive(Default)]
+pub(crate) enum TreeJournal {
+    #[default]
+    Off,
+    Recording {
+        upserted: BTreeSet<(WindowId, NodeId)>,
+        removed: BTreeSet<(WindowId, NodeId)>,
+    },
 }
 
 /// A log of recent records: the ring exists only while recording.
@@ -169,6 +181,46 @@ impl EngineLog {
             syncs,
             frames,
             dropped: sync_dropped.saturating_add(frame_dropped),
+        }
+    }
+
+    /// Start (keeping what is recorded) or stop recording the tree changes.
+    pub(crate) fn record_tree(&self, on: bool) {
+        let mut state = self.0.borrow_mut();
+        let recording = matches!(state.tree, TreeJournal::Recording { .. });
+        if on && !recording {
+            state.tree = TreeJournal::Recording {
+                upserted: BTreeSet::new(),
+                removed: BTreeSet::new(),
+            };
+        } else if !on {
+            state.tree = TreeJournal::Off;
+        }
+    }
+
+    /// The client created or wrote these nodes of `window` (nothing unless recording).
+    pub(crate) fn tree_upserted(&self, window: WindowId, ids: impl IntoIterator<Item = NodeId>) {
+        if let TreeJournal::Recording { upserted, .. } = &mut self.0.borrow_mut().tree {
+            upserted.extend(ids.into_iter().map(|id| (window, id)));
+        }
+    }
+
+    /// `id` of `window` was destroyed (nothing unless recording).
+    pub(crate) fn tree_removed(&self, window: WindowId, id: NodeId) {
+        if let TreeJournal::Recording { upserted, removed } = &mut self.0.borrow_mut().tree {
+            upserted.remove(&(window, id));
+            removed.insert((window, id));
+        }
+    }
+
+    /// The tree changes recorded since the last call (empty when not recording).
+    pub(crate) fn take_tree(&self) -> crate::contract::TreeChanges {
+        match &mut self.0.borrow_mut().tree {
+            TreeJournal::Off => crate::contract::TreeChanges::default(),
+            TreeJournal::Recording { upserted, removed } => crate::contract::TreeChanges {
+                upserted: std::mem::take(upserted).into_iter().collect(),
+                removed: std::mem::take(removed).into_iter().collect(),
+            },
         }
     }
 }
