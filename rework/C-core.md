@@ -803,7 +803,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C04：mount の費用を下げる（style の memo、境界の関数一つ、provenance の側表）
 
 - **wave / lane / 前提**：W3a / C / C01
-- **所有**：`crates/kivact-core/src/view/{mount/style.rs,mount/create.rs,boundary.rs,root.rs,tree.rs,node_modifiers.rs}`、`crates/kivact-core/src/view/mount.rs`（`bind_states` の呼出しの 1 行）、`crates/kivact-core/src/diagnostics/why.rs`、`crates/kivact-core/src/devtools/node.rs`（`origins` を読む行だけ）
+- **所有**：`crates/kivact-core/src/view/{mount/style.rs,mount/create.rs,boundary.rs,root.rs,tree.rs,node_modifiers.rs}`、`crates/kivact-core/src/view/mount.rs`（`bind_states` の呼出しの 1 行）、`dev/tests/kivact-public-api/tests/e2e_core/diagnostics.rs`（`why_follows_the_prop_to_the_write_through_a_memo` の最後の assert。固定の theme が constant になり、Paint は theme を読まない。文面は `rework/OPEN.md` の「設計者の回答（W3a・C04）」）、`crates/kivact-core/src/diagnostics/why.rs`、`crates/kivact-core/src/devtools/node.rs`（`origins` を読む行だけ）
 - **目的**：RC-22。style の層の closure を状態の変化ごとに呼び直さない。固定の theme は constant。境界（`scope`・`provide`・`provide_theme`・`provide_locale`・`provide_messages`）の写しを一つの関数にする。node の provenance（`origins`・`semantic_origins`）は記録中か debug build だけ（PERF-9）。`later_callers` を O(M) にする。RC-41 の `bind_states`（何もしない）と `Leaving.on_exit`（常に `Some`）を消す。
 - **手順**：
   1. `view/mount/style.rs`：
