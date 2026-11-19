@@ -2,6 +2,7 @@
 
 use crate::cache::{Cache, TextKeyRef};
 use crate::error::TextError;
+use crate::families::{FamilyChoice, FamilyResolution};
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
 use arvane_protocol::RichText;
@@ -17,20 +18,57 @@ use std::sync::Arc;
 /// Reusable font database and shaping scratch space, used on its owner's UI thread.
 ///
 /// Each application owns an engine; there is no mutable global font state.
-#[derive(Default)]
 pub struct TextEngine {
     pub(super) cache: Cache,
     pub(crate) fonts: FontContext,
     pub(crate) layouts: LayoutContext<u32>,
+    /// Whether the system fonts are joined into `fonts` yet.
+    system: SystemFonts,
+}
+
+/// Where the engine's system fonts are.
+enum SystemFonts {
+    /// The engine never sees system fonts (`TextEngine::isolated`).
+    Isolated,
+    /// The scan may still run; the fonts registered meanwhile are kept to
+    /// be registered again into the scanned collection.
+    Pending {
+        registered: Vec<parley::fontique::Blob<u8>>,
+    },
+    /// `fonts.collection` holds the system fonts.
+    Joined,
+}
+
+impl Default for TextEngine {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 /// Ellipses kept before they are all forgotten.
 const ELLIPSES: usize = 64;
 
 impl TextEngine {
-    /// Creates an engine which discovers fonts installed on the system.
+    /// An engine that sees the system fonts. Their scan starts now on a
+    /// thread of its own; the first call that needs fonts waits for it.
     pub fn new() -> Self {
-        Self::default()
+        crate::system_fonts::start_system_font_scan();
+        Self {
+            cache: Cache::default(),
+            fonts: FontContext {
+                collection: parley::fontique::Collection::new(
+                    parley::fontique::CollectionOptions {
+                        shared: false,
+                        system_fonts: false,
+                    },
+                ),
+                source_cache: parley::fontique::SourceCache::default(),
+            },
+            layouts: LayoutContext::new(),
+            system: SystemFonts::Pending {
+                registered: Vec::new(),
+            },
+        }
     }
 
     /// Creates an engine that never sees system fonts: only `fonts` exist,
@@ -50,6 +88,7 @@ impl TextEngine {
                 source_cache: SourceCache::default(),
             },
             layouts: LayoutContext::new(),
+            system: SystemFonts::Isolated,
         };
         let mut families = Vec::new();
         for bytes in fonts {
@@ -85,12 +124,13 @@ impl TextEngine {
     ///
     /// Registration allows applications and headless tests to choose explicit fonts.
     pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, TextError> {
-        let faces = self
-            .fonts
-            .collection
-            .register_fonts(parley::fontique::Blob::new(Arc::clone(font.source())), None);
+        let blob = parley::fontique::Blob::new(Arc::clone(font.source()));
+        let faces = self.fonts.collection.register_fonts(blob.clone(), None);
         if faces.is_empty() {
             return Err(TextError::InvalidFont);
+        }
+        if let SystemFonts::Pending { registered } = &mut self.system {
+            registered.push(blob);
         }
         // A successful registration can change every answer computed from the fonts.
         self.cache = Cache::default();
@@ -103,6 +143,7 @@ impl TextEngine {
     /// Registered and system font family names, sorted and unique, preserving case.
     /// Enumerated lazily and retained across cache release until successful registration.
     pub fn family_names(&mut self) -> Vec<String> {
+        self.join_system_fonts();
         if let Some(names) = &self.cache.font_names {
             return names.clone();
         }
@@ -121,6 +162,7 @@ impl TextEngine {
     /// Whether a registered or system font has the family `name`, ignoring
     /// case. Answers remain cached until registration or cache release.
     pub fn has_family(&mut self, name: &str) -> bool {
+        self.join_system_fonts();
         let key = name.to_lowercase();
         if let Some(found) = self.cache.families.get(&key) {
             return *found;
@@ -128,6 +170,60 @@ impl TextEngine {
         let found = self.fonts.collection.family_id(name).is_some();
         self.cache.families.insert(key, found);
         found
+    }
+
+    /// Join the system fonts into the collection, waiting for their scan,
+    /// and register again the fonts registered before. The text caches go:
+    /// the answers may change with the system fonts.
+    pub(crate) fn join_system_fonts(&mut self) {
+        let SystemFonts::Pending { registered } = &mut self.system else {
+            return;
+        };
+        let registered = std::mem::take(registered);
+        let mut collection = crate::system_fonts::collection();
+        for blob in registered {
+            collection.register_fonts(blob, None);
+        }
+        self.fonts.collection = collection;
+        self.cache = Cache::default();
+        self.system = SystemFonts::Joined;
+    }
+
+    /// Resolve a CSS family name: a family list or a quoted name is kept as
+    /// written (shaping reads the list); `system-ui` and an empty name are
+    /// the system UI font; `sans-serif`, `serif` and `monospace` are the
+    /// first family of fontique's generic family, or the system UI font; any
+    /// other name is that family when installed, else the system UI font,
+    /// reported missing.
+    pub fn resolve_family(&mut self, name: &str) -> FamilyResolution {
+        self.join_system_fonts();
+        let source = name.trim();
+        let found = |choice| FamilyResolution {
+            choice,
+            missing: false,
+        };
+        if source.contains(',') || source.starts_with(['\'', '"']) {
+            return found(FamilyChoice::Family(source.to_owned()));
+        }
+        if source.is_empty() {
+            return found(FamilyChoice::SystemUi);
+        }
+        if let Some(generic) = crate::families::generic(source) {
+            if matches!(generic, GenericFamily::SystemUi) {
+                return found(FamilyChoice::SystemUi);
+            }
+            let collection = &mut self.fonts.collection;
+            let first = collection.generic_families(generic).next();
+            let name = first.and_then(|id| collection.family_name(id).map(str::to_owned));
+            return found(name.map_or(FamilyChoice::SystemUi, FamilyChoice::Family));
+        }
+        if self.has_family(source) {
+            return found(FamilyChoice::Family(source.to_owned()));
+        }
+        FamilyResolution {
+            choice: FamilyChoice::SystemUi,
+            missing: true,
+        }
     }
 
     /// Release cached layouts, ellipses, loaded system font sources and
@@ -157,6 +253,7 @@ impl TextEngine {
         style: &ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Result<TextMetrics, TextError> {
+        self.join_system_fonts();
         let key = TextKeyRef::new(text, style, max_width, false);
         if let Some(result) = self.cache.measured.get(&key) {
             return result;
@@ -235,6 +332,7 @@ impl TextEngine {
         style: &ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
+        self.join_system_fonts();
         self.shape_cached(text, style, max_width, true)
     }
 
@@ -246,6 +344,7 @@ impl TextEngine {
         style: &ComputedTextStyle,
         max_width: Option<f64>,
     ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
+        self.join_system_fonts();
         self.shape_cached(text, style, max_width, false)
     }
 
@@ -583,5 +682,26 @@ fn empty_text(
         carets: if with_carets { vec![caret] } else { Vec::new() },
         cluster_boundaries: vec![0],
         ..ShapedText::default()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generic_and_quoted_family_names_resolve_without_reporting() {
+        let font: Arc<[u8]> = Arc::from(&include_bytes!("../../arvane/assets/fonts/Tuffy.ttf")[..]);
+        let mut engine = TextEngine::isolated(&[font]).expect("the test font is usable");
+        assert_eq!(
+            engine.resolve_family("system-ui").choice,
+            FamilyChoice::SystemUi
+        );
+        assert!(!engine.resolve_family("\"Inter\", sans-serif").missing);
+        assert!(engine.resolve_family("No Such Family").missing);
+        assert!(matches!(
+            engine.resolve_family("serif").choice,
+            FamilyChoice::Family(_)
+        ));
     }
 }

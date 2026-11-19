@@ -1,6 +1,5 @@
 //! Role: Engine: text shaping, measuring and fonts for its creating UI thread.
 
-use crate::asset;
 use crate::error::{self, Failure};
 use arvane_protocol::RichText;
 use kivact_types::ComputedTextStyle;
@@ -94,7 +93,7 @@ impl Engine {
     }
 
     /// Resolve a requested font family against this engine's system and
-    /// registered fonts, using Arvane's table for the current platform.
+    /// registered fonts, through `arvane-text`'s family table.
     ///
     /// Named families are trimmed and compared without case; a missing
     /// name selects the system UI font and sets `missing`. Empty names
@@ -106,17 +105,8 @@ impl Engine {
     /// per-glyph selection by the text engine, before its system fallback.
     /// Unavailable names in a list are skipped, without a missing-family
     /// diagnostic; malformed lists fall back to the system fonts.
-    pub fn resolve_font_family(&mut self, name: &str) -> asset::FamilyResolution {
-        let source = name.trim();
-        if source.contains(',') || source.starts_with(['\'', '"']) {
-            return asset::FamilyResolution {
-                choice: asset::FamilyChoice::Family(source.to_owned()),
-                missing: false,
-            };
-        }
-        arvane_asset::resolve_family(name, arvane_asset::Os::current(), |family| {
-            self.has_font_family(family)
-        })
+    pub fn resolve_font_family(&mut self, name: &str) -> arvane_text::FamilyResolution {
+        self.text.get_mut().resolve_family(name)
     }
 
     /// Shape a paragraph (a `&str`, or a [`RichText`] with spans),

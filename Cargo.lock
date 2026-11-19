@@ -343,6 +343,7 @@ dependencies = [
  "hashbrown 0.17.1",
  "kivact-types",
  "parley",
+ "tracing",
 ]
 
 [[package]]
