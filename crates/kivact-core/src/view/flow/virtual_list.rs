@@ -29,6 +29,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -48,6 +49,10 @@ use kivact_runtime::{
     untrack,
 };
 use kivact_types::Role;
+
+mod heights;
+
+use heights::Heights;
 
 /// Row height policy of a virtual list.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -208,6 +213,12 @@ struct Issued {
 struct VState<K: 'static, T: 'static> {
     rows: HashMap<K, VRow<T>>,
     measured: HashMap<K, f64>,
+    /// Row heights by list index (`Measured` lists), rebuilt when the list changes.
+    heights: Heights,
+    /// The list index of each key (its first occurrence), rebuilt when the list changes.
+    index_of: HashMap<K, usize>,
+    /// How many items `index_of` was built for.
+    indexed: usize,
     /// The `scroll_to` request in progress.
     seek: Seek<K>,
     /// The row that holds the keyboard focus (`keep_focused`).
@@ -283,26 +294,19 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             let state: Rc<RefCell<VState<K, T>>> = Rc::new(RefCell::new(VState {
                 rows: HashMap::new(),
                 measured: HashMap::new(),
+                heights: Heights::empty(),
+                index_of: HashMap::new(),
+                indexed: 0,
                 seek: Seek::Idle,
                 held: HeldState {
-                    value: Held::Nothing,
+                    value: None,
                     changed: cx.owner.notifier(at),
                 },
             }));
             // Which row holds the focus changes rarely: only then does the
             // visible range run again, not at every focus move.
             if keep_focused {
-                let keys = ViewState::of(cx.rt)
-                    .focus_keys(cx.window)
-                    .expect("invariant: the list's window is open");
-                let weak = cx.weak();
-                let st = state.clone();
-                cx.effect(EffectKind::Internal, at, move || {
-                    let node = keys.focus.get().map(|key| key.target);
-                    let Some(rt) = weak.upgrade() else { return };
-                    let held = node.and_then(|node| focused_row(&rt, spacer, node.node, &st));
-                    st.borrow_mut().held.set(held);
-                });
+                bind_held(cx, spacer, &state, at);
             }
             let seeker = Rc::new(Seeker {
                 items: items.clone(),
@@ -312,6 +316,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 viewport,
                 outer,
             });
+            bind_index(cx, seeker.clone(), at);
             bind_visible(
                 cx,
                 seeker.clone(),
@@ -325,6 +330,26 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             outer
         })
     }
+}
+
+/// Track the row that holds the keyboard focus (`keep_focused`).
+fn bind_held<K: kivact_runtime::ItemKey, T: 'static>(
+    cx: &Mcx<'_>,
+    spacer: NodeId,
+    state: &Rc<RefCell<VState<K, T>>>,
+    at: &'static Location<'static>,
+) {
+    let keys = ViewState::of(cx.rt)
+        .focus_keys(cx.window)
+        .expect("invariant: the list's window is open");
+    let weak = cx.weak();
+    let st = state.clone();
+    cx.effect(EffectKind::Internal, at, move || {
+        let node = keys.focus.get().map(|key| key.target);
+        let Some(rt) = weak.upgrade() else { return };
+        let held = node.and_then(|node| focused_row(&rt, spacer, node.node, &st));
+        st.borrow_mut().held.set(held);
+    });
 }
 
 /// The mounted row that holds the keyboard focus, or has a node that does.
@@ -420,22 +445,18 @@ impl<K: kivact_runtime::ItemKey, T: Clone + 'static> Seeker<K, T> {
         let place = kivact_runtime::pure(|| {
             self.items.with(|list| {
                 let s = self.state.borrow();
-                let mut found = None;
-                let mut y = 0.0f64;
-                for it in list {
-                    let k = (self.key)(it);
-                    let h = match self.height {
-                        RowHeight::Fixed(h) => h.max(1.0),
-                        RowHeight::Measured { estimate } => {
-                            s.measured.get(&k).copied().unwrap_or(estimate).max(1.0)
-                        }
-                    };
-                    if found.is_none() && k == want {
-                        found = Some((y, h));
+                let i = *s.index_of.get(&want)?;
+                match self.height {
+                    RowHeight::Fixed(h) => {
+                        let h = h.max(1.0);
+                        Some((i as f64 * h, h, list.len() as f64 * h))
                     }
-                    y += h;
+                    RowHeight::Measured { estimate } => {
+                        let top = s.heights.prefix(i);
+                        let height = s.measured.get(&want).copied().unwrap_or(estimate).max(1.0);
+                        Some((top, height, s.heights.total()))
+                    }
                 }
-                found.map(|(top, h)| (top, h, y))
             })
         });
         let Some((top, height, total)) = place else {
@@ -524,8 +545,13 @@ fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
                     if let Some(hd) = tree.handlers_mut(wrapper) {
                         hd.observe_layout(move |_, size| {
                             let Some(st) = st.upgrade() else { return };
-                            let prev = st.borrow_mut().measured.insert(key.clone(), size.height);
+                            let mut s = st.borrow_mut();
+                            let prev = s.measured.insert(key.clone(), size.height);
                             if prev != Some(size.height) {
+                                if let Some(&i) = s.index_of.get(&key) {
+                                    s.heights.set(i, size.height.max(1.0));
+                                }
+                                drop(s);
                                 measured_version.notify();
                             }
                         });
@@ -593,43 +619,71 @@ fn reorder_rows(rt: &Runtime, spacer: NodeId, order: Vec<NodeId>, fresh: &[bool]
     }
 }
 
-#[derive(PartialEq)]
-enum Held<K> {
-    Nothing,
-    Holding { key: K },
-}
 struct HeldState<K> {
-    value: Held<K>,
+    value: Option<K>,
     changed: kivact_runtime::Notifier,
 }
 impl<K: PartialEq> HeldState<K> {
     fn key(&self) -> Option<&K> {
-        match &self.value {
-            Held::Nothing => None,
-            Held::Holding { key } => Some(key),
-        }
+        self.value.as_ref()
     }
     fn set(&mut self, key: Option<K>) {
-        let next = match key {
-            Some(key) => Held::Holding { key },
-            None => Held::Nothing,
-        };
-        if self.value != next {
-            self.value = next;
+        if self.value != key {
+            self.value = key;
             self.changed.notify();
         }
     }
 }
 
 impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
+    /// Rebuild the key index (and the heights of a `Measured` list) from the
+    /// current items (tracked). Returns the hashes of duplicate keys.
+    fn reindex(&self) -> Vec<u64> {
+        let estimate = match self.height {
+            RowHeight::Measured { estimate } => Some(estimate),
+            RowHeight::Fixed(_) => None,
+        };
+        kivact_runtime::pure(|| {
+            self.items.with(|list| {
+                let mut s = self.state.borrow_mut();
+                let mut dups = Vec::new();
+                let mut index_of = HashMap::with_capacity(list.len());
+                for (i, it) in list.iter().enumerate() {
+                    match index_of.entry((self.key)(it)) {
+                        Entry::Occupied(e) => dups.push(key_hash(e.key())),
+                        Entry::Vacant(e) => {
+                            e.insert(i);
+                        }
+                    }
+                }
+                if let Some(estimate) = estimate {
+                    let rows = list
+                        .iter()
+                        .map(|it| {
+                            s.measured
+                                .get(&(self.key)(it))
+                                .copied()
+                                .unwrap_or(estimate)
+                                .max(1.0)
+                        })
+                        .collect();
+                    s.heights = Heights::build(rows);
+                    s.measured.retain(|k, _| index_of.contains_key(k));
+                }
+                s.index_of = index_of;
+                s.indexed = list.len();
+                dups
+            })
+        })
+    }
+
     fn visible(
         &self,
         lo: f64,
         hi: f64,
         focused_key: Option<K>,
-    ) -> (f64, Vec<(K, Option<T>, f64, Option<f64>)>, Vec<u64>) {
+    ) -> (f64, Vec<(K, Option<T>, f64, Option<f64>)>) {
         let mut visible = Vec::new();
-        let mut dups = Vec::new();
         let total = kivact_runtime::pure(|| {
             self.items.with(|list| {
                 let s = self.state.borrow();
@@ -640,42 +694,43 @@ impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
                         h,
                         (lo, hi),
                         focused_key.as_ref(),
-                        (&mut visible, &mut dups),
+                        &mut visible,
                     ),
-                    RowHeight::Measured { estimate } => {
-                        let mut y = 0.0f64;
-                        let mut seen = std::collections::HashSet::new();
-                        for it in list {
+                    RowHeight::Measured { .. } => {
+                        let len = list.len().min(s.indexed);
+                        let first = s.heights.index_at(lo);
+                        let last = (s.heights.index_at(hi) + 1).min(len);
+                        for (i, it) in list.iter().enumerate().take(last).skip(first) {
                             let k = (self.key)(it);
-                            let h = s.measured.get(&k).copied().unwrap_or(estimate).max(1.0);
-                            if (y + h >= lo && y <= hi) || focused_key.as_ref() == Some(&k) {
-                                if !seen.insert(k.clone()) {
-                                    dups.push(key_hash(&k));
-                                } else {
-                                    let need = match s.rows.get(&k) {
-                                        Some(r) => r.sig.with_untracked(|cur| cur != it),
-                                        None => true,
-                                    };
-                                    visible.push((k, need.then(|| it.clone()), y, None));
-                                }
+                            if s.index_of.get(&k) != Some(&i) {
+                                continue;
                             }
-                            y += h;
+                            let need = match s.rows.get(&k) {
+                                Some(r) => r.sig.with_untracked(|cur| cur != it),
+                                None => true,
+                            };
+                            visible.push((k, need.then(|| it.clone()), s.heights.prefix(i), None));
                         }
-                        // Forget measurements of keys that left the list
-                        // (bounded cache).
-                        drop(s);
-                        let mut sm = self.state.borrow_mut();
-                        if sm.measured.len() > list.len() + UNCONSTRAINED_ROWS {
-                            let live: std::collections::HashSet<K> =
-                                list.iter().map(|it| (self.key)(it)).collect();
-                            sm.measured.retain(|k, _| live.contains(k));
+                        // The row with the focus stays mounted outside the range.
+                        if let Some(fk) = focused_key.as_ref()
+                            && let Some(&i) = s.index_of.get(fk)
+                            && (i < first || i >= last)
+                            && let Some(it) = list.get(i)
+                        {
+                            let need = match s.rows.get(fk) {
+                                Some(r) => r.sig.with_untracked(|cur| cur != it),
+                                None => true,
+                            };
+                            let top = s.heights.prefix(i);
+                            let at = visible.partition_point(|v| v.2 < top);
+                            visible.insert(at, (fk.clone(), need.then(|| it.clone()), top, None));
                         }
-                        y
+                        s.heights.total()
                     }
                 }
             })
         });
-        (total, visible, dups)
+        (total, visible)
     }
 }
 
@@ -687,18 +742,15 @@ impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
         h: f64,
         range: (f64, f64),
         focused_key: Option<&K>,
-        output: (&mut Vec<(K, Option<T>, f64, Option<f64>)>, &mut Vec<u64>),
+        visible: &mut Vec<(K, Option<T>, f64, Option<f64>)>,
     ) -> f64 {
         let (lo, hi) = range;
-        let (visible, dups) = output;
         let h = h.max(1.0);
         let first = (lo / h).floor() as usize;
         let last = ((hi / h).ceil() as usize).min(list.len());
-        let mut seen = std::collections::HashSet::new();
         for (i, it) in list.iter().enumerate().take(last).skip(first) {
             let k = (self.key)(it);
-            if !seen.insert(k.clone()) {
-                dups.push(key_hash(&k));
+            if s.index_of.get(&k) != Some(&i) {
                 continue;
             }
             let need = match s.rows.get(&k) {
@@ -708,11 +760,10 @@ impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
             visible.push((k, need.then(|| it.clone()), i as f64 * h, Some(h)));
         }
         // The row with the focus stays mounted outside the range.
-        if let Some(fk) = focused_key.filter(|fk| !seen.contains(*fk))
-            && let Some((i, it)) = list
-                .iter()
-                .enumerate()
-                .find(|(_, it)| (self.key)(it) == *fk)
+        if let Some(fk) = focused_key
+            && let Some(&i) = s.index_of.get(fk)
+            && (i < first || i >= last)
+            && let Some(it) = list.get(i)
         {
             let need = match s.rows.get(fk) {
                 Some(r) => r.sig.with_untracked(|cur| cur != it),
@@ -724,6 +775,36 @@ impl<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue> Seeker<K, T> {
         }
         list.len() as f64 * h
     }
+}
+
+/// The list changed: index the keys (the first occurrence wins), report
+/// duplicates once, rebuild the row heights and forget the measurements
+/// of keys that left. Its effect is made before `bind_visible`'s, so it
+/// runs first in the same change.
+fn bind_index<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
+    cx: &Mcx<'_>,
+    seeker: Rc<Seeker<K, T>>,
+    at: &'static Location<'static>,
+) {
+    let dup_owner = cx.owner;
+    cx.effect(EffectKind::Internal, at, move || {
+        let dups = seeker.reindex();
+        if dups.is_empty() {
+            return;
+        }
+        if let Some(rt) = Runtime::get(dup_owner.app()) {
+            for h in dups {
+                rt.report(
+                    None,
+                    UiError::new(
+                        ErrorKind::DuplicateKey { key_hash: h },
+                        "duplicate virtual_list key; later item dropped",
+                        Some(at),
+                    ),
+                );
+            }
+        }
+    });
 }
 
 fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
@@ -752,7 +833,7 @@ fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
                 let lo = (offset - overscan).max(0.0);
                 let hi = offset + vh + overscan;
                 // Visible slice: (key, item clone if new or changed, top, height)
-                let (total, visible, dups) = range_seeker.visible(lo, hi, focused_key);
+                let (total, visible) = range_seeker.visible(lo, hi, focused_key);
                 // The host reported a viewport as tall as the content: the
                 // list is not height-constrained and every row is mounted
                 // (typically a flex ancestor without `min_height(0)`).
@@ -768,13 +849,6 @@ fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
                         visible.len()
                     );
                     rt.warn(msg);
-                }
-                for h in dups {
-                    rt.report(None, UiError::new(
-                        ErrorKind::DuplicateKey { key_hash: h },
-                        "duplicate virtual_list key; later item dropped",
-                        Some(at),
-                    ));
                 }
                 ViewState::tree_mut(&rt).update(
                     spacer,
