@@ -323,3 +323,11 @@
 （設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
 
 - **R21**（W5a、lane X、commit `26b7c350`）：`crates/kivact-runtime/src/reactive/handler.rs` の `mod tests` を追加していない。付属書 R21 の試験のコードに `assert_eq!(rt.create_owner(None, at), rt.root);` があり、`create_owner`（`reactive/owner.rs:66`）は新しい owner の key を挿入するので、root の key と等しくならず、そのまま走ると失敗する。試験の型と関数（`Runtime::register`・`Owner::with_setup`・`shutdown`・`TaskState::new`・`ThreadWaker::new`・`Host::wake`）は存在する。R21 の完了条件は満たしている。設計者は、この assert を消すか、別の検査にするかを決める。この差戻しの間、lane X（鎖）は止める。
+
+## 設計者の回答（W5a・R21 の差戻し、2026-11-20）
+
+- **R21（`handler.rs` の試験）**：assert は消さず、付属書のとおりに入れる。差戻しの前提が誤り。`rt.root` は arena の最初の slot の key（`runtime.rs` で slot 0・generation 0 と決めてある）で、空の arena で最初に呼ぶ `create_owner(None, ..)` はその slot を取るので、返る key は `rt.root` と等しい（`host.rs` の `Runtime::new` が同じ不変条件を assert している。`reactive/selector.rs`・`reactive/turn.rs` の既存の試験も同じ行で通っている）。
+  - 設計者の確認：`26b7c350` に付属書の `mod tests` をそのまま足し、`cargo test -p kivact-runtime --lib handler::tests` が通る（1 passed）こと、`cargo clippy -p kivact-runtime --lib --tests -- -D warnings` が通ることを確かめた。lane X の鎖の途中では `kivact-core` が compile できず、dev-dependency の `kivact` が build できないので、確かめるときは試しの worktree で `crates/kivact-runtime/Cargo.toml` の dev-dependency の `kivact` を一時的に外した（commit しない）。lane X の確認は R20〜R25 の共通の形（`check --lib`・`clippy --lib`）のままでよく、この試験が走るのは R31 の `cargo test -p kivact-runtime`。
+  - 付属書 R21 の試験の assert の前に、理由の注記を 2 行足した。
+  - Orchestrator：lane X で `handler.rs` に試験を足して commit し、R22 から再開する。
+- 作業指示書 0.5 節の表に 1 行足した（付属書の試験の assert が失敗しそうに見えても、予想では止めず、入れて走らせる。失敗したら出力を付けて差戻し）。

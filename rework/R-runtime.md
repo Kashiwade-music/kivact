@@ -3310,6 +3310,8 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
               crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
           );
           let at = Location::caller();
+          // The first owner takes the arena's first slot, which `rt.root`
+          // names (the invariant `Runtime::new` checks).
           assert_eq!(rt.create_owner(None, at), rt.root);
           rt.root().with_setup(|| {
               let inline = (|| Handled::Yes).into_handler();
