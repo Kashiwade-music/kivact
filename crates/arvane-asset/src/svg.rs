@@ -4,9 +4,10 @@
 //! device size, so SVGs stay sharp at any scale.
 //!
 //! Invariants:
-//! - `<text>` is drawn with the store's font database (the system fonts
-//!   and the fonts registered with it; usvg turns the glyphs into outlines
-//!   at parse time, so a font change parses the SVG again).
+//! - `<text>` is turned into paths with the system and registered fonts
+//!   arvane-text finds (`svg/fonts.rs`); no second system font database is
+//!   built. usvg turns the glyphs into outlines at parse time, so a font
+//!   change parses the SVG again.
 //! - Raster images inside an SVG (PNG, JPEG, GIF, WebP, as data URLs) are
 //!   drawn; their decoded size counts in the parsed tree's estimate.
 //! - External files are never read: `<image href>` paths resolve to
