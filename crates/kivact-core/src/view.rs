@@ -53,7 +53,7 @@ mod style_layer;
 pub(crate) mod sync_hook;
 pub(crate) mod text_edits;
 pub(crate) mod tree;
-mod window_view;
+pub(crate) mod window_view;
 
 #[doc(inline)]
 pub use crate::view::flow::{

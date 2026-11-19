@@ -144,3 +144,13 @@ pub(crate) enum DevtoolsChange {
     Pick(Option<WindowId>),
     Keys(DevtoolsKeys),
 }
+
+/// The nodes the client created or wrote (props, scenes, children) and
+/// the nodes destroyed since the last `Reader::take_tree_changes`, while
+/// `Reader::record_tree_changes` is on. Each list is in (window, id) order; a node
+/// destroyed after a write is only in `removed`.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TreeChanges {
+    pub upserted: Vec<(WindowId, NodeId)>,
+    pub removed: Vec<(WindowId, NodeId)>,
+}

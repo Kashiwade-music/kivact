@@ -5,7 +5,7 @@
 use super::pass::{FrameTextures, blend_index, size_f, view, with_pass};
 use super::pipelines::{SHADER_BLEND, Words, buffer, composite_slot};
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 use crate::cache::ChunkKey;
 use crate::plan::{DrawOp, Source};
 use kivact_types::geometry::{Point, Rect};
@@ -27,7 +27,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         op: &DrawOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         if op.polygon.points.len() < 3 {
             return Ok(());
         }
@@ -82,7 +82,7 @@ impl GpuContext {
         } else {
             composite_slot(op.composite)
         };
-        let pipeline = &self.pipelines.draw[slot];
+        let pipeline = self.pipelines.draw(&self.device, slot);
         let target_view = view(target);
         with_pass(encoder, &target_view, wgpu::LoadOp::Load, |pass| {
             pass.set_pipeline(pipeline);
@@ -149,7 +149,7 @@ impl GpuContext {
         &self,
         op: &DrawOp<'_>,
         frame: &FrameTextures<'_>,
-    ) -> Result<Option<DrawSource>, ComposeError> {
+    ) -> Result<Option<DrawSource>, RenderError> {
         match &op.source {
             Source::Chunk(key) => {
                 let (v, size) = self.chunk_view(key)?;
@@ -157,7 +157,7 @@ impl GpuContext {
             }
             Source::Target(id) => {
                 if *id == op.target {
-                    return Err(ComposeError::InvalidComposition(
+                    return Err(RenderError::InvalidComposition(
                         "a draw reads the target it writes".into(),
                     ));
                 }
@@ -187,11 +187,11 @@ impl GpuContext {
     pub(super) fn chunk_view(
         &self,
         key: &ChunkKey,
-    ) -> Result<(wgpu::TextureView, (f32, f32)), ComposeError> {
+    ) -> Result<(wgpu::TextureView, (f32, f32)), RenderError> {
         let texture = self
             .chunks
             .get(key)
-            .ok_or_else(|| ComposeError::Backend(format!("chunk {key:?} is missing for a draw")))?;
+            .ok_or_else(|| RenderError::Backend(format!("chunk {key:?} is missing for a draw")))?;
         Ok((view(texture), size_f(texture)))
     }
 }

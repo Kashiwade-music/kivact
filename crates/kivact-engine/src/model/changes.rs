@@ -57,6 +57,8 @@ impl Dirty {
     pub(crate) const SCROLLED: Self = Self(1 << 5);
     /// Its sticky shift changed (it and its subtree moved).
     pub(crate) const STUCK: Self = Self(1 << 6);
+    /// A text input's caret, text, size or style changed: it is scrolled to keep the caret in view (`Model::scroll_inputs`). Kept by `dispatch` until taken.
+    pub(crate) const CARET: Self = Self(1 << 8);
 
     /// Whether every bit of `bits` is set.
     pub(crate) const fn contains(self, bits: Self) -> bool {
@@ -207,10 +209,12 @@ impl Changes {
     /// Take what one sync dispatches. Measurement bits and layout reasons stay.
     pub(super) fn dispatch(&mut self) -> Dispatched {
         let mut dirty = std::mem::take(&mut self.dirty);
+        let kept_bits = Dirty::MEASURE.union(Dirty::CARET);
         dirty.retain(|id, d| {
-            if d.contains(Dirty::MEASURE) {
-                self.dirty.insert(*id, Dirty::MEASURE);
-                d.remove(Dirty::MEASURE);
+            let kept = Dirty(d.0 & kept_bits.0);
+            if !kept.is_empty() {
+                self.dirty.insert(*id, kept);
+                d.remove(kept);
             }
             !d.is_empty()
         });

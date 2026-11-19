@@ -57,7 +57,7 @@ arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 arvane-native = ["kivact-engine", "arvane-virtual", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
 arvane-virtual = ["kivact-engine", "kivact-test"]
-arvane-text = ["arvane", "kivact"]
+arvane-text = ["arvane", "kivact", "arvane-asset"]
 arvane-render = ["arvane", "arvane-compose"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
 arvane-compose = ["arvane", "kivact"]

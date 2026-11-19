@@ -1,6 +1,6 @@
 //! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
 
-use crate::{ComposeError, GpuReport};
+use crate::{GpuReport, RenderError};
 use arvane_protocol::{Composition, CpuFrame};
 use kivact_types::ids::DrawableId;
 use kivact_types::{ExternalFrame, ExternalImageId, GpuAdapter, SharedTextures};
@@ -39,8 +39,8 @@ impl GpuContext {
     }
 
     /// Always fails: the `gpu` feature is not built.
-    pub fn new(_env: &GpuEnv) -> Result<Self, ComposeError> {
-        Err(ComposeError::NoAdapter(
+    pub fn new(_env: &GpuEnv) -> Result<Self, RenderError> {
+        Err(RenderError::NoAdapter(
             "built without the gpu feature".into(),
         ))
     }
@@ -67,7 +67,7 @@ impl GpuContext {
         _composition: &Composition,
         _scale: f64,
         _physical: (u32, u32),
-    ) -> Result<(Presentation, Duration, GpuReport), ComposeError> {
+    ) -> Result<(Presentation, Duration, GpuReport), RenderError> {
         match *self {}
     }
 
@@ -77,12 +77,12 @@ impl GpuContext {
         _surface: &mut GpuSurface,
         _pixels: &[u32],
         _size: (u32, u32),
-    ) -> Result<(Presentation, Duration), ComposeError> {
+    ) -> Result<(Presentation, Duration), RenderError> {
         match *self {}
     }
 
     /// Unreachable: no context exists.
-    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, ComposeError> {
+    pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, RenderError> {
         match *self {}
     }
 
@@ -92,12 +92,12 @@ impl GpuContext {
         _surface: &mut GpuSurface,
         _width: u32,
         _height: u32,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         match *self {}
     }
 
     /// Unreachable: no context exists.
-    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, ComposeError>
+    pub fn surface<T>(&self, _target: T) -> Result<GpuSurface, RenderError>
     where
         T: Send + Sync + 'static,
     {
@@ -107,7 +107,7 @@ impl GpuContext {
     /// Unreachable: no context exists.
     pub fn surface_maker<T: Send + Sync + 'static>(
         &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, ComposeError> + Send + 'static {
+    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static {
         unbuilt_maker(self)
     }
 
@@ -117,7 +117,7 @@ impl GpuContext {
         _composition: &Composition,
         _size: (u32, u32),
         _scale: f64,
-    ) -> Result<CpuFrame, ComposeError> {
+    ) -> Result<CpuFrame, RenderError> {
         match *self {}
     }
 
@@ -126,7 +126,7 @@ impl GpuContext {
         &mut self,
         _id: ExternalImageId,
         _shared: SharedTextures,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         match *self {}
     }
 
@@ -147,7 +147,7 @@ impl GpuContext {
         _generation: u64,
         _adapter: &GpuAdapter,
         _size: (u32, u32),
-    ) -> Result<SharedTextures, ComposeError> {
+    ) -> Result<SharedTextures, RenderError> {
         match *self {}
     }
 
@@ -167,6 +167,6 @@ impl GpuSurface {
 /// The surface maker of an executor that cannot exist: never called.
 fn unbuilt_maker<T: Send + Sync + 'static>(
     context: &GpuContext,
-) -> fn(T) -> Result<GpuSurface, ComposeError> {
+) -> fn(T) -> Result<GpuSurface, RenderError> {
     match *context {}
 }

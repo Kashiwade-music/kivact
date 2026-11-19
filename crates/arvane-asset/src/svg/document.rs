@@ -41,7 +41,7 @@ pub(crate) fn parse(bytes: &[u8], fonts: &FontDb, budget: usize) -> Result<Svg, 
     super::nesting::check(bytes).map_err(ParseError::Malformed)?;
     let options = usvg::Options {
         resources_dir: None,
-        fontdb: fonts.for_document(bytes),
+        font_resolver: fonts.resolver(bytes),
         image_href_resolver: usvg::ImageHrefResolver {
             resolve_string: Box::new(|_, _| None),
             ..usvg::ImageHrefResolver::default()

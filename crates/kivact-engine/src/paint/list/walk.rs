@@ -175,7 +175,7 @@ impl Walk<'_> {
         let (grouping, alpha) = opacity(host, id, n, &look, parent_alpha);
         // A layer applies its node's opacity itself.
         let alpha = if layer.is_some() { parent_alpha } else { alpha };
-        let clip_shape = match (clips, look.rounded) {
+        let clip_shape = match (clips, look.rounded()) {
             (false, _) => ClipShape::None,
             (true, false) => ClipShape::Rect,
             (true, true) => ClipShape::Rounded,
@@ -204,7 +204,7 @@ impl Walk<'_> {
             x: o.x - scroll.x,
             y: o.y - scroll.y,
         };
-        let perspective = if look.perspective {
+        let perspective = if look.perspective() {
             host.perspective_at(id, o)
         } else {
             None
@@ -253,7 +253,7 @@ impl Walk<'_> {
         origin: Point,
         parent_perspective: Option<Matrix4>,
     ) -> Option<LayerPlan> {
-        if !self.facts.get(&id).is_some_and(|f| f.layer) {
+        if !self.facts.get(&id).is_some_and(|f| f.layer()) {
             return None;
         }
         let host = self.host;
@@ -276,7 +276,7 @@ impl Walk<'_> {
             } else {
                 Plane::Flat
             },
-            backface: if look.backface_hidden {
+            backface: if look.backface_hidden() {
                 BackfaceVisibility::Hidden
             } else {
                 BackfaceVisibility::Visible
@@ -636,9 +636,9 @@ fn opacity(
     let more = host.tree().flat_children(id).len() != 0
         || n.scenes().iter().any(Option::is_some)
         || look.items + content > 1
-        || look.grouped;
+        || look.grouped();
     let group = look.opacity < 1.0 && more;
-    let grouping = match (group, look.grouped) {
+    let grouping = match (group, look.grouped()) {
         (true, _) => Grouping::Opacity,
         (false, true) => Grouping::Effects,
         (false, false) => Grouping::None,

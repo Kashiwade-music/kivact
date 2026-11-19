@@ -1,7 +1,7 @@
 //! Role: The GPU context's imports of externally shared images.
 
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 
 impl GpuContext {
     /// Import the pool of textures `shared` as the image `id` (replacing an image imported as
@@ -13,10 +13,10 @@ impl GpuContext {
         &mut self,
         id: kivact_types::ExternalImageId,
         shared: kivact_types::SharedTextures,
-    ) -> Result<(), ComposeError> {
+    ) -> Result<(), RenderError> {
         self.check()?;
         let Some(adapter) = &self.interop else {
-            return Err(ComposeError::Backend(
+            return Err(RenderError::Backend(
                 "the GPU device cannot import shared textures".into(),
             ));
         };
@@ -38,8 +38,8 @@ impl GpuContext {
         &mut self,
         _: kivact_types::ExternalImageId,
         _: kivact_types::SharedTextures,
-    ) -> Result<(), ComposeError> {
-        Err(ComposeError::Backend(
+    ) -> Result<(), RenderError> {
+        Err(RenderError::Backend(
             "built without the gpu-interop feature".into(),
         ))
     }

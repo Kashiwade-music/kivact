@@ -412,23 +412,17 @@ pub(crate) struct ViewNodes {
 
 impl ViewNodes {
     /// The tree of an App the host started: `engine` writes the engine's
-    /// tree, and the main window's root node (`NodeType::Root`, of the root
-    /// `owner`) is created in it.
+    /// tree. Each window's root node (`NodeType::Root`) is created as the
+    /// window mounts (`create_root`).
     pub(crate) fn new(
         engine: Writer,
         owner: Owner,
         devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     ) -> Self {
-        let root = NodeId(1);
-        let mut nodes = IdMap::default();
-        nodes.insert(root, CoreNode::new(owner));
-        engine.create(WindowId::MAIN, root, NodeKind::new(NodeType::Root));
-        let mut roots = BTreeMap::new();
-        roots.insert(WindowId::MAIN, root);
         ViewNodes {
-            nodes: CoreNodes(nodes),
-            next_id: 1,
-            roots,
+            nodes: CoreNodes(IdMap::default()),
+            next_id: 0,
+            roots: BTreeMap::new(),
             engine,
             devtools,
             future_text_edits: Rc::new(std::cell::RefCell::new(

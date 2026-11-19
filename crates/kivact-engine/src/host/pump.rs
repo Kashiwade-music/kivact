@@ -347,7 +347,6 @@ impl Host {
             let model = app
                 .model_mut(id)
                 .expect("invariant: a presented window has a model");
-            model.scroll_inputs(&mut self.engine.borrow_mut());
             // Images are rasterized for the scale the frame is drawn at.
             model.paint.set_scale(scale);
         }

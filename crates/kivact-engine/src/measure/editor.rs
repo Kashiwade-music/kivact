@@ -1,5 +1,6 @@
 //! Role: Optional native editor slot owned by Model, outside the structural tree.
-use kivact_editing::{EditState, Editor, Journal};
+use kivact_editing::EditState;
+use kivact_editing::host::{Editor, Journal};
 use std::cell::RefCell;
 use std::rc::Rc;
 #[derive(Clone, Debug)]
@@ -10,7 +11,7 @@ pub(crate) enum ControlledValue {
 // xtask-allow(state): legacy: reported_session is written only by EditorNode::report_session; lines, measure_lines; the shaped lines of the input, built on its first layout
 #[derive(Clone, Debug)]
 pub(crate) struct EditorNode {
-    /// Document and host-only journal/damage controls.
+    /// Document and host-only journal controls.
     pub(crate) editor: Editor,
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
     /// preserve the future crate DAG.
@@ -44,14 +45,6 @@ impl EditorNode {
             reported_session: kivact_types::cell::Sent::new(),
             scroll_x: 0.0,
             scroll_y: 0.0,
-        }
-    }
-
-    pub(crate) fn flush_damage(&mut self) {
-        if let Some(damage) = self.editor.take_damage()
-            && let Some(lines) = self.lines.get_mut()
-        {
-            lines.hold_damage(damage);
         }
     }
 

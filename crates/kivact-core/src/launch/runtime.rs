@@ -13,9 +13,7 @@ use crate::platform::{AppHandle, AppHandleExt};
 
 use crate::view::View;
 use crate::view::requests;
-use crate::view::state::{
-    EnvState, FocusKeys, PointerObservation, ViewState, WindowRecord, WindowScope,
-};
+use crate::view::state::{ViewState, WindowDecl};
 use crate::view::text_edits::TextEditsAhead;
 use kivact_runtime::TaskState;
 use kivact_runtime::{
@@ -119,7 +117,6 @@ fn start_mount(
 ) {
     let setup = rt.begin_setup();
     let root_owner = rt.root();
-    root_owner.provide(WindowScope(WindowId::MAIN));
     writer.set_window(
         WindowId::MAIN,
         std::mem::take(&mut options.settings.title),
@@ -198,7 +195,6 @@ impl Launch {
                 let motion_env = install_main_window(&view, root, info, options, at);
                 let extensions = Extensions::new().with(view).with(motion_env);
                 let extensions = extensions.with(crate::gpu_interop::StateSlot::default());
-                let extensions = extensions.with(crate::view::foreign::ForeignWindows::default());
                 let extensions = extensions.with(AppHandleExt(handle.clone()));
                 #[cfg(feature = "devtools")]
                 let extensions = extensions.with(devtools);
@@ -329,34 +325,33 @@ fn install_main_window(
     options: &AppOptions,
     at: &'static Location<'static>,
 ) -> kivact_runtime::MotionEnv {
-    let env = Rc::new(EnvState::new(
+    let decl = Rc::new(WindowDecl {
+        title: root.signal(options.settings.title.clone(), at).into_value(),
+        open: root.signal(true, at).into_binding(),
+        size: options
+            .settings
+            .window_size
+            .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE),
+        min_size: options.settings.min_window_size,
+        mode: WindowMode::Normal,
+        placement: kivact_types::WindowPlacement::Auto,
+        dismiss: None,
+        foreign: None,
+    });
+    let record = crate::view::window_view::open_window_record(
+        WindowId::MAIN,
         root,
+        root,
+        decl,
         info.env.clone(),
         info.surface_active,
         at,
-    ));
-    let title = root.signal(options.settings.title.clone(), at).into_value();
-    let open = root.signal(true, at).into_binding();
-    let mouse = root.signal(None, at);
-    view.install_window(
-        WindowId::MAIN,
-        WindowRecord {
-            declared_in: root,
-            env: env.clone(),
-            focus: FocusKeys::new(root, at),
-            hover: std::cell::Cell::new(PointerObservation::Plain(None)),
-            mouse: std::cell::Cell::new(PointerObservation::Reactive(mouse)),
-            title,
-            min_size: options.settings.min_window_size,
-            dismiss: None,
-            open,
-            foreign: None,
-            mode: WindowMode::Normal,
-        },
     );
+    let env = record.env.clone();
+    view.install_window(WindowId::MAIN, record);
     let app_motion = view.app_motion;
     kivact_runtime::MotionEnv {
-        reduced_motion: env.field("is_motion_reduced", |e| e.reduced_motion),
+        reduced_motion: env.reduced_motion_value(),
         surface_active: root.with_setup(|| kivact_runtime::memo(move || app_motion.get().drawable)),
         frame_period_ns: root
             .with_setup(|| kivact_runtime::memo(move || app_motion.get().frame_period_ns)),

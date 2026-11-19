@@ -47,6 +47,7 @@ subagent の起動（実行環境ごと。unit・lane・wave・STOP の規則は
 
 - **手順**は番号の順に行う。コード片は書いてあるとおりに書く（`use` の過不足は compile error に従って直してよい）。
 - **状態の閉じ方**に `// xtask-allow(state): ...` の文面があれば、その文面を一字一句書く。
+- `effect` を `effect_on`（最初の値では走らない）に変えるときは、`NodeRef` の観察を頼む getter（`rect`、`scroll_offset`、`focused`、`hovered`、`presence` など）を callback の中で初めて呼ばない。setup で `Value` を取り、callback ではそれを読む（getter は呼ばれたときに host へ報告を頼むので、callback の中だと最初の変化に間に合わない。W4 の U09）。
 - 本書の wave の表の「追加の指示」は付属書より優先する。
 
 ### 0.4 停止して報告（STOP）

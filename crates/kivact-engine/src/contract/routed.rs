@@ -16,6 +16,18 @@ pub struct Routed<T> {
     pub activation: Option<Activation>,
     /// The unchanged normalized input payload.
     pub input: T,
+    /// Whether the input came from the platform or was injected.
+    pub origin: InputOrigin,
+}
+
+/// Where an input event came from.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum InputOrigin {
+    /// The platform's input (or the test driver's raw input).
+    #[default]
+    Platform,
+    /// Injected by the request (the DevTools' `inject_input`, `HostRequest::Inject`).
+    Injected(kivact_types::RequestId),
 }
 
 /// The node that receives an input, and the scene region when it is a region.

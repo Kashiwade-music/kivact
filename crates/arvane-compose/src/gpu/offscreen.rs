@@ -1,7 +1,7 @@
 //! Role: Offscreen rendering and readback of textures.
 
 use super::state::GpuContext;
-use crate::ComposeError;
+use crate::RenderError;
 use arvane_protocol::{Composition, CpuFrame};
 use std::sync::mpsc;
 use std::time::Duration;
@@ -14,7 +14,7 @@ impl GpuContext {
         composition: &Composition,
         size: (u32, u32),
         scale: f64,
-    ) -> Result<CpuFrame, ComposeError> {
+    ) -> Result<CpuFrame, RenderError> {
         let drawn = self.draw_frame(composition, size, scale)?;
         let frame = self.read_frame(&drawn.output);
         self.pool.give(drawn.output);
@@ -22,7 +22,7 @@ impl GpuContext {
     }
 
     /// Copy `texture` (premultiplied RGBA8) into a frame, waiting a bounded time.
-    pub(crate) fn read_frame(&self, texture: &wgpu::Texture) -> Result<CpuFrame, ComposeError> {
+    pub(crate) fn read_frame(&self, texture: &wgpu::Texture) -> Result<CpuFrame, RenderError> {
         let rgba = self.read_rgba(texture)?;
         Ok(CpuFrame {
             width: texture.width(),
@@ -32,7 +32,7 @@ impl GpuContext {
     }
 
     /// The premultiplied RGBA8 bytes of `texture`, rows without padding, waiting a bounded time.
-    pub(crate) fn read_rgba(&self, texture: &wgpu::Texture) -> Result<Vec<u8>, ComposeError> {
+    pub(crate) fn read_rgba(&self, texture: &wgpu::Texture) -> Result<Vec<u8>, RenderError> {
         let (width, height) = (texture.width(), texture.height());
         // wgpu requires rows aligned to COPY_BYTES_PER_ROW_ALIGNMENT during copy.
         let row_bytes = width * 4;
@@ -90,6 +90,6 @@ impl GpuContext {
 }
 
 /// A backend failure with its message.
-pub(crate) fn backend(error: impl std::fmt::Display) -> ComposeError {
-    ComposeError::Backend(error.to_string())
+pub(crate) fn backend(error: impl std::fmt::Display) -> RenderError {
+    RenderError::Backend(error.to_string())
 }

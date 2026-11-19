@@ -5,11 +5,9 @@ use crate::text_input::source::Source;
 use kivact_editing::LineColors;
 use std::ops::Range;
 
-// xtask-allow(state): legacy: damage, coloring; the editor damage since these lines' revision, merged by hold_damage (EditorNode::flush_damage) and taken by refresh_lines; a hint
 /// The lines of a text input (see the module invariants).
 #[derive(Clone, Debug)]
 pub(crate) struct EditLines {
-    pub(crate) damage: Option<kivact_editing::Damage>,
     pub(crate) key: Key,
     pub(crate) align: kivact_types::TextAlign,
     pub(crate) revision: u64,
@@ -48,23 +46,6 @@ impl EditLines {
         }
     }
 
-    pub(crate) fn hold_damage(&mut self, damage: kivact_editing::Damage) {
-        self.damage = Some(match self.damage.take() {
-            None => damage,
-            Some(before) => {
-                let range = damage.start..damage.old_end;
-                let len = damage.new_end - damage.start;
-                let grown = range.end.saturating_sub(before.new_end);
-                kivact_editing::Damage {
-                    base: before.base,
-                    start: before.start.min(range.start),
-                    old_end: before.old_end + grown,
-                    new_end: before.new_end.max(range.end) + len - range.len(),
-                }
-            }
-        });
-    }
-
     /// The lines of what `source` shows in `style`, every line split, none shaped (its
     /// `damage` is not needed: nothing was laid out before).
     pub(crate) fn new(
@@ -79,7 +60,6 @@ impl EditLines {
             .map_or(height, |s| s.baseline);
         // `before` always ends with the totals, even with no line yet.
         let mut lines = EditLines {
-            damage: None,
             key,
             align,
             revision: source.revision,

@@ -10,7 +10,7 @@ use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
 use crate::model::frame::state::FrameRequests;
 use crate::mutation::Writes;
-use kivact_types::{ExternalImageId, NodeId, Size, WindowId, WindowRequest};
+use kivact_types::{ExternalImageId, NodeId, RequestId, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -45,6 +45,10 @@ pub(crate) struct AppModel {
     pub(crate) devtools_changes: Vec<DevtoolsChange>,
     /// What the DevTools records, shared by every model and the host.
     pub(crate) log: EngineLog,
+    /// The injections queued for each window, oldest first: the shell
+    /// events of a window come from the first until the shell reports it
+    /// delivered (`ShellEvent::Injected`).
+    pub(crate) injecting: BTreeMap<WindowId, std::collections::VecDeque<RequestId>>,
 }
 
 impl AppModel {
@@ -65,6 +69,7 @@ impl AppModel {
             external_windows: BTreeMap::new(),
             devtools_changes: Vec::new(),
             log: shared.log,
+            injecting: BTreeMap::new(),
         }
     }
 
@@ -144,6 +149,7 @@ impl AppModel {
     /// and the images imported into it are no longer known.
     pub(crate) fn remove_window(&mut self, id: WindowId) {
         self.windows.remove(&id);
+        self.injecting.remove(&id);
         self.external_windows.retain(|_, window| *window != id);
         if self.focused_window == Some(id) {
             self.focused_window = None;

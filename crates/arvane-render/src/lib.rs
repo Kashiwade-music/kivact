@@ -46,6 +46,6 @@ pub use cpu::{CpuFrameRaster, CpuRaster};
 pub use error::RenderError;
 pub use glyph::{glyph_ink_bounds, glyph_outline};
 #[cfg(feature = "gpu")]
-pub use gpu::{Canvas, GpuRaster, RASTER_FORMAT};
+pub use gpu::{Canvas, GpuFrameRaster, GpuRaster, RASTER_FORMAT};
 pub use limits::MAX_SCENE_DEPTH;
 pub use validate::{dimensions, raster_plan};

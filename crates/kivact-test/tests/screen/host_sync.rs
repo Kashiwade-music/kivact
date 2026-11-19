@@ -150,6 +150,7 @@ fn a_primary_down_of_the_gesture_pointer_releases_a_gesture_whose_up_was_lost() 
         target: Some(region_target(node)),
         local: Point::new(20., 20.),
         activation: None,
+        origin: kivact_engine::contract::InputOrigin::Platform,
         input: PointerSample {
             id: kivact_types::PointerId(1),
             phase: PointerPhase::Down(press),
@@ -407,6 +408,7 @@ fn gesture_sample(
         target: Some(region_target(node)),
         local: Point::new(20., 20.),
         activation: None,
+        origin: kivact_engine::contract::InputOrigin::Platform,
         input: PointerSample {
             id: kivact_types::PointerId(id),
             phase,

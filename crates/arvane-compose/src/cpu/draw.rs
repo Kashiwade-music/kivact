@@ -11,7 +11,7 @@ use kivact_types::pixel::{BlendMode, Pixels};
 
 use super::blend::combine;
 use super::surface::{Pixmap, Premul, Texels, sample_bilinear, sample_nearest};
-use crate::ComposeError;
+use crate::RenderError;
 use crate::cache::ChunkKey;
 use crate::plan::{DrawOp, Sampling, Scissor, Source};
 
@@ -172,7 +172,7 @@ pub(crate) fn draw(
     targets: &mut [Pixmap],
     chunks: &Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     let Some(shape) = Shape::new(&op.polygon.points, &op.split_edges) else {
         return Ok(());
     };
@@ -180,7 +180,7 @@ pub(crate) fn draw(
     if let Source::Target(s) = op.source
         && s as usize == target
     {
-        return Err(ComposeError::InvalidComposition(
+        return Err(RenderError::InvalidComposition(
             "a draw reads the target it writes".into(),
         ));
     }
@@ -241,8 +241,8 @@ fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {
 }
 
 /// The error for a chunk the plan named but the executor does not hold.
-pub(crate) fn missing_chunk(key: ChunkKey) -> ComposeError {
-    ComposeError::InvalidComposition(format!("chunk {key:?} is not rastered"))
+pub(crate) fn missing_chunk(key: ChunkKey) -> RenderError {
+    RenderError::InvalidComposition(format!("chunk {key:?} is not rastered"))
 }
 
 /// The texture of `source`; None when an external frame has no CPU pixels (it is reported missed).
@@ -251,7 +251,7 @@ fn resolve<'a>(
     targets: &'a [Pixmap],
     chunks: &'a Chunks,
     missed: &mut Vec<ExternalFrame>,
-) -> Result<Option<Texture<'a>>, ComposeError> {
+) -> Result<Option<Texture<'a>>, RenderError> {
     Ok(match source {
         Source::Chunk(key) => Some(Texture::Premul(
             chunks.get(key).ok_or_else(|| missing_chunk(*key))?,
@@ -358,7 +358,7 @@ fn paint(
     shape: &Shape<'_>,
     texture: &Texture<'_>,
     cover: Option<&Pixmap>,
-) -> Result<(), ComposeError> {
+) -> Result<(), RenderError> {
     if paint_fast(dst, op, texture, cover).is_some() {
         return Ok(());
     }

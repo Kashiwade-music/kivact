@@ -1,6 +1,6 @@
 //! Role: What a text input shows, to lay its lines out from.
 
-use kivact_editing::Damage;
+use kivact_editing::host::Damage;
 
 /// What a text input shows, to lay its lines out from.
 #[derive(Clone, Copy)]

@@ -309,6 +309,18 @@ impl Reader {
     }
 
     #[doc(hidden)]
+    /// Start (keeping what is recorded) or stop recording the tree changes.
+    pub fn record_tree_changes(&self, on: bool) {
+        self.app.borrow().log.record_tree(on);
+    }
+
+    #[doc(hidden)]
+    /// The tree changes recorded since the last call (empty when not recording).
+    pub fn take_tree_changes(&self) -> crate::contract::TreeChanges {
+        self.app.borrow().log.take_tree()
+    }
+
+    #[doc(hidden)]
     /// The margin, border, padding and content rectangles of `id` in window
     /// coordinates.
     pub fn box_model(&self, id: NodeId) -> Option<BoxModelRects> {
@@ -420,7 +432,7 @@ impl Reader {
             return ImeStateInfo::Inactive;
         };
         let purpose = model.ime_purpose();
-        let (node, composition) = match model.edits.target {
+        let (node, composition) = match model.ime_target() {
             ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
@@ -438,7 +450,7 @@ impl Reader {
             }
             ImeTarget::Session(id) => (id, None),
         };
-        let cursor_area = if matches!(model.edits.target, ImeTarget::Native(_)) {
+        let cursor_area = if matches!(model.ime_target(), ImeTarget::Native(_)) {
             let mut engine = self.engine.borrow_mut();
             let caret = crate::model::interact::text_geometry::caret_rect(model, node, &mut engine);
             Some(model.drawn_rect(node, caret))
