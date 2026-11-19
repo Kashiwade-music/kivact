@@ -36,24 +36,20 @@ pub(crate) enum PointerObservation<T: kivact_runtime::PropValue> {
     Reactive(Signal<Option<T>>),
 }
 
-/// Focus requests, with ordering independent from their stage.
+/// Focus requests: those waiting for the next commit, in order, and those
+/// the host has not answered yet.
 #[derive(Default)]
 pub(crate) struct FocusRequests {
-    pub(crate) requests: HashMap<kivact_types::RequestId, FocusRequest>,
-    pub(crate) order: Vec<kivact_types::RequestId>,
+    pub(crate) queued: Vec<(kivact_types::RequestId, FocusRequest)>,
+    pub(crate) sent: HashMap<kivact_types::RequestId, FocusReply>,
 }
 
+/// One focus request waiting for the commit.
 pub(crate) struct FocusRequest {
     pub(crate) target: kivact_types::FocusTarget,
     pub(crate) reply: FocusReply,
-    pub(crate) stage: RequestStage,
-    /// The requested focus indicator, independent of request progress.
+    /// The requested focus indicator.
     pub(crate) visible: bool,
-}
-
-pub(crate) enum RequestStage {
-    Queued,
-    Sent,
 }
 
 pub(crate) struct FocusCompletion {
@@ -171,8 +167,8 @@ pub(crate) enum FocusReply {
     RestoreAndReport(FocusCompletion),
 }
 
-/// Who waits for the answer of a platform effect.
-pub(crate) enum EffectWaiter {
+/// Who waits for a host answer, by request id.
+pub(crate) enum Waiter {
     /// Report a failure to the owner's error chain (the default sink
     /// without an owner), located at the call; a `Failed` answer is an
     /// error of kind `failed`.
@@ -181,8 +177,20 @@ pub(crate) enum EffectWaiter {
         at: &'static Location<'static>,
         failed: ErrorKind,
     },
-    /// Complete a future.
+    /// Complete a future with the platform answer.
     Future(Completion<Result<PlatformResult, UiError>>),
+    /// A size request of a foreign window's native child.
+    ForeignSize {
+        window: WindowId,
+        at: &'static Location<'static>,
+        slot: Completion<Result<(), UiError>>,
+    },
+    /// A CPU capture answered at the settled host boundary.
+    Snapshot {
+        owner: Owner,
+        at: &'static Location<'static>,
+        reply: Completion<Result<kivact_types::Pixels, UiError>>,
+    },
 }
 
 /// Outstanding host requests of an App.
@@ -190,30 +198,13 @@ pub(crate) enum EffectWaiter {
 pub(crate) struct Requests {
     pub(crate) next_request: u64,
     pub(crate) focus: FocusRequests,
-    pub(crate) effects: HashMap<u64, EffectWaiter>,
-    /// Size requests of foreign windows' native children, by request id.
-    pub(crate) foreign_sizes: HashMap<u64, ForeignSizeRequest>,
-    /// Pending CPU captures, answered at the settled host boundary.
-    pub(crate) snapshots: HashMap<u64, SnapshotWaiter>,
+    /// The answers the host owes, by request id.
+    pub(crate) waiters: HashMap<u64, Waiter>,
     /// Activations `NodeRef::activate` asked for, run by the client after
     /// the handler that asked.
     pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
-}
-
-pub(crate) struct SnapshotWaiter {
-    pub(crate) owner: Owner,
-    pub(crate) at: &'static Location<'static>,
-    pub(crate) reply: Completion<Result<kivact_types::Pixels, UiError>>,
-}
-
-/// A size request of a foreign window's native child, answered by the
-/// window's effect result or by its close.
-pub(crate) struct ForeignSizeRequest {
-    pub(crate) window: WindowId,
-    pub(crate) at: &'static Location<'static>,
-    pub(crate) slot: Completion<Result<(), UiError>>,
 }
 
 impl Requests {
@@ -245,6 +236,7 @@ pub(crate) struct ViewState {
     pub(super) host_capabilities: Signal<Capabilities>,
     pub(crate) capabilities: Value<Capabilities>,
     pub(crate) fonts_value: Signal<Vec<String>>,
+    /// True until the first turn after the App's setup (written once, by start_mount).
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
     pub(crate) app_motion: Signal<AppMotion>,
@@ -257,6 +249,8 @@ pub(crate) struct ViewState {
     modifiers: Signal<Modifiers>,
     /// Focus / platform requests waiting for the host.
     pub(crate) requests: RefCell<Requests>,
+    /// GPU interop state, made on the first adapter query or import.
+    pub(crate) gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>,
 }
 
 // xtask-allow(state): legacy: hover, mouse, min_size, foreign; `Window::min_size`, or `App::min_window_size` for the main window; absent means the engine's minimum
@@ -341,6 +335,7 @@ impl ViewState {
             pointer_modality: Cell::new(Modality::Keyboard),
             modifiers: owner.signal(Modifiers::default(), at),
             requests: RefCell::new(Requests::default()),
+            gpu_interop: kivact_types::cell::Deferred::new(),
         }
     }
 
@@ -387,58 +382,27 @@ impl ViewState {
     /// Resolve the size requests of `window` with `ErrorKind::Closed`; its
     /// native window is going away.
     pub(crate) fn close_foreign_sizes(&self, window: WindowId) {
-        let drained: Vec<ForeignSizeRequest> = {
+        let drained: Vec<Waiter> = {
             let mut requests = self.requests.borrow_mut();
             let ids: Vec<u64> = requests
-                .foreign_sizes
+                .waiters
                 .iter()
-                .filter(|(_, request)| request.window == window)
+                .filter(|(_, waiter)| matches!(waiter, Waiter::ForeignSize { window: w, .. } if *w == window))
                 .map(|(id, _)| *id)
                 .collect();
             ids.into_iter()
-                .filter_map(|id| requests.foreign_sizes.remove(&id))
+                .filter_map(|id| requests.waiters.remove(&id))
                 .collect()
         };
-        for request in drained {
-            request.slot.complete(Err(UiError::new(
-                ErrorKind::Closed,
-                "the foreign window closed before the size request was answered",
-                Some(request.at),
-            )));
+        for waiter in drained {
+            if let Waiter::ForeignSize { at, slot, .. } = waiter {
+                slot.complete(Err(UiError::new(
+                    ErrorKind::Closed,
+                    "the foreign window closed before the size request was answered",
+                    Some(at),
+                )));
+            }
         }
-    }
-
-    /// Resolve a pending foreign size request from the host's answer.
-    pub(crate) fn resolve_foreign_size(&self, id: u64, result: PlatformResult) -> bool {
-        let request = self.requests.borrow_mut().foreign_sizes.remove(&id);
-        let Some(request) = request else {
-            return false;
-        };
-        let outcome = match result {
-            PlatformResult::Failed(message) => Err(UiError::new(
-                ErrorKind::Platform,
-                message.to_string(),
-                Some(request.at),
-            )),
-            PlatformResult::Unsupported => Err(UiError::new(
-                ErrorKind::Unsupported,
-                "the host does not support this platform request",
-                Some(request.at),
-            )),
-            PlatformResult::Cancelled => Err(UiError::new(
-                ErrorKind::Cancelled,
-                "a newer request replaced this deferred platform request",
-                Some(request.at),
-            )),
-            PlatformResult::TimedOut => Err(UiError::new(
-                ErrorKind::Timeout,
-                "the host did not answer this deferred platform request in time",
-                Some(request.at),
-            )),
-            _ => Ok(()),
-        };
-        request.slot.complete(outcome);
-        true
     }
 
     /// Release spare request/tree capacity. Environment memos and live
@@ -446,11 +410,9 @@ impl ViewState {
     pub(crate) fn release_capacity(&self) {
         self.tree.borrow_mut().release_capacity();
         let mut requests = self.requests.borrow_mut();
-        requests.focus.order.shrink_to_fit();
-        requests.focus.requests.shrink_to_fit();
-        requests.effects.shrink_to_fit();
-        requests.foreign_sizes.shrink_to_fit();
-        requests.snapshots.shrink_to_fit();
+        requests.focus.queued.shrink_to_fit();
+        requests.focus.sent.shrink_to_fit();
+        requests.waiters.shrink_to_fit();
         requests.pending_activations.shrink_to_fit();
     }
 

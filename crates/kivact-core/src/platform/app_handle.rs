@@ -8,6 +8,7 @@
 
 use std::fmt;
 use std::panic::Location;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use kivact_runtime::{Owner, Runtime, ThreadWaker};
@@ -37,6 +38,7 @@ impl AppHandle {
         Self {
             link: Arc::new(AppLink {
                 state: Mutex::new(LinkState::Unstarted),
+                requested: AtomicBool::new(false),
             }),
         }
     }
@@ -119,6 +121,9 @@ struct AppLink {
     /// The state. Lock it only to read or transition; the wake runs after the
     /// lock is released.
     state: Mutex<LinkState>,
+    /// Set with the transition to `CloseRequested`, so `take_request` on the UI
+    /// thread returns without taking the lock when no request is pending.
+    requested: AtomicBool,
 }
 
 /// Where the run this handle drives is, as seen from any thread.
@@ -160,6 +165,7 @@ impl AppLink {
             }
             LinkState::Running(waker) => {
                 *state = LinkState::CloseRequested(waker.clone());
+                self.requested.store(true, Ordering::Release);
                 Some(waker)
             }
             LinkState::ClosePending
@@ -206,6 +212,7 @@ impl AppLink {
             }
             LinkState::ClosePending => {
                 *state = LinkState::CloseRequested(waker.clone());
+                self.requested.store(true, Ordering::Release);
                 Some(waker)
             }
             LinkState::Running(_) | LinkState::CloseRequested(_) | LinkState::Exiting => {
@@ -223,6 +230,9 @@ impl AppLink {
     }
 
     fn take_request(&self, accept: bool) -> bool {
+        if !self.requested.swap(false, Ordering::AcqRel) {
+            return false;
+        }
         let mut state = self.lock();
         match state.clone() {
             LinkState::CloseRequested(waker) => {

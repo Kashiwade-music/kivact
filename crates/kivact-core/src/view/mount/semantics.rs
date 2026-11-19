@@ -252,7 +252,7 @@ pub(super) fn bind_props(
     if let Some(destination) = props.focus_on_press {
         let weak = cx.weak();
         cx.effect(EffectKind::Render, at, move || {
-            let target = destination.target_value(at);
+            let target = destination.target_value();
             if let Some(rt) = weak.upgrade() {
                 ViewState::tree_mut(&rt).update(
                     id,

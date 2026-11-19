@@ -89,7 +89,6 @@ pub(super) fn resolve(
     let draw = prepare_draw(&mut common, cx, attached.as_ref(), draw_paint, at);
     finish_resolve(
         common,
-        kind,
         editing,
         attached,
         draw,
@@ -230,7 +229,6 @@ fn prepare_draw(
 
 fn finish_resolve(
     common: Common,
-    _kind: NodeType,
     editing: Option<crate::view::editing_data::EditorProps>,
     attached: Option<Attached>,
     draw: Option<DrawInput>,

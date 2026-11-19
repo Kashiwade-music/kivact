@@ -492,11 +492,10 @@ impl Node {
     /// other.
     #[track_caller]
     pub fn active_descendant(mut self, descendant: impl IntoValue<Option<NodeRef>>) -> Self {
-        let at = Location::caller();
         let source = descendant.into_prop();
         self.common.semantic(
             kivact_runtime::Prop::computed(Rc::new(move || {
-                source.get().and_then(|r| r.target_value(at))
+                source.get().and_then(|r| r.target_value())
             })),
             |s, value| s.active_descendant = value,
         );

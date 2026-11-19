@@ -406,7 +406,7 @@ impl IntoView for Overlay {
                         node,
                         at_least_width,
                     } => kivact_types::OverlayAt::Anchor {
-                        node: node_ref::node_value(node, at),
+                        node: node_ref::node_value(node),
                         at_least_width: *at_least_width,
                     },
                     Place::Point { point, .. } => {

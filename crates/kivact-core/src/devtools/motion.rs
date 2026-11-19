@@ -7,11 +7,11 @@ use kivact_runtime::{ErrorKind, MotionState, Runtime, TaskState};
 
 use super::convert;
 use crate::view::requests::request_effect;
-use crate::view::state::EffectWaiter;
+use crate::view::state::Waiter;
 
 /// Send one DevTools effect to the engine through the view's request counter.
 fn engine_effect(rt: &Runtime, request: HostRequest) {
-    let waiter = EffectWaiter::Report {
+    let waiter = Waiter::Report {
         owner: None,
         at: std::panic::Location::caller(),
         failed: ErrorKind::Platform,

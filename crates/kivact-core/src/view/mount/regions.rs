@@ -318,7 +318,7 @@ impl Registry {
                             ..properties
                         },
                         focus_order: order.min(u32::MAX as usize) as u32,
-                        focus_on_press: common.focus_on_press.and_then(|r| r.target_value(self.at)),
+                        focus_on_press: common.focus_on_press.and_then(|r| r.target_value()),
                     },
                 ))
             })

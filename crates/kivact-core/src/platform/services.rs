@@ -30,7 +30,7 @@ use kivact_types::{PlatformRequest, PlatformResult};
 
 use crate::view::requests;
 use crate::view::requests::platform_result;
-use crate::view::state::EffectWaiter;
+use crate::view::state::Waiter;
 use kivact_runtime::Completion;
 use kivact_runtime::{Owner, UiError, require_effectful};
 
@@ -39,7 +39,7 @@ pub use kivact_types::FileDialog;
 /// Every platform request: the scope must be alive and the caller must
 /// not be a memo or render effect.
 #[track_caller]
-fn request(owner: Owner, api: &'static str, req: HostRequest, waiter: EffectWaiter) {
+fn request(owner: Owner, api: &'static str, req: HostRequest, waiter: Waiter) {
     let rt = owner.runtime();
     require_effectful(api);
     requests::request_effect(&rt, req, waiter);
@@ -52,7 +52,7 @@ fn request_async(
     req: HostRequest,
 ) -> Completion<Result<PlatformResult, UiError>> {
     let slot = Completion::new();
-    request(owner, api, req, EffectWaiter::Future(slot.clone()));
+    request(owner, api, req, Waiter::Future(slot.clone()));
     slot
 }
 
@@ -328,7 +328,7 @@ pub fn save_state(key: &'static str, bytes: Vec<u8>) {
             window,
             request: PlatformRequest::SaveState { key, bytes },
         },
-        EffectWaiter::Report {
+        Waiter::Report {
             owner: Some(owner),
             at,
             failed: kivact_runtime::ErrorKind::Platform,

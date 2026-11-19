@@ -12,8 +12,7 @@ use std::panic::Location;
 
 // xtask-allow(state): legacy: imports, adapter
 /// What `gpu_interop` keeps per App: its imports and the adapter of each
-/// window's device. The client installs it as a runtime extension when the
-/// App is created.
+/// window's device. It is made on the first use ([`state`]).
 pub(crate) struct State {
     imports: RefCell<Imports>,
     /// The adapter of the device drawing each window; a window without an
@@ -28,12 +27,15 @@ impl State {
             adapter: owner.signal(BTreeMap::new(), at),
         }
     }
+}
 
-    /// The gpu-interop state of `rt`'s App.
-    #[inline]
-    pub(crate) fn of(rt: &Runtime) -> &State {
-        rt.ext::<State>()
-    }
+/// The gpu-interop state of `rt`'s App, made on the first call.
+#[track_caller]
+pub(crate) fn state(rt: &Runtime) -> &State {
+    let at = Location::caller();
+    ViewState::of(rt)
+        .gpu_interop
+        .get_or_init(|| State::new(rt.root(), at))
 }
 
 /// The imports of an App, by id.
@@ -175,7 +177,7 @@ pub(crate) fn has_adapter() -> bool {
 /// `f` of `window`'s adapter, tracked.
 fn with_adapter<R>(owner: Owner, window: WindowId, f: impl FnOnce(Option<&GpuAdapter>) -> R) -> R {
     let rt = owner.runtime();
-    let signal = State::of(&rt).adapter;
+    let signal = state(&rt).adapter;
     drop(rt);
     signal.with(|adapters| f(adapters.get(&window)))
 }
@@ -194,7 +196,7 @@ fn demand(rt: &Runtime, window: WindowId) {
 
 /// The window answered the import `image` (`HostEvent::ExternalImported`).
 pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalImport) {
-    let imports = State::of(rt).imports.borrow();
+    let imports = state(rt).imports.borrow();
     // Dropped meanwhile (its owner is gone).
     let Some(import) = imports.images.get(&image) else {
         return;
@@ -225,7 +227,7 @@ pub(crate) fn imported(rt: &Runtime, image: ExternalImageId, result: &ExternalIm
 /// its imports of another device are lost. The other windows keep theirs.
 pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&GpuAdapter>) {
     let generation = adapter.map(|a| a.generation);
-    let statuses: Vec<Signal<ImportPhase>> = State::of(rt)
+    let statuses: Vec<Signal<ImportPhase>> = state(rt)
         .imports
         .borrow()
         .images
@@ -233,7 +235,7 @@ pub(crate) fn adapter_changed(rt: &Runtime, window: WindowId, adapter: Option<&G
         .filter(|import| import.window == window)
         .map(|import| import.status)
         .collect();
-    let signal = State::of(rt).adapter;
+    let signal = state(rt).adapter;
     // Only the adapter and the statuses are written here: no owner applies.
     rt.enter(|| {
         let mut adapters = signal.get_untracked();

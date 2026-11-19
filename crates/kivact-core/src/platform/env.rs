@@ -42,7 +42,7 @@ fn env_field<T: kivact_runtime::PropValue>(
 /// Whether the App is still building its first host revision.
 ///
 /// Read this during mount setup to distinguish content present on the first
-/// screen from content mounted later. The value changes after the first host revision.
+/// screen from content mounted later. The value changes until the first turn after the App's setup.
 #[track_caller]
 pub fn is_initial_render() -> Value<bool> {
     let rt = kivact_runtime::Runtime::current()

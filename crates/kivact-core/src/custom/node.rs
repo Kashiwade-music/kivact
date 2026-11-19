@@ -256,7 +256,7 @@ impl NodeRefExt for NodeRef {
     }
     #[track_caller]
     fn tracked_node(&self) -> Option<NodeToken> {
-        self.target_value(Location::caller()).map(|node| NodeToken {
+        self.target_value().map(|node| NodeToken {
             app: self.app,
             node,
             visible: true,
@@ -268,7 +268,7 @@ impl NodeRefExt for NodeRef {
     }
     #[track_caller]
     fn is_visible(&self) -> bool {
-        let (rt, _) = self.state(Location::caller());
+        let (rt, _) = self.state();
         let revision = ViewState::tree(&rt).visibility_revision();
         revision.track();
         self.tracked_node()
@@ -276,8 +276,7 @@ impl NodeRefExt for NodeRef {
     }
     #[track_caller]
     fn is_in_live_region(&self) -> bool {
-        let at = Location::caller();
-        let (rt, _) = self.state(at);
+        let (rt, _) = self.state();
         let revision = ViewState::tree(&rt).live_region_revision();
         revision.track();
         self.tracked_node()
