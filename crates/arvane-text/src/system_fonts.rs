@@ -60,6 +60,8 @@ const _: fn() = || {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests of the system font scan and its worker.
+
     use super::*;
 
     #[test]
