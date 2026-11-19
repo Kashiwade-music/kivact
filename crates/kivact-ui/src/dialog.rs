@@ -18,7 +18,8 @@
 //! recipe returns.
 use super::DialogState;
 use super::layer::with_recipe_style;
-use super::recipes::{Recipe, UiRecipes};
+use super::recipe::Recipe;
+use super::recipes::UiRecipes;
 use super::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;

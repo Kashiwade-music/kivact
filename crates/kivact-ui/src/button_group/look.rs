@@ -1,8 +1,8 @@
-//! Role: Default recipes for passive action group layout snapshots.
-use crate::group_types::{
-    ButtonGroupMemberState, ButtonGroupState, ToggleGroupItemState, ToggleGroupState,
-};
-use kivact_core::style::{Align, Direction, style};
+//! Role: The button group recipe state, tokens, recipe table and default looks.
+
+use crate::control_size::ControlSize;
+use crate::recipe::recipe_table;
+use kivact_core::style::{Align, Color, Direction, style};
 use kivact_core::view::Orientation;
 pub(crate) fn button_root(
     theme: &kivact_core::style::Theme,
@@ -21,6 +21,7 @@ pub(crate) fn button_root(
         .gap(t.gap)
         .radius(t.radius)
 }
+
 pub(crate) fn button_separator(
     theme: &kivact_core::style::Theme,
     look: &crate::Look<ButtonGroupState>,
@@ -35,6 +36,7 @@ pub(crate) fn button_separator(
         base.width(1).margin_y(1)
     }
 }
+
 pub(crate) fn button_text(
     theme: &kivact_core::style::Theme,
     _: &crate::Look<ButtonGroupState>,
@@ -72,29 +74,55 @@ pub(crate) fn button_member(
     };
     style().radius_corners(tl, tr, br, bl).clip(true)
 }
-pub(crate) fn toggle_root(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupState>,
-) -> kivact_core::style::Style {
-    style()
-        .direction(if look.orientation == Orientation::Vertical {
-            Direction::Column
-        } else if look.rtl {
-            Direction::RowReverse
-        } else {
-            Direction::Row
-        })
-        .align_items(Align::Stretch)
-        .gap(
-            look.spacing
-                .map_or(theme.ext::<crate::UiTokens>().toggle_group.gap, |spacing| {
-                    spacing * 4.0
-                }),
-        )
+
+/// Passive button group metrics and colors.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ButtonGroupTokens {
+    pub gap: f64,
+    pub joined: bool,
+    pub radius: f64,
+    pub divider: Color,
+    pub solid_divider: Color,
+    pub text_background: Color,
+    pub text_color: Color,
 }
-pub(crate) fn toggle_item(
-    theme: &kivact_core::style::Theme,
-    look: &crate::Look<ToggleGroupItemState>,
-) -> kivact_core::style::Style {
-    crate::look::toggle_button(theme, &crate::Look::new(look.toggle))
+
+impl Default for ButtonGroupTokens {
+    fn default() -> Self {
+        Self {
+            gap: 0.0,
+            joined: true,
+            radius: 0.0,
+            divider: Color::TRANSPARENT,
+            solid_divider: Color::TRANSPARENT,
+            text_background: Color::TRANSPARENT,
+            text_color: Color::BLACK,
+        }
+    }
+}
+
+/// Layout supplied to group and auxiliary cell recipes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ButtonGroupState {
+    pub orientation: Orientation,
+    pub size: ControlSize,
+    pub rtl: bool,
+}
+
+/// Position of a child within a joined group, derived from the child list.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct ButtonGroupMemberState {
+    pub layout: ButtonGroupState,
+    pub first: bool,
+    pub last: bool,
+}
+
+recipe_table! {
+    /// Joined action group surface and auxiliary cell recipes.
+    ButtonGroupRecipes {
+        root(root_recipe): ButtonGroupState = button_root,
+        member(member_recipe): ButtonGroupMemberState = button_member,
+        separator(separator_recipe): ButtonGroupState = button_separator,
+        text(text_recipe): ButtonGroupState = button_text,
+    }
 }

@@ -9,6 +9,8 @@
 //! drawing, which a native editing leaf does not support, so these recipes
 //! return style only.
 
+pub(crate) mod look;
+
 use kivact_core::style::use_theme;
 
 use kivact_core::state::Binding;
@@ -19,8 +21,9 @@ use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
 use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 
 use super::layer::recipes;
-use super::values::{ControlSize, TextInputState};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::text_input::look::TextInputState;
 
 /// A single-line text input with the theme's field look.
 ///
@@ -76,7 +79,7 @@ fn create(
     value: Binding<String>,
     multiline: bool,
 ) -> TextInput {
-    let size = super::values::default_control_size().into_value();
+    let size = crate::control_size::default_control_size().into_value();
     let editing = if multiline {
         use_text_area(value)
     } else {

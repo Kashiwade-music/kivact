@@ -1,0 +1,46 @@
+//! Role: Share sizing and look helpers that two or more components recipes use.
+
+use crate::control_size::ControlSize;
+use kivact_core::draw::Shadow;
+use kivact_core::style::{Color, Style, Theme, style};
+/// The font size of a control.
+pub(crate) fn font_size(theme: &Theme, size: ControlSize) -> f64 {
+    match size {
+        ControlSize::ExtraSmall | ControlSize::Small => theme.text().size_small,
+        ControlSize::Medium => theme.text().size,
+        ControlSize::Large => theme.text().size + 2.0,
+    }
+}
+
+/// The height of a control: the theme's `control_height`, 80% of it for
+/// a small one and 65% for an extra small one.
+pub(crate) fn height(theme: &Theme, size: ControlSize) -> f64 {
+    match size {
+        ControlSize::ExtraSmall => (theme.control_height() * 0.65).round(),
+        ControlSize::Small => (theme.control_height() * 0.8).round(),
+        ControlSize::Medium => theme.control_height(),
+        ControlSize::Large => theme.control_height() + 8.0,
+    }
+}
+
+/// The gap between a control's parts.
+pub(crate) fn gap(theme: &Theme, size: ControlSize) -> f64 {
+    match size {
+        ControlSize::ExtraSmall => theme.space().xs,
+        ControlSize::Small => theme.space().sm,
+        ControlSize::Medium | ControlSize::Large => theme.space().md,
+    }
+}
+
+/// A text input that draws neither a border nor a ring of its own.
+pub(crate) fn flat(_: &Theme) -> Style {
+    style()
+        .border(0, Color::TRANSPARENT)
+        .shadow(Shadow::new(0, 0, 0, Color::TRANSPARENT))
+        .background(Color::TRANSPARENT)
+        .focus(
+            style()
+                .border_color(Color::TRANSPARENT)
+                .ring(0, Color::TRANSPARENT),
+        )
+}

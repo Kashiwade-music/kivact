@@ -7,9 +7,11 @@
 //! makes the control invalid for assistive technology and for its own
 //! recipe. The error message and its relation exist only while the error is
 //! `Some`. Pressing the label activates the control through the shared activation authority.
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::values::FieldState;
 use super::variants::{Variant, Variants};
+use crate::field::look::FieldState;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, memo};
 use kivact_core::view::{Element, Node, node, text};

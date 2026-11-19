@@ -1,5 +1,7 @@
 //! Role: Compose named toolbar regions with native roving focus.
+
 use crate::layer::with_base_recipe_style;
+use crate::toolbar::look::ToolbarState;
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
@@ -8,8 +10,8 @@ use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Orientation, ReadingDirection, Role, View, node, row,
     use_direction,
 };
+pub(crate) mod look;
 
-use crate::collection_values::{ToolbarEdge, ToolbarState};
 // xtask-allow(state): legacy: start, center, end, gap
 /// Three optional regions that share a single keyboard Tab stop.
 pub struct Toolbar {
@@ -36,7 +38,7 @@ pub fn toolbar(label: impl IntoText) -> Toolbar {
         center: None,
         end: None,
         orientation: Orientation::Horizontal,
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         gap: None,
         dividers: Vec::new(),
         variants: Variants::default(),
@@ -140,4 +142,13 @@ impl IntoView for Toolbar {
         .child(regions)
         .into_view()
     }
+}
+
+/// Logical edges on which a toolbar draws a divider.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ToolbarEdge {
+    Top,
+    Bottom,
+    Start,
+    End,
 }

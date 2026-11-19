@@ -1,8 +1,5 @@
 //! Role: Supply token-based default feedback, card and input-group recipes.
-use crate::component_values::{
-    AlertState, AlertVariant, CardState, EmptyStateState, InputGroupMemberState, InputGroupState,
-    Selectable,
-};
+use crate::component_values::{AlertState, AlertVariant, CardState, EmptyStateState, Selectable};
 use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
@@ -123,69 +120,8 @@ pub(super) fn card_region(t: &Theme, _: &Look<CardState>) -> Style {
 pub(super) fn card_media(_: &Theme, _: &Look<CardState>) -> Style {
     style().min_width(0)
 }
-pub(super) fn group_root(t: &Theme, _: &Look<InputGroupState>) -> Style {
-    style()
-        .direction(Direction::Column)
-        .gap(t.space().sm)
-        .min_width(0)
-}
-pub(super) fn group_label(t: &Theme, _: &Look<InputGroupState>) -> Style {
-    style()
-        .font_size(t.text().size)
-        .weight(t.text().weight_strong)
-}
-pub(super) fn group_members(_: &Theme, s: &Look<InputGroupState>) -> Style {
-    style()
-        .direction(if s.direction == kivact_core::view::ReadingDirection::Rtl {
-            Direction::RowReverse
-        } else {
-            Direction::Row
-        })
-        .align_items(Align::Stretch)
-        .min_width(0)
-}
-pub(super) fn group_addon(t: &Theme, s: &Look<InputGroupState>) -> Style {
-    style()
-        .height(super::look::height(t, s.size))
-        .padding_x(t.space().sm)
-        .align_items(Align::Center)
-        .justify_content(Justify::Center)
-        .border(1, ColorToken::Border)
-        .background(ColorToken::SurfaceAlt)
-        .color(ColorToken::Text)
-        .font_size(t.text().size)
-}
-
-pub(super) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style {
-    let rtl = s.group.direction == kivact_core::view::ReadingDirection::Rtl;
-    let (left, right) = if rtl {
-        (s.last, s.first)
-    } else {
-        (s.first, s.last)
-    };
-    let radius = t.radius().md;
-    let base = style()
-        .height(super::look::height(t, s.group.size))
-        .radius_corners(
-            if left { radius } else { 0.0 },
-            if right { radius } else { 0.0 },
-            if right { radius } else { 0.0 },
-            if left { radius } else { 0.0 },
-        );
-    let base = if s.first {
-        base
-    } else if rtl {
-        base.margin_right(-1)
-    } else {
-        base.margin_left(-1)
-    };
-    if s.focused { base.z_index(1) } else { base }
-}
 
 pub(super) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {
-    style()
-}
-pub(super) fn group_block(_: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
 }
 

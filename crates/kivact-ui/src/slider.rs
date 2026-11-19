@@ -1,7 +1,10 @@
 //! Role: Render themed sliders over the shared scalar track and thumb parts.
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::slider::look::AxisState;
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
 use kivact_core::motion::Transition;
@@ -91,7 +94,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
         range: None,
         step: None,
         orientation: Orientation::Horizontal,
-        size: super::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         on_edit: None,
         variants,
     }

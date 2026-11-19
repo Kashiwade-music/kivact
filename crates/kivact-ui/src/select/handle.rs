@@ -1,7 +1,8 @@
 //! Role: Render a themed select using the shared keyed selection parts.
 use super::machine;
+use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::values::{ControlSize, SelectTriggerState};
+use crate::values::SelectTriggerState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
@@ -72,7 +73,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
             on_edit: None,
             preview: None,
             icon: None,
-            size: crate::values::default_control_size().into_value(),
+            size: crate::control_size::default_control_size().into_value(),
             option: None,
             variants,
             arrow_open: false.into_value(),
@@ -291,7 +292,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
 /// Apply sheet size variants during styling so live sizes preserve row identity.
 fn with_option_style(
     root: Node,
-    pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ListItemState>,
+    pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ListItemState>,
     variants: &Variants,
     state: Value<ListItemState>,
     size: Value<ControlSize>,

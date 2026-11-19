@@ -1,7 +1,9 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
 use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
-use super::values::{CheckControl, CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::toggle::look::CheckControl;
+use crate::toggle::look::CheckableState;
 use kivact_core::state::{Binding, Callback, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::use_theme;
@@ -73,7 +75,7 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
         options: items.into_value(),
         value: selected.into_binding(),
         orientation: Orientation::Vertical,
-        size: super::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         on_edit: None,
         item: None,
         item_node: None,

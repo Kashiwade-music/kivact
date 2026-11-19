@@ -1,5 +1,6 @@
 //! Role: Apply theme recipe styles before caller overrides without extra nodes.
-use super::recipes::{Recipe, UiRecipes};
+use super::recipe::Recipe;
+use super::recipes::UiRecipes;
 use super::variants::Variants;
 use kivact_core::style::{Theme, use_theme};
 use kivact_core::view::Element;

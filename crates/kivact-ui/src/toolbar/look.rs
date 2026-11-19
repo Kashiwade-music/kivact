@@ -1,8 +1,10 @@
-//! Role: Derive toolbar layout and divider styles from passive theme metrics.
-use crate::collection_values::{ToolbarEdge, ToolbarState};
-use kivact_core::style::{Align, Direction, Justify, Length, Track, pct, style};
-use kivact_core::view::Orientation;
+//! Role: The toolbar recipe state, tokens, recipe table and default looks.
 
+use crate::control_size::ControlSize;
+use crate::recipe::recipe_table;
+use crate::toolbar::ToolbarEdge;
+use kivact_core::style::{Align, Color, Direction, Justify, Length, Track, pct, style};
+use kivact_core::view::Orientation;
 pub(crate) fn root_style(
     theme: &kivact_core::style::Theme,
     look: &crate::Look<ToolbarState>,
@@ -46,4 +48,44 @@ pub(crate) fn root_style(
         };
     }
     base
+}
+
+/// Passive toolbar colors and metrics supplied through [`crate::UiTokens`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolbarTokens {
+    pub background: Color,
+    pub border: Color,
+    pub padding: f64,
+    pub gap: f64,
+    pub min_height: f64,
+}
+
+impl Default for ToolbarTokens {
+    fn default() -> Self {
+        Self {
+            background: Color::TRANSPARENT,
+            border: Color::TRANSPARENT,
+            padding: 8.0,
+            gap: 4.0,
+            min_height: 32.0,
+        }
+    }
+}
+
+/// Layout passed to toolbar recipes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ToolbarState {
+    pub orientation: Orientation,
+    pub size: ControlSize,
+    pub gap: Option<f64>,
+    pub centered: bool,
+    pub rtl: bool,
+    pub dividers: Vec<ToolbarEdge>,
+}
+
+recipe_table! {
+    /// Toolbar surface recipes.
+    ToolbarRecipes {
+        root(root_recipe): ToolbarState = root_style,
+    }
 }

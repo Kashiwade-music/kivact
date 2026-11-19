@@ -15,7 +15,7 @@ pub fn spinner() -> Spinner {
         root: node()
             .role(Role::Status)
             .name(kivact_core::i18n::message("spinner.loading", "Loading")),
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         variants: Variants::default(),
         label: None,
     }

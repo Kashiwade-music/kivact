@@ -5,9 +5,15 @@
 //! binding and no separate constant `checked` mode. Its recipe gets the real
 //! checked state in a `CheckableState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
+pub(crate) mod look;
+mod parts;
+mod switch_drag;
+
 use super::layer::with_base_recipe_style;
-use super::values::{CheckControl, CheckableState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::toggle::look::CheckControl;
+use crate::toggle::look::CheckableState;
 use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::{CheckedState, Element, Node, node};
@@ -45,7 +51,7 @@ macro_rules! toggle_builder {
                     mixed: None,
                     on_edit: None,
                     hide_label: None,
-                    size: super::values::default_control_size().into_value(),
+                    size: crate::control_size::default_control_size().into_value(),
                     variants: Variants::default(),
                 }
             }
@@ -112,7 +118,7 @@ macro_rules! toggle_builder {
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
                 });
                 let check_state = part.state();
-                let indicator = super::toggle_parts::$parts(&self.variants, check_state);
+                let indicator = self::parts::$parts(&self.variants, check_state);
                 with_base_recipe_style(
                     self.root,
                     |recipes| recipes.$recipe(),
@@ -155,7 +161,7 @@ toggle_builder!(
     switch_control
 );
 
-use super::switch_drag::switch as switch_gesture;
+use self::switch_drag::switch as switch_gesture;
 
 fn no_gesture(
     control: kivact_core::custom::Part<ToggleState>,
@@ -164,7 +170,7 @@ fn no_gesture(
     _: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (
     kivact_core::custom::Part<ToggleState>,
-    super::switch_drag::Visual,
+    self::switch_drag::Visual,
 ) {
     (control, None)
 }
@@ -196,7 +202,7 @@ fn switch_text(on: Value<bool>) -> Value<String> {
 /// mixed included.
 fn checkbox_control(
     _: Binding<bool>,
-    _: super::switch_drag::Visual,
+    _: self::switch_drag::Visual,
 ) -> impl Fn(CheckedState) -> CheckControl + 'static {
     CheckControl::CheckBox
 }
@@ -205,7 +211,7 @@ fn checkbox_control(
 /// setup) and the live visual of its opted-in drag.
 fn switch_control(
     state: Binding<bool>,
-    drag: super::switch_drag::Visual,
+    drag: self::switch_drag::Visual,
 ) -> impl Fn(CheckedState) -> CheckControl + 'static {
     let text = switch_text(state.into_value());
     move |checked| CheckControl::Switch {

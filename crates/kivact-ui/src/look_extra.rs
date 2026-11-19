@@ -1,5 +1,5 @@
 //! Role: Default recipes for standard multi-part components.
-use super::values::{DialogState, FieldState, SelectTriggerState, TooltipArrowState};
+use super::values::{DialogState, SelectTriggerState, TooltipArrowState};
 use kivact_core::custom::PartState;
 use kivact_core::style::{
     Align, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
@@ -9,7 +9,7 @@ use kivact_interaction::{ListItemState, MenuItemState, PopupState, TabListState,
 /// A select's trigger: a bordered field, its text muted while it shows
 /// the placeholder.
 pub(super) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
-    let s = trigger(t).height(super::look::height(t, state.size));
+    let s = trigger(t).height(crate::look_common::height(t, state.size));
     if state.placeholder {
         s.color(ColorToken::TextMuted)
     } else {
@@ -218,33 +218,6 @@ pub(super) fn dialog_close(t: &Theme, _: &DialogState) -> Style {
 /// No arrow: an empty box out of the layout.
 pub(super) fn no_arrow(_: &Theme, _: &TooltipArrowState) -> Style {
     style().position(Position::Absolute)
-}
-/// A field: its label, control, hint and error stacked.
-pub(super) fn field(t: &Theme, _: &FieldState) -> Style {
-    style().direction(Direction::Column).gap(t.space().xs)
-}
-/// A field's visible label, in the danger color while the field has an error.
-pub(super) fn field_label(t: &Theme, state: &FieldState) -> Style {
-    let s = style()
-        .font_size(t.text().size_small)
-        .weight(t.text().weight_strong);
-    if state.invalid {
-        s.color(ColorToken::Danger)
-    } else {
-        s
-    }
-}
-/// A field's hint: muted small text under the control.
-pub(super) fn field_hint(t: &Theme, _: &FieldState) -> Style {
-    style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
-}
-/// A field's error message: small text in the danger color.
-pub(super) fn field_error(t: &Theme, _: &FieldState) -> Style {
-    style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::Danger)
 }
 
 /// A disclosure: the trigger over the content.

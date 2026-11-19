@@ -1,13 +1,13 @@
 //! Role: Group per-component visual tokens in one theme extension.
 use crate::avatar_tokens::AvatarTokens;
-use crate::button_tokens::ButtonTokens;
+use crate::button::look::ButtonTokens;
 use crate::data_table_tokens::DataTableTokens;
 use crate::dialog_tokens::DialogTokens;
 use crate::disclosure_tokens::DisclosureTokens;
 use crate::progress_tokens::ProgressTokens;
 use crate::sparkline_tokens::SparklineTokens;
 use crate::toast_tokens::ToastTokens;
-use crate::toggle_button_tokens::ToggleButtonTokens;
+use crate::toggle_button::look::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
@@ -27,9 +27,9 @@ pub struct UiTokens {
     pub carousel: crate::CarouselTokens,
     pub dropzone: crate::DropzoneTokens,
     pub combobox: crate::ComboboxTokens,
-    pub toolbar: crate::collection_values::ToolbarTokens,
-    pub toggle_group: crate::group_types::ToggleGroupTokens,
-    pub button_group: crate::group_types::ButtonGroupTokens,
+    pub toolbar: crate::toolbar::look::ToolbarTokens,
+    pub toggle_group: crate::toggle_group::look::ToggleGroupTokens,
+    pub button_group: crate::button_group::look::ButtonGroupTokens,
     pub avatar: AvatarTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,

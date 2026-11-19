@@ -24,9 +24,9 @@
 //! reads its text reactively, the handle is not part of the state's
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
+use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::view::CheckedState;
-use kivact_core::view::Orientation;
 use kivact_interaction::DialogMode;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
@@ -65,121 +65,6 @@ pub enum RadioGroupVariant {
     Segmented,
 }
 impl Variant for RadioGroupVariant {}
-
-/// The metrics a control is drawn at; the recipe decides what each size
-/// means.
-///
-/// Buttons, text inputs and areas, selects, checkboxes, switches, radio
-/// groups and sliders take one with `.size(..)` and pass it to their
-/// recipes in their state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ControlSize {
-    /// The most compact size, for dense toolbars and inline actions.
-    ExtraSmall,
-    /// A compact size.
-    Small,
-    /// The ordinary size.
-    #[default]
-    Medium,
-    /// A roomy size.
-    Large,
-}
-
-#[derive(Clone, Copy)]
-struct InheritedControlSize(ControlSize);
-
-/// Set the default size of standard controls created in `content`.
-/// A control's explicit `.size(..)` wins, including `ControlSize::Medium`.
-/// Nested providers use the nearest default.
-pub fn provide_control_size<V: kivact_core::view::IntoView>(
-    size: ControlSize,
-    content: impl FnOnce() -> V + 'static,
-) -> kivact_core::view::View {
-    kivact_core::state::provide(InheritedControlSize(size), content)
-}
-
-pub(super) fn default_control_size() -> ControlSize {
-    kivact_core::state::try_use_context::<InheritedControlSize>()
-        .map_or_else(ControlSize::default, |size| size.get().0)
-}
-
-/// What a button's recipes know of it: its root, its content row, its
-/// icon boxes and its busy indicator get the same state.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ButtonState {
-    /// The root's actual input state. Hover, press and focus looks are
-    /// `style().hover(..)`, `.pressed(..)` and `.focus_visible(..)` in the
-    /// returned style; read this only for what a state style cannot change
-    /// (the default `Link` underlines its label while hovered: a text
-    /// decoration is not a state style property).
-    pub input: PartState,
-    pub size: ControlSize,
-    pub busy: bool,
-    /// Whether the button opens something and whether that is open: `None`
-    /// for a plain button, `Some(open)` when the button publishes an
-    /// expanded state (a popup, menu or disclosure attached its trigger to
-    /// it, or the caller set `.expanded(..)`). A look draws an open
-    /// trigger as such (shadcn's `aria-expanded:bg-muted`) and does not
-    /// nudge a popup trigger while pressed.
-    pub expanded: Option<bool>,
-    /// Whether the button shows a leading icon ([`Button::icon`](super::Button::icon)).
-    pub leading_icon: bool,
-    /// Whether the button shows a trailing icon
-    /// ([`Button::trailing`](super::Button::trailing)).
-    pub trailing_icon: bool,
-    /// Whether the label is hidden ([`Button::hide_label`](super::Button::hide_label));
-    /// it stays the accessible name.
-    pub label_hidden: bool,
-}
-
-impl ButtonState {
-    /// Whether only the leading icon shows: the button has one and its
-    /// label is hidden. A look draws it as a square of the button's height.
-    pub fn is_icon_only(&self) -> bool {
-        self.leading_icon && self.label_hidden
-    }
-
-    /// The state of a plain, idle button: for a component that draws one of
-    /// its own parts as the theme's button (a kit's toggle, say) by calling
-    /// the theme's [`UiRecipes::button`](super::UiRecipes) recipe with
-    /// [`Look::new`](super::Look::new) with the button's variant added by
-    /// [`Look::with_variant`](super::Look::with_variant).
-    pub fn new(input: PartState, size: ControlSize) -> Self {
-        ButtonState {
-            input,
-            size,
-            busy: false,
-            expanded: None,
-            leading_icon: false,
-            trailing_icon: false,
-            label_hidden: false,
-        }
-    }
-}
-
-/// The state of a [`toggle_button`](super::toggle) for its recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ToggleButtonState {
-    /// The actual input state of the toggle.
-    pub input: PartState,
-    /// Whether it is pressed (on).
-    pub pressed: bool,
-    /// The size the caller chose with `.size(..)` (default `Medium`).
-    pub size: ControlSize,
-    /// Whether the toggle shows a leading icon ([`ToggleButton::icon`](super::ToggleButton::icon)).
-    pub leading_icon: bool,
-    /// Whether the label is hidden ([`ToggleButton::hide_label`](super::ToggleButton::hide_label),
-    /// or [`ToggleGroup::icon_only`](super::ToggleGroup::icon_only) for a group's item).
-    pub label_hidden: bool,
-}
-
-impl ToggleButtonState {
-    /// Whether only the leading icon shows: the toggle has one and its label
-    /// is hidden. A look draws it as a square of the toggle's height.
-    pub fn is_icon_only(&self) -> bool {
-        self.leading_icon && self.label_hidden
-    }
-}
 
 /// The state of a [`progress`](super::progress) bar for the recipes of its
 /// track and fill.
@@ -228,184 +113,6 @@ impl PartialEq for ProgressState {
     }
 }
 
-/// The state of a text input or a text area for its recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TextInputState {
-    pub input: PartState,
-    pub size: ControlSize,
-    /// Whether the caller marked the value invalid (`TextInput::invalid`).
-    pub invalid: bool,
-}
-
-/// The state of a [`field`](super::field) for the recipes of its parts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FieldState {
-    /// Whether the field shows an error message (`Field::error` is `Some`).
-    pub invalid: bool,
-}
-
-/// The visual position of a switch thumb during an opt-in gesture.
-///
-/// Only the combinations the gesture machine reaches exist: a touch press, a
-/// tracked contact (touch with its offset, or a pointer), and a released touch
-/// thumb which is still raised or has settled.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ThumbDrag {
-    /// A touch contact pressed the switch before moving it.
-    TouchPressed,
-    /// The contact moves the thumb.
-    Tracking(TrackInput),
-    /// A touch contact was released.
-    TouchReleased(Lift),
-}
-
-impl ThumbDrag {
-    /// Whether the gesture follows a touch contact.
-    pub fn is_touch(self) -> bool {
-        match self {
-            Self::TouchPressed | Self::TouchReleased(_) => true,
-            Self::Tracking(TrackInput::Touch { .. }) => true,
-            Self::Tracking(TrackInput::Pointer { .. }) => false,
-        }
-    }
-}
-
-/// What a tracked switch gesture follows.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TrackInput {
-    /// A touch contact, at a physical offset along the writing direction.
-    Touch {
-        /// Physical translation along the writing direction, in logical pixels.
-        offset: f64,
-        /// The side the thumb shows before the binding commits.
-        on: bool,
-    },
-    /// A mouse or pen pointer.
-    Pointer {
-        /// The side the thumb shows before the binding commits.
-        on: bool,
-    },
-}
-
-/// Whether a released touch thumb is still raised or has settled.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Lift {
-    /// The thumb is still raised above the track.
-    Raised,
-    /// The thumb has settled back onto the track.
-    Settled,
-}
-
-/// Which control a [`CheckableState`] describes, with the state only that
-/// control has.
-#[derive(Clone, Copy, Debug)]
-pub enum CheckControl {
-    /// A check box: on, off or mixed
-    /// ([`Checkbox::indeterminate`](super::Checkbox::indeterminate)).
-    CheckBox(CheckedState),
-    /// A switch: on or off.
-    Switch {
-        /// Whether the switch is on.
-        on: bool,
-        /// The localized word for the state: `switch.on` ("ON") or
-        /// `switch.off` ("OFF"). The handle is made at setup and stays the
-        /// same for the mounted control; read it in the paint, which follows
-        /// its text. It is not part of the state's equality.
-        text: kivact_core::state::Value<String>,
-        /// Live visual state while the opted-in drag gesture moves the thumb.
-        drag: Option<ThumbDrag>,
-    },
-    /// A radio item: whether it is the group's chosen option.
-    Radio {
-        /// Whether this option is chosen.
-        selected: bool,
-    },
-}
-
-impl PartialEq for CheckControl {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::CheckBox(a), Self::CheckBox(b)) => a == b,
-            (
-                Self::Switch {
-                    on: a,
-                    drag: drag_a,
-                    ..
-                },
-                Self::Switch {
-                    on: b,
-                    drag: drag_b,
-                    ..
-                },
-            ) => a == b && drag_a == drag_b,
-            (Self::Radio { selected: a }, Self::Radio { selected: b }) => a == b,
-            _ => false,
-        }
-    }
-}
-
-/// The state of a check box, a switch or a radio item for its recipe.
-///
-/// Most recipes read [`is_checked`](Self::is_checked) and
-/// [`is_mixed`](Self::is_mixed); `match state.control` tells the three
-/// controls apart.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CheckableState {
-    /// The actual input state of the control.
-    pub input: PartState,
-    /// Which control this is, with its checked state.
-    pub control: CheckControl,
-    /// The size the caller chose with `.size(..)` (default `Medium`).
-    pub size: ControlSize,
-    /// Whether the caller marked the value invalid: `.invalid(..)` on the
-    /// check box or switch, or on the radio group around a radio item
-    /// (a `field` with an error sets it too).
-    pub invalid: bool,
-}
-
-impl CheckableState {
-    /// The checked state as assistive technology reports it; only a check
-    /// box is ever [`Indeterminate`](CheckedState::Indeterminate).
-    pub fn checked(&self) -> CheckedState {
-        match self.control {
-            CheckControl::CheckBox(checked) => checked,
-            CheckControl::Switch { on, .. } => CheckedState::from_bool(on),
-            CheckControl::Radio { selected } => CheckedState::from_bool(selected),
-        }
-    }
-
-    /// Whether it is on: a checked box, a switch that is on, or the chosen
-    /// radio item.
-    pub fn is_checked(&self) -> bool {
-        self.checked().is_checked()
-    }
-
-    /// Whether a check box shows its mixed (partially checked) state.
-    pub fn is_mixed(&self) -> bool {
-        matches!(
-            self.control,
-            CheckControl::CheckBox(CheckedState::Indeterminate)
-        )
-    }
-
-    /// A switch's localized word for its state; `None` for a check box and
-    /// a radio item.
-    pub fn switch_text(&self) -> Option<kivact_core::state::Value<String>> {
-        match self.control {
-            CheckControl::Switch { text, .. } => Some(text),
-            CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
-        }
-    }
-
-    /// The live visual of a switch's opted-in drag; `None` otherwise.
-    pub fn switch_drag(&self) -> Option<ThumbDrag> {
-        match self.control {
-            CheckControl::Switch { drag, .. } => drag,
-            CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
-        }
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DialogState {
     pub input: PartState,
@@ -441,22 +148,6 @@ pub struct SelectTriggerState {
     /// (the selected key is `None` or not among the options).
     pub placeholder: bool,
     /// The size the caller chose with `Select::size` (default `Medium`).
-    pub size: ControlSize,
-}
-
-/// The state of a part laid along an axis, for its recipe: a slider's
-/// track, range and thumb, and a splitter's handle.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AxisState {
-    /// The actual input state of the part (the thumb's and the handle's
-    /// own; the track's and the range's are the track's).
-    pub input: PartState,
-    /// The direction the value grows along: a horizontal slider's track is
-    /// a row, a vertical one's a column. A splitter's is the direction its
-    /// panes are laid out in, so the handle between panes in a row is a
-    /// vertical bar.
-    pub orientation: Orientation,
-    /// The size the caller chose with `.size(..)` (default `Medium`).
     pub size: ControlSize,
 }
 
@@ -536,8 +227,6 @@ pub struct DataTablePageState {
     /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
     pub pages: usize,
 }
-
-kivact_core::state::constant_value!(ControlSize);
 
 /// Standard progress appearances, read through the existing variant contract.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]

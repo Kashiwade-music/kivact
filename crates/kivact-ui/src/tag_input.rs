@@ -1,4 +1,6 @@
 //! Role: Render a themed field of removable tags and a text input to add one.
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::text_input::{TextInput, text_input};
 use super::variants::{Variant, Variants};

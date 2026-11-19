@@ -68,7 +68,7 @@ impl IntoView for Table {
     fn into_view(self) -> View {
         let pick: fn(
             &crate::recipes::UiRecipes,
-        ) -> &crate::recipes::Recipe<kivact_core::custom::PartState> = match self.part {
+        ) -> &crate::recipe::Recipe<kivact_core::custom::PartState> = match self.part {
             TablePart::Root => |r| r.table_recipes().root_recipe(),
             TablePart::Header => |r| r.table_recipes().header_recipe(),
             TablePart::Body => |r| r.table_recipes().body_recipe(),

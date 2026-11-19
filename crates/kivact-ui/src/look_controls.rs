@@ -1,16 +1,13 @@
 //! Role: Default recipes for the radio group, slider, toasts and splitter.
-use super::values::{AxisState, CheckableState, ControlSize, ToastGroupState};
+use super::values::ToastGroupState;
+use crate::control_size::ControlSize;
+use crate::toggle::look::CheckableState;
 use kivact_core::custom::PartState;
 use kivact_core::style::{
-    Align, Color, ColorToken, Cursor, Direction, Justify, Position, Style, Theme, pct, style,
+    Align, Color, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
 };
 use kivact_core::view::Orientation;
 use kivact_interaction::{ToastState, Tone};
-
-/// The standard checkbox and switch draw their indicators in the root.
-pub(super) fn empty_toggle_part(_: &Theme, _: &CheckableState) -> Style {
-    style().size(0, 0)
-}
 
 /// The options in a column, or a row when horizontal.
 pub(super) fn radio_group(t: &Theme, orientation: &Orientation) -> Style {
@@ -67,61 +64,6 @@ pub(super) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
     style()
         .font_size(t.text().size_small)
         .color(ColorToken::TextMuted)
-}
-
-/// The thickness of a track and the side of a thumb.
-fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
-    let thumb = match size {
-        ControlSize::ExtraSmall | ControlSize::Small => (t.text().size).round(),
-        ControlSize::Medium | ControlSize::Large => (t.text().size + 4.0).round(),
-    };
-    ((thumb / 3.0).round().max(2.0), thumb)
-}
-
-/// The track: a thin rounded bar as tall as the thumb, so the thumb fits
-/// it; 160 px long when vertical.
-pub(super) fn slider_track(t: &Theme, state: &AxisState) -> Style {
-    let (bar, thumb) = slider_metrics(t, state.size);
-    let s = style().shrink(0).cursor(Cursor::Pointer);
-    // The bar is the box's middle third; its painted fill keeps the box's
-    // full thumb-sized extent for the pointer.
-    let s = s.paint(move |d, size| {
-        let r = bar / 2.0;
-        let rect = if size.width >= size.height {
-            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
-        } else {
-            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
-        };
-        d.rounded_rect(rect, r, ColorToken::SurfaceAlt);
-    });
-    match state.orientation {
-        Orientation::Vertical => s.width(thumb).height(160),
-        _ => s.height(thumb).min_width(80),
-    }
-}
-
-/// The filled part of the track, in the accent.
-pub(super) fn slider_range(t: &Theme, state: &AxisState) -> Style {
-    let (bar, _) = slider_metrics(t, state.size);
-    style().paint(move |d, size| {
-        let rect = if size.width >= size.height && size.height > 0.0 {
-            kivact_core::geometry::Rect::new(0.0, (size.height - bar) / 2.0, size.width, bar)
-        } else {
-            kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
-        };
-        d.rounded_rect(rect, bar / 2.0, ColorToken::Accent);
-    })
-}
-
-/// A round thumb on the surface, ringed in the accent.
-pub(super) fn slider_thumb(t: &Theme, state: &AxisState) -> Style {
-    let (_, thumb) = slider_metrics(t, state.size);
-    style()
-        .size(thumb, thumb)
-        .radius(thumb / 2.0)
-        .background(ColorToken::Surface)
-        .border(2, ColorToken::Accent)
-        .shadow(kivact_core::draw::Shadow::new(0, 1, 2, ColorToken::Shadow))
 }
 
 /// The regions at the bottom right, above the page.
@@ -199,56 +141,6 @@ pub(super) fn toast_close(t: &Theme, _: &ToastState) -> Style {
         .radius(t.radius().sm)
         .color(ColorToken::TextMuted)
         .hover(style().background(ColorToken::Hover))
-}
-
-/// The grip on a split's handle: a short rounded bar across it.
-pub(super) fn split_grip(_: &Theme, state: &AxisState) -> Style {
-    let s = style()
-        .shrink(0)
-        .align_self(Align::Center)
-        .radius(2)
-        .background(ColorToken::Border);
-    match state.orientation {
-        Orientation::Vertical => s.size(24, 4),
-        _ => s.size(4, 24),
-    }
-}
-
-/// The handle: a hairline in a hit area wide enough to grab.
-pub(super) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
-    let s = style()
-        .shrink(0)
-        .direction(Direction::Row)
-        .justify_content(Justify::Center)
-        .paint(|d, size| {
-            if size.width <= size.height {
-                d.fill_rect(
-                    kivact_core::geometry::Rect::new(
-                        (size.width - 1.0) / 2.0,
-                        0.0,
-                        1.0,
-                        size.height,
-                    ),
-                    ColorToken::Border,
-                );
-            } else {
-                d.fill_rect(
-                    kivact_core::geometry::Rect::new(
-                        0.0,
-                        (size.height - 1.0) / 2.0,
-                        size.width,
-                        1.0,
-                    ),
-                    ColorToken::Border,
-                );
-            }
-        })
-        .hover(style().background(ColorToken::Hover))
-        .pressed(style().background(ColorToken::Pressed));
-    match state.orientation {
-        Orientation::Vertical => s.height(6).cursor(Cursor::NsResize),
-        _ => s.width(6).cursor(Cursor::EwResize),
-    }
 }
 
 /// Shared by all kits: the row owns size presence independently of card paint.

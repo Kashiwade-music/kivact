@@ -79,7 +79,7 @@ pub(crate) fn wheel(
             release.notify();
             Handled::Yes
         });
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PartState> = if time {
+    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<PartState> = if time {
         |r| r.time_input_recipes().wheel_recipe()
     } else {
         |r| r.date_input_recipes().wheel_recipe()

@@ -1,7 +1,10 @@
 //! Role: Render two themed panes and the shared splitter handle between them.
+pub(crate) mod look;
+
 use super::layer::with_recipe_style;
-use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::slider::look::AxisState;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Binding, Callback, Value};
 use kivact_core::state::{IntoText, callback};

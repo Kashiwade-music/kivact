@@ -1,6 +1,8 @@
 //! Role: Decide switch direct manipulation and owner-scoped release timing.
 use super::geometry::Geometry;
-use crate::values::{Lift, ThumbDrag, TrackInput};
+use crate::toggle::look::Lift;
+use crate::toggle::look::ThumbDrag;
+use crate::toggle::look::TrackInput;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Machine as MachineTrait, Step};
 use kivact_core::view::{MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};

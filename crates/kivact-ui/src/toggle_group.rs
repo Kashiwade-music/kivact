@@ -1,7 +1,11 @@
 //! Role: Compose keyed toggle buttons over the caller's canonical selection.
-use crate::group_types::{ToggleGroupItemState, ToggleGroupState};
+pub(crate) mod look;
+
+use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
-use crate::values::{ControlSize, ToggleButtonState};
+use crate::toggle_button::look::ToggleButtonState;
+use crate::toggle_group::look::ToggleGroupItemState;
+use crate::toggle_group::look::ToggleGroupState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{
     Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback, memo,
@@ -44,7 +48,7 @@ pub fn toggle_group<K: ItemKey>(
         options: items.into_value(),
         selection: selected.into_selection(),
         orientation: Orientation::Horizontal.into_value(),
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         spacing: None,
         icon_only: false.into_value(),
         on_edit: None,

@@ -5,9 +5,13 @@
 //! the `.icon` view is a child of the root, and the recipe lays the row out.
 //! The recipe is the root's base style, so the caller's `.style(..)` wins
 //! whatever the order of the calls.
+pub(crate) mod look;
+use look::ToggleLabelReservation;
+
 use super::layer::with_base_recipe_style;
-use super::values::{ControlSize, ToggleButtonState};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::toggle_button::look::ToggleButtonState;
 use kivact_core::custom::{Constraints, primitive};
 use kivact_core::draw::TextFormat;
 use kivact_core::geometry::Size;
@@ -126,7 +130,7 @@ pub fn toggle_button(
         icon: None,
         on_edit: None,
         hide_label: None,
-        size: super::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         variants: Variants::default(),
     }
 }
@@ -223,5 +227,3 @@ impl IntoView for ToggleButton {
         .into_view()
     }
 }
-
-pub use crate::toggle_button_tokens::{ToggleButtonTokens, ToggleLabelReservation};

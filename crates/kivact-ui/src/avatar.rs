@@ -37,7 +37,7 @@ pub fn avatar(name: impl IntoText) -> Avatar {
         src: None::<Asset>.into_value(),
         fallback: None::<Asset>.into_value(),
         fallback_content: None,
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         shape: AvatarShape::Circle.into_value(),
         status: None::<Tone>.into_value(),
         status_content: None,

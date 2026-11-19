@@ -44,185 +44,38 @@
 //! `chevron-right` for a submenu, `chevron-down` and the selected option's
 //! `check` for a select, and `x` for the close of a dialog and a toast. A
 //! look without a mark makes the recipe's box zero-sized.
+
 use super::look_feedback;
 use super::values::{
-    AxisState, ButtonState, CheckableState, DataTableCellState, DataTableCheckState,
-    DataTablePageState, DataTableRowState, DialogState, FieldState, ProgressState,
-    SelectTriggerState, TextInputState, ToastGroupState, ToggleButtonState, TooltipArrowState,
+    DataTableCellState, DataTableCheckState, DataTablePageState, DataTableRowState, DialogState,
+    ProgressState, SelectTriggerState, ToastGroupState, TooltipArrowState,
 };
-use super::variants::Look;
-use super::{look, look_collections, look_controls, look_extra, look_input, look_palette};
-use crate::component_values::{
-    AlertState, CardState, EmptyStateState, HeadingState, InputGroupMemberState, InputGroupState,
-    StatState,
-};
+use super::{look_collections, look_controls, look_extra, look_palette};
+use crate::button::look::ButtonState;
+use crate::button_group::look::ButtonGroupRecipes;
+use crate::component_values::{AlertState, CardState, EmptyStateState, HeadingState, StatState};
+use crate::dropzone::look::DropzoneRecipes;
+use crate::field::look::FieldRecipes;
+use crate::input_group::look::InputGroupRecipes;
+use crate::number_input::look::NumberInputRecipes;
+use crate::recipe::recipe_table;
+use crate::slider::look::SliderRecipes;
+use crate::split::look::SplitRecipes;
+use crate::splitter::look::SplitterRecipes;
 use crate::table_values::DataTableGroupState;
+use crate::tag_input::look::TagInputRecipes;
+use crate::text_input::look::TextInputState;
+use crate::toggle::look::CheckableState;
+use crate::toggle_button::look::ToggleButtonState;
+use crate::toggle_group::look::ToggleGroupRecipes;
+use crate::toolbar::look::ToolbarRecipes;
 use crate::{look_files, look_metrics, look_static_collections};
 use kivact_core::custom::PartState;
-use kivact_core::style::{Style, Theme, ThemeExtension};
+use kivact_core::style::{Theme, ThemeExtension};
 use kivact_core::view::Orientation;
-use kivact_interaction::DropzoneState;
 use kivact_interaction::{
     ListItemState, MenuItemState, PopupState, TabListState, TabState, TableHeaderState, ToastState,
 };
-use std::sync::Arc;
-
-/// A style derived from the theme and the actual state of a component's
-/// part with the component's kit-defined variants ([`Look`]): what a
-/// recipe table holds for one part.
-///
-/// A recipe returns only style (layout, paint, local `Style::paint`
-/// drawing, and the hover, press, focus and disabled looks as state
-/// styles); what a part shows is the component's, or a slot the caller
-/// fills (`Tabs::item`, `Menu::item`, `Select::item`). Tables compare
-/// their recipes by identity, so installing an unchanged table never
-/// restyles.
-pub struct Recipe<S> {
-    f: Arc<RecipeFn<S>>,
-    name: &'static str,
-}
-
-type RecipeFn<S> = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
-
-impl<S> Clone for Recipe<S> {
-    fn clone(&self) -> Self {
-        Self {
-            f: self.f.clone(),
-            name: self.name,
-        }
-    }
-}
-impl<S, F> From<F> for Recipe<S>
-where
-    F: Fn(&Theme, &Look<S>) -> Style + Send + Sync + 'static,
-{
-    fn from(value: F) -> Self {
-        Self {
-            f: Arc::new(value),
-            name: "",
-        }
-    }
-}
-impl<S> std::ops::Deref for Recipe<S> {
-    type Target = dyn Fn(&Theme, &Look<S>) -> Style + Send + Sync;
-    fn deref(&self) -> &Self::Target {
-        &*self.f
-    }
-}
-impl<S> Recipe<S> {
-    fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.f, &other.f)
-    }
-
-    pub(crate) fn named(mut self, name: &'static str) -> Self {
-        self.name = name;
-        self
-    }
-
-    /// The recipe's name (its table and field); empty for a recipe made
-    /// without one.
-    pub fn name(&self) -> &'static str {
-        self.name
-    }
-}
-
-/// A recipe table: one recipe per part and the tables of the parts'
-/// components. A component reads a recipe with the part's `_recipe` method
-/// (a table with `_recipes`); a theme changes one with the method of the
-/// part's own name, which takes the current recipe and returns the new one,
-/// so it wraps or replaces the recipes it changes and keeps the others. The
-/// fields are private: that method is the only way to change a table.
-macro_rules! recipe_table {
-    (
-        $(#[$meta:meta])*
-        $name:ident {
-            $( $(#[$fmeta:meta])* $field:ident ($read:ident) : $state:ty = $default:path, )*
-        }
-        $( tables { $( $(#[$tmeta:meta])* $table:ident ($tread:ident) : $tty:ty, )* } )?
-    ) => {
-        $(#[$meta])*
-        #[derive(Clone)]
-        pub struct $name {
-            $( $field: Recipe<$state>, )*
-            $( $( $table: $tty, )* )?
-        }
-
-        impl $name {
-            pub(crate) fn default_table() -> &'static Self {
-                #[expect(clippy::disallowed_types, reason = "Immutable global recipe defaults are initialized once and share stable recipe identities.")]
-                static DEFAULT: std::sync::OnceLock<$name> = std::sync::OnceLock::new();
-                DEFAULT.get_or_init(|| Self {
-                    $( $field: Recipe::from(|theme: &Theme, look: &Look<$state>| $default(theme, look)).named(concat!(stringify!($name), ".", stringify!($field))), )*
-                    $( $( $table: Default::default(), )* )?
-                })
-            }
-
-            $(
-                $(#[$fmeta])*
-                ///
-                /// This reads the recipe; the method of the same name without
-                /// `_recipe` replaces it.
-                pub fn $read(&self) -> &Recipe<$state> {
-                    &self.$field
-                }
-
-                $(#[$fmeta])*
-                ///
-                /// This replaces the recipe: `f` gets the current recipe and
-                /// returns the new one, which may call it.
-                pub fn $field<F>(mut self, f: impl FnOnce(Recipe<$state>) -> F) -> Self
-                where
-                    F: Fn(&Theme, &Look<$state>) -> Style + Send + Sync + 'static,
-                {
-                    self.$field = Recipe::from(f(self.$field))
-                        .named(concat!(stringify!($name), ".", stringify!($field)));
-                    self
-                }
-            )*
-            $( $(
-                $(#[$tmeta])*
-                ///
-                /// This reads the table; the method of the same name without
-                /// `_recipes` replaces it.
-                pub fn $tread(&self) -> &$tty {
-                    &self.$table
-                }
-
-                $(#[$tmeta])*
-                ///
-                /// This replaces the table: `f` gets the current table and
-                /// returns the new one.
-                pub fn $table(mut self, f: impl FnOnce($tty) -> $tty) -> Self {
-                    self.$table = f(self.$table);
-                    self
-                }
-            )* )?
-        }
-
-        impl Default for $name {
-            fn default() -> Self {
-                Self::default_table().clone()
-            }
-        }
-
-        impl PartialEq for $name {
-            fn eq(&self, other: &Self) -> bool {
-                true
-                    $( && self.$field.same(&other.$field) )*
-                    $( $( && self.$table == other.$table )* )?
-            }
-        }
-
-        impl std::fmt::Debug for $name {
-            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-                f.debug_struct(stringify!($name))
-                    $( .field(stringify!($field), &Arc::as_ptr(&self.$field.f).cast::<()>()) )*
-                    $( $( .field(stringify!($table), &self.$table) )* )?
-                    .finish()
-            }
-        }
-    };
-}
 
 recipe_table! {
     /// Calendar panels and date cells.
@@ -400,21 +253,6 @@ recipe_table! {
 }
 
 recipe_table! {
-    /// The recipes of a [`slider`](super::slider) and a
-    /// [`range_slider`](super::range_slider).
-    SliderRecipes {
-        /// The track the pointer moves along; the component places the
-        /// range and the thumbs in it.
-        track(track_recipe): AxisState = look_controls::slider_track,
-        /// The filled part of the track, from its start (or the first
-        /// thumb) to the thumb.
-        range(range_recipe): AxisState = look_controls::slider_range,
-        /// A thumb. Its size is the recipe's; the component places it.
-        thumb(thumb_recipe): AxisState = look_controls::slider_thumb,
-    }
-}
-
-recipe_table! {
     /// The recipes of a [`toast_region`](super::toast_region).
     ToastRecipes {
         /// The region, placed at the window's bottom right.
@@ -439,28 +277,6 @@ recipe_table! {
 }
 
 recipe_table! {
-    /// The recipes of a [`field`](super::field).
-    FieldRecipes {
-        /// The column of label, control, hint and error.
-        root(root_recipe): FieldState = look_extra::field,
-        /// The visible label, which knows whether the field has an error.
-        label(label_recipe): FieldState = look_extra::field_label,
-        /// The hint under the control.
-        hint(hint_recipe): FieldState = look_extra::field_hint,
-        /// The error message under the hint.
-        error(error_recipe): FieldState = look_extra::field_error,
-    }
-}
-
-recipe_table! {
-    /// The recipes of a [`splitter`](super::splitter).
-    SplitterRecipes {
-        /// The handle between the panes.
-        handle(handle_recipe): AxisState = look_controls::splitter_handle,
-    }
-}
-
-recipe_table! {
     /// The recipes of a [`list`](super::list).
     ListRecipes {
         /// The column of items.
@@ -481,16 +297,6 @@ recipe_table! {
         item(item_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_item,
         /// The branch indicator or matching leaf spacer.
         marker(marker_recipe): crate::tree_values::TreeRowRecipeState = look_collections::tree_marker,
-    }
-}
-
-recipe_table! {
-    /// The recipes of a [`split`](super::split), besides its handles'
-    /// [`SplitterRecipes::handle`].
-    SplitRecipes {
-        /// The grip on a handle, shown while [`Split::grip`](super::Split::grip)
-        /// is true; its state is the handle's.
-        grip(grip_recipe): AxisState = look_controls::split_grip,
     }
 }
 
@@ -601,31 +407,6 @@ recipe_table! {
 }
 
 recipe_table! {
-    /// The recipes of a [`tag_input`](super::tag_input).
-    TagInputRecipes {
-        /// The box of the tags and the input; its `focused` is true while the
-        /// focus is in the input.
-        root(root_recipe): PartState = look_input::tag_root,
-        /// One tag: its text and its remove button.
-        tag(tag_recipe): PartState = look_input::tag,
-        /// A tag's remove button, over the button recipes.
-        remove(remove_recipe): PartState = look_input::tag_remove,
-        /// The input, over the text input recipe.
-        input(input_recipe): PartState = look_input::tag_input,
-    }
-}
-
-recipe_table! {
-    /// The recipes of a [`number_input`](super::number_input).
-    NumberInputRecipes {
-        /// The box of the decrease button, the input and the increase button.
-        root(root_recipe): PartState = look_input::number_root,
-        /// The input, over the text input recipe.
-        input(input_recipe): PartState = look_input::number_input,
-    }
-}
-
-recipe_table! {
     /// The recipes of every standard component, installed in a theme with
     /// [`Theme::with`]; a theme without them draws
     /// [`UiRecipes::default`].
@@ -662,31 +443,31 @@ recipe_table! {
         badge_label(badge_label_recipe): crate::indicator_values::BadgeState = super::look_indicators::badge_label,
         spinner(spinner_recipe): crate::indicator_values::SpinnerState = super::look_indicators::spinner,
         skeleton(skeleton_recipe): crate::indicator_values::SkeletonState = super::look_indicators::skeleton,
-        button(button_recipe): ButtonState = look::button,
+        button(button_recipe): ButtonState = crate::button::look::button,
         /// The row of a button's icons, label and children.
-        button_content(button_content_recipe): ButtonState = look::button_content,
+        button_content(button_content_recipe): ButtonState = crate::button::look::button_content,
         /// The busy indicator while `busy`; the button turns it about
         /// its centre.
-        button_busy(button_busy_recipe): ButtonState = look::button_busy,
+        button_busy(button_busy_recipe): ButtonState = crate::button::look::button_busy,
         /// The box around a button's leading and trailing icon: where a kit
         /// sizes the icon for the button's size.
-        button_icon(button_icon_recipe): ButtonState = look::button_icon,
-        checkbox(checkbox_recipe): CheckableState = look::checkbox,
+        button_icon(button_icon_recipe): ButtonState = crate::button::look::button_icon,
+        checkbox(checkbox_recipe): CheckableState = crate::toggle::look::checkbox,
         /// The checkbox indicator box. Default recipes draw the indicator in the root.
-        checkbox_indicator(checkbox_indicator_recipe): CheckableState = look_controls::empty_toggle_part,
+        checkbox_indicator(checkbox_indicator_recipe): CheckableState = crate::toggle::look::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the checked mark.
-        checkbox_check(checkbox_check_recipe): CheckableState = look_controls::empty_toggle_part,
+        checkbox_check(checkbox_check_recipe): CheckableState = crate::toggle::look::empty_toggle_part,
         /// A persistent part inside the checkbox indicator for the indeterminate mark.
-        checkbox_mixed(checkbox_mixed_recipe): CheckableState = look_controls::empty_toggle_part,
-        switch(switch_recipe): CheckableState = look::switch,
+        checkbox_mixed(checkbox_mixed_recipe): CheckableState = crate::toggle::look::empty_toggle_part,
+        switch(switch_recipe): CheckableState = crate::toggle::look::switch,
         /// The switch track. Default recipes draw the track and thumb in the root.
-        switch_track(switch_track_recipe): CheckableState = look_controls::empty_toggle_part,
+        switch_track(switch_track_recipe): CheckableState = crate::toggle::look::empty_toggle_part,
         /// A persistent part inside the track for the moving thumb.
-        switch_thumb(switch_thumb_recipe): CheckableState = look_controls::empty_toggle_part,
+        switch_thumb(switch_thumb_recipe): CheckableState = crate::toggle::look::empty_toggle_part,
         /// A [`toggle_button`](super::toggle) button: the icon and the label in a row.
-        toggle(toggle_recipe): ToggleButtonState = look::toggle_button,
-        text_input(text_input_recipe): TextInputState = look::text_input,
-        text_area(text_area_recipe): TextInputState = look::text_area,
+        toggle(toggle_recipe): ToggleButtonState = crate::toggle_button::look::toggle_button,
+        text_input(text_input_recipe): TextInputState = crate::text_input::look::text_input,
+        text_area(text_area_recipe): TextInputState = crate::text_input::look::text_area,
     }
     tables {
         stat(stat_recipes): StatRecipes,
@@ -785,38 +566,6 @@ recipe_table! {
         next(next_recipe): crate::carousel_values::CarouselSurfaceState = look_files::carousel_control,
     }
 }
-recipe_table! {
-    /// Styles for a file drop target and its feedback.
-    DropzoneRecipes {
-        root(root_recipe): DropzoneState = look_files::dropzone_root,
-        icon(icon_recipe): DropzoneState = look_files::dropzone_icon,
-        label(label_recipe): DropzoneState = look_files::dropzone_label,
-        hint(hint_recipe): DropzoneState = look_files::dropzone_hint,
-        status(status_recipe): DropzoneState = look_files::dropzone_status,
-    }
-}
-recipe_table! {
-    /// Toolbar surface recipes.
-    ToolbarRecipes {
-        root(root_recipe): crate::collection_values::ToolbarState = crate::toolbar_look::root_style,
-    }
-}
-recipe_table! {
-    /// Toggle group surface and item recipes.
-    ToggleGroupRecipes {
-        root(root_recipe): crate::group_types::ToggleGroupState = crate::group_look::toggle_root,
-        item(item_recipe): crate::group_types::ToggleGroupItemState = crate::group_look::toggle_item,
-    }
-}
-recipe_table! {
-    /// Joined action group surface and auxiliary cell recipes.
-    ButtonGroupRecipes {
-        root(root_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_root,
-        member(member_recipe): crate::group_types::ButtonGroupMemberState = crate::group_look::button_member,
-        separator(separator_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_separator,
-        text(text_recipe): crate::group_types::ButtonGroupState = crate::group_look::button_text,
-    }
-}
 
 recipe_table! {
     /// Recipes for an empty region's message and actions.
@@ -853,18 +602,6 @@ recipe_table! {
         content(content_recipe): CardState = look_feedback::card_region,
         footer(footer_recipe): CardState = look_feedback::card_region,
         overlay(overlay_recipe): CardState = look_feedback::card_overlay,
-    }
-}
-recipe_table! {
-    /// Recipes for a labelled group of controls and its text adornments.
-    InputGroupRecipes {
-        root(root_recipe): InputGroupState = look_feedback::group_root,
-        label(label_recipe): InputGroupState = look_feedback::group_label,
-        members(members_recipe): InputGroupState = look_feedback::group_members,
-        member(member_recipe): InputGroupMemberState = look_feedback::group_member,
-        addon(addon_recipe): InputGroupState = look_feedback::group_addon,
-        block_start(block_start_recipe): InputGroupState = look_feedback::group_block,
-        block_end(block_end_recipe): InputGroupState = look_feedback::group_block,
     }
 }
 recipe_table! {

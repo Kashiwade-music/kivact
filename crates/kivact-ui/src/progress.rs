@@ -6,8 +6,9 @@
 //! sets their timing with [`ProgressMotion`]. The clock only runs in an active
 //! window while the bar is indeterminate or [`Progress::moving`] is true.
 use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::values::{ControlSize, ProgressState};
+use super::values::ProgressState;
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::IntoValue;
@@ -87,7 +88,7 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         root: node().role(Role::ProgressBar),
         value,
         fixed_indeterminate,
-        size: super::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         moving: false.into_value(),
         variants: Variants::default(),
     }

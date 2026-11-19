@@ -1,5 +1,5 @@
 //! Role: Resolve switch thumb travel and rubber-band geometry.
-use crate::values::ControlSize;
+use crate::control_size::ControlSize;
 use kivact_core::view::{ReadingDirection, use_direction};
 #[derive(Clone, Copy)]
 pub(super) struct Geometry {

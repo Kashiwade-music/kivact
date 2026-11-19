@@ -15,9 +15,12 @@
 //! `Look::new(ButtonState::new(input, size)).with_variant(variant)`.
 //! The caller's view in `.icon`, `.trailing` and `.child` is composed
 //! in, without reimplementing activation.
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::values::{ButtonState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::button::look::ButtonState;
+use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
 use kivact_core::state::{IntoText, IntoValue};
@@ -141,7 +144,7 @@ pub fn button(label: impl IntoText) -> Button {
         icon: None,
         trailing: None,
         children: Vec::new(),
-        size: ButtonSize::Default(super::values::default_control_size()),
+        size: ButtonSize::Default(crate::control_size::default_control_size()),
         variants: Variants::default(),
         busy: None,
         input,
@@ -350,8 +353,6 @@ impl IntoView for Button {
         self.finish().into_view()
     }
 }
-
-pub use crate::button_tokens::{ButtonBusyMotion, ButtonTokens};
 
 /// Drive the busy clock and delayed reveal from the actual button state.
 fn busy_animation(state: Value<ButtonState>) -> (Value<f64>, Value<bool>) {

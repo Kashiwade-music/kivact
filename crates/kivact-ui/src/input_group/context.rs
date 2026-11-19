@@ -1,5 +1,5 @@
 //! Role: Observe the existing input-group projection from deferred descendant scopes.
-use crate::component_values::InputGroupState;
+use crate::input_group::look::InputGroupState;
 use kivact_core::state::{Value, provide, try_use_context};
 use kivact_core::view::{IntoView, View};
 #[derive(Clone, Copy)]

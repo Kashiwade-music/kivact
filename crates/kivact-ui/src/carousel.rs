@@ -628,7 +628,7 @@ fn navigation_button(
             }
     })
     .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<CarouselSurfaceState> =
+    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<CarouselSurfaceState> =
         if next {
             |r| r.carousel_recipes().next_recipe()
         } else {
