@@ -1,8 +1,8 @@
 //! Role: Runtime construction and task and motion turn operations.
 use crate::reactive::host_types::TurnState;
 use crate::{
-    CauseTag, DEFAULT_DRAIN_NS, ErrorKind, ExitState, Host, MotionEnv, Owner, Runtime, Stage,
-    TaskState, ThreadWaker, TurnGuard, TurnReport, UiError,
+    CauseTag, DEFAULT_DRAIN_NS, ErrorKind, ExitState, Host, MotionEnv, Owner, RecordBits, Runtime,
+    Stage, TaskState, ThreadWaker, TurnGuard, TurnReport, UiError,
 };
 use std::panic::Location;
 use std::rc::Rc;
@@ -18,6 +18,8 @@ pub struct RuntimeConfig {
     pub blocking_threads: Option<usize>,
     /// Source location of the root owner.
     pub at: &'static Location<'static>,
+    /// The recorders on from the start (a test screen records its whole run).
+    pub record: RecordBits,
 }
 /// What the host layer builds during `Runtime::new` (in the root's setup):
 /// its own per-App state, read back with [`Runtime::app_state`], and the
@@ -46,6 +48,7 @@ impl Runtime {
         let tasks = TaskState::new(config.blocking_threads, waker);
         let rt = Runtime::register(host, config.start_ns, tasks);
         let registration = RegistrationGuard(rt.id());
+        rt.set_recorder(config.record, true);
         let root = rt.create_owner(None, config.at);
         assert_eq!(
             root, rt.root,
@@ -191,14 +194,14 @@ impl TurnGuard<'_> {
         self.stage(Stage::Async);
         let wakers = rt.tasks.take_due_timers(rt.now_ns());
         let woke = !wakers.is_empty();
-        if woke {
+        if woke && rt.is_recording() {
             self.cause_with(CauseTag::Timer, "timer".into());
         }
         for w in wakers {
             w.wake();
         }
         let polled = rt.tasks.poll_tasks(rt);
-        if polled > 0 {
+        if polled > 0 && rt.is_recording() {
             self.cause_with(CauseTag::Task, "task".into());
         }
         let ran = woke || polled > 0;

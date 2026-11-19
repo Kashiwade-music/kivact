@@ -16,8 +16,8 @@ use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
 use kivact_runtime::{
-    AppParts, ExitState, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage, ThreadWaker,
-    TurnGuard, TurnReport,
+    AppParts, ExitState, IntoBinding, IntoValue, RecordBits, Runtime, RuntimeConfig, Stage,
+    ThreadWaker, TurnGuard, TurnReport,
 };
 
 use super::settings::AppOptions;
@@ -141,6 +141,23 @@ fn start_mount(
     crate::devtools::start::after_mount(rt);
 }
 
+/// The recorders a launch turns on from the start: a test screen records its run.
+fn record_bits(mode: &ClientMode) -> RecordBits {
+    if matches!(mode, ClientMode::Test { .. }) {
+        RecordBits::TEST
+    } else {
+        RecordBits::default()
+    }
+}
+
+/// The comparison trace records the turns when it is on.
+#[cfg(debug_assertions)]
+fn trace_recorder(rt: &Runtime) {
+    if crate::client::trace::Trace::of(rt).is_on() {
+        rt.set_recorder(RecordBits::TRACE_SINK, true);
+    }
+}
+
 impl Launch {
     fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
         let (options, _) = match &mut self.launch {
@@ -174,6 +191,7 @@ impl Launch {
                 start_ns: info.now_ns,
                 blocking_threads: options.settings.blocking_threads,
                 at,
+                record: record_bits(&self.mode),
             },
             |_rt, root| {
                 #[cfg(feature = "devtools")]
@@ -207,6 +225,8 @@ impl Launch {
                 }
             },
         );
+        #[cfg(debug_assertions)]
+        trace_recorder(&rt);
         let (options, root) = match std::mem::replace(
             &mut self.launch,
             LaunchState::Started(Started {

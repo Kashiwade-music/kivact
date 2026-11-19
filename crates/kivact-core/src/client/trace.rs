@@ -32,6 +32,11 @@ impl Trace {
         &crate::app_state::AppState::of(rt).trace
     }
 
+    /// Whether this App writes a comparison trace.
+    pub(crate) fn is_on(&self) -> bool {
+        self.sink.is_some()
+    }
+
     /// The trace of an App whose test is `name`; opens the file when
     /// `KIVACT_TRACE` selects a stream.
     pub(crate) fn new(name: Option<&str>) -> Trace {

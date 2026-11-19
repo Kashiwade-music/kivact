@@ -25,12 +25,12 @@ pub use reactive::{
     AppId, Binding, Callback, CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, EffectKind,
     ErrorKind, ExitState, Handled, Handler, HandlerResult, Host, IntoBinding, IntoReactive,
     IntoText, IntoValue, ItemKey, Kind, LiveCounts, LiveObject, LiveOwner, LiveSnapshot, NodeId,
-    NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Prop, PropValue, Reactive, ReportKind,
-    Reported, Result, Runtime, Selector, Signal, Stage, StageSpan, ThreadWaker, TraceRun,
-    TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport, UiError, UiThreadOnly, Value,
-    Var, binding, callback, clock_now, effect, effect_on, memo, notifier, on_cleanup, on_mount,
-    pure, raise, require_effectful, require_setup, selector, signal, try_use_context, untrack,
-    use_context, var,
+    NodeInfo, Notifier, Owned, Owner, OwnerId, OwnerInfo, Prop, PropValue, Reactive, RecordBits,
+    ReportKind, Reported, Result, Runtime, Selector, Signal, Stage, StageSpan, ThreadWaker,
+    TraceRun, TraceWrite, Turn, TurnDetail, TurnGuard, TurnRecord, TurnReport, UiError,
+    UiThreadOnly, Value, Var, binding, callback, clock_now, effect, effect_on, memo, notifier,
+    on_cleanup, on_mount, pure, raise, require_effectful, require_setup, selector, signal,
+    try_use_context, untrack, use_context, var,
 };
 pub use reactive::{handler, keyed};
 pub use task::{

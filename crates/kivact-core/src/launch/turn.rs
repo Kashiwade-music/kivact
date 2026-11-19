@@ -60,7 +60,10 @@ impl Launch {
         stats.turns += 1;
         host.stats.set(stats);
         let turn = rt.begin_turn(events.len());
-        if events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision)) {
+        if events.is_empty()
+            && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision))
+            && rt.is_recording()
+        {
             turn.cause_with(CauseTag::Mount, "mounts".into());
         }
         turn.run_mounts(Revision(before));
@@ -87,7 +90,9 @@ impl Launch {
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
             edits.deliver(event);
             ViewState::tree(&rt).engine().deliver(event);
-            turn.cause_with(CauseTag::Input, describe(event));
+            if rt.is_recording() {
+                turn.cause_with(CauseTag::Input, describe(event));
+            }
             crate::client::dispatch::dispatch(&rt, event);
             turn.settle();
             delivered += 1;

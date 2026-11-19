@@ -62,7 +62,7 @@ pub use data::{
     TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use detail::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, StageSpan, TurnDetail};
-pub use diag::{ReportKind, Reported};
+pub use diag::{RecordBits, ReportKind, Reported};
 pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;

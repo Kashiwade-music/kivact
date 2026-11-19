@@ -6,7 +6,8 @@
 //! Values are never recorded: only type names and source locations.
 //!
 //! Invariants:
-//! - Recording is always on (no feature or level gates it); the `tracing`
+//! - Errors and diagnostics are always kept; the turn trace is kept only
+//!   while a recorder is on ([`Runtime::set_recorder`]). The `tracing`
 //!   target is `kivact`.
 //! - A turn keeps at most 64 entries of each kind (causes, writes, re-runs,
 //!   notes) and the ring keeps the last 256 turns.
@@ -34,6 +35,36 @@ pub enum ReportKind {
     Error,
     /// A non-fatal diagnostic (a write after dispose, a stale event, ...).
     Diagnostic,
+}
+
+/// Which recorders want the turn trace ([`Runtime::set_recorder`]). The
+/// trace (turn records, causes, writes, re-runs, stage times and the
+/// DevTools detail) is kept only while one of them is on; errors and
+/// diagnostics are always kept.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RecordBits(u8);
+
+impl RecordBits {
+    /// The DevTools agent records updates.
+    pub const DEVTOOLS: RecordBits = RecordBits(1);
+    /// A `kivact::test` screen (`Screen::trace`).
+    pub const TEST: RecordBits = RecordBits(2);
+    /// The debug comparison trace (`KIVACT_TRACE`).
+    pub const TRACE_SINK: RecordBits = RecordBits(4);
+
+    /// Whether any recorder is on.
+    pub const fn any(self) -> bool {
+        self.0 != 0
+    }
+
+    /// These bits with `bits` turned on or off.
+    pub const fn with(self, bits: RecordBits, on: bool) -> RecordBits {
+        if on {
+            RecordBits(self.0 | bits.0)
+        } else {
+            RecordBits(self.0 & !bits.0)
+        }
+    }
 }
 
 /// One error or diagnostic in report order, as the DevTools reads them.
@@ -92,7 +123,7 @@ impl Diag {
     pub(crate) fn record_diagnostic(&mut self, err: UiError) {
         tracing::debug!(target: "kivact", kind = ?err.kind(), at = ?err.location(), "{}", err);
         // Also a note of the turn record, readable through `Screen::trace`.
-        if self.current.notes.len() < PER_TURN {
+        if self.record.any() && self.current.notes.len() < PER_TURN {
             self.current
                 .notes
                 .push(format!("{:?}: {err:?}", err.kind()));
@@ -108,7 +139,7 @@ impl Diag {
     /// A free-form note of the current turn.
     pub(crate) fn note(&mut self, msg: String) {
         tracing::trace!(target: "kivact", "{}", msg);
-        if self.current.notes.len() < PER_TURN {
+        if self.record.any() && self.current.notes.len() < PER_TURN {
             self.current.notes.push(msg);
         }
     }
@@ -120,6 +151,9 @@ impl Diag {
 
     /// What started work in the current turn.
     pub(crate) fn cause(&mut self, c: String) {
+        if !self.record.any() {
+            return;
+        }
         if self.current.causes.len() < PER_TURN {
             self.current.causes.push(c);
         }
@@ -132,6 +166,9 @@ impl Diag {
         created_at: &'static Location<'static>,
         at: &'static Location<'static>,
     ) {
+        if !self.record.any() {
+            return;
+        }
         if self.current.writes.len() < PER_TURN {
             self.current.writes.push(TraceWrite { ty, created_at, at });
         }
@@ -139,6 +176,9 @@ impl Diag {
 
     /// A memo or effect re-evaluation.
     pub(crate) fn record_run(&mut self, kind: &'static str, at: &'static Location<'static>) {
+        if !self.record.any() {
+            return;
+        }
         self.current.runs += 1;
         if self.current.reruns.len() < PER_TURN {
             self.current.reruns.push(TraceRun { kind, at });
@@ -146,6 +186,9 @@ impl Diag {
     }
 
     fn push_record(&mut self, record: TurnRecord) {
+        if !self.record.any() {
+            return;
+        }
         if self.turns.len() == RING {
             self.turns.pop_front();
         }
@@ -224,18 +267,23 @@ impl Runtime {
 
     /// Record what started work in the current turn (`"timer"`, an event, ...).
     pub(crate) fn record_cause_with(&self, tag: CauseTag, label: String) {
+        if !self.is_recording() {
+            return;
+        }
         let mut diag = self.diag.borrow_mut();
         diag.cause(label.clone());
         diag.detail.cause(tag, label);
     }
 
-    /// Record the elapsed time of the active turn stage in the detailed trace.
-    pub(crate) fn record_stage(&self, stage: Stage, elapsed: std::time::Duration) {
-        self.diag.borrow_mut().detail.stage(
-            stage,
-            self.now_ns(),
-            u64::try_from(elapsed.as_nanos()).unwrap_or(u64::MAX),
-        );
+    /// Record the time since `started` as the active turn stage, in the
+    /// detailed trace (only while a recorder is on).
+    pub(crate) fn record_stage(&self, stage: Stage, started: std::time::Instant) {
+        let mut diag = self.diag.borrow_mut();
+        if !diag.record.any() {
+            return;
+        }
+        let elapsed = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
+        diag.detail.stage(stage, self.now_ns(), elapsed);
     }
 
     /// Publish setup notes without creating a host turn.
@@ -255,14 +303,25 @@ impl Runtime {
             .end_turn(ops, duration_ns, self.now_ns());
     }
 
-    /// Turn the detailed turn trace on or off; the DevTools reads it.
-    #[doc(hidden)]
-    pub fn set_detailed_trace(&self, on: bool) {
-        if on {
-            self.diag.borrow_mut().detail.start();
-        } else {
-            self.diag.borrow_mut().detail.stop();
+    /// Turn recorder `bits` on or off. While no recorder is on, no turn
+    /// trace is kept: turning the last one off drops what was recorded.
+    pub fn set_recorder(&self, bits: RecordBits, on: bool) {
+        let mut diag = self.diag.borrow_mut();
+        let was = diag.record.any();
+        diag.record = diag.record.with(bits, on);
+        match (was, diag.record.any()) {
+            (false, true) => diag.detail.start(),
+            (true, false) => {
+                diag.detail.stop();
+                diag.turns.clear();
+            }
+            _ => {}
         }
+    }
+
+    /// Whether a recorder is on (the turn trace is being kept).
+    pub fn is_recording(&self) -> bool {
+        self.diag.borrow().record.any()
     }
 
     /// Take the finished turns' detailed records, oldest first; the DevTools reads them.

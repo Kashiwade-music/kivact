@@ -85,7 +85,7 @@ impl Runtime {
             started: std::time::Instant::now(),
             work_rounds: std::cell::Cell::new(0),
         };
-        self.record_stage(stage, turn.started.elapsed());
+        self.record_stage(stage, turn.started);
         turn
     }
     #[track_caller]
@@ -147,7 +147,7 @@ impl TurnGuard<'_> {
     /// Record the active turn stage.
     pub fn stage(&self, stage: Stage) {
         self.rt.state.set(TurnState::Running(stage));
-        self.rt.record_stage(stage, self.started.elapsed());
+        self.rt.record_stage(stage, self.started);
     }
     /// Record a cause of the given kind in the turn trace.
     #[doc(hidden)]

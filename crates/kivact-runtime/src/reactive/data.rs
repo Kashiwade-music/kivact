@@ -26,6 +26,7 @@ use std::rc::Rc;
 
 use crate::reactive::arena::{Arena, Key};
 use crate::reactive::detail::DetailLog;
+use crate::reactive::diag::RecordBits;
 use crate::reactive::error::UiError;
 use crate::reactive::links::Links;
 
@@ -501,6 +502,8 @@ pub(crate) struct Diag {
     /// (what happens between two turns belongs to the next one).
     pub(crate) current: TurnRecord,
     pub(crate) total_errors: u64,
+    /// The recorders that are on (none: no turn trace is kept).
+    pub(crate) record: RecordBits,
     /// The detail of the turn being recorded: off unless the DevTools asked.
     pub(crate) detail: DetailLog,
     /// The sequence number of the last error or diagnostic put in a ring.
