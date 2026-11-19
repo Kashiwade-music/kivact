@@ -4150,6 +4150,7 @@ cargo test -p xtask api_shape
        }
    }
 
+   // xtask-allow(state): independent: mail is the mailbox other threads fill through Remote::set and the owner's cleanup closes; signal is the UI value that only deliver writes, once per turn with the latest mail
    struct RemoteInbox<T: 'static> {
        mail: Arc<Mutex<Mailbox<T>>>,
        signal: Signal<T>,
@@ -4411,6 +4412,7 @@ cargo test -p xtask api_shape
 - `Mailbox<T>`：enum（`Open { latest }`・`Closed` の 2 状態）。`Mutex` の中だけで変わり、`Closed` から戻らない。対象外。
 - `TriggerMail`：`AtomicU8` の 3 値（open・notified・closed）。遷移は open→notified（`notify`）、notified→open（配送）、any→closed（cleanup）だけで、closed から戻らない。一つの atomic なので対象外。
 - `RemoteWake`：`AtomicBool` 一つ（mail の有無）。対象外。
+- `RemoteInbox<T>`：`mail`（`Mutex`）と `signal`（`deliver` が書く `Signal`）の二つが xtask の対象になる。二つは別の事実で、どの組合せも有効（`mail` は他の thread と cleanup が書く mailbox、`signal` は UI の値で `deliver` だけが書く）。宣言の直前に次の 1 行を置く（手順のコード片にも書いた）：`// xtask-allow(state): independent: mail is the mailbox other threads fill through Remote::set and the owner's cleanup closes; signal is the UI value that only deliver writes, once per turn with the latest mail`。W5a の R23 の差戻しで足した。
 - `ClockEntry`：`users: Cell<u32>` だけが内部可変（counter 一つ）。対象外。
 - `TaskState`：field の追加。T の W1b の印の文面の最後に `; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users` を足す。
 

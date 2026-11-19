@@ -339,3 +339,14 @@
 （設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
 
 - **R23**（W5a、lane X、commit `7a2f4022`）：`crates/kivact-runtime/src/task/remote.rs` の `RemoteInbox`（field `mail`（`Mutex`）と `signal`、`mail` を lock で書く）が、xtask の state 検査で error になった（`RemoteInbox holds state fields mail, signal and is mutated`）。付属書 R23 は `RemoteInbox` の型を定義しているが（`R-runtime.md` の `struct RemoteInbox<T>`）、「状態の閉じ方」にこの型の印の文が無い。0.2 の 4 により、文面の無い `xtask-allow` は書けない。他の検査は通る（fmt・check・clippy・xtask の残りは ok）。設計者は、この型の印の文（閉じ方）を決める。この差戻しの間、lane X（鎖）は止める。
+
+## 設計者の回答（W5a・R23 の差戻し、2026-11-20）
+
+- **R23（`RemoteInbox`）**：印を 1 行足して進める。構造は変えない。`mail`（`Mutex<Mailbox<T>>`）は他の thread が `Remote::set` で書き、owner の cleanup が `Closed` にする mailbox。`signal` は UI の値で、`deliver` だけが turn ごとに最新の mail で書く。二つは別の事実で、どの組合せも有効（`Closed` の後に signal が残っても、signal は同じ owner と一緒に消える）。`struct RemoteInbox` の直前に次を置く：
+  `// xtask-allow(state): independent: mail is the mailbox other threads fill through Remote::set and the owner's cleanup closes; signal is the UI value that only deliver writes, once per turn with the latest mail`
+  付属書 R23 の手順のコード片と「状態の閉じ方」に書いた。Orchestrator：lane X で印を足し、R23 の確認を通して commit し、R24 から再開する。
+- **同じ理由で止まる箇所の見直し**：付属書の全コード片の struct を、xtask の state 検査と同じ規則（`bool`・`Option`・counter の名前・`Cell`/`RefCell`/`Mutex`/`RwLock`/`Atomic*`・`Signal`/`Var`。`Rc`/`Arc`/`Box` は剥がす）で数え、2 つ以上のものを未着手の unit について調べた。
+  - 止まるもの：E17（W5a の鎖）の `SharedLines`。付属書は「`&mut self` の method が無いので対象外」と書いていたが、`Rc<RefCell<..>>` の field を二つ持ち、xtask は内部可変の field を持つ型を「変更される型」と数える。付属書 E の E17 の「状態の閉じ方」と手順のコード片に、次の印を足した：`// xtask-allow(state): independent: lines is the input's own line cache and engine the shared shaper, both owned elsewhere and borrowed one request at a time; neither field is reassigned, only borrowed`
+  - 止まらないもの：A11 の `GpuDevice`（付属書に印の文がある）。A07 の `ImeRequest`、C11 の `LaunchPolicy`、E17 の `EditContext`・`Limits`、E18 の `NodeInput`、R25 の `TraceWrite`・`TraceRun`、K11 の `SidebarState`・`SidebarItemState`、K26 の `ThemeOptions`、U25 の `Authored` は、`&mut self` の method も内部可変の field も Signal を書く method も無い record（xtask の対象外）。
+  - 付属書の試験の関数（R31・U32・U42 の、状態の変数を 2 つ以上持つ試験）は、xtask が試験の file を見ないので止まらない（基点の `kivact-test/tests/screen/disposal.rs` に、印の無い同じ形がある）。
+- 作業指示書 0.5 節の表に 1 行足した：xtask の `state` 検査が、付属書が作る型か field を足す型を報告し、印の文が無いときは、Orchestrator が 3 つの条件を確かめて `independent:` の印を書いて進める。(1) field ごとの書き手を挙げられる。(2) 他の field を見てから読み書きされない。(3) 同じ事実の重複が無い。印の文と書き手は「Orchestrator の判断」に書く。条件を満たさないときだけ差戻し。付属書の文の上で field を足す型（散文で「`X` に field を足す」とあるもの）は機械的に洗えないので、この行で受ける。
