@@ -195,7 +195,7 @@ pub trait IntoValue<T: 'static> {
             PropRepr::Value(value) => value,
             source => {
                 let at = Location::caller();
-                let owner = Owner::current("IntoValue::into_value", at);
+                let owner = Owner::setup("IntoValue::into_value", at);
                 Prop(source).into_value(owner, at)
             }
         }
@@ -250,7 +250,7 @@ pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
             PropRepr::Value(value) => value,
             source => {
                 let at = Location::caller();
-                let owner = Owner::current("IntoText::into_text_value", at);
+                let owner = Owner::setup("IntoText::into_text_value", at);
                 Prop(source).into_value(owner, at)
             }
         }

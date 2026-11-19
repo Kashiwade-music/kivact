@@ -10,7 +10,8 @@ use std::rc::Rc;
 use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, motion_now};
 use super::values::{FrameInfo, FrameRate};
 
-use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
+use crate::driver::Runtime;
+use crate::{ErrorKind, HandlerResult, Owned, Owner, UiError, Value, require_effectful};
 
 /// Copy handle of a frame loop.
 #[derive(Clone, Copy)]
@@ -25,7 +26,7 @@ pub struct FrameLoop {
 #[track_caller]
 pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> FrameLoop {
     let at = Location::caller();
-    let owner = Owner::current("frame_loop", at);
+    let owner = Owner::setup("frame_loop", at);
     let rt = owner.runtime();
     let rate = owner.signal(None, at);
     let registration = rt.motion().token(rt.id());

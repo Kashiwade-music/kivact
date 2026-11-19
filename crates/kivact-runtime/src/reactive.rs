@@ -58,10 +58,10 @@ mod turn;
 pub use clock::clock_now;
 pub(crate) use data::AppSlot;
 pub use data::{
-    Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, TraceRun, TraceWrite, Turn,
-    TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
+    Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, Turn, TurnGuard,
+    UiThreadOnly, Value, Var,
 };
-pub use detail::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, StageSpan, TurnDetail};
+pub use detail::{Cause, CauseTag, StageSpan, TraceEdge, TraceRun, TraceWrite, TurnRecord};
 pub use diag::{RecordBits, ReportKind, Reported};
 pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};

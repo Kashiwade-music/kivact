@@ -4,7 +4,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::data::{NodeInfo, Runtime, TurnGuard};
-use crate::reactive::detail::CauseTag;
+use crate::reactive::detail::Cause;
 use crate::reactive::error::UiError;
 use crate::reactive::host_types::{Stage, TurnState};
 use crate::reactive::{AppId, NodeId, Owner, OwnerId};
@@ -171,10 +171,9 @@ impl TurnGuard<'_> {
         self.rt.state.set(TurnState::Running(stage));
         self.rt.record_stage(stage, self.started);
     }
-    /// Record a cause of the given kind in the turn trace.
-    #[doc(hidden)]
-    pub fn cause_with(&self, tag: CauseTag, label: String) {
-        self.rt.record_cause_with(tag, label);
+    /// Record what started the following work (kept only while recording).
+    pub fn cause(&self, cause: Cause) {
+        self.rt.record_cause(cause);
     }
     /// Run render and internal effects until stable.
     pub fn stabilize(&self) {

@@ -167,7 +167,7 @@ pub fn machine<M: Machine>(
     run: impl Fn(MachineCx<M>, M::Effect) + 'static,
 ) -> MachineHandle<M> {
     let at = Location::caller();
-    let owner = Owner::current("machine", at);
+    let owner = Owner::setup("machine", at);
     let state = owner.signal(initial, at);
     let cell = owner.store(
         "Machine",

@@ -423,18 +423,16 @@ impl Runtime {
             }
             let meta = diag.node_meta.get(&key).copied();
             if let Some(meta) = meta {
-                diag.record_write(meta.ty, meta.at, at);
-                diag.detail.write(NodeId(key), meta.ty, meta.at, at, true);
+                diag.record_write(NodeId(key), meta.ty, meta.at, at, true);
             }
             drop(diag);
             self.notify_subscribers(key);
         } else {
             let mut diag = self.diag.borrow_mut();
-            if diag.detail.is_recording() {
-                let written = diag.node_meta.get(&key).map(|m| (m.ty, m.at));
-                if let Some((ty, created_at)) = written {
-                    diag.detail.write(NodeId(key), ty, created_at, at, false);
-                }
+            if diag.record.any()
+                && let Some(meta) = diag.node_meta.get(&key).copied()
+            {
+                diag.record_write(NodeId(key), meta.ty, meta.at, at, false);
             }
         }
         true
@@ -458,7 +456,7 @@ impl Runtime {
                     s.changed_at = epoch;
                 }
                 for (s, _) in n.subs() {
-                    diag.detail.edge(NodeId(src), NodeId(*s));
+                    diag.record_edge(NodeId(src), NodeId(*s));
                 }
                 stack.extend(n.subs().iter().map(|(s, _)| (*s, Staleness::Dirty)));
             }
@@ -478,7 +476,7 @@ impl Runtime {
                     None => {
                         if was_clean {
                             for (s, _) in n.subs() {
-                                diag.detail.edge(NodeId(k), NodeId(*s));
+                                diag.record_edge(NodeId(k), NodeId(*s));
                             }
                             stack.extend(n.subs().iter().map(|(s, _)| (*s, Staleness::Check)));
                         }
@@ -601,9 +599,6 @@ impl Runtime {
             Some(EffectKind::User) => "effect",
         };
         let at = self.node_at(key);
-        if let Some(at) = at {
-            self.diag.borrow_mut().record_run(label, at);
-        }
         let (epoch_before, is_effect) = (self.write_epoch.get(), effect.is_some());
         if is_effect {
             self.run_node_cleanups(key, owner);
@@ -622,8 +617,7 @@ impl Runtime {
         if let Some(at) = at {
             self.diag
                 .borrow_mut()
-                .detail
-                .run(NodeId(key), label, at, changed);
+                .record_run(NodeId(key), label, at, changed);
         }
         let is_memo_change = {
             let mut g = self.graph.borrow_mut();
@@ -957,7 +951,7 @@ mod meta_tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
         );
         let at = Location::caller();
         // The root owner takes the first owner slot, as `Runtime::new` makes it.

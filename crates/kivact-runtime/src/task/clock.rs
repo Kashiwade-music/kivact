@@ -5,7 +5,8 @@ use std::panic::Location;
 use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
-use crate::{Owner, Runtime, Value};
+use crate::driver::Runtime;
+use crate::{Owner, Value};
 
 /// One shared clock: the owner that holds its signal and timer task, and
 /// how many live callers use it.
@@ -27,7 +28,7 @@ pub(crate) struct ClockEntry {
 #[track_caller]
 pub fn clock(every: Duration) -> Value<SystemTime> {
     let at = Location::caller();
-    let caller = Owner::current("clock", at);
+    let caller = Owner::setup("clock", at);
     let rt = caller.runtime();
     let every_ns = u64::try_from(every.as_nanos()).unwrap_or(u64::MAX).max(1);
     let found = rt

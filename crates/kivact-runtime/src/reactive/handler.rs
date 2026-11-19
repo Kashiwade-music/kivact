@@ -165,7 +165,7 @@ mod tests {
         let rt = crate::reactive::data::Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
         );
         let at = Location::caller();
         // The first owner takes the arena's first slot, which `rt.root`

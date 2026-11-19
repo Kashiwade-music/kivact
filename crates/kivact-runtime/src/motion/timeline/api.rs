@@ -27,8 +27,9 @@ use super::calls::{Move, Reach, Reps};
 use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
+use crate::driver::EffectKind;
 use crate::{
-    Callback, EffectKind, ErrorKind, IntoValue, Owned, Owner, Signal, Trigger, UiError, Value,
+    Callback, ErrorKind, IntoValue, Owned, Owner, Signal, Trigger, UiError, Value,
     require_effectful, require_setup,
 };
 
@@ -43,7 +44,7 @@ pub struct Timeline {
 #[track_caller]
 pub fn timeline() -> Timeline {
     let at = Location::caller();
-    let owner = Owner::current("timeline", at);
+    let owner = Owner::setup("timeline", at);
     let rt = owner.runtime();
     let registration = rt.motion().token(rt.id());
     let motion_id = registration.id;
@@ -514,7 +515,7 @@ impl TimelineCell {
         self.phase.set(next);
         let now = self.is_running();
         if was != now
-            && let Some(rt) = crate::Runtime::get(self.owner.app())
+            && let Some(rt) = crate::driver::Runtime::get(self.owner.app())
         {
             rt.motion().set_anim_running(self.registration.id, now);
         }

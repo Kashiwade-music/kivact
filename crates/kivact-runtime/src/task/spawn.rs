@@ -6,7 +6,8 @@ use std::rc::Rc;
 use super::state::{TaskCell, TaskState};
 
 use crate::HandlerResult;
-use crate::{AppId, Owned, Owner, Runtime, require_effectful};
+use crate::driver::Runtime;
+use crate::{AppId, Owned, Owner, require_effectful};
 
 /// A spawned future owned by a component; cancelled when the owner is disposed.
 #[derive(Clone, Copy)]
@@ -67,7 +68,7 @@ pub(super) fn spawn_owned(
     key
 }
 
-/// Spawn `fut` as a task of `owner`, on the executor of the owner's App:
+/// Driver contract: spawn `fut` as a task of `owner`, on the executor of the owner's App:
 /// the way a host or a layer above runs a future for an owner it holds. A
 /// panic in a poll propagates out of the turn, and the future is cancelled
 /// when `owner` is disposed. `at` is the origin diagnostics name the task by (the
@@ -143,7 +144,7 @@ impl TaskState {
 #[track_caller]
 pub fn spawn<R: HandlerResult>(fut: impl Future<Output = R> + 'static) -> Task {
     let at = Location::caller();
-    let owner = Owner::ambient("spawn", at);
+    let owner = Owner::running("spawn", at);
     let rt = owner.runtime();
     require_effectful("spawn");
     let app = rt.id();

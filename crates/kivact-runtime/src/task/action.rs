@@ -34,7 +34,8 @@ use super::async_state::{AsyncCell, AsyncState, RunInfo, cancelled};
 use super::executor::RawTask;
 use super::latest::LatestRun;
 use super::state::Drain;
-use crate::{AppId, Handler, HandlerResult, Owned, Owner, Runtime, UiError, require_effectful};
+use crate::driver::Runtime;
+use crate::{AppId, Handler, HandlerResult, Owned, Owner, UiError, require_effectful};
 
 type RunFn<T, I> = Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>>;
 
@@ -227,7 +228,7 @@ where
     T: Clone + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,
 {
-    let owner = Owner::current(api, at);
+    let owner = Owner::setup(api, at);
     let rt = owner.runtime();
     // The run closure is untracked, wherever `run` is called from.
     let run: RunFn<T, I> = Rc::new(move |i| Box::pin(crate::untrack(|| f(i))));
@@ -568,7 +569,7 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
     ) -> Self {
         let at = Location::caller();
         let (_, cell) = self.cell(at);
-        let owner = Owner::current("Action::on_complete", at);
+        let owner = Owner::setup("Action::on_complete", at);
         let mut generation = cell.next_handler_id.get();
         let id = generation.next();
         cell.next_handler_id.set(generation);

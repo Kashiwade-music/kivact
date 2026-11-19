@@ -1,9 +1,9 @@
 //! Role: Runtime construction and task and motion turn operations.
-use crate::reactive::host_types::TurnState;
-use crate::{
-    CauseTag, ErrorKind, ExitState, Host, MotionEnv, Owner, RecordBits, Runtime, Stage, TaskState,
-    ThreadWaker, TurnGuard, TurnReport, UiError,
+use crate::driver::{
+    ExitState, Host, MotionEnv, RecordBits, Runtime, TaskState, ThreadWaker, TurnGuard, TurnReport,
 };
+use crate::reactive::host_types::TurnState;
+use crate::{Cause, CauseTag, ErrorKind, Owner, Stage, UiError};
 use std::panic::Location;
 use std::rc::Rc;
 
@@ -192,15 +192,23 @@ impl TurnGuard<'_> {
         self.stage(Stage::Async);
         let wakers = rt.tasks.take_due_timers(rt.now_ns());
         let woke = !wakers.is_empty();
-        if woke && rt.is_recording() {
-            self.cause_with(CauseTag::Timer, "timer".into());
+        if woke {
+            self.cause(Cause {
+                tag: CauseTag::Timer,
+                event: "timer",
+                node: None,
+            });
         }
         for w in wakers {
             w.wake();
         }
         let polled = rt.tasks.poll_tasks(rt);
-        if polled > 0 && rt.is_recording() {
-            self.cause_with(CauseTag::Task, "task".into());
+        if polled > 0 {
+            self.cause(Cause {
+                tag: CauseTag::Task,
+                event: "task",
+                node: None,
+            });
         }
         let ran = woke || polled > 0;
         if ran {

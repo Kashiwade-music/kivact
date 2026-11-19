@@ -268,7 +268,7 @@ mod tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
         );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
@@ -320,7 +320,7 @@ mod tests {
         let rt = Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
         );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);

@@ -14,7 +14,8 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use crate::{Owner, Runtime, Signal, ThreadWaker, Trigger};
+use crate::driver::{Runtime, ThreadWaker};
+use crate::{Owner, Signal, Trigger};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
     m.lock().unwrap_or_else(PoisonError::into_inner)
@@ -149,7 +150,7 @@ fn register(owner: Owner, inbox: Rc<dyn Deliver>, close: impl FnOnce() + 'static
 #[track_caller]
 pub fn remote<T: Send + 'static>(initial: T) -> (Signal<T>, Remote<T>) {
     let at = Location::caller();
-    let owner = Owner::current("remote", at);
+    let owner = Owner::setup("remote", at);
     let wake = owner.runtime().tasks().remote_wake.clone();
     let signal = owner.signal(initial, at);
     let mail = Arc::new(Mutex::new(Mailbox::Open { latest: None }));
@@ -225,7 +226,7 @@ impl Deliver for TriggerInbox {
 #[track_caller]
 pub fn remote_trigger() -> (Trigger, RemoteTrigger) {
     let at = Location::caller();
-    let owner = Owner::current("remote_trigger", at);
+    let owner = Owner::setup("remote_trigger", at);
     let wake = owner.runtime().tasks().remote_wake.clone();
     let trigger = owner.trigger(at);
     let mail = Arc::new(TriggerMail {

@@ -11,10 +11,8 @@ use super::state::{Anim, AnimInfo, AnimKind, MotionToken, RunStatus, motion_now}
 use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
-use crate::{
-    AppId, EffectKind, ErrorKind, IntoValue, Owned, Owner, Runtime, Signal, UiError, Value,
-    require_effectful,
-};
+use crate::driver::{EffectKind, Runtime};
+use crate::{AppId, ErrorKind, IntoValue, Owned, Owner, Signal, UiError, Value, require_effectful};
 use kivact_types::motion::{PlayDirection, SpringRun};
 
 /// One run: fixed endpoints and timing, and the spring's integration state.
@@ -359,7 +357,7 @@ impl<T: Animatable> Animated<T> {
     #[track_caller]
     fn create(start: Option<T>, target: impl IntoValue<T>, transition: Transition) -> Self {
         let at = Location::caller();
-        let owner = Owner::current("animated", at);
+        let owner = Owner::setup("animated", at);
         let rt = owner.runtime();
         let target = target.into_prop();
         let explicit_start = start.is_some();
@@ -543,7 +541,7 @@ impl<T: Animatable> Animated<T> {
     pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Self {
         let f = crate::Callback::from_handler(f.into_handler());
         let at = Location::caller();
-        let rt = Owner::current("Animated::on_complete", at).runtime();
+        let rt = Owner::setup("Animated::on_complete", at).runtime();
         assert_eq!(
             rt.id(),
             self.app,

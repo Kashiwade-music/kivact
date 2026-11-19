@@ -8,7 +8,7 @@ use std::rc::{Rc, Weak};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
-use crate::Runtime;
+use crate::driver::Runtime;
 use crate::{ErrorKind, OwnerId, UiError, raise};
 
 enum SleepState {

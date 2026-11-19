@@ -6,10 +6,11 @@ use std::num::NonZeroU64;
 use std::rc::{Rc, Weak};
 use std::time::Duration;
 
+use crate::Owner;
 use crate::Signal;
 use crate::Value;
+use crate::driver::Runtime;
 use crate::reactive::Handler;
-use crate::{Owner, Runtime};
 use kivact_types::MotionClock;
 use kivact_types::TimeScale;
 
@@ -642,10 +643,10 @@ mod tests {
 
     #[test]
     fn a_disposed_frame_loop_leaves_every_motion_map() {
-        let rt = crate::Runtime::register(
+        let rt = crate::driver::Runtime::register(
             Rc::new(Quiet),
             0,
-            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
         );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);

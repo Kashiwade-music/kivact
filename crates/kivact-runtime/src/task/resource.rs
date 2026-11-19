@@ -8,7 +8,8 @@ use std::rc::Rc;
 
 use super::async_state::{AsyncCell, AsyncState, cancelled};
 use super::latest::LatestRun;
-use crate::{EffectKind, IntoValue, Owned, Owner, Runtime, Trigger, UiError, require_effectful};
+use crate::driver::{EffectKind, Runtime};
+use crate::{IntoValue, Owned, Owner, Trigger, UiError, require_effectful};
 
 pub(crate) struct ResourceCell<T: 'static> {
     async_state: AsyncCell<T, ()>,
@@ -51,7 +52,7 @@ where
 {
     let at = Location::caller();
     let source = source.into_prop();
-    let owner = Owner::current("resource", at);
+    let owner = Owner::setup("resource", at);
     let app = owner.app();
     let cell = Rc::new(ResourceCell {
         async_state: AsyncCell::new(owner, at),

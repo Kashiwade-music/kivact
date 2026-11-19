@@ -24,9 +24,10 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use crate::reactive::arena::{Arena, Key};
-use crate::reactive::detail::DetailLog;
+use crate::reactive::detail::TurnRecord;
 use crate::reactive::diag::RecordBits;
 use crate::reactive::error::UiError;
+use crate::reactive::host_types::Stage;
 use crate::reactive::links::Links;
 
 /// Upper bound of effect runs per stabilisation and of user-effect rounds per turn.
@@ -451,26 +452,6 @@ pub(crate) struct Sched {
     pub(crate) user: BTreeSet<(u64, Key)>,
 }
 
-/// A value-changing write during a turn.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TraceWrite {
-    /// Type name of the written value.
-    pub ty: &'static str,
-    /// Where the signal was created.
-    pub created_at: &'static Location<'static>,
-    /// Where it was written.
-    pub at: &'static Location<'static>,
-}
-
-/// A memo or effect re-evaluated during a turn.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct TraceRun {
-    /// `"memo"`, `"render"`, `"internal"` or `"effect"`.
-    pub kind: &'static str,
-    /// Where the memo or effect was created.
-    pub at: &'static Location<'static>,
-}
-
 /// Which turn something happened in.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Turn {
@@ -481,32 +462,8 @@ pub enum Turn {
     Number(u64),
 }
 
-/// One turn of the structured trace.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct TurnRecord {
-    /// Which turn: `Turn::Setup` for the notes recorded while the App was set
-    /// up, else the turn's number.
-    pub turn: Turn,
-    /// Host events delivered in this turn.
-    pub events: usize,
-    /// What started the work: host events (`"Activate n5"`), `"timer"`, `"task"`.
-    pub causes: Vec<String>,
-    /// Value-changing writes (first 64).
-    pub writes: Vec<TraceWrite>,
-    /// Re-evaluated memos and effects (first 64; `runs` counts all).
-    pub reruns: Vec<TraceRun>,
-    /// Number of memo and effect runs in this turn.
-    pub runs: usize,
-    /// Writes committed to the engine at the end of this turn.
-    pub ops: usize,
-    /// Time spent in the turn, in nanoseconds.
-    pub duration_ns: u64,
-    /// Notes recorded during the turn (stale events, duplicate styles, ...).
-    pub notes: Vec<String>,
-}
-
 /// Ring buffers of errors, diagnostics and turn records, plus the turn
-/// being recorded and the detailed trace the DevTools reads.
+/// being recorded.
 #[derive(Default)]
 pub(crate) struct Diag {
     /// Errors that reached the default sink, with their report sequence.
@@ -520,8 +477,10 @@ pub(crate) struct Diag {
     pub(crate) total_errors: u64,
     /// The recorders that are on (none: no turn trace is kept).
     pub(crate) record: RecordBits,
-    /// The detail of the turn being recorded: off unless the DevTools asked.
-    pub(crate) detail: DetailLog,
+    /// The index of the last cause recorded in the current turn.
+    pub(crate) cause: Option<u32>,
+    /// The stage being timed and the turn-relative ns it started at.
+    pub(crate) open_stage: Option<(Stage, u64)>,
     /// The sequence number of the last error or diagnostic put in a ring.
     pub(crate) next_seq: u64,
     /// The type and creation site of nodes (see `NodeMeta`).

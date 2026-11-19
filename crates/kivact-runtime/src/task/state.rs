@@ -130,7 +130,7 @@ pub struct TaskState {
 impl TaskState {
     /// Empty state to install as a runtime extension; `blocking_threads` sizes
     /// the blocking pool when it is created (`None`: `min(4, CPUs)`).
-    pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
+    pub fn new(blocking_threads: Option<usize>, waker: crate::driver::ThreadWaker) -> Self {
         TaskState {
             #[cfg(feature = "tokio")]
             tokio: RefCell::new(super::tokio_state::TokioState::NotStarted),
