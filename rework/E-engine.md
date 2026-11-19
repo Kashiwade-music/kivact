@@ -1867,7 +1867,7 @@ cargo test -p kivact-editing
      }
      ```
      （`input.hidden` の読みは W5a の E18 が `flags.get(InputFlag::Hidden)` に直す：E18 手順 6 の `rg` がこの行も拾う。）
-  3. `src/model/app_model.rs`：`struct AppModel` に次の三つを足し（`new` で `HashMap::new()`、`BTreeMap::new()`、`0`）、method を足す。`AppModel` の印（W1 の後にあれば）の文の最後に `; text_ahead counts the text edits handed to the client and not yet dispatched (hold_text, delivered); font_generation counts font registrations` を足す（無ければ struct の直前に `// xtask-allow(state): the App-wide state of every window; text_ahead counts the text edits handed to the client and not yet dispatched (hold_text, delivered); font_generation counts font registrations` を置く）。
+  3. `src/model/app_model.rs`：`struct AppModel` に次の三つを足し（`new` で `HashMap::new()`、`BTreeMap::new()`、`0`）、method を足す。`AppModel` の印の文は変えない（W1 の後の印は `legacy:` で、CP1 の状態の台帳に載り、付属書 L が閉じ方を書く。台帳の `AppModel` の行に `text_ahead`・`font_generation` も挙げる。W4b の E31）。
      ```rust
      /// The `TextChanged` events of each node handed to the client in the
      /// running turn and not yet dispatched (`Writer::deliver`).
@@ -1984,7 +1984,7 @@ cargo test -p kivact-editing
      - `src/launch/runtime.rs` の turn の event の loop の `edits.deliver(event);` の次の行に `crate::view::state::ViewState::tree(&rt).engine().deliver(event);` を足す（C07 は `edits.deliver(event);` を消すが、この行は残す。4.2 節）。
      - `src/client/dispatch/delivery.rs` の `HostEvent` の `match` に `HostEvent::NodeFlagsChanged { .. } => {}` の腕を足す（C07 がこの腕を `env::node_flags_changed` を呼ぶ腕に置き換える）。
 - **消すもの**：なし（core の写しは C07 が消す）。
-- **状態の閉じ方**：`AppModel` は手順 3 の印の文。`NodeFlags` の二つの bool は値（`&mut self` の method が無い）で対象外。
+- **状態の閉じ方**：`AppModel` は W1 の `legacy:` の印のまま（手順 3。付属書 L が閉じる）。`NodeFlags` の二つの bool は値（`&mut self` の method が無い）で対象外。
 - **試験**：足さない（C07 が core の写しを消した後、`text_editing`・`node_ref`・`layout`・`launch_fonts` の E2E が engine の答えを使う）。この unit の時点では core の写しも残っているので、既存の E2E が通ればよい。
 - **確認（tier a）**：
   ```

@@ -239,3 +239,14 @@
   - lane U の fix（`wt/rw-W4-U-fix`）を統合 branch の今の HEAD に進めて、patch を当てる。
   - `cargo xtask check --no-write` と kivact-ui の clippy・test を通して commit する。
   - その後、予定どおり R・U の fix lane を統合して tier b を 1 回回す。push は xtask-core の push の後。
+
+## 設計者の回答（W4b・C06 の質問 4〜6、E31 の質問 7、2026-11-19）
+
+- **質問 4（`AgentSlot::Ready`）**：1。`Ready(Box<Agent>)` のままにする。agent は起動したときに一度だけ box にするので、費用は無い。付属書 C の C06 の手順 2・4 を `Box` の形に直した。`AgentStart` を `state.rs`、`promote` を `start.rs` の `impl Inspector` に置いた配置も受け入れ、付属書に書いた。
+- **質問 5（`apply::node_overrides`・`same_location`）**：1。残す。`layers()` は client が node を選んだときにだけ呼ばれ、DevTools の層を client が送った文字列のまま見せる。解析済みの `Style` からは元の文字列を作れない。付属書の「消す」は誤りで、手順 8 と「消すもの」を直した。RC-10 の目的（style hook が node ごとに一覧を走査・解析しない）は満たしている。
+- **質問 6（`WindowsChanged`）**：2。以前どおり `WindowInfo` 全体を比べる。protocol の doc は「A window opened, closed or changed its title」で、DevTools の app（`kivact-devtools` の `on_windows`）は通知で window の一覧を置き換えるので、id だけの比較では title・大きさ・focus が古いまま残る。付属書の誤り。
+  - 直し方：`sent_windows` を `RefCell<SentWindows>`（`open: Vec<WindowId>`、`listed: Option<Vec<p::WindowInfo>>`）にする。閉じた window の id は購読が無くても毎 turn 比べ（剪定に使う）、購読があるときだけ `list_windows` の一覧を前回送ったものと比べて送る。付属書 C の C06 の手順 9 に型と形を書いた。field の名前は変わらないので、`SessionData` の印は変えない。
+  - 設計者の確認：`fd8413d8` に当てて、`cargo clippy -p kivact-core -p kivact-devtools-agent -p kivact-test --all-targets --features kivact-core/devtools -- -D warnings` と `cargo xtask check --no-write --crate kivact-core` が通るのを確かめた。patch は `W:/w/kivact/target/rework-designer/C06-windows.diff`（`fd8413d8` に `git apply` できる）。
+  - Orchestrator：lane C の fix として `wt/rw-W4b-C` に patch を当て、C06 の確認（tier a。e2e の `devtools` を含む）を通して commit し、merge する。
+- **質問 7（E31 の印の文）**：1。印の文は変えない。`AppModel` の印は W1 の `legacy:` の印で、CP1 の状態の台帳に載り、付属書 L が閉じ方を書く。台帳の `AppModel` の行に `text_ahead`・`font_generation` も挙げること。付属書 E の E31 の手順 3 と「状態の閉じ方」を直した。E31 はこのまま merge してよい。
+- 作業指示書 0.5 節の表に 4 行足した（clippy の構造の lint、module の循環を断つ配置、消すはずのものに別の経路の呼出しが残る、印の文の編集が権限の判定で拒否される）。同じ型の STOP は今後 Orchestrator が判断し、「Orchestrator の判断」節に書く。

@@ -1133,7 +1133,9 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      pub(crate) enum AgentSlot {
          /// Starting on a background thread; the first turn after it is ready promotes it.
          Starting(std::sync::mpsc::Receiver<std::io::Result<kivact_devtools_agent::Agent>>),
-         Ready(kivact_devtools_agent::Agent),
+         /// Boxed: the agent is far larger than the other variants (clippy's
+         /// `large_enum_variant`), and it is boxed once, when it starts.
+         Ready(Box<kivact_devtools_agent::Agent>),
          /// It could not start (already warned).
          Failed,
      }
@@ -1187,7 +1189,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          }
      }
      ```
-     `Inspector::promote(&self, rt: &Runtime)`（`devtools/state.rs`）：
+     `Inspector::promote(&self, rt: &Runtime)`（`devtools/start.rs` の `impl Inspector`。`AgentStart` は `devtools/state.rs` に置く：`state.rs` と `start.rs` が互いを読まないように。W4b の C06 の配置）：
      ```rust
      pub(crate) fn promote(&self, rt: &Runtime) {
          let started = match &*self.agent.borrow() {
@@ -1210,7 +1212,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
                  tree.engine().set_devtools_keys(keys);
                  tree.reader().record_tree_changes(true);
                  drop(tree);
-                 AgentSlot::Ready(agent)
+                 AgentSlot::Ready(Box::new(agent))
              }
              Err(error) => {
                  tracing::warn!(target: "kivact::devtools", "cannot start the DevTools agent: {error}");
@@ -1374,7 +1376,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
        }
        ```
        node ごとの memo は `forced` の 1 つだけになり、override の解析は override の一覧が変わったときに一度だけになる。
-     - `apply::node_overrides` と `same_location` を消す。`HookData.overrides: Signal<Vec<p::StyleOverride>>` は protocol の一覧（`list_overrides` の答え）として残す。
+     - `apply::node_overrides` と `same_location` は残す：style hook はもう使わないが、`styles.rs` の `layers()`（DevTools の client が node を選んだときの答え）が DevTools の層を client が送った `(property, value)` の文字列のまま見せるのに使う（解析済みの `Style` からは元の文字列を作れない。W4b の C06）。呼ばれるのは client の要求のときだけで、毎 turn ではない。`HookData.overrides: Signal<Vec<p::StyleOverride>>` は protocol の一覧（`list_overrides` の答え）として残す。
   9. 変更記録で木を通知する（RC-09）：`devtools/turn.rs` の `after_turn` を次にする：
      ```rust
      pub(crate) fn after_turn(rt: &Runtime) {
@@ -1396,7 +1398,18 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
          console::after_turn(rt);
      }
      ```
-     - `tree::notify_windows_changed(rt) -> Vec<WindowId>`：開いている window の一覧を前回（`sent_windows`）と比べ、閉じた window の id を返す（Windows の購読が無くても一覧の比較はする。比べる値は `reader().windows()` の `Vec<WindowId>`。`sent_windows` の型を `RefCell<Vec<WindowId>>` にし、購読があるときだけ `WindowsChanged` を送る）。
+     - `tree::notify_windows_changed(rt) -> Vec<WindowId>`：開いている window の id の一覧（`reader().windows()`）を前回と比べ、閉じた window の id を返す（Windows の購読が無くても比べる）。購読があるときは、今までどおり `list_windows` の一覧（`WindowInfo` 全体）を前回送ったものと比べ、違えば `WindowsChanged` を送る（protocol の doc は「A window opened, closed or changed its title」。title・大きさ・focus だけの変化も送る。W4b の C06 の差戻し）。`sent_windows` は次の型にする（`state.rs`。`SessionData` の印の field 名は変わらない）：
+       ```rust
+       /// What the last turn saw of the windows: the open windows, for sweeping the
+       /// records of a closed one, and the list last sent to the Windows subscribers,
+       /// so a title, size or focus change is sent too.
+       #[derive(Default)]
+       pub(crate) struct SentWindows {
+           pub(crate) open: Vec<WindowId>,
+           pub(crate) listed: Option<Vec<p::WindowInfo>>,
+       }
+       ```
+       `sent_windows: RefCell<SentWindows>`（`from_slot` で `RefCell::default()`）。`list_windows` を呼ぶ前に `sent_windows` の borrow を返し、`notify` の前にも返す。
      - `sweep_closed_windows(rt, i, closed: &[WindowId])`：`closed` が空なら何もしない。`pending` の答えは `closed.contains(&window)` のものだけ。`frames`・`focus_history`・`sent_overlays` の剪定も `closed` の window だけ。`i.session.sent_tree.borrow_mut().retain(..)` を消す。
      - `tree::notify_tree_changes(rt, changes: &TreeChanges)`：購読（`p::Topic::Tree`）が無ければ何もしない。あれば `changes.upserted` の node だけ `tree_node(rt, id)` で `ElementInfo` を作り、`changes.removed` と合わせて window ごとに `TreeChanged` を送る（`current_nodes` と `sent_tree` の比較を消す）。`removed` の window は `ElementInfo` が無いので、E-REQ-5 の `TreeChanges.removed: Vec<(WindowId, NodeId)>` の window を使う。
      - `prune_removed(i, removed)`（`turn.rs` に置く）：`i.session.update_counts` と `i.hooks.forced`（`forced.update(|m| { for (_, id) in removed { m.remove(id); } })`、何も消えないときは書かない）から消えた node を除く。
@@ -1416,7 +1429,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
      };
      ```
      `fn input_origin(event: &HostEvent) -> Option<InputOrigin>` は `input_description` の隣に置き、`HostEvent::Pointer(route) | Wheel(route) | Key(route) | File(route)` の `route.origin` を返す（`Ime` は `None`）。
-- **消すもの**：`AgentSlot::{Off, Running}`、`SessionData.sent_tree`、`current_nodes`、`apply::node_overrides`、C01 の `NodeHook` の `overrides` field、`errors_sent` の `Sent`、`input_event` の `pending` の走査、`after_mount` の中の engine の key の設定（昇格へ移る）。
+- **消すもの**：`AgentSlot::{Off, Running}`、`SessionData.sent_tree`、`current_nodes`、C01 の `NodeHook` の `overrides` field、`errors_sent` の `Sent`、`input_event` の `pending` の走査、`after_mount` の中の engine の key の設定（昇格へ移る）。
 - **状態の閉じ方**：`AgentSlot` は enum。`Inspector` は既存の `HookData`・`SessionData`（DevTools の記録。field の多くは独立な記録の表）で、名前が `Data` で終わる。W1 の T の新しい `state` 検査で対象になる場合、`HookData` の上に `// xtask-allow(state): DevTools の記録の表の集まり。各表は別の購読・記録の設定が書き、互いの値から導かれない`、`SessionData` の上に `// xtask-allow(state): DevTools の session の表の集まり。待ちの呼出し・frame・overlay・snapshot は別々の要求が書く` を置く。`NodeOverrides` は値（`&mut self` の method なし）。
 - **試験**：`e2e_native` の `devtools.rs` の `a_devtools_client_inspects_drives_and_reviews_a_test_app` が通る（agent が後から起動しても `devtools_target` が待つ）。足す試験は無い。
 - **確認（tier a）**：
