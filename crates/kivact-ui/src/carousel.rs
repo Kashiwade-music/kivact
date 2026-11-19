@@ -282,7 +282,7 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
             };
             if c.snap.get() == Snap::None {
                 let nearest = nearest_slide(
-                    &navigation_refs,
+                    &slide_rects(&navigation_refs),
                     view,
                     c.vertical.get(),
                     c.rtl.get() == ReadingDirection::Rtl,
@@ -303,14 +303,18 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
     });
 }
 /// Report the slide nearest the viewport's start to the carousel each time
-/// the native scroll offset changes.
+/// the native scroll offset changes. The viewport's and the slides' rects are
+/// taken here, at setup: taking a rect asks the host for the node's layout,
+/// and the first scroll must find it reported.
 fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
+    let viewport = c.viewport.rect();
+    let slides = slide_rects(&navigation_refs);
     kivact_core::state::effect_on(c.viewport.scroll_offset(), move |_: &Point| {
-        let Some(view) = c.viewport.rect().get_untracked() else {
+        let Some(view) = viewport.get_untracked() else {
             return;
         };
         let nearest = nearest_slide(
-            &navigation_refs,
+            &slides,
             view,
             c.vertical.get_untracked(),
             c.rtl.get_untracked() == ReadingDirection::Rtl,
@@ -320,18 +324,27 @@ fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::
         }
     });
 }
+/// The layout rects of the slides behind `references`.
+fn slide_rects(
+    references: &[kivact_core::view::NodeRef],
+) -> Vec<Value<Option<kivact_core::geometry::Rect>>> {
+    references
+        .iter()
+        .map(kivact_core::view::NodeRef::rect)
+        .collect()
+}
 /// Locate the closest measured slide along the actual reading axis.
 fn nearest_slide(
-    references: &[kivact_core::view::NodeRef],
+    slides: &[Value<Option<kivact_core::geometry::Rect>>],
     view: kivact_core::geometry::Rect,
     vertical: bool,
     rtl: bool,
 ) -> Option<usize> {
-    references
+    slides
         .iter()
         .enumerate()
         .filter_map(|(i, r)| {
-            r.rect().get_untracked().map(|r| {
+            r.get_untracked().map(|r| {
                 (
                     i,
                     if vertical {
