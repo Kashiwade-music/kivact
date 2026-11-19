@@ -93,7 +93,7 @@ pub use kivact_types::Stroke;
 pub use kivact_types::TextMetrics;
 
 pub(crate) use local_paint::LocalPaint;
-pub use recorder::{Draw, Recording, RegionSemantics};
+pub use recorder::{Draw, RecordContext, Recording, RegionSemantics};
 pub use text_run::{TextBaseline, TextFormat, text_run};
 
 pub use kivact_types::TextRun;

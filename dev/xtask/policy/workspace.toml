@@ -286,6 +286,7 @@ style_state = []
 text =["color", "color_space", "geometry", "paint"]
 text_shaping = ["scene", "shaped", "text"]
 text_utf = []
+type_map = []
 
 [style]
 enabled = true

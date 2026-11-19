@@ -9,7 +9,7 @@
 
 use kivact::ErrorKind;
 use kivact::draw::{
-    BlendMode, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat, Transform, linear_gradient,
+    Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat, Transform, linear_gradient,
 };
 use kivact::geometry::{Point, Rect, Size};
 use kivact::style::theme::Typography;
@@ -184,10 +184,26 @@ fn a_layer_svg_cannot_express_is_an_error() {
     let mut renderer = Offscreen::new();
     let error = renderer
         .render_svg(10.0, 10.0, |draw, _size| {
-            draw.layer(Layer::new().blend(BlendMode::Multiply), |_| {});
+            draw.layer(Layer::new().composite(Composite::DestinationOut), |_| {});
         })
-        .expect_err("a blend mode has no SVG 1.1 form");
+        .expect_err("a composite operation has no SVG 1.1 form");
     assert_eq!(error.kind(), &ErrorKind::Unsupported);
+}
+
+#[test]
+fn tabular_numbers_export_as_a_font_feature() {
+    let mut renderer = Offscreen::new();
+    let out = renderer
+        .render_svg(100.0, 40.0, |draw, _size| {
+            let style = TextFormat {
+                tabular_nums: true,
+                ..Default::default()
+            };
+            draw.text("12:34", Point::new(0.0, 0.0), style);
+        })
+        .expect("tabular figures are expressible");
+    assert!(out.contains("font-feature-settings:'tnum' 1"), "{out}");
+    assert!(well_formed(&out));
 }
 
 /// One drawing function for both exports: a background and a text that

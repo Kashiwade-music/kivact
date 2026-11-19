@@ -22,8 +22,20 @@ pub struct Draw {
     pub(super) size: Size,
     pub(super) transform: p::Transform,
     pub(super) unsupported: u32,
-    /// Measures text (`None` before the engine is there).
-    pub(super) measurer: Option<Rc<dyn p::TextShaper>>,
+    /// Measures and shapes text.
+    pub(super) measurer: Rc<dyn p::TextShaper>,
+}
+
+/// What a recording needs from its host, given at once: the theme its
+/// colors resolve in, the text engine and the regions the node's setup
+/// declared (empty for an offscreen drawing).
+pub struct RecordContext {
+    /// The theme in effect.
+    pub theme: Theme,
+    /// Measures and shapes text.
+    pub shaper: Rc<dyn p::TextShaper>,
+    /// The declared regions, each drawable once per layer.
+    pub regions: Vec<(RegionId, RegionSemantics)>,
 }
 
 /// What one [`crate::internal::record`] made.
@@ -39,21 +51,13 @@ pub struct Recording {
 }
 
 impl Draw {
-    /// Install the framework text engine before recording draw commands.
-    /// Core mounting and offscreen recording supply the inherited text style
-    /// automatically; application draw closures receive an initialized painter.
-    #[doc(hidden)]
-    pub fn set_text_measurer(&mut self, shaper: impl p::TextShaper + 'static) {
-        self.measurer = Some(Rc::new(shaper));
-    }
-
-    pub(super) fn new(theme: Theme, size: Size) -> Self {
+    pub(super) fn new(cx: RecordContext, size: Size) -> Self {
         Draw {
-            measurer: None,
-            theme,
+            measurer: cx.shaper,
+            theme: cx.theme,
             cmds: Vec::new(),
             regions: Vec::new(),
-            declarations: HashMap::new(),
+            declarations: cx.regions.into_iter().collect(),
             drawn_regions: HashSet::new(),
             drawn_drawables: HashSet::new(),
             region_errors: Vec::new(),
@@ -90,10 +94,9 @@ impl Draw {
 }
 
 /// What a node's setup declared about a canvas region (`Node::region`),
-/// resolved by node mounting and handed to the painter with
-/// [`Draw::declare_regions`] before the drawing callbacks run, so that
-/// `region`, `region_shape` and `region_path` can publish the region's
-/// accessibility leaf.
+/// resolved by node mounting and handed to [`record`] in its
+/// [`RecordContext`], so that `region`, `region_shape` and `region_path`
+/// can publish the region's accessibility leaf.
 #[derive(Clone, Debug, PartialEq)]
 pub struct RegionSemantics {
     /// Canonical accessibility payload for this region.
@@ -104,15 +107,13 @@ pub struct RegionSemantics {
     pub focus_on_press: Option<p::FocusTarget>,
 }
 
-/// Record one draw layer of a node of `size` under `theme`: run `f` on a
-/// fresh painter and return what it drew. Inside `f`, first install
-/// [`set_text_measurer`](Draw::set_text_measurer) and
-/// [`declare_regions`](Draw::declare_regions), then run the
-/// application's drawing, then the retained style paint
+/// Record one draw layer of a node of `size` with what `cx` gives: run `f`
+/// on a fresh painter and return what it drew. `f` runs the application's
+/// drawing, then the retained style paint
 /// ([`CompiledStyle::paint_retained`](crate::CompiledStyle::paint_retained)).
 /// A panic in `f` propagates.
-pub fn record(size: Size, theme: &Theme, f: impl FnOnce(&mut Draw)) -> Recording {
-    let mut draw = Draw::new(theme.clone(), size);
+pub fn record(size: Size, cx: RecordContext, f: impl FnOnce(&mut Draw)) -> Recording {
+    let mut draw = Draw::new(cx, size);
     f(&mut draw);
     Recording {
         scene: DrawList {

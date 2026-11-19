@@ -302,11 +302,7 @@ impl Draw {
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
         let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
-        let shaped = self
-            .measurer
-            .as_ref()
-            .and_then(|shaper| shaper.shape(&run, max_width))
-            .unwrap_or_default();
+        let shaped = self.measurer.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
 
@@ -327,10 +323,7 @@ impl Draw {
             p::Rgba::TRANSPARENT,
             None,
         );
-        let shaped = self
-            .measurer
-            .as_ref()?
-            .shape_inline(&run, max_width, boxes)?;
+        let shaped = self.measurer.shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))
     }
 
@@ -368,10 +361,7 @@ impl Draw {
     /// The outline of `paragraph` at `origin` as a path (Canvas has none;
     /// SVG does): its glyphs, shaped as drawn.
     pub fn paragraph_path(&self, paragraph: &TextParagraph, origin: Point) -> Path {
-        let Some(m) = &self.measurer else {
-            return Path::new();
-        };
-        let cmds = outline_runs(m.as_ref(), &paragraph.shaped());
+        let cmds = outline_runs(self.measurer.as_ref(), &paragraph.shaped());
         Path::from_cmds(cmds).transformed(Transform::new().translate(origin.x, origin.y))
     }
 }

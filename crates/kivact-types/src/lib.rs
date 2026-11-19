@@ -42,6 +42,7 @@ pub mod style_state;
 pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
+pub mod type_map;
 pub mod window;
 
 pub use asset::{Asset, AssetBytes};
@@ -122,6 +123,7 @@ pub use text::{
     TextWrap,
 };
 pub use text_shaping::TextShaper;
+pub use type_map::{LocalTypeMap, SharedTypeMap};
 pub use window::{
     NativeWindow, SurfaceSize, WindowContent, WindowId, WindowMode, WindowPlacement, WindowRequest,
 };

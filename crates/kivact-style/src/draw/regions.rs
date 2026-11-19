@@ -1,6 +1,6 @@
 //! Role: Canvas hit regions: their declaration and transformed geometry.
 
-use super::recorder::{Draw, RegionSemantics};
+use super::recorder::Draw;
 use crate::effect::{Shape, basic};
 use crate::geometry::{Point, Rect};
 use crate::path::Path;
@@ -8,12 +8,6 @@ use kivact_types as p;
 use kivact_types::RegionId;
 
 impl Draw {
-    /// Supply the node's declared regions before the drawing callbacks run;
-    /// a region drawn without a declaration is reported and dropped.
-    pub fn declare_regions(&mut self, declarations: Vec<(RegionId, RegionSemantics)>) {
-        self.declarations = declarations.into_iter().collect();
-    }
-
     /// Paint the hit geometry of a region declared by the canvas node's setup.
     ///
     /// Semantics and input come from the attached part. Regions follow the

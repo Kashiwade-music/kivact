@@ -1,6 +1,6 @@
 //! Role: Bridge style values and recording to core host machinery.
 
-pub use crate::draw::recorder::record;
+pub use crate::draw::recorder::{RecordContext, record};
 use crate::paint::fill_layer;
 pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
 pub use crate::sheet::with_scroll_axes;
