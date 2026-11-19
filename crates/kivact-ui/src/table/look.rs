@@ -61,14 +61,6 @@ pub(crate) fn head(t: &Theme, s: &PartState) -> Style {
         .weight(600)
 }
 
-/// Theme overrides for static tables.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct TableTokens {
-    pub cell_padding: Option<f64>,
-    pub header_height: Option<f64>,
-    pub font_size: Option<f64>,
-}
-
 recipe_table! {
     /// Static table part recipes.
     TableRecipes {

@@ -5,6 +5,7 @@ mod labels;
 pub(crate) mod look;
 mod notices;
 mod render;
-pub use crate::combobox::look::ComboboxTokens;
+pub(crate) mod tokens;
+pub use crate::combobox::tokens::ComboboxTokens;
 pub use data::Combobox;
 pub use handle::combobox;

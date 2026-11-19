@@ -2,8 +2,8 @@
 
 use crate::UiTokens;
 use crate::layer::with_base_recipe_style;
-use crate::sparkline::look::SparklineFill;
-use crate::sparkline::look::SparklineTokens;
+use crate::sparkline::tokens::SparklineFill;
+use crate::sparkline::tokens::SparklineTokens;
 use crate::variants::{Variant, Variants};
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke, linear_gradient};
 use kivact_core::geometry::Point;

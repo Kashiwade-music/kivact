@@ -2,7 +2,6 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::motion::Transition;
 use kivact_core::style::{
     Align, Color, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
 };
@@ -114,23 +113,6 @@ pub struct ToastGroupState {
     /// for the assertive group, 0 for the polite group), so a look puts
     /// space between two groups only when both show toasts.
     pub above: usize,
-}
-
-/// A theme's optional toast row-height animation.
-///
-/// The region reads this at setup. With a transition, set the group
-/// recipe's fixed gap to zero so the space between cards can animate.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct ToastRowMotion {
-    /// A decorative transition for showing and collapsing the row.
-    pub transition: Option<Transition>,
-    /// Space before each card, included in its animated height.
-    pub gap: f64,
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ToastTokens {
-    pub row_motion: ToastRowMotion,
 }
 
 recipe_table! {

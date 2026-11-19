@@ -31,18 +31,6 @@ pub(crate) fn toggle_item(
     crate::toggle_button::look::toggle_button(theme, &crate::variants::Look::new(look.toggle))
 }
 
-/// Passive spacing for toggle groups.
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToggleGroupTokens {
-    pub gap: f64,
-}
-
-impl Default for ToggleGroupTokens {
-    fn default() -> Self {
-        Self { gap: 4.0 }
-    }
-}
-
 /// Layout supplied to the group recipe.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ToggleGroupState {

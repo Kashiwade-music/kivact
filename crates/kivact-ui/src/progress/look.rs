@@ -1,12 +1,11 @@
 //! Role: The progress recipe state, tokens, recipe table and default looks.
-use crate::look_common::metric_height;
 
 use crate::control_size::ControlSize;
+use crate::progress::tokens::ProgressMotion;
 use crate::recipe::recipe_table;
 use crate::variants::{Look, Variant};
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::{Point, Rect};
-use kivact_core::motion::Easing;
 use kivact_core::style::{Align, ColorToken, Justify, Position, Style, Theme, pct, style};
 pub(crate) fn ring(s: &Look<ProgressState>) -> bool {
     s.variant::<ProgressVariant>() == Some(&ProgressVariant::Ring)
@@ -167,39 +166,7 @@ impl PartialEq for ProgressState {
     }
 }
 
-/// Timing of standard progress bars. Configure it through [`crate::UiTokens`].
-#[derive(Clone, Debug, PartialEq)]
-pub struct ProgressMotion {
-    /// Whether the first determinate fill animates from zero.
-    pub animate_initial: bool,
-    /// Milliseconds for changes to the determinate fill.
-    pub determinate_ms: u64,
-    /// Easing of determinate fill changes.
-    pub determinate_easing: Easing,
-    /// Milliseconds per full cycle of the moving-fill clock.
-    pub period_ms: u64,
-    /// Optional full clock period in reduced motion. None leaves it still.
-    pub reduced_period_ms: Option<u64>,
-}
-
 impl crate::variants::Variant for ProgressMotion {}
-
-impl Default for ProgressMotion {
-    fn default() -> Self {
-        Self {
-            animate_initial: true,
-            determinate_ms: 400,
-            determinate_easing: Easing::EaseOut,
-            period_ms: 1300,
-            reduced_period_ms: None,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ProgressTokens {
-    pub motion: ProgressMotion,
-}
 
 recipe_table! {
     /// The recipes of a [`progress`](super::progress) bar.
@@ -227,3 +194,13 @@ pub enum ProgressVariant {
 }
 
 impl Variant for ProgressVariant {}
+
+/// The thickness of a bar at a size.
+fn metric_height(s: &ProgressState) -> f64 {
+    match s.size {
+        crate::ControlSize::ExtraSmall => 3.0,
+        crate::ControlSize::Small => 4.0,
+        crate::ControlSize::Medium => 6.0,
+        crate::ControlSize::Large => 10.0,
+    }
+}

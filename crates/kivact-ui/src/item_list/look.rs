@@ -83,17 +83,6 @@ pub(crate) fn marker(_: &Theme, _: &ItemRowState) -> Style {
     style().shrink(0).min_width(16).direction(Direction::Row)
 }
 
-/// Visual overrides for static lists and item rows.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct ItemListTokens {
-    pub gap: Option<f64>,
-    pub padding: Option<f64>,
-    pub row_gap: Option<f64>,
-    pub description_size: Option<f64>,
-    pub title_lines: Option<u32>,
-    pub description_lines: Option<u32>,
-}
-
 /// Actual item-row input and independent construction facts exposed to recipes.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemRowState {

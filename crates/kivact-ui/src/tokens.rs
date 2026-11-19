@@ -1,23 +1,23 @@
 //! Role: Group per-component visual tokens in one theme extension.
 
-use crate::avatar::look::AvatarTokens;
-use crate::button::look::ButtonTokens;
-use crate::data_table::look::DataTableTokens;
-use crate::dialog::look::DialogTokens;
-use crate::disclosure::look::DisclosureTokens;
-use crate::progress::look::ProgressTokens;
-use crate::sparkline::look::SparklineTokens;
-use crate::toast::look::ToastTokens;
-use crate::toggle_button::look::ToggleButtonTokens;
+use crate::avatar::tokens::AvatarTokens;
+use crate::button::tokens::ButtonTokens;
+use crate::data_table::tokens::DataTableTokens;
+use crate::dialog::tokens::DialogTokens;
+use crate::disclosure::tokens::DisclosureTokens;
+use crate::progress::tokens::ProgressTokens;
+use crate::sparkline::tokens::SparklineTokens;
+use crate::toast::tokens::ToastTokens;
+use crate::toggle_button::tokens::ToggleButtonTokens;
 use kivact_core::style::{Theme, ThemeExtension};
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct UiTokens {
     pub chat: crate::ChatTokens,
     pub code_block: crate::CodeBlockTokens,
     pub indicators: IndicatorTokens,
-    pub tree: crate::tree::look::TreeTokens,
-    pub table: crate::table::look::TableTokens,
-    pub item_list: crate::item_list::look::ItemListTokens,
+    pub tree: crate::tree::tokens::TreeTokens,
+    pub table: crate::table::tokens::TableTokens,
+    pub item_list: crate::item_list::tokens::ItemListTokens,
     pub pagination: crate::NavigationTokens,
     pub breadcrumb: crate::NavigationTokens,
     pub stepper: crate::StepperTokens,
@@ -28,9 +28,9 @@ pub struct UiTokens {
     pub carousel: crate::CarouselTokens,
     pub dropzone: crate::DropzoneTokens,
     pub combobox: crate::ComboboxTokens,
-    pub toolbar: crate::toolbar::look::ToolbarTokens,
-    pub toggle_group: crate::toggle_group::look::ToggleGroupTokens,
-    pub button_group: crate::button_group::look::ButtonGroupTokens,
+    pub toolbar: crate::toolbar::tokens::ToolbarTokens,
+    pub toggle_group: crate::toggle_group::tokens::ToggleGroupTokens,
+    pub button_group: crate::button_group::tokens::ButtonGroupTokens,
     pub avatar: AvatarTokens,
     pub button: ButtonTokens,
     pub progress: ProgressTokens,
@@ -40,7 +40,7 @@ pub struct UiTokens {
     pub dialog: DialogTokens,
     pub disclosure: DisclosureTokens,
     pub data_table: DataTableTokens,
-    pub hover_card: crate::hover_card::look::HoverCardTokens,
+    pub hover_card: crate::hover_card::tokens::HoverCardTokens,
 }
 impl ThemeExtension for UiTokens {
     fn fallback(_: &Theme) -> Self {

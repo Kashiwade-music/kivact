@@ -3,7 +3,7 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 
-use kivact_core::style::{Align, Color, Direction, Justify, Length, Track, pct, style};
+use kivact_core::style::{Align, Direction, Justify, Length, Track, pct, style};
 use kivact_core::view::Orientation;
 pub(crate) fn root_style(
     theme: &kivact_core::style::Theme,
@@ -48,28 +48,6 @@ pub(crate) fn root_style(
         };
     }
     base
-}
-
-/// Passive toolbar colors and metrics supplied through [`crate::UiTokens`].
-#[derive(Clone, Debug, PartialEq)]
-pub struct ToolbarTokens {
-    pub background: Color,
-    pub border: Color,
-    pub padding: f64,
-    pub gap: f64,
-    pub min_height: f64,
-}
-
-impl Default for ToolbarTokens {
-    fn default() -> Self {
-        Self {
-            background: Color::TRANSPARENT,
-            border: Color::TRANSPARENT,
-            padding: 8.0,
-            gap: 4.0,
-            min_height: 32.0,
-        }
-    }
 }
 
 /// Layout passed to toolbar recipes.

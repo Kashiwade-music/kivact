@@ -1,7 +1,6 @@
 //! Role: Share sizing and look helpers that two or more components recipes use.
 
 use crate::control_size::ControlSize;
-use crate::progress::look::ProgressState;
 use crate::variants::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::Shadow;
@@ -97,15 +96,6 @@ pub(crate) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
         .direction(Direction::Row)
         .align_items(Align::Center)
         .gap(4)
-}
-
-pub(crate) fn metric_height(s: &ProgressState) -> f64 {
-    match s.size {
-        crate::ControlSize::ExtraSmall => 3.0,
-        crate::ControlSize::Small => 4.0,
-        crate::ControlSize::Medium => 6.0,
-        crate::ControlSize::Large => 10.0,
-    }
 }
 
 pub(crate) fn side(size: ControlSize) -> f64 {

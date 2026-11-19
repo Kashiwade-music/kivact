@@ -1,5 +1,6 @@
 //! Role: Compose static tables with themed rows and cells.
 pub(crate) mod look;
+pub(crate) mod tokens;
 mod view;
 
 pub use view::{

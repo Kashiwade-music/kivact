@@ -6,6 +6,7 @@
 //! The recipe is the root's base style, so the caller's `.style(..)` wins
 //! whatever the order of the calls.
 pub(crate) mod look;
+pub(crate) mod tokens;
 mod view;
 
 pub use view::{ToggleButton, toggle_button};
