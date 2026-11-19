@@ -144,3 +144,40 @@ impl Model {
             .unwrap_or_default()
     }
 }
+
+impl Model {
+    /// The visibility facts of `id` (`contract::NodeFlags`); a missing node is neither.
+    pub(crate) fn node_flags(&self, id: NodeId) -> crate::contract::NodeFlags {
+        let Some(start) = self.tree.nodes.index_of(id) else {
+            return crate::contract::NodeFlags::default();
+        };
+        let mut flags = crate::contract::NodeFlags {
+            visible: true,
+            in_live_region: false,
+        };
+        for (_, n) in self.tree.ancestors(start) {
+            if n.properties.input.hidden == Some(true) {
+                flags.visible = false;
+            }
+            if n.properties
+                .semantics
+                .as_deref()
+                .is_some_and(is_live_region)
+            {
+                flags.in_live_region = true;
+            }
+        }
+        flags
+    }
+}
+
+/// Whether `semantics` make a live region.
+fn is_live_region(semantics: &kivact_types::Semantics<kivact_types::FocusTarget>) -> bool {
+    matches!(
+        semantics.role,
+        Some(kivact_types::Role::Alert | kivact_types::Role::Status | kivact_types::Role::Log)
+    ) || matches!(
+        semantics.live_region,
+        Some(kivact_types::LiveRegion::Polite | kivact_types::LiveRegion::Assertive)
+    )
+}

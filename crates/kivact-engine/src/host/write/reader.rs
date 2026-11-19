@@ -484,6 +484,31 @@ impl Reader {
         app.model(window).map(f)
     }
 
+    /// The last layout report of `id` (the values of its last `HostEvent::LayoutChanged`).
+    pub fn layout_report(&self, id: NodeId) -> Option<crate::contract::LayoutReport> {
+        self.with_model(id, |model| {
+            let n = model.tree.get(id)?;
+            let sent = n.sent.as_ref()?.layout.get()?;
+            Some(crate::contract::LayoutReport {
+                rect: sent.0,
+                layout_rect: sent.3,
+                text_truncated: sent.2 == crate::tree::node::Clipping::Yes,
+            })
+        })
+        .flatten()
+    }
+
+    /// The visibility facts of `id` now.
+    pub fn node_flags(&self, id: NodeId) -> crate::contract::NodeFlags {
+        self.with_model(id, |model| model.node_flags(id))
+            .unwrap_or_default()
+    }
+
+    /// How many times the font database changed (the families change with it).
+    pub fn font_generation(&self) -> u64 {
+        self.app.borrow().font_generation
+    }
+
     /// CPU pixels of the current subtree; absent when the node has no layout.
     pub fn snapshot(
         &self,

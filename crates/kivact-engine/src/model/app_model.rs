@@ -4,7 +4,7 @@
 //! one motion clock; each window owns its own `Model`. A node's window is
 //! derived from the model whose tree holds it (no second table).
 
-use crate::contract::{DevtoolsChange, HostEvent};
+use crate::contract::{DevtoolsChange, HostEvent, NodeFlags};
 use crate::lower::assets::ArvaneAssets;
 use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
@@ -12,7 +12,7 @@ use crate::model::frame::state::FrameRequests;
 use crate::mutation::Writes;
 use kivact_types::{ExternalImageId, NodeId, RequestId, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 /// A window change the host performs after the turn, in write order.
@@ -49,6 +49,13 @@ pub(crate) struct AppModel {
     /// events of a window come from the first until the shell reports it
     /// delivered (`ShellEvent::Injected`).
     pub(crate) injecting: BTreeMap<WindowId, std::collections::VecDeque<RequestId>>,
+    /// The `TextChanged` events of each node handed to the client in the
+    /// running turn and not yet dispatched (`Writer::deliver`).
+    pub(crate) text_ahead: HashMap<NodeId, u32>,
+    /// The watched nodes and the visibility facts last reported of each.
+    pub(crate) watched: BTreeMap<NodeId, NodeFlags>,
+    /// How many times the font database changed.
+    pub(crate) font_generation: u64,
 }
 
 impl AppModel {
@@ -70,6 +77,9 @@ impl AppModel {
             devtools_changes: Vec::new(),
             log: shared.log,
             injecting: BTreeMap::new(),
+            text_ahead: HashMap::new(),
+            watched: BTreeMap::new(),
+            font_generation: 0,
         }
     }
 
@@ -184,5 +194,46 @@ impl AppModel {
     /// Queue `event` after every event queued so far.
     pub(crate) fn push_event(&self, event: HostEvent) {
         self.events.push(event);
+    }
+
+    /// The client is handed `events`: their text edits hold back the
+    /// input-value echoes of their nodes until each is dispatched.
+    pub(crate) fn hold_text(&mut self, events: &[HostEvent]) {
+        for event in events {
+            if let HostEvent::TextChanged { node, .. } = event {
+                *self.text_ahead.entry(*node).or_default() += 1;
+            }
+        }
+    }
+
+    /// The client dispatches `event` now.
+    pub(crate) fn delivered(&mut self, event: &HostEvent) {
+        if let HostEvent::TextChanged { node, .. } = event
+            && let Some(count) = self.text_ahead.get_mut(node)
+        {
+            *count -= 1;
+            if *count == 0 {
+                self.text_ahead.remove(node);
+            }
+        }
+    }
+
+    /// Report the watched nodes whose visibility facts changed.
+    pub(crate) fn report_flags(&mut self) {
+        let ids: Vec<NodeId> = self.watched.keys().copied().collect();
+        for id in ids {
+            let Some(window) = self.window_of(id) else {
+                self.watched.remove(&id);
+                continue;
+            };
+            let flags = self
+                .model(window)
+                .map(|m| m.node_flags(id))
+                .unwrap_or_default();
+            if self.watched.get(&id) != Some(&flags) {
+                self.watched.insert(id, flags);
+                self.push_event(HostEvent::NodeFlagsChanged { node: id, flags });
+            }
+        }
     }
 }

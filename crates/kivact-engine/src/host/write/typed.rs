@@ -460,6 +460,11 @@ impl Writer {
     }
 
     fn write_input_value(&self, id: NodeId, value: std::rc::Rc<str>, _: Mut) -> bool {
+        // An echo of a value the client has not seen the native edits after:
+        // writing it would undo them.
+        if self.app.borrow().text_ahead.contains_key(&id) {
+            return false;
+        }
         let created = self.app.borrow().writes.created(id);
         self.record(id, |model| model.controlled_value(id, value, created))
     }
