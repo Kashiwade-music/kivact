@@ -104,7 +104,7 @@ fn caret_local(host: &Model, id: NodeId, engine: &mut arvane::Engine) -> Rect {
     let caret = host
         .node(id)
         .and_then(|n| {
-            host.editors[n.index.0]
+            host.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         })
@@ -204,7 +204,7 @@ pub(crate) fn ime_text(
     if node.read_only() {
         return None;
     }
-    let edit = host.editors[node.index.0]
+    let edit = host.slots.editors[node.index.0]
         .as_deref()
         .map(|editor| editor.editor.state())?;
     let value = edit.value();

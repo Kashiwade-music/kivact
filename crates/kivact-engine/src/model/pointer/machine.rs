@@ -369,7 +369,7 @@ impl Model {
             .filter(|f| {
                 self.tree
                     .get(*f)
-                    .is_some_and(|n| self.editors[n.index.0].is_some())
+                    .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)
@@ -386,7 +386,7 @@ impl Model {
                     && self
                         .tree
                         .get(*f)
-                        .is_some_and(|n| self.editors[n.index.0].is_some())
+                        .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
         if let Some(editor) = selecting
             && let Track::Mouse(mouse) = self.pointer.state.track_mut(pointer)
@@ -466,7 +466,7 @@ impl Model {
                 })
                 .flatten();
             region.or_else(|| {
-                self.ancestor_where(h, |n| n.focusable(self.editors[n.index.0].is_some()))
+                self.ancestor_where(h, |n| n.focusable(self.slots.editors[n.index.0].is_some()))
                     .map(|node| kivact_types::FocusTarget { node, region: None })
             })
         })
@@ -657,7 +657,7 @@ impl Model {
                         && self
                             .tree
                             .get(*f)
-                            .is_some_and(|n| self.editors[n.index.0].is_some())
+                            .is_some_and(|n| self.slots.editors[n.index.0].is_some())
                 }),
         };
         if let Some(i) = selecting

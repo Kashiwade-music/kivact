@@ -39,7 +39,7 @@ pub(crate) fn layout_findings(
         if n.hidden() || ignores(n, check) {
             continue;
         }
-        if n.kind() == NodeType::Text || host.editors[n.index.0].is_some() {
+        if n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some() {
             text_findings(host, engine, check, id, ink, &mut out);
         }
         stack.extend(
@@ -83,7 +83,7 @@ pub(crate) fn text_findings(
     if shaped.lines.is_empty() {
         return;
     }
-    let input = host.editors[n.index.0].is_some();
+    let input = host.slots.editors[n.index.0].is_some();
     let tolerance = check.overflow_tolerance;
     let text = shaped.rect();
     let up = ancestors(host, id);
@@ -155,7 +155,7 @@ pub(crate) fn text_findings(
 /// Whether the role of `id` expects its text on one line.
 fn single_line(host: &Model, id: NodeId, check: &LayoutCheck) -> bool {
     host.node(id)
-        .and_then(|node| semantic_role(node, host.editors[node.index.0].is_some()))
+        .and_then(|node| semantic_role(node, host.slots.editors[node.index.0].is_some()))
         .is_some_and(|r| check.single_line_roles.contains(&r))
 }
 

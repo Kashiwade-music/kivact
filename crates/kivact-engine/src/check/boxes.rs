@@ -40,7 +40,7 @@ pub(super) fn visual_parent(
                 p.background.as_ref().is_some_and(paints)
                     || crate::lower::shape::border_widths(p.border.as_ref()) != Edges::all(0.0)
             }) || n.clips()
-                || semantic_role(n, host.editors[n.index.0].is_some())
+                || semantic_role(n, host.slots.editors[n.index.0].is_some())
                     .is_some_and(|r| check.single_line_roles.contains(&r))
         })
     })
@@ -119,7 +119,7 @@ pub(super) struct Clip {
 pub(super) fn clips(host: &Model, id: NodeId, up: &[NodeId]) -> Vec<Clip> {
     let input = host
         .node(id)
-        .is_some_and(|n| host.editors[n.index.0].is_some());
+        .is_some_and(|n| host.slots.editors[n.index.0].is_some());
     up.iter()
         .filter_map(|a| {
             let n = host.node(*a).filter(|n| n.clips())?;

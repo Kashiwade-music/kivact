@@ -257,7 +257,7 @@ impl Model {
             lines,
             controlled,
             ..
-        } = self.editors[n.index.0].as_deref_mut()?;
+        } = self.slots.editors[n.index.0].as_deref_mut()?;
         let mut journal = editor.journal(max_length);
         let limit = max_length.map(|max| {
             if journal.state().is_composing() {
@@ -332,7 +332,7 @@ impl Model {
         let key = shortcut_key(key, physical, modifiers);
         let input = self.focused_input();
         let editor = input.and_then(|i| self.tree.get(i)).and_then(|n| {
-            self.editors[n.index.0]
+            self.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
         });
@@ -354,7 +354,8 @@ impl Model {
                         ancestor.role() == Some(Role::SpinButton)
                             && ancestor.actions().contains(&A11yAction::SetValue)
                             && (ancestor.index == node.index
-                                || !ancestor.focusable(self.editors[ancestor.index.0].is_some()))
+                                || !ancestor
+                                    .focusable(self.slots.editors[ancestor.index.0].is_some()))
                     })
                     .is_some();
             let read_only = flags.1;
@@ -528,7 +529,7 @@ impl Model {
         let report = n.reports_text();
         let Some(EditorNode {
             editor, controlled, ..
-        }) = self.editors[n.index.0].as_deref_mut()
+        }) = self.slots.editors[n.index.0].as_deref_mut()
         else {
             return;
         };

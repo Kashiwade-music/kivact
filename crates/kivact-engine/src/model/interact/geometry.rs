@@ -51,7 +51,7 @@ impl LayerTraits {
         if n.states().is_some() || host.motion.get(id).is_some() {
             LayerTraits::of(&host.effective_paint(id))
         } else {
-            host.paint.look[n.index.0].unwrap_or_else(|| {
+            host.slots.look[n.index.0].unwrap_or_else(|| {
                 n.paint()
                     .map_or_else(|| LayerTraits::of(&PaintProps::default()), LayerTraits::of)
             })
@@ -129,7 +129,12 @@ impl Model {
         let previous = self.capture_layout_motion();
         let computed = {
             let mut assets = self.assets.borrow_mut();
-            let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+            let mut measure = Measure::new(
+                engine,
+                &mut assets,
+                &self.slots.measure,
+                &self.slots.editors,
+            );
             for id in &remeasure {
                 if measure.measures_same(&self.tree, &self.layout, *id) {
                     continue;
@@ -238,7 +243,12 @@ impl Model {
         limit: Option<kivact_types::Size>,
     ) {
         let mut assets = self.assets.borrow_mut();
-        let mut measure = Measure::new(engine, &mut assets, &self.measure, &self.editors);
+        let mut measure = Measure::new(
+            engine,
+            &mut assets,
+            &self.slots.measure,
+            &self.slots.editors,
+        );
         let mut leaves = crate::measure::leaf::EngineMeasure {
             tree: &self.tree,
             measure: &mut measure,

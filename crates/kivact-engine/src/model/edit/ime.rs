@@ -17,7 +17,7 @@ impl Model {
                 .focused_input()
                 .and_then(|i| self.node(i))
                 .and_then(|n| {
-                    self.editors[n.index.0]
+                    self.slots.editors[n.index.0]
                         .as_deref()
                         .map(|editor| editor.editor.state())
                 })
@@ -79,7 +79,7 @@ impl Model {
         let Some((start, end)) = self
             .node(id)
             .and_then(|n| {
-                self.editors[n.index.0]
+                self.slots.editors[n.index.0]
                     .as_deref()
                     .map(|editor| editor.editor.state())
             })
@@ -121,7 +121,7 @@ impl Model {
             let n = self.node(id)?;
             let area = crate::model::interact::text_geometry::text_line(self, id, engine);
             let transform = self.window_map(id);
-            let editor = self.editors[n.index.0].as_deref()?;
+            let editor = self.slots.editors[n.index.0].as_deref()?;
             Some(InputSource {
                 node: id,
                 revision: editor.editor.revision(),

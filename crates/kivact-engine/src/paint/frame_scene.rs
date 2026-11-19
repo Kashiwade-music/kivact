@@ -205,13 +205,13 @@ impl Model {
         if !step.own {
             return;
         }
-        if host.editors[n.index.0].is_none()
+        if host.slots.editors[n.index.0].is_none()
             && let Some(scene) = &n.scenes()[0]
         {
             self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
         }
         match n.kind() {
-            _ if host.editors[n.index.0].is_some() => {
+            _ if host.slots.editors[n.index.0].is_some() => {
                 self.paint_input(id, bounds, step.clip, &tint, engine, out);
                 if let Some(scene) = &n.scenes()[0] {
                     self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
@@ -224,7 +224,7 @@ impl Model {
             }
             _ => {}
         }
-        if host.editors[n.index.0].is_none() && n.image().is_some() {
+        if host.slots.editors[n.index.0].is_none() && n.image().is_some() {
             self.paint_image(id, n, canvas, &tint, pass, out);
         }
     }

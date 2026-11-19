@@ -602,7 +602,7 @@ fn opacity(
 ) -> (Grouping, f64) {
     // Group opacity over more than one thing it draws.
     let content = match n.kind() {
-        _ if host.editors[n.index.0].is_some() => 2,
+        _ if host.slots.editors[n.index.0].is_some() => 2,
         NodeType::Text | NodeType::Image => 1,
         _ => 0,
     };

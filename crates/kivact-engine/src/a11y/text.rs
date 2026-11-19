@@ -61,7 +61,7 @@ impl Model {
         let edit = tree
             .get(id)
             .and_then(|n| {
-                self.editors[n.index.0]
+                self.slots.editors[n.index.0]
                     .as_deref()
                     .map(|editor| editor.editor.state())
             })
@@ -70,8 +70,8 @@ impl Model {
         let mut ids = || a11y.ids.fresh(tree);
         let (mut lines, _) = crate::measure::input::edit_lines(
             tree,
-            &self.measure,
-            &self.editors,
+            &self.slots.measure,
+            &self.slots.editors,
             id,
             crate::measure::input::LineViewport::Paint(line.width),
             engine,

@@ -41,7 +41,7 @@ impl Model {
             .and_then(|f| self.tree.get(f.node).map(|n| (f.node, n)))
             .filter(|(_, n)| !n.disabled())
             .map_or(ImeTarget::None, |(id, n)| {
-                if self.editors[n.index.0].is_some() {
+                if self.slots.editors[n.index.0].is_some() {
                     ImeTarget::Native(EditorSlot(n.index))
                 } else if n.properties.ime.is_some() {
                     ImeTarget::Session(id)

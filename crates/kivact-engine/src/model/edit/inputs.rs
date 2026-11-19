@@ -31,13 +31,14 @@ impl Model {
         slot.and_then(|slot| {
             let installed = edit.is_some();
             let editor = std::mem::replace(
-                &mut self.editors[slot.0],
+                &mut self.slots.editors[slot.0],
                 edit.map(|state| Box::new(EditorNode::new(state))),
             );
             // An editor measures itself; a node that stops editing is
             // measured by its kind again.
             if let Some(node) = self.tree.get(id) {
-                self.measure
+                self.slots
+                    .measure
                     .set_measure(slot.0, &node.properties.kind, installed);
             }
             editor
@@ -53,7 +54,7 @@ impl Model {
             return self.set_edit(id, None);
         };
         let value = data.value.clone().unwrap_or_else(|| Rc::from(""));
-        let edit = match &mut self.editors[node.index.0] {
+        let edit = match &mut self.slots.editors[node.index.0] {
             Some(edit) => {
                 if edit.editor.state().value() != &*value {
                     edit.controlled = if edit.editor.set_controlled(&value) {
@@ -88,14 +89,14 @@ impl Model {
             .value
             .as_ref()
             .is_some_and(|old| Rc::ptr_eq(old, &value))
-            && self.editors[node.index.0]
+            && self.slots.editors[node.index.0]
                 .as_ref()
                 .is_some_and(|edit| matches!(edit.controlled, ControlledValue::InSync { at } if edit.editor.revision() == at));
         if known {
             return false;
         }
         data.value = Some(value.clone());
-        let changed = match self.editors[node.index.0].as_mut() {
+        let changed = match self.slots.editors[node.index.0].as_mut() {
             Some(edit) if initialize => {
                 // Creation starts at the end; later controlled writes clamp selection.
                 edit.editor = Editor::new(EditState::new(&value));
@@ -124,14 +125,14 @@ impl Model {
             }
             None => false,
         };
-        if let Some(edit) = &mut self.editors[node.index.0]
+        if let Some(edit) = &mut self.slots.editors[node.index.0]
             && matches!(edit.controlled, ControlledValue::InSync { .. })
         {
             edit.controlled = ControlledValue::InSync {
                 at: edit.editor.revision(),
             };
         }
-        if let Some(edit) = &mut self.editors[node.index.0] {
+        if let Some(edit) = &mut self.slots.editors[node.index.0] {
             edit.flush_damage();
         }
         if changed {
@@ -203,14 +204,14 @@ impl Model {
             if !n.reports_session() {
                 continue;
             }
-            let Some(session) = self.editors[n.index.0]
+            let Some(session) = self.slots.editors[n.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
                 .map(|e| e.session().clone())
             else {
                 continue;
             };
-            let changed = self.editors[n.index.0]
+            let changed = self.slots.editors[n.index.0]
                 .as_mut()
                 .is_some_and(|node| node.report_session(&session));
             if changed {
@@ -234,12 +235,12 @@ impl Model {
 
     pub(crate) fn editor_node(&self, id: NodeId) -> Option<&EditorNode> {
         let slot = self.tree.nodes.index_of(id)?;
-        self.editors[slot.0].as_deref()
+        self.slots.editors[slot.0].as_deref()
     }
 
     pub(crate) fn editor_node_mut(&mut self, id: NodeId) -> Option<&mut EditorNode> {
         let slot = self.tree.nodes.index_of(id)?;
-        self.editors[slot.0].as_deref_mut()
+        self.slots.editors[slot.0].as_deref_mut()
     }
 
     pub(crate) fn edit(&self, id: NodeId) -> Option<&EditState> {
@@ -261,8 +262,8 @@ impl Model {
         let width = crate::model::interact::visual::text_box(self, id).width;
         crate::measure::input::edit_lines(
             &self.tree,
-            &self.measure,
-            &self.editors,
+            &self.slots.measure,
+            &self.slots.editors,
             id,
             crate::measure::input::LineViewport::Paint(width),
             engine,
@@ -280,8 +281,8 @@ impl Model {
     ) -> Result<Option<RefreshedLines<'_>>, RefreshError> {
         crate::measure::input::refresh_lines(
             &self.tree,
-            &self.measure,
-            &self.editors,
+            &self.slots.measure,
+            &self.slots.editors,
             id,
             crate::measure::input::LineViewport::Paint(
                 crate::model::interact::visual::text_box(self, id).width,

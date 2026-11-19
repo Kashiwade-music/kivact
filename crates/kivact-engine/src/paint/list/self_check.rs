@@ -14,7 +14,7 @@ impl Model {
             .tree
             .nodes
             .iter()
-            .map(|(id, node)| (*id, self.paint.ink[node.index.0].get()))
+            .map(|(id, node)| (*id, self.slots.ink[node.index.0].get()))
             .collect();
         self.paint_list();
         let retained = std::mem::take(&mut self.paint.list);
@@ -30,7 +30,7 @@ impl Model {
             .tree
             .nodes
             .iter()
-            .map(|(id, node)| (*id, self.paint.ink[node.index.0].take()))
+            .map(|(id, node)| (*id, self.slots.ink[node.index.0].take()))
             .collect();
         self.paint.list = PaintList {
             ink_gen: retained.ink_gen,
@@ -44,7 +44,7 @@ impl Model {
             let Some(node) = self.tree.get(*id) else {
                 continue;
             };
-            let after = self.paint.ink[node.index.0].get();
+            let after = self.slots.ink[node.index.0].get();
             // A stale generation or differently sized cache is intentionally
             // ignored by the production walk, so compare only reusable inks.
             if let (Some(before), Some(after)) = (*before, after)
@@ -63,7 +63,7 @@ impl Model {
         // independently of the freshly rebuilt reference caches.
         for (id, ink) in &retained_inks {
             if let Some(node) = self.tree.get(*id) {
-                self.paint.ink[node.index.0].set(*ink);
+                self.slots.ink[node.index.0].set(*ink);
             }
         }
         for (id, after) in &rebuilt.indices {
@@ -84,7 +84,7 @@ impl Model {
         // after all comparisons, including cells that originally held None.
         for (id, ink) in inks {
             if let Some(node) = self.tree.get(id) {
-                self.paint.ink[node.index.0].set(ink);
+                self.slots.ink[node.index.0].set(ink);
             }
         }
         self.paint.list = original;

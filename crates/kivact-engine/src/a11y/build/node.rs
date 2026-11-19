@@ -113,7 +113,7 @@ impl Model {
                         .and_then(|s| s.description.clone())
                         .unwrap_or_default(),
                 ),
-                value_text: if self.editors[n.index.0].is_some() {
+                value_text: if self.slots.editors[n.index.0].is_some() {
                     None
                 } else {
                     n.semantics().and_then(|s| s.value_text.clone())
@@ -131,7 +131,7 @@ impl Model {
         };
         if self
             .node(id)
-            .is_some_and(|n| self.editors[n.index.0].is_some() && !n.password())
+            .is_some_and(|n| self.slots.editors[n.index.0].is_some() && !n.password())
         {
             let text = self.editing_semantics(id, self.layer_offset(id), engine);
             output.semantics.text = Some(text);
@@ -426,7 +426,7 @@ impl Model {
     pub(super) fn is_clipping_list_node(&self, id: types::NodeId) -> bool {
         self.tree()
             .get(id)
-            .is_some_and(|n| is_clipping_list(n, self.editors[n.index.0].is_some()))
+            .is_some_and(|n| is_clipping_list(n, self.slots.editors[n.index.0].is_some()))
     }
 
     /// The rows of `list` when it is a shown clipping list-like container,
@@ -440,7 +440,7 @@ impl Model {
     ) -> Option<(Vec<types::NodeId>, BTreeSet<types::NodeId>)> {
         let tree = self.tree();
         let n = tree.get(list)?;
-        if !is_clipping_list(n, self.editors[n.index.0].is_some()) || !tree.shown(list) {
+        if !is_clipping_list(n, self.slots.editors[n.index.0].is_some()) || !tree.shown(list) {
             return None;
         }
         let focus = tree.chain(self.focused().map(|f| f.node));
@@ -454,7 +454,7 @@ impl Model {
             if child.hidden() || child.visibility_hidden() {
                 continue;
             }
-            if semantic_role(child, self.editors[child.index.0].is_some()).is_none()
+            if semantic_role(child, self.slots.editors[child.index.0].is_some()).is_none()
                 && self.focused().map(|f| f.node) != Some(id)
             {
                 stack.extend(tree.logical_children(id).into_iter().rev());

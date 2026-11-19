@@ -7,8 +7,52 @@ use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
 use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Size, WindowId};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+
+/// The window's per-slot columns, one entry per structural slot of the
+/// node store: pushed together when a slot is made, reset together when
+/// it is freed (`Model::create_slot`, `Model::remove_slots`). The tree's
+/// flat-children cache grows by itself (`NodeTree`), and the layout's
+/// columns grow to the store's slot count when a pass reads them
+/// (`kivact_layout::Layout`).
+#[derive(Default)]
+pub(crate) struct Slots {
+    /// What each slot measures and its resolved text style.
+    pub(crate) measure: crate::measure::state::MeasureColumns,
+    /// The native editor of each slot that edits text.
+    pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
+    /// The ink each box last drew on (`paint::list::ink`).
+    pub(crate) ink: Vec<Cell<Option<crate::paint::state::Ink>>>,
+    /// The base paint's look of each node (`Model::derive`).
+    pub(crate) look: Vec<Option<crate::layer::LayerTraits>>,
+}
+
+impl Slots {
+    /// Append a fresh slot for a node of `kind`.
+    pub(crate) fn push(&mut self, kind: &crate::contract::NodeKind) {
+        self.measure.push(kind);
+        self.editors.push(None);
+        self.ink.push(Cell::new(None));
+        self.look.push(None);
+    }
+
+    /// Reset `slot` before it is freed; returns the editor and the
+    /// shaped text extents it held, for the caller to drop in order.
+    pub(crate) fn reset(
+        &mut self,
+        slot: usize,
+    ) -> (
+        Option<Box<crate::measure::editor::EditorNode>>,
+        Option<Box<crate::measure::state::TextExtents>>,
+    ) {
+        let editor = self.editors[slot].take();
+        let extents = self.measure.take_slot(slot);
+        self.ink[slot].set(None);
+        self.look[slot] = None;
+        (editor, extents)
+    }
+}
 
 /// Requests that must wait until the current client turn has finished.
 pub(crate) enum DeferredRequest {
@@ -29,14 +73,13 @@ pub(crate) struct Model {
     /// This model's window.
     pub(crate) window: WindowId,
     pub(crate) tree: NodeTree,
+    pub(crate) slots: Slots,
     pub(crate) layout: kivact_layout::Layout,
     pub(crate) layout_motion: super::layout_motion::state::LayoutMotion,
     pub(crate) playback: super::playback::state::Playback,
     pub(crate) sources: super::frame::sources::MotionSources,
-    pub(crate) measure: crate::measure::state::MeasureColumns,
     /// The recent values of the shared node properties (`Model::set_shared_prop`).
     pub(crate) recent: super::recent::RecentProps,
-    pub(crate) editors: Vec<Option<Box<crate::measure::editor::EditorNode>>>,
     pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
     pub(crate) viewport: Size,
@@ -90,13 +133,12 @@ impl Model {
         Self {
             window,
             tree: NodeTree::default(),
+            slots: Slots::default(),
             layout: Default::default(),
             layout_motion: Default::default(),
             playback: Default::default(),
             sources: Default::default(),
-            measure: Default::default(),
             recent: Default::default(),
-            editors: Vec::new(),
             events: shared.events.clone(),
             changes: super::changes::Changes::initial(),
             viewport,

@@ -37,7 +37,7 @@ impl Model {
     pub(crate) fn is_tab_stop(&self, id: NodeId) -> bool {
         self.tree
             .get(id)
-            .is_some_and(|n| n.focusable(self.editors[n.index.0].is_some()))
+            .is_some_and(|n| n.focusable(self.slots.editors[n.index.0].is_some()))
             && self.tree.shown(id)
     }
 
@@ -53,7 +53,7 @@ impl Model {
             return false;
         }
         match target.region {
-            None => node.focusable(self.editors[node.index.0].is_some()),
+            None => node.focusable(self.slots.editors[node.index.0].is_some()),
             Some(id) => {
                 !node.disabled()
                     && node.region(id).is_some_and(|r| {

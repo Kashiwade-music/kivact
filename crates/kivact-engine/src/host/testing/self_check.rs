@@ -27,7 +27,7 @@ impl ArvaneTestHost {
             &mut errors,
         );
         for (id, node) in model.tree.nodes.iter() {
-            let caret = model.editors[node.index.0]
+            let caret = model.slots.editors[node.index.0]
                 .as_deref()
                 .map(|editor| editor.editor.state())
                 .map_or(0, |edit| edit.caret());
@@ -59,6 +59,7 @@ impl ArvaneTestHost {
         let independent = model.a11y.clone();
         let state = std::mem::replace(&mut model.a11y, independent);
         let lines: Vec<_> = model
+            .slots
             .editors
             .iter_mut()
             .enumerate()
@@ -71,7 +72,7 @@ impl ArvaneTestHost {
         let rebuilt = Some(model.build_semantics(&mut engine));
         model.a11y = state;
         for (slot, original) in lines {
-            *model.editors[slot]
+            *model.slots.editors[slot]
                 .as_mut()
                 .expect("invariant: reference does not remove editors")
                 .lines
