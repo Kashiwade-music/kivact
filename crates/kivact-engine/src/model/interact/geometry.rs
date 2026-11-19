@@ -123,6 +123,7 @@ impl Model {
     /// edited (structure, layout props, a measured size, the window);
     /// the recorded changes say whether positions may have moved.
     pub(crate) fn layout(&mut self, engine: &mut arvane::Engine) -> bool {
+        self.forget_origins();
         let Some(remeasure) = self.changes.begin_layout() else {
             return false;
         };
@@ -198,6 +199,7 @@ impl Model {
         }
         self.retarget_layout_motion(previous);
         self.report_geometry(engine);
+        self.forget_origins();
         true
     }
 
@@ -264,6 +266,27 @@ impl Model {
             return None;
         }
         let size = self.computed_layout(id)?.size;
+        let kept = self.origins.borrow().get(&id).copied();
+        let origin = match kept {
+            Some(origin) => origin,
+            None => {
+                let origin = self.window_origin(id)?;
+                self.origins.borrow_mut().insert(id, origin);
+                origin
+            }
+        };
+        Some(Rect {
+            x: origin.x,
+            y: origin.y,
+            width: size.width,
+            height: size.height,
+        })
+    }
+
+    /// The window position of `id`'s border box: its location moved by
+    /// each box above it less its scroll, up to an overlay's origin or a
+    /// fixed box.
+    fn window_origin(&self, id: NodeId) -> Option<Point> {
         let (mut x, mut y) = (0.0, 0.0);
         let mut cur = id;
         loop {
@@ -291,12 +314,7 @@ impl Model {
                 None => break,
             }
         }
-        Some(Rect {
-            x,
-            y,
-            width: size.width,
-            height: size.height,
-        })
+        Some(Point { x, y })
     }
 
     /// Where node `n`'s box is in its parent's content
@@ -459,6 +477,7 @@ impl Model {
         if let Some(n) = self.tree.get_mut(id) {
             n.scroll = o;
         }
+        self.forget_origins();
         self.changes.scrolled(id);
         self.a11y_scrolled(id);
         true

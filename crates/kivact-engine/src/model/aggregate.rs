@@ -67,7 +67,7 @@ pub(crate) enum DeferredRequest {
     UnhandledKey(kivact_types::KeyCode),
 }
 
-// xtask-allow(state): legacy: modifiers is written only by Model::report_modifiers; assets, window_request; the modifiers last reported to the client, written only by Model::report_modifiers
+// xtask-allow(state): legacy: modifiers is written only by Model::report_modifiers; assets, window_request; the modifiers last reported to the client, written only by Model::report_modifiers; origins caches window origins until positions move (forget_origins)
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
     /// This model's window.
@@ -83,6 +83,9 @@ pub(crate) struct Model {
     pub(crate) events: super::events::EventSink,
     pub(crate) changes: super::changes::Changes,
     pub(crate) viewport: Size,
+    /// The window origins `Model::rect` found since the geometry last
+    /// changed (forgotten by `Model::forget_origins`).
+    pub(crate) origins: std::cell::RefCell<kivact_types::IdMap<kivact_types::Point>>,
     pub(crate) focus: super::focus::state::Focus,
     pub(crate) pointer: super::pointer::state::Pointer,
     /// The drags admitted before a modal opened (`modal`).
@@ -142,6 +145,7 @@ impl Model {
             events: shared.events.clone(),
             changes: super::changes::Changes::initial(),
             viewport,
+            origins: Default::default(),
             focus: super::focus::state::Focus::default(),
             pointer: super::pointer::state::Pointer::default(),
             admission: super::modal::state::Admission::default(),
@@ -180,6 +184,12 @@ impl Model {
     /// The node `id`.
     pub(crate) fn node(&self, id: NodeId) -> Option<&HostNode> {
         self.tree.get(id)
+    }
+
+    /// Positions moved (a layout pass, a scroll, a sticky shift, a resize or
+    /// a moved box): the remembered window origins are found again.
+    pub(crate) fn forget_origins(&mut self) {
+        self.origins.get_mut().clear();
     }
 
     /// Mark `id`'s subtree facts stale for the next paint list. A transparent

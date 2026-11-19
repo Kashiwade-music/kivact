@@ -46,6 +46,7 @@ impl Model {
     /// The window was resized.
     pub(crate) fn set_viewport(&mut self, window: Size) {
         if self.viewport != window {
+            self.forget_origins();
             self.viewport = window;
             if let Some(root) = self.tree.root() {
                 self.a11y.subtree(root);
@@ -158,6 +159,9 @@ impl Model {
         touched.sort_unstable();
         self.report_images(&touched);
         let changes = self.changes.dispatch();
+        if changes.geometry != Geometry::Kept {
+            self.forget_origins();
+        }
         self.record_sync(reasons, &changes);
         let moved = changes.geometry != Geometry::Kept;
         let redraw = changes.paint

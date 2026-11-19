@@ -117,9 +117,15 @@ impl Walk<'_> {
         let Some(n) = host.node(id) else {
             return;
         };
-        if !host.tree().drawn(id) {
+        // The walk reaches a node only from a drawn parent, or as a root or
+        // layer `Model::layers` found drawn: its own visibility decides.
+        if n.hidden() || n.visibility_hidden() {
             return;
         }
+        debug_assert!(
+            host.tree().drawn(id),
+            "invariant: the paint walk reaches only drawn nodes"
+        );
         let layout = host.layout_at(n.index).unwrap_or_default();
         let look = LayerTraits::now(host, id, n);
         let local = local_transform(host, id, n, &layout);
@@ -547,7 +553,9 @@ impl Model {
             transforms: Vec::new(),
             layers: Vec::new(),
         };
-        walk.node(id, Point::default(), 1.0, clip, None);
+        if self.tree().drawn(id) {
+            walk.node(id, Point::default(), 1.0, clip, None);
+        }
         for (layer, origin) in overlays {
             walk.node(
                 layer,
