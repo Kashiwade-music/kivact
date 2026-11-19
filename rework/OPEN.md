@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R08（lane X、commit `686e8409`）：(a) `Diag` に印の文面の 1 文を足す手順は、`Diag` に `xtask-allow(state)` の行が無いので、足さなかった（xtask は指摘しない。表の「印の文の編集」の行に準じて、無いものは足さない）。(b) `set_recorder`・`is_recording`・`RecordBits` は付属書 4.1 の名前どおり pub（`#[doc(hidden)]` は付けない）。受け入れる。
+- 設計者への注意（R08、STOP ではない）：`crates/kivact-core/src/devtools/turn.rs:41` の `turn.cause_with(CauseTag::Devtools, format!(..))` は付属書の一覧に無いので触っていない。記録は `record_cause_with` のゲートで残らないが、`format!` は毎回走る。設計者が一覧に足すかを決める。
+
 - W5a・R06（lane X、commit `13942301`）：(a) `count_round` を `pub(crate)` にした（private のままだと `reactive/host.rs` の `run_deferred` から呼べない。可視性だけの変更）。(b) `launch/turn.rs` の `ViewState::of(&rt).initial_render.set(false);` を書かなかった。`start_mount` がすでに false にしていて、どの turn より前なので効果が無い。表の「付属書のコード片が効果を持たない」の判断（同じ意味で既に済んでいる）。(c) `use` は現行の import に合わせた。以上は表の範囲で受け入れる。
 - 設計者への注意（R06、STOP ではない）：`commit_rounds` の `if !mounts && !rt.has_work() break` は、予算切れで残った deferred があると `has_work` が真のままで、100 回回ってから「user effects did not settle within 100 rounds」の Cycle を余分に一つ報告する（メッセージも不正確）。付属書の形のまま書いた。直すかどうかは設計者が決める。試験は全エラーが Cycle であることしか見ていないので通る。
 
