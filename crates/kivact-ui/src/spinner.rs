@@ -1,4 +1,6 @@
 //! Role: Display a localized loading status with one animation.
+pub(crate) mod look;
+
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, SpinnerState};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};

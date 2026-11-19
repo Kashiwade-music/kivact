@@ -5,19 +5,20 @@
 //! fraction shown and a repeating clock for a paint that moves. The theme
 //! sets their timing with [`ProgressMotion`]. The clock only runs in an active
 //! window while the bar is indeterminate or [`Progress::moving`] is true.
-use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::values::ProgressState;
-use super::variants::{Variant, Variants};
+
 use crate::control_size::ControlSize;
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+pub use crate::progress::look::ProgressMotion;
+use crate::progress::look::ProgressState;
+pub use crate::progress::look::ProgressTokens;
+use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
-use kivact_core::state::IntoValue;
-use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
+use kivact_core::state::{IntoValue, Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::use_theme;
-use kivact_core::view::{Element, Node, node, text};
-use kivact_core::view::{IntoView, Role, View};
+use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
+pub(crate) mod look;
 
-use crate::values::ProgressVariant;
 #[derive(Clone, Copy, PartialEq)]
 enum ProgressMotionPhase {
     Stopped,
@@ -223,8 +224,6 @@ impl IntoView for Progress {
     }
 }
 
-pub use crate::progress_tokens::{ProgressMotion, ProgressTokens};
-
 /// Drive indeterminate motion only while a visible surface needs it.
 fn motion_clock(
     target: Value<Option<f64>>,
@@ -277,3 +276,17 @@ fn motion_clock(
     motion_machine.feed(running, |running| running);
     phase.into_value()
 }
+
+/// Standard progress appearances, read through the existing variant contract.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ProgressVariant {
+    /// A horizontal bar (the default).
+    #[default]
+    Bar,
+    /// A circular track with visible percentage text.
+    Ring,
+    /// A segmented horizontal gauge.
+    Gauge,
+}
+
+impl Variant for ProgressVariant {}

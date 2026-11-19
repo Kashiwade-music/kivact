@@ -1,10 +1,12 @@
 //! Role: Present a named statistic with optional delta, icon and chart slots.
+
 use crate::layer::with_base_recipe_style;
+use crate::stat::look::StatState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
+pub(crate) mod look;
 
-use crate::component_values::{StatState, Trend};
 // xtask-allow(state): legacy: delta, icon, chart, label_content, value_content
 /// A statistic labelled by its visible label, created by [`stat`].
 pub struct Stat {
@@ -116,3 +118,17 @@ impl IntoView for Stat {
         .into_view()
     }
 }
+
+/// The direction of change, independent of whether that change is desirable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Trend {
+    /// The statistic has increased.
+    Up,
+    /// The statistic has decreased.
+    Down,
+    /// The statistic is steady or has no stated direction.
+    #[default]
+    Neutral,
+}
+
+kivact_core::state::constant_value!(Trend);

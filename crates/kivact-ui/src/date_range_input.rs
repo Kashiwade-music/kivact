@@ -1,6 +1,9 @@
 //! Role: Ordered date-range editing, presets and shared range calendar.
+pub(crate) mod draft;
+pub(crate) mod look;
+
 use crate::date_input::OpenedBy;
-use crate::date_range_draft::{
+use crate::date_range_input::draft::{
     Effect as DraftEffect, Event as DraftEvent, FieldValidity, Policy as DraftPolicy, RangeDraft,
 };
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
@@ -181,24 +184,26 @@ impl Element for DateRangeInput {
 }
 impl IntoView for DateRangeInput {
     fn into_view(self) -> View {
-        self.render(crate::date_trigger::FieldPresentation::Text)
+        self.render(crate::date_parts::trigger::FieldPresentation::Text)
     }
 }
 impl DateRangeInput {
     /// Open the shared range picker from a caller-owned trigger, without endpoint editors.
     pub fn attach<T: Element + IntoView + 'static>(self, trigger: T) -> View {
-        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+        self.render(crate::date_parts::trigger::FieldPresentation::trigger(
+            trigger,
+        ))
     }
-    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
+    fn render(self, field: crate::date_parts::trigger::FieldPresentation) -> View {
         let accept = self.range_validator();
         let draft = range_machine(self.value, self.valid, accept.clone());
         let open = range_open(draft);
         let trigger_focus = match &field {
-            crate::date_trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
-            crate::date_trigger::FieldPresentation::Text => None,
+            crate::date_parts::trigger::FieldPresentation::Trigger(attach) => Some(attach.focus),
+            crate::date_parts::trigger::FieldPresentation::Text => None,
         };
         let content = self.picker_content(draft, accept.clone(), trigger_focus);
-        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+        if let crate::date_parts::trigger::FieldPresentation::Trigger(attach) = field {
             return self
                 .root
                 .child(

@@ -1,6 +1,7 @@
 //! Role: Recognize a touch sheet tap without duplicating select surface state.
 use kivact_core::geometry::{Point, Rect};
-use kivact_core::state::{Machine as MachineTrait, Step};
+use kivact_core::state::Machine as MachineTrait;
+use kivact_core::state::Step;
 use kivact_core::view::{PointerEvent, PointerId, PointerKind, PointerPhase};
 use kivact_interaction::DragAxis;
 #[derive(Clone, Copy, PartialEq)]

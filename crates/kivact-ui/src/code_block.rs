@@ -1,5 +1,6 @@
 //! Role: Present selectable code with syntax, numbering and clipboard feedback.
-use crate::code_values::{CodeBlockState, CodeCollapse};
+
+use crate::code_block::look::CodeBlockState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
@@ -13,6 +14,10 @@ use kivact_core::view::{
 };
 use kivact_interaction::{CopyFeedbackApi, DisclosureApi, use_copy_feedback, use_disclosure};
 use std::time::Duration;
+pub(crate) mod editing;
+pub(crate) mod gutter;
+pub(crate) mod look;
+
 // xtask-allow(state): legacy: title, language, end_content, footer, max_height, expanded, highlight
 /// A read-only multiline editor and its header, gutter and footer.
 pub struct CodeBlock {
@@ -101,7 +106,13 @@ impl CodeBlock {
                 move || (content.get(), lines.get(), diff.get()),
                 move |(content, lines, diff), line, state: &(S, usize)| {
                     let (mut ranges, next) = f(content, line, &state.0);
-                    crate::code_editing::line_background(&mut ranges, line, state.1, lines, *diff);
+                    crate::code_block::editing::line_background(
+                        &mut ranges,
+                        line,
+                        state.1,
+                        lines,
+                        *diff,
+                    );
                     (ranges, (next, state.1 + 1))
                 },
             )
@@ -380,13 +391,17 @@ impl CodeSource {
         let editing = TextEditing::new(self.code)
             .multiline()
             .read_only(true)
-            .behavior(crate::code_editing::code_keys);
+            .behavior(crate::code_block::editing::code_keys);
         let editing = match &self.highlight {
             Some(highlight) => highlight(editing, self.highlight_lines, self.diff),
-            None => crate::code_editing::plain_highlight(editing, self.highlight_lines, self.diff),
+            None => crate::code_block::editing::plain_highlight(
+                editing,
+                self.highlight_lines,
+                self.diff,
+            ),
         };
         let (editor, reference) = native_editor(editing, name, variants, state);
-        let gutter = crate::code_gutter::gutter(reference, self.code, variants, state);
+        let gutter = crate::code_block::gutter::gutter(reference, self.code, variants, state);
         let body = with_recipe_style(
             node().child((editor, gutter)),
             |r| r.code_block_recipes().body_recipe(),
@@ -464,4 +479,15 @@ impl IntoView for CodeBlock {
         .child((header, viewport, footer))
         .into_view()
     }
+}
+
+/// Whether a code block can collapse and, if so, whether it shows every line.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum CodeCollapse {
+    /// The block cannot collapse; every line shows.
+    Fixed,
+    /// The block can collapse and shows every line.
+    Expanded,
+    /// The block can collapse and shows its first lines only.
+    Collapsed,
 }

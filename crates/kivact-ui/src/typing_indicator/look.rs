@@ -1,0 +1,33 @@
+//! Role: The typing indicator recipe state, tokens, recipe table and default looks.
+
+use crate::Look;
+use crate::recipe::recipe_table;
+use kivact_core::style::{ColorToken, Style, Theme, style};
+pub(crate) fn typing_dots(_: &Theme, s: &Look<TypingIndicatorState>) -> Style {
+    let phase = s.phase;
+    style().size(48, 24).paint(move |d, _| {
+        for i in 0..3 {
+            let y = 12.0 - (phase - i as f64 * 0.95).sin().max(0.0) * 3.0;
+            d.rounded_rect(
+                kivact_core::geometry::Rect::new(7.0 + i as f64 * 12.0, y, 5.0, 5.0),
+                2.5,
+                ColorToken::TextMuted,
+            );
+        }
+    })
+}
+
+/// The repeating typing phase supplied to recipes.
+#[derive(Clone, Debug, PartialEq)]
+pub struct TypingIndicatorState {
+    pub phase: f64,
+}
+
+recipe_table! {
+    /// Styles for the persistent parts of TypingIndicator.
+    TypingIndicatorRecipes {
+        root(root_recipe): crate::TypingIndicatorState = crate::look_common::row,
+        avatar(avatar_recipe): crate::TypingIndicatorState = crate::look_common::slot,
+        dots(dots_recipe): crate::TypingIndicatorState = typing_dots,
+    }
+}

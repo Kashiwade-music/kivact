@@ -1,5 +1,9 @@
 //! Role: Date and time editing with one explicit active picker panel.
-use crate::date_time_model::{
+pub(crate) mod look;
+pub(crate) mod model;
+pub(crate) mod sheet;
+
+use crate::date_time_input::model::{
     Controller, DateTimeFields, DateTimeInputState, Event, Panel, field_bindings,
 };
 use crate::{DatePresentation, button, calendar, date_input, dialog, time_input};
@@ -92,7 +96,7 @@ impl Element for DateTimeInput {
 impl IntoView for DateTimeInput {
     fn into_view(self) -> View {
         if self.presentation.sheet() {
-            return crate::date_time_sheet::render(crate::date_time_sheet::Inputs {
+            return crate::date_time_input::sheet::render(crate::date_time_input::sheet::Inputs {
                 root: self.root,
                 label: self.label,
                 picker_label: self.picker_label,
@@ -241,14 +245,14 @@ fn desktop_content(
                         picker = picker.week_start(day);
                     }
                     if presentation.sheet() {
-                        crate::date_sheet::panel(date, picker).into_view()
+                        crate::date_parts::sheet::panel(date, picker).into_view()
                     } else {
                         picker.into_view()
                     }
                 }
                 DateTimeInputState::Open {
                     panel: Panel::Time, ..
-                } => crate::date_wheel::time_panel(time, seconds).into_view(),
+                } => crate::date_parts::wheel::time_panel(time, seconds).into_view(),
                 DateTimeInputState::Closed => node().into_view(),
             },
         );

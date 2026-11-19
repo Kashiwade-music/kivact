@@ -1,4 +1,6 @@
 //! Role: Locale-sensitive date editing with a calendar or a touch sheet.
+pub(crate) mod look;
+
 mod machine;
 mod view;
 pub(crate) use machine::{OpenedBy, Picker};

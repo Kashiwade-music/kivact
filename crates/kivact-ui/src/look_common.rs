@@ -1,7 +1,8 @@
 //! Role: Share sizing and look helpers that two or more components recipes use.
 
-use crate::Look;
 use crate::control_size::ControlSize;
+use crate::progress::look::ProgressState;
+use crate::variants::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::Shadow;
 use kivact_core::style::{Align, Color, ColorToken, Direction, Style, Theme, style};
@@ -96,4 +97,57 @@ pub(crate) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
         .direction(Direction::Row)
         .align_items(Align::Center)
         .gap(4)
+}
+
+pub(crate) fn metric_height(s: &ProgressState) -> f64 {
+    match s.size {
+        crate::ControlSize::ExtraSmall => 3.0,
+        crate::ControlSize::Small => 4.0,
+        crate::ControlSize::Medium => 6.0,
+        crate::ControlSize::Large => 10.0,
+    }
+}
+
+pub(crate) fn side(size: ControlSize) -> f64 {
+    match size {
+        ControlSize::ExtraSmall => 20.0,
+        ControlSize::Small => 24.0,
+        ControlSize::Medium => 36.0,
+        ControlSize::Large => 48.0,
+    }
+}
+
+pub(crate) fn tone(tone: kivact_interaction::Tone) -> ColorToken {
+    match tone {
+        kivact_interaction::Tone::Neutral => ColorToken::TextMuted,
+        kivact_interaction::Tone::Info | kivact_interaction::Tone::Accent => ColorToken::Accent,
+        kivact_interaction::Tone::Success => ColorToken::Success,
+        kivact_interaction::Tone::Warning => ColorToken::Warning,
+        kivact_interaction::Tone::Danger => ColorToken::Danger,
+    }
+}
+
+pub(crate) fn column<S>(t: &Theme, _: &Look<S>) -> Style {
+    style()
+        .direction(Direction::Column)
+        .gap(t.space().sm)
+        .min_width(0)
+}
+
+pub(crate) fn row<S>(t: &Theme, _: &Look<S>) -> Style {
+    style()
+        .direction(Direction::Row)
+        .gap(t.space().sm)
+        .align_items(Align::Center)
+        .min_width(0)
+}
+
+pub(crate) fn slot<S>(_: &Theme, _: &Look<S>) -> Style {
+    style().min_width(0)
+}
+
+pub(crate) fn muted<S>(t: &Theme, _: &Look<S>) -> Style {
+    style()
+        .font_size(t.text().size - 2.0)
+        .color(ColorToken::TextMuted)
 }

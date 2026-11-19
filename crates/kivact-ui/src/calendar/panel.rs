@@ -184,7 +184,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .child(event_marks(shared, day, marked)),
         |r| r.calendar_recipes().day_recipe(),
         &shared.variants,
-        move || crate::calendar_values::CalendarDayVisual {
+        move || crate::calendar::look::CalendarDayVisual {
             date: day,
             cell_size,
             day: marked.get(),
@@ -232,7 +232,7 @@ fn event_marks(
                         node(),
                         |r| r.calendar_recipes().event_recipe(),
                         &variants,
-                        move || crate::calendar_tokens::CalendarEventVisual {
+                        move || crate::calendar::look::CalendarEventVisual {
                             color: event.color,
                             selected: marked.get().selection
                                 == kivact_interaction::DaySelection::Edge,

@@ -1,4 +1,6 @@
 //! Role: Present a localized typing status with a theme-controlled animation.
+pub(crate) mod look;
+
 use crate::TypingIndicatorState;
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};

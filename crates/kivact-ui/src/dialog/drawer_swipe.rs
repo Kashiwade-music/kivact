@@ -1,6 +1,7 @@
 //! Role: Attach velocity-aware dismissal to a drawer's dedicated drag handle.
 use kivact_core::geometry::{Edge, Point, Rect};
-use kivact_core::state::{Binding, Machine as MachineTrait, Step, Value, machine, memo};
+use kivact_core::state::Machine as MachineTrait;
+use kivact_core::state::{Binding, Step, Value, machine, memo};
 use kivact_core::style::{style, use_theme};
 use kivact_core::view::{Node, NodeRef, node};
 use kivact_interaction::{DragCoordinates, DragPhase, DragUpdate, InteractionPolicy, use_drag};

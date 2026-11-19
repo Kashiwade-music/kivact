@@ -1,6 +1,7 @@
 //! Role: Decide raw touch swipe intent and release outcomes.
 use kivact_core::geometry::{Edge, Point, Rect};
-use kivact_core::state::{Machine as MachineTrait, Step};
+use kivact_core::state::Machine as MachineTrait;
+use kivact_core::state::Step;
 use kivact_core::view::{MouseButton, PointerEvent, PointerId, PointerKind, PointerPhase};
 use kivact_interaction::DragAxis;
 const VERTICAL_RATIO: f64 = 1.2;

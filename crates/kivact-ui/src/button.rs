@@ -15,22 +15,19 @@
 //! `Look::new(ButtonState::new(input, size)).with_variant(variant)`.
 //! The caller's view in `.icon`, `.trailing` and `.child` is composed
 //! in, without reimplementing activation.
-pub(crate) mod look;
 
-use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::variants::{Variant, Variants};
 use crate::button::look::ButtonState;
 use crate::control_size::ControlSize;
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::motion::{Animated, Easing, FrameRate, Transition, frame_loop};
-use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::state::{Machine, Step, Value, machine, memo, signal};
+use kivact_core::state::{IntoText, IntoValue, Machine, Step, Value, machine, memo, signal};
 use kivact_core::style::{style, use_theme};
-use kivact_core::view::{Element, Node, node, row};
-use kivact_core::view::{IntoView, View, show};
-use kivact_interaction::DisabledButtonFocus;
-use kivact_interaction::use_button;
+use kivact_core::view::{Element, IntoView, Node, View, node, row, show};
+use kivact_interaction::{DisabledButtonFocus, use_button};
 use std::time::Duration;
+pub(crate) mod look;
 
 #[derive(Clone, Copy, PartialEq)]
 enum BusyPhase {
@@ -410,3 +407,32 @@ fn busy_animation(state: Value<ButtonState>) -> (Value<f64>, Value<bool>) {
     let reveal_pending = memo(move || busy_machine.get() == BusyPhase::Waiting);
     (phase.into_value(), reveal_pending.into_value())
 }
+
+/// What a button does, which its recipe draws (shadcn's `variant`).
+///
+/// These are meanings every theme draws; a kit's own looks (a tone, a
+/// shape) are further [`Variant`](super::Variant) values:
+/// [`Button::variant`](super::Button::variant) takes this and a kit's type
+/// alike, and a recipe reads each with
+/// [`Look::variant`](super::Look::variant) (a button without a
+/// `ButtonVariant` is the default, `Primary`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum ButtonVariant {
+    /// The main action of its area, filled with the accent.
+    #[default]
+    Primary,
+    /// A secondary action on the surface.
+    Secondary,
+    /// A bordered button on the surface for a secondary action beside a
+    /// primary one; the default look is a 1px border on the surface.
+    Outline,
+    /// A button with no fill until it is hovered, for toolbars and quiet actions.
+    Ghost,
+    /// An action that destroys or removes something.
+    Danger,
+    /// A text-only button in the accent color that reads as an inline link;
+    /// the default look underlines it only while hovered.
+    Link,
+}
+
+impl Variant for ButtonVariant {}

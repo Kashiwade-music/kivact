@@ -135,7 +135,7 @@ impl IntoView for TimeInput {
                     .hide_title(true)
                     .content(move || {
                         kivact_core::view::column((
-                            crate::date_wheel::time_panel(picked, seconds),
+                            crate::date_parts::wheel::time_panel(picked, seconds),
                             button(message("time.save", "Save"))
                                 .on_press(move || state.send(Event::Close)),
                         ))

@@ -5,6 +5,7 @@
 //! binding and no separate constant `checked` mode. Its recipe gets the real
 //! checked state in a `CheckableState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.
+use self::switch_drag::switch as switch_gesture;
 pub(crate) mod look;
 mod parts;
 mod switch_drag;
@@ -160,8 +161,6 @@ toggle_builder!(
     switch_gesture,
     switch_control
 );
-
-use self::switch_drag::switch as switch_gesture;
 
 fn no_gesture(
     control: kivact_core::custom::Part<ToggleState>,

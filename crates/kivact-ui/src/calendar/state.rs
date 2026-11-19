@@ -1,6 +1,7 @@
 //! Role: State shared by the calendar's month panels.
 
-use crate::calendar_values::{CalendarCaption, CalendarEvent};
+use crate::calendar::CalendarCaption;
+use crate::calendar::CalendarEvent;
 use kivact_core::i18n::{CalendarDate, CalendarMonth};
 use kivact_core::state::{Binding, Value};
 use kivact_interaction::CalendarGridApi;

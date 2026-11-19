@@ -1,7 +1,8 @@
 //! Role: Display reactive person images with initials and semantic status fallback.
-use crate::avatar_initials::initials;
+
+use crate::avatar::initials::initials;
 use crate::variants::Variants;
-use crate::{AvatarShape, AvatarState, ControlSize, Variant};
+use crate::{AvatarState, ControlSize, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
 use kivact_core::view::{
@@ -9,6 +10,9 @@ use kivact_core::view::{
     node, node_ref, text,
 };
 use kivact_interaction::Tone;
+pub(crate) mod initials;
+pub(crate) mod look;
+
 /// The source of the mounted presence label, without an effect-copied string.
 #[derive(Clone, Copy)]
 enum AvatarStatusSource {
@@ -278,3 +282,13 @@ fn status_badge(
     )
     .into_view()
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AvatarShape {
+    #[default]
+    Circle,
+    Rounded,
+    Square,
+}
+
+kivact_core::state::constant_value!(AvatarShape);

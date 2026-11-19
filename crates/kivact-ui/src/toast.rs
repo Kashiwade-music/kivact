@@ -3,8 +3,8 @@ pub(crate) mod look;
 pub(crate) mod swipe;
 
 use super::layer::with_recipe_style;
-use super::values::ButtonVariant;
 use super::variants::{Variant, Variants};
+use crate::button::ButtonVariant;
 use crate::toast::look::ToastGroupState;
 use crate::toast::swipe::Swipe;
 use kivact_core::custom::part;

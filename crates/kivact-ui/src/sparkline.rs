@@ -6,9 +6,12 @@
 //! a state of the part. With a [`Sparkline::label`] it is an image named for
 //! assistive technology with a description of its values; without one it is
 //! decorative, which suits a statistic's chart slot.
+pub(crate) mod look;
+
 use crate::UiTokens;
 use crate::layer::with_base_recipe_style;
-use crate::sparkline_tokens::{SparklineFill, SparklineTokens};
+use crate::sparkline::look::SparklineFill;
+use crate::sparkline::look::SparklineTokens;
 use crate::variants::{Variant, Variants};
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke, linear_gradient};
 use kivact_core::geometry::Point;

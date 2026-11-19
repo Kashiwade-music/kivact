@@ -1,13 +1,14 @@
 //! Role: Compose plain, pressable, or selectable card surfaces.
-use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::variants::{Variant, Variants};
+
+use crate::card::look::CardState;
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::variants::{Variant, Variants};
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
 };
 use kivact_interaction::{use_button, use_checkbox};
-
-use crate::component_values::{CardAction, CardState};
+pub(crate) mod look;
 
 // xtask-allow(state): legacy: header, media, footer
 /// A surface containing optional header, media, content and footer regions.
@@ -197,4 +198,23 @@ fn card_target(root: Node, action: CardKind, disabled: Value<bool>) -> (Node, Ca
             )
         }
     }
+}
+
+/// What activating a card does, with the actual input of the part that does it.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum CardAction {
+    /// A plain surface; nothing activates it.
+    Plain,
+    /// Pressing activates it ([`Card::on_press`](super::Card::on_press)).
+    Press {
+        /// The actual input state of the card's button part.
+        input: kivact_core::custom::PartState,
+    },
+    /// It is a check box ([`Card::selected`](super::Card::selected)).
+    Select {
+        /// The actual input state of the card's check box part.
+        input: kivact_core::custom::PartState,
+        /// Whether the card is selected.
+        selected: bool,
+    },
 }

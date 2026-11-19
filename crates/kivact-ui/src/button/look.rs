@@ -1,8 +1,8 @@
 //! Role: The button recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
 
+use crate::button::ButtonVariant;
 use crate::control_size::ControlSize;
-use crate::values::ButtonVariant;
 use crate::variants::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, Path, Stroke};
