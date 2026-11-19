@@ -1947,17 +1947,21 @@ unit は wave の順に並べる。W7a の実行の順は U20 → U21 → U25 �
 - **所有**：`crates/kivact-ui/src/{carousel.rs,async_view.rs,button.rs,sparkline.rs,sparkline_tokens.rs}`、`crates/kivact-ui/src/combobox/{render.rs,handle.rs}`、`crates/kivact-interaction/src/menu/level.rs`、`dev/tests/kivact-public-api/tests/e2e_core/i18n.rs`（W1 の T15 が `i18n.rs` を `tests/e2e_core/` に移している）
 - **目的**：UI-07（公開 API を変えない範囲）：`follow_scroll` を scroll offset の feed（`effect_on`）にし `let _ = offset;` を消す。`follow_index` は signal を書かない（`scroll_to` だけの）唯一の effect として残す。この unit は carousel の machine を変えない：`kivact-interaction::carousel` の machine に `Event::ScrollObserved`／`GoTo` と `Effect::ScrollTo` を置くには、kivact-ui から呼ぶ新しい公開 method が `CarouselApi` に要る（kivact-ui から `pub(crate)` は見えない）ので、W8 の U51（carousel を持つ lane U3 の unit）が行う。UI-16：英語の固定文字列を `message` にする（監査の 4 つに加え、carousel の "Next slide"、"Previous slide"、"Slide {} / {}" も同じ所見なので `carousel.next`、`carousel.previous`、`carousel.slide` にする。既定の英語は同じ）。UI-18：button と menu level の `focusable_when_disabled` を theme に追従させる。UI-21（性能）：Vec の clone と Summary の 3 回計算をやめ、paint ごとの tokens の clone と `Vec<Vec<Point>>` を無くす（recipe の状態は `()` のまま）。
 - **手順**：
-  1. `carousel.rs` の `fn follow_scroll` を次にする：
+  1. `carousel.rs` の `fn follow_scroll` を次にする。viewport と slide の rect は setup で取る：`NodeRef::rect()` は呼ばれたときに host へ layout の報告を頼むので、`effect_on` の callback（最初の値では走らない）の中で初めて呼ぶと、最初の scroll のときにはまだ `None` で、index が動かない（W4 の差戻し。元の `effect` は mount 直後の初回の実行で rect を頼んでいた）：
      ```rust
      /// Report the slide nearest the viewport's start to the carousel each time
-     /// the native scroll offset changes.
+     /// the native scroll offset changes. The viewport's and the slides' rects are
+     /// taken here, at setup: taking a rect asks the host for the node's layout,
+     /// and the first scroll must find it reported.
      fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
+         let viewport = c.viewport.rect();
+         let slides = slide_rects(&navigation_refs);
          kivact_core::state::effect_on(c.viewport.scroll_offset(), move |_: &Point| {
-             let Some(view) = c.viewport.rect().get_untracked() else {
+             let Some(view) = viewport.get_untracked() else {
                  return;
              };
              let nearest = nearest_slide(
-                 &navigation_refs,
+                 &slides,
                  view,
                  c.vertical.get_untracked(),
                  c.rtl.get_untracked() == ReadingDirection::Rtl,
@@ -1968,6 +1972,16 @@ unit は wave の順に並べる。W7a の実行の順は U20 → U21 → U25 �
          });
      }
      ```
+     `nearest_slide` の最初の引数を `slides: &[Value<Option<kivact_core::geometry::Rect>>]` にし、本体の `references.iter()` を `slides.iter()`、`r.rect().get_untracked()` を `r.get_untracked()` にする。その直前に次を足す：
+     ```rust
+     /// The layout rects of the slides behind `references`.
+     fn slide_rects(
+         references: &[kivact_core::view::NodeRef],
+     ) -> Vec<Value<Option<kivact_core::geometry::Rect>>> {
+         references.iter().map(kivact_core::view::NodeRef::rect).collect()
+     }
+     ```
+     `follow_index` の中の `nearest_slide(&navigation_refs, ..)` は `nearest_slide(&slide_rects(&navigation_refs), ..)` にする。
   2. 文字列（`message` は `kivact_core::i18n::message`、`message_with` も同じ module）：
      - `combobox/render.rs` の `editor_actions`：`button("Clear")` → `button(kivact_core::i18n::message("combobox.clear", "Clear"))`、`button("Toggle options")` → `button(kivact_core::i18n::message("combobox.toggle", "Toggle options"))`。
      - `async_view.rs` の `default_fallback`：`super::button("Retry")` → `super::button(kivact_core::i18n::message("async_view.retry", "Retry"))`。

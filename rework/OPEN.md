@@ -192,3 +192,11 @@
 - **U09 の E2E（再）**：設計者の回答（(a)：試験の advance を直す）では通らなかった。advance を 200・400・1000ms にしても `ui_carousel::carousel_scroll_mode_snaps_to_a_slide`（`ui_carousel.rs:41`）は index 0 のまま。失敗の記録では、スクロールが `screen.get_by_text("One").scroll(180, 0)` で Text「One」（node 6）に届き、スライド列（Slide 2 / 3）は x=256 から動いていない。HEAD（U09 の前）では同じ試験が通るので、時間ではなく、スクロールの経路（テキストに送ったスクロールがカルーセルのスクロール領域に届かない、または follow_scroll の配線）が原因と見ている。Orchestrator の処置：lane U は止めた（commit なし。worktree は U09 の HEAD）。設計者に次を決めてもらう（下の質問）。
 - **E08**（W4、lane E1、commit `6c5d7c63`）：付属書 E の確認行 `e2e_native -- devtools::` は、この試験が `#[cfg(feature = "devtools")]` で gate されているため `running 0 tests` になる（0 件は失敗）。実装者は `--features devtools` を足して 1 件を通した。試験の期待値は変えていない。Orchestrator の処置：受け入れる。設計者が付属書の確認行に feature を書くかを決める。
 - **E09**（W4、lane E1、commit `551186f1`）：逸脱（報告のみ、Orchestrator の処置は受け入れ）。(1) `edit_lines.rs` の状態の印を外した（数える状態が Option の `coloring` 1 つだけになり、「未使用の印」の error。0.5 の表どおり）。(2) `edit_state.rs` の印の文から `damage` の語を削った（`damage` が Option でなくなったため）。(3) 手順 1 の `self.damage.clear()` は入れていない（書く箇所はすべて `damaged` を通るため記録は欠けない）。(4)(5) doc の語の直しのみ。E2E（text_editing・custom_text_field・input_platform・interaction_edit・ui_chat_code・ui_field）は通っている。
+
+## 設計者の回答（W4・U09、2026-11-19）
+
+- **U09**：質問の 1（carousel の経路を直す）。試験の入力・期待値・advance（200ms）は変えない。上の「U09：設計者の回答（(a)）」（advance を延ばす）は取り消す。
+  - 原因：`NodeRef::rect()` は呼ばれたときに host へ layout の報告を頼む。元の `effect` は mount 直後の初回の実行で viewport と slide の `rect()` を呼んでいたので、scroll の前に layout が届いていた。`effect_on` は最初の値では走らないので、最初の scroll の callback の中で初めて `rect()` を呼び、その時点では `None` で何もせずに戻る。scroll offset はその後変わらないので、callback は二度と走らず、index は 0 のまま。
+  - 直し方：`follow_scroll` は viewport と slide の rect の `Value` を setup で取り、callback ではそれを読む（`slide_rects` を足し、`nearest_slide` は rect の `Value` の slice を受ける）。付属書 U の U09 の手順 1 を直した。設計者が `08e26d3a` に当てて、`cargo clippy -p kivact-ui --all-targets -- -D warnings`、`cargo xtask check --no-write --crate kivact-ui`、`e2e_ui -- ui_carousel::`（2 件、advance 200ms のまま）が通るのを確かめた。`follow_scroll` だけを元の `effect` に戻すと通り、U09 のままだと失敗することも確かめた。
+  - 作業指示書 0.3 節に 1 行足した：`effect` を `effect_on` に変えるときは、`NodeRef` の観察を頼む getter を callback の中で初めて呼ばない（setup で `Value` を取る）。
+  - Orchestrator：lane U の fix として、`wt/rw-W4-U` の `carousel.rs` を付属書 U09 の新しい手順 1 にし（試験の advance を変えていたら 200ms に戻す）、U09 の確認を全部通して commit し、lane U を再開する。
