@@ -220,6 +220,10 @@
 - **質問 1（あいまい 25 箇所）と質問 3（kbd の循環）**：1 を採る。ただし原因は scope ではない。xtask-core の `resolve_path`（`crates/xtask-modules/src/symbols.rs`）が、後ろに segment が続く途中の segment でも値の名前空間の項目を残していた。`lib.rs` は `pub use avatar::{.., avatar}` のように、部品の module と同じ名前の関数を crate root に再公開している。そのため `crate::avatar::..` を通る path が、関数の module（`crate::avatar::view`）も指していた。`crate::kbd::labels::KeyNames::new` が `kbd::view` も指したのも、`labels` から `crate::kbd::look::..` 経由の偽の辺が出たのも、同じ原因。
   - 設計者が直した：xtask-core の branch `fix/kashiwade/value-path-prefix` の `afbfd83`（途中の segment は型の名前空間だけを残す。回帰試験 `a_function_named_like_a_module_is_not_a_path_prefix` は修正前に失敗し、修正後に通る。`cargo test -p xtask-modules` と clippy が通る）。統合 branch の `vendor/xtask-core` をこの commit に上げた。
   - xtask-core の push は利用者の OK 待ち。それまで kivact の統合 branch を push しない（submodule の commit が origin に無いため）。
+  - 追記（2026-11-19）：同じ修正を xtask-core の最新 main（`2d230a7`）に当て直し、`94cf072` として origin の main に push した（利用者の OK あり）。
+    - kivact は `94cf072` に上げられない。`2d230a7` で xtask-core の library API が変わり、kivact の `dev/xtask` が compile できない（15 件、`Command` の field、`TargetGraph`、`Policy::analysis` など）。
+    - 統合 branch は、`1aeabaf` の上の `afbfd83` を指したまま。`afbfd83` はまだ origin に無いので、kivact の push は引き続き止める。
+    - 新しい xtask-core への移行は rework とは別の作業にする。
 - **質問 2（大きい SCC）**：1 も 2 も採らない。`UiTokens` の形と公開の名前は変えない。部品の token の型を、look の葉から新しい葉 `X/tokens.rs` へ移す。また、look_common と radio_group にある 2 つの循環を直す。
   - token の型：23 個の部品の token の型と、その field の型を `X/tokens.rs` に移す。field の型は `ToastRowMotion`、`ButtonBusyMotion`、`DataTableRowStatusPaint`、`DataTableStickyPaint`、`DialogCenter`、`DisclosureMotion`、`ProgressMotion`、`SparklineFill`、`ToggleLabelReservation`。
     - `tokens.rs` は `X::tokens` の葉だけを読む。look は今までどおり theme から `UiTokens` を読む。
