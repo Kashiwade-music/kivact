@@ -1,7 +1,7 @@
 //! Role: Property value abstraction and render effects.
 //!
-//! `IntoValue`: every property accepts a constant, a `Signal`, a `Value`, a
-//! `Binding`, an `Animated` or a closure, and a component reads it with
+//! `IntoValue`: every property accepts a constant, a `Signal`, a `Value`, an
+//! `Animated` or a closure, and a component reads it with
 //! `into_value()`. Static values are passed to the engine's create call;
 //! dynamic ones get one render effect each. A string prop is normalized to
 //! an owned `String` (`&str` is a constant); a closure is `'static`.
@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::reactive::Owner;
-use crate::reactive::data::{Binding, BindingRepr, Signal, Value};
+use crate::reactive::data::{Signal, Value};
 
 enum PropRepr<T: 'static> {
     Static(T),
@@ -140,7 +140,7 @@ impl<T: 'static> Prop<T> {
 }
 
 /// Anything a property accepts: constants of the concrete property type,
-/// `Signal<T>`, `Value<T>`, `Binding<T>`, `Animated<T>` and `Fn() -> T`
+/// `Signal<T>`, `Value<T>`, `Animated<T>` and `Fn() -> T`
 /// closures. A closure result must implement `PartialEq` so its memo
 /// suppresses notifications for equal results. A component's own value
 /// type accepts constants once it derives `Clone` and `PartialEq` and is
@@ -148,7 +148,7 @@ impl<T: 'static> Prop<T> {
 /// author's guide).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be used as a `{T}` property",
-    note = "pass a `{T}`, a closure `move || ..` returning one, or a `Signal`/`Value`/`Binding` of it",
+    note = "pass a `{T}`, a closure `move || ..` returning one, or a `Signal`/`Value` of it",
     note = "a closure returns an owned `{T}`, not a borrow of one (`.to_owned()`, `format!(..)`)"
 )]
 pub trait IntoValue<T: 'static> {
@@ -190,7 +190,7 @@ pub trait IntoValue<T: 'static> {
 }
 
 /// A text input: a constant (`&str`, `String`, `Rc<str>`), a reactive source of a
-/// `String` (`Signal`, `Value`, `Binding`, a stored `Reactive`), or a closure returning anything that
+/// `String` (`Signal`, `Value`, a stored `Reactive`), or a closure returning anything that
 /// becomes a `String` (`move || if on.get() { "on" } else { "off" }`).
 ///
 /// Every public parameter that shows text or names something for assistive
@@ -206,7 +206,7 @@ pub trait IntoValue<T: 'static> {
 /// This trait is sealed: the listed types are all there are.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be used as text",
-    note = "pass a `&str`, a `String`, a `Signal`/`Value`/`Binding` of a `String`, or a closure `move || ..` returning a `&str` or `String`",
+    note = "pass a `&str`, a `String`, a `Signal`/`Value` of a `String`, or a closure `move || ..` returning a `&str` or `String`",
     note = "format a number first: `move || count.get().to_string()`"
 )]
 pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
@@ -249,7 +249,6 @@ impl crate::reactive::sealed::IntoTextSeal for String {}
 impl crate::reactive::sealed::IntoTextSeal for Rc<str> {}
 impl crate::reactive::sealed::IntoTextSeal for Signal<String> {}
 impl crate::reactive::sealed::IntoTextSeal for Value<String> {}
-impl crate::reactive::sealed::IntoTextSeal for Binding<String> {}
 impl crate::reactive::sealed::IntoTextSeal for Reactive<String> {}
 impl<R: Into<String>, F: Fn() -> R + 'static> crate::reactive::sealed::IntoTextSeal for F {}
 
@@ -283,12 +282,6 @@ impl IntoText for Value<String> {
     }
 }
 
-impl IntoText for Binding<String> {
-    fn into_text(self) -> Prop<String> {
-        self.into_prop()
-    }
-}
-
 /// A text kept as data, such as the label of a choice option in application
 /// state.
 impl IntoText for Reactive<String> {
@@ -307,7 +300,7 @@ impl<R: Into<String>, F: Fn() -> R + 'static> IntoText for F {
     }
 }
 
-/// A reactive input: a `Signal`, `Value`, `Binding`, `Animated` or a
+/// A reactive input: a `Signal`, `Value`, `Animated` or a
 /// `Fn() -> T` closure, excluding raw scalar constants. This marker uses
 /// [`IntoValue::into_prop`] for ownerless conversion. Control flow (`show`, `show_some`,
 /// `dynamic`) takes it: a branch that never changes needs no control flow,
@@ -316,13 +309,12 @@ impl<R: Into<String>, F: Fn() -> R + 'static> IntoText for F {
 #[diagnostic::on_unimplemented(
     message = "`{Self}` is not a reactive `{T}`",
     label = "a constant here would never change",
-    note = "pass the reactive value itself (`open`, a `Signal`, `Value` or `Binding`), or a closure that reads it (`move || open.get()`)"
+    note = "pass the reactive value itself (`open`, a `Signal` or a `Value`), or a closure that reads it (`move || open.get()`)"
 )]
 pub trait IntoReactive<T: 'static>: IntoValue<T> {}
 
 impl<T: 'static> IntoReactive<T> for Value<T> {}
 impl<T: 'static> IntoReactive<T> for Signal<T> {}
-impl<T: Clone + PartialEq + 'static> IntoReactive<T> for Binding<T> {}
 
 // Keep raw scalar constants outside the reactive control-flow boundary.
 #[diagnostic::do_not_recommend]
@@ -430,16 +422,7 @@ impl<T: 'static> IntoValue<T> for Value<T> {
 
 impl<T: 'static> IntoValue<T> for Signal<T> {
     fn into_prop(self) -> Prop<T> {
-        Prop(PropRepr::Value(Value::node(self.app, self.key)))
-    }
-}
-
-impl<T: Clone + PartialEq + 'static> IntoValue<T> for Binding<T> {
-    fn into_prop(self) -> Prop<T> {
-        Prop(PropRepr::Value(match self.repr {
-            BindingRepr::Signal(signal) => Value::node(signal.app, signal.key),
-            BindingRepr::Pair(value, _) => value,
-        }))
+        Prop(PropRepr::Value(self.as_value()))
     }
 }
 

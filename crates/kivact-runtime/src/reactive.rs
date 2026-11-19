@@ -8,8 +8,8 @@
 //!
 //! The API has three audiences:
 //! - applications and component authors, through the `kivact` facade: the
-//!   handles ([`Signal`], [`Value`], [`Var`], [`Callback`], [`Binding`],
-//!   [`Selector`]), the setup functions, [`IntoValue`] and [`UiError`];
+//!   handles ([`Signal`], [`Value`], [`Var`], [`Callback`], [`Selector`]),
+//!   the setup functions, [`IntoValue`] and [`UiError`];
 //! - the layers above (view, task, motion, style): [`Owner`] and [`Owned`]
 //!   for owners and the objects stored under them, [`Notifier`], [`Prop`],
 //!   [`keyed`], [`pure`], [`require_setup`] and [`require_effectful`];
@@ -58,8 +58,8 @@ mod turn;
 pub use clock::clock_now;
 pub(crate) use data::AppSlot;
 pub use data::{
-    Binding, Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, TraceRun,
-    TraceWrite, Turn, TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
+    Callback, EffectKind, Kind, LiveCounts, NodeInfo, Runtime, Signal, TraceRun, TraceWrite, Turn,
+    TurnGuard, TurnRecord, UiThreadOnly, Value, Var,
 };
 pub use detail::{CauseEntry, CauseTag, DetailEdge, DetailRun, DetailWrite, StageSpan, TurnDetail};
 pub use diag::{RecordBits, ReportKind, Reported};
@@ -67,7 +67,6 @@ pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
 pub use handler::{Handled, Handler, HandlerResult};
-pub use handles::IntoBinding;
 pub use host_types::{ExitState, Host, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};

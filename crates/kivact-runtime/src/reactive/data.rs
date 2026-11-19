@@ -1,7 +1,6 @@
 //! Role: Passive runtime state and handle identities.
 //!
-//! The handles (`Signal`, `Value`, `Var`, `Callback`, `Binding`, `Selector`,
-//! ...) are `(AppId, Key{slot, generation})` and `Copy + !Send + !Sync`
+//! The handles (`Signal`, `Value`, `Var`, `Callback`, `Selector`, ...) are `(AppId, Key{slot, generation})` and `Copy + !Send + !Sync`
 //! through the [`UiThreadOnly`] marker: moving one off the UI thread fails
 //! to compile. The App, the generation and the owner's lifetime are checked
 //! by the operations that actually reach the state (reading and writing a
@@ -559,12 +558,30 @@ pub(crate) struct Mount {
 #[derive(Clone, Copy, Debug)]
 pub struct UiThreadOnly(PhantomData<*const ()>);
 
-/// A writable reactive value. Writes change the value immediately and notify
-/// readers at the end of the turn.
+/// A writable reactive value: a signal (`signal`) or a two-way view of
+/// another value (`binding`, `bind!`, `optional`). Writes change the
+/// value immediately and notify readers at the end of the turn.
 pub struct Signal<T: 'static> {
     pub(crate) app: AppId,
-    pub(crate) key: Key,
+    pub(crate) repr: SignalRepr,
     pub(crate) _m: PhantomData<(fn() -> T, UiThreadOnly)>,
+}
+
+/// Where a [`Signal`] lives.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum SignalRepr {
+    /// A source node of the graph.
+    Source(Key),
+    /// A lens: `read` is the value it shows, `write` the `LensCell` object that writes it.
+    Lens { read: ValueRepr, write: Key },
+}
+
+/// How a lens writes: replace the whole value, or edit the current one
+/// in place (both decide themselves whether readers are notified).
+pub(crate) struct LensCell<T> {
+    pub(crate) owner: Key,
+    pub(crate) set: Box<dyn Fn(T) -> Result<(), UiError>>,
+    pub(crate) edit: Box<dyn Fn(&mut dyn FnMut(&mut T)) -> Result<(), UiError>>,
 }
 
 /// Where a [`Value`] lives: a graph node (signal, memo) or a constant of the
@@ -623,27 +640,14 @@ pub struct Callback<E: 'static> {
     pub(crate) _m: PhantomData<(fn(E), UiThreadOnly)>,
 }
 
-pub(crate) enum BindingRepr<T: 'static> {
-    Signal(Signal<T>),
-    Pair(Value<T>, Callback<T>),
-}
-
-/// A two-way input binding: a value and a setter.
-pub struct Binding<T: 'static> {
-    pub(crate) repr: BindingRepr<T>,
-}
-
-impl<T: 'static> Clone for BindingRepr<T> {
-    fn clone(&self) -> Self {
-        *self
-    }
-}
-
-impl<T: 'static> Copy for BindingRepr<T> {}
-
 impl<T: 'static> fmt::Debug for Signal<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Signal({}:{})", self.key.slot, self.key.generation)
+        match self.repr {
+            SignalRepr::Source(k) => write!(f, "Signal({}:{})", k.slot, k.generation),
+            SignalRepr::Lens { write, .. } => {
+                write!(f, "Signal(lens {}:{})", write.slot, write.generation)
+            }
+        }
     }
 }
 
@@ -689,5 +693,3 @@ impl<E: 'static> PartialEq for Callback<E> {
     }
 }
 impl<E: 'static> Eq for Callback<E> {}
-
-copy_handle!(Binding<T>);

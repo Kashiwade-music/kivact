@@ -379,14 +379,27 @@ impl Runtime {
         }
     }
 
+    /// A write to a removed signal: ignored, reported once as a located
+    /// `WriteAfterDispose` diagnostic.
+    pub(crate) fn write_after_dispose(&self, at: &'static Location<'static>) {
+        let err = new_error(
+            ErrorKind::WriteAfterDispose,
+            "write to a disposed signal ignored",
+            Some(at),
+        );
+        self.diag.borrow_mut().record_diagnostic(err);
+        // Close a turn record so the note is visible in `trace()`.
+        self.request_turn();
+    }
+
     /// The single write entry: purity check, immediate value change by
-    /// `mutate`, deferred notification.
+    /// `mutate`, deferred notification. Returns whether the node is alive.
     pub(crate) fn write_node(
         &self,
         key: Key,
         at: &'static Location<'static>,
         mutate: impl FnOnce(&Rc<dyn Any>) -> bool,
-    ) {
+    ) -> bool {
         if self.is_pure() {
             misuse_at(
                 ErrorKind::WriteInPureContext,
@@ -399,15 +412,8 @@ impl Runtime {
             _ => None,
         });
         let Some(cell) = cell else {
-            let err = new_error(
-                ErrorKind::WriteAfterDispose,
-                "write to a disposed signal ignored",
-                Some(at),
-            );
-            self.diag.borrow_mut().record_diagnostic(err);
-            // Close a turn record so the note is visible in `trace()`.
-            self.request_turn();
-            return;
+            self.write_after_dispose(at);
+            return false;
         };
         if mutate(&cell) {
             let turn = self.diag.borrow().turn();
@@ -431,6 +437,7 @@ impl Runtime {
                 }
             }
         }
+        true
     }
 
     /// Colour subscribers of a changed source (direct: Dirty, transitive: Check)
