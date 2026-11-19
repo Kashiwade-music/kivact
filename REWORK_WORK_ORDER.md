@@ -371,7 +371,7 @@ tier b の compile の対象外：なし。
 |---|---|---|---|---|
 | S | S10 → S11 → S12 | S | types `type_map.rs`・`lib.rs`、style `theme/value.rs`・`draw/*`・`internal.rs`、`kivact-svg/src/`、e2e `offscreen_svg.rs`、core `view/mount/draw.rs`、`crates/kivact-offscreen/src/lib.rs`、`workspace.toml` の 1 行 | — |
 | R | R07 → R10 | R | runtime `motion/*`、core `view/flow/virtual_list.rs`・`virtual_list/heights.rs`（新） | — |
-| C | C03 → C04 | C | core `view/{state,requests,snapshots,foreign_window,mount/resolve,node_ref,elements/builders,mount/style,mount/create,boundary,root,tree,node_modifiers}.rs`、`client/dispatch/{platform,delivery}.rs`、`platform/{app_handle,services,env}.rs`、`gpu_interop*`、`launch/runtime.rs`、`diagnostics/why.rs`、`devtools/node.rs` | — |
+| C | C03 → C04 | C | core `view/{state,requests,snapshots,foreign_window,mount,mount/resolve,node_ref,elements/builders,mount/style,mount/create,boundary,root,tree,node_modifiers}.rs`、`view/overlays.rs`（1 行）、runtime `reactive/owner.rs`（`detach_owner`）、`client/dispatch/{platform,delivery}.rs`、`platform/{services,env}.rs`、`gpu_interop*`、`launch/runtime.rs`、`diagnostics/why.rs`、`devtools/node.rs` | — |
 | U | U04 → U05 → U06 → U07 → U08 | U | interaction の table・tree・combobox・palette・popup・dialog・list・select・menu・scalar・delayed・toaster、ui の calendar と date の view | — |
 | A1 | A01 | A | `arvane-render/src/*`（列挙の file）、`arvane-compose/src/cpu/compositor.rs` | — |
 | A2 | A02 | A | `arvane-text/`、`arvane-asset/src/{font,lib}.rs`、`arvane/src/{engine,asset}.rs` | — |

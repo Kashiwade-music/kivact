@@ -113,3 +113,14 @@
   3. STOP：`crates/kivact-core/src/view/elements/builders.rs`（mount_host の後に `n.at = None` する関数）。付属書は「`n.at = Some` の直後に `n.at = None`」と書くが、実際は `create::write`（`mount/create.rs`）の Some と builders の None の二段。`mount.rs` と `mount/create.rs` は C04 の所有。未変更（RC-41 の `at` は未完）。設計者が、`at` を `mount_host` の引数で渡す形にするか、Some と None を同じ関数にまとめるかを決める。
   4. 差戻し：`crates/kivact-core/src/platform/app_handle.rs:AppLink`。xtask の state 規則（`state` と `requested` の 2 field）で error。付属書は「AtomicBool 一つなので印は要らない」と書くが、xtask は interior-mutable な field が 2 つで、印か enum を要求する。設計者が、印を付ける（付属書の文面を直す）か、`requested` を state に含める形にするかを決める。
   Orchestrator の処置：C03 の commit（`efc5a622`）は lane C に残し、統合 branch へ merge していない。C04 は上の 4 件の判断後。
+
+## 設計者の回答（W3a・C03、2026-11-19）
+
+付属書 C の C03（手順 9・10・11、所有、目的）と C04（所有、`bind_states` の呼出し元）、作業指示書 4 章の W3a の lane C の行を直した。設計者が `efc5a622` に下の 4 件を当てて、`cargo clippy -p kivact-core --all-targets`（feature 無しと `gpu-interop,devtools,embed`）、`cargo clippy -p kivact-runtime --all-targets --all-features`、`cargo xtask check --no-write` の kivact-core と kivact-runtime、`cargo test -p kivact-runtime`、`cargo test -p kivact-core`、`e2e_core` の `flows:: focus app_handle windows` が通るのを確かめた。
+
+1. **current_window**：fallback は残さない（付属書どおり `expect`）。原因は runtime：`dispose_owner` が cleanup の前の `detach_owner(root)` で root の `parent` を `None` にするので、dispose される部分木の cleanup から祖先の context が見えない。`detach_owner` は親の `children` から外すだけにし、`parent` の link は owner が消えるまで残す（`crates/kivact-runtime/src/reactive/owner.rs`、C03 の所有に足した。W3a で runtime の `reactive/` を持つ lane は他に無い）。
+2. **report_session**：`FirstWrite` に `report_session: bool` を足し、`finish_resolve` が `handlers.selection.is_some() || draw.with_layout.is_some()` で決める。`create::write` は自分で計算しない。偽 handler は消す。
+3. **n.at**：`create::write` の 1 か所で `n.at = site` と一度だけ書く。`mount_host` の最後の引数を `site: Option<&'static Location<'static>>` にし、本体は private の `mount_node`。`mount_host_with` は署名を変えない（`virtual_list.rs` は lane R の R10 が持つ）。builders は `mount_host(cx, kind, common, at)` だけになり、`n.at = None` の書き直しが消える。`overlays.rs` は `Some(at)` を渡す。`mount.rs`・`mount/create.rs`・`overlays.rs`（1 行）を C03 の所有に足した（同じ lane の次の C04 も `mount.rs` の `bind_states` の 1 行を持つ。順番なので衝突しない）。
+4. **AppLink**：`requested` を足す小項目は取り下げる（印も enum も足さない）。`requested` は `CloseRequested` を写した 2 つ目の真実で、state 規則が防ぐ形そのもの。競合の無い lock は turn ごとに数十 ns。`app_handle.rs` は C03 の前（`efc5a622~1`）の内容に戻す。
+
+- Orchestrator：lane C の fix として、`wt/rw-W3a-C` に付属書 C03 の新しい手順 9（runtime の `detach_owner` と `current_window` の `expect`）・10（`report_session` と `n.at`）・11（`app_handle.rs` を戻す）を当て、C03 の確認を全部通してから C04 へ進む。確認の e2e には `flows::` を足して走らせる（`e2e_core -- flows:: focus app_handle windows`）。
