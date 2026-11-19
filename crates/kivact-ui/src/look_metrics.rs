@@ -80,7 +80,7 @@ fn ring(s: &Look<ProgressState>) -> bool {
 fn gauge(s: &Look<ProgressState>) -> bool {
     s.variant::<ProgressVariant>() == Some(&ProgressVariant::Gauge)
 }
-fn height(s: &ProgressState) -> f64 {
+fn metric_height(s: &ProgressState) -> f64 {
     match s.size {
         crate::ControlSize::ExtraSmall => 3.0,
         crate::ControlSize::Small => 4.0,
@@ -91,7 +91,7 @@ fn height(s: &ProgressState) -> f64 {
 pub(super) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
     if ring(s) {
         style()
-            .size(height(s) * 12.0, height(s) * 12.0)
+            .size(metric_height(s) * 12.0, metric_height(s) * 12.0)
             .align_items(Align::Center)
             .justify_content(Justify::Center)
             .paint(|d, size| {
@@ -105,7 +105,7 @@ pub(super) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
     } else if gauge(s) {
         style()
             .width(pct(100))
-            .height(height(s) * 3.0)
+            .height(metric_height(s) * 3.0)
             .min_width(0)
             .paint(|d, size| {
                 for i in 0..20 {
@@ -123,9 +123,9 @@ pub(super) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
     } else {
         style()
             .width(pct(100))
-            .height(height(s))
+            .height(metric_height(s))
             .min_width(0)
-            .radius(height(s) / 2.0)
+            .radius(metric_height(s) / 2.0)
             .background(ColorToken::Border)
             .clip(true)
     }
