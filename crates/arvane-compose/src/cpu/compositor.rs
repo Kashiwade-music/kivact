@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use arvane_protocol::{
     Composition, CpuFrame, ExportMode, FrameReport, LayerFilter, LayerKey, PixelRect, RenderScene,
 };
-use arvane_render::{CpuRaster, RenderError};
+use arvane_render::{CpuFrameRaster, CpuRaster, RenderError};
 use kivact_types::Composite;
 use kivact_types::export::{ExportFrame, ExportedFrame, FrameStats};
 use kivact_types::gpu::ExternalFrame;
@@ -235,9 +235,12 @@ fn run(
     let plan = plan::build(composition, size, scale, cache, false)
         .map_err(|error| ComposeError::InvalidComposition(error.message))?;
     let mut counts = Counts::default();
-    for task in &plan.chunks {
-        raster_chunk(raster, task, &mut stores.chunks, &mut counts)?;
-    }
+    raster.frame(|frame| -> Result<(), ComposeError> {
+        for task in &plan.chunks {
+            raster_chunk(frame, task, &mut stores.chunks, &mut counts)?;
+        }
+        Ok(())
+    })?;
     let mut targets = make_targets(&plan.targets, output, &mut stores.surfaces);
     let mut missed: Vec<ExternalFrame> = Vec::new();
     let mut shader_fallback = false;
@@ -278,7 +281,7 @@ fn run(
 
 /// Rasters one chunk task into the chunk store: the whole chunk, or only its changed rectangles.
 fn raster_chunk(
-    raster: &mut CpuRaster,
+    raster: &mut CpuFrameRaster<'_>,
     task: &ChunkTask<'_>,
     chunks: &mut Chunks,
     counts: &mut Counts,
@@ -294,17 +297,8 @@ fn raster_chunk(
         && let Some(mut px) = chunks.remove(&task.key)
         && px.size() == task.size
     {
-        for rect in rects {
-            raster.raster(
-                scene,
-                task.origin,
-                task.scale,
-                size,
-                Some(*rect),
-                &mut px.data,
-            )?;
-            counts.pixels += area(rect);
-        }
+        raster.raster_rects(scene, task.origin, task.scale, size, rects, &mut px.data)?;
+        counts.pixels += rects.iter().map(area).sum::<u64>();
         chunks.insert(task.key, px);
         return Ok(());
     }

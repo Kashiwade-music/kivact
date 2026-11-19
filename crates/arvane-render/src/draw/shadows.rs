@@ -38,7 +38,7 @@ use vello_cpu::PaintType;
 use vello_cpu::color::palette::css::BLACK;
 use vello_cpu::kurbo::Shape as _;
 
-impl<C: Canvas> Painter<'_, C> {
+impl<C: Canvas> Painter<'_, '_, C> {
     /// Draw a CSS box shadow, outer or inset.
     pub(super) fn box_shadow(&mut self, shadow: &BoxShadow) {
         let color = shadow.color;

@@ -32,22 +32,20 @@ mod derived;
 mod draw;
 mod error;
 mod frame_cache;
+mod glyph;
 #[cfg(feature = "gpu")]
 mod gpu;
 mod gradient;
 mod images;
-mod ink;
 mod limits;
-mod outline;
 mod paint;
 mod text;
 mod validate;
 
-pub use cpu::CpuRaster;
+pub use cpu::{CpuFrameRaster, CpuRaster};
 pub use error::RenderError;
+pub use glyph::{glyph_ink_bounds, glyph_outline};
 #[cfg(feature = "gpu")]
 pub use gpu::{Canvas, GpuRaster, RASTER_FORMAT};
-pub use ink::glyph_ink_bounds;
 pub use limits::MAX_SCENE_DEPTH;
-pub use outline::glyph_outline;
 pub use validate::{dimensions, raster_plan};

@@ -44,6 +44,8 @@ pub struct GpuRaster {
     /// The scene the frames are recorded into, kept for its allocations.
     pub(super) scene: vello_hybrid::Scene,
     pub(super) caches: draw::Caches,
+    /// Pixels derived from the scene's values, kept from frame to frame.
+    pub(super) derived: crate::derived::Derived,
     /// The bindings of the last frame's images.
     pub(super) images: Images,
     /// The textures of the last frame's images, kept while frames draw them.
@@ -72,6 +74,7 @@ impl GpuRaster {
             resources,
             scene: vello_hybrid::Scene::new(1, 1),
             caches: draw::Caches::default(),
+            derived: crate::derived::Derived::default(),
             images: Images::new(),
             textures: ImageCache::new(MAX_BYTES),
             atlas: ImageCache::new(MAX_ATLAS_PATTERNS),
@@ -145,6 +148,7 @@ impl GpuRaster {
         if u32::from(size.0) > max || u32::from(size.1) > max {
             return Err(RenderError::InvalidSize);
         }
+        self.caches.validation.prune();
         validate::scene(scene, &mut self.caches.validation)?;
         let frame = draw::Frame {
             scale,
