@@ -37,8 +37,8 @@
 |---|---|---|---|---|---|---|
 | C01 | W2b | C | T（W1）、S04（W2a） | `kivact-core/src/view/devtools_*`、`view/inspect_mode.rs`、`devtools/`、`view.rs`、`devtools.rs`、`view/tree.rs`、`view/state.rs`、`view/boundary.rs`、`view/root.rs`、`view/mount/style.rs`、`launch/runtime.rs`、`launch/inspect.rs` | RC-27、RC-10（hook）、RC-41（`is_running`） | M |
 | C02 | W2b | C | T（W1）、S02・S07（W2a） | 新 `crates/kivact-offscreen/`、`Cargo.toml`（workspace）、`kivact-core/Cargo.toml`、`kivact-core/src/draw.rs`、`kivact-core/src/draw/offscreen.rs`（削除）、`crates/kivact/Cargo.toml`、`crates/kivact/src/{lib.rs,draw.rs}`、`dev/xtask/policy/workspace.toml` | RC-29（crate） | S |
-| C03 | W3a | C | C01 | `view/state.rs`、`view/requests.rs`、`view/snapshots.rs`、`view/foreign_window.rs`、`client/dispatch/{platform.rs,delivery.rs}`、`view/mount/resolve.rs`、`view/node_ref.rs`、`view/elements/builders.rs`、`platform/app_handle.rs`、`platform/services.rs`（`EffectWaiter` の置換だけ）、`gpu_interop/`、`launch/runtime.rs` | RC-21、RC-36、RC-41（小項目） | M |
-| C04 | W3a | C | C01 | `view/mount/style.rs`、`view/mount/create.rs`、`view/boundary.rs`、`view/root.rs`、`view/tree.rs`、`view/node_modifiers.rs`、`diagnostics/why.rs`、`devtools/node.rs` | RC-22、RC-41（`bind_states`・`Leaving.on_exit`） | M |
+| C03 | W3a | C | C01 | `view/state.rs`、`view/requests.rs`、`view/snapshots.rs`、`view/foreign_window.rs`、`client/dispatch/{platform.rs,delivery.rs}`、`view/mount/resolve.rs`、`view/mount.rs`、`view/mount/create.rs`、`view/overlays.rs`（1 行）、`view/node_ref.rs`、`view/elements/builders.rs`、runtime `src/reactive/owner.rs`、`platform/services.rs`（`EffectWaiter` の置換だけ）、`gpu_interop/`、`launch/runtime.rs` | RC-21、RC-36、RC-41（小項目） | M |
+| C04 | W3a | C | C01 | `view/mount/style.rs`、`view/mount.rs`（`bind_states` の 1 行）、`view/mount/create.rs`、`view/boundary.rs`、`view/root.rs`、`view/tree.rs`、`view/node_modifiers.rs`、`diagnostics/why.rs`、`devtools/node.rs` | RC-22、RC-41（`bind_states`・`Leaving.on_exit`） | M |
 | C05 | W4 | C | C03、C04 | `view/state.rs`、`view/window_view.rs`、`view/foreign.rs`、`view/foreign_window.rs`、`view/root.rs`、`view/hover.rs`、`view/tree.rs`、`launch/runtime.rs`、`launch/close.rs`、`client/dispatch/env.rs`、`platform/env.rs`、`custom/node.rs` | RC-19、RC-41（`EnvFields`・dead field） | L |
 | C06 | W4b | C | C01、C05、E08・E30（W4）、R04（`reported_since`） | `kivact-core/src/devtools/`、`view/devtools_hooks.rs`、`view/mount/style.rs`、`launch/inspect.rs`、`kivact-devtools-agent/src/{source.rs,agent.rs}`、`kivact-test/src/screen/state.rs` | RC-09、RC-10（残り）、RC-28 | L |
 | C07 | W5a 鎖 | 鎖 | R31、C05、E31（W4b） | `view/tree.rs`、`view/text_edits.rs`（削除）、`view/state.rs`、`client/state.rs`、`client/dispatch/{env.rs,platform.rs,text.rs}`、`launch/{runtime.rs,turn.rs}`、`custom/node.rs`、`platform/env.rs`、`view/window_view.rs` | RC-20 | M |
@@ -565,8 +565,8 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C03：host への要求の帳簿を型付きの 2 つの表にし、小さな矛盾と dead code を消す
 
 - **wave / lane / 前提**：W3a / C / C01
-- **所有**：`crates/kivact-core/src/view/{state.rs,requests.rs,snapshots.rs,foreign_window.rs,mount/resolve.rs,node_ref.rs,elements/builders.rs}`、`crates/kivact-core/src/client/dispatch/{platform.rs,delivery.rs}`、`crates/kivact-core/src/platform/{app_handle.rs,services.rs,env.rs}`（services は置換、env は doc 1 行）、`crates/kivact-core/src/gpu_interop.rs`、`crates/kivact-core/src/gpu_interop/import/registry.rs`、`crates/kivact-core/src/launch/runtime.rs`
-- **目的**：focus 要求の `order`・map・`RequestStage` の同期と、3 つの待ち手の map をやめる（RC-21）。`initial_render` を毎 turn 書かない、`current_window` の暗黙の MAIN を消す（RC-36）。RC-41 の小項目（`report_session` の偽 handler、未使用の引数 `_kind`・`_at`、`n.at` の二度書き、`take_request` の毎 turn の lock、`gpu_interop::State` の常時の作成）。
+- **所有**：`crates/kivact-core/src/view/{state.rs,requests.rs,snapshots.rs,foreign_window.rs,mount.rs,mount/resolve.rs,mount/create.rs,node_ref.rs,elements/builders.rs}`、`crates/kivact-core/src/view/overlays.rs`（`mount_host` の呼出しの 1 行）、`crates/kivact-runtime/src/reactive/owner.rs`（`detach_owner` だけ）、`crates/kivact-core/src/client/dispatch/{platform.rs,delivery.rs}`、`crates/kivact-core/src/platform/{services.rs,env.rs}`（services は置換、env は doc 1 行）、`crates/kivact-core/src/gpu_interop.rs`、`crates/kivact-core/src/gpu_interop/import/registry.rs`、`crates/kivact-core/src/launch/runtime.rs`
+- **目的**：focus 要求の `order`・map・`RequestStage` の同期と、3 つの待ち手の map をやめる（RC-21）。`initial_render` を毎 turn 書かない、`current_window` の暗黙の MAIN を消す（RC-36）。RC-41 の小項目（`report_session` の偽 handler、未使用の引数 `_kind`・`_at`、`n.at` の二度書き、`gpu_interop::State` の常時の作成）。`take_request` の毎 turn の lock は直さない（W3a の差戻し。手順 11）。
 - **手順**：
   1. `view/state.rs`：次の型を消し、新しい型に置き換える。
      消す：`FocusRequests`、`FocusRequest`、`RequestStage`、`EffectWaiter`、`SnapshotWaiter`、`ForeignSizeRequest`、`Requests` の field `effects`・`foreign_sizes`・`snapshots`。
@@ -740,20 +740,44 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
        }
        ```
        doc を `/// The window of `owner`'s subtree. The App's root provides the main window's scope.` にする。
-  10. RC-41 の小項目：
-     - `view/mount/resolve.rs`：選択（selection）が無いときに `report_session` を真にするためだけに入れている何もしない handler を消し、`report_session` の計算を `let report_session = selection.is_some() || draw_with_layout.is_some();` にする（変数名は既存のもの。`selection` と `draw_with_layout` の実際の束縛名に合わせる）。同じファイルの未使用の引数 `_kind` を関数の引数と全呼出し元から消す。
-     - `view/node_ref.rs`：未使用の引数 `_at` を引数と全呼出し元から消す。
-     - `view/elements/builders.rs`：`n.at = Some(..)` の直後に `n.at = None` とする関数（`at` を二度書く関数）を、引数 `at: Option<&'static Location<'static>>` を受けて一度だけ書く形にし、呼出し元を直す。
-  11. `platform/app_handle.rs`（RC-41）：`AppLink` に `requested: std::sync::atomic::AtomicBool` を足す。
-     - `close()` で状態を `CloseRequested(..)` にする分岐と、`attach()` で `ClosePending` から `CloseRequested(..)` にする分岐で、lock を離す前に `self.requested.store(true, Ordering::Release)` を呼ぶ。
-     - `take_request(&self, accept: bool) -> bool` の先頭に：
+     - この `expect` は、dispose 中の owner の cleanup でも成り立たなければならない。今の runtime の `dispose_owner`（`crates/kivact-runtime/src/reactive/owner.rs`）は、cleanup を走らせる前の `detach_owner(root)` で root の `parent` を `None` にするので、dispose される部分木の cleanup から祖先の context（`WindowScope`・theme など）が見えない（W3a の差戻し：virtual_list の行の owner の cleanup が `focused_node` を呼び、`e2e_core` の `flows::a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus` が落ちる）。`detach_owner` は親の `children` から外すだけにし、`parent` の link は owner が消えるまで残す。`detach_owner` の最後の
        ```rust
-       if !self.requested.swap(false, Ordering::AcqRel) {
-           return false;
-       }
+               if let Some(o) = owners.get_mut(key) {
+                   o.parent = None;
+               }
        ```
-       を足す（その後は既存の lock の処理）。
-     - `AppHandle::new` の `AppLink { state: .., }` に `requested: AtomicBool::new(false),` を足す。
+       を消し、`dispose_owner` の `self.detach_owner(root);` の直前に次の comment を置く：
+       ```rust
+               // The root leaves its parent's children but keeps its `parent` link
+               // until it is gone: its cleanups still read its ancestors' contexts
+               // and report to their error boundaries.
+       ```
+       （cleanup の中の error は、親の error boundary へ届くようになる。dispose 中に親が先に消えても、arena の key は世代付きなので `find_context` と `route` は `None` で止まる。）
+  10. RC-41 の小項目：
+     - `view/mount/resolve.rs`：`prepare_draw` の先頭の、`draw_with_layout` があり selection の handler が無いときに何もしない handler を入れる `if` を消す（`report_session` を真にするためだけのもの）。`report_session` は `resolve` が決めて `FirstWrite` で渡す：`finish_resolve` の `let observe_layout = ...;` の次に
+       ```rust
+       let report_session = handlers.selection.is_some()
+           || draw.as_ref().is_some_and(|draw| draw.with_layout.is_some());
+       ```
+       を足し、`FirstWrite { .. }` の `observe_layout,` の次に `report_session,` を足す。`view/mount/create.rs`：`FirstWrite` の `observe_layout` の次に field
+       ```rust
+           /// The engine reports the node's text sessions: it has a session handler
+           /// or draws with its text layout.
+           pub(super) report_session: bool,
+       ```
+       を足し、`write` の分解に `report_session,` を足して、`// The engine reports the selection sessions ...` の comment と `let report_session = handlers.selection.is_some();` の 2 行を消す。同じファイルの未使用の引数 `_kind` を関数の引数と全呼出し元から消す。
+     - `view/node_ref.rs`：未使用の引数 `_at` を引数と全呼出し元から消す。
+     - `n.at`（node に記録する call site）を `create::write` の 1 か所で一度だけ書く。今は `create::write` が `n.at = Some(at)` と書き、`view/elements/builders.rs` の `impl IntoView for Node` が `at` の無い node（文字列の子など）について `mount_host` の後に `n.at = None` と書き直す。
+       - `view/mount.rs`：`mount_host` の最後の引数を `site: Option<&'static Location<'static>>` にし、本体を `mount_node(cx, kind, c, site, None)` にする。`mount_host_with` は署名を変えず（`view/flow/virtual_list.rs` は同じ wave の lane R の R10 が持つので触らない）、本体を `mount_node(cx, kind, c, Some(at), fix_layout)` にする。旧 `mount_host_with` の本体を private の `fn mount_node(cx: &Mcx<'_>, kind: NodeType, c: Common, site: Option<&'static Location<'static>>, fix_layout: Option<fn(&mut LayoutProps)>) -> NodeId` に移し、doc を `/// Mount host node `c`. `site` is the call site recorded on the node (`None` for a node the App did not write, such as a string child); its effects are located there, or here without one.` にする。先頭の `let at = c.at.unwrap_or(at);` を
+         ```rust
+         let site = c.at.or(site);
+         let at = site.unwrap_or_else(Location::caller);
+         ```
+         にし、`create::write(cx, id, first, at);` を `create::write(cx, id, first, site, at);` にする。
+       - `view/mount/create.rs`：`write` の引数を `(cx: &Mcx<'_>, id: NodeId, first: FirstWrite, site: Option<&'static Location<'static>>, at: &'static Location<'static>)` にし、`n.at = Some(at);` を `n.at = site;` にする。
+       - `view/elements/builders.rs`：`let id = mount_host(cx, kind, common, loc);` と、その後の `if at.is_none() && let Some(n) = ... { n.at = None; }` を `let id = mount_host(cx, kind, common, at);` の 1 行にする（`loc` は `drop_misused` と content の bind に残る）。使わなくなった `use crate::view::state::ViewState;` を消す。
+       - `view/overlays.rs`：`mount_host(cx, NodeType::Overlay, common, at)` を `mount_host(cx, NodeType::Overlay, common, Some(at))` にする。
+  11. `platform/app_handle.rs`：変えない（W3a の差戻しで取り下げた）。`AtomicBool` の `requested` は `LinkState::CloseRequested` を写した 2 つ目の真実で、設計 6.1 の state 規則が error にする形そのもの。競合の無い `Mutex` の lock は turn ごとに数十 ns で、K の指標に現れない。`AppLink` は `state` の 1 field のまま。
   12. `gpu_interop`（RC-41）：`gpu_interop::State` を launch で常に作るのをやめる。
      - `launch/runtime.rs` の `let extensions = extensions.with(crate::gpu_interop::State::new(root, at));` を消す。
      - `gpu_interop/import/registry.rs` の `State::of(rt)`（`rt.ext::<State>()` を呼ぶ関数）を、`ViewState` が持つ `gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>` から `get_or_init(|| State::new(rt.root(), Location::caller()))` で取る形にする。`ViewState` に field `pub(crate) gpu_interop: kivact_types::cell::Deferred<crate::gpu_interop::State>,`（doc：`/// GPU interop state, made on the first adapter query or import.`）を足し、`ViewState::new` で `gpu_interop: kivact_types::cell::Deferred::new(),` とする。`State::new(root, at)` の署名は変えない。`State::of` を呼ぶ全箇所は `ViewState::of(rt).gpu_interop.get_or_init(|| State::new(rt.root(), Location::caller()))` を返す 1 つの関数 `pub(crate) fn state(rt: &Runtime) -> &State` を通す（`registry.rs` に置き、`#[track_caller]` を付ける）。
@@ -768,7 +792,10 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   cargo clippy -p kivact-core --all-targets --features gpu-interop,devtools,embed -- -D warnings
   cargo xtask check --no-write --crate kivact-core
   KIVACT_TEST_MIRROR=off cargo test -p kivact-core
-  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- focus app_handle windows
+  cargo clippy -p kivact-runtime --all-targets --all-features -- -D warnings
+  cargo xtask check --no-write --crate kivact-runtime
+  KIVACT_TEST_MIRROR=off cargo test -p kivact-runtime
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core -- flows:: focus app_handle windows
   dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- foreign_window
   ```
 - **完了条件**：`rg -n "RequestStage|EffectWaiter|SnapshotWaiter|ForeignSizeRequest|resolve_foreign_size" crates/kivact-core` が 0 件。`rg -n "initial_render.set" crates/kivact-core/src/launch` が `start_mount` の 1 件だけ。`rg -n "map_or\(WindowId::MAIN" crates/kivact-core` が 0 件。上のコマンドが通る。（試験の command はどれも 1 件以上の試験を走らせる。0 件は失敗。4.6 節）
@@ -776,11 +803,11 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C04：mount の費用を下げる（style の memo、境界の関数一つ、provenance の側表）
 
 - **wave / lane / 前提**：W3a / C / C01
-- **所有**：`crates/kivact-core/src/view/{mount/style.rs,mount/create.rs,boundary.rs,root.rs,tree.rs,node_modifiers.rs}`、`crates/kivact-core/src/diagnostics/why.rs`、`crates/kivact-core/src/devtools/node.rs`（`origins` を読む行だけ）
+- **所有**：`crates/kivact-core/src/view/{mount/style.rs,mount/create.rs,boundary.rs,root.rs,tree.rs,node_modifiers.rs}`、`crates/kivact-core/src/view/mount.rs`（`bind_states` の呼出しの 1 行）、`crates/kivact-core/src/diagnostics/why.rs`、`crates/kivact-core/src/devtools/node.rs`（`origins` を読む行だけ）
 - **目的**：RC-22。style の層の closure を状態の変化ごとに呼び直さない。固定の theme は constant。境界（`scope`・`provide`・`provide_theme`・`provide_locale`・`provide_messages`）の写しを一つの関数にする。node の provenance（`origins`・`semantic_origins`）は記録中か debug build だけ（PERF-9）。`later_callers` を O(M) にする。RC-41 の `bind_states`（何もしない）と `Leaving.on_exit`（常に `Some`）を消す。
 - **手順**：
   1. `view/mount/style.rs`：
-     - `bind_states` を消す。呼出し元（`view/mount/create.rs` か `view/mount/resolve.rs` の `bind_states(cx, id, disabled, selected, at)`）を次にする：
+     - `bind_states` を消す。呼出し元（`view/mount.rs` の `mount_node`（C03 が `mount_host_with` の本体を移した関数）の `let states = style::bind_states(cx, id, disabled, selected, at);`）を次にする：
        ```rust
        let states = States {
            disabled: disabled.map(InputProp::into_fn),
@@ -3133,7 +3160,7 @@ cargo clippy -p kivact-core --all-targets --features devtools,embed,gpu-interop 
 | RC-31（core） | R26（`provide`）、C08（`Owner` の path と `store` の hidden） |
 | RC-36 | C03 |
 | RC-40 | T（印）、R（`Held`、`OwnerEntry`、`Pending.turn_requested`、`ext`）。core の誤った印の文面は W1 で T が印ごと消す |
-| RC-41（core） | C01（`is_running`）、C03（`report_session`、`_kind`、`_at`、`n.at`、`take_request` の fast path、`gpu_interop::State` の遅延）、C04（`bind_states`、`Leaving.on_exit`）、C05（`EnvFields`、dead field `host_capabilities`・`title`・`mode`）、C07（`notify_from_render` の core の呼出し）、C11（`devtools_in_tests`）、G（`AppClient` の doc）、R（`Owner::ambient`・`current` の改名、`report_now`、`mount_revision`） |
+| RC-41（core） | C01（`is_running`）、C03（`report_session`、`_kind`、`_at`、`n.at`、`gpu_interop::State` の遅延。`take_request` の fast path は取り下げ）、C04（`bind_states`、`Leaving.on_exit`）、C05（`EnvFields`、dead field `host_capabilities`・`title`・`mode`）、C07（`notify_from_render` の core の呼出し）、C11（`devtools_in_tests`）、G（`AppClient` の doc）、R（`Owner::ambient`・`current` の改名、`report_now`、`mount_revision`） |
 | API-01 | C09（macro と absorb）、U・K（builder の移行） |
 | API-04 | R（R20・R26〜R31。4.1 節 R-REQ-12） |
 | API-05 | C18、S-REQ-3、U-REQ-3 |

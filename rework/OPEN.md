@@ -97,3 +97,30 @@
 
 - **D03**：(a) 許容する（`fda3cd6e` はそのまま受け入れる）。`objc2-uniform-type-identifiers` 0.2.2 を lock に持つのは iOS の `objc2-ui-kit` 0.2.2（winit 0.30 の objc2 0.5 系の経路）で、0.3.2 は macOS の rfd 0.18.0 と `objc2-app-kit` 0.3.2 が引く。2 つの版は別の target でしか build されず、一つの binary に両方が入ることは無いので、K6（binary の大きさ）は後退しない（objc2 0.5 と 0.6 の系は既に同じ理由で二重）。rfd 0.18 を見送ると pollster 1.0 の再入の deadlock の修正も失う。付属書 D の D03 の目的と完了条件（DUP-AFTER の 1 つ目の `comm` は `"objc2-uniform-type-identifiers" 2` の 1 行だけ）と 5 章の 1 文を直した。D04 の DUP-BEFORE は D03 の後に取るので、D04 の完了条件（両方の `comm` が空）は変えない。
   - Orchestrator：D03 を完了として lane D2 を D04 へ進める（D03 のやり直しは不要）。
+
+## 差戻し（W3a・R07、2026-11-19）
+- **R07**（W3a、lane R、commit `e999ec1c`）：付属書 R07 の完了条件の rg（`LoopState|Registry<|\.live\(\)|running: Value<bool>|current\.borrow\(\)\.clone\(\)`）に 2 件残る：`crates/kivact-runtime/src/motion/animated.rs:161`（`target()` の Idle 分岐の `self.current.borrow().clone()`）と `:201`（`make_run` の `self.current.borrow().clone()`）。どちらも手順のコードに含まれず、per-step の clone ではない。Orchestrator の処置：手順を外れて書き換えず、そのまま残した。設計者が完了条件を直すか、2 件を直すかを決める。
+- **R07**（逸脱）：`LoopCell::set_run` は付属書のコードでは tick ごとに rate signal を書く。印のコメントは「rate が変わったときだけ書く」と書いてあるため、before と比べて変わったときだけ `self.rate.set` する形にした（`Signal::set` は同じ値なら通知しないので、挙動は同じ）。Orchestrator の処置：そのまま受け入れる。
+
+## 確認事項（W3a・S11、2026-11-19）
+- **S11**（W3a、lane S、commit `583c3db4`）：文字の gradient を `Units::ObjectBox`（単位正方形）で書く付属書の設計では、px で書かれた gradient の stop 位置や半径が正しく出ない（長さの基準が 1 になる）。%・比率の stop は正しい。また `coordinate_paint`（canvas の座標 gradient）を文字に使うと、座標が user space のまま objectBoundingBox と解釈される。試験は gradientUnits の文字列だけを見ている。Orchestrator の処置：付属書どおりに入れた。設計者が見直すか決める。
+- **S11**（付属書との差）：付属書の `TextFormat::tabular_nums()` は無く、draw の `TextFormat` の pub field `tabular_nums: bool` を使った。`paint_attributes`・`linear_def`・`radial_def` に加え、`layer_paint`・`gradient_paint`・`coordinate_paint` にも `Units` を通した（コンパイルのため）。Orchestrator の処置：そのまま受け入れる。
+
+## 差戻し（W3a・C03、2026-11-19）
+- **C03**（W3a、lane C、commit `efc5a622`）：完了条件の一部が未達（STOP 3 件と差戻し 1 件）。
+  1. STOP：`crates/kivact-core/src/view/state.rs:current_window`。付属書は「全 owner は WindowScope の下にある」として `expect` にするが、virtual_list の行 owner を dispose するとき、cleanup の `custom/node.rs:focused_node` → `current_window` で WindowScope が無く expect が落ちる（`e2e_core` の `a_list_navigation_in_a_virtual_list_reaches_the_last_row_and_keeps_the_focus`）。expect 版で E2E の失敗を確認し、元の MAIN の fallback に戻した（RC-36 は未完）。設計者が、owner を dispose の経路で持たせる方法か、fallback を残す方法かを決める。
+  2. STOP：`crates/kivact-core/src/view/mount/resolve.rs:prepare_draw`。付属書の `report_session` は `selection.is_some() || draw_with_layout.is_some()` だが、`create.rs` の FirstWrite に `draw_with_layout` が無く、`observe_layout`（bool、3 layer の or）しか無い。未変更（RC-41 は未完）。設計者が、FirstWrite に `draw_with_layout` を足すか、付属書の式を `observe_layout` に直すかを決める。
+  3. STOP：`crates/kivact-core/src/view/elements/builders.rs`（mount_host の後に `n.at = None` する関数）。付属書は「`n.at = Some` の直後に `n.at = None`」と書くが、実際は `create::write`（`mount/create.rs`）の Some と builders の None の二段。`mount.rs` と `mount/create.rs` は C04 の所有。未変更（RC-41 の `at` は未完）。設計者が、`at` を `mount_host` の引数で渡す形にするか、Some と None を同じ関数にまとめるかを決める。
+  4. 差戻し：`crates/kivact-core/src/platform/app_handle.rs:AppLink`。xtask の state 規則（`state` と `requested` の 2 field）で error。付属書は「AtomicBool 一つなので印は要らない」と書くが、xtask は interior-mutable な field が 2 つで、印か enum を要求する。設計者が、印を付ける（付属書の文面を直す）か、`requested` を state に含める形にするかを決める。
+  Orchestrator の処置：C03 の commit（`efc5a622`）は lane C に残し、統合 branch へ merge していない。C04 は上の 4 件の判断後。
+
+## 設計者の回答（W3a・C03、2026-11-19）
+
+付属書 C の C03（手順 9・10・11、所有、目的）と C04（所有、`bind_states` の呼出し元）、作業指示書 4 章の W3a の lane C の行を直した。設計者が `efc5a622` に下の 4 件を当てて、`cargo clippy -p kivact-core --all-targets`（feature 無しと `gpu-interop,devtools,embed`）、`cargo clippy -p kivact-runtime --all-targets --all-features`、`cargo xtask check --no-write` の kivact-core と kivact-runtime、`cargo test -p kivact-runtime`、`cargo test -p kivact-core`、`e2e_core` の `flows:: focus app_handle windows` が通るのを確かめた。
+
+1. **current_window**：fallback は残さない（付属書どおり `expect`）。原因は runtime：`dispose_owner` が cleanup の前の `detach_owner(root)` で root の `parent` を `None` にするので、dispose される部分木の cleanup から祖先の context が見えない。`detach_owner` は親の `children` から外すだけにし、`parent` の link は owner が消えるまで残す（`crates/kivact-runtime/src/reactive/owner.rs`、C03 の所有に足した。W3a で runtime の `reactive/` を持つ lane は他に無い）。
+2. **report_session**：`FirstWrite` に `report_session: bool` を足し、`finish_resolve` が `handlers.selection.is_some() || draw.with_layout.is_some()` で決める。`create::write` は自分で計算しない。偽 handler は消す。
+3. **n.at**：`create::write` の 1 か所で `n.at = site` と一度だけ書く。`mount_host` の最後の引数を `site: Option<&'static Location<'static>>` にし、本体は private の `mount_node`。`mount_host_with` は署名を変えない（`virtual_list.rs` は lane R の R10 が持つ）。builders は `mount_host(cx, kind, common, at)` だけになり、`n.at = None` の書き直しが消える。`overlays.rs` は `Some(at)` を渡す。`mount.rs`・`mount/create.rs`・`overlays.rs`（1 行）を C03 の所有に足した（同じ lane の次の C04 も `mount.rs` の `bind_states` の 1 行を持つ。順番なので衝突しない）。
+4. **AppLink**：`requested` を足す小項目は取り下げる（印も enum も足さない）。`requested` は `CloseRequested` を写した 2 つ目の真実で、state 規則が防ぐ形そのもの。競合の無い lock は turn ごとに数十 ns。`app_handle.rs` は C03 の前（`efc5a622~1`）の内容に戻す。
+
+- Orchestrator：lane C の fix として、`wt/rw-W3a-C` に付属書 C03 の新しい手順 9（runtime の `detach_owner` と `current_window` の `expect`）・10（`report_session` と `n.at`）・11（`app_handle.rs` を戻す）を当て、C03 の確認を全部通してから C04 へ進む。確認の e2e には `flows::` を足して走らせる（`e2e_core -- flows:: focus app_handle windows`）。
