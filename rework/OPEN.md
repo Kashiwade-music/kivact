@@ -271,3 +271,24 @@
 （設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
 
 - **E13**（W5a、lane E2、commit `3694e0e1`）：E13 の最初の E2E で motion の 2 件が debug の self_check（保持した list と作り直した list の比較）で失敗し、subagent はそれを直した。0.4 節は self_check の不一致を STOP にし、直さないと定めている。直した内容は付属書に無い：(1) `model/interact/sync.rs` に `relook_moving` を足し、`model/state_motion/steps.rs` の transition の終了時に `motion_ended` を入れた（prop の transition は restyled に入らない）。(2) 動いている不透明度の layer の grouping を、不透明度 1.0 として数えるように `paint/list/walk.rs` の opacity 関数を変えた。(3) E12 が tick の先頭に足した text color の分岐（`model/frame/ticks.rs`）を消し、`model/state_motion/steps.rs` の `step_states` の step の後へ移した（付属書の E13 にはこの移動の記述が無い）。commit `3694e0e1` は lane E2 にある。設計者は、この 3 点を受け入れるかを決める。受け入れないなら、E13 を STOP のとおり直し直す。この差戻しの間、lane E2 は止める（merge しない）。
+
+## 設計者の回答（W5a の R05・E13、CP1 の KPI、2026-11-19）
+
+- **R05 の `AppState.foreign`**：(a) 外す。`ForeignWindows` は C05 で消え、window の記録に入った。付属書 R の R05 の `AppState`・手順 9・build closure を直した（`foreign` を消す。build closure は lane の形：DevTools を先に作り `ViewState::new(.., hooks, at)`、`gpu: StateSlot::default()`（遅延））。Orchestrator の判断（`hooks` を渡す、`gpu` の遅延）は受け入れ、付属書に書いた。lane X（鎖）を再開する。
+- **E13 の付属書外の 3 点**：3 点とも受け入れる。付属書の手順 4 が tick の塊を消すと、動いている node の事実を毎 tick 作り直す処理も消えた。3 点はその穴を埋めるもので、E13 の目的（重なりの事実が変わったときだけ restack）のまま。付属書 E の E13 に「W5a で足したもの」として書いた。ただし subagent の報告だけでは merge しない：Orchestrator が lane E2 で E13 の確認（tier a の E2E の全部）を自分で実行し、通ってから merge する。今後、subagent が self_check の不一致を直していたら、同じように STOP として差戻しに書いてよい（今回の扱いは正しい）。
+- **CP1 の KPI**：
+  - **測定の環境**：設計者が基点 `c9518946` と CP1 `d615568c` の kv_heap を、いま同じ環境で測った。**どちらのコードでも** a11y の木（`AcceptedTree::new`、`NativeAccessibility::hand_over`）が作られた。B0（11-18）の report には無い。AccessKit は、UI Automation の client が window に問い合わせたときだけ木を作る。CP1 の測定中にはその client が動いていて、B0 のときには動いていなかった。a11y だけで row は約 11 KB/item、box は約 1.4 KB/item になる。つまり CP1 の K2 の 1.6〜1.8 倍の大半は環境の差で、K1・K4・K5 の時間の行にも同じ差が入っている可能性がある。CP1 の比は、B0 との比較としては使わない。
+  - **同じ環境で比べた K2**（MiB、3000 items）：
+
+    | mode | 基点 | CP1 | 修正後 |
+    |---|---|---|---|
+    | box | 16.2 | 18.5 | 16.0 |
+    | text | 14.3 | 14.1 | 14.1 |
+    | button | 77.3 | 94.2 | 77.0 |
+    | row | 103.2 | 131.4 | 102.5 |
+
+    残った後退は C04 の style の memo（全 node に merge 済みの `Style` と memo を持つ）だった。設計者が直した：patch `W:/w/kivact/target/rework-designer/C04-memo.diff`（3 file。`18460fae` と lane X の `683b4d4d` に `git apply` できる）。memo は disabled・selected が変わりうる node と DevTools の hook のある App だけに置く。設計者の確認：`cargo clippy -p kivact-core --all-targets --features devtools -- -D warnings`、`cargo xtask check --no-write --crate kivact-core`、`e2e_core` の全件（436 件。`KIVACT_TEST_MIRROR=off`）が通る。付属書 C の C04 に追記した。
+  - **処置**：(1) patch を lane X（鎖）に R05 の次の fix の commit として当て、C04 の確認（tier a）を通す。(2) KPI の測り方を直した（作業指示書 5.1 節の 2・3、5.2 の 4、設計書 2 章）：checkpoint では、基点 `c9518946` のコードを同じ環境で続けて測り直し（`B0-CP<n>`）、それと比べる。両方の report の kv_heap の site に `arvane_shell::a11y::state::AcceptedTree` があるかを見て、片方だけなら測り直す。(3) CP1 は測り直す：W5a の merge（E1・E2・鎖の R05 と上の fix）の後で、`B0-CP1` と `CP1b` を続けて測り、`kpi-compare rework/kpi/B0-CP1.md rework/kpi/CP1b.md` の結果で「KPI の後退」を書き直す。それでも後退する行だけを設計者に返す（時間の行 K1・K4・K5 は、この測り直しの結果を見て決める）。
+  - **改善の必達の未達**（K3 の continuous CPU、K5 pointer p95、K6 no-gpu）：CP1 では返さない。手段の unit（E12 の draw cache、E13 の restack、hit test の索引、recipe 表の分割、plot の crate 化）の多くは CP1 の後にあり、判定は最終 checkpoint の AC-2。作業指示書 5.1 節の 3 に「CP1・CP2 では記録だけ」と書いた。
+- **Orchestrator の判断**（`ViewState::new` の `hooks`、`gpu` の遅延、`SceneOut` の印の除去、E13 の完了条件の残り行、E12 の `outdate_draws` の分割と代用）：すべて受け入れる。CP1 の `--test gpu` は `--test screen -- gpu::` が正しい。作業指示書 2 章の行を直した。
+- **付属書 L**（`legacy:` の印 194 件）：設計者が書く。W8L の前に用意するので、待たずに W5a 以降を進めてよい（作業指示書の W8L の行のとおり、W8 の merge の時点で無ければ止める）。

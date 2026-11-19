@@ -42,7 +42,7 @@
 
 指標の定義は [dev/bench/README.md](dev/bench/README.md) の K1〜K6 のまま使う（起動時間・メモリ・CPU・フレーム時間・更新の遅延・バイナリサイズ）。
 
-- 基準 `B0` は、作業を始める前に**同じ機械**で基点 `2b8df5ac` を `dev/bench/run.sh B0` で測った値だけを使う（作業指示書 W0）。
+- 基準 `B0` は、作業を始める前に**同じ機械**で基点 `2b8df5ac` を `dev/bench/run.sh B0` で測った値（作業指示書 W0）。checkpoint の判定には、基点のコードをその checkpoint と**同じ環境で続けて**測り直した値（`B0-CP<n>`）を使う（CP1 で、UI Automation の client の有無で K2 が大きく変わることが分かった。作業指示書 5.1 節）。
 - 公開 API が変わるので、`dev/bench` の probe（`kv_startup`、`kv_stress`、`kv_latency`、`kv_heap`）は API の移行 unit が一緒に書き換える。**測る画面と操作は変えない**（同じ要素の数、同じ入力の台本）。
 - 比較は比で行う：`比 = 改修後 / B0`。時間の行は雑音があるので、必達に届かない行は同じ条件で 2 回測り直し、3 回中 2 回で判定する。
 
