@@ -448,13 +448,17 @@ impl Writer {
             }
             HostRequest::Inject { window, inputs } => {
                 let AppModel {
-                    windows, writes, ..
+                    windows,
+                    writes,
+                    injecting,
+                    ..
                 } = &mut *app;
                 if let Some(model) = windows.get_mut(&window) {
                     writes.command(None);
                     model
                         .effects
                         .push((request, DeferredRequest::Inject(inputs)));
+                    injecting.entry(window).or_default().push_back(request);
                 }
             }
             HostRequest::Emulate(emulation) => {

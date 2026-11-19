@@ -23,7 +23,7 @@ pub use node::{
 };
 
 mod routed;
-pub use routed::{Activation, RouteTarget, Routed};
+pub use routed::{Activation, InputOrigin, RouteTarget, Routed};
 
 mod close;
 pub use close::CloseSignal;

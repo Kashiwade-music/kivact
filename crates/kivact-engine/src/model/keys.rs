@@ -184,6 +184,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,
@@ -417,6 +418,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,

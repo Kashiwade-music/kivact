@@ -32,7 +32,7 @@ use super::devtools::{apply_emulation, effective_scale, emulated_viewport, physi
 use super::pump::{AppPresence, Host, HostPhase};
 use super::window::LastPresent;
 use crate::KeyResult;
-use crate::contract::{HostEvent, HostInfo};
+use crate::contract::{HostEvent, HostInfo, InputOrigin};
 use crate::host::HostWaker;
 use arvane::{EventTarget, ShellControl, ShellError, ShellEvent, Window, Windows};
 use kivact_types::{
@@ -172,10 +172,16 @@ impl Host {
         {
             let mut app = self.app.borrow_mut();
             app.set_now(id, now);
-            if let Some(model) = app.model_mut(id)
-                && stops_smooth_scrolls(&event)
-            {
-                model.frame.stop_smooth_scrolls();
+            let origin = app
+                .injecting
+                .get(&id)
+                .and_then(|queue| queue.front().copied())
+                .map_or(InputOrigin::Platform, InputOrigin::Injected);
+            if let Some(model) = app.model_mut(id) {
+                model.frame.set_origin(origin);
+                if stops_smooth_scrolls(&event) {
+                    model.frame.stop_smooth_scrolls();
+                }
             }
         }
         if matches!(event, ShellEvent::File(_)) {
@@ -420,6 +426,15 @@ impl Host {
                 }
             }
             ShellEvent::Injected { request } => {
+                {
+                    let mut app = self.app.borrow_mut();
+                    if let Some(queue) = app.injecting.get_mut(&id)
+                        && queue.front() == Some(&request)
+                    {
+                        queue.pop_front();
+                    }
+                    app.injecting.retain(|_, queue| !queue.is_empty());
+                }
                 self.app.borrow().push_event(HostEvent::InjectDelivered {
                     window: id,
                     request,

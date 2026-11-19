@@ -4,6 +4,8 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use kivact_types::{Environment, NodeId, Point, ThemeHint};
 
+use crate::contract::InputOrigin;
+
 /// One active programmatic scroll; allocated only while animating.
 pub(super) enum SmoothScroll {
     Scheduled {
@@ -66,6 +68,8 @@ pub(crate) struct Frame {
     /// painted. A projection, written only by `Model::refresh_shader_clocks`
     /// at a paint list rebuild.
     pub(super) shader_clocks: BTreeMap<NodeId, ClockNeed>,
+    /// Where the shell event being handled came from (`Frame::set_origin`).
+    pub(super) origin: InputOrigin,
 }
 
 /// What a shader clock needs from the frames.
@@ -87,6 +91,7 @@ impl Default for Frame {
             last_frame: None,
             env: Environment::default(),
             shader_clocks: BTreeMap::new(),
+            origin: InputOrigin::Platform,
         }
     }
 }
@@ -111,6 +116,16 @@ impl Frame {
     /// The host time (ns) of the event or turn being handled.
     pub(crate) fn host_now(&self) -> u64 {
         self.now.host_ns
+    }
+
+    /// The shell event being handled came from `origin`.
+    pub(crate) fn set_origin(&mut self, origin: InputOrigin) {
+        self.origin = origin;
+    }
+
+    /// Where the shell event being handled came from.
+    pub(crate) fn origin(&self) -> InputOrigin {
+        self.origin
     }
 
     /// The theme the environment starts with (light unless a test driver
