@@ -328,9 +328,9 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
             })
         })
     });
-    // The caller's `open` is the one opening input: the combobox machine keeps
-    // the query and the highlight, and its close transition resets both.
-    combobox.follow_open(open);
+    // The caller's `open` opens and closes the inline combobox; its close
+    // transition clears the query and the highlight.
+    combobox.opened_by(open);
     let visible = combobox.visible();
     let groups = memo(move || command_groups(visible, commands, index));
     CommandPaletteApi {

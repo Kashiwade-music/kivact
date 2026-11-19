@@ -20,7 +20,8 @@ use super::machine;
 use crate::Selection;
 use crate::collection::{Index, Membership};
 use crate::options_cell::OptionsCell;
-use kivact_core::state::{MachineHandle, binding, machine};
+use crate::surface::Surface;
+use kivact_core::state::{IntoBinding, MachineHandle, binding, machine};
 use kivact_core::state::{Selector, Var, selector, var};
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -123,6 +124,9 @@ pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
     selection: Selection<K>,
     /// The open state of a list that is a popup.
     mode: OptionsCell<PresentationMode>,
+    /// The query text: a local signal, or the caller's binding from
+    /// [`query_binding`](Self::query_binding).
+    query: OptionsCell<Binding<String>>,
     session: MachineHandle<machine::Machine<K>>,
     filter: Signal<Filter<K>>,
     /// The options that match, in order.
@@ -165,17 +169,20 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
     let selection = selected.into_selection();
     let source = OptionsCell::new(items.into_value());
     let options = memo(move || source.value().get().get());
+    let query = OptionsCell::new(signal(String::new()).into_binding());
     // The one open state; the machine writes the caller's binding, never the reverse.
     let mode = OptionsCell::new(PresentationMode::Inline);
+    // A combobox starts inline, so its list shows; `popup` closes it at
+    // setup when the caller's open is false.
     let session = machine(
-        machine::ComboboxState {
-            mode: machine::ComboMode::Closed,
-            query: machine::Query::Local(String::new()),
+        machine::ComboState::Open {
+            surface: Surface::Popover,
+            filtering: false,
             highlight: None::<K>,
         },
-        || machine::Machine::<K>::new(),
+        move || machine::Machine::<K>::new(matches!(mode.get(), PresentationMode::Inline)),
         move |_, effect| match effect {
-            machine::Effect::Query(source, text) => source.set(text),
+            machine::Effect::WriteQuery(text) => query.get().set(text),
             machine::Effect::WriteOpen(open) => {
                 if let PresentationMode::Popup(binding) = mode.get()
                     && binding.get_untracked() != open
@@ -185,9 +192,9 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
             }
         },
     );
-    let query = memo(move || session.state().with(|state| state.query.get()));
+    let query_text = memo(move || query.value().get().get());
     let filter = signal::<Filter<K>>(Rc::new(contains_query));
-    let (shown, visible, active) = shown_rows(options, query, filter, session);
+    let (shown, visible, active) = shown_rows(options, query_text, filter, session);
     let index = memo(move || options.with(|all| Index::of_items(all)));
     let active_key = selector(active);
     let membership = Membership::new(selection);
@@ -203,6 +210,7 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
         ),
         selection,
         mode,
+        query,
         session,
         filter,
         shown,
@@ -247,10 +255,9 @@ fn shown_rows<K: kivact_core::state::ItemKey>(
         })
     });
     let active = memo(move || {
-        let state = session.state().get();
+        let highlight = session.state().with(|state| state.highlight().cloned());
         shown.with(|rows| {
-            state
-                .highlight
+            highlight
                 .filter(|key| rows.iter().any(|row| row.key == *key && !row.disabled))
                 .or_else(|| first_enabled(rows))
         })
@@ -263,17 +270,11 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     #[track_caller]
     pub fn query_binding(self, query: impl kivact_core::state::IntoBinding<String>) -> Self {
         let query = query.into_binding();
-        self.session.send(machine::Event::Share(query));
-        let session = self.session;
-        kivact_core::state::effect_on(
-            move || query.get(),
-            move |_| {
-                // A closed list stays closed when the caller writes the query.
-                if self.shown() {
-                    session.send(machine::Event::QueryChanged);
-                }
-            },
-        );
+        self.query.update(|slot| *slot = query);
+        // A closed list stays closed when the caller writes the query: the
+        // transition ignores the event while closed.
+        self.session
+            .feed(query, |_: String| machine::Event::QueryChanged);
         self
     }
 
@@ -426,55 +427,39 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         self
     }
 
-    /// Reset the query and the highlight whenever the caller's `open` becomes
-    /// false: an inline list whose owner closes it. Setup only.
+    /// Open and close an inline list with its owner's `open` (the command
+    /// palette's dialog). Closing clears the query and the highlight in the
+    /// close transition. Setup only.
     #[track_caller]
-    pub(crate) fn follow_open(self, open: kivact_core::state::Binding<bool>) {
-        let session = self.session;
-        kivact_core::state::effect_on(open, move |&shown| {
-            if !shown {
-                session.send(machine::Event::Reset);
-            }
-        });
+    pub(crate) fn opened_by(self, open: Binding<bool>) {
+        self.session
+            .send(machine::Event::OpenRequested(open.get_untracked()));
+        self.session.feed(open, machine::Event::OpenRequested);
     }
 
     /// Whether the list shows: the open state of a [`popup`](Self::popup), and
     /// always for a combobox without one.
     pub fn is_open(self) -> Value<bool> {
-        let mode = self.mode;
         let state = self.session.state();
-        (move || match mode.value().get() {
-            PresentationMode::Inline => true,
-            PresentationMode::Popup(_) => state.with(|state| state.mode.is_open()),
-        })
-        .into_value()
+        (move || state.with(|state| state.is_open())).into_value()
     }
 
     /// Whether the open combobox is presented in a touch sheet.
     pub fn is_sheet_open(self) -> Value<bool> {
-        let open = self.is_open();
         memo(move || {
-            open.get()
-                && self.session.state().with(|state| {
-                    matches!(
-                        state.mode,
-                        machine::ComboMode::Browsing(crate::surface::Surface::Sheet)
-                            | machine::ComboMode::Filtering(crate::surface::Surface::Sheet)
-                    )
-                })
+            self.session
+                .state()
+                .with(|state| state.surface() == Some(Surface::Sheet))
         })
     }
 
     /// Show the list in a touch sheet; an open popover list moves to the
     /// sheet. Nothing changes while the sheet shows.
     pub fn show_sheet(self) {
-        let in_sheet = self.session.state().with_untracked(|state| {
-            matches!(
-                state.mode,
-                machine::ComboMode::Browsing(crate::surface::Surface::Sheet)
-                    | machine::ComboMode::Filtering(crate::surface::Surface::Sheet)
-            )
-        });
+        let in_sheet = self
+            .session
+            .state()
+            .with_untracked(|state| state.surface() == Some(Surface::Sheet));
         if !in_sheet {
             self.session.send(machine::Event::OpenSheet);
         }
@@ -511,32 +496,19 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// makes a value, which only setup may do, and the commands run in
     /// handlers.
     fn shown(self) -> bool {
-        match self.mode.get() {
-            PresentationMode::Inline => true,
-            PresentationMode::Popup(_) => self
-                .session
-                .state()
-                .with_untracked(|state| state.mode.is_open()),
-        }
+        self.session.state().with_untracked(|state| state.is_open())
     }
 
     /// The query binding for the caller's native editing attachment.
     pub fn query(self) -> Binding<String> {
-        binding(
-            memo(move || self.session.state().with(|state| state.query.get())),
-            move |query| {
-                self.session.send(machine::Event::Query(query));
-            },
-        )
+        binding(memo(move || self.query.value().get().get()), move |query| {
+            self.session.send(machine::Event::Query(query));
+        })
     }
 
     /// Whether the current query was entered by the user rather than browsing.
     pub fn is_filtering(self) -> Value<bool> {
-        memo(move || {
-            self.session
-                .state()
-                .with(|state| matches!(state.mode, machine::ComboMode::Filtering(_)))
-        })
+        memo(move || self.session.state().with(|state| state.is_filtering()))
     }
 
     /// The keys of the options the query shows, in order.
@@ -570,7 +542,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                     None => keys.push(key),
                 }
                 values.set(keys);
-                self.session.send(machine::Event::Reset);
+                self.session.send(machine::Event::Toggled);
             }
             Selection::Single(value) => {
                 value.set(Some(key));
@@ -675,10 +647,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
                             self.hide();
                         }
                         Key::Backspace
-                            if self
-                                .session
-                                .state()
-                                .with_untracked(|state| state.query.get().is_empty()) =>
+                            if self.query.get().with_untracked(|query| query.is_empty()) =>
                         {
                             let Selection::Multiple(values) = self.selection else {
                                 return Handled::No;

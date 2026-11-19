@@ -1,163 +1,169 @@
-//! Role: Own combobox query, presentation and highlight transitions atomically.
+//! Role: Own the combobox open state, filter phase and highlight in one step.
 use crate::surface::Surface;
-use kivact_core::state::{Binding, IntoValue, Machine as MachineTrait, Step};
+use kivact_core::state::{Machine as MachineTrait, Step};
 use std::marker::PhantomData;
-#[derive(Clone)]
-pub(super) enum Query {
-    Local(String),
-    Shared(Binding<String>),
-}
-impl PartialEq for Query {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Local(a), Self::Local(b)) => a == b,
-            (Self::Shared(a), Self::Shared(b)) => a.into_value() == b.into_value(),
-            _ => false,
-        }
-    }
-}
-impl Query {
-    pub(super) fn get(&self) -> String {
-        match self {
-            Self::Local(text) => text.clone(),
-            Self::Shared(source) => source.get(),
-        }
-    }
-}
+
+/// Whether the list shows, and while it shows, its surface, whether the
+/// query was typed since it opened, and the highlighted option.
 #[derive(Clone, PartialEq)]
-pub(super) struct ComboboxState<K> {
-    pub(super) mode: ComboMode,
-    pub(super) query: Query,
-    pub(super) highlight: Option<K>,
-}
-#[derive(Clone, Copy, PartialEq)]
-pub(super) enum ComboMode {
+pub(super) enum ComboState<K> {
     Closed,
-    Browsing(Surface),
-    Filtering(Surface),
+    Open {
+        surface: Surface,
+        /// The query was typed, or written by the caller, while open.
+        filtering: bool,
+        highlight: Option<K>,
+    },
 }
-impl ComboMode {
-    fn surface(self) -> Surface {
+impl<K> ComboState<K> {
+    pub(super) fn is_open(&self) -> bool {
+        matches!(self, Self::Open { .. })
+    }
+    pub(super) fn is_filtering(&self) -> bool {
+        matches!(
+            self,
+            Self::Open {
+                filtering: true,
+                ..
+            }
+        )
+    }
+    pub(super) fn surface(&self) -> Option<Surface> {
         match self {
-            Self::Browsing(surface) | Self::Filtering(surface) => surface,
-            Self::Closed => Surface::Popover,
+            Self::Open { surface, .. } => Some(*surface),
+            Self::Closed => None,
         }
     }
-    pub(super) fn is_open(self) -> bool {
-        !matches!(self, Self::Closed)
-    }
-}
-/// The close transition's reset of the query and the highlight.
-fn reset<K: Clone>(state: &ComboboxState<K>, next: &mut ComboboxState<K>) -> Option<Effect> {
-    next.highlight = None;
-    match state.query {
-        Query::Shared(source) => Some(Effect::Query(source, String::new())),
-        Query::Local(_) => {
-            next.query = Query::Local(String::new());
-            None
+    pub(super) fn highlight(&self) -> Option<&K> {
+        match self {
+            Self::Open { highlight, .. } => highlight.as_ref(),
+            Self::Closed => None,
         }
     }
 }
 pub(super) enum Event<K> {
+    /// Show the list in the popover.
     Open,
+    /// Show the list in the touch sheet; an open popover moves to the sheet.
     OpenSheet,
     Close,
-    /// The caller's open binding changed; the machine is its source of truth.
+    /// The caller's open binding, or the palette's open, changed.
     OpenRequested(bool),
-    /// The attached field lost the focus; `transferred` keeps the popup open
-    /// for a presentation that owns the focus instead.
+    /// The attached field lost the focus; `transferred` keeps the list
+    /// open for a presentation that owns the focus instead.
     FocusLeft {
         transferred: bool,
     },
-    Share(Binding<String>),
+    /// The user typed this query.
     Query(String),
+    /// The caller wrote the shared query.
     QueryChanged,
     Highlight(K),
-    /// Clear the query and the highlight without closing (a multiple choice
-    /// clears the search and keeps the list open).
-    Reset,
+    /// A multiple choice toggled an option: the search clears and the
+    /// list stays open.
+    Toggled,
 }
 pub(super) enum Effect {
-    Query(Binding<String>, String),
+    /// Write this text to the query binding.
+    WriteQuery(String),
+    /// Write the caller's open binding.
     WriteOpen(bool),
 }
-pub(super) struct Machine<K>(PhantomData<fn() -> K>);
+/// The transition, with the presentation fixed at setup.
+pub(super) struct Machine<K> {
+    /// An inline list (the command palette's) closes only when its owner
+    /// closes it, and its next opening starts from an empty query. A popup
+    /// keeps its query when it closes: the field still shows the text.
+    inline: bool,
+    key: PhantomData<fn() -> K>,
+}
 impl<K> Machine<K> {
-    pub(super) fn new() -> Self {
-        Self(PhantomData)
+    pub(super) fn new(inline: bool) -> Self {
+        Self {
+            inline,
+            key: PhantomData,
+        }
+    }
+    fn open(surface: Surface, highlight: Option<K>) -> Step<ComboState<K>, Event<K>, Effect> {
+        Step::to(ComboState::Open {
+            surface,
+            filtering: false,
+            highlight,
+        })
+        .with(Effect::WriteOpen(true))
+    }
+    /// Close an open list. The highlight goes with the open state; an
+    /// inline list also clears its query.
+    fn close(&self, state: &ComboState<K>) -> Step<ComboState<K>, Event<K>, Effect> {
+        if !state.is_open() {
+            return Step::stay();
+        }
+        let step = Step::to(ComboState::Closed).with(Effect::WriteOpen(false));
+        if self.inline {
+            step.with(Effect::WriteQuery(String::new()))
+        } else {
+            step
+        }
     }
 }
 impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
-    type State = ComboboxState<K>;
+    type State = ComboState<K>;
     type Event = Event<K>;
     type Effect = Effect;
     fn transition(
         &self,
-        state: &ComboboxState<K>,
+        state: &ComboState<K>,
         event: Event<K>,
-    ) -> Step<ComboboxState<K>, Event<K>, Effect> {
-        let mut next = state.clone();
+    ) -> Step<ComboState<K>, Event<K>, Effect> {
         match event {
-            Event::Share(source) => {
-                next.query = Query::Shared(source);
-                next.highlight = None;
-            }
-            Event::QueryChanged => {
-                next.mode = ComboMode::Filtering(state.mode.surface());
-                next.highlight = None;
-            }
-            Event::Open => {
-                next.mode = ComboMode::Browsing(Surface::Popover);
-                return Step::to(next).with(Effect::WriteOpen(true));
-            }
-            Event::OpenSheet => {
-                next.mode = ComboMode::Browsing(Surface::Sheet);
-                return Step::to(next).with(Effect::WriteOpen(true));
-            }
-            Event::OpenRequested(true) if state.mode.is_open() => return Step::stay(),
-            Event::OpenRequested(true) => {
-                next.mode = ComboMode::Browsing(Surface::Popover);
-                return Step::to(next).with(Effect::WriteOpen(true));
-            }
-            Event::OpenRequested(false) | Event::Close => {
-                if !state.mode.is_open() {
-                    return Step::stay();
-                }
-                next.mode = ComboMode::Closed;
-                next.highlight = None;
-                return Step::to(next).with(Effect::WriteOpen(false));
-            }
-            Event::FocusLeft { transferred } => {
-                if transferred || !state.mode.is_open() {
-                    return Step::stay();
-                }
-                next.mode = ComboMode::Closed;
-                next.highlight = None;
-                return Step::to(next).with(Effect::WriteOpen(false));
-            }
-            Event::Highlight(key) => next.highlight = Some(key),
+            Event::Open | Event::OpenRequested(true) if state.is_open() => Step::stay(),
+            Event::Open | Event::OpenRequested(true) => Self::open(Surface::Popover, None),
+            Event::OpenSheet => Self::open(Surface::Sheet, state.highlight().cloned()),
+            Event::Close | Event::OpenRequested(false) => self.close(state),
+            Event::FocusLeft { transferred: true } => Step::stay(),
+            Event::FocusLeft { transferred: false } => self.close(state),
             Event::Query(text) => {
-                let opens = !state.mode.is_open();
-                next.mode = ComboMode::Filtering(state.mode.surface());
-                next.highlight = None;
-                let mut step = match state.query {
-                    Query::Shared(source) => Step::to(next).with(Effect::Query(source, text)),
-                    Query::Local(_) => {
-                        next.query = Query::Local(text);
-                        Step::to(next)
-                    }
-                };
-                if opens {
-                    step = step.with(Effect::WriteOpen(true));
-                }
-                return step;
-            }
-            Event::Reset => {
-                if let Some(effect) = reset(state, &mut next) {
-                    return Step::to(next).with(effect);
+                let step = Step::to(ComboState::Open {
+                    surface: state.surface().unwrap_or(Surface::Popover),
+                    filtering: true,
+                    highlight: None,
+                })
+                .with(Effect::WriteQuery(text));
+                if state.is_open() {
+                    step
+                } else {
+                    step.with(Effect::WriteOpen(true))
                 }
             }
+            Event::QueryChanged => match state {
+                ComboState::Open { surface, .. } => Step::to(ComboState::Open {
+                    surface: *surface,
+                    filtering: true,
+                    highlight: None,
+                }),
+                ComboState::Closed => Step::stay(),
+            },
+            Event::Highlight(key) => match state {
+                ComboState::Open {
+                    surface, filtering, ..
+                } => Step::to(ComboState::Open {
+                    surface: *surface,
+                    filtering: *filtering,
+                    highlight: Some(key),
+                }),
+                ComboState::Closed => Step::stay(),
+            },
+            Event::Toggled => match state {
+                ComboState::Open {
+                    surface, filtering, ..
+                } => Step::to(ComboState::Open {
+                    surface: *surface,
+                    filtering: *filtering,
+                    highlight: None,
+                })
+                .with(Effect::WriteQuery(String::new())),
+                ComboState::Closed => Step::stay().with(Effect::WriteQuery(String::new())),
+            },
         }
-        Step::to(next)
     }
 }
