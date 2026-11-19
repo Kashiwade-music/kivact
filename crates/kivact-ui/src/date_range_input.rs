@@ -427,7 +427,8 @@ fn range_machine(
             }
         },
     );
-    kivact_core::state::effect(move || draft.send(DraftEvent::External(value.get())));
+    draft.send(DraftEvent::External(value.get_untracked()));
+    draft.feed(value, DraftEvent::External);
     draft
 }
 /// Bind picker visibility to the draft machine's open and close transitions.

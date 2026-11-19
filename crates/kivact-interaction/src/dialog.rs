@@ -155,9 +155,7 @@ pub struct DialogApi {
 /// Create a dialog of `kind`, shown while `open` is true. Setup only.
 #[track_caller]
 pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: DialogMode) -> DialogApi {
-    let popup = use_popup(open)
-        .modal(kind != DialogMode::Popover)
-        .focus_first();
+    let popup = use_popup(open).focus_first();
     if kind == DialogMode::Popover {
         // Resolve the configured anchor at each opening, after setup has
         // installed an external anchor or the trigger has mounted.

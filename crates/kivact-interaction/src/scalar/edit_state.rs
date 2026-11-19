@@ -1,6 +1,5 @@
 //! Role: Edit session, drag and focus count shared by the thumbs of one scalar.
 
-use super::focus_machine::{Effect, Event, Machine};
 use super::touch::{Touch, TouchSliderGesture};
 use super::track::{self, Grip, Pointer};
 use crate::drag::DragApi;
@@ -9,8 +8,7 @@ use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarStep;
 use kivact_core::custom::Owner;
 use kivact_core::geometry::Rect;
-use kivact_core::state::{MachineHandle, machine};
-use kivact_core::state::{Signal, Value, effect, memo, on_cleanup, signal};
+use kivact_core::state::{Signal, Value, effect, effect_on, memo, on_cleanup, signal};
 use kivact_core::view::{Handled, NodeRef, node_ref};
 
 /// The edit plumbing one [`ScalarApi`] or both thumbs of a
@@ -23,7 +21,6 @@ pub(crate) struct Shared {
     pub(crate) pointer: Pointer,
     pub(crate) drag: DragApi<Grip>,
     pub(crate) settings: OptionsCell<ScalarOptions>,
-    focus: MachineHandle<Machine>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
     /// The disabled state each mounted thumb or track received from its
@@ -53,27 +50,28 @@ impl Shared {
         });
         let thumb_focus = signal(Vec::<Value<bool>>::new());
         let drag = track::drag(session, snapshot, pointer, disabled);
-        let focus = machine(
-            (),
-            move || Machine {
-                any_focused: thumb_focus.with(|focus| focus.iter().any(|v| v.get())),
-            },
-            move |_, Effect::Cancel| {
-                drag.cancel();
-                if let Some(touch) = settings.get().touch {
-                    touch.finish(true);
-                }
-            },
-        );
         Shared {
             session,
             snapshot,
             pointer,
             drag,
             settings,
-            focus,
             thumb_focus,
             host_disabled,
+        }
+    }
+
+    /// Cancel the drag and finish a touch gesture with a restore once no
+    /// thumb has the focus.
+    fn thumb_blurred(self) {
+        let any_focused = self
+            .thumb_focus
+            .with_untracked(|thumbs| thumbs.iter().any(|thumb| thumb.get_untracked()));
+        if !any_focused {
+            self.drag.cancel();
+            if let Some(touch) = self.settings.get().touch {
+                touch.finish(true);
+            }
         }
     }
 
@@ -181,11 +179,9 @@ impl Edit {
 #[track_caller]
 pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
     shared.thumb_focus.update(|thumbs| thumbs.push(focused));
-    shared.focus.feed(focused, |focused| {
-        if focused {
-            Event::ThumbFocus
-        } else {
-            Event::ThumbBlur
+    effect_on(focused, move |focused: &bool| {
+        if !*focused {
+            shared.thumb_blurred();
         }
     });
     on_cleanup(move || {
@@ -195,7 +191,7 @@ pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
                 .thumb_focus
                 .update(|thumbs| thumbs.retain(|thumb| *thumb != focused));
             if was_focused {
-                shared.focus.send(Event::ThumbBlur);
+                shared.thumb_blurred();
             }
         }
     });

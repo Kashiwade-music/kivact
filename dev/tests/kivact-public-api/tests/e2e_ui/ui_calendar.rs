@@ -214,3 +214,31 @@ fn date_range_input_keeps_invalid_order_as_a_draft() {
     assert_eq!(end.value(), Some("2026-10-08".into()));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn the_status_names_the_shown_month_and_follows_navigation() {
+    let (screen, month) = mount(|| {
+        let month = signal(CalendarMonth::new(2026, 10));
+        (month, ui::calendar(signal(Some(day(14)))).month(month))
+    });
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Showing October 2026")
+            .is_some()
+    );
+    screen.get_by_role(Role::Button, "Next month").click();
+    assert_eq!(month.get_untracked(), CalendarMonth::new(2026, 11));
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Showing November 2026")
+            .is_some()
+    );
+    month.set(CalendarMonth::new(2027, 1));
+    screen.run_until_idle();
+    assert!(
+        screen
+            .query_by_role(Role::Status, "Showing January 2027")
+            .is_some()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

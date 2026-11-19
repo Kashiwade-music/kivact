@@ -4,7 +4,6 @@ use super::machine::{Effect, Event, Machine, State};
 use super::order::kept_levels;
 use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOptions, MenuOrigin, Opened, Target, Want};
-use crate::list::typeahead::Typeahead;
 use crate::{FocusReturn, PopupApi, PopupCloseReason, ReasonSet, use_popup};
 use kivact_core::state::{Binding, Callback, MachineHandle, Signal, Value, memo, signal};
 use kivact_core::view::NodeRef;
@@ -28,7 +27,6 @@ pub(super) struct Session<K: kivact_core::state::ItemKey> {
     pub(super) kept: Value<usize>,
     pub(super) want: Value<Option<Want<K>>>,
     pub(super) machine: MachineHandle<super::machine::Machine<K>>,
-    pub(super) typed: kivact_core::state::Binding<Typeahead>,
     pub(super) press: Option<super::press_state::Press>,
     pub(super) surface_rects: Signal<Vec<(Vec<K>, kivact_core::geometry::Rect)>>,
 }
@@ -79,7 +77,6 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             },
         );
         let state = machine.state();
-        let typed = typeahead_binding(machine);
         let path = memo(move || state.with(State::path));
         let focus_key = memo(move || state.with(State::focus));
         let want = memo(move || {
@@ -120,7 +117,6 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             focus_key,
             kept,
             want,
-            typed,
             machine,
             surface_rects: signal(Vec::new()),
             press,
@@ -238,19 +234,4 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
             self.close_level(depth);
         }
     }
-}
-
-fn typeahead_binding<K: kivact_core::state::ItemKey>(
-    machine: MachineHandle<Machine<K>>,
-) -> kivact_core::state::Binding<Typeahead> {
-    let state = machine.state();
-    kivact_core::state::binding(
-        move || {
-            state.with(|state| match state {
-                State::Closed => Typeahead::default(),
-                State::Open { typeahead, .. } => typeahead.clone(),
-            })
-        },
-        move |typed| machine.send(Event::Typeahead(typed)),
-    )
 }

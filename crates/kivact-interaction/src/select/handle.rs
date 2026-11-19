@@ -4,9 +4,9 @@
 //! list box of keyed options.
 //!
 //! The closed trigger and the open list are two [`ListApi`]s over
-//! the same options with the listbox policy, sharing one private typeahead
-//! slot for the select's lifetime, so a letter typed at the trigger and one
-//! typed in the list continue the same search. The closed trigger can select
+//! the same options with the listbox policy, and the open list types into
+//! the closed trigger's type-to-find prefix, so a letter typed at the trigger
+//! and one typed in the list continue the same search. The closed trigger can select
 //! options that are not mounted; there is no public raw input dispatch for
 //! it. Choosing uses the list's private mounted selection path, and the
 //! focus after closing is the popup's (see `crate::popup`). Row count, scroll
@@ -17,7 +17,7 @@
 use super::machine;
 
 use crate::Selection;
-use crate::list::typeahead::Typeahead;
+use crate::list::use_list_retaining;
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, part};
 use kivact_core::state::{MachineHandle, binding, machine};
@@ -154,9 +154,7 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
     });
     let preview: Var<Option<kivact_core::state::Callback<Option<K>>>> = var(None);
     let session = machine(
-        machine::State::Closed {
-            typeahead: Typeahead::default(),
-        },
+        machine::State::Closed,
         || machine::Machine::<K>::new(),
         move |_, effect| match effect {
             machine::Effect::Preview(key) => {
@@ -180,10 +178,6 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
             });
         },
     );
-    let typed = binding(
-        memo(move || session.state().with(|state| state.typeahead().clone())),
-        move |typed| session.send(machine::Event::Typeahead(typed)),
-    );
     let highlight = binding(
         memo(move || {
             session.state().with(|state| match state {
@@ -202,6 +196,12 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
         }),
         move |key| session.send(machine::Event::Hover(key)),
     );
+    let settings = OptionsCell::new(SelectOptions {
+        arrow_open: false.into_value(),
+        keep_trigger_focus: true.into_value(),
+    });
+    let retained = retained_focus(settings, session);
+    let (closed, list) = trigger_and_list(options, selected, retained, highlight);
     SelectApi {
         content_state: signal(None),
         edit,
@@ -210,17 +210,10 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
         placeholder: signal(message("select.placeholder", "Select…")),
         preview,
         popup: use_popup(open).anchor_starts_focus_range(true),
-        // The closed trigger moves the selection through the logical order,
-        // including options that are not mounted.
-        closed: group(options, selected).shared_typeahead(typed),
-        settings: OptionsCell::new(SelectOptions {
-            arrow_open: false.into_value(),
-            keep_trigger_focus: true.into_value(),
-        }),
+        closed,
+        settings,
         session,
-        list: group(options, selected)
-            .shared_typeahead(typed)
-            .shared_highlight(highlight),
+        list,
         hovered,
     }
 }
@@ -271,7 +264,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
         let enabled = enabled.into_value();
         self.settings
             .update(|options| options.keep_trigger_focus = enabled);
-        self.list.retain_focus(enabled);
         self.popup = self.popup.anchor_starts_focus_range(enabled);
         self
     }
@@ -579,7 +571,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     .with(|options| options.keep_trigger_focus.get())
             })
         };
-        list.retain_focus(keep_trigger_focus);
         let shown = popup.is_open();
         let base = if sheet {
             let input = part(move |input| PopupState {
@@ -765,6 +756,52 @@ fn retained_key<K: kivact_core::state::ItemKey>(
 fn is_alt_up(event: &KeyEvent) -> bool {
     let m = event.modifiers();
     event.key() == Key::ArrowUp && m.alt && !m.ctrl && !m.meta
+}
+
+/// Whether the open list leaves the focus on the trigger: the trigger keeps
+/// it, except in the sheet, whose options take the focus.
+fn retained_focus<K: kivact_core::state::ItemKey>(
+    settings: OptionsCell<SelectOptions>,
+    session: MachineHandle<machine::Machine<K>>,
+) -> Value<bool> {
+    memo(move || {
+        settings
+            .value()
+            .with(|options| options.keep_trigger_focus.get())
+            && !session.state().with(|state| {
+                matches!(
+                    state,
+                    machine::State::Open {
+                        surface: machine::Surface::Sheet,
+                        ..
+                    }
+                )
+            })
+    })
+}
+
+/// The closed trigger and the open list over the same options. The list
+/// leaves the focus on the trigger while `retained` is true, and continues
+/// the closed trigger's type-to-find prefix.
+fn trigger_and_list<K: kivact_core::state::ItemKey>(
+    options: Value<Vec<ListItem<K>>>,
+    selected: Binding<Option<K>>,
+    retained: Value<bool>,
+    highlight: Binding<Option<K>>,
+) -> (ListApi<K>, ListApi<K>) {
+    // The closed trigger moves the selection through the logical order,
+    // including options that are not mounted; the open list continues
+    // its type-to-find prefix.
+    let closed = group(options, selected);
+    let list = use_list_retaining(
+        options,
+        Selection::Single(selected),
+        ListOptions::listbox(),
+        retained,
+    )
+    .typeahead_from(closed)
+    .shared_highlight(highlight);
+    (closed, list)
 }
 
 /// A group over the options with the listbox policy: Up and Down stop at the

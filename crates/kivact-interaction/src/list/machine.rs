@@ -51,16 +51,9 @@ pub(super) enum Pending<K> {
     Nothing,
     Activating { key: K, origin: Origin },
 }
-#[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Focus {
-    Physical,
-    Retained,
-}
-
 #[derive(Clone, PartialEq)]
 pub(super) struct State<K> {
     pub(super) pending: Pending<K>,
-    pub(super) focus: Focus,
     pub(super) typed: Typeahead,
 }
 pub(super) enum Event<K> {
@@ -69,7 +62,6 @@ pub(super) enum Event<K> {
         origin: Origin,
     },
     Cancel,
-    MountFocus(Focus),
     Observe(Option<NodeToken>),
     Typeahead(Typeahead),
     /// The type-to-find window ended.
@@ -90,7 +82,6 @@ impl<K: Clone + PartialEq + 'static> MachineTrait for Machine<K> {
         match event {
             Event::Activate { key, origin } => next.pending = Pending::Activating { key, origin },
             Event::Cancel => next.pending = Pending::Nothing,
-            Event::MountFocus(focus) => next.focus = focus,
             Event::Observe(current) => match state.pending {
                 Pending::Activating { origin, .. } if !origin.kept(current) => {
                     next.pending = Pending::Nothing

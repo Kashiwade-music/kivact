@@ -26,6 +26,7 @@ use kivact_core::custom::{Owned, Owner, Part, PartState};
 
 use super::press::is_double_press;
 use super::{ListApi, ListItem, ListOptions, ListRangeOptions, use_list};
+use crate::collection::Index;
 use kivact_core::state::{Binding, Callback, Value, memo};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
@@ -454,15 +455,6 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
                 .collect::<HashMap<_, _>>()
         })
     });
-    let keys = memo(move || {
-        entries.with(|entries| {
-            entries
-                .iter()
-                .filter(|e| !e.disabled)
-                .map(|e| e.row.key.clone())
-                .collect::<Vec<_>>()
-        })
-    });
     let items = memo(move || {
         entries.with(|entries| {
             entries
@@ -484,7 +476,8 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
     );
     // The active row that a closing parent hid is replaced by the
     // nearest ancestor that is still shown.
-    let list = list.leave_to(move |gone: &K| nearest_visible_ancestor(nodes, keys, gone));
+    let index = list.index();
+    let list = list.leave_to(move |gone: &K| nearest_visible_ancestor(nodes, index, gone));
     let shared = Rc::new(Shared {
         nodes,
         expanded,
@@ -873,7 +866,7 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
 
 fn nearest_visible_ancestor<K: kivact_core::state::ItemKey>(
     nodes: Value<Vec<TreeNode<K>>>,
-    keys: Value<Vec<K>>,
+    index: Value<Index<K>>,
     gone: &K,
 ) -> Option<K> {
     nodes.with(|nodes| {
@@ -882,7 +875,7 @@ fn nearest_visible_ancestor<K: kivact_core::state::ItemKey>(
         while let Some(node) = at {
             at = forest.parent[node];
             if let Some(parent) = at
-                && keys.with(|keys| keys.contains(&forest.keys[parent]))
+                && index.with(|index| index.enabled(&forest.keys[parent]))
             {
                 return Some(forest.keys[parent].clone());
             }

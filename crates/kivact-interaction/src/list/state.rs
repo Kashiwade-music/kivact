@@ -11,12 +11,12 @@ use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Sent};
 use kivact_core::state::{
-    Binding, Callback, Selector, Signal, Value, binding, effect, memo, selector, signal,
+    Binding, Callback, Selector, Signal, Value, effect, memo, selector, signal,
 };
 use kivact_core::state::{IntoBinding, IntoValue};
 use kivact_core::state::{MachineHandle, machine};
 use kivact_core::view::NodeRef;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
 
@@ -27,16 +27,17 @@ type Selectable<K> = Rc<dyn Fn(&K) -> bool>;
 
 #[derive(Clone)]
 pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
-    pub(super) retained_focus: Value<bool>,
     pub(super) reset_on_exit: bool,
     pub(super) page: Value<usize>,
     pub(super) leave: Option<Leave<K>>,
     pub(super) scroll: Option<Scroll<K>>,
     pub(super) selectable: Option<Selectable<K>>,
     pub(super) anchor: Binding<Option<K>>,
+    /// The list whose type-to-find prefix this one types into (a select's
+    /// open list types into its closed trigger's); `None` is its own.
+    pub(super) typeahead: Option<MachineHandle<machine::Machine<K>>>,
 }
 
-// xtask-allow(state): legacy: item_states, container_state, typed; the observation of the attached container part, absent until it attaches
 pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
     pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
@@ -62,7 +63,9 @@ pub(super) struct State<K: kivact_core::state::ItemKey> {
     pub(super) mode: ListMode,
     pub(super) policy: OptionsCell<ListOptions>,
     pub(super) options: OptionsCell<ListSetupOptions<K>>,
-    pub(super) typed: Cell<Binding<Typeahead>>,
+    /// Whether the items leave the focus on another node (a select's
+    /// trigger keeps it); fixed at construction, reactive in its value.
+    pub(super) retained_focus: Value<bool>,
     pub(super) pending: MachineHandle<machine::Machine<K>>,
 }
 
@@ -77,6 +80,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     items: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
     policy: ListOptions,
+    retained_focus: Value<bool>,
 ) -> Owned<Rc<State<K>>> {
     let owner = Owner::current();
     let root = Owner::root();
@@ -96,17 +100,10 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     let pending = machine(
         machine::State {
             pending: machine::Pending::Nothing,
-            focus: machine::Focus::Physical,
             typed: Typeahead::Idle,
         },
         || machine::Machine::new(),
         |_, ()| {},
-    );
-    // The type-to-find buffer is the machine's: the machine ends the prefix
-    // after its window, and a shared slot (a select or a menu) owns its own.
-    let typed = binding(
-        memo(move || pending.state().with(|state| state.typed.clone())),
-        move |typed| pending.send(machine::Event::Typeahead(typed)),
     );
     // Where a search for the tab stop starts: the requested row's ordinal in
     // the current order, else the first row. A pure projection; no history.
@@ -121,7 +118,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         targets,
         membership.keys(),
         option_values,
-        pending,
+        retained_focus,
         mode,
         position,
     );
@@ -144,7 +141,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
         mode,
         policy,
         options,
-        typed: Cell::new(typed),
+        retained_focus,
         pending,
     });
     let stored = owner.store("ListApi", state.clone());
@@ -154,19 +151,25 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
 
 fn default_setup_options<K: kivact_core::state::ItemKey>() -> OptionsCell<ListSetupOptions<K>> {
     OptionsCell::new(ListSetupOptions {
-        retained_focus: false.into_value(),
         reset_on_exit: true,
         page: 10.into_value(),
         leave: None,
         scroll: None,
         selectable: None,
         anchor: signal(None::<K>).into_binding(),
+        typeahead: None,
     })
 }
 
 impl<K: kivact_core::state::ItemKey> State<K> {
     pub(super) fn retains_focus(&self) -> bool {
-        self.pending.state().get_untracked().focus == machine::Focus::Retained
+        self.retained_focus.get_untracked()
+    }
+
+    /// The machine that holds the type-to-find prefix this list types
+    /// into: its own, or the one given to `ListApi::typeahead_from`.
+    pub(super) fn typeahead_owner(&self) -> MachineHandle<machine::Machine<K>> {
+        self.options.get().typeahead.unwrap_or(self.pending)
     }
 
     /// The policy as set now (untracked).
@@ -346,7 +349,7 @@ fn active_value<K: kivact_core::state::ItemKey>(
     targets: Roving<K>,
     selected_value: Value<HashSet<K>>,
     option_values: Value<ListSetupOptions<K>>,
-    pending: MachineHandle<machine::Machine<K>>,
+    retained: Value<bool>,
     mode: ListMode,
     position: Value<usize>,
 ) -> Value<Option<K>> {
@@ -365,7 +368,7 @@ fn active_value<K: kivact_core::state::ItemKey>(
                 // A caller scroll callback can materialize a requested logical row.
                 // Keep that destination authoritative until its node mounts.
                 let virtual_request = option_values.get().scroll.is_some()
-                    && pending.state().get().focus == machine::Focus::Physical
+                    && !retained.get()
                     && !targets.contains(key);
                 if order.enabled(key) && (available(key) || virtual_request) {
                     return Some(key.clone());
@@ -435,7 +438,7 @@ fn observe_list<K: kivact_core::state::ItemKey>(state: Rc<State<K>>, stored: Own
                 format!("ListApi: {count} duplicate logical key(s); first occurrence wins"),
             );
         }
-        if state.pending.state().get().focus == machine::Focus::Physical {
+        if !state.retained_focus.get() {
             reconcile(&state);
         }
     });

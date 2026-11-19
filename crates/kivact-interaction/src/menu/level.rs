@@ -102,7 +102,6 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             Selection::Single(signal(None::<K>).into_binding()),
             ListOptions::menu(),
         )
-        .shared_typeahead(session.typed)
         .shared_highlight(kivact_core::state::binding(
             move || session.focused_at(depth),
             move |key| {
@@ -219,6 +218,8 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
             {
                 session.request(0, Edge::First);
             }
+            // The top level outlives its surface: closing the menu ends its search.
+            on_cleanup(move || group.clear_typeahead());
         }
         // Focus requests addressed to this level wait for its nodes
         // to be live.

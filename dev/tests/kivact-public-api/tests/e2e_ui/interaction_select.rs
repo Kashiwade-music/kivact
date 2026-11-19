@@ -348,3 +348,26 @@ fn a_preview_given_after_the_content_part_is_reported() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn letters_at_the_trigger_and_in_the_open_list_continue_one_search() {
+    let (screen, selected) = mount_select(fruit(), None);
+    let trigger = trigger(&screen);
+    trigger.press_key(Key::Char('a'));
+    assert_eq!(
+        selected.get_untracked(),
+        Some("apple"),
+        "a letter at the closed trigger selects the first match"
+    );
+    trigger.press_key_with(Key::ArrowDown, alt());
+    screen.press_key(Key::Char('p'));
+    screen.press_key(Key::Char('r'));
+    screen.press_key(Key::Enter);
+    assert_eq!(
+        selected.get_untracked(),
+        Some("apricot"),
+        "\"apr\" continues the search begun at the trigger"
+    );
+    assert!(closed(&screen));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

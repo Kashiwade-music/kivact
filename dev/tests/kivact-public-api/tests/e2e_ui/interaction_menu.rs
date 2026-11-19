@@ -542,3 +542,25 @@ fn a_submenu_item_the_pointer_rests_on_during_a_held_press_opens_after_the_delay
     assert!(screen.get_by_role(Role::Menu, "Export").exists());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_letter_moves_to_the_next_item_starting_with_it_and_closing_ends_the_search() {
+    let (screen, _) = mount_button(edit_entries());
+    let trigger = screen.get_by_role(Role::Button, "Edit");
+    trigger.press_key(Key::ArrowDown);
+    assert!(item(&screen, "Copy").is_focused());
+    screen.press_key(Key::Char('s'));
+    assert!(
+        item(&screen, "Select all").is_focused(),
+        "s: the next enabled item starting with it"
+    );
+    screen.press_key(Key::Escape);
+    trigger.press_key(Key::ArrowDown);
+    assert!(item(&screen, "Copy").is_focused());
+    screen.press_key(Key::Char('p'));
+    assert!(
+        item(&screen, "Paste").is_focused(),
+        "after reopening a letter starts a new search, not \"sp\""
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

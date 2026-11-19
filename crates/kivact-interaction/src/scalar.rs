@@ -52,11 +52,9 @@
 
 mod data;
 mod edit_state;
-mod focus_machine;
 mod handle;
 mod ops;
 mod range;
-mod range_machine;
 mod touch;
 mod touch_data;
 mod touch_machine;

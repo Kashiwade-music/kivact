@@ -116,7 +116,6 @@ struct PopupOptions {
     focus_return: Option<FocusReturn>,
     return_focus_target: Option<Value<NodeRef>>,
     anchor_starts_focus_range: Option<Value<bool>>,
-    modal: bool,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -159,7 +158,9 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
                 "PopupApi: one surface at a time; create one popup per simultaneous surface",
             ),
             machine::Effect::WriteClose { reason, opening } => {
-                disclosure.open.set(false);
+                if disclosure.is_open().get_untracked() {
+                    disclosure.open.set(false);
+                }
                 if !disclosure.is_open().get_untracked() {
                     let target = opening.and_then(|(opener, policy)| {
                         return_target(
@@ -167,7 +168,7 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
                             reason,
                             opener,
                             settings.get().anchor.unwrap_or(own_anchor),
-                            settings.get().modal || disclosure.content.is_modal(),
+                            disclosure.content.is_modal(),
                         )
                     });
                     cx.send(Event::Accepted { reason, target });
@@ -188,10 +189,6 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
                 }
             }
             machine::Effect::Return(opener) => opener.restore_focus(),
-            machine::Effect::Unmounted => cx.send(Event::Unmount {
-                was_inside: false,
-                target: None,
-            }),
         },
     );
     PopupApi {
@@ -205,11 +202,6 @@ pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
 }
 
 impl PopupApi {
-    pub(crate) fn modal(self, modal: bool) -> Self {
-        self.settings.update(|options| options.modal = modal);
-        self
-    }
-
     /// Drawing state of the mounted trigger.
     pub fn trigger_state(self) -> Value<PopupState> {
         memo(move || {
@@ -353,21 +345,6 @@ impl PopupApi {
         self.machine.send(Event::Close(reason));
     }
 
-    fn finish_close(self, reason: PopupCloseReason) {
-        let modal = self.content_ref().is_modal();
-        let open = self.is_open();
-        if open.get_untracked() {
-            self.disclosure.open.set(false);
-        }
-        if open.get_untracked() || modal {
-            return;
-        }
-        self.machine.send(Event::Accepted {
-            reason,
-            target: self.return_target(reason),
-        });
-    }
-
     fn return_target(self, reason: PopupCloseReason) -> Option<kivact_core::custom::NodeToken> {
         let State::Open { opener, policy, .. } = self.machine.state().get_untracked() else {
             return None;
@@ -377,7 +354,7 @@ impl PopupApi {
             reason,
             opener,
             self.anchor_ref(),
-            self.settings.get().modal || self.content_ref().is_modal(),
+            self.content_ref().is_modal(),
         )
     }
 
@@ -472,16 +449,17 @@ impl PopupApi {
                         return;
                     }
                     // An earlier caller dismissal handler may already have closed the
-                    // binding. Its surface is still mounted during this same handler
-                    // chain, so the reason's focus policy still applies.
-                    self.finish_close(match reason {
+                    // binding. The surface is still mounted during this handler
+                    // chain, so the close effect still computes the reason's focus
+                    // return.
+                    self.machine.send(Event::Close(match reason {
                         DismissReason::Escape | DismissReason::WindowClose => {
                             PopupCloseReason::Escape
                         }
                         DismissReason::OutsidePress => PopupCloseReason::OutsidePress,
                         DismissReason::Accessibility => PopupCloseReason::Accessibility,
                         DismissReason::Timeout => PopupCloseReason::Programmatic,
-                    });
+                    }));
                 })
                 .on_attach(move |_| self.watch())
         })
@@ -514,7 +492,7 @@ impl PopupApi {
         let open = self.is_open();
         let anchor_starts = self.settings.get().anchor_starts_focus_range;
         effect(move || {
-            if !open.get() || self.settings.get().modal {
+            if !open.get() || surface.is_modal() {
                 return;
             }
             let focused = owner.focused_node();
