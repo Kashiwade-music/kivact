@@ -57,57 +57,174 @@ pub(crate) struct LayerTraits {
     pub(crate) border: Edges<f64>,
     /// How far its layer filters draw beyond what they filter.
     pub(crate) fx: f64,
-    /// Its effects need a group (clip path, blend), whatever its opacity.
-    pub(crate) grouped: bool,
-    /// It clips its children to its padding box.
-    pub(crate) clip: bool,
     /// How many of a background, a border, shadows and a ring it draws.
     pub(crate) items: u8,
-    /// Its corners are rounded.
-    pub(crate) rounded: bool,
-    /// It has a CSS filter (it needs a layer).
-    pub(crate) filtered: bool,
-    pub(crate) masked: bool,
-    pub(crate) backdropped: bool,
-    /// Its blend mode is not normal.
-    pub(crate) blended: bool,
-    /// It isolates its group (`isolation: isolate`).
-    pub(crate) isolated: bool,
     /// Its `will-change` value.
     pub(crate) will_change: WillChange,
-    /// Its `transform-style` is `preserve-3d`.
-    pub(crate) preserves: bool,
-    /// Its element transform has no z component and no perspective.
-    pub(crate) flat: bool,
-    /// Its element transform is not the identity.
-    pub(crate) transformed: bool,
-    /// Its children are in a perspective.
-    pub(crate) perspective: bool,
-    /// Its back face is hidden.
-    pub(crate) backface_hidden: bool,
-    /// One of its background layers is a shader.
-    pub(crate) shader: bool,
+    /// Its yes/no facts (see the methods named after them).
+    pub(crate) flags: LookFlags,
+}
+
+/// The yes/no facts of a look, one bit each (the old field names are its methods).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct LookFlags(u16);
+
+impl LookFlags {
+    pub(crate) const GROUPED: Self = Self(1);
+    pub(crate) const CLIP: Self = Self(1 << 1);
+    pub(crate) const ROUNDED: Self = Self(1 << 2);
+    pub(crate) const FILTERED: Self = Self(1 << 3);
+    pub(crate) const MASKED: Self = Self(1 << 4);
+    pub(crate) const BACKDROPPED: Self = Self(1 << 5);
+    pub(crate) const BLENDED: Self = Self(1 << 6);
+    pub(crate) const ISOLATED: Self = Self(1 << 7);
+    pub(crate) const PRESERVES: Self = Self(1 << 8);
+    pub(crate) const FLAT: Self = Self(1 << 9);
+    pub(crate) const TRANSFORMED: Self = Self(1 << 10);
+    pub(crate) const PERSPECTIVE: Self = Self(1 << 11);
+    pub(crate) const BACKFACE_HIDDEN: Self = Self(1 << 12);
+    pub(crate) const SHADER: Self = Self(1 << 13);
+
+    /// Whether `flag` is set.
+    pub(crate) const fn contains(self, flag: Self) -> bool {
+        self.0 & flag.0 == flag.0
+    }
+
+    /// These flags with `flag` set when `on`.
+    pub(crate) const fn with(self, flag: Self, on: bool) -> Self {
+        if on { Self(self.0 | flag.0) } else { self }
+    }
 }
 
 const _: () = assert!(
-    std::mem::size_of::<LayerTraits>() <= 72,
+    std::mem::size_of::<LayerTraits>() <= 64,
     "LayerTraits grew: box the new rare field"
 );
 
-/// What a subtree holds that decides its layers: whether the node
-/// itself is a layer, and what its subtree contains.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub(crate) struct SubtreeFacts {
+/// What a subtree holds that decides its layers, one bit each (the old
+/// field names are its methods): whether the node itself is a layer, and
+/// what its subtree contains.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(crate) struct SubtreeFacts(u8);
+
+impl SubtreeFacts {
     /// The node is a compositor layer.
-    pub(crate) layer: bool,
+    pub(crate) const LAYER: Self = Self(1);
     /// A layer is in the subtree (the node's own included).
-    pub(crate) has_layer: bool,
+    pub(crate) const HAS_LAYER: Self = Self(1 << 1);
     /// An external frame or a shader is in the subtree.
-    pub(crate) has_item: bool,
+    pub(crate) const HAS_ITEM: Self = Self(1 << 2);
     /// A backdrop filter is in the subtree.
-    pub(crate) has_backdrop: bool,
+    pub(crate) const HAS_BACKDROP: Self = Self(1 << 3);
     /// A non-normal blend mode is in the subtree.
-    pub(crate) has_blend: bool,
+    pub(crate) const HAS_BLEND: Self = Self(1 << 4);
+
+    /// These facts with `fact` set when `on`.
+    pub(crate) const fn with(self, fact: Self, on: bool) -> Self {
+        if on { Self(self.0 | fact.0) } else { self }
+    }
+
+    /// The node is a compositor layer.
+    pub(crate) const fn layer(self) -> bool {
+        self.0 & Self::LAYER.0 != 0
+    }
+
+    /// A layer is in the subtree (the node's own included).
+    pub(crate) const fn has_layer(self) -> bool {
+        self.0 & Self::HAS_LAYER.0 != 0
+    }
+
+    /// An external frame or a shader is in the subtree.
+    pub(crate) const fn has_item(self) -> bool {
+        self.0 & Self::HAS_ITEM.0 != 0
+    }
+
+    /// A backdrop filter is in the subtree.
+    pub(crate) const fn has_backdrop(self) -> bool {
+        self.0 & Self::HAS_BACKDROP.0 != 0
+    }
+
+    /// A non-normal blend mode is in the subtree.
+    pub(crate) const fn has_blend(self) -> bool {
+        self.0 & Self::HAS_BLEND.0 != 0
+    }
+}
+
+const _: () = assert!(
+    std::mem::size_of::<SubtreeFacts>() <= 1,
+    "SubtreeFacts grew: it is a set of bits"
+);
+
+impl LayerTraits {
+    /// Its effects need a group (clip path, blend), whatever its opacity.
+    pub(crate) fn grouped(&self) -> bool {
+        self.flags.contains(LookFlags::GROUPED)
+    }
+
+    /// It clips its children to its padding box.
+    pub(crate) fn clip(&self) -> bool {
+        self.flags.contains(LookFlags::CLIP)
+    }
+
+    /// Its corners are rounded.
+    pub(crate) fn rounded(&self) -> bool {
+        self.flags.contains(LookFlags::ROUNDED)
+    }
+
+    /// It has a CSS filter (it needs a layer).
+    pub(crate) fn filtered(&self) -> bool {
+        self.flags.contains(LookFlags::FILTERED)
+    }
+
+    /// It has a mask.
+    pub(crate) fn masked(&self) -> bool {
+        self.flags.contains(LookFlags::MASKED)
+    }
+
+    /// It has a backdrop filter.
+    pub(crate) fn backdropped(&self) -> bool {
+        self.flags.contains(LookFlags::BACKDROPPED)
+    }
+
+    /// Its blend mode is not normal.
+    pub(crate) fn blended(&self) -> bool {
+        self.flags.contains(LookFlags::BLENDED)
+    }
+
+    /// It isolates its group (`isolation: isolate`).
+    pub(crate) fn isolated(&self) -> bool {
+        self.flags.contains(LookFlags::ISOLATED)
+    }
+
+    /// Its `transform-style` is `preserve-3d`.
+    pub(crate) fn preserves(&self) -> bool {
+        self.flags.contains(LookFlags::PRESERVES)
+    }
+
+    /// Its element transform has no z component and no perspective.
+    pub(crate) fn flat(&self) -> bool {
+        self.flags.contains(LookFlags::FLAT)
+    }
+
+    /// Its element transform is not the identity.
+    pub(crate) fn transformed(&self) -> bool {
+        self.flags.contains(LookFlags::TRANSFORMED)
+    }
+
+    /// Its children are in a perspective.
+    pub(crate) fn perspective(&self) -> bool {
+        self.flags.contains(LookFlags::PERSPECTIVE)
+    }
+
+    /// Its back face is hidden.
+    pub(crate) fn backface_hidden(&self) -> bool {
+        self.flags.contains(LookFlags::BACKFACE_HIDDEN)
+    }
+
+    /// One of its background layers is a shader.
+    pub(crate) fn shader(&self) -> bool {
+        self.flags.contains(LookFlags::SHADER)
+    }
 }
 
 impl LayerTraits {
@@ -149,44 +266,45 @@ impl LayerTraits {
                 left: extent(border.left),
             },
             fx: effects::filter_reach(filter).min(EVERYWHERE),
-            grouped: effects::grouped(p),
-            clip: p.clip,
             items,
-            rounded: !p.radius.is_zero(),
-            filtered: effects.is_some_and(|e| !e.filter.is_empty()),
-            masked: effects.is_some_and(|e| !e.masks.is_empty()),
-            backdropped: effects.is_some_and(|e| !e.backdrop.is_empty()),
-            blended: effects.is_some_and(|e| e.blend != BlendMode::Normal),
-            isolated: p.isolation == Isolation::Isolate,
             will_change: p.will_change,
-            preserves: p.transform_style == TransformStyle::Preserve3d,
-            flat: p.transform.is_2d(),
-            transformed: p.transform != ElementTransform::NONE,
-            perspective: p.perspective.is_some(),
-            backface_hidden: p.backface == BackfaceVisibility::Hidden,
-            shader: p
-                .background
-                .as_ref()
-                .is_some_and(|fill| matches!(fill, Fill::Layers(layers) if layers.iter().any(|l| matches!(l.image, FillImage::Shader(_))))),
+            flags: LookFlags::default()
+                .with(LookFlags::GROUPED, effects::grouped(p))
+                .with(LookFlags::CLIP, p.clip)
+                .with(LookFlags::ROUNDED, !p.radius.is_zero())
+                .with(LookFlags::FILTERED, effects.is_some_and(|e| !e.filter.is_empty()))
+                .with(LookFlags::MASKED, effects.is_some_and(|e| !e.masks.is_empty()))
+                .with(LookFlags::BACKDROPPED, effects.is_some_and(|e| !e.backdrop.is_empty()))
+                .with(LookFlags::BLENDED, effects.is_some_and(|e| e.blend != BlendMode::Normal))
+                .with(LookFlags::ISOLATED, p.isolation == Isolation::Isolate)
+                .with(LookFlags::PRESERVES, p.transform_style == TransformStyle::Preserve3d)
+                .with(LookFlags::FLAT, p.transform.is_2d())
+                .with(LookFlags::TRANSFORMED, p.transform != ElementTransform::NONE)
+                .with(LookFlags::PERSPECTIVE, p.perspective.is_some())
+                .with(LookFlags::BACKFACE_HIDDEN, p.backface == BackfaceVisibility::Hidden)
+                .with(
+                    LookFlags::SHADER,
+                    p.background.as_ref().is_some_and(|fill| matches!(fill, Fill::Layers(layers) if layers.iter().any(|l| matches!(l.image, FillImage::Shader(_))))),
+                ),
         }
     }
 
     /// Whether the node's effects group its subtree (CSS: the grouping
     /// properties that flatten a preserve-3d context).
     pub(crate) fn grouping(&self) -> bool {
-        self.clip
+        self.clip()
             || self.opacity < 1.0
-            || self.filtered
-            || self.masked
-            || self.backdropped
-            || self.grouped
-            || self.isolated
+            || self.filtered()
+            || self.masked()
+            || self.backdropped()
+            || self.grouped()
+            || self.isolated()
     }
 
     /// Whether the node is a flat member of a preserve-3d context: its
     /// own plane is shared with its parent.
     pub(crate) fn plane_3d(&self) -> bool {
-        self.preserves && !self.grouping()
+        self.preserves() && !self.grouping()
     }
 }
 
@@ -217,23 +335,15 @@ pub(crate) fn subtree_facts(
             continue;
         }
         let f = subtree_facts(view, child, Some(&look), out);
-        below.has_layer |= f.has_layer;
-        below.has_item |= f.has_item;
-        below.has_backdrop |= f.has_backdrop;
-        below.has_blend |= f.has_blend;
+        below = merge_below(below, f);
     }
     let (scene_layer, scene_item) = view.scene_facts(id);
-    below.has_layer |= scene_layer;
     // Its own background shader is an item inside its group too.
-    below.has_item |= scene_item || look.shader;
+    below = below
+        .with(SubtreeFacts::HAS_LAYER, scene_layer)
+        .with(SubtreeFacts::HAS_ITEM, scene_item || look.shader());
     let layer = own_layer(view, id, &look, parent) || promoted(&look, &below);
-    let facts = SubtreeFacts {
-        layer,
-        has_layer: layer || below.has_layer,
-        has_item: look.shader || below.has_item,
-        has_backdrop: look.backdropped || below.has_backdrop,
-        has_blend: look.blended || below.has_blend,
-    };
+    let facts = own_facts(&look, &below, layer);
     if facts != SubtreeFacts::default() {
         out.insert(id, facts);
     }
@@ -256,23 +366,39 @@ pub(crate) fn node_facts(
             continue;
         }
         let f = facts.get(&child).copied().unwrap_or_default();
-        below.has_layer |= f.has_layer;
-        below.has_item |= f.has_item;
-        below.has_backdrop |= f.has_backdrop;
-        below.has_blend |= f.has_blend;
+        below = merge_below(below, f);
     }
     let (scene_layer, scene_item) = view.scene_facts(id);
-    below.has_layer |= scene_layer;
     // Its own background shader is an item inside its group too.
-    below.has_item |= scene_item || look.shader;
+    below = below
+        .with(SubtreeFacts::HAS_LAYER, scene_layer)
+        .with(SubtreeFacts::HAS_ITEM, scene_item || look.shader());
     let layer = own_layer(view, id, &look, parent) || promoted(&look, &below);
-    SubtreeFacts {
-        layer,
-        has_layer: layer || below.has_layer,
-        has_item: look.shader || below.has_item,
-        has_backdrop: look.backdropped || below.has_backdrop,
-        has_blend: look.blended || below.has_blend,
-    }
+    own_facts(&look, &below, layer)
+}
+
+/// The children's facts `f` added to the facts of the children `below` so far
+/// (every fact but the node's own layer).
+fn merge_below(below: SubtreeFacts, f: SubtreeFacts) -> SubtreeFacts {
+    below
+        .with(SubtreeFacts::HAS_LAYER, f.has_layer())
+        .with(SubtreeFacts::HAS_ITEM, f.has_item())
+        .with(SubtreeFacts::HAS_BACKDROP, f.has_backdrop())
+        .with(SubtreeFacts::HAS_BLEND, f.has_blend())
+}
+
+/// The facts of a node with `look`, whose layer is `layer` and whose
+/// children hold `below`.
+fn own_facts(look: &LayerTraits, below: &SubtreeFacts, layer: bool) -> SubtreeFacts {
+    SubtreeFacts::default()
+        .with(SubtreeFacts::LAYER, layer)
+        .with(SubtreeFacts::HAS_LAYER, layer || below.has_layer())
+        .with(SubtreeFacts::HAS_ITEM, look.shader() || below.has_item())
+        .with(
+            SubtreeFacts::HAS_BACKDROP,
+            look.backdropped() || below.has_backdrop(),
+        )
+        .with(SubtreeFacts::HAS_BLEND, look.blended() || below.has_blend())
 }
 
 /// Whether `id` is a layer for its own reasons, given its parent's look: an
@@ -285,18 +411,18 @@ fn own_layer(
     parent: Option<&LayerTraits>,
 ) -> bool {
     let parent_plane_3d = parent.is_some_and(LayerTraits::plane_3d);
-    let parent_perspective = parent.is_some_and(|p| p.perspective);
+    let parent_perspective = parent.is_some_and(|p| p.perspective());
     let overlay = view.is_layer_node(id);
     let moves = view.moves_layer(id);
     overlay
-        || look.filtered
-        || look.masked
-        || look.backdropped
+        || look.filtered()
+        || look.masked()
+        || look.backdropped()
         || look.will_change != WillChange::Auto
         || moves
-        || !look.flat
-        || (look.transformed && parent_perspective)
-        || (parent_plane_3d && (!look.flat || look.preserves))
+        || !look.flat()
+        || (look.transformed() && parent_perspective)
+        || (parent_plane_3d && (!look.flat() || look.preserves()))
         || look.plane_3d()
 }
 
@@ -304,10 +430,13 @@ fn own_layer(
 /// subtree holds: a group over a layer or an item, a backdrop root over a
 /// backdrop filter, or an isolated node over a blend mode and a layer.
 fn promoted(look: &LayerTraits, inner: &SubtreeFacts) -> bool {
-    let group = look.opacity < 1.0 || look.grouped;
-    let backdrop_root =
-        look.opacity < 1.0 || look.filtered || look.masked || look.grouped || look.backdropped;
-    (group && (inner.has_layer || inner.has_item))
-        || (backdrop_root && inner.has_backdrop)
-        || (look.isolated && inner.has_blend && inner.has_layer)
+    let group = look.opacity < 1.0 || look.grouped();
+    let backdrop_root = look.opacity < 1.0
+        || look.filtered()
+        || look.masked()
+        || look.grouped()
+        || look.backdropped();
+    (group && (inner.has_layer() || inner.has_item()))
+        || (backdrop_root && inner.has_backdrop())
+        || (look.isolated() && inner.has_blend() && inner.has_layer())
 }

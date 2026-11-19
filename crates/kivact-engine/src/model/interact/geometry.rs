@@ -41,6 +41,7 @@ use crate::layer::{self, LayerTraits, SubtreeFacts};
 use crate::lower::scene::scene_layers;
 use crate::measure::leaf::Measure;
 use crate::model::Model;
+use crate::model::changes::Dirty;
 use crate::tree::node::HostNode;
 use kivact_types::PaintProps;
 
@@ -164,6 +165,9 @@ impl Model {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.moved(change.id);
+                if self.edits_input(change.id) {
+                    self.changes.mark(change.id, Dirty::CARET);
+                }
                 if let Some(parent) = self
                     .tree
                     .get(change.id)

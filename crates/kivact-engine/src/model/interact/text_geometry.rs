@@ -43,6 +43,7 @@
 use std::ops::Range;
 
 use crate::model::Model;
+use crate::model::changes::Dirty;
 use kivact_types::{NodeId, Point, Rect};
 
 use crate::model::interact::visual;
@@ -294,10 +295,15 @@ fn caret_scroll(previous: f64, caret_x: f64, extent_x: f64, width: f64) -> f64 {
 }
 
 impl Model {
-    /// Scroll every text input so its caret stays inside
-    /// the field: past the right edge less 2 px, or at the left edge.
+    /// Scroll the text inputs whose caret, text or box changed
+    /// (`Dirty::CARET`) so the caret stays inside the field: past the
+    /// right edge less 2 px, or at the left edge.
     pub(crate) fn scroll_inputs(&mut self, engine: &mut arvane::Engine) {
-        for id in self.input_ids() {
+        let mut moved = false;
+        for id in self.changes.take(Dirty::CARET) {
+            if !self.edits_input(id) {
+                continue;
+            }
             let area = visual::text_box(self, id);
             let width = area.width;
             // Hidden or zero-width fields have no viewport to scroll into.
@@ -331,11 +337,21 @@ impl Model {
                 if x.scroll_x != scroll || x.scroll_y != scroll_y {
                     x.scroll_x = scroll;
                     x.scroll_y = scroll_y;
-                    self.invalidate_paint();
+                    self.changes.mark(id, Dirty::REDRAW);
+                    moved = true;
                 }
             }
         }
-        self.sync();
+        if moved {
+            self.sync();
+        }
+    }
+
+    /// Whether `id` is a live text input with an editing state.
+    pub(crate) fn edits_input(&self, id: NodeId) -> bool {
+        self.tree
+            .get(id)
+            .is_some_and(|n| self.slots.editors[n.index.0].is_some())
     }
 }
 

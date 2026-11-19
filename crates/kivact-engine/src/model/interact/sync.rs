@@ -59,6 +59,9 @@ impl Model {
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
+            for id in self.input_ids() {
+                self.changes.mark(id, Dirty::CARET);
+            }
         }
     }
 
@@ -69,6 +72,9 @@ impl Model {
     pub(crate) fn remeasure(&mut self, id: NodeId) {
         if self.tree.contains(id) {
             self.changes.mark(id, Dirty::MEASURE);
+            if self.edits_input(id) {
+                self.changes.mark(id, Dirty::CARET);
+            }
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
@@ -248,7 +254,7 @@ impl Model {
     /// Run pending layout work, then distribute its geometry changes.
     pub(crate) fn settle(&mut self, engine: &mut arvane::Engine) -> Settled {
         self.sync();
-        if self.needs_layout() {
+        let settled = if self.needs_layout() {
             #[cfg(debug_assertions)]
             let remeasured: Vec<NodeId> = self.changes.marked(Dirty::MEASURE).collect();
             self.layout(engine);
@@ -270,7 +276,10 @@ impl Model {
             Settled::Updated
         } else {
             Settled::Kept
-        }
+        };
+        // The carets that moved are kept in view once the boxes are laid out.
+        self.scroll_inputs(engine);
+        settled
     }
 
     /// Apply the asset store's finished work: measure again the images

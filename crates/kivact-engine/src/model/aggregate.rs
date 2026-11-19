@@ -251,7 +251,10 @@ impl Model {
     pub(crate) fn repaint_text(&mut self, id: NodeId) {
         if self.tree.contains(id) {
             self.a11y.payload(id);
-            self.changes.mark(id, super::changes::Dirty::REDRAW);
+            self.changes.mark(
+                id,
+                super::changes::Dirty::REDRAW.union(super::changes::Dirty::CARET),
+            );
         }
     }
 
