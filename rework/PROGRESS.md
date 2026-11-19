@@ -63,3 +63,9 @@
 - tier b の過程で出た xtask の error を fix lane で直した：virtual_list の leaf 化（`4f738708`）、mount.rs の leaf 化と gpu_interop の循環（`d73cc130`）、arvane-text のテスト module の Role と kivact-types の Role 行（`ad7267b4`）。すべて merge 済み。
 - tier b（統合 branch）：fmt・xtask（`--no-write`）・clippy（workspace）・kivact-docs の check は成功。test は 1580 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。外部 GPU の試験 `external::frames_match_in_four_places_on_dx12` は、1 回目の失敗（GPU 初期化の揺れ）の後、単独と 2 回目の tier b で通った。
 - 注記（`rework/OPEN.md`）：R10・S12・C04 などの状態の印の逸脱、R07 の完了条件の rg の 2 件、S11 の文字の gradient の設計上の注意、C04 の試験の期待値（設計者が (b) で直した）。
+
+## W3b 完了（merge 済み・tier b 成功）
+- lane E1（E01・E02）、lane E2（E03・E04）を統合 branch に merge（`455b78de`・`5f06d47a`）。E01 は subagent が E2E の途中で終わったので、Orchestrator が E2E 13 件（すべて rc=0）を確かめて commit した（`f69f7a13`）。
+- E04 の paint walk の失敗（visibility_hidden の試験、`display: contents` の経路）は E2 の fix で直した（`0e93e878`、merge `324e2e8c`）。
+- tier b（統合 branch）：fmt・xtask（`--no-write`）・clippy（workspace）・kivact-docs の check は成功。test は 1580 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。
+- 注記（`rework/OPEN.md`）：E02 の SizeMotion の spring と reduced 時の step（振る舞いの注記）、E04 の木の編集と origin cache（設計者の判断待ち）。
