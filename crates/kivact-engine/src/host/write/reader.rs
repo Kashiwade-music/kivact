@@ -420,7 +420,7 @@ impl Reader {
             return ImeStateInfo::Inactive;
         };
         let purpose = model.ime_purpose();
-        let (node, composition) = match model.edits.target {
+        let (node, composition) = match model.ime_target() {
             ImeTarget::None => return ImeStateInfo::Inactive,
             ImeTarget::Native(slot) => {
                 let id = model.tree.nodes.id_at(slot.0);
@@ -438,7 +438,7 @@ impl Reader {
             }
             ImeTarget::Session(id) => (id, None),
         };
-        let cursor_area = if matches!(model.edits.target, ImeTarget::Native(_)) {
+        let cursor_area = if matches!(model.ime_target(), ImeTarget::Native(_)) {
             let mut engine = self.engine.borrow_mut();
             let caret = crate::model::interact::text_geometry::caret_rect(model, node, &mut engine);
             Some(model.drawn_rect(node, caret))

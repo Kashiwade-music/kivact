@@ -310,7 +310,6 @@ impl Model {
                 .focus_moved(old_target.map(|t| t.node), target.map(|t| t.node));
         }
         self.focus.focused = new;
-        self.update_ime_target();
         self.push(HostEvent::FocusChanged {
             window: self.window,
             node: target.map(|t| t.node),
@@ -385,7 +384,6 @@ impl Model {
 
     /// Revalidate an exact target after props or scenes change.
     pub(crate) fn revalidate_focus(&mut self) {
-        self.update_ime_target();
         let Some(focus) = self.focus.target() else {
             return;
         };

@@ -493,7 +493,7 @@ impl Host {
                     model.paste(node, &text, &mut self.engine.borrow_mut());
                 }
             }
-            KeyResult::Reported | KeyResult::Consumed | KeyResult::Text(_) => {}
+            KeyResult::Reported | KeyResult::Consumed => {}
         }
     }
 

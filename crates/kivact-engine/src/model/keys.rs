@@ -76,12 +76,8 @@ use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditStat
 pub(crate) enum KeyResult {
     /// Reported to the core as `Key`.
     Reported,
-    /// Used by the host: a focus move, an edit, or the IME's while
-    /// composing.
+    /// Used by the host: a focus move, an edit (typed text included), or the IME's while composing.
     Consumed,
-    /// Text for the focused text input: the platform's text input inserts
-    /// it; a host without one calls [`Model::insert_text`].
-    Text(String),
     /// Copy or cut: the host writes this to its clipboard.
     Copy(String),
     /// Paste: the host reads its clipboard and calls [`Model::paste_input`].
@@ -153,9 +149,6 @@ impl Model {
             pointer,
             engine,
         );
-        if let KeyResult::Text(text) = &result {
-            self.insert_text(text);
-        }
         self.sync();
         result
     }
@@ -203,7 +196,7 @@ impl Model {
 
     /// The focused text input, if it takes edits (not disabled).
     pub(crate) fn focused_input(&self) -> Option<NodeId> {
-        match self.edits.target {
+        match self.ime_target() {
             crate::model::edit::state::ImeTarget::Native(slot) => {
                 Some(self.tree.nodes.id_at(slot.0))
             }
@@ -385,7 +378,9 @@ impl Model {
                 && !focus_key
                 && key != Key::Enter
             {
-                return KeyResult::Text(t.to_string());
+                // Text for the focused text input: inserted here, as typed.
+                self.insert_text(t);
+                return KeyResult::Consumed;
             }
         }
         if focus_key {
