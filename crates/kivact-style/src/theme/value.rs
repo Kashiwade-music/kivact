@@ -18,7 +18,9 @@ use crate::color::{Color, ColorToken, Repr, rgb, rgba};
 use crate::icon::IconSet;
 use kivact_runtime::{Owner, Value};
 use kivact_types::cell::SharedDeferred;
-use kivact_types::{ColorInterpolation, ColorSpace, LineHeight, Rgba, SpaceColor, interpolate};
+use kivact_types::{
+    ColorInterpolation, ColorSpace, LineHeight, Rgba, SharedTypeMap, SpaceColor, interpolate,
+};
 use std::any::{Any, TypeId};
 use std::fmt;
 use std::sync::{Arc, Mutex};
@@ -107,84 +109,6 @@ pub fn use_tokens<T: ThemeExtension>() -> ThemeRef<T> {
     use_theme().with(Theme::ext::<T>)
 }
 
-/// One installed extension, keyed by its type.
-#[derive(Clone)]
-struct Entry {
-    id: TypeId,
-    value: Arc<dyn Any + Send + Sync>,
-    eq: fn(&dyn Any, &dyn Any) -> bool,
-    debug: fn(&dyn Any, &mut std::fmt::Formatter<'_>) -> std::fmt::Result,
-}
-
-impl Entry {
-    fn new<T: PartialEq + std::fmt::Debug + Send + Sync + 'static>(value: T) -> Self {
-        fn eq<T: PartialEq + 'static>(a: &dyn Any, b: &dyn Any) -> bool {
-            a.downcast_ref::<T>() == b.downcast_ref::<T>()
-        }
-        fn debug<T: std::fmt::Debug + 'static>(
-            value: &dyn Any,
-            f: &mut std::fmt::Formatter<'_>,
-        ) -> std::fmt::Result {
-            match value.downcast_ref::<T>() {
-                Some(value) => value.fmt(f),
-                None => Ok(()),
-            }
-        }
-        Entry {
-            id: TypeId::of::<T>(),
-            value: Arc::new(value),
-            eq: eq::<T>,
-            debug: debug::<T>,
-        }
-    }
-}
-
-impl std::fmt::Debug for Entry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        (self.debug)(self.value.as_ref(), f)
-    }
-}
-
-/// The installed extensions; a theme without any allocates
-/// nothing, and clones share the table.
-#[derive(Clone, Debug, Default)]
-struct Extensions(Option<Arc<Vec<Entry>>>);
-
-impl PartialEq for Extensions {
-    fn eq(&self, other: &Self) -> bool {
-        let a = self.0.as_deref().map_or(&[][..], Vec::as_slice);
-        let b = other.0.as_deref().map_or(&[][..], Vec::as_slice);
-        a.len() == b.len()
-            && a.iter().all(|entry| {
-                b.iter()
-                    .find(|other| other.id == entry.id)
-                    .is_some_and(|other| {
-                        Arc::ptr_eq(&entry.value, &other.value)
-                            || (entry.eq)(entry.value.as_ref(), other.value.as_ref())
-                    })
-            })
-    }
-}
-
-impl Extensions {
-    fn insert(&mut self, entry: Entry) {
-        let entries = Arc::make_mut(self.0.get_or_insert_with(|| Arc::new(Vec::new())));
-        match entries.iter_mut().find(|e| e.id == entry.id) {
-            Some(slot) => *slot = entry,
-            None => entries.push(entry),
-        }
-    }
-
-    fn get<T: Send + Sync + 'static>(&self) -> Option<Arc<T>> {
-        let entry = self
-            .0
-            .as_ref()?
-            .iter()
-            .find(|e| e.id == TypeId::of::<T>())?;
-        Arc::downcast::<T>(entry.value.clone()).ok()
-    }
-}
-
 /// Whether a theme is light or dark. Every kit's theme constructor takes
 /// it first (`theme(ThemeMode::Dark, ..)`), and a kit's tokens fall back to
 /// the values of a theme's mode. Which mode to show (the system's, a
@@ -199,7 +123,7 @@ pub enum ThemeMode {
 /// The values of a [`Theme`], shared by its clones.
 #[derive(Clone, Debug, PartialEq)]
 struct ThemeData {
-    extensions: Extensions,
+    extensions: SharedTypeMap,
     mode: ThemeMode,
     colors: Palette,
     space: Spacing,
@@ -317,7 +241,8 @@ impl Theme {
     /// Install an extension, replacing an earlier value of the same type.
     /// See [`ThemeExtension`].
     pub fn with<T: ThemeExtension>(mut self, value: T) -> Self {
-        self.edit().extensions.insert(Entry::new(value));
+        let data = self.edit();
+        data.extensions = std::mem::take(&mut data.extensions).with(value);
         self
     }
 
@@ -325,7 +250,7 @@ impl Theme {
     /// [`ThemeExtension::fallback`] when there is none. The installed value
     /// is shared, not copied; a fallback is built once per theme value.
     pub fn ext<T: ThemeExtension>(&self) -> ThemeRef<T> {
-        if let Some(value) = self.0.extensions.get::<T>() {
+        if let Some(value) = self.0.extensions.get_shared::<T>() {
             return ThemeRef(value);
         }
         if let Some(value) = self.0.fallbacks.get::<T>() {
@@ -528,7 +453,7 @@ impl Theme {
 
     fn light_theme() -> Theme {
         Theme(Arc::new(ThemeData {
-            extensions: Extensions::default(),
+            extensions: SharedTypeMap::new(),
             mode: ThemeMode::Light,
             colors: Palette {
                 surface: rgb(0xffffff),
