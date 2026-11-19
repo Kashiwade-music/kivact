@@ -92,3 +92,9 @@
 - GPU（`KIVACT_TEST_GPU=1`）：e2e_core は 434 件成功、4 件失敗（すべて基点の失敗の 4 件）。e2e_native は全件成功。kivact-test の GPU は `--test screen -- gpu::` で 3 件成功（作業指示書の `--test gpu` は binary が無いので代えた。`rework/OPEN.md` の「Orchestrator の判断」）。
 - KPI：`rework/kpi/CP1.md`・`CP1-r2.md`・`CP1-r3.md`（比は `*-ratio.md`）。3 回中 2 回で判定。後退と改善未達は `rework/OPEN.md` の「KPI の後退」「KPI の未達」に書き、設計者に返す。Orchestrator は直さない。
 - 状態の台帳：`rework/state-ledger.md`（`legacy:` の印 194 件。AppModel の行に `text_ahead`・`font_generation` を含む）。付属書 L（閉じ方）は設計者が書く。
+
+## W4b 完了（merge 済み・tier b 成功）
+- C06：lane `wt/rw-W4b-C` の commit `fd8413d8`、設計者の patch（`0cf2e9d6`：窓の通知を `WindowInfo` 全体の変化で送る。`SentWindows` に分ける）、merge `e132dc52`。tier a（fmt・check・clippy・xtask（`kivact-core`・`kivact-devtools-agent`）・e2e_native の `devtools`）は成功。
+- E31：lane `wt/rw-W4b-E` の commit `9bb8d22d`、merge `fe684dcb`。tier a（engine の fmt・check・clippy・xtask・試験、core の check・clippy、e2e_core の 8 モジュール、e2e_ui の 2 モジュール）は成功。
+- 設計者の回答（C06 の質問 4〜6、E31 の質問 7）：`rework/OPEN.md` の「設計者の回答（W4b・C06 の質問 4〜6、E31 の質問 7、2026-11-19）」節。
+- tier b（統合 branch `fe684dcb`、`V:/kv-target/rw-main`）：fmt・xtask（`--no-write`、error 0 件）・clippy（workspace all-targets all-features）・kivact-docs の check・`xtask-allow(state-fields)` の grep（0 件）は成功。test は 1585 件成功、失敗 1 件（`chat_keyboard`、基点の失敗。`rework/OPEN.md` の「基点の失敗」節）。
