@@ -362,6 +362,30 @@ pub(crate) enum Entry {
     Close(Step),
 }
 
+/// A listed layer that moves every frame (a running opacity or transform
+/// transition, or a layout run): its matrix is set again before each
+/// frame without a new list (`Model::refresh_moving_layers`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct MovingLayer {
+    pub(super) id: NodeId,
+    /// Its index in `PaintList::layers`.
+    pub(super) index: u32,
+    /// Its box's origin in its parent's space, as walked.
+    pub(super) origin: Point,
+    /// The parent's perspective it was walked with.
+    pub(super) perspective: Option<Matrix4>,
+}
+
+/// Where a listed scroll container was walked from, to walk its subtree
+/// again after it scrolls (`Model::rewalk_scrolled`).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollerWalk {
+    pub(super) origin: Point,
+    pub(super) alpha: f64,
+    pub(super) clip: Rect,
+    pub(super) perspective: Option<Matrix4>,
+}
+
 /// The paint list and what it was built for.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct PaintList {
@@ -380,6 +404,16 @@ pub(crate) struct PaintList {
     pub(super) indices: HashMap<NodeId, ChildIndex>,
     /// The generation of the nodes' inks: an ink of another is forgotten.
     pub(super) ink_gen: Generation,
+    /// The listed layers that move every frame.
+    pub(super) moving: Vec<MovingLayer>,
+    /// The listed scroll containers and where they were walked from.
+    pub(super) scrollers: HashMap<NodeId, ScrollerWalk>,
+    /// The window origins of the layers (`Model::layers`) the list was built with.
+    pub(super) layer_origins: Vec<(NodeId, Point)>,
+    /// The look each listed node with state styles or a transition was walked with.
+    pub(super) looks: HashMap<NodeId, LayerTraits>,
+    /// The scroll containers whose subtrees are walked again before the next frame.
+    pub(super) rewalk: BTreeSet<NodeId>,
 }
 
 /// What one child can draw on, relative to its layout location.
@@ -448,5 +482,16 @@ impl PaintState {
         if let Some(index) = self.list.indices.get_mut(&parent) {
             index.touch(child);
         }
+    }
+
+    /// The look `id` was listed with, if it has state styles or a transition.
+    pub(crate) fn listed_look(&self, id: NodeId) -> Option<LayerTraits> {
+        self.list.looks.get(&id).copied()
+    }
+
+    /// The scroll containers `scrolled` moved their content: their subtrees
+    /// are walked again before the next frame (a list built anew does it all).
+    pub(crate) fn rewalk_after(&mut self, scrolled: impl IntoIterator<Item = NodeId>) {
+        self.list.rewalk.extend(scrolled);
     }
 }

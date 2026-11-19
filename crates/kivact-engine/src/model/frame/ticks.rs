@@ -132,23 +132,6 @@ impl Model {
         if let Some(client) = client {
             client.0.retain(|t| *t > now);
         }
-        if self.motion.is_active() {
-            self.changes.restack = true;
-            let moving: Vec<NodeId> = self.motion.moving().collect();
-            for id in moving {
-                self.stale_fact(id);
-                let children: Vec<NodeId> = self.tree.flat_children(id).collect();
-                for child in children {
-                    self.stale_fact(child);
-                }
-                // A moving text color is inherited below it, and each step
-                // changes it: the drawings below are made again (the last
-                // step, which settles the run, included).
-                if self.colors_text_below(id) {
-                    self.forget_draws_below(id);
-                }
-            }
-        }
         let motion = clock.motion_ns(stamp);
         let reduced = self.frame.reduced_motion();
         let sizes = self.step_sizes(motion, reduced);

@@ -50,6 +50,8 @@ impl Model {
             self.evict_draws();
             self.refresh_shader_clocks();
             self.refresh_playback();
+        } else {
+            self.refresh_moving_layers();
         }
         let pass = PaintPass {
             scale: self.paint.scale,

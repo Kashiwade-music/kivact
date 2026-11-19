@@ -6,9 +6,12 @@
 //! are drawn at, culled against the window and their clipping ancestors.
 //!
 //! Invariants:
-//! - The list is rebuilt only when something may move, show, hide,
-//!   restack or reclip nodes (typed setter invalidation for writes, `Model::sync`
-//!   for layout passes, scrolls and state styles), so a frame after a
+//! - The list is rebuilt only when stacking facts change: a write's stacking,
+//!   the children of a box, a layout pass, a state style or transition whose
+//!   look's stacking facts differ from the listed look, or a layer that
+//!   starts or stops moving. A scroll walks the scrolled container's subtree
+//!   again (`Model::rewalk_scrolled`); a moving layer's matrix is set every
+//!   frame (`Model::refresh_moving_layers`) and it is never culled, so a frame after a
 //!   content change (text, values, colors, images) draws the same nodes
 //!   again with their current content: O(visible nodes), not O(nodes). A
 //!   write of a paint, a text style or state styles asks for a rebuild
