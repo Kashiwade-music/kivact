@@ -8,9 +8,10 @@ use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
 use kivact_core::custom::{NodeRefExt, Owned, Owner};
 use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
+use kivact_core::state::{Selector, selector};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
@@ -57,8 +58,10 @@ pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::I
     /// the focus bookkeeping.
     pub(super) roving: Roving<Target<K, C>>,
     pub(super) tab_stop: Value<Option<Target<K, C>>>,
-    /// The cell holding the tab stop.
-    pub(super) active: Value<Option<(K, C)>>,
+    /// Whether a row holds the active cell, per row key.
+    pub(super) active_row: Selector<K>,
+    /// Whether a cell is the active cell, per cell.
+    pub(super) active_cell: Selector<(K, C)>,
 }
 
 pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
@@ -80,20 +83,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         ),
     });
     let settings = options.value();
-    let items = memo(move || {
-        let label = settings.with(|options| options.label.clone());
-        keys.with(|keys| {
-            keys.iter()
-                .map(|key| match &label {
-                    Some(label) => {
-                        let (label, key) = (label.clone(), key.clone());
-                        ListItem::new(key.clone(), move || label(&key))
-                    }
-                    None => ListItem::new(key.clone(), ""),
-                })
-                .collect::<Vec<_>>()
-        })
-    });
+    let items = row_items(keys, settings);
     let policy = match focus {
         TableFocus::None => ListOptions::default(),
         TableFocus::Rows(policy) => policy,
@@ -103,17 +93,19 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         },
     };
     let rows = use_list(items, selection, policy);
-    let selected = rows.selected();
     let widths = initial_widths(columns);
     let roving = Roving::<Target<K, C>>::new();
     let registry = roving.clone();
-    let tab_stop = tab_stop_value(keys, columns, selected, registry);
+    let tab_stop = tab_stop_value(keys, columns, rows.membership().keys(), registry);
     let active = memo(move || {
         tab_stop.get().and_then(|target| match target {
             Target::Cell(key, column) => Some((key, column)),
             Target::Header(_) => None,
         })
     });
+    let active_row =
+        selector(move || active.with(|active| active.as_ref().map(|(row, _)| row.clone())));
+    let active_cell = selector(active);
     options.update(|options| options.widths = widths.into_binding());
     let state = Rc::new(State {
         grid_state: signal(None),
@@ -130,7 +122,8 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
         options,
         headers: RefCell::new(HashMap::new()),
         roving,
-        active,
+        active_row,
+        active_cell,
         tab_stop,
     });
     let stored = owner.store("DataTableApi", state.clone());
@@ -251,10 +244,31 @@ impl<S: Clone + 'static, T> OptionValue<S, T> {
     }
 }
 
+/// The rows as list items, named by the table's label function.
+fn row_items<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
+    keys: Value<Vec<K>>,
+    settings: Value<DataTableOptions<K, C>>,
+) -> Value<Vec<ListItem<K>>> {
+    memo(move || {
+        let label = settings.with(|options| options.label.clone());
+        keys.with(|keys| {
+            keys.iter()
+                .map(|key| match &label {
+                    Some(label) => {
+                        let (label, key) = (label.clone(), key.clone());
+                        ListItem::new(key.clone(), move || label(&key))
+                    }
+                    None => ListItem::new(key.clone(), ""),
+                })
+                .collect::<Vec<_>>()
+        })
+    })
+}
+
 fn tab_stop_value<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey>(
     keys: Value<Vec<K>>,
     columns: Value<Vec<Header<C>>>,
-    selected: Value<Vec<K>>,
+    selected: Value<HashSet<K>>,
     registry: Roving<Target<K, C>>,
 ) -> Value<Option<Target<K, C>>> {
     let requested = registry.requested;
@@ -279,7 +293,7 @@ fn tab_stop_value<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey
             selected
                 .with(|selected| {
                     keys.iter()
-                        .filter(|key| selected.contains(key))
+                        .filter(|key| selected.contains(*key))
                         .find_map(&first_in)
                 })
                 .or_else(|| keys.iter().find_map(first_in))
