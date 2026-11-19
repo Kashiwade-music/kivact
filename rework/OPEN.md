@@ -129,3 +129,7 @@
 - **R10**（W3a、lane R、commit `062ba24b`）：付属書 R10 の「状態の閉じ方」の印（`// xtask-allow(state): seek and held are the list's two phases; ...`、`VState` の直前）は、xtask が「未使用の印」の error を出した（`VState` に counted の状態が無い）。Orchestrator の処置：`VState` の印を外した。`Seeker` の直前の既存の `legacy:` 印は残した。設計者が、付属書の印を外すことを認めるか、規則を直すかを決める（R03・K02・S04 と同じ型）。
 - **S12**（W3a、lane S、commit `baa76a50`）：付属書 S12 の「Draw の印」（`xtask-allow(state)`）は xtask の規則と合わない。印の変更後、`Draw` の counted field は `unsupported: u32` の 1 つだけになり、state の対象外（未使用の印は error）。Orchestrator の処置：印は足していない（xtask は ok）。設計者が、印を外すか、付属書の印を直すかを決める。
 - **S12**（残し）：`measure_text`・`text_path`・`layout_paragraph` の doc に「engine が無いとき 0・空」の文が残る（engine は常に在るので今は当たらない）。S23 か docs の後始末で直す候補。
+
+## 差戻し（W3a・C04、2026-11-19）
+- **C04**（W3a、lane C）：STOP。`crates/kivact-core/src/view/root.rs:install_app_contexts` で、固定の theme を `owner.constant` にすると、Paint の why が Theme の signal を読まなくなり、`e2e_core` の `diagnostics::why_follows_the_prop_to_the_write_through_a_memo`（`dev/tests/kivact-public-api/tests/e2e_core/diagnostics.rs:114`）が失敗する（Paint の reads が memo `Merged` だけになる）。同じ試験を `diagnostics` の filter で実行し、1 件だけ失敗（残りは成功）を確認した。試験の期待値は変えていない。選択肢：(a) 固定 theme も signal にする（付属書の手順 2 の取り消し）、(b) 試験の期待値を変える（「button の style は theme の signal を読む」を別の形に直す）、(c) 試験の対象を別の node にする。作業の差分は worktree に未 commit で残っている（commit していない）。
+- **C04**（付属の所有外の変更）：`crates/kivact-core/src/view/mount/semantics.rs` の `semantic_origins` の書込み（bind の 1 行）を `set_semantic_origins` の呼出しに置き換えた（`CoreRare.semantic_origins` を消した結果の同一 crate の機械的な追従）。設計者が許容しないなら戻す。
