@@ -6,9 +6,12 @@
 //! the shared room; the pixels the panes really take are read back from their
 //! rects, so a handle of any thickness (the theme's splitter recipe) moves the
 //! boundary exactly as far as the pointer.
+pub(crate) mod look;
+
 use super::layer::with_recipe_style;
-use super::values::{AxisState, ControlSize};
 use super::variants::{Variant, Variants};
+use crate::control_size::ControlSize;
+use crate::slider::look::AxisState;
 use kivact_core::i18n::message;
 use kivact_core::state::{Binding, Callback, Value, binding, memo};
 use kivact_core::state::{IntoValue, callback};

@@ -16,9 +16,13 @@
 //! dismissal rules. A drawer's body scrolls and its panel is fixed to its
 //! edge. Entering and leaving are the `enter` and `exit` styles the surface
 //! recipe returns.
+mod drawer_swipe;
+pub(crate) mod look;
+
 use super::DialogState;
 use super::layer::with_recipe_style;
-use super::recipes::{Recipe, UiRecipes};
+use super::recipe::Recipe;
+use super::recipes::UiRecipes;
 use super::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
@@ -311,7 +315,8 @@ fn edge(side: Edge) -> kivact_core::style::Style {
     }
 }
 
-pub use crate::dialog_tokens::{DialogCenter, DialogTokens};
+pub use crate::dialog::look::DialogCenter;
+pub use crate::dialog::look::DialogTokens;
 
 impl Dialog {
     /// Render media and semantic headings in the dialog header.
@@ -433,7 +438,7 @@ impl Dialog {
         let (content, footer) = self.contents(shape);
         let panel_ref = node_ref();
         let swipe = if let DialogMode::Drawer(edge) = kind {
-            Some(crate::drawer_swipe::handle(
+            Some(crate::dialog::drawer_swipe::handle(
                 edge, panel_ref, requested, variants,
             ))
         } else {
@@ -454,7 +459,8 @@ impl Dialog {
         if let DialogMode::Drawer(side) = kind {
             panel = panel.style(edge(side));
             if let Some(pulled) = pulled {
-                panel = panel.style(move || crate::drawer_swipe::translation(side, pulled.get()));
+                panel = panel
+                    .style(move || crate::dialog::drawer_swipe::translation(side, pulled.get()));
             }
         }
         if let Some(width) = self.width {

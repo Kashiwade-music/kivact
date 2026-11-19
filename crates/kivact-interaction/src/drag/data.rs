@@ -2,7 +2,7 @@
 use crate::DragVelocity;
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Point;
-use kivact_core::state::Callback;
+use kivact_core::state::{Callback, Value};
 use kivact_core::view::{Modifiers, MouseButton, PointerId};
 use kivact_types::cell::Generation;
 use std::rc::Rc;
@@ -120,6 +120,10 @@ pub(super) struct DragOptions<T: 'static> {
     pub(super) update: Option<Callback<DragUpdate<T>>>,
     pub(super) end: Option<Callback<DragUpdate<T>>>,
     pub(super) edit: Option<(BeginAt, Rc<dyn DragEdit>)>,
+    /// The callback [`crate::DragApi::on_modifiers_changed`] gave.
+    pub(super) modifiers: Option<Callback<DragUpdate<T>>>,
+    /// The disabled value [`crate::DragApi::disabled`] gave.
+    pub(super) disabled: Option<Value<bool>>,
 }
 
 impl<T: 'static> Clone for DragOptions<T> {
@@ -133,6 +137,8 @@ impl<T: 'static> Clone for DragOptions<T> {
             update: self.update,
             end: self.end,
             edit: self.edit.clone(),
+            modifiers: self.modifiers,
+            disabled: self.disabled,
         }
     }
 }
@@ -148,6 +154,8 @@ impl<T: 'static> Default for DragOptions<T> {
             update: None,
             end: None,
             edit: None,
+            modifiers: None,
+            disabled: None,
         }
     }
 }

@@ -1,18 +1,18 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
-use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
-use super::values::{CheckControl, CheckableState, ControlSize};
-use super::variants::{Variant, Variants};
-use kivact_core::state::{Binding, Callback, Value, binding};
-use kivact_core::state::{IntoText, IntoValue, callback};
+
+use crate::control_size::ControlSize;
+use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
+use crate::toggle::look::{CheckControl, CheckableState};
+use crate::variants::{Variant, Variants};
+use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Value, binding, callback};
 use kivact_core::style::use_theme;
-use kivact_core::view::EditPhase;
-use kivact_core::view::{Element, Node, icon, node};
 use kivact_core::view::{
-    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, show,
-    use_direction,
+    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
+    for_each, icon, node, show, use_direction,
 };
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
 use std::rc::Rc;
+pub(crate) mod look;
 
 /// What an option shows, from its item and its state.
 type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node>;
@@ -73,7 +73,7 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
         options: items.into_value(),
         value: selected.into_binding(),
         orientation: Orientation::Vertical,
-        size: super::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         on_edit: None,
         item: None,
         item_node: None,
@@ -315,3 +315,12 @@ fn radio_option<K: kivact_core::state::ItemKey>(
         None => target.into_view(),
     }
 }
+
+/// Standard presentation of a radio group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RadioGroupVariant {
+    /// Adjacent choices drawn as a segmented control.
+    Segmented,
+}
+
+impl Variant for RadioGroupVariant {}

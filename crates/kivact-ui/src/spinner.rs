@@ -1,4 +1,6 @@
 //! Role: Display a localized loading status with one animation.
+pub(crate) mod look;
+
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, SpinnerState};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
@@ -15,7 +17,7 @@ pub fn spinner() -> Spinner {
         root: node()
             .role(Role::Status)
             .name(kivact_core::i18n::message("spinner.loading", "Loading")),
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         variants: Variants::default(),
         label: None,
     }

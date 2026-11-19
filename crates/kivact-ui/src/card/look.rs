@@ -1,0 +1,116 @@
+//! Role: The card recipe state, tokens, recipe table and default looks.
+use crate::card::CardAction;
+
+use crate::recipe::recipe_table;
+use crate::variants::Look;
+use kivact_core::style::{ColorToken, Direction, Style, Theme, style};
+pub(crate) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
+    let color = if s.selection() == Selectable::Selected {
+        ColorToken::Accent
+    } else {
+        ColorToken::Border
+    };
+    let base = style()
+        .direction(Direction::Column)
+        .min_width(0)
+        .radius(t.radius().md)
+        .border(1, color)
+        .background(ColorToken::Surface)
+        .color(ColorToken::Text);
+    if s.is_interactive() {
+        base.focus_visible(style().ring_with_offset(
+            t.focus_ring(),
+            t.focus_ring_offset(),
+            ColorToken::Focus,
+        ))
+        .hover(style().background(ColorToken::SurfaceAlt))
+        .pressed(style().background(ColorToken::Pressed))
+        .disabled(style().opacity(t.disabled_opacity()))
+    } else {
+        base
+    }
+}
+
+pub(crate) fn card_region(t: &Theme, _: &Look<CardState>) -> Style {
+    style()
+        .direction(Direction::Column)
+        .gap(t.space().sm)
+        .padding(t.space().md)
+        .min_width(0)
+}
+
+pub(crate) fn card_media(_: &Theme, _: &Look<CardState>) -> Style {
+    style().min_width(0)
+}
+
+pub(crate) fn card_overlay(_: &Theme, _: &Look<CardState>) -> Style {
+    style()
+}
+
+/// Card semantics supplied to recipes.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct CardState {
+    /// What activating the card does; `match` it, or read
+    /// [`input`](Self::input), [`is_interactive`](Self::is_interactive) and
+    /// [`selection`](Self::selection).
+    pub action: CardAction,
+    pub disabled: bool,
+    pub has_media: bool,
+    pub has_footer: bool,
+}
+
+impl CardState {
+    /// The actual input state of the card's button or check box part;
+    /// `None` for a plain card.
+    pub fn input(&self) -> Option<kivact_core::custom::PartState> {
+        match self.action {
+            CardAction::Plain => None,
+            CardAction::Press { input } | CardAction::Select { input, .. } => Some(input),
+        }
+    }
+    /// Whether the card can be pressed or selected.
+    pub fn is_interactive(&self) -> bool {
+        !matches!(self.action, CardAction::Plain)
+    }
+    /// Whether the card can be selected and, if so, whether it is.
+    pub fn selection(&self) -> Selectable {
+        match self.action {
+            CardAction::Select { selected, .. } => Selectable::new(true, selected),
+            CardAction::Plain | CardAction::Press { .. } => Selectable::NotSelectable,
+        }
+    }
+}
+
+/// Whether a part can be selected and, if so, whether it is selected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Selectable {
+    /// The part has no selected state.
+    NotSelectable,
+    /// The part can be selected and is not.
+    Unselected,
+    /// The part is selected.
+    Selected,
+}
+
+impl Selectable {
+    /// The selection of a part which may be selectable, selected or not.
+    pub fn new(selectable: bool, selected: bool) -> Self {
+        match (selectable, selected) {
+            (false, _) => Self::NotSelectable,
+            (true, false) => Self::Unselected,
+            (true, true) => Self::Selected,
+        }
+    }
+}
+
+recipe_table! {
+    /// Recipes for each region of a card.
+    CardRecipes {
+        root(root_recipe): CardState = card_root,
+        header(header_recipe): CardState = card_region,
+        media(media_recipe): CardState = card_media,
+        content(content_recipe): CardState = card_region,
+        footer(footer_recipe): CardState = card_region,
+        overlay(overlay_recipe): CardState = card_overlay,
+    }
+}

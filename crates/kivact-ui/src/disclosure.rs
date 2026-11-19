@@ -6,6 +6,9 @@
 //! interaction part's [`DisclosureState`](kivact_interaction::DisclosureState).
 //! An accordion is a column of disclosures whose `open` bindings read and
 //! write one `Binding<Vec<K>>`.
+pub(crate) mod group;
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
@@ -227,13 +230,13 @@ impl IntoView for Disclosure {
             node().child(icon("chevron-down")),
             |recipes| recipes.disclosure_recipes().indicator_recipe(),
             &variants,
-            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         );
         let trigger = with_recipe_style(
             node().part(part).name(title),
             |recipes| recipes.disclosure_recipes().trigger_recipe(),
             &variants,
-            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child((
             text(title).style(super::helpers::label_style().grow(1)),
@@ -261,7 +264,7 @@ impl IntoView for Disclosure {
             self.root,
             |recipes| recipes.disclosure_recipes().root_recipe(),
             &variants,
-            move || crate::disclosure_values::DisclosureRecipeState::from_part(state.get(), group),
+            move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
         .child(trigger)
         .child(body)
@@ -269,7 +272,8 @@ impl IntoView for Disclosure {
     }
 }
 
-pub use crate::disclosure_tokens::{DisclosureMotion, DisclosureTokens};
+pub use crate::disclosure::look::DisclosureMotion;
+pub use crate::disclosure::look::DisclosureTokens;
 
 fn content_region(
     details: kivact_interaction::DisclosureApi,
@@ -286,7 +290,7 @@ fn content_region(
         |recipes| recipes.disclosure_recipes().content_recipe(),
         variants,
         move || {
-            crate::disclosure_values::DisclosureRecipeState::from_part(content_state.get(), group)
+            crate::disclosure::look::DisclosureRecipeState::from_part(content_state.get(), group)
         },
     );
     let duration = motion.duration;

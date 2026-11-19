@@ -1,6 +1,9 @@
 //! Role: Present persistent alerts and dismissible feedback banners.
-use super::layer::{with_base_recipe_style, with_recipe_style};
-use super::variants::{Variant, Variants};
+
+use crate::alert::look::AlertState;
+use crate::alert::look::Expansion;
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::variants::{Variant, Variants};
 use kivact_core::custom::{NodeToken, Owner};
 use kivact_core::state::{
     Binding, Callback, IntoBinding, IntoText, IntoValue, Machine, MachineHandle, Step, Value,
@@ -11,6 +14,7 @@ use kivact_core::view::{
     show, text,
 };
 use kivact_interaction::Tone;
+pub(crate) mod look;
 
 #[derive(Clone, Copy, PartialEq)]
 enum BannerState {
@@ -31,7 +35,6 @@ enum Ownership {
     /// The application's `open` binding owns the visibility.
     Application,
 }
-use crate::component_values::{AlertState, Expansion};
 
 // xtask-allow(state): legacy: description, icon, actions, collapsible, dismiss_content, open
 /// An urgent, persistent message with optional actions and details.
@@ -446,3 +449,13 @@ fn banner_dismissal(
     });
     phase
 }
+
+/// The structural presentation of an alert.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum AlertVariant {
+    #[default]
+    Default,
+    Banner,
+}
+
+impl crate::variants::Variant for AlertVariant {}

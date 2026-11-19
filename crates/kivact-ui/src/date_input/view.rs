@@ -143,17 +143,19 @@ impl Element for DateInput {
 }
 impl IntoView for DateInput {
     fn into_view(self) -> View {
-        self.render(crate::date_trigger::FieldPresentation::Text)
+        self.render(crate::date_parts::trigger::FieldPresentation::Text)
     }
 }
 impl DateInput {
     /// Open the configured picker from a caller-owned button, without a text editor.
     /// The trigger keeps its handlers, focus identity and accessible name.
     pub fn attach<T: Element + IntoView + 'static>(self, trigger: T) -> View {
-        self.render(crate::date_trigger::FieldPresentation::trigger(trigger))
+        self.render(crate::date_parts::trigger::FieldPresentation::trigger(
+            trigger,
+        ))
     }
-    fn render(self, field: crate::date_trigger::FieldPresentation) -> View {
-        if let crate::date_trigger::FieldPresentation::Trigger(attach) = field {
+    fn render(self, field: crate::date_parts::trigger::FieldPresentation) -> View {
+        if let crate::date_parts::trigger::FieldPresentation::Trigger(attach) = field {
             return self.render_trigger(attach);
         }
         let Self {
@@ -223,7 +225,7 @@ impl DateInput {
 }
 
 impl DateInput {
-    fn render_trigger(self, attach: crate::date_trigger::AttachTrigger) -> View {
+    fn render_trigger(self, attach: crate::date_parts::trigger::AttachTrigger) -> View {
         let Self {
             root,
             variants,
@@ -264,7 +266,7 @@ impl DateInput {
             }
             if presentation.sheet() {
                 kivact_core::view::column((
-                    crate::date_sheet::panel(selected, picker),
+                    crate::date_parts::sheet::panel(selected, picker),
                     button(message("date.save", "Save")).on_press(move || {
                         state.send(Event::Close);
                     }),
@@ -404,7 +406,7 @@ fn date_picker(
         picker = configure(picker);
     }
     if presentation.sheet() {
-        crate::date_sheet::panel(selected, picker).into_view()
+        crate::date_parts::sheet::panel(selected, picker).into_view()
     } else {
         picker.into_view()
     }

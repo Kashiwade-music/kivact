@@ -1,5 +1,5 @@
 //! Role: Validate time text and store exactly one draft phase.
-use crate::time_parse::parse_time;
+use crate::time_input::parse::parse_time;
 use kivact_core::i18n::TimeOfDay;
 use kivact_core::state::{Machine, Step};
 #[derive(Clone, PartialEq)]

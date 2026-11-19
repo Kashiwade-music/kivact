@@ -1,10 +1,12 @@
 //! Role: Build semantic headings with theme-owned typography.
+pub(crate) mod look;
+
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoText;
 use kivact_core::view::{Element, IntoView, Node, Role, View, text};
 
-use crate::component_values::HeadingState;
+use crate::heading::look::HeadingState;
 /// A semantic heading whose typography comes from the theme.
 pub struct Heading {
     root: Node,

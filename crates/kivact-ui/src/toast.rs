@@ -1,8 +1,12 @@
 //! Role: Render the App's toasts in themed live regions.
+pub(crate) mod look;
+pub(crate) mod swipe;
+
 use super::layer::with_recipe_style;
-use super::toast_swipe::Swipe;
-use super::values::{ButtonVariant, ToastGroupState};
 use super::variants::{Variant, Variants};
+use crate::button::ButtonVariant;
+use crate::toast::look::ToastGroupState;
+use crate::toast::swipe::Swipe;
 use kivact_core::custom::part;
 use kivact_core::motion::Transition;
 use kivact_core::state::{IntoValue, Value};
@@ -284,7 +288,8 @@ fn action_button(
     })
 }
 
-pub use crate::toast_tokens::{ToastRowMotion, ToastTokens};
+pub use crate::toast::look::ToastRowMotion;
+pub use crate::toast::look::ToastTokens;
 
 /// Render a toast dismiss control protected from swipe gesture activation.
 fn close_button(

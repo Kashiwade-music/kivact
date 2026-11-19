@@ -1,82 +1,21 @@
 //! Role: Render a themed number field with decrease and increase buttons.
+mod draft;
+pub(crate) mod look;
+use draft::{NumberEvent, NumberInputSnapshot, NumberText, format_value};
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::text_input::{TextInput, text_input};
 use super::variants::{Variant, Variants};
 use super::{ButtonVariant, button};
 use kivact_core::custom::PartState;
-use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message, use_locale};
-use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
+use kivact_core::i18n::{Locale, message, use_locale};
+use kivact_core::state::{Binding, Value, binding, machine, memo};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, grid, icon};
 use kivact_core::view::{IntoView, NodeRef, View, node_ref};
 use kivact_interaction::{ScalarRange, use_scalar};
-
-/// What a number field shows: the value formatted, or what the user typed
-/// while the field has the focus.
-#[derive(Clone, PartialEq)]
-enum NumberText {
-    Value(String),
-    /// `produced` is the stored value the last parsable text produced
-    /// (`None` until one parses).
-    Typed {
-        text: String,
-        produced: Option<f64>,
-    },
-}
-
-impl NumberText {
-    fn text(&self) -> &str {
-        match self {
-            NumberText::Value(text) | NumberText::Typed { text, .. } => text,
-        }
-    }
-}
-
-enum NumberEvent {
-    ValueChanged,
-    Typed(String),
-    FocusOut,
-}
-struct NumberInputSnapshot {
-    value: f64,
-    range: ScalarRange,
-    locale: Locale,
-}
-impl Machine for NumberInputSnapshot {
-    type State = NumberText;
-    type Event = NumberEvent;
-    type Effect = ();
-    fn transition(
-        &self,
-        state: &NumberText,
-        event: NumberEvent,
-    ) -> Step<NumberText, NumberEvent, ()> {
-        match event {
-            NumberEvent::ValueChanged
-                if self.locale.parse_number(state.text()) == Some(self.value)
-                    || matches!(state, NumberText::Typed { produced: Some(p), .. } if *p == self.value) =>
-            {
-                Step::stay()
-            }
-            NumberEvent::ValueChanged | NumberEvent::FocusOut => Step::to(NumberText::Value(
-                format_value(self.value, self.range, &self.locale),
-            )),
-            NumberEvent::Typed(text) => {
-                let parsed = self.locale.parse_number(&text);
-                let produced = match parsed {
-                    Some(_) => Some(self.value),
-                    None => match state {
-                        NumberText::Typed { produced, .. } => *produced,
-                        NumberText::Value(_) => None,
-                    },
-                };
-                Step::to(NumberText::Typed { text, produced })
-            }
-        }
-    }
-}
 
 /// A number field with a decrease and an increase button, created by
 /// [`number_input`].
@@ -168,47 +107,8 @@ impl Element for NumberInput {
     }
 }
 
-/// Decimal places required by the step, including a decimal exponent.
-fn places(step: f64) -> usize {
-    let text = step.to_string();
-    let (mantissa, exponent) =
-        text.split_once('e')
-            .map_or((text.as_str(), 0), |(mantissa, exponent)| {
-                (
-                    mantissa,
-                    exponent
-                        .parse::<i32>()
-                        .expect("invariant: f64 exponent is an integer"),
-                )
-            });
-    let decimals = mantissa
-        .split_once('.')
-        .map_or(0, |(_, decimals)| decimals.len());
-    (decimals as i32 - exponent).max(0) as usize
-}
-
 /// Keep the precision of the step and the bounds (the step grid starts at the
 /// minimum and the maximum clamps), or the full value without a step.
-fn format_value(value: f64, range: ScalarRange, locale: &Locale) -> String {
-    let places = range.step().map_or_else(
-        || places(value),
-        |step| {
-            places(step)
-                .max(places(range.min()))
-                .max(places(range.max()))
-        },
-    );
-    locale.format_number(
-        value,
-        NumberStyle {
-            fraction_digits: FractionDigits::Range {
-                min: 0,
-                max: places.min(255) as u8,
-            },
-            grouping: Grouping::None,
-        },
-    )
-}
 impl IntoView for NumberInput {
     fn into_view(self) -> View {
         let NumberInput {

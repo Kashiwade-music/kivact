@@ -1,13 +1,17 @@
 //! Role: Submit multiline drafts through keyboard and send/stop controls.
+
+use crate::ChatComposerState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use crate::{ChatComposerState, ComposerStatus, ComposerStatusPosition};
 use kivact_core::custom::NodeRefExt;
 use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, callback};
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
 };
+pub(crate) mod history;
+pub(crate) mod look;
+
 // xtask-allow(state): legacy: drawer, header_actions, header_context, footer_actions, send_actions, send_icon, stop_icon
 /// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
@@ -137,7 +141,7 @@ impl ChatComposer {
     fn submission(
         &self,
         disabled: Value<bool>,
-        history: kivact_core::state::MachineHandle<crate::composer_history::Policy>,
+        history: kivact_core::state::MachineHandle<crate::chat_composer::history::Policy>,
     ) -> Callback<()> {
         let value = self.value;
         let stopped = self.stop_shown;
@@ -151,7 +155,9 @@ impl ChatComposer {
             let draft = draft.trim();
             if let Some(submit) = submit.filter(|_| !draft.is_empty()) {
                 if keep_history.get_untracked() {
-                    history.send(crate::composer_history::Event::Submit(draft.to_owned()));
+                    history.send(crate::chat_composer::history::Event::Submit(
+                        draft.to_owned(),
+                    ));
                 }
                 value.set(String::new());
                 submit.call(draft.to_owned());
@@ -164,7 +170,7 @@ impl ChatComposer {
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> (crate::TextInput, Callback<()>) {
         let input_ref = node_ref();
-        let history = crate::composer_history::use_history(input_ref);
+        let history = crate::chat_composer::history::use_history(input_ref);
         let send = self.submission(disabled, history);
         let keep_history = self.history;
         let input = crate::text_area(
@@ -304,7 +310,7 @@ impl ChatComposer {
 }
 fn composer_slot(
     view: Option<View>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ChatComposerState>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ChatComposerState>,
     variants: &Variants,
     state: impl Fn() -> ChatComposerState + Copy + 'static,
 ) -> Option<Node> {
@@ -314,7 +320,7 @@ fn composer_key(
     event: KeyEvent,
     input: kivact_core::view::NodeRef,
     send: Callback<()>,
-    history: kivact_core::state::MachineHandle<crate::composer_history::Policy>,
+    history: kivact_core::state::MachineHandle<crate::chat_composer::history::Policy>,
     keep_history: Value<bool>,
 ) -> Handled {
     if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
@@ -341,7 +347,7 @@ fn composer_key(
     if !eligible {
         return Handled::No;
     }
-    history.send(crate::composer_history::Event::Recall {
+    history.send(crate::chat_composer::history::Event::Recall {
         previous: event.key() == Key::ArrowUp,
         draft: editor.value().to_owned(),
     });
@@ -387,3 +393,20 @@ impl IntoView for ChatComposer {
         .into_view()
     }
 }
+
+/// A composer diagnostic.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ComposerStatus {
+    Error(String),
+    Warning(String),
+}
+
+/// Placement of a composer diagnostic.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ComposerStatusPosition {
+    Top,
+    #[default]
+    Bottom,
+}
+
+kivact_core::state::constant_value!(ComposerStatus, ComposerStatusPosition);

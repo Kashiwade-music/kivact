@@ -1,4 +1,7 @@
 //! Role: Build accessible empty messages with opt-in announcements.
+mod changes;
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, on_mount};
@@ -12,7 +15,7 @@ enum AnnouncePolicy {
     Changes,
 }
 
-use crate::component_values::EmptyStateState;
+use crate::empty_state::look::EmptyStateState;
 
 // xtask-allow(state): legacy: description, icon, actions
 /// A message for a region without content.
@@ -142,7 +145,7 @@ impl IntoView for EmptyState {
         )
         .child((icon, title, description, actions, notices));
         if self.announce == AnnouncePolicy::Changes {
-            crate::empty_state_changes::observe(self.title, self.description, result)
+            crate::empty_state::changes::observe(self.title, self.description, result)
         } else {
             result.into_view()
         }

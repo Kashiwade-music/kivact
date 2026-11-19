@@ -1,10 +1,14 @@
 //! Role: Compose semantic static lists with fixed child positions and header content.
+
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use crate::{ItemListMarker, ItemPosition};
 use kivact_core::custom::part;
 use kivact_core::state::{IntoValue, Value, provide};
 use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node, node_ref};
+pub(crate) mod context;
+pub(crate) mod look;
+pub(crate) mod row;
+
 /// A semantic list; fixed direct children receive readonly positions at mount.
 pub struct ItemList {
     root: Node,
@@ -76,7 +80,7 @@ impl IntoView for ItemList {
             .enumerate()
             .map(|(index, child)| {
                 provide(
-                    crate::item_context::ItemContext {
+                    crate::item_list::context::ItemContext {
                         position: Some(ItemPosition { index, count }),
                         marker: self.marker,
                         start: self.start,
@@ -99,3 +103,22 @@ impl IntoView for ItemList {
         }
     }
 }
+
+/// Actual zero-based position and collection size; this record owns no ordering state.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ItemPosition {
+    pub index: usize,
+    pub count: usize,
+}
+
+/// Structural marker used by a semantic static list.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ItemListMarker {
+    #[default]
+    None,
+    Disc,
+    Circle,
+    Decimal,
+}
+
+kivact_core::state::constant_value!(ItemListMarker);

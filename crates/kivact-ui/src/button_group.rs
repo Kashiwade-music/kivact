@@ -1,7 +1,10 @@
 //! Role: Group arbitrary action controls into one native roving focus scope.
-use crate::group_types::{ButtonGroupMemberState, ButtonGroupState};
+pub(crate) mod look;
+
+use crate::button_group::look::ButtonGroupMemberState;
+use crate::button_group::look::ButtonGroupState;
+use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
-use crate::values::ControlSize;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, provide, try_use_context};
 use kivact_core::style::style;
@@ -36,7 +39,7 @@ pub fn button_group<C: IntoChildren>(label: impl IntoText, children: C) -> Butto
         root: node().role(Role::Group).name(label),
         children,
         orientation: Orientation::Horizontal.into_value(),
-        size: crate::values::default_control_size().into_value(),
+        size: crate::control_size::default_control_size().into_value(),
         variants: Variants::default(),
     }
 }
@@ -129,7 +132,7 @@ impl IntoView for ButtonGroupCell {
             .map_or_else(|| Orientation::Horizontal.into_value(), |axis| axis.get().0);
         let state = kivact_core::state::memo(move || ButtonGroupState {
             orientation: orientation.get(),
-            size: crate::values::default_control_size(),
+            size: crate::control_size::default_control_size(),
             rtl: use_direction().get() == ReadingDirection::Rtl,
         });
         let root = if self.separator {
@@ -208,7 +211,9 @@ impl IntoView for ButtonGroupMember {
         } else {
             self.button.default_size(
                 try_use_context::<GroupSize>()
-                    .map_or(crate::values::default_control_size(), |size| size.get().0),
+                    .map_or(crate::control_size::default_control_size(), |size| {
+                        size.get().0
+                    }),
             )
         };
         let solid = self.solid;

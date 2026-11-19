@@ -1,5 +1,6 @@
 //! Role: Render binding-driven translated or native scrolling carousels.
-use crate::carousel_values::{CarouselMode, CarouselSurfaceState};
+
+use crate::carousel::look::CarouselSurfaceState;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
@@ -8,8 +9,10 @@ use kivact_core::view::{
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
-
 use kivact_interaction::use_carousel;
+mod geometry;
+pub(crate) mod look;
+
 // xtask-allow(state): legacy: looping, per_view, gap, padding
 /// A slide viewport and previous/next controls.
 pub struct Carousel {
@@ -28,11 +31,12 @@ pub struct Carousel {
     edge_fade: Value<bool>,
 }
 /// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
+/// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
 #[track_caller]
 pub fn carousel(index: impl IntoBinding<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
         variants: crate::variants::Variants::default(),
-        root: node().name("Carousel"),
+        root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
         index: index.into_binding(),
         orientation: Orientation::Horizontal.into_value(),
@@ -161,13 +165,13 @@ struct Layout {
 impl Layout {
     fn padding(self) -> f64 {
         self.padding.map_or_else(
-            || crate::look_files::carousel_padding(&kivact_core::style::use_theme().get()),
+            || crate::carousel::look::carousel_padding(&kivact_core::style::use_theme().get()),
             |v| v.get(),
         )
     }
     fn gap(self) -> f64 {
         self.gap.map_or_else(
-            || crate::look_files::carousel_gap(&kivact_core::style::use_theme().get()),
+            || crate::carousel::look::carousel_gap(&kivact_core::style::use_theme().get()),
             |v| v.get(),
         )
     }
@@ -222,10 +226,10 @@ fn navigate(c: Layout, references: &[kivact_core::view::NodeRef], delta: isize) 
         return;
     }
     if c.mode == CarouselMode::Scroll {
-        if let Some(target) = crate::carousel_geometry::page(
+        if let Some(target) = crate::carousel::geometry::page(
             c.viewport,
             references,
-            crate::carousel_geometry::PageRequest {
+            crate::carousel::geometry::PageRequest {
                 vertical: c.vertical.get_untracked(),
                 rtl: c.rtl.get_untracked() == ReadingDirection::Rtl,
                 next: delta > 0,
@@ -281,7 +285,7 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
             };
             if c.snap.get() == Snap::None {
                 let nearest = nearest_slide(
-                    &navigation_refs,
+                    &slide_rects(&navigation_refs),
                     view,
                     c.vertical.get(),
                     c.rtl.get() == ReadingDirection::Rtl,
@@ -301,36 +305,49 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
         }
     });
 }
-/// Feed the actual native scroll position back into the carousel authority.
+/// Report the slide nearest the viewport's start to the carousel each time
+/// the native scroll offset changes. The viewport's and the slides' rects are
+/// taken here, at setup: taking a rect asks the host for the node's layout,
+/// and the first scroll must find it reported.
 fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::NodeRef>>) {
-    effect(move || {
-        let offset = c.viewport.scroll_offset().get();
-        if let Some(view) = c.viewport.rect().get_untracked() {
-            let nearest = nearest_slide(
-                &navigation_refs,
-                view,
-                c.vertical.get_untracked(),
-                c.rtl.get() == ReadingDirection::Rtl,
-            );
-            if let Some(at) = nearest {
-                let _ = offset;
-                c.api.scrolling(at);
-            }
+    let viewport = c.viewport.rect();
+    let slides = slide_rects(&navigation_refs);
+    kivact_core::state::effect_on(c.viewport.scroll_offset(), move |_: &Point| {
+        let Some(view) = viewport.get_untracked() else {
+            return;
+        };
+        let nearest = nearest_slide(
+            &slides,
+            view,
+            c.vertical.get_untracked(),
+            c.rtl.get_untracked() == ReadingDirection::Rtl,
+        );
+        if let Some(at) = nearest {
+            c.api.scrolling(at);
         }
     });
 }
+/// The layout rects of the slides behind `references`.
+fn slide_rects(
+    references: &[kivact_core::view::NodeRef],
+) -> Vec<Value<Option<kivact_core::geometry::Rect>>> {
+    references
+        .iter()
+        .map(kivact_core::view::NodeRef::rect)
+        .collect()
+}
 /// Locate the closest measured slide along the actual reading axis.
 fn nearest_slide(
-    references: &[kivact_core::view::NodeRef],
+    slides: &[Value<Option<kivact_core::geometry::Rect>>],
     view: kivact_core::geometry::Rect,
     vertical: bool,
     rtl: bool,
 ) -> Option<usize> {
-    references
+    slides
         .iter()
         .enumerate()
         .filter_map(|(i, r)| {
-            r.rect().get_untracked().map(|r| {
+            r.get_untracked().map(|r| {
                 (
                     i,
                     if vertical {
@@ -365,7 +382,19 @@ fn slide_items(
             )
             .node_ref(refs[at])
             .with_node(|n| n.role(Role::Group))
-            .name(format!("Slide {} / {}", at + 1, c.count))
+            .name({
+                let count = c.count;
+                kivact_core::i18n::message_with(
+                    "carousel.slide",
+                    "Slide {index} / {count}",
+                    move || {
+                        [
+                            ("index", (at + 1).to_string()),
+                            ("count", count.to_string()),
+                        ]
+                    },
+                )
+            })
             .style(move || {
                 style()
                     .grow(0)
@@ -461,7 +490,7 @@ fn slide_viewport(
             && event.modifiers().shift
             && event.delta().x == 0.0
             && event.delta().y != 0.0
-            && (crate::carousel_geometry::can_scroll(c.viewport, edges, false, false, true, true))
+            && (crate::carousel::geometry::can_scroll(c.viewport, edges, false, false, true, true))
         {
             c.viewport.scroll_by(
                 Point {
@@ -489,8 +518,8 @@ fn edge_mask(
         return style();
     }
     let t = kivact_core::style::use_theme().get();
-    let fade = crate::look_files::carousel_fade_width(&t);
-    let Some(overflow) = crate::carousel_geometry::bounds(c.viewport, edges, c.vertical.get())
+    let fade = crate::carousel::look::carousel_fade_width(&t);
+    let Some(overflow) = crate::carousel::geometry::bounds(c.viewport, edges, c.vertical.get())
     else {
         return style();
     };
@@ -563,46 +592,58 @@ fn navigation_button(
     ),
     next: bool,
 ) -> View {
-    let button = crate::button(if next { "Next slide" } else { "Previous slide" })
-        .hide_label(true)
-        .icon(kivact_core::view::icon(move || {
-            kivact_core::style::Icon::named(
-                match (c.vertical.get(), c.rtl.get() == ReadingDirection::Rtl, next) {
-                    (true, _, true) => "chevron-down",
-                    (true, _, false) => "chevron-up",
-                    (false, true, true) | (false, false, false) => "chevron-left",
-                    _ => "chevron-right",
-                },
-            )
-        }))
-        .hidden(move || !c.buttons.get())
-        .disabled(move || {
-            c.disabled.get()
-                || if c.mode == CarouselMode::Scroll {
-                    !crate::carousel_geometry::can_scroll(
-                        c.viewport,
-                        edges,
-                        c.vertical.get(),
-                        c.rtl.get() == ReadingDirection::Rtl,
-                        next,
-                        c.looping,
-                    )
-                } else {
-                    c.last.get() == 0
-                        || (!c.looping
-                            && if next {
-                                c.shown.get() >= c.last.get()
-                            } else {
-                                c.shown.get() == 0
-                            })
-                }
-        })
-        .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<CarouselSurfaceState> =
+    let button = crate::button(if next {
+        kivact_core::i18n::message("carousel.next", "Next slide")
+    } else {
+        kivact_core::i18n::message("carousel.previous", "Previous slide")
+    })
+    .hide_label(true)
+    .icon(kivact_core::view::icon(move || {
+        kivact_core::style::Icon::named(
+            match (c.vertical.get(), c.rtl.get() == ReadingDirection::Rtl, next) {
+                (true, _, true) => "chevron-down",
+                (true, _, false) => "chevron-up",
+                (false, true, true) | (false, false, false) => "chevron-left",
+                _ => "chevron-right",
+            },
+        )
+    }))
+    .hidden(move || !c.buttons.get())
+    .disabled(move || {
+        c.disabled.get()
+            || if c.mode == CarouselMode::Scroll {
+                !crate::carousel::geometry::can_scroll(
+                    c.viewport,
+                    edges,
+                    c.vertical.get(),
+                    c.rtl.get() == ReadingDirection::Rtl,
+                    next,
+                    c.looping,
+                )
+            } else {
+                c.last.get() == 0
+                    || (!c.looping
+                        && if next {
+                            c.shown.get() >= c.last.get()
+                        } else {
+                            c.shown.get() == 0
+                        })
+            }
+    })
+    .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
+    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<CarouselSurfaceState> =
         if next {
             |r| r.carousel_recipes().next_recipe()
         } else {
             |r| r.carousel_recipes().previous_recipe()
         };
     crate::layer::with_recipe_style(button, pick, variants, move || c.recipe_state()).into_view()
+}
+
+/// The structural layout used by a carousel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CarouselMode {
+    #[default]
+    Translate,
+    Scroll,
 }

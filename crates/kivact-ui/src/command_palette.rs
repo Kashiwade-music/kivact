@@ -1,4 +1,6 @@
 //! Role: Render a themed command palette over the shared palette behavior.
+pub(crate) mod look;
+
 use super::layer::with_recipe_style;
 use super::variants::{Variant, Variants};
 use kivact_core::custom::PartState;

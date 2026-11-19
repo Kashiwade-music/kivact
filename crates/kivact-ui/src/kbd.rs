@@ -1,4 +1,7 @@
 //! Role: Present literal and typed shortcuts with platform command-key glyphs.
+pub(crate) mod labels;
+pub(crate) mod look;
+
 use crate::variants::{Variant, Variants};
 use kivact_core::platform::capabilities;
 use kivact_core::state::{IntoText, IntoValue, Value};
@@ -30,7 +33,7 @@ impl Element for Kbd {
 }
 impl IntoView for Kbd {
     fn into_view(self) -> View {
-        let names = super::kbd_labels::KeyNames::new();
+        let names = crate::kbd::labels::KeyNames::new();
         let platform = capabilities();
         let caps = (move || {
             self.keys
@@ -78,7 +81,7 @@ impl Element for KbdCombo {
 }
 impl IntoView for KbdCombo {
     fn into_view(self) -> View {
-        let names = super::kbd_labels::KeyNames::new();
+        let names = crate::kbd::labels::KeyNames::new();
         let platform = capabilities();
         let caps = (move || {
             let command = platform.get().command_key;

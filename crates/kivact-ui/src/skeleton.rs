@@ -1,9 +1,12 @@
 //! Role: Render loading placeholders and pause their clock for reduced motion.
+
+use crate::SkeletonState;
 use crate::variants::{Variant, Variants};
-use crate::{SkeletonShape, SkeletonState};
 use kivact_core::motion::{Animated, Easing, Repeat, Stagger, Transition};
 use kivact_core::state::{IntoValue, Value, effect};
 use kivact_core::view::{Element, IntoView, Node, View, column, for_index, node};
+pub(crate) mod look;
+
 pub struct Skeleton {
     root: Node,
     lines: Value<usize>,
@@ -98,3 +101,14 @@ impl IntoView for Skeleton {
             .into_view()
     }
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SkeletonShape {
+    #[default]
+    Rect,
+    Circle,
+    Text,
+    Rounded,
+}
+
+kivact_core::state::constant_value!(SkeletonShape);

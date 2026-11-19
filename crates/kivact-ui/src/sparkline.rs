@@ -6,9 +6,12 @@
 //! a state of the part. With a [`Sparkline::label`] it is an image named for
 //! assistive technology with a description of its values; without one it is
 //! decorative, which suits a statistic's chart slot.
+pub(crate) mod look;
+
 use crate::UiTokens;
 use crate::layer::with_base_recipe_style;
-use crate::sparkline_tokens::SparklineFill;
+use crate::sparkline::look::SparklineFill;
+use crate::sparkline::look::SparklineTokens;
 use crate::variants::{Variant, Variants};
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke, linear_gradient};
 use kivact_core::geometry::Point;
@@ -20,7 +23,7 @@ use kivact_core::view::{Element, IntoView, Node, Role, View, node};
 /// A small line chart of numbers, created by [`sparkline`].
 pub struct Sparkline {
     root: Node,
-    values: Value<Vec<f64>>,
+    summary: Value<Summary>,
     label: Option<Value<String>>,
     variants: Variants,
 }
@@ -45,11 +48,16 @@ pub struct Sparkline {
 #[track_caller]
 pub fn sparkline(values: impl IntoValue<Vec<f64>>) -> Sparkline {
     let values: Value<Vec<f64>> = values.into_value();
+    // The one memo: the summary. The line borrows the values where it is
+    // drawn, so no change copies them.
+    let summary = kivact_core::state::memo(move || values.with(|values| Summary::of(values)));
     Sparkline {
         root: node()
-            .hidden(move || Summary::of(&values.get()).count < 2)
-            .draw(move |d, s| paint(d, s.width, s.height, &values.get())),
-        values,
+            .hidden(move || summary.get().count < 2)
+            .draw(move |d, s| {
+                values.with(|values| paint(d, s.width, s.height, values, summary.get()))
+            }),
+        summary,
         label: None,
         variants: Variants::default(),
     }
@@ -86,7 +94,7 @@ impl IntoView for Sparkline {
     fn into_view(self) -> View {
         let Sparkline {
             mut root,
-            values,
+            summary,
             label,
             variants,
         } = self;
@@ -94,7 +102,7 @@ impl IntoView for Sparkline {
             root = root
                 .role(Role::Image)
                 .name(label)
-                .description(description(values));
+                .description(description(summary));
         }
         with_base_recipe_style(
             root,
@@ -107,6 +115,7 @@ impl IntoView for Sparkline {
 }
 
 /// The count, range and last of the finite values of a series.
+#[derive(Clone, Copy, PartialEq)]
 struct Summary {
     count: usize,
     min: f64,
@@ -138,13 +147,13 @@ impl Summary {
 }
 
 /// The reactive description of a labelled chart, in the app's locale.
-fn description(values: Value<Vec<f64>>) -> Value<String> {
+fn description(summary: Value<Summary>) -> Value<String> {
     let locale = use_locale();
     message_with(
         "sparkline.description",
         "{count} values from {min} to {max}, last {last}",
         move || {
-            let summary = Summary::of(&values.get());
+            let summary = summary.get();
             locale.with(|locale| {
                 [
                     ("count", number(locale, summary.count as f64)),
@@ -168,70 +177,80 @@ fn number(locale: &Locale, value: f64) -> String {
     )
 }
 
-/// Draw the line and the area of each run of finite values in a box.
-fn paint(d: &mut Draw, width: f64, height: f64, values: &[f64]) {
-    let summary = Summary::of(values);
+/// Draw the line and the area of each run of finite values in a box,
+/// straight into the paths. Value `i` sits at `width * i / (n - 1)`; the
+/// highest value is at `inset` from the top and the lowest at `inset` from
+/// the bottom; a flat series is drawn in the middle. A value that is not
+/// finite ends the run before it.
+fn paint(d: &mut Draw, width: f64, height: f64, values: &[f64], summary: Summary) {
     if summary.count < 2 {
         return;
     }
-    let tokens = d.theme().ext::<UiTokens>().sparkline.clone();
-    for run in runs(values, &summary, (width, height), tokens.inset) {
-        if run.len() < 2 {
-            continue;
-        }
-        let line = run.iter().enumerate().fold(Path::new(), |path, (i, p)| {
-            if i == 0 {
-                path.move_to(*p)
-            } else {
-                path.line_to(*p)
-            }
-        });
-        let (first, last) = (run[0], run[run.len() - 1]);
-        let area = run
-            .iter()
-            .fold(
-                Path::new().move_to(Point::new(first.x, height)),
-                |path, p| path.line_to(*p),
-            )
-            .line_to(Point::new(last.x, height))
-            .close();
-        fill(d, &area, tokens.fill);
-        let stroke = Stroke::new(tokens.line_width);
-        let stroke = if tokens.round {
-            stroke.cap(LineCap::Round).join(LineJoin::Round)
-        } else {
-            stroke
-        };
-        d.stroke_path(&line, &stroke, tokens.line);
-    }
-}
-
-/// The points of each run of finite values. Value `i` sits at `width * i / (n - 1)`;
-/// the highest value is at `inset` from the top and the lowest at `inset` from
-/// the bottom. A flat series is drawn in the middle. A value that is not finite
-/// ends the run before it.
-fn runs(values: &[f64], summary: &Summary, size: (f64, f64), inset: f64) -> Vec<Vec<Point>> {
-    let (width, height) = size;
+    let tokens = d.theme().ext::<UiTokens>().sparkline;
     let span = summary.max - summary.min;
-    let last_index = values.len().max(2) - 1;
-    let mut runs = Vec::new();
-    let mut run = Vec::new();
-    for (i, value) in values.iter().enumerate() {
-        if !value.is_finite() {
-            runs.push(std::mem::take(&mut run));
-            continue;
-        }
+    let last_index = (values.len().max(2) - 1) as f64;
+    let point = move |i: usize| {
         let t = if span > 0.0 {
-            (value - summary.min) / span
+            (values[i] - summary.min) / span
         } else {
             0.5
         };
-        let x = width * i as f64 / last_index as f64;
-        let y = inset + (1.0 - t) * (height - 2.0 * inset);
-        run.push(Point::new(x, y));
+        Point::new(
+            width * i as f64 / last_index,
+            tokens.inset + (1.0 - t) * (height - 2.0 * tokens.inset),
+        )
+    };
+    let mut start = 0;
+    while start < values.len() {
+        let end = values[start..]
+            .iter()
+            .position(|value| !value.is_finite())
+            .map_or(values.len(), |at| start + at);
+        if end - start >= 2 {
+            draw_run(d, (start..end).map(point), height, tokens);
+        }
+        start = end + 1;
     }
-    runs.push(run);
-    runs
+}
+
+/// Draw one run of at least two points: the area under it down to the
+/// bottom edge, then its line.
+fn draw_run(
+    d: &mut Draw,
+    points: impl Iterator<Item = Point> + Clone,
+    height: f64,
+    tokens: SparklineTokens,
+) {
+    let mut ends = points.clone();
+    let Some(first) = ends.next() else {
+        return;
+    };
+    let last = ends.last().unwrap_or(first);
+    let line = points
+        .clone()
+        .enumerate()
+        .fold(Path::new(), |path, (i, p)| {
+            if i == 0 {
+                path.move_to(p)
+            } else {
+                path.line_to(p)
+            }
+        });
+    let area = points
+        .fold(
+            Path::new().move_to(Point::new(first.x, height)),
+            |path, p| path.line_to(p),
+        )
+        .line_to(Point::new(last.x, height))
+        .close();
+    fill(d, &area, tokens.fill);
+    let stroke = Stroke::new(tokens.line_width);
+    let stroke = if tokens.round {
+        stroke.cap(LineCap::Round).join(LineJoin::Round)
+    } else {
+        stroke
+    };
+    d.stroke_path(&line, &stroke, tokens.line);
 }
 
 /// Fill the area under a run with the theme's fill.

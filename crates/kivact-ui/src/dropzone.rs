@@ -1,4 +1,6 @@
 //! Role: Render a native file drop target with validation and optional picking.
+pub(crate) mod look;
+
 use kivact_core::platform::{FileDialog, pick_file, pick_files};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::task::spawn;

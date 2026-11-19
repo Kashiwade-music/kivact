@@ -1,4 +1,6 @@
 //! Role: Keep a semantic message log attached to growing content through follow-end.
+pub(crate) mod look;
+
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use crate::{ChatAlign, ChatThreadState};

@@ -1,6 +1,6 @@
 //! Role: Locale-backed month names and calendar caption controls.
 use super::state::Shared;
-use crate::calendar_values::CalendarCaption;
+use crate::calendar::CalendarCaption;
 use kivact_core::i18n::{CalendarMonth, NameWidth, Weekday, message, use_locale};
 use kivact_core::state::{Value, binding, memo};
 use kivact_core::view::{IntoView, View, row, text};

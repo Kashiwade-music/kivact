@@ -1,11 +1,12 @@
 //! Role: Assemble a named chat message with caller supplied content and metadata.
+
+use crate::ChatMessageState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use crate::{
-    ChatAlign, ChatBubbleGroup, ChatMessageState, ChatMessageStatus, ChatReactionsSide, ChatSender,
-};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, node, text};
+pub(crate) mod look;
+
 // xtask-allow(state): legacy: status, time, content, avatar, header, footer, metadata, media, icon, actions, reactions, align, bubble_width
 /// A message with independent content, author and supporting slots.
 pub struct ChatMessage {
@@ -297,7 +298,7 @@ impl ChatMessage {
 }
 fn message_slot(
     view: Option<View>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<ChatMessageState>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ChatMessageState>,
     variants: &Variants,
     state: impl Fn() -> ChatMessageState + Copy + 'static,
 ) -> Option<Node> {
@@ -323,3 +324,66 @@ impl IntoView for ChatMessage {
         .into_view()
     }
 }
+
+/// The participant role; the author name remains caller supplied text.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatSender {
+    User,
+    #[default]
+    Assistant,
+    System,
+}
+
+/// Delivery state of a message.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ChatMessageStatus {
+    Sending,
+    Sent,
+    Delivered,
+    Read,
+    Error,
+}
+
+/// A built-in chat appearance, interpreted by recipes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatMessageVariant {
+    #[default]
+    Bubble,
+    Plain,
+}
+
+impl Variant for ChatMessageVariant {}
+
+/// The edge at which chat content is aligned.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatAlign {
+    #[default]
+    Start,
+    End,
+}
+
+/// Joining position of a bubble in a group from the same participant.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatBubbleGroup {
+    #[default]
+    Single,
+    First,
+    Middle,
+    Last,
+}
+
+/// The edge a message's reaction slot overlaps.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChatReactionsSide {
+    Top,
+    #[default]
+    Bottom,
+}
+
+kivact_core::state::constant_value!(
+    ChatSender,
+    ChatBubbleGroup,
+    ChatReactionsSide,
+    ChatMessageStatus,
+    ChatAlign
+);

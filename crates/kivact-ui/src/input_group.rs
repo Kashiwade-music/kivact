@@ -1,4 +1,7 @@
 //! Role: Group labelled controls and their inline or block adornments.
+pub(crate) mod context;
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use super::{ControlSize, provide_control_size};
@@ -7,7 +10,9 @@ use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Role, View, node, node_ref, row, text, use_direction,
 };
 
-use crate::component_values::{InputGroupMemberKind, InputGroupMemberState, InputGroupState};
+use crate::input_group::look::InputGroupMemberKind;
+use crate::input_group::look::InputGroupMemberState;
+use crate::input_group::look::InputGroupState;
 enum Controls<C> {
     Built(C),
     Scoped(Box<dyn FnOnce() -> C>),
@@ -123,7 +128,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         };
         let inline = render.clone();
         let members = move |controls: C| {
-            crate::input_group_context::provide_state(state, move || {
+            crate::input_group::context::provide_state(state, move || {
                 inline.members(self.start, controls.into_views(), self.end)
             })
         };
@@ -236,7 +241,7 @@ fn adornment(view: View, primary: kivact_core::view::NodeRef) -> Node {
 }
 /// Add noninteractive text adjacent to a grouped input.
 pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
-    let size = super::values::default_control_size();
+    let size = crate::control_size::default_control_size();
     let direction = use_direction();
     with_recipe_style(
         node().child(text(label)),

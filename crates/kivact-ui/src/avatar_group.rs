@@ -1,4 +1,6 @@
 //! Role: Lay out a bounded facepile with the shared roving-focus owner.
+pub(crate) mod look;
+
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::style::style;

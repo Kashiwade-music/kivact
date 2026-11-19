@@ -1,14 +1,12 @@
 //! Role: The state of a data table: its builder fields, slots and live context.
-use crate::column_values::DataColumn;
+
+use crate::data_table::column::DataColumn;
 use crate::variants::Variants;
-
 use kivact_core::state::{Binding, Callback, Value};
-use kivact_core::style::Color;
-use kivact_core::view::Node;
-use kivact_core::view::View;
-use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus};
+use kivact_core::style::{Color, Icon};
+use kivact_core::view::{Node, View};
+use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus, Tone};
 use std::rc::Rc;
-
 /// The sorted column (an index into the columns) and its direction.
 pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
 pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
@@ -56,7 +54,7 @@ pub(super) type CellSlot<R> = kivact_core::view::ViewFn<(Value<R>, usize)>;
 pub(super) type Slot<R, K> = Box<dyn FnOnce(DataTableContext<R, K>) -> View>;
 pub(super) type RowContextMenu<R> = kivact_core::view::ViewFn<(Value<R>, Node)>;
 pub(super) type RowSelectable<R> = Rc<dyn Fn(&R) -> bool>;
-pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<crate::table_values::RowStatus>>;
+pub(super) type RowStatusOf<R> = Rc<dyn Fn(&R) -> Option<RowStatus>>;
 pub(super) type RowColor<R> = Rc<dyn Fn(&R) -> Option<Color>>;
 /// Names a row in text.
 pub(super) type RowName<R> = Rc<dyn Fn(&R) -> String>;
@@ -189,4 +187,37 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) row_status: Option<RowStatusOf<R>>,
     pub(super) row_color: Option<RowColor<R>>,
     pub(super) variants: Variants,
+}
+
+/// A status announced by name and shown in the table's leading lane.
+#[derive(Clone, Debug, PartialEq)]
+pub struct RowStatus {
+    pub(crate) label: String,
+    pub(crate) tone: Tone,
+    pub(crate) icon: Option<Icon>,
+    pub(crate) color: Option<Color>,
+}
+
+impl RowStatus {
+    /// Create a marker in the theme's color for this tone.
+    pub fn new(label: impl Into<String>, tone: Tone) -> Self {
+        Self {
+            label: label.into(),
+            tone,
+            icon: None,
+            color: None,
+        }
+    }
+
+    /// Use an explicit color instead of the theme's tone.
+    pub fn color(mut self, color: impl Into<Color>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+
+    /// Display a named or custom icon instead of the default mark.
+    pub fn icon(mut self, icon: impl Into<Icon>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
 }

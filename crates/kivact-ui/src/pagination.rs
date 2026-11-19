@@ -1,11 +1,14 @@
 //! Role: Render stable keyed page controls and an atomic editable page draft.
+
+use crate::pagination::look::PaginationSummary;
 use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, memo};
 use kivact_core::view::{
     CurrentItem, Element, IntoView, Node, Orientation, Role, View, for_each, node, text,
 };
 use std::rc::Rc;
+mod draft;
+pub(crate) mod look;
 
-use crate::{PageItem, PaginationMode, PaginationSummary, PaginationWindow};
 // xtask-allow(state): legacy: page_size, item, summary
 /// Page controls backed by the application's zero-based page binding.
 pub struct Pagination {
@@ -717,7 +720,7 @@ fn render_pagination(
     let variants = options.variants.clone();
     let summary = render_summary(summary, mode, facts, &variants);
     let input = (mode == PaginationMode::Input)
-        .then(|| crate::pagination_draft::input(page, count, page_label, disabled));
+        .then(|| crate::pagination::draft::input(page, count, page_label, disabled));
     let input = input.map(|view| {
         presentation_part(view, &variants, facts, |r| {
             r.pagination_recipes().input_recipe()
@@ -764,7 +767,7 @@ fn presentation_part(
     content: impl IntoView,
     variants: &crate::variants::Variants,
     facts: Value<PaginationSummary>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipes::Recipe<PaginationSummary>,
+    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<PaginationSummary>,
 ) -> Node {
     crate::layer::with_recipe_style(node().child(content), recipe, variants, move || facts.get())
 }
@@ -816,4 +819,35 @@ fn buffered_pages(page: usize, count: usize, siblings: usize) -> Vec<PageItem> {
         cells.extend([PageItem::Ellipsis, PageItem::Page(count - 1)]);
     }
     cells
+}
+
+/// A cell in a pagination bar; page indices are zero based.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum PageItem {
+    First,
+    Previous,
+    Page(usize),
+    Ellipsis,
+    Next,
+    Last,
+}
+
+/// Structural pagination presentations, including an editable page number.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PaginationMode {
+    #[default]
+    Pages,
+    Count,
+    Compact,
+    Dots,
+    Input,
+    None,
+}
+
+/// Construction-time enumeration of the numbered page window.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum PaginationWindow {
+    #[default]
+    Adjacent,
+    Buffered,
 }

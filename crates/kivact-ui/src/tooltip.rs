@@ -1,7 +1,9 @@
 //! Role: Style shared tooltip surface and trigger parts without owning timers.
+pub(crate) mod look;
+
 use super::layer::with_recipe_style;
-use super::values::TooltipArrowState;
 use super::variants::{Variant, Variants};
+use crate::tooltip::look::TooltipArrowState;
 use kivact_core::geometry::Edge;
 use kivact_core::geometry::Rect;
 use kivact_core::state::Value;

@@ -7,7 +7,7 @@ use kivact_core::view::{IntoView, Role, View, dynamic};
 use kivact_core::view::{Node, icon, node};
 use kivact_interaction::Tone;
 
-use crate::table_values::RowStatus;
+use crate::data_table::types::RowStatus;
 
 fn lane() -> Node {
     node().style(

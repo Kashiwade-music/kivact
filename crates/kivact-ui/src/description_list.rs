@@ -1,4 +1,6 @@
 //! Role: Pair visible terms with arbitrary details in a semantic list.
+pub(crate) mod look;
+
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, Value};

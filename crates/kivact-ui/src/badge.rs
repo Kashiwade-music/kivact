@@ -1,4 +1,6 @@
 //! Role: Compose a semantic badge with icons and optional activation.
+pub(crate) mod look;
+
 use crate::variants::Variants;
 use crate::{BadgeState, Variant};
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};

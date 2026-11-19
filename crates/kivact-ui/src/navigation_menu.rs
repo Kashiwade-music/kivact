@@ -1,4 +1,8 @@
 //! Role: Compose exclusive navigation panels around the canonical navigation machine.
+pub(crate) mod context;
+pub(crate) mod link;
+pub(crate) mod look;
+
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
@@ -214,7 +218,7 @@ fn navigation_panel(
             &variants,
             move || state.get(),
         )
-        .child(crate::navigation_context::provide_panel(
+        .child(crate::navigation_menu::context::provide_panel(
             kivact_core::state::callback(move |()| api.hide()),
             variants.clone(),
             move || content(),
