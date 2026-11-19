@@ -144,3 +144,42 @@ impl crate::reactive::sealed::HandlerResultSeal for () {}
 impl crate::reactive::sealed::HandlerResultSeal for Handled {}
 impl crate::reactive::sealed::HandlerResultSeal for Result<(), UiError> {}
 impl crate::reactive::sealed::HandlerResultSeal for Result<Handled, UiError> {}
+
+#[cfg(test)]
+mod tests {
+    //! Role: A shared Callback answers with its handler's own result.
+
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use super::{Handled, IntoHandler};
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    #[test]
+    fn a_callback_keeps_the_handler_result() {
+        let rt = crate::reactive::data::Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::TaskState::new(None, crate::ThreadWaker::new(|| {})),
+        );
+        let at = Location::caller();
+        // The first owner takes the arena's first slot, which `rt.root`
+        // names (the invariant `Runtime::new` checks).
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        rt.root().with_setup(|| {
+            let inline = (|| Handled::Yes).into_handler();
+            let shared = crate::callback(move |()| Handled::Yes);
+            let via_handler = crate::Callback::from_handler((|| Handled::PreventDefault).into_handler());
+            assert_eq!(inline.call(()), Ok(Handled::Yes));
+            assert_eq!(shared.into_handler().call(()), Ok(Handled::Yes));
+            assert_eq!(shared.invoke(()), Ok(Handled::Yes));
+            assert_eq!(via_handler.into_handler().call(()), Ok(Handled::PreventDefault));
+        });
+        rt.shutdown();
+    }
+}
