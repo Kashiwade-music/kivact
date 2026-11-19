@@ -35,12 +35,11 @@ pub(super) enum State {
         policy: FocusPolicy,
         focus: FocusRange,
     },
+    /// Closed by the application, waiting for the surface to unmount.
+    /// `opener` is where the unmount returns the focus; none once the
+    /// close returned it.
     Closing {
-        reason: PopupCloseReason,
         opener: Option<NodeToken>,
-    },
-    ReturningFocus {
-        opener: NodeToken,
     },
 }
 pub(super) enum Event {
@@ -73,7 +72,6 @@ pub(super) enum Effect {
         opening: Option<(Option<NodeToken>, FocusPolicy)>,
     },
     Return(NodeToken),
-    Unmounted,
 }
 /// Where the host's focus is for one event, never retained as popup
 /// lifecycle state.
@@ -91,16 +89,23 @@ pub(super) struct Machine {
     pub(super) focus: HostFocus,
 }
 impl Machine {
-    fn closing(
-        &self,
-        opener: Option<NodeToken>,
-        reason: PopupCloseReason,
-        immediate: bool,
-    ) -> Step<State, Event, Effect> {
-        if immediate && let Some(opener) = opener {
-            return Step::to(State::ReturningFocus { opener }).with(Effect::Return(opener));
+    /// An accepted close: a reason that restores at once returns the focus
+    /// now; any other leaves the return to the unmount.
+    fn accepted(&self, target: Option<NodeToken>, immediate: bool) -> Step<State, Event, Effect> {
+        match target {
+            Some(target) if immediate => {
+                Step::to(State::Closing { opener: None }).with(Effect::Return(target))
+            }
+            _ => Step::to(State::Closing { opener: target }),
         }
-        Step::to(State::Closing { reason, opener })
+    }
+    /// The surface unmounted: closed, returning the focus to `target` when there is one.
+    fn unmounted(target: Option<NodeToken>) -> Step<State, Event, Effect> {
+        let step = Step::to(State::Closed);
+        match target {
+            Some(target) => step.with(Effect::Return(target)),
+            None => step,
+        }
     }
     fn may_restore(&self, target: Option<NodeToken>) -> bool {
         !matches!(self.focus, HostFocus::Elsewhere(token) if Some(token) != target)
@@ -136,9 +141,8 @@ impl MachineTrait for Machine {
             // absent. An accepted programmatic close must then restore its
             // snapshotted invoker without waiting for an inside-focus cleanup.
             // A concrete outside destination keeps the ordinary close policy.
-            (State::Open { .. }, Event::Accepted { reason, target }) => self.closing(
+            (State::Open { .. }, Event::Accepted { reason, target }) => self.accepted(
                 target,
-                reason,
                 matches!(
                     reason,
                     PopupCloseReason::Escape
@@ -175,20 +179,14 @@ impl MachineTrait for Machine {
             (State::Open { .. }, Event::Unmount { was_inside, target })
                 if was_inside || (target.is_some() && self.may_restore(target)) =>
             {
-                self.closing(target, PopupCloseReason::Unmount, true)
-                    .with(Effect::Unmounted)
+                Self::unmounted(target)
             }
             (
                 State::Closing {
                     opener: Some(opener),
-                    ..
                 },
                 Event::Unmount { was_inside, .. },
-            ) if was_inside || self.may_restore(Some(*opener)) => {
-                Step::to(State::ReturningFocus { opener: *opener })
-                    .with(Effect::Return(*opener))
-                    .with(Effect::Unmounted)
-            }
+            ) if was_inside || self.may_restore(Some(*opener)) => Self::unmounted(Some(*opener)),
             (_, Event::Unmount { .. }) => Step::to(State::Closed),
             _ => Step::stay(),
         }
