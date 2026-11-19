@@ -41,13 +41,14 @@ use super::descriptor::Mcx;
 pub(crate) use style::{NodeStyle, bind_style};
 
 /// Mount one host node with its common modifiers. Children are appended by the caller.
+/// `site` is the call site recorded on the node (`None` for a node the App did not write).
 pub(crate) fn mount_host(
     cx: &Mcx<'_>,
     kind: NodeType,
     c: Common,
-    at: &'static Location<'static>,
+    site: Option<&'static Location<'static>>,
 ) -> NodeId {
-    mount_host_with(cx, kind, c, at, None)
+    mount_node(cx, kind, c, site, None)
 }
 
 /// [`mount_host`] for a builder that owns part of its node's layout:
@@ -72,8 +73,21 @@ pub(crate) fn mount_host_with(
     at: &'static Location<'static>,
     fix_layout: Option<fn(&mut LayoutProps)>,
 ) -> NodeId {
+    mount_node(cx, kind, c, Some(at), fix_layout)
+}
+
+/// Mount host node `c`. `site` is the call site recorded on the node (`None` for a node the App
+/// did not write, such as a string child); its effects are located there, or here without one.
+fn mount_node(
+    cx: &Mcx<'_>,
+    kind: NodeType,
+    c: Common,
+    site: Option<&'static Location<'static>>,
+    fix_layout: Option<fn(&mut LayoutProps)>,
+) -> NodeId {
     // `.located_at_caller()` replaces the builder's call site.
-    let at = c.at.unwrap_or(at);
+    let site = c.at.or(site);
+    let at = site.unwrap_or_else(Location::caller);
     let id = cx.host(kind);
     let Resolved {
         first,
@@ -88,7 +102,7 @@ pub(crate) fn mount_host_with(
         refs,
         attached,
     } = resolve::resolve(cx, id, kind, c, at);
-    create::write(cx, id, first, at);
+    create::write(cx, id, first, site, at);
     semantics::bind_props(cx, id, semantics, at);
     let states = style::bind_states(cx, id, disabled, selected, at);
     style::bind_node_style(cx, id, style, &facts, states, fix_layout, at);

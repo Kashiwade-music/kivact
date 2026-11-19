@@ -285,11 +285,12 @@ pub(crate) struct WindowRecord {
 #[derive(Clone, Copy)]
 pub(crate) struct WindowScope(pub(crate) WindowId);
 
-/// The window of `owner`'s subtree, or `WindowId::MAIN` outside one.
+/// The window of `owner`'s subtree. The App's root provides the main window's scope.
 pub(crate) fn current_window(owner: Owner) -> WindowId {
     owner
         .context::<WindowScope>()
-        .map_or(WindowId::MAIN, |scope| scope.0)
+        .expect("invariant: every owner is under a WindowScope")
+        .0
 }
 
 /// The App's motion clock input: whether any window can draw and the tick

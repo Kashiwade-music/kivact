@@ -398,7 +398,7 @@ impl IntoView for Overlay {
                     ),
                 );
             }
-            let id = mount_host(cx, NodeType::Overlay, common, at);
+            let id = mount_host(cx, NodeType::Overlay, common, Some(at));
             let weak = cx.weak();
             cx.effect(EffectKind::Render, at, move || {
                 let at_place = match &place {

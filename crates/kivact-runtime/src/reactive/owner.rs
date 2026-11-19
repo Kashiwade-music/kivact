@@ -223,6 +223,9 @@ impl Runtime {
                 }
             }
         }
+        // The root leaves its parent's children but keeps its `parent` link
+        // until it is gone: its cleanups still read its ancestors' contexts
+        // and report to their error boundaries.
         self.detach_owner(root);
         // Disposal runs user cleanups: untracked, never pure.
         let _g = self.handler_frame(Some(root));
@@ -248,9 +251,6 @@ impl Runtime {
         });
         if let Some(m) = moved.and_then(|m| owners.get_mut(m)) {
             m.parent_index = index as u32;
-        }
-        if let Some(o) = owners.get_mut(key) {
-            o.parent = None;
         }
     }
 

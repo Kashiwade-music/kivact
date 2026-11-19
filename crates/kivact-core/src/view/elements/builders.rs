@@ -29,7 +29,6 @@ use crate::view::descriptor::view_fn;
 use crate::view::element_data::Common;
 use crate::view::element_data::{Content, Node};
 use crate::view::mount::mount_host;
-use crate::view::state::ViewState;
 use crate::view::{IntoView, Role, View};
 use kivact_runtime::Prop as InputProp;
 use kivact_runtime::{ErrorKind, UiError};
@@ -258,12 +257,7 @@ impl IntoView for Node {
             // so this one only shows up if a style or binding is added.
             let loc = at.unwrap_or_else(Location::caller);
             let children = drop_misused(cx, kind, &mut common, children, loc);
-            let id = mount_host(cx, kind, common, loc);
-            if at.is_none()
-                && let Some(n) = ViewState::tree_mut(cx.rt).get_mut(id)
-            {
-                n.at = None;
-            }
+            let id = mount_host(cx, kind, common, at);
             for child in children {
                 child.mount_into(cx, id);
             }
