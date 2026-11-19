@@ -14,7 +14,7 @@ use crate::paint::state::{
     ChildIndex, ClipShape, Entry, Grouping, LayerSpec, LayerTraits, ListState, PaintList,
     StaleFacts, Step, SubtreeFacts,
 };
-use crate::tree::node::HostNode;
+use crate::tree::node::{HostNode, NodeIndex};
 use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
@@ -67,6 +67,17 @@ fn closes(step: &Step, n: &HostNode, host: &Model) -> bool {
                 || host.scrollbar_bars(step.id).iter().any(Option::is_some)))
 }
 
+/// Whether the transparent (`display: contents`) nodes between `child` and
+/// its walk parent (at `parent`) are drawn. The walk reaches a child through
+/// them when it flattens them, so their own hiding decides for the child.
+fn through_drawn(host: &Model, child: &HostNode, parent: NodeIndex) -> bool {
+    host.tree()
+        .ancestors(child.index)
+        .skip(1)
+        .take_while(|(i, _)| *i != parent)
+        .all(|(_, n)| !n.hidden() && !n.visibility_hidden())
+}
+
 /// The compositor layer a node is walked as, before its origin and clip
 /// are placed.
 struct LayerPlan {
@@ -117,8 +128,9 @@ impl Walk<'_> {
         let Some(n) = host.node(id) else {
             return;
         };
-        // The walk reaches a node only from a drawn parent, or as a root or
-        // layer `Model::layers` found drawn: its own visibility decides.
+        // The walk reaches a node only from a drawn parent (through the
+        // transparent nodes between them, see `through_drawn`), or as a root
+        // or layer `Model::layers` found drawn: its own visibility decides.
         if n.hidden() || n.visibility_hidden() {
             return;
         }
@@ -356,10 +368,11 @@ impl Walk<'_> {
         };
         if host.tree().flat_children(id).len() < INDEXED {
             for child in host.stacked(n) {
-                let Some(c) = host
-                    .node(child)
-                    .filter(|c| !c.is_layer() && c.properties.drawable.is_none())
-                else {
+                let Some(c) = host.node(child).filter(|c| {
+                    !c.is_layer()
+                        && c.properties.drawable.is_none()
+                        && through_drawn(host, c, n.index)
+                }) else {
                     continue;
                 };
                 let at = host.location(c);
@@ -397,6 +410,12 @@ impl Walk<'_> {
             reached.sort_by_key(|(_, c, _)| host.stack_key(*c));
         }
         for (_, child, at) in reached {
+            if !host
+                .node(child)
+                .is_some_and(|c| through_drawn(host, c, n.index))
+            {
+                continue;
+            }
             let at = match host
                 .node(child)
                 .filter(|c| c.place.positioning == crate::tree::node::Positioning::Sticky)
