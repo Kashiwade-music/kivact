@@ -62,7 +62,7 @@ impl Model {
             .find(|bar| bar.track.contains(point))
     }
     pub(crate) fn scrollbar_style(&self, id: NodeId) -> ScrollbarProps {
-        self.effective_paint(id)
+        self.paint_now(id)
             .scrollbar
             .as_deref()
             .copied()

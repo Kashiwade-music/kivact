@@ -186,10 +186,9 @@ impl Model {
                 // nodes that cancelled it stop being layers too).
                 self.stale_fact(id);
                 self.mark_corrected_below(id);
+                self.changes.restack = true;
             }
         }
-        self.changes.restack = true;
-        self.changes.paint = true;
         !self.layout_motion.runs.is_empty()
     }
 

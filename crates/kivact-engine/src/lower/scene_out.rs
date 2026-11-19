@@ -14,7 +14,7 @@
 
 use arvane_protocol::{
     CompositeLayer, Composition, Group, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid,
-    RenderCmd as D, RenderScene,
+    RasterPaint, RenderCmd as D, RenderScene,
 };
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
@@ -251,6 +251,43 @@ fn group_opened(g: &Group, space: Transform) -> Opened {
     }
 }
 
+/// A node's drawing being recorded for the draw cache.
+#[derive(Debug, Default)]
+struct Recording {
+    commands: Vec<D>,
+    /// A layer, an item, a drawable or pixels were drawn: it cannot be replayed.
+    spoiled: bool,
+}
+
+/// Whether `command` draws pixels the asset store hands out for this
+/// frame (an image, or a pattern that may tile one): such a command
+/// is drawn afresh every frame.
+fn holds_pixels(command: &D) -> bool {
+    // Every variant is named: a new one must say whether it holds pixels.
+    match command {
+        D::Image { .. } | D::ImageSampled { .. } => true,
+        D::Rect { fill, .. } | D::RoundedRect { fill, .. } | D::RoundedRectCorners { fill, .. } => {
+            matches!(fill, RasterPaint::Pattern(_))
+        }
+        D::FillShape { paint, .. } | D::StrokeShape { paint, .. } => {
+            matches!(paint, RasterPaint::Pattern(_))
+        }
+        D::Glyphs { fill, .. } => matches!(fill, Some(RasterPaint::Pattern(_))),
+        D::StrokeRect { .. }
+        | D::StrokeRoundedRectCorners { .. }
+        | D::Line { .. }
+        | D::Path { .. }
+        | D::Shadow { .. }
+        | D::PushClip(_)
+        | D::PopClip
+        | D::BoxShadow(_)
+        | D::PushTransform(_)
+        | D::PopTransform
+        | D::PushGroup(_)
+        | D::PopGroup => false,
+    }
+}
+
 /// Draw commands and composition pieces being built in paint order. The
 /// open layers form a stack; the root layer is never closed.
 #[derive(Debug)]
@@ -258,6 +295,7 @@ pub(crate) struct SceneOut {
     layers: Vec<Layer>,
     owner: (NodeId, u8),
     ordinal: u32,
+    recording: Option<Recording>,
 }
 
 impl Default for SceneOut {
@@ -266,6 +304,7 @@ impl Default for SceneOut {
             layers: vec![Layer::new(LayerProps::root(), Vec::new())],
             owner: (NodeId(0), 0),
             ordinal: 0,
+            recording: None,
         }
     }
 }
@@ -296,6 +335,7 @@ impl SceneOut {
 
     /// The key of the next child layer a Draw recording opens in the scope.
     pub(crate) fn next_scene_key(&mut self) -> LayerKey {
+        self.spoil();
         let (node, slot) = self.owner;
         let ordinal = self.ordinal;
         self.ordinal += 1;
@@ -306,9 +346,46 @@ impl SceneOut {
         }
     }
 
-    /// Append `command` to the innermost open layer.
+    /// Append `command` to the innermost open layer (and to the recording).
     pub(crate) fn push(&mut self, command: D) {
+        if let Some(recording) = &mut self.recording {
+            if holds_pixels(&command) {
+                recording.spoiled = true;
+            } else {
+                recording.commands.push(command.clone());
+            }
+        }
         self.top().push(command);
+    }
+
+    /// Start recording what the next commands draw (one recording at a time).
+    pub(crate) fn begin_record(&mut self) {
+        debug_assert!(
+            self.recording.is_none(),
+            "invariant: one recording at a time"
+        );
+        self.recording = Some(Recording::default());
+    }
+
+    /// The commands drawn since `begin_record`, or `None` when they cannot
+    /// be replayed (see `Recording::spoiled`).
+    pub(crate) fn end_record(&mut self) -> Option<Vec<D>> {
+        let recording = self.recording.take()?;
+        (!recording.spoiled).then_some(recording.commands)
+    }
+
+    /// Draw `commands` again, as recorded.
+    pub(crate) fn replay(&mut self, commands: &[D]) {
+        for command in commands {
+            self.push(command.clone());
+        }
+    }
+
+    /// What is being recorded cannot be replayed.
+    fn spoil(&mut self) {
+        if let Some(recording) = &mut self.recording {
+            recording.spoiled = true;
+        }
     }
 
     /// Append `commands` in order.
@@ -341,6 +418,7 @@ impl SceneOut {
     /// Open a child layer with `props`; its transform is taken in the
     /// innermost layer's space. Its commands follow until `close_layer`.
     pub(crate) fn open_layer(&mut self, props: LayerProps) {
+        self.spoil();
         let parent = self.top();
         let clips = parent.clips();
         let space = parent.space;
@@ -352,6 +430,7 @@ impl SceneOut {
 
     /// Close the innermost child layer, which becomes a piece of its parent.
     pub(crate) fn close_layer(&mut self) {
+        self.spoil();
         if self.layers.len() < 2 {
             debug_assert!(false, "invariant: only a child layer is closed");
             return;
@@ -365,6 +444,7 @@ impl SceneOut {
 
     /// Add an item to the innermost layer, between its chunks.
     pub(crate) fn item(&mut self, item: LayerItem) {
+        self.spoil();
         let top = self.top();
         top.split(true);
         top.pieces.push(Piece::Item(Box::new(item)));
@@ -374,6 +454,7 @@ impl SceneOut {
     /// layer's space, under its open transforms and clipped by its open
     /// clips. The root layer takes the drawable's transform.
     pub(crate) fn drawable(&mut self, layers: Vec<CompositeLayer>, at: Point) {
+        self.spoil();
         let top = self.top();
         let clips = top.clips();
         let space = top.space;

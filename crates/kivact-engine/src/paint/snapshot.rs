@@ -44,7 +44,11 @@ impl Model {
             },
         );
         // The retained window list and raster scale remain the window's.
-        let pass = PaintPass { scale: 1.0, size };
+        let pass = PaintPass {
+            scale: 1.0,
+            size,
+            cache: false,
+        };
         let composition = self.compose_list(engine, &list, pass);
         self.report_dropped_draws();
         Some(OffscreenRenderer::new().render_composition(&composition, (width, height)))

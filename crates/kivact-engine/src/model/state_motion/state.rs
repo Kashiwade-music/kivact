@@ -18,11 +18,6 @@ impl StateMotion {
         self.0.get(&id)
     }
 
-    /// Whether a transition moves.
-    pub(crate) fn is_active(&self) -> bool {
-        !self.0.is_empty()
-    }
-
     /// Drop the transition of `id`.
     pub(crate) fn forget(&mut self, id: NodeId) {
         self.0.remove(&id);
@@ -45,12 +40,7 @@ impl StateMotion {
     /// either is running): such a node is a compositor layer. Captured and
     /// held tracks do not move it.
     pub(crate) fn moves_layer(&self, id: NodeId) -> bool {
-        self.0.get(&id).is_some_and(|a| {
-            a.tracks.iter().any(|t| {
-                matches!(t.phase, TrackPhase::Running { .. })
-                    && matches!(t.prop, TransitionProp::Opacity | TransitionProp::Transform)
-            })
-        })
+        self.0.get(&id).is_some_and(StateAnimation::moves_layer)
     }
 }
 
@@ -185,6 +175,15 @@ impl StateAnimation {
         self.tracks
             .iter()
             .all(|t| matches!(t.phase, TrackPhase::Settled))
+    }
+
+    /// Whether it moves its node's opacity or transform now (a running
+    /// track of either): the node is a compositor layer while it does.
+    pub(crate) fn moves_layer(&self) -> bool {
+        self.tracks.iter().any(|t| {
+            matches!(t.phase, TrackPhase::Running { .. })
+                && matches!(t.prop, TransitionProp::Opacity | TransitionProp::Transform)
+        })
     }
 
     /// Whether any track waits for a retarget.

@@ -80,6 +80,7 @@ impl Model {
         if env.reduced_motion != self.frame.env.reduced_motion {
             self.changes.restack = true;
             self.changes.paint = true;
+            self.forget_draws();
         }
         self.frame.drawable = surface_active;
         self.a11y.invalidate();
@@ -130,17 +131,6 @@ impl Model {
         self.frame.frames.0.retain(|t| *t > now);
         if let Some(client) = client {
             client.0.retain(|t| *t > now);
-        }
-        if self.motion.is_active() {
-            self.changes.restack = true;
-            let moving: Vec<NodeId> = self.motion.moving().collect();
-            for id in moving {
-                self.stale_fact(id);
-                let children: Vec<NodeId> = self.tree.flat_children(id).collect();
-                for child in children {
-                    self.stale_fact(child);
-                }
-            }
         }
         let motion = clock.motion_ns(stamp);
         let reduced = self.frame.reduced_motion();

@@ -78,6 +78,7 @@ impl Model {
         let pass = PaintPass {
             scale,
             size: Size::new(bounds.width, bounds.height),
+            cache: false,
         };
         let mut layers = self.compose_list(engine, &list, pass).layers;
         if let Some(first) = layers.first_mut() {

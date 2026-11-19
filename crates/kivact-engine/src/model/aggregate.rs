@@ -26,6 +26,8 @@ pub(crate) struct Slots {
     pub(crate) ink: Vec<Cell<Option<crate::paint::state::Ink>>>,
     /// The base paint's look of each node (`Model::derive`).
     pub(crate) look: Vec<Option<crate::layer::LayerTraits>>,
+    /// The drawing each listed node made in the last frame (`paint::frame_scene`).
+    pub(crate) draws: Vec<Cell<Option<Box<crate::paint::state::NodeDraw>>>>,
 }
 
 impl Slots {
@@ -35,6 +37,7 @@ impl Slots {
         self.editors.push(None);
         self.ink.push(Cell::new(None));
         self.look.push(None);
+        self.draws.push(Cell::new(None));
     }
 
     /// Reset `slot` before it is freed; returns the editor and the
@@ -50,6 +53,7 @@ impl Slots {
         let extents = self.measure.take_slot(slot);
         self.ink[slot].set(None);
         self.look[slot] = None;
+        self.draws[slot].set(None);
         (editor, extents)
     }
 }
