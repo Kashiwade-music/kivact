@@ -1,10 +1,10 @@
 //! Role: Store running state style transitions, their tracks and color channels.
 
 use std::collections::BTreeMap;
-use std::sync::Arc;
 
 use super::interp::{PropBasis, PropInterp, apply_components};
-use kivact_types::motion::{SpringRun, Transition, TransitionProp};
+use crate::model::motion_run::MotionRun;
+use kivact_types::motion::{SpringRun, TransitionProp};
 use kivact_types::{NodeId, PaintProps, Rgba};
 
 /// The state motion group: the transitions of the nodes whose state
@@ -94,8 +94,6 @@ pub(crate) struct StateAnimation {
 pub(crate) struct PropTrack {
     /// The property it moves.
     pub(super) prop: TransitionProp,
-    /// How it moves.
-    pub(super) transition: Arc<Transition>,
     /// Where it is in its life.
     pub(super) phase: TrackPhase,
 }
@@ -114,16 +112,12 @@ pub(crate) enum TrackPhase {
         /// The interrupted spring state.
         spring: SpringRun,
     },
-    /// Moving from `interp.from` to `interp.to` since `start` (host ns).
+    /// Moving: `run` interpolates the numbers of `basis`.
     Running {
-        /// The interpolation.
-        interp: PropInterp,
-        /// The numbers drawn now.
-        current: Vec<f64>,
-        /// When it started (host ns).
-        start: u64,
-        /// A spring's velocity, step time and iteration.
-        spring: SpringRun,
+        /// The shape the numbers are written into.
+        basis: PropBasis,
+        /// The run.
+        run: MotionRun,
     },
     /// The run ended away from the target (alternate with an even count):
     /// `value` is drawn until the next capture.
@@ -142,9 +136,7 @@ impl TrackPhase {
     fn drawn(&self) -> Option<(&PropBasis, &[f64])> {
         match self {
             TrackPhase::Captured { interp, shown, .. } => Some((&interp.basis, shown)),
-            TrackPhase::Running {
-                interp, current, ..
-            } => Some((&interp.basis, current)),
+            TrackPhase::Running { basis, run } => Some((basis, &run.current)),
             TrackPhase::Held { interp, value } => Some((&interp.basis, value)),
             TrackPhase::Settled => None,
         }

@@ -4,9 +4,9 @@
 //! transform cancels the motion of its nearest moving ancestor, so each
 //! node lands on its own box.
 
-use super::state::LayoutAnimation;
 use crate::contract::NodeType;
 use crate::model::Model;
+use crate::model::motion_run::MotionRun;
 use kivact_types::motion::{PlayDirection, Repeat, Transition};
 use kivact_types::{Animatable, CornerRadius, Corners, Len, NodeId, Rect, Transform};
 
@@ -37,7 +37,7 @@ fn once(timing: Transition) -> Transition {
 }
 
 /// The window map of `run`'s box: from its goal to its current box.
-fn run_map(run: &LayoutAnimation) -> Transform {
+fn run_map(run: &MotionRun) -> Transform {
     box_map(
         Rect::from_components(&run.to),
         Rect::from_components(&run.current),
@@ -116,7 +116,7 @@ impl Model {
         old.to_components(&mut from);
         let mut to = Vec::new();
         new.to_components(&mut to);
-        let mut spring = self
+        let spring = self
             .layout_motion
             .runs
             .get(&id)
@@ -135,18 +135,9 @@ impl Model {
             return;
         }
         let start = self.frame.request_motion_frame();
-        spring.start(start, &timing, &from, &to);
-        self.layout_motion.runs.insert(
-            id,
-            LayoutAnimation {
-                current: from.clone(),
-                from,
-                to,
-                timing,
-                start,
-                spring,
-            },
-        );
+        self.layout_motion
+            .runs
+            .insert(id, MotionRun::start(from, to, timing, spring, start));
         self.changes.restack = true;
         self.stale_fact(id);
         // A descendant with a layout transition cancels this new run (it is a
@@ -186,13 +177,9 @@ impl Model {
         }
         let before: Vec<NodeId> = self.layout_motion.runs.keys().copied().collect();
         let tree = &self.tree;
-        self.layout_motion.runs.retain(|id, a| {
-            tree.contains(*id)
-                && !(reduced && a.timing.decorative)
-                && !a
-                    .timing
-                    .step(&a.from, &a.to, a.start, now, &mut a.current, &mut a.spring)
-        });
+        self.layout_motion
+            .runs
+            .retain(|id, a| tree.contains(*id) && !a.step(now, reduced));
         for id in before {
             if !self.layout_motion.runs.contains_key(&id) {
                 // A run that ended may stop making its node a layer (and the
@@ -204,19 +191,6 @@ impl Model {
         self.changes.restack = true;
         self.changes.paint = true;
         !self.layout_motion.runs.is_empty()
-    }
-
-    /// Move the runs' times past a stop that ended at `now` (the stop began
-    /// at `since`): they go on from where they stood.
-    pub(crate) fn shift_layout_times(&mut self, since: u64, now: u64) {
-        for a in self.layout_motion.runs.values_mut() {
-            a.start = if a.start <= since {
-                a.start.saturating_add(now.saturating_sub(since))
-            } else {
-                now
-            };
-            a.spring.last_ns = now;
-        }
     }
 
     /// The window layout box of `id`: its layout position, moved by each

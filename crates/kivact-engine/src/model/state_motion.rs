@@ -21,8 +21,7 @@
 //!   transition whose target is what is shown ends without a frame.
 //! - A moving transform asks for a layout pass every frame (the node is
 //!   placed, hit and reported where it is drawn).
-//! - While nothing can be drawn the transitions keep their place in time
-//!   (`Model::shift_state_times`): they go on from where they paused.
+//! - While no window can draw, the App clock stands still (kivact_types::clock::Clock), so the transitions go on from where they stood.
 
 pub(crate) mod interp;
 pub(crate) mod state;

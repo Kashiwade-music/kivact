@@ -29,7 +29,7 @@ impl Model {
             .filter_map(|(id, need)| Some((id, if reduced { need.reduced? } else { need.moving })))
             .collect();
         self.frame.shader_clocks = needs;
-        self.request_clock_frames(self.frame.now());
+        self.request_clock_frames(self.frame.host_now());
     }
 
     /// At a tick at `now`: repaint the nodes whose shaders run on a clock and

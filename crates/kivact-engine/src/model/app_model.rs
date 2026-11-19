@@ -10,7 +10,7 @@ use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
 use crate::model::frame::state::FrameRequests;
 use crate::mutation::Writes;
-use kivact_types::{ExternalImageId, MotionClock, NodeId, Size, WindowId, WindowRequest};
+use kivact_types::{ExternalImageId, NodeId, Size, WindowId, WindowRequest};
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -23,16 +23,6 @@ pub(crate) enum WindowChange {
     Close(WindowId),
 }
 
-/// Whether the App's motion clock runs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum AppClock {
-    Running,
-    /// No window can draw since `since_ns` (host ns).
-    Stopped {
-        since_ns: u64,
-    },
-}
-
 // xtask-allow(state): legacy: assets, focused_window
 /// Every window's model and the App-wide state.
 pub(crate) struct AppModel {
@@ -42,10 +32,8 @@ pub(crate) struct AppModel {
     pub(crate) assets: Rc<RefCell<ArvaneAssets>>,
     /// Window changes the host performs after the turn, in order.
     pub(crate) window_changes: Vec<WindowChange>,
-    /// The App's one motion clock; `FrameTick.clock` carries it.
-    pub(crate) motion: MotionClock,
-    /// Whether the App's motion clock runs: it stops while no window can draw.
-    pub(crate) clock: AppClock,
+    /// The App's one motion clock (`kivact_types::clock::Clock`): it stops while no window can draw; `FrameTick.clock` carries its snapshot.
+    pub(crate) clock: kivact_types::clock::Clock,
     /// The frames the core asked for; only the tick-source window's
     /// `Model::tick` reads them.
     pub(crate) client_frames: FrameRequests,
@@ -71,8 +59,7 @@ impl AppModel {
             writes: Writes::default(),
             assets: shared.assets,
             window_changes: Vec::new(),
-            motion: MotionClock::default(),
-            clock: AppClock::Running,
+            clock: kivact_types::clock::Clock::new(),
             client_frames: FrameRequests::default(),
             focused_window: None,
             external_windows: BTreeMap::new(),
@@ -89,6 +76,14 @@ impl AppModel {
     /// The model of `id`, mutably.
     pub(crate) fn model_mut(&mut self, id: WindowId) -> Option<&mut Model> {
         self.windows.get_mut(&id)
+    }
+
+    /// Window `id` handles an event or a turn at host time `host_ns`.
+    pub(crate) fn set_now(&mut self, id: WindowId, host_ns: u64) {
+        let now = super::frame::state::Now::at(host_ns, &self.clock);
+        if let Some(model) = self.windows.get_mut(&id) {
+            model.frame.set_now(now);
+        }
     }
 
     /// The window whose model holds `node`.
@@ -173,11 +168,6 @@ impl AppModel {
     /// The App's write accounting, mutably.
     pub(crate) fn writes_mut(&mut self) -> &mut Writes {
         &mut self.writes
-    }
-
-    /// The App's one motion clock.
-    pub(crate) fn motion(&self) -> MotionClock {
-        self.motion
     }
 
     /// The window the OS focuses.

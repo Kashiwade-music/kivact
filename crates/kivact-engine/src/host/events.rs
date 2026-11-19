@@ -169,9 +169,12 @@ impl Host {
             return Ok(ShellControl::Wait);
         }
         let now = windows.now_ns();
-        if let Some(model) = self.app.borrow_mut().model_mut(id) {
-            model.frame.set_now(now);
-            if stops_smooth_scrolls(&event) {
+        {
+            let mut app = self.app.borrow_mut();
+            app.set_now(id, now);
+            if let Some(model) = app.model_mut(id)
+                && stops_smooth_scrolls(&event)
+            {
                 model.frame.stop_smooth_scrolls();
             }
         }

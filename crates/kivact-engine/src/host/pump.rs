@@ -219,11 +219,7 @@ impl Host {
                     DeferredRequest::TimeScale(scale) => {
                         if scale.is_finite() {
                             let now = windows.now_ns();
-                            for id in self.window_ids() {
-                                if let Some(model) = self.app.borrow_mut().model_mut(id) {
-                                    model.set_time_scale(now, scale);
-                                }
-                            }
+                            self.app.borrow_mut().clock.set_scale(now, scale);
                         }
                         PlatformResult::Done
                     }
@@ -458,9 +454,10 @@ impl Host {
         let now = windows.now_ns();
         for id in self.window_ids() {
             let drawable = self.drawable(id);
-            if let Some(model) = self.app.borrow_mut().model_mut(id) {
+            let mut app = self.app.borrow_mut();
+            app.set_now(id, now);
+            if let Some(model) = app.model_mut(id) {
                 model.set_surface(drawable);
-                model.frame.set_now(now);
             }
         }
         let output = self.client.turn(events, boundaries, now);
@@ -570,23 +567,24 @@ impl Host {
     pub(super) fn tick_windows(&mut self, now: u64) {
         let source = self.windows.keys().copied().find(|id| self.drawable(*id));
         let mut app = self.app.borrow_mut();
-        let clock = app.motion();
         let AppModel {
             windows,
             client_frames,
             events,
+            clock,
             ..
         } = &mut *app;
+        let clock = *clock;
         for id in windows.keys().copied().collect::<Vec<_>>() {
             let client = (Some(id) == source).then_some(&mut *client_frames);
             if let Some(model) = windows.get_mut(&id)
-                && let Some(stamp) = model.tick(now, client)
+                && let Some(stamp) = model.tick(now, &clock, client)
             {
                 events.push(HostEvent::FrameTick {
                     window: id,
                     now_ns: stamp.now_ns,
                     estimated_present_ns: stamp.estimated_present_ns,
-                    clock,
+                    clock: clock.motion_clock(),
                 });
             }
         }
