@@ -1,5 +1,7 @@
 //! Role: Attach canonical row input and render independent item content slots.
-use crate::collection_values::{ItemListMarker, ItemPosition, ItemRowState};
+use crate::item_list::ItemListMarker;
+use crate::item_list::ItemPosition;
+use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
@@ -160,7 +162,7 @@ impl RowRender {
 }
 impl RowContents {
     fn render(mut self, mut root: Node) -> Node {
-        let context = crate::item_context::current();
+        let context = crate::item_list::context::current();
         let variants = self.variants.clone().with_defaults(&context.variants);
         let position = self.position;
         let fallback = context.position;

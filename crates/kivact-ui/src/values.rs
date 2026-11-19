@@ -25,7 +25,6 @@
 //! equality, and no message handle is created while drawing.
 use super::variants::Variant;
 use crate::control_size::ControlSize;
-use kivact_core::view::CheckedState;
 
 /// What a button does, which its recipe draws (shadcn's `variant`).
 ///
@@ -55,14 +54,6 @@ pub enum ButtonVariant {
 }
 
 impl Variant for ButtonVariant {}
-
-/// Standard presentation of a radio group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum RadioGroupVariant {
-    /// Adjacent choices drawn as a segmented control.
-    Segmented,
-}
-impl Variant for RadioGroupVariant {}
 
 /// The state of a [`progress`](super::progress) bar for the recipes of its
 /// track and fill.
@@ -109,67 +100,6 @@ impl PartialEq for ProgressState {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value && self.size == other.size
     }
-}
-
-/// The state of a main row of a [`data_table`](super::data_table) for its
-/// recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DataTableRowState {
-    /// The actual state of the row's attached table part: its input state,
-    /// whether it is selected and whether it holds the tab stop.
-    pub interaction: kivact_interaction::TableRowState,
-    /// The accent the caller gave the row with
-    /// [`DataTable::row_color`](super::DataTable::row_color); the recipe
-    /// resolves it in the theme in effect.
-    pub color: Option<kivact_core::style::Color>,
-    /// The height the caller gave the rows with
-    /// [`DataTable::row_height`](super::DataTable::row_height), at least 18.
-    pub height: Option<f64>,
-}
-
-/// The state of a cell of a [`data_table`](super::data_table) for its
-/// recipe.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DataTableCellState {
-    /// The actual state of the cell's attached table part.
-    pub interaction: kivact_interaction::TableCellState,
-    /// Whether the column is [`numeric`](super::DataColumn::numeric).
-    pub numeric: bool,
-}
-
-/// The state of the box around a check box of a
-/// [`data_table`](super::data_table), for its recipe.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DataTableCheckState {
-    /// The header's box, which checks the page's rows; Indeterminate while
-    /// some of them are checked.
-    Header(CheckedState),
-    /// A row's box.
-    Row { checked: bool },
-}
-
-impl DataTableCheckState {
-    /// Whether this is the header's box, which checks the page's rows.
-    pub fn is_header(&self) -> bool {
-        matches!(self, Self::Header(_))
-    }
-    /// The box's checked state; only the header's is ever Indeterminate.
-    pub fn checked(&self) -> CheckedState {
-        match *self {
-            Self::Header(checked) => checked,
-            Self::Row { checked } => CheckedState::from_bool(checked),
-        }
-    }
-}
-
-/// The page a [`data_table`](super::data_table) shows, for the recipe of its
-/// pager.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DataTablePageState {
-    /// The page shown, from 0.
-    pub index: usize,
-    /// How many pages the filtered rows fill. Zero for a remote page with unknown total.
-    pub pages: usize,
 }
 
 /// Standard progress appearances, read through the existing variant contract.

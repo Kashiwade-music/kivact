@@ -1,7 +1,7 @@
 //! Role: Render reactive progress steps with semantic current-step metadata.
-use crate::navigation_values::{
-    CollapsedSteps, StepIndicatorKind, StepStatus, StepperItemState, StepperState,
-};
+
+use crate::stepper::look::StepperItemState;
+use crate::stepper::look::StepperState;
 use kivact_core::custom::Reactive;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
 use kivact_core::style::{Direction, style};
@@ -10,6 +10,8 @@ use kivact_core::view::{
     node_ref, show, text,
 };
 use std::rc::Rc;
+pub(crate) mod look;
+
 /// A step's optional indicator.
 #[derive(Clone, Default, PartialEq)]
 pub enum StepIndicator {
@@ -493,4 +495,32 @@ fn step_decoration(
         variants,
         state,
     )
+}
+
+/// Semantic status attached to a step.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StepStatus {
+    #[default]
+    Default,
+    Accent,
+    Success,
+    Warning,
+    Error,
+}
+
+/// Which steps remain mounted visibly when the responsive layout is compact.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CollapsedSteps {
+    #[default]
+    Current,
+    All,
+}
+
+/// The actual indicator content policy selected on one step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StepIndicatorKind {
+    Auto,
+    Number,
+    None,
+    Custom,
 }

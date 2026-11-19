@@ -1,4 +1,6 @@
 //! Role: Compose static tables with themed rows and cells.
+pub(crate) mod look;
+
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};

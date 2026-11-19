@@ -1,4 +1,6 @@
 //! Role: Render a themed selectable list over the shared keyed list parts.
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 

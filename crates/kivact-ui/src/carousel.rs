@@ -1,5 +1,6 @@
 //! Role: Render binding-driven translated or native scrolling carousels.
-use crate::carousel_values::{CarouselMode, CarouselSurfaceState};
+
+use crate::carousel::look::CarouselSurfaceState;
 use kivact_core::geometry::Point;
 use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
@@ -8,8 +9,10 @@ use kivact_core::view::{
     ScrollBehavior, View, node, node_ref, use_direction,
 };
 pub use kivact_interaction::Snap;
-
 use kivact_interaction::use_carousel;
+mod geometry;
+pub(crate) mod look;
+
 // xtask-allow(state): legacy: looping, per_view, gap, padding
 /// A slide viewport and previous/next controls.
 pub struct Carousel {
@@ -162,13 +165,13 @@ struct Layout {
 impl Layout {
     fn padding(self) -> f64 {
         self.padding.map_or_else(
-            || crate::look_files::carousel_padding(&kivact_core::style::use_theme().get()),
+            || crate::carousel::look::carousel_padding(&kivact_core::style::use_theme().get()),
             |v| v.get(),
         )
     }
     fn gap(self) -> f64 {
         self.gap.map_or_else(
-            || crate::look_files::carousel_gap(&kivact_core::style::use_theme().get()),
+            || crate::carousel::look::carousel_gap(&kivact_core::style::use_theme().get()),
             |v| v.get(),
         )
     }
@@ -223,10 +226,10 @@ fn navigate(c: Layout, references: &[kivact_core::view::NodeRef], delta: isize) 
         return;
     }
     if c.mode == CarouselMode::Scroll {
-        if let Some(target) = crate::carousel_geometry::page(
+        if let Some(target) = crate::carousel::geometry::page(
             c.viewport,
             references,
-            crate::carousel_geometry::PageRequest {
+            crate::carousel::geometry::PageRequest {
                 vertical: c.vertical.get_untracked(),
                 rtl: c.rtl.get_untracked() == ReadingDirection::Rtl,
                 next: delta > 0,
@@ -487,7 +490,7 @@ fn slide_viewport(
             && event.modifiers().shift
             && event.delta().x == 0.0
             && event.delta().y != 0.0
-            && (crate::carousel_geometry::can_scroll(c.viewport, edges, false, false, true, true))
+            && (crate::carousel::geometry::can_scroll(c.viewport, edges, false, false, true, true))
         {
             c.viewport.scroll_by(
                 Point {
@@ -515,8 +518,8 @@ fn edge_mask(
         return style();
     }
     let t = kivact_core::style::use_theme().get();
-    let fade = crate::look_files::carousel_fade_width(&t);
-    let Some(overflow) = crate::carousel_geometry::bounds(c.viewport, edges, c.vertical.get())
+    let fade = crate::carousel::look::carousel_fade_width(&t);
+    let Some(overflow) = crate::carousel::geometry::bounds(c.viewport, edges, c.vertical.get())
     else {
         return style();
     };
@@ -609,7 +612,7 @@ fn navigation_button(
     .disabled(move || {
         c.disabled.get()
             || if c.mode == CarouselMode::Scroll {
-                !crate::carousel_geometry::can_scroll(
+                !crate::carousel::geometry::can_scroll(
                     c.viewport,
                     edges,
                     c.vertical.get(),
@@ -635,4 +638,12 @@ fn navigation_button(
             |r| r.carousel_recipes().previous_recipe()
         };
     crate::layer::with_recipe_style(button, pick, variants, move || c.recipe_state()).into_view()
+}
+
+/// The structural layout used by a carousel.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CarouselMode {
+    #[default]
+    Translate,
+    Scroll,
 }

@@ -1,4 +1,6 @@
 //! Role: Render keyed breadcrumb navigation with one current page.
+pub(crate) mod look;
+
 use crate::BreadcrumbItemState;
 use kivact_core::state::{Callback, IntoValue, Value, callback};
 use kivact_core::view::{

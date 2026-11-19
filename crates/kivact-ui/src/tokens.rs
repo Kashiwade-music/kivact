@@ -1,7 +1,8 @@
 //! Role: Group per-component visual tokens in one theme extension.
+
 use crate::avatar_tokens::AvatarTokens;
 use crate::button::look::ButtonTokens;
-use crate::data_table_tokens::DataTableTokens;
+use crate::data_table::look::DataTableTokens;
 use crate::dialog::look::DialogTokens;
 use crate::disclosure::look::DisclosureTokens;
 use crate::progress_tokens::ProgressTokens;
@@ -14,9 +15,9 @@ pub struct UiTokens {
     pub chat: crate::ChatTokens,
     pub code_block: crate::CodeBlockTokens,
     pub indicators: crate::indicator_values::IndicatorTokens,
-    pub tree: crate::collection_values::TreeTokens,
-    pub table: crate::collection_values::TableTokens,
-    pub item_list: crate::collection_values::ItemListTokens,
+    pub tree: crate::tree::look::TreeTokens,
+    pub table: crate::table::look::TableTokens,
+    pub item_list: crate::item_list::look::ItemListTokens,
     pub pagination: crate::NavigationTokens,
     pub breadcrumb: crate::NavigationTokens,
     pub stepper: crate::StepperTokens,
@@ -44,5 +45,25 @@ pub struct UiTokens {
 impl ThemeExtension for UiTokens {
     fn fallback(_: &Theme) -> Self {
         Self::default()
+    }
+}
+
+/// Common navigation metrics installed in [`crate::UiTokens`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct NavigationTokens {
+    pub gap: f64,
+    pub padding: f64,
+    pub control_height: f64,
+    pub panel_padding: f64,
+}
+
+impl Default for NavigationTokens {
+    fn default() -> Self {
+        Self {
+            gap: 8.0,
+            padding: 4.0,
+            control_height: 32.0,
+            panel_padding: 8.0,
+        }
     }
 }

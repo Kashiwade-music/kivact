@@ -3,7 +3,7 @@ use super::types::{
     DataTable, DataTableContext, DataTableTreeIndent, Grouping, PageSetting, SortSetting,
     TreeConfig,
 };
-use crate::column_values::DataColumn;
+use crate::data_table::column::DataColumn;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
@@ -505,7 +505,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// The lane is separate from the indexed data columns.
     pub fn row_status(
         mut self,
-        status: impl Fn(&R) -> Option<crate::table_values::RowStatus> + 'static,
+        status: impl Fn(&R) -> Option<crate::data_table::types::RowStatus> + 'static,
     ) -> Self {
         self.row_status = Some(Rc::new(status));
         self

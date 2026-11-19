@@ -1,5 +1,6 @@
 //! Role: Provide immutable direct-child list positions and appearance defaults.
-use crate::collection_values::{ItemListMarker, ItemPosition};
+use crate::item_list::ItemListMarker;
+use crate::item_list::ItemPosition;
 use crate::variants::Variants;
 use kivact_core::state::{IntoValue, Value};
 #[derive(Clone)]

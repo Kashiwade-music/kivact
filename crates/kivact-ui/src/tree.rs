@@ -1,8 +1,10 @@
 //! Role: Draw a themed tree using the shared row navigation and expansion parts.
 
+pub(crate) mod look;
+
 use super::layer::{with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
-use crate::tree_values::TreeRowRecipeState;
+use crate::tree::look::TreeRowRecipeState;
 use kivact_core::custom::Part;
 use kivact_core::motion::Transition;
 use kivact_core::state::{Binding, Value, signal};

@@ -1,12 +1,11 @@
 //! Role: Define passive column text, cell content, ordering and sizing inputs.
-use kivact_core::state::Value;
-use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::view::Node;
-use kivact_core::view::{IntoView, View};
+
+use crate::menu::Menu;
+use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::view::{IntoView, Node, View};
 use kivact_interaction::ColumnDef;
 use std::cmp::Ordering;
 use std::rc::Rc;
-
 /// Names a row in text.
 type RowText<R> = Rc<dyn Fn(&R) -> String>;
 /// The view of one row's cell.
@@ -255,5 +254,16 @@ fn compare_text(a: &str, b: &str) -> Ordering {
     match (a.parse::<f64>(), b.parse::<f64>()) {
         (Ok(a), Ok(b)) => a.total_cmp(&b),
         _ => a.to_lowercase().cmp(&b.to_lowercase()),
+    }
+}
+
+impl<R: 'static> DataColumn<R> {
+    /// Open a menu from this column header's secondary click or context-menu key.
+    pub fn header_context_menu<K: kivact_core::state::ItemKey>(
+        mut self,
+        menu: impl Fn() -> Menu<K> + 'static,
+    ) -> Self {
+        self.header_menu = Some(Rc::new(move |header| menu().attach_context(header)));
+        self
     }
 }

@@ -1,6 +1,8 @@
 //! Role: Share sizing and look helpers that two or more components recipes use.
 
+use crate::Look;
 use crate::control_size::ControlSize;
+use kivact_core::custom::PartState;
 use kivact_core::draw::Shadow;
 use kivact_core::style::{Align, Color, ColorToken, Direction, Style, Theme, style};
 use kivact_interaction::PopupState;
@@ -82,4 +84,16 @@ pub(crate) fn mark() -> Style {
         .align_items(Align::Center)
         .justify_content(kivact_core::style::Justify::Center)
         .shrink(0)
+}
+
+/// The items in a column.
+pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
+    style().direction(Direction::Column).gap(t.space().xs)
+}
+
+pub(crate) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
+    style()
+        .direction(Direction::Row)
+        .align_items(Align::Center)
+        .gap(4)
 }

@@ -1,20 +1,18 @@
 //! Role: Render a themed radio group over the shared keyed list parts.
-use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
-use super::variants::{Variant, Variants};
+
 use crate::control_size::ControlSize;
-use crate::toggle::look::CheckControl;
-use crate::toggle::look::CheckableState;
-use kivact_core::state::{Binding, Callback, Value, binding};
-use kivact_core::state::{IntoText, IntoValue, callback};
+use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
+use crate::toggle::look::{CheckControl, CheckableState};
+use crate::variants::{Variant, Variants};
+use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Value, binding, callback};
 use kivact_core::style::use_theme;
-use kivact_core::view::EditPhase;
-use kivact_core::view::{Element, Node, icon, node};
 use kivact_core::view::{
-    HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, for_each, show,
-    use_direction,
+    EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
+    for_each, icon, node, show, use_direction,
 };
 use kivact_interaction::{EditSession, ListItem, ListOptions, Selection, use_list};
 use std::rc::Rc;
+pub(crate) mod look;
 
 /// What an option shows, from its item and its state.
 type ItemNode<K> = Rc<dyn Fn(Node, Value<ListItem<K>>, Value<CheckableState>) -> Node>;
@@ -317,3 +315,12 @@ fn radio_option<K: kivact_core::state::ItemKey>(
         None => target.into_view(),
     }
 }
+
+/// Standard presentation of a radio group.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum RadioGroupVariant {
+    /// Adjacent choices drawn as a segmented control.
+    Segmented,
+}
+
+impl Variant for RadioGroupVariant {}

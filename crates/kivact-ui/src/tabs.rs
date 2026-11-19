@@ -10,6 +10,8 @@
 //! binding, but the factory is not called for it. A kit's domain tab bar
 //! (close, reorder, icons, counters) moves and selects with the same
 //! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
+pub(crate) mod look;
+
 use super::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use super::variants::{Variant, Variants};
 use kivact_core::state::{Binding, Value};
