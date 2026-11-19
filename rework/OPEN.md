@@ -185,3 +185,7 @@
 
 ## 差戻し（W4・U09、2026-11-19）
 - **U09**（W4、lane U、commit `08e26d3a`）：STOP（E2E の失敗）。付属書どおり `crates/kivact-ui/src/carousel.rs` の `follow_scroll` を `effect_on` にすると、scroll の反映が約 150ms 遅れて callback が走り、`ui_carousel::carousel_scroll_mode_snaps_to_a_slide`（`ui_carousel.rs:41`）が index 0 のまま失敗する。HEAD に戻すと同じ試験は通る（変更が原因）。debug の出力では、at=1 の初回が now=150ms で、Settle の 120ms が試験の advance の 200ms に入らない。Orchestrator の処置：この commit は lane U に残し、統合へは入れない。lane U は U10 以降を止めた。設計者が決める：(a) `follow_scroll` は `effect_on` のまま、試験の時間の進め方（advance）を直す（期待値は変えない）、(b) `follow_scroll` を effect にせず、同期的な反映に変える（付属書の手順を変える）。
+- **U09**：設計者の回答（(a)）：`follow_scroll` は `effect_on` のまま、`ui_carousel::carousel_scroll_mode_snaps_to_a_slide` の試験の時間の進め方（advance）を、反映が届く長さまで増やす（期待値は変えない）。Orchestrator の処置：lane U で fix する。
+- **E06**（W4、lane E1、commit `a9d35ba8`）：逸脱なし。`next_tab_stop_outside` は `scan_from` で root から走査する（呼出し元は tree から外す前に呼ぶので挙動は同じ）。受け入れる。
+- **A03**（W4、lane A1、commit `4a9d3753`）：`xtask-allow(state)` の印は「未使用の印」の error になったので外した（決着済みの処置）。`*_pl` の field は実コードに無かったので新設した。受け入れる。
+- **C05**（W4、lane C、commit `17fff897`）：`open_window_record` は rt を持たない 7 引数。`view.rs` の `mod window_view` は `pub(crate)`。`EnvFields.keyboard_inset` は `Insets`（付属書は f64）。`frame_period_ns` の memo と `with_window_mut` は使われないので消した。`WindowRecord`・`WindowSlot`・`ForeignHooks` の印は未使用で外した。`EnvState` の印は付属書に無いので、実装者が閉じ文を書いた。`foreign_window.rs` の `request_size` は `state.decl.min_size` を読む。受け入れる（機械的な対応）。
