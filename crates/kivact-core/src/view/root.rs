@@ -53,7 +53,7 @@ pub(crate) fn install_app_contexts(
     let locale: Value<Locale> = match app_locale {
         Some(named) => owner.constant(named, at),
         None => {
-            let host = env.field("locale", |e| e.locale.clone());
+            let host = env.locale();
             owner.with_setup(|| {
                 kivact_runtime::memo(move || host.with(|tag| host_locale(tag.as_deref())))
             })
@@ -79,15 +79,7 @@ pub(crate) fn mount_window_root(
     build: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) -> kivact_types::NodeId {
-    let existing = ViewState::tree(rt).root(window);
-    let root = match existing {
-        Some(root) => root,
-        None => ViewState::tree_mut(rt).create_root(window, owner),
-    };
-    // The hover source is a window resource (like the mouse source): it is
-    // installed with the root, before any view mounts, so a mount/unmount
-    // cycle leaves the live counts where it found them.
-    crate::view::hover::install(rt, window, owner, at);
+    let root = ViewState::tree_mut(rt).create_root(window, owner);
     let style = NodeStyle {
         layers: vec![crate::view::element_data::StyleLayer {
             f: Rc::new(|| {

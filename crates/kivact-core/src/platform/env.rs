@@ -11,11 +11,11 @@ use std::rc::Rc;
 use crate::view::state::{EnvState, ViewState, current_window};
 use kivact_runtime::Value;
 use kivact_style::draw::Size;
+use kivact_types::Insets;
 #[doc(inline)]
 pub use kivact_types::{
     Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
 };
-use kivact_types::{Environment, Insets};
 
 /// The environment of the calling owner's window (`api` names the caller in
 /// misuse diagnostics).
@@ -26,17 +26,6 @@ fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
     ViewState::of(&rt)
         .env(window)
         .unwrap_or_else(|| panic!("`{api}` needs an open window at {at}"))
-}
-
-/// What one field of the host environment is now, tracked: the reader is
-/// notified only when that field changes. The accessor named `api` shares
-/// one memo of its field.
-#[track_caller]
-fn env_field<T: kivact_runtime::PropValue>(
-    api: &'static str,
-    f: fn(&Environment) -> T,
-) -> Value<T> {
-    state(api, Location::caller()).field(api, f)
 }
 
 /// Whether the App is still building its first host revision.
@@ -69,7 +58,7 @@ pub fn font_families() -> Value<Vec<String>> {
 /// misuse outside every owner.
 #[track_caller]
 pub fn is_fullscreen() -> Value<bool> {
-    env_field("is_fullscreen", |e| e.fullscreen)
+    state("is_fullscreen", Location::caller()).fullscreen()
 }
 
 /// Whether reduced motion is active in the window of the calling owner,
@@ -77,13 +66,13 @@ pub fn is_fullscreen() -> Value<bool> {
 /// unless the app sets an override with [`super::set_reduced_motion`].
 #[track_caller]
 pub fn is_motion_reduced() -> Value<bool> {
-    env_field("is_motion_reduced", |e| e.reduced_motion)
+    state("is_motion_reduced", Location::caller()).reduced_motion_value()
 }
 
 /// The display scale factor of the window of the calling owner, tracked.
 #[track_caller]
 pub fn scale_factor() -> Value<f64> {
-    env_field("scale_factor", |e| e.scale_factor)
+    state("scale_factor", Location::caller()).scale_factor()
 }
 
 /// Whether the window of the calling owner has a visible, active surface,
@@ -127,7 +116,7 @@ pub fn safe_area() -> Value<Insets> {
         .env(window)
         .expect("invariant: the calling owner's window is open");
     drop(rt);
-    env.field("safe_area", |e| e.safe_area)
+    env.safe_area()
 }
 
 /// The size of the window of the calling owner in logical pixels (its
@@ -152,7 +141,7 @@ pub fn safe_area() -> Value<Insets> {
 /// ```
 #[track_caller]
 pub fn window_size() -> Value<Size> {
-    env_field("window_size", |e| e.window_size)
+    state("window_size", Location::caller()).window_size()
 }
 
 /// What the platform the App runs on can do (fixed for the App's life,
@@ -197,25 +186,26 @@ pub(crate) fn missing_capabilities(c: &Capabilities) -> Vec<&'static str> {
 /// The system pointer preferences of the window of the calling owner.
 #[track_caller]
 pub fn pointer_settings() -> Value<kivact_types::PointerSettings> {
-    env_field("pointer_settings", |e| e.pointer)
+    state("pointer_settings", Location::caller()).pointer()
 }
 /// Insets of the window of the calling owner occupied by the software keyboard.
 #[track_caller]
 pub fn keyboard_inset() -> Value<Insets> {
-    env_field("keyboard_inset", |e| e.keyboard_inset)
+    state("keyboard_inset", Location::caller()).keyboard_inset()
 }
 
 /// The host's preferred light or dark appearance for the window of the
 /// calling owner.
 #[track_caller]
 pub fn theme_hint() -> Value<ThemeHint> {
-    env_field("theme_hint", |e| e.theme_hint)
+    state("theme_hint", Location::caller()).theme_hint()
 }
 
 /// Bytes restored by the platform at launch, or `None` on a fresh launch.
 #[track_caller]
 pub fn restored_state(key: &'static str) -> Option<Vec<u8>> {
-    env_field("restored_state", |env| env.restored_state.clone())
+    state("restored_state", Location::caller())
+        .restored_state()
         .get_untracked()
         .get(key)
         .cloned()

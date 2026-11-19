@@ -76,7 +76,7 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
             (window != WindowId::MAIN).then(|| convert::window(current_window(record.declared_in)));
         windows.push(p::WindowInfo {
             id: convert::window(window),
-            title: record.title.get_untracked(),
+            title: record.decl.title.get_untracked(),
             bounds: p::Rect {
                 x: 0.0,
                 y: 0.0,
@@ -85,7 +85,7 @@ pub(super) fn list_windows(rt: &Runtime, _: p::Empty) -> Result<p::WindowList, p
             },
             scale: environment.scale_factor,
             focused: focused == Some(window),
-            mode: match record.mode {
+            mode: match record.decl.mode {
                 kivact_types::WindowMode::Normal => p::WindowMode::Normal,
                 kivact_types::WindowMode::Tool => p::WindowMode::Tool,
                 kivact_types::WindowMode::Modal => p::WindowMode::Modal,

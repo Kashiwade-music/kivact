@@ -7,6 +7,7 @@
 use kivact_runtime::{ErrorKind, Runtime, UiError};
 
 use crate::platform::AppHandleExt;
+use crate::view::state::ViewState;
 
 /// What the root owner is told when code closes an embedded App.
 const EMBEDDED_CLOSE: &str =
@@ -24,7 +25,7 @@ pub(super) fn take_close_request(rt: &Runtime, embedded: bool) {
     }
     if accept {
         rt.request_exit();
-        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
+        ViewState::of(rt).close_foreign_for_exit();
     } else {
         rt.report(
             Some(rt.root()),

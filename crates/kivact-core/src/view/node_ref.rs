@@ -752,10 +752,9 @@ impl NodeRef {
     /// memo).
     #[track_caller]
     pub fn hovered(&self) -> Value<bool> {
-        let at = Location::caller();
         let (rt, s) = self.state();
         require_setup("NodeRef::hovered");
-        let hover = crate::view::hover::source(&rt, current_window(s.owner), at);
+        let hover = crate::view::hover::source(&rt, current_window(s.owner));
         let app = rt.id();
         let node = s.bound;
         drop(rt);

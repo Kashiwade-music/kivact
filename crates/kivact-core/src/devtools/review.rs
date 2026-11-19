@@ -120,7 +120,7 @@ fn prepare(rt: &Runtime, params: &p::AddCommentParams) -> Result<PreparedComment
     };
     Ok(PreparedComment {
         window,
-        window_title: record.title.get_untracked(),
+        window_title: record.decl.title.get_untracked(),
         target,
         style_changes,
         text: params.text.clone(),
