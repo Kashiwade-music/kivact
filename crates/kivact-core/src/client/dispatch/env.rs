@@ -155,13 +155,13 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
             return;
         }
         rt.request_exit();
-        crate::view::foreign::ForeignWindows::close_all_for_exit(rt);
+        ViewState::of(rt).close_foreign_for_exit();
         return;
     }
     let Some(record) = ViewState::of(rt).window_record(window) else {
         return;
     };
-    let close = match &record.dismiss {
+    let close = match &record.decl.dismiss {
         None => true,
         Some(handler) => {
             run_handler(rt, Some(record.declared_in), || {
@@ -170,7 +170,7 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
         }
     };
     if close {
-        record.open.set(false);
+        record.decl.open.set(false);
     }
 }
 
@@ -205,5 +205,5 @@ pub(super) fn window_failed(rt: &Runtime, window: WindowId, reason: &str) {
             None,
         ),
     );
-    record.open.set(false);
+    record.decl.open.set(false);
 }

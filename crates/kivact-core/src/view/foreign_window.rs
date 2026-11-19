@@ -1,7 +1,7 @@
 //! Role: The `foreign_window` view: a window whose whole content area is a
 //! native child window for UI another library draws.
 
-use std::cell::{Cell, RefCell};
+use std::cell::Cell;
 use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
@@ -18,7 +18,8 @@ use kivact_types::{
 use crate::geometry;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::foreign::{ForeignChild, ForeignHooks, ForeignPhase};
-use crate::view::state::{ViewState, Waiter};
+use crate::view::state::{ViewState, Waiter, WindowDecl};
+use crate::view::window_view::{SlotContent, Window};
 
 /// An OS window of this App whose whole content area is a native child window
 /// for UI another library draws, such as a plugin editor (CLAP, VST3).
@@ -150,20 +151,28 @@ impl IntoView for ForeignWindow {
             });
         }
         let hooks = Rc::new(ForeignHooks {
+            resizable: self.resizable,
+            ready: self.ready,
+            resize: self.resize,
+            destroy: self.destroy,
+            phase: Cell::new(ForeignPhase::Waiting),
+        });
+        let decl = WindowDecl {
             title: self.title,
             open: self.open,
             size: self.size,
             min_size: self.min_size,
             mode: self.mode,
             placement: self.placement,
-            resizable: self.resizable,
             dismiss: self.dismiss,
-            ready: RefCell::new(self.ready),
-            resize: RefCell::new(self.resize),
-            destroy: RefCell::new(self.destroy),
-            phase: Cell::new(ForeignPhase::Waiting),
-        });
-        crate::view::window_view::foreign_window_view(hooks, self.at)
+            foreign: Some(hooks),
+        };
+        Window {
+            decl,
+            content: SlotContent::Foreign,
+            at: self.at,
+        }
+        .into_view()
     }
 }
 
@@ -238,7 +247,7 @@ impl ForeignChild {
             width: f64::from(width) / scale,
             height: f64::from(height) / scale,
         };
-        if let Some(min) = state.min_size {
+        if let Some(min) = state.decl.min_size {
             size.width = size.width.max(min.width);
             size.height = size.height.max(min.height);
         }
@@ -284,7 +293,7 @@ pub(crate) fn changed(
     let Some(record) = ViewState::of(rt).window_record(window) else {
         return;
     };
-    let Some(hooks) = record.foreign.clone() else {
+    let Some(hooks) = record.decl.foreign.clone() else {
         return;
     };
     match change {
