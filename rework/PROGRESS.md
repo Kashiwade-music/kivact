@@ -79,3 +79,9 @@
   - 設計者の patch（xtask-core の解決、tokens の型を X/tokens.rs へ、look_common と progress、radio_group の循環）：lane の commit `eda141df`（merge `f9f03d65`）。xtask-core は `afbfd83` を使う。
 - tier b（統合 branch `f9f03d65`、`V:/kv-target/rw-main`）：fmt・xtask（`--no-write`、error 0 件）・clippy（workspace all-targets all-features）・kivact-docs の check は成功。test は 1585 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 36 件。rg が無かったので、同じ確認を grep で行い、`xtask-allow(state-fields)` は 0 件。
 - 注記（`rework/OPEN.md`）：xtask の legacy 印は 189 件（CP1 の台帳で閉じる）。e2e に名前の一致する試験が無い部品（number_input・tag_input・typing_indicator・spinner・avatar_group・badge・date_parts）がある。
+
+## W4b 完了（merge 済み・tier b 成功）
+- C06：lane `wt/rw-W4b-C` の commit `fd8413d8`、設計者の patch（`0cf2e9d6`：窓の通知を `WindowInfo` 全体の変化で送る。`SentWindows` に分ける）、merge `e132dc52`。tier a（fmt・check・clippy・xtask（`kivact-core`・`kivact-devtools-agent`）・e2e_native の `devtools`）は成功。
+- E31：lane `wt/rw-W4b-E` の commit `9bb8d22d`、merge `fe684dcb`。tier a（engine の fmt・check・clippy・xtask・試験、core の check・clippy、e2e_core の 8 モジュール、e2e_ui の 2 モジュール）は成功。
+- 設計者の回答（C06 の質問 4〜6、E31 の質問 7）：`rework/OPEN.md` の「設計者の回答（W4b・C06 の質問 4〜6、E31 の質問 7、2026-11-19）」節。
+- tier b（統合 branch `fe684dcb`、`V:/kv-target/rw-main`）：fmt・xtask（`--no-write`、error 0 件）・clippy（workspace all-targets all-features）・kivact-docs の check・`xtask-allow(state-fields)` の grep（0 件）は成功。test は 1585 件成功、失敗 1 件（`chat_keyboard`、基点の失敗。`rework/OPEN.md` の「基点の失敗」節）。
