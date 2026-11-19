@@ -116,6 +116,7 @@ fn has_text(svg: &[u8]) -> bool {
 
 #[cfg(test)]
 mod tests {
+    //! Role: Tests of the SVG font resolver and its registered faces.
     use super::*;
 
     #[test]

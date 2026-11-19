@@ -1,3 +1,5 @@
+//! Role: The kit recipes shared by the standard components.
+
 use crate::alert::look::AlertRecipes;
 use crate::breadcrumb::look::BreadcrumbRecipes;
 use crate::calendar::look::CalendarRecipes;

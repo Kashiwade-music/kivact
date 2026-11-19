@@ -1,4 +1,4 @@
-//! Role: The editing machinery only the native host uses: the editor, its journal and the damage record.
+//! Role: The editing machinery only the native host uses: editor, journal, damage record.
 
 pub use crate::change::Damage;
 pub use crate::edit_state::Taken;
