@@ -75,7 +75,11 @@ fn mount_node(
     } = resolve::resolve(cx, id, kind, c, at);
     create::write(cx, id, first, site, at);
     semantics::bind_props(cx, id, semantics, at);
+    let change = [&disabled, &selected]
+        .into_iter()
+        .any(|prop| prop.as_ref().is_some_and(|p| p.fixed().is_none()));
     let states = style::States {
+        change,
         disabled: disabled.map(InputProp::into_fn),
         selected: selected.map(InputProp::into_fn),
     };

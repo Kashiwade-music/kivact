@@ -26,6 +26,8 @@ pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
 pub(super) struct States {
     pub(super) disabled: Option<Rc<dyn Fn() -> bool>>,
     pub(super) selected: Option<Rc<dyn Fn() -> bool>>,
+    /// Whether either reader can change (it is not a fixed value).
+    pub(super) change: bool,
 }
 
 /// The merged layers of one node. Each recomputation is a new value, so
@@ -36,6 +38,18 @@ impl PartialEq for Merged {
     fn eq(&self, other: &Self) -> bool {
         Rc::ptr_eq(&self.0, &other.0)
     }
+}
+
+/// The merged layers of a node, as its style effect reads them.
+enum Layers {
+    /// A node whose disabled, selected or forced states can change: the
+    /// layers' closures run again only when what they read changes, not
+    /// when a state does.
+    Memo(Value<Merged>),
+    /// A node without such states: its style effect runs again only when
+    /// the layers' reads or the theme change, so the effect merges the
+    /// layers itself and no merged copy is kept per node.
+    Direct(Vec<StyleLayer>),
 }
 
 /// Stage 4: bind the style effect when the node has style layers, owns part
@@ -55,6 +69,7 @@ pub(super) fn bind_node_style(
             focusable: facts.focus_stop,
             disabled: states.disabled,
             selected: states.selected,
+            states_change: states.change,
             fix_layout,
             local_paint: facts.local_paint.clone(),
         };
@@ -74,6 +89,9 @@ pub(crate) struct NodeStyle {
     pub disabled: Option<Rc<dyn Fn() -> bool>>,
     /// Reader of the selected state (applies the `selected` state style).
     pub selected: Option<Rc<dyn Fn() -> bool>>,
+    /// Whether the disabled or selected reader can change: only then are
+    /// the merged layers kept in a memo (see [`Layers`]).
+    pub states_change: bool,
     /// Applied to every resolved layout before it is set (a builder that
     /// owns part of its node's layout).
     pub fix_layout: Option<fn(&mut LayoutProps)>,
@@ -98,13 +116,15 @@ pub(crate) fn bind_style(
         focusable,
         disabled,
         selected,
+        states_change,
         fix_layout,
         local_paint,
     } = style;
     let owner = cx.owner;
     let window = cx.window;
     let local_paint = RefCell::new(local_paint);
-    if crate::view::devtools_hooks::hooks(cx.rt).is_some() {
+    let hooked = crate::view::devtools_hooks::hooks(cx.rt).is_some();
+    if hooked {
         crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
     }
     let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);
@@ -112,12 +132,16 @@ pub(crate) fn bind_style(
     let theme = cx.theme();
     // The layers' closures run again only when what they read changes, not
     // when the disabled or selected state or the forced states change.
-    let merge_hook = hook.clone();
-    let merged: Value<Merged> = cx.owner.with_setup(|| {
-        kivact_runtime::memo(move || {
-            kivact_runtime::pure(|| Merged(Rc::new(merge_hook.apply(merge_layers(&layers)))))
-        })
-    });
+    let source = if states_change || hooked {
+        let merge_hook = hook.clone();
+        Layers::Memo(cx.owner.with_setup(|| {
+            kivact_runtime::memo(move || {
+                kivact_runtime::pure(|| Merged(Rc::new(merge_hook.apply(merge_layers(&layers)))))
+            })
+        }))
+    } else {
+        Layers::Direct(layers)
+    };
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
         let Some(theme_sig) = theme else { return };
@@ -126,7 +150,7 @@ pub(crate) fn bind_style(
         // an Internal effect feeding a paint transition.
         let resolved = kivact_runtime::pure(|| {
             theme_sig.with(|theme| {
-                merged.with(|s| {
+                let compile = |s: &Style| {
                     let state = Interactive {
                         focusable,
                         disabled: disabled.as_ref().is_some_and(|f| f()),
@@ -134,8 +158,12 @@ pub(crate) fn bind_style(
                         root: kind == NodeType::Root,
                         forced: hook.forced(),
                     };
-                    kivact_style::internal::compile_style(&s.0, theme, state)
-                })
+                    kivact_style::internal::compile_style(s, theme, state)
+                };
+                match &source {
+                    Layers::Memo(merged) => merged.with(|s| compile(&s.0)),
+                    Layers::Direct(layers) => compile(&hook.apply(merge_layers(layers))),
+                }
             })
         });
         let mcx = Mcx {

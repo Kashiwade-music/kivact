@@ -108,12 +108,13 @@ fn why_follows_the_prop_to_the_write_through_a_memo() {
             .last_write
             .is_some_and(|(at, _)| at.file() == file!())
     );
-    // A button's style is a render effect reading the memo of its merged
-    // style layers; the App's fixed theme is a constant, not a read.
+    // A node without disabled or selected states merges its style layers
+    // in its style effect (no memo of the merged layers); the App's fixed
+    // theme is a constant, not a read.
     let other = screen.get_by_test_id("other").why();
     let paint = other.props.iter().find(|p| p.prop == "Paint");
     assert!(
-        paint.is_some_and(|p| p.reads.iter().any(|d| d.kind == "memo")
+        paint.is_some_and(|p| !p.reads.iter().any(|d| d.kind == "memo")
             && !p.reads.iter().any(|d| d.ty.ends_with("Theme"))),
         "{other}"
     );
