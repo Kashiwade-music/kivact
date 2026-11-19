@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R09（lane X、commit `c6e8979e`）：(a) `RNode` の `xtask-allow(state)` の印は、xtask が「未使用の印」の error にしたので外した（表の「未使用の印」の行）。(b) rg の残り `NodeInfo.written` は、付属書が「`NodeInfo` は変えない」と書く公開の field なので受け入れる（表の「既存の行に当たる」の行）。(c) `EffectNode` の R03 の印の置換は、基点に R03 の印が無いので何もしなかった（xtask は指摘しない）。
+- 設計者への注意（R09、STOP ではない）：`frame_path`（cycle の path）が `node_meta` を読むようになり、devtools の feature が無い build、または記録中でない build では、Cycle の `path` が空になる。付属書の R09 に書かれておらず、試験は path を見ていない（`node_ref.rs` は kind だけ）。エラーの内容が変わるので、設計者が影響を見て決める。
+
 - W5a・R08（lane X、commit `686e8409`）：(a) `Diag` に印の文面の 1 文を足す手順は、`Diag` に `xtask-allow(state)` の行が無いので、足さなかった（xtask は指摘しない。表の「印の文の編集」の行に準じて、無いものは足さない）。(b) `set_recorder`・`is_recording`・`RecordBits` は付属書 4.1 の名前どおり pub（`#[doc(hidden)]` は付けない）。受け入れる。
 - 設計者への注意（R08、STOP ではない）：`crates/kivact-core/src/devtools/turn.rs:41` の `turn.cause_with(CauseTag::Devtools, format!(..))` は付属書の一覧に無いので触っていない。記録は `record_cause_with` のゲートで残らないが、`format!` は毎回走る。設計者が一覧に足すかを決める。
 
