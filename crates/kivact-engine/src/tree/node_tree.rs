@@ -107,7 +107,7 @@ impl NodeTree {
     }
 
     /// The flat children of the node at `slot`, cached until the tree's
-    /// structure or a node's Contents role changes ([`NodeTree::forget_flat`]).
+    /// structure or a node's Contents role changes ([`NodeTree::forget_flat_through`]).
     fn flat_at(&self, slot: NodeIndex) -> Rc<[FlatChild]> {
         if let Some(Some(list)) = self.flat.borrow().get(slot.0) {
             return list.clone();
@@ -136,10 +136,22 @@ impl NodeTree {
         children
     }
 
-    /// A node started or stopped being a Contents node, or a Contents node
-    /// was hidden or shown: the flat children are derived again.
-    pub(crate) fn forget_flat(&mut self) {
-        self.flat.get_mut().clear();
+    /// `id` started or stopped being a Contents node, or a Contents node was
+    /// hidden or shown: forget its own flat list and the lists of its
+    /// ancestors up to its nearest box, which list its children.
+    pub(crate) fn forget_flat_through(&self, id: NodeId) {
+        let Some(start) = self.nodes.index_of(id) else {
+            return;
+        };
+        let mut flat = self.flat.borrow_mut();
+        for (index, n) in self.ancestors(start) {
+            if let Some(entry) = flat.get_mut(index.0) {
+                *entry = None;
+            }
+            if index != start && !n.is_transparent() {
+                break;
+            }
+        }
     }
 
     /// Forget the cached flat lists that list the children of `id`: its own,

@@ -1,6 +1,5 @@
 //! Role: Native editor ownership: the document, its edits and the states given back.
 
-use crate::change::Damage;
 use crate::edit_state::{EditState, Taken};
 use crate::journal::{Incoming, Journal};
 
@@ -34,11 +33,6 @@ impl Editor {
     /// Take a controlled value unless the IME currently owns the document.
     pub fn set_controlled(&mut self, value: &str) -> bool {
         self.state.set_controlled(value)
-    }
-
-    /// Consume the damage accumulated since the line cache last refreshed.
-    pub fn take_damage(&mut self) -> Option<Damage> {
-        self.state.take_damage()
     }
 
     /// A copy of the document that records the changes made to it from here, so it can be

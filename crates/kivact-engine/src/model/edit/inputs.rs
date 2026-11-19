@@ -9,7 +9,8 @@ use crate::mutation::Mutation;
 use crate::text_input::EditLines;
 #[cfg(all(debug_assertions, feature = "testing"))]
 use crate::text_input::{RefreshError, RefreshMode};
-use kivact_editing::{EditState, Editor, Taken, TextSession};
+use kivact_editing::host::{Editor, Taken};
+use kivact_editing::{EditState, TextSession};
 use kivact_types::NodeId;
 use std::cell::RefMut;
 use std::rc::Rc;
@@ -65,7 +66,6 @@ impl Model {
                         ControlledValue::HeldDuringComposition { value }
                     };
                 }
-                edit.flush_damage();
                 return None;
             }
             None => EditState::new(&value),
@@ -131,9 +131,6 @@ impl Model {
             edit.controlled = ControlledValue::InSync {
                 at: edit.editor.revision(),
             };
-        }
-        if let Some(edit) = &mut self.slots.editors[node.index.0] {
-            edit.flush_damage();
         }
         if changed {
             self.changed(

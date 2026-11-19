@@ -5,7 +5,7 @@ use crate::edit_state::{EditState, Taken};
 use crate::session::TextSession;
 
 /// The host's recording of one edit of an editor's document: every change made through it
-/// since it opened ([`Editor::journal`](crate::Editor::journal)). It ends with [`Journal::finish`], which returns the
+/// since it opened ([`Editor::journal`](crate::host::Editor::journal)). It ends with [`Journal::finish`], which returns the
 /// changes to report; dropping it unfinished takes its changes back (a change the host does
 /// not report is not kept).
 #[must_use = "finish the journal to report its changes; dropping it takes them back"]
@@ -57,7 +57,7 @@ impl Journal<'_> {
         self.state.adopt(value)
     }
 
-    /// Take a state kivact gave back, as [`Editor::incoming`](crate::Editor::incoming) classified it.
+    /// Take a state kivact gave back, as [`Editor::incoming`](crate::host::Editor::incoming) classified it.
     pub fn take(&mut self, incoming: Incoming) {
         assert_eq!(
             incoming.against,
@@ -83,7 +83,7 @@ impl Drop for Journal<'_> {
 }
 
 /// A state kivact gave back to an editor, cut to the editor's length limit and classified
-/// against the editor's text ([`Editor::incoming`](crate::Editor::incoming)); taken by [`Journal::take`].
+/// against the editor's text ([`Editor::incoming`](crate::host::Editor::incoming)); taken by [`Journal::take`].
 pub struct Incoming {
     pub(crate) state: EditState,
     pub(crate) how: Taken,

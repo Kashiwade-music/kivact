@@ -54,7 +54,6 @@ pub(crate) struct Edits {
     /// The live nodes with an editing state, in id order (`Model::set_edit`).
     pub(super) inputs: BTreeSet<NodeId>,
     pub(super) given: ImeGiven,
-    pub(crate) target: ImeTarget,
 }
 
 /// What `Model::ime_changed` asks of the window.

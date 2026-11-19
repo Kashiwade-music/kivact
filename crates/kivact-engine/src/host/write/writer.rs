@@ -70,6 +70,7 @@ impl Writer {
         debug_assert!(!model.tree.contains(id), "node ids are unique");
         model.create(id, kind);
         writes.create(id);
+        model.log.tree_upserted(model.window, [id]);
     }
 
     /// Prepare one event immediately before dispatch, after earlier callbacks.
@@ -189,13 +190,18 @@ impl Writer {
         }
         m.insert(parent, id, before, true);
         writes.structural(id);
+        m.log.tree_upserted(m.window, [parent, id]);
     }
 
     /// Move the attached node `id` before a sibling (append if `None`).
     pub fn move_before(&self, id: NodeId, before: Option<NodeId>) {
         self.app.borrow_mut().with_node(id, |model, writes| {
+            let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
             model.move_before(id, before);
             writes.structural(id);
+            model
+                .log
+                .tree_upserted(model.window, parent.into_iter().chain([id]));
         });
     }
 
@@ -210,9 +216,11 @@ impl Writer {
         self.app
             .borrow_mut()
             .with_node(id, |model, writes| {
+                let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
                 let removed = model.tree().subtree(id);
                 model.remove(id, pop_layout, notify);
                 writes.structural(id);
+                model.log.tree_upserted(model.window, parent);
                 removed
             })
             .unwrap_or_default()
@@ -230,6 +238,7 @@ impl Writer {
             }
             model.set_scene(id, layer, scene);
             writes.scene(id);
+            model.log.tree_upserted(model.window, [id]);
         });
     }
 
@@ -439,13 +448,17 @@ impl Writer {
             }
             HostRequest::Inject { window, inputs } => {
                 let AppModel {
-                    windows, writes, ..
+                    windows,
+                    writes,
+                    injecting,
+                    ..
                 } = &mut *app;
                 if let Some(model) = windows.get_mut(&window) {
                     writes.command(None);
                     model
                         .effects
                         .push((request, DeferredRequest::Inject(inputs)));
+                    injecting.entry(window).or_default().push_back(request);
                 }
             }
             HostRequest::Emulate(emulation) => {

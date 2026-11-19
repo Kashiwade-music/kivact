@@ -402,6 +402,7 @@ impl Model {
                     target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
                     activation: None,
+                    origin: self.frame.origin(),
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Leave,
                         files: files.clone(),
@@ -416,6 +417,7 @@ impl Model {
                     target: Some(crate::contract::RouteTarget { node, region: None }),
                     local: pos,
                     activation: None,
+                    origin: self.frame.origin(),
                     input: kivact_types::FileDrop {
                         phase: FilePhase::Enter,
                         files: files.clone(),
@@ -436,6 +438,7 @@ impl Model {
                 target: Some(crate::contract::RouteTarget { node, region: None }),
                 local: pos,
                 activation: None,
+                origin: self.frame.origin(),
                 input: kivact_types::FileDrop {
                     phase,
                     files,

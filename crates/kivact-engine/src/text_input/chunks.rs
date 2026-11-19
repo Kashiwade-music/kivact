@@ -2,7 +2,7 @@
 
 use crate::text_input::EditLines;
 use crate::text_input::records::{Before, Chunk, Line, Shown};
-use kivact_editing::Damage;
+use kivact_editing::host::Damage;
 use kivact_types::text_utf::floor_char_boundary as floor;
 use std::ops::Range;
 

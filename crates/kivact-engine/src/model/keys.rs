@@ -68,7 +68,7 @@ use crate::measure::editor::EditorNode;
 use crate::model::Model;
 use crate::model::changes::Dirty;
 use crate::text_input::{EditLines, Shaping};
-use kivact_editing::Journal;
+use kivact_editing::host::Journal;
 use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditState};
 
 /// What became of a key press ([`Model::handle_key`]).
@@ -76,12 +76,8 @@ use kivact_editing::{EditContext, EditLayout, EditOutcome, EditRequest, EditStat
 pub(crate) enum KeyResult {
     /// Reported to the core as `Key`.
     Reported,
-    /// Used by the host: a focus move, an edit, or the IME's while
-    /// composing.
+    /// Used by the host: a focus move, an edit (typed text included), or the IME's while composing.
     Consumed,
-    /// Text for the focused text input: the platform's text input inserts
-    /// it; a host without one calls [`Model::insert_text`].
-    Text(String),
     /// Copy or cut: the host writes this to its clipboard.
     Copy(String),
     /// Paste: the host reads its clipboard and calls [`Model::paste_input`].
@@ -153,9 +149,6 @@ impl Model {
             pointer,
             engine,
         );
-        if let KeyResult::Text(text) = &result {
-            self.insert_text(text);
-        }
         self.sync();
         result
     }
@@ -191,6 +184,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,
@@ -203,7 +197,7 @@ impl Model {
 
     /// The focused text input, if it takes edits (not disabled).
     pub(crate) fn focused_input(&self) -> Option<NodeId> {
-        match self.edits.target {
+        match self.ime_target() {
             crate::model::edit::state::ImeTarget::Native(slot) => {
                 Some(self.tree.nodes.id_at(slot.0))
             }
@@ -293,9 +287,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         });
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         if let Some(e) = event {
             self.changes.mark(id, Dirty::MEASURE);
@@ -385,7 +376,9 @@ impl Model {
                 && !focus_key
                 && key != Key::Enter
             {
-                return KeyResult::Text(t.to_string());
+                // Text for the focused text input: inserted here, as typed.
+                self.insert_text(t);
+                return KeyResult::Consumed;
             }
         }
         if focus_key {
@@ -425,6 +418,7 @@ impl Model {
                 .map(|(point, node)| self.pointer_local(node, point))
                 .unwrap_or_default(),
             activation: None,
+            origin: self.frame.origin(),
             input: kivact_types::KeyInput {
                 key,
                 code,
@@ -545,9 +539,6 @@ impl Model {
             session: editor.state().session().clone(),
             text: report.then(|| editor.state().value().to_string()),
         };
-        if let Some(editor) = self.editor_node_mut(id) {
-            editor.flush_damage();
-        }
         self.repaint_text(id);
         // A controlled value held during the composition may be adopted.
         self.remeasure(id);

@@ -68,6 +68,7 @@ impl Model {
             target: Some(crate::contract::RouteTarget { node, region }),
             local: pos,
             activation: None,
+            origin: self.frame.origin(),
             input: PointerSample {
                 id: source.id,
                 phase,
@@ -731,6 +732,7 @@ impl Model {
                 target: Some(crate::contract::RouteTarget { node: t, region }),
                 local: pos,
                 activation: None,
+                origin: self.frame.origin(),
                 input: kivact_types::WheelInput {
                     delta,
                     position: space.window(),

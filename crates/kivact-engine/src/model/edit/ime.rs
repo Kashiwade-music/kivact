@@ -92,8 +92,11 @@ impl Model {
         else {
             return;
         };
-        self.place_caret(id, start.min(end), false);
-        self.place_caret(id, start.max(end), true);
+        self.edit_input(id, |e| {
+            e.move_to(start.min(end), false);
+            e.move_to(start.max(end), true);
+            false
+        });
         self.sync();
     }
 

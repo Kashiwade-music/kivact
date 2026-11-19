@@ -359,6 +359,17 @@ pub(crate) struct ChildIndex {
 }
 
 impl PaintState {
+    /// Whether the current list draws `id` itself (an `Open` step of its
+    /// own); `false` while the list waits to be built again.
+    pub(crate) fn lists_own(&self, id: NodeId) -> bool {
+        self.list.state != ListState::Stale
+            && self
+                .list
+                .entries
+                .iter()
+                .any(|e| matches!(e, Entry::Open(step) if step.id == id && step.own))
+    }
+
     /// `child` of `parent` moved or resized in a layout pass: its entry in
     /// the parent's child index (if it has one) is looked at again.
     pub(crate) fn moved_child(&mut self, parent: NodeId, child: NodeId) {
