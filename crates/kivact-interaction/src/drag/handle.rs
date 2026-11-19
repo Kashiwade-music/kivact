@@ -37,8 +37,8 @@ use crate::options_cell::OptionsCell;
 use kivact_core::custom::clock_now;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::geometry::Point;
-use kivact_core::state::{Callback, MachineHandle, machine};
 use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{MachineHandle, machine};
 use kivact_core::state::{Signal, Value, Var, memo, signal, var};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
@@ -149,8 +149,6 @@ pub struct DragApi<T: 'static> {
     sources: Var<Generation>,
     coordinates: DragCoordinates,
     settings: OptionsCell<DragOptions<T>>,
-    modifiers: OptionsCell<Option<Callback<DragUpdate<T>>>>,
-    disabled: Signal<Option<Value<bool>>>,
 }
 
 impl<T: 'static> Clone for DragApi<T> {
@@ -203,13 +201,12 @@ pub fn use_drag<T: Clone + 'static>(coordinates: DragCoordinates) -> DragApi<T> 
         sources: var(Generation::new()),
         coordinates,
         settings,
-        modifiers: OptionsCell::new(None),
-        disabled: signal(None),
     };
     session.feed(
         move || {
-            drag.disabled
-                .with(|disabled| disabled.is_some_and(|value| value.get()))
+            settings
+                .value()
+                .with(|settings| settings.disabled.is_some_and(|value| value.get()))
         },
         machine::Event::Disabled,
     );
@@ -278,7 +275,8 @@ impl<T: Clone + 'static> DragApi<T> {
     #[track_caller]
     pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
         let disabled = disabled.into_value();
-        self.disabled.update(|current| *current = Some(disabled));
+        self.settings
+            .update(|settings| settings.disabled = Some(disabled));
         self
     }
 
@@ -396,8 +394,10 @@ impl<T: Clone + 'static> DragApi<T> {
     }
 
     fn is_disabled(self) -> bool {
-        self.disabled
-            .with_untracked(|disabled| disabled.is_some_and(|value| value.get_untracked()))
+        self.settings
+            .get()
+            .disabled
+            .is_some_and(|value| value.get_untracked())
     }
 
     /// The edit of the drag, if the drag was given one that begins `at`.
@@ -485,7 +485,8 @@ impl<T: Clone + 'static> DragApi<T> {
         f: impl Fn(DragUpdate<T>) -> R + 'static,
     ) -> Self {
         let f = callback(f);
-        self.modifiers.update(|current| *current = Some(f));
+        self.settings
+            .update(|settings| settings.modifiers = Some(f));
         self
     }
 
@@ -682,7 +683,7 @@ impl<T: Clone + 'static> DragApi<T> {
         if !is_modifier_key(code) {
             return Ok(());
         }
-        let Some(callback) = self.modifiers.get() else {
+        let Some(callback) = self.settings.get().modifiers else {
             return Ok(());
         };
         let update = self

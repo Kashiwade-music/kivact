@@ -129,10 +129,24 @@ pub struct TooltipApi {
     options: OptionsCell<TooltipOptions>,
     trigger_state: Signal<Option<Value<PopupState>>>,
     content_state: Signal<Option<Value<PopupState>>>,
-    delayed: DelayedApi,
+    /// What follows the attached trigger: made when it attaches and
+    /// dropped when it unmounts.
+    attached: Signal<Option<Attached>>,
+    /// Whether the hint is shown: the attached trigger's shown state,
+    /// false before it attaches.
     visible: Value<bool>,
     anchor: NodeRef,
     surface: NodeRef,
+    hub: Hub,
+    id: TooltipId,
+    config: Value<kivact_core::style::Theme>,
+}
+
+/// The engagement's delayed visibility and the shown state of one trigger mount.
+#[derive(Clone, Copy)]
+struct Attached {
+    delayed: DelayedApi,
+    visible: Value<bool>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -150,72 +164,21 @@ pub fn use_tooltip() -> TooltipApi {
     let config = kivact_core::style::use_theme();
     let hub = Hub::of_app();
     let id = hub.take_id();
-
-    let anchor = node_ref();
-    let surface = node_ref();
-    let hover = anchor.hovered();
-    let surface_hover = surface.hovered();
-    let focus = anchor.focus_within();
-    let engaged = memo(move || {
-        !options
-            .value()
-            .get()
-            .disabled
-            .is_some_and(|disabled| disabled.get())
-            && (hover.get() || surface_hover.get() || focus.get())
-    });
-
-    // The delay, or none while another tooltip is warm; both end with the
-    // engagement. One tooltip at a time: the delayed machine's visibility
-    // changes are the only events this tooltip sends to the App hub, so the
-    // one shown last is visible, and one that another took over shows again
-    // when that one hides.
-    let delayed = delayed(
-        engaged,
-        move || {
-            if hub.warm_for(id) {
-                Duration::ZERO
-            } else {
-                config.get().ext::<crate::InteractionPolicy>().tooltip.delay
-            }
-        },
-        Duration::ZERO,
-        move |shown| {
-            if shown {
-                hub.want(id);
-            } else {
-                hub.release(
-                    id,
-                    config
-                        .get_untracked()
-                        .ext::<crate::InteractionPolicy>()
-                        .tooltip
-                        .skip_delay,
-                );
-            }
-        },
-    );
-    let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
-    on_cleanup(move || {
-        if hub.next.try_get().is_some() {
-            hub.release(
-                id,
-                config
-                    .get()
-                    .ext::<crate::InteractionPolicy>()
-                    .tooltip
-                    .skip_delay,
-            );
-        }
-    });
+    let attached = signal(None::<Attached>);
     TooltipApi {
         trigger_state: signal(None),
         content_state: signal(None),
         options,
-        delayed,
-        visible,
-        anchor,
-        surface,
+        attached,
+        visible: (move || {
+            attached.with(|attached| attached.as_ref().is_some_and(|a| a.visible.get()))
+        })
+        .into_value(),
+        anchor: node_ref(),
+        surface: node_ref(),
+        hub,
+        id,
+        config,
     }
 }
 
@@ -260,7 +223,84 @@ impl TooltipApi {
     /// Hide the hint until the trigger is engaged again.
     #[track_caller]
     fn dismiss(self) {
-        self.delayed.hide();
+        if let Some(attached) = self.attached.get_untracked() {
+            attached.delayed.hide();
+        }
+    }
+
+    /// Create what follows the attached trigger, for the life of its mount:
+    /// the engagement, the delay and the shown state. Setup only, under the
+    /// trigger mount's owner.
+    fn attach(self) {
+        let TooltipApi {
+            options,
+            attached,
+            anchor,
+            surface,
+            hub,
+            id,
+            config,
+            ..
+        } = self;
+        let hover = anchor.hovered();
+        let surface_hover = surface.hovered();
+        let focus = anchor.focus_within();
+        let engaged = memo(move || {
+            !options
+                .value()
+                .get()
+                .disabled
+                .is_some_and(|disabled| disabled.get())
+                && (hover.get() || surface_hover.get() || focus.get())
+        });
+
+        // The delay, or none while another tooltip is warm; both end with the
+        // engagement. One tooltip at a time: the delayed machine's visibility
+        // changes are the only events this tooltip sends to the App hub, so the
+        // one shown last is visible, and one that another took over shows again
+        // when that one hides.
+        let delayed = delayed(
+            engaged,
+            move || {
+                if hub.warm_for(id) {
+                    Duration::ZERO
+                } else {
+                    config.get().ext::<crate::InteractionPolicy>().tooltip.delay
+                }
+            },
+            Duration::ZERO,
+            move |shown| {
+                if shown {
+                    hub.want(id);
+                } else {
+                    hub.release(
+                        id,
+                        config
+                            .get_untracked()
+                            .ext::<crate::InteractionPolicy>()
+                            .tooltip
+                            .skip_delay,
+                    );
+                }
+            },
+        );
+        let visible = memo(move || delayed.is_open().get() && hub.current() == Some(id));
+        attached.update(|slot| *slot = Some(Attached { delayed, visible }));
+        on_cleanup(move || {
+            if attached.try_get_untracked().is_some() {
+                attached.update(|slot| *slot = None);
+            }
+            if hub.next.try_get().is_some() {
+                hub.release(
+                    id,
+                    config
+                        .get()
+                        .ext::<crate::InteractionPolicy>()
+                        .tooltip
+                        .skip_delay,
+                );
+            }
+        });
     }
 
     /// The trigger whose hover and focus show the hint.
@@ -302,6 +342,7 @@ impl TooltipApi {
                         Handled::No
                     }
                 })
+                .on_attach(move |_| self.attach())
         })
     }
 
