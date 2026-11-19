@@ -1,5 +1,4 @@
 //! Role: The stat recipe state, tokens, recipe table and default looks.
-use crate::stat::Trend;
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
@@ -56,3 +55,17 @@ recipe_table! {
         chart(chart_recipe): StatState = stat_slot,
     }
 }
+
+/// The direction of change, independent of whether that change is desirable.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Trend {
+    /// The statistic has increased.
+    Up,
+    /// The statistic has decreased.
+    Down,
+    /// The statistic is steady or has no stated direction.
+    #[default]
+    Neutral,
+}
+
+kivact_core::state::constant_value!(Trend);

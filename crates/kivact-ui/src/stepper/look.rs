@@ -1,12 +1,11 @@
 //! Role: The stepper recipe state, tokens, recipe table and default looks.
-use crate::stepper::{StepIndicatorKind, StepStatus};
 
-use crate::Look;
 use crate::recipe::recipe_table;
+use crate::variants::Look;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
 use kivact_core::view::Orientation;
 pub(crate) fn stepper_root(t: &Theme, _: &Look<StepperState>) -> Style {
-    let p = &t.ext::<crate::UiTokens>().stepper;
+    let p = &t.ext::<crate::tokens::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
         .gap(p.gap)
@@ -16,7 +15,7 @@ pub(crate) fn stepper_root(t: &Theme, _: &Look<StepperState>) -> Style {
 }
 
 pub(crate) fn stepper_item(t: &Theme, look: &Look<StepperItemState>) -> Style {
-    let p = &t.ext::<crate::UiTokens>().stepper;
+    let p = &t.ext::<crate::tokens::UiTokens>().stepper;
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
@@ -38,15 +37,15 @@ pub(crate) fn stepper_item(t: &Theme, look: &Look<StepperItemState>) -> Style {
         })
 }
 
-pub(crate) fn stepper_layout(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+pub(crate) fn stepper_layout(_: &Theme, _: &Look<StepperItemState>) -> Style {
     style().direction(Direction::Row)
 }
 
-pub(crate) fn stepper_body(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+pub(crate) fn stepper_body(_: &Theme, _: &Look<StepperItemState>) -> Style {
     style().direction(Direction::Column)
 }
 
-pub(crate) fn stepper_decoration(_: &Theme, _: &Look<crate::StepperItemState>) -> Style {
+pub(crate) fn stepper_decoration(_: &Theme, _: &Look<StepperItemState>) -> Style {
     style().size(0, 0)
 }
 
@@ -113,4 +112,24 @@ recipe_table! {
         content(content_recipe): StepperItemState = crate::look_common::part,
         end_content(end_content_recipe): StepperItemState = crate::look_common::part,
     }
+}
+
+/// Semantic status attached to a step.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum StepStatus {
+    #[default]
+    Default,
+    Accent,
+    Success,
+    Warning,
+    Error,
+}
+
+/// The actual indicator content policy selected on one step.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StepIndicatorKind {
+    Auto,
+    Number,
+    None,
+    Custom,
 }
