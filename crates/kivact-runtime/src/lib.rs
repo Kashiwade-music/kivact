@@ -34,13 +34,11 @@ pub use reactive::{
 };
 pub use reactive::{handler, keyed};
 pub use task::{
-    Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Completion,
-    DEFAULT_DRAIN_NS, Resource, Task, TaskEntry, TaskState, TaskStats, action, blocking, resource,
-    sleep, spawn, spawn_in, timeout,
+    Action, ActionFn, AsyncState, BlockingWork, CancelToken, Completion, Resource, Task, TaskEntry,
+    TaskState, TaskStats, action, blocking, queued_action, resource, sleep, spawn, spawn_in,
+    timeout,
 };
 
-#[doc(hidden)]
-pub use task::AsyncSnapshot;
+pub use task::AsyncSource;
 #[cfg(feature = "tokio")]
 pub use task::on_tokio;
-pub use task::{AsyncSource, Retry};

@@ -11,7 +11,7 @@ use super::latest::LatestRun;
 use crate::{EffectKind, IntoValue, Notifier, Owned, Owner, Runtime, UiError, require_effectful};
 
 pub(crate) struct ResourceCell<T: 'static> {
-    async_state: AsyncCell<T>,
+    async_state: AsyncCell<T, ()>,
     refetch: Notifier,
     fetch: Rc<LatestRun>,
 }
@@ -75,14 +75,14 @@ where
                     owner,
                     at,
                     || {
-                        cell.async_state.start();
+                        cell.async_state.pending(0);
                         fetch(s)
                     },
                     move |r| {
                         let Some(cell) = publish_to.upgrade() else {
                             return;
                         };
-                        cell.async_state.finish(r);
+                        cell.async_state.finish(r, 0);
                     },
                 );
             });
@@ -101,35 +101,25 @@ impl<T: Clone + 'static> Resource<T> {
     /// `Failed` with an error whose `is_cancelled()` is true.
     #[track_caller]
     pub fn state(&self) -> AsyncState<T> {
-        self.cell(Location::caller())
-            .async_state
-            .state
-            .get()
-            .as_ref()
-            .clone()
+        self.cell(Location::caller()).async_state.state()
     }
 
-    pub(super) fn snapshot(&self) -> super::async_publication::AsyncSnapshot<T> {
-        super::async_publication::AsyncSnapshot(
-            self.cell(Location::caller()).async_state.state.get(),
-        )
+    pub(super) fn publications(&self) -> u64 {
+        self.cell(Location::caller()).async_state.publications()
     }
 
     /// Last successful value, kept while refetching, after errors and
     /// after cancellation (tracked).
     #[track_caller]
     pub fn latest(&self) -> Option<T> {
-        self.cell(Location::caller()).async_state.latest.get()
+        self.cell(Location::caller()).async_state.latest()
     }
 
     /// Error of the latest request while it is `Failed` (a cancellation
     /// included), `None` otherwise (tracked).
     #[track_caller]
     pub fn error(&self) -> Option<UiError> {
-        self.cell(Location::caller())
-            .async_state
-            .state
-            .with(|state| state.error().cloned())
+        self.cell(Location::caller()).async_state.error()
     }
 
     /// Fetch again with the current source value.
@@ -148,7 +138,7 @@ impl<T: Clone + 'static> Resource<T> {
         require_effectful("Resource::cancel");
         if cell.fetch.cancel() {
             let err = cancelled(at);
-            cell.async_state.finish(Err(err));
+            cell.async_state.finish(Err(err), 0);
         }
     }
 }

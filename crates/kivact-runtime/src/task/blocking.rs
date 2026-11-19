@@ -184,6 +184,7 @@ where
     label = "runs on a blocking thread: every capture must be `Send`",
     note = "`Signal`, `Value` and the other handles stay on the UI thread: read the value outside `blocking` and move the plain value in"
 )]
+#[doc(hidden)]
 pub trait BlockingWork<R, M>: crate::task::sealed::BlockingWorkSeal<M> + Send + 'static {
     #[doc(hidden)]
     fn run(self, cancel: CancelToken) -> R;

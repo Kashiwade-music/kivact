@@ -174,11 +174,15 @@ mod tests {
         rt.root().with_setup(|| {
             let inline = (|| Handled::Yes).into_handler();
             let shared = crate::callback(move |()| Handled::Yes);
-            let via_handler = crate::Callback::from_handler((|| Handled::PreventDefault).into_handler());
+            let via_handler =
+                crate::Callback::from_handler((|| Handled::PreventDefault).into_handler());
             assert_eq!(inline.call(()), Ok(Handled::Yes));
             assert_eq!(shared.into_handler().call(()), Ok(Handled::Yes));
             assert_eq!(shared.invoke(()), Ok(Handled::Yes));
-            assert_eq!(via_handler.into_handler().call(()), Ok(Handled::PreventDefault));
+            assert_eq!(
+                via_handler.into_handler().call(()),
+                Ok(Handled::PreventDefault)
+            );
         });
         rt.shutdown();
     }

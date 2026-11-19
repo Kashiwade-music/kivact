@@ -1,11 +1,14 @@
 //! Role: Runtime construction and task and motion turn operations.
 use crate::reactive::host_types::TurnState;
 use crate::{
-    CauseTag, DEFAULT_DRAIN_NS, ErrorKind, ExitState, Host, MotionEnv, Owner, RecordBits, Runtime,
-    Stage, TaskState, ThreadWaker, TurnGuard, TurnReport, UiError,
+    CauseTag, ErrorKind, ExitState, Host, MotionEnv, Owner, RecordBits, Runtime, Stage, TaskState,
+    ThreadWaker, TurnGuard, TurnReport, UiError,
 };
 use std::panic::Location;
 use std::rc::Rc;
+
+/// How long App exit waits for queued actions to finish (ns).
+const EXIT_DRAIN_NS: u64 = 3_000_000_000;
 
 /// The work rounds (deferred handlers, timers and tasks) one turn may
 /// run, shared by all its settles (12 章 ST-03).
@@ -104,7 +107,7 @@ impl Runtime {
     pub fn request_exit(&self) {
         if self.exit.get() == ExitState::Running {
             self.exit.set(ExitState::Draining {
-                deadline: self.now_ns().saturating_add(DEFAULT_DRAIN_NS),
+                deadline: self.now_ns().saturating_add(EXIT_DRAIN_NS),
             });
         }
     }
@@ -154,11 +157,6 @@ impl Runtime {
     }
 }
 impl TurnGuard<'_> {
-    /// Release drained actions and abandon expired drains.
-    pub fn check_draining(&self) {
-        self.stage(Stage::Async);
-        self.rt.tasks().check_draining(self.rt);
-    }
     /// Count one work round of this turn. Returns `false` when the budget
     /// is used up: the work that would run waits for the next turn (it stays
     /// queued, so `finish` requests one). The first round over the budget
