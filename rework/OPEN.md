@@ -181,3 +181,4 @@
 
 ## 確認事項（W3b・E02、2026-11-19）
 - **E02**（W3b、lane E1、commit `7317a565`）：振る舞いに関する注記（E2E は通っている）。(1) `SizeMotion`（entrance・exit の size）は、これまで spring を start していなかった。`MotionRun::start` は `spring.start` を呼ぶので、spring の transition の size motion は初期化されるようになった（tween の size motion は変わらない）。(2) `MotionRun::step` は reduced かつ decorative のとき `current` を `to` に写す。元の size・layout の step は写さなかった。Orchestrator の処置：受け入れる。設計者が (1)(2) の意図を確かめるならここを見る。`layout_motion/state.rs` の Role 行は 87 字だが、xtask は通った。
+- **E04**（W3b、lane E2、commit `913556e1`）：付記（判断は設計者に任せる。修正はしていない）。木の構造の編集（insert・detach）は layout の前に `forget_origins` を通らない。次の `layout()` の先頭で消えるので、編集と layout の間に `rect` を呼ぶと、付属書どおりの cache が編集前の origin を返し得る。付属書の指定（layout の先頭と末尾、scroll、sticky、viewport、geometry の変化）どおりに実装した。設計者が、木の編集の時点で `forget_origins` を足すかを決める。
