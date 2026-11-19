@@ -243,7 +243,7 @@ impl Timeline {
 
     /// A call of `f` at `at`: a segment of length zero (setup only).
     #[track_caller]
-    pub fn call(&self, at: At, f: impl Into<Callback<()>>) -> Segment {
+    pub fn call<M>(&self, at: At, f: impl crate::IntoHandler<(), M>) -> Segment {
         let location = Location::caller();
         require_setup("Timeline::call");
         let cell = self.cell(location);
@@ -251,7 +251,7 @@ impl Timeline {
             SegmentDef {
                 start: 0.0,
                 len: 0.0,
-                kind: SegmentKind::Call(f.into()),
+                kind: SegmentKind::Call(Callback::from_handler(f.into_handler())),
             },
             at,
             location,
@@ -316,12 +316,12 @@ impl Timeline {
     /// Register a setup-owned callback for the completion of a playback
     /// (setup only). A driven timeline never completes.
     #[track_caller]
-    pub fn on_complete(self, f: impl Into<Callback<()>>) -> Timeline {
+    pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Timeline {
         require_setup("Timeline::on_complete");
         self.cell(Location::caller())
             .completions
             .borrow_mut()
-            .push(f.into());
+            .push(Callback::from_handler(f.into_handler()));
         self
     }
 

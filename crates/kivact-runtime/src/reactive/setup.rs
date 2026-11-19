@@ -118,6 +118,8 @@ pub fn binding<T: crate::PropValue, R: HandlerResult>(
 /// the other setup functions work only when it is called during setup,
 /// creating under the caller's setup owner. Setup only.
 ///
+/// A shared handler without a payload takes `_` too: `callback(move |_| ..)`.
+///
 /// ```ignore
 /// let on_pick = callback(move |id: u64| selected.set(Some(id)));
 /// let reload = callback(|_| load());
@@ -128,7 +130,7 @@ pub fn callback<E: 'static, R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> C
     let (rt, owner) = setup_scope("callback", at);
     let cb: Rc<CallbackFn<E>> = Rc::new(CallbackFn {
         owner,
-        f: Box::new(move |e| f(e).into_outcome().map(|_| ())),
+        f: crate::reactive::Handler::from_fn(f),
     });
     Callback::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
 }

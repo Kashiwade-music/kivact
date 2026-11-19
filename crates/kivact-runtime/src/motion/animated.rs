@@ -540,8 +540,8 @@ impl<T: Animatable> Animated<T> {
     /// `f` may return `()` or `Result<(), UiError>`; an `Err` goes to the
     /// nearest error handler.
     #[track_caller]
-    pub fn on_complete(self, f: impl Into<crate::Callback<()>>) -> Self {
-        let f = f.into();
+    pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Self {
+        let f = crate::Callback::from_handler(f.into_handler());
         let at = Location::caller();
         let rt = Owner::current("Animated::on_complete", at).runtime();
         assert_eq!(

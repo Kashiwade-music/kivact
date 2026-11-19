@@ -66,7 +66,7 @@ pub use diag::{RecordBits, ReportKind, Reported};
 pub use error::{ErrorKind, Result, UiError, raise};
 pub use frame::{pure, require_effectful, require_setup, untrack};
 pub(crate) use graph::watch;
-pub use handler::{Handled, Handler, HandlerResult};
+pub use handler::{Handled, Handler, HandlerResult, IntoHandler};
 pub use host_types::{ExitState, Host, Stage, ThreadWaker, TurnReport};
 pub use identity::{AppId, NodeId, OwnerId};
 pub use owner_handle::{Owned, Owner};

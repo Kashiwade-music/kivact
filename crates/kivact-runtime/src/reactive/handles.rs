@@ -10,6 +10,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::graph::{memo_cell, source_cell};
+use crate::reactive::Handled;
 use crate::reactive::arena::Key;
 use crate::reactive::data::{
     Callback, CallbackFn, LensCell, Runtime, Signal, SignalRepr, Value, ValueRepr, Var,
@@ -611,7 +612,7 @@ impl<E: 'static> Callback<E> {
         }
     }
 
-    fn invoke(rt: &Runtime, cb: &CallbackFn<E>, e: E) -> Result<(), UiError> {
+    fn run(rt: &Runtime, cb: &CallbackFn<E>, e: E) -> Result<Handled, UiError> {
         // Called from outside every App (tests, main): the call itself is the
         // boundary. Inside an App the callback runs for its own owner
         // wherever it is called from (`spawn`, `context` and the
@@ -623,7 +624,7 @@ impl<E: 'static> Callback<E> {
         } else {
             rt.callback_frame(cb.owner)
         };
-        (cb.f)(e)
+        cb.f.call(e)
     }
 
     /// Call; an `Err` goes to the nearest `on_error`.
@@ -634,7 +635,7 @@ impl<E: 'static> Callback<E> {
             Ok(x) => x,
             Err(err) => misuse(err),
         };
-        if let Err(err) = Self::invoke(&rt, &cb, e) {
+        if let Err(err) = Self::run(&rt, &cb, e) {
             rt.route(Some(cb.owner), err);
         }
     }
@@ -650,7 +651,7 @@ impl<E: 'static> Callback<E> {
             Err(err) if matches!(err.kind(), ErrorKind::Disposed { .. }) => return,
             Err(err) => misuse(err),
         };
-        if let Err(err) = Self::invoke(&rt, &cb, e) {
+        if let Err(err) = Self::run(&rt, &cb, e) {
             rt.route(Some(cb.owner), err);
         }
     }
@@ -661,7 +662,31 @@ impl<E: 'static> Callback<E> {
     pub fn try_call(&self, e: E) -> Result<(), UiError> {
         let at = Location::caller();
         let (rt, cb) = self.lookup(at)?;
-        Self::invoke(&rt, &cb, e)
+        Self::run(&rt, &cb, e).map(|_| ())
+    }
+
+    /// Call and return the handler's own result (`Handled` included); a
+    /// disposed callback or one of another App is an `Err`. `IntoHandler`
+    /// for `Callback<()>` and the `#[component]` callback props use it, so
+    /// an inline closure, a shared `Callback` and a prop answer the same.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn invoke(&self, e: E) -> Result<Handled, UiError> {
+        let at = Location::caller();
+        let (rt, cb) = self.lookup(at)?;
+        Self::run(&rt, &cb, e)
+    }
+
+    /// A `Callback` of the running owner calling `handler` (one arena
+    /// object; the handler is not boxed again). A `#[component]` turns its
+    /// `Callback<E>` props into callbacks with it.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn from_handler(handler: crate::reactive::Handler<E>) -> Callback<E> {
+        let at = Location::caller();
+        let (rt, owner) = super::scope::owner_scope("Callback::from_handler", at);
+        let cb: Rc<CallbackFn<E>> = Rc::new(CallbackFn { owner, f: handler });
+        Self::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
     }
 }
 
@@ -669,23 +694,6 @@ impl<E: 'static> Callback<E> {
 impl<T: 'static> From<Signal<T>> for Value<T> {
     fn from(signal: Signal<T>) -> Self {
         signal.as_value()
-    }
-}
-
-impl<F, R> From<F> for Callback<()>
-where
-    F: Fn() -> R + 'static,
-    R: crate::HandlerResult,
-{
-    #[track_caller]
-    fn from(f: F) -> Self {
-        let at = Location::caller();
-        let (rt, owner) = super::scope::owner_scope("Callback::from", at);
-        let cb: Rc<CallbackFn<()>> = Rc::new(CallbackFn {
-            owner,
-            f: Box::new(move |()| f().into_outcome().map(|_| ())),
-        });
-        Self::from_key(rt.id(), rt.insert_object(owner, cb, "Callback", None, at))
     }
 }
 

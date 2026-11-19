@@ -48,7 +48,7 @@ impl Handled {
     }
 }
 
-/// A shared effectful event handler.
+/// An erased event handler: what every `on_*` method and `Callback` holds.
 pub struct Handler<E>(Rc<dyn Fn(E) -> Result<Handled, UiError>>);
 impl<E> Clone for Handler<E> {
     fn clone(&self) -> Self {
@@ -57,12 +57,57 @@ impl<E> Clone for Handler<E> {
 }
 impl<E: 'static> Handler<E> {
     /// Erase a handler, preserving errors and letting successful events continue.
+    #[doc(hidden)]
     pub fn from_fn<R: HandlerResult>(f: impl Fn(E) -> R + 'static) -> Self {
         Self(Rc::new(move |event| f(event).into_outcome()))
     }
     /// Invoke the handler.
     pub fn call(&self, event: E) -> Result<Handled, UiError> {
         (self.0)(event)
+    }
+}
+
+/// What an `on_*` method without a payload takes (DEC-16): a closure
+/// `move || ..` returning `()`, `Handled` or a `Result` of them, or a
+/// shared [`Callback<()>`](crate::Callback). `M` only tells the two apart;
+/// it is inferred. Handlers with a payload take `impl Fn(E) -> R`.
+#[diagnostic::on_unimplemented(
+    message = "`{Self}` cannot handle a `{E}` event",
+    note = "pass `move || ..` (returning `()`, `Handled` or a `Result`), or a `Callback<()>`"
+)]
+pub trait IntoHandler<E, M>: crate::reactive::sealed::IntoHandlerSeal<E, M> {
+    /// This handler, erased.
+    fn into_handler(self) -> Handler<E>;
+}
+
+/// `IntoHandler` marker: a closure without the event.
+#[doc(hidden)]
+pub struct Nullary;
+/// `IntoHandler` marker: a `Callback`.
+#[doc(hidden)]
+pub struct Handle;
+
+impl<F, R> crate::reactive::sealed::IntoHandlerSeal<(), Nullary> for F
+where
+    F: Fn() -> R + 'static,
+    R: HandlerResult,
+{
+}
+impl<F, R> IntoHandler<(), Nullary> for F
+where
+    F: Fn() -> R + 'static,
+    R: HandlerResult,
+{
+    fn into_handler(self) -> Handler<()> {
+        Handler(Rc::new(move |()| self().into_outcome()))
+    }
+}
+
+impl crate::reactive::sealed::IntoHandlerSeal<(), Handle> for crate::Callback<()> {}
+impl IntoHandler<(), Handle> for crate::Callback<()> {
+    fn into_handler(self) -> Handler<()> {
+        // The handler's own result goes through (12 章 API-14).
+        Handler(Rc::new(move |()| self.invoke(())))
     }
 }
 

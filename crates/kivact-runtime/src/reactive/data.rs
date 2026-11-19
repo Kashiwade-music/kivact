@@ -621,7 +621,7 @@ pub struct Var<T: 'static> {
 
 pub(crate) struct CallbackFn<E> {
     pub(crate) owner: Key,
-    pub(crate) f: Box<dyn Fn(E) -> Result<(), UiError>>,
+    pub(crate) f: crate::reactive::Handler<E>,
 }
 
 /// A Copy callback (child → parent), made by [`callback`](crate::reactive::callback).
