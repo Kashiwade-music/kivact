@@ -174,7 +174,7 @@ impl Model {
     /// shows a back face that is hidden.
     fn backface_hidden_at(&self, id: NodeId, map: &Matrix4) -> bool {
         map.shows_back()
-            && self.effective_paint(id).backface == kivact_types::paint::BackfaceVisibility::Hidden
+            && self.paint_now(id).backface == kivact_types::paint::BackfaceVisibility::Hidden
     }
 
     /// The deepest node under `p` (in `id`'s box space) among `id` and its

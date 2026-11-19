@@ -80,6 +80,7 @@ impl Model {
         if env.reduced_motion != self.frame.env.reduced_motion {
             self.changes.restack = true;
             self.changes.paint = true;
+            self.forget_draws();
         }
         self.frame.drawable = surface_active;
         self.a11y.invalidate();
@@ -139,6 +140,12 @@ impl Model {
                 let children: Vec<NodeId> = self.tree.flat_children(id).collect();
                 for child in children {
                     self.stale_fact(child);
+                }
+                // A moving text color is inherited below it, and each step
+                // changes it: the drawings below are made again (the last
+                // step, which settles the run, included).
+                if self.colors_text_below(id) {
+                    self.forget_draws_below(id);
                 }
             }
         }

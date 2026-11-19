@@ -90,6 +90,35 @@ impl Model {
 
     pub(crate) fn invalidate_paint(&mut self) {
         self.changes.paint = true;
+        self.forget_draws();
+    }
+
+    /// Every kept drawing is drawn again (the host repaints everything:
+    /// scale, surface, reduced motion).
+    pub(crate) fn forget_draws(&mut self) {
+        for (_, slot) in self.paint.draw_owners.get_mut().drain() {
+            self.slots.draws[slot].set(None);
+        }
+    }
+
+    /// `id` and every node below it draw again: an inherited text color
+    /// changed with `id`'s state.
+    pub(crate) fn forget_draws_below(&mut self, id: NodeId) {
+        let mut stack = vec![id];
+        while let Some(x) = stack.pop() {
+            if let Some(n) = self.tree.get(x) {
+                self.slots.draws[n.index.0].set(None);
+                stack.extend(self.tree.children_ids(n));
+            }
+        }
+    }
+
+    /// Whether a state of `id` (or its transition) colors the text below it.
+    pub(crate) fn colors_text_below(&self, id: NodeId) -> bool {
+        self.node(id)
+            .and_then(|n| n.states())
+            .is_some_and(|s| s.deltas().any(|d| d.text_color.is_some()))
+            || self.motion.get(id).is_some_and(|a| a.colors_text(|| true))
     }
 
     /// A font file was registered: every text, text input and measured
@@ -184,6 +213,9 @@ impl Model {
             for child in children {
                 self.stale_fact(child);
             }
+            if self.colors_text_below(*id) {
+                self.forget_draws_below(*id);
+            }
         }
         let restack = changes.restack || moved || !restyled.is_empty();
         self.paint.outdate_paint(
@@ -194,6 +226,8 @@ impl Model {
             restack,
             &self.slots.ink,
         );
+        self.paint
+            .outdate_draws(&self.tree, &changes, changes.fonts, &self.slots.draws);
         self.report_sessions();
     }
 

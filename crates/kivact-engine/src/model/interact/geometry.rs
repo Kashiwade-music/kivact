@@ -50,7 +50,7 @@ impl LayerTraits {
     /// paint's with the active deltas.
     pub(crate) fn now(host: &Model, id: NodeId, n: &HostNode) -> Self {
         if n.states().is_some() || host.motion.get(id).is_some() {
-            LayerTraits::of(&host.effective_paint(id))
+            LayerTraits::of(&host.paint_now(id))
         } else {
             host.slots.look[n.index.0].unwrap_or_else(|| {
                 n.paint()

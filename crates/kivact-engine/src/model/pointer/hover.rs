@@ -114,7 +114,7 @@ impl Model {
             .chain(mouse.chain().iter().copied())
         {
             if let Some(n) = self.tree.get(id) {
-                let specified = self.effective_paint(id).cursor;
+                let specified = self.cursor_now(id);
                 if specified != CursorKind::Auto {
                     return specified;
                 }

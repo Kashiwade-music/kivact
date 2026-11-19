@@ -9,7 +9,9 @@
 //!   in reverse order, after the node's draw-over and scrollbars.
 //! - A layer's raster scale enlarges what is inside it like a transform's.
 
-use super::state::{Entry, Grouping, LayerSpec, Opening, PaintList, PaintPass, Step};
+use super::state::{
+    DrawKey, Entry, Grouping, LayerSpec, NodeDraw, Opening, PaintList, PaintPass, Recorded, Step,
+};
 use crate::contract::{HostEvent, NodeType};
 use crate::lower::border_image::lower_border_image;
 use crate::lower::effects::{self, Tint};
@@ -24,6 +26,10 @@ use arvane::asset::{PixelSize, fit_image};
 use arvane_protocol::{Composition, LayerEffects, LayerKey, RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
+use std::rc::Rc;
+
+/// In debug builds with the test driver every kept drawing is checked before it is replayed: its paint against the node's paint now, its commands against the ones that paint draws now into a scratch output. A change that did not forget a drawing panics, naming the node; the frame, the kept drawings and the layers' versions are the replay's.
+const VERIFY_DRAWS: bool = cfg!(all(debug_assertions, feature = "testing"));
 
 /// The parts of one listed node that its opening and closing read.
 struct Place<'a> {
@@ -41,12 +47,14 @@ impl Model {
     /// the window's scale into the root layer.
     pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
         if self.paint_list() {
+            self.evict_draws();
             self.refresh_shader_clocks();
             self.refresh_playback();
         }
         let pass = PaintPass {
             scale: self.paint.scale,
             size: self.window(),
+            cache: true,
         };
         self.prepare_canvas(engine);
         let mut composition = self.compose_list(engine, &self.paint.list, pass);
@@ -137,11 +145,10 @@ impl Model {
         out.into_composition(pass.size)
     }
 
-    /// Where `id` is painted when its layout box starts at `o`: its
-    /// paint, its box and its canvas (inside the border).
-    fn placed(&self, id: NodeId, o: Point) -> (PaintProps, Rect, Rect) {
+    /// The box and the canvas (inside the border) of `id` when its layout
+    /// box starts at `o`, drawn with the paint `p`.
+    fn boxes_at(&self, id: NodeId, o: Point, p: &PaintProps) -> (Rect, Rect) {
         let layout = self.computed_layout(id).unwrap_or_default();
-        let p = visual::paint(self, id);
         let bounds = Rect {
             x: o.x,
             y: o.y,
@@ -149,13 +156,171 @@ impl Model {
             height: layout.size.height,
         };
         // Canvas scenes start inside the border.
-        let canvas = visual::padding_box(bounds, &p);
-        (p, bounds, canvas)
+        (bounds, visual::padding_box(bounds, p))
+    }
+
+    /// Where `step`'s node is drawn with `paint`: its place and its canvas
+    /// (inside the border).
+    fn place_at<'a>(
+        &self,
+        step: &'a Step,
+        list: &'a PaintList,
+        paint: &'a PaintProps,
+    ) -> (Place<'a>, Rect) {
+        let (bounds, canvas) = self.boxes_at(step.id, step.origin, paint);
+        let clip_path = paint
+            .effects
+            .as_ref()
+            .and_then(|e| e.clip_path.as_ref())
+            .map(|s| s.in_rect(bounds));
+        let place = Place {
+            step,
+            list,
+            paint,
+            bounds,
+            clip_path,
+        };
+        (place, canvas)
+    }
+
+    /// The drawing kept for `step`'s node when it was made for this step
+    /// and scale, taken out of its slot (`keep_draw` puts one back).
+    fn take_draw(&self, step: &Step, pass: PaintPass) -> Option<Box<NodeDraw>> {
+        if !pass.cache {
+            return None;
+        }
+        let n = self.node(step.id)?;
+        self.slots.draws[n.index.0]
+            .take()
+            .filter(|d| d.key == DrawKey::of(step, pass))
+    }
+
+    /// Keep `draw` for `id`'s next frame (`fresh`: it was made now).
+    fn keep_draw(&self, id: NodeId, draw: Box<NodeDraw>, fresh: bool, pass: PaintPass) {
+        if !pass.cache {
+            return;
+        }
+        let Some(n) = self.node(id) else {
+            return;
+        };
+        if fresh {
+            self.paint.draw_owners.borrow_mut().insert((id, n.index.0));
+        }
+        self.slots.draws[n.index.0].set(Some(draw));
+    }
+
+    /// The node's own box: its focus ring around a clip path, then its
+    /// shadows, background, border and ring (nothing unless it draws itself).
+    fn draw_box(
+        &self,
+        place: &Place,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+        out: &mut SceneOut,
+    ) {
+        if !place.step.own {
+            return;
+        }
+        let id = place.step.id;
+        let p = place.paint;
+        let tint = tint(place.step);
+        let outline = BoxShape::of(place.bounds, &p.radius);
+        if let (Some(ring), Some(clip)) = (&p.ring, &place.clip_path) {
+            // Around the clip path, beneath the node's paint.
+            border::focus_ring(out, &outline, Some(clip), ring, &tint);
+        }
+        let boxes = self.node_boxes(id, p, &outline, &tint, engine);
+        self.paint_box(p, &boxes, place.clip_path.is_some(), &tint, pass, out);
+    }
+
+    /// The node's canvas scene and content (text, input lines, image),
+    /// inside its clips (nothing unless it draws itself).
+    fn draw_content(
+        &self,
+        place: &Place,
+        canvas: Rect,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+        out: &mut SceneOut,
+    ) {
+        if !place.step.own {
+            return;
+        }
+        let id = place.step.id;
+        let Some(n) = self.node(id) else {
+            return;
+        };
+        let tint = tint(place.step);
+        if self.slots.editors[n.index.0].is_none()
+            && let Some(scene) = &n.scenes()[0]
+        {
+            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
+        }
+        match n.kind() {
+            _ if self.slots.editors[n.index.0].is_some() => {
+                self.paint_input(id, place.bounds, place.step.clip, &tint, engine, out);
+                if let Some(scene) = &n.scenes()[0] {
+                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
+                }
+            }
+            NodeType::Text => {
+                let layout = self.computed_layout(id).unwrap_or_default();
+                let area = visual::content_at(place.bounds, layout.content_box);
+                self.paint_text(id, area, &tint, pass, engine, out);
+            }
+            _ => {}
+        }
+        if self.slots.editors[n.index.0].is_none() && n.image().is_some() {
+            self.paint_image(id, n, canvas, &tint, pass, out);
+        }
+    }
+
+    /// The node's draw-over scene and scrollbars.
+    fn draw_over(
+        &self,
+        step: &Step,
+        p: &PaintProps,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+        out: &mut SceneOut,
+    ) {
+        let id = step.id;
+        if step.own
+            && let Some(n) = self.node(id)
+            && let Some(scene) = &n.scenes()[1]
+        {
+            let (_, canvas) = self.boxes_at(id, step.origin, p);
+            self.paint_scene(id, 1, scene, canvas, &tint(step), engine, out, pass);
+        }
+        self.paint_bars(step, out);
+    }
+
+    /// Drop the drawings of the nodes the rebuilt list does not list.
+    pub(super) fn evict_draws(&mut self) {
+        let listed: std::collections::HashSet<NodeId> = self
+            .paint
+            .list
+            .entries
+            .iter()
+            .filter_map(|e| match e {
+                Entry::Open(step) => Some(step.id),
+                Entry::Close(_) => None,
+            })
+            .collect();
+        let slots = &self.slots;
+        self.paint.draw_owners.get_mut().retain(|(id, slot)| {
+            let keep = listed.contains(id);
+            if !keep {
+                slots.draws[*slot].set(None);
+            }
+            keep
+        });
     }
 
     /// RasterPaint `step`'s node up to its children: open what it opens, draw its
     /// box (when its own paint shows), then (inside its clips when it clips)
-    /// its canvas scene and its content.
+    /// its canvas scene and its content. A kept drawing is replayed (checked
+    /// first under `VERIFY_DRAWS`); a live one is drawn again.
     fn paint_open(
         &self,
         step: &Step,
@@ -164,26 +329,18 @@ impl Model {
         engine: &mut arvane::Engine,
         out: &mut SceneOut,
     ) {
-        let host = &self;
         let id = step.id;
-        let Some(n) = host.node(id) else {
+        if self.node(id).is_none() {
             return;
-        };
-        let (p, bounds, canvas) = self.placed(id, step.origin);
-        let tint = tint(step);
-        let outline = BoxShape::of(bounds, &p.radius);
-        let clip_path = p
-            .effects
+        }
+        let kept = self.take_draw(step, pass);
+        if VERIFY_DRAWS && let Some(draw) = &kept {
+            self.verify_draw(step, list, draw, pass, engine);
+        }
+        let paint = kept
             .as_ref()
-            .and_then(|e| e.clip_path.as_ref())
-            .map(|s| s.in_rect(bounds));
-        let place = Place {
-            step,
-            list,
-            paint: &p,
-            bounds,
-            clip_path: clip_path.clone(),
-        };
+            .map_or_else(|| Rc::new(visual::paint(self, id)), |d| Rc::clone(&d.paint));
+        let (place, canvas) = self.place_at(step, list, &paint);
         let (outer, inner): (Vec<Opening>, Vec<Opening>) = step
             .opened()
             .into_iter()
@@ -191,42 +348,81 @@ impl Model {
         for kind in outer {
             self.open(kind, &place, pass, out);
         }
-        if step.own {
-            if let (Some(ring), Some(clip)) = (&p.ring, &clip_path) {
-                // Around the clip path, beneath the node's paint.
-                border::focus_ring(out, &outline, Some(clip), ring, &tint);
-            }
-            let boxes = self.node_boxes(id, &p, &outline, &tint, engine);
-            self.paint_box(&p, &boxes, clip_path.is_some(), &tint, pass, out);
-        }
-        for kind in inner {
-            self.open(kind, &place, pass, out);
-        }
-        if !step.own {
-            return;
-        }
-        if host.slots.editors[n.index.0].is_none()
-            && let Some(scene) = &n.scenes()[0]
-        {
-            self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
-        }
-        match n.kind() {
-            _ if host.slots.editors[n.index.0].is_some() => {
-                self.paint_input(id, bounds, step.clip, &tint, engine, out);
-                if let Some(scene) = &n.scenes()[0] {
-                    self.paint_scene(id, 0, scene, canvas, &tint, engine, out, pass);
+        let (draw, fresh) = match kept {
+            Some(draw) => {
+                match &draw.recorded {
+                    Recorded::Commands { boxed, content, .. } => {
+                        out.replay(boxed);
+                        for kind in inner {
+                            self.open(kind, &place, pass, out);
+                        }
+                        out.replay(content);
+                    }
+                    Recorded::Live => {
+                        self.draw_box(&place, pass, engine, out);
+                        for kind in inner {
+                            self.open(kind, &place, pass, out);
+                        }
+                        self.draw_content(&place, canvas, pass, engine, out);
+                    }
                 }
+                (draw, false)
             }
-            NodeType::Text => {
-                let layout = host.computed_layout(id).unwrap_or_default();
-                let area = visual::content_at(bounds, layout.content_box);
-                self.paint_text(id, area, &tint, pass, engine, out);
+            None => {
+                out.begin_record();
+                self.draw_box(&place, pass, engine, out);
+                let boxed = out.end_record();
+                for kind in inner {
+                    self.open(kind, &place, pass, out);
+                }
+                out.begin_record();
+                self.draw_content(&place, canvas, pass, engine, out);
+                let content = out.end_record();
+                let draw = Box::new(NodeDraw {
+                    key: DrawKey::of(step, pass),
+                    paint: Rc::clone(&paint),
+                    recorded: Recorded::of(boxed, content),
+                });
+                (draw, true)
             }
-            _ => {}
-        }
-        if host.slots.editors[n.index.0].is_none() && n.image().is_some() {
-            self.paint_image(id, n, canvas, &tint, pass, out);
-        }
+        };
+        self.keep_draw(id, draw, fresh, pass);
+    }
+
+    /// Check a kept drawing against one made now (`VERIFY_DRAWS`): its
+    /// paint against the paint the node is drawn with now, and its box and
+    /// content against the ones that paint and the node's boxes draw now,
+    /// recorded in a scratch output. The check only reads: the frame, the
+    /// kept drawing and the layers' versions are the replay's.
+    fn verify_draw(
+        &self,
+        step: &Step,
+        list: &PaintList,
+        draw: &NodeDraw,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+    ) {
+        let id = step.id;
+        let paint = visual::paint(self, id);
+        assert!(
+            *draw.paint == paint,
+            "the kept paint of node {id:?} is stale: a change it is drawn from did not forget it"
+        );
+        let Recorded::Commands { boxed, content, .. } = &draw.recorded else {
+            return;
+        };
+        let (place, canvas) = self.place_at(step, list, &paint);
+        let mut scratch = SceneOut::default();
+        scratch.begin_record();
+        self.draw_box(&place, pass, engine, &mut scratch);
+        let now_boxed = scratch.end_record();
+        scratch.begin_record();
+        self.draw_content(&place, canvas, pass, engine, &mut scratch);
+        let now_content = scratch.end_record();
+        assert!(
+            now_boxed.as_ref() == Some(boxed) && now_content.as_ref() == Some(content),
+            "the kept drawing of node {id:?} is stale: a change it is drawn from did not forget it"
+        );
     }
 
     /// Open one thing of `place`'s node.
@@ -359,16 +555,16 @@ impl Model {
         engine: &mut arvane::Engine,
         out: &mut SceneOut,
     ) {
-        let id = step.id;
-        if step.own
-            && let Some(n) = self.node(id)
-            && let Some(scene) = &n.scenes()[1]
-        {
-            let (_, _, canvas) = self.placed(id, step.origin);
-            let tint = tint(step);
-            self.paint_scene(id, 1, scene, canvas, &tint, engine, out, pass);
+        match self.take_draw(step, pass) {
+            Some(mut draw) => {
+                self.close_kept(step, &mut draw, pass, engine, out);
+                self.keep_draw(step.id, draw, false, pass);
+            }
+            None => {
+                let p = visual::paint(self, step.id);
+                self.draw_over(step, &p, pass, engine, out);
+            }
         }
-        self.paint_bars(step, out);
         for kind in step.opened().into_iter().rev() {
             match kind {
                 Opening::Layer => out.close_layer(),
@@ -377,6 +573,59 @@ impl Model {
                 Opening::Presence | Opening::Clip => out.push(D::PopClip),
             }
         }
+    }
+
+    /// Draw the kept node's draw-over part: replayed when recorded (checked
+    /// first, `VERIFY_DRAWS`), drawn when live, else drawn and recorded.
+    fn close_kept(
+        &self,
+        step: &Step,
+        draw: &mut NodeDraw,
+        pass: PaintPass,
+        engine: &mut arvane::Engine,
+        out: &mut SceneOut,
+    ) {
+        let paint = Rc::clone(&draw.paint);
+        let spoiled = match &mut draw.recorded {
+            Recorded::Commands {
+                over: Some(over), ..
+            } => {
+                if VERIFY_DRAWS {
+                    self.verify_over(step, over, pass, engine);
+                }
+                out.replay(over);
+                false
+            }
+            Recorded::Live => {
+                self.draw_over(step, &paint, pass, engine, out);
+                false
+            }
+            Recorded::Commands { over, .. } => {
+                out.begin_record();
+                self.draw_over(step, &paint, pass, engine, out);
+                let fresh = out.end_record();
+                let spoiled = fresh.is_none();
+                *over = fresh;
+                spoiled
+            }
+        };
+        if spoiled {
+            draw.recorded = Recorded::Live;
+        }
+    }
+
+    /// Check a kept draw-over part against the one the node's paint now
+    /// draws, recorded in a scratch output (`VERIFY_DRAWS`).
+    fn verify_over(&self, step: &Step, over: &[D], pass: PaintPass, engine: &mut arvane::Engine) {
+        let paint = visual::paint(self, step.id);
+        let mut scratch = SceneOut::default();
+        scratch.begin_record();
+        self.draw_over(step, &paint, pass, engine, &mut scratch);
+        assert!(
+            scratch.end_record().as_deref() == Some(over),
+            "the kept draw-over of node {:?} is stale",
+            step.id
+        );
     }
 
     /// The scrollbars of `step`'s node (when it draws its own).

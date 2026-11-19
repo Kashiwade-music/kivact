@@ -175,10 +175,9 @@ impl Model {
             return Place::default();
         };
         let parent = self.tree.flat_parent(node);
-        let under_perspective =
-            parent.is_some_and(|p| self.effective_paint(p).perspective.is_some());
+        let under_perspective = parent.is_some_and(|p| self.paint_now(p).perspective.is_some());
         let old = self.tree.update_place(index, moving, under_perspective);
-        if self.effective_paint(id).perspective.is_some() {
+        if self.paint_now(id).perspective.is_some() {
             let children: Vec<NodeId> = self.tree.flat_children(id).collect();
             for child in children {
                 if self.tree.raise_under_perspective(child) {
@@ -290,7 +289,7 @@ impl Model {
         matrix = matrix.then(Matrix4::translate(place.x, place.y, 0.0));
         let mut up = Up::Window;
         if let Some(parent) = parent {
-            let paint = self.effective_paint(parent);
+            let paint = self.paint_now(parent);
             // The perspective moves nothing on the plane z = 0.
             if local.is_some()
                 && let Some(perspective) = paint.perspective
@@ -346,7 +345,7 @@ impl Model {
     /// box origin is at `origin` in the walk's space: `T(q) P(d) T(-q)` with
     /// `q` the perspective origin in that space. `None` without one.
     pub(crate) fn perspective_at(&self, parent: NodeId, origin: Point) -> Option<Matrix4> {
-        let perspective = self.effective_paint(parent).perspective?;
+        let perspective = self.paint_now(parent).perspective?;
         Some(
             Matrix4::translate(-origin.x, -origin.y, 0.0)
                 .then(self.perspective_matrix(parent, perspective))
