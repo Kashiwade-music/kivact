@@ -300,7 +300,7 @@ impl Model {
             let mut facts = HashMap::new();
             if !self
                 .subtree_facts(child, Some(parent_look), &mut facts)
-                .layer
+                .layer()
             {
                 continue;
             }

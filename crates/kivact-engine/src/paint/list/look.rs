@@ -19,26 +19,9 @@ impl LayerTraits {
             self.overflow,
             self.border,
             self.fx,
-            self.grouped,
             self.items,
-            self.rounded,
-            self.clip,
-            (
-                self.filtered,
-                self.masked,
-                self.backdropped,
-                self.blended,
-                self.isolated,
-                self.will_change,
-            ),
-            (
-                self.preserves,
-                self.flat,
-                self.transformed,
-                self.perspective,
-                self.backface_hidden,
-                self.shader,
-            ),
+            self.will_change,
+            self.flags,
         )
     }
 
