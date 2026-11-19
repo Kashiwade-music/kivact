@@ -13,19 +13,40 @@ use kivact_types::{
     GradientKind, Len, Point, RadialExtent, Rect, Rgba, normalized_stops,
 };
 
+/// The coordinate system a gradient's geometry is given in: the user space
+/// of the drawing, or the box of the shape it paints (SVG
+/// `gradientUnits="objectBoundingBox"`, the unit square over that box).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Units {
+    UserSpace,
+    ObjectBox,
+}
+
+impl Units {
+    /// The SVG `gradientUnits` keyword of the system.
+    fn name(self) -> &'static str {
+        match self {
+            Units::UserSpace => "userSpaceOnUse",
+            Units::ObjectBox => "objectBoundingBox",
+        }
+    }
+}
+
 /// The SVG attributes of a paint `kind` (`fill` or `stroke`) for `fill`,
-/// over a shape whose bounds are `bounds`. Gradients are defined in `defs`.
+/// over a shape whose bounds are `bounds`, with gradient geometry in `units`.
+/// Gradients are defined in `defs`.
 pub(super) fn paint_attributes(
     emitter: &mut Emitter<'_>,
     kind: &str,
     fill: &Fill,
     bounds: Rect,
+    units: Units,
 ) -> Result<String, SvgError> {
     match fill {
         Fill::Solid(color) => Ok(solid(kind, *color)),
         Fill::Layers(layers) => match layers.as_slice() {
             [] => Ok(format!("{kind}=\"none\"")),
-            [layer] => layer_paint(emitter, kind, layer, bounds),
+            [layer] => layer_paint(emitter, kind, layer, bounds, units),
             _ => Err(SvgError::unsupported(
                 "more than one background layer in a fill",
             )),
@@ -46,6 +67,7 @@ fn layer_paint(
     kind: &str,
     layer: &FillLayer,
     bounds: Rect,
+    units: Units,
 ) -> Result<String, SvgError> {
     if layer.size != FillSize::Auto || layer.position != [Len::ZERO; 2] {
         return Err(SvgError::unsupported(
@@ -54,8 +76,8 @@ fn layer_paint(
     }
     match &layer.image {
         FillImage::Solid(color) => Ok(solid(kind, *color)),
-        FillImage::Gradient(gradient) => gradient_paint(emitter, kind, gradient, bounds),
-        FillImage::Coordinate(gradient) => coordinate_paint(emitter, kind, gradient),
+        FillImage::Gradient(gradient) => gradient_paint(emitter, kind, gradient, bounds, units),
+        FillImage::Coordinate(gradient) => coordinate_paint(emitter, kind, gradient, units),
         FillImage::Image(_) => Err(SvgError::unsupported("an image as a fill")),
         FillImage::Shader(_) => Err(SvgError::unsupported("a shader as a fill")),
     }
@@ -68,6 +90,7 @@ fn gradient_paint(
     kind: &str,
     gradient: &Gradient,
     bounds: Rect,
+    units: Units,
 ) -> Result<String, SvgError> {
     if gradient.repeating {
         return Err(SvgError::unsupported("a repeating gradient"));
@@ -95,7 +118,7 @@ fn gradient_paint(
             };
             let stops = normalized_stops(&stops, lo, hi);
             let id = emitter.id("grad");
-            linear_def(emitter, &id, at(lo), at(hi), Extend::Pad, &stops);
+            linear_def(emitter, &id, at(lo), at(hi), Extend::Pad, &stops, units);
             Ok(format!("{kind}=\"url(#{id})\""))
         }
         GradientKind::Radial {
@@ -123,7 +146,7 @@ fn gradient_paint(
                 scale,
                 focal: None,
             };
-            radial_def(emitter, &id, &shape, Extend::Pad, &stops);
+            radial_def(emitter, &id, &shape, Extend::Pad, &stops, units);
             Ok(format!("{kind}=\"url(#{id})\""))
         }
         GradientKind::Radial { .. } => Err(SvgError::unsupported(
@@ -138,6 +161,7 @@ fn coordinate_paint(
     emitter: &mut Emitter<'_>,
     kind: &str,
     gradient: &CoordinateGradient,
+    units: Units,
 ) -> Result<String, SvgError> {
     let stops: Vec<(f64, Rgba)> = gradient
         .stops
@@ -147,7 +171,7 @@ fn coordinate_paint(
     let id = emitter.id("grad");
     match gradient.shape {
         CoordinateShape::Linear { start, end } => {
-            linear_def(emitter, &id, start, end, gradient.extend, &stops);
+            linear_def(emitter, &id, start, end, gradient.extend, &stops, units);
         }
         CoordinateShape::RadialTwoCircle {
             start_center,
@@ -161,7 +185,7 @@ fn coordinate_paint(
                 scale: 1.0,
                 focal: Some((start_center, start_radius)),
             };
-            radial_def(emitter, &id, &shape, gradient.extend, &stops);
+            radial_def(emitter, &id, &shape, gradient.extend, &stops, units);
         }
         CoordinateShape::Conic { .. } => {
             return Err(SvgError::unsupported("a conic canvas gradient"));
@@ -177,9 +201,11 @@ fn linear_def(
     end: Point,
     extend: Extend,
     stops: &[(f64, Rgba)],
+    units: Units,
 ) {
     emitter.defs.push_str(&format!(
-        "<linearGradient id=\"{id}\" gradientUnits=\"userSpaceOnUse\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\"{}>{}</linearGradient>\n",
+        "<linearGradient id=\"{id}\" gradientUnits=\"{}\" x1=\"{}\" y1=\"{}\" x2=\"{}\" y2=\"{}\"{}>{}</linearGradient>\n",
+        units.name(),
         number(start.x),
         number(start.y),
         number(end.x),
@@ -207,6 +233,7 @@ fn radial_def(
     shape: &Radial,
     extend: Extend,
     stops: &[(f64, Rgba)],
+    units: Units,
 ) {
     let Radial {
         center,
@@ -237,7 +264,8 @@ fn radial_def(
         ));
     }
     emitter.defs.push_str(&format!(
-        "<radialGradient id=\"{id}\" gradientUnits=\"userSpaceOnUse\" {attributes}{}>{}</radialGradient>\n",
+        "<radialGradient id=\"{id}\" gradientUnits=\"{}\" {attributes}{}>{}</radialGradient>\n",
+        units.name(),
         spread(extend),
         stop_list(stops)
     ));
