@@ -334,3 +334,8 @@
   - 付属書 R21 の試験の assert の前に、理由の注記を 2 行足した。
   - Orchestrator：lane X で `handler.rs` に試験を足して commit し、R22 から再開する。
 - 作業指示書 0.5 節の表に 1 行足した（付属書の試験の assert が失敗しそうに見えても、予想では止めず、入れて走らせる。失敗したら出力を付けて差戻し）。
+
+## 差戻し（W5a・R23、2026-11-20）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R23**（W5a、lane X、commit `7a2f4022`）：`crates/kivact-runtime/src/task/remote.rs` の `RemoteInbox`（field `mail`（`Mutex`）と `signal`、`mail` を lock で書く）が、xtask の state 検査で error になった（`RemoteInbox holds state fields mail, signal and is mutated`）。付属書 R23 は `RemoteInbox` の型を定義しているが（`R-runtime.md` の `struct RemoteInbox<T>`）、「状態の閉じ方」にこの型の印の文が無い。0.2 の 4 により、文面の無い `xtask-allow` は書けない。他の検査は通る（fmt・check・clippy・xtask の残りは ok）。設計者は、この型の印の文（閉じ方）を決める。この差戻しの間、lane X（鎖）は止める。
