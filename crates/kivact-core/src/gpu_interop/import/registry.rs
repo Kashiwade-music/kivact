@@ -29,12 +29,18 @@ impl State {
     }
 }
 
+/// The runtime extension holding the gpu-interop state of an App. It is
+/// installed with the view state at launch, and the state is made on the
+/// first call ([`state`]).
+#[derive(Default)]
+pub(crate) struct StateSlot(kivact_types::cell::Deferred<State>);
+
 /// The gpu-interop state of `rt`'s App, made on the first call.
 #[track_caller]
 pub(crate) fn state(rt: &Runtime) -> &State {
     let at = Location::caller();
-    ViewState::of(rt)
-        .gpu_interop
+    rt.ext::<StateSlot>()
+        .0
         .get_or_init(|| State::new(rt.root(), at))
 }
 
