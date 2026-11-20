@@ -12,6 +12,7 @@ use kivact::Prop;
 use kivact::prelude::*;
 use kivact::test::render;
 use kivact::view::KeyCode;
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 use std::sync::atomic::{AtomicU32, Ordering};
 

@@ -8,12 +8,12 @@ use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::prelude::{
-    Element, IntoView, Key, Node, Orientation, column, dynamic, grid, node, rgb, row, scroll,
-    signal, spacer, text,
+    Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
+use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
 
 // xtask-allow(state): legacy: tab, display_name, display_axes, display_wireframe; the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport

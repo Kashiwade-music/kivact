@@ -1,6 +1,7 @@
 //! Catalog page of Sheet: the standard dialog attached to a side of the window.
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::DialogMode;
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 

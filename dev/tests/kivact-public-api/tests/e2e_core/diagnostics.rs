@@ -1,6 +1,7 @@
 //! Role: Failure reports (snapshots), the structured trace and why chains.
 
 use kivact::prelude::*;
+use kivact::state::IntoValue;
 use kivact::test::render;
 
 fn app() -> impl Element {

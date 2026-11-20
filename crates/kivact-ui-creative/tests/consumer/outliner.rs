@@ -5,7 +5,6 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::MouseButton;
 use kivact_ui_creative as ui;
 
 fn scene() -> Vec<ui::TreeItem> {

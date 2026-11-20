@@ -1,7 +1,6 @@
 //! Role: Verify reactive standard-control props preserve the mounted control.
 use kivact::interaction::{RangeThumb, ScalarRange, ScalarStep, use_range_scalar, use_scalar};
 use kivact::prelude::*;
-use kivact::ui::ControlSize;
 use kivact_public_api_tests::support::mount;
 
 #[test]

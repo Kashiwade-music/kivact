@@ -2,6 +2,7 @@
 
 use kivact::prelude::*;
 use kivact::view::KeyCode;
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 
 #[test]

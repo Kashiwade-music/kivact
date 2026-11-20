@@ -11,10 +11,11 @@ use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    Element, IntoView, Node, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
+    Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
 };
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 fn playhead(state: Signal<TransportState>) -> Signal<f64> {

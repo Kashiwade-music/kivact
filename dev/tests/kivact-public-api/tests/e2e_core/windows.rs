@@ -1,12 +1,13 @@
 //! Role: Contracts of windows opened from views.
 
+use kivact::motion::{Easing, Transition, animated};
+use kivact::view::WindowMode;
 use std::time::Duration;
 
 use kivact::ErrorKind;
 use kivact::i18n::{Locale, provide_locale, use_locale};
 use kivact::platform::{self, on_close_request};
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 use kivact::test::RenderOptions;
 use kivact::view::A11yAction;
 use kivact_public_api_tests::support::{mount, mount_with};

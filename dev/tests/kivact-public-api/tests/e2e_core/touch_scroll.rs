@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::{PointerKind, PointerPhase};
+use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount;
 
 fn y(screen: &Screen, id: &str) -> f64 {

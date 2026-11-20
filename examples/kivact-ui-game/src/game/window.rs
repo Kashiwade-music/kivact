@@ -1,6 +1,8 @@
 //! Application-owned editor chrome and commands for the catalog.
 use super::common::segmented;
 use kivact::prelude::*;
+use kivact::style::ColorToken;
+use kivact::view::Node;
 use kivact_ui_game as g;
 
 const INITIAL_SOURCE: &str = "# checklist.yaml\ntargets: PB-01..PB-12";

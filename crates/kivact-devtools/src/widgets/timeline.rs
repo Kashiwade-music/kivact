@@ -1,12 +1,11 @@
 //! Role: The timeline of recorded turns and frames, with a drag-to-zoom range.
 
+use kivact::style::ColorToken;
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::draw::{Draw, RegionId, Stroke, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::{RegionId, TextFormat};
 use kivact::prelude::*;
-use kivact::view::{MouseButton, PointerPhase};
 use kivact_devtools_protocol as p;
 
 /// The width of the lane labels on the left.

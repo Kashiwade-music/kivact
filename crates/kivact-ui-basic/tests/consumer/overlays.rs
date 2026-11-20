@@ -3,10 +3,12 @@
 use crate::support::{distance, pixel};
 use kivact::geometry::Edge;
 use kivact::interaction::Command;
+use kivact::interaction::DialogMode;
 use kivact::prelude::*;
 use kivact::test::LayoutCheck;
 use kivact::ui::command_palette;
 use kivact::view::A11yAction;
+use kivact::view::Node;
 use kivact_ui_basic as basic;
 use std::time::Duration;
 

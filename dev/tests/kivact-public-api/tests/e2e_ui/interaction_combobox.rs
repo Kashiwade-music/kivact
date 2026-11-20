@@ -4,6 +4,7 @@
 //! the loss of the focus, and a combobox that takes several options and
 //! removes the last one with Backspace, through the public API only.
 
+use kivact::interaction::Selection;
 use kivact::interaction::{use_combobox, use_text_edit};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;

@@ -6,6 +6,7 @@
 //! focus leaving the thumb restore the value from before the drag.
 //! `use_range_scalar` keeps its two thumbs from crossing.
 
+use kivact::view::{EditPhase, Node, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -15,9 +16,8 @@ use kivact::interaction::{
     use_range_scalar, use_scalar,
 };
 use kivact::prelude::*;
-use kivact::style::Position;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::{MouseButton, PointerKind};
+use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount;
 use kivact_public_api_tests::support::mount_with;
 

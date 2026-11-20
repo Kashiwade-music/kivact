@@ -6,11 +6,11 @@
 //! once; frames and layouts built from partial updates are what a fresh
 //! window draws and lays out.
 
+use kivact::view::Node;
 use std::time::Duration;
 
 use super::images_animated::gif;
 use kivact::draw::PaintShader;
-use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};

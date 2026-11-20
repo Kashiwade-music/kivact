@@ -14,7 +14,6 @@ use kivact::ErrorKind;
 #[cfg(feature = "gpu")]
 use kivact::draw::Paint;
 use kivact::draw::{Filter, FilterShader, PaintShader};
-use kivact::geometry::Rect;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable, render, render_with};

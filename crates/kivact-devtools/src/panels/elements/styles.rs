@@ -1,6 +1,7 @@
 //! Role: The Styles tab of the Elements panel.
 
 use kivact::prelude::*;
+use kivact::ui::toggle_group;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Session};

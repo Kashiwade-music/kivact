@@ -2,6 +2,8 @@
 
 use kivact::interaction::{TreeNode, TreeRow, use_tree};
 use kivact::prelude::*;
+use kivact::state::ItemKey;
+use kivact::view::RowHeight;
 
 /// The height of one row.
 const ROW_HEIGHT: f64 = 22.0;

@@ -1,8 +1,10 @@
 //! Catalog page of Popover: the dialog at a trigger, its placement and alignment.
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::DialogMode;
 use kivact::prelude::*;
 use kivact::view::OverlayAlign;
+use kivact::view::Placement;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {

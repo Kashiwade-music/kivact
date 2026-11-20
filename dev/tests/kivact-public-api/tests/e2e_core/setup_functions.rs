@@ -4,7 +4,8 @@
 //! `on_cleanup`, `on_mount`, `context`, `context`) and the associated
 //! constructors of the reactive handles, called with no setup-context argument.
 
-use kivact::state::{selector, trigger};
+use kivact::state::IntoValue;
+use kivact::state::selector;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

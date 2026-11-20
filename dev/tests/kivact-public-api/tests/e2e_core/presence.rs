@@ -1,5 +1,6 @@
 //! Role: Verify reactive node presence through entrance and removal.
 
+use kivact::motion::{Easing, Transition};
 use std::time::Duration;
 
 use kivact::prelude::*;

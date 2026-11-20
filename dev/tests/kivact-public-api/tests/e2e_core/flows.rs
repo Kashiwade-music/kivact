@@ -4,7 +4,10 @@
 //! `switch`, `for_each`, `for_index`, `virtual_list`, `dynamic`,
 //! `error_boundary`) with plain-function components.
 
+use kivact::interaction::IntoSelection;
 use kivact::prelude::*;
+use kivact::state::IntoValue;
+use kivact::view::RowHeight;
 use kivact_public_api_tests::support::mount;
 
 /// A component with its own state: a click counter.

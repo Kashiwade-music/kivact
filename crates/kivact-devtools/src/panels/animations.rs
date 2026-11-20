@@ -1,6 +1,8 @@
 //! Role: The Animations panel.
 
 use kivact::prelude::*;
+use kivact::ui::{DataColumn, data_table, toggle_group};
+use kivact::view::EditPhase;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;

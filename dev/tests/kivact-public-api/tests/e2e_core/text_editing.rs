@@ -7,6 +7,7 @@
 //! blur, `on_composition_change` on each change of the composing state),
 //! and which keys reach the handlers around a field.
 
+use kivact::view::Modifiers;
 use std::cell::RefCell;
 use std::rc::Rc;
 

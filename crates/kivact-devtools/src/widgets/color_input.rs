@@ -1,6 +1,8 @@
 //! Role: A color input with a text value, HSL sliders and a preview.
 
 use kivact::prelude::*;
+use kivact::style::ColorToken;
+use kivact::view::EditPhase;
 
 /// A hex text field, three HSL sliders and a preview swatch for one color; `disabled` turns the
 /// text field and the sliders off.

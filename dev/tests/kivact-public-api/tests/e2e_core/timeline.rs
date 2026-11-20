@@ -1,5 +1,6 @@
 //! Role: Timeline playback: segments, phases, calls, reduced motion, stagger.
 
+use kivact::motion::{Easing, Transition, animated, timeline};
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;

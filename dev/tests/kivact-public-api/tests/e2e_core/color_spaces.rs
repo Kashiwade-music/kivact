@@ -7,6 +7,7 @@
 //! `support`.
 
 use kivact::draw::linear_gradient;
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::{ColorSpace, TransitionProp, lab, oklab, oklch};
 use kivact::test::{RenderOptions, Screen, render, render_with};

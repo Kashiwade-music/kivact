@@ -5,6 +5,7 @@
 //! twice, so a press outside the surface cannot hide what the first call did.
 //! Through the public API only.
 
+use kivact::interaction::Selection;
 use kivact::interaction::{
     NavOpen, use_combobox, use_menu, use_navigation_menu, use_select, use_text_edit,
 };

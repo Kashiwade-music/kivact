@@ -1,6 +1,7 @@
 //! Role: The actions of one connected DevTools session.
 
 use kivact::prelude::*;
+use kivact::task::blocking;
 use kivact_devtools_protocol as p;
 
 use crate::editor;

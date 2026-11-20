@@ -9,7 +9,6 @@ use std::rc::Rc;
 use kivact::geometry::Insets;
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::style::Position;
 use kivact::test::render;
 
 /// The window's environment is one value, but a reader of one field runs

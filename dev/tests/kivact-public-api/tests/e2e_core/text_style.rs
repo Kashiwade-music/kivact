@@ -10,12 +10,11 @@
 //! label, and a text field's caret, selection and placeholder colors.
 //! Checked on the frame's pixels at scale 1.
 
+use kivact::view::Node;
 use std::rc::Rc;
 
-use kivact::draw::Shadow;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::{TextDecorationLine, TextOverflow, em};
+use kivact::style::{TextDecorationLine, TextOverflow};
 use kivact::test::{RenderOptions, Screen, Screenshot, render, render_with};
 use kivact::view::{Span, rich_text, span};
 

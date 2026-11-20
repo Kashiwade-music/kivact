@@ -2,7 +2,7 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::ui::{ControlSize, toggle_button};
+use kivact::ui::toggle_button;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {

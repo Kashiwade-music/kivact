@@ -3,6 +3,7 @@
 //! The unstyled `Tabs`: roles and relations, keys, activation, orientation,
 //! mounting of panels, the initial selection and label changes.
 
+use kivact::view::{Node, Orientation};
 use std::rc::Rc;
 
 use kivact::interaction::ListActivation;

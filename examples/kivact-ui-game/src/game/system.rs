@@ -4,12 +4,12 @@ use super::common::{cards, line, list, specimen, suppress_search_shortcut, wide}
 use super::state::{Demo, Overlay};
 use kivact::interaction::{MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
-use kivact::prelude::{
-    ColorToken, Element, IntoView, Node, Role, column, node, rgb, row, signal, spacer, text,
-};
+use kivact::prelude::{Element, IntoView, Role, column, node, rgb, row, signal, spacer, text};
 use kivact::state::{Machine, Signal, Step, binding, machine, memo};
+use kivact::style::ColorToken;
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
+use kivact::view::Node;
 use kivact::view::{rich_text, span};
 use kivact_ui_game as g;
 use std::time::Duration;

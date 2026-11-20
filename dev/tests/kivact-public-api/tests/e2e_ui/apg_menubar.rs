@@ -2,6 +2,7 @@
 use kivact::interaction::{use_menu, use_menubar};
 use kivact::prelude::*;
 use kivact::test::RenderOptions;
+use kivact::view::Placement;
 use kivact::view::overlay;
 use kivact_public_api_tests::support::mount_with;
 

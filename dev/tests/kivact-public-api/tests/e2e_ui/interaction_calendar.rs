@@ -4,6 +4,7 @@ use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Locale, Weekday};
 use kivact::interaction::{CalendarGridApi, CalendarOptions, CalendarSelection, use_calendar_grid};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
+use kivact::view::{Modifiers, Node};
 use kivact_public_api_tests::support::mount_with;
 
 fn day(y: i32, m: u8, d: u8) -> CalendarDate {

@@ -1,6 +1,7 @@
 //! Role: The Review panel.
 
 use kivact::prelude::*;
+use kivact::ui::item_row;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Panel, Session};

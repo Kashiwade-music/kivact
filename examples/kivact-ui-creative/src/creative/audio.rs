@@ -4,10 +4,11 @@ use kivact::state::Signal;
 
 use super::audio_values::level;
 use super::common::{col, note};
-use kivact::prelude::{Element, IntoView, ScrollAxes, rgb, row, scroll, signal};
+use kivact::prelude::{Element, IntoView, rgb, row, scroll, signal};
 use kivact::state::IntoValue;
 use kivact::state::binding;
 use kivact::style::style;
+use kivact::view::ScrollAxes;
 use kivact_ui_creative as ui;
 
 pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {

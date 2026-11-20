@@ -1,6 +1,7 @@
 //! Role: Shared real-host waits and fixtures for embedding contracts.
 use kivact::prelude::*;
 use kivact::test::TestParent;
+use kivact::view::Node;
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 pub(super) static SERIAL: Mutex<()> = Mutex::new(());

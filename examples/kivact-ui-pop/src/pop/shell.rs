@@ -19,13 +19,15 @@ use kivact::geometry::Point;
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{Command, ListItem, Toast, toaster};
 use kivact::prelude::{
-    ColorToken, Element, IntoView, Key, Node, NodeRef, Role, Signal, binding, column, effect, node,
-    rgb, row, scroll, signal, text,
+    Element, IntoView, Key, NodeRef, Role, Signal, binding, column, effect, node, rgb, row, scroll,
+    signal, text,
 };
 use kivact::state::callback;
+use kivact::style::ColorToken;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
 use kivact::task::spawn;
 use kivact::ui::command_palette;
+use kivact::view::Node;
 use kivact::view::ScrollBehavior;
 use kivact::view::{Handled, KeyEvent, node_ref};
 use kivact_ui_pop as ui;

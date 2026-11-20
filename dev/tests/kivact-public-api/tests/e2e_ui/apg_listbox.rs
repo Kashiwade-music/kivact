@@ -2,6 +2,7 @@
 use kivact::interaction::use_select;
 use kivact::prelude::*;
 use kivact::view::overlay;
+use kivact::view::{Modifiers, Placement};
 use kivact_public_api_tests::support::mount;
 
 #[test]

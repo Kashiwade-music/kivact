@@ -1,6 +1,8 @@
 //! Role: Display and layout component tests: gallery layout and behavior checks.
 
 use kivact::prelude::*;
+use kivact::ui::PageItem;
+use kivact::view::Node;
 use kivact_ui_basic as basic;
 
 /// A page painted with the `background` token of the theme in effect.

@@ -8,6 +8,7 @@
 
 use kivact::prelude::*;
 use kivact::ui;
+use kivact::view::Node;
 use kivact_public_api_tests::support::mount;
 
 /// A control that is built from `node()` and has no name of its own.

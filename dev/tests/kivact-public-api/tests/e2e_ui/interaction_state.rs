@@ -1,8 +1,10 @@
 //! Role: Behaviour contracts of interaction state fixes.
 
+use kivact::interaction::IntoSelection;
 use kivact::interaction::{TreeNode, use_tree};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
+use kivact::view::RowHeight;
 use kivact_public_api_tests::support::mount_with;
 
 #[test]

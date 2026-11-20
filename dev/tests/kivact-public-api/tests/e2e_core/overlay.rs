@@ -5,13 +5,13 @@
 //! overlay is open, keys go to it and stop at it, and events aimed outside
 //! it are dropped. Overlays flip and stay inside the window.
 
+use kivact::state::IntoValue;
+use kivact::view::Placement;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::ErrorKind;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::Position;
 use kivact::test::{RenderOptions, render, render_with};
 use kivact::view::{A11yAction, OverlayAlign, overlay, overlay_at};
 

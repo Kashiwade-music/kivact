@@ -2,7 +2,7 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::MouseButton;
+use kivact::view::{Modifiers, Node};
 use kivact_ui_basic as basic;
 
 /// A page painted with the `background` token of the theme in effect.

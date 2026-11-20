@@ -1,7 +1,9 @@
 //! Role: Game UI interaction tests.
 
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact::view::A11yAction;
+use kivact::view::Node;
 use kivact_ui_game as g;
 
 fn files_tree(

@@ -4,8 +4,9 @@ use kivact::state::Signal;
 
 use super::common::{bind, col, keyed_options, line, note, separator};
 
-use kivact::prelude::{Element, IntoView, Node, rgb, row, signal, spacer};
+use kivact::prelude::{Element, IntoView, rgb, row, signal, spacer};
 use kivact::style::style;
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) -> impl IntoView {

@@ -2,7 +2,10 @@
 use kivact::draw::{Shape, linear_gradient};
 use kivact::prelude::*;
 use kivact::state::IntoHandler;
-use kivact::style::{Direction, Position};
+use kivact::state::IntoValue;
+use kivact::style::ColorToken;
+use kivact::style::Direction;
+use kivact::view::Node;
 use kivact_ui_pop::{self as ui, Hue, Tokens};
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]

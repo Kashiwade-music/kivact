@@ -4,6 +4,7 @@
 //! hides it, one at a time per App, the skip delay and its semantics. The
 //! tests draw the hint themselves, as a kit does.
 
+use kivact::view::{Node, Placement};
 use std::time::Duration;
 
 use kivact::interaction::use_tooltip;

@@ -1,6 +1,7 @@
 //! Role: Verify the standard combobox family and the touch select sheet.
 use kivact::prelude::*;
 use kivact::ui::SelectPresentation;
+use kivact::ui::combobox;
 use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;

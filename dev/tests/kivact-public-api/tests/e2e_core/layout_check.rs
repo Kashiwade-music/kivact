@@ -9,8 +9,9 @@
 //! `assert_layout` fails listing every violation.
 
 use kivact::prelude::*;
-use kivact::style::{Overflow, TextOverflow};
+use kivact::style::TextOverflow;
 use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, render, render_with};
+use kivact::view::{Node, ScrollAxes};
 
 static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"

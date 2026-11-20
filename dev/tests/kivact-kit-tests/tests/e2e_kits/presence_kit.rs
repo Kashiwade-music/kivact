@@ -1,5 +1,7 @@
 //! Role: Toast presence with a kit's theme installed.
 
+use kivact::interaction::toaster;
+use kivact::motion::{Easing, Transition};
 use std::time::Duration;
 
 use kivact::prelude::*;

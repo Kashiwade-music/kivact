@@ -3,15 +3,14 @@
 //! The unstyled `splitter` handle: keys, assistive technology, pointer drags and
 //! semantics shared by every splitter of the official kits.
 
+use kivact::view::{Node, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::prelude::*;
-use kivact::style::Cursor;
 use kivact::test::RenderOptions;
-use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 
 fn real_window() -> RenderOptions {

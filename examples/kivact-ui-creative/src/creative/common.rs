@@ -1,10 +1,12 @@
 //! Shared values and view builders for Creative catalog specimens.
 
-use kivact::prelude::{IntoText, IntoValue, IntoView, Node, Role, column, grid, node, row, text};
+use kivact::prelude::{IntoView, Role, column, grid, node, row, text};
 use kivact::state::Signal;
 use kivact::state::binding;
+use kivact::state::{IntoText, IntoValue};
 use kivact::style::Track;
 use kivact::style::{Align, style};
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 pub(super) fn keyed_options(

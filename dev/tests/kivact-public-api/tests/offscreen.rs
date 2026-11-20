@@ -6,7 +6,6 @@
 
 use kivact::ErrorKind;
 use kivact::draw::{Offscreen, Pixels, TextFormat};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use std::cell::Cell;
 

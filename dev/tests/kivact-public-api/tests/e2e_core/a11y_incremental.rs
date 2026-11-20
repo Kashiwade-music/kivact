@@ -8,11 +8,13 @@
 //! hit under the mouse (where the last click was) and at the window's center
 //! with the complete walk, drawables included.
 
+use kivact::draw::Transform;
+use kivact::view::{Node, drawable};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::prelude::*;
-use kivact::style::{Display, Position};
+use kivact::style::Display;
 use kivact::test::Screen;
 use kivact_public_api_tests::paint::{RED, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;

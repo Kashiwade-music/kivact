@@ -6,13 +6,14 @@ use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    Element, IntoView, Key, Node, NodeRef, Role, Signal, Theme, column, for_each, memo, node,
-    on_mount, row, scroll, show, signal, text,
+    Element, IntoView, Key, NodeRef, Role, Signal, Theme, column, for_each, memo, node, on_mount,
+    row, scroll, show, signal, text,
 };
 use kivact::state::callback;
 use kivact::style::GridPlacement;
 use kivact::style::use_theme;
 use kivact::style::{Align, Justify, Style, pct, rgba, style};
+use kivact::view::Node;
 use kivact::view::{Handled, Placement, node_ref, overlay};
 use kivact_ui_creative as ui;
 

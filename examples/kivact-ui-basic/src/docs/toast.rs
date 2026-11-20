@@ -1,8 +1,8 @@
 //! Catalog page of Toast: pushed notifications, variants, actions and durations.
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::{Tone, toaster};
 use kivact::prelude::*;
-use kivact::ui::ControlSize;
 use kivact_ui_basic as basic;
 use std::time::Duration;
 

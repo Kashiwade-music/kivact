@@ -2,6 +2,7 @@
 //! Audit: https://www.w3.org/WAI/ARIA/apg/patterns/breadcrumb/
 //! Breadcrumbs have no special keyboard interaction; links use native activation.
 use kivact::prelude::*;
+use kivact::ui::breadcrumb;
 use kivact::view::CurrentItem;
 use kivact_public_api_tests::support::mount;
 

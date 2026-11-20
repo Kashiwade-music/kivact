@@ -3,9 +3,10 @@ use super::audio_values::{TransportState, smpte};
 use super::common::line;
 use kivact::geometry::Rect;
 use kivact::interaction::MenuEntry;
-use kivact::prelude::{Element, IntoView, Node, Role, Signal, column, node, rgb, row, text};
+use kivact::prelude::{Element, IntoView, Role, Signal, column, node, rgb, row, text};
 use kivact::style::{Align, TextAlign, style};
 use kivact::view::LiveRegion;
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 pub(super) fn accent_controls(accent: Signal<ui::Accent>) -> Vec<Node> {

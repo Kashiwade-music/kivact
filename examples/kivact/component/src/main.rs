@@ -28,7 +28,6 @@ fn card(
     .style(style().padding(12).gap(8))
 }
 
-// xtask-allow(state): legacy: first, second; whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so
 fn app() -> impl IntoView {
     let first = signal(true);
     let second = signal(true);

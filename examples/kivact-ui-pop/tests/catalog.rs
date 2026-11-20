@@ -5,7 +5,7 @@
 
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen, render_with};
-use kivact::view::MouseButton;
+use kivact::view::Modifiers;
 use kivact_ui_pop_catalog::{catalog, fonts, locale, messages};
 use std::time::Duration;
 

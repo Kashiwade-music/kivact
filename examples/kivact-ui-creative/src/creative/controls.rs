@@ -2,9 +2,11 @@
 
 use super::common::{col, keyed_options, line, note, spec, specs};
 use kivact::interaction::MenuEntry;
-use kivact::prelude::{ColorToken, Element, IntoView, Node, Signal, node, rgb, row, signal, text};
+use kivact::prelude::{Element, IntoView, Signal, node, rgb, row, signal, text};
+use kivact::style::ColorToken;
 use kivact::style::GridPlacement;
 use kivact::style::{Align, Color, pct, style};
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 pub(super) fn buttons(status: Signal<String>) -> impl IntoView {

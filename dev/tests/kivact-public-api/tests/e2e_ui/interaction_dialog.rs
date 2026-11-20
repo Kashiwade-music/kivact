@@ -6,11 +6,14 @@
 //! (scrim, panel, heading, body and footer) themselves, as a kit does.
 
 use kivact::geometry::Edge;
+use kivact::interaction::DialogMode;
 use kivact::interaction::{DialogApi, use_dialog};
 use kivact::prelude::*;
-use kivact::style::Position;
+use kivact::state::IntoText;
+use kivact::style::ColorToken;
 use kivact::test::Screen;
 use kivact::view::overlay;
+use kivact::view::{Node, Placement};
 use kivact_public_api_tests::support::mount;
 
 fn button(name: &'static str) -> Node {

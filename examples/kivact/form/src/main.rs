@@ -1,6 +1,7 @@
 //! Validate a sign-up form with memos and show messages with show_some.
 
 use kivact::prelude::*;
+use kivact::view::InputPurpose;
 
 fn app() -> impl IntoView {
     let email = signal(String::new());

@@ -3,13 +3,13 @@
 use super::common::{card, cards_grid, half, muted, section, third, wrap};
 use kivact::i18n::{CalendarDate, Weekday};
 use kivact::interaction::MenuEntry;
-use kivact::prelude::{
-    ColorToken, Element, IntoView, Node, Signal, column, dynamic, rgb, row, show, signal, text,
-};
+use kivact::prelude::{Element, IntoView, Signal, column, dynamic, rgb, row, show, signal, text};
 use kivact::state::Callback;
+use kivact::style::ColorToken;
 use kivact::style::GridPlacement;
 use kivact::style::TextDecorationLine;
 use kivact::style::{Align, Justify, pct, style};
+use kivact::view::Node;
 use kivact::view::Placement;
 use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;

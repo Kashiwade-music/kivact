@@ -5,11 +5,13 @@
 //! bind as cheaply as constants, and the roles added for the official components
 //! reach the screen.
 
+use kivact::state::IntoText;
+use kivact::view::Node;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::Prop;
-use kivact::draw::{Draw, RegionId};
+use kivact::draw::RegionId;
 use kivact::prelude::*;
 use kivact::test::render;
 use kivact::view::A11yAction;

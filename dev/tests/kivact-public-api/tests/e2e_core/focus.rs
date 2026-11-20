@@ -4,7 +4,9 @@
 //! only the two affected nodes.
 
 use kivact::prelude::*;
+use kivact::state::IntoValue;
 use kivact::test::Screen;
+use kivact::view::Placement;
 use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 

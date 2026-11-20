@@ -6,7 +6,6 @@
 use super::support::{SERIAL, wait};
 use kivact::prelude::*;
 use kivact::test::TestParent;
-use kivact::view::MouseButton;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use windows_sys::Win32::Foundation::HWND;

@@ -4,6 +4,7 @@ use crate::support::near;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::{A11yAction, KeyCode};
+use kivact::view::{EditPhase, Modifiers};
 use kivact_ui_creative as ui;
 #[derive(Clone, Copy)]
 struct Model {

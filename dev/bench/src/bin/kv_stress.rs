@@ -5,6 +5,7 @@
 //! loop (idle memory). Read the frame times from `KIVACT_FRAME_LOG`.
 
 use kivact::motion::FrameRate;
+use kivact::motion::frame_loop;
 use kivact::prelude::*;
 use kivact_bench::env_or;
 

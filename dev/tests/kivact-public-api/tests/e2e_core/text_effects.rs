@@ -9,8 +9,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::draw::{Path, TextFormat, linear_gradient};
-use kivact::geometry::Rect;
+use kivact::draw::{TextFormat, linear_gradient};
 use kivact::prelude::*;
 use kivact::style::PaintOrder;
 use kivact::test::{RenderOptions, Screenshot, render_with};

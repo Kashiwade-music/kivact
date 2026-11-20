@@ -1,9 +1,11 @@
 //! Token typography and shape samples for the Pop catalogue.
 
 use kivact::draw::Shadow;
-use kivact::prelude::{ColorToken, Node, column, pct, text};
+use kivact::prelude::{column, pct, text};
+use kivact::style::ColorToken;
 use kivact::style::use_theme;
 use kivact::style::{Align, Justify, style};
+use kivact::view::Node;
 use kivact_ui_pop as ui;
 
 pub(super) fn type_samples() -> Vec<Node> {

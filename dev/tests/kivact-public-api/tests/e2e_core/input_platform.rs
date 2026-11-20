@@ -1,11 +1,12 @@
 //! Role: Input, scroll and portable platform contracts on real windows.
 
+use kivact::view::{Modifiers, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::view::{KeyCode, LiveRegion, PointerPhase, SortDirection};
+use kivact::view::{KeyCode, LiveRegion, SortDirection};
 use kivact_public_api_tests::support::mount;
 
 #[test]

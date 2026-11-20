@@ -1,5 +1,7 @@
 //! Role: The Accessibility panel.
 
+use kivact::state::IntoValue;
+use kivact::ui::{DataColumn, data_table};
 use std::collections::HashMap;
 use std::rc::Rc;
 

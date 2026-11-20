@@ -2,6 +2,7 @@
 use kivact::i18n::{CalendarDate, CalendarMonth};
 use kivact::prelude::*;
 use kivact::ui::{self, DatePresentation};
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 #[test]
 fn date_picker_selection_returns_focus_to_the_picker_button() {

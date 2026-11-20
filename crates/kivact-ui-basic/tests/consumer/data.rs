@@ -4,6 +4,7 @@ use crate::support::distance;
 use kivact::interaction::SortOrder;
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::Node;
 use kivact::view::SortDirection;
 use kivact_ui_basic as basic;
 

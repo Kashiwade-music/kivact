@@ -1,8 +1,11 @@
 //! Role: Table parts share grid focus, list selection, sort and resize behavior.
 
+use kivact::interaction::IntoSelection;
+use kivact::interaction::Selection;
 use kivact::interaction::{ColumnDef, ListRangeOptions, SortOrder, TableFocus, use_data_table};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount_with;
 
 #[test]

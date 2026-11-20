@@ -1,12 +1,13 @@
 //! Role: Async: executor, pool, resource, action, queue, time, platform.
 
+use kivact::task::blocking;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::sync::Arc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::task::{CancelToken, Remote, clock, queued_action, remote, remote_trigger, sleep};
+use kivact::task::{CancelToken, Remote, clock, queued_action, remote, remote_trigger};
 use kivact_public_api_tests::support::mount;
 
 fn ms(n: u64) -> Duration {

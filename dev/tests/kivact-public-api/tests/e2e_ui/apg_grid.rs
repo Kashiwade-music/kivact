@@ -1,8 +1,11 @@
 //! Role: Verify APG grid navigation and table cell semantics through public parts.
 use kivact::interaction::{ColumnDef, TableFocus, use_data_table};
+use kivact::interaction::{Selection, Tone};
 use kivact::prelude::*;
 use kivact::test::Locator;
 use kivact::ui::RowStatus;
+use kivact::ui::{DataColumn, data_table};
+use kivact::view::{Modifiers, Node};
 use kivact_public_api_tests::support::mount;
 
 fn interactive_table() -> Node {

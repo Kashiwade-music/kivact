@@ -6,11 +6,13 @@
 //! written in each test: `rotate_y(60)` maps x to x·cos 60° = x / 2 on z = 0,
 //! and `rotate(90)` maps (x, y) to (-y, x) about the canvas origin.
 
+use kivact::draw::Transform;
+use kivact::view::{Node, drawable};
 use std::sync::mpsc;
 use std::time::{Duration, Instant};
 
-use kivact::draw::{Draw, Layer, Pixels};
-use kivact::geometry::{Matrix4, Rect};
+use kivact::draw::{Layer, Pixels};
+use kivact::geometry::Matrix4;
 use kivact::prelude::*;
 use kivact::style::{BackfaceVisibility, TransformStyle};
 use kivact::test::{Screen, Screenshot};

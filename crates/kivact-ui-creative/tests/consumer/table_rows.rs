@@ -1,7 +1,7 @@
 //! Role: The string rows the consumer tests give the generic table.
 
 use kivact::interaction::{ListMissingAnchor, ListOptions, ListRangeOptions, TableFocus};
-use kivact::prelude::*;
+use kivact::state::IntoValue;
 
 /// A row of the tests' string tables: an id and one text per column.
 #[derive(Clone, Debug, PartialEq)]

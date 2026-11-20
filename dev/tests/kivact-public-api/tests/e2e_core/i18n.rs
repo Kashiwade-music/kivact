@@ -9,6 +9,7 @@ use kivact::i18n::{provide_locale, provide_messages};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
 use kivact::ui::carousel;
+use kivact::ui::combobox;
 
 /// A part that shows one of its texts the way a component library does.
 fn close_label() -> impl Element {

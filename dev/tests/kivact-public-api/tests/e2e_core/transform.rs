@@ -9,13 +9,12 @@
 //! among siblings, also from a hover state style. Checked on the frame's
 //! pixels (scale 1) and through real input.
 
+use kivact::draw::Transform;
+use kivact::view::Node;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use kivact::draw::Draw;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::view::{MouseButton, WheelEvent};
 
 use kivact_public_api_tests::paint::{BLUE, WHITE, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;

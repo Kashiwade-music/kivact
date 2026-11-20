@@ -9,6 +9,7 @@ use kivact::platform;
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use kivact::view::KeyCode;
+use kivact::view::Node;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};

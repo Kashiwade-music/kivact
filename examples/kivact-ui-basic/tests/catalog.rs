@@ -3,7 +3,6 @@
 //! the example previews and code, the theme toggle_button, the search and the copy button.
 
 use kivact::prelude::*;
-use kivact::style::Position;
 use kivact::test::{LayoutCheck, RenderOptions, Screen, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
 use std::time::Duration;

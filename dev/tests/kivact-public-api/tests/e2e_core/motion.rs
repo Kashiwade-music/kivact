@@ -1,10 +1,12 @@
 //! Role: Motion timing: clock, frame loops, animated values and transitions.
 
+use kivact::motion::{Easing, Spring, Transition, animated, frame_loop};
+use kivact::view::Node;
 use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact::draw::{Filter, Shadow};
+use kivact::draw::Filter;
 use kivact::motion::FrameRate;
 use kivact::motion::{Animated, FrameInfo, FrameLoop, Repeat};
 use kivact::prelude::*;

@@ -1,5 +1,6 @@
 //! Role: Shared layout: layout ids, layout motion in window space and corners.
 
+use kivact::motion::{Easing, Transition};
 use std::time::Duration;
 
 use kivact::prelude::*;

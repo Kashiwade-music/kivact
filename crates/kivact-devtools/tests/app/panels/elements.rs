@@ -1,5 +1,6 @@
 //! Role: Tests of the Elements panel.
 
+use kivact::view::Modifiers;
 use std::rc::Rc;
 
 use kivact::prelude::*;

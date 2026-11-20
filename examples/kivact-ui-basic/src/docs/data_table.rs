@@ -1,5 +1,6 @@
 //! Catalog page of Data Table: `kivact::ui::data_table` in the Lyra theme.
 use kivact::ui::Paging;
+use kivact::ui::{DataColumn, data_table};
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;

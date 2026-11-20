@@ -6,6 +6,7 @@ use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::prelude::*;
 use kivact::test::TestParent;
+use kivact::view::Node;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;

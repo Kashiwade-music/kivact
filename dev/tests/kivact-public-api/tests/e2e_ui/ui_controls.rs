@@ -5,6 +5,8 @@
 //! they report (`EditPhase`) and the value a canceled drag writes back, and
 //! their layout and keys in a right-to-left subtree.
 
+use kivact::interaction::toaster;
+use kivact::view::{EditPhase, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -12,7 +14,7 @@ use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::ui::{range_slider, splitter};
-use kivact::view::{A11yAction, MouseButton};
+use kivact::view::A11yAction;
 use kivact_public_api_tests::support::mount_with;
 
 use EditPhase::{Begin, Cancel, Commit};

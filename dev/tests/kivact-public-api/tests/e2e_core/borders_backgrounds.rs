@@ -11,6 +11,7 @@ use kivact::prelude::*;
 use kivact::style::{BorderImage, BorderImageRepeat, BorderStyle};
 use kivact::test::render;
 use kivact::view::Asset;
+use kivact::view::Node;
 
 use kivact_public_api_tests::paint::{RED, WHITE, at, canvas_of, expect};
 

@@ -1,6 +1,7 @@
 //! Role: The detail tabs of the Elements panel.
 
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact::ui::{description, description_list};
 use kivact_devtools_protocol as p;
 

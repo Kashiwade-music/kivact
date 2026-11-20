@@ -3,6 +3,7 @@
 //! The unstyled `CommandPaletteApi`: opening, the active row, keys, filtering,
 //! running, groups, the empty list, scrolling and the App's texts.
 
+use kivact::view::{Node, Placement};
 use std::cell::RefCell;
 use std::rc::Rc;
 

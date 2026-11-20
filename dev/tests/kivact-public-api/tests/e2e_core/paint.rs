@@ -6,7 +6,7 @@
 //! overflow clips and clip paths, which also clip hit testing. Checked on
 //! the frame's pixels (scale 1: a logical pixel is a physical one).
 
-use kivact::draw::{Shadow, conic_gradient, linear_gradient, radial_gradient};
+use kivact::draw::{conic_gradient, linear_gradient, radial_gradient};
 use kivact::prelude::*;
 use kivact::style::BorderStyle;
 use kivact::test::render;

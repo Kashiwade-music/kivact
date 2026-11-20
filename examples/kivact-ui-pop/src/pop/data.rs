@@ -3,12 +3,14 @@ use kivact::state::IntoValue;
 
 use super::common::{card, cards_grid, columns, muted, section, third, wrap};
 use kivact::interaction::ListItem;
-use kivact::prelude::{ColorToken, Element, Node, Signal, column, node, rgb, row, signal, text};
+use kivact::prelude::{Element, Signal, column, node, rgb, row, signal, text};
 use kivact::state::{Callback, Value};
+use kivact::style::ColorToken;
 use kivact::style::Direction;
 use kivact::style::GridPlacement;
 use kivact::style::{Align, Justify, pct, style};
 use kivact::task::spawn;
+use kivact::view::Node;
 use kivact::view::Orientation;
 use kivact_ui_pop as ui;
 use std::time::Duration;

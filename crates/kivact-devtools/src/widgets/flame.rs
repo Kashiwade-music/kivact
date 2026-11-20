@@ -1,8 +1,9 @@
 //! Role: The flame chart of recorded turns and frames.
 
-use kivact::draw::{Draw, Stroke, TextBaseline, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::{TextBaseline, TextFormat};
 use kivact::prelude::*;
+use kivact::style::ColorToken;
+use kivact::view::Node;
 use kivact_devtools_protocol as p;
 
 /// The height of one row, band and label.
