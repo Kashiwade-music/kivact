@@ -69,6 +69,7 @@ pub use presenter::{ExportNotice, FramePlan, Presented};
 pub use rasterizer::Rasterizer;
 
 pub use availability::gpu_unavailable;
-pub use presentation::Observer;
+pub use embed::embed_driver;
+pub use presentation::{Observer, observer};
 pub use test_font::test_font;
-pub use window::{Handler, Shell, ShellSetup, SteppedShell, Window, Windows};
+pub use window::{DriverOptions, Handler, SteppedShell, Window, Windows, run, start_stepped};

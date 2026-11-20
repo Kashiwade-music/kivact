@@ -7,8 +7,7 @@ use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::{AppModel, EventSink, Model, Shared};
 use arvane::{
-    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent, ShellWaker,
-    Windows,
+    EventTarget, Handler, RendererChange, ShellControl, ShellError, ShellEvent, ShellWaker, Windows,
 };
 use kivact_types::cell::Sent;
 use kivact_types::{Size, WindowId, WindowRequest};
@@ -29,12 +28,9 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
     // `renderer=` notes); the first is the renderer the window starts
     // with.
     let log = frame_log.clone();
-    let shell = Shell::new(
-        arvane_native::backend(WindowRequest::main("Kivact", window_size))
-            .map_err(|e| HostError::new(e.to_string()))?,
-    );
-    let shell = shell.gpu_preference(options.gpu_preference);
-    let shell = shell.on_renderer_change(move |_window, change| {
+    let backend = arvane_native::backend(WindowRequest::main("Kivact", window_size))
+        .map_err(|e| HostError::new(e.to_string()))?;
+    let observer = arvane::observer(move |_window, change| {
         let mut log = log.borrow_mut();
         match change {
             RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
@@ -43,9 +39,15 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
     });
     let engine = arvane::Engine::new();
     let handler = new(client, window_size, engine, frame_log);
-    shell
-        .run(handler)
-        .map_err(|e| HostError::new(e.to_string()))
+    arvane::run(
+        backend,
+        arvane::DriverOptions {
+            gpu: options.gpu_preference,
+            observer: Some(observer),
+        },
+        handler,
+    )
+    .map_err(|e| HostError::new(e.to_string()))
 }
 
 /// Assemble startup arguments shared by native windows and tests.

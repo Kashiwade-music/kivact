@@ -4,7 +4,6 @@ use crate::api::Client;
 use crate::contract::CloseSignal;
 use crate::{FrameLog, host};
 pub use arvane::embed::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
-use arvane::embed::{Embedded, Embedder};
 pub use arvane_native::retain_module;
 use kivact_types::EmbedOptions;
 use kivact_types::NativeWindow;
@@ -13,7 +12,7 @@ use std::rc::Rc;
 
 /// An embedded engine host. `Send` and `Sync`. Drop requests closure and stops new turns.
 pub struct EmbeddedHost {
-    host: Embedded,
+    host: Box<dyn arvane::spi::ShellChild>,
     closing: CloseSignal,
     // The last field: it drops after the host, whose cleanup may detach threads.
     _retention: Retention,
@@ -92,26 +91,25 @@ pub fn embed_native(
     let size = options.size;
     let closing = CloseSignal::new();
     let ui_closing = closing.clone();
-    let make = arvane::embed::driver(&options, move || {
+    let make = arvane::embed_driver(options.gpu_preference, move || {
         let client = client(ui_closing.clone());
         let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
         let log = frame_log.clone();
         let host = host::new(client, size, arvane::Engine::new(), frame_log).with_close(ui_closing);
-        Embedder::new(host).on_renderer_change(move |_window, change| {
+        let observer = arvane::observer(move |_window, change| {
             let mut log = log.borrow_mut();
             match change {
                 arvane::RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
                 _ => log.note(&change.to_string()),
             }
-        })
+        });
+        (host, Some(observer))
     });
-    match arvane_native::embed::open(parent, options, hooks, make)
-        .map(Embedded::new)
-        .map(|host| EmbeddedHost {
-            host,
-            closing,
-            _retention: Retention,
-        }) {
+    match arvane_native::embed::open(parent, options, hooks, make).map(|host| EmbeddedHost {
+        host,
+        closing,
+        _retention: Retention,
+    }) {
         Ok(host) => Ok(host),
         Err(e) => {
             // The failed open may have detached threads of its own.

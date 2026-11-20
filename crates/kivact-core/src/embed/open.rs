@@ -76,7 +76,6 @@ impl App {
             scale: parent.scale,
             visibility: parent.visibility,
             unhandled_keys: parent.unhandled_keys,
-            prefer_gpu: true,
             gpu_preference: self.host_options().gpu_preference,
         };
         let user = parent.on_notice.clone();

@@ -315,7 +315,7 @@ api_packages = [
 options_structs = [
     "arvane-native::mirror::MirrorWindowOptions",
     "arvane-virtual::VirtualOptions",
-    "arvane::ShellSetup",
+    "arvane::DriverOptions",
     "arvane-shell::ChildHooks",
     "kivact-test::RenderOptions",
     "kivact-engine::api::HostOptions",

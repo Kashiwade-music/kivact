@@ -8,8 +8,8 @@ use crate::host::launch::{AssetMode, Launch};
 use crate::model::Model;
 use arvane::spi::{Step, StepOutcome};
 use arvane::{
-    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellSetup, ShellWaker, SteppedShell, Windows,
+    EventTarget, Handler, RendererChange, ShellControl, ShellError, ShellEvent, ShellImeText,
+    ShellWaker, SteppedShell, Windows,
 };
 use arvane_protocol::SemanticsTree;
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
@@ -224,7 +224,7 @@ fn renderer_observer(
                 RendererChange::Cpu { reason } => Observed::GpuFailed(reason.clone()),
                 RendererChange::ExternalFrameMissed { .. }
                 | RendererChange::ShaderFailed { .. }
-                | RendererChange::LimitExceeded { .. } => return,
+                | RendererChange::GpuLimit => return,
             };
             observed.borrow_mut().insert(window, state);
         },
@@ -238,13 +238,17 @@ fn start_shell(
     shared: SharedHost,
     observer: Option<arvane::Observer>,
 ) -> Result<SteppedShell, ShellError> {
-    Shell::start_stepped(
+    let gpu = if options.gpu == GpuMode::Required {
+        options.gpu_preference
+    } else {
+        kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..options.gpu_preference
+        }
+    };
+    arvane::start_stepped(
         Box::new(backend),
-        ShellSetup {
-            prefer_gpu: options.gpu == GpuMode::Required,
-            gpu_preference: options.gpu_preference,
-            observer,
-        },
+        arvane::DriverOptions { gpu, observer },
         shared,
     )
 }

@@ -3,8 +3,8 @@
 use arvane::spi::{Step, StepOutcome};
 use arvane::{Engine, Presented};
 use arvane::{
-    EventTarget, Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker,
-    SteppedShell, Window, Windows, test_font,
+    EventTarget, Handler, ShellControl, ShellError, ShellEvent, ShellWaker, SteppedShell, Window,
+    Windows, test_font,
 };
 use arvane_protocol::{
     CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
@@ -389,11 +389,18 @@ impl Harness {
                 observed.borrow_mut().changes.push(change.clone())
             },
         ));
-        let shell = Shell::start_stepped(
+        let gpu_preference = if gpu {
+            preference
+        } else {
+            kivact_types::GpuPreference {
+                start: kivact_types::gpu::GpuStart::Never,
+                ..preference
+            }
+        };
+        let shell = arvane::start_stepped(
             Box::new(backend),
-            ShellSetup {
-                prefer_gpu: gpu,
-                gpu_preference: preference,
+            arvane::DriverOptions {
+                gpu: gpu_preference,
                 observer: Some(observer),
             },
             Host(Rc::clone(&shared)),

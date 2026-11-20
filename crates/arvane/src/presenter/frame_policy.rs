@@ -52,8 +52,8 @@ pub(crate) struct Presenter {
     pub(super) exports: ExportRegistry,
     /// The shader programs whose failure was already noted.
     shader_failed: HashSet<u64>,
-    /// The limits already noted (once each per window).
-    limits_noted: HashSet<String>,
+    /// The GPU limit was noted (once per window).
+    gpu_limit_noted: bool,
 }
 
 impl Presenter {
@@ -83,7 +83,7 @@ impl Presenter {
             health: FrameHealth::Healthy,
             exports: ExportRegistry::default(),
             shader_failed: HashSet::new(),
-            limits_noted: HashSet::new(),
+            gpu_limit_noted: false,
         }
     }
 
@@ -358,12 +358,10 @@ impl Presenter {
         }
     }
 
-    /// Note that a frame went beyond the limit `what` (once per kind and window).
-    fn note_limit(&mut self, what: &str) {
-        if self.limits_noted.insert(what.to_owned()) {
-            self.notes.note(RendererChange::LimitExceeded {
-                what: what.to_owned(),
-            });
+    fn note_gpu_limit(&mut self) {
+        if !self.gpu_limit_noted {
+            self.gpu_limit_noted = true;
+            self.notes.note(RendererChange::GpuLimit);
         }
     }
 
@@ -424,7 +422,7 @@ impl Presenter {
             // vello_cpu draws what vello_hybrid cannot (the device is
             // fine); the frame goes through the window's GPU surface.
             Some(Err(RenderError::GpuLimit(_))) => {
-                self.note_limit("gpu_limit");
+                self.note_gpu_limit();
                 let started = Instant::now();
                 let (pixels, report) = self.cpu_pixels(composition, physical, plan.scale)?;
                 let raster = started.elapsed();

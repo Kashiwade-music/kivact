@@ -3,8 +3,8 @@
 use crate::presentation::{Notes, Observer};
 use crate::presenter::{ExportNotice, Presenter};
 use crate::{
-    AccessibilityError, Failure, FramePlan, Presented, RendererChange, ShellControl, ShellError,
-    ShellEvent, ShellImeText, ShellWaker,
+    AccessibilityError, Failure, FramePlan, Presented, ShellControl, ShellError, ShellEvent,
+    ShellImeText, ShellWaker,
 };
 use arvane_protocol::{Composition, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
@@ -16,11 +16,9 @@ use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
 use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
-use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 
-/// The native window of a running [`Shell`], handed to the [`Handler`]'s
+/// The native window of a running [`run`] loop, handed to the [`Handler`]'s
 /// callbacks.
 pub struct Window<'a> {
     shell: &'a mut dyn ShellWindow,
@@ -187,7 +185,7 @@ impl Window<'_> {
     }
 }
 
-/// Callbacks of a [`Shell`], confined to the thread running it.
+/// Callbacks of a [`run`] loop, confined to the thread running it.
 pub trait Handler {
     /// Initialize retained state once the main window exists.
     fn start(
@@ -212,7 +210,7 @@ pub struct Windows<'a> {
     presenters: &'a mut BTreeMap<WindowId, Presenter>,
     env: crate::env::Env,
     /// The renderer observer, cloned into the notes of every presenter.
-    observer: Option<Observer>,
+    observer: &'a Option<Observer>,
 }
 
 impl<'a> Windows<'a> {
@@ -285,83 +283,38 @@ impl<'a> Windows<'a> {
     }
 }
 
-/// The main-thread window loop: one native window whose frames Arvane
-/// draws on the GPU when it can (started with the window or, by default,
-/// when the window needs it, on a worker thread; the first frames are
-/// drawn on the CPU), else on the CPU. Construct and run on the
-/// application's main thread.
-pub struct Shell {
-    shell: Box<dyn Backend>,
-    prefer_gpu: bool,
-    gpu_preference: GpuPreference,
-    observer: Option<crate::presentation::Observer>,
-}
-
-impl Shell {
-    /// Use the supplied window backend.
-    pub fn new(backend: Box<dyn Backend>) -> Self {
-        Self {
-            shell: backend,
-            prefer_gpu: true,
-            gpu_preference: GpuPreference::default(),
-            observer: None,
-        }
-    }
-
-    /// Draw on the GPU when it is available (the default), falling back to
-    /// the CPU; `false` draws on the CPU. The environment variable
-    /// `ARVANE_RENDERER=cpu` overrides `true`, `ARVANE_RENDERER=gpu`
-    /// overrides `false` (the device starts with the window), and
-    /// `ARVANE_RENDERER=auto` starts the device when it is needed.
-    pub fn prefer_gpu(mut self, prefer: bool) -> Self {
-        self.prefer_gpu = prefer;
-        self
-    }
-
-    /// Make the window's GPU device as `preference` wishes (the adapter,
-    /// the graphics API and when the device is started; the default is
-    /// Arvane's own choice, started when the window needs it). The
-    /// environment variables `WGPU_BACKEND` and `WGPU_POWER_PREF` override
-    /// the first two. The device used is reported with the renderer's
-    /// changes ([`RendererChange::Gpu`]).
-    pub fn gpu_preference(mut self, preference: GpuPreference) -> Self {
-        self.gpu_preference = preference;
-        self
-    }
-
-    /// Call `observer` on the window's thread with every change of the
-    /// renderer drawing a window's frames, as it happens, starting with the
-    /// renderer the main window starts with ([`RendererChange::Start`],
-    /// when [`Shell::run`] starts).
-    pub fn on_renderer_change(
-        mut self,
-        observer: impl FnMut(WindowId, &RendererChange) + 'static,
-    ) -> Self {
-        self.observer = Some(Rc::new(RefCell::new(observer)));
-        self
-    }
-
-    /// Run until requested exit. A callback panic propagates out of `run`.
-    pub fn run(self, handler: impl Handler) -> Result<(), ShellError> {
-        let mut driver = driver(handler, self.prefer_gpu, self.gpu_preference, self.observer);
-        self.shell.run(&mut driver)
-    }
-}
-
-/// Presenter configuration shared by synchronous and stepped shells.
-pub struct ShellSetup {
-    pub prefer_gpu: bool,
-    pub gpu_preference: GpuPreference,
+/// How the driver draws: when the GPU device starts and on which adapter,
+/// and who is told of renderer changes.
+#[derive(Default)]
+pub struct DriverOptions {
+    /// The GPU device's adapter, API and start (`GpuStart::Never`: CPU only).
+    /// `ARVANE_RENDERER`, `WGPU_BACKEND` and `WGPU_POWER_PREF` override it.
+    pub gpu: GpuPreference,
+    /// Called on the window's thread with every renderer change, starting
+    /// with the main window's `RendererChange::Start`.
     pub observer: Option<Observer>,
 }
-impl Default for ShellSetup {
-    fn default() -> Self {
-        Self {
-            prefer_gpu: true,
-            gpu_preference: GpuPreference::default(),
-            observer: None,
-        }
-    }
+
+/// Run `backend`'s window loop with the driver until it exits. Construct
+/// and run on the application's main thread. A callback panic propagates.
+pub fn run(
+    backend: Box<dyn Backend>,
+    options: DriverOptions,
+    handler: impl Handler,
+) -> Result<(), ShellError> {
+    let mut driver = driver(handler, options);
+    backend.run(&mut driver)
+}
+
+/// Start the same driver on an explicitly stepped backend.
+pub fn start_stepped(
+    backend: Box<dyn SteppedBackend>,
+    options: DriverOptions,
+    handler: impl Handler + 'static,
+) -> Result<SteppedShell, ShellError> {
+    backend
+        .start(Box::new(driver(handler, options)))
+        .map(SteppedShell)
 }
 
 /// A shell advanced by its caller.
@@ -371,36 +324,15 @@ impl SteppedShell {
         self.0.step(step)
     }
 }
-impl Shell {
-    /// Start the same rendering driver on an explicitly stepped backend.
-    pub fn start_stepped(
-        backend: Box<dyn SteppedBackend>,
-        setup: ShellSetup,
-        handler: impl Handler + 'static,
-    ) -> Result<SteppedShell, ShellError> {
-        let driver = driver(
-            handler,
-            setup.prefer_gpu,
-            setup.gpu_preference,
-            setup.observer,
-        );
-        backend.start(Box::new(driver)).map(SteppedShell)
-    }
-}
 
 /// Assemble the handler and the renderers on the window's UI thread.
-pub(crate) fn driver<H: Handler>(
-    handler: H,
-    prefer_gpu: bool,
-    gpu_preference: GpuPreference,
-    observer: Option<Observer>,
-) -> Driver<H> {
-    let env = crate::env::Env::read(prefer_gpu, gpu_preference);
+pub(crate) fn driver<H: Handler>(handler: H, options: DriverOptions) -> Driver<H> {
+    let env = crate::env::Env::read(options.gpu);
     Driver {
         handler,
         presenters: BTreeMap::new(),
         env,
-        observer,
+        observer: options.observer,
     }
 }
 
@@ -420,10 +352,9 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            observer: self.observer.clone(),
+            observer: &self.observer,
         };
         self.handler.close(&mut windows);
-        drop(windows);
         for (id, mut presenter) in std::mem::take(&mut self.presenters) {
             if let Some(window) = shell.window(id) {
                 presenter.shutdown(window);
@@ -445,7 +376,7 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            observer: self.observer.clone(),
+            observer: &self.observer,
         };
         self.handler.start(&mut windows, waker)
     }
@@ -480,7 +411,7 @@ impl<H: Handler> ShellHandler for Driver<H> {
             shell,
             presenters: &mut self.presenters,
             env: self.env,
-            observer: self.observer.clone(),
+            observer: &self.observer,
         };
         self.handler.event(target, event, &mut windows)
     }
