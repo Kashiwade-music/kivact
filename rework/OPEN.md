@@ -451,3 +451,8 @@ W6a の鎖（S13・S14）の判断。表で判断したもので、差戻しで�
 - **S14（commit `1a27a7f1`、付属書の確認コマンドの誤り）**：arvane の E2E は `crates/arvane/Cargo.toml` の `required-features = ["test"]` のため、付属書の確認コマンドは `--features test` が無いと build できない。`--features test` を足して実行した（試験の期待値は変えていない）。設計者は付属書 S14 の確認欄を直してよい。
 - **後退の確認の範囲（W6a）**：unit の後の確認は、`e2e_core`・`e2e_ui`・`e2e_native --all-features`・`kivact-test` の全件と、workspace clippy（XK を除外）。`e2e_kits` と `kivact-ui-soft` は、この wave で compile の対象外（作業指示書 2.1 と 4 章）なので走らせていない。
 - **window-lock の終了コード（注記）**：`dev/tools/window-lock.sh` は cargo の終了コードをそのまま返す（`run "$@" && exit 0 || exit $?`）。S14 の subagent が exit 0 を見たのは、確認のコマンドの pipe によるものと思われる。以後、Orchestrator は pipe を使わず、試験の結果は log の `test result` 行で確かめる。
+
+## W6b の開始と設計者へ返す行（E17 の性能、2026-11-20）
+
+- W6b は 5 lane（鎖 X：S15→S23 の 10 unit、E1：E19→E21、E2：E14→E32→E24、A1：A11、A2：A12）で始める。
+- **E17 の性能（W5a の記録から、設計者へ返す）**：`text_editing::large_document_key_latency`（release、手で実行）で、16,384 行の文書の ArrowUp/Down の p95 が 0.51 ms から 2.58 ms（約 5 倍）、65,536 文字の 1 行の ArrowLeft が 1.075 倍。上下の移動が goal column のために今の行の x を求めるようになった分だけでは説明できない。1 frame（16 ms）より十分小さいので W5a は止めなかった。W6b の engine の lane で profile を取って原因を調べる（作業指示書の W5a の記録の指示）。設計者の判断は今は要らない。原因が分かったら返す。
