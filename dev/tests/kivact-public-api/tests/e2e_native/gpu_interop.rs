@@ -27,7 +27,6 @@ use std::time::{Duration, Instant};
 use gpu_interop_producer::{Producer, pattern};
 use kivact::ErrorKind;
 use kivact::draw::ImageOptions;
-use kivact::geometry::Rect;
 use kivact::gpu_interop::{
     self, ExternalImage, FramePublisher, GpuAdapter, ImportStatus, ShareLink, ShareMode,
     ShareRequest, ShareStatus, SharedHandle, SharedImage, SharedTextureFormat, SharedTextures,

@@ -218,6 +218,20 @@ fn not_a_component_return(output: &ReturnType) -> syn::Error {
 /// parameters are refused, and each type parameter gets `'static`.
 fn generics(sig: &Signature) -> syn::Result<Generics> {
     let mut generics = sig.generics.clone();
+    // A parameter the where-clause bounds gets `'static` there, so its
+    // bounds stay in one place (clippy's `multiple_bound_locations`).
+    let mut in_where = Vec::new();
+    if let Some(clause) = &mut generics.where_clause {
+        for predicate in &mut clause.predicates {
+            if let syn::WherePredicate::Type(bound) = predicate
+                && let Type::Path(path) = &bound.bounded_ty
+                && let Some(ident) = path.path.get_ident()
+            {
+                bound.bounds.push(syn::parse_quote!('static));
+                in_where.push(ident.clone());
+            }
+        }
+    }
     for param in &mut generics.params {
         match param {
             GenericParam::Lifetime(lifetime) => {
@@ -239,7 +253,9 @@ fn generics(sig: &Signature) -> syn::Result<Generics> {
                         "type parameter names starting with `__Kv` are reserved for #[component]",
                     ));
                 }
-                param.bounds.push(syn::parse_quote!('static));
+                if !in_where.contains(&param.ident) {
+                    param.bounds.push(syn::parse_quote!('static));
+                }
             }
         }
     }

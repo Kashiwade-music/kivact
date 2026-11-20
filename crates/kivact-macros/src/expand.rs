@@ -27,6 +27,13 @@ pub(crate) fn component(model: &Model) -> syn::Result<TokenStream> {
         .map(|prop| setter(prop, &r));
     let into_view = into_view(model, &r);
     let element = element_impl(model, &r);
+    // A component that returns `impl IntoView` has no `Element` impl, so no
+    // attributes either (they would land on the next item twice).
+    let element = if element.is_empty() {
+        element
+    } else {
+        quote! { #(#attrs)* #element }
+    };
     Ok(quote! {
         #(#docs)*
         #(#attrs)*
@@ -42,7 +49,6 @@ pub(crate) fn component(model: &Model) -> syn::Result<TokenStream> {
             #(#setters)*
         }
 
-        #(#attrs)*
         #element
 
         #(#attrs)*

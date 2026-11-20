@@ -23,7 +23,9 @@ use kivact::gpu_interop::{self, GpuAdapter, SharedTextures};
 use kivact::platform::GpuBackend;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, Screenshot, gpu_unavailable};
-use kivact::view::{Drawable, DrawableFrame, DrawableShare, ShareError, ShareUpdate, viewport};
+use kivact::view::{
+    Drawable, DrawableFrame, DrawableShare, Node, ShareError, ShareUpdate, drawable, viewport,
+};
 use kivact_gpu_share::import::Import;
 use kivact_gpu_share::wgpu::{read_back, request_device};
 
