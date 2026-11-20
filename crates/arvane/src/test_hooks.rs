@@ -14,7 +14,7 @@ pub fn test_font() -> Arc<[u8]> {
 
 /// Why no hardware GPU device can be made here, or `None` when one can.
 pub fn gpu_unavailable() -> Option<String> {
-    arvane_compose::GpuContext::new(&arvane_compose::GpuEnv::from_env(
+    arvane_compose::GpuDevice::new(&arvane_compose::GpuEnv::from_env(
         kivact_types::GpuPreference::default(),
     ))
     .err()

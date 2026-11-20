@@ -1,6 +1,7 @@
 //! Role: The GPU executor (feature `gpu`): declarations and re-exports only.
 
 mod context;
+mod device;
 mod draw;
 mod exec;
 mod export;
@@ -19,4 +20,5 @@ mod state;
 mod surface;
 mod targets;
 
+pub use device::{GpuDevice, SurfaceConfigurer};
 pub use state::{GpuContext, GpuEnv, GpuSurface, Presentation};

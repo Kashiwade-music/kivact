@@ -24,7 +24,7 @@ impl GpuContext {
         size: (u32, u32),
     ) -> Result<SharedTextures, RenderError> {
         self.drop_export(sink);
-        let (pool, shared) = make_pool(&self.device, adapter, size)?;
+        let (pool, shared) = make_pool(&self.gpu.device, adapter, size)?;
         self.exports.pools.insert(
             sink,
             ExportPool {
@@ -112,8 +112,8 @@ impl GpuContext {
         }
         publish(
             &mut pool.pool,
-            &self.device,
-            &self.queue,
+            &self.gpu.device,
+            &self.gpu.queue,
             texture,
             export.size,
         )
@@ -207,7 +207,7 @@ fn hand_off(
 ) -> Result<kivact_gpu_share::FrameReady, RenderError> {
     // SAFETY: the contract of `Target::submit` is: "`queue` is the queue of the pool's device. No other thread
     // uses that queue during the call (`Queue::submit`, `Surface::present`, `Device::poll` and the like)."
-    // The first part holds because the pool is made on `self.device` (`export_drawable`) and `self.queue` comes from the same
+    // The first part holds because the pool is made on `self.gpu.device` (`export_drawable`) and `self.gpu.queue` comes from the same
     // `open_device` call as that device (`GpuContext::with_backends`). The second part holds because a `GpuContext` is owned by one
     // thread at a time (it moves between threads by value and is never shared), so the queue is used only by that thread, and the
     // retiring thread of `retire` drops its pool without any queue submission.

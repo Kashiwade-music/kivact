@@ -168,39 +168,42 @@ impl GpuContext {
         for row in args.matrix.as_chunks::<4>().0 {
             words.v4([row[0], row[1], row[2], row[3]]);
         }
-        let params = super::pass::uniform(&self.device, &self.queue, words.bytes());
+        let params = super::pass::uniform(&self.gpu.device, &self.gpu.queue, words.bytes());
         let src_view = view(src);
         let aux_view = aux.map(view);
-        let aux_ref = aux_view.as_ref().unwrap_or(&self.pipelines.dummy);
+        let aux_ref = aux_view.as_ref().unwrap_or(&self.gpu.pipelines.dummy);
         let storage = match weights {
             Some(buffer) => buffer.as_entire_binding(),
-            None => self.pipelines.dummy_buffer.as_entire_binding(),
+            None => self.gpu.pipelines.dummy_buffer.as_entire_binding(),
         };
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane filter"),
-            layout: &self.pipelines.filter_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: params.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::TextureView(&src_view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: wgpu::BindingResource::TextureView(aux_ref),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 3,
-                    resource: storage,
-                },
-            ],
-        });
+        let group = self
+            .gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane filter"),
+                layout: &self.gpu.pipelines.filter_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: params.as_entire_binding(),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 1,
+                        resource: wgpu::BindingResource::TextureView(&src_view),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: wgpu::BindingResource::TextureView(aux_ref),
+                    },
+                    wgpu::BindGroupEntry {
+                        binding: 3,
+                        resource: storage,
+                    },
+                ],
+            });
         let out_view = view(out);
         with_pass(encoder, &out_view, CLEAR, |pass| {
-            pass.set_pipeline(self.pipelines.filter(&self.device));
+            pass.set_pipeline(self.gpu.pipelines.filter(&self.gpu.device));
             pass.set_bind_group(0, &group, &[]);
             pass.draw(0..3, 0..1);
         });
@@ -214,7 +217,7 @@ impl GpuContext {
         source: &wgpu::Texture,
         color: Rgba,
     ) -> Result<wgpu::Texture, RenderError> {
-        let shadow = targets::target(&self.device, (source.width(), source.height()));
+        let shadow = targets::target(&self.gpu.device, (source.width(), source.height()));
         let args = Pass {
             out: size_f(&shadow),
             src: size_f(source),
@@ -332,7 +335,7 @@ impl GpuContext {
         size: (u32, u32),
         mode: u32,
     ) -> Result<wgpu::Texture, RenderError> {
-        let out = targets::target(&self.device, size);
+        let out = targets::target(&self.gpu.device, size);
         let args = Pass {
             mode,
             ..Pass::default()
@@ -351,12 +354,12 @@ impl GpuContext {
     ) -> Result<wgpu::Texture, RenderError> {
         let (radius, weights) = gaussian(sigma);
         let weight_buffer = buffer(
-            &self.device,
-            &self.queue,
+            &self.gpu.device,
+            &self.gpu.queue,
             wgpu::BufferUsages::STORAGE,
             &weights,
         );
-        let out = targets::target(&self.device, (src.width(), src.height()));
+        let out = targets::target(&self.gpu.device, (src.width(), src.height()));
         let args = Pass {
             dir,
             radius,

@@ -1,20 +1,18 @@
 //! Role: The GPU context, its environment and the window surfaces.
 //!
 //! The aggregate of the GPU executor. Its fields are passive state from the
-//! leaf modules (targets, pipelines, shader_cache, export_pool, external).
+//! leaf modules (targets, export_pool, device).
 
+use super::device::GpuDevice;
 use super::export_pool::Exports;
-use super::external::External;
-use super::pipelines::Pipelines;
-use super::shader_cache::Shaders;
 use super::targets::Pool;
+use crate::RenderError;
 use crate::cache::{CacheIndex, ChunkKey};
 use arvane_protocol::LayerKey;
-use arvane_render::GpuRaster;
 use kivact_types::cell::SharedDeferred;
-use kivact_types::{GpuAdapter, GpuBackend, GpuPower, GpuPreference};
+use kivact_types::{GpuBackend, GpuPower, GpuPreference};
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::rc::Rc;
 
 /// How GPU devices are made: as the application wishes
 /// ([`GpuPreference`]), except where the environment says otherwise: the
@@ -64,22 +62,11 @@ impl GpuEnv {
     }
 }
 
-/// A GPU executor used serially on its owner's thread: one adapter, device,
-/// pipelines and the textures of the frames drawn so far.
+/// One window's GPU frame state on the shared device: the device it draws
+/// with, and the textures and records of the frames drawn so far.
 pub struct GpuContext {
-    /// The images external engines share (first: dropped, and their
-    /// fences signaled, before the device).
-    pub(crate) external: External,
-    /// The adapter, when the device can import shared textures.
-    pub(crate) interop: Option<GpuAdapter>,
-    pub(crate) instance: wgpu::Instance,
-    pub(crate) adapter: wgpu::Adapter,
-    pub(crate) device: wgpu::Device,
-    pub(crate) queue: wgpu::Queue,
-    /// Draws the chunks (Vello's GPU stage).
-    pub(crate) raster: GpuRaster,
-    pub(crate) pipelines: Pipelines,
-    pub(crate) failure: Arc<DeviceLost>,
+    /// The device every window of the driver shares.
+    pub(crate) gpu: Rc<GpuDevice>,
     /// The previous frame's records; the plan reads it.
     pub(crate) cache: CacheIndex,
     /// Free textures of the targets, reused by size.
@@ -88,8 +75,6 @@ pub struct GpuContext {
     pub(crate) kept: HashMap<LayerKey, wgpu::Texture>,
     /// The chunk textures, by chunk.
     pub(crate) chunks: HashMap<ChunkKey, wgpu::Texture>,
-    /// The user shaders' pipelines.
-    pub(crate) shaders: Shaders,
     /// The shader programs that failed since the last frame report: (hash, message).
     pub(crate) shader_failures: Vec<(u64, String)>,
     /// The export pools and what each sink last received.
@@ -109,6 +94,14 @@ impl DeviceLost {
     /// The kept message.
     pub(crate) fn message(&self) -> Option<String> {
         self.0.get().cloned()
+    }
+
+    /// Fail with the kept message, if one was kept.
+    pub(crate) fn check(&self) -> Result<(), RenderError> {
+        match self.message() {
+            Some(message) => Err(RenderError::Backend(message)),
+            None => Ok(()),
+        }
     }
 }
 

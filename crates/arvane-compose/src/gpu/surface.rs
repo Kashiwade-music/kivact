@@ -94,8 +94,8 @@ impl GpuContext {
                 ]
             })
             .collect();
-        let source = targets::target(&self.device, (width, height));
-        self.queue.write_texture(
+        let source = targets::target(&self.gpu.device, (width, height));
+        self.gpu.queue.write_texture(
             source.as_image_copy(),
             &bytes,
             wgpu::TexelCopyBufferLayout {
@@ -143,16 +143,20 @@ impl GpuContext {
         let format = texture.texture.format();
         let target_view = view(&texture.texture);
         let source_view = view(source);
-        let group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            label: Some("Arvane present"),
-            layout: &self.pipelines.apply_layout,
-            entries: &[wgpu::BindGroupEntry {
-                binding: 0,
-                resource: wgpu::BindingResource::TextureView(&source_view),
-            }],
-        });
-        let pipeline = self.pipelines.present_for(&self.device, format);
+        let group = self
+            .gpu
+            .device
+            .create_bind_group(&wgpu::BindGroupDescriptor {
+                label: Some("Arvane present"),
+                layout: &self.gpu.pipelines.apply_layout,
+                entries: &[wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&source_view),
+                }],
+            });
+        let pipeline = self.gpu.pipelines.present_for(&self.gpu.device, format);
         let mut encoder = self
+            .gpu
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Arvane present"),
@@ -162,19 +166,19 @@ impl GpuContext {
             &target_view,
             wgpu::LoadOp::Clear(WHITE),
             |pass| {
-                pass.set_pipeline(pipeline);
+                pass.set_pipeline(&pipeline);
                 pass.set_bind_group(0, &group, &[]);
                 pass.draw(0..3, 0..1);
             },
         );
-        self.queue.submit([encoder.finish()]);
+        self.gpu.queue.submit([encoder.finish()]);
         let presenting = Instant::now();
         texture.present();
         waited += presenting.elapsed();
         if suboptimal {
             self.reconfigure(surface, width, height, true)?;
         }
-        self.check()?;
+        self.gpu.check()?;
         Ok((Presentation::Shown, waited))
     }
 
@@ -217,7 +221,7 @@ impl GpuContext {
                     ));
                 }
                 wgpu::CurrentSurfaceTexture::Validation => {
-                    self.check()?;
+                    self.gpu.check()?;
                     return Err(RenderError::Backend(
                         "the window surface failed validation".into(),
                     ));
@@ -227,16 +231,6 @@ impl GpuContext {
         unreachable!("the second attempt returns")
     }
 
-    /// Configure `surface` for a `width` × `height` window (a new size makes a new swapchain).
-    pub fn configure(
-        &self,
-        surface: &mut GpuSurface,
-        width: u32,
-        height: u32,
-    ) -> Result<(), RenderError> {
-        self.reconfigure(surface, width.max(1), height.max(1), true)
-    }
-
     fn reconfigure(
         &self,
         surface: &mut GpuSurface,
@@ -244,40 +238,20 @@ impl GpuContext {
         height: u32,
         again: bool,
     ) -> Result<(), RenderError> {
-        configure(&self.device, &self.adapter, surface, width, height, again)?;
-        self.check()
-    }
-
-    /// A window surface made on this context's instance and adapter.
-    pub fn surface<T>(&self, target: T) -> Result<GpuSurface, RenderError>
-    where
-        T: raw_window_handle::HasWindowHandle
-            + raw_window_handle::HasDisplayHandle
-            + Send
-            + Sync
-            + 'static,
-    {
-        make_surface(&self.instance, &self.adapter, target)
-    }
-
-    /// A function making a window surface on this context's instance, for another thread.
-    pub fn surface_maker<T>(
-        &self,
-    ) -> impl FnOnce(T) -> Result<GpuSurface, RenderError> + Send + 'static + use<T>
-    where
-        T: raw_window_handle::HasWindowHandle
-            + raw_window_handle::HasDisplayHandle
-            + Send
-            + Sync
-            + 'static,
-    {
-        let (instance, adapter) = (self.instance.clone(), self.adapter.clone());
-        move |target| make_surface(&instance, &adapter, target)
+        configure(
+            &self.gpu.device,
+            &self.gpu.adapter,
+            surface,
+            width,
+            height,
+            again,
+        )?;
+        self.gpu.check()
     }
 }
 
 /// Configure `surface` (making its swapchain on the first call).
-fn configure(
+pub(super) fn configure(
     device: &wgpu::Device,
     adapter: &wgpu::Adapter,
     surface: &mut GpuSurface,
@@ -341,7 +315,7 @@ fn surface_config(
 }
 
 /// A surface of `target` on `instance`, which `adapter` must be able to present to.
-fn make_surface<T>(
+pub(super) fn make_surface<T>(
     instance: &wgpu::Instance,
     adapter: &wgpu::Adapter,
     target: T,
