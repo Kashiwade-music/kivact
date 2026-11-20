@@ -630,3 +630,17 @@ lane X を S17 の所で止める。次の 2 件は設計者が決める。決�
 - **S17 (b) border の幅**：S19 まで待つ。表（幅は `Rest`）が正で、`border()` の doc は S19 後の姿。S17〜S18 の間に幅を hover に置くと「Unsupported」と報告されるのは、lane の中だけの途中の状態として受け入れる（S19 が `sets_border` を色と line style だけにし、幅は base に merge する）。S17 で直さない。
 - **E32 の driver の順**：付属書 E32 の `scroll_to` と注入の試験に `host.wake();` を足した（`commit → wake → redraw`）。
 - lane X は S18 へ進んでよい。
+
+## 差戻し（W6b・C19、2026-11-21）
+
+C19 の commit `79358493`（`wt/rw-W6b-X`）は、確認（tier a）をすべて通した（check・clippy・xtask・e2e_native の devtools の 1 件）。ただし次の 2 件が、Orchestrator の判断表（0.5 節）に当たらず、設計の判断が要る。lane X はここで止める（S18 以降は未着手。commit は reset せず残す）。
+
+- **(1) shorthand 名の override（`background`・`line_height`・`radius`）**：付属書 S17 の `shown_only!`（`crates/kivact-style/src/sheet/edit_text.rs`、付属書の 3735 行付近）が `Background`・`LineHeight`・`CornerRadius` を「表示のみ」（`from_edit_text` が常に Err）にしている。旧 `override_paint`・`override_text` はこれらを text から読んでいた。C19 の後、DevTools の `set_style_override` でこの 3 名は `... is not editable as text` の error になる。試験（`padding` だけ）は落ちない。設計者が決める：(a) S17 の表で、この型に text の parse を足す（DevTools の override を保つ）、(b) この 3 名の override を DevTools から外す（動きの変更として G の移行に記録する）。
+- **(2) state layer の値（`crates/kivact-core/src/devtools/styles.rs` の `state_layers`）**：`describe_state_styles` は `describe_style` の Debug の文字列を返す（付属書 S17 の内部の橋。3531 行と 4453 行）。state ごとに表の `describe` を呼ぶ入口が無いので、C19 は state layer の値を Debug の文字列のまま出した。Orchestrator の判断 (d)（値は表の `describe` から読み、Debug の文字列は読まない）を満たせない。設計者が決める：(a) S17 に state ごとの表の入口（表の `describe` を使う `pub(crate)` の関数）を足し、C19 がそれを使う、(b) state layer の値を一覧に出さず名前だけにする、(c) Debug の文字列のまま残す（その旨を C19 の完了に書く）。
+
+C19 のほかの点は、Orchestrator の判断どおり：shorthand の展開は apply.rs の `SHORTHANDS` の一覧（`padding`・`margin`・`gap`・`border_width`・`border_color`・`radius`）、`state_layers` の `active` と wire の `pressed` の対応は一か所（comment 付き）、`number`・`color`・`line_height` の旧 parser は `apply_token` が使うので残した。E2E の期待値（`padding`）は変えていない。
+
+## Orchestrator の判断（W6b・E14 の検証、2026-11-21）
+
+- E14 の `content_version` の再実行と後退の確認は、E2 の worktree で実施済み（`V:/kv-target/logs-W6b-E2/verify-e14-summary.txt`：xtask・content_version の debug と release・e2e_core・e2e_ui・e2e_native・kivact-test がすべて rc=0）。E24 の後の後退の確認（E24 の節）も成功。採る。
+- 同じ確認を、Orchestrator が `cargo test -p kivact-engine --test content_version`（feature `testing` が要る）で再実行しようとしたが、feature の付け忘れで走らなかった（ログは `V:/kv-target/logs-W6b-E2/e14-content-version-*.log`、exit 101）。確認の結果ではない。統合の tier b（`--all-features`）で改めて通る。
