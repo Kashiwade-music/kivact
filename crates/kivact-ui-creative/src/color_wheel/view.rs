@@ -56,8 +56,8 @@ pub fn color_wheel(color: Signal<Color>, model: Signal<ColorModel>) -> ColorWhee
         root: column(())
             .role(Role::Group)
             .style(style().min_width(0).width(pct(100)).gap(8)),
-        color: color,
-        model: model,
+        color,
+        model,
         options: ColorWheelOptions {
             alpha: true.into_value(),
             fields: true.into_value(),

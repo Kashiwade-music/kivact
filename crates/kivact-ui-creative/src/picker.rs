@@ -33,7 +33,7 @@ use crate::feedback::glass_style;
 /// row on the same key while the list changes. Keys must be unique in one
 /// picker.
 ///
-/// The texts are [`Reactive`], so a localized `message(..)` follows a locale
+/// The texts are props (`Prop<String>`), so a localized `message(..)` follows a locale
 /// switch. The label is also the row's accessible name and the description is
 /// its accessible description; the search reads the label, the description and
 /// the section.
@@ -324,7 +324,6 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// ```
     #[track_caller]
     pub fn at(self, anchor: NodeRef, position: Signal<Option<Point>>) -> View {
-        let position = position;
         let point = position.into_value();
         let open = binding(
             (move || point.get().is_some()).into_value(),
@@ -639,7 +638,8 @@ impl<K: kivact::state::ItemKey> Parts<K> {
             items.with(|all| {
                 all.iter()
                     .map(|item| {
-                        ListItem::new(item.key.clone(), item.label.clone()).disabled(!item.enabled)
+                        let label = item.label.clone();
+                        ListItem::new(item.key.clone(), move || label.get()).disabled(!item.enabled)
                     })
                     .collect::<Vec<_>>()
             })

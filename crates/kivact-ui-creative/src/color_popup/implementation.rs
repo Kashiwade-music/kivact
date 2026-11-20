@@ -19,7 +19,6 @@ use kivact::view::{DismissReason, Placement, overlay};
 #[track_caller]
 pub fn color_popup(label: impl IntoText, color: Signal<Color>) -> impl kivact::view::Element {
     let label = label.into_text_value();
-    let color = color;
     let value = color.into_value();
     let phase = machine(
         machine::ColorPopupPhase::Closed,

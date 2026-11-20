@@ -49,7 +49,7 @@ pub fn transport(binding: Signal<TransportState>) -> Transport {
                     .radius(9)
                     .background(crate::ColorName::Canvas),
             ),
-        binding: binding,
+        binding,
         to_start: None,
     }
 }

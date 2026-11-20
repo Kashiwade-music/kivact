@@ -4,7 +4,7 @@ use kivact::state::Signal;
 
 use super::audio_values::level;
 use super::common::{col, note};
-use kivact::prelude::{Element, IntoView, ScrollAxes, Signal, rgb, row, scroll, signal};
+use kivact::prelude::{Element, IntoView, ScrollAxes, rgb, row, scroll, signal};
 use kivact::state::IntoValue;
 use kivact::state::binding;
 use kivact::style::style;
@@ -32,8 +32,8 @@ pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
                 name,
                 rgb(color),
                 ui::ChannelState {
-                    gain: gain,
-                    mute: mute,
+                    gain,
+                    mute,
                     pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])),
                     solo: binding((move || solo.with(|s| s[i])).into_value(), move |v| {
                         solo.update(|s| s[i] = v)

@@ -377,7 +377,7 @@ pub fn tool_window(anchor: NodeRef, open: Signal<bool>, options: ToolWindowOptio
     ToolWindow {
         root: column(()),
         anchor,
-        open: open,
+        open,
         options,
         content: kivact::view::ViewFn::from(|_| ()),
     }

@@ -4,8 +4,7 @@ use kivact::state::Signal;
 
 use super::common::{bind, col, note, spec, specs};
 use super::controls::{num, slide};
-use kivact::prelude::{Element, IntoView, Signal, column, rgb, row, signal};
-use kivact::state::Signal;
+use kivact::prelude::{Element, IntoView, column, rgb, row, signal};
 use kivact::style::{pct, style};
 use kivact_ui_creative as ui;
 

@@ -69,7 +69,7 @@ where
                     .min_height(0)
                     .overflow(Overflow::Hidden),
             ),
-        layout: layout,
+        layout,
         panel: kivact::view::ViewFn::from(panel),
         menu: kivact::view::ViewFn::from(|input| {
             super::chrome::container_menu::<K, ()>(input, None)

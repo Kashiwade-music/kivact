@@ -11,10 +11,8 @@ use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
-    Element, IntoView, Node, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal, spacer,
-    text,
+    Element, IntoView, Node, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
 };
-use kivact::state::Signal;
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact_ui_creative as ui;
@@ -77,7 +75,7 @@ pub(super) fn nodes() -> impl IntoView {
         scale: 0.85,
     });
     col((node().style(style().position(Position::Relative).height(480)).child((
-        ui::node_editor(data,connections, ui::NodeState { selection: selected, transform: transform, ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
+        ui::node_editor(data,connections, ui::NodeState { selection: selected, transform, ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
         line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle_button("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
         line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>()).on_activate(move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing(kivact::view::icon("chevron-down"))),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))
@@ -570,7 +568,7 @@ fn animation_dope_sheet(
         ui::TimeState {
             selection: selected,
             playhead: playhead(state),
-            transform: transform,
+            transform,
         },
     )
     .on_edit(move |event| match event {

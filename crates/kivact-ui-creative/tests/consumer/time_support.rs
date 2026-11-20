@@ -60,7 +60,6 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
     apply: fn(&mut Vec<T>, &ui::TimeRequest),
     observer: impl Fn(kivact::view::EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::TimeRequest>) + 'static {
-    let items = items;
     let initial = signal(None::<Vec<T>>);
     let observer = callback(observer);
     move |event| match event {
@@ -96,7 +95,6 @@ pub(crate) fn app_timeline(
     items: kivact::state::Signal<Vec<ui::Clip>>,
     state: ui::TimeState,
 ) -> ui::Timeline {
-    let items = items;
     ui::timeline_editor(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
 }
 
@@ -104,6 +102,5 @@ pub(crate) fn app_dope_sheet(
     items: kivact::state::Signal<Vec<ui::Keyframe>>,
     state: ui::TimeState,
 ) -> ui::DopeSheet {
-    let items = items;
     ui::dope_sheet(items, state).on_edit(time_edits(items, apply_keys, |_| {}))
 }

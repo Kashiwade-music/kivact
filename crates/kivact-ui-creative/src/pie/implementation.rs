@@ -26,7 +26,7 @@ pub fn pie_menu(items: impl IntoValue<Vec<PieEntry>>, state: Signal<PieState>) -
     PieMenu {
         root: column(()).style(style().height(0).gap(0)),
         entries: items.into_value(),
-        state: state,
+        state,
         choose: None,
     }
 }
@@ -71,7 +71,6 @@ fn pie_menu_view<R: HandlerResult>(
 ) -> Node {
     let choose = callback(choose);
     let entries = entries.into_value();
-    let state = state;
     let external = state.into_value();
     let controller = kivact::state::machine(
         external.get_untracked(),

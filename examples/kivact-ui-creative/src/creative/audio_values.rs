@@ -3,8 +3,8 @@
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::state::IntoValue;
 use kivact::state::Signal;
+use kivact::state::binding;
 use kivact::state::effect;
-use kivact::state::{Signal, binding};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Debug, PartialEq)]

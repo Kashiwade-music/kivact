@@ -32,7 +32,7 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
                     tracks,
                     ui::ArrangementState {
                         loop_range: range,
-                        tool: tool,
+                        tool,
                         ..ui::ArrangementState::new()
                     },
                 )

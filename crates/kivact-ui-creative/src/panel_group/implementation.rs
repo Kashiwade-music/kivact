@@ -32,7 +32,6 @@ pub fn panel_group<V: IntoView>(
 ) -> impl kivact::view::Element {
     let content: Rc<dyn Fn(Value<InspectorPanel>) -> kivact::view::View> =
         Rc::new(move |panel| content(panel).into_view());
-    let panels = panels;
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
     let drag = machine(

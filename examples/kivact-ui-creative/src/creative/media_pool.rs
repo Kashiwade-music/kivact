@@ -1,5 +1,4 @@
 //! Media pool and asset browser for creative application.
-use kivact::state::Signal;
 
 use super::common::{col, keyed_options, line, note};
 use kivact::geometry::Point;

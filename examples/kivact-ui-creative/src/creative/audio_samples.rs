@@ -11,7 +11,7 @@ use kivact::prelude::{
     ColorToken, Element, IntoText, IntoView, Node, Orientation, Signal, column, effect, grid, node,
     rgb, row, signal, spacer, text,
 };
-use kivact::state::{Machine, Signal, Step, machine};
+use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact_ui_creative as ui;

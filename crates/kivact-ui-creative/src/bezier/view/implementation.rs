@@ -49,7 +49,7 @@ pub fn bezier_curve(value: Signal<CubicBezier>) -> BezierCurve {
             .role(Role::Canvas)
             .name(message("creative.bezier.label", "Cubic bezier curve"))
             .style(style().size(240, 200).min_width(0).min_height(0)),
-        value: value,
+        value,
         on_edit: None,
     }
 }

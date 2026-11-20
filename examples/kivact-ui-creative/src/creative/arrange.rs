@@ -4,7 +4,7 @@ use kivact::state::Signal;
 
 use super::common::{bind, col, keyed_options, line, note, separator};
 
-use kivact::prelude::{Element, IntoView, Node, Signal, rgb, row, signal, spacer};
+use kivact::prelude::{Element, IntoView, Node, rgb, row, signal, spacer};
 use kivact::style::style;
 use kivact_ui_creative as ui;
 
@@ -29,8 +29,8 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             tracks,
             ui::ArrangementState {
                 selection: selected,
-                transform: transform,
-                tool: tool,
+                transform,
+                tool,
                 playhead: bind(
                     move || state.get().frame / 12.0,
                     move |v| state.update(|s| s.frame = v * 12.0),

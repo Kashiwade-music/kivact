@@ -1,7 +1,6 @@
 //! Domain projection for graph and dope edits of the same animation.
 use super::common::bind;
 use kivact::prelude::{Signal, rgb};
-use kivact::state::Signal;
 use kivact_ui_creative as ui;
 use std::collections::{HashMap, HashSet};
 const ROWS: [&str; 8] = [

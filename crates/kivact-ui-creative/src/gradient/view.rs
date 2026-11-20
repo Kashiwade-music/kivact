@@ -53,7 +53,7 @@ pub fn gradient_editor(
         root: column(())
             .role(Role::Group)
             .style(style().gap(8).width(pct(100)).min_width(0)),
-        stops: stops,
+        stops,
         selection: selected,
         to_display: Rc::new(|c| c),
         from_display: Rc::new(|c| c),
