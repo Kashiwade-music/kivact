@@ -4,7 +4,11 @@ use crate::text_input::EditLines;
 use crate::text_input::records::Before;
 
 impl EditLines {
-    pub(crate) fn discrepancies(&self, text: &str, engine: &mut arvane::Engine) -> Vec<String> {
+    pub(crate) fn discrepancies(
+        &self,
+        text: &str,
+        engine: &mut arvane_text::TextEngine,
+    ) -> Vec<String> {
         let mut errors = Vec::new();
         let expected = self.split_rows(text, engine);
         let mut prefix = Before::default();

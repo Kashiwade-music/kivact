@@ -278,12 +278,8 @@ mod tests {
     fn texts_measured_once_each_keep_no_paragraph() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        engine
-            .measure("first".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("second".into(), &style, None)
-            .expect("measures");
+        engine.measure("first", &style, None).expect("measures");
+        engine.measure("second", &style, None).expect("measures");
         assert_eq!(engine.cache.paragraphs.current.len(), 0);
     }
 
@@ -291,15 +287,9 @@ mod tests {
     fn a_paragraph_is_kept_from_its_second_shaping() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        engine
-            .measure("again".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("other".into(), &style, None)
-            .expect("measures");
-        engine
-            .measure("again".into(), &style, None)
-            .expect("measures");
+        engine.measure("again", &style, None).expect("measures");
+        engine.measure("other", &style, None).expect("measures");
+        engine.measure("again", &style, None).expect("measures");
         assert_eq!(engine.cache.paragraphs.current.len(), 1);
     }
 
@@ -307,12 +297,10 @@ mod tests {
     fn a_measurement_is_kept_from_its_second_call_with_equal_metrics() {
         let mut engine = engine();
         let style = ComputedTextStyle::default();
-        let first = engine.measure("again".into(), &style, None);
+        let first = engine.measure("again", &style, None);
         assert!(!measured_kept(&mut engine, "again", &style));
-        engine
-            .measure("other".into(), &style, None)
-            .expect("measures");
-        let second = engine.measure("again".into(), &style, None);
+        engine.measure("other", &style, None).expect("measures");
+        let second = engine.measure("again", &style, None);
         assert!(measured_kept(&mut engine, "again", &style));
         assert!(!measured_kept(&mut engine, "other", &style));
         assert_eq!(first, second);

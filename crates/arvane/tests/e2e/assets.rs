@@ -8,7 +8,7 @@
 use std::sync::mpsc::{Receiver, channel};
 use std::time::Duration;
 
-use arvane::asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
+use arvane_asset::{Asset, AssetImage, AssetStore, ImageState, PixelSize};
 
 use kivact_types::{AssetBytes, Size};
 

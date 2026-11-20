@@ -44,8 +44,8 @@ use kivact_types::{Asset, ComputedTextStyle, DrawList, PlatformResult, Rect, Siz
 pub struct OffscreenRenderer {
     assets: RefCell<ArvaneAssets>,
     scene_cache: RefCell<crate::lower::SceneCache>,
-    engine: Rc<RefCell<arvane::Engine>>,
-    rasterizer: arvane::Rasterizer,
+    engine: Rc<RefCell<arvane_text::TextEngine>>,
+    compositor: arvane_compose::CpuCompositor,
 }
 
 /// Why an image was not rendered.
@@ -69,10 +69,10 @@ pub struct OffscreenImage {
 impl Default for OffscreenRenderer {
     fn default() -> Self {
         Self {
-            assets: RefCell::new(ArvaneAssets::new(arvane::asset::AssetStore::inline())),
+            assets: RefCell::new(ArvaneAssets::new(arvane_asset::AssetStore::inline())),
             scene_cache: RefCell::default(),
-            engine: Rc::new(RefCell::new(arvane::Engine::new())),
-            rasterizer: arvane::Rasterizer::new(),
+            engine: Rc::new(RefCell::new(arvane_text::TextEngine::new())),
+            compositor: arvane_compose::CpuCompositor::new(),
         }
     }
 }
@@ -85,7 +85,7 @@ impl OffscreenRenderer {
         self.scene_cache.get_mut().clear();
         self.assets.get_mut().release_caches();
         self.engine.borrow_mut().release_caches();
-        self.rasterizer.release_caches();
+        self.compositor.release_caches();
     }
 
     pub fn new() -> Self {
@@ -95,7 +95,14 @@ impl OffscreenRenderer {
     /// Whether an image of this size is rendered: the rasterizer's frame
     /// budget, the same one windows are held to.
     pub fn accepts_size(width: u32, height: u32) -> bool {
-        arvane::Rasterizer::check_size(width, height).is_ok()
+        arvane_render::dimensions(
+            kivact_types::Size {
+                width: f64::from(width),
+                height: f64::from(height),
+            },
+            1.0,
+        )
+        .is_ok()
     }
 
     /// Text measurement for a drawing callback whose runs inherit
@@ -181,9 +188,10 @@ impl OffscreenRenderer {
             return Err(OffscreenError::Dropped(undrawn as u32));
         }
         let mut frame = self
-            .rasterizer
-            .render(composition, size.0, size.1)
-            .map_err(OffscreenError::Failed)?;
+            .compositor
+            .render(composition, (size.0, size.1), 1.0)
+            .map(|rendered| rendered.image)
+            .map_err(|error| OffscreenError::Failed(kivact_types::Failure::from(error)))?;
         // PNG and Draw::pixels are straight alpha; Arvane's frame is
         // premultiplied.
         kivact_types::color::unpremultiply(&mut frame.rgba);

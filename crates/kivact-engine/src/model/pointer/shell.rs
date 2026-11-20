@@ -44,7 +44,11 @@ impl Model {
     /// state machine below, a contact's to [`Self::contact`]. The event's
     /// held buttons, pressure and tilt become its pointer's source, which
     /// every listener event of that pointer carries.
-    pub(crate) fn pointer_input(&mut self, input: PointerSample, engine: &mut arvane::Engine) {
+    pub(crate) fn pointer_input(
+        &mut self,
+        input: PointerSample,
+        engine: &mut arvane_text::TextEngine,
+    ) {
         self.report_modifiers(input.modifiers);
         let modifiers = input.modifiers;
         // The mouse's id is the mouse's only; a window gives contacts others.
@@ -105,7 +109,7 @@ impl Model {
         &mut self,
         at: Point,
         modifiers: kivact_types::Modifiers,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         self.pointer.state.mouse_mut().at = at;
         self.report_mouse_position(Some(at));
@@ -143,7 +147,11 @@ impl Model {
     }
 
     /// The mouse left the window; a held button keeps its capture.
-    fn mouse_left(&mut self, modifiers: kivact_types::Modifiers, engine: &mut arvane::Engine) {
+    fn mouse_left(
+        &mut self,
+        modifiers: kivact_types::Modifiers,
+        engine: &mut arvane_text::TextEngine,
+    ) {
         let at = self.mouse_at();
         self.report_mouse_position(None);
         if self
@@ -173,7 +181,7 @@ impl Model {
         press: ButtonPress,
         pressed: bool,
         modifiers: kivact_types::Modifiers,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let button = press.button;
         if matches!(
@@ -242,7 +250,7 @@ impl Model {
     /// Every pointer capture is lost (the window was deactivated): each
     /// pointer's drag ends with `Cancel` where that pointer last was,
     /// nothing stays hovered, and the contacts end.
-    pub(crate) fn cancel_pointer(&mut self, engine: &mut arvane::Engine) {
+    pub(crate) fn cancel_pointer(&mut self, engine: &mut arvane_text::TextEngine) {
         let modifiers = kivact_types::Modifiers::default();
         let pointers: Vec<(PointerId, Point)> = self
             .pointer
@@ -270,7 +278,7 @@ impl Model {
     /// so it leaves no hover state behind, and a `Cancel` ends it where it
     /// last was without activating anything. A `Down` of an id that is still
     /// down cancels that contact first and then begins a new one.
-    fn contact(&mut self, input: PointerSample, engine: &mut arvane::Engine) {
+    fn contact(&mut self, input: PointerSample, engine: &mut arvane_text::TextEngine) {
         let modifiers = input.modifiers;
         let id = input.id;
         let at = input.position;
@@ -362,7 +370,11 @@ impl Model {
     }
 
     /// Wheel at the mouse's position (`delta` in logical pixels).
-    pub(crate) fn wheel(&mut self, input: kivact_types::WheelInput, engine: &mut arvane::Engine) {
+    pub(crate) fn wheel(
+        &mut self,
+        input: kivact_types::WheelInput,
+        engine: &mut arvane_text::TextEngine,
+    ) {
         let delta = input.delta;
         self.report_modifiers(input.modifiers);
         let modifiers = input.modifiers;

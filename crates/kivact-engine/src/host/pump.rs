@@ -17,9 +17,8 @@ use crate::model::edit::state::ImeUpdate;
 use crate::model::window::{FRAME_STATE_KEEP_NS, ImeAllowed, LastPresent, SoftKeyboard, Surface};
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
-use arvane::{
-    ExportNotice, Presented, ShellControl, ShellError, ShellEvent, SizeReply, Window, Windows,
-};
+use arvane::{ExportNotice, Presented, Window, Windows};
+use arvane_shell::{ShellControl, ShellError, ShellEvent, SizeReply};
 use kivact_types::cell::{ReportOnce, Sent};
 use kivact_types::{
     DrawableId, Key, KeyInput, KeyPhase, MouseButton, NodeId, PlatformRequest, PlatformResult,
@@ -82,7 +81,7 @@ pub(crate) struct Host {
     pub(super) app: Rc<RefCell<AppModel>>,
     /// Arvane's text, shared with the client's reader (`write::Reader`), which
     /// measures text for drawing: borrowed for one call at a time.
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
     /// Embedded handle destruction can occur inside a platform callback while
     /// this Host is borrowed. Stop new turns before deferred native cleanup;
     /// an already-running client turn still settles under the normal rules.

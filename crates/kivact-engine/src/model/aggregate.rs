@@ -62,7 +62,7 @@ impl Slots {
 pub(crate) enum DeferredRequest {
     Platform(PlatformRequest),
     ReducedMotion(Option<bool>),
-    Inject(Vec<arvane::InjectedInput>),
+    Inject(Vec<arvane_shell::InjectedInput>),
     Emulate(EngineEmulation),
     TimeScale(f64),
     /// Start the model's window GPU device (nothing is answered).

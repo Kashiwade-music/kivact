@@ -62,7 +62,7 @@ pub(crate) fn input_style(
     tree: &NodeTree,
     columns: &MeasureColumns,
     id: NodeId,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> kivact_types::ComputedTextStyle {
     let mut style = crate::lower::assets::text_style(engine, &computed_text(tree, columns, id));
     style.wrap = kivact_types::TextWrap::NoWrap;

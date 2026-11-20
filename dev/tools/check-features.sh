@@ -28,6 +28,7 @@ entries=(
   kivact/tokio
   kivact/test
   arvane-render/gpu
+  arvane/test
   arvane-native/embed
   kivact-gpu-share/export
   kivact-gpu-share/import

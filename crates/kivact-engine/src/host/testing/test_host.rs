@@ -6,12 +6,10 @@ use crate::contract::{HostError, HostEvent, NodeProperties, NodeType};
 use crate::host::Client;
 use crate::host::launch::{AssetMode, Launch};
 use crate::model::Model;
-use arvane::spi::{Step, StepOutcome};
-use arvane::{
-    EventTarget, Handler, RendererChange, ShellControl, ShellError, ShellEvent, ShellImeText,
-    ShellWaker, SteppedShell, Windows,
-};
+use arvane::{Handler, RendererChange, SteppedShell, Windows};
 use arvane_protocol::SemanticsTree;
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellImeText, ShellWaker};
+use arvane_shell::{Step, StepOutcome};
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
 use kivact_types::PointerSample;
 use kivact_types::{
@@ -68,7 +66,7 @@ pub struct ArvaneTestHost {
 /// A test control the window handler applies at the next event, where the
 /// window is at hand.
 enum Control {
-    /// Make the window's GPU device lost (`arvane::spi::lose_gpu_device`).
+    /// Make the window's GPU device lost (`arvane::lose_gpu_device`).
     LoseGpuDevice(WindowId),
 }
 
@@ -131,7 +129,7 @@ impl Handler for SharedHost {
             match control {
                 Control::LoseGpuDevice(id) => {
                     if let Some(mut window) = windows.get(id) {
-                        arvane::spi::lose_gpu_device(&mut window);
+                        arvane::lose_gpu_device(&mut window);
                     }
                 }
             }
@@ -155,9 +153,9 @@ fn make_host(
     counts: Rc<Counts>,
 ) -> Result<Rc<RefCell<Launch>>, HostError> {
     let engine = match &options.fonts {
-        TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
-        TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
-        TestFonts::System => Ok(arvane::Engine::new()),
+        TestFonts::Bundled => arvane_text::TextEngine::isolated(&[default_font()]),
+        TestFonts::Only(fonts) => arvane_text::TextEngine::isolated(fonts),
+        TestFonts::System => Ok(arvane_text::TextEngine::new()),
     }
     .map_err(|e| HostError::new(e.to_string()))?;
     let mut host = crate::host::new(
@@ -928,7 +926,7 @@ impl ArvaneTestHost {
             .host()
             .engine
             .borrow_mut()
-            .has_font_family(family)
+            .has_family(family)
     }
 
     /// The title the App set for window `window`.

@@ -331,7 +331,7 @@ impl Model {
     }
 
     /// Run pending layout work, then distribute its geometry changes.
-    pub(crate) fn settle(&mut self, engine: &mut arvane::Engine) -> Settled {
+    pub(crate) fn settle(&mut self, engine: &mut arvane_text::TextEngine) -> Settled {
         self.sync();
         let settled = if self.needs_layout() {
             #[cfg(debug_assertions)]

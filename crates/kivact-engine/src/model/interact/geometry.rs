@@ -123,7 +123,7 @@ impl Model {
     /// whether a pass ran. Taffy computes only when the layout tree was
     /// edited (structure, layout props, a measured size, the window);
     /// the recorded changes say whether positions may have moved.
-    pub(crate) fn layout(&mut self, engine: &mut arvane::Engine) -> bool {
+    pub(crate) fn layout(&mut self, engine: &mut arvane_text::TextEngine) -> bool {
         self.forget_origins();
         let Some(remeasure) = self.changes.begin_layout() else {
             return false;
@@ -207,7 +207,11 @@ impl Model {
         true
     }
 
-    pub(crate) fn refit_tooltips(&mut self, engine: &mut arvane::Engine, reset: bool) -> bool {
+    pub(crate) fn refit_tooltips(
+        &mut self,
+        engine: &mut arvane_text::TextEngine,
+        reset: bool,
+    ) -> bool {
         let tooltips: Vec<_> = self
             .tree
             .overlays
@@ -244,7 +248,7 @@ impl Model {
 
     fn layout_tooltip(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         id: NodeId,
         limit: Option<kivact_types::Size>,
     ) {
@@ -592,7 +596,7 @@ impl Model {
         }
     }
 
-    fn report_geometry(&mut self, engine: &mut arvane::Engine) {
+    fn report_geometry(&mut self, engine: &mut arvane_text::TextEngine) {
         let scrollers: Vec<NodeId> = self
             .tree
             .scrollers

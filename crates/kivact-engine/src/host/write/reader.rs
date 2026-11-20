@@ -21,7 +21,7 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Reader {
     pub(super) app: Rc<RefCell<AppModel>>,
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
 }
 
 impl Reader {
@@ -149,7 +149,7 @@ impl Reader {
 
     /// Registered and system font family names, sorted and unique, preserving case.
     pub fn font_families(&self) -> Vec<String> {
-        self.engine.borrow().font_families()
+        self.engine.borrow_mut().family_names()
     }
 
     /// A copy of the editing state of the text input `id` (its text

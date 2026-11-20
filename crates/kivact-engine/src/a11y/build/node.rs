@@ -3,7 +3,6 @@
 use crate::a11y::state::Clipping;
 use crate::model::Model;
 use crate::{is_list_role, semantic_role};
-use arvane as a;
 use kivact_types as types;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -65,7 +64,7 @@ impl Model {
         clipped: &BTreeSet<types::NodeId>,
         out: &mut Vec<arvane_protocol::SemanticsNode>,
         regions: &mut BTreeSet<u64>,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let Some(n) = self.node(id) else {
             return;

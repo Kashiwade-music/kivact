@@ -2,7 +2,10 @@
 use crate::measure::leaf::{EngineMeasure, Measure};
 use crate::model::Model;
 impl Model {
-    pub(crate) fn layout_self_check(&mut self, engine: &mut arvane::Engine) -> Vec<String> {
+    pub(crate) fn layout_self_check(
+        &mut self,
+        engine: &mut arvane_text::TextEngine,
+    ) -> Vec<String> {
         let mut fresh = self.tree.clone();
         fresh.pack_child_orders();
         let mut columns = self.layout.clone();

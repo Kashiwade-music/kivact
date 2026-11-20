@@ -8,7 +8,7 @@ use kivact_types::{NodeId, Rect};
 
 impl Model {
     /// Answer queued captures only from the host's settled layout boundary.
-    pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane::Engine) {
+    pub(crate) fn snapshot_requests(&mut self, engine: &mut arvane_text::TextEngine) {
         for (request, node) in std::mem::take(&mut self.snapshots) {
             let result = match self.snapshot(node, engine) {
                 None => SnapshotResult::Unmounted,
@@ -29,7 +29,7 @@ impl Model {
     pub(crate) fn snapshot(
         &mut self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<Result<OffscreenImage, OffscreenError>> {
         let size = self.computed_layout(id)?.size;
         let width = size.width.ceil() as u32;

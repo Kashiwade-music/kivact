@@ -184,7 +184,7 @@ pub(crate) fn inherits(run: &TextRun) -> bool {
 /// run without a family or a line height in the `inherited` text style's
 /// (`None`: the defaults).
 pub(crate) fn run_style(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
 ) -> kivact_types::ComputedTextStyle {
@@ -229,7 +229,7 @@ pub(crate) fn run_style(
 /// the node's inherited ones), so the size and first baseline are those of
 /// what is drawn; `TextMeasurer` and `LeafTextMeasurer` measure the same.
 pub(crate) fn measure_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
 ) -> TextMetrics {
@@ -238,7 +238,7 @@ pub(crate) fn measure_run(
         return TextMetrics::default();
     }
     engine
-        .text_metrics(run.text.as_str(), &style, None)
+        .measure(run.text.as_str(), &style, None)
         .unwrap_or_default()
 }
 
@@ -249,7 +249,7 @@ pub(crate) fn measure_run(
 /// and what `DrawCmd::Paragraph` draws is what was shaped. `None` when it
 /// cannot be shaped.
 pub(crate) fn shape_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,
@@ -264,7 +264,7 @@ pub(crate) fn shape_run(
 
 /// Shape a scene's text around measured objects using its inherited typography.
 pub(crate) fn shape_inline_run(
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     run: &TextRun,
     inherited: Option<&ComputedTextStyle>,
     max_width: Option<f64>,

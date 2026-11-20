@@ -13,7 +13,7 @@ impl Model {
         bounds: Rect,
         clip: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
     ) {
         let Some(prepared) = self.prepare_input_paint(id, bounds, clip, engine) else {

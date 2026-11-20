@@ -24,11 +24,14 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Writer {
     pub(super) app: Rc<RefCell<AppModel>>,
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
 }
 
 impl Writer {
-    pub(crate) fn new(app: &Rc<RefCell<AppModel>>, engine: &Rc<RefCell<arvane::Engine>>) -> Self {
+    pub(crate) fn new(
+        app: &Rc<RefCell<AppModel>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) -> Self {
         Writer {
             app: Rc::clone(app),
             engine: Rc::clone(engine),

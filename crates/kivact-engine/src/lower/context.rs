@@ -169,10 +169,11 @@ impl<'a> Context<'a> {
     /// Why `asset` has no pixels now.
     fn unavailable(&self, asset: &kivact_types::Asset) {
         match self.assets.borrow().status(asset) {
-            Some(arvane::asset::ImageState::Failed(error)) => self.fail(
-                kivact_types::Failure::new(kivact_types::FailureKind::Resource, error.to_string()),
-            ),
-            Some(arvane::asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
+            Some(arvane_asset::ImageState::Failed(error)) => self.fail(kivact_types::Failure::new(
+                kivact_types::FailureKind::Resource,
+                error.to_string(),
+            )),
+            Some(arvane_asset::ImageState::Pending) => self.fail(kivact_types::Failure::new(
                 kivact_types::FailureKind::Unavailable,
                 "image resource is not ready",
             )),
@@ -202,20 +203,20 @@ impl<'a> Context<'a> {
     pub(crate) fn pixels(
         &self,
         asset: &kivact_types::Asset,
-        size: arvane::asset::PixelSize,
+        size: arvane_asset::PixelSize,
         frame: u32,
-    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
-        self.pixels_in(asset, size, arvane::asset::Region::WHOLE, None, frame)
+    ) -> Option<(kivact_types::Pixels, arvane_asset::Region)> {
+        self.pixels_in(asset, size, arvane_asset::Region::WHOLE, None, frame)
     }
 
     fn pixels_in(
         &self,
         asset: &kivact_types::Asset,
-        size: arvane::asset::PixelSize,
-        region: arvane::asset::Region,
+        size: arvane_asset::PixelSize,
+        region: arvane_asset::Region,
         tint: Option<kivact_types::Rgba>,
         frame: u32,
-    ) -> Option<(kivact_types::Pixels, arvane::asset::Region)> {
+    ) -> Option<(kivact_types::Pixels, arvane_asset::Region)> {
         if size.is_empty() {
             return None;
         }

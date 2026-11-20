@@ -20,7 +20,7 @@ impl Context<'_> {
         inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let start = self.checkpoint();
@@ -39,7 +39,7 @@ impl Context<'_> {
         inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let (layer, item) = super::scene_layers(scene);
@@ -57,7 +57,7 @@ impl Context<'_> {
             .borrow_mut()
             .get(scene, inherited, raster, tint);
         if let Some(entry) = cached {
-            if prefix + entry.max_depth + 1 > arvane::MAX_SCENE_DEPTH {
+            if prefix + entry.max_depth + 1 > arvane_render::MAX_SCENE_DEPTH {
                 self.lower_scene(scene, inherited, origin, tint, engine, out);
                 return;
             }
@@ -84,7 +84,7 @@ impl Context<'_> {
         let dependencies = self.dependencies.borrow()[mark..].to_vec();
         let max_depth = lowered.deepest();
         let lowered = lowered.into_scene();
-        if prefix + max_depth + 1 > arvane::MAX_SCENE_DEPTH {
+        if prefix + max_depth + 1 > arvane_render::MAX_SCENE_DEPTH {
             self.restore(checkpoint);
             self.lower_scene(scene, inherited, origin, tint, engine, out);
             return;
@@ -110,7 +110,7 @@ impl Context<'_> {
         inherited: Option<&ComputedTextStyle>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
     ) {
         let raster = self.raster.get();

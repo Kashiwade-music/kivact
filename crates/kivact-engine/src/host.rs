@@ -9,8 +9,7 @@
 //! shell's waker). The store's finished work is applied before each turn
 //! (`Model::poll_assets`).
 //!
-//! `run_native` opens an `arvane::Shell`
-//! window at `HostOptions::window_size` (960×720 logical pixels without
+//! `run_native` opens its window with `arvane::run` at `HostOptions::window_size` (960×720 logical pixels without
 //! one), which it does not validate again (kivact's `App::run` did, once),
 //! and passes only the GPU device wish (`HostOptions::gpu_preference`):
 //! whether and when Arvane starts the GPU, falls back to the CPU or

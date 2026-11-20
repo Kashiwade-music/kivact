@@ -35,7 +35,7 @@ impl Model {
     pub(crate) fn input_style(
         &self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> kivact_types::ComputedTextStyle {
         crate::measure::input_style(&self.tree, &self.slots.measure, id, engine)
     }

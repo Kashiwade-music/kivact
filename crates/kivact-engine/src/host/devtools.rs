@@ -1,10 +1,10 @@
 //! Role: Host-side DevTools state: overlays, pick, keys and emulation.
 use crate::contract::{DevtoolsKeys, DevtoolsOverlay, EngineEmulation, KeyChord, OverlayBox};
-use arvane::Engine;
 use arvane_protocol::{
     CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
+use arvane_text::TextEngine;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::{
     ComputedTextStyle, Environment, Key, KeyCode, KeyInput, KeyPhase, Point, PointerClass, Rect,
@@ -113,7 +113,7 @@ pub(super) fn physical_letter(code: KeyCode) -> Option<char> {
 pub(super) fn append_overlay_layer(
     overlay: &DevtoolsOverlay,
     composition: &mut Composition,
-    engine: &mut Engine,
+    engine: &mut TextEngine,
     size: Size,
 ) {
     if composition.layers.is_empty() {
@@ -142,7 +142,7 @@ pub(super) fn append_overlay_layer(
 }
 
 /// The scene of the overlay: box fills, fills, outlines and labels.
-fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut Engine) -> RenderScene {
+fn overlay_scene(overlay: &DevtoolsOverlay, engine: &mut TextEngine) -> RenderScene {
     let mut commands = Vec::new();
     for overlay_box in &overlay.boxes {
         push_box(&mut commands, overlay_box);
@@ -183,7 +183,7 @@ fn push_box(commands: &mut Vec<RenderCmd>, overlay_box: &OverlayBox) {
 }
 
 /// A label: black behind white text, shaped by Arvane's engine.
-fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut Engine) {
+fn push_label(commands: &mut Vec<RenderCmd>, at: Point, text: &str, engine: &mut TextEngine) {
     let white = Rgba {
         r: 1.0,
         g: 1.0,

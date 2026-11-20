@@ -6,7 +6,7 @@
 //! the IME passed on as they come.
 
 use crate::support::Harness;
-use arvane::ShellEvent;
+use arvane_shell::ShellEvent;
 use kivact_types::PointerSample;
 use kivact_types::{
     ButtonPress, Key, MouseButton, Point, PointerButtons, PointerId, PointerKind, PointerPhase,

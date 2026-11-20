@@ -34,7 +34,8 @@ use crate::KeyResult;
 use crate::contract::{HostEvent, HostInfo, InputOrigin};
 use crate::host::HostWaker;
 use crate::model::window::LastPresent;
-use arvane::{EventTarget, ShellControl, ShellError, ShellEvent, Window, Windows};
+use arvane::{Window, Windows};
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent};
 use kivact_types::{
     KeyInput, KeyPhase, LifecycleEvent, PlatformRequest, PlatformResult, PointerKind, PointerPhase,
     WindowId, WindowMode,

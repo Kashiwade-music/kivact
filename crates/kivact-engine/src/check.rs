@@ -14,7 +14,7 @@
 //! plus 1 px, colors aside), so the check shares the paint's shaping cache.
 //! A line's rect is its advance across (`TextLine::rect`: what an ellipsis
 //! left of it, the ellipsis included) and its ink down, the glyphs'
-//! outlines (`arvane::glyph_ink_bounds`), else from its capitals' top (its
+//! outlines (`arvane_render::glyph_ink_bounds`), else from its capitals' top (its
 //! ascent without a cap height) to its descent. A multiline text input
 //! (whose lines scroll) is not checked.
 //!

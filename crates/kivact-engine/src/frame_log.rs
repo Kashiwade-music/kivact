@@ -18,7 +18,7 @@
 //! (`FrameStats`).
 //!
 //! The notes: each renderer change as Arvane reports it when it happens
-//! (`Shell::on_renderer_change`, written as Arvane words it; the first,
+//! (the `arvane::Observer` callback, written as Arvane words it; the first,
 //! the renderer the window starts with, after `host=arvane`, as in
 //! `host=arvane renderer=cpu gpu=starting`; later ones for example
 //! `renderer=gpu adapter=… init_ms=… configure_ms=…`, or `renderer=cpu`

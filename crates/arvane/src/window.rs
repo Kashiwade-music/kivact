@@ -2,16 +2,15 @@
 
 use crate::presentation::{Notes, Observer};
 use crate::presenter::{ExportNotice, Presenter};
-use crate::{
-    AccessibilityError, Failure, FramePlan, Presented, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellWaker,
-};
+use crate::{FramePlan, Presented};
 use arvane_protocol::{Composition, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
-    Backend, EventTarget, InjectedInput, ShellHandler, ShellLoop, ShellWindow, Step, StepOutcome,
+    AccessibilityError, Backend, EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError,
+    ShellEvent, ShellHandler, ShellImeText, ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome,
     SteppedBackend, SteppedLoop, WakeReasons,
 };
 use kivact_types::Environment;
+use kivact_types::Failure;
 use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
 use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
@@ -180,6 +179,7 @@ impl Window<'_> {
     }
 
     /// Make the window's GPU device lost, as a device failure does (test control).
+    #[cfg(feature = "test")]
     pub(crate) fn lose_gpu_device(&mut self) {
         self.presenter.lose_gpu_device();
     }
@@ -415,4 +415,16 @@ impl<H: Handler> ShellHandler for Driver<H> {
         };
         self.handler.event(target, event, &mut windows)
     }
+}
+
+/// The driver of an embedded window, made on the window's UI thread:
+/// `make` builds the handler and the optional renderer observer there.
+pub fn embed_driver<H: Handler + 'static>(
+    gpu: GpuPreference,
+    make: impl FnOnce() -> (H, Option<Observer>) + Send + 'static,
+) -> MakeHandler {
+    Box::new(move || {
+        let (handler, observer) = make();
+        Box::new(driver(handler, DriverOptions { gpu, observer })) as Box<dyn ShellHandler>
+    })
 }

@@ -4,14 +4,14 @@ use super::exports::{ExportNotice, ExportRegistry};
 use super::frame::{FramePlan, Presented};
 use super::gpu::{Fallback, Gpu};
 use super::health::{FrameHealth, LossAction};
-use crate::ShellWaker;
 use crate::env::RendererStart;
-use crate::error::{self, Failure, FailureKind};
 use crate::presentation::{GpuStartCause, Notes, Renderer, RendererChange};
 use arvane_compose::{CpuCompositor, CpuOutput, Damage, GpuContext, GpuSurface, Presentation};
 use arvane_protocol::{Composition, FrameReport, PixelRect};
 use arvane_render::RenderError;
+use arvane_shell::ShellWaker;
 use arvane_shell::{BufferAge, ShellWindow};
+use kivact_types::{Failure, FailureKind};
 use std::collections::HashSet;
 use std::time::{Duration, Instant};
 
@@ -121,7 +121,7 @@ impl Presenter {
         let result = match context.import_external(id, textures) {
             Ok(()) => Ok(()),
             Err(failure) => {
-                let error = error::render(failure.clone());
+                let error = kivact_types::Failure::from(failure.clone());
                 self.gpu.failed(&failure, &mut self.notes);
                 Err(error)
             }
@@ -161,7 +161,7 @@ impl Presenter {
         };
         let textures = context
             .export_drawable(sink, generation, adapter, size)
-            .map_err(error::render)?;
+            .map_err(kivact_types::Failure::from)?;
         self.exports.made(sink, generation);
         Ok(textures)
     }
@@ -181,7 +181,8 @@ impl Presenter {
     }
 
     /// Make the device lost, as a device failure does (the test control of
-    /// `arvane::spi::lose_gpu_device`). Nothing happens without a device.
+    /// `arvane::lose_gpu_device`). Nothing happens without a device.
+    #[cfg(feature = "test")]
     pub(crate) fn lose_gpu_device(&mut self) {
         if !self.gpu.ready() {
             return;
@@ -463,7 +464,7 @@ impl Presenter {
         let output = self
             .cpu
             .frame(composition, physical, scale)
-            .map_err(error::render)?;
+            .map_err(kivact_types::Failure::from)?;
         let pixels = output
             .rgba
             .as_chunks::<4>()
@@ -487,7 +488,7 @@ impl Presenter {
         let output = self
             .cpu
             .frame(composition, physical, scale)
-            .map_err(error::render)?;
+            .map_err(kivact_types::Failure::from)?;
         let raster = started.elapsed();
         let CpuOutput {
             rgba,
@@ -560,7 +561,7 @@ impl Presenter {
             Fallback::Surface => Err(Failure::new(FailureKind::Surface, failure.to_string())),
             // The CPU renderer draws what vello_hybrid cannot.
             Fallback::Other if matches!(failure, RenderError::GpuLimit(_)) => Ok(()),
-            Fallback::Other => Err(error::render(failure)),
+            Fallback::Other => Err(kivact_types::Failure::from(failure)),
         }
     }
 }

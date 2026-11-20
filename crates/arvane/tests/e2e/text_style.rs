@@ -13,8 +13,8 @@
 
 use std::sync::Arc;
 
-use arvane::Engine;
 use arvane_protocol::{ResolvedSpan, ResolvedSpanStyle, RichText};
+use arvane_text::TextEngine;
 use kivact_types::shaped::ShapedTextSnapshot;
 use kivact_types::{ComputedTextStyle, TextDecoration};
 use kivact_types::{DecorationLines, Rgba};
@@ -23,8 +23,8 @@ use crate::support::engine;
 
 static INTER: &[u8] = include_bytes!("../fonts/InterVariable.ttf");
 
-fn inter() -> Engine {
-    Engine::with_fonts_only(&[Arc::from(INTER)]).expect("Inter is usable")
+fn inter() -> TextEngine {
+    TextEngine::isolated(&[Arc::from(INTER)]).expect("Inter is usable")
 }
 
 fn style(font_size: f64) -> ComputedTextStyle {
@@ -44,13 +44,16 @@ const RED: Rgba = Rgba {
 /// Measuring gives what shaping draws (glyphs and carets alike).
 #[track_caller]
 fn shaped<'t>(
-    engine: &mut Engine,
+    engine: &mut TextEngine,
     text: impl Into<RichText<'t>>,
     style: &ComputedTextStyle,
     width: Option<f64>,
 ) -> ShapedTextSnapshot {
     let text = text.into();
-    let measured = engine.measure_text(text, style, width).expect("measure");
+    let measured = engine
+        .measure(text, style, width)
+        .map(|metrics| metrics.size)
+        .expect("measure");
     let glyphs = engine.shape_glyphs(text, style, width).expect("shape");
     let shaped = engine.shape(text, style, width).expect("shape");
     assert_eq!(measured, glyphs.size, "measured as drawn: {:?}", text.text);

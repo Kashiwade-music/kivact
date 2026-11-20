@@ -33,7 +33,7 @@ impl Model {
         p: &PaintProps,
         outline: &BoxShape,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Boxes {
         let border = outline.rect();
         let layout = self.computed_layout(id).unwrap_or_default();
@@ -76,7 +76,7 @@ impl Model {
         border: Rect,
         content: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<Shape> {
         if self.node(id)?.kind() != NodeType::Text {
             return None;
@@ -99,7 +99,7 @@ fn glyph_clip(shaped: &ShapedText, origin: Point) -> Shape {
     let mut cmds = Vec::new();
     for run in &shaped.runs {
         cmds.extend(
-            arvane::glyph_outline(run)
+            arvane_render::glyph_outline(run)
                 .into_iter()
                 .map(|cmd| shift(cmd, origin)),
         );
@@ -111,7 +111,7 @@ fn glyph_clip(shaped: &ShapedText, origin: Point) -> Shape {
 }
 
 /// `cmd` moved by `by`. A glyph outline holds only moves, lines, curves and
-/// closes (`arvane::glyph_outline`), so the other segments are not expected.
+/// closes (`arvane_render::glyph_outline`), so the other segments are not expected.
 fn shift(cmd: PathCmd, by: Point) -> PathCmd {
     let moved = |p: Point| Point {
         x: p.x + by.x,

@@ -8,7 +8,7 @@ pub use devtools::{
 };
 // The core's DevTools agent builds injected input and cannot depend on the
 // shell itself.
-pub use arvane::InjectedInput;
+pub use arvane_shell::InjectedInput;
 pub use arvane_shell::pipeline::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 mod events;
 pub use events::{DrawableTexturesHandle, ForeignChange, HostEvent, LayoutReport, NodeFlags};

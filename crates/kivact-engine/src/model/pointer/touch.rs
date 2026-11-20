@@ -79,7 +79,7 @@ impl Model {
         &mut self,
         pointer: PointerId,
         at: Point,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> bool {
         let Track::Touch(track) = self.pointer.state.track(pointer) else {
             return false;

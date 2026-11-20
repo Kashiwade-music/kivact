@@ -402,7 +402,7 @@ impl Context<'_> {
             FillImage::Shader(_) => {}
             FillImage::Image(asset) => {
                 let source = asset;
-                let device = arvane::asset::PixelSize::of(
+                let device = arvane_asset::PixelSize::of(
                     Size {
                         width: tiles.first.width,
                         height: tiles.first.height,
@@ -489,7 +489,7 @@ impl Context<'_> {
             }
             FillImage::Coordinate(_) | FillImage::Shader(_) => None,
             FillImage::Image(asset) => {
-                let device = arvane::asset::PixelSize::of(
+                let device = arvane_asset::PixelSize::of(
                     Size {
                         width: tiles.first.width,
                         height: tiles.first.height,

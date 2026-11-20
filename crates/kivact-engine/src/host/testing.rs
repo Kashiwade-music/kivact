@@ -9,10 +9,10 @@ mod test_options;
 #[cfg(debug_assertions)]
 mod text_reference;
 
-pub use arvane::{ShellEvent, ShellImeText};
 pub use arvane_native::mirror::MirrorStats;
 pub use arvane_native::native_window_alive;
 pub use arvane_protocol::{SemanticsNode, SemanticsTree};
+pub use arvane_shell::{ShellEvent, ShellImeText};
 pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 pub use arvane_virtual::{GpuMode, MirrorMode};
 pub use kivact_types::{

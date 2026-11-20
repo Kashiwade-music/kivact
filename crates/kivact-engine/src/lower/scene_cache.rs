@@ -1,6 +1,6 @@
 //! Role: Bounded retained local scene payloads and resource dependency data.
 use crate::lower::effects::Tint;
-use arvane::asset::{PixelSize, Region};
+use arvane_asset::{PixelSize, Region};
 use kivact_types::{Asset, ComputedTextStyle, DrawList, Rgba, Size};
 use std::sync::{Arc, Weak};
 

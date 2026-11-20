@@ -3,8 +3,8 @@
 use crate::api::Client;
 use crate::contract::CloseSignal;
 use crate::{FrameLog, host};
-pub use arvane::embed::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
 pub use arvane_native::retain_module;
+pub use arvane_shell::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
 use kivact_types::EmbedOptions;
 use kivact_types::NativeWindow;
 use std::cell::RefCell;
@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 /// An embedded engine host. `Send` and `Sync`. Drop requests closure and stops new turns.
 pub struct EmbeddedHost {
-    host: Box<dyn arvane::spi::ShellChild>,
+    host: Box<dyn arvane_shell::ShellChild>,
     closing: CloseSignal,
     // The last field: it drops after the host, whose cleanup may detach threads.
     _retention: Retention,
@@ -95,7 +95,8 @@ pub fn embed_native(
         let client = client(ui_closing.clone());
         let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
         let log = frame_log.clone();
-        let host = host::new(client, size, arvane::Engine::new(), frame_log).with_close(ui_closing);
+        let host = host::new(client, size, arvane_text::TextEngine::new(), frame_log)
+            .with_close(ui_closing);
         let observer = arvane::observer(move |_window, change| {
             let mut log = log.borrow_mut();
             match change {

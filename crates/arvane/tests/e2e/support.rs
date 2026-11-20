@@ -1,15 +1,14 @@
 //! Role: What every module uses: test windows, scenes and pixels.
 
-use arvane::spi::{Step, StepOutcome};
-use arvane::{Engine, Presented};
-use arvane::{
-    EventTarget, Handler, ShellControl, ShellError, ShellEvent, ShellWaker, SteppedShell, Window,
-    Windows, test_font,
-};
+use arvane::Presented;
+use arvane::{Handler, SteppedShell, Window, Windows, test_font};
 use arvane_protocol::{
     CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellWaker};
+use arvane_shell::{Step, StepOutcome};
+use arvane_text::TextEngine;
 use arvane_virtual::{
     GpuMode, Probe, Script, VirtualBackend, VirtualOptions, WindowProbe, WindowScript,
 };
@@ -50,8 +49,8 @@ pub(crate) fn open(width: f64, height: f64) -> Harness {
 }
 
 /// Text that sees the bundled test font only.
-pub(crate) fn engine() -> Engine {
-    Engine::with_fonts_only(&[test_font()]).expect("the test font is usable")
+pub(crate) fn engine() -> TextEngine {
+    TextEngine::isolated(&[test_font()]).expect("the test font is usable")
 }
 
 pub(crate) fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
@@ -478,7 +477,7 @@ impl Harness {
     pub(crate) fn renderer(&self) -> Option<arvane::Renderer> {
         self.shared.borrow().renderer
     }
-    pub(crate) fn record(&self, result: &Result<Presented, arvane::Failure>) {
+    pub(crate) fn record(&self, result: &Result<Presented, kivact_types::Failure>) {
         if let Ok(Presented::Shown { renderer, .. }) = result {
             self.shared.borrow_mut().renderer = Some(*renderer);
         }

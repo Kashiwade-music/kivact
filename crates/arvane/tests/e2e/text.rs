@@ -63,7 +63,10 @@ fn measuring_gives_the_shaped_size() {
         ("line one\nline two", 16.0, None),
     ] {
         let style = style(size);
-        let measured = engine.measure_text(text, &style, width).expect("measure");
+        let measured = engine
+            .measure(text, &style, width)
+            .map(|metrics| metrics.size)
+            .expect("measure");
         let shaped = engine.shape(text, &style, width).expect("shape");
         let glyphs = engine.shape_glyphs(text, &style, width).expect("glyphs");
         assert_eq!(measured, shaped.size, "{text:?} at {width:?}");
@@ -80,10 +83,12 @@ fn another_width_wraps_the_same_text_again() {
     let mut engine = engine();
     let style = style(14.0);
     let line = engine
-        .measure_text(PARAGRAPH, &style, None)
+        .measure(PARAGRAPH, &style, None)
+        .map(|metrics| metrics.size)
         .expect("one line");
     let narrow = engine
-        .measure_text(PARAGRAPH, &style, Some(line.width / 3.0))
+        .measure(PARAGRAPH, &style, Some(line.width / 3.0))
+        .map(|metrics| metrics.size)
         .expect("wrapped");
     assert!(narrow.width <= line.width / 3.0, "{narrow:?} fits");
     assert!(
@@ -92,7 +97,10 @@ fn another_width_wraps_the_same_text_again() {
     );
     // Back to the first width: the same extent as before.
     assert_eq!(
-        engine.measure_text(PARAGRAPH, &style, None).expect("again"),
+        engine
+            .measure(PARAGRAPH, &style, None)
+            .map(|metrics| metrics.size)
+            .expect("again"),
         line
     );
     // No wrapping keeps one line whatever the width.
@@ -101,7 +109,8 @@ fn another_width_wraps_the_same_text_again() {
         ..style
     };
     let kept = engine
-        .measure_text(PARAGRAPH, &nowrap, Some(line.width / 3.0))
+        .measure(PARAGRAPH, &nowrap, Some(line.width / 3.0))
+        .map(|metrics| metrics.size)
         .expect("not wrapped");
     assert_eq!(kept.height, line.height);
 }
@@ -131,7 +140,7 @@ fn an_unknown_family_falls_back_to_the_fonts_there_are() {
 #[test]
 fn glyph_runs_share_the_registered_font() {
     let font = arvane::test_font();
-    let mut engine = arvane::Engine::with_fonts_only(std::slice::from_ref(&font))
+    let mut engine = arvane_text::TextEngine::isolated(std::slice::from_ref(&font))
         .expect("the test font is usable");
     for text in ["Shared bytes", "Another paragraph"] {
         let shaped = engine.shape(text, &style(16.0), None).expect("shape");
@@ -148,7 +157,7 @@ fn glyph_runs_share_the_registered_font() {
 
 #[test]
 fn glyph_runs_of_one_system_font_share_one_source() {
-    let mut engine = arvane::Engine::new();
+    let mut engine = arvane_text::TextEngine::new();
     let first = engine.shape("Alpha", &style(16.0), None).expect("shape");
     let second = engine.shape("Beta", &style(16.0), None).expect("shape");
     assert!(

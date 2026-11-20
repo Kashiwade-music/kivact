@@ -51,7 +51,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     window.script().set_safe_area(insets);
     window.script().set_locale(None);
     window.script().set_scale(1.5);
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     let environment = window.probe().environment();
     assert_eq!(
         environment,
@@ -72,7 +72,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     );
     assert_eq!(window.probe().scale(), 1.5);
     window.script().set_locale(Some("fr-CA"));
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     assert_eq!(
         window.probe().environment().locale.as_deref(),
         Some("fr-CA")
@@ -82,7 +82,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
         width: 60.0,
         height: 40.0,
     });
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     assert_eq!(
         window.probe().size(),
         Size {
@@ -125,6 +125,6 @@ fn the_software_keyboard_and_the_ime_follow_the_host() {
     assert!(!window.probe().redraw_requested());
     window.with(move |w| w.request_redraw());
     assert!(window.probe().redraw_requested());
-    window.step(arvane::spi::Step::Redraw);
+    window.step(arvane_shell::Step::Redraw);
     assert!(!window.probe().redraw_requested());
 }

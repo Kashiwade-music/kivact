@@ -16,7 +16,7 @@
 
 use std::sync::Arc;
 
-use arvane::asset::PixelSize;
+use arvane_asset::PixelSize;
 use arvane_protocol::{
     LayerFilter, LayerItem, RasterPaint, RenderBackdrop, RenderCmd as D, RenderMask, RenderScene,
     ShaderItem,

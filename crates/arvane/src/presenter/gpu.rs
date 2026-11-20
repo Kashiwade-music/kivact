@@ -37,12 +37,12 @@
 //! between drawn on the CPU. A second device failure or a failed restart
 //! leaves the presenter on the CPU.
 
-use crate::ShellWaker;
 use crate::env::RendererStart;
 use crate::presentation::{GpuStartCause, Notes, RendererChange};
 use arvane_compose::{GpuContext, GpuEnv, GpuSurface, Presentation};
 use arvane_protocol::{Composition, CpuFrame, FrameReport};
 use arvane_render::RenderError;
+use arvane_shell::ShellWaker;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -415,7 +415,7 @@ impl Gpu {
     /// window's thread when a worker finishes. The CPU for the rest of the
     /// session when no worker can start.
     fn spawn(&mut self, waker: ShellWaker, notes: &mut Notes) {
-        let wake: Wake = Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP));
+        let wake: Wake = Arc::new(move || waker.wake(arvane_shell::WakeReasons::GPU_STEP));
         self.state = match start_device(self.env, &wake) {
             Some(worker) => State::Background(Background {
                 wake,
