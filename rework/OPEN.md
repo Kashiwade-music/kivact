@@ -414,3 +414,12 @@
 - **後片付け**：`W:/temp_check.log`（C08 の subagent が誤って書いた確認のログ）は、subagent の削除が安全確認で拒否されたので残っている。中身はビルドのログだけ。
 - **確認の範囲の教訓**：unit の確認（付属書の filter の E2E）だけでは、R の unit・lane E2 の後退を見落とした。W5a の後半は各 unit の後に e2e_core・e2e_ui・kivact-test・e2e_kits・kivact-ui-soft の全件と workspace の clippy（`--all-features`）を走らせた（`target/rework-designer/W5a-unit-brief.md`）。W5b 以降の Orchestrator にも同じ形を勧める。doc の例（doctest）は unit では走らないので、wave の tier b で初めて見つかる。
 
+## KPI の再測定（同じ環境の B0-CP1 と CP1b、2026-11-20）
+
+設計者の回答（W5a の後）の手順で、基点 `c9518946` を同じ環境で測り直した（`rework/kpi/B0-CP1.md`）と、現在の統合 `CP1b`（`rework/kpi/CP1b.md`）を比べた（`rework/kpi/CP1b-ratio.md`）。両方の `kv_heap` に `AcceptedTree` の site がある（B0-CP1 は 4 行、CP1b は 3 行）ので、測り直しは不要。
+
+- **前回の後退（K2 のメモリ、K1 の startup など）は、同じ環境では消えた**（比は 0.99〜1.02 の範囲か、目標に入る）。CP1 の後退は環境の差だった（設計者の回答どおり）。
+- **後退（差し戻し）**：K6 `basic-catalog default` の比 1.074（34042880 → 36572672 B）、K6 `basic-catalog no-gpu` の比 1.086（29470208 → 31990784 B）。どちらも改善の必達の上限を超える。原因の候補は、W5b までの間に増えた catalog・ui の binary の中身。設計者が決める。Orchestrator は直さない。
+- **改善未達（記録だけ）**：K2 `per_item text`（比 1.011、改善の必達 ≤0.95）、K2 `per_item row`（0.989、≤0.95）、K5 `pointer p95 n3000`（0.953、≤0.85）。
+- exit 1（後退あり）。判定は上の 2 行の K6 だけ。
+
