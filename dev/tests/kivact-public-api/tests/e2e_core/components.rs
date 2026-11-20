@@ -8,6 +8,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
+use kivact::Prop;
 use kivact::draw::{Draw, RegionId};
 use kivact::prelude::*;
 use kivact::test::render;
@@ -98,6 +99,39 @@ fn element_functions_share_one_type() {
     assert_eq!(screen.get_by_test_id("t").text(), "t");
     assert_eq!(screen.get_by_test_id("c").get_by_text("c").text(), "c");
     assert!(screen.get_by_test_id("n").exists());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
+enum Tier {
+    Small,
+    Large,
+}
+impl kivact::view::Variant for Tier {}
+
+#[component]
+fn sized() -> impl Element {
+    node().base_variant_style(Rc::new(|| "size"), |v| match v.get::<Tier>() {
+        Some(Tier::Large) => style().width(80),
+        _ => style().width(20),
+    })
+}
+
+/// `.variant(..)` reaches the recipe layers of the component's root node, and
+/// a reactive variant applies them again when its signal changes.
+#[test]
+fn element_variant_reaches_a_variant_recipe_and_follows_a_signal() {
+    let (screen, size) = mount(|| {
+        let size = signal(Tier::Small);
+        let view = sized().test_id("sized").variant(move || size.get());
+        (size, view)
+    });
+    let el = screen.get_by_test_id("sized");
+    assert_eq!(el.rect().expect("rect").width, 20.0);
+    size.set(Tier::Large);
+    screen.run_until_idle();
+    let el = screen.get_by_test_id("sized");
+    assert_eq!(el.rect().expect("rect").width, 80.0);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

@@ -12,15 +12,43 @@ use kivact_style::{Interactive, Style};
 use kivact_types::{LayoutProps, NodeId};
 
 use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
+use crate::view::Variants;
 use crate::view::descriptor::Mcx;
-use crate::view::element_data::StyleLayer;
+use crate::view::devtools_hooks::StyleHook;
+use crate::view::element_data::{LayerFn, StyleLayer};
 use crate::view::state::ViewState;
 
-/// Merge `layers` in order over the empty style.
-pub(crate) fn merge_layers(layers: &[StyleLayer]) -> Style {
+/// Merge `layers` in order over the empty style (a recipe layer reads
+/// `variants`), then let the DevTools hook apply its overrides.
+fn merge_layers(layers: &[StyleLayer], variants: &Variants, hook: &StyleHook) -> Style {
+    hook.apply(layers.iter().fold(Style::default(), |s, layer| {
+        s.merge(&layer.f.style(variants))
+    }))
+}
+
+/// The memo of the merged layers of a node (see [`Layers::Memo`]).
+fn merged_memo(hook: StyleHook, layers: Vec<StyleLayer>, variants: Variants) -> Value<Merged> {
+    kivact_runtime::memo(move || {
+        kivact_runtime::pure(|| Merged(Rc::new(merge_layers(&layers, &variants, &hook))))
+    })
+}
+
+/// The layers with each recipe layer fixed to `variants`, for DevTools: the
+/// style inspector reads a plain closure per layer.
+fn plain_layers(layers: &[StyleLayer], variants: &Variants) -> Vec<StyleLayer> {
     layers
         .iter()
-        .fold(Style::default(), |s, layer| s.merge(&(layer.f)()))
+        .map(|layer| match &layer.f {
+            LayerFn::Variants(f) => {
+                let (f, variants) = (f.clone(), variants.clone());
+                StyleLayer {
+                    f: LayerFn::Plain(Rc::new(move || f(&variants))),
+                    ..layer.clone()
+                }
+            }
+            LayerFn::Plain(_) => layer.clone(),
+        })
+        .collect()
 }
 
 /// The readers of the disabled and selected states, for the style effect.
@@ -50,7 +78,17 @@ enum Layers {
     /// A node without such states: its style effect runs again only when
     /// the layers' reads or the theme change, so the effect merges the
     /// layers itself and no merged copy is kept per node.
-    Direct(Vec<StyleLayer>),
+    Direct(Vec<StyleLayer>, Variants),
+}
+
+/// The style inputs of a host node, as [`bind_node_style`] takes them.
+pub(super) struct StyleInput {
+    /// The style layers, in merge order.
+    pub(super) layers: Vec<StyleLayer>,
+    /// The variant values of the node (`.variant(..)`), read by its recipe layers.
+    pub(super) variants: Variants,
+    /// Applied to every resolved layout (see [`NodeStyle::fix_layout`]).
+    pub(super) fix_layout: Option<fn(&mut LayoutProps)>,
 }
 
 /// Stage 4: bind the style effect when the node has style layers, owns part
@@ -58,15 +96,20 @@ enum Layers {
 pub(super) fn bind_node_style(
     cx: &Mcx<'_>,
     id: NodeId,
-    layers: Vec<StyleLayer>,
+    input: StyleInput,
     facts: &NodeFacts,
     states: States,
-    fix_layout: Option<fn(&mut LayoutProps)>,
     at: &'static Location<'static>,
 ) {
+    let StyleInput {
+        layers,
+        variants,
+        fix_layout,
+    } = input;
     if !layers.is_empty() || fix_layout.is_some() || facts.focus_stop {
         let style = NodeStyle {
             layers,
+            variants,
             focusable: facts.focus_stop,
             disabled: states.disabled,
             selected: states.selected,
@@ -83,6 +126,8 @@ pub(super) fn bind_node_style(
 pub(crate) struct NodeStyle {
     /// Style layers, merged in order.
     pub layers: Vec<StyleLayer>,
+    /// The node's variant values (`.variant(..)`), read by its recipe layers.
+    pub variants: Variants,
     /// The node is a focus stop: the theme's focus ring and disabled look
     /// apply under its style.
     pub focusable: bool,
@@ -114,6 +159,7 @@ pub(crate) fn bind_style(
 ) {
     let NodeStyle {
         layers,
+        variants,
         focusable,
         disabled,
         selected,
@@ -126,7 +172,7 @@ pub(crate) fn bind_style(
     let local_paint = RefCell::new(local_paint);
     let hooked = crate::view::devtools_hooks::hooks(cx.rt).is_some();
     if hooked {
-        crate::view::state::ViewState::tree_mut(cx.rt).set_style_layers(id, layers.clone());
+        ViewState::tree_mut(cx.rt).set_style_layers(id, plain_layers(&layers, &variants));
     }
     let hook = crate::view::devtools_hooks::StyleHook::new(cx.rt, cx.owner, id, at);
     let reports = StyleReports::default();
@@ -134,14 +180,12 @@ pub(crate) fn bind_style(
     // The layers' closures run again only when what they read changes, not
     // when the disabled or selected state or the forced states change.
     let source = if states_change || hooked {
-        let merge_hook = hook.clone();
-        Layers::Memo(cx.owner.with_setup(|| {
-            kivact_runtime::memo(move || {
-                kivact_runtime::pure(|| Merged(Rc::new(merge_hook.apply(merge_layers(&layers)))))
-            })
-        }))
+        Layers::Memo(
+            cx.owner
+                .with_setup(|| merged_memo(hook.clone(), layers, variants)),
+        )
     } else {
-        Layers::Direct(layers)
+        Layers::Direct(layers, variants)
     };
     let weak = cx.weak();
     cx.effect(EffectKind::Render, at, move || {
@@ -163,7 +207,9 @@ pub(crate) fn bind_style(
                 };
                 match &source {
                     Layers::Memo(merged) => merged.with(|s| compile(&s.0)),
-                    Layers::Direct(layers) => compile(&hook.apply(merge_layers(layers))),
+                    Layers::Direct(layers, variants) => {
+                        compile(&merge_layers(layers, variants, &hook))
+                    }
                 }
             })
         });

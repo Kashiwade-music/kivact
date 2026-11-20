@@ -10,28 +10,12 @@
 use std::any::Any;
 use std::rc::Rc;
 
-/// A look a standard component takes with `.variant(value)` and its recipes
-/// read with [`Look::variant`]: a value of the theme's or kit's own type.
-///
-/// A component keeps one value per type, a later `.variant(..)` of the same
-/// type replacing the earlier one, and a theme whose recipes do not know the
-/// type draws the plain look. The trait is implemented explicitly by each
-/// variant type (`impl Variant for Segmented {}`); it is not sealed, so a
-/// kit or design system defines its own.
-///
-/// ```
-/// use kivact::ui::Variant;
-/// #[derive(Clone, Copy, Debug, PartialEq)]
-/// struct Pill;
-/// impl Variant for Pill {}
-/// ```
-pub trait Variant: PartialEq + std::fmt::Debug + 'static {}
-
-/// The semantic [`Tone`](kivact_interaction::Tone) is a variant of every
-/// standard component: a theme whose recipes know it draw the component in
-/// that meaning (a progress bar's fill, say), and one that does not draws
-/// the plain look.
-impl Variant for kivact_interaction::Tone {}
+/// A look a standard component takes with `.variant(value)`: the trait is
+/// defined in core ([`kivact_core::view::Variant`]), and this is its path in
+/// the UI. Each variant type implements it explicitly (`impl Variant for
+/// Segmented {}`); a theme whose recipes do not know a type draws the plain
+/// look. The semantic [`Tone`](kivact_interaction::Tone) is one of them.
+pub use kivact_core::view::Variant;
 
 /// One variant value a component carries for its recipes.
 #[derive(Clone)]

@@ -39,6 +39,8 @@ pub enum Tone {
     Accent,
 }
 
+impl kivact_core::view::Variant for Tone {}
+
 impl Tone {
     /// Whether the tone asks for the user's attention at once
     /// ([`Warning`](Self::Warning) and [`Danger`](Self::Danger)): what makes

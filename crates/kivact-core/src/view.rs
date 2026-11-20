@@ -53,6 +53,7 @@ pub(crate) mod state;
 mod style_layer;
 pub(crate) mod sync_hook;
 pub(crate) mod tree;
+mod variant;
 pub(crate) mod window_view;
 
 #[doc(inline)]
@@ -138,3 +139,7 @@ pub use style_layer::RecipeName;
 
 #[doc(hidden)]
 pub use elements::ViewportTransform;
+
+// xtask-allow(internal-contract): the public path of Variant and Variants is kivact::ui::theme (annex U re-exports them)
+#[doc(hidden)]
+pub use variant::{Variant, Variants};

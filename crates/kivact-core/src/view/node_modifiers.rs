@@ -310,6 +310,45 @@ impl Node {
         self
     }
 
+    /// Add a recipe style layer that reads the node's final variants (after the
+    /// caller's `.variant(..)`). DevTools shows `name`.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        self.common
+            .style
+            .push(crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::Recipe(name),
+            });
+        self
+    }
+
+    /// The base-layer form of [`Node::variant_style`]: before every caller style.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn base_variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        let index = self.common.base_count();
+        self.common.style.insert(
+            index,
+            crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::BaseRecipe(name),
+            },
+        );
+        self
+    }
+
     /// Selected state (semantics and the `selected` style).
     #[track_caller]
     pub fn selected(mut self, v: impl IntoValue<bool>) -> Self {

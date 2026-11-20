@@ -21,6 +21,7 @@ use super::facts::{LocalPaint, LocalPaintSource, NodeFacts};
 use super::parts::ConstraintSources;
 use super::semantics::SemanticProps;
 use super::{diagnostics, part_input, parts, regions};
+use crate::view::Variants;
 use crate::view::descriptor::Mcx;
 use crate::view::editing_data::TextEditing;
 use crate::view::element_data::{Common, StyleLayer};
@@ -34,6 +35,7 @@ pub(super) struct Resolved {
     pub(super) disabled: Option<InputProp<bool>>,
     pub(super) selected: Option<InputProp<bool>>,
     pub(super) style: Vec<StyleLayer>,
+    pub(super) variants: Variants,
     pub(super) facts: NodeFacts,
     pub(super) draw: Option<DrawInput>,
     pub(super) late_semantics: Vec<crate::view::semantics_data::SemanticsPatch>,
@@ -260,6 +262,7 @@ fn finish_resolve(
         image_playing,
         layout_id,
         at: _,
+        variants,
     } = common;
     let (early, late) = if semantics
         .iter()
@@ -298,6 +301,7 @@ fn finish_resolve(
         disabled,
         selected,
         style,
+        variants: variants.map(|v| *v).unwrap_or_default(),
         facts,
         draw,
         late_semantics: late,

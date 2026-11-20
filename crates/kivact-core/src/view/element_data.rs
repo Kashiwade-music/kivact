@@ -267,6 +267,20 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         self
     }
 
+    /// Choose a look of the component: a value of a variant type its theme's
+    /// recipes know (`ButtonVariant::Ghost`, a kit's own enum). One value per
+    /// type; a later one replaces an earlier one. A theme that does not know the
+    /// type draws the plain look. It may be reactive (`move || ..`, a `Signal`).
+    #[track_caller]
+    fn variant<V: crate::view::Variant>(mut self, v: impl IntoValue<V>) -> Self {
+        self.node_mut()
+            .common
+            .variants
+            .get_or_insert_with(Default::default)
+            .set(v.into_prop());
+        self
+    }
+
     /// Accessible name.
     #[track_caller]
     fn name(mut self, v: impl IntoText) -> Self {
@@ -575,10 +589,12 @@ pub(crate) struct Common {
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
+    /// The variant values given with `.variant(..)`, one per type.
+    pub(crate) variants: Option<Box<crate::view::Variants>>,
 }
 
 /// The style layers and their origins are defined in [`style_layer`](crate::view::style_layer).
-pub(crate) use crate::view::style_layer::{LayerOrigin, RecipeName, StyleLayer};
+pub(crate) use crate::view::style_layer::{LayerFn, LayerOrigin, RecipeName, StyleLayer};
 
 impl Common {
     /// How many of the first layers of `style` are base layers.
@@ -600,7 +616,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::Base,
             },
@@ -610,7 +626,7 @@ impl Common {
     /// Append a style layer (`.style(..)`).
     pub(crate) fn push_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(s.into_fn()),
             at: Some(at),
             origin: LayerOrigin::Caller,
         });
@@ -624,7 +640,7 @@ impl Common {
         at: &'static Location<'static>,
     ) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(s.into_fn()),
             at: Some(at),
             origin: LayerOrigin::Recipe(name),
         });
@@ -641,7 +657,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::BaseRecipe(name),
             },

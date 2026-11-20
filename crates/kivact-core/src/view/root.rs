@@ -84,11 +84,11 @@ pub(crate) fn mount_window_root(
     let root = ViewState::tree_mut(rt).create_root(window, owner);
     let style = NodeStyle {
         layers: vec![crate::view::element_data::StyleLayer {
-            f: Rc::new(|| {
+            f: crate::view::element_data::LayerFn::Plain(Rc::new(|| {
                 kivact_style::style()
                     .size(kivact_style::pct(100), kivact_style::pct(100))
                     .background(kivact_style::ColorToken::Surface)
-            }),
+            })),
             at: Some(at),
             origin: crate::view::element_data::LayerOrigin::Base,
         }],
