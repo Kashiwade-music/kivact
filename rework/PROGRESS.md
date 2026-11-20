@@ -106,3 +106,9 @@
 - tier b（統合 branch `65926f75`、`V:/kv-target/rw-main`）：fmt・xtask（`--only local`、error 0 件）・clippy（workspace all-targets all-features、`--exclude kivact-docs`）・`xtask-allow(state-fields)` の rg（0 件）は成功。test（`--exclude gpu-interop-producer --exclude kivact-docs --no-fail-fast`）は 1614 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 40 件。
 - 注記：`rework/OPEN.md` の「W5a の記録（設計者、2026-11-20）」節。
 
+
+## W5b 完了（merge 済み・tier b 成功）
+- Arvane の鎖 A05〜A10 を lane `wt/rw-W5b-X` で実施（commit `da98c03a`・`cef68c88`・`12cd5129`・`c53801b2`・`4c6db854`・`f1d343db`）。Haiku の subagent が unit ごとに実施し、Orchestrator が commit と確認を見た。merge `8602f3d2`。
+- 各 unit の後の確認：報告の範囲の E2E（ARV・EMBED・GPU-DEMAND・LIFE・TEXT・ASSETS・OFFSCREEN・DRAW・GPU-SHARE・DEVTOOLS）と、後退の確認 5 件（e2e_core・e2e_ui・kivact-test・e2e_kits・kivact-ui-soft）。すべて成功（kivact-ui-soft の既知の 1 件を除く）。
+- 判断と注記：`rework/OPEN.md` の「Orchestrator の判断」（W5b の A05〜A10）と「設計者に確かめる点」。未了：root `Cargo.toml` の profile 行と `templates/basic/README.md`（A06 の所有の残り。G12 の範囲）、`kivact-devtools-agent` の kivact-types 依存（設計者の判断待ち）。
+- tier b（統合 branch `8602f3d2`、`V:/kv-target/rw-main`）：fmt・xtask（`--only local`、error 0 件）・clippy（workspace all-targets all-features、`--exclude kivact-docs`）は成功。test（`--workspace --exclude gpu-interop-producer --exclude kivact-docs --no-fail-fast`）は 1613 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）。`xtask-allow(state-fields)` の grep は 0 件。
