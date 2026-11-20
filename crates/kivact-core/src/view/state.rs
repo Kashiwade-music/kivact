@@ -231,6 +231,24 @@ pub(crate) enum Waiter {
     },
 }
 
+/// One `commit_focused_edit` call: the window whose focus it removes.
+pub(crate) struct BlurRequest {
+    pub(crate) window: WindowId,
+    pub(crate) stage: BlurStage,
+    pub(crate) done: Completion<()>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlurStage {
+    /// Waiting for the next commit, which sends the blur to the engine.
+    Queued,
+    /// Sent; waiting for the engine's `FocusChanged` of the window.
+    Sent,
+    /// Delivered: the next turn completes it, after this turn's user
+    /// effects committed the edit.
+    Delivered,
+}
+
 /// Outstanding host requests of an App.
 #[derive(Default)]
 pub(crate) struct Requests {
@@ -240,6 +258,8 @@ pub(crate) struct Requests {
     pub(crate) waiters: HashMap<u64, Waiter>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
+    /// The `commit_focused_edit` calls waiting for their commit.
+    pub(crate) blurs: Vec<BlurRequest>,
 }
 
 impl Requests {

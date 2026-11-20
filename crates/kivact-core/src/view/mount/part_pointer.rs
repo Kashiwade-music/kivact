@@ -17,10 +17,12 @@ use crate::view::{Handled, MouseButton, PointerButtons, PointerEvent, PointerId,
 impl PointerEvent {
     pub(crate) fn from_routed(
         routed: kivact_engine::contract::Routed<kivact_types::PointerSample>,
+        target_size: crate::geometry::Size,
     ) -> Self {
         Self {
             routed,
             capture_action,
+            target_size,
         }
     }
 

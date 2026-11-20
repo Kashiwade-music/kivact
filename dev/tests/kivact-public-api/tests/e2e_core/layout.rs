@@ -76,3 +76,23 @@ fn display_contents_lays_out_children_in_the_parent() {
     assert_eq!(indent("#second"), indent("#first"), "{tree}");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_spacer_shrinks_to_nothing_in_a_full_row() {
+    let screen = render_with(window(400.0, 200.0), || {
+        row((
+            node().test_id("fixed").style(style().width(100).height(20)),
+            spacer().test_id("gap"),
+        ))
+        .test_id("row")
+        .style(style().width(100))
+    });
+    assert_rect(
+        rect_of(&screen, "fixed"),
+        (0.0, 0.0, 100.0, 20.0),
+        "fixed item",
+    );
+    let gap = rect_of(&screen, "gap");
+    assert!(gap.width.abs() <= 0.5, "the spacer is {gap:?}");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

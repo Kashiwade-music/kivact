@@ -181,10 +181,10 @@ fn scroll_orientation(axes: ScrollAxes) -> Option<Orientation> {
     }
 }
 
-/// Flexible empty space.
+/// Flexible empty space: it grows, and shrinks to nothing.
 #[track_caller]
 pub fn spacer() -> Node {
-    node().style(style().grow(1))
+    node().style(style().grow(1).min_width(0).min_height(0))
 }
 
 /// Layers children on top of each other: the first child sizes the stack,

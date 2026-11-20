@@ -22,6 +22,7 @@ pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
+mod focus_commit;
 pub(crate) mod foreign;
 pub(crate) mod foreign_window;
 pub(crate) mod handler_layers;
@@ -74,6 +75,7 @@ pub use drawable_share::DrawableTextures;
 pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
 pub use element_data::Element;
 #[doc(inline)]
+pub use focus_commit::commit_focused_edit;
 pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{

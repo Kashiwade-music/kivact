@@ -292,6 +292,7 @@ impl WindowSlot {
             ViewState::tree(rt).engine().close_window(id);
         }
         ViewState::of(rt).remove_window(id);
+        crate::view::requests::release_blurs(rt, id);
         ViewState::of(rt).close_foreign_sizes(id);
         *self.arm.borrow_mut() = WindowArm::Closed;
     }

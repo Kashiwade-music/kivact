@@ -1,8 +1,11 @@
 //! Role: Input, scroll and portable platform contracts on real windows.
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::view::{KeyCode, LiveRegion, SortDirection};
+use kivact::view::{KeyCode, LiveRegion, PointerPhase, SortDirection};
 use kivact_public_api_tests::support::mount;
 
 #[test]
@@ -492,4 +495,35 @@ fn aligned_inputs_fixture() -> (kivact::test::Screen, Signal<String>) {
             ),
         )
     })
+}
+
+#[test]
+fn pointer_events_know_the_size_of_their_target() {
+    let (screen, sizes) = mount(|| {
+        let sizes = Rc::new(RefCell::new(Vec::<(f64, f64)>::new()));
+        let out = sizes.clone();
+        let view = node()
+            .role(Role::Button)
+            .name("Pad")
+            .style(style().size(120, 40))
+            .on_pointer(move |e: PointerEvent| {
+                if matches!(e.phase(), PointerPhase::Down(_)) {
+                    let size = e.target_size();
+                    out.borrow_mut().push((size.width, size.height));
+                }
+                Handled::No
+            })
+            .child(node().name("Inner").style(style().size(50, 20)));
+        (sizes, view)
+    });
+    let pad = screen
+        .get_by_role(Role::Button, "Pad")
+        .rect()
+        .expect("the pad is laid out");
+    // Over the child, which has no handler of its own.
+    screen.click_at(pad.x + 5.0, pad.y + 5.0);
+    // Over the pad itself.
+    screen.click_at(pad.x + 100.0, pad.y + 30.0);
+    assert_eq!(&*sizes.borrow(), &[(120.0, 40.0), (120.0, 40.0)]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -48,7 +48,12 @@ pub(super) fn pointer(
         return;
     }
     let event = routed.input;
-    let e = PointerEvent::from_routed(routed);
+    let target_size = ViewState::tree(rt)
+        .reader()
+        .box_model(node)
+        .map(|b| kivact_types::Size::new(b.border.width, b.border.height))
+        .unwrap_or_default();
+    let e = PointerEvent::from_routed(routed, target_size);
     let found = {
         let tree = ViewState::tree(rt);
         let stop = tree.modal_boundary(node);

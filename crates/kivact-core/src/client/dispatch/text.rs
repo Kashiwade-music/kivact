@@ -77,6 +77,9 @@ pub(super) fn focus_changed(
         node.map(|node| kivact_types::FocusTarget { node, region }),
         visible,
     );
+    if node.is_none() {
+        crate::view::requests::mark_blur_delivered(rt, window);
+    }
 }
 
 pub(super) fn focus_result(rt: &Runtime, request: RequestId, result: Result<(), String>) {

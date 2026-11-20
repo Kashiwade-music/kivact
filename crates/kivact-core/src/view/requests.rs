@@ -13,9 +13,11 @@
 use std::panic::Location;
 
 use kivact_engine::contract::HostRequest;
-use kivact_types::{PlatformResult, RequestId};
+use kivact_types::{PlatformResult, RequestId, WindowId};
 
-use super::state::{FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter};
+use super::state::{
+    BlurRequest, BlurStage, FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter,
+};
 use kivact_runtime::Owner;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
@@ -216,6 +218,83 @@ pub(crate) fn flush_focus(rt: &Runtime) {
                 ))),
             );
         }
+    }
+    send_queued_blurs(rt);
+}
+
+/// Send the queued blurs of `commit_focused_edit`: a window that still has
+/// a focus gets the engine's blur; one without a focus is delivered at once.
+fn send_queued_blurs(rt: &Runtime) {
+    let queued: Vec<WindowId> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let mut windows = Vec::new();
+        for blur in requests
+            .blurs
+            .iter_mut()
+            .filter(|b| b.stage == BlurStage::Queued)
+        {
+            blur.stage = BlurStage::Sent;
+            if !windows.contains(&blur.window) {
+                windows.push(blur.window);
+            }
+        }
+        windows
+    };
+    for window in queued {
+        let focused = ViewState::of(rt)
+            .focus_keys(window)
+            .is_some_and(|keys| keys.focus.get_untracked().is_some());
+        if focused {
+            ViewState::tree(rt).engine().blur(window);
+        } else {
+            mark_blur_delivered(rt, window);
+        }
+    }
+}
+
+/// The focus of `window` left: its sent blur requests complete on the next turn.
+pub(crate) fn mark_blur_delivered(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window && blur.stage == BlurStage::Sent {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
+    }
+}
+
+/// Complete the blur requests delivered in an earlier turn. `true` when one
+/// completed (a task woke, so the turn is not idle).
+pub(crate) fn complete_delivered_blurs(rt: &Runtime) -> bool {
+    let delivered: Vec<BlurRequest> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let (done, keep): (Vec<_>, Vec<_>) = std::mem::take(&mut requests.blurs)
+            .into_iter()
+            .partition(|b| b.stage == BlurStage::Delivered);
+        requests.blurs = keep;
+        done
+    };
+    let woke = !delivered.is_empty();
+    for blur in delivered {
+        blur.done.complete(());
+    }
+    woke
+}
+
+/// The window `window` closed: its blur requests complete on the next turn.
+pub(crate) fn release_blurs(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
     }
 }
 

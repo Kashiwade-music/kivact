@@ -39,12 +39,15 @@ impl Launch {
         // A close requested from any thread since the last turn starts the
         // exit before the idle check, so a bare wake always counts.
         super::close::take_close_request(&rt, self.policy.is_embedded());
+        // A blur delivered last turn: its user effects have committed the edit.
+        let woke = crate::view::requests::complete_delivered_blurs(&rt);
         #[cfg(feature = "devtools")]
         let incoming = crate::devtools::take_incoming(&rt);
         let tree = ViewState::tree(&rt).engine().clone();
         // A host call with no event, no due mount callback, no queued work
         // and no mail from other threads runs no turn.
-        let idle = events.is_empty()
+        let idle = !woke
+            && events.is_empty()
             && boundaries
                 .last()
                 .is_some_and(|b| !rt.mounts_due(b.revision))

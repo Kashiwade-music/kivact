@@ -13,6 +13,8 @@ use std::rc::Rc;
 use kivact::interaction::{use_text_area, use_text_edit};
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
+use kivact::view::commit_focused_edit;
+use kivact_public_api_tests::support::mount;
 
 /// A family emoji: one grapheme of five scalars.
 const FAMILY: &str = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
@@ -737,4 +739,82 @@ fn a_field_narrower_than_the_caret_margin_settles() {
     field.focus();
     field.type_text("12");
     assert_eq!(field.value().as_deref(), Some("12"));
+}
+
+#[test]
+fn commit_focused_edit_commits_a_draft_and_resolves_after_the_value_is_written() {
+    let (screen, (name, saved)) = mount(|| {
+        let draft = signal(String::new());
+        let name = signal(String::new());
+        let saved = signal(String::new());
+        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let view = node()
+            .on_key(move |e: KeyEvent| {
+                if e.key() == Key::Char('s') && e.modifiers().ctrl {
+                    spawn(async move {
+                        commit_focused_edit().await;
+                        saved.set(name.get_untracked());
+                    });
+                }
+            })
+            .child(node().name("Name").part(field.control()));
+        ((name, saved), view)
+    });
+    let f = screen.get_by_role(Role::TextBox, "Name");
+    f.focus();
+    f.type_text("Ada");
+    assert_eq!(name.get_untracked(), "", "the draft is not committed yet");
+    screen.press_key_with(Key::Char('s'), ctrl());
+    screen.run_until_idle();
+    assert_eq!(saved.get_untracked(), "Ada");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn commit_focused_edit_commits_a_preedit_and_resolves_after_the_value_is_written() {
+    let (screen, (go, saved)) = mount(|| {
+        let draft = signal(String::new());
+        let name = signal(String::new());
+        let saved = signal(String::new());
+        let go = signal(false);
+        effect(move || {
+            if go.get() {
+                spawn(async move {
+                    commit_focused_edit().await;
+                    saved.set(name.get_untracked());
+                });
+            }
+        });
+        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let view = node().child(node().name("Name").part(field.control()));
+        ((go, saved), view)
+    });
+    let f = screen.get_by_role(Role::TextBox, "Name");
+    f.focus();
+    f.compose("x");
+    go.set(true);
+    screen.run_until_idle();
+    assert_eq!(saved.get_untracked(), "x", "the preedit is committed first");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn commit_focused_edit_without_focus_resolves_at_once() {
+    let (screen, done) = mount(|| {
+        let done = signal(false);
+        let view = node().child(node().name("Plain"));
+        on_mount(move || {
+            spawn(async move {
+                commit_focused_edit().await;
+                done.set(true);
+            });
+        });
+        (done, view)
+    });
+    screen.run_until_idle();
+    assert!(
+        done.get_untracked(),
+        "nothing is focused: the call resolves"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
