@@ -54,6 +54,7 @@ pub fn text_input(label: impl IntoText, value: kivact_core::state::Signal<String
     create(label.into_text_value(), value, false)
 }
 /// A controlled native multiline input with the theme's text-area recipe.
+#[track_caller]
 pub fn text_area(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
     create(label.into_text_value(), value, true)
 }

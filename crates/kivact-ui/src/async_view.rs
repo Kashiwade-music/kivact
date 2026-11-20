@@ -2,7 +2,7 @@
 use kivact_core::UiError;
 use kivact_core::state::{Callback, untrack};
 use kivact_core::task::{AsyncSource, AsyncState};
-use kivact_core::view::{Element, IntoView, View, dynamic};
+use kivact_core::view::{Element, IntoView, IntoViewFn, View, dynamic};
 use std::rc::Rc;
 
 /// A view of a resource or action, with optional loading and error content.
@@ -31,8 +31,9 @@ pub fn async_view<T: Clone + 'static, V: IntoView>(
 }
 impl<T> AsyncView<T> {
     /// Replace the default loading indicator.
-    pub fn loading<V: IntoView>(mut self, f: impl Fn() -> V + 'static) -> Self {
-        self.loading = Rc::new(move || f().into_view());
+    pub fn loading<V: IntoView>(mut self, f: impl IntoViewFn<V>) -> Self {
+        let f = f.into_view_fn();
+        self.loading = Rc::new(move || f.call(()));
         self
     }
     /// Replace the default error message and retry button.
