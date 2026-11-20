@@ -3785,6 +3785,32 @@ fn expected(what: &str, text: &str) -> String {
 
 ---
 
+## S17b：DevTools の text の追補（2026-11-21 の設計者の回答、C19 の差戻し）
+
+- **wave / lane / 前提**：W6b / 鎖（lane X）/ C19 の commit `79358493` の上。この unit の後に C19 の確認をやり直し、S18 へ進む。
+- **所有**：`crates/kivact-style/src/sheet/edit_text.rs`、`crates/kivact-style/src/sheet/props.rs`（macro の `value_debug` だけ）、`crates/kivact-style/src/sheet/decl.rs`（`extra_value_debug` と `mod tests`）、`crates/kivact-style/src/resolve/describe.rs`（`describe_style` だけ）、`crates/kivact-core/src/devtools/styles.rs`・`apply.rs`（下の 4 の掃除だけ）
+- **目的**：(1) DevTools の override で `background`・`line_height`・`radius` を text から読めるように保つ（2b8df5ac の `override_paint`・`override_text` が読めた形）。(2) DevTools の style の一覧（base の層も state の層も）の値を、`Debug` の文字列でなく表の text の形にする。
+- **手順**：
+  1. `edit_text.rs`：`shown_only!` の一覧から `Background`、`CornerRadius`、`LineHeight` を外し、次の 3 つの impl を足す（`Length`・`Color` の impl の後）：
+     - `impl EditText for Background`：`to_edit_text` は `self.solid()` が `Some(c)` なら `c.to_edit_text()`、`None`（gradient・複数の層）なら `format!("{self:?}")`。`from_edit_text` は `Color::from_edit_text(text).map(|c| Background::from(Paint::from(c)))`（gradient は text から作らない。既存の `From<C: Into<Color>> for Paint` と `From<Paint> for Background` を使う）。
+     - `impl EditText for LineHeight`：`to_edit_text` は `Normal` → `"normal"`、`Scale(v)` → `format!("{v}")`、`Px(v)` → `format!("{v}px")`。`from_edit_text` は `text.trim()` が `"normal"` なら `Normal`、末尾が `px` ならその前を `f64` で読んで `Px`、それ以外は `f64` で読んで `Scale`。読めなければ `expected("a line height", text)`。
+     - `impl EditText for CornerRadius`：`to_edit_text` は `x == y` なら `x.to_edit_text()`、違えば `format!("{} {}", x.to_edit_text(), y.to_edit_text())`。`from_edit_text` は空白で分けて、1 つなら `Length::from_edit_text` を `x` と `y` の両方に、2 つなら順に `x`・`y`、それ以外は `expected("one or two lengths", text)`。
+     （`Box<CornerRadius>` は既存の `impl<T: EditText> EditText for Box<T>` で済む。）
+  2. `props.rs` の macro：`pub(crate) fn value_debug(&self) -> String` を `pub(crate) fn edit_text(&self) -> String` に改名し、doc を「Its value in the DevTools text form (`EditText`).」にする。本体の 2 行を `$( Decl::$variant(v) => EditText::to_edit_text(v), )*` と `$( Decl::$lvariant(v) => EditText::to_edit_text(v), )*` にし、`other => other.extra_edit_text(),` にする。`decl.rs` の `extra_value_debug` を `extra_edit_text` に改名する（本体は変えない：shadow と transition は `Debug` のまま）。
+  3. `describe.rs` の `describe_style`：`d.value_debug()` を `d.edit_text()` にし、doc の「with the `Debug` of its value」を「with its value in the DevTools text form」にする。`describe_state_styles` は変えない（state の層も同じ形になる）。
+  4. core：C19 の `styles.rs`・`apply.rs` に、`Debug` の文字列を前提にした処理（`Px(..)` の形を読み直す、など）があれば消し、`describe_style`・`describe_state_styles` の値をそのまま使う。無ければ変えない。
+- **状態の閉じ方**：新しい状態は無い。
+- **試験**：`decl.rs` の `fn style_properties_round_trip()` に足す：`background` に `"#2563eb"` を parse した style の describe が `Some("#2563eb")`、`line_height` の `"1.5"` が `Some("1.5")`、`"20px"` が `Some("20px")`、`"normal"` が `Some("normal")`、`radius_top_left` の `"8"` が `Some("8")`、`"8 4"` が `Some("8 4")`、`radius_top_left` の `"a b c"` が `Err`。`describe_style` の値の文字列を期待する既存の試験（kivact-style の unit 試験、公開 E2E の devtools の style の表示）があれば、期待の値を text の形（`Px(8.0)` → `8` など）に直してよい（設計者の決まり。0.5 の差戻しに当たらない）。
+- **確認（tier a）**：鎖の共通確認と次：
+  ```
+  cargo test -p kivact-style
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- devtools
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core
+  ```
+- **完了条件**：`rg -n "value_debug" crates/kivact-style/src` が 0 件。`rg -n "Background, |CornerRadius, |LineHeight," crates/kivact-style/src/sheet/edit_text.rs` の `shown_only!` の行に 3 つが無い。上のコマンドが通る。
+
+---
+
 ## S18：解決を一度の畳み込みで行う（ST-08 の後半、ST-06、ST-31、ST-09 の style 側）
 
 - **wave / lane / 前提**：W6b / 鎖 / C19（付属書 C。鎖の中で S17 の直後）

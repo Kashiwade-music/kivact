@@ -644,3 +644,9 @@ C19 のほかの点は、Orchestrator の判断どおり：shorthand の展開�
 
 - E14 の `content_version` の再実行と後退の確認は、E2 の worktree で実施済み（`V:/kv-target/logs-W6b-E2/verify-e14-summary.txt`：xtask・content_version の debug と release・e2e_core・e2e_ui・e2e_native・kivact-test がすべて rc=0）。E24 の後の後退の確認（E24 の節）も成功。採る。
 - 同じ確認を、Orchestrator が `cargo test -p kivact-engine --test content_version`（feature `testing` が要る）で再実行しようとしたが、feature の付け忘れで走らなかった（ログは `V:/kv-target/logs-W6b-E2/e14-content-version-*.log`、exit 101）。確認の結果ではない。統合の tier b（`--all-features`）で改めて通る。
+
+## 設計者の回答（W6b の差戻し：C19、2026-11-21）
+
+- **(1) shorthand 名の override**：(a) を採る。DevTools の override は 2b8df5ac で `background`（色）・`line_height`（数と `px`）・`radius`（数）を読めたので、これを保つ。付属書 S に追補 **S17b**（`## S18` の直前）を足した：`Background`（色だけを text から読む）・`LineHeight`（`normal`・数・`Npx`）・`CornerRadius`（1 つか 2 つの長さ）の `EditText` を書き、`shown_only!` から外す。`radius` は C19 の `SHORTHANDS` で 4 隅に展開されるので、各隅の `CornerRadius` が読めればよい。
+- **(2) state layer の値**：(a) の変形を採る。新しい入口は足さず、`describe_style` の値を `Debug` から表の text の形（`Decl::edit_text`、`EditText::to_edit_text`）に変える（S17b の 2・3）。これで `describe_state_styles` も同じ形になり、base の層と state の層の値が揃う。Orchestrator の判断 (d) を満たす。値の文字列を期待する既存の試験は text の形に直してよい。
+- 進め方：lane X で `79358493` の上に S17b を実施し、C19 の確認（tier a）をやり直してから S18 へ進む。
