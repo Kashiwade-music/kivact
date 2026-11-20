@@ -263,7 +263,7 @@ impl NodeRef {
         self.target()
     }
 
-    /// Render this node and its descendants into straight-alpha RGBA pixels.
+    /// Render this node and its descendants into premultiplied RGBA pixels.
     ///
     /// Coordinates are logical pixels at scale 1, cropped to the node's layout
     /// size. Rendering uses the CPU, including when the window uses a GPU.

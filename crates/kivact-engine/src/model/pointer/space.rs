@@ -10,12 +10,12 @@ use std::cell::RefCell;
 /// scene regions and shaped text offsets need no trait.
 pub(crate) struct PointerSpace<'a> {
     at: Point,
-    engine: RefCell<&'a mut arvane::Engine>,
+    engine: RefCell<&'a mut arvane_text::TextEngine>,
 }
 
 impl<'a> PointerSpace<'a> {
     /// The pointer at the window position `at`.
-    pub(crate) fn new(at: Point, engine: &'a mut arvane::Engine) -> Self {
+    pub(crate) fn new(at: Point, engine: &'a mut arvane_text::TextEngine) -> Self {
         Self {
             at,
             engine: RefCell::new(engine),

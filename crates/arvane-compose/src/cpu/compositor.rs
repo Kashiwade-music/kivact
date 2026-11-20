@@ -1,8 +1,6 @@
 //! Role: CpuCompositor: runs a planned frame on the calling thread.
 
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
-use std::hash::{Hash, Hasher};
 
 use arvane_protocol::{
     Composition, CpuFrame, ExportMode, FrameReport, LayerFilter, LayerKey, PixelRect, RenderScene,
@@ -54,8 +52,8 @@ struct ExportRecord {
     size: (u32, u32),
     /// Device px per logical px.
     scale: f64,
-    /// Hash of the frame's pixels.
-    content: u64,
+    /// The planned signature of the layer the frame was made from (AR-14).
+    signature: u64,
 }
 
 /// The pixel stores kept between frames, next to the pure cache index.
@@ -437,7 +435,7 @@ fn export_frames(
             mode: export.mode,
             size: export.size,
             scale: export.scale,
-            content: content_hash(px),
+            signature: planned.signature,
         };
         if stores.exports.get(&sink) == Some(&record) {
             continue;
@@ -446,33 +444,8 @@ fn export_frames(
         outcome.frames.push(ExportedFrame {
             sink,
             generation: export.generation,
-            frame: ExportFrame::Pixels(unpremultiplied(px)),
+            frame: ExportFrame::Pixels(Pixels::new(px.size().0, px.size().1, px.data.clone())),
         });
     }
     outcome
-}
-
-/// A hash of a pixmap's bytes (deterministic within a process).
-fn content_hash(px: &Pixmap) -> u64 {
-    let mut hasher = DefaultHasher::new();
-    px.data.hash(&mut hasher);
-    hasher.finish()
-}
-
-/// The straight-alpha RGBA8 pixels of a premultiplied pixmap.
-fn unpremultiplied(px: &Pixmap) -> Pixels {
-    let (w, h) = px.size();
-    let mut out = Vec::with_capacity(px.data.len());
-    for p in px.data.as_chunks::<4>().0 {
-        let a = f32::from(p[3]) / 255.0;
-        if a <= 0.0 {
-            out.extend_from_slice(&[0, 0, 0, 0]);
-            continue;
-        }
-        for c in &p[..3] {
-            out.push((f32::from(*c) / a).round().min(255.0) as u8);
-        }
-        out.push(p[3]);
-    }
-    Pixels::new(w, h, out)
 }

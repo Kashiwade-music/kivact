@@ -15,7 +15,6 @@
 //! - The natural size is the SVG's `width`/`height`, else its `viewBox`.
 //! - A raster is exactly the requested size: the drawing is scaled to it
 //!   (the caller asks for the aspect ratio it draws at).
-//! - The rasterizer's premultiplied pixels are converted to straight alpha.
 //! - SVGZ is decompressed here through a reader limited to
 //!   `MAX_ENCODED_BYTES + 1` bytes ([`decompress`]), so a small file that
 //!   inflates without bound fails as too large; usvg only ever gets plain

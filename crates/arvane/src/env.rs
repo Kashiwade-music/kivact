@@ -1,7 +1,7 @@
 //! Role: Environment variable configuration for Arvane.
 //!
 //! The environment variables Arvane reads, all read here: once per native
-//! window loop ([`crate::Shell::run`]) or test window, never on a hot
+//! window loop ([`crate::run`]) or test window, never on a hot
 //! path.
 //!
 //! - `ARVANE_RENDERER`: `cpu` draws a native window on the CPU, `gpu` on
@@ -17,7 +17,7 @@ use kivact_types::gpu::GpuStart;
 
 /// How a native window's renderer starts, decided once per loop
 /// ([`Env::read`]): `ARVANE_RENDERER` (`cpu`, `gpu`, `auto`), else the host's
-/// `prefer_gpu` and `GpuPreference::start`.
+/// `GpuPreference::start`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum RendererStart {
     /// Frames are drawn on the CPU only; no device ever starts.
@@ -29,13 +29,13 @@ pub(crate) enum RendererStart {
 }
 
 impl RendererStart {
-    fn resolve(forced: Option<&str>, prefer_gpu: bool, start: GpuStart) -> Self {
+    fn resolve(forced: Option<&str>, start: GpuStart) -> Self {
         match forced {
             Some("cpu") => Self::Cpu,
             Some("gpu") => Self::GpuAtLaunch,
             Some("auto") => Self::GpuOnDemand,
-            _ if !prefer_gpu => Self::Cpu,
             _ => match start {
+                GpuStart::Never => Self::Cpu,
                 GpuStart::AtLaunch => Self::GpuAtLaunch,
                 GpuStart::OnDemand => Self::GpuOnDemand,
             },
@@ -53,12 +53,11 @@ pub(crate) struct Env {
 }
 
 impl Env {
-    /// Read the environment now, for windows the host wants drawn on the GPU
-    /// (`prefer_gpu`) with devices made and started as `preference` wishes.
-    pub(crate) fn read(prefer_gpu: bool, preference: kivact_types::GpuPreference) -> Self {
+    /// Read the environment now, with devices made and started as `preference` wishes.
+    pub(crate) fn read(preference: kivact_types::GpuPreference) -> Self {
         let forced = std::env::var("ARVANE_RENDERER").ok();
         Self {
-            start: RendererStart::resolve(forced.as_deref(), prefer_gpu, preference.start),
+            start: RendererStart::resolve(forced.as_deref(), preference.start),
             gpu: arvane_compose::GpuEnv::from_env(preference),
         }
     }

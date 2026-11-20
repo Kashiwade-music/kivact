@@ -74,6 +74,11 @@ pub enum HostRequest {
         window: kivact_types::WindowId,
         request: PlatformRequest,
     },
+    /// Ask for window `window`'s content size: `size` logical px, answered like a platform request.
+    RequestWindowSize {
+        window: kivact_types::WindowId,
+        size: kivact_types::Size,
+    },
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.
@@ -138,7 +143,7 @@ pub enum ExportRequestMode {
 /// The settled host's answer to a subtree CPU capture request.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SnapshotResult {
-    /// Straight-alpha RGBA pixels at logical scale 1.
+    /// Premultiplied RGBA pixels at logical scale 1.
     Pixels(kivact_types::Pixels),
     /// The target no longer has mounted layout.
     Unmounted,

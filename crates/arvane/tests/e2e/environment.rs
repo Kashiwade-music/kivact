@@ -6,7 +6,7 @@
 
 use crate::support::Harness;
 use arvane_virtual::VirtualOptions;
-use kivact_types::{Cursor, Insets, Size};
+use kivact_types::{Cursor, InputPurpose, Insets, Rect, Size};
 use kivact_types::{Environment, PointerSettings};
 
 use crate::support::{PERIOD, open, options, rect};
@@ -51,7 +51,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     window.script().set_safe_area(insets);
     window.script().set_locale(None);
     window.script().set_scale(1.5);
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     let environment = window.probe().environment();
     assert_eq!(
         environment,
@@ -72,7 +72,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     );
     assert_eq!(window.probe().scale(), 1.5);
     window.script().set_locale(Some("fr-CA"));
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     assert_eq!(
         window.probe().environment().locale.as_deref(),
         Some("fr-CA")
@@ -82,7 +82,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
         width: 60.0,
         height: 40.0,
     });
-    window.step(arvane::spi::Step::Input);
+    window.step(arvane_shell::Step::Input);
     assert_eq!(
         window.probe().size(),
         Size {
@@ -94,20 +94,28 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     assert_eq!((plan.size, plan.scale), (window.probe().size(), 1.5));
 }
 
+/// The IME request of the test's text input, its caret at `cursor_area`.
+fn ime_request(soft_keyboard: bool, cursor_area: Rect) -> Option<arvane_shell::ImeRequest> {
+    Some(arvane_shell::ImeRequest {
+        purpose: InputPurpose::Text,
+        cursor_area,
+        text: None,
+        soft_keyboard,
+    })
+}
+
 #[test]
 fn the_software_keyboard_and_the_ime_follow_the_host() {
     let mut window = open(100.0, 80.0);
     assert_eq!(window.probe().soft_keyboard(), (false, 0));
-    window.with(move |w| w.set_soft_keyboard(true));
-    window.with(move |w| w.set_soft_keyboard(true));
-    assert_eq!(window.probe().soft_keyboard(), (true, 1), "shown once");
-    window.with(move |w| w.set_soft_keyboard(false));
-    assert_eq!(window.probe().soft_keyboard(), (false, 2));
     let area = rect(10.0, 20.0, 2.0, 16.0);
-    window.with(move |w| w.set_ime_allowed(true));
-    window.with(move |w| w.set_ime_cursor_area(area));
+    window.with(move |w| w.set_ime(ime_request(true, area)));
+    window.with(move |w| w.set_ime(ime_request(true, area)));
+    assert_eq!(window.probe().soft_keyboard(), (true, 1), "shown once");
+    window.with(move |w| w.set_ime(ime_request(false, area)));
+    assert_eq!(window.probe().soft_keyboard(), (false, 2));
     assert_eq!(window.probe().ime_area(), Some(area));
-    window.with(move |w| w.set_ime_allowed(false));
+    window.with(move |w| w.set_ime(None));
     assert_eq!(window.probe().ime_area(), None);
     window.with(move |w| w.set_cursor(Cursor::Text));
     assert_eq!(window.probe().cursor(), Cursor::Text);
@@ -125,6 +133,6 @@ fn the_software_keyboard_and_the_ime_follow_the_host() {
     assert!(!window.probe().redraw_requested());
     window.with(move |w| w.request_redraw());
     assert!(window.probe().redraw_requested());
-    window.step(arvane::spi::Step::Redraw);
+    window.step(arvane_shell::Step::Redraw);
     assert!(!window.probe().redraw_requested());
 }

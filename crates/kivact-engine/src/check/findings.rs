@@ -21,7 +21,7 @@ const PIXEL_ROUNDING: f64 = 0.5;
 /// that of its glyphs' outlines, else of its metrics.
 pub(crate) fn layout_findings(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     scope: Option<NodeId>,
     ink: bool,
@@ -70,7 +70,7 @@ fn ignores(n: &HostNode, check: &LayoutCheck) -> bool {
 /// The findings of the text or text input `id`, appended to `out`.
 pub(crate) fn text_findings(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     id: NodeId,
     ink: bool,

@@ -42,7 +42,7 @@ impl Shaped {
 /// not checked: a multiline input scrolls its lines).
 pub(super) fn shape(
     host: &Model,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     id: NodeId,
     ink: bool,
 ) -> Option<Shaped> {
@@ -125,7 +125,8 @@ fn line_inks(
     let mut inks: Vec<Option<Rect>> = vec![None; shaped.lines.len()];
     if ink {
         for run in &shaped.runs {
-            let (Some(b), Some(g)) = (arvane::glyph_ink_bounds(run), run.glyphs.first()) else {
+            let (Some(b), Some(g)) = (arvane_render::glyph_ink_bounds(run), run.glyphs.first())
+            else {
                 continue;
             };
             // The line whose baseline this run sits on.

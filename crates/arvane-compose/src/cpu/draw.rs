@@ -18,15 +18,15 @@ use crate::plan::{DrawOp, Sampling, Scissor, Source};
 /// The chunks of the frame (this frame's and the kept ones), by key.
 pub(crate) type Chunks = HashMap<ChunkKey, Pixmap>;
 
-/// Straight-alpha pixels read as premultiplied texels, within an optional source rectangle.
-pub(crate) struct Straight<'a> {
+/// Premultiplied-alpha pixels read as texels, within an optional source rectangle.
+pub(crate) struct Premultiplied<'a> {
     /// The pixels.
     pixels: &'a Pixels,
     /// The source rectangle in image px; None for all of the image.
     source: Option<Rect>,
 }
 
-impl Texels for Straight<'_> {
+impl Texels for Premultiplied<'_> {
     fn texel(&self, x: i64, y: i64) -> Premul {
         let inside_image = x >= 0
             && y >= 0
@@ -43,12 +43,11 @@ impl Texels for Straight<'_> {
         }
         let i = (y as usize * self.pixels.width as usize + x as usize) * 4;
         let p = &self.pixels.rgba[i..i + 4];
-        let a = f32::from(p[3]) / 255.0;
         [
-            f32::from(p[0]) / 255.0 * a,
-            f32::from(p[1]) / 255.0 * a,
-            f32::from(p[2]) / 255.0 * a,
-            a,
+            f32::from(p[0]) / 255.0,
+            f32::from(p[1]) / 255.0,
+            f32::from(p[2]) / 255.0,
+            f32::from(p[3]) / 255.0,
         ]
     }
 }
@@ -57,8 +56,8 @@ impl Texels for Straight<'_> {
 enum Texture<'a> {
     /// A premultiplied pixmap (a chunk or a target).
     Premul(&'a Pixmap),
-    /// Straight-alpha pixels.
-    Straight(Straight<'a>),
+    /// Premultiplied-alpha pixels.
+    Premultiplied(Premultiplied<'a>),
 }
 
 impl Texture<'_> {
@@ -66,7 +65,7 @@ impl Texture<'_> {
     fn sample(&self, p: Point, nearest: bool) -> Premul {
         match self {
             Texture::Premul(pixmap) => sample_with(*pixmap, p, nearest),
-            Texture::Straight(straight) => sample_with(straight, p, nearest),
+            Texture::Premultiplied(pixels) => sample_with(pixels, p, nearest),
         }
     }
 }
@@ -207,7 +206,7 @@ pub(crate) fn draw(
 /// frame's px here, by the size of the CPU pixels and the source rectangle, as the GPU does.
 /// None when the item rect has no area in target px.
 fn texel_map(op: &DrawOp<'_>, texture: &Texture<'_>) -> Option<Projective> {
-    let (Source::External { source, .. }, Texture::Straight(straight)) = (&op.source, texture)
+    let (Source::External { source, .. }, Texture::Premultiplied(straight)) = (&op.source, texture)
     else {
         return Some(op.map);
     };
@@ -258,7 +257,7 @@ fn resolve<'a>(
         )),
         Source::Target(t) => Some(Texture::Premul(&targets[*t as usize])),
         Source::External { frame, cpu, source } => match cpu {
-            Some(pixels) => Some(Texture::Straight(Straight {
+            Some(pixels) => Some(Texture::Premultiplied(Premultiplied {
                 pixels,
                 source: *source,
             })),

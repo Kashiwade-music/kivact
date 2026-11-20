@@ -123,7 +123,7 @@ impl Model {
         &mut self,
         input: kivact_types::KeyInput,
         physical: Option<char>,
-        engine: &Rc<RefCell<arvane::Engine>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) -> KeyResult {
         let kivact_types::KeyInput {
             key,
@@ -153,7 +153,12 @@ impl Model {
     }
 
     /// Clipboard text pasted into the text input `id` (as is).
-    pub(crate) fn paste(&mut self, id: NodeId, text: &str, engine: &Rc<RefCell<arvane::Engine>>) {
+    pub(crate) fn paste(
+        &mut self,
+        id: NodeId,
+        text: &str,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) {
         self.paste_input(id, text, engine);
         self.sync();
     }
@@ -221,7 +226,7 @@ impl Model {
     pub(crate) fn edit_input_with(
         &mut self,
         id: NodeId,
-        engine: &Rc<RefCell<arvane::Engine>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
         f: impl FnOnce(&mut EditState, Option<EditLayout>),
     ) -> Option<bool> {
         let width = self.lay_out_lines(id, &mut engine.borrow_mut());
@@ -317,7 +322,7 @@ impl Model {
         repeat: bool,
         text: Option<&str>,
         pointer: Option<kivact_types::Point>,
-        engine: &Rc<RefCell<arvane::Engine>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) -> KeyResult {
         let key = shortcut_key(key, physical, modifiers);
         let input = self.focused_input();
@@ -559,7 +564,7 @@ impl Model {
         &mut self,
         id: NodeId,
         text: &str,
-        engine: &Rc<RefCell<arvane::Engine>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) {
         let Some(node) = self.tree.get(id) else {
             return;
@@ -594,7 +599,7 @@ impl Model {
 impl Model {
     /// Bring the lines of the text input `id` up to its text for a
     /// behavior to read; the width of the box they are aligned in.
-    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane::Engine) -> f64 {
+    fn lay_out_lines(&self, id: NodeId, engine: &mut arvane_text::TextEngine) -> f64 {
         drop(self.edit_lines(id, engine));
         crate::model::interact::visual::text_box(self, id).width
     }

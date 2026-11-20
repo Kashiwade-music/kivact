@@ -1,7 +1,7 @@
 //! Role: A frame's raster plan, and what presenting it did.
 
-use crate::error::{Failure, FailureKind};
 use crate::presentation::Renderer;
+use kivact_types::Failure;
 use kivact_types::Size;
 use kivact_types::export::{ExportedFrame, FrameStats};
 use kivact_types::ids::DrawableId;
@@ -63,35 +63,14 @@ pub enum Presented {
         /// When to draw the frame again.
         retry_at_ns: u64,
     },
-    /// The scene or its size cannot be drawn: nothing was shown and the
-    /// window keeps its picture until the next change. So it is, on every
-    /// renderer, for a window of no pixels (minimized): its resize asks
-    /// for the next frame.
+    /// The scene cannot be drawn: nothing was shown and the window keeps
+    /// its picture until the next change.
     Dropped(Failure),
+    /// Not drawn: the window cannot show a frame now (`Drawable` says why).
+    /// The change that makes it drawable asks for a frame.
+    NotDrawable(arvane_shell::Drawable),
     /// The window's surface failed and was made again: nothing new was
     /// shown. Request another frame immediately; Arvane has already
     /// performed the recovery. A shown or skipped frame resets the failure count.
     SurfaceLost(Failure),
-}
-
-/// What presenting to a window without a surface does: nothing is drawn
-/// (the host draws again when the window has a surface again).
-pub(crate) fn no_surface() -> Presented {
-    Presented::Dropped(Failure::new(
-        FailureKind::Unavailable,
-        "the window has no surface (the platform destroyed it)",
-    ))
-}
-
-/// What presenting to a window of no pixels does (minimized, or sized to
-/// nothing; `physical` is its size): nothing is drawn, on any renderer,
-/// and the resize that gives it pixels again asks for a frame. `None` for
-/// a window with pixels.
-pub(crate) fn no_pixels((width, height): (u32, u32)) -> Option<Presented> {
-    (width == 0 || height == 0).then(|| {
-        Presented::Dropped(Failure::new(
-            FailureKind::Content,
-            format!("the window has no pixels to draw ({width} x {height})"),
-        ))
-    })
 }

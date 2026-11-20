@@ -246,7 +246,7 @@ impl Model {
     pub(crate) fn edit_lines(
         &self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<(RefMut<'_, EditLines>, &str)> {
         let width = crate::model::interact::visual::text_box(self, id).width;
         crate::measure::input::edit_lines(
@@ -265,7 +265,7 @@ impl Model {
     pub(crate) fn refresh_lines(
         &self,
         id: NodeId,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         mode: RefreshMode,
     ) -> Result<Option<RefreshedLines<'_>>, RefreshError> {
         crate::measure::input::refresh_lines(

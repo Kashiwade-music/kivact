@@ -16,7 +16,7 @@ use kivact_types::geometry::{Point, Size};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::{BlendMode, Pixels};
 
-/// The texture of `pixels` (straight alpha) premultiplied, as the shader's images read them.
+/// The texture of `pixels`, premultiplied as they are, as the shader's images read them.
 fn premultiplied_texture(
     device: &wgpu::Device,
     queue: &wgpu::Queue,
@@ -36,14 +36,6 @@ fn premultiplied_texture(
         usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
         view_formats: &[],
     });
-    let mut bytes = Vec::with_capacity(pixels.rgba.len());
-    for px in pixels.rgba.as_chunks::<4>().0 {
-        let a = f32::from(px[3]) / 255.0;
-        for c in &px[..3] {
-            bytes.push((f32::from(*c) * a).round() as u8);
-        }
-        bytes.push(px[3]);
-    }
     queue.write_texture(
         wgpu::TexelCopyTextureInfo {
             texture: &texture,
@@ -51,7 +43,7 @@ fn premultiplied_texture(
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All,
         },
-        &bytes,
+        &pixels.rgba,
         wgpu::TexelCopyBufferLayout {
             offset: 0,
             bytes_per_row: Some(4 * pixels.width),

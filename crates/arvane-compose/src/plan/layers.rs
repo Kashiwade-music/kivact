@@ -379,7 +379,8 @@ impl<'a> Builder<'a> {
                 layer: layer.key,
                 role: ChunkRole::Content(0),
             };
-            self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true)?;
+            let version = Some(layer.content_version);
+            self.chunk(key, Cow::Borrowed(scene), geo.grid(), to_win, true, version)?;
             return Ok(Source::Chunk(key));
         }
         let cache = self.cache;
@@ -501,7 +502,7 @@ impl<'a> Builder<'a> {
             role: ChunkRole::Backdrop,
         };
         let scene = coverage_scene(std::slice::from_ref(&backdrop.shape), geo.grid().rect());
-        self.chunk(key, Cow::Owned(scene), geo.grid(), to_win, true)?;
+        self.chunk(key, Cow::Owned(scene), geo.grid(), to_win, true, None)?;
         self.ops.push(Op::Draw(DrawOp {
             target: content,
             source: Source::Target(cur),
@@ -555,7 +556,7 @@ impl<'a> Builder<'a> {
                 role: ChunkRole::LayerClip,
             };
             let scene = coverage_scene(std::slice::from_ref(clip), grid.rect());
-            self.chunk(key, Cow::Owned(scene), grid, to_win, true)?;
+            self.chunk(key, Cow::Owned(scene), grid, to_win, true, None)?;
             self.ops.push(Op::Clip {
                 target: surface,
                 coverage: key,
@@ -568,7 +569,7 @@ impl<'a> Builder<'a> {
                     layer: layer.key,
                     role: ChunkRole::Mask(n as u32),
                 };
-                self.chunk(key, Cow::Borrowed(&mask.scene), grid, to_win, true)?;
+                self.chunk(key, Cow::Borrowed(&mask.scene), grid, to_win, true, None)?;
                 masks.push((key, mask.mode, mask.composite));
             }
             self.ops.push(Op::Mask {

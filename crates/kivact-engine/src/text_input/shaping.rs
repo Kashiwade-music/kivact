@@ -53,7 +53,7 @@ fn display(text: &str, masked: bool) -> Cow<'_, str> {
 
 impl EditLines {
     /// Line `i` shaped from `text`, if it is not yet.
-    pub(crate) fn ensure(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) {
+    pub(crate) fn ensure(&mut self, text: &str, i: usize, engine: &mut arvane_text::TextEngine) {
         let Some((line, _)) = self.line(i) else {
             return;
         };
@@ -96,7 +96,11 @@ impl EditLines {
 
     /// The natural width of the lines: the widest of the lines that
     /// start in the first 16 KiB bytes of `text` (shaped now).
-    pub(crate) fn measured_width(&mut self, text: &str, engine: &mut arvane::Engine) -> f64 {
+    pub(crate) fn measured_width(
+        &mut self,
+        text: &str,
+        engine: &mut arvane_text::TextEngine,
+    ) -> f64 {
         let mut width = 0.0f64;
         let mut i = 0;
         while i < self.len() && (i == 0 || self.range(i).start < MEASURED) {
@@ -109,7 +113,12 @@ impl EditLines {
 
     /// Line `i`'s baseline below its top (a line without text has a
     /// space's).
-    pub(crate) fn baseline(&mut self, text: &str, i: usize, engine: &mut arvane::Engine) -> f64 {
+    pub(crate) fn baseline(
+        &mut self,
+        text: &str,
+        i: usize,
+        engine: &mut arvane_text::TextEngine,
+    ) -> f64 {
         if self.line(i).is_none_or(|(l, _)| l.content == l.start) {
             return self.blank;
         }
@@ -123,7 +132,7 @@ impl EditLines {
         &mut self,
         text: &str,
         i: usize,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         self.ensure(text, i, engine);
         self.line(i)?.0.shape.shaped().cloned()
@@ -137,7 +146,7 @@ impl EditLines {
         text: &str,
         i: usize,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> f64 {
         if matches!(
             self.align,
@@ -193,7 +202,7 @@ impl EditLines {
         text: &str,
         at: usize,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Rect {
         if !self.shows_value() {
             return Rect {
@@ -237,7 +246,7 @@ impl EditLines {
         i: usize,
         (from, to): (usize, usize),
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Vec<Rect> {
         if !self.shows_value() {
             return Vec::new();
@@ -267,7 +276,7 @@ impl EditLines {
         i: usize,
         x: f64,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> usize {
         if !self.shows_value() {
             return 0;
@@ -303,7 +312,7 @@ impl EditLines {
         x: f64,
         y: f64,
         width: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> usize {
         let i = ((y / self.height.max(f64::EPSILON)).floor().max(0.0) as usize)
             .min(self.len().saturating_sub(1));
@@ -424,7 +433,7 @@ impl EditLines {
         text: &str,
         i: usize,
         color: kivact_types::Rgba,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         let content = self.content(i)?;
         let mut style = self.key.style.clone();
@@ -520,7 +529,7 @@ impl EditLines {
         at: Point,
         width: f64,
         ids: &mut dyn FnMut() -> u64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Published {
         let lines = self.published_lines(caret);
         let runs = lines
@@ -543,7 +552,7 @@ impl EditLines {
         at: Point,
         width: f64,
         ids: &mut dyn FnMut() -> u64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Arc<kivact_types::SemanticsTextRun> {
         let origin = Point {
             x: at.x + self.offset(text, i, width, engine),
@@ -609,7 +618,7 @@ impl EditLines {
 /// while nobody else holds the cache or the shaper.
 pub(crate) struct SharedLines {
     lines: Rc<RefCell<Option<EditLines>>>,
-    engine: Rc<RefCell<arvane::Engine>>,
+    engine: Rc<RefCell<arvane_text::TextEngine>>,
     revision: u64,
 }
 
@@ -617,7 +626,7 @@ impl SharedLines {
     /// The lines of the input whose line cache is `lines`, of `revision`.
     pub(crate) fn new(
         lines: Rc<RefCell<Option<EditLines>>>,
-        engine: Rc<RefCell<arvane::Engine>>,
+        engine: Rc<RefCell<arvane_text::TextEngine>>,
         revision: u64,
     ) -> Self {
         SharedLines {
@@ -635,7 +644,10 @@ impl SharedLines {
 
     /// `f` on the lines and the shaper (it may shape a line), when the
     /// lines answer.
-    fn shape<T>(&self, f: impl FnOnce(&mut EditLines, &mut arvane::Engine) -> T) -> Option<T> {
+    fn shape<T>(
+        &self,
+        f: impl FnOnce(&mut EditLines, &mut arvane_text::TextEngine) -> T,
+    ) -> Option<T> {
         let mut lines = self.lines.try_borrow_mut().ok()?;
         let lines = lines.as_mut().filter(|l| self.answers(l))?;
         let mut engine = self.engine.try_borrow_mut().ok()?;

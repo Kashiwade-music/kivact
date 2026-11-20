@@ -2,7 +2,6 @@
 
 use crate::clock::Clock;
 use crate::script::{Item, Script, VirtualInput, VirtualWindowInput, WindowItem};
-use crate::surface::TestSurface;
 use crate::window::{Display, VirtualPlatform, VirtualWindow};
 pub use crate::window::{GpuMode, MirrorMode, VirtualOptions};
 use arvane_protocol::SemanticsTree;
@@ -522,21 +521,7 @@ fn theme_hint(dark: bool) -> ThemeHint {
 }
 /// Change the scripted surface lifecycle and return its boundary event.
 fn surface_event(window: &mut VirtualWindow, live: bool) -> Option<ShellEvent> {
-    match (live, window.surface) {
-        (true, TestSurface::Destroyed { last }) => {
-            window.surface = TestSurface::Live {
-                generation: last
-                    .checked_add(1)
-                    .expect("invariant: surface generations fit u64"),
-            };
-            Some(ShellEvent::SurfaceCreated)
-        }
-        (false, TestSurface::Live { generation }) => {
-            window.surface = TestSurface::Destroyed { last: generation };
-            Some(ShellEvent::SurfaceDestroyed)
-        }
-        _ => None,
-    }
+    window.surface.apply(live)
 }
 // xtask-allow(state): legacy: windows, input
 /// Cloneable read-only observations. Values never borrow backend state.
@@ -672,8 +657,9 @@ impl WindowProbe {
     pub fn ime_text(&self) -> Option<ShellImeText> {
         self.with(|window| window.ime_text.borrow().clone())
     }
-    pub fn surface_generation(&self) -> Option<u64> {
-        self.with(|window| window.surface.generation())
+    /// Whether this window can show a frame now.
+    pub fn drawable(&self) -> arvane_shell::Drawable {
+        self.with(|window| window.drawable())
     }
     /// The key presses nobody handled since the last call.
     pub fn unhandled_keys(&self) -> Vec<kivact_types::KeyCode> {

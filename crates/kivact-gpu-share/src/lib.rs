@@ -89,7 +89,7 @@
 //! A window that cannot import (it draws on the CPU, or its GPU is not up
 //! yet) shows the frame as `Pixels`. That needs no shared pool: the engine
 //! draws into a texture of its own and reads it back with
-//! `vulkan::read_back` or `d3d12::read_back` (straight-alpha RGBA8).
+//! `vulkan::read_back` or `d3d12::read_back` (premultiplied RGBA8, as `Pixels`).
 //! A pool's texture reads back with the pools' `read_back`.
 //!
 //! # An engine on wgpu (feature `wgpu`)

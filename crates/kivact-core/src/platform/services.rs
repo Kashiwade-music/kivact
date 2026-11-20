@@ -114,10 +114,7 @@ pub fn request_window_size(
         Ok(request_async(
             owner,
             "request_window_size",
-            HostRequest::Platform {
-                window,
-                request: PlatformRequest::RequestWindowSize(size),
-            },
+            HostRequest::RequestWindowSize { window, size },
         ))
     } else {
         Err(UiError::new(

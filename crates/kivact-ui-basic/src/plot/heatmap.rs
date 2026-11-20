@@ -104,6 +104,11 @@ fn color(z: f64, z_min: f64, z_max: f64, stops: &[[f64; 4]]) -> [u8; 4] {
         let v = a[channel] + (b[channel] - a[channel]) * frac;
         out[channel] = (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     }
+    // The pixels are premultiplied: the color is multiplied by its alpha.
+    let alpha = u32::from(out[3]);
+    for channel in &mut out[..3] {
+        *channel = ((u32::from(*channel) * alpha + 127) / 255) as u8;
+    }
     out
 }
 

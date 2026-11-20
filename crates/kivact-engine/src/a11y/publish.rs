@@ -17,7 +17,7 @@ impl Model {
     pub(crate) fn accessibility(
         &mut self,
         window: &mut arvane::Window<'_>,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let (root, dirt) = match &mut self.a11y.publish {
             A11yPublish::Inactive

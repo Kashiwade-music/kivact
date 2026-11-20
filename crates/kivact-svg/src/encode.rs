@@ -90,15 +90,17 @@ pub(super) fn escape(text: &str) -> String {
     out
 }
 
-/// A `data:image/png;base64,…` URI of straight-alpha RGBA8 pixels.
+/// A `data:image/png;base64,…` URI of premultiplied RGBA8 pixels, written as a straight-alpha PNG.
 pub(super) fn png_data_uri(width: u32, height: u32, rgba: &[u8]) -> Result<String, SvgError> {
+    let mut straight = rgba.to_vec();
+    kivact_types::color::unpremultiply(&mut straight);
     let mut png = Vec::new();
     let encode = |png: &mut Vec<u8>| -> Result<(), png::EncodingError> {
         let mut encoder = png::Encoder::new(png, width, height);
         encoder.set_color(png::ColorType::Rgba);
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header()?;
-        writer.write_image_data(rgba)?;
+        writer.write_image_data(&straight)?;
         writer.finish()
     };
     encode(&mut png).map_err(|error| {

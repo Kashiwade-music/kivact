@@ -17,7 +17,6 @@
 use super::dirty::{Built, MetadataUpdate};
 use crate::a11y::state::{Clipping, Payloads};
 use crate::model::Model;
-use arvane as a;
 use kivact_types::{NodeId, Point};
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -30,7 +29,7 @@ impl Model {
         &mut self,
         root: NodeId,
         dirt: &Payloads,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Built {
         let metadata = Rc::clone(&self.a11y.metadata);
         if self.modal() != metadata.modal {

@@ -589,8 +589,9 @@ const MEASURED_ENTRIES: usize = 4096;
 /// survives.
 pub(crate) struct Cache {
     pub(crate) shaped:
-        Generations<TextKey, Result<kivact_types::ShapedTextSnapshot, crate::TextError>>,
-    pub(crate) measured: Generations<TextKey, Result<kivact_types::TextMetrics, crate::TextError>>,
+        Generations<TextKey, Result<kivact_types::ShapedTextSnapshot, crate::error::TextError>>,
+    pub(crate) measured:
+        Generations<TextKey, Result<kivact_types::TextMetrics, crate::error::TextError>>,
     pub(crate) families: HashMap<String, bool>,
     pub(crate) font_names: Option<Vec<String>>,
     /// Shaped paragraphs, broken into lines again for each width.

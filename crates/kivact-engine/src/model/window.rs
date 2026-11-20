@@ -43,30 +43,6 @@ pub(crate) enum LastPresent {
     Skipped { retry_at_ns: u64 },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Surface {
-    Drawable { generation: u64 },
-    Unavailable(Unavailable),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Unavailable {
-    NoSurface,
-    ZeroSize,
-}
-
-#[derive(PartialEq)]
-pub(crate) enum SoftKeyboard {
-    Hidden,
-    Shown,
-}
-
-#[derive(PartialEq)]
-pub(crate) enum ImeAllowed {
-    No,
-    Yes,
-}
-
 /// The host's state for one window.
 pub(crate) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
@@ -75,11 +51,12 @@ pub(crate) struct HostWindow {
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
     pub(crate) environment: Sent<kivact_types::Environment>,
-    pub(crate) surface: Surface,
-    /// The software keyboard was asked for (an editable text input has
-    /// the focus).
-    pub(crate) soft_keyboard: Sent<SoftKeyboard>,
-    pub(crate) ime_allowed: Sent<ImeAllowed>,
+    /// Whether the window can show a frame, as the window last said.
+    pub(crate) drawable: arvane_shell::Drawable,
+    /// The IME request last sent to the window (`None`: IME disabled).
+    pub(crate) ime: Sent<Option<arvane_shell::ImeRequest>>,
+    /// The editor's surrounding text as last published by the model.
+    pub(crate) ime_text: Option<arvane_shell::ShellImeText>,
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     pub(crate) reported_adapter: Sent<kivact_types::GpuAdapter>,
@@ -99,26 +76,14 @@ impl HostWindow {
         Self {
             last_present: LastPresent::Settled,
             environment: Sent::new(),
-            surface: Surface::Unavailable(Unavailable::NoSurface),
-            soft_keyboard: Sent::new(),
-            ime_allowed: Sent::new(),
+            drawable: arvane_shell::Drawable::NoSurface,
+            ime: Sent::new(),
+            ime_text: None,
             reported_adapter: Sent::new(),
             last_stats: None,
             mode,
             parent,
             content: Content::Drawn,
         }
-    }
-}
-
-/// The surface state `window` reports now.
-pub(crate) fn surface_of(window: &arvane::Window<'_>) -> Surface {
-    let size = window.size();
-    match window.surface_generation() {
-        None => Surface::Unavailable(Unavailable::NoSurface),
-        Some(_) if size.width <= 0.0 || size.height <= 0.0 => {
-            Surface::Unavailable(Unavailable::ZeroSize)
-        }
-        Some(generation) => Surface::Drawable { generation },
     }
 }

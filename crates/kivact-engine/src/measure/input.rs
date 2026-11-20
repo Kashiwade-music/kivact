@@ -27,7 +27,7 @@ pub(crate) fn edit_lines<'a>(
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
     viewport: LineViewport,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
 ) -> Option<(RefMut<'a, EditLines>, &'a str)> {
     let refreshed = refresh_lines(
         tree,
@@ -52,7 +52,7 @@ pub(crate) fn refresh_lines<'a>(
     editors: &'a [Option<Box<EditorNode>>],
     id: NodeId,
     viewport: LineViewport,
-    engine: &mut arvane::Engine,
+    engine: &mut arvane_text::TextEngine,
     mode: RefreshMode,
 ) -> Result<Option<RefreshedLines<'a>>, RefreshError> {
     let Some(n) = tree.get(id) else {

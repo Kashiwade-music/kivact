@@ -50,7 +50,7 @@ impl EditLines {
         text: &str,
         height: f64,
         blank: f64,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         self.height = height;
         self.blank = blank;
@@ -71,7 +71,7 @@ impl EditLines {
     pub(crate) fn split_rows(
         &self,
         text: &str,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Vec<(usize, usize, usize)> {
         let hard = split(text, 0, text.len(), self.key.breaks.multiline(), true);
         let Some(width) = self.key.breaks.wrap_width() else {

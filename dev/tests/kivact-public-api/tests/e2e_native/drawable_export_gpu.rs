@@ -277,7 +277,7 @@ impl Consumer {
             .unwrap_or_else(|error| panic!("the release fence signals: {error}"));
     }
 
-    /// Frame `value` of `slot` as straight-alpha RGBA8. It is acquired, sampled
+    /// Frame `value` of `slot` as premultiplied RGBA8. It is acquired, sampled
     /// by a render pass of this device into a texture that is read back, and
     /// released after the read back (which waited for the sampling).
     #[track_caller]

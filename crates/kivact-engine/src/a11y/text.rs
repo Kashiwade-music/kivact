@@ -43,7 +43,7 @@ impl Model {
         &mut self,
         id: NodeId,
         offset: Point,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> SemanticsText {
         let content = self
             .computed_layout(id)

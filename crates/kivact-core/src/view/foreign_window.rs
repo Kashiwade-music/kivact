@@ -12,8 +12,8 @@ use kivact_runtime::{
     Value, require_effectful,
 };
 use kivact_types::{
-    DismissReason, NativeWindow, PlatformRequest, RequestId, Size, SurfaceSize, WindowId,
-    WindowMode, WindowPlacement,
+    DismissReason, NativeWindow, RequestId, Size, SurfaceSize, WindowId, WindowMode,
+    WindowPlacement,
 };
 
 use crate::geometry;
@@ -275,9 +275,9 @@ impl ForeignChild {
         };
         ViewState::tree(&rt).engine().effect(
             RequestId(id),
-            kivact_engine::contract::HostRequest::Platform {
+            kivact_engine::contract::HostRequest::RequestWindowSize {
                 window: self.window,
-                request: PlatformRequest::RequestWindowSize(size),
+                size,
             },
         );
         rt.request_turn();

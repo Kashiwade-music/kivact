@@ -1,15 +1,14 @@
 //! Role: What every module uses: test windows, scenes and pixels.
 
-use arvane::spi::{Step, StepOutcome};
-use arvane::{Engine, Presented};
-use arvane::{
-    EventTarget, Handler, Shell, ShellControl, ShellError, ShellEvent, ShellSetup, ShellWaker,
-    SteppedShell, Window, Windows, test_font,
-};
+use arvane::Presented;
+use arvane::{Handler, SteppedShell, Window, Windows, test_font};
 use arvane_protocol::{
     CompositeLayer, Composition, LayerEffects, LayerItem, LayerKey, Plane, RasterGrid, RasterPaint,
     RenderCmd, RenderScene,
 };
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellWaker};
+use arvane_shell::{Step, StepOutcome};
+use arvane_text::TextEngine;
 use arvane_virtual::{
     GpuMode, Probe, Script, VirtualBackend, VirtualOptions, WindowProbe, WindowScript,
 };
@@ -50,8 +49,8 @@ pub(crate) fn open(width: f64, height: f64) -> Harness {
 }
 
 /// Text that sees the bundled test font only.
-pub(crate) fn engine() -> Engine {
-    Engine::with_fonts_only(&[test_font()]).expect("the test font is usable")
+pub(crate) fn engine() -> TextEngine {
+    TextEngine::isolated(&[test_font()]).expect("the test font is usable")
 }
 
 pub(crate) fn rect(x: f64, y: f64, width: f64, height: f64) -> Rect {
@@ -91,6 +90,12 @@ pub(crate) fn raster(commands: Vec<RenderCmd>) -> LayerItem {
     LayerItem::Raster(RenderScene { commands })
 }
 
+/// A content version never given before in this process.
+fn next_version() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 /// A layer of identity transform, flat, with `bounds` in its space.
 pub(crate) fn layer(
     key: LayerKey,
@@ -106,6 +111,7 @@ pub(crate) fn layer(
         backface: BackfaceVisibility::Visible,
         grid: RasterGrid::Target,
         effects,
+        content_version: next_version(),
         items,
     }
 }
@@ -389,11 +395,18 @@ impl Harness {
                 observed.borrow_mut().changes.push(change.clone())
             },
         ));
-        let shell = Shell::start_stepped(
+        let gpu_preference = if gpu {
+            preference
+        } else {
+            kivact_types::GpuPreference {
+                start: kivact_types::gpu::GpuStart::Never,
+                ..preference
+            }
+        };
+        let shell = arvane::start_stepped(
             Box::new(backend),
-            ShellSetup {
-                prefer_gpu: gpu,
-                gpu_preference: preference,
+            arvane::DriverOptions {
+                gpu: gpu_preference,
                 observer: Some(observer),
             },
             Host(Rc::clone(&shared)),
@@ -471,7 +484,7 @@ impl Harness {
     pub(crate) fn renderer(&self) -> Option<arvane::Renderer> {
         self.shared.borrow().renderer
     }
-    pub(crate) fn record(&self, result: &Result<Presented, arvane::Failure>) {
+    pub(crate) fn record(&self, result: &Result<Presented, kivact_types::Failure>) {
         if let Ok(Presented::Shown { renderer, .. }) = result {
             self.shared.borrow_mut().renderer = Some(*renderer);
         }

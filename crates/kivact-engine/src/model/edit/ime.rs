@@ -109,7 +109,7 @@ impl Model {
             .map_or(kivact_types::InputPurpose::Text, |n| n.purpose())
     }
     /// The IME text to give the window when it changes.
-    pub(crate) fn ime_changed(&mut self, engine: &mut arvane::Engine) -> ImeUpdate {
+    pub(crate) fn ime_changed(&mut self, engine: &mut arvane_text::TextEngine) -> ImeUpdate {
         if let Some(id) = self.focused_session() {
             return match self.session_ime_changed(id) {
                 Some(text) => ImeUpdate::Set(Some(text)),

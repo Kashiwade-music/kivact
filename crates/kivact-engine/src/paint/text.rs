@@ -46,7 +46,7 @@ impl Model {
         scene: &std::sync::Arc<DrawList>,
         origin: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
         pass: PaintPass,
     ) {
@@ -88,7 +88,7 @@ impl Model {
         id: NodeId,
         area: Rect,
         tint: &Tint,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Option<kivact_types::ShapedTextSnapshot> {
         let n = self.node(id)?;
         let props = self.text_props(id);
@@ -130,7 +130,7 @@ impl Model {
         area: Rect,
         tint: &Tint,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut crate::lower::SceneOut,
     ) {
         let Some(n) = self.node(id) else {

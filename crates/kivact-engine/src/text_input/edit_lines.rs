@@ -51,7 +51,7 @@ impl EditLines {
     pub(crate) fn new(
         source: Source<'_>,
         style: kivact_types::ComputedTextStyle,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Self {
         let (key, align) = Key::of(&source, style);
         let height = crate::text_input::line_height(engine, &key.style);

@@ -22,7 +22,7 @@ use crate::lower::{LayerProps, SceneOut, border, scene, shape};
 use crate::model::Model;
 use crate::model::drawables::export_of;
 use crate::model::interact::visual;
-use arvane::asset::{PixelSize, fit_image};
+use arvane_asset::{PixelSize, fit_image};
 use arvane_protocol::{Composition, LayerEffects, LayerKey, RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
@@ -45,7 +45,7 @@ struct Place<'a> {
 impl Model {
     /// The frame's composition: the paint list brought up to date, drawn at
     /// the window's scale into the root layer.
-    pub(crate) fn composition(&mut self, engine: &mut arvane::Engine) -> Composition {
+    pub(crate) fn composition(&mut self, engine: &mut arvane_text::TextEngine) -> Composition {
         if self.paint_list() {
             self.evict_draws();
             self.refresh_shader_clocks();
@@ -70,7 +70,7 @@ impl Model {
     /// A drawable's layer is its subtree composed on its own: the layers
     /// are appended to `out`, their items renumbered, and the export names
     /// the subtree's root layer.
-    fn append_exports(&self, engine: &mut arvane::Engine, out: &mut Composition) {
+    fn append_exports(&self, engine: &mut arvane_text::TextEngine, out: &mut Composition) {
         for (id, root, ask) in self.export_requests() {
             let Some(bounds) = self.rect(root) else {
                 continue;
@@ -105,7 +105,7 @@ impl Model {
     /// in it: a new frame of the asset store's recency.
     pub(super) fn compose_list(
         &self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         list: &PaintList,
         pass: PaintPass,
     ) -> Composition {
@@ -218,7 +218,7 @@ impl Model {
         &self,
         place: &Place,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         if !place.step.own {
@@ -243,7 +243,7 @@ impl Model {
         place: &Place,
         canvas: Rect,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         if !place.step.own {
@@ -284,7 +284,7 @@ impl Model {
         step: &Step,
         p: &PaintProps,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let id = step.id;
@@ -329,7 +329,7 @@ impl Model {
         step: &Step,
         list: &PaintList,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let id = step.id;
@@ -410,7 +410,7 @@ impl Model {
         list: &PaintList,
         draw: &NodeDraw,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) {
         let id = step.id;
         let paint = visual::paint(self, id);
@@ -562,7 +562,7 @@ impl Model {
         &self,
         step: &Step,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         match self.take_draw(step, pass) {
@@ -592,7 +592,7 @@ impl Model {
         step: &Step,
         draw: &mut NodeDraw,
         pass: PaintPass,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         out: &mut SceneOut,
     ) {
         let paint = Rc::clone(&draw.paint);
@@ -626,7 +626,13 @@ impl Model {
 
     /// Check a kept draw-over part against the one the node's paint now
     /// draws, recorded in a scratch output (`VERIFY_DRAWS`).
-    fn verify_over(&self, step: &Step, over: &[D], pass: PaintPass, engine: &mut arvane::Engine) {
+    fn verify_over(
+        &self,
+        step: &Step,
+        over: &[D],
+        pass: PaintPass,
+        engine: &mut arvane_text::TextEngine,
+    ) {
         let paint = visual::paint(self, step.id);
         let mut scratch = SceneOut::default();
         scratch.begin_record();

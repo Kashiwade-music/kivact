@@ -604,11 +604,11 @@ fn tiled(src: &Pixmap, tile: Rect, env: &Env<'_>) -> Pixmap {
     out
 }
 
-/// The pixels of `image` (straight alpha) stretched over `rect` (layer space) and nothing else.
+/// The pixels of `image` (premultiplied) stretched over `rect` (layer space) and nothing else.
 fn stretch(image: &Pixels, rect: Rect, env: &Env<'_>) -> Pixmap {
     let (w, h) = env.source.size();
     let mut out = Pixmap::new(w, h);
-    let source = straight_to_premul(image);
+    let source = to_premul(image);
     let (rx, ry) = layer_to_px(rect.x, rect.y, env);
     let (rw, rh) = (rect.width * env.ppu, rect.height * env.ppu);
     if rw <= 0.0 || rh <= 0.0 {
@@ -633,8 +633,8 @@ fn layer_to_px(x: f64, y: f64, env: &Env<'_>) -> (f64, f64) {
     ((x - env.origin.x) * env.ppu, (y - env.origin.y) * env.ppu)
 }
 
-/// Straight-alpha pixels as a premultiplied pixmap.
-fn straight_to_premul(image: &Pixels) -> Pixmap {
+/// Premultiplied-alpha pixels as a pixmap.
+fn to_premul(image: &Pixels) -> Pixmap {
     let mut out = Pixmap::new(image.width, image.height);
     let texels = image.width as usize * image.height as usize;
     for (i, p) in image
@@ -645,12 +645,11 @@ fn straight_to_premul(image: &Pixels) -> Pixmap {
         .take(texels)
         .enumerate()
     {
-        let a = f32::from(p[3]) / 255.0;
         let color: Premul = [
-            f32::from(p[0]) / 255.0 * a,
-            f32::from(p[1]) / 255.0 * a,
-            f32::from(p[2]) / 255.0 * a,
-            a,
+            f32::from(p[0]) / 255.0,
+            f32::from(p[1]) / 255.0,
+            f32::from(p[2]) / 255.0,
+            f32::from(p[3]) / 255.0,
         ];
         let (x, y) = (i as u32 % image.width, i as u32 / image.width);
         out.set(x, y, color);

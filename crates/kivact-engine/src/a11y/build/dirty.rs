@@ -6,7 +6,6 @@ use super::node::{drawable, structural};
 use crate::a11y::state::{Clipping, Dirt, Metadata, Payloads};
 use crate::model::Model;
 use crate::semantic_role;
-use arvane as a;
 use kivact_types as types;
 use std::collections::BTreeSet;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -40,7 +39,7 @@ impl Model {
     #[cfg(all(debug_assertions, feature = "testing"))]
     pub(crate) fn build_semantics(
         &mut self,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> arvane_protocol::SemanticsTree {
         self.build_semantics_for(engine, &Dirt::Full).tree
     }
@@ -49,7 +48,7 @@ impl Model {
     /// accepted identity metadata.
     pub(in crate::a11y) fn build_semantics_for(
         &mut self,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
         dirt: &Dirt,
     ) -> Built {
         let full = *dirt == Dirt::Full;
@@ -113,7 +112,7 @@ impl Model {
         enumerated: Enumerated<'_>,
         subtree_roots: &BTreeSet<types::NodeId>,
         mut dirty: BTreeSet<types::NodeId>,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> arvane_protocol::SemanticsTree {
         let Enumerated { metadata, order } = enumerated;
         let modal_changed = metadata.modal != self.a11y.metadata.modal;
@@ -307,7 +306,7 @@ impl Model {
         full: bool,
         dirty: &BTreeSet<types::NodeId>,
         metadata: &Metadata,
-        engine: &mut a::Engine,
+        engine: &mut arvane_text::TextEngine,
     ) -> Vec<arvane_protocol::SemanticsNode> {
         let mut nodes = Vec::new();
         let mut active = BTreeSet::new();

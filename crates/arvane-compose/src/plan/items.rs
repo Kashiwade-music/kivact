@@ -46,6 +46,7 @@ impl<'a> Builder<'a> {
             cx.grid,
             &cx.to_win,
             cx.cache_chunks,
+            Some(cx.layer.content_version),
         )?;
         let (Some(polygon), Some(map)) = (
             cx.dest.to.flatten().map_rect(cx.grid.rect()),
@@ -128,6 +129,7 @@ impl<'a> Builder<'a> {
             cx.grid,
             &cx.to_win,
             cx.cache_chunks,
+            None,
         )?;
         self.chunk(
             fallback,
@@ -135,6 +137,7 @@ impl<'a> Builder<'a> {
             cx.grid,
             &cx.to_win,
             cx.cache_chunks,
+            None,
         )?;
         let h = Matrix4::from_affine(shader.transform)
             .then(cx.dest.to)
@@ -204,7 +207,14 @@ impl<'a> Builder<'a> {
             role: ChunkRole::Clip(at as u32),
         };
         let scene = coverage_scene(clips, cx.grid.rect());
-        self.chunk(key, Cow::Owned(scene), cx.grid, &cx.to_win, cx.cache_chunks)?;
+        self.chunk(
+            key,
+            Cow::Owned(scene),
+            cx.grid,
+            &cx.to_win,
+            cx.cache_chunks,
+            None,
+        )?;
         Ok(key)
     }
 }

@@ -24,11 +24,14 @@ use std::sync::Arc;
 #[derive(Clone)]
 pub struct Writer {
     pub(super) app: Rc<RefCell<AppModel>>,
-    pub(super) engine: Rc<RefCell<arvane::Engine>>,
+    pub(super) engine: Rc<RefCell<arvane_text::TextEngine>>,
 }
 
 impl Writer {
-    pub(crate) fn new(app: &Rc<RefCell<AppModel>>, engine: &Rc<RefCell<arvane::Engine>>) -> Self {
+    pub(crate) fn new(
+        app: &Rc<RefCell<AppModel>>,
+        engine: &Rc<RefCell<arvane_text::TextEngine>>,
+    ) -> Self {
         Writer {
             app: Rc::clone(app),
             engine: Rc::clone(engine),
@@ -446,6 +449,17 @@ impl Writer {
                     model
                         .effects
                         .push((request, DeferredRequest::Platform(platform)));
+                }
+            }
+            HostRequest::RequestWindowSize { window, size } => {
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+                    writes.command(None);
+                    model
+                        .effects
+                        .push((request, DeferredRequest::RequestSize(size)));
                 }
             }
             drawable @ (HostRequest::DrawableExport { .. }

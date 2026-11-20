@@ -1,10 +1,10 @@
 //! Role: Embeds images in the SVG document as PNG data URIs.
 //!
-//! Raw pixels (`DrawCmd::Pixels`) are cropped to their source rectangle and
-//! embedded as they are. An asset (`Image`, `ImagePart`) is drawn by the host
-//! renderer at the size of its rectangle in device pixels (one per logical
-//! pixel, rounded up), so its resolution is that of the drawn size, not of
-//! the original file.
+//! Raw pixels (`DrawCmd::Pixels`, premultiplied) are cropped to their source
+//! rectangle and embedded as a PNG, which holds straight alpha. An asset
+//! (`Image`, `ImagePart`) is drawn by the host renderer at the size of its
+//! rectangle in device pixels (one per logical pixel, rounded up), so its
+//! resolution is that of the drawn size, not of the original file.
 
 use super::emitter::Emitter;
 use super::encode::{number, png_data_uri};

@@ -38,7 +38,7 @@ impl Model {
     /// text whose box key or content changed.
     pub(crate) fn lint_layout(
         &mut self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         laid_out: bool,
         remeasured: &[NodeId],
     ) {

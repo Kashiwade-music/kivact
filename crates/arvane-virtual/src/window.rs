@@ -5,13 +5,15 @@
 
 use crate::clock::Clock;
 use crate::script::Responder;
-use crate::surface::TestSurface;
 use arvane_protocol::{PixelRect, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
-    Accessibility, AccessibilityError, BufferAge, ShellError, ShellImeText, ShellWindow,
+    Accessibility, AccessibilityError, BufferAge, Drawable, FrameSink, ImeRequest, ShellError,
+    ShellImeText, ShellWindow, SizeReply, SurfacePresence, WindowSurface,
 };
 use kivact_types::Environment;
-use kivact_types::{Capabilities, Cursor, InputPurpose, NativeWindow, Rect, Size, WindowRequest};
+use kivact_types::{
+    Capabilities, Cursor, InputPurpose, NativeWindow, Rect, RequestId, Size, WindowRequest,
+};
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, VecDeque};
 use std::num::NonZeroU32;
@@ -179,7 +181,7 @@ pub(crate) struct VirtualWindow {
     /// Presentations that are to fail as a lost surface does.
     pub(crate) failing: u32,
     /// The window's surface.
-    pub(crate) surface: TestSurface,
+    pub(crate) surface: SurfacePresence,
     /// How often the application asked to bring this window to the front.
     pub(crate) focus_requests: Cell<u32>,
     /// Key presses nobody handled since a test last read them.
@@ -227,9 +229,7 @@ impl VirtualWindow {
             display,
             occluded: false,
             failing: 0,
-            surface: TestSurface::Live {
-                generation: std::num::NonZeroU64::MIN,
-            },
+            surface: SurfacePresence::new(),
             focus_requests: Cell::new(0),
             unhandled_keys: RefCell::new(Vec::new()),
         }
@@ -244,8 +244,8 @@ impl VirtualWindow {
         }
     }
 
-    /// The answer to `PlatformRequest::ForeignChild`: one native child per
-    /// foreign window, from this backend's counter.
+    /// The native child window of this foreign window: one per window, from
+    /// this backend's counter, made on first use.
     fn foreign_child_result(&self) -> kivact_types::PlatformResult {
         use kivact_types::PlatformResult;
 
@@ -274,6 +274,37 @@ impl VirtualWindow {
             Display::Headless(tree) => tree,
             Display::Mirrored(real) => real.accessibility(),
         }
+    }
+
+    /// Count one request to bring the window to the front.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        self.focus_requests.set(self.focus_requests.get() + 1);
+        Ok(())
+    }
+
+    fn ime_purpose(&self, purpose: InputPurpose) {
+        self.ime_purpose.set(purpose);
+    }
+
+    fn ime_allowed(&self, allowed: bool) {
+        if !allowed {
+            self.ime.set(None);
+        }
+    }
+
+    fn soft_keyboard(&self, shown: bool) {
+        if self.soft_keyboard_shown.replace(shown) != shown {
+            self.soft_keyboard_requests
+                .set(self.soft_keyboard_requests.get() + 1);
+        }
+    }
+
+    fn ime_cursor_area(&self, area: Rect) {
+        self.ime.set(Some(area));
+    }
+
+    fn ime_text(&self, text: Option<ShellImeText>) {
+        *self.ime_text.borrow_mut() = text;
     }
 }
 
@@ -353,49 +384,16 @@ impl ShellWindow for VirtualWindow {
                 },
             );
         }
-        if let PlatformRequest::RequestWindowSize(size) = request {
-            self.requested_sizes.push(size);
-            return PlatformResult::Done;
-        }
         if let PlatformRequest::Fullscreen(fullscreen) = request {
             self.env.borrow_mut().fullscreen = fullscreen;
             return PlatformResult::Done;
         }
-        if let PlatformRequest::ForeignChild = request {
-            return self.foreign_child_result();
-        }
         PlatformResult::Unsupported
     }
 
-    fn focus(&mut self) -> Result<(), ShellError> {
-        self.focus_requests.set(self.focus_requests.get() + 1);
-        Ok(())
-    }
-
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
-
-    fn keeps_frames(&self) -> bool {
-        true
-    }
-    fn keep_frame(&mut self, frame: arvane_protocol::CpuFrame) {
-        self.shown = Shown::Kept(Kept {
-            width: frame.width,
-            height: frame.height,
-            pixels: frame.to_softbuffer().into(),
-        });
-    }
-
-    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool {
-        let started = std::time::Instant::now();
-        while !done() {
-            if started.elapsed() >= limit {
-                return false;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(1));
-        }
-        true
+    fn request_size(&mut self, size: Size, _: RequestId) -> SizeReply {
+        self.requested_sizes.push(size);
+        SizeReply::Now(kivact_types::PlatformResult::Done)
     }
 
     fn replace_accessibility(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
@@ -420,8 +418,16 @@ impl ShellWindow for VirtualWindow {
             ..self.platform.capabilities
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.surface.generation()
+    fn drawable(&self) -> Drawable {
+        let Some(generation) = self.surface.generation() else {
+            return Drawable::NoSurface;
+        };
+        let (width, height) = self.physical_size();
+        if width == 0 || height == 0 {
+            Drawable::NoPixels
+        } else {
+            Drawable::Yes { generation }
+        }
     }
     fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
         self.unhandled_keys.borrow_mut().push(code);
@@ -451,35 +457,36 @@ impl ShellWindow for VirtualWindow {
     fn set_cursor(&self, cursor: Cursor) {
         self.cursor.set(cursor);
     }
-    fn set_ime_purpose(&self, purpose: InputPurpose) {
-        self.ime_purpose.set(purpose);
-    }
-    fn set_ime_allowed(&self, allowed: bool) {
-        if !allowed {
-            self.ime.set(None);
-        }
-    }
-    fn set_soft_keyboard(&self, shown: bool) {
-        if self.soft_keyboard_shown.replace(shown) != shown {
-            self.soft_keyboard_requests
-                .set(self.soft_keyboard_requests.get() + 1);
-        }
-    }
-    fn set_ime_cursor_area(&self, area: Rect) {
-        self.ime.set(Some(area));
-    }
-    fn set_ime_text(&self, text: Option<ShellImeText>) {
-        *self.ime_text.borrow_mut() = text;
-    }
     fn physical_size(&self) -> (u32, u32) {
         physical(self.size(), self.scale())
     }
-    fn reduced_motion(&self) -> bool {
-        self.env.borrow().reduced_motion
+    fn set_ime(&self, ime: Option<ImeRequest>) {
+        match ime {
+            None => {
+                self.soft_keyboard(false);
+                self.ime_allowed(false);
+            }
+            Some(request) => {
+                self.ime_allowed(true);
+                self.soft_keyboard(request.soft_keyboard);
+                self.ime_cursor_area(request.cursor_area);
+                self.ime_purpose(request.purpose);
+                self.ime_text(request.text);
+            }
+        }
     }
-    fn frame_period_ns(&self) -> u64 {
-        self.env.borrow().frame_period_ns
+    fn foreign_child(&self) -> Option<NativeWindow> {
+        match self.foreign_child_result() {
+            kivact_types::PlatformResult::NativeWindow(child) => Some(child),
+            _ => None,
+        }
     }
+    fn surface(&mut self) -> &mut dyn WindowSurface {
+        self
+    }
+}
+
+impl WindowSurface for VirtualWindow {
     fn recover_surface(&mut self) -> Result<(), ShellError> {
         Ok(())
     }
@@ -505,6 +512,20 @@ impl ShellWindow for VirtualWindow {
                 "the headless shell has no native GPU target",
             )),
         }
+    }
+    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: std::time::Duration) -> bool {
+        let started = std::time::Instant::now();
+        while !done() {
+            if started.elapsed() >= limit {
+                return false;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(1));
+        }
+        true
+    }
+    /// Virtual windows keep the frames the presenter reads back for inspection.
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink> {
+        Some(self)
     }
     fn present_with(
         &mut self,
@@ -567,6 +588,16 @@ impl ShellWindow for VirtualWindow {
             pixels,
         });
         Ok(true)
+    }
+}
+
+impl FrameSink for VirtualWindow {
+    fn keep(&mut self, frame: arvane_protocol::CpuFrame) {
+        self.shown = Shown::Kept(Kept {
+            width: frame.width,
+            height: frame.height,
+            pixels: frame.to_softbuffer().into(),
+        });
     }
 }
 

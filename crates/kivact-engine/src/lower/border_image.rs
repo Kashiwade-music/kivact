@@ -24,7 +24,7 @@ use crate::lower::SceneOut;
 use crate::lower::context::Context;
 use crate::lower::fill::gradient;
 use crate::lower::sanitize;
-use arvane::asset::PixelSize;
+use arvane_asset::PixelSize;
 use arvane_protocol::{RasterPaint, RenderCmd as D};
 use kivact_types::scene::Shape;
 use kivact_types::{

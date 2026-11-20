@@ -81,7 +81,7 @@ impl Context<'_> {
             ..*r
         };
         let tint = &state.current_tint;
-        let device = arvane::asset::PixelSize::of(
+        let device = arvane_asset::PixelSize::of(
             Size {
                 width: r.width,
                 height: r.height,
@@ -130,7 +130,7 @@ impl Context<'_> {
                 height: r.height,
             },
         };
-        let size = arvane::asset::PixelSize::of(drawn, self.raster.get());
+        let size = arvane_asset::PixelSize::of(drawn, self.raster.get());
         let pixels = self.pixels(source, size, 0);
         if let Some((image, _)) = pixels {
             let source = crop.map(|crop| {

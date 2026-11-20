@@ -37,12 +37,12 @@
 //! between drawn on the CPU. A second device failure or a failed restart
 //! leaves the presenter on the CPU.
 
-use crate::ShellWaker;
 use crate::env::RendererStart;
 use crate::presentation::{GpuStartCause, Notes, RendererChange};
 use arvane_compose::{GpuContext, GpuEnv, GpuSurface, Presentation};
 use arvane_protocol::{Composition, CpuFrame, FrameReport};
 use arvane_render::RenderError;
+use arvane_shell::ShellWaker;
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread::JoinHandle;
@@ -62,7 +62,8 @@ const SHUTDOWN_WAIT: Duration = Duration::from_secs(2);
 pub(crate) type Wake = Arc<dyn Fn() + Send + Sync>;
 
 /// Makes the window's surface on the window's thread.
-pub(crate) type MakeSurface<'a> = &'a dyn Fn(&GpuContext) -> Result<GpuSurface, RenderError>;
+pub(crate) type MakeSurface<'a> =
+    &'a dyn Fn(&GpuContext, &mut dyn arvane_shell::ShellWindow) -> Result<GpuSurface, RenderError>;
 
 /// A device and how long the worker took to create it.
 type Started = Result<(Box<GpuContext>, Duration), RenderError>;
@@ -158,9 +159,9 @@ impl<T> Worker<T> {
     fn shutdown(mut self, window: &mut dyn arvane_shell::ShellWindow) {
         let finished = match &self.run {
             WorkerState::Joined => true,
-            WorkerState::Running(running) => {
-                window.wait_until(&mut || running.thread.is_finished(), SHUTDOWN_WAIT)
-            }
+            WorkerState::Running(running) => window
+                .surface()
+                .wait_until(&mut || running.thread.is_finished(), SHUTDOWN_WAIT),
         };
         if finished {
             // Queued surfaces and devices are dropped here, on the UI thread.
@@ -415,7 +416,7 @@ impl Gpu {
     /// window's thread when a worker finishes. The CPU for the rest of the
     /// session when no worker can start.
     fn spawn(&mut self, waker: ShellWaker, notes: &mut Notes) {
-        let wake: Wake = Arc::new(move || waker.wake(crate::WakeReasons::GPU_STEP));
+        let wake: Wake = Arc::new(move || waker.wake(arvane_shell::WakeReasons::GPU_STEP));
         self.state = match start_device(self.env, &wake) {
             Some(worker) => State::Background(Background {
                 wake,
@@ -432,6 +433,7 @@ impl Gpu {
     /// configured surface. Nothing for any other state.
     pub(crate) fn advance(
         &mut self,
+        window: &mut dyn arvane_shell::ShellWindow,
         notes: &mut Notes,
         make: MakeSurface<'_>,
         physical: (u32, u32),
@@ -455,7 +457,7 @@ impl Gpu {
         };
         let step = match step {
             // The window's surface, made here, configured on a worker.
-            Step::Waiting { context, init } => match make(&context) {
+            Step::Waiting { context, init } => match make(&context, window) {
                 Ok(surface) => match configure(&wake, context, init, surface, physical) {
                     Some(step) => step,
                     None => {
@@ -606,13 +608,14 @@ impl Gpu {
     /// has none; `None` when the GPU is not ready (draw on the CPU).
     pub(crate) fn present(
         &mut self,
+        window: &mut dyn arvane_shell::ShellWindow,
         make: MakeSurface<'_>,
         composition: &Composition,
         scale: f64,
         physical: (u32, u32),
     ) -> Option<Result<(Presentation, Duration, FrameReport), RenderError>> {
         let Device { surface, context } = self.device_mut()?;
-        let surface = match window_surface(context, surface, make) {
+        let surface = match window_surface(context, surface, window, make) {
             Ok(surface) => surface,
             Err(error) => return Some(Err(error)),
         };
@@ -625,12 +628,13 @@ impl Gpu {
     /// ready.
     pub(crate) fn present_pixels(
         &mut self,
+        window: &mut dyn arvane_shell::ShellWindow,
         make: MakeSurface<'_>,
         pixels: &[u32],
         physical: (u32, u32),
     ) -> Option<Result<(Presentation, Duration), RenderError>> {
         let Device { surface, context } = self.device_mut()?;
-        let surface = match window_surface(context, surface, make) {
+        let surface = match window_surface(context, surface, window, make) {
             Ok(surface) => surface,
             Err(error) => return Some(Err(error)),
         };
@@ -663,10 +667,11 @@ impl Gpu {
 fn window_surface<'a>(
     context: &GpuContext,
     surface: &'a mut DeviceSurface,
+    window: &mut dyn arvane_shell::ShellWindow,
     make: MakeSurface<'_>,
 ) -> Result<&'a mut GpuSurface, RenderError> {
     if matches!(surface, DeviceSurface::Pending) {
-        *surface = DeviceSurface::Live(Box::new(make(context)?));
+        *surface = DeviceSurface::Live(Box::new(make(context, window)?));
     }
     match surface {
         DeviceSurface::Live(surface) => Ok(surface),

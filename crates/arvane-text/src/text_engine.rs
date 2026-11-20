@@ -1,7 +1,7 @@
 //! Role: TextEngine: font registration, and cached measuring and shaping of text.
 
 use crate::cache::{Cache, TextKeyRef};
-use crate::error::TextError;
+use crate::error::{TextError, failure};
 use crate::families::{FamilyChoice, FamilyResolution};
 use crate::metrics::line_height;
 use crate::{build, layouts, output, transform};
@@ -85,7 +85,7 @@ impl TextEngine {
     /// falls back to included), so shaping and measurement are the same on
     /// every machine. Text none of them covers draws the missing glyph of
     /// the first font. Fonts registered later join the collection as usual.
-    pub fn isolated(fonts: &[Arc<[u8]>]) -> Result<Self, TextError> {
+    pub fn isolated(fonts: &[Arc<[u8]>]) -> Result<Self, kivact_types::Failure> {
         use parley::fontique::{Collection, CollectionOptions, SourceCache};
         let mut engine = Self {
             cache: Cache::default(),
@@ -106,7 +106,7 @@ impl TextEngine {
                 .collection
                 .register_fonts(parley::fontique::Blob::new(Arc::new(bytes.clone())), None);
             if faces.is_empty() {
-                return Err(TextError::InvalidFont);
+                return Err(failure(TextError::InvalidFont));
             }
             for (family, _) in faces {
                 if !families.contains(&family) {
@@ -126,11 +126,14 @@ impl TextEngine {
     /// Registers a font file, sharing its bytes, and returns the discovered family names.
     ///
     /// Registration allows applications and headless tests to choose explicit fonts.
-    pub fn register_font(&mut self, font: FontSource) -> Result<Vec<String>, TextError> {
+    pub fn register_font(
+        &mut self,
+        font: FontSource,
+    ) -> Result<Vec<String>, kivact_types::Failure> {
         let blob = parley::fontique::Blob::new(Arc::clone(font.source()));
         let faces = self.fonts.collection.register_fonts(blob.clone(), None);
         if faces.is_empty() {
-            return Err(TextError::InvalidFont);
+            return Err(failure(TextError::InvalidFont));
         }
         if matches!(self.system, SystemFonts::Isolated) {
             // An isolated engine has no system fallback: a font registered
@@ -266,22 +269,23 @@ impl TextEngine {
     /// for the first time): a text measured only once leaves nothing in this cache, so a caller
     /// that measures a text once keeps the answer itself. Drawing-only properties are excluded
     /// from the measurement key.
-    pub fn measure(
+    pub fn measure<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<TextMetrics, TextError> {
+    ) -> Result<TextMetrics, kivact_types::Failure> {
+        let text = text.into();
         self.join_system_fonts();
         let key = TextKeyRef::new(text, style, max_width, false);
         if let Some(result) = self.cache.measured.get(&key) {
-            return result;
+            return result.map_err(failure);
         }
         let (result, found) = self.measure_uncached(text, style, max_width);
         if found == layouts::Found::Kept {
             self.cache.measured.insert(key.to_owned(), result.clone());
         }
-        result
+        result.map_err(failure)
     }
 
     /// Measures the extent `shape` would produce without building glyph runs or carets.
@@ -345,29 +349,31 @@ impl TextEngine {
     /// Shapes, wraps, and aligns text in logical pixels using actual font glyphs.
     /// Successes and errors are cached; repeated calls share the same `Arc`.
     /// Cache keys include drawing properties, width and whether carets are needed.
-    pub fn shape(
+    pub fn shape<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, kivact_types::Failure> {
         self.join_system_fonts();
-        self.shape_cached(text, style, max_width, true)
+        self.shape_cached(text.into(), style, max_width, true)
+            .map_err(failure)
     }
 
     /// [`TextEngine::shape`] for drawing only: the same size and glyph
     /// runs, without carets (`carets` is empty).
-    pub fn shape_glyphs(
+    pub fn shape_glyphs<'t>(
         &mut self,
-        text: RichText<'_>,
+        text: impl Into<RichText<'t>>,
         style: &ComputedTextStyle,
         max_width: Option<f64>,
-    ) -> Result<kivact_types::ShapedTextSnapshot, TextError> {
+    ) -> Result<kivact_types::ShapedTextSnapshot, kivact_types::Failure> {
         self.join_system_fonts();
-        self.shape_cached(text, style, max_width, false)
+        self.shape_cached(text.into(), style, max_width, false)
+            .map_err(failure)
     }
 
-    fn shape_cached(
+    pub(crate) fn shape_cached(
         &mut self,
         text: RichText<'_>,
         style: &ComputedTextStyle,

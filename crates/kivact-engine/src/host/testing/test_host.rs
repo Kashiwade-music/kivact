@@ -6,12 +6,10 @@ use crate::contract::{HostError, HostEvent, NodeProperties, NodeType};
 use crate::host::Client;
 use crate::host::launch::{AssetMode, Launch};
 use crate::model::Model;
-use arvane::spi::{Step, StepOutcome};
-use arvane::{
-    EventTarget, Handler, RendererChange, Shell, ShellControl, ShellError, ShellEvent,
-    ShellImeText, ShellSetup, ShellWaker, SteppedShell, Windows,
-};
+use arvane::{Handler, RendererChange, SteppedShell, Windows};
 use arvane_protocol::SemanticsTree;
+use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellImeText, ShellWaker};
+use arvane_shell::{Step, StepOutcome};
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
 use kivact_types::PointerSample;
 use kivact_types::{
@@ -68,7 +66,7 @@ pub struct ArvaneTestHost {
 /// A test control the window handler applies at the next event, where the
 /// window is at hand.
 enum Control {
-    /// Make the window's GPU device lost (`arvane::spi::lose_gpu_device`).
+    /// Make the window's GPU device lost (`arvane::lose_gpu_device`).
     LoseGpuDevice(WindowId),
 }
 
@@ -131,7 +129,7 @@ impl Handler for SharedHost {
             match control {
                 Control::LoseGpuDevice(id) => {
                     if let Some(mut window) = windows.get(id) {
-                        arvane::spi::lose_gpu_device(&mut window);
+                        arvane::lose_gpu_device(&mut window);
                     }
                 }
             }
@@ -155,9 +153,9 @@ fn make_host(
     counts: Rc<Counts>,
 ) -> Result<Rc<RefCell<Launch>>, HostError> {
     let engine = match &options.fonts {
-        TestFonts::Bundled => arvane::Engine::with_fonts_only(&[default_font()]),
-        TestFonts::Only(fonts) => arvane::Engine::with_fonts_only(fonts),
-        TestFonts::System => Ok(arvane::Engine::new()),
+        TestFonts::Bundled => arvane_text::TextEngine::isolated(&[default_font()]),
+        TestFonts::Only(fonts) => arvane_text::TextEngine::isolated(fonts),
+        TestFonts::System => Ok(arvane_text::TextEngine::new()),
     }
     .map_err(|e| HostError::new(e.to_string()))?;
     let mut host = crate::host::new(
@@ -224,7 +222,7 @@ fn renderer_observer(
                 RendererChange::Cpu { reason } => Observed::GpuFailed(reason.clone()),
                 RendererChange::ExternalFrameMissed { .. }
                 | RendererChange::ShaderFailed { .. }
-                | RendererChange::LimitExceeded { .. } => return,
+                | RendererChange::GpuLimit => return,
             };
             observed.borrow_mut().insert(window, state);
         },
@@ -238,13 +236,17 @@ fn start_shell(
     shared: SharedHost,
     observer: Option<arvane::Observer>,
 ) -> Result<SteppedShell, ShellError> {
-    Shell::start_stepped(
+    let gpu = if options.gpu == GpuMode::Required {
+        options.gpu_preference
+    } else {
+        kivact_types::GpuPreference {
+            start: kivact_types::gpu::GpuStart::Never,
+            ..options.gpu_preference
+        }
+    };
+    arvane::start_stepped(
         Box::new(backend),
-        ShellSetup {
-            prefer_gpu: options.gpu == GpuMode::Required,
-            gpu_preference: options.gpu_preference,
-            observer,
-        },
+        arvane::DriverOptions { gpu, observer },
         shared,
     )
 }
@@ -621,7 +623,7 @@ impl ArvaneTestHost {
         let none = self
             .probe
             .window(main)
-            .is_some_and(|probe| probe.surface_generation().is_none());
+            .is_some_and(|probe| probe.drawable() == arvane_shell::Drawable::NoSurface);
         if none {
             self.script.window(main).create_surface();
             self.step(Step::Input);
@@ -634,11 +636,9 @@ impl ArvaneTestHost {
         self.send(WindowId::MAIN, ShellEvent::MemoryWarning);
     }
 
-    /// The generation of window `window`'s surface (`None`: it has none).
-    pub fn surface_generation(&self, window: WindowId) -> Option<u64> {
-        self.probe
-            .window(window)
-            .and_then(|probe| probe.surface_generation())
+    /// Whether window `window` can show a frame now (`None`: it is not open).
+    pub fn drawable(&self, window: WindowId) -> Option<arvane_shell::Drawable> {
+        self.probe.window(window).map(|probe| probe.drawable())
     }
 
     /// The user asks to close window `window` (`CloseRequested`).
@@ -924,7 +924,7 @@ impl ArvaneTestHost {
             .host()
             .engine
             .borrow_mut()
-            .has_font_family(family)
+            .has_family(family)
     }
 
     /// The title the App set for window `window`.

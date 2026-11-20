@@ -66,6 +66,11 @@ pub struct CompositeLayer {
     pub grid: RasterGrid,
     /// Opacity, blending, filters, clip, masks and backdrop.
     pub effects: LayerEffects,
+    /// The version of `items`: two frames of one window that give a layer of
+    /// the same `key` the same `content_version` promise the same `items`
+    /// (see the contract in `rework/A-arvane.md` 4.2). The compositor skips
+    /// hashing the raster chunks of such a layer.
+    pub content_version: u64,
     /// What the layer draws, in order.
     pub items: Vec<LayerItem>,
 }

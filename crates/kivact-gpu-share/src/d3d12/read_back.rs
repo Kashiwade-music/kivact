@@ -1,4 +1,4 @@
-//! Role: Reads an engine's Direct3D 12 texture back to the CPU as straight RGBA8.
+//! Role: Reads an engine's Direct3D 12 texture back to the CPU as premultiplied RGBA8.
 //!
 //! For a window that cannot import (it draws on the CPU, or its GPU is not
 //! up yet): the UI shows the frame as `Pixels`. That needs no shared pool:
@@ -11,7 +11,6 @@
 
 use super::raw::{FORMAT, transition, wait};
 use crate::common::{Error, api};
-use kivact_types::color::unpremultiply;
 use std::time::Duration;
 use windows::Win32::Graphics::Direct3D12::{
     D3D12_COMMAND_LIST_TYPE_DIRECT, D3D12_FENCE_FLAG_NONE, D3D12_HEAP_FLAG_NONE,
@@ -26,7 +25,7 @@ use windows::Win32::Graphics::Direct3D12::{
 use windows::Win32::Graphics::Dxgi::Common::{DXGI_FORMAT_UNKNOWN, DXGI_SAMPLE_DESC};
 use windows::core::Interface;
 
-/// `texture`'s pixels as straight-alpha RGBA8 (`width` × `height` × 4
+/// `texture`'s pixels as premultiplied RGBA8 (as `Pixels`) (`width` × `height` × 4
 /// bytes, rows top to bottom), copied on `queue` after its earlier work
 /// there and waited for at most `timeout`. The texture is a 2D texture of
 /// `d3d12::FORMAT` (premultiplied alpha), 1 mip level, 1 array layer, in
@@ -119,7 +118,6 @@ pub unsafe fn read_back(
     }
     // SAFETY: the mapped buffer; nothing was written.
     unsafe { readback.Unmap(0, None) };
-    unpremultiply(&mut rgba);
     Ok(rgba)
 }
 

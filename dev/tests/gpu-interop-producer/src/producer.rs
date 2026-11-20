@@ -168,7 +168,7 @@ impl Producer {
         self.engine.prepare(&shared.release)
     }
 
-    /// Texture `slot`'s last frame, read back as straight-alpha RGBA8
+    /// Texture `slot`'s last frame, read back as premultiplied RGBA8
     /// (`width` × `height` × 4 bytes), while no window uses it.
     pub fn read_back(&self, slot: u32) -> Result<Vec<u8>, String> {
         self.engine.read_back(slot)

@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use arvane::asset::AnimationInfo;
+use arvane_asset::AnimationInfo;
 use kivact_types::paint::{Fill, FillImage};
 use kivact_types::{Asset, NodeId};
 

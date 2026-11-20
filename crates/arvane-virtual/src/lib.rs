@@ -8,7 +8,6 @@ mod clock;
 mod mirror;
 pub mod raw;
 mod script;
-mod surface;
 mod window;
 
 #[cfg(feature = "mirror")]

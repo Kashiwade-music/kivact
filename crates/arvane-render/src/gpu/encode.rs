@@ -153,7 +153,7 @@ impl HybridCanvas<'_, '_> {
             (&mut *self.renderer, &mut *self.resources, &mut self.uploads);
         self.atlas
             .get_or_insert_if_room(images::image_key(&pattern.image), 1, || {
-                let pixmap = shrink(premultiplied(&pattern.image), PATTERN_ATLAS);
+                let pixmap = shrink(pixmap(&pattern.image), PATTERN_ATLAS);
                 let (width, height) = (pixmap.width(), pixmap.height());
                 let encoder = uploads.get_or_insert_with(|| {
                     device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
@@ -376,7 +376,7 @@ fn upload(device: &wgpu::Device, queue: &wgpu::Queue, id: TextureId, image: &Pix
         .max_texture_dimension_2d
         .min(u32::from(u16::MAX)) as u16
         - 1;
-    let pixmap = shrink(premultiplied(image), limit);
+    let pixmap = shrink(pixmap(image), limit);
     let (width, height) = (usize::from(pixmap.width()), usize::from(pixmap.height()));
     let mut padded = Vec::with_capacity((width + 1) * (height + 1) * 4);
     let rows = pixmap.data_as_u8_slice().chunks_exact(width * 4);
@@ -417,12 +417,12 @@ fn upload(device: &wgpu::Device, queue: &wgpu::Queue, id: TextureId, image: &Pix
     }
 }
 
-/// `image`'s pixels, premultiplied.
-fn premultiplied(image: &Pixels) -> Arc<Pixmap> {
+/// `image`'s pixels as a pixmap (they are premultiplied already).
+fn pixmap(image: &Pixels) -> Arc<Pixmap> {
     let source = ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
         data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
         format: ImageFormat::Rgba8,
-        alpha_type: ImageAlphaType::Alpha,
+        alpha_type: ImageAlphaType::AlphaPremultiplied,
         width: image.width,
         height: image.height,
     });

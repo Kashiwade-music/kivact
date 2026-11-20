@@ -19,7 +19,7 @@ use crate::paint::state::PaintPass;
 impl Model {
     /// Build the frame's plan of the canvas drawables: each one's host, the
     /// drawing that places it and its composed layers.
-    pub(super) fn prepare_canvas(&self, engine: &mut arvane::Engine) {
+    pub(super) fn prepare_canvas(&self, engine: &mut arvane_text::TextEngine) {
         let mut plan = DrawablePlan::default();
         for (id, entry) in self.drawables.iter() {
             if entry.mode != DrawableMode::Canvas {
@@ -61,7 +61,7 @@ impl Model {
     /// drawable, and the layer indices are local to the list.
     pub(super) fn subtree_layers(
         &self,
-        engine: &mut arvane::Engine,
+        engine: &mut arvane_text::TextEngine,
         id: DrawableId,
         root: NodeId,
         scale: f64,

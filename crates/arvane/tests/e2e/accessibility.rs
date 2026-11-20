@@ -4,8 +4,8 @@
 //! transactionally, and assistive technology's requests checked against
 //! it.
 
-use arvane::ShellEvent;
 use arvane_protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
+use arvane_shell::ShellEvent;
 use kivact_types::Transform;
 use kivact_types::{A11yAction, A11yRequest, DismissReason, Point, Role, SemanticsId};
 

@@ -51,8 +51,6 @@ pub struct EmbedOptions {
     pub visibility: EmbedVisibility,
     /// What happens to key presses the editor does not handle.
     pub unhandled_keys: UnhandledKeys,
-    /// Prefer GPU rendering when the platform supports it.
-    pub prefer_gpu: bool,
     pub gpu_preference: GpuPreference,
 }
 
@@ -63,7 +61,6 @@ impl Default for EmbedOptions {
             scale: None,
             visibility: EmbedVisibility::default(),
             unhandled_keys: UnhandledKeys::default(),
-            prefer_gpu: true,
             gpu_preference: GpuPreference::default(),
         }
     }

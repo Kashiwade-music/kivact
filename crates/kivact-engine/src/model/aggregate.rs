@@ -61,8 +61,10 @@ impl Slots {
 /// Requests that must wait until the current client turn has finished.
 pub(crate) enum DeferredRequest {
     Platform(PlatformRequest),
+    /// Ask the platform to resize the window's content to these logical px.
+    RequestSize(kivact_types::Size),
     ReducedMotion(Option<bool>),
-    Inject(Vec<arvane::InjectedInput>),
+    Inject(Vec<arvane_shell::InjectedInput>),
     Emulate(EngineEmulation),
     TimeScale(f64),
     /// Start the model's window GPU device (nothing is answered).

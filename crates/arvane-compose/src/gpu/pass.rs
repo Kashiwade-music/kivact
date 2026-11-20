@@ -76,22 +76,6 @@ pub(super) const CLEAR: wgpu::LoadOp<wgpu::Color> = wgpu::LoadOp::Clear(wgpu::Co
     a: 0.0,
 });
 
-/// Unpremultiply RGBA8 in place (straight alpha, as exported pixels are).
-pub(super) fn unpremultiply(rgba: &mut [u8]) {
-    for px in rgba.as_chunks_mut::<4>().0 {
-        let a = u32::from(px[3]);
-        if a == 0 {
-            px[0] = 0;
-            px[1] = 0;
-            px[2] = 0;
-        } else if a < 255 {
-            for c in &mut px[..3] {
-                *c = ((u32::from(*c) * 255 + a / 2) / a).min(255) as u8;
-            }
-        }
-    }
-}
-
 /// Keeps `buffer` alive for the frame (its bind groups reference it).
 pub(super) fn uniform(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8]) -> wgpu::Buffer {
     buffer(device, queue, wgpu::BufferUsages::UNIFORM, bytes)

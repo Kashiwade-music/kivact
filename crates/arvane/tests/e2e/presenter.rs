@@ -6,7 +6,8 @@
 //! row); surfaces destroyed and
 //! made again; the renderer a window is forced to.
 
-use arvane::{FailureKind, Presented, Renderer};
+use arvane::{Presented, Renderer};
+use kivact_types::FailureKind;
 
 use crate::support::{PERIOD, RED, fill, open, pixel, present, show};
 

@@ -3,8 +3,10 @@ use super::native::Native;
 use super::state::{DrainGuard, ReentryGuard, ScaleSource, StartSlot, State};
 use crate::port::embed::child::{ChildPort, Command, Shared};
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
-use arvane_shell::{AccessibilityError, ShellError, ShellImeText, ShellWindow, SizeReply};
+use arvane_shell::{
+    AccessibilityError, FrameSink, ImeRequest, ShellError, ShellImeText, ShellWindow, SizeReply,
+    WindowSurface,
+};
 use arvane_shell::{ClickCounter, MakeHandler, Mouse, PlatformTree, ShellEvent, ShellWaker};
 use kivact_types::{Cursor, Rect, Size};
 use kivact_types::{PlatformRequest, PlatformResult};
@@ -135,45 +137,14 @@ impl ShellWindow for Window {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(_) => {
-                unreachable!("invariant: the engine asks sizes through request_size")
-            }
             PlatformRequest::Fullscreen(_) => return PlatformResult::Unsupported,
-            PlatformRequest::ForeignChild => return PlatformResult::Unsupported,
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
             ShellError::Failed(failure) => PlatformResult::Failed(failure),
         })
     }
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
 
-    /// An embedded editor's window cannot be raised.
-    fn focus(&mut self) -> Result<(), ShellError> {
-        Err(ShellError::unsupported(
-            "focus_window in an embedded editor",
-        ))
-    }
-
-    fn keeps_frames(&self) -> bool {
-        false
-    }
-    fn keep_frame(&mut self, _frame: arvane_shell::CpuFrame) {
-        unreachable!("invariant: native windows do not retain presented frames");
-    }
-
-    fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.release_cpu_surface();
-        Ok(())
-    }
-    fn shows_cpu_frame(&self) -> bool {
-        self.0.cpu.borrow().shows_frame()
-    }
-    fn release_cpu_surface(&mut self) {
-        self.0.cpu.borrow_mut().release();
-    }
     fn replace_accessibility(
         &mut self,
         tree: &arvane_protocol::SemanticsTree,
@@ -243,8 +214,21 @@ impl ShellWindow for Window {
             ..Default::default()
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.0.surface.get().generation()
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match self.0.shared.applied().visibility {
+            kivact_types::embed::EmbedVisibility::Hidden => arvane_shell::Drawable::Hidden,
+            kivact_types::embed::EmbedVisibility::Shown => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    // The embedded surface is never made again: its generation is always 1.
+                    arvane_shell::Drawable::Yes {
+                        generation: std::num::NonZeroU64::MIN,
+                    }
+                }
+            }
+        }
     }
     fn request_redraw(&self) {
         if self.0.shared.alive() {
@@ -257,9 +241,6 @@ impl ShellWindow for Window {
     fn set_title(&self, _: &str) {}
     fn set_min_size(&self, _: Option<Size>) {}
     fn set_resizable(&self, _: bool) {}
-    fn reduced_motion(&self) -> bool {
-        self.environment().reduced_motion
-    }
     fn environment(&self) -> kivact_types::Environment {
         environment(&self.0)
     }
@@ -282,43 +263,52 @@ impl ShellWindow for Window {
             super::input::cursor(cursor);
         }
     }
-    fn set_ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
-    fn set_ime_allowed(&self, allowed: bool) {
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_allowed(&mut super::ime::Port(&self.0), allowed);
+    /// Enable or disable IME input for the focused editor, as `ime` asks.
+    fn set_ime(&self, ime: Option<ImeRequest>) {
+        match ime {
+            None => {
+                self.soft_keyboard(false);
+                self.ime_allowed(false);
+            }
+            Some(request) => {
+                self.ime_allowed(true);
+                self.soft_keyboard(request.soft_keyboard);
+                self.ime_cursor_area(request.cursor_area);
+                self.ime_purpose(request.purpose);
+                self.ime_text(request.text);
+            }
+        }
     }
-    fn set_soft_keyboard(&self, _: bool) {}
-    fn set_ime_cursor_area(&self, area: Rect) {
-        // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.0.shared.scale();
-        let area = Rect {
-            x: area.x * scale,
-            y: area.y * scale,
-            width: area.width * scale,
-            height: area.height * scale,
-        };
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_cursor_area(&mut super::ime::Port(&self.0), area);
+
+    /// The window's presentation surface: this window itself.
+    fn surface(&mut self) -> &mut dyn WindowSurface {
+        self
     }
-    fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.0
-            .input
-            .ime
-            .borrow_mut()
-            .set_text(&mut super::ime::Port(&self.0), text);
-    }
-    fn frame_period_ns(&self) -> u64 {
-        frame_period(self.0.native.hwnd())
-    }
+}
+
+impl WindowSurface for Window {
     fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
         crate::wait::until(done, limit)
     }
+
+    /// Native windows keep no presented frames.
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink> {
+        None
+    }
+
+    fn recover_surface(&mut self) -> Result<(), ShellError> {
+        self.release_cpu_surface();
+        Ok(())
+    }
+
+    fn shows_cpu_frame(&self) -> bool {
+        self.0.cpu.borrow().shows_frame()
+    }
+
+    fn release_cpu_surface(&mut self) {
+        self.0.cpu.borrow_mut().release();
+    }
+
     fn present_with(
         &mut self,
         width: u32,
@@ -358,6 +348,51 @@ impl ShellWindow for Window {
     }
 }
 
+impl Window {
+    /// An embedded editor's window cannot be raised.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        Err(ShellError::unsupported(
+            "focus_window in an embedded editor",
+        ))
+    }
+
+    fn ime_purpose(&self, _purpose: kivact_types::InputPurpose) {}
+
+    fn ime_allowed(&self, allowed: bool) {
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_allowed(&mut super::ime::Port(&self.0), allowed);
+    }
+
+    fn soft_keyboard(&self, _: bool) {}
+
+    fn ime_cursor_area(&self, area: Rect) {
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.0.shared.scale();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_cursor_area(&mut super::ime::Port(&self.0), area);
+    }
+
+    fn ime_text(&self, text: Option<ShellImeText>) {
+        self.0
+            .input
+            .ime
+            .borrow_mut()
+            .set_text(&mut super::ime::Port(&self.0), text);
+    }
+}
+
 impl State {
     #[allow(
         clippy::too_many_arguments,
@@ -368,7 +403,6 @@ impl State {
         native: Arc<Native>,
         instance: isize,
         scale_source: ScaleSource,
-        visibility: kivact_types::embed::EmbedVisibility,
         unhandled_keys: kivact_types::UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
@@ -401,7 +435,6 @@ impl State {
             native,
             on_resize_request,
             unhandled_keys,
-            surface: Cell::new(ChildSurface::new(visibility)),
             start: RefCell::new(StartSlot::Ready(make)),
             events: RefCell::new(VecDeque::new()),
             in_callback: ReentryGuard::default(),
@@ -576,13 +609,13 @@ impl State {
             self.event(event);
         }
     }
-    /// Apply a queued show/hide on the UI thread: a hidden child has no surface.
+    /// Apply a queued show/hide on the UI thread; a hidden child keeps its surface.
     fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::EmbedVisibility) {
         if self.shared.stopped() {
             return;
         }
         let hwnd = self.native.hwnd();
-        match visibility {
+        let changed = match visibility {
             kivact_types::embed::EmbedVisibility::Hidden => {
                 // SAFETY: focus keys read this UI thread's focus window only.
                 let focused = unsafe { GetFocus() };
@@ -606,20 +639,20 @@ impl State {
                 unsafe {
                     ShowWindow(hwnd, SW_HIDE);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
             kivact_types::embed::EmbedVisibility::Shown => {
                 // SAFETY: showing without activation only targets our live child.
                 unsafe {
                     ShowWindow(hwnd, SW_SHOWNA);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
-        }
-        let mut surface = self.surface.get();
-        if let Some(event) = surface.apply(visibility) {
-            self.surface.set(surface);
-            self.event(event);
+        };
+        if changed {
+            self.event(ShellEvent::Visibility(
+                visibility == kivact_types::embed::EmbedVisibility::Shown,
+            ));
         }
         if visibility == kivact_types::embed::EmbedVisibility::Shown {
             // SAFETY: invalidation only targets our live child; drawing is deferred.

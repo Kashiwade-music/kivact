@@ -61,7 +61,7 @@ pub(crate) enum ImeUpdate {
     /// The window's IME text is still right.
     Unchanged,
     /// Give the window this text (`None`: no text input has the focus).
-    Set(Option<arvane::ShellImeText>),
+    Set(Option<arvane_shell::ShellImeText>),
 }
 
 #[derive(Clone, Copy)]

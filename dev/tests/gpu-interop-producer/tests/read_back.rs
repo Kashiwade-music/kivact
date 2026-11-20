@@ -41,7 +41,7 @@ fn reads_back_the_pattern(backend: GpuBackend) -> Result<(), String> {
 }
 
 /// Direct3D 12: the read back of each texture is its last frame's
-/// picture, straight RGBA8.
+/// picture, premultiplied RGBA8.
 #[cfg(windows)]
 #[test]
 fn reads_back_the_pattern_on_dx12() {
@@ -150,14 +150,18 @@ fn reads_back_a_texture_of_its_own(backend: GpuBackend) -> Result<(), String> {
     );
     let read = read_back(&device, &queue, &texture, std::time::Duration::from_secs(5))
         .expect("the texture reads back");
-    let mut straight = rgba;
-    straight[..8].copy_from_slice(&[199, 100, 0, 128, 0, 0, 0, 0]);
-    assert_eq!(read, straight, "straight alpha on {}", adapter.name);
+    let mut expected = rgba;
+    expected[..8].copy_from_slice(&[100, 50, 0, 128, 7, 7, 7, 0]);
+    assert_eq!(
+        read, expected,
+        "premultiplied, as written, on {}",
+        adapter.name
+    );
     Ok(())
 }
 
 /// A texture of the engine's own (not shared) reads back with wgpu alone
-/// as straight-alpha RGBA8, on Direct3D 12.
+/// as premultiplied RGBA8, on Direct3D 12.
 #[cfg(all(feature = "wgpu", windows))]
 #[test]
 fn reads_back_a_texture_of_its_own_on_dx12() {

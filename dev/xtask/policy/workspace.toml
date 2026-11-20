@@ -57,11 +57,11 @@ arvane-shell = ["arvane", "arvane-native", "kivact-engine", "arvane-virtual"]
 arvane-native = ["kivact-engine", "arvane-virtual", "kivact"]
 # Engine testing owns the stepped Script/Probe bridge; core uses its public test host.
 arvane-virtual = ["kivact-engine", "kivact-test"]
-arvane-text = ["arvane", "kivact", "arvane-asset"]
-arvane-render = ["arvane", "arvane-compose"]
+arvane-text = ["arvane", "kivact", "arvane-asset", "kivact-engine"]
+arvane-render = ["arvane", "arvane-compose", "kivact-engine"]
 # The compositor plan: Composition to draw operations, owned by the window (arvane) and the facade (kivact).
-arvane-compose = ["arvane", "kivact"]
-arvane-asset = ["arvane"]
+arvane-compose = ["arvane", "kivact", "kivact-engine"]
+arvane-asset = ["arvane", "kivact-engine"]
 # ----- The frame protocol: the engine builds it and the Arvane crates consume it.
 arvane-protocol = ["arvane", "arvane-shell", "arvane-native", "arvane-virtual", "arvane-text", "arvane-render", "arvane-compose", "kivact-engine"]
 # 試験だけの engine（自前の device で frame を描いて共有する）。dev-dependency だけが使う（dev-dependency は visible_to の対象外）。
@@ -315,7 +315,7 @@ api_packages = [
 options_structs = [
     "arvane-native::mirror::MirrorWindowOptions",
     "arvane-virtual::VirtualOptions",
-    "arvane::ShellSetup",
+    "arvane::DriverOptions",
     "arvane-shell::ChildHooks",
     "kivact-test::RenderOptions",
     "kivact-engine::api::HostOptions",

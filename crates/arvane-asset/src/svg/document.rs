@@ -6,7 +6,6 @@ use std::sync::Arc;
 use crate::pixels::{Crop, PixelSize};
 use kivact_types::Pixels;
 use kivact_types::Size;
-use kivact_types::color::unpremultiply;
 use resvg::{tiny_skia, usvg};
 
 /// The font database an SVG's `<text>` is shaped with.
@@ -152,12 +151,10 @@ impl Svg {
             -(area.y as f32),
         );
         resvg::render(&self.tree, transform, &mut pixmap.as_mut());
-        let mut rgba = pixmap.take();
-        unpremultiply(&mut rgba);
         Pixels {
             width: area.width,
             height: area.height,
-            rgba: rgba.into(),
+            rgba: pixmap.take().into(),
         }
     }
 }

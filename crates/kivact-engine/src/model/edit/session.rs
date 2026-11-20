@@ -120,7 +120,7 @@ impl Model {
 
     /// What the focused session node `id` shows the IME, when it changed
     /// since the last time given (`Model::ime_changed` calls it).
-    pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane::ShellImeText> {
+    pub(super) fn session_ime_changed(&mut self, id: NodeId) -> Option<arvane_shell::ShellImeText> {
         let session = self.session(id)?.clone();
         let t = self.window_map(id);
         let source = SessionSource {
@@ -137,15 +137,15 @@ impl Model {
         let area = self.rect(id).unwrap_or_default();
         let area = self.drawn_rect(id, area);
         let text = if session.purpose == kivact_types::InputPurpose::Password {
-            arvane::ShellImeText {
+            arvane_shell::ShellImeText {
                 rects: vec![caret],
                 area,
-                ..arvane::ShellImeText::default()
+                ..arvane_shell::ShellImeText::default()
             }
         } else {
             let units = |byte: usize| kivact_types::text_utf::utf16_offset(&session.text, byte);
             let (start, end) = (units(session.selection.start), units(session.selection.end));
-            arvane::ShellImeText {
+            arvane_shell::ShellImeText {
                 text: session.text.clone(),
                 text_start: 0,
                 selection: (start.min(end), start.max(end)),

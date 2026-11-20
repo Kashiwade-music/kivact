@@ -4,7 +4,7 @@ use std::fmt;
 
 /// An input or font availability error while shaping text.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum TextError {
+pub(crate) enum TextError {
     /// Font size, line height, or available width is invalid.
     InvalidMetrics,
     /// Supplied font data contains no usable font faces.
@@ -33,3 +33,16 @@ impl fmt::Display for TextError {
 }
 
 impl std::error::Error for TextError {}
+
+/// The shared failure of a text error: invalid input is `Content`, a
+/// font that cannot be used is `Resource`.
+pub(crate) fn failure(error: TextError) -> kivact_types::Failure {
+    let kind = match error {
+        TextError::InvalidMetrics
+        | TextError::InvalidSpans
+        | TextError::InvalidInlineBoxes
+        | TextError::UnsupportedInlineStyle => kivact_types::FailureKind::Content,
+        TextError::InvalidFont | TextError::MissingFont => kivact_types::FailureKind::Resource,
+    };
+    kivact_types::Failure::new(kind, error.to_string())
+}

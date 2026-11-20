@@ -200,8 +200,8 @@ impl ColorMatrix {
     }
 }
 
-/// Straight-alpha RGBA8 pixels a scene draws as they are (no decode, no
-/// asset store). Compared by size and `Arc` identity, never by content, so
+/// Premultiplied-alpha RGBA8 pixels a scene draws as they are (each color
+/// channel already multiplied by alpha; no decode, no asset store). Compared by size and `Arc` identity, never by content, so
 /// a new `Arc` every frame costs one comparison.
 #[derive(Clone, Debug)]
 pub struct Pixels {
@@ -209,7 +209,7 @@ pub struct Pixels {
     pub width: u32,
     /// Pixel height of the buffer.
     pub height: u32,
-    /// Tightly packed straight-alpha RGBA8, row-major from the top left,
+    /// Tightly packed premultiplied RGBA8, row-major from the top left,
     /// width times height times four bytes with no row padding.
     /// Keep the same allocation for unchanged pixels; renderers cache by Arc identity.
     pub rgba: crate::AssetBytes,

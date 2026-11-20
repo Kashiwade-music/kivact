@@ -250,7 +250,8 @@ impl RenderOptions {
             gpu_preference: kivact_types::GpuPreference {
                 start: match self.gpu {
                     TestGpu::OnDemand => kivact_types::gpu::GpuStart::OnDemand,
-                    TestGpu::Off | TestGpu::AtLaunch => kivact_types::gpu::GpuStart::AtLaunch,
+                    TestGpu::Off => kivact_types::gpu::GpuStart::Never,
+                    TestGpu::AtLaunch => kivact_types::gpu::GpuStart::AtLaunch,
                 },
                 ..initial.gpu_preference
             },
