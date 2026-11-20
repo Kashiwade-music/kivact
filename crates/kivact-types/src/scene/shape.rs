@@ -1,11 +1,11 @@
 //! Role: Paths, rounded rectangles and shapes in logical pixels.
 //! Plain data usable on any thread.
 //!
-//! Every shape has one outline ([`Shape::outline`]: moves, lines, quadratic
+//! Every shape has one outline ([`Outline::outline`]: moves, lines, quadratic
 //! and cubic curves only), which the renderer fills and strokes and
-//! [`Shape::contains`] hit-tests, so what is drawn and what is hit agree.
+//! [`Outline::contains`] hit-tests, so what is drawn and what is hit agree.
 
-use crate::geometry::{Point, Rect, Transform};
+use crate::geometry::{Affine, Point, Rect};
 use crate::scene::primitives::FillRule;
 
 /// Portable path segment, usable on any thread.
@@ -258,7 +258,7 @@ fn positive(v: f64) -> f64 {
 
 /// A closed area to fill, stroke or clip to.
 #[derive(Clone, Debug, PartialEq)]
-pub enum Shape {
+pub enum Outline {
     /// A rectangle.
     Rect(Rect),
     /// A rectangle with elliptical corners.
@@ -279,14 +279,14 @@ pub enum Shape {
     },
 }
 
-impl Shape {
+impl Outline {
     /// The outline as moves, lines, quadratic and cubic curves and closes
     /// only (arcs become cubics): what renderers fill and stroke.
     pub fn outline(&self) -> Vec<PathCmd> {
         match self {
-            Shape::Rect(r) => RoundedRect::new(*r, 0.0).outline(),
-            Shape::RoundedRect(r) => r.outline(),
-            Shape::Polygon { points, .. } => {
+            Outline::Rect(r) => RoundedRect::new(*r, 0.0).outline(),
+            Outline::RoundedRect(r) => r.outline(),
+            Outline::Polygon { points, .. } => {
                 let mut out: Vec<PathCmd> = points
                     .iter()
                     .enumerate()
@@ -303,15 +303,15 @@ impl Shape {
                 }
                 out
             }
-            Shape::Path { cmds, .. } => lower_arcs(cmds),
+            Outline::Path { cmds, .. } => lower_arcs(cmds),
         }
     }
 
     /// The fill rule its outline is filled with.
     pub fn rule(&self) -> FillRule {
         match self {
-            Shape::Rect(_) | Shape::RoundedRect(_) => FillRule::NonZero,
-            Shape::Polygon { rule, .. } | Shape::Path { rule, .. } => *rule,
+            Outline::Rect(_) | Outline::RoundedRect(_) => FillRule::NonZero,
+            Outline::Polygon { rule, .. } | Outline::Path { rule, .. } => *rule,
         }
     }
 
@@ -320,8 +320,8 @@ impl Shape {
     /// empty.
     pub fn bounds(&self) -> Rect {
         match self {
-            Shape::Rect(r) => *r,
-            Shape::RoundedRect(r) => r.rect,
+            Outline::Rect(r) => *r,
+            Outline::RoundedRect(r) => r.rect,
             _ => points_bounds(self.outline().iter().flat_map(cmd_points)),
         }
     }
@@ -330,8 +330,8 @@ impl Shape {
     /// along 16 straight pieces each).
     pub fn contains(&self, p: Point) -> bool {
         match self {
-            Shape::Rect(r) => r.contains(p),
-            Shape::RoundedRect(r) => r.contains(p),
+            Outline::Rect(r) => r.contains(p),
+            Outline::RoundedRect(r) => r.contains(p),
             _ => {
                 let winding = winding(&self.outline(), p);
                 match self.rule() {
@@ -351,17 +351,17 @@ impl Shape {
     /// translation, its radii scaled and moved to the corners they land
     /// on, and is a `Path` otherwise. A `Polygon` and a `Path` map their
     /// points; the arcs of a `Path` are lowered to cubic curves first (as
-    /// [`Shape::outline`] does), since an arc does not stay an arc under a
+    /// [`Outline::outline`] does), since an arc does not stay an arc under a
     /// skew.
-    pub fn transformed(&self, t: Transform) -> Shape {
+    pub fn transformed(&self, t: Affine) -> Outline {
         match self {
-            Shape::Rect(r) => transformed_rect(*r, t),
-            Shape::RoundedRect(r) => transformed_rounded_rect(*r, t),
-            Shape::Polygon { points, rule } => Shape::Polygon {
+            Outline::Rect(r) => transformed_rect(*r, t),
+            Outline::RoundedRect(r) => transformed_rounded_rect(*r, t),
+            Outline::Polygon { points, rule } => Outline::Polygon {
                 points: points.iter().map(|p| t.apply(*p)).collect(),
                 rule: *rule,
             },
-            Shape::Path { cmds, rule } => Shape::Path {
+            Outline::Path { cmds, rule } => Outline::Path {
                 cmds: map_cmds(&lower_arcs(cmds), t),
                 rule: *rule,
             },
@@ -380,16 +380,16 @@ fn rect_between(p: Point, q: Point) -> Rect {
 }
 
 /// `r` mapped by `t`: a `Rect` while the axes stay parallel, else a polygon.
-fn transformed_rect(r: Rect, t: Transform) -> Shape {
+fn transformed_rect(r: Rect, t: Affine) -> Outline {
     let axis_parallel = (t.b == 0.0 && t.c == 0.0) || (t.a == 0.0 && t.d == 0.0);
     let corner = |x: f64, y: f64| t.apply(Point { x, y });
     if axis_parallel {
-        return Shape::Rect(rect_between(
+        return Outline::Rect(rect_between(
             corner(r.x, r.y),
             corner(r.x + r.width, r.y + r.height),
         ));
     }
-    Shape::Polygon {
+    Outline::Polygon {
         points: vec![
             corner(r.x, r.y),
             corner(r.x + r.width, r.y),
@@ -402,9 +402,9 @@ fn transformed_rect(r: Rect, t: Transform) -> Shape {
 
 /// `r` mapped by `t`: a `RoundedRect` for a uniform scale and translation,
 /// else a path.
-fn transformed_rounded_rect(r: RoundedRect, t: Transform) -> Shape {
+fn transformed_rounded_rect(r: RoundedRect, t: Affine) -> Outline {
     if t.b != 0.0 || t.c != 0.0 || t.a == 0.0 || t.a.abs() != t.d.abs() {
-        return Shape::Path {
+        return Outline::Path {
             cmds: map_cmds(&r.outline(), t),
             rule: FillRule::NonZero,
         };
@@ -423,7 +423,7 @@ fn transformed_rounded_rect(r: RoundedRect, t: Transform) -> Shape {
         corner(r.rect.x, r.rect.y),
         corner(r.rect.x + r.rect.width, r.rect.y + r.rect.height),
     );
-    Shape::RoundedRect(RoundedRect {
+    Outline::RoundedRect(RoundedRect {
         rect,
         radii: order.map(|i| Radius {
             x: r.radii[i].x * scale,
@@ -433,7 +433,7 @@ fn transformed_rounded_rect(r: RoundedRect, t: Transform) -> Shape {
 }
 
 /// `cmds` (without arcs) with every point mapped by `t`.
-fn map_cmds(cmds: &[PathCmd], t: Transform) -> Vec<PathCmd> {
+fn map_cmds(cmds: &[PathCmd], t: Affine) -> Vec<PathCmd> {
     cmds.iter()
         .map(|cmd| match *cmd {
             PathCmd::MoveTo(p) => PathCmd::MoveTo(t.apply(p)),

@@ -6,7 +6,7 @@ use kivact_types::Matrix4;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::geometry3d::{Polygon, Projective};
 use kivact_types::pixel::BlendMode;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 use super::bounds::mapped_bounds;
 use super::builder::Builder;
@@ -83,7 +83,7 @@ impl<'a> Builder<'a> {
         index: u32,
         dest: Dest,
         to_win: Matrix4,
-        clips: &'a [Shape],
+        clips: &'a [Outline],
     ) -> Result<(), PlanError> {
         let Dest {
             target: t,

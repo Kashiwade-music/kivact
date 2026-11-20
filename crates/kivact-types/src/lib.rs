@@ -28,6 +28,7 @@ pub mod ids;
 pub mod image_status;
 pub mod input;
 pub mod layout;
+pub mod length;
 pub mod motion;
 pub mod paint;
 pub mod pixel;
@@ -54,17 +55,17 @@ pub use color_space::{
 };
 pub use drag_velocity::DragVelocity;
 pub use effect::{
-    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraphSpec, FilterInput, Light,
     MorphologyOp, ParamSlot, ParamType, Primitive, PrimitiveOp, ShaderKind, ShaderProgram,
     ShaderUse, TransferFn, TurbulenceKind,
 };
 pub use embed::{EmbedOptions, EmbedVisibility, ResizeAnswer, UnhandledKeys};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
-    PointerSettings, ThemeHint,
+    PointerSettings, ThemeMode,
 };
 pub use export::{ExportFrame, ExportedFrame, FrameStats};
-pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
+pub use geometry::{Affine, Edge, Edges, Point, Rect, Size};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterIds, AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter,
@@ -83,20 +84,21 @@ pub use input::{
     WheelInput,
 };
 pub use layout::{
-    Align, AvailableSpace, Baseline, Breadth, Dimension, Display, EditLineLayout, FlexDirection,
-    GridContainer, GridFlow, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize,
-    Justify, LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
+    Align, AvailableSpace, Baseline, Breadth, Display, EditLineLayout, FlexDirection, GridAutoFlow,
+    GridContainer, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize, Justify,
+    LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
     OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
 };
+pub use length::{Length, auto, pct};
 pub use motion::{
-    Easing, Keyframe, Kind, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
-    StepPosition, TimeScale, Transition, TransitionProp, lerp,
+    Easing, Keyframe, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
+    StepPosition, TimeScale, Transition, TransitionKind, TransitionProp, lerp,
 };
 pub use paint::{
     BackfaceVisibility, BackgroundClip, BackgroundOrigin, Border, BorderImage, BorderImageRepeat,
     ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners, Cursor, Effects,
-    ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient,
-    GradientKind, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
+    ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, GradientKind,
+    GradientSpec, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
     MaskMode, PaintDelta, PaintProps, Perspective, RadialExtent, Ring, ScrollbarDelta,
     ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle, WillChange,
 };
@@ -119,9 +121,9 @@ pub use shaped::{
 pub use style_state::{StateSet, StyleState};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
-    PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLen,
+    PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLength,
     TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle, TextTransform,
-    TextWrap,
+    TextWrap, em,
 };
 pub use text_shaping::TextShaper;
 pub use type_map::{LocalTypeMap, SharedTypeMap};

@@ -401,7 +401,6 @@ impl HostNode {
             .flags
             .get(InputFlag::Hidden)
             .unwrap_or(false)
-            || self.layout().is_some_and(|l| l.hidden)
     }
 
     /// `Selected`.

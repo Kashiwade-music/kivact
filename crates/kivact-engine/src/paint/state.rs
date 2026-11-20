@@ -401,7 +401,7 @@ pub(crate) struct PaintList {
     pub(super) entries: Vec<Entry>,
     /// The transforms of the listed transformed nodes, each in the space
     /// of the transforms around it.
-    pub(super) transforms: Vec<kivact_types::Transform>,
+    pub(super) transforms: Vec<kivact_types::Affine>,
     /// The compositor layers of the listed layer nodes.
     pub(super) layers: Vec<LayerSpec>,
     /// What each subtree holds that decides its layers (only the nodes

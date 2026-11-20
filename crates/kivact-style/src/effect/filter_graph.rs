@@ -4,11 +4,11 @@
 //! primitive and returns a [`FilterInput`] handle to its result. `Filter::graph`
 //! consumes the builder into an [`AuthoredGraph`] (a `Clone` value with its
 //! colors still theme-dependent); style resolution turns that into the
-//! engine's `kivact_types::FilterGraph<Asset>`.
+//! engine's `kivact_types::FilterGraphSpec<Asset>`.
 
 use kivact_types as p;
 use kivact_types::{
-    BlendMode, Channel, CompositeOp, EdgeMode, FilterColorSpace, Insets, Light, MorphologyOp,
+    BlendMode, Channel, CompositeOp, EdgeMode, Edges, FilterColorSpace, Light, MorphologyOp,
     PrimitiveOp, Rgba, TransferFn, TurbulenceKind,
 };
 
@@ -54,7 +54,7 @@ pub(crate) struct AuthoredPrimitive {
 #[derive(Debug)]
 pub struct FilterGraph {
     prims: Vec<AuthoredPrimitive>,
-    margin: Option<Insets>,
+    margin: Option<Edges<f64>>,
     color_space: FilterColorSpace,
     /// The first problem found while building; the later ones are not kept.
     error: Option<String>,
@@ -78,7 +78,7 @@ impl FilterGraph {
     }
 
     /// Extend the filter region beyond the element (default: 10% of its size).
-    pub fn margin(&mut self, margin: impl Into<Insets>) -> &mut FilterGraph {
+    pub fn margin(&mut self, margin: impl Into<Edges<f64>>) -> &mut FilterGraph {
         self.margin = Some(margin.into());
         self
     }
@@ -498,7 +498,7 @@ impl FilterGraph {
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct AuthoredGraph {
     prims: Vec<AuthoredPrimitive>,
-    margin: Option<Insets>,
+    margin: Option<Edges<f64>>,
     color_space: FilterColorSpace,
     error: Option<String>,
 }
@@ -521,7 +521,7 @@ impl AuthoredGraph {
     pub(crate) fn resolve(
         &self,
         theme: &crate::theme::value::Theme,
-    ) -> Result<p::FilterGraph<Asset>, String> {
+    ) -> Result<p::FilterGraphSpec<Asset>, String> {
         if let Some(e) = &self.error {
             return Err(e.clone());
         }
@@ -546,7 +546,7 @@ impl AuthoredGraph {
                 }
             })
             .collect();
-        let graph = p::FilterGraph {
+        let graph = p::FilterGraphSpec {
             primitives,
             margin: self.margin,
             color_space: self.color_space,

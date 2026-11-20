@@ -2,7 +2,7 @@
 use crate::Rgba;
 use crate::text::{
     FontFeature, FontKerning, FontVariation, LineHeight, PaintOrder, TextAlign, TextDecoration,
-    TextLen, TextOverflow, TextShadow, TextStroke, TextStyle, TextTransform, TextWrap,
+    TextLength, TextOverflow, TextShadow, TextStroke, TextStyle, TextTransform, TextWrap,
 };
 
 /// Typography after inheritance. Optional values here have semantic meaning:
@@ -20,8 +20,8 @@ pub struct ComputedTextStyle {
     pub align: TextAlign,
     pub family: Option<String>,
     pub italic: bool,
-    pub letter_spacing: TextLen,
-    pub word_spacing: TextLen,
+    pub letter_spacing: TextLength,
+    pub word_spacing: TextLength,
     pub kerning: FontKerning,
     /// Explicit OpenType feature declarations, before the tabular-number feature.
     pub features: Vec<FontFeature>,
@@ -63,8 +63,8 @@ impl Default for ComputedTextStyle {
             align: TextAlign::Start,
             family: None,
             italic: false,
-            letter_spacing: TextLen::default(),
-            word_spacing: TextLen::default(),
+            letter_spacing: TextLength::default(),
+            word_spacing: TextLength::default(),
             kerning: FontKerning::Auto,
             features: Vec::new(),
             tabular_nums: false,
@@ -168,10 +168,10 @@ impl ComputedTextStyle {
 
     /// Resolve a relative text length against this node's font size.
     /// Non-finite results become zero, as at the previous lowering boundary.
-    pub fn resolve(&self, length: TextLen) -> f64 {
+    pub fn resolve(&self, length: TextLength) -> f64 {
         let value = match length {
-            TextLen::Px(v) => v,
-            TextLen::Em(v) => v * self.font_size,
+            TextLength::Px(v) => v,
+            TextLength::Em(v) => v * self.font_size,
         };
         if value.is_finite() { value } else { 0.0 }
     }

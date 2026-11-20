@@ -31,7 +31,7 @@
 //! that does not scroll (`overflow: hidden`) is none. The transforms
 //! between a box and its scrollport are not looked at.
 
-use kivact_types::{Dimension, NodeId, Point, Rect};
+use kivact_types::{Length, NodeId, Point, Rect};
 
 use crate::model::Model;
 
@@ -79,10 +79,10 @@ impl Model {
         };
         let (scroller, port) = self.scrollport(parent);
         let block = self.containing_block(parent, scroller == Some(parent))?;
-        let len = |d: Dimension, of: f64| match d {
-            Dimension::Px(v) => Some(v),
-            Dimension::Percent(p) => Some(of * p / 100.0),
-            Dimension::Calc { percent, px } => Some(of * percent / 100.0 + px),
+        let len = |d: Length, of: f64| match d {
+            Length::Px(v) => Some(v),
+            Length::Percent(p) => Some(of * p / 100.0),
+            Length::Calc { percent, px } => Some(of * percent / 100.0 + px),
             _ => None,
         };
         Some(Point {

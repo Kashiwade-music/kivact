@@ -7,7 +7,7 @@ use kivact_types::Composite;
 use kivact_types::Matrix4;
 use kivact_types::geometry::Size;
 use kivact_types::pixel::BlendMode;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 use super::builder::Builder;
 use super::frame::{Dest, ItemCtx, coverage_scene, px_map, raster_ordinal, wrapped};
@@ -171,7 +171,7 @@ impl<'a> Builder<'a> {
         cx: &ItemCtx<'a>,
         at: usize,
         index: u32,
-        clips: &'a [Shape],
+        clips: &'a [Outline],
     ) -> Result<(), PlanError> {
         let child = self.layer(index)?;
         let cover = if clips.is_empty() {
@@ -200,7 +200,7 @@ impl<'a> Builder<'a> {
         &mut self,
         cx: &ItemCtx<'a>,
         at: usize,
-        clips: &[Shape],
+        clips: &[Outline],
     ) -> Result<ChunkKey, PlanError> {
         let key = ChunkKey {
             layer: cx.layer.key,

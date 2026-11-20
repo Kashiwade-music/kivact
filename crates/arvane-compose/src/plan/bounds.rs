@@ -7,8 +7,8 @@
 
 use arvane_protocol::{BoxShadow, Group, RenderCmd, RenderScene, SHADOW_REACH};
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Point, Rect, Transform};
-use kivact_types::scene::{LineJoin, Shape, Stroke};
+use kivact_types::geometry::{Affine, Point, Rect};
+use kivact_types::scene::{LineJoin, Outline, Stroke};
 use kivact_types::shaped::Glyph;
 
 use super::ops::PlanError;
@@ -34,7 +34,7 @@ struct Open {
     /// Index of the push command.
     push: usize,
     /// The transform before the push.
-    outer: Transform,
+    outer: Affine,
     /// The content's bounds so far (root coordinates of the scene).
     bounds: Option<Rect>,
     /// What the push opened.
@@ -46,7 +46,7 @@ struct Open {
 pub(crate) fn scene_bounds(scene: &RenderScene) -> Result<Vec<Option<Rect>>, PlanError> {
     let mut out = vec![None; scene.commands.len()];
     let mut stack: Vec<Open> = Vec::new();
-    let mut transform = Transform::IDENTITY;
+    let mut transform = Affine::IDENTITY;
     for (i, command) in scene.commands.iter().enumerate() {
         match command {
             RenderCmd::PushClip(r) => stack.push(open(i, transform, Kind::Clip(*r))),
@@ -81,7 +81,7 @@ pub(crate) fn scene_bounds(scene: &RenderScene) -> Result<Vec<Option<Rect>>, Pla
 }
 
 /// A new open group.
-fn open(push: usize, outer: Transform, kind: Kind) -> Open {
+fn open(push: usize, outer: Affine, kind: Kind) -> Open {
     Open {
         push,
         outer,
@@ -93,7 +93,7 @@ fn open(push: usize, outer: Transform, kind: Kind) -> Open {
 /// The kind a group push opens.
 fn group_kind(g: &Group) -> Kind {
     Kind::Group {
-        clip: g.clip.as_ref().map(Shape::bounds),
+        clip: g.clip.as_ref().map(Outline::bounds),
         blur: g.blur,
     }
 }
@@ -109,7 +109,7 @@ fn matches_pop(kind: &Kind, pop: &RenderCmd) -> bool {
 }
 
 /// The bounds of a closed group, in the coordinates of its push.
-fn close(open: &Open, transform: Transform) -> Option<Rect> {
+fn close(open: &Open, transform: Affine) -> Option<Rect> {
     match open.kind {
         Kind::Clip(r) => intersect_opt(open.bounds, transform.bounds(r)),
         Kind::Transform => open.bounds,
@@ -168,7 +168,7 @@ fn local_bounds(command: &RenderCmd) -> Option<Rect> {
         } => points_bounds(&[*from, *to]).inflate(width + 1.0, width + 1.0),
         RenderCmd::Path { cmds, stroke, .. } => {
             let w = stroke.map_or(0.0, |(w, _)| w);
-            Shape::Path {
+            Outline::Path {
                 cmds: cmds.clone(),
                 rule: Default::default(),
             }

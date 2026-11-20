@@ -22,7 +22,7 @@ mod grid;
 mod icon;
 #[doc(hidden)]
 pub mod internal;
-mod length;
+
 pub mod paint;
 pub(crate) mod path;
 pub(crate) mod resolve;
@@ -43,7 +43,7 @@ pub use kivact_types::{
     BackfaceVisibility, ColorSpace, HueInterpolation, Isolation, TransformStyle, WillChange,
 };
 pub use kivact_types::{Cursor, TextAlign};
-pub use length::{Length, auto, pct};
+pub use kivact_types::{Length, auto, pct};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};
 pub use sheet::{

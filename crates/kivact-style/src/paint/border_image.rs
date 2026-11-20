@@ -6,7 +6,7 @@ use super::gradient::Gradient;
 use crate::asset::Asset;
 use crate::theme::value::Theme;
 use kivact_types as p;
-use kivact_types::{BorderImageRepeat, Insets};
+use kivact_types::{BorderImageRepeat, Edges};
 
 /// What a [`BorderImage`] paints: a picture or a gradient.
 #[derive(Clone, Debug, PartialEq)]
@@ -57,11 +57,11 @@ impl From<Gradient> for BorderImageSource {
 #[derive(Clone, Debug, PartialEq)]
 pub struct BorderImage {
     source: BorderImageSource,
-    slice: Insets,
+    slice: Edges<f64>,
     slice_pct: bool,
     fill: bool,
-    width: Option<Insets>,
-    outset: Insets,
+    width: Option<Edges<f64>>,
+    outset: Edges<f64>,
     repeat: [BorderImageRepeat; 2],
 }
 
@@ -70,24 +70,24 @@ impl BorderImage {
     pub fn new(source: impl Into<BorderImageSource>) -> BorderImage {
         BorderImage {
             source: source.into(),
-            slice: Insets::default(),
+            slice: Edges::<f64>::default(),
             slice_pct: false,
             fill: false,
             width: None,
-            outset: Insets::default(),
+            outset: Edges::<f64>::default(),
             repeat: [BorderImageRepeat::Stretch; 2],
         }
     }
 
     /// The slices, in px of the source.
-    pub fn slice(mut self, slice: impl Into<Insets>) -> BorderImage {
+    pub fn slice(mut self, slice: impl Into<Edges<f64>>) -> BorderImage {
         self.slice = slice.into();
         self.slice_pct = false;
         self
     }
 
     /// The slices, in percent of the source.
-    pub fn slice_pct(mut self, slice: impl Into<Insets>) -> BorderImage {
+    pub fn slice_pct(mut self, slice: impl Into<Edges<f64>>) -> BorderImage {
         self.slice = slice.into();
         self.slice_pct = true;
         self
@@ -101,13 +101,13 @@ impl BorderImage {
 
     /// The width of the border image area, in px (default: the border
     /// widths).
-    pub fn width(mut self, width: impl Into<Insets>) -> BorderImage {
+    pub fn width(mut self, width: impl Into<Edges<f64>>) -> BorderImage {
         self.width = Some(width.into());
         self
     }
 
     /// How far the border image reaches beyond the border box, in px.
-    pub fn outset(mut self, outset: impl Into<Insets>) -> BorderImage {
+    pub fn outset(mut self, outset: impl Into<Edges<f64>>) -> BorderImage {
         self.outset = outset.into();
         self
     }
@@ -129,7 +129,7 @@ impl BorderImage {
 
     /// The engine's border image, with its source resolved against `theme`.
     pub(crate) fn wire(&self, theme: &Theme) -> p::BorderImage {
-        let edges = |i: Insets, pct: bool| {
+        let edges = |i: Edges<f64>, pct: bool| {
             let l = |v: f64| {
                 if pct { p::Len::pct(v) } else { p::Len::px(v) }
             };

@@ -19,7 +19,7 @@ use arvane_protocol::{Plane, RasterGrid};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::{NodeId, Point, Rect, Transform, WillChange};
+use kivact_types::{Affine, NodeId, Point, Rect, WillChange};
 use std::collections::{BTreeSet, BinaryHeap, HashMap, HashSet};
 
 /// Logical pixels the clip is grown by before culling: more than a device
@@ -84,7 +84,7 @@ struct LayerPlan {
     /// Layer space → the parent's space (the node's box at its origin).
     matrix: Matrix4,
     /// The same map when it is affine (culling maps the clip through it).
-    affine: Option<Transform>,
+    affine: Option<Affine>,
     /// The content bounds in layer space (before its effects).
     bounds: Rect,
     /// The content in layer space with its own effects' reach: what the
@@ -113,7 +113,7 @@ struct Walk<'a> {
     used: HashSet<NodeId>,
     out: Vec<Entry>,
     /// The listed transformed nodes' transforms.
-    transforms: Vec<Transform>,
+    transforms: Vec<Affine>,
     /// The listed layers.
     layers: Vec<LayerSpec>,
     /// The listed layers that move every frame.
@@ -339,7 +339,7 @@ impl Walk<'_> {
     fn place(
         &mut self,
         id: NodeId,
-        local: Option<Transform>,
+        local: Option<Affine>,
         clip: Rect,
         origin: Point,
         plan: Option<LayerPlan>,
@@ -377,7 +377,7 @@ impl Walk<'_> {
 
     fn place_transform(
         &mut self,
-        local: Option<Transform>,
+        local: Option<Affine>,
         clip: Rect,
         origin: Point,
     ) -> Option<(Option<u32>, Rect, Point)> {

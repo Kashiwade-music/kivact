@@ -613,9 +613,9 @@ impl Default for Cache {
     }
 }
 
-fn text_len_bits(value: kivact_types::TextLen) -> (u8, u64) {
+fn text_len_bits(value: kivact_types::TextLength) -> (u8, u64) {
     match value {
-        kivact_types::TextLen::Px(v) => (0, v.to_bits()),
-        kivact_types::TextLen::Em(v) => (1, v.to_bits()),
+        kivact_types::TextLength::Px(v) => (0, v.to_bits()),
+        kivact_types::TextLength::Em(v) => (1, v.to_bits()),
     }
 }

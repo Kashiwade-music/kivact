@@ -3,7 +3,7 @@ mod filter_graph;
 mod shader;
 
 pub use filter_graph::{
-    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraphSpec, FilterInput, Light,
     MorphologyOp, Primitive, PrimitiveOp, TransferFn, TurbulenceKind,
 };
 pub use shader::{ParamSlot, ParamType, ShaderKind, ShaderProgram, ShaderUse};

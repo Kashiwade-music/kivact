@@ -204,9 +204,9 @@ impl VirtualWindow {
                 frame_period_ns: options.frame_period_ns.max(1),
                 reduced_motion: options.reduced_motion,
                 theme_hint: if options.dark {
-                    kivact_types::ThemeHint::Dark
+                    kivact_types::ThemeMode::Dark
                 } else {
-                    kivact_types::ThemeHint::Light
+                    kivact_types::ThemeMode::Light
                 },
                 locale: options.locale.clone(),
                 restored_state: options.restored_state.clone(),

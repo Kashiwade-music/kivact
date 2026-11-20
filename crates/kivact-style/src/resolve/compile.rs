@@ -10,12 +10,12 @@ use super::describe::unsupported_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
 use crate::color::ColorToken;
 use crate::draw::{Draw, LocalPaint, Size};
-use crate::length::Length;
 use crate::sheet::{
     Direction, FlowFields, MotionFields, Position, Sides, SizeFields, SpacingFields, StateFields,
     Style, TextFields, group_or_default,
 };
 use crate::theme::value::Theme;
+use kivact_types::Length;
 
 /// A [`Style`] compiled against a theme: the engine's node props and the
 /// diagnostics of the compilation, made by [`crate::internal::compile_style`].
@@ -61,11 +61,11 @@ pub struct CompiledStyle {
     pub reports: Vec<UiError>,
 }
 
-fn dim(l: Option<Length>, default: p::Dimension) -> p::Dimension {
-    l.map(Length::to_wire).unwrap_or(default)
+fn dim(l: Option<Length>, default: p::Length) -> p::Length {
+    l.unwrap_or(default)
 }
 
-fn edges(s: &Sides, default: p::Dimension) -> Edges<p::Dimension> {
+fn edges(s: &Sides, default: p::Length) -> Edges<p::Length> {
     Edges {
         top: dim(s.top, default),
         right: dim(s.right, default),
@@ -79,7 +79,7 @@ fn layout(s: &Style) -> LayoutProps {
     let spacing = group_or_default!(s.spacing, SpacingFields);
     let flow = group_or_default!(s.flow, FlowFields);
     let motion = group_or_default!(s.motion, MotionFields);
-    let zero = p::Dimension::Px(0.0);
+    let zero = p::Length::Px(0.0);
     let ov = flow.overflow.unwrap_or(p::Overflow::Visible);
     let (ov_x, ov_y) = match flow.scroll_axes {
         Some(ScrollAxes::Vertical) => (p::Overflow::Hidden, p::Overflow::Scroll),
@@ -108,21 +108,20 @@ fn layout(s: &Style) -> LayoutProps {
         padding: edges(&spacing.padding, zero),
         border: border_widths(s),
         margin: edges(&spacing.margin, zero),
-        width: dim(size.width, p::Dimension::Auto),
-        height: dim(size.height, p::Dimension::Auto),
-        min_width: dim(size.min_width, p::Dimension::Auto),
-        min_height: dim(size.min_height, p::Dimension::Auto),
-        max_width: dim(size.max_width, p::Dimension::Auto),
-        max_height: dim(size.max_height, p::Dimension::Auto),
+        width: dim(size.width, p::Length::Auto),
+        height: dim(size.height, p::Length::Auto),
+        min_width: dim(size.min_width, p::Length::Auto),
+        min_height: dim(size.min_height, p::Length::Auto),
+        max_width: dim(size.max_width, p::Length::Auto),
+        max_height: dim(size.max_height, p::Length::Auto),
         grow: size.grow.unwrap_or(0.0),
         shrink: size.shrink.unwrap_or(1.0),
-        basis: dim(size.basis, p::Dimension::Auto),
+        basis: dim(size.basis, p::Length::Auto),
         aspect_ratio: size.aspect_ratio,
         position: flow.position.unwrap_or(Position::Relative),
-        inset: edges(&spacing.inset, p::Dimension::Auto),
+        inset: edges(&spacing.inset, p::Length::Auto),
         overflow_x: ov_x,
         overflow_y: ov_y,
-        hidden: false,
         visibility: flow.visibility.unwrap_or_default(),
         display: flow.display.unwrap_or_default(),
         grid: crate::grid::resolve(flow.grid.as_deref(), flow.display == Some(p::Display::Grid)),

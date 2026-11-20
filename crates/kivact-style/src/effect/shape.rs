@@ -4,8 +4,8 @@ use kivact_types as p;
 use kivact_types::{ClipShape, Corners};
 
 use crate::geometry::{CornerRadius, Rect, corner};
-use crate::length::Length;
 use crate::path::Path;
+use kivact_types::Length;
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum ShapeKind {

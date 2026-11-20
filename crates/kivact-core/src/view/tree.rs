@@ -848,10 +848,7 @@ impl ViewNodes {
 impl ViewNodes {
     fn overlay_hidden(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
-            node.is_some_and(|node| {
-                node.input.flags.get(InputFlag::Hidden) == Some(true)
-                    || node.layout.as_ref().is_some_and(|layout| layout.hidden)
-            })
+            node.is_some_and(|node| node.input.flags.get(InputFlag::Hidden) == Some(true))
         })
     }
 

@@ -14,7 +14,7 @@ impl Script {
         self.platform.save_state();
     }
     /// Report software keyboard occlusion.
-    pub fn set_keyboard_inset(&self, insets: kivact_types::Insets) {
+    pub fn set_keyboard_inset(&self, insets: kivact_types::Edges<f64>) {
         self.platform.window(self.window).set_keyboard_inset(insets);
     }
     pub fn respond(
@@ -61,7 +61,7 @@ impl Script {
     pub fn set_locale(&self, locale: Option<&str>) {
         self.platform.window(self.window).set_locale(locale);
     }
-    pub fn set_safe_area(&self, insets: kivact_types::Insets) {
+    pub fn set_safe_area(&self, insets: kivact_types::Edges<f64>) {
         self.platform.window(self.window).set_safe_area(insets);
     }
     pub fn create_surface(&self) {

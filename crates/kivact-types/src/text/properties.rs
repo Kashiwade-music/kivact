@@ -12,26 +12,59 @@ pub struct TextData {
     pub spans: Option<Vec<TextSpan>>,
 }
 
-/// A text length: px, or a multiple of the font size of the text it
-/// applies to (CSS `em`).
+/// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
+/// font size of the text it applies to ([`em`]: CSS `0.08em` is
+/// `em(0.08)`).
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TextLen {
+pub enum TextLength {
+    /// Logical px.
     Px(f64),
+    /// A multiple of the text's font size.
     Em(f64),
 }
 
-impl Default for TextLen {
+impl Default for TextLength {
     fn default() -> Self {
-        TextLen::Px(0.0)
+        TextLength::Px(0.0)
     }
 }
 
-impl TextLen {
+impl From<i32> for TextLength {
+    fn from(v: i32) -> Self {
+        TextLength::Px(v as f64)
+    }
+}
+
+impl From<u32> for TextLength {
+    fn from(v: u32) -> Self {
+        TextLength::Px(v as f64)
+    }
+}
+
+impl From<f32> for TextLength {
+    fn from(value: f32) -> Self {
+        Self::Px(f64::from(value))
+    }
+}
+
+impl From<f64> for TextLength {
+    fn from(v: f64) -> Self {
+        TextLength::Px(v)
+    }
+}
+
+/// `v` times the font size of the text it applies to (CSS `em`), for the
+/// text lengths: `letter_spacing(em(0.08))`, `text_underline_offset(em(0.2))`.
+pub fn em(v: impl Into<f64>) -> TextLength {
+    TextLength::Em(v.into())
+}
+
+impl TextLength {
     /// In px, for text of `font_size`.
     pub fn px(self, font_size: f64) -> f64 {
         match self {
-            TextLen::Px(v) => v,
-            TextLen::Em(v) => v * font_size,
+            TextLength::Px(v) => v,
+            TextLength::Em(v) => v * font_size,
         }
     }
 }
@@ -56,10 +89,10 @@ pub struct TextDecoration {
     /// `None`: the text's color.
     pub color: Option<Rgba>,
     /// `None`: the font's.
-    pub thickness: Option<TextLen>,
+    pub thickness: Option<TextLength>,
     /// CSS `text-underline-offset`: further from the text than the font's
     /// position.
-    pub underline_offset: TextLen,
+    pub underline_offset: TextLength,
 }
 
 /// A shadow of text (CSS `text-shadow`).
@@ -76,7 +109,7 @@ pub struct TextShadow {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TextStroke {
     /// The outline width, centered on the glyph edge.
-    pub width: TextLen,
+    pub width: TextLength,
     /// The outline color.
     pub color: Rgba,
 }
@@ -113,16 +146,16 @@ pub struct TextStyle {
     pub align: Option<TextAlign>,
     pub family: Option<String>,
     pub italic: Option<bool>,
-    pub letter_spacing: Option<TextLen>,
-    pub word_spacing: Option<TextLen>,
+    pub letter_spacing: Option<TextLength>,
+    pub word_spacing: Option<TextLength>,
     pub kerning: Option<FontKerning>,
     pub features: Option<Vec<FontFeature>>,
     pub tabular_nums: Option<bool>,
     pub decoration_lines: Option<crate::DecorationLines>,
     pub decoration_style: Option<TextDecorationStyle>,
     pub decoration_color: Option<Rgba>,
-    pub decoration_thickness: Option<TextLen>,
-    pub underline_offset: Option<TextLen>,
+    pub decoration_thickness: Option<TextLength>,
+    pub underline_offset: Option<TextLength>,
     pub overflow: Option<TextOverflow>,
     /// Zero explicitly removes a line clamp inherited from the parent.
     pub max_lines: Option<u32>,
@@ -154,8 +187,8 @@ pub struct SpanProps {
     pub color: Option<Rgba>,
     pub family: Option<String>,
     pub italic: Option<bool>,
-    pub letter_spacing: Option<TextLen>,
-    pub word_spacing: Option<TextLen>,
+    pub letter_spacing: Option<TextLength>,
+    pub word_spacing: Option<TextLength>,
     pub kerning: Option<FontKerning>,
     pub features: Option<Vec<FontFeature>>,
     pub decoration: Option<TextDecoration>,

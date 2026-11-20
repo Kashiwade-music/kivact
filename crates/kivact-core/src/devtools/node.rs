@@ -415,7 +415,6 @@ fn describe_layout(layout: &kivact_types::LayoutProps, out: &mut Vec<p::StylePro
         property("inset", layout.inset),
         property("overflow_x", layout.overflow_x),
         property("overflow_y", layout.overflow_y),
-        property("hidden", layout.hidden),
         property("visibility", layout.visibility),
         property("aspect_ratio", layout.aspect_ratio),
     ]);

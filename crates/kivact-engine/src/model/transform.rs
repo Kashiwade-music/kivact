@@ -117,14 +117,14 @@ impl<I: ExactSizeIterator<Item = NodeId>> ExactSizeIterator for StackOrder<I> {}
 
 /// `t` moved to a box at `at` (its matrix is relative to the box's
 /// top-left corner).
-pub(crate) fn placed(t: kivact_types::Transform, at: Point) -> kivact_types::Transform {
-    kivact_types::Transform::translate(-at.x, -at.y)
+pub(crate) fn placed(t: kivact_types::Affine, at: Point) -> kivact_types::Affine {
+    kivact_types::Affine::translate(-at.x, -at.y)
         .then(t)
-        .then(kivact_types::Transform::translate(at.x, at.y))
+        .then(kivact_types::Affine::translate(at.x, at.y))
 }
 
 /// The axis-aligned bounds of `r` mapped by `t` (`r` itself without one).
-pub(crate) fn map_rect(t: Option<&kivact_types::Transform>, r: Rect) -> Rect {
+pub(crate) fn map_rect(t: Option<&kivact_types::Affine>, r: Rect) -> Rect {
     match t {
         Some(t) => t.bounds(r),
         None => r,
@@ -193,18 +193,14 @@ impl Model {
     /// The 2D transform of `id` relative to its box's top-left corner, for a
     /// box of `size`, as the paint list draws it: the affine plane map of
     /// [`Model::local_matrix`] (`None`: none, or not affine).
-    pub(crate) fn local_transform(
-        &self,
-        id: NodeId,
-        size: Size,
-    ) -> Option<kivact_types::Transform> {
+    pub(crate) fn local_transform(&self, id: NodeId, size: Size) -> Option<kivact_types::Affine> {
         let m = self.local_matrix(id, size)?.flatten().as_affine()?;
         (!m.is_identity()).then_some(m)
     }
 
     /// The transform of `id` from its own space to its parent's: about its
     /// box `rect` there (`None`: none).
-    pub(crate) fn transform_at(&self, id: NodeId, rect: Rect) -> Option<kivact_types::Transform> {
+    pub(crate) fn transform_at(&self, id: NodeId, rect: Rect) -> Option<kivact_types::Affine> {
         let size = Size {
             width: rect.width,
             height: rect.height,

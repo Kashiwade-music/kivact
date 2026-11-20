@@ -4,7 +4,7 @@
 //! rounded border box, the padding box its children are clipped to, and
 //! its clip path. Painting and hit testing both take them from here, so
 //! what is drawn and what can be pressed agree (one outline:
-//! `kivact_types::scene::Shape::contains` follows `Shape::outline`).
+//! `kivact_types::scene::Outline::contains` follows `Outline::outline`).
 //!
 //! Invariants:
 //! - Percentages of a corner radius are of the box's width (horizontal)
@@ -23,7 +23,7 @@
 
 use kivact_types::{Border, Corners, Edges, PaintProps, Point, Rect};
 
-use kivact_types::scene::{Radius, RoundedRect, Shape};
+use kivact_types::scene::{Outline, Radius, RoundedRect};
 
 /// A box's outline: a plain rect, circular corners (drawn with Arvane's
 /// rounded-rect commands, as before elliptical corners existed) or
@@ -71,10 +71,10 @@ impl BoxShape {
     }
 
     /// The equivalent neutral outline used for drawing and containment.
-    pub(crate) fn shape(&self) -> Shape {
+    pub(crate) fn shape(&self) -> Outline {
         match self {
-            BoxShape::Rect(r) => Shape::Rect(*r),
-            _ => Shape::RoundedRect(self.rounded()),
+            BoxShape::Rect(r) => Outline::Rect(*r),
+            _ => Outline::RoundedRect(self.rounded()),
         }
     }
 

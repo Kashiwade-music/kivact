@@ -26,13 +26,7 @@ pub fn view_with(initial: Connection) -> impl IntoView {
 /// Install the theme and follow the connection state.
 fn shell(connection: Signal<Connection>) -> impl IntoView {
     provide_theme(
-        || {
-            let mode = match kivact::platform::theme_hint().get() {
-                kivact::platform::ThemeHint::Dark => ThemeMode::Dark,
-                kivact::platform::ThemeHint::Light => ThemeMode::Light,
-            };
-            crate::look::theme(mode)
-        },
+        || crate::look::theme(kivact::platform::theme_hint().get()),
         move || {
             dynamic(
                 move || connection.get(),

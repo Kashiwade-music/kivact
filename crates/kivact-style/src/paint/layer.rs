@@ -4,10 +4,10 @@ use super::canvas_gradient::CanvasGradient;
 use super::gradient::Gradient;
 use crate::asset::Asset;
 use crate::color::Color;
-use crate::length::Length;
 use crate::shader::data::ShaderData;
 use crate::theme::value::ThemeColor;
 use kivact_runtime::UiError;
+use kivact_types::Length;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 
 /// One fill: a color, a gradient or an image, with the size, position and

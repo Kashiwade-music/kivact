@@ -170,7 +170,7 @@ impl Draw {
         let transform_2d = layer.transform.filter(is_2d);
         if let Some(t) = transform_2d {
             let [a, b, c, d, e, f] = t.matrix_for(self.size);
-            let m = p::Transform { a, b, c, d, e, f };
+            let m = p::Affine { a, b, c, d, e, f };
             self.transform = m.then(self.transform);
             self.cmds.push(p::DrawCmd::PushTransform(m));
         }

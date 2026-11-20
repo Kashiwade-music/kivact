@@ -12,9 +12,7 @@ use arvane::{Renderer, RendererChange};
 use arvane_protocol::{Composition, ExternalItem, LayerItem};
 use arvane_virtual::VirtualOptions;
 use gpu_interop_producer::{Producer, pattern};
-use kivact_types::{
-    ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference, Transform,
-};
+use kivact_types::{Affine, ExternalFrame, ExternalImageId, GpuAdapter, GpuBackend, GpuPreference};
 
 use crate::support::{options, rect, root_layer, show_composition};
 
@@ -73,7 +71,7 @@ fn external(frame: ExternalFrame, x: u32, y: u32, pixelated: bool) -> LayerItem 
         frame,
         rect: rect(x as f64, y as f64, W as f64, H as f64),
         source: None,
-        transform: Transform::IDENTITY,
+        transform: Affine::IDENTITY,
         clips: Vec::new(),
         opacity: 1.0,
         pixelated,

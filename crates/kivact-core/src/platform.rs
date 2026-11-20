@@ -44,9 +44,7 @@ pub use services::{
 pub(crate) use window_loop::run_native;
 
 #[doc(inline)]
-pub use env::{
-    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
-};
+pub use env::{Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings};
 
 /// An adapter's identity, as the graphics APIs report it.
 #[doc(inline)]

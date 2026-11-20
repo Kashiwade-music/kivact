@@ -227,7 +227,7 @@ impl Model {
                         })
                 }),
                 scroll: kivact_types::Point::default(),
-                transform: kivact_types::Transform::IDENTITY,
+                transform: kivact_types::Affine::IDENTITY,
                 semantics: kivact_types::Semantics {
                     role: region.semantics.role,
                     name: region.semantics.name,
@@ -269,9 +269,9 @@ impl Model {
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> (Option<types::Rect>, kivact_types::Transform) {
+    ) -> (Option<types::Rect>, kivact_types::Affine) {
         let Some(n) = self.node(id) else {
-            return (Some(bounds), kivact_types::Transform::IDENTITY);
+            return (Some(bounds), kivact_types::Affine::IDENTITY);
         };
         if layer {
             return (Some(bounds), self.a11y_transform(id, true, bounds, offset));
@@ -287,17 +287,14 @@ impl Model {
             let own = if n.place.transformed {
                 self.a11y_transform(id, false, bounds, offset)
             } else {
-                kivact_types::Transform::IDENTITY
+                kivact_types::Affine::IDENTITY
             };
             return (Some(bounds), own);
         }
         if n.is_transparent() {
-            return (Some(bounds), kivact_types::Transform::IDENTITY);
+            return (Some(bounds), kivact_types::Affine::IDENTITY);
         }
-        (
-            self.affine_frame_bounds(id),
-            kivact_types::Transform::IDENTITY,
-        )
+        (self.affine_frame_bounds(id), kivact_types::Affine::IDENTITY)
     }
 
     /// The transform of a drawable's root: its drawn map to
@@ -308,7 +305,7 @@ impl Model {
         &self,
         id: types::NodeId,
         bounds: types::Rect,
-    ) -> Option<kivact_types::Transform> {
+    ) -> Option<kivact_types::Affine> {
         self.node(id)?.properties.drawable.as_ref()?;
         let map = self.to_parent(id)?.flatten().as_affine()?;
         let at = types::Point {
@@ -316,9 +313,9 @@ impl Model {
             y: bounds.y,
         };
         Some(
-            kivact_types::Transform::translate(-at.x, -at.y)
+            kivact_types::Affine::translate(-at.x, -at.y)
                 .then(map)
-                .then(kivact_types::Transform::translate(at.x, at.y)),
+                .then(kivact_types::Affine::translate(at.x, at.y)),
         )
     }
 
@@ -367,21 +364,21 @@ impl Model {
         layer: bool,
         bounds: types::Rect,
         offset: types::Point,
-    ) -> kivact_types::Transform {
+    ) -> kivact_types::Affine {
         let host = &self;
         let own = host.transform_at(id, bounds);
         if !layer {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Affine::IDENTITY);
         }
         let ancestors: Vec<types::NodeId> =
             host.tree().chain(Some(id)).into_iter().skip(1).collect();
         let transformed = |x: &types::NodeId| host.node(*x).is_some_and(|n| n.place.transformed);
         if !ancestors.iter().any(transformed) {
-            return own.unwrap_or(kivact_types::Transform::IDENTITY);
+            return own.unwrap_or(kivact_types::Affine::IDENTITY);
         }
         // What the platform maps it by: each ancestor's scroll, then
         // transform, nearest first.
-        let mut around = kivact_types::Transform::IDENTITY;
+        let mut around = kivact_types::Affine::IDENTITY;
         for x in &ancestors {
             let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
             let above = self.scroll_above(*x);
@@ -391,14 +388,14 @@ impl Model {
                 y: r.y + above.y,
                 ..r
             };
-            around = around.then(kivact_types::Transform::translate(-s.x, -s.y));
+            around = around.then(kivact_types::Affine::translate(-s.x, -s.y));
             if let Some(t) = host.transform_at(*x, content) {
                 around = around.then(t);
             }
         }
         // Where it is shown: its content box moved back by the scrolls
         // above it, then its own transform at its placed origin.
-        let mut shown = kivact_types::Transform::translate(-offset.x, -offset.y);
+        let mut shown = kivact_types::Affine::translate(-offset.x, -offset.y);
         if let Some(r) = host.rect(id)
             && let Some(t) = host.transform_at(id, r)
         {
@@ -406,7 +403,7 @@ impl Model {
         }
         match around.invert() {
             Some(back) => shown.then(back),
-            None => kivact_types::Transform::IDENTITY,
+            None => kivact_types::Affine::IDENTITY,
         }
     }
 
@@ -518,7 +515,7 @@ pub(super) fn structural(
     children: Vec<kivact_types::SemanticsId>,
     bounds: Option<kivact_types::Rect>,
     scroll: kivact_types::Point,
-    transform: kivact_types::Transform,
+    transform: kivact_types::Affine,
     hidden: bool,
 ) -> arvane_protocol::SemanticsNode {
     arvane_protocol::SemanticsNode {

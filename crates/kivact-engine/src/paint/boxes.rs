@@ -9,7 +9,7 @@
 //! - Each animated background layer shows the frame of its own playback
 //!   (slot 1 + its index).
 
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::shaped::ShapedText;
 use kivact_types::{
     BackgroundClip, Edges, Fill, FillRule, NodeId, PaintProps, PathCmd, Point, Rect,
@@ -77,7 +77,7 @@ impl Model {
         content: Rect,
         tint: &Tint,
         engine: &mut arvane_text::TextEngine,
-    ) -> Option<Shape> {
+    ) -> Option<Outline> {
         if self.node(id)?.kind() != NodeType::Text {
             return None;
         }
@@ -95,7 +95,7 @@ impl Model {
 
 /// The outlines of the glyphs of `shaped`, drawn at `origin`, as one path
 /// filled by the non-zero rule.
-fn glyph_clip(shaped: &ShapedText, origin: Point) -> Shape {
+fn glyph_clip(shaped: &ShapedText, origin: Point) -> Outline {
     let mut cmds = Vec::new();
     for run in &shaped.runs {
         cmds.extend(
@@ -104,7 +104,7 @@ fn glyph_clip(shaped: &ShapedText, origin: Point) -> Shape {
                 .map(|cmd| shift(cmd, origin)),
         );
     }
-    Shape::Path {
+    Outline::Path {
         cmds,
         rule: FillRule::NonZero,
     }

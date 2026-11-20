@@ -11,7 +11,7 @@ use arvane_shell::{
     WakeReasons,
 };
 use kivact_types::{
-    Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeHint,
+    Capabilities, Cursor, Environment, Modifiers, Point, Rect, RequestId, Size, ThemeMode,
     WindowId, WindowRequest,
 };
 use std::cell::{Cell, RefCell};
@@ -512,11 +512,11 @@ fn apply_window(window: &mut VirtualWindow, item: WindowItem) -> Option<ShellEve
     event
 }
 /// Map the scripted preference into the canonical theme vocabulary.
-fn theme_hint(dark: bool) -> ThemeHint {
+fn theme_hint(dark: bool) -> ThemeMode {
     if dark {
-        ThemeHint::Dark
+        ThemeMode::Dark
     } else {
-        ThemeHint::Light
+        ThemeMode::Light
     }
 }
 /// Change the scripted surface lifecycle and return its boundary event.

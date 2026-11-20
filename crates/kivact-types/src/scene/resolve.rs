@@ -2,7 +2,7 @@
 
 use crate::geometry::{Point, Rect};
 use crate::paint::{ClipShape, Corners, Len};
-use crate::scene::{DrawingShape, FillRule, PathCmd, Radius, RoundedRect, Shape, ShapePaint};
+use crate::scene::{DrawingShape, FillRule, Outline, PathCmd, Radius, RoundedRect, ShapePaint};
 
 fn positive(v: f64) -> f64 {
     if v.is_finite() { v.max(0.0) } else { 0.0 }
@@ -28,28 +28,28 @@ impl Corners {
     }
 
     /// The box `rect` with these corners; a plain rect when none is rounded.
-    pub fn shape_in(&self, rect: Rect) -> Shape {
+    pub fn shape_in(&self, rect: Rect) -> Outline {
         if self.is_zero() {
-            return Shape::Rect(rect);
+            return Outline::Rect(rect);
         }
         let radii = self.radii_in(rect);
         if radii.iter().all(|r| r.x == r.y) {
-            Shape::RoundedRect(RoundedRect::with_corners(rect, radii.map(|r| r.x)))
+            Outline::RoundedRect(RoundedRect::with_corners(rect, radii.map(|r| r.x)))
         } else {
-            Shape::RoundedRect(RoundedRect { rect, radii })
+            Outline::RoundedRect(RoundedRect { rect, radii })
         }
     }
 }
 
 impl ClipShape {
     /// The CSS basic shape in the box `rect` (`clip-path` geometry).
-    pub fn in_rect(&self, rect: Rect) -> Shape {
+    pub fn in_rect(&self, rect: Rect) -> Outline {
         let at = |[x, y]: [Len; 2]| Point {
             x: rect.x + x.of(rect.width),
             y: rect.y + y.of(rect.height),
         };
         let ellipse = |c: Point, rx: f64, ry: f64| {
-            Shape::RoundedRect(RoundedRect::ellipse(Rect {
+            Outline::RoundedRect(RoundedRect::ellipse(Rect {
                 x: c.x - rx,
                 y: c.y - ry,
                 width: 2.0 * rx,
@@ -57,7 +57,7 @@ impl ClipShape {
             }))
         };
         match self {
-            ClipShape::Path { cmds, even_odd } => Shape::Path {
+            ClipShape::Path { cmds, even_odd } => Outline::Path {
                 cmds: cmds.clone(),
                 rule: rule(*even_odd),
             }
@@ -89,7 +89,7 @@ impl ClipShape {
                 positive(radius_x.of(rect.width)),
                 positive(radius_y.of(rect.height)),
             ),
-            ClipShape::Polygon { points, even_odd } => Shape::Polygon {
+            ClipShape::Polygon { points, even_odd } => Outline::Polygon {
                 points: points.iter().map(|p| at(*p)).collect(),
                 rule: rule(*even_odd),
             },
@@ -97,15 +97,15 @@ impl ClipShape {
     }
 }
 
-impl Shape {
+impl Outline {
     /// The outline moved by `by`, as a path (arcs become curves).
-    pub fn translated(self, by: Point) -> Shape {
+    pub fn translated(self, by: Point) -> Outline {
         let at = |p: Point| Point {
             x: p.x + by.x,
             y: p.y + by.y,
         };
         let rule = self.rule();
-        Shape::Path {
+        Outline::Path {
             rule,
             cmds: self
                 .outline()
@@ -124,11 +124,11 @@ impl Shape {
 
 impl DrawingShape {
     /// The shape as one outline in the recording's coordinates.
-    pub fn to_shape(&self) -> Shape {
+    pub fn to_shape(&self) -> Outline {
         match self {
             DrawingShape::Basic { shape, rect } => shape.in_rect(*rect),
             DrawingShape::Rounded { rect, corners } => corners.shape_in(*rect),
-            DrawingShape::Path { path, rule } => Shape::Path {
+            DrawingShape::Path { path, rule } => Outline::Path {
                 cmds: path.cmds.clone(),
                 rule: *rule,
             },

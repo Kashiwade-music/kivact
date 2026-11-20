@@ -2,7 +2,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use kivact_types::{Environment, NodeId, Point, ThemeHint};
+use kivact_types::{Environment, NodeId, Point, ThemeMode};
 
 use crate::contract::InputOrigin;
 
@@ -130,12 +130,12 @@ impl Frame {
 
     /// The theme the environment starts with (light unless a test driver
     /// starts dark); `Model::start_env` keeps it.
-    pub(crate) fn start_theme(&mut self, theme: ThemeHint) {
+    pub(crate) fn start_theme(&mut self, theme: ThemeMode) {
         self.env.theme_hint = theme;
     }
 
     /// The theme the client sees.
-    pub(crate) fn theme_hint(&self) -> ThemeHint {
+    pub(crate) fn theme_hint(&self) -> ThemeMode {
         self.env.theme_hint
     }
 

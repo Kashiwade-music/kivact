@@ -271,11 +271,11 @@ impl ShellWindow for WinitWindow {
             frame_period_ns: self.frame_period_ns,
             reduced_motion: self.reduced_motion(),
             theme_hint: if self.window.theme() == Some(winit::window::Theme::Dark) {
-                kivact_types::ThemeHint::Dark
+                kivact_types::ThemeMode::Dark
             } else {
-                kivact_types::ThemeHint::Light
+                kivact_types::ThemeMode::Light
             },
-            safe_area: kivact_types::Insets::default(),
+            safe_area: kivact_types::Edges::<f64>::default(),
             pointer: kivact_types::PointerSettings {
                 double_click_ns,
                 double_click_distance,

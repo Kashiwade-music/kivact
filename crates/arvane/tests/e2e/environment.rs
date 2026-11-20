@@ -6,7 +6,7 @@
 
 use crate::support::Harness;
 use arvane_virtual::VirtualOptions;
-use kivact_types::{Cursor, InputPurpose, Insets, Rect, Size};
+use kivact_types::{Cursor, Edges, InputPurpose, Rect, Size};
 use kivact_types::{Environment, PointerSettings};
 
 use crate::support::{PERIOD, open, options, rect};
@@ -26,8 +26,8 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
             scale_factor: 1.0,
             frame_period_ns: PERIOD / 2,
             reduced_motion: true,
-            theme_hint: kivact_types::ThemeHint::Dark,
-            safe_area: Insets::default(),
+            theme_hint: kivact_types::ThemeMode::Dark,
+            safe_area: Edges::<f64>::default(),
             pointer: PointerSettings::default(),
             locale: Some("ja-JP".into()),
             window_size: Size {
@@ -39,7 +39,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     );
     // What a host is told about with `EnvironmentChanged` (the scale with
     // `Resized`) is in the next snapshot.
-    let insets = Insets {
+    let insets = Edges {
         top: 24.0,
         right: 0.0,
         bottom: 16.0,
@@ -59,7 +59,7 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
             scale_factor: 1.5,
             frame_period_ns: PERIOD,
             reduced_motion: false,
-            theme_hint: kivact_types::ThemeHint::Light,
+            theme_hint: kivact_types::ThemeMode::Light,
             safe_area: insets,
             pointer: PointerSettings::default(),
             locale: None,

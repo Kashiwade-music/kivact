@@ -132,10 +132,10 @@ impl Context<'_> {
 }
 
 fn append(out: &mut SceneOut, local: &[D], origin: Rect) {
-    out.push(D::PushTransform(kivact_types::Transform {
+    out.push(D::PushTransform(kivact_types::Affine {
         e: origin.x,
         f: origin.y,
-        ..kivact_types::Transform::IDENTITY
+        ..kivact_types::Affine::IDENTITY
     }));
     out.extend(local.iter().cloned());
     out.push(D::PopTransform);

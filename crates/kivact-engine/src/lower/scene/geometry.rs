@@ -113,7 +113,7 @@ impl Context<'_> {
 
         let shape = painted.shape.to_shape();
         // Before lowering arcs and before any paint resource.
-        if let kivact_types::scene::Shape::Path { cmds, .. } = &shape
+        if let kivact_types::scene::Outline::Path { cmds, .. } = &shape
             && !sanitize::path(cmds)
         {
             self.drop_command();

@@ -17,7 +17,7 @@
 //!   loads). Without a usable ratio (none, or an empty side) it is the
 //!   reference size's.
 
-use kivact_types::{Dimension, IntrinsicSize, LayoutProps, MeasureRequest, Size};
+use kivact_types::{IntrinsicSize, LayoutProps, Length, MeasureRequest, Size};
 
 /// The content size of an image node from the dimensions its style sets
 /// (`width`, `height`), its optional intrinsic size hint and its natural
@@ -52,13 +52,8 @@ pub fn style_known(
     request: MeasureRequest,
     layout: Option<&LayoutProps>,
 ) -> (Option<f64>, Option<f64>) {
-    let set = |d: Option<Dimension>| {
-        d.is_some_and(|d| {
-            matches!(
-                d,
-                Dimension::Px(_) | Dimension::Percent(_) | Dimension::Calc { .. }
-            )
-        })
+    let set = |d: Option<Length>| {
+        d.is_some_and(|d| matches!(d, Length::Px(_) | Length::Percent(_) | Length::Calc { .. }))
     };
     (
         request.known_width.filter(|_| set(layout.map(|l| l.width))),

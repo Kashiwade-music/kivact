@@ -178,7 +178,7 @@ fn retained_reporting_host(
 ) -> ArvaneTestHost {
     use kivact_engine::api::Client;
     use kivact_engine::contract::{NodeKind, SceneLayer, TurnOutput};
-    use kivact_types::{Dimension, LayoutProps, NodeId};
+    use kivact_types::{LayoutProps, Length, NodeId};
     ArvaneTestHost::new(
         Client::new(
             move |_, _, writer| {
@@ -187,8 +187,8 @@ fn retained_reporting_host(
                 writer.set_layout(
                     NodeId(2),
                     LayoutProps {
-                        width: Dimension::Px(160.),
-                        height: Dimension::Px(60.),
+                        width: Length::Px(160.),
+                        height: Length::Px(60.),
                         ..Default::default()
                     },
                 );
@@ -289,7 +289,7 @@ fn a_successful_old_svg_raster_is_invalidated_when_the_worker_completes_its_repl
 fn a_depth_fallback_reports_a_dropped_local_command_only_once() {
     use kivact_types::{DrawCmd, DrawList, Fill, Rgba};
     use std::sync::Arc;
-    let mut cmds = vec![DrawCmd::PushTransform(kivact_types::Transform::IDENTITY); 256];
+    let mut cmds = vec![DrawCmd::PushTransform(kivact_types::Affine::IDENTITY); 256];
     let red = Fill::Solid(Rgba {
         r: 1.,
         g: 0.,

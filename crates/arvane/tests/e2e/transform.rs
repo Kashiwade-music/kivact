@@ -1,12 +1,12 @@
-//! Role: Transform contract tests.
+//! Role: Affine contract tests.
 //!
 //! Transforms: every command between `PushTransform` and `PopTransform`
 //! is mapped (rects, clips, images, glyphs), nested transforms compose,
 //! and a transform that flattens everything draws nothing.
 
 use arvane_protocol::RenderCmd;
+use kivact_types::Affine;
 use kivact_types::Point;
-use kivact_types::Transform;
 
 use crate::support::{BLUE, RED, WHITE, fill, open, pixel, pt, show};
 
@@ -18,8 +18,8 @@ fn at(p: Point) -> (u32, u32) {
 #[test]
 fn a_transform_rotates_and_skews_what_it_encloses_until_it_is_popped() {
     let mut window = open(160.0, 80.0);
-    let rotate = Transform::rotate_deg(45.0).about(pt(40.0, 40.0));
-    let skew = Transform::skew_deg(30.0, 0.0).about(pt(110.0, 40.0));
+    let rotate = Affine::rotate_deg(45.0).about(pt(40.0, 40.0));
+    let skew = Affine::skew_deg(30.0, 0.0).about(pt(110.0, 40.0));
     show(
         &mut window,
         vec![

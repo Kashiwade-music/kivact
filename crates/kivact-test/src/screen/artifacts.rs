@@ -14,7 +14,7 @@ use std::panic::Location;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use kivact_engine::testing::{SemanticsNode, Transform};
+use kivact_engine::testing::{Affine, SemanticsNode};
 use kivact_types::WindowId;
 
 use super::model::{Locator, Screen, TestApp};
@@ -160,13 +160,7 @@ impl TestApp {
         let mut out = String::new();
         // `above` maps the parent's space to the window (as
         // `SemanticsTree::window_bounds` composes it).
-        fn walk(
-            nodes: &[SemanticsNode],
-            id: u64,
-            depth: usize,
-            above: Transform,
-            out: &mut String,
-        ) {
+        fn walk(nodes: &[SemanticsNode], id: u64, depth: usize, above: Affine, out: &mut String) {
             let Some(n) = nodes.iter().find(|n| n.id.0 == id) else {
                 return;
             };
@@ -211,14 +205,14 @@ impl TestApp {
                     .unwrap_or_default(),
                 geometry
             );
-            let below = Transform::translate(-n.scroll.x, -n.scroll.y)
+            let below = Affine::translate(-n.scroll.x, -n.scroll.y)
                 .then(n.transform)
                 .then(above);
             for c in &n.children {
                 walk(nodes, c.0, depth + 1, below, out);
             }
         }
-        walk(&tree.nodes, tree.root.0, 0, Transform::IDENTITY, &mut out);
+        walk(&tree.nodes, tree.root.0, 0, Affine::IDENTITY, &mut out);
         if let Some(f) = tree.focus {
             let _ = writeln!(out, "focus: {}", f.0);
         }

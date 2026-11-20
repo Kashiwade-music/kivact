@@ -38,8 +38,8 @@
 
 use kivact_types::{ElementTransform, Len, Matrix4};
 
-use super::length::Length;
 use crate::geometry::Size;
+use kivact_types::Length;
 
 /// Where a transform's `perspective()` function sits among its functions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

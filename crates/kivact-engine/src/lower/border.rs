@@ -30,7 +30,7 @@ use arvane_protocol::RenderCmd as D;
 use kivact_types::{Border, BorderStyle, Edges, Fill, Ring, Shadow};
 use kivact_types::{Rect, Rgba};
 
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{FillRule, LineCap, Point, Stroke};
 
 /// A border's sides in drawing order: top, right, bottom, left.
@@ -40,7 +40,7 @@ fn sides<T: Copy>(e: &Edges<T>) -> [T; 4] {
 
 /// The trapezoid of side `i` (top, right, bottom, left) between the
 /// border box `o` and the padding box `p`.
-fn trapezoid(i: usize, o: Rect, p: Rect) -> Shape {
+fn trapezoid(i: usize, o: Rect, p: Rect) -> Outline {
     let pt = |x, y| Point { x, y };
     let (ol, ot, or, ob) = (o.x, o.y, o.right(), o.bottom());
     let (pl, ptop, pr, pb) = (p.x, p.y, p.right(), p.bottom());
@@ -50,17 +50,17 @@ fn trapezoid(i: usize, o: Rect, p: Rect) -> Shape {
         2 => vec![pt(or, ob), pt(ol, ob), pt(pl, pb), pt(pr, pb)],
         _ => vec![pt(ol, ob), pt(ol, ot), pt(pl, ptop), pt(pl, pb)],
     };
-    Shape::Polygon {
+    Outline::Polygon {
         points,
         rule: FillRule::NonZero,
     }
 }
 
 /// The ring between `outer` and `inner` as one even-odd shape.
-fn ring(outer: &BoxShape, inner: &BoxShape) -> Shape {
+fn ring(outer: &BoxShape, inner: &BoxShape) -> Outline {
     let mut cmds = outer.shape().outline();
     cmds.extend(inner.shape().outline());
-    Shape::Path {
+    Outline::Path {
         cmds,
         rule: FillRule::EvenOdd,
     }
@@ -350,7 +350,7 @@ pub(crate) fn shadows(
 pub(crate) fn focus_ring(
     out: &mut crate::lower::SceneOut,
     shape: &BoxShape,
-    clip: Option<&Shape>,
+    clip: Option<&Outline>,
     ring_: &Ring,
     tint: &Tint,
 ) {

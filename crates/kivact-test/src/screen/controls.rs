@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use kivact_types as p;
 
-use kivact_engine::testing::Insets;
+use kivact_engine::testing::Edges;
 
 use super::model::{FIND_TIMEOUT, Locator, Screen};
 use kivact_style::Cursor;
@@ -56,9 +56,9 @@ impl Screen {
         self.host_mut().set_theme(
             self.window,
             if dark {
-                p::ThemeHint::Dark
+                p::ThemeMode::Dark
             } else {
-                p::ThemeHint::Light
+                p::ThemeMode::Light
             },
         );
         self.run_until_idle();
@@ -76,11 +76,11 @@ impl Screen {
     /// The window's safe area changes, as a phone's system UI (status bar,
     /// notch) does when it rotates (`EnvChanged`; read by
     /// `platform::safe_area`).
-    pub fn set_safe_area(&self, insets: kivact_core::geometry::Insets) {
+    pub fn set_safe_area(&self, insets: kivact_core::geometry::Edges<f64>) {
         self.log(format!("safe area {insets:?}"));
         self.host_mut().set_safe_area(
             self.window,
-            Insets {
+            Edges {
                 top: insets.top,
                 right: insets.right,
                 bottom: insets.bottom,

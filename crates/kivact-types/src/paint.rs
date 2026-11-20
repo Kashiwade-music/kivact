@@ -1,7 +1,7 @@
 //! Role: Shared node paint, image payloads, effects and state-dependent styling.
 
 use crate::color_space::SpaceColor;
-use crate::effect::FilterGraph;
+use crate::effect::FilterGraphSpec;
 use crate::geometry3d::Matrix4;
 use crate::layout::IntrinsicSize;
 use crate::motion::{Transition, TransitionProp};
@@ -147,7 +147,7 @@ pub enum FillImage {
     /// A solid color.
     Solid(Rgba),
     /// A CSS gradient image.
-    Gradient(Gradient),
+    Gradient(GradientSpec),
     /// A picture.
     Image(Asset),
     /// A gradient placed by coordinates, not by the area it fills (the
@@ -225,7 +225,7 @@ pub enum FillSize {
 
 /// A CSS gradient image.
 #[derive(Clone, Debug, PartialEq)]
-pub struct Gradient {
+pub struct GradientSpec {
     /// Linear, radial or conic.
     pub kind: GradientKind,
     /// Stops in order; a stop without a position is placed as CSS places
@@ -239,7 +239,7 @@ pub struct Gradient {
     pub interpolation: crate::color_space::ColorInterpolation,
 }
 
-/// One color stop of a [`Gradient`], with the authored color.
+/// One color stop of a [`GradientSpec`], with the authored color.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct GradientStop {
     /// The color, in the space it was authored in.
@@ -469,7 +469,7 @@ pub enum FilterOp {
         color: Rgba,
     },
     /// CSS `url(#filter)`: an SVG filter graph, images as assets.
-    Graph(std::sync::Arc<FilterGraph<Asset>>),
+    Graph(std::sync::Arc<FilterGraphSpec<Asset>>),
     /// A filter shader.
     Shader(std::sync::Arc<ShaderSpec>),
 }
@@ -572,7 +572,7 @@ pub enum BorderImageRepeat {
 pub struct BorderImage {
     /// Image, gradient or solid color.
     pub source: FillImage,
-    /// Insets into the source: px are source pixels (for gradients and
+    /// Edges into the source: px are source pixels (for gradients and
     /// solid colors, px of the border image area), pct of the source size.
     pub slice: Edges<Len>,
     /// Paint the middle of the slices.

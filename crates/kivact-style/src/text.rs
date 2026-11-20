@@ -113,61 +113,7 @@ impl From<(&str, i32)> for FontVariation {
     }
 }
 
-/// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
-/// font size of the text it applies to ([`em`]: CSS `0.08em` is
-/// `em(0.08)`).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum TextLength {
-    /// Logical px.
-    Px(f64),
-    /// A multiple of the text's font size.
-    Em(f64),
-}
-
-impl Default for TextLength {
-    fn default() -> Self {
-        TextLength::Px(0.0)
-    }
-}
-
-impl From<i32> for TextLength {
-    fn from(v: i32) -> Self {
-        TextLength::Px(v as f64)
-    }
-}
-
-impl From<u32> for TextLength {
-    fn from(v: u32) -> Self {
-        TextLength::Px(v as f64)
-    }
-}
-
-impl From<f32> for TextLength {
-    fn from(value: f32) -> Self {
-        Self::Px(f64::from(value))
-    }
-}
-
-impl From<f64> for TextLength {
-    fn from(v: f64) -> Self {
-        TextLength::Px(v)
-    }
-}
-
-/// `v` times the font size of the text it applies to (CSS `em`), for the
-/// text lengths: `letter_spacing(em(0.08))`, `text_underline_offset(em(0.2))`.
-pub fn em(v: impl Into<f64>) -> TextLength {
-    TextLength::Em(v.into())
-}
-
-impl TextLength {
-    pub(crate) fn to_wire(self) -> p::TextLen {
-        match self {
-            TextLength::Px(v) => p::TextLen::Px(v),
-            TextLength::Em(v) => p::TextLen::Em(v),
-        }
-    }
-}
+pub use kivact_types::{TextLength, em};
 
 /// The distance between the baselines of a text's lines (CSS
 /// `line-height`).
@@ -354,8 +300,8 @@ pub(crate) fn decoration(
         style: TextDecorationStyle::default(),
         lines: line.unwrap_or_default(),
         color: color.map(|c| c.resolve(theme)),
-        thickness: thickness.map(TextLength::to_wire),
-        underline_offset: offset.map(TextLength::to_wire).unwrap_or_default(),
+        thickness,
+        underline_offset: offset.unwrap_or_default(),
     }
 }
 
@@ -412,23 +358,23 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
         list
     });
     t.stroke = x.stroke.map(|(width, c)| p::TextStroke {
-        width: width.to_wire(),
+        width,
         color: c.resolve(theme),
     });
     t.paint_order = x.paint_order;
     t.variations = variations;
     t.optical_sizing = x.optical_sizing;
     t.font_width = x.font_width;
-    t.letter_spacing = x.letter_spacing.map(TextLength::to_wire);
-    t.word_spacing = x.word_spacing.map(TextLength::to_wire);
+    t.letter_spacing = x.letter_spacing;
+    t.word_spacing = x.word_spacing;
     t.kerning = x.kerning;
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
     t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
     t.decoration_color = color(x.decoration_color);
-    t.decoration_thickness = x.decoration_thickness.map(TextLength::to_wire);
-    t.underline_offset = x.underline_offset.map(TextLength::to_wire);
+    t.decoration_thickness = x.decoration_thickness;
+    t.underline_offset = x.underline_offset;
     t.overflow = x.overflow;
     t.max_lines = x.line_clamp;
     t.capsize = x.capsize;

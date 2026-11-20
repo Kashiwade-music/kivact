@@ -1,4 +1,4 @@
-//! Role: Layout units: pixels, percentages, fractions.
+//! Role: Lengths: logical px, percentages, calc sums and content sizes, as authored and as laid out.
 //!
 //! Lengths: numbers are logical px; `pct(50)` and `auto()`; `pct(100) - 20`
 //! is a calc length.
@@ -16,9 +16,7 @@ use std::ops::{Add, Sub};
 /// points, masks).
 ///
 /// ```
-/// use kivact::prelude::*;
-/// use kivact::style::{pct};
-/// use kivact::style::Length;
+/// use kivact_types::{Length, pct};
 /// assert_eq!(pct(100) - 20, Length::Calc { percent: 100.0, px: -20.0 });
 /// assert_eq!(Length::from(4) + 6, Length::Px(10.0));
 /// ```
@@ -110,22 +108,8 @@ impl Length {
         }
     }
 
-    /// The layout form.
-    pub(crate) fn to_wire(self) -> kivact_types::Dimension {
-        use kivact_types::Dimension as D;
-        match self {
-            Length::Auto => D::Auto,
-            Length::Px(v) => D::Px(v),
-            Length::Percent(v) => D::Percent(v),
-            Length::Calc { percent, px } => D::Calc { percent, px },
-            Length::MinContent => D::MinContent,
-            Length::MaxContent => D::MaxContent,
-            Length::FitContent => D::FitContent,
-        }
-    }
-
     /// A content size (`min_content()`, `max_content()`, `fit_content()`).
-    pub(crate) fn is_content(self) -> bool {
+    pub fn is_content(self) -> bool {
         matches!(
             self,
             Length::MinContent | Length::MaxContent | Length::FitContent
@@ -133,9 +117,9 @@ impl Length {
     }
 
     /// The paint form (`Auto` and the content sizes are zero).
-    pub(crate) fn to_len(self) -> kivact_types::Len {
+    pub fn to_len(self) -> crate::paint::Len {
         let (pct, px) = self.parts().unwrap_or((0.0, 0.0));
-        kivact_types::Len { px, pct }
+        crate::paint::Len { px, pct }
     }
 }
 
@@ -160,33 +144,5 @@ impl<T: Into<Length>> Sub<T> for Length {
             (Some((p1, x1)), Some((p2, x2))) => Length::from_parts(p1 - p2, x1 - x2),
             _ => Length::Auto,
         }
-    }
-}
-
-kivact_runtime::constant_value!(Length);
-
-// A number is a constant length in logical px wherever a reactive length
-// is taken (`dialog(..).width(640)`), as it is in `style()`.
-impl kivact_runtime::IntoValue<Length> for i32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for u32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for f64 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
-    }
-}
-
-impl kivact_runtime::IntoValue<Length> for f32 {
-    fn into_prop(self) -> kivact_runtime::Prop<Length> {
-        kivact_runtime::Prop::constant(Length::from(self))
     }
 }

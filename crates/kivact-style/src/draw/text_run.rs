@@ -146,8 +146,8 @@ pub fn text_run(
         family: style.family.clone(),
         italic: style.italic,
         line_height: style.line_height,
-        letter_spacing: style.letter_spacing.to_wire().px(style.size) * scale,
-        word_spacing: style.word_spacing.to_wire().px(style.size) * scale,
+        letter_spacing: style.letter_spacing.px(style.size) * scale,
+        word_spacing: style.word_spacing.px(style.size) * scale,
         kerning: style.font_kerning,
         features,
         decoration: p::TextDecoration {

@@ -93,7 +93,7 @@ fn letter_spacing_adds_its_space_after_every_character() {
     let mut engine = engine();
     let plain = shaped(&mut engine, "spacing", &style(16.0), None);
     let spaced = ComputedTextStyle {
-        letter_spacing: kivact_types::TextLen::Px(3.0),
+        letter_spacing: kivact_types::TextLength::Px(3.0),
         ..style(16.0)
     };
     let wide = shaped(&mut engine, "spacing", &spaced, None);
@@ -104,7 +104,7 @@ fn letter_spacing_adds_its_space_after_every_character() {
     );
     // A negative spacing tightens.
     let tight = ComputedTextStyle {
-        letter_spacing: kivact_types::TextLen::Px(-1.0),
+        letter_spacing: kivact_types::TextLength::Px(-1.0),
         ..style(16.0)
     };
     assert!(shaped(&mut engine, "spacing", &tight, None).size.width < plain.size.width);

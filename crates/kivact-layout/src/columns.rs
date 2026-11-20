@@ -5,7 +5,7 @@ use crate::calcs::{CalcAlloc, Calcs};
 use crate::pass_state::Epoch;
 use crate::style::node::NodeStyle;
 use kivact_types::cell::Recent;
-use kivact_types::{Baseline, Insets, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
+use kivact_types::{Baseline, Edges, LeafSize, MeasureRequest, Orientation, Point, Rect, Size};
 use std::cell::Cell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -24,11 +24,11 @@ pub struct NodeLayout {
     /// The content box (inside border and padding), relative to the node.
     pub content_box: Rect,
     /// Padding between the border and the content box.
-    pub padding: Insets,
+    pub padding: Edges<f64>,
     /// Border widths around the padding box.
-    pub border: Insets,
+    pub border: Edges<f64>,
     /// Margins outside the border box.
-    pub margin: Insets,
+    pub margin: Edges<f64>,
 }
 
 /// A measure request as the layout pass asks it: taffy's f32 values as

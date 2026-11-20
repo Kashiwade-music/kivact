@@ -40,7 +40,7 @@ use crate::a11y::native::NativeAccessibility;
 use arvane_protocol::{SemanticsNode, SemanticsTree};
 use arvane_shell::{Accessibility, PlatformTree};
 use arvane_shell::{ShellError, ShellWaker};
-use kivact_types::Transform;
+use kivact_types::Affine;
 use kivact_types::{Point, Rect, Role, SemanticsId};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -604,7 +604,7 @@ fn idle_tree() -> SemanticsTree {
             children: Vec::new(),
             bounds: Some(Rect::default()),
             scroll: Point::default(),
-            transform: Transform::IDENTITY,
+            transform: Affine::IDENTITY,
             semantics: kivact_types::Semantics {
                 role: Some(Role::Generic),
                 name: Some("idle test window".into()),

@@ -1,15 +1,15 @@
 //! Role: Layer trees of one frame, handed from the engine to the compositor.
 use crate::scene::RenderScene;
 use kivact_types::color::Rgba;
-use kivact_types::effect::{FilterGraph, ShaderUse};
+use kivact_types::effect::{FilterGraphSpec, ShaderUse};
 use kivact_types::export::{ExportedFrame, FrameStats};
-use kivact_types::geometry::{Point, Rect, Transform};
+use kivact_types::geometry::{Affine, Point, Rect};
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::gpu::ExternalFrame;
 use kivact_types::ids::{DrawableId, NodeId};
 use kivact_types::paint::{BackfaceVisibility, MaskComposite, MaskMode};
 use kivact_types::pixel::{ColorMatrix, Composite, Pixels};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 /// The most 3D context planes one context may hold. Above it the
 /// engine and the compositor draw the planes flat, in tree order.
@@ -109,7 +109,7 @@ pub struct LayerEffects {
     /// Filters applied in order to the surface.
     pub filters: Vec<LayerFilter>,
     /// Layer space.
-    pub clip: Option<Shape>,
+    pub clip: Option<Outline>,
     /// Alpha masks over the surface.
     pub masks: Vec<RenderMask>,
     /// What lies behind the layer, filtered.
@@ -150,7 +150,7 @@ pub enum LayerFilter {
     /// A color matrix over the surface.
     ColorMatrix(ColorMatrix),
     /// Images resolved to pixels by the engine.
-    Graph(std::sync::Arc<FilterGraph<Pixels>>),
+    Graph(std::sync::Arc<FilterGraphSpec<Pixels>>),
     /// A filter shader.
     Shader(ShaderUse),
 }
@@ -171,7 +171,7 @@ pub struct RenderMask {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RenderBackdrop {
     /// Where the backdrop shows.
-    pub shape: Shape,
+    pub shape: Outline,
     /// The filters applied to what lies behind.
     pub filters: Vec<LayerFilter>,
 }
@@ -186,7 +186,7 @@ pub enum LayerItem {
         /// Index into `Composition::layers`.
         index: u32,
         /// Clips applied to the child, in parent layer space.
-        clips: Vec<Shape>,
+        clips: Vec<Outline>,
     },
     /// A frame of an external render engine's image.
     External(ExternalItem),
@@ -204,9 +204,9 @@ pub struct ExternalItem {
     /// Source pixels of the frame; None draws the whole frame.
     pub source: Option<Rect>,
     /// 2D map of `rect` into layer space.
-    pub transform: Transform,
+    pub transform: Affine,
     /// Layer space, all applied.
-    pub clips: Vec<Shape>,
+    pub clips: Vec<Outline>,
     /// Alpha multiplier.
     pub opacity: f64,
     /// Disable smoothing.
@@ -223,7 +223,7 @@ pub struct ShaderItem {
     /// The shader's coordinate box (position 0..size in WGSL), in item space.
     pub rect: Rect,
     /// Item space → layer space.
-    pub transform: Transform,
+    pub transform: Affine,
     /// White where the shader shows, as a scene in item space (shape, clips).
     pub coverage: RenderScene,
     /// What the CPU compositor draws instead, in item space.

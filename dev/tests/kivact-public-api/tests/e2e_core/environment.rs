@@ -6,7 +6,7 @@
 use std::cell::Cell;
 use std::rc::Rc;
 
-use kivact::geometry::Insets;
+use kivact::geometry::Edges;
 use kivact::platform;
 use kivact::prelude::*;
 use kivact::test::render;
@@ -52,9 +52,9 @@ fn a_change_of_one_environment_field_notifies_only_its_readers() {
     );
 
     // The safe area changes: only its reader runs again.
-    screen.set_safe_area(Insets {
+    screen.set_safe_area(Edges {
         top: 24.0,
-        ..Insets::default()
+        ..Edges::<f64>::default()
     });
     screen.get_by_text("safe 24");
     assert_eq!(
@@ -125,7 +125,7 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
 
     // A phone in portrait: a status bar with a notch above, a home
     // indicator below.
-    screen.set_safe_area(Insets {
+    screen.set_safe_area(Edges {
         top: 44.0,
         right: 0.0,
         bottom: 34.0,
@@ -139,7 +139,7 @@ fn the_safe_area_starts_at_zero_and_follows_the_platform() {
     assert_eq!(bar.y, 44.0, "the bar moved below the status bar");
 
     // Rotated to landscape: the notch is on the left now.
-    screen.set_safe_area(Insets {
+    screen.set_safe_area(Edges {
         top: 0.0,
         right: 0.0,
         bottom: 21.0,

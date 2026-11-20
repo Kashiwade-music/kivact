@@ -1,7 +1,7 @@
 // Source: resvg 0.46.0, src/filter/mod.rs (Copyright 2018 the Resvg Authors).
 // SPDX-License-Identifier: Apache-2.0 OR MIT
 // The primitive driver, the color space conversions and the sRGB tables are
-// resvg's. Changes: the graph is kivact's FilterGraph (indices instead of
+// resvg's. Changes: the graph is kivact's FilterGraphSpec (indices instead of
 // names, no usvg types); the region is the whole target; GaussianBlur and
 // DropShadow use this crate's own gaussian blur (by repeated halving) and
 // drop shadow instead of resvg's box and IIR blurs; the pixel type is the
@@ -18,7 +18,7 @@ use std::rc::Rc;
 use kivact_types::Composite;
 use kivact_types::Rgba;
 use kivact_types::effect::{
-    Channel, CompositeOp, FilterColorSpace, FilterGraph, FilterInput, Light, MorphologyOp,
+    Channel, CompositeOp, FilterColorSpace, FilterGraphSpec, FilterInput, Light, MorphologyOp,
     PrimitiveOp, TransferFn, TurbulenceKind,
 };
 use kivact_types::geometry::{Point, Rect};
@@ -76,7 +76,7 @@ struct Env<'a> {
 
 /// The filtered `input` of `graph`; `ppu` px per layer unit and `origin` the layer point at px (0, 0).
 pub(crate) fn apply(
-    graph: &FilterGraph<Pixels>,
+    graph: &FilterGraphSpec<Pixels>,
     input: &Pixmap,
     ppu: f64,
     origin: Point,

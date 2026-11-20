@@ -429,6 +429,8 @@ constant_value!(
 
 constant_value!(
     kivact_types::Modifiers,
+    kivact_types::Length,
+    kivact_types::TextLength,
     kivact_types::InputPurpose,
     kivact_types::TextDecorationStyle,
     kivact_types::TextAlign,
@@ -493,6 +495,32 @@ impl<T: Clone + Eq + std::hash::Hash + 'static> ItemKey for T {}
 )]
 pub trait PropValue: Clone + PartialEq + 'static {}
 impl<T: Clone + PartialEq + 'static> PropValue for T {}
+
+// A number is a constant length in logical px wherever a reactive length
+// is taken (`dialog(..).width(640)`), as it is in `style()`.
+impl IntoValue<kivact_types::Length> for i32 {
+    fn into_prop(self) -> Prop<kivact_types::Length> {
+        Prop::constant(kivact_types::Length::from(self))
+    }
+}
+
+impl IntoValue<kivact_types::Length> for u32 {
+    fn into_prop(self) -> Prop<kivact_types::Length> {
+        Prop::constant(kivact_types::Length::from(self))
+    }
+}
+
+impl IntoValue<kivact_types::Length> for f64 {
+    fn into_prop(self) -> Prop<kivact_types::Length> {
+        Prop::constant(kivact_types::Length::from(self))
+    }
+}
+
+impl IntoValue<kivact_types::Length> for f32 {
+    fn into_prop(self) -> Prop<kivact_types::Length> {
+        Prop::constant(kivact_types::Length::from(self))
+    }
+}
 
 impl IntoValue<f64> for i32 {
     fn into_prop(self) -> Prop<f64> {

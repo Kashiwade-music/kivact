@@ -26,9 +26,9 @@ use crate::lower::fill::gradient;
 use crate::lower::sanitize;
 use arvane_asset::PixelSize;
 use arvane_protocol::{RasterPaint, RenderCmd as D};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{
-    BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect, Transform,
+    Affine, BorderImage, BorderImageRepeat as Repeat, Edges, FillImage, Len, Pixels, Rect,
 };
 
 /// The most tiles along an axis before its edges are stretched instead.
@@ -361,7 +361,7 @@ fn emit(out: &mut SceneOut, source: &Source, src: Rect, dst: Rect) {
             };
             let (kx, ky) = (dst.width / src.width, dst.height / src.height);
             out.push(D::PushClip(dst));
-            out.push(D::PushTransform(Transform {
+            out.push(D::PushTransform(Affine {
                 a: kx,
                 b: 0.0,
                 c: 0.0,
@@ -370,7 +370,7 @@ fn emit(out: &mut SceneOut, source: &Source, src: Rect, dst: Rect) {
                 f: dst.y - frame.y * ky,
             }));
             out.push(D::FillShape {
-                shape: Shape::Rect(frame),
+                shape: Outline::Rect(frame),
                 paint: paint.clone(),
             });
             out.push(D::PopTransform);

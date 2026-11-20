@@ -2,7 +2,7 @@
 
 use std::panic::Location;
 
-pub use kivact_types::{Edge, Insets, Matrix4, Point, Rect, Size};
+pub use kivact_types::{Edge, Edges, Matrix4, Point, Rect, Size};
 
 use crate::Result;
 use kivact_runtime::{ErrorKind, UiError};
