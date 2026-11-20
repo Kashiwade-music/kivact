@@ -16,7 +16,7 @@ use kivact_types::Rect;
 ///
 /// A password input gives an empty excerpt (no text, no selection, no
 /// composition) and only the caret's box; the window learns the purpose from
-/// `ShellWindow::set_ime_purpose`.
+/// `ShellWindow::set_ime`.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ShellImeText {
     /// The text around the caret (all of the input's text when short).
@@ -41,4 +41,18 @@ pub struct ShellImeText {
     pub rects: Vec<Rect>,
     /// The input's text area in logical window pixels.
     pub area: Rect,
+}
+
+/// What the focused editor asks of the platform IME; `None` (in
+/// `ShellWindow::set_ime`) disables IME input for the window.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ImeRequest {
+    /// The editor's content purpose and keyboard hint.
+    pub purpose: kivact_types::InputPurpose,
+    /// The caret rectangle, logical window px.
+    pub cursor_area: kivact_types::Rect,
+    /// The surrounding text and selection, when the editor publishes them.
+    pub text: Option<ShellImeText>,
+    /// Ask for the software keyboard where the backend has one.
+    pub soft_keyboard: bool,
 }

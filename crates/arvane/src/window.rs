@@ -6,14 +6,14 @@ use crate::{FramePlan, Presented};
 use arvane_protocol::{Composition, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
     AccessibilityError, Backend, EventTarget, InjectedInput, MakeHandler, ShellControl, ShellError,
-    ShellEvent, ShellHandler, ShellImeText, ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome,
+    ShellEvent, ShellHandler, ShellLoop, ShellWaker, ShellWindow, Step, StepOutcome,
     SteppedBackend, SteppedLoop, WakeReasons,
 };
 use kivact_types::Environment;
 use kivact_types::Failure;
 use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
-use kivact_types::{Capabilities, Cursor, Rect, RequestId, Size, WindowId, WindowRequest};
+use kivact_types::{Capabilities, Cursor, RequestId, Size, WindowId, WindowRequest};
 use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
 use std::collections::BTreeMap;
 
@@ -83,20 +83,13 @@ impl Window<'_> {
     pub fn set_resizable(&self, resizable: bool) {
         self.shell.set_resizable(resizable);
     }
-    pub fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
-        self.shell.set_ime_purpose(purpose);
+    /// Enable IME input for the focused editor as `ime` asks, or disable it.
+    pub fn set_ime(&self, ime: Option<arvane_shell::ImeRequest>) {
+        self.shell.set_ime(ime);
     }
-    pub fn set_ime_allowed(&self, allowed: bool) {
-        self.shell.set_ime_allowed(allowed);
-    }
-    pub fn set_ime_cursor_area(&self, area: Rect) {
-        self.shell.set_ime_cursor_area(area);
-    }
-    pub fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.shell.set_ime_text(text);
-    }
-    pub fn set_soft_keyboard(&self, shown: bool) {
-        self.shell.set_soft_keyboard(shown);
+    /// The native child window of a foreign-content window; `None` otherwise.
+    pub fn foreign_child(&self) -> Option<kivact_types::NativeWindow> {
+        self.shell.foreign_child()
     }
     pub fn set_cursor(&self, cursor: Cursor) {
         self.shell.set_cursor(cursor);
@@ -237,7 +230,14 @@ impl<'a> Windows<'a> {
             return Err(error);
         }
         // Only an opened window starts its renderer.
+        let period = self
+            .shell
+            .window(id)
+            .map(|window| window.environment().frame_period_ns);
         if let Some(presenter) = self.presenters.get_mut(&id) {
+            if let Some(period) = period {
+                presenter.set_frame_period(period);
+            }
             presenter.begin(self.env.start, self.shell.waker());
         }
         Ok(())
@@ -370,6 +370,9 @@ impl<H: Handler> ShellHandler for Driver<H> {
         // On a worker thread: the first frames are drawn on the CPU.
         let mut presenter =
             Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN), &self.env);
+        if let Some(window) = shell.window(WindowId::MAIN) {
+            presenter.set_frame_period(window.environment().frame_period_ns);
+        }
         presenter.begin(self.env.start, waker.clone());
         self.presenters.insert(WindowId::MAIN, presenter);
         let mut windows = Windows {
@@ -387,6 +390,18 @@ impl<H: Handler> ShellHandler for Driver<H> {
         event: ShellEvent,
         shell: &mut dyn ShellLoop,
     ) -> Result<ShellControl, ShellError> {
+        // The display period is read again when the window's environment may
+        // have changed (a move to another monitor, a resize, the focus).
+        if let EventTarget::Window(id) = target
+            && matches!(
+                event,
+                ShellEvent::EnvironmentChanged | ShellEvent::Resized | ShellEvent::Focused(true)
+            )
+            && let Some(window) = shell.window(id)
+            && let Some(presenter) = self.presenters.get_mut(&id)
+        {
+            presenter.set_frame_period(window.environment().frame_period_ns);
+        }
         // A GPU start step finished: once the GPU can draw a window, draw a
         // frame now, while nothing else happens.
         if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(WakeReasons::GPU_STEP)) {

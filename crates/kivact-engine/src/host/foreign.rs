@@ -6,7 +6,7 @@ use crate::contract::{ForeignChange, HostEvent};
 use crate::model::window::Content;
 use arvane::Windows;
 use kivact_types::cell::Sent;
-use kivact_types::{PlatformRequest, PlatformResult, SurfaceSize, WindowId};
+use kivact_types::{SurfaceSize, WindowId};
 
 impl Host {
     /// Ask the open window `id` for its native child and record it. Returns
@@ -16,11 +16,10 @@ impl Host {
         id: WindowId,
         windows: &mut Windows<'_>,
     ) -> Result<(kivact_types::NativeWindow, SurfaceSize), String> {
-        let Some(mut window) = windows.get(id) else {
+        let Some(window) = windows.get(id) else {
             return Err("the foreign window is not open".into());
         };
-        let PlatformResult::NativeWindow(child) = window.perform(PlatformRequest::ForeignChild)
-        else {
+        let Some(child) = window.foreign_child() else {
             return Err("the platform did not create a native child window".into());
         };
         let size = surface_size(&window);

@@ -1,5 +1,4 @@
 //! Role: Native platform requests, dialog options and classified failures.
-use crate::Size;
 use crate::window::NativeWindow;
 use std::path::PathBuf;
 
@@ -43,8 +42,6 @@ pub enum PlatformRequest {
         key: &'static str,
         bytes: Vec<u8>,
     },
-    /// Request logical content dimensions.
-    RequestWindowSize(Size),
     Fullscreen(bool),
     CopyText(String),
     ReadText,
@@ -63,9 +60,6 @@ pub enum PlatformRequest {
     RevealPath(PathBuf),
     /// Bring the window to the front and give it the keyboard focus (best effort).
     FocusWindow,
-    /// Create the native child window that fills a window whose content is
-    /// `WindowContent::Foreign`; the result is `NativeWindow`.
-    ForeignChild,
 }
 
 /// Stable classification of a boundary failure, independent of external libraries.

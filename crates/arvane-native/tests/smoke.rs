@@ -56,10 +56,13 @@ impl ShellHandler for Smoke {
             return Ok(ShellControl::Wait);
         };
         let (width, height) = window.physical_size();
-        if window.present_with(width, height, None, &mut |pixels, _age| {
-            pixels.fill(0x00336699);
-            true
-        })? {
+        if window
+            .surface()
+            .present_with(width, height, None, &mut |pixels, _age| {
+                pixels.fill(0x00336699);
+                true
+            })?
+        {
             self.presented.insert(id);
         }
         if id == second() && !self.closed {

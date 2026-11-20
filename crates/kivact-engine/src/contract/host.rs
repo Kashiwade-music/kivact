@@ -74,6 +74,11 @@ pub enum HostRequest {
         window: kivact_types::WindowId,
         request: PlatformRequest,
     },
+    /// Ask for window `window`'s content size: `size` logical px, answered like a platform request.
+    RequestWindowSize {
+        window: kivact_types::WindowId,
+        size: kivact_types::Size,
+    },
     /// Register a font before the next layout measures text.
     RegisterFont(Asset),
     /// Override reduced motion, or follow the system preference.

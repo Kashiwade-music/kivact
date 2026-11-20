@@ -451,6 +451,17 @@ impl Writer {
                         .push((request, DeferredRequest::Platform(platform)));
                 }
             }
+            HostRequest::RequestWindowSize { window, size } => {
+                let AppModel {
+                    windows, writes, ..
+                } = &mut *app;
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
+                    writes.command(None);
+                    model
+                        .effects
+                        .push((request, DeferredRequest::RequestSize(size)));
+                }
+            }
             drawable @ (HostRequest::DrawableExport { .. }
             | HostRequest::SetDrawableGeometry { .. }) => apply_drawable_effect(&mut app, drawable),
             HostRequest::ReducedMotion(value) => {

@@ -50,7 +50,7 @@ pub use arvane_protocol::CpuFrame;
 pub use clicks::ClickCounter;
 pub use contacts::Contacts;
 pub use events::ShellEvent;
-pub use ime::ShellImeText;
+pub use ime::{ImeRequest, ShellImeText};
 pub use input::InjectedInput;
 pub use modifiers::ModifierState;
 pub use mouse::Mouse;
@@ -59,8 +59,8 @@ pub use types::{ShellControl, ShellError, ShellWaker, WakeReasons};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, BufferAge, CpuFormat, EventTarget, ShellHandler, ShellLoop, ShellWindow, SizeReply,
-    Step, StepOutcome, SteppedBackend, SteppedLoop,
+    Backend, BufferAge, EventTarget, FrameSink, ShellHandler, ShellLoop, ShellWindow, SizeReply,
+    Step, StepOutcome, SteppedBackend, SteppedLoop, WindowSurface,
 };
 pub use window_input::WindowInput;
 

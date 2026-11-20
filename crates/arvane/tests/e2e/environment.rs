@@ -6,7 +6,7 @@
 
 use crate::support::Harness;
 use arvane_virtual::VirtualOptions;
-use kivact_types::{Cursor, Insets, Size};
+use kivact_types::{Cursor, InputPurpose, Insets, Rect, Size};
 use kivact_types::{Environment, PointerSettings};
 
 use crate::support::{PERIOD, open, options, rect};
@@ -94,20 +94,28 @@ fn the_environment_is_one_snapshot_that_follows_its_changes() {
     assert_eq!((plan.size, plan.scale), (window.probe().size(), 1.5));
 }
 
+/// The IME request of the test's text input, its caret at `cursor_area`.
+fn ime_request(soft_keyboard: bool, cursor_area: Rect) -> Option<arvane_shell::ImeRequest> {
+    Some(arvane_shell::ImeRequest {
+        purpose: InputPurpose::Text,
+        cursor_area,
+        text: None,
+        soft_keyboard,
+    })
+}
+
 #[test]
 fn the_software_keyboard_and_the_ime_follow_the_host() {
     let mut window = open(100.0, 80.0);
     assert_eq!(window.probe().soft_keyboard(), (false, 0));
-    window.with(move |w| w.set_soft_keyboard(true));
-    window.with(move |w| w.set_soft_keyboard(true));
-    assert_eq!(window.probe().soft_keyboard(), (true, 1), "shown once");
-    window.with(move |w| w.set_soft_keyboard(false));
-    assert_eq!(window.probe().soft_keyboard(), (false, 2));
     let area = rect(10.0, 20.0, 2.0, 16.0);
-    window.with(move |w| w.set_ime_allowed(true));
-    window.with(move |w| w.set_ime_cursor_area(area));
+    window.with(move |w| w.set_ime(ime_request(true, area)));
+    window.with(move |w| w.set_ime(ime_request(true, area)));
+    assert_eq!(window.probe().soft_keyboard(), (true, 1), "shown once");
+    window.with(move |w| w.set_ime(ime_request(false, area)));
+    assert_eq!(window.probe().soft_keyboard(), (false, 2));
     assert_eq!(window.probe().ime_area(), Some(area));
-    window.with(move |w| w.set_ime_allowed(false));
+    window.with(move |w| w.set_ime(None));
     assert_eq!(window.probe().ime_area(), None);
     window.with(move |w| w.set_cursor(Cursor::Text));
     assert_eq!(window.probe().cursor(), Cursor::Text);

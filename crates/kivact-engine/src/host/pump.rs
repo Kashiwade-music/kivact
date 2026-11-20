@@ -14,7 +14,7 @@ use crate::contract::{
     TurnOutput,
 };
 use crate::model::edit::state::ImeUpdate;
-use crate::model::window::{FRAME_STATE_KEEP_NS, ImeAllowed, LastPresent, SoftKeyboard, Surface};
+use crate::model::window::{FRAME_STATE_KEEP_NS, LastPresent, Surface};
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
 use arvane::{ExportNotice, Presented, Window, Windows};
@@ -171,7 +171,7 @@ impl Host {
             };
             for (request, effect) in effects {
                 let result = match effect {
-                    DeferredRequest::Platform(PlatformRequest::RequestWindowSize(size)) => {
+                    DeferredRequest::RequestSize(size) => {
                         let Some(mut window) = windows.get(id) else {
                             continue;
                         };
@@ -751,58 +751,39 @@ impl Host {
     /// IME state and purpose, the software keyboard and the cursor of window
     /// `id`'s settled model.
     pub(super) fn synchronize_ime(&mut self, id: WindowId, window: &mut Window<'_>) {
-        let caret = {
+        let (caret, purpose, update) = {
             let mut app = self.app.borrow_mut();
             let Some(model) = app.model_mut(id) else {
                 return;
             };
-            model
-                .caret(&mut self.engine.borrow_mut())
-                .or_else(|| model.session_area())
+            let mut engine = self.engine.borrow_mut();
+            let caret = model.caret(&mut engine).or_else(|| model.session_area());
+            (caret, model.ime_purpose(), model.ime_changed(&mut engine))
         };
-        let allowed = if caret.is_some() {
-            ImeAllowed::Yes
-        } else {
-            ImeAllowed::No
+        // The request is sent only when it changed; the guard is released
+        // before the window is called.
+        let sent = {
+            let mut app = self.app.borrow_mut();
+            let Some(host_window) = app.host_mut(id) else {
+                return;
+            };
+            if let ImeUpdate::Set(text) = update {
+                host_window.ime_text = text;
+            }
+            let request = caret.map(|cursor_area| arvane_shell::ImeRequest {
+                purpose,
+                cursor_area,
+                text: host_window.ime_text.clone(),
+                soft_keyboard: true,
+            });
+            host_window
+                .ime
+                .update(request.clone())
+                .is_some()
+                .then_some(request)
         };
-        let changed = self
-            .app
-            .borrow_mut()
-            .host_mut(id)
-            .and_then(|host_window| host_window.ime_allowed.update(allowed))
-            .map(|allowed| *allowed == ImeAllowed::Yes);
-        if let Some(allowed) = changed {
-            window.set_ime_allowed(allowed);
-        }
-        // The software keyboard follows the focus of an editable text
-        // input (a no-op where the platform has none).
-        let keyboard = if caret.is_some() {
-            SoftKeyboard::Shown
-        } else {
-            SoftKeyboard::Hidden
-        };
-        let changed = self
-            .app
-            .borrow_mut()
-            .host_mut(id)
-            .and_then(|host_window| host_window.soft_keyboard.update(keyboard))
-            .map(|keyboard| *keyboard == SoftKeyboard::Shown);
-        if let Some(shown) = changed {
-            window.set_soft_keyboard(shown);
-        }
-        if let Some(caret) = caret {
-            window.set_ime_cursor_area(caret);
-        }
-        let purpose = self.app.borrow().model(id).map(|model| model.ime_purpose());
-        if let Some(purpose) = purpose {
-            window.set_ime_purpose(purpose);
-        }
-        let update = match self.app.borrow_mut().model_mut(id) {
-            Some(model) => model.ime_changed(&mut self.engine.borrow_mut()),
-            None => ImeUpdate::Unchanged,
-        };
-        if let ImeUpdate::Set(text) = update {
-            window.set_ime_text(text);
+        if let Some(request) = sent {
+            window.set_ime(request);
         }
     }
 
@@ -818,20 +799,8 @@ impl Host {
         }
         // The IME may ask about the text right after the input that
         // edited it (a reconversion after a selection).
-        let purpose = self.app.borrow().model(id).map(|model| model.ime_purpose());
-        if let Some(purpose) = purpose
-            && let Some(window) = windows.get(id)
-        {
-            window.set_ime_purpose(purpose);
-        }
-        let update = match self.app.borrow_mut().model_mut(id) {
-            Some(model) => model.ime_changed(&mut self.engine.borrow_mut()),
-            None => ImeUpdate::Unchanged,
-        };
-        if let ImeUpdate::Set(text) = update
-            && let Some(window) = windows.get(id)
-        {
-            window.set_ime_text(text);
+        if let Some(mut window) = windows.get(id) {
+            self.synchronize_ime(id, &mut window);
         }
         self.show_cursor(id, windows);
         let now = windows.now_ns();

@@ -4,10 +4,13 @@ use crate::a11y::native::NativeAccessibility;
 use crate::native_input::state::NativeInput;
 use crate::present::CpuSurface;
 use crate::services::Services;
-use arvane_shell::ShellImeText;
 use arvane_shell::pipeline::ImePort;
-use arvane_shell::{ShellError, ShellWindow};
-use kivact_types::{Cursor as ShellCursor, PlatformRequest, PlatformResult, Rect, Size};
+use arvane_shell::{
+    FrameSink, ImeRequest, ShellError, ShellImeText, ShellWindow, SizeReply, WindowSurface,
+};
+use kivact_types::{
+    Cursor as ShellCursor, NativeWindow, PlatformRequest, PlatformResult, Rect, RequestId, Size,
+};
 use std::num::{NonZeroU32, NonZeroU64};
 use std::rc::Rc;
 use std::sync::Arc;
@@ -84,24 +87,12 @@ impl ShellWindow for WinitWindow {
                 crate::open::reveal_path(&path).map(|()| PlatformResult::Done)
             }
             PlatformRequest::FocusWindow => self.focus().map(|()| PlatformResult::Done),
-            PlatformRequest::RequestWindowSize(size) => {
-                let _ = self
-                    .window
-                    .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
-                Ok(PlatformResult::Done)
-            }
             PlatformRequest::Fullscreen(fullscreen) => {
                 self.window.set_fullscreen(
                     fullscreen.then_some(winit::window::Fullscreen::Borderless(None)),
                 );
                 Ok(PlatformResult::Done)
             }
-            PlatformRequest::ForeignChild => match &self.foreign {
-                Some(foreign) => Ok(PlatformResult::NativeWindow(foreign.native())),
-                None => Err(ShellError::unsupported(
-                    "this window has no native child window",
-                )),
-            },
         }
         .unwrap_or_else(|error| match error {
             ShellError::Unsupported(_) => PlatformResult::Unsupported,
@@ -109,56 +100,15 @@ impl ShellWindow for WinitWindow {
         })
     }
 
-    /// Bring the window to the front and give it the keyboard focus.
-    fn focus(&mut self) -> Result<(), ShellError> {
-        self.window.focus_window();
-        Ok(())
+    /// Answer a size request at once: winit applies the logical size.
+    fn request_size(&mut self, size: Size, request: RequestId) -> SizeReply {
+        let _ = request;
+        let _ = self
+            .window
+            .request_inner_size(winit::dpi::LogicalSize::new(size.width, size.height));
+        SizeReply::Now(PlatformResult::Done)
     }
 
-    fn cpu_format(&self) -> arvane_shell::CpuFormat {
-        arvane_shell::CpuFormat::Xrgb8888
-    }
-
-    fn keeps_frames(&self) -> bool {
-        false
-    }
-    fn keep_frame(&mut self, _: arvane_protocol::CpuFrame) {
-        unreachable!("invariant: native windows do not keep frames")
-    }
-
-    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
-        crate::wait::until(done, limit)
-    }
-
-    /// Drop the CPU presentation surface after a presentation failure; the
-    /// next CPU presentation creates a new one.
-    fn recover_surface(&mut self) -> Result<(), ShellError> {
-        self.release_cpu_surface();
-        Ok(())
-    }
-    /// Whether the window shows a frame its CPU presentation surface
-    /// presented (it presented a CPU frame since nothing else presented to
-    /// it).
-    fn shows_cpu_frame(&self) -> bool {
-        matches!(&self.surface, Surface::Live { cpu, .. } if cpu.shows_frame())
-    }
-    /// Release the CPU presentation surface (and its pixel buffer) of a
-    /// window something else (a GPU surface) presents to now.
-    fn release_cpu_surface(&mut self) {
-        if let Surface::Live { cpu, .. } = &mut self.surface {
-            cpu.release();
-        }
-    }
-    /// The window as a GPU surface's target. winit hands window handles
-    /// out only on the thread running the window's event loop: make the
-    /// surface here.
-    fn with_gpu_target(
-        &self,
-        make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
-    ) -> Result<(), ShellError> {
-        make(self.window.clone());
-        Ok(())
-    }
     /// Validate a complete accessibility tree and replace the window's
     /// accepted one with it: assistive technology is handed every node. A
     /// rejected tree keeps the accepted one.
@@ -298,11 +248,6 @@ impl ShellWindow for WinitWindow {
     fn set_resizable(&self, resizable: bool) {
         self.window.set_resizable(resizable);
     }
-    /// Whether the system asks to reduce motion (Windows: animation effects
-    /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
-    fn reduced_motion(&self) -> bool {
-        self.input.reduced_motion.get()
-    }
     /// The window's environment now: scale, refresh period, reduce-motion
     /// and theme preferences, safe area (zero: no desktop covers a window's
     /// content with system UI; winit 0.30 reports none elsewhere either),
@@ -359,65 +304,35 @@ impl ShellWindow for WinitWindow {
             ShellCursor::None => CursorIcon::Default,
         });
     }
-    /// Enable IME when an editable control owns focus.
-    fn set_ime_purpose(&self, purpose: kivact_types::InputPurpose) {
-        self.window
-            .set_ime_purpose(if purpose == kivact_types::InputPurpose::Password {
-                winit::window::ImePurpose::Password
-            } else {
-                winit::window::ImePurpose::Normal
-            });
-    }
-    fn set_ime_allowed(&self, allowed: bool) {
-        self.input
-            .ime
-            .borrow_mut()
-            .set_allowed(&mut ImeWindow(self), allowed);
-    }
-    /// Show or hide the software keyboard. winit 0.30 shows it with the IME
-    /// on Android and iOS (`set_ime_allowed`); desktops have none, so the
-    /// request does nothing there.
-    fn set_soft_keyboard(&self, shown: bool) {
-        if SOFT_KEYBOARD {
-            // Through the IME cache: the same native switch backs both.
-            self.set_ime_allowed(shown);
+    /// Enable or disable IME input for the focused editor, as `ime` asks.
+    fn set_ime(&self, ime: Option<ImeRequest>) {
+        match ime {
+            None => {
+                self.soft_keyboard(false);
+                self.ime_allowed(false);
+            }
+            Some(request) => {
+                self.ime_allowed(true);
+                self.soft_keyboard(request.soft_keyboard);
+                self.ime_cursor_area(request.cursor_area);
+                self.ime_purpose(request.purpose);
+                self.ime_text(request.text);
+            }
         }
     }
-    /// Position the native IME candidate UI at a logical caret rectangle.
-    fn set_ime_cursor_area(&self, area: Rect) {
-        // Native pixels keep a scale change visible to the shared output cache.
-        let scale = self.window.scale_factor();
-        let area = Rect {
-            x: area.x * scale,
-            y: area.y * scale,
-            width: area.width * scale,
-            height: area.height * scale,
-        };
-        self.input
-            .ime
-            .borrow_mut()
-            .set_cursor_area(&mut ImeWindow(self), area);
-    }
-    /// What the focused text input shows the IME (`None`: no text input
-    /// has focus), answering the platform IME's queries about it
-    /// (reconversion, the text around the composition, character
-    /// positions; Windows).
-    fn set_ime_text(&self, text: Option<ShellImeText>) {
-        self.input
-            .ime
-            .borrow_mut()
-            .set_text(&mut ImeWindow(self), text);
-    }
-    /// The refresh period (ns) of the display the window is on: its
-    /// monitor's reported rate, a whole-hertz report read as the common
-    /// rate it was rounded down from (Windows reports a 60 Hz mode as
-    /// 59 Hz). An unknown or implausible report keeps the last period
-    /// ([`kivact_types::defaults::FRAME_PERIOD_NS`] before any). A move to another
-    /// monitor is announced as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
-    fn frame_period_ns(&self) -> u64 {
-        self.frame_period_ns
+
+    /// The native child window that fills a foreign window's content area.
+    fn foreign_child(&self) -> Option<NativeWindow> {
+        self.foreign.as_ref().map(|foreign| foreign.native())
     }
 
+    /// The window's presentation surface: this window itself.
+    fn surface(&mut self) -> &mut dyn WindowSurface {
+        self
+    }
+}
+
+impl WindowSurface for WinitWindow {
     /// Offer the current CPU buffer once and commit only on callback success.
     /// The caller retains its rendering error; backend failures stay separate.
     /// Missing surfaces and zero-sized frames do not invoke the callback.
@@ -441,6 +356,48 @@ impl ShellWindow for WinitWindow {
         }
         cpu.present(w, h, || cpu_surface(&self.window), damage, draw)
     }
+
+    /// The window as a GPU surface's target. winit hands window handles
+    /// out only on the thread running the window's event loop: make the
+    /// surface here.
+    fn with_gpu_target(
+        &self,
+        make: Box<dyn FnOnce(arvane_shell::GpuTarget) + Send>,
+    ) -> Result<(), ShellError> {
+        make(self.window.clone());
+        Ok(())
+    }
+
+    /// Drop the CPU presentation surface after a presentation failure; the
+    /// next CPU presentation creates a new one.
+    fn recover_surface(&mut self) -> Result<(), ShellError> {
+        self.release_cpu_surface();
+        Ok(())
+    }
+
+    /// Whether the window shows a frame its CPU presentation surface
+    /// presented (it presented a CPU frame since nothing else presented to
+    /// it).
+    fn shows_cpu_frame(&self) -> bool {
+        matches!(&self.surface, Surface::Live { cpu, .. } if cpu.shows_frame())
+    }
+
+    /// Release the CPU presentation surface (and its pixel buffer) of a
+    /// window something else (a GPU surface) presents to now.
+    fn release_cpu_surface(&mut self) {
+        if let Surface::Live { cpu, .. } = &mut self.surface {
+            cpu.release();
+        }
+    }
+
+    fn wait_until(&mut self, done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {
+        crate::wait::until(done, limit)
+    }
+
+    /// Native windows keep no presented frames.
+    fn frame_sink(&mut self) -> Option<&mut dyn FrameSink> {
+        None
+    }
 }
 
 fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
@@ -451,6 +408,72 @@ fn cpu_surface(window: &Arc<Window>) -> Result<WinitSurface, ShellError> {
 const SOFT_KEYBOARD: bool = cfg!(any(target_os = "android", target_os = "ios"));
 
 impl WinitWindow {
+    /// Bring the window to the front and give the keyboard focus.
+    fn focus(&mut self) -> Result<(), ShellError> {
+        self.window.focus_window();
+        Ok(())
+    }
+
+    /// Whether the system asks to reduce motion (Windows: animation effects
+    /// are off). A change arrives as [`ShellEvent::EnvironmentChanged`](arvane_shell::ShellEvent::EnvironmentChanged).
+    fn reduced_motion(&self) -> bool {
+        self.input.reduced_motion.get()
+    }
+
+    /// Enable IME when an editable control owns focus.
+    fn ime_purpose(&self, purpose: kivact_types::InputPurpose) {
+        self.window
+            .set_ime_purpose(if purpose == kivact_types::InputPurpose::Password {
+                winit::window::ImePurpose::Password
+            } else {
+                winit::window::ImePurpose::Normal
+            });
+    }
+
+    fn ime_allowed(&self, allowed: bool) {
+        self.input
+            .ime
+            .borrow_mut()
+            .set_allowed(&mut ImeWindow(self), allowed);
+    }
+
+    /// Show or hide the software keyboard. winit 0.30 shows it with the IME
+    /// on Android and iOS (`ime_allowed`); desktops have none, so the
+    /// request does nothing there.
+    fn soft_keyboard(&self, shown: bool) {
+        if SOFT_KEYBOARD {
+            // Through the IME cache: the same native switch backs both.
+            self.ime_allowed(shown);
+        }
+    }
+
+    /// Position the native IME candidate UI at a logical caret rectangle.
+    fn ime_cursor_area(&self, area: Rect) {
+        // Native pixels keep a scale change visible to the shared output cache.
+        let scale = self.window.scale_factor();
+        let area = Rect {
+            x: area.x * scale,
+            y: area.y * scale,
+            width: area.width * scale,
+            height: area.height * scale,
+        };
+        self.input
+            .ime
+            .borrow_mut()
+            .set_cursor_area(&mut ImeWindow(self), area);
+    }
+
+    /// What the focused text input shows the IME (`None`: no text input
+    /// has focus), answering the platform IME's queries about it
+    /// (reconversion, the text around the composition, character
+    /// positions; Windows).
+    fn ime_text(&self, text: Option<ShellImeText>) {
+        self.input
+            .ime
+            .borrow_mut()
+            .set_text(&mut ImeWindow(self), text);
+    }
+
     /// Whether the window can contain a native child: Win32 and X11 can,
     /// Wayland and AppKit cannot.
     fn has_native_child_parent(&self) -> bool {

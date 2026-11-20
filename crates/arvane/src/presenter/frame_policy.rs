@@ -54,12 +54,19 @@ pub(crate) struct Presenter {
     shader_failed: HashSet<u64>,
     /// The GPU limit was noted (once per window).
     gpu_limit_noted: bool,
+    /// The display period, from the window's environment.
+    frame_period_ns: u64,
 }
 
 impl Presenter {
     /// Stop workers needing the native window before that window is dropped.
     pub(crate) fn shutdown(&mut self, window: &mut dyn ShellWindow) {
         self.gpu.shutdown(window);
+    }
+
+    /// Note the display period the window's environment reports now.
+    pub(crate) fn set_frame_period(&mut self, period_ns: u64) {
+        self.frame_period_ns = period_ns;
     }
 
     pub(crate) fn release_caches(&mut self) {
@@ -84,6 +91,7 @@ impl Presenter {
             exports: ExportRegistry::default(),
             shader_failed: HashSet::new(),
             gpu_limit_noted: false,
+            frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
         }
     }
 
@@ -217,13 +225,16 @@ impl Presenter {
     /// worker. Returns whether the GPU became ready to draw `window`'s
     /// frames (draw one now, so the switch happens while the window is
     /// idle rather than with the next input).
-    pub(crate) fn prepare(&mut self, window: &dyn ShellWindow) -> bool {
+    pub(crate) fn prepare(&mut self, window: &mut dyn ShellWindow) -> bool {
         if self.gpu.ready() {
             return false;
         }
-        let make = |context: &GpuContext| make_surface(window, context, window.keeps_frames());
-        self.gpu
-            .advance(&mut self.notes, &make, window.physical_size());
+        let physical = window.physical_size();
+        let keep_frames = window.surface().frame_sink().is_some();
+        let make = |context: &GpuContext, target: &mut dyn ShellWindow| {
+            make_surface(target, context, keep_frames)
+        };
+        self.gpu.advance(window, &mut self.notes, &make, physical);
         self.sync_exports(false);
         self.gpu.ready()
     }
@@ -294,6 +305,7 @@ impl Presenter {
                     LossAction::Recover => {}
                 }
                 window
+                    .surface()
                     .recover_surface()
                     .map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
                 Ok(Presented::SurfaceLost(error))
@@ -312,7 +324,7 @@ impl Presenter {
     ) -> Result<Presented, Failure> {
         let was_ready = self.gpu.ready();
         let drawn = self.draw_native(window, composition, plan);
-        let (now, period) = (window.now_ns(), window.frame_period_ns());
+        let (now, period) = (window.now_ns(), self.frame_period_ns);
         if self.gpu.waits()
             && let Ok(drawn) = &drawn
         {
@@ -392,23 +404,29 @@ impl Presenter {
         plan: FramePlan,
     ) -> Result<Drawn, Failure> {
         let physical = window.physical_size();
-        let make = |context: &GpuContext| make_surface(window, context, window.keeps_frames());
-        self.gpu.advance(&mut self.notes, &make, physical);
+        let keep_frames = window.surface().frame_sink().is_some();
+        let make = |context: &GpuContext, target: &mut dyn ShellWindow| {
+            make_surface(target, context, keep_frames)
+        };
+        self.gpu.advance(window, &mut self.notes, &make, physical);
         let started = Instant::now();
         // While a worker makes the window's swapchain, a frame presented
         // through GDI may not show (a flip-model swapchain replaces what
         // the window shows): the window keeps its last CPU frame and
         // the frame is drawn again later (the first GPU frame follows
         // the configuration at once).
-        if self.gpu.configuring() && window.shows_cpu_frame() {
+        if self.gpu.configuring() && window.surface().shows_cpu_frame() {
             return Ok(Drawn::NoBuffer {
                 report: FrameReport::default(),
             });
         }
-        match self.gpu.present(&make, composition, plan.scale, physical) {
+        match self
+            .gpu
+            .present(window, &make, composition, plan.scale, physical)
+        {
             None => {}
             Some(Ok((presentation, present, report))) => {
-                window.release_cpu_surface();
+                window.surface().release_cpu_surface();
                 if presentation == Presentation::Shown {
                     self.keep_shown_frame(window);
                     return Ok(Drawn::Shown {
@@ -427,11 +445,11 @@ impl Presenter {
                 let started = Instant::now();
                 let (pixels, report) = self.cpu_pixels(composition, physical, plan.scale)?;
                 let raster = started.elapsed();
-                match self.gpu.present_pixels(&make, &pixels, physical) {
+                match self.gpu.present_pixels(window, &make, &pixels, physical) {
                     Some(Ok((presentation, present))) => {
                         // The window's CPU surface holds an older frame; the next CPU frame
                         // must not be damage-merged onto it.
-                        window.release_cpu_surface();
+                        window.surface().release_cpu_surface();
                         if presentation == Presentation::Shown {
                             self.keep_shown_frame(window);
                             return Ok(Drawn::Shown {
@@ -501,21 +519,24 @@ impl Presenter {
             Damage::Full => None,
             Damage::Rects(rects) => Some(rects.as_slice()),
         };
-        let backend = window.present_with(physical.0, physical.1, rects, &mut |buffer, age| {
-            match rects {
-                Some(rects) if age == BufferAge::Previous => {
-                    for rect in rects {
-                        write_rect(buffer, rgba, width, *rect);
+        let backend =
+            window
+                .surface()
+                .present_with(physical.0, physical.1, rects, &mut |buffer, age| {
+                    match rects {
+                        Some(rects) if age == BufferAge::Previous => {
+                            for rect in rects {
+                                write_rect(buffer, rgba, width, *rect);
+                            }
+                        }
+                        _ => {
+                            for (px, src) in buffer.iter_mut().zip(rgba.as_chunks::<4>().0) {
+                                *px = pixel_0rgb(src);
+                            }
+                        }
                     }
-                }
-                _ => {
-                    for (px, src) in buffer.iter_mut().zip(rgba.as_chunks::<4>().0) {
-                        *px = pixel_0rgb(src);
-                    }
-                }
-            }
-            true
-        });
+                    true
+                });
         let shown = backend.map_err(|e| Failure::new(FailureKind::Surface, e.to_string()))?;
         let present = started.elapsed().saturating_sub(raster);
         if shown {
@@ -533,11 +554,15 @@ impl Presenter {
     /// Keep a copy of the GPU frame just shown when `window` keeps frames. A failed read-back
     /// leaves the frame shown: the failure only moves the renderer along for the next frame.
     fn keep_shown_frame(&mut self, window: &mut dyn ShellWindow) {
-        if !window.keeps_frames() {
+        if window.surface().frame_sink().is_none() {
             return;
         }
         match self.gpu.read_back() {
-            Some(Ok(frame)) => window.keep_frame(frame),
+            Some(Ok(frame)) => {
+                if let Some(sink) = window.surface().frame_sink() {
+                    sink.keep(frame);
+                }
+            }
             Some(Err(e)) => {
                 if let Err(failure) = self.gpu_failed(e) {
                     tracing::warn!(target: "kivact", %failure, "could not read back a shown GPU frame");
@@ -597,13 +622,14 @@ fn write_rect(buffer: &mut [u32], rgba: &[u8], width: u32, rect: PixelRect) {
 /// Create the surface inside the backend's owner-thread callback, never by
 /// retrieving a native handle from a GPU worker. Readback remains render policy.
 pub(super) fn make_surface(
-    window: &dyn ShellWindow,
+    window: &mut dyn ShellWindow,
     context: &GpuContext,
     keep_frames: bool,
 ) -> Result<GpuSurface, RenderError> {
     let make = context.surface_maker();
     let (sender, made) = std::sync::mpsc::sync_channel(1);
     window
+        .surface()
         .with_gpu_target(Box::new(move |target: arvane_shell::GpuTarget| {
             let _ = sender.send(make(target));
         }))

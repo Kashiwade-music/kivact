@@ -55,18 +55,6 @@ pub(crate) enum Unavailable {
     ZeroSize,
 }
 
-#[derive(PartialEq)]
-pub(crate) enum SoftKeyboard {
-    Hidden,
-    Shown,
-}
-
-#[derive(PartialEq)]
-pub(crate) enum ImeAllowed {
-    No,
-    Yes,
-}
-
 /// The host's state for one window.
 pub(crate) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
@@ -76,10 +64,10 @@ pub(crate) struct HostWindow {
     /// the host's own, not the snapshot's).
     pub(crate) environment: Sent<kivact_types::Environment>,
     pub(crate) surface: Surface,
-    /// The software keyboard was asked for (an editable text input has
-    /// the focus).
-    pub(crate) soft_keyboard: Sent<SoftKeyboard>,
-    pub(crate) ime_allowed: Sent<ImeAllowed>,
+    /// The IME request last sent to the window (`None`: IME disabled).
+    pub(crate) ime: Sent<Option<arvane_shell::ImeRequest>>,
+    /// The editor's surrounding text as last published by the model.
+    pub(crate) ime_text: Option<arvane_shell::ShellImeText>,
     /// The window's adapter the client was told of last
     /// (`HostEvent::GpuAdapterChanged`).
     pub(crate) reported_adapter: Sent<kivact_types::GpuAdapter>,
@@ -100,8 +88,8 @@ impl HostWindow {
             last_present: LastPresent::Settled,
             environment: Sent::new(),
             surface: Surface::Unavailable(Unavailable::NoSurface),
-            soft_keyboard: Sent::new(),
-            ime_allowed: Sent::new(),
+            ime: Sent::new(),
+            ime_text: None,
             reported_adapter: Sent::new(),
             last_stats: None,
             mode,
