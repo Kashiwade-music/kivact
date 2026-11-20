@@ -10,8 +10,8 @@ use super::describe::unsupported_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
 use crate::draw::{Draw, LocalPaint, Size};
 use crate::sheet::{
-    Direction, FlowFields, MotionFields, Position, Sides, SizeFields, SpacingFields, StateFields,
-    Style, TextFields, group_or_default,
+    Decl, Direction, FlowFields, MotionFields, Position, Sides, SizeFields, SpacingFields, Style,
+    TextFields, group_or_default,
 };
 use crate::theme::value::Theme;
 use kivact_types::Length;
@@ -103,10 +103,17 @@ pub(crate) struct Resolve<'a> {
 
 impl<'a> Resolve<'a> {
     pub(super) fn new(s: &Style, theme: &'a Theme, misplaced: &'a mut u32) -> Self {
-        let font_size = group_or_default!(s.text, TextFields).font_size;
+        let base = theme.get(&crate::font::SIZE_VAR);
+        let em_px = match group_or_default!(s.text, TextFields).font_size {
+            Some(size) => match resolved(size, theme, base, &mut 0) {
+                Length::Px(px) => px,
+                _ => base,
+            },
+            None => base,
+        };
         Resolve {
             theme,
-            em_px: font_size.unwrap_or_else(|| theme.get(&crate::font::SIZE_VAR)),
+            em_px,
             misplaced,
         }
     }
@@ -224,10 +231,20 @@ fn misplaced_content(s: &Style) -> u32 {
 /// `style::text::resolve_extras`). The host takes each unset one from the
 /// nearest ancestor that sets it, and the root carries the theme's
 /// ([`resolve`]).
-fn text(s: &Style, theme: &Theme) -> (TextStyle, u32) {
+fn text(s: &Style, theme: &Theme, misplaced: &mut u32) -> (TextStyle, u32) {
     let text = group_or_default!(s.text, TextFields);
+    let base = theme.get(&crate::font::SIZE_VAR);
+    let font_size = text
+        .font_size
+        .and_then(|size| match resolved(size, theme, base, &mut 0) {
+            Length::Px(px) => Some(px),
+            _ => {
+                *misplaced += 1;
+                None
+            }
+        });
     let mut t = TextStyle {
-        font_size: text.font_size,
+        font_size,
         weight: text.weight,
         color: text.color.map(|c| c.resolve(theme)),
         line_height: text.line_height,
@@ -309,97 +326,88 @@ pub struct Interactive {
 /// it would.
 fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
     if disabled {
-        let states = s.states_mut();
-        states.hover = None;
-        states.pressed = None;
+        s.take_state(StyleState::Hover);
+        s.take_state(StyleState::Active);
     }
-    let has_focus = s
-        .states
-        .as_deref()
-        .is_some_and(|states| states.focus.is_some() || states.focus_visible.is_some());
+    let has_focus =
+        s.state(StyleState::Focus).is_some() || s.state(StyleState::FocusVisible).is_some();
     if !has_focus {
         let ring = Style::default().ring_with_offset(
             theme.focus_ring(),
             theme.focus_ring_offset(),
             crate::color::FOCUS,
         );
-        s.states_mut().focus_visible = Some(Box::new(ring));
+        *s = std::mem::take(s).focus_visible(ring);
     }
-    let disabled = s.states_mut().disabled.get_or_insert_with(Default::default);
-    if !disabled
-        .paint
-        .as_deref()
-        .is_some_and(|paint| paint.opacity.is_some())
-    {
-        disabled.paint_mut().opacity = Some(theme.get(&crate::control::DISABLED_OPACITY_VAR));
+    let sets_opacity = s
+        .state(StyleState::Disabled)
+        .is_some_and(|d| d.decls.iter().any(|x| matches!(x, Decl::Opacity(_))));
+    if !sets_opacity {
+        let fade = Style::default().opacity(theme.get(&crate::control::DISABLED_OPACITY_VAR));
+        *s = std::mem::take(s).disabled(fade);
     }
 }
 
 /// Merge the state styles a tool forces into the base, in the engine's
 /// layer order, so they no longer apply as deltas.
 fn merge_forced(mut s: Style, forced: ForcedStates) -> Style {
-    if forced.contains(ForcedStates::FOCUS)
-        && let Some(v) = s.states_mut().focus.take()
-    {
-        s = s.merge(&v);
-    }
-    if forced.contains(ForcedStates::FOCUS_VISIBLE)
-        && let Some(v) = s.states_mut().focus_visible.take()
-    {
-        s = s.merge(&v);
-    }
-    if forced.contains(ForcedStates::HOVER)
-        && let Some(v) = s.states_mut().hover.take()
-    {
-        s = s.merge(&v);
-    }
-    if forced.contains(ForcedStates::PRESSED)
-        && let Some(v) = s.states_mut().pressed.take()
-    {
-        s = s.merge(&v);
+    let order = [
+        (ForcedStates::FOCUS, StyleState::Focus),
+        (ForcedStates::FOCUS_VISIBLE, StyleState::FocusVisible),
+        (ForcedStates::HOVER, StyleState::Hover),
+        (ForcedStates::PRESSED, StyleState::Active),
+    ];
+    for (flag, state) in order {
+        if forced.contains(flag)
+            && let Some(v) = s.take_state(state)
+        {
+            s = s.merge(&v);
+        }
     }
     s
 }
 
 /// The host-evaluated state deltas of `s`, if it sets any state.
 fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
-    let states = group_or_default!(s.states, StateFields);
-    (states.hover.is_some()
-        || states.group_hover.is_some()
-        || states.group_focus.is_some()
-        || states.group
-        || states.pressed.is_some()
-        || states.focus.is_some()
-        || states.focus_visible.is_some()
-        || states.enter.is_some()
-        || states.exit.is_some())
-    .then(|| {
+    let hover = s.state(StyleState::Hover);
+    let group_hover = s.state(StyleState::GroupHover);
+    let group_focus = s.state(StyleState::GroupFocus);
+    let pressed = s.state(StyleState::Active);
+    let focus = s.state(StyleState::Focus);
+    let focus_visible = s.state(StyleState::FocusVisible);
+    let enter = s.state(StyleState::Enter);
+    let exit = s.state(StyleState::Exit);
+    let group = s.decls.iter().any(|d| matches!(d, Decl::Group));
+    let any_state = [
+        &hover,
+        &group_hover,
+        &group_focus,
+        &pressed,
+        &focus,
+        &focus_visible,
+        &enter,
+        &exit,
+    ]
+    .iter()
+    .any(|state| state.is_some());
+    (any_state || group).then(|| {
         let mut out = StateStyles {
-            group: states.group,
+            group,
             ..StateStyles::default()
         };
         let delta = |h: &Style| Some(Box::new(paint_delta(s, h, theme)));
-        out.set_delta(StyleState::Hover, states.hover.as_deref().and_then(delta));
-        out.set_delta(
-            StyleState::Active,
-            states.pressed.as_deref().and_then(delta),
-        );
-        out.set_delta(StyleState::Focus, states.focus.as_deref().and_then(delta));
-        out.set_delta(
-            StyleState::GroupHover,
-            states.group_hover.as_deref().and_then(delta),
-        );
-        out.set_delta(
-            StyleState::GroupFocus,
-            states.group_focus.as_deref().and_then(delta),
-        );
-        out.set_delta(StyleState::Enter, states.enter.as_deref().and_then(delta));
-        out.set_delta(StyleState::Exit, states.exit.as_deref().and_then(delta));
+        out.set_delta(StyleState::Hover, hover.as_ref().and_then(delta));
+        out.set_delta(StyleState::Active, pressed.as_ref().and_then(delta));
+        out.set_delta(StyleState::Focus, focus.as_ref().and_then(delta));
+        out.set_delta(StyleState::GroupHover, group_hover.as_ref().and_then(delta));
+        out.set_delta(StyleState::GroupFocus, group_focus.as_ref().and_then(delta));
+        out.set_delta(StyleState::Enter, enter.as_ref().and_then(delta));
+        out.set_delta(StyleState::Exit, exit.as_ref().and_then(delta));
         // Over the focus state, as the host applies it.
         out.set_delta(
             StyleState::FocusVisible,
-            states.focus_visible.as_deref().map(|h| {
-                let focused = match &states.focus {
+            focus_visible.as_ref().map(|h| {
+                let focused = match &focus {
                     Some(focus) => s.clone().merge(focus),
                     None => s.clone(),
                 };
@@ -420,31 +428,33 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
     if state.forced.contains(ForcedStates::SELECTED) {
         state.selected = true;
     }
-    let retained_paint = s
-        .paint
-        .as_deref()
-        .and_then(|paint| paint.local_paint.clone());
+    let duplicates = s.duplicates();
     let mut s = s.clone();
     let unsupported_in_states = unsupported_in_states(&s);
-    strip_state_paint(&mut s);
     if state.focusable {
         interactive_defaults(&mut s, theme, state.disabled);
     }
     if state.selected
-        && let Some(v) = s.states_mut().selected.take()
+        && let Some(v) = s.take_state(StyleState::Selected)
     {
         s = s.merge(&v);
     }
     if state.disabled
-        && let Some(v) = s.states_mut().disabled.take()
+        && let Some(v) = s.take_state(StyleState::Disabled)
     {
         s = s.merge(&v);
     }
     s = merge_forced(s, state.forced);
+    // The callback is taken after the merge: a selected or disabled
+    // style's own callback is the node's (UI-S-02), and the state styles
+    // that remain never carry one.
+    let retained_paint = s.local_paint();
+    s.strip_local_paint();
     let states = state_styles(&s, theme);
     let mut unsupported_text = 0;
+    let mut misplaced = 0;
     let text = (s.has_text() || state.root).then(|| {
-        let (mut t, dropped) = text(&s, theme);
+        let (mut t, dropped) = text(&s, theme, &mut misplaced);
         unsupported_text = dropped;
         if state.root {
             // The theme's text style is what every node inherits.
@@ -465,7 +475,6 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
         }
         t
     });
-    let mut misplaced = 0;
     let mut cx = Resolve::new(&s, theme, &mut misplaced);
     let layout = layout(&s, &mut cx);
     let mut paint = paint(&s, theme, &mut cx);
@@ -477,7 +486,7 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
         paint,
         text,
         states,
-        duplicates: s.duplicates,
+        duplicates,
         misplaced_content: misplaced_content(&s) + misplaced,
         unsupported_text,
         unsupported_in_states,
@@ -485,30 +494,6 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
     }
 }
 
-/// State styles only carry declarative host properties, never callbacks.
-fn strip_state_paint(style: &mut Style) {
-    if let Some(paint) = style.paint.as_deref_mut() {
-        paint.local_paint = None;
-    }
-    let Some(states) = style.states.as_deref_mut() else {
-        return;
-    };
-    [
-        &mut states.hover,
-        &mut states.group_hover,
-        &mut states.group_focus,
-        &mut states.pressed,
-        &mut states.focus,
-        &mut states.focus_visible,
-        &mut states.disabled,
-        &mut states.selected,
-        &mut states.enter,
-        &mut states.exit,
-    ]
-    .into_iter()
-    .flatten()
-    .for_each(|state| strip_state_paint(state));
-}
 impl CompiledStyle {
     /// Whether the style that was compiled sets a base paint callback
     /// (`Style::paint`).

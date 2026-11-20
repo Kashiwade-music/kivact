@@ -204,10 +204,13 @@ pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProp
         transitions: None,
         background: paint.background.as_ref().map(|b| fill(b, cx)),
         border: border(s, theme),
-        ring: paint.ring.map(|(width, offset, c)| Ring {
+        ring: paint.ring_width.map(|width| Ring {
             width,
-            offset,
-            color: c.resolve(theme),
+            offset: paint.ring_offset.unwrap_or(0.0),
+            color: paint
+                .ring_color
+                .unwrap_or(crate::color::FOCUS)
+                .resolve(theme),
         }),
         radius: corners(s, cx),
         shadows: paint
@@ -331,7 +334,11 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
     PaintDelta {
         background: st_paint.background.as_ref().and(full.background),
         border: if sets_border { full.border } else { None },
-        ring: st_paint.ring.and(full.ring),
+        ring: (st_paint.ring_width.is_some()
+            || st_paint.ring_offset.is_some()
+            || st_paint.ring_color.is_some())
+        .then_some(full.ring)
+        .flatten(),
         radius: st_paint
             .radius
             .iter()
@@ -346,16 +353,17 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
         transform_style: st_transform.transform_style.map(|_| full.transform_style),
         backface: st_transform.backface.map(|_| full.backface),
         z_index: st_flow.z_index,
-        scrollbar: st_paint
-            .scrollbar
-            .as_ref()
-            .zip(full.scrollbar.as_ref())
-            .map(|(style, full)| {
+        scrollbar: full.scrollbar.as_deref().and_then(|props| {
+            let sets_width = st_paint.scrollbar_width.is_some();
+            let sets_colors =
+                st_paint.scrollbar_thumb.is_some() || st_paint.scrollbar_track.is_some();
+            (sets_width || sets_colors).then(|| {
                 Box::new(p::ScrollbarDelta {
-                    width: style.width.map(|_| full.width),
-                    colors: style.colors.map(|_| (full.thumb, full.track)),
+                    width: sets_width.then_some(props.width),
+                    colors: sets_colors.then_some((props.thumb, props.track)),
                 })
-            }),
+            })
+        }),
         cursor: st_paint.cursor,
         effects: sets_effects.then_some(full.effects),
         text_color: st_text.color.map(|c| c.resolve(theme)),
@@ -364,9 +372,14 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
 
 fn scrollbar(s: &Style, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
     let paint = group_or_default!(s.paint, PaintFields);
-    let style = paint.scrollbar.as_ref()?;
+    let set = paint.scrollbar_width.is_some()
+        || paint.scrollbar_thumb.is_some()
+        || paint.scrollbar_track.is_some();
+    if !set {
+        return None;
+    }
     let mut props = p::ScrollbarProps {
-        width: match style.width.unwrap_or_default() {
+        width: match paint.scrollbar_width.unwrap_or_default() {
             ScrollbarWidth::Auto | ScrollbarWidth::Thin => 6.0,
             ScrollbarWidth::None => 0.0,
             ScrollbarWidth::Px(px) => {
@@ -379,9 +392,14 @@ fn scrollbar(s: &Style, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
         },
         ..Default::default()
     };
-    if let Some((thumb, track)) = style.colors {
-        props.thumb = thumb.resolve(theme);
-        props.track = track.resolve(theme);
+    if paint.scrollbar_thumb.is_some() || paint.scrollbar_track.is_some() {
+        let defaults = p::ScrollbarProps::default();
+        props.thumb = paint
+            .scrollbar_thumb
+            .map_or(defaults.thumb, |c| c.resolve(theme));
+        props.track = paint
+            .scrollbar_track
+            .map_or(defaults.track, |c| c.resolve(theme));
     }
     Some(Box::new(props))
 }

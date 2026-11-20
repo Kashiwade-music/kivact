@@ -229,15 +229,15 @@ fn text_decoration_style_draws_wavy_lines() {
         let pattern = signal(TextDecorationStyle::Solid);
         (
             pattern,
-            text("MMMMMMMM").test_id("decorated").style(
+            text("MMMMMMMM").test_id("decorated").style(move || {
                 style()
                     .font_size(40)
                     .color(rgb(0))
                     .text_decoration(TextDecorationLine::UNDERLINE)
                     .text_decoration_color(rgb(RED))
                     .text_decoration_thickness(2)
-                    .text_decoration_style(pattern),
-            ),
+                    .text_decoration_style(pattern.get())
+            }),
         )
     });
     let extent = || {

@@ -201,7 +201,6 @@ impl From<&str> for FontFeature {
     }
 }
 
-// xtask-allow(state): legacy: letter_spacing, word_spacing, kerning, features, tabular_nums, decoration_line, decoration_style, decoration_color, decoration_thickness, underline_offset, overflow, line_clamp, capsize, transform, shadows, caret_color, selection_color, placeholder_color, stroke, paint_order, variations, optical_sizing, font_width; option: one authored property; absent means the inherited or default value
 /// The text properties of a style that are rare enough to keep out of
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
@@ -212,7 +211,7 @@ pub(crate) struct TextExtras {
     pub(crate) features: Option<Vec<FontFeature>>,
     pub(crate) tabular_nums: Option<bool>,
     pub(crate) decoration_line: Option<TextDecorationLine>,
-    pub(crate) decoration_style: Option<DecorationStyleValue>,
+    pub(crate) decoration_style: Option<TextDecorationStyle>,
     pub(crate) decoration_color: Option<Color>,
     pub(crate) decoration_thickness: Option<Length>,
     pub(crate) underline_offset: Option<Length>,
@@ -224,49 +223,12 @@ pub(crate) struct TextExtras {
     pub(crate) caret_color: Option<Color>,
     pub(crate) selection_color: Option<Color>,
     pub(crate) placeholder_color: Option<Color>,
-    pub(crate) stroke: Option<(Length, Color)>,
+    pub(crate) stroke_width: Option<Length>,
+    pub(crate) stroke_color: Option<Color>,
     pub(crate) paint_order: Option<PaintOrder>,
     pub(crate) variations: Option<Vec<FontVariation>>,
     pub(crate) optical_sizing: Option<bool>,
     pub(crate) font_width: Option<f64>,
-}
-
-impl TextExtras {
-    /// Overlay `o` (fields set in `o` win).
-    pub(crate) fn merge(&mut self, o: &TextExtras) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            letter_spacing,
-            word_spacing,
-            kerning,
-            features,
-            tabular_nums,
-            decoration_line,
-            decoration_style,
-            decoration_color,
-            decoration_thickness,
-            underline_offset,
-            overflow,
-            line_clamp,
-            capsize,
-            transform,
-            shadows,
-            caret_color,
-            selection_color,
-            placeholder_color,
-            stroke,
-            paint_order,
-            variations,
-            optical_sizing,
-            font_width
-        );
-    }
 }
 
 /// The OpenType features of `settings` and the numeric variant
@@ -390,10 +352,10 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
         dropped += bad;
         list
     });
-    t.stroke = x.stroke.and_then(|(width, c)| {
+    t.stroke = x.stroke_width.and_then(|width| {
         text_length(width, theme, &mut dropped).map(|width| p::TextStroke {
             width,
-            color: c.resolve(theme),
+            color: x.stroke_color.unwrap_or(crate::color::TEXT).resolve(theme),
         })
     });
     t.paint_order = x.paint_order;
@@ -410,7 +372,7 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
-    t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
+    t.decoration_style = x.decoration_style;
     t.decoration_color = color(x.decoration_color);
     t.decoration_thickness = x
         .decoration_thickness
@@ -479,42 +441,6 @@ pub struct CompiledSpanStyle {
     pub props: p::SpanProps,
     /// Font feature tags dropped because they are not four ASCII characters.
     pub unsupported: u32,
-}
-
-/// A tracked decoration input, preserving constant equality and dynamic identity.
-#[derive(Clone)]
-pub(crate) enum DecorationStyleValue {
-    Fixed(TextDecorationStyle),
-    Dynamic(std::rc::Rc<kivact_runtime::Prop<TextDecorationStyle>>),
-}
-impl DecorationStyleValue {
-    pub(crate) fn new(value: impl kivact_runtime::IntoValue<TextDecorationStyle>) -> Self {
-        let value = value.into_prop();
-        match value.fixed() {
-            Some(value) => Self::Fixed(value),
-            None => Self::Dynamic(std::rc::Rc::new(value)),
-        }
-    }
-    fn get(&self) -> TextDecorationStyle {
-        match self {
-            Self::Fixed(value) => *value,
-            Self::Dynamic(value) => value.get(),
-        }
-    }
-}
-impl std::fmt::Debug for DecorationStyleValue {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("DecorationStyleValue(..)")
-    }
-}
-impl PartialEq for DecorationStyleValue {
-    fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (Self::Fixed(a), Self::Fixed(b)) => a == b,
-            (Self::Dynamic(a), Self::Dynamic(b)) => std::rc::Rc::ptr_eq(a, b),
-            _ => false,
-        }
-    }
 }
 
 /// Paint overrides for a UTF-8 byte range within one editing line.

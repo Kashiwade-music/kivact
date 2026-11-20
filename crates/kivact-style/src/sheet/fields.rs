@@ -1,11 +1,12 @@
-//! Role: The `Style` property groups: their fields and merge rules.
+//! Role: The property groups a style's declarations fold into, and the fold itself.
 
 use kivact_runtime::Transition;
 use kivact_types::{
     Align, BackfaceVisibility, Cursor, FlexDirection as Direction, Isolation, Justify, Overflow,
-    Position, ScrollAxes, TextAlign, TransformStyle, TransitionProp, WillChange,
+    Position, ScrollAxes, StyleState, TextAlign, TransformStyle, TransitionProp, WillChange,
 };
 
+use super::decl::{Decl, PropGroup, Style};
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
@@ -15,7 +16,6 @@ use crate::text::{LineHeight, TextExtras};
 use crate::transform::Transform;
 use kivact_types::Length;
 
-// xtask-allow(state): legacy: top, right, bottom, left; one authored property; absent means the inherited or default value
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub(crate) struct Sides {
     pub(crate) top: Option<Length>,
@@ -24,17 +24,7 @@ pub(crate) struct Sides {
     pub(crate) left: Option<Length>,
 }
 
-impl Sides {
-    fn merge(&mut self, o: &Sides) {
-        self.top = o.top.or(self.top);
-        self.right = o.right.or(self.right);
-        self.bottom = o.bottom.or(self.bottom);
-        self.left = o.left.or(self.left);
-    }
-}
-
-// xtask-allow(state): legacy: width, height, min_width, min_height, max_width, max_height, basis, aspect_ratio, grow, shrink; one authored property; absent means the inherited or
-/// The `size` group of a [`Style`]: the box's size and flex sizing.
+/// The size properties of a folded style: the box's size and flex sizing.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct SizeFields {
     pub(crate) width: Option<Length>,
@@ -49,32 +39,7 @@ pub(crate) struct SizeFields {
     pub(crate) shrink: Option<f64>,
 }
 
-impl SizeFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f;
-                }
-            )*};
-        }
-        take!(
-            width,
-            height,
-            min_width,
-            min_height,
-            max_width,
-            max_height,
-            basis,
-            aspect_ratio,
-            grow,
-            shrink
-        );
-    }
-}
-
-// xtask-allow(state): legacy: row_gap, column_gap; one authored property; absent means the inherited or default value
-/// The `spacing` group of a [`Style`]: padding, margin, insets and gaps.
+/// The spacing properties of a folded style: padding, margin, insets and gaps.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct SpacingFields {
     pub(crate) padding: Sides,
@@ -84,22 +49,7 @@ pub(crate) struct SpacingFields {
     pub(crate) column_gap: Option<Length>,
 }
 
-impl SpacingFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        self.padding.merge(&o.padding);
-        self.margin.merge(&o.margin);
-        self.inset.merge(&o.inset);
-        if o.row_gap.is_some() {
-            self.row_gap = o.row_gap;
-        }
-        if o.column_gap.is_some() {
-            self.column_gap = o.column_gap;
-        }
-    }
-}
-
-// xtask-allow(state): legacy: direction, align, align_self, justify, align_content, display, visibility, grid, wrap, position, overflow, scroll_axes, scroll_snap, z_index; one
-/// The `flow` group of a [`Style`]: flex, grid, position and overflow.
+/// The flow properties of a folded style: flex, grid, position and overflow.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct FlowFields {
     pub(crate) direction: Option<Direction>,
@@ -121,39 +71,8 @@ pub(crate) struct FlowFields {
     pub(crate) z_index: Option<i32>,
 }
 
-impl FlowFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            direction,
-            align,
-            align_self,
-            justify,
-            align_content,
-            display,
-            visibility,
-            wrap,
-            position,
-            overflow,
-            scroll_axes,
-            scroll_snap,
-            z_index
-        );
-        if let Some(g) = &o.grid {
-            self.grid.get_or_insert_with(Default::default).merge(g);
-        }
-    }
-}
-
-// xtask-allow(state): legacy: local_paint, background, ring, shadows, opacity, isolation, border_image, scrollbar, cursor, clip, filter, backdrop_filter, blend, mask, clip_path; o
-/// The `paint` group of a [`Style`]: backgrounds, borders, effects and
-/// the ways a box is drawn.
+/// The paint properties of a folded style: backgrounds, borders, effects
+/// and the ways a box is drawn.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct PaintFields {
     pub(crate) local_paint: Option<LocalPaint>,
@@ -163,14 +82,18 @@ pub(crate) struct PaintFields {
     pub(crate) border_color: [Option<Color>; 4],
     /// Border line styles, top, right, bottom, left.
     pub(crate) border_style: [Option<BorderStyle>; 4],
-    pub(crate) ring: Option<(f64, f64, Color)>,
+    pub(crate) ring_width: Option<f64>,
+    pub(crate) ring_offset: Option<f64>,
+    pub(crate) ring_color: Option<Color>,
     /// Corner radii, top left, top right, bottom right, bottom left.
     pub(crate) radius: [Option<CornerRadius>; 4],
     pub(crate) shadows: Option<Vec<Shadow>>,
     pub(crate) opacity: Option<f64>,
     pub(crate) isolation: Option<Isolation>,
     pub(crate) border_image: Option<Box<BorderImage>>,
-    pub(crate) scrollbar: Option<Box<ScrollbarStyle>>,
+    pub(crate) scrollbar_width: Option<ScrollbarWidth>,
+    pub(crate) scrollbar_thumb: Option<Color>,
+    pub(crate) scrollbar_track: Option<Color>,
     pub(crate) cursor: Option<Cursor>,
     pub(crate) clip: Option<bool>,
     pub(crate) filter: Option<Filter>,
@@ -180,53 +103,7 @@ pub(crate) struct PaintFields {
     pub(crate) clip_path: Option<Box<Shape>>,
 }
 
-impl PaintFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            local_paint,
-            background,
-            ring,
-            shadows,
-            opacity,
-            isolation,
-            border_image,
-            cursor,
-            clip,
-            filter,
-            backdrop_filter,
-            blend,
-            mask,
-            clip_path
-        );
-        if let Some(other) = &o.scrollbar {
-            let mine = self.scrollbar.get_or_insert_with(Default::default);
-            mine.width = other.width.or(mine.width);
-            mine.colors = other.colors.or(mine.colors);
-        }
-        for (a, b) in self.border_width.iter_mut().zip(o.border_width) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_style.iter_mut().zip(o.border_style) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.border_color.iter_mut().zip(o.border_color) {
-            *a = b.or(*a);
-        }
-        for (a, b) in self.radius.iter_mut().zip(o.radius) {
-            *a = b.or(*a);
-        }
-    }
-}
-
-// xtask-allow(state): legacy: rotate, scale, transform, transform_origin, translate_z, rotate_x, rotate_y, transform_origin_z, perspective, perspective_origin, transform_style, backface, will_change; option: one authored property; absent means the inherited or default value
-/// The `transform` group of a [`Style`]: the transform properties.
+/// The transform properties of a folded style.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TransformFields {
     /// CSS `translate` (x, then y: each axis is set and merged on its own),
@@ -247,42 +124,11 @@ pub(crate) struct TransformFields {
     pub(crate) will_change: Option<WillChange>,
 }
 
-impl TransformFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            rotate,
-            scale,
-            transform,
-            transform_origin,
-            translate_z,
-            rotate_x,
-            rotate_y,
-            transform_origin_z,
-            perspective,
-            perspective_origin,
-            transform_style,
-            backface,
-            will_change
-        );
-        for (a, b) in self.translate.iter_mut().zip(o.translate) {
-            *a = b.or(*a);
-        }
-    }
-}
-
-// xtask-allow(state): legacy: font_size, weight, color, line_height, text_wrap, text_align, font_family, italic, text; one authored property; absent means the inherited or
-/// The `text` group of a [`Style`]: the text properties of a node and its
-/// subtree.
+/// The text properties of a folded style: the text properties of a node
+/// and its subtree.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct TextFields {
-    pub(crate) font_size: Option<f64>,
+    pub(crate) font_size: Option<Length>,
     pub(crate) weight: Option<u16>,
     pub(crate) color: Option<Color>,
     pub(crate) line_height: Option<LineHeight>,
@@ -295,34 +141,8 @@ pub(crate) struct TextFields {
     pub(crate) text: Option<Box<TextExtras>>,
 }
 
-impl TextFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        macro_rules! take {
-            ($($f:ident),*) => {$(
-                if o.$f.is_some() {
-                    self.$f = o.$f.clone();
-                }
-            )*};
-        }
-        take!(
-            font_size,
-            weight,
-            color,
-            line_height,
-            text_wrap,
-            text_align,
-            font_family,
-            italic
-        );
-        if let Some(t) = &o.text {
-            self.text.get_or_insert_with(Default::default).merge(t);
-        }
-    }
-}
-
-// xtask-allow(state): legacy: hover, group, group_hover, group_focus, pressed, focus, focus_visible, disabled, selected, enter, exit; one authored property; absent means the
-/// The `states` group of a [`Style`]: the interaction styles and the
-/// nesting of a group.
+// xtask-allow(state): legacy: hover, group, group_hover, group_focus, pressed, focus, focus_visible, disabled, selected, enter, exit; one authored property; absent means the inherited or default value
+/// The interaction styles of a folded style and the nesting of a group.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct StateFields {
     pub(crate) hover: Option<Box<Style>>,
@@ -339,32 +159,30 @@ pub(crate) struct StateFields {
 }
 
 impl StateFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        self.group |= o.group;
-        for (a, b) in [
-            (&mut self.hover, &o.hover),
-            (&mut self.group_hover, &o.group_hover),
-            (&mut self.group_focus, &o.group_focus),
-            (&mut self.pressed, &o.pressed),
-            (&mut self.focus, &o.focus),
-            (&mut self.focus_visible, &o.focus_visible),
-            (&mut self.disabled, &o.disabled),
-            (&mut self.selected, &o.selected),
-            (&mut self.enter, &o.enter),
-            (&mut self.exit, &o.exit),
-        ] {
-            if let Some(b) = b {
-                *a = Some(Box::new(match a.take() {
-                    Some(x) => (*x).merge(b),
-                    None => (**b).clone(),
-                }));
-            }
-        }
+    /// Overlay the state `state` with `s`: the declarations of `s` come after
+    /// the ones already folded in.
+    fn merge_state(&mut self, state: StyleState, s: &Style) {
+        let slot = match state {
+            StyleState::Hover => &mut self.hover,
+            StyleState::Active => &mut self.pressed,
+            StyleState::Focus => &mut self.focus,
+            StyleState::FocusVisible => &mut self.focus_visible,
+            StyleState::GroupHover => &mut self.group_hover,
+            StyleState::GroupFocus => &mut self.group_focus,
+            StyleState::Disabled => &mut self.disabled,
+            StyleState::Selected => &mut self.selected,
+            StyleState::Enter => &mut self.enter,
+            StyleState::Exit => &mut self.exit,
+        };
+        let merged = match slot.take() {
+            Some(x) => (*x).merge(s),
+            None => s.clone(),
+        };
+        *slot = Some(Box::new(merged));
     }
 }
 
-// xtask-allow(state): legacy: enter_size, exit_size, layout_transition; one authored property; absent means the inherited or default value
-/// The `motion` group of a [`Style`]: the enter/exit sizes and the
+/// The motion properties of a folded style: the enter/exit sizes and the
 /// transitions.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct MotionFields {
@@ -374,23 +192,6 @@ pub(crate) struct MotionFields {
     pub(crate) transitions: Vec<(TransitionProp, Transition)>,
 }
 
-impl MotionFields {
-    pub(super) fn merge(&mut self, o: &Self) {
-        if o.enter_size.is_some() {
-            self.enter_size = o.enter_size;
-        }
-        if o.exit_size.is_some() {
-            self.exit_size = o.exit_size;
-        }
-        if o.layout_transition.is_some() {
-            self.layout_transition = o.layout_transition.clone();
-        }
-        for t in &o.transitions {
-            self.transitions.retain(|(p, _)| *p != t.0);
-            self.transitions.push(t.clone());
-        }
-    }
-}
 /// Overlay scrollbar width.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ScrollbarWidth {
@@ -404,105 +205,285 @@ pub enum ScrollbarWidth {
     /// Explicit logical pixel width.
     Px(f64),
 }
+
 impl From<f64> for ScrollbarWidth {
     fn from(px: f64) -> Self {
         Self::Px(px)
     }
 }
+
 impl From<i32> for ScrollbarWidth {
     fn from(px: i32) -> Self {
         Self::Px(px as f64)
     }
 }
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct ScrollbarStyle {
-    pub(crate) width: Option<ScrollbarWidth>,
-    pub(crate) colors: Option<(Color, Color)>,
-}
-// xtask-allow(state): legacy: size, spacing, flow, paint, transform, text, states, motion; one group of authored properties; absent means the group's defaults
-/// A style value. Build with [`style()`](crate::style).
-///
-/// An authored style: each group of properties is allocated only when one
-/// of its properties is set. Values and merge rules are the dense style's.
+
+/// A style's declarations folded into one record, the later winning: what
+/// resolution reads.
 #[derive(Clone, Debug, Default)]
-pub struct Style {
-    pub(crate) size: Option<Box<SizeFields>>,
-    pub(crate) spacing: Option<Box<SpacingFields>>,
-    pub(crate) flow: Option<Box<FlowFields>>,
-    pub(crate) paint: Option<Box<PaintFields>>,
-    pub(crate) transform: Option<Box<TransformFields>>,
-    pub(crate) text: Option<Box<TextFields>>,
-    pub(crate) states: Option<Box<StateFields>>,
-    pub(crate) motion: Option<Box<MotionFields>>,
-    /// Setter calls that replaced an earlier value (the diagnostics count).
-    pub(crate) duplicates: u32,
+pub(crate) struct Groups {
+    pub(crate) size: SizeFields,
+    pub(crate) spacing: SpacingFields,
+    pub(crate) flow: FlowFields,
+    pub(crate) paint: PaintFields,
+    pub(crate) transform: TransformFields,
+    pub(crate) text: TextFields,
+    pub(crate) states: StateFields,
+    pub(crate) motion: MotionFields,
 }
 
-const _: () = assert!(
-    std::mem::size_of::<Style>() <= 72,
-    "Style keeps its groups boxed"
-);
-
-/// Whether two optional groups are equal, an unset group counting as its defaults.
-fn group_eq<T: Default + PartialEq>(a: Option<&T>, b: Option<&T>) -> bool {
-    match (a, b) {
-        (Some(a), Some(b)) => a == b,
-        (None, None) => true,
-        (Some(set), None) | (None, Some(set)) => *set == T::default(),
-    }
-}
-
-impl PartialEq for Style {
-    fn eq(&self, other: &Self) -> bool {
-        group_eq(self.size.as_deref(), other.size.as_deref())
-            && group_eq(self.spacing.as_deref(), other.spacing.as_deref())
-            && group_eq(self.flow.as_deref(), other.flow.as_deref())
-            && group_eq(self.paint.as_deref(), other.paint.as_deref())
-            && group_eq(self.transform.as_deref(), other.transform.as_deref())
-            && group_eq(self.text.as_deref(), other.text.as_deref())
-            && group_eq(self.states.as_deref(), other.states.as_deref())
-            && group_eq(self.motion.as_deref(), other.motion.as_deref())
-            && self.duplicates == other.duplicates
-    }
-}
 impl Style {
-    pub(crate) fn size_mut(&mut self) -> &mut SizeFields {
-        self.size.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn spacing_mut(&mut self) -> &mut SpacingFields {
-        self.spacing.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn flow_mut(&mut self) -> &mut FlowFields {
-        self.flow.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn paint_mut(&mut self) -> &mut PaintFields {
-        self.paint.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn transform_mut(&mut self) -> &mut TransformFields {
-        self.transform.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn text_mut(&mut self) -> &mut TextFields {
-        self.text.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn states_mut(&mut self) -> &mut StateFields {
-        self.states.get_or_insert_with(Default::default)
-    }
-    pub(crate) fn motion_mut(&mut self) -> &mut MotionFields {
-        self.motion.get_or_insert_with(Default::default)
+    /// The declarations of this style folded into one record, the later winning.
+    pub(crate) fn fold(&self) -> Groups {
+        let mut g = Groups::default();
+        for d in &self.decls {
+            g.apply(d);
+        }
+        g
     }
 }
-kivact_runtime::constant_value!(Style);
 
-#[cfg(test)]
-mod eq_tests {
-    //! Role: Tests of Style equality: an unset group equals its defaults.
-    use super::*;
+impl Groups {
+    /// Fold one declaration in: the group it belongs to takes its value.
+    fn apply(&mut self, d: &Decl) {
+        match d.group() {
+            PropGroup::Size => self.apply_size(d),
+            PropGroup::Spacing => self.apply_spacing(d),
+            PropGroup::Flow => self.apply_flow(d),
+            PropGroup::Paint => self.apply_paint(d),
+            PropGroup::Transform => self.apply_transform(d),
+            PropGroup::Text => apply_text(&mut self.text, d),
+            PropGroup::States => self.apply_states(d),
+            PropGroup::Motion => self.apply_motion(d),
+        }
+    }
 
-    #[test]
-    fn an_unset_group_equals_its_defaults() {
-        let mut set = Style::default();
-        set.size_mut();
-        assert_eq!(set, Style::default());
-        assert_eq!(Style::default(), set);
+    fn apply_size(&mut self, d: &Decl) {
+        match d {
+            Decl::Width(v) => self.size.width = Some(*v),
+            Decl::Height(v) => self.size.height = Some(*v),
+            Decl::MinWidth(v) => self.size.min_width = Some(*v),
+            Decl::MinHeight(v) => self.size.min_height = Some(*v),
+            Decl::MaxWidth(v) => self.size.max_width = Some(*v),
+            Decl::MaxHeight(v) => self.size.max_height = Some(*v),
+            Decl::FlexBasis(v) => self.size.basis = Some(*v),
+            Decl::AspectRatio(v) => self.size.aspect_ratio = Some(*v),
+            Decl::FlexGrow(v) => self.size.grow = Some(*v),
+            Decl::FlexShrink(v) => self.size.shrink = Some(*v),
+            _ => {}
+        }
+    }
+
+    fn apply_spacing(&mut self, d: &Decl) {
+        let sp = &mut self.spacing;
+        match d {
+            Decl::PaddingTop(v) => sp.padding.top = Some(*v),
+            Decl::PaddingRight(v) => sp.padding.right = Some(*v),
+            Decl::PaddingBottom(v) => sp.padding.bottom = Some(*v),
+            Decl::PaddingLeft(v) => sp.padding.left = Some(*v),
+            Decl::MarginTop(v) => sp.margin.top = Some(*v),
+            Decl::MarginRight(v) => sp.margin.right = Some(*v),
+            Decl::MarginBottom(v) => sp.margin.bottom = Some(*v),
+            Decl::MarginLeft(v) => sp.margin.left = Some(*v),
+            Decl::Top(v) => sp.inset.top = Some(*v),
+            Decl::Right(v) => sp.inset.right = Some(*v),
+            Decl::Bottom(v) => sp.inset.bottom = Some(*v),
+            Decl::Left(v) => sp.inset.left = Some(*v),
+            Decl::RowGap(v) => sp.row_gap = Some(*v),
+            Decl::ColumnGap(v) => sp.column_gap = Some(*v),
+            _ => {}
+        }
+    }
+
+    fn apply_flow(&mut self, d: &Decl) {
+        let flow = &mut self.flow;
+        match d {
+            Decl::FlexDirection(v) => flow.direction = Some(*v),
+            Decl::AlignItems(v) => flow.align = Some(*v),
+            Decl::AlignSelf(v) => flow.align_self = Some(*v),
+            Decl::JustifyContent(v) => flow.justify = Some(*v),
+            Decl::AlignContent(v) => flow.align_content = Some(*v),
+            Decl::Display(v) => flow.display = Some(*v),
+            Decl::Visibility(v) => flow.visibility = Some(*v),
+            Decl::FlexWrap(v) => flow.wrap = Some(*v),
+            Decl::Position(v) => flow.position = Some(*v),
+            Decl::Overflow(v) => flow.overflow = Some(*v),
+            Decl::ScrollAxes(v) => flow.scroll_axes = Some(*v),
+            Decl::ScrollSnap(v) => flow.scroll_snap = Some(*v),
+            Decl::ZIndex(v) => flow.z_index = Some(*v),
+            _ => apply_grid(flow, d),
+        }
+    }
+
+    fn apply_paint(&mut self, d: &Decl) {
+        let p = &mut self.paint;
+        match d {
+            Decl::Background(v) => p.background = Some(v.clone()),
+            Decl::BorderTopWidth(v) => p.border_width[0] = Some(*v),
+            Decl::BorderRightWidth(v) => p.border_width[1] = Some(*v),
+            Decl::BorderBottomWidth(v) => p.border_width[2] = Some(*v),
+            Decl::BorderLeftWidth(v) => p.border_width[3] = Some(*v),
+            Decl::BorderTopColor(v) => p.border_color[0] = Some(*v),
+            Decl::BorderRightColor(v) => p.border_color[1] = Some(*v),
+            Decl::BorderBottomColor(v) => p.border_color[2] = Some(*v),
+            Decl::BorderLeftColor(v) => p.border_color[3] = Some(*v),
+            Decl::BorderTopStyle(v) => p.border_style[0] = Some(*v),
+            Decl::BorderRightStyle(v) => p.border_style[1] = Some(*v),
+            Decl::BorderBottomStyle(v) => p.border_style[2] = Some(*v),
+            Decl::BorderLeftStyle(v) => p.border_style[3] = Some(*v),
+            Decl::RadiusTopLeft(v) => p.radius[0] = Some(**v),
+            Decl::RadiusTopRight(v) => p.radius[1] = Some(**v),
+            Decl::RadiusBottomRight(v) => p.radius[2] = Some(**v),
+            Decl::RadiusBottomLeft(v) => p.radius[3] = Some(**v),
+            _ => apply_paint_rest(p, d),
+        }
+    }
+
+    fn apply_transform(&mut self, d: &Decl) {
+        let t = &mut self.transform;
+        match d {
+            Decl::TranslateX(v) => t.translate[0] = Some(*v),
+            Decl::TranslateY(v) => t.translate[1] = Some(*v),
+            Decl::TranslateZ(v) => t.translate_z = Some(*v),
+            Decl::Rotate(v) => t.rotate = Some(*v),
+            Decl::RotateX(v) => t.rotate_x = Some(*v),
+            Decl::RotateY(v) => t.rotate_y = Some(*v),
+            Decl::Scale(v) => t.scale = Some(*v),
+            Decl::Transform(v) => t.transform = Some(**v),
+            Decl::TransformOrigin(v) => t.transform_origin = Some(**v),
+            Decl::TransformOriginZ(v) => t.transform_origin_z = Some(*v),
+            Decl::Perspective(v) => t.perspective = Some(*v),
+            Decl::PerspectiveOrigin(v) => t.perspective_origin = Some(**v),
+            Decl::TransformStyle(v) => t.transform_style = Some(*v),
+            Decl::BackfaceVisibility(v) => t.backface = Some(*v),
+            Decl::WillChange(v) => t.will_change = Some(*v),
+            _ => {}
+        }
+    }
+
+    fn apply_states(&mut self, d: &Decl) {
+        match d {
+            Decl::State(state, s) => self.states.merge_state(*state, s),
+            Decl::Group => self.states.group = true,
+            _ => {}
+        }
+    }
+
+    fn apply_motion(&mut self, d: &Decl) {
+        let m = &mut self.motion;
+        match d {
+            Decl::EnterSize(v) => m.enter_size = Some(*v),
+            Decl::ExitSize(v) => m.exit_size = Some(*v),
+            Decl::LayoutTransition(v) => m.layout_transition = Some((**v).clone()),
+            Decl::Transition(prop, t) => {
+                m.transitions.retain(|(p, _)| p != prop);
+                m.transitions.push((*prop, (**t).clone()));
+            }
+            _ => {}
+        }
+    }
+}
+
+/// The paint declarations past the border sides and corners: the rest of
+/// the paint group (rings, effects, scrollbars, shadows, the callback).
+fn apply_paint_rest(p: &mut PaintFields, d: &Decl) {
+    match d {
+        Decl::RingWidth(v) => p.ring_width = Some(*v),
+        Decl::RingOffset(v) => p.ring_offset = Some(*v),
+        Decl::RingColor(v) => p.ring_color = Some(*v),
+        Decl::Opacity(v) => p.opacity = Some(*v),
+        Decl::Isolation(v) => p.isolation = Some(*v),
+        Decl::BorderImage(v) => p.border_image = Some(v.clone()),
+        Decl::ScrollbarWidth(v) => p.scrollbar_width = Some(*v),
+        Decl::ScrollbarThumbColor(v) => p.scrollbar_thumb = Some(*v),
+        Decl::ScrollbarTrackColor(v) => p.scrollbar_track = Some(*v),
+        Decl::Cursor(v) => p.cursor = Some(*v),
+        Decl::Clip(v) => p.clip = Some(*v),
+        Decl::Filter(v) => p.filter = Some((**v).clone()),
+        Decl::BackdropFilter(v) => p.backdrop_filter = Some((**v).clone()),
+        Decl::MixBlendMode(v) => p.blend = Some(*v),
+        Decl::Mask(v) => p.mask = Some(v.clone()),
+        Decl::ClipPath(v) => p.clip_path = Some(v.clone()),
+        Decl::LocalPaint(v) => p.local_paint = Some(v.clone()),
+        Decl::BoxShadow(list) => p.shadows = Some(list.clone()),
+        _ => {}
+    }
+}
+
+/// The grid declarations, which live in the boxed `GridStyle` of a flow record.
+fn apply_grid(flow: &mut FlowFields, d: &Decl) {
+    if !matches!(
+        d,
+        Decl::GridTemplateColumns(_)
+            | Decl::GridTemplateRows(_)
+            | Decl::GridAutoColumns(_)
+            | Decl::GridAutoRows(_)
+            | Decl::GridAutoFlow(_)
+            | Decl::GridColumn(_)
+            | Decl::GridRow(_)
+            | Decl::JustifyItems(_)
+            | Decl::JustifySelf(_)
+    ) {
+        return;
+    }
+    let grid = flow.grid.get_or_insert_with(Default::default);
+    match d {
+        Decl::GridTemplateColumns(v) => grid.columns = Some(v.clone()),
+        Decl::GridTemplateRows(v) => grid.rows = Some(v.clone()),
+        Decl::GridAutoColumns(v) => grid.auto_columns = Some(v.clone()),
+        Decl::GridAutoRows(v) => grid.auto_rows = Some(v.clone()),
+        Decl::GridAutoFlow(v) => grid.flow = Some(*v),
+        Decl::GridColumn(v) => grid.column = Some(**v),
+        Decl::GridRow(v) => grid.row = Some(**v),
+        Decl::JustifyItems(v) => grid.justify_items = Some(*v),
+        Decl::JustifySelf(v) => grid.justify_self = Some(*v),
+        _ => {}
+    }
+}
+
+/// The text declarations: the common text properties, then the rare ones
+/// (and the text shadows) in the boxed `TextExtras`.
+fn apply_text(t: &mut TextFields, d: &Decl) {
+    match d {
+        Decl::FontSize(v) => t.font_size = Some(*v),
+        Decl::FontWeight(v) => t.weight = Some(*v),
+        Decl::Color(v) => t.color = Some(*v),
+        Decl::LineHeight(v) => t.line_height = Some(*v),
+        Decl::TextWrap(v) => t.text_wrap = Some(*v),
+        Decl::TextAlign(v) => t.text_align = Some(*v),
+        Decl::FontFamily(v) => t.font_family = Some(v.clone()),
+        Decl::Italic(v) => t.italic = Some(*v),
+        _ => apply_text_extras(t.text.get_or_insert_with(Default::default), d),
+    }
+}
+
+/// The rare text properties, which the fold keeps in one boxed record.
+fn apply_text_extras(x: &mut TextExtras, d: &Decl) {
+    match d {
+        Decl::LetterSpacing(v) => x.letter_spacing = Some(*v),
+        Decl::WordSpacing(v) => x.word_spacing = Some(*v),
+        Decl::FontKerning(v) => x.kerning = Some(*v),
+        Decl::FontFeatureSettings(v) => x.features = Some(v.clone()),
+        Decl::TabularNums(v) => x.tabular_nums = Some(*v),
+        Decl::TextDecorationLine(v) => x.decoration_line = Some(*v),
+        Decl::TextDecorationStyle(v) => x.decoration_style = Some(*v),
+        Decl::TextDecorationColor(v) => x.decoration_color = Some(*v),
+        Decl::TextDecorationThickness(v) => x.decoration_thickness = Some(*v),
+        Decl::TextUnderlineOffset(v) => x.underline_offset = Some(*v),
+        Decl::TextOverflow(v) => x.overflow = Some(*v),
+        Decl::LineClamp(v) => x.line_clamp = Some(*v),
+        Decl::TextCapsize(v) => x.capsize = Some(*v),
+        Decl::TextTransform(v) => x.transform = Some(*v),
+        Decl::TextStrokeWidth(v) => x.stroke_width = Some(*v),
+        Decl::TextStrokeColor(v) => x.stroke_color = Some(*v),
+        Decl::PaintOrder(v) => x.paint_order = Some(*v),
+        Decl::FontVariationSettings(v) => x.variations = Some(v.clone()),
+        Decl::FontOpticalSizing(v) => x.optical_sizing = Some(*v),
+        Decl::FontWidth(v) => x.font_width = Some(*v),
+        Decl::CaretColor(v) => x.caret_color = Some(*v),
+        Decl::SelectionColor(v) => x.selection_color = Some(*v),
+        Decl::PlaceholderColor(v) => x.placeholder_color = Some(*v),
+        Decl::TextShadow(list) => x.shadows = Some(list.clone()),
+        _ => {}
     }
 }

@@ -4,7 +4,14 @@ pub use crate::draw::recorder::{RecordContext, record};
 use crate::paint::fill_layer;
 use crate::resolve::Resolve;
 pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
-pub use crate::sheet::with_scroll_axes;
+pub use crate::sheet::{StyleProperty, with_scroll_axes};
+
+/// The property `name` (a setter's or a longhand's name) in DevTools form.
+pub fn style_property(name: &str) -> Option<&'static StyleProperty> {
+    crate::sheet::STYLE_PROPERTIES
+        .iter()
+        .find(|p| p.name == name)
+}
 use crate::text::{CompiledSpanStyle, SpanStyle, decoration, features, text_length};
 use crate::theme::value::Theme;
 pub use crate::theme::value::{install_theme, theme_of};

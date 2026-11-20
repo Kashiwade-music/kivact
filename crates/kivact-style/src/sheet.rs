@@ -88,11 +88,11 @@
 //!   `Length` and duplicate diagnostics; one side never sets another, so an
 //!   asymmetric layout needs only the public `Style`.
 
+mod decl;
+mod edit_text;
 mod fields;
-mod grid_setters;
-mod setters;
-mod style;
-mod text_setters;
+mod props;
+mod shorthands;
 
 #[doc(inline)]
 pub use kivact_types::FlexDirection as Direction;
@@ -138,12 +138,24 @@ pub use kivact_types::Overflow;
 #[doc(inline)]
 pub use kivact_types::TransitionProp;
 
-pub use fields::{ScrollbarWidth, Style};
-pub use setters::with_scroll_axes;
-pub use style::style;
+pub use decl::Style;
+pub use fields::ScrollbarWidth;
+pub use shorthands::{style, with_scroll_axes};
 
+pub(crate) use decl::{Decl, PropClass};
+pub use edit_text::StyleProperty;
 pub(crate) use fields::{
-    FlowFields, MotionFields, PaintFields, Sides, SizeFields, SpacingFields, StateFields,
-    TextFields, TransformFields,
+    FlowFields, MotionFields, PaintFields, Sides, SizeFields, SpacingFields, TextFields,
+    TransformFields,
 };
-pub(crate) use style::group_or_default;
+pub(crate) use props::STYLE_PROPERTIES;
+
+/// The group `$group` of `$style`, its declarations folded (resolution reads
+/// the folded record; `Style::fold` makes it once per call).
+macro_rules! group_or_default {
+    ($style:ident . $group:ident, $ty:ident) => {
+        std::borrow::Cow::<$ty>::Owned($style.fold().$group)
+    };
+}
+
+pub(crate) use group_or_default;
