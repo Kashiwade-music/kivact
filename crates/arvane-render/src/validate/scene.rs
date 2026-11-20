@@ -7,9 +7,9 @@ use arvane_protocol::{
     BoxShadow, GlyphStroke, GradientShape, Group, PatternSource, RasterGradient, RasterPaint,
     RenderCmd, RenderScene,
 };
-use kivact_types::geometry::Transform;
+use kivact_types::geometry::Affine;
 use kivact_types::pixel::Pixels;
-use kivact_types::scene::{PathCmd, RoundedRect, Shape};
+use kivact_types::scene::{Outline, PathCmd, RoundedRect};
 use kivact_types::{Point, Rect, Rgba, Stroke};
 
 // The commands each validation category handles, as patterns: the dispatch and every
@@ -136,12 +136,12 @@ fn rounded(value: &RoundedRect) -> bool {
     rect(value.rect) && value.radii.iter().all(|r| finite(&[r.x, r.y]))
 }
 
-fn shape(value: &Shape) -> bool {
+fn shape(value: &Outline) -> bool {
     match value {
-        Shape::Rect(r) => rect(*r),
-        Shape::RoundedRect(r) => rounded(r),
-        Shape::Polygon { points, .. } => points.iter().all(|p| point(*p)),
-        Shape::Path { cmds, .. } => path(cmds),
+        Outline::Rect(r) => rect(*r),
+        Outline::RoundedRect(r) => rounded(r),
+        Outline::Polygon { points, .. } => points.iter().all(|p| point(*p)),
+        Outline::Path { cmds, .. } => path(cmds),
     }
 }
 
@@ -159,7 +159,7 @@ fn blur(std_dev: f64) -> bool {
     std_dev.is_finite() && (0.0..=MAX_BLUR).contains(&std_dev)
 }
 
-fn transform(value: &Transform) -> bool {
+fn transform(value: &Affine) -> bool {
     finite(&[value.a, value.b, value.c, value.d, value.e, value.f])
 }
 

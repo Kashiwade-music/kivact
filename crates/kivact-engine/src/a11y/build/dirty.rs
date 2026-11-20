@@ -159,7 +159,7 @@ impl Model {
                 height: self.viewport.height,
             }),
             kivact_types::Point::default(),
-            kivact_types::Transform::IDENTITY,
+            kivact_types::Affine::IDENTITY,
             false,
         );
         #[cfg(feature = "testing")]

@@ -12,7 +12,7 @@
 //!   mode (CSS order: clip, opacity, blend).
 
 use arvane_protocol::{Group, PatternSource, RasterPaint, RenderCmd};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{BlendMode, FilterOp, PaintProps, Rgba};
 
 /// How the colors of one node are drawn: faded by `alpha` (the opacity of
@@ -97,7 +97,7 @@ pub(crate) fn grouped(p: &PaintProps) -> bool {
 
 /// The group a node is composited in: `clip` (the clip path), the group
 /// `opacity` and the blend mode of `p`.
-pub(crate) fn group(p: &PaintProps, clip: Option<Shape>, opacity: f64) -> Group {
+pub(crate) fn group(p: &PaintProps, clip: Option<Outline>, opacity: f64) -> Group {
     Group {
         clip,
         opacity,
@@ -107,7 +107,7 @@ pub(crate) fn group(p: &PaintProps, clip: Option<Shape>, opacity: f64) -> Group 
 }
 
 /// The command that opens a group clipped to `shape`.
-pub(crate) fn clip_group(shape: Shape) -> RenderCmd {
+pub(crate) fn clip_group(shape: Outline) -> RenderCmd {
     RenderCmd::PushGroup(Group {
         clip: Some(shape),
         opacity: 1.0,

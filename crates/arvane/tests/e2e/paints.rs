@@ -5,14 +5,14 @@
 //! gradient tile in a constant number of commands.
 
 use arvane_protocol::{GradientShape, RasterGradient, RasterPaint, RenderCmd};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{Extend, Rgba};
 
 use crate::support::{BLUE, RED, assert_near, color, open, pixel, pt, rect, show};
 
 fn fill_rect(x: f64, y: f64, width: f64, height: f64, paint: RasterPaint) -> RenderCmd {
     RenderCmd::FillShape {
-        shape: Shape::Rect(rect(x, y, width, height)),
+        shape: Outline::Rect(rect(x, y, width, height)),
         paint,
     }
 }

@@ -8,10 +8,10 @@ use arvane_protocol::{
 };
 use kivact_types::Composite;
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Point, Rect, Size, Transform};
+use kivact_types::geometry::{Affine, Point, Rect, Size};
 use kivact_types::geometry3d::Projective;
 use kivact_types::pixel::BlendMode;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 use super::bounds::{mapped_bounds, points_bounds};
 use super::builder::Builder;
@@ -126,13 +126,13 @@ fn visible_part(base: Rect, h: &Projective, target: Rect, reach: f64) -> Option<
 }
 
 /// Whether a surface's map is the whole window's: axis-parallel with positive scales.
-fn axis_parallel(h: &Projective) -> Option<Transform> {
+fn axis_parallel(h: &Projective) -> Option<Affine> {
     h.as_affine()
         .filter(|t| t.b.abs() < 1e-12 && t.c.abs() < 1e-12 && t.a > 0.0 && t.d > 0.0)
 }
 
 /// The hash of a layer's own drawing parameters and window mapping.
-fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Shape]) -> u64 {
+fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Outline]) -> u64 {
     let mut h = Fnv::new();
     hash::layer_key(&mut h, layer.key);
     h.rect(layer.bounds);
@@ -319,7 +319,7 @@ impl<'a> Builder<'a> {
         index: u32,
         dest: Dest,
         to_win: Matrix4,
-        clips: &'a [Shape],
+        clips: &'a [Outline],
     ) -> Result<(), PlanError> {
         let Dest {
             target: t,
@@ -640,7 +640,7 @@ impl<'a> Builder<'a> {
         win: Option<Rect>,
         sig: u64,
         to_win: &Matrix4,
-        clips: &[Shape],
+        clips: &[Outline],
         whole_on_change: bool,
     ) {
         if !self.cacheable() {

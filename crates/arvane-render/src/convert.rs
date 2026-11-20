@@ -3,7 +3,7 @@
 //! Convert portable scene vocabulary to private rasterizer types without leaking dependencies.
 //!
 //! Shapes reach the rasterizers as their one outline
-//! (`kivact_types::scene::Shape::outline`, arcs as cubics), the outline hit tests
+//! (`kivact_types::scene::Outline::outline`, arcs as cubics), the outline hit tests
 //! use too. A zero-length contour, or a zero-length dash, with round or
 //! square caps draws a dot: kurbo's stroker draws nothing for a
 //! zero-length segment, so it becomes a segment of `DOT` (0.001) along x
@@ -14,8 +14,7 @@
 //! Limits: a zero-length dash that starts exactly where the line ends
 //! draws no dot (kurbo's dashing cuts it to nothing there).
 
-use kivact_types::geometry::Transform;
-use kivact_types::scene::{PathCmd, Shape};
+use kivact_types::scene::{Outline, PathCmd};
 use kivact_types::{BlendMode, FillRule, LineCap, LineJoin, Point, Rect, Rgba, Stroke};
 use vello_cpu::color::{AlphaColor, Srgb};
 use vello_cpu::kurbo::{
@@ -129,7 +128,7 @@ pub(crate) fn path(cmds: &[PathCmd]) -> BezPath {
         .iter()
         .any(|c| matches!(c, PathCmd::ArcTo { .. } | PathCmd::Arc { .. }));
     if has_arcs {
-        let lowered = Shape::Path {
+        let lowered = Outline::Path {
             cmds: cmds.to_vec(),
             rule: FillRule::NonZero,
         }
@@ -139,7 +138,7 @@ pub(crate) fn path(cmds: &[PathCmd]) -> BezPath {
     outline(cmds)
 }
 
-/// An outline without arcs (`Shape::outline`) as a raster path.
+/// An outline without arcs (`Outline::outline`) as a raster path.
 fn outline(cmds: &[PathCmd]) -> BezPath {
     let mut path = BezPath::new();
     for cmd in cmds {
@@ -158,10 +157,10 @@ fn outline(cmds: &[PathCmd]) -> BezPath {
 }
 
 /// A shape's outline as a raster path.
-pub(crate) fn shape(shape: &Shape) -> BezPath {
+pub(crate) fn shape(shape: &Outline) -> BezPath {
     match shape {
-        Shape::Rect(r) => rect(*r).to_path(0.1),
-        Shape::Path { cmds, .. } => path(cmds),
+        Outline::Rect(r) => rect(*r).to_path(0.1),
+        Outline::Path { cmds, .. } => path(cmds),
         _ => outline(&shape.outline()),
     }
 }
@@ -173,7 +172,7 @@ pub(crate) fn fill_rule(rule: FillRule) -> peniko::Fill {
     }
 }
 
-pub(crate) fn affine(t: Transform) -> Affine {
+pub(crate) fn affine(t: kivact_types::Affine) -> Affine {
     Affine::new([t.a, t.b, t.c, t.d, t.e, t.f])
 }
 

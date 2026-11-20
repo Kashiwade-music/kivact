@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use super::Repeat;
 use super::state::{Anim, AnimInfo, AnimKind, MotionToken, RunStatus, motion_now};
-use super::transition::{Kind, Transition, settles_at_start};
+use super::transition::{Transition, TransitionKind, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
 use crate::driver::{EffectKind, Runtime};
@@ -187,7 +187,7 @@ impl<T: Animatable> AnimCell<T> {
     /// Begin `run`, or end it at once when nothing moves: a target equal to
     /// the current value starts no run (a keyframes run always plays).
     fn begin(&self, run: Rc<Run>, start_ns: u64, reduced: bool) {
-        if run.from == run.to && !matches!(run.timing.kind, Kind::Keyframes { .. }) {
+        if run.from == run.to && !matches!(run.timing.kind, TransitionKind::Keyframes { .. }) {
             self.settle(run.to.clone());
         } else {
             self.start_run(run, start_ns, reduced);
@@ -364,7 +364,7 @@ impl<T: Animatable> Animated<T> {
         let initial = start.unwrap_or_else(|| crate::untrack(|| target.get()));
         let c = comps(&initial);
         let app = rt.id();
-        if let Kind::Spring(spring) = &transition.kind
+        if let TransitionKind::Spring(spring) = &transition.kind
             && let Some(problem) = spring.problem()
         {
             owner.report(UiError::new(
@@ -507,7 +507,7 @@ impl<T: Animatable> Animated<T> {
         let rt = cell.owner.runtime();
         // Checked before any state changes.
         require_effectful("Animated::set_velocity");
-        if !matches!(cell.transition.kind, Kind::Spring(_)) {
+        if !matches!(cell.transition.kind, TransitionKind::Spring(_)) {
             cell.owner.report(UiError::new(
                 ErrorKind::Message,
                 "set_velocity needs a spring transition",

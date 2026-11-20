@@ -13,7 +13,7 @@ use crate::tables::{
 use arvane_render::RASTER_FORMAT;
 use kivact_types::Rgba;
 use kivact_types::effect::{
-    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraphSpec, FilterInput, Light,
     MorphologyOp, PrimitiveOp, TransferFn, TurbulenceKind,
 };
 use kivact_types::geometry::{Point, Rect};
@@ -827,7 +827,7 @@ impl GpuContext {
         encoder: &mut wgpu::CommandEncoder,
         source: &wgpu::Texture,
         dest: &wgpu::Texture,
-        graph: &FilterGraph<Pixels>,
+        graph: &FilterGraphSpec<Pixels>,
         ppu: f64,
         origin: Point,
     ) -> Result<(), RenderError> {

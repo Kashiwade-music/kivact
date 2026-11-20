@@ -5,10 +5,10 @@ use arvane_protocol::{
     RasterPaint, RenderCmd, RenderScene,
 };
 use kivact_types::Matrix4;
-use kivact_types::geometry::{Point, Rect, Transform};
+use kivact_types::geometry::{Affine, Point, Rect};
 use kivact_types::geometry3d::{Polygon, Projective};
 use kivact_types::pixel::BlendMode;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 
 use super::ops::{Grid, TargetId};
 use crate::cache::ChunkKey;
@@ -82,7 +82,7 @@ pub(super) fn raster_ordinal(layer: &CompositeLayer, at: usize) -> u32 {
 }
 
 /// A white coverage scene: the rectangle `rect` clipped by every shape of `clips`.
-pub(super) fn coverage_scene(clips: &[Shape], rect: Rect) -> RenderScene {
+pub(super) fn coverage_scene(clips: &[Outline], rect: Rect) -> RenderScene {
     let white = kivact_types::Rgba {
         r: 1.0,
         g: 1.0,
@@ -99,7 +99,7 @@ pub(super) fn coverage_scene(clips: &[Shape], rect: Rect) -> RenderScene {
         }));
     }
     commands.push(RenderCmd::FillShape {
-        shape: Shape::Rect(rect),
+        shape: Outline::Rect(rect),
         paint: RasterPaint::Solid(white),
     });
     commands.extend(clips.iter().map(|_| RenderCmd::PopGroup));
@@ -107,7 +107,7 @@ pub(super) fn coverage_scene(clips: &[Shape], rect: Rect) -> RenderScene {
 }
 
 /// A scene placed by `t` in its owner's space: the commands wrapped in a transform.
-pub(super) fn wrapped(scene: &RenderScene, t: Transform) -> RenderScene {
+pub(super) fn wrapped(scene: &RenderScene, t: Affine) -> RenderScene {
     let mut commands = Vec::with_capacity(scene.commands.len() + 2);
     commands.push(RenderCmd::PushTransform(t));
     commands.extend(scene.commands.iter().cloned());

@@ -264,7 +264,7 @@ pub(super) fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
         .map(|(_, t)| t)
         .chain(motion.layout_transition.iter());
     for t in springs {
-        if let p::Kind::Spring(spring) = &t.kind
+        if let p::TransitionKind::Spring(spring) = &t.kind
             && let Some(problem) = spring.problem()
         {
             report(UiError::msg(format!("spring: {problem}")));

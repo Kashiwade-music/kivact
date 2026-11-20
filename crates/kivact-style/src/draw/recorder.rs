@@ -20,7 +20,7 @@ pub struct Draw {
     pub(super) region_errors: Vec<String>,
     /// The canvas size (percentages in layer transforms are of it).
     pub(super) size: Size,
-    pub(super) transform: p::Transform,
+    pub(super) transform: p::Affine,
     pub(super) unsupported: u32,
     /// Measures and shapes text.
     pub(super) measurer: Rc<dyn p::TextShaper>,
@@ -62,7 +62,7 @@ impl Draw {
             drawn_drawables: HashSet::new(),
             region_errors: Vec::new(),
             size,
-            transform: p::Transform::IDENTITY,
+            transform: p::Affine::IDENTITY,
             unsupported: 0,
         }
     }

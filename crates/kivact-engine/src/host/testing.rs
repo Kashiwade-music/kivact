@@ -20,7 +20,7 @@ pub use kivact_types::{
     Key, KeyCode, LiveRegion, Modifiers, MouseButton, Orientation, Point, PointerId, PointerKind,
     PointerPhase, Role, SortDirection,
 };
-pub use kivact_types::{PointerSample, Semantics, Transform};
+pub use kivact_types::{Affine, PointerSample, Semantics};
 
 pub use display_probe::{display_stats, gpu_unavailable};
 pub use test_frame::TestFrame;

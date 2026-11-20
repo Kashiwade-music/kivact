@@ -21,7 +21,7 @@ use super::super::animated::shift;
 use super::super::state::{
     Anim, AnimInfo, AnimKind, LoopMotion, MotionToken, RunStatus, motion_now,
 };
-use super::super::transition::Kind;
+use super::super::transition::TransitionKind;
 use super::super::values::Animatable;
 use super::calls::{Move, Reach, Reps};
 use super::curve::{seg_value, spring_rest_ms};
@@ -193,7 +193,7 @@ impl Timeline {
             transition.repeat = Repeat::Times(1);
         }
         let one_ms = match &transition.kind {
-            Kind::Spring(spring) => {
+            TransitionKind::Spring(spring) => {
                 if let Some(problem) = spring.problem() {
                     cell.owner.report(UiError::new(
                         ErrorKind::Message,
@@ -203,7 +203,7 @@ impl Timeline {
                 }
                 spring_rest_ms(spring)
             }
-            Kind::Tween { ms, .. } | Kind::Keyframes { ms, .. } => *ms,
+            TransitionKind::Tween { ms, .. } | TransitionKind::Keyframes { ms, .. } => *ms,
         };
         let repeats = match transition.repeat {
             Repeat::Times(n) => f64::from(n),

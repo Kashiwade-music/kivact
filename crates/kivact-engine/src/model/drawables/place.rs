@@ -15,10 +15,9 @@
 use std::collections::BTreeMap;
 
 use kivact_types::geometry3d::{Matrix4, Projective};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{
-    BackfaceVisibility, DrawCmd, DrawList, DrawableId, DrawingLayer, Point, Transform,
-    TransformStyle,
+    Affine, BackfaceVisibility, DrawCmd, DrawList, DrawableId, DrawingLayer, Point, TransformStyle,
 };
 
 /// A drawable's placement in the host canvas.
@@ -32,7 +31,7 @@ pub(crate) struct DrawnPlacement {
     pub(crate) order: u32,
     /// Clips open where it was drawn, each with the map from host canvas
     /// space to the space the clip was declared in; all apply.
-    pub(crate) clips: Vec<(Projective, Shape)>,
+    pub(crate) clips: Vec<(Projective, Outline)>,
     /// An enclosing layer with backface hidden shows its back.
     pub(crate) back_hidden: bool,
 }
@@ -52,7 +51,7 @@ enum Frame {
     /// A layer: its matrix, its 3D context and its clip.
     Layer(LayerFrame),
     /// A clip declared at this depth, in the host canvas to clip space map.
-    Clip(Projective, Shape),
+    Clip(Projective, Outline),
 }
 
 /// What a layer contributes to the walk.
@@ -93,7 +92,7 @@ fn walk_cmd(cmd: &DrawCmd, slot: u8, order: u32, frames: &mut Vec<Frame>, out: &
         DrawCmd::PushClip(rect) => {
             let map = fold(frames).invert();
             if let Some(map) = map {
-                frames.push(Frame::Clip(map, Shape::Rect(*rect)));
+                frames.push(Frame::Clip(map, Outline::Rect(*rect)));
             }
         }
         DrawCmd::PopClip => pop(frames, |f| matches!(f, Frame::Clip(..))),
@@ -185,7 +184,7 @@ fn place(id: DrawableId, at: Point, slot: u8, order: u32, frames: &[Frame], out:
         // A drawable drawn again: only its first drawing places it.
         return;
     }
-    let translate = Projective::from_affine(Transform {
+    let translate = Projective::from_affine(Affine {
         a: 1.0,
         b: 0.0,
         c: 0.0,

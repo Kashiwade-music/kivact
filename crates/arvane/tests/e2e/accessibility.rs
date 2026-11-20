@@ -6,7 +6,7 @@
 
 use arvane_protocol::{SemanticsNode, SemanticsTree, SemanticsUpdate};
 use arvane_shell::ShellEvent;
-use kivact_types::Transform;
+use kivact_types::Affine;
 use kivact_types::{A11yAction, A11yRequest, DismissReason, Point, Role, SemanticsId};
 
 use crate::support::{open, rect};
@@ -17,7 +17,7 @@ fn node(id: u64, role: Role, children: &[u64]) -> SemanticsNode {
         children: children.iter().copied().map(SemanticsId).collect(),
         bounds: Some(rect(0.0, 0.0, 10.0, 10.0)),
         scroll: Point::default(),
-        transform: Transform::IDENTITY,
+        transform: Affine::IDENTITY,
         semantics: kivact_types::Semantics {
             role: Some(role),
             name: Some(format!("node {id}")),

@@ -179,14 +179,14 @@ impl<T: Copy> Edges<T> {
 ///
 /// ```
 /// use kivact_types::Point;
-/// use kivact_types::geometry::Transform;
+/// use kivact_types::geometry::Affine;
 /// // Rotate 90° about (10, 10): the point right of the origin goes below it.
-/// let t = Transform::rotate_deg(90.0).about(Point { x: 10.0, y: 10.0 });
+/// let t = Affine::rotate_deg(90.0).about(Point { x: 10.0, y: 10.0 });
 /// let p = t.apply(Point { x: 20.0, y: 10.0 });
 /// assert!((p.x - 10.0).abs() < 1e-4 && (p.y - 20.0).abs() < 1e-4);
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Transform {
+pub struct Affine {
     /// Horizontal scale (x' per x).
     pub a: f64,
     /// Vertical skew (y' per x).
@@ -201,15 +201,15 @@ pub struct Transform {
     pub f: f64,
 }
 
-impl Default for Transform {
+impl Default for Affine {
     fn default() -> Self {
         Self::IDENTITY
     }
 }
 
-impl Transform {
+impl Affine {
     /// The transform that changes nothing.
-    pub const IDENTITY: Transform = Transform {
+    pub const IDENTITY: Affine = Affine {
         a: 1.0,
         b: 0.0,
         c: 0.0,
@@ -220,7 +220,7 @@ impl Transform {
 
     /// A move by `(x, y)`.
     pub fn translate(x: f64, y: f64) -> Self {
-        Transform {
+        Affine {
             e: x,
             f: y,
             ..Self::IDENTITY
@@ -234,7 +234,7 @@ impl Transform {
 
     /// A scale by `sx` horizontally and `sy` vertically about the origin.
     pub fn scale_xy(sx: f64, sy: f64) -> Self {
-        Transform {
+        Affine {
             a: sx,
             d: sy,
             ..Self::IDENTITY
@@ -245,7 +245,7 @@ impl Transform {
     /// (CSS `rotate`).
     pub fn rotate_deg(deg: f64) -> Self {
         let (sin, cos) = deg.to_radians().sin_cos();
-        Transform {
+        Affine {
             a: cos,
             b: sin,
             c: -sin,
@@ -258,7 +258,7 @@ impl Transform {
     /// A skew by `x_deg` degrees along x and `y_deg` along y (CSS
     /// `skew(x_deg, y_deg)`).
     pub fn skew_deg(x_deg: f64, y_deg: f64) -> Self {
-        Transform {
+        Affine {
             b: y_deg.to_radians().tan(),
             c: x_deg.to_radians().tan(),
             ..Self::IDENTITY
@@ -267,8 +267,8 @@ impl Transform {
 
     /// `self`, then `next`: the transform mapping a point by `self` and the
     /// result by `next`.
-    pub fn then(self, next: Transform) -> Transform {
-        Transform {
+    pub fn then(self, next: Affine) -> Affine {
+        Affine {
             a: next.a * self.a + next.c * self.b,
             b: next.b * self.a + next.d * self.b,
             c: next.a * self.c + next.c * self.d,
@@ -280,10 +280,10 @@ impl Transform {
 
     /// `self` applied about `origin` instead of `(0, 0)` (CSS
     /// `transform-origin`).
-    pub fn about(self, origin: Point) -> Transform {
-        Transform::translate(-origin.x, -origin.y)
+    pub fn about(self, origin: Point) -> Affine {
+        Affine::translate(-origin.x, -origin.y)
             .then(self)
-            .then(Transform::translate(origin.x, origin.y))
+            .then(Affine::translate(origin.x, origin.y))
     }
 
     /// Where `p` goes.
@@ -301,14 +301,14 @@ impl Transform {
     }
 
     /// The transform undoing `self`, if it has one.
-    pub fn invert(&self) -> Option<Transform> {
+    pub fn invert(&self) -> Option<Affine> {
         let det = self.determinant();
         if det == 0.0 || !det.is_finite() {
             return None;
         }
         let inv = 1.0 / det;
         let (a, b, c, d) = (self.d * inv, -self.b * inv, -self.c * inv, self.a * inv);
-        Some(Transform {
+        Some(Affine {
             a,
             b,
             c,

@@ -50,7 +50,7 @@ mod tests {
     use kivact_types::{
         BackfaceVisibility, BlendMode, ColorInterpolation, Composite, DecorationLines, DrawCmd,
         DrawList, DrawingLayer, Fill, FillImage, FillLayer, FontFeature, FontKerning,
-        FontVariation, Gradient, GradientKind, GradientStop, Mix, Pixels, Point, Rect, Rgba,
+        FontVariation, GradientKind, GradientSpec, GradientStop, Mix, Pixels, Point, Rect, Rgba,
         SpaceColor, Stroke, TextDecoration, TextDecorationStyle, TextRun, TransformStyle,
     };
 
@@ -138,7 +138,7 @@ mod tests {
     fn nested_groups_close_in_the_order_they_opened() {
         let document = write_list(vec![
             DrawCmd::PushClip(square()),
-            DrawCmd::PushTransform(kivact_types::Transform::IDENTITY),
+            DrawCmd::PushTransform(kivact_types::Affine::IDENTITY),
             filled(),
             DrawCmd::PopTransform,
             DrawCmd::PopClip,
@@ -191,7 +191,7 @@ mod tests {
     fn an_inner_group_left_open_is_malformed_even_when_the_outer_closes() {
         let error = write_list(vec![
             DrawCmd::PushClip(square()),
-            DrawCmd::PushTransform(kivact_types::Transform::IDENTITY),
+            DrawCmd::PushTransform(kivact_types::Affine::IDENTITY),
             DrawCmd::PopClip,
         ])
         .expect_err("a pop closes the innermost group, so the clip group stays open");
@@ -210,7 +210,7 @@ mod tests {
             }),
             at: None,
         };
-        let gradient = Gradient {
+        let gradient = GradientSpec {
             kind: GradientKind::Linear { angle_deg: 90.0 },
             stops: vec![stop(1.0, 0.0), stop(0.0, 1.0)],
             hints: vec![None],

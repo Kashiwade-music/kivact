@@ -5,12 +5,12 @@ use crate::effect::BoxShadow;
 use crate::paint::RasterPaint;
 use kivact_types::PaintOrder;
 use kivact_types::color::Rgba;
-use kivact_types::geometry::Transform;
+use kivact_types::geometry::Affine;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::pixel::BlendMode;
 use kivact_types::pixel::Pixels;
 use kivact_types::scene::Stroke;
-use kivact_types::scene::{PathCmd, Shape};
+use kivact_types::scene::{Outline, PathCmd};
 use kivact_types::shaped::GlyphRunSnapshot;
 
 /// Portable drawing operation, usable on any thread.
@@ -156,17 +156,17 @@ pub enum RenderCmd {
     PopClip,
     /// A shape filled with a paint.
     FillShape {
-        /// Shape.
-        shape: Shape,
+        /// Outline.
+        shape: Outline,
         /// RasterPaint.
         paint: RasterPaint,
     },
     /// A shape's outline stroked with a paint. A zero-length contour (or
     /// dash) with round or square caps draws a dot.
     StrokeShape {
-        /// Shape (polygons and rounded rects are closed; a path's open
+        /// Outline (polygons and rounded rects are closed; a path's open
         /// contours stay open).
-        shape: Shape,
+        shape: Outline,
         /// Line style.
         stroke: Stroke,
         /// RasterPaint.
@@ -178,7 +178,7 @@ pub enum RenderCmd {
     /// [`RenderCmd::PopTransform`] by this transform, then by the
     /// enclosing ones. Glyphs under a rotation, skew or non-uniform scale
     /// are drawn from unhinted outlines.
-    PushTransform(Transform),
+    PushTransform(Affine),
     /// Close the innermost transform.
     PopTransform,
     /// Draw the commands up to the matching [`RenderCmd::PopGroup`] as one
@@ -194,8 +194,8 @@ pub enum RenderCmd {
 /// masks, backdrops, Porter–Duff operators, 3D) are compositor layers instead.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Group {
-    /// Shape the group is clipped to.
-    pub clip: Option<Shape>,
+    /// Outline the group is clipped to.
+    pub clip: Option<Outline>,
     /// Group opacity.
     pub opacity: f64,
     /// Blend with what is beneath.

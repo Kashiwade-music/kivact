@@ -7,7 +7,7 @@
 
 use super::encode::number;
 use crate::SvgError;
-use kivact_types::scene::{PathCmd, Shape};
+use kivact_types::scene::{Outline, PathCmd};
 use kivact_types::{DrawingShape, FillRule, Point};
 
 /// Pieces of a `PathCmd::Arc` are at most this many degrees.
@@ -19,7 +19,7 @@ pub(super) fn outline_of(shape: &DrawingShape) -> (Vec<PathCmd>, FillRule) {
     let outline = shape.to_shape();
     let rule = outline.rule();
     match outline {
-        Shape::Path { cmds, .. } => (cmds, rule),
+        Outline::Path { cmds, .. } => (cmds, rule),
         other => (other.outline(), rule),
     }
 }

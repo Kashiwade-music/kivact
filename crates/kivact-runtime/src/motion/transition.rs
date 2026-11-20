@@ -2,8 +2,8 @@
 
 use kivact_types::motion::{PlayDirection, Repeat};
 
-pub(crate) use kivact_types::motion::Kind;
 pub use kivact_types::motion::Transition;
+pub(crate) use kivact_types::motion::TransitionKind;
 
 /// Whether a run with `timing` settles back on its start: an alternating run
 /// of an even, positive iteration count ends on `from` (the value of the end

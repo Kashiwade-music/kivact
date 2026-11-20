@@ -24,7 +24,7 @@ use crate::model::drawables::export_of;
 use crate::model::interact::visual;
 use arvane_asset::{PixelSize, fit_image};
 use arvane_protocol::{Composition, LayerEffects, LayerKey, RasterPaint, RenderCmd as D};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{BlendMode, NodeId, PaintProps, Point, Rect, Size};
 use std::rc::Rc;
 
@@ -39,7 +39,7 @@ struct Place<'a> {
     /// Its border box, in the space of its origin.
     bounds: Rect,
     /// Its clip path in the same space.
-    clip_path: Option<Shape>,
+    clip_path: Option<Outline>,
 }
 
 impl Model {
@@ -665,7 +665,7 @@ impl Model {
                     height: rect.height,
                 };
                 out.push(D::FillShape {
-                    shape: Shape::Rect(rect),
+                    shape: Outline::Rect(rect),
                     paint: RasterPaint::Solid(tint.color(color)),
                 });
             }

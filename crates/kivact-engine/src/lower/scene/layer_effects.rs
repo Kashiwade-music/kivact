@@ -26,7 +26,7 @@ use kivact_types::paint::{
     Fill, FillImage, FillLayer, FilterOp, MaskLayer, ShaderClock, ShaderSpec,
 };
 use kivact_types::pixel::ColorMatrix;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{Asset, Pixels, Point, Rect, Rgba};
 
 use crate::lower::SceneOut;
@@ -135,7 +135,11 @@ impl Context<'_> {
 
     /// The backdrop of a layer clipped to `shape` (layer space), filtered by
     /// the CSS `backdrop-filter` `ops` (`None`: no backdrop).
-    pub(crate) fn layer_backdrop(&self, ops: &[FilterOp], shape: Shape) -> Option<RenderBackdrop> {
+    pub(crate) fn layer_backdrop(
+        &self,
+        ops: &[FilterOp],
+        shape: Outline,
+    ) -> Option<RenderBackdrop> {
         (!ops.is_empty()).then(|| RenderBackdrop {
             shape,
             filters: self.layer_filters(ops),

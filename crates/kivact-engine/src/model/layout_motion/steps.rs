@@ -8,7 +8,7 @@ use crate::contract::NodeType;
 use crate::model::Model;
 use crate::model::motion_run::MotionRun;
 use kivact_types::motion::{PlayDirection, Repeat, Transition};
-use kivact_types::{Animatable, CornerRadius, Corners, Len, NodeId, Rect, Transform};
+use kivact_types::{Affine, Animatable, CornerRadius, Corners, Len, NodeId, Rect};
 
 /// The scale from the box `goal` to the box `current`, 1 along an empty side.
 pub(crate) fn box_scale(goal: Rect, current: Rect) -> (f64, f64) {
@@ -20,11 +20,11 @@ pub(crate) fn box_scale(goal: Rect, current: Rect) -> (f64, f64) {
 }
 
 /// The window map that carries the box `a` onto the box `b`.
-fn box_map(a: Rect, b: Rect) -> Transform {
+fn box_map(a: Rect, b: Rect) -> Affine {
     let (sx, sy) = box_scale(a, b);
-    Transform::translate(-a.x, -a.y)
-        .then(Transform::scale_xy(sx, sy))
-        .then(Transform::translate(b.x, b.y))
+    Affine::translate(-a.x, -a.y)
+        .then(Affine::scale_xy(sx, sy))
+        .then(Affine::translate(b.x, b.y))
 }
 
 /// A layout run plays once, forward: its repeat and direction do not apply.
@@ -37,7 +37,7 @@ fn once(timing: Transition) -> Transition {
 }
 
 /// The window map of `run`'s box: from its goal to its current box.
-fn run_map(run: &MotionRun) -> Transform {
+fn run_map(run: &MotionRun) -> Affine {
     box_map(
         Rect::from_components(&run.to),
         Rect::from_components(&run.current),
@@ -233,7 +233,7 @@ impl Model {
 
     /// The window map of the nearest ancestor of `id` in its layer that has
     /// a run (`None`: none moves above it).
-    fn moving_ancestor_map(&self, id: NodeId) -> Option<Transform> {
+    fn moving_ancestor_map(&self, id: NodeId) -> Option<Affine> {
         let mut cur = self.tree.get(id)?;
         while !cur.is_layer() {
             let parent = self.tree.flat_parent(cur)?;
@@ -251,25 +251,25 @@ impl Model {
     /// but no run of its own still cancels that ancestor's motion, so its
     /// window box is neither moved nor scaled by it. `None` when there is
     /// nothing to cancel.
-    pub(crate) fn layout_motion_transform(&self, id: NodeId) -> Option<Transform> {
+    pub(crate) fn layout_motion_transform(&self, id: NodeId) -> Option<Affine> {
         let (goal, own, outer) = match self.layout_motion.runs.get(&id) {
             Some(run) => (
                 Rect::from_components(&run.to),
                 run_map(run),
-                self.moving_ancestor_map(id).unwrap_or(Transform::IDENTITY),
+                self.moving_ancestor_map(id).unwrap_or(Affine::IDENTITY),
             ),
             None if self.has_layout_transition(id) => (
                 self.window_layout_rect(id)?,
-                Transform::IDENTITY,
+                Affine::IDENTITY,
                 self.moving_ancestor_map(id)?,
             ),
             None => return None,
         };
         let own = own.then(outer.invert()?);
         Some(
-            Transform::translate(goal.x, goal.y)
+            Affine::translate(goal.x, goal.y)
                 .then(own)
-                .then(Transform::translate(-goal.x, -goal.y)),
+                .then(Affine::translate(-goal.x, -goal.y)),
         )
     }
 

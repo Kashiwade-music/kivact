@@ -66,7 +66,7 @@ fn canvas_gradient(g: &CanvasGradient, theme: &Theme) -> p::CoordinateGradient {
     }
 }
 
-fn gradient(g: &Gradient, theme: &Theme) -> p::Gradient {
+fn gradient(g: &Gradient, theme: &Theme) -> p::GradientSpec {
     let at = |(x, y): (Length, Length)| [x.to_len(), y.to_len()];
     let stops: Vec<GradientStop> = g
         .stops
@@ -84,7 +84,7 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::Gradient {
         .take(gaps)
         .map(|h| h.map(Length::to_len))
         .collect();
-    p::Gradient {
+    p::GradientSpec {
         kind: match g.kind {
             GradientKind::Linear { angle } => WireKind::Linear { angle_deg: angle },
             GradientKind::Radial {

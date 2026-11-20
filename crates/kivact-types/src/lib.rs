@@ -55,7 +55,7 @@ pub use color_space::{
 };
 pub use drag_velocity::DragVelocity;
 pub use effect::{
-    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraph, FilterInput, Light,
+    Channel, CompositeOp, EdgeMode, FilterColorSpace, FilterGraphSpec, FilterInput, Light,
     MorphologyOp, ParamSlot, ParamType, Primitive, PrimitiveOp, ShaderKind, ShaderProgram,
     ShaderUse, TransferFn, TurbulenceKind,
 };
@@ -65,7 +65,7 @@ pub use env::{
     PointerSettings, ThemeMode,
 };
 pub use export::{ExportFrame, ExportedFrame, FrameStats};
-pub use geometry::{Edge, Edges, Point, Rect, Size, Transform};
+pub use geometry::{Affine, Edge, Edges, Point, Rect, Size};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterIds, AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter,
@@ -91,14 +91,14 @@ pub use layout::{
 };
 pub use length::{Length, auto, pct};
 pub use motion::{
-    Easing, Keyframe, Kind, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
-    StepPosition, TimeScale, Transition, TransitionProp, lerp,
+    Easing, Keyframe, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
+    StepPosition, TimeScale, Transition, TransitionKind, TransitionProp, lerp,
 };
 pub use paint::{
     BackfaceVisibility, BackgroundClip, BackgroundOrigin, Border, BorderImage, BorderImageRepeat,
     ClipShape, CoordinateGradient, CoordinateShape, CornerRadius, Corners, Cursor, Effects,
-    ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, Gradient,
-    GradientKind, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
+    ElementTransform, Extend, Fill, FillImage, FillLayer, FillSize, FilterOp, GradientKind,
+    GradientSpec, GradientStop, ImageData, ImageFit, Isolation, Len, MaskComposite, MaskLayer,
     MaskMode, PaintDelta, PaintProps, Perspective, RadialExtent, Ring, ScrollbarDelta,
     ScrollbarProps, ShaderClock, ShaderSpec, Shadow, StateStyles, TransformStyle, WillChange,
 };

@@ -5,7 +5,7 @@
 use kivact_types::motion::{PlayDirection, Spring, SpringRun, Transition, lerp};
 
 use super::super::Repeat;
-use super::super::transition::{Kind, settles_at_start};
+use super::super::transition::{TransitionKind, settles_at_start};
 use super::segment::{SegmentDef, SegmentKind};
 
 /// Largest rest time (ms) a spring segment is measured to; a spring that is
@@ -31,7 +31,7 @@ pub(super) fn seg_value(seg: &SegmentDef, from: &[f64], t_ms: f64) -> Vec<f64> {
     };
     let mut out = from.to_vec();
     match &transition.kind {
-        Kind::Spring(spring) => {
+        TransitionKind::Spring(spring) => {
             let p = spring_fraction(spring, transition, *one_ms, t_ms);
             lerp(from, to, p, &mut out);
         }

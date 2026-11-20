@@ -13,7 +13,7 @@
 //!   one fill; up to [`FEW`] gradient copies are each a clipped fill of
 //!   their own; more copies, and every image, are one pattern fill (Arvane
 //!   repeats the tile).
-//! - Gradient stops are placed as CSS places them (missing positions
+//! - GradientSpec stops are placed as CSS places them (missing positions
 //!   spread evenly, a position before an earlier one moved up to it); a
 //!   repeating gradient repeats from its first stop to its last. Colors
 //!   are interpolated in the gradient's space and mapped to sRGB, with
@@ -43,12 +43,12 @@ use crate::lower::shape::BoxShape;
 use arvane_protocol::RenderCmd as D;
 use kivact_types::{
     BackgroundClip, BackgroundOrigin, CoordinateGradient, CoordinateShape, Fill, FillImage,
-    FillLayer, FillSize, Gradient, GradientKind, RadialExtent,
+    FillLayer, FillSize, GradientKind, GradientSpec, RadialExtent,
 };
 use kivact_types::{BlendMode, Rgba, Size, color_at, expand_gradient, normalized_stops};
 
 use arvane_protocol::{GradientShape, Group, Pattern, PatternSource};
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{Extend, Point, Rect};
 
 /// Copies of a gradient tile drawn one by one; more are a pattern.
@@ -102,7 +102,7 @@ pub(crate) struct Boxes {
     pub(crate) content: BoxShape,
     /// The glyph outlines of the node's text (for a background clipped to
     /// the text); `None` when the node has no text to clip to.
-    pub(crate) glyphs: Option<Shape>,
+    pub(crate) glyphs: Option<Outline>,
     /// The frame each background layer shows (by layer index, in the fill's
     /// order); a layer without one shows frame 0.
     pub(crate) frames: Vec<u32>,
@@ -541,7 +541,7 @@ fn rotated(period: &[(f64, Rgba)], phase: f64) -> Vec<(f64, Rgba)> {
 
 /// A CSS gradient over the box `rect` as an Arvane paint (`None`: no
 /// stops).
-pub(crate) fn gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
+pub(crate) fn gradient(g: &GradientSpec, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     if g.stops.is_empty() {
         return None;
     }
@@ -668,7 +668,7 @@ pub(crate) fn coordinate(
     super::sanitize::fill(&paint).then_some(paint)
 }
 
-fn radial_gradient(g: &Gradient, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
+fn radial_gradient(g: &GradientSpec, rect: Rect) -> Option<arvane_protocol::RasterPaint> {
     let GradientKind::Radial {
         circle,
         extent,

@@ -18,19 +18,19 @@ use arvane_protocol::{
 };
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
-use kivact_types::scene::Shape;
-use kivact_types::{BlendMode, NodeId, Point, Rect, Size, Transform};
+use kivact_types::scene::Outline;
+use kivact_types::{Affine, BlendMode, NodeId, Point, Rect, Size};
 
 /// A group or clip a chunk has open, with what opens it again.
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Opened {
     /// A transform of the chunk's space.
-    Transform(Transform),
+    Transform(Affine),
     /// A rect clip, as pushed, and the same clip in layer space.
-    Clip { local: Rect, layer: Shape },
+    Clip { local: Rect, layer: Outline },
     /// A group that only clips (opacity 1, normal blend, no blur), as
     /// pushed, and the same clip in layer space.
-    ClipGroup { local: Shape, layer: Shape },
+    ClipGroup { local: Outline, layer: Outline },
     /// Any other group.
     Group(Group),
 }
@@ -130,7 +130,7 @@ enum Piece {
 struct DrawablePiece {
     layers: Vec<CompositeLayer>,
     transform: Matrix4,
-    clips: Vec<Shape>,
+    clips: Vec<Outline>,
 }
 
 /// A layer under construction: its properties, the clips its parent
@@ -138,11 +138,11 @@ struct DrawablePiece {
 #[derive(Debug)]
 struct Layer {
     props: LayerProps,
-    clips: Vec<Shape>,
+    clips: Vec<Outline>,
     pieces: Vec<Piece>,
     chunk: RenderScene,
     stack: Vec<Opened>,
-    space: Transform,
+    space: Affine,
     deepest: usize,
     /// The groups of `stack` are to be opened again at the start of the
     /// next chunk (a split closed them).
@@ -151,14 +151,14 @@ struct Layer {
 
 impl Layer {
     /// An empty open layer.
-    fn new(props: LayerProps, clips: Vec<Shape>) -> Self {
+    fn new(props: LayerProps, clips: Vec<Outline>) -> Self {
         Layer {
             props,
             clips,
             pieces: Vec::new(),
             chunk: RenderScene::default(),
             stack: Vec::new(),
-            space: Transform::IDENTITY,
+            space: Affine::IDENTITY,
             deepest: 0,
             reopen: false,
         }
@@ -171,7 +171,7 @@ impl Layer {
             D::PushTransform(t) => self.open(Opened::Transform(*t)),
             D::PushClip(r) => self.open(Opened::Clip {
                 local: *r,
-                layer: Shape::Rect(*r).transformed(self.space),
+                layer: Outline::Rect(*r).transformed(self.space),
             }),
             D::PushGroup(g) => self.open(group_opened(g, self.space)),
             D::PopTransform | D::PopClip | D::PopGroup => self.close(),
@@ -193,18 +193,18 @@ impl Layer {
     /// Arvane's scene validation reports the unbalanced command).
     fn close(&mut self) {
         if self.stack.pop().is_some() {
-            self.space =
-                self.stack
-                    .iter()
-                    .fold(Transform::IDENTITY, |space, opened| match opened {
-                        Opened::Transform(t) => t.then(space),
-                        _ => space,
-                    });
+            self.space = self
+                .stack
+                .iter()
+                .fold(Affine::IDENTITY, |space, opened| match opened {
+                    Opened::Transform(t) => t.then(space),
+                    _ => space,
+                });
         }
     }
 
     /// The clips open now, in layer space.
-    fn clips(&self) -> Vec<Shape> {
+    fn clips(&self) -> Vec<Outline> {
         self.stack
             .iter()
             .filter_map(|opened| match opened {
@@ -240,7 +240,7 @@ impl Layer {
 
 /// The group `g` as an open entry: a clip-only group keeps its clip
 /// shape, in layer space through `space`.
-fn group_opened(g: &Group, space: Transform) -> Opened {
+fn group_opened(g: &Group, space: Affine) -> Opened {
     match &g.clip {
         Some(clip) if g.opacity == 1.0 && g.blend == BlendMode::Normal && g.blur.is_none() => {
             Opened::ClipGroup {
@@ -407,12 +407,12 @@ impl SceneOut {
     }
 
     /// The space of the innermost layer's chunk (layer space → chunk space).
-    pub(crate) fn space(&self) -> Transform {
+    pub(crate) fn space(&self) -> Affine {
         self.top_ref().space
     }
 
     /// The clips open now in the innermost layer, in layer space.
-    pub(crate) fn clips(&self) -> Vec<Shape> {
+    pub(crate) fn clips(&self) -> Vec<Outline> {
         self.top_ref().clips()
     }
 

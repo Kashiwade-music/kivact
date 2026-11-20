@@ -13,8 +13,8 @@ use super::fill::{Units, paint_attributes};
 use super::shape::{outline_of, path_data};
 use crate::SvgError;
 use kivact_types::{
-    DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Mix, Point, Rect, Rgba, ShapePaint,
-    Stroke, Transform,
+    Affine, DrawCmd, DrawingLayer, DrawingShape, Fill, FillRule, Mix, Point, Rect, Rgba,
+    ShapePaint, Stroke,
 };
 
 /// How a run of commands ended.
@@ -321,7 +321,7 @@ pub(super) fn stroke_attributes(stroke: &Stroke) -> String {
 }
 
 /// `matrix(a b c d e f)` of a transform.
-fn matrix(t: Transform) -> String {
+fn matrix(t: Affine) -> String {
     format!(
         "matrix({} {} {} {} {} {})",
         number(t.a),

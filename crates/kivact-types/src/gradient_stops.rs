@@ -2,7 +2,7 @@
 use crate::color::Rgba;
 use crate::color_space::{ColorInterpolation, SpaceColor, interpolate};
 use crate::geometry::{Point, Rect};
-use crate::paint::{Gradient, GradientKind, Len};
+use crate::paint::{GradientKind, GradientSpec, Len};
 
 /// The deepest bisection of a gradient interval (at most 4096 pieces).
 const MAX_DEPTH: u32 = 12;
@@ -18,7 +18,7 @@ fn fraction(l: Len, length: f64) -> f64 {
     if t.is_finite() { t } else { 0.0 }
 }
 
-impl Gradient {
+impl GradientSpec {
     /// The stops of this gradient as fractions of its line (CSS color stop
     /// fixup), with its color hints expanded (see [`expand_gradient`]):
     /// `line_length` is the line's length in px (a conic gradient's: 360°).

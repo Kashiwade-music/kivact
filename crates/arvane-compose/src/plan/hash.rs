@@ -12,11 +12,11 @@ use arvane_protocol::{
 };
 use kivact_types::color::Rgba;
 use kivact_types::effect::ShaderUse;
-use kivact_types::geometry::{Point, Rect, Transform};
+use kivact_types::geometry::{Affine, Point, Rect};
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::{BackfaceVisibility, Extend, MaskComposite, MaskMode};
 use kivact_types::pixel::Pixels;
-use kivact_types::scene::{FillRule, Shape, Stroke};
+use kivact_types::scene::{FillRule, Outline, Stroke};
 
 use crate::cache::Retained;
 
@@ -104,7 +104,7 @@ impl Fnv {
     }
 
     /// Fold in a 2D affine transform.
-    pub(crate) fn transform(&mut self, t: Transform) {
+    pub(crate) fn transform(&mut self, t: Affine) {
         for v in [t.a, t.b, t.c, t.d, t.e, t.f] {
             self.f64(v);
         }
@@ -240,13 +240,13 @@ fn gradient(h: &mut Fnv, g: &RasterGradient) {
 }
 
 /// Fold in a shape.
-pub(crate) fn shape(h: &mut Fnv, s: &Shape) {
+pub(crate) fn shape(h: &mut Fnv, s: &Outline) {
     match s {
-        Shape::Rect(r) => {
+        Outline::Rect(r) => {
             h.tag(0);
             h.rect(*r);
         }
-        Shape::RoundedRect(r) => {
+        Outline::RoundedRect(r) => {
             h.tag(1);
             h.rect(r.rect);
             for radius in r.radii {
@@ -254,7 +254,7 @@ pub(crate) fn shape(h: &mut Fnv, s: &Shape) {
                 h.f64(radius.y);
             }
         }
-        Shape::Polygon { points, rule: r } => {
+        Outline::Polygon { points, rule: r } => {
             h.tag(2);
             h.len(points.len());
             for p in points {
@@ -262,7 +262,7 @@ pub(crate) fn shape(h: &mut Fnv, s: &Shape) {
             }
             rule(h, *r);
         }
-        Shape::Path { cmds, rule: r } => {
+        Outline::Path { cmds, rule: r } => {
             h.tag(3);
             h.len(cmds.len());
             for cmd in cmds {

@@ -18,7 +18,7 @@ use arvane_protocol::{Group, LayerEffects, Plane, RasterGrid, RenderCmd as D};
 use kivact_types::Composite;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::TransformStyle;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::{DrawCmd, DrawList, DrawingLayer, Point, Rect};
 
 /// Whether `cmd` is an item of a layer: an external frame, a drawable or a
@@ -205,7 +205,7 @@ impl Context<'_> {
     fn surface(&self, layer: &DrawingLayer, state: &mut State<'_>) -> LayerProps {
         let origin = state.origin;
         let area = moved(layer.area, origin);
-        let clip: Option<Shape> = layer.clip.as_ref().map(|shape| {
+        let clip: Option<Outline> = layer.clip.as_ref().map(|shape| {
             shape.to_shape().translated(Point {
                 x: origin.x,
                 y: origin.y,

@@ -262,7 +262,7 @@ pub(crate) fn shape_run(
     engine.shape(run.text.as_str(), &style, max_width).ok()
 }
 
-/// Shape a scene's text around measured objects using its inherited typography.
+/// Outline a scene's text around measured objects using its inherited typography.
 pub(crate) fn shape_inline_run(
     engine: &mut arvane_text::TextEngine,
     run: &TextRun,
@@ -283,7 +283,7 @@ pub(crate) fn decoration(
     paint: arvane_protocol::RasterPaint,
     style: kivact_types::TextDecorationStyle,
 ) {
-    use kivact_types::scene::Shape;
+    use kivact_types::scene::Outline;
     use kivact_types::{FillRule, LineCap, PathCmd, TextDecorationStyle};
     if style == TextDecorationStyle::Solid {
         out.push(D::Rect { rect, fill: paint });
@@ -321,7 +321,7 @@ pub(crate) fn decoration(
         cmds.push(PathCmd::LineTo(Point::new(rect.x + rect.width, y)));
     }
     out.push(D::StrokeShape {
-        shape: Shape::Path {
+        shape: Outline::Path {
             cmds,
             rule: FillRule::NonZero,
         },

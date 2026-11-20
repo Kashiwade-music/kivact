@@ -9,7 +9,7 @@ use crate::pixel::ColorMatrix;
 /// names its image: `Asset` on the wire (`FilterOp::Graph`), `Pixels` in a
 /// composition (`LayerFilter::Graph`).
 #[derive(Clone, Debug, PartialEq)]
-pub struct FilterGraph<I> {
+pub struct FilterGraphSpec<I> {
     /// The primitives in order; the last one's result is the output.
     pub primitives: Vec<Primitive<I>>,
     /// How far the filter region extends beyond the layer bounds; None:
@@ -252,10 +252,10 @@ pub enum TurbulenceKind {
     Turbulence,
 }
 
-impl<I> FilterGraph<I> {
+impl<I> FilterGraphSpec<I> {
     /// The same graph with each Image's `image` mapped by `f`.
-    pub fn map_images<J>(&self, mut f: impl FnMut(&I) -> J) -> FilterGraph<J> {
-        FilterGraph {
+    pub fn map_images<J>(&self, mut f: impl FnMut(&I) -> J) -> FilterGraphSpec<J> {
+        FilterGraphSpec {
             primitives: self
                 .primitives
                 .iter()

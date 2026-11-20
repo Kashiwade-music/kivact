@@ -4,7 +4,7 @@
 //! primitive and returns a [`FilterInput`] handle to its result. `Filter::graph`
 //! consumes the builder into an [`AuthoredGraph`] (a `Clone` value with its
 //! colors still theme-dependent); style resolution turns that into the
-//! engine's `kivact_types::FilterGraph<Asset>`.
+//! engine's `kivact_types::FilterGraphSpec<Asset>`.
 
 use kivact_types as p;
 use kivact_types::{
@@ -521,7 +521,7 @@ impl AuthoredGraph {
     pub(crate) fn resolve(
         &self,
         theme: &crate::theme::value::Theme,
-    ) -> Result<p::FilterGraph<Asset>, String> {
+    ) -> Result<p::FilterGraphSpec<Asset>, String> {
         if let Some(e) = &self.error {
             return Err(e.clone());
         }
@@ -546,7 +546,7 @@ impl AuthoredGraph {
                 }
             })
             .collect();
-        let graph = p::FilterGraph {
+        let graph = p::FilterGraphSpec {
             primitives,
             margin: self.margin,
             color_space: self.color_space,

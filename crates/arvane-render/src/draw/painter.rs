@@ -9,8 +9,7 @@ use crate::paint::{self, Brush, PatternFill};
 use crate::text;
 use crate::validate::Fonts;
 use arvane_protocol::{GlyphStroke, Group, RasterPaint, RenderCmd, RenderScene};
-use kivact_types::geometry::Transform;
-use kivact_types::scene::Shape;
+use kivact_types::scene::Outline;
 use kivact_types::shaped::FontSource;
 use kivact_types::{PaintOrder, Point, Rect as LogicalRect, Rgba};
 use std::collections::HashMap;
@@ -111,7 +110,7 @@ pub(crate) fn draw(
         scale: frame.scale,
         origin: frame.origin,
         visible: frame.visible,
-        transform: Transform::IDENTITY,
+        transform: kivact_types::Affine::IDENTITY,
         device_scale: frame.scale,
         stack: Vec::new(),
     };
@@ -130,7 +129,7 @@ pub(super) enum Open {
     /// A clip layer (`PushClip`).
     Clip,
     /// The transform before it.
-    Transform(Transform),
+    Transform(kivact_types::Affine),
     /// How many canvas layers a group pushed.
     Group { pops: u8 },
     /// Opened while drawing nothing.
@@ -158,7 +157,7 @@ pub(super) struct Painter<'a, 'd, C: Canvas> {
     /// The frame in root logical coordinates.
     pub(super) visible: LogicalRect,
     /// From the current coordinates to the root's (logical pixels).
-    pub(super) transform: Transform,
+    pub(super) transform: kivact_types::Affine,
     /// Device pixels per unit of the current coordinates (at most).
     pub(super) device_scale: f64,
     /// The open groups, innermost last. Drawing stops while the innermost is
@@ -365,7 +364,7 @@ impl<C: Canvas> Painter<'_, '_, C> {
                 self.stack.push(Open::Clip);
             }
             RenderCmd::FillShape { shape, paint } => {
-                if let Shape::Rect(r) = shape {
+                if let Outline::Rect(r) = shape {
                     self.fill(paint, *r, Area::Rect(convert::rect(*r)));
                     return;
                 }
@@ -580,7 +579,7 @@ impl<C: Canvas> Painter<'_, '_, C> {
     }
 
     /// Stroke a shape's outline with `paint`.
-    fn stroke(&mut self, shape: &Shape, stroke: &kivact_types::Stroke, paint: &RasterPaint) {
+    fn stroke(&mut self, shape: &Outline, stroke: &kivact_types::Stroke, paint: &RasterPaint) {
         let mut path = convert::shape(shape);
         if stroke.cap != kivact_types::LineCap::Butt {
             path = convert::dots(path);

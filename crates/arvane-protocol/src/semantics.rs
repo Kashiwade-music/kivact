@@ -8,7 +8,7 @@
 //! carries its own transform the same way: it maps the node's bounds and
 //! everything below it, so changing it changes one node.
 
-use kivact_types::geometry::Transform;
+use kivact_types::geometry::Affine;
 use kivact_types::geometry::{Point, Rect};
 use kivact_types::ids::SemanticsId;
 use kivact_types::semantics::Semantics;
@@ -33,7 +33,7 @@ pub struct SemanticsNode {
     /// nodes): its bounds and its descendants (moved back by its `scroll`
     /// first) are shown mapped by it, then by its ancestors' scrolls and
     /// transforms. See [`SemanticsTree::window_bounds`].
-    pub transform: Transform,
+    pub transform: Affine,
 }
 
 /// Complete accessibility tree, usable on any thread.
@@ -67,7 +67,7 @@ impl SemanticsTree {
         let mut child = id;
         while let Some(parent) = self.nodes.iter().find(|n| n.children.contains(&child)) {
             map = map
-                .then(Transform::translate(-parent.scroll.x, -parent.scroll.y))
+                .then(Affine::translate(-parent.scroll.x, -parent.scroll.y))
                 .then(parent.transform);
             child = parent.id;
         }

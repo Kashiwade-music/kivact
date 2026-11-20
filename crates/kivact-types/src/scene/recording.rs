@@ -168,7 +168,7 @@ pub enum DrawCmd {
     /// Close the innermost compositing layer.
     PopLayer,
     /// Open a transform.
-    PushTransform(crate::geometry::Transform),
+    PushTransform(crate::geometry::Affine),
     /// Close the innermost transform.
     PopTransform,
     /// A filled rectangle.

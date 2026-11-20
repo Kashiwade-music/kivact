@@ -9,8 +9,8 @@ use super::emitter::Emitter;
 use super::encode::{hex, number, opacity_attribute};
 use crate::SvgError;
 use kivact_types::{
-    CoordinateGradient, CoordinateShape, Extend, Fill, FillImage, FillLayer, FillSize, Gradient,
-    GradientKind, Len, Point, RadialExtent, Rect, Rgba, normalized_stops,
+    CoordinateGradient, CoordinateShape, Extend, Fill, FillImage, FillLayer, FillSize,
+    GradientKind, GradientSpec, Len, Point, RadialExtent, Rect, Rgba, normalized_stops,
 };
 
 /// The coordinate system a gradient's geometry is given in: the user space
@@ -88,7 +88,7 @@ fn layer_paint(
 fn gradient_paint(
     emitter: &mut Emitter<'_>,
     kind: &str,
-    gradient: &Gradient,
+    gradient: &GradientSpec,
     bounds: Rect,
     units: Units,
 ) -> Result<String, SvgError> {
