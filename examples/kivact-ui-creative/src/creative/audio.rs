@@ -1,6 +1,6 @@
 //! Audio handling and timing utilities for creative.
 use crate::creative::audio_values::TransportState;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::audio_values::level;
 use super::common::{col, note};
@@ -32,9 +32,9 @@ pub(super) fn mixer(state: Signal<TransportState>) -> impl IntoView {
                 name,
                 rgb(color),
                 ui::ChannelState {
-                    gain: gain.into_binding(),
-                    mute: mute.into_binding(),
-                    pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])).into_binding(),
+                    gain: gain,
+                    mute: mute,
+                    pan: (signal([0.0, 8.0, 0.0, -35.0, 30.0, 0.0, 0.0, 0.0][i])),
                     solo: binding((move || solo.with(|s| s[i])).into_value(), move |v| {
                         solo.update(|s| s[i] = v)
                     }),

@@ -646,7 +646,7 @@ fn tag_entry(
 
 fn checkbox_choices(
     permissions: kivact::state::Signal<(bool, bool, bool)>,
-    all: kivact::state::Binding<bool>,
+    all: kivact::state::Signal<bool>,
     mixed: impl Fn() -> bool + Copy + 'static,
 ) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(

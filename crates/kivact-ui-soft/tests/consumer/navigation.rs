@@ -513,7 +513,6 @@ fn domain_navigation_shares_hover_pinned_and_menu_focus_authority() {
 
 #[test]
 fn rail_navigation_has_one_actual_panel_and_rearms_after_expansion() {
-    use kivact::state::IntoBinding;
     let (screen, collapsed) = kivact::test::render_with_handle(
         RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(900.0, 650.0),
         || {
@@ -529,7 +528,7 @@ fn rail_navigation_has_one_actual_panel_and_rearms_after_expansion() {
                             .icon(icon("clock"))
                             .children(|| soft::side_nav_item("Activity leaf").on_press(|| {})),
                     ))
-                    .collapsible(soft::SideNavCollapse::Controlled(collapsed.into_binding()))
+                    .collapsible(soft::SideNavCollapse::Controlled(collapsed))
                     .style(style().height(220)),
                     kivact::ui::button("Outside"),
                 )),

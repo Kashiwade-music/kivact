@@ -5,10 +5,10 @@ use kivact::motion::Animated;
 use kivact::motion::Easing;
 use kivact::motion::Repeat;
 use kivact::motion::Transition;
-use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::state::{Callback, IntoHandler};
 use kivact::style::Align;
 use kivact::style::Cursor;
 use kivact::style::Direction;
@@ -94,14 +94,16 @@ impl Thumbnail {
         self
     }
     /// Open the image when pressed.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.press = Some(Box::new(move || action.call(())));
         self
     }
     /// Remove the attachment when pressed.
-    pub fn on_remove(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_remove<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.remove = Some(Box::new(move || action.call(())));
         self
     }

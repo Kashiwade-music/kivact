@@ -296,7 +296,7 @@ fn graph_lanes(lanes: Option<Value<Vec<Lane>>>, curves: Value<Vec<Curve>>) -> Va
 
 fn graph_selection(
     visible: Value<Vec<crate::editors::graph::gesture::VisibleKey>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> kivact::interaction::ListApi<u64> {
     let order = kivact::state::memo(move || {
         visible

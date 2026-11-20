@@ -3,9 +3,7 @@ use kivact::state::IntoValue;
 
 use super::common::{card, cards_grid, columns, muted, section, third, wrap};
 use kivact::interaction::ListItem;
-use kivact::prelude::{
-    Binding, ColorToken, Element, Node, Signal, column, node, rgb, row, signal, text,
-};
+use kivact::prelude::{ColorToken, Element, Node, Signal, column, node, rgb, row, signal, text};
 use kivact::state::{Callback, Value};
 use kivact::style::Direction;
 use kivact::style::GridPlacement;
@@ -67,7 +65,7 @@ pub(super) fn display(notify: Callback<(ui::Hue, String, String)>) -> Node {
 }
 
 // xtask-allow(state): legacy: page, sort; the student table's page, moved by the pager and reset to 0 by a new sort, status filter or search; every page is reachable afterwards
-pub(super) fn table(sheet: Binding<bool>, drawer_title: Signal<String>) -> Node {
+pub(super) fn table(sheet: Signal<bool>, drawer_title: Signal<String>) -> Node {
     let rows = signal(STUDENT_FIXTURE.to_vec());
     let status = signal(Some("all"));
     let page = signal(0usize);
@@ -500,7 +498,7 @@ fn student_toolbar(
     status: Signal<Option<&'static str>>,
     page: Signal<usize>,
     query: Signal<String>,
-    sheet: Binding<bool>,
+    sheet: Signal<bool>,
     visible: impl Fn() -> Vec<Student> + Copy + 'static,
 ) -> Node {
     let filters = kivact::ui::radio_group(
@@ -797,7 +795,7 @@ fn request_summary(notify: Callback<(ui::Hue, String, String)>) -> kivact::ui::C
 
 fn student_actions(
     visible: impl Fn() -> Vec<Student> + Copy + 'static,
-    sheet: Binding<bool>,
+    sheet: Signal<bool>,
 ) -> Node {
     row((
         kivact::ui::button("TSV")

@@ -19,8 +19,8 @@ use kivact::geometry::Point;
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{Command, ListItem, Toast, toaster};
 use kivact::prelude::{
-    Binding, ColorToken, Element, IntoView, Key, Node, NodeRef, Role, Signal, binding, column,
-    effect, node, rgb, row, scroll, signal, text,
+    ColorToken, Element, IntoView, Key, Node, NodeRef, Role, Signal, binding, column, effect, node,
+    rgb, row, scroll, signal, text,
 };
 use kivact::state::callback;
 use kivact::style::{Align, Color, Justify, pct, rgba, style};
@@ -59,7 +59,7 @@ pub(super) enum Overlay {
 
 impl Overlay {
     /// The `open` binding of this overlay: true while it is the open one.
-    fn open(self, overlay: Signal<Overlay>) -> Binding<bool> {
+    fn open(self, overlay: Signal<Overlay>) -> Signal<bool> {
         binding(
             move || overlay.get() == self,
             move |open| {
@@ -183,7 +183,7 @@ fn is_palette_shortcut(key: &KeyEvent) -> bool {
         && matches!(key.key(), Key::Char(character) if character.eq_ignore_ascii_case(&'k'))
 }
 
-fn overview(action: impl Into<kivact::state::Callback<()>>, command: Binding<bool>) -> Node {
+fn overview<M>(action: impl kivact::state::IntoHandler<(), M>, command: Signal<bool>) -> Node {
     let stats = [
         ("在籍生徒", "124", "+6 今週"),
         ("進行中の依頼", "18", "3件 期限間近"),
@@ -283,10 +283,10 @@ fn activity_counter() -> Signal<u16> {
 }
 
 fn catalog_sections(
-    confirm: Binding<bool>,
-    form_dialog: Binding<bool>,
-    command: Binding<bool>,
-    sheet: Binding<bool>,
+    confirm: Signal<bool>,
+    form_dialog: Signal<bool>,
+    command: Signal<bool>,
+    sheet: Signal<bool>,
     drawer_title: Signal<String>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
     refs: Rc<Vec<NodeRef>>,
@@ -481,7 +481,7 @@ fn catalog_sidebar(nav: Vec<Node>, activity_points: Signal<u16>) -> Node {
     )
 }
 
-fn catalog_topbar(selected: Signal<usize>, command: Binding<bool>, dark: Signal<bool>) -> Node {
+fn catalog_topbar(selected: Signal<usize>, command: Signal<bool>, dark: Signal<bool>) -> Node {
     let notices = catalog_notices();
     row((
         kivact::ui::breadcrumb(
@@ -640,7 +640,7 @@ fn palette_commands() -> Vec<Command<PaletteCommand>> {
 // xtask-allow(state): legacy: pin_student, auto_skill; bound only to the pin-to-main-team switch in the student drawer; the auto-skill switch has its own signal, so both, either
 fn student_drawer(
     drawer_title: Signal<String>,
-    sheet: Binding<bool>,
+    sheet: Signal<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let pin_student = signal(true);
@@ -704,7 +704,7 @@ fn student_drawer(
 }
 
 fn request_dialog(
-    form_dialog: Binding<bool>,
+    form_dialog: Signal<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let request_title = signal(String::new());
@@ -744,7 +744,7 @@ fn request_dialog(
 }
 
 fn operation_confirmation(
-    confirm: Binding<bool>,
+    confirm: Signal<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> kivact::ui::Dialog {
     let remember_confirmation = signal(false);
@@ -932,7 +932,7 @@ fn request_fields(
     request_priority: Signal<Option<&'static str>>,
     request_date: Signal<CalendarDate>,
     request_detail: Signal<String>,
-    form_dialog: Binding<bool>,
+    form_dialog: Signal<bool>,
     notify: kivact::state::Callback<(ui::Hue, String, String)>,
 ) -> Node {
     column((
@@ -969,8 +969,7 @@ fn request_fields(
             kivact::ui::field(
                 "期限",
                 {
-                    let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                        kivact::state::IntoBinding::into_binding(request_date);
+                    let value: kivact::state::Signal<kivact::i18n::CalendarDate> = request_date;
                     let value = kivact::state::binding(
                         move || Some(value.get()),
                         move |day| {

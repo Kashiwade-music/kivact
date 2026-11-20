@@ -195,12 +195,8 @@ impl IntoView for Layout {
             default_dividers,
         } = self;
         kivact::view::scope(move || {
-            let parent = try_use_context::<ContainerInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
-            let mut insets = try_use_context::<LayoutInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>().unwrap_or_default();
+            let mut insets = try_use_context::<LayoutInset>().unwrap_or_default();
             insets.own_outer = padding.map(Space::px);
             let mut header = header;
             let mut footer = footer;
@@ -367,12 +363,8 @@ impl IntoView for LayoutRegion {
             width,
         } = self;
         kivact::view::scope(move || {
-            let slots = try_use_context::<LayoutSlots>()
-                .map(|value| value.get())
-                .unwrap_or_default();
-            let inset = try_use_context::<LayoutInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
+            let slots = try_use_context::<LayoutSlots>().unwrap_or_default();
+            let inset = try_use_context::<LayoutInset>().unwrap_or_default();
             let (inset, inner_x) = region_insets(kind, slots, inset, padding, padding_bottom);
             let content = column(provide(inset, move || children)).with_node(move |node| {
                 node.base_style(move || region_content_style(kind, slots, inset))

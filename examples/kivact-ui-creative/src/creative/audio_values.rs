@@ -4,7 +4,7 @@ use kivact::motion::{FrameRate, frame_loop};
 use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::effect;
-use kivact::state::{Binding, binding};
+use kivact::state::{Signal, binding};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -30,7 +30,7 @@ impl Default for TransportState {
         }
     }
 }
-pub(super) fn controls(state: Signal<TransportState>) -> Binding<ui::TransportState> {
+pub(super) fn controls(state: Signal<TransportState>) -> Signal<ui::TransportState> {
     binding(
         (move || {
             let s = state.get();

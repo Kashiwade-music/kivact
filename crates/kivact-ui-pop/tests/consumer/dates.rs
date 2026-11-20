@@ -27,10 +27,8 @@ fn the_date_range_writes_only_a_complete_range() {
                 let start_label = kivact::state::IntoText::into_text_value(start_label);
                 let end_label = kivact::state::IntoText::into_text_value(end_label);
                 let (start, end) = (start, end);
-                let start: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                    kivact::state::IntoBinding::into_binding(start);
-                let end: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                    kivact::state::IntoBinding::into_binding(end);
+                let start: kivact::state::Signal<kivact::i18n::CalendarDate> = start;
+                let end: kivact::state::Signal<kivact::i18n::CalendarDate> = end;
                 let range = kivact::state::binding(
                     move || Some(kivact::i18n::DateRange::new(start.get(), end.get())),
                     move |range: Option<kivact::i18n::DateRange>| {
@@ -88,8 +86,7 @@ fn the_date_picker_writes_the_binding_and_closes() {
         || {
             let value = signal(date(2026, 10, 3));
             (value, {
-                let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                    kivact::state::IntoBinding::into_binding(value);
+                let value: kivact::state::Signal<kivact::i18n::CalendarDate> = value;
                 let value = kivact::state::binding(
                     move || Some(value.get()),
                     move |day| {

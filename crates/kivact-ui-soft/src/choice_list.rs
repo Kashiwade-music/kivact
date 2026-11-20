@@ -1,7 +1,7 @@
 //! Role: Labelled rows of checkbox and radio options.
 
-use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::column;
@@ -10,7 +10,6 @@ use kivact::view::row;
 use kivact::view::text;
 
 use kivact::interaction::ListItem;
-use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -32,21 +31,21 @@ use kivact::view::show_some;
 pub struct CheckboxList<K: ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
-    value: Binding<Vec<K>>,
+    value: Signal<Vec<K>>,
 }
 
 /// Build checkbox rows from keyed options and a writable collection of selected keys.
 pub fn checkbox_list<K: ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl IntoBinding<Vec<K>>,
+    selected: Signal<Vec<K>>,
 ) -> CheckboxList<K> {
     CheckboxList {
         root: node()
             .with_node(move |node| node.role(Role::Group))
             .name(label),
         options: items.into_value(),
-        value: selected.into_binding(),
+        value: selected,
     }
 }
 
@@ -54,7 +53,7 @@ pub fn checkbox_list<K: ItemKey>(
 pub fn radio_list<K: ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl IntoBinding<Option<K>>,
+    selected: Signal<Option<K>>,
 ) -> RadioGroup<K> {
     radio_group(label, items, selected)
 }
@@ -112,12 +111,12 @@ impl<K: ItemKey> IntoView for CheckboxList<K> {
 pub fn checkbox_list_item(
     label: impl IntoText,
     description: impl IntoValue<Option<String>>,
-    checked: impl IntoBinding<bool>,
+    checked: Signal<bool>,
 ) -> Node {
     checkbox_row(
         label.into_text_value(),
         description.into_value(),
-        checked.into_binding(),
+        checked,
         false.into_value(),
     )
 }
@@ -125,7 +124,7 @@ pub fn checkbox_list_item(
 fn checkbox_row(
     label: Value<String>,
     description: Value<Option<String>>,
-    checked: Binding<bool>,
+    checked: Signal<bool>,
     disabled: Value<bool>,
 ) -> Node {
     let control_ref = node_ref();

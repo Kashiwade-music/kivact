@@ -8,8 +8,8 @@ use kivact::view::icon;
 use kivact::view::{Element, Node, node, text};
 
 use kivact::interaction::ListItem;
-use kivact::state::{Binding, Value, memo};
 use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Signal, Value, memo};
 use kivact::style::{Align, Direction, Justify, Position, Style, pct, style};
 use kivact::view::{IntoView, View};
 use std::hash::Hash;
@@ -33,7 +33,7 @@ pub enum NativeSelectSize {
 pub struct NativeSelect<K: kivact::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
-    value: Binding<Option<K>>,
+    value: Signal<Option<K>>,
     placeholder: Option<Value<String>>,
     size: kivact::state::Value<NativeSelectSize>,
 }
@@ -58,12 +58,12 @@ pub struct NativeSelect<K: kivact::state::ItemKey> {
 #[track_caller]
 pub fn native_select<K: kivact::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact::state::IntoBinding<Option<K>>,
+    selected: kivact::state::Signal<Option<K>>,
 ) -> NativeSelect<K> {
     NativeSelect {
         root: node(),
         options: items.into_value(),
-        value: selected.into_binding(),
+        value: selected,
         placeholder: None,
         size: NativeSelectSize::Default.into_value(),
     }

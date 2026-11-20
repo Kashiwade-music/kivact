@@ -129,18 +129,14 @@ impl IntoView for Section {
             bleed_bottom,
         } = self;
         kivact::view::scope(move || {
-            let parent = try_use_context::<ContainerInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>().unwrap_or_default();
             let (left, right) = parent.sides();
-            let inherited = try_use_context::<SectionPadding>()
-                .map(|value| value.get())
-                .map_or(
-                    kivact::style::use_tokens::<crate::Tokens>()
-                        .spacing
-                        .section_padding,
-                    |padding| padding.0,
-                );
+            let inherited = try_use_context::<SectionPadding>().map_or(
+                kivact::style::use_tokens::<crate::Tokens>()
+                    .spacing
+                    .section_padding,
+                |padding| padding.0,
+            );
             let inset = padding.resolve(inherited);
             let layout_inset = LayoutInset::from_padding(inset);
             let content = provide(inset, move || provide(layout_inset, move || content));

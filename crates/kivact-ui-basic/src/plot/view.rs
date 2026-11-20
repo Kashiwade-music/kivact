@@ -8,9 +8,7 @@ use super::ticks::format_value;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::i18n::{Locale, message, message_with, use_locale};
 use kivact::interaction::{DragApi, DragCoordinates, DragUpdate, EditSession, use_drag};
-use kivact::state::{
-    Binding, Callback, IntoBinding, IntoText, IntoValue, Signal, Value, callback, signal,
-};
+use kivact::state::{Callback, IntoText, IntoValue, Signal, Value, callback, signal};
 use kivact::style::{Length, pct, style};
 use kivact::view::{
     EditPhase, Element, Handled, HandlerResult, IntoView, KeyEvent, MouseButton, Node,
@@ -26,7 +24,7 @@ pub struct Plot {
     root: Node,
     label: Value<String>,
     model: Value<PlotModel>,
-    range: Option<Binding<PlotRange>>,
+    range: Option<Signal<PlotRange>>,
     on_edit: Option<Callback<EditPhase>>,
     height: Value<Length>,
 }
@@ -68,8 +66,8 @@ impl Plot {
     /// Show and edit the visible range through `range`. Each edit writes the
     /// new `PlotRange::Manual` to the binding at once. Without a binding the
     /// plot keeps its own range, starting at `PlotRange::Auto`.
-    pub fn range(mut self, range: impl IntoBinding<PlotRange>) -> Self {
-        self.range = Some(range.into_binding());
+    pub fn range(mut self, range: Signal<PlotRange>) -> Self {
+        self.range = Some(range);
         self
     }
 
@@ -110,7 +108,7 @@ impl IntoView for Plot {
         } = self;
         let range = match range {
             Some(range) => range,
-            None => signal(PlotRange::Auto).into_binding(),
+            None => signal(PlotRange::Auto),
         };
         let locale = use_locale();
         let hover = signal(None::<Point>);
@@ -160,7 +158,7 @@ impl IntoView for Plot {
 /// The edit session of the range: its start is written back on cancel, and
 /// an observer given to [`Plot::on_edit`] hears each phase.
 fn session_edit(
-    range: Binding<PlotRange>,
+    range: Signal<PlotRange>,
     on_edit: Option<Callback<EditPhase>>,
 ) -> EditSession<PlotRange> {
     let edit = EditSession::new(move |initial: PlotRange| range.set(initial));
@@ -171,7 +169,7 @@ fn session_edit(
 }
 
 /// The visible range the plot shows now, read without tracking.
-fn current_view(range: Binding<PlotRange>, model: Value<PlotModel>) -> PlotView {
+fn current_view(range: Signal<PlotRange>, model: Value<PlotModel>) -> PlotView {
     model.with_untracked(|m| m.view_of(range.get_untracked()))
 }
 
@@ -189,7 +187,7 @@ fn apply_drag(
     update: &DragUpdate<PlotView>,
     size: Value<Option<Rect>>,
     model: Value<PlotModel>,
-    range: Binding<PlotRange>,
+    range: Signal<PlotRange>,
 ) {
     if update.delta == Point::new(0.0, 0.0) {
         return;
@@ -207,7 +205,7 @@ fn apply_drag(
 fn pointer_handler(
     hover: Signal<Option<Point>>,
     edit: EditSession<PlotRange>,
-    range: Binding<PlotRange>,
+    range: Signal<PlotRange>,
 ) -> impl Fn(PointerEvent) -> Handled + 'static {
     move |event: PointerEvent| match event.phase() {
         PointerPhase::Down(press) if press.button == MouseButton::Primary && press.clicks >= 2 => {
@@ -230,7 +228,7 @@ fn pointer_handler(
 /// during a drag is consumed without changing the range.
 fn wheel_handler(
     edit: EditSession<PlotRange>,
-    range: Binding<PlotRange>,
+    range: Signal<PlotRange>,
     model: Value<PlotModel>,
     size: Value<Option<Rect>>,
     dragging: Value<Option<PlotView>>,
@@ -259,7 +257,7 @@ fn wheel_handler(
 /// left to the rest of the chain (the drag takes Escape).
 fn key_handler(
     edit: EditSession<PlotRange>,
-    range: Binding<PlotRange>,
+    range: Signal<PlotRange>,
     model: Value<PlotModel>,
     dragging: Value<Option<PlotView>>,
 ) -> impl Fn(KeyEvent) -> Handled + 'static {

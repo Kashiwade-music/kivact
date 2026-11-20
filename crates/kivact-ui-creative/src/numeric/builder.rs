@@ -1,7 +1,7 @@
 //! Role: Build Creative numeric controls and store their construction options.
 
 use kivact::interaction::{ScalarMapping, ScalarRange, ScalarStep};
-use kivact::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, callback, memo};
+use kivact::state::{Callback, IntoText, IntoValue, Signal, Value, callback, memo};
 use kivact::style::use_theme;
 use kivact::style::{Cursor, Style, Theme, style};
 use kivact::view::EditPhase;
@@ -37,7 +37,7 @@ kivact::state::constant_value!(PropertyState);
 pub struct Numeric {
     pub(super) root: Node,
     pub(super) label: Value<String>,
-    pub(super) state: Binding<f64>,
+    pub(super) state: Signal<f64>,
     pub(super) kind: NumericKind,
     pub(super) range: Value<ScalarRange>,
     pub(super) step: Value<ScalarStep>,
@@ -60,7 +60,7 @@ pub struct Numeric {
 }
 
 #[track_caller]
-fn make(label: impl IntoText, value: Binding<f64>, kind: NumericKind) -> Numeric {
+fn make(label: impl IntoText, value: Signal<f64>, kind: NumericKind) -> Numeric {
     let label = label.into_text_value();
     let root = node()
         .focusable(true)
@@ -114,30 +114,30 @@ fn make(label: impl IntoText, value: Binding<f64>, kind: NumericKind) -> Numeric
 /// write is normalized into the range and is an edit of that scalar
 /// ([`on_edit`](Numeric::on_edit)).
 #[track_caller]
-pub fn number(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
-    make(label, value.into_binding(), NumericKind::Number)
+pub fn number(label: impl IntoText, value: Signal<f64>) -> Numeric {
+    make(label, value, NumericKind::Number)
 }
 
 /// A field with a tinted fill and an explicit value marker, editing `value`
 /// like [`number`]. A slider field scrubs and takes typed text; the plain
 /// track-and-thumb slider is `kivact::ui::slider`.
 #[track_caller]
-pub fn value_slider(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
-    make(label, value.into_binding(), NumericKind::Slider)
+pub fn value_slider(label: impl IntoText, value: Signal<f64>) -> Numeric {
+    make(label, value, NumericKind::Slider)
 }
 
 /// A rotary control editing `value`: vertical drag, wheel, arrow keys and
 /// double-click reset.
 #[track_caller]
-pub fn knob(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
-    make(label, value.into_binding(), NumericKind::Knob)
+pub fn knob(label: impl IntoText, value: Signal<f64>) -> Numeric {
+    make(label, value, NumericKind::Knob)
 }
 
 /// A channel fader editing `value`, with the square-root mapping
 /// [`ScalarMapping::skewed(0.5)`] over the configured range.
 #[track_caller]
-pub fn fader(label: impl IntoText, value: impl IntoBinding<f64>) -> Numeric {
-    make(label, value.into_binding(), NumericKind::Fader)
+pub fn fader(label: impl IntoText, value: Signal<f64>) -> Numeric {
+    make(label, value, NumericKind::Fader)
 }
 
 fn numeric_style(t: &Theme, kind: NumericKind) -> Style {

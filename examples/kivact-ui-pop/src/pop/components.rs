@@ -841,8 +841,7 @@ fn date_editor() -> impl kivact::view::Element {
     kivact::ui::field(
         "実施日",
         {
-            let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                kivact::state::IntoBinding::into_binding(date);
+            let value: kivact::state::Signal<kivact::i18n::CalendarDate> = date;
             let value = kivact::state::binding(
                 move || Some(value.get()),
                 move |day| {

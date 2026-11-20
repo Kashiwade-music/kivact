@@ -4,7 +4,7 @@ use crate::recipes_dialog::{body_text, scrim};
 use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
 use kivact::motion::Transition;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::column;
@@ -16,9 +16,7 @@ use kivact::view::text;
 use kivact::geometry::Point;
 use kivact::interaction::DialogMode;
 use kivact::interaction::{ViewTransform, use_zoom_pan};
-use kivact::state::Binding;
 use kivact::state::IntoValue;
-use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
 use kivact::state::signal;
@@ -68,20 +66,17 @@ impl LightboxMedia {
 
 /// Modal image gallery controlled by open and optional index bindings.
 pub struct Lightbox {
-    open: Binding<bool>,
+    open: Signal<bool>,
     media: Value<Vec<LightboxMedia>>,
-    index: Option<Binding<usize>>,
+    index: Option<Signal<usize>>,
     zoom: bool,
-    view: Option<Binding<LightboxView>>,
+    view: Option<Signal<LightboxView>>,
 }
 
 /// Create a gallery starting at index zero with zoom disabled.
-pub fn lightbox(
-    open: impl IntoBinding<bool>,
-    media: impl IntoValue<Vec<LightboxMedia>>,
-) -> Lightbox {
+pub fn lightbox(open: Signal<bool>, media: impl IntoValue<Vec<LightboxMedia>>) -> Lightbox {
     Lightbox {
-        open: open.into_binding(),
+        open,
         media: media.into_value(),
         index: None,
         zoom: false,
@@ -91,8 +86,8 @@ pub fn lightbox(
 
 impl Lightbox {
     /// Use the caller's zero-based active-index binding.
-    pub fn index(mut self, index: impl IntoBinding<usize>) -> Self {
-        self.index = Some(index.into_binding());
+    pub fn index(mut self, index: Signal<usize>) -> Self {
+        self.index = Some(index);
         self
     }
 
@@ -201,7 +196,7 @@ impl IntoView for Lightbox {
     fn into_view(self) -> View {
         let open = self.open;
         let media = self.media;
-        let index = self.index.unwrap_or_else(|| signal(0).into_binding());
+        let index = self.index.unwrap_or_else(|| signal(0));
         let active = move || index.get().min(media.get().len().saturating_sub(1));
         let selected = move || media.get().get(active()).cloned();
         let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
@@ -215,9 +210,7 @@ impl IntoView for Lightbox {
         let close_ref = node_ref();
         let behavior = use_dialog(open, DialogMode::Modal).initial_focus(close_ref);
         show(open, move || {
-            let view = self
-                .view
-                .unwrap_or_else(|| signal(LightboxView::Fit).into_binding());
+            let view = self.view.unwrap_or_else(|| signal(LightboxView::Fit));
             let zoomed = move || matches!(view.get(), LightboxView::Zoomed { .. });
             let transform = gallery_transform(view);
             let zoom_behavior = use_zoom_pan(transform).scale_range(1.0, 2.0);
@@ -295,7 +288,7 @@ fn control_position() -> Style {
         .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
 }
 
-fn gallery_transform(view: Binding<LightboxView>) -> Binding<ViewTransform> {
+fn gallery_transform(view: Signal<LightboxView>) -> Signal<ViewTransform> {
     binding(
         move || match view.get() {
             LightboxView::Fit => ViewTransform {
@@ -321,7 +314,7 @@ fn gallery_transform(view: Binding<LightboxView>) -> Binding<ViewTransform> {
 
 fn gallery_image(
     item: LightboxMedia,
-    transform: Binding<ViewTransform>,
+    transform: Signal<ViewTransform>,
     zoomed: impl Fn() -> bool + Copy + 'static,
     set_zoom: impl Fn(bool) + Copy + 'static,
     zoom: bool,
@@ -397,7 +390,7 @@ fn gallery_key(
     zoom: bool,
     zoomed: impl Fn() -> bool,
     set_zoom: impl Fn(bool),
-    view: Binding<LightboxView>,
+    view: Signal<LightboxView>,
     step: impl Fn(isize),
     rtl: bool,
 ) -> Handled {

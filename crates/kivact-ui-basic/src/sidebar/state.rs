@@ -4,7 +4,7 @@
 //! after the provider has established its normal context boundary. A part used
 //! outside a provider behaves as an expanded sidebar and its trigger does nothing.
 
-use kivact::state::Binding;
+use kivact::state::Signal;
 use kivact::state::try_use_context;
 
 /// The side of the window a sidebar sits on.
@@ -50,7 +50,7 @@ pub(crate) const WIDTH_ICON: f64 = 48.0;
 /// What the provider shares with the parts below it.
 #[derive(Clone, Copy)]
 pub(crate) struct SidebarCx {
-    pub(crate) open: Binding<bool>,
+    pub(crate) open: Signal<bool>,
     pub(crate) side: SidebarSide,
     pub(crate) variant: SidebarVariant,
     pub(crate) collapsible: SidebarCollapsible,
@@ -72,7 +72,7 @@ impl SidebarCx {
 
 /// The sidebar state of the provider above the current owner.
 pub(crate) fn current() -> Option<SidebarCx> {
-    try_use_context::<SidebarCx>().map(|value| value.get())
+    try_use_context::<SidebarCx>()
 }
 
 impl kivact::ui::Variant for SidebarVariant {}

@@ -5,7 +5,7 @@ use crate::mobile_nav::{AppShellMobile, mobile_nav, mobile_nav_toggle};
 use crate::scrollable_area::scrollable_area;
 use crate::stack::{ContainerInset, Space, rtl};
 
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::view::Element;
 use kivact::view::IntoViewFn;
@@ -17,7 +17,6 @@ use kivact::view::row;
 use kivact::view::scroll;
 use kivact::view::text;
 
-use kivact::state::Binding;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -74,15 +73,13 @@ pub(crate) enum ShellNavMode {
 }
 
 pub(crate) fn shell_nav_mode() -> ShellNavMode {
-    try_use_context::<ShellNavMode>()
-        .map(|value| value.get())
-        .unwrap_or_default()
+    try_use_context::<ShellNavMode>().unwrap_or_default()
 }
 
 /// Automatic mobile navigation configuration; defaults to a toggle and the Md breakpoint.
 pub struct MobileNavConfig {
     has_toggle: bool,
-    open: Option<Binding<bool>>,
+    open: Option<Signal<bool>>,
     on_change: Option<Callback<bool>>,
     content: Option<ViewFn>,
     breakpoint: Option<Breakpoint>,
@@ -107,8 +104,8 @@ impl MobileNavConfig {
         self
     }
     /// Bind drawer openness to caller state; omission creates initially closed local state.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Call a retained callback when an accepted drawer change changes the bound open value.
@@ -345,7 +342,7 @@ fn configure_mobile(
         None
     };
     let open = if enabled {
-        let value = config.open.unwrap_or_else(|| signal(false).into_binding());
+        let value = config.open.unwrap_or_else(|| signal(false));
         Some(kivact::state::binding(
             move || value.get(),
             move |open| {

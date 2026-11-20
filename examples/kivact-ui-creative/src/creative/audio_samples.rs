@@ -11,7 +11,7 @@ use kivact::prelude::{
     ColorToken, Element, IntoText, IntoView, Node, Orientation, Signal, column, effect, grid, node,
     rgb, row, signal, spacer, text,
 };
-use kivact::state::{Binding, Machine, Step, machine};
+use kivact::state::{Machine, Signal, Step, machine};
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact_ui_creative as ui;
@@ -32,7 +32,7 @@ fn lcd_note(value: impl IntoText) -> kivact::view::Node {
             .line_height(1.0),
     )
 }
-fn locator(tag: &str, label: &str, value: Binding<f64>) -> Node {
+fn locator(tag: &str, label: &str, value: Signal<f64>) -> Node {
     row((
         chip(tag, rgb(if tag == "L" { 0x5aa9ff } else { 0xff5c6c }))
             .style(style().padding_x(5).padding_y(3)),

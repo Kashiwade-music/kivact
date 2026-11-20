@@ -100,9 +100,7 @@ impl IntoView for Divider {
             let vertical = orientation.get() == Orientation::Vertical;
             let mut root = root.orientation(orientation.get()).with_node(move |node| {
                 node.base_style(move || {
-                    let inset = try_use_context::<ContainerInset>()
-                        .map(|value| value.get())
-                        .unwrap_or_default();
+                    let inset = try_use_context::<ContainerInset>().unwrap_or_default();
                     let mut base = style()
                         .shrink(0)
                         .align_self(Align::Stretch)

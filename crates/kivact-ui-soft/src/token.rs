@@ -1,5 +1,5 @@
 //! Role: Neutral entity tokens with independently operable removal.
-use kivact::state::IntoValue;
+use kivact::state::{IntoHandler, IntoValue};
 
 use crate::feedback::icon_box;
 use crate::recipe_style::{overlay, ring};
@@ -135,15 +135,17 @@ impl Token {
     }
 
     /// Run a callback when the main token action is activated.
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.press = Some(callback(move |_| press.call(())));
         self
     }
 
     /// Add a remove action and run the callback when it is activated.
-    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
-        let remove: Callback<()> = remove.into();
+    pub fn on_remove<M>(mut self, remove: impl IntoHandler<(), M>) -> Self {
+        let remove: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(remove));
         self.remove = Some(callback(move |_| remove.call(())));
         self
     }

@@ -1,24 +1,24 @@
 //! Role: Application-owned bindings for this component view state.
 use crate::editors::arrangement::model::TimelineTool;
 use kivact::interaction::ViewTransform;
-use kivact::state::IntoBinding;
-use kivact::state::{Binding, signal};
+use kivact::state::Signal;
+use kivact::state::signal;
 /// The view state of an [`arrangement`](crate::editors::arrangement).
 #[derive(Clone, Copy)]
 pub struct ArrangementState {
     /// The selected clip IDs.
-    pub selection: Binding<Vec<u64>>,
+    pub selection: Signal<Vec<u64>>,
     /// The playhead, in beats.
-    pub playhead: Binding<f64>,
+    pub playhead: Signal<f64>,
     /// The loop locators, start before end, in beats.
-    pub loop_range: Binding<(f64, f64)>,
+    pub loop_range: Signal<(f64, f64)>,
     /// Whether the loop is on.
-    pub cycling: Binding<bool>,
+    pub cycling: Signal<bool>,
     /// The shared view pose. Scale is horizontal pixels per logical time unit;
     /// offset is scrolling in logical pixels. Lane heights remain unscaled.
-    pub transform: Binding<ViewTransform>,
+    pub transform: Signal<ViewTransform>,
     /// The editing tool.
-    pub tool: Binding<TimelineTool>,
+    pub tool: Signal<TimelineTool>,
 }
 
 impl ArrangementState {
@@ -27,16 +27,15 @@ impl ArrangementState {
     #[track_caller]
     pub fn new() -> Self {
         Self {
-            selection: signal(Vec::new()).into_binding(),
-            playhead: signal(0.0).into_binding(),
-            loop_range: signal((0.0, 16.0)).into_binding(),
-            cycling: signal(true).into_binding(),
+            selection: signal(Vec::new()),
+            playhead: signal(0.0),
+            loop_range: signal((0.0, 16.0)),
+            cycling: signal(true),
             transform: signal(ViewTransform {
                 scale: 26.0,
                 ..ViewTransform::default()
-            })
-            .into_binding(),
-            tool: signal(TimelineTool::Select).into_binding(),
+            }),
+            tool: signal(TimelineTool::Select),
         }
     }
 }

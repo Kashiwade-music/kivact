@@ -66,8 +66,10 @@ pub fn notification_menu<V: IntoView + Element>(
     }
 }
 impl<V: IntoView + Element> NotificationMenu<V> {
-    pub fn on_mark_read(mut self, mark_read: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.mark_read = mark_read.into();
+    pub fn on_mark_read<M>(mut self, mark_read: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.mark_read = kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(mark_read),
+        );
         self
     }
 }

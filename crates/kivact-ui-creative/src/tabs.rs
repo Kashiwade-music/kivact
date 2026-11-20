@@ -1,6 +1,6 @@
 //! Role: The document tab slot: a close button and drag reordering on the standard tabs.
 
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragUpdate, TabState, use_drag};
@@ -31,7 +31,7 @@ const SWAP_DISTANCE: f64 = 60.0;
 pub fn document_tabs<K: kivact::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl IntoBinding<K>,
+    value: Signal<K>,
 ) -> DocumentTabs<K> {
     let items = items.into_value();
     DocumentTabs {

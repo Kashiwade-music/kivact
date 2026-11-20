@@ -238,8 +238,10 @@ impl SidebarMenuButton {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 
@@ -432,8 +434,10 @@ impl SidebarMenuSubButton {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }
@@ -507,10 +511,7 @@ pub fn sidebar_separator() -> impl kivact::view::Element {
 /// A text field for the sidebar (`SidebarInput`): the standard input, 32 px
 /// high, on the page color.
 #[track_caller]
-pub fn sidebar_input(
-    label: impl IntoText,
-    value: impl kivact::state::IntoBinding<String>,
-) -> TextInput {
+pub fn sidebar_input(label: impl IntoText, value: kivact::state::Signal<String>) -> TextInput {
     text_input(label, value).style(
         style()
             .width(pct(100))

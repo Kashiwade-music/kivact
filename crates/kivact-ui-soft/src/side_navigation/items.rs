@@ -12,9 +12,7 @@ use kivact::interaction::DialogMode;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::state::Binding;
 use kivact::state::Callback;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -22,6 +20,7 @@ use kivact::state::binding;
 use kivact::state::callback;
 use kivact::state::provide;
 use kivact::state::signal;
+use kivact::state::{IntoHandler, Signal};
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
@@ -61,7 +60,7 @@ pub enum ItemCollapse {
         default_collapsed: bool,
     },
     /// Read and write the caller's collapse binding.
-    Controlled(Binding<bool>),
+    Controlled(Signal<bool>),
 }
 
 // xtask-allow(state): legacy: icon, selected_icon, end, actions
@@ -143,8 +142,9 @@ impl SideNavItem {
         self
     }
     /// Handle activation of this navigation entry.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some(callback(move |_| action.call(())));
         self
     }
@@ -411,7 +411,7 @@ struct ItemSlots {
 #[derive(Clone, Copy)]
 struct ItemExpansion {
     /// Inverted view of the item's collapse binding.
-    open: Binding<bool>,
+    open: Signal<bool>,
     disclosure: kivact::interaction::DisclosureApi,
 }
 
@@ -449,7 +449,7 @@ impl ItemBranch {
             | Self::Leaf => None,
         }
     }
-    fn open(self) -> Option<Binding<bool>> {
+    fn open(self) -> Option<Signal<bool>> {
         match self {
             Self::Parent {
                 expansion: Some(expansion),
@@ -499,12 +499,10 @@ impl ItemContext {
         let branch = if has_children {
             let collapse = match collapse.get() {
                 ItemCollapse::AlwaysOpen => None,
-                ItemCollapse::Uncontrolled { default_collapsed } => {
-                    Some(signal(default_collapsed).into_binding())
-                }
+                ItemCollapse::Uncontrolled { default_collapsed } => Some(signal(default_collapsed)),
                 ItemCollapse::Controlled(binding) => Some(binding),
             };
-            let expansion = collapse.map(|collapse: Binding<bool>| {
+            let expansion = collapse.map(|collapse: Signal<bool>| {
                 let open = binding(move || !collapse.get(), move |open| collapse.set(!open));
                 ItemExpansion {
                     open,

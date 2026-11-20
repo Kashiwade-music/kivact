@@ -1,6 +1,6 @@
 //! Arrangement and timeline UI for the creative application.
 use crate::creative::audio_values::TransportState;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::common::{bind, col, keyed_options, line, note, separator};
 
@@ -28,9 +28,9 @@ pub(super) fn timeline(state: Signal<TransportState>, status: Signal<String>) ->
             clips,
             tracks,
             ui::ArrangementState {
-                selection: selected.into_binding(),
-                transform: transform.into_binding(),
-                tool: tool.into_binding(),
+                selection: selected,
+                transform: transform,
+                tool: tool,
                 playhead: bind(
                     move || state.get().frame / 12.0,
                     move |v| state.update(|s| s.frame = v * 12.0),
@@ -127,7 +127,7 @@ fn timeline_toolbar(
     tool: Signal<ui::TimelineTool>,
     snap: Signal<bool>,
     unit: Signal<Option<String>>,
-    zoom: kivact::state::Binding<f64>,
+    zoom: kivact::state::Signal<f64>,
     selected: Signal<Vec<u64>>,
 ) -> Node {
     line((

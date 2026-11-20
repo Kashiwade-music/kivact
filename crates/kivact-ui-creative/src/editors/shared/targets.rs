@@ -152,7 +152,7 @@ impl<T: kivact::state::ItemKey, A: kivact::state::PropValue> Targets<T, A> {
     }
 
     /// The target the keyboard acts on; any live target or none is valid.
-    pub(crate) fn active(self) -> kivact::state::Binding<Option<A>> {
+    pub(crate) fn active(self) -> kivact::state::Signal<Option<A>> {
         let state = self.controller.state();
         let controller = self.controller;
         kivact::state::binding(

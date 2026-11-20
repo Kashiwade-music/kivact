@@ -9,7 +9,7 @@ use kivact::i18n::message;
 use kivact::view::{Element, Node, column, node, row, scroll};
 
 use kivact::state::Value;
-use kivact::state::{IntoBinding, IntoValue, callback};
+use kivact::state::{IntoValue, callback};
 use kivact::style::{Align, Color, Cursor, Direction, Position, pct, style};
 use kivact::view::{Handled, IntoView, Key, Role, show};
 
@@ -104,7 +104,7 @@ impl IntoView for Sidebar {
     /// as an expanded sidebar outside a provider, `state.rs`).
     fn into_view(self) -> kivact::view::View {
         let cx = SidebarCx {
-            open: kivact::state::signal(true).into_binding(),
+            open: kivact::state::signal(true),
             side: self.side,
             variant: self.variant,
             collapsible: self.collapsible,
@@ -320,11 +320,10 @@ fn inset(cx: SidebarCx, page: kivact::view::View) -> Node {
 /// ```
 #[track_caller]
 pub fn sidebar_provider(
-    open: impl kivact::state::IntoBinding<bool>,
+    open: kivact::state::Signal<bool>,
     sidebar: Sidebar,
     page: impl IntoView,
 ) -> impl kivact::view::Element {
-    let open = open.into_binding();
     let cx = SidebarCx {
         open,
         side: sidebar.side,

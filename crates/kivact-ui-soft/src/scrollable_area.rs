@@ -124,9 +124,7 @@ impl IntoView for ScrollableArea {
             let content = node_ref();
             let state = viewport.scroll_state();
             let inset = padding.resolve(0.0);
-            let parent = try_use_context::<ContainerInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>().unwrap_or_default();
             let inner = column(provide(inset, move || child))
                 .node_ref(content)
                 .with_node(move |node| {

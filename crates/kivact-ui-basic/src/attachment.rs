@@ -154,8 +154,10 @@ impl Attachment {
     }
 
     /// Make the attachment a button that reports presses to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }

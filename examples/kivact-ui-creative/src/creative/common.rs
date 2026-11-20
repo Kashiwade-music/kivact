@@ -1,7 +1,7 @@
 //! Shared values and view builders for Creative catalog specimens.
 
 use kivact::prelude::{IntoText, IntoValue, IntoView, Node, Role, column, grid, node, row, text};
-use kivact::state::Binding;
+use kivact::state::Signal;
 use kivact::state::binding;
 use kivact::style::Track;
 use kivact::style::{Align, style};
@@ -179,7 +179,7 @@ pub(super) fn note(message: impl IntoText) -> kivact::view::Node {
 pub(super) fn bind<T: kivact::state::PropValue>(
     read: impl IntoValue<T>,
     write: impl Fn(T) + 'static,
-) -> Binding<T> {
+) -> Signal<T> {
     binding(read.into_value(), write)
 }
 
@@ -212,8 +212,8 @@ impl TextRow {
 pub(super) fn text_table(
     columns: &[(&str, f64)],
     rows: impl IntoValue<Vec<TextRow>>,
-    selected: impl kivact::state::IntoBinding<Vec<u64>>,
-    sort: impl kivact::state::IntoBinding<Option<(usize, kivact::interaction::SortOrder)>>,
+    selected: kivact::state::Signal<Vec<u64>>,
+    sort: kivact::state::Signal<Option<(usize, kivact::interaction::SortOrder)>>,
 ) -> kivact::ui::DataTable<TextRow, u64> {
     let columns = columns
         .iter()

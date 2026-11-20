@@ -243,7 +243,7 @@ fn time_scene<T: TimeItem>(
     data: Value<Vec<T>>,
     visible: Value<Vec<Lane>>,
     selection: Value<Vec<u64>>,
-) -> (TimeScene, kivact::state::Binding<Option<Target>>) {
+) -> (TimeScene, kivact::state::Signal<Option<Target>>) {
     let targets = targets::targets::<Target, Target>(move || {
         let selected = selection.get();
         let mut targets = vec![Target::Playhead];
@@ -268,7 +268,7 @@ fn time_scene<T: TimeItem>(
 fn time_selection<T: TimeItem>(
     data: Value<Vec<T>>,
     visible: Value<Vec<Lane>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> kivact::interaction::ListApi<u64> {
     let order = kivact::state::memo(move || {
         data.get()

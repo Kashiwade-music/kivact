@@ -1,12 +1,12 @@
 //! Role: A searchable, sectioned list of keyed items in a popup.
 
 use crate::ColorName;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use kivact::style::use_theme;
 use std::rc::Rc;
 
-use kivact::custom::Reactive;
+use kivact::custom::Prop;
 use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
@@ -55,14 +55,14 @@ pub struct PickerItem<K> {
     /// The application's identity for the item.
     pub key: K,
     /// What the row says; also its accessible name.
-    pub label: Reactive<String>,
+    pub label: Prop<String>,
     /// The heading of the run of rows this one belongs to. Rows with no
     /// section have no heading.
-    pub section: Option<Reactive<String>>,
+    pub section: Option<Prop<String>>,
     /// A line of detail after the label; also the row's accessible description.
-    pub description: Option<Reactive<String>>,
+    pub description: Option<Prop<String>>,
     /// A shortcut hint at the end of the row. It does not bind a key.
-    pub shortcut: Option<Reactive<String>>,
+    pub shortcut: Option<Prop<String>>,
     /// An icon before the label: a name in the theme's icon set or an image.
     pub icon: Option<Icon>,
     /// A disabled item stays in the list but is never active and cannot be
@@ -75,7 +75,7 @@ impl<K> PickerItem<K> {
     pub fn new(key: K, label: impl IntoText) -> Self {
         Self {
             key,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             section: None,
             description: None,
             shortcut: None,
@@ -87,19 +87,19 @@ impl<K> PickerItem<K> {
     /// Put the item under this heading. Neighbouring items with the same
     /// section share one heading.
     pub fn section(mut self, section: impl IntoText) -> Self {
-        self.section = Some(Reactive::new(section.into_text()));
+        self.section = Some(Prop::new(section.into_text()));
         self
     }
 
     /// Show this line of detail after the label.
     pub fn description(mut self, description: impl IntoText) -> Self {
-        self.description = Some(Reactive::new(description.into_text()));
+        self.description = Some(Prop::new(description.into_text()));
         self
     }
 
     /// Show this shortcut hint at the end of the row.
     pub fn shortcut(mut self, shortcut: impl IntoText) -> Self {
-        self.shortcut = Some(Reactive::new(shortcut.into_text()));
+        self.shortcut = Some(Prop::new(shortcut.into_text()));
         self
     }
 
@@ -256,8 +256,10 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// Tab in a single-column picker, a second press on the button, or the
     /// popup being removed. Setup only.
     #[track_caller]
-    pub fn on_cancel(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.parts.cancel = Some(f.into());
+    pub fn on_cancel<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.parts.cancel = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 
@@ -321,8 +323,8 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
     /// }
     /// ```
     #[track_caller]
-    pub fn at(self, anchor: NodeRef, position: impl IntoBinding<Option<Point>>) -> View {
-        let position = position.into_binding();
+    pub fn at(self, anchor: NodeRef, position: Signal<Option<Point>>) -> View {
+        let position = position;
         let point = position.into_value();
         let open = binding(
             (move || point.get().is_some()).into_value(),
@@ -363,7 +365,7 @@ impl<K: kivact::state::ItemKey> SearchPicker<K> {
 /// The search: the query, trimmed and lowercased, is part of the lowercased
 /// label, description or section. An empty query accepts everything.
 fn accepts<K>(query: &str, item: &PickerItem<K>) -> bool {
-    let has = |text: &Reactive<String>| text.get().to_lowercase().contains(query);
+    let has = |text: &Prop<String>| text.get().to_lowercase().contains(query);
     has(&item.label)
         || item.description.as_ref().is_some_and(has)
         || item.section.as_ref().is_some_and(has)
@@ -528,7 +530,7 @@ fn settle<K: kivact::state::ItemKey>(
 struct Run<K> {
     /// The position of the run, which keeps its rows while the list changes.
     index: usize,
-    section: Option<Reactive<String>>,
+    section: Option<Prop<String>>,
     items: Vec<PickerItem<K>>,
 }
 
@@ -753,7 +755,7 @@ fn column_combobox<K: kivact::state::ItemKey>(
 fn follow_columns<K: kivact::state::ItemKey>(
     multiple: bool,
     lists: Value<Vec<Vec<PickerItem<K>>>>,
-    query: kivact::state::Binding<String>,
+    query: kivact::state::Signal<String>,
     columns: MachineHandle<ColumnMachine<K>>,
 ) {
     if multiple {
@@ -779,7 +781,7 @@ fn column_key<K: kivact::state::ItemKey>(
     event: KeyEvent,
     multiple: bool,
     lists: Value<Vec<Vec<PickerItem<K>>>>,
-    query: kivact::state::Binding<String>,
+    query: kivact::state::Signal<String>,
     columns: MachineHandle<ColumnMachine<K>>,
 ) -> Handled {
     if !multiple || event.modifiers().ctrl || event.modifiers().alt || event.modifiers().meta {

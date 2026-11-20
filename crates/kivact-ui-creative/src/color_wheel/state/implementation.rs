@@ -5,14 +5,14 @@ use super::data::{ColorControls, ColorOwner, Snapshot, SwatchSelection};
 use super::{controls_machine, machine};
 use kivact::interaction::DragApi;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Callback, MachineHandle, Value, machine, memo};
+use kivact::state::{Callback, MachineHandle, Signal, Value, machine, memo};
 use kivact::style::Color;
 use kivact::view::EditPhase;
 
 #[derive(Clone, Copy)]
 pub(in crate::color_wheel) struct ColorOptions {
-    pub(in crate::color_wheel) color: Binding<Color>,
-    pub(in crate::color_wheel) palette: Option<Binding<Vec<Color>>>,
+    pub(in crate::color_wheel) color: Signal<Color>,
+    pub(in crate::color_wheel) palette: Option<Signal<Vec<Color>>>,
     pub(in crate::color_wheel) blocked: Value<bool>,
 }
 #[derive(Clone, Copy)]
@@ -30,8 +30,8 @@ impl std::ops::Deref for Model {
 }
 impl Model {
     pub(in crate::color_wheel) fn new(
-        color: Binding<Color>,
-        palette: Option<Binding<Vec<Color>>>,
+        color: Signal<Color>,
+        palette: Option<Signal<Vec<Color>>>,
         observer: Option<Callback<EditPhase>>,
         blocked: Value<bool>,
         drag: DragApi<Channel>,

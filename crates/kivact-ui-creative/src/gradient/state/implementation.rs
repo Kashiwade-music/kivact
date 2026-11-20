@@ -5,13 +5,13 @@ use super::machine;
 use kivact::interaction::DragApi;
 use kivact::state::IntoValue;
 
-use kivact::state::{Binding, Callback, MachineHandle, Value};
+use kivact::state::{Callback, MachineHandle, Signal, Value};
 use kivact::style::Color;
 use kivact::view::EditPhase;
 #[derive(Clone, Copy)]
 pub(in crate::gradient) struct GradientOptions {
-    pub(in crate::gradient) stops: Binding<Vec<GradientStop>>,
-    pub(in crate::gradient) selection: Binding<Option<usize>>,
+    pub(in crate::gradient) stops: Signal<Vec<GradientStop>>,
+    pub(in crate::gradient) selection: Signal<Option<usize>>,
     pub(in crate::gradient) blocked: Value<bool>,
     pub(in crate::gradient) valid: Value<bool>,
 }
@@ -28,8 +28,8 @@ impl std::ops::Deref for Model {
 }
 impl Model {
     pub(in crate::gradient) fn new(
-        stops: Binding<Vec<GradientStop>>,
-        selection: Binding<Option<usize>>,
+        stops: Signal<Vec<GradientStop>>,
+        selection: Signal<Option<usize>>,
         valid: Value<bool>,
         observer: Option<Callback<EditPhase>>,
         blocked: Value<bool>,

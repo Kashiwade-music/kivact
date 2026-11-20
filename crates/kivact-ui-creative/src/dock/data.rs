@@ -5,7 +5,7 @@ use super::model::{DockLayout, DockTabs};
 use kivact::custom::Generation;
 use kivact::geometry::Rect;
 use kivact::interaction::InlineEditApi;
-use kivact::state::{Binding, Callback, Signal, Value, Var};
+use kivact::state::{Callback, Signal, Value, Var};
 use kivact::view::EditPhase;
 
 use std::cell::{Cell, RefCell};
@@ -62,7 +62,7 @@ pub(super) struct Texts {
 // xtask-allow(state): independent: layout is the caller's binding of the dock layout, written by tab moves and closes; gesture is the tab drag or rename in progress; shared is the rows' registry, made with the dock
 /// Copy handles shared by every row of one dock.
 pub(super) struct DockCx<K: kivact::state::ItemKey> {
-    pub(super) layout: Binding<DockLayout<K>>,
+    pub(super) layout: Signal<DockLayout<K>>,
     pub(super) on_edit: Option<Callback<EditPhase>>,
     /// The normalized layout.
     pub(super) current: Value<DockLayout<K>>,

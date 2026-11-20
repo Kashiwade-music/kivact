@@ -1,5 +1,5 @@
 //! Role: Neutral text links with explicit native activation.
-use kivact::state::IntoValue;
+use kivact::state::{IntoHandler, IntoValue};
 
 use crate::TextKind;
 use crate::feedback::icon_box;
@@ -104,8 +104,9 @@ impl Link {
     }
 
     /// Handle activation; the caller performs navigation or another action.
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.press = Some(callback(move |_| press.call(())));
         self
     }

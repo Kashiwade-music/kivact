@@ -5,9 +5,9 @@ use crate::editors::graph::layout::{Space, fit, number, snapped};
 use crate::editors::graph::model::Interpolation;
 use crate::editors::graph::model::{CurveTangent, GraphRequest, GraphView, KeyMove};
 use kivact::interaction::ListGesture;
-use kivact::state::Binding;
+use kivact::state::Signal;
 
-pub(crate) fn restore(view: Binding<GraphView>, playhead: Binding<f64>, snapshot: Snapshot) {
+pub(crate) fn restore(view: Signal<GraphView>, playhead: Signal<f64>, snapshot: Snapshot) {
     match snapshot {
         Snapshot::View(initial) => view.set(initial),
         Snapshot::Playhead(initial) => playhead.set(initial),

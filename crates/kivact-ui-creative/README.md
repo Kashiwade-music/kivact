@@ -104,7 +104,7 @@ Timeline and DopeSheet accept read-only item values. Their
 `on_edit(|event: EditorEvent<TimeRequest>| ..)` reports `Begin`, absolute `Retime`
 or `Delete` requests, and `Commit` or `Cancel`. Applications apply requests to
 their own items and restore them on cancellation; ignored requests leave items
-unchanged. Playhead and selection are bindings of `TimeState`; its `transform: Binding<ViewTransform>` owns both the horizontal scale and pixel scroll offset. Each drag proposal
+unchanged. Playhead and selection are bindings of `TimeState`; its `transform: Signal<ViewTransform>` owns both the horizontal scale and pixel scroll offset. Each drag proposal
 uses the items at `Begin`, so applying only the latest request is sufficient.
 In every domain editor a drag reports `Begin` at its first change, not at the
 press: a press that does not move selects or, as a stationary double click,
@@ -239,7 +239,7 @@ fn tool_window() -> impl IntoView {
 ```
 
 `tool_window(anchor, open, options).content(content)` is the same window that the
-application opens and closes through a `Binding<bool>`; `tool_window_button` is
+application opens and closes through a `Signal<bool>`; `tool_window_button` is
 a button and a state of its own on top of it. Every way to close it (the close
 button, Escape, Dismiss, `ToolWindowApi::hide`, an outside press on a
 nonmodal window, unmounting) writes `false`. A nonmodal window gives the focus

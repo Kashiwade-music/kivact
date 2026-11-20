@@ -1,5 +1,5 @@
 //! Media pool and asset browser for creative application.
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::common::{col, keyed_options, line, note};
 use kivact::geometry::Point;
@@ -52,7 +52,7 @@ pub(super) fn media() -> impl IntoView {
                     .collect::<Vec<_>>()
             })
         },
-        Selection::Multiple(selected.into_binding()),
+        Selection::Multiple(selected),
         ListOptions {
             range: ListRangeOptions {
                 shift: ListRangeMode::Add,

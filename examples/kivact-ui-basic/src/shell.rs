@@ -114,11 +114,7 @@ fn component_items(query: Signal<String>) -> Value<Vec<ListItem<usize>>> {
 fn component_list(selected: Signal<Option<usize>>) -> Node {
     let query = signal(String::new());
     let items = component_items(query);
-    let nav = use_list(
-        items,
-        Selection::Single(selected.into_binding()),
-        ListOptions::default(),
-    );
+    let nav = use_list(items, Selection::Single(selected), ListOptions::default());
     let rows = for_each(
         items,
         |item| *item.key(),

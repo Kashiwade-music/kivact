@@ -1,7 +1,7 @@
 //! Role: The Lyra trace: muted activity lines with a collapsible detail.
 use crate::Tokens;
 use crate::parts::sized_icon;
-use kivact::state::{IntoBinding, IntoText, Value};
+use kivact::state::{IntoText, Signal, Value};
 use kivact::style::{Align, Cursor, Direction, Style, Theme, pct, style, use_tokens};
 use kivact::view::{Element, IntoView, IntoViewFn, Node, View, column, icon, node, text};
 
@@ -126,11 +126,10 @@ impl IntoView for TraceLine {
 /// ```
 #[track_caller]
 pub fn trace_collapsible<V: IntoView>(
-    open: impl IntoBinding<bool>,
+    open: Signal<bool>,
     line: TraceLine,
     content: impl IntoViewFn<V>,
 ) -> impl Element {
-    let open = open.into_binding();
     let title = line.title;
     let chevron = node()
         .style(move || {

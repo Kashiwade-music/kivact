@@ -108,8 +108,10 @@ impl Arrangement {
     }
     /// Run when the add-track action is invoked. Setup only.
     #[track_caller]
-    pub fn on_add_track(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.add_track = Some(f.into());
+    pub fn on_add_track<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.add_track = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
     pub fn markers(mut self, markers: impl IntoValue<Vec<TimelineMarker>>) -> Self {
@@ -312,13 +314,13 @@ fn validated_length(length: Value<f64>) -> Value<f64> {
 struct CollectionInputs {
     selection: Value<Vec<u64>>,
     regions: Value<crate::editors::arrangement::a11y::targets::Regions>,
-    active_auto: kivact::state::Binding<Option<(u64, u64)>>,
+    active_auto: kivact::state::Signal<Option<(u64, u64)>>,
     choose: kivact::interaction::ListApi<u64>,
 }
 fn collection_inputs(
     data: Value<Vec<Clip>>,
     track_data: Value<Vec<TimelineTrack>>,
-    selected: kivact::state::Binding<Vec<u64>>,
+    selected: kivact::state::Signal<Vec<u64>>,
 ) -> CollectionInputs {
     let selection = selected.into_value();
     let (regions, active_auto) =
@@ -340,10 +342,10 @@ fn collection_inputs(
 }
 
 fn arrangement_edit(
-    playhead: kivact::state::Binding<f64>,
-    loop_range: kivact::state::Binding<(f64, f64)>,
-    cycling: kivact::state::Binding<bool>,
-    transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
+    playhead: kivact::state::Signal<f64>,
+    loop_range: kivact::state::Signal<(f64, f64)>,
+    cycling: kivact::state::Signal<bool>,
+    transform: kivact::state::Signal<kivact::interaction::ViewTransform>,
     on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<ArrangementRequest>>>,
 ) -> EditSession<super::gesture::Snapshot> {
     let restore = super::edit::Restore {

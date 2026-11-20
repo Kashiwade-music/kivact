@@ -13,13 +13,12 @@ use kivact::interaction::pull_to_snap;
 use kivact::interaction::resist_overshoot;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_drag;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
 use kivact::state::PropValue;
+use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -120,7 +119,7 @@ pub enum DialogPurpose {
 /// Bottom-aligned sheet rebuilt on each opening from the caller's open binding.
 pub struct BottomSheet {
     label: kivact::state::Value<String>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     purpose: DialogPurpose,
     height: SheetHeight,
     snap_points: Vec<SnapPoint>,
@@ -131,10 +130,10 @@ pub struct BottomSheet {
 }
 
 /// Create an informational sheet with capped height, a scrim and 16-pixel body padding.
-pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> BottomSheet {
+pub fn bottom_sheet(label: impl IntoText, open: Signal<bool>) -> BottomSheet {
     BottomSheet {
         label: label.into_text_value(),
-        open: open.into_binding(),
+        open,
         purpose: DialogPurpose::Info,
         height: SheetHeight::Capped,
         snap_points: Vec::new(),
@@ -148,7 +147,7 @@ pub fn bottom_sheet(label: impl IntoText, open: impl IntoBinding<bool>) -> Botto
 /// Opens one of several independent sheets from a shared step binding.
 pub fn bottom_sheet_flow<K: PropValue>(
     label: impl IntoText,
-    step: Binding<Option<K>>,
+    step: Signal<Option<K>>,
     key: K,
 ) -> BottomSheet {
     let selected = key.clone();
@@ -343,7 +342,7 @@ struct SheetMachine {
 fn sheet_machine(
     detents: SheetDetents,
     purpose: DialogPurpose,
-    open: Binding<bool>,
+    open: Signal<bool>,
 ) -> MachineHandle<SheetMachine> {
     machine(
         Sheet::Resting { snap: 0 },
@@ -477,7 +476,7 @@ fn sheet_scrim(
     scrim_detents: SheetDetents,
     sheet: Value<Sheet>,
     dismiss: DismissOn,
-    open: Binding<bool>,
+    open: Signal<bool>,
 ) -> Option<kivact::view::Node> {
     modal.then(|| {
         node()

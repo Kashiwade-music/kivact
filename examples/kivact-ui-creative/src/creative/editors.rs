@@ -1,6 +1,6 @@
 //! Editors and input controls for creative editing.
 use crate::creative::audio_values::TransportState;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::num;
@@ -14,12 +14,12 @@ use kivact::prelude::{
     Element, IntoView, Node, NodeRef, Role, Signal, dynamic, memo, node, rgb, row, signal, spacer,
     text,
 };
-use kivact::state::Binding;
+use kivact::state::Signal;
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact_ui_creative as ui;
 
-fn playhead(state: Signal<TransportState>) -> Binding<f64> {
+fn playhead(state: Signal<TransportState>) -> Signal<f64> {
     bind(
         move || state.get().frame,
         move |v| state.update(|s| s.frame = v.max(0.0)),
@@ -77,7 +77,7 @@ pub(super) fn nodes() -> impl IntoView {
         scale: 0.85,
     });
     col((node().style(style().position(Position::Relative).height(480)).child((
-        ui::node_editor(data,connections, ui::NodeState { selection: selected.into_binding(), transform: transform.into_binding(), ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
+        ui::node_editor(data,connections, ui::NodeState { selection: selected, transform: transform, ..ui::NodeState::new() }).can_connect(move |link| super::node_model::can_connect(&data.get_untracked(), link)).on_edit(super::node_model::edits(data, connections)).style(style().height(480)).test_id("creative-node-editor"),
         line((kivact::ui::select("Selection", keyed_options([("compositor", "Compositor"), ("geometry-nodes", "Geometry Nodes"), ("shader-editor", "Shader Editor")]), signal(Some("compositor".to_owned()))).placeholder("").style(style().width(136)),kivact::ui::toggle_button("Use Nodes", signal(true)))).style(style().position(Position::Absolute).bottom(8).left(8)),
         line((kivact::ui::menu("Add", ["Image", "Blur", "Mix", "Color Balance", "Keying"].into_iter().map(|label| MenuEntry::item(label, label)).collect::<Vec<_>>()).on_activate(move |label: &'static str| super::node_model::add(data, label)).offset(0.0).attach(kivact::ui::button("Add").variant(kivact::ui::ButtonVariant::Secondary).trailing(kivact::view::icon("chevron-down"))),kivact::ui::button("Frame All").variant(kivact::ui::ButtonVariant::Secondary).on_press(move || transform.set(kivact::interaction::ViewTransform{offset:Point::new(300.0,0.0),scale:0.85})))).style(style().position(Position::Absolute).top(8).right(8)),
     )), row((note(move || format!("{} nodes · {} links · {:.0}%", data.with(Vec::len), connections.with(Vec::len), transform.get().scale * 100.0)), spacer(), note("ヘッダーをドラッグ / 出力 → 入力で接続 / Del: 選択削除 / Ctrl-wheel: zoom / Middle: pan"))).style(style().padding(12))))
@@ -469,8 +469,8 @@ fn animation_graph_editor(
     ui::graph_editor(
         graph,
         ui::GraphState {
-            view: graph_view.into_binding(),
-            selection: graph_selected.into_binding(),
+            view: graph_view,
+            selection: graph_selected,
             playhead: playhead(state),
         },
     )
@@ -560,8 +560,8 @@ fn animation_graph_toolbar(
 
 fn animation_dope_sheet(
     state: Signal<TransportState>,
-    keys: Binding<Vec<ui::Keyframe>>,
-    selected: Binding<Vec<u64>>,
+    keys: Signal<Vec<ui::Keyframe>>,
+    selected: Signal<Vec<u64>>,
     initial_keys: Signal<super::txn::Txn<Vec<ui::Keyframe>>>,
     transform: Signal<kivact::interaction::ViewTransform>,
 ) -> impl IntoView {
@@ -570,7 +570,7 @@ fn animation_dope_sheet(
         ui::TimeState {
             selection: selected,
             playhead: playhead(state),
-            transform: transform.into_binding(),
+            transform: transform,
         },
     )
     .on_edit(move |event| match event {
@@ -608,7 +608,7 @@ fn animation_dope_sheet(
     .test_id("creative-dopesheet")
 }
 
-fn animation_dope_toolbar(state: Signal<TransportState>, keys: Binding<Vec<ui::Keyframe>>) -> Node {
+fn animation_dope_toolbar(state: Signal<TransportState>, keys: Signal<Vec<ui::Keyframe>>) -> Node {
     line((
         text("Dope Sheet").style(style().weight(600)),
         kivact::ui::select(
@@ -689,7 +689,7 @@ fn picker_popover() -> Node {
     .style(style().min_height(516))
 }
 
-fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, hex: Binding<String>) -> Node {
+fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, hex: Signal<String>) -> Node {
     spec(
         "Inline Picker",
         "インライン",
@@ -864,7 +864,7 @@ fn grading_scopes(
 }
 
 /// One of the grading viewer's two display toggles over [`Grade`].
-fn grade_toggle(grade: Signal<Grade>, value: Grade) -> Binding<bool> {
+fn grade_toggle(grade: Signal<Grade>, value: Grade) -> Signal<bool> {
     kivact::state::binding(
         move || grade.get() == value,
         move |on: bool| grade.set(if on { value } else { Grade::Graded }),
@@ -873,8 +873,8 @@ fn grade_toggle(grade: Signal<Grade>, value: Grade) -> Binding<bool> {
 
 fn grading_viewer(
     worker_image: Signal<Option<kivact::draw::Pixels>>,
-    bypass: Binding<bool>,
-    wipe: Binding<bool>,
+    bypass: Signal<bool>,
+    wipe: Signal<bool>,
 ) -> Node {
     col((
         line((

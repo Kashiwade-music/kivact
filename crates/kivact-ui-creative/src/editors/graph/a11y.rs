@@ -5,7 +5,7 @@ use crate::editors::graph::model::Interpolation;
 use crate::editors::shared::model::Lane;
 use kivact::custom::part;
 use kivact::interaction::DragApi;
-use kivact::state::{Binding, Value};
+use kivact::state::{Signal, Value};
 use kivact::view::Node;
 use kivact::view::{A11yAction, A11yRequest, Role};
 use std::rc::Rc;
@@ -45,7 +45,7 @@ pub(crate) fn visible(
 pub(crate) fn scene(
     curves: Value<Vec<Curve>>,
     visible: Value<Vec<VisibleKey>>,
-    selected: Binding<Vec<u64>>,
+    selected: Signal<Vec<u64>>,
     lanes: Value<Vec<Lane>>,
 ) -> crate::editors::shared::targets::Targets<Target, Target> {
     crate::editors::shared::targets::targets(move || {

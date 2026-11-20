@@ -56,11 +56,11 @@ impl TestTime for ui::Keyframe {
 }
 
 pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
-    items: impl kivact::state::IntoBinding<Vec<T>>,
+    items: kivact::state::Signal<Vec<T>>,
     apply: fn(&mut Vec<T>, &ui::TimeRequest),
     observer: impl Fn(kivact::view::EditPhase) -> R + 'static,
 ) -> impl Fn(ui::EditorEvent<ui::TimeRequest>) + 'static {
-    let items = items.into_binding();
+    let items = items;
     let initial = signal(None::<Vec<T>>);
     let observer = callback(observer);
     move |event| match event {
@@ -93,17 +93,17 @@ pub(crate) fn time_edits<T: TestTime, R: kivact::view::HandlerResult>(
 }
 
 pub(crate) fn app_timeline(
-    items: impl kivact::state::IntoBinding<Vec<ui::Clip>>,
+    items: kivact::state::Signal<Vec<ui::Clip>>,
     state: ui::TimeState,
 ) -> ui::Timeline {
-    let items = items.into_binding();
+    let items = items;
     ui::timeline_editor(items, state).on_edit(time_edits(items, apply_clips, |_| {}))
 }
 
 pub(crate) fn app_dope_sheet(
-    items: impl kivact::state::IntoBinding<Vec<ui::Keyframe>>,
+    items: kivact::state::Signal<Vec<ui::Keyframe>>,
     state: ui::TimeState,
 ) -> ui::DopeSheet {
-    let items = items.into_binding();
+    let items = items;
     ui::dope_sheet(items, state).on_edit(time_edits(items, apply_keys, |_| {}))
 }

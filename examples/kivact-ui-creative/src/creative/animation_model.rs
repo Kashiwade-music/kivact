@@ -1,7 +1,7 @@
 //! Domain projection for graph and dope edits of the same animation.
 use super::common::bind;
 use kivact::prelude::{Signal, rgb};
-use kivact::state::Binding;
+use kivact::state::Signal;
 use kivact_ui_creative as ui;
 use std::collections::{HashMap, HashSet};
 const ROWS: [&str; 8] = [
@@ -64,7 +64,7 @@ fn members(key: &ui::Keyframe, curves: &[ui::Curve]) -> Vec<u64> {
 pub(super) fn bindings(
     curves: Signal<Vec<ui::Curve>>,
     selection: Signal<Vec<u64>>,
-) -> (Binding<Vec<ui::Keyframe>>, Binding<Vec<u64>>) {
+) -> (Signal<Vec<ui::Keyframe>>, Signal<Vec<u64>>) {
     let read = move || projected(&curves.get());
     let keys = bind(read, move |next: Vec<ui::Keyframe>| {
         let mut data = curves.get_untracked();

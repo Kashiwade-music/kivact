@@ -15,7 +15,7 @@ use kivact_ui_game as g;
 pub(super) fn segmented<K: kivact::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact::state::IntoBinding<Option<K>>,
+    value: kivact::state::Signal<Option<K>>,
 ) -> RadioGroup<K> {
     radio_group(label, options, value)
         .orientation(Orientation::Horizontal)

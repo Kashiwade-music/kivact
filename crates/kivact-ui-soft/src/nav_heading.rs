@@ -6,7 +6,7 @@ use kivact::i18n::{message, message_with};
 use kivact::interaction::Delays;
 use kivact::interaction::use_menu_with_open;
 use kivact::motion::Transition;
-use kivact::state::IntoValue;
+use kivact::state::{IntoHandler, IntoValue};
 use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
@@ -76,8 +76,9 @@ impl NavHeadingMenuItem {
         self
     }
     /// Handle selection of this heading-menu entry.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some(callback(move |_| action.call(())));
         self
     }
@@ -301,20 +302,23 @@ impl SideNavHeading {
         self
     }
     /// Handle activation of the main heading label.
-    pub fn on_heading_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_heading_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.heading_action = Some(callback(move |_| press.call(())));
         self
     }
     /// Handle activation of the supporting label above the heading.
-    pub fn on_superheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_superheading_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.super_action = Some(callback(move |_| press.call(())));
         self
     }
     /// Handle activation of the supporting label below the heading.
-    pub fn on_subheading_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_subheading_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.sub_action = Some(callback(move |_| press.call(())));
         self
     }

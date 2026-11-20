@@ -1,7 +1,7 @@
 //! Role: Color popup of the Creative kit with live editing and rollback.
 use super::machine;
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::ui::button;
 use kivact::view::Element;
 
@@ -17,12 +17,9 @@ use kivact::view::{DismissReason, Placement, overlay};
 
 /// A live color edit transaction: Escape restores the opening color; outside dismissal commits.
 #[track_caller]
-pub fn color_popup(
-    label: impl IntoText,
-    color: impl IntoBinding<Color>,
-) -> impl kivact::view::Element {
+pub fn color_popup(label: impl IntoText, color: Signal<Color>) -> impl kivact::view::Element {
     let label = label.into_text_value();
-    let color = color.into_binding();
+    let color = color;
     let value = color.into_value();
     let phase = machine(
         machine::ColorPopupPhase::Closed,

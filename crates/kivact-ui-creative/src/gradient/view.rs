@@ -8,10 +8,10 @@ use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::callback;
-use kivact::state::{Binding, Callback, binding, memo};
+use kivact::state::{Callback, binding, memo};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
@@ -34,8 +34,8 @@ use std::rc::Rc;
 /// `gradient.stop`, `gradient.position`, `gradient.add` and `gradient.remove`.
 pub struct GradientEditor {
     root: Node,
-    stops: Binding<Vec<GradientStop>>,
-    selection: Binding<Option<usize>>,
+    stops: Signal<Vec<GradientStop>>,
+    selection: Signal<Option<usize>>,
     to_display: Rc<dyn Fn(Color) -> Color>,
     from_display: Rc<dyn Fn(Color) -> Color>,
     edit: Option<Callback<EditPhase>>,
@@ -46,15 +46,15 @@ pub struct GradientEditor {
 /// root name is set with Element::name.
 #[track_caller]
 pub fn gradient_editor(
-    stops: impl IntoBinding<Vec<GradientStop>>,
-    selected: impl IntoBinding<Option<usize>>,
+    stops: Signal<Vec<GradientStop>>,
+    selected: Signal<Option<usize>>,
 ) -> GradientEditor {
     GradientEditor {
         root: column(())
             .role(Role::Group)
             .style(style().gap(8).width(pct(100)).min_width(0)),
-        stops: stops.into_binding(),
-        selection: selected.into_binding(),
+        stops: stops,
+        selection: selected,
         to_display: Rc::new(|c| c),
         from_display: Rc::new(|c| c),
         edit: None,

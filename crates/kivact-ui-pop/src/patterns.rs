@@ -39,8 +39,10 @@ impl AgendaItem {
         self
     }
     /// Adds a details button that reports activation to the application.
-    pub fn on_details(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_details = Some(f.into());
+    pub fn on_details<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_details = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }

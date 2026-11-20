@@ -10,7 +10,7 @@ use kivact::i18n::message;
 use kivact::interaction::ListItem;
 use kivact::state::IntoValue;
 use kivact::state::callback;
-use kivact::state::{Binding, Value, binding, machine, memo};
+use kivact::state::{Signal, Value, binding, machine, memo};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::Element;
@@ -20,7 +20,7 @@ use kivact::view::{column, row};
 
 pub(in crate::color_wheel) fn fields(
     state: State,
-    model: Binding<ColorModel>,
+    model: Signal<ColorModel>,
     alpha: Value<bool>,
 ) -> View {
     let current = model.into_value();

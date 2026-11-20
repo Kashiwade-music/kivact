@@ -1,8 +1,8 @@
 //! Demonstrate the standard anchored layers, dialogs and notifications.
 use super::specimen::specimen;
 use kivact::interaction::{Command, DialogMode, MenuEntry, Toast, toaster};
-use kivact::state::IntoBinding;
-use kivact::state::{Binding, signal};
+use kivact::state::Signal;
+use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{
     ButtonVariant, button, command_palette, dialog, hover_card, menu, toast_region, tooltip,
@@ -126,7 +126,7 @@ fn example_bottom_sheet() -> Node {
 fn example_bottom_sheet_switcher() -> Node {
     {
         let step = signal(None);
-        let selected: Binding<Option<u8>> = step.into_binding();
+        let selected: Signal<Option<u8>> = step;
         specimen(
             "Two sheet steps",
             (

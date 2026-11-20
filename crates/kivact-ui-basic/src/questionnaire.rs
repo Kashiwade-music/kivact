@@ -3,7 +3,7 @@
 use kivact::i18n::{message, message_with};
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListItemState, ListOptions, Selection, use_list};
-use kivact::state::{Binding, Callback, Value, binding, memo};
+use kivact::state::{Callback, Signal, Value, binding, memo};
 use kivact::state::{IntoValue, callback};
 use kivact::state::{Machine, Step, machine};
 use kivact::style::{Align, Color, Direction, Justify, Position, pct, style};
@@ -168,8 +168,8 @@ impl QuestionnaireStep {
 pub struct Questionnaire {
     root: Node,
     steps: Value<Vec<QuestionnaireStep>>,
-    current: Binding<usize>,
-    answers: Binding<Vec<QuestionnaireAnswer>>,
+    current: Signal<usize>,
+    answers: Signal<Vec<QuestionnaireAnswer>>,
     submit: Option<Callback<Vec<QuestionnaireAnswer>>>,
 }
 
@@ -198,8 +198,8 @@ pub struct Questionnaire {
 #[track_caller]
 pub fn questionnaire(
     steps: impl IntoValue<Vec<QuestionnaireStep>>,
-    current: impl kivact::state::IntoBinding<usize>,
-    answers: impl kivact::state::IntoBinding<Vec<QuestionnaireAnswer>>,
+    current: kivact::state::Signal<usize>,
+    answers: kivact::state::Signal<Vec<QuestionnaireAnswer>>,
 ) -> Questionnaire {
     Questionnaire {
         root: node()
@@ -214,8 +214,8 @@ pub fn questionnaire(
                     .shrink(0),
             ),
         steps: steps.into_value(),
-        current: current.into_binding(),
-        answers: answers.into_binding(),
+        current,
+        answers,
         submit: None,
     }
 }
@@ -239,7 +239,7 @@ impl Element for Questionnaire {
 }
 
 /// Write the answer of step `at`, growing the answer list.
-fn set_answer(answers: Binding<Vec<QuestionnaireAnswer>>, at: usize, value: QuestionnaireAnswer) {
+fn set_answer(answers: Signal<Vec<QuestionnaireAnswer>>, at: usize, value: QuestionnaireAnswer) {
     let mut all = answers.get();
     if all.len() <= at {
         all.resize(at + 1, QuestionnaireAnswer::Unanswered);
@@ -249,10 +249,7 @@ fn set_answer(answers: Binding<Vec<QuestionnaireAnswer>>, at: usize, value: Ques
 }
 
 /// The answer of step `at` as a binding that grows the answer list.
-fn answer_of(
-    answers: Binding<Vec<QuestionnaireAnswer>>,
-    at: usize,
-) -> Binding<QuestionnaireAnswer> {
+fn answer_of(answers: Signal<Vec<QuestionnaireAnswer>>, at: usize) -> Signal<QuestionnaireAnswer> {
     binding(
         move || answers.with(|a| a.get(at).cloned().unwrap_or_default()),
         move |value: QuestionnaireAnswer| set_answer(answers, at, value),
@@ -321,7 +318,7 @@ fn choice_card(choice: &QuestionnaireChoice, part: kivact::custom::Part<ListItem
 }
 
 /// The question of one step: its title, description and answer control.
-fn question(step: &QuestionnaireStep, answer: Binding<QuestionnaireAnswer>) -> Node {
+fn question(step: &QuestionnaireStep, answer: Signal<QuestionnaireAnswer>) -> Node {
     let title = step.title.clone();
     let mut parts = vec![
         text(title.clone())
@@ -495,7 +492,7 @@ fn choice_indicator(state: Value<ListItemState>) -> Node {
 fn input_answer(
     title: String,
     placeholder: Option<&String>,
-    answer: Binding<QuestionnaireAnswer>,
+    answer: Signal<QuestionnaireAnswer>,
 ) -> View {
     let text_value = binding(
         move || {
@@ -520,8 +517,8 @@ fn input_answer(
 }
 
 fn questionnaire_actions(
-    current: Binding<usize>,
-    answers: Binding<Vec<QuestionnaireAnswer>>,
+    current: Signal<usize>,
+    answers: Signal<Vec<QuestionnaireAnswer>>,
     steps: Value<Vec<QuestionnaireStep>>,
     index: Value<usize>,
     total: Value<usize>,

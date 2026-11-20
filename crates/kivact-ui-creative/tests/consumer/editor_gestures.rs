@@ -182,7 +182,7 @@ fn timeline_trimming_updates_consumer_clip_bounds() {
             app_timeline(
                 data,
                 ui::TimeState {
-                    selection: (signal(vec![1])).into_binding(),
+                    selection: (signal(vec![1])),
                     ..ui::TimeState::new()
                 },
             )
@@ -252,9 +252,9 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::Timeline => app_timeline(
             clips,
             ui::TimeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -266,9 +266,9 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::DopeSheet => app_dope_sheet(
             keys,
             ui::TimeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -280,9 +280,9 @@ fn gesture_view(model: Model, snap: bool) -> View {
         Kind::Graph => app_graph(
             curves,
             ui::GraphState {
-                selection: model.selection.into_binding(),
-                view: model.view.into_binding(),
-                playhead: model.frame.into_binding(),
+                selection: model.selection,
+                view: model.view,
+                playhead: model.frame,
             },
         )
         .on_activate(move |id| model.activated.update(|ids| ids.push(id)))
@@ -296,8 +296,8 @@ fn gesture_view(model: Model, snap: bool) -> View {
             nodes,
             signal(Vec::new()),
             ui::NodeState {
-                selection: model.selection.into_binding(),
-                transform: model.transform.into_binding(),
+                selection: model.selection,
+                transform: model.transform,
                 ..ui::NodeState::new()
             },
         )
@@ -324,8 +324,8 @@ fn arrangement_view(model: Model, snap: bool) -> View {
                 .collect::<Vec<_>>(),
         ),
         ui::ArrangementState {
-            selection: model.selection.into_binding(),
-            transform: model.transform.into_binding(),
+            selection: model.selection,
+            transform: model.transform,
             ..ui::ArrangementState::new()
         },
     )

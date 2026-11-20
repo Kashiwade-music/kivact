@@ -3,12 +3,11 @@
 use kivact::i18n::message;
 use kivact::interaction::DialogMode;
 use kivact::interaction::ListItem;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::ItemKey;
 use kivact::state::Machine;
+use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::binding;
@@ -58,20 +57,20 @@ pub struct PowerSearch<K: ItemKey> {
     root: Node,
     label: Value<String>,
     fields: Value<Vec<ListItem<K>>>,
-    filters: Binding<Vec<SearchFilter<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
 }
 
 /// Build an editor for adding, changing and removing filters over the supplied keyed fields.
 pub fn power_search<K: ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    filters: impl IntoBinding<Vec<SearchFilter<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
 ) -> PowerSearch<K> {
     PowerSearch {
         root: node(),
         label: label.into_text_value(),
         fields: items.into_value(),
-        filters: filters.into_binding(),
+        filters,
     }
 }
 
@@ -269,7 +268,7 @@ impl<K: Clone + Eq + 'static> Machine for SearchMachine<K> {
 
 fn filter_tokens<K: ItemKey>(
     fields: Value<Vec<ListItem<K>>>,
-    filters: Binding<Vec<SearchFilter<K>>>,
+    filters: Signal<Vec<SearchFilter<K>>>,
     editor: kivact::state::MachineHandle<SearchMachine<K>>,
 ) -> impl IntoView {
     let entries =
@@ -329,9 +328,9 @@ fn filter_tokens<K: ItemKey>(
 
 fn filter_form<K: ItemKey>(
     fields: Value<Vec<ListItem<K>>>,
-    field: Binding<Option<K>>,
-    operator: Binding<Option<SearchOperator>>,
-    value: Binding<String>,
+    field: Signal<Option<K>>,
+    operator: Signal<Option<SearchOperator>>,
+    value: Signal<String>,
     editor: kivact::state::MachineHandle<SearchMachine<K>>,
 ) -> Node {
     let operators = vec![
