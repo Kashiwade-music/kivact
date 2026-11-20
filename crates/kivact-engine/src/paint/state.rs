@@ -371,7 +371,7 @@ pub(crate) enum Entry {
 /// A listed layer that moves every frame (a running opacity or transform
 /// transition, or a layout run): its matrix is set again before each
 /// frame without a new list (`Model::refresh_moving_layers`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MovingLayer {
     pub(super) id: NodeId,
     /// Its index in `PaintList::layers`.
@@ -380,6 +380,9 @@ pub(crate) struct MovingLayer {
     pub(super) origin: Point,
     /// The parent's perspective it was walked with.
     pub(super) perspective: Option<Matrix4>,
+    /// The layers it is inside, nearest first, with their indices: their
+    /// ink holds its moving box, so their bounds follow its motion.
+    pub(super) outer: Vec<(NodeId, u32)>,
 }
 
 /// Where a listed scroll container was walked from, to walk its subtree

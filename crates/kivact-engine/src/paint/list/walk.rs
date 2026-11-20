@@ -118,6 +118,8 @@ struct Walk<'a> {
     layers: Vec<LayerSpec>,
     /// The listed layers that move every frame.
     moving: Vec<MovingLayer>,
+    /// The layers the walk is inside, outermost first, with their indices.
+    outer: Vec<(NodeId, u32)>,
     /// The listed scroll containers and where they were walked from.
     scrollers: HashMap<NodeId, ScrollerWalk>,
     /// The look each listed node with state styles or a transition was walked with.
@@ -211,18 +213,15 @@ impl Walk<'_> {
             self.out.push(Entry::Open(step));
         }
         let child_clip = self.child_clip(&look, o, layout.size, clip, clips, presence_clip);
-        let scroll = n.scroll();
-        // The children's layout locations are relative to this origin.
-        let base = Point {
-            x: o.x - scroll.x,
-            y: o.y - scroll.y,
-        };
-        let perspective = if look.perspective() {
-            host.perspective_at(id, o)
-        } else {
-            None
-        };
+        let (base, perspective) = children_frame(host, id, n, o, &look);
+        let opened = layer.filter(|_| host.is_layer_node(id));
+        if let Some(index) = opened {
+            self.outer.push((id, index));
+        }
         self.children(id, n, base, alpha, child_clip, perspective);
+        if opened.is_some() {
+            self.outer.pop();
+        }
         if listed && closes(&step, n, host) {
             self.out.push(Entry::Close(step));
         }
@@ -367,6 +366,7 @@ impl Walk<'_> {
                     index,
                     origin: plan.origin,
                     perspective: plan.perspective,
+                    outer: self.outer.iter().rev().copied().collect(),
                 });
             }
             return Some((None, clip, Point::default(), Some(index)));
@@ -502,8 +502,11 @@ impl Model {
             size: self.window(),
             scale: self.paint.scale,
         };
-        let rebuilt =
-            list.state != key || (!list.rewalk.is_empty() && !self.rewalk_scrolled(&mut list));
+        // A layer root placed by another node's motion (a submenu anchored
+        // in a moving menu) moves without a restack: the list follows it.
+        let rebuilt = list.state != key
+            || self.layers() != list.layer_origins
+            || (!list.rewalk.is_empty() && !self.rewalk_scrolled(&mut list));
         if rebuilt {
             self.build_list(&mut list, key);
         }
@@ -540,6 +543,7 @@ impl Model {
             transforms: Vec::new(),
             layers: Vec::new(),
             moving: Vec::new(),
+            outer: Vec::new(),
             scrollers: HashMap::new(),
             looks: HashMap::new(),
         };
@@ -626,6 +630,7 @@ impl Model {
                 transforms,
                 layers,
                 moving: Vec::new(),
+                outer: Vec::new(),
                 scrollers: HashMap::new(),
                 looks: HashMap::new(),
             };
@@ -685,7 +690,38 @@ impl Model {
                 spec.matrix = matrix;
             }
         }
+        self.refresh_outer_bounds(&mut list);
         self.paint.list = list;
+    }
+
+    /// The bounds of the layers that hold a moving one: their ink holds its
+    /// moving box, so the inks from it up to them are taken again.
+    fn refresh_outer_bounds(&self, list: &mut PaintList) {
+        for m in &list.moving {
+            let Some(&(outermost, _)) = m.outer.last() else {
+                continue;
+            };
+            let tree = self.tree();
+            let mut at = Some(m.id);
+            while let Some(id) = at {
+                if let Some(n) = tree.get(id) {
+                    self.slots.ink[n.index.0].set(None);
+                }
+                if id == outermost {
+                    break;
+                }
+                at = tree.get(id).and_then(|n| tree.flat_parent(n));
+            }
+            for &(id, index) in &m.outer {
+                let Some(n) = self.node(id) else {
+                    continue;
+                };
+                let layout = self.layout_at(n.index).unwrap_or_default();
+                if let Some(spec) = list.layers.get_mut(index as usize) {
+                    spec.bounds = ink_local(self, id, n, &layout, list.ink_gen);
+                }
+            }
+        }
     }
 
     /// Bring `facts` up to date with the nodes marked stale since the last list.
@@ -762,6 +798,7 @@ impl Model {
             transforms: Vec::new(),
             layers: Vec::new(),
             moving: Vec::new(),
+            outer: Vec::new(),
             scrollers: HashMap::new(),
             looks: HashMap::new(),
         };
@@ -910,4 +947,27 @@ fn opacity(
         parent_alpha * opacity
     };
     (grouping, alpha)
+}
+
+/// Where the children of `id` (whose box starts at `o`) are walked from:
+/// the origin their layout locations are relative to (scrolled), and the
+/// perspective `id` gives them.
+fn children_frame(
+    host: &Model,
+    id: NodeId,
+    n: &HostNode,
+    o: Point,
+    look: &LayerTraits,
+) -> (Point, Option<Matrix4>) {
+    let scroll = n.scroll();
+    let base = Point {
+        x: o.x - scroll.x,
+        y: o.y - scroll.y,
+    };
+    let perspective = if look.perspective() {
+        host.perspective_at(id, o)
+    } else {
+        None
+    };
+    (base, perspective)
 }
