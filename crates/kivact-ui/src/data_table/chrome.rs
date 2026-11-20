@@ -8,7 +8,7 @@ use crate::{
 };
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{message, message_with};
-use kivact_core::state::{Binding, Value, binding, memo};
+use kivact_core::state::{Signal, Value, binding, memo};
 use kivact_core::style::{pct, style};
 use kivact_core::view::CheckedState;
 use kivact_core::view::Element;
@@ -104,7 +104,7 @@ pub(super) fn footer<R: kivact_core::state::PropValue, K: kivact_core::state::It
 }
 
 /// The rows-per-page selector over the writable size and its options.
-fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
+fn size_picker(size: Signal<usize>, sizes: Value<Vec<usize>>) -> View {
     let options = move || {
         sizes.with(|sizes| {
             let mut seen = std::collections::HashSet::new();
@@ -134,7 +134,7 @@ fn size_picker(size: Binding<usize>, sizes: Value<Vec<usize>>) -> View {
 /// The page shown, Previous and Next.
 fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     context: DataTableContext<R, K>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     has_more: Option<Value<bool>>,
     variants: &Variants,
 ) -> View {
@@ -193,7 +193,7 @@ fn pager<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
 /// The header check box in its box: it checks or clears the rows of the page
 /// and is mixed while some of them are checked.
 pub(super) fn select_page<K: kivact_core::state::ItemKey>(
-    selection: Binding<Vec<K>>,
+    selection: Signal<Vec<K>>,
     keys: Value<Vec<K>>,
     variants: &Variants,
 ) -> (Node, View) {

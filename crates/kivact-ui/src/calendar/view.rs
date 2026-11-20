@@ -3,9 +3,10 @@
 use super::state::Shared;
 use crate::calendar::CalendarCaption;
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact_core::state::IntoBinding;
+use kivact_core::state::IntoHandler;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Callback, Value, on_mount, signal};
+use kivact_core::state::Signal;
+use kivact_core::state::{Callback, Value, on_mount, signal};
 use kivact_core::style::style;
 use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, Role, View, dynamic};
@@ -38,7 +39,7 @@ pub struct Calendar {
     week_start: Option<Value<Weekday>>,
     on_commit: Option<Callback<()>>,
     autofocus: Value<bool>,
-    displayed_month: Option<Binding<CalendarMonth>>,
+    displayed_month: Option<Signal<CalendarMonth>>,
     today: Value<CalendarDate>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
@@ -99,7 +100,7 @@ pub fn calendar(selected: impl Into<CalendarSelection>) -> Calendar {
 }
 
 impl Calendar {
-    pub(crate) fn sheet_month(&self, fallback: CalendarMonth) -> Binding<CalendarMonth> {
+    pub(crate) fn sheet_month(&self, fallback: CalendarMonth) -> Signal<CalendarMonth> {
         self.displayed_month.unwrap_or_else(|| {
             let mut month = self.month.unwrap_or(fallback);
             if let Some(min) = self.min.get_untracked() {
@@ -108,7 +109,7 @@ impl Calendar {
             if let Some(max) = self.max.get_untracked() {
                 month = month.min(max.month_of());
             }
-            signal(month).into_binding()
+            signal(month)
         })
     }
     pub(crate) fn touch(mut self) -> Self {
@@ -175,8 +176,8 @@ impl Calendar {
     }
 
     /// Control the first displayed month; paging writes this binding.
-    pub fn month(mut self, month: impl IntoBinding<CalendarMonth>) -> Self {
-        self.displayed_month = Some(month.into_binding());
+    pub fn month(mut self, month: Signal<CalendarMonth>) -> Self {
+        self.displayed_month = Some(month);
         self
     }
     /// The day drawn as today, read reactively.
@@ -272,8 +273,10 @@ impl Calendar {
 
     /// Call `f` when a choice is complete: a day for [`calendar`], the second
     /// click of a range selection.
-    pub fn on_commit(mut self, f: impl Into<Callback<()>>) -> Self {
-        self.on_commit = Some(f.into());
+    pub fn on_commit<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        self.on_commit = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }
@@ -292,9 +295,9 @@ impl IntoView for Calendar {
             CalendarSelection::Range(value) => value.get_untracked().map(|r| r.start()),
         };
         let focus_day = anchor.unwrap_or_else(|| self.today.get_untracked());
-        let month: Binding<CalendarMonth> = self
+        let month: Signal<CalendarMonth> = self
             .displayed_month
-            .unwrap_or_else(|| signal(self.month.unwrap_or(focus_day.month_of())).into_binding());
+            .unwrap_or_else(|| signal(self.month.unwrap_or(focus_day.month_of())));
         let base_month = month;
         let announcement = month_announcement(base_month);
         let swipe = swipe_navigation(base_month, month, self.min, self.max);
@@ -381,7 +384,7 @@ struct CalendarRules {
     on_activate: Option<Callback<CalendarDate>>,
 }
 /// The shown month's announcement: its long name and year in the locale.
-fn month_announcement(month: Binding<CalendarMonth>) -> Value<String> {
+fn month_announcement(month: Signal<CalendarMonth>) -> Value<String> {
     let locale = kivact_core::i18n::use_locale();
     kivact_core::state::memo(move || {
         let month = month.get();
@@ -396,8 +399,8 @@ fn month_announcement(month: Binding<CalendarMonth>) -> Value<String> {
 }
 /// Apply horizontal swipe commands within the caller's date bounds.
 fn swipe_navigation(
-    base_month: Binding<CalendarMonth>,
-    month: Binding<CalendarMonth>,
+    base_month: Signal<CalendarMonth>,
+    month: Signal<CalendarMonth>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
 ) -> kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot> {
@@ -521,7 +524,7 @@ fn month_panels(
 /// Construct the reactive month body from independent calendar presentation inputs.
 fn calendar_body(
     calendar: &Calendar,
-    month: Binding<CalendarMonth>,
+    month: Signal<CalendarMonth>,
     rules: CalendarRules,
     focus_day: CalendarDate,
     autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,

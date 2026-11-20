@@ -5,7 +5,7 @@ use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Edge;
 use kivact_core::i18n::{CalendarDate, DateStyle, Weekday, message, use_locale};
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, Handled, IntoView, Key, KeyEvent, Node, View, icon, node, row};
 use kivact_interaction::DialogMode;
 use std::rc::Rc;
@@ -40,11 +40,11 @@ pub struct DateInput {
     variants: crate::variants::Variants,
     label: Value<String>,
     picker_label: Option<Value<String>>,
-    value: Binding<Option<CalendarDate>>,
+    value: Signal<Option<CalendarDate>>,
     format: Value<DateStyle>,
     custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
     placeholder: Value<String>,
-    valid: Option<Binding<bool>>,
+    valid: Option<Signal<bool>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     week_start: Option<Value<Weekday>>,
@@ -52,16 +52,13 @@ pub struct DateInput {
     configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
 }
 /// Edit an optional date. Enter commits valid text; Arrow Down opens the picker.
-pub fn date_input(
-    label: impl IntoText,
-    value: impl IntoBinding<Option<CalendarDate>>,
-) -> DateInput {
+pub fn date_input(label: impl IntoText, value: Signal<Option<CalendarDate>>) -> DateInput {
     DateInput {
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         picker_label: None,
-        value: value.into_binding(),
+        value,
         format: DateStyle::Iso.into_value(),
         custom_format: None,
         placeholder: "YYYY-MM-DD".into_text_value(),
@@ -106,8 +103,8 @@ impl DateInput {
         self
     }
     /// Publish whether the current typed draft is a valid optional date.
-    pub fn valid(mut self, valid: impl IntoBinding<bool>) -> Self {
-        self.valid = Some(valid.into_binding());
+    pub fn valid(mut self, valid: Signal<bool>) -> Self {
+        self.valid = Some(valid);
         self
     }
     /// Earliest accepted date.
@@ -338,8 +335,8 @@ fn iso_shaped(text: &str) -> bool {
 
 /// Own committed date editing and picker visibility in the canonical controller.
 fn date_controller(
-    value: Binding<Option<CalendarDate>>,
-    valid: Option<Binding<bool>>,
+    value: Signal<Option<CalendarDate>>,
+    valid: Option<Signal<bool>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     locale: Value<kivact_core::i18n::Locale>,
@@ -377,7 +374,7 @@ fn date_controller(
     (controller, announcement.into_value())
 }
 /// Bind picker visibility to the controller's open/close transitions.
-fn picker_open(state: kivact_core::state::MachineHandle<Snapshot>) -> Binding<bool> {
+fn picker_open(state: kivact_core::state::MachineHandle<Snapshot>) -> Signal<bool> {
     binding(
         move || state.get().is_open(),
         move |open| {
@@ -391,7 +388,7 @@ fn picker_open(state: kivact_core::state::MachineHandle<Snapshot>) -> Binding<bo
 }
 /// Compose the configured calendar or date-wheel presentation.
 fn date_picker(
-    selected: Binding<Option<CalendarDate>>,
+    selected: Signal<Option<CalendarDate>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     week_start: Option<Value<Weekday>>,
@@ -416,7 +413,7 @@ type DateFormat = Rc<dyn Fn(CalendarDate) -> String>;
 struct EditorInputs {
     label: Value<String>,
     placeholder: Value<String>,
-    value: Binding<Option<CalendarDate>>,
+    value: Signal<Option<CalendarDate>>,
     custom_format: Option<DateFormat>,
     external_invalid: Option<Value<bool>>,
     described_by: Vec<kivact_core::view::NodeRef>,
@@ -425,7 +422,7 @@ struct EditorInputs {
 fn date_editor(
     inputs: EditorInputs,
     state: kivact_core::state::MachineHandle<Snapshot>,
-    draft: Binding<String>,
+    draft: Signal<String>,
     error_ref: kivact_core::view::NodeRef,
 ) -> crate::TextInput {
     let EditorInputs {
@@ -483,7 +480,7 @@ fn draft_binding(
     format: Value<DateStyle>,
     display: Option<DateFormat>,
     locale: Value<kivact_core::i18n::Locale>,
-) -> Binding<String> {
+) -> Signal<String> {
     binding(
         move || match state.get().typed {
             TypedDate::Following(date) => display.as_ref().map_or_else(
@@ -497,7 +494,7 @@ fn draft_binding(
 }
 
 fn picker_content(
-    value: Binding<Option<CalendarDate>>,
+    value: Signal<Option<CalendarDate>>,
     state: kivact_core::state::MachineHandle<Snapshot>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,

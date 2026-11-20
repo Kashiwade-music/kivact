@@ -2,6 +2,7 @@
 
 use crate::variants::Variants;
 use crate::{BadgeState, Variant};
+use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
@@ -44,8 +45,10 @@ impl Badge {
         self.trailing = Some(icon.into_view());
         self
     }
-    pub fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }

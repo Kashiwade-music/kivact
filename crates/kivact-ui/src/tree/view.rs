@@ -5,8 +5,8 @@ use crate::tree::look::TreeRowRecipeState;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::motion::Transition;
-use kivact_core::state::{Binding, Value, signal};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, signal};
 use kivact_core::style::{TransitionProp, style};
 use kivact_core::view::{Element, Node, column, node, text};
 use kivact_core::view::{
@@ -23,7 +23,7 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     root: Node,
     nodes: Value<Vec<TreeNode<K>>>,
     selection: Selection<K>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
     item: Option<RowContent<K>>,
     marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
     variants: Variants,
@@ -43,7 +43,7 @@ pub fn tree<K: kivact_core::state::ItemKey>(
         root: node().name(label),
         nodes: items.into_value(),
         selection: kivact_interaction::IntoSelection::into_selection(selected),
-        expanded: kivact_core::state::IntoBinding::into_binding(signal(Vec::new())),
+        expanded: signal(Vec::new()),
         item: None,
         marker_content: None,
         variants: Variants::default(),
@@ -65,8 +65,8 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
         self
     }
     /// Bind expanded branches.
-    pub fn expanded(mut self, expanded: impl kivact_core::state::IntoBinding<Vec<K>>) -> Self {
-        self.expanded = expanded.into_binding();
+    pub fn expanded(mut self, expanded: kivact_core::state::Signal<Vec<K>>) -> Self {
+        self.expanded = expanded;
         self
     }
     /// Call `activate` when a row is activated through Enter or double click.

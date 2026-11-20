@@ -3,7 +3,7 @@ use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::state::{Binding, Value, memo};
+use kivact_core::state::{Signal, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
@@ -28,7 +28,7 @@ pub(super) struct Plan<K: 'static> {
     indent: DataTableTreeIndent,
     rows: Value<HashMap<K, TreeRow<K>>>,
     parents: Value<Vec<K>>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
 }
 
 impl<K> Clone for Plan<K> {
@@ -44,7 +44,7 @@ pub(super) fn arrange<R, K: kivact_core::state::ItemKey>(
     order: Vec<usize>,
     key: &Key<R, K>,
     parent: &Key<R, Option<K>>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
 ) -> Vec<usize> {
     let mut indices = HashMap::with_capacity(order.len());
     let nodes = order

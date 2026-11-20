@@ -4,14 +4,14 @@ use super::machine::{self, Event, State, SwitchGesture};
 use crate::control_size::ControlSize;
 use crate::toggle::look::ThumbDrag;
 use kivact_core::custom::{Part, clock_now};
-use kivact_core::state::{Binding, Value, machine, memo};
+use kivact_core::state::{Signal, Value, machine, memo};
 use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, MouseButton, PointerKind, PointerPhase};
 use kivact_interaction::ToggleState;
 pub(crate) type Visual = Option<Value<Option<ThumbDrag>>>;
 pub(crate) fn switch(
     control: Part<ToggleState>,
-    value: Binding<bool>,
+    value: Signal<bool>,
     size: Value<ControlSize>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (Part<ToggleState>, Visual) {

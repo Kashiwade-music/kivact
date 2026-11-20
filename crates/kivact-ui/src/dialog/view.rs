@@ -8,15 +8,15 @@ use crate::recipes::UiRecipes;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
-use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value};
 use kivact_core::style::{Length, Position, pct, style, use_theme};
 use kivact_core::view::{Element, Node, column, node, row, scroll, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_interaction::{DialogMode, DismissOn, PopupState};
 
 pub struct Dialog {
-    open: Binding<bool>,
+    open: Signal<bool>,
     title: Value<String>,
     title_hidden: Value<bool>,
     kind: DialogMode,
@@ -60,9 +60,9 @@ pub struct Dialog {
 /// }
 /// ```
 #[track_caller]
-pub fn dialog(title: impl IntoText, open: impl kivact_core::state::IntoBinding<bool>) -> Dialog {
+pub fn dialog(title: impl IntoText, open: kivact_core::state::Signal<bool>) -> Dialog {
     Dialog {
-        open: open.into_binding(),
+        open,
         title: title.into_text_value(),
         title_hidden: false.into_value(),
         kind: DialogMode::Modal,

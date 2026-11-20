@@ -5,6 +5,7 @@ use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
+use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::style::{Style, TextOverflow, style};
 use kivact_core::view::{
@@ -91,8 +92,10 @@ impl ItemRow {
         self.contents.marker = Some(view.into_view());
         self
     }
-    pub fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        self.contents.press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        self.contents.press = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        ));
         self
     }
     /// Activate and focus the actual eligible target instead of making the row a tab stop.

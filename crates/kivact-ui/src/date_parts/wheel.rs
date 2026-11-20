@@ -3,7 +3,7 @@ use crate::layer::with_recipe_style;
 use crate::variants::Variants;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, message};
-use kivact_core::state::{Binding, IntoValue, Value, binding, notifier};
+use kivact_core::state::{IntoValue, Signal, Value, binding, trigger};
 use kivact_core::view::{
     EditPhase, Element, Handled, Node, Role, WheelEvent, column, node, row, text,
 };
@@ -13,12 +13,12 @@ use kivact_interaction::{
 /// A single discrete wheel; the scalar owns drag cancellation and bounds.
 pub(crate) fn wheel(
     label: Value<String>,
-    value: Binding<f64>,
+    value: Signal<f64>,
     min: f64,
     max: impl IntoValue<f64>,
     time: bool,
 ) -> Node {
-    let release = notifier();
+    let release = trigger();
     let max = max.into_value();
     let range = move || {
         ScalarRange::new(min, max.get())
@@ -91,7 +91,7 @@ pub(crate) fn wheel(
         PartState::default,
     )
 }
-pub(crate) fn time_panel(value: Binding<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
+pub(crate) fn time_panel(value: Signal<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
     let time = binding(
         move || {
             value.get().unwrap_or(TimeOfDay {
@@ -155,7 +155,7 @@ fn wheel_rows(
     max: Value<f64>,
     time: bool,
     settle_offset: kivact_core::motion::Animated<f64>,
-    release: kivact_core::state::Notifier,
+    release: kivact_core::state::Trigger,
 ) -> Node {
     column(
         (-2i32..=2)
@@ -195,7 +195,7 @@ fn wheel_drag(
     row_height: impl Fn() -> f64 + Copy + 'static,
     normalize: impl Fn(f64) -> f64 + Copy + 'static,
     settle_offset: kivact_core::motion::Animated<f64>,
-    release: kivact_core::state::Notifier,
+    release: kivact_core::state::Trigger,
 ) -> kivact_interaction::DragApi<f64> {
     scalar
         .scrub(

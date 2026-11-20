@@ -1,5 +1,5 @@
 //! Role: Own editable one-based page text and commit it atomically.
-use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo};
+use kivact_core::state::{Machine, Signal, Step, Value, binding, machine, memo};
 use kivact_core::view::{Element, Handled, IntoView, Key, View, node_ref};
 #[derive(Clone, PartialEq)]
 enum PageDraft {
@@ -45,7 +45,7 @@ impl Machine for Snapshot {
     }
 }
 pub(super) fn input(
-    page: Binding<usize>,
+    page: Signal<usize>,
     count: Value<usize>,
     label: Value<String>,
     disabled: Value<bool>,

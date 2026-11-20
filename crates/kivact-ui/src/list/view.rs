@@ -3,7 +3,7 @@
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 
-use kivact_core::state::{Binding, Callback, Value, binding};
+use kivact_core::state::{Callback, Signal, Value, binding};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, node};
@@ -132,9 +132,9 @@ impl<K: kivact_core::state::ItemKey> Element for List<K> {
 
 /// `value` whose writes are each reported to `on_edit` as one edit.
 fn edited<T: kivact_core::state::PropValue>(
-    value: Binding<T>,
+    value: Signal<T>,
     on_edit: Option<Callback<EditPhase>>,
-) -> Binding<T> {
+) -> Signal<T> {
     let Some(on_edit) = on_edit else {
         return value;
     };

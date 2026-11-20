@@ -1,8 +1,8 @@
 //! Role: The tab list builder, its selection state and the selected panel.
 use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value};
 use kivact_core::style::use_theme;
 use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
@@ -17,7 +17,7 @@ type TabContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<TabSta
 pub struct Tabs<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
-    binding: Binding<K>,
+    binding: Signal<K>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     activation: ListActivation,
     orientation: Orientation,
@@ -39,13 +39,13 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
 pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<K>,
+    value: kivact_core::state::Signal<K>,
 ) -> Tabs<K> {
     let variants = Variants::default();
     Tabs {
         root: node().name(label),
         options: items.into_value(),
-        binding: value.into_binding(),
+        binding: value,
         on_edit: None,
         activation: ListActivation::Automatic,
         orientation: Orientation::Horizontal,

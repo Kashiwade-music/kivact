@@ -3,7 +3,7 @@ use crate::date_time_input::model::{Controller, DateTimeInputState, Event, Panel
 use kivact_core::i18n::{
     CalendarDate, DateStyle, DateTime, TimeStyle, Weekday, message, use_locale,
 };
-use kivact_core::state::{Binding, Value, binding, machine, memo};
+use kivact_core::state::{Signal, Value, binding, machine, memo};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, View, column, dynamic, node_ref, row,
 };
@@ -11,7 +11,7 @@ pub(crate) struct Inputs {
     pub root: Node,
     pub label: Value<String>,
     pub picker_label: Option<Value<String>>,
-    pub value: Binding<Option<DateTime>>,
+    pub value: Signal<Option<DateTime>>,
     pub format: Value<DateStyle>,
     pub min: Value<Option<DateTime>>,
     pub max: Value<Option<DateTime>>,
@@ -64,8 +64,8 @@ fn picker_content(
     max: Value<Option<DateTime>>,
     week_start: Option<Value<Weekday>>,
     seconds: Value<bool>,
-    date: Binding<Option<CalendarDate>>,
-    time: Binding<Option<kivact_core::i18n::TimeOfDay>>,
+    date: Signal<Option<CalendarDate>>,
+    time: Signal<Option<kivact_core::i18n::TimeOfDay>>,
     state: kivact_core::state::MachineHandle<Controller>,
 ) -> kivact_core::view::ViewFn {
     kivact_core::view::ViewFn::from(move |()| {
@@ -104,11 +104,11 @@ fn picker_content(
 }
 
 fn editors(
-    date: Binding<Option<CalendarDate>>,
-    time: Binding<Option<kivact_core::i18n::TimeOfDay>>,
+    date: Signal<Option<CalendarDate>>,
+    time: Signal<Option<kivact_core::i18n::TimeOfDay>>,
     format: Value<DateStyle>,
     seconds: Value<bool>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     state: kivact_core::state::MachineHandle<Controller>,
 ) -> Node {
     let date_ref = node_ref();

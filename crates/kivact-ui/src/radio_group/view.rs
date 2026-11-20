@@ -4,7 +4,7 @@ use crate::control_size::ControlSize;
 use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
 use crate::toggle::look::{CheckControl, CheckableState};
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Value, binding, callback};
+use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
     EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
@@ -24,7 +24,7 @@ type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<Che
 pub struct RadioGroup<K: kivact_core::state::ItemKey> {
     root: Node,
     options: Value<Vec<ListItem<K>>>,
-    value: Binding<Option<K>>,
+    value: Signal<Option<K>>,
     orientation: Orientation,
     size: Value<ControlSize>,
     on_edit: Option<Callback<EditPhase>>,
@@ -65,12 +65,12 @@ pub struct RadioGroup<K: kivact_core::state::ItemKey> {
 pub fn radio_group<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact_core::state::IntoBinding<Option<K>>,
+    selected: kivact_core::state::Signal<Option<K>>,
 ) -> RadioGroup<K> {
     RadioGroup {
         root: node().role(Role::RadioGroup).name(label),
         options: items.into_value(),
-        value: selected.into_binding(),
+        value: selected,
         orientation: Orientation::Vertical,
         size: crate::control_size::default_control_size().into_value(),
         on_edit: None,

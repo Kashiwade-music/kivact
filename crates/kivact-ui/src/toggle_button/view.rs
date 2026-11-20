@@ -9,7 +9,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Constraints, primitive};
 use kivact_core::draw::TextFormat;
 use kivact_core::geometry::Size;
-use kivact_core::state::Binding;
+use kivact_core::state::Signal;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::style::{Align, TextAlign, style, use_theme};
@@ -84,7 +84,7 @@ fn toggle_label(
 pub struct ToggleButton {
     root: Node,
     label: Value<String>,
-    pressed: Binding<bool>,
+    pressed: Signal<bool>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     icon: Option<View>,
     hide_label: Option<Value<bool>>,
@@ -114,13 +114,13 @@ pub struct ToggleButton {
 #[track_caller]
 pub fn toggle_button(
     label: impl IntoText,
-    pressed: impl kivact_core::state::IntoBinding<bool>,
+    pressed: kivact_core::state::Signal<bool>,
 ) -> ToggleButton {
     let label = label.into_text_value();
     ToggleButton {
         root: node().name(label),
         label,
-        pressed: pressed.into_binding(),
+        pressed,
         icon: None,
         on_edit: None,
         hide_label: None,

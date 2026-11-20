@@ -5,10 +5,10 @@ use super::types::{
     DataTable, DataTableContext, PagePlan, PageSetting, Paging, RowName, SortSetting,
 };
 use kivact_core::i18n::message;
-use kivact_core::state::{IntoBinding, IntoValue};
+use kivact_core::state::{IntoValue, Signal};
 use kivact_core::view::Element;
 
-use kivact_core::state::{Binding, binding, memo, signal};
+use kivact_core::state::{binding, memo, signal};
 use kivact_core::style::{Length, pct, style};
 use kivact_core::view::{IntoView, Role, View, for_each, show};
 use kivact_core::view::{column, scroll, text};
@@ -40,13 +40,13 @@ enum PagingPlan {
     /// when written, or else a read-only view of the size `page` gave.
     Local {
         page: PagePlan,
-        size: Binding<usize>,
+        size: Signal<usize>,
     },
     /// The caller's rows are the page. `size` is the writable size, as for
     /// `Local`.
     Remote {
         page: PagePlan,
-        size: Binding<usize>,
+        size: Signal<usize>,
         has_more: kivact_core::state::Value<bool>,
     },
 }
@@ -264,10 +264,10 @@ where
 /// the `page_sizes` binding (writing it shows the first page), or else a
 /// read-only view of `size`.
 fn page_size(
-    chosen: Option<Binding<usize>>,
-    index: Binding<usize>,
+    chosen: Option<Signal<usize>>,
+    index: Signal<usize>,
     size: kivact_core::state::Value<usize>,
-) -> (kivact_core::state::Value<usize>, Binding<usize>) {
+) -> (kivact_core::state::Value<usize>, Signal<usize>) {
     let picked = chosen.map(|chosen| {
         binding(chosen, move |next: usize| {
             chosen.set(next.max(1));
@@ -491,7 +491,7 @@ where
     // The model sorts by the table's sort: the caller's, or the table's own,
     // which the headers write. A new sort shows the first page.
     let single = match table.sort {
-        SortSetting::Own => signal(None).into_binding(),
+        SortSetting::Own => signal(None),
         SortSetting::Single(sort) => sort,
         SortSetting::Multi(multi_sort) => {
             return multi_sorting(multi_sort, model, page, behavior);
@@ -708,7 +708,7 @@ where
 /// and bound a resize handle's writes.
 fn share_widths<K: kivact_core::state::ItemKey>(
     behavior: kivact_interaction::DataTableApi<K, usize>,
-    sizes: Binding<Vec<f64>>,
+    sizes: Signal<Vec<f64>>,
     count: usize,
     range: ScalarRange,
 ) -> kivact_interaction::DataTableApi<K, usize> {

@@ -128,7 +128,7 @@ impl Element for ButtonGroupCell {
 impl IntoView for ButtonGroupCell {
     fn into_view(self) -> View {
         let orientation = try_use_context::<GroupAxis>()
-            .map_or_else(|| Orientation::Horizontal.into_value(), |axis| axis.get().0);
+            .map_or_else(|| Orientation::Horizontal.into_value(), |axis| axis.0);
         let state = kivact_core::state::memo(move || ButtonGroupState {
             orientation: orientation.get(),
             size: crate::control_size::default_control_size(),
@@ -210,9 +210,7 @@ impl IntoView for ButtonGroupMember {
         } else {
             self.button.default_size(
                 try_use_context::<GroupSize>()
-                    .map_or(crate::control_size::default_control_size(), |size| {
-                        size.get().0
-                    }),
+                    .map_or(crate::control_size::default_control_size(), |size| size.0),
             )
         };
         let solid = self.solid;
@@ -226,7 +224,7 @@ impl IntoView for ButtonGroupMember {
                 };
                 let base = style().pressed(style().scale(1));
                 let Some(position) =
-                    try_use_context::<GroupPosition>().map(|position| position.get().0.get())
+                    try_use_context::<GroupPosition>().map(|position| position.0.get())
                 else {
                     return base;
                 };

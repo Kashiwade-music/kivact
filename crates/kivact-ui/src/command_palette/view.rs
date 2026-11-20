@@ -4,8 +4,8 @@ use crate::layer::with_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::message;
-use kivact_core::state::{Binding, Value, memo};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, memo};
 use kivact_core::style::{Icon, style, use_theme};
 use kivact_core::view::Element;
 use kivact_core::view::{
@@ -23,7 +23,7 @@ type Footer = View;
 /// It is a view: put it in the tree once; it draws nothing while the palette
 /// is closed.
 pub struct CommandPalette<K: kivact_core::state::ItemKey> {
-    open: Binding<bool>,
+    open: Signal<bool>,
     commands: Value<Vec<Command<K>>>,
     run: Rc<dyn Fn(K) -> kivact_core::Result<()>>,
     filter: Option<Filter<K>>,
@@ -69,10 +69,10 @@ pub struct CommandPalette<K: kivact_core::state::ItemKey> {
 #[track_caller]
 pub fn command_palette<K: kivact_core::state::ItemKey>(
     commands: impl IntoValue<Vec<Command<K>>>,
-    open: impl kivact_core::state::IntoBinding<bool>,
+    open: kivact_core::state::Signal<bool>,
 ) -> CommandPalette<K> {
     CommandPalette {
-        open: open.into_binding(),
+        open,
         commands: commands.into_value(),
         run: Rc::new(|_| Ok(())),
         filter: None,

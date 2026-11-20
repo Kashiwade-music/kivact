@@ -4,7 +4,7 @@ use super::types::TypedFilters;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Machine, Step, Value, binding, machine, memo, signal};
+use kivact_core::state::{Machine, Signal, Step, Value, binding, machine, memo, signal};
 use kivact_core::style::{ColorToken, Justify, Length, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
@@ -17,11 +17,11 @@ use kivact_interaction::{DialogMode, FilterValue};
 pub(super) struct Filters {
     pub(super) values: TypedFilters,
     pub(super) ui: FilterUi,
-    pub(super) page: Option<Binding<usize>>,
+    pub(super) page: Option<Signal<usize>>,
 }
 
 impl Filters {
-    fn column(self, index: usize) -> Binding<Option<FilterValue>> {
+    fn column(self, index: usize) -> Signal<Option<FilterValue>> {
         binding(
             move || self.values.with(|values| values.get(&index).cloned()),
             move |value| {
@@ -78,7 +78,7 @@ impl Filters {
 fn popover(
     field: FilterField,
     label: Value<String>,
-    value: Binding<Option<FilterValue>>,
+    value: Signal<Option<FilterValue>>,
     header: Option<NodeRef>,
 ) -> View {
     let open = signal(false);
@@ -119,12 +119,7 @@ fn popover(
         .hide_title(true)
         .content(move || {
             let draft = signal(value.get_untracked());
-            let (control, valid) = editor(
-                field.clone(),
-                label,
-                kivact_core::state::IntoBinding::into_binding(draft),
-                ControlSize::Medium,
-            );
+            let (control, valid) = editor(field.clone(), label, draft, ControlSize::Medium);
             let reset = button(message("data_table.filter.reset", "Reset"))
                 .variant(ButtonVariant::Ghost)
                 .size(ControlSize::Small)
@@ -151,7 +146,7 @@ fn popover(
 fn editor(
     field: FilterField,
     label: Value<String>,
-    value: Binding<Option<FilterValue>>,
+    value: Signal<Option<FilterValue>>,
     size: ControlSize,
 ) -> (View, Value<bool>) {
     let view = match field {
@@ -290,7 +285,7 @@ impl Machine for FilterInput {
 fn text_editor(
     field: FilterField,
     label: Value<String>,
-    value: Binding<Option<FilterValue>>,
+    value: Signal<Option<FilterValue>>,
     size: ControlSize,
 ) -> (View, Value<bool>) {
     let initial = value.get_untracked();

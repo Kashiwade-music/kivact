@@ -2,7 +2,7 @@
 use super::data::Combobox;
 use crate::SelectPresentation;
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{IntoBinding, IntoText, IntoValue, ItemKey};
+use kivact_core::state::{IntoText, IntoValue, ItemKey, Signal};
 use kivact_core::view::{Element, IntoView, Node, View, node};
 use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
 use std::rc::Rc;
@@ -61,13 +61,13 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
     /// Control popup visibility. Inline mode always shows its suggestions.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Bind the text typed into the editor independently of keyed selection.
-    pub fn query(mut self, query: impl IntoBinding<String>) -> Self {
-        self.query = Some(query.into_binding());
+    pub fn query(mut self, query: Signal<String>) -> Self {
+        self.query = Some(query);
         self
     }
     /// Preserve text that does not correspond to a suggestion when the list closes.

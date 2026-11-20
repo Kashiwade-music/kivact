@@ -5,7 +5,7 @@ use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
-use kivact_core::state::{Binding, Value};
+use kivact_core::state::{Signal, Value};
 use kivact_core::style::{TransitionProp, style, use_theme};
 use kivact_core::view::{Element, Node, icon, node, text};
 use kivact_core::view::{IntoView, Orientation, View, show};
@@ -16,7 +16,7 @@ use kivact_interaction::use_disclosure;
 pub struct Disclosure {
     root: Node,
     title: Value<String>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     content: kivact_core::view::ViewFn,
     motion: DisclosureMotion,
     variants: Variants,
@@ -69,14 +69,11 @@ pub struct Disclosure {
 /// }
 /// ```
 #[track_caller]
-pub fn disclosure(
-    title: impl IntoText,
-    open: impl kivact_core::state::IntoBinding<bool>,
-) -> Disclosure {
+pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) -> Disclosure {
     Disclosure {
         root: node(),
         title: title.into_text_value(),
-        open: open.into_binding(),
+        open,
         content: kivact_core::view::ViewFn::from(|()| ()),
         motion: use_theme()
             .get()

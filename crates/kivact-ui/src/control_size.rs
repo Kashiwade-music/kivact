@@ -34,7 +34,7 @@ pub fn provide_control_size<V: kivact_core::view::IntoView>(
 
 pub(crate) fn default_control_size() -> ControlSize {
     kivact_core::state::try_use_context::<InheritedControlSize>()
-        .map_or_else(ControlSize::default, |size| size.get().0)
+        .map_or_else(ControlSize::default, |size| size.0)
 }
 
 kivact_core::state::constant_value!(ControlSize);

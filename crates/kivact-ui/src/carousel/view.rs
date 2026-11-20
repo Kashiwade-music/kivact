@@ -2,7 +2,7 @@
 
 use crate::carousel::look::CarouselSurfaceState;
 use kivact_core::geometry::Point;
-use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
+use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
 use kivact_core::view::{
     Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
@@ -16,7 +16,7 @@ pub struct Carousel {
     root: Node,
     variants: crate::variants::Variants,
     slides: Vec<View>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     orientation: Value<Orientation>,
     snap: Value<Snap>,
     mode: CarouselMode,
@@ -30,12 +30,12 @@ pub struct Carousel {
 /// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
 /// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
 #[track_caller]
-pub fn carousel(index: impl IntoBinding<usize>, slides: impl IntoChildren) -> Carousel {
+pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
         variants: crate::variants::Variants::default(),
         root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
-        index: index.into_binding(),
+        index,
         orientation: Orientation::Horizontal.into_value(),
         snap: Snap::Mandatory.into_value(),
         mode: CarouselMode::Translate,

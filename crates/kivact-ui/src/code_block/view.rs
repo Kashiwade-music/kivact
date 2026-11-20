@@ -5,9 +5,8 @@ use crate::code_block::look::CodeCollapse;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
-use kivact_core::state::{
-    Binding, Callback, IntoBinding, IntoText, IntoValue, Value, memo, signal,
-};
+use kivact_core::state::IntoHandler;
+use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, memo, signal};
 use kivact_core::style::{Length, StyledRange, style};
 use kivact_core::view::{
     Element, IntoView, Node, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
@@ -35,7 +34,7 @@ pub struct CodeBlock {
     max_height: Option<Value<Length>>,
     collapsible: Value<bool>,
     collapsible_threshold: Value<usize>,
-    expanded: Option<Binding<bool>>,
+    expanded: Option<Signal<bool>>,
     highlight: Option<Highlight>,
     variants: Variants,
 }
@@ -133,8 +132,10 @@ impl CodeBlock {
         self
     }
     /// Observe copy requests; the component always writes the source to the clipboard.
-    pub fn on_copy(mut self, f: impl Into<Callback<()>>) -> Self {
-        self.on_copy = Some(f.into());
+    pub fn on_copy<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        self.on_copy = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        ));
         self
     }
     /// Fill the trailing header slot.
@@ -168,8 +169,8 @@ impl CodeBlock {
         self
     }
     /// Bind expanded source to the application; defaults to expanded.
-    pub fn expanded(mut self, expanded: impl IntoBinding<bool>) -> Self {
-        self.expanded = Some(expanded.into_binding());
+    pub fn expanded(mut self, expanded: Signal<bool>) -> Self {
+        self.expanded = Some(expanded);
         self
     }
     /// Add an appearance read by all code recipes.
@@ -205,10 +206,7 @@ impl CodeBlock {
         let code = self.code;
         let collapsible = self.collapsible;
         let threshold = self.collapsible_threshold;
-        let expanded = self
-            .expanded
-            .take()
-            .unwrap_or_else(|| signal(true).into_binding());
+        let expanded = self.expanded.take().unwrap_or_else(|| signal(true));
         let can_collapse = memo(move || {
             collapsible.get() && code.with(|s| s.split('\n').count() >= threshold.get())
         });

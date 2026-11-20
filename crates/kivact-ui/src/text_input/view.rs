@@ -2,7 +2,7 @@
 
 use kivact_core::style::use_theme;
 
-use kivact_core::state::Binding;
+use kivact_core::state::Signal;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, node};
@@ -50,22 +50,16 @@ pub struct TextInput {
 /// }
 /// ```
 #[track_caller]
-pub fn text_input(
-    label: impl IntoText,
-    value: impl kivact_core::state::IntoBinding<String>,
-) -> TextInput {
-    create(label.into_text_value(), value.into_binding(), false)
+pub fn text_input(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
+    create(label.into_text_value(), value, false)
 }
 /// A controlled native multiline input with the theme's text-area recipe.
-pub fn text_area(
-    label: impl IntoText,
-    value: impl kivact_core::state::IntoBinding<String>,
-) -> TextInput {
-    create(label.into_text_value(), value.into_binding(), true)
+pub fn text_area(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
+    create(label.into_text_value(), value, true)
 }
 fn create(
     label: kivact_core::state::Value<String>,
-    value: Binding<String>,
+    value: Signal<String>,
     multiline: bool,
 ) -> TextInput {
     let size = crate::control_size::default_control_size().into_value();
@@ -170,7 +164,7 @@ impl TextInput {
     }
 
     /// Called when Enter is pressed.
-    pub fn on_submit(mut self, f: impl Into<kivact_core::state::Callback<()>>) -> Self {
+    pub fn on_submit<M>(mut self, f: impl kivact_core::state::IntoHandler<(), M>) -> Self {
         self.editing = self.editing.on_submit(f);
         self
     }

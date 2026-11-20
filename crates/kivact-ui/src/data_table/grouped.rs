@@ -6,7 +6,7 @@ use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, button};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::state::{Binding, Value, memo};
+use kivact_core::state::{Signal, Value, memo};
 use kivact_core::style::{
     Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
 };
@@ -32,7 +32,7 @@ enum EntryKey<K> {
 
 pub(super) struct Plan<R: 'static> {
     entries: Value<Vec<Entry<R>>>,
-    collapsed: Binding<Vec<String>>,
+    collapsed: Signal<Vec<String>>,
 }
 
 impl<R> Clone for Plan<R> {
@@ -140,7 +140,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     label: String,
     state: Value<DataTableGroupState>,
-    collapsed: Binding<Vec<String>>,
+    collapsed: Signal<Vec<String>>,
 ) -> View {
     let row_name = label.clone();
     let metadata = grid.row_metadata;

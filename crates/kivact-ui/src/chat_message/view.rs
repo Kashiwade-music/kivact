@@ -6,6 +6,7 @@ use crate::chat_message::look::{
 };
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
+use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, node, text};
 
@@ -80,8 +81,10 @@ impl ChatMessage {
         self
     }
     /// Make the body actionable using shared button keyboard and accessibility semantics.
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        self.on_press = Some(press.into());
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(press),
+        ));
         self
     }
     /// Set the participant role independently of their displayed name.
