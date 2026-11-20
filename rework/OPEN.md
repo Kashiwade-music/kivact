@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5b・A07（lane X、commit `12cd5129`）：(a) `MakeSurface` の署名を `&dyn Fn(&GpuContext, &mut dyn ShellWindow)` にした。付属書の make closure は window（`&mut dyn ShellWindow`）を捕まえるので `Fn` にできず（コンパイル error）、window を引数で渡す。surface の作成は UI thread で `window.surface().with_gpu_target` を通す。付属書の意図どおり。機械的に壊れる式の行で受け入れる（設計者は形を確かめる）。(b) `frame_period_ns`・`reduced_motion` の impl は inherent にせず削除した（inherent だと dead code で clippy -D warnings が落ちる）。呼出し元は `environment()` と `Presenter::frame_period_ns` を読む。受け入れる。(c) `set_ime(None)` は仮想 window の `ime_text` を消さない（付属書の None の枝どおり。観測上の差は無い）。受け入れる。
+- 作業の残り（A06・A07 の残り）：root `Cargo.toml` の `[profile.dev.package.*]`（124〜132 行付近）と `templates/basic/README.md` の profile の文は、どの unit の手順にも入っていない。W5b の所有には入っているので、付属書の手順の中（A10 か、その付近）で直すかを確かめる。
+
 - W5a・R29（lane X、commit `d878f338`）：(a) `async_view` の `default_fallback` は既存の `i18n::message("async_view.retry", "Retry")` のまま（doc と i18n を保つ。同じ意味）。(b) stepper の `Prop<String>` を `text(..)` に渡す箇所は closure（`Prop` の get を使う。`Prop<String>` に IntoText が無いのは R24 のとおり）。(c) `button_group`・`control_size` の `size.get().0` は `size.0`（同じ挙動。context の get は R20 で無くなった）。以上は同じ意味の一つだけの method を使う行で受け入れる。機械的な掃引（r_sweep・r_handler_sig・r_handler_body、F0〜F2、clippy --fix）も受け入れる。
 
 ## 差戻し（W5a・R29、2026-11-20）
