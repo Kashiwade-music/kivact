@@ -112,6 +112,7 @@ pub struct ToggleState {
     pub checked: CheckedState,
 }
 
+// xtask-allow(state): independent: checked is the caller's binding, written only by the control's flip through edit; observed holds the mounted control's state (attach_part_state sets it on mount and clears it on cleanup)
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {

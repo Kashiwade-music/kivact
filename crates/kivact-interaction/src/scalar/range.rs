@@ -56,6 +56,7 @@ fn outside(range: ScalarRange, now: f64) -> Option<f64> {
 pub(crate) fn follow_range(binding: Signal<f64>, range: Value<ScalarRange>) {
     effect_on(range, move |range: &ScalarRange| {
         if let Some(value) = outside(*range, binding.get_untracked()) {
+            // xtask-allow(effect-writes): a range prop change normalizes the caller's bound value into the new range (the base behavior of the range machine U08 removed); it writes only a value the range leaves out, so the next run writes nothing
             binding.set(value);
         }
     });
@@ -67,9 +68,11 @@ pub(crate) fn follow_ranges(low: Signal<f64>, high: Signal<f64>, range: Value<Sc
         let from = outside(*range, low.get_untracked());
         let to = outside(*range, high.get_untracked());
         if let Some(from) = from {
+            // xtask-allow(effect-writes): a range prop change normalizes the caller's bound value into the new range (the base behavior of the range machine U08 removed); it writes only a value the range leaves out, so the next run writes nothing
             low.set(from);
         }
         if let Some(to) = to {
+            // xtask-allow(effect-writes): a range prop change normalizes the caller's bound value into the new range (the base behavior of the range machine U08 removed); it writes only a value the range leaves out, so the next run writes nothing
             high.set(to);
         }
     });

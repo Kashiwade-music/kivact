@@ -23,6 +23,7 @@ pub struct DisclosureState {
     pub open: bool,
 }
 
+// xtask-allow(state): independent: open is the caller's requested state, written by hide and the trigger's actions; trigger_state and content_state hold the mounted parts' states (attach_part_state sets them on mount and clears them on cleanup); host_disabled registers each mounted trigger's disabled value for its mount's life
 /// Copy handle for a collapsible region: a trigger and the content it shows.
 ///
 /// The disclosure edits one `bool`, the requested open state, through the

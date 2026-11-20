@@ -7,6 +7,7 @@ use kivact_core::geometry::{Point, Rect};
 use kivact_core::state::{Signal, Value};
 use kivact_core::view::NodeRef;
 
+// xtask-allow(state): independent: binding is the thumb's value, written by set and set_position; bounds is the neighbor thumbs' values of a range slider, fixed when the target is made
 /// One thumb as the pointer moves it: its writer, range, mapping and element.
 #[derive(Clone, Copy)]
 pub(crate) struct Target {
