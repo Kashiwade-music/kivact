@@ -32,13 +32,13 @@ fn a_size_outside_what_windows_draw_is_invalid_and_never_calls_paint() {
     let mut renderer = Offscreen::new();
     let called = Cell::new(false);
     for (width, height) in [
-        (0, 1),
-        (1, 0),
-        (0, 0),
-        (16_385, 1),
-        (1, 16_385),
-        (4097, 4096),
-        (u32::MAX, 1),
+        (0.0, 1.0),
+        (1.0, 0.0),
+        (0.0, 0.0),
+        (16_385.0, 1.0),
+        (1.0, 16_385.0),
+        (4097.0, 4096.0),
+        (f64::from(u32::MAX), 1.0),
     ] {
         let error = renderer
             .render(width, height, |_, _| called.set(true))
@@ -51,10 +51,24 @@ fn a_size_outside_what_windows_draw_is_invalid_and_never_calls_paint() {
         );
     }
     assert!(!called.get());
-    for (width, height) in [(16_384, 1), (1, 16_384)] {
+    for (width, height) in [(16_384.0, 1.0), (1.0, 16_384.0)] {
         let image = renderer.render(width, height, |_, _| {}).unwrap();
-        assert_eq!(image.rgba.len(), (width * height * 4) as usize);
+        assert_eq!(image.rgba.len(), (width * height * 4.0) as usize);
     }
+}
+
+#[test]
+fn a_scale_of_two_doubles_the_pixels_and_keeps_the_drawing() {
+    let image = Offscreen::new()
+        .scale(2.0)
+        .render(10.0, 5.0, |draw, size| {
+            assert_eq!(size, Size::new(10.0, 5.0));
+            draw.fill_rect(Rect::new(0.0, 0.0, 5.0, 5.0), rgb(0xff0000));
+        })
+        .unwrap();
+    assert_eq!((image.width, image.height), (20, 10));
+    assert_eq!(px(&image, 9, 9), [255, 0, 0, 255]);
+    assert_eq!(px(&image, 11, 1), [0, 0, 0, 0]);
 }
 
 #[test]
@@ -62,7 +76,7 @@ fn the_image_is_exactly_sized_transparent_and_draw_knows_its_size() {
     let mut renderer = Offscreen::new();
     let mut seen = None;
     let image = renderer
-        .render(5, 3, |draw, size| seen = Some((draw.size(), size)))
+        .render(5.0, 3.0, |draw, size| seen = Some((draw.size(), size)))
         .unwrap();
     assert_eq!(seen, Some((Size::new(5.0, 3.0), Size::new(5.0, 3.0))));
     assert_eq!((image.width, image.height, image.rgba.len()), (5, 3, 60));
@@ -78,7 +92,7 @@ fn rects_and_text_are_drawn_where_they_are_placed() {
     renderer.font(TUFFY).unwrap();
     let mut measured = None;
     let image = renderer
-        .render(120, 60, |draw, size| {
+        .render(120.0, 60.0, |draw, size| {
             draw.fill_rect(size.to_rect(), Color::WHITE);
             draw.fill_rect(Rect::new(100.0, 40.0, 10.0, 10.0), rgb(0xff0000));
             let style = TextFormat {

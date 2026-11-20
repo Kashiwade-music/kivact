@@ -57,10 +57,10 @@ use std::sync::Arc;
 ///
 /// It paints with the CPU renderer that also draws a window on the CPU and
 /// the same scene lowering as a canvas; a GPU window can differ slightly in
-/// anti-aliasing. Coordinates are output pixels at scale 1. The image
-/// starts transparent: paint a background to make it opaque. Regions are
-/// ignored, and geometry a canvas repairs or drops is repaired or dropped
-/// the same way. Commands `Draw` rejects, a resource the drawing needs and
+/// anti-aliasing. Coordinates are logical pixels; [`Offscreen::scale`] sets
+/// the pixels per logical pixel. The image starts transparent: paint a
+/// background to make it opaque. Regions are ignored, and geometry a canvas
+/// repairs or drops is repaired or dropped the same way. Commands `Draw` rejects, a resource the drawing needs and
 /// cannot get, and rasterization failures are errors (a [`UiError`]
 /// located at the call; see [`Offscreen::render`]). A failure leaves the
 /// `Offscreen` usable for the next call.
@@ -84,7 +84,7 @@ use std::sync::Arc;
 /// use kivact_style::rgb;
 ///
 /// let mut renderer = Offscreen::new();
-/// let image = renderer.render(640, 360, |draw, _size| {
+/// let image = renderer.render(640.0, 360.0, |draw, _size| {
 ///     draw.fill_rect(Rect::new(10.0, 10.0, 80.0, 40.0), rgb(0xff3300));
 /// })?;
 /// assert_eq!(image.rgba.len(), 640 * 360 * 4);
@@ -100,6 +100,7 @@ use std::sync::Arc;
 pub struct Offscreen {
     engine: OffscreenRenderer,
     theme: Theme,
+    scale: f64,
 }
 
 /// A drawing recorded once, with the text configuration that measured it.
@@ -170,7 +171,16 @@ impl Offscreen {
         Self {
             engine: OffscreenRenderer::new(),
             theme: Theme::default(),
+            scale: 1.0,
         }
+    }
+
+    /// Pixels per logical pixel of the images [`render`](Self::render) makes
+    /// (default 1). The drawing keeps its logical coordinates; a scale of 2
+    /// makes an image twice as wide and high. `render_svg` ignores it.
+    pub fn scale(mut self, scale: f64) -> Self {
+        self.scale = scale;
+        self
     }
 
     /// Resolve color tokens with `theme`, which also supplies the text
@@ -193,14 +203,17 @@ impl Offscreen {
             .map_err(|message| failed(ErrorKind::Asset, message.to_string(), at))
     }
 
-    /// Draw `paint` into an image of exactly `width` × `height` pixels;
-    /// never shrunk to fit a budget. `paint` runs once, with the `Draw` and
-    /// its [`Size`], and not at all when the size is invalid.
+    /// Draw `paint` into an image of `width` × `height` logical pixels, which
+    /// is `width × scale` by `height × scale` output pixels (see
+    /// [`Offscreen::scale`]); never shrunk to fit a budget. `paint` runs once,
+    /// with the `Draw` and its [`Size`] in logical pixels, and not at all when
+    /// the size is invalid.
     ///
     /// The errors, located at the call:
     ///
-    /// - `ErrorKind::Message`: the size is zero or beyond what windows draw
-    ///   (each side and the area are limited by the renderer).
+    /// - `ErrorKind::Message`: the size is zero or beyond what windows draw,
+    ///   either in logical pixels or in output pixels at the scale (each side
+    ///   and the area are limited by the renderer).
     /// - `ErrorKind::Unsupported`: the drawing holds a command that cannot
     ///   be drawn: one `Draw` rejects (raw `Pixels` whose length does not
     ///   match their size, a canvas shadow with spread or inset) or one
@@ -214,25 +227,51 @@ impl Offscreen {
     #[track_caller]
     pub fn render(
         &mut self,
-        width: u32,
-        height: u32,
+        width: f64,
+        height: f64,
         paint: impl FnOnce(&mut Draw, Size),
     ) -> Result<Pixels> {
         let at = Location::caller();
-        if !OffscreenRenderer::accepts_size(width, height) {
+        let valid = width.is_finite()
+            && height.is_finite()
+            && width > 0.0
+            && height > 0.0
+            && self.scale.is_finite()
+            && self.scale > 0.0;
+        let pixels = (
+            (width * self.scale).round().min(f64::from(u32::MAX)) as u32,
+            (height * self.scale).round().min(f64::from(u32::MAX)) as u32,
+        );
+        if !valid || !OffscreenRenderer::accepts_size(pixels.0, pixels.1) {
             return Err(failed(
                 ErrorKind::Message,
-                format!("invalid or excessive image size {width}x{height}"),
+                format!(
+                    "invalid or excessive image size {width}x{height} at scale {}",
+                    self.scale
+                ),
                 at,
             ));
         }
-        let size = Size::new(width as f64, height as f64);
+        let size = Size::new(width, height);
+        let scale = self.scale;
         let Recorded {
             scene, inherited, ..
-        } = self.record(size, paint, at)?;
+        } = self.record(
+            size,
+            |draw, size| {
+                if scale == 1.0 {
+                    paint(draw, size);
+                } else {
+                    let layer = kivact_style::draw::Layer::new()
+                        .transform(kivact_style::transform::Transform::default().scale(scale));
+                    draw.layer(layer, |draw| paint(draw, size));
+                }
+            },
+            at,
+        )?;
         let image = self
             .engine
-            .render(&Arc::new(scene), (width, height), &inherited)
+            .render(&Arc::new(scene), pixels, &inherited)
             .map_err(|error| match error {
                 OffscreenError::Dropped(_) => rejected(at),
                 OffscreenError::Failed(message) => {

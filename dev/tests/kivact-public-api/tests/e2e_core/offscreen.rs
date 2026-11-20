@@ -79,7 +79,7 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
     let mut renderer = Offscreen::new().theme(theme());
     renderer.font(TUFFY).unwrap();
     let output = renderer
-        .render(96, 64, |draw, size| artwork(draw, size, &image))
+        .render(96.0, 64.0, |draw, size| artwork(draw, size, &image))
         .unwrap();
     assert_eq!(
         (output.width, output.height, output.rgba.len()),
