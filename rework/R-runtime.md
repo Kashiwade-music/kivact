@@ -5106,7 +5106,12 @@ cargo xtask check --no-write --crate kivact-macros
 
 ### 状態の閉じ方
 
-- 状態の型の変更は無い。
+- 状態の型の変更は無い。ただし R20 の後、次の 3 型が xtask の `state` の error になる（W5a の R28 の差戻しで設計者が足した。R20 が `Binding` を `Signal` に統合したので、caller の binding だった field が xtask の `state` の Signal の field に数えられるようになった）。印は型の宣言の直前ではなく、その型の doc comment と属性（`///`・`#[..]`）の塊の上に置く（xtask は item の先頭＝doc の 1 行目の直前の行を見る。`struct` の行の直前に置くと「未使用の印」と「印が無い」の二つの error になる）。
+  - `DisclosureApi`（`crates/kivact-interaction/src/disclosure.rs`）：`// xtask-allow(state): independent: open is the caller's requested state, written by hide and the trigger's actions; trigger_state and content_state hold the mounted parts' states (attach_part_state sets them on mount and clears them on cleanup); host_disabled registers each mounted trigger's disabled value for its mount's life`
+  - `Target`（`crates/kivact-interaction/src/scalar/track_data.rs`）：`// xtask-allow(state): independent: binding is the thumb's value, written by set and set_position; bounds is the neighbor thumbs' values of a range slider, fixed when the target is made`
+  - `Core`（`crates/kivact-interaction/src/toggle.rs`）：`// xtask-allow(state): independent: checked is the caller's binding, written only by the control's flip through edit; observed holds the mounted control's state (attach_part_state sets it on mount and clears it on cleanup)`
+- `scalar/range.rs` の `follow_range`・`follow_ranges` の effect の中の書込み 3 か所（`binding.set(value)`・`low.set(from)`・`high.set(to)`）は、xtask の `effect-writes` の error になる（旧 `Binding` の書込みは検査されなかった）。range の prop が変わったときに caller の値を新しい範囲に入れ直すのは、U08 が消した range の machine と同じ振る舞いで残す（S-5 の例外：直すのは caller の値で、範囲から外れた値だけを書くので、次の実行では何も書かない）。各書込みの行の直前に、同じ字下げで次の 1 行を置く：
+  `// xtask-allow(effect-writes): a range prop change normalizes the caller's bound value into the new range (the base behavior of the range machine U08 removed); it writes only a value the range leaves out, so the next run writes nothing`
 
 ### 試験
 
@@ -5216,6 +5221,9 @@ cargo xtask check --no-write --crate kivact-interaction
 ### 状態の閉じ方
 
 - `AsyncView<T>`：closure と `Callback` の field。constructor と値渡しの builder だけで書く。対象外。
+- R20 の後、次の型が xtask の `state` の error になる（W5a の R29 の差戻しで設計者が足した。R20 が `Binding` を `Signal` に統合したので、caller の binding だった field が xtask の `state` の Signal の field に数えられるようになった）。印は型の宣言の直前ではなく、その型の doc comment と属性（`///`・`#[..]`）の塊の上に置く（xtask は item の先頭＝doc の 1 行目の直前の行を見る。`struct` の行の直前に置くと「未使用の印」と「印が無い」の二つの error になる）。
+  - `struct Plan<K: 'static>`（`crates/kivact-ui/src/data_table/tree.rs`）：`// xtask-allow(state): independent: expanded is the caller's binding of the open rows, written by the tree toggles; show_all is the tree column's setting, fixed when the plan is made`
+  - `struct TimeInput`（`crates/kivact-ui/src/time_input/view.rs`）：`// xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding that the hour, minute and second fields write, and picker_label is the optional name of the picker button`
 
 ### 試験
 
@@ -5266,6 +5274,18 @@ cargo xtask check --no-write --crate kivact-ui
 ### 状態の閉じ方
 
 - 状態の型の変更は無い。
+- R20 の後、次の型が xtask の `state` の error になる（W5a の R30 の差戻しで設計者が足した。R20 が `Binding` を `Signal` に統合したので、caller の binding だった field が xtask の `state` の Signal の field に数えられるようになった）。印は型の宣言の直前ではなく、その型の doc comment と属性（`///`・`#[..]`）の塊の上に置く（xtask は item の先頭＝doc の 1 行目の直前の行を見る。`struct` の行の直前に置くと「未使用の印」と「印が無い」の二つの error になる）。
+  - `struct NativeSelect<K: kivact::state::ItemKey>`（`crates/kivact-ui-basic/src/native_select.rs`）：`// xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding of the chosen key, and placeholder is the optional text shown while it is None`
+  - `struct Questionnaire`（`crates/kivact-ui-basic/src/questionnaire.rs`）：`// xtask-allow(state): record: the builder's props, each written only by its own setter; current and answers are the caller's bindings of the step shown and of the answer sheet, written by the navigation buttons and the answer fields`
+  - `struct MobileContext`（`crates/kivact-ui-soft/src/mobile_nav.rs`）：`// xtask-allow(state): independent: open is the drawer's open binding, written by the toggle, the drawer's close and the backdrop; auto_toggle is fixed when the context is made`
+  - `struct ColorWheel`（`crates/kivact-ui-creative/src/color_wheel/view.rs`）：`// xtask-allow(state): record: the builder's props, each written only by its own setter; color and model are the caller's bindings of the color and of the fields' color model, written by the wheel, the fields and the model switch`
+  - `struct GradientEditor`（`crates/kivact-ui-creative/src/gradient/view.rs`）：`// xtask-allow(state): record: the builder's props, each written only by its own setter; stops and selection are the caller's bindings of the stop vector and of the selected index, written by the editor's edits (display sorting writes neither)`
+  - `struct DockCx<K: kivact::state::ItemKey>`（`crates/kivact-ui-creative/src/dock/data.rs`）：`// xtask-allow(state): independent: layout is the caller's binding of the dock layout, written by tab moves and closes; gesture is the tab drag or rename in progress; shared is the rows' registry, made with the dock`
+  - `struct State`（`crates/kivact-ui-creative/src/editors/arrangement/gesture.rs`）：`// xtask-allow(state): independent: selected, playhead, loop_range, cycling, transform and tool_binding are the caller's bindings, each written by its own gesture or command; active_auto is the automation point under a press, set on press and cleared on release`
+  - `struct State`（`crates/kivact-ui-creative/src/editors/graph/gesture.rs`）：`// xtask-allow(state): independent: view, selected and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu`
+  - `struct State`（`crates/kivact-ui-creative/src/editors/node/gesture.rs`）：`// xtask-allow(state): selected, selected_link and transform are the caller's bindings (public API): the editor clears selected_link when it selects nodes, and the caller may set both; active is the port of the link drag in progress`
+  - `struct State<T: TimeItem>`（`crates/kivact-ui-creative/src/editors/time/gesture.rs`）：`// xtask-allow(state): independent: selected, transform and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu`
+- examples の 4 つの catalog（`kivact-ui-{creative,game,pop,soft}-catalog`）と `kivact-ui-pop`・`kivact-ui-game` は、`Binding` を `Signal` にしても新しい error は出ない（設計者が確かめた）。
 
 ### 試験
 

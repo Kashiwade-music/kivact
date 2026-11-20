@@ -364,3 +364,20 @@
 （設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
 
 - **R28**（W5a、lane X、commit `49707eeb`）：`crates/kivact-interaction` の呼出し元は直した（fmt・check --lib・clippy --lib は成功）。xtask が次の 4 件で失敗する。(1) `crates/kivact-interaction/src/scalar/range.rs`（`follow_range`・`follow_ranges`、59・70・73 行）：effect の closure の中で `Signal::set` を書き、`xtask effect-writes` が error（付属書に扱いが無い。旧 `Binding` の set は検査されず、`Signal` への置換で数えられるようになった）。(2) `disclosure.rs` の `DisclosureApi`：state field `open`・`trigger_state`・`content_state`・`host_disabled` が `xtask state` の error。(3) `scalar/track_data.rs` の `Target`：state field `binding`・`bounds`。(4) `toggle.rs` の `Core`：state field `checked`・`observed`。(2)〜(4) は付属書 R28 に型の印の文が無い。Orchestrator の新しい行（独立の印）の三つの条件を確かめたが、`DisclosureApi` では `open`（Signal）と `shown`（Value、「requested state」）が同じ事実を持つかどうかが判断できない。`Target`・`Core` も書き手と読み手の全部を見ないと確かめられない。設計者は、(1) の扱いと (2)〜(4) の印（または型の作り直し）を決める。この差戻しの間、lane X（鎖）は止める。
+
+## 設計者の回答（W5a・R28 の差戻し、2026-11-20）
+
+4 件とも原因は同じ：R20 が `Binding` を `Signal` に統合したので、caller の binding だった field と、その書込みが、xtask の `state`・`effect-writes` に初めて見えるようになった。どれも型は作り直さず、印で閉じる。
+
+- **(1) `scalar/range.rs` の effect の書込み**：effect の外へは移さない。range の prop が変わったときに caller の値を新しい範囲に入れ直すのは、U08 が消した range の machine と同じ振る舞い。直すのは caller の値で、範囲から外れた値だけを書くので、次の実行では何も書かない。3 つの書込み（`binding.set(value)`・`low.set(from)`・`high.set(to)`）の各行の直前に、同じ字下げで次を置く：
+  `// xtask-allow(effect-writes): a range prop change normalizes the caller's bound value into the new range (the base behavior of the range machine U08 removed); it writes only a value the range leaves out, so the next run writes nothing`
+- **(2) `DisclosureApi`**：`open` と `shown` は同じ事実だが、重複ではない。`shown` は `use_disclosure` で `open.into_value()` から作る、同じ cell を読む handle で、値の写しを持たない（xtask も `Value` を数えない。報告された field は `open`・`trigger_state`・`content_state`・`host_disabled`）。`shown` は残してよい。
+- **(2)〜(4) の印**（付属書 R28 の「状態の閉じ方」に書いた）：
+  - `DisclosureApi`：`// xtask-allow(state): independent: open is the caller's requested state, written by hide and the trigger's actions; trigger_state and content_state hold the mounted parts' states (attach_part_state sets them on mount and clears them on cleanup); host_disabled registers each mounted trigger's disabled value for its mount's life`
+  - `Target`：`// xtask-allow(state): independent: binding is the thumb's value, written by set and set_position; bounds is the neighbor thumbs' values of a range slider, fixed when the target is made`
+  - `Core`：`// xtask-allow(state): independent: checked is the caller's binding, written only by the control's flip through edit; observed holds the mounted control's state (attach_part_state sets it on mount and clears it on cleanup)`
+  - 置く場所：印は型の宣言の直前ではなく、その型の doc comment と属性（`///`・`#[..]`）の塊の上に置く（xtask は item の先頭＝doc の 1 行目の直前の行を見る。`struct` の行の直前に置くと「未使用の印」と「印が無い」の二つの error になる）。
+- 設計者の確認：`49707eeb` に上の 3 つの印と 3 つの `effect-writes` の印を足し、`cargo xtask check --no-write --crate kivact-interaction` が ok（error 0）になることを確かめた。
+- **R29・R30 で同じ原因で止まる箇所（先回りして閉じた）**：同じ worktree で kivact-ui・5 つの kit・kivact-devtools・examples の `Binding<` を機械的に `Signal<` にして xtask を走らせ、基点からの差を見た。新しい error は `state` の 12 型（kivact-ui 2、basic 2、creative 7、soft 1）だけで、`effect-writes`・`ui-machine` の新しい error は無い。12 型の印の文を付属書 R29（`Plan`・`TimeInput`）と R30（残りの 10 型）の「状態の閉じ方」に書いた。12 の印を入れると、どの crate も基点と同じ error の数に戻ることを確かめた。
+- 作業指示書 0.5 節の、印の文が無い型の行に判定の補足を足した。(a) caller の binding の field は、書き手を「caller と、その型の `set`/`update` の呼出し」と書けば条件 1 を満たす。(b) 同じ `Signal` から作った `Value` は重複に当たらない。(c) builder（`&mut self`）で報告された型は `record:` の印にする。(d) 印は doc comment の上に置く。今回の (2)〜(4) は、この補足があれば Orchestrator が判断できた種類。
+- Orchestrator：lane X で R28 に 6 つの印を足し、R28 の確認を通して commit し、R29 から再開する。
