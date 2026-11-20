@@ -11,12 +11,12 @@
 //!   the pointer reaches the nodes behind it, for hover, presses and the
 //!   wheel alike. Keyboard focus and accessibility do not change.
 //! - A child's subtree is looked at only when the point lies in the child's
-//!   ink (`HitInk`: everything the child and its subtree can draw on, which
-//!   holds every box of the subtree as drawn), so a point inside a long list
-//!   visits the rows around it, not the list. A child whose ink does not
+//!   ink (`ink::drawn`: everything the child and its subtree can draw on,
+//!   which holds every box of the subtree as drawn), so a point inside a long
+//!   list visits the rows around it, not the list. A child whose ink does not
 //!   bound its hits is always looked at: a sticky box (its shift is not in
 //!   its ink), and one whose subtree holds a box drawn outside the ink
-//!   (`HitReach::Anywhere`: a transform that is not 2D, which a perspective
+//!   (`Drawn::beyond`: a transform that is not 2D, which a perspective
 //!   or a 3D rendering context projects, or a drawable, which its host's
 //!   drawing places), with its ancestors up to a box that clips.
 //! - The ink is the paint list's (kept until something in the subtree changes
@@ -26,6 +26,8 @@
 
 use crate::layer::LayerTraits;
 use crate::model::Model;
+use crate::model::drawables::hit::HitWalk;
+use crate::paint::state::ListState;
 use crate::tree::node::HostNode;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::{NodeId, Point, Rect};
@@ -36,35 +38,6 @@ use std::collections::{HashMap, HashSet};
 struct ContextPlane {
     id: NodeId,
     map: Matrix4,
-}
-
-/// The drawing's answer to where a subtree can be hit.
-pub(crate) trait HitInk {
-    /// Where the box `id` (`n`, laid out as `layout`) and its subtree can
-    /// be hit.
-    fn hit_ink(&self, id: NodeId, n: &HostNode, layout: &kivact_layout::NodeLayout) -> HitReach;
-}
-
-/// Where a subtree can be hit (see [`HitInk`]).
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum HitReach {
-    /// Nowhere: it draws nothing (it or an ancestor is hidden).
-    Nothing,
-    /// Inside its ink: relative to its layout location in its parent's
-    /// unscrolled content space, mapped by its own transform.
-    Within(Rect),
-    /// Anywhere: a box of it is drawn outside its ink.
-    Anywhere,
-}
-
-/// How a hit test walks the tree.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum HitWalk {
-    /// Children are left out by their inks.
-    Pruned,
-    /// Every child is looked at: the debug self-check's reference.
-    #[cfg(all(debug_assertions, feature = "testing"))]
-    Complete,
 }
 
 /// Logical pixels an ink is grown by: it is computed relative to the
@@ -80,10 +53,10 @@ impl Model {
             return true;
         }
         let layout = self.computed_layout(c).unwrap_or_default();
-        let ink = match self.hit_ink(c, cn, &layout) {
-            HitReach::Nothing => return false, // not drawn, so not shown
-            HitReach::Anywhere => return true,
-            HitReach::Within(ink) => ink,
+        let ink = match super::ink::drawn(self, c, cn, &layout, self.paint.list.ink_gen) {
+            None => return false, // not drawn, so not shown
+            Some(d) if d.beyond => return true,
+            Some(d) => d.rect,
         };
         let x = ink.x + layout.location.x - scroll.x;
         let y = ink.y + layout.location.y - scroll.y;
@@ -211,7 +184,14 @@ impl Model {
             return Some(h);
         }
         let scroll = n.scroll();
-        for c in self.stacked(n).rev() {
+        let candidates: Vec<NodeId> = match walk {
+            HitWalk::Pruned => self.hit_candidates(id, n, p, scroll),
+            // The reference looks at every child in the model's stacked order:
+            // neither the list's child index nor its stacked orders.
+            #[cfg(all(debug_assertions, feature = "testing"))]
+            HitWalk::Complete => self.stacked(n).rev().collect(),
+        };
+        for c in candidates {
             if skip.is_some_and(|skip| skip.contains(&c)) {
                 continue;
             }
@@ -235,6 +215,60 @@ impl Model {
             return Some(h);
         }
         inside.then_some(id)
+    }
+
+    /// The children of `n` (the box `id`) the point `p` may hit, topmost
+    /// first (`listed_candidates`); the test driver may leave one out
+    /// (`ArvaneTestHost::drop_hit_candidate`), a fault the reference walk
+    /// must catch.
+    fn hit_candidates(&self, id: NodeId, n: &HostNode, p: Point, scroll: Point) -> Vec<NodeId> {
+        let found = self.listed_candidates(id, n, p, scroll);
+        #[cfg(feature = "testing")]
+        let found = {
+            let mut found = found;
+            if let Some(dropped) =
+                crate::paint::state::DROP_HIT_CANDIDATE.with(std::cell::Cell::get)
+            {
+                found.retain(|c| *c != dropped);
+            }
+            found
+        };
+        found
+    }
+
+    /// The children of `n` (the box `id`) the point `p` (in its box) may
+    /// hit, topmost first: the listed stacked order of a container that sorts
+    /// its children; the child index of a container with many, when the list
+    /// keeps a fresh one; else every child in stacked order.
+    fn listed_candidates(&self, id: NodeId, n: &HostNode, p: Point, scroll: Point) -> Vec<NodeId> {
+        let list = &self.paint.list;
+        if list.state != ListState::Stale {
+            if let Some(order) = list.stack_orders.get(&id) {
+                return order.iter().rev().copied().collect();
+            }
+            if let Some(index) = list
+                .indices
+                .get(&id)
+                .filter(|index| index.touched.is_empty())
+            {
+                // The index's reaches are in the container's unscrolled content space.
+                let probe = Rect {
+                    x: p.x + scroll.x - HIT_SLACK,
+                    y: p.y + scroll.y - HIT_SLACK,
+                    width: 2.0 * HIT_SLACK,
+                    height: 2.0 * HIT_SLACK,
+                };
+                let mut found: Vec<(usize, NodeId)> = index
+                    .reaching(probe)
+                    .chain(index.sticky())
+                    .map(|e| (e.order, e.id))
+                    .collect();
+                found.sort_unstable_by_key(|e| std::cmp::Reverse(e.0));
+                found.dedup_by_key(|e| e.0);
+                return found.into_iter().map(|(_, c)| c).collect();
+            }
+        }
+        self.stacked(n).rev().collect()
     }
 
     /// The deepest node under `p` (in the box space of the root `root`'s

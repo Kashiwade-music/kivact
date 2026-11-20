@@ -174,6 +174,14 @@ thread_local! {
     pub(crate) static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
 }
 
+#[cfg(feature = "testing")]
+thread_local! {
+    /// A child the hit test's candidates leave out: the test driver's
+    /// injected fault (`ArvaneTestHost::drop_hit_candidate`), which the
+    /// debug self-check's complete walk must catch.
+    pub(crate) static DROP_HIT_CANDIDATE: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+}
+
 /// The sizes of a window's paint list and draw cache (the test driver reads them).
 #[cfg(feature = "testing")]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -503,6 +511,8 @@ pub(crate) struct PaintList {
     pub(super) looks: HashMap<NodeId, LayerTraits>,
     /// The scroll containers whose subtrees are walked again before the next frame.
     pub(super) rewalk: BTreeSet<NodeId>,
+    /// The children of each listed container that sorts them, in stacked order (paint and hit test share it).
+    pub(super) stack_orders: HashMap<NodeId, Rc<[NodeId]>>,
 }
 
 /// What one child can draw on, relative to its layout location.

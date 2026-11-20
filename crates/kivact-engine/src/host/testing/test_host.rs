@@ -463,6 +463,12 @@ impl ArvaneTestHost {
         crate::paint::state::KEEP_STALE_DRAW.with(|kept| kept.set(node));
     }
 
+    /// Leave `node` out of the hit test's candidates (`None`: leave none
+    /// out): an injected fault the self-check's reference walk must catch.
+    pub fn drop_hit_candidate(&self, node: Option<NodeId>) {
+        crate::paint::state::DROP_HIT_CANDIDATE.with(|dropped| dropped.set(node));
+    }
+
     /// Make window `window`'s GPU device lost, as a device failure does (a test
     /// control; nothing happens on a CPU-only window).
     pub fn lose_gpu_device(&mut self, window: WindowId) {

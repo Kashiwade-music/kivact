@@ -14,10 +14,19 @@ use kivact_types::{DrawableId, Matrix4, NodeId, Point, Rect};
 
 use crate::contract::{DrawableMode, SceneLayer};
 use crate::model::Model;
-use crate::model::interact::hit::HitWalk;
 use crate::model::interact::visual;
 
 use super::place::{DrawnPlacement, drawable_placements};
+
+/// How a hit test walks the tree.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum HitWalk {
+    /// Children are left out by their inks.
+    Pruned,
+    /// Every child is looked at: the debug self-check's reference.
+    #[cfg(all(debug_assertions, feature = "testing"))]
+    Complete,
+}
 
 impl Model {
     /// The deepest drawable of `host` drawn in `slot` (0 or 1) under `p`,

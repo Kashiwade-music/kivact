@@ -13,36 +13,15 @@
 //!   the walk uses, so no node's layer depends on its layout location.
 //! - The paint list and the hit test read the same facts, so a 3D context
 //!   has the same planes when drawn and when hit.
-//! - This module does not name the model: the tree is read through
-//!   [`LayerView`], which the model implements.
 
 use crate::lower::effects;
 use crate::lower::sanitize::{extent, offset, unit};
 use kivact_types::paint::{BackfaceVisibility, Fill, FillImage, TransformStyle};
 use kivact_types::pixel::BlendMode;
-use kivact_types::{Edges, ElementTransform, FilterOp, Isolation, NodeId, PaintProps, WillChange};
-use std::collections::HashMap;
+use kivact_types::{Edges, ElementTransform, FilterOp, Isolation, PaintProps, WillChange};
 
 /// The extent of what reaches everywhere (finite, so unions keep it).
 pub(crate) const EVERYWHERE: f64 = f64::MAX / 4.0;
-
-/// The tree facts the layer classification reads. The model implements it;
-/// the classification takes it as a parameter, so it names no model type.
-pub(crate) trait LayerView {
-    /// The look of `id` now, or `None` for a node that is missing or not drawn.
-    fn drawn_look(&self, id: NodeId) -> Option<LayerTraits>;
-    /// The flat children of `id`, in paint order.
-    fn flat_children(&self, id: NodeId) -> Vec<NodeId>;
-    /// Whether `id` is a layer of its own: an overlay or a fixed box.
-    fn is_layer_node(&self, id: NodeId) -> bool;
-    /// Whether the scenes of `id` hold a layer, and whether they hold an item.
-    fn scene_facts(&self, id: NodeId) -> (bool, bool);
-    /// Whether `id` moves as a layer: a running transition or a layout motion.
-    fn moves_layer(&self, id: NodeId) -> bool;
-    /// The roots of the layer trees: the tree's root, then the layers
-    /// (overlays and fixed boxes) in the order the window draws them.
-    fn layer_roots(&self) -> Vec<NodeId>;
-}
 
 /// What a node's paint says about where it draws, sanitized like
 /// `paint::sanitize_paint` (read in place: most nodes have no state
@@ -306,137 +285,4 @@ impl LayerTraits {
     pub(crate) fn plane_3d(&self) -> bool {
         self.preserves() && !self.grouping()
     }
-}
-
-/// The facts of every drawn subtree of the layer roots (the tree and the
-/// overlays and fixed boxes); only the nodes with something to say are kept.
-pub(crate) fn layer_facts(view: &impl LayerView) -> HashMap<NodeId, SubtreeFacts> {
-    let mut out = HashMap::new();
-    for root in view.layer_roots() {
-        subtree_facts(view, root, None, &mut out);
-    }
-    out
-}
-
-/// The facts of the subtree at `id` (its parent's look is `parent`),
-/// recorded in `out` for the nodes that have any.
-pub(crate) fn subtree_facts(
-    view: &impl LayerView,
-    id: NodeId,
-    parent: Option<&LayerTraits>,
-    out: &mut HashMap<NodeId, SubtreeFacts>,
-) -> SubtreeFacts {
-    let Some(look) = view.drawn_look(id) else {
-        return SubtreeFacts::default();
-    };
-    let mut below = SubtreeFacts::default();
-    for child in view.flat_children(id) {
-        if view.is_layer_node(child) {
-            continue;
-        }
-        let f = subtree_facts(view, child, Some(&look), out);
-        below = merge_below(below, f);
-    }
-    let (scene_layer, scene_item) = view.scene_facts(id);
-    // Its own background shader is an item inside its group too.
-    below = below
-        .with(SubtreeFacts::HAS_LAYER, scene_layer)
-        .with(SubtreeFacts::HAS_ITEM, scene_item || look.shader());
-    let layer = own_layer(view, id, &look, parent) || promoted(&look, &below);
-    let facts = own_facts(&look, &below, layer);
-    if facts != SubtreeFacts::default() {
-        out.insert(id, facts);
-    }
-    facts
-}
-
-/// The facts of `id` from its children's recorded facts (`facts`), given its parent's look.
-pub(crate) fn node_facts(
-    view: &impl LayerView,
-    id: NodeId,
-    parent: Option<&LayerTraits>,
-    facts: &HashMap<NodeId, SubtreeFacts>,
-) -> SubtreeFacts {
-    let Some(look) = view.drawn_look(id) else {
-        return SubtreeFacts::default();
-    };
-    let mut below = SubtreeFacts::default();
-    for child in view.flat_children(id) {
-        if view.is_layer_node(child) {
-            continue;
-        }
-        let f = facts.get(&child).copied().unwrap_or_default();
-        below = merge_below(below, f);
-    }
-    let (scene_layer, scene_item) = view.scene_facts(id);
-    // Its own background shader is an item inside its group too.
-    below = below
-        .with(SubtreeFacts::HAS_LAYER, scene_layer)
-        .with(SubtreeFacts::HAS_ITEM, scene_item || look.shader());
-    let layer = own_layer(view, id, &look, parent) || promoted(&look, &below);
-    own_facts(&look, &below, layer)
-}
-
-/// The children's facts `f` added to the facts of the children `below` so far
-/// (every fact but the node's own layer).
-fn merge_below(below: SubtreeFacts, f: SubtreeFacts) -> SubtreeFacts {
-    below
-        .with(SubtreeFacts::HAS_LAYER, f.has_layer())
-        .with(SubtreeFacts::HAS_ITEM, f.has_item())
-        .with(SubtreeFacts::HAS_BACKDROP, f.has_backdrop())
-        .with(SubtreeFacts::HAS_BLEND, f.has_blend())
-}
-
-/// The facts of a node with `look`, whose layer is `layer` and whose
-/// children hold `below`.
-fn own_facts(look: &LayerTraits, below: &SubtreeFacts, layer: bool) -> SubtreeFacts {
-    SubtreeFacts::default()
-        .with(SubtreeFacts::LAYER, layer)
-        .with(SubtreeFacts::HAS_LAYER, layer || below.has_layer())
-        .with(SubtreeFacts::HAS_ITEM, look.shader() || below.has_item())
-        .with(
-            SubtreeFacts::HAS_BACKDROP,
-            look.backdropped() || below.has_backdrop(),
-        )
-        .with(SubtreeFacts::HAS_BLEND, look.blended() || below.has_blend())
-}
-
-/// Whether `id` is a layer for its own reasons, given its parent's look: an
-/// overlay or fixed box, a filter, a mask or a backdrop filter, a `will-change`,
-/// a motion, or a part of a 3D rendering context.
-fn own_layer(
-    view: &impl LayerView,
-    id: NodeId,
-    look: &LayerTraits,
-    parent: Option<&LayerTraits>,
-) -> bool {
-    let parent_plane_3d = parent.is_some_and(LayerTraits::plane_3d);
-    let parent_perspective = parent.is_some_and(|p| p.perspective());
-    let overlay = view.is_layer_node(id);
-    let moves = view.moves_layer(id);
-    overlay
-        || look.filtered()
-        || look.masked()
-        || look.backdropped()
-        || look.will_change != WillChange::Auto
-        || moves
-        || !look.flat()
-        || (look.transformed() && parent_perspective)
-        || (parent_plane_3d && (!look.flat() || look.preserves()))
-        || look.plane_3d()
-}
-
-/// Whether the node with `look` is promoted to a layer by what its inner
-/// subtree holds: a group over a layer or an item, a backdrop root over a
-/// backdrop filter, or an isolated node over a blend mode and a layer.
-fn promoted(look: &LayerTraits, inner: &SubtreeFacts) -> bool {
-    let group = look.opacity < 1.0 || look.grouped();
-    let backdrop_root = look.opacity < 1.0
-        || look.filtered()
-        || look.masked()
-        || look.grouped()
-        || look.backdropped();
-    (group && (inner.has_layer() || inner.has_item()))
-        || (backdrop_root && inner.has_backdrop())
-        || (look.isolated() && inner.has_blend() && inner.has_layer())
 }
