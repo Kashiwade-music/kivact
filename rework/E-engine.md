@@ -3335,6 +3335,7 @@ cargo test -p kivact-editing
      fn scroll_to(host: &mut ArvaneTestHost, y: f64) {
          host.writer().scroll_to(LIST, Point { x: 0.0, y });
          host.writer().commit();
+         host.wake();
          host.redraw();
      }
 
@@ -3351,6 +3352,7 @@ cargo test -p kivact-editing
          host.keep_stale_draw(Some(row(0)));
          host.writer().set_paint(row(0), row_paint(0, 0xdc2626));
          host.writer().commit();
+         host.wake();
          host.redraw();
      }
 

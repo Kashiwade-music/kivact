@@ -572,3 +572,61 @@ E19（lane E1、commit `c0dbc924`）の subagent が付属書から外れて決�
 
 - 付属書 E21 の手順自体が `cancel_sample` の `time_ns: self.frame.host_now()` を指定している。shell は event に自分の時刻（`clicks.rs` の `input.time_ns = now`）を付けるので、host の時刻は前の event と同じ時計で、それより前にならない。取消しはその時に起きるので host の時刻が正しい（Web の `pointercancel` の時刻も発送の時刻）。pressure・tilt は `None`、modifiers は default：押しているものが無い sample として正しい。
 - 実装はこのまま採る。食い違っていたのは完了条件の文なので、付属書 E21 の完了条件を「前と同じ値（sample の無い取消しは `cancel_sample` の値：host の時刻、pressure・tilt は `None`）」に直した。E21 の差戻しは閉じる。
+
+## Orchestrator の判断（W6b・S15 の残り、commit `bb13f33b`、2026-11-20）
+
+- 設計者の回答 3〜6 を subagent が実施（commit `bb13f33b`）。確認（tier a）・後退の確認 4 件（e2e_core 475・e2e_ui 252・e2e_native 45・kivact-test 24＋2）・XK 付きの workspace clippy は成功。採る。
+- 決まり 4 の「repo の中に呼出しは無い」は事実と違った。呼出しは 2 箇所：`crates/kivact-ui/src/toggle/look.rs`（kivact-ui の本体。決まりの追従として 0.5 の行で許可）と、`dev/tests/kivact-public-api/tests/e2e_core/canvas.rs`（試験。期待値は変えず、同じ px の値に書き換えた）。採る。
+- 決まり 5 の「測るだけの呼出し」に `Draw::measure_text` を含めた（数は捨てる）。決まりの本文に明示は無かったが、測るだけの呼出しなので採る。
+- 決まり 5 の `text_path` を `&mut self` に変えた（公開の API の変更。決まりどおり。呼出しは e2e の試験だけ）。採る。
+- **kit に残る呼出し（DEC-14、compile の対象外）**：`crates/kivact-ui-basic/src/recipes.rs` の 250・259 行の `Path::new().rounded_rect(.., corners(..))`。kit の移行（W9）で、px の `[(f64, f64); 4]` の形に直す。K の lane（W9）の仕事として記録する。
+- **G へ（設計者の決まり 1）**：`BorderImageSource::Gradient` の `Box` の 1 行を G の移行の文書に足す（W11b）。
+
+## Orchestrator の判断（W6b・E32、commit `19fa977e`、2026-11-20）
+
+- 注入の位置：付属書の `outdate_paint` の loop ではなく、`PaintState::outdate_draws`（`paint/list/invalidation.rs`）の `for id in changes.redrawn()` に置いた。`outdate_paint` の loop は `forget_ink` を呼ぶもので意味が違う。採る（0.5：付属書のコード片の名前が無く、同じ意味のものが一つだけある）。
+- 試験の driver の順：付属書の `scroll_to` と注入の試験は `commit` の後に `redraw` だけを呼んでいた。`wake` が無いと sync（`outdate_draws`）も scroll も起きず、試験は何もしない。`content_version` と同じ `commit → wake → redraw` の順に直した。期待値は変えていない。採る。**設計者へ**：付属書 E32 の driver の順が誤っていたので、付属書の本文も `wake` を含めて直す。
+- clippy の `manual_is_multiple_of`（`i % 2 == 0`）は、clippy の提案どおり `i.is_multiple_of(2)` にした。`#[allow]` は無い。採る。
+
+## Orchestrator の判断（W6b・S16、commit `1307ae90`、2026-11-20）
+
+- `Owner::ambient` は現コードに無い。`Owner::try_ambient() -> Option<Owner>`（misuse を記録しない版、`owner_scope` の成功の経路を使う）を `kivact-runtime`（内部の crate）に足した。採る（0.5：付属書のコード片の名前が無く、同じ意味のものが一つだけある）。
+- `rg` の完了条件が `flows.rs:28` の関数名 `show_sets_up_plain_components_in_the_branch` に当たった（`components_in` の一部）。別の識別子なので受け入れる（0.5：完了条件の rg が既存の行に当たる）。
+- devtools の `hsl_of`・`hsl_hex` は literal の色だけを扱うので `&Theme::default()`、`look.rs` の literal の `mix` は `&Theme::light()` を渡した。出力は theme に依らない。採る。
+- `kivact-style/src/resolve.rs:6` の doc に `Color::resolve` の名前が残っている（intra-doc の link ではないので警告は出ない）。doc の名前だけなので、後片付けの unit（W11c）で直す。記録のみ。
+
+## 差戻し（W6b・S16、2026-11-20）
+
+- **S16 の試験**（`crates/kivact-style/src/theme/value.rs` の `components_and_mix_resolve_in_the_given_theme`）：付属書の `assert_eq!` が、`mix(.., 0.0, ..)` の Oklab の往復の誤差（約 1e-16）で失敗した。subagent は、期待値は「同じ色」のまま、`1e-9` の許容差の比較に変えた。試験を緩めたくない場合は設計者が見る（0.2 の 3：許容差を広げることは禁止されている。ただし、この試験は新しく書いたもの）。設計者が決める：許容差を残すか、付属書の期待値を直すか。残す間は、最終 checkpoint で完了を宣言しない。
+
+## Orchestrator の判断（W6b・E24、commit `8103101c`、2026-11-20）
+
+- 付属書の `Dimension::Percent` は、W6a の改名で `Length::Percent` になっていたので `Length` を使った（`tests/hit_reference.rs`）。採る（0.5：付属書のコード片の名前が無く、同じ意味のものが一つだけある）。
+- 試験の driver の順は `commit → wake → redraw`（E32 の決まり）。採る。
+- `LayerView` の移動に付随する `merge_below` と `own_facts` を `facts.rs` に移した（`layer.rs` の唯一の利用元）。採る（移動の付随）。
+- `layer_facts`・`subtree_facts` の free 関数の引数を `&Model` にした。`flat_children` は Vec 化せず iterator のまま使った（結果は同じ）。採る。
+- `children()` の small 枝の本体は `small_child` に切り出した（引数 7 個の上限を守るため）。採る（0.4 の「意味のある helper に分ける」）。
+- 経過：E24 の subagent は 2 回、確認の途中で止まった（detached の regression 実行を残した）。regression の結果は logs（`reg1`〜`reg4`）で確かめ、clippy・xtask・fmt・commit は別の subagent が仕上げた。結果：e2e_core 470 passed・e2e_ui 252 passed・e2e_native 49 passed・kivact-test 26 passed、すべて failed 0。workspace clippy 成功、`xtask --only local` 成功。
+
+## 差戻し（W6b・S17、commit `20a06b61`、2026-11-20）
+
+lane X を S17 の所で止める。次の 2 件は設計者が決める。決まるまで S18 以降に進まない。
+
+- **(a) `describe.rs` の `unsupported_in_states`**：付属書 S17 は `!matches!(d, Decl::State(..))` で nested state を報告から除く。subagent は除かずに直した。理由：既存の E2E `style_paint::a_property_its_state_cannot_change_is_reported` が `hover.hover` の報告を期待するため。0.5 の表の「画面・a11y・focus・event・API の返す値の期待値は差戻し」に当たる（報告は API の返す値）。設計者が決める：(1) 付属書どおり nested state を除き、この E2E の期待値を直す、または (2) 報告を残し、付属書の表を直す。
+- **(b) border の幅の分類**：付属書の表は `BorderTopWidth` 等の幅を `Rest` とする。だが `paint_delta` は幅を描くので、hover の border 幅は描かれるのに「Unsupported」として報告される。付属書の表と `border()` の doc（「state で幅は描かれる」）が食い違う。subagent は S19（ST-05）で解消される見込みと書いたが、S19 までこの報告は残る。設計者が決める：表と doc のどちらを正とするか、S17 で直すか S19 まで待つか。
+
+## Orchestrator の判断（W6b・S17、commit `20a06b61`、2026-11-20）
+
+- 0.5 の表どおり、`grid.rs`・`text.rs`・`sheet/fields.rs` の legacy の印 9 件と、`Groups` の印を外した（mutate する状態が 2 つ未満で、xtask が未使用の印として error にするため）。`StateFields` の印は残した。採る。
+- `describe_state_styles` が `StyleState::ALL` の `name()` を使うため、`Active` の名前が `pressed` ではなく `active` になる。`kivact-core/src/devtools/styles.rs` の `state_layers` は `"pressed"` を探すので、DevTools で pressed の layer が消える。試験は通っていた（試験で見えていない）。C19 がこの file を持つので、C19 の brief に「`active` を `pressed` に読み替える」を明記して直す。採る（付属書の意図は C19 で閉じる）。
+- `CompiledStyle.duplicates` が層をまたぐ重複も数えるので、debug の診断が層の上書きも報告しうる。付属書 S18 で core が層ごとに数えるように直す。採る（interim。S18 で閉じる）。
+- clippy の `redundant_guards`（`Some((var, a)) if a == 1.0`）と `clone_on_copy`（`LineHeight`）は、clippy の提案どおり直した。採る。
+
+## 設計者の回答（W6b の差戻し：S16・S17・E32、2026-11-21）
+
+- **S16 の許容差**：`1e-9` の許容差を残す。`mix(.., 0.0, ..)` は Oklab を往復するので、bit の一致は契約にしない（`t == 0.0` の特別扱いを入れる理由がない）。この試験は新しく書いたものなので 0.2 の 3 には当たらない。付属書 S16 の試験の文を「各成分の差が `1e-9` 以下」に直した。S16 は閉じる。最終 checkpoint の妨げにならない。
+- **S17 (a) nested state**：(2) を採る。報告を残し（subagent の実装のまま）、付属書 S17 の `unsupported_in_states` の `filter` から `&& !matches!(d, Decl::State(..))` を消した。状態の style の中の状態は効かないので、黙って捨てずに報告する。
+  - S19 で報告そのものを消すと同じ E2E が落ちるので、付属書 S19 を直した：`unsupported_in_states` を `nested_in_states`（状態の中の `Decl::State` と `Decl::Group` だけ）に置き換え、core の `StyleReports.states` は残して文を変える。E2E は `a_state_inside_a_state_is_reported` に改名し、`hover.hover` を含み `hover.width` を含まないことを確かめる。S19 の所有に `style_paint.rs` の 1 試験を足した。
+- **S17 (b) border の幅**：S19 まで待つ。表（幅は `Rest`）が正で、`border()` の doc は S19 後の姿。S17〜S18 の間に幅を hover に置くと「Unsupported」と報告されるのは、lane の中だけの途中の状態として受け入れる（S19 が `sets_border` を色と line style だけにし、幅は base に merge する）。S17 で直さない。
+- **E32 の driver の順**：付属書 E32 の `scroll_to` と注入の試験に `host.wake();` を足した（`commit → wake → redraw`）。
+- lane X は S18 へ進んでよい。
