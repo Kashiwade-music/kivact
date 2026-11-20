@@ -44,7 +44,7 @@ impl Decl {
         }
     }
 
-    pub(super) fn extra_value_debug(&self) -> String {
+    pub(super) fn extra_edit_text(&self) -> String {
         match self {
             Decl::BoxShadow(list) | Decl::TextShadow(list) => format!("{list:?}"),
             Decl::Transition(prop, t) => format!("{prop:?} {t:?}"),

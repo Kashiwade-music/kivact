@@ -4,6 +4,10 @@ use kivact_types::{Align, Display, Justify, Length, TextAlign, ThemeVar};
 
 use super::Style;
 use crate::color_value::Color;
+use crate::geometry::CornerRadius;
+use crate::paint::Background;
+use crate::paint::Paint;
+use crate::text::LineHeight;
 
 /// One style property as DevTools edits it: its name, its value in the
 /// style as override text (`12`, `50%`, `auto`, `#2563eb`, a theme variable
@@ -136,6 +140,66 @@ impl EditText for Color {
     }
 }
 
+impl EditText for Background {
+    fn to_edit_text(&self) -> String {
+        match self.solid() {
+            Some(c) => c.to_edit_text(),
+            None => format!("{self:?}"),
+        }
+    }
+
+    fn from_edit_text(text: &str) -> Result<Self, String> {
+        Color::from_edit_text(text).map(|c| Background::from(Paint::from(c)))
+    }
+}
+
+impl EditText for LineHeight {
+    fn to_edit_text(&self) -> String {
+        match self {
+            LineHeight::Normal => "normal".to_owned(),
+            LineHeight::Scale(v) => format!("{v}"),
+            LineHeight::Px(v) => format!("{v}px"),
+        }
+    }
+
+    fn from_edit_text(text: &str) -> Result<Self, String> {
+        let text = text.trim();
+        if text == "normal" {
+            return Ok(LineHeight::Normal);
+        }
+        if let Some(px) = text.strip_suffix("px") {
+            return px
+                .trim()
+                .parse::<f64>()
+                .map(LineHeight::Px)
+                .map_err(|_| expected("a line height", text));
+        }
+        text.parse::<f64>()
+            .map(LineHeight::Scale)
+            .map_err(|_| expected("a line height", text))
+    }
+}
+
+impl EditText for CornerRadius {
+    fn to_edit_text(&self) -> String {
+        if self.x == self.y {
+            self.x.to_edit_text()
+        } else {
+            format!("{} {}", self.x.to_edit_text(), self.y.to_edit_text())
+        }
+    }
+
+    fn from_edit_text(text: &str) -> Result<Self, String> {
+        let parts: Vec<&str> = text.split_whitespace().collect();
+        let (x, y) = match parts.as_slice() {
+            [one] => (Length::from_edit_text(one)?, Length::from_edit_text(one)?),
+            [x, y] => (Length::from_edit_text(x)?, Length::from_edit_text(y)?),
+            _ => return Err(expected("one or two lengths", text)),
+        };
+        Ok(CornerRadius { x, y })
+    }
+}
+
 impl EditText for Display {
     fn to_edit_text(&self) -> String {
         match self {
@@ -216,9 +280,7 @@ shown_only!(
     crate::grid::Tracks,
     crate::grid::GridAutoFlow,
     crate::grid::GridPlacement,
-    crate::paint::Background,
     crate::effect::BorderStyle,
-    crate::geometry::CornerRadius,
     kivact_types::Isolation,
     crate::paint::BorderImage,
     super::fields::ScrollbarWidth,
@@ -234,7 +296,6 @@ shown_only!(
     kivact_types::TransformStyle,
     kivact_types::BackfaceVisibility,
     kivact_types::WillChange,
-    crate::text::LineHeight,
     crate::text::FontKerning,
     Vec<crate::text::FontFeature>,
     Vec<crate::text::FontVariation>,
@@ -285,6 +346,20 @@ mod tests {
         let color = style_property("color").expect("color is a property");
         let set = (color.parse)("#2563eb").expect("a hex color parses");
         assert_eq!((color.describe)(&set).as_deref(), Some("#2563eb"));
+        let background = style_property("background").expect("background is a property");
+        let paint = (background.parse)("#2563eb").expect("a hex color parses");
+        assert_eq!((background.describe)(&paint).as_deref(), Some("#2563eb"));
+        let line = style_property("line_height").expect("line_height is a property");
+        for text in ["1.5", "20px", "normal"] {
+            let set = (line.parse)(text).expect("a line height parses");
+            assert_eq!((line.describe)(&set).as_deref(), Some(text));
+        }
+        let corner = style_property("radius_top_left").expect("radius_top_left is a property");
+        for text in ["8", "8 4"] {
+            let set = (corner.parse)(text).expect("a radius parses");
+            assert_eq!((corner.describe)(&set).as_deref(), Some(text));
+        }
+        assert!((corner.parse)("a b c").is_err());
         assert!(style_property("nope").is_none());
     }
 }

@@ -3,14 +3,14 @@
 use crate::sheet::{Decl, PropClass, Style};
 
 /// The properties `s` sets (not its states), the last value of each,
-/// by name, with the `Debug` of its value, in the order first set.
+/// by name, with its value in the DevTools text form, in the order first set.
 pub fn describe_style(s: &Style) -> Vec<(&'static str, String)> {
     let mut out: Vec<(&'static str, String)> = Vec::new();
     for d in &s.decls {
         if matches!(d, Decl::State(..) | Decl::Group) {
             continue;
         }
-        let value = d.value_debug();
+        let value = d.edit_text();
         match out.iter_mut().find(|(name, _)| *name == d.name()) {
             Some(slot) => slot.1 = value,
             None => out.push((d.name(), value)),

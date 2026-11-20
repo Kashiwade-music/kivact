@@ -71,12 +71,12 @@ macro_rules! style_props {
                 }
             }
 
-            /// The `Debug` of its value (diagnostics, DevTools).
-            pub(crate) fn value_debug(&self) -> String {
+            /// Its value in the DevTools text form (`EditText`).
+            pub(crate) fn edit_text(&self) -> String {
                 match self {
-                    $( Decl::$variant(v) => format!("{v:?}"), )*
-                    $( Decl::$lvariant(v) => format!("{v:?}"), )*
-                    other => other.extra_value_debug(),
+                    $( Decl::$variant(v) => EditText::to_edit_text(v), )*
+                    $( Decl::$lvariant(v) => EditText::to_edit_text(v), )*
+                    other => other.extra_edit_text(),
                 }
             }
         }
