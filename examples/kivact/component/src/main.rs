@@ -28,22 +28,24 @@ fn card(
     .style(style().padding(12).gap(8))
 }
 
+/// A card that goes away when its close button is pressed: it keeps whether
+/// it is shown itself, so every card closes on its own.
+#[component]
+fn closable_card(title: Value<String>, content: kivact::view::ViewFn) -> impl IntoView {
+    let shown = signal(true);
+    show(shown, move || {
+        card(title, content.clone()).on_close(move || shown.set(false))
+    })
+}
+
 fn app() -> impl IntoView {
-    let first = signal(true);
-    let second = signal(true);
     column((
-        show(first, move || {
-            card("First", || text("The first card holds one line."))
-                .on_close(move || first.set(false))
-        }),
-        show(second, move || {
-            card("Second", || {
-                column((
-                    text("The second card holds two lines."),
-                    text("Its children differ from the first."),
-                ))
-            })
-            .on_close(move || second.set(false))
+        closable_card("First", || text("The first card holds one line.")),
+        closable_card("Second", || {
+            column((
+                text("The second card holds two lines."),
+                text("Its children differ from the first."),
+            ))
         }),
     ))
     .style(style().padding(24).gap(12))
