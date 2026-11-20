@@ -129,9 +129,8 @@ pub struct RegionSemantics {
 
 /// Record one draw layer of a node of `size` with what `cx` gives: run `f`
 /// on a fresh painter and return what it drew. `f` runs the application's
-/// drawing, then the retained style paint
-/// ([`CompiledStyle::paint_retained`](crate::CompiledStyle::paint_retained)).
-/// A panic in `f` propagates.
+/// drawing, then the retained style paint (core calls `LocalPaint::draw`
+/// from its draw effect). A panic in `f` propagates.
 pub fn record(size: Size, cx: RecordContext, f: impl FnOnce(&mut Draw)) -> Recording {
     let mut draw = Draw::new(cx, size);
     f(&mut draw);

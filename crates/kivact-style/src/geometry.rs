@@ -45,7 +45,7 @@ impl<X: Into<Length>, Y: Into<Length>> From<(X, Y)> for CornerRadius {
 
 pub(super) fn corner(r: Option<CornerRadius>, cx: &mut Resolve<'_>) -> WireCorner {
     r.map_or_else(WireCorner::default, |r| WireCorner {
-        x: cx.len(r.x).to_len(),
-        y: cx.len(r.y).to_len(),
+        x: cx.paint_len(r.x),
+        y: cx.paint_len(r.y),
     })
 }

@@ -12,9 +12,8 @@ use kivact_engine::contract::{DevtoolsOverlay, PickPhase};
 use kivact_runtime::NodeId as EffectId;
 use kivact_runtime::driver::{LiveSnapshot, Runtime};
 use kivact_runtime::{Owner, Signal};
-use kivact_style::internal::ForcedStates;
 use kivact_types::cell::{LocalMailbox, ReportOnce};
-use kivact_types::{FocusTarget, NodeId, RequestId, Revision, WindowId};
+use kivact_types::{FocusTarget, NodeId, RequestId, Revision, StateSet, WindowId};
 
 use super::inspect_mode;
 use crate::view::devtools_hooks::NodeOverrides;
@@ -56,7 +55,7 @@ pub(crate) struct HookData {
     pub(crate) recording: RefCell<p::RecordingSettings>,
     pub(crate) prop_writes: RefCell<Vec<PropWrite>>,
     pub(crate) overrides: Signal<Vec<p::StyleOverride>>,
-    pub(crate) forced: Signal<BTreeMap<NodeId, ForcedStates>>,
+    pub(crate) forced: Signal<BTreeMap<NodeId, StateSet>>,
     pub(crate) emulation: Signal<p::Emulation>,
     pub(crate) focus_history: RefCell<BTreeMap<WindowId, VecDeque<p::FocusMove>>>,
     pub(crate) programmatic_focus: LocalMailbox<FocusTarget>,
@@ -208,7 +207,7 @@ impl DevtoolsState {
             return DevtoolsState::Off;
         };
         let overrides: Signal<Vec<p::StyleOverride>> = root.signal(Vec::new(), at);
-        let forced: Signal<BTreeMap<NodeId, ForcedStates>> = root.signal(BTreeMap::new(), at);
+        let forced: Signal<BTreeMap<NodeId, StateSet>> = root.signal(BTreeMap::new(), at);
         let emulation: Signal<p::Emulation> = root.signal(emulation_off(), at);
         DevtoolsState::Running(Rc::new(Inspector {
             agent: RefCell::new(AgentSlot::Starting(receiver)),

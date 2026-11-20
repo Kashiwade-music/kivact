@@ -3,8 +3,14 @@
 pub use crate::draw::recorder::{RecordContext, record};
 use crate::paint::fill_layer;
 use crate::resolve::Resolve;
-pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
+pub use crate::resolve::{compile_style, describe_state_styles, describe_style};
 pub use crate::sheet::{StyleProperty, with_scroll_axes};
+
+/// How many declarations of `style` set a property an earlier one of it sets
+/// (core counts this per style layer in debug builds).
+pub fn duplicates(style: &crate::sheet::Style) -> u32 {
+    style.duplicates()
+}
 
 /// The property `name` (a setter's or a longhand's name) in DevTools form.
 pub fn style_property(name: &str) -> Option<&'static StyleProperty> {

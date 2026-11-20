@@ -283,7 +283,7 @@ shown_only!(
     crate::effect::BorderStyle,
     kivact_types::Isolation,
     crate::paint::BorderImage,
-    super::fields::ScrollbarWidth,
+    super::folded::ScrollbarWidth,
     kivact_types::Cursor,
     crate::effect::Filter,
     crate::effect::BlendMode,

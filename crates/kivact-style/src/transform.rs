@@ -290,7 +290,8 @@ impl Transform {
                 self.unsupported += 1;
             }
         }
-        let (x, y) = (x.to_len(), y.to_len());
+        // The loop above already counts the values that need the theme.
+        let (x, y) = (x.to_len(&mut 0), y.to_len(&mut 0));
         self.begin();
         self.moved(
             [x.px, y.px, z.into()],

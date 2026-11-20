@@ -1,4 +1,4 @@
-//! Role: The property groups a style's declarations fold into, and the fold itself.
+//! Role: A style's declarations folded into one record of authored values, which resolution reads.
 
 use kivact_runtime::Transition;
 use kivact_types::{

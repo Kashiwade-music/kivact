@@ -44,12 +44,13 @@ pub(crate) fn fill_layer(l: &Paint, cx: &mut Resolve<'_>) -> FillLayer {
 /// sizes (and an invalid sum, once resolved) are `None`.
 fn explicit(l: Length, cx: &mut Resolve<'_>) -> Option<p::Len> {
     let l = cx.len(l);
-    (l != Length::Auto && !l.is_content()).then(|| l.to_len())
+    // `auto` and the content sizes are the unset size here, not a misplaced length.
+    (l != Length::Auto && !l.is_content()).then(|| l.to_len(&mut 0))
 }
 
 /// A point in its paint form, each coordinate resolved in `cx`.
 fn point((x, y): (Length, Length), cx: &mut Resolve<'_>) -> [p::Len; 2] {
-    [cx.len(x).to_len(), cx.len(y).to_len()]
+    [cx.paint_len(x), cx.paint_len(y)]
 }
 
 /// A gradient by coordinates for the engine.
@@ -87,7 +88,7 @@ fn gradient(g: &Gradient, cx: &mut Resolve<'_>) -> p::GradientSpec {
         .iter()
         .map(|(c, stop_at)| GradientStop {
             color: c.resolve_space(theme),
-            at: stop_at.map(|l| cx.len(l).to_len()),
+            at: stop_at.map(|l| cx.paint_len(l)),
         })
         .collect();
     // One hint per gap between stops; the last stop's hint has no gap.
@@ -96,7 +97,7 @@ fn gradient(g: &Gradient, cx: &mut Resolve<'_>) -> p::GradientSpec {
         .hints
         .iter()
         .take(gaps)
-        .map(|h| h.map(|l| cx.len(l).to_len()))
+        .map(|h| h.map(|l| cx.paint_len(l)))
         .collect();
     p::GradientSpec {
         kind: match g.kind {
@@ -115,7 +116,7 @@ fn gradient(g: &Gradient, cx: &mut Resolve<'_>) -> p::GradientSpec {
                         RadialExtent::FarthestCorner => p::RadialExtent::FarthestCorner,
                     },
                     RadialSize::Radii(x, y) => {
-                        p::RadialExtent::Radii(cx.len(x).to_len(), cx.len(y).to_len())
+                        p::RadialExtent::Radii(cx.paint_len(x), cx.paint_len(y))
                     }
                 },
                 center: point(c, cx),

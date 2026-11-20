@@ -3,15 +3,14 @@
 use kivact_runtime::UiError;
 use kivact_types as p;
 use kivact_types::{
-    Edges, LayoutProps, PaintProps, ScrollAxes, StateStyles, StyleState, TextStyle,
+    Edges, LayoutProps, PaintProps, ScrollAxes, StateSet, StateStyles, StyleState, TextStyle,
 };
 
 use super::describe::unsupported_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
-use crate::draw::{Draw, LocalPaint, Size};
+use crate::draw::LocalPaint;
 use crate::sheet::{
-    Decl, Direction, FlowFields, MotionFields, Position, Sides, SizeFields, SpacingFields, Style,
-    TextFields, group_or_default,
+    Decl, Direction, Groups, Position, Sides, SizeFields, SpacingFields, Style, TextFields,
 };
 use crate::theme::value::Theme;
 use kivact_types::Length;
@@ -21,12 +20,10 @@ use kivact_types::Length;
 ///
 /// The retained base paint callback (`Style::paint`) is not a node prop. It
 /// runs while the node's drawing is recorded: ask [`has_retained_paint`]
-/// (whether there is one), [`same_retained_paint`] (whether another compiled
-/// style retains the same callback) and call [`paint_retained`].
+/// (whether there is one) and take it with [`retained_paint`].
 ///
 /// [`has_retained_paint`]: CompiledStyle::has_retained_paint
-/// [`same_retained_paint`]: CompiledStyle::same_retained_paint
-/// [`paint_retained`]: CompiledStyle::paint_retained
+/// [`retained_paint`]: CompiledStyle::retained_paint
 #[derive(Clone)]
 pub struct CompiledStyle {
     retained_paint: Option<LocalPaint>,
@@ -40,11 +37,10 @@ pub struct CompiledStyle {
     pub text: Option<TextStyle>,
     /// Hover/pressed/focus/disabled overrides, if any.
     pub states: Option<StateStyles>,
-    /// Properties set more than once (reported as diagnostics).
-    pub duplicates: u32,
-    /// Content sizes (`Length::MaxContent` ..) where only sizes take them (they
-    /// are `auto` there), reported as `Unsupported`.
-    pub misplaced_content: u32,
+    /// Lengths a property cannot take (a content size outside width, height
+    /// and basis; `auto`, a content size or a variable left unresolved in a
+    /// paint position or radius), counted and reported as `Unsupported`.
+    pub misplaced_lengths: u32,
     /// Text values the host cannot draw (a feature tag that is not four
     /// ASCII characters, a text shadow's spread or inset), dropped and
     /// reported as `Unsupported`.
@@ -102,9 +98,9 @@ pub(crate) struct Resolve<'a> {
 }
 
 impl<'a> Resolve<'a> {
-    pub(super) fn new(s: &Style, theme: &'a Theme, misplaced: &'a mut u32) -> Self {
+    pub(super) fn new(g: &Groups, theme: &'a Theme, misplaced: &'a mut u32) -> Self {
         let base = theme.get(&crate::font::SIZE_VAR);
-        let em_px = match group_or_default!(s.text, TextFields).font_size {
+        let em_px = match g.text.font_size {
             Some(size) => match resolved(size, theme, base, &mut 0) {
                 Length::Px(px) => px,
                 _ => base,
@@ -132,6 +128,12 @@ impl<'a> Resolve<'a> {
     pub(crate) fn len(&mut self, l: Length) -> Length {
         resolved(l, self.theme, self.em_px, self.misplaced)
     }
+
+    /// `l` in its paint form: resolved, and counted in the misplaced lengths
+    /// when a paint position cannot take it (`auto`, a content size).
+    pub(crate) fn paint_len(&mut self, l: Length) -> p::Len {
+        resolved(l, self.theme, self.em_px, &mut 0).to_len(self.misplaced)
+    }
 }
 
 fn dim(l: Option<Length>, default: p::Length, cx: &mut Resolve<'_>) -> p::Length {
@@ -147,11 +149,8 @@ fn edges(s: &Sides, default: p::Length, cx: &mut Resolve<'_>) -> Edges<p::Length
     }
 }
 
-fn layout(s: &Style, cx: &mut Resolve<'_>) -> LayoutProps {
-    let size = group_or_default!(s.size, SizeFields);
-    let spacing = group_or_default!(s.spacing, SpacingFields);
-    let flow = group_or_default!(s.flow, FlowFields);
-    let motion = group_or_default!(s.motion, MotionFields);
+fn layout(g: &Groups, cx: &mut Resolve<'_>) -> LayoutProps {
+    let (size, spacing, flow, motion) = (&g.size, &g.spacing, &g.flow, &g.motion);
     let zero = p::Length::Px(0.0);
     let ov = flow.overflow.unwrap_or(p::Overflow::Visible);
     let (ov_x, ov_y) = match flow.scroll_axes {
@@ -179,7 +178,7 @@ fn layout(s: &Style, cx: &mut Resolve<'_>) -> LayoutProps {
         row_gap: dim(spacing.row_gap, zero, cx),
         column_gap: dim(spacing.column_gap, zero, cx),
         padding: edges(&spacing.padding, zero, cx),
-        border: border_widths(s),
+        border: border_widths(g),
         margin: edges(&spacing.margin, zero, cx),
         width: dim(size.width, p::Length::Auto, cx),
         height: dim(size.height, p::Length::Auto, cx),
@@ -202,12 +201,11 @@ fn layout(s: &Style, cx: &mut Resolve<'_>) -> LayoutProps {
 }
 
 /// The number of content sizes (`Length::MinContent`, `Length::MaxContent`,
-/// `Length::FitContent`) among the lengths of `s` that are not sizes (width,
+/// `Length::FitContent`) among the lengths of `g` that are not sizes (width,
 /// height, the flex basis): minimums, maximums, padding, margins, insets
 /// and gaps, where they are `auto`.
-fn misplaced_content(s: &Style) -> u32 {
-    let size = group_or_default!(s.size, SizeFields);
-    let spacing = group_or_default!(s.spacing, SpacingFields);
+fn misplaced(g: &Groups) -> u32 {
+    let (size, spacing): (&SizeFields, &SpacingFields) = (&g.size, &g.spacing);
     let sides = |x: &Sides| [x.top, x.right, x.bottom, x.left];
     [
         spacing.row_gap,
@@ -231,8 +229,8 @@ fn misplaced_content(s: &Style) -> u32 {
 /// `style::text::resolve_extras`). The host takes each unset one from the
 /// nearest ancestor that sets it, and the root carries the theme's
 /// ([`resolve`]).
-fn text(s: &Style, theme: &Theme, misplaced: &mut u32) -> (TextStyle, u32) {
-    let text = group_or_default!(s.text, TextFields);
+fn text(g: &Groups, theme: &Theme, misplaced: &mut u32) -> (TextStyle, u32) {
+    let text: &TextFields = &g.text;
     let base = theme.get(&crate::font::SIZE_VAR);
     let font_size = text
         .font_size
@@ -267,36 +265,6 @@ fn text(s: &Style, theme: &Theme, misplaced: &mut u32) -> (TextStyle, u32) {
     (t, dropped)
 }
 
-/// Interactive states a tool forces on a node (DevTools), as a set.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct ForcedStates(u8);
-impl ForcedStates {
-    /// Hovered.
-    pub const HOVER: Self = Self(1);
-    /// Pressed.
-    pub const PRESSED: Self = Self(2);
-    /// Focused.
-    pub const FOCUS: Self = Self(4);
-    /// Focused with a visible focus ring.
-    pub const FOCUS_VISIBLE: Self = Self(8);
-    /// Disabled.
-    pub const DISABLED: Self = Self(16);
-    /// Selected.
-    pub const SELECTED: Self = Self(32);
-    /// Whether every state of `s` is in the set.
-    pub fn contains(self, s: Self) -> bool {
-        self.0 & s.0 == s.0
-    }
-    /// Add the states of `s`.
-    pub fn insert(&mut self, s: Self) {
-        self.0 |= s.0;
-    }
-    /// Whether no state is forced.
-    pub fn is_empty(self) -> bool {
-        self.0 == 0
-    }
-}
-
 /// How a node takes part in the theme's defaults for interactive elements,
 /// the input of [`crate::internal::compile_style`] next to the style and the theme.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -314,7 +282,7 @@ pub struct Interactive {
     /// theme's text defaults, which every node inherits.
     pub root: bool,
     /// States a tool forces on the node; empty for an App.
-    pub forced: ForcedStates,
+    pub forced: StateSet,
 }
 
 /// The theme's defaults under a focusable node's style: a ring of
@@ -350,15 +318,15 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
 
 /// Merge the state styles a tool forces into the base, in the engine's
 /// layer order, so they no longer apply as deltas.
-fn merge_forced(mut s: Style, forced: ForcedStates) -> Style {
+fn merge_forced(mut s: Style, forced: StateSet) -> Style {
     let order = [
-        (ForcedStates::FOCUS, StyleState::Focus),
-        (ForcedStates::FOCUS_VISIBLE, StyleState::FocusVisible),
-        (ForcedStates::HOVER, StyleState::Hover),
-        (ForcedStates::PRESSED, StyleState::Active),
+        StyleState::Focus,
+        StyleState::FocusVisible,
+        StyleState::Hover,
+        StyleState::Active,
     ];
-    for (flag, state) in order {
-        if forced.contains(flag)
+    for state in order {
+        if forced.contains(state)
             && let Some(v) = s.take_state(state)
         {
             s = s.merge(&v);
@@ -421,15 +389,13 @@ fn state_styles(s: &Style, theme: &Theme) -> Option<StateStyles> {
 /// Compile a style for a node. `disabled`/`selected` variants are merged
 /// here; hover/pressed/focus/focus-visible become host-evaluated state
 /// deltas.
-pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> CompiledStyle {
-    if state.forced.contains(ForcedStates::DISABLED) {
+pub fn compile_style(mut s: Style, theme: &Theme, mut state: Interactive) -> CompiledStyle {
+    if state.forced.contains(StyleState::Disabled) {
         state.disabled = true;
     }
-    if state.forced.contains(ForcedStates::SELECTED) {
+    if state.forced.contains(StyleState::Selected) {
         state.selected = true;
     }
-    let duplicates = s.duplicates();
-    let mut s = s.clone();
     let unsupported_in_states = unsupported_in_states(&s);
     if state.focusable {
         interactive_defaults(&mut s, theme, state.disabled);
@@ -450,11 +416,13 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
     // that remain never carry one.
     let retained_paint = s.local_paint();
     s.strip_local_paint();
+    // The one fold of this compilation: every resolver below reads it.
+    let g = s.fold();
     let states = state_styles(&s, theme);
     let mut unsupported_text = 0;
-    let mut misplaced = 0;
+    let mut misplaced = misplaced(&g);
     let text = (s.has_text() || state.root).then(|| {
-        let (mut t, dropped) = text(&s, theme, &mut misplaced);
+        let (mut t, dropped) = text(&g, theme, &mut misplaced);
         unsupported_text = dropped;
         if state.root {
             // The theme's text style is what every node inherits.
@@ -475,19 +443,18 @@ pub fn compile_style(s: &Style, theme: &Theme, mut state: Interactive) -> Compil
         }
         t
     });
-    let mut cx = Resolve::new(&s, theme, &mut misplaced);
-    let layout = layout(&s, &mut cx);
-    let mut paint = paint(&s, theme, &mut cx);
-    paint.transitions = paint_transitions(&s);
-    let reports = reports(&s, theme);
+    let mut cx = Resolve::new(&g, theme, &mut misplaced);
+    let layout = layout(&g, &mut cx);
+    let mut paint = paint(&g, theme, &mut cx);
+    paint.transitions = paint_transitions(&g);
+    let reports = reports(&g, theme);
     CompiledStyle {
         retained_paint,
         layout,
         paint,
         text,
         states,
-        duplicates,
-        misplaced_content: misplaced_content(&s) + misplaced,
+        misplaced_lengths: misplaced,
         unsupported_text,
         unsupported_in_states,
         reports,
@@ -501,21 +468,10 @@ impl CompiledStyle {
         self.retained_paint.is_some()
     }
 
-    /// Whether `self` and `other` retain the same paint callback (callbacks
-    /// compare by identity, and no callback equals no callback), so a node
-    /// that compiled `other` before need not redraw for `self`.
-    pub fn same_retained_paint(&self, other: &Self) -> bool {
-        self.retained_paint == other.retained_paint
-    }
-
-    /// Run the retained base paint on `draw` for a canvas of `size`; nothing
-    /// without one. Call it after the application's own drawing of the same
-    /// layer, and not while a borrow of the storage that holds this value is
-    /// open: the callback is user code (clone this value out first).
-    pub fn paint_retained(&self, draw: &mut Draw, size: Size) {
-        if let Some(paint) = &self.retained_paint {
-            paint.draw(draw, size);
-        }
+    /// The base paint callback (`Style::paint`) the style sets, if any. Its
+    /// clones share it, and it compares by identity.
+    pub fn retained_paint(&self) -> Option<LocalPaint> {
+        self.retained_paint.clone()
     }
 }
 
@@ -527,7 +483,9 @@ mod tests {
     use crate::{em, font, space};
 
     fn width_of(s: &Style, theme: &Theme) -> p::Length {
-        compile_style(s, theme, Interactive::default()).layout.width
+        compile_style(s.to_owned(), theme, Interactive::default())
+            .layout
+            .width
     }
 
     #[test]
@@ -551,12 +509,34 @@ mod tests {
     #[test]
     fn an_invalid_sum_is_counted() {
         let compiled = compile_style(
-            &style().width(Length::Auto + 2),
+            style().width(Length::Auto + 2),
             &Theme::light(),
             Interactive::default(),
         );
-        assert_eq!(compiled.misplaced_content, 1);
+        assert_eq!(compiled.misplaced_lengths, 1);
         assert_eq!(compiled.layout.width, p::Length::Auto);
+    }
+
+    #[test]
+    fn a_paint_position_that_is_auto_is_counted() {
+        // Each corner takes an x and a y radius: four corners, two lengths each.
+        let compiled = compile_style(
+            style().radius(Length::Auto),
+            &Theme::light(),
+            Interactive::default(),
+        );
+        assert_eq!(compiled.misplaced_lengths, 8);
+    }
+
+    #[test]
+    fn forced_states_merge_their_styles() {
+        let forced = Interactive {
+            forced: StateSet::EMPTY.with(StyleState::Hover),
+            ..Interactive::default()
+        };
+        let compiled = compile_style(style().hover(style().opacity(0.5)), &Theme::light(), forced);
+        assert_eq!(compiled.paint.opacity, 0.5);
+        assert!(compiled.states.is_none());
     }
 
     #[test]

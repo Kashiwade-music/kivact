@@ -6,7 +6,6 @@ use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{Owner, Trigger};
-use kivact_style::CompiledStyle;
 
 /// What a node's first write decided, for the style and draw stages.
 pub(super) struct NodeFacts {
@@ -36,7 +35,7 @@ pub(crate) enum LocalPaint {
 /// Retained style paint and its render-safe metadata notification source.
 #[derive(Clone)]
 pub(crate) struct LocalPaintSource {
-    pub(super) value: Rc<RefCell<Option<Box<CompiledStyle>>>>,
+    pub(super) value: Rc<RefCell<Option<kivact_style::draw::LocalPaint>>>,
     pub(super) revision: Trigger,
 }
 

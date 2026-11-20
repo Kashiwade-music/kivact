@@ -11,10 +11,7 @@ use super::compile::Resolve;
 use crate::effect::{Shadow, clip_shape, filter_ops, filter_problems};
 use crate::geometry::{CornerRadius, corner};
 use crate::paint::{Background, fill_layer};
-use crate::sheet::{
-    FlowFields, MotionFields, PaintFields, ScrollbarWidth, Style, TextFields, TransformFields,
-    group_or_default,
-};
+use crate::sheet::{Groups, ScrollbarWidth, Style, TransformFields};
 use crate::theme::value::Theme;
 use crate::transform::Transform;
 use kivact_types::Overflow;
@@ -31,8 +28,8 @@ fn fill(b: &Background, cx: &mut Resolve<'_>) -> Fill {
 
 /// The border's widths (0 where unset): the layout's border, as the
 /// paint's ([`border`]).
-pub(super) fn border_widths(s: &Style) -> Edges<f64> {
-    let paint = group_or_default!(s.paint, PaintFields);
+pub(super) fn border_widths(g: &Groups) -> Edges<f64> {
+    let paint = &g.paint;
     let w = |i: usize| paint.border_width[i].unwrap_or(0.0);
     Edges {
         top: w(0),
@@ -44,8 +41,8 @@ pub(super) fn border_widths(s: &Style) -> Edges<f64> {
 
 /// The border, when the style sets any of its properties (a width without
 /// a color takes the theme's border color).
-fn border(s: &Style, theme: &Theme) -> Option<Border> {
-    let paint = group_or_default!(s.paint, PaintFields);
+fn border(g: &Groups, theme: &Theme) -> Option<Border> {
+    let paint = &g.paint;
     let set = paint.border_width.iter().any(Option::is_some)
         || paint.border_color.iter().any(Option::is_some)
         || paint.border_style.iter().any(Option::is_some);
@@ -56,7 +53,7 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
                 .resolve(theme)
         };
         Border {
-            widths: border_widths(s),
+            widths: border_widths(g),
             colors: p::Edges {
                 top: c(0),
                 right: c(1),
@@ -73,8 +70,8 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
     })
 }
 
-fn corners(s: &Style, cx: &mut Resolve<'_>) -> Corners {
-    let paint = group_or_default!(s.paint, PaintFields);
+fn corners(g: &Groups, cx: &mut Resolve<'_>) -> Corners {
+    let paint = &g.paint;
     let mut of = |r: Option<CornerRadius>| corner(r, cx);
     Corners {
         top_left: of(paint.radius[0]),
@@ -96,8 +93,8 @@ fn shadow(sh: &Shadow, theme: &Theme) -> p::Shadow {
 
 /// The effects, when the style sets any (`None` otherwise, so a node
 /// without effects carries none).
-fn effects(s: &Style, cx: &mut Resolve<'_>) -> Option<Box<Effects>> {
-    let paint = group_or_default!(s.paint, PaintFields);
+fn effects(g: &Groups, cx: &mut Resolve<'_>) -> Option<Box<Effects>> {
+    let paint = &g.paint;
     let set = paint.filter.is_some()
         || paint.backdrop_filter.is_some()
         || paint.blend.is_some()
@@ -125,8 +122,8 @@ fn effects(s: &Style, cx: &mut Resolve<'_>) -> Option<Box<Effects>> {
 /// The transform properties of `s` as one transform: CSS's `translate`
 /// (x, y, z), then `rotate` (z, then y, then x), then `scale`, then
 /// `transform`, about `transform-origin` (the centre by default).
-fn transform_of(s: &Style, cx: &mut Resolve<'_>) -> Transform {
-    let transform = group_or_default!(s.transform, TransformFields);
+fn transform_of(g: &Groups, cx: &mut Resolve<'_>) -> Transform {
+    let transform = &g.transform;
     let mut t = Transform::new();
     if transform.translate.iter().any(Option::is_some) || transform.translate_z.is_some() {
         // An axis left unset does not move the node.
@@ -155,22 +152,21 @@ fn transform_of(s: &Style, cx: &mut Resolve<'_>) -> Transform {
 
 /// The transform properties of `s` as one element transform, about
 /// `transform-origin` (the centre by default) and its z.
-fn element_transform(s: &Style, cx: &mut Resolve<'_>) -> ElementTransform {
-    let transform = group_or_default!(s.transform, TransformFields);
+fn element_transform(g: &Groups, cx: &mut Resolve<'_>) -> ElementTransform {
+    let transform = &g.transform;
     let (x, y) = transform.transform_origin.unwrap_or((pct(50), pct(50)));
     // `auto` is the default centre.
-    transform_of(s, cx).to_wire(
+    transform_of(g, cx).to_wire(
         [x, y].map(|l| match l {
             Length::Auto => p::Len::pct(50.0),
-            l => cx.len(l).to_len(),
+            l => cx.paint_len(l),
         }),
         transform.transform_origin_z.unwrap_or(0.0),
     )
 }
 
-/// Whether `s` sets a transform property.
-fn sets_transform(s: &Style) -> bool {
-    let transform = group_or_default!(s.transform, TransformFields);
+/// Whether a folded transform sets a transform property.
+fn sets_transform(transform: &TransformFields) -> bool {
     transform.translate.iter().any(Option::is_some)
         || transform.translate_z.is_some()
         || transform.rotate.is_some()
@@ -184,26 +180,26 @@ fn sets_transform(s: &Style) -> bool {
 
 /// The perspective of the node's children: the distance, about the
 /// `perspective-origin` (the centre by default).
-fn perspective(s: &Style, cx: &mut Resolve<'_>) -> Option<Perspective> {
-    let transform = group_or_default!(s.transform, TransformFields);
+fn perspective(g: &Groups, cx: &mut Resolve<'_>) -> Option<Perspective> {
+    let transform = &g.transform;
     transform.perspective.map(|distance| Perspective {
         distance,
         origin: transform
             .perspective_origin
             .map_or([p::Len::pct(50.0), p::Len::pct(50.0)], |(x, y)| {
-                [cx.len(x).to_len(), cx.len(y).to_len()]
+                [cx.paint_len(x), cx.paint_len(y)]
             }),
     })
 }
 
-pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProps {
-    let paint = group_or_default!(s.paint, PaintFields);
-    let transform = group_or_default!(s.transform, TransformFields);
-    let flow = group_or_default!(s.flow, FlowFields);
+pub(super) fn paint(g: &Groups, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProps {
+    let paint = &g.paint;
+    let transform = &g.transform;
+    let flow = &g.flow;
     PaintProps {
         transitions: None,
         background: paint.background.as_ref().map(|b| fill(b, cx)),
-        border: border(s, theme),
+        border: border(g, theme),
         ring: paint.ring_width.map(|width| Ring {
             width,
             offset: paint.ring_offset.unwrap_or(0.0),
@@ -212,7 +208,7 @@ pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProp
                 .unwrap_or(crate::color::FOCUS)
                 .resolve(theme),
         }),
-        radius: corners(s, cx),
+        radius: corners(g, cx),
         shadows: paint
             .shadows
             .iter()
@@ -220,29 +216,29 @@ pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProp
             .map(|sh| shadow(sh, theme))
             .collect(),
         opacity: paint.opacity.unwrap_or(1.0),
-        transform: element_transform(s, cx),
-        perspective: perspective(s, cx),
+        transform: element_transform(g, cx),
+        perspective: perspective(g, cx),
         transform_style: transform.transform_style.unwrap_or_default(),
         backface: transform.backface.unwrap_or_default(),
         will_change: transform.will_change.unwrap_or_default(),
         isolation: paint.isolation.unwrap_or_default(),
         border_image: paint.border_image.as_ref().map(|b| Box::new(b.wire(cx))),
         z_index: flow.z_index.unwrap_or(0),
-        scrollbar: scrollbar(s, theme),
+        scrollbar: scrollbar(g, theme),
         cursor: paint.cursor.unwrap_or_default(),
         clip: paint.clip.unwrap_or(false)
             || flow.scroll_axes.is_some()
             || flow.overflow.is_some_and(|o| o != Overflow::Visible),
-        effects: effects(s, cx),
+        effects: effects(g, cx),
     }
 }
 
-/// The paint transitions of `s`: every property but the size, which the
-/// layout takes.
+/// The paint transitions of a folded style: every property but the size,
+/// which the layout takes.
 pub(super) fn paint_transitions(
-    s: &Style,
+    g: &Groups,
 ) -> Option<std::sync::Arc<[(crate::sheet::TransitionProp, Transition)]>> {
-    let motion = group_or_default!(s.motion, MotionFields);
+    let motion = &g.motion;
     let list: Vec<_> = motion
         .transitions
         .iter()
@@ -254,9 +250,9 @@ pub(super) fn paint_transitions(
 
 /// What `compile_style` reports about the style itself (see
 /// [`CompiledStyle::reports`]).
-pub(super) fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
-    let paint = group_or_default!(s.paint, PaintFields);
-    let motion = group_or_default!(s.motion, MotionFields);
+pub(super) fn reports(g: &Groups, theme: &Theme) -> Vec<UiError> {
+    let paint = &g.paint;
+    let motion = &g.motion;
     let mut out = Vec::new();
     let mut report = |error: UiError| out.push(error);
     let springs = motion
@@ -301,8 +297,8 @@ pub(super) fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
         }
     }
     let mut misplaced = 0;
-    let mut cx = Resolve::new(s, theme, &mut misplaced);
-    let dropped = transform_of(s, &mut cx).unsupported();
+    let mut cx = Resolve::new(g, theme, &mut misplaced);
+    let dropped = transform_of(g, &mut cx).unsupported();
     if dropped > 0 {
         report(UiError::msg(format!(
             "transform: {dropped} function(s) the form cannot keep"
@@ -315,11 +311,9 @@ pub(super) fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
 /// each group it sets, resolved over the base (a state that sets only a
 /// border color keeps the base's widths).
 pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta {
-    let st_paint = group_or_default!(st.paint, PaintFields);
-    let st_transform = group_or_default!(st.transform, TransformFields);
-    let st_flow = group_or_default!(st.flow, FlowFields);
-    let st_text = group_or_default!(st.text, TextFields);
-    let merged = base.clone().merge(st);
+    let sg = st.fold();
+    let (st_paint, st_transform, st_flow, st_text) = (&sg.paint, &sg.transform, &sg.flow, &sg.text);
+    let merged = base.clone().merge(st).fold();
     let mut misplaced = 0;
     let mut cx = Resolve::new(&merged, theme, &mut misplaced);
     let full = paint(&merged, theme, &mut cx);
@@ -346,7 +340,7 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
             .then_some(full.radius),
         opacity: st_paint.opacity,
         shadows: st_paint.shadows.as_ref().map(|_| full.shadows),
-        transform: sets_transform(st).then_some(full.transform),
+        transform: sets_transform(st_transform).then_some(full.transform),
         perspective: (st_transform.perspective.is_some()
             || st_transform.perspective_origin.is_some())
         .then_some(full.perspective),
@@ -370,8 +364,8 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
     }
 }
 
-fn scrollbar(s: &Style, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
-    let paint = group_or_default!(s.paint, PaintFields);
+fn scrollbar(g: &Groups, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
+    let paint = &g.paint;
     let set = paint.scrollbar_width.is_some()
         || paint.scrollbar_thumb.is_some()
         || paint.scrollbar_track.is_some();

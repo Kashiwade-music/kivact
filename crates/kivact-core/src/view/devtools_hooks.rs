@@ -12,9 +12,8 @@ use std::rc::Rc;
 use kivact_engine::contract::HostEvent;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Handled, Owner, Value};
-use kivact_style::internal::ForcedStates;
 use kivact_style::{Style, Theme};
-use kivact_types::{FocusTarget, NodeId, WindowId};
+use kivact_types::{FocusTarget, NodeId, StateSet, WindowId};
 
 use crate::i18n::Locale;
 use crate::view::devtools_hook_traits::{DevtoolsHooks, NodeStyleHook};
@@ -134,10 +133,10 @@ impl StyleHook {
     }
 
     /// The states a tool forces on the node.
-    pub(crate) fn forced(&self) -> ForcedStates {
+    pub(crate) fn forced(&self) -> StateSet {
         match &self.0 {
             Some(hook) => hook.forced(),
-            None => ForcedStates::default(),
+            None => StateSet::EMPTY,
         }
     }
 }

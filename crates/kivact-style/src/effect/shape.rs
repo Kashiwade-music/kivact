@@ -149,10 +149,10 @@ pub(crate) fn clip_shape(shape: &ShapeKind, cx: &mut Resolve<'_>) -> ClipShape {
         },
         ShapeKind::Inset { edges, radius } => ClipShape::Inset {
             edges: p::Edges {
-                top: cx.len(edges[0]).to_len(),
-                right: cx.len(edges[1]).to_len(),
-                bottom: cx.len(edges[2]).to_len(),
-                left: cx.len(edges[3]).to_len(),
+                top: cx.paint_len(edges[0]),
+                right: cx.paint_len(edges[1]),
+                bottom: cx.paint_len(edges[2]),
+                left: cx.paint_len(edges[3]),
             },
             radius: {
                 let c = corner(*radius, cx);
@@ -165,12 +165,12 @@ pub(crate) fn clip_shape(shape: &ShapeKind, cx: &mut Resolve<'_>) -> ClipShape {
             },
         },
         ShapeKind::Circle { radius, at: c } => ClipShape::Circle {
-            radius: cx.len(*radius).to_len(),
+            radius: cx.paint_len(*radius),
             center: point(*c, cx),
         },
         ShapeKind::Ellipse { rx, ry, at: c } => ClipShape::Ellipse {
-            radius_x: cx.len(*rx).to_len(),
-            radius_y: cx.len(*ry).to_len(),
+            radius_x: cx.paint_len(*rx),
+            radius_y: cx.paint_len(*ry),
             center: point(*c, cx),
         },
         ShapeKind::Polygon { points, even_odd } => ClipShape::Polygon {
@@ -182,5 +182,5 @@ pub(crate) fn clip_shape(shape: &ShapeKind, cx: &mut Resolve<'_>) -> ClipShape {
 
 /// A point of a shape: each coordinate in its paint form, resolved in `cx`.
 fn point((x, y): (Length, Length), cx: &mut Resolve<'_>) -> [p::Len; 2] {
-    [cx.len(x).to_len(), cx.len(y).to_len()]
+    [cx.paint_len(x), cx.paint_len(y)]
 }

@@ -10,7 +10,7 @@ use kivact_types::{
 use super::Style;
 use super::decl::{PropClass, PropGroup};
 use super::edit_text::{EditText, StyleProperty};
-use super::fields::ScrollbarWidth;
+use super::folded::ScrollbarWidth;
 use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, Filter, Shadow, Shape};
