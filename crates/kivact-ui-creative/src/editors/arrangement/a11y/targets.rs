@@ -37,7 +37,7 @@ pub(crate) fn create(
     tracks: Value<Vec<TimelineTrack>>,
     clips: Value<Vec<Clip>>,
     selected: Value<Vec<u64>>,
-) -> (Value<Regions>, kivact::state::Binding<Option<(u64, u64)>>) {
+) -> (Value<Regions>, kivact::state::Signal<Option<(u64, u64)>>) {
     let targets = targets::targets::<Target, (u64, u64)>(move || {
         let mut targets = vec![
             Target::LoopCreate,

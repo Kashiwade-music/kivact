@@ -7,14 +7,15 @@ use super::state::{Demo, Overlay};
 use kivact::interaction::{ListItem, MenuEntry, Toast, Tone, toaster};
 use kivact::platform;
 use kivact::prelude::{
-    ColorToken, Element, IntoView, Node, NodeRef, Value, column, dynamic, for_index, node, row,
-    signal, spacer, text,
+    Element, IntoView, NodeRef, Value, column, dynamic, for_index, node, row, signal, spacer, text,
 };
 use kivact::state::IntoValue;
 use kivact::state::{Machine, MachineHandle, Step, binding, machine, memo};
+use kivact::style::ColorToken;
 use kivact::style::use_theme;
 use kivact::style::{Align, auto, pct, style};
 use kivact::task::spawn;
+use kivact::view::Node;
 use kivact_ui_game as g;
 use std::time::Duration;
 
@@ -646,7 +647,7 @@ fn tag_entry(
 
 fn checkbox_choices(
     permissions: kivact::state::Signal<(bool, bool, bool)>,
-    all: kivact::state::Binding<bool>,
+    all: kivact::state::Signal<bool>,
     mixed: impl Fn() -> bool + Copy + 'static,
 ) -> crate::game::specimens::Specimen<impl kivact::view::Element> {
     specimen(

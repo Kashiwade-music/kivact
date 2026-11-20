@@ -1,6 +1,6 @@
 //! Role: Store screen handles, queries and core timing.
 
-use kivact_core::launch::{Inspect, LaunchHandle};
+use kivact_core::__test::{Inspect, LaunchHandle};
 use kivact_core::view::PointerKind;
 use kivact_core::view::Role;
 use kivact_engine::testing::ArvaneTestHost;

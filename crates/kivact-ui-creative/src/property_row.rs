@@ -258,7 +258,7 @@ pub fn property_state_button(
 impl PropertyStateButton {
     /// Called by a click, Enter, Space or an assistive technology's Activate.
     #[track_caller]
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
         self.button = self.button.on_press(f);
         self
     }

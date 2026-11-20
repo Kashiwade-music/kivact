@@ -1,5 +1,7 @@
 //! Role: Retained tree, mount, flows, lists and the minimal test harness.
 
+use kivact::state::IntoValue;
+use kivact::view::RowHeight;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

@@ -1,8 +1,8 @@
 //! Catalog window frame with application-owned panes and chrome.
 use kivact::i18n::message;
 use kivact::interaction::ScalarRange;
-use kivact::state::{Binding, Value};
 use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Signal, Value};
 use kivact::style::{Align, ColorToken, pct, style};
 use kivact::view::IntoView;
 use kivact::view::{Element, Node, column, row, scroll};
@@ -17,7 +17,7 @@ pub(super) struct NativeWindow {
     menu_bar: Option<kivact::view::View>,
     toolbar: Option<kivact::view::View>,
     status_bar: Option<kivact::view::View>,
-    explorer_width: Binding<f64>,
+    explorer_width: Signal<f64>,
     explorer_range: Value<ScalarRange>,
 }
 
@@ -29,7 +29,7 @@ pub(super) struct NativeWindow {
 #[track_caller]
 pub(super) fn native_window(
     title: impl IntoText,
-    explorer_width: impl kivact::state::IntoBinding<f64>,
+    explorer_width: kivact::state::Signal<f64>,
     explorer: impl IntoView,
     document: impl IntoView,
 ) -> NativeWindow {
@@ -47,7 +47,7 @@ pub(super) fn native_window(
         menu_bar: None,
         toolbar: None,
         status_bar: None,
-        explorer_width: explorer_width.into_binding(),
+        explorer_width,
         explorer_range: ScalarRange::new(140.0, 420.0)
             .expect("invariant: 140 to 420 is a valid range")
             .into_value(),

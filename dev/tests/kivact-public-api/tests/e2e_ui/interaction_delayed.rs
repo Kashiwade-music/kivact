@@ -4,6 +4,7 @@
 //! delay, `dismiss` keeps it hidden until the condition goes false, and `pulse`
 //! shows at once and restarts the close delay.
 
+use kivact::view::Node;
 use std::time::Duration;
 
 use kivact::interaction::{DelayedApi, Delays, use_delayed};

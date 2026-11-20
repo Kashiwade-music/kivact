@@ -286,7 +286,7 @@ pub enum DockPlacement<K> {
 
 /// The complete workspace: the split tree and an optional maximized container.
 ///
-/// Keep it in a consumer `Binding` to persist, diff or undo it. Ids are the
+/// Keep it in a consumer `Signal` to persist, diff or undo it. Ids are the
 /// consumer's stable tab keys; a container is addressed through any of its tabs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct DockLayout<K> {

@@ -35,7 +35,7 @@
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, focused_node, part, raise};
 use kivact_core::state::{
-    Binding, IntoValue, MachineHandle, Value, effect, machine, memo, on_cleanup, on_mount,
+    IntoValue, MachineHandle, Signal, Value, effect, machine, memo, on_cleanup, on_mount,
 };
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
@@ -132,7 +132,7 @@ enum InitialFocus {
 /// No implicit open signal is created and creation does not write it. Setup
 /// only.
 #[track_caller]
-pub fn use_popup(open: impl kivact_core::state::IntoBinding<bool>) -> PopupApi {
+pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
     let disclosure = use_disclosure(open);
     let settings = OptionsCell::new(PopupOptions::default());
     let own_anchor = node_ref();
@@ -325,7 +325,7 @@ impl PopupApi {
         })
     }
 
-    pub(crate) fn open_binding(self) -> Binding<bool> {
+    pub(crate) fn open_binding(self) -> Signal<bool> {
         self.disclosure.open
     }
 

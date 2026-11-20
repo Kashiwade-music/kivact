@@ -7,7 +7,7 @@
 //! run once. State lives in an App-owned arena; you hold Copy handles
 //! (`Signal`, `Value`, `Var`, `Callback`, ...) created by the setup
 //! functions (`signal`, `memo`, `effect`, ... like Solid's `createSignal`,
-//! `createMemo`, `createEffect`) or by `Type::new`. State belongs to the
+//! `createMemo`, `createEffect`). State belongs to the
 //! nearest structural boundary (root, flow branch, list row, `provide`,
 //! `error_boundary`). Dynamic properties are closures or handles; each
 //! becomes a small render effect whose changed output is written into the
@@ -55,6 +55,7 @@ pub mod embed;
 mod embed;
 
 mod app;
+mod app_state;
 mod client;
 pub mod custom;
 #[cfg(feature = "devtools")]
@@ -73,7 +74,7 @@ pub mod gpu_interop;
 )]
 mod gpu_interop;
 pub mod i18n;
-pub mod launch;
+mod launch;
 pub mod motion;
 pub mod platform;
 pub mod state;
@@ -85,3 +86,13 @@ pub mod view;
 pub use app::App;
 #[doc(inline)]
 pub use kivact_runtime::{ErrorKind, Result, UiError};
+
+// xtask-allow(internal-contract): kivact-test drives an App through the same launch as App::run
+#[doc(hidden)]
+pub mod __test {
+    //! Role: The launch contract kivact-test drives; not an App API.
+    pub use crate::app::test_launch::{
+        app_theme_has_fonts, check_window_sizes, host_options, launch, retitle, window_title,
+    };
+    pub use crate::launch::{Inspect, LaunchHandle, LaunchPolicy};
+}

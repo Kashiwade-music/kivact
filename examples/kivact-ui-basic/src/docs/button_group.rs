@@ -2,6 +2,7 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact::view::Orientation;
 
 pub(crate) fn page() -> Page {
     Page {

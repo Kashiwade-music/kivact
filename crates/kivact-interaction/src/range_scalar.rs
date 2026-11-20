@@ -7,7 +7,7 @@ use crate::policy::scalar_mapping::ScalarMapping;
 use crate::scalar::{Edit, Grip, ScalarApi, ScalarOps, ScalarState, Shared, follow_ranges};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, binding, memo};
+use kivact_core::state::{Signal, Value, binding, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{HandlerResult, Orientation};
 
@@ -62,11 +62,11 @@ pub struct RangeScalarApi {
 /// ```
 #[track_caller]
 pub fn use_range_scalar(
-    low: impl kivact_core::state::IntoBinding<f64>,
-    high: impl kivact_core::state::IntoBinding<f64>,
+    low: kivact_core::state::Signal<f64>,
+    high: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> RangeScalarApi {
-    let (low, high) = (low.into_binding(), high.into_binding());
+    let (low, high) = (low, high);
     let range = range.into_value();
     let snapshot = memo(move || [low.get(), high.get()]);
     let shared = Shared::new(snapshot, move |[from, to]| {
@@ -77,7 +77,7 @@ pub fn use_range_scalar(
     // position distance under a non-linear curve.
     let mapping = OptionsCell::new(ScalarMapping::linear());
     let (low_value, high_value) = (low.into_value(), high.into_value());
-    let end = |index: usize, write: Binding<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
+    let end = |index: usize, write: Signal<f64>, bounds: (Value<f64>, Value<f64>)| ScalarApi {
         ops: ScalarOps {
             binding: write,
             range,

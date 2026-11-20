@@ -3,8 +3,9 @@
 use crate::arrangement_model::arrangement as app_arrangement;
 use crate::table_rows::{line, lines};
 use kivact::prelude::*;
+use kivact::view::Modifiers;
 
-use kivact::view::{A11yAction, KeyCode, MouseButton};
+use kivact::view::{A11yAction, KeyCode};
 use kivact_ui_creative as ui;
 use std::time::Duration;
 
@@ -31,8 +32,8 @@ fn arrangement_loop_automation_track_flags_and_clip_tools_update_public_models()
                     clips,
                     tracks,
                     ui::ArrangementState {
-                        loop_range: range.into_binding(),
-                        tool: tool.into_binding(),
+                        loop_range: range,
+                        tool,
                         ..ui::ArrangementState::new()
                     },
                 )

@@ -10,10 +10,8 @@ use crate::options_cell::OptionsCell;
 use crate::roving::{Observation, Roving};
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owned, Owner, Sent};
-use kivact_core::state::{
-    Binding, Callback, Selector, Signal, Value, effect, memo, selector, signal,
-};
-use kivact_core::state::{IntoBinding, IntoValue};
+use kivact_core::state::IntoValue;
+use kivact_core::state::{Callback, Selector, Signal, Value, effect, memo, selector, signal};
 use kivact_core::state::{MachineHandle, machine};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
@@ -32,7 +30,7 @@ pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
     pub(super) leave: Option<Leave<K>>,
     pub(super) scroll: Option<Scroll<K>>,
     pub(super) selectable: Option<Selectable<K>>,
-    pub(super) anchor: Binding<Option<K>>,
+    pub(super) anchor: Signal<Option<K>>,
     /// The list whose type-to-find prefix this one types into (a select's
     /// open list types into its closed trigger's); `None` is its own.
     pub(super) typeahead: Option<MachineHandle<machine::Machine<K>>>,
@@ -156,7 +154,7 @@ fn default_setup_options<K: kivact_core::state::ItemKey>() -> OptionsCell<ListSe
         leave: None,
         scroll: None,
         selectable: None,
-        anchor: signal(None::<K>).into_binding(),
+        anchor: signal(None::<K>),
         typeahead: None,
     })
 }

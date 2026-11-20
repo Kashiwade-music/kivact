@@ -1,6 +1,6 @@
 //! Role: Project preview visibility and provenance from the shared hover surface.
 use crate::{DelayedPhase, Delays, HoverCardTiming, HoverSurfaceApi};
-use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, memo};
+use kivact_core::state::{IntoValue, Signal, Value, memo};
 use kivact_core::view::NodeRef;
 
 /// The input that currently requests a preview.
@@ -8,7 +8,7 @@ use kivact_core::view::NodeRef;
 pub enum HoverCardOpenedBy {
     Pointer,
     Focus,
-    Binding,
+    Signal,
 }
 /// Canonical preview phase, projected from the lower visibility authority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -24,7 +24,7 @@ pub enum HoverCardState {
 pub struct HoverCardApi {
     surface: HoverSurfaceApi,
     state: Value<HoverCardState>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     shown: Value<bool>,
 }
 /// Connect pointer travel and immediate focus or external opening to one surface.
@@ -34,10 +34,9 @@ pub fn use_hover_card(
     surface: NodeRef,
     enabled: impl IntoValue<bool>,
     focused: impl IntoValue<bool>,
-    open: impl IntoBinding<bool>,
+    open: Signal<bool>,
     timing: HoverCardTiming,
 ) -> HoverCardApi {
-    let open = open.into_binding();
     let focused = focused.into_value();
     let enabled = enabled.into_value();
     let immediate = focused;
@@ -69,7 +68,7 @@ pub fn use_hover_card(
                     },
                 },
                 _ => HoverCardState::Open {
-                    by: HoverCardOpenedBy::Binding,
+                    by: HoverCardOpenedBy::Signal,
                 },
             }
         } else {

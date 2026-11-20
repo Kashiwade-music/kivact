@@ -1,12 +1,14 @@
 //! Role: The standard controls size and its inherited default.
 
+use kivact_macros::Prop;
+
 /// The metrics a control is drawn at; the recipe decides what each size
 /// means.
 ///
 /// Buttons, text inputs and areas, selects, checkboxes, switches, radio
 /// groups and sliders take one with `.size(..)` and pass it to their
 /// recipes in their state.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ControlSize {
     /// The most compact size, for dense toolbars and inline actions.
     ExtraSmall,
@@ -34,7 +36,5 @@ pub fn provide_control_size<V: kivact_core::view::IntoView>(
 
 pub(crate) fn default_control_size() -> ControlSize {
     kivact_core::state::try_use_context::<InheritedControlSize>()
-        .map_or_else(ControlSize::default, |size| size.get().0)
+        .map_or_else(ControlSize::default, |size| size.0)
 }
-
-kivact_core::state::constant_value!(ControlSize);

@@ -1,11 +1,10 @@
 //! Role: Compose alert confirmation with the standard modal behavior.
 use kivact::interaction::DialogMode;
-use kivact::state::Binding;
 use kivact::state::Callback;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::state::{IntoHandler, Signal};
 use kivact::style::Justify;
 use kivact::style::Length;
 use kivact::style::pct;
@@ -26,7 +25,7 @@ use std::rc::Rc;
 // Immutable canonical Dialog plus its same caller-owned open binding, action/cancel configuration and independent application loading input; no local dialog lifecycle is stored.
 pub struct AlertDialog {
     dialog: kivact::ui::Dialog,
-    open: Binding<bool>,
+    open: Signal<bool>,
     action: Option<(String, Rc<dyn Fn()>)>,
     cancel: Option<String>,
     variant: ButtonVariant,
@@ -37,9 +36,8 @@ pub struct AlertDialog {
 pub fn alert_dialog(
     title: impl IntoText,
     description: impl IntoText,
-    open: impl IntoBinding<bool>,
+    open: Signal<bool>,
 ) -> AlertDialog {
-    let open = open.into_binding();
     AlertDialog {
         dialog: dialog(title, open)
             .mode(DialogMode::AlertModal)
@@ -56,8 +54,9 @@ pub fn alert_dialog(
 
 impl AlertDialog {
     /// Add the confirmation action; the callback decides whether and when to close the dialog.
-    pub fn action(mut self, label: impl Into<String>, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn action<M>(mut self, label: impl Into<String>, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some((label.into(), Rc::new(move || action.call(()))));
         self
     }

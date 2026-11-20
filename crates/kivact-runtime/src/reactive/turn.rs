@@ -69,11 +69,11 @@ impl Sched {
 
     /// An effect taken out of its queue set is stale again, not queued.
     fn unmark(graph: &mut crate::reactive::arena::Arena<RNode>, key: Key) {
-        if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
-            graph.get_mut(key).map(|n| &mut n.data)
-            && let CompState::Queued(stale) = e.run.state
+        if let Some(n) = graph.get_mut(key)
+            && matches!(n.data, NodeData::Effect(_) | NodeData::Watcher(_))
+            && let CompState::Queued(stale) = n.state
         {
-            e.run.state = CompState::Stale(stale);
+            n.state = CompState::Stale(stale);
         }
     }
     pub(crate) fn remove(&mut self, state: &mut CompState, kind: EffectKind, seq: u64, key: Key) {
@@ -121,7 +121,7 @@ impl Runtime {
     /// each run: an effect may mount many nodes, so the bound grows during
     /// the pass, and a large App whose effects each run a few times is not
     /// cut. Either cut is reported as a `Cycle` to the default sink.
-    pub fn stabilize(&self) {
+    pub(crate) fn stabilize(&self) {
         let mut runs: usize = 0;
         loop {
             let next = self
@@ -134,7 +134,7 @@ impl Runtime {
             let limit = CYCLE_LIMIT * (self.graph.borrow().len() + 1);
             if usize::from(own) > CYCLE_LIMIT || runs > limit {
                 self.abandon_render_effects(key);
-                let at = self.graph.borrow().get(key).map(|n| n.at);
+                let at = self.node_at(key);
                 self.default_sink(new_error(
                     ErrorKind::Cycle {
                         path: at.into_iter().collect(),
@@ -186,14 +186,16 @@ impl Runtime {
         keys.push(current);
         let mut g = self.graph.borrow_mut();
         for k in keys {
-            if let Some(c) = g.get_mut(k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
     }
 
     /// Run the user effects queued so far (one round). Returns whether any ran.
-    pub fn run_user_effects(&self) -> bool {
+    pub(crate) fn run_user_effects(&self) -> bool {
         let batch = self
             .sched
             .borrow_mut()
@@ -213,8 +215,10 @@ impl Runtime {
             .take_user(&mut self.graph.borrow_mut());
         let mut g = self.graph.borrow_mut();
         for k in &v {
-            if let Some(c) = g.get_mut(*k).and_then(RNode::computation_mut) {
-                c.state.abandon();
+            if let Some(n) = g.get_mut(*k)
+                && n.is_computation()
+            {
+                n.state.abandon();
             }
         }
         v
@@ -261,7 +265,11 @@ mod tests {
     #[test]
     fn a_pass_that_mounts_three_thousand_effects_is_not_a_cycle() {
         const MOUNTED: usize = 3_000;
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
         rt.enter(|| {
@@ -309,7 +317,11 @@ mod tests {
 
     #[test]
     fn an_effect_that_reruns_itself_is_a_cycle() {
-        let rt = Runtime::register(Rc::new(Quiet), 0);
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+        );
         let at = Location::caller();
         assert_eq!(rt.create_owner(None, at), rt.root);
         rt.enter(|| {

@@ -1,7 +1,11 @@
 //! Render the catalog application mission model and demo cards.
 use kivact::draw::{Shape, linear_gradient};
 use kivact::prelude::*;
-use kivact::style::{Direction, Position};
+use kivact::state::IntoHandler;
+use kivact::state::IntoValue;
+use kivact::style::ColorToken;
+use kivact::style::Direction;
+use kivact::view::Node;
 use kivact_ui_pop::{self as ui, Hue, Tokens};
 /// All mission content is public data; fetching, rewards and locking belong to the application.
 #[derive(Clone, Debug, PartialEq)]
@@ -26,11 +30,14 @@ pub(super) struct Mission {
     pub locked: bool,
 }
 #[track_caller]
-pub(super) fn mission_card(mission: Mission, action: impl Into<Callback<()>>) -> impl Element {
+pub(super) fn mission_card<M>(mission: Mission, action: impl IntoHandler<(), M>) -> impl Element {
     kivact::ui::card((
         mission_banner(&mission),
         mission_details(&mission),
-        mission_footer(&mission, action.into()),
+        mission_footer(
+            &mission,
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action)),
+        ),
     ))
     .style(
         style()

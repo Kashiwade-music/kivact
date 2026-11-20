@@ -7,7 +7,7 @@ use crate::toggle_group::look::ToggleGroupItemState;
 use crate::toggle_group::look::ToggleGroupState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{
-    Binding, Callback, IntoText, IntoValue, ItemKey, Value, binding, callback, memo,
+    Callback, IntoText, IntoValue, ItemKey, Signal, Value, binding, callback, memo,
 };
 use kivact_core::view::{
     EditPhase, Element, HandlerResult, IntoView, Node, Orientation, ReadingDirection, Role, View,
@@ -104,7 +104,7 @@ impl<K: ItemKey> Element for ToggleGroup<K> {
     }
 }
 
-fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Binding<bool> {
+fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Signal<bool> {
     let read = key.clone();
     match selection {
         Selection::Single(value) => binding(
@@ -188,7 +188,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                             orientation: orientation.get(),
                             size: size.get(),
                             spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                            rtl: direction.get() == ReadingDirection::Rtl,
+                            rtl: direction == ReadingDirection::Rtl,
                         },
                         first: options
                             .with(|options| options.first().is_some_and(|item| item.key() == &at)),
@@ -209,7 +209,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 orientation: orientation.get(),
                 size: size.get(),
                 spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             },
         )
         .child(rows)
@@ -221,7 +221,7 @@ fn item_content<K: ItemKey>(
     slot: Option<&ToggleItemSlot<K>>,
     item: Value<ListItem<K>>,
     state: Value<ToggleButtonState>,
-    pressed: Binding<bool>,
+    pressed: Signal<bool>,
     hide: Value<bool>,
 ) -> View {
     match slot {

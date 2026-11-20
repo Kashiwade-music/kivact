@@ -2,10 +2,10 @@
 use crate::editors::time::gesture::{Snapshot, State};
 use crate::editors::time::model::TimeItem;
 use kivact::geometry::Point;
-use kivact::state::Binding;
+use kivact::state::Signal;
 pub(crate) fn restore(
-    playhead: Binding<f64>,
-    transform: Binding<kivact::interaction::ViewTransform>,
+    playhead: Signal<f64>,
+    transform: Signal<kivact::interaction::ViewTransform>,
     snapshot: Snapshot,
 ) {
     match snapshot {

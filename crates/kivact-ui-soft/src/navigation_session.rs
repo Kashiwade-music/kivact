@@ -1,7 +1,7 @@
 //! Role: Bind domain navigation surfaces to one canonical exclusive owner.
 use kivact::interaction::{Delays, NavOpen, NavigationMenuApi, use_navigation_menu};
 use kivact::state::{
-    Binding, IntoValue, Value, binding, effect_on, on_cleanup, provide, try_use_context,
+    IntoValue, Signal, Value, binding, effect_on, on_cleanup, provide, try_use_context,
 };
 use kivact::view::{Element, Handled, IntoView, PointerEvent, PointerKind, PointerPhase, View};
 use std::time::Duration;
@@ -15,14 +15,14 @@ pub(crate) fn with_navigation_group<V: IntoView>(content: impl FnOnce() -> V + '
 pub(crate) struct NavPanel {
     api: NavigationMenuApi,
     key: usize,
-    open: Binding<bool>,
+    open: Signal<bool>,
     eligible: Value<bool>,
     delays: Delays,
 }
 impl NavPanel {
     pub(crate) fn new(eligible: impl IntoValue<bool>, delays: Delays) -> Self {
-        let api = try_use_context::<NavigationGroup>()
-            .map_or_else(use_navigation_menu, |group| group.get().0);
+        let api =
+            try_use_context::<NavigationGroup>().map_or_else(use_navigation_menu, |group| group.0);
         let key = api.panel_key();
         let state = api.state();
         on_cleanup(move || api.panel_removed(key));
@@ -53,7 +53,7 @@ impl NavPanel {
             delays,
         }
     }
-    pub(crate) fn open(self) -> Binding<bool> {
+    pub(crate) fn open(self) -> Signal<bool> {
         self.open
     }
     pub(crate) fn toggle(self) {

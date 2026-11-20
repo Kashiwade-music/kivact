@@ -6,13 +6,14 @@
 //! are compared within ±2/255 per channel (tier 2) unless a test says
 //! otherwise; the frame statistics come from `Screen::frame_stats`.
 
+use kivact::draw::Transform;
+use kivact::view::Node;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::draw::RegionId;
 use kivact::draw::{BlendMode, Composite, Filter, Layer, PaintShader};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::{Isolation, TransformStyle, WillChange, rgba};
 use kivact::test::{RenderOptions, Screenshot, render, render_with};

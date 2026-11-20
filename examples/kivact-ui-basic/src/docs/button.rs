@@ -2,8 +2,6 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
-use kivact::task::sleep;
-use kivact::ui::ControlSize;
 use std::time::Duration;
 
 pub(crate) fn page() -> Page {

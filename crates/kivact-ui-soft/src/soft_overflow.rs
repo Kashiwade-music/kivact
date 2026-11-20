@@ -10,6 +10,7 @@ use kivact::view::Node;
 use kivact::view::node;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -71,7 +72,7 @@ enum OverflowFit {
     Fitted { visible: usize },
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Logical edge from which items move into the overflow indicator.
 pub enum CollapseFrom {
     /// Hide items from the logical start first.
@@ -81,7 +82,7 @@ pub enum CollapseFrom {
     End,
 }
 
-#[derive(Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq, Prop)]
 /// Element whose width determines the available overflow space.
 pub enum OverflowMeasure {
     #[default]
@@ -484,5 +485,3 @@ impl<T: PropValue, K: ItemKey> IntoView for OverflowList<T, K> {
         .into_view()
     }
 }
-
-kivact::state::constant_value!(CollapseFrom, OverflowMeasure);

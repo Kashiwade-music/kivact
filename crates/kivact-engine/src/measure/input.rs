@@ -73,7 +73,7 @@ pub(crate) fn refresh_lines<'a>(
     let cache = if measurement {
         &node.measure_lines
     } else {
-        &node.lines
+        &*node.lines
     };
     let mut slot = cache
         .try_borrow_mut()

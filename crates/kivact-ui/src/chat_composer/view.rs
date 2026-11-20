@@ -5,17 +5,19 @@ use crate::chat_composer::look::ComposerStatus;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::NodeRefExt;
-use kivact_core::state::{Binding, Callback, IntoBinding, IntoText, IntoValue, Value, callback};
+use kivact_core::state::IntoHandler;
+use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback};
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
 };
+use kivact_macros::Prop;
 
 // xtask-allow(state): legacy: drawer, header_actions, header_context, footer_actions, send_actions, send_icon, stop_icon
 /// A multiline draft with independent action slots and optional submission history.
 pub struct ChatComposer {
     root: Node,
-    value: Binding<String>,
+    value: Signal<String>,
     on_submit: Option<Callback<String>>,
     on_stop: Option<Callback<()>>,
     stop_shown: Value<bool>,
@@ -33,10 +35,10 @@ pub struct ChatComposer {
     variants: Variants,
 }
 /// Edit a draft; Enter submits, Shift+Enter inserts a newline, and IME owns composition keys.
-pub fn chat_composer(value: impl IntoBinding<String>) -> ChatComposer {
+pub fn chat_composer(value: Signal<String>) -> ChatComposer {
     ChatComposer {
         root: node(),
-        value: value.into_binding(),
+        value,
         on_submit: None,
         on_stop: None,
         stop_shown: false.into_value(),
@@ -61,8 +63,10 @@ impl ChatComposer {
         self
     }
     /// Report requests to stop the current response.
-    pub fn on_stop(mut self, stop: impl Into<Callback<()>>) -> Self {
-        self.on_stop = Some(stop.into());
+    pub fn on_stop<M>(mut self, stop: impl IntoHandler<(), M>) -> Self {
+        self.on_stop = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(stop),
+        ));
         self
     }
     /// Replace Send with Stop while a response is in progress.
@@ -394,11 +398,9 @@ impl IntoView for ChatComposer {
 }
 
 /// Placement of a composer diagnostic.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ComposerStatusPosition {
     Top,
     #[default]
     Bottom,
 }
-
-kivact_core::state::constant_value!(ComposerStatusPosition);

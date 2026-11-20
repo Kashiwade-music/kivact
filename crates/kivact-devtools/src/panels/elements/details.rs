@@ -1,6 +1,7 @@
 //! Role: The detail tabs of the Elements panel.
 
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact::ui::{description, description_list};
 use kivact_devtools_protocol as p;
 
@@ -51,7 +52,7 @@ impl DetailTab {
 }
 
 /// The tabs of the selected node's details.
-pub(crate) fn tabs(session: Session, layout: Binding<bool>) -> impl IntoView {
+pub(crate) fn tabs(session: Session, layout: Signal<bool>) -> impl IntoView {
     let active = signal(DetailTab::Styles);
     let items = DetailTab::ALL
         .iter()
@@ -63,7 +64,7 @@ pub(crate) fn tabs(session: Session, layout: Binding<bool>) -> impl IntoView {
 }
 
 /// The content of one detail tab.
-fn panel(tab: DetailTab, session: Session, layout: Binding<bool>) -> View {
+fn panel(tab: DetailTab, session: Session, layout: Signal<bool>) -> View {
     match tab {
         DetailTab::Styles => styles_tab(session, session.detail).into_view(),
         DetailTab::Computed => computed(session.detail),
@@ -94,7 +95,7 @@ fn computed(detail: Resource<Option<p::NodeDetail>>) -> View {
 }
 
 /// The box model and the layout overlay toggle.
-fn layout_tab(session: Session, layout: Binding<bool>) -> View {
+fn layout_tab(session: Session, layout: Signal<bool>) -> View {
     let bounds = memo(move || {
         session
             .detail

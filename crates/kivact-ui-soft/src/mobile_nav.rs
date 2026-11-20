@@ -4,8 +4,8 @@ use crate::stack::{ContainerInset, rtl};
 
 use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::IntoViewFn;
 use kivact::view::Node;
@@ -16,9 +16,9 @@ use kivact::view::row;
 use kivact::view::scroll;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
-use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
@@ -52,10 +52,11 @@ use kivact::view::show;
 pub struct AppShellMobile {
     context: Option<MobileContext>,
 }
+// xtask-allow(state): independent: open is the drawer's open binding, written by the toggle, the drawer's close and the backdrop; auto_toggle is fixed when the context is made
 #[derive(Clone, Copy)]
 struct MobileContext {
     layout: MachineHandle<LayoutMachine>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     toggle: NodeRef,
     drawer: NodeRef,
     auto_toggle: bool,
@@ -99,14 +100,12 @@ impl Machine for LayoutMachine {
 }
 /// Read mobile navigation from the surrounding app shell, or an inert default outside one.
 pub fn use_app_shell_mobile() -> AppShellMobile {
-    try_use_context::<AppShellMobile>()
-        .map(|value| value.get())
-        .unwrap_or_default()
+    try_use_context::<AppShellMobile>().unwrap_or_default()
 }
 impl AppShellMobile {
     pub(crate) fn configured(
         mobile: Option<Value<bool>>,
-        open: Option<Binding<bool>>,
+        open: Option<Signal<bool>>,
         auto_toggle: bool,
     ) -> Self {
         let Some(open) = open else {
@@ -182,7 +181,7 @@ impl AppShellMobile {
         }
     }
     /// The drawer's open state as a binding written back to the shell machine.
-    pub(crate) fn open_binding(self) -> Option<Binding<bool>> {
+    pub(crate) fn open_binding(self) -> Option<Signal<bool>> {
         self.context.map(|context| {
             kivact::state::binding(
                 move || context.is_open(),
@@ -192,7 +191,7 @@ impl AppShellMobile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Logical edge on which a mobile navigation drawer opens.
 pub enum DrawerSide {
     /// Open at the reading direction's start edge.
@@ -208,7 +207,7 @@ pub enum DrawerSide {
 /// A modal navigation drawer whose content is rebuilt on each opening.
 pub struct MobileNav {
     root: Node,
-    open: Option<Binding<bool>>,
+    open: Option<Signal<bool>>,
     width: Value<Length>,
     side: Value<DrawerSide>,
     label: Option<Value<String>>,
@@ -233,8 +232,8 @@ pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
 
 impl MobileNav {
     /// Use an application-owned open binding instead of the surrounding shell binding.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Set the drawer width as a layout length (`320.0` is 320 px).
@@ -283,11 +282,11 @@ impl IntoView for MobileNav {
             header_view,
             content,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mobile = use_app_shell_mobile();
             let open = open
                 .or_else(|| mobile.open_binding())
-                .unwrap_or_else(|| signal(false).into_binding());
+                .unwrap_or_else(|| signal(false));
             let anchor = mobile
                 .context
                 .map(|context| context.toggle)
@@ -364,7 +363,7 @@ impl IntoView for MobileNavToggle {
             label,
             icon: glyph,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mobile = use_app_shell_mobile();
             if !mobile.is_enabled() {
                 return View::empty();
@@ -394,8 +393,6 @@ impl IntoView for MobileNavToggle {
     }
 }
 
-kivact::state::constant_value!(DrawerSide);
-
 fn drawer_scrim() -> Node {
     node().style(|| {
         let t = kivact::style::use_tokens::<crate::Tokens>();
@@ -420,7 +417,7 @@ fn drawer_header(
     header_view: Option<&ViewFn>,
     header: Option<Value<String>>,
     behavior: kivact::interaction::DialogApi,
-    open: Binding<bool>,
+    open: Signal<bool>,
 ) -> impl IntoView {
     let title = if let Some(header_view) = header_view {
         Some(header_view.call(()))

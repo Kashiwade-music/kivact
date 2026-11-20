@@ -2,7 +2,7 @@
 
 use crate::carousel::look::CarouselSurfaceState;
 use kivact_core::geometry::Point;
-use kivact_core::state::{Binding, IntoBinding, IntoValue, Value, effect, memo};
+use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
 use kivact_core::style::{Direction, Overflow, pct, style};
 use kivact_core::view::{
     Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
@@ -16,7 +16,7 @@ pub struct Carousel {
     root: Node,
     variants: crate::variants::Variants,
     slides: Vec<View>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     orientation: Value<Orientation>,
     snap: Value<Snap>,
     mode: CarouselMode,
@@ -30,12 +30,12 @@ pub struct Carousel {
 /// Show slides in caller-owned index order. Arrow keys follow orientation and reading direction.
 /// Its name is the message `carousel.label` ("Carousel"), its buttons `carousel.previous` and `carousel.next`, and each slide `carousel.slide` ("Slide {index} / {count}").
 #[track_caller]
-pub fn carousel(index: impl IntoBinding<usize>, slides: impl IntoChildren) -> Carousel {
+pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
         variants: crate::variants::Variants::default(),
         root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
-        index: index.into_binding(),
+        index,
         orientation: Orientation::Horizontal.into_value(),
         snap: Snap::Mandatory.into_value(),
         mode: CarouselMode::Translate,
@@ -146,7 +146,7 @@ struct Layout {
     snap: Value<Snap>,
     vertical: Value<bool>,
     orientation: Value<Orientation>,
-    rtl: Value<ReadingDirection>,
+    rtl: ReadingDirection,
     viewport: kivact_core::view::NodeRef,
     track: kivact_core::view::NodeRef,
     count: usize,
@@ -179,7 +179,7 @@ impl Layout {
         CarouselSurfaceState {
             state: self.navigation.get(),
             orientation: self.orientation.get(),
-            direction: self.rtl.get(),
+            direction: self.rtl,
         }
     }
 }
@@ -228,7 +228,7 @@ fn navigate(c: Layout, references: &[kivact_core::view::NodeRef], delta: isize) 
             references,
             crate::carousel::geometry::PageRequest {
                 vertical: c.vertical.get_untracked(),
-                rtl: c.rtl.get_untracked() == ReadingDirection::Rtl,
+                rtl: c.rtl == ReadingDirection::Rtl,
                 next: delta > 0,
                 looping: c.looping,
                 snap: c.snap.get_untracked(),
@@ -272,7 +272,7 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
             } else {
                 Point {
                     x: old.x
-                        + if c.rtl.get() == ReadingDirection::Rtl {
+                        + if c.rtl == ReadingDirection::Rtl {
                             slide.right() - view.right() + c.padding()
                         } else {
                             slide.x - view.x - c.padding()
@@ -285,7 +285,7 @@ fn follow_index(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::N
                     &slide_rects(&navigation_refs),
                     view,
                     c.vertical.get(),
-                    c.rtl.get() == ReadingDirection::Rtl,
+                    c.rtl == ReadingDirection::Rtl,
                 );
                 if nearest == Some(at) {
                     return;
@@ -317,7 +317,7 @@ fn follow_scroll(c: Layout, navigation_refs: std::rc::Rc<Vec<kivact_core::view::
             &slides,
             view,
             c.vertical.get_untracked(),
-            c.rtl.get_untracked() == ReadingDirection::Rtl,
+            c.rtl == ReadingDirection::Rtl,
         );
         if let Some(at) = nearest {
             c.api.scrolling(at);
@@ -423,7 +423,7 @@ fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>
     .style(move || {
         let mut s = style().direction(if c.vertical.get() {
             Direction::Column
-        } else if c.rtl.get() == ReadingDirection::Rtl {
+        } else if c.rtl == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
@@ -438,7 +438,7 @@ fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>
                 s.translate(0, offset)
             } else {
                 s.translate(
-                    if c.rtl.get() == ReadingDirection::Rtl {
+                    if c.rtl == ReadingDirection::Rtl {
                         pct(-along) + (c.shown.get() as f64) * c.gap() / c.visible()
                     } else {
                         offset
@@ -560,14 +560,14 @@ fn keyboard(
         (true, Key::ArrowDown) => 1,
         (true, Key::ArrowUp) => -1,
         (false, Key::ArrowRight) => {
-            if c.rtl.get_untracked() == ReadingDirection::Rtl {
+            if c.rtl == ReadingDirection::Rtl {
                 -1
             } else {
                 1
             }
         }
         (false, Key::ArrowLeft) => {
-            if c.rtl.get_untracked() == ReadingDirection::Rtl {
+            if c.rtl == ReadingDirection::Rtl {
                 1
             } else {
                 -1
@@ -597,7 +597,7 @@ fn navigation_button(
     .hide_label(true)
     .icon(kivact_core::view::icon(move || {
         kivact_core::style::Icon::named(
-            match (c.vertical.get(), c.rtl.get() == ReadingDirection::Rtl, next) {
+            match (c.vertical.get(), c.rtl == ReadingDirection::Rtl, next) {
                 (true, _, true) => "chevron-down",
                 (true, _, false) => "chevron-up",
                 (false, true, true) | (false, false, false) => "chevron-left",
@@ -613,7 +613,7 @@ fn navigation_button(
                     c.viewport,
                     edges,
                     c.vertical.get(),
-                    c.rtl.get() == ReadingDirection::Rtl,
+                    c.rtl == ReadingDirection::Rtl,
                     next,
                     c.looping,
                 )

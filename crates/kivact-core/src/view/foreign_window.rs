@@ -6,9 +6,10 @@ use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    Binding, Completion, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, IntoValue,
-    Owner, Runtime, UiError, Value, require_effectful,
+    Completion, ErrorKind, Handler, HandlerResult, IntoText, IntoValue, Owner, Signal, UiError,
+    Value, require_effectful,
 };
 use kivact_types::{
     DismissReason, NativeWindow, PlatformRequest, RequestId, Size, SurfaceSize, WindowId,
@@ -37,10 +38,10 @@ use crate::view::window_view::{SlotContent, Window};
 /// test host without `RenderOptions::foreign_windows`) it reports
 /// `ErrorKind::Unsupported` once and stays closed; `open` is not changed.
 #[track_caller]
-pub fn foreign_window(title: impl IntoText, open: impl IntoBinding<bool>) -> ForeignWindow {
+pub fn foreign_window(title: impl IntoText, open: Signal<bool>) -> ForeignWindow {
     ForeignWindow {
         title: title.into_text_value(),
-        open: open.into_binding(),
+        open,
         size: Size::new(640.0, 480.0),
         min_size: None,
         mode: WindowMode::Normal,
@@ -57,7 +58,7 @@ pub fn foreign_window(title: impl IntoText, open: impl IntoBinding<bool>) -> For
 /// The declaration of one foreign window, built by [`foreign_window`].
 pub struct ForeignWindow {
     title: Value<String>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     size: Size,
     min_size: Option<Size>,
     mode: WindowMode,
@@ -218,7 +219,7 @@ impl ForeignChild {
         height: u32,
         at: &'static Location<'static>,
     ) -> Result<Completion<Result<(), UiError>>, UiError> {
-        let owner = Owner::ambient("ForeignChild::request_size", at);
+        let owner = Owner::running("ForeignChild::request_size", at);
         let rt = owner.runtime();
         let Some(state) = ViewState::of(&rt).window_record(self.window) else {
             return Err(UiError::new(

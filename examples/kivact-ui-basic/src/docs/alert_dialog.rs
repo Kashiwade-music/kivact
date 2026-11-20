@@ -1,6 +1,7 @@
 //! Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
 
 use crate::model::{Example, Page, PreviewAlign};
+use kivact::interaction::DialogMode;
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 

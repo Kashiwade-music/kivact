@@ -2,6 +2,7 @@
 use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
 use kivact::ui;
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 
 #[test]

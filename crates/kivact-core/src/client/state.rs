@@ -1,32 +1,24 @@
 //! Role: Per-App client state for the host boundary.
 //!
-//! Per-App asset failures already reported and host event counters, installed as a runtime
-//! extension when the App is created.
+//! Per-App host event counters, installed as a runtime extension when the
+//! App is created.
 
-use std::cell::{Cell, RefCell};
-use std::collections::HashSet;
+use std::cell::Cell;
 
-use kivact_types::NodeId;
+use kivact_runtime::driver::Runtime;
 
-use kivact_runtime::Runtime;
-
-// xtask-allow(state): legacy: stats, asset_failures
 /// Everything the client keeps per App about the host link.
 #[derive(Default)]
 pub(crate) struct HostState {
     /// Turns run so far.
     pub(crate) stats: Cell<HostStats>,
-    /// Asset failures reported so far, by node and message (each once);
-    /// entries of removed nodes are dropped when the revision removing them
-    /// is committed.
-    pub(crate) asset_failures: RefCell<HashSet<(NodeId, String)>>,
 }
 
 impl HostState {
     /// The host-link state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &HostState {
-        rt.ext::<HostState>()
+        &crate::app_state::AppState::of(rt).host
     }
 
     /// Turns run so far.

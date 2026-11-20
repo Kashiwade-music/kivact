@@ -8,7 +8,8 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Callback, HandlerResult, Owner};
 pub use kivact_types::LifecycleEvent;
 use kivact_types::cell::Registry;
 
@@ -32,9 +33,9 @@ struct Registration {
 /// changes are observed through `surface_active`, not lifecycle transitions.
 #[track_caller]
 pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static) {
-    let owner = Owner::current("on_lifecycle", Location::caller());
+    let owner = Owner::setup("on_lifecycle", Location::caller());
     let rt = owner.runtime();
-    let state = rt.ext::<LifecycleState>();
+    let state = &crate::app_state::AppState::of(&rt).lifecycle;
     let registration = Rc::new(Registration {
         owner,
         callback: kivact_runtime::callback(f),
@@ -44,7 +45,11 @@ pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static)
 }
 
 pub(crate) fn dispatch(rt: &Runtime, event: LifecycleEvent) {
-    let registrations: Vec<_> = rt.ext::<LifecycleState>().registrations.borrow_mut().live();
+    let registrations: Vec<_> = crate::app_state::AppState::of(rt)
+        .lifecycle
+        .registrations
+        .borrow_mut()
+        .live();
     for registration in registrations {
         if registration.owner.is_alive() {
             registration.callback.call(event);

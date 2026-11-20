@@ -1,7 +1,7 @@
 //! Role: Decide active-row reveal and apply ancestor expansion after transitions.
 use super::controls::Rows;
 use crate::TreeItem;
-use kivact::state::{Binding, Machine, MachineHandle, Step, Value, machine};
+use kivact::state::{Machine, MachineHandle, Signal, Step, Value, machine};
 use kivact::view::NodeRef;
 
 /// Whether a reveal waits for its row to mount.
@@ -80,7 +80,7 @@ pub(super) fn observe(
     active: Value<Option<u64>>,
     enabled: Value<bool>,
     data: Value<Vec<TreeItem>>,
-    expanded: Binding<Vec<u64>>,
+    expanded: Signal<Vec<u64>>,
     rows: Rows,
 ) -> MachineHandle<Reveal> {
     let reveal = machine(

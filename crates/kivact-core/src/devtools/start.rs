@@ -3,7 +3,7 @@
 use kivact_devtools_agent::{Agent, AgentConfig};
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{DevtoolsKeys, KeyChord};
-use kivact_runtime::{Runtime, ThreadWaker};
+use kivact_runtime::driver::{Runtime, ThreadWaker};
 
 use crate::devtools::convert;
 use crate::devtools::state::{AgentSlot, AgentStart, Inspector};
@@ -91,7 +91,7 @@ fn chords(values: &[String]) -> Vec<KeyChord> {
 
 /// The DevTools work after the App's root mounted: the agent is promoted if it
 /// has started, and the engine learns the configured key chords.
-pub(crate) fn after_mount(rt: &kivact_runtime::Runtime) {
+pub(crate) fn after_mount(rt: &kivact_runtime::driver::Runtime) {
     if let crate::devtools::state::DevtoolsState::Running(i) =
         crate::devtools::state::DevtoolsState::of(rt)
     {

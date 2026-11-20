@@ -2,6 +2,7 @@
 use kivact::interaction::{RangeThumb, use_range_scalar, use_scalar};
 use kivact::prelude::*;
 use kivact::ui::range_slider;
+use kivact::view::Orientation;
 use kivact_public_api_tests::support::mount;
 
 #[test]

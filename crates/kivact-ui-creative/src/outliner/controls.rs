@@ -8,7 +8,7 @@ use kivact::i18n::message;
 use kivact::interaction::EditSession;
 use kivact::view::Element;
 
-use kivact::state::{Binding, Callback, Value};
+use kivact::state::{Callback, Signal, Value};
 use kivact::style::style;
 use kivact::view::MouseButton;
 use kivact::view::{A11yAction, ButtonPress, Handled, NodeRef, PointerPhase};
@@ -27,8 +27,8 @@ pub(super) type Rows = Rc<RefCell<HashMap<u64, Mounted>>>;
 
 #[derive(Clone)]
 pub(super) struct Context {
-    pub expanded: Binding<Vec<u64>>,
-    pub selected: Binding<Vec<u64>>,
+    pub expanded: Signal<Vec<u64>>,
+    pub selected: Signal<Vec<u64>>,
     pub on_restriction: Option<Callback<EditorEvent<Restriction>>>,
     pub painter: Painter,
     pub data: Value<Vec<TreeItem>>,

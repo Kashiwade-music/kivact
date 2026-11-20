@@ -58,7 +58,7 @@ pub use effect::{
     MorphologyOp, ParamSlot, ParamType, Primitive, PrimitiveOp, ShaderKind, ShaderProgram,
     ShaderUse, TransferFn, TurbulenceKind,
 };
-pub use embed::{EmbedOptions, ResizeAnswer, UnhandledKeys};
+pub use embed::{EmbedOptions, EmbedVisibility, ResizeAnswer, UnhandledKeys};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
     PointerSettings, ThemeHint,

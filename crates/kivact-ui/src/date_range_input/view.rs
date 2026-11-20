@@ -6,9 +6,7 @@ use crate::date_range_input::draft::{
 };
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
-use kivact_core::state::{
-    Binding, IntoBinding, IntoText, IntoValue, MachineHandle, Value, binding, machine,
-};
+use kivact_core::state::{IntoText, IntoValue, MachineHandle, Signal, Value, binding, machine};
 use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 use std::rc::Rc;
 /// A named range evaluated when the user activates it.
@@ -41,11 +39,11 @@ pub struct DateRangeInput {
     label: Value<String>,
     start_label: Value<String>,
     end_label: Value<String>,
-    value: Binding<Option<DateRange>>,
+    value: Signal<Option<DateRange>>,
     format: Value<DateStyle>,
     custom_format: Option<Rc<dyn Fn(CalendarDate) -> String>>,
     placeholder: Option<Value<String>>,
-    valid: Option<Binding<bool>>,
+    valid: Option<Signal<bool>>,
     min: Value<Option<CalendarDate>>,
     max: Value<Option<CalendarDate>>,
     week_start: Option<Value<Weekday>>,
@@ -57,10 +55,7 @@ pub struct DateRangeInput {
     max_span: Value<Option<u32>>,
 }
 /// Edit two dates; selecting an earlier end reorders the range in one transition.
-pub fn date_range_input(
-    label: impl IntoText,
-    range: impl IntoBinding<Option<DateRange>>,
-) -> DateRangeInput {
+pub fn date_range_input(label: impl IntoText, range: Signal<Option<DateRange>>) -> DateRangeInput {
     DateRangeInput {
         picker_label: None,
         root: node(),
@@ -68,7 +63,7 @@ pub fn date_range_input(
         label: label.into_text_value(),
         start_label: message("date.start", "Start date"),
         end_label: message("date.end", "End date"),
-        value: range.into_binding(),
+        value: range,
         format: DateStyle::Iso.into_value(),
         custom_format: None,
         placeholder: None,
@@ -124,8 +119,8 @@ impl DateRangeInput {
         self
     }
     /// Publish whether both endpoint drafts are valid.
-    pub fn valid(mut self, valid: impl IntoBinding<bool>) -> Self {
-        self.valid = Some(valid.into_binding());
+    pub fn valid(mut self, valid: Signal<bool>) -> Self {
+        self.valid = Some(valid);
         self
     }
     /// Earliest accepted endpoint.
@@ -405,15 +400,15 @@ impl DateRangeInput {
 #[derive(Clone, Copy)]
 struct RangeEditors {
     draft: kivact_core::state::MachineHandle<DraftPolicy>,
-    start: Binding<Option<CalendarDate>>,
-    end: Binding<Option<CalendarDate>>,
-    start_valid: Binding<bool>,
-    end_valid: Binding<bool>,
+    start: Signal<Option<CalendarDate>>,
+    end: Signal<Option<CalendarDate>>,
+    start_valid: Signal<bool>,
+    end_valid: Signal<bool>,
 }
 /// Project endpoint edits and validity into the single canonical range draft machine.
 fn range_machine(
-    value: Binding<Option<DateRange>>,
-    valid: Option<Binding<bool>>,
+    value: Signal<Option<DateRange>>,
+    valid: Option<Signal<bool>>,
     accept: Rc<dyn Fn(DateRange) -> bool>,
 ) -> MachineHandle<DraftPolicy> {
     let draft = machine(
@@ -435,7 +430,7 @@ fn range_machine(
     draft
 }
 /// Bind picker visibility to the draft machine's open and close transitions.
-fn range_open(draft: MachineHandle<DraftPolicy>) -> Binding<bool> {
+fn range_open(draft: MachineHandle<DraftPolicy>) -> Signal<bool> {
     binding(
         move || draft.get().is_open(),
         move |open| {
@@ -501,11 +496,11 @@ fn order_diagnostic(
 }
 
 fn committing_range(
-    value: Binding<Option<DateRange>>,
+    value: Signal<Option<DateRange>>,
     accept: Rc<dyn Fn(DateRange) -> bool>,
     draft: MachineHandle<DraftPolicy>,
     focus: Option<kivact_core::view::NodeRef>,
-) -> Binding<Option<DateRange>> {
+) -> Signal<Option<DateRange>> {
     binding(value, move |next: Option<DateRange>| {
         if next.is_none_or(|next| accept(next)) {
             value.set(next);

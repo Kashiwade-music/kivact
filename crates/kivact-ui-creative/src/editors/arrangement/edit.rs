@@ -21,10 +21,10 @@ pub(crate) fn restore(s: Restore, snapshot: Snapshot) {
 
 #[derive(Clone, Copy)]
 pub(crate) struct Restore {
-    pub playhead: kivact::state::Binding<f64>,
-    pub loop_range: kivact::state::Binding<(f64, f64)>,
-    pub cycling: kivact::state::Binding<bool>,
-    pub transform: kivact::state::Binding<kivact::interaction::ViewTransform>,
+    pub playhead: kivact::state::Signal<f64>,
+    pub loop_range: kivact::state::Signal<(f64, f64)>,
+    pub cycling: kivact::state::Signal<bool>,
+    pub transform: kivact::state::Signal<kivact::interaction::ViewTransform>,
 }
 
 impl State {

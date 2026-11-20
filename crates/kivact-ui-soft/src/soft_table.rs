@@ -1,5 +1,6 @@
 //! Role: Compose Soft bulk selection and status on canonical controls.
-use kivact::state::{Binding, IntoBinding, IntoText, IntoValue, PropValue, Value};
+use kivact::Prop;
+use kivact::state::{IntoText, IntoValue, PropValue, Signal, Value};
 use kivact::style::{Align, Direction, style};
 use kivact::view::{Element, IntoView, Node, View, text};
 
@@ -9,7 +10,7 @@ type SelectionLabel = kivact::view::ViewFn<Value<usize>>;
 /// Bulk table actions shown while the external selection contains keys.
 pub struct TableSelectionToolbar<K: PropValue> {
     root: kivact::ui::Toolbar,
-    selection: Binding<Vec<K>>,
+    selection: Signal<Vec<K>>,
     clear_label: Value<String>,
     selection_label: Option<SelectionLabel>,
     actions: Option<View>,
@@ -17,11 +18,11 @@ pub struct TableSelectionToolbar<K: PropValue> {
 
 /// Build a toolbar whose clear action empties the supplied selection binding.
 pub fn table_selection_toolbar<K: PropValue>(
-    selection: impl IntoBinding<Vec<K>>,
+    selection: Signal<Vec<K>>,
 ) -> TableSelectionToolbar<K> {
     TableSelectionToolbar {
         root: kivact::ui::toolbar("Bulk actions"),
-        selection: selection.into_binding(),
+        selection,
         clear_label: "Unselect All".into_text_value(),
         selection_label: None,
         actions: None,
@@ -97,7 +98,7 @@ impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
 }
 
 /// The semantic colors of a table's status marker.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RowStatusTone {
     #[default]
     /// Use neutral status ink.
@@ -109,7 +110,6 @@ pub enum RowStatusTone {
     /// Use error status ink.
     Error,
 }
-kivact::state::constant_value!(RowStatusTone);
 
 /// Dot treatment of a canonical badge used in a table's status lane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

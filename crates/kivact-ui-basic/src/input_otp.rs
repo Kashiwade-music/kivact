@@ -5,7 +5,7 @@ use kivact::interaction::use_text_edit;
 use kivact::view::icon;
 use kivact::view::{Element, Node, node, row, text};
 
-use kivact::state::{Binding, Callback, Value, binding, memo};
+use kivact::state::{Callback, Signal, Value, binding, memo};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Color, Direction, Justify, Position, style};
 use kivact::view::HandlerResult;
@@ -38,7 +38,7 @@ impl OtpPattern {
 pub struct InputOtp {
     root: Node,
     label: Value<String>,
-    value: Binding<String>,
+    value: Signal<String>,
     length: usize,
     groups: Vec<usize>,
     pattern: OtpPattern,
@@ -61,14 +61,14 @@ pub struct InputOtp {
 #[track_caller]
 pub fn input_otp(
     label: impl IntoText,
-    value: impl kivact::state::IntoBinding<String>,
+    value: kivact::state::Signal<String>,
     length: usize,
 ) -> InputOtp {
     let length = length.max(1);
     InputOtp {
         root: node(),
         label: label.into_text_value(),
-        value: value.into_binding(),
+        value,
         length,
         groups: vec![length],
         pattern: OtpPattern::Digits,
@@ -247,12 +247,12 @@ fn slot(
 }
 
 fn accepted_value(
-    value: kivact::state::Binding<String>,
+    value: kivact::state::Signal<String>,
     current: Value<String>,
     pattern: OtpPattern,
     length: usize,
     complete: Option<kivact::state::Callback<String>>,
-) -> kivact::state::Binding<String> {
+) -> kivact::state::Signal<String> {
     binding(current, move |typed: String| {
         let kept: String = typed
             .chars()

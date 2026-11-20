@@ -18,7 +18,7 @@ use crate::view::element_data::Common;
 use crate::view::owner::Owner;
 use crate::view::part_data::{Availability, Focus, PartBinding, PartMount};
 use crate::view::{ButtonPress, Key, MouseButton, PointerPhase, node_ref};
-use kivact_runtime::EffectKind;
+use kivact_runtime::driver::EffectKind;
 
 pub use super::part_data::PartState;
 
@@ -86,7 +86,7 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
     let mounted = Rc::new(move |mount: PartMount| {
         availability.set(Some((mount.disabled, mount.hidden)));
         let at = Location::caller();
-        let owner = kivact_runtime::Owner::current("part binding", at);
+        let owner = kivact_runtime::Owner::setup("part binding", at);
         let hover = node.hovered();
         owner.effect(
             EffectKind::Internal,

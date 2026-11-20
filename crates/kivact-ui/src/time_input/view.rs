@@ -4,28 +4,29 @@ use crate::layer::with_recipe_style;
 use crate::{DatePresentation, button, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, IntoView, Node, View, node, row};
+// xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding that the hour, minute and second fields write, and picker_label is the optional name of the picker button
 /// A wall-clock time field with hours and minutes, optionally seconds.
 pub struct TimeInput {
     root: Node,
     variants: crate::variants::Variants,
     label: Value<String>,
     picker_label: Option<Value<String>>,
-    value: Binding<Option<TimeOfDay>>,
+    value: Signal<Option<TimeOfDay>>,
     seconds: Value<bool>,
     min: Value<Option<TimeOfDay>>,
     max: Value<Option<TimeOfDay>>,
     presentation: DatePresentation,
 }
 /// Edit optional wall-clock time, independently of date and time zone.
-pub fn time_input(label: impl IntoText, value: impl IntoBinding<Option<TimeOfDay>>) -> TimeInput {
+pub fn time_input(label: impl IntoText, value: Signal<Option<TimeOfDay>>) -> TimeInput {
     TimeInput {
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         picker_label: None,
-        value: value.into_binding(),
+        value,
         seconds: false.into_value(),
         min: None.into_value(),
         max: None.into_value(),
@@ -152,10 +153,10 @@ impl IntoView for TimeInput {
 
 fn time_text(
     state: kivact_core::state::MachineHandle<Snapshot>,
-    value: Binding<Option<TimeOfDay>>,
+    value: Signal<Option<TimeOfDay>>,
     seconds: Value<bool>,
     locale: Value<kivact_core::i18n::Locale>,
-) -> Binding<String> {
+) -> Signal<String> {
     binding(
         move || match state.get().draft() {
             TimeDraft::Invalid(text) => text.clone(),
@@ -177,7 +178,7 @@ fn time_text(
 }
 
 fn time_controller(
-    value: Binding<Option<TimeOfDay>>,
+    value: Signal<Option<TimeOfDay>>,
     seconds: Value<bool>,
     min: Value<Option<TimeOfDay>>,
     max: Value<Option<TimeOfDay>>,

@@ -1,7 +1,7 @@
 //! Role: One list behavior attaches selection and navigation through parts.
 //!
 //! [`use_list`] takes a reactive `Vec<ListItem<K>>` and a [`Selection`]
-//! (`Single` over `Binding<Option<K>>`, `Multiple` over `Binding<Vec<K>>`).
+//! (`Single` over `Signal<Option<K>>`, `Multiple` over `Signal<Vec<K>>`).
 //! The order and the selection stay the caller's: a writer that refuses a
 //! selection is not replaced by an internal one, and a selected key that a
 //! filter or virtualization hides is not cleared. [`ListApi::list`] is the

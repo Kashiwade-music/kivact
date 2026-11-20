@@ -227,7 +227,7 @@ fn one_offscreen_with_its_font_exports_the_pixels_and_the_document_of_one_drawin
     let mut renderer = Offscreen::new().theme(theme);
     renderer.font(TUFFY).expect("the bundled font registers");
 
-    let image = renderer.render(120, 60, artwork).expect("pixels");
+    let image = renderer.render(120.0, 60.0, artwork).expect("pixels");
     let document = renderer.render_svg(120.0, 60.0, artwork).expect("svg");
 
     assert_eq!(image.rgba.len(), 120 * 60 * 4);

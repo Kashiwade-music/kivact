@@ -4,7 +4,7 @@ use crate::card::look::CardAction;
 use crate::card::look::CardState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, IntoBinding, IntoValue, Value};
+use kivact_core::state::{IntoValue, Signal, Value};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
 };
@@ -25,7 +25,7 @@ pub struct Card {
 enum CardKind {
     Plain,
     Press,
-    Select(Binding<bool>),
+    Select(Signal<bool>),
 }
 /// Build a card around content.
 pub fn card(children: impl IntoView) -> Card {
@@ -57,7 +57,7 @@ impl Card {
         self
     }
     /// Activate the card with click, Enter, Space or assistive activation.
-    pub fn on_press(mut self, f: impl Into<kivact_core::state::Callback<()>>) -> Self {
+    pub fn on_press<M>(mut self, f: impl kivact_core::state::IntoHandler<(), M>) -> Self {
         self.root = self.root.on_press(f);
         if matches!(self.action, CardKind::Plain) {
             self.action = CardKind::Press;
@@ -65,8 +65,8 @@ impl Card {
         self
     }
     /// Make the card a checkbox backed by the supplied binding.
-    pub fn selected(mut self, selected: impl IntoBinding<bool>) -> Self {
-        self.action = CardKind::Select(selected.into_binding());
+    pub fn selected(mut self, selected: Signal<bool>) -> Self {
+        self.action = CardKind::Select(selected);
         self
     }
     /// Disable activation.
@@ -160,7 +160,7 @@ impl IntoView for Card {
 enum CardInput {
     Plain,
     Press(Value<kivact_core::custom::PartState>),
-    Select(Value<kivact_core::custom::PartState>, Binding<bool>),
+    Select(Value<kivact_core::custom::PartState>, Signal<bool>),
 }
 
 /// Attach the one canonical behavior part and expose its actual input snapshot.

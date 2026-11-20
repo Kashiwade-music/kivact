@@ -1,6 +1,6 @@
 //! Role: Derive full logical table coordinates without copying caller state.
 use super::types::Key;
-use kivact_core::state::{Binding, ItemKey, Value, memo};
+use kivact_core::state::{ItemKey, Signal, Value, memo};
 use std::collections::HashMap;
 
 #[derive(Clone, PartialEq)]
@@ -53,7 +53,7 @@ pub(super) fn rows<R: Clone + 'static, K: ItemKey>(
     ordered: Value<Vec<K>>,
     key: Key<R, K>,
     group: Option<Key<R, String>>,
-    page: Option<(Binding<usize>, Value<usize>)>,
+    page: Option<(Signal<usize>, Value<usize>)>,
     remote: bool,
 ) -> Value<Rows<K>> {
     memo(move || {

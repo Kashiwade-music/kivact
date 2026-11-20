@@ -1,5 +1,7 @@
 //! Role: Presence modes of a replaced branch: Wait, PopLayout and Sync.
 
+use kivact::motion::{Easing, Transition};
+use kivact::view::Node;
 use std::time::Duration;
 
 use kivact::motion::Repeat;

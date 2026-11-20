@@ -4,7 +4,8 @@
 use std::cell::Cell;
 use std::marker::PhantomData;
 
-use kivact_runtime::{Handler, Owner, Runtime, Value};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Handler, Owner, Value};
 use kivact_types::{NativeWindow, SurfaceSize, WindowId};
 
 /// The child window of one opening of a `foreign_window`. A Copy handle (like

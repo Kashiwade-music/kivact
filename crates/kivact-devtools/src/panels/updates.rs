@@ -1,8 +1,8 @@
 //! Role: The Updates panel.
 
-use kivact::draw::{Draw, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::TextFormat;
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;

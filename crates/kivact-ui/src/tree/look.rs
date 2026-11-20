@@ -5,7 +5,7 @@ use kivact_core::custom::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
 use kivact_core::view::{ReadingDirection, use_direction};
 pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let tree = &tokens.tree;
     let padding = tree.padding.unwrap_or(t.space().md);

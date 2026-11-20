@@ -37,8 +37,8 @@ pub struct VirtualList<T: 'static, K: 'static> {
 /// A virtualized keyed list: only the rows in (or near) the viewport are
 /// mounted, each as `row(item)` in its own owner. `item` is the source's
 /// row handle ([`ListSource::Row`]), the same as for
-/// [`for_each`](crate::view::for_each): a `Value<T>`, or a `Binding<T>`
-/// that writes back into a `Signal`/`Binding` source.
+/// [`for_each`](crate::view::for_each): a `Value<T>`, or a `Signal<T>`
+/// that writes back into a `Signal`/`Signal` source.
 ///
 /// ```ignore
 /// fn log_row(entry: Value<Entry>) -> impl IntoView { .. }

@@ -1,36 +1,32 @@
-//! Role: Concrete host callbacks and the ordered App turn loop.
+//! Role: Concrete host callbacks and the App's start (the turn's order is
+//! in `turn`).
 
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_engine::api::{Boundary, Client, HostWaker, Writer};
-use kivact_engine::contract::{HostEvent, HostInfo, TurnOutput};
+use kivact_engine::api::{Client, HostWaker, Writer};
+use kivact_engine::contract::{HostInfo, TurnOutput};
 use kivact_types::{WindowId, WindowMode};
 
+use crate::App;
 use crate::client::state::HostState;
 use crate::platform::{AppHandle, AppHandleExt};
 
 use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
-use crate::view::text_edits::TextEditsAhead;
-use kivact_runtime::TaskState;
-use kivact_runtime::{
-    ErrorKind, ExitState, Extensions, IntoBinding, IntoValue, Runtime, RuntimeConfig, Stage,
-    ThreadWaker, TurnGuard, TurnReport, UiError,
+use kivact_runtime::driver::{
+    AppParts, ExitState, RecordBits, Runtime, RuntimeConfig, ThreadWaker, TurnGuard, TurnReport,
 };
+use kivact_runtime::{IntoValue, Stage};
 
-/// Rounds of `on_mount` callbacks and user effects one turn runs before
-/// the rest is cut as a `Cycle`.
-const USER_EFFECT_ROUNDS: usize = 100;
-
-use super::settings::AppOptions;
+use super::policy::LaunchPolicy;
 /// Whether the host started the App.
 pub(super) enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
-        options: Box<AppOptions>,
+        options: Box<App>,
         root: Box<dyn FnOnce() -> View>,
     },
     /// The host started the App.
@@ -46,35 +42,35 @@ pub(super) struct Started {
 }
 
 struct ClientHost(HostWaker);
-impl kivact_runtime::Host for ClientHost {
+impl kivact_runtime::driver::Host for ClientHost {
     fn wake(&self) {
         self.0.wake();
     }
 }
 
-pub struct Launch {
+pub(crate) struct Launch {
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
     pub(super) launch: LaunchState,
-    /// Host mode and its close/timing protocol for this application.
-    pub(super) mode: ClientMode,
+    /// What differs for this launch: closing, DevTools and test timing.
+    pub(super) policy: LaunchPolicy,
 }
 
 impl Launch {
     /// Prepare an application; the engine constructs its runtime at start.
     #[track_caller]
-    pub fn new(
-        options: AppOptions,
-        mode: ClientMode,
+    pub(crate) fn new(
+        app: App,
+        policy: LaunchPolicy,
         root: impl FnOnce() -> View + 'static,
     ) -> Self {
         Self {
             at: Location::caller(),
             launch: LaunchState::Waiting {
-                options: Box::new(options),
+                options: Box::new(app),
                 root: Box::new(root),
             },
-            mode,
+            policy,
         }
     }
 
@@ -111,7 +107,7 @@ impl Launch {
 fn start_mount(
     rt: &Rc<Runtime>,
     writer: &Writer,
-    mut options: AppOptions,
+    mut options: App,
     root: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
@@ -123,11 +119,6 @@ fn start_mount(
         options.settings.min_window_size,
         true,
     );
-    // The App's fonts precede the root's mount (the engine registers
-    // a font when it is written, so the first layout uses them).
-    requests::register_app_fonts(rt, std::mem::take(&mut options.settings.fonts));
-    let families = ViewState::tree(rt).reader().font_families();
-    rt.enter(|| ViewState::of(rt).fonts_value.set(families));
     crate::view::root::install_app_contexts(rt, root_owner, options.into_view_settings(), at);
     crate::view::root::mount_window_root(rt, WindowId::MAIN, root_owner, root, at);
     // What the platform cannot do is diagnosed, not silently ignored:
@@ -146,6 +137,23 @@ fn start_mount(
     crate::devtools::start::after_mount(rt);
 }
 
+/// The recorders a launch turns on from the start: a test screen records its run.
+fn record_bits(policy: &LaunchPolicy) -> RecordBits {
+    if policy.test.is_some() {
+        RecordBits::TEST
+    } else {
+        RecordBits::default()
+    }
+}
+
+/// The comparison trace records the turns when it is on.
+#[cfg(debug_assertions)]
+fn trace_recorder(rt: &Runtime) {
+    if crate::client::trace::Trace::of(rt).is_on() {
+        rt.set_recorder(RecordBits::TRACE_SINK, true);
+    }
+}
+
 impl Launch {
     fn start(&mut self, info: &HostInfo, waker: HostWaker, writer: Writer) {
         let (options, _) = match &mut self.launch {
@@ -153,10 +161,7 @@ impl Launch {
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
         #[cfg(debug_assertions)]
-        let trace_name = match &self.mode {
-            ClientMode::Test { name, .. } => Some(name.clone()),
-            _ => None,
-        };
+        let trace_name = self.policy.test.as_ref().map(|t| t.name.clone());
         let handle = options.handle();
         let ready = waker.clone();
         let thread_waker = ThreadWaker::new(move || ready.wake());
@@ -167,11 +172,13 @@ impl Launch {
         #[cfg(feature = "devtools")]
         let mut slot = Some(crate::devtools::start::agent_slot(
             &options.settings.title,
-            self.mode
-                .devtools_allowed(options.settings.devtools_in_tests),
-            !matches!(self.mode, ClientMode::Embedded(_)),
+            self.policy.devtools,
+            !self.policy.is_embedded(),
             thread_waker.clone(),
         ));
+        // A build without the agent starts none, whatever the policy asks.
+        #[cfg(not(feature = "devtools"))]
+        let _ = self.policy.devtools;
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
             thread_waker,
@@ -179,6 +186,7 @@ impl Launch {
                 start_ns: info.now_ns,
                 blocking_threads: options.settings.blocking_threads,
                 at,
+                record: record_bits(&self.policy),
             },
             |_rt, root| {
                 #[cfg(feature = "devtools")]
@@ -193,22 +201,26 @@ impl Launch {
                 let hooks = None;
                 let view = ViewState::new(root, info, writer.clone(), hooks, at);
                 let motion_env = install_main_window(&view, root, info, options, at);
-                let extensions = Extensions::new().with(view).with(motion_env);
-                let extensions = extensions.with(crate::gpu_interop::StateSlot::default());
-                let extensions = extensions.with(AppHandleExt(handle.clone()));
-                #[cfg(feature = "devtools")]
-                let extensions = extensions.with(devtools);
-                #[cfg(debug_assertions)]
-                let extensions = {
-                    let trace = crate::client::trace::Trace::new(trace_name.as_deref());
-                    extensions.with(trace)
+                let state = crate::app_state::AppState {
+                    view,
+                    gpu: crate::gpu_interop::StateSlot::default(),
+                    handle: AppHandleExt(handle.clone()),
+                    #[cfg(feature = "devtools")]
+                    devtools,
+                    #[cfg(debug_assertions)]
+                    trace: crate::client::trace::Trace::new(trace_name.as_deref()),
+                    lifecycle: crate::platform::lifecycle::LifecycleState::default(),
+                    host: HostState::default(),
+                    activate: crate::client::dispatch::run_activation,
                 };
-                extensions
-                    .with(crate::platform::lifecycle::LifecycleState::default())
-                    .with(crate::platform::close_request::CloseRequestState::default())
-                    .with(HostState::default())
+                AppParts {
+                    state: Box::new(state),
+                    motion_env,
+                }
             },
         );
+        #[cfg(debug_assertions)]
+        trace_recorder(&rt);
         let (options, root) = match std::mem::replace(
             &mut self.launch,
             LaunchState::Started(Started {
@@ -225,112 +237,18 @@ impl Launch {
         #[cfg(debug_assertions)]
         crate::client::trace::record(&rt);
     }
-
-    /// One turn: every queued event, then everything
-    /// they cause (tasks and timers, activations, commits, `on_mount` and
-    /// user effects) until nothing is left, the writes committed. The
-    /// boundaries among the events only decide when the `on_mount`
-    /// callbacks of their revisions run.
-    fn turn(&mut self, events: &[HostEvent], boundaries: &[Boundary], now_ns: u64) -> TurnOutput {
-        let rt = self.runtime().clone();
-        let host = HostState::of(&rt);
-        rt.advance_clock(now_ns);
-        // A close requested from any thread since the last turn starts the
-        // exit before the idle shortcut, so a bare wake always counts.
-        let embedded = matches!(self.mode, ClientMode::Embedded(_));
-        super::close::take_close_request(&rt, embedded);
-        #[cfg(feature = "devtools")]
-        let incoming = crate::devtools::take_incoming(&rt);
-        let tree = ViewState::tree(&rt).engine().clone();
-        // Commit boundaries that carry no event and release no callback
-        // make no turn.
-        let idle = events.is_empty()
-            && boundaries
-                .last()
-                .is_some_and(|b| !rt.mounts_due(b.revision));
-        #[cfg(feature = "devtools")]
-        let idle = idle && incoming.is_empty();
-        if idle {
-            return output(rt.report_now());
-        }
-        // The revisions done before the events: all but those whose
-        // boundaries this turn delivers.
-        let before = boundaries
-            .first()
-            .map_or(tree.stats().revision, |b| b.revision.0.saturating_sub(1));
-        let mut stats = host.stats.get();
-        stats.turns += 1;
-        host.stats.set(stats);
-        let turn = rt.begin_turn(events.len());
-        if events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision)) {
-            turn.cause_with(kivact_runtime::CauseTag::Mount, "mounts".into());
-        }
-        turn.run_mounts(kivact_types::Revision(before));
-        turn.deliver_reports();
-        turn.stabilize();
-        let edits = TextEditsAhead::begin(&mut ViewState::tree_mut(&rt), events);
-        let mut boundaries = boundaries.iter().peekable();
-        let mut acknowledge = |delivered: usize| {
-            while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
-                turn.run_mounts(b.revision);
-                turn.stabilize();
-            }
-        };
-        acknowledge(0);
-        #[cfg(feature = "devtools")]
-        crate::devtools::run_incoming(&rt, &turn, incoming);
-        let mut delivered = 0;
-        for event in events {
-            if matches!(&self.mode, ClientMode::Embedded(closing) if closing.is_set()) {
-                break;
-            }
-            turn.stage(Stage::Dispatch);
-            #[cfg(debug_assertions)]
-            crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
-            edits.deliver(event);
-            crate::view::state::ViewState::tree(&rt)
-                .engine()
-                .deliver(event);
-            turn.cause_with(kivact_runtime::CauseTag::Input, describe(event));
-            crate::client::dispatch::dispatch(&rt, event);
-            if crate::client::dispatch::run_requested_activations(&rt) {
-                turn.stabilize();
-            }
-            turn.stabilize();
-            delivered += 1;
-            acknowledge(delivered);
-        }
-        acknowledge(events.len());
-        #[cfg(feature = "devtools")]
-        crate::devtools::run_events(&rt);
-        let done = kivact_types::Revision(tree.stats().revision);
-        turn.check_draining();
-        turn.settle_async();
-        let writes = settle_user_effects(&turn, &rt, &tree, done);
-
-        let report = turn.finish(writes, requests::has_activations(&rt));
-        #[cfg(feature = "devtools")]
-        crate::devtools::after_turn(&rt);
-        let output = output(report);
-        #[cfg(debug_assertions)]
-        {
-            crate::client::trace::record(&rt);
-            crate::client::trace::event(&rt, format_args!("host_events output {output:?}"));
-        }
-        output
-    }
 }
 /// Install the main window's record and build the App motion clock from it.
 fn install_main_window(
     view: &ViewState,
     root: kivact_runtime::Owner,
     info: &HostInfo,
-    options: &AppOptions,
+    options: &App,
     at: &'static Location<'static>,
-) -> kivact_runtime::MotionEnv {
+) -> kivact_runtime::driver::MotionEnv {
     let decl = Rc::new(WindowDecl {
         title: root.signal(options.settings.title.clone(), at).into_value(),
-        open: root.signal(true, at).into_binding(),
+        open: root.signal(true, at),
         size: options
             .settings
             .window_size
@@ -353,7 +271,7 @@ fn install_main_window(
     let env = record.env.clone();
     view.install_window(WindowId::MAIN, record);
     let app_motion = view.app_motion;
-    kivact_runtime::MotionEnv {
+    kivact_runtime::driver::MotionEnv {
         reduced_motion: env.reduced_motion_value(),
         surface_active: root.with_setup(|| kivact_runtime::memo(move || app_motion.get().drawable)),
         frame_period_ns: root
@@ -361,56 +279,7 @@ fn install_main_window(
     }
 }
 
-fn settle_user_effects(
-    turn: &TurnGuard<'_>,
-    rt: &Runtime,
-    tree: &Writer,
-    done: kivact_types::Revision,
-) -> usize {
-    let mut writes = 0;
-    let mut round = 0;
-    loop {
-        if crate::client::dispatch::run_requested_activations(rt) {
-            turn.stabilize();
-            turn.settle_async();
-        }
-        writes += commit(turn, rt, tree);
-        let mounts = rt.mounts_due(done);
-        // The commit may queue render work too (a failed focus request
-        // reaching an error boundary): it runs and commits in this turn.
-        let pending = rt.pending();
-        if !mounts && !pending.user && !pending.render {
-            break;
-        }
-        round += 1;
-        if round > USER_EFFECT_ROUNDS {
-            let abandoned = turn.abandon_user_effects();
-            let path: Vec<_> = abandoned
-                .iter()
-                .filter_map(|k| rt.node_info(*k).map(|n| n.at))
-                .collect();
-            rt.report(
-                None,
-                UiError::new(
-                    ErrorKind::Cycle { path: path.clone() },
-                    "user effects did not settle within 100 rounds",
-                    path.first().copied(),
-                ),
-            );
-            break;
-        }
-        if mounts {
-            turn.run_mounts(done);
-            rt.stabilize();
-        }
-        turn.run_user_effects();
-        rt.stabilize();
-        turn.settle_async();
-    }
-    writes
-}
-
-fn output(report: TurnReport) -> TurnOutput {
+pub(super) fn output(report: TurnReport) -> TurnOutput {
     if matches!(report.exit, ExitState::Exited) {
         return TurnOutput::Exit;
     }
@@ -430,7 +299,7 @@ impl Drop for Launch {
             return;
         };
         let rt = &started.rt;
-        let tasks = TaskState::of(rt);
+        let tasks = rt.tasks();
         // A propagating panic ends the App: run no more App code. Only the
         // worker threads are stopped.
         if !std::thread::panicking() {
@@ -448,93 +317,15 @@ impl Drop for Launch {
         if !std::thread::panicking() {
             rt.shutdown();
         }
-        // Opening may fail before an Embedded is returned, or its drop may
-        // precede deferred callback cleanup. Record task retention here too.
-        if matches!(self.mode, ClientMode::Embedded(_))
-            && kivact_types::process::DetachedThreads::any()
-        {
-            kivact_engine::embed::retain_module();
-        }
     }
 }
 
-/// The name of a pointer phase without its press data (trace labels carry
-/// no values).
-fn phase_name(phase: kivact_types::PointerPhase) -> &'static str {
-    use kivact_types::PointerPhase as P;
-    match phase {
-        P::Down(_) => "Down",
-        P::Move => "Move",
-        P::Up(_) => "Up",
-        P::Cancel => "Cancel",
-        P::Enter => "Enter",
-        P::Leave => "Leave",
-    }
-}
-
-/// Short cause label of an event for the structured trace (no values).
-fn describe(e: &kivact_engine::contract::HostEvent) -> String {
-    use kivact_engine::contract::HostEvent as E;
-    match e {
-        E::Pointer(route) => format!(
-            "Pointer {} {:?}",
-            phase_name(route.input.phase),
-            route.target.map(|target| target.node)
-        ),
-        E::Wheel(route) => format!("Wheel {:?}", route.target.map(|target| target.node)),
-        E::Key(route) => format!(
-            "Key {:?} {:?} region {:?}",
-            route.input.key,
-            route.target.map(|target| target.node),
-            route.target.and_then(|target| target.region)
-        ),
-        E::Activate { node, region, .. } => {
-            format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))
-        }
-        E::FocusChanged {
-            node,
-            region,
-            visible,
-            ..
-        } => format!(
-            "FocusChanged {:?} region {:?} visible {visible}",
-            node.map(|n| n.0),
-            region.map(|r| r.0)
-        ),
-        E::HoverChanged { target, .. } => {
-            format!("HoverChanged {:?}", target.map(|t| (t.node.0, t.region)))
-        }
-        E::MousePosition { position, .. } => format!("MousePosition {position:?}"),
-        E::TextChanged { node, .. } => format!("TextChanged n{}", node.0),
-        E::SelectionChanged { node, .. } => format!("SelectionChanged n{}", node.0),
-        E::Ime { node, .. } => format!("Ime n{}", node.0),
-        E::ScrollChanged { node, .. } => format!("ScrollChanged n{}", node.0),
-        E::LayoutChanged { node, .. } => format!("LayoutChanged n{}", node.0),
-        E::A11y { node, request, .. } => format!("A11y {:?} n{}", request.action(), node.0),
-        E::SnapshotResult { request, .. } => format!("SnapshotResult {}", request.0),
-        other => {
-            let s = format!("{other:?}");
-            s.split([' ', '{', '('])
-                .next()
-                .unwrap_or_default()
-                .to_string()
-        }
-    }
-}
-
-fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
+pub(super) fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
     turn.stage(Stage::Commit);
     if let Some(at_ns) = turn.plan_frame() {
         writer.request_frame(at_ns);
     }
     requests::flush_focus(rt);
-    let host = HostState::of(rt);
-    let removed = std::mem::take(&mut *ViewState::of(rt).removed.borrow_mut());
-    if !removed.is_empty() {
-        host.asset_failures
-            .borrow_mut()
-            .retain(|(id, _)| !removed.contains(id));
-    }
     let writes = writer.pending_writes();
     // The new `on_mount` callbacks wait for the revision these writes
     // become, or for the last one when nothing was written.
@@ -553,31 +344,6 @@ fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usize {
     }
     turn.stamp_mounts(kivact_types::Revision(revision));
     writes
-}
-
-/// The engine host driving this application.
-pub enum ClientMode {
-    Window,
-    Embedded(kivact_engine::contract::CloseSignal),
-    /// A test launch: its timing reporter and the test's name (the trace
-    /// file is named after it).
-    Test {
-        timing: TestTiming,
-        name: String,
-    },
-}
-/// Reports the duration of each core turn to the test harness.
-pub struct TestTiming(pub Rc<dyn Fn(u64)>);
-
-impl ClientMode {
-    /// Whether the DevTools agent may run for this launch.
-    #[cfg(feature = "devtools")]
-    fn devtools_allowed(&self, in_tests: bool) -> bool {
-        match self {
-            ClientMode::Window | ClientMode::Embedded(_) => true,
-            ClientMode::Test { .. } => in_tests,
-        }
-    }
 }
 
 pub(crate) fn run_native(

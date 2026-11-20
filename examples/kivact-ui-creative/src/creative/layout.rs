@@ -1,6 +1,6 @@
 //! Layout and property panel for creative application.
 use crate::creative::audio_values::TransportState;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
@@ -8,12 +8,12 @@ use super::controls::num;
 use super::controls::slide;
 use kivact::geometry::Point;
 use kivact::prelude::{
-    Element, IntoView, Key, Node, Orientation, Signal, column, dynamic, grid, node, rgb, row,
-    scroll, signal, spacer, text,
+    Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
+use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
 
 // xtask-allow(state): legacy: tab, display_name, display_axes, display_wireframe; the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport
@@ -190,7 +190,7 @@ fn effects_panel() -> Node {
                 super::layout_reducers::outliner(
                     effects,
                     ui::OutlinerState {
-                        expanded: (signal(vec![2, 5])).into_binding(),
+                        expanded: (signal(vec![2, 5])),
                         ..ui::OutlinerState::new(Vec::new())
                     },
                 )
@@ -265,7 +265,7 @@ pub(super) fn outliner() -> impl IntoView {
             row((kivact::ui::select("Outliner mode", keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input("Search Outliner", filter).placeholder("Search").style(style().grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
                 .style(style().height(40).padding_x(8).gap(6)),
             scroll(dynamic(mode,move|mode|{
-                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, ui::OutlinerState { expanded: (signal(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] })).into_binding(), selection: selected.into_binding(), renaming: renaming.into_binding()}).filter(filter).test_id("creative-scene-outliner")
+                super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, ui::OutlinerState { expanded: (signal(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] })), selection: selected, renaming}).filter(filter).test_id("creative-scene-outliner")
             })).style(style().height(338).min_height(0)),
         )).style(style().gap(0).grid_column(GridPlacement::span(2)).height(380)),
         spec("Interaction","操作",col((

@@ -1,6 +1,6 @@
 //! Role: Share sidebar nesting and collapsed-rail context.
 
-use kivact::state::Binding;
+use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::try_use_context;
 
@@ -11,11 +11,11 @@ pub(super) enum NavSurface {
     #[default]
     Fixed,
     /// The rail follows the collapse binding; its flyouts hold nested items.
-    Collapsible(Binding<bool>),
+    Collapsible(Signal<bool>),
     /// The surface is a rail flyout, so labels and children are shown.
     Flyout {
         /// The flyout's open state.
-        open: Binding<bool>,
+        open: Signal<bool>,
     },
 }
 
@@ -26,9 +26,7 @@ pub(super) struct SideNavCx {
 }
 
 pub(super) fn nav_cx() -> SideNavCx {
-    try_use_context::<SideNavCx>()
-        .map(|value| value.get())
-        .unwrap_or_default()
+    try_use_context::<SideNavCx>().unwrap_or_default()
 }
 
 impl SideNavCx {
@@ -40,7 +38,7 @@ impl SideNavCx {
     }
 
     /// The collapse binding of a collapsible sidebar.
-    pub(super) fn collapsed(self) -> Option<Binding<bool>> {
+    pub(super) fn collapsed(self) -> Option<Signal<bool>> {
         match self.surface {
             NavSurface::Collapsible(collapsed) => Some(collapsed),
             NavSurface::Fixed | NavSurface::Flyout { .. } => None,
@@ -48,7 +46,7 @@ impl SideNavCx {
     }
 
     /// The flyout's open binding.
-    pub(super) fn popup(self) -> Option<Binding<bool>> {
+    pub(super) fn popup(self) -> Option<Signal<bool>> {
         match self.surface {
             NavSurface::Flyout { open } => Some(open),
             NavSurface::Fixed | NavSurface::Collapsible(_) => None,

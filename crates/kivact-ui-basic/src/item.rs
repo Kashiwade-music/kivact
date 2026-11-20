@@ -1,6 +1,7 @@
 //! Role: Basic item-row visual variants and canonical list recipes.
 use crate::Tokens;
 use crate::theme_access::wide_focus_ring;
+use kivact::Prop;
 use kivact::custom::PartState;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Cursor, Direction, Justify, Overflow, Style, Theme, pct, style};
@@ -18,7 +19,7 @@ pub enum ItemVariant {
 }
 
 /// The density of an standard item row (item.tsx `size`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ItemSize {
     /// 12 px / 10 px padding.
     #[default]
@@ -42,7 +43,6 @@ pub enum ItemMediaVariant {
 impl kivact::ui::Variant for ItemVariant {}
 impl kivact::ui::Variant for ItemSize {}
 impl kivact::ui::Variant for ItemMediaVariant {}
-kivact::state::constant_value!(ItemSize);
 /// Reactive visual size for a standard item row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemLook {
@@ -107,7 +107,7 @@ fn item(t: &Theme, s: &Look<ItemRowState>) -> Style {
 fn body(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .direction(
-            if kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl {
+            if kivact::view::use_direction() == kivact::view::ReadingDirection::Rtl {
                 Direction::RowReverse
             } else {
                 Direction::Row

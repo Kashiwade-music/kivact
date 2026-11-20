@@ -11,10 +11,12 @@ use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_runtime::Owner;
 use kivact_runtime::Selector;
-use kivact_runtime::{Binding, ErrorKind, Handler, UiError};
-use kivact_runtime::{Owner, Runtime};
-use kivact_runtime::{Signal, Value};
+use kivact_runtime::Value;
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, Handler, Signal, UiError};
+use kivact_style::asset::Asset;
 use kivact_types::cell::Deferred;
 use kivact_types::{
     DismissReason, Environment, FocusTarget, Insets, Modifiers, NodeId, PlatformResult,
@@ -229,6 +231,24 @@ pub(crate) enum Waiter {
     },
 }
 
+/// One `commit_focused_edit` call: the window whose focus it removes.
+pub(crate) struct BlurRequest {
+    pub(crate) window: WindowId,
+    pub(crate) stage: BlurStage,
+    pub(crate) done: Completion<()>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum BlurStage {
+    /// Waiting for the next commit, which sends the blur to the engine.
+    Queued,
+    /// Sent; waiting for the engine's `FocusChanged` of the window.
+    Sent,
+    /// Delivered: the next turn completes it, after this turn's user
+    /// effects committed the edit.
+    Delivered,
+}
+
 /// Outstanding host requests of an App.
 #[derive(Default)]
 pub(crate) struct Requests {
@@ -236,11 +256,10 @@ pub(crate) struct Requests {
     pub(crate) focus: FocusRequests,
     /// The answers the host owes, by request id.
     pub(crate) waiters: HashMap<u64, Waiter>,
-    /// Activations `NodeRef::activate` asked for, run by the client after
-    /// the handler that asked.
-    pub(crate) pending_activations: Vec<kivact_types::FocusTarget>,
     /// Actual capture releases awaiting the current pointer dispatch's cleanup.
     pub(crate) pointer_releases: Vec<(NodeId, kivact_types::PointerId)>,
+    /// The `commit_focused_edit` calls waiting for their commit.
+    pub(crate) blurs: Vec<BlurRequest>,
 }
 
 impl Requests {
@@ -258,15 +277,16 @@ pub(crate) struct ViewState {
     pub(super) tree: RefCell<ViewNodes>,
     /// The DevTools hooks; None without DevTools. Fixed at construction.
     pub(crate) devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
-    /// Removed node ids awaiting host revision cleanup.
-    pub(crate) removed: RefCell<Vec<NodeId>>,
     /// The open windows' records.
     pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
     /// The last window id handed out (`WindowId::MAIN` is 1).
     next_window: Cell<u64>,
     /// What the host's platform can do.
     pub(crate) capabilities: Value<Capabilities>,
-    pub(crate) fonts_value: Signal<Vec<String>>,
+    /// The App's font families, read from the engine on first use.
+    pub(crate) fonts: Deferred<FontsValue>,
+    /// The theme fonts already registered, by asset identity.
+    pub(crate) registered_fonts: RefCell<std::collections::HashSet<Asset>>,
     /// True until the first turn after the App's setup (written once, by start_mount).
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
@@ -282,6 +302,7 @@ pub(crate) struct ViewState {
     pub(crate) requests: RefCell<Requests>,
 }
 
+// xtask-allow(state): independent: hover and mouse are separate host reports (the node pointed at and the pointer position), and any combination occurs; close_handlers is a registry that an owner adds to and its cleanup removes from
 /// One window's view record: the owner that declared it, its declaration,
 /// environment, focus source and pointer sources.
 #[derive(Clone)]
@@ -297,13 +318,17 @@ pub(crate) struct WindowRecord {
     pub(crate) hover: Signal<Option<FocusTarget>>,
     /// The mouse position in the window.
     pub(crate) mouse: Signal<Option<crate::geometry::Point>>,
+    /// The `on_close_request` handlers of this window (the owner that
+    /// registers one removes it on its cleanup).
+    pub(crate) close_handlers:
+        Rc<RefCell<kivact_types::cell::Registry<crate::platform::close_request::Registration>>>,
 }
 
 /// What declares a window. The main window's is built by the launch from
 /// the App's settings.
 pub(crate) struct WindowDecl {
     pub(crate) title: Value<String>,
-    pub(crate) open: Binding<bool>,
+    pub(crate) open: Signal<bool>,
     pub(crate) size: Size,
     pub(crate) min_size: Option<Size>,
     pub(crate) mode: WindowMode,
@@ -348,13 +373,13 @@ impl ViewState {
             None => host_capabilities.into(),
         };
         Self {
-            tree: RefCell::new(ViewNodes::new(engine, owner, devtools.clone())),
+            tree: RefCell::new(ViewNodes::new(engine, devtools.clone())),
             devtools,
-            removed: RefCell::new(Vec::new()),
             windows: RefCell::new(BTreeMap::new()),
             next_window: Cell::new(1),
             capabilities,
-            fonts_value: owner.signal(Vec::new(), at),
+            fonts: Deferred::new(),
+            registered_fonts: RefCell::new(std::collections::HashSet::new()),
             initial_render: owner.signal(true, at),
             app_motion: owner.signal(
                 AppMotion {
@@ -435,13 +460,12 @@ impl ViewState {
         requests.focus.queued.shrink_to_fit();
         requests.focus.sent.shrink_to_fit();
         requests.waiters.shrink_to_fit();
-        requests.pending_activations.shrink_to_fit();
     }
 
     /// The view state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &ViewState {
-        rt.ext::<ViewState>()
+        &crate::app_state::AppState::of(rt).view
     }
 
     /// Read the retained tree of `rt`'s App.
@@ -552,8 +576,41 @@ impl FocusKeys {
     }
 }
 
-impl super::tree::Removed {
-    pub(crate) fn commit(self, rt: &kivact_runtime::Runtime) {
-        ViewState::of(rt).removed.borrow_mut().extend(self.ids);
+// xtask-allow(state): projection: generation is the font version families was last read at; families is its projection, and refresh_fonts alone writes both in one transition
+pub(crate) struct FontsValue {
+    pub(crate) families: Signal<Vec<String>>,
+    generation: Cell<u64>,
+}
+
+impl ViewState {
+    /// The families of the App's fonts, read from the engine on first use.
+    pub(crate) fn font_families(
+        &self,
+        rt: &Runtime,
+        at: &'static Location<'static>,
+    ) -> Value<Vec<String>> {
+        let fonts = self.fonts.get_or_init(|| {
+            let reader = self.tree.borrow().reader();
+            FontsValue {
+                families: rt.root().signal(reader.font_families(), at),
+                generation: Cell::new(reader.font_generation()),
+            }
+        });
+        fonts.families.into()
+    }
+
+    /// Write the families again when the engine's font database changed
+    /// since they were read. Nothing happens before the first read.
+    pub(crate) fn refresh_fonts(&self, rt: &Runtime) {
+        let Some(fonts) = self.fonts.get() else {
+            return;
+        };
+        let reader = self.tree.borrow().reader();
+        let generation = reader.font_generation();
+        if generation != fonts.generation.get() {
+            fonts.generation.set(generation);
+            let families = reader.font_families();
+            rt.enter(|| fonts.families.set(families));
+        }
     }
 }

@@ -1,6 +1,6 @@
 //! Role: The hover card builder, its open timing and its rendering.
 
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, effect_on, signal};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, effect_on, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
     Element, HandlerResult, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column,
@@ -26,7 +26,7 @@ pub enum FocusTrigger {
 #[derive(Clone, Copy)]
 enum CardOpen {
     /// The caller's binding is the sole authority.
-    Controlled(Binding<bool>),
+    Controlled(Signal<bool>),
     /// The preview starts at this value and then follows its own behavior.
     Uncontrolled(bool),
 }
@@ -89,8 +89,8 @@ impl HoverCard {
     /// Use this binding as the sole authority for visibility.
     /// Pointer entry, departure and dismissal request writes; rejected writes
     /// are respected. An external close suppresses the current engagement.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = CardOpen::Controlled(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = CardOpen::Controlled(open);
         self
     }
     /// Start visible until the first completed visit, unless an open binding is supplied.
@@ -129,7 +129,7 @@ impl HoverCard {
         let focus = self.focus;
         let requested = match self.open {
             CardOpen::Controlled(binding) => binding,
-            CardOpen::Uncontrolled(initial) => signal(initial).into_binding(),
+            CardOpen::Uncontrolled(initial) => signal(initial),
         };
         let behavior = use_hover_card(
             anchor,

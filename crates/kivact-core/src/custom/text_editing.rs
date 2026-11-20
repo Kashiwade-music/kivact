@@ -54,8 +54,8 @@ use crate::view::state::ViewState;
 use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use kivact_editing::{EditContext, EditOutcome, EditRequest, EditState, LineColors, LineState};
 use kivact_engine::api::PropValue;
-use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
+use kivact_runtime::driver::EffectKind;
 use kivact_runtime::{IntoText, IntoValue, Prop as InputProp};
 use kivact_style::{StyledRange, Theme};
 use std::cell::RefCell;
@@ -105,7 +105,7 @@ impl TextEditing {
     /// policy. A later call replaces an earlier one.
     pub fn behavior<F>(mut self, f: F) -> Self
     where
-        F: Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome + 'static,
+        F: Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome + 'static,
     {
         self.props.behavior = Some(Rc::new(f));
         self

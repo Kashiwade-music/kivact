@@ -1,6 +1,6 @@
 //! Role: Chat tools, token display and grapheme-safe streaming text.
 
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use std::time::Duration;
 
 use crate::{SpinnerShade, SpinnerVariant};
@@ -8,7 +8,6 @@ use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -124,7 +123,7 @@ pub struct ChatToolCalls {
     root: Node,
     calls: Value<Vec<ToolCall>>,
     label: Option<Value<String>>,
-    expanded: Option<Binding<bool>>,
+    expanded: Option<Signal<bool>>,
     detail: Option<ToolDetails>,
 }
 
@@ -153,8 +152,8 @@ impl ChatToolCalls {
         self
     }
     /// Bind the group disclosure to application-owned expansion state.
-    pub fn expanded(mut self, expanded: impl IntoBinding<bool>) -> Self {
-        self.expanded = Some(expanded.into_binding());
+    pub fn expanded(mut self, expanded: Signal<bool>) -> Self {
+        self.expanded = Some(expanded);
         self
     }
     /// Render additional content for an expanded tool-call row.
@@ -340,7 +339,7 @@ impl IntoView for ChatToolCalls {
             expanded,
             detail,
         } = self;
-        let open = expanded.unwrap_or_else(|| signal(false).into_binding());
+        let open = expanded.unwrap_or_else(|| signal(false));
         let multiple = memo(move || calls.with(|calls| calls.len() > 1));
         let rows_open = binding(
             move || !multiple.get() || open.get(),
@@ -627,7 +626,7 @@ impl Machine for StreamInput {
 
 fn tool_group_trigger(
     calls: Value<Vec<ToolCall>>,
-    open: Binding<bool>,
+    open: Signal<bool>,
     multiple: Value<bool>,
     disclosure: kivact::interaction::DisclosureApi,
     title: Value<String>,

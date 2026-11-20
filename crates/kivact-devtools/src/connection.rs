@@ -1,5 +1,6 @@
 //! Role: Finding a target, connecting to it, and the connection state screens.
 
+use kivact::task::blocking;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

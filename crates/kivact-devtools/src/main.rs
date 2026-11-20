@@ -9,7 +9,10 @@ fn main() -> kivact::Result<()> {
     };
     App::new("Kivact DevTools")
         .window_size(1280, 800)
-        .fonts(kivact_devtools::fonts::fonts().iter().copied())
+        .theme(
+            kivact::style::Theme::default()
+                .with_fonts(kivact_devtools::fonts::fonts().iter().copied()),
+        )
         .blocking_threads(6)
         .run(move || kivact_devtools::app::root(args))
 }

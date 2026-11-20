@@ -55,7 +55,7 @@ fn tree_item(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
         .variant::<crate::TreeLook>()
         .copied()
         .unwrap_or_default();
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let indent = 8 + row.level.saturating_sub(1) * 16;
     let mut look = style()
         .enter_size(Orientation::Vertical)
@@ -117,7 +117,7 @@ fn tree_item(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
 }
 fn tree_marker(theme: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
     let p = theme.ext::<Tokens>();
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let branch = row.branch.has_children() && !row.custom_marker;
     let angle = if row.branch.is_expanded() {
         if rtl { -90.0 } else { 90.0 }
@@ -227,7 +227,7 @@ fn tab_indicator(t: &Theme, s: &Look<TabState>) -> Style {
         );
     if s.orientation == Orientation::Vertical {
         let indicator = indicator.top(inset).bottom(inset).width(2);
-        if use_direction().get() == ReadingDirection::Rtl {
+        if use_direction() == ReadingDirection::Rtl {
             indicator.right(0)
         } else {
             indicator.left(0)
@@ -262,7 +262,7 @@ pub(crate) fn disclosure(r: DisclosureRecipes) -> DisclosureRecipes {
                     .copied()
                     .unwrap_or_default();
                 let start = variant.chevron == crate::ChevronPosition::Start;
-                let rtl = use_direction().get() == ReadingDirection::Rtl;
+                let rtl = use_direction() == ReadingDirection::Rtl;
                 style()
                     .direction(if start != rtl {
                         Direction::RowReverse
@@ -300,7 +300,7 @@ fn disclosure_details(r: DisclosureRecipes) -> DisclosureRecipes {
                 .copied()
                 .unwrap_or_default();
             let start = variant.chevron == crate::ChevronPosition::Start;
-            let rtl = use_direction().get() == ReadingDirection::Rtl;
+            let rtl = use_direction() == ReadingDirection::Rtl;
             let degrees = if start {
                 if s.open { 0 } else { -90 }
             } else if s.open {
@@ -418,7 +418,7 @@ pub(crate) fn split(r: SplitRecipes) -> SplitRecipes {
                 grip.size(long, 3).translate_y(-5.5)
             } else {
                 grip.size(3, long)
-                    .translate_x(if use_direction().get() == ReadingDirection::Rtl {
+                    .translate_x(if use_direction() == ReadingDirection::Rtl {
                         5.5
                     } else {
                         -5.5

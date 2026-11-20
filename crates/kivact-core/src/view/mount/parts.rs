@@ -34,6 +34,11 @@ impl Common {
             layout_id,
             at
         );
+        if let Some(later) = later.variants.take() {
+            self.variants
+                .get_or_insert_with(Default::default)
+                .merge(&later);
+        }
         self.part_modal |= later.part_modal;
         self.part_region_events |= later.part_region_events;
         self.append_semantics(&mut later.semantics);

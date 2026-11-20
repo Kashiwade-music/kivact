@@ -1,8 +1,10 @@
 //! Role: Verify shared chat scrolling, native composition and selectable code contracts.
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact::ui::{
     ChatMessageStatus, ChatSender, chat_composer, chat_message, chat_thread, code_block,
 };
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 #[test]

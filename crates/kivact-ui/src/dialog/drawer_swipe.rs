@@ -1,7 +1,7 @@
 //! Role: Attach velocity-aware dismissal to a drawer's dedicated drag handle.
 use kivact_core::geometry::{Edge, Point, Rect};
 use kivact_core::state::Machine as MachineTrait;
-use kivact_core::state::{Binding, Step, Value, machine, memo};
+use kivact_core::state::{Signal, Step, Value, machine, memo};
 use kivact_core::style::{style, use_theme};
 use kivact_core::view::{Node, NodeRef, node};
 use kivact_interaction::{DragCoordinates, DragPhase, DragUpdate, InteractionPolicy, use_drag};
@@ -71,7 +71,7 @@ impl MachineTrait for Machine {
 pub(crate) fn handle(
     edge: Edge,
     panel: NodeRef,
-    open: Binding<bool>,
+    open: Signal<bool>,
     variants: &crate::variants::Variants,
 ) -> (Node, Value<f64>) {
     let policy = use_theme().get().ext::<InteractionPolicy>().drawer.swipe;

@@ -4,10 +4,9 @@ pub(crate) use crate::rich_block_doc::EditTarget;
 use kivact::custom::NodeRefExt;
 use kivact::custom::TextSession;
 use kivact::i18n::message;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
 use kivact::state::memo;
@@ -82,8 +81,7 @@ pub fn rich_text_view(source: impl IntoText) -> impl kivact::view::Element {
 }
 
 /// A toolbar for switching the Markdown editor between source and preview.
-pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::Element {
-    let preview = preview.into_binding();
+pub fn rich_text_toolbar(preview: Signal<bool>) -> impl kivact::view::Element {
     let mode = binding(
         move || {
             if preview.get() {
@@ -98,7 +96,7 @@ pub fn rich_text_toolbar(preview: impl IntoBinding<bool>) -> impl kivact::view::
 }
 
 fn toolbar(
-    mode: Binding<EditorMode>,
+    mode: Signal<EditorMode>,
     target: Option<Value<EditTarget>>,
     offers_blocks: bool,
 ) -> Node {
@@ -230,17 +228,17 @@ fn format_selection(editor: NodeRef, marker: &'static str) {
 pub struct RichTextEditor {
     root: Node,
     label: Value<String>,
-    source: Binding<String>,
+    source: Signal<String>,
     read_only: Value<bool>,
     block_editing: Value<bool>,
 }
 
 /// Build a labelled editor that writes Markdown through the supplied binding.
-pub fn rich_text_editor(label: impl IntoText, source: impl IntoBinding<String>) -> RichTextEditor {
+pub fn rich_text_editor(label: impl IntoText, source: Signal<String>) -> RichTextEditor {
     RichTextEditor {
         root: node(),
         label: label.into_text_value(),
-        source: source.into_binding(),
+        source,
         read_only: (false).into_value(),
         block_editing: (false).into_value(),
     }
@@ -326,8 +324,7 @@ impl IntoView for RichTextEditor {
             EditorMode::Write { composing: false } => EditTarget::Ready(write_ref),
             EditorMode::Blocks => blocks.map_or(EditTarget::Detached, |blocks| blocks.target()),
         });
-        let toolbar =
-            (!read_only).then(|| toolbar(mode.into_binding(), Some(target), offers_blocks));
+        let toolbar = (!read_only).then(|| toolbar(mode, Some(target), offers_blocks));
         root.child(column((toolbar, surface)).style(style().gap(4)))
             .into_view()
     }

@@ -4,7 +4,9 @@
 //! only the two affected nodes.
 
 use kivact::prelude::*;
+use kivact::state::IntoValue;
 use kivact::test::Screen;
+use kivact::view::Placement;
 use kivact::view::overlay;
 use kivact_public_api_tests::support::mount;
 
@@ -255,7 +257,7 @@ fn focus_results(screen: &Screen, from: usize) -> usize {
     screen.trace()[from..]
         .iter()
         .flat_map(|t| t.causes.iter())
-        .filter(|c| c.starts_with("FocusResult"))
+        .filter(|c| c.event == "FocusResult")
         .count()
 }
 

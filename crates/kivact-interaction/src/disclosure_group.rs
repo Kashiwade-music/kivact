@@ -1,6 +1,6 @@
 //! Role: Bind each disclosure panel directly to a single or multiple selection.
 use crate::{DisclosureApi, IntoSelection, Selection, use_disclosure};
-use kivact_core::state::{Binding, binding};
+use kivact_core::state::{Signal, binding};
 
 /// A group whose selection binding is the sole authority for expanded panels.
 pub struct DisclosureGroupApi<K: 'static> {
@@ -26,7 +26,7 @@ impl<K: Clone + PartialEq + 'static> DisclosureGroupApi<K> {
         use_disclosure(self.panel_open(key))
     }
     /// The writable expanded state of a panel; no parallel state is stored.
-    pub fn panel_open(self, key: K) -> Binding<bool> {
+    pub fn panel_open(self, key: K) -> Signal<bool> {
         let read_key = key.clone();
         binding(
             move || match self.selection {

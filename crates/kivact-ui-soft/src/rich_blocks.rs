@@ -11,9 +11,9 @@ use kivact::custom::TextEditing;
 use kivact::custom::TextSession;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::text_edit_policy;
-use kivact::state::Binding;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
+use kivact::state::Signal;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::Var;
@@ -60,7 +60,7 @@ pub(super) struct Editor {
 }
 
 /// Create the block-editing owner once per editor; it outlives switches to Write and Preview.
-pub(super) fn block_editor(source: Binding<String>) -> Editor {
+pub(super) fn block_editor(source: Signal<String>) -> Editor {
     let references = var(HashMap::<usize, NodeRef>::new());
     let state = machine(
         BlockSnapshot {
@@ -219,10 +219,13 @@ impl Editor {
 
     fn block_reference(self, id: usize) -> NodeRef {
         let reference = node_ref();
-        self.references
-            .update(|references| references.insert(id, reference));
+        self.references.update(|references| {
+            references.insert(id, reference);
+        });
         on_cleanup(move || {
-            self.references.update(|references| references.remove(&id));
+            self.references.update(|references| {
+                references.remove(&id);
+            });
             self.state.send(BlockEvent::Detach(reference));
         });
         let focused = reference.focused();
@@ -366,8 +369,8 @@ impl Editor {
 
 fn key_command(
     state: &EditState,
-    request: &EditRequest<'_>,
-    context: &EditContext<'_>,
+    request: &EditRequest,
+    context: &EditContext,
     prose: bool,
     whole: bool,
 ) -> Option<Command> {

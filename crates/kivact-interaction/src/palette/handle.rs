@@ -20,7 +20,7 @@
 
 use crate::Selection;
 use crate::collection::Index;
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::view::HandlerResult;
 use std::rc::Rc;
 
@@ -31,8 +31,8 @@ use crate::{
 use kivact_core::UiError;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::i18n::message;
-use kivact_core::state::{Binding, Signal, Value, binding, memo, signal};
 use kivact_core::state::{IntoText, IntoValue, callback};
+use kivact_core::state::{Signal, Value, binding, memo, signal};
 use kivact_core::style::Icon;
 use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 
@@ -43,7 +43,7 @@ use kivact_core::view::{Handled, IntoView, KeyEvent, Role, View};
 /// its callback and keeps the active row on the same key when the list
 /// changes. Keys must be unique in one palette.
 ///
-/// The label, the group and the hint are [`Reactive`], so a localized
+/// The label, the group and the hint are reactive, so a localized
 /// `message(..)` text follows a locale switch, and a command can be built
 /// anywhere (a handler, a memo, a test). The keywords are plain text that only
 /// the search reads. The [`icon`](Self::icon) is a name in the theme's icon
@@ -63,12 +63,12 @@ pub struct Command<K> {
     /// The application's identity for the command.
     pub(crate) key: K,
     /// What the row says; also its accessible name.
-    pub(crate) label: Reactive<String>,
+    pub(crate) label: Prop<String>,
     /// The heading of the run of rows this one belongs to. Rows with no group
     /// have no heading.
-    pub(crate) group: Option<Reactive<String>>,
+    pub(crate) group: Option<Prop<String>>,
     /// Text shown for the command, such as its shortcut.
-    pub(crate) hint: Option<Reactive<String>>,
+    pub(crate) hint: Option<Prop<String>>,
     /// Words the search matches that the row does not show.
     pub(crate) keywords: Vec<String>,
     /// The icon drawn at the start of the row.
@@ -83,7 +83,7 @@ impl<K> Command<K> {
     pub fn new(key: K, label: impl IntoText) -> Self {
         Self {
             key,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             group: None,
             hint: None,
             keywords: Vec::new(),
@@ -95,13 +95,13 @@ impl<K> Command<K> {
     /// Put the command under this heading. Neighbouring commands with the
     /// same group share one heading.
     pub fn with_group(mut self, group: impl IntoText) -> Self {
-        self.group = Some(Reactive::new(group.into_text()));
+        self.group = Some(Prop::new(group.into_text()));
         self
     }
 
     /// Show this text on the row, such as a shortcut.
     pub fn with_hint(mut self, hint: impl IntoText) -> Self {
-        self.hint = Some(Reactive::new(hint.into_text()));
+        self.hint = Some(Prop::new(hint.into_text()));
         self
     }
 
@@ -139,13 +139,13 @@ impl<K> Command<K> {
     /// The heading's current text ([`group`](Self::group)); tracked.
     #[track_caller]
     pub fn group(&self) -> Option<String> {
-        self.group.as_ref().map(Reactive::get)
+        self.group.as_ref().map(Prop::get)
     }
 
     /// The hint's current text ([`hint`](Self::hint)); tracked.
     #[track_caller]
     pub fn hint(&self) -> Option<String> {
-        self.hint.as_ref().map(Reactive::get)
+        self.hint.as_ref().map(Prop::get)
     }
 
     /// The words only the search matches ([`keywords`](Self::keywords)).
@@ -184,7 +184,7 @@ pub struct CommandGroup<K> {
     /// whether it has a heading) so its rows stay while the list changes.
     pub index: usize,
     /// The group's heading; `None` for commands with no group.
-    pub heading: Option<Reactive<String>>,
+    pub heading: Option<Prop<String>>,
     /// The commands of the run, in order.
     pub commands: Vec<Command<K>>,
 }
@@ -195,7 +195,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// Unstyled behavior and semantics of a command palette, the counterpart of
 /// cmdk's `Command.Dialog`.
 ///
-/// The caller owns the open state, through the `Binding<bool>` given to
+/// The caller owns the open state, through the `Signal<bool>` given to
 /// [`use_command_palette`], the commands (a value, so they can change while the
 /// palette is open) and a callback that receives the key of the chosen
 /// command. The palette holds the query and the active row, both forgotten
@@ -257,7 +257,7 @@ type CloseOn = fn(&KeyEvent) -> bool;
 /// }
 /// ```
 pub struct CommandPaletteApi<K: kivact_core::state::ItemKey> {
-    open: Binding<bool>,
+    open: Signal<bool>,
     run: kivact_core::state::Var<kivact_core::state::Callback<K>>,
     dialog: DialogApi,
     combobox: ComboboxApi<K>,
@@ -278,9 +278,8 @@ impl<K: kivact_core::state::ItemKey> Copy for CommandPaletteApi<K> {}
 #[track_caller]
 pub fn use_command_palette<K: kivact_core::state::ItemKey>(
     commands: impl IntoValue<Vec<Command<K>>>,
-    open: impl kivact_core::state::IntoBinding<bool>,
+    open: kivact_core::state::Signal<bool>,
 ) -> CommandPaletteApi<K> {
-    let open = open.into_binding();
     let commands = commands.into_value();
     let run = kivact_core::state::var(callback(|_: K| ()));
     let filter = signal::<CommandFilter<K>>(Rc::new(filter_commands));
@@ -407,7 +406,7 @@ impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
     }
 
     /// The query: bind the field's text to it.
-    pub fn query(self) -> Binding<String> {
+    pub fn query(self) -> Signal<String> {
         self.combobox.query()
     }
 

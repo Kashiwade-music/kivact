@@ -7,6 +7,7 @@
 use kivact::interaction::{use_checkbox, use_switch, use_toggle_button};
 use kivact::prelude::*;
 use kivact::view::A11yAction;
+use kivact::view::Node;
 use kivact_public_api_tests::support::mount;
 
 fn control(label: &str) -> Node {

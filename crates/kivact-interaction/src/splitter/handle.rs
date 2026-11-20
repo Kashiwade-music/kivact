@@ -120,11 +120,11 @@ pub struct SplitterApi {
 /// Setup only.
 #[track_caller]
 pub fn use_splitter(
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
     axis: Orientation,
 ) -> SplitterApi {
-    let binding = value.into_binding();
+    let binding = value;
     let range = range.into_value();
     let settings = OptionsCell::new(SplitterOptions::default());
     let ops = ScalarOps::new(binding, range);
@@ -387,7 +387,7 @@ impl SplitterApi {
         let value = self.ops.binding.into_value();
         let (range, side_by_side) = (self.ops.range, self.side_by_side());
         let rtl = side_by_side
-            && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+            && kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.

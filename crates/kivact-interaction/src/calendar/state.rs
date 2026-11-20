@@ -6,16 +6,16 @@ use crate::policy::grid::GridMove;
 use crate::roving::{Observation, Roving};
 use kivact_core::custom::{Owned, Owner};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
-use kivact_core::state::{Binding, MachineHandle, Signal, Value, effect, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Signal, Value, effect, machine, memo, signal};
 use kivact_core::view::{Handled, Key, KeyEvent};
 use std::rc::Rc;
 
 /// The caller's selection with what a range choice needs besides it.
 #[derive(Clone, Copy)]
 pub(super) enum Choice {
-    Single(Binding<Option<CalendarDate>>),
+    Single(Signal<Option<CalendarDate>>),
     Range {
-        value: Binding<Option<DateRange>>,
+        value: Signal<Option<DateRange>>,
         pick: MachineHandle<machine::Machine>,
     },
 }
@@ -31,7 +31,7 @@ pub(super) struct State {
     /// The App's root when the grid was created: a day of another App has
     /// another root.
     pub(super) root: Owner,
-    pub(super) month: Binding<CalendarMonth>,
+    pub(super) month: Signal<CalendarMonth>,
     pub(super) choice: Choice,
     pub(super) policy: CalendarOptions,
     pub(super) first_day: Value<Weekday>,
@@ -43,7 +43,7 @@ pub(super) struct State {
 }
 
 pub(super) fn create(
-    month: Binding<CalendarMonth>,
+    month: Signal<CalendarMonth>,
     selection: CalendarSelection,
     policy: CalendarOptions,
 ) -> Owned<Rc<State>> {

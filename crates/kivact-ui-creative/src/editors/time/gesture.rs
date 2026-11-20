@@ -4,7 +4,7 @@ use crate::editors::shared::targets;
 use crate::editors::time::model::TimeItem;
 use kivact::geometry::Point;
 use kivact::interaction::{DragApi as Gesture, EditSession, ListApi};
-use kivact::state::{Binding, Callback, Signal, Value};
+use kivact::state::{Callback, Signal, Value};
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub(crate) enum Target {
     Item(u64),
@@ -27,6 +27,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     View(kivact::interaction::ViewTransform),
 }
+// xtask-allow(state): independent: selected, transform and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu
 pub(crate) struct State<T: TimeItem> {
     pub data: Value<Vec<T>>,
     pub on_edit: Option<
@@ -34,12 +35,12 @@ pub(crate) struct State<T: TimeItem> {
             crate::editors::shared::model::EditorEvent<crate::editors::time::model::TimeRequest>,
         >,
     >,
-    pub selected: Binding<Vec<u64>>,
+    pub selected: Signal<Vec<u64>>,
     pub selection: Value<Vec<u64>>,
-    pub(crate) transform: Binding<kivact::interaction::ViewTransform>,
+    pub(crate) transform: Signal<kivact::interaction::ViewTransform>,
     pub scale: Value<f64>,
     pub offset: Value<Point>,
-    pub playhead: Binding<f64>,
+    pub playhead: Signal<f64>,
     pub visible: Value<Vec<Lane>>,
     pub choose: ListApi<u64>,
     pub scene: Value<Result<std::rc::Rc<targets::Scene<Target>>, kivact::UiError>>,
@@ -53,7 +54,7 @@ pub(crate) struct State<T: TimeItem> {
     pub bounds: Value<kivact::interaction::ScalarRange>,
     pub min_duration: Value<f64>,
     pub lane_height: f64,
-    pub active: kivact::state::Binding<Option<Target>>,
+    pub active: kivact::state::Signal<Option<Target>>,
     pub child_focus: Value<bool>,
     pub context: Signal<EditorContext>,
     pub lane_activate: Option<Callback<u64>>,

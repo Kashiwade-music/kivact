@@ -619,7 +619,10 @@ impl<T: Clone + 'static> DragApi<T> {
     /// cancellation and disabled behavior is the same. Setup only.
     #[track_caller]
     pub fn source_with(self, payload: impl Fn() -> T + 'static) -> Part<DragState> {
-        let id = self.sources.update(Generation::next);
+        self.sources.update(|g| {
+            g.next();
+        });
+        let id = self.sources.get();
         let active_source = self.active_source;
         let input = part(move |input| DragState {
             input,

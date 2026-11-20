@@ -27,12 +27,11 @@ use std::time::{Duration, Instant};
 use gpu_interop_producer::{Producer, pattern};
 use kivact::ErrorKind;
 use kivact::draw::ImageOptions;
-use kivact::geometry::Rect;
 use kivact::gpu_interop::{
     self, ExternalImage, FramePublisher, GpuAdapter, ImportStatus, ShareLink, ShareMode,
     ShareRequest, ShareStatus, SharedHandle, SharedImage, SharedTextureFormat, SharedTextures,
 };
-use kivact::launch::{AdapterMatch, GpuBackend, GpuPreference};
+use kivact::platform::{AdapterMatch, GpuBackend, GpuPreference};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, gpu_unavailable};
 use kivact::view::ShareError;

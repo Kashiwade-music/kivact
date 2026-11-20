@@ -1,8 +1,10 @@
 //! Shared layout and text builders for Pop catalog specimens.
 
-use kivact::prelude::{ColorToken, Element, IntoView, Node, column, grid, row, text};
+use kivact::prelude::{Element, IntoView, column, grid, row, text};
+use kivact::style::ColorToken;
 use kivact::style::{Align, style};
 use kivact::style::{GridPlacement, Track};
+use kivact::view::Node;
 use kivact_ui_pop as ui;
 
 pub(super) fn cards_grid(children: impl IntoView) -> Node {

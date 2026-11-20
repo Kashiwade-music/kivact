@@ -48,10 +48,11 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::EffectKind;
 use kivact_runtime::HandlerResult;
+use kivact_runtime::Owner;
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_types::{A11yRequest, NodeId, OverlayProps};
 
 use kivact_runtime::{IntoValue, Prop as InputProp};
@@ -426,7 +427,7 @@ impl IntoView for Overlay {
                             .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,
-                                rtl: crate::view::use_direction().get()
+                                rtl: crate::view::use_direction()
                                     == crate::view::ReadingDirection::Rtl,
                             }),
                         modal,

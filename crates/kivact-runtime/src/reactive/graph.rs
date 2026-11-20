@@ -33,16 +33,18 @@ use std::rc::Rc;
 use super::arena::Tomb;
 use crate::reactive::NodeId;
 use crate::reactive::arena::Key;
+use crate::reactive::data::{CompState, Compute, EffectCell, MemoCell, RNode, Runtime, Staleness};
 use crate::reactive::data::{
-    CompState, Computation, Compute, EffectCell, MemoCell, RNode, Runtime, Staleness,
-};
-use crate::reactive::data::{
-    EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, SourceCell, SourceNode,
+    EffectKind, EffectNode, MemoNode, NodeData, NodeInfo, NodeMeta, SourceCell, SourceNode,
 };
 use crate::reactive::error::{ErrorKind, misuse_at, new_error};
 use crate::reactive::links::Links;
 
 impl<T: 'static> Compute for MemoCell<T> {
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
+    }
+
     fn run(&self) -> bool {
         let new = {
             let old = self.value.borrow();
@@ -67,6 +69,10 @@ impl<T: 'static> Compute for MemoCell<T> {
 }
 
 impl Compute for EffectCell {
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
+    }
+
     fn run(&self) -> bool {
         (self.f)();
         true
@@ -86,6 +92,10 @@ struct WatcherCell<T> {
     app: crate::reactive::AppId,
 }
 impl<T: 'static> Compute for WatcherCell<T> {
+    fn into_any(self: Rc<Self>) -> Rc<dyn Any> {
+        self
+    }
+
     fn run(&self) -> bool {
         let Some(rt) = crate::reactive::registry::try_runtime(self.app) else {
             return false;
@@ -120,22 +130,42 @@ pub(crate) fn watch<T: 'static>(
 }
 
 impl Runtime {
+    /// Whether new graph nodes keep their type and creation site
+    /// (`Diag::node_meta`): always with the `devtools` feature, else while
+    /// a recorder is on (12 章 ST-06).
+    fn keeps_node_meta(&self) -> bool {
+        cfg!(feature = "devtools") || self.diag.borrow().record.any()
+    }
+
+    /// Where node `key` was created, if its diagnostics are kept.
+    pub(crate) fn node_at(&self, key: Key) -> Option<&'static Location<'static>> {
+        self.diag.borrow().node_meta.get(&key).map(|m| m.at)
+    }
+
     fn insert_node(
         &self,
         owner: Key,
-        cell: Rc<dyn Any>,
         data: NodeData,
         at: &'static Location<'static>,
         ty: &'static str,
     ) -> Key {
+        let state = if matches!(data, NodeData::Source(_)) {
+            CompState::Clean
+        } else {
+            CompState::Stale(Staleness::Dirty)
+        };
         let key = self.graph.borrow_mut().insert(RNode {
             owner,
             owner_index: 0,
-            cell,
-            at,
-            ty,
+            state,
             data,
         });
+        if self.keeps_node_meta() {
+            self.diag
+                .borrow_mut()
+                .node_meta
+                .insert(key, NodeMeta { at, ty });
+        }
         let index = self.owners.borrow_mut().get_mut(owner).map(|o| {
             o.nodes.push(key);
             o.nodes.len() as u32 - 1
@@ -164,11 +194,11 @@ impl Runtime {
         });
         let ty = std::any::type_name::<T>();
         let data = NodeData::Source(SourceNode {
+            cell,
             subs: Links::default(),
             changed_at: kivact_types::cell::Generation::new(),
-            written: None,
         });
-        self.insert_node(owner, cell, data, at, ty)
+        self.insert_node(owner, data, at, ty)
     }
 
     pub(crate) fn create_memo<T: 'static>(
@@ -183,13 +213,13 @@ impl Runtime {
             f,
             eq,
         });
-        let compute: Rc<dyn Compute> = cell.clone();
         let ty = std::any::type_name::<T>();
         let data = NodeData::Memo(MemoNode {
+            comp: cell,
             subs: Links::default(),
-            run: Computation::new(compute),
+            deps: Links::default(),
         });
-        self.insert_node(owner, cell, data, at, ty)
+        self.insert_node(owner, data, at, ty)
     }
 
     /// Create an effect. Render/Internal effects run once immediately (their
@@ -202,16 +232,16 @@ impl Runtime {
         at: &'static Location<'static>,
     ) -> Key {
         let cell = Rc::new(EffectCell { f });
-        let compute: Rc<dyn Compute> = cell.clone();
         let seq = self.next_seq();
         let data = NodeData::Effect(EffectNode {
+            comp: cell,
+            deps: Links::default(),
             kind,
-            seq,
             pass_runs: 0,
-            run: Computation::new(compute),
-            cleanups: Vec::new(),
+            seq,
+            cleanups: None,
         });
-        let key = self.insert_node(owner, cell, data, at, "effect");
+        let key = self.insert_node(owner, data, at, "effect");
         if !self.node_alive(key) {
             return key;
         }
@@ -240,15 +270,15 @@ impl Runtime {
             phase: std::cell::Cell::new(WatchPhase::Initial),
             app: self.id,
         });
-        let compute: Rc<dyn Compute> = cell.clone();
         let data = NodeData::Watcher(EffectNode {
+            comp: cell,
+            deps: Links::default(),
             kind,
-            seq: self.next_seq(),
             pass_runs: 0,
-            run: Computation::new(compute),
-            cleanups: Vec::new(),
+            seq: self.next_seq(),
+            cleanups: None,
         });
-        let key = self.insert_node(owner, cell, data, at, "watcher");
+        let key = self.insert_node(owner, data, at, "watcher");
         if !self.node_alive(key) {
             return key;
         }
@@ -267,23 +297,23 @@ impl Runtime {
 
     fn queue_effect(&self, key: Key) -> bool {
         let mut graph = self.graph.borrow_mut();
-        let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
-            graph.get_mut(key).map(|n| &mut n.data)
-        else {
+        let Some(n) = graph.get_mut(key) else {
             return false;
         };
-        self.sched
-            .borrow_mut()
-            .push(&mut e.run.state, e.kind, e.seq, key)
+        let (NodeData::Effect(e) | NodeData::Watcher(e)) = &n.data else {
+            return false;
+        };
+        let (kind, seq) = (e.kind, e.seq);
+        self.sched.borrow_mut().push(&mut n.state, kind, seq, key)
     }
     fn dequeue_effect(&self, key: Key) {
         let mut graph = self.graph.borrow_mut();
-        if let Some(NodeData::Effect(e) | NodeData::Watcher(e)) =
-            graph.get_mut(key).map(|n| &mut n.data)
-        {
-            self.sched
-                .borrow_mut()
-                .remove(&mut e.run.state, e.kind, e.seq, key);
+        let Some(n) = graph.get_mut(key) else {
+            return;
+        };
+        if let NodeData::Effect(e) | NodeData::Watcher(e) = &n.data {
+            let (kind, seq) = (e.kind, e.seq);
+            self.sched.borrow_mut().remove(&mut n.state, kind, seq, key);
         }
     }
 
@@ -296,7 +326,7 @@ impl Runtime {
         let tomb = self.graph.borrow().tomb(key);
         misuse_at(
             ErrorKind::Disposed {
-                created_at: tomb.map(|t| t.created_at),
+                created_at: tomb.and_then(|t| t.created_at),
                 disposed_by: tomb.and_then(|t| t.disposed_by),
             },
             format!("{what} read after its owner was disposed"),
@@ -314,11 +344,8 @@ impl Runtime {
         let (cell, memo) = {
             let g = self.graph.borrow();
             let n = g.get(key)?;
-            let memo = match &n.data {
-                NodeData::Memo(m) => Some(m.run.state),
-                _ => None,
-            };
-            (n.cell.clone(), memo)
+            let memo = matches!(n.data, NodeData::Memo(_)).then_some(n.state);
+            (n.cell(), memo)
         };
         if let Some(state) = memo {
             if state == CompState::Running {
@@ -352,14 +379,27 @@ impl Runtime {
         }
     }
 
+    /// A write to a removed signal: ignored, reported once as a located
+    /// `WriteAfterDispose` diagnostic.
+    pub(crate) fn write_after_dispose(&self, at: &'static Location<'static>) {
+        let err = new_error(
+            ErrorKind::WriteAfterDispose,
+            "write to a disposed signal ignored",
+            Some(at),
+        );
+        self.diag.borrow_mut().record_diagnostic(err);
+        // Close a turn record so the note is visible in `trace()`.
+        self.request_turn();
+    }
+
     /// The single write entry: purity check, immediate value change by
-    /// `mutate`, deferred notification.
+    /// `mutate`, deferred notification. Returns whether the node is alive.
     pub(crate) fn write_node(
         &self,
         key: Key,
         at: &'static Location<'static>,
         mutate: impl FnOnce(&Rc<dyn Any>) -> bool,
-    ) {
+    ) -> bool {
         if self.is_pure() {
             misuse_at(
                 ErrorKind::WriteInPureContext,
@@ -367,41 +407,35 @@ impl Runtime {
                 at,
             );
         }
-        let cell = self.graph.borrow().get(key).map(|n| n.cell.clone());
+        let cell = self.graph.borrow().get(key).and_then(|n| match &n.data {
+            NodeData::Source(s) => Some(Rc::clone(&s.cell)),
+            _ => None,
+        });
         let Some(cell) = cell else {
-            let err = new_error(
-                ErrorKind::WriteAfterDispose,
-                "write to a disposed signal ignored",
-                Some(at),
-            );
-            self.diag.borrow_mut().record_diagnostic(err);
-            // Close a turn record so the note is visible in `trace()`.
-            self.request_turn();
-            return;
+            self.write_after_dispose(at);
+            return false;
         };
         if mutate(&cell) {
             let turn = self.diag.borrow().turn();
-            let written = self.graph.borrow_mut().get_mut(key).map(|n| {
-                if let NodeData::Source(s) = &mut n.data {
-                    s.written = Some((at, turn));
-                }
-                (n.ty, n.at)
-            });
-            if let Some((ty, created_at)) = written {
-                let mut diag = self.diag.borrow_mut();
-                diag.record_write(ty, created_at, at);
-                diag.detail.write(NodeId(key), ty, created_at, at, true);
+            let mut diag = self.diag.borrow_mut();
+            if diag.record.any() {
+                diag.node_written.insert(key, (at, turn));
             }
+            let meta = diag.node_meta.get(&key).copied();
+            if let Some(meta) = meta {
+                diag.record_write(NodeId(key), meta.ty, meta.at, at, true);
+            }
+            drop(diag);
             self.notify_subscribers(key);
         } else {
             let mut diag = self.diag.borrow_mut();
-            if diag.detail.is_recording() {
-                let written = self.graph.borrow().get(key).map(|n| (n.ty, n.at));
-                if let Some((ty, created_at)) = written {
-                    diag.detail.write(NodeId(key), ty, created_at, at, false);
-                }
+            if diag.record.any()
+                && let Some(meta) = diag.node_meta.get(&key).copied()
+            {
+                diag.record_write(NodeId(key), meta.ty, meta.at, at, false);
             }
         }
+        true
     }
 
     /// Colour subscribers of a changed source (direct: Dirty, transitive: Check)
@@ -422,32 +456,33 @@ impl Runtime {
                     s.changed_at = epoch;
                 }
                 for (s, _) in n.subs() {
-                    diag.detail.edge(NodeId(src), NodeId(*s));
+                    diag.record_edge(NodeId(src), NodeId(*s));
                 }
                 stack.extend(n.subs().iter().map(|(s, _)| (*s, Staleness::Dirty)));
             }
             while let Some((k, color)) = stack.pop() {
                 let Some(n) = g.get_mut(k) else { continue };
-                match &mut n.data {
-                    // A source never reads anything, so it is never a subscriber.
-                    NodeData::Source(_) => {}
-                    NodeData::Memo(m) => {
-                        let was_clean = m.run.state == CompState::Clean;
-                        if !m.run.state.mark(color) {
-                            continue;
-                        }
+                // A source never reads anything, so it is never a subscriber.
+                let effect = match &n.data {
+                    NodeData::Source(_) => continue,
+                    NodeData::Memo(_) => None,
+                    NodeData::Effect(e) | NodeData::Watcher(e) => Some((e.kind, e.seq)),
+                };
+                let was_clean = n.state == CompState::Clean;
+                if !n.state.mark(color) {
+                    continue;
+                }
+                match effect {
+                    None => {
                         if was_clean {
-                            for (s, _) in m.subs.iter() {
-                                diag.detail.edge(NodeId(k), NodeId(*s));
+                            for (s, _) in n.subs() {
+                                diag.record_edge(NodeId(k), NodeId(*s));
                             }
-                            stack.extend(m.subs.iter().map(|(s, _)| (*s, Staleness::Check)));
+                            stack.extend(n.subs().iter().map(|(s, _)| (*s, Staleness::Check)));
                         }
                     }
-                    NodeData::Effect(e) | NodeData::Watcher(e) => {
-                        if !e.run.state.mark(color) {
-                            continue;
-                        }
-                        queued_any |= sched.push(&mut e.run.state, e.kind, e.seq, k);
+                    Some((kind, seq)) => {
+                        queued_any |= sched.push(&mut n.state, kind, seq, k);
                     }
                 }
             }
@@ -461,8 +496,13 @@ impl Runtime {
 
     /// Pull a memo or effect up to date (reactively's update-if-necessary).
     pub(crate) fn refresh(&self, key: Key) {
-        let state = match self.graph.borrow().get(key).and_then(RNode::computation) {
-            Some(c) => c.state,
+        let state = match self
+            .graph
+            .borrow()
+            .get(key)
+            .and_then(|n| n.is_computation().then_some(n.state))
+        {
+            Some(s) => s,
             None => return,
         };
         if state.staleness() == Some(Staleness::Check) {
@@ -470,13 +510,13 @@ impl Runtime {
             loop {
                 let dep = {
                     let g = self.graph.borrow();
-                    let Some(c) = g.get(key).and_then(RNode::computation) else {
+                    let Some(n) = g.get(key).filter(|n| n.is_computation()) else {
                         return;
                     };
-                    if c.state.staleness() == Some(Staleness::Dirty) {
+                    if n.state.staleness() == Some(Staleness::Dirty) {
                         break;
                     }
-                    match c.deps.get(i) {
+                    match n.deps().get(i) {
                         Some((d, _)) => *d,
                         None => break,
                     }
@@ -484,10 +524,7 @@ impl Runtime {
                 let needs = {
                     let g = self.graph.borrow();
                     g.get(dep).is_some_and(|d| {
-                        matches!(
-                            &d.data,
-                            NodeData::Memo(m) if m.run.state.staleness().is_some()
-                        )
+                        matches!(&d.data, NodeData::Memo(_)) && d.state.staleness().is_some()
                     })
                 };
                 if needs {
@@ -500,17 +537,17 @@ impl Runtime {
             .graph
             .borrow()
             .get(key)
-            .and_then(RNode::computation)
-            .is_some_and(|c| c.state.staleness() == Some(Staleness::Dirty));
+            .filter(|n| n.is_computation())
+            .is_some_and(|n| n.state.staleness() == Some(Staleness::Dirty));
         if dirty {
             self.recompute(key);
-        } else if let Some(c) = self
+        } else if let Some(n) = self
             .graph
             .borrow_mut()
             .get_mut(key)
-            .and_then(RNode::computation_mut)
+            .filter(|n| n.is_computation())
         {
-            c.state = CompState::Clean;
+            n.state = CompState::Clean;
         }
     }
 
@@ -519,8 +556,8 @@ impl Runtime {
         self.graph
             .borrow()
             .get(key)
-            .and_then(RNode::computation)
-            .is_some_and(|c| c.state.staleness().is_some())
+            .filter(|n| n.is_computation())
+            .is_some_and(|n| n.state.staleness().is_some())
     }
 
     fn recompute(&self, key: Key) {
@@ -532,26 +569,28 @@ impl Runtime {
             .graph
             .borrow()
             .get(key)
-            .and_then(|n| n.computation().filter(|c| c.compute.busy()).map(|_| n.at));
-        if let Some(at) = busy {
-            misuse_at(
+            .and_then(|n| n.comp().filter(|c| c.busy()).map(|_| ()));
+        if busy.is_some() {
+            crate::reactive::error::misuse(new_error(
                 ErrorKind::BorrowedWrite,
                 "memo re-read while its own `with` borrow is active after a dependency changed; read it after `with` returns",
-                at,
-            );
+                self.node_at(key),
+            ));
         }
-        let (compute, effect, owner, at) = {
+        let (compute, effect, owner) = {
             let mut g = self.graph.borrow_mut();
             let Some(n) = g.get_mut(key) else { return };
-            let (owner, at) = (n.owner, n.at);
+            let owner = n.owner;
             let effect = match &n.data {
                 NodeData::Effect(e) | NodeData::Watcher(e) => Some(e.kind),
                 _ => None,
             };
             // Only memos and effects are refreshed; a source has nothing to run.
-            let Some(c) = n.computation_mut() else { return };
-            c.state = CompState::Running;
-            (c.compute.clone(), effect, owner, at)
+            let Some(compute) = n.comp().cloned() else {
+                return;
+            };
+            n.state = CompState::Running;
+            (compute, effect, owner)
         };
         let label = match effect {
             None => "memo",
@@ -559,7 +598,7 @@ impl Runtime {
             Some(EffectKind::Internal) => "internal",
             Some(EffectKind::User) => "effect",
         };
-        self.diag.borrow_mut().record_run(label, at);
+        let at = self.node_at(key);
         let (epoch_before, is_effect) = (self.write_epoch.get(), effect.is_some());
         if is_effect {
             self.run_node_cleanups(key, owner);
@@ -575,14 +614,15 @@ impl Runtime {
             self.recycle_deps(deps);
             changed
         };
-        let mut diag = self.diag.borrow_mut();
-        diag.detail.run(NodeId(key), label, at, changed);
+        if let Some(at) = at {
+            self.diag
+                .borrow_mut()
+                .record_run(NodeId(key), label, at, changed);
+        }
         let is_memo_change = {
             let mut g = self.graph.borrow_mut();
             let Some(n) = g.get_mut(key) else { return };
-            if let Some(c) = n.computation_mut() {
-                c.state = CompState::Clean;
-            }
+            n.state = CompState::Clean;
             changed && matches!(n.data, NodeData::Memo(_))
         };
         if is_effect && self.write_epoch.get() != epoch_before {
@@ -604,19 +644,19 @@ impl Runtime {
                 break;
             };
             let Some(n) = g.get_mut(s) else { continue };
+            if !n.is_computation() {
+                continue;
+            }
             let queue = match &n.data {
                 NodeData::Effect(e) | NodeData::Watcher(e) => Some((e.kind, e.seq)),
                 _ => None,
             };
-            let Some(c) = n.computation_mut() else {
-                continue;
-            };
             // A running subscriber is pulling this memo right now and reads
             // the new value; do not re-mark it.
-            if c.state.mark(Staleness::Dirty)
+            if n.state.mark(Staleness::Dirty)
                 && let Some((kind, seq)) = queue
             {
-                sched.push(&mut c.state, kind, seq, s);
+                sched.push(&mut n.state, kind, seq, s);
             }
         }
     }
@@ -633,7 +673,9 @@ impl Runtime {
                     Some(NodeData::Source(s)) if s.changed_at > epoch_before => {
                         Some(Staleness::Dirty)
                     }
-                    Some(NodeData::Memo(m)) if m.run.state.staleness().is_some() => {
+                    Some(NodeData::Memo(_))
+                        if g.get(*d).is_some_and(|m| m.state.staleness().is_some()) =>
+                    {
                         Some(Staleness::Check)
                     }
                     _ => None,
@@ -643,10 +685,10 @@ impl Runtime {
         };
         let Some(stale) = stale else { return };
         let Some(n) = g.get_mut(key) else { return };
-        let (NodeData::Effect(e) | NodeData::Watcher(e)) = &mut n.data else {
+        let (NodeData::Effect(_) | NodeData::Watcher(_)) = &n.data else {
             return;
         };
-        e.run.state.mark(stale);
+        n.state.mark(stale);
         drop(g);
         if self.queue_effect(key) {
             self.request_turn();
@@ -655,12 +697,10 @@ impl Runtime {
 
     fn run_node_cleanups(&self, key: Key, owner: Key) {
         let cleanups = match self.graph.borrow_mut().get_mut(key).map(|n| &mut n.data) {
-            Some(NodeData::Effect(e) | NodeData::Watcher(e)) => std::mem::take(&mut e.cleanups),
+            Some(NodeData::Effect(e) | NodeData::Watcher(e)) => e.cleanups.take(),
             _ => return,
         };
-        if cleanups.is_empty() {
-            return;
-        }
+        let Some(cleanups) = cleanups else { return };
         let _g = self.handler_frame(Some(owner));
         for c in cleanups.into_iter().rev() {
             c();
@@ -698,8 +738,8 @@ impl Runtime {
             };
             subs.push((node, dep_index));
             let sub_index = subs.len() as u32 - 1;
-            if let Some(c) = g.get_mut(node).and_then(RNode::computation_mut) {
-                c.deps.push((src, sub_index));
+            if let Some(deps) = g.get_mut(node).and_then(RNode::deps_mut) {
+                deps.push((src, sub_index));
             }
         }
         drop(g);
@@ -749,11 +789,12 @@ impl Runtime {
         for (sub, dep_index) in subs {
             remove_dep_entry(&mut g, sub, dep_index as usize);
         }
-        let at = g.get(key).map(|n| n.at)?;
+        let created_at = self.diag.borrow_mut().node_meta.remove(&key).map(|m| m.at);
+        self.diag.borrow_mut().node_written.remove(&key);
         let removed = g.remove(
             key,
             Some(Tomb {
-                created_at: at,
+                created_at,
                 disposed_by,
             }),
         );
@@ -790,10 +831,10 @@ impl Runtime {
 /// Remove all dependency edges of `node` (both directions).
 fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) -> Vec<Key> {
     let mut emptied = Vec::new();
-    let Some(c) = g.get_mut(node).and_then(RNode::computation_mut) else {
+    let Some(node_deps) = g.get_mut(node).and_then(RNode::deps_mut) else {
         return emptied;
     };
-    let deps = std::mem::take(&mut c.deps);
+    let deps = std::mem::take(node_deps);
     for (src, sub_index) in deps {
         let moved = match g.get_mut(src).and_then(RNode::subs_mut) {
             Some(subs) => {
@@ -812,8 +853,8 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) -> Vec<K
         if let Some((m, k, i)) = moved
             && let Some(e) = g
                 .get_mut(m)
-                .and_then(RNode::computation_mut)
-                .and_then(|c| c.deps.get_mut(k as usize))
+                .and_then(RNode::deps_mut)
+                .and_then(|d| d.get_mut(k as usize))
         {
             e.1 = i as u32;
         }
@@ -824,15 +865,15 @@ fn unlink_deps(g: &mut crate::reactive::arena::Arena<RNode>, node: Key) -> Vec<K
 /// Remove `sub.deps[index]` (whose source is being disposed) keeping read order.
 fn remove_dep_entry(g: &mut crate::reactive::arena::Arena<RNode>, sub: Key, index: usize) {
     let fix: Vec<(Key, u32, u32)> = {
-        let Some(c) = g.get_mut(sub).and_then(RNode::computation_mut) else {
+        let Some(deps) = g.get_mut(sub).and_then(RNode::deps_mut) else {
             return;
         };
-        if index >= c.deps.len() {
+        if index >= deps.len() {
             return;
         }
-        c.deps.remove(index);
+        deps.remove(index);
         // Fix back-indices of the following deps in their sources.
-        c.deps[index..]
+        deps[index..]
             .iter()
             .enumerate()
             .map(|(j, (src, si))| (*src, *si, (index + j) as u32))
@@ -863,23 +904,70 @@ pub(crate) fn source_cell<T: 'static>(cell: &Rc<dyn Any>) -> Option<&SourceCell<
 impl Runtime {
     /// Typed value cell of a source node (internal fast paths).
     pub(crate) fn source_rc<T: 'static>(&self, key: Key) -> Option<Rc<SourceCell<T>>> {
-        let cell = self.graph.borrow().get(key).map(|n| n.cell.clone())?;
+        let cell = self.graph.borrow().get(key).map(|n| n.cell())?;
         cell.downcast::<SourceCell<T>>().ok()
     }
 
     /// Snapshot of node `key`, or `None` if it no longer exists.
     pub(crate) fn node_snapshot(&self, key: Key) -> Option<NodeInfo> {
+        let (meta, written) = {
+            let diag = self.diag.borrow();
+            (
+                diag.node_meta.get(&key).copied()?,
+                diag.node_written.get(&key).copied(),
+            )
+        };
         let g = self.graph.borrow();
         let n = g.get(key)?;
         Some(NodeInfo {
             kind: n.kind(),
-            ty: n.ty,
-            at: n.at,
-            written: match &n.data {
-                NodeData::Source(s) => s.written,
-                _ => None,
-            },
+            ty: meta.ty,
+            at: meta.at,
+            written,
             deps: n.deps().iter().map(|(d, _)| NodeId(*d)).collect(),
         })
+    }
+}
+
+#[cfg(test)]
+mod meta_tests {
+    //! Role: Node diagnostics are kept with the devtools feature from the start, and without it only while recording.
+
+    use std::panic::Location;
+    use std::rc::Rc;
+
+    use crate::reactive::NodeId;
+    use crate::reactive::data::Runtime;
+    use crate::reactive::diag::RecordBits;
+    use crate::reactive::host_types::Host;
+
+    struct Quiet;
+    impl Host for Quiet {
+        fn wake(&self) {}
+    }
+
+    #[test]
+    fn node_meta_follows_the_devtools_feature() {
+        let rt = Runtime::register(
+            Rc::new(Quiet),
+            0,
+            crate::driver::TaskState::new(None, crate::driver::ThreadWaker::new(|| {})),
+        );
+        let at = Location::caller();
+        // The root owner takes the first owner slot, as `Runtime::new` makes it.
+        assert_eq!(rt.create_owner(None, at), rt.root);
+        let key = rt.create_source(rt.root, 1u32, at);
+        // Recording starts after the node was created.
+        rt.set_recorder(RecordBits::DEVTOOLS, true);
+        let info = rt.node_info(NodeId(key));
+        assert_eq!(
+            info.is_some(),
+            cfg!(feature = "devtools"),
+            "type and site are kept exactly with the feature"
+        );
+        if let Some(info) = info {
+            assert_eq!(info.ty, "u32");
+        }
+        rt.shutdown();
     }
 }

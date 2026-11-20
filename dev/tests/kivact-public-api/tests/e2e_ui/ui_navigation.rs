@@ -1,7 +1,9 @@
 //! Role: Verify core pagination, stepper, breadcrumb and exclusive navigation behavior.
 use kivact::prelude::*;
 use kivact::ui::PaginationMode;
+use kivact::ui::{StepperItem, breadcrumb, navigation_menu, pagination, stepper};
 use kivact::view::CurrentItem;
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 

@@ -2,7 +2,8 @@
 //! Public Screen fixes assets to inline execution and App fonts to startup.
 //! These cases use the same AppClient and production test host directly,
 //! with existing normal host operations, to exercise later resource changes.
-use kivact_core::launch::{AppOptions, ClientMode, Launch};
+use kivact_core::__test::LaunchPolicy;
+use kivact_core::App;
 use kivact_core::style::{Theme, rgb, style};
 use kivact_core::view::IntoView;
 use kivact_core::view::View;
@@ -17,14 +18,13 @@ fn host(
     root: impl FnOnce() -> View + 'static,
     inline_assets: bool,
 ) -> (ArvaneTestHost, kivact_engine::api::Writer) {
-    let (client, _) = Launch::new(
-        AppOptions::new("retained scene")
+    let (client, _) = kivact_core::__test::launch(
+        App::new("retained scene")
             .theme(Theme::light())
             .blocking_threads(2),
-        ClientMode::Window,
+        LaunchPolicy::plain_window(),
         root,
-    )
-    .into_engine_client();
+    );
     let host = ArvaneTestHost::new(
         client,
         TestHostOptions {

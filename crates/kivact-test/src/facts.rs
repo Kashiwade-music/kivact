@@ -1,7 +1,7 @@
 //! Role: Ephemeral test queries over engine facts and core creation locations.
-use kivact_core::launch::Inspect;
+use kivact_core::__test::Inspect;
 use kivact_engine::api::Reader;
-use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_engine::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::NodeId;
 use std::collections::HashMap;
 use std::panic::Location;
@@ -164,10 +164,14 @@ impl Facts {
         })
     }
     pub(super) fn hidden(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.hidden))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Hidden))
+        })
     }
     pub(super) fn disabled(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.disabled))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Disabled))
+        })
     }
     pub(super) fn test_id(&self, id: NodeId) -> Option<String> {
         self.with_node(id, |node| {

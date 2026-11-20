@@ -4,11 +4,10 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use kivact::draw::{Draw, Layer, Offscreen, Pixels, TextBaseline, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::Transform;
+use kivact::draw::{Layer, Offscreen, Pixels, TextBaseline, TextFormat};
 use kivact::prelude::*;
-use kivact::style::TextAlign;
-use kivact::test::{RenderOptions, TestFonts, render_with};
+use kivact::test::{RenderOptions, render_with};
 use kivact::view::Asset;
 
 use kivact_public_api_tests::paint::{distance, pixel};
@@ -70,8 +69,7 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
     let screen = render_with(
         RenderOptions::default()
             .window_size(96.0, 64.0)
-            .theme(theme())
-            .fonts(TestFonts::Only(vec![kivact::view::Asset::from(TUFFY)])),
+            .theme(theme().with_fonts([TUFFY])),
         move || {
             canvas(move |draw, size| artwork(draw, size, &preview_image))
                 .style(style().size(96, 64))
@@ -80,7 +78,7 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
     let mut renderer = Offscreen::new().theme(theme());
     renderer.font(TUFFY).unwrap();
     let output = renderer
-        .render(96, 64, |draw, size| artwork(draw, size, &image))
+        .render(96.0, 64.0, |draw, size| artwork(draw, size, &image))
         .unwrap();
     assert_eq!(
         (output.width, output.height, output.rgba.len()),

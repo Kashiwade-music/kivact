@@ -1,7 +1,7 @@
 //! Role: Hold passive combobox construction inputs shared by configuration and rendering.
 use crate::SelectPresentation;
 use crate::variants::Variants;
-use kivact_core::state::{Binding, ItemKey, Value};
+use kivact_core::state::{ItemKey, Signal, Value};
 use kivact_core::view::Node;
 use kivact_interaction::{ComboboxMode, ListItem, Selection};
 use std::pin::Pin;
@@ -19,8 +19,8 @@ pub struct Combobox<K: ItemKey> {
     pub(super) label: Value<String>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
-    pub(super) query: Option<Binding<String>>,
-    pub(super) open: Option<Binding<bool>>,
+    pub(super) query: Option<Signal<String>>,
+    pub(super) open: Option<Signal<bool>>,
     pub(super) on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     pub(super) free_text: bool,
     pub(super) mode: Option<ComboboxMode>,

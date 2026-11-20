@@ -1,7 +1,7 @@
 //! Role: Exercise feedback and card contracts through public components.
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, render_with_handle};
-use kivact::ui::{self, AlertVariant, ControlSize};
+use kivact::ui::{self, AlertVariant};
 
 fn options() -> RenderOptions {
     RenderOptions::default().mirror(MirrorMode::Off)

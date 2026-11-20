@@ -49,21 +49,27 @@ pub(crate) struct NodeDraw {
     pub(super) recorded: Recorded,
 }
 
-/// The place and scale a node's drawing was made for: a step with
-/// another one draws it again.
+/// The place, size and scale a node's drawing was made for, and whether
+/// the step drew the node itself: a step with another one draws it again
+/// (a layout may resize a node in place, and one node may be listed by a
+/// step that draws it and by one that only opens its group).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) struct DrawKey {
     pub(super) origin: Point,
+    pub(super) size: Size,
+    pub(super) own: bool,
     pub(super) alpha: f64,
     pub(super) clip: Rect,
     pub(super) scale: f64,
 }
 
 impl DrawKey {
-    /// The key of `step` drawn in `pass`.
-    pub(crate) fn of(step: &Step, pass: PaintPass) -> Self {
+    /// The key of `step`'s node, of `size`, drawn in `pass`.
+    pub(crate) fn of(step: &Step, size: Size, pass: PaintPass) -> Self {
         DrawKey {
             origin: step.origin,
+            size,
+            own: step.own,
             alpha: step.alpha,
             clip: step.clip,
             scale: pass.scale,
@@ -365,7 +371,7 @@ pub(crate) enum Entry {
 /// A listed layer that moves every frame (a running opacity or transform
 /// transition, or a layout run): its matrix is set again before each
 /// frame without a new list (`Model::refresh_moving_layers`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MovingLayer {
     pub(super) id: NodeId,
     /// Its index in `PaintList::layers`.
@@ -374,6 +380,9 @@ pub(crate) struct MovingLayer {
     pub(super) origin: Point,
     /// The parent's perspective it was walked with.
     pub(super) perspective: Option<Matrix4>,
+    /// The layers it is inside, nearest first, with their indices: their
+    /// ink holds its moving box, so their bounds follow its motion.
+    pub(super) outer: Vec<(NodeId, u32)>,
 }
 
 /// Where a listed scroll container was walked from, to walk its subtree

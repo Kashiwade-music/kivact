@@ -63,7 +63,7 @@ fn ask(
     req: HostRequest,
     at: &'static Location<'static>,
 ) -> Completion<Result<PlatformResult, UiError>> {
-    request_async(Owner::ambient(api, at), api, req)
+    request_async(Owner::running(api, at), api, req)
 }
 
 /// Send the platform request of the nearest owner to its window.
@@ -73,7 +73,7 @@ fn ask_platform(
     req: PlatformRequest,
     at: &'static Location<'static>,
 ) -> Completion<Result<PlatformResult, UiError>> {
-    let owner = Owner::ambient(api, at);
+    let owner = Owner::running(api, at);
     let window = crate::view::state::current_window(owner);
     request_async(
         owner,
@@ -98,7 +98,7 @@ pub fn request_window_size(
     height: impl Into<f64>,
 ) -> impl Future<Output = Result<(), UiError>> + 'static {
     let at = Location::caller();
-    let owner = Owner::ambient("request_window_size", at);
+    let owner = Owner::running("request_window_size", at);
     require_effectful("request_window_size");
     let window = crate::view::state::current_window(owner);
     let (width, height) = (width.into(), height.into());
@@ -319,7 +319,7 @@ pub fn reveal_path(
 #[track_caller]
 pub fn save_state(key: &'static str, bytes: Vec<u8>) {
     let at = Location::caller();
-    let owner = Owner::ambient("save_state", at);
+    let owner = Owner::running("save_state", at);
     let window = crate::view::state::current_window(owner);
     request(
         owner,

@@ -57,7 +57,7 @@ mod text_layout;
 /// Internal contract: the native host (kivact-engine) drives the editor through these.
 pub mod host;
 
-pub use behavior::{EditBehavior, EditContext, EditLayout, EditOutcome, EditRequest, Lines};
+pub use behavior::{EditBehavior, EditContext, EditOutcome, EditRequest};
 pub use change::TextChange;
 pub use edit_state::EditState;
 pub use geometry::{TextGeometry, caret_at};

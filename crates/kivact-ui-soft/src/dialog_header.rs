@@ -1,9 +1,9 @@
 //! Role: Lay out Soft dialog and drawer headings.
 use crate::recipes_dialog::motion;
 
-use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
+use kivact::state::{Callback, IntoHandler};
 use kivact::style::Align;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
@@ -115,8 +115,9 @@ impl DialogHeader {
     }
 
     /// Add a close button that calls the application callback.
-    pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
-        let close: Callback<()> = close.into();
+    pub fn on_close<M>(mut self, close: impl IntoHandler<(), M>) -> Self {
+        let close: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(close));
         self.close = Some(Rc::new(move || close.call(())));
         self
     }
@@ -209,8 +210,9 @@ impl DrawerHeader {
     }
 
     /// Add a close button that calls the application callback.
-    pub fn on_close(mut self, close: impl Into<Callback<()>>) -> Self {
-        let close: Callback<()> = close.into();
+    pub fn on_close<M>(mut self, close: impl IntoHandler<(), M>) -> Self {
+        let close: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(close));
         self.0 = self.0.on_close(close);
         self
     }

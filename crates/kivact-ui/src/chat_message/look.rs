@@ -5,6 +5,7 @@ use crate::recipe::recipe_table;
 use crate::variants::Look;
 use crate::variants::Variant;
 use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
+use kivact_macros::Prop;
 pub(crate) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
     style()
         .font_size(t.text().size)
@@ -121,7 +122,7 @@ recipe_table! {
 }
 
 /// The participant role; the author name remains caller supplied text.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatSender {
     User,
     #[default]
@@ -130,7 +131,7 @@ pub enum ChatSender {
 }
 
 /// Delivery state of a message.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum ChatMessageStatus {
     Sending,
     Sent,
@@ -150,7 +151,7 @@ pub enum ChatMessageVariant {
 impl Variant for ChatMessageVariant {}
 
 /// The edge at which chat content is aligned.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatAlign {
     #[default]
     Start,
@@ -158,7 +159,7 @@ pub enum ChatAlign {
 }
 
 /// Joining position of a bubble in a group from the same participant.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatBubbleGroup {
     #[default]
     Single,
@@ -168,17 +169,9 @@ pub enum ChatBubbleGroup {
 }
 
 /// The edge a message's reaction slot overlaps.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatReactionsSide {
     Top,
     #[default]
     Bottom,
 }
-
-kivact_core::state::constant_value!(
-    ChatSender,
-    ChatBubbleGroup,
-    ChatReactionsSide,
-    ChatMessageStatus,
-    ChatAlign
-);

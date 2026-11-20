@@ -4,7 +4,7 @@
 //! row's `Value<T>`; order changes use the fewest moves (LIS).
 //!
 //! A `for_each` or `virtual_list` row builder receives one row handle
-//! (`ListSource::Row`): a `Value<T>`, or a `Binding<T>` for a writable
+//! (`ListSource::Row`): a `Value<T>`, or a `Signal<T>` for a writable
 //! source. A `for_index` row builder receives the index and the row's `Value<T>`.
 //!
 //! Invariants:
@@ -31,10 +31,10 @@ use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
+use kivact_runtime::driver::{EffectKind, Runtime};
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
 use kivact_runtime::{
-    Binding, EffectKind, ErrorKind, IntoBinding, IntoValue, ItemKey, Owner, Prop, PropValue,
-    Runtime, Signal, UiError, Value,
+    ErrorKind, IntoValue, ItemKey, Owner, Prop, PropValue, Signal, UiError, Value,
 };
 
 /// A row builder of a keyed list: the key and the row's item signal.
@@ -104,14 +104,14 @@ pub(crate) fn lis(seq: &[usize]) -> Vec<usize> {
 }
 
 /// Keyed list: `row(item)` for each item, where `item` is the source's row
-/// handle: a `Value<T>`, or a `Binding<T>` that writes back into a
-/// `Signal`/`Binding` source. Rows keep their owner (and the state their
+/// handle: a `Value<T>`, or a `Signal<T>` that writes back into a
+/// `Signal` source. Rows keep their owner (and the state their
 /// components create) while their key stays; changed items update the
 /// row's handle; order changes use the fewest moves (LIS). An update scans
 /// the keys once (O(N)) and clones only changed or new items.
 ///
 /// ```ignore
-/// fn task_row(task: Binding<Task>) -> impl IntoView { .. }
+/// fn task_row(task: Signal<Task>) -> impl IntoView { .. }
 /// for_each(tasks, |t| t.id, task_row)
 /// ```
 #[track_caller]
@@ -262,7 +262,7 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
 fn dispose_rows(rt: &Rc<Runtime>, rows: &[(NodeId, Owner)]) {
     for &(node, owner) in rows {
         let removed = ViewState::tree_mut(rt).remove(node);
-        removed.commit(rt);
+        drop(removed);
         owner.dispose();
     }
 }
@@ -365,10 +365,10 @@ where
     })
 }
 
-/// A list source preserves writability: pass a Signal/Binding for editable rows.
+/// A list source preserves writability: pass a Signal for editable rows.
 #[diagnostic::on_unimplemented(
-    message = "a list source needs a Vec, Signal, Binding, Value, or closure returning Vec",
-    note = "pass a Signal or Binding to receive writable Binding rows"
+    message = "a list source needs a Vec, Signal, Value, or closure returning Vec",
+    note = "pass a Signal to receive writable Signal rows"
 )]
 pub trait ListSource<T: PropValue>: Sized + 'static {
     type Row: 'static;
@@ -381,37 +381,31 @@ pub struct ListInput<T: 'static, R> {
     pub(crate) items: Prop<Vec<T>>,
     pub(crate) row: MakeRow<T, R>,
 }
-fn writable_list<T: PropValue>(source: Binding<Vec<T>>) -> ListInput<T, Binding<T>> {
+fn writable_list<T: PropValue>(source: Signal<Vec<T>>) -> ListInput<T, Signal<T>> {
     ListInput {
         items: source.into_prop(),
         row: Rc::new(move |item, same_key| {
             let initial = item.get_untracked();
-            // A row reads its own item, which the list keeps current; a
-            // write through the row also sets it, so the row reads it back
-            // at once.
+            // A row reads its own item, which the list keeps current. A
+            // write through the row edits that element of the list in
+            // place (the list is not copied) and sets the item, so the
+            // row reads it back at once.
             kivact_runtime::binding(item, move |replacement: T| {
-                let mut list = source.get_untracked();
-                if let Some(slot) = list
-                    .iter_mut()
-                    .find(|candidate| same_key(candidate, &initial))
-                    && *slot != replacement
-                {
-                    *slot = replacement.clone();
-                    source.set(list);
-                    item.set(replacement);
-                }
+                let found = source.with_untracked(|list| {
+                    list.iter()
+                        .position(|candidate| same_key(candidate, &initial))
+                        .map(|index| (index, list[index] != replacement))
+                });
+                let Some((index, true)) = found else { return };
+                let stored = replacement.clone();
+                source.update(move |list| list[index] = stored);
+                item.set(replacement);
             })
         }),
     }
 }
 impl<T: PropValue> ListSource<T> for Signal<Vec<T>> {
-    type Row = Binding<T>;
-    fn into_list_source(self) -> ListInput<T, Self::Row> {
-        writable_list(self.into_binding())
-    }
-}
-impl<T: PropValue> ListSource<T> for Binding<Vec<T>> {
-    type Row = Binding<T>;
+    type Row = Signal<T>;
     fn into_list_source(self) -> ListInput<T, Self::Row> {
         writable_list(self)
     }

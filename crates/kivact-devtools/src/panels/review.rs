@@ -1,6 +1,7 @@
 //! Role: The Review panel.
 
 use kivact::prelude::*;
+use kivact::ui::item_row;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Inspected, Panel, Session};
@@ -145,10 +146,11 @@ fn comment_view(
 
 /// Select the node of an item and show its tree.
 fn go_to(session: Session, window: p::WindowId, node: p::NodeId) {
-    if session
+    let mut loading = false;
+    session
         .inspected
-        .update(|inspected| inspected.select_in(window, node))
-    {
+        .update(|inspected| loading = inspected.select_in(window, node));
+    if loading {
         session.load_window(window, Some(node));
     }
     session.panel.set(Panel::Elements);

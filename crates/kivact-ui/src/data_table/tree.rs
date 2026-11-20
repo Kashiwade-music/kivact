@@ -3,7 +3,7 @@ use super::types::{DataTableTreeIndent, Key, TreeConfig};
 use crate::{Button, ButtonVariant, button};
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::state::{Binding, Value, memo};
+use kivact_core::state::{Signal, Value, memo};
 use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
@@ -22,13 +22,14 @@ impl DataTableTreeIndent {
     }
 }
 
+// xtask-allow(state): independent: expanded is the caller's binding of the open rows, written by the tree toggles; show_all is the tree column's setting, fixed when the plan is made
 pub(super) struct Plan<K: 'static> {
     pub(super) column: usize,
     pub(super) show_all: bool,
     indent: DataTableTreeIndent,
     rows: Value<HashMap<K, TreeRow<K>>>,
     parents: Value<Vec<K>>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
 }
 
 impl<K> Clone for Plan<K> {
@@ -44,7 +45,7 @@ pub(super) fn arrange<R, K: kivact_core::state::ItemKey>(
     order: Vec<usize>,
     key: &Key<R, K>,
     parent: &Key<R, Option<K>>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
 ) -> Vec<usize> {
     let mut indices = HashMap::with_capacity(order.len());
     let nodes = order
@@ -149,7 +150,7 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
                 })
                 .into_view()
         });
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         row((trigger, content))
             .style(move || {
                 let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
@@ -211,7 +212,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
             message("data_table.collapse_row", "Collapse row"),
         )
     };
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     button(move || {
         if open.get() {
             collapse.get()

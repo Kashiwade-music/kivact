@@ -24,7 +24,6 @@ use kivact::view::scroll;
 use kivact::view::text;
 
 use kivact::interaction::DialogMode;
-use kivact::state::Binding;
 use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
@@ -33,6 +32,7 @@ use kivact::state::callback;
 use kivact::state::effect_on;
 use kivact::state::provide;
 use kivact::state::try_use_context;
+use kivact::state::{IntoHandler, Signal};
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
@@ -229,7 +229,7 @@ impl TopNavItem {
     }
     /// Mount replacement visible label content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
-        self.content = Some(kivact::view::scope(move || content.into_view()));
+        self.content = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Set whether this item is the current navigation destination.
@@ -243,8 +243,9 @@ impl TopNavItem {
         self
     }
     /// Handle activation of the navigation item.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some(callback(move |_| action.call(())));
         self
     }
@@ -273,7 +274,7 @@ impl IntoView for TopNavItem {
             action,
             size,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
@@ -419,15 +420,13 @@ impl IntoView for TopNavMenu {
             items,
             delays,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let item = side_nav_item(label)
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
                 return root.child(item);
             }
-            let align = try_use_context::<TopNavCx>()
-                .map(|value| value.get())
-                .map_or(OverlayAlign::Start, |cx| cx.align);
+            let align = try_use_context::<TopNavCx>().map_or(OverlayAlign::Start, |cx| cx.align);
             let menu = nav_heading_menu(items.iter().cloned());
             root.child(nav_menu_view(
                 menu,
@@ -534,7 +533,7 @@ impl Element for TopNavMegaMenu {
 }
 
 #[derive(Clone, Copy)]
-struct MegaClose(Binding<bool>);
+struct MegaClose(Signal<bool>);
 
 impl IntoView for TopNavMegaMenu {
     fn into_view(self) -> View {
@@ -546,7 +545,7 @@ impl IntoView for TopNavMegaMenu {
             delays,
             on_change,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
@@ -575,7 +574,7 @@ impl IntoView for TopNavMegaMenu {
                     .with_node(move |node| node.controls(surface_ref))
                     .on_press(move || nav_panel.toggle()),
             );
-            let cx = try_use_context::<TopNavCx>().map(|value| value.get());
+            let cx = try_use_context::<TopNavCx>();
             let align = cx.map_or(OverlayAlign::Start, |cx| cx.align);
             let anchor = cx.map_or(trigger_ref, |cx| cx.anchor);
             let surface = show(behavior.is_open(), move || {
@@ -634,8 +633,9 @@ impl TopNavMegaMenuItem {
         self
     }
     /// Handle activation of the mega-menu item.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some(callback(move |_| action.call(())));
         self
     }
@@ -657,10 +657,10 @@ impl IntoView for TopNavMegaMenuItem {
             icon,
             action,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_use_context::<MegaClose>().map(|value| value.get());
+            let popup = try_use_context::<MegaClose>();
             let glyph = icon.map(move |glyph| mega_glyph(glyph, drawer));
             let labels = column((
                 text(title).style(title_style),
@@ -768,8 +768,9 @@ impl TopNavMegaMenuFeaturedCard {
         self
     }
     /// Set the featured-card link label and activation action.
-    pub fn link(mut self, label: impl IntoText, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn link<M>(mut self, label: impl IntoText, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.link = Some((label.into_text_value(), callback(move |_| action.call(()))));
         self
     }
@@ -792,10 +793,10 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             content,
             link,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
-            let popup = try_use_context::<MegaClose>().map(|value| value.get());
+            let popup = try_use_context::<MegaClose>();
             let image = image.map(|image| {
                 node()
                     .style(style().width(pct(100)).height(140).clip(true))
@@ -889,7 +890,7 @@ fn top_slot(
     })
 }
 
-fn mega_columns(items: Option<&ViewFn>, featured: Option<&ViewFn>, open: Binding<bool>) -> Node {
+fn mega_columns(items: Option<&ViewFn>, featured: Option<&ViewFn>, open: Signal<bool>) -> Node {
     let grid = items.map(|items| {
         let items = items.clone();
         layout_grid(provide(MegaClose(open), move || items.call(())))

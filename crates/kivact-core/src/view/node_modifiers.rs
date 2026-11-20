@@ -13,7 +13,8 @@ use crate::view::part_data::PartMount;
 use crate::view::{
     A11yAction, A11yEvent, ExitLayout, HandlerResult, LiveRegion, Orientation, Role, SortDirection,
 };
-use kivact_runtime::Callback;
+use kivact_runtime::IntoHandler;
+
 use kivact_style::Style;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 use kivact_types::SemanticsText;
@@ -103,7 +104,7 @@ impl Node {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    pub fn on_exit_complete(self, callback: impl Into<Callback<()>>) -> Self {
+    pub fn on_exit_complete<M>(self, callback: impl IntoHandler<(), M>) -> Self {
         Element::on_exit_complete(self, callback)
     }
 
@@ -217,7 +218,7 @@ impl Node {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    pub fn on_press(self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
+    pub fn on_press<M>(self, f: impl kivact_runtime::IntoHandler<(), M>) -> Self {
         Element::on_press(self, f)
     }
 
@@ -306,6 +307,45 @@ impl Node {
     ) -> Self {
         self.common
             .prepend_recipe_style(name, s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Add a recipe style layer that reads the node's final variants (after the
+    /// caller's `.variant(..)`). DevTools shows `name`.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        self.common
+            .style
+            .push(crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::Recipe(name),
+            });
+        self
+    }
+
+    /// The base-layer form of [`Node::variant_style`]: before every caller style.
+    #[doc(hidden)]
+    #[track_caller]
+    pub fn base_variant_style(
+        mut self,
+        name: crate::view::RecipeName,
+        f: impl Fn(&crate::view::Variants) -> Style + 'static,
+    ) -> Self {
+        let index = self.common.base_count();
+        self.common.style.insert(
+            index,
+            crate::view::element_data::StyleLayer {
+                f: crate::view::element_data::LayerFn::Variants(Rc::new(f)),
+                at: Some(Location::caller()),
+                origin: crate::view::element_data::LayerOrigin::BaseRecipe(name),
+            },
+        );
         self
     }
 

@@ -1,7 +1,6 @@
 //! Role: The root of the DevTools app: theme, connection states and session screen.
 
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 
 use crate::args::Args;
 use crate::connection;

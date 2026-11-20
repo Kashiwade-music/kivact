@@ -1,6 +1,7 @@
 //! Role: OS-independent real-window embedding contracts.
 
 use super::support::{SERIAL, painted, panel, wait};
+use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::embed::Embedded;
 use kivact::embed::ResizeAnswer;
@@ -8,6 +9,7 @@ use kivact::platform;
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use kivact::view::KeyCode;
+use kivact::view::Node;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -365,6 +367,44 @@ fn parent_destruction_stops_the_app_without_an_error() {
         .lock()
         .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
     external_drop_joins_cleanup_after_parent_destruction();
+}
+
+#[test]
+fn stopped_notice_carries_the_status_once() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let notices = Arc::new(Mutex::new(Vec::new()));
+    let seen = notices.clone();
+    let app = App::new("Stopped notice")
+        .window_size(160, 100)
+        .embed(
+            parent.parent().scale(1.0).on_notice(move |notice| {
+                seen.lock().expect("test state lock").push(notice);
+            }),
+            || node().style(style().size(160, 100)),
+        )
+        .expect("editor opens");
+    wait(&parent, || parent.capture().is_ok());
+    parent.close();
+    wait(&parent, || app.status() == EmbedStatus::Closed);
+    wait(&parent, || {
+        !notices.lock().expect("test state lock").is_empty()
+    });
+    parent.pump(Duration::from_millis(50));
+    drop(app);
+    assert_eq!(
+        *notices.lock().expect("test state lock"),
+        [EmbedNotice::Stopped(EmbedStatus::Closed)],
+        "the host is told once, with the status"
+    );
+    assert!(parent.capture().is_err());
 }
 
 #[test]

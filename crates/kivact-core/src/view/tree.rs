@@ -13,12 +13,12 @@ use std::sync::Arc;
 
 use kivact_engine::api::{Prop, PropValue};
 use kivact_engine::api::{Reader, Writer};
-use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_engine::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::{DrawList, IdMap, NodeId, Rect, Size, WindowId};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_runtime::{Handler, NodeId as EffectId, Notifier, Owner, Signal, UiError};
+use kivact_runtime::{Handler, NodeId as EffectId, Owner, Signal, Trigger, UiError};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
@@ -258,13 +258,6 @@ pub(crate) struct Measured {
     pub(crate) layout_rect: crate::geometry::Rect,
 }
 
-/// The last layout report of a node that had no observation yet: its window
-/// layout box (`Measured`, when it has one) and whether its text was
-/// truncated. The engine reports a node once per change and does not repeat
-/// it, so a report that arrives before the observation exists is kept in
-/// `ViewNodes::layout_seeds`, and `observe_node` seeds the observation with it.
-pub(crate) type LayoutSeed = (Option<Measured>, bool);
-
 /// Sources shared by all node and region references bound to one host node.
 #[derive(Clone, Copy)]
 pub(crate) struct NodeObservation {
@@ -274,8 +267,11 @@ pub(crate) struct NodeObservation {
     /// one scroll fact; the offset and the scroll position are projections.
     pub(crate) scroll_geometry: Signal<ScrollState>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
-    pub(crate) scene_revision: Notifier,
-    pub(crate) editing_revision: Notifier,
+    /// The visibility facts of the node, its ancestors included. Only the
+    /// engine's `NodeFlagsChanged` writes it.
+    pub(crate) flags: Signal<kivact_engine::contract::NodeFlags>,
+    pub(crate) scene_revision: Trigger,
+    pub(crate) editing_revision: Trigger,
 }
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
@@ -284,7 +280,6 @@ pub(crate) struct NodeObservation {
 /// the tree again.
 #[must_use]
 pub(crate) struct Removed {
-    pub(crate) ids: Vec<NodeId>,
     #[allow(
         dead_code,
         reason = "removed user records must drop after the tree borrow"
@@ -330,6 +325,8 @@ pub(crate) struct CoreRare {
     pub(crate) presence: Option<Signal<kivact_types::Presence>>,
     /// The style layers the node was mounted with, for the DevTools.
     pub(crate) style_layers: Vec<crate::view::style_layer::StyleLayer>,
+    /// The asset failures reported for this node, by message (each once).
+    pub(crate) asset_failures: kivact_types::cell::ReportOnceSet<String>,
 }
 
 impl CoreNode {
@@ -357,12 +354,6 @@ impl CoreNode {
     /// The presence source, if a reference observes the node's lifetime.
     pub(crate) fn presence(&self) -> Option<Signal<kivact_types::Presence>> {
         self.rare.as_ref().and_then(|r| r.presence)
-    }
-
-    /// Whether a node reference is bound to the node (only such a node can get
-    /// an observation after its first layout report).
-    pub(crate) fn has_references(&self) -> bool {
-        self.rare.as_ref().is_some_and(|r| !r.references.is_empty())
     }
 
     /// The style layers the node was mounted with.
@@ -396,18 +387,11 @@ pub(crate) struct ViewNodes {
     engine: Writer,
     /// The DevTools hooks; None without DevTools.
     devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
-    pub(super) future_text_edits: Rc<std::cell::RefCell<TextEditsInFlight>>,
     leaving: IdMap<Leaving>,
     /// Which effect last set each dynamic prop and where semantics were
     /// declared, kept only while a recorder runs (DevTools, a test trace)
     /// or in debug builds.
     provenance: IdMap<Provenance>,
-    /// The latest layout report of each referenced node that has no observation yet
-    /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
-    layout_seeds: IdMap<LayoutSeed>,
-    /// Choice candidate invalidation; only Hidden changes notify it.
-    visibility_revision: Notifier,
-    live_region_revision: Notifier,
 }
 
 impl ViewNodes {
@@ -416,7 +400,6 @@ impl ViewNodes {
     /// window mounts (`create_root`).
     pub(crate) fn new(
         engine: Writer,
-        owner: Owner,
         devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
     ) -> Self {
         ViewNodes {
@@ -425,14 +408,8 @@ impl ViewNodes {
             roots: BTreeMap::new(),
             engine,
             devtools,
-            future_text_edits: Rc::new(std::cell::RefCell::new(
-                TextEditsInFlight(IdMap::default()),
-            )),
             leaving: IdMap::default(),
             provenance: IdMap::default(),
-            layout_seeds: IdMap::default(),
-            visibility_revision: owner.notifier(Location::caller()),
-            live_region_revision: owner.notifier(Location::caller()),
         }
     }
 
@@ -474,7 +451,6 @@ impl ViewNodes {
     pub(crate) fn release_capacity(&mut self) {
         self.nodes.0.shrink_to_fit();
         self.provenance.shrink_to_fit();
-        self.future_text_edits.borrow_mut().0.shrink_to_fit();
     }
 
     /// A new detached engine node of `window` and its owner metadata.
@@ -507,41 +483,44 @@ impl ViewNodes {
         self.engine.reader()
     }
 
-    /// A value-less visibility notification owned by the App root, for
-    /// choice controllers tracking ancestor visibility.
-    pub(crate) fn visibility_revision(&self) -> Notifier {
-        self.visibility_revision
-    }
-
-    /// Track changes to live-region ancestry.
-    pub(crate) fn live_region_revision(&self) -> Notifier {
-        self.live_region_revision
-    }
-
     /// Create the host-owned record before any reference publishes its binding.
+    /// The engine keeps the node's last layout report and its visibility
+    /// facts, so the observation starts from them and watches the flags.
     pub(crate) fn observe_node(
         &mut self,
         id: NodeId,
         at: &'static Location<'static>,
     ) -> Option<NodeObservation> {
         let image_status = self.reader().image_status(id);
+        let flags = self.reader().node_flags(id);
+        let (measured, text_truncated) = match self.reader().layout_report(id) {
+            Some(report) => (
+                report.layout_rect.map(|layout_rect| Measured {
+                    rect: report.rect,
+                    layout_rect,
+                }),
+                report.text_truncated,
+            ),
+            None => (None, false),
+        };
         let node = self.nodes.0.get_mut(&id)?;
         if let Some(observation) = node.observation() {
             return Some(observation);
         }
-        let (measured, text_truncated) = self.layout_seeds.remove(&id).unwrap_or_default();
         let observation = NodeObservation {
             measured: node.owner.signal(measured, at),
             text_truncated: node.owner.signal(text_truncated, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
             image_status: node.owner.signal(image_status, at),
-            scene_revision: node.owner.notifier(at),
-            editing_revision: node.owner.notifier(at),
+            flags: node.owner.signal(flags, at),
+            scene_revision: node.owner.trigger(at),
+            editing_revision: node.owner.trigger(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
         let scroll_geometry = observation.scroll_geometry;
         handlers.observe_scroll(move |state| scroll_geometry.set(state));
         node.rare_mut().observation = Some(observation);
+        self.engine().watch_flags(id, true);
         Some(observation)
     }
 
@@ -560,63 +539,6 @@ impl ViewNodes {
                 .presence
                 .get_or_insert_with(|| owner.signal(initial, at)),
         )
-    }
-
-    /// Match the host's Hidden inheritance from current engine properties.
-    /// Focusable and disabled remain node-local rules.
-    pub(crate) fn is_visible(&self, mut id: NodeId) -> bool {
-        loop {
-            let Some(_) = self.get(id) else {
-                return false;
-            };
-            if self.with_node(id, |node| {
-                node.is_some_and(|node| node.input.hidden == Some(true))
-            }) {
-                return false;
-            }
-            let Some(parent) = self.reader().parent(id) else {
-                return true;
-            };
-            id = parent;
-        }
-    }
-
-    fn is_live_region(&self, id: NodeId) -> bool {
-        self.with_node(id, |node| {
-            let semantics = node.and_then(|node| node.semantics.as_deref());
-            semantics.is_some_and(|semantics| {
-                matches!(
-                    semantics.role,
-                    Some(
-                        kivact_types::Role::Alert
-                            | kivact_types::Role::Status
-                            | kivact_types::Role::Log
-                    )
-                ) || matches!(
-                    semantics.live_region,
-                    Some(kivact_types::LiveRegion::Polite | kivact_types::LiveRegion::Assertive)
-                )
-            })
-        })
-    }
-
-    pub(crate) fn is_in_live_region(&self, mut id: NodeId) -> bool {
-        while self.get(id).is_some() {
-            if self.is_live_region(id) {
-                return true;
-            }
-            let Some(parent) = self.reader().parent(id) else {
-                return false;
-            };
-            id = parent;
-        }
-        false
-    }
-
-    fn notify_visibility(&self, changed: bool) {
-        if changed {
-            self.visibility_revision.notify_from_render();
-        }
     }
 
     /// The owned engine writer.
@@ -659,14 +581,21 @@ impl ViewNodes {
         self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
 
+    #[cfg(feature = "devtools")]
     pub(crate) fn hidden(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.hidden))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Hidden))
+        })
     }
     pub(crate) fn disabled(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.disabled))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Disabled))
+        })
     }
     pub(crate) fn focusable(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.focusable))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Focusable))
+        })
     }
     /// Write `value` to node `id`, attributing it to `writer`, the
     /// Render/Internal effect running (`Runtime::running_effect`).
@@ -687,25 +616,7 @@ impl ViewNodes {
                 None => provenance.origins.push((prop, writer)),
             }
         }
-        if prop == Prop::InputValue
-            && self
-                .future_text_edits
-                .borrow()
-                .0
-                .get(&id)
-                .is_some_and(|count| *count > 0)
-        {
-            return false;
-        }
-        let hides = prop == Prop::Hidden;
-        let was_hidden = hides && self.hidden(id) == Some(true);
-        let tracks_live = matches!(prop, Prop::Role | Prop::Semantics);
-        let was_live = tracks_live && self.is_live_region(id);
         let changed = self.engine().set(id, value);
-        self.notify_visibility(hides && was_hidden != (self.hidden(id) == Some(true)));
-        if tracks_live && changed && was_live != self.is_live_region(id) {
-            self.live_region_revision.notify_from_render();
-        }
         if let Some(h) = &self.devtools {
             h.prop_written(id, prop, writer, changed);
         }
@@ -770,10 +681,13 @@ impl ViewNodes {
         }
     }
 
-    /// Keep the latest layout report of `id` for the observation it may get
-    /// later (`observe_node` takes it).
-    pub(crate) fn note_layout(&mut self, id: NodeId, seed: LayoutSeed) {
-        self.layout_seeds.insert(id, seed);
+    /// Whether the failure `message` of `id`'s asset is new for this node
+    /// (reported once per node; forgotten with the node).
+    pub(crate) fn note_asset_failure(&mut self, id: NodeId, message: &str) -> bool {
+        match self.nodes.0.get_mut(&id) {
+            Some(node) => node.rare_mut().asset_failures.note(message.to_owned()),
+            None => false,
+        }
     }
 
     pub(crate) fn set_observe(&mut self, id: NodeId, on: bool) {
@@ -793,7 +707,6 @@ impl ViewNodes {
     pub(crate) fn remove(&mut self, id: NodeId) -> Removed {
         if !self.contains(id) {
             return Removed {
-                ids: Vec::new(),
                 records: Vec::new(),
             };
         }
@@ -801,8 +714,6 @@ impl ViewNodes {
         self.roots.retain(|_, root| !ids.contains(root));
         let mut records = Vec::new();
         for id in &ids {
-            self.future_text_edits.borrow_mut().0.remove(id);
-            self.layout_seeds.remove(id);
             self.provenance.remove(id);
             if let Some(record) = self.nodes.0.remove(id) {
                 for reference in record.rare.iter().flat_map(|r| r.references.iter()) {
@@ -817,7 +728,7 @@ impl ViewNodes {
                 records.push(record);
             }
         }
-        Removed { ids, records }
+        Removed { records }
     }
 
     /// Transparent boxes preserve each top-level child's exit policy. Retained
@@ -938,7 +849,7 @@ impl ViewNodes {
     fn overlay_hidden(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
             node.is_some_and(|node| {
-                node.input.hidden == Some(true)
+                node.input.flags.get(InputFlag::Hidden) == Some(true)
                     || node.layout.as_ref().is_some_and(|layout| layout.hidden)
             })
         })
@@ -1004,7 +915,7 @@ impl ViewNodes {
         }
         let text_input = self.with_node(id, |node| node.is_some_and(|node| node.editing.is_some()));
         let retain = self.with_node(id, |node| {
-            node.is_some_and(|n| n.input.focusable_when_disabled == Some(true))
+            node.is_some_and(|n| n.input.flags.get(InputFlag::FocusableWhenDisabled) == Some(true))
         });
         self.focusable(id).unwrap_or(text_input) && (retain || self.disabled(id) != Some(true))
     }
@@ -1023,5 +934,3 @@ impl ViewNodes {
 struct Leaving {
     on_exit: kivact_runtime::Handler<()>,
 }
-
-pub(super) struct TextEditsInFlight(pub(super) IdMap<u32>);

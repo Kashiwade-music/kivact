@@ -4,6 +4,7 @@
 
 #![cfg(any(windows, target_os = "linux"))]
 
+use kivact::view::WindowMode;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

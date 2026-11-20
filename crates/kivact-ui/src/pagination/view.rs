@@ -2,7 +2,7 @@
 
 use crate::pagination::look::PaginationSummary;
 use crate::pagination::look::{PageItem, PaginationMode};
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, memo};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, memo};
 use kivact_core::view::{
     CurrentItem, Element, IntoView, Node, Orientation, Role, View, for_each, node, text,
 };
@@ -12,13 +12,13 @@ use std::rc::Rc;
 /// Page controls backed by the application's zero-based page binding.
 pub struct Pagination {
     root: Node,
-    page: Binding<usize>,
+    page: Signal<usize>,
     count: PageCount,
     siblings: Value<usize>,
     first_last: Value<bool>,
     step: Value<usize>,
     has_more: Value<bool>,
-    page_size: Option<Binding<u32>>,
+    page_size: Option<Signal<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     mode: PaginationMode,
@@ -34,12 +34,12 @@ enum PageCount {
 }
 /// Construct pagination for `count` pages and a caller-owned page index.
 #[track_caller]
-pub fn pagination(count: impl IntoValue<usize>, page: impl IntoBinding<usize>) -> Pagination {
+pub fn pagination(count: impl IntoValue<usize>, page: Signal<usize>) -> Pagination {
     Pagination {
         root: node()
             .role(Role::Navigation)
             .name(kivact_core::i18n::message("pagination.label", "Pagination")),
-        page: page.into_binding(),
+        page,
         count: PageCount::Pages(count.into_value()),
         siblings: 1usize.into_value(),
         first_last: false.into_value(),
@@ -83,8 +83,8 @@ impl Pagination {
         self
     }
     /// Bind the number of items per page.
-    pub fn page_size(mut self, value: impl IntoBinding<u32>) -> Self {
-        self.page_size = Some(value.into_binding());
+    pub fn page_size(mut self, value: Signal<u32>) -> Self {
+        self.page_size = Some(value);
         self
     }
     /// Offer these page sizes in a select control.
@@ -244,7 +244,7 @@ struct PageOptions {
 }
 fn page_control(
     cell: PageItem,
-    page: Binding<usize>,
+    page: Signal<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,
@@ -348,7 +348,7 @@ fn visible_cells(
         cells
     })
 }
-fn page_count(count: PageCount, page_size: Option<Binding<u32>>) -> Value<usize> {
+fn page_count(count: PageCount, page_size: Option<Signal<u32>>) -> Value<usize> {
     memo(move || match &count {
         PageCount::Items(total) => total
             .get()
@@ -357,7 +357,7 @@ fn page_count(count: PageCount, page_size: Option<Binding<u32>>) -> Value<usize>
         PageCount::Pages(count) => count.get(),
     })
 }
-fn size_selector(size: Binding<u32>, size_options: Value<Vec<u32>>, page: Binding<usize>) -> View {
+fn size_selector(size: Signal<u32>, size_options: Value<Vec<u32>>, page: Signal<usize>) -> View {
     crate::select(
         "Items per page",
         move || {
@@ -408,7 +408,7 @@ fn page_content(cell: PageItem, options: &PageOptions) -> (String, View) {
 
 fn summary_source(
     total: Option<Value<u64>>,
-    size: Option<Binding<u32>>,
+    size: Option<Signal<u32>>,
     page: Value<usize>,
     count: Value<usize>,
     has_more: Value<bool>,
@@ -454,7 +454,7 @@ struct DotNavigation {
 fn dot_control(
     control: crate::Button,
     dot: DotNavigation,
-    page: Binding<usize>,
+    page: Signal<usize>,
     selected: Value<bool>,
     disabled: Value<bool>,
 ) -> crate::Button {
@@ -468,8 +468,8 @@ fn dot_control(
                 return Handled::No;
             }
             let forward = match event.key() {
-                Key::ArrowLeft => direction.get_untracked() == ReadingDirection::Rtl,
-                Key::ArrowRight => direction.get_untracked() != ReadingDirection::Rtl,
+                Key::ArrowLeft => direction == ReadingDirection::Rtl,
+                Key::ArrowRight => direction != ReadingDirection::Rtl,
                 _ => return Handled::No,
             };
             let count = dot.targets.len();
@@ -488,7 +488,7 @@ struct ControlContent {
     input: Option<View>,
 }
 fn render_controls(
-    page: Binding<usize>,
+    page: Signal<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,
@@ -536,7 +536,7 @@ fn render_controls(
         .into_view()
 }
 fn compact_controls(
-    page: Binding<usize>,
+    page: Signal<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,
@@ -589,7 +589,7 @@ fn compact_controls(
 }
 
 fn dot_controls(
-    page: Binding<usize>,
+    page: Signal<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,
@@ -694,14 +694,14 @@ fn control_disabled(
 
 struct PageExtras {
     summary: Option<SummarySlot>,
-    page_size: Option<Binding<u32>>,
+    page_size: Option<Signal<u32>>,
     size_options: Value<Vec<u32>>,
     page_label: Value<String>,
     facts: Value<PaginationSummary>,
 }
 fn render_pagination(
     root: Node,
-    page: Binding<usize>,
+    page: Signal<usize>,
     current: Value<usize>,
     count: Value<usize>,
     disabled: Value<bool>,

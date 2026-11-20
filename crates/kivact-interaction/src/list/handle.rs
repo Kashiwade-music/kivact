@@ -9,8 +9,8 @@ use crate::axis::check_list_axis;
 use crate::collection::{Index, Membership};
 use kivact_core::custom::{Owned, Part, PartState, require_effectful, require_setup};
 use kivact_core::state::Selector;
-use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoValue, callback};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::{Handled, HandlerResult, Key, KeyEvent};
 use std::rc::Rc;
 
@@ -148,10 +148,9 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
     /// Share an authoritative range anchor with other list instances.
     /// Setup only; later binding writes remain reactive.
     #[track_caller]
-    pub fn with_anchor(self, anchor: impl kivact_core::state::IntoBinding<Option<K>>) -> Self {
+    pub fn with_anchor(self, anchor: kivact_core::state::Signal<Option<K>>) -> Self {
         let state = self.state();
         require_setup("ListApi::anchor");
-        let anchor = anchor.into_binding();
         state.options.update(|options| options.anchor = anchor);
         self
     }
@@ -330,7 +329,7 @@ impl<K: kivact_core::state::ItemKey> ListApi<K> {
         self.state().holds_focus(key)
     }
     #[track_caller]
-    pub(crate) fn shared_highlight(self, highlight: Binding<Option<K>>) -> Self {
+    pub(crate) fn shared_highlight(self, highlight: Signal<Option<K>>) -> Self {
         let state = self.state();
         state.roving.requested.bind(highlight);
         // Composite owners decide when their shared highlight resets.

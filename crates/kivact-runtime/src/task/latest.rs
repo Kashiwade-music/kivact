@@ -5,7 +5,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::state::TaskCell;
-use crate::{Owned, Owner, Runtime};
+use crate::driver::Runtime;
+use crate::{Owned, Owner};
 use kivact_types::cell::Generation;
 
 /// The run in flight: its owner task and its id.

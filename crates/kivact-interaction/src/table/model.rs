@@ -1,9 +1,9 @@
 //! Role: A headless row model: filter, sort and page the caller's rows by column.
 
 use super::data::{Header, SortOrder};
-use kivact_core::custom::Reactive;
-use kivact_core::state::{Binding, Signal, Value, Var, memo, signal, var};
+use kivact_core::custom::Prop;
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, Var, memo, signal, var};
 use std::cmp::Ordering;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -61,13 +61,13 @@ impl FilterValue {
 /// [`filter`](Self::filter) does not take part in filtering.
 pub struct ColumnDef<R, C> {
     key: C,
-    label: Reactive<String>,
+    label: Prop<String>,
     width: Option<f64>,
     pub(super) min_width: Option<f64>,
     compare: Option<Compare<R>>,
     matches: Option<Matches<R>>,
     matches_value: Option<MatchesValue<R>>,
-    visible: Reactive<bool>,
+    visible: Prop<bool>,
 }
 
 impl<R, C: Clone> Clone for ColumnDef<R, C> {
@@ -90,13 +90,13 @@ impl<R, C> ColumnDef<R, C> {
     pub fn new(key: C, label: impl IntoText) -> Self {
         Self {
             key,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             width: None,
             min_width: None,
             compare: None,
             matches: None,
             matches_value: None,
-            visible: Reactive::new(true),
+            visible: Prop::new(true),
         }
     }
 
@@ -124,7 +124,7 @@ impl<R, C> ColumnDef<R, C> {
     /// Show the column while true (a constant or a reactive value). A hidden
     /// column is left out of [`DataTableModelApi::columns`] and of filtering.
     pub fn visible(mut self, visible: impl IntoValue<bool>) -> Self {
-        self.visible = Reactive::new(visible);
+        self.visible = Prop::new(visible);
         self
     }
 
@@ -169,7 +169,7 @@ impl<R, C> ColumnDef<R, C> {
     /// The reactive label text of the current owner.
     #[track_caller]
     pub fn label(&self) -> Value<String> {
-        self.label.clone().into_value()
+        IntoValue::into_value(self.label.clone())
     }
 
     /// Whether a header activation sorts by the column (it has a
@@ -228,7 +228,7 @@ impl<R, C: PartialEq> PartialEq for ColumnDef<R, C> {
 /// The page a model shows: its number (from 0) and its size in rows.
 #[derive(Clone, Copy)]
 struct Paging {
-    index: Binding<usize>,
+    index: Signal<usize>,
     size: Value<usize>,
 }
 
@@ -406,8 +406,7 @@ impl<
     /// column without a compare function keeps the caller's order. Give the same binding to
     /// [`DataTableApi::sort`](crate::DataTableApi::sort). Setup only.
     #[track_caller]
-    pub fn sort(self, sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>) -> Self {
-        let sort = sort.into_binding();
+    pub fn sort(self, sort: kivact_core::state::Signal<Option<(C, SortOrder)>>) -> Self {
         self.multi_sort(move || sort.get().into_iter().collect())
     }
 
@@ -461,11 +460,11 @@ impl<
     #[track_caller]
     pub fn page(
         self,
-        index: impl kivact_core::state::IntoBinding<usize>,
+        index: kivact_core::state::Signal<usize>,
         size: impl IntoValue<usize>,
     ) -> Self {
         let paging = Paging {
-            index: index.into_binding(),
+            index,
             size: size.into_value(),
         };
         self.paging.update(|current| *current = Some(paging));

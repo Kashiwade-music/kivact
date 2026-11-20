@@ -3,7 +3,8 @@
 use std::panic::Location;
 
 use kivact_engine::contract::{HostRequest, SnapshotResult};
-use kivact_runtime::{Completion, ErrorKind, Owner, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Completion, ErrorKind, Owner, UiError};
 use kivact_types::{NodeId, Pixels, RequestId};
 
 use super::state::{ViewState, Waiter};

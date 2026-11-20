@@ -4,8 +4,8 @@
 //! Public-driver state checks for the complete Pop catalogue.
 
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
-use kivact::view::MouseButton;
+use kivact::test::{RenderOptions, Screen, render_with};
+use kivact::view::Modifiers;
 use kivact_ui_pop_catalog::{catalog, fonts, locale, messages};
 use std::time::Duration;
 
@@ -42,9 +42,7 @@ fn mount() -> Screen {
             .locale(locale())
             .messages(messages())
             .reduced_motion()
-            .fonts(TestFonts::Only(
-                fonts().iter().map(|&bytes| bytes.into()).collect(),
-            )),
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     )
 }

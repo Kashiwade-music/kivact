@@ -1,8 +1,11 @@
 //! Role: Verify APG grid navigation and table cell semantics through public parts.
 use kivact::interaction::{ColumnDef, TableFocus, use_data_table};
+use kivact::interaction::{Selection, Tone};
 use kivact::prelude::*;
 use kivact::test::Locator;
 use kivact::ui::RowStatus;
+use kivact::ui::{DataColumn, data_table};
+use kivact::view::{Modifiers, Node};
 use kivact_public_api_tests::support::mount;
 
 fn interactive_table() -> Node {
@@ -13,7 +16,7 @@ fn interactive_table() -> Node {
             ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b)),
             ColumnDef::new(1, "Value").compare(|a: &i32, b: &i32| a.cmp(b)),
         ],
-        Selection::Single(signal(None::<i32>).into_binding()),
+        Selection::Single(signal(None::<i32>)),
         TableFocus::default(),
     );
     column((

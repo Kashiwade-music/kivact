@@ -5,9 +5,10 @@ use crate::alert::look::Expansion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::{NodeToken, Owner};
+use kivact_core::state::IntoHandler;
 use kivact_core::state::{
-    Binding, Callback, IntoBinding, IntoText, IntoValue, Machine, MachineHandle, Step, Value,
-    effect, machine, signal,
+    Callback, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, effect, machine,
+    signal,
 };
 use kivact_core::view::{
     Element, IntoView, IntoViewFn, LiveRegion, Node, NodeRef, Role, View, ViewFn, node, node_ref,
@@ -50,7 +51,7 @@ pub struct Alert {
     dismiss_label: Value<String>,
     dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
-    open: Option<Binding<bool>>,
+    open: Option<Signal<bool>>,
     variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
@@ -124,17 +125,19 @@ impl Alert {
         self
     }
     /// Show a dismiss control and report dismissal after restoring focus.
-    pub fn on_dismiss(mut self, f: impl Into<Callback<()>>) -> Self {
+    pub fn on_dismiss<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
         self.dismissible = true.into_value();
-        self.dismiss = Some(f.into());
+        self.dismiss = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        ));
         self
     }
     /// Use application-owned open state: the expanded details when the alert
     /// has collapsible details, otherwise the alert's visibility. A refused
     /// false visibility write keeps the alert visible; completed dismissal and
     /// focus restoration happen only after acceptance.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Set a structural or theme-defined appearance.
@@ -159,12 +162,9 @@ impl IntoView for Alert {
         // The alert has one open state: its disclosure when it has collapsible
         // details, otherwise its visibility.
         let (details, visible) = if has_details && fixed {
-            (
-                self.open.unwrap_or_else(|| signal(false).into_binding()),
-                None,
-            )
+            (self.open.unwrap_or_else(|| signal(false)), None)
         } else {
-            (signal(false).into_binding(), self.open)
+            (signal(false), self.open)
         };
         let phase = banner_dismissal(reference, self.dismiss.take(), visible);
         let has_icon = self.icon.is_some();
@@ -197,7 +197,7 @@ impl Alert {
         &mut self,
         state: impl Fn() -> AlertState + Copy + 'static,
         collapsible: Value<bool>,
-        open: Binding<bool>,
+        open: Signal<bool>,
         phase: MachineHandle<BannerMachine>,
     ) -> View {
         let variants = &self.variants;
@@ -300,7 +300,7 @@ fn alert_header(
 }
 fn expansion_toggle(
     has_details: bool,
-    open: Binding<bool>,
+    open: Signal<bool>,
     collapsible: Value<bool>,
     variants: &Variants,
     state: impl Fn() -> AlertState + Copy + 'static,
@@ -396,7 +396,7 @@ impl Machine for BannerMachine {
 fn banner_dismissal(
     reference: NodeRef,
     callback: Option<Callback<()>>,
-    visible: Option<Binding<bool>>,
+    visible: Option<Signal<bool>>,
 ) -> MachineHandle<BannerMachine> {
     let initial = match visible {
         Some(visible) if !visible.get_untracked() => BannerState::Hidden,

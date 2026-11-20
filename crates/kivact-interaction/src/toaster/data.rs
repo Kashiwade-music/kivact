@@ -184,12 +184,15 @@ impl Toast {
     /// included. `on` may return `()` or `Result<(), UiError>`; an error, or
     /// a panic such as writing a signal whose component is gone, is
     /// reported where the action button's press is.
-    pub fn action(
+    pub fn action<M>(
         mut self,
         label: impl Into<String>,
-        on: impl Into<kivact_core::state::Callback<()>>,
+        on: impl kivact_core::state::IntoHandler<(), M>,
     ) -> Self {
-        self.action = Some((label.into(), on.into()));
+        let on = kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(on),
+        );
+        self.action = Some((label.into(), on));
         self
     }
 

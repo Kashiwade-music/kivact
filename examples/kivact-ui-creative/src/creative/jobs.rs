@@ -7,11 +7,11 @@ use kivact::geometry::Rect;
 use kivact::interaction::toaster;
 use kivact::motion::FrameRate;
 use kivact::motion::frame_loop;
-use kivact::prelude::{
-    Element, IntoValue, IntoView, Node, Signal, effect, node, row, signal, spacer, text,
-};
+use kivact::prelude::{Element, IntoView, Signal, effect, node, row, signal, spacer, text};
+use kivact::state::IntoValue;
 use kivact::style::GridPlacement;
 use kivact::style::style;
+use kivact::view::Node;
 use kivact_ui_creative as ui;
 
 #[derive(Clone, PartialEq)]

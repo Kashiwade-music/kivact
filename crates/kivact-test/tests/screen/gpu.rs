@@ -267,7 +267,7 @@ fn shot_of(gpu: bool, scene: fn() -> kivact_core::view::View) -> (Screenshot, Op
         .window_size(480.0, 360.0)
         .mirror(MirrorMode::Required);
     let options = if gpu { options.gpu() } else { options };
-    let screen = Screen::start(options, Vec::new(), Box::new(scene), Location::caller());
+    let screen = Screen::start(options, Box::new(scene), Location::caller());
     let shot = screen.screenshot();
     let renderer = screen.with_host(|host| host.renderer(WindowId::MAIN));
     (shot, renderer)
@@ -316,7 +316,6 @@ fn gpu_host_state_transition_matches_the_cpu_intermediate_frame() {
         let options = if gpu { options.gpu() } else { options };
         let screen = Screen::start(
             options,
-            Vec::new(),
             Box::new(|| {
                 node()
                     .child(text("motion"))
@@ -480,7 +479,6 @@ fn gpu_frames_follow_a_scale_change() {
         let options = if gpu { options.gpu() } else { options };
         Screen::start(
             options,
-            Vec::new(),
             Box::new(|| representative().into_view()),
             Location::caller(),
         )

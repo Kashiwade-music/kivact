@@ -1,7 +1,7 @@
 //! Role: The stepper builder, its items, indicators, responsive layout and navigation.
 
 use crate::stepper::look::{StepIndicatorKind, StepStatus, StepperItemState, StepperState};
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::{
@@ -36,11 +36,11 @@ impl StepIndicator {
 /// Passive step metadata; labels can be localized or reactive.
 #[derive(Clone, PartialEq)]
 pub struct StepperItem {
-    label: Reactive<String>,
-    description: Option<Reactive<String>>,
+    label: Prop<String>,
+    description: Option<Prop<String>>,
     status: StepStatus,
-    disabled: Reactive<bool>,
-    optional: Reactive<bool>,
+    disabled: Prop<bool>,
+    optional: Prop<bool>,
     indicator: StepIndicator,
     content: Option<Content>,
     end_content: Option<Content>,
@@ -56,11 +56,11 @@ impl StepperItem {
     /// Create a step with the given visible label.
     pub fn new(label: impl IntoText) -> Self {
         Self {
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             description: None,
             status: StepStatus::Default,
-            disabled: Reactive::new(false),
-            optional: Reactive::new(false),
+            disabled: Prop::new(false),
+            optional: Prop::new(false),
             indicator: StepIndicator::Auto,
             content: None,
             end_content: None,
@@ -68,7 +68,7 @@ impl StepperItem {
     }
     /// Add supporting text beneath the label.
     pub fn description(mut self, description: impl IntoText) -> Self {
-        self.description = Some(Reactive::new(description.into_text()));
+        self.description = Some(Prop::new(description.into_text()));
         self
     }
     /// Set semantic status for recipes and assistive descriptions.
@@ -78,12 +78,12 @@ impl StepperItem {
     }
     /// Prevent activation of this step.
     pub fn disabled(mut self, disabled: impl IntoValue<bool>) -> Self {
-        self.disabled = Reactive::new(disabled);
+        self.disabled = Prop::new(disabled);
         self
     }
     /// Mark a step as optional.
     pub fn optional(mut self, optional: impl IntoValue<bool>) -> Self {
-        self.optional = Reactive::new(optional);
+        self.optional = Prop::new(optional);
         self
     }
     /// Choose automatic completion marks, numbers, or no indicator.
@@ -374,7 +374,10 @@ fn step_contents(
         .child(indicator)
     });
     let label = crate::layer::with_recipe_style(
-        text(item.label.clone()),
+        text({
+            let label = item.label.clone();
+            move || label.get()
+        }),
         |r| r.stepper_recipes().label_recipe(),
         variants,
         state,
@@ -438,7 +441,7 @@ fn step_details(
 ) -> (Option<View>, Option<View>, Option<View>) {
     let description = item.description.map(|description| {
         crate::layer::with_recipe_style(
-            text(description),
+            text(move || description.get()),
             |r| r.stepper_recipes().description_recipe(),
             variants,
             state,

@@ -1,25 +1,12 @@
 //! Role: Shared application launch and read-only inspection boundary.
 mod close;
 mod inspect;
+mod policy;
 mod runtime;
 mod settings;
+mod turn;
+pub(crate) use close::begin_exit;
 pub use inspect::{Inspect, LaunchHandle};
-pub(crate) use runtime::run_native;
-pub use runtime::{ClientMode, Launch, TestTiming};
-pub use settings::AppOptions;
-
-/// An adapter's identity, as the graphics APIs report it.
-#[doc(inline)]
-pub use kivact_types::AdapterMatch;
-/// A graphics API the window's GPU device can use.
-#[doc(inline)]
-pub use kivact_types::GpuBackend;
-/// Which kind of adapter an App prefers ([`App::gpu_preference`](crate::App::gpu_preference)).
-#[doc(inline)]
-pub use kivact_types::GpuPower;
-/// What an App wishes of the window's GPU device ([`App::gpu_preference`](crate::App::gpu_preference)).
-#[doc(inline)]
-pub use kivact_types::GpuPreference;
-/// When the window's GPU device is started (`GpuPreference::start`).
-#[doc(inline)]
-pub use kivact_types::gpu::GpuStart;
+pub use policy::LaunchPolicy;
+pub(crate) use runtime::{Launch, run_native};
+pub(crate) use settings::AppSettings;

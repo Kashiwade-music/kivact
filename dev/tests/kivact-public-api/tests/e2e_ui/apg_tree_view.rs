@@ -1,6 +1,7 @@
 //! Role: Verify APG multi-select tree entry uses visible node order.
 use kivact::interaction::{TreeNode, use_tree};
 use kivact::prelude::*;
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount;
 
 #[test]

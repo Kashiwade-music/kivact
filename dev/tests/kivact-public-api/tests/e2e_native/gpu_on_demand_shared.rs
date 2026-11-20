@@ -14,7 +14,6 @@ use std::time::{Duration, Instant};
 
 use gpu_interop_producer::{Producer, pattern};
 use kivact::draw::ImageOptions;
-use kivact::geometry::Rect;
 use kivact::gpu_interop::{self, ShareMode, ShareStatus, SharedImage};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Renderer, Screen};

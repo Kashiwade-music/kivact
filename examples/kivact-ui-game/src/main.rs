@@ -7,5 +7,6 @@ fn main() -> kivact::Result<()> {
     let app = App::new("Kivact · Official UI · Game")
         .locale(locale())
         .messages(messages());
-    app.fonts(fonts().iter().copied()).run(catalog)
+    app.theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied()))
+        .run(catalog)
 }

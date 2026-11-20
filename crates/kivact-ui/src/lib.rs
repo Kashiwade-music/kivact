@@ -107,7 +107,7 @@
 //! official UI guide.
 //!
 //! Handlers are closures. One without a payload takes
-//! `impl Into<Callback<()>>` (a closure `move || ..` or a shared `Callback`);
+//! `impl IntoHandler<(), M>` (a closure `move || ..` or a shared `Callback`);
 //! one with a payload takes `impl Fn(T) -> R`, where `R` is `()` or
 //! `Result<(), UiError>`. Bool options such as [`Button::hide_label`] take a constant or a reactive value.
 //!

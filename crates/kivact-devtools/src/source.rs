@@ -1,5 +1,6 @@
 //! Role: Where the DevTools app gets its data: a live agent or fixed answers for tests.
 
+use kivact::task::blocking;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::sync::Arc;

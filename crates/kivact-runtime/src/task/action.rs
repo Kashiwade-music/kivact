@@ -1,26 +1,22 @@
 //! Role: `Action<T, I>`: a user-triggered async operation with a run policy.
 //!
-//! `action(policy, run)` fixes how runs execute: `ActionMode::Latest` starts
-//! each run at once and cancels the previous one; `Queue` and `QueueLatest`
-//! run one at a time on a worker, the second keeping only the newest waiting
-//! run. `retry` re-runs the input of the latest run; `on_complete` handlers
-//! (several) run in the same turn as the publish.
+//! `action(run)` starts each run at once and cancels the one in flight (the
+//! latest input wins). `queued_action(run)` runs its inputs one at a time, in
+//! submission order, on a worker. `retry` re-runs the input of the latest
+//! run; `on_complete` handlers (several) run in the same turn as the publish.
 //!
-//! The policy chooses the cell's `Runner` (an owner task for `Latest`, a
-//! worker queue otherwise); only a queue is detached when the owner is
-//! disposed (it then drops its `on_complete` handlers, reports failures to the
-//! default sink and drains within 3 s, `drain`). Closing the App
-//! (`CloseRequested`) waits for queued actions with the same deadline.
+//! The cell's `Runner` is an owner task for `action` and a worker queue for
+//! `queued_action`. Disposing the action's owner cancels every run (queued
+//! ones included), drops its `on_complete` handlers, and the action never
+//! publishes again (12 章 ST-07, ST-08). App exit waits for the queued runs
+//! of live actions (the exit drain in `host.rs`).
 //!
 //! Invariants:
-//! - A `Latest` run's task belongs to the action's owner and is cancelled
-//!   with it. A queue's worker (each run's synchronous part and every poll
-//!   of its future) runs for the action's owner, so `context`, `spawn`,
+//! - A run's task belongs to the action's owner and is cancelled with it. A
+//!   queue's worker (each run's synchronous part and every poll of its
+//!   future) runs for the action's owner, so `context`, `spawn`,
 //!   `platform::window_size` and `platform::copy_text` inside a run behave
-//!   as in the owner's handlers. After the owner is disposed a queue is detached and
-//!   drains for the same, now disposed, owner (`drain`): those functions
-//!   then raise a located `Disposed` instead of attaching anything to an
-//!   owner that is gone.
+//!   as in the owner's handlers.
 //! - The run closure and every poll of its future are untracked: what they
 //!   read is not a dependency of the effect that called `run`.
 //! - Each `on_complete` handler runs for the owner that registered it (`context`
@@ -33,35 +29,15 @@ use std::collections::VecDeque;
 use std::panic::Location;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::task::Waker;
-use std::time::Duration;
 
-use super::async_state::{AsyncCell, AsyncState, cancelled};
-use super::drain::{CloseFuture, DEFAULT_DRAIN_NS};
+use super::async_state::{AsyncCell, AsyncState, RunInfo, cancelled};
 use super::executor::RawTask;
 use super::latest::LatestRun;
 use super::state::Drain;
-use crate::{AppId, ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, require_effectful};
-
-/// How an [`Action`] schedules a new run.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum ActionMode {
-    /// Start at once; a pending run is cancelled (latest wins). The run is
-    /// cancelled when the action's owner is disposed.
-    Latest,
-    /// Run one at a time in `run` order. State stays pending while work remains;
-    /// each completion is delivered to its handlers. After the action's
-    /// owner is disposed the waiting runs keep going for up to 3 s, and
-    /// closing the App waits for them with the same deadline; leftovers
-    /// are reported as `ErrorKind::Closed`.
-    Queue,
-    /// Like `Queue`, but a new run replaces the waiting one; the running
-    /// one is never overtaken.
-    QueueLatest,
-}
+use crate::driver::Runtime;
+use crate::{AppId, Handler, HandlerResult, Owned, Owner, UiError, require_effectful};
 
 type RunFn<T, I> = Rc<dyn Fn(&I) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>>>;
-type DoneFn<T> = crate::Handler<Result<T, UiError>>;
 
 /// A registered `on_complete` handler.
 struct DoneHandler<T: 'static> {
@@ -69,78 +45,23 @@ struct DoneHandler<T: 'static> {
     id: Generation,
     /// The registering owner: the handler runs for it.
     owner: Owner,
-    f: DoneFn<T>,
+    f: Handler<Result<T, UiError>>,
 }
 
-/// A run's input and attempt (1 for `run`, one more per `retry`).
-struct Submitted<I> {
-    input: Rc<I>,
-    attempt: u32,
-}
-
-impl<I> Clone for Submitted<I> {
-    fn clone(&self) -> Self {
-        Submitted {
-            input: self.input.clone(),
-            attempt: self.attempt,
-        }
-    }
-}
-
-/// How the runs of an action execute, fixed by its `ActionMode`.
+/// How the runs of an action execute, fixed by its constructor.
 enum Runner<I: 'static> {
-    /// `Latest`: one owner task; a new run cancels the one in flight.
-    Latest(Rc<LatestRun>, Cell<Acceptance>),
-    /// `Queue` and `QueueLatest`: one run at a time on a worker task.
-    Queue(Queue<I>),
+    /// `action`: one owner task; a new run cancels the one in flight.
+    Latest(Rc<LatestRun>),
+    /// `queued_action`: one run at a time on a worker task.
+    Queue(RefCell<Queue<I>>),
 }
 
-/// Which waiting runs a queue keeps when a new run arrives.
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum QueueMode {
-    /// `Queue`: every run, in `run` order.
-    Fifo,
-    /// `QueueLatest`: only the newest waiting run.
-    Newest,
-}
-
-// xtask-allow(state): legacy: phase, next_worker_id
+/// The worker task of a queue and the runs waiting for it.
 struct Queue<I: 'static> {
-    mode: QueueMode,
-    phase: RefCell<ActionPhase<I>>,
-    /// Allocates worker ids; the current worker's id lives in `Worker::Picking`/`Running`.
-    next_worker_id: Cell<Generation>,
-}
-
-/// Queue ownership and lifecycle retain work together through close and detach.
-enum ActionPhase<I> {
-    Open {
-        worker: Worker,
-        waiting: VecDeque<Submitted<I>>,
-    },
-    Closed {
-        worker: Worker,
-        waiting: VecDeque<Submitted<I>>,
-    },
-    Detached(QueueDrain<I>),
-}
-struct QueueDrain<I> {
     worker: Worker,
-    waiting: VecDeque<Submitted<I>>,
-}
-impl<I> ActionPhase<I> {
-    fn parts(&self) -> (&Worker, &VecDeque<Submitted<I>>) {
-        match self {
-            Self::Open { worker, waiting } | Self::Closed { worker, waiting } => (worker, waiting),
-            Self::Detached(drain) => (&drain.worker, &drain.waiting),
-        }
-    }
-    fn parts_mut(&mut self) -> (&mut Worker, &mut VecDeque<Submitted<I>>) {
-        match self {
-            Self::Open { worker, waiting } | Self::Closed { worker, waiting } => (worker, waiting),
-            Self::Detached(drain) => (&mut drain.worker, &mut drain.waiting),
-        }
-    }
+    waiting: VecDeque<RunInfo<I>>,
+    /// Allocates worker ids; the current worker's id lives in `Worker::Picking`/`Running`.
+    next_worker_id: Generation,
 }
 
 /// The worker task of a queue.
@@ -153,113 +74,33 @@ enum Worker {
     Running { task: RawTask, id: Generation },
 }
 
-impl<I: 'static> Queue<I> {
-    fn new(mode: QueueMode) -> Self {
-        Queue {
-            mode,
-            phase: RefCell::new(ActionPhase::Open {
-                worker: Worker::Stopped,
-                waiting: VecDeque::new(),
-            }),
-            next_worker_id: Cell::new(Generation::new()),
-        }
-    }
-
-    fn replace_worker(&self, next: Worker) -> Worker {
-        std::mem::replace(self.phase.borrow_mut().parts_mut().0, next)
-    }
-    fn close(&self) {
-        let mut phase = self.phase.borrow_mut();
-        if matches!(*phase, ActionPhase::Open { .. }) {
-            let (worker, waiting) = phase.parts_mut();
-            let next = ActionPhase::Closed {
-                worker: std::mem::replace(worker, Worker::Stopped),
-                waiting: std::mem::take(waiting),
-            };
-            *phase = next;
-        }
-    }
-    fn detach(&self) {
-        let mut phase = self.phase.borrow_mut();
-        let (worker, waiting) = phase.parts_mut();
-        let drain = QueueDrain {
-            worker: std::mem::replace(worker, Worker::Stopped),
-            waiting: std::mem::take(waiting),
-        };
-        *phase = ActionPhase::Detached(drain);
-    }
-
-    /// A run is running or waiting.
-    fn busy(&self) -> bool {
-        matches!(
-            *self.phase.borrow().parts().0,
-            Worker::Running { .. } | Worker::Picking { .. }
-        ) || !self.phase.borrow().parts().1.is_empty()
-    }
-
-    /// Whether worker `id` is the current worker.
-    fn is_worker(&self, id: Generation) -> bool {
-        match self.phase.borrow().parts().0 {
-            Worker::Picking { id: w, .. } | Worker::Running { id: w, .. } => *w == id,
-            Worker::Stopped => false,
-        }
-    }
-
-    /// The current worker starts (`true`) or ends (`false`) a run.
-    fn set_running(&self, running: bool) {
-        let mut phase = self.phase.borrow_mut();
-        let (worker, _) = phase.parts_mut();
-        *worker = match std::mem::replace(worker, Worker::Stopped) {
-            Worker::Picking { task, id } | Worker::Running { task, id } => {
-                if running {
-                    Worker::Running { task, id }
-                } else {
-                    Worker::Picking { task, id }
-                }
-            }
-            Worker::Stopped => unreachable!("invariant: only the current worker marks its runs"),
-        };
-    }
-
-    /// Drop the waiting runs and the worker; returns how many runs were dropped.
-    fn abandon(&self) -> usize {
-        let running = matches!(*self.phase.borrow().parts().0, Worker::Running { .. });
-        let n = self.phase.borrow().parts().1.len() + usize::from(running);
-        self.phase.borrow_mut().parts_mut().1.clear();
-        // Dropping the task stops the worker; one polling right now sees it is
-        // not current and returns.
-        drop(self.replace_worker(Worker::Stopped));
-        n
-    }
-}
-
+/// Whether the action's owner still shows it. Disposing the owner cancels
+/// every run (queued ones included) and the action never publishes again
+/// (12 章 ST-07, ST-08).
 #[derive(Clone, Copy, PartialEq, Eq)]
-enum Acceptance {
+enum Lifecycle {
     Open,
-    Closed,
+    Disposed,
 }
 
-// xtask-allow(state): legacy: last is written only by ActionCell::begin_run (the input of the latest started run; last, drained, on_complete, next_handler_id; written only by
+// xtask-allow(state): lifecycle is the only phase (open, or disposed with its owner); on_complete is a registration list and next_handler_id an id allocator, both valid in either phase
 pub(crate) struct ActionCell<T: 'static, I: 'static> {
     app: AppId,
     /// The owner the action belongs to; runs are for it.
     owner: Owner,
     run: RunFn<T, I>,
     runner: Runner<I>,
-    async_state: AsyncCell<T>,
-    /// The run `state` describes; `None` before the first run.
-    last: RefCell<Option<Submitted<I>>>,
-    /// Wakers of the `close` futures waiting for the action to drain.
-    drained: RefCell<Vec<Waker>>,
+    async_state: AsyncCell<T, I>,
+    lifecycle: Cell<Lifecycle>,
     on_complete: RefCell<Vec<DoneHandler<T>>>,
     /// The id the next `on_complete` registration takes.
     next_handler_id: Cell<Generation>,
     at: &'static Location<'static>,
 }
 
-/// Copy handle of an action; made by [`action`] and started with
-/// [`run`](Self::run): `run(())` for an action without input, `run(input)`
-/// for one with an input.
+/// Copy handle of an action; made by [`action`] or [`queued_action`] and
+/// started with [`run`](Self::run): `run(())` for an action without input,
+/// `run(input)` for one with an input.
 pub struct Action<T: 'static, I: 'static = ()> {
     handle: Owned<Rc<ActionCell<T, I>>>,
 }
@@ -271,18 +112,16 @@ impl<T: 'static, I: 'static> Clone for Action<T, I> {
 }
 impl<T: 'static, I: 'static> Copy for Action<T, I> {}
 
-/// An async operation started from handlers (Solid `createAction`). `policy`
-/// says what a new `run` does while one is still going ([`ActionMode`]); the
-/// closure with no argument makes an action whose input is `()` (run with
-/// `run(())`), a closure with one argument an action run with `run(input)`.
-/// `run` returns `Result<T, UiError>`; `?` converts any other
-/// `std::error::Error`. Owned by the current setup owner; setup only.
+/// An async operation started from handlers (Solid `createAction`) whose new
+/// run cancels the one in flight: the latest input wins. The closure with no
+/// argument makes an action whose input is `()` (run with `run(())`), a
+/// closure with one argument an action run with `run(input)`. `run` returns
+/// `Result<T, UiError>`; `?` converts any other `std::error::Error`. Owned by
+/// the current setup owner; setup only.
 ///
 /// ```ignore
-/// let reload = action(ActionMode::Latest, || async { api::reload().await });
+/// let reload = action(|| async { api::reload().await });
 /// reload.run(());
-/// let save = action(ActionMode::Queue, |draft: Draft| async move { api::save(draft).await });
-/// save.run(draft);
 /// ```
 ///
 /// The run closure and the future it returns run untracked: a read in them
@@ -293,19 +132,43 @@ impl<T: 'static, I: 'static> Copy for Action<T, I> {}
 /// its argument still needs the argument's type (`|n: u32| ..`): Rust checks
 /// the closure before it sees `run`.
 #[track_caller]
-pub fn action<T, M, F>(policy: ActionMode, run: F) -> Action<T, F::Input>
+pub fn action<T, M, F>(run: F) -> Action<T, F::Input>
 where
     T: Clone + 'static,
     F: ActionFn<T, M>,
 {
-    create("action", Location::caller(), policy, move |i: &F::Input| {
+    create("action", Location::caller(), false, move |i: &F::Input| {
         run.start(i)
     })
+}
+
+/// An async operation whose runs wait for each other and run in submission
+/// order. Disposing its owner cancels its runs, the queued ones included
+/// (work that must outlive a screen uses an action made in the App's root).
+/// App exit waits for the queued runs of live actions. Setup only.
+///
+/// ```ignore
+/// let save = queued_action(|draft: Draft| async move { api::save(draft).await });
+/// save.run(draft);
+/// ```
+#[track_caller]
+pub fn queued_action<T, M, F>(run: F) -> Action<T, F::Input>
+where
+    T: Clone + 'static,
+    F: ActionFn<T, M>,
+{
+    create(
+        "queued_action",
+        Location::caller(),
+        true,
+        move |i: &F::Input| run.start(i),
+    )
 }
 
 /// The run closure of an [`action`]: `Fn() -> Fut` or `Fn(I) -> Fut`, where
 /// `Fut` is a future of `Result<T, UiError>`. `M` only tells the two forms
 /// apart and is inferred; the trait is sealed.
+#[doc(hidden)]
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be the run closure of an `action`",
     note = "pass `|| async {{ .. }}` or `|input: I| async move {{ .. }}` whose future returns `Result<T, UiError>`"
@@ -358,21 +221,25 @@ where
 fn create<T, I, Fut>(
     api: &'static str,
     at: &'static Location<'static>,
-    policy: ActionMode,
+    queued: bool,
     f: impl Fn(&I) -> Fut + 'static,
 ) -> Action<T, I>
 where
     T: Clone + 'static,
     Fut: Future<Output = Result<T, UiError>> + 'static,
 {
-    let owner = Owner::current(api, at);
+    let owner = Owner::setup(api, at);
     let rt = owner.runtime();
     // The run closure is untracked, wherever `run` is called from.
     let run: RunFn<T, I> = Rc::new(move |i| Box::pin(crate::untrack(|| f(i))));
-    let runner = match policy {
-        ActionMode::Latest => Runner::Latest(LatestRun::new(), Cell::new(Acceptance::Open)),
-        ActionMode::Queue => Runner::Queue(Queue::new(QueueMode::Fifo)),
-        ActionMode::QueueLatest => Runner::Queue(Queue::new(QueueMode::Newest)),
+    let runner = if queued {
+        Runner::Queue(RefCell::new(Queue {
+            worker: Worker::Stopped,
+            waiting: VecDeque::new(),
+            next_worker_id: Generation::new(),
+        }))
+    } else {
+        Runner::Latest(LatestRun::new())
     };
     let cell = Rc::new(ActionCell {
         app: owner.app(),
@@ -380,35 +247,25 @@ where
         run,
         runner,
         async_state: AsyncCell::new(owner, at),
-        last: RefCell::new(None),
-        drained: RefCell::new(Vec::new()),
+        lifecycle: Cell::new(Lifecycle::Open),
         on_complete: RefCell::new(Vec::new()),
         next_handler_id: Cell::new(Generation::new()),
         at,
     });
-    if matches!(cell.runner, Runner::Queue(_)) {
+    if queued {
         // Queued actions are listed for the exit drain.
         let drain: Rc<dyn Drain> = cell.clone();
-        let mut queues = super::TaskState::of(&rt).queues.borrow_mut();
-        queues.insert(&drain);
+        rt.tasks().queues.borrow_mut().insert(&drain);
     }
     let weak = Rc::downgrade(&cell);
-    let on_dispose = move |rt: &Runtime| {
+    // Disposing the owner cancels every run of the action, queued ones
+    // included, and it publishes nothing afterwards (12 章 ST-07, ST-08).
+    // Work that must outlive a screen uses an action of the App's root owner.
+    let on_dispose = move |_rt: &Runtime| {
         let Some(cell) = weak.upgrade() else { return };
-        // A `Latest` run is a task of the owner: the same disposal cancels it.
-        if !matches!(cell.runner, Runner::Queue(_)) {
-            return;
-        }
-        cell.queue().detach();
+        cell.lifecycle.set(Lifecycle::Disposed);
         cell.on_complete.borrow_mut().clear();
-        if cell.busy() {
-            let deadline = rt.now_ns().saturating_add(DEFAULT_DRAIN_NS);
-            let d: Rc<dyn Drain> = cell;
-            super::TaskState::of(rt)
-                .draining
-                .borrow_mut()
-                .push(super::state::DrainEntry::new(d, deadline));
-        }
+        cell.abandon_at(cell.at);
     };
     Action {
         handle: owner.store_with("Action", cell, on_dispose, at),
@@ -418,8 +275,11 @@ where
 impl<T: Clone + 'static, I: 'static> Drain for ActionCell<T, I> {
     fn busy(&self) -> bool {
         match &self.runner {
-            Runner::Latest(run, _) => run.is_running(),
-            Runner::Queue(queue) => queue.busy(),
+            Runner::Latest(run) => run.is_running(),
+            Runner::Queue(q) => {
+                let q = q.borrow();
+                !matches!(q.worker, Worker::Stopped) || !q.waiting.is_empty()
+            }
         }
     }
 
@@ -429,79 +289,59 @@ impl<T: Clone + 'static, I: 'static> Drain for ActionCell<T, I> {
 }
 
 impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
-    /// Cancel the pending runs; the state becomes `Failed` with one
-    /// cancellation error located at `at`.
+    /// The only way the action writes its public state: nothing once its
+    /// owner is disposed (12 章 ST-07).
+    fn publish(&self, f: impl FnOnce(&AsyncCell<T, I>)) {
+        if self.lifecycle.get() == Lifecycle::Open {
+            f(&self.async_state);
+        }
+    }
+
+    fn waiting(&self) -> usize {
+        match &self.runner {
+            Runner::Latest(_) => 0,
+            Runner::Queue(q) => q.borrow().waiting.len(),
+        }
+    }
+
     fn abandon_at(&self, at: &'static Location<'static>) -> usize {
         let n = match &self.runner {
-            Runner::Latest(run, _) => usize::from(run.cancel()),
-            Runner::Queue(queue) => queue.abandon(),
+            Runner::Latest(run) => usize::from(run.cancel()),
+            Runner::Queue(q) => {
+                let mut q = q.borrow_mut();
+                let n = q.waiting.len() + usize::from(matches!(q.worker, Worker::Running { .. }));
+                q.waiting.clear();
+                let worker = std::mem::replace(&mut q.worker, Worker::Stopped);
+                drop(q);
+                drop(worker);
+                n
+            }
         };
-        if n > 0 && !self.is_detached() {
-            self.async_state.finish(Err(cancelled(at)));
+        if n > 0 {
+            self.publish(|state| state.finish(Err(cancelled(at)), 0));
         }
-        self.wake_drained();
         n
     }
-}
 
-impl<T: 'static, I: 'static> ActionCell<T, I> {
-    fn is_open(&self) -> bool {
-        match &self.runner {
-            Runner::Latest(_, acceptance) => acceptance.get() == Acceptance::Open,
-            Runner::Queue(queue) => matches!(*queue.phase.borrow(), ActionPhase::Open { .. }),
-        }
-    }
-    fn is_detached(&self) -> bool {
-        match &self.runner {
-            Runner::Latest(..) => false,
-            Runner::Queue(queue) => matches!(*queue.phase.borrow(), ActionPhase::Detached(_)),
-        }
-    }
-    /// Wake the `close` futures waiting for the action to drain.
-    fn wake_drained(&self) {
-        for w in self.drained.borrow_mut().drain(..) {
-            w.wake();
-        }
+    fn begin_run(&self, run: &RunInfo<I>) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>> {
+        let waiting = self.waiting();
+        self.publish(|state| state.begin(run.clone(), waiting));
+        (self.run)(&run.input)
     }
 
-    /// The queue of a queued action.
-    fn queue(&self) -> &Queue<I> {
-        match &self.runner {
-            Runner::Queue(queue) => queue,
-            Runner::Latest(..) => unreachable!("invariant: only a queued action has a worker"),
-        }
-    }
-
-    /// Start one run of `submitted`: the only writer of `last`. `publish`
-    /// updates the action's state after `last` names the run and before the
-    /// run's future is made.
-    fn begin_run(
-        &self,
-        submitted: &Submitted<I>,
-        publish: impl FnOnce(&Self),
-    ) -> Pin<Box<dyn Future<Output = Result<T, UiError>>>> {
-        *self.last.borrow_mut() = Some(submitted.clone());
-        publish(self);
-        (self.run)(&submitted.input)
-    }
-}
-
-impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
-    /// Publish a finished run: the state, the latest value and the
-    /// `on_complete` handlers (none once a queue is detached; its failure goes
-    /// to the default sink instead).
     fn finish(&self, result: Result<T, UiError>) {
-        if self.is_detached() {
-            if let (Err(e), Some(rt)) = (&result, Runtime::get(self.app)) {
-                rt.report(None, e.clone());
-            }
+        if self.lifecycle.get() == Lifecycle::Disposed {
             return;
         }
-        self.async_state.finish(result.clone());
-        if matches!(&self.runner, Runner::Queue(queue) if queue.busy()) {
-            self.async_state.start();
-        }
-        let handlers: Vec<(Owner, DoneFn<T>)> = self
+        let waiting = self.waiting();
+        let more = matches!(self.runner, Runner::Queue(_)) && self.busy();
+        self.publish(|state| {
+            state.finish(result.clone(), waiting);
+            if more {
+                state.pending(waiting);
+            }
+        });
+        let handlers: Vec<(Owner, Handler<Result<T, UiError>>)> = self
             .on_complete
             .borrow()
             .iter()
@@ -519,128 +359,129 @@ impl<T: Clone + 'static, I: 'static> ActionCell<T, I> {
         }
     }
 
-    /// Start a `Latest` run now, replacing the pending one.
-    fn start_latest(self: &Rc<Self>, rt: &Runtime, run: &Rc<LatestRun>, submitted: Submitted<I>) {
+    /// Start a `Latest` run now, replacing the one in flight.
+    fn start_latest(self: &Rc<Self>, rt: &Runtime, run: &Rc<LatestRun>, info: RunInfo<I>) {
         let weak = Rc::downgrade(self);
         run.start(
             rt,
             self.owner,
             self.at,
-            || self.begin_run(&submitted, |cell| cell.async_state.start()),
+            || self.begin_run(&info),
             move |result| {
                 let Some(cell) = weak.upgrade() else { return };
                 cell.finish(result);
-                cell.wake_drained();
             },
         );
     }
 
     /// Queue a run for the worker.
-    fn enqueue(self: &Rc<Self>, rt: &Runtime, submitted: Submitted<I>) {
-        let queue = self.queue();
-        {
-            let mut phase = queue.phase.borrow_mut();
-            let (_, waiting) = phase.parts_mut();
-            if queue.mode == QueueMode::Newest {
-                waiting.clear();
-            }
-            waiting.push_back(submitted);
-        }
-        self.queue_status();
+    fn enqueue(self: &Rc<Self>, rt: &Runtime, info: RunInfo<I>) {
+        let Runner::Queue(q) = &self.runner else {
+            unreachable!("invariant: only a queued action enqueues")
+        };
+        q.borrow_mut().waiting.push_back(info);
+        let waiting = self.waiting();
+        self.publish(|state| state.pending(waiting));
         self.ensure_worker(rt);
     }
 
-    /// Keep the public pending state synchronized with queued work.
-    /// Always notify so `pending_len` readers see each change.
-    fn queue_status(&self) {
-        if self.is_detached() {
-            return;
+    /// The next run for worker `id` (it becomes `Running`), or `None` when
+    /// `id` is no longer the worker or nothing waits (the worker stops).
+    fn pick(&self, id: Generation) -> Option<RunInfo<I>> {
+        let Runner::Queue(q) = &self.runner else {
+            return None;
+        };
+        let mut q = q.borrow_mut();
+        let current = match &q.worker {
+            Worker::Picking { id: w, .. } | Worker::Running { id: w, .. } => *w == id,
+            Worker::Stopped => false,
+        };
+        if !current {
+            return None;
         }
-        let busy = self.queue().busy();
-        if busy {
-            self.async_state.start();
+        let Some(info) = q.waiting.pop_front() else {
+            // The worker ends: its own task handle goes.
+            let worker = std::mem::replace(&mut q.worker, Worker::Stopped);
+            drop(q);
+            drop(worker);
+            return None;
+        };
+        q.worker = match std::mem::replace(&mut q.worker, Worker::Stopped) {
+            Worker::Picking { task, id } | Worker::Running { task, id } => {
+                Worker::Running { task, id }
+            }
+            Worker::Stopped => unreachable!("invariant: checked above"),
+        };
+        Some(info)
+    }
+
+    /// After a run of worker `id`: `None` when `id` is no longer the
+    /// worker, else whether more runs wait (if not, the worker stops).
+    fn after_run(&self, id: Generation) -> Option<bool> {
+        let Runner::Queue(q) = &self.runner else {
+            return None;
+        };
+        let mut q = q.borrow_mut();
+        let Worker::Running { id: w, .. } = &q.worker else {
+            return None;
+        };
+        if *w != id {
+            return None;
         }
+        if q.waiting.is_empty() {
+            let worker = std::mem::replace(&mut q.worker, Worker::Stopped);
+            drop(q);
+            drop(worker);
+            return Some(false);
+        }
+        q.worker = match std::mem::replace(&mut q.worker, Worker::Stopped) {
+            Worker::Running { task, id } | Worker::Picking { task, id } => {
+                Worker::Picking { task, id }
+            }
+            Worker::Stopped => unreachable!("invariant: checked above"),
+        };
+        Some(true)
     }
 
     fn ensure_worker(self: &Rc<Self>, rt: &Runtime) {
-        let queue = self.queue();
-        if !matches!(*queue.phase.borrow().parts().0, Worker::Stopped) {
+        let Runner::Queue(q) = &self.runner else {
             return;
-        }
-        let mut generation = queue.next_worker_id.get();
-        let id = generation.next();
-        queue.next_worker_id.set(generation);
+        };
+        let id = {
+            let mut q = q.borrow_mut();
+            if !matches!(q.worker, Worker::Stopped) {
+                return;
+            }
+            q.next_worker_id.next()
+        };
         let weak = Rc::downgrade(self);
-        // The worker runs for the action's owner (see the module doc); once
-        // the owner is disposed that owner is dead and owner-relative
-        // functions report `Disposed`.
-        let task = super::TaskState::of(rt)
-            .exec
-            .spawn(Some(self.owner.id()), async move {
-                loop {
-                    let fut = {
-                        let Some(cell) = weak.upgrade() else { return };
-                        let queue = cell.queue();
-                        if !queue.is_worker(id) {
-                            return;
-                        }
-                        let next = queue.phase.borrow_mut().parts_mut().1.pop_front();
-                        let Some(submitted) = next else {
-                            // The worker ends: its own task handle goes.
-                            drop(queue.replace_worker(Worker::Stopped));
-                            cell.queue_status();
-                            cell.wake_drained();
-                            return;
-                        };
-                        queue.set_running(true);
-                        cell.begin_run(&submitted, |cell| cell.queue_status())
-                    };
-                    let result = fut.await;
+        // The worker runs for the action's owner (see the module doc).
+        let task = rt.tasks().exec.spawn(Some(self.owner.id()), async move {
+            loop {
+                let fut = {
                     let Some(cell) = weak.upgrade() else { return };
-                    let queue = cell.queue();
-                    if !queue.is_worker(id) {
-                        return;
-                    }
-                    let has_waiting = !queue.phase.borrow().parts().1.is_empty();
-                    if has_waiting {
-                        queue.set_running(false);
-                    } else {
-                        drop(queue.replace_worker(Worker::Stopped));
-                    }
-                    cell.finish(result);
-                    if has_waiting {
-                        cell.queue_status();
-                    } else {
-                        cell.wake_drained();
-                        return;
-                    }
+                    let Some(info) = cell.pick(id) else { return };
+                    cell.begin_run(&info)
+                };
+                let result = fut.await;
+                let Some(cell) = weak.upgrade() else { return };
+                let Some(more) = cell.after_run(id) else {
+                    return;
+                };
+                cell.finish(result);
+                if !more {
+                    return;
                 }
-            });
-        queue.replace_worker(Worker::Picking { task, id });
+            }
+        });
+        q.borrow_mut().worker = Worker::Picking { task, id };
         rt.request_turn();
     }
 
-    /// Start or queue a run, per the policy.
-    fn submit(
-        self: &Rc<Self>,
-        rt: &Runtime,
-        submitted: Submitted<I>,
-        at: &'static Location<'static>,
-    ) {
-        if !self.is_open() {
-            rt.report(
-                None,
-                UiError::new(
-                    ErrorKind::Closed,
-                    "run of a closed action ignored",
-                    Some(at),
-                ),
-            );
-            return;
-        }
+    fn submit(self: &Rc<Self>, rt: &Runtime, info: RunInfo<I>) {
         match &self.runner {
-            Runner::Latest(run, _) => self.start_latest(rt, run, submitted),
-            Runner::Queue(_) => self.enqueue(rt, submitted),
+            Runner::Latest(run) => self.start_latest(rt, run, info),
+            Runner::Queue(_) => self.enqueue(rt, info),
         }
     }
 }
@@ -656,90 +497,58 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
         require_effectful(api);
-        cell.submit(&rt, Submitted { input, attempt: 1 }, at);
+        cell.submit(&rt, RunInfo { input, attempt: 1 });
     }
 
-    /// State of the latest run (tracked). A queue shows `Pending` while it
-    /// has work, and its final result once drained. A cancelled run
-    /// is `Failed` with an error whose `is_cancelled()` is true.
+    /// The state of the run the action describes (tracked).
     #[track_caller]
     pub fn state(&self) -> AsyncState<T> {
-        self.cell(Location::caller())
-            .1
-            .async_state
-            .state
-            .get()
-            .as_ref()
-            .clone()
+        self.cell(Location::caller()).1.async_state.state()
     }
 
-    pub(super) fn snapshot(&self) -> super::async_publication::AsyncSnapshot<T> {
-        super::async_publication::AsyncSnapshot(
-            self.cell(Location::caller()).1.async_state.state.get(),
-        )
-    }
-
-    /// Value of the last successful run, kept while a later one is pending,
-    /// failed or cancelled (tracked).
+    /// The last successful value, kept while a new run is pending or failed.
     #[track_caller]
     pub fn latest(&self) -> Option<T> {
-        self.cell(Location::caller()).1.async_state.latest.get()
+        self.cell(Location::caller()).1.async_state.latest()
     }
 
-    /// Error of the latest run while it is `Failed` (a cancellation
-    /// included), `None` otherwise (tracked).
+    /// The error of the last run, if it failed.
     #[track_caller]
     pub fn error(&self) -> Option<UiError> {
-        self.cell(Location::caller())
-            .1
-            .async_state
-            .state
-            .with(|state| state.error().cloned())
+        self.cell(Location::caller()).1.async_state.error()
     }
 
-    /// Attempt number of the latest run: 1 for `run`, one more for each
-    /// `retry`; 0 before the first run (tracked).
+    /// The attempt number of the run `state` describes (0 before the first).
     #[track_caller]
     pub fn attempt(&self) -> u32 {
-        let (_, cell) = self.cell(Location::caller());
-        cell.async_state.state.with(|_| ());
-        cell.last.borrow().as_ref().map_or(0, |s| s.attempt)
+        self.cell(Location::caller()).1.async_state.attempt()
     }
 
-    /// Runs waiting to start (the running one excluded; always 0 for
-    /// `Latest`) (tracked).
+    /// Runs waiting behind the running one (`queued_action`; 0 otherwise).
     #[track_caller]
     pub fn pending_len(&self) -> usize {
-        let (_, cell) = self.cell(Location::caller());
-        cell.async_state.state.with(|_| ());
-        match &cell.runner {
-            Runner::Latest(..) => 0,
-            Runner::Queue(queue) => queue.phase.borrow().parts().1.len(),
-        }
+        self.cell(Location::caller()).1.async_state.waiting()
     }
 
-    /// Run the latest run's input again (a no-op before the first run).
+    /// Run the last input again, as the next attempt.
     #[track_caller]
     pub fn retry(&self) {
         let at = Location::caller();
         let (rt, cell) = self.cell(at);
         require_effectful("Action::retry");
-        let last = cell.last.borrow().clone();
-        if let Some(s) = last {
+        if let Some(last) = cell.async_state.run_untracked() {
             cell.submit(
                 &rt,
-                Submitted {
-                    input: s.input,
-                    attempt: s.attempt + 1,
+                RunInfo {
+                    input: last.input,
+                    attempt: last.attempt + 1,
                 },
-                at,
             );
         }
     }
 
-    /// Cancel the pending run, and for a queue the waiting ones too: the
-    /// state becomes `Failed` with a cancellation error. A no-op when
-    /// nothing is pending.
+    /// Cancel the running run and the waiting ones; the state becomes
+    /// `Failed` with a cancellation error and `on_complete` is not called.
     #[track_caller]
     pub fn cancel(&self) {
         let at = Location::caller();
@@ -751,35 +560,25 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         }
     }
 
-    /// Register a completion handler (setup only; several allowed). It
-    /// runs with each finished run's result (not for cancelled ones). It
-    /// belongs to the owner whose setup registers it (the nearest flow
-    /// branch, list row, `provide` or root, not the action's owner): it runs
-    /// for that owner, so `context` and `spawn` inside it use that owner, and
-    /// it is removed when that owner is disposed.
+    /// Call `f` with the result of each run that ends (not for a
+    /// cancellation). Several handlers run in registration order. Setup only.
     #[track_caller]
     pub fn on_complete<R: HandlerResult>(
         self,
-        f: impl Fn(ActionOutcome<T>) -> R + 'static,
+        f: impl Fn(Result<T, UiError>) -> R + 'static,
     ) -> Self {
         let at = Location::caller();
-        let (rt, cell) = self.cell(at);
-        let owner = Owner::current("Action::on_complete", at);
+        let (_, cell) = self.cell(at);
+        let owner = Owner::setup("Action::on_complete", at);
         let mut generation = cell.next_handler_id.get();
         let id = generation.next();
         cell.next_handler_id.set(generation);
         cell.on_complete.borrow_mut().push(DoneHandler {
             id,
             owner,
-            f: crate::Handler::from_fn(move |result: Result<T, UiError>| {
-                f(match result {
-                    Ok(value) => ActionOutcome::Succeeded(value),
-                    Err(error) => ActionOutcome::Failed(error),
-                })
-            }),
+            f: Handler::from_fn(f),
         });
         let weak = Rc::downgrade(&cell);
-        drop(rt);
         owner.on_cleanup(move || {
             if let Some(c) = weak.upgrade() {
                 c.on_complete.borrow_mut().retain(|h| h.id != id);
@@ -788,58 +587,21 @@ impl<T: Clone + 'static, I: 'static> Action<T, I> {
         self
     }
 
-    /// Stop accepting runs and wait until the pending and waiting ones
-    /// finish; after `deadline` (counted from this call) the rest is abandoned and `Err(Closed)`
-    /// reports how many were dropped.
-    #[track_caller]
-    pub fn close(&self, deadline: Duration) -> impl Future<Output = Result<(), UiError>> + 'static {
-        let at = Location::caller();
-        let (rt, cell) = self.cell(at);
-        require_effectful("Action::close");
-        match &cell.runner {
-            Runner::Latest(_, acceptance) => acceptance.set(Acceptance::Closed),
-            Runner::Queue(queue) => queue.close(),
-        }
-        let d: Rc<dyn Drain> = cell.clone();
-        let waiters = Rc::downgrade(&cell);
-        CloseFuture {
-            action: Rc::downgrade(&d),
-            register: Box::new(move |w: &Waker| {
-                if let Some(c) = waiters.upgrade() {
-                    c.drained.borrow_mut().push(w.clone());
-                }
-            }),
-            sleep: Box::pin(super::time::sleep_ns(
-                &rt,
-                deadline.as_nanos().min(u64::MAX as u128) as u64,
-                at,
-                Some(cell.owner.id()),
-            )),
-        }
+    pub(super) fn publications(&self) -> u64 {
+        self.cell(Location::caller()).1.async_state.publications()
     }
 }
 
 impl<T: Clone + 'static, I: Clone + 'static> Action<T, I> {
-    /// Run with `input` (`()` for an action without input), per the policy.
+    /// Start a run with `input` (`()` for an action without input).
     #[track_caller]
     pub fn run(&self, input: I) {
         self.submit(Rc::new(input), "Action::run");
     }
 
-    /// Input of the latest run; `None` before the first run (tracked).
+    /// The input of the run `state` describes.
     #[track_caller]
     pub fn input(&self) -> Option<I> {
-        let (_, cell) = self.cell(Location::caller());
-        cell.async_state.state.with(|_| ());
-        cell.last.borrow().as_ref().map(|s| I::clone(&s.input))
+        self.cell(Location::caller()).1.async_state.input()
     }
-}
-
-/// A naturally completed action run. Cancelled runs do not notify handlers.
-#[derive(Clone, Debug)]
-pub enum ActionOutcome<T> {
-    /// The run succeeded.
-    Succeeded(T),
-    /// The run failed.
-    Failed(UiError),
 }

@@ -136,3 +136,61 @@ fn a_handler_in_an_unmounted_scope_no_longer_vetoes() {
     assert!(screen.has_exited());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[component]
+fn guard(on_close: Callback<()>) -> impl IntoView {
+    on_close_request(on_close);
+    text("guard")
+}
+
+#[test]
+fn close_request_handled_is_the_same_inline_shared_and_through_a_prop() {
+    let (screen, ()) = mount(|| {
+        let keep_inline = signal(true);
+        let keep_shared = signal(true);
+        let keep_prop = signal(true);
+        let close_inline = signal(true);
+        let close_shared = signal(true);
+        let close_prop = signal(true);
+        let view = column((
+            window("Keep inline", keep_inline).content(|| {
+                on_close_request(|| Handled::Yes);
+                text("keep inline")
+            }),
+            window("Keep shared", keep_shared).content(|| {
+                let keep = callback(move |_: ()| Handled::Yes);
+                on_close_request(keep);
+                text("keep shared")
+            }),
+            window("Keep prop", keep_prop).content(|| guard(|| Handled::Yes)),
+            window("Close inline", close_inline).content(|| {
+                on_close_request(|| Handled::No);
+                text("close inline")
+            }),
+            window("Close shared", close_shared).content(|| {
+                let allow = callback(move |_: ()| Handled::No);
+                on_close_request(allow);
+                text("close shared")
+            }),
+            window("Close prop", close_prop).content(|| guard(|| Handled::No)),
+        ));
+        ((), view)
+    });
+    for title in ["Keep inline", "Keep shared", "Keep prop"] {
+        let handle = screen.window(title);
+        assert!(
+            !handle.request_close(),
+            "{title}: Handled::Yes keeps the window open"
+        );
+        assert!(handle.is_open(), "{title}");
+    }
+    for title in ["Close inline", "Close shared", "Close prop"] {
+        let handle = screen.window(title);
+        assert!(
+            handle.request_close(),
+            "{title}: Handled::No lets the window close"
+        );
+        assert!(!handle.is_open(), "{title}");
+    }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

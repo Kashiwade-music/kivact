@@ -1,9 +1,9 @@
 //! Role: The transport bar: its TransportState and play, stop and position view.
 
 use kivact::i18n::message;
-use kivact::state::IntoBinding;
+use kivact::state::Callback;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Callback};
+use kivact::state::Signal;
 use kivact::style::{Align, style};
 use kivact::ui::ButtonVariant;
 use kivact::view::{Element, Node, row};
@@ -30,13 +30,13 @@ impl Default for TransportState {
 /// Playback controls without a clock. The application handles seeking.
 pub struct Transport {
     root: Node,
-    binding: Binding<TransportState>,
+    binding: Signal<TransportState>,
     to_start: Option<Callback<()>>,
 }
 
 /// Create controls for the application's playback state.
 #[track_caller]
-pub fn transport(binding: impl IntoBinding<TransportState>) -> Transport {
+pub fn transport(binding: Signal<TransportState>) -> Transport {
     Transport {
         root: row(())
             .role(Role::Toolbar)
@@ -49,15 +49,17 @@ pub fn transport(binding: impl IntoBinding<TransportState>) -> Transport {
                     .radius(9)
                     .background(crate::ColorName::Canvas),
             ),
-        binding: binding.into_binding(),
+        binding,
         to_start: None,
     }
 }
 
 impl Transport {
     /// Report a request to return to the application's start position.
-    pub fn on_to_start(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.to_start = Some(f.into());
+    pub fn on_to_start<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.to_start = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }
@@ -77,7 +79,7 @@ impl IntoView for Transport {
 
 fn transport_view(
     root: Node,
-    binding: Binding<TransportState>,
+    binding: Signal<TransportState>,
     to_start: Option<Callback<()>>,
 ) -> Node {
     let state = binding.into_value();

@@ -96,7 +96,7 @@ impl IntoView for Toolbar {
     fn into_view(self) -> View {
         let orientation = self.orientation;
         let vertical = orientation == Orientation::Vertical;
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         let size = self.size;
         let gap = self.gap;
         let centered = self.center.is_some();

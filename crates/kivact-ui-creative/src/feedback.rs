@@ -1,6 +1,6 @@
 //! Role: Banners, notices and toasts that give feedback in the Creative kit.
 use kivact::interaction::{DialogMode, MenuEntry, Tone};
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::ui::ButtonVariant;
 
 use kivact::draw::Shadow;
@@ -10,8 +10,8 @@ use kivact::interaction::{DragCoordinates, DragUpdate, use_drag};
 use kivact::platform;
 use kivact::view::{Element, Node, column, icon, node, row, text};
 
-use kivact::state::{Binding, Value, signal};
 use kivact::state::{IntoText, IntoValue};
+use kivact::state::{Value, signal};
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Icon, Position, style};
 use kivact::view::{
@@ -113,7 +113,7 @@ pub struct SplitButton<K: 'static> {
 }
 impl<K: 'static> SplitButton<K> {
     /// Run the primary command.
-    pub fn on_press(mut self, primary: impl Into<kivact::state::Callback<()>>) -> Self {
+    pub fn on_press<M>(mut self, primary: impl kivact::state::IntoHandler<(), M>) -> Self {
         self.primary = self.primary.on_press(primary);
         self
     }
@@ -296,7 +296,7 @@ impl ToolWindowOptions {
 /// the window, as its close button does.
 #[derive(Clone, Copy)]
 pub struct ToolWindowApi {
-    open: Binding<bool>,
+    open: Signal<bool>,
 }
 
 impl ToolWindowApi {
@@ -328,11 +328,7 @@ pub fn tool_window_button<V: IntoView>(
         .on_press(move || open.set(true))
         .with_node(move |node| node.node_ref(anchor))
         .with_node(move |node| node.expanded(open));
-    column((
-        opener,
-        window_layer(anchor, open.into_binding(), options, title, content),
-    ))
-    .style(style().gap(0))
+    column((opener, window_layer(anchor, open, options, title, content))).style(style().gap(0))
 }
 
 /// A tool window that the application opens and closes through `open`.
@@ -377,15 +373,11 @@ pub fn tool_window_button<V: IntoView>(
 /// }
 /// ```
 #[track_caller]
-pub fn tool_window(
-    anchor: NodeRef,
-    open: impl IntoBinding<bool>,
-    options: ToolWindowOptions,
-) -> ToolWindow {
+pub fn tool_window(anchor: NodeRef, open: Signal<bool>, options: ToolWindowOptions) -> ToolWindow {
     ToolWindow {
         root: column(()),
         anchor,
-        open: open.into_binding(),
+        open,
         options,
         content: kivact::view::ViewFn::from(|_| ()),
     }
@@ -394,7 +386,7 @@ pub fn tool_window(
 pub struct ToolWindow {
     root: Node,
     anchor: NodeRef,
-    open: Binding<bool>,
+    open: Signal<bool>,
     options: ToolWindowOptions,
     content: kivact::view::ViewFn<ToolWindowApi>,
 }
@@ -433,7 +425,7 @@ impl IntoView for ToolWindow {
 #[track_caller]
 fn window_layer<V: IntoView>(
     anchor: NodeRef,
-    open: Binding<bool>,
+    open: Signal<bool>,
     options: ToolWindowOptions,
     title: Value<String>,
     content: impl Fn(ToolWindowApi) -> V + 'static,
@@ -706,7 +698,7 @@ fn window_backdrop(options: &ToolWindowOptions) -> Option<Node> {
     })
 }
 
-fn close_removed_window(open: Binding<bool>) {
+fn close_removed_window(open: Signal<bool>) {
     let value = open.into_value();
     kivact::state::on_cleanup(move || {
         if value.try_get() == Some(true) {

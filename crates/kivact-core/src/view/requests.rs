@@ -3,7 +3,7 @@
 //! Requests the view layer sends to the host and whose answers come back as
 //! events: keyboard focus (`NodeRef::focus`, the focus restores after a
 //! modal overlay or a popup closes and `NodeRef::restore_focus`),
-//! platform effects (`kivact::platform`, the App's fonts). Request ids come
+//! platform effects (`kivact::platform`, the theme's fonts). Request ids come
 //! from one per-App counter.
 //!
 //! Restores are checked once at flush against engine focus eligibility.
@@ -13,11 +13,14 @@
 use std::panic::Location;
 
 use kivact_engine::contract::HostRequest;
-use kivact_types::{PlatformResult, RequestId};
+use kivact_types::{PlatformResult, RequestId, WindowId};
 
-use super::state::{FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter};
+use super::state::{
+    BlurRequest, BlurStage, FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter,
+};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_style::asset::Asset;
 
 /// Ask the host to focus `node` (written with the next revision); an unmounted
@@ -78,12 +81,26 @@ pub(crate) fn request_effect(rt: &Runtime, req: HostRequest, waiter: Waiter) {
     rt.request_turn();
 }
 
-/// Register the App's fonts (`App::font`), each located at its call: one
-/// `RegisterFont` effect per font, applied before mounting the root's
-/// mount so the first layout measures with them. A font the host rejects
-/// is reported to the default sink as `ErrorKind::Asset`.
-pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Location<'static>)>) {
-    for (font, at) in fonts {
+/// Register the fonts of `theme` the App has not registered yet (by asset
+/// identity: the path, the static address and length, or the shared
+/// allocation), located at `at`. The first layout after this call sees
+/// them (the engine registers a font when it is written). A file that is
+/// not a usable font is reported as `ErrorKind::Asset` at `at`.
+pub(crate) fn register_theme_fonts(
+    rt: &Runtime,
+    theme: &kivact_style::Theme,
+    at: &'static Location<'static>,
+) {
+    let fonts: Vec<Asset> = {
+        let mut seen = ViewState::of(rt).registered_fonts.borrow_mut();
+        theme
+            .fonts()
+            .iter()
+            .filter(|asset| seen.insert((*asset).clone()))
+            .cloned()
+            .collect()
+    };
+    for font in fonts {
         let waiter = Waiter::Report {
             owner: None,
             at,
@@ -202,6 +219,83 @@ pub(crate) fn flush_focus(rt: &Runtime) {
             );
         }
     }
+    send_queued_blurs(rt);
+}
+
+/// Send the queued blurs of `commit_focused_edit`: a window that still has
+/// a focus gets the engine's blur; one without a focus is delivered at once.
+fn send_queued_blurs(rt: &Runtime) {
+    let queued: Vec<WindowId> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let mut windows = Vec::new();
+        for blur in requests
+            .blurs
+            .iter_mut()
+            .filter(|b| b.stage == BlurStage::Queued)
+        {
+            blur.stage = BlurStage::Sent;
+            if !windows.contains(&blur.window) {
+                windows.push(blur.window);
+            }
+        }
+        windows
+    };
+    for window in queued {
+        let focused = ViewState::of(rt)
+            .focus_keys(window)
+            .is_some_and(|keys| keys.focus.get_untracked().is_some());
+        if focused {
+            ViewState::tree(rt).engine().blur(window);
+        } else {
+            mark_blur_delivered(rt, window);
+        }
+    }
+}
+
+/// The focus of `window` left: its sent blur requests complete on the next turn.
+pub(crate) fn mark_blur_delivered(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window && blur.stage == BlurStage::Sent {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
+    }
+}
+
+/// Complete the blur requests delivered in an earlier turn. `true` when one
+/// completed (a task woke, so the turn is not idle).
+pub(crate) fn complete_delivered_blurs(rt: &Runtime) -> bool {
+    let delivered: Vec<BlurRequest> = {
+        let mut requests = ViewState::of(rt).requests.borrow_mut();
+        let (done, keep): (Vec<_>, Vec<_>) = std::mem::take(&mut requests.blurs)
+            .into_iter()
+            .partition(|b| b.stage == BlurStage::Delivered);
+        requests.blurs = keep;
+        done
+    };
+    let woke = !delivered.is_empty();
+    for blur in delivered {
+        blur.done.complete(());
+    }
+    woke
+}
+
+/// The window `window` closed: its blur requests complete on the next turn.
+pub(crate) fn release_blurs(rt: &Runtime, window: WindowId) {
+    let mut any = false;
+    for blur in ViewState::of(rt).requests.borrow_mut().blurs.iter_mut() {
+        if blur.window == window {
+            blur.stage = BlurStage::Delivered;
+            any = true;
+        }
+    }
+    if any {
+        rt.request_turn();
+    }
 }
 
 /// Whether the engine lets `target` take a restored focus now.
@@ -223,23 +317,6 @@ pub(crate) fn request_restore_focus(
         FocusReply::RestoreAndReport(FocusCompletion { owner, at })
     });
     request_focus(rt, Some(node), reply, visible);
-}
-
-/// Run the default action of `node` (`NodeRef::activate`) once the current
-/// handler has returned: the client takes the queue after each event and
-/// before each flush of the turn.
-pub(crate) fn request_activation(rt: &Runtime, node: kivact_types::FocusTarget) {
-    ViewState::of(rt)
-        .requests
-        .borrow_mut()
-        .pending_activations
-        .push(node);
-    rt.request_turn();
-}
-
-/// Take the activations asked for since the last call.
-pub(crate) fn take_activations(rt: &Runtime) -> Vec<kivact_types::FocusTarget> {
-    std::mem::take(&mut ViewState::of(rt).requests.borrow_mut().pending_activations)
 }
 
 /// Bridge an actual engine capture release to the current part router.
@@ -276,15 +353,6 @@ pub(crate) fn clear_pointer_releases(rt: &Runtime) {
         .borrow_mut()
         .pointer_releases
         .clear();
-}
-
-/// Whether activations wait to run.
-pub(crate) fn has_activations(rt: &Runtime) -> bool {
-    !ViewState::of(rt)
-        .requests
-        .borrow()
-        .pending_activations
-        .is_empty()
 }
 
 /// A platform result as `Ok`, or the error it reports.

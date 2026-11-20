@@ -8,6 +8,7 @@
 
 use kivact::prelude::*;
 use kivact::ui;
+use kivact::view::Node;
 use kivact_public_api_tests::support::mount;
 
 /// A control that is built from `node()` and has no name of its own.
@@ -56,7 +57,7 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
         let rows = for_each(
             names,
             |(id, _)| *id,
-            move |name: Binding<(u32, String)>| {
+            move |name: Signal<(u32, String)>| {
                 let id = name.with(|(id, _)| *id);
                 column((
                     ui::button(format!("Rename {id}")).on_press(move || rename.show(id)),

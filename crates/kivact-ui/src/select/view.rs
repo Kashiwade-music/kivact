@@ -4,7 +4,7 @@ use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::select::look::SelectTriggerState;
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, Callback, IntoText, IntoValue, Value, binding, callback};
+use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
 use kivact_core::style::style;
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Node, NodeRef, Placement, PopupKind, View, column,
@@ -28,7 +28,7 @@ type OptionRows = Rc<dyn Fn(bool) -> View>;
 
 type SheetContent = kivact_core::view::ViewFn;
 
-type SheetFactory = Rc<dyn Fn(Value<String>, Binding<bool>, NodeRef, SheetContent) -> View>;
+type SheetFactory = Rc<dyn Fn(Value<String>, Signal<bool>, NodeRef, SheetContent) -> View>;
 
 pub struct Select<K: kivact_core::state::ItemKey> {
     root: Node,
@@ -38,7 +38,7 @@ pub struct Select<K: kivact_core::state::ItemKey> {
 struct SelectOptions<K: kivact_core::state::ItemKey> {
     label: Value<String>,
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
     placeholder: Option<Value<String>>,
     preview: Option<Callback<Option<K>>>,
@@ -61,7 +61,7 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
 pub fn select<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact_core::state::IntoBinding<Option<K>>,
+    selected: kivact_core::state::Signal<Option<K>>,
 ) -> Select<K> {
     let label = label.into_text_value();
     let variants = Variants::default();
@@ -70,7 +70,7 @@ pub fn select<K: kivact_core::state::ItemKey>(
         settings: SelectOptions {
             label,
             options: items.into_value(),
-            selected: selected.into_binding(),
+            selected,
             placeholder: None,
             on_edit: None,
             preview: None,
@@ -145,8 +145,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
     pub fn touch_sheet<V: IntoView>(
         mut self,
         eligible: impl Fn() -> bool + 'static,
-        factory: impl Fn(Value<String>, Binding<bool>, NodeRef, kivact_core::view::ViewFn) -> V
-        + 'static,
+        factory: impl Fn(Value<String>, Signal<bool>, NodeRef, kivact_core::view::ViewFn) -> V + 'static,
     ) -> Self {
         self.settings.touch_sheet = Some((
             Rc::new(eligible),

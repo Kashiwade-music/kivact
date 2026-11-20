@@ -32,7 +32,7 @@
 
 use super::state::{MouseGesture, PointerSource, ScrollDrag};
 use crate::PointerSpace;
-use crate::contract::HostEvent;
+use crate::contract::{HostEvent, InputFlag};
 use crate::model::Model;
 use kivact_types::PointerSample;
 use kivact_types::{
@@ -388,8 +388,13 @@ impl Model {
         } else {
             self.hit(point).and_then(|hit| {
                 self.tree().chain(Some(hit)).into_iter().find(|id| {
-                    self.node(*id)
-                        .is_some_and(|n| n.properties.input.listen_file.unwrap_or(false))
+                    self.node(*id).is_some_and(|n| {
+                        n.properties
+                            .input
+                            .flags
+                            .get(InputFlag::ListenFile)
+                            .unwrap_or(false)
+                    })
                 })
             })
         };

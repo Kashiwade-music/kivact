@@ -76,7 +76,7 @@ fn range(theme: &Theme, s: &Look<CalendarDayState>) -> Style {
         .top(2)
         .height(size - 4.0)
         .background(t.colors.accent_muted);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     match s.span {
         CalendarSpan::Start if rtl => base.left(0).width(size / 2.0),
         CalendarSpan::End if rtl => base.left(size / 2.0).width(size / 2.0),

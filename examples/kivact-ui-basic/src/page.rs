@@ -2,6 +2,7 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact::view::Node;
 use kivact::view::Scroll;
 use kivact_ui_basic as basic;
 

@@ -1,6 +1,7 @@
 //! Role: The actions of one connected DevTools session.
 
 use kivact::prelude::*;
+use kivact::task::blocking;
 use kivact_devtools_protocol as p;
 
 use crate::editor;
@@ -151,7 +152,10 @@ impl Session {
                 let Some(node) = event.node else {
                     return;
                 };
-                if self.inspected.update(|i| i.select_in(event.window, node)) {
+                let mut loading = false;
+                self.inspected
+                    .update(|i| loading = i.select_in(event.window, node));
+                if loading {
                     self.load_window(event.window, Some(node));
                 }
             }
@@ -160,7 +164,11 @@ impl Session {
 
     /// Follow a window list; fall back to the main window when the inspected one closed.
     fn on_windows(self, windows: Vec<p::WindowInfo>) {
-        let main = self.inspected.update(|i| i.keep_window(&windows));
+        let mut main = None;
+        self.inspected
+            .update(|i| main = Some(i.keep_window(&windows)));
+        let main =
+            main.expect("invariant: the session's inspected signal lives as long as the session");
         self.windows.set(windows);
         if main {
             self.load_window(MAIN_WINDOW, None);

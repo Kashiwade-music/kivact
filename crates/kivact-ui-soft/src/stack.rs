@@ -8,6 +8,7 @@ use kivact::view::ScrollAxes;
 use kivact::view::node;
 use kivact::view::scroll;
 
+use kivact::Prop;
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
@@ -20,7 +21,7 @@ use kivact::view::View;
 use kivact::view::use_direction;
 
 /// Theme spacing steps, resolved through the current Soft tokens.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Space {
     #[default]
     /// Resolve the theme’s `s0` spacing token.
@@ -68,7 +69,7 @@ impl Space {
 }
 
 pub(crate) fn rtl() -> bool {
-    use_direction().get() == ReadingDirection::Rtl
+    use_direction() == ReadingDirection::Rtl
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -465,7 +466,7 @@ fn stack_scroll(root: Node, axes: ScrollAxes) -> View {
 }
 
 /// Flex sizing for a stack item.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum StackItemSize {
     /// Allow shrinking without growing.
     Auto,
@@ -538,5 +539,3 @@ impl IntoView for StackItem {
         }
     }
 }
-
-kivact::state::constant_value!(Space, StackItemSize);

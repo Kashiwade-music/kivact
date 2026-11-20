@@ -5,7 +5,7 @@ use super::notices::Notices;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
-use kivact_core::state::{IntoBinding, IntoValue, ItemKey, Value, binding, memo, signal};
+use kivact_core::state::{IntoValue, ItemKey, Value, binding, memo, signal};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
@@ -555,8 +555,8 @@ fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
 fn configured_list<K: ItemKey>(
     options: Value<Vec<ListItem<K>>>,
     selection: Selection<K>,
-    controlled: Option<kivact_core::state::Binding<String>>,
-    controlled_open: Option<kivact_core::state::Binding<bool>>,
+    controlled: Option<kivact_core::state::Signal<String>>,
+    controlled_open: Option<kivact_core::state::Signal<bool>>,
     mode: Option<ComboboxMode>,
     search: Option<super::data::Search<K>>,
     debounce: Value<std::time::Duration>,
@@ -564,10 +564,7 @@ fn configured_list<K: ItemKey>(
     let local_open = signal(false);
     let (inline, open) = match mode.unwrap_or(ComboboxMode::Popup) {
         ComboboxMode::Inline => (true, binding(|| true, |_: bool| {})),
-        ComboboxMode::Popup => (
-            false,
-            controlled_open.unwrap_or_else(|| local_open.into_binding()),
-        ),
+        ComboboxMode::Popup => (false, controlled_open.unwrap_or(local_open)),
     };
     let mut list = use_combobox(options, selection).debounce(debounce);
     if let Some(query) = controlled {

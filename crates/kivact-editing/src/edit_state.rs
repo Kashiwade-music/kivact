@@ -38,7 +38,6 @@ pub enum Taken {
     Whole,
 }
 
-// xtask-allow(state): legacy: max_length, log; absent means the editor has no scalar limit
 /// An owned snapshot of a native editor: its document (the text and its
 /// revision) and its [`TextSession`].
 ///
@@ -52,8 +51,6 @@ pub struct EditState {
     text: String,
     revision: u64,
     session: TextSession,
-    /// The scalar limit of the edits, if any.
-    max_length: Option<usize>,
     /// The changes recorded since the log started; `None` when they cover
     /// nothing, which is the same as "the log starts at `revision`".
     log: Option<Log>,
@@ -89,15 +86,9 @@ impl EditState {
             text: value.to_string(),
             revision,
             session: TextSession::caret_at(value.len()),
-            max_length: None,
             log: None,
             damage: VecDeque::new(),
         }
-    }
-
-    /// Set the scalar limit used by subsequent edits.
-    pub(crate) fn set_max_length(&mut self, max_length: Option<usize>) {
-        self.max_length = max_length;
     }
 
     /// The value.
@@ -207,6 +198,7 @@ impl EditState {
             anchor: floor_boundary(&self.text, session.anchor),
             caret: floor_boundary(&self.text, session.caret),
             marked: session.marked.map(|m| self.clamp(m)),
+            goal_x: session.goal_x,
         };
     }
 
@@ -269,6 +261,55 @@ impl EditState {
             self.session.anchor = to;
             self.session.caret = to;
         }
+        self.session.goal_x = None;
+    }
+
+    /// Select `range`: the anchor at its start, the caret at its end.
+    pub fn select(&mut self, range: Range<usize>) {
+        self.move_to(range.start, false);
+        self.move_to(range.end, true);
+    }
+
+    /// Move the caret to `to` by a line (Up or Down), remembering the
+    /// column `goal_x` the next vertical move aims for (`extend`: select
+    /// from the anchor).
+    pub fn move_vertically(&mut self, to: usize, extend: bool, goal_x: f64) {
+        self.move_to(to, extend);
+        self.session.goal_x = Some(goal_x);
+    }
+
+    /// The column the next vertical move aims for, if the caret got here by one.
+    pub fn goal_x(&self) -> Option<f64> {
+        self.session.goal_x
+    }
+
+    /// The word at byte offset `at`: the Unicode word segment (UAX #29)
+    /// holding the character at `at`, or the last one at the end of the
+    /// text. A run of white space is a segment of its own.
+    pub fn word_at(&self, at: usize) -> Range<usize> {
+        let at = floor_boundary(&self.text, at.min(self.text.len()));
+        let mut last = 0..0;
+        for (start, segment) in self.text.split_word_bound_indices() {
+            let range = start..start + segment.len();
+            if range.contains(&at) {
+                return range;
+            }
+            last = range;
+        }
+        last
+    }
+
+    /// The line at byte offset `at`, without its line feed: between the
+    /// line feeds around it when `multiline`, else the whole text.
+    pub fn line_at(&self, at: usize, multiline: bool) -> Range<usize> {
+        let text = &self.text;
+        if !multiline {
+            return 0..text.len();
+        }
+        let at = floor_boundary(text, at.min(text.len()));
+        let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+        let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        start..end
     }
 
     /// Replace the clamped range `r` with `text` and record it.
@@ -294,22 +335,13 @@ impl EditState {
                 });
             }
         }
+        self.session.goal_x = None;
     }
 
     /// Replace `range` with `text`; the caret follows it and any
     /// composition ends.
     pub fn replace(&mut self, range: Range<usize>, text: &str) {
         let r = self.clamp(range);
-        let end = self
-            .max_length
-            .map(|max| {
-                let remaining = self.text.chars().count() - self.text[r.clone()].chars().count();
-                text.char_indices()
-                    .nth(max.saturating_sub(remaining))
-                    .map_or(text.len(), |(byte, _)| byte)
-            })
-            .unwrap_or(text.len());
-        let text = &text[..end];
         if !(r.is_empty() && text.is_empty()) {
             self.splice(r.clone(), text);
         }
@@ -352,10 +384,7 @@ impl EditState {
                 .unwrap_or_else(|| self.session.selection()),
         );
         let start = r.start;
-        let limit = self.max_length;
-        self.set_max_length(None);
         self.replace(r, text);
-        self.set_max_length(limit);
         self.session.marked = (!text.is_empty()).then(|| start..start + text.len());
         let rel = selected.unwrap_or(text.len()..text.len());
         let rel = floor_boundary(text, rel.start)..floor_boundary(text, rel.end);
@@ -363,26 +392,13 @@ impl EditState {
         self.session.caret = start + rel.end.max(rel.start);
     }
 
-    /// End the composition, keeping as much of its text as the length
-    /// limit allows, with the caret after it. Returns whether one ended.
+    /// End the composition, its text kept, with the caret after it. Returns
+    /// whether one ended.
     pub fn unmark(&mut self) -> bool {
         let Some(marked) = self.session.marked.take() else {
             return false;
         };
-        let mut end = marked.end;
-        if let Some(max) = self.max_length {
-            let composed = self.text[marked.clone()].chars().count();
-            let others = self.text.chars().count() - composed;
-            let keep = max.saturating_sub(others);
-            if keep < composed {
-                end = self.text[marked.clone()]
-                    .char_indices()
-                    .nth(keep)
-                    .map_or(marked.end, |(byte, _)| marked.start + byte);
-                self.splice(end..marked.end, "");
-            }
-        }
-        self.session = TextSession::caret_at(end);
+        self.session = TextSession::caret_at(marked.end);
         true
     }
 
@@ -415,6 +431,20 @@ impl EditState {
 
     /// Undo the recorded changes, back to the text at `revision` (where
     /// the log started), with `session`.
+    /// Whether the text is the one the change log started from (later
+    /// changes undid every earlier one); `true` without a log.
+    pub(crate) fn text_is_unlogged(&self) -> bool {
+        let Some(log) = &self.log else {
+            return true;
+        };
+        let mut text = self.text.clone();
+        for logged in log.entries.iter().rev() {
+            let start = logged.change.range.start;
+            text.replace_range(start..start + logged.change.text.len(), &logged.removed);
+        }
+        text == self.text
+    }
+
     pub(crate) fn revert(&mut self, revision: u64, session: TextSession) {
         let entries = self.log.take().map(|log| log.entries).unwrap_or_default();
         for logged in entries.into_iter().rev() {

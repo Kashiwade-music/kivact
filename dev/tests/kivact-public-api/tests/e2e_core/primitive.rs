@@ -8,12 +8,13 @@
 //! found by role and test id like any element, and unmounting it drops
 //! its measure function.
 
+use kivact::state::IntoValue;
+use kivact::style::ColorToken;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::custom::{Constraints, primitive};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::test::Screen;
 use kivact::view::A11yAction;

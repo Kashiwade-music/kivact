@@ -3,13 +3,13 @@
 use super::common::section;
 use kivact::draw::linear_gradient;
 use kivact::geometry::Rect;
-use kivact::prelude::{
-    ColorToken, Element, Node, column, dynamic, for_each, node, rgb, row, show, signal, text,
-};
+use kivact::prelude::{Element, column, dynamic, for_each, node, rgb, row, show, signal, text};
 use kivact::state::{Machine, MachineHandle, Step, callback, machine};
+use kivact::style::ColorToken;
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::view::IntoView;
+use kivact::view::Node;
 use kivact::view::node_ref;
 use kivact_ui_pop as ui;
 use std::time::Duration;

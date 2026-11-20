@@ -1,9 +1,10 @@
 //! Role: Neutral text links with explicit native activation.
-use kivact::state::IntoValue;
+use kivact::state::{IntoHandler, IntoValue};
 
 use crate::TextKind;
 use crate::feedback::icon_box;
 use crate::recipe_style::ring;
+use kivact::Prop;
 use kivact::custom::part;
 use kivact::state::Callback;
 use kivact::state::IntoText;
@@ -30,7 +31,7 @@ use kivact::view::text;
 use kivact::view::use_direction;
 
 /// Foreground of a text link.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum LinkColor {
     #[default]
     /// Use the theme's accent foreground.
@@ -104,8 +105,9 @@ impl Link {
     }
 
     /// Handle activation; the caller performs navigation or another action.
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.press = Some(callback(move |_| press.call(())));
         self
     }
@@ -186,7 +188,7 @@ impl IntoView for Link {
         let mut root = self.root.with_node(move |node| node.part(attachment));
         root = activate_link(root, self.press, self.as_button);
         root = name_link(root, self.label, self.external, self.new_tab_label);
-        let direction = if use_direction().get() == ReadingDirection::Rtl {
+        let direction = if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
@@ -212,8 +214,6 @@ impl IntoView for Link {
             .into_view()
     }
 }
-
-kivact::state::constant_value!(LinkColor);
 
 fn activate_link(mut root: Node, press: Option<Callback<()>>, as_button: Value<bool>) -> Node {
     if let Some(press) = press {

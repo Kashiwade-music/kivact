@@ -1,6 +1,7 @@
 //! Role: The public chart data types and the frame the kinds paint and hit-test.
 
 use crate::tokens::Tokens;
+use kivact::Prop;
 use kivact::style::Color;
 
 /// One data series of a chart: a key, the name shown in the legend and tooltip, and a color.
@@ -75,7 +76,7 @@ impl ChartRow {
 /// row. Pie, donut and radial charts draw one slice or ring per series, sized
 /// by the sum of its values over all rows. A radar chart draws one polygon
 /// per series with one axis per row.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ChartKind {
     /// Bars side by side for each row.
     #[default]
@@ -162,5 +163,3 @@ pub(super) struct Hit {
     pub(super) title: Option<String>,
     pub(super) rows: Vec<HitRow>,
 }
-
-kivact::state::constant_value!(ChartKind);

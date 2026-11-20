@@ -1,7 +1,8 @@
 //! Role: Describe Soft appearances consumed by canonical chat recipes.
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 /// Spacing of a Soft conversation surface.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatDensity {
     /// Tight conversation spacing.
     Compact,
@@ -12,7 +13,7 @@ pub enum ChatDensity {
     Spacious,
 }
 /// Bubble background treatment.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum BubbleVariant {
     /// Filled message bubbles, the default.
     #[default]
@@ -21,7 +22,7 @@ pub enum BubbleVariant {
     Ghost,
 }
 /// Elevation of a composer surface.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ComposerElevation {
     /// Composer without a shadow.
     None,
@@ -30,7 +31,7 @@ pub enum ComposerElevation {
     Low,
 }
 /// System message framing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum SystemMessageVariant {
     /// Plain system message framing, the default.
     #[default]
@@ -65,9 +66,3 @@ impl kivact::ui::Variant for ChatDensity {}
 impl kivact::ui::Variant for BubbleVariant {}
 impl kivact::ui::Variant for ComposerElevation {}
 impl kivact::ui::Variant for SystemMessageVariant {}
-kivact::state::constant_value!(
-    ChatDensity,
-    BubbleVariant,
-    ComposerElevation,
-    SystemMessageVariant
-);

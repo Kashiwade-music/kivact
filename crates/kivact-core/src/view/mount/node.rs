@@ -66,6 +66,7 @@ fn mount_node(
         disabled,
         selected,
         style,
+        variants,
         facts,
         draw,
         late_semantics,
@@ -75,11 +76,20 @@ fn mount_node(
     } = resolve::resolve(cx, id, kind, c, at);
     create::write(cx, id, first, site, at);
     semantics::bind_props(cx, id, semantics, at);
+    let change = [&disabled, &selected]
+        .into_iter()
+        .any(|prop| prop.as_ref().is_some_and(|p| p.fixed().is_none()));
     let states = style::States {
+        change,
         disabled: disabled.map(InputProp::into_fn),
         selected: selected.map(InputProp::into_fn),
     };
-    style::bind_node_style(cx, id, style, &facts, states, fix_layout, at);
+    let input = style::StyleInput {
+        layers: style,
+        variants,
+        fix_layout,
+    };
+    style::bind_node_style(cx, id, input, &facts, states, at);
     if let Some(draw) = draw {
         draw::bind(cx, id, draw, at);
     }

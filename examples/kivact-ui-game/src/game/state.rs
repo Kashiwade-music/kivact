@@ -1,6 +1,6 @@
 //! Shared signal handles for Game catalog specimen commands.
 
-use kivact::state::{Binding, Signal, binding};
+use kivact::state::{Signal, binding};
 
 /// The one overlay the catalog shows; opening another replaces the open one.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -23,7 +23,7 @@ pub(super) struct Demo {
 impl Demo {
     /// The overlay's open binding, for a dialog, drawer or command palette
     /// (API-13: a component that is meaningless while closed takes `open`).
-    pub(super) fn open(self, which: Overlay) -> Binding<bool> {
+    pub(super) fn open(self, which: Overlay) -> Signal<bool> {
         let overlay = self.overlay;
         binding(
             move || overlay.get() == which,

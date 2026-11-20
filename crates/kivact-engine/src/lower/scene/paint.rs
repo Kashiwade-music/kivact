@@ -23,6 +23,25 @@ impl Context<'_> {
         engine: &mut arvane::Engine,
         out: &mut SceneOut,
     ) {
+        let start = self.checkpoint();
+        self.paint_scene_lowered(scene, inherited, origin, tint, engine, out);
+        // A scene that could not draw all of itself (an image still loading)
+        // draws differently once it can: its node's drawing is not kept.
+        if !self.succeeded_since(&start) {
+            out.spoil();
+        }
+    }
+
+    /// `paint_scene` without the check of what it could not draw.
+    fn paint_scene_lowered(
+        &self,
+        scene: &Arc<DrawList>,
+        inherited: Option<&ComputedTextStyle>,
+        origin: Rect,
+        tint: &Tint,
+        engine: &mut arvane::Engine,
+        out: &mut SceneOut,
+    ) {
         let (layer, item) = super::scene_layers(scene);
         let cacheable = !layer && !item;
 

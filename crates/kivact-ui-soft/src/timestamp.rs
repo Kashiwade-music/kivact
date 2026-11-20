@@ -1,5 +1,6 @@
 //! Role: Format timestamps as calendar dates, wall-clock times, or relative ages.
 use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
+use kivact::Prop;
 use kivact::i18n::CalendarDate;
 use kivact::i18n::message;
 use kivact::state::IntoValue;
@@ -19,7 +20,7 @@ use std::rc::Rc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// A UTC instant measured in Unix milliseconds.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Prop)]
 pub struct TimestampValue(i64);
 
 impl TimestampValue {
@@ -130,7 +131,7 @@ impl From<SystemTime> for TimestampValue {
 }
 
 /// The application-supplied offset and display name for a time zone.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Prop)]
 pub struct TimeZone {
     /// The local offset from UTC in seconds for the instant being rendered.
     pub offset_seconds: i32,
@@ -174,7 +175,7 @@ pub struct TimestampEntry {
 }
 
 /// The format of the main timestamp.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum TimestampFormat {
     /// Show a relative age in words.
     Relative,
@@ -577,8 +578,6 @@ fn timestamp_presentation(
         ),
     }
 }
-
-kivact::state::constant_value!(TimestampValue, TimestampFormat, TimeZone);
 
 fn timestamp_details(
     value: Value<TimestampValue>,

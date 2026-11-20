@@ -161,7 +161,7 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         source.error(
             "api-shape",
             sig.span(),
-            "on_ method requires a last argument of impl Into<Callback<()>> or impl Fn(..) -> R with R: HandlerResult",
+            "on_ method requires a last argument of impl IntoHandler<(), M> or impl Fn(E) -> R with R: HandlerResult",
             errors,
         );
     }
@@ -173,7 +173,7 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         source.error(
             "api-shape",
             sig.span(),
-            "a builder method takes a handler without a payload as impl Into<Callback<()>> (API-3)",
+            "a builder method takes a handler without a payload as impl IntoHandler<(), M> (API-3)",
             errors,
         );
     }
@@ -191,11 +191,11 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
 }
 /// The last argument of an `on_*` setter follows API-3.
 fn handler_callback(ty: &syn::Type, sig: &syn::Signature) -> bool {
-    into_unit_callback(ty) || fn_output_handler(ty, sig)
+    into_handler(ty) || fn_output_handler(ty, sig)
 }
 
-/// `impl Into<Callback<()>>`, also with a qualified path or `+ 'static`.
-fn into_unit_callback(ty: &syn::Type) -> bool {
+/// `impl IntoHandler<(), M>`, also with a qualified path or `+ 'static`.
+fn into_handler(ty: &syn::Type) -> bool {
     let syn::Type::ImplTrait(ty) = ty else {
         return false;
     };
@@ -203,43 +203,12 @@ fn into_unit_callback(ty: &syn::Type) -> bool {
         let syn::TypeParamBound::Trait(bound) = bound else {
             return false;
         };
-        let Some(segment) = bound.path.segments.last() else {
-            return false;
-        };
-        if segment.ident != "Into" {
-            return false;
-        }
-        let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
-            return false;
-        };
-        arguments.args.iter().any(|argument| {
-            let syn::GenericArgument::Type(ty) = argument else {
-                return false;
-            };
-            callback_unit(ty)
-        })
+        bound
+            .path
+            .segments
+            .last()
+            .is_some_and(|s| s.ident == "IntoHandler")
     })
-}
-
-/// Whether `ty` is `Callback<()>`.
-fn callback_unit(ty: &syn::Type) -> bool {
-    let syn::Type::Path(path) = ty else {
-        return false;
-    };
-    let Some(segment) = path.path.segments.last() else {
-        return false;
-    };
-    if segment.ident != "Callback" {
-        return false;
-    }
-    let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
-        return false;
-    };
-    arguments.args.len() == 1
-        && matches!(
-            arguments.args.first(),
-            Some(syn::GenericArgument::Type(syn::Type::Tuple(tuple))) if tuple.elems.is_empty()
-        )
 }
 
 /// `impl Fn(..) -> R` or a generic `F: Fn(..) -> R`, where `R` has a
@@ -352,7 +321,7 @@ mod tests {
     #[test]
     fn checks_reachable_public_shapes() {
         let mut source = crate::check_source::fixture(
-            "pub struct Widget { pub x: f32, hidden: f32 } impl Widget { pub fn on_press(self, f: impl Into<Callback<()>>) {} pub fn on_bad(self, f: bool) {} pub fn on_plain(self, f: impl Fn()) {} pub fn content(self, f: impl FnOnce()) {} pub fn shared(self) -> Rc<Data> { loop {} } pub fn trigger(self, f: impl Fn()) -> Self { self } } struct Hidden { pub x: f32 }",
+            "pub struct Widget { pub x: f32, hidden: f32 } impl Widget { pub fn on_press<M>(self, f: impl IntoHandler<(), M>) {} pub fn on_bad(self, f: bool) {} pub fn on_plain(self, f: impl Fn()) {} pub fn content(self, f: impl FnOnce()) {} pub fn shared(self) -> Rc<Data> { loop {} } pub fn trigger(self, f: impl Fn()) -> Self { self } } struct Hidden { pub x: f32 }",
         );
         source.module.clear();
         let surface = crate::public_surface::build(std::slice::from_ref(&source));
@@ -363,7 +332,7 @@ mod tests {
     #[test]
     fn accepts_handler_bounds_and_lifecycle_exceptions() {
         let mut source = crate::check_source::fixture(
-            "pub struct Widget; impl Widget { pub fn on_inline<R: HandlerResult>(self, f: impl Fn() -> R) {} pub fn on_generic<F, R>(self, f: F) where F: Fn(u8) -> R, R: HandlerResult {} pub fn on_path<R>(self, f: impl Fn() -> R) where R: HandlerResult {} pub fn on_callback(self, f: impl Into<Callback<()>>) {} pub fn on_many(self, a: bool, f: impl Into<Callback<()>>) {} pub fn on_mount(self, f: impl FnOnce()) {} pub fn on_cleanup(self, f: impl FnOnce()) {} pub fn on_attach(self, f: impl FnOnce()) {} pub fn on_fake(self, f: impl Into<bool>) {} pub fn on_plain(self, f: impl Fn()) {} }",
+            "pub struct Widget; impl Widget { pub fn on_inline<R: HandlerResult>(self, f: impl Fn() -> R) {} pub fn on_generic<F, R>(self, f: F) where F: Fn(u8) -> R, R: HandlerResult {} pub fn on_path<R>(self, f: impl Fn() -> R) where R: HandlerResult {} pub fn on_callback<M>(self, f: impl IntoHandler<(), M>) {} pub fn on_many<M>(self, a: bool, f: impl IntoHandler<(), M>) {} pub fn on_mount(self, f: impl FnOnce()) {} pub fn on_cleanup(self, f: impl FnOnce()) {} pub fn on_attach(self, f: impl FnOnce()) {} pub fn on_fake(self, f: impl Into<bool>) {} pub fn on_plain(self, f: impl Fn()) {} }",
         );
         source.module.clear();
         let surface = crate::public_surface::build(std::slice::from_ref(&source));
@@ -375,7 +344,7 @@ mod tests {
     #[test]
     fn rejects_a_builder_handler_without_payload_in_every_spelling() {
         let mut source = crate::check_source::fixture(
-            "pub struct Widget; impl Widget { pub fn a(self, f: impl Fn()) -> Self { self } pub fn b(self, f: impl Fn() -> () + 'static) -> Self { self } pub fn c<F: Fn()>(self, f: F) -> Self { self } pub fn d<F>(self, f: F) -> Self where F: Fn() -> () + 'static { self } pub fn e<R: HandlerResult>(self, f: impl Fn() -> R) -> Self { self } pub fn slot<V: IntoView>(self, f: impl Fn() -> V) -> Self { self } pub fn pick(self, f: impl Fn(u8)) -> Self { self } pub fn shared(self, f: impl Into<Callback<()>>) -> Self { self } pub fn run(self, f: impl Fn()) {} }",
+            "pub struct Widget; impl Widget { pub fn a(self, f: impl Fn()) -> Self { self } pub fn b(self, f: impl Fn() -> () + 'static) -> Self { self } pub fn c<F: Fn()>(self, f: F) -> Self { self } pub fn d<F>(self, f: F) -> Self where F: Fn() -> () + 'static { self } pub fn e<R: HandlerResult>(self, f: impl Fn() -> R) -> Self { self } pub fn slot<V: IntoView>(self, f: impl Fn() -> V) -> Self { self } pub fn pick(self, f: impl Fn(u8)) -> Self { self } pub fn shared<M>(self, f: impl IntoHandler<(), M>) -> Self { self } pub fn run(self, f: impl Fn()) {} }",
         );
         source.module.clear();
         let surface = crate::public_surface::build(std::slice::from_ref(&source));

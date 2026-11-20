@@ -4,6 +4,7 @@ use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
 use kivact::ui;
 use kivact::view::Asset;
+use kivact::view::Modifiers;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 #[test]

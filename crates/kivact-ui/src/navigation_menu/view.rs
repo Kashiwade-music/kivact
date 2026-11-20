@@ -67,15 +67,17 @@ impl NavigationMenu {
         self
     }
     /// Add a direct navigation action without constructing or opening a panel.
-    pub fn action<K: 'static>(
+    pub fn action<K: 'static, M>(
         mut self,
         _key: K,
         label: impl IntoText,
-        press: impl Into<kivact_core::state::Callback<()>>,
+        press: impl kivact_core::state::IntoHandler<(), M>,
     ) -> Self {
         self.links.push(Entry::Action {
             label: label.into_text_value(),
-            press: press.into(),
+            press: kivact_core::state::Callback::from_handler(
+                kivact_core::state::IntoHandler::into_handler(press),
+            ),
         });
         self
     }
@@ -250,7 +252,7 @@ fn navigation_panel(
 fn pinned_binding(
     api: kivact_interaction::NavigationMenuApi,
     at: usize,
-) -> kivact_core::state::Binding<bool> {
+) -> kivact_core::state::Signal<bool> {
     let state = api.state();
     binding(
         move || state.get() == NavOpen::Pinned(at),

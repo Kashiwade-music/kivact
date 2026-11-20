@@ -5,6 +5,7 @@
 //! twice, so a press outside the surface cannot hide what the first call did.
 //! Through the public API only.
 
+use kivact::interaction::Selection;
 use kivact::interaction::{
     NavOpen, use_combobox, use_menu, use_navigation_menu, use_select, use_text_edit,
 };
@@ -71,8 +72,7 @@ fn select_show_twice_stays_open_and_toggle_twice_returns() {
 fn combobox_show_keeps_a_shown_list_and_its_filter() {
     let (screen, (open, filtering)) = mount(|| {
         let value = signal(None::<&'static str>);
-        let combo =
-            use_combobox(colors(), Selection::Single(value.into_binding())).popup(signal(false));
+        let combo = use_combobox(colors(), Selection::Single(value)).popup(signal(false));
         // Shortcuts on the field: the focus stays in it.
         let shortcuts = move |event: KeyEvent| {
             match event.key() {

@@ -10,7 +10,8 @@ use kivact_devtools_protocol as p;
 use kivact_engine::api::Prop;
 use kivact_engine::contract::{DevtoolsOverlay, PickPhase};
 use kivact_runtime::NodeId as EffectId;
-use kivact_runtime::{LiveSnapshot, Owner, Runtime, Signal};
+use kivact_runtime::driver::{LiveSnapshot, Runtime};
+use kivact_runtime::{Owner, Signal};
 use kivact_style::internal::ForcedStates;
 use kivact_types::cell::{LocalMailbox, ReportOnce};
 use kivact_types::{FocusTarget, NodeId, RequestId, Revision, WindowId};
@@ -64,7 +65,7 @@ pub(crate) struct HookData {
     pub(crate) next_input: Cell<u64>,
     /// The style overrides parsed once when they change, read by the style hooks.
     pub(crate) node_overrides: Rc<RefCell<NodeOverrides>>,
-    pub(crate) node_overrides_changed: kivact_runtime::Notifier,
+    pub(crate) node_overrides_changed: kivact_runtime::Trigger,
 }
 
 // xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_windows, errors_sent; allocates style override ids
@@ -179,7 +180,7 @@ impl DevtoolsState {
     /// The DevTools state of `rt`'s App.
     #[inline]
     pub(crate) fn of(rt: &Runtime) -> &DevtoolsState {
-        rt.ext::<DevtoolsState>()
+        &crate::app_state::AppState::of(rt).devtools
     }
 
     /// The running inspector; a call arrives only while the agent runs.
@@ -223,7 +224,7 @@ impl DevtoolsState {
                 input_log: RefCell::new(VecDeque::new()),
                 next_input: Cell::new(0),
                 node_overrides: Rc::default(),
-                node_overrides_changed: root.notifier(at),
+                node_overrides_changed: root.trigger(at),
             },
             session: SessionData {
                 events: RefCell::new(Vec::new()),

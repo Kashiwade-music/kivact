@@ -7,8 +7,8 @@ use crate::layer::with_base_recipe_style;
 use crate::toggle::look::CheckControl;
 use crate::toggle::look::CheckableState;
 use crate::variants::{Variant, Variants};
-use kivact_core::state::{Binding, Value};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::{CheckedState, Element, Node, node};
 use kivact_core::view::{IntoView, View};
 use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
@@ -18,7 +18,7 @@ macro_rules! toggle_builder {
         pub struct $name {
             root: Node,
             label: Value<String>,
-            state: Binding<bool>,
+            state: Signal<bool>,
             on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
@@ -36,7 +36,7 @@ macro_rules! toggle_builder {
                 self
             }
 
-            fn create(label: Value<String>, state: Binding<bool>) -> Self {
+            fn create(label: Value<String>, state: Signal<bool>) -> Self {
                 Self {
                     root: node().style(crate::helpers::single_line_text()).name(label),
                     label,
@@ -156,7 +156,7 @@ toggle_builder!(
 
 fn no_gesture(
     control: kivact_core::custom::Part<ToggleState>,
-    _: Binding<bool>,
+    _: Signal<bool>,
     _: Value<ControlSize>,
     _: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
 ) -> (
@@ -167,7 +167,7 @@ fn no_gesture(
 }
 
 /// The behavior of a check box, with its mixed state when it has one.
-fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> CheckboxApi {
+fn checkbox_behavior(state: Signal<bool>, mixed: Option<Value<bool>>) -> CheckboxApi {
     let behavior = use_checkbox(state);
     match mixed {
         Some(mixed) => behavior.indeterminate(mixed),
@@ -176,7 +176,7 @@ fn checkbox_behavior(state: Binding<bool>, mixed: Option<Value<bool>>) -> Checkb
 }
 
 /// The behavior of a switch; a switch has no mixed state.
-fn switch_behavior(state: Binding<bool>, _mixed: Option<Value<bool>>) -> SwitchApi {
+fn switch_behavior(state: Signal<bool>, _mixed: Option<Value<bool>>) -> SwitchApi {
     use_switch(state)
 }
 
@@ -192,7 +192,7 @@ fn switch_text(on: Value<bool>) -> Value<String> {
 /// A check box's control: its checked state as the behavior reports it,
 /// mixed included.
 fn checkbox_control(
-    _: Binding<bool>,
+    _: Signal<bool>,
     _: crate::toggle::switch_drag::Visual,
 ) -> impl Fn(CheckedState) -> CheckControl + 'static {
     CheckControl::CheckBox
@@ -201,7 +201,7 @@ fn checkbox_control(
 /// A switch's control: on or off, its localized word for the state (made at
 /// setup) and the live visual of its opted-in drag.
 fn switch_control(
-    state: Binding<bool>,
+    state: Signal<bool>,
     drag: crate::toggle::switch_drag::Visual,
 ) -> impl Fn(CheckedState) -> CheckControl + 'static {
     let text = switch_text(state.into_value());
@@ -244,11 +244,8 @@ impl Checkbox {
 /// }
 /// ```
 #[track_caller]
-pub fn checkbox(
-    label: impl IntoText,
-    checked: impl kivact_core::state::IntoBinding<bool>,
-) -> Checkbox {
-    Checkbox::create(label.into_text_value(), checked.into_binding())
+pub fn checkbox(label: impl IntoText, checked: kivact_core::state::Signal<bool>) -> Checkbox {
+    Checkbox::create(label.into_text_value(), checked)
 }
 
 /// A switch named and labelled `label` that edits `on`.
@@ -267,6 +264,6 @@ pub fn checkbox(
 /// }
 /// ```
 #[track_caller]
-pub fn switch(label: impl IntoText, on: impl kivact_core::state::IntoBinding<bool>) -> Switch {
-    Switch::create(label.into_text_value(), on.into_binding())
+pub fn switch(label: impl IntoText, on: kivact_core::state::Signal<bool>) -> Switch {
+    Switch::create(label.into_text_value(), on)
 }

@@ -5,10 +5,12 @@
 //! the active row when a parent closes, the filter, single and multiple
 //! selection, odd data, typeahead and the roving tab stop.
 
+use kivact::interaction::IntoSelection;
 use kivact::interaction::TreeNode;
 use kivact::interaction::{TreeApi, TreeBranch};
 use kivact::prelude::*;
 use kivact::test::{Locator, MirrorMode, RenderOptions, Screen};
+use kivact::view::Node;
 use kivact_public_api_tests::support::mount_with;
 
 type FileNode = TreeNode<&'static str>;

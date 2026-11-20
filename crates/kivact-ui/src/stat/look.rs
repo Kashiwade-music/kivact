@@ -3,6 +3,7 @@
 use crate::recipe::recipe_table;
 use crate::variants::Look;
 use kivact_core::style::{ColorToken, Direction, Style, Theme, style};
+use kivact_macros::Prop;
 pub(crate) fn stat_root(t: &Theme, _: &Look<StatState>) -> Style {
     style()
         .direction(Direction::Column)
@@ -57,7 +58,7 @@ recipe_table! {
 }
 
 /// The direction of change, independent of whether that change is desirable.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Trend {
     /// The statistic has increased.
     Up,
@@ -67,5 +68,3 @@ pub enum Trend {
     #[default]
     Neutral,
 }
-
-kivact_core::state::constant_value!(Trend);

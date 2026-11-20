@@ -3,7 +3,7 @@
 use kivact::i18n::Locale;
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
-use kivact::view::MouseButton;
+use kivact::view::EditPhase;
 use kivact_ui_basic as basic;
 use kivact_ui_basic::{PlotAxis, PlotModel, PlotRange, PlotSeries, PlotView, plot};
 use std::cell::RefCell;

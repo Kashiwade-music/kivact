@@ -1,17 +1,17 @@
 //! Role: Basic code-size variants and recipes for the Core source editor.
 use crate::Tokens;
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, LineHeight, Style, TextAlign, Theme, pct, style};
 use kivact::ui::{CodeBlockRecipes, CodeBlockState, Look};
 /// Text size and padding of a standard code block.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum CodeBlockSize {
     #[default]
     Default,
     Sm,
 }
 impl kivact::ui::Variant for CodeBlockSize {}
-kivact::state::constant_value!(CodeBlockSize);
 /// A constant or reactive code-size presentation, independent of source editing.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CodeBlockLook {

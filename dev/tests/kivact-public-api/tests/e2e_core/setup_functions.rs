@@ -4,6 +4,7 @@
 //! `on_cleanup`, `on_mount`, `context`, `context`) and the associated
 //! constructors of the reactive handles, called with no setup-context argument.
 
+use kivact::state::IntoValue;
 use kivact::state::selector;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -114,9 +115,9 @@ fn context_is_found_in_setup_and_in_handlers() {
     let s2 = seen.clone();
     let screen = render(move || {
         provide(Theme2(7), move || {
-            let in_setup = use_context::<Theme2>().get().0;
+            let in_setup = use_context::<Theme2>().0;
             assert_eq!(
-                kivact::state::try_use_context::<Theme2>().map(|t| t.get().0),
+                kivact::state::try_use_context::<Theme2>().map(|t| t.0),
                 Some(in_setup)
             );
             let missing = kivact::state::try_use_context::<u8>();
@@ -129,7 +130,7 @@ fn context_is_found_in_setup_and_in_handlers() {
                     .name(label)
                     .child(text(label))
             }
-            .on_press(move || s2.set(use_context::<Theme2>().get().0))
+            .on_press(move || s2.set(use_context::<Theme2>().0))
         })
     });
     screen.get_by_role(Role::Button, "ctx 7").click();
@@ -144,13 +145,13 @@ fn handle_constructors_create_under_the_setup_owner() {
         let selected = signal(None::<u32>);
         let sel = selector(selected);
         let var = var(0u32);
-        let trigger = signal(());
+        let trigger = trigger();
         let l3 = l2.clone();
         // No annotation: `E` comes from the use below.
         let cb = callback(move |v| l3.borrow_mut().push(format!("cb {v}")));
         let l4 = l2.clone();
         effect(move || {
-            trigger.get();
+            trigger.track();
             l4.borrow_mut().push(format!("is 1: {}", sel.is(&1)));
         });
         cb.call(1u32);
@@ -197,4 +198,30 @@ fn bind_macro_edits_a_nested_field() {
     screen.get_by_role(Role::Button, "Rename").click();
     assert_eq!(model.get().address.street, "New");
     assert_eq!(model.get().untouched, 7);
+}
+
+#[test]
+fn use_direction_is_ltr_at_the_root_and_follows_provide_direction() {
+    use kivact::view::{ReadingDirection, provide_direction, use_direction};
+
+    let at_root = Rc::new(Cell::new(None));
+    let root_seen = at_root.clone();
+    let in_handler = Rc::new(Cell::new(None));
+    let handler_seen = in_handler.clone();
+    let screen = render(move || {
+        root_seen.set(Some(use_direction()));
+        provide_direction(ReadingDirection::Rtl, move || {
+            assert_eq!(use_direction(), ReadingDirection::Rtl);
+            let label = ("rtl").into_value();
+            node()
+                .role(Role::Button)
+                .focusable(true)
+                .name(label)
+                .child(text(label))
+                .on_press(move || handler_seen.set(Some(use_direction())))
+        })
+    });
+    assert_eq!(at_root.get(), Some(ReadingDirection::Ltr));
+    screen.get_by_role(Role::Button, "rtl").click();
+    assert_eq!(in_handler.get(), Some(ReadingDirection::Rtl));
 }

@@ -12,6 +12,7 @@ use kivact::style::Direction;
 use kivact::test::{RenderOptions, Screen};
 use kivact::ui::Look;
 use kivact::ui::{ButtonState, TextInputState, UiRecipes};
+use kivact::ui::{DataColumn, calendar, data_table};
 use kivact::view::A11yAction;
 use kivact_public_api_tests::paint::{distance, pixel};
 use kivact_public_api_tests::support::{mount, mount_with};

@@ -9,8 +9,8 @@
 //! them, and a kit's typed button variant.
 
 use kivact::interaction::{MenuItemState, TabState};
+use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 use kivact::style::{Icon, ThemeExtension, TransitionProp};
 use kivact::test::Screen;
 use kivact::ui::Look;

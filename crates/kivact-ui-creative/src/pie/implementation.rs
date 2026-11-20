@@ -1,7 +1,7 @@
 //! Role: Pie menu of the Creative kit with pointer and keyboard selection.
 use super::data::{PieEntry, PieState};
 use super::machine;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::ui::button;
 use kivact::view::HandlerResult;
 
@@ -22,14 +22,11 @@ use kivact::view::{ButtonPress, MouseButton, Placement, PointerPhase, overlay_at
 /// To implement a held shortcut, open `PieState::open_at(point, true)` on key-down and
 /// commit its `hot` choice on key-up using the same application command callback.
 #[track_caller]
-pub fn pie_menu(
-    items: impl IntoValue<Vec<PieEntry>>,
-    state: impl IntoBinding<PieState>,
-) -> PieMenu {
+pub fn pie_menu(items: impl IntoValue<Vec<PieEntry>>, state: Signal<PieState>) -> PieMenu {
     PieMenu {
         root: column(()).style(style().height(0).gap(0)),
         entries: items.into_value(),
-        state: state.into_binding(),
+        state,
         choose: None,
     }
 }
@@ -38,7 +35,7 @@ pub fn pie_menu(
 pub struct PieMenu {
     root: Node,
     entries: kivact::state::Value<Vec<PieEntry>>,
-    state: kivact::state::Binding<PieState>,
+    state: kivact::state::Signal<PieState>,
     choose: Option<kivact::state::Callback<usize>>,
 }
 impl PieMenu {
@@ -69,12 +66,11 @@ impl IntoView for PieMenu {
 fn pie_menu_view<R: HandlerResult>(
     root: Node,
     entries: impl IntoValue<Vec<PieEntry>>,
-    state: impl IntoBinding<PieState>,
+    state: Signal<PieState>,
     choose: impl Fn(usize) -> R + 'static,
 ) -> Node {
     let choose = callback(choose);
     let entries = entries.into_value();
-    let state = state.into_binding();
     let external = state.into_value();
     let controller = kivact::state::machine(
         external.get_untracked(),

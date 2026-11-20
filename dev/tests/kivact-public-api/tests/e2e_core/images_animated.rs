@@ -15,7 +15,6 @@ use image::codecs::webp::WebPEncoder;
 use image::{Delay, ExtendedColorType, Frame, ImageEncoder, Rgba, RgbaImage};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, render, render_with};
-use kivact::view::Asset;
 use kivact_public_api_tests::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect, pixel};
 
 /// The frames' colors, one per 100 ms.
@@ -321,7 +320,8 @@ fn svg_text_is_drawn() {
     // A `<text>` in a registered font: its glyphs are dark where the text
     // is, on the white background.
     static SVG_TEXT: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="200" height="60"><rect width="200" height="60" fill="#ffffff"/><text x="10" y="45" font-family="Inter Variable" font-size="40" fill="#000000">Hamburg</text></svg>"##;
-    let screen = render_with(RenderOptions::from_env().font(Asset::from(INTER)), || {
+    let theme = kivact::style::Theme::default().with_fonts([INTER]);
+    let screen = render_with(RenderOptions::from_env().theme(theme), || {
         canvas_of(image(SVG_TEXT).test_id("svg").style(at(0, 0, 200, 60)))
     });
     let shot = screen.get_by_test_id("svg").screenshot();

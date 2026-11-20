@@ -7,7 +7,7 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::{Part, PartState, part, raise};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Signal, Value, machine, memo, signal};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, WheelEvent};
@@ -19,7 +19,7 @@ use std::rc::Rc;
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
     observed: Signal<Option<Value<PartState>>>,
-    transform: Binding<ViewTransform>,
+    transform: Signal<ViewTransform>,
     settings: OptionsCell<ZoomPanOptions>,
     edit: EditSession<ViewTransform>,
     /// The one gesture; Space is held in its idle state, so
@@ -31,8 +31,7 @@ pub struct ZoomPanApi {
 
 /// Create shared zoom and pan behavior during setup.
 #[track_caller]
-pub fn use_zoom_pan(transform: impl kivact_core::state::IntoBinding<ViewTransform>) -> ZoomPanApi {
-    let transform = transform.into_binding();
+pub fn use_zoom_pan(transform: kivact_core::state::Signal<ViewTransform>) -> ZoomPanApi {
     let settings = OptionsCell::new(ZoomPanOptions::default());
     let edit = EditSession::new(move |initial| transform.set(initial));
     let session = Rc::new(edit);

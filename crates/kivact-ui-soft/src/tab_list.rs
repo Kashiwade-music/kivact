@@ -9,8 +9,8 @@ use kivact::interaction::ListItem;
 use kivact::interaction::use_menu;
 use kivact::interaction::use_tabs;
 use kivact::motion::Transition;
-use kivact::state::IntoBinding;
 use kivact::state::ItemKey;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::ScrollAxes;
@@ -23,7 +23,6 @@ use kivact::view::stack;
 use kivact::view::text;
 
 use kivact::interaction::MenuEntry;
-use kivact::state::Binding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -72,7 +71,7 @@ pub enum TabLayout {
     Fill,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Accessibility and keyboard pattern used by a tab strip.
 pub enum TabPattern {
     #[default]
@@ -82,7 +81,7 @@ pub enum TabPattern {
     Tabs,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// How a tab strip handles content wider than its viewport.
 pub enum TabOverflow {
     #[default]
@@ -93,6 +92,7 @@ pub enum TabOverflow {
 }
 
 pub use crate::tab_entries::{Tab, TabMenu, TabMenuOption, tab, tab_menu};
+use kivact::Prop;
 
 /// An ordinary tab or embedded menu in a tab strip.
 pub enum TabEntry<K> {
@@ -125,7 +125,7 @@ struct Look {
 pub struct TabList<K: ItemKey> {
     root: Node,
     label: Value<String>,
-    binding: Binding<K>,
+    binding: Signal<K>,
     entries: Vec<TabEntry<K>>,
     look: Look,
     pattern: Value<TabPattern>,
@@ -135,11 +135,11 @@ pub struct TabList<K: ItemKey> {
 }
 
 /// Create a named strip bound to the currently selected key.
-pub fn tab_list<K: ItemKey>(label: impl IntoText, value: impl IntoBinding<K>) -> TabList<K> {
+pub fn tab_list<K: ItemKey>(label: impl IntoText, value: Signal<K>) -> TabList<K> {
     TabList {
         root: node(),
         label: label.into_text_value(),
-        binding: value.into_binding(),
+        binding: value,
         entries: Vec::new(),
         look: Look {
             size: ControlSize::Medium,
@@ -330,16 +330,14 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }
             let strip_ref = node_ref();
             let viewport_ref = node_ref();
             let inset = if full_bleed.get() {
-                try_use_context::<ContainerInset>()
-                    .map(|value| value.get())
-                    .unwrap_or_default()
+                try_use_context::<ContainerInset>().unwrap_or_default()
             } else {
                 ContainerInset::default()
             };
@@ -570,7 +568,7 @@ fn tab_scroll_arrow(
 
 fn tab_menu_view<K: ItemKey>(
     menu: TabMenu<K>,
-    binding: Binding<K>,
+    binding: Signal<K>,
     look: Look,
     focus: FocusTrack,
     index: usize,
@@ -649,11 +647,9 @@ fn tab_menu_view<K: ItemKey>(
     (trigger, menu).into_view()
 }
 
-kivact::state::constant_value!(TabOverflow, TabPattern);
-
 fn tabs_behavior<K: ItemKey>(
     entries: &mut [TabEntry<K>],
-    binding: Binding<K>,
+    binding: Signal<K>,
     pattern: TabPattern,
 ) -> Option<kivact::interaction::TabsApi<K>> {
     let options = entries
@@ -687,7 +683,7 @@ fn tabs_behavior<K: ItemKey>(
 
 fn focus_track<K: ItemKey>(
     entries: &mut [TabEntry<K>],
-    binding: Binding<K>,
+    binding: Signal<K>,
     strip_ref: NodeRef,
 ) -> FocusTrack {
     let members = entries
@@ -731,7 +727,7 @@ fn focus_track<K: ItemKey>(
 }
 
 struct TabRuntime<K: ItemKey> {
-    binding: Binding<K>,
+    binding: Signal<K>,
     look: Look,
     behavior: Option<kivact::interaction::TabsApi<K>>,
     focus: FocusTrack,
@@ -909,7 +905,7 @@ fn strip_style(look: Look, inset: ContainerInset, scrollable: bool) -> kivact::s
 
 fn menu_option<K: ItemKey>(
     option: &TabMenuOption<K>,
-    binding: Binding<K>,
+    binding: Signal<K>,
     part: kivact::custom::Part<kivact::interaction::MenuItemState>,
 ) -> Node {
     let state = part.state();
@@ -950,7 +946,7 @@ fn strip_frame(strip: View, inset: ContainerInset, look: Look) -> Node {
 
 fn selected_menu_label<K: ItemKey>(
     options: Rc<[TabMenuOption<K>]>,
-    binding: Binding<K>,
+    binding: Signal<K>,
     label: Value<String>,
 ) -> Value<String> {
     let options_for_label = options;

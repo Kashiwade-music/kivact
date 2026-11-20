@@ -165,10 +165,10 @@ impl Runtime {
     /// Only actual computations contribute: copied contexts add no cycle entries.
     pub(crate) fn frame_path(&self) -> Vec<&'static Location<'static>> {
         let collectors = self.collectors.borrow();
-        let graph = self.graph.borrow();
+        let diag = self.diag.borrow();
         collectors
             .iter()
-            .filter_map(|collector| graph.get(collector.node).map(|node| node.at))
+            .filter_map(|collector| diag.node_meta.get(&collector.node).map(|m| m.at))
             .collect()
     }
 

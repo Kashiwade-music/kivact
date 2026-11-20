@@ -5,7 +5,7 @@ use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
 use crate::variants::{Variant, Variants};
 use kivact_core::i18n::message;
-use kivact_core::state::{Binding, Callback, Value, binding, memo};
+use kivact_core::state::{Callback, Signal, Value, binding, memo};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{Direction, pct, style};
 use kivact_core::view::EditPhase;
@@ -24,7 +24,7 @@ const UNMEASURED: f64 = 800.0;
 pub struct Split {
     root: Node,
     orientation: Orientation,
-    sizes: Binding<Vec<f64>>,
+    sizes: Signal<Vec<f64>>,
     panes: Vec<View>,
     grip: Value<bool>,
     min_size: f64,
@@ -68,14 +68,11 @@ pub struct Split {
 /// }
 /// ```
 #[track_caller]
-pub fn split(
-    sizes: impl kivact_core::state::IntoBinding<Vec<f64>>,
-    panes: impl IntoChildren,
-) -> Split {
+pub fn split(sizes: kivact_core::state::Signal<Vec<f64>>, panes: impl IntoChildren) -> Split {
     Split {
         root: node(),
         orientation: Orientation::Horizontal,
-        sizes: sizes.into_binding(),
+        sizes,
         panes: panes.into_views(),
         grip: false.into_value(),
         min_size: 0.1,
@@ -159,7 +156,7 @@ fn shares(sizes: &[f64], count: usize) -> Vec<f64> {
 /// What every handle of a group shares.
 #[derive(Clone)]
 struct SplitGroupOptions {
-    sizes: Binding<Vec<f64>>,
+    sizes: Signal<Vec<f64>>,
     shares: Value<Vec<f64>>,
     shared: Value<f64>,
     axis: Orientation,
@@ -238,7 +235,7 @@ impl IntoView for Split {
                 children.push(handle(at, reference, &group).into_view());
             }
         }
-        let direction = match (stacked, use_direction().get()) {
+        let direction = match (stacked, use_direction()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

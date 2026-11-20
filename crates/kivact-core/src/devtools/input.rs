@@ -5,7 +5,7 @@ use kivact_devtools_protocol as p;
 use kivact_engine::contract::{
     HostRequest, ImeStateInfo, InjectedInput, PlatformKey, RawInput, RawKey, RawKeyPhase,
 };
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{InputPurpose, Key, KeyCode, Modifiers, NodeId, Point, RequestId, WindowId};
 
 use super::convert;
@@ -97,7 +97,9 @@ fn click_inputs(
     let tree = ViewState::tree(rt);
     let reader = tree.reader();
     let node = NodeId(raw);
-    if tree.get(node).is_none() || !tree.is_visible(node) || reader.window_of(node) != Some(window)
+    if tree.get(node).is_none()
+        || !reader.node_flags(node).visible
+        || reader.window_of(node) != Some(window)
     {
         return Err(node_not_found(raw));
     }

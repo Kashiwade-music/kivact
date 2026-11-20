@@ -2,6 +2,7 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::Orientation;
 use kivact::view::{ScrollBehavior, ViewRange, scroll_progress, view_progress};
 use kivact_public_api_tests::support::mount;
 

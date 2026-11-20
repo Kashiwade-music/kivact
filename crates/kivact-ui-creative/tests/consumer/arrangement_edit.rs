@@ -3,7 +3,7 @@ use crate::arrangement_model;
 use crate::arrangement_model::arrangement as app_arrangement;
 use kivact::prelude::*;
 use kivact::test::Screen;
-use kivact::view::MouseButton;
+use kivact::view::{EditPhase, Modifiers};
 use kivact_ui_creative as ui;
 
 #[derive(Clone, Copy)]
@@ -60,12 +60,12 @@ fn fixture() -> (Screen, Model) {
                         m.clips,
                         m.tracks,
                         ui::ArrangementState {
-                            selection: m.selected.into_binding(),
-                            playhead: m.frame.into_binding(),
-                            loop_range: m.range.into_binding(),
-                            cycling: m.cycling.into_binding(),
-                            transform: m.transform.into_binding(),
-                            tool: m.tool.into_binding(),
+                            selection: m.selected,
+                            playhead: m.frame,
+                            loop_range: m.range,
+                            cycling: m.cycling,
+                            transform: m.transform,
+                            tool: m.tool,
                         },
                     )
                     .on_edit(arrangement_model::edits(m.clips, m.tracks, move |phase| {
@@ -138,7 +138,7 @@ fn arrow_keys_move_selected_clips_by_the_step_and_shift_by_ten_steps() {
                     rgb(0x34d399),
                 )]),
                 ui::ArrangementState {
-                    selection: (signal(vec![1])).into_binding(),
+                    selection: (signal(vec![1])),
                     ..ui::ArrangementState::new()
                 },
             )

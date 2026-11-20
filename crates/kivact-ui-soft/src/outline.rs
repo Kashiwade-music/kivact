@@ -5,7 +5,7 @@ use crate::stack::rtl;
 use kivact::geometry::Point;
 use kivact::motion::Transition;
 use kivact::motion::animated;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::column;
@@ -13,7 +13,7 @@ use kivact::view::node;
 use kivact::view::row;
 use kivact::view::text;
 
-use kivact::state::Binding;
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -75,7 +75,7 @@ impl OutlineItem {
 }
 
 /// Vertical spacing of outline links.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum OutlineDensity {
     /// Standard outline spacing, the default.
     #[default]
@@ -89,7 +89,7 @@ pub enum OutlineDensity {
 pub struct Outline {
     root: Node,
     items: Value<Vec<OutlineItem>>,
-    active: Option<Binding<Option<String>>>,
+    active: Option<Signal<Option<String>>>,
     density: Value<OutlineDensity>,
     offset: Value<f64>,
     viewport: Option<NodeRef>,
@@ -124,8 +124,8 @@ pub fn outline(items: impl IntoValue<Vec<OutlineItem>>) -> Outline {
 
 impl Outline {
     /// Connect the caller's optional active heading identifier.
-    pub fn active(mut self, active: impl IntoBinding<Option<String>>) -> Self {
-        self.active = Some(active.into_binding());
+    pub fn active(mut self, active: Signal<Option<String>>) -> Self {
+        self.active = Some(active);
         self
     }
     /// Choose the link spacing; standard by default.
@@ -252,7 +252,7 @@ struct Navigation {
     viewport: Option<NodeRef>,
     offset: f64,
     scroll_on_press: bool,
-    controlled: Option<Binding<Option<String>>>,
+    controlled: Option<Signal<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     start: Option<Callback<String>>,
     end: Option<Callback<String>>,
@@ -320,7 +320,7 @@ impl IntoView for Outline {
             start,
             end,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let pending = machine(
                 OutlineScroll::Idle,
                 || ScrollMachine,
@@ -486,10 +486,8 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
         )
 }
 
-kivact::state::constant_value!(OutlineDensity);
-
 fn active_heading(
-    active: Option<Binding<Option<String>>>,
+    active: Option<Signal<Option<String>>>,
     pending: MachineHandle<ScrollMachine>,
     items: Value<Vec<OutlineItem>>,
     viewport: Option<NodeRef>,

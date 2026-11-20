@@ -6,8 +6,8 @@ use crate::ColorName;
 use kivact::geometry::Rect;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::{Value, machine, memo};
 use kivact::style::{ColorToken, style};
 use kivact::view::Element;
@@ -27,12 +27,11 @@ use std::rc::Rc;
 /// leaves only that panel open. The grip also offers accessible up/down movement.
 #[track_caller]
 pub fn panel_group<V: IntoView>(
-    panels: impl IntoBinding<Vec<InspectorPanel>>,
+    panels: Signal<Vec<InspectorPanel>>,
     content: impl Fn(Value<InspectorPanel>) -> V + 'static,
 ) -> impl kivact::view::Element {
     let content: Rc<dyn Fn(Value<InspectorPanel>) -> kivact::view::View> =
         Rc::new(move |panel| content(panel).into_view());
-    let panels = panels.into_binding();
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
     let drag = machine(
@@ -56,7 +55,7 @@ type Rectangles = Rc<RefCell<HashMap<u64, Value<Option<Rect>>>>>;
 /// Compose one retained panel with its existing disclosure and reorder authority.
 fn panel_row(
     panel: Value<InspectorPanel>,
-    panels: kivact::state::Binding<Vec<InspectorPanel>>,
+    panels: kivact::state::Signal<Vec<InspectorPanel>>,
     drag: kivact::state::MachineHandle<machine::Machine>,
     rectangles: Rectangles,
     content: &dyn Fn(Value<InspectorPanel>) -> kivact::view::View,
@@ -139,11 +138,11 @@ fn panel_row(
 }
 /// Apply peer-collapse modifiers at the same binding transaction boundary.
 fn expanded_binding(
-    panels: kivact::state::Binding<Vec<InspectorPanel>>,
+    panels: kivact::state::Signal<Vec<InspectorPanel>>,
     data: Value<Vec<InspectorPanel>>,
     panel: Value<InspectorPanel>,
     id: u64,
-) -> kivact::state::Binding<bool> {
+) -> kivact::state::Signal<bool> {
     binding(
         memo(move || panel.with(|panel| panel.expanded)),
         move |open: bool| {

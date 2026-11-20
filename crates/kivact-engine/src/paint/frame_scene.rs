@@ -192,9 +192,10 @@ impl Model {
             return None;
         }
         let n = self.node(step.id)?;
+        let size = self.computed_layout(step.id).unwrap_or_default().size;
         self.slots.draws[n.index.0]
             .take()
-            .filter(|d| d.key == DrawKey::of(step, pass))
+            .filter(|d| d.key == DrawKey::of(step, size, pass))
     }
 
     /// Keep `draw` for `id`'s next frame (`fresh`: it was made now).
@@ -381,7 +382,14 @@ impl Model {
                 self.draw_content(&place, canvas, pass, engine, out);
                 let content = out.end_record();
                 let draw = Box::new(NodeDraw {
-                    key: DrawKey::of(step, pass),
+                    key: DrawKey::of(
+                        step,
+                        Size {
+                            width: place.bounds.width,
+                            height: place.bounds.height,
+                        },
+                        pass,
+                    ),
                     paint: Rc::clone(&paint),
                     recorded: Recorded::of(boxed, content),
                 });

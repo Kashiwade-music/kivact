@@ -7,8 +7,8 @@ use kivact::custom::part;
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::state::IntoBinding;
-use kivact::state::{Binding, Callback, Value, memo};
+use kivact::state::Signal;
+use kivact::state::{Callback, Value, memo};
 use kivact::state::{IntoValue, callback};
 use kivact::style::{Color, pct, style};
 use kivact::view::EditPhase;
@@ -19,6 +19,7 @@ use kivact::view::{
 };
 use kivact::view::{Element, Node, column, node};
 
+// xtask-allow(state): record: the builder's props, each written only by its own setter; color and model are the caller's bindings of the color and of the fields' color model, written by the wheel, the fields and the model switch
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
 /// and optional swatches. Element modifiers apply to the whole group.
 /// RGB fields use normalized channels, HSV uses hue degrees and normalized
@@ -34,14 +35,14 @@ use kivact::view::{Element, Node, column, node};
 /// Cancel. During a pointer drag, other channel edits are consumed.
 pub struct ColorWheel {
     root: Node,
-    color: Binding<Color>,
-    model: Binding<ColorModel>,
+    color: Signal<Color>,
+    model: Signal<ColorModel>,
     options: ColorWheelOptions,
 }
 struct ColorWheelOptions {
     alpha: Value<bool>,
     fields: Value<bool>,
-    swatches: Option<Binding<Vec<Color>>>,
+    swatches: Option<Signal<Vec<Color>>>,
     edit: Option<Callback<EditPhase>>,
     size: Value<f64>,
 }
@@ -50,16 +51,13 @@ struct ColorWheelOptions {
 /// `model` is the channel model the fields show, which the model selector
 /// writes without changing the color.
 #[track_caller]
-pub fn color_wheel(
-    color: impl IntoBinding<Color>,
-    model: impl IntoBinding<ColorModel>,
-) -> ColorWheel {
+pub fn color_wheel(color: Signal<Color>, model: Signal<ColorModel>) -> ColorWheel {
     ColorWheel {
         root: column(())
             .role(Role::Group)
             .style(style().min_width(0).width(pct(100)).gap(8)),
-        color: color.into_binding(),
-        model: model.into_binding(),
+        color,
+        model,
         options: ColorWheelOptions {
             alpha: true.into_value(),
             fields: true.into_value(),
@@ -85,8 +83,8 @@ impl ColorWheel {
         self
     }
     /// Bind editable swatches. Local swatch selection is not an edit.
-    pub fn swatches(mut self, swatches: impl IntoBinding<Vec<Color>>) -> Self {
-        self.options.swatches = Some(swatches.into_binding());
+    pub fn swatches(mut self, swatches: Signal<Vec<Color>>) -> Self {
+        self.options.swatches = Some(swatches);
         self
     }
     /// Observe each continuous edit, including palette additions and removals.

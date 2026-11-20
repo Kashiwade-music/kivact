@@ -217,7 +217,7 @@ fn run(
             Err(error)
         } else if shared.panicked() {
             Err(ShellError::new("the embedded App panicked while opening"))
-        } else if options.visibility == kivact_types::embed::Visibility::Shown
+        } else if options.visibility == kivact_types::embed::EmbedVisibility::Shown
             && let Err(error) = window.native.show()
         {
             Err(error)
@@ -560,15 +560,15 @@ fn deliver_commands(
 fn visibility_events(
     window: &mut Window,
     input: &mut Input,
-    visibility: kivact_types::embed::Visibility,
+    visibility: kivact_types::embed::EmbedVisibility,
 ) -> Result<Vec<ShellEvent>, ShellError> {
     let mut events = Vec::new();
     match visibility {
-        kivact_types::embed::Visibility::Hidden => {
+        kivact_types::embed::EmbedVisibility::Hidden => {
             window.native.hide()?;
             events.extend(input.blur_events());
         }
-        kivact_types::embed::Visibility::Shown => {
+        kivact_types::embed::EmbedVisibility::Shown => {
             window.native.show()?;
             window.redraw.set(ChildRedraw::Needed);
         }
@@ -576,7 +576,7 @@ fn visibility_events(
     if let Some(event) = window.set_surface(visibility) {
         events.push(event);
     }
-    if visibility == kivact_types::embed::Visibility::Shown {
+    if visibility == kivact_types::embed::EmbedVisibility::Shown {
         events.push(ShellEvent::Redraw);
     }
     Ok(events)

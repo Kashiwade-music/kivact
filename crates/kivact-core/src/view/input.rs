@@ -92,6 +92,8 @@ impl KeyEvent {
 pub struct PointerEvent {
     pub(crate) routed: kivact_engine::contract::Routed<p::PointerSample>,
     pub(crate) capture_action: fn(&PointerEvent, bool),
+    /// The size of the node the handler is on (see [`target_size`](Self::target_size)).
+    pub(crate) target_size: crate::geometry::Size,
 }
 impl PartialEq for PointerEvent {
     fn eq(&self, other: &Self) -> bool {
@@ -120,6 +122,11 @@ impl PointerEvent {
     }
     pub fn pos(&self) -> Point {
         self.routed.local
+    }
+    /// The size of the node whose handler receives this event, in the
+    /// coordinates of [`pos`](Self::pos) (its border box, before its transform).
+    pub fn target_size(&self) -> crate::geometry::Size {
+        self.target_size
     }
     pub fn window_pos(&self) -> Point {
         self.routed.input.position

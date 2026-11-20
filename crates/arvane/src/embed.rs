@@ -78,11 +78,11 @@ impl Embedded {
         self.0.scale()
     }
     /// Show or hide the window; queued.
-    pub fn set_visibility(&self, visibility: kivact_types::embed::Visibility) {
+    pub fn set_visibility(&self, visibility: kivact_types::embed::EmbedVisibility) {
         self.0.set_visibility(visibility);
     }
     /// Last applied visibility.
-    pub fn visibility(&self) -> kivact_types::embed::Visibility {
+    pub fn visibility(&self) -> kivact_types::embed::EmbedVisibility {
         self.0.visibility()
     }
     /// Why the child stopped, or `None` while running.

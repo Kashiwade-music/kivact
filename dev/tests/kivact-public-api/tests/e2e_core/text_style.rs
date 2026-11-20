@@ -10,13 +10,12 @@
 //! label, and a text field's caret, selection and placeholder colors.
 //! Checked on the frame's pixels at scale 1.
 
+use kivact::view::Node;
 use std::rc::Rc;
 
-use kivact::draw::Shadow;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::{TextDecorationLine, TextOverflow, em};
-use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render, render_with};
+use kivact::style::{TextDecorationLine, TextOverflow};
+use kivact::test::{RenderOptions, Screen, Screenshot, render, render_with};
 use kivact::view::{Span, rich_text, span};
 
 use kivact_public_api_tests::paint::{
@@ -26,7 +25,7 @@ use kivact_public_api_tests::paint::{
 static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 
 fn inter() -> RenderOptions {
-    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))
+    RenderOptions::from_env().theme(kivact::style::Theme::default().with_fonts([INTER]))
 }
 
 fn rect(screen: &Screen, id: &str) -> Rect {

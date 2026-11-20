@@ -15,7 +15,8 @@ use crate::state::Value;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;
 use crate::view::{MouseButton, PointerId};
-use kivact_runtime::{Notifier, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, Trigger};
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::RegionId;
 use kivact_types::NodeId;
@@ -35,7 +36,7 @@ use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Callback, ErrorKind, UiError};
+use kivact_runtime::{ErrorKind, IntoHandler, UiError};
 use kivact_style::Style;
 
 use super::exit_layout::ExitLayout;
@@ -248,7 +249,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// written after it overrides only what it sets. A closure that
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || use_theme().with(|t| style().padding(t.space().md)))`.
     #[track_caller]
     fn style(mut self, s: impl IntoValue<Style>) -> Self {
         self.node_mut()
@@ -263,6 +264,20 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         self.node_mut()
             .common
             .push_recipe_style(name, s.into_prop(), Location::caller());
+        self
+    }
+
+    /// Choose a look of the component: a value of a variant type its theme's
+    /// recipes know (`ButtonVariant::Ghost`, a kit's own enum). One value per
+    /// type; a later one replaces an earlier one. A theme that does not know the
+    /// type draws the plain look. It may be reactive (`move || ..`, a `Signal`).
+    #[track_caller]
+    fn variant<V: crate::view::Variant>(mut self, v: impl IntoValue<V>) -> Self {
+        self.node_mut()
+            .common
+            .variants
+            .get_or_insert_with(Default::default)
+            .set(v.into_prop());
         self
     }
 
@@ -317,11 +332,15 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
-        let callback = callback.into();
-        // An error goes to the error boundary of the callback's owner.
+    fn on_exit_complete<M>(mut self, callback: impl IntoHandler<(), M>) -> Self {
+        // A callback whose owner was removed with the node answers `Disposed`
+        // and does not run; a closure, or a callback of a live owner, runs.
+        let handler = callback.into_handler();
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            callback.call_if_alive(())
+            match handler.call(()) {
+                Err(error) if matches!(error.kind(), ErrorKind::Disposed { .. }) => Ok(()),
+                result => result.map(|_| ()),
+            }
         }));
         self
     }
@@ -375,7 +394,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         common.roving_focus = Some(
             (move || kivact_engine::contract::RovingFocus {
                 orientation: orientation.get(),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             })
             .into_prop(),
         );
@@ -384,7 +403,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
             if event.modifiers() != Modifiers::default() {
                 return Handled::No;
             }
-            let rtl = direction.get_untracked() == ReadingDirection::Rtl;
+            let rtl = direction == ReadingDirection::Rtl;
             let movement = match (orientation.get_untracked(), event.key()) {
                 (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
                 (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,
@@ -467,9 +486,9 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        let f = f.into();
-        self.node_mut().common.set_press(move || f.call(()));
+    fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        let handler = f.into_handler();
+        self.node_mut().common.set_press(move || handler.call(()));
         self
     }
 
@@ -570,10 +589,12 @@ pub(crate) struct Common {
     /// Creation location set by `.located_at_caller()`; replaces the builder's call site
     /// for every node the builder creates.
     pub at: Option<&'static Location<'static>>,
+    /// The variant values given with `.variant(..)`, one per type.
+    pub(crate) variants: Option<Box<crate::view::Variants>>,
 }
 
 /// The style layers and their origins are defined in [`style_layer`](crate::view::style_layer).
-pub(crate) use crate::view::style_layer::{LayerOrigin, RecipeName, StyleLayer};
+pub(crate) use crate::view::style_layer::{LayerFn, LayerOrigin, RecipeName, StyleLayer};
 
 impl Common {
     /// How many of the first layers of `style` are base layers.
@@ -595,7 +616,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::Base,
             },
@@ -605,7 +626,7 @@ impl Common {
     /// Append a style layer (`.style(..)`).
     pub(crate) fn push_style(&mut self, s: InputProp<Style>, at: &'static Location<'static>) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(s.into_fn()),
             at: Some(at),
             origin: LayerOrigin::Caller,
         });
@@ -619,7 +640,7 @@ impl Common {
         at: &'static Location<'static>,
     ) {
         self.style.push(StyleLayer {
-            f: s.into_fn(),
+            f: LayerFn::Plain(s.into_fn()),
             at: Some(at),
             origin: LayerOrigin::Recipe(name),
         });
@@ -636,7 +657,7 @@ impl Common {
         self.style.insert(
             index,
             StyleLayer {
-                f: s.into_fn(),
+                f: LayerFn::Plain(s.into_fn()),
                 at: Some(at),
                 origin: LayerOrigin::BaseRecipe(name),
             },
@@ -753,8 +774,8 @@ pub(crate) struct Registry {
     pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
-    pub(super) revision: Notifier,
-    pub(super) changed: Notifier,
+    pub(super) revision: Trigger,
+    pub(super) changed: Trigger,
     pub(super) phase: Cell<RegistryPhase>,
     /// The pointer gestures on the node and its regions (`mount::part_pointer`).
     pub(super) gestures: RefCell<Gestures>,

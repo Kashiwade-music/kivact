@@ -3,6 +3,7 @@ use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
 use kivact::view::Element;
 use kivact::view::Node;
 
+use kivact::Prop;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
@@ -18,7 +19,7 @@ use std::rc::Rc;
 use std::time::{Duration, SystemTime};
 
 /// How elapsed time is displayed.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum TimerFormat {
     #[default]
     /// Show elapsed units such as seconds, minutes and hours.
@@ -203,5 +204,3 @@ impl Machine for ElapsedClock {
         Step::to(ElapsedTimer::Running { start, next }).after(delay, ElapsedEvent::Tick)
     }
 }
-
-kivact::state::constant_value!(TimerFormat);

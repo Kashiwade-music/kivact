@@ -48,6 +48,15 @@ impl Default for TextEngine {
 /// Ellipses kept before they are all forgotten.
 const ELLIPSES: usize = 64;
 
+/// The generic families an isolated engine maps to its own fonts.
+const ISOLATED_GENERICS: [GenericFamily; 5] = [
+    GenericFamily::SystemUi,
+    GenericFamily::UiSansSerif,
+    GenericFamily::SansSerif,
+    GenericFamily::Serif,
+    GenericFamily::Monospace,
+];
+
 impl TextEngine {
     /// An engine that sees the system fonts. Their scan starts now on a
     /// thread of its own; the first call that needs fonts waits for it.
@@ -105,13 +114,7 @@ impl TextEngine {
                 }
             }
         }
-        for generic in [
-            GenericFamily::SystemUi,
-            GenericFamily::UiSansSerif,
-            GenericFamily::SansSerif,
-            GenericFamily::Serif,
-            GenericFamily::Monospace,
-        ] {
+        for generic in ISOLATED_GENERICS {
             engine
                 .fonts
                 .collection
@@ -128,6 +131,22 @@ impl TextEngine {
         let faces = self.fonts.collection.register_fonts(blob.clone(), None);
         if faces.is_empty() {
             return Err(TextError::InvalidFont);
+        }
+        if matches!(self.system, SystemFonts::Isolated) {
+            // An isolated engine has no system fallback: a font registered
+            // later falls back for the generic families too, like the fonts
+            // the engine started with.
+            let mut added = Vec::new();
+            for (family, _) in &faces {
+                if !added.contains(family) {
+                    added.push(*family);
+                }
+            }
+            for generic in ISOLATED_GENERICS {
+                let known: Vec<_> = self.fonts.collection.generic_families(generic).collect();
+                let new = added.iter().copied().filter(|f| !known.contains(f));
+                self.fonts.collection.append_generic_families(generic, new);
+            }
         }
         if let SystemFonts::Pending { registered } = &mut self.system {
             registered.push(blob);

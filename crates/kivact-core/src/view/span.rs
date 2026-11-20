@@ -34,7 +34,7 @@ use kivact_style::{Color, Theme, ThemeColor};
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Span {
-    pub(crate) text: kivact_runtime::Reactive<String>,
+    pub(crate) text: kivact_runtime::Prop<String>,
     style: SpanStyle,
 }
 
@@ -42,7 +42,7 @@ pub struct Span {
 /// methods say otherwise.
 pub fn span(text: impl kivact_runtime::IntoText) -> Span {
     Span {
-        text: kivact_runtime::Reactive::new(text.into_text()),
+        text: kivact_runtime::Prop::new(text.into_text()),
         style: SpanStyle::default(),
     }
 }

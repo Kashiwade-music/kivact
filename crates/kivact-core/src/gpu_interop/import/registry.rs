@@ -2,9 +2,10 @@
 
 use crate::view::state::{ViewState, current_window};
 use kivact_engine::contract::HostRequest;
+use kivact_runtime::Owner;
 use kivact_runtime::Signal;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_types::{ExternalImageId, ExternalImport, GpuAdapter, RequestId, WindowId};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -39,7 +40,8 @@ pub(crate) struct StateSlot(kivact_types::cell::Deferred<State>);
 #[track_caller]
 pub(crate) fn state(rt: &Runtime) -> &State {
     let at = Location::caller();
-    rt.ext::<StateSlot>()
+    crate::app_state::AppState::of(rt)
+        .gpu
         .0
         .get_or_init(|| State::new(rt.root(), at))
 }
@@ -161,7 +163,7 @@ pub enum ImportStatus {
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let owner = Owner::ambient("adapter", Location::caller());
+    let owner = Owner::running("adapter", Location::caller());
     let window = current_window(owner);
     let adapter = with_adapter(owner, window, |adapter| adapter.cloned());
     if adapter.is_none() {
@@ -176,7 +178,7 @@ pub fn adapter() -> Option<GpuAdapter> {
 /// the adapter started.
 #[track_caller]
 pub(crate) fn has_adapter() -> bool {
-    let owner = Owner::ambient("Viewport::gpu_frame", Location::caller());
+    let owner = Owner::running("Viewport::gpu_frame", Location::caller());
     with_adapter(owner, current_window(owner), |adapter| adapter.is_some())
 }
 

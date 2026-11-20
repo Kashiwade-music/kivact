@@ -109,7 +109,7 @@ pub fn keyboard_hint<T: Element>(target: T) -> T {
     target.with_node(move |node| {
         node.node_ref(reference)
             .on_attach(move |mount| {
-                let Some(Hints(state)) = try_use_context::<Hints>().map(|value| value.get()) else {
+                let Some(Hints(state)) = try_use_context::<Hints>() else {
                     return;
                 };
                 on_cleanup(move || state.send(Event::Blur(reference)));
@@ -126,7 +126,7 @@ pub fn keyboard_hint<T: Element>(target: T) -> T {
                 if matches!(
                     event.key(),
                     Key::ArrowUp | Key::ArrowDown | Key::ArrowLeft | Key::ArrowRight
-                ) && let Some(Hints(state)) = try_use_context::<Hints>().map(|value| value.get())
+                ) && let Some(Hints(state)) = try_use_context::<Hints>()
                 {
                     state.send(Event::Dismiss);
                 }

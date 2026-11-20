@@ -142,14 +142,46 @@ pub(crate) struct PenTrack {
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
-    pub(crate) route: Route,
+    pub(crate) gesture: PenGesture,
+}
+
+/// What a drag that selects text extends by.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum SelectUnit {
+    /// Characters: from the press to the pointer.
+    Char,
+    /// Words: the double-clicked word and the words up to the pointer.
+    Word(std::ops::Range<usize>),
+    /// Lines: the triple-clicked line and the lines up to the pointer.
+    Line(std::ops::Range<usize>),
+}
+
+/// What a pen contact is doing.
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) enum PenGesture {
+    Route(Route),
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
+}
+
+impl Default for PenGesture {
+    fn default() -> Self {
+        Self::Route(Route::default())
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum MouseGesture {
     Route(Route),
     Scrollbar(ScrollDrag),
-    SelectText { editor: NodeId, route: Route },
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
 }
 
 impl Default for MouseGesture {
@@ -166,6 +198,11 @@ pub(crate) enum TouchGesture {
         candidate: TouchCandidate,
     },
     Pan(TouchPan),
+    SelectText {
+        editor: NodeId,
+        route: Route,
+        unit: SelectUnit,
+    },
 }
 
 impl Default for TouchGesture {
@@ -270,7 +307,7 @@ impl Track {
                 over: None,
                 at: Point::default(),
                 role,
-                route: Route::default(),
+                gesture: PenGesture::default(),
             })
         } else {
             Self::Touch(TouchTrack {
@@ -369,10 +406,16 @@ impl Track {
                 ..
             }) => Some(r),
             Self::Touch(TouchTrack {
-                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                gesture:
+                    TouchGesture::Route(r)
+                    | TouchGesture::Pending { route: r, .. }
+                    | TouchGesture::SelectText { route: r, .. },
                 ..
             }) => Some(r),
-            Self::Pen(t) => Some(&t.route),
+            Self::Pen(PenTrack {
+                gesture: PenGesture::Route(r) | PenGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
             _ => None,
         }
     }
@@ -384,11 +427,89 @@ impl Track {
                 ..
             }) => Some(r),
             Self::Touch(TouchTrack {
-                gesture: TouchGesture::Route(r) | TouchGesture::Pending { route: r, .. },
+                gesture:
+                    TouchGesture::Route(r)
+                    | TouchGesture::Pending { route: r, .. }
+                    | TouchGesture::SelectText { route: r, .. },
                 ..
             }) => Some(r),
-            Self::Pen(t) => Some(&mut t.route),
+            Self::Pen(PenTrack {
+                gesture: PenGesture::Route(r) | PenGesture::SelectText { route: r, .. },
+                ..
+            }) => Some(r),
             _ => None,
+        }
+    }
+
+    /// The editor and unit a drag of this pointer selects text in, if it does.
+    pub(crate) fn selecting(&self) -> Option<(NodeId, &SelectUnit)> {
+        match self {
+            Self::Mouse(t) => match &t.gesture {
+                MouseGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                _ => None,
+            },
+            Self::Touch(t) => match &t.gesture {
+                TouchGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                _ => None,
+            },
+            Self::Pen(t) => match &t.gesture {
+                PenGesture::SelectText { editor, unit, .. } => Some((*editor, unit)),
+                PenGesture::Route(_) => None,
+            },
+        }
+    }
+
+    /// Select text in `editor` by `unit` while this pointer is pressed (its route kept).
+    pub(crate) fn start_selecting(&mut self, editor: NodeId, unit: SelectUnit) {
+        match self {
+            Self::Mouse(t) => {
+                if let MouseGesture::Route(route) = &mut t.gesture {
+                    t.gesture = MouseGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+            Self::Touch(t) => {
+                if let TouchGesture::Route(route) = &mut t.gesture {
+                    t.gesture = TouchGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+            Self::Pen(t) => {
+                if let PenGesture::Route(route) = &mut t.gesture {
+                    t.gesture = PenGesture::SelectText {
+                        editor,
+                        route: std::mem::take(route),
+                        unit,
+                    };
+                }
+            }
+        }
+    }
+
+    /// The press ended: a text selection goes back to plain routing.
+    pub(crate) fn stop_selecting(&mut self) {
+        match self {
+            Self::Mouse(t) => {
+                if let MouseGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = MouseGesture::Route(std::mem::take(route));
+                }
+            }
+            Self::Touch(t) => {
+                if let TouchGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = TouchGesture::Route(std::mem::take(route));
+                }
+            }
+            Self::Pen(t) => {
+                if let PenGesture::SelectText { route, .. } = &mut t.gesture {
+                    t.gesture = PenGesture::Route(std::mem::take(route));
+                }
+            }
         }
     }
 
@@ -414,7 +535,7 @@ impl Track {
         match self {
             Self::Mouse(t) => t.gesture = MouseGesture::default(),
             Self::Touch(t) => t.gesture = TouchGesture::default(),
-            Self::Pen(t) => t.route = Route::default(),
+            Self::Pen(t) => t.gesture = PenGesture::default(),
         }
         capture
     }
@@ -497,11 +618,11 @@ impl PointerState {
                     }
                 }
             }
-            if let Track::Mouse(mouse) = track
-                && let MouseGesture::SelectText { editor, route } = &mut mouse.gesture
-                && !tree.live(*editor)
+            if track
+                .selecting()
+                .is_some_and(|(editor, _)| !tree.live(editor))
             {
-                mouse.gesture = MouseGesture::Route(std::mem::take(route));
+                track.stop_selecting();
             }
             if matches!(track, Track::Mouse(MouseTrack { gesture: MouseGesture::Scrollbar(drag), .. }) if !tree.live(drag.node))
             {

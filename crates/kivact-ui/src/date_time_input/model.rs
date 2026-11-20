@@ -1,6 +1,6 @@
 //! Role: Own the active date-time picker panel and accepted endpoint bindings.
 use kivact_core::i18n::{CalendarDate, DateTime, TimeOfDay};
-use kivact_core::state::{Binding, Machine, Step, Value, binding};
+use kivact_core::state::{Machine, Signal, Step, Value, binding};
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum Panel {
     Date,
@@ -51,12 +51,12 @@ fn key(value: DateTime) -> (CalendarDate, u8, u8, u8) {
 }
 /// Endpoint bindings project the caller-owned accepted date/time value.
 pub(crate) struct DateTimeFields {
-    pub(crate) date: Binding<Option<CalendarDate>>,
-    pub(crate) time: Binding<Option<TimeOfDay>>,
+    pub(crate) date: Signal<Option<CalendarDate>>,
+    pub(crate) time: Signal<Option<TimeOfDay>>,
 }
 /// Preserve the complementary endpoint while validating each accepted write.
 pub(crate) fn field_bindings(
-    value: Binding<Option<DateTime>>,
+    value: Signal<Option<DateTime>>,
     min: Value<Option<DateTime>>,
     max: Value<Option<DateTime>>,
 ) -> DateTimeFields {

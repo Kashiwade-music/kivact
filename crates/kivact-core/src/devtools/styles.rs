@@ -5,7 +5,8 @@ use std::panic::Location;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Owner, Runtime, pure, untrack};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, pure, untrack};
 use kivact_style::Style;
 use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style};
 use kivact_types::{NodeId, WindowId};
@@ -261,9 +262,10 @@ fn style_source(
     Some((node.style_layers(), node.owner, node.at))
 }
 
-/// Evaluate one style layer under its node's owner.
+/// Evaluate one style layer under its node's owner. The stored layers are
+/// plain (`set_style_layers` fixed the recipe layers to their variants).
 fn evaluate(owner: Owner, layer: &StyleLayer) -> Style {
-    owner.run_handler(|| untrack(|| pure(|| (layer.f)())))
+    owner.run_handler(|| untrack(|| pure(|| layer.f.style(&crate::view::Variants::default()))))
 }
 
 /// The recipe name of a layer, called under the node's owner.

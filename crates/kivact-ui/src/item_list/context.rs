@@ -21,7 +21,5 @@ impl Default for ItemContext {
     }
 }
 pub(super) fn current() -> ItemContext {
-    kivact_core::state::try_use_context::<ItemContext>()
-        .map(|value| value.get())
-        .unwrap_or_default()
+    kivact_core::state::try_use_context::<ItemContext>().unwrap_or_default()
 }

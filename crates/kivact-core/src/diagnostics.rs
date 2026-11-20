@@ -13,8 +13,7 @@
 //! Release builds do not read this variable or record comparison traces.
 //!
 //! Diagnostics: errors routed to the default sink (read back with
-//! [`errors`]), a ring buffer of
-//! structured turn records (causes, writes, re-evaluations, ops, duration),
+//! [`errors`]), structured turn records (kept while a test screen, DevTools or the debug trace records) (causes, writes, re-evaluations, ops, duration),
 //! mirrored to `tracing`, [`why`](fn@why) chains explaining a node's props, and the
 //! [`Stats`] counters a test screen reports. Recording never changes
 //! behaviour. Structured turn records never record values: only type names and source
@@ -32,7 +31,9 @@ mod stats;
 pub(crate) mod why;
 
 #[doc(inline)]
-pub use kivact_runtime::{TraceRun, TraceWrite, Turn, TurnRecord};
+pub use kivact_runtime::{
+    Cause, CauseTag, Stage, StageSpan, TraceEdge, TraceRun, TraceWrite, Turn, TurnRecord,
+};
 #[doc(inline)]
 pub use why::{Why, WhyDep, WhyProp, why};
 

@@ -1,12 +1,11 @@
 //! Role: Local style painting follows layout and preserves drawing layers.
 
+use kivact::style::ColorToken;
 use std::cell::Cell;
 use std::rc::Rc;
 
 use kivact::ErrorKind;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 use kivact::test::render;
 use kivact_public_api_tests::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;

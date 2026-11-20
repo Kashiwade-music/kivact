@@ -162,7 +162,7 @@ pub(super) fn space(s: values::AvailableSpace) -> AvailableSpace {
     }
 }
 
-pub(super) fn constraints(
+pub(crate) fn constraints(
     r: values::MeasureRequest,
     text: kivact_engine::contract::LeafTextMeasurer<'_>,
 ) -> Constraints<'_> {
@@ -220,7 +220,7 @@ impl From<Size> for Measurement {
 
 /// A size the layout can use: finite and not negative; a baseline it can
 /// use: finite.
-pub(super) fn sanitize(m: Measurement) -> values::LeafSize {
+pub(crate) fn sanitize(m: Measurement) -> values::LeafSize {
     let clean = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
     values::LeafSize {
         size: values::Size {

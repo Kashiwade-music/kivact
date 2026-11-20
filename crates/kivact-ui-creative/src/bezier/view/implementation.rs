@@ -8,10 +8,10 @@ use kivact::draw::{Path, RegionId, Stroke};
 use kivact::geometry::Size;
 use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::callback;
-use kivact::state::{Binding, Callback, machine, memo};
+use kivact::state::{Callback, machine, memo};
 use kivact::style::{style, use_theme};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
@@ -29,7 +29,7 @@ use kivact::view::{Element, Node, node};
 /// `bezier.control1` and `bezier.control2` message keys.
 pub struct BezierCurve {
     root: Node,
-    value: Binding<CubicBezier>,
+    value: Signal<CubicBezier>,
     on_edit: Option<Callback<EditPhase>>,
 }
 
@@ -43,13 +43,13 @@ pub struct BezierCurve {
 /// }
 /// ```
 #[track_caller]
-pub fn bezier_curve(value: impl IntoBinding<CubicBezier>) -> BezierCurve {
+pub fn bezier_curve(value: Signal<CubicBezier>) -> BezierCurve {
     BezierCurve {
         root: node()
             .role(Role::Canvas)
             .name(message("creative.bezier.label", "Cubic bezier curve"))
             .style(style().size(240, 200).min_width(0).min_height(0)),
-        value: value.into_binding(),
+        value,
         on_edit: None,
     }
 }
@@ -171,7 +171,7 @@ impl IntoView for BezierCurve {
 /// Existing binding, gesture and edit authority shared by the two control regions.
 #[derive(Clone, Copy)]
 struct Controls {
-    binding: Binding<CubicBezier>,
+    binding: Signal<CubicBezier>,
     value: kivact::state::Value<CubicBezier>,
     gesture: kivact::interaction::DragApi<(usize, CubicBezier, Plane)>,
     edit: kivact::state::MachineHandle<machine::Machine>,

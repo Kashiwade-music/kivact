@@ -3,6 +3,7 @@
 use super::support::{SERIAL, panel, wait};
 use kivact::embed::Embedded;
 use kivact::motion::FrameRate;
+use kivact::motion::frame_loop;
 use kivact::prelude::*;
 use kivact::test::TestParent;
 use std::sync::Arc;

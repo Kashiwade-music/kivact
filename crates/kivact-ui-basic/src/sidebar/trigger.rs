@@ -32,8 +32,10 @@ pub fn sidebar_trigger() -> SidebarTrigger {
 
 impl SidebarTrigger {
     /// Call `f` after the sidebar toggled; it never replaces the toggle.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }

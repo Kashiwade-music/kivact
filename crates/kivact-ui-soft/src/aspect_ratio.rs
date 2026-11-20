@@ -4,6 +4,7 @@ use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::node;
 
+use kivact::Prop;
 use kivact::state::IntoValue;
 use kivact::style::Align;
 use kivact::style::Justify;
@@ -13,14 +14,14 @@ use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::View;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RatioShape {
     #[default]
     Rectangle,
     Ellipse,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RatioFit {
     #[default]
     Natural,
@@ -122,5 +123,3 @@ impl IntoView for AspectRatio {
         .into_view()
     }
 }
-
-kivact::state::constant_value!(RatioFit, RatioShape);

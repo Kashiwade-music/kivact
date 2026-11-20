@@ -6,8 +6,9 @@ use kivact::embed::EmbedNotice;
 use kivact::embed::EmbedStatus;
 use kivact::prelude::*;
 use kivact::test::TestParent;
-use std::sync::Arc;
+use kivact::view::Node;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 /// Set in the child process; names the scenario it runs.
@@ -79,14 +80,21 @@ fn event_panic() {
     let parent = TestParent::open(320, 240).expect("parent opens");
     let presses = Arc::new(AtomicUsize::new(0));
     let counter = presses.clone();
+    let notices = Arc::new(Mutex::new(Vec::new()));
+    let seen = notices.clone();
     let app = App::new("Event panic")
         .window_size(320, 240)
-        .embed(parent.parent().scale(1.0), move || {
-            panel().focusable(true).on_press(move || {
-                counter.fetch_add(1, Ordering::SeqCst);
-                explode();
-            })
-        })
+        .embed(
+            parent.parent().scale(1.0).on_notice(move |notice| {
+                seen.lock().expect("test state lock").push(notice);
+            }),
+            move || {
+                panel().focusable(true).on_press(move || {
+                    counter.fetch_add(1, Ordering::SeqCst);
+                    explode();
+                })
+            },
+        )
         .expect("editor opens");
     painted(&parent);
     parent.click(20.0, 20.0).expect("click delivered");
@@ -95,6 +103,16 @@ fn event_panic() {
         panic!("status reports the panic");
     };
     assert_eq!(error.to_string(), "editor exploded");
+    wait(&parent, || {
+        !notices.lock().expect("test state lock").is_empty()
+    });
+    assert!(
+        matches!(
+            notices.lock().expect("test state lock").as_slice(),
+            [EmbedNotice::Stopped(EmbedStatus::Panicked(_))]
+        ),
+        "the host is told once that the App panicked"
+    );
     wait(&parent, || parent.capture().is_err());
     // A click after the window closed is refused by the test parent.
     let _ = parent.click(20.0, 20.0);
@@ -117,7 +135,7 @@ fn cleanup_panic() {
         .window_size(160, 100)
         .embed(
             parent.parent().scale(1.0).on_notice(move |notice| {
-                if notice == EmbedNotice::Stopped {
+                if matches!(notice, EmbedNotice::Stopped(_)) {
                     noticed.fetch_add(1, Ordering::SeqCst);
                 }
             }),

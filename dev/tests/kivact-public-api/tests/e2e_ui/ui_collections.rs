@@ -1,6 +1,9 @@
 //! Role: Verify semantic static collections through the public UI builders.
 use kivact::prelude::*;
-use kivact::style::TextAlign;
+use kivact::ui::{
+    item_list, item_row, table, table_body, table_cell, table_footer, table_head, table_header,
+    table_row,
+};
 use kivact::view::A11yAction;
 use kivact_public_api_tests::support::mount;
 

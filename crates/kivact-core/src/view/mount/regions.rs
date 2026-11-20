@@ -11,7 +11,8 @@ use crate::view::element_data::{
     Adopted, Common, Declaration, Entry, Gestures, RegionBinding, RegionEntry, RegionKey, Registry,
     RegistryPhase, State, Target, TargetId,
 };
-use kivact_runtime::{EffectKind, ErrorKind, Owner, Runtime, UiError};
+use kivact_runtime::driver::{EffectKind, Runtime};
+use kivact_runtime::{ErrorKind, Owner, UiError};
 use kivact_style::draw::{RegionId, RegionSemantics};
 use kivact_types::NodeId;
 
@@ -338,8 +339,8 @@ pub(super) fn prepare(
         root,
         at,
         state: RefCell::new(State::default()),
-        revision: cx.owner.notifier(at),
-        changed: cx.owner.notifier(at),
+        revision: cx.owner.trigger(at),
+        changed: cx.owner.trigger(at),
         phase: Cell::new(RegistryPhase::Mounting),
         gestures: RefCell::new(Gestures::default()),
     });

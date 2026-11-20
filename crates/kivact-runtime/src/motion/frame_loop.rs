@@ -7,10 +7,11 @@ use std::cell::Cell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, MotionState, motion_now};
+use super::state::{Cadence, LoopCell, LoopGate, LoopMotion, LoopRun, motion_now};
 use super::values::{FrameInfo, FrameRate};
 
-use crate::{ErrorKind, HandlerResult, Owned, Owner, Runtime, UiError, Value, require_effectful};
+use crate::driver::Runtime;
+use crate::{ErrorKind, HandlerResult, Owned, Owner, UiError, Value, require_effectful};
 
 /// Copy handle of a frame loop.
 #[derive(Clone, Copy)]
@@ -25,10 +26,10 @@ pub struct FrameLoop {
 #[track_caller]
 pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> FrameLoop {
     let at = Location::caller();
-    let owner = Owner::current("frame_loop", at);
+    let owner = Owner::setup("frame_loop", at);
     let rt = owner.runtime();
     let rate = owner.signal(None, at);
-    let registration = MotionState::of(&rt).token(rt.id());
+    let registration = rt.motion().token(rt.id());
     let id = registration.id;
     let cell = Rc::new(LoopCell {
         registration,
@@ -40,7 +41,7 @@ pub fn frame_loop<R: HandlerResult>(f: impl Fn(FrameInfo) -> R + 'static) -> Fra
         gate: Cell::new(LoopGate::Always),
         motion: Cell::new(LoopMotion::Decorative),
     });
-    MotionState::of(&rt).register_loop(id, &cell);
+    rt.motion().register_loop(id, &cell);
     FrameLoop {
         handle: owner.store("FrameLoop", cell, at),
     }
@@ -59,22 +60,14 @@ impl FrameLoop {
         self
     }
 
-    /// Host adapter bridge: restrict scheduling to an observed node lifetime.
-    #[doc(hidden)]
+    /// Run callbacks only while `present` is true (for example
+    /// `move || node.is_present()`), resuming the requested rate when it is
+    /// true again; the start/stop state is kept. Setup only.
     #[track_caller]
-    pub fn with_presence_gate(self, gate: Value<bool>) -> Self {
-        crate::require_setup("FrameLoop::with_presence_gate");
-        let (rt, cell) = self.cell(Location::caller());
-        cell.gate.set(LoopGate::While(gate));
-        let app = rt.id();
-        cell.owner.with_setup(move || {
-            crate::effect(move || {
-                let _ = gate.get();
-                if let Some(rt) = Runtime::get(app) {
-                    rt.request_turn();
-                }
-            })
-        });
+    pub fn while_present(self, present: impl crate::IntoValue<bool>) -> Self {
+        crate::require_setup("FrameLoop::while_present");
+        let (_rt, cell) = self.cell(Location::caller());
+        cell.gate.set(LoopGate::While(present.into_value()));
         self
     }
 

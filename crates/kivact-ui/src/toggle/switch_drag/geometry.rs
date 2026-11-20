@@ -13,7 +13,7 @@ pub(super) struct Geometry {
 
 impl Geometry {
     pub(super) fn new(size: ControlSize) -> Self {
-        let sign = if use_direction().get() == ReadingDirection::Rtl {
+        let sign = if use_direction() == ReadingDirection::Rtl {
             -1.0
         } else {
             1.0

@@ -3,14 +3,13 @@
 use super::common::{card, cards_grid, half, muted, section, third, wrap};
 use kivact::i18n::{CalendarDate, Weekday};
 use kivact::interaction::MenuEntry;
-use kivact::prelude::{
-    Binding, ColorToken, Element, IntoView, Node, Signal, column, dynamic, rgb, row, show, signal,
-    text,
-};
+use kivact::prelude::{Element, IntoView, Signal, column, dynamic, rgb, row, show, signal, text};
 use kivact::state::Callback;
+use kivact::style::ColorToken;
 use kivact::style::GridPlacement;
 use kivact::style::TextDecorationLine;
 use kivact::style::{Align, Justify, pct, style};
+use kivact::view::Node;
 use kivact::view::Placement;
 use kivact::view::{rich_text, span as text_span};
 use kivact_ui_pop as ui;
@@ -52,10 +51,10 @@ pub(super) fn feedback(notify: Callback<(ui::Hue, String, String)>) -> Node {
 }
 
 pub(super) fn overlays(
-    confirm: Binding<bool>,
-    form: Binding<bool>,
-    sheet: Binding<bool>,
-    command: Binding<bool>,
+    confirm: Signal<bool>,
+    form: Signal<bool>,
+    sheet: Signal<bool>,
+    command: Signal<bool>,
 ) -> Node {
     let popover_open = signal(false);
     section(
@@ -572,8 +571,7 @@ fn agenda_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
 fn calendar_panel(date: Signal<CalendarDate>) -> impl kivact::view::Element {
     kivact::ui::card(
         {
-            let selected: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                kivact::state::IntoBinding::into_binding(date);
+            let selected: kivact::state::Signal<kivact::i18n::CalendarDate> = date;
             let selected = kivact::state::binding(
                 move || Some(selected.get()),
                 move |day| {

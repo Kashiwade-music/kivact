@@ -7,7 +7,8 @@
 //! open modal.
 
 use kivact::prelude::*;
-use kivact::view::{MouseButton, overlay_at};
+use kivact::view::Placement;
+use kivact::view::overlay_at;
 use kivact_public_api_tests::support::mount;
 
 struct Handles {

@@ -2,7 +2,8 @@
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Reported, Runtime};
+use kivact_runtime::Reported;
+use kivact_runtime::driver::Runtime;
 
 use super::convert;
 use crate::devtools::state::DevtoolsState;

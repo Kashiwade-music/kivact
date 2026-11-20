@@ -72,7 +72,9 @@ pub fn hud(content: impl IntoView) -> impl kivact::view::Element {
 pub fn halo() -> impl kivact::view::Element {
     let time = signal(0_f64);
     let node_ref = node_ref();
-    let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64())).while_present(node_ref);
+    let presence = node_ref.presence();
+    let clock = frame_loop(move |frame| time.set(frame.now.as_secs_f64()))
+        .while_present(move || presence.get() == kivact::view::Presence::Present);
     let running = memo(move || {
         let visible = node_ref.rect().get().is_some_and(|rect| {
             rect.y < platform::window_size().get().height && rect.y + rect.height > 0.

@@ -23,7 +23,7 @@ use std::rc::Rc;
 
 use kivact_core::custom::{Owned, Owner, Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, memo, var};
+use kivact_core::state::{Signal, Value, memo, var};
 use kivact_core::view::{NodeRef, Orientation, Role};
 
 use super::axis::Axis;
@@ -85,7 +85,7 @@ pub struct TabListState {
 /// ```
 pub struct TabsApi<K: kivact_core::state::ItemKey> {
     group: ListApi<K>,
-    selected: Binding<K>,
+    selected: Signal<K>,
     edit: crate::EditSession<K>,
     owner: Owner,
     refs: Owned<Rc<Refs<K>>>,
@@ -105,11 +105,11 @@ impl<K: kivact_core::state::ItemKey> Copy for TabsApi<K> {}
 #[track_caller]
 pub fn use_tabs<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact_core::state::IntoBinding<K>,
+    value: kivact_core::state::Signal<K>,
 ) -> TabsApi<K> {
     let owner = Owner::current();
     let options = items.into_value();
-    let original: Binding<K> = value.into_binding();
+    let original: Signal<K> = value;
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: K| {
         edit.once(original.get_untracked(), || original.set(value))

@@ -1,5 +1,6 @@
 //! Role: Basic adornment, frame and borderless-control variants for input groups.
 use crate::Tokens;
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::{
@@ -11,7 +12,7 @@ use kivact::ui::{
 pub struct InputGroupControl;
 impl kivact::ui::Variant for InputGroupControl {}
 /// Visual size of a canonical input-group button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum InputGroupButtonSize {
     #[default]
     Xs,
@@ -20,7 +21,6 @@ pub enum InputGroupButtonSize {
     IconSm,
 }
 impl kivact::ui::Variant for InputGroupButtonSize {}
-kivact::state::constant_value!(InputGroupButtonSize);
 /// Reactive visual measurements of a canonical button in an input group.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct InputGroupButtonLook {

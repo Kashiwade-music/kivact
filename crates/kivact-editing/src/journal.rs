@@ -4,6 +4,15 @@ use crate::change::TextChange;
 use crate::edit_state::{EditState, Taken};
 use crate::session::TextSession;
 
+/// What an edit may not do, held for the journal's lifetime.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct Limits {
+    /// The most Unicode scalars the text may hold after the edit.
+    pub max_length: Option<usize>,
+    /// The text may not change (selection and copy still work).
+    pub read_only: bool,
+}
+
 /// The host's recording of one edit of an editor's document: every change made through it
 /// since it opened ([`Editor::journal`](crate::host::Editor::journal)). It ends with [`Journal::finish`], which returns the
 /// changes to report; dropping it unfinished takes its changes back (a change the host does
@@ -16,12 +25,19 @@ pub struct Journal<'a> {
     pub(crate) revision: u64,
     /// The session the journal opened on.
     pub(crate) session: TextSession,
+    /// What this edit may not do.
+    pub(crate) limits: Limits,
 }
 
 impl Journal<'_> {
     /// The document as the edit left it so far.
     pub fn state(&self) -> &EditState {
         self.state
+    }
+
+    /// What this edit may not do.
+    pub fn limits(&self) -> Limits {
+        self.limits
     }
 
     /// Lend the document to a behavior; its changes are recorded.
@@ -49,6 +65,11 @@ impl Journal<'_> {
     /// recorded change; the session is clamped into what is left.
     pub fn truncate(&mut self, end: usize) {
         self.state.truncate(end);
+        // A cut that leaves the text the journal opened on took back every
+        // scalar the edit added: the edit is taken back whole (its caret too).
+        if self.state.text_is_unlogged() {
+            self.revert();
+        }
     }
 
     /// Take a controlled value held while composing as one recorded minimal change; whether

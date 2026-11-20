@@ -7,12 +7,15 @@
 //! blur, `on_composition_change` on each change of the composing state),
 //! and which keys reach the handlers around a field.
 
+use kivact::view::Modifiers;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::interaction::{use_text_area, use_text_edit};
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
+use kivact::view::commit_focused_edit;
+use kivact_public_api_tests::support::mount;
 
 /// A family emoji: one grapheme of five scalars.
 const FAMILY: &str = "\u{1F468}\u{200D}\u{1F469}\u{200D}\u{1F467}";
@@ -231,6 +234,40 @@ Z"
     );
 }
 
+/// Down through a short line and on to a long one comes back to the
+/// column it started from (the goal column), and so does Up.
+#[test]
+fn up_and_down_keep_their_column_across_a_short_line() {
+    let (screen, value, _log) = field_screen(
+        "abcdef
+ab
+abcdef",
+        true,
+    );
+    let notes = screen.get_by_role(Role::TextBox, "Notes");
+    notes.press_key(Key::End);
+    notes.press_key(Key::ArrowUp);
+    notes.press_key(Key::ArrowUp);
+    screen.type_text("X");
+    assert_eq!(
+        value.get(),
+        "abcdefX
+ab
+abcdef",
+        "Up through the short line keeps the column of the end"
+    );
+    notes.press_key(Key::ArrowDown);
+    notes.press_key(Key::ArrowDown);
+    screen.type_text("Y");
+    assert_eq!(
+        value.get(),
+        "abcdefX
+ab
+abcdefY",
+        "Down through the short line comes back to the column"
+    );
+}
+
 #[test]
 fn clipboard_chords_and_pasted_line_breaks() {
     let (screen, value, _log) = field_screen("abc", false);
@@ -378,9 +415,10 @@ fn clicking_a_centered_line_places_the_caret_under_the_pointer() {
     assert_eq!(screen.ime_text().expect("focused").selection, 0..0);
 }
 
-/// A focused single-line field holding "hello world foo", and the window point
-/// over the middle of the `o` in "world".
-fn words_screen() -> (Screen, (f64, f64)) {
+/// A focused single-line field holding "hello world foo", the window point
+/// over the middle of the `o` in "world", and the one over the middle of the
+/// first `o` in "foo".
+fn words_screen() -> (Screen, (f64, f64), (f64, f64)) {
     let screen = render(|| {
         node()
             .name("Words")
@@ -392,20 +430,25 @@ fn words_screen() -> (Screen, (f64, f64)) {
     // The carets before and after the `o` (character 7).
     field.press_key(Key::Home);
     let mut stops = Vec::new();
-    for _ in 0..=8 {
+    for _ in 0..=14 {
         let ime = screen.ime_text().expect("focused");
         stops.push(*ime.char_rects.last().expect("the caret"));
         field.press_key(Key::ArrowRight);
     }
     let (from, to) = (stops[7], stops[8]);
-    (screen, ((from.x + to.x) / 2.0, from.y + from.height / 2.0))
+    let (foo_from, foo_to) = (stops[13], stops[14]);
+    (
+        screen,
+        ((from.x + to.x) / 2.0, from.y + from.height / 2.0),
+        ((foo_from.x + foo_to.x) / 2.0, from.y + from.height / 2.0),
+    )
 }
 
 /// The second click of a double click selects the word under the pointer, and
 /// typing replaces the selection. A single click before it only places the caret.
 #[test]
 fn a_double_click_selects_the_word_under_the_pointer() {
-    let (screen, (x, y)) = words_screen();
+    let (screen, (x, y), _) = words_screen();
     screen.click_at(x, y);
     let ime = screen.ime_text().expect("focused");
     assert!(
@@ -427,13 +470,30 @@ fn a_double_click_selects_the_word_under_the_pointer() {
 /// field that is the whole value.
 #[test]
 fn a_triple_click_selects_the_whole_line() {
-    let (screen, (x, y)) = words_screen();
+    let (screen, (x, y), _) = words_screen();
     for _ in 0..3 {
         screen.click_at(x, y);
     }
     assert_eq!(screen.ime_text().expect("focused").selection, 0..15);
     screen.get_by_role(Role::TextBox, "Words").type_text("Z");
     assert_eq!(value_of(&screen, Role::TextBox, "Words"), "Z");
+}
+
+/// A drag after a double click extends the selection word by word: from
+/// the clicked word to the end of the word under the pointer.
+#[test]
+fn a_drag_after_a_double_click_extends_by_words() {
+    let (screen, (x, y), (far, _)) = words_screen();
+    screen.click_at(x, y);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(far, y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        screen.ime_text().expect("focused").selection,
+        6..15,
+        "\"world foo\", whole words"
+    );
 }
 
 /// `on_composition_change` reports `true` when a composition starts and
@@ -737,4 +797,133 @@ fn a_field_narrower_than_the_caret_margin_settles() {
     field.focus();
     field.type_text("12");
     assert_eq!(field.value().as_deref(), Some("12"));
+}
+
+#[test]
+fn commit_focused_edit_commits_a_draft_and_resolves_after_the_value_is_written() {
+    let (screen, (name, saved)) = mount(|| {
+        let draft = signal(String::new());
+        let name = signal(String::new());
+        let saved = signal(String::new());
+        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let view = node()
+            .on_key(move |e: KeyEvent| {
+                if e.key() == Key::Char('s') && e.modifiers().ctrl {
+                    spawn(async move {
+                        commit_focused_edit().await;
+                        saved.set(name.get_untracked());
+                    });
+                }
+            })
+            .child(node().name("Name").part(field.control()));
+        ((name, saved), view)
+    });
+    let f = screen.get_by_role(Role::TextBox, "Name");
+    f.focus();
+    f.type_text("Ada");
+    assert_eq!(name.get_untracked(), "", "the draft is not committed yet");
+    screen.press_key_with(Key::Char('s'), ctrl());
+    screen.run_until_idle();
+    assert_eq!(saved.get_untracked(), "Ada");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn commit_focused_edit_commits_a_preedit_and_resolves_after_the_value_is_written() {
+    let (screen, (go, saved)) = mount(|| {
+        let draft = signal(String::new());
+        let name = signal(String::new());
+        let saved = signal(String::new());
+        let go = signal(false);
+        effect(move || {
+            if go.get() {
+                spawn(async move {
+                    commit_focused_edit().await;
+                    saved.set(name.get_untracked());
+                });
+            }
+        });
+        let field = use_text_edit(draft).on_draft_commit(move |text: String| name.set(text));
+        let view = node().child(node().name("Name").part(field.control()));
+        ((go, saved), view)
+    });
+    let f = screen.get_by_role(Role::TextBox, "Name");
+    f.focus();
+    f.compose("x");
+    go.set(true);
+    screen.run_until_idle();
+    assert_eq!(saved.get_untracked(), "x", "the preedit is committed first");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn commit_focused_edit_without_focus_resolves_at_once() {
+    let (screen, done) = mount(|| {
+        let done = signal(false);
+        let view = node().child(node().name("Plain"));
+        on_mount(move || {
+            spawn(async move {
+                commit_focused_edit().await;
+                done.set(true);
+            });
+        });
+        (done, view)
+    });
+    screen.run_until_idle();
+    assert!(
+        done.get_untracked(),
+        "nothing is focused: the call resolves"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// The 95th percentile of the time `press` takes, over `n` presses.
+fn p95(n: usize, mut press: impl FnMut(usize)) -> std::time::Duration {
+    let mut times: Vec<std::time::Duration> = (0..n)
+        .map(|i| {
+            let start = std::time::Instant::now();
+            press(i);
+            start.elapsed()
+        })
+        .collect();
+    times.sort_unstable();
+    times[n * 95 / 100]
+}
+
+/// Key latency in a 1 MB document of many lines and in a 1 MB single
+/// line: a key that moves the caret, a typed character and (many lines)
+/// a move by a line. A measurement run by hand in release: E17 compares
+/// it before and after; it asserts nothing.
+#[test]
+#[ignore = "a measurement, run by hand in release"]
+fn large_document_key_latency() {
+    let line = "0123456789abcdef".repeat(4);
+    let lines = vec![line.as_str(); 16_384].join("\n");
+    let one_line = "0123456789abcdef".repeat(65_536);
+    for (name, text, area) in [
+        ("lines", lines.as_str(), true),
+        ("one line", one_line.as_str(), false),
+    ] {
+        let (screen, _value, _log) = field_screen(text, area);
+        let field = screen.get_by_role(Role::TextBox, if area { "Notes" } else { "Name" });
+        field.press_key(Key::End);
+        let left = p95(200, |_| {
+            field.press_key(Key::ArrowLeft);
+        });
+        eprintln!("latency {name} ArrowLeft p95 {left:?}");
+        let typed = p95(200, |_| {
+            field.type_text("x");
+        });
+        eprintln!("latency {name} type p95 {typed:?}");
+        if area {
+            let vertical = p95(200, |i| {
+                field.press_key(if i % 2 == 0 {
+                    Key::ArrowUp
+                } else {
+                    Key::ArrowDown
+                });
+            });
+            eprintln!("latency {name} ArrowUp/Down p95 {vertical:?}");
+        }
+    }
 }

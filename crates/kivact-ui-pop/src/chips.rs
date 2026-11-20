@@ -2,7 +2,7 @@
 use kivact::ui::{ButtonVariant, ControlSize, button};
 
 use kivact::i18n::{message, message_with};
-use kivact::state::{Callback, Value};
+use kivact::state::{Callback, IntoHandler, Value};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, BorderStyle, ColorToken, style};
 use kivact::view::{Element, Node, icon, row, text};
@@ -23,8 +23,9 @@ pub fn removable_chip(label: impl IntoText) -> RemovableChip {
     }
 }
 impl RemovableChip {
-    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
-        self.remove = remove.into();
+    pub fn on_remove<M>(mut self, remove: impl IntoHandler<(), M>) -> Self {
+        self.remove =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(remove));
         self
     }
 }
@@ -84,8 +85,9 @@ pub fn chip_list(tags: impl IntoValue<Vec<String>>) -> ChipList {
 }
 impl ChipList {
     /// Request an application-defined addition.
-    pub fn on_add(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_add = f.into();
+    pub fn on_add<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_add =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(f));
         self
     }
     /// Request removal of an item by index.

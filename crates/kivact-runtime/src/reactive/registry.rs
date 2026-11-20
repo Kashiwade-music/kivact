@@ -44,13 +44,17 @@ pub(crate) fn check_not_foreign(app: AppId, at: &'static Location<'static>) {
 }
 
 impl Runtime {
-    /// Create and register a new runtime (App) with its extensions. Ids are
+    /// Create and register a new runtime (App) with its tasks. Ids are
     /// never reused.
-    pub(crate) fn register(host: Rc<dyn Host>, start_ns: u64) -> Rc<Runtime> {
+    pub(crate) fn register(
+        host: Rc<dyn Host>,
+        start_ns: u64,
+        tasks: crate::task::TaskState,
+    ) -> Rc<Runtime> {
         REGISTRY.with(|r| {
             let mut reg = r.borrow_mut();
             let id = AppId(reg.len() as u32 + 1);
-            let rt = Rc::new(Runtime::with_id(id, host, start_ns));
+            let rt = Rc::new(Runtime::with_id(id, host, start_ns, tasks));
             reg.push(Some(rt.clone()));
             rt
         })
@@ -68,11 +72,16 @@ impl Runtime {
 
 /// Look up a live runtime (internal: no foreign-App check).
 pub(crate) fn try_runtime(app: AppId) -> Option<Rc<Runtime>> {
-    REGISTRY.with(|r| {
-        r.borrow()
-            .get((app.0 as usize).wrapping_sub(1))
-            .and_then(|s| s.clone())
-    })
+    // When the thread ends, the registry drops its runtimes, and what they
+    // hold (a frame loop's token) asks for its runtime: there is none then.
+    REGISTRY
+        .try_with(|r| {
+            r.borrow()
+                .get((app.0 as usize).wrapping_sub(1))
+                .and_then(|s| s.clone())
+        })
+        .ok()
+        .flatten()
 }
 
 /// Run `f` with the registered runtime of `app` without cloning its `Rc`.

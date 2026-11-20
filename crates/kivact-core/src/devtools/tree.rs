@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{NodeKind as EngineNodeKind, TreeChanges};
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;

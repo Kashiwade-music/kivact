@@ -5,10 +5,8 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::{Rc, Weak};
 
-use kivact_runtime::{
-    EffectKind, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, Owner, Runtime, UiError,
-    Value,
-};
+use kivact_runtime::driver::{EffectKind, Runtime};
+use kivact_runtime::{ErrorKind, Handler, HandlerResult, IntoText, Owner, Signal, UiError, Value};
 use kivact_types::{
     DismissReason, Environment, NodeId, Size, WindowContent, WindowId, WindowMode, WindowPlacement,
     WindowRequest,
@@ -24,11 +22,11 @@ use crate::view::state::{EnvState, FocusKeys, ViewState, WindowDecl, WindowRecor
 /// shown in its own OS window. The content inherits the contexts of the
 /// place where `window` is declared, like a React portal.
 #[track_caller]
-pub fn window(title: impl IntoText, open: impl IntoBinding<bool>) -> Window {
+pub fn window(title: impl IntoText, open: Signal<bool>) -> Window {
     Window {
         decl: WindowDecl {
             title: title.into_text_value(),
-            open: open.into_binding(),
+            open,
             size: Size::new(640.0, 480.0),
             min_size: None,
             mode: WindowMode::Normal,
@@ -285,7 +283,7 @@ impl WindowSlot {
         if let Some(root) = root {
             let owner = ViewState::tree(rt).owner_of(root);
             let removed = ViewState::tree_mut(rt).remove(root);
-            removed.commit(rt);
+            drop(removed);
             ViewState::tree(rt).engine().close_window(id);
             if dispose && owner.is_alive() {
                 owner.dispose();
@@ -294,6 +292,7 @@ impl WindowSlot {
             ViewState::tree(rt).engine().close_window(id);
         }
         ViewState::of(rt).remove_window(id);
+        crate::view::requests::release_blurs(rt, id);
         ViewState::of(rt).close_foreign_sizes(id);
         *self.arm.borrow_mut() = WindowArm::Closed;
     }
@@ -319,6 +318,7 @@ pub(crate) fn open_window_record(
         focus: FocusKeys::new(owner, at),
         hover: owner.signal(None, at),
         mouse: owner.signal(None, at),
+        close_handlers: Rc::default(),
     }
 }
 

@@ -4,7 +4,8 @@ use crate::view::owner::Owner;
 use crate::view::state::ViewState;
 use crate::view::{NodeRef, focus, requests};
 use kivact_engine::api::PropValue;
-use kivact_runtime::{AppId, Runtime, require_effectful};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{AppId, require_effectful};
 use kivact_types::FocusTarget;
 use std::panic::Location;
 use std::rc::Rc;
@@ -61,7 +62,7 @@ pub fn focused_node() -> Option<NodeToken> {
     let rt = Runtime::current()?;
     let at = Location::caller();
     let window =
-        crate::view::state::current_window(kivact_runtime::Owner::ambient("focused_node", at));
+        crate::view::state::current_window(kivact_runtime::Owner::running("focused_node", at));
     focus::focused(&rt, window).map(|node| NodeToken {
         app: rt.id(),
         node,
@@ -268,19 +269,13 @@ impl NodeRefExt for NodeRef {
     }
     #[track_caller]
     fn is_visible(&self) -> bool {
-        let (rt, _) = self.state();
-        let revision = ViewState::tree(&rt).visibility_revision();
-        revision.track();
-        self.tracked_node()
-            .is_some_and(|token| ViewState::tree(&rt).is_visible(token.node.node))
+        self.node_flags(Location::caller())
+            .is_some_and(|flags| flags.visible)
     }
     #[track_caller]
     fn is_in_live_region(&self) -> bool {
-        let (rt, _) = self.state();
-        let revision = ViewState::tree(&rt).live_region_revision();
-        revision.track();
-        self.tracked_node()
-            .is_some_and(|token| ViewState::tree(&rt).is_in_live_region(token.node.node))
+        self.node_flags(Location::caller())
+            .is_some_and(|flags| flags.in_live_region)
     }
     #[track_caller]
     fn holds_focus(&self) -> bool {

@@ -8,8 +8,8 @@ use crate::variants::{Variant, Variants};
 use crate::{ButtonVariant, button};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{Locale, message, use_locale};
-use kivact_core::state::{Binding, Value, binding, machine, memo};
 use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::state::{Signal, Value, binding, machine, memo};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Element, Node, grid, icon};
@@ -21,7 +21,7 @@ use kivact_interaction::{ScalarRange, use_scalar};
 pub struct NumberInput {
     root: Node,
     label: Value<String>,
-    value: Binding<f64>,
+    value: Signal<f64>,
     range: Value<ScalarRange>,
     on_edit: Option<kivact_core::state::Callback<EditPhase>>,
     variants: Variants,
@@ -60,14 +60,14 @@ pub struct NumberInput {
 #[track_caller]
 pub fn number_input(
     label: impl IntoText,
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> NumberInput {
     let root = grid(()).base_style(style().grid_template_columns((auto(), Track::fr(1), auto())));
     NumberInput {
         root,
         label: label.into_text_value(),
-        value: value.into_binding(),
+        value,
         range: range.into_value(),
         on_edit: None,
         variants: Variants::default(),

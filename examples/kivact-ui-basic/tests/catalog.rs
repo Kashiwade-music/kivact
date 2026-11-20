@@ -3,8 +3,7 @@
 //! the example previews and code, the theme toggle_button, the search and the copy button.
 
 use kivact::prelude::*;
-use kivact::style::Position;
-use kivact::test::{LayoutCheck, RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{LayoutCheck, RenderOptions, Screen, render_with};
 use kivact_ui_basic_catalog::{catalog_with_mode, fonts, pages};
 use std::time::Duration;
 
@@ -14,13 +13,10 @@ fn mount() -> Screen {
 
 fn mount_in(mode: ThemeMode) -> Screen {
     render_with(
-        RenderOptions::with_theme(kivact_ui_basic::theme(mode))
+        RenderOptions::with_theme(kivact_ui_basic::theme(mode).with_fonts(fonts().iter().copied()))
             .window_size(1440., 900.)
             .scale(1.)
-            .reduced_motion()
-            .fonts(TestFonts::Only(
-                fonts().iter().map(|&bytes| bytes.into()).collect(),
-            )),
+            .reduced_motion(),
         move || catalog_with_mode(mode),
     )
 }
@@ -259,12 +255,11 @@ fn every_page_character_is_in_the_catalog_fonts() {
     let rows = (cells.len() as u32).div_ceil(COLUMNS);
     let grid = cells.clone();
     let screen = render_with(
-        RenderOptions::with_theme(kivact_ui_basic::theme(ThemeMode::Light))
-            .window_size(f64::from(COLUMNS * CELL), f64::from(rows * CELL))
-            .scale(1.)
-            .fonts(TestFonts::Only(
-                fonts().iter().map(|&bytes| bytes.into()).collect(),
-            )),
+        RenderOptions::with_theme(
+            kivact_ui_basic::theme(ThemeMode::Light).with_fonts(fonts().iter().copied()),
+        )
+        .window_size(f64::from(COLUMNS * CELL), f64::from(rows * CELL))
+        .scale(1.),
         move || {
             let cells: Vec<View> = grid
                 .iter()

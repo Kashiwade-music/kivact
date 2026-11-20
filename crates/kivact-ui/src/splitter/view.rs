@@ -5,7 +5,7 @@ use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, callback};
 use kivact_core::style::{Direction, style};
 use kivact_core::view::EditPhase;
@@ -20,7 +20,7 @@ use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
 pub struct Splitter {
     root: Node,
     name: Value<String>,
-    size: Binding<f64>,
+    size: Signal<f64>,
     range: Value<ScalarRange>,
     orientation: Orientation,
     start: Option<View>,
@@ -62,13 +62,13 @@ pub struct Splitter {
 #[track_caller]
 pub fn splitter(
     name: impl IntoText,
-    size: impl kivact_core::state::IntoBinding<f64>,
+    size: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> Splitter {
     Splitter {
         root: node(),
         name: name.into_text_value(),
-        size: size.into_binding(),
+        size,
         range: range.into_value(),
         orientation: Orientation::Horizontal,
         start: None,
@@ -239,7 +239,7 @@ impl IntoView for Splitter {
         let trailing = node()
             .child(end)
             .style(style().grow(1).basis(0).min_width(0).min_height(0));
-        let direction = match (vertical, use_direction().get()) {
+        let direction = match (vertical, use_direction()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

@@ -1,9 +1,10 @@
 //! Role: Apply Neutral surface elevation to a style.
 use crate::Tokens;
+use kivact::Prop;
 use kivact::style::Style;
 
 /// Neutral surface elevation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Elevation {
     #[default]
     /// Keep the existing style without adding shadows; the default.
@@ -27,5 +28,3 @@ impl Elevation {
         shadows.iter().cloned().fold(base, Style::shadow)
     }
 }
-
-kivact::state::constant_value!(Elevation);

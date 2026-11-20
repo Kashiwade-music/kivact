@@ -1,8 +1,11 @@
 //! Role: Table parts share grid focus, list selection, sort and resize behavior.
 
+use kivact::interaction::IntoSelection;
+use kivact::interaction::Selection;
 use kivact::interaction::{ColumnDef, ListRangeOptions, SortOrder, TableFocus, use_data_table};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
+use kivact::view::Modifiers;
 use kivact_public_api_tests::support::mount_with;
 
 #[test]
@@ -102,7 +105,7 @@ fn headers_sort_and_resize_through_caller_bindings() {
                 vec![1],
                 |row| *row,
                 vec![ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b))],
-                Selection::Multiple(signal(Vec::<i32>::new()).into_binding()),
+                Selection::Multiple(signal(Vec::<i32>::new())),
                 TableFocus::default(),
             )
             .with_sort(sort)

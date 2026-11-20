@@ -1,14 +1,15 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
 use crate::{IconSize, icon_view, visually_hidden};
+use kivact::Prop;
 use kivact::i18n::{message, message_with};
 use kivact::motion::Animated;
 use kivact::motion::Easing;
 use kivact::motion::Repeat;
 use kivact::motion::Transition;
-use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::state::{Callback, IntoHandler};
 use kivact::style::Align;
 use kivact::style::Cursor;
 use kivact::style::Direction;
@@ -41,7 +42,7 @@ const SPINNER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 const SIDE: f64 = 64.0;
 
 /// When the remove button is visible.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RemoveReveal {
     /// Reveal on hover or keyboard focus, the default.
     #[default]
@@ -94,14 +95,16 @@ impl Thumbnail {
         self
     }
     /// Open the image when pressed.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.press = Some(Box::new(move || action.call(())));
         self
     }
     /// Remove the attachment when pressed.
-    pub fn on_remove(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_remove<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.remove = Some(Box::new(move || action.call(())));
         self
     }
@@ -154,7 +157,7 @@ impl IntoView for Thumbnail {
         let reference = node_ref();
         let hovered = reference.hovered();
         let focus_within = reference.focus_within();
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         let has_source = source.is_some();
         let media = thumbnail_media(source, alt, loading);
         let open = thumbnail_open(media, press, accessible, loading, disabled);
@@ -322,8 +325,6 @@ fn upload_overlay() -> Node {
         })
         .child(image(Asset::from(SPINNER)).style(move || style().size(14, 14).rotate(turn.get())))
 }
-
-kivact::state::constant_value!(RemoveReveal);
 
 fn thumbnail_open(
     media: Node,

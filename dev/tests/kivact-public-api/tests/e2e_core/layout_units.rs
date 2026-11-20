@@ -4,10 +4,8 @@
 //! 32`) in sizes, insets, margins, padding and gaps, checked on the laid
 //! out boxes of real windows (and their resizes).
 
-use kivact::geometry::Rect;
 use kivact::platform;
 use kivact::prelude::*;
-use kivact::style::Position;
 use kivact::test::{RenderOptions, Screen, render_with};
 
 /// The window-space box of the element with test id `id`.

@@ -2,6 +2,7 @@
 use crate::layout::LayoutInset;
 use crate::stack::ContainerInset;
 use crate::{Elevation, Space};
+use kivact::Prop;
 use kivact::draw::Shadow;
 use kivact::motion::Transition;
 use kivact::state::{IntoValue, Value, provide};
@@ -9,7 +10,7 @@ use kivact::style::{Color, Direction, Position, Style, Theme, TransitionProp, st
 use kivact::ui::{CardRecipes, CardState, Look, Selectable};
 use kivact::view::IntoView;
 /// Background palette for a canonical card.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum CardVariant {
     /// Default card surface.
     #[default]
@@ -218,4 +219,3 @@ fn overlay(theme: &Theme, s: &Look<CardState>) -> Style {
             Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
 }
-kivact::state::constant_value!(CardVariant);

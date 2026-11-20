@@ -8,8 +8,8 @@ use kivact::i18n::{interpolate, message};
 use kivact::interaction::ScalarRange;
 use kivact::interaction::ScalarStep;
 use kivact::interaction::{RangeThumb, use_range_scalar};
-use kivact::state::IntoBinding;
-use kivact::state::{Binding, Callback, Value, binding, machine, memo};
+use kivact::state::Signal;
+use kivact::state::{Callback, Value, binding, machine, memo};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Cursor, pct, style};
 use kivact::view::EditPhase;
@@ -26,7 +26,7 @@ const THUMB: f64 = 20.0;
 pub struct Range {
     root: Node,
     label: Value<String>,
-    state: Binding<(f64, f64)>,
+    state: Signal<(f64, f64)>,
     options: RangeOptions,
 }
 struct RangeOptions {
@@ -52,7 +52,7 @@ struct RangeOptions {
 /// ([`on_edit`](Range::on_edit)); Escape and a canceled pointer during a drag
 /// write both endpoints from before the press back.
 #[track_caller]
-pub fn range(label: impl IntoText, value: impl IntoBinding<(f64, f64)>) -> Range {
+pub fn range(label: impl IntoText, value: Signal<(f64, f64)>) -> Range {
     let label = label.into_text_value();
     Range {
         root: node()
@@ -61,7 +61,7 @@ pub fn range(label: impl IntoText, value: impl IntoBinding<(f64, f64)>) -> Range
             .focusable(true)
             .style(style().width(pct(100)).height(24).cursor(Cursor::EwResize)),
         label,
-        state: value.into_binding(),
+        state: value,
         options: RangeOptions {
             min: 0.0.into_value(),
             max: 240.0.into_value(),
@@ -269,7 +269,7 @@ fn range_key(
     active: Value<RangePart>,
     movable: Value<bool>,
     pair: impl Fn() -> (f64, f64),
-    state: Binding<(f64, f64)>,
+    state: Signal<(f64, f64)>,
     ends: kivact::interaction::RangeScalarApi,
     bounds: (Value<f64>, Value<f64>, Value<f64>),
 ) -> Handled {
@@ -403,7 +403,7 @@ fn range_regions(
 }
 
 fn range_ends(
-    state: Binding<(f64, f64)>,
+    state: Signal<(f64, f64)>,
     range: Value<ScalarRange>,
     min: Value<f64>,
     max: Value<f64>,

@@ -9,6 +9,7 @@ use kivact::view::column;
 use kivact::view::node;
 use kivact::view::scroll;
 
+use kivact::Prop;
 use kivact::state::IntoText;
 use kivact::state::Value;
 use kivact::state::provide;
@@ -22,7 +23,7 @@ use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::node_ref;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Scrollable directions supported by a viewport.
 pub enum ScrollAxis {
     /// Scroll horizontally.
@@ -119,14 +120,12 @@ impl IntoView for ScrollableArea {
             bleed_bottom,
             force_focusable,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let viewport = node_ref();
             let content = node_ref();
             let state = viewport.scroll_state();
             let inset = padding.resolve(0.0);
-            let parent = try_use_context::<ContainerInset>()
-                .map(|value| value.get())
-                .unwrap_or_default();
+            let parent = try_use_context::<ContainerInset>().unwrap_or_default();
             let inner = column(provide(inset, move || child))
                 .node_ref(content)
                 .with_node(move |node| {
@@ -175,5 +174,3 @@ impl IntoView for ScrollableArea {
         })
     }
 }
-
-kivact::state::constant_value!(ScrollAxis);

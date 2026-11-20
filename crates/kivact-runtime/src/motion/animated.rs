@@ -7,14 +7,12 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::Repeat;
-use super::state::{Anim, AnimInfo, AnimKind, MotionState, MotionToken, RunStatus, motion_now};
+use super::state::{Anim, AnimInfo, AnimKind, MotionToken, RunStatus, motion_now};
 use super::transition::{Kind, Transition, settles_at_start};
 use super::values::Animatable;
 use crate::Prop as InputProp;
-use crate::{
-    AppId, EffectKind, ErrorKind, IntoReactive, IntoValue, Owned, Owner, Runtime, Signal, UiError,
-    Value, require_effectful,
-};
+use crate::driver::{EffectKind, Runtime};
+use crate::{AppId, ErrorKind, IntoValue, Owned, Owner, Signal, UiError, Value, require_effectful};
 use kivact_types::motion::{PlayDirection, SpringRun};
 
 /// One run: fixed endpoints and timing, and the spring's integration state.
@@ -151,7 +149,7 @@ impl<T: Animatable> AnimCell<T> {
         if was != now
             && let Some(rt) = Runtime::get(self.owner.app())
         {
-            MotionState::of(&rt).set_anim_running(self.registration.id, now);
+            rt.motion().set_anim_running(self.registration.id, now);
         }
     }
 
@@ -359,7 +357,7 @@ impl<T: Animatable> Animated<T> {
     #[track_caller]
     fn create(start: Option<T>, target: impl IntoValue<T>, transition: Transition) -> Self {
         let at = Location::caller();
-        let owner = Owner::current("animated", at);
+        let owner = Owner::setup("animated", at);
         let rt = owner.runtime();
         let target = target.into_prop();
         let explicit_start = start.is_some();
@@ -376,7 +374,7 @@ impl<T: Animatable> Animated<T> {
             ));
         }
         let value: Signal<T> = owner.signal(initial, at);
-        let registration = MotionState::of(&rt).token(rt.id());
+        let registration = rt.motion().token(rt.id());
         let motion_id = registration.id;
         let cell = Rc::new(AnimCell {
             registration,
@@ -387,7 +385,7 @@ impl<T: Animatable> Animated<T> {
             phase: owner.signal(AnimPhase::Idle, at),
         });
         let anim: Rc<dyn Anim> = cell.clone();
-        MotionState::of(&rt).register_anim(motion_id, &anim);
+        rt.motion().register_anim(motion_id, &anim);
         drop(anim);
         let stored = owner.store("Animated", cell.clone(), at);
         let weak = Rc::downgrade(&cell);
@@ -395,7 +393,7 @@ impl<T: Animatable> Animated<T> {
             let Some(rt) = Runtime::get(app) else { return };
             let Some(cell) = weak.upgrade() else { return };
             let now = motion_now(&rt);
-            let reduced = MotionState::of(&rt).reduced_motion(&rt);
+            let reduced = rt.motion().reduced_motion(&rt);
             crate::untrack(|| cell.retarget(t, now, reduced));
             rt.request_turn();
         };
@@ -489,7 +487,7 @@ impl<T: Animatable> Animated<T> {
         } = cell.phase.get_untracked()
         {
             let now = motion_now(&rt);
-            let reduced = MotionState::of(&rt).reduced_motion(&rt);
+            let reduced = rt.motion().reduced_motion(&rt);
             run.shift_last(at_ns, now);
             cell.begin(run, shift(start_ns, at_ns, now), reduced);
             rt.request_turn();
@@ -526,7 +524,7 @@ impl<T: Animatable> Animated<T> {
             AnimPhase::Idle | AnimPhase::Completed { .. } => {
                 let target = cell.target();
                 let run = cell.make_run(now, one_shot(&cell.transition), target, v);
-                let reduced = MotionState::of(&rt).reduced_motion(&rt);
+                let reduced = rt.motion().reduced_motion(&rt);
                 cell.start_run(run, now, reduced);
             }
         }
@@ -540,10 +538,10 @@ impl<T: Animatable> Animated<T> {
     /// `f` may return `()` or `Result<(), UiError>`; an `Err` goes to the
     /// nearest error handler.
     #[track_caller]
-    pub fn on_complete(self, f: impl Into<crate::Callback<()>>) -> Self {
-        let f = f.into();
+    pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Self {
+        let f = crate::Callback::from_handler(f.into_handler());
         let at = Location::caller();
-        let rt = Owner::current("Animated::on_complete", at).runtime();
+        let rt = Owner::setup("Animated::on_complete", at).runtime();
         assert_eq!(
             rt.id(),
             self.app,
@@ -583,5 +581,3 @@ impl<T: Animatable> IntoValue<T> for Animated<T> {
         crate::Prop::value(self.value())
     }
 }
-
-impl<T: Animatable> IntoReactive<T> for Animated<T> {}

@@ -1,7 +1,7 @@
 //! Role: Build themed binary toggles from their actual interaction part state.
 //!
 //! A checkbox or a switch takes its value as the constructor's one
-//! `Binding<bool>`, like a select and a text input; there is no hidden local
+//! `Signal<bool>`, like a select and a text input; there is no hidden local
 //! binding and no separate constant `checked` mode. Its recipe gets the real
 //! checked state in a `CheckableState`, and `.size` only reaches the recipe,
 //! which decides the dimensions.

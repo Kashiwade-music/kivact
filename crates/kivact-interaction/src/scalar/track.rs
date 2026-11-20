@@ -23,7 +23,7 @@ pub(crate) struct Pointer {
 
 impl Pointer {
     pub(crate) fn attach_track(self, rect: Value<Option<Rect>>, axis: Axis) {
-        let rtl = axis.is_horizontal() && use_direction().get() == ReadingDirection::Rtl;
+        let rtl = axis.is_horizontal() && use_direction() == ReadingDirection::Rtl;
         self.phase.send(Event::Attach(Geometry { rect, axis, rtl }));
     }
 

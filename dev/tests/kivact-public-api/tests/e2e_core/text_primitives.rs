@@ -7,12 +7,12 @@
 //! publishes for assistive technology (`Node::semantics_text`). The
 //! editor built from all three is the `kivact-text-primitives` fixture.
 
+use kivact::style::ColorToken;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::custom::{Constraints, Primitive, primitive};
 use kivact::draw::{InlineBox, InlineParagraph, TextFormat, TextParagraph};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
 

@@ -1,9 +1,10 @@
 //! Role: Public Pop tokens; no renderer or engine values appear in this API.
 
+use kivact::Prop;
 use kivact::style::{Color, Theme, ThemeExtension, ThemeMode, hsl, rgb, rgba};
 
 /// Semantic colors shared by badges, alerts, avatars and patterns.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Hue {
     #[default]
     Blue,
@@ -145,8 +146,6 @@ impl ThemeExtension for Tokens {
         Self::new(theme.mode())
     }
 }
-
-kivact::state::constant_value!(Hue);
 
 // Palette details used by Pop recipes and decorative drawing primitives.
 pub(crate) fn accent_gradient_end() -> Color {

@@ -1,8 +1,8 @@
 //! Role: Verify the public accordion, hover preview, drawer, and clipboard contracts.
 use kivact::geometry::Edge;
+use kivact::interaction::DialogMode;
 use kivact::interaction::use_copy_feedback;
 use kivact::prelude::*;
-use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
 

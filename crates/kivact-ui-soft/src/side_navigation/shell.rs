@@ -12,10 +12,9 @@ use kivact::interaction::{ScalarRange, use_splitter};
 use kivact::motion::Spring;
 use kivact::motion::Transition;
 use kivact::motion::animated;
-use kivact::state::Binding;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
 use kivact::state::provide;
@@ -53,7 +52,7 @@ pub enum SideNavCollapse {
         default: bool,
     },
     /// Read and write the application's rail collapse binding.
-    Controlled(Binding<bool>),
+    Controlled(Signal<bool>),
 }
 
 /// Initial width, width bounds and collapse ownership for a resizable sidebar.
@@ -105,8 +104,8 @@ impl SideNavResize {
         self
     }
     /// Use the caller's single collapse binding.
-    pub fn collapsed(mut self, collapsed: impl IntoBinding<bool>) -> Self {
-        self.collapse = SideNavCollapse::Controlled(collapsed.into_binding());
+    pub fn collapsed(mut self, collapsed: Signal<bool>) -> Self {
+        self.collapse = SideNavCollapse::Controlled(collapsed);
         self
     }
 }
@@ -272,7 +271,7 @@ impl IntoView for SideNav {
 /// A control that toggles the sidebar's collapsed rail.
 pub struct SideNavCollapseButton {
     root: Node,
-    binding: Option<Binding<bool>>,
+    binding: Option<Signal<bool>>,
     size: Value<ControlSize>,
     label: Option<Value<String>>,
 }
@@ -289,8 +288,8 @@ pub fn side_nav_collapse_button() -> SideNavCollapseButton {
 
 impl SideNavCollapseButton {
     /// Override the surrounding sidebar's collapse binding.
-    pub fn binding(mut self, collapsed: impl IntoBinding<bool>) -> Self {
-        self.binding = Some(collapsed.into_binding());
+    pub fn binding(mut self, collapsed: Signal<bool>) -> Self {
+        self.binding = Some(collapsed);
         self
     }
     /// Set the collapse toggle button size.
@@ -320,7 +319,7 @@ impl IntoView for SideNavCollapseButton {
             size,
             label,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
                 return View::empty();
             };
@@ -358,15 +357,15 @@ impl IntoView for SideNavCollapseButton {
 fn sidebar_collapse(
     collapse: Option<SideNavCollapse>,
     resize: Option<&SideNavResize>,
-) -> Option<Binding<bool>> {
+) -> Option<Signal<bool>> {
     resize
         .map(|resize| match &resize.collapse {
-            SideNavCollapse::Uncontrolled { default } => signal(*default).into_binding(),
+            SideNavCollapse::Uncontrolled { default } => signal(*default),
             SideNavCollapse::Controlled(collapsed) => *collapsed,
         })
         .or_else(|| {
             collapse.map(|collapse| match collapse {
-                SideNavCollapse::Uncontrolled { default } => signal(default).into_binding(),
+                SideNavCollapse::Uncontrolled { default } => signal(default),
                 SideNavCollapse::Controlled(collapsed) => collapsed,
             })
         })
@@ -385,7 +384,7 @@ impl SideNavSlots {
         cx: SideNavCx,
         mode: ShellNavMode,
         collapse_button: Value<bool>,
-        collapsed: Option<Binding<bool>>,
+        collapsed: Option<Signal<bool>>,
     ) -> View {
         let Self {
             children,
@@ -484,7 +483,7 @@ fn sidebar_bottom_style(cx: SideNavCx, mode: ShellNavMode) -> kivact::style::Sty
 
 fn resize_grip(
     resize: SideNavResize,
-    collapsed: Option<Binding<bool>>,
+    collapsed: Option<Signal<bool>>,
     expanded_width: kivact::state::Signal<f64>,
     nav_ref: kivact::view::NodeRef,
 ) -> Node {

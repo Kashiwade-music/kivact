@@ -15,7 +15,7 @@ use kivact_core::view::IntoView;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
-use kivact_core::state::{Binding, Callback, Value, binding, machine, memo};
+use kivact_core::state::{Callback, Signal, Value, binding, machine, memo};
 use kivact_core::style::{
     Color, Cursor, Direction, Justify, Position, Style, TransitionProp, pct, style, use_theme,
 };
@@ -80,16 +80,16 @@ pub(super) struct Grid<R: 'static, K: kivact_core::state::ItemKey> {
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     /// The positions of the columns that are shown.
     pub(super) visible: Value<Vec<usize>>,
-    pub(super) selection: Option<Binding<Vec<K>>>,
+    pub(super) selection: Option<Signal<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sticky: Option<Rc<StickyColumns>>,
-    pub(super) widths: Option<Binding<Vec<f64>>>,
+    pub(super) widths: Option<Signal<Vec<f64>>>,
     pub(super) actions: Option<(f64, RowSlot<R>)>,
     pub(super) row_context_menu: Option<RowContextMenu<R>>,
     pub(super) row_label: RowName<R>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) details: Option<RowSlot<R>>,
-    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
+    pub(super) expanded_rows: Option<Signal<Vec<K>>>,
     pub(super) reorder: Option<Callback<kivact_interaction::Reorder<K>>>,
     pub(super) source: Value<Vec<R>>,
     pub(super) key: Key<R, K>,
@@ -134,7 +134,7 @@ impl StickyColumns {
         });
         Self {
             edges,
-            rtl: use_direction().get() == ReadingDirection::Rtl,
+            rtl: use_direction() == ReadingDirection::Rtl,
             headers,
             widths,
             viewport,
@@ -216,14 +216,14 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
     }
     /// Whether rows have check boxes: the table has a selection and cells
     /// hold the focus (with rows, a press selects the row).
-    fn checks(&self) -> Option<Binding<Vec<K>>> {
+    fn checks(&self) -> Option<Signal<Vec<K>>> {
         self.selection
             .filter(|_| matches!(self.focus, TableFocus::Cells(_)))
     }
 
     fn direction(&self) -> Style {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
-            || (self.row_status.is_some() && use_direction().get() == ReadingDirection::Rtl)
+            || (self.row_status.is_some() && use_direction() == ReadingDirection::Rtl)
         {
             style().direction(Direction::RowReverse)
         } else {
@@ -537,7 +537,7 @@ fn keep_selection(event: PointerEvent) -> Handled {
 }
 
 /// The check box of the row `id`, in its box: it selects or clears the row.
-fn row_check<R, K>(grid: &Grid<R, K>, selection: Binding<Vec<K>>, id: K, item: Value<R>) -> View
+fn row_check<R, K>(grid: &Grid<R, K>, selection: Signal<Vec<K>>, id: K, item: Value<R>) -> View
 where
     R: kivact_core::state::PropValue,
     K: kivact_core::state::ItemKey,
@@ -723,7 +723,7 @@ fn row_disclosure<R: 'static, K: kivact_core::state::ItemKey>(
     grid: &Grid<R, K>,
     key: K,
     item: Value<R>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
     render: &RowSlot<R>,
 ) -> (Node, Node) {
     let cell_key = key.clone();

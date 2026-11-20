@@ -2,6 +2,7 @@
 
 use kivact::prelude::*;
 use kivact::test::Screen;
+use kivact::view::Node;
 use kivact_ui_basic as basic;
 use std::time::Duration;
 

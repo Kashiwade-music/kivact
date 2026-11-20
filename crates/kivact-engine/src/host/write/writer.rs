@@ -64,7 +64,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(model) = windows.get_mut(&window) else {
+        let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
         debug_assert!(!model.tree.contains(id), "node ids are unique");
@@ -112,7 +112,7 @@ impl Writer {
     /// another way than a release or a `Cancel` of the engine's).
     pub fn forget_adopted_pointer(&self, pointer: PointerId) {
         let app = self.app.borrow();
-        for model in app.windows.values() {
+        for model in app.windows.values().map(|w| &w.model) {
             model.admission.forget_adoption(pointer);
         }
     }
@@ -127,7 +127,7 @@ impl Writer {
     /// Keep an active touch contact routed to its initial control.
     pub fn reserve_touch_gesture(&self, pointer: PointerId) {
         let mut app = self.app.borrow_mut();
-        for model in app.windows.values_mut() {
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.reserve_touch_gesture(pointer);
         }
     }
@@ -141,12 +141,19 @@ impl Writer {
             a11y_constructed: app
                 .windows
                 .values()
+                .map(|w| &w.model)
                 .map(|model| model.a11y.constructed)
                 .sum(),
-            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
+            a11y_published: app
+                .windows
+                .values()
+                .map(|w| &w.model)
+                .map(|model| model.a11y.published)
+                .sum(),
             a11y_enumerated: app
                 .windows
                 .values()
+                .map(|w| &w.model)
                 .map(|model| model.a11y.enumerated)
                 .sum(),
             ..stats
@@ -175,7 +182,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(m) = windows.get_mut(&window) else {
+        let Some(m) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
         debug_assert!(m.tree.contains(parent) && m.tree.contains(id));
@@ -254,7 +261,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        let Some(model) = windows.get_mut(&window) else {
+        let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
         writes.command(Some(id.node));
@@ -267,7 +274,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             writes.command(None);
             model.set_focus(None);
         }
@@ -329,7 +336,6 @@ impl Writer {
             model.edit_input(id, |e| {
                 e.move_to(0, false);
                 e.move_to(e.value().len(), true);
-                false
             });
         });
     }
@@ -386,7 +392,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             writes.command(None);
             crate::model::drawables::apply_request(model, request);
         }
@@ -401,7 +407,7 @@ impl Writer {
             .register_font(&mut self.engine.borrow_mut(), &font);
         if matches!(result, PlatformResult::Fonts(_)) {
             let fonts = app.assets.borrow().fonts();
-            for model in app.windows.values_mut() {
+            for model in app.windows.values_mut().map(|w| &mut w.model) {
                 model.fonts_added();
                 model.update_env(|env, _| env.fonts = fonts);
             }
@@ -422,7 +428,7 @@ impl Writer {
                 let AppModel {
                     windows, writes, ..
                 } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
                     writes.command(None);
                     model.snapshots.push((request, node));
                 }
@@ -435,7 +441,7 @@ impl Writer {
                 let AppModel {
                     windows, writes, ..
                 } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
                     writes.command(None);
                     model
                         .effects
@@ -454,7 +460,7 @@ impl Writer {
                     injecting,
                     ..
                 } = &mut *app;
-                if let Some(model) = windows.get_mut(&window) {
+                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
                     writes.command(None);
                     model
                         .effects
@@ -469,12 +475,12 @@ impl Writer {
                 queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
             }
             HostRequest::DemandGpu { window } => {
-                if let Some(model) = app.windows.get_mut(&window) {
+                if let Some(model) = app.windows.get_mut(&window).map(|w| &mut w.model) {
                     model.effects.push((request, DeferredRequest::DemandGpu));
                 }
             }
             HostRequest::UnhandledKey { window, code } => {
-                if let Some(model) = app.windows.get_mut(&window) {
+                if let Some(model) = app.windows.get_mut(&window).map(|w| &mut w.model) {
                     model
                         .effects
                         .push((request, DeferredRequest::UnhandledKey(code)));
@@ -526,7 +532,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             writes.command(None);
             model.window_request = Some((title, min_size, resizable));
         }
@@ -549,7 +555,7 @@ impl Writer {
             external_windows,
             ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             external_windows.insert(image, window);
             writes.command(None);
             model
@@ -568,7 +574,7 @@ impl Writer {
         let AppModel {
             windows, writes, ..
         } = &mut *app;
-        if let Some(model) = windows.get_mut(&window) {
+        if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             writes.command(None);
             model
                 .external_writes
@@ -611,13 +617,13 @@ impl Writer {
     /// window syncs.
     pub fn commit(&self) -> Revision {
         let mut app = self.app.borrow_mut();
-        for model in app.windows.values_mut() {
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.prepare_commit();
         }
         let revision = Revision(app.events.applied().0 + 1);
         app.events.commit(revision);
         app.writes_mut().commit(revision);
-        for model in app.windows.values_mut() {
+        for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.sync();
         }
         app.report_flags();
@@ -635,7 +641,7 @@ fn queue_main(app: &mut AppModel, request: RequestId, effect: DeferredRequest) {
     let AppModel {
         windows, writes, ..
     } = app;
-    if let Some(model) = windows.get_mut(&WindowId::MAIN) {
+    if let Some(model) = windows.get_mut(&WindowId::MAIN).map(|w| &mut w.model) {
         writes.command(None);
         model.effects.push((request, effect));
     }
@@ -651,7 +657,7 @@ fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
     let AppModel {
         windows, writes, ..
     } = app;
-    if let Some(model) = windows.get_mut(&window) {
+    if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
         writes.command(None);
         crate::model::drawables::apply_request(model, drawable);
     }
@@ -661,7 +667,7 @@ fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
 fn drawable_window(app: &AppModel, id: kivact_types::DrawableId) -> WindowId {
     app.windows
         .iter()
-        .find(|(_, model)| model.drawables.get(id).is_some())
+        .find(|(_, window)| window.model.drawables.get(id).is_some())
         .map(|(id, _)| *id)
         .unwrap_or(WindowId::MAIN)
 }

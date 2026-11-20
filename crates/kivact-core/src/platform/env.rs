@@ -20,9 +20,9 @@ pub use kivact_types::{
 /// The environment of the calling owner's window (`api` names the caller in
 /// misuse diagnostics).
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
-    let rt = kivact_runtime::Runtime::current()
+    let rt = kivact_runtime::driver::Runtime::current()
         .unwrap_or_else(|| panic!("`{api}` needs a running App at {at}"));
-    let window = current_window(kivact_runtime::Owner::ambient(api, at));
+    let window = current_window(kivact_runtime::Owner::running(api, at));
     ViewState::of(&rt)
         .env(window)
         .unwrap_or_else(|| panic!("`{api}` needs an open window at {at}"))
@@ -34,7 +34,7 @@ fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
 /// screen from content mounted later. The value changes until the first turn after the App's setup.
 #[track_caller]
 pub fn is_initial_render() -> Value<bool> {
-    let rt = kivact_runtime::Runtime::current()
+    let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: is_initial_render requires a running App");
     ViewState::of(&rt).initial_render.into()
 }
@@ -42,14 +42,15 @@ pub fn is_initial_render() -> Value<bool> {
 /// The window's available font families, sorted by name without duplicates.
 ///
 /// Names retain their original case and include fonts registered with
-/// [`crate::App::font`]. This value follows changes to the font database.
+/// `Theme::with_fonts`. This value follows changes to the font database.
 /// Like other environment reads, call it from setup, a handler, task or effect;
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]
 pub fn font_families() -> Value<Vec<String>> {
-    let rt = kivact_runtime::Runtime::current()
+    let at = Location::caller();
+    let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: font_families requires a running App");
-    ViewState::of(&rt).fonts_value.into()
+    ViewState::of(&rt).font_families(&rt, at)
 }
 
 /// Whether the window of the calling owner is borderless fullscreen,
@@ -101,8 +102,8 @@ pub fn is_surface_active() -> Value<bool> {
 #[track_caller]
 pub fn safe_area() -> Value<Insets> {
     let at = Location::caller();
-    let rt =
-        kivact_runtime::Runtime::current().expect("invariant: safe_area requires a running App");
+    let rt = kivact_runtime::driver::Runtime::current()
+        .expect("invariant: safe_area requires a running App");
     let state = ViewState::of(&rt);
     // Relying on a safe area the platform does not report is noted
     // (once per App) instead of silently reading zero.
@@ -111,7 +112,7 @@ pub fn safe_area() -> Value<Insets> {
             "safe_area at {at}: the platform reports no safe area; it stays zero"
         ));
     }
-    let window = current_window(kivact_runtime::Owner::ambient("safe_area", at));
+    let window = current_window(kivact_runtime::Owner::running("safe_area", at));
     let env = state
         .env(window)
         .expect("invariant: the calling owner's window is open");
@@ -160,8 +161,8 @@ pub fn window_size() -> Value<Size> {
 /// ```
 #[track_caller]
 pub fn capabilities() -> Value<Capabilities> {
-    let rt =
-        kivact_runtime::Runtime::current().expect("invariant: capabilities requires a running App");
+    let rt = kivact_runtime::driver::Runtime::current()
+        .expect("invariant: capabilities requires a running App");
     ViewState::of(&rt).capabilities
 }
 

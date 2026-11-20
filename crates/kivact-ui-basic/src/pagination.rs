@@ -8,7 +8,7 @@ pub(crate) fn recipes(r: PaginationRecipes) -> PaginationRecipes {
 }
 fn root(_: &Theme, _: &Look<()>) -> Style {
     style()
-        .direction(if use_direction().get() == ReadingDirection::Rtl {
+        .direction(if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row

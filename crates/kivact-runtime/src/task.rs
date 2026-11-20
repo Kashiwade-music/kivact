@@ -4,9 +4,10 @@
 //! queue policies) and host-clock time. Futures run on the UI thread and
 //! may write signals after `await` directly.
 //!
-//! There are four async entries: [`resource`], [`action`] (one constructor
-//! for runs with and without an input, so a run without one is `run(())`),
-//! [`spawn`] and [`blocking`]. Fetchers and
+//! There are seven async entries: [`resource`], [`action`] and
+//! [`queued_action`] (one constructor for runs with and without an input, so
+//! a run without one is `run(())`), [`spawn`], [`blocking`], [`remote`] (and
+//! [`remote_trigger`]) and [`clock`]. Fetchers and
 //! runners return `Result<T, UiError>`; `?` converts other errors. A
 //! spawned future returns `()` or `Result<(), UiError>`, and an `Err`
 //! reaches the `on_error` of the task's owner like a handler's `Err`. A
@@ -21,8 +22,9 @@
 //! and `Failed`). A cancellation is `Failed` with an `ErrorKind::Cancelled`
 //! error (`UiError::is_cancelled`), and `on_complete` is not called for it. An
 //! action's `input()` and `attempt()` read the run its state describes. A
-//! resource publishes only its latest request (by generation); an action's
-//! runs follow its [`ActionMode`] (`action`).
+//! resource publishes only its latest request (by generation); `action` runs
+//! the latest input and cancels the run in flight, `queued_action` runs its
+//! inputs one at a time in submission order.
 //!
 //! The clock is the host's: each turn the host advances the runtime's clock
 //! to its time (`Runtime::advance_clock`), and timers, frame loops and
@@ -32,10 +34,11 @@
 mod action;
 mod async_state;
 mod blocking;
+mod clock;
 mod completion;
-mod drain;
 mod executor;
 mod latest;
+mod remote;
 mod resource;
 mod sealed;
 mod spawn;
@@ -43,22 +46,20 @@ mod state;
 mod time;
 mod worker_pool;
 
-pub use action::{Action, ActionFn, ActionMode, ActionOutcome, action};
+pub use action::{Action, ActionFn, action, queued_action};
 pub use async_state::AsyncState;
 pub use blocking::{BlockingWork, CancelToken, blocking};
+pub use clock::clock;
 pub use completion::Completion;
-pub use drain::DEFAULT_DRAIN_NS;
+pub(crate) use remote::Deliver;
+pub use remote::{Remote, RemoteTrigger, remote, remote_trigger};
 pub use resource::{Resource, resource};
 pub use spawn::{Task, spawn, spawn_in};
 pub use state::{TaskEntry, TaskState, TaskStats};
 pub use time::{sleep, timeout};
 
-#[doc(hidden)]
-pub use async_publication::AsyncSnapshot;
-pub use async_publication::Retry;
 pub use async_source::AsyncSource;
 mod async_adapters;
-mod async_publication;
 mod async_source;
 #[cfg(feature = "tokio")]
 mod tokio_bridge;

@@ -1,7 +1,7 @@
 //! Role: Text-editing and focus events.
 
 use kivact_engine::contract::HostEvent;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_style::draw::RegionId;
 use kivact_types::{NodeId, RequestId};
 
@@ -77,6 +77,9 @@ pub(super) fn focus_changed(
         node.map(|node| kivact_types::FocusTarget { node, region }),
         visible,
     );
+    if node.is_none() {
+        crate::view::requests::mark_blur_delivered(rt, window);
+    }
 }
 
 pub(super) fn focus_result(rt: &Runtime, request: RequestId, result: Result<(), String>) {

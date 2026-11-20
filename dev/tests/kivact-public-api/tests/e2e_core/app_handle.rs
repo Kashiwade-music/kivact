@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::task::queued_action;
 use kivact::test::Screen;
 
 use kivact_public_api_tests::support::mount;
@@ -54,7 +55,7 @@ fn queued_actions_finish_before_the_app_ends() {
     let (screen, log) = mount(|| {
         let log = Rc::new(RefCell::new(Vec::new()));
         let saved = log.clone();
-        let save = action(ActionMode::Queue, move |n: u32| {
+        let save = queued_action(move |n: u32| {
             let saved = saved.clone();
             async move {
                 kivact::task::sleep(Duration::from_secs(1)).await;

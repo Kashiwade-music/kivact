@@ -11,6 +11,7 @@
 //! `a_second_touch_is_not_primary_and_leaves_hover_and_activation_to_the_first`).
 //! Key events carry the mouse's window position while it is in the window.
 
+use kivact::state::IntoValue;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -18,7 +19,7 @@ use std::time::Duration;
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
 use kivact::view::PointerId;
-use kivact::view::{MouseButton, PointerKind, PointerPhase};
+use kivact::view::PointerKind;
 
 type Log = Rc<RefCell<Vec<String>>>;
 

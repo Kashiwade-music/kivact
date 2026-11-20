@@ -49,9 +49,14 @@ pub struct LiveSnapshot {
 }
 
 impl Runtime {
-    /// A runtime for App `id` with its extensions (registered by
+    /// A runtime for App `id` with its tasks (registered by
     /// [`Runtime::register`]).
-    pub(crate) fn with_id(id: AppId, host: Rc<dyn Host>, start_ns: u64) -> Runtime {
+    pub(crate) fn with_id(
+        id: AppId,
+        host: Rc<dyn Host>,
+        start_ns: u64,
+        tasks: crate::task::TaskState,
+    ) -> Runtime {
         Runtime {
             id,
             graph: RefCell::new(Arena::new()),
@@ -71,11 +76,9 @@ impl Runtime {
                 slot: 0,
                 generation: 0,
             },
-            #[expect(
-                clippy::disallowed_types,
-                reason = "Construction fills this cell before returning or polling; its empty state is inaccessible."
-            )]
-            ext: std::cell::OnceCell::new(),
+            tasks,
+            motion: crate::motion::MotionState::default(),
+            app: kivact_types::cell::Deferred::new(),
             unstamped: RefCell::new(Vec::new()),
             awaiting: RefCell::new(std::collections::VecDeque::new()),
             host,
@@ -84,6 +87,7 @@ impl Runtime {
             clock: Cell::new(start_ns),
             diag: RefCell::new(Diag::default()),
             later: RefCell::new(Vec::new()),
+            deferred: RefCell::new(std::collections::VecDeque::new()),
             graveyard: RefCell::new(Graveyard::default()),
             unsubscribed: RefCell::new(std::collections::HashMap::new()),
         }

@@ -1,7 +1,5 @@
 //! Role: The counters history: one line per counter over the samples, on a canvas.
 
-use kivact::draw::{Draw, Path, Stroke};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 /// The counter names in the order of a row.

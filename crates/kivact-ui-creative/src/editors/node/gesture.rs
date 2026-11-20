@@ -6,7 +6,7 @@ use kivact::UiError;
 use kivact::draw::RegionId;
 use kivact::geometry::Point;
 use kivact::interaction::{DragApi as Gesture, EditSession, ListApi, ViewTransform, ZoomPanApi};
-use kivact::state::{Binding, Callback, Machine, MachineHandle, Step, Value, machine};
+use kivact::state::{Callback, Machine, MachineHandle, Signal, Step, Value, machine};
 use kivact::view::{NodeRef, Role};
 use std::rc::Rc;
 
@@ -271,6 +271,7 @@ pub(crate) enum DragSnapshot {
     None,
 }
 
+// xtask-allow(state): selected, selected_link and transform are the caller's bindings (public API): the editor clears selected_link when it selects nodes, and the caller may set both; active is the port of the link drag in progress
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) on_edit: Option<
@@ -281,13 +282,13 @@ pub(crate) struct State {
     pub(crate) can_connect: ConnectGuard,
     pub(crate) nodes: Value<Vec<NodeData>>,
     pub(crate) links: Value<Vec<NodeLink>>,
-    pub(crate) selected: Binding<Vec<u64>>,
-    pub(crate) selected_link: Binding<Option<NodeLink>>,
+    pub(crate) selected: Signal<Vec<u64>>,
+    pub(crate) selected_link: Signal<Option<NodeLink>>,
     pub(crate) choose: ListApi<u64>,
-    pub(crate) transform: Binding<ViewTransform>,
+    pub(crate) transform: Signal<ViewTransform>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) snap: Value<bool>,
-    pub(crate) active: kivact::state::Binding<Option<(u64, usize)>>,
+    pub(crate) active: kivact::state::Signal<Option<(u64, usize)>>,
     pub(crate) mode: NodeController,
     pub(crate) reference: NodeRef,
     pub(crate) texts: crate::editors::shared::texts::Texts,

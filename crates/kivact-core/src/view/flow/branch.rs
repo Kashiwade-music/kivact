@@ -28,9 +28,10 @@ use crate::view::ExitLayout;
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::state::ViewState;
-use kivact_runtime::EffectKind;
-use kivact_runtime::{Handler, IntoReactive, IntoValue, Prop as InputProp, PropValue};
-use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Handler, IntoValue, Prop as InputProp, PropValue};
 use kivact_runtime::{Signal, Value};
 use kivact_types::WindowId;
 
@@ -72,7 +73,7 @@ pub(crate) fn unmount_branch(rt: &Runtime, b: Branch) {
     // The records (their handlers) drop after the tree borrow, while the
     // owner still lives: a `Drop` there may use the tree and the owner.
     let removed = ViewState::tree_mut(rt).remove(b.node);
-    removed.commit(rt);
+    drop(removed);
     b.owner.dispose();
 }
 
@@ -158,7 +159,7 @@ pub struct Show {
 
 /// Render `child()` while `when` is true; the branch's owner (and the state
 /// its components create) lives while `when` stays true. `when` is reactive
-/// (a `Signal`, `Value`, `Binding` or closure): a constant is a compile
+/// (a `Signal`, `Value`, `Signal` or closure): a constant is a compile
 /// error, as a branch that never changes needs no `show`.
 ///
 /// ```ignore
@@ -166,7 +167,7 @@ pub struct Show {
 /// ```
 #[track_caller]
 pub fn show<V: IntoView>(
-    when: impl IntoReactive<bool>,
+    when: impl IntoValue<bool>,
     child: impl crate::view::IntoViewFn<V>,
 ) -> Show {
     Show {
@@ -344,7 +345,7 @@ pub struct ShowSome<T: 'static> {
 /// ```
 #[track_caller]
 pub fn show_some<T: Clone + 'static, V: IntoView>(
-    value: impl IntoReactive<Option<T>>,
+    value: impl IntoValue<Option<T>>,
     child: impl Fn(Value<T>) -> V + 'static,
 ) -> ShowSome<T> {
     ShowSome {
@@ -545,7 +546,7 @@ impl<T: 'static> Dynamic<T> {
 /// ```
 #[track_caller]
 pub fn dynamic<T: PropValue, V: IntoView>(
-    source: impl IntoReactive<T>,
+    source: impl IntoValue<T>,
     child: impl Fn(T) -> V + 'static,
 ) -> Dynamic<T> {
     Dynamic {

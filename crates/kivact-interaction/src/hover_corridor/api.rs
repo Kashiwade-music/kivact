@@ -4,7 +4,7 @@ use std::time::Duration;
 
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Notifier, Value, effect, machine, memo, notifier};
+use kivact_core::state::{Trigger, Value, effect, machine, memo, trigger};
 use kivact_core::view::{NodeRef, pointer_position};
 
 use super::machine::{Corridor, Effect, Event, Machine, PointerSampleCache, State};
@@ -97,9 +97,9 @@ fn hover_corridor(
     surface: Value<Option<Rect>>,
     enabled: Value<bool>,
     timeout: Duration,
-) -> (Value<bool>, Notifier) {
+) -> (Value<bool>, Trigger) {
     let mouse = pointer_position();
-    let progress = notifier();
+    let progress = trigger();
     let state = machine(
         State {
             corridor: Corridor::Idle,

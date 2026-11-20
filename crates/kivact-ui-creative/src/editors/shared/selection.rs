@@ -2,8 +2,8 @@
 
 use kivact::interaction::ListItem;
 use kivact::interaction::{ListApi, ListGesture, ListOptions, Selection, use_list};
-use kivact::state::Binding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::view::{Key, KeyEvent, Modifiers};
 
 /// Whether the key press is Ctrl+A or Meta+A (without Alt).
@@ -15,7 +15,7 @@ pub(crate) fn select_all(event: &KeyEvent) -> bool {
 
 pub(crate) fn controller(
     items: impl IntoValue<Vec<ListItem<u64>>>,
-    selection: Binding<Vec<u64>>,
+    selection: Signal<Vec<u64>>,
 ) -> ListApi<u64> {
     use_list(
         items,

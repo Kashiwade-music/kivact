@@ -2,6 +2,7 @@
 use crate::layer::with_recipe_style;
 use crate::navigation_menu::look::NavigationLinkState;
 use crate::variants::{Variant, Variants};
+use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
 // xtask-allow(state): legacy: description, icon
@@ -35,8 +36,10 @@ impl NavigationMenuLink {
         self.icon = Some(icon.into_view());
         self
     }
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        self.press = Some(press.into());
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        self.press = Some(kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(press),
+        ));
         self
     }
     pub fn variant(mut self, variant: impl Variant) -> Self {

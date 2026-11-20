@@ -42,6 +42,35 @@ pub fn node() -> Node {
 }
 
 impl Node {
+    /// Move the modifiers a caller wrote on a `#[component]` (collected in an
+    /// empty `node()`) onto the root its body built: the caller's style layers
+    /// after the body's, its handlers before the body's (as `prepend_key`), and
+    /// its name, description, disabled, test id, variants and node refs over
+    /// the body's (a node ref is added, so the body's own refs stay bound).
+    /// Generated code calls it; write `.style(..)` and friends instead.
+    #[doc(hidden)]
+    pub fn absorb(mut self, caller: Node) -> Node {
+        let Node {
+            common,
+            children,
+            modifiers,
+            ..
+        } = caller;
+        debug_assert!(
+            children.is_empty(),
+            "a #[component] caller adds no children to its root"
+        );
+        self.modifiers
+            .push(crate::view::element_data::Modifier::Caller(Box::new(
+                std::mem::take(&mut self.common),
+            )));
+        self.modifiers.extend(modifiers);
+        self.common = common;
+        self
+    }
+}
+
+impl Node {
     fn semantic_inputs(
         &self,
     ) -> impl DoubleEndedIterator<Item = &crate::view::semantics_data::SemanticsPatch> {
@@ -401,7 +430,7 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
         let theme = kivact_style::use_theme().get();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
             if cfg!(debug_assertions) && reported.note() {
-                let owner = kivact_runtime::Owner::ambient("icon", at);
+                let owner = kivact_runtime::Owner::running("icon", at);
                 let rt = owner.runtime();
                 rt.report_later(
                     Some(owner),

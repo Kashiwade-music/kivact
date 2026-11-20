@@ -3,7 +3,7 @@ use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant, Trend};
 use kivact_public_api_tests::support::mount;
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 struct CustomLook;
 impl ui::Variant for CustomLook {}
 

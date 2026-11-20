@@ -9,6 +9,7 @@
 use kivact::prelude::*;
 use kivact::style::{GridPlacement, Track};
 use kivact::test::render_with;
+use kivact::view::Node;
 
 use crate::layout_units::{assert_rect, rect_of, window};
 

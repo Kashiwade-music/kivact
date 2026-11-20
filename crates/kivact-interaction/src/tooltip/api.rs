@@ -54,7 +54,10 @@ impl Hub {
         })
     }
     fn take_id(&self) -> TooltipId {
-        self.next.update(Generation::next)
+        self.next.update(|g| {
+            g.next();
+        });
+        self.next.get_untracked()
     }
     fn current(&self) -> Option<TooltipId> {
         self.machine.get().stack.last().copied()

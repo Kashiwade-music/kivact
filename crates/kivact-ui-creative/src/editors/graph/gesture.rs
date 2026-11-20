@@ -8,7 +8,7 @@ use kivact::UiError;
 use kivact::draw::RegionId;
 use kivact::geometry::{Point, Size};
 use kivact::interaction::{DragApi, EditSession, ListApi, SpacePanApi};
-use kivact::state::{Binding, Callback, Signal, Value};
+use kivact::state::{Callback, Signal, Value};
 use kivact::style::Color;
 use kivact::view::Role;
 use std::rc::Rc;
@@ -70,13 +70,14 @@ pub(crate) struct Gesture {
     pub(crate) kind: DragKind,
 }
 
+// xtask-allow(state): independent: view, selected and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) curves: Value<Vec<Curve>>,
     pub(crate) on_edit: Option<Callback<crate::editors::shared::model::EditorEvent<GraphRequest>>>,
-    pub(crate) view: Binding<GraphView>,
-    pub(crate) selected: Binding<Vec<u64>>,
-    pub(crate) playhead: Binding<f64>,
+    pub(crate) view: Signal<GraphView>,
+    pub(crate) selected: Signal<Vec<u64>>,
+    pub(crate) playhead: Signal<f64>,
     pub(crate) visible: Value<Vec<VisibleKey>>,
     pub(crate) scene: Value<Result<Rc<Scene<Target>>, UiError>>,
     pub(crate) choose: ListApi<u64>,
@@ -89,7 +90,7 @@ pub(crate) struct State {
     /// (`State::drag`).
     pub(crate) gesture: DragApi<Snapshot>,
     pub(crate) edit: EditSession<Snapshot>,
-    pub(crate) active: kivact::state::Binding<Option<Target>>,
+    pub(crate) active: kivact::state::Signal<Option<Target>>,
     /// Space held on the focused editor: the next primary drag pans.
     pub(crate) space: SpacePanApi,
     pub(crate) lane_activate: Option<Callback<u64>>,

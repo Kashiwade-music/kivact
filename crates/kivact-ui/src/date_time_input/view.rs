@@ -5,7 +5,7 @@ use crate::date_time_input::model::{
 };
 use crate::{DatePresentation, button, calendar, date_input, dialog, time_input};
 use kivact_core::i18n::{DateStyle, DateTime, TimeStyle, Weekday, message};
-use kivact_core::state::{Binding, IntoBinding, IntoText, IntoValue, Value, binding, machine};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 // xtask-allow(state): legacy: picker_label, week_start
 /// A Gregorian date and wall-clock time, with no time zone conversion.
@@ -14,7 +14,7 @@ pub struct DateTimeInput {
     variants: crate::variants::Variants,
     label: Value<String>,
     picker_label: Option<Value<String>>,
-    value: Binding<Option<DateTime>>,
+    value: Signal<Option<DateTime>>,
     format: Value<DateStyle>,
     min: Value<Option<DateTime>>,
     max: Value<Option<DateTime>>,
@@ -23,16 +23,13 @@ pub struct DateTimeInput {
     seconds: Value<bool>,
 }
 /// Edit an optional local date and time.
-pub fn date_time_input(
-    label: impl IntoText,
-    value: impl IntoBinding<Option<DateTime>>,
-) -> DateTimeInput {
+pub fn date_time_input(label: impl IntoText, value: Signal<Option<DateTime>>) -> DateTimeInput {
     DateTimeInput {
         root: node(),
         variants: crate::variants::Variants::default(),
         label: label.into_text_value(),
         picker_label: None,
-        value: value.into_binding(),
+        value,
         format: DateStyle::Iso.into_value(),
         min: None.into_value(),
         max: None.into_value(),
@@ -162,7 +159,7 @@ impl IntoView for DateTimeInput {
 }
 
 /// Bind picker visibility to its one canonical active-panel state.
-fn picker_controller() -> (kivact_core::state::MachineHandle<Controller>, Binding<bool>) {
+fn picker_controller() -> (kivact_core::state::MachineHandle<Controller>, Signal<bool>) {
     let invoker = kivact_core::view::node_ref();
     let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
     let open = binding(

@@ -77,7 +77,10 @@ impl<K, T: 'static> Row<K, T> {
     pub fn new(parent: Owner, key: K, item: T, at: &'static Location<'static>) -> Option<Self> {
         let owner = parent.child(at);
         let item = owner.signal(item, at);
-        let cell = runtime(owner.app, at).source_rc::<T>(item.key)?;
+        let crate::reactive::data::SignalRepr::Source(item_key) = item.repr else {
+            unreachable!("invariant: Owner::signal creates a source signal")
+        };
+        let cell = runtime(owner.app, at).source_rc::<T>(item_key)?;
         Some(Self {
             key,
             owner,

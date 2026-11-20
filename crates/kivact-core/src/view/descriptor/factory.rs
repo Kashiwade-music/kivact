@@ -1,4 +1,8 @@
 //! Role: Reusable factories create a fresh view for each opening.
+//!
+//! Content built when something opens takes `impl IntoViewFn<V>` (no
+//! argument) or `impl Fn(Arg) -> V` (an argument). `provide` and `scope`
+//! run their child once and take `FnOnce`.
 
 use super::description::{IntoView, View};
 use std::rc::Rc;

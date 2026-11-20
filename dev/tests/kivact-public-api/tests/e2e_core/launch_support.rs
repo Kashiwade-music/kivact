@@ -4,8 +4,10 @@
 //! deterministic random driver of `host_sync_tests` (the random probe tests
 //! over the public API have their own in `src/support/random.rs`).
 
-use kivact::prelude::{IntoText, IntoValue, Node, Role, node, node_ref, text};
-use kivact::state::IntoBinding;
+use kivact::prelude::{Role, node, node_ref, text};
+use kivact::state::Signal;
+use kivact::state::{IntoText, IntoValue};
+use kivact::view::Node;
 
 /// What the screen tests press: an element that is a button to assistive
 /// technology (role Button, focusable, `label` as its name and text),
@@ -21,9 +23,8 @@ pub(super) fn button_box(label: &'static str) -> Node {
         .child(text(label))
 }
 
-pub(super) fn editor(label: impl IntoText, binding: impl IntoBinding<String>) -> Node {
+pub(super) fn editor(label: impl IntoText, binding: Signal<String>) -> Node {
     use kivact::custom::{NodeRefExt, TextEditing, part};
-    let binding = binding.into_binding();
     let value = binding.into_value();
     let reference = node_ref();
     let text = move || value.get();

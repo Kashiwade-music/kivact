@@ -35,7 +35,6 @@ pub fn render_with<V: IntoView>(
 ) -> Screen {
     Screen::start(
         options,
-        Vec::new(),
         Box::new(move || root().into_view()),
         std::panic::Location::caller(),
     )

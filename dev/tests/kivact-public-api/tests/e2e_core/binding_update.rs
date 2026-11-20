@@ -1,4 +1,4 @@
-//! Role: Tests for `Binding::update` on both kinds of binding.
+//! Role: Tests for `Signal::update` on both kinds of binding.
 //!
 //! A binding of a `Signal` changes the signal in place (and notifies even
 //! when the value is equal); a `binding(get, set)` reads the value, applies

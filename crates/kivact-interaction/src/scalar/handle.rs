@@ -73,10 +73,10 @@ pub struct ScalarApi {
 /// ```
 #[track_caller]
 pub fn use_scalar(
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
 ) -> ScalarApi {
-    let binding = value.into_binding();
+    let binding = value;
     let range = range.into_value();
     let snapshot = memo(move || [binding.get(), 0.0]);
     let shared = Shared::new(snapshot, move |[start, _]| binding.set(start));

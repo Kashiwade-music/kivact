@@ -20,7 +20,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_i18n::{Locale, Messages, interpolate};
-use kivact_runtime::{IntoValue, Owner, Prop, Runtime, Value, memo};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{IntoValue, Owner, Prop, Value, memo};
 use kivact_style::Theme;
 use kivact_types::NodeId;
 
@@ -72,7 +73,8 @@ pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
 /// `<Context.Provider>`): `child` is set up in a new owner that holds the
 /// context, so `use_context::<T>()` finds it inside `child` (in setup and in
 /// handlers) but not in siblings. The value is kept once (in an `Rc`) and
-/// each `use_context::<T>()` returns a `Value<T>`; read it with `get` or `with`.
+/// each `use_context::<T>()` returns a clone of it; provide a `Signal` or a
+/// `Value` for readers that must see changes.
 ///
 /// ```ignore
 /// provide(BoardCx { tasks, selected }, || column((toolbar(), lanes())))
@@ -86,7 +88,6 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     boundary(
         at,
         move |owner| {
-            let value = owner.constant(value, at);
             owner.provide(value);
         },
         child,
@@ -116,7 +117,7 @@ pub fn provide_theme<V: IntoView>(
     let theme = theme.into_prop();
     boundary(
         at,
-        move |owner| install_theme(owner, theme.into_value(owner, at)),
+        move |owner| install_theme(owner, theme.into_value(owner, at), at),
         child,
     )
 }
@@ -220,14 +221,14 @@ pub fn provide_direction<V: IntoView>(
     provide(dir, child)
 }
 
-/// The reading direction provided above the current owner;
-/// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
+/// The reading direction provided above the current owner (the App's root
+/// provides [`ReadingDirection::Ltr`]). Setup, handlers and effects.
 #[track_caller]
-pub fn use_direction() -> Value<ReadingDirection> {
-    let owner = Owner::ambient("use_direction", Location::caller());
+pub fn use_direction() -> ReadingDirection {
+    let owner = Owner::running("use_direction", Location::caller());
     owner
-        .context::<Value<ReadingDirection>>()
-        .unwrap_or_else(|| owner.constant(ReadingDirection::Ltr, Location::caller()))
+        .context::<ReadingDirection>()
+        .expect("invariant: the App's root provides the reading direction")
 }
 
 /// Context entry for the locale of a subtree.
@@ -265,9 +266,19 @@ pub(crate) fn install_locale(owner: Owner, locale: Value<Locale>) {
     owner.provide(LocaleCtx(locale));
 }
 
-/// Provide `theme` to `owner`'s subtree, as DevTools shapes it.
-pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>) {
+/// Provide `theme` to `owner`'s subtree, as DevTools shapes it. Its fonts
+/// are registered now and whenever the theme changes, located at `at`.
+pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>, at: &'static Location<'static>) {
     let rt = owner.runtime();
+    let weak = Rc::downgrade(&rt);
+    owner.effect(
+        kivact_runtime::driver::EffectKind::Render,
+        move || {
+            let Some(rt) = weak.upgrade() else { return };
+            theme.with(|t| crate::view::requests::register_theme_fonts(&rt, t, at));
+        },
+        at,
+    );
     let theme = crate::view::devtools_hooks::wrap_theme(&rt, owner, theme);
     kivact_style::internal::install_theme(owner, theme);
 }
@@ -317,7 +328,7 @@ pub(crate) fn install_layered_messages(
 /// ```
 #[track_caller]
 pub fn use_locale() -> Value<Locale> {
-    let owner = Owner::ambient("locale", Location::caller());
+    let owner = Owner::running("locale", Location::caller());
     locale_value(owner)
 }
 
@@ -342,7 +353,7 @@ pub fn use_locale() -> Value<Locale> {
 /// ```
 #[track_caller]
 pub fn message(key: &'static str, default: &'static str) -> Value<String> {
-    let owner = Owner::current("message", Location::caller());
+    let owner = Owner::setup("message", Location::caller());
     let messages = messages_value(owner);
     memo(move || {
         crate::view::devtools_hooks::pseudo(
@@ -382,7 +393,7 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
     default: &'static str,
     args: impl Fn() -> A + 'static,
 ) -> Value<String> {
-    let owner = Owner::current("message_with", Location::caller());
+    let owner = Owner::setup("message_with", Location::caller());
     let messages = messages_value(owner);
     let locale = locale_value(owner);
     memo(move || {

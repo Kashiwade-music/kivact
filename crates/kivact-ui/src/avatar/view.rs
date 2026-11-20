@@ -4,7 +4,8 @@ use crate::avatar::initials::initials;
 use crate::avatar::look::AvatarShape;
 use crate::variants::Variants;
 use crate::{AvatarState, ControlSize, Variant};
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use kivact_core::state::IntoHandler;
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
 use kivact_core::view::{
     Asset, Element, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, Role, View, ViewFn, dynamic,
@@ -88,15 +89,17 @@ impl Avatar {
         self.variants.add(variant);
         self
     }
-    pub fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        let f = f.into();
+    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        let f = kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(f),
+        );
         self.root = self
             .root
             .part(kivact_interaction::use_button().control())
             .on_press(move || f.call(()));
         self
     }
-    pub fn on_open(self, f: impl Into<Callback<()>>) -> Self {
+    pub fn on_open<M>(self, f: impl IntoHandler<(), M>) -> Self {
         let mut result = self.on_press(f);
         result.root = result.root.role(Role::Link);
         result

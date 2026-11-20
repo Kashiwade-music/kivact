@@ -1,5 +1,6 @@
 //! Role: Easing curves, springs and repeat rules of client animations.
 
+use kivact::motion::{Easing, Spring, Transition, animated, timeline};
 use std::time::Duration;
 
 use kivact::motion::{Animated, Keyframe, Repeat, StepPosition};

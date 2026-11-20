@@ -8,7 +8,7 @@ pub(crate) struct NavigationContext {
     pub(crate) variants: Variants,
 }
 pub(crate) fn current() -> Option<NavigationContext> {
-    try_use_context::<NavigationContext>().map(|context| context.get())
+    try_use_context::<NavigationContext>()
 }
 pub(crate) fn provide_panel<V: IntoView>(
     close: Callback<()>,

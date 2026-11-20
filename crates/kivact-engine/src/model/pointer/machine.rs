@@ -1,15 +1,13 @@
 //! Role: The pointer state machine: chains, press, release, move, cancel and wheel.
 
 use super::space::PointerSpace;
-use super::state::{Capture, MouseGesture, PointerSource, Press, Track};
+use super::state::{Capture, PointerSource, Press, SelectUnit, Track};
 use crate::contract::HostEvent;
 use crate::model::Model;
-use crate::text_input::{line_range, word_range};
 use kivact_types::{
     A11yAction, ButtonPress, FocusTarget, Modifiers, MouseButton, NodeId, Point, PointerButtons,
     PointerId, PointerPhase, PointerSample, RegionId, StyleState,
 };
-use std::ops::Range;
 
 /// Which of a pointer's two chains a change is about.
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -372,10 +370,11 @@ impl Model {
                     .get(*f)
                     .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
+        let mut unit = None;
         if let (Some(i), true) = (input, primary)
             && let Some(at) = space.text_offset(self, i)
         {
-            self.press_text_input(i, at, button_press.clicks, modifiers.shift);
+            unit = Some(self.press_text_input(i, at, button_press.clicks, modifiers.shift));
         }
         let selecting = self
             .focused()
@@ -389,38 +388,67 @@ impl Model {
                         .get(*f)
                         .is_some_and(|n| self.slots.editors[n.index.0].is_some())
             });
-        if let Some(editor) = selecting
-            && let Track::Mouse(mouse) = self.pointer.state.track_mut(pointer)
-            && let MouseGesture::Route(route) = &mut mouse.gesture
-        {
-            mouse.gesture = MouseGesture::SelectText {
-                editor,
-                route: std::mem::take(route),
-            };
+        if let Some(editor) = selecting {
+            let unit = unit.unwrap_or(SelectUnit::Char);
+            self.pointer
+                .state
+                .track_mut(pointer)
+                .start_selecting(editor, unit);
         }
     }
 
-    /// A primary press over the text input `input` at the byte offset `at`
-    /// (`clicks`: the press's click count). A single click places the caret
-    /// (Shift extends the selection); a double click selects the word there,
-    /// and a triple click the line.
-    fn press_text_input(&mut self, input: NodeId, at: usize, clicks: u8, extend: bool) {
+    /// A primary press over the text input `input` at byte offset `at`
+    /// (`clicks`: its click count): a click places the caret (Shift
+    /// extends), a double click selects the word there, a triple click the
+    /// line. Returns what a drag from it extends by.
+    fn press_text_input(
+        &mut self,
+        input: NodeId,
+        at: usize,
+        clicks: u8,
+        extend: bool,
+    ) -> SelectUnit {
         let multiline = self.tree.get(input).is_some_and(|n| n.multiline());
+        let mut unit = SelectUnit::Char;
         match clicks {
             0 | 1 => self.place_caret(input, at, extend),
-            2 => self.select_text(input, |text| word_range(text, at)),
-            _ => self.select_text(input, |text| line_range(text, at, multiline)),
+            _ => {
+                self.edit_input(input, |e| {
+                    unit = if clicks == 2 {
+                        SelectUnit::Word(e.word_at(at))
+                    } else {
+                        SelectUnit::Line(e.line_at(at, multiline))
+                    };
+                    if let SelectUnit::Word(range) | SelectUnit::Line(range) = &unit {
+                        e.select(range.clone());
+                    }
+                });
+            }
         }
+        unit
     }
 
-    /// Select `range` of the value of the text input `input`: its anchor at
-    /// the start of the range and its caret at the end.
-    fn select_text(&mut self, input: NodeId, range: impl FnOnce(&str) -> Range<usize>) {
+    /// Extend the selection of `input` to the pointer at byte offset `at`
+    /// by `unit`: a word or line drag keeps the clicked unit selected and
+    /// reaches the end of the unit under the pointer.
+    fn extend_selection(&mut self, input: NodeId, at: usize, unit: &SelectUnit) {
+        let multiline = self.tree.get(input).is_some_and(|n| n.multiline());
+        let origin = match unit {
+            SelectUnit::Char => return self.place_caret(input, at, true),
+            SelectUnit::Word(origin) | SelectUnit::Line(origin) => origin.clone(),
+        };
+        let words = matches!(unit, SelectUnit::Word(_));
         self.edit_input(input, |e| {
-            let range = range(e.value());
-            e.move_to(range.start, false);
-            e.move_to(range.end, true);
-            false
+            let here = if words {
+                e.word_at(at)
+            } else {
+                e.line_at(at, multiline)
+            };
+            if here.start < origin.start {
+                e.select(origin.end..here.start);
+            } else {
+                e.select(origin.start..here.end.max(origin.end));
+            }
         });
     }
 
@@ -509,11 +537,7 @@ impl Model {
                 .routed_mut()
                 .and_then(|route| route.press.take())
                 .and_then(|press| press.target);
-            if let Track::Mouse(mouse) = track
-                && let MouseGesture::SelectText { route, .. } = &mut mouse.gesture
-            {
-                mouse.gesture = MouseGesture::Route(std::mem::take(route));
-            }
+            track.stop_selecting();
             pressed
         } else {
             None
@@ -636,35 +660,22 @@ impl Model {
             self.send_pointer(pointer, t, PointerPhase::Move, modifiers, space.window());
         }
         // A primary drag that started in the focused text input selects.
-        let selecting = match self.pointer.state.track(pointer) {
-            Track::Mouse(mouse) => match mouse.gesture {
-                MouseGesture::SelectText { editor, .. }
-                    if held.contains(MouseButton::Primary)
-                        && self
-                            .focused()
-                            .is_some_and(|f| f.node == editor && f.region.is_none()) =>
-                {
-                    Some(editor)
-                }
-                _ => None,
-            },
-            track => self
-                .focused()
-                .filter(|f| f.region.is_none())
-                .map(|f| f.node)
-                .filter(|f| {
-                    held.contains(MouseButton::Primary)
-                        && track.pressed().contains(f)
-                        && self
-                            .tree
-                            .get(*f)
-                            .is_some_and(|n| self.slots.editors[n.index.0].is_some())
-                }),
-        };
-        if let Some(i) = selecting
-            && let Some(at) = space.text_offset(self, i)
+        let selecting = self
+            .pointer
+            .state
+            .track(pointer)
+            .selecting()
+            .filter(|(editor, _)| {
+                held.contains(MouseButton::Primary)
+                    && self
+                        .focused()
+                        .is_some_and(|f| f.node == *editor && f.region.is_none())
+            })
+            .map(|(editor, unit)| (editor, unit.clone()));
+        if let Some((editor, unit)) = selecting
+            && let Some(at) = space.text_offset(self, editor)
         {
-            self.place_caret(i, at, true);
+            self.extend_selection(editor, at, &unit);
         }
     }
 

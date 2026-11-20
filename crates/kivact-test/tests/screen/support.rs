@@ -51,12 +51,8 @@ pub(super) fn seeds() -> std::ops::Range<u64> {
     0..40
 }
 
-pub(super) fn editor(
-    label: impl IntoText,
-    binding: impl kivact_core::state::IntoBinding<String>,
-) -> Node {
+pub(super) fn editor(label: impl IntoText, binding: kivact_core::state::Signal<String>) -> Node {
     use kivact_core::custom::{NodeRefExt, TextEditing, part};
-    let binding = binding.into_binding();
     let value = binding.into_value();
     let control = part(|state| state);
     let reference = kivact_core::view::node_ref();

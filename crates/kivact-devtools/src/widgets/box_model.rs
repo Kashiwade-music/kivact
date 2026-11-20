@@ -1,7 +1,7 @@
 //! Role: The nested boxes of a node's box model.
 
-use kivact::geometry::Rect;
 use kivact::prelude::*;
+use kivact::style::ColorToken;
 use kivact_devtools_protocol as p;
 
 /// The margin, border, padding and content boxes of a node.

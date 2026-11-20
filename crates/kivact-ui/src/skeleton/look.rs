@@ -1,6 +1,7 @@
 //! Role: The skeleton recipe state, tokens, recipe table and default looks.
 
 use kivact_core::style::{ColorToken, Style, Theme, pct, style};
+use kivact_macros::Prop;
 pub(crate) fn skeleton(t: &Theme, s: &SkeletonState) -> Style {
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let base = style()
@@ -22,7 +23,7 @@ pub struct SkeletonState {
     pub pulse: f64,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum SkeletonShape {
     #[default]
     Rect,
@@ -30,5 +31,3 @@ pub enum SkeletonShape {
     Text,
     Rounded,
 }
-
-kivact_core::state::constant_value!(SkeletonShape);

@@ -92,11 +92,7 @@ impl Model {
         else {
             return;
         };
-        self.edit_input(id, |e| {
-            e.move_to(start.min(end), false);
-            e.move_to(start.max(end), true);
-            false
-        });
+        self.edit_input(id, |e| e.select(start.min(end)..start.max(end)));
         self.sync();
     }
 

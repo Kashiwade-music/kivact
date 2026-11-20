@@ -7,6 +7,7 @@ use kivact::ui::skeleton;
 use kivact::interaction::use_tooltip;
 use kivact::view::{Element, Node, column, node, row, text};
 
+use kivact::Prop;
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Color, Direction, Justify, Overflow, Position, pct, style, use_theme};
@@ -129,7 +130,7 @@ pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Element {
 }
 
 /// The height of a [`SidebarMenuButton`] (`size` of sidebar.tsx).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum SidebarMenuButtonSize {
     /// 32 px.
     #[default]
@@ -238,8 +239,10 @@ impl SidebarMenuButton {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 
@@ -331,7 +334,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
 fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
     let cx = current();
     let hidden = icon_only(cx);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let SidebarMenuButton {
         root,
         label,
@@ -432,8 +435,10 @@ impl SidebarMenuSubButton {
     }
 
     /// Report presses (click, Enter, Space) to `f`.
-    pub fn on_press(mut self, f: impl Into<kivact::state::Callback<()>>) -> Self {
-        self.on_press = Some(f.into());
+    pub fn on_press<M>(mut self, f: impl kivact::state::IntoHandler<(), M>) -> Self {
+        self.on_press = Some(kivact::state::Callback::from_handler(
+            kivact::state::IntoHandler::into_handler(f),
+        ));
         self
     }
 }
@@ -507,10 +512,7 @@ pub fn sidebar_separator() -> impl kivact::view::Element {
 /// A text field for the sidebar (`SidebarInput`): the standard input, 32 px
 /// high, on the page color.
 #[track_caller]
-pub fn sidebar_input(
-    label: impl IntoText,
-    value: impl kivact::state::IntoBinding<String>,
-) -> TextInput {
+pub fn sidebar_input(label: impl IntoText, value: kivact::state::Signal<String>) -> TextInput {
     text_input(label, value).style(
         style()
             .width(pct(100))
@@ -534,8 +536,6 @@ pub fn sidebar_menu_skeleton() -> impl kivact::view::Element {
             .padding_x(8),
     )
 }
-
-kivact::state::constant_value!(SidebarMenuButtonSize);
 
 impl kivact::ui::Variant for SidebarMenuButtonSize {}
 

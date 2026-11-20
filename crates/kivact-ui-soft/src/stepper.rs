@@ -1,11 +1,12 @@
 //! Role: Style canonical progress steps from actual item and responsive layout facts.
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact::ui::{
     Look, StepIndicatorKind, StepStatus, StepperItemState, StepperRecipes, StepperState,
 };
 use kivact::view::Orientation;
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Spacing and indicator sizing for progress steps.
 pub enum StepDensity {
     /// Use compact step spacing and indicators.
@@ -17,7 +18,7 @@ pub enum StepDensity {
     Spacious,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Placement of step indicators relative to connector tracks.
 pub enum StepIndicatorPosition {
     #[default]
@@ -27,7 +28,7 @@ pub enum StepIndicatorPosition {
     OnTrack,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Visible details of the responsive collapsed stepper.
 pub enum StepCollapsedVariant {
     #[default]
@@ -473,4 +474,3 @@ fn navigation(theme: &Theme, s: &Look<StepperState>, next: bool) -> Style {
             );
         })
 }
-kivact::state::constant_value!(StepDensity, StepIndicatorPosition, StepCollapsedVariant);

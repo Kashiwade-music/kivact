@@ -4,7 +4,6 @@ use std::sync::mpsc;
 use std::time::Duration;
 
 use kivact::draw::{ImageOptions, Pixels};
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 
 use kivact_public_api_tests::paint::pixel;

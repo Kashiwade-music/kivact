@@ -16,8 +16,7 @@ use std::task::Waker;
 
 use super::executor::Executor;
 use crate::task::worker_pool::Pool;
-use crate::{ErrorKind, OwnerId, UiError};
-use crate::{Owned, Runtime};
+use crate::{Owned, OwnerId};
 
 /// Arrival identity of a registered timer.
 pub(crate) type TimerId = u64;
@@ -98,7 +97,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
-// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count
+// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
@@ -116,10 +115,14 @@ pub struct TaskState {
     /// Owned tasks whose future completed; their objects are removed after
     /// the poll that finished them.
     pub(super) finished: RefCell<Vec<Owned<Rc<TaskCell>>>>,
-    /// Live actions with a queue policy (for the exit drain).
+    /// Live queued actions (for the exit drain).
     pub(super) queues: RefCell<Registry<dyn Drain>>,
-    /// Queued actions of disposed owners still draining, with their deadline (ns).
-    pub(super) draining: RefCell<Vec<Rc<DrainEntry>>>,
+    /// The UI side of every open `remote` and `remote_trigger` mailbox.
+    pub(crate) remotes: RefCell<Vec<Rc<dyn super::remote::Deliver>>>,
+    /// The mark and waker other threads use to reach the mailboxes.
+    pub(crate) remote_wake: super::remote::RemoteWake,
+    /// The shared clocks and their users (`task::clock`).
+    pub(super) clocks: RefCell<Vec<Rc<super::clock::ClockEntry>>>,
     /// The blocking pool, created on first use.
     pub(super) pool: RefCell<PoolState>,
 }
@@ -127,24 +130,20 @@ pub struct TaskState {
 impl TaskState {
     /// Empty state to install as a runtime extension; `blocking_threads` sizes
     /// the blocking pool when it is created (`None`: `min(4, CPUs)`).
-    pub fn new(blocking_threads: Option<usize>, waker: crate::ThreadWaker) -> Self {
+    pub fn new(blocking_threads: Option<usize>, waker: crate::driver::ThreadWaker) -> Self {
         TaskState {
             #[cfg(feature = "tokio")]
             tokio: RefCell::new(super::tokio_state::TokioState::NotStarted),
+            remotes: RefCell::new(Vec::new()),
+            remote_wake: super::remote::RemoteWake::new(waker.clone()),
             exec: Executor::new(waker),
             time: RefCell::new(Scheduler::default()),
             blocking_threads,
             finished: RefCell::new(Vec::new()),
             queues: RefCell::new(Registry::new()),
-            draining: RefCell::new(Vec::new()),
+            clocks: RefCell::new(Vec::new()),
             pool: RefCell::new(PoolState::NotStarted),
         }
-    }
-
-    /// The task state installed in `rt`'s App.
-    #[inline]
-    pub fn of(rt: &Runtime) -> &TaskState {
-        rt.ext::<TaskState>()
     }
 
     /// Whether a spawned future is ready to be polled (the next turn has
@@ -160,17 +159,9 @@ impl TaskState {
     }
 
     /// When the host must run a turn next for the task subsystem (ns): the
-    /// earlier of the next pending timer and the next drain deadline of a
-    /// draining action. `None` when neither exists.
+    /// next pending timer. `None` when there is none.
     pub fn next_deadline(&self) -> Option<u64> {
-        let timer = self.time.borrow_mut().next_deadline();
-        let drain = self
-            .draining
-            .borrow()
-            .iter()
-            .map(|entry| entry.deadline)
-            .min();
-        [timer, drain].into_iter().flatten().min()
+        self.time.borrow_mut().next_deadline()
     }
 
     /// Counts of what the subsystem holds now. Reading them creates nothing
@@ -216,64 +207,25 @@ pub(crate) trait Drain {
 }
 
 impl TaskState {
-    /// Drop drained actions and abandon those past their deadline (reported
-    /// to the App's default sink). The host calls it each turn.
-    pub fn check_draining(&self, rt: &Runtime) {
-        let now = rt.now_ns();
-        let list = std::mem::take(&mut *self.draining.borrow_mut());
-        let mut keep = Vec::new();
-        for entry in list {
-            let a = &entry.action;
-            let deadline = entry.deadline;
-            if !a.busy() {
-                continue;
-            }
-            if now >= deadline {
-                let n = a.abandon();
-                rt.report(
-                    None,
-                    UiError::new(
-                        ErrorKind::Closed,
-                        format!("action drain deadline passed; {n} run(s) abandoned"),
-                        None,
-                    ),
-                );
-                continue;
-            }
-            keep.push(entry);
-        }
-        self.draining.borrow_mut().extend(keep);
-    }
-
-    /// Any queued action (live or draining) still has work: the host waits for
-    /// this to turn false before it exits.
+    /// Any live queued action still has work: App exit waits for this to
+    /// turn false.
     pub fn queues_busy(&self) -> bool {
-        self.draining
-            .borrow()
-            .iter()
-            .any(|entry| entry.action.busy())
-            || self
-                .queues
-                .borrow_mut()
-                .live()
-                .into_iter()
-                .any(|a| a.busy())
+        self.queues
+            .borrow_mut()
+            .live()
+            .into_iter()
+            .any(|a| a.busy())
     }
 
-    /// Abandon every live and draining queued action (the exit deadline
-    /// passed); returns how many runs were dropped.
+    /// Abandon every live queued action (the exit deadline passed); returns
+    /// how many runs were dropped.
     pub fn abandon_all_queues(&self) -> usize {
-        let all: Vec<Rc<dyn Drain>> = {
-            let mut v: Vec<Rc<dyn Drain>> = self
-                .draining
-                .borrow_mut()
-                .drain(..)
-                .map(|entry| entry.action.clone())
-                .collect();
-            v.extend(self.queues.borrow_mut().live());
-            v
-        };
-        all.iter().map(|a| a.abandon()).sum()
+        self.queues
+            .borrow_mut()
+            .live()
+            .iter()
+            .map(|a| a.abandon())
+            .sum()
     }
 }
 
@@ -326,16 +278,5 @@ impl PoolState {
             Self::Running(pool) => pool.outstanding.load(Ordering::SeqCst),
             Self::NotStarted | Self::ShutDown => 0,
         }
-    }
-}
-
-/// A detached queue retained until it drains or reaches its deadline.
-pub(super) struct DrainEntry {
-    action: Rc<dyn Drain>,
-    deadline: u64,
-}
-impl DrainEntry {
-    pub(super) fn new(action: Rc<dyn Drain>, deadline: u64) -> Rc<Self> {
-        Rc::new(Self { action, deadline })
     }
 }

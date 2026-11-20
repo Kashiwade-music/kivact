@@ -6,14 +6,15 @@ use kivact::draw::Shadow;
 use kivact::i18n::CalendarDate;
 use kivact::interaction::{ListItem, MenuEntry, ScalarRange};
 use kivact::prelude::{
-    ColorToken, Element, IntoView, Node, Role, column, for_each, grid, memo, node, rgb, row,
-    signal, text,
+    Element, IntoView, Role, column, for_each, grid, memo, node, rgb, row, signal, text,
 };
 use kivact::state::{Callback, Machine, Step, machine};
+use kivact::style::ColorToken;
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Justify, rgba, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::task::spawn;
+use kivact::view::Node;
 use kivact::view::{View, node_ref};
 use kivact_ui_pop as ui;
 use std::time::Duration;
@@ -841,8 +842,7 @@ fn date_editor() -> impl kivact::view::Element {
     kivact::ui::field(
         "実施日",
         {
-            let value: kivact::state::Binding<kivact::i18n::CalendarDate> =
-                kivact::state::IntoBinding::into_binding(date);
+            let value: kivact::state::Signal<kivact::i18n::CalendarDate> = date;
             let value = kivact::state::binding(
                 move || Some(value.get()),
                 move |day| {

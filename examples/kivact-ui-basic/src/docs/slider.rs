@@ -4,6 +4,7 @@ use crate::model::{Example, Page, PreviewAlign};
 use kivact::interaction::ScalarRange;
 use kivact::prelude::*;
 use kivact::ui::range_slider;
+use kivact::view::Orientation;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {

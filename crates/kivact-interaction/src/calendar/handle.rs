@@ -29,7 +29,7 @@ pub struct CalendarGridApi {
 /// authority: paging writes it. Setup only.
 #[track_caller]
 pub fn use_calendar_grid(
-    month: impl kivact_core::state::IntoBinding<CalendarMonth>,
+    month: kivact_core::state::Signal<CalendarMonth>,
     selected: CalendarSelection,
     policy: CalendarOptions,
 ) -> CalendarGridApi {
@@ -41,7 +41,7 @@ pub fn use_calendar_grid(
         );
     }
     CalendarGridApi {
-        state: state::create(month.into_binding(), selected, policy),
+        state: state::create(month, selected, policy),
     }
 }
 

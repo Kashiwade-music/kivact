@@ -8,6 +8,7 @@ use kivact::view::Node;
 use kivact::view::node;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::IntoText;
 use kivact::state::try_use_context;
 use kivact::style::Align;
@@ -19,7 +20,7 @@ use kivact::view::Role;
 use kivact::view::View;
 use kivact::view::node_ref;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Theme border color used by a separator.
 pub enum DividerVariant {
     #[default]
@@ -68,7 +69,7 @@ impl Divider {
     }
     /// Insert custom content between rule segments; `label_text` also supplies a text name.
     pub fn label(mut self, label: impl IntoView) -> Self {
-        self.label = Some(kivact::view::scope(move || label.into_view()));
+        self.label = Some(kivact::custom::scope(move || label.into_view()));
         self
     }
     /// Insert constant or reactive text and use it as the accessible name.
@@ -96,13 +97,11 @@ impl IntoView for Divider {
             label,
             full_bleed,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let vertical = orientation.get() == Orientation::Vertical;
             let mut root = root.orientation(orientation.get()).with_node(move |node| {
                 node.base_style(move || {
-                    let inset = try_use_context::<ContainerInset>()
-                        .map(|value| value.get())
-                        .unwrap_or_default();
+                    let inset = try_use_context::<ContainerInset>().unwrap_or_default();
                     let mut base = style()
                         .shrink(0)
                         .align_self(Align::Stretch)
@@ -169,5 +168,3 @@ impl IntoView for Divider {
         })
     }
 }
-
-kivact::state::constant_value!(DividerVariant);

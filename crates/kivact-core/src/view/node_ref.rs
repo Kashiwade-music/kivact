@@ -12,9 +12,9 @@ use kivact_types::{FocusTarget, NodeId};
 use crate::view::state::{
     Bound, NodeRefState, RefObservation, RefState, ViewState, current_window,
 };
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
-    require_setup,
+    AppId, ErrorKind, Owned, Owner, Signal, UiError, Value, require_effectful, require_setup,
 };
 use kivact_style::draw::Rect;
 use kivact_types::WindowId;
@@ -46,7 +46,7 @@ pub(crate) enum RovingMove {
 #[track_caller]
 pub fn node_ref() -> NodeRef {
     let at = Location::caller();
-    NodeRef::owned_by(Owner::current("node_ref", at), at)
+    NodeRef::owned_by(Owner::setup("node_ref", at), at)
 }
 
 impl NodeRef {
@@ -90,6 +90,16 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    /// The engine's visibility facts of the bound node (tracked).
+    pub(crate) fn node_flags(
+        &self,
+        at: &'static Location<'static>,
+    ) -> Option<kivact_engine::contract::NodeFlags> {
+        self.require_observation(RefObservation::Sources, at);
+        let target = self.target_value()?;
+        observation(self.app, target).map(|observation| observation.flags.get())
+    }
+
     /// The shared observation of the bound node. Reading it in a memo also
     /// follows a rebinding of the reference.
     pub(crate) fn tracked_observation(&self) -> Option<crate::view::tree::NodeObservation> {
@@ -447,7 +457,16 @@ impl NodeRef {
         let target = ViewState::tree(&rt).first_focus_target(root);
         if let Some(node) = target {
             super::requests::request_restore_focus(&rt, node, None, false);
-            super::requests::request_activation(&rt, node);
+            let app = self.app;
+            rt.defer(
+                rt.root(),
+                Location::caller(),
+                Box::new(move || {
+                    if let Some(rt) = Runtime::get(app) {
+                        (crate::app_state::AppState::of(&rt).activate)(&rt, node);
+                    }
+                }),
+            );
         }
     }
 

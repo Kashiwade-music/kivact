@@ -1,6 +1,6 @@
 //! Role: A docking workspace: splits of tabbed containers with retained panels.
 //!
-//! The layout is an application-owned `Binding<DockLayout<K>>`. Containers,
+//! The layout is an application-owned `Signal<DockLayout<K>>`. Containers,
 //! splitters and panel contents are siblings positioned from the model, so a
 //! panel's view stays mounted while its tab switches, moves to another
 //! container or the tree is restructured.

@@ -1,8 +1,10 @@
 //! Role: The Performance panel.
 
-use kivact::draw::{Draw, Stroke, TextFormat};
-use kivact::geometry::Rect;
+use kivact::draw::TextFormat;
 use kivact::prelude::*;
+use kivact::style::ColorToken;
+use kivact::ui::{DataColumn, data_table, toggle_group};
+use kivact::view::Node;
 use kivact_devtools_protocol as p;
 
 use crate::state::{Session, push_capped};

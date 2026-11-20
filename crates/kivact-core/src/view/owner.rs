@@ -22,7 +22,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::NodeRef;
-use kivact_runtime::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, Owned, UiError, raise, require_effectful};
 
 /// The identity of a component resource owner, without retaining its App.
 /// Equality compares identities: every owner of an App has the same
@@ -35,7 +36,7 @@ impl Owner {
     /// outside component setup.
     #[track_caller]
     pub fn current() -> Self {
-        Self(kivact_runtime::Owner::current(
+        Self(kivact_runtime::Owner::setup(
             "Owner::current",
             Location::caller(),
         ))
@@ -66,6 +67,8 @@ impl Owner {
         require_effectful(api);
     }
 
+    // xtask-allow(internal-contract): custom components store their objects under their owner
+    #[doc(hidden)]
     /// Store the supplied shared object until this owner is disposed.
     /// `name` identifies the component handle in disposed-use diagnostics.
     #[track_caller]
@@ -74,6 +77,8 @@ impl Owner {
         self.0.store(name, value, Location::caller())
     }
 
+    // xtask-allow(internal-contract): custom components store their objects under their owner
+    #[doc(hidden)]
     /// [`Owner::store`] with `on_dispose`, which runs once, before the value
     /// is dropped, when the owner is disposed or the object is removed
     /// ([`Owned::remove`]).

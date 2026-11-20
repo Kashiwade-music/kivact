@@ -1,12 +1,13 @@
 //! Role: Contracts of windows opened from views.
 
+use kivact::motion::{Easing, Transition, animated};
+use kivact::view::WindowMode;
 use std::time::Duration;
 
 use kivact::ErrorKind;
 use kivact::i18n::{Locale, provide_locale, use_locale};
-use kivact::platform;
+use kivact::platform::{self, on_close_request};
 use kivact::prelude::*;
-use kivact::style::provide_theme;
 use kivact::test::RenderOptions;
 use kivact::view::A11yAction;
 use kivact_public_api_tests::support::{mount, mount_with};
@@ -92,7 +93,7 @@ fn a_window_inherits_the_context_theme_and_locale_of_its_declaration_site() {
                                 let locale = use_locale();
                                 let theme = use_theme();
                                 (
-                                    text(move || context.get()),
+                                    text(context),
                                     text(move || locale.get().tag().to_owned()),
                                     text(move || format!("{:?}", theme.get().mode())),
                                 )
@@ -386,4 +387,87 @@ fn destroying_the_main_surface_does_not_stop_or_rewind_another_window_animation(
     );
     assert!(settings.is_open(), "the other window stays open");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_close_request_handler_in_a_window_keeps_only_that_window_open() {
+    let (screen, editor_open) = mount(|| {
+        let editor_open = signal(true);
+        (
+            editor_open,
+            column((
+                text("main"),
+                window("Editor", editor_open).content(|| {
+                    on_close_request(|| Handled::Yes);
+                    text("editor")
+                }),
+            )),
+        )
+    });
+    let editor = screen.window("Editor");
+    editor.get_by_text("editor");
+    assert!(
+        !editor.request_close(),
+        "the window's handler keeps it open"
+    );
+    assert!(editor.is_open());
+    assert!(editor_open.get_untracked());
+    assert!(
+        screen.request_close(),
+        "the main window has no handler: the App exits"
+    );
+    assert!(screen.has_exited());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_window_close_handler_that_allows_runs_the_dismiss_handler() {
+    let (screen, (prevented_open, allowed_open)) = mount(|| {
+        let prevented_open = signal(true);
+        let allowed_open = signal(true);
+        (
+            (prevented_open, allowed_open),
+            column((
+                window("Prevented", prevented_open)
+                    .content(|| {
+                        on_close_request(|| Handled::No);
+                        text("prevented")
+                    })
+                    .on_dismiss(|_| Handled::PreventDefault),
+                window("Allowed", allowed_open)
+                    .content(|| {
+                        on_close_request(|| ());
+                        text("allowed")
+                    })
+                    .on_dismiss(|_| ()),
+            )),
+        )
+    });
+    let prevented = screen.window("Prevented");
+    assert!(
+        !prevented.request_close(),
+        "the dismiss handler keeps it open"
+    );
+    assert!(prevented.is_open());
+    assert!(prevented_open.get_untracked());
+
+    let allowed = screen.window("Allowed");
+    assert!(allowed.request_close(), "() then () lets it close");
+    assert!(!allowed.is_open());
+    assert!(!allowed_open.get_untracked());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+#[should_panic(expected = "SetupOnly")]
+fn on_close_request_outside_setup_is_a_setup_only_error() {
+    let (screen, ()) = mount(|| {
+        (
+            (),
+            button("Late").on_press(|| {
+                on_close_request(|| ());
+            }),
+        )
+    });
+    screen.get_by_role(Role::Button, "Late").click();
 }

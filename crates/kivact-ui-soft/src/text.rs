@@ -6,6 +6,7 @@ use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::text as control_text;
 
+use kivact::Prop;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::style::Style;
@@ -22,7 +23,7 @@ use kivact::view::node_ref;
 use kivact::view::use_direction;
 
 /// Named typography roles resolved from the current Soft theme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
 pub enum TextKind {
     #[default]
     /// Use body typography; the default.
@@ -46,7 +47,7 @@ pub enum TextKind {
 }
 
 /// Theme font-size steps that override a typography role’s size.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum TextSize {
     /// Use the `size_4xs` font-size token in logical pixels.
     Xs4,
@@ -73,7 +74,7 @@ pub enum TextSize {
 }
 
 /// Semantic text colors resolved from Soft theme tokens.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum TextColor {
     /// Use the primary text color.
     Primary,
@@ -90,7 +91,7 @@ pub enum TextColor {
 }
 
 /// Theme font-weight choices for styled text.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum TextWeight {
     /// Use the theme’s normal weight.
     Normal,
@@ -103,7 +104,7 @@ pub enum TextWeight {
 }
 
 /// Placement of the tooltip shown only when limited text is actually truncated.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
 pub enum TruncateTooltip {
     /// Do not attach a truncation tooltip.
     Off,
@@ -141,7 +142,7 @@ pub enum TextWrap {
 }
 
 /// Text alignment relative to the current reading direction.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
 pub enum TextJustify {
     #[default]
     /// Align to the logical text start; the default.
@@ -315,7 +316,7 @@ impl IntoView for StyledText {
                 if capsize.get() {
                     look = look.text_capsize(true);
                 }
-                look = look.text_align(match (justify.get(), use_direction().get()) {
+                look = look.text_align(match (justify.get(), use_direction()) {
                     (TextJustify::Start, ReadingDirection::Ltr)
                     | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,
                     (TextJustify::Center, _) => TextAlign::Center,
@@ -436,12 +437,3 @@ fn font_size(t: &TypeTokens, size: TextSize) -> f64 {
         TextSize::Xl4 => t.size_4xl,
     }
 }
-
-kivact::state::constant_value!(
-    TextColor,
-    TextJustify,
-    TextKind,
-    TextSize,
-    TextWeight,
-    TruncateTooltip
-);

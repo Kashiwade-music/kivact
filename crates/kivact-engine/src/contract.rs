@@ -18,8 +18,8 @@ mod measure;
 pub use measure::{LeafMeasure, LeafTextMeasurer};
 mod node;
 pub use node::{
-    BoxData, DrawableMode, DrawableRole, EditingData, ImeSessionProps, NodeInput, NodeKind,
-    NodeProperties, NodeType, RovingFocus, SceneLayer,
+    BoxData, DrawableMode, DrawableRole, EditingData, ImeSessionProps, InputFlag, InputFlags,
+    NodeInput, NodeKind, NodeProperties, NodeType, RovingFocus, SceneLayer,
 };
 
 mod routed;

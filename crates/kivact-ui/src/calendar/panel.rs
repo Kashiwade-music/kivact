@@ -258,7 +258,7 @@ fn month_caption(
     index: usize,
     month: CalendarMonth,
 ) -> Node {
-    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
     let (back, forward) = if rtl {
         ("chevron-right", "chevron-left")
     } else {

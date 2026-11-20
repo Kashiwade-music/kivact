@@ -22,11 +22,13 @@ pub(crate) mod element_data;
 mod exit_layout;
 pub(crate) mod flow;
 pub(crate) mod focus;
+mod focus_commit;
 pub(crate) mod foreign;
 pub(crate) mod foreign_window;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+pub(crate) mod measured_leaf;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
@@ -51,8 +53,8 @@ pub(crate) mod span;
 pub(crate) mod state;
 mod style_layer;
 pub(crate) mod sync_hook;
-pub(crate) mod text_edits;
 pub(crate) mod tree;
+mod variant;
 pub(crate) mod window_view;
 
 #[doc(inline)]
@@ -61,7 +63,7 @@ pub use crate::view::flow::{
     dynamic, error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, provide_direction, scope, use_direction};
+pub use boundary::{ReadingDirection, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]
@@ -73,6 +75,7 @@ pub use drawable_share::DrawableTextures;
 pub use drawable_share::{DrawableFrame, DrawableShare, ShareUpdate};
 pub use element_data::Element;
 #[doc(inline)]
+pub use focus_commit::commit_focused_edit;
 pub use hover::pointer_position;
 #[doc(inline)]
 pub use input::{
@@ -138,3 +141,7 @@ pub use style_layer::RecipeName;
 
 #[doc(hidden)]
 pub use elements::ViewportTransform;
+
+// xtask-allow(internal-contract): the public path of Variant and Variants is kivact::ui::theme (annex U re-exports them)
+#[doc(hidden)]
+pub use variant::{Variant, Variants};

@@ -64,12 +64,12 @@ pub enum DecorationKind {
 }
 
 /// What a behavior attached with [`TextEditing::behavior`] runs.
-pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome;
+pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome;
 
 /// Where the line colors of a mounted editor are bound: its runtime,
 /// owner and theme, the node and the author's call site.
 pub(crate) struct HighlightAt {
-    pub(crate) rt: Rc<kivact_runtime::Runtime>,
+    pub(crate) rt: Rc<kivact_runtime::driver::Runtime>,
     pub(crate) owner: kivact_runtime::Owner,
     pub(crate) theme: Option<kivact_runtime::Value<kivact_style::Theme>>,
     pub(crate) id: kivact_types::NodeId,

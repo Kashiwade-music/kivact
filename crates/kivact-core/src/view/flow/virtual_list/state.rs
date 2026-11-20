@@ -63,7 +63,7 @@ pub(super) const UNCONSTRAINED_ROWS: usize = 100;
 
 pub(super) struct HeldState<K> {
     pub(super) value: Option<K>,
-    pub(super) changed: kivact_runtime::Notifier,
+    pub(super) changed: kivact_runtime::Trigger,
 }
 impl<K: PartialEq> HeldState<K> {
     pub(super) fn key(&self) -> Option<&K> {

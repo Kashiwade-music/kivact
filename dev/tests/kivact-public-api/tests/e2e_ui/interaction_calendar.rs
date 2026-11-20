@@ -4,6 +4,7 @@ use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Locale, Weekday};
 use kivact::interaction::{CalendarGridApi, CalendarOptions, CalendarSelection, use_calendar_grid};
 use kivact::prelude::*;
 use kivact::test::{RenderOptions, Screen};
+use kivact::view::{Modifiers, Node};
 use kivact_public_api_tests::support::mount_with;
 
 fn day(y: i32, m: u8, d: u8) -> CalendarDate {
@@ -90,11 +91,7 @@ fn single(
                     .week_start(Weekday::Monday)
                     .on_activate(move |date| commits.update(|all| all.push(date))),
             );
-            let calendar = use_calendar_grid(
-                month,
-                CalendarSelection::Single(value.into_binding()),
-                policy,
-            );
+            let calendar = use_calendar_grid(month, CalendarSelection::Single(value), policy);
             (
                 Single {
                     value,
@@ -192,7 +189,7 @@ fn range(initial: Option<DateRange>) -> (Screen, Signal<Option<DateRange>>) {
             let month = signal(day(2026, 10, 1).month_of());
             let calendar = use_calendar_grid(
                 month,
-                CalendarSelection::Range(value.into_binding()),
+                CalendarSelection::Range(value),
                 CalendarOptions::new().week_start(Weekday::Monday),
             );
             (value, drawn(calendar, month, 1, true))
@@ -251,7 +248,7 @@ fn activation_guard_gates_both_range_choices_without_disabling_cells() {
             let month = signal(CalendarMonth::new(2026, 10));
             let calendar = use_calendar_grid(
                 month,
-                CalendarSelection::Range(value.into_binding()),
+                CalendarSelection::Range(value),
                 CalendarOptions::new().activation_guard(move |_| admit.get()),
             );
             (

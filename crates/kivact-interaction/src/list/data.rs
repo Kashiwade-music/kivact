@@ -1,7 +1,7 @@
 //! Role: Passive list inputs, policies and observable item state.
 
 use kivact_core::custom::PartState;
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::state::IntoText;
 use kivact_core::style::Icon;
 use kivact_core::view::{Modifiers, Orientation};
@@ -33,11 +33,11 @@ use kivact_core::view::{Modifiers, Orientation};
 #[derive(Clone, Debug, PartialEq)]
 pub struct ListItem<K> {
     pub(crate) key: K,
-    pub(crate) label: Reactive<String>,
+    pub(crate) label: Prop<String>,
     pub(crate) disabled: bool,
     pub(crate) icon: Option<Icon>,
     pub(crate) pressed_icon: Option<Icon>,
-    pub(crate) description: Option<Reactive<String>>,
+    pub(crate) description: Option<Prop<String>>,
 }
 
 impl<K> ListItem<K> {
@@ -46,7 +46,7 @@ impl<K> ListItem<K> {
     pub fn new(key: K, label: impl IntoText) -> Self {
         Self {
             key,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             disabled: false,
             icon: None,
             pressed_icon: None,
@@ -83,7 +83,7 @@ impl<K> ListItem<K> {
     /// A secondary line of text under the label, such as a shortcut hint or
     /// a count; like the label, a constant or a reactive value.
     pub fn with_description(mut self, text: impl IntoText) -> Self {
-        self.description = Some(Reactive::new(text.into_text()));
+        self.description = Some(Prop::new(text.into_text()));
         self
     }
 
@@ -112,7 +112,7 @@ impl<K> ListItem<K> {
     /// computation.
     #[track_caller]
     pub fn description(&self) -> Option<String> {
-        self.description.as_ref().map(Reactive::get)
+        self.description.as_ref().map(Prop::get)
     }
 }
 

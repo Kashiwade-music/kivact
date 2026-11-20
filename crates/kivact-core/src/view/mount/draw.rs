@@ -4,7 +4,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::SceneLayer;
-use kivact_runtime::{EffectKind, Signal, UiError};
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::{Signal, UiError};
 use kivact_style::Theme;
 use kivact_style::draw::{RecordContext, Recording, Size};
 use kivact_types::NodeId;
@@ -147,7 +148,7 @@ pub(super) fn bind_style_paint(
 }
 
 fn report_unsupported(
-    rt: &kivact_runtime::Runtime,
+    rt: &kivact_runtime::driver::Runtime,
     owner: kivact_runtime::Owner,
     id: NodeId,
     issues: u32,

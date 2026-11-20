@@ -1,12 +1,13 @@
 //! Shared layout and input helpers for Game catalog specimens.
 
 use kivact::interaction::ListItem;
-use kivact::prelude::{
-    ColorToken, Element, IntoText, IntoValue, IntoView, Key, Node, column, grid, node, row,
-};
+use kivact::prelude::{Element, IntoView, Key, column, grid, node, row};
+use kivact::state::{IntoText, IntoValue};
+use kivact::style::ColorToken;
 use kivact::style::{Align, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::ui::{RadioGroup, radio_group};
+use kivact::view::Node;
 use kivact::view::{Handled, Orientation};
 use kivact_ui_game as g;
 
@@ -15,7 +16,7 @@ use kivact_ui_game as g;
 pub(super) fn segmented<K: kivact::state::ItemKey>(
     label: impl IntoText,
     options: impl IntoValue<Vec<ListItem<K>>>,
-    value: impl kivact::state::IntoBinding<Option<K>>,
+    value: kivact::state::Signal<Option<K>>,
 ) -> RadioGroup<K> {
     radio_group(label, options, value)
         .orientation(Orientation::Horizontal)

@@ -39,7 +39,7 @@
 //!
 //! let day = signal(None::<CalendarDate>);
 //! let month = signal(CalendarMonth::new(2026, 10));
-//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day.into_binding()), CalendarOptions::new());
+//! let calendar = use_calendar_grid(month, CalendarSelection::Single(day), CalendarOptions::new());
 //! let shown = CalendarMonth::new(2026, 10);
 //! let weeks = shown.weeks(calendar.week_start().get_untracked(), 0);
 //! let view = column((

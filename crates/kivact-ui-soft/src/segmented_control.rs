@@ -1,10 +1,11 @@
 //! Role: Style standard segmented radios with Neutral geometry.
 use crate::Tokens;
 use crate::recipe_style::{fast, ring};
+use kivact::Prop;
 use kivact::style::{Align, Color, Cursor, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{CheckableState, ControlSize, Look, Variant};
 use kivact::view::Orientation;
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// How a segmented radio group distributes horizontal space.
 pub enum SegmentedLayout {
     #[default]
@@ -90,5 +91,3 @@ pub(crate) fn segment(theme: &Theme, look: &Look<CheckableState>) -> Style {
     }
     fast(&t, base)
 }
-
-kivact::state::constant_value!(SegmentedLayout);

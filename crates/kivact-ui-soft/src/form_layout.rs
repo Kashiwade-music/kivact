@@ -122,9 +122,7 @@ pub fn form_row(label: impl IntoView, field: impl IntoView) -> impl IntoView {
         node()
             .with_node(move |node| {
                 node.base_style(move || {
-                    let cx = kivact::state::try_use_context::<FormLayoutCx>()
-                        .map(|value| value.get())
-                        .unwrap_or_default();
+                    let cx = kivact::state::try_use_context::<FormLayoutCx>().unwrap_or_default();
                     let t = kivact::style::use_tokens::<crate::Tokens>();
                     let base = style();
                     if cx.direction == FormDirection::HorizontalLabels

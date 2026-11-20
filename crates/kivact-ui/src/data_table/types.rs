@@ -2,20 +2,20 @@
 
 use crate::data_table::column::DataColumn;
 use crate::variants::Variants;
-use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::style::{Color, Icon};
 use kivact_core::view::{Node, View};
 use kivact_interaction::{DataTableModelApi, ScalarRange, SortOrder, TableFocus, Tone};
 use std::rc::Rc;
 /// The sorted column (an index into the columns) and its direction.
-pub(super) type Sort = Binding<Option<(usize, SortOrder)>>;
-pub(super) type ColumnFilters = Binding<Vec<(usize, String)>>;
+pub(super) type Sort = Signal<Option<(usize, SortOrder)>>;
+pub(super) type ColumnFilters = Signal<Vec<(usize, String)>>;
 pub(super) type TypedFilters =
-    Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>;
+    Signal<std::collections::HashMap<usize, kivact_interaction::FilterValue>>;
 /// The page shown and the rows on a page.
-pub(super) type PagePlan = (Binding<usize>, Value<usize>);
+pub(super) type PagePlan = (Signal<usize>, Value<usize>);
 /// The caller's sort keys, in priority order.
-pub(super) type MultiSort = Binding<Vec<(usize, SortOrder)>>;
+pub(super) type MultiSort = Signal<Vec<(usize, SortOrder)>>;
 
 /// Whose sort the headers write. `DataTable::sort` and
 /// `DataTable::multi_sort` each replace it, so the later call wins.
@@ -69,16 +69,16 @@ pub enum Paging {
     /// The table pages the rows it holds.
     Local {
         /// The page shown, from 0.
-        page: Binding<usize>,
+        page: Signal<usize>,
         /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
-        page_size: Binding<usize>,
+        page_size: Signal<usize>,
     },
     /// The caller supplies one page and says whether another is available.
     Remote {
         /// The page shown, from 0.
-        page: Binding<usize>,
+        page: Signal<usize>,
         /// The rows per page. Writing it chooses a size (and shows the first page) only when the table has [`page_sizes`](DataTable::page_sizes); otherwise a write is ignored.
-        page_size: Binding<usize>,
+        page_size: Signal<usize>,
         /// Whether another page is available.
         has_more: Value<bool>,
     },
@@ -91,17 +91,17 @@ pub struct DataTableContext<R: 'static, K: 'static> {
     /// The filter, sort and page model: its counts and its filtered keys.
     pub model: DataTableModelApi<R, K, usize>,
     /// The caller's selection, when the table has one.
-    pub selection: Option<Binding<Vec<K>>>,
+    pub selection: Option<Signal<Vec<K>>>,
     /// The sorted column (by position) and direction. It is the caller's
     /// binding, or the table's own when the caller gave none.
-    pub sort: Binding<Option<(usize, SortOrder)>>,
+    pub sort: Signal<Option<(usize, SortOrder)>>,
     /// The caller's filter text, when the table has one.
-    pub filter: Option<Binding<String>>,
+    pub filter: Option<Signal<String>>,
     /// The caller's queries by column index, when supplied.
-    pub column_filters: Option<Binding<Vec<(usize, String)>>>,
+    pub column_filters: Option<Signal<Vec<(usize, String)>>>,
     /// Committed typed values keyed by the column's original position.
     pub typed_column_filters:
-        Option<Binding<std::collections::HashMap<usize, kivact_interaction::FilterValue>>>,
+        Option<Signal<std::collections::HashMap<usize, kivact_interaction::FilterValue>>>,
     /// How the table pages its rows.
     pub paging: Paging,
 }
@@ -129,12 +129,12 @@ pub(super) type StickyEdges = (Vec<usize>, Vec<usize>);
 
 pub(super) struct Grouping<R> {
     pub(super) key: Key<R, String>,
-    pub(super) collapsed: Binding<Vec<String>>,
+    pub(super) collapsed: Signal<Vec<String>>,
 }
 
 pub(super) struct TreeConfig<R, K: 'static> {
     pub(super) parent: Key<R, Option<K>>,
-    pub(super) expanded: Binding<Vec<K>>,
+    pub(super) expanded: Signal<Vec<K>>,
 }
 
 /// Horizontal space for each additional table tree level.
@@ -159,18 +159,18 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) key: Key<R, K>,
     pub(super) columns: Rc<Vec<DataColumn<R>>>,
     pub(super) column_order: Option<Value<Vec<usize>>>,
-    pub(super) selection: Option<Binding<Vec<K>>>,
+    pub(super) selection: Option<Signal<Vec<K>>>,
     pub(super) row_selectable: Option<RowSelectable<R>>,
     pub(super) sort: SortSetting,
     pub(super) paging: PageSetting,
-    pub(super) page_sizes: Option<(Binding<usize>, Value<Vec<usize>>)>,
+    pub(super) page_sizes: Option<(Signal<usize>, Value<Vec<usize>>)>,
     pub(super) row_index: Option<usize>,
-    pub(super) filter: Option<Binding<String>>,
+    pub(super) filter: Option<Signal<String>>,
     pub(super) column_filters: Option<ColumnFilters>,
     pub(super) typed_column_filters: Option<TypedFilters>,
     pub(super) filter_ui: crate::FilterUi,
     pub(super) sticky: Option<StickyEdges>,
-    pub(super) widths: Option<Binding<Vec<f64>>>,
+    pub(super) widths: Option<Signal<Vec<f64>>>,
     pub(super) resize_range: Option<ScalarRange>,
     pub(super) row_label: Option<RowName<R>>,
     pub(super) actions: Option<(f64, RowSlot<R>)>,
@@ -180,7 +180,7 @@ pub struct DataTable<R: 'static, K: 'static> {
     pub(super) footer: Option<Slot<R, K>>,
     pub(super) empty: Option<Box<dyn Fn() -> View>>,
     pub(super) details: Option<RowSlot<R>>,
-    pub(super) expanded_rows: Option<Binding<Vec<K>>>,
+    pub(super) expanded_rows: Option<Signal<Vec<K>>>,
     pub(super) cells: Option<CellSlot<R>>,
     pub(super) focus: TableFocus,
     pub(super) row_height: Option<Value<f64>>,

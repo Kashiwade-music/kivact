@@ -1,6 +1,7 @@
 //! Role: The Console panel.
 
 use kivact::prelude::*;
+use kivact::view::RowHeight;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;

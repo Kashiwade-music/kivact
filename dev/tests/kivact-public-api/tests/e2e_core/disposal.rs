@@ -6,6 +6,7 @@
 //! disposing owner needs the reactive owner, which the public API does not expose.) A component whose handlers hold values
 //! whose `Drop` uses Kivact goes away with a branch switch.
 
+use kivact::state::IntoValue;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 

@@ -1,5 +1,5 @@
 //! Role: Neutral entity tokens with independently operable removal.
-use kivact::state::IntoValue;
+use kivact::state::{IntoHandler, IntoValue};
 
 use crate::feedback::icon_box;
 use crate::recipe_style::{overlay, ring};
@@ -10,6 +10,7 @@ use kivact::view::icon;
 use kivact::view::row;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::Value;
@@ -30,7 +31,7 @@ use kivact::view::node_ref;
 use kivact::view::use_direction;
 
 /// Decorative token palette.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum TokenColor {
     #[default]
     /// Use the default neutral token palette.
@@ -135,15 +136,17 @@ impl Token {
     }
 
     /// Run a callback when the main token action is activated.
-    pub fn on_press(mut self, press: impl Into<Callback<()>>) -> Self {
-        let press: Callback<()> = press.into();
+    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
+        let press: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(press));
         self.press = Some(callback(move |_| press.call(())));
         self
     }
 
     /// Add a remove action and run the callback when it is activated.
-    pub fn on_remove(mut self, remove: impl Into<Callback<()>>) -> Self {
-        let remove: Callback<()> = remove.into();
+    pub fn on_remove<M>(mut self, remove: impl IntoHandler<(), M>) -> Self {
+        let remove: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(remove));
         self.remove = Some(callback(move |_| remove.call(())));
         self
     }
@@ -189,7 +192,7 @@ impl IntoView for Token {
             ControlSize::Medium => 24,
             ControlSize::Large => 28,
         };
-        let direction = if use_direction().get() == ReadingDirection::Rtl {
+        let direction = if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row
@@ -241,8 +244,6 @@ impl IntoView for Token {
             .into_view()
     }
 }
-
-kivact::state::constant_value!(TokenColor);
 
 fn token_main_style(
     direction: Direction,

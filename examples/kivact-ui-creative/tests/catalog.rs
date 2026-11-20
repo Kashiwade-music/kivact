@@ -4,7 +4,7 @@
 //! Public-driver interaction and visual evidence for the complete Creative catalog.
 
 use kivact::geometry::Point;
-use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_creative_catalog::{catalog, fonts};
 use std::time::Duration;
@@ -49,9 +49,7 @@ fn mount() -> Screen {
             .window_size(1861., 969.)
             .scale(1.)
             .reduced_motion()
-            .fonts(TestFonts::Only(
-                fonts().iter().map(|&bytes| bytes.into()).collect(),
-            )),
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     )
 }

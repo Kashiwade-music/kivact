@@ -4,9 +4,9 @@ use super::meter::meter;
 use crate::{fader, knob};
 use kivact::i18n::message;
 use kivact::interaction::ListItem;
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
-use kivact::state::{Binding, Value};
+use kivact::state::Signal;
+use kivact::state::Value;
 use kivact::style::use_theme;
 use kivact::style::{Align, Color, Direction, Justify, pct, style};
 use kivact::view::{Element, Node, column, node, row, text};
@@ -21,7 +21,7 @@ pub struct MixerStrip {
     gain_range: Value<kivact::interaction::ScalarRange>,
     level: Value<f64>,
     inserts: Value<Vec<String>>,
-    routing: Option<(Value<Vec<String>>, Binding<usize>)>,
+    routing: Option<(Value<Vec<String>>, Signal<usize>)>,
 }
 
 /// A mixer channel editing the gain, pan, mute and solo of `channel`; the
@@ -81,12 +81,8 @@ impl MixerStrip {
     /// Show an input routing selector choosing among `routes` by index into
     /// `route`. Without routes, or without this call, the strip has no
     /// selector.
-    pub fn routes(
-        mut self,
-        routes: impl IntoValue<Vec<String>>,
-        route: impl IntoBinding<usize>,
-    ) -> Self {
-        self.routing = Some((routes.into_value(), route.into_binding()));
+    pub fn routes(mut self, routes: impl IntoValue<Vec<String>>, route: Signal<usize>) -> Self {
+        self.routing = Some((routes.into_value(), route));
         self
     }
 }
@@ -128,7 +124,7 @@ impl IntoView for MixerStrip {
         let routing = routing_control(routing);
         let mute_label = message("creative.mixer.mute", "M");
         let solo_label = message("creative.mixer.solo", "S");
-        let tiny = |label: Value<String>, state: Binding<bool>| {
+        let tiny = |label: Value<String>, state: Signal<bool>| {
             kivact::ui::toggle_button(label, state).with_node(move |node| {
                 node.style(style().size(18, 18).padding(0).font_size(9).radius(4))
             })
@@ -173,7 +169,7 @@ impl IntoView for MixerStrip {
 
 /// Render the caller-owned optional input-route selector.
 fn routing_control(
-    routing: Option<(Value<Vec<String>>, Binding<usize>)>,
+    routing: Option<(Value<Vec<String>>, Signal<usize>)>,
 ) -> Option<kivact::ui::Select<usize>> {
     routing.map(|(routes, route)| {
         let route_binding = route.optional();

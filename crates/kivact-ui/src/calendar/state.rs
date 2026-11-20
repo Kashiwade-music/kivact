@@ -3,7 +3,7 @@
 use crate::calendar::CalendarCaption;
 use crate::calendar::CalendarEvent;
 use kivact_core::i18n::{CalendarDate, CalendarMonth};
-use kivact_core::state::{Binding, Value};
+use kivact_core::state::{Signal, Value};
 use kivact_interaction::CalendarGridApi;
 
 /// Everything the month panels and their day cells share.
@@ -14,7 +14,7 @@ pub(super) struct Shared {
     /// The keyboard, selection and paging behavior.
     pub(super) grid: CalendarGridApi,
     /// The first shown month.
-    pub(super) month: Binding<CalendarMonth>,
+    pub(super) month: Signal<CalendarMonth>,
     pub(super) count: usize,
     pub(super) caption: CalendarCaption,
     pub(super) outside: Value<bool>,

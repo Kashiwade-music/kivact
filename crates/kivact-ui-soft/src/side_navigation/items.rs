@@ -6,15 +6,14 @@ use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
 use crate::stack::rtl;
 
+use kivact::Prop;
 use kivact::i18n::message_with;
 use kivact::interaction::Delays;
 use kivact::interaction::DialogMode;
 use kivact::interaction::use_dialog;
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
-use kivact::state::Binding;
 use kivact::state::Callback;
-use kivact::state::IntoBinding;
 use kivact::state::IntoText;
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -22,6 +21,7 @@ use kivact::state::binding;
 use kivact::state::callback;
 use kivact::state::provide;
 use kivact::state::signal;
+use kivact::state::{IntoHandler, Signal};
 use kivact::style::Align;
 use kivact::style::Direction;
 use kivact::style::Justify;
@@ -50,7 +50,7 @@ use kivact::view::show;
 use kivact::view::text;
 use std::time::Duration;
 
-#[derive(Clone)]
+#[derive(Clone, Prop)]
 /// Ownership and initial expansion of a sidebar item's nested entries.
 pub enum ItemCollapse {
     /// Keep nested entries expanded without a collapse toggle.
@@ -61,7 +61,7 @@ pub enum ItemCollapse {
         default_collapsed: bool,
     },
     /// Read and write the caller's collapse binding.
-    Controlled(Binding<bool>),
+    Controlled(Signal<bool>),
 }
 
 // xtask-allow(state): legacy: icon, selected_icon, end, actions
@@ -124,12 +124,12 @@ impl SideNavItem {
     }
     /// Mount trailing row content once; hide it in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::scope(move || content.into_view()));
+        self.end = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Mount additional row action controls once; hide them in the collapsed rail.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(kivact::view::scope(move || actions.into_view()));
+        self.actions = Some(kivact::custom::scope(move || actions.into_view()));
         self
     }
     /// Build nested entries on expansion or when the collapsed-rail flyout opens.
@@ -143,8 +143,9 @@ impl SideNavItem {
         self
     }
     /// Handle activation of this navigation entry.
-    pub fn on_press(mut self, action: impl Into<Callback<()>>) -> Self {
-        let action: Callback<()> = action.into();
+    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
+        let action: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
         self.action = Some(callback(move |_| action.call(())));
         self
     }
@@ -176,7 +177,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let context = ItemContext::new(
                 label,
                 selected,
@@ -322,7 +323,7 @@ impl SideNavSection {
     }
     /// Mount content once at the logical end of the section header.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::scope(move || content.into_view()));
+        self.end = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Hide the section header while keeping its entries available.
@@ -349,7 +350,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()
@@ -398,8 +399,6 @@ impl IntoView for SideNavSection {
     }
 }
 
-kivact::state::constant_value!(ItemCollapse);
-
 struct ItemSlots {
     leading: Option<View>,
     selected_icon: Option<View>,
@@ -411,7 +410,7 @@ struct ItemSlots {
 #[derive(Clone, Copy)]
 struct ItemExpansion {
     /// Inverted view of the item's collapse binding.
-    open: Binding<bool>,
+    open: Signal<bool>,
     disclosure: kivact::interaction::DisclosureApi,
 }
 
@@ -449,7 +448,7 @@ impl ItemBranch {
             | Self::Leaf => None,
         }
     }
-    fn open(self) -> Option<Binding<bool>> {
+    fn open(self) -> Option<Signal<bool>> {
         match self {
             Self::Parent {
                 expansion: Some(expansion),
@@ -499,12 +498,10 @@ impl ItemContext {
         let branch = if has_children {
             let collapse = match collapse.get() {
                 ItemCollapse::AlwaysOpen => None,
-                ItemCollapse::Uncontrolled { default_collapsed } => {
-                    Some(signal(default_collapsed).into_binding())
-                }
+                ItemCollapse::Uncontrolled { default_collapsed } => Some(signal(default_collapsed)),
                 ItemCollapse::Controlled(binding) => Some(binding),
             };
-            let expansion = collapse.map(|collapse: Binding<bool>| {
+            let expansion = collapse.map(|collapse: Signal<bool>| {
                 let open = binding(move || !collapse.get(), move |open| collapse.set(!open));
                 ItemExpansion {
                     open,

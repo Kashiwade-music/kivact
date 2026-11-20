@@ -4,7 +4,7 @@
 //! The game's visible source states, exercised through the public consumer driver.
 
 use kivact::geometry::Point;
-use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{LayoutCheck, Locator, RenderOptions, Screen, render_with};
 use kivact::view::{CheckedState, Key, Modifiers, Role, SortDirection};
 use kivact_ui_game_catalog::{catalog, fonts, locale, messages};
 use std::time::Duration;
@@ -38,9 +38,7 @@ fn mount() -> Screen {
             .locale(locale())
             .messages(messages())
             .reduced_motion()
-            .fonts(TestFonts::Only(
-                fonts().iter().map(|&bytes| bytes.into()).collect(),
-            )),
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     )
 }

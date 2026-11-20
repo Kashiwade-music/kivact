@@ -9,13 +9,13 @@ use super::model::{DockAxis, DockLayout, DockPlacement, DockTabs};
 use crate::ColorName;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
-use kivact::state::IntoBinding;
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::view::{Element, Node, node, text};
 
 use kivact::interaction::{MenuEntry, ScalarRange};
 use kivact::state::callback;
-use kivact::state::{Binding, Callback, Value, binding, memo, signal, var};
+use kivact::state::{Callback, Value, binding, memo, signal, var};
 use kivact::style::use_theme;
 use kivact::style::{Cursor, Direction, Overflow, Position, pct, style};
 use kivact::view::EditPhase;
@@ -42,7 +42,7 @@ use std::rc::Rc;
 /// the keys `dock.*`.
 pub struct Dock<K: kivact::state::ItemKey> {
     root: Node,
-    layout: Binding<DockLayout<K>>,
+    layout: Signal<DockLayout<K>>,
     panel: kivact::view::ViewFn<K>,
     menu: MenuBuilder<K>,
     on_close: Option<Callback<K>>,
@@ -54,10 +54,7 @@ pub struct Dock<K: kivact::state::ItemKey> {
 /// Give the root a size with ordinary modifiers, e.g.
 /// `.style(style().height(600))`.
 #[track_caller]
-pub fn dock<K, V>(
-    layout: impl IntoBinding<DockLayout<K>>,
-    panel: impl Fn(K) -> V + 'static,
-) -> Dock<K>
+pub fn dock<K, V>(layout: Signal<DockLayout<K>>, panel: impl Fn(K) -> V + 'static) -> Dock<K>
 where
     K: kivact::state::ItemKey,
     V: IntoView,
@@ -72,7 +69,7 @@ where
                     .min_height(0)
                     .overflow(Overflow::Hidden),
             ),
-        layout: layout.into_binding(),
+        layout,
         panel: kivact::view::ViewFn::from(panel),
         menu: kivact::view::ViewFn::from(|input| {
             super::chrome::container_menu::<K, ()>(input, None)

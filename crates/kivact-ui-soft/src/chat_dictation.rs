@@ -1,6 +1,6 @@
 //! Role: Expose application-owned voice dictation controls alongside canonical composers.
 use kivact::i18n::message;
-use kivact::state::{Callback, IntoText, IntoValue, Value, callback};
+use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Value, callback};
 use kivact::style::{Align, Direction, Justify, style};
 use kivact::ui::ControlSize;
 use kivact::view::{Element, IntoView, Node, Role, View, node, row, text};
@@ -61,8 +61,9 @@ impl Element for ChatDictationButton {
 
 impl ChatDictationButton {
     /// Request that the application toggle dictation; recording remains application-owned.
-    pub fn on_toggle(mut self, toggle: impl Into<Callback<()>>) -> Self {
-        let toggle: Callback<()> = toggle.into();
+    pub fn on_toggle<M>(mut self, toggle: impl IntoHandler<(), M>) -> Self {
+        let toggle: Callback<()> =
+            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(toggle));
         self.on_toggle = Some(callback(move |_| toggle.call(())));
         self
     }

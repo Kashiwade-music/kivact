@@ -1,14 +1,14 @@
 //! Role: Parts share semantic, input and lifecycle contracts across targets.
 
+use kivact::view::Modifiers;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 use kivact::custom::{Part, PartState, part};
 use kivact::draw::RegionId;
-use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::view::A11yAction;
-use kivact::view::{KeyCode, MouseButton, PointerPhase};
+use kivact::view::KeyCode;
 use kivact_public_api_tests::support::mount;
 
 #[test]

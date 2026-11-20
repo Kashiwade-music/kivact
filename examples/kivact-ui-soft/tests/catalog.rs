@@ -1,6 +1,6 @@
 //! Exercise the Soft catalog through its public navigation and appearance controls.
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, TestFonts, render_with};
+use kivact::test::{RenderOptions, render_with};
 use kivact::view::{Key, Modifiers, Role};
 use kivact_ui_soft_catalog::{catalog, catalog_at, fonts, pages};
 use std::time::Duration;
@@ -71,9 +71,8 @@ fn table_example_filters_and_expands_projects() {
 #[test]
 fn every_page_opens_through_search_in_both_appearances() {
     let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
+        RenderOptions::from_env()
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     );
     let search = screen.get_by_role(Role::TextBox, "Find a component");
@@ -107,9 +106,8 @@ fn every_page_opens_through_search_in_both_appearances() {
 #[test]
 fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
     let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
+        RenderOptions::from_env()
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     );
     screen.get_by_text("Light");
@@ -131,9 +129,8 @@ fn search_opens_a_page_and_the_appearance_toggle_keeps_it_open() {
 #[test]
 fn standard_examples_keep_their_controls_when_the_appearance_changes() {
     let screen = render_with(
-        RenderOptions::from_env().fonts(TestFonts::Only(
-            fonts().iter().map(|&bytes| bytes.into()).collect(),
-        )),
+        RenderOptions::from_env()
+            .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
         catalog,
     );
     screen.get_by_role(Role::Button, "Primary");

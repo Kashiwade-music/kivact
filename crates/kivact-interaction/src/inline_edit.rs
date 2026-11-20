@@ -2,8 +2,8 @@
 
 use crate::{EditSession, TextEditApi, use_text_edit};
 use kivact_core::state::{
-    IntoBinding, IntoText, IntoValue, ItemKey, Machine, MachineHandle, Step, binding, callback,
-    machine, on_cleanup,
+    IntoText, IntoValue, ItemKey, Machine, MachineHandle, Signal, Step, binding, callback, machine,
+    on_cleanup,
 };
 
 // A request precedes the conditional field's construction: its draft does not
@@ -168,8 +168,7 @@ impl<K: ItemKey> Copy for InlineEditApi<K> {}
 
 /// Track the caller-owned key of the item being renamed.
 #[track_caller]
-pub fn use_inline_edit<K: ItemKey>(editing: impl IntoBinding<Option<K>>) -> InlineEditApi<K> {
-    let editing = editing.into_binding();
+pub fn use_inline_edit<K: ItemKey>(editing: Signal<Option<K>>) -> InlineEditApi<K> {
     let initial = editing.get_untracked();
     let rename = machine(
         InlineEdit {
@@ -200,13 +199,7 @@ impl<K: ItemKey> InlineEditApi<K> {
     /// Create a headless editor; attach `.on_draft_commit(..).control()` to the drawn node.
     /// Mounting focuses and selects the text. Commit, cancel and removal end the rename.
     #[track_caller]
-    pub fn field(
-        self,
-        key: K,
-        label: impl IntoText,
-        draft: impl IntoBinding<String>,
-    ) -> TextEditApi {
-        let draft = draft.into_binding();
+    pub fn field(self, key: K, label: impl IntoText, draft: Signal<String>) -> TextEditApi {
         let restore_key = key.clone();
         let session = EditSession::new(move |text: String| {
             self.rename.send(Event::Typed {

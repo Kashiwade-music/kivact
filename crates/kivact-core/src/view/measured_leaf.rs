@@ -1,6 +1,6 @@
 //! Role: The `Primitive` builder: a leaf node whose author measures its size.
 
-use super::measurement::{Constraints, Measurement, constraints, sanitize};
+use crate::custom::measurement::{Constraints, Measurement, constraints, sanitize};
 use crate::state::IntoValue;
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{mount, view_fn};
@@ -11,8 +11,8 @@ use crate::view::sync_hook::{Current, HookSlot, SyncHook};
 use crate::view::{IntoView, View};
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::LeafMeasure;
-use kivact_runtime::EffectKind;
 use kivact_runtime::Prop as InputProp;
+use kivact_runtime::driver::EffectKind;
 use kivact_types::{self as values, NodeId};
 use std::cell::RefCell;
 use std::panic::Location;

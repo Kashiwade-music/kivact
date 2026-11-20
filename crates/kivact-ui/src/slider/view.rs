@@ -7,7 +7,7 @@ use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
 use kivact_core::motion::Transition;
-use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::style::{Length, Position, Style, TransitionProp, style, use_theme};
 use kivact_core::view::EditPhase;
@@ -20,8 +20,8 @@ use kivact_interaction::{RangeThumb, ScalarApi, ScalarRange, use_range_scalar, u
 
 /// The values a slider edits: one, or the two ends of a range.
 enum Values {
-    One(Binding<f64>),
-    Two(Binding<f64>, Binding<f64>),
+    One(Signal<f64>),
+    Two(Signal<f64>, Signal<f64>),
 }
 
 // xtask-allow(state): legacy: range, step
@@ -59,8 +59,8 @@ pub struct Slider {
 /// }
 /// ```
 #[track_caller]
-pub fn slider(label: impl IntoText, value: impl kivact_core::state::IntoBinding<f64>) -> Slider {
-    create(label.into_text_value(), Values::One(value.into_binding()))
+pub fn slider(label: impl IntoText, value: kivact_core::state::Signal<f64>) -> Slider {
+    create(label.into_text_value(), Values::One(value))
 }
 
 /// A themed slider named `label` with two thumbs editing the ends of a
@@ -74,13 +74,10 @@ pub fn slider(label: impl IntoText, value: impl kivact_core::state::IntoBinding<
 #[track_caller]
 pub fn range_slider(
     label: impl IntoText,
-    low: impl kivact_core::state::IntoBinding<f64>,
-    high: impl kivact_core::state::IntoBinding<f64>,
+    low: kivact_core::state::Signal<f64>,
+    high: kivact_core::state::Signal<f64>,
 ) -> Slider {
-    create(
-        label.into_text_value(),
-        Values::Two(low.into_binding(), high.into_binding()),
-    )
+    create(label.into_text_value(), Values::Two(low, high))
 }
 
 fn create(label: Value<String>, values: Values) -> Slider {
@@ -189,7 +186,7 @@ impl TrackFlow {
     fn new(vertical: bool) -> Self {
         if vertical {
             Self::BottomToTop
-        } else if use_direction().get() == ReadingDirection::Rtl {
+        } else if use_direction() == ReadingDirection::Rtl {
             Self::RightToLeft
         } else {
             Self::LeftToRight

@@ -1,11 +1,10 @@
 //! Numeric controls and sample display for creative.
 use crate::creative::audio_values::TransportState;
-use kivact::state::IntoBinding;
+use kivact::state::Signal;
 
 use super::common::{bind, col, note, spec, specs};
 use super::controls::{num, slide};
-use kivact::prelude::{Element, IntoView, Signal, column, rgb, row, signal};
-use kivact::state::Binding;
+use kivact::prelude::{Element, IntoView, column, rgb, row, signal};
 use kivact::style::{pct, style};
 use kivact_ui_creative as ui;
 
@@ -44,9 +43,9 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
             note("◇ をクリックでキー挿入（黄）／再クリックで削除。未キーのフレームは緑、ドライバー駆動は紫。"),
         )).style(style().gap(3))),
         spec("Timecode Field", "タイムコード", col((
-            ui::property_row("Start", tc("Start timecode", signal(0.0).into_binding())),
-            ui::property_row("End", tc("End timecode", signal(5760.0).into_binding())),
-            ui::property_row("Duration", tc("Duration timecode", signal(86.0).into_binding())),
+            ui::property_row("Start", tc("Start timecode", signal(0.0))),
+            ui::property_row("End", tc("End timecode", signal(5760.0))),
+            ui::property_row("Duration", tc("Duration timecode", signal(86.0))),
             ui::property_row("Current", tc("Current timecode", bind(move || transport.get().frame, move |frame| transport.update(|state| state.frame = frame)))),
             note("ドラッグでフレーム単位スクラブ／クリックで HH:MM:SS:FF 入力。+12 のような相対入力も可。"),
         )).role(kivact::view::Role::List).style(style().gap(3))),
@@ -64,7 +63,7 @@ pub(super) fn numeric(transport: Signal<TransportState>) -> impl IntoView {
         )).role(kivact::view::Role::List).style(style().gap(3))).style(style().min_height(190)),
     ))
 }
-fn tc(label: &str, state: Binding<f64>) -> ui::Numeric {
+fn tc(label: &str, state: Signal<f64>) -> ui::Numeric {
     ui::number(label.to_owned(), state)
         .range(0.0..=1_000_000.0)
         .timecode(24)

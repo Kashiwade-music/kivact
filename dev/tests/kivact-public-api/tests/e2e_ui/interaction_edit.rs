@@ -4,6 +4,7 @@
 //! a key press and an assistive technology action, so an app can make one undo
 //! step of each.
 
+use kivact::view::{EditPhase, Node, Orientation};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -13,7 +14,6 @@ use kivact::interaction::use_splitter;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
 use kivact::view::A11yAction;
-use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 
 /// The phases an observer saw, each with the value in the binding at that time.

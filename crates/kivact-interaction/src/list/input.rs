@@ -64,7 +64,7 @@ fn movement(
     if mode == ListMode::Activate && (modifiers.ctrl || modifiers.alt || modifiers.meta) {
         return None;
     }
-    let rtl = kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+    let rtl = kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
     let (right, left) = if rtl {
         (Movement::Previous, Movement::Next)
     } else {

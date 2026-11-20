@@ -4,7 +4,7 @@
 
 use kivact_engine::contract::HostEvent;
 use kivact_engine::contract::HostRequest;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{
     A11yRequest, DismissReason, KeyCode, KeyPhase, NodeId, RegionId, RequestId, Role, WindowId,
 };

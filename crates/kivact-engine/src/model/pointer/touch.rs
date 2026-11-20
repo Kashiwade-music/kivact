@@ -31,9 +31,9 @@ impl Model {
             for track in self.pointer.state.tracks.values_mut() {
                 if let Track::Touch(track) = track {
                     track.gesture = match std::mem::take(&mut track.gesture) {
-                        TouchGesture::Pending { route, .. } | TouchGesture::Route(route) => {
-                            TouchGesture::Route(route)
-                        }
+                        TouchGesture::Pending { route, .. }
+                        | TouchGesture::Route(route)
+                        | TouchGesture::SelectText { route, .. } => TouchGesture::Route(route),
                         TouchGesture::Pan(_) => TouchGesture::default(),
                     };
                 }
@@ -48,12 +48,17 @@ impl Model {
                     .is_some_and(|node| node.scroll_axes() != (false, false))
         });
         let modal = self.modal();
+        // A press that selects text (`SelectText`, made by the press
+        // before this) never starts a native scroll: only a routed press does.
         if let Some(from) = from
             && let Track::Touch(track) = self.pointer.state.track_mut(pointer)
+            && !matches!(track.gesture, TouchGesture::SelectText { .. })
         {
             let route = match std::mem::take(&mut track.gesture) {
                 TouchGesture::Route(route) | TouchGesture::Pending { route, .. } => route,
-                TouchGesture::Pan(_) => unreachable!("invariant: a new touch press is routed"),
+                TouchGesture::Pan(_) | TouchGesture::SelectText { .. } => {
+                    unreachable!("invariant: a new touch press is routed or selects text")
+                }
             };
             track.gesture = TouchGesture::Pending {
                 route,
@@ -149,7 +154,7 @@ impl Model {
                 };
                 track.gesture = TouchGesture::Pan(TouchPan { last: at, ..pan });
             }
-            TouchGesture::Route(_) => return false,
+            TouchGesture::Route(_) | TouchGesture::SelectText { .. } => return false,
         }
         self.settle(engine);
         true

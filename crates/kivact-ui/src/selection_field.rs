@@ -3,8 +3,7 @@ use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::Variants;
 use kivact_core::geometry::Rect;
 use kivact_core::state::{
-    Binding, IntoBinding, IntoText, IntoValue, Machine as MachineTrait, Step, Value, binding,
-    machine, signal,
+    IntoText, IntoValue, Machine as MachineTrait, Signal, Step, Value, binding, machine, signal,
 };
 use kivact_core::style::{Length, style, use_theme};
 use kivact_core::view::{
@@ -114,7 +113,7 @@ pub struct SelectionField {
     value_label: Value<String>,
     content: ViewFn,
     presentation: Value<crate::SelectPresentation>,
-    open: Option<Binding<bool>>,
+    open: Option<Signal<bool>>,
     variants: Variants,
 }
 /// Create a chooser trigger with an accessible name and a displayed value.
@@ -141,8 +140,8 @@ impl SelectionField {
         self
     }
     /// Use the application's binding as the sole visibility authority.
-    pub fn open(mut self, open: impl IntoBinding<bool>) -> Self {
-        self.open = Some(open.into_binding());
+    pub fn open(mut self, open: Signal<bool>) -> Self {
+        self.open = Some(open);
         self
     }
     /// Supply a theme-specific visual treatment.
@@ -160,7 +159,7 @@ impl Element for SelectionField {
 fn controller(
     root: &mut Node,
     target: kivact_core::view::NodeRef,
-    open: Binding<bool>,
+    open: Signal<bool>,
     presentation: Value<crate::SelectPresentation>,
 ) -> kivact_core::state::MachineHandle<FieldMachine> {
     let bounds = target.rect();
@@ -203,7 +202,7 @@ fn controller(
 
 impl IntoView for SelectionField {
     fn into_view(mut self) -> View {
-        let open = self.open.unwrap_or_else(|| signal(false).into_binding());
+        let open = self.open.unwrap_or_else(|| signal(false));
         let target = node_ref();
         let field = controller(&mut self.root, target, open, self.presentation);
         let part = kivact_core::custom::part(|input| input);
@@ -281,7 +280,7 @@ impl IntoView for SelectionField {
 }
 
 /// Draw the chooser indicator using the shared popup recipe state.
-fn indicator(open: Binding<bool>, variants: &Variants) -> View {
+fn indicator(open: Signal<bool>, variants: &Variants) -> View {
     with_recipe_style(
         node(),
         |r| r.select_recipes().indicator_recipe(),

@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use kivact::custom::scope;
 use kivact::platform::{self, LifecycleEvent, on_lifecycle};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;
@@ -126,7 +127,7 @@ fn component_initializes_once_in_mounting_context_and_cleans_up_on_removal() {
                     starts.set(starts.get() + 1);
                     let context = use_context::<String>();
                     on_cleanup(move || cleanups.set(cleanups.get() + 1));
-                    text(move || format!("{} {}", context.get(), value.get()))
+                    text(move || format!("{} {}", context, value.get()))
                 })
             })
         });

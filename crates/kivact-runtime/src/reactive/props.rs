@@ -1,7 +1,7 @@
 //! Role: Property value abstraction and render effects.
 //!
-//! `IntoValue`: every property accepts a constant, a `Signal`, a `Value`, a
-//! `Binding`, an `Animated` or a closure, and a component reads it with
+//! `IntoValue`: every property accepts a constant, a `Signal`, a `Value`, an
+//! `Animated` or a closure, and a component reads it with
 //! `into_value()`. Static values are passed to the engine's create call;
 //! dynamic ones get one render effect each. A string prop is normalized to
 //! an owned `String` (`&str` is a constant); a closure is `'static`.
@@ -20,7 +20,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 use crate::reactive::Owner;
-use crate::reactive::data::{Binding, BindingRepr, Signal, Value};
+use crate::reactive::data::{Signal, Value};
 
 enum PropRepr<T: 'static> {
     Static(T),
@@ -28,10 +28,9 @@ enum PropRepr<T: 'static> {
     Fn(Rc<dyn Fn() -> T>, fn(&T, &T) -> bool),
 }
 
-/// A property input as a component received it: a constant, an existing
-/// [`Value`], or a closure computed on every read ([`IntoValue::into_prop`]).
-/// It describes the input only; no graph node exists until
-/// [`Prop::into_value`] makes one.
+/// A property input as a component stores it: a constant, a `Value`, or a closure.
+/// `#[component]` props and `#[derive(Prop)]` use it; applications pass inputs through `IntoValue`.
+#[doc(hidden)]
 pub struct Prop<T: 'static>(PropRepr<T>);
 
 impl<T: Clone + 'static> Clone for Prop<T> {
@@ -45,6 +44,20 @@ impl<T: Clone + 'static> Clone for Prop<T> {
 }
 
 impl<T: 'static> Prop<T> {
+    /// Describe `input` without creating a graph node (no setup needed).
+    pub fn new(input: impl IntoValue<T>) -> Self {
+        input.into_prop()
+    }
+
+    /// The current value, untracked.
+    #[track_caller]
+    pub fn get_untracked(&self) -> T
+    where
+        T: Clone,
+    {
+        crate::reactive::frame::untrack(|| self.get())
+    }
+
     /// A fixed value. No graph node is created.
     pub fn constant(value: T) -> Self {
         Self(PropRepr::Static(value))
@@ -140,7 +153,7 @@ impl<T: 'static> Prop<T> {
 }
 
 /// Anything a property accepts: constants of the concrete property type,
-/// `Signal<T>`, `Value<T>`, `Binding<T>`, `Animated<T>` and `Fn() -> T`
+/// `Signal<T>`, `Value<T>`, `Animated<T>` and `Fn() -> T`
 /// closures. A closure result must implement `PartialEq` so its memo
 /// suppresses notifications for equal results. A component's own value
 /// type accepts constants once it derives `Clone` and `PartialEq` and is
@@ -148,7 +161,7 @@ impl<T: 'static> Prop<T> {
 /// author's guide).
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be used as a `{T}` property",
-    note = "pass a `{T}`, a closure `move || ..` returning one, or a `Signal`/`Value`/`Binding` of it",
+    note = "pass a `{T}`, a closure `move || ..` returning one, or a `Signal`/`Value` of it",
     note = "a closure returns an owned `{T}`, not a borrow of one (`.to_owned()`, `format!(..)`)"
 )]
 pub trait IntoValue<T: 'static> {
@@ -182,7 +195,7 @@ pub trait IntoValue<T: 'static> {
             PropRepr::Value(value) => value,
             source => {
                 let at = Location::caller();
-                let owner = Owner::current("IntoValue::into_value", at);
+                let owner = Owner::setup("IntoValue::into_value", at);
                 Prop(source).into_value(owner, at)
             }
         }
@@ -190,7 +203,7 @@ pub trait IntoValue<T: 'static> {
 }
 
 /// A text input: a constant (`&str`, `String`, `Rc<str>`), a reactive source of a
-/// `String` (`Signal`, `Value`, `Binding`, a stored `Reactive`), or a closure returning anything that
+/// `String` (`Signal`, `Value`), or a closure returning anything that
 /// becomes a `String` (`move || if on.get() { "on" } else { "off" }`).
 ///
 /// Every public parameter that shows text or names something for assistive
@@ -206,7 +219,7 @@ pub trait IntoValue<T: 'static> {
 /// This trait is sealed: the listed types are all there are.
 #[diagnostic::on_unimplemented(
     message = "`{Self}` cannot be used as text",
-    note = "pass a `&str`, a `String`, a `Signal`/`Value`/`Binding` of a `String`, or a closure `move || ..` returning a `&str` or `String`",
+    note = "pass a `&str`, a `String`, a `Signal`/`Value` of a `String`, or a closure `move || ..` returning a `&str` or `String`",
     note = "format a number first: `move || count.get().to_string()`"
 )]
 pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
@@ -237,7 +250,7 @@ pub trait IntoText: crate::reactive::sealed::IntoTextSeal {
             PropRepr::Value(value) => value,
             source => {
                 let at = Location::caller();
-                let owner = Owner::current("IntoText::into_text_value", at);
+                let owner = Owner::setup("IntoText::into_text_value", at);
                 Prop(source).into_value(owner, at)
             }
         }
@@ -249,8 +262,6 @@ impl crate::reactive::sealed::IntoTextSeal for String {}
 impl crate::reactive::sealed::IntoTextSeal for Rc<str> {}
 impl crate::reactive::sealed::IntoTextSeal for Signal<String> {}
 impl crate::reactive::sealed::IntoTextSeal for Value<String> {}
-impl crate::reactive::sealed::IntoTextSeal for Binding<String> {}
-impl crate::reactive::sealed::IntoTextSeal for Reactive<String> {}
 impl<R: Into<String>, F: Fn() -> R + 'static> crate::reactive::sealed::IntoTextSeal for F {}
 
 impl IntoText for &str {
@@ -283,20 +294,6 @@ impl IntoText for Value<String> {
     }
 }
 
-impl IntoText for Binding<String> {
-    fn into_text(self) -> Prop<String> {
-        self.into_prop()
-    }
-}
-
-/// A text kept as data, such as the label of a choice option in application
-/// state.
-impl IntoText for Reactive<String> {
-    fn into_text(self) -> Prop<String> {
-        self.into_prop()
-    }
-}
-
 // Not recommended in diagnostics, as for `IntoValue`: a wrong input is
 // reported once, as not text, instead of as a closure with the wrong return
 // type.
@@ -307,95 +304,33 @@ impl<R: Into<String>, F: Fn() -> R + 'static> IntoText for F {
     }
 }
 
-/// A reactive input: a `Signal`, `Value`, `Binding`, `Animated` or a
-/// `Fn() -> T` closure, excluding raw scalar constants. This marker uses
-/// [`IntoValue::into_prop`] for ownerless conversion. Control flow (`show`, `show_some`,
-/// `dynamic`) takes it: a branch that never changes needs no control flow,
-/// and a constant there is usually a value read once by mistake
-/// (`show(open.get(), ..)` instead of `show(open, ..)`).
-#[diagnostic::on_unimplemented(
-    message = "`{Self}` is not a reactive `{T}`",
-    label = "a constant here would never change",
-    note = "pass the reactive value itself (`open`, a `Signal`, `Value` or `Binding`), or a closure that reads it (`move || open.get()`)"
-)]
-pub trait IntoReactive<T: 'static>: IntoValue<T> {}
-
-impl<T: 'static> IntoReactive<T> for Value<T> {}
-impl<T: 'static> IntoReactive<T> for Signal<T> {}
-impl<T: Clone + PartialEq + 'static> IntoReactive<T> for Binding<T> {}
-
-// Keep raw scalar constants outside the reactive control-flow boundary.
-#[diagnostic::do_not_recommend]
-impl<T: PartialEq + 'static, F: Fn() -> T + 'static> IntoReactive<T> for F {}
-
-/// A property input that can be stored and built anywhere: a constant, a
-/// closure, or an existing `Value` or `Signal`. It has no owner, so creating
-/// it needs no setup; normalize it to a [`Value`] with
-/// [`IntoValue::into_value`].
-///
-/// Closure results implement `PartialEq` for memo equality on normalization.
-/// Use it for plain data that carries a label which may change, such as a
-/// choice option kept in application state. A [`Value`] is an owner-bound
-/// handle to a graph node or constant arena entry; creating either needs
-/// setup, while existing handles retain their identity in any phase.
-/// A `Reactive` is ordinary
-/// data that is cloned, compared by its holder and kept for as long as the
-/// holder lives. The standard components take it for the labels of
-/// `ListItem` and `MenuEntry`, and turn it into a `Value` of the using
-/// component's owner with `into_value()` in its setup.
-///
-/// Use the public facade's `kivact::view::Reactive` in application code.
-pub struct Reactive<T: 'static>(Prop<T>);
-
-impl<T: Clone + 'static> Clone for Reactive<T> {
-    fn clone(&self) -> Self {
-        Reactive(self.0.clone())
-    }
-}
-
-impl<T: 'static> Reactive<T> {
-    /// Wrap a property input. Never requires setup.
-    pub fn new(input: impl IntoValue<T>) -> Self {
-        Reactive(input.into_prop())
-    }
-
-    /// Current value; tracked when called inside a computation.
-    #[track_caller]
-    pub fn get(&self) -> T
-    where
-        T: Clone,
-    {
-        self.0.get()
-    }
-
-    /// Current value without tracking.
-    #[track_caller]
-    pub fn get_untracked(&self) -> T
-    where
-        T: Clone,
-    {
-        crate::reactive::frame::untrack(|| self.0.get())
-    }
-}
-
-impl Reactive<String> {
-    /// A text input (as `text(..)` takes it), stored without an owner.
-    pub fn from_text(input: impl IntoText) -> Self {
-        Reactive(input.into_text())
-    }
-}
-
-/// Equal constants are equal; a `Value` or `Signal` is equal to the same
-/// node, and a closure to a clone of itself. Different kinds of input are
-/// never equal, even when they currently read the same value.
-impl<T: PartialEq + 'static> PartialEq for Reactive<T> {
+/// Equal constants are equal; a `Value` is equal to the same node, and a
+/// closure to a clone of itself. Different kinds of input are never equal,
+/// even when they currently read the same value.
+impl<T: PartialEq + 'static> PartialEq for Prop<T> {
     fn eq(&self, other: &Self) -> bool {
-        match (&self.0.0, &other.0.0) {
+        match (&self.0, &other.0) {
             (PropRepr::Static(a), PropRepr::Static(b)) => a == b,
             (PropRepr::Value(a), PropRepr::Value(b)) => a == b,
             (PropRepr::Fn(a, _), PropRepr::Fn(b, _)) => Rc::ptr_eq(a, b),
             _ => false,
         }
+    }
+}
+
+impl<T: std::fmt::Debug + 'static> std::fmt::Debug for Prop<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.0 {
+            PropRepr::Static(v) => write!(f, "Prop({v:?})"),
+            _ => f.write_str("<reactive>"),
+        }
+    }
+}
+
+impl Prop<String> {
+    /// A text input (as `text(..)` takes it), described without an owner.
+    pub fn from_text(input: impl IntoText) -> Self {
+        input.into_text()
     }
 }
 
@@ -407,21 +342,6 @@ impl<T: 'static> IntoValue<T> for Prop<T> {
     }
 }
 
-impl<T: Clone + 'static> IntoValue<T> for Reactive<T> {
-    fn into_prop(self) -> Prop<T> {
-        self.0
-    }
-}
-
-impl<T: std::fmt::Debug + 'static> std::fmt::Debug for Reactive<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.0.0 {
-            PropRepr::Static(v) => write!(f, "Reactive({v:?})"),
-            _ => f.write_str("<reactive>"),
-        }
-    }
-}
-
 impl<T: 'static> IntoValue<T> for Value<T> {
     fn into_prop(self) -> Prop<T> {
         Prop(PropRepr::Value(self))
@@ -430,16 +350,7 @@ impl<T: 'static> IntoValue<T> for Value<T> {
 
 impl<T: 'static> IntoValue<T> for Signal<T> {
     fn into_prop(self) -> Prop<T> {
-        Prop(PropRepr::Value(Value::node(self.app, self.key)))
-    }
-}
-
-impl<T: Clone + PartialEq + 'static> IntoValue<T> for Binding<T> {
-    fn into_prop(self) -> Prop<T> {
-        Prop(PropRepr::Value(match self.repr {
-            BindingRepr::Signal(signal) => Value::node(signal.app, signal.key),
-            BindingRepr::Pair(value, _) => value,
-        }))
+        Prop(PropRepr::Value(self.as_value()))
     }
 }
 
@@ -457,19 +368,6 @@ impl<T: PartialEq + 'static, F: Fn() -> T + 'static> IntoValue<T> for F {
 impl IntoValue<String> for &str {
     fn into_prop(self) -> Prop<String> {
         Prop(PropRepr::Static(self.to_string()))
-    }
-}
-
-/// A shared text: copied once, then cloned without copying.
-impl IntoValue<Rc<str>> for &str {
-    fn into_prop(self) -> Prop<Rc<str>> {
-        Prop(PropRepr::Static(Rc::from(self)))
-    }
-}
-
-impl IntoValue<Rc<str>> for String {
-    fn into_prop(self) -> Prop<Rc<str>> {
-        Prop(PropRepr::Static(Rc::from(self)))
     }
 }
 
@@ -491,11 +389,10 @@ impl<T: Clone + 'static> IntoValue<Option<T>> for Option<T> {
     }
 }
 
-/// Implements `IntoValue<T> for T` for each listed type, so a component can
-/// accept its own `Clone + PartialEq` type as a prop, as a constant and as a
-/// signal, `Value` or closure alike. Use it once per type, in the crate that
-/// defines the type. Kivact's own crates and external component crates use
-/// the same macro, through `kivact::state::constant_value!`.
+/// Implements `IntoValue<T> for T` for each listed type. Hidden: the crates
+/// below the facade use it for their own value types; application and kit
+/// types use `#[derive(Prop)]`.
+#[doc(hidden)]
 #[macro_export]
 macro_rules! constant_value {
     ($($t:ty),*) => {$(
@@ -529,9 +426,6 @@ constant_value!(
     usize,
     char
 );
-
-// A shared text: native editors take one and know it by identity.
-constant_value!(Rc<str>);
 
 constant_value!(
     kivact_types::Modifiers,

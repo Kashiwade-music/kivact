@@ -19,7 +19,6 @@
 //! trigger opens that menu.
 
 use kivact_core::custom::{Part, PartState};
-use kivact_core::state::IntoBinding;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Value, Var, memo, signal, var};
 use kivact_core::view::{
@@ -86,7 +85,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
     let focus = signal(None::<usize>);
     let list = use_list(
         items,
-        Selection::Single(focus.into_binding()),
+        Selection::Single(focus),
         ListOptions {
             axis: Some(Orientation::Horizontal),
             boundary: ListBoundary::Wrap,
@@ -96,7 +95,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         },
     );
     let menus = var(menus);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     menus.with(|items| {
         for (at, menu) in items.iter().copied().enumerate() {
             menu.menubar_navigation(kivact_core::state::callback(move |right| {

@@ -118,8 +118,8 @@ fn initial_scale(options: &EmbedOptions, parent: NonZeroIsize) -> f64 {
 }
 
 /// Show the child only when the embed options ask for it.
-fn show_if_visible(hwnd: isize, visibility: kivact_types::embed::Visibility) {
-    if visibility == kivact_types::embed::Visibility::Shown {
+fn show_if_visible(hwnd: isize, visibility: kivact_types::embed::EmbedVisibility) {
+    if visibility == kivact_types::embed::EmbedVisibility::Shown {
         // SAFETY: show only this live child, retaining the host's activation.
         unsafe { ShowWindow(hwnd, SW_SHOWNOACTIVATE) };
     }

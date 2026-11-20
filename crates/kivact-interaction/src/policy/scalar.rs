@@ -1,5 +1,6 @@
 //! Role: Validated scalar bounds and optional quantization, independent of a UI runtime.
 
+use kivact_macros::Prop;
 use std::fmt;
 
 /// Invalid bounds or quantization for [`ScalarRange`].
@@ -34,7 +35,7 @@ impl std::error::Error for ScalarRangeError {}
 /// What one key press, wheel notch or assistive increment moves a scalar by.
 ///
 /// A plain number is a [`Value`](Self::Value) step: `key_step(0.5)`.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub enum ScalarStep {
     /// In the value's units (1 dB, 1 frame). The range's own quantization still
     /// applies.
@@ -86,7 +87,7 @@ impl From<i32> for ScalarStep {
 /// assert_eq!(uneven.normalize(9.0), Some(8.0));
 /// # Ok::<(), kivact::interaction::ScalarRangeError>(())
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct ScalarRange {
     min: f64,
     max: f64,

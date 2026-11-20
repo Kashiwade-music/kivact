@@ -5,6 +5,7 @@
 //! Cancel end it. Escape stops any active drag and otherwise reaches the
 //! component; `Drag::buttons` starts a drag with another button.
 
+use kivact::view::{EditPhase, Node};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -12,7 +13,6 @@ use kivact::custom::part;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, EditSession, use_drag};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen};
-use kivact::view::MouseButton;
 use kivact_public_api_tests::support::mount_with;
 
 /// What the drag reported: its edit phases with the value at that time, the

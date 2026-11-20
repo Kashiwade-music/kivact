@@ -7,7 +7,7 @@
 use crate::EditSession;
 use kivact_core::UiError;
 use kivact_core::state::callback;
-use kivact_core::state::{Binding, Callback, IntoValue, effect_on};
+use kivact_core::state::{Callback, IntoValue, Signal, effect_on};
 use kivact_core::view::EditPhase;
 use kivact_core::view::{Handled, Key, KeyEvent, Modifiers, NodeRef};
 use kivact_core::view::{Node, node_ref};
@@ -31,7 +31,7 @@ struct Drafting {
     commit: Callback<String>,
     failed: Callback<UiError>,
     session: EditSession<String>,
-    value: Binding<String>,
+    value: Signal<String>,
     return_focus: Option<NodeRef>,
 }
 
@@ -80,7 +80,7 @@ pub(crate) struct Installed {
 /// only.
 pub(crate) fn install(
     draft: DraftOptions,
-    value: Binding<String>,
+    value: Signal<String>,
     mut node: Node,
 ) -> (Node, Installed) {
     let invalid = node

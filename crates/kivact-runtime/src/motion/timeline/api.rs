@@ -19,7 +19,7 @@ use kivact_types::motion::{PlayDirection, Transition};
 use super::super::Repeat;
 use super::super::animated::shift;
 use super::super::state::{
-    Anim, AnimInfo, AnimKind, LoopMotion, MotionState, MotionToken, RunStatus, motion_now,
+    Anim, AnimInfo, AnimKind, LoopMotion, MotionToken, RunStatus, motion_now,
 };
 use super::super::transition::Kind;
 use super::super::values::Animatable;
@@ -27,8 +27,9 @@ use super::calls::{Move, Reach, Reps};
 use super::curve::{seg_value, spring_rest_ms};
 use super::plan::{Plan, TrackSlot, TrackState, build_plan, span_of};
 use super::segment::{SegmentDef, SegmentKind};
+use crate::driver::EffectKind;
 use crate::{
-    Callback, EffectKind, ErrorKind, IntoValue, Notifier, Owned, Owner, Signal, UiError, Value,
+    Callback, ErrorKind, IntoValue, Owned, Owner, Signal, Trigger, UiError, Value,
     require_effectful, require_setup,
 };
 
@@ -43,13 +44,13 @@ pub struct Timeline {
 #[track_caller]
 pub fn timeline() -> Timeline {
     let at = Location::caller();
-    let owner = Owner::current("timeline", at);
+    let owner = Owner::setup("timeline", at);
     let rt = owner.runtime();
-    let registration = MotionState::of(&rt).token(rt.id());
+    let registration = rt.motion().token(rt.id());
     let motion_id = registration.id;
     let cell = Rc::new(TimelineCell::new(owner, at, registration));
     let anim: Rc<dyn Anim> = cell.clone();
-    MotionState::of(&rt).register_anim(motion_id, &anim);
+    rt.motion().register_anim(motion_id, &anim);
     drop(anim);
     let events = cell.events;
     let weak = Rc::downgrade(&cell);
@@ -243,7 +244,7 @@ impl Timeline {
 
     /// A call of `f` at `at`: a segment of length zero (setup only).
     #[track_caller]
-    pub fn call(&self, at: At, f: impl Into<Callback<()>>) -> Segment {
+    pub fn call<M>(&self, at: At, f: impl crate::IntoHandler<(), M>) -> Segment {
         let location = Location::caller();
         require_setup("Timeline::call");
         let cell = self.cell(location);
@@ -251,7 +252,7 @@ impl Timeline {
             SegmentDef {
                 start: 0.0,
                 len: 0.0,
-                kind: SegmentKind::Call(f.into()),
+                kind: SegmentKind::Call(Callback::from_handler(f.into_handler())),
             },
             at,
             location,
@@ -316,12 +317,12 @@ impl Timeline {
     /// Register a setup-owned callback for the completion of a playback
     /// (setup only). A driven timeline never completes.
     #[track_caller]
-    pub fn on_complete(self, f: impl Into<Callback<()>>) -> Timeline {
+    pub fn on_complete<M>(self, f: impl crate::IntoHandler<(), M>) -> Timeline {
         require_setup("Timeline::on_complete");
         self.cell(Location::caller())
             .completions
             .borrow_mut()
-            .push(f.into());
+            .push(Callback::from_handler(f.into_handler()));
         self
     }
 
@@ -494,7 +495,7 @@ pub(crate) struct TimelineCell {
     /// The time last published (ms).
     time: Signal<f64>,
     /// Wakes the watcher that runs `pending`.
-    events: Notifier,
+    events: Trigger,
     playback: Cell<Playback>,
     repeat: Cell<Repeat>,
     alternate: Cell<PlayDirection>,
@@ -514,9 +515,9 @@ impl TimelineCell {
         self.phase.set(next);
         let now = self.is_running();
         if was != now
-            && let Some(rt) = crate::Runtime::get(self.owner.app())
+            && let Some(rt) = crate::driver::Runtime::get(self.owner.app())
         {
-            MotionState::of(&rt).set_anim_running(self.registration.id, now);
+            rt.motion().set_anim_running(self.registration.id, now);
         }
     }
 
@@ -526,7 +527,7 @@ impl TimelineCell {
             owner,
             phase: owner.signal(TimelinePhase::Idle { time: 0.0 }, at),
             time: owner.signal(0.0, at),
-            events: owner.notifier(at),
+            events: owner.trigger(at),
             playback: Cell::new(Playback {
                 rate: 1.0,
                 direction: Direction::Forward,
@@ -549,7 +550,7 @@ impl TimelineCell {
 
     fn reduced(&self) -> bool {
         let rt = self.owner.runtime();
-        MotionState::of(&rt).reduced_motion(&rt)
+        rt.motion().reduced_motion(&rt)
     }
 
     fn wake(&self) {

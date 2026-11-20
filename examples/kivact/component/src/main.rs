@@ -10,9 +10,9 @@ use kivact::prelude::*;
 #[component]
 fn card(
     title: Value<String>,
-    #[prop(optional)] on_close: Option<Callback<()>>,
-    content: ViewFn,
-) -> impl IntoView {
+    on_close: Option<Callback<()>>,
+    content: kivact::view::ViewFn,
+) -> impl Element {
     let open = signal(true);
     let close = on_close.map(|on_close| button("Close").on_press(on_close));
     column((
@@ -28,7 +28,6 @@ fn card(
     .style(style().padding(12).gap(8))
 }
 
-// xtask-allow(state): legacy: first, second; whether the First card is shown, cleared only by its own close button and never set back; the Second card has its own signal, so
 fn app() -> impl IntoView {
     let first = signal(true);
     let second = signal(true);
