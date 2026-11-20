@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use crate::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::{
     A11yAction, DrawList, FocusTarget, LayoutProps, Overflow, OverlayProps, PaintProps, Point,
     Position, Rect, Region, RegionId, Role, Size, StateStyles, TextStyle,
@@ -372,13 +372,21 @@ impl HostNode {
 
     /// `Disabled` on the node itself.
     pub(crate) fn disabled(&self) -> bool {
-        self.properties.input.disabled.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::Disabled)
+            .unwrap_or(false)
     }
 
     /// Hidden by its own props (`Hidden`, or a hidden layout).
     /// `HitTestable`: whether the pointer hits the node and its subtree.
     pub(crate) fn hit_testable(&self) -> bool {
-        self.properties.input.hit_testable.unwrap_or(true)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::HitTestable)
+            .unwrap_or(true)
     }
 
     /// Hidden visually while retaining its layout box.
@@ -388,7 +396,12 @@ impl HostNode {
     }
 
     pub(crate) fn hidden(&self) -> bool {
-        self.properties.input.hidden.unwrap_or(false) || self.layout().is_some_and(|l| l.hidden)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::Hidden)
+            .unwrap_or(false)
+            || self.layout().is_some_and(|l| l.hidden)
     }
 
     /// `Selected`.
@@ -415,10 +428,21 @@ impl HostNode {
     /// not hidden and eligible while disabled. A tab stop must also be shown
     /// ([`crate::model::Model::is_tab_stop`]).
     pub(crate) fn focusable(&self, editor_present: bool) -> bool {
-        let focusable = self.properties.input.focusable.unwrap_or(editor_present);
+        let focusable = self
+            .properties
+            .input
+            .flags
+            .get(InputFlag::Focusable)
+            .unwrap_or(editor_present);
         focusable
             && !self.is_transparent()
-            && (!self.disabled() || self.properties.input.focusable_when_disabled == Some(true))
+            && (!self.disabled()
+                || self
+                    .properties
+                    .input
+                    .flags
+                    .get(InputFlag::FocusableWhenDisabled)
+                    == Some(true))
             && !self.hidden()
     }
 
@@ -438,12 +462,20 @@ impl HostNode {
 
     /// Listens to pointer events.
     pub(crate) fn listens_pointer(&self) -> bool {
-        self.properties.input.listen_pointer.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::ListenPointer)
+            .unwrap_or(false)
     }
 
     /// Listens to wheel events.
     pub(crate) fn listens_wheel(&self) -> bool {
-        self.properties.input.listen_wheel.unwrap_or(false)
+        self.properties
+            .input
+            .flags
+            .get(InputFlag::ListenWheel)
+            .unwrap_or(false)
     }
 
     /// Which axes scroll (`overflow: Scroll`), `(x, y)`.

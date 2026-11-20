@@ -155,6 +155,9 @@ macro_rules! props {
     (@store $w:ident, $id:ident, $v:ident, $m:ident, field($value:expr, $place:expr)) => {
         $w.record($id, |model| model.set_prop($id, $value, $place, $m))
     };
+    (@store $w:ident, $id:ident, $v:ident, $m:ident, flag($flag:expr)) => {
+        $w.record($id, |model| model.set_input_flag($id, $flag, $v, $m))
+    };
     (@store $w:ident, $id:ident, $v:ident, $m:ident, boxed($value:expr, $place:expr)) => {
         $w.record($id, |model| model.set_boxed_prop($id, $value, $place, $m))
     };
@@ -185,23 +188,23 @@ props! {
         mut = Mut::STATES.and(Mut::PAYLOAD_ONLY);
     /// Replace the node's disabled when its value differs.
     Disabled: set_disabled(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.disabled)),
+        => flag(crate::contract::InputFlag::Disabled),
         mut = Mut::SUBTREE, then = after_disabled;
     /// Replace the node's hidden when its value differs.
     Hidden: set_hidden(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.hidden)),
+        => flag(crate::contract::InputFlag::Hidden),
         mut = Mut::STYLE.and(Mut::RESTACK);
     /// Replace whether the pointer hits the node and its subtree.
     HitTestable: set_hit_testable(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.hit_testable)),
+        => flag(crate::contract::InputFlag::HitTestable),
         mut = Mut::NONE;
     /// Replace the node's focusable when its value differs.
     Focusable: set_focusable(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.focusable)),
+        => flag(crate::contract::InputFlag::Focusable),
         mut = Mut::NONE;
     /// Whether a disabled node can still take keyboard focus.
     FocusableWhenDisabled: set_focusable_when_disabled(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.focusable_when_disabled)),
+        => flag(crate::contract::InputFlag::FocusableWhenDisabled),
         mut = Mut::NONE;
     /// Group native Tab stops at this node.
     RovingFocus: set_roving_focus(v: crate::contract::RovingFocus)
@@ -209,7 +212,7 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's listen pointer when its value differs.
     ListenPointer: set_listen_pointer(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.listen_pointer)),
+        => flag(crate::contract::InputFlag::ListenPointer),
         mut = Mut::NONE;
     /// Replace the node's focus on press when its value differs.
     FocusOnPress: set_focus_on_press(v: Option<FocusTarget>)
@@ -217,11 +220,11 @@ props! {
         mut = Mut::NONE;
     /// Replace the node's listen wheel when its value differs.
     ListenWheel: set_listen_wheel(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.listen_wheel)),
+        => flag(crate::contract::InputFlag::ListenWheel),
         mut = Mut::NONE;
     /// Replace the node's listen file when its value differs.
     ListenFile: set_listen_file(v: bool)
-        => field(Some(v), |p| Some(&mut p.input.listen_file)),
+        => flag(crate::contract::InputFlag::ListenFile),
         mut = Mut::NONE;
     /// Replace the node's role when its value differs.
     Role: set_role(v: Role)

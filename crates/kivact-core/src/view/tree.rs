@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use kivact_engine::api::{Prop, PropValue};
 use kivact_engine::api::{Reader, Writer};
-use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
+use kivact_engine::contract::{InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::{DrawList, IdMap, NodeId, Rect, Size, WindowId};
 
 use crate::view::handler_layers::EventHandlers;
@@ -583,13 +583,19 @@ impl ViewNodes {
 
     #[cfg(feature = "devtools")]
     pub(crate) fn hidden(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.hidden))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Hidden))
+        })
     }
     pub(crate) fn disabled(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.disabled))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Disabled))
+        })
     }
     pub(crate) fn focusable(&self, id: NodeId) -> Option<bool> {
-        self.with_node(id, |node| node.and_then(|node| node.input.focusable))
+        self.with_node(id, |node| {
+            node.and_then(|node| node.input.flags.get(InputFlag::Focusable))
+        })
     }
     /// Write `value` to node `id`, attributing it to `writer`, the
     /// Render/Internal effect running (`Runtime::running_effect`).
@@ -843,7 +849,7 @@ impl ViewNodes {
     fn overlay_hidden(&self, id: NodeId) -> bool {
         self.with_node(id, |node| {
             node.is_some_and(|node| {
-                node.input.hidden == Some(true)
+                node.input.flags.get(InputFlag::Hidden) == Some(true)
                     || node.layout.as_ref().is_some_and(|layout| layout.hidden)
             })
         })
@@ -909,7 +915,7 @@ impl ViewNodes {
         }
         let text_input = self.with_node(id, |node| node.is_some_and(|node| node.editing.is_some()));
         let retain = self.with_node(id, |node| {
-            node.is_some_and(|n| n.input.focusable_when_disabled == Some(true))
+            node.is_some_and(|n| n.input.flags.get(InputFlag::FocusableWhenDisabled) == Some(true))
         });
         self.focusable(id).unwrap_or(text_input) && (retain || self.disabled(id) != Some(true))
     }

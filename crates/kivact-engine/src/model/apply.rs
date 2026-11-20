@@ -28,7 +28,9 @@
 
 use std::sync::Arc;
 
-use crate::contract::{DrawableMode, HostEvent, NodeKind, NodeProperties, NodeType, SceneLayer};
+use crate::contract::{
+    DrawableMode, HostEvent, InputFlag, NodeKind, NodeProperties, NodeType, SceneLayer,
+};
 use crate::mutation::Mutation;
 use crate::tree::node::{LeavingRole, NodePresence, Notify};
 use kivact_types::{DrawList, ElementTransform, NodeId, Point, RequestId};
@@ -208,6 +210,48 @@ impl Model {
         id: NodeId,
         value: Option<T>,
         field: impl Fn(&mut NodeProperties) -> Option<&mut Option<T>>,
+        mutation: Mutation,
+    ) -> bool {
+        self.store_prop(
+            id,
+            value,
+            |p, value| field(p).map(|old| *old != *value),
+            |p, value| {
+                if let Some(old) = field(p) {
+                    *old = value;
+                }
+            },
+            mutation,
+        )
+    }
+
+    /// Store the input flag `flag` of `id` as `value` when it differs and
+    /// record what it outdates (as `set_prop`).
+    pub(crate) fn set_input_flag(
+        &mut self,
+        id: NodeId,
+        flag: InputFlag,
+        value: bool,
+        mutation: Mutation,
+    ) -> bool {
+        self.store_prop(
+            id,
+            value,
+            |p, value| Some(p.input.flags.get(flag) != Some(*value)),
+            |p, value| p.input.flags.set(flag, Some(value)),
+            mutation,
+        )
+    }
+
+    /// Store one property of `id` when `differs` says the value differs
+    /// (`None`: the node's kind has no such property) and record what it
+    /// outdates; `store` writes the value, once.
+    fn store_prop<V>(
+        &mut self,
+        id: NodeId,
+        value: V,
+        differs: impl Fn(&mut NodeProperties, &V) -> Option<bool>,
+        store: impl FnOnce(&mut NodeProperties, V),
         mut mutation: Mutation,
     ) -> bool {
         let animate_text = mutation.text && self.tree.attached(id);
@@ -218,10 +262,7 @@ impl Model {
         let visibility = mutation
             .style
             .then(|| (node.hidden(), node.visibility_hidden()));
-        let Some(old) = field(&mut node.properties) else {
-            return false;
-        };
-        if *old == value {
+        if differs(&mut node.properties, &value) != Some(true) {
             return false;
         }
         if mutation.read_only {
@@ -233,7 +274,7 @@ impl Model {
                 .tree
                 .get_mut(id)
                 .expect("invariant: input edit keeps node");
-            *field(&mut node.properties).expect("invariant: input edit keeps its kind") = value;
+            store(&mut node.properties, value);
         } else if mutation.paint || mutation.states {
             let old_place = node
                 .paint()
@@ -249,7 +290,7 @@ impl Model {
                 .tree
                 .get_mut(id)
                 .expect("invariant: state preparation keeps node");
-            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
+            store(&mut node.properties, value);
             mutation.placed |= if mutation.paint {
                 old_place
                     != node
@@ -265,9 +306,9 @@ impl Model {
                 .tree
                 .get_mut(id)
                 .expect("invariant: text transition preparation keeps node");
-            *field(&mut node.properties).expect("invariant: setter field keeps its kind") = value;
+            store(&mut node.properties, value);
         } else {
-            *old = value;
+            store(&mut node.properties, value);
         }
         if role.is_some_and(|was| self.tree.get(id).is_some_and(|n| flat_role(n) != was)) {
             self.reflattened(id);

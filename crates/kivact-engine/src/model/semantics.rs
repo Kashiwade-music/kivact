@@ -25,7 +25,7 @@
 //!   technology). The accessibility tree and the test driver take the
 //!   exposure from this one function.
 
-use crate::contract::NodeType;
+use crate::contract::{InputFlag, NodeType};
 use kivact_types::{A11yAction, NodeId, RegionId, Role};
 
 use crate::model::Model;
@@ -156,7 +156,7 @@ impl Model {
             in_live_region: false,
         };
         for (_, n) in self.tree.ancestors(start) {
-            if n.properties.input.hidden == Some(true) {
+            if n.properties.input.flags.get(InputFlag::Hidden) == Some(true) {
                 flags.visible = false;
             }
             if n.properties
