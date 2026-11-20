@@ -166,7 +166,7 @@ impl TextEditing {
                         .into_iter()
                         .map(|r| kivact_editing::RangeDecoration {
                             range: r.range,
-                            color: r.color.resolve(&theme),
+                            color: kivact_style::internal::resolve_color(r.color, &theme),
                             kind: match r.kind {
                                 DecorationKind::Underline(style) => {
                                     kivact_editing::RangeDecorationKind::Underline(style)
@@ -350,8 +350,12 @@ where
                         .into_iter()
                         .map(|r| kivact_editing::LineStyle {
                             range: r.range,
-                            color: r.color.map(|c| c.resolve(theme)),
-                            background: r.background.map(|c| c.resolve(theme)),
+                            color: r
+                                .color
+                                .map(|c| kivact_style::internal::resolve_color(c, theme)),
+                            background: r
+                                .background
+                                .map(|c| kivact_style::internal::resolve_color(c, theme)),
                             decoration: r
                                 .decoration
                                 .map(|d| kivact_style::internal::compile_text_decoration(d, theme)),

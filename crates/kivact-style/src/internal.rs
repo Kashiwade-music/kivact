@@ -75,6 +75,19 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
     CompiledSpanStyle { props, unsupported }
 }
 
+/// The color as the engine paints it, for core's text editing and custom paint bridges.
+pub fn resolve_color(color: crate::Color, theme: &Theme) -> p::Rgba {
+    color.resolve(theme)
+}
+
+/// The theme in effect for the current owner, if there is one: like
+/// [`crate::use_theme`] but never a misuse and untracked (animation and
+/// luminance read it outside setup).
+pub fn try_use_theme() -> Option<Theme> {
+    let owner = kivact_runtime::Owner::try_ambient()?;
+    theme_of(owner).map(|theme| kivact_runtime::untrack(|| theme.get()))
+}
+
 /// Resolve an editing range's decoration using the current theme.
 pub fn compile_text_decoration(value: crate::TextDecoration, theme: &Theme) -> p::TextDecoration {
     p::TextDecoration {

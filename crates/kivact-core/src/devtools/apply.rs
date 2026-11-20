@@ -501,7 +501,7 @@ pub(crate) fn token_list(theme: &Theme) -> Vec<p::ThemeToken> {
         tokens.push(p::ThemeToken {
             name: format!("colors.{name}"),
             kind: p::TokenKind::Color,
-            value: hex(theme.get(var).components_in(theme)),
+            value: hex(theme.get(var).components(theme)),
         });
     }
     for (name, value) in [

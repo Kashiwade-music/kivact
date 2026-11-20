@@ -22,13 +22,8 @@ pub(super) fn surface(header: bool, selected: bool, tint: Option<Color>) -> Styl
 }
 
 fn over(theme: &Theme, overlay: Color, surface: Color) -> Color {
-    let top = overlay.resolve(theme);
-    let base = surface.resolve(theme);
-    let mix = |a: f64, b: f64| a * top.a + b * (1.0 - top.a);
-    Color::from_rgba_f64(
-        mix(top.r, base.r),
-        mix(top.g, base.g),
-        mix(top.b, base.b),
-        1.0,
-    )
+    let [tr, tg, tb, ta] = overlay.components(theme);
+    let [br, bg, bb, _] = surface.components(theme);
+    let mix = |a: f64, b: f64| a * ta + b * (1.0 - ta);
+    Color::from_rgba_f64(mix(tr, br), mix(tg, bg), mix(tb, bb), 1.0)
 }

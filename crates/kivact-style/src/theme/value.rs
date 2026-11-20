@@ -8,10 +8,11 @@
 //!   extended theme shares it.
 //! - A theme switches through the tracking of `use_theme()` in
 //!   `.style(..)` closures and of `provide_theme`, without remounting.
-//! - `Color::components_in(theme)` and `mix_in(other, amount, theme)`
-//!   resolve tokens in the given theme; `components` and `mix` use the
-//!   default theme. Mixing interpolates alpha-premultiplied Oklab, and the
-//!   result stays in its space until it is painted.
+//! - `Color::components(theme)` and `mix(other, amount, theme)` resolve
+//!   variables in the given theme; animation and luminance resolve them in
+//!   the theme in effect (`try_use_theme`). Mixing interpolates
+//!   alpha-premultiplied Oklab, and the result stays in its space until it
+//!   is painted.
 
 use super::vars::{ThemeValue, VarTable, lookup};
 use crate::color::{
@@ -482,7 +483,7 @@ impl Color {
     /// The color as the engine paints it: a literal as it is, a token looked
     /// up in `theme`, with the color's alpha applied. A color in a CSS color
     /// space is gamut mapped into sRGB here, once.
-    pub fn resolve(self, theme: &Theme) -> Rgba {
+    pub(crate) fn resolve(self, theme: &Theme) -> Rgba {
         match self.0 {
             Repr::Rgba(r, g, b, a) => Rgba { r, g, b, a },
             Repr::Space(c) => c.to_srgb(),
@@ -492,7 +493,7 @@ impl Color {
 
     /// The color in the space it was authored in (before gamut mapping), as
     /// gradient stops and interpolation take it.
-    pub fn resolve_space(self, theme: &Theme) -> SpaceColor {
+    pub(crate) fn resolve_space(self, theme: &Theme) -> SpaceColor {
         match self.0 {
             Repr::Rgba(r, g, b, a) => SpaceColor::from_rgba(Rgba { r, g, b, a }),
             Repr::Space(c) => c,
@@ -504,26 +505,16 @@ impl Color {
         }
     }
 
-    /// Concrete components (tokens resolved against the default theme).
-    pub fn components(self) -> [f64; 4] {
-        self.components_in(&Theme::default())
-    }
-
     /// Components resolved against the supplied theme, in sRGB.
-    pub fn components_in(self, theme: &Theme) -> [f64; 4] {
+    pub fn components(self, theme: &Theme) -> [f64; 4] {
         let c = self.resolve(theme);
         [c.r, c.g, c.b, c.a]
     }
 
-    /// Mix in Oklab (premultiplied); `amount = 0` is self, `1` is other.
-    /// Theme tokens resolve against the default theme. Use `mix_in` in a theme style.
-    /// The result keeps its space: gamut mapping happens when it is painted.
-    pub fn mix(self, other: Color, amount: impl Into<f64>) -> Color {
-        self.mix_in(other, amount, &Theme::default())
-    }
-
-    /// Mix after resolving both colors against the supplied theme.
-    pub fn mix_in(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
+    /// Mix in Oklab (premultiplied) after resolving both colors in `theme`;
+    /// `amount = 0` is self, `1` is other. The result keeps its space until
+    /// it is painted.
+    pub fn mix(self, other: Color, amount: impl Into<f64>, theme: &Theme) -> Color {
         let t = (amount.into()).clamp(0.0, 1.0);
         let a = self.resolve_space(theme);
         let b = other.resolve_space(theme);
@@ -558,10 +549,10 @@ impl Color {
     }
 }
 
-/// The theme a color resolves in where no theme is passed. S16 makes it
-/// the theme in effect (`try_use_theme`).
+/// The theme a color resolves in where no theme is passed: the theme in
+/// effect, else the light theme.
 fn ambient_theme() -> Theme {
-    Theme::light()
+    crate::internal::try_use_theme().unwrap_or_else(Theme::light)
 }
 
 /// The Oklab premultiplied components of a color (L·α, a·α, b·α, α) that
@@ -576,7 +567,7 @@ fn premultiplied_oklab(c: SpaceColor) -> [f64; 4] {
 impl kivact_runtime::Animatable for Color {
     const COMPONENTS: usize = 4;
     fn to_components(&self, out: &mut Vec<f64>) {
-        let c = self.resolve_space(&Theme::default());
+        let c = self.resolve_space(&ambient_theme());
         out.extend_from_slice(&premultiplied_oklab(c));
     }
     fn from_components(c: &[f64]) -> Self {
@@ -674,6 +665,19 @@ mod tests {
     #[test]
     fn dark_sets_the_core_colors() {
         assert_eq!(Theme::dark().get(&crate::color::SURFACE_VAR), rgb(0x111827));
+    }
+
+    #[test]
+    fn components_and_mix_resolve_in_the_given_theme() {
+        let dark = Theme::dark();
+        let surface = crate::color::SURFACE.components(&dark);
+        assert_eq!(surface, rgb(0x111827).components(&dark));
+        // Mixing goes through Oklab and back, so the components agree to
+        // float rounding only.
+        let mixed = crate::color::SURFACE.mix(crate::color::TEXT, 0.0, &dark);
+        for (got, want) in mixed.components(&dark).into_iter().zip(surface) {
+            assert!((got - want).abs() < 1e-9, "{got} != {want}");
+        }
     }
 
     #[derive(Debug, PartialEq)]

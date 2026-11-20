@@ -48,7 +48,7 @@ pub(crate) fn theme(mode: ThemeMode) -> Theme {
         .set(&color::HOVER_VAR, pick(0xf5f5f5, 0x262626))
         .set(
             &color::PRESSED_VAR,
-            pick(0xf5f5f5, 0x262626).mix(pick(0x0a0a0a, 0xfafafa), 0.05),
+            pick(0xf5f5f5, 0x262626).mix(pick(0x0a0a0a, 0xfafafa), 0.05, &Theme::light()),
         )
         .set(&color::RAISED_VAR, pick(0xffffff, 0x171717))
         .set(&space::XS_VAR, 4.0)

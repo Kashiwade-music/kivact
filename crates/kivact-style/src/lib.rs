@@ -41,6 +41,7 @@ pub use color_value::{Color, hsl, hwb, lab, lch, oklab, oklch, rgb, rgba};
 pub use effect::BorderStyle;
 pub use grid::{GridAutoFlow, GridPlacement, Track};
 pub use icon::{Icon, IconSet};
+pub use internal::try_use_theme;
 #[doc(inline)]
 pub use kivact_types::{Align, Display};
 #[doc(inline)]
