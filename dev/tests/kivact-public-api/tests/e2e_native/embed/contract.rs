@@ -420,6 +420,100 @@ fn clipboard_text_round_trips_through_the_host_pump() {
     clipboard_requests_complete_through_the_host_pump();
 }
 
+/// A DevTools client finds the embedded App's agent, clicks its button by
+/// `inject_input`, and the press reaches the App through the embed loop.
+#[cfg(feature = "devtools")]
+fn devtools_click_reaches_the_embedded_button() {
+    use kivact_devtools_protocol as p;
+    use kivact_devtools_protocol::client::{Connection, list_targets};
+    const TITLE: &str = "Injected input";
+    let parent = TestParent::open(320, 240).expect("parent opens");
+    let presses = Arc::new(AtomicUsize::new(0));
+    let count = presses.clone();
+    let _app = App::new(TITLE)
+        .window_size(320, 240)
+        .embed(parent.parent().scale(1.0), move || {
+            button("Press").on_press(move || {
+                count.fetch_add(1, Ordering::SeqCst);
+            })
+        })
+        .expect("the embedded App opens");
+    let pid = u64::from(std::process::id());
+    let mut target = None;
+    wait(&parent, || {
+        target = list_targets()
+            .into_iter()
+            .map(|(_, discovery)| discovery)
+            .find(|discovery| discovery.pid == pid && discovery.app_name == TITLE);
+        target.is_some()
+    });
+    let discovery = target.expect("the embedded App's agent wrote its discovery file");
+    let (sender, receiver) = std::sync::mpsc::channel();
+    // The client waits on the App's turns, so it runs beside the pump.
+    let client = std::thread::spawn(move || {
+        let click = || -> Result<(), String> {
+            let (connection, _) = Connection::open(
+                &discovery,
+                p::ClientInfo {
+                    name: "kivact-public-api-tests".to_owned(),
+                    version: env!("CARGO_PKG_VERSION").to_owned(),
+                    kind: p::ClientKind::Other,
+                },
+            )
+            .map_err(|error| format!("initialize: {error}"))?;
+            let windows = connection
+                .call::<p::ListWindows>(p::Empty {})
+                .map_err(|error| format!("list_windows: {error}"))?;
+            let window = windows.windows.first().ok_or("list_windows: no window")?.id;
+            let found = connection
+                .call::<p::GetByRole>(p::RoleQuery {
+                    window,
+                    within: None,
+                    role: p::Role::Button,
+                    name: Some("Press".to_owned()),
+                    timeout_ms: None,
+                })
+                .map_err(|error| format!("get_by_role: {error}"))?;
+            connection
+                .call::<p::InjectInput>(p::InjectInputParams {
+                    window,
+                    steps: vec![p::InputStep::Click {
+                        node: found.node.id,
+                    }],
+                })
+                .map_err(|error| format!("inject_input: {error}"))?;
+            Ok(())
+        };
+        let _ = sender.send(click());
+    });
+    let mut outcome = None;
+    wait(&parent, || {
+        if outcome.is_none() {
+            outcome = receiver.try_recv().ok();
+        }
+        if let Some(Err(error)) = &outcome {
+            panic!("the DevTools client failed: {error}");
+        }
+        outcome.is_some() && presses.load(Ordering::SeqCst) == 1
+    });
+    client.join().expect("the client thread ends");
+    assert_eq!(presses.load(Ordering::SeqCst), 1, "one click, one press");
+}
+
+#[test]
+#[cfg(feature = "devtools")]
+fn injected_input_reaches_an_embedded_app() {
+    if let Some(reason) = kivact::test::native_unavailable() {
+        eprintln!("SKIPPED: {reason}");
+        return;
+    }
+
+    let _serial = SERIAL
+        .lock()
+        .expect("embed tests run one at a time; an earlier one panicked holding SERIAL");
+    devtools_click_reaches_the_embedded_button();
+}
+
 fn explode() {
     panic!("editor exploded");
 }

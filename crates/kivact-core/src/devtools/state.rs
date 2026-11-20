@@ -34,17 +34,12 @@ pub(crate) enum AgentSlot {
     Failed,
 }
 
-/// What a launch that allows DevTools asks for: the agent's receiver, once the
-/// background start finishes, and whether the agent may inject input.
-pub(crate) struct AgentStart {
-    pub(crate) receiver: std::sync::mpsc::Receiver<std::io::Result<Agent>>,
-    pub(crate) can_inject: bool,
-}
+/// What a launch that allows DevTools holds until the agent's background
+/// start finishes: the receiver of the started agent.
+pub(crate) type AgentStart = std::sync::mpsc::Receiver<std::io::Result<Agent>>;
 
-// xtask-allow(state): legacy: agent, can_inject
 pub(crate) struct Inspector {
     pub(crate) agent: RefCell<AgentSlot>,
-    pub(crate) can_inject: bool,
     /// What the view hooks read and write.
     pub(crate) hooks: HookData,
     /// What only devtools/* uses.
@@ -200,11 +195,7 @@ impl DevtoolsState {
         slot: Option<AgentStart>,
         at: &'static Location<'static>,
     ) -> DevtoolsState {
-        let Some(AgentStart {
-            receiver,
-            can_inject,
-        }) = slot
-        else {
+        let Some(receiver) = slot else {
             return DevtoolsState::Off;
         };
         let overrides: Signal<Vec<p::StyleOverride>> = root.signal(Vec::new(), at);
@@ -212,7 +203,6 @@ impl DevtoolsState {
         let emulation: Signal<p::Emulation> = root.signal(emulation_off(), at);
         DevtoolsState::Running(Rc::new(Inspector {
             agent: RefCell::new(AgentSlot::Starting(receiver)),
-            can_inject,
             hooks: HookData {
                 recording: RefCell::new(recording_off()),
                 prop_writes: RefCell::new(Vec::new()),
