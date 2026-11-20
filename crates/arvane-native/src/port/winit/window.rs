@@ -131,6 +131,14 @@ impl ShellWindow for WinitWindow {
         self.accessibility.update(update)
     }
 
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<arvane_shell::ShellEvent> {
+        self.accessibility.request_action(node, request)
+    }
+
     /// Whether assistive technology reads the window's accessibility tree:
     /// it asked for it (the shell then wakes the application) and has not
     /// let go of it (AT-SPI deactivates when the screen reader stops).

@@ -39,7 +39,7 @@
 //! effects setting (`SPI_GETCLIENTAREAANIMATION`, reduced motion) and the
 //! locale; when one changed, it notes the change and wakes the loop.
 //!
-//! Debug builds only: the registered message `ArvaneDebugDpiChange` (any
+//! With the feature `test` only: the registered message `ArvaneDebugDpiChange` (any
 //! process may post it; `wparam` is a DPI) makes the window send itself the
 //! `WM_DPICHANGED` a move to a monitor of that DPI sends, so the GUI
 //! harness drives the real scale-change path on machines whose monitors
@@ -245,7 +245,8 @@ unsafe extern "system" fn subclass(
                 input.wake(WakeReasons::ENVIRONMENT);
             }
         }
-        _ if cfg!(debug_assertions) && message == debug_dpi_message() => {
+        #[cfg(feature = "test")]
+        _ if message == debug_dpi_message() => {
             debug_dpi_change(hwnd, wparam);
             return 0;
         }
@@ -530,12 +531,9 @@ fn char_position(hwnd: HWND, text: &ShellImeText, scale: f64, lparam: LPARAM) ->
 
 /// The id of the registered message `ArvaneDebugDpiChange` (`u32::MAX`,
 /// which no message has, when it cannot be registered).
+#[cfg(feature = "test")]
 fn debug_dpi_message() -> u32 {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "process-wide registered Windows message identity"
-    )]
-    static ID: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    static ID: kivact_types::cell::SharedDeferred<u32> = kivact_types::cell::SharedDeferred::new();
     *ID.get_or_init(|| {
         let name: Vec<u16> = "ArvaneDebugDpiChange".encode_utf16().chain([0]).collect();
         // SAFETY: `name` is a NUL-terminated UTF-16 string that outlives
@@ -546,8 +544,9 @@ fn debug_dpi_message() -> u32 {
 }
 
 /// Send `hwnd` the `WM_DPICHANGED` of a move to a monitor of `dpi`
-/// (debug builds; see the module doc). winit sizes the window for the new
+/// (feature `test`; see the module doc). winit sizes the window for the new
 /// scale itself; the suggested rectangle is the window's own.
+#[cfg(feature = "test")]
 fn debug_dpi_change(hwnd: HWND, dpi: WPARAM) {
     let dpi = (dpi & 0xffff).max(1);
     let mut rect = RECT {

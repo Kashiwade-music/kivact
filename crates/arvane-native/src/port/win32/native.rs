@@ -17,11 +17,11 @@ pub(super) const TIMER: usize = 1;
 pub(super) struct WakeCoalescer(AtomicU8);
 impl WakeCoalescer {
     pub(super) fn request(&self, reasons: arvane_shell::WakeReasons) -> bool {
-        let bits = crate::wake::encode(reasons);
+        let bits = reasons.bits();
         bits != 0 && self.0.fetch_or(bits, Ordering::AcqRel) == 0
     }
     pub(super) fn take(&self) -> arvane_shell::WakeReasons {
-        crate::wake::decode(self.0.swap(0, Ordering::AcqRel))
+        arvane_shell::WakeReasons::from_bits(self.0.swap(0, Ordering::AcqRel))
     }
 }
 pub(super) struct Native {

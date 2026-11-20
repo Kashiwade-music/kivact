@@ -24,7 +24,7 @@ enum ChildLifecycle {
     Disposed,
     Leaked,
 }
-// xtask-allow(state): legacy: state, keys, resize, answers
+// xtask-allow(state): legacy: state, keys, resize, answers; injected_input normalizes DevTools input apart from the platform's input and pairs with no other field
 pub(in crate::port) struct Session {
     state: RefCell<ChildLifecycle>,
     shared: Arc<Shared>,
@@ -35,6 +35,8 @@ pub(in crate::port) struct Session {
     resize: RefCell<ResizeWait>,
     /// Deferred answers waiting for the handler to return.
     answers: RefCell<VecDeque<ShellEvent>>,
+    /// The input normalizer of injected input (DevTools); the platform's own input has its own.
+    injected_input: RefCell<(arvane_shell::WindowInput, arvane_shell::pipeline::ImeDriver)>,
     retention: ModuleRetention,
 }
 
@@ -43,7 +45,7 @@ pub(in crate::port) struct EmbedLoop<'a> {
     window: &'a mut dyn ShellWindow,
     waker: ShellWaker,
     /// The inject requests answered with `Injected` after the callback returns.
-    injected: Vec<RequestId>,
+    injected: Vec<(Vec<InjectedInput>, RequestId)>,
 }
 
 impl ShellLoop for EmbedLoop<'_> {
@@ -67,8 +69,8 @@ impl ShellLoop for EmbedLoop<'_> {
 
     fn close_window(&mut self, _: WindowId) {}
 
-    fn inject(&mut self, _: WindowId, _: Vec<InjectedInput>, request: RequestId) {
-        self.injected.push(request);
+    fn inject(&mut self, _: WindowId, inputs: Vec<InjectedInput>, request: RequestId) {
+        self.injected.push((inputs, request));
     }
 
     fn now_ns(&self) -> u64 {
@@ -112,6 +114,10 @@ impl Session {
             keys: RefCell::new(KeyLedger::default()),
             resize: RefCell::new(ResizeWait::Idle),
             answers: RefCell::new(VecDeque::new()),
+            injected_input: RefCell::new((
+                arvane_shell::WindowInput::new(),
+                arvane_shell::pipeline::ImeDriver::default(),
+            )),
             retention: ModuleRetention,
         }
     }
@@ -201,25 +207,59 @@ impl Session {
         self.deliver_injected(&mut callback.slot, &mut lp);
         self.accept(&mut callback.slot, result);
     }
-    /// Deliver the `Injected` events of the requests the callback queued.
+    /// Deliver the injected input the callback queued, then the `Injected`
+    /// event of each request.
     fn deliver_injected(&self, slot: &mut HandlerSlot, lp: &mut EmbedLoop<'_>) {
         while !lp.injected.is_empty() && !self.shared.stopped() {
-            let requests = std::mem::take(&mut lp.injected);
-            for request in requests {
-                let HandlerSlot::Running { handler, .. } = slot else {
-                    return;
-                };
-                let result = handler.event(
-                    EventTarget::Window(WindowId::MAIN),
-                    ShellEvent::Injected { request },
-                    lp,
-                );
-                self.accept(slot, result);
-                if self.shared.stopped() {
+            for (inputs, request) in std::mem::take(&mut lp.injected) {
+                for event in self.injected_events(lp, inputs) {
+                    if !self.deliver_one(slot, lp, event) {
+                        return;
+                    }
+                }
+                if !self.deliver_one(slot, lp, ShellEvent::Injected { request }) {
                     return;
                 }
             }
         }
+    }
+
+    /// The events `inputs` make, normalized like platform input.
+    fn injected_events(
+        &self,
+        lp: &mut EmbedLoop<'_>,
+        inputs: Vec<InjectedInput>,
+    ) -> Vec<ShellEvent> {
+        let now = lp.window.now_ns();
+        let pointer = lp.window.environment().pointer;
+        let double_click = (pointer.double_click_ns, pointer.double_click_distance);
+        let mut state = self.injected_input.borrow_mut();
+        let (input, ime) = &mut *state;
+        let mut events = Vec::new();
+        for injected in inputs {
+            match injected {
+                InjectedInput::Accessibility { node, request } => {
+                    events.extend(lp.window.request_accessibility_action(node, request));
+                }
+                other => events.extend(input.normalize(other, now, double_click, ime)),
+            }
+        }
+        events
+    }
+
+    /// Deliver one event to the running handler; `false` once it stopped.
+    fn deliver_one(
+        &self,
+        slot: &mut HandlerSlot,
+        lp: &mut EmbedLoop<'_>,
+        event: ShellEvent,
+    ) -> bool {
+        let HandlerSlot::Running { handler, .. } = slot else {
+            return false;
+        };
+        let result = handler.event(EventTarget::of(&event, WindowId::MAIN), event, lp);
+        self.accept(slot, result);
+        !self.shared.stopped()
     }
     fn accept(&self, slot: &mut HandlerSlot, result: Result<ShellControl, ShellError>) {
         match result {

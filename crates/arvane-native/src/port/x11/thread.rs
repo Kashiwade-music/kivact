@@ -3,7 +3,6 @@ use super::conn::Native;
 use super::event::Input;
 use super::keyboard::Keyboard;
 use super::notifier::{MAX_DIMENSION, Notifier, UiThread};
-use super::poll::Waiter;
 use super::window::{ChildRedraw, Window};
 use crate::port::embed::child::{ChildPort, Command, Handle, Shared};
 use crate::port::embed::keys::Verdict;
@@ -193,7 +192,6 @@ fn run(
         options.visibility,
     )?;
     let keyboard = Keyboard::new(&native.connection)?;
-    let waiter = Waiter::new()?;
     let mut window = Window::new(
         native,
         shared.clone(),
@@ -224,7 +222,7 @@ fn run(
         } else if ready.send(Ok(())).is_err() {
             Ok(())
         } else {
-            event_loop(&session, &mut window, Input::new(keyboard), waiter)
+            event_loop(&session, &mut window, Input::new(keyboard))
         }
     })) {
         Ok(result) => result,
@@ -286,12 +284,7 @@ fn deliver_wake(
     closed(window)
 }
 
-fn event_loop(
-    session: &Session,
-    window: &mut Window,
-    mut input: Input,
-    waiter: Waiter,
-) -> Result<(), ShellError> {
+fn event_loop(session: &Session, window: &mut Window, mut input: Input) -> Result<(), ShellError> {
     let mut pending = Vec::new();
     loop {
         if closed(window) {
@@ -369,7 +362,7 @@ fn event_loop(
         .into_iter()
         .flatten()
         .min();
-        waiter.wait(&*window.native.connection, &window.backend.wake, remaining)?;
+        super::poll::wait(&*window.native.connection, &window.backend.wake, remaining)?;
     }
 }
 

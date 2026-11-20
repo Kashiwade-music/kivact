@@ -402,6 +402,13 @@ impl ShellWindow for VirtualWindow {
     fn update_accessibility(&mut self, update: &SemanticsUpdate) -> Result<(), AccessibilityError> {
         self.accessibility().update(update)
     }
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<arvane_shell::ShellEvent> {
+        self.accessibility().request_action(node, request)
+    }
     fn size(&self) -> Size {
         self.env.borrow().window_size
     }
@@ -620,15 +627,11 @@ pub(crate) fn physical(size: Size, scale: f64) -> (u32, u32) {
 fn live_native_windows() -> &'static std::sync::Mutex<
     std::collections::HashMap<std::thread::ThreadId, std::collections::BTreeMap<u32, bool>>,
 > {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "process-wide test registry of virtual native children"
-    )]
-    static LIVE: std::sync::OnceLock<
+    static LIVE: kivact_types::cell::SharedDeferred<
         std::sync::Mutex<
             std::collections::HashMap<std::thread::ThreadId, std::collections::BTreeMap<u32, bool>>,
         >,
-    > = std::sync::OnceLock::new();
+    > = kivact_types::cell::SharedDeferred::new();
     LIVE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
 }
 

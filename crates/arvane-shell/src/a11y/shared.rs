@@ -63,7 +63,9 @@ impl Shared {
 
     /// Validates a complete tree and replaces the accepted one with it.
     pub(crate) fn replace(&mut self, tree: &SemanticsTree) -> Result<(), AccessibilityError> {
-        let tree = validation::canonicalize(tree)?;
+        #[cfg(debug_assertions)]
+        validation::validate(tree)?;
+        let tree = validation::canonical(tree)?;
         self.tree = Some(state::AcceptedTree::new(&tree));
         if let Reader::Active { unsent } = &mut self.reader {
             *unsent = Unsent::Tree;

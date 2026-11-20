@@ -173,11 +173,8 @@ pub struct TestDisplay {
     counters: Arc<Counters>,
 }
 
-#[expect(
-    clippy::disallowed_types,
-    reason = "process-wide native test display initialized once"
-)]
-static DISPLAY: std::sync::OnceLock<Result<TestDisplay, ShellError>> = std::sync::OnceLock::new();
+static DISPLAY: kivact_types::cell::SharedDeferred<Result<TestDisplay, ShellError>> =
+    kivact_types::cell::SharedDeferred::new();
 
 impl TestDisplay {
     /// The display, its UI thread started on first use. Fails where no
