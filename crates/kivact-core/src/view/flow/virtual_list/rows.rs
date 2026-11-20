@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{Notifier, Owner, Runtime, Signal};
+use kivact_runtime::{Owner, Runtime, Signal, Trigger};
 use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Position};
 
 use super::state::{VRow, VState};
@@ -46,7 +46,7 @@ pub(super) fn apply_visible<K: kivact_runtime::ItemKey, T: Clone + 'static>(
     state: &Rc<RefCell<VState<K, T>>>,
     visible: Vec<(K, Option<T>, f64, Option<f64>)>,
     row: &RowFn<K, T>,
-    measured_version: Notifier,
+    measured_version: Trigger,
     at: &'static Location<'static>,
 ) {
     remove_hidden_rows(rt, state, &visible);

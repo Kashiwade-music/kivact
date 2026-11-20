@@ -171,7 +171,7 @@ impl fmt::Debug for ExternalImage {
 )]
 pub unsafe fn import(textures: SharedTextures) -> ExternalImage {
     let at = Location::caller();
-    let owner = kivact_runtime::Owner::ambient("import", at);
+    let owner = kivact_runtime::Owner::running("import", at);
     let rt = owner.runtime();
     require_effectful("import");
     import_in(&rt, owner, textures, at)

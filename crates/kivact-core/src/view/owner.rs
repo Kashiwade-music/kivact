@@ -35,7 +35,7 @@ impl Owner {
     /// outside component setup.
     #[track_caller]
     pub fn current() -> Self {
-        Self(kivact_runtime::Owner::current(
+        Self(kivact_runtime::Owner::setup(
             "Owner::current",
             Location::caller(),
         ))

@@ -99,7 +99,7 @@ pub(crate) enum Begin {
 /// owner (a misuse, with a fix hint).
 #[track_caller]
 pub fn app_handle() -> AppHandle {
-    let owner = Owner::ambient("app_handle", Location::caller());
+    let owner = Owner::running("app_handle", Location::caller());
     AppHandleExt::of(&owner.runtime()).0.clone()
 }
 

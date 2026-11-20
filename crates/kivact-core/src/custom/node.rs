@@ -61,7 +61,7 @@ pub fn focused_node() -> Option<NodeToken> {
     let rt = Runtime::current()?;
     let at = Location::caller();
     let window =
-        crate::view::state::current_window(kivact_runtime::Owner::ambient("focused_node", at));
+        crate::view::state::current_window(kivact_runtime::Owner::running("focused_node", at));
     focus::focused(&rt, window).map(|node| NodeToken {
         app: rt.id(),
         node,

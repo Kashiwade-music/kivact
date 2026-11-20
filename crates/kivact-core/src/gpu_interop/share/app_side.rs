@@ -5,7 +5,7 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_runtime::{Notifier, Owner, Runtime, Signal};
+use kivact_runtime::{Owner, Runtime, Signal, Trigger};
 use kivact_types::cell::Sent;
 use kivact_types::{GpuAdapter, SharedTextures};
 
@@ -28,7 +28,7 @@ pub struct SharedImage {
     state: Arc<Inbox<LinkState>>,
     /// Notified after each change of `state` the UI makes or takes from the
     /// engine (the receiving task): [`SharedImage::status`] tracks it.
-    changed: Notifier,
+    changed: Trigger,
     /// The import of the newest request, once the engine provided it.
     current: Signal<Option<Current>>,
     pixels: Signal<Option<Pixels>>,
@@ -72,7 +72,7 @@ impl PartialEq for Current {
 #[track_caller]
 pub fn shared_image(width: u32, height: u32) -> SharedImage {
     let at = Location::caller();
-    let owner = kivact_runtime::Owner::current("shared_image", at);
+    let owner = kivact_runtime::Owner::setup("shared_image", at);
     // Reading the adapter (below) asks for the window's device; the renewal
     // effect makes a GPU request once it is ready.
     let size = (width.max(1), height.max(1));
@@ -85,7 +85,7 @@ pub fn shared_image(width: u32, height: u32) -> SharedImage {
     })));
     let image = SharedImage {
         state: state.clone(),
-        changed: owner.notifier(at),
+        changed: owner.trigger(at),
         current: owner.signal(None, at),
         pixels: owner.signal(None, at),
         size: owner.signal(size, at),

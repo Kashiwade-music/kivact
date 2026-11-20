@@ -16,8 +16,8 @@ use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
 use kivact_runtime::{
-    AppParts, ExitState, IntoBinding, IntoValue, RecordBits, Runtime, RuntimeConfig, Stage,
-    ThreadWaker, TurnGuard, TurnReport,
+    AppParts, ExitState, IntoValue, RecordBits, Runtime, RuntimeConfig, Signal, Stage, ThreadWaker,
+    TurnGuard, TurnReport,
 };
 
 use super::settings::AppOptions;
@@ -254,7 +254,7 @@ fn install_main_window(
 ) -> kivact_runtime::MotionEnv {
     let decl = Rc::new(WindowDecl {
         title: root.signal(options.settings.title.clone(), at).into_value(),
-        open: root.signal(true, at).into_binding(),
+        open: root.signal(true, at),
         size: options
             .settings
             .window_size

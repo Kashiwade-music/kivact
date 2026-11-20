@@ -19,7 +19,7 @@ pub(super) struct Attached {
 }
 
 /// Last stage: bind the node's references (each once, in order), then run the parts'
-/// bind hooks and bind the regions under the node's setup owner. Binding installs layout
+/// bind hooks and bind the regions under the node's setup owner. Signal installs layout
 /// and scroll observers, so it follows all retained handlers and draw-size observers; hooks
 /// still precede the first commit.
 pub(super) fn finish(

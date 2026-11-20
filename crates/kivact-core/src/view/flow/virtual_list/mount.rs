@@ -8,7 +8,7 @@ use std::rc::Rc;
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{
-    EffectKind, ErrorKind, Notifier, Prop as InputProp, Runtime, Signal, UiError, untrack,
+    EffectKind, ErrorKind, Prop as InputProp, Runtime, Signal, Trigger, UiError, untrack,
 };
 use kivact_types::{LayoutProps, NodeId, Overflow, Position};
 
@@ -41,7 +41,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
             let at = common.at.unwrap_or(at);
             // What the host reported (`None` before the first report).
             let viewport: Signal<Option<Viewport>> = cx.owner.signal(None, at);
-            let measured_version = cx.owner.notifier(at);
+            let measured_version = cx.owner.trigger(at);
             common.handlers.observe_scroll(move |s| {
                 viewport.set(Some(Viewport {
                     offset: s.offset.y,
@@ -76,7 +76,7 @@ impl<T: kivact_runtime::PropValue, K: kivact_runtime::ItemKey> IntoView for Virt
                 seek: Seek::Idle,
                 held: HeldState {
                     value: None,
-                    changed: cx.owner.notifier(at),
+                    changed: cx.owner.trigger(at),
                 },
             }));
             // Which row holds the focus changes rarely: only then does the
@@ -189,7 +189,7 @@ fn bind_visible<K: kivact_runtime::ItemKey, T: kivact_runtime::PropValue>(
     row: RowFn<K, T>,
     spacer: NodeId,
     overscan: f64,
-    measured_version: Notifier,
+    measured_version: Trigger,
     at: &'static Location<'static>,
 ) {
     let weak = cx.weak();

@@ -8,12 +8,10 @@
 
 #[doc(inline)]
 pub use kivact_runtime::{
-    Action, ActionFn, ActionMode, ActionOutcome, AsyncState, BlockingWork, CancelToken, Resource,
-    Task, action, blocking, resource, sleep, spawn, timeout,
+    Action, AsyncState, CancelToken, Resource, Task, action, blocking, queued_action, resource,
+    sleep, spawn, timeout,
 };
 
-#[doc(hidden)]
-pub use kivact_runtime::AsyncSnapshot;
+pub use kivact_runtime::AsyncSource;
 #[cfg(feature = "tokio")]
 pub use kivact_runtime::on_tokio;
-pub use kivact_runtime::{AsyncSource, Retry};

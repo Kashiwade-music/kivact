@@ -401,7 +401,7 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
         let theme = kivact_style::use_theme().get();
         theme.icons().resolve(&icon).unwrap_or_else(|| {
             if cfg!(debug_assertions) && reported.note() {
-                let owner = kivact_runtime::Owner::ambient("icon", at);
+                let owner = kivact_runtime::Owner::running("icon", at);
                 let rt = owner.runtime();
                 rt.report_later(
                     Some(owner),

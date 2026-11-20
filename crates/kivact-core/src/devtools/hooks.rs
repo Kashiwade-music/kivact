@@ -217,7 +217,7 @@ struct NodeHook {
     id: NodeId,
     sites: Vec<&'static Location<'static>>,
     table: Rc<RefCell<NodeOverrides>>,
-    changed: kivact_runtime::Notifier,
+    changed: kivact_runtime::Trigger,
     forced: Value<ForcedStates>,
 }
 

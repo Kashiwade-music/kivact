@@ -7,11 +7,11 @@ pub use crate::component;
 pub use crate::state::use_context;
 
 pub use crate::state::{
-    Binding, Callback, IntoText, IntoValue, Signal, Value, Var, binding, callback, constant_value,
-    effect, effect_on, memo, on_cleanup, on_mount, provide, signal, untrack, var,
+    Callback, IntoText, IntoValue, Signal, Value, Var, binding, callback, constant_value, effect,
+    effect_on, memo, on_cleanup, on_mount, provide, signal, untrack, var,
 };
 
-pub use crate::state::{IntoBinding, ItemKey, PropValue, bind};
+pub use crate::state::{ItemKey, PropValue, bind};
 
 pub use crate::geometry::{Point, Size};
 
@@ -32,8 +32,6 @@ pub use crate::style::{use_theme, use_tokens};
 pub use crate::motion::{Easing, Spring, Transition, animated, frame_loop, timeline};
 
 pub use crate::draw::Transform;
-
-pub use crate::task::ActionMode;
 
 pub use crate::task::{Action, AsyncState, Resource, action, blocking, resource, spawn};
 

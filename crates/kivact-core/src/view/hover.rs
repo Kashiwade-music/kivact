@@ -51,7 +51,7 @@ pub(crate) fn set_hovered(rt: &Runtime, window: WindowId, node: Option<FocusTarg
 pub fn pointer_position() -> Value<Option<Point>> {
     let at = Location::caller();
     let rt = Runtime::current().expect("pointer_position requires an active App");
-    let window = current_window(Owner::ambient("pointer_position", at));
+    let window = current_window(Owner::running("pointer_position", at));
     ViewState::of(&rt)
         .with_window(window, |record| record.mouse.into())
         .expect("invariant: the calling owner's window is open")

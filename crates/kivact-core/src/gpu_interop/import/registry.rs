@@ -162,7 +162,7 @@ pub enum ImportStatus {
 /// outside every owner.
 #[track_caller]
 pub fn adapter() -> Option<GpuAdapter> {
-    let owner = Owner::ambient("adapter", Location::caller());
+    let owner = Owner::running("adapter", Location::caller());
     let window = current_window(owner);
     let adapter = with_adapter(owner, window, |adapter| adapter.cloned());
     if adapter.is_none() {
@@ -177,7 +177,7 @@ pub fn adapter() -> Option<GpuAdapter> {
 /// the adapter started.
 #[track_caller]
 pub(crate) fn has_adapter() -> bool {
-    let owner = Owner::ambient("Viewport::gpu_frame", Location::caller());
+    let owner = Owner::running("Viewport::gpu_frame", Location::caller());
     with_adapter(owner, current_window(owner), |adapter| adapter.is_some())
 }
 

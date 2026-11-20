@@ -22,7 +22,7 @@ pub use kivact_types::{
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
     let rt = kivact_runtime::Runtime::current()
         .unwrap_or_else(|| panic!("`{api}` needs a running App at {at}"));
-    let window = current_window(kivact_runtime::Owner::ambient(api, at));
+    let window = current_window(kivact_runtime::Owner::running(api, at));
     ViewState::of(&rt)
         .env(window)
         .unwrap_or_else(|| panic!("`{api}` needs an open window at {at}"))
@@ -111,7 +111,7 @@ pub fn safe_area() -> Value<Insets> {
             "safe_area at {at}: the platform reports no safe area; it stays zero"
         ));
     }
-    let window = current_window(kivact_runtime::Owner::ambient("safe_area", at));
+    let window = current_window(kivact_runtime::Owner::running("safe_area", at));
     let env = state
         .env(window)
         .expect("invariant: the calling owner's window is open");

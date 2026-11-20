@@ -32,7 +32,7 @@ struct Registration {
 /// changes are observed through `surface_active`, not lifecycle transitions.
 #[track_caller]
 pub fn on_lifecycle<R: HandlerResult>(f: impl Fn(LifecycleEvent) -> R + 'static) {
-    let owner = Owner::current("on_lifecycle", Location::caller());
+    let owner = Owner::setup("on_lifecycle", Location::caller());
     let rt = owner.runtime();
     let state = &crate::app_state::AppState::of(&rt).lifecycle;
     let registration = Rc::new(Registration {

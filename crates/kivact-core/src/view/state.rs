@@ -12,7 +12,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_runtime::Selector;
-use kivact_runtime::{Binding, ErrorKind, Handler, UiError};
+use kivact_runtime::{ErrorKind, Handler, Signal, UiError};
 use kivact_runtime::{Owner, Runtime};
 use kivact_runtime::{Signal, Value};
 use kivact_types::cell::Deferred;
@@ -300,7 +300,7 @@ pub(crate) struct WindowRecord {
 /// the App's settings.
 pub(crate) struct WindowDecl {
     pub(crate) title: Value<String>,
-    pub(crate) open: Binding<bool>,
+    pub(crate) open: Signal<bool>,
     pub(crate) size: Size,
     pub(crate) min_size: Option<Size>,
     pub(crate) mode: WindowMode,

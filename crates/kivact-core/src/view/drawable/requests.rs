@@ -7,15 +7,15 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use kivact_engine::contract::{ExportRequestMode, HostRequest};
-use kivact_runtime::{AppId, Notifier, Runtime};
+use kivact_runtime::{AppId, Runtime, Trigger};
 use kivact_types::DrawableId;
 
 use crate::sync::Inbox;
 use crate::view::drawable_share::ExportLink;
 
 /// The task of a drawable's share: each change the app made marks the
-/// drawable's notifier, so its requests are sent in the next turn.
-pub(super) async fn wake(inbox: Arc<Inbox<ExportLink>>, changed: Notifier) {
+/// drawable's trigger, so its requests are sent in the next turn.
+pub(super) async fn wake(inbox: Arc<Inbox<ExportLink>>, changed: Trigger) {
     loop {
         inbox.next(ExportLink::take_changed).await;
         changed.notify();

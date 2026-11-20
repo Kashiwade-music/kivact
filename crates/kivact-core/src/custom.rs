@@ -157,6 +157,9 @@ pub use crate::view::part_data::PartMount;
 /// Copy handle type (`PhantomData<UiThreadOnly>`).
 pub use kivact_runtime::UiThreadOnly;
 pub use kivact_runtime::{Owned, clock_now, require_effectful, require_setup};
+// xtask-allow(internal-contract): #[component] expansion stores handler props as Handler<E>
+#[doc(hidden)]
+pub use kivact_runtime::Handler;
 pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};

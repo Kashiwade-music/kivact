@@ -6,8 +6,7 @@ use std::panic::Location;
 use std::rc::{Rc, Weak};
 
 use kivact_runtime::{
-    EffectKind, ErrorKind, Handler, HandlerResult, IntoBinding, IntoText, Owner, Runtime, UiError,
-    Value,
+    EffectKind, ErrorKind, Handler, HandlerResult, IntoText, Owner, Runtime, Signal, UiError, Value,
 };
 use kivact_types::{
     DismissReason, Environment, NodeId, Size, WindowContent, WindowId, WindowMode, WindowPlacement,
@@ -24,11 +23,11 @@ use crate::view::state::{EnvState, FocusKeys, ViewState, WindowDecl, WindowRecor
 /// shown in its own OS window. The content inherits the contexts of the
 /// place where `window` is declared, like a React portal.
 #[track_caller]
-pub fn window(title: impl IntoText, open: impl IntoBinding<bool>) -> Window {
+pub fn window(title: impl IntoText, open: Signal<bool>) -> Window {
     Window {
         decl: WindowDecl {
             title: title.into_text_value(),
-            open: open.into_binding(),
+            open: open,
             size: Size::new(640.0, 480.0),
             min_size: None,
             mode: WindowMode::Normal,

@@ -103,7 +103,7 @@ impl Node {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    pub fn on_exit_complete(self, callback: impl Into<Callback<()>>) -> Self {
+    pub fn on_exit_complete<M>(self, callback: impl IntoHandler<(), M>) -> Self {
         Element::on_exit_complete(self, callback)
     }
 
@@ -217,7 +217,7 @@ impl Node {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    pub fn on_press(self, f: impl Into<kivact_runtime::Callback<()>>) -> Self {
+    pub fn on_press<M>(self, f: impl kivact_runtime::IntoHandler<(), M>) -> Self {
         Element::on_press(self, f)
     }
 

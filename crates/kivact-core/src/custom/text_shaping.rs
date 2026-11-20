@@ -35,7 +35,7 @@ pub fn shape_inline_paragraph(
 }
 
 fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl TextShaper {
-    let rt = kivact_runtime::Owner::ambient(api, at).runtime();
+    let rt = kivact_runtime::Owner::running(api, at).runtime();
     let theme = kivact_style::use_theme().get();
     let inherited = values::ComputedTextStyle {
         family: theme.text().family.clone(),

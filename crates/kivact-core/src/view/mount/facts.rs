@@ -5,7 +5,7 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{Notifier, Owner};
+use kivact_runtime::{Owner, Trigger};
 use kivact_style::CompiledStyle;
 
 /// What a node's first write decided, for the style and draw stages.
@@ -37,7 +37,7 @@ pub(crate) enum LocalPaint {
 #[derive(Clone)]
 pub(crate) struct LocalPaintSource {
     pub(super) value: Rc<RefCell<Option<Box<CompiledStyle>>>>,
-    pub(super) revision: Notifier,
+    pub(super) revision: Trigger,
 }
 
 impl LocalPaintSource {
@@ -45,7 +45,7 @@ impl LocalPaintSource {
     pub(super) fn new(owner: Owner, at: &'static Location<'static>) -> Self {
         Self {
             value: Rc::new(RefCell::new(None)),
-            revision: owner.notifier(at),
+            revision: owner.trigger(at),
         }
     }
 }

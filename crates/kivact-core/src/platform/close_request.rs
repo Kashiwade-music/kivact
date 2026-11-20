@@ -55,7 +55,7 @@ pub(crate) struct Registration {
 /// ```
 #[track_caller]
 pub fn on_close_request<R: HandlerResult>(f: impl Fn() -> R + 'static) {
-    let owner = Owner::ambient("on_close_request", Location::caller());
+    let owner = Owner::running("on_close_request", Location::caller());
     let registration = Rc::new(Registration {
         owner,
         handler: Handler::from_fn(move |()| f()),

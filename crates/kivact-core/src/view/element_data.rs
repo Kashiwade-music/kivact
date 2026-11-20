@@ -15,7 +15,7 @@ use crate::state::Value;
 use crate::view::part_data::PartBinding;
 use crate::view::tree::Handlers;
 use crate::view::{MouseButton, PointerId};
-use kivact_runtime::{Notifier, Owner, Runtime};
+use kivact_runtime::{Owner, Runtime, Trigger};
 use kivact_style::asset::ImageFit;
 use kivact_style::draw::RegionId;
 use kivact_types::NodeId;
@@ -35,7 +35,7 @@ use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Callback, ErrorKind, UiError};
+use kivact_runtime::{Callback, ErrorKind, IntoHandler, UiError};
 use kivact_style::Style;
 
 use super::exit_layout::ExitLayout;
@@ -317,9 +317,9 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// ancestor cuts the animation short. Create it outside the removed
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
-    fn on_exit_complete(mut self, callback: impl Into<Callback<()>>) -> Self {
-        let callback = callback.into();
-        // An error goes to the error boundary of the callback's owner.
+    fn on_exit_complete<M>(mut self, callback: impl IntoHandler<(), M>) -> Self {
+        // The callback's owner is the caller's; an error goes to its boundary.
+        let callback = Callback::from_handler(callback.into_handler());
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
             callback.call_if_alive(())
         }));
@@ -467,9 +467,9 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// This replaces the existing caller action.
     /// Attached part defaults continue to run after the caller action.
     #[track_caller]
-    fn on_press(mut self, f: impl Into<Callback<()>>) -> Self {
-        let f = f.into();
-        self.node_mut().common.set_press(move || f.call(()));
+    fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
+        let handler = f.into_handler();
+        self.node_mut().common.set_press(move || handler.call(()));
         self
     }
 
@@ -753,8 +753,8 @@ pub(crate) struct Registry {
     pub(super) root: Rc<Target>,
     pub(super) at: &'static Location<'static>,
     pub(super) state: RefCell<State>,
-    pub(super) revision: Notifier,
-    pub(super) changed: Notifier,
+    pub(super) revision: Trigger,
+    pub(super) changed: Trigger,
     pub(super) phase: Cell<RegistryPhase>,
     /// The pointer gestures on the node and its regions (`mount::part_pointer`).
     pub(super) gestures: RefCell<Gestures>,

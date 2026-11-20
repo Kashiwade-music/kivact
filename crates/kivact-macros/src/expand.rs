@@ -164,9 +164,11 @@ fn mount(prop: &Prop) -> Option<TokenStream> {
             Some(quote! { let #name = ::kivact::state::IntoValue::into_value(#name); })
         }
         PropKind::Callback0 | PropKind::Callback(_) if prop.is_optional() => {
-            Some(quote! { let #name = #name.map(|f| f()); })
+            Some(quote! { let #name = #name.map(::kivact::state::Callback::from_handler); })
         }
-        PropKind::Callback0 | PropKind::Callback(_) => Some(quote! { let #name = #name(); }),
+        PropKind::Callback0 | PropKind::Callback(_) => {
+            Some(quote! { let #name = ::kivact::state::Callback::from_handler(#name); })
+        }
         _ => None,
     }
 }
@@ -185,6 +187,10 @@ fn generic(prop: &Prop) -> Option<TokenStream> {
             let result = r_ident(prop);
             Some(quote! { #result: ::kivact::view::HandlerResult })
         }
+        PropKind::Callback0 => {
+            let marker = m_ident(prop);
+            Some(quote! { #marker })
+        }
         PropKind::ViewFn => {
             let view = v_ident(prop);
             Some(quote! { #view: ::kivact::view::IntoView })
@@ -196,6 +202,14 @@ fn generic(prop: &Prop) -> Option<TokenStream> {
 fn r_ident(prop: &Prop) -> Ident {
     format_ident!(
         "R{}",
+        upper_camel(&prop.name.to_string()),
+        span = prop.name.span()
+    )
+}
+
+fn m_ident(prop: &Prop) -> Ident {
+    format_ident!(
+        "M{}",
         upper_camel(&prop.name.to_string()),
         span = prop.name.span()
     )
@@ -213,9 +227,10 @@ fn input_type(prop: &Prop) -> TokenStream {
     match &prop.kind {
         PropKind::Text => quote! { impl ::kivact::state::IntoText },
         PropKind::Value(ty) => quote! { impl ::kivact::state::IntoValue<#ty> },
-        PropKind::Binding(ty) => quote! { impl ::kivact::state::IntoBinding<#ty> },
+        PropKind::Signal(ty) => quote! { ::kivact::state::Signal<#ty> },
         PropKind::Callback0 => {
-            quote! { impl ::std::convert::Into<::kivact::state::Callback<()>> + 'static }
+            let marker = m_ident(prop);
+            quote! { impl ::kivact::state::IntoHandler<(), #marker> }
         }
         PropKind::Callback(ty) => {
             let result = r_ident(prop);
@@ -235,13 +250,9 @@ fn keep_type(prop: &Prop) -> TokenStream {
     match &prop.kind {
         PropKind::Text => quote! { ::kivact::custom::Reactive<String> },
         PropKind::Value(ty) => quote! { ::kivact::custom::Reactive<#ty> },
-        PropKind::Binding(ty) => quote! { ::kivact::state::Binding<#ty> },
-        PropKind::Callback0 => quote! {
-            ::std::boxed::Box<dyn ::std::ops::FnOnce() -> ::kivact::state::Callback<()>>
-        },
-        PropKind::Callback(ty) => quote! {
-            ::std::boxed::Box<dyn ::std::ops::FnOnce() -> ::kivact::state::Callback<#ty>>
-        },
+        PropKind::Signal(ty) => quote! { ::kivact::state::Signal<#ty> },
+        PropKind::Callback0 => quote! { ::kivact::custom::Handler<()> },
+        PropKind::Callback(ty) => quote! { ::kivact::custom::Handler<#ty> },
         PropKind::View => quote! { ::kivact::view::View },
         PropKind::Children => quote! { ::std::vec::Vec<::kivact::view::View> },
         PropKind::ViewFn => quote! { ::kivact::view::ViewFn<()> },
@@ -254,13 +265,9 @@ fn store(prop: &Prop, input: TokenStream) -> TokenStream {
     match &prop.kind {
         PropKind::Text => quote! { ::kivact::custom::Reactive::from_text(#input) },
         PropKind::Value(_) => quote! { ::kivact::custom::Reactive::new(#input) },
-        PropKind::Binding(_) => quote! { ::kivact::state::IntoBinding::into_binding(#input) },
-        PropKind::Callback0 => quote! {
-            ::std::boxed::Box::new(move || ::std::convert::Into::into(#input))
-        },
-        PropKind::Callback(_) => quote! {
-            ::std::boxed::Box::new(move || ::kivact::state::callback(#input))
-        },
+        PropKind::Signal(_) => quote! { #input },
+        PropKind::Callback0 => quote! { ::kivact::state::IntoHandler::into_handler(#input) },
+        PropKind::Callback(_) => quote! { ::kivact::custom::Handler::from_fn(#input) },
         PropKind::View => quote! { ::kivact::view::IntoView::into_view(#input) },
         PropKind::Children => quote! { ::kivact::view::IntoChildren::into_views(#input) },
         PropKind::ViewFn => quote! { ::kivact::view::IntoViewFn::into_view_fn(#input) },

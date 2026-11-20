@@ -72,7 +72,8 @@ pub fn scope<V: IntoView>(build: impl FnOnce() -> V + 'static) -> View {
 /// `<Context.Provider>`): `child` is set up in a new owner that holds the
 /// context, so `use_context::<T>()` finds it inside `child` (in setup and in
 /// handlers) but not in siblings. The value is kept once (in an `Rc`) and
-/// each `use_context::<T>()` returns a `Value<T>`; read it with `get` or `with`.
+/// each `use_context::<T>()` returns a clone of it; provide a `Signal` or a
+/// `Value` for readers that must see changes.
 ///
 /// ```ignore
 /// provide(BoardCx { tasks, selected }, || column((toolbar(), lanes())))
@@ -86,7 +87,6 @@ pub fn provide<T: Clone + 'static, V: IntoView>(
     boundary(
         at,
         move |owner| {
-            let value = owner.constant(value, at);
             owner.provide(value);
         },
         child,
@@ -224,7 +224,7 @@ pub fn provide_direction<V: IntoView>(
 /// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
 #[track_caller]
 pub fn use_direction() -> Value<ReadingDirection> {
-    let owner = Owner::ambient("use_direction", Location::caller());
+    let owner = Owner::running("use_direction", Location::caller());
     owner
         .context::<Value<ReadingDirection>>()
         .unwrap_or_else(|| owner.constant(ReadingDirection::Ltr, Location::caller()))
@@ -317,7 +317,7 @@ pub(crate) fn install_layered_messages(
 /// ```
 #[track_caller]
 pub fn use_locale() -> Value<Locale> {
-    let owner = Owner::ambient("locale", Location::caller());
+    let owner = Owner::running("locale", Location::caller());
     locale_value(owner)
 }
 
@@ -342,7 +342,7 @@ pub fn use_locale() -> Value<Locale> {
 /// ```
 #[track_caller]
 pub fn message(key: &'static str, default: &'static str) -> Value<String> {
-    let owner = Owner::current("message", Location::caller());
+    let owner = Owner::setup("message", Location::caller());
     let messages = messages_value(owner);
     memo(move || {
         crate::view::devtools_hooks::pseudo(
@@ -382,7 +382,7 @@ pub fn message_with<A: IntoIterator<Item = (&'static str, String)>>(
     default: &'static str,
     args: impl Fn() -> A + 'static,
 ) -> Value<String> {
-    let owner = Owner::current("message_with", Location::caller());
+    let owner = Owner::setup("message_with", Location::caller());
     let messages = messages_value(owner);
     let locale = locale_value(owner);
     memo(move || {

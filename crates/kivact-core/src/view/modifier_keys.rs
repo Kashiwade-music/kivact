@@ -7,7 +7,7 @@ use crate::view::state::ViewState;
 /// latest key, pointer or wheel event, or when they changed between
 /// events). Untracked: it is a reading at the call, like
 /// `KeyboardEvent.getModifierState` in the DOM. Read it in a handler
-/// that gets no event (`on_press`, a control's `Binding` write) to see
+/// that gets no event (`on_press`, a control's `Signal` write) to see
 /// whether Ctrl or Meta is held at that activation.
 ///
 /// Like the reads of `kivact::platform`, it resolves the nearest owner

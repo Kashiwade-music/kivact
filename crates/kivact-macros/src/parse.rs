@@ -56,8 +56,8 @@ pub(crate) enum PropKind {
     Text,
     /// `Value<T>`: a value, kept as `Reactive<T>`.
     Value(Type),
-    /// `Binding<T>`: a two-way binding, kept as it is.
-    Binding(Type),
+    /// `Signal<T>`: a two-way value, passed as it is.
+    Signal(Type),
     /// `Callback<()>`: a handler without a payload, converted in the scope.
     Callback0,
     /// `Callback<E>`: a handler with a payload, converted in the scope.
@@ -283,8 +283,8 @@ fn kind(ty: &Type) -> syn::Result<PropKind> {
             Some(inner) => PropKind::Value(inner.clone()),
             None => other(),
         },
-        "Binding" => match inner {
-            Some(inner) => PropKind::Binding(inner.clone()),
+        "Signal" => match inner {
+            Some(inner) => PropKind::Signal(inner.clone()),
             None => other(),
         },
         "Callback" => match inner {

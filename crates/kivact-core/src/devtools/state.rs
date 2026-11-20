@@ -64,7 +64,7 @@ pub(crate) struct HookData {
     pub(crate) next_input: Cell<u64>,
     /// The style overrides parsed once when they change, read by the style hooks.
     pub(crate) node_overrides: Rc<RefCell<NodeOverrides>>,
-    pub(crate) node_overrides_changed: kivact_runtime::Notifier,
+    pub(crate) node_overrides_changed: kivact_runtime::Trigger,
 }
 
 // xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_windows, errors_sent; allocates style override ids
@@ -223,7 +223,7 @@ impl DevtoolsState {
                 input_log: RefCell::new(VecDeque::new()),
                 next_input: Cell::new(0),
                 node_overrides: Rc::default(),
-                node_overrides_changed: root.notifier(at),
+                node_overrides_changed: root.trigger(at),
             },
             session: SessionData {
                 events: RefCell::new(Vec::new()),

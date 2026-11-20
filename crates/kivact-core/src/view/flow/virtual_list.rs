@@ -5,8 +5,8 @@
 //! are mounted; each row is an absolutely positioned wrapper. The host needs
 //! no virtualization-specific node kind. Each row is set up in its own
 //! owner; the row builder receives the list source's row handle
-//! (`ListSource::Row`), as `for_each` does: a `Value<T>`, or a `Binding<T>`
-//! that writes back for a `Signal` or `Binding` source.
+//! (`ListSource::Row`), as `for_each` does: a `Value<T>`, or a `Signal<T>`
+//! that writes back for a `Signal` or `Signal` source.
 //!
 //! The list is a scroll box, spacers and absolutely positioned rows; core
 //! computes the visible range (±200 px of overscan by default).

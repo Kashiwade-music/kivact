@@ -46,7 +46,7 @@ pub(crate) enum RovingMove {
 #[track_caller]
 pub fn node_ref() -> NodeRef {
     let at = Location::caller();
-    NodeRef::owned_by(Owner::current("node_ref", at), at)
+    NodeRef::owned_by(Owner::setup("node_ref", at), at)
 }
 
 impl NodeRef {

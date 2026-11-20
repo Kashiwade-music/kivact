@@ -102,7 +102,6 @@ impl Launch {
         #[cfg(feature = "devtools")]
         crate::devtools::run_events(&rt);
         let done = Revision(tree.stats().revision);
-        turn.check_draining();
         turn.settle();
         let writes = commit_rounds(&turn, &rt, &tree, done);
         let report = turn.finish(writes);

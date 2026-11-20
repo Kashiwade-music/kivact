@@ -55,7 +55,7 @@ pub struct Drawable {
 #[track_caller]
 pub fn drawable() -> Drawable {
     let at = Location::caller();
-    let owner = Owner::current("drawable", at);
+    let owner = Owner::setup("drawable", at);
     let id = DrawableId(NEXT_ID.fetch_add(1, Ordering::Relaxed));
     let inbox = Arc::new(Inbox::new(ExportLink::initial()));
     let root = NodeRef::owned_by(owner, at);
@@ -64,7 +64,7 @@ pub fn drawable() -> Drawable {
         rect.get()
             .map_or(Size::new(0.0, 0.0), |r| Size::new(r.width, r.height))
     });
-    let changed = owner.notifier(at);
+    let changed = owner.trigger(at);
     let app = owner.app();
     let state = Rc::new(DrawableState {
         owner,

@@ -18,7 +18,7 @@ use kivact_types::{DrawList, IdMap, NodeId, Rect, Size, WindowId};
 
 use crate::view::handler_layers::EventHandlers;
 use crate::view::input::{Handled, KeyEvent, PointerEvent, WheelEvent};
-use kivact_runtime::{Handler, NodeId as EffectId, Notifier, Owner, Signal, UiError};
+use kivact_runtime::{Handler, NodeId as EffectId, Owner, Signal, Trigger, UiError};
 use kivact_types::A11yAction;
 
 /// Scroll position report of a scroll container.
@@ -274,8 +274,8 @@ pub(crate) struct NodeObservation {
     /// one scroll fact; the offset and the scroll position are projections.
     pub(crate) scroll_geometry: Signal<ScrollState>,
     pub(crate) image_status: Signal<kivact_types::ImageStatus>,
-    pub(crate) scene_revision: Notifier,
-    pub(crate) editing_revision: Notifier,
+    pub(crate) scene_revision: Trigger,
+    pub(crate) editing_revision: Trigger,
 }
 
 /// Records [`ViewNodes::remove`] deleted. They hold the nodes' handlers, so
@@ -406,8 +406,8 @@ pub(crate) struct ViewNodes {
     /// (`LayoutSeed`); `observe_node` takes it, `remove` drops it.
     layout_seeds: IdMap<LayoutSeed>,
     /// Choice candidate invalidation; only Hidden changes notify it.
-    visibility_revision: Notifier,
-    live_region_revision: Notifier,
+    visibility_revision: Trigger,
+    live_region_revision: Trigger,
 }
 
 impl ViewNodes {
@@ -431,8 +431,8 @@ impl ViewNodes {
             leaving: IdMap::default(),
             provenance: IdMap::default(),
             layout_seeds: IdMap::default(),
-            visibility_revision: owner.notifier(Location::caller()),
-            live_region_revision: owner.notifier(Location::caller()),
+            visibility_revision: owner.trigger(Location::caller()),
+            live_region_revision: owner.trigger(Location::caller()),
         }
     }
 
@@ -509,12 +509,12 @@ impl ViewNodes {
 
     /// A value-less visibility notification owned by the App root, for
     /// choice controllers tracking ancestor visibility.
-    pub(crate) fn visibility_revision(&self) -> Notifier {
+    pub(crate) fn visibility_revision(&self) -> Trigger {
         self.visibility_revision
     }
 
     /// Track changes to live-region ancestry.
-    pub(crate) fn live_region_revision(&self) -> Notifier {
+    pub(crate) fn live_region_revision(&self) -> Trigger {
         self.live_region_revision
     }
 
@@ -535,8 +535,8 @@ impl ViewNodes {
             text_truncated: node.owner.signal(text_truncated, at),
             scroll_geometry: node.owner.signal(ScrollState::default(), at),
             image_status: node.owner.signal(image_status, at),
-            scene_revision: node.owner.notifier(at),
-            editing_revision: node.owner.notifier(at),
+            scene_revision: node.owner.trigger(at),
+            editing_revision: node.owner.trigger(at),
         };
         let handlers = node.handlers.get_or_insert_with(Default::default);
         let scroll_geometry = observation.scroll_geometry;
