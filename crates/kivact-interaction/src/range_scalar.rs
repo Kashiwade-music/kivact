@@ -50,6 +50,7 @@ pub struct RangeScalarApi {
 /// ```no_run
 /// use kivact::interaction::{RangeThumb, ScalarRange, use_range_scalar};
 /// use kivact::prelude::*;
+/// use kivact::view::Orientation;
 /// let (from, to) = (signal(20.0), signal(80.0));
 /// let price = use_range_scalar(from, to, ScalarRange::new(0.0, 100.0).unwrap());
 /// let view = node()

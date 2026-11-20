@@ -82,6 +82,7 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
+/// use kivact::style::ColorToken;
 /// use kivact::draw::{Draw, TextFormat};
 /// use kivact::geometry::{Point, Rect, Size};
 ///

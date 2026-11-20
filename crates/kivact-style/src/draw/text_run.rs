@@ -246,6 +246,7 @@ impl Draw {
     ///
     /// ```
     /// use kivact::prelude::*;
+    /// use kivact::style::ColorToken;
     /// use kivact::draw::{Draw};
     /// use kivact::geometry::{Point, Rect};
     /// use kivact::draw::TextFormat;

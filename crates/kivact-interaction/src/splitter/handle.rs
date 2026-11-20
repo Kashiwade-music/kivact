@@ -82,6 +82,8 @@ pub struct SplitterState {
 /// use kivact::interaction::{ScalarRange, use_splitter};
 /// use kivact::prelude::*;
 /// use kivact::style::Cursor;
+/// use kivact::style::ColorToken;
+/// use kivact::view::Orientation;
 /// let sidebar = signal(240.0);
 /// let range = ScalarRange::new(120.0, 480.0).unwrap();
 /// let handle = use_splitter(sidebar, range, Orientation::Horizontal)

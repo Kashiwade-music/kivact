@@ -88,6 +88,7 @@ pub fn card_label<K: Clone + 'static>(
 /// ```no_run
 /// use kivact::interaction::{ListItem};
 /// use kivact::prelude::*;
+/// use kivact::view::Orientation;
 /// use kivact_ui_game as g;
 ///
 /// fn sections() -> impl IntoView {

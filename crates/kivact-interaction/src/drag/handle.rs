@@ -297,6 +297,7 @@ impl<T: Clone + 'static> DragApi<T> {
     /// ```no_run
     /// use kivact::interaction::{DragCoordinates, DragUpdate, EditSession, use_drag};
     /// use kivact::prelude::*;
+    /// use kivact::view::EditPhase;
     /// let x = signal(0.0_f64);
     /// let origin = signal(0.0_f64);
     /// let edit = EditSession::new(move |start| x.set(start))

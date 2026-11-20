@@ -58,6 +58,7 @@ use std::rc::Rc;
 ///
 /// ```no_run
 /// use kivact::prelude::*;
+/// use kivact::ui::{DataColumn, data_table};
 ///
 /// #[derive(Clone, PartialEq)]
 /// struct Payment { id: u32, email: String, amount: f64 }

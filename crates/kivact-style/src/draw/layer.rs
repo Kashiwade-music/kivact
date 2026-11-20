@@ -27,6 +27,7 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// use kivact::draw::{Draw};
 /// use kivact::geometry::{Size};
 /// use kivact::style::{pct};
+/// use kivact::style::ColorToken;
 /// fn badge(d: &mut Draw, size: Size) {
 ///     let tilted = Layer::new()
 ///         .transform(Transform::new().rotate(-8))

@@ -29,6 +29,7 @@ pub struct Kpi {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
+/// use kivact::interaction::Tone;
 /// use kivact_ui_game as game;
 ///
 /// fn uptime() -> impl IntoView {

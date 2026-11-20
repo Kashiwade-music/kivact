@@ -55,6 +55,7 @@ pub struct ScalarApi {
 /// use kivact::interaction::{ScalarRange, use_scalar};
 /// use kivact::prelude::*;
 /// use kivact::style::Position;
+/// use kivact::view::{EditPhase, Orientation};
 /// let volume = signal(0.5);
 /// let range = ScalarRange::new(0.0, 1.0).unwrap();
 /// let slider = use_scalar(volume, range)

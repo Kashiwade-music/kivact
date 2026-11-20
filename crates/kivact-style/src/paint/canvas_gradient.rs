@@ -67,6 +67,7 @@ pub(crate) enum CanvasShape {
 /// use kivact::draw::{Path};
 /// use kivact::geometry::{Point, Rect};
 /// use kivact::prelude::*;
+/// use kivact::style::ColorToken;
 /// use kivact::draw::Draw;
 /// use kivact::draw::{CanvasGradient, GradientExtend};
 /// fn knob(d: &mut Draw) {
