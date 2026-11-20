@@ -504,9 +504,12 @@ impl Model {
         };
         // A layer root placed by another node's motion (a submenu anchored
         // in a moving menu) moves without a restack: the list follows it.
-        let rebuilt = list.state != key
-            || self.layers() != list.layer_origins
-            || (!list.rewalk.is_empty() && !self.rewalk_scrolled(&mut list));
+        let moved = list.state != key || self.layers() != list.layer_origins;
+        let rewalk = !moved && !list.rewalk.is_empty();
+        let rewalked = rewalk && self.rewalk_scrolled(&mut list);
+        let rebuilt = moved || (rewalk && !rewalked);
+        // A part walked again changes the layers' content (`stamp_versions`).
+        self.paint.rewalked |= rewalked;
         if rebuilt {
             self.build_list(&mut list, key);
         }

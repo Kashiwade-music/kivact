@@ -444,6 +444,12 @@ impl ArvaneTestHost {
         }
     }
 
+    /// The content versions of window `window`'s layers in its last frame, by key.
+    pub fn layer_versions(&self, window: WindowId) -> Vec<(arvane_protocol::LayerKey, u64)> {
+        self.with_window(window, |model| model.paint.layer_versions())
+            .unwrap_or_default()
+    }
+
     /// Make window `window`'s GPU device lost, as a device failure does (a test
     /// control; nothing happens on a CPU-only window).
     pub fn lose_gpu_device(&mut self, window: WindowId) {

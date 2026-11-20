@@ -14,11 +14,13 @@ use std::cell::RefCell;
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::rc::Rc;
 
-use arvane_protocol::{Plane, RasterGrid, RenderCmd};
+use arvane_protocol::{Composition, LayerKey, Plane, RasterGrid, RenderCmd};
 use kivact_types::cell::Generation;
 use kivact_types::geometry3d::Matrix4;
 use kivact_types::paint::BackfaceVisibility;
 use kivact_types::{NodeId, PaintProps, Point, Rect, Size};
+
+use crate::lower::LayerChange;
 
 pub(crate) use crate::model::{LayerTraits, SubtreeFacts};
 
@@ -134,7 +136,7 @@ pub(crate) enum StaleFacts {
     Nodes(BTreeSet<NodeId>),
 }
 
-// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws)
+// xtask-allow(state): legacy: scene_cache, dropped_reported, dropped_draws, drawables, misplaced_reported, twice_reported; draw_owners lists the slots holding a kept drawing (keep_draw, evict_draws, forget_draws); rewalked says the list was walked again in part since the last frame (paint_list), taken by stamp_versions
 /// The paint group of the model: derived caches and whether a
 /// frame must be redrawn. Only the paint modules read the caches.
 pub(crate) struct PaintState {
@@ -154,7 +156,15 @@ pub(crate) struct PaintState {
     pub(crate) stale_facts: StaleFacts,
     /// The nodes (and their slots) that keep a drawing in `Slots::draws`.
     pub(crate) draw_owners: RefCell<HashSet<(NodeId, usize)>>,
+    /// The content version each layer of the window's last frame had.
+    pub(super) versions: LayerVersions,
+    /// The list was walked again in part since the last frame (see `rewalked`).
+    pub(super) rewalked: bool,
 }
+
+/// The content version each layer of the window's last frame had.
+#[derive(Debug, Default)]
+pub(crate) struct LayerVersions(HashMap<LayerKey, u64>);
 
 impl PaintState {
     /// Initialize an empty retained list that needs its first frame.
@@ -171,6 +181,8 @@ impl PaintState {
             redraw: Redraw::Needed,
             stale_facts: StaleFacts::All,
             draw_owners: RefCell::default(),
+            versions: LayerVersions::default(),
+            rewalked: false,
         }
     }
 
@@ -219,6 +231,41 @@ impl PaintState {
     /// Forget the recorded facts of `id` (the node is gone).
     pub(crate) fn forget_fact(&mut self, id: NodeId) {
         self.list.facts.remove(&id);
+    }
+
+    /// Give each layer of the frame its content version: the last frame's
+    /// when nothing in it changed and the list stayed, a fresh one otherwise
+    /// (an untracked layer always).
+    pub(crate) fn stamp_versions(
+        &mut self,
+        composition: &mut Composition,
+        changes: &[LayerChange],
+        rebuilt: bool,
+    ) {
+        let list_changed = rebuilt || std::mem::take(&mut self.rewalked);
+        let mut seen = HashMap::with_capacity(composition.layers.len());
+        for (layer, change) in composition.layers.iter_mut().zip(changes) {
+            let kept = self.versions.0.get(&layer.key).copied();
+            let version = match (change, kept) {
+                (LayerChange::Kept, Some(version)) if !list_changed => version,
+                _ => crate::lower::content_versions::fresh_content_version(),
+            };
+            layer.content_version = version;
+            if *change != LayerChange::Untracked {
+                seen.insert(layer.key, version);
+            }
+        }
+        self.versions.0 = seen;
+    }
+
+    /// The content versions of the last frame's tracked layers, by key (the test driver reads them).
+    #[cfg(feature = "testing")]
+    pub(crate) fn layer_versions(&self) -> Vec<(LayerKey, u64)> {
+        self.versions
+            .0
+            .iter()
+            .map(|(key, version)| (*key, *version))
+            .collect()
     }
 }
 
