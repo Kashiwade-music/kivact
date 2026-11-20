@@ -4,13 +4,13 @@
 //! for, and the monochrome tint.
 //!
 //! Invariants:
-//! - Pixels are straight-alpha RGBA8 rows, top to bottom, exactly
+//! - Pixels are premultiplied RGBA8 rows, top to bottom, exactly
 //!   `width * height * 4` bytes, both edges at least 1.
 //! - An [`AssetImage`] id is unique within its store and never reused, so a host
 //!   may key device textures by it and free them when the store reports the
 //!   id evicted.
-//! - A tint keeps only the alpha: every pixel becomes the tint color with
-//!   alpha `source alpha × tint alpha`.
+//! - A tint keeps only the alpha: every pixel becomes the tint color,
+//!   premultiplied by its alpha `source alpha × tint alpha`.
 
 use std::fmt;
 use std::sync::Arc;
@@ -19,7 +19,7 @@ use kivact_types::{Pixels, Rgba, Size};
 
 use crate::fit::Region;
 
-/// A ready pixel buffer: straight-alpha RGBA8 pixels, with an id stable for as long as the store keeps it.
+/// A ready pixel buffer: premultiplied RGBA8 pixels, with an id stable for as long as the store keeps it.
 /// Cloning shares the buffer.
 #[derive(Clone)]
 pub struct AssetImage {
@@ -54,7 +54,7 @@ impl AssetImage {
         self.pixels.height
     }
 
-    /// The straight-alpha RGBA rows, `width * height * 4` bytes.
+    /// The premultiplied RGBA rows, `width * height * 4` bytes.
     pub fn rgba(&self) -> &Arc<[u8]> {
         self.pixels.rgba.as_shared()
     }
@@ -128,13 +128,14 @@ pub(crate) fn tint_key(color: Rgba) -> Tint {
 }
 
 /// `source` painted in `tint` (RGBA): its alpha times the tint's alpha, in
-/// the tint's color.
+/// the tint's color, premultiplied.
 pub(crate) fn tint(width: u32, height: u32, source: &[u8], tint: Tint) -> Pixels {
     let [r, g, b, a] = tint;
     let mut rgba = Vec::with_capacity(source.len());
     for px in source.as_chunks::<4>().0 {
         let alpha = (u32::from(px[3]) * u32::from(a) + 127) / 255;
-        rgba.extend_from_slice(&[r, g, b, alpha as u8]);
+        let p = |c: u8| ((u32::from(c) * alpha + 127) / 255) as u8;
+        rgba.extend_from_slice(&[p(r), p(g), p(b), alpha as u8]);
     }
     Pixels {
         width,

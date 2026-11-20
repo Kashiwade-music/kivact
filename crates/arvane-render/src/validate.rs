@@ -10,7 +10,7 @@
 //! group of its kind, at most [`MAX_SCENE_DEPTH`](crate::MAX_SCENE_DEPTH)
 //! open at once, blurs of at most `MAX_BLUR` standard deviations, at most
 //! `MAX_DASHES` dash lengths, glyph runs whose font skrifa reads and whose
-//! glyph ids it has. Images are decoded straight-alpha RGBA8 whose bytes
+//! glyph ids it has. Images are decoded premultiplied RGBA8 whose bytes
 //! match their dimensions, edges within 16,384 px ([`scene`]); this crate
 //! decodes no encoded image.
 //!

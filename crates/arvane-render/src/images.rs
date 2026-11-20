@@ -1,7 +1,7 @@
 //! Role: Converted images kept between frames, keyed by their pixels identity.
 //!
-//! vello_cpu copies an image's straight-alpha pixels into a new premultiplied
-//! pixmap whenever it is made a paint, and the GPU renderer draws images from
+//! vello_cpu copies an image's premultiplied pixels into a new pixmap
+//! whenever it is made a paint, and the GPU renderer draws images from
 //! textures, so a photo on screen would be converted (and uploaded) again on
 //! every frame. The frame cache (`frame_cache.rs`) keeps each converted image
 //! while consecutive frames draw it.

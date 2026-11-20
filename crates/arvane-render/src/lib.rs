@@ -8,7 +8,7 @@
 //! device. Devices, surfaces, external frames and compositing are not this
 //! crate's: they belong to the compositor.
 //!
-//! Images arrive decoded, as straight-alpha RGBA8 `Pixels`; this crate
+//! Images arrive decoded, as premultiplied RGBA8 `Pixels`; this crate
 //! reads no encoded image. The CPU renderer keeps an image's premultiplied
 //! copy while consecutive frames draw it (`images`), so a photo left on
 //! screen is not converted again every frame; pixels made from a scene's

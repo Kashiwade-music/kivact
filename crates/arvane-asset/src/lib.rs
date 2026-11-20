@@ -40,7 +40,7 @@
 //!   (animations give all their frames while they fit a quarter of the
 //!   budget, else the first one), SVG and SVGZ. Anything else fails with the
 //!   detected format named.
-//! - AssetImage are straight-alpha RGBA8, `width * height * 4` bytes. A raster
+//! - AssetImage are premultiplied RGBA8, `width * height * 4` bytes. A raster
 //!   image's natural size is its pixel size (one pixel per logical px); an
 //!   SVG's is its `width`/`height`, else its `viewBox`.
 //! - Limits: encoded input up to 64 MiB (SVGZ also once decompressed), SVG

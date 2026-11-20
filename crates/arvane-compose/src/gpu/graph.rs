@@ -912,7 +912,7 @@ impl GpuContext {
         Ok(())
     }
 
-    /// A texture of `image`'s size holding its pixels premultiplied (the shader reads premultiplied texels).
+    /// A texture of `image`'s size holding its premultiplied pixels, as they are.
     fn upload_premultiplied(&self, image: &Pixels) -> wgpu::Texture {
         let texture = self.device.create_texture(&wgpu::TextureDescriptor {
             label: Some("Arvane filter image"),
@@ -928,14 +928,6 @@ impl GpuContext {
             usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
             view_formats: &[],
         });
-        let mut bytes = Vec::with_capacity(image.rgba.len());
-        for px in image.rgba.as_chunks::<4>().0 {
-            let a = u32::from(px[3]);
-            for c in &px[..3] {
-                bytes.push((f32::from(*c) * a as f32 / 255.0).round() as u8);
-            }
-            bytes.push(px[3]);
-        }
         self.queue.write_texture(
             wgpu::TexelCopyTextureInfo {
                 texture: &texture,
@@ -943,7 +935,7 @@ impl GpuContext {
                 origin: wgpu::Origin3d::ZERO,
                 aspect: wgpu::TextureAspect::All,
             },
-            &bytes,
+            &image.rgba,
             wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * image.width),

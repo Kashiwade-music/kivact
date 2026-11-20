@@ -63,6 +63,17 @@ pub fn unpremultiply(rgba: &mut [u8]) {
     }
 }
 
+/// Convert straight-alpha RGBA8 pixels to premultiplied alpha in place
+/// (each color channel times alpha / 255, rounded).
+pub fn premultiply(rgba: &mut [u8]) {
+    for px in rgba.as_chunks_mut::<4>().0 {
+        let a = u16::from(px[3]);
+        for c in &mut px[..3] {
+            *c = ((u16::from(*c) * a + 127) / 255) as u8;
+        }
+    }
+}
+
 impl Rgba {
     /// Clamp straight-alpha components to zero through one; non-finite is zero.
     pub fn sanitize(self) -> Self {

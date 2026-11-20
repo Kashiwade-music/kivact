@@ -27,7 +27,7 @@
 //!   no group: it is Arvane's `PushClip`. A layer's clip shape (kivact's
 //!   `Layer::clip(&Shape)`, placed in its area) is the clip of the layer's
 //!   group.
-//! - Pixels (`DrawCmd::Pixels`: straight-alpha RGBA8) are drawn as they
+//! - Pixels (`DrawCmd::Pixels`: premultiplied RGBA8) are drawn as they
 //!   are, through neither the asset store nor its conversion. A part of an
 //!   image (`DrawCmd::ImagePart`) is drawn from its source rect, copying no
 //!   pixel, rasterized for the destination's device pixels enlarged by how

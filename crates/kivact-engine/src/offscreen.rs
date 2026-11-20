@@ -7,8 +7,8 @@
 //! theme's, as a window's root does), and it shares the output's text
 //! engine, so a font registered later is seen. It is drawn by Arvane's
 //! CPU rasterizer alone, at a raster scale of 1, from a transparent start;
-//! the rasterizer's premultiplied pixels are turned back into straight
-//! alpha. The size limit is the rasterizer's frame budget, the one windows
+//! the rasterizer's premultiplied pixels are the output as they are. The
+//! size limit is the rasterizer's frame budget, the one windows
 //! are held to ([`OffscreenRenderer::accepts_size`]); the caller checks it before it
 //! draws anything. Encoding, the timing of frames and cancelling between
 //! them are the caller's.
@@ -24,7 +24,7 @@
 //!   ([`OffscreenRenderer::font`]).
 //! - Resources complete inside the call (the asset store is inline), and an
 //!   error leaves the output usable for the next frame.
-//! - The output is straight-alpha RGBA8 in its own allocation; the output
+//! - The output is premultiplied RGBA8 in its own allocation; the output
 //!   owns the assets and the text engine, which its thread keeps. An
 //!   [`OffscreenRenderer`] is not `Send`; dropping it releases its caches.
 
@@ -58,7 +58,7 @@ pub enum OffscreenError {
     Failed(kivact_types::Failure),
 }
 
-/// A rendered image: tightly packed straight-alpha RGBA8, top row first, in
+/// A rendered image: tightly packed premultiplied RGBA8, top row first, in
 /// an allocation of its own.
 pub struct OffscreenImage {
     pub width: u32,
@@ -187,14 +187,11 @@ impl OffscreenRenderer {
         if undrawn > 0 {
             return Err(OffscreenError::Dropped(undrawn as u32));
         }
-        let mut frame = self
+        let frame = self
             .compositor
             .render(composition, (size.0, size.1), 1.0)
             .map(|rendered| rendered.image)
             .map_err(|error| OffscreenError::Failed(kivact_types::Failure::from(error)))?;
-        // PNG and Draw::pixels are straight alpha; Arvane's frame is
-        // premultiplied.
-        kivact_types::color::unpremultiply(&mut frame.rgba);
         Ok(OffscreenImage {
             width: frame.width,
             height: frame.height,

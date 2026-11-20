@@ -48,7 +48,7 @@ fn well_formed(svg: &str) -> bool {
 #[test]
 fn a_drawing_is_written_as_well_formed_svg_with_its_elements() {
     let mut renderer = Offscreen::new();
-    let pixels = Pixels::new(2, 1, vec![255, 0, 0, 255, 0, 0, 255, 128]);
+    let pixels = Pixels::new(2, 1, vec![255, 0, 0, 255, 0, 0, 128, 128]);
     let out = renderer
         .render_svg(200.0, 100.0, |draw, _size| {
             draw.fill_rect(Rect::new(0.0, 0.0, 200.0, 100.0), rgb(0xffffff));

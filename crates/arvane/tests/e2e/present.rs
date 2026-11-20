@@ -164,7 +164,7 @@ fn representative() -> Vec<RenderCmd> {
                 height: 2,
                 rgba: AssetBytes::from_shared(Arc::from(
                     &[
-                        255u8, 0, 0, 255, 0, 255, 0, 128, 0, 0, 255, 255, 255, 255, 255, 64,
+                        255u8, 0, 0, 255, 0, 128, 0, 128, 0, 0, 255, 255, 64, 64, 64, 64,
                     ][..],
                 )),
             },

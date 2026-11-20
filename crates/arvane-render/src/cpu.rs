@@ -314,13 +314,14 @@ struct CpuCanvas<'a, 'b> {
 impl CpuCanvas<'_, '_> {
     /// `image` premultiplied, kept while frames draw it.
     fn source(&mut self, image: &Pixels) -> ImageSource {
-        // vello_cpu premultiplies into a new pixmap for each paint; the
-        // cache keeps it while frames draw it.
+        // The pixels are premultiplied already, so vello_cpu takes them as
+        // they are; its pixmap is still made once and the cache keeps it
+        // while frames draw it.
         images::converted(self.images, image, || {
             ImageSource::from_peniko_image_data(&vello_cpu::peniko::ImageData {
                 data: Blob::new(Arc::new(Arc::clone(image.rgba.as_shared()))),
                 format: ImageFormat::Rgba8,
-                alpha_type: ImageAlphaType::Alpha,
+                alpha_type: ImageAlphaType::AlphaPremultiplied,
                 width: image.width,
                 height: image.height,
             })

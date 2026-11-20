@@ -1,14 +1,13 @@
-//! Role: Reads a wgpu texture back to the CPU as straight RGBA8, with wgpu alone.
+//! Role: Reads a wgpu texture back to the CPU as premultiplied RGBA8, with wgpu alone.
 //!
 //! For a window that cannot import (it draws on the CPU, or its GPU is not
 //! up yet): the UI shows the frame as `Pixels`. The engine draws into a
 //! texture of its own (not shared) and reads it back here.
 
 use crate::common::Error;
-use kivact_types::color::unpremultiply;
 use std::time::Duration;
 
-/// `texture`'s pixels (premultiplied alpha) as straight-alpha RGBA8
+/// `texture`'s pixels as premultiplied RGBA8 (as `Pixels`)
 /// (`width` × `height` × 4 bytes, rows top to bottom), copied on `queue`
 /// after the earlier submissions and waited for at most `timeout`
 /// (`Device::poll`). The texture is a 2D texture of `device` of
@@ -93,6 +92,5 @@ pub fn read_back(
         }
     }
     buffer.unmap();
-    unpremultiply(&mut rgba);
     Ok(rgba)
 }

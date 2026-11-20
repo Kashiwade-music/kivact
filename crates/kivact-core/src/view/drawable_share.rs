@@ -57,7 +57,7 @@ pub struct DrawableTextures {
 /// A frame of a drawable's export.
 #[derive(Clone, Debug)]
 pub enum DrawableFrame {
-    /// A frame read back as pixels (straight-alpha RGBA8).
+    /// A frame read back as pixels (premultiplied RGBA8).
     Pixels {
         /// The request this frame answers.
         generation: u64,
@@ -353,7 +353,7 @@ impl DrawableShare {
         });
     }
 
-    /// Receive frames as CPU pixels (straight-alpha RGBA8). Starts a new generation.
+    /// Receive frames as CPU pixels (premultiplied RGBA8). Starts a new generation.
     pub fn request_pixels(&self) {
         self.change(|link| {
             if let Some(open) = link.open_mut() {

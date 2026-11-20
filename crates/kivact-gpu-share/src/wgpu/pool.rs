@@ -329,7 +329,7 @@ impl Pool {
         }
     }
 
-    /// Texture `slot`'s last frame as straight-alpha RGBA8 (`width` ×
+    /// Texture `slot`'s last frame as premultiplied RGBA8 (as `Pixels`) (`width` ×
     /// `height` × 4 bytes, rows top to bottom), once its `ready` arrived
     /// (each wait at most `timeout`), copied by a raw submission on wgpu's
     /// queue (the backend pool's `read_back`).

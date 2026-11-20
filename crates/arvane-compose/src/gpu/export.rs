@@ -5,7 +5,6 @@
 //! of what each sink received are passive state in `export_pool`.
 
 use super::export_pool::{ExportPool, ExportRecord, Pool};
-use super::pass::unpremultiply;
 use super::state::GpuContext;
 use crate::RenderError;
 use crate::plan::PlannedExport;
@@ -71,8 +70,7 @@ impl GpuContext {
             })?;
             let frame = match export.mode {
                 ExportMode::Pixels => {
-                    let mut rgba = self.read_rgba(texture)?;
-                    unpremultiply(&mut rgba);
+                    let rgba = self.read_rgba(texture)?;
                     let pixels =
                         kivact_types::pixel::Pixels::new(texture.width(), texture.height(), rgba);
                     Some(ExportFrame::Pixels(pixels))

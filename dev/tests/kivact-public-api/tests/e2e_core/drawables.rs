@@ -187,7 +187,7 @@ fn pixels_of(frame: &DrawableFrame) -> &Pixels {
     }
 }
 
-/// The straight-alpha RGBA of the pixel at (x, y) of `pixels`.
+/// The premultiplied RGBA of the pixel at (x, y) of `pixels`.
 fn rgba_at(pixels: &Pixels, x: u32, y: u32) -> [u8; 4] {
     let i = ((y * pixels.width + x) * 4) as usize;
     let bytes: &[u8] = &pixels.rgba;

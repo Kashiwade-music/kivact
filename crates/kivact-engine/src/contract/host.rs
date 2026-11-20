@@ -143,7 +143,7 @@ pub enum ExportRequestMode {
 /// The settled host's answer to a subtree CPU capture request.
 #[derive(Clone, Debug, PartialEq)]
 pub enum SnapshotResult {
-    /// Straight-alpha RGBA pixels at logical scale 1.
+    /// Premultiplied RGBA pixels at logical scale 1.
     Pixels(kivact_types::Pixels),
     /// The target no longer has mounted layout.
     Unmounted,

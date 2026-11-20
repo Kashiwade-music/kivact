@@ -42,7 +42,7 @@ pub(crate) enum Brush {
 
 /// How [`crate::draw::Canvas::fill_pattern`] repeats pixels.
 pub(crate) struct PatternFill {
-    /// Straight-alpha pixels.
+    /// Premultiplied-alpha pixels.
     pub(crate) image: Pixels,
     /// From the image's pixel grid to the current coordinates.
     pub(crate) transform: Affine,

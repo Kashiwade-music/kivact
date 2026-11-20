@@ -1,7 +1,9 @@
 //! Role: PNG and base64 bytes for screenshots.
 
-/// An 8-bit RGBA PNG of `rgba` (`width * height * 4` bytes, row by row).
+/// An 8-bit RGBA PNG of premultiplied `rgba` (`width * height * 4` bytes,
+/// row by row), written as straight alpha.
 pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> std::io::Result<Vec<u8>> {
+    let straight = to_straight(rgba);
     let mut out = Vec::new();
     {
         let mut encoder = png::Encoder::new(&mut out, width, height);
@@ -9,11 +11,30 @@ pub fn encode_png(width: u32, height: u32, rgba: &[u8]) -> std::io::Result<Vec<u
         encoder.set_depth(png::BitDepth::Eight);
         let mut writer = encoder.write_header().map_err(std::io::Error::other)?;
         writer
-            .write_image_data(rgba)
+            .write_image_data(&straight)
             .map_err(std::io::Error::other)?;
         writer.finish().map_err(std::io::Error::other)?;
     }
     Ok(out)
+}
+
+/// A copy of premultiplied RGBA8 `rgba` with straight alpha, rounded as the
+/// engine's color conversion does (this crate does not depend on `kivact-types`).
+fn to_straight(rgba: &[u8]) -> Vec<u8> {
+    let mut out = rgba.to_vec();
+    for pixel in out.as_chunks_mut::<4>().0 {
+        let alpha = u32::from(pixel[3]);
+        match alpha {
+            0 => pixel[..3].fill(0),
+            255 => {}
+            _ => {
+                for channel in &mut pixel[..3] {
+                    *channel = ((u32::from(*channel) * 255 + alpha / 2) / alpha).min(255) as u8;
+                }
+            }
+        }
+    }
+    out
 }
 
 /// Standard base64 with `=` padding.

@@ -6,9 +6,9 @@
 //!
 //! Invariants:
 //! - Arvane reads no encoded image: the store decodes and
-//!   rasterizes, and the host hands Arvane the store's straight-alpha RGBA8
+//!   rasterizes, and the host hands Arvane the store's premultiplied RGBA8
 //!   as `ImageData` sharing the store's allocation (no copy; Arvane's
-//!   `ImageData` is straight-alpha RGBA8 too).
+//!   `ImageData` is premultiplied RGBA8 too).
 //! - What is drawn for an image always comes from the store for the
 //!   node's current asset ([`ArvaneAssets::pixels`]), so a new asset never
 //!   shows the old asset's pixels.

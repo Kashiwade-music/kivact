@@ -4,8 +4,8 @@
 //! Arvane scene is the window's. The context keeps the resources, the
 //! raster scale and the first failure; text is measured with a
 //! `bridge::TextMeasurer` that needs no node tree. Only the CPU
-//! rasterizer draws, and its premultiplied output is turned back into
-//! straight alpha. The theme's tokens, family and line height come from
+//! rasterizer draws, and its output is premultiplied RGBA8 (`Pixels`). The
+//! theme's tokens, family and line height come from
 //! `Offscreen::theme`, as a window root's do. `render_svg` writes the same
 //! recording as an SVG document: `kivact-svg` writes it and asks this module
 //! for the text baselines and the drawn images.
