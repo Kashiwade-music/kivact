@@ -168,6 +168,13 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R29（lane X、commit `d878f338`）：(a) `async_view` の `default_fallback` は既存の `i18n::message("async_view.retry", "Retry")` のまま（doc と i18n を保つ。同じ意味）。(b) stepper の `Prop<String>` を `text(..)` に渡す箇所は closure（`Prop` の get を使う。`Prop<String>` に IntoText が無いのは R24 のとおり）。(c) `button_group`・`control_size` の `size.get().0` は `size.0`（同じ挙動。context の get は R20 で無くなった）。以上は同じ意味の一つだけの method を使う行で受け入れる。機械的な掃引（r_sweep・r_handler_sig・r_handler_body、F0〜F2、clippy --fix）も受け入れる。
+
+## 差戻し（W5a・R29、2026-11-20）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R29**（W5a、lane X、commit `d878f338`）：`crates/kivact-ui/src/data_table/tree.rs` の `Plan`（`pub(super) struct Plan<K>`、field `show_all`・`expanded`）が xtask の state の error。付属書の「状態の閉じ方」の印の文（`// xtask-allow(state): independent: expanded is the caller's binding of the open rows, written by the tree toggles; show_all is the tree column's setting, fixed when the plan is made`）を `Plan` の直上に入れる Edit が、権限の自動判定で拒否された。subagent は別の手段で書かなかった。Orchestrator も、拒否された編集を別の方法で入れない（E31 の印と同じ扱い）。xtask が通らないので、この差戻しの間、lane X（鎖）は止める。設計者（またはユーザー）が、この 1 行を入れるか、編集の許可を出すかを決める。
+
 - W5a・R28（lane X）：設計者の回答（`9b9e001c`）に従い、付属書 R28 の「状態の閉じ方」の印を、そのままの文で lane X に入れた（`range.rs` の effect-writes 3 件、`DisclosureApi`・`Target`・`Core` の state の印を doc と属性の塊の上に）。設計者の回答では印が `49707eeb` に入っているとあったが、その commit はコードを変えていなかったので、lane X で入れた。確認（fmt・check・clippy --lib・xtask）は kivact-interaction で成功。
 
 - W5a・R27（lane X、commit `66965e52`）：確認（fmt・clippy --lib・xtask kivact-core）は成功。付属書どおりの policy の except 削除、`__private` と `frame_loop` の削除を受け入れる。(a) `HostEvent` の `StatesChanged`・`NodeFlagsChanged` の腕を cause_of に足した（E の variant の規則どおり）。(b) `launch/turn.rs` の `mounts_only` の helper は too_many_lines への対応（表の「関数の上限」）。(c) `prelude.rs` に `Trigger`・`trigger` は足していない（付属書 R27 の手順は constant_value の削除だけ）。設計書 5.11 との違いの確認は設計者に任せる。
