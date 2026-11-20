@@ -1,4 +1,8 @@
 //! Role: The GPU executor's public names when feature `gpu` is not built: no device exists, so every call fails.
+//!
+//! [`GpuDevice`] is uninhabited. [`GpuContext`] and [`SurfaceConfigurer`] are not,
+//! so that code which only the `gpu` build reaches does not look unreachable here:
+//! their constructors are unreachable, and no value of them can be made.
 
 use crate::{GpuReport, RenderError};
 use arvane_protocol::{Composition, CpuFrame};
@@ -21,12 +25,12 @@ impl GpuEnv {
 /// A GPU device cannot exist without the `gpu` feature.
 pub enum GpuDevice {}
 
-/// What configuring a window's surface needs cannot exist without the `gpu` feature.
+/// What configuring a window's surface needs. No value exists without the `gpu` feature.
 #[derive(Clone)]
-pub enum SurfaceConfigurer {}
+pub struct SurfaceConfigurer(());
 
-/// A window's GPU context cannot exist without the `gpu` feature.
-pub enum GpuContext {}
+/// A window's GPU context. No value exists without the `gpu` feature.
+pub struct GpuContext(());
 
 /// A window surface cannot exist without the `gpu` feature.
 pub enum GpuSurface {}
@@ -104,31 +108,31 @@ impl GpuDevice {
 }
 
 impl SurfaceConfigurer {
-    /// Unreachable: no device exists.
+    /// Unreachable: no configurer exists.
     pub fn configure(
         &self,
         _surface: &mut GpuSurface,
         _width: u32,
         _height: u32,
     ) -> Result<(), RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no configurer exists")
     }
 }
 
 impl GpuContext {
-    /// Unreachable: no device exists.
+    /// Unreachable: no device exists to share.
     pub fn new(gpu: Rc<GpuDevice>) -> Self {
         match *gpu {}
     }
 
-    /// Unreachable: no device exists.
+    /// Unreachable: no context exists.
     pub fn device(&self) -> &Rc<GpuDevice> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Nothing to release without a device.
     pub fn release_caches(&mut self) {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -139,7 +143,7 @@ impl GpuContext {
         _scale: f64,
         _physical: (u32, u32),
     ) -> Result<(Presentation, Duration, GpuReport), RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -149,12 +153,12 @@ impl GpuContext {
         _pixels: &[u32],
         _size: (u32, u32),
     ) -> Result<(Presentation, Duration), RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
     pub fn read_back(&self, _surface: &GpuSurface) -> Result<CpuFrame, RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -164,7 +168,7 @@ impl GpuContext {
         _size: (u32, u32),
         _scale: f64,
     ) -> Result<CpuFrame, RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
@@ -175,12 +179,12 @@ impl GpuContext {
         _adapter: &GpuAdapter,
         _size: (u32, u32),
     ) -> Result<SharedTextures, RenderError> {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 
     /// Unreachable: no context exists.
     pub fn drop_export(&mut self, _sink: DrawableId) {
-        match *self {}
+        unreachable!("built without the gpu feature: no context exists")
     }
 }
 
