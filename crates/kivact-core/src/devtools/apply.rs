@@ -6,102 +6,76 @@ use kivact_devtools_protocol as p;
 use kivact_runtime::Owner;
 use kivact_runtime::driver::Runtime;
 use kivact_style::ThemeVar;
-use kivact_style::{Color, Length, LineHeight, Style, TextAlign, Theme};
+use kivact_style::internal::style_property;
+use kivact_style::{Color, LineHeight, Style, Theme};
 
-use kivact_types::{Display, NodeId};
+use kivact_types::NodeId;
 
-/// The DevTools override properties: one layout property.
-fn override_layout(property: &str, value: &str) -> Option<Result<Style, String>> {
-    let result = match property {
-        "width" => length(value).map(|v| Style::default().width(v)),
-        "height" => length(value).map(|v| Style::default().height(v)),
-        "min_width" => length(value).map(|v| Style::default().min_width(v)),
-        "min_height" => length(value).map(|v| Style::default().min_height(v)),
-        "max_width" => length(value).map(|v| Style::default().max_width(v)),
-        "max_height" => length(value).map(|v| Style::default().max_height(v)),
-        "padding" => length(value).map(|v| Style::default().padding(v)),
-        "padding_top" => length(value).map(|v| Style::default().padding_top(v)),
-        "padding_right" => length(value).map(|v| Style::default().padding_right(v)),
-        "padding_bottom" => length(value).map(|v| Style::default().padding_bottom(v)),
-        "padding_left" => length(value).map(|v| Style::default().padding_left(v)),
-        "margin" => length(value).map(|v| Style::default().margin(v)),
-        "margin_top" => length(value).map(|v| Style::default().margin_top(v)),
-        "margin_right" => length(value).map(|v| Style::default().margin_right(v)),
-        "margin_bottom" => length(value).map(|v| Style::default().margin_bottom(v)),
-        "margin_left" => length(value).map(|v| Style::default().margin_left(v)),
-        "gap" => length(value).map(|v| Style::default().gap(v)),
-        "row_gap" => length(value).map(|v| Style::default().row_gap(v)),
-        "column_gap" => length(value).map(|v| Style::default().column_gap(v)),
-        "grow" => number(value).map(|v| Style::default().grow(v)),
-        "shrink" => number(value).map(|v| Style::default().shrink(v)),
-        "display" => display(value).map(|v| Style::default().display(v)),
-        _ => return None,
-    };
-    Some(with_property(property, result))
-}
-
-/// The DevTools override properties: one paint property.
-fn override_paint(property: &str, value: &str) -> Option<Result<Style, String>> {
-    let result = match property {
-        "background" => color(value).map(|v| Style::default().background(v)),
-        "color" => color(value).map(|v| Style::default().color(v)),
-        "border_color" => color(value).map(|v| Style::default().border_color(v)),
-        "border_width" => number(value).map(|v| Style::default().border_width(v)),
-        "radius" => number(value).map(|v| Style::default().radius(v)),
-        "opacity" => number(value).map(|v| Style::default().opacity(v)),
-        _ => return None,
-    };
-    Some(with_property(property, result))
-}
-
-/// The DevTools override properties: one text property.
-fn override_text(property: &str, value: &str) -> Option<Result<Style, String>> {
-    let result = match property {
-        "font_size" => number(value).map(|v| Style::default().font_size(v)),
-        "line_height" => number(value).map(|v| Style::default().line_height(v)),
-        "weight" => number(value).map(|v| Style::default().weight(v as u16)),
-        "text_align" => text_align(value).map(|v| Style::default().text_align(v)),
-        _ => return None,
-    };
-    Some(with_property(property, result))
-}
+/// The longhands a shorthand override sets, each with the value it was given.
+const SHORTHANDS: [(&str, &[&str]); 6] = [
+    (
+        "padding",
+        &[
+            "padding_top",
+            "padding_right",
+            "padding_bottom",
+            "padding_left",
+        ],
+    ),
+    (
+        "margin",
+        &["margin_top", "margin_right", "margin_bottom", "margin_left"],
+    ),
+    ("gap", &["row_gap", "column_gap"]),
+    (
+        "border_width",
+        &[
+            "border_top_width",
+            "border_right_width",
+            "border_bottom_width",
+            "border_left_width",
+        ],
+    ),
+    (
+        "border_color",
+        &[
+            "border_top_color",
+            "border_right_color",
+            "border_bottom_color",
+            "border_left_color",
+        ],
+    ),
+    (
+        "radius",
+        &[
+            "radius_top_left",
+            "radius_top_right",
+            "radius_bottom_right",
+            "radius_bottom_left",
+        ],
+    ),
+];
 
 /// Read one override into a style, or name the property it does not know.
+/// Each value is read by the property's entry in kivact-style's table.
 pub(crate) fn override_style(property: &str, value: &str) -> Result<Style, String> {
-    if let Some(result) = override_layout(property, value) {
-        return result;
+    match SHORTHANDS.iter().find(|(name, _)| *name == property) {
+        Some((_, longhands)) => read_all(property, longhands, value),
+        None => read_all(property, &[property], value),
     }
-    if let Some(result) = override_paint(property, value) {
-        return result;
-    }
-    if let Some(result) = override_text(property, value) {
-        return result;
-    }
-    Err(format!("unknown property: {property}"))
 }
 
-fn with_property<T>(property: &str, result: Result<T, String>) -> Result<T, String> {
-    result.map_err(|message| format!("{property}: {message}"))
-}
-
-fn length(value: &str) -> Result<Length, String> {
-    let value = value.trim();
-    if value == "auto" {
-        return Ok(Length::Auto);
-    }
-    if let Some(percent) = value.strip_suffix('%') {
-        return percent
-            .trim()
-            .parse::<f64>()
-            .map(Length::Percent)
-            .map_err(|_| {
-                format!("expected a length (a number, a percentage, or auto), got {value}")
-            });
-    }
-    value
-        .parse::<f64>()
-        .map(Length::Px)
-        .map_err(|_| format!("expected a length (a number, a percentage, or auto), got {value}"))
+/// Read `value` as each of `names`, the longhands of `property`, into one style.
+fn read_all(property: &str, names: &[&str], value: &str) -> Result<Style, String> {
+    names
+        .iter()
+        .try_fold(Style::default(), |style, name| -> Result<Style, String> {
+            let definition =
+                style_property(name).ok_or_else(|| format!("unknown property: {property}"))?;
+            let set =
+                (definition.parse)(value).map_err(|message| format!("{property}: {message}"))?;
+            Ok(style.merge(&set))
+        })
 }
 
 fn number(value: &str) -> Result<f64, String> {
@@ -116,187 +90,6 @@ fn color(value: &str) -> Result<Color, String> {
         return Ok(Color::var(var));
     }
     Color::css(value).map_err(|_| format!("expected a color, got {value}"))
-}
-
-fn display(value: &str) -> Result<Display, String> {
-    match value.trim() {
-        "flex" => Ok(Display::Flex),
-        "grid" => Ok(Display::Grid),
-        "contents" => Ok(Display::Contents),
-        _ => Err(format!("expected flex, grid or contents, got {value}")),
-    }
-}
-
-fn text_align(value: &str) -> Result<TextAlign, String> {
-    match value.trim() {
-        "start" => Ok(TextAlign::Start),
-        "center" => Ok(TextAlign::Center),
-        "end" => Ok(TextAlign::End),
-        _ => Err(format!("expected start, center or end, got {value}")),
-    }
-}
-
-/// The override syntax (`12`, `50%`, `auto`, `#2563eb`, a token name, ...) of
-/// one property value, given as
-/// `describe_style` wrote it: the `Debug` text of the value, wrapped in
-/// `Some(...)` for an optional field. `None` when `property` is not in that
-/// table or the value has no such syntax. The edges and corners that
-/// `describe_style` names one by one (`border_top_width`, `radius_top_left`, ...)
-/// are not in the table, so they have no editable form.
-pub(crate) fn editable_value(property: &str, described: &str) -> Option<String> {
-    let text = described
-        .strip_prefix("Some(")
-        .and_then(|rest| rest.strip_suffix(')'))
-        .unwrap_or(described);
-    match property {
-        "width" | "height" | "min_width" | "min_height" | "max_width" | "max_height"
-        | "padding" | "padding_top" | "padding_right" | "padding_bottom" | "padding_left"
-        | "margin" | "margin_top" | "margin_right" | "margin_bottom" | "margin_left" | "gap"
-        | "row_gap" | "column_gap" => length_text(text),
-        "grow" | "shrink" | "opacity" | "font_size" | "weight" => {
-            text.parse::<f64>().ok().map(number_text)
-        }
-        "line_height" => one_value(text, "Scale").map(number_text),
-        "background" => background_text(text),
-        "color" => color_text(text),
-        "display" => display_text(text),
-        "text_align" => text_align_text(text),
-        _ => None,
-    }
-}
-
-fn number_text(value: f64) -> String {
-    format!("{value}")
-}
-
-/// The text inside `name(...)` when `text` is exactly that, and the text
-/// after the closing parenthesis.
-fn split_group<'a>(text: &'a str, name: &str) -> Option<(&'a str, &'a str)> {
-    let inner = text.strip_prefix(name)?.strip_prefix('(')?;
-    let mut depth = 1_usize;
-    for (index, c) in inner.char_indices() {
-        match c {
-            '(' => depth += 1,
-            ')' => {
-                depth -= 1;
-                if depth == 0 {
-                    return Some((&inner[..index], &inner[index + 1..]));
-                }
-            }
-            _ => {}
-        }
-    }
-    None
-}
-
-/// The number inside `name(...)`, when `text` is exactly that.
-fn one_value(text: &str, name: &str) -> Option<f64> {
-    let (inner, rest) = split_group(text, name)?;
-    if !rest.is_empty() {
-        return None;
-    }
-    inner.trim().parse::<f64>().ok()
-}
-
-/// `Auto`, `Px(n)` or `Percent(n)` as `auto`, `n` or `n%`.
-fn length_text(text: &str) -> Option<String> {
-    if text == "Auto" {
-        return Some("auto".to_owned());
-    }
-    if let Some(px) = one_value(text, "Px") {
-        return Some(number_text(px));
-    }
-    one_value(text, "Percent").map(|percent| format!("{}%", number_text(percent)))
-}
-
-fn display_text(text: &str) -> Option<String> {
-    Some(
-        match text {
-            "Flex" => "flex",
-            "Grid" => "grid",
-            "Contents" => "contents",
-            _ => return None,
-        }
-        .to_owned(),
-    )
-}
-
-fn text_align_text(text: &str) -> Option<String> {
-    Some(
-        match text {
-            "Start" => "start",
-            "Center" => "center",
-            "End" => "end",
-            _ => return None,
-        }
-        .to_owned(),
-    )
-}
-
-/// `Color(Rgba(r, g, b, a))` as `#rrggbb` or `#rrggbbaa`, and
-/// `Color(Token(Name, 1.0))` as the token's name.
-fn color_text(text: &str) -> Option<String> {
-    let (repr, rest) = split_group(text, "Color")?;
-    if !rest.is_empty() {
-        return None;
-    }
-    if let Some((components, after)) = split_group(repr, "Rgba") {
-        if !after.is_empty() {
-            return None;
-        }
-        let values = components
-            .split(", ")
-            .map(|part| part.trim().parse::<f64>())
-            .collect::<Result<Vec<f64>, _>>()
-            .ok()?;
-        let rgba: [f64; 4] = values.try_into().ok()?;
-        return Some(hex(rgba));
-    }
-    let (token, after) = split_group(repr, "Token")?;
-    if !after.is_empty() {
-        return None;
-    }
-    let (name, alpha) = token.split_once(", ")?;
-    if alpha.trim().parse::<f64>().ok()? != 1.0 {
-        return None;
-    }
-    token_name(name)
-}
-
-/// The theme token name of a `Color` `Debug` name: `SurfaceAlt` is
-/// `surface_alt`.
-fn token_name(debug: &str) -> Option<String> {
-    let mut name = String::with_capacity(debug.len() + 2);
-    for (index, c) in debug.chars().enumerate() {
-        if c.is_ascii_uppercase() {
-            if index > 0 {
-                name.push('_');
-            }
-            name.push(c.to_ascii_lowercase());
-        } else {
-            name.push(c);
-        }
-    }
-    color_var(&name).map(|_| name)
-}
-
-/// The color of a background that is one solid color covering the box, from
-/// the `Background` `Debug` text.
-fn background_text(text: &str) -> Option<String> {
-    let (layers, rest) = split_group(text, "Background")?;
-    if !rest.is_empty() {
-        return None;
-    }
-    let paint = layers.strip_prefix("[Paint { image: ")?;
-    let (image, tail) = split_group(paint, "Color")?;
-    let solid = tail.starts_with(", size: Auto, ")
-        && tail
-            .ends_with(", repeat: (true, true), clip: BorderBox, origin: None, blend: Normal }]")
-        && !tail.contains("Paint {");
-    if !solid {
-        return None;
-    }
-    color_text(image)
 }
 
 /// The overrides of `id`: call-site overrides first, then node overrides, so
@@ -634,98 +427,5 @@ fn accent_char(c: char) -> char {
         'N' => 'Ñ',
         'Y' => 'Ý',
         other => other,
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    //! Role: Tests for the override syntax and its round trip.
-
-    use super::{editable_value, override_style};
-    use kivact_style::internal::describe_style;
-
-    /// One sample value for each property of the table that `describe_style`
-    /// names as the property itself. The border and radius properties are
-    /// left out: `describe_style` names their edges and corners one by one.
-    const SAMPLES: [(&str, &str); 26] = [
-        ("width", "120"),
-        ("height", "50%"),
-        ("min_width", "auto"),
-        ("min_height", "20"),
-        ("max_width", "300"),
-        ("max_height", "80%"),
-        ("padding", "12"),
-        ("padding_top", "4"),
-        ("margin", "8"),
-        ("margin_left", "2"),
-        ("gap", "8"),
-        ("row_gap", "4"),
-        ("column_gap", "6"),
-        ("grow", "1"),
-        ("shrink", "0.5"),
-        ("display", "grid"),
-        ("background", "#2563eb"),
-        ("color", "accent"),
-        ("opacity", "0.5"),
-        ("font_size", "14"),
-        ("line_height", "1.5"),
-        ("weight", "700"),
-        ("text_align", "center"),
-        ("text_align", "end"),
-        ("display", "contents"),
-        ("background", "#2563eb80"),
-    ];
-
-    #[test]
-    fn every_described_value_overrides_back_to_the_same_text() {
-        for (property, sample) in SAMPLES {
-            let style = override_style(property, sample)
-                .unwrap_or_else(|error| panic!("{property} {sample}: {error}"));
-            for (name, described) in describe_style(&style) {
-                let value = editable_value(name, &described)
-                    .unwrap_or_else(|| panic!("{name} has no editable form: {described}"));
-                let again = override_style(name, &value)
-                    .unwrap_or_else(|error| panic!("{name} {value}: {error}"));
-                let text = describe_style(&again)
-                    .into_iter()
-                    .find(|(same, _)| *same == name)
-                    .map(|(_, text)| text);
-                assert_eq!(text.as_deref(), Some(described.as_str()), "{name} {value}");
-            }
-        }
-    }
-
-    #[test]
-    fn the_editable_form_is_the_override_syntax() {
-        assert_eq!(
-            editable_value("width", "Some(Px(12.0))").as_deref(),
-            Some("12")
-        );
-        assert_eq!(
-            editable_value("height", "Some(Percent(50.0))").as_deref(),
-            Some("50%")
-        );
-        assert_eq!(
-            editable_value("min_width", "Some(Auto)").as_deref(),
-            Some("auto")
-        );
-        assert_eq!(
-            editable_value("padding_left", "Px(0.5)").as_deref(),
-            Some("0.5")
-        );
-        assert_eq!(
-            editable_value("weight", "Some(700)").as_deref(),
-            Some("700")
-        );
-        assert_eq!(
-            editable_value("color", "Some(Color(Token(Accent, 1.0)))").as_deref(),
-            Some("accent")
-        );
-        assert_eq!(
-            editable_value("text_align", "Some(Center)").as_deref(),
-            Some("center")
-        );
-        assert_eq!(editable_value("width", "Some(MinContent)"), None);
-        assert_eq!(editable_value("border_top_width", "Some(1.0)"), None);
     }
 }

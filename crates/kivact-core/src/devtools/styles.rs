@@ -8,7 +8,7 @@ use kivact_devtools_protocol as p;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Owner, pure, untrack};
 use kivact_style::Style;
-use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style};
+use kivact_style::internal::{ForcedStates, describe_state_styles, describe_style, style_property};
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;
@@ -27,10 +27,8 @@ pub(super) fn base_value(rt: &Runtime, id: NodeId, property: &str) -> Option<Str
     for layer in &layers {
         merged = merged.merge(&evaluate(owner, layer));
     }
-    describe_style(&merged)
-        .into_iter()
-        .find(|(name, _)| *name == property)
-        .map(|(name, value)| editable(name, value))
+    let definition = style_property(property)?;
+    (definition.describe)(&merged)
 }
 
 /// The style layers of `id`, highest priority first.
@@ -302,7 +300,9 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
         ("disabled", p::StyleOrigin::Disabled),
         ("selected", p::StyleOrigin::Selected),
     ] {
-        let Some(index) = deltas.iter().position(|(state, _)| *state == name) else {
+        // The style method is `active` (`StyleState::name`); DevTools calls it `pressed`.
+        let state_name = if name == "pressed" { "active" } else { name };
+        let Some(index) = deltas.iter().position(|(state, _)| *state == state_name) else {
             continue;
         };
         let (_, items) = deltas.remove(index);
@@ -318,7 +318,8 @@ fn state_layers(style: &Style, forced: ForcedStates) -> Vec<p::StyleLayerInfo> {
             properties: properties(
                 items
                     .into_iter()
-                    .map(|(property, value)| (property.to_owned(), editable(property, value))),
+                    .filter(|(property, _)| style_property(property).is_some())
+                    .map(|(property, value)| (property.to_owned(), value)),
             ),
         });
     }
@@ -348,17 +349,12 @@ fn properties(items: impl IntoIterator<Item = (String, String)>) -> Vec<p::Style
         .collect()
 }
 
+/// The properties of `style` that the table names, each in its DevTools form.
 fn described(style: &Style) -> Vec<p::StyleProperty> {
-    properties(
-        describe_style(style)
-            .into_iter()
-            .map(|(name, value)| (name.to_owned(), editable(name, value))),
-    )
-}
-
-/// `described` in the form an override takes, when the property has one.
-fn editable(name: &str, described: String) -> String {
-    apply::editable_value(name, &described).unwrap_or(described)
+    properties(describe_style(style).into_iter().filter_map(|(name, _)| {
+        let definition = style_property(name)?;
+        Some((name.to_owned(), (definition.describe)(style)?))
+    }))
 }
 
 /// Mark a property a higher layer also sets.
