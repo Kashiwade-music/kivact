@@ -31,7 +31,7 @@ fn example_app_shell() -> Node {
     specimen(
         "Application frame",
         app_shell(text("Project notes"))
-            .top_nav(|| top_nav().heading(kivact::view::scope(|| top_nav_heading("Workspace"))))
+            .top_nav(|| top_nav().heading(kivact::custom::scope(|| top_nav_heading("Workspace"))))
             .side_nav(|| side_nav(side_nav_item("Documents")))
             .style(style().width(520).height(216)),
         "app_shell(content).top_nav(top_navigation).side_nav(side_navigation)",
@@ -104,8 +104,8 @@ fn example_top_nav() -> Node {
             "Navigate with links and menus",
             (
                 top_nav()
-                    .heading(kivact::view::scope(|| top_nav_heading("Workspace")))
-                    .start(kivact::view::scope(move || {
+                    .heading(kivact::custom::scope(|| top_nav_heading("Workspace")))
+                    .start(kivact::custom::scope(move || {
                         (
                             top_nav_item("Documents")
                                 .with_node(|node| {
@@ -131,7 +131,7 @@ fn example_top_nav() -> Node {
                     })),
                 text(move || format!("Current page: {}", selected.get())),
             ),
-            r#"top_nav().heading(kivact::view::scope(|| top_nav_heading("Workspace"))).start(kivact::view::scope(move || (
+            r#"top_nav().heading(kivact::custom::scope(|| top_nav_heading("Workspace"))).start(kivact::custom::scope(move || (
     top_nav_item("Documents")
         .with_node(|node| node.selected(move || selected.get() == "Documents"))
         .on_press(move || selected.set("Documents")),

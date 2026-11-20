@@ -1,11 +1,12 @@
 //! Role: Style canonical persistent alerts with Neutral banner surfaces.
 use crate::Elevation;
+use kivact::Prop;
 use kivact::interaction::Tone;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{AlertRecipes, AlertState, Expansion, Look};
 /// The visual container treatment of a standard alert.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum BannerContainer {
     /// Rounded card surface, the default.
     #[default]
@@ -215,4 +216,3 @@ pub fn banner_icon(tone: Tone) -> impl kivact::view::IntoView {
         _ => "info",
     })
 }
-kivact::state::constant_value!(BannerContainer);

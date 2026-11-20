@@ -7,6 +7,7 @@ use kivact::ui::skeleton;
 use kivact::interaction::use_tooltip;
 use kivact::view::{Element, Node, column, node, row, text};
 
+use kivact::Prop;
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue, callback};
 use kivact::style::{Align, Color, Direction, Justify, Overflow, Position, pct, style, use_theme};
@@ -129,7 +130,7 @@ pub fn sidebar_menu(children: impl IntoView) -> impl kivact::view::Element {
 }
 
 /// The height of a [`SidebarMenuButton`] (`size` of sidebar.tsx).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum SidebarMenuButtonSize {
     /// 32 px.
     #[default]
@@ -535,8 +536,6 @@ pub fn sidebar_menu_skeleton() -> impl kivact::view::Element {
             .padding_x(8),
     )
 }
-
-kivact::state::constant_value!(SidebarMenuButtonSize);
 
 impl kivact::ui::Variant for SidebarMenuButtonSize {}
 

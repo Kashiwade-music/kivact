@@ -4,6 +4,7 @@ use crate::look_common::{side, tone};
 use crate::ControlSize;
 use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
+use kivact_macros::Prop;
 pub(crate) fn avatar(t: &Theme, s: &AvatarState) -> Style {
     style()
         .size(side(s.size), side(s.size))
@@ -60,12 +61,10 @@ pub struct AvatarState {
     pub status: Option<Tone>,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum AvatarShape {
     #[default]
     Circle,
     Rounded,
     Square,
 }
-
-kivact_core::state::constant_value!(AvatarShape);

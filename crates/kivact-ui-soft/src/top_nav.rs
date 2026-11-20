@@ -229,7 +229,7 @@ impl TopNavItem {
     }
     /// Mount replacement visible label content once.
     pub fn content(mut self, content: impl IntoView) -> Self {
-        self.content = Some(kivact::view::scope(move || content.into_view()));
+        self.content = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Set whether this item is the current navigation destination.
@@ -274,7 +274,7 @@ impl IntoView for TopNavItem {
             action,
             size,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mode = shell_nav_mode();
             let mobile = use_app_shell_mobile();
             let drawer = mode == ShellNavMode::Drawer;
@@ -420,7 +420,7 @@ impl IntoView for TopNavMenu {
             items,
             delays,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let item = side_nav_item(label)
                     .children(move || items.iter().map(drawer_menu_item).collect::<Vec<_>>());
@@ -545,7 +545,7 @@ impl IntoView for TopNavMegaMenu {
             delays,
             on_change,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
                 let disclosure = side_nav_item(label).children(move || {
                     column((
@@ -657,7 +657,7 @@ impl IntoView for TopNavMegaMenuItem {
             icon,
             action,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>();
@@ -793,7 +793,7 @@ impl IntoView for TopNavMegaMenuFeaturedCard {
             content,
             link,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let drawer = shell_nav_mode() == ShellNavMode::Drawer;
             let mobile = use_app_shell_mobile();
             let popup = try_use_context::<MegaClose>();

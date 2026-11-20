@@ -5,6 +5,7 @@ use kivact::ui::spinner;
 
 use kivact::view::{Element, Node, Scroll, ScrollAxes, column, node, row, scroll, text};
 
+use kivact::Prop;
 use kivact::state::{Callback, Value};
 use kivact::state::{IntoText, IntoValue};
 use kivact::style::{
@@ -14,7 +15,7 @@ use kivact::ui::{Button, ButtonVariant, ControlSize};
 use kivact::view::{IntoView, Orientation, Role, View, show};
 
 /// The size of an [`Attachment`] (attachment.tsx `size`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AttachmentSize {
     /// 40 px media, 8 px gap.
     #[default]
@@ -26,7 +27,7 @@ pub enum AttachmentSize {
 }
 
 /// The progress of an [`Attachment`] (attachment.tsx `state`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AttachmentState {
     /// Added and complete.
     #[default]
@@ -63,8 +64,6 @@ pub struct Attachment {
     actions: Option<kivact::view::View>,
     on_press: Option<Callback<()>>,
 }
-
-kivact::state::constant_value!(AttachmentState);
 
 /// What the root style of an [`Attachment`] reads once it is turned into a view.
 #[derive(Clone, Copy)]
@@ -318,8 +317,6 @@ pub fn attachment_group(children: impl IntoView) -> Scroll {
         .axes(ScrollAxes::Horizontal)
         .style(style().min_width(0).padding_y(4))
 }
-
-kivact::state::constant_value!(AttachmentSize);
 
 impl kivact::ui::Variant for AttachmentSize {}
 impl kivact::ui::Variant for AttachmentMediaVariant {}

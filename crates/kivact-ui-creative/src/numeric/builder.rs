@@ -10,6 +10,7 @@ use kivact::view::{Element, Node, Orientation, Role, node};
 use std::rc::Rc;
 
 use super::text::{Formatter, TextParser};
+use kivact::Prop;
 
 /// Numeric geometry, with identical binding and keyboard behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -21,7 +22,7 @@ pub enum NumericKind {
 }
 
 /// Animation-state tint used by the source inspector.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum PropertyState {
     #[default]
     Plain,
@@ -29,8 +30,6 @@ pub enum PropertyState {
     Animated,
     Driven,
 }
-
-kivact::state::constant_value!(PropertyState);
 
 // xtask-allow(state): legacy: format, drag_distance, text_entry, timecode, accent, text_parser
 /// A range control supporting pointer scrubbing, keyboard, wheel and direct editing.

@@ -6,6 +6,7 @@ use crate::app_shell::{ShellNavMode, shell_nav_mode};
 use crate::mobile_nav::use_app_shell_mobile;
 use crate::stack::rtl;
 
+use kivact::Prop;
 use kivact::i18n::message_with;
 use kivact::interaction::Delays;
 use kivact::interaction::DialogMode;
@@ -49,7 +50,7 @@ use kivact::view::show;
 use kivact::view::text;
 use std::time::Duration;
 
-#[derive(Clone)]
+#[derive(Clone, Prop)]
 /// Ownership and initial expansion of a sidebar item's nested entries.
 pub enum ItemCollapse {
     /// Keep nested entries expanded without a collapse toggle.
@@ -123,12 +124,12 @@ impl SideNavItem {
     }
     /// Mount trailing row content once; hide it in the collapsed rail.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::scope(move || content.into_view()));
+        self.end = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Mount additional row action controls once; hide them in the collapsed rail.
     pub fn actions(mut self, actions: impl IntoView) -> Self {
-        self.actions = Some(kivact::view::scope(move || actions.into_view()));
+        self.actions = Some(kivact::custom::scope(move || actions.into_view()));
         self
     }
     /// Build nested entries on expansion or when the collapsed-rail flyout opens.
@@ -176,7 +177,7 @@ impl IntoView for SideNavItem {
             size,
             action,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let context = ItemContext::new(
                 label,
                 selected,
@@ -322,7 +323,7 @@ impl SideNavSection {
     }
     /// Mount content once at the logical end of the section header.
     pub fn end_content(mut self, content: impl IntoView) -> Self {
-        self.end = Some(kivact::view::scope(move || content.into_view()));
+        self.end = Some(kivact::custom::scope(move || content.into_view()));
         self
     }
     /// Hide the section header while keeping its entries available.
@@ -349,7 +350,7 @@ impl IntoView for SideNavSection {
             children,
             header_hidden,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let cx = nav_cx();
             let title = text(title).style(|| {
                 style()
@@ -397,8 +398,6 @@ impl IntoView for SideNavSection {
         })
     }
 }
-
-kivact::state::constant_value!(ItemCollapse);
 
 struct ItemSlots {
     leading: Option<View>,

@@ -11,6 +11,7 @@ use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
 };
+use kivact_macros::Prop;
 
 // xtask-allow(state): legacy: drawer, header_actions, header_context, footer_actions, send_actions, send_icon, stop_icon
 /// A multiline draft with independent action slots and optional submission history.
@@ -397,11 +398,9 @@ impl IntoView for ChatComposer {
 }
 
 /// Placement of a composer diagnostic.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ComposerStatusPosition {
     Top,
     #[default]
     Bottom,
 }
-
-kivact_core::state::constant_value!(ComposerStatusPosition);

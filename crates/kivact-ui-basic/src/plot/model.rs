@@ -2,10 +2,11 @@
 
 use super::axis::{AxisScale, PlotAxis};
 use super::series::{PlotSeries, PlotSeriesKind};
+use kivact::Prop;
 
 /// Everything a plot draws: title, axes, series and legend. Build it with
 /// [`PlotModel::new`] and the setters.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Prop)]
 pub struct PlotModel {
     /// The title; empty for none.
     pub(super) title: String,
@@ -71,8 +72,6 @@ impl PlotModel {
     }
 }
 
-kivact::state::constant_value!(PlotModel, PlotRange);
-
 /// The visible range, in data values. On a log axis these are values too,
 /// not exponents.
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -88,7 +87,7 @@ pub struct PlotView {
 }
 
 /// Whether the range follows the data or is fixed.
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Prop)]
 pub enum PlotRange {
     /// Fit the data ([`PlotModel::auto_view`]).
     Auto,

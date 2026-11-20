@@ -19,7 +19,7 @@ kivact-shader = ["kivact-style"]
 kivact-svg = ["kivact-offscreen"]
 # ----- Windowless rendering: a leaf the facade re-exports as kivact::draw::Offscreen.
 kivact-offscreen = ["kivact"]
-kivact-macros = ["kivact"]
+kivact-macros = ["kivact", "kivact-ui", "kivact-interaction"]
 
 # ----- Kivact の内部 crate: host を知らない反応の核は kivact-core だけが使う。アプリと部品は
 # kivact facade だけに依存する。

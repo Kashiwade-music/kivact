@@ -3,6 +3,7 @@ use crate::markdown_parser::{Alignment, Block, ListEntry, parse, reference};
 use crate::{
     CitationSource, CitationVariant, CodeLanguage, CodeLanguageInput, blockquote, citation,
 };
+use kivact::Prop;
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
 use kivact::state::Value;
@@ -37,7 +38,7 @@ use kivact::view::text;
 use std::collections::HashMap;
 
 /// Vertical spacing between Markdown blocks.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum MarkdownDensity {
     #[default]
     /// Use standard spacing between Markdown blocks.
@@ -46,7 +47,7 @@ pub enum MarkdownDensity {
     Compact,
 }
 /// How the bounded content aligns within its available width.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ContentAlign {
     #[default]
     /// Keep width-constrained content at the logical start.
@@ -967,5 +968,3 @@ fn settled_tail(source: &str) -> &str {
     }
     source.trim_end_matches(['*', '~'])
 }
-
-kivact::state::constant_value!(MarkdownDensity, ContentAlign);

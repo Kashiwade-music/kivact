@@ -7,6 +7,7 @@ use kivact::interaction::use_select;
 use kivact::view::icon;
 use kivact::view::{Element, Node, node, text};
 
+use kivact::Prop;
 use kivact::interaction::ListItem;
 use kivact::state::{IntoText, IntoValue};
 use kivact::state::{Signal, Value, memo};
@@ -15,7 +16,7 @@ use kivact::view::{IntoView, View};
 use std::hash::Hash;
 
 /// The heights of a [`NativeSelect`] (`data-size`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum NativeSelectSize {
     /// `h-8`.
     #[default]
@@ -192,5 +193,3 @@ fn trigger_style(cfg: Cfg) -> Style {
         s
     }
 }
-
-kivact::state::constant_value!(NativeSelectSize);

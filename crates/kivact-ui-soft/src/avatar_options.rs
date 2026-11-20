@@ -1,7 +1,9 @@
 //! Role: Share Avatar sizes and silhouettes across the avatar family.
 
+use kivact::Prop;
+
 /// The diameter of an avatar.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum AvatarSize {
     /// 20-pixel diameter.
     Xsm,
@@ -37,4 +39,3 @@ impl AvatarSize {
 }
 
 impl kivact::ui::Variant for AvatarSize {}
-kivact::state::constant_value!(AvatarSize);

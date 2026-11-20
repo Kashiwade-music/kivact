@@ -42,6 +42,35 @@ pub fn node() -> Node {
 }
 
 impl Node {
+    /// Move the modifiers a caller wrote on a `#[component]` (collected in an
+    /// empty `node()`) onto the root its body built: the caller's style layers
+    /// after the body's, its handlers before the body's (as `prepend_key`), and
+    /// its name, description, disabled, test id, variants and node refs over
+    /// the body's (a node ref is added, so the body's own refs stay bound).
+    /// Generated code calls it; write `.style(..)` and friends instead.
+    #[doc(hidden)]
+    pub fn absorb(mut self, caller: Node) -> Node {
+        let Node {
+            common,
+            children,
+            modifiers,
+            ..
+        } = caller;
+        debug_assert!(
+            children.is_empty(),
+            "a #[component] caller adds no children to its root"
+        );
+        self.modifiers
+            .push(crate::view::element_data::Modifier::Caller(Box::new(
+                std::mem::take(&mut self.common),
+            )));
+        self.modifiers.extend(modifiers);
+        self.common = common;
+        self
+    }
+}
+
+impl Node {
     fn semantic_inputs(
         &self,
     ) -> impl DoubleEndedIterator<Item = &crate::view::semantics_data::SemanticsPatch> {

@@ -4,6 +4,7 @@ use kivact::state::{IntoHandler, IntoValue};
 use crate::TextKind;
 use crate::feedback::icon_box;
 use crate::recipe_style::ring;
+use kivact::Prop;
 use kivact::custom::part;
 use kivact::state::Callback;
 use kivact::state::IntoText;
@@ -30,7 +31,7 @@ use kivact::view::text;
 use kivact::view::use_direction;
 
 /// Foreground of a text link.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum LinkColor {
     #[default]
     /// Use the theme's accent foreground.
@@ -213,8 +214,6 @@ impl IntoView for Link {
             .into_view()
     }
 }
-
-kivact::state::constant_value!(LinkColor);
 
 fn activate_link(mut root: Node, press: Option<Callback<()>>, as_button: Value<bool>) -> Node {
     if let Some(press) = press {

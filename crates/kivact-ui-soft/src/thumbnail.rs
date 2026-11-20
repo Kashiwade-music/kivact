@@ -1,5 +1,6 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
 use crate::{IconSize, icon_view, visually_hidden};
+use kivact::Prop;
 use kivact::i18n::{message, message_with};
 use kivact::motion::Animated;
 use kivact::motion::Easing;
@@ -41,7 +42,7 @@ const SPINNER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 
 const SIDE: f64 = 64.0;
 
 /// When the remove button is visible.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RemoveReveal {
     /// Reveal on hover or keyboard focus, the default.
     #[default]
@@ -324,8 +325,6 @@ fn upload_overlay() -> Node {
         })
         .child(image(Asset::from(SPINNER)).style(move || style().size(14, 14).rotate(turn.get())))
 }
-
-kivact::state::constant_value!(RemoveReveal);
 
 fn thumbnail_open(
     media: Node,

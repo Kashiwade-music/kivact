@@ -41,6 +41,7 @@ use kivact::view::column;
 use kivact::view::node;
 use kivact::view::scroll;
 
+use kivact::Prop;
 use kivact::state::provide;
 use kivact::state::try_use_context;
 use kivact::style::Direction;
@@ -52,7 +53,7 @@ use kivact::view::NodeRef;
 use kivact::view::View;
 use kivact::view::node_ref;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Whether a page layout fills its parent or follows intrinsic content height.
 pub enum LayoutHeight {
     #[default]
@@ -194,7 +195,7 @@ impl IntoView for Layout {
             content_width,
             default_dividers,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let parent = try_use_context::<ContainerInset>().unwrap_or_default();
             let mut insets = try_use_context::<LayoutInset>().unwrap_or_default();
             insets.own_outer = padding.map(Space::px);
@@ -362,7 +363,7 @@ impl IntoView for LayoutRegion {
             scrollable,
             width,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let slots = try_use_context::<LayoutSlots>().unwrap_or_default();
             let inset = try_use_context::<LayoutInset>().unwrap_or_default();
             let (inset, inner_x) = region_insets(kind, slots, inset, padding, padding_bottom);
@@ -386,8 +387,6 @@ fn center_gutter(root: NodeRef, width: f64) -> f64 {
         .get()
         .map_or(0.0, |rect| ((rect.width - width) / 2.0).max(0.0))
 }
-
-kivact::state::constant_value!(LayoutHeight);
 
 fn layout_row_style(slots: LayoutSlots) -> kivact::style::Style {
     let direction = if rtl() {

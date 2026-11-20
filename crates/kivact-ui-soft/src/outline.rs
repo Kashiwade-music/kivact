@@ -13,6 +13,7 @@ use kivact::view::node;
 use kivact::view::row;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -74,7 +75,7 @@ impl OutlineItem {
 }
 
 /// Vertical spacing of outline links.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum OutlineDensity {
     /// Standard outline spacing, the default.
     #[default]
@@ -319,7 +320,7 @@ impl IntoView for Outline {
             start,
             end,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let pending = machine(
                 OutlineScroll::Idle,
                 || ScrollMachine,
@@ -484,8 +485,6 @@ fn outline_row(level: u8, density: OutlineDensity, active: bool) -> kivact::styl
             Transition::tween(t.motion.fast as f64, t.motion.ease_standard.clone()),
         )
 }
-
-kivact::state::constant_value!(OutlineDensity);
 
 fn active_heading(
     active: Option<Signal<Option<String>>>,

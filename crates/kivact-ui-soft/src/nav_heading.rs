@@ -345,7 +345,7 @@ impl IntoView for SideNavHeading {
             super_action,
             sub_action,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let rail = crate::side_navigation::context::nav_is_rail();
             let has_icon = glyph.is_some();
             let interactive = menu.is_some() || heading_action.is_some();

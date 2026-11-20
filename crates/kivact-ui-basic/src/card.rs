@@ -1,17 +1,17 @@
 //! Role: Basic visual card size variants and canonical card slot recipes.
 use crate::Tokens;
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, Overflow, Style, Theme, style};
 use kivact::ui::{CardRecipes, CardState, Look};
 /// Spacing of a standard card.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum CardSize {
     #[default]
     Default,
     Sm,
 }
 impl kivact::ui::Variant for CardSize {}
-kivact::state::constant_value!(CardSize);
 /// Reactive spacing and independent header border of a standard card.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CardLook {

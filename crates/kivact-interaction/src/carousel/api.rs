@@ -1,8 +1,9 @@
 //! Role: Provide binding-backed carousel commands and observable state.
 use super::machine::{CarouselState, Effect, Event, Machine};
 use kivact_core::state::{IntoValue, MachineHandle, Signal, Value, machine, memo};
+use kivact_macros::Prop;
 /// How scrolling settles between slides.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum Snap {
     /// Preserve the user's scroll position.
     None,
@@ -74,5 +75,3 @@ impl CarouselApi {
         ));
     }
 }
-
-kivact_core::state::constant_value!(Snap);

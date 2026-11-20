@@ -5,6 +5,8 @@
 //! theme draws it. A tone says nothing about color: the theme's recipes
 //! decide how each one looks.
 
+use kivact_macros::Prop;
+
 /// What a status, a notification or a message is about.
 ///
 /// A [`Toast`](crate::Toast) carries one, a standard component or a kit
@@ -20,7 +22,7 @@
 /// assert!(Tone::Danger.is_urgent());
 /// assert!(!Tone::Success.is_urgent());
 /// ```
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum Tone {
     /// No particular meaning: plain text and no icon.
     #[default]
@@ -36,8 +38,6 @@ pub enum Tone {
     /// The theme's feature color, for emphasis that is not a status.
     Accent,
 }
-
-kivact_core::state::constant_value!(Tone);
 
 impl Tone {
     /// Whether the tone asks for the user's attention at once

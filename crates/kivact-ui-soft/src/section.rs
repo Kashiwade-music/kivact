@@ -9,6 +9,7 @@ use kivact::view::Node;
 use kivact::view::column;
 use kivact::view::node;
 
+use kivact::Prop;
 use kivact::state::provide;
 use kivact::state::try_use_context;
 use kivact::style::Color;
@@ -17,7 +18,7 @@ use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::View;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Background treatment of a full-bleed section.
 pub enum SectionVariant {
     #[default]
@@ -30,7 +31,7 @@ pub enum SectionVariant {
 }
 
 /// Logical edges of a container.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub struct Edges(u8);
 
 impl Edges {
@@ -128,7 +129,7 @@ impl IntoView for Section {
             bleed_top,
             bleed_bottom,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let parent = try_use_context::<ContainerInset>().unwrap_or_default();
             let (left, right) = parent.sides();
             let inherited = try_use_context::<SectionPadding>().map_or(
@@ -189,7 +190,3 @@ impl IntoView for Section {
         })
     }
 }
-
-kivact::state::constant_value!(SectionVariant);
-
-kivact::state::constant_value!(Edges);

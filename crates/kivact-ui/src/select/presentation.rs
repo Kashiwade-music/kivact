@@ -1,6 +1,8 @@
 //! Role: Choose touch surfaces for keyed selection components.
+use kivact_macros::Prop;
+
 /// Presentation used when a touch gesture opens an option list.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum SelectPresentation {
     /// Always use an anchored popup.
     #[default]
@@ -19,5 +21,3 @@ impl SelectPresentation {
         }
     }
 }
-
-kivact_core::state::constant_value!(SelectPresentation);

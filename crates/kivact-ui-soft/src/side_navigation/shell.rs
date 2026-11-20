@@ -319,7 +319,7 @@ impl IntoView for SideNavCollapseButton {
             size,
             label,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
                 return View::empty();
             };

@@ -77,6 +77,3 @@ pub(crate) fn follow_ranges(low: Signal<f64>, high: Signal<f64>, range: Value<Sc
         }
     });
 }
-
-kivact_core::state::constant_value!(ScalarRange);
-kivact_core::state::constant_value!(ScalarStep);

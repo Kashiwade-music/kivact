@@ -16,6 +16,7 @@ use kivact::view::row;
 use kivact::view::scroll;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
 use kivact::state::IntoText;
@@ -190,7 +191,7 @@ impl AppShellMobile {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Logical edge on which a mobile navigation drawer opens.
 pub enum DrawerSide {
     /// Open at the reading direction's start edge.
@@ -281,7 +282,7 @@ impl IntoView for MobileNav {
             header_view,
             content,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mobile = use_app_shell_mobile();
             let open = open
                 .or_else(|| mobile.open_binding())
@@ -362,7 +363,7 @@ impl IntoView for MobileNavToggle {
             label,
             icon: glyph,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let mobile = use_app_shell_mobile();
             if !mobile.is_enabled() {
                 return View::empty();
@@ -391,8 +392,6 @@ impl IntoView for MobileNavToggle {
         })
     }
 }
-
-kivact::state::constant_value!(DrawerSide);
 
 fn drawer_scrim() -> Node {
     node().style(|| {

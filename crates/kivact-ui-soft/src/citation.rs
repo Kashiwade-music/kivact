@@ -1,5 +1,6 @@
 //! Role: Present a document source as an inline label or numbered citation.
 use crate::{IconSize, icon_view};
+use kivact::Prop;
 use kivact::i18n::message_with;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
@@ -39,7 +40,7 @@ pub struct CitationSource {
 }
 
 /// The visual treatment of a citation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum CitationVariant {
     #[default]
     /// Show the source title or URL, falling back to a labelled source number.
@@ -241,5 +242,3 @@ fn citation_shape(
         }
     }
 }
-
-kivact::state::constant_value!(CitationVariant);

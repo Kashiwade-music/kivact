@@ -146,10 +146,10 @@ pub use kivact_types::{
     EditLineLayout, SemanticsText, SemanticsTextRun, SemanticsTextRuns, TextCaret, TextRunId,
 };
 
-mod measured_leaf;
-mod measurement;
+pub(crate) mod measurement;
 mod node;
 mod text_shaping;
+pub use crate::view::boundary::scope;
 pub use crate::view::owner::Owner;
 pub use crate::view::part::{Part, PartState, part};
 pub use crate::view::part_data::PartMount;
@@ -158,9 +158,9 @@ pub use crate::view::part_data::PartMount;
 pub use kivact_runtime::UiThreadOnly;
 pub use kivact_runtime::{Owned, clock_now, require_effectful, require_setup};
 // xtask-allow(internal-contract): #[component] expansion stores handler props as Handler<E>
+pub use crate::view::measured_leaf::{Primitive, primitive};
 #[doc(hidden)]
 pub use kivact_runtime::Handler;
-pub use measured_leaf::{Primitive, primitive};
 pub use measurement::{AvailableSpace, Constraints, Measurement};
 pub use node::{NodeRefExt, NodeToken, focused_node};
 pub use text_shaping::{shape_inline_paragraph, shape_paragraph};

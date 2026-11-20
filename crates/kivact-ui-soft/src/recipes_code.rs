@@ -1,10 +1,11 @@
 //! Role: Style canonical source blocks using Soft visual variants.
 use crate::Tokens;
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Direction, Justify, Style, Theme, pct, style};
 use kivact::ui::{CodeBlockRecipes, CodeBlockState, Look};
 /// Source text size.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum CodeBlockSize {
     /// Use small source typography.
     Sm,
@@ -13,7 +14,7 @@ pub enum CodeBlockSize {
     Md,
 }
 /// Outer width policy.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
 pub enum CodeBlockWidth {
     #[default]
     /// Fit the source block within the available width.
@@ -24,7 +25,7 @@ pub enum CodeBlockWidth {
     Px(f64),
 }
 /// Source block framing.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum CodeBlockContainer {
     #[default]
     /// Paint a bordered, rounded source card.
@@ -55,7 +56,6 @@ impl kivact::ui::Variant for CodeAppearance {}
 impl kivact::ui::Variant for CodeBlockSize {}
 impl kivact::ui::Variant for CodeBlockWidth {}
 impl kivact::ui::Variant for CodeBlockContainer {}
-kivact::state::constant_value!(CodeBlockSize, CodeBlockWidth, CodeBlockContainer);
 pub(crate) fn code(r: CodeBlockRecipes) -> CodeBlockRecipes {
     r.root(|_| root)
         .header(|_| header)

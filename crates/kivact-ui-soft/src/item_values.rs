@@ -1,6 +1,7 @@
 //! Role: Soft collection appearance values independent of row interaction.
+use kivact::Prop;
 use kivact::state::{IntoValue, Value};
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Vertical spacing of item content in Soft collection recipes.
 pub enum ItemDensity {
     /// Use the smallest row padding.
@@ -22,7 +23,7 @@ impl ItemDensity {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Vertical alignment of a row icon and its text content.
 pub enum ItemAlign {
     #[default]
@@ -34,7 +35,7 @@ pub enum ItemAlign {
     FirstLine,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Arrangement of an item label and description.
 pub enum ItemLayout {
     #[default]
@@ -44,7 +45,7 @@ pub enum ItemLayout {
     Inline,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Logical edge treatment of a Soft list.
 pub enum ListEdge {
     #[default]
@@ -62,7 +63,6 @@ impl kivact::ui::Variant for ItemDensity {}
 impl kivact::ui::Variant for ItemAlign {}
 impl kivact::ui::Variant for ItemLayout {}
 impl kivact::ui::Variant for ListEdge {}
-kivact::state::constant_value!(ItemDensity, ItemAlign, ItemLayout, ListEdge);
 /// Reactive visual choices for a canonical item row.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ItemLook {

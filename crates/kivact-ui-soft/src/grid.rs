@@ -6,6 +6,7 @@ use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::grid as native_grid;
 
+use kivact::Prop;
 use kivact::style::Align;
 use kivact::style::GridPlacement;
 use kivact::style::Track;
@@ -25,7 +26,7 @@ pub enum GridRepeat {
     Fit,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 /// Equal-width columns, counted explicitly or fitted to available width.
 pub enum GridColumns {
     /// Use this many equal fractional tracks, with a minimum of one.
@@ -119,7 +120,7 @@ impl IntoView for LayoutGrid {
             column_gap,
             row_height,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let reference = node_ref();
             root.node_ref(reference).with_node(move |node| {
                 node.base_style(move || {
@@ -219,5 +220,3 @@ impl IntoView for GridSpanItem {
         self.root.into_view()
     }
 }
-
-kivact::state::constant_value!(GridColumns);

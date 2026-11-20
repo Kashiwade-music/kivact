@@ -71,7 +71,7 @@ pub enum TabLayout {
     Fill,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Accessibility and keyboard pattern used by a tab strip.
 pub enum TabPattern {
     #[default]
@@ -81,7 +81,7 @@ pub enum TabPattern {
     Tabs,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// How a tab strip handles content wider than its viewport.
 pub enum TabOverflow {
     #[default]
@@ -92,6 +92,7 @@ pub enum TabOverflow {
 }
 
 pub use crate::tab_entries::{Tab, TabMenu, TabMenuOption, tab, tab_menu};
+use kivact::Prop;
 
 /// An ordinary tab or embedded menu in a tab strip.
 pub enum TabEntry<K> {
@@ -329,7 +330,7 @@ impl<K: ItemKey> IntoView for TabList<K> {
             full_bleed,
             content,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             if pattern.get() == TabPattern::Tabs {
                 entries.retain(|entry| matches!(entry, TabEntry::Tab(_)));
             }
@@ -645,8 +646,6 @@ fn tab_menu_view<K: ItemKey>(
     });
     (trigger, menu).into_view()
 }
-
-kivact::state::constant_value!(TabOverflow, TabPattern);
 
 fn tabs_behavior<K: ItemKey>(
     entries: &mut [TabEntry<K>],

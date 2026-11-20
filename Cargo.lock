@@ -2475,6 +2475,7 @@ version = "0.1.0"
 dependencies = [
  "kivact",
  "kivact-core",
+ "kivact-macros",
  "kivact-types",
 ]
 
@@ -2503,6 +2504,7 @@ dependencies = [
 name = "kivact-macros"
 version = "0.1.0"
 dependencies = [
+ "proc-macro-crate",
  "proc-macro2",
  "quote",
  "syn 2.0.119",
@@ -2605,6 +2607,7 @@ dependencies = [
  "kivact",
  "kivact-core",
  "kivact-interaction",
+ "kivact-macros",
 ]
 
 [[package]]

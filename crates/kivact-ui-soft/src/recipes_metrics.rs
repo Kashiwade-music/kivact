@@ -1,5 +1,6 @@
 //! Role: Apply Soft typography and metric and description appearances.
 use crate::{TextKind, Tokens};
+use kivact::Prop;
 use kivact::style::{Style, Theme};
 use kivact::ui::{HeadingState, Look, Variant};
 
@@ -33,7 +34,7 @@ pub(super) fn heading(t: &Theme, look: &Look<HeadingState>) -> Style {
 }
 
 /// Column arrangement for standard description lists.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum MetadataColumns {
     #[default]
     /// Arrange description pairs in one column.
@@ -44,7 +45,7 @@ pub enum MetadataColumns {
     Count(u8),
 }
 /// Place terms beside or above their details.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum LabelPosition {
     /// Place terms at the logical start beside their details.
     Start,
@@ -56,7 +57,7 @@ pub enum LabelPosition {
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 struct MetadataAppearance {
     columns: MetadataColumns,
     position: Option<LabelPosition>,
@@ -155,8 +156,6 @@ impl MetadataAppearance {
             )
     }
 }
-kivact::state::constant_value!(MetadataAppearance);
-kivact::state::constant_value!(MetadataColumns, LabelPosition);
 
 pub(super) fn descriptions(
     r: kivact::ui::DescriptionListRecipes,

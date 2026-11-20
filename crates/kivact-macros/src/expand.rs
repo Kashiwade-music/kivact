@@ -1,46 +1,74 @@
 //! Role: Write the props builder of a component function.
 
-use proc_macro2::{Ident, TokenStream};
-use quote::{format_ident, quote};
+use proc_macro2::TokenStream;
+use quote::quote;
 
-use crate::parse::{Model, Prop, PropKind, Required, upper_camel};
+use crate::parse::{Model, Prop, PropKind, Required, Returns};
 
-/// The struct, its constructor and setters, and its `IntoView` impl.
-pub(crate) fn component(model: &Model) -> TokenStream {
+mod kinds;
+
+use kinds::{generic_decl, input_type, keep_type, kivact_type, mount, store};
+
+/// The struct, its constructor and setters, and its `Element` (or
+/// `IntoView`) impls, all named by the path the crate resolves to.
+pub(crate) fn component(model: &Model) -> syn::Result<TokenStream> {
+    let r = crate::root::root()?;
+    let (impl_generics, ty_generics, where_clause) = model.generics.split_for_impl();
     let struct_name = &model.struct_name;
     let vis = &model.vis;
     let docs = &model.docs;
     let attrs = &model.attrs;
-    let fields = model.props.iter().map(field);
-    let constructor = constructor(model);
+    let fields = struct_fields(model, &r);
+    let constructor = constructor(model, &r);
     let setters = model
         .props
         .iter()
         .filter(|prop| !prop.is_positional())
-        .map(setter);
-    let into_view = into_view(model);
-    quote! {
+        .map(|prop| setter(prop, &r));
+    let into_view = into_view(model, &r);
+    let element = element_impl(model, &r);
+    Ok(quote! {
         #(#docs)*
         #(#attrs)*
         #[must_use]
-        #vis struct #struct_name {
-            #(#fields),*
+        #vis struct #struct_name #impl_generics #where_clause {
+            #(#fields,)*
         }
 
         #constructor
 
         #(#attrs)*
-        impl #struct_name {
+        impl #impl_generics #struct_name #ty_generics #where_clause {
             #(#setters)*
         }
 
+        #(#attrs)*
+        #element
+
+        #(#attrs)*
         #into_view
-    }
+    })
 }
 
-fn field(prop: &Prop) -> TokenStream {
+/// The fields of the struct: each prop, then `__root` for an `impl Element`,
+/// then `__phantom` for a type parameter that no prop names.
+fn struct_fields(model: &Model, r: &TokenStream) -> Vec<TokenStream> {
+    let mut fields: Vec<TokenStream> = model.props.iter().map(|prop| field(prop, r)).collect();
+    if matches!(model.returns, Returns::Element) {
+        fields.push(quote! { __root: #r::view::Node });
+    }
+    if !model.phantom.is_empty() {
+        let phantom = &model.phantom;
+        fields.push(quote! {
+            __phantom: ::std::marker::PhantomData<fn() -> (#(#phantom,)*)>
+        });
+    }
+    fields
+}
+
+fn field(prop: &Prop, r: &TokenStream) -> TokenStream {
     let name = &prop.name;
-    let ty = keep_type(prop);
+    let ty = keep_type(prop, r);
     if prop.is_optional() {
         quote! { #name: ::std::option::Option<#ty> }
     } else {
@@ -48,132 +76,8 @@ fn field(prop: &Prop) -> TokenStream {
     }
 }
 
-fn constructor(model: &Model) -> TokenStream {
-    let (vis, name, struct_name, docs) = (&model.vis, &model.name, &model.struct_name, &model.docs);
-    let (attrs, deprecated) = (&model.attrs, &model.deprecated);
-    let positional: Vec<&Prop> = model
-        .props
-        .iter()
-        .filter(|prop| prop.is_positional())
-        .collect();
-    let generics = generics(positional.iter().filter_map(|prop| generic(prop)).collect());
-    let params = positional.iter().map(|prop| {
-        let name = &prop.name;
-        let ty = input_type(prop);
-        quote! { #name: #ty }
-    });
-    let fields = model.props.iter().map(initializer);
-    quote! {
-        #(#attrs)* #(#deprecated)*
-        #(#docs)*
-        #[track_caller]
-        #vis fn #name #generics (#(#params),*) -> #struct_name {
-            #struct_name { #(#fields),* }
-        }
-    }
-}
-
-fn setter(prop: &Prop) -> TokenStream {
-    let name = &prop.name;
-    let ty = keep_type(prop);
-    let value = store(prop, quote! { #name });
-    let input = input_type(prop);
-    let generics = generics(generic(prop).into_iter().collect());
-    let assign = if prop.is_optional() {
-        quote! { self.#name = ::std::option::Option::Some(#name); }
-    } else {
-        quote! { self.#name = #name; }
-    };
-    quote! {
-        #[track_caller]
-        pub fn #name #generics (mut self, #name: #input) -> Self {
-            let #name: #ty = #value;
-            #assign
-            self
-        }
-    }
-}
-
-fn into_view(model: &Model) -> TokenStream {
-    let struct_name = &model.struct_name;
-    let names = model.props.iter().map(|prop| &prop.name);
-    let mounts = model.props.iter().filter_map(mount);
-    let rebinds = model.props.iter().filter(|prop| prop.mutable).map(|prop| {
-        let name = &prop.name;
-        quote! { #[allow(unused_mut)] let mut #name = #name; }
-    });
-    let statements = &model.body.stmts;
-    let attrs = &model.attrs;
-    quote! {
-        #(#attrs)*
-        impl ::kivact::view::IntoView for #struct_name {
-            fn into_view(self) -> ::kivact::view::View {
-                let #struct_name { #(#names),* } = self;
-                ::kivact::view::scope(move || {
-                    #(#mounts)*
-                    #(#rebinds)*
-                    #(#statements)*
-                })
-            }
-        }
-    }
-}
-
-fn initializer(prop: &Prop) -> TokenStream {
-    let name = &prop.name;
-    match &prop.required {
-        Required::Positional => {
-            let value = store(prop, quote! { #name });
-            quote! { #name: #value }
-        }
-        Required::Optional => quote! { #name: ::std::option::Option::None },
-        Required::Default(expr) if matches!(prop.kind, PropKind::Callback(_)) => {
-            let PropKind::Callback(ty) = &prop.kind else {
-                unreachable!("guarded above")
-            };
-            let value = store(prop, quote! { __default });
-            quote! {
-                #name: {
-                    fn __typed<R: ::kivact::view::HandlerResult>(
-                        f: impl ::std::ops::Fn(#ty) -> R + 'static,
-                    ) -> impl ::std::ops::Fn(#ty) -> R + 'static {
-                        f
-                    }
-                    let __default = __typed(#expr);
-                    #value
-                }
-            }
-        }
-        Required::Default(expr) => {
-            let value = store(prop, quote! { __default });
-            quote! { #name: { let __default = #expr; #value } }
-        }
-    }
-}
-
-fn mount(prop: &Prop) -> Option<TokenStream> {
-    let name = &prop.name;
-    match &prop.kind {
-        PropKind::Text if prop.is_optional() => Some(quote! {
-            let #name = #name.map(|v| ::kivact::state::IntoValue::<::std::string::String>::into_value(v));
-        }),
-        PropKind::Value(ty) if prop.is_optional() => Some(quote! {
-            let #name = #name.map(|v| ::kivact::state::IntoValue::<#ty>::into_value(v));
-        }),
-        PropKind::Text | PropKind::Value(_) => {
-            Some(quote! { let #name = ::kivact::state::IntoValue::into_value(#name); })
-        }
-        PropKind::Callback0 | PropKind::Callback(_) if prop.is_optional() => {
-            Some(quote! { let #name = #name.map(::kivact::state::Callback::from_handler); })
-        }
-        PropKind::Callback0 | PropKind::Callback(_) => {
-            Some(quote! { let #name = ::kivact::state::Callback::from_handler(#name); })
-        }
-        _ => None,
-    }
-}
-
-fn generics(params: Vec<TokenStream>) -> TokenStream {
+/// `<A, B>` for the generics that are not empty, else nothing.
+fn angle(params: Vec<TokenStream>) -> TokenStream {
     if params.is_empty() {
         TokenStream::new()
     } else {
@@ -181,96 +85,191 @@ fn generics(params: Vec<TokenStream>) -> TokenStream {
     }
 }
 
-fn generic(prop: &Prop) -> Option<TokenStream> {
-    match &prop.kind {
-        PropKind::Callback(_) => {
-            let result = r_ident(prop);
-            Some(quote! { #result: ::kivact::view::HandlerResult })
+fn constructor(model: &Model, r: &TokenStream) -> TokenStream {
+    let (vis, name, struct_name, docs) = (&model.vis, &model.name, &model.struct_name, &model.docs);
+    let (attrs, deprecated) = (&model.attrs, &model.deprecated);
+    let (_, ty_generics, where_clause) = model.generics.split_for_impl();
+    let positional: Vec<&Prop> = model
+        .props
+        .iter()
+        .filter(|prop| prop.is_positional())
+        .collect();
+    let mut generics: Vec<TokenStream> = model
+        .generics
+        .params
+        .iter()
+        .map(|param| quote! { #param })
+        .collect();
+    generics.extend(positional.iter().filter_map(|prop| generic_decl(prop, r)));
+    let params = positional.iter().map(|prop| {
+        let name = &prop.name;
+        let ty = input_type(prop, r);
+        quote! { #name: #ty }
+    });
+    let check = api18_check(model, r);
+    let fields = struct_initializers(model, r);
+    let generics = angle(generics);
+    quote! {
+        #(#attrs)* #(#deprecated)*
+        #(#docs)*
+        #[track_caller]
+        #vis fn #name #generics (#(#params),*) -> #struct_name #ty_generics #where_clause {
+            #check
+            #struct_name { #(#fields,)* }
         }
-        PropKind::Callback0 => {
-            let marker = m_ident(prop);
-            Some(quote! { #marker })
-        }
-        PropKind::ViewFn => {
-            let view = v_ident(prop);
-            Some(quote! { #view: ::kivact::view::IntoView })
-        }
-        _ => None,
     }
 }
 
-fn r_ident(prop: &Prop) -> Ident {
-    format_ident!(
-        "R{}",
-        upper_camel(&prop.name.to_string()),
-        span = prop.name.span()
-    )
+/// The fields of the constructor's struct literal.
+fn struct_initializers(model: &Model, r: &TokenStream) -> Vec<TokenStream> {
+    let mut fields: Vec<TokenStream> = model
+        .props
+        .iter()
+        .map(|prop| initializer(prop, r))
+        .collect();
+    if matches!(model.returns, Returns::Element) {
+        fields.push(quote! { __root: #r::view::node() });
+    }
+    if !model.phantom.is_empty() {
+        fields.push(quote! { __phantom: ::std::marker::PhantomData });
+    }
+    fields
 }
 
-fn m_ident(prop: &Prop) -> Ident {
-    format_ident!(
-        "M{}",
-        upper_camel(&prop.name.to_string()),
-        span = prop.name.span()
-    )
-}
-
-fn v_ident(prop: &Prop) -> Ident {
-    format_ident!(
-        "V{}",
-        upper_camel(&prop.name.to_string()),
-        span = prop.name.span()
-    )
-}
-
-fn input_type(prop: &Prop) -> TokenStream {
-    match &prop.kind {
-        PropKind::Text => quote! { impl ::kivact::state::IntoText },
-        PropKind::Value(ty) => quote! { impl ::kivact::state::IntoValue<#ty> },
-        PropKind::Signal(ty) => quote! { ::kivact::state::Signal<#ty> },
-        PropKind::Callback0 => {
-            let marker = m_ident(prop);
-            quote! { impl ::kivact::state::IntoHandler<(), #marker> }
+fn initializer(prop: &Prop, r: &TokenStream) -> TokenStream {
+    let name = &prop.name;
+    match &prop.required {
+        Required::Positional => {
+            let value = store(prop, r, quote! { #name });
+            quote! { #name: #value }
         }
-        PropKind::Callback(ty) => {
-            let result = r_ident(prop);
-            quote! { impl ::std::ops::Fn(#ty) -> #result + 'static }
+        Required::Optional => quote! { #name: ::std::option::Option::None },
+        Required::Default(expr) => {
+            let value = default_value(prop, r, expr);
+            quote! { #name: #value }
         }
-        PropKind::View => quote! { impl ::kivact::view::IntoView },
-        PropKind::Children => quote! { impl ::kivact::view::IntoChildren },
-        PropKind::ViewFn => {
-            let view = v_ident(prop);
-            quote! { impl ::kivact::view::IntoViewFn<#view> }
-        }
-        PropKind::Other(ty) => quote! { impl ::std::convert::Into<#ty> },
     }
 }
 
-fn keep_type(prop: &Prop) -> TokenStream {
+/// The value of a `#[prop(default = expr)]`. A callback's default goes
+/// through `Handler::from_fn` directly, so the closure's argument type is
+/// inferred from the handler's bound.
+fn default_value(prop: &Prop, r: &TokenStream, expr: &syn::Expr) -> TokenStream {
     match &prop.kind {
-        PropKind::Text => quote! { ::kivact::custom::Prop<String> },
-        PropKind::Value(ty) => quote! { ::kivact::custom::Prop<#ty> },
-        PropKind::Signal(ty) => quote! { ::kivact::state::Signal<#ty> },
-        PropKind::Callback0 => quote! { ::kivact::custom::Handler<()> },
-        PropKind::Callback(ty) => quote! { ::kivact::custom::Handler<#ty> },
-        PropKind::View => quote! { ::kivact::view::View },
-        PropKind::Children => quote! { ::std::vec::Vec<::kivact::view::View> },
-        PropKind::ViewFn => quote! { ::kivact::view::ViewFn<()> },
-        PropKind::Other(ty) => quote! { #ty },
+        PropKind::Callback0 => quote! {{
+            let __default = #expr;
+            #r::custom::Handler::<()>::from_fn(move |()| __default())
+        }},
+        PropKind::Callback(ty) => quote! { #r::custom::Handler::<#ty>::from_fn(#expr) },
+        _ => {
+            let value = store(prop, r, quote! { __default });
+            quote! {{ let __default = #expr; #value }}
+        }
     }
 }
 
-/// The conversion a caller's argument goes through when it is stored.
-fn store(prop: &Prop, input: TokenStream) -> TokenStream {
-    match &prop.kind {
-        PropKind::Text => quote! { ::kivact::custom::Prop::from_text(#input) },
-        PropKind::Value(_) => quote! { ::kivact::custom::Prop::new(#input) },
-        PropKind::Signal(_) => quote! { #input },
-        PropKind::Callback0 => quote! { ::kivact::state::IntoHandler::into_handler(#input) },
-        PropKind::Callback(_) => quote! { ::kivact::custom::Handler::from_fn(#input) },
-        PropKind::View => quote! { ::kivact::view::IntoView::into_view(#input) },
-        PropKind::Children => quote! { ::kivact::view::IntoChildren::into_views(#input) },
-        PropKind::ViewFn => quote! { ::kivact::view::IntoViewFn::into_view_fn(#input) },
-        PropKind::Other(_) => quote! { ::std::convert::Into::into(#input) },
+/// The API-18 check: each recognised prop's written type is the Kivact type
+/// it stands for, so a foreign `Value` or a missing import is an error here.
+fn api18_check(model: &Model, r: &TokenStream) -> TokenStream {
+    let pairs: Vec<(&syn::Type, TokenStream)> = model
+        .props
+        .iter()
+        .filter_map(|prop| kivact_type(prop, r).map(|kivact| (&prop.written, kivact)))
+        .collect();
+    if pairs.is_empty() {
+        return TokenStream::new();
+    }
+    let written = pairs.iter().map(|(written, _)| written);
+    let kivact = pairs.iter().map(|(_, kivact)| kivact);
+    quote! {
+        let _: fn(::std::marker::PhantomData<(#(#written,)*)>) -> ::std::marker::PhantomData<(#(#kivact,)*)> = |written| written;
+    }
+}
+
+fn setter(prop: &Prop, r: &TokenStream) -> TokenStream {
+    let name = &prop.name;
+    let generics = angle(generic_decl(prop, r).into_iter().collect());
+    let input = input_type(prop, r);
+    let value = store(prop, r, quote! { #name });
+    let assign = if prop.is_optional() {
+        quote! { self.#name = ::std::option::Option::Some(#value); }
+    } else {
+        quote! { self.#name = #value; }
+    };
+    quote! {
+        #[track_caller]
+        pub fn #name #generics (mut self, #name: #input) -> Self {
+            #assign
+            self
+        }
+    }
+}
+
+fn into_view(model: &Model, r: &TokenStream) -> TokenStream {
+    let (impl_generics, ty_generics, where_clause) = model.generics.split_for_impl();
+    let struct_name = &model.struct_name;
+    let names = destructure(model);
+    let mounts = model.props.iter().filter_map(|prop| mount(prop, r));
+    let rebinds = model.props.iter().filter(|prop| prop.mutable).map(|prop| {
+        let name = &prop.name;
+        quote! { #[allow(unused_mut)] let mut #name = #name; }
+    });
+    let statements = &model.body.stmts;
+    let finish = match model.returns {
+        Returns::Element => quote! {
+            #r::view::Element::with_node(__body, move |__n| __n.absorb(__root))
+        },
+        Returns::IntoView => quote! { __body },
+    };
+    quote! {
+        impl #impl_generics #r::view::IntoView for #struct_name #ty_generics #where_clause {
+            fn into_view(self) -> #r::view::View {
+                let #struct_name { #(#names,)* } = self;
+                #r::custom::scope(move || {
+                    #(#mounts)*
+                    #(#rebinds)*
+                    let __body = (move || {
+                        #(#statements)*
+                    })();
+                    #finish
+                })
+            }
+        }
+    }
+}
+
+/// The pattern of `into_view`'s destructuring: the props, then `__root` and
+/// `__phantom` as the struct has them.
+fn destructure(model: &Model) -> Vec<TokenStream> {
+    let mut names: Vec<TokenStream> = model
+        .props
+        .iter()
+        .map(|prop| {
+            let name = &prop.name;
+            quote! { #name }
+        })
+        .collect();
+    if matches!(model.returns, Returns::Element) {
+        names.push(quote! { __root });
+    }
+    if !model.phantom.is_empty() {
+        names.push(quote! { __phantom: _ });
+    }
+    names
+}
+
+/// `impl Element`: the node the caller's modifiers are collected in.
+fn element_impl(model: &Model, r: &TokenStream) -> TokenStream {
+    if !matches!(model.returns, Returns::Element) {
+        return TokenStream::new();
+    }
+    let (impl_generics, ty_generics, where_clause) = model.generics.split_for_impl();
+    let struct_name = &model.struct_name;
+    quote! {
+        impl #impl_generics #r::view::Element for #struct_name #ty_generics #where_clause {
+            fn node_mut(&mut self) -> &mut #r::view::Node {
+                &mut self.__root
+            }
+        }
     }
 }

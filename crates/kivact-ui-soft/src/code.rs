@@ -6,13 +6,14 @@ use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::IntoText;
 use kivact::style::style;
 use kivact::view::IntoView;
 use kivact::view::View;
 
 /// The ink used for an inline code fragment.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum CodeColor {
     /// Primary text ink, the default.
     #[default]
@@ -87,5 +88,3 @@ impl IntoView for Code {
         .into_view()
     }
 }
-
-kivact::state::constant_value!(CodeColor);

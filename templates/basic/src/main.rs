@@ -10,7 +10,7 @@ use kivact::prelude::*;
 /// builder for its props. The setup runs once; dynamic parts are closures
 /// over Copy handles.
 #[component]
-fn counter(initial: i32) -> impl IntoView {
+fn counter(initial: i32) -> impl Element {
     let count = signal(initial);
     let doubled = memo(move || count.get() * 2);
     column((

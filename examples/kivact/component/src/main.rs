@@ -10,9 +10,9 @@ use kivact::prelude::*;
 #[component]
 fn card(
     title: Value<String>,
-    #[prop(optional)] on_close: Option<Callback<()>>,
-    content: ViewFn,
-) -> impl IntoView {
+    on_close: Option<Callback<()>>,
+    content: kivact::view::ViewFn,
+) -> impl Element {
     let open = signal(true);
     let close = on_close.map(|on_close| button("Close").on_press(on_close));
     column((

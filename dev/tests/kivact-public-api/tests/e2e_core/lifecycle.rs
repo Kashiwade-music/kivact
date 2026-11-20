@@ -3,6 +3,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use kivact::custom::scope;
 use kivact::platform::{self, LifecycleEvent, on_lifecycle};
 use kivact::prelude::*;
 use kivact_public_api_tests::support::mount;

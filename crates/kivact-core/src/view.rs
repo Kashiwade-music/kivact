@@ -27,6 +27,7 @@ pub(crate) mod foreign_window;
 pub(crate) mod handler_layers;
 pub(crate) mod hover;
 pub(crate) mod input;
+pub(crate) mod measured_leaf;
 pub(crate) mod modifier_keys;
 pub(crate) mod modifiers;
 pub(crate) mod mount;
@@ -60,7 +61,7 @@ pub use crate::view::flow::{
     dynamic, error_boundary, for_each, for_index, show, show_some, virtual_list,
 };
 #[doc(inline)]
-pub use boundary::{ReadingDirection, provide_direction, scope, use_direction};
+pub use boundary::{ReadingDirection, provide_direction, use_direction};
 #[doc(inline)]
 pub use descriptor::{IntoView, IntoViewFn, View, ViewFn};
 #[doc(inline)]

@@ -17,6 +17,7 @@ use kivact::view::row;
 use kivact::view::scroll;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Machine;
@@ -40,7 +41,7 @@ use kivact::view::View;
 use kivact::view::node_ref;
 use kivact::view::show;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Background and boundary treatment for the application shell.
 pub enum ShellVariant {
     /// Use the body background around the shell.
@@ -54,7 +55,7 @@ pub enum ShellVariant {
     Elevated,
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Scrolling strategy inside the viewport-height application shell.
 pub enum ShellHeight {
     #[default]
@@ -237,7 +238,7 @@ impl IntoView for AppShell {
             variant,
             mobile,
         } = self;
-        kivact::view::scope(move || {
+        kivact::custom::scope(move || {
             let (mobile, config, custom) =
                 configure_mobile(mobile, top.is_some() || side.is_some());
             let presentation = ShellPresentation {
@@ -312,8 +313,6 @@ impl Machine for SkipMachine {
         }
     }
 }
-
-kivact::state::constant_value!(ShellHeight, ShellVariant);
 
 #[derive(Clone, Copy)]
 struct ShellPresentation {

@@ -79,6 +79,66 @@
 //!     text(title.into())
 //! }
 //! ```
+//!
+//! An `Option<..>` prop with a default does not (the `Option` is the optional form):
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn card(#[prop(default = 1)] level: Option<u8>) -> impl Element {
+//!     node()
+//! }
+//! ```
+//!
+//! `#[prop]` takes only a default; `optional` does not:
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn card(#[prop(optional)] level: Option<u8>) -> impl Element {
+//!     node()
+//! }
+//! ```
+//!
+//! A prop type the file does not import does not compile:
+//!
+//! ```compile_fail
+//! use kivact::component;
+//! #[component]
+//! fn card(title: Value<String>) -> impl kivact::view::IntoView {
+//!     kivact::view::text(title)
+//! }
+//! ```
+//!
+//! A lifetime parameter does not (write type parameters only):
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn label<'a>(text: Value<String>) -> impl Element {
+//!     node()
+//! }
+//! ```
+//!
+//! A const parameter does not:
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn dots<const N: usize>() -> impl Element {
+//!     node()
+//! }
+//! ```
+//!
+//! A type parameter with the reserved `__Kv` prefix does not:
+//!
+//! ```compile_fail
+//! use kivact::prelude::*;
+//! #[component]
+//! fn shown<__KvT: Clone>(value: Value<__KvT>) -> impl Element {
+//!     node()
+//! }
+//! ```
 
 pub mod paint;
 pub mod support;

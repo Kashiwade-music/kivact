@@ -57,7 +57,7 @@ impl<K> Tab<K> {
     }
     /// Mount trailing tab content once.
     pub fn end_content(mut self, end: impl IntoView) -> Self {
-        self.end = Some(kivact::view::scope(move || end.into_view()));
+        self.end = Some(kivact::custom::scope(move || end.into_view()));
         self
     }
     /// Associate the tab with an existing panel node reference.

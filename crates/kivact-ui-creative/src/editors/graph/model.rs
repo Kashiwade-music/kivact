@@ -1,4 +1,5 @@
 //! Role: Graph curves, interpolation, view ranges and edit requests.
+use kivact::Prop;
 use kivact::style::Color;
 /// A handle offset in the same time and value units as its curve key.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -59,7 +60,7 @@ impl Curve {
 }
 
 /// The visible logical time and value intervals of a graph.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct GraphView {
     pub time: (f64, f64),
     pub value: (f64, f64),
@@ -72,7 +73,6 @@ impl Default for GraphView {
         }
     }
 }
-kivact::state::constant_value!(GraphView);
 /// An absolute proposed position and tangents for one graph key.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct KeyMove {

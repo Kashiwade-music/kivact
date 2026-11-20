@@ -54,7 +54,7 @@ pub use kivact_core::{
 /// Drawing tools: canvases, local element layers and windowless rendering ([`draw::Offscreen`]).
 pub mod draw;
 /// Turn a component function into its props builder (see the guide "Write reusable components").
-pub use kivact_macros::component;
+pub use kivact_macros::{Prop, component};
 #[cfg(feature = "test")]
 #[doc(inline)]
 pub use kivact_test as test;

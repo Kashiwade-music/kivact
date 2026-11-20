@@ -10,6 +10,7 @@ use kivact::view::icon;
 use kivact::view::row;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::Callback;
 use kivact::state::IntoText;
 use kivact::state::Value;
@@ -30,7 +31,7 @@ use kivact::view::node_ref;
 use kivact::view::use_direction;
 
 /// Decorative token palette.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum TokenColor {
     #[default]
     /// Use the default neutral token palette.
@@ -243,8 +244,6 @@ impl IntoView for Token {
             .into_view()
     }
 }
-
-kivact::state::constant_value!(TokenColor);
 
 fn token_main_style(
     direction: Direction,

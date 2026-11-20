@@ -1,4 +1,5 @@
 //! Role: Compose Soft bulk selection and status on canonical controls.
+use kivact::Prop;
 use kivact::state::{IntoText, IntoValue, PropValue, Signal, Value};
 use kivact::style::{Align, Direction, style};
 use kivact::view::{Element, IntoView, Node, View, text};
@@ -97,7 +98,7 @@ impl<K: PropValue> IntoView for TableSelectionToolbar<K> {
 }
 
 /// The semantic colors of a table's status marker.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum RowStatusTone {
     #[default]
     /// Use neutral status ink.
@@ -109,7 +110,6 @@ pub enum RowStatusTone {
     /// Use error status ink.
     Error,
 }
-kivact::state::constant_value!(RowStatusTone);
 
 /// Dot treatment of a canonical badge used in a table's status lane.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

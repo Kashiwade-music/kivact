@@ -9,6 +9,7 @@ use kivact::view::node;
 use kivact::view::row;
 use kivact::view::text;
 
+use kivact::Prop;
 use kivact::state::IntoText;
 use kivact::style::Align;
 use kivact::style::pct;
@@ -29,7 +30,7 @@ pub enum StatusKind {
 }
 
 /// Placement of the validation-message surface.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq, Prop)]
 pub enum FieldStatusVariant {
     /// Message visually attached to its field, the default.
     #[default]
@@ -145,5 +146,3 @@ impl IntoView for FieldStatus {
         .into_view()
     }
 }
-
-kivact::state::constant_value!(FieldStatusVariant);

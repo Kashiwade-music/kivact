@@ -3,6 +3,7 @@ use crate::recipe::recipe_table;
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
+use kivact_macros::Prop;
 pub(crate) fn item_list_root(t: &Theme, _: &PartState) -> Style {
     style()
         .direction(Direction::Column)
@@ -129,7 +130,7 @@ pub struct ItemPosition {
 }
 
 /// Structural marker used by a semantic static list.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ItemListMarker {
     #[default]
     None,
@@ -137,5 +138,3 @@ pub enum ItemListMarker {
     Circle,
     Decimal,
 }
-
-kivact_core::state::constant_value!(ItemListMarker);

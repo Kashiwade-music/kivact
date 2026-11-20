@@ -19,8 +19,8 @@ pub use crate::view::{
     CheckedState, EditPhase, Element, Handled, InputPurpose, IntoView, Key, KeyEvent, Modifiers,
     Node, NodeRef, Orientation, Placement, PointerEvent, Role, RowHeight, ScrollAxes, View,
     WindowMode, WindowPlacement, canvas, column, drawable, dynamic, error_boundary, for_each,
-    for_index, grid, icon, image, node, node_ref, row, scope, scroll, show, show_some, spacer,
-    stack, text, virtual_list, window,
+    for_index, grid, icon, image, node, node_ref, row, scroll, show, show_some, spacer, stack,
+    text, virtual_list, window,
 };
 
 pub use crate::style::{

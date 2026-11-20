@@ -249,7 +249,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// written after it overrides only what it sets. A closure that
     /// reads [`use_theme`](crate::style::use_theme) is
     /// recomputed when the theme visible at the node changes:
-    /// `.style(move || { let t = &use_theme(); style().padding(t.space().md) })`.
+    /// `.style(move || use_theme().with(|t| style().padding(t.space().md)))`.
     #[track_caller]
     fn style(mut self, s: impl IntoValue<Style>) -> Self {
         self.node_mut()
