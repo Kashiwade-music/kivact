@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5b・A08（lane X、commit `c53801b2`）：確認（fmt・xtask arvane-shell、報告の範囲の E2E・5 件の後退）は成功。(a) 付属書の `kivact-engine/src/host/window.rs` は `src/model/window.rs`（E15 で移動済み）。行番号のずれとして受け入れる（0.5 節）。(b) win32 の `State` の印の文（`surface` を挙げたまま）は、付属書が文面を指定していないので変えない（CP の台帳と付属書 L で閉じる）。(c) `Dropped(_) | NotDrawable(_)` の or-pattern、Shown の GPU 経路の `LastPresent::Settled`（AR-09）は付属書どおり。受け入れる。
+- 設計者への注意（A06 の所有の残り）：A06 の所有には root `Cargo.toml` の profile 1 行と `templates/basic/README.md` の profile 1 行があるが、A06 の付属書の手順には無い（A06 は直さず報告した）。`templates/basic/README.md` の profile の文は G12（W11b）の手順 3 で直す。root の `[profile.dev.package.*]`（124〜132 行付近）は、どの手順にも無いので、設計者が A の手順に足すか、G 側で扱うかを決める。
+
 - W5b・A07（lane X、commit `12cd5129`）：(a) `MakeSurface` の署名を `&dyn Fn(&GpuContext, &mut dyn ShellWindow)` にした。付属書の make closure は window（`&mut dyn ShellWindow`）を捕まえるので `Fn` にできず（コンパイル error）、window を引数で渡す。surface の作成は UI thread で `window.surface().with_gpu_target` を通す。付属書の意図どおり。機械的に壊れる式の行で受け入れる（設計者は形を確かめる）。(b) `frame_period_ns`・`reduced_motion` の impl は inherent にせず削除した（inherent だと dead code で clippy -D warnings が落ちる）。呼出し元は `environment()` と `Presenter::frame_period_ns` を読む。受け入れる。(c) `set_ime(None)` は仮想 window の `ime_text` を消さない（付属書の None の枝どおり。観測上の差は無い）。受け入れる。
 - 作業の残り（A06・A07 の残り）：root `Cargo.toml` の `[profile.dev.package.*]`（124〜132 行付近）と `templates/basic/README.md` の profile の文は、どの unit の手順にも入っていない。W5b の所有には入っているので、付属書の手順の中（A10 か、その付近）で直すかを確かめる。
 
