@@ -650,3 +650,12 @@ C19 のほかの点は、Orchestrator の判断どおり：shorthand の展開�
 - **(1) shorthand 名の override**：(a) を採る。DevTools の override は 2b8df5ac で `background`（色）・`line_height`（数と `px`）・`radius`（数）を読めたので、これを保つ。付属書 S に追補 **S17b**（`## S18` の直前）を足した：`Background`（色だけを text から読む）・`LineHeight`（`normal`・数・`Npx`）・`CornerRadius`（1 つか 2 つの長さ）の `EditText` を書き、`shown_only!` から外す。`radius` は C19 の `SHORTHANDS` で 4 隅に展開されるので、各隅の `CornerRadius` が読めればよい。
 - **(2) state layer の値**：(a) の変形を採る。新しい入口は足さず、`describe_style` の値を `Debug` から表の text の形（`Decl::edit_text`、`EditText::to_edit_text`）に変える（S17b の 2・3）。これで `describe_state_styles` も同じ形になり、base の層と state の層の値が揃う。Orchestrator の判断 (d) を満たす。値の文字列を期待する既存の試験は text の形に直してよい。
 - 進め方：lane X で `79358493` の上に S17b を実施し、C19 の確認（tier a）をやり直してから S18 へ進む。
+
+## Orchestrator の判断（W6b・C19・S17b・S18、2026-11-21）
+
+- C19 の再確認（check・clippy・xtask・e2e_native の devtools）は、S17b の commit `f213e6d9` の上で Orchestrator が実行し、すべて通した（ログは `V:/kv-target/logs-W6b-X/c19-recheck-*.log`）。採る。
+- S17b（`f213e6d9`）：付属書の試験の場所 `decl.rs` の `style_properties_round_trip` は、実際には `sheet/edit_text.rs` にあった。名前で探して、そこに足した（0.5：付属書の場所が無く、名前で同じものが一つ）。採る。e2e_native の devtools は付属書の command で 0 件（feature `devtools` の module）だったので、2.2 節の雛形どおり `--all-features` で再実行し、1 件成功。採る。
+- **S18（`2214e8aa`）の試験の期待値（設計者に確認）**：付属書の `radius(Length::Auto)` の試験の期待値は 4 だが、実装は 8 にした。`corner()` が隅ごとに x と y の 2 つの長さを数えるため（ST-31 の「数えて報告する」は長さの数）。新しく書いた試験で、期待値を緩めたのではなく数え方の定義の確定なので採る。ただし 0.2 の 3 に近いので、設計者が 4 の定義（隅ごと）を選ぶなら S18 の試験と実装の両方を直す。
+- S18：`misplaced` の数えは `Resolve` の既存の counter で、`Resolve::paint_len` を足した（件数は同じ）。採る。
+- S18：clippy の `too_many_lines`（`bind_style` が 82 行）は `write_props` に分けた（0.4 の「意味のある helper に分ける」）。採る。
+- S18：`ForcedStates` の再公開を消し、`kivact_types::StateSet` にした（ST-09 の style 側）。`pressed` の wire 名は変えていない。採る。
