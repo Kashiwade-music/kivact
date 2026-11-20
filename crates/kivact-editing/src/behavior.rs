@@ -128,11 +128,24 @@ pub trait Lines {
 #[doc(hidden)]
 pub struct EditLayout {
     /// The host's lines, shared with its line cache for the request.
-    pub lines: Box<dyn Lines>,
+    pub(crate) lines: Box<dyn Lines>,
     /// The revision of the text the lines are of.
-    pub revision: u64,
+    pub(crate) revision: u64,
     /// The width of the box the lines are aligned in.
-    pub width: f64,
+    pub(crate) width: f64,
+}
+
+impl EditLayout {
+    /// The host's `lines` of the text at `revision`, aligned in a box
+    /// `width` wide.
+    #[doc(hidden)]
+    pub fn new(lines: impl Lines + 'static, revision: u64, width: f64) -> Self {
+        Self {
+            lines: Box::new(lines),
+            revision,
+            width,
+        }
+    }
 }
 
 /// A routed key or clipboard text for the attached editing behavior.

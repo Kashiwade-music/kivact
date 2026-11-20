@@ -227,17 +227,22 @@ impl Model {
         let width = self.lay_out_lines(id, &mut engine.borrow_mut());
         self.edit_editor_with(id, |journal, lines| {
             let revision = lines.borrow().as_ref().map(|l| l.revision());
-            let layout = revision.map(|revision| EditLayout {
-                lines: Box::new(SharedLines::new(
-                    Rc::clone(lines),
-                    Rc::clone(engine),
+            let layout = revision.map(|revision| {
+                EditLayout::new(
+                    SharedLines::new(Rc::clone(lines), Rc::clone(engine), revision),
                     revision,
-                )),
-                revision,
-                width,
+                    width,
+                )
             });
             f(journal.state_mut(), layout);
         })
+    }
+
+    /// The selection and caret of input `id`'s editor.
+    fn input_caret(&self, id: NodeId) -> Option<(Range<usize>, usize)> {
+        let n = self.tree.get(id)?;
+        let editor = &self.slots.editors[n.index.0].as_deref()?.editor;
+        Some((editor.state().selection(), editor.state().caret()))
     }
 
     pub(super) fn edit_editor_with(
@@ -345,15 +350,24 @@ impl Model {
                     .is_some();
             let read_only = flags.1;
             let mut outcome = EditOutcome::NotEditing;
+            let mut before = None;
+            let mut changed = false;
             if let Some(behavior) = behavior.filter(|_| !spin_boundary) {
-                self.edit_input_with(i, engine, |state, layout| {
-                    let (multiline, read_only, password) = flags;
-                    let context = EditContext::new(multiline, read_only, password, layout);
-                    outcome = behavior.invoke(state, EditRequest::Key { key, modifiers }, &context);
-                });
+                changed = self
+                    .edit_input_with(i, engine, |state, layout| {
+                        before = Some((state.selection(), state.caret()));
+                        let (multiline, read_only, password) = flags;
+                        let context = EditContext::new(multiline, read_only, password, layout);
+                        outcome =
+                            behavior.invoke(state, EditRequest::Key { key, modifiers }, &context);
+                    })
+                    .unwrap_or(false);
             }
             match outcome {
                 EditOutcome::NotEditing => {}
+                // The limits took the whole edit back and nothing moved: the
+                // key goes on to the next handler (a full field's Enter).
+                EditOutcome::Done if !changed && before == self.input_caret(i) => {}
                 EditOutcome::Done => return KeyResult::Consumed,
                 EditOutcome::Copy(text) => return KeyResult::Copy(text),
                 EditOutcome::Paste => return KeyResult::Paste(i),

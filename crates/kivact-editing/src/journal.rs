@@ -65,6 +65,11 @@ impl Journal<'_> {
     /// recorded change; the session is clamped into what is left.
     pub fn truncate(&mut self, end: usize) {
         self.state.truncate(end);
+        // A cut that leaves the text the journal opened on took back every
+        // scalar the edit added: the edit is taken back whole (its caret too).
+        if self.state.text_is_unlogged() {
+            self.revert();
+        }
     }
 
     /// Take a controlled value held while composing as one recorded minimal change; whether

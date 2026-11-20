@@ -402,6 +402,20 @@ impl EditState {
 
     /// Undo the recorded changes, back to the text at `revision` (where
     /// the log started), with `session`.
+    /// Whether the text is the one the change log started from (later
+    /// changes undid every earlier one); `true` without a log.
+    pub(crate) fn text_is_unlogged(&self) -> bool {
+        let Some(log) = &self.log else {
+            return true;
+        };
+        let mut text = self.text.clone();
+        for logged in log.entries.iter().rev() {
+            let start = logged.change.range.start;
+            text.replace_range(start..start + logged.change.text.len(), &logged.removed);
+        }
+        text == self.text
+    }
+
     pub(crate) fn revert(&mut self, revision: u64, session: TextSession) {
         let entries = self.log.take().map(|log| log.entries).unwrap_or_default();
         for logged in entries.into_iter().rev() {
