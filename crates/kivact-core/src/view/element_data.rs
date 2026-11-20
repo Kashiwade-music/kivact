@@ -36,7 +36,7 @@ use crate::view::input::{FileEvent, KeyEvent, PointerEvent, WheelEvent};
 use crate::view::node_ref::NodeRef;
 use crate::view::span::Span;
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{Callback, ErrorKind, IntoHandler, UiError};
+use kivact_runtime::{ErrorKind, IntoHandler, UiError};
 use kivact_style::Style;
 
 use super::exit_layout::ExitLayout;
@@ -319,10 +319,14 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
     /// branch so its owner can still be alive when the exit finishes.
     #[track_caller]
     fn on_exit_complete<M>(mut self, callback: impl IntoHandler<(), M>) -> Self {
-        // The callback's owner is the caller's; an error goes to its boundary.
-        let callback = Callback::from_handler(callback.into_handler());
+        // A callback whose owner was removed with the node answers `Disposed`
+        // and does not run; a closure, or a callback of a live owner, runs.
+        let handler = callback.into_handler();
         self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-            callback.call_if_alive(())
+            match handler.call(()) {
+                Err(error) if matches!(error.kind(), ErrorKind::Disposed { .. }) => Ok(()),
+                result => result.map(|_| ()),
+            }
         }));
         self
     }
