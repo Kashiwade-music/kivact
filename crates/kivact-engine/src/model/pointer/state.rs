@@ -4,12 +4,12 @@ use std::collections::BTreeMap;
 
 use crate::tree::NodeTree;
 use kivact_types::PointerId;
-use kivact_types::{FocusTarget, NodeId, Point, PointerButtons, PointerKind};
+use kivact_types::{FocusTarget, NodeId, Point, PointerKind};
 
 /// The pointer group: the state machine's tracks (with each pointer's last
 /// position and its gesture), the file drop target and the cursor last
-/// shown. The buttons a pointer holds are the shell's (`PointerSample::buttons`),
-/// kept once in its track's source.
+/// shown. A track keeps only what the machine decided about its pointer;
+/// the buttons, pressure, tilt and time of each event come with its sample.
 pub(crate) struct Pointer {
     pub(super) state: PointerState,
     pub(super) file_target: Option<NodeId>,
@@ -87,7 +87,6 @@ pub(crate) struct Hover {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct MouseTrack {
-    pub(crate) source: PointerSource,
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) hover: Hover,
@@ -129,7 +128,7 @@ impl ContactRole {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct TouchTrack {
-    pub(crate) source: PointerSource,
+    pub(crate) id: PointerId,
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
@@ -138,7 +137,7 @@ pub(crate) struct TouchTrack {
 
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) struct PenTrack {
-    pub(crate) source: PointerSource,
+    pub(crate) id: PointerId,
     pub(crate) over: Option<NodeId>,
     pub(crate) at: Point,
     pub(crate) role: ContactRole,
@@ -284,7 +283,6 @@ impl Track {
     /// The mouse's track (always primary, always hovering).
     pub(crate) fn mouse() -> Self {
         Self::Mouse(MouseTrack {
-            source: PointerSource::MOUSE,
             over: None,
             at: Point::default(),
             hover: Hover::default(),
@@ -292,18 +290,14 @@ impl Track {
         })
     }
 
-    /// The track of a touch or pen contact that just went down; `primary`
-    /// is the platform's `isPrimary` at its `Down`.
-    pub(crate) fn contact(source: PointerSource, primary: bool) -> Self {
-        debug_assert_ne!(
-            source.kind,
-            PointerKind::Mouse,
-            "the mouse is not a contact"
-        );
+    /// The track of a touch or pen contact of `kind` that just went down;
+    /// `primary` is the platform's `isPrimary` at its `Down`.
+    pub(crate) fn contact(id: PointerId, kind: PointerKind, primary: bool) -> Self {
+        debug_assert_ne!(kind, PointerKind::Mouse, "the mouse is not a contact");
         let role = ContactRole::of(primary);
-        if source.kind == PointerKind::Pen {
+        if kind == PointerKind::Pen {
             Self::Pen(PenTrack {
-                source,
+                id,
                 over: None,
                 at: Point::default(),
                 role,
@@ -311,7 +305,7 @@ impl Track {
             })
         } else {
             Self::Touch(TouchTrack {
-                source,
+                id,
                 over: None,
                 at: Point::default(),
                 role,
@@ -331,19 +325,21 @@ impl Track {
         }
     }
 
-    pub(crate) fn source(&self) -> &PointerSource {
+    /// The pointer's id (the mouse is `PointerId::MOUSE`).
+    pub(crate) fn id(&self) -> PointerId {
         match self {
-            Self::Mouse(t) => &t.source,
-            Self::Touch(t) => &t.source,
-            Self::Pen(t) => &t.source,
+            Self::Mouse(_) => PointerId::MOUSE,
+            Self::Touch(t) => t.id,
+            Self::Pen(t) => t.id,
         }
     }
 
-    pub(crate) fn source_mut(&mut self) -> &mut PointerSource {
+    /// Mouse, touch or pen.
+    pub(crate) fn kind(&self) -> PointerKind {
         match self {
-            Self::Mouse(t) => &mut t.source,
-            Self::Touch(t) => &mut t.source,
-            Self::Pen(t) => &mut t.source,
+            Self::Mouse(_) => PointerKind::Mouse,
+            Self::Touch(_) => PointerKind::Touch,
+            Self::Pen(_) => PointerKind::Pen,
         }
     }
 
@@ -541,35 +537,7 @@ impl Track {
     }
 }
 
-/// One pointer: the mouse, or a touch or pen contact.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct PointerSource {
-    pub(crate) time_ns: u64,
-    /// The pointer's id (the mouse is 1).
-    pub(crate) id: PointerId,
-    /// Mouse, touch or pen.
-    pub(crate) kind: PointerKind,
-    /// The pressure at its last event, when reported.
-    pub(crate) pressure: Option<f64>,
-    /// The pen's tilt at its last event, when reported.
-    pub(crate) tilt: Option<(f64, f64)>,
-    /// The buttons held after its last event (none after a `Cancel`).
-    pub(crate) buttons: PointerButtons,
-}
-
 pub(crate) type CursorKind = kivact_types::Cursor;
-
-impl PointerSource {
-    /// The mouse.
-    pub(crate) const MOUSE: PointerSource = PointerSource {
-        id: PointerId::MOUSE,
-        time_ns: 0,
-        kind: PointerKind::Mouse,
-        pressure: None,
-        tilt: None,
-        buttons: PointerButtons::NONE,
-    };
-}
 
 /// A mouse scrollbar drag in progress.
 #[derive(Clone, Copy, Debug, PartialEq)]
