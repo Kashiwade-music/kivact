@@ -279,7 +279,7 @@ pub(crate) struct ViewState {
     pub(crate) requests: RefCell<Requests>,
 }
 
-// xtask-allow(state): hover と mouse は host の報告の別々の事実（指している node と指の位置）で、どの組合せも起きる。close_handlers は登録の表（owner が登録し、owner の cleanup が消す）
+// xtask-allow(state): independent: hover and mouse are separate host reports (the node pointed at and the pointer position), and any combination occurs; close_handlers is a registry that an owner adds to and its cleanup removes from
 /// One window's view record: the owner that declared it, its declaration,
 /// environment, focus source and pointer sources.
 #[derive(Clone)]
@@ -552,7 +552,7 @@ impl FocusKeys {
     }
 }
 
-// xtask-allow(state): generation は families を最後に読んだ font の版。families は generation の射影で、refresh_fonts だけが両方を同じ遷移で書く
+// xtask-allow(state): projection: generation is the font version families was last read at; families is its projection, and refresh_fonts alone writes both in one transition
 pub(crate) struct FontsValue {
     pub(crate) families: Signal<Vec<String>>,
     generation: Cell<u64>,
