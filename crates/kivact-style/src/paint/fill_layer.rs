@@ -3,6 +3,7 @@
 use super::canvas_gradient::{CanvasGradient, CanvasShape};
 use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
 use super::layer::{Paint, PaintImage, PaintSize, ShaderPaint};
+use crate::resolve::Resolve;
 use crate::shader::data::pack;
 use crate::theme::value::Theme;
 use kivact_types as p;
@@ -11,31 +12,44 @@ use kivact_types::{
     FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop, ShaderSpec,
 };
 
-/// A paint as the engine fills an area with it.
-pub(crate) fn fill_layer(l: &Paint, theme: &Theme) -> FillLayer {
-    let len = |l: Length| l.to_len();
-    let auto = |l: Length| (l != Length::Auto && !l.is_content()).then(|| l.to_len());
+/// A paint as the engine fills an area with it, its lengths resolved in `cx`.
+pub(crate) fn fill_layer(l: &Paint, cx: &mut Resolve<'_>) -> FillLayer {
+    let theme = cx.theme;
+    let image = match &l.image {
+        PaintImage::Color(c) => FillImage::Solid(c.resolve(theme)),
+        PaintImage::Gradient(g) => FillImage::Gradient(gradient(g, cx)),
+        PaintImage::Canvas(g) => FillImage::Coordinate(canvas_gradient(g, theme)),
+        PaintImage::Image(a) => FillImage::Image(a.clone()),
+        PaintImage::Shader(s) => FillImage::Shader(std::sync::Arc::new(shader_spec(s, cx))),
+    };
+    let size = match l.size {
+        PaintSize::Auto => FillSize::Auto,
+        PaintSize::Cover => FillSize::Cover,
+        PaintSize::Contain => FillSize::Contain,
+        PaintSize::Explicit(w, h) => FillSize::Explicit(explicit(w, cx), explicit(h, cx)),
+    };
     FillLayer {
-        image: match &l.image {
-            PaintImage::Color(c) => FillImage::Solid(c.resolve(theme)),
-            PaintImage::Gradient(g) => FillImage::Gradient(gradient(g, theme)),
-            PaintImage::Canvas(g) => FillImage::Coordinate(canvas_gradient(g, theme)),
-            PaintImage::Image(a) => FillImage::Image(a.clone()),
-            PaintImage::Shader(s) => FillImage::Shader(std::sync::Arc::new(shader_spec(s, theme))),
-        },
-        size: match l.size {
-            PaintSize::Auto => FillSize::Auto,
-            PaintSize::Cover => FillSize::Cover,
-            PaintSize::Contain => FillSize::Contain,
-            PaintSize::Explicit(w, h) => FillSize::Explicit(auto(w), auto(h)),
-        },
-        position: [len(l.position.0), len(l.position.1)],
+        image,
+        size,
+        position: point(l.position, cx),
         repeat_x: l.repeat.0,
         repeat_y: l.repeat.1,
         clip: l.clip,
         origin: l.origin,
         blend: l.blend,
     }
+}
+
+/// One side of an explicit size in its paint form; `auto` and the content
+/// sizes (and an invalid sum, once resolved) are `None`.
+fn explicit(l: Length, cx: &mut Resolve<'_>) -> Option<p::Len> {
+    let l = cx.len(l);
+    (l != Length::Auto && !l.is_content()).then(|| l.to_len())
+}
+
+/// A point in its paint form, each coordinate resolved in `cx`.
+fn point((x, y): (Length, Length), cx: &mut Resolve<'_>) -> [p::Len; 2] {
+    [cx.len(x).to_len(), cx.len(y).to_len()]
 }
 
 /// A gradient by coordinates for the engine.
@@ -66,14 +80,14 @@ fn canvas_gradient(g: &CanvasGradient, theme: &Theme) -> p::CoordinateGradient {
     }
 }
 
-fn gradient(g: &Gradient, theme: &Theme) -> p::GradientSpec {
-    let at = |(x, y): (Length, Length)| [x.to_len(), y.to_len()];
+fn gradient(g: &Gradient, cx: &mut Resolve<'_>) -> p::GradientSpec {
+    let theme = cx.theme;
     let stops: Vec<GradientStop> = g
         .stops
         .iter()
-        .map(|(c, at)| GradientStop {
+        .map(|(c, stop_at)| GradientStop {
             color: c.resolve_space(theme),
-            at: at.map(Length::to_len),
+            at: stop_at.map(|l| cx.len(l).to_len()),
         })
         .collect();
     // One hint per gap between stops; the last stop's hint has no gap.
@@ -82,7 +96,7 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::GradientSpec {
         .hints
         .iter()
         .take(gaps)
-        .map(|h| h.map(Length::to_len))
+        .map(|h| h.map(|l| cx.len(l).to_len()))
         .collect();
     p::GradientSpec {
         kind: match g.kind {
@@ -100,13 +114,15 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::GradientSpec {
                         RadialExtent::FarthestSide => p::RadialExtent::FarthestSide,
                         RadialExtent::FarthestCorner => p::RadialExtent::FarthestCorner,
                     },
-                    RadialSize::Radii(x, y) => p::RadialExtent::Radii(x.to_len(), y.to_len()),
+                    RadialSize::Radii(x, y) => {
+                        p::RadialExtent::Radii(cx.len(x).to_len(), cx.len(y).to_len())
+                    }
                 },
-                center: at(c),
+                center: point(c, cx),
             },
             GradientKind::Conic { from, at: c } => WireKind::Conic {
                 from_deg: from,
-                center: at(c),
+                center: point(c, cx),
             },
         },
         stops,
@@ -119,17 +135,17 @@ fn gradient(g: &Gradient, theme: &Theme) -> p::GradientSpec {
 /// The engine's shader fill, with the theme's colors resolved and the
 /// fallback lowered (a shader cannot be its own fallback: such a fallback
 /// draws nothing).
-fn shader_spec(s: &ShaderPaint, theme: &Theme) -> ShaderSpec {
+fn shader_spec(s: &ShaderPaint, cx: &mut Resolve<'_>) -> ShaderSpec {
     let fallback = s
         .fallback
         .as_ref()
-        .and_then(|p| match fill_layer(p, theme).image {
+        .and_then(|p| match fill_layer(p, cx).image {
             FillImage::Shader(_) => None,
             image => Some(image),
         });
     ShaderSpec {
         program: s.data.program.clone(),
-        params: pack(&s.data.program, &s.data.params, theme),
+        params: pack(&s.data.program, &s.data.params, cx.theme),
         images: s.data.images.clone(),
         clock: s.data.clock,
         essential: s.data.essential,

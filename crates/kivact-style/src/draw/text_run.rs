@@ -5,6 +5,7 @@ use crate::color_value::Color;
 use crate::geometry::Point;
 use crate::paint::{Paint, fill_layer};
 use crate::path::Path;
+use crate::resolve::Resolve;
 use crate::text::{
     FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, wire_variations,
 };
@@ -111,7 +112,12 @@ impl Default for TextFormat {
 pub(crate) fn fill_for(paint: &Paint, theme: &Theme) -> Fill {
     match paint.solid() {
         Some(c) => Fill::Solid(c.resolve(theme)),
-        None => Fill::Layers(vec![fill_layer(paint, theme)]),
+        None => {
+            // As `spacing_px`, an invalid sum here is not counted.
+            let mut dropped = 0;
+            let mut cx = Resolve::of_theme(theme, &mut dropped);
+            Fill::Layers(vec![fill_layer(paint, &mut cx)])
+        }
     }
 }
 

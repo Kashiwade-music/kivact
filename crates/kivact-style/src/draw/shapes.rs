@@ -64,9 +64,10 @@ impl Draw {
         paint: Paint,
         stroke: Option<&Stroke>,
     ) {
+        let paint = self.fill_of(&paint);
         self.cmds.push(p::DrawCmd::Shape(Box::new(p::ShapePaint {
             shape,
-            paint: self.fill_of(&paint),
+            paint,
             stroke: stroke.cloned(),
         })));
     }
@@ -81,7 +82,8 @@ impl Draw {
 
     /// Percentages in the shape and paint resolve against `rect`.
     pub fn fill_shape(&mut self, rect: Rect, shape: &Shape, paint: impl Into<Paint>) {
-        self.painted_shape(basic(rect, shape), paint.into(), None);
+        let shape = self.resolving(|cx| basic(rect, shape, cx));
+        self.painted_shape(shape, paint.into(), None);
     }
 
     pub fn circle(&mut self, center: Point, radius: impl Into<f64>, paint: impl Into<Paint>) {

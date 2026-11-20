@@ -5,6 +5,7 @@ use kivact_types::{ClipShape, Corners};
 
 use crate::geometry::{CornerRadius, Rect, corner};
 use crate::path::Path;
+use crate::resolve::Resolve;
 use kivact_types::Length;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -132,16 +133,15 @@ impl Shape {
 }
 
 /// A shape placed in `rect` as the engine draws it.
-pub(crate) fn basic(rect: Rect, shape: &Shape) -> p::DrawingShape {
+pub(crate) fn basic(rect: Rect, shape: &Shape, cx: &mut Resolve<'_>) -> p::DrawingShape {
     p::DrawingShape::Basic {
         rect,
-        shape: clip_shape(&shape.0),
+        shape: clip_shape(&shape.0, cx),
     }
 }
 
-/// A shape as the engine clips with it.
-pub(crate) fn clip_shape(shape: &ShapeKind) -> ClipShape {
-    let at = |(x, y): (Length, Length)| [x.to_len(), y.to_len()];
+/// A shape as the engine clips with it, its lengths resolved in `cx`.
+pub(crate) fn clip_shape(shape: &ShapeKind, cx: &mut Resolve<'_>) -> ClipShape {
     match shape {
         ShapeKind::Path(path) => ClipShape::Path {
             cmds: path.cmds.clone(),
@@ -149,13 +149,13 @@ pub(crate) fn clip_shape(shape: &ShapeKind) -> ClipShape {
         },
         ShapeKind::Inset { edges, radius } => ClipShape::Inset {
             edges: p::Edges {
-                top: edges[0].to_len(),
-                right: edges[1].to_len(),
-                bottom: edges[2].to_len(),
-                left: edges[3].to_len(),
+                top: cx.len(edges[0]).to_len(),
+                right: cx.len(edges[1]).to_len(),
+                bottom: cx.len(edges[2]).to_len(),
+                left: cx.len(edges[3]).to_len(),
             },
             radius: {
-                let c = corner(*radius);
+                let c = corner(*radius, cx);
                 Corners {
                     top_left: c,
                     top_right: c,
@@ -165,17 +165,22 @@ pub(crate) fn clip_shape(shape: &ShapeKind) -> ClipShape {
             },
         },
         ShapeKind::Circle { radius, at: c } => ClipShape::Circle {
-            radius: radius.to_len(),
-            center: at(*c),
+            radius: cx.len(*radius).to_len(),
+            center: point(*c, cx),
         },
         ShapeKind::Ellipse { rx, ry, at: c } => ClipShape::Ellipse {
-            radius_x: rx.to_len(),
-            radius_y: ry.to_len(),
-            center: at(*c),
+            radius_x: cx.len(*rx).to_len(),
+            radius_y: cx.len(*ry).to_len(),
+            center: point(*c, cx),
         },
         ShapeKind::Polygon { points, even_odd } => ClipShape::Polygon {
-            points: points.iter().map(|p| at(*p)).collect(),
+            points: points.iter().map(|p| point(*p, cx)).collect(),
             even_odd: *even_odd,
         },
     }
+}
+
+/// A point of a shape: each coordinate in its paint form, resolved in `cx`.
+fn point((x, y): (Length, Length), cx: &mut Resolve<'_>) -> [p::Len; 2] {
+    [cx.len(x).to_len(), cx.len(y).to_len()]
 }

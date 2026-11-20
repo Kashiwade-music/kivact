@@ -209,18 +209,23 @@ impl Draw {
             t.to_wire([p::Len::ZERO, p::Len::ZERO], 0.0)
                 .matrix(self.size)
         });
+        let clip = layer
+            .clip
+            .as_ref()
+            .map(|shape| self.resolving(|cx| basic(area, shape, cx)));
+        let masks = layer
+            .mask
+            .as_ref()
+            .map(|m| self.resolving(|cx| m.wire(cx)))
+            .unwrap_or_default();
         self.cmds
             .push(p::DrawCmd::PushLayer(Box::new(p::DrawingLayer {
                 area,
-                clip: layer.clip.as_ref().map(|shape| basic(area, shape)),
+                clip,
                 opacity: layer.opacity,
                 mix: layer.mix,
                 filter: filter_ops(&filter, &self.theme),
-                masks: layer
-                    .mask
-                    .as_ref()
-                    .map(|m| m.wire(&self.theme))
-                    .unwrap_or_default(),
+                masks,
                 transform,
                 transform_style: layer.transform_style,
                 backface: layer.backface,

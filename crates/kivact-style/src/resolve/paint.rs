@@ -22,10 +22,10 @@ use kivact_types::{Length, pct};
 
 /// A background as the engine fills it: one color covering the box stays a
 /// plain color (the common case costs no allocation).
-fn fill(b: &Background, theme: &Theme) -> Fill {
+fn fill(b: &Background, cx: &mut Resolve<'_>) -> Fill {
     match b.solid() {
-        Some(c) => Fill::Solid(c.resolve(theme)),
-        None => Fill::Layers(b.0.iter().map(|l| fill_layer(l, theme)).collect()),
+        Some(c) => Fill::Solid(c.resolve(cx.theme)),
+        None => Fill::Layers(b.0.iter().map(|l| fill_layer(l, cx)).collect()),
     }
 }
 
@@ -75,12 +75,7 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
 
 fn corners(s: &Style, cx: &mut Resolve<'_>) -> Corners {
     let paint = group_or_default!(s.paint, PaintFields);
-    let mut of = |r: Option<CornerRadius>| {
-        corner(r.map(|r| CornerRadius {
-            x: cx.len(r.x),
-            y: cx.len(r.y),
-        }))
-    };
+    let mut of = |r: Option<CornerRadius>| corner(r, cx);
     Corners {
         top_left: of(paint.radius[0]),
         top_right: of(paint.radius[1]),
@@ -101,7 +96,7 @@ fn shadow(sh: &Shadow, theme: &Theme) -> p::Shadow {
 
 /// The effects, when the style sets any (`None` otherwise, so a node
 /// without effects carries none).
-fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
+fn effects(s: &Style, cx: &mut Resolve<'_>) -> Option<Box<Effects>> {
     let paint = group_or_default!(s.paint, PaintFields);
     let set = paint.filter.is_some()
         || paint.backdrop_filter.is_some()
@@ -113,20 +108,16 @@ fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
             filter: paint
                 .filter
                 .as_ref()
-                .map(|f| filter_ops(f, theme))
+                .map(|f| filter_ops(f, cx.theme))
                 .unwrap_or_default(),
             backdrop: paint
                 .backdrop_filter
                 .as_ref()
-                .map(|f| filter_ops(f, theme))
+                .map(|f| filter_ops(f, cx.theme))
                 .unwrap_or_default(),
             blend: paint.blend.unwrap_or_default(),
-            masks: paint
-                .mask
-                .as_ref()
-                .map(|m| m.wire(theme))
-                .unwrap_or_default(),
-            clip_path: paint.clip_path.as_ref().map(|c| clip_shape(&c.0)),
+            masks: paint.mask.as_ref().map(|m| m.wire(cx)).unwrap_or_default(),
+            clip_path: paint.clip_path.as_ref().map(|c| clip_shape(&c.0, cx)),
         })
     })
 }
@@ -211,7 +202,7 @@ pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProp
     let flow = group_or_default!(s.flow, FlowFields);
     PaintProps {
         transitions: None,
-        background: paint.background.as_ref().map(|b| fill(b, theme)),
+        background: paint.background.as_ref().map(|b| fill(b, cx)),
         border: border(s, theme),
         ring: paint.ring.map(|(width, offset, c)| Ring {
             width,
@@ -232,14 +223,14 @@ pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProp
         backface: transform.backface.unwrap_or_default(),
         will_change: transform.will_change.unwrap_or_default(),
         isolation: paint.isolation.unwrap_or_default(),
-        border_image: paint.border_image.as_ref().map(|b| Box::new(b.wire(theme))),
+        border_image: paint.border_image.as_ref().map(|b| Box::new(b.wire(cx))),
         z_index: flow.z_index.unwrap_or(0),
         scrollbar: scrollbar(s, theme),
         cursor: paint.cursor.unwrap_or_default(),
         clip: paint.clip.unwrap_or(false)
             || flow.scroll_axes.is_some()
             || flow.overflow.is_some_and(|o| o != Overflow::Visible),
-        effects: effects(s, theme),
+        effects: effects(s, cx),
     }
 }
 

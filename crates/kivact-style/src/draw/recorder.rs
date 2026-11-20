@@ -3,6 +3,7 @@
 use crate::color_value::Color;
 use crate::geometry::Size;
 use crate::paint::{Paint, fill_layer};
+use crate::resolve::Resolve;
 use crate::theme::value::Theme;
 use kivact_types as p;
 use kivact_types::{DrawCmd, DrawList, DrawableId, Fill, RegionId};
@@ -84,12 +85,22 @@ impl Draw {
         c.resolve(&self.theme)
     }
 
+    /// Run `f` with the lengths of this drawing resolved: the theme's
+    /// variables, and `em` of the theme's base size (a drawing has no
+    /// style). An invalid sum counts as unsupported.
+    pub(super) fn resolving<T>(&mut self, f: impl FnOnce(&mut Resolve<'_>) -> T) -> T {
+        let mut misplaced = 0;
+        let out = f(&mut Resolve::of_theme(&self.theme, &mut misplaced));
+        self.unsupported += misplaced;
+        out
+    }
+
     /// Paint tokens are resolved in the same place as element styles.
-    pub(super) fn fill_of(&self, paint: &Paint) -> Fill {
+    pub(super) fn fill_of(&mut self, paint: &Paint) -> Fill {
         if let Some(c) = paint.solid() {
             return Fill::Solid(self.color(c));
         }
-        Fill::Layers(vec![fill_layer(paint, &self.theme)])
+        Fill::Layers(vec![self.resolving(|cx| fill_layer(paint, cx))])
     }
 }
 

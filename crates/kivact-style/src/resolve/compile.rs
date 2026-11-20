@@ -95,8 +95,8 @@ pub(crate) fn resolved(l: Length, theme: &Theme, em_px: f64, misplaced: &mut u32
 /// What a compile resolves the lengths of a style with: the theme, the
 /// font size `em` is of (the style's font size, else the theme's base size)
 /// and the count of sums the host cannot take.
-pub(super) struct Resolve<'a> {
-    theme: &'a Theme,
+pub(crate) struct Resolve<'a> {
+    pub(crate) theme: &'a Theme,
     em_px: f64,
     misplaced: &'a mut u32,
 }
@@ -111,8 +111,18 @@ impl<'a> Resolve<'a> {
         }
     }
 
+    /// The resolve of a drawing that has no style: `em` is of the theme's
+    /// base size.
+    pub(crate) fn of_theme(theme: &'a Theme, misplaced: &'a mut u32) -> Self {
+        Resolve {
+            theme,
+            em_px: theme.get(&crate::font::SIZE_VAR),
+            misplaced,
+        }
+    }
+
     /// `l` with its theme variables and `em` resolved.
-    pub(super) fn len(&mut self, l: Length) -> Length {
+    pub(crate) fn len(&mut self, l: Length) -> Length {
         resolved(l, self.theme, self.em_px, self.misplaced)
     }
 }

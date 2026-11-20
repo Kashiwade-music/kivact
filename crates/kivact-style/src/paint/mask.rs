@@ -5,7 +5,7 @@ use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use super::layer::Paint;
 use crate::color_value::Color;
-use crate::theme::value::Theme;
+use crate::resolve::Resolve;
 use kivact_types as p;
 pub use kivact_types::{MaskComposite, MaskMode};
 
@@ -56,10 +56,10 @@ impl MaskLayer {
         &self.paint
     }
 
-    /// The engine's layer, with its paint resolved against `theme`.
-    pub(crate) fn wire(&self, theme: &Theme) -> p::MaskLayer {
+    /// The engine's layer, with its paint resolved in `cx`.
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> p::MaskLayer {
         p::MaskLayer {
-            fill: fill_layer(&self.paint, theme),
+            fill: fill_layer(&self.paint, cx),
             mode: self.mode,
             composite: self.composite,
         }
@@ -84,8 +84,8 @@ pub struct Mask(pub(crate) Vec<MaskLayer>);
 
 impl Mask {
     /// The engine's layers, first on top.
-    pub(crate) fn wire(&self, theme: &Theme) -> Vec<p::MaskLayer> {
-        self.0.iter().map(|l| l.wire(theme)).collect()
+    pub(crate) fn wire(&self, cx: &mut Resolve<'_>) -> Vec<p::MaskLayer> {
+        self.0.iter().map(|l| l.wire(cx)).collect()
     }
 }
 

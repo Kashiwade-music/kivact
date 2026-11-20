@@ -9,7 +9,7 @@ impl Draw {
     /// Draw `image` as a nine-slice into `rect`: its corners stay, its edges
     /// and middle stretch or repeat as the image says (CSS `border-image`).
     pub fn border_image(&mut self, rect: Rect, image: &BorderImage) {
-        let image = image.wire(&self.theme);
+        let image = self.resolving(|cx| image.wire(cx));
         self.cmds.push(p::DrawCmd::BorderImage {
             rect,
             image: Box::new(image),
