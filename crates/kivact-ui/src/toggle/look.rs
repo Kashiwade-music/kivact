@@ -3,7 +3,7 @@ use crate::look_common::{font_size, gap, height};
 
 use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
-use kivact_core::draw::{CornerRadius, Draw, LineCap, LineJoin, Path, Stroke};
+use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::style::{Align, Direction, Style, Theme, style};
 use kivact_core::view::CheckedState;
@@ -76,7 +76,7 @@ pub(crate) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, 
         d.rounded_rect(rect, r, kivact_core::style::color::SURFACE);
         let inner = Rect::new(rect.x + 0.5, rect.y + 0.5, side - 1.0, side - 1.0);
         d.stroke_path(
-            &Path::new().rounded_rect(inner, [CornerRadius::from(r); 4]),
+            &Path::new().rounded_rect(inner, [(r, r); 4]),
             &Stroke::new(1.0),
             if look.invalid {
                 kivact_core::style::color::DANGER

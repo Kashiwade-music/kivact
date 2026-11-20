@@ -523,6 +523,8 @@ pub struct StyledRange {
     pub range: std::ops::Range<usize>,
     pub color: Option<Color>,
     pub background: Option<Color>,
+    /// An invalid length here is ignored: a highlighter runs inside layout,
+    /// where nothing is reported.
     pub decoration: Option<TextDecoration>,
 }
 

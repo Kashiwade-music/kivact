@@ -1,6 +1,7 @@
 //! Role: Shape a paragraph with the App's text engine outside drawing and measurement.
 
 use crate::view::state::ViewState;
+use kivact_style::Theme;
 use kivact_style::draw::{InlineParagraph, TextFormat, TextParagraph, TextRun};
 use kivact_types::{self as values, TextShaper};
 use std::panic::Location;
@@ -14,8 +15,8 @@ use std::panic::Location;
 /// borrow survives this call and no reactive engine state is allocated.
 #[track_caller]
 pub fn shape_paragraph(text: &str, style: &TextFormat, max_width: Option<f64>) -> TextParagraph {
-    let measurer = paragraph_measurer("shape_paragraph", Location::caller());
-    let run = text_run(text, style);
+    let (measurer, theme) = paragraph_measurer("shape_paragraph", Location::caller());
+    let run = text_run(text, style, &theme);
     let shaped = measurer.shape(&run, max_width).unwrap_or_default();
     TextParagraph::from_shaped(text, shaped, max_width)
 }
@@ -28,13 +29,18 @@ pub fn shape_inline_paragraph(
     max_width: Option<f64>,
     boxes: &[values::InlineBox],
 ) -> Option<InlineParagraph> {
-    let measurer = paragraph_measurer("shape_inline_paragraph", Location::caller());
-    let run = text_run(text, style);
+    let (measurer, theme) = paragraph_measurer("shape_inline_paragraph", Location::caller());
+    let run = text_run(text, style, &theme);
     let shaped = measurer.shape_inline(&run, max_width, boxes)?;
     Some(InlineParagraph::from_shaped(text, shaped, max_width))
 }
 
-fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl TextShaper {
+/// The engine's measurer of this App and the theme it reads (the run's
+/// lengths resolve in that same theme).
+fn paragraph_measurer(
+    api: &'static str,
+    at: &'static Location<'static>,
+) -> (impl TextShaper, Theme) {
     let rt = kivact_runtime::Owner::running(api, at).runtime();
     let theme = kivact_style::use_theme().get();
     let inherited = values::ComputedTextStyle {
@@ -45,16 +51,18 @@ fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl
         line_height: theme.get(&kivact_style::font::LINE_HEIGHT_VAR),
         ..Default::default()
     };
-    ViewState::tree(&rt).reader().paragraph_measurer(inherited)
+    let measurer = ViewState::tree(&rt).reader().paragraph_measurer(inherited);
+    (measurer, theme)
 }
 
-fn text_run(text: &str, style: &TextFormat) -> TextRun {
+fn text_run(text: &str, style: &TextFormat, theme: &Theme) -> TextRun {
     kivact_style::draw::text_run(
         text,
         values::Point::default(),
         style,
         1.0,
         values::Rgba::TRANSPARENT,
-        None,
+        theme,
+        &mut 0,
     )
 }

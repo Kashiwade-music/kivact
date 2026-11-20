@@ -14,7 +14,9 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use kivact::custom::{Constraints, primitive};
+use kivact::draw::TextFormat;
 use kivact::prelude::*;
+use kivact::style::Length;
 use kivact::test::Screen;
 use kivact::view::A11yAction;
 use kivact_public_api_tests::support::mount;
@@ -186,4 +188,46 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
     screen.click_at(r.x + 75.0, r.y + 10.0);
     assert_eq!(pressed_at.get(), Some(Point::new(75.0, 10.0)), "node-local");
     assert_eq!(level.get_untracked(), 7);
+}
+
+/// A text with letter spacing `space::MD` measures the same width in a
+/// primitive (`Constraints::measure_text`) and in a canvas
+/// (`Draw::measure_text`) of one theme where `space::MD` is 20 px, and the
+/// spacing counts: a run with none is narrower.
+#[test]
+fn measured_and_drawn_spacing_agree_in_a_theme() {
+    fn spaced(letter_spacing: Length) -> TextFormat {
+        TextFormat {
+            letter_spacing,
+            ..TextFormat::default()
+        }
+    }
+    // [constraints: with, without, canvas: with, without].
+    let seen = Rc::new(RefCell::new([0.0_f64; 4]));
+    let (measured, drawn) = (seen.clone(), seen.clone());
+    let (_screen, _) = mount(move || {
+        let text = "spacing".to_string();
+        let theme = Theme::light().set(&space::MD_VAR, 20);
+        let view = column((
+            primitive()
+                .measure(text.clone(), move |text: &String, c: Constraints| {
+                    let with = c.measure_text(text, &spaced(space::MD)).size.width;
+                    let without = c.measure_text(text, &spaced(Length::Px(0.0))).size.width;
+                    measured.borrow_mut()[..2].copy_from_slice(&[with, without]);
+                    Size::new(10.0, 10.0)
+                })
+                .test_id("measured"),
+            canvas(move |d, _| {
+                let with = d.measure_text(&text, &spaced(space::MD)).size.width;
+                let without = d.measure_text(&text, &spaced(Length::Px(0.0))).size.width;
+                drawn.borrow_mut()[2..].copy_from_slice(&[with, without]);
+            })
+            .style(style().size(10, 10)),
+        ));
+        ((), provide_theme(theme, move || view))
+    });
+    let [with, without, drawn_with, drawn_without] = *seen.borrow();
+    assert_eq!(with, drawn_with, "the primitive and the canvas agree");
+    assert_eq!(without, drawn_without, "no spacing agrees too");
+    assert!(with > without, "the spacing counts: {with} > {without}");
 }

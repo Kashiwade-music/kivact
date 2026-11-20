@@ -119,6 +119,16 @@ impl Length {
         )
     }
 
+    /// Whether the length needs a theme (a variable) or the font size (an
+    /// `em`, also in a sum) to resolve, or is an invalid sum.
+    pub fn needs_theme(self) -> bool {
+        match self {
+            Length::Var(_) | Length::Em(_) | Length::Invalid => true,
+            Length::Calc { em, var, .. } => em != 0.0 || var.is_some(),
+            _ => false,
+        }
+    }
+
     /// The terms of a sum, or `None` for `Auto`, the content sizes and `Invalid`.
     fn terms(self) -> Option<Terms> {
         match self {

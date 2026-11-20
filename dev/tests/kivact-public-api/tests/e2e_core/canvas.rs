@@ -74,7 +74,7 @@ fn asset_source_rect_and_path_helpers_are_drawn() {
             d.fill_path(&ellipse, rgb(RED));
             let rounded = Path::new().rounded_rect(
                 Rect::new(90., 0., 40., 30.),
-                [10.into(), (15, 5).into(), 0.into(), 5.into()],
+                [(10.0, 10.0), (15.0, 5.0), (0.0, 0.0), (5.0, 5.0)],
             );
             d.fill_path(&rounded, Color::BLACK);
             let svg_arc = Path::new()

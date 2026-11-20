@@ -302,7 +302,15 @@ impl Draw {
         max_width: Option<f64>,
     ) -> TextParagraph {
         let origin = p::Point { x: 0.0, y: 0.0 };
-        let run = super::text_run(text, origin, style, 1.0, p::Rgba::TRANSPARENT, None);
+        let run = super::text_run(
+            text,
+            origin,
+            style,
+            1.0,
+            p::Rgba::TRANSPARENT,
+            &self.theme,
+            &mut 0,
+        );
         let shaped = self.measurer.shape(&run, max_width).unwrap_or_default();
         TextParagraph::from_shaped(text, shaped, max_width)
     }
@@ -322,7 +330,8 @@ impl Draw {
             style,
             1.0,
             p::Rgba::TRANSPARENT,
-            None,
+            &self.theme,
+            &mut 0,
         );
         let shaped = self.measurer.shape_inline(&run, max_width, boxes)?;
         Some(InlineParagraph::from_shaped(text, shaped, max_width))

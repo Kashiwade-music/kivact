@@ -11,6 +11,15 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// DrawList builder passed to draw closures.
+///
+/// A drawing's lengths resolve in the theme in effect: `em` is the theme's
+/// base size (a drawing has no style), and an invalid sum is counted as
+/// unsupported. Text spacing resolves in the theme the text is drawn in,
+/// so a measure of the same text agrees. Two places drop an invalid length
+/// without counting it: measuring text (`Draw::measure_text`,
+/// `Draw::layout_paragraph` and the `Constraints` measures), because the
+/// drawing of the same format counts it; and an editor's highlighter
+/// decoration, which runs inside layout, where nothing is reported.
 pub struct Draw {
     pub(super) theme: Theme,
     pub(super) cmds: Vec<DrawCmd>,
