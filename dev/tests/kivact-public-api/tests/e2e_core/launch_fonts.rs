@@ -16,6 +16,8 @@ use kivact::view::Asset;
 use kivact::{ErrorKind, UiError};
 
 static TUFFY: &[u8] = include_bytes!("../../../../../crates/arvane/assets/fonts/Tuffy.ttf");
+/// Another font: a theme with only this one has no "Tuffy" family.
+static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/InterVariable.ttf");
 static NOT_A_FONT: &[u8] = b"wOFF\0\x01\0\0";
 /// Tuffy's file in the repository (the same bytes as `TUFFY`).
 const TUFFY_PATH: &str = concat!(
@@ -52,7 +54,7 @@ fn theme_fonts_register_before_the_first_layout() {
     };
     let with = screen(vec![Asset::from(TUFFY)], root);
     assert!(asset_errors(&with).is_empty(), "{:?}", with.errors());
-    let without = screen(Vec::new(), root);
+    let without = screen(vec![Asset::from(INTER)], root);
     assert_eq!(asset_errors(&without).len(), 1, "the family is missing");
     let width = |s: &Screen| s.get_by_test_id("t").rect().map(|r| r.width);
     assert_ne!(
@@ -74,15 +76,18 @@ fn a_rejected_theme_font_is_located_at_the_theme_call() {
 
 #[test]
 fn a_switched_theme_registers_its_fonts() {
-    let (s, theme) = render_with_handle(RenderOptions::default(), || {
-        let theme = signal(Theme::default());
+    let only_inter = || Theme::default().with_fonts([INTER]);
+    let (s, theme) = render_with_handle(RenderOptions::default().theme(only_inter()), move || {
+        let theme = signal(only_inter());
         (theme, provide_theme(theme, tuffy_text))
     });
     let width = |s: &Screen| s.get_by_test_id("t").rect().map(|r| r.width);
     let before = width(&s);
-    theme.set(Theme::default().with_fonts([TUFFY]));
+    let missing = asset_errors(&s).len();
+    assert_eq!(missing, 1, "Tuffy is missing before the switch");
+    theme.set(Theme::default().with_fonts([INTER, TUFFY]));
     s.run_until_idle();
-    assert!(asset_errors(&s).is_empty(), "{:?}", s.errors());
+    assert_eq!(asset_errors(&s).len(), missing, "{:?}", s.errors());
     assert_ne!(
         width(&s),
         before,
@@ -106,7 +111,7 @@ fn theme_fonts_from_owned_bytes_and_a_path_register() {
         vec![Asset::from(std::path::PathBuf::from(TUFFY_PATH))],
         root,
     );
-    let plain = screen(Vec::new(), root);
+    let plain = screen(vec![Asset::from(INTER)], root);
     assert!(asset_errors(&owned).is_empty(), "{:?}", owned.errors());
     assert!(asset_errors(&path).is_empty(), "{:?}", path.errors());
     let width = |s: &Screen| s.get_by_test_id("t").rect().map(|r| r.width);
