@@ -271,6 +271,7 @@ pub(crate) enum DragSnapshot {
     None,
 }
 
+// xtask-allow(state): selected, selected_link and transform are the caller's bindings (public API): the editor clears selected_link when it selects nodes, and the caller may set both; active is the port of the link drag in progress
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) on_edit: Option<

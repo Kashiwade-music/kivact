@@ -24,6 +24,7 @@ pub enum NativeSelectSize {
     Sm,
 }
 
+// xtask-allow(state): record: the builder's props, each written only by its own setter; value is the caller's binding of the chosen key, and placeholder is the optional text shown while it is None
 /// A select drawn like the browser's native select (`NativeSelect`).
 ///
 /// Created by [`native_select`]. Behavior (keys, typeahead, the open list)

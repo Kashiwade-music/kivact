@@ -19,6 +19,7 @@ use kivact::view::{
 };
 use kivact::view::{Element, Node, column, node};
 
+// xtask-allow(state): record: the builder's props, each written only by its own setter; color and model are the caller's bindings of the color and of the fields' color model, written by the wheel, the fields and the model switch
 /// A hue wheel, saturation/value square, optional alpha strip, model fields
 /// and optional swatches. Element modifiers apply to the whole group.
 /// RGB fields use normalized channels, HSV uses hue degrees and normalized

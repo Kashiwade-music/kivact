@@ -150,6 +150,7 @@ impl QuestionnaireStep {
     }
 }
 
+// xtask-allow(state): record: the builder's props, each written only by its own setter; current and answers are the caller's bindings of the step shown and of the answer sheet, written by the navigation buttons and the answer fields
 /// A questionnaire that asks one question at a time (`Questionnaire`).
 ///
 /// Created by [`questionnaire`]. The step shown is the caller's `current`

@@ -27,6 +27,7 @@ pub(crate) enum Snapshot {
     Playhead(f64),
     View(kivact::interaction::ViewTransform),
 }
+// xtask-allow(state): independent: selected, transform and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu
 pub(crate) struct State<T: TimeItem> {
     pub data: Value<Vec<T>>,
     pub on_edit: Option<

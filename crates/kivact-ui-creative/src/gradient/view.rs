@@ -21,6 +21,7 @@ use kivact::view::{
 use kivact::view::{Element, Node, column, node, row};
 use std::rc::Rc;
 
+// xtask-allow(state): record: the builder's props, each written only by its own setter; stops and selection are the caller's bindings of the stop vector and of the selected index, written by the editor's edits (display sorting writes neither)
 /// An inline ramp, selected position field and color wheel. Stops use vector indices.
 /// Display sorting never reorders the application's vector. External invalid
 /// positions are normalized for display without writing the binding.

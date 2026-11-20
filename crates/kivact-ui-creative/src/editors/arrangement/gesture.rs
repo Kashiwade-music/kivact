@@ -37,6 +37,7 @@ pub(crate) enum LoopPart {
     Body,
     Create,
 }
+// xtask-allow(state): independent: selected, playhead, loop_range, cycling, transform and tool_binding are the caller's bindings, each written by its own gesture or command; active_auto is the automation point under a press, set on press and cleared on release
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) size: Value<Size>,

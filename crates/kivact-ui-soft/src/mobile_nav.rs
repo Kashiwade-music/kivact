@@ -52,6 +52,7 @@ use kivact::view::show;
 pub struct AppShellMobile {
     context: Option<MobileContext>,
 }
+// xtask-allow(state): independent: open is the drawer's open binding, written by the toggle, the drawer's close and the backdrop; auto_toggle is fixed when the context is made
 #[derive(Clone, Copy)]
 struct MobileContext {
     layout: MachineHandle<LayoutMachine>,

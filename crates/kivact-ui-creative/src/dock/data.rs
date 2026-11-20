@@ -59,6 +59,7 @@ pub(super) struct Texts {
     pub(super) side: [Value<String>; 4],
 }
 
+// xtask-allow(state): independent: layout is the caller's binding of the dock layout, written by tab moves and closes; gesture is the tab drag or rename in progress; shared is the rows' registry, made with the dock
 /// Copy handles shared by every row of one dock.
 pub(super) struct DockCx<K: kivact::state::ItemKey> {
     pub(super) layout: Binding<DockLayout<K>>,

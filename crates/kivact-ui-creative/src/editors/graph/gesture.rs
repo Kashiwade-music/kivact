@@ -70,6 +70,7 @@ pub(crate) struct Gesture {
     pub(crate) kind: DragKind,
 }
 
+// xtask-allow(state): independent: view, selected and playhead are the caller's bindings, each written by its own gesture or command; active is the target of the drag in progress; context is the open context menu
 #[derive(Clone, Copy)]
 pub(crate) struct State {
     pub(crate) curves: Value<Vec<Curve>>,
