@@ -133,6 +133,7 @@ pub(super) fn append_overlay_layer(
         backface: Default::default(),
         grid: RasterGrid::Target,
         effects: LayerEffects::default(),
+        content_version: crate::lower::content_versions::fresh_content_version(),
         items: vec![LayerItem::Raster(overlay_scene(overlay, engine))],
     });
     composition.layers[0].items.push(LayerItem::Layer {

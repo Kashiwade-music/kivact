@@ -90,6 +90,12 @@ pub(crate) fn raster(commands: Vec<RenderCmd>) -> LayerItem {
     LayerItem::Raster(RenderScene { commands })
 }
 
+/// A content version never given before in this process.
+fn next_version() -> u64 {
+    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
+    NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+}
+
 /// A layer of identity transform, flat, with `bounds` in its space.
 pub(crate) fn layer(
     key: LayerKey,
@@ -105,6 +111,7 @@ pub(crate) fn layer(
         backface: BackfaceVisibility::Visible,
         grid: RasterGrid::Target,
         effects,
+        content_version: next_version(),
         items,
     }
 }

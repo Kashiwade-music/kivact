@@ -111,6 +111,8 @@ pub(crate) struct ChunkRecord {
     pub(crate) size: (u32, u32),
     /// Per command: its index entry.
     pub(crate) index: Arc<[Indexed]>,
+    /// The layer's content version the chunk was rastered at (content chunks only).
+    pub(crate) version: Option<u64>,
     /// The frame that last used the record.
     pub(crate) frame: u64,
     /// Allocations the index hashes by address.

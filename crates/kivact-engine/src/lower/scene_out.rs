@@ -104,6 +104,7 @@ impl LayerProps {
             backface: self.backface,
             grid: self.grid,
             effects: self.effects,
+            content_version: super::content_versions::fresh_content_version(),
             items,
         }
     }
