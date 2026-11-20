@@ -168,6 +168,9 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R27（lane X、commit `66965e52`）：確認（fmt・clippy --lib・xtask kivact-core）は成功。付属書どおりの policy の except 削除、`__private` と `frame_loop` の削除を受け入れる。(a) `HostEvent` の `StatesChanged`・`NodeFlagsChanged` の腕を cause_of に足した（E の variant の規則どおり）。(b) `launch/turn.rs` の `mounts_only` の helper は too_many_lines への対応（表の「関数の上限」）。(c) `prelude.rs` に `Trigger`・`trigger` は足していない（付属書 R27 の手順は constant_value の削除だけ）。設計書 5.11 との違いの確認は設計者に任せる。
+- 設計者への注意（R27、STOP ではない）：`kivact-interaction`（`scalar/range.rs`）が `state::__private::Prop` を使っている。R28 の所有で直す。R28 までは interaction が compile できない（予期された途中の状態）。
+
 - W5a・R26（lane X、commit `348aacee`）：確認（fmt・check -p kivact-macros）は成功。残りの rg の 2 件は受け入れる：(a) `crates/kivact/src/lib.rs:5` の doc の語 `Binding`（R26 の手順に無く、この file は R27 の所有。既存の行に当たる、表の行）。(b) `error_boundary.rs:49` の `"Retry"` の文字列（許される例外）。kivact-core 自身の check は、kivact-style（R27 の範囲）が先に失敗するので、R27 の後に確かめる。
 
 - W5a・R25（lane X、commit `013e0cc4` と後続の commit）：`Diag` は付属書に印の文が無く、xtask が state error にした。0.5 節の新しい行に従い、Orchestrator が `independent:` の印を書いた（`reactive/data.rs`、`Diag` の doc の直前）。三つの条件を確かめた：(1) 書く関数を挙げられる（`cause` は `cause()`・`record_write`・`record_run` が読み、turn の境界で消す。`open_stage` は `stage()` が書き、`end_turn` が取る。`next_seq` は `record_error`・`record_diagnostic`）。(2) どの field も他の field の値で読み書きされない。(3) 同じ事実を二つの field が持っていない（`cause` は現在の turn の cause の列への index、`open_stage` は未確定の stage）。印は doc comment の上に置く（xtask は doc と derive を項目の始まりとして数える）。
