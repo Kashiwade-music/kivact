@@ -437,3 +437,17 @@
 - **(d) A06 の残り（root `Cargo.toml` の profile）**：変えるものは無い。A06 の所有の「profile 1 行」は、`arvane` crate が消える前提の計画の名残り。`arvane` は window の driver と presenter として残り、毎 frame の経路にあるので、`[profile.dev.package.arvane]` はそのままでよい。root の `[profile.*.package.*]` に並ぶ package はすべて `Cargo.lock` にある（設計者が確かめた）。`templates/basic/README.md` の profile の文は G12（W11b）の手順 3 のとおり。
 - **(e) user 向け docs の `Pixels` の straight-alpha の文**：Orchestrator の判断どおり G の unit で直す。
 - **release の警告**（記録）：`--no-default-features` の release の build で `kivact-core` の `launch/policy.rs` の `TestRun::name` が「never read」の警告を出す。W5b の tier b の範囲（`--all-features`）には出ない。G かその前の後片付けで扱う。
+
+
+## Orchestrator の判断（W6a・鎖、2026-11-20）
+
+W6a の鎖（S13・S14）の判断。表で判断したもので、差戻しではない。
+
+- **S13（commit `0b22666e`、0.5：完了条件の rg が既存の行に当たる）**：`git grep -w "Dimension"` が `taffy::Dimension` に当たる（kivact-layout の columns・style/node・style/convert・tree/compute・tree/invalidation・tree/partial）。taffy の型で、Kivact の `Dimension` ではないので受け入れる。
+- **S13（commit `0b22666e`、0.5：付属書の置換の式が機械的に壊れる）**：`Dimension`→`Length` の全体の置換が taffy の `Dimension` にも当たったので、kivact-layout の taffy の行を元に戻した。`convert.rs` は taffy の `GridAutoFlow` を `TFlow` と別名にした。`Insets` の script が `impl Edges {` を作ったのは `impl Edges<f64>` に直した。
+- **S13（commit `0b22666e`）**：ST-19 の `LayoutProps.hidden` の消去で、付属書の対象（types・style・layout・core の view/tree・devtools/node）に加えて engine の `tree/node.rs` の `hidden()` を消した。engine は W6a の所有の範囲で、同じ field の機械的な追従（0.2 の 11）。`dev/tests/kivact-public-api/tests/e2e_ui/ui_theming.rs` の `.into()` を削った（clippy の `useless_conversion`）。
+- **S14（commit `1a27a7f1`、0.5：付属書の置換の式が機械的に壊れる）**：型名と同じ名前の enum variant（`WillChange::Transform`、`TransitionProp::Transform`、`FillImage::Gradient`、recording の `Shape`、`Open::Transform`）が巻き込まれたので、元の variant 名に戻した。kurbo の `Shape as _` の import を `Outline` に変えたものも戻した（`arvane-render` の `convert.rs`・`painter.rs`）。kurbo の `Affine` は残し、kivact の型は `kivact_types::Affine` と書いた（付属書 4 章「手で直すもの」）。
+- **S14（commit `1a27a7f1`、0.5：書き換え漏れ）**：`kivact_types` の prefix の pass が `kivact_types::geometry::Transform`・`kivact_types::effect::FilterGraph` のようなネストした module の path を漏らしたので、2 回目の pass（`kivact_types::(?:geometry|effect|paint)`）で直した。`lib.rs` の `Kind` の再公開は付属書の手順 2 の一覧に無かったが、付属書の意図（`TransitionKind`）どおりに改名した。
+- **S14（commit `1a27a7f1`、付属書の確認コマンドの誤り）**：arvane の E2E は `crates/arvane/Cargo.toml` の `required-features = ["test"]` のため、付属書の確認コマンドは `--features test` が無いと build できない。`--features test` を足して実行した（試験の期待値は変えていない）。設計者は付属書 S14 の確認欄を直してよい。
+- **後退の確認の範囲（W6a）**：unit の後の確認は、`e2e_core`・`e2e_ui`・`e2e_native --all-features`・`kivact-test` の全件と、workspace clippy（XK を除外）。`e2e_kits` と `kivact-ui-soft` は、この wave で compile の対象外（作業指示書 2.1 と 4 章）なので走らせていない。
+- **window-lock の終了コード（注記）**：`dev/tools/window-lock.sh` は cargo の終了コードをそのまま返す（`run "$@" && exit 0 || exit $?`）。S14 の subagent が exit 0 を見たのは、確認のコマンドの pipe によるものと思われる。以後、Orchestrator は pipe を使わず、試験の結果は log の `test result` 行で確かめる。

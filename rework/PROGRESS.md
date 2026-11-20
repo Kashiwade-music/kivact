@@ -112,3 +112,11 @@
 - 各 unit の後の確認：報告の範囲の E2E（ARV・EMBED・GPU-DEMAND・LIFE・TEXT・ASSETS・OFFSCREEN・DRAW・GPU-SHARE・DEVTOOLS）と、後退の確認 5 件（e2e_core・e2e_ui・kivact-test・e2e_kits・kivact-ui-soft）。すべて成功（kivact-ui-soft の既知の 1 件を除く）。
 - 判断と注記：`rework/OPEN.md` の「Orchestrator の判断」（W5b の A05〜A10）と「設計者に確かめる点」。未了：root `Cargo.toml` の profile 行と `templates/basic/README.md`（A06 の所有の残り。G12 の範囲）、`kivact-devtools-agent` の kivact-types 依存（設計者の判断待ち）。
 - tier b（統合 branch `8602f3d2`、`V:/kv-target/rw-main`）：fmt・xtask（`--only local`、error 0 件）・clippy（workspace all-targets all-features、`--exclude kivact-docs`）は成功。test（`--workspace --exclude gpu-interop-producer --exclude kivact-docs --no-fail-fast`）は 1613 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）。`xtask-allow(state-fields)` の grep は 0 件。
+
+## W6a 完了（merge 済み・tier b 成功）
+- 鎖（lane X）：S13 の commit `0b22666e`、S14 の commit `1a27a7f1`、merge `632b85c1`。各 unit の後に tier a と後退の確認（e2e_core・e2e_ui・e2e_native・kivact-test の全件）。S14 の後の数：e2e_core 470 passed、e2e_ui 252 passed、e2e_native 45 passed、kivact-test 24 passed。失敗は無し。`e2e_kits` と `kivact-ui-soft` は、この wave で compile の対象外（作業指示書 2.1 と 4 章）なので走らせていない。
+- tier b（統合 branch `632b85c1`、`V:/kv-target/rw-main`）：fmt・xtask（`--only local`、ok）・clippy（workspace、XK と kivact-docs を除外、-D warnings）・test（workspace、`--exclude gpu-interop-producer --exclude kivact-docs` と XK を除外、`--no-fail-fast`）は成功。test は 1261 件成功、失敗 0、無視 39。XK を除外したので、基点の失敗 `chat_keyboard`（kivact-ui-soft）は走っていない。`xtask-allow(state-fields)` の grep は 0 件。
+- 判断：`rework/OPEN.md` の「Orchestrator の判断（W6a・鎖、2026-11-20）」節。
+- W6a merged 632b85c1: S13・S14、tier b 成功。
+- 次の wave：W6b。W6b の E の unit（E19〜E21・E14 など）の始めに、E17 の性能の行（16,384 行の文書の上下移動の p95 0.51 → 2.58 ms、`rework/PROGRESS.md` の W5a の記録）を設計者へ返す（W5a の記録の指示）。
+
