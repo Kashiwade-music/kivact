@@ -364,8 +364,12 @@ impl Offscreen {
         at: &'static Location<'static>,
     ) -> Result<Recorded> {
         let inherited = ComputedTextStyle {
-            family: self.theme.text().family.clone(),
-            line_height: self.theme.text().line_height,
+            family: self
+                .theme
+                .get(&kivact_style::font::FAMILY_VAR)
+                .as_str()
+                .map(str::to_owned),
+            line_height: self.theme.get(&kivact_style::font::LINE_HEIGHT_VAR),
             ..Default::default()
         };
         let measurer = self.engine.text_measurer(inherited.clone());

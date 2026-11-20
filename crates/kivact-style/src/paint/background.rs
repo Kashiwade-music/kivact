@@ -2,8 +2,7 @@
 
 use super::gradient::Gradient;
 use super::layer::Paint;
-use crate::color::Color;
-use crate::theme::value::ThemeColor;
+use crate::color_value::Color;
 
 /// A box's background: fills stacked like CSS background layers, the
 /// first on top. A color, a gradient or a [`Paint`] is a background of one
@@ -42,7 +41,7 @@ impl From<Paint> for Background {
     }
 }
 
-impl<C: ThemeColor> From<C> for Background {
+impl<C: Into<Color>> From<C> for Background {
     fn from(c: C) -> Self {
         Background::from(Paint::from(c))
     }

@@ -4,7 +4,7 @@ pub use crate::draw::recorder::{RecordContext, record};
 use crate::paint::fill_layer;
 pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
 pub use crate::sheet::with_scroll_axes;
-use crate::text::{CompiledSpanStyle, SpanStyle, decoration, features};
+use crate::text::{CompiledSpanStyle, SpanStyle, decoration, features, text_length};
 use crate::theme::value::Theme;
 pub use crate::theme::value::{install_theme, theme_of};
 use kivact_types as p;
@@ -34,22 +34,32 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
         color: style.color.map(|c| c.resolve(theme)),
         family: style.family.clone(),
         italic: style.italic,
-        letter_spacing: style.letter_spacing,
-        word_spacing: style.word_spacing,
+        letter_spacing: style
+            .letter_spacing
+            .and_then(|l| text_length(l, theme, &mut unsupported)),
+        word_spacing: style
+            .word_spacing
+            .and_then(|l| text_length(l, theme, &mut unsupported)),
         kerning: style.kerning,
         features,
         decoration: decorated.then(|| {
             decoration(
                 style.decoration_line,
                 style.decoration_color,
-                style.decoration_thickness,
-                style.underline_offset,
+                style
+                    .decoration_thickness
+                    .and_then(|l| text_length(l, theme, &mut unsupported)),
+                style
+                    .underline_offset
+                    .and_then(|l| text_length(l, theme, &mut unsupported)),
                 theme,
             )
         }),
-        stroke: style.stroke.map(|(width, color)| p::TextStroke {
-            width,
-            color: color.resolve(theme),
+        stroke: style.stroke.and_then(|(width, color)| {
+            text_length(width, theme, &mut unsupported).map(|width| p::TextStroke {
+                width,
+                color: color.resolve(theme),
+            })
         }),
         variations,
         font_width: style.font_width,
@@ -66,8 +76,8 @@ pub fn compile_text_decoration(value: crate::TextDecoration, theme: &Theme) -> p
     p::TextDecoration {
         lines: value.lines,
         color: value.color.map(|color| color.resolve(theme)),
-        thickness: value.thickness,
-        underline_offset: value.underline_offset,
+        thickness: value.thickness.and_then(|l| text_length(l, theme, &mut 0)),
+        underline_offset: text_length(value.underline_offset, theme, &mut 0).unwrap_or_default(),
         style: value.style,
     }
 }

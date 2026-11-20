@@ -4,7 +4,7 @@ use crate::{Button, ButtonVariant, button};
 use kivact_core::i18n::message;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::{Signal, Value, memo};
-use kivact_core::style::{Align, ColorToken, Direction, TransitionProp, style};
+use kivact_core::style::{Align, Direction, TransitionProp, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{ReadingDirection, View, dynamic, use_direction};
@@ -236,7 +236,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
         icon(if rtl { "chevron-left" } else { "chevron-right" }).style(move || {
             style()
                 .size(12, 12)
-                .color(ColorToken::TextMuted)
+                .color(kivact_core::style::color::TEXT_MUTED)
                 .rotate(if open.get() {
                     if rtl { -90.0 } else { 90.0 }
                 } else {

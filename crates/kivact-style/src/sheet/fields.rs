@@ -6,7 +6,7 @@ use kivact_types::{
     Position, ScrollAxes, TextAlign, TransformStyle, TransitionProp, WillChange,
 };
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
 use crate::grid::GridStyle;

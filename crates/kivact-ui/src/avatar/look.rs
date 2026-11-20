@@ -2,7 +2,7 @@
 use crate::look_common::{side, tone};
 
 use crate::ControlSize;
-use kivact_core::style::{Align, ColorToken, Justify, Style, Theme, pct, style};
+use kivact_core::style::{Align, Justify, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 use kivact_macros::Prop;
 pub(crate) fn avatar(t: &Theme, s: &AvatarState) -> Style {
@@ -10,11 +10,11 @@ pub(crate) fn avatar(t: &Theme, s: &AvatarState) -> Style {
         .size(side(s.size), side(s.size))
         .radius(match s.shape {
             AvatarShape::Circle => 999.0,
-            AvatarShape::Rounded => t.radius().md,
+            AvatarShape::Rounded => t.get(&kivact_core::style::radius::MD_VAR),
             AvatarShape::Square => 0.0,
         })
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text)
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
         .clip(true)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
@@ -28,7 +28,7 @@ pub(crate) fn avatar_image(t: &Theme, s: &AvatarState) -> Style {
         .justify_content(Justify::Center)
         .radius(match s.shape {
             AvatarShape::Circle => 999.0,
-            AvatarShape::Rounded => t.radius().md,
+            AvatarShape::Rounded => t.get(&kivact_core::style::radius::MD_VAR),
             AvatarShape::Square => 0.0,
         })
 }

@@ -416,8 +416,8 @@ static NO_ICON: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0
 /// ```no_run
 /// # use kivact_core as kivact;
 /// use kivact::view::{Element, icon};
-/// use kivact::style::{ColorToken, style};
-/// let check = icon("check").style(style().color(ColorToken::Accent));
+/// use kivact::style::{style};
+/// let check = icon("check").style(style().color(kivact::style::color::ACCENT));
 /// # let _ = check;
 /// ```
 #[track_caller]

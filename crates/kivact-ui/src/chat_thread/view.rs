@@ -101,13 +101,19 @@ impl Element for ChatThread {
         &mut self.root
     }
 }
+/// The chat thread's follow slack in the theme in effect (tracked).
+fn follow_slack() -> f64 {
+    kivact_core::style::use_theme()
+        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
+        .chat
+        .follow_slack
+}
+
 impl IntoView for ChatThread {
     fn into_view(self) -> View {
         let viewport = self.viewport.unwrap_or_else(node_ref);
         let content = node_ref();
-        let slack = kivact_core::style::use_tokens::<crate::UiTokens>()
-            .chat
-            .follow_slack;
+        let slack = follow_slack();
         let follow = use_follow_end(viewport, content, slack, self.history_revision);
         let distance = follow.distance();
         let state = move || ChatThreadState {

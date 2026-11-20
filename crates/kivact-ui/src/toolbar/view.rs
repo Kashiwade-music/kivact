@@ -103,7 +103,8 @@ impl IntoView for Toolbar {
         let dividers = self.dividers;
         let make = move |children, justify, column| {
             row(children).base_style(move || {
-                let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
+                let tokens = kivact_core::style::use_theme()
+                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
                 style()
                     .min_width(0)
                     .align_items(Align::Center)

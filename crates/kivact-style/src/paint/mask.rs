@@ -4,7 +4,8 @@
 use super::fill_layer::fill_layer;
 use super::gradient::Gradient;
 use super::layer::Paint;
-use crate::theme::value::{Theme, ThemeColor};
+use crate::color_value::Color;
+use crate::theme::value::Theme;
 use kivact_types as p;
 pub use kivact_types::{MaskComposite, MaskMode};
 
@@ -88,7 +89,7 @@ impl Mask {
     }
 }
 
-impl<C: ThemeColor> From<C> for Mask {
+impl<C: Into<Color>> From<C> for Mask {
     fn from(c: C) -> Self {
         Mask(vec![MaskLayer::new(c)])
     }

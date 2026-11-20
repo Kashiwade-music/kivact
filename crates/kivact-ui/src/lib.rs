@@ -49,8 +49,9 @@
 //!
 //! 1. **Tokens.** Every standard component takes its colors, spacing,
 //!    radii, type sizes, focus ring, disabled opacity and control height
-//!    from the theme's tables (`ColorToken::Accent`, `Spacing`, `Radii`,
-//!    `Typography`, `focus_ring`, `disabled_opacity`, `control_height`), and
+//!    from the theme's variables (`kivact::style::color::ACCENT`, `space::MD`,
+//!    `radius::MD`, `font::SIZE`, `focus_ring`, `control::DISABLED_OPACITY`,
+//!    `control::HEIGHT`), and
 //!    its icons and marks from the theme's [`IconSet`](kivact_core::style::IconSet).
 //!    A different [`Theme`](kivact_core::style::Theme) re-skins them all. A kit adds
 //!    its own tokens with `Theme::with`.
@@ -98,7 +99,7 @@
 //! [`ThemeExtension`](kivact_core::style::ThemeExtension) (its `fallback` follows
 //! the theme), installed with `Theme::with` and read only with
 //! `theme.ext::<Tokens>()`, its colors are also named by a field-less `Color`
-//! enum implementing [`ThemeColor`](kivact_core::style::ThemeColor) (a style
+//! enum implementing `Into<Color>`(kivact_core::style::Into<Color>) (a style
 //! takes `basic::ColorName::Border` and reads the theme it is painted in), and its
 //! icons are added with `Theme::with_icon`. The
 //! token type and the theme constructor that assembles the recipes are kept

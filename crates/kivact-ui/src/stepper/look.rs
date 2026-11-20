@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 use kivact_core::view::Orientation;
 pub(crate) fn stepper_root(t: &Theme, _: &Look<StepperState>) -> Style {
     let p = &t.ext::<crate::tokens::UiTokens>().stepper;
@@ -10,8 +10,8 @@ pub(crate) fn stepper_root(t: &Theme, _: &Look<StepperState>) -> Style {
         .direction(Direction::Row)
         .gap(p.gap)
         .padding(p.padding)
-        .font_size(t.text().size)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn stepper_item(t: &Theme, look: &Look<StepperItemState>) -> Style {
@@ -26,12 +26,12 @@ pub(crate) fn stepper_item(t: &Theme, look: &Look<StepperItemState>) -> Style {
         })
         .gap(p.connector_gap)
         .color(if look.index == look.current {
-            t.colors().accent
+            t.get(&kivact_core::style::color::ACCENT_VAR)
         } else {
-            t.colors().text
+            t.get(&kivact_core::style::color::TEXT_VAR)
         })
         .opacity(if look.disabled {
-            t.disabled_opacity()
+            t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)
         } else {
             1.0
         })

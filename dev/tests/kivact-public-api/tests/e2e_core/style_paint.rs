@@ -1,6 +1,5 @@
 //! Role: Local style painting follows layout and preserves drawing layers.
 
-use kivact::style::ColorToken;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -27,7 +26,7 @@ fn paint_only_style_tracks_size_signals_theme_and_removal() {
                     draw.fill_rect(
                         Rect::new(0.0, 0.0, size.width, size.height),
                         if color.get() {
-                            ColorToken::Accent.into()
+                            kivact::style::color::ACCENT
                         } else {
                             rgb(RED)
                         },
@@ -340,11 +339,7 @@ fn visibility_hidden_keeps_layout_but_hides_the_node() {
 }
 
 fn accent_theme(accent: kivact::style::Color) -> Theme {
-    let colors = kivact::style::theme::Palette {
-        accent,
-        ..Theme::light().colors().clone()
-    };
-    Theme::light().with_colors(colors)
+    Theme::light().set(&kivact::style::color::ACCENT_VAR, accent)
 }
 
 fn visibility_fixture() -> (kivact::test::Screen, (Signal<bool>, Signal<i32>)) {

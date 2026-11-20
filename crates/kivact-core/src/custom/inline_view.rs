@@ -87,7 +87,7 @@ pub fn inline_view(
                 draw.paragraph(
                     snapshot.0.paragraph(),
                     Point::default(),
-                    kivact_style::ColorToken::Text,
+                    kivact_style::color::TEXT,
                 );
             }
         })

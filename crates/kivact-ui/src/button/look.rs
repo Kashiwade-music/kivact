@@ -7,12 +7,11 @@ use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{
-    Align, Background, Color, ColorToken, Direction, Justify, Style, TextDecorationLine, Theme,
-    style,
+    Align, Background, Color, Direction, Justify, Style, TextDecorationLine, Theme, style,
 };
 /// A tint of the theme over `base`, as one background of two layers.
-pub(crate) fn tinted(tint: ColorToken, base: impl Into<Color>) -> Background {
-    (Color::token(tint), base.into()).into()
+pub(crate) fn tinted(tint: Color, base: impl Into<Color>) -> Background {
+    (tint, base.into()).into()
 }
 
 /// The button recipe: a row of an optional icon and the label.
@@ -29,13 +28,15 @@ pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
         .gap(gap(theme, size))
         .height(height(theme, size))
         .padding_x(match size {
-            ControlSize::ExtraSmall => theme.space().sm,
-            ControlSize::Small => theme.space().md,
-            ControlSize::Medium | ControlSize::Large => theme.space().lg,
+            ControlSize::ExtraSmall => theme.get(&kivact_core::style::space::SM_VAR),
+            ControlSize::Small => theme.get(&kivact_core::style::space::MD_VAR),
+            ControlSize::Medium | ControlSize::Large => {
+                theme.get(&kivact_core::style::space::LG_VAR)
+            }
         })
-        .radius(theme.radius().md)
+        .radius(theme.get(&kivact_core::style::radius::MD_VAR))
         .font_size(font_size(theme, size))
-        .weight(theme.text().weight_strong)
+        .weight(theme.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .border(1, Color::TRANSPARENT);
     // An icon button is a square of the button's height.
     let s = if state.is_icon_only() {
@@ -46,33 +47,41 @@ pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     match variant {
         ButtonVariant::Primary | ButtonVariant::Danger => {
             let fill = if variant == ButtonVariant::Primary {
-                ColorToken::Accent
+                kivact_core::style::color::ACCENT
             } else {
-                ColorToken::Danger
+                kivact_core::style::color::DANGER
             };
             s.background(fill)
-                .color(ColorToken::AccentText)
-                .hover(style().background(tinted(ColorToken::Hover, fill)))
-                .pressed(style().background(tinted(ColorToken::Pressed, fill)))
+                .color(kivact_core::style::color::ACCENT_TEXT)
+                .hover(style().background(tinted(kivact_core::style::color::HOVER, fill)))
+                .pressed(style().background(tinted(kivact_core::style::color::PRESSED, fill)))
         }
         ButtonVariant::Secondary => s
-            .background(ColorToken::Surface)
-            .color(ColorToken::Text)
-            .border_color(ColorToken::Border)
-            .hover(style().background(tinted(ColorToken::Hover, ColorToken::Surface)))
-            .pressed(style().background(tinted(ColorToken::Pressed, ColorToken::Surface))),
+            .background(kivact_core::style::color::SURFACE)
+            .color(kivact_core::style::color::TEXT)
+            .border_color(kivact_core::style::color::BORDER)
+            .hover(style().background(tinted(
+                kivact_core::style::color::HOVER,
+                kivact_core::style::color::SURFACE,
+            )))
+            .pressed(style().background(tinted(
+                kivact_core::style::color::PRESSED,
+                kivact_core::style::color::SURFACE,
+            ))),
         ButtonVariant::Ghost => s
-            .color(ColorToken::Text)
-            .hover(style().background(ColorToken::Hover))
-            .pressed(style().background(ColorToken::Pressed)),
+            .color(kivact_core::style::color::TEXT)
+            .hover(style().background(kivact_core::style::color::HOVER))
+            .pressed(style().background(kivact_core::style::color::PRESSED)),
         ButtonVariant::Outline => s
-            .background(ColorToken::Surface)
-            .color(ColorToken::Text)
-            .border_color(ColorToken::Border)
-            .hover(style().background(ColorToken::Hover))
-            .pressed(style().background(ColorToken::Pressed)),
+            .background(kivact_core::style::color::SURFACE)
+            .color(kivact_core::style::color::TEXT)
+            .border_color(kivact_core::style::color::BORDER)
+            .hover(style().background(kivact_core::style::color::HOVER))
+            .pressed(style().background(kivact_core::style::color::PRESSED)),
         ButtonVariant::Link => {
-            let s = s.color(ColorToken::Accent).text_underline_offset(4);
+            let s = s
+                .color(kivact_core::style::color::ACCENT)
+                .text_underline_offset(4);
             // The label inherits the root's text decoration; the actual hover
             // state underlines it, as CSS `hover:underline` (a text
             // decoration is not a state style property).
@@ -109,8 +118,8 @@ pub(crate) fn button_busy(_: &Theme, state: &Look<ButtonState>) -> Style {
         .copied()
         .unwrap_or_default()
     {
-        ButtonVariant::Primary | ButtonVariant::Danger => ColorToken::AccentText,
-        _ => ColorToken::Text,
+        ButtonVariant::Primary | ButtonVariant::Danger => kivact_core::style::color::ACCENT_TEXT,
+        _ => kivact_core::style::color::TEXT,
     };
     style().size(14, 14).shrink(0).paint(move |d, size| {
         let center = Point::new(size.width / 2.0, size.height / 2.0);

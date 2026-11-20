@@ -11,10 +11,8 @@
 use kivact_types as p;
 
 use crate::draw::Paint;
-use kivact_style::text::{
-    FontFeature, FontKerning, FontVariation, SpanStyle, TextDecorationLine, TextLength,
-};
-use kivact_style::{Color, Theme, ThemeColor};
+use kivact_style::text::{FontFeature, FontKerning, FontVariation, SpanStyle, TextDecorationLine};
+use kivact_style::{Color, Length, Theme};
 
 /// A piece of rich text with its own style. Built by [`span`]; a `&str`
 /// or `String` is a span in the paragraph's style.
@@ -73,8 +71,8 @@ impl Span {
     }
 
     /// CSS `color` of its glyphs.
-    pub fn color(mut self, v: impl ThemeColor) -> Self {
-        self.style.color = Some(Color::of(v));
+    pub fn color(mut self, v: impl Into<Color>) -> Self {
+        self.style.color = Some(v.into());
         self
     }
 
@@ -91,13 +89,13 @@ impl Span {
     }
 
     /// CSS `letter-spacing` (px or `em(..)` of its font size).
-    pub fn letter_spacing(mut self, v: impl Into<TextLength>) -> Self {
+    pub fn letter_spacing(mut self, v: impl Into<Length>) -> Self {
         self.style.letter_spacing = Some(v.into());
         self
     }
 
     /// CSS `word-spacing` (px or `em(..)` of its font size).
-    pub fn word_spacing(mut self, v: impl Into<TextLength>) -> Self {
+    pub fn word_spacing(mut self, v: impl Into<Length>) -> Self {
         self.style.word_spacing = Some(v.into());
         self
     }
@@ -128,8 +126,8 @@ impl Span {
 
     /// CSS `-webkit-text-stroke` (replacing the paragraph's): the outline's
     /// width and color.
-    pub fn text_stroke(mut self, width: impl Into<TextLength>, color: impl ThemeColor) -> Self {
-        self.style.stroke = Some((width.into(), Color::of(color)));
+    pub fn text_stroke(mut self, width: impl Into<Length>, color: impl Into<Color>) -> Self {
+        self.style.stroke = Some((width.into(), color.into()));
         self
     }
 
@@ -152,19 +150,19 @@ impl Span {
     }
 
     /// CSS `text-decoration-color` (default: its text color).
-    pub fn text_decoration_color(mut self, v: impl ThemeColor) -> Self {
-        self.style.decoration_color = Some(Color::of(v));
+    pub fn text_decoration_color(mut self, v: impl Into<Color>) -> Self {
+        self.style.decoration_color = Some(v.into());
         self
     }
 
     /// CSS `text-decoration-thickness`.
-    pub fn text_decoration_thickness(mut self, v: impl Into<TextLength>) -> Self {
+    pub fn text_decoration_thickness(mut self, v: impl Into<Length>) -> Self {
         self.style.decoration_thickness = Some(v.into());
         self
     }
 
     /// CSS `text-underline-offset`.
-    pub fn text_underline_offset(mut self, v: impl Into<TextLength>) -> Self {
+    pub fn text_underline_offset(mut self, v: impl Into<Length>) -> Self {
         self.style.underline_offset = Some(v.into());
         self
     }

@@ -1,8 +1,7 @@
 //! Role: `Shadow`: a box shadow with offset, blur, spread, color and inset.
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Point;
-use crate::theme::value::ThemeColor;
 
 /// A box shadow (CSS `box-shadow`); several stack, the first on top.
 ///
@@ -34,13 +33,13 @@ impl Shadow {
         x: impl Into<f64>,
         y: impl Into<f64>,
         blur: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> Shadow {
         Shadow {
             offset: Point::new(x.into(), y.into()),
             blur: blur.into(),
             spread: 0.0,
-            color: Color::of(color),
+            color: color.into(),
             inset: false,
         }
     }

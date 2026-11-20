@@ -215,7 +215,8 @@ impl CodeBlock {
             move |on| expanded.set(on),
         ));
         let open = disclosure.is_open();
-        let duration = kivact_core::style::use_tokens::<crate::UiTokens>()
+        let duration = kivact_core::style::use_theme()
+            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
             .code_block
             .copy_feedback_ms;
         let feedback = use_copy_feedback(Duration::from_millis(duration));
@@ -356,7 +357,8 @@ impl CodeSource {
         let name = presentation.name;
         let disclosure = presentation.disclosure;
         let variants = variants.clone();
-        let motion = kivact_core::style::use_tokens::<crate::UiTokens>()
+        let motion = kivact_core::style::use_theme()
+            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
             .disclosure
             .motion
             .clone();

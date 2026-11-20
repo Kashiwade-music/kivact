@@ -9,7 +9,7 @@ pub use primitives::{
 };
 pub use properties::{
     FontVariation, PaintOrder, SpanProps, TextData, TextDecoration, TextDecorationStyle,
-    TextLength, TextShadow, TextSpan, TextStroke, TextStyle, em,
+    TextLength, TextShadow, TextSpan, TextStroke, TextStyle,
 };
 
 pub use computed::ComputedTextStyle;

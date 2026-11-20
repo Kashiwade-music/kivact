@@ -25,7 +25,7 @@ impl Rgba {
     };
 
     /// An RGB hex color and an alpha clamped to `0..=1`.
-    pub fn from_hex(hex: u32, alpha: f64) -> Self {
+    pub const fn from_hex(hex: u32, alpha: f64) -> Self {
         Self {
             r: ((hex >> 16) & 0xff) as f64 / 255.0,
             g: ((hex >> 8) & 0xff) as f64 / 255.0,

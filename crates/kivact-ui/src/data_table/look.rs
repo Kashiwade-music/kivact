@@ -4,16 +4,14 @@ use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, LineJoin, Stroke};
 use kivact_core::geometry::Point;
-use kivact_core::style::{
-    Align, ColorToken, Direction, Justify, Overflow, Style, Theme, pct, style,
-};
+use kivact_core::style::{Align, Direction, Justify, Overflow, Style, Theme, pct, style};
 use kivact_core::view::CheckedState;
 use kivact_interaction::{HeaderSort, TableHeaderState};
 pub(crate) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
     style()
         .direction(Direction::Row)
-        .background(ColorToken::SurfaceAlt)
-        .border_bottom(1, ColorToken::Border)
+        .background(kivact_core::style::color::SURFACE_ALT)
+        .border_bottom(1, kivact_core::style::color::BORDER)
 }
 
 /// The frame around the toolbar, the grid and the footer.
@@ -25,8 +23,8 @@ pub(crate) fn frame(t: &Theme, _: &PartState) -> Style {
         // The table keeps the height of its rows in a bounded parent; the
         // parent's own scroll view carries them.
         .shrink(0)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().md)
+        .border(1, kivact_core::style::color::BORDER)
+        .radius(t.get(&kivact_core::style::radius::MD_VAR))
         .overflow(Overflow::Hidden)
 }
 
@@ -35,8 +33,8 @@ pub(crate) fn toolbar(t: &Theme, _: &PartState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().md)
-        .padding(t.space().md)
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 /// The row under the grid.
@@ -44,8 +42,8 @@ pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().md)
-        .padding(t.space().md)
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 /// A column header: its title and sort mark, sharing the width with the
@@ -57,17 +55,17 @@ pub(crate) fn header(t: &Theme, state: &TableHeaderState) -> Style {
         .basis(0)
         .shrink(0)
         .min_width(0)
-        .min_height(t.control_height())
-        .padding_x(t.space().md)
+        .min_height(t.get(&kivact_core::style::control::HEIGHT_VAR))
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .align_items(Align::Center)
-        .gap(t.space().sm)
-        .weight(t.text().weight_strong)
-        .color(ColorToken::TextMuted)
-        .border_bottom(1, ColorToken::Border);
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
+        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
+        .border_bottom(1, kivact_core::style::color::BORDER);
     if matches!(state.sorting, HeaderSort::Unsortable) {
         s
     } else {
-        s.hover(style().background(ColorToken::Hover))
+        s.hover(style().background(kivact_core::style::color::HOVER))
     }
 }
 
@@ -77,10 +75,14 @@ pub(crate) fn row(t: &Theme, state: &DataTableRowState) -> Style {
     let s = style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .min_height(state.height.unwrap_or(t.control_height()))
-        .border_bottom(1, ColorToken::Border)
-        .hover(style().background(ColorToken::Hover))
-        .selected(style().background(ColorToken::Selection));
+        .min_height(
+            state
+                .height
+                .unwrap_or(t.get(&kivact_core::style::control::HEIGHT_VAR)),
+        )
+        .border_bottom(1, kivact_core::style::color::BORDER)
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .selected(style().background(kivact_core::style::color::SELECTION));
     let s = match state.height {
         Some(height) => s.height(height),
         None => s,
@@ -99,7 +101,7 @@ pub(crate) fn cell(t: &Theme, state: &DataTableCellState) -> Style {
         .basis(0)
         .shrink(0)
         .min_width(0)
-        .padding_x(t.space().md)
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .align_items(Align::Center);
     if state.numeric {
         s.justify_content(Justify::End)
@@ -115,7 +117,7 @@ pub(crate) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
         .align_items(Align::Center)
         .shrink(0)
         .width(40)
-        .padding_x(t.space().md)
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 /// The sort mark, drawn in the box: an arrow up or down by the direction
@@ -138,10 +140,12 @@ pub(crate) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
         let up = [at(0.2, 0.62), at(0.5, 0.3), at(0.8, 0.62)];
         let down = [at(0.2, 0.38), at(0.5, 0.7), at(0.8, 0.38)];
         match order {
-            Some(SortOrder::Ascending) => d.polyline(up, &stroke, ColorToken::Text),
-            Some(SortOrder::Descending) => d.polyline(down, &stroke, ColorToken::Text),
+            Some(SortOrder::Ascending) => d.polyline(up, &stroke, kivact_core::style::color::TEXT),
+            Some(SortOrder::Descending) => {
+                d.polyline(down, &stroke, kivact_core::style::color::TEXT)
+            }
             _ => {
-                let faint = kivact_core::style::Color::token(ColorToken::TextMuted).with_alpha(0.6);
+                let faint = kivact_core::style::color::TEXT_MUTED.with_alpha(0.6);
                 d.polyline(
                     [at(0.2, 0.42), at(0.5, 0.15), at(0.8, 0.42)],
                     &stroke,
@@ -162,7 +166,7 @@ pub(crate) fn page(t: &Theme, _: &DataTablePageState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().sm)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 /// The state of a main row of a [`data_table`](super::data_table) for its

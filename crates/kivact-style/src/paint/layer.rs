@@ -3,9 +3,8 @@
 use super::canvas_gradient::CanvasGradient;
 use super::gradient::Gradient;
 use crate::asset::Asset;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::shader::data::ShaderData;
-use crate::theme::value::ThemeColor;
 use kivact_runtime::UiError;
 use kivact_types::Length;
 use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
@@ -186,9 +185,9 @@ impl Paint {
     }
 }
 
-impl<C: ThemeColor> From<C> for Paint {
+impl<C: Into<Color>> From<C> for Paint {
     fn from(c: C) -> Self {
-        Paint::of(PaintImage::Color(Color::of(c)))
+        Paint::of(PaintImage::Color(c.into()))
     }
 }
 

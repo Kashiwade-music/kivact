@@ -1,18 +1,18 @@
 //! Role: The `Style` setters for text and the rarer text properties.
 
 use super::fields::Style;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::effect::Shadow;
 use crate::text::{
-    FontFeature, FontKerning, FontVariation, PaintOrder, TextDecorationLine, TextLength,
-    TextOverflow, TextTransform,
+    FontFeature, FontKerning, FontVariation, PaintOrder, TextDecorationLine, TextOverflow,
+    TextTransform,
 };
-use crate::theme::value::ThemeColor;
+use kivact_types::Length;
 
 macro_rules! text_color_setter {
     ($(#[$m:meta])* $name:ident, $field:ident) => {
         $(#[$m])*
-        pub fn $name(mut self, v: impl ThemeColor) -> Self {
+        pub fn $name(mut self, v: impl Into<Color>) -> Self {
             let set = self
                 .text
                 .as_deref()
@@ -21,7 +21,7 @@ macro_rules! text_color_setter {
             if set {
                 self.duplicates += 1;
             }
-            self.text_mut().text.get_or_insert_with(Default::default).$field = Some(Color::of(v));
+            self.text_mut().text.get_or_insert_with(Default::default).$field = Some(v.into());
             self
         }
     };
@@ -53,13 +53,13 @@ impl Style {
         /// CSS `letter-spacing`: extra space after every character, in px
         /// (`letter_spacing(1)`) or em (`letter_spacing(em(0.08))`, of the
         /// text's font size; negative tightens).
-        letter_spacing, letter_spacing, impl Into<TextLength>, |v: TextLength| v);
+        letter_spacing, letter_spacing, impl Into<Length>, |v: Length| v);
     text_setter!(
         /// CSS `word-spacing`: extra space after every space, in px
         /// (`word_spacing(4)`) or em (`word_spacing(em(0.25))`, of the
         /// text's font size; negative tightens). It adds to
         /// `text_align(TextAlign::Justify)`'s widening.
-        word_spacing, word_spacing, impl Into<TextLength>, |v: TextLength| v);
+        word_spacing, word_spacing, impl Into<Length>, |v: Length| v);
     text_setter!(
         /// CSS `font-kerning`: `FontKerning::None` turns the OpenType `kern`
         /// feature off, `Normal` on, `Auto` (the default) leaves it to the
@@ -79,13 +79,13 @@ impl Style {
         /// CSS `text-decoration-thickness` in px or em (default: the font's).
         text_decoration_thickness,
         decoration_thickness,
-        impl Into<TextLength>,
-        |v: TextLength| v
+        impl Into<Length>,
+        |v: Length| v
     );
     text_setter!(
         /// CSS `text-underline-offset`: the underline this much further
         /// from the text than the font puts it (`text_underline_offset(3)`).
-        text_underline_offset, underline_offset, impl Into<TextLength>, |v: TextLength| v);
+        text_underline_offset, underline_offset, impl Into<Length>, |v: Length| v);
     text_setter!(
         /// CSS `text-overflow`: `TextOverflow::Ellipsis` cuts a line that
         /// does not fit its box and ends it in "…" (with
@@ -106,7 +106,7 @@ impl Style {
         text_transform, transform, TextTransform, |v| v);
     /// CSS `-webkit-text-stroke`: the outline of the glyphs, in px or em, in
     /// `color`, drawn over or under the fill as `paint_order` says.
-    pub fn text_stroke(mut self, width: impl Into<TextLength>, color: impl ThemeColor) -> Self {
+    pub fn text_stroke(mut self, width: impl Into<Length>, color: impl Into<Color>) -> Self {
         let set = self
             .text
             .as_deref()
@@ -118,7 +118,7 @@ impl Style {
         self.text_mut()
             .text
             .get_or_insert_with(Default::default)
-            .stroke = Some((width.into(), Color::of(color)));
+            .stroke = Some((width.into(), color.into()));
         self
     }
 

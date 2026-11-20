@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 use kivact_interaction::ListItemState;
 /// An item: its icon beside its label, the whole row marked while it is
 /// selected.
@@ -10,20 +10,20 @@ pub(crate) fn list_item(t: &Theme, _: &ListItemState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().md)
-        .min_height(t.control_height())
-        .padding_x(t.space().md)
-        .radius(t.radius().sm)
-        .color(ColorToken::Text)
-        .hover(style().background(ColorToken::Hover))
-        .selected(style().background(ColorToken::Selection))
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .min_height(t.get(&kivact_core::style::control::HEIGHT_VAR))
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
+        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .color(kivact_core::style::color::TEXT)
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .selected(style().background(kivact_core::style::color::SELECTION))
 }
 
 /// The secondary line of an item with a description.
 pub(crate) fn list_description(t: &Theme, _: &ListItemState) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 recipe_table! {

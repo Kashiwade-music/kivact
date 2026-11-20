@@ -13,10 +13,13 @@
 #![forbid(unsafe_code)]
 
 pub mod asset;
-mod color;
+pub mod color;
+mod color_value;
+pub mod control;
 pub mod draw;
 pub mod effect;
 pub mod facade;
+pub mod font;
 pub mod geometry;
 mod grid;
 mod icon;
@@ -25,14 +28,16 @@ pub mod internal;
 
 pub mod paint;
 pub(crate) mod path;
+pub mod radius;
 pub(crate) mod resolve;
 pub mod shader;
 mod sheet;
+pub mod space;
 pub mod text;
 pub mod theme;
 pub mod transform;
 
-pub use color::{Color, ColorToken, hsl, hwb, lab, lch, oklab, oklch, rgb, rgba};
+pub use color_value::{Color, hsl, hwb, lab, lch, oklab, oklch, rgb, rgba};
 pub use effect::BorderStyle;
 pub use grid::{GridAutoFlow, GridPlacement, Track};
 pub use icon::{Icon, IconSet};
@@ -43,7 +48,8 @@ pub use kivact_types::{
     BackfaceVisibility, ColorSpace, HueInterpolation, Isolation, TransformStyle, WillChange,
 };
 pub use kivact_types::{Cursor, TextAlign};
-pub use kivact_types::{Length, auto, pct};
+pub use kivact_types::{Length, auto, em, pct};
+pub use kivact_types::{ThemeVar, VarValue};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};
 pub use sheet::{
@@ -51,11 +57,10 @@ pub use sheet::{
 };
 pub use text::{
     FontFeature, FontKerning, LineHeight, SpanStyle, StyledRange, TextDecoration,
-    TextDecorationLine, TextDecorationStyle, TextLength, TextOverflow, TextTransform, em,
+    TextDecorationLine, TextDecorationStyle, TextOverflow, TextTransform,
 };
-pub use theme::value::{
-    Theme, ThemeColor, ThemeExtension, ThemeMode, ThemeRef, use_theme, use_tokens,
-};
+pub use theme::value::{Theme, ThemeExtension, ThemeMode, ThemeRef, use_theme};
+pub use theme::{FontFamily, ThemeValue};
 
 /// Visibility of a layout box and its subtree.
 pub use kivact_types::Visibility;

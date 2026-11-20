@@ -1,18 +1,17 @@
 //! Role: Text styles and runs of the painter, and the `Draw` text commands.
 
 use super::recorder::Draw;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Point;
 use crate::paint::{Paint, fill_layer};
 use crate::path::Path;
 use crate::text::{
-    FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, TextLength,
-    wire_variations,
+    FontFeature, FontKerning, FontVariation, LineHeight, TextDecorationLine, wire_variations,
 };
 use crate::theme::value::Theme;
 use crate::transform::Transform;
 use kivact_types as p;
-use kivact_types::{DrawCmd, Fill, Stroke, TextMetrics};
+use kivact_types::{DrawCmd, Fill, Length, Stroke, TextMetrics};
 
 /// Text style for `Draw::text` and `Draw::measure_text`: the text
 /// vocabulary of element styles, so canvas text matches element text.
@@ -56,10 +55,10 @@ pub struct TextFormat {
     pub line_height: Option<LineHeight>,
     /// Extra space after every character (CSS `letter-spacing`; px or
     /// `em(..)` of `size`).
-    pub letter_spacing: TextLength,
+    pub letter_spacing: Length,
     /// Extra space after every space (CSS `word-spacing`; px or `em(..)`
     /// of `size`).
-    pub word_spacing: TextLength,
+    pub word_spacing: Length,
     /// Pair kerning (CSS `font-kerning`).
     pub font_kerning: FontKerning,
     /// OpenType features (CSS `font-feature-settings`):
@@ -89,12 +88,12 @@ impl Default for TextFormat {
             baseline: TextBaseline::Top,
             size: 14.0,
             weight: 400,
-            color: Color::token(crate::ColorToken::Text),
+            color: crate::color::TEXT,
             family: None,
             italic: false,
             line_height: None,
-            letter_spacing: TextLength::default(),
-            word_spacing: TextLength::default(),
+            letter_spacing: Length::Px(0.0),
+            word_spacing: Length::Px(0.0),
             font_kerning: FontKerning::Auto,
             features: Vec::new(),
             tabular_nums: false,
@@ -114,6 +113,14 @@ pub(crate) fn fill_for(paint: &Paint, theme: &Theme) -> Fill {
         Some(c) => Fill::Solid(c.resolve(theme)),
         None => Fill::Layers(vec![fill_layer(paint, theme)]),
     }
+}
+
+/// The px of a spacing `length` at `size`, its theme variables read in
+/// `theme` (the default theme when there is none).
+fn spacing_px(length: Length, size: f64, theme: Option<&Theme>) -> f64 {
+    let theme = theme.cloned().unwrap_or_default();
+    let mut dropped = 0;
+    crate::text::text_length(length, &theme, &mut dropped).map_or(0.0, |l| l.px(size))
 }
 
 pub fn text_run(
@@ -146,8 +153,8 @@ pub fn text_run(
         family: style.family.clone(),
         italic: style.italic,
         line_height: style.line_height,
-        letter_spacing: style.letter_spacing.px(style.size) * scale,
-        word_spacing: style.word_spacing.px(style.size) * scale,
+        letter_spacing: spacing_px(style.letter_spacing, style.size, theme) * scale,
+        word_spacing: spacing_px(style.word_spacing, style.size, theme) * scale,
         kerning: style.font_kerning,
         features,
         decoration: p::TextDecoration {
@@ -246,7 +253,7 @@ impl Draw {
     ///
     /// ```
     /// use kivact::prelude::*;
-    /// use kivact::style::ColorToken;
+    /// use kivact::style::Color;
     /// use kivact::draw::{Draw};
     /// use kivact::geometry::{Point, Rect};
     /// use kivact::draw::TextFormat;
@@ -254,7 +261,7 @@ impl Draw {
     /// fn pill(d: &mut Draw, label: &str, at: Point) {
     ///     let style = TextFormat { size: 11.0, ..TextFormat::default() };
     ///     let m = d.measure_text(label, &style);
-    ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, ColorToken::Accent);
+    ///     d.rounded_rect(Rect::new(at.x, at.y, m.size.width + 12.0, m.size.height + 4.0), 4.0, kivact::style::color::ACCENT);
     ///     d.text(label, Point::new(at.x + 6.0, at.y + 2.0), style);
     /// }
     /// # let _ = pill;

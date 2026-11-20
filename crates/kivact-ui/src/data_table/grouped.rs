@@ -7,9 +7,7 @@ use crate::{ButtonVariant, button};
 use kivact_core::i18n::message_with;
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::{Signal, Value, memo};
-use kivact_core::style::{
-    Align, ColorToken, Cursor, Justify, Position, TransitionProp, auto, pct, style,
-};
+use kivact_core::style::{Align, Cursor, Justify, Position, TransitionProp, auto, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{ReadingDirection, Role, View, for_each, use_direction};
@@ -247,7 +245,7 @@ fn group_disclosure_content(
         };
         style()
             .size(16, 16)
-            .color(ColorToken::TextMuted)
+            .color(kivact_core::style::color::TEXT_MUTED)
             .rotate(angle)
             .transition(
                 TransitionProp::All,
@@ -257,8 +255,11 @@ fn group_disclosure_content(
     let content = row((
         mark,
         text(label.clone()).style(style().weight(600)),
-        text(move || format!("({})", state.get().count))
-            .style(style().weight(400).color(ColorToken::TextMuted)),
+        text(move || format!("({})", state.get().count)).style(
+            style()
+                .weight(400)
+                .color(kivact_core::style::color::TEXT_MUTED),
+        ),
     ))
     .style({
         let base = style()

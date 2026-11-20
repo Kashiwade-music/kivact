@@ -2,24 +2,24 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
+use kivact_core::style::{Align, Direction, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
     let color = match s.tone {
-        Tone::Neutral => ColorToken::Border,
-        Tone::Info | Tone::Accent => ColorToken::Accent,
-        Tone::Success => ColorToken::Success,
-        Tone::Warning => ColorToken::Warning,
-        Tone::Danger => ColorToken::Danger,
+        Tone::Neutral => kivact_core::style::color::BORDER,
+        Tone::Info | Tone::Accent => kivact_core::style::color::ACCENT,
+        Tone::Success => kivact_core::style::color::SUCCESS,
+        Tone::Warning => kivact_core::style::color::WARNING,
+        Tone::Danger => kivact_core::style::color::DANGER,
     };
     let base = style()
         .direction(Direction::Column)
-        .gap(t.space().sm)
-        .padding(t.space().md)
-        .radius(t.radius().md)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
+        .radius(t.get(&kivact_core::style::radius::MD_VAR))
         .border(1, color)
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text)
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
         .min_width(0);
     if s.variant::<AlertVariant>() == Some(&AlertVariant::Banner) {
         base.width(pct(100))
@@ -30,14 +30,14 @@ pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
 
 pub(crate) fn alert_title(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
-        .weight(t.text().weight_strong)
-        .font_size(t.text().size)
+        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
 }
 
 pub(crate) fn alert_description(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
-        .font_size(t.text().size)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn alert_icon(_: &Theme, _: &Look<AlertState>) -> Style {
@@ -48,11 +48,13 @@ pub(crate) fn alert_actions(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().sm)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 pub(crate) fn alert_content(t: &Theme, _: &Look<AlertState>) -> Style {
-    style().direction(Direction::Column).gap(t.space().sm)
+    style()
+        .direction(Direction::Column)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 pub(crate) fn alert_control(_: &Theme, _: &Look<AlertState>) -> Style {

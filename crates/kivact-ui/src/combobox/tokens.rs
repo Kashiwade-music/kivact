@@ -1,5 +1,5 @@
 //! Role: Hold the combobox tokens that the theme's `UiTokens` carries.
-use kivact_core::style::{Color, ColorToken};
+use kivact_core::style::Color;
 
 /// Visual measurements for [`crate::combobox`], configured through [`crate::UiTokens`].
 #[derive(Clone, Debug, PartialEq)]
@@ -30,13 +30,13 @@ pub struct ComboboxTokens {
 impl Default for ComboboxTokens {
     fn default() -> Self {
         Self {
-            foreground: Color::token(ColorToken::Text),
-            muted: Color::token(ColorToken::TextMuted),
-            background: Color::token(ColorToken::Surface),
-            border: Color::token(ColorToken::Border),
-            active_background: Color::token(ColorToken::Hover),
-            chip_background: Color::token(ColorToken::Selection),
-            focus: Color::token(ColorToken::Focus),
+            foreground: kivact_core::style::color::TEXT,
+            muted: kivact_core::style::color::TEXT_MUTED,
+            background: kivact_core::style::color::SURFACE,
+            border: kivact_core::style::color::BORDER,
+            active_background: kivact_core::style::color::HOVER,
+            chip_background: kivact_core::style::color::SELECTION,
+            focus: kivact_core::style::color::FOCUS,
             field_radius: None,
             focus_ring: None,
             disabled_opacity: None,

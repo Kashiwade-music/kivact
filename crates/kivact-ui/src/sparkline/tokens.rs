@@ -1,5 +1,5 @@
 //! Role: Hold the sparkline tokens that the theme's `UiTokens` carries.
-use kivact_core::style::{Color, ColorToken};
+use kivact_core::style::Color;
 
 /// The look of a standard sparkline. Configure it through [`crate::UiTokens`].
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -19,7 +19,7 @@ pub struct SparklineTokens {
 impl Default for SparklineTokens {
     fn default() -> Self {
         Self {
-            line: ColorToken::Accent.into(),
+            line: kivact_core::style::color::ACCENT,
             line_width: 1.5,
             round: false,
             fill: SparklineFill::None,

@@ -5,7 +5,7 @@ use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{CornerRadius, Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::{Point, Rect, Size};
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 use kivact_core::view::CheckedState;
 /// The side of a check box and the height of a switch's track.
 pub(crate) fn indicator(theme: &Theme, size: ControlSize) -> f64 {
@@ -14,7 +14,7 @@ pub(crate) fn indicator(theme: &Theme, size: ControlSize) -> f64 {
 
 /// The room a toggle keeps at its left edge for its drawing.
 pub(crate) fn leading(theme: &Theme) -> f64 {
-    theme.space().sm
+    theme.get(&kivact_core::style::space::SM_VAR)
 }
 
 /// The width of the drawn part of a toggle.
@@ -31,12 +31,12 @@ pub(crate) fn toggle(theme: &Theme, size: ControlSize, switch: bool) -> Style {
         .align_items(Align::Center)
         .min_height(height(theme, size))
         .padding_left(leading(theme) + indicator_width(theme, size, switch) + gap(theme, size))
-        .padding_right(theme.space().sm)
-        .radius(theme.radius().md)
+        .padding_right(theme.get(&kivact_core::style::space::SM_VAR))
+        .radius(theme.get(&kivact_core::style::radius::MD_VAR))
         .font_size(font_size(theme, size))
-        .color(ColorToken::Text)
-        .hover(style().background(ColorToken::Hover))
-        .pressed(style().background(ColorToken::Pressed))
+        .color(kivact_core::style::color::TEXT)
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .pressed(style().background(kivact_core::style::color::PRESSED))
 }
 
 pub(crate) fn checkbox(theme: &Theme, look: &CheckableState) -> Style {
@@ -53,35 +53,35 @@ pub(crate) fn switch(theme: &Theme, look: &CheckableState) -> Style {
 /// bar when mixed) while on, an outlined box otherwise.
 pub(crate) fn draw_checkbox(theme: &Theme, look: &CheckableState, d: &mut Draw, size: Size) {
     let side = indicator(theme, look.size);
-    let r = theme.radius().sm;
+    let r = theme.get(&kivact_core::style::radius::SM_VAR);
     let rect = Rect::new(leading(theme), (size.height - side) / 2.0, side, side);
     if look.checked() != CheckedState::Unchecked {
-        d.rounded_rect(rect, r, ColorToken::Accent);
+        d.rounded_rect(rect, r, kivact_core::style::color::ACCENT);
         let at = |x: f64, y: f64| Point::new(rect.x + side * x, rect.y + side * y);
         let mark = Stroke::new(2.0).cap(LineCap::Round).join(LineJoin::Round);
         if look.is_mixed() {
             d.polyline(
                 [at(0.25, 0.5), at(0.75, 0.5)],
                 &mark,
-                ColorToken::AccentText,
+                kivact_core::style::color::ACCENT_TEXT,
             );
         } else {
             d.polyline(
                 [at(0.25, 0.52), at(0.43, 0.7), at(0.76, 0.3)],
                 &mark,
-                ColorToken::AccentText,
+                kivact_core::style::color::ACCENT_TEXT,
             );
         }
     } else {
-        d.rounded_rect(rect, r, ColorToken::Surface);
+        d.rounded_rect(rect, r, kivact_core::style::color::SURFACE);
         let inner = Rect::new(rect.x + 0.5, rect.y + 0.5, side - 1.0, side - 1.0);
         d.stroke_path(
             &Path::new().rounded_rect(inner, [CornerRadius::from(r); 4]),
             &Stroke::new(1.0),
             if look.invalid {
-                ColorToken::Danger
+                kivact_core::style::color::DANGER
             } else {
-                ColorToken::Border
+                kivact_core::style::color::BORDER
             },
         );
     }
@@ -97,9 +97,9 @@ pub(crate) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, si
         track,
         h / 2.0,
         if on {
-            ColorToken::Accent
+            kivact_core::style::color::ACCENT
         } else {
-            ColorToken::Border
+            kivact_core::style::color::BORDER
         },
     );
     let inset = 2.0;
@@ -113,9 +113,9 @@ pub(crate) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, si
         Rect::new(x, track.y + inset, thumb, thumb),
         thumb / 2.0,
         if on {
-            ColorToken::AccentText
+            kivact_core::style::color::ACCENT_TEXT
         } else {
-            ColorToken::Surface
+            kivact_core::style::color::SURFACE
         },
     );
 }

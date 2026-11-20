@@ -3,13 +3,17 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{ColorToken, Cursor, Style, Theme, style};
+use kivact_core::style::{Cursor, Style, Theme, style};
 use kivact_core::view::Orientation;
 /// The thickness of a track and the side of a thumb.
 pub(crate) fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
     let thumb = match size {
-        ControlSize::ExtraSmall | ControlSize::Small => (t.text().size).round(),
-        ControlSize::Medium | ControlSize::Large => (t.text().size + 4.0).round(),
+        ControlSize::ExtraSmall | ControlSize::Small => {
+            (t.get(&kivact_core::style::font::SIZE_VAR)).round()
+        }
+        ControlSize::Medium | ControlSize::Large => {
+            (t.get(&kivact_core::style::font::SIZE_VAR) + 4.0).round()
+        }
     };
     ((thumb / 3.0).round().max(2.0), thumb)
 }
@@ -28,7 +32,7 @@ pub(crate) fn slider_track(t: &Theme, state: &AxisState) -> Style {
         } else {
             kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
-        d.rounded_rect(rect, r, ColorToken::SurfaceAlt);
+        d.rounded_rect(rect, r, kivact_core::style::color::SURFACE_ALT);
     });
     match state.orientation {
         Orientation::Vertical => s.width(thumb).height(160),
@@ -45,7 +49,7 @@ pub(crate) fn slider_range(t: &Theme, state: &AxisState) -> Style {
         } else {
             kivact_core::geometry::Rect::new((size.width - bar) / 2.0, 0.0, bar, size.height)
         };
-        d.rounded_rect(rect, bar / 2.0, ColorToken::Accent);
+        d.rounded_rect(rect, bar / 2.0, kivact_core::style::color::ACCENT);
     })
 }
 
@@ -55,9 +59,14 @@ pub(crate) fn slider_thumb(t: &Theme, state: &AxisState) -> Style {
     style()
         .size(thumb, thumb)
         .radius(thumb / 2.0)
-        .background(ColorToken::Surface)
-        .border(2, ColorToken::Accent)
-        .shadow(kivact_core::draw::Shadow::new(0, 1, 2, ColorToken::Shadow))
+        .background(kivact_core::style::color::SURFACE)
+        .border(2, kivact_core::style::color::ACCENT)
+        .shadow(kivact_core::draw::Shadow::new(
+            0,
+            1,
+            2,
+            kivact_core::style::color::SHADOW,
+        ))
 }
 
 /// The state of a part laid along an axis, for its recipe: a slider's

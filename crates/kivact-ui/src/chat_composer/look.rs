@@ -3,20 +3,20 @@ use crate::look_common::{column, muted};
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{ColorToken, Style, Theme, style};
+use kivact_core::style::{Style, Theme, style};
 use kivact_macros::Prop;
 pub(crate) fn composer_surface(t: &Theme, s: &Look<ChatComposerState>) -> Style {
     column(t, s)
-        .padding(t.space().md)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().md)
-        .background(ColorToken::Surface)
+        .padding(t.get(&kivact_core::style::space::MD_VAR))
+        .border(1, kivact_core::style::color::BORDER)
+        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .background(kivact_core::style::color::SURFACE)
 }
 
 pub(crate) fn composer_status(t: &Theme, s: &Look<ChatComposerState>) -> Style {
     muted(t, s).color(match s.status {
-        Some(ComposerStatus::Error(_)) => ColorToken::Danger,
-        _ => ColorToken::Warning,
+        Some(ComposerStatus::Error(_)) => kivact_core::style::color::DANGER,
+        _ => kivact_core::style::color::WARNING,
     })
 }
 

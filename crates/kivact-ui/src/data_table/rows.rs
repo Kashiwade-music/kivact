@@ -696,7 +696,7 @@ fn index_cell(role: Role, text: Node) -> Node {
             .tabular_nums()
             .font_family("monospace")
             .font_size(12)
-            .color(kivact_core::style::ColorToken::TextMuted),
+            .color(kivact_core::style::color::TEXT_MUTED),
     ))
     .role(role)
     .style(

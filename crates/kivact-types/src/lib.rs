@@ -44,6 +44,7 @@ pub mod style_state;
 pub mod text;
 pub mod text_shaping;
 pub mod text_utf;
+pub mod theme_var;
 pub mod type_map;
 pub mod window;
 
@@ -89,7 +90,7 @@ pub use layout::{
     LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
     OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
 };
-pub use length::{Length, auto, pct};
+pub use length::{Length, auto, em, pct};
 pub use motion::{
     Easing, Keyframe, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
     StepPosition, TimeScale, Transition, TransitionKind, TransitionProp, lerp,
@@ -123,9 +124,10 @@ pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
     PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLength,
     TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle, TextTransform,
-    TextWrap, em,
+    TextWrap,
 };
 pub use text_shaping::TextShaper;
+pub use theme_var::{ThemeVar, ThemeVarId, VarValue};
 pub use type_map::{LocalTypeMap, SharedTypeMap};
 pub use window::{
     NativeWindow, SurfaceSize, WindowContent, WindowId, WindowMode, WindowPlacement, WindowRequest,

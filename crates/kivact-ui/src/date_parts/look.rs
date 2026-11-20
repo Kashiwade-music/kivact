@@ -2,19 +2,19 @@
 
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 pub(crate) fn input(t: &Theme, _: &PartState) -> Style {
     style()
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().xs)
+        .gap(t.get(&kivact_core::style::space::XS_VAR))
 }
 
 pub(crate) fn wheel(t: &Theme, _: &PartState) -> Style {
     style()
         .width(t.ext::<UiTokens>().date_input.wheel_width)
-        .padding(t.space().sm)
-        .gap(t.space().xs)
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text)
+        .padding(t.get(&kivact_core::style::space::SM_VAR))
+        .gap(t.get(&kivact_core::style::space::XS_VAR))
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
 }

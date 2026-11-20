@@ -1,19 +1,19 @@
 //! Role: The skeleton recipe state, tokens, recipe table and default looks.
 
-use kivact_core::style::{ColorToken, Style, Theme, pct, style};
+use kivact_core::style::{Style, Theme, pct, style};
 use kivact_macros::Prop;
 pub(crate) fn skeleton(t: &Theme, s: &SkeletonState) -> Style {
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let base = style()
         .min_height(tokens.indicators.line_height)
         .width(pct(100))
-        .background(ColorToken::Border)
+        .background(kivact_core::style::color::BORDER)
         .opacity(s.pulse);
     match s.shape {
         SkeletonShape::Circle => base.size(36, 36).radius(999),
-        SkeletonShape::Rounded => base.radius(t.radius().md),
+        SkeletonShape::Rounded => base.radius(t.get(&kivact_core::style::radius::MD_VAR)),
         SkeletonShape::Rect => base.radius(0),
-        SkeletonShape::Text => base.radius(t.radius().sm),
+        SkeletonShape::Text => base.radius(t.get(&kivact_core::style::radius::SM_VAR)),
     }
 }
 

@@ -18,12 +18,10 @@ fn px(image: &Pixels, x: usize, y: usize) -> [u8; 4] {
 }
 
 fn tuffy_theme() -> Theme {
-    let theme = Theme::default();
-    let text = kivact::style::theme::Typography {
-        family: Some("Tuffy".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    Theme::default().set(
+        &kivact::style::font::FAMILY_VAR,
+        kivact::style::FontFamily::from("Tuffy"),
+    )
 }
 
 #[test]

@@ -490,7 +490,7 @@ fn order_diagnostic(
         .style(
             kivact_core::style::style()
                 .font_size(12)
-                .color(kivact_core::style::ColorToken::Danger),
+                .color(kivact_core::style::color::DANGER),
         );
     (order_ref, order_error)
 }

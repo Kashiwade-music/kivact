@@ -13,8 +13,7 @@ pub struct TextData {
 }
 
 /// A text length: px (a number: `letter_spacing(1)`) or a multiple of the
-/// font size of the text it applies to ([`em`]: CSS `0.08em` is
-/// `em(0.08)`).
+/// font size of the text it applies to (CSS `0.08em` is `TextLength::Em(0.08)`).
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum TextLength {
     /// Logical px.
@@ -51,12 +50,6 @@ impl From<f64> for TextLength {
     fn from(v: f64) -> Self {
         TextLength::Px(v)
     }
-}
-
-/// `v` times the font size of the text it applies to (CSS `em`), for the
-/// text lengths: `letter_spacing(em(0.08))`, `text_underline_offset(em(0.2))`.
-pub fn em(v: impl Into<f64>) -> TextLength {
-    TextLength::Em(v.into())
 }
 
 impl TextLength {

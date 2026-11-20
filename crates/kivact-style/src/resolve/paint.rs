@@ -7,8 +7,9 @@ use kivact_types::{
     Repeat, Ring,
 };
 
+use super::compile::Resolve;
 use crate::effect::{Shadow, clip_shape, filter_ops, filter_problems};
-use crate::geometry::corner;
+use crate::geometry::{CornerRadius, corner};
 use crate::paint::{Background, fill_layer};
 use crate::sheet::{
     FlowFields, MotionFields, PaintFields, ScrollbarWidth, Style, TextFields, TransformFields,
@@ -51,7 +52,7 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
     set.then(|| {
         let c = |i: usize| {
             paint.border_color[i]
-                .unwrap_or(theme.colors().border)
+                .unwrap_or(theme.get(&crate::color::BORDER_VAR))
                 .resolve(theme)
         };
         Border {
@@ -72,13 +73,19 @@ fn border(s: &Style, theme: &Theme) -> Option<Border> {
     })
 }
 
-fn corners(s: &Style) -> Corners {
+fn corners(s: &Style, cx: &mut Resolve<'_>) -> Corners {
     let paint = group_or_default!(s.paint, PaintFields);
+    let mut of = |r: Option<CornerRadius>| {
+        corner(r.map(|r| CornerRadius {
+            x: cx.len(r.x),
+            y: cx.len(r.y),
+        }))
+    };
     Corners {
-        top_left: corner(paint.radius[0]),
-        top_right: corner(paint.radius[1]),
-        bottom_right: corner(paint.radius[2]),
-        bottom_left: corner(paint.radius[3]),
+        top_left: of(paint.radius[0]),
+        top_right: of(paint.radius[1]),
+        bottom_right: of(paint.radius[2]),
+        bottom_left: of(paint.radius[3]),
     }
 }
 
@@ -127,14 +134,14 @@ fn effects(s: &Style, theme: &Theme) -> Option<Box<Effects>> {
 /// The transform properties of `s` as one transform: CSS's `translate`
 /// (x, y, z), then `rotate` (z, then y, then x), then `scale`, then
 /// `transform`, about `transform-origin` (the centre by default).
-fn transform_of(s: &Style) -> Transform {
+fn transform_of(s: &Style, cx: &mut Resolve<'_>) -> Transform {
     let transform = group_or_default!(s.transform, TransformFields);
     let mut t = Transform::new();
     if transform.translate.iter().any(Option::is_some) || transform.translate_z.is_some() {
         // An axis left unset does not move the node.
         let [x, y] = transform
             .translate
-            .map(|axis| axis.unwrap_or(Length::Px(0.0)));
+            .map(|axis| cx.len(axis.unwrap_or(Length::Px(0.0))));
         t = t.translate_3d(x, y, transform.translate_z.unwrap_or(0.0));
     }
     if let Some(deg) = transform.rotate {
@@ -157,14 +164,14 @@ fn transform_of(s: &Style) -> Transform {
 
 /// The transform properties of `s` as one element transform, about
 /// `transform-origin` (the centre by default) and its z.
-fn element_transform(s: &Style) -> ElementTransform {
+fn element_transform(s: &Style, cx: &mut Resolve<'_>) -> ElementTransform {
     let transform = group_or_default!(s.transform, TransformFields);
     let (x, y) = transform.transform_origin.unwrap_or((pct(50), pct(50)));
     // `auto` is the default centre.
-    transform_of(s).to_wire(
+    transform_of(s, cx).to_wire(
         [x, y].map(|l| match l {
             Length::Auto => p::Len::pct(50.0),
-            l => l.to_len(),
+            l => cx.len(l).to_len(),
         }),
         transform.transform_origin_z.unwrap_or(0.0),
     )
@@ -186,19 +193,19 @@ fn sets_transform(s: &Style) -> bool {
 
 /// The perspective of the node's children: the distance, about the
 /// `perspective-origin` (the centre by default).
-fn perspective(s: &Style) -> Option<Perspective> {
+fn perspective(s: &Style, cx: &mut Resolve<'_>) -> Option<Perspective> {
     let transform = group_or_default!(s.transform, TransformFields);
     transform.perspective.map(|distance| Perspective {
         distance,
         origin: transform
             .perspective_origin
             .map_or([p::Len::pct(50.0), p::Len::pct(50.0)], |(x, y)| {
-                [x.to_len(), y.to_len()]
+                [cx.len(x).to_len(), cx.len(y).to_len()]
             }),
     })
 }
 
-pub(super) fn paint(s: &Style, theme: &Theme) -> PaintProps {
+pub(super) fn paint(s: &Style, theme: &Theme, cx: &mut Resolve<'_>) -> PaintProps {
     let paint = group_or_default!(s.paint, PaintFields);
     let transform = group_or_default!(s.transform, TransformFields);
     let flow = group_or_default!(s.flow, FlowFields);
@@ -211,7 +218,7 @@ pub(super) fn paint(s: &Style, theme: &Theme) -> PaintProps {
             offset,
             color: c.resolve(theme),
         }),
-        radius: corners(s),
+        radius: corners(s, cx),
         shadows: paint
             .shadows
             .iter()
@@ -219,8 +226,8 @@ pub(super) fn paint(s: &Style, theme: &Theme) -> PaintProps {
             .map(|sh| shadow(sh, theme))
             .collect(),
         opacity: paint.opacity.unwrap_or(1.0),
-        transform: element_transform(s),
-        perspective: perspective(s),
+        transform: element_transform(s, cx),
+        perspective: perspective(s, cx),
         transform_style: transform.transform_style.unwrap_or_default(),
         backface: transform.backface.unwrap_or_default(),
         will_change: transform.will_change.unwrap_or_default(),
@@ -299,7 +306,9 @@ pub(super) fn reports(s: &Style, theme: &Theme) -> Vec<UiError> {
             report(problem);
         }
     }
-    let dropped = transform_of(s).unsupported();
+    let mut misplaced = 0;
+    let mut cx = Resolve::new(s, theme, &mut misplaced);
+    let dropped = transform_of(s, &mut cx).unsupported();
     if dropped > 0 {
         report(UiError::msg(format!(
             "transform: {dropped} function(s) the form cannot keep"
@@ -317,7 +326,9 @@ pub(super) fn paint_delta(base: &Style, st: &Style, theme: &Theme) -> PaintDelta
     let st_flow = group_or_default!(st.flow, FlowFields);
     let st_text = group_or_default!(st.text, TextFields);
     let merged = base.clone().merge(st);
-    let full = paint(&merged, theme);
+    let mut misplaced = 0;
+    let mut cx = Resolve::new(&merged, theme, &mut misplaced);
+    let full = paint(&merged, theme, &mut cx);
     let sets_border = st_paint.border_width.iter().any(Option::is_some)
         || st_paint.border_color.iter().any(Option::is_some)
         || st_paint.border_style.iter().any(Option::is_some);

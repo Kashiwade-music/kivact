@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use crate::slider::look::AxisState;
-use kivact_core::style::{Align, ColorToken, Style, Theme, style};
+use kivact_core::style::{Align, Style, Theme, style};
 use kivact_core::view::Orientation;
 /// The grip on a split's handle: a short rounded bar across it.
 pub(crate) fn split_grip(_: &Theme, state: &AxisState) -> Style {
@@ -10,7 +10,7 @@ pub(crate) fn split_grip(_: &Theme, state: &AxisState) -> Style {
         .shrink(0)
         .align_self(Align::Center)
         .radius(2)
-        .background(ColorToken::Border);
+        .background(kivact_core::style::color::BORDER);
     match state.orientation {
         Orientation::Vertical => s.size(24, 4),
         _ => s.size(4, 24),

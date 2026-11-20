@@ -1,6 +1,6 @@
 //! Role: `ShaderValue`: the values a shader's `Params` struct takes.
 
-use crate::color::{Color, ColorToken};
+use crate::color_value::Color;
 use crate::geometry::{Point, Size};
 
 /// A value for a field of a shader's `Params` struct.
@@ -79,11 +79,5 @@ impl From<Size> for ShaderValue {
 impl From<Color> for ShaderValue {
     fn from(c: Color) -> Self {
         ShaderValue::Color(c)
-    }
-}
-
-impl From<ColorToken> for ShaderValue {
-    fn from(t: ColorToken) -> Self {
-        ShaderValue::Color(Color::token(t))
     }
 }

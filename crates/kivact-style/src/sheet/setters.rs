@@ -8,12 +8,11 @@ use kivact_types::{
 
 use super::fields::ScrollbarWidth;
 use super::fields::Style;
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::draw::{Draw, LocalPaint, Size};
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
 use crate::paint::{Background, BorderImage, Mask};
 use crate::text::{LineHeight, TextOverflow};
-use crate::theme::value::ThemeColor;
 use crate::transform::Transform;
 use kivact_types::Length;
 
@@ -33,15 +32,15 @@ macro_rules! setter {
     };
 }
 
-/// A setter of a color input, which takes any [`ThemeColor`].
+/// A setter of a color input, which takes any `Into<Color>`.
 macro_rules! color_setter {
     ($(#[$m:meta])* $name:ident, $group:ident, $field:ident) => {
         $(#[$m])*
-        pub fn $name(mut self, v: impl ThemeColor) -> Self {
+        pub fn $name(mut self, v: impl Into<Color>) -> Self {
             if self.$group.as_deref().is_some_and(|g| g.$field.is_some()) {
                 self.duplicates += 1;
             }
-            self.$group.get_or_insert_with(Default::default).$field = Some(Color::of(v));
+            self.$group.get_or_insert_with(Default::default).$field = Some(v.into());
             self
         }
     };
@@ -224,11 +223,11 @@ impl Style {
         self
     }
     /// Set thumb and track colors (CSS scrollbar-color).
-    pub fn scrollbar_color(mut self, thumb: impl ThemeColor, track: impl ThemeColor) -> Self {
+    pub fn scrollbar_color(mut self, thumb: impl Into<Color>, track: impl Into<Color>) -> Self {
         self.paint_mut()
             .scrollbar
             .get_or_insert_with(Default::default)
-            .colors = Some((Color::of(thumb), Color::of(track)));
+            .colors = Some((thumb.into(), track.into()));
         self
     }
     setter!(cursor, paint, cursor, Cursor, |v| v);
@@ -247,9 +246,9 @@ impl Style {
         /// text property is inherited on its own: a descendant that sets
         /// only a `weight` or a `font_size` keeps this color. Without one
         /// on any ancestor, text takes the App theme's
-        /// [`ColorToken::Text`](crate::ColorToken::Text); a
+        /// [`kivact::style::color::TEXT`](kivact::style::color::TEXT); a
         /// `provide_theme` subtree gets its theme's by a
-        /// `color(ColorToken::Text)` on its top node.
+        /// `color(kivact::style::color::TEXT)` on its top node.
         color, text, color);
     setter!(
         /// CSS `line-height` of the text in this node and below. A number is
@@ -443,40 +442,40 @@ impl Style {
     /// alone does not lay out again. In a state style (`hover`, `focus`,
     /// ...) a width is drawn but does not move the content: states change
     /// the paint only.
-    pub fn border(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0, 1, 2, 3], width.into(), Some(Color::of(color)))
+    pub fn border(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.border_sides([0, 1, 2, 3], width.into(), Some(color.into()))
     }
 
     /// The top border (CSS `border-top: w solid c`).
-    pub fn border_top(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([0], width.into(), Some(Color::of(color)))
+    pub fn border_top(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.border_sides([0], width.into(), Some(color.into()))
     }
 
     /// The right border (CSS `border-right`).
-    pub fn border_right(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([1], width.into(), Some(Color::of(color)))
+    pub fn border_right(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.border_sides([1], width.into(), Some(color.into()))
     }
 
     /// The bottom border (CSS `border-bottom`).
-    pub fn border_bottom(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([2], width.into(), Some(Color::of(color)))
+    pub fn border_bottom(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.border_sides([2], width.into(), Some(color.into()))
     }
 
     /// The left border (CSS `border-left`).
-    pub fn border_left(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
-        self.border_sides([3], width.into(), Some(Color::of(color)))
+    pub fn border_left(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.border_sides([3], width.into(), Some(color.into()))
     }
 
     /// Every side's border width (CSS `border-width`); a side without a
-    /// color takes `ColorToken::Border`.
+    /// color takes `kivact::style::color::BORDER`.
     pub fn border_width(self, width: impl Into<f64>) -> Self {
         self.border_sides([0, 1, 2, 3], width.into(), None)
     }
 
     /// Every side's border color (CSS `border-color`), keeping the widths
     /// (handy in state styles: `.hover(style().border_color(..))`).
-    pub fn border_color(mut self, color: impl ThemeColor) -> Self {
-        let color = Color::of(color);
+    pub fn border_color(mut self, color: impl Into<Color>) -> Self {
+        let color = color.into();
         if self
             .paint
             .as_deref()
@@ -626,7 +625,7 @@ impl Style {
     /// Focus ring (drawn outside the border box); usually inside
     /// `focus_visible(..)`. A focusable element without a focus look of its
     /// own draws the theme's ([`Theme::focus_ring`](crate::Theme::focus_ring)).
-    pub fn ring(self, width: impl Into<f64>, color: impl ThemeColor) -> Self {
+    pub fn ring(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
         self.ring_with_offset(width, 0, color)
     }
 
@@ -636,12 +635,12 @@ impl Style {
         mut self,
         width: impl Into<f64>,
         offset: impl Into<f64>,
-        color: impl ThemeColor,
+        color: impl Into<Color>,
     ) -> Self {
         if self.paint.as_deref().is_some_and(|g| g.ring.is_some()) {
             self.duplicates += 1;
         }
-        self.paint_mut().ring = Some((width.into(), offset.into(), Color::of(color)));
+        self.paint_mut().ring = Some((width.into(), offset.into(), color.into()));
         self
     }
 

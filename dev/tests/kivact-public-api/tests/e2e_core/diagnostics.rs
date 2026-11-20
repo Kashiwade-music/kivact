@@ -24,9 +24,9 @@ fn app() -> impl Element {
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
-                            .padding_x(t.space().lg)
-                            .padding_y(t.space().sm)
-                            .min_height(t.control_height())
+                            .padding_x(t.get(&kivact::style::space::LG_VAR))
+                            .padding_y(t.get(&kivact::style::space::SM_VAR))
+                            .min_height(t.get(&kivact::style::control::HEIGHT_VAR))
                     })
             }
             .on_press(move || count.update(|c| *c += 1))
@@ -44,9 +44,9 @@ fn app() -> impl Element {
                             .direction(kivact::style::Direction::Row)
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
-                            .padding_x(t.space().lg)
-                            .padding_y(t.space().sm)
-                            .min_height(t.control_height())
+                            .padding_x(t.get(&kivact::style::space::LG_VAR))
+                            .padding_y(t.get(&kivact::style::space::SM_VAR))
+                            .min_height(t.get(&kivact::style::control::HEIGHT_VAR))
                     })
             }
             .test_id("other"),

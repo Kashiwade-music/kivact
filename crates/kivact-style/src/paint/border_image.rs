@@ -14,7 +14,7 @@ pub enum BorderImageSource {
     /// A picture.
     Image(Asset),
     /// A CSS gradient.
-    Gradient(Gradient),
+    Gradient(Box<Gradient>),
 }
 
 impl From<Asset> for BorderImageSource {
@@ -37,7 +37,7 @@ impl From<&'static str> for BorderImageSource {
 
 impl From<Gradient> for BorderImageSource {
     fn from(g: Gradient) -> Self {
-        BorderImageSource::Gradient(g)
+        BorderImageSource::Gradient(Box::new(g))
     }
 }
 
@@ -143,7 +143,7 @@ impl BorderImage {
         let source = match &self.source {
             BorderImageSource::Image(a) => p::FillImage::Image(a.clone()),
             BorderImageSource::Gradient(g) => {
-                let layer = fill_layer(&super::Paint::from(g.clone()), theme);
+                let layer = fill_layer(&super::Paint::from(g.as_ref().clone()), theme);
                 layer.image
             }
         };

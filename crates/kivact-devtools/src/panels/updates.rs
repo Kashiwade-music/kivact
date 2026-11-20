@@ -2,7 +2,6 @@
 
 use kivact::draw::TextFormat;
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact_devtools_protocol as p;
 
 use crate::state::Session;
@@ -88,7 +87,11 @@ fn recomputed(turn: &p::TurnGraph) -> u64 {
 /// One framed count of the selected turn.
 fn count_box(label: &'static str, value: impl Fn() -> u64 + 'static) -> impl IntoView {
     column((
-        text(label).style(style().font_size(10.0).color(ColorToken::TextMuted)),
+        text(label).style(
+            style()
+                .font_size(10.0)
+                .color(kivact::style::color::TEXT_MUTED),
+        ),
         text(move || value().to_string()).style(style().font_size(16.0).weight(600)),
     ))
     .style(
@@ -97,7 +100,7 @@ fn count_box(label: &'static str, value: impl Fn() -> u64 + 'static) -> impl Int
             .padding_x(10)
             .padding_y(6)
             .min_width(130)
-            .border(1, ColorToken::Border)
+            .border(1, kivact::style::color::BORDER)
             .radius(4),
     )
 }
@@ -112,7 +115,7 @@ fn breakdown(turn: Value<Option<p::TurnGraph>>) -> impl IntoView {
 fn draw_breakdown(draw: &mut Draw, size: Size, turn: Option<&p::TurnGraph>) {
     let label = || TextFormat {
         size: 10.0,
-        color: Color::token(ColorToken::TextMuted),
+        color: kivact::style::color::TEXT_MUTED,
         ..TextFormat::default()
     };
     draw.text("Stages", Point::new(0.0, 2.0), label());
@@ -129,14 +132,14 @@ fn draw_breakdown(draw: &mut Draw, size: Size, turn: Option<&p::TurnGraph>) {
             size.width * stage.duration_ns as f64 / total as f64
         };
         let color = STAGE_COLORS[index % STAGE_COLORS.len()];
-        draw.fill_rect(Rect::new(x, 16.0, width, 14.0), Color::token(color));
+        draw.fill_rect(Rect::new(x, 16.0, width, 14.0), color);
         x += width;
     }
     if let Some(frame) = turn.frames.first() {
         let phases = [
-            (frame.scene_ns, ColorToken::Accent),
-            (frame.raster_ns, ColorToken::Warning),
-            (frame.present_ns, ColorToken::Success),
+            (frame.scene_ns, kivact::style::color::ACCENT),
+            (frame.raster_ns, kivact::style::color::WARNING),
+            (frame.present_ns, kivact::style::color::SUCCESS),
         ];
         let total: u64 = phases.iter().map(|(ns, _)| *ns).sum();
         let mut x = 0.0;
@@ -146,22 +149,22 @@ fn draw_breakdown(draw: &mut Draw, size: Size, turn: Option<&p::TurnGraph>) {
             } else {
                 size.width * ns as f64 / total as f64
             };
-            draw.fill_rect(Rect::new(x, 48.0, width, 12.0), Color::token(color));
+            draw.fill_rect(Rect::new(x, 48.0, width, 12.0), color);
             x += width;
         }
     }
 }
 
 /// The colors of the turn stages, in order.
-const STAGE_COLORS: [ColorToken; 8] = [
-    ColorToken::Accent,
-    ColorToken::Focus,
-    ColorToken::Success,
-    ColorToken::Warning,
-    ColorToken::Danger,
-    ColorToken::Selection,
-    ColorToken::Border,
-    ColorToken::TextMuted,
+const STAGE_COLORS: [Color; 8] = [
+    kivact::style::color::ACCENT,
+    kivact::style::color::FOCUS,
+    kivact::style::color::SUCCESS,
+    kivact::style::color::WARNING,
+    kivact::style::color::DANGER,
+    kivact::style::color::SELECTION,
+    kivact::style::color::BORDER,
+    kivact::style::color::TEXT_MUTED,
 ];
 
 /// The debugging overlays the Updates panel offers.

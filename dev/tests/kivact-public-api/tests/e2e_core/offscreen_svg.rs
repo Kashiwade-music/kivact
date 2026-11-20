@@ -12,7 +12,7 @@ use kivact::draw::{
     Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat, Transform, linear_gradient,
 };
 use kivact::geometry::{Point, Rect, Size};
-use kivact::style::theme::Typography;
+use kivact::style::FontFamily;
 use kivact::style::{Color, Theme, rgb};
 use std::cell::Cell;
 
@@ -220,10 +220,7 @@ fn artwork(draw: &mut Draw, size: Size) {
 
 #[test]
 fn one_offscreen_with_its_font_exports_the_pixels_and_the_document_of_one_drawing() {
-    let theme = Theme::default().with_text(Typography {
-        family: Some("Tuffy".into()),
-        ..Theme::default().text().clone()
-    });
+    let theme = Theme::default().set(&kivact::style::font::FAMILY_VAR, FontFamily::from("Tuffy"));
     let mut renderer = Offscreen::new().theme(theme);
     renderer.font(TUFFY).expect("the bundled font registers");
 

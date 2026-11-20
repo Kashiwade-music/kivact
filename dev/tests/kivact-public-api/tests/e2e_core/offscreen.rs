@@ -16,12 +16,10 @@ static TUFFY: &[u8] = include_bytes!("../../../../../crates/arvane/assets/fonts/
 static SVG: &[u8] = br##"<svg xmlns="http://www.w3.org/2000/svg" width="8" height="8"><rect width="8" height="8" fill="#00ff00"/></svg>"##;
 
 fn theme() -> Theme {
-    let theme = Theme::default();
-    let text = kivact::style::theme::Typography {
-        family: Some("Tuffy".into()),
-        ..theme.text().clone()
-    };
-    theme.with_text(text)
+    Theme::default().set(
+        &kivact::style::font::FAMILY_VAR,
+        kivact::style::FontFamily::from("Tuffy"),
+    )
 }
 
 fn artwork(draw: &mut Draw, size: Size, image: &Asset) {

@@ -70,6 +70,7 @@ mod text_editing;
 mod text_effects;
 mod text_primitives;
 mod text_style;
+mod theme_vars;
 mod timeline;
 mod touch_scroll;
 mod transform;

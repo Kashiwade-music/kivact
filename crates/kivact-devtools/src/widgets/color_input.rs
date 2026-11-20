@@ -1,7 +1,6 @@
 //! Role: A color input with a text value, HSL sliders and a preview.
 
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::view::EditPhase;
 
 /// A hex text field, three HSL sliders and a preview swatch for one color; `disabled` turns the
@@ -101,7 +100,7 @@ fn preview(label: &str, value: Signal<String>) -> impl IntoView {
             .shrink(0)
             .radius(4)
             .background(color)
-            .border(1, ColorToken::Border)
+            .border(1, kivact::style::color::BORDER)
     })
 }
 

@@ -10,7 +10,6 @@ use kivact::interaction::DialogMode;
 use kivact::interaction::{DialogApi, use_dialog};
 use kivact::prelude::*;
 use kivact::state::IntoText;
-use kivact::style::ColorToken;
 use kivact::test::Screen;
 use kivact::view::overlay;
 use kivact::view::{Node, Placement};
@@ -71,7 +70,12 @@ fn framed<B: IntoView, F: IntoView>(
         let footer = (!kivact::custom::view_is_empty(&footer))
             .then(|| row(footer).style(style().justify_content(Justify::End)));
         let mut panel = column((row((heading, closer)), intro, content, footer))
-            .style(style().padding(16).gap(12).background(ColorToken::Surface))
+            .style(
+                style()
+                    .padding(16)
+                    .gap(12)
+                    .background(kivact::style::color::SURFACE),
+            )
             .style(match kind {
                 DialogMode::Drawer(side) => edge(side),
                 DialogMode::Popover => style().width(288),

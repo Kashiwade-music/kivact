@@ -216,7 +216,8 @@ impl IntoView for ButtonGroupMember {
         let solid = self.solid;
         button
             .style(move || {
-                let t = kivact_core::style::use_tokens::<crate::UiTokens>();
+                let t = kivact_core::style::use_theme()
+                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
                 let divider = if solid.get() {
                     t.button_group.solid_divider
                 } else {

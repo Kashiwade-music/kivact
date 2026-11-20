@@ -1,6 +1,5 @@
 //! Role: Verify shared chat scrolling, native composition and selectable code contracts.
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::ui::{
     ChatMessageStatus, ChatSender, chat_composer, chat_message, chat_thread, code_block,
 };
@@ -78,7 +77,7 @@ fn code_block_copies_and_numbers_lines() {
                     (
                         vec![kivact::style::StyledRange {
                             range: 0..line.len(),
-                            color: Some(Color::token(ColorToken::Accent)),
+                            color: Some(kivact::style::color::ACCENT),
                             background: None,
                             decoration: None,
                         }],

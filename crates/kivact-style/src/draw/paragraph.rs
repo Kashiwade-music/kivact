@@ -82,7 +82,7 @@ impl InlineParagraph {
 ///
 /// ```no_run
 /// use kivact::prelude::*;
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// use kivact::draw::{Draw, TextFormat};
 /// use kivact::geometry::{Point, Rect, Size};
 ///
@@ -90,9 +90,9 @@ impl InlineParagraph {
 /// fn selected(d: &mut Draw, text: &str, range: std::ops::Range<usize>) {
 ///     let paragraph = d.layout_paragraph(text, &TextFormat::default(), None);
 ///     for band in paragraph.rects(range) {
-///         d.fill_rect(band, ColorToken::Selection);
+///         d.fill_rect(band, kivact::style::color::SELECTION);
 ///     }
-///     d.paragraph(&paragraph, Point::new(0.0, 0.0), ColorToken::Text);
+///     d.paragraph(&paragraph, Point::new(0.0, 0.0), kivact::style::color::TEXT);
 /// }
 /// # let _ = selected;
 /// ```

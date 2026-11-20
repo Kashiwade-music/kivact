@@ -2,15 +2,15 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
         .direction(Direction::Row)
         .gap(p.gap)
         .padding(p.padding)
-        .font_size(t.text().size)
-        .color(ColorToken::Text)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
@@ -18,14 +18,14 @@ pub(crate) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     style()
         .direction(Direction::Column)
         .padding(p.panel_padding)
-        .background(ColorToken::Surface)
-        .border(1, ColorToken::Border)
+        .background(kivact_core::style::color::SURFACE)
+        .border(1, kivact_core::style::color::BORDER)
 }
 
 pub(crate) fn action(_: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     style()
         .background(kivact_core::style::Color::TRANSPARENT)
-        .color(ColorToken::Text)
+        .color(kivact_core::style::color::TEXT)
         .border(0, kivact_core::style::Color::TRANSPARENT)
 }
 
@@ -37,11 +37,11 @@ pub(crate) fn link(t: &Theme, s: &Look<NavigationLinkState>) -> Style {
         } else {
             Align::Center
         })
-        .gap(t.space().sm)
-        .padding(t.space().sm)
-        .color(ColorToken::Text)
-        .hover(style().background(ColorToken::Hover))
-        .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
+        .padding(t.get(&kivact_core::style::space::SM_VAR))
+        .color(kivact_core::style::color::TEXT)
+        .hover(style().background(kivact_core::style::color::HOVER))
+        .focus_visible(style().ring(t.focus_ring(), kivact_core::style::color::FOCUS))
 }
 
 pub(crate) fn link_title(_: &Theme, _: &Look<NavigationLinkState>) -> Style {
@@ -50,8 +50,8 @@ pub(crate) fn link_title(_: &Theme, _: &Look<NavigationLinkState>) -> Style {
 
 pub(crate) fn link_description(t: &Theme, _: &Look<NavigationLinkState>) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn link_icon(_: &Theme, _: &Look<NavigationLinkState>) -> Style {

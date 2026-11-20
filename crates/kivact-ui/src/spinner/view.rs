@@ -42,7 +42,8 @@ impl Element for Spinner {
 }
 impl IntoView for Spinner {
     fn into_view(self) -> View {
-        let metrics = kivact_core::style::use_tokens::<crate::UiTokens>()
+        let metrics = kivact_core::style::use_theme()
+            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
             .indicators
             .clone();
         let size = self.size;
@@ -85,7 +86,8 @@ impl IntoView for Spinner {
                         .direction(kivact_core::style::Direction::Column)
                         .align_items(kivact_core::style::Align::Center)
                         .gap(
-                            kivact_core::style::use_tokens::<crate::UiTokens>()
+                            kivact_core::style::use_theme()
+                                .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
                                 .indicators
                                 .gap,
                         )

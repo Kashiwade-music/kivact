@@ -48,7 +48,8 @@ impl Element for Skeleton {
 }
 impl IntoView for Skeleton {
     fn into_view(self) -> View {
-        let tokens = kivact_core::style::use_tokens::<crate::UiTokens>();
+        let tokens =
+            kivact_core::style::use_theme().with(kivact_core::style::Theme::ext::<crate::UiTokens>);
         let period = tokens.indicators.period_ms;
         // The placeholder is the last of the group 0..=index, so a linear stagger
         // from the first item gives `index * stagger_ms`.
@@ -78,7 +79,8 @@ impl IntoView for Skeleton {
         self.root
             .base_style(move || {
                 kivact_core::style::style().gap(
-                    kivact_core::style::use_tokens::<crate::UiTokens>()
+                    kivact_core::style::use_theme()
+                        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
                         .indicators
                         .gap,
                 )

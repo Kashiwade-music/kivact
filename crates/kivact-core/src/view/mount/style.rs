@@ -333,7 +333,7 @@ impl StyleReports {
                 UiError::new(
                     kivact_runtime::ErrorKind::Unsupported,
                     format!(
-                        "{} content size(s) (Length::MinContent, Length::MaxContent, Length::FitContent) outside width, height and basis; they are auto there",
+                        "{} length(s) the host cannot take here: a content size (Length::MinContent, Length::MaxContent, Length::FitContent) outside width, height and basis, or a sum of unlike terms; they are auto there",
                         resolved.misplaced_content
                     ),
                     Some(at),

@@ -2,26 +2,26 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 pub(crate) fn description_root(t: &Theme, _: &Look<()>) -> Style {
     style()
         .direction(Direction::Column)
-        .gap(t.space().sm)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
         .min_width(0)
 }
 
 pub(crate) fn description_item(t: &Theme, _: &Look<()>) -> Style {
     style()
         .direction(Direction::Row)
-        .gap(t.space().md)
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
         .align_items(Align::Center)
         .min_width(0)
 }
 
 pub(crate) fn description_term(t: &Theme, _: &Look<()>) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
         .shrink(0)
 }
 

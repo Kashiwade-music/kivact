@@ -64,7 +64,7 @@
 
 use kivact_types as p;
 
-use super::color::Color;
+use super::color_value::Color;
 use super::effect::Shadow;
 use super::paint::Paint;
 use super::theme::value::Theme;
@@ -113,7 +113,7 @@ impl From<(&str, i32)> for FontVariation {
     }
 }
 
-pub use kivact_types::{TextLength, em};
+use kivact_types::Length;
 
 /// The distance between the baselines of a text's lines (CSS
 /// `line-height`).
@@ -206,16 +206,16 @@ impl From<&str> for FontFeature {
 /// line (boxed in `Style`).
 #[derive(Clone, Debug, PartialEq, Default)]
 pub(crate) struct TextExtras {
-    pub(crate) letter_spacing: Option<TextLength>,
-    pub(crate) word_spacing: Option<TextLength>,
+    pub(crate) letter_spacing: Option<Length>,
+    pub(crate) word_spacing: Option<Length>,
     pub(crate) kerning: Option<FontKerning>,
     pub(crate) features: Option<Vec<FontFeature>>,
     pub(crate) tabular_nums: Option<bool>,
     pub(crate) decoration_line: Option<TextDecorationLine>,
     pub(crate) decoration_style: Option<DecorationStyleValue>,
     pub(crate) decoration_color: Option<Color>,
-    pub(crate) decoration_thickness: Option<TextLength>,
-    pub(crate) underline_offset: Option<TextLength>,
+    pub(crate) decoration_thickness: Option<Length>,
+    pub(crate) underline_offset: Option<Length>,
     pub(crate) overflow: Option<TextOverflow>,
     pub(crate) line_clamp: Option<u32>,
     pub(crate) capsize: Option<bool>,
@@ -224,7 +224,7 @@ pub(crate) struct TextExtras {
     pub(crate) caret_color: Option<Color>,
     pub(crate) selection_color: Option<Color>,
     pub(crate) placeholder_color: Option<Color>,
-    pub(crate) stroke: Option<(TextLength, Color)>,
+    pub(crate) stroke: Option<(Length, Color)>,
     pub(crate) paint_order: Option<PaintOrder>,
     pub(crate) variations: Option<Vec<FontVariation>>,
     pub(crate) optical_sizing: Option<bool>,
@@ -288,12 +288,45 @@ pub(crate) fn features(
     (out, dropped)
 }
 
+/// The text length of an authored `length`: px (a number or a theme
+/// variable) or em; a percentage, a content size, `auto` or a sum with
+/// both px and em counts in `dropped` and is `None`.
+pub(crate) fn text_length(
+    length: Length,
+    theme: &Theme,
+    dropped: &mut u32,
+) -> Option<p::TextLength> {
+    match length {
+        Length::Px(v) => Some(p::TextLength::Px(v)),
+        Length::Em(e) => Some(p::TextLength::Em(e)),
+        Length::Var(v) => Some(p::TextLength::Px(theme.get(v))),
+        Length::Calc {
+            percent: 0.0,
+            px,
+            em: 0.0,
+            var,
+        } => Some(p::TextLength::Px(
+            px + var.map_or(0.0, |(v, k)| k * theme.get(v)),
+        )),
+        Length::Calc {
+            percent: 0.0,
+            px: 0.0,
+            em,
+            var: None,
+        } => Some(p::TextLength::Em(em)),
+        _ => {
+            *dropped += 1;
+            None
+        }
+    }
+}
+
 /// A decoration as the engine takes it.
 pub(crate) fn decoration(
     line: Option<TextDecorationLine>,
     color: Option<Color>,
-    thickness: Option<TextLength>,
-    offset: Option<TextLength>,
+    thickness: Option<p::TextLength>,
+    offset: Option<p::TextLength>,
     theme: &Theme,
 ) -> p::TextDecoration {
     p::TextDecoration {
@@ -357,24 +390,34 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
         dropped += bad;
         list
     });
-    t.stroke = x.stroke.map(|(width, c)| p::TextStroke {
-        width,
-        color: c.resolve(theme),
+    t.stroke = x.stroke.and_then(|(width, c)| {
+        text_length(width, theme, &mut dropped).map(|width| p::TextStroke {
+            width,
+            color: c.resolve(theme),
+        })
     });
     t.paint_order = x.paint_order;
     t.variations = variations;
     t.optical_sizing = x.optical_sizing;
     t.font_width = x.font_width;
-    t.letter_spacing = x.letter_spacing;
-    t.word_spacing = x.word_spacing;
+    t.letter_spacing = x
+        .letter_spacing
+        .and_then(|l| text_length(l, theme, &mut dropped));
+    t.word_spacing = x
+        .word_spacing
+        .and_then(|l| text_length(l, theme, &mut dropped));
     t.kerning = x.kerning;
     t.features = features;
     t.tabular_nums = x.tabular_nums;
     t.decoration_lines = x.decoration_line;
     t.decoration_style = x.decoration_style.as_ref().map(DecorationStyleValue::get);
     t.decoration_color = color(x.decoration_color);
-    t.decoration_thickness = x.decoration_thickness;
-    t.underline_offset = x.underline_offset;
+    t.decoration_thickness = x
+        .decoration_thickness
+        .and_then(|l| text_length(l, theme, &mut dropped));
+    t.underline_offset = x
+        .underline_offset
+        .and_then(|l| text_length(l, theme, &mut dropped));
     t.overflow = x.overflow;
     t.max_lines = x.line_clamp;
     t.capsize = x.capsize;
@@ -403,9 +446,9 @@ pub struct SpanStyle {
     /// Italic, or upright with `false`.
     pub italic: Option<bool>,
     /// Space after each character.
-    pub letter_spacing: Option<TextLength>,
+    pub letter_spacing: Option<Length>,
     /// Space after each word.
-    pub word_spacing: Option<TextLength>,
+    pub word_spacing: Option<Length>,
     /// Pair kerning.
     pub kerning: Option<FontKerning>,
     /// OpenType features replacing the paragraph's.
@@ -417,9 +460,9 @@ pub struct SpanStyle {
     /// Decoration color (default: the text color).
     pub decoration_color: Option<Color>,
     /// Decoration thickness.
-    pub decoration_thickness: Option<TextLength>,
+    pub decoration_thickness: Option<Length>,
     /// Underline offset from its normal place.
-    pub underline_offset: Option<TextLength>,
+    pub underline_offset: Option<Length>,
     /// A band behind the glyphs on each line the span is on.
     pub background: Option<Paint>,
     /// OpenType variation axis settings replacing the paragraph's.
@@ -427,7 +470,7 @@ pub struct SpanStyle {
     /// CSS font-width (font-stretch) in percent, 50 to 200.
     pub font_width: Option<f64>,
     /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
-    pub stroke: Option<(TextLength, Color)>,
+    pub stroke: Option<(Length, Color)>,
 }
 
 /// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
@@ -488,7 +531,7 @@ pub struct StyledRange {
 pub struct TextDecoration {
     pub lines: TextDecorationLine,
     pub color: Option<Color>,
-    pub thickness: Option<TextLength>,
-    pub underline_offset: TextLength,
+    pub thickness: Option<Length>,
+    pub underline_offset: Length,
     pub style: TextDecorationStyle,
 }

@@ -669,7 +669,7 @@ where
                         .style(
                             style()
                                 .padding(24)
-                                .color(kivact_core::style::ColorToken::TextMuted),
+                                .color(kivact_core::style::color::TEXT_MUTED),
                         )
                         .into_view()
                 },

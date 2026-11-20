@@ -4,7 +4,7 @@ use crate::look_common::side;
 use crate::control_size::ControlSize;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
-use kivact_core::style::{ColorToken, Style, Theme, style};
+use kivact_core::style::{Style, Theme, style};
 pub(crate) fn spinner(_: &Theme, s: &SpinnerState) -> Style {
     let side = side(s.size) * 0.6;
     let turn = s.turn;
@@ -20,7 +20,7 @@ pub(crate) fn spinner(_: &Theme, s: &SpinnerState) -> Style {
         d.stroke_path(
             &arc,
             &Stroke::new(2.0).cap(LineCap::Round),
-            ColorToken::Text,
+            kivact_core::style::color::TEXT,
         );
     })
 }

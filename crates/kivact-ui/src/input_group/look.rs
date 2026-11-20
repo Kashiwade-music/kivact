@@ -3,19 +3,19 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Justify, Style, Theme, style};
 use kivact_core::view::ReadingDirection;
 pub(crate) fn group_root(t: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
         .direction(Direction::Column)
-        .gap(t.space().sm)
+        .gap(t.get(&kivact_core::style::space::SM_VAR))
         .min_width(0)
 }
 
 pub(crate) fn group_label(t: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
-        .font_size(t.text().size)
-        .weight(t.text().weight_strong)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
+        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn group_members(_: &Theme, s: &Look<InputGroupState>) -> Style {
@@ -32,13 +32,13 @@ pub(crate) fn group_members(_: &Theme, s: &Look<InputGroupState>) -> Style {
 pub(crate) fn group_addon(t: &Theme, s: &Look<InputGroupState>) -> Style {
     style()
         .height(crate::look_common::height(t, s.size))
-        .padding_x(t.space().sm)
+        .padding_x(t.get(&kivact_core::style::space::SM_VAR))
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .border(1, ColorToken::Border)
-        .background(ColorToken::SurfaceAlt)
-        .color(ColorToken::Text)
-        .font_size(t.text().size)
+        .border(1, kivact_core::style::color::BORDER)
+        .background(kivact_core::style::color::SURFACE_ALT)
+        .color(kivact_core::style::color::TEXT)
+        .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
 }
 
 pub(crate) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style {
@@ -48,7 +48,7 @@ pub(crate) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
     } else {
         (s.first, s.last)
     };
-    let radius = t.radius().md;
+    let radius = t.get(&kivact_core::style::radius::MD_VAR);
     let base = style()
         .height(crate::look_common::height(t, s.group.size))
         .radius_corners(

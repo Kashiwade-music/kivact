@@ -2,16 +2,14 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{
-    Align, Color, ColorToken, Direction, Justify, Position, Style, Theme, pct, style,
-};
+use kivact_core::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
 use kivact_interaction::{ToastState, Tone};
 /// The regions at the bottom right, above the page.
 pub(crate) fn toast_region(t: &Theme, _: &PartState) -> Style {
     style()
         .position(Position::Fixed)
-        .right(t.space().xl)
-        .bottom(t.space().xl)
+        .right(t.get(&kivact_core::style::space::XL_VAR))
+        .bottom(t.get(&kivact_core::style::space::XL_VAR))
         .width(320)
         .max_width(pct(100))
 }
@@ -19,9 +17,9 @@ pub(crate) fn toast_region(t: &Theme, _: &PartState) -> Style {
 /// One live region's toasts in a column; a space above the assertive
 /// group while both groups show toasts.
 pub(crate) fn toast_group(t: &Theme, state: &ToastGroupState) -> Style {
-    let s = style().gap(t.space().sm);
+    let s = style().gap(t.get(&kivact_core::style::space::SM_VAR));
     if state.count > 0 && state.above > 0 {
-        s.margin_top(t.space().sm)
+        s.margin_top(t.get(&kivact_core::style::space::SM_VAR))
     } else {
         s
     }
@@ -30,44 +28,49 @@ pub(crate) fn toast_group(t: &Theme, state: &ToastGroupState) -> Style {
 /// A toast on the raised surface, its edge in the tone's color.
 pub(crate) fn toast(t: &Theme, state: &ToastState) -> Style {
     let edge: Color = match state.tone {
-        Tone::Neutral | Tone::Info => ColorToken::Border.into(),
-        Tone::Success => ColorToken::Success.into(),
-        Tone::Warning => ColorToken::Warning.into(),
-        Tone::Danger => ColorToken::Danger.into(),
-        Tone::Accent => ColorToken::Accent.into(),
+        Tone::Neutral | Tone::Info => kivact_core::style::color::BORDER,
+        Tone::Success => kivact_core::style::color::SUCCESS,
+        Tone::Warning => kivact_core::style::color::WARNING,
+        Tone::Danger => kivact_core::style::color::DANGER,
+        Tone::Accent => kivact_core::style::color::ACCENT,
     };
     style()
         .direction(Direction::Row)
         .align_items(Align::Start)
-        .gap(t.space().md)
-        .padding(t.space().lg)
-        .background(ColorToken::Raised)
-        .border(1, ColorToken::Border)
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .padding(t.get(&kivact_core::style::space::LG_VAR))
+        .background(kivact_core::style::color::RAISED)
+        .border(1, kivact_core::style::color::BORDER)
         .border_left(3, edge)
-        .radius(t.radius().md)
-        .shadow(kivact_core::draw::Shadow::new(0, 4, 12, ColorToken::Shadow))
+        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .shadow(kivact_core::draw::Shadow::new(
+            0,
+            4,
+            12,
+            kivact_core::style::color::SHADOW,
+        ))
 }
 
 /// The tone's icon box: 16 px in the tone's color.
 pub(crate) fn toast_icon(_: &Theme, state: &ToastState) -> Style {
     let color: Color = match state.tone {
-        Tone::Neutral => ColorToken::TextMuted.into(),
-        Tone::Info | Tone::Accent => ColorToken::Accent.into(),
-        Tone::Success => ColorToken::Success.into(),
-        Tone::Warning => ColorToken::Warning.into(),
-        Tone::Danger => ColorToken::Danger.into(),
+        Tone::Neutral => kivact_core::style::color::TEXT_MUTED,
+        Tone::Info | Tone::Accent => kivact_core::style::color::ACCENT,
+        Tone::Success => kivact_core::style::color::SUCCESS,
+        Tone::Warning => kivact_core::style::color::WARNING,
+        Tone::Danger => kivact_core::style::color::DANGER,
     };
     style().size(16, 16).shrink(0).color(color)
 }
 
 pub(crate) fn toast_title(t: &Theme, _: &ToastState) -> Style {
-    style().weight(t.text().weight_strong)
+    style().weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn toast_body(t: &Theme, _: &ToastState) -> Style {
     style()
-        .font_size(t.text().size_small)
-        .color(ColorToken::TextMuted)
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The close button, around its `x` icon.
@@ -78,9 +81,9 @@ pub(crate) fn toast_close(t: &Theme, _: &ToastState) -> Style {
         .justify_content(Justify::Center)
         .shrink(0)
         .size(24, 24)
-        .radius(t.radius().sm)
-        .color(ColorToken::TextMuted)
-        .hover(style().background(ColorToken::Hover))
+        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .color(kivact_core::style::color::TEXT_MUTED)
+        .hover(style().background(kivact_core::style::color::HOVER))
 }
 
 /// Shared by all kits: the row owns size presence independently of card paint.

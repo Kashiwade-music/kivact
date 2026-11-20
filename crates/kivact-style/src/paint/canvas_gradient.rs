@@ -20,8 +20,8 @@
 //!   repeating. A two-circle radial is the two-point radial of the CPU and
 //!   GPU renderers: outside the cone of non-nested circles it is
 //!   transparent.
+use crate::Color;
 use crate::geometry::Point;
-use crate::{Color, ThemeColor};
 use kivact_types::{ColorInterpolation, ColorSpace, HueInterpolation};
 
 /// What a [`CanvasGradient`] paints beyond its offsets 0 and 1.
@@ -67,14 +67,14 @@ pub(crate) enum CanvasShape {
 /// use kivact::draw::{Path};
 /// use kivact::geometry::{Point, Rect};
 /// use kivact::prelude::*;
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// use kivact::draw::Draw;
 /// use kivact::draw::{CanvasGradient, GradientExtend};
 /// fn knob(d: &mut Draw) {
 ///     // createRadialGradient(34, 34, 0, 40, 40, 30) with two color stops.
 ///     let ball = CanvasGradient::radial(Point::new(34.0, 34.0), 0.0, Point::new(40.0, 40.0), 30.0)
 ///         .stop(0.0, rgb(0xffffff))
-///         .stop(1.0, ColorToken::Accent);
+///         .stop(1.0, kivact::style::color::ACCENT);
 ///     d.fill_path(&Path::new().arc(Point::new(40.0, 40.0), 30, 0, 360, false), ball);
 ///     // Stripes along x: createLinearGradient(0, 0, 8, 0), repeating.
 ///     let stripes = CanvasGradient::linear(Point::new(0.0, 0.0), Point::new(8.0, 0.0))
@@ -142,9 +142,9 @@ impl CanvasGradient {
 
     /// A color at `offset` (`addColorStop`). A theme token is resolved with
     /// the theme in effect where the gradient is drawn.
-    pub fn stop(mut self, offset: f64, color: impl ThemeColor) -> Self {
+    pub fn stop(mut self, offset: f64, color: impl Into<Color>) -> Self {
         let at = self.stops.partition_point(|(o, _)| *o <= offset);
-        self.stops.insert(at, (offset, Color::of(color)));
+        self.stops.insert(at, (offset, color.into()));
         self
     }
 

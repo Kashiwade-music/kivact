@@ -1,7 +1,6 @@
 //! Role: The detail tabs of the Elements panel.
 
 use kivact::prelude::*;
-use kivact::style::ColorToken;
 use kivact::ui::{description, description_list};
 use kivact_devtools_protocol as p;
 
@@ -254,7 +253,7 @@ fn page(content: impl IntoView) -> View {
 /// A muted message for a tab without data.
 fn empty(message: &'static str) -> View {
     text(message)
-        .style(style().color(ColorToken::TextMuted).padding(8))
+        .style(style().color(kivact::style::color::TEXT_MUTED).padding(8))
         .into_view()
 }
 

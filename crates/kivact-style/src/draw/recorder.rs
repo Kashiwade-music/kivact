@@ -1,6 +1,6 @@
 //! Role: The `Draw` recorder: its state, transform and the `Recording` it yields.
 
-use crate::color::Color;
+use crate::color_value::Color;
 use crate::geometry::Size;
 use crate::paint::{Paint, fill_layer};
 use crate::theme::value::Theme;

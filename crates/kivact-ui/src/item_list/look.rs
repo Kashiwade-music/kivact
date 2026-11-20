@@ -2,13 +2,15 @@
 use crate::recipe::recipe_table;
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, pct, style};
+use kivact_core::style::{Align, Direction, Style, Theme, pct, style};
 use kivact_macros::Prop;
 pub(crate) fn item_list_root(t: &Theme, _: &PartState) -> Style {
-    style()
-        .direction(Direction::Column)
-        .width(pct(100))
-        .gap(t.ext::<UiTokens>().item_list.gap.unwrap_or(t.space().xs))
+    style().direction(Direction::Column).width(pct(100)).gap(
+        t.ext::<UiTokens>()
+            .item_list
+            .gap
+            .unwrap_or(t.get(&kivact_core::style::space::XS_VAR)),
+    )
 }
 
 pub(crate) fn item(t: &Theme, _: &ItemRowState) -> Style {
@@ -18,16 +20,16 @@ pub(crate) fn item(t: &Theme, _: &ItemRowState) -> Style {
             t.ext::<UiTokens>()
                 .item_list
                 .padding
-                .unwrap_or(t.space().sm),
+                .unwrap_or(t.get(&kivact_core::style::space::SM_VAR)),
         )
         .gap(
             t.ext::<UiTokens>()
                 .item_list
                 .row_gap
-                .unwrap_or(t.space().sm),
+                .unwrap_or(t.get(&kivact_core::style::space::SM_VAR)),
         )
-        .selected(style().background(ColorToken::Selection))
-        .focus_visible(style().ring(t.focus_ring(), ColorToken::Focus))
+        .selected(style().background(kivact_core::style::color::SELECTION))
+        .focus_visible(style().ring(t.focus_ring(), kivact_core::style::color::FOCUS))
 }
 
 pub(crate) fn content(_: &Theme, _: &ItemRowState) -> Style {
@@ -44,9 +46,9 @@ pub(crate) fn description(t: &Theme, _: &ItemRowState) -> Style {
             t.ext::<UiTokens>()
                 .item_list
                 .description_size
-                .unwrap_or(t.text().size_small),
+                .unwrap_or(t.get(&kivact_core::style::font::SIZE_SMALL_VAR)),
         )
-        .color(ColorToken::TextMuted)
+        .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 pub(crate) fn media(_: &Theme, _: &ItemRowState) -> Style {
@@ -72,12 +74,14 @@ pub(crate) fn item_body(t: &Theme, _: &ItemRowState) -> Style {
             t.ext::<UiTokens>()
                 .item_list
                 .row_gap
-                .unwrap_or(t.space().sm),
+                .unwrap_or(t.get(&kivact_core::style::space::SM_VAR)),
         )
 }
 
 pub(crate) fn list_header(t: &Theme, _: &PartState) -> Style {
-    style().font_size(t.text().size_small).weight(600)
+    style()
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
+        .weight(600)
 }
 
 pub(crate) fn marker(_: &Theme, _: &ItemRowState) -> Style {

@@ -58,7 +58,7 @@ pub(super) fn month_panel(
                         .height(20)
                         .font_size(12.8)
                         .text_align(TextAlign::Center)
-                        .color(kivact_core::style::ColorToken::TextMuted),
+                        .color(kivact_core::style::color::TEXT_MUTED),
                 )
                 .into_view()
         })

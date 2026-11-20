@@ -1,6 +1,6 @@
 //! Role: Hold the data table tokens that the theme's `UiTokens` carries.
 use kivact_core::motion::Transition;
-use kivact_core::style::{Color, ColorToken};
+use kivact_core::style::Color;
 
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct DataTableTokens {
@@ -23,12 +23,12 @@ pub struct DataTableRowStatusPaint {
 impl Default for DataTableRowStatusPaint {
     fn default() -> Self {
         Self {
-            neutral: ColorToken::TextMuted.into(),
-            info: ColorToken::Accent.into(),
-            success: ColorToken::Success.into(),
-            warning: ColorToken::Warning.into(),
-            danger: ColorToken::Danger.into(),
-            accent: ColorToken::Accent.into(),
+            neutral: kivact_core::style::color::TEXT_MUTED,
+            info: kivact_core::style::color::ACCENT,
+            success: kivact_core::style::color::SUCCESS,
+            warning: kivact_core::style::color::WARNING,
+            danger: kivact_core::style::color::DANGER,
+            accent: kivact_core::style::color::ACCENT,
             header_key: "data_table.row_status.column_header",
         }
     }
@@ -49,9 +49,9 @@ pub struct DataTableStickyPaint {
 impl Default for DataTableStickyPaint {
     fn default() -> Self {
         Self {
-            surface: ColorToken::Surface.into(),
-            hover: ColorToken::Hover.into(),
-            selected: ColorToken::SurfaceAlt.into(),
+            surface: kivact_core::style::color::SURFACE,
+            hover: kivact_core::style::color::HOVER,
+            selected: kivact_core::style::color::SURFACE_ALT,
             shadow: Color::TRANSPARENT,
             shadow_width: 0.0,
             shadow_transition: None,

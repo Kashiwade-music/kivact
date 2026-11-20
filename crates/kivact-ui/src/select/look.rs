@@ -4,14 +4,14 @@ use crate::look_common::{description, mark, trigger};
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, ColorToken, Direction, Style, Theme, style};
+use kivact_core::style::{Align, Direction, Style, Theme, style};
 use kivact_interaction::{ListItemState, PopupState};
 /// A select's trigger: a bordered field, its text muted while it shows
 /// the placeholder.
 pub(crate) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
     let s = trigger(t).height(crate::look_common::height(t, state.size));
     if state.placeholder {
-        s.color(ColorToken::TextMuted)
+        s.color(kivact_core::style::color::TEXT_MUTED)
     } else {
         s
     }
@@ -19,14 +19,14 @@ pub(crate) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
 
 pub(crate) fn option(t: &Theme, _: &ListItemState) -> Style {
     style()
-        .padding_x(t.space().md)
-        .height(t.control_height())
+        .padding_x(t.get(&kivact_core::style::space::MD_VAR))
+        .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .justify_content(kivact_core::style::Justify::Center)
         .direction(Direction::Row)
         .align_items(Align::Center)
-        .gap(t.space().md)
-        .focus(style().background(ColorToken::Hover))
-        .selected(style().background(ColorToken::Hover))
+        .gap(t.get(&kivact_core::style::space::MD_VAR))
+        .focus(style().background(kivact_core::style::color::HOVER))
+        .selected(style().background(kivact_core::style::color::HOVER))
 }
 
 /// The box of the selected option's check, at the row's end.
@@ -39,7 +39,7 @@ pub(crate) fn option_description(t: &Theme, _: &ListItemState) -> Style {
 }
 
 pub(crate) fn select_indicator(_: &Theme, _: &PopupState) -> Style {
-    mark().color(ColorToken::TextMuted)
+    mark().color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The state of a select's trigger for its recipe.

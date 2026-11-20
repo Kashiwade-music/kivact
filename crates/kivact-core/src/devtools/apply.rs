@@ -5,8 +5,8 @@ use std::panic::Location;
 use kivact_devtools_protocol as p;
 use kivact_runtime::Owner;
 use kivact_runtime::driver::Runtime;
-use kivact_style::theme::{Palette, Radii, Spacing};
-use kivact_style::{Color, ColorToken, Length, LineHeight, Style, TextAlign, Theme};
+use kivact_style::ThemeVar;
+use kivact_style::{Color, Length, LineHeight, Style, TextAlign, Theme};
 
 use kivact_types::{Display, NodeId};
 
@@ -112,8 +112,8 @@ fn number(value: &str) -> Result<f64, String> {
 }
 
 fn color(value: &str) -> Result<Color, String> {
-    if let Some(token) = color_token(value.trim()) {
-        return Ok(Color::token(token));
+    if let Some(var) = color_var(value.trim()) {
+        return Ok(Color::var(var));
     }
     Color::css(value).map_err(|_| format!("expected a color, got {value}"))
 }
@@ -263,7 +263,7 @@ fn color_text(text: &str) -> Option<String> {
     token_name(name)
 }
 
-/// The theme token name of a `ColorToken` `Debug` name: `SurfaceAlt` is
+/// The theme token name of a `Color` `Debug` name: `SurfaceAlt` is
 /// `surface_alt`.
 fn token_name(debug: &str) -> Option<String> {
     let mut name = String::with_capacity(debug.len() + 2);
@@ -277,7 +277,7 @@ fn token_name(debug: &str) -> Option<String> {
             name.push(c);
         }
     }
-    color_token(&name).map(|_| name)
+    color_var(&name).map(|_| name)
 }
 
 /// The color of a background that is one solid color covering the box, from
@@ -374,199 +374,176 @@ pub(crate) fn apply_token_overrides(theme: Theme, all: &[p::StyleOverride]) -> T
 }
 
 fn apply_token(theme: Theme, token: &str, value: &str) -> Theme {
-    if let Some(token) = color_token(token) {
+    if let Some(var) = color_var(token) {
         let Ok(color) = color(value) else {
             return theme;
         };
-        let mut palette: Palette = theme.colors().clone();
-        set_palette(&mut palette, token, color);
-        return theme.with_colors(palette);
+        return theme.set(var, color);
     }
-    if let Some(theme) = apply_space(&theme, token, value) {
-        return theme;
+    if let Some(var) = length_var(token) {
+        let Ok(number) = number(value) else {
+            return theme;
+        };
+        return theme.set(var, number);
     }
-    if let Some(theme) = apply_radius(&theme, token, value) {
-        return theme;
+    if let Some(var) = weight_var(token) {
+        let Ok(number) = number(value) else {
+            return theme;
+        };
+        return theme.set(var, number as u16);
     }
-    if let Some(theme) = apply_text(&theme, token, value) {
-        return theme;
-    }
-    apply_scalar(&theme, token, value)
-}
-
-fn apply_space(theme: &Theme, token: &str, value: &str) -> Option<Theme> {
-    if !matches!(
-        token,
-        "space.xs" | "space.sm" | "space.md" | "space.lg" | "space.xl"
-    ) {
-        return None;
-    }
-    let Ok(value) = number(value) else {
-        return Some(theme.clone());
-    };
-    let mut space: Spacing = *theme.space();
-    match token {
-        "space.xs" => space.xs = value,
-        "space.sm" => space.sm = value,
-        "space.md" => space.md = value,
-        "space.lg" => space.lg = value,
-        "space.xl" => space.xl = value,
-        _ => return None,
-    }
-    Some(theme.clone().with_space(space))
-}
-
-fn apply_radius(theme: &Theme, token: &str, value: &str) -> Option<Theme> {
-    if !matches!(token, "radius.sm" | "radius.md" | "radius.lg") {
-        return None;
-    }
-    let Ok(value) = number(value) else {
-        return Some(theme.clone());
-    };
-    let mut radius: Radii = *theme.radius();
-    match token {
-        "radius.sm" => radius.sm = value,
-        "radius.md" => radius.md = value,
-        "radius.lg" => radius.lg = value,
-        _ => return None,
-    }
-    Some(theme.clone().with_radius(radius))
-}
-
-fn apply_text(theme: &Theme, token: &str, value: &str) -> Option<Theme> {
-    let line_height = if token == "text.line_height" {
-        if let Some(px) = value.trim().strip_suffix("px") {
-            px.trim().parse::<f64>().ok().map(LineHeight::Px)
-        } else {
-            number(value).ok().map(LineHeight::Scale)
-        }
-    } else {
-        None
-    };
     if token == "text.line_height" {
-        return Some(match line_height {
-            Some(value) => {
-                let mut text = theme.text().clone();
-                text.line_height = value;
-                theme.clone().with_text(text)
-            }
-            None => theme.clone(),
-        });
+        return match line_height(value) {
+            Some(line_height) => theme.set(&kivact_style::font::LINE_HEIGHT_VAR, line_height),
+            None => theme,
+        };
     }
-    if !matches!(
-        token,
-        "text.size" | "text.size_small" | "text.size_large" | "text.weight" | "text.weight_strong"
-    ) {
-        return None;
-    }
-    let Ok(value) = number(value) else {
-        return Some(theme.clone());
-    };
-    let mut text = theme.text().clone();
-    match token {
-        "text.size" => text.size = value,
-        "text.size_small" => text.size_small = value,
-        "text.size_large" => text.size_large = value,
-        "text.weight" => text.weight = value as u16,
-        "text.weight_strong" => text.weight_strong = value as u16,
-        _ => return None,
-    }
-    Some(theme.clone().with_text(text))
+    apply_scalar(theme, token, value)
 }
 
-fn apply_scalar(theme: &Theme, token: &str, value: &str) -> Theme {
+fn line_height(value: &str) -> Option<LineHeight> {
+    if let Some(px) = value.trim().strip_suffix("px") {
+        px.trim().parse::<f64>().ok().map(LineHeight::Px)
+    } else {
+        number(value).ok().map(LineHeight::Scale)
+    }
+}
+
+fn apply_scalar(theme: Theme, token: &str, value: &str) -> Theme {
     let Ok(value) = number(value) else {
-        return theme.clone();
+        return theme;
     };
     match token {
-        "focus_ring" => theme.clone().with_focus_ring(value),
-        "focus_ring_offset" => theme.clone().with_focus_ring_offset(value),
-        "disabled_opacity" => theme.clone().with_disabled_opacity(value),
-        "control_height" => theme.clone().with_control_height(value),
-        "overlay_margin" => theme.clone().with_overlay_margin(value),
-        _ => theme.clone(),
+        "focus_ring" => theme.with_focus_ring(value),
+        "focus_ring_offset" => theme.with_focus_ring_offset(value),
+        _ => theme,
     }
 }
 
-fn set_palette(palette: &mut Palette, token: ColorToken, color: Color) {
-    match token {
-        ColorToken::Surface => palette.surface = color,
-        ColorToken::SurfaceAlt => palette.surface_alt = color,
-        ColorToken::Text => palette.text = color,
-        ColorToken::TextMuted => palette.text_muted = color,
-        ColorToken::Accent => palette.accent = color,
-        ColorToken::AccentText => palette.accent_text = color,
-        ColorToken::Border => palette.border = color,
-        ColorToken::Focus => palette.focus = color,
-        ColorToken::Danger => palette.danger = color,
-        ColorToken::Success => palette.success = color,
-        ColorToken::Warning => palette.warning = color,
-        ColorToken::Overlay => palette.overlay = color,
-        ColorToken::Shadow => palette.shadow = color,
-        ColorToken::Selection => palette.selection = color,
-        ColorToken::Hover => palette.hover = color,
-        ColorToken::Pressed => palette.pressed = color,
-        ColorToken::Raised => palette.raised = color,
-    }
-}
-
-const COLOR_TOKENS: [(&str, ColorToken); 17] = [
-    ("surface", ColorToken::Surface),
-    ("surface_alt", ColorToken::SurfaceAlt),
-    ("text", ColorToken::Text),
-    ("text_muted", ColorToken::TextMuted),
-    ("accent", ColorToken::Accent),
-    ("accent_text", ColorToken::AccentText),
-    ("border", ColorToken::Border),
-    ("focus", ColorToken::Focus),
-    ("danger", ColorToken::Danger),
-    ("success", ColorToken::Success),
-    ("warning", ColorToken::Warning),
-    ("overlay", ColorToken::Overlay),
-    ("shadow", ColorToken::Shadow),
-    ("selection", ColorToken::Selection),
-    ("hover", ColorToken::Hover),
-    ("pressed", ColorToken::Pressed),
-    ("raised", ColorToken::Raised),
+/// The color theme variables a token name stands for.
+const COLOR_TOKENS: [(&str, &'static ThemeVar<Color>); 17] = [
+    ("surface", &kivact_style::color::SURFACE_VAR),
+    ("surface_alt", &kivact_style::color::SURFACE_ALT_VAR),
+    ("text", &kivact_style::color::TEXT_VAR),
+    ("text_muted", &kivact_style::color::TEXT_MUTED_VAR),
+    ("accent", &kivact_style::color::ACCENT_VAR),
+    ("accent_text", &kivact_style::color::ACCENT_TEXT_VAR),
+    ("border", &kivact_style::color::BORDER_VAR),
+    ("focus", &kivact_style::color::FOCUS_VAR),
+    ("danger", &kivact_style::color::DANGER_VAR),
+    ("success", &kivact_style::color::SUCCESS_VAR),
+    ("warning", &kivact_style::color::WARNING_VAR),
+    ("overlay", &kivact_style::color::OVERLAY_VAR),
+    ("shadow", &kivact_style::color::SHADOW_VAR),
+    ("selection", &kivact_style::color::SELECTION_VAR),
+    ("hover", &kivact_style::color::HOVER_VAR),
+    ("pressed", &kivact_style::color::PRESSED_VAR),
+    ("raised", &kivact_style::color::RAISED_VAR),
 ];
 
-fn color_token(name: &str) -> Option<ColorToken> {
-    let name = name.strip_prefix("colors.").unwrap_or(name);
+/// The length theme variables (px) a token name stands for.
+const LENGTH_TOKENS: [(&str, &'static ThemeVar<f64>); 14] = [
+    (
+        "disabled_opacity",
+        &kivact_style::control::DISABLED_OPACITY_VAR,
+    ),
+    ("control_height", &kivact_style::control::HEIGHT_VAR),
+    ("overlay_margin", &kivact_style::control::OVERLAY_MARGIN_VAR),
+    ("space.xs", &kivact_style::space::XS_VAR),
+    ("space.sm", &kivact_style::space::SM_VAR),
+    ("space.md", &kivact_style::space::MD_VAR),
+    ("space.lg", &kivact_style::space::LG_VAR),
+    ("space.xl", &kivact_style::space::XL_VAR),
+    ("radius.sm", &kivact_style::radius::SM_VAR),
+    ("radius.md", &kivact_style::radius::MD_VAR),
+    ("radius.lg", &kivact_style::radius::LG_VAR),
+    ("text.size", &kivact_style::font::SIZE_VAR),
+    ("text.size_small", &kivact_style::font::SIZE_SMALL_VAR),
+    ("text.size_large", &kivact_style::font::SIZE_LARGE_VAR),
+];
+
+/// The weight theme variables a token name stands for.
+const WEIGHT_TOKENS: [(&str, &'static ThemeVar<u16>); 2] = [
+    ("text.weight", &kivact_style::font::WEIGHT_VAR),
+    ("text.weight_strong", &kivact_style::font::WEIGHT_STRONG_VAR),
+];
+
+fn strip_colors(name: &str) -> &str {
+    name.strip_prefix("colors.").unwrap_or(name)
+}
+
+fn color_var(name: &str) -> Option<&'static ThemeVar<Color>> {
+    let name = strip_colors(name);
     COLOR_TOKENS
         .iter()
         .find(|(token, _)| *token == name)
-        .map(|(_, token)| *token)
+        .map(|(_, var)| *var)
+}
+
+fn length_var(name: &str) -> Option<&'static ThemeVar<f64>> {
+    LENGTH_TOKENS
+        .iter()
+        .find(|(token, _)| *token == name)
+        .map(|(_, var)| *var)
+}
+
+fn weight_var(name: &str) -> Option<&'static ThemeVar<u16>> {
+    WEIGHT_TOKENS
+        .iter()
+        .find(|(token, _)| *token == name)
+        .map(|(_, var)| *var)
 }
 
 /// The theme tokens of `theme`, with their values.
 pub(crate) fn token_list(theme: &Theme) -> Vec<p::ThemeToken> {
     let mut tokens = Vec::new();
-    for (name, token) in COLOR_TOKENS {
+    for (name, var) in COLOR_TOKENS {
         tokens.push(p::ThemeToken {
             name: format!("colors.{name}"),
             kind: p::TokenKind::Color,
-            value: hex(theme.colors().get(token).components_in(theme)),
+            value: hex(theme.get(var).components_in(theme)),
         });
     }
     for (name, value) in [
-        ("space.xs", theme.space().xs),
-        ("space.sm", theme.space().sm),
-        ("space.md", theme.space().md),
-        ("space.lg", theme.space().lg),
-        ("space.xl", theme.space().xl),
-        ("radius.sm", theme.radius().sm),
-        ("radius.md", theme.radius().md),
-        ("radius.lg", theme.radius().lg),
-        ("text.size", theme.text().size),
-        ("text.size_small", theme.text().size_small),
-        ("text.size_large", theme.text().size_large),
-        ("text.weight", f64::from(theme.text().weight)),
-        ("text.weight_strong", f64::from(theme.text().weight_strong)),
+        ("space.xs", theme.get(&kivact_style::space::XS_VAR)),
+        ("space.sm", theme.get(&kivact_style::space::SM_VAR)),
+        ("space.md", theme.get(&kivact_style::space::MD_VAR)),
+        ("space.lg", theme.get(&kivact_style::space::LG_VAR)),
+        ("space.xl", theme.get(&kivact_style::space::XL_VAR)),
+        ("radius.sm", theme.get(&kivact_style::radius::SM_VAR)),
+        ("radius.md", theme.get(&kivact_style::radius::MD_VAR)),
+        ("radius.lg", theme.get(&kivact_style::radius::LG_VAR)),
+        ("text.size", theme.get(&kivact_style::font::SIZE_VAR)),
+        (
+            "text.size_small",
+            theme.get(&kivact_style::font::SIZE_SMALL_VAR),
+        ),
+        (
+            "text.size_large",
+            theme.get(&kivact_style::font::SIZE_LARGE_VAR),
+        ),
+        (
+            "text.weight",
+            f64::from(theme.get(&kivact_style::font::WEIGHT_VAR)),
+        ),
+        (
+            "text.weight_strong",
+            f64::from(theme.get(&kivact_style::font::WEIGHT_STRONG_VAR)),
+        ),
         ("focus_ring", theme.focus_ring()),
         ("focus_ring_offset", theme.focus_ring_offset()),
-        ("disabled_opacity", theme.disabled_opacity()),
-        ("control_height", theme.control_height()),
-        ("overlay_margin", theme.overlay_margin()),
+        (
+            "disabled_opacity",
+            theme.get(&kivact_style::control::DISABLED_OPACITY_VAR),
+        ),
+        (
+            "control_height",
+            theme.get(&kivact_style::control::HEIGHT_VAR),
+        ),
+        (
+            "overlay_margin",
+            theme.get(&kivact_style::control::OVERLAY_MARGIN_VAR),
+        ),
     ] {
         tokens.push(p::ThemeToken {
             name: name.to_owned(),
@@ -577,7 +554,7 @@ pub(crate) fn token_list(theme: &Theme) -> Vec<p::ThemeToken> {
     tokens.push(p::ThemeToken {
         name: "text.line_height".to_owned(),
         kind: p::TokenKind::Text,
-        value: match theme.text().line_height {
+        value: match theme.get(&kivact_style::font::LINE_HEIGHT_VAR) {
             LineHeight::Normal => "normal".to_owned(),
             LineHeight::Scale(value) => format!("{value}"),
             LineHeight::Px(value) => format!("{value}px"),

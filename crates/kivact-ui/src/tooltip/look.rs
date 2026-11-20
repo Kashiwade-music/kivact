@@ -1,16 +1,16 @@
 //! Role: The tooltip recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{ColorToken, Position, Style, Theme, style};
+use kivact_core::style::{Position, Style, Theme, style};
 use kivact_interaction::PopupState;
 pub(crate) fn tooltip(t: &Theme, _: &PopupState) -> Style {
     style()
         .padding_x(8)
         .padding_y(4)
-        .background(ColorToken::Surface)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().sm)
-        .font_size(t.text().size_small)
+        .background(kivact_core::style::color::SURFACE)
+        .border(1, kivact_core::style::color::BORDER)
+        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
 }
 
 /// No arrow: an empty box out of the layout.

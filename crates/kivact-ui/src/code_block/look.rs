@@ -4,17 +4,17 @@ use crate::look_common::{column, row};
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, ColorToken, Direction, LineHeight, Style, Theme, pct, style};
+use kivact_core::style::{Align, Direction, LineHeight, Style, Theme, pct, style};
 pub(crate) fn code_root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     column(t, s)
-        .border(1, ColorToken::Border)
-        .radius(t.radius().md)
-        .background(ColorToken::Surface)
-        .color(ColorToken::Text)
+        .border(1, kivact_core::style::color::BORDER)
+        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .background(kivact_core::style::color::SURFACE)
+        .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn code_header(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    row(t, s).padding(t.space().sm)
+    row(t, s).padding(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 pub(crate) fn code_body(t: &Theme, s: &Look<CodeBlockState>) -> Style {
@@ -25,7 +25,7 @@ pub(crate) fn code_body(t: &Theme, s: &Look<CodeBlockState>) -> Style {
 }
 
 pub(crate) fn code_viewport(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    viewport(t, s).padding(t.space().md)
+    viewport(t, s).padding(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 pub(crate) fn code_text(t: &Theme, s: &Look<CodeBlockState>) -> Style {
@@ -46,7 +46,7 @@ pub(crate) fn code_gutter(t: &Theme, s: &Look<CodeBlockState>) -> Style {
         .shrink(0)
         .min_width(24)
         .text_wrap(false)
-        .color(ColorToken::TextMuted)
+        .color(kivact_core::style::color::TEXT_MUTED)
         .text_align(kivact_core::style::TextAlign::End)
 }
 

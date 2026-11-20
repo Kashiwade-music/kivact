@@ -38,8 +38,11 @@ fn paragraph_measurer(api: &'static str, at: &'static Location<'static>) -> impl
     let rt = kivact_runtime::Owner::running(api, at).runtime();
     let theme = kivact_style::use_theme().get();
     let inherited = values::ComputedTextStyle {
-        family: theme.text().family.clone(),
-        line_height: theme.text().line_height,
+        family: theme
+            .get(&kivact_style::font::FAMILY_VAR)
+            .as_str()
+            .map(str::to_owned),
+        line_height: theme.get(&kivact_style::font::LINE_HEIGHT_VAR),
         ..Default::default()
     };
     ViewState::tree(&rt).reader().paragraph_measurer(inherited)

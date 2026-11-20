@@ -27,13 +27,13 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// use kivact::draw::{Draw};
 /// use kivact::geometry::{Size};
 /// use kivact::style::{pct};
-/// use kivact::style::ColorToken;
+/// use kivact::style::Color;
 /// fn badge(d: &mut Draw, size: Size) {
 ///     let tilted = Layer::new()
 ///         .transform(Transform::new().rotate(-8))
 ///         .clip(&Shape::circle(pct(50)))
 ///         .opacity(0.8);
-///     d.layer(tilted, |d| d.fill_rect(size.to_rect(), ColorToken::Accent));
+///     d.layer(tilted, |d| d.fill_rect(size.to_rect(), kivact::style::color::ACCENT));
 /// }
 /// # let _ = badge;
 /// ```

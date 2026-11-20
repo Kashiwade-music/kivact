@@ -39,8 +39,8 @@
 //! - A focus stop (focusable, or a native editor) gets a style effect even
 //!   without a style, and resolve gives it the theme's defaults: without a
 //!   `focus` or `focus_visible` state, `focus_visible` gets
-//!   `ring(theme.focus_ring(), ColorToken::Focus)`; while disabled, the
-//!   disabled state gets `theme.disabled_opacity()` unless it sets an opacity,
+//!   `ring(theme.focus_ring(), kivact::style::color::FOCUS)`; while disabled, the
+//!   disabled state gets `theme.get(&kivact::style::control::DISABLED_OPACITY_VAR)` unless it sets an opacity,
 //!   and hover and pressed are dropped. The defaults sit on the node that
 //!   carries the disabled semantics and the focus, so drawing and meaning
 //!   agree (G-07).

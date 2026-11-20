@@ -9,7 +9,6 @@
 //! its measure function.
 
 use kivact::state::IntoValue;
-use kivact::style::ColorToken;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
@@ -39,9 +38,9 @@ fn a_primitive_is_laid_out_at_its_measured_size_and_new_content_relayouts() {
                 })
                 .draw(move |d, size| {
                     let c = if tint.get() {
-                        ColorToken::Accent
+                        kivact::style::color::ACCENT
                     } else {
-                        ColorToken::Border
+                        kivact::style::color::BORDER
                     };
                     d.fill_rect(size.to_rect(), c);
                 })
@@ -95,7 +94,7 @@ fn a_primitives_draw_layer_runs_again_when_its_size_changes() {
             })
             .draw(move |d, size| {
                 log.borrow_mut().push(size);
-                d.fill_rect(size.to_rect(), ColorToken::Accent);
+                d.fill_rect(size.to_rect(), kivact::style::color::ACCENT);
             })
             .test_id("bar"),));
         ((), view)
@@ -143,7 +142,10 @@ fn a_primitive_takes_focus_input_and_accessibility_like_any_element() {
                 .measure((), |_: &(), _: Constraints| Size::new(100.0, 20.0))
                 .draw(move |d, size| {
                     let w = size.width * level.get() as f64 / 10.0;
-                    d.fill_rect(Rect::new(0.0, 0.0, w, size.height), ColorToken::Accent);
+                    d.fill_rect(
+                        Rect::new(0.0, 0.0, w, size.height),
+                        kivact::style::color::ACCENT,
+                    );
                 })
                 .with_node(move |node| node.role(Role::Slider))
                 .name("level")
