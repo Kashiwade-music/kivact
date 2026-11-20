@@ -83,6 +83,7 @@ pub(crate) mod state_motion;
 pub(crate) mod states;
 pub(crate) mod text;
 pub(crate) mod transform;
+pub(crate) mod window;
 
 pub(crate) use crate::layer::{EVERYWHERE, LayerTraits, SubtreeFacts};
 pub(crate) use aggregate::ExternalWrite;

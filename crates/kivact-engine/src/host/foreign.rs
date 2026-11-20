@@ -2,8 +2,8 @@
 //! draws: create it with the window and report its size.
 
 use super::pump::Host;
-use super::window::Content;
 use crate::contract::{ForeignChange, HostEvent};
+use crate::model::window::Content;
 use arvane::Windows;
 use kivact_types::cell::Sent;
 use kivact_types::{PlatformRequest, PlatformResult, SurfaceSize, WindowId};
@@ -24,7 +24,7 @@ impl Host {
             return Err("the platform did not create a native child window".into());
         };
         let size = surface_size(&window);
-        if let Some(host_window) = self.windows.get_mut(&id) {
+        if let Some(host_window) = self.app.borrow_mut().host_mut(id) {
             let mut reported = Sent::new();
             reported.update(size);
             host_window.content = Content::Foreign { child, reported };
@@ -38,13 +38,17 @@ impl Host {
             return;
         };
         let size = surface_size(&window);
-        let Some(host_window) = self.windows.get_mut(&id) else {
-            return;
+        let changed = {
+            let mut app = self.app.borrow_mut();
+            let Some(host_window) = app.host_mut(id) else {
+                return;
+            };
+            let Content::Foreign { reported, .. } = &mut host_window.content else {
+                return;
+            };
+            reported.update(size).is_some()
         };
-        let Content::Foreign { reported, .. } = &mut host_window.content else {
-            return;
-        };
-        if reported.update(size).is_some() {
+        if changed {
             self.app.borrow().push_event(HostEvent::Foreign {
                 window: id,
                 change: ForeignChange::Resized(size),

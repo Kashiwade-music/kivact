@@ -7,9 +7,9 @@
 
 use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::Host;
-use super::window::{HostWindow, surface_of};
 use crate::contract::{ForeignChange, HostEvent};
 use crate::model::WindowChange;
+use crate::model::window::surface_of;
 use arvane::Windows;
 use kivact_types::{Environment, WindowContent, WindowId};
 
@@ -23,15 +23,12 @@ impl Host {
                     let id = request.id;
                     match windows.open(request.clone()) {
                         Ok(()) => {
-                            self.windows
-                                .insert(id, HostWindow::new(request.mode, request.parent));
                             let (environment, surface_active) = self.start_window(id, windows);
                             let foreign = if request.content == WindowContent::Foreign {
                                 match self.prepare_foreign(id, windows) {
                                     Ok((child, size)) => Some(ForeignChange::Ready { child, size }),
                                     Err(reason) => {
                                         windows.close(id);
-                                        self.windows.remove(&id);
                                         self.app.borrow_mut().remove_window(id);
                                         self.app.borrow_mut().push_event(HostEvent::WindowFailed {
                                             window: id,
@@ -56,7 +53,6 @@ impl Host {
                         }
                         Err(error) => {
                             self.app.borrow_mut().remove_window(id);
-                            self.windows.remove(&id);
                             self.app.borrow().push_event(HostEvent::WindowFailed {
                                 window: id,
                                 reason: error.to_string(),
@@ -65,7 +61,7 @@ impl Host {
                     }
                 }
                 WindowChange::Close(id) => {
-                    if self.windows.remove(&id).is_some() {
+                    if self.app.borrow().host(id).is_some() {
                         windows.close(id);
                         self.app.borrow_mut().remove_window(id);
                     }
@@ -99,8 +95,9 @@ impl Host {
         let paint_scale = effective_scale(scale, emulation.scale);
         let surface = surface_of(&window);
         self.record_environment(id, native.clone());
-        self.windows
-            .get_mut(&id)
+        self.app
+            .borrow_mut()
+            .host_mut(id)
             .expect("invariant: a started window has host state")
             .surface = surface;
         let drawable = self.drawable(id);
@@ -140,7 +137,7 @@ impl Host {
     /// scales wheels).
     pub(super) fn environment_changed(&mut self, id: WindowId, window: &arvane::Window<'_>) {
         let mut now = window.environment();
-        let before = match self.windows.get_mut(&id) {
+        let before = match self.app.borrow_mut().host_mut(id) {
             Some(host_window) => host_window
                 .environment
                 .get()
@@ -231,7 +228,8 @@ impl Host {
     /// Stop or resume the App's motion clock and report its input when it
     /// changed.
     pub(super) fn finish_motion(&mut self, now: u64) {
-        let drawable = self.windows.keys().any(|id| self.drawable(*id));
+        let source = self.window_ids().into_iter().find(|id| self.drawable(*id));
+        let drawable = source.is_some();
         let shared = std::rc::Rc::clone(&self.app);
         let mut app = shared.borrow_mut();
         if drawable {
@@ -239,13 +237,7 @@ impl Host {
         } else {
             app.clock.stop(now);
         }
-        let period = if drawable {
-            let id = self
-                .windows
-                .keys()
-                .copied()
-                .find(|id| self.drawable(*id))
-                .expect("invariant: a drawable window exists");
+        let period = if let Some(id) = source {
             app.model(id).map_or(0, |model| model.frame.period_ns())
         } else {
             app.model(WindowId::MAIN)
@@ -270,7 +262,7 @@ impl Host {
     /// Record `environment` as window `id`'s last read environment (the only
     /// writer of `HostWindow::environment`).
     fn record_environment(&mut self, id: WindowId, environment: Environment) {
-        if let Some(host_window) = self.windows.get_mut(&id) {
+        if let Some(host_window) = self.app.borrow_mut().host_mut(id) {
             host_window.environment.update(environment);
         }
     }

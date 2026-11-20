@@ -437,7 +437,7 @@ impl ArvaneTestHost {
     /// `None` while the host has not started or the window has presented none.
     pub fn frame_stats(&self, window: WindowId) -> Option<kivact_types::export::FrameStats> {
         match &*self.host.borrow() {
-            Launch::Running(host) => host.windows.get(&window).and_then(|w| w.last_stats),
+            Launch::Running(host) => host.app.borrow().host(window).and_then(|w| w.last_stats),
             _ => None,
         }
     }

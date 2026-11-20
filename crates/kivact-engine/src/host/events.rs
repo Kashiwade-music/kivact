@@ -30,10 +30,10 @@
 //! - The window losing the focus cancels every pointer of that window.
 use super::devtools::{apply_emulation, effective_scale, emulated_viewport, physical_letter};
 use super::pump::{AppPresence, Host, HostPhase};
-use super::window::LastPresent;
 use crate::KeyResult;
 use crate::contract::{HostEvent, HostInfo, InputOrigin};
 use crate::host::HostWaker;
+use crate::model::window::LastPresent;
 use arvane::{EventTarget, ShellControl, ShellError, ShellEvent, Window, Windows};
 use kivact_types::{
     KeyInput, KeyPhase, LifecycleEvent, PlatformRequest, PlatformResult, PointerKind, PointerPhase,
@@ -47,7 +47,7 @@ impl Host {
         windows: &mut Windows<'_>,
         waker: HostWaker,
     ) -> Result<ShellControl, ShellError> {
-        if self.observe_close() {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         let (env, drawable) = self.start_window(WindowId::MAIN, windows);
@@ -65,11 +65,11 @@ impl Host {
         self.report_app_motion(info.surface_active, info.env.frame_period_ns);
         let tree = super::write::Writer::new(&self.app, &self.engine);
         self.client.start(&info, waker, tree);
-        if self.observe_close() {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         self.apply_window_changes(windows);
-        if self.observe_close() {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         self.externals(windows);
@@ -85,7 +85,7 @@ impl Host {
         event: ShellEvent,
         windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
-        if self.observe_close() {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         match target {
@@ -101,7 +101,7 @@ impl Host {
         windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
         self.enter(windows);
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         match event {
@@ -161,11 +161,11 @@ impl Host {
         event: ShellEvent,
         windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
-        if !self.windows.contains_key(&id) {
+        if self.app.borrow().host(id).is_none() {
             return Ok(ShellControl::Wait);
         }
         self.enter(windows);
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         let now = windows.now_ns();
@@ -226,7 +226,7 @@ impl Host {
             | ShellEvent::Accessibility { .. }) => self.accessibility_event(event, id, windows),
             event => self.lifecycle_event(event, id, windows),
         }
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         if input {
@@ -237,10 +237,10 @@ impl Host {
 
     /// Whether `id` has an open modal child that owns the input in `event`.
     fn discards_for_modal_parent(&self, id: WindowId, event: &ShellEvent) -> bool {
-        let modal_child = self
-            .windows
-            .values()
-            .any(|window| window.mode == WindowMode::Modal && window.parent == Some(id));
+        let modal_child =
+            self.app.borrow().windows.values().any(|window| {
+                window.host.mode == WindowMode::Modal && window.host.parent == Some(id)
+            });
         modal_child
             && matches!(
                 event,
@@ -262,8 +262,9 @@ impl Host {
                     if let Some(model) = self.app.borrow_mut().model_mut(id) {
                         model.paint.drawn();
                     }
-                    self.windows
-                        .get_mut(&id)
+                    self.app
+                        .borrow_mut()
+                        .host_mut(id)
                         .expect("invariant: a drawn window has host state")
                         .last_present = LastPresent::Shown {
                         at_ns: windows.now_ns(),
@@ -276,8 +277,9 @@ impl Host {
                         model.paint.drawn();
                         model.drawables.skipped(retry_at_ns);
                     }
-                    self.windows
-                        .get_mut(&id)
+                    self.app
+                        .borrow_mut()
+                        .host_mut(id)
                         .expect("invariant: a drawn window has host state")
                         .last_present = LastPresent::Skipped { retry_at_ns };
                 }
@@ -287,8 +289,9 @@ impl Host {
                         model.paint.drawn();
                         model.drawables.dropped();
                     }
-                    self.windows
-                        .get_mut(&id)
+                    self.app
+                        .borrow_mut()
+                        .host_mut(id)
                         .expect("invariant: a drawn window has host state")
                         .last_present = LastPresent::Settled;
                 }
@@ -304,8 +307,9 @@ impl Host {
                     if let Some(model) = self.app.borrow_mut().model_mut(id) {
                         model.invalidate_paint();
                     }
-                    self.windows
-                        .get_mut(&id)
+                    self.app
+                        .borrow_mut()
+                        .host_mut(id)
                         .expect("invariant: a drawn window has host state")
                         .last_present = LastPresent::Settled;
                 }
@@ -317,16 +321,17 @@ impl Host {
 
     fn wake(&mut self, windows: &mut Windows<'_>) -> Result<(), ShellError> {
         let now = windows.now_ns();
-        for id in self.windows.keys().copied().collect::<Vec<_>>() {
-            let retry_due = self.windows.get(&id).is_some_and(|window| {
+        for id in self.window_ids() {
+            let retry_due = self.app.borrow().host(id).is_some_and(|window| {
                 matches!(
                     window.last_present,
                     LastPresent::Skipped { retry_at_ns } if retry_at_ns <= now
                 )
             });
             if retry_due {
-                self.windows
-                    .get_mut(&id)
+                self.app
+                    .borrow_mut()
+                    .host_mut(id)
                     .expect("invariant: the retried window has host state")
                     .last_present = LastPresent::Settled;
                 if let Some(model) = self.app.borrow_mut().model_mut(id) {
@@ -405,12 +410,13 @@ impl Host {
             ShellEvent::Focused(true) => {
                 self.app.borrow_mut().focused_window = Some(id);
                 // A window coming back (after skipped frames) draws at once.
-                let skipped = self.windows.get(&id).is_some_and(|window| {
+                let skipped = self.app.borrow().host(id).is_some_and(|window| {
                     matches!(window.last_present, LastPresent::Skipped { .. })
                 });
                 if skipped {
-                    self.windows
-                        .get_mut(&id)
+                    self.app
+                        .borrow_mut()
+                        .host_mut(id)
                         .expect("invariant: a focused window has host state")
                         .last_present = LastPresent::Settled;
                     if let Some(model) = self.app.borrow_mut().model_mut(id) {
@@ -568,8 +574,8 @@ impl Host {
 
     /// Refresh window `id`'s surface state from the window.
     fn refresh_surface(&mut self, id: WindowId, window: &Window<'_>) {
-        let surface = super::window::surface_of(window);
-        if let Some(host_window) = self.windows.get_mut(&id) {
+        let surface = crate::model::window::surface_of(window);
+        if let Some(host_window) = self.app.borrow_mut().host_mut(id) {
             host_window.surface = surface;
         }
     }
@@ -586,7 +592,7 @@ impl Host {
     }
 
     fn report_drawable_all(&mut self, windows: &mut Windows<'_>) {
-        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+        for id in self.window_ids() {
             self.report_drawable(id, windows);
         }
     }

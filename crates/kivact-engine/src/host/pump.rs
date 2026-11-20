@@ -9,14 +9,12 @@ use super::devtools::{
     DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
     emulated_viewport,
 };
-use super::window::{
-    FRAME_STATE_KEEP_NS, HostWindow, ImeAllowed, LastPresent, SoftKeyboard, Surface,
-};
 use crate::contract::{
     DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
     TurnOutput,
 };
 use crate::model::edit::state::ImeUpdate;
+use crate::model::window::{FRAME_STATE_KEEP_NS, ImeAllowed, LastPresent, SoftKeyboard, Surface};
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
 use arvane::{
@@ -56,7 +54,6 @@ pub(super) enum HostPhase {
     /// The client finished (`TurnOutput::Exit`): no more turns; every return asks
     /// the shell to exit.
     Exiting,
-    Closed,
 }
 
 impl HostPhase {
@@ -64,7 +61,7 @@ impl HostPhase {
     pub(super) fn next_wake(self) -> Option<u64> {
         match self {
             Self::Starting { next_wake } | Self::Running { next_wake } => next_wake,
-            Self::Exiting | Self::Closed => None,
+            Self::Exiting => None,
         }
     }
 
@@ -99,8 +96,6 @@ pub(crate) struct Host {
     pub(super) frame_log: Rc<RefCell<FrameLog>>,
     /// The frame log noted that assistive technology reads the tree.
     pub(super) accessibility_noted: ReportOnce,
-    /// The App-wide windows and their host state.
-    pub(super) windows: std::collections::BTreeMap<WindowId, HostWindow>,
     /// The App motion input last reported to the client.
     pub(super) app_motion: Sent<(bool, u64)>,
     /// The DevTools' overlays, pick, keys and emulation.
@@ -114,11 +109,9 @@ pub(super) enum AppPresence {
 }
 
 impl Host {
-    pub(super) fn observe_close(&mut self) -> bool {
-        if self.close.is_set() {
-            self.phase = HostPhase::Closed;
-        }
-        self.phase == HostPhase::Closed
+    /// Whether the embedder closed the host (`CloseSignal`): no new turn starts.
+    pub(super) fn closed(&self) -> bool {
+        self.close.is_set()
     }
 
     /// The models' windows, ascending by id.
@@ -128,11 +121,12 @@ impl Host {
 
     /// Whether window `id` can draw now.
     pub(super) fn drawable(&self, id: WindowId) -> bool {
-        self.phase != HostPhase::Closed
+        !self.closed()
             && self.presence == AppPresence::Foreground
             && self
-                .windows
-                .get(&id)
+                .app
+                .borrow()
+                .host(id)
                 .is_some_and(|window| matches!(window.surface, Surface::Drawable { .. }))
     }
 
@@ -153,11 +147,11 @@ impl Host {
         event: HostEvent,
         windows: &mut Windows<'_>,
     ) -> Result<ShellControl, ShellError> {
-        if self.observe_close() {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         self.enter(windows);
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         self.app.borrow().push_event(event);
@@ -166,7 +160,7 @@ impl Host {
 
     /// Carry out every window's deferred effects.
     pub(super) fn effects(&mut self, windows: &mut Windows<'_>) {
-        if matches!(self.phase, HostPhase::Starting { .. } | HostPhase::Closed) {
+        if matches!(self.phase, HostPhase::Starting { .. }) || self.closed() {
             return;
         }
         for id in self.window_ids() {
@@ -234,7 +228,7 @@ impl Host {
                         continue;
                     }
                 };
-                if self.observe_close() {
+                if self.closed() {
                     return;
                 }
                 self.app
@@ -248,10 +242,13 @@ impl Host {
     fn apply_reduced_motion(&mut self) {
         let override_value = self.reduced_motion_override;
         let systems: Vec<(WindowId, bool)> = self
+            .app
+            .borrow()
             .windows
             .iter()
             .map(|(id, window)| {
                 let system = window
+                    .host
                     .environment
                     .get()
                     .is_some_and(|environment| environment.reduced_motion);
@@ -307,17 +304,19 @@ impl Host {
     /// Tell the client when window `id`'s adapter changed.
     fn adapter_changed(&mut self, id: WindowId, window: &Window<'_>) {
         let adapter = window.gpu_adapter();
-        let host_window = self
-            .windows
-            .get_mut(&id)
-            .expect("invariant: an adapter is read for an open window");
-        let changed = match &adapter {
-            Some(value) => host_window.reported_adapter.update(value.clone()).is_some(),
-            None if host_window.reported_adapter.get().is_some() => {
-                host_window.reported_adapter = Sent::new();
-                true
+        let changed = {
+            let mut app = self.app.borrow_mut();
+            let host_window = app
+                .host_mut(id)
+                .expect("invariant: an adapter is read for an open window");
+            match &adapter {
+                Some(value) => host_window.reported_adapter.update(value.clone()).is_some(),
+                None if host_window.reported_adapter.get().is_some() => {
+                    host_window.reported_adapter = Sent::new();
+                    true
+                }
+                None => false,
             }
-            None => false,
         };
         if changed {
             self.app.borrow().push_event(HostEvent::GpuAdapterChanged {
@@ -381,8 +380,9 @@ impl Host {
             ..
         } = &presented
         {
-            self.windows
-                .get_mut(&id)
+            self.app
+                .borrow_mut()
+                .host_mut(id)
                 .expect("invariant: a presented window has host state")
                 .last_stats = Some(*stats);
             let logging =
@@ -447,7 +447,7 @@ impl Host {
         boundaries: &[Boundary],
         windows: &mut Windows<'_>,
     ) -> Result<(), ShellError> {
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(());
         }
         let now = windows.now_ns();
@@ -462,7 +462,7 @@ impl Host {
         self.app.borrow_mut().hold_text(events);
         let output = self.client.turn(events, boundaries, now);
         self.app.borrow_mut().text_ahead.clear();
-        if self.observe_close() {
+        if self.closed() {
             return Ok(());
         }
         match output {
@@ -472,7 +472,7 @@ impl Host {
         self.apply_window_changes(windows);
         self.apply_devtools_changes();
         self.effects(windows);
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(());
         }
         self.externals(windows);
@@ -495,11 +495,11 @@ impl Host {
     }
 
     pub(super) fn pump(&mut self, windows: &mut Windows<'_>) -> Result<ShellControl, ShellError> {
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return Ok(ShellControl::Wait);
         }
         let now = windows.now_ns();
-        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+        for id in self.window_ids() {
             if let Some(mut window) = windows.get(id) {
                 self.adapter_changed(id, &window);
                 self.export_notices(&mut window);
@@ -508,7 +508,7 @@ impl Host {
         self.tick_windows(now);
         let mut turns = 0;
         loop {
-            if self.phase == HostPhase::Closed {
+            if self.closed() {
                 // Native handle close owns shutdown; exit=true here could race
                 // that request and be diagnosed as an App-requested failure.
                 return Ok(ShellControl::Wait);
@@ -556,7 +556,7 @@ impl Host {
             turns += 1;
             self.turn(&events, &boundaries, windows)?;
         }
-        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+        for id in self.window_ids() {
             self.finish_window(id, windows);
         }
         self.finish_motion(now);
@@ -566,7 +566,7 @@ impl Host {
     /// Tick every window's frame clock; only the tick source reports a
     /// `FrameTick` and sees the core's requests.
     pub(super) fn tick_windows(&mut self, now: u64) {
-        let source = self.windows.keys().copied().find(|id| self.drawable(*id));
+        let source = self.window_ids().into_iter().find(|id| self.drawable(*id));
         let mut app = self.app.borrow_mut();
         let AppModel {
             windows,
@@ -578,8 +578,8 @@ impl Host {
         let clock = *clock;
         for id in windows.keys().copied().collect::<Vec<_>>() {
             let client = (Some(id) == source).then_some(&mut *client_frames);
-            if let Some(model) = windows.get_mut(&id)
-                && let Some(stamp) = model.tick(now, &clock, client)
+            if let Some(window) = windows.get_mut(&id)
+                && let Some(stamp) = window.model.tick(now, &clock, client)
             {
                 events.push(HostEvent::FrameTick {
                     window: id,
@@ -714,7 +714,7 @@ impl Host {
 
     /// When window `id`'s skipped frame is drawn again.
     fn retry_at(&self, id: WindowId) -> Option<u64> {
-        match self.windows.get(&id)?.last_present {
+        match self.app.borrow().host(id)?.last_present {
             LastPresent::Shown { .. } | LastPresent::Settled => None,
             LastPresent::Skipped { retry_at_ns } => Some(retry_at_ns),
         }
@@ -723,7 +723,7 @@ impl Host {
     /// When window `id` releases the CPU frame state of its last shown
     /// frame ([`FRAME_STATE_KEEP_NS`] after it).
     fn release_at(&self, id: WindowId) -> Option<u64> {
-        match self.windows.get(&id)?.last_present {
+        match self.app.borrow().host(id)?.last_present {
             LastPresent::Shown { at_ns } => Some(at_ns.saturating_add(FRAME_STATE_KEEP_NS)),
             LastPresent::Settled | LastPresent::Skipped { .. } => None,
         }
@@ -734,15 +734,16 @@ impl Host {
     /// (that frame shows again). The window keeps showing its picture;
     /// its next frame redraws everything.
     pub(super) fn release_idle_frames(&mut self, now: u64, windows: &mut Windows<'_>) {
-        for id in self.windows.keys().copied().collect::<Vec<_>>() {
+        for id in self.window_ids() {
             if self.release_at(id).is_none_or(|at| at > now) || self.paint_due(id) {
                 continue;
             }
             if let Some(mut window) = windows.get(id) {
                 window.forget_frame_state();
             }
-            self.windows
-                .get_mut(&id)
+            self.app
+                .borrow_mut()
+                .host_mut(id)
                 .expect("invariant: the released window has host state")
                 .last_present = LastPresent::Settled;
         }
@@ -766,11 +767,13 @@ impl Host {
             ImeAllowed::No
         };
         let changed = self
-            .windows
-            .get_mut(&id)
-            .and_then(|host_window| host_window.ime_allowed.update(allowed));
+            .app
+            .borrow_mut()
+            .host_mut(id)
+            .and_then(|host_window| host_window.ime_allowed.update(allowed))
+            .map(|allowed| *allowed == ImeAllowed::Yes);
         if let Some(allowed) = changed {
-            window.set_ime_allowed(*allowed == ImeAllowed::Yes);
+            window.set_ime_allowed(allowed);
         }
         // The software keyboard follows the focus of an editable text
         // input (a no-op where the platform has none).
@@ -780,11 +783,13 @@ impl Host {
             SoftKeyboard::Hidden
         };
         let changed = self
-            .windows
-            .get_mut(&id)
-            .and_then(|host_window| host_window.soft_keyboard.update(keyboard));
-        if let Some(keyboard) = changed {
-            window.set_soft_keyboard(*keyboard == SoftKeyboard::Shown);
+            .app
+            .borrow_mut()
+            .host_mut(id)
+            .and_then(|host_window| host_window.soft_keyboard.update(keyboard))
+            .map(|keyboard| *keyboard == SoftKeyboard::Shown);
+        if let Some(shown) = changed {
+            window.set_soft_keyboard(shown);
         }
         if let Some(caret) = caret {
             window.set_ime_cursor_area(caret);
@@ -835,12 +840,12 @@ impl Host {
     }
 
     fn control(&self, now_ns: u64) -> ShellControl {
-        if self.phase == HostPhase::Closed {
+        if self.closed() {
             return ShellControl::Wait;
         }
         let app = self.app.borrow();
-        let source = self.windows.keys().copied().find(|id| self.drawable(*id));
-        let frame_deadline = self
+        let source = app.windows.keys().copied().find(|id| self.drawable(*id));
+        let frame_deadline = app
             .windows
             .keys()
             .copied()
@@ -851,20 +856,20 @@ impl Host {
                 model.frame_deadline(client)
             })
             .min();
-        let effects_pending = app.windows.values().any(|model| !model.effects.is_empty());
+        let effects_pending = app
+            .windows
+            .values()
+            .any(|window| !window.model.effects.is_empty());
         let next = if app.events().has_events() || effects_pending {
             Some(now_ns)
         } else {
             [
                 self.phase.next_wake(),
                 frame_deadline,
-                self.windows
-                    .keys()
-                    .filter_map(|id| self.retry_at(*id))
-                    .min(),
+                app.windows.keys().filter_map(|id| self.retry_at(*id)).min(),
                 // A window with a frame due keeps its state for that frame:
                 // its release is not a wake.
-                self.windows
+                app.windows
                     .keys()
                     .filter(|id| !self.paint_due(**id))
                     .filter_map(|id| self.release_at(*id))
@@ -873,7 +878,7 @@ impl Host {
                 // which runs the export; only a later retry is a wake.
                 app.windows
                     .values()
-                    .filter_map(|model| model.drawables.retry_deadline())
+                    .filter_map(|window| window.model.drawables.retry_deadline())
                     .filter(|at| *at > now_ns)
                     .min(),
             ]

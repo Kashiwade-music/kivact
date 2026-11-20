@@ -85,7 +85,6 @@ pub(crate) mod options;
 mod pump;
 #[cfg(feature = "testing")]
 pub mod testing;
-mod window;
 mod window_changes;
 pub(crate) mod write;
 

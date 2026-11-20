@@ -3,7 +3,6 @@
 use super::client::Client;
 use super::options::HostOptions;
 use super::pump::{Host, HostPhase};
-use super::window::HostWindow;
 use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::{AppModel, EventSink, Model, Shared};
@@ -12,9 +11,8 @@ use arvane::{
     Windows,
 };
 use kivact_types::cell::Sent;
-use kivact_types::{Size, WindowId, WindowMode, WindowRequest};
+use kivact_types::{Size, WindowId, WindowRequest};
 use std::cell::RefCell;
-use std::collections::BTreeMap;
 use std::rc::Rc;
 
 /// Run the client on the application's main thread until its native window exits.
@@ -135,8 +133,6 @@ impl Handler for Launch {
         };
         let mut model = Model::new(WindowId::MAIN, args.window_size, &shared);
         model.frame.start_theme(args.theme);
-        let mut host_windows = BTreeMap::new();
-        host_windows.insert(WindowId::MAIN, HostWindow::new(WindowMode::Normal, None));
         let client = args.client;
         let engine = args.engine;
         let mut host = Host {
@@ -149,7 +145,6 @@ impl Handler for Launch {
             reduced_motion_override: None,
             frame_log: args.frame_log.clone(),
             accessibility_noted: kivact_types::cell::ReportOnce::new(),
-            windows: host_windows,
             app_motion: Sent::new(),
             devtools: Default::default(),
         };

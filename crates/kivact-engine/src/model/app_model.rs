@@ -23,10 +23,17 @@ pub(crate) enum WindowChange {
     Close(WindowId),
 }
 
+/// One open window: its model and the host's state of its platform window.
+pub(crate) struct Window {
+    pub(crate) model: Model,
+    pub(crate) host: super::window::HostWindow,
+}
+
 // xtask-allow(state): legacy: assets, focused_window
 /// Every window's model and the App-wide state.
 pub(crate) struct AppModel {
-    pub(crate) windows: BTreeMap<WindowId, Model>,
+    /// Every window: its model from the write that opens it, and its host state (not drawable until the platform window opens).
+    pub(crate) windows: BTreeMap<WindowId, Window>,
     pub(crate) events: EventSink,
     pub(crate) writes: Writes,
     pub(crate) assets: Rc<RefCell<ArvaneAssets>>,
@@ -63,7 +70,13 @@ impl AppModel {
     pub(crate) fn new(shared: Shared, main: Model) -> Self {
         let window = main.window;
         let mut windows = BTreeMap::new();
-        windows.insert(window, main);
+        windows.insert(
+            window,
+            Window {
+                model: main,
+                host: super::window::HostWindow::new(kivact_types::WindowMode::Normal, None),
+            },
+        );
         Self {
             windows,
             events: shared.events,
@@ -85,19 +98,29 @@ impl AppModel {
 
     /// The model of `id`.
     pub(crate) fn model(&self, id: WindowId) -> Option<&Model> {
-        self.windows.get(&id)
+        self.windows.get(&id).map(|w| &w.model)
     }
 
     /// The model of `id`, mutably.
     pub(crate) fn model_mut(&mut self, id: WindowId) -> Option<&mut Model> {
-        self.windows.get_mut(&id)
+        self.windows.get_mut(&id).map(|w| &mut w.model)
+    }
+
+    /// The host state of window `id`.
+    pub(crate) fn host(&self, id: WindowId) -> Option<&super::window::HostWindow> {
+        self.windows.get(&id).map(|w| &w.host)
+    }
+
+    /// The host state of window `id`, mutably.
+    pub(crate) fn host_mut(&mut self, id: WindowId) -> Option<&mut super::window::HostWindow> {
+        self.windows.get_mut(&id).map(|w| &mut w.host)
     }
 
     /// Window `id` handles an event or a turn at host time `host_ns`.
     pub(crate) fn set_now(&mut self, id: WindowId, host_ns: u64) {
         let now = super::frame::state::Now::at(host_ns, &self.clock);
-        if let Some(model) = self.windows.get_mut(&id) {
-            model.frame.set_now(now);
+        if let Some(window) = self.windows.get_mut(&id) {
+            window.model.frame.set_now(now);
         }
     }
 
@@ -105,7 +128,7 @@ impl AppModel {
     pub(crate) fn window_of(&self, node: NodeId) -> Option<WindowId> {
         self.windows
             .iter()
-            .find(|(_, model)| model.tree.get(node).is_some())
+            .find(|(_, window)| window.model.tree.get(node).is_some())
             .map(|(id, _)| *id)
     }
 
@@ -119,7 +142,7 @@ impl AppModel {
         let Self {
             windows, writes, ..
         } = self;
-        let model = windows.get_mut(&window)?;
+        let model = &mut windows.get_mut(&window)?.model;
         Some(f(model, writes))
     }
 
@@ -131,7 +154,8 @@ impl AppModel {
             log: self.log.clone(),
         };
         let model = Model::new(request.id, viewport, &shared);
-        self.windows.insert(request.id, model);
+        let host = super::window::HostWindow::new(request.mode, request.parent);
+        self.windows.insert(request.id, Window { model, host });
         self.window_changes.push(WindowChange::Open(request));
     }
 

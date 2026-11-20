@@ -65,6 +65,7 @@ impl Reader {
         let app = self.app.borrow();
         app.windows
             .values()
+            .map(|w| &w.model)
             .find_map(|model| model.pointer_capture(pointer))
     }
 
@@ -77,12 +78,19 @@ impl Reader {
             a11y_constructed: app
                 .windows
                 .values()
+                .map(|w| &w.model)
                 .map(|model| model.a11y.constructed)
                 .sum(),
-            a11y_published: app.windows.values().map(|model| model.a11y.published).sum(),
+            a11y_published: app
+                .windows
+                .values()
+                .map(|w| &w.model)
+                .map(|model| model.a11y.published)
+                .sum(),
             a11y_enumerated: app
                 .windows
                 .values()
+                .map(|w| &w.model)
                 .map(|model| model.a11y.enumerated)
                 .sum(),
             ..stats
