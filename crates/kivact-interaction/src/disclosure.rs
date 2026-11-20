@@ -3,7 +3,7 @@
 //! A disclosure is the first link of the opening chain: a popup
 //! (`crate::popup`) adds overlay rules to it, and a tooltip and a dialog add
 //! theirs to a popup. Its shown state is the requested state, the caller's
-//! `Binding<bool>`; [`DisclosureApi::hide`] writes `false` to it. A delayed
+//! `Signal<bool>`; [`DisclosureApi::hide`] writes `false` to it. A delayed
 //! shown state is a [`DelayedApi`](crate::DelayedApi).
 //! The parts are the trigger and the content, with [`DisclosureState`]
 //! (`input`, `open`). Mount content with `show` so engine presence owns
@@ -12,7 +12,7 @@
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, on_cleanup, signal};
+use kivact_core::state::{Signal, Value, on_cleanup, signal};
 use kivact_core::view::{A11yAction, NodeRef, Role, node_ref};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
@@ -26,7 +26,7 @@ pub struct DisclosureState {
 /// Copy handle for a collapsible region: a trigger and the content it shows.
 ///
 /// The disclosure edits one `bool`, the requested open state, through the
-/// caller's [`Binding`]. The caller draws the trigger and the content and
+/// caller's [`Signal`]. The caller draws the trigger and the content and
 /// decides whether the content is unmounted (`show(d.is_open(), ..)`) or kept
 /// mounted; [`content`](Self::content) hides mounted content while closed.
 ///
@@ -48,7 +48,7 @@ pub struct DisclosureState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct DisclosureApi {
-    pub(crate) open: Binding<bool>,
+    pub(crate) open: Signal<bool>,
     /// The shown state: the requested state.
     shown: Value<bool>,
     trigger_state: Signal<Option<Value<DisclosureState>>>,
@@ -71,8 +71,7 @@ struct DisclosureOptions {
 ///
 /// Creation does not write the state. Setup only.
 #[track_caller]
-pub fn use_disclosure(open: impl kivact_core::state::IntoBinding<bool>) -> DisclosureApi {
-    let open = open.into_binding();
+pub fn use_disclosure(open: kivact_core::state::Signal<bool>) -> DisclosureApi {
     DisclosureApi {
         open,
         shown: open.into_value(),

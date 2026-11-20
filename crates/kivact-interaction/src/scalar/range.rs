@@ -4,12 +4,12 @@ use crate::policy::scalar::{ScalarRange, ScalarStep};
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Value, effect_on};
+use kivact_core::state::{Signal, Value, effect_on};
 use std::ops::RangeInclusive;
 
 impl IntoValue<ScalarRange> for RangeInclusive<f64> {
     #[track_caller]
-    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarRange> {
+    fn into_prop(self) -> kivact_core::custom::Prop<ScalarRange> {
         let (min, max) = self.into_inner();
         let range = ScalarRange::new(min, max).unwrap_or_else(|error| {
             raise(
@@ -17,12 +17,12 @@ impl IntoValue<ScalarRange> for RangeInclusive<f64> {
                 format!("the range {min}..={max} is not valid: {error:?}"),
             )
         });
-        kivact_core::state::__private::Prop::constant(range)
+        kivact_core::custom::Prop::constant(range)
     }
 }
 impl IntoValue<ScalarRange> for RangeInclusive<i32> {
     #[track_caller]
-    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarRange> {
+    fn into_prop(self) -> kivact_core::custom::Prop<ScalarRange> {
         let (min, max) = self.into_inner();
         (f64::from(min)..=f64::from(max)).into_prop()
     }
@@ -30,15 +30,15 @@ impl IntoValue<ScalarRange> for RangeInclusive<i32> {
 
 impl IntoValue<ScalarStep> for f64 {
     #[track_caller]
-    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarStep> {
-        kivact_core::state::__private::Prop::constant(ScalarStep::Value(self))
+    fn into_prop(self) -> kivact_core::custom::Prop<ScalarStep> {
+        kivact_core::custom::Prop::constant(ScalarStep::Value(self))
     }
 }
 
 impl IntoValue<ScalarStep> for i32 {
     #[track_caller]
-    fn into_prop(self) -> kivact_core::state::__private::Prop<ScalarStep> {
-        kivact_core::state::__private::Prop::constant(ScalarStep::Value(f64::from(self)))
+    fn into_prop(self) -> kivact_core::custom::Prop<ScalarStep> {
+        kivact_core::custom::Prop::constant(ScalarStep::Value(f64::from(self)))
     }
 }
 
@@ -53,7 +53,7 @@ fn outside(range: ScalarRange, now: f64) -> Option<f64> {
 }
 /// Write the value back when a range change leaves it out.
 #[track_caller]
-pub(crate) fn follow_range(binding: Binding<f64>, range: Value<ScalarRange>) {
+pub(crate) fn follow_range(binding: Signal<f64>, range: Value<ScalarRange>) {
     effect_on(range, move |range: &ScalarRange| {
         if let Some(value) = outside(*range, binding.get_untracked()) {
             binding.set(value);
@@ -62,7 +62,7 @@ pub(crate) fn follow_range(binding: Binding<f64>, range: Value<ScalarRange>) {
 }
 /// Normalize both ends from the same snapshot, writing low before high.
 #[track_caller]
-pub(crate) fn follow_ranges(low: Binding<f64>, high: Binding<f64>, range: Value<ScalarRange>) {
+pub(crate) fn follow_ranges(low: Signal<f64>, high: Signal<f64>, range: Value<ScalarRange>) {
     effect_on(range, move |range: &ScalarRange| {
         let from = outside(*range, low.get_untracked());
         let to = outside(*range, high.get_untracked());

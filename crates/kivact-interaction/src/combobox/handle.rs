@@ -4,7 +4,7 @@
 //! box whose active option is the field's `active_descendant`. Pickers and
 //! command palettes are built on it.
 //!
-//! The query is a `Binding<String>` the caller gives to
+//! The query is a `Signal<String>` the caller gives to
 //! [`use_text_edit`](crate::use_text_edit) on an ordinary node, which also
 //! takes the combobox's `input` part; the options take `content` and `item`.
 //! `visible` is the matching keys and `active` the current option. The focus
@@ -21,14 +21,14 @@ use crate::Selection;
 use crate::collection::{Index, Membership};
 use crate::options_cell::OptionsCell;
 use crate::surface::Surface;
-use kivact_core::state::{IntoBinding, MachineHandle, binding, machine};
+use kivact_core::state::{MachineHandle, Signal, binding, machine};
 use kivact_core::state::{Selector, Var, selector, var};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, effect, memo, on_cleanup, on_mount, signal};
+use kivact_core::state::{Value, effect, memo, on_cleanup, on_mount, signal};
 use kivact_core::view::{
     Handled, Key, KeyEvent, NodeRef, PointerEvent, PointerPhase, Role, node_ref,
 };
@@ -46,7 +46,7 @@ pub enum ComboboxMode {
 #[derive(Clone, Copy)]
 enum PresentationMode {
     Inline,
-    Popup(Binding<bool>),
+    Popup(Signal<bool>),
 }
 
 /// What the setup calls of a [`ComboboxApi`] store.
@@ -57,7 +57,7 @@ struct ComboboxSetupOptions<K: 'static> {
     search_status: Value<kivact_core::task::AsyncState<()>>,
     presentation: PresentationMode,
     /// The query text: a local signal, or the caller's binding.
-    query: Binding<String>,
+    query: Signal<String>,
 }
 impl<K: 'static> Clone for ComboboxSetupOptions<K> {
     fn clone(&self) -> Self {
@@ -101,7 +101,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// and cannot be chosen.
 ///
 /// With [`popup`](Self::popup) the list is a popup the combobox opens and
-/// closes in the caller's `Binding<bool>`: ArrowDown and ArrowUp open a
+/// closes in the caller's `Signal<bool>`: ArrowDown and ArrowUp open a
 /// closed list (they move the active option only once it is open and stop
 /// at the ends), Enter on
 /// a closed one does nothing, Escape closes an open one, choosing a single
@@ -184,7 +184,7 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
         debounce: std::time::Duration::from_millis(150).into_value(),
         search_status: (|| kivact_core::task::AsyncState::<()>::Idle).into_value(),
         presentation: PresentationMode::Inline,
-        query: signal(String::new()).into_binding(),
+        query: signal(String::new()),
     });
     let options = memo(move || settings.value().with(|settings| settings.source).get());
     // The one open state; the machine writes the caller's binding, never the reverse.
@@ -283,8 +283,7 @@ fn shown_rows<K: kivact_core::state::ItemKey>(
 impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// Use caller-owned text as the query source without copying it into local state.
     #[track_caller]
-    pub fn query_binding(self, query: impl kivact_core::state::IntoBinding<String>) -> Self {
-        let query = query.into_binding();
+    pub fn query_binding(self, query: kivact_core::state::Signal<String>) -> Self {
         self.settings.update(|settings| settings.query = query);
         // A closed list stays closed when the caller writes the query: the
         // transition ignores the event while closed.
@@ -423,7 +422,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// closes it and it closes when the field loses the focus. The caller
     /// draws the list while [`shown`](Self::is_open). Setup only.
     #[track_caller]
-    pub fn popup(self, open: impl kivact_core::state::IntoBinding<bool>) -> Self {
+    pub fn popup(self, open: kivact_core::state::Signal<bool>) -> Self {
         self.popup_with_focus_transfer(open, false)
     }
 
@@ -431,10 +430,9 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     #[track_caller]
     pub fn popup_with_focus_transfer(
         self,
-        open: impl kivact_core::state::IntoBinding<bool>,
+        open: kivact_core::state::Signal<bool>,
         transferred: impl IntoValue<bool>,
     ) -> Self {
-        let open = open.into_binding();
         let transferred = transferred.into_value();
         self.settings
             .update(|settings| settings.presentation = PresentationMode::Popup(open));
@@ -458,7 +456,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     /// palette's dialog). Closing clears the query and the highlight in the
     /// close transition. Setup only.
     #[track_caller]
-    pub(crate) fn opened_by(self, open: Binding<bool>) {
+    pub(crate) fn opened_by(self, open: Signal<bool>) {
         self.session
             .send(machine::Event::OpenRequested(open.get_untracked()));
         self.session.feed(open, machine::Event::OpenRequested);
@@ -527,7 +525,7 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     }
 
     /// The query binding for the caller's native editing attachment.
-    pub fn query(self) -> Binding<String> {
+    pub fn query(self) -> Signal<String> {
         binding(
             memo(move || self.settings.value().with(|settings| settings.query).get()),
             move |query| {

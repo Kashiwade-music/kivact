@@ -1,7 +1,7 @@
 //! Role: The selection and the policy a calendar grid is created with.
 
 use kivact_core::i18n::{CalendarDate, DateRange, Weekday};
-use kivact_core::state::{Binding, Callback, Value};
+use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoValue, callback};
 use std::rc::Rc;
 
@@ -9,9 +9,9 @@ use std::rc::Rc;
 #[derive(Clone, Copy)]
 pub enum CalendarSelection {
     /// At most one chosen day.
-    Single(Binding<Option<CalendarDate>>),
+    Single(Signal<Option<CalendarDate>>),
     /// At most one range of days.
-    Range(Binding<Option<DateRange>>),
+    Range(Signal<Option<DateRange>>),
 }
 
 /// Disabled days, the number of months, the week and the commit rule of a
@@ -123,23 +123,11 @@ impl CalendarOptions {
 
 impl From<kivact_core::state::Signal<Option<CalendarDate>>> for CalendarSelection {
     fn from(value: kivact_core::state::Signal<Option<CalendarDate>>) -> Self {
-        use kivact_core::state::IntoBinding;
-        Self::Single(value.into_binding())
-    }
-}
-impl From<Binding<Option<CalendarDate>>> for CalendarSelection {
-    fn from(value: Binding<Option<CalendarDate>>) -> Self {
         Self::Single(value)
     }
 }
 impl From<kivact_core::state::Signal<Option<DateRange>>> for CalendarSelection {
     fn from(value: kivact_core::state::Signal<Option<DateRange>>) -> Self {
-        use kivact_core::state::IntoBinding;
-        Self::Range(value.into_binding())
-    }
-}
-impl From<Binding<Option<DateRange>>> for CalendarSelection {
-    fn from(value: Binding<Option<DateRange>>) -> Self {
         Self::Range(value)
     }
 }

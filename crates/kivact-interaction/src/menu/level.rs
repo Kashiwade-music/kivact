@@ -2,7 +2,7 @@
 
 use crate::Selection;
 use crate::collection::Index;
-use kivact_core::state::IntoBinding;
+use kivact_core::state::Signal;
 
 use super::order::{Rows, edge_item, rows};
 use super::session::Session;
@@ -16,7 +16,7 @@ use kivact_core::custom::Part;
 use kivact_core::geometry::Rect;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{
-    Selector, Signal, Value, Var, effect, memo, on_cleanup, selector, signal, untrack, var,
+    Selector, Value, Var, effect, memo, on_cleanup, selector, signal, untrack, var,
 };
 use kivact_core::style::use_theme;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
@@ -101,7 +101,7 @@ impl<K: kivact_core::state::ItemKey> Level<K> {
         });
         let group = use_list(
             items,
-            Selection::Single(signal(None::<K>).into_binding()),
+            Selection::Single(signal(None::<K>)),
             ListOptions::menu(),
         )
         .shared_highlight(kivact_core::state::binding(

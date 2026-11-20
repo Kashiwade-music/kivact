@@ -19,7 +19,7 @@
 //! the surface already is so, `toggle` inverts, and a kind of surface is a suffix
 //! (`show_sheet()`). A toaster's `dismiss(id)` removes one toast from its
 //! queue; it is not a show/hide command. State a caller may own is a
-//! builder of that name taking a `Binding` (`sort(binding)`,
+//! builder of that name taking a `Signal` (`sort(binding)`,
 //! `widths(binding)`, `anchor(binding)`), read back with `<name>_value()`.
 //!
 //! Opening and closing is one chain: a disclosure edits the requested open

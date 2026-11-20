@@ -1,6 +1,6 @@
 //! Role: Provide binding-backed carousel commands and observable state.
 use super::machine::{CarouselState, Effect, Event, Machine};
-use kivact_core::state::{Binding, IntoBinding, IntoValue, MachineHandle, Value, machine, memo};
+use kivact_core::state::{IntoValue, MachineHandle, Signal, Value, machine, memo};
 /// How scrolling settles between slides.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Snap {
@@ -14,13 +14,12 @@ pub enum Snap {
 #[derive(Clone, Copy)]
 pub struct CarouselApi {
     state: MachineHandle<Machine>,
-    index: Binding<usize>,
+    index: Signal<usize>,
     count: usize,
 }
 /// Create a carousel controller over a caller-owned index and slide count.
 #[track_caller]
-pub fn use_carousel(index: impl IntoBinding<usize>, count: usize) -> CarouselApi {
-    let index = index.into_binding();
+pub fn use_carousel(index: Signal<usize>, count: usize) -> CarouselApi {
     let state = machine(
         CarouselState::Idle {
             index: index.get_untracked().min(count.saturating_sub(1)),

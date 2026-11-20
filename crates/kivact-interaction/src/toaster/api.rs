@@ -187,7 +187,10 @@ impl ToasterApi {
         {
             return id;
         }
-        let id = ToastId(self.next.update(Generation::next));
+        self.next.update(|g| {
+            g.next();
+        });
+        let id = ToastId(self.next.get_untracked());
         self.column.send(ColumnEvent::Push(QueuedToast {
             id,
             toast,
@@ -249,7 +252,10 @@ impl ToasterApi {
     #[track_caller]
     pub fn hold_while(self, held: impl IntoValue<bool>) {
         let held = held.into_value();
-        let id = HoldId(self.next.update(Generation::next));
+        self.next.update(|g| {
+            g.next();
+        });
+        let id = HoldId(self.next.get_untracked());
         self.column
             .send(ColumnEvent::Hold(id, held.get_untracked()));
         self.column

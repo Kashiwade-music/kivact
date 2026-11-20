@@ -93,7 +93,7 @@ enum DialogOptionsMode {
 
 /// Copy handle for a dialog, a drawer or a popover, without a look.
 ///
-/// The caller owns the open state, through the `Binding<bool>` given to
+/// The caller owns the open state, through the `Signal<bool>` given to
 /// [`use_dialog`], and draws everything: the scrim, the panel, the title, the
 /// description, the body and the buttons. [`show`](kivact_core::view::show) mounts that
 /// content in a fresh owner while the dialog is open. Closing is a write of
@@ -154,7 +154,7 @@ pub struct DialogApi {
 
 /// Create a dialog of `kind`, shown while `open` is true. Setup only.
 #[track_caller]
-pub fn use_dialog(open: impl kivact_core::state::IntoBinding<bool>, kind: DialogMode) -> DialogApi {
+pub fn use_dialog(open: kivact_core::state::Signal<bool>, kind: DialogMode) -> DialogApi {
     let popup = use_popup(open).focus_first();
     if kind == DialogMode::Popover {
         // Resolve the configured anchor at each opening, after setup has

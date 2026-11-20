@@ -4,13 +4,13 @@ use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarRange;
 use crate::policy::scalar_mapping::ScalarMapping;
 use kivact_core::geometry::{Point, Rect};
-use kivact_core::state::{Binding, Value};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::NodeRef;
 
 /// One thumb as the pointer moves it: its writer, range, mapping and element.
 #[derive(Clone, Copy)]
 pub(crate) struct Target {
-    pub(crate) binding: Binding<f64>,
+    pub(crate) binding: Signal<f64>,
     pub(crate) range: Value<ScalarRange>,
     pub(crate) mapping: OptionsCell<ScalarMapping>,
     pub(crate) thumb: NodeRef,

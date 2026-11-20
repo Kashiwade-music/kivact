@@ -5,7 +5,7 @@ use super::order::kept_levels;
 use super::press_state::Press;
 use super::state::{Edge, MenuEntry, MenuOptions, MenuOrigin, Opened, Target, Want};
 use crate::{FocusReturn, PopupApi, PopupCloseReason, ReasonSet, use_popup};
-use kivact_core::state::{Binding, Callback, MachineHandle, Signal, Value, memo, signal};
+use kivact_core::state::{Callback, MachineHandle, Signal, Value, memo, signal};
 use kivact_core::view::NodeRef;
 
 /// State shared by every level of one menu. All handles are `Copy`.
@@ -44,7 +44,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
     pub(super) fn new(
         entries: Value<Vec<MenuEntry<K>>>,
         choose: Callback<K>,
-        open: Binding<bool>,
+        open: Signal<bool>,
     ) -> Self {
         // The popup returns the focus; each opening says where to (see
         // `Session::focus_return`, installed when the top level binds).

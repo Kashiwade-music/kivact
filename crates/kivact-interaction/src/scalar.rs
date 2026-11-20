@@ -1,4 +1,4 @@
-//! Role: Binding-backed scalar operations and semantic control parts.
+//! Role: Signal-backed scalar operations and semantic control parts.
 //!
 //! A [`ScalarApi`] has no value of its own: the finite range, the min-anchored
 //! step, the key step and assistive technology all write through the

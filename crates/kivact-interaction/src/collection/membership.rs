@@ -3,19 +3,19 @@
 //! One memo holds the selected keys as a set. One effect compares each new
 //! set with the previous one and notifies only the notifiers of the keys
 //! that entered or left it. An item reads its key in O(1) and follows only
-//! its own notifier, so a selection change costs O(S) once per collection
+//! its own trigger, so a selection change costs O(S) once per collection
 //! plus O(1) per changed key, never O(S) per item. A read is always fresh
 //! (the set is a memo); the notification arrives with the turn's user
 //! effects.
 
 use crate::Selection;
-use kivact_core::state::{Notifier, Value, Var, effect, memo, notifier, on_cleanup, var};
+use kivact_core::state::{Trigger, Value, Var, effect, memo, on_cleanup, trigger, var};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 /// The notifiers of the items that read a key, by key.
-type Watchers<K> = Rc<RefCell<HashMap<K, Vec<Notifier>>>>;
+type Watchers<K> = Rc<RefCell<HashMap<K, Vec<Trigger>>>>;
 
 /// Which keys a selection holds, read per key in O(1). Copy.
 pub(crate) struct Membership<K: kivact_core::state::ItemKey> {
@@ -68,7 +68,7 @@ impl<K: kivact_core::state::ItemKey> Membership<K> {
                     .filter_map(|key| watchers.get(key))
                     .flatten()
                     .copied()
-                    .collect::<Vec<Notifier>>()
+                    .collect::<Vec<Trigger>>()
             };
             for target in targets {
                 target.notify();
@@ -83,8 +83,8 @@ impl<K: kivact_core::state::ItemKey> Membership<K> {
     /// A notifier for `key`, registered until the current owner goes.
     /// Setup only, in the item's owner.
     #[track_caller]
-    pub(crate) fn watch(self, key: K) -> Notifier {
-        let watch = notifier();
+    pub(crate) fn watch(self, key: K) -> Trigger {
+        let watch = trigger();
         let watchers = self.watchers.get();
         watchers
             .borrow_mut()
@@ -106,7 +106,7 @@ impl<K: kivact_core::state::ItemKey> Membership<K> {
     /// Whether the selection holds `key`. The running computation follows
     /// `watch` (made by [`watch`](Self::watch) for the same key) and
     /// nothing else.
-    pub(crate) fn contains(self, key: &K, watch: Notifier) -> bool {
+    pub(crate) fn contains(self, key: &K, watch: Trigger) -> bool {
         watch.track();
         self.keys.with_untracked(|keys| keys.contains(key))
     }

@@ -120,11 +120,11 @@ pub struct SplitterApi {
 /// Setup only.
 #[track_caller]
 pub fn use_splitter(
-    value: impl kivact_core::state::IntoBinding<f64>,
+    value: kivact_core::state::Signal<f64>,
     range: impl IntoValue<ScalarRange>,
     axis: Orientation,
 ) -> SplitterApi {
-    let binding = value.into_binding();
+    let binding = value;
     let range = range.into_value();
     let settings = OptionsCell::new(SplitterOptions::default());
     let ops = ScalarOps::new(binding, range);

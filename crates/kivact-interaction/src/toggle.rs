@@ -3,7 +3,7 @@
 //! [`use_button`] is the regular way to make an element a momentary button:
 //! the part adds the role and the focus, and the caller's `on_press` is the
 //! activation. [`use_checkbox`], [`use_switch`] and [`use_toggle_button`]
-//! edit one `Binding<bool>` (react-aria's `useCheckbox`, `useSwitch` and
+//! edit one `Signal<bool>` (react-aria's `useCheckbox`, `useSwitch` and
 //! `useToggleButton`); attaching the control adds the role, `checked`, the
 //! focus, the input and the assistive technology actions. The protocol has
 //! no pressed state, so a toggle button publishes `checked` too, and no
@@ -14,7 +14,7 @@
 use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Binding, Signal, Value, signal};
+use kivact_core::state::{Signal, Value, signal};
 use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifiers, Role};
 
 /// Copy handle for a momentary button, the behavior of react-aria's
@@ -115,7 +115,7 @@ pub struct ToggleState {
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
-    checked: Binding<bool>,
+    checked: Signal<bool>,
     kind: Kind,
     edit: crate::EditSession<bool>,
     observed: Signal<Option<Value<ToggleState>>>,
@@ -134,7 +134,7 @@ pub struct CheckboxApi {
     core: Core,
 }
 
-/// Copy handle for a control that flips one `Binding<bool>`: a switch
+/// Copy handle for a control that flips one `Signal<bool>`: a switch
 /// ([`use_switch`]) or a toggle button ([`use_toggle_button`]). Attach its
 /// [`control`](Self::control) to the caller's element with `.part()`.
 ///
@@ -151,7 +151,7 @@ pub struct ToggleButtonApi {
     core: Core,
 }
 
-fn core(checked: Binding<bool>, kind: Kind) -> Core {
+fn core(checked: Signal<bool>, kind: Kind) -> Core {
     Core {
         checked,
         kind,
@@ -182,18 +182,18 @@ struct ToggleOptions {
 /// let view = node().part(control).name("Remember me");
 /// ```
 #[track_caller]
-pub fn use_checkbox(checked: impl kivact_core::state::IntoBinding<bool>) -> CheckboxApi {
+pub fn use_checkbox(checked: kivact_core::state::Signal<bool>) -> CheckboxApi {
     CheckboxApi {
-        core: core(checked.into_binding(), Kind::Checkbox),
+        core: core(checked, Kind::Checkbox),
     }
 }
 
 /// A switch (`Role::Switch`) editing `checked`, react-aria's `useSwitch`.
 /// Setup only.
 #[track_caller]
-pub fn use_switch(checked: impl kivact_core::state::IntoBinding<bool>) -> SwitchApi {
+pub fn use_switch(checked: kivact_core::state::Signal<bool>) -> SwitchApi {
     SwitchApi {
-        core: core(checked.into_binding(), Kind::Switch),
+        core: core(checked, Kind::Switch),
     }
 }
 
@@ -201,9 +201,9 @@ pub fn use_switch(checked: impl kivact_core::state::IntoBinding<bool>) -> Switch
 /// `aria-pressed`) editing `pressed`, react-aria's `useToggleButton`.
 /// Setup only.
 #[track_caller]
-pub fn use_toggle_button(pressed: impl kivact_core::state::IntoBinding<bool>) -> ToggleButtonApi {
+pub fn use_toggle_button(pressed: kivact_core::state::Signal<bool>) -> ToggleButtonApi {
     ToggleButtonApi {
-        core: core(pressed.into_binding(), Kind::Button),
+        core: core(pressed, Kind::Button),
     }
 }
 

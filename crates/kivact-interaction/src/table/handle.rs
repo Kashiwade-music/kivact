@@ -217,13 +217,9 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// to start sorted, or to order the rows before creating the table. Setup
     /// only.
     #[track_caller]
-    pub fn with_sort(
-        self,
-        sort: impl kivact_core::state::IntoBinding<Option<(C, SortOrder)>>,
-    ) -> Self {
+    pub fn with_sort(self, sort: kivact_core::state::Signal<Option<(C, SortOrder)>>) -> Self {
         let state = self.state();
         require_setup("DataTableApi::sort");
-        let sort = sort.into_binding();
         state.options.update(|options| {
             options.sort = sort;
             options.multi_sort = None;
@@ -235,12 +231,8 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// activation replaces the list. Each key cycles ascending, descending,
     /// and unsorted. Setup only.
     #[track_caller]
-    pub fn multi_sort(
-        self,
-        sort: impl kivact_core::state::IntoBinding<Vec<(C, SortOrder)>>,
-    ) -> Self {
+    pub fn multi_sort(self, sort: kivact_core::state::Signal<Vec<(C, SortOrder)>>) -> Self {
         require_setup("DataTableApi::multi_sort");
-        let sort = sort.into_binding();
         self.state()
             .options
             .update(|options| options.multi_sort = Some(sort));
@@ -252,13 +244,9 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> DataTableAp
     /// The table's own widths start from each [`ColumnDef::width`]. Resize parts
     /// offer the whole next map to the binding's writer. Setup only.
     #[track_caller]
-    pub fn with_widths(
-        self,
-        widths: impl kivact_core::state::IntoBinding<HashMap<C, f64>>,
-    ) -> Self {
+    pub fn with_widths(self, widths: kivact_core::state::Signal<HashMap<C, f64>>) -> Self {
         let state = self.state();
         require_setup("DataTableApi::widths");
-        let widths = widths.into_binding();
         state.options.update(|options| options.widths = widths);
         self
     }

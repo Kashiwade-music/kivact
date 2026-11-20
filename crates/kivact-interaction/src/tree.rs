@@ -4,7 +4,7 @@
 //! selectable list of rows with the keys of the ARIA authoring practices.
 //!
 //! [`use_tree`] derives the shown rows from the [`TreeNode`] parents, the
-//! expanded keys (`Binding<Vec<K>>`) and the selection, and runs them through
+//! expanded keys (`Signal<Vec<K>>`) and the selection, and runs them through
 //! one [`ListApi`]: its registry, selection and navigation. The
 //! rows are metadata ([`TreeRow`]); `list` and `item` are the `TreeApi` and
 //! `TreeItem` parts, with [`TreeItemState`] (`input`, `selected`, `active`,
@@ -15,7 +15,7 @@
 //! `TreeApi<u64>`.
 
 use crate::options_cell::OptionsCell;
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::view::HandlerResult;
 use std::collections::{HashMap, HashSet};
 use std::hash::Hash;
@@ -27,7 +27,7 @@ use kivact_core::custom::{Owned, Owner, Part, PartState};
 use super::press::is_double_press;
 use super::{ListApi, ListItem, ListOptions, ListRangeOptions, use_list};
 use crate::collection::Index;
-use kivact_core::state::{Binding, Callback, Value, memo};
+use kivact_core::state::{Callback, Signal, Value, memo};
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::A11yAction;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
@@ -37,7 +37,7 @@ use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, Role};
 ///
 /// A tree is described by a flat list of nodes, so the application's data can
 /// stay flat and a node moves by changing its `parent`. The label is a
-/// [`Reactive`], like that of [`ListItem`]: a
+/// reactive, like that of [`ListItem`]: a
 /// constant, a closure, a `Signal` or a `message(..)` value.
 #[derive(Clone, PartialEq)]
 pub struct TreeNode<K> {
@@ -45,7 +45,7 @@ pub struct TreeNode<K> {
     /// The parent's key. `None`, and a key that is not among the nodes, make
     /// the node a root.
     pub(crate) parent: Option<K>,
-    pub(crate) label: Reactive<String>,
+    pub(crate) label: Prop<String>,
     pub(crate) disabled: bool,
 }
 
@@ -55,7 +55,7 @@ impl<K> TreeNode<K> {
         Self {
             key,
             parent,
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             disabled: false,
         }
     }
@@ -312,13 +312,13 @@ type TreeMarker<K> = PhantomData<(fn() -> K, kivact_core::custom::UiThreadOnly)>
 
 #[derive(Clone)]
 struct TreeOptions<K: 'static> {
-    filter: Reactive<String>,
+    filter: Prop<String>,
     activate: Option<Callback<K>>,
 }
 
 struct Shared<K: kivact_core::state::ItemKey> {
     nodes: Value<Vec<TreeNode<K>>>,
-    expanded: Binding<Vec<K>>,
+    expanded: Signal<Vec<K>>,
     list: ListApi<K>,
     options: OptionsCell<TreeOptions<K>>,
     rows: Value<Vec<TreeRow<K>>>,
@@ -425,15 +425,14 @@ impl<K: 'static> Copy for TreeApi<K> {}
 #[track_caller]
 pub fn use_tree<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<TreeNode<K>>>,
-    expanded: impl kivact_core::state::IntoBinding<Vec<K>>,
+    expanded: kivact_core::state::Signal<Vec<K>>,
     selected: impl crate::IntoSelection<K>,
 ) -> TreeApi<K> {
     let selection = selected.into_selection();
     let owner = Owner::current();
     let nodes = items.into_value();
-    let expanded = expanded.into_binding();
     let options = OptionsCell::new(TreeOptions {
-        filter: Reactive::<String>::new(String::new()),
+        filter: Prop::<String>::new(String::new()),
         activate: None,
     });
     let option_values = options.value();
@@ -554,7 +553,7 @@ impl<K: kivact_core::state::ItemKey> TreeApi<K> {
     pub fn filter(self, query: impl IntoValue<String>) -> Self {
         self.state()
             .options
-            .update(|options| options.filter = Reactive::<String>::new(query));
+            .update(|options| options.filter = Prop::<String>::new(query));
         self
     }
 

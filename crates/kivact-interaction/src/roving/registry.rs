@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use kivact_core::custom::{NodeRefExt, NodeToken};
-use kivact_core::state::{Notifier, Value, notifier, untrack};
+use kivact_core::state::{Trigger, Value, trigger, untrack};
 use kivact_core::view::NodeRef;
 
 /// A mounted member and the constraints that decide whether it can take focus.
@@ -63,7 +63,7 @@ pub(crate) struct Roving<Id: kivact_core::state::ItemKey> {
     /// The mounted members; changed only through `insert` and `remove`.
     members: Rc<RefCell<HashMap<Id, Member>>>,
     /// Notified by every insertion and removal of a member.
-    changed: Notifier,
+    changed: Trigger,
     /// The member the keyboard or pointer last moved to.
     pub(crate) requested: requested::Requested<Id>,
     /// The focus as last seen by `reconcile`.
@@ -78,7 +78,7 @@ impl<Id: kivact_core::state::ItemKey> Roving<Id> {
         let requested = requested::Requested::new();
         Self {
             members: Rc::new(RefCell::new(HashMap::new())),
-            changed: notifier(),
+            changed: trigger(),
             requested,
             restore_from: requested::Restore::new(requested.machine),
         }

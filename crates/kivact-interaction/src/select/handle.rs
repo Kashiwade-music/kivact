@@ -29,7 +29,7 @@ use crate::{
 };
 use kivact_core::i18n::message;
 use kivact_core::state::{
-    Binding, Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var,
+    Callback, Signal, Value, Var, effect, memo, on_cleanup, on_mount, signal, var,
 };
 use kivact_core::state::{IntoText, IntoValue, callback};
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, Role};
@@ -47,7 +47,7 @@ struct SelectOptions {
 /// [`content`](Self::content) the caller's `overlay(..)` holding the list, and
 /// [`item`](Self::item) each row, rendered with `for_each` over the
 /// options while [`shown`](Self::is_open) is true. [`label`](Self::label) is what
-/// the trigger shows. The selection is the caller's `Binding<Option<K>>`; the
+/// the trigger shows. The selection is the caller's `Signal<Option<K>>`; the
 /// select holds no state besides whether the list is open. A selected key
 /// that is not among the options (filtered out, not loaded yet) stays
 /// selected, and the trigger shows the placeholder until the option returns.
@@ -115,7 +115,7 @@ struct SelectOptions {
 /// ```
 pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     edit: crate::EditSession<Option<K>>,
     content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
@@ -130,7 +130,7 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     /// The open list's options.
     list: ListApi<K>,
     /// The option the pointer rests on, for the preview.
-    hovered: Binding<Option<K>>,
+    hovered: Signal<Option<K>>,
 }
 
 impl<K: kivact_core::state::ItemKey> Clone for SelectApi<K> {
@@ -144,10 +144,10 @@ impl<K: kivact_core::state::ItemKey> Copy for SelectApi<K> {}
 #[track_caller]
 pub fn use_select<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<ListItem<K>>>,
-    selected: impl kivact_core::state::IntoBinding<Option<K>>,
+    selected: kivact_core::state::Signal<Option<K>>,
 ) -> SelectApi<K> {
     let options = items.into_value();
-    let original = selected.into_binding();
+    let original = selected;
     let edit = crate::EditSession::new(move |value| original.set(value));
     let selected = kivact_core::state::binding(original.into_value(), move |value: Option<K>| {
         edit.once(original.get_untracked(), || original.set(value))
@@ -379,7 +379,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     }
 
     /// The binding shared with an alternative select surface.
-    pub fn open_binding(self) -> Binding<bool> {
+    pub fn open_binding(self) -> Signal<bool> {
         self.popup.open_binding()
     }
 
@@ -785,9 +785,9 @@ fn retained_focus<K: kivact_core::state::ItemKey>(
 /// the closed trigger's type-to-find prefix.
 fn trigger_and_list<K: kivact_core::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     retained: Value<bool>,
-    highlight: Binding<Option<K>>,
+    highlight: Signal<Option<K>>,
 ) -> (ListApi<K>, ListApi<K>) {
     // The closed trigger moves the selection through the logical order,
     // including options that are not mounted; the open list continues
@@ -808,7 +808,7 @@ fn trigger_and_list<K: kivact_core::state::ItemKey>(
 /// ends and moving never selects on its own.
 fn group<K: kivact_core::state::ItemKey>(
     options: Value<Vec<ListItem<K>>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
 ) -> ListApi<K> {
     use_list(options, Selection::Single(selected), ListOptions::listbox())
 }
@@ -820,7 +820,7 @@ fn group<K: kivact_core::state::ItemKey>(
 /// This is the only sender of machine::Event::Preview.
 fn track_preview<K: kivact_core::state::ItemKey>(
     list: ListApi<K>,
-    hovered: Binding<Option<K>>,
+    hovered: Signal<Option<K>>,
     session: MachineHandle<machine::Machine<K>>,
 ) {
     let active = list.active();

@@ -7,16 +7,16 @@ use crate::policy::scalar::ScalarRange;
 use crate::roving::{Observation, Roving};
 use crate::{ListApi, ListItem, ListOptions, use_list};
 use kivact_core::custom::{NodeRefExt, Owned, Owner};
-use kivact_core::state::{Binding, IntoBinding, Signal, Value, effect, memo, signal};
 use kivact_core::state::{Selector, selector};
+use kivact_core::state::{Signal, Value, effect, memo, signal};
 use kivact_core::view::NodeRef;
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 type Label<K> = Rc<dyn Fn(&K) -> String>;
-type MultiSort<C> = Binding<Vec<(C, SortOrder)>>;
-type SortOption<K, C> = OptionValue<DataTableOptions<K, C>, Binding<Option<(C, SortOrder)>>>;
+type MultiSort<C> = Signal<Vec<(C, SortOrder)>>;
+type SortOption<K, C> = OptionValue<DataTableOptions<K, C>, Signal<Option<(C, SortOrder)>>>;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub(super) enum Target<K, C> {
@@ -27,9 +27,9 @@ pub(super) enum Target<K, C> {
 #[derive(Clone)]
 pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
     pub(super) label: Option<Label<K>>,
-    pub(super) sort: Binding<Option<(C, SortOrder)>>,
+    pub(super) sort: Signal<Option<(C, SortOrder)>>,
     pub(super) multi_sort: Option<MultiSort<C>>,
-    pub(super) widths: Binding<HashMap<C, f64>>,
+    pub(super) widths: Signal<HashMap<C, f64>>,
     pub(super) resize: (ScalarRange, f64),
 }
 
@@ -74,9 +74,9 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     let root = Owner::root();
     let options = OptionsCell::new(DataTableOptions {
         label: None::<Label<K>>,
-        sort: signal(None::<(C, SortOrder)>).into_binding(),
+        sort: signal(None::<(C, SortOrder)>),
         multi_sort: None,
-        widths: signal(HashMap::new()).into_binding(),
+        widths: signal(HashMap::new()),
         resize: (
             ScalarRange::new(16.0, 4096.0).expect("invariant: finite column bounds"),
             10.0,
@@ -106,7 +106,7 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     let active_row =
         selector(move || active.with(|active| active.as_ref().map(|(row, _)| row.clone())));
     let active_cell = selector(active);
-    options.update(|options| options.widths = widths.into_binding());
+    options.update(|options| options.widths = widths);
     let state = Rc::new(State {
         grid_state: signal(None),
         header_states: signal(std::collections::HashMap::new()),
@@ -171,7 +171,7 @@ impl<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> State<K, C>
     pub(super) fn multi_sort(&self) -> OptionValue<DataTableOptions<K, C>, Option<MultiSort<C>>> {
         OptionValue::new(self.options, |options| options.multi_sort)
     }
-    pub(super) fn widths(&self) -> OptionValue<DataTableOptions<K, C>, Binding<HashMap<C, f64>>> {
+    pub(super) fn widths(&self) -> OptionValue<DataTableOptions<K, C>, Signal<HashMap<C, f64>>> {
         OptionValue::new(self.options, |options| options.widths)
     }
     pub(super) fn resize(&self) -> OptionValue<DataTableOptions<K, C>, (ScalarRange, f64)> {

@@ -2,7 +2,7 @@
 
 use crate::{ListOptions, ListRangeOptions};
 use kivact_core::custom::PartState;
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 use kivact_core::view::SortDirection;
 
 /// The row-erased projection of a [`ColumnDef`](crate::ColumnDef) that a
@@ -12,7 +12,7 @@ use kivact_core::view::SortDirection;
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Header<C> {
     pub(super) key: C,
-    pub(super) label: Reactive<String>,
+    pub(super) label: Prop<String>,
     pub(super) sortable: bool,
     /// The starting width in the caller's unit; `None` leaves it to layout.
     pub(super) width: Option<f64>,

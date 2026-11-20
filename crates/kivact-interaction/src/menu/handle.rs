@@ -10,8 +10,8 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
-use kivact_core::state::{Callback, Value, memo};
-use kivact_core::state::{IntoBinding, IntoValue, callback, signal};
+use kivact_core::state::{Callback, IntoHandler, Value, memo};
+use kivact_core::state::{IntoValue, Signal, callback, signal};
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
     A11yAction, Handled, IntoView, Key, KeyEvent, MouseButton, PointerEvent, PointerPhase, View,
@@ -122,9 +122,9 @@ pub fn use_menu<K: kivact_core::state::ItemKey>(
 #[track_caller]
 pub fn use_menu_with_open<K: kivact_core::state::ItemKey>(
     items: impl IntoValue<Vec<MenuEntry<K>>>,
-    open: impl IntoBinding<bool>,
+    open: Signal<bool>,
 ) -> MenuApi<K> {
-    let session = Session::new(items.into_value(), callback(|_: K| ()), open.into_binding());
+    let session = Session::new(items.into_value(), callback(|_: K| ()), open);
     let level = Level::new(session, Vec::new(), session.is_open());
     MenuApi { session, level }
 }
@@ -172,8 +172,10 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
 
     /// Replace the actual trigger's press action during setup; this is not an observer.
     /// ArrowUp/Down retain canonical opening and initial focus, and popup dismissal is unchanged.
-    pub fn trigger_action(self, action: impl Into<Callback<()>>) -> Self {
-        let action = action.into();
+    pub fn trigger_action<M>(self, action: impl IntoHandler<(), M>) -> Self {
+        let action = kivact_core::state::Callback::from_handler(
+            kivact_core::state::IntoHandler::into_handler(action),
+        );
         self.session
             .options
             .update(|options| options.trigger_action = Some(action));

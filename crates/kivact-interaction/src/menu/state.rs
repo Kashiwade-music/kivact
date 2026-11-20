@@ -1,6 +1,6 @@
 //! Role: Store menu entries and shared session state.
 
-use kivact_core::custom::Reactive;
+use kivact_core::custom::Prop;
 
 use kivact_core::ErrorKind;
 use kivact_core::custom::{PartState, raise};
@@ -132,7 +132,7 @@ impl MenuItemState {
 /// reports its key, and the application passes the new `checked` values in
 /// the next entries.
 ///
-/// The label is a [`Reactive`], so a localized `message(..)` label follows a
+/// The label is reactive, so a localized `message(..)` label follows a
 /// locale switch, and an entry can be built anywhere (a handler, a memo, a
 /// test). Two labels are equal when they are equal constants or the same
 /// reactive source.
@@ -160,7 +160,7 @@ pub struct MenuEntry<K> {
     kind: EntryKind<K>,
     /// What the row says; its accessible name and the text typeahead matches.
     /// Empty for a separator.
-    pub(super) label: Reactive<String>,
+    pub(super) label: Prop<String>,
     /// The row keeps the room of a check mark before its content, so that
     /// it lines up with the check and radio items of its level (Radix's
     /// `inset`). Only the drawing reads it.
@@ -184,11 +184,11 @@ struct ItemEntry<K> {
     shortcut: String,
     /// A disabled item cannot be chosen.
     disabled: bool,
-    disabled_reason: Option<Reactive<String>>,
+    disabled_reason: Option<Prop<String>>,
     /// An icon shown before the label: a name the theme resolves or an image.
     icon: Option<Icon>,
     /// A secondary line under the label.
-    description: Option<Reactive<String>>,
+    description: Option<Prop<String>>,
     /// A destructive item (delete, remove): only the drawing reads it.
     destructive: bool,
     /// Choosing the item leaves the menu open (a check item toggled in a
@@ -217,7 +217,7 @@ impl<K> MenuEntry<K> {
                 destructive: false,
                 keep_open: false,
             }),
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             inset: false,
         }
     }
@@ -254,7 +254,7 @@ impl<K> MenuEntry<K> {
     pub fn separator() -> Self {
         Self {
             kind: EntryKind::Separator,
-            label: Reactive::new(String::new()),
+            label: Prop::new(String::new()),
             inset: false,
         }
     }
@@ -264,7 +264,7 @@ impl<K> MenuEntry<K> {
     pub fn heading(text: impl IntoText) -> Self {
         Self {
             kind: EntryKind::Heading,
-            label: Reactive::new(text.into_text()),
+            label: Prop::new(text.into_text()),
             inset: false,
         }
     }
@@ -275,7 +275,7 @@ impl<K> MenuEntry<K> {
     pub fn group(label: impl IntoText, entries: Vec<MenuEntry<K>>) -> Self {
         Self {
             kind: EntryKind::Group(entries),
-            label: Reactive::new(label.into_text()),
+            label: Prop::new(label.into_text()),
             inset: false,
         }
     }
@@ -316,7 +316,7 @@ impl<K> MenuEntry<K> {
     /// A secondary line of text under the label. Items only.
     #[track_caller]
     pub fn with_description(mut self, text: impl IntoText) -> Self {
-        self.item_for("description").description = Some(Reactive::new(text.into_text()));
+        self.item_for("description").description = Some(Prop::new(text.into_text()));
         self
     }
 
@@ -341,7 +341,7 @@ impl<K> MenuEntry<K> {
     /// focus can show this reason as a tooltip. This does not disable the item.
     #[track_caller]
     pub fn with_disabled_reason(mut self, reason: impl IntoText) -> Self {
-        self.item_for("disabled_reason").disabled_reason = Some(Reactive::new(reason.into_text()));
+        self.item_for("disabled_reason").disabled_reason = Some(Prop::new(reason.into_text()));
         self
     }
 
@@ -419,10 +419,7 @@ impl<K> MenuEntry<K> {
     /// The explanation supplied by [`disabled_reason`](Self::disabled_reason).
     #[track_caller]
     pub fn disabled_reason(&self) -> Option<String> {
-        self.item_data()?
-            .disabled_reason
-            .as_ref()
-            .map(Reactive::get)
+        self.item_data()?.disabled_reason.as_ref().map(Prop::get)
     }
 
     /// The checked state of a check or radio item; `None` for other rows.
@@ -495,7 +492,7 @@ impl<K> MenuEntry<K> {
     /// computation.
     #[track_caller]
     pub fn description(&self) -> Option<String> {
-        self.item_data()?.description.as_ref().map(Reactive::get)
+        self.item_data()?.description.as_ref().map(Prop::get)
     }
 
     /// Whether the item is marked [`destructive`](Self::destructive).
