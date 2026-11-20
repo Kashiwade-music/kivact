@@ -43,18 +43,6 @@ pub(crate) enum LastPresent {
     Skipped { retry_at_ns: u64 },
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Surface {
-    Drawable { generation: u64 },
-    Unavailable(Unavailable),
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum Unavailable {
-    NoSurface,
-    ZeroSize,
-}
-
 /// The host's state for one window.
 pub(crate) struct HostWindow {
     /// What became of the last frame presented (`Presented`).
@@ -63,7 +51,8 @@ pub(crate) struct HostWindow {
     /// theme is found by comparing with it (the theme reported at start is
     /// the host's own, not the snapshot's).
     pub(crate) environment: Sent<kivact_types::Environment>,
-    pub(crate) surface: Surface,
+    /// Whether the window can show a frame, as the window last said.
+    pub(crate) drawable: arvane_shell::Drawable,
     /// The IME request last sent to the window (`None`: IME disabled).
     pub(crate) ime: Sent<Option<arvane_shell::ImeRequest>>,
     /// The editor's surrounding text as last published by the model.
@@ -87,7 +76,7 @@ impl HostWindow {
         Self {
             last_present: LastPresent::Settled,
             environment: Sent::new(),
-            surface: Surface::Unavailable(Unavailable::NoSurface),
+            drawable: arvane_shell::Drawable::NoSurface,
             ime: Sent::new(),
             ime_text: None,
             reported_adapter: Sent::new(),
@@ -96,17 +85,5 @@ impl HostWindow {
             parent,
             content: Content::Drawn,
         }
-    }
-}
-
-/// The surface state `window` reports now.
-pub(crate) fn surface_of(window: &arvane::Window<'_>) -> Surface {
-    let size = window.size();
-    match window.surface_generation() {
-        None => Surface::Unavailable(Unavailable::NoSurface),
-        Some(_) if size.width <= 0.0 || size.height <= 0.0 => {
-            Surface::Unavailable(Unavailable::ZeroSize)
-        }
-        Some(generation) => Surface::Drawable { generation },
     }
 }

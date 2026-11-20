@@ -623,7 +623,7 @@ impl ArvaneTestHost {
         let none = self
             .probe
             .window(main)
-            .is_some_and(|probe| probe.surface_generation().is_none());
+            .is_some_and(|probe| probe.drawable() == arvane_shell::Drawable::NoSurface);
         if none {
             self.script.window(main).create_surface();
             self.step(Step::Input);
@@ -636,11 +636,9 @@ impl ArvaneTestHost {
         self.send(WindowId::MAIN, ShellEvent::MemoryWarning);
     }
 
-    /// The generation of window `window`'s surface (`None`: it has none).
-    pub fn surface_generation(&self, window: WindowId) -> Option<u64> {
-        self.probe
-            .window(window)
-            .and_then(|probe| probe.surface_generation())
+    /// Whether window `window` can show a frame now (`None`: it is not open).
+    pub fn drawable(&self, window: WindowId) -> Option<arvane_shell::Drawable> {
+        self.probe.window(window).map(|probe| probe.drawable())
     }
 
     /// The user asks to close window `window` (`CloseRequested`).

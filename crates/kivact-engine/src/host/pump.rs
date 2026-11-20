@@ -14,7 +14,7 @@ use crate::contract::{
     TurnOutput,
 };
 use crate::model::edit::state::ImeUpdate;
-use crate::model::window::{FRAME_STATE_KEEP_NS, LastPresent, Surface};
+use crate::model::window::{FRAME_STATE_KEEP_NS, LastPresent};
 use crate::model::{AppModel, DeferredRequest};
 use crate::{FrameLog, FrameTimes};
 use arvane::{ExportNotice, Presented, Window, Windows};
@@ -126,7 +126,7 @@ impl Host {
                 .app
                 .borrow()
                 .host(id)
-                .is_some_and(|window| matches!(window.surface, Surface::Drawable { .. }))
+                .is_some_and(|window| matches!(window.drawable, arvane_shell::Drawable::Yes { .. }))
     }
 
     /// The first step of every entry after the shell's start (`handle`, the test

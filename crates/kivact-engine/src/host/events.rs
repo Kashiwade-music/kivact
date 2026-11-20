@@ -21,7 +21,7 @@
 //!   `Environment::locale`; when it is read again is Arvane's.
 //! - Frames are drawn only while the application is resumed
 //!   (`Suspended`/`Resumed`), the window has a surface
-//!   (`Window::surface_generation`, `SurfaceDestroyed`/`SurfaceCreated`)
+//!   (`Window::drawable`, `SurfaceDestroyed`/`SurfaceCreated`, `Visibility`)
 //!   and is not empty (`Environment::surface_active`). In between no redraw is
 //!   asked for and no frame tick is sent (the client's frame clock stops);
 //!   a resume and a new surface draw again.
@@ -259,17 +259,24 @@ impl Host {
             let started = std::time::Instant::now();
             self.settle_window(id);
             match self.present(id, windows, started) {
-                Ok(arvane::Presented::Shown { .. }) => {
+                Ok(arvane::Presented::Shown { renderer, .. }) => {
                     if let Some(model) = self.app.borrow_mut().model_mut(id) {
                         model.paint.drawn();
                     }
+                    // Only a CPU frame keeps its state for a partial frame: a GPU
+                    // frame's state is not released while idle.
+                    let last_present = if renderer == arvane::Renderer::Cpu {
+                        LastPresent::Shown {
+                            at_ns: windows.now_ns(),
+                        }
+                    } else {
+                        LastPresent::Settled
+                    };
                     self.app
                         .borrow_mut()
                         .host_mut(id)
                         .expect("invariant: a drawn window has host state")
-                        .last_present = LastPresent::Shown {
-                        at_ns: windows.now_ns(),
-                    };
+                        .last_present = last_present;
                 }
                 // The window had no buffer (timed out, occluded):
                 // the picture is drawn again when Arvane says.
@@ -284,8 +291,9 @@ impl Host {
                         .expect("invariant: a drawn window has host state")
                         .last_present = LastPresent::Skipped { retry_at_ns };
                 }
-                // Content cannot render; the next change redraws.
-                Ok(arvane::Presented::Dropped(_)) => {
+                // Content cannot render, or the window cannot show a frame now:
+                // the next change redraws.
+                Ok(arvane::Presented::Dropped(_) | arvane::Presented::NotDrawable(_)) => {
                     if let Some(model) = self.app.borrow_mut().model_mut(id) {
                         model.paint.drawn();
                         model.drawables.dropped();
@@ -432,6 +440,12 @@ impl Host {
                     model.invalidate_paint();
                 }
             }
+            ShellEvent::Visibility(shown) => {
+                self.report_drawable(id, windows);
+                if shown && let Some(model) = self.app.borrow_mut().model_mut(id) {
+                    model.invalidate_paint();
+                }
+            }
             ShellEvent::Injected { request } => {
                 {
                     let mut app = self.app.borrow_mut();
@@ -575,9 +589,9 @@ impl Host {
 
     /// Refresh window `id`'s surface state from the window.
     fn refresh_surface(&mut self, id: WindowId, window: &Window<'_>) {
-        let surface = crate::model::window::surface_of(window);
+        let drawable = window.drawable();
         if let Some(host_window) = self.app.borrow_mut().host_mut(id) {
-            host_window.surface = surface;
+            host_window.drawable = drawable;
         }
     }
 

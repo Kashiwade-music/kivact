@@ -573,8 +573,10 @@ fn visibility_events(
             window.redraw.set(ChildRedraw::Needed);
         }
     }
-    if let Some(event) = window.set_surface(visibility) {
-        events.push(event);
+    if window.set_visibility(visibility) {
+        events.push(ShellEvent::Visibility(
+            visibility == kivact_types::embed::EmbedVisibility::Shown,
+        ));
     }
     if visibility == kivact_types::embed::EmbedVisibility::Shown {
         events.push(ShellEvent::Redraw);

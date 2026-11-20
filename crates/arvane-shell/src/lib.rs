@@ -37,6 +37,7 @@ mod modifiers;
 mod mouse;
 pub mod pipeline;
 mod services;
+mod surface;
 mod target;
 mod types;
 mod window;
@@ -55,12 +56,13 @@ pub use input::InjectedInput;
 pub use modifiers::ModifierState;
 pub use mouse::Mouse;
 pub use services::FileDialog;
+pub use surface::SurfacePresence;
 pub use types::{ShellControl, ShellError, ShellWaker, WakeReasons};
 
 pub use target::{GpuTarget, GpuWindow};
 pub use window::{
-    Backend, BufferAge, EventTarget, FrameSink, ShellHandler, ShellLoop, ShellWindow, SizeReply,
-    Step, StepOutcome, SteppedBackend, SteppedLoop, WindowSurface,
+    Backend, BufferAge, Drawable, EventTarget, FrameSink, ShellHandler, ShellLoop, ShellWindow,
+    SizeReply, Step, StepOutcome, SteppedBackend, SteppedLoop, WindowSurface,
 };
 pub use window_input::WindowInput;
 

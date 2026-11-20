@@ -63,7 +63,6 @@ pub(in crate::port) fn open(
         } else {
             ScaleSource::System
         },
-        options.visibility,
         options.unhandled_keys,
         hooks.on_resize_request,
         make,

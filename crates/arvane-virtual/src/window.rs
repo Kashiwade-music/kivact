@@ -5,11 +5,10 @@
 
 use crate::clock::Clock;
 use crate::script::Responder;
-use crate::surface::TestSurface;
 use arvane_protocol::{PixelRect, SemanticsTree, SemanticsUpdate};
 use arvane_shell::{
-    Accessibility, AccessibilityError, BufferAge, FrameSink, ImeRequest, ShellError, ShellImeText,
-    ShellWindow, SizeReply, WindowSurface,
+    Accessibility, AccessibilityError, BufferAge, Drawable, FrameSink, ImeRequest, ShellError,
+    ShellImeText, ShellWindow, SizeReply, SurfacePresence, WindowSurface,
 };
 use kivact_types::Environment;
 use kivact_types::{
@@ -182,7 +181,7 @@ pub(crate) struct VirtualWindow {
     /// Presentations that are to fail as a lost surface does.
     pub(crate) failing: u32,
     /// The window's surface.
-    pub(crate) surface: TestSurface,
+    pub(crate) surface: SurfacePresence,
     /// How often the application asked to bring this window to the front.
     pub(crate) focus_requests: Cell<u32>,
     /// Key presses nobody handled since a test last read them.
@@ -230,9 +229,7 @@ impl VirtualWindow {
             display,
             occluded: false,
             failing: 0,
-            surface: TestSurface::Live {
-                generation: std::num::NonZeroU64::MIN,
-            },
+            surface: SurfacePresence::new(),
             focus_requests: Cell::new(0),
             unhandled_keys: RefCell::new(Vec::new()),
         }
@@ -421,8 +418,16 @@ impl ShellWindow for VirtualWindow {
             ..self.platform.capabilities
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.surface.generation()
+    fn drawable(&self) -> Drawable {
+        let Some(generation) = self.surface.generation() else {
+            return Drawable::NoSurface;
+        };
+        let (width, height) = self.physical_size();
+        if width == 0 || height == 0 {
+            Drawable::NoPixels
+        } else {
+            Drawable::Yes { generation }
+        }
     }
     fn unhandled_key(&mut self, code: kivact_types::KeyCode) {
         self.unhandled_keys.borrow_mut().push(code);

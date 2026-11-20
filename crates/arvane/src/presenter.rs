@@ -29,11 +29,10 @@
 //!   ([`Presented::SurfaceLost`]); the third in a row is an error (a shown
 //!   or skipped frame ends the row), as is a surface that cannot be made
 //!   again.
-//! - A scene that cannot be drawn is [`Presented::Dropped`]; so is, on
-//!   every renderer and before anything is drawn, a frame of a window of
-//!   no pixels (minimized, sized 0: `Content`) or without a surface
-//!   (destroyed by the platform: `Unavailable`). The resize that gives the
-//!   window pixels back asks for a frame, so a dropped one is not retried.
+//! - A scene that cannot be drawn is [`Presented::Dropped`]. A window that
+//!   cannot show a frame now (no pixels, no surface, hidden by its host) is
+//!   [`Presented::NotDrawable`] before anything is drawn; the change that
+//!   makes it drawable asks for a frame.
 //! - [`Presented::Shown`] means the window accepted the frame, not that it
 //!   was scanned out.
 //! - Renderer changes are noted to the window's observer as they happen
@@ -53,5 +52,4 @@ mod health;
 
 pub use exports::ExportNotice;
 pub use frame::{FramePlan, Presented};
-pub(crate) use frame::{no_pixels, no_surface};
 pub(crate) use frame_policy::Presenter;

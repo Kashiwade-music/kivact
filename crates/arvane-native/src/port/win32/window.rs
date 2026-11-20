@@ -3,7 +3,6 @@ use super::native::Native;
 use super::state::{DrainGuard, ReentryGuard, ScaleSource, StartSlot, State};
 use crate::port::embed::child::{ChildPort, Command, Shared};
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
 use arvane_shell::{
     AccessibilityError, FrameSink, ImeRequest, ShellError, ShellImeText, ShellWindow, SizeReply,
     WindowSurface,
@@ -215,8 +214,21 @@ impl ShellWindow for Window {
             ..Default::default()
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.0.surface.get().generation()
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match self.0.shared.applied().visibility {
+            kivact_types::embed::EmbedVisibility::Hidden => arvane_shell::Drawable::Hidden,
+            kivact_types::embed::EmbedVisibility::Shown => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    // The embedded surface is never made again: its generation is always 1.
+                    arvane_shell::Drawable::Yes {
+                        generation: std::num::NonZeroU64::MIN,
+                    }
+                }
+            }
+        }
     }
     fn request_redraw(&self) {
         if self.0.shared.alive() {
@@ -391,7 +403,6 @@ impl State {
         native: Arc<Native>,
         instance: isize,
         scale_source: ScaleSource,
-        visibility: kivact_types::embed::EmbedVisibility,
         unhandled_keys: kivact_types::UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
@@ -424,7 +435,6 @@ impl State {
             native,
             on_resize_request,
             unhandled_keys,
-            surface: Cell::new(ChildSurface::new(visibility)),
             start: RefCell::new(StartSlot::Ready(make)),
             events: RefCell::new(VecDeque::new()),
             in_callback: ReentryGuard::default(),
@@ -599,13 +609,13 @@ impl State {
             self.event(event);
         }
     }
-    /// Apply a queued show/hide on the UI thread: a hidden child has no surface.
+    /// Apply a queued show/hide on the UI thread; a hidden child keeps its surface.
     fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::EmbedVisibility) {
         if self.shared.stopped() {
             return;
         }
         let hwnd = self.native.hwnd();
-        match visibility {
+        let changed = match visibility {
             kivact_types::embed::EmbedVisibility::Hidden => {
                 // SAFETY: focus keys read this UI thread's focus window only.
                 let focused = unsafe { GetFocus() };
@@ -629,20 +639,20 @@ impl State {
                 unsafe {
                     ShowWindow(hwnd, SW_HIDE);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
             kivact_types::embed::EmbedVisibility::Shown => {
                 // SAFETY: showing without activation only targets our live child.
                 unsafe {
                     ShowWindow(hwnd, SW_SHOWNA);
                 }
-                self.shared.set_visibility(visibility);
+                self.shared.set_visibility(visibility)
             }
-        }
-        let mut surface = self.surface.get();
-        if let Some(event) = surface.apply(visibility) {
-            self.surface.set(surface);
-            self.event(event);
+        };
+        if changed {
+            self.event(ShellEvent::Visibility(
+                visibility == kivact_types::embed::EmbedVisibility::Shown,
+            ));
         }
         if visibility == kivact_types::embed::EmbedVisibility::Shown {
             // SAFETY: invalidation only targets our live child; drawing is deferred.

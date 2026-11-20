@@ -4,7 +4,6 @@ use super::conn::Native;
 use super::notifier::{MAX_DIMENSION, Notifier};
 use crate::port::embed::child::{ChildPort as _, Shared};
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
 use crate::present::CpuSurface;
 use arvane_shell::{FrameSink, ImeRequest, ShellError, ShellWindow, SizeReply, WindowSurface};
 use kivact_types::Environment;
@@ -37,8 +36,6 @@ pub(super) struct Window {
     /// The frame period (ns) of the display the window's center is on.
     frame_period_ns: u64,
     on_resize_request: Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
-    /// Whether the child can draw; the only source of `surface_generation`.
-    surface: ChildSurface,
     /// What happens to key presses the editor does not handle.
     pub(super) unhandled_keys: UnhandledKeys,
     pub(super) redraw: Cell<ChildRedraw>,
@@ -83,7 +80,6 @@ impl Window {
             scale,
             frame_period_ns,
             on_resize_request,
-            surface: ChildSurface::new(visibility),
             unhandled_keys,
             redraw: Cell::new(ChildRedraw::Needed),
             started: Instant::now(),
@@ -156,19 +152,14 @@ impl Window {
         self.shared.update(width, height, self.scale, visibility);
         self.redraw.set(ChildRedraw::Needed);
     }
-    /// Apply a show/hide on the UI thread; the boundary event, if it changed.
-    pub(super) fn set_surface(
-        &mut self,
-        visibility: EmbedVisibility,
-    ) -> Option<arvane_shell::ShellEvent> {
-        let mut surface = self.surface;
-        let event = surface.apply(visibility);
-        self.surface = surface;
-        if event.is_some() {
+    /// Apply a show/hide on the UI thread; `true` when the visibility changed.
+    pub(super) fn set_visibility(&mut self, visibility: EmbedVisibility) -> bool {
+        let changed = self.shared.applied().visibility != visibility;
+        if changed {
             self.shared
                 .update(self.width, self.height, self.scale, visibility);
         }
-        event
+        changed
     }
     /// Read the frame period again after a configure; `true` when it changed.
     pub(super) fn refresh_frame_period(&mut self) -> bool {
@@ -295,8 +286,21 @@ impl ShellWindow for Window {
             ..Capabilities::default()
         }
     }
-    fn surface_generation(&self) -> Option<u64> {
-        self.surface.generation()
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match self.shared.applied().visibility {
+            EmbedVisibility::Hidden => arvane_shell::Drawable::Hidden,
+            EmbedVisibility::Shown => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    // The embedded surface is never made again: its generation is always 1.
+                    arvane_shell::Drawable::Yes {
+                        generation: std::num::NonZeroU64::MIN,
+                    }
+                }
+            }
+        }
     }
     fn request_redraw(&self) {
         self.redraw.set(ChildRedraw::Needed);

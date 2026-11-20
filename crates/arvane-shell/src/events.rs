@@ -34,6 +34,8 @@ pub enum ShellEvent {
     /// generation reported by the backend): draw the
     /// window again.
     SurfaceCreated,
+    /// An embedded window was shown (`true`) or hidden by its host. Its surface is kept.
+    Visibility(bool),
     /// The platform is short of memory (Android, iOS): release what can be
     /// made again.
     MemoryWarning,

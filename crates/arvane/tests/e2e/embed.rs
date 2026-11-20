@@ -27,7 +27,10 @@ impl Handler for Host {
         let mut window = windows
             .get(WindowId::MAIN)
             .expect("invariant: the main window is open");
-        assert_eq!(window.surface_generation(), Some(1));
+        assert!(matches!(
+            window.drawable(),
+            arvane_shell::Drawable::Yes { generation } if generation.get() == 1
+        ));
         assert!(!window.fullscreen());
         assert_eq!(
             window.perform(kivact_types::PlatformRequest::Fullscreen(true)),

@@ -9,7 +9,6 @@ use super::devtools::{apply_emulation, effective_scale, emulated_viewport};
 use super::pump::Host;
 use crate::contract::{ForeignChange, HostEvent};
 use crate::model::WindowChange;
-use crate::model::window::surface_of;
 use arvane::Windows;
 use kivact_types::{Environment, WindowContent, WindowId};
 
@@ -93,13 +92,13 @@ impl Host {
         let emulation = self.devtools.emulation;
         let viewport = emulated_viewport(size, scale, emulation.scale);
         let paint_scale = effective_scale(scale, emulation.scale);
-        let surface = surface_of(&window);
+        let window_drawable = window.drawable();
         self.record_environment(id, native.clone());
         self.app
             .borrow_mut()
             .host_mut(id)
             .expect("invariant: a started window has host state")
-            .surface = surface;
+            .drawable = window_drawable;
         let drawable = self.drawable(id);
         let theme = self
             .app

@@ -23,6 +23,23 @@ pub enum SizeReply {
     Later,
 }
 
+/// Whether a window can show a frame now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Drawable {
+    /// Yes, on the surface of `generation` (a new surface, a new generation).
+    Yes {
+        /// The surface's generation; the first surface is 1.
+        generation: std::num::NonZeroU64,
+    },
+    /// The window is hidden by its host (an embedded editor); its
+    /// surface is kept.
+    Hidden,
+    /// The platform destroyed the window's surface (a mobile suspension).
+    NoSurface,
+    /// The window has no pixels (minimized, or sized 0).
+    NoPixels,
+}
+
 /// Whether an offered buffer still holds the frame presented last time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BufferAge {
@@ -78,8 +95,8 @@ pub trait ShellWindow {
     /// Backend-supported input, environment and service capabilities for this window.
     fn capabilities(&self) -> kivact_types::Capabilities;
 
-    /// Current surface generation, or `None` while unavailable. Re-creation uses a new generation.
-    fn surface_generation(&self) -> Option<u64>;
+    /// Whether the window can show a frame now, and on which surface generation.
+    fn drawable(&self) -> Drawable;
 
     /// Request a future redraw event; repeated requests may be coalesced.
     fn request_redraw(&self);

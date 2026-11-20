@@ -11,17 +11,26 @@ use arvane_shell::{
 };
 use kivact_types::Environment;
 use kivact_types::Failure;
+use kivact_types::FailureKind;
 use kivact_types::GpuPreference;
 use kivact_types::ids::DrawableId;
 use kivact_types::{Capabilities, Cursor, RequestId, Size, WindowId, WindowRequest};
-use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures};
+use kivact_types::{ExternalImageId, GpuAdapter, SharedTextures, WindowContent};
 use std::collections::BTreeMap;
 
 /// The native window of a running [`run`] loop, handed to the [`Handler`]'s
-/// callbacks.
+/// callbacks. A foreign-content window has no presenter.
 pub struct Window<'a> {
     shell: &'a mut dyn ShellWindow,
-    presenter: &'a mut Presenter,
+    presenter: Option<&'a mut Presenter>,
+}
+
+/// The error of a renderer call on a foreign-content window, which has none.
+fn no_renderer() -> Failure {
+    Failure::new(
+        FailureKind::Unavailable,
+        "a foreign-content window has no renderer",
+    )
 }
 
 impl Window<'_> {
@@ -64,8 +73,9 @@ impl Window<'_> {
             ..self.shell.capabilities()
         }
     }
-    pub fn surface_generation(&self) -> Option<u64> {
-        self.shell.surface_generation()
+    /// Whether the window can show a frame now, and on which surface generation.
+    pub fn drawable(&self) -> arvane_shell::Drawable {
+        self.shell.drawable()
     }
     pub fn request_redraw(&self) {
         self.shell.request_redraw();
@@ -95,12 +105,16 @@ impl Window<'_> {
         self.shell.set_cursor(cursor);
     }
     pub fn release_caches(&mut self) {
-        self.presenter.release_caches();
+        if let Some(presenter) = self.presenter.as_deref_mut() {
+            presenter.release_caches();
+        }
     }
     /// Release the window's CPU frame state after it has been idle. The next
     /// frame redraws everything; what the window shows stays on screen.
     pub fn forget_frame_state(&mut self) {
-        self.presenter.forget_frame_state();
+        if let Some(presenter) = self.presenter.as_deref_mut() {
+            presenter.forget_frame_state();
+        }
     }
     pub fn frame_plan(&self) -> FramePlan {
         FramePlan::new(self.shell.physical_size(), self.shell.scale())
@@ -111,13 +125,14 @@ impl Window<'_> {
         composition: &Composition,
         plan: FramePlan,
     ) -> Result<Presented, Failure> {
-        if self.shell.surface_generation().is_none() {
-            return Ok(crate::presenter::no_surface());
+        let drawable = self.shell.drawable();
+        if !matches!(drawable, arvane_shell::Drawable::Yes { .. }) {
+            return Ok(Presented::NotDrawable(drawable));
         }
-        if let Some(dropped) = crate::presenter::no_pixels(self.shell.physical_size()) {
-            return Ok(dropped);
-        }
-        self.presenter.present_native(self.shell, composition, plan)
+        let Some(presenter) = self.presenter.as_deref_mut() else {
+            return Ok(Presented::NotDrawable(arvane_shell::Drawable::NoSurface));
+        };
+        presenter.present_native(self.shell, composition, plan)
     }
     pub fn replace_accessibility(
         &mut self,
@@ -133,17 +148,24 @@ impl Window<'_> {
     }
 
     pub fn gpu_adapter(&self) -> Option<GpuAdapter> {
-        self.presenter.gpu_adapter()
+        self.presenter
+            .as_deref()
+            .and_then(|presenter| presenter.gpu_adapter())
     }
     pub fn import_external_image(
         &mut self,
         id: ExternalImageId,
         textures: SharedTextures,
     ) -> Result<(), Failure> {
-        self.presenter.import_external(id, textures)
+        match self.presenter.as_deref_mut() {
+            Some(presenter) => presenter.import_external(id, textures),
+            None => Err(no_renderer()),
+        }
     }
     pub fn drop_external_image(&mut self, id: ExternalImageId) {
-        self.presenter.drop_external(id);
+        if let Some(presenter) = self.presenter.as_deref_mut() {
+            presenter.drop_external(id);
+        }
     }
 
     /// Make the GPU export pool of drawable `sink` for request `generation`
@@ -157,24 +179,33 @@ impl Window<'_> {
         adapter: &GpuAdapter,
         size: (u32, u32),
     ) -> Result<SharedTextures, Failure> {
-        self.presenter
-            .export_drawable(sink, generation, adapter, size)
+        match self.presenter.as_deref_mut() {
+            Some(presenter) => presenter.export_drawable(sink, generation, adapter, size),
+            None => Err(no_renderer()),
+        }
     }
 
     /// Drop the GPU export pool of drawable `sink`.
     pub fn drop_export(&mut self, sink: DrawableId) {
-        self.presenter.drop_export(sink);
+        if let Some(presenter) = self.presenter.as_deref_mut() {
+            presenter.drop_export(sink);
+        }
     }
 
     /// Pool losses and GPU availability since the last call.
     pub fn take_export_notices(&mut self) -> Vec<ExportNotice> {
-        self.presenter.take_export_notices()
+        match self.presenter.as_deref_mut() {
+            Some(presenter) => presenter.take_export_notices(),
+            None => Vec::new(),
+        }
     }
 
     /// Make the window's GPU device lost, as a device failure does (test control).
     #[cfg(feature = "test")]
     pub(crate) fn lose_gpu_device(&mut self) {
-        self.presenter.lose_gpu_device();
+        if let Some(presenter) = self.presenter.as_deref_mut() {
+            presenter.lose_gpu_device();
+        }
     }
 }
 
@@ -209,22 +240,24 @@ pub struct Windows<'a> {
 impl<'a> Windows<'a> {
     /// The window `id` with its presenter, or `None` once it is closed.
     pub fn get(&mut self, id: WindowId) -> Option<Window<'_>> {
-        let presenter = self.presenters.get_mut(&id)?;
+        let presenter = self.presenters.get_mut(&id);
         let shell = self.shell.window(id)?;
         Some(Window { shell, presenter })
     }
 
     /// The open windows, ascending by id.
     pub fn ids(&self) -> Vec<WindowId> {
-        self.presenters.keys().copied().collect()
+        self.shell.windows()
     }
 
-    /// Make a presenter (and start its GPU when preferred), then open the
-    /// shell window.
+    /// Make a presenter for a drawn window (and start its GPU when preferred),
+    /// then open the shell window. A foreign-content window has none.
     pub fn open(&mut self, request: WindowRequest) -> Result<(), ShellError> {
         let id = request.id;
-        let presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
-        self.presenters.insert(id, presenter);
+        if request.content == WindowContent::Drawn {
+            let presenter = Presenter::new(Notes::new(self.observer.clone(), id), &self.env);
+            self.presenters.insert(id, presenter);
+        }
         if let Err(error) = self.shell.open_window(request) {
             self.presenters.remove(&id);
             return Err(error);
@@ -409,7 +442,9 @@ impl<H: Handler> ShellHandler for Driver<H> {
                 let Some(window) = shell.window(*id) else {
                     continue;
                 };
-                if window.surface_generation().is_some() && presenter.prepare(window) {
+                if matches!(window.drawable(), arvane_shell::Drawable::Yes { .. })
+                    && presenter.prepare(window)
+                {
                     window.request_redraw();
                 }
             }

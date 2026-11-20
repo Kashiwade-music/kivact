@@ -221,14 +221,23 @@ impl ShellWindow for WinitWindow {
             foreign_window: self.has_native_child_parent(),
         }
     }
-    /// The generation of the window's presentation surface: the count of
-    /// surfaces the platform gave the window (the first is 1), or `None`
-    /// while it has none ([`ShellEvent::SurfaceDestroyed`](arvane_shell::ShellEvent::SurfaceDestroyed) until
-    /// [`ShellEvent::SurfaceCreated`](arvane_shell::ShellEvent::SurfaceCreated)). Desktops keep the first.
-    fn surface_generation(&self) -> Option<u64> {
-        match self.surface {
-            Surface::Live { generation, .. } => Some(generation.get()),
-            Surface::Destroyed { .. } => None,
+    /// Whether the window can show a frame now. While the platform has no
+    /// surface ([`ShellEvent::SurfaceDestroyed`](arvane_shell::ShellEvent::SurfaceDestroyed)
+    /// until [`ShellEvent::SurfaceCreated`](arvane_shell::ShellEvent::SurfaceCreated))
+    /// it is `NoSurface`. Desktops keep the first surface.
+    fn drawable(&self) -> arvane_shell::Drawable {
+        match &self.surface {
+            Surface::Destroyed { .. } => arvane_shell::Drawable::NoSurface,
+            Surface::Live { generation, .. } => {
+                let (width, height) = self.physical_size();
+                if width == 0 || height == 0 {
+                    arvane_shell::Drawable::NoPixels
+                } else {
+                    arvane_shell::Drawable::Yes {
+                        generation: *generation,
+                    }
+                }
+            }
         }
     }
     /// Schedule OS-driven redraw.

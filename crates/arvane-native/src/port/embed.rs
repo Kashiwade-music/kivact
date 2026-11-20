@@ -13,5 +13,3 @@ pub(crate) mod keys;
 pub(crate) mod resize;
 #[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub(crate) mod session;
-#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
-pub(crate) mod surface;

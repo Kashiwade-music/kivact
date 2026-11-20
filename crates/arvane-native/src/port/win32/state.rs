@@ -2,7 +2,6 @@
 use super::native::Native;
 use crate::port::embed::child::Shared;
 use crate::port::embed::session::Session;
-use crate::port::embed::surface::ChildSurface;
 use arvane_shell::{ClickCounter, MakeHandler, ModifierState, Mouse, PlatformTree, ShellEvent};
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
@@ -106,8 +105,6 @@ pub(super) struct State {
         Option<Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>>,
     /// What happens to key presses the editor does not handle.
     pub(super) unhandled_keys: kivact_types::UnhandledKeys,
-    /// Whether the child can draw; the only source of `surface_generation`.
-    pub(super) surface: Cell<ChildSurface>,
     /// The root handler until the private `START` message runs it.
     pub(super) start: RefCell<StartSlot>,
     pub(super) session: Session,
