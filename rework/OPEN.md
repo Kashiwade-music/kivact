@@ -390,3 +390,16 @@
 - **R29・R30 で同じ原因で止まる箇所（先回りして閉じた）**：同じ worktree で kivact-ui・5 つの kit・kivact-devtools・examples の `Binding<` を機械的に `Signal<` にして xtask を走らせ、基点からの差を見た。新しい error は `state` の 12 型（kivact-ui 2、basic 2、creative 7、soft 1）だけで、`effect-writes`・`ui-machine` の新しい error は無い。12 型の印の文を付属書 R29（`Plan`・`TimeInput`）と R30（残りの 10 型）の「状態の閉じ方」に書いた。12 の印を入れると、どの crate も基点と同じ error の数に戻ることを確かめた。
 - 作業指示書 0.5 節の、印の文が無い型の行に判定の補足を足した。(a) caller の binding の field は、書き手を「caller と、その型の `set`/`update` の呼出し」と書けば条件 1 を満たす。(b) 同じ `Signal` から作った `Value` は重複に当たらない。(c) builder（`&mut self`）で報告された型は `record:` の印にする。(d) 印は doc comment の上に置く。今回の (2)〜(4) は、この補足があれば Orchestrator が判断できた種類。
 - Orchestrator：lane X で R28 に 6 つの印を足し、R28 の確認を通して commit し、R29 から再開する。
+
+## W5a の記録（設計者、2026-11-20）
+
+ユーザーの指示で、設計者が W5a の鎖の R29〜E20 を実施し（実装は Haiku 5.5 の subagent）、統合と tier b まで行った。差戻しは残っていない。
+
+- **付属書の誤りを直したもの**：R21 の注記、R27 の `on_exit_complete`（包み直した Callback が branch と一緒に破棄される）、C07 の日本語の印、C07〜C17 の W5a の照合の注記（R20〜R30 の後のコードとの名前・path の違い）、C12 の SetupOnly の試験（panic が既存の契約）、C14 の launch_fonts の試験の基準（Inter だけの theme）、E17 の `SharedLines` の印。
+- **lane E2（E12・E13）の後退**：W5a の lane E2 は tier b の前に鎖と合わさったため、次の 4 件は鎖の途中で見つかった。すべて直した（`rework/PROGRESS.md` の W5a の節の commit）。(1) 文字色の transition の開始と目標の変え直しで下の描画を捨てていなかった。(2) 読み込み中の画像を含む canvas の scene の描画を保存していた。(3) 描画の key に own と大きさが無く、own でない step の空の描画を再利用していた。(4) 動いている layer を含む layer の bounds と、動く menu に anchor した submenu の位置が古いまま残った。付属書 E の E12・E13 の手順への反映は、後の engine の unit（W6b）の担当者がコードを見れば分かる形（comment）で入れてある。
+- **E17 の性能（記録、W6b で調べる）**：`text_editing::large_document_key_latency`（release、手で実行）で、16,384 行の文書の ArrowUp/Down の p95 が 0.51ms から 2.58ms（約 5 倍）、65,536 文字の 1 行の ArrowLeft が 1.075 倍。上下の移動が goal column のために今の行の x を求めるようになった分だけでは説明できない。1 frame（16ms）より十分小さいので W5a は止めない。W6b の engine の lane で profile を取って原因を調べる（Orchestrator は W6b の E の unit の始めに、この行を設計者に返すこと）。
+- **判断の記録**：E17 の上限は、host の切り詰めで文字が元に戻ったら編集を丸ごと取り消し、何も動かない `Done` の key は先へ送る（満杯の text area の Enter が親に届く）。E20 で、focus のある text input での touch は scroll の候補にならない（付属書どおり。touch_scroll の E2E は通る）。C18 の prelude は 5.11 節の一覧から、後の unit（S・U）が足す 6 個を除いた形。component の例は印を置かず、閉じられる card を部品にした。
+- **Linux**：C13 の Linux の target の check で、C13 が触っていない `arvane-native` の `winit/foreign/x11.rs` と `x11/test_parent/queries.rs` に未使用の import の warning が 2 件ある。tier b（Windows）の範囲外。Linux の CI か CP2 の前に直す。
+- **後片付け**：`W:/temp_check.log`（C08 の subagent が誤って書いた確認のログ）は、subagent の削除が安全確認で拒否されたので残っている。中身はビルドのログだけ。
+- **確認の範囲の教訓**：unit の確認（付属書の filter の E2E）だけでは、R の unit・lane E2 の後退を見落とした。W5a の後半は各 unit の後に e2e_core・e2e_ui・kivact-test・e2e_kits・kivact-ui-soft の全件と workspace の clippy（`--all-features`）を走らせた（`target/rework-designer/W5a-unit-brief.md`）。W5b 以降の Orchestrator にも同じ形を勧める。doc の例（doctest）は unit では走らないので、wave の tier b で初めて見つかる。
+

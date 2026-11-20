@@ -98,3 +98,11 @@
 - E31：lane `wt/rw-W4b-E` の commit `9bb8d22d`、merge `fe684dcb`。tier a（engine の fmt・check・clippy・xtask・試験、core の check・clippy、e2e_core の 8 モジュール、e2e_ui の 2 モジュール）は成功。
 - 設計者の回答（C06 の質問 4〜6、E31 の質問 7）：`rework/OPEN.md` の「設計者の回答（W4b・C06 の質問 4〜6、E31 の質問 7、2026-11-19）」節。
 - tier b（統合 branch `fe684dcb`、`V:/kv-target/rw-main`）：fmt・xtask（`--no-write`、error 0 件）・clippy（workspace all-targets all-features）・kivact-docs の check・`xtask-allow(state-fields)` の grep（0 件）は成功。test は 1585 件成功、失敗 1 件（`chat_keyboard`、基点の失敗。`rework/OPEN.md` の「基点の失敗」節）。
+
+## W5a 完了（merge 済み・tier b 成功。R29 以降は設計者が実施）
+- lane E1（E16）・E2（E12・E13）は Orchestrator が merge（`a5944729`・`1d6538f6`）。lane X（鎖）は R05〜R28 を Orchestrator、R29〜E20 をユーザーの指示で設計者が Haiku の subagent で実施し、merge `500f069e`。
+- 設計者が鎖の途中で入れた fix（lane X の commit）：E13（文字色の transition の開始・目標の変え直しで下の描画を捨てる `2db1d53f`、動いている layer を含む layer の bounds を毎 frame 計算し直す・layer の root の原点が動いたら list を作り直す `990c6eef`）、E12（読み込み中の画像を含む scene の描画を保存しない `138ce9c3`、描画の key に大きさと own `c39764be`）、R07（thread の終わりの登録表の読み取りを try_with `c39764be`）、R25（tokio の import `955c301d`）、R27（on_exit_complete `af8b14a4`）、C09（#[component] の属性の二重と where の bound `486731f8`）、C11（消し忘れの試験 `c27fae56`）、C14（font の無い試験の host の fallback、arvane-text `a02a10f2`）、E17（api-shape と満杯の Enter `7b8a6cde`）、日本語の印を英語に（`f91271df`）。
+- tier b の過程の fix（統合 branch）：component の例を部品に分ける（`2d92ff1c`）、doc の例の import（`65926f75`）。
+- tier b（統合 branch `65926f75`、`V:/kv-target/rw-main`）：fmt・xtask（`--only local`、error 0 件）・clippy（workspace all-targets all-features、`--exclude kivact-docs`）・`xtask-allow(state-fields)` の rg（0 件）は成功。test（`--exclude gpu-interop-producer --exclude kivact-docs --no-fail-fast`）は 1614 件成功、失敗 1 件（`chat_keyboard`、基点の失敗）、無視 40 件。
+- 注記：`rework/OPEN.md` の「W5a の記録（設計者、2026-11-20）」節。
+
