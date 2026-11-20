@@ -19,8 +19,8 @@ use kivact_runtime::{ErrorKind, Handler, Signal, UiError};
 use kivact_style::asset::Asset;
 use kivact_types::cell::Deferred;
 use kivact_types::{
-    DismissReason, Environment, FocusTarget, Insets, Modifiers, NodeId, PlatformResult,
-    PointerSettings, Size, ThemeHint, WindowId, WindowMode, WindowPlacement,
+    DismissReason, Edges, Environment, FocusTarget, Modifiers, NodeId, PlatformResult,
+    PointerSettings, Size, ThemeMode, WindowId, WindowMode, WindowPlacement,
 };
 
 use super::tree::ViewNodes;
@@ -68,11 +68,11 @@ struct EnvFields {
     fullscreen: Deferred<Value<bool>>,
     reduced_motion: Deferred<Value<bool>>,
     scale_factor: Deferred<Value<f64>>,
-    safe_area: Deferred<Value<Insets>>,
+    safe_area: Deferred<Value<Edges<f64>>>,
     window_size: Deferred<Value<Size>>,
     pointer: Deferred<Value<PointerSettings>>,
-    keyboard_inset: Deferred<Value<Insets>>,
-    theme_hint: Deferred<Value<ThemeHint>>,
+    keyboard_inset: Deferred<Value<Edges<f64>>>,
+    theme_hint: Deferred<Value<ThemeMode>>,
     locale: Deferred<Value<Option<String>>>,
     restored_state: Deferred<Value<BTreeMap<String, Vec<u8>>>>,
 }
@@ -145,7 +145,7 @@ impl EnvState {
     }
 
     /// The memo of the safe area.
-    pub(crate) fn safe_area(&self) -> Value<Insets> {
+    pub(crate) fn safe_area(&self) -> Value<Edges<f64>> {
         self.memo_of(&self.fields.safe_area, |e| e.safe_area)
     }
 
@@ -160,12 +160,12 @@ impl EnvState {
     }
 
     /// The memo of the software keyboard's inset.
-    pub(crate) fn keyboard_inset(&self) -> Value<Insets> {
+    pub(crate) fn keyboard_inset(&self) -> Value<Edges<f64>> {
         self.memo_of(&self.fields.keyboard_inset, |e| e.keyboard_inset)
     }
 
     /// The memo of the system's color mode.
-    pub(crate) fn theme_hint(&self) -> Value<ThemeHint> {
+    pub(crate) fn theme_hint(&self) -> Value<ThemeMode> {
         self.memo_of(&self.fields.theme_hint, |e| e.theme_hint)
     }
 

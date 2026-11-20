@@ -3,10 +3,10 @@
 use super::canvas_gradient::{CanvasGradient, CanvasShape};
 use super::gradient::{Gradient, GradientKind, RadialExtent, RadialSize};
 use super::layer::{Paint, PaintImage, PaintSize, ShaderPaint};
-use crate::length::Length;
 use crate::shader::data::pack;
 use crate::theme::value::Theme;
 use kivact_types as p;
+use kivact_types::Length;
 use kivact_types::{
     FillImage, FillLayer, FillSize, GradientKind as WireKind, GradientStop, ShaderSpec,
 };

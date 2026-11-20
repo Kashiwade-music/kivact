@@ -11,11 +11,11 @@ use super::fields::Style;
 use crate::color::Color;
 use crate::draw::{Draw, LocalPaint, Size};
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
-use crate::length::Length;
 use crate::paint::{Background, BorderImage, Mask};
 use crate::text::{LineHeight, TextOverflow};
 use crate::theme::value::ThemeColor;
 use crate::transform::Transform;
+use kivact_types::Length;
 
 macro_rules! setter {
     ($(#[$m:meta])* $name:ident, $group:ident, $field:ident, $t:ty, $conv:expr) => {

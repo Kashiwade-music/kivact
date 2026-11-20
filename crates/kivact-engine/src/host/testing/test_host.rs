@@ -13,10 +13,10 @@ use arvane_shell::{Step, StepOutcome};
 use arvane_virtual::{GpuMode, Probe, Script, VirtualBackend, VirtualOptions};
 use kivact_types::PointerSample;
 use kivact_types::{
-    Capabilities, DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeHint,
+    Capabilities, DrawList, LayoutCheck, LayoutFinding, NodeId, Rect, RegionId, Size, ThemeMode,
     WindowId, WindowRequest,
 };
-use kivact_types::{Cursor, Insets, Modifiers, Point};
+use kivact_types::{Cursor, Edges, Modifiers, Point};
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -193,7 +193,7 @@ fn virtual_options(options: &TestHostOptions) -> VirtualOptions {
         scale: options.scale,
         frame_period_ns: options.frame_period_ns,
         reduced_motion: options.reduced_motion,
-        dark: options.theme == ThemeHint::Dark,
+        dark: options.theme == ThemeMode::Dark,
         locale: options.locale.clone(),
         mirror: options.mirror,
         gpu: options.gpu,
@@ -557,10 +557,10 @@ impl ArvaneTestHost {
         self.step(Step::Input);
     }
 
-    pub fn set_theme(&mut self, window: WindowId, theme: ThemeHint) {
+    pub fn set_theme(&mut self, window: WindowId, theme: ThemeMode) {
         self.script
             .window(window)
-            .set_dark(theme == ThemeHint::Dark);
+            .set_dark(theme == ThemeMode::Dark);
         self.step(Step::Input);
     }
 
@@ -588,7 +588,7 @@ impl ArvaneTestHost {
 
     /// Change window `window`'s safe area, as a phone's system UI does
     /// (`EnvChanged` when it changed).
-    pub fn set_safe_area(&mut self, window: WindowId, insets: Insets) {
+    pub fn set_safe_area(&mut self, window: WindowId, insets: Edges<f64>) {
         self.script.window(window).set_safe_area(insets);
         self.step(Step::Input);
     }

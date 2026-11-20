@@ -4,7 +4,7 @@ use crate::contract::{HostEvent, NodeType};
 use crate::model::Model;
 use crate::mutation::Mutation;
 use crate::tree::node::{ArrivalPhase, LeavingRole, NodePresence, Notify};
-use kivact_types::{Dimension, Edges, NodeId, Position, StyleState};
+use kivact_types::{Edges, Length, NodeId, Position, StyleState};
 
 impl Model {
     /// Update authoritative presence and its scheduling indexes together.
@@ -238,16 +238,16 @@ impl Model {
         let left = last.location.x + node.shift.x - border.left;
         let top = last.location.y + node.shift.y - border.top;
         layout.position = Position::Absolute;
-        layout.inset = Edges::all(Dimension::Auto);
-        layout.inset.left = Dimension::Px(left);
-        layout.inset.top = Dimension::Px(top);
-        layout.margin = Edges::all(Dimension::Px(0.0));
-        layout.width = Dimension::Px(last.size.width);
-        layout.height = Dimension::Px(last.size.height);
-        layout.min_width = Dimension::Auto;
-        layout.min_height = Dimension::Auto;
-        layout.max_width = Dimension::Auto;
-        layout.max_height = Dimension::Auto;
+        layout.inset = Edges::all(Length::Auto);
+        layout.inset.left = Length::Px(left);
+        layout.inset.top = Length::Px(top);
+        layout.margin = Edges::all(Length::Px(0.0));
+        layout.width = Length::Px(last.size.width);
+        layout.height = Length::Px(last.size.height);
+        layout.min_width = Length::Auto;
+        layout.min_height = Length::Auto;
+        layout.max_width = Length::Auto;
+        layout.max_height = Length::Auto;
         if let Some(grid) = &mut layout.grid {
             grid.column = Default::default();
             grid.row = Default::default();

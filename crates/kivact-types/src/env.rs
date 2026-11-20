@@ -1,7 +1,7 @@
 //! Role: Host environment, capabilities and lifecycle events.
 use crate::cell::Generation;
 use crate::defaults::{DEFAULT_WINDOW_SIZE, DOUBLE_CLICK, FRAME_PERIOD_NS};
-use crate::{Insets, Size};
+use crate::{Edges, Size};
 
 /// Whether logical window dimensions are finite, at least one logical pixel,
 /// and fit a native unsigned extent. Backends also validate the scaled size.
@@ -11,9 +11,12 @@ pub fn is_valid_window_size(size: Size) -> bool {
         .all(|value| value.is_finite() && value >= 1.0 && value <= f64::from(u32::MAX))
 }
 
-/// System preference for a light or dark color scheme.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
-pub enum ThemeHint {
+/// Whether a theme is light or dark. Every kit's theme constructor takes
+/// it first (`theme(ThemeMode::Dark, ..)`), and a kit's tokens fall back to
+/// the values of a theme's mode. Which mode to show (the system's, a
+/// setting) is the application's choice.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Default)]
+pub enum ThemeMode {
     #[default]
     Light,
     Dark,
@@ -29,15 +32,15 @@ pub struct Environment {
     /// The system asks for reduced motion.
     pub reduced_motion: bool,
     /// The system's current app color mode; light when it cannot be queried.
-    pub theme_hint: ThemeHint,
+    pub theme_hint: ThemeMode,
     /// Display refresh period (ns); used for `FrameRate::Display`.
     pub frame_period_ns: u64,
     /// The part of each window edge (logical pixels) system UI may cover
     /// (a notch, a status bar); zero on desktops. The host makes a negative
     /// or non-finite side zero.
-    pub safe_area: Insets,
-    /// Insets occupied by the software keyboard, in logical pixels.
-    pub keyboard_inset: Insets,
+    pub safe_area: Edges<f64>,
+    /// Edges occupied by the software keyboard, in logical pixels.
+    pub keyboard_inset: Edges<f64>,
     /// The window's size in logical pixels.
     pub window_size: Size,
     /// The system's language and region as a BCP 47 tag (`"ja-JP"`), or
@@ -58,10 +61,10 @@ impl Default for Environment {
             restored_state: std::collections::BTreeMap::new(),
             scale_factor: 1.0,
             reduced_motion: false,
-            theme_hint: ThemeHint::default(),
+            theme_hint: ThemeMode::default(),
             frame_period_ns: FRAME_PERIOD_NS,
-            safe_area: Insets::default(),
-            keyboard_inset: Insets::default(),
+            safe_area: Edges::<f64>::default(),
+            keyboard_inset: Edges::<f64>::default(),
             window_size: DEFAULT_WINDOW_SIZE,
             locale: None,
             fullscreen: false,

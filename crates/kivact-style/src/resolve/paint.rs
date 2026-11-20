@@ -9,7 +9,6 @@ use kivact_types::{
 
 use crate::effect::{Shadow, clip_shape, filter_ops, filter_problems};
 use crate::geometry::corner;
-use crate::length::{Length, pct};
 use crate::paint::{Background, fill_layer};
 use crate::sheet::{
     FlowFields, MotionFields, PaintFields, ScrollbarWidth, Style, TextFields, TransformFields,
@@ -18,6 +17,7 @@ use crate::sheet::{
 use crate::theme::value::Theme;
 use crate::transform::Transform;
 use kivact_types::Overflow;
+use kivact_types::{Length, pct};
 
 /// A background as the engine fills it: one color covering the box stays a
 /// plain color (the common case costs no allocation).

@@ -1,7 +1,7 @@
 //! Role: The engine's DevTools contracts: overlays, keys, pick phases and records.
 use kivact_types::export::FrameStats;
 use kivact_types::{
-    InputPurpose, Key, Modifiers, NodeId, Point, Rect, Revision, Rgba, ThemeHint, WindowId,
+    InputPurpose, Key, Modifiers, NodeId, Point, Rect, Revision, Rgba, ThemeMode, WindowId,
 };
 
 /// What the DevTools draws over one window.
@@ -103,7 +103,7 @@ pub struct EngineRecords {
 /// The environment emulation the DevTools asks of every window.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct EngineEmulation {
-    pub theme_hint: Option<ThemeHint>,
+    pub theme_hint: Option<ThemeMode>,
     pub scale: Option<f64>,
     pub touch: Option<bool>,
 }

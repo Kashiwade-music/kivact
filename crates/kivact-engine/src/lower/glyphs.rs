@@ -202,14 +202,14 @@ pub(crate) fn run_style(
         family: crate::lower::assets::family(engine, family),
         italic: run.italic,
         letter_spacing: if run.letter_spacing.is_finite() {
-            kivact_types::TextLen::Px(run.letter_spacing)
+            kivact_types::TextLength::Px(run.letter_spacing)
         } else {
-            kivact_types::TextLen::Px(0.0)
+            kivact_types::TextLength::Px(0.0)
         },
         word_spacing: if run.word_spacing.is_finite() {
-            kivact_types::TextLen::Px(run.word_spacing)
+            kivact_types::TextLength::Px(run.word_spacing)
         } else {
-            kivact_types::TextLen::Px(0.0)
+            kivact_types::TextLength::Px(0.0)
         },
         kerning: run.kerning,
         features: run.features.clone(),

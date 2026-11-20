@@ -145,19 +145,6 @@ impl Rect {
     }
 }
 
-/// Distances from a window's edges, in logical pixels.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct Insets {
-    /// From the top edge.
-    pub top: f64,
-    /// From the right edge.
-    pub right: f64,
-    /// From the bottom edge.
-    pub bottom: f64,
-    /// From the left edge.
-    pub left: f64,
-}
-
 /// Values for the physical top, right, bottom and left edges.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub struct Edges<T> {
@@ -396,7 +383,7 @@ impl Transform {
     }
 }
 
-impl Insets {
+impl Edges<f64> {
     /// Replace negative and non-finite safe-area distances with zero.
     pub fn sanitize(self) -> Self {
         let side = |v: f64| if v.is_finite() { v.max(0.0) } else { 0.0 };
@@ -409,10 +396,10 @@ impl Insets {
     }
 }
 
-impl From<f64> for Insets {
+impl From<f64> for Edges<f64> {
     /// The same distance on all four sides.
     fn from(v: f64) -> Self {
-        Insets {
+        Edges {
             top: v,
             right: v,
             bottom: v,
@@ -421,17 +408,17 @@ impl From<f64> for Insets {
     }
 }
 
-impl From<i32> for Insets {
+impl From<i32> for Edges<f64> {
     /// The same distance on all four sides.
     fn from(v: i32) -> Self {
-        Insets::from(f64::from(v))
+        Edges::<f64>::from(f64::from(v))
     }
 }
 
-impl From<(f64, f64)> for Insets {
+impl From<(f64, f64)> for Edges<f64> {
     /// `(vertical, horizontal)`: top and bottom, then left and right.
     fn from((vertical, horizontal): (f64, f64)) -> Self {
-        Insets {
+        Edges {
             top: vertical,
             right: horizontal,
             bottom: vertical,
@@ -440,10 +427,10 @@ impl From<(f64, f64)> for Insets {
     }
 }
 
-impl From<(f64, f64, f64, f64)> for Insets {
+impl From<(f64, f64, f64, f64)> for Edges<f64> {
     /// `(top, right, bottom, left)`.
     fn from((top, right, bottom, left): (f64, f64, f64, f64)) -> Self {
-        Insets {
+        Edges {
             top,
             right,
             bottom,

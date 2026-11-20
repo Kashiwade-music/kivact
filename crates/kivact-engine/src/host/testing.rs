@@ -16,7 +16,7 @@ pub use arvane_shell::{ShellEvent, ShellImeText};
 pub use arvane_virtual::raw::{PlatformKey, RawDrop, RawIme, RawInput, RawKey, RawKeyPhase};
 pub use arvane_virtual::{GpuMode, MirrorMode};
 pub use kivact_types::{
-    A11yAction, A11yRequest, ButtonPress, CheckedState, Cursor, DismissReason, FilePhase, Insets,
+    A11yAction, A11yRequest, ButtonPress, CheckedState, Cursor, DismissReason, Edges, FilePhase,
     Key, KeyCode, LiveRegion, Modifiers, MouseButton, Orientation, Point, PointerId, PointerKind,
     PointerPhase, Role, SortDirection,
 };

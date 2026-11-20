@@ -1,7 +1,7 @@
 //! Role: Geometry values: points, sizes, rectangles and corner radii.
 
-use super::length::Length;
 use kivact_types::CornerRadius as WireCorner;
+use kivact_types::Length;
 
 pub use kivact_types::{IntrinsicSize, Point, Rect, Size};
 

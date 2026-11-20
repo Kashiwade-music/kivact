@@ -3,7 +3,7 @@
 use super::Layout;
 use crate::{Flow, LayoutTree, LeafMeasurer};
 use kivact_types::{
-    Dimension, Justify, LayoutProps, LeafSize, MeasureRequest, NodeId, OverlayFit, Size,
+    Justify, LayoutProps, LeafSize, Length, MeasureRequest, NodeId, OverlayFit, Size,
 };
 use std::collections::BTreeSet;
 
@@ -16,20 +16,20 @@ struct Two {
 impl Two {
     fn new(child_width: f64) -> Self {
         let root = LayoutProps {
-            width: Dimension::Px(100.0),
-            height: Dimension::Px(100.0),
+            width: Length::Px(100.0),
+            height: Length::Px(100.0),
             justify: Some(Justify::Center),
             ..Default::default()
         };
         let child = LayoutProps {
-            width: Dimension::Px(child_width),
-            height: Dimension::Px(10.0),
+            width: Length::Px(child_width),
+            height: Length::Px(10.0),
             shrink: 0.0,
             margin: kivact_types::Edges {
-                top: Dimension::Px(0.0),
-                right: Dimension::Px(0.0),
-                bottom: Dimension::Px(0.0),
-                left: Dimension::Px(-0.5),
+                top: Length::Px(0.0),
+                right: Length::Px(0.0),
+                bottom: Length::Px(0.0),
+                left: Length::Px(-0.5),
             },
             ..Default::default()
         };
@@ -113,24 +113,24 @@ fn rounding_matches_taffy_at_negative_half_offsets() {
 #[test]
 fn an_absolute_child_is_placed_from_its_parent_and_a_root_stays_at_the_origin() {
     let zero = kivact_types::Edges {
-        top: Dimension::Px(0.0),
-        right: Dimension::Px(0.0),
-        bottom: Dimension::Px(0.0),
-        left: Dimension::Px(0.0),
+        top: Length::Px(0.0),
+        right: Length::Px(0.0),
+        bottom: Length::Px(0.0),
+        left: Length::Px(0.0),
     };
     let mut tree = Two::new(10.0);
     tree.props[0].margin = kivact_types::Edges {
-        top: Dimension::Px(9.0),
-        left: Dimension::Px(7.0),
+        top: Length::Px(9.0),
+        left: Length::Px(7.0),
         ..zero
     };
     tree.props[1].margin = zero;
     tree.props[1].position = kivact_types::Position::Absolute;
     tree.props[1].inset = kivact_types::Edges {
-        top: Dimension::Px(30.0),
-        right: Dimension::Auto,
-        bottom: Dimension::Auto,
-        left: Dimension::Px(20.0),
+        top: Length::Px(30.0),
+        right: Length::Auto,
+        bottom: Length::Auto,
+        left: Length::Px(20.0),
     };
     let layout = laid_out(&tree);
     let root = layout.layout_at(0).expect("root laid out");
@@ -147,8 +147,8 @@ fn an_absolute_grid_child_is_placed_in_the_area_of_its_grid_lines() {
     };
     let track = |px: f64| {
         GridTrack::Single(TrackSize {
-            min: Breadth::Size(Dimension::Px(px)),
-            max: Breadth::Size(Dimension::Px(px)),
+            min: Breadth::Size(Length::Px(px)),
+            max: Breadth::Size(Length::Px(px)),
         })
     };
     let second = GridLine {
@@ -166,17 +166,17 @@ fn an_absolute_grid_child_is_placed_in_the_area_of_its_grid_lines() {
         ..Default::default()
     }));
     tree.props[1].margin = kivact_types::Edges {
-        top: Dimension::Px(0.0),
-        right: Dimension::Px(0.0),
-        bottom: Dimension::Px(0.0),
-        left: Dimension::Px(0.0),
+        top: Length::Px(0.0),
+        right: Length::Px(0.0),
+        bottom: Length::Px(0.0),
+        left: Length::Px(0.0),
     };
     tree.props[1].position = kivact_types::Position::Absolute;
     tree.props[1].inset = kivact_types::Edges {
-        top: Dimension::Px(5.0),
-        right: Dimension::Auto,
-        bottom: Dimension::Auto,
-        left: Dimension::Px(5.0),
+        top: Length::Px(5.0),
+        right: Length::Auto,
+        bottom: Length::Auto,
+        left: Length::Px(5.0),
     };
     tree.props[1].grid = Some(Box::new(GridProps {
         column: second,
@@ -271,7 +271,7 @@ fn wrapped_pass_number_still_rounds_changes() {
     values.touched[..2].fill(7);
     values.below[..2].fill(7);
     values.below[2] = 1;
-    tree.props[1].padding.left = Dimension::Px(5.0);
+    tree.props[1].padding.left = Length::Px(5.0);
     layout.rebuild_style(&tree, NodeId(2));
     assert!(layout.compute(&tree, Size::new(100.0, 100.0), &mut Empty));
     assert_eq!(

@@ -1,6 +1,6 @@
 //! Role: SVG filter primitive graphs (CSS filter: url()) as values.
 use crate::Rgba;
-use crate::geometry::{Insets, Point, Rect};
+use crate::geometry::{Edges, Point, Rect};
 use crate::pixel::BlendMode;
 
 use crate::pixel::ColorMatrix;
@@ -14,7 +14,7 @@ pub struct FilterGraph<I> {
     pub primitives: Vec<Primitive<I>>,
     /// How far the filter region extends beyond the layer bounds; None:
     /// 10% of the bounds' width and height on each side (the SVG default).
-    pub margin: Option<Insets>,
+    pub margin: Option<Edges<f64>>,
     /// Color space of primitives that do not set their own.
     pub color_space: FilterColorSpace,
 }
@@ -288,7 +288,7 @@ impl<I> FilterGraph<I> {
     }
 }
 
-fn check_margin(m: Insets) -> Result<(), String> {
+fn check_margin(m: Edges<f64>) -> Result<(), String> {
     if [m.top, m.right, m.bottom, m.left]
         .iter()
         .all(|v| v.is_finite())

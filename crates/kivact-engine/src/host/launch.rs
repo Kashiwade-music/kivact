@@ -61,7 +61,7 @@ pub(crate) fn new(
         window_size,
         engine,
         frame_log,
-        theme: kivact_types::ThemeHint::Light,
+        theme: kivact_types::ThemeMode::Light,
         assets: AssetMode::Worker,
         close: crate::contract::CloseSignal::new(),
     }))
@@ -77,7 +77,7 @@ pub(crate) struct LaunchArgs {
     window_size: Size,
     engine: arvane_text::TextEngine,
     frame_log: Rc<RefCell<FrameLog>>,
-    pub(super) theme: kivact_types::ThemeHint,
+    pub(super) theme: kivact_types::ThemeMode,
     pub(super) assets: AssetMode,
     close: crate::contract::CloseSignal,
 }

@@ -4,15 +4,7 @@ use kivact_style::draw::{Size, TextFormat, TextMetrics, TextParagraph};
 use kivact_types::{self as values};
 
 /// Space available to a primitive along one axis.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum AvailableSpace {
-    /// A definite number of logical pixels.
-    Definite(f64),
-    /// As little as the content allows (the primitive's minimum size).
-    MinContent,
-    /// As much as the content wants (the primitive's preferred size).
-    MaxContent,
-}
+pub use kivact_types::AvailableSpace;
 
 /// What a primitive is measured under, in logical pixels. A dimension the
 /// layout already fixed (`known_*`, from the style or a stretch) wins
@@ -154,14 +146,6 @@ impl std::fmt::Debug for Constraints<'_> {
     }
 }
 
-pub(super) fn space(s: values::AvailableSpace) -> AvailableSpace {
-    match s {
-        values::AvailableSpace::Definite(v) => AvailableSpace::Definite(v),
-        values::AvailableSpace::MinContent => AvailableSpace::MinContent,
-        values::AvailableSpace::MaxContent => AvailableSpace::MaxContent,
-    }
-}
-
 pub(crate) fn constraints(
     r: values::MeasureRequest,
     text: kivact_engine::contract::LeafTextMeasurer<'_>,
@@ -169,8 +153,8 @@ pub(crate) fn constraints(
     Constraints {
         known_width: r.known_width,
         known_height: r.known_height,
-        available_width: space(r.available_width),
-        available_height: space(r.available_height),
+        available_width: r.available_width,
+        available_height: r.available_height,
         text,
     }
 }

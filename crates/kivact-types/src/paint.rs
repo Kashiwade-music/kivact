@@ -572,7 +572,7 @@ pub enum BorderImageRepeat {
 pub struct BorderImage {
     /// Image, gradient or solid color.
     pub source: FillImage,
-    /// Insets into the source: px are source pixels (for gradients and
+    /// Edges into the source: px are source pixels (for gradients and
     /// solid colors, px of the border image area), pct of the source size.
     pub slice: Edges<Len>,
     /// Paint the middle of the slices.

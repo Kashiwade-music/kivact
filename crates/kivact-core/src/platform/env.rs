@@ -11,10 +11,11 @@ use std::rc::Rc;
 use crate::view::state::{EnvState, ViewState, current_window};
 use kivact_runtime::Value;
 use kivact_style::draw::Size;
-use kivact_types::Insets;
+use kivact_types::Edges;
+use kivact_types::ThemeMode;
 #[doc(inline)]
 pub use kivact_types::{
-    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings, ThemeHint,
+    Capabilities, CommandKey, ContextMenuTrigger, PointerClass, PointerSettings,
 };
 
 /// The environment of the calling owner's window (`api` names the caller in
@@ -100,7 +101,7 @@ pub fn is_surface_active() -> Value<bool> {
 /// })
 /// ```
 #[track_caller]
-pub fn safe_area() -> Value<Insets> {
+pub fn safe_area() -> Value<Edges<f64>> {
     let at = Location::caller();
     let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: safe_area requires a running App");
@@ -189,16 +190,16 @@ pub(crate) fn missing_capabilities(c: &Capabilities) -> Vec<&'static str> {
 pub fn pointer_settings() -> Value<kivact_types::PointerSettings> {
     state("pointer_settings", Location::caller()).pointer()
 }
-/// Insets of the window of the calling owner occupied by the software keyboard.
+/// Edges of the window of the calling owner occupied by the software keyboard.
 #[track_caller]
-pub fn keyboard_inset() -> Value<Insets> {
+pub fn keyboard_inset() -> Value<Edges<f64>> {
     state("keyboard_inset", Location::caller()).keyboard_inset()
 }
 
 /// The host's preferred light or dark appearance for the window of the
 /// calling owner.
 #[track_caller]
-pub fn theme_hint() -> Value<ThemeHint> {
+pub fn theme_hint() -> Value<ThemeMode> {
     state("theme_hint", Location::caller()).theme_hint()
 }
 

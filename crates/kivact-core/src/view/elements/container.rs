@@ -3,7 +3,7 @@
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::{ErrorKind, Prop as InputProp, UiError};
-use kivact_types::{Dimension, Edges, LayoutProps, Position, ScrollAxes};
+use kivact_types::{Edges, LayoutProps, Length, Position, ScrollAxes};
 use std::rc::Rc;
 
 use super::builders::node;
@@ -219,7 +219,7 @@ pub fn stack(children: impl IntoView) -> Node {
             } else {
                 LayoutProps {
                     position: Position::Absolute,
-                    inset: Edges::all(Dimension::Px(0.0)),
+                    inset: Edges::all(Length::Px(0.0)),
                     ..LayoutProps::default()
                 }
             };

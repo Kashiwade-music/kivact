@@ -8,7 +8,7 @@ use taffy::prelude::{
     LengthPercentageAuto,
 };
 use taffy::{
-    AlignItems, FlexWrap, GridAutoFlow, GridTemplateComponent, GridTemplateRepetition,
+    AlignItems, FlexWrap, GridAutoFlow as TFlow, GridTemplateComponent, GridTemplateRepetition,
     MaxTrackSizingFunction, MinTrackSizingFunction, Overflow as TOverflow, Position as TPos,
     RepetitionCount, TrackSizingFunction,
 };
@@ -16,8 +16,8 @@ use taffy::{
 use crate::calcs::CalcAlloc;
 use crate::style::node::{GridArea, NodeDisplay, NodeStyle, TStyle};
 use kivact_types::{
-    Align, Breadth, Dimension, FlexDirection, GridContainer, GridFlow, GridRepeat, GridTrack,
-    Justify, LayoutProps, Overflow, Position, TrackSize,
+    Align, Breadth, FlexDirection, GridAutoFlow, GridContainer, GridRepeat, GridTrack, Justify,
+    LayoutProps, Length, Overflow, Position, TrackSize,
 };
 
 /// Converts `shared` lengths, making calc handles.
@@ -26,39 +26,37 @@ struct Lengths<'a, 'b> {
 }
 
 impl Lengths<'_, '_> {
-    fn dim(&mut self, d: Dimension) -> TDim {
+    fn dim(&mut self, d: Length) -> TDim {
         match d {
-            Dimension::Auto => TDim::auto(),
-            Dimension::Px(v) => TDim::length(v as f32),
-            Dimension::Percent(v) => TDim::percent((v / 100.0) as f32),
-            Dimension::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
-            Dimension::MinContent => TDim::min_content(),
-            Dimension::MaxContent => TDim::max_content(),
-            Dimension::FitContent => TDim::fit_content(),
+            Length::Auto => TDim::auto(),
+            Length::Px(v) => TDim::length(v as f32),
+            Length::Percent(v) => TDim::percent((v / 100.0) as f32),
+            Length::Calc { percent, px } => TDim::calc(self.alloc.calc(percent, px)),
+            Length::MinContent => TDim::min_content(),
+            Length::MaxContent => TDim::max_content(),
+            Length::FitContent => TDim::fit_content(),
         }
     }
 
-    fn lp(&mut self, d: Dimension) -> LengthPercentage {
+    fn lp(&mut self, d: Length) -> LengthPercentage {
         match d {
-            Dimension::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
-            Dimension::Px(v) => LengthPercentage::length(v as f32),
-            Dimension::Auto
-            | Dimension::MinContent
-            | Dimension::MaxContent
-            | Dimension::FitContent => LengthPercentage::length(0.0),
-            Dimension::Calc { percent, px } => LengthPercentage::calc(self.alloc.calc(percent, px)),
+            Length::Percent(v) => LengthPercentage::percent((v / 100.0) as f32),
+            Length::Px(v) => LengthPercentage::length(v as f32),
+            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => {
+                LengthPercentage::length(0.0)
+            }
+            Length::Calc { percent, px } => LengthPercentage::calc(self.alloc.calc(percent, px)),
         }
     }
 
-    fn lpa(&mut self, d: Dimension) -> LengthPercentageAuto {
+    fn lpa(&mut self, d: Length) -> LengthPercentageAuto {
         match d {
-            Dimension::Auto
-            | Dimension::MinContent
-            | Dimension::MaxContent
-            | Dimension::FitContent => LengthPercentageAuto::auto(),
-            Dimension::Px(v) => LengthPercentageAuto::length(v as f32),
-            Dimension::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
-            Dimension::Calc { percent, px } => {
+            Length::Auto | Length::MinContent | Length::MaxContent | Length::FitContent => {
+                LengthPercentageAuto::auto()
+            }
+            Length::Px(v) => LengthPercentageAuto::length(v as f32),
+            Length::Percent(v) => LengthPercentageAuto::percent((v / 100.0) as f32),
+            Length::Calc { percent, px } => {
                 LengthPercentageAuto::calc(self.alloc.calc(percent, px))
             }
         }
@@ -235,10 +233,10 @@ impl Lengths<'_, '_> {
         style.grid_auto_columns = c.auto_columns.iter().map(|t| self.track(*t)).collect();
         style.grid_auto_rows = c.auto_rows.iter().map(|t| self.track(*t)).collect();
         style.grid_auto_flow = match c.flow {
-            GridFlow::Row => GridAutoFlow::Row,
-            GridFlow::Column => GridAutoFlow::Column,
-            GridFlow::RowDense => GridAutoFlow::RowDense,
-            GridFlow::ColumnDense => GridAutoFlow::ColumnDense,
+            GridAutoFlow::Row => TFlow::Row,
+            GridAutoFlow::Column => TFlow::Column,
+            GridAutoFlow::RowDense => TFlow::RowDense,
+            GridAutoFlow::ColumnDense => TFlow::ColumnDense,
         };
         style.justify_items = c.justify_items.map_or(AlignItems::NORMAL, align);
         style
@@ -271,12 +269,12 @@ impl Lengths<'_, '_> {
     fn min_track(&mut self, b: Breadth) -> MinTrackSizingFunction {
         type M = MinTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
-            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
-            Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
-            Breadth::Size(Dimension::MinContent) => M::min_content(),
-            Breadth::Size(Dimension::MaxContent) => M::max_content(),
-            Breadth::Size(Dimension::Auto | Dimension::FitContent)
+            Breadth::Size(Length::Px(v)) => M::length(v as f32),
+            Breadth::Size(Length::Percent(v)) => M::percent((v / 100.0) as f32),
+            Breadth::Size(Length::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
+            Breadth::Size(Length::MinContent) => M::min_content(),
+            Breadth::Size(Length::MaxContent) => M::max_content(),
+            Breadth::Size(Length::Auto | Length::FitContent)
             | Breadth::Fr(_)
             | Breadth::FitContent(_) => M::auto(),
         }
@@ -285,25 +283,23 @@ impl Lengths<'_, '_> {
     fn max_track(&mut self, b: Breadth) -> MaxTrackSizingFunction {
         type M = MaxTrackSizingFunction;
         match b {
-            Breadth::Size(Dimension::Px(v)) => M::length(v as f32),
-            Breadth::Size(Dimension::Percent(v)) => M::percent((v / 100.0) as f32),
-            Breadth::Size(Dimension::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
-            Breadth::Size(Dimension::Auto) => M::auto(),
-            Breadth::Size(Dimension::MinContent) => M::min_content(),
-            Breadth::Size(Dimension::MaxContent) => M::max_content(),
-            Breadth::Size(Dimension::FitContent) => M::fit_content_percent(1.0),
+            Breadth::Size(Length::Px(v)) => M::length(v as f32),
+            Breadth::Size(Length::Percent(v)) => M::percent((v / 100.0) as f32),
+            Breadth::Size(Length::Calc { percent, px }) => M::calc(self.alloc.calc(percent, px)),
+            Breadth::Size(Length::Auto) => M::auto(),
+            Breadth::Size(Length::MinContent) => M::min_content(),
+            Breadth::Size(Length::MaxContent) => M::max_content(),
+            Breadth::Size(Length::FitContent) => M::fit_content_percent(1.0),
             Breadth::Fr(f) => M::fr(f.max(0.0) as f32),
-            Breadth::FitContent(Dimension::Px(v)) => M::fit_content_px(v as f32),
-            Breadth::FitContent(Dimension::Percent(v)) => {
-                M::fit_content_percent((v / 100.0) as f32)
-            }
+            Breadth::FitContent(Length::Px(v)) => M::fit_content_px(v as f32),
+            Breadth::FitContent(Length::Percent(v)) => M::fit_content_percent((v / 100.0) as f32),
             Breadth::FitContent(_) => M::fit_content_percent(1.0),
         }
     }
 }
 
 fn display(l: &LayoutProps, hidden: bool) -> NodeDisplay {
-    if l.hidden || hidden {
+    if hidden {
         NodeDisplay::None
     } else if l.display == kivact_types::Display::Grid {
         NodeDisplay::Grid(None)

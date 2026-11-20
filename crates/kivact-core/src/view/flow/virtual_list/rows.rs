@@ -9,7 +9,7 @@ use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Owner, Signal, Trigger};
-use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Position};
+use kivact_types::{Edges, LayoutProps, Length, NodeId, Position};
 
 use super::state::{VRow, VState};
 use crate::view::boundary::mount_in;
@@ -17,8 +17,8 @@ use crate::view::descriptor::Mcx;
 use crate::view::flow::list::{RowFn, lis};
 use crate::view::state::ViewState;
 
-pub(super) fn px(v: f64) -> Dimension {
-    Dimension::Px(v)
+pub(super) fn px(v: f64) -> Length {
+    Length::Px(v)
 }
 
 fn wrapper_layout(top: f64, height: Option<f64>) -> LayoutProps {
@@ -28,9 +28,9 @@ fn wrapper_layout(top: f64, height: Option<f64>) -> LayoutProps {
             top: px(top),
             left: px(0.0),
             right: px(0.0),
-            bottom: Dimension::Auto,
+            bottom: Length::Auto,
         },
-        height: height.map(px).unwrap_or(Dimension::Auto),
+        height: height.map(px).unwrap_or(Length::Auto),
         ..LayoutProps::default()
     }
 }

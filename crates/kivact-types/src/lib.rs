@@ -28,6 +28,7 @@ pub mod ids;
 pub mod image_status;
 pub mod input;
 pub mod layout;
+pub mod length;
 pub mod motion;
 pub mod paint;
 pub mod pixel;
@@ -61,10 +62,10 @@ pub use effect::{
 pub use embed::{EmbedOptions, EmbedVisibility, ResizeAnswer, UnhandledKeys};
 pub use env::{
     Capabilities, CommandKey, ContextMenuTrigger, Environment, LifecycleEvent, PointerClass,
-    PointerSettings, ThemeHint,
+    PointerSettings, ThemeMode,
 };
 pub use export::{ExportFrame, ExportedFrame, FrameStats};
-pub use geometry::{Edge, Edges, Insets, Point, Rect, Size, Transform};
+pub use geometry::{Edge, Edges, Point, Rect, Size, Transform};
 pub use geometry3d::{Decomposed, Matrix4, Polygon, Projective, W_EPS};
 pub use gpu::{
     AdapterIds, AdapterMatch, ExternalFrame, ExternalImageId, ExternalImport, GpuAdapter,
@@ -83,11 +84,12 @@ pub use input::{
     WheelInput,
 };
 pub use layout::{
-    Align, AvailableSpace, Baseline, Breadth, Dimension, Display, EditLineLayout, FlexDirection,
-    GridContainer, GridFlow, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize,
-    Justify, LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
+    Align, AvailableSpace, Baseline, Breadth, Display, EditLineLayout, FlexDirection, GridAutoFlow,
+    GridContainer, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize, Justify,
+    LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
     OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
 };
+pub use length::{Length, auto, pct};
 pub use motion::{
     Easing, Keyframe, Kind, MotionClock, PlayDirection, Repeat, Retarget, Spring, SpringRun,
     StepPosition, TimeScale, Transition, TransitionProp, lerp,
@@ -119,9 +121,9 @@ pub use shaped::{
 pub use style_state::{StateSet, StyleState};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontVariation, LineHeight,
-    PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLen,
+    PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLength,
     TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle, TextTransform,
-    TextWrap,
+    TextWrap, em,
 };
 pub use text_shaping::TextShaper;
 pub use type_map::{LocalTypeMap, SharedTypeMap};

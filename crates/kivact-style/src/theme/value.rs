@@ -95,30 +95,13 @@ impl<T: Clone> ThemeRef<T> {
         (*self.0).clone()
     }
 }
-impl From<kivact_types::ThemeHint> for ThemeMode {
-    fn from(value: kivact_types::ThemeHint) -> Self {
-        match value {
-            kivact_types::ThemeHint::Light => Self::Light,
-            kivact_types::ThemeHint::Dark => Self::Dark,
-        }
-    }
-}
 /// The current theme's installed extension.
 #[track_caller]
 pub fn use_tokens<T: ThemeExtension>() -> ThemeRef<T> {
     use_theme().with(Theme::ext::<T>)
 }
 
-/// Whether a theme is light or dark. Every kit's theme constructor takes
-/// it first (`theme(ThemeMode::Dark, ..)`), and a kit's tokens fall back to
-/// the values of a theme's mode. Which mode to show (the system's, a
-/// setting) is the application's choice.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ThemeMode {
-    #[default]
-    Light,
-    Dark,
-}
+pub use kivact_types::ThemeMode;
 
 /// The values of a [`Theme`], shared by its clones.
 #[derive(Clone, Debug, PartialEq)]

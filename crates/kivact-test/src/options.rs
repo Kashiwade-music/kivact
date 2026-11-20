@@ -236,9 +236,9 @@ impl RenderOptions {
             single_window: self.single_window,
             foreign_windows: self.foreign_windows,
             theme: if self.dark {
-                kivact_types::ThemeHint::Dark
+                kivact_types::ThemeMode::Dark
             } else {
-                kivact_types::ThemeHint::Light
+                kivact_types::ThemeMode::Light
             },
             reduced_motion: self.reduced_motion,
             locale: self.host_locale,

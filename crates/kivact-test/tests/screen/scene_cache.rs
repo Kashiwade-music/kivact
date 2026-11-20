@@ -178,7 +178,7 @@ fn retained_reporting_host(
 ) -> ArvaneTestHost {
     use kivact_engine::api::Client;
     use kivact_engine::contract::{NodeKind, SceneLayer, TurnOutput};
-    use kivact_types::{Dimension, LayoutProps, NodeId};
+    use kivact_types::{LayoutProps, Length, NodeId};
     ArvaneTestHost::new(
         Client::new(
             move |_, _, writer| {
@@ -187,8 +187,8 @@ fn retained_reporting_host(
                 writer.set_layout(
                     NodeId(2),
                     LayoutProps {
-                        width: Dimension::Px(160.),
-                        height: Dimension::Px(60.),
+                        width: Length::Px(160.),
+                        height: Length::Px(60.),
                         ..Default::default()
                     },
                 );

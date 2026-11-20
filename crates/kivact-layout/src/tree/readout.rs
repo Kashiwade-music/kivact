@@ -1,7 +1,7 @@
 //! Role: Reads a node's last rounded layout as the neutral geometry value.
 
 use crate::{LayoutTree, NodeLayout, NodeLayoutColumns};
-use kivact_types::{Insets, NodeId, Point, Rect, Size};
+use kivact_types::{Edges, NodeId, Point, Rect, Size};
 
 impl NodeLayoutColumns {
     /// Read the last rounded layout at a live zero-based structural slot.
@@ -39,19 +39,19 @@ impl NodeLayoutColumns {
                     (l.size.height - y - l.border.bottom - l.padding.bottom).max(0.0),
                 ),
             },
-            padding: Insets {
+            padding: Edges {
                 top: f64::from(l.padding.top),
                 right: f64::from(l.padding.right),
                 bottom: f64::from(l.padding.bottom),
                 left: f64::from(l.padding.left),
             },
-            border: Insets {
+            border: Edges {
                 top: f64::from(l.border.top),
                 right: f64::from(l.border.right),
                 bottom: f64::from(l.border.bottom),
                 left: f64::from(l.border.left),
             },
-            margin: Insets {
+            margin: Edges {
                 top: f64::from(l.margin.top),
                 right: f64::from(l.margin.right),
                 bottom: f64::from(l.margin.bottom),

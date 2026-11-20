@@ -1,8 +1,8 @@
 //! Role: Gradients placed by the filled box: linear, radial and conic.
 
 use crate::color::Color;
-use crate::length::Length;
 use crate::theme::value::ThemeColor;
+use kivact_types::Length;
 use kivact_types::{ColorInterpolation, ColorSpace, HueInterpolation};
 
 /// The shape of a radial gradient's end, when no radius is given (CSS

@@ -302,7 +302,7 @@ fn use_theme_reads_inside_a_style_closure() {
 #[test]
 fn app_theme_follows_theme_hint() {
     let options = kivact::test::RenderOptions::from_env()
-        .theme(|| Theme::light().with_mode(kivact::platform::theme_hint().get().into()));
+        .theme(|| Theme::light().with_mode(kivact::platform::theme_hint().get()));
     let screen = kivact::test::render_with(options, || {
         text(|| format!("{:?}", use_theme().get().mode()))
     });

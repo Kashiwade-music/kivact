@@ -413,7 +413,7 @@ fn keyboard_inset_is_observable() {
             text(move || format!("Keyboard: {}", inset.get().bottom)),
         )
     });
-    let expected = kivact::geometry::Insets {
+    let expected = kivact::geometry::Edges {
         bottom: 240.0,
         ..Default::default()
     };

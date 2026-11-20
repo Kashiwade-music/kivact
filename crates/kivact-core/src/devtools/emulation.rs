@@ -5,7 +5,7 @@ use kivact_devtools_protocol as p;
 use kivact_engine::contract::{EngineEmulation, HostRequest};
 use kivact_runtime::ErrorKind;
 use kivact_runtime::driver::Runtime;
-use kivact_types::ThemeHint;
+use kivact_types::ThemeMode;
 
 use crate::devtools::state::{DevtoolsState, emulation_off};
 use crate::view::requests::request_effect;
@@ -34,8 +34,8 @@ pub(super) fn set_emulation(
     i.hooks.emulation.set(params.clone());
     let emulation = EngineEmulation {
         theme_hint: params.theme.map(|theme| match theme {
-            p::ThemeEmulation::Light => ThemeHint::Light,
-            p::ThemeEmulation::Dark => ThemeHint::Dark,
+            p::ThemeEmulation::Light => ThemeMode::Light,
+            p::ThemeEmulation::Dark => ThemeMode::Dark,
         }),
         scale: params.scale,
         touch: params.touch,

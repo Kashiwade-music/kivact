@@ -4,7 +4,7 @@ pub use crate::draw::recorder::{RecordContext, record};
 use crate::paint::fill_layer;
 pub use crate::resolve::{ForcedStates, compile_style, describe_state_styles, describe_style};
 pub use crate::sheet::with_scroll_axes;
-use crate::text::{CompiledSpanStyle, SpanStyle, TextLength, decoration, features};
+use crate::text::{CompiledSpanStyle, SpanStyle, decoration, features};
 use crate::theme::value::Theme;
 pub use crate::theme::value::{install_theme, theme_of};
 use kivact_types as p;
@@ -34,8 +34,8 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
         color: style.color.map(|c| c.resolve(theme)),
         family: style.family.clone(),
         italic: style.italic,
-        letter_spacing: style.letter_spacing.map(TextLength::to_wire),
-        word_spacing: style.word_spacing.map(TextLength::to_wire),
+        letter_spacing: style.letter_spacing,
+        word_spacing: style.word_spacing,
         kerning: style.kerning,
         features,
         decoration: decorated.then(|| {
@@ -48,7 +48,7 @@ pub fn compile_span_style(style: &SpanStyle, theme: &Theme) -> CompiledSpanStyle
             )
         }),
         stroke: style.stroke.map(|(width, color)| p::TextStroke {
-            width: width.to_wire(),
+            width,
             color: color.resolve(theme),
         }),
         variations,
@@ -66,8 +66,8 @@ pub fn compile_text_decoration(value: crate::TextDecoration, theme: &Theme) -> p
     p::TextDecoration {
         lines: value.lines,
         color: value.color.map(|color| color.resolve(theme)),
-        thickness: value.thickness.map(TextLength::to_wire),
-        underline_offset: value.underline_offset.to_wire(),
+        thickness: value.thickness,
+        underline_offset: value.underline_offset,
         style: value.style,
     }
 }

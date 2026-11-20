@@ -10,10 +10,10 @@ use crate::color::Color;
 use crate::draw::LocalPaint;
 use crate::effect::{BlendMode, BorderStyle, CornerRadius, Filter, Shadow, Shape};
 use crate::grid::GridStyle;
-use crate::length::Length;
 use crate::paint::{Background, BorderImage, Mask};
 use crate::text::{LineHeight, TextExtras};
 use crate::transform::Transform;
+use kivact_types::Length;
 
 // xtask-allow(state): legacy: top, right, bottom, left; one authored property; absent means the inherited or default value
 #[derive(Clone, Copy, Debug, PartialEq, Default)]

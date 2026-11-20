@@ -1,7 +1,7 @@
 //! Role: Options of a test host: fonts, window, scale and clock.
 
 use arvane_virtual::{GpuMode, MirrorMode};
-use kivact_types::ThemeHint;
+use kivact_types::ThemeMode;
 use std::sync::Arc;
 
 /// The bundled default test font: Arvane's test font (Tuffy, public
@@ -47,7 +47,7 @@ pub struct TestHostOptions {
     /// The display refresh period frame ticks are paced at (ns).
     pub frame_period_ns: u64,
     /// The theme hint reported at start.
-    pub theme: ThemeHint,
+    pub theme: ThemeMode,
     /// The reduced-motion setting reported at start.
     pub reduced_motion: bool,
     /// The system locale (a BCP 47 tag) reported at start; `None`: the
@@ -81,7 +81,7 @@ impl Default for TestHostOptions {
             single_window: false,
             foreign_windows: false,
             frame_period_ns: kivact_types::defaults::FRAME_PERIOD_NS,
-            theme: ThemeHint::Light,
+            theme: ThemeMode::Light,
             reduced_motion: false,
             locale: None,
             inline_assets: true,
