@@ -59,7 +59,5 @@ pub use kivact_macros::{Prop, component};
 #[doc(inline)]
 pub use kivact_test as test;
 
-/// What an App wishes of its window's GPU device at launch ([`App::gpu_preference`]).
-pub mod launch;
 /// Everyday names and standard UI functions used by the introductory guides.
 pub mod prelude;

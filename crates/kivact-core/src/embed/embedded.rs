@@ -27,20 +27,13 @@ use kivact_types::embed::Visibility;
 /// after closure, Kivact keeps its code module mapped until process exit. The
 /// host may unload the plugin after closing the editor.
 pub struct Embedded {
-    // Fields drop in declaration order: stop the host before retaining code
-    // for detached threads.
     host: EmbeddedHost,
     panic: PanicSlot,
-    _retention: Retention,
 }
 impl Embedded {
     /// Own a stopped or running host and the slot that keeps a panic message.
     pub(super) fn new(host: EmbeddedHost, panic: PanicSlot) -> Self {
-        Self {
-            host,
-            panic,
-            _retention: Retention,
-        }
+        Self { host, panic }
     }
 
     /// Set physical size (CLAP `set_size`, VST3 `onSize`). A zero or
@@ -102,16 +95,6 @@ impl Embedded {
                     .unwrap_or_else(|| "the embedded App panicked".to_owned()),
                 None,
             )),
-        }
-    }
-}
-
-// The handle's last field: it drops after the host, whose cleanup may detach threads.
-struct Retention;
-impl Drop for Retention {
-    fn drop(&mut self) {
-        if kivact_types::process::DetachedThreads::any() {
-            kivact_engine::embed::retain_module();
         }
     }
 }

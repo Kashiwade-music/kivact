@@ -14,7 +14,7 @@ use kivact_types::WindowId;
 
 use super::model::{FIND_TIMEOUT, Record, Screen, TestApp};
 use crate::RenderOptions;
-use kivact_core::launch::{ClientMode, Inspect, Launch, TestTiming};
+use kivact_core::__test::{Inspect, LaunchPolicy};
 use kivact_core::view::View;
 use kivact_style::asset::Asset;
 
@@ -34,19 +34,19 @@ impl Screen {
     ) -> Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
-        let (app, host_options) = options.into_host(fonts);
+        let (app, devtools, host_options) = options.into_host(fonts);
         let timed = record.clone();
-        let (client, launch) = Launch::new(
+        let (client, launch) = kivact_core::__test::launch(
             app,
-            ClientMode::Test {
-                timing: TestTiming(Rc::new(move |elapsed| {
+            LaunchPolicy::test(
+                name.clone(),
+                Rc::new(move |elapsed| {
                     timed.core_ns.set(timed.core_ns.get() + elapsed);
-                })),
-                name: name.clone(),
-            },
+                }),
+                devtools,
+            ),
             root,
-        )
-        .into_engine_client();
+        );
         let host = ArvaneTestHost::new(client, host_options)
             .unwrap_or_else(|e| panic!("kivact test: the Arvane test host did not start: {e}"));
         let s = Screen {

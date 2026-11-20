@@ -38,12 +38,11 @@ fn mirror_from_env() -> MirrorMode {
     }
 }
 
-use kivact_core::launch::AppOptions;
-
 /// Options shared with a running App and additional test-host settings.
-#[derive(Clone)]
 pub struct RenderOptions {
-    app: kivact_core::launch::AppOptions,
+    app: kivact_core::App,
+    /// Whether the DevTools agent starts for this test App.
+    devtools: bool,
     host_locale: Option<String>,
     reduced_motion: bool,
     dark: bool,
@@ -60,8 +59,9 @@ pub struct RenderOptions {
 impl Default for RenderOptions {
     fn default() -> Self {
         Self {
-            app: AppOptions::new(std::thread::current().name().unwrap_or("test"))
+            app: kivact_core::App::new(std::thread::current().name().unwrap_or("test"))
                 .window_size(800, 600),
+            devtools: false,
             host_locale: None,
             reduced_motion: false,
             dark: false,
@@ -96,7 +96,7 @@ impl RenderOptions {
         Self::default().theme(theme)
     }
     pub fn title(mut self, title: impl Into<String>) -> Self {
-        self.app = self.app.title(title);
+        self.app = kivact_core::__test::retitle(self.app, title);
         self
     }
     pub fn host_locale(mut self, tag: impl Into<String>) -> Self {
@@ -162,7 +162,7 @@ impl RenderOptions {
     }
     /// Its `start` is the test's: [`Self::gpu`] or [`Self::gpu_on_demand`]
     /// decide it, as `ARVANE_RENDERER` does for a running App.
-    pub fn gpu_preference(mut self, preference: kivact_core::launch::GpuPreference) -> Self {
+    pub fn gpu_preference(mut self, preference: kivact_core::platform::GpuPreference) -> Self {
         self.app = self.app.gpu_preference(preference);
         self
     }
@@ -196,7 +196,7 @@ impl RenderOptions {
     /// Start the DevTools agent for this test App.
     #[cfg(feature = "devtools")]
     pub fn devtools(mut self) -> Self {
-        self.app = self.app.devtools_in_tests();
+        self.devtools = true;
         self
     }
 }
@@ -211,15 +211,18 @@ impl RenderOptions {
             kivact_core::view::Asset,
             &'static std::panic::Location<'static>,
         )>,
-    ) -> (AppOptions, kivact_engine::testing::TestHostOptions) {
+    ) -> (
+        kivact_core::App,
+        bool,
+        kivact_engine::testing::TestHostOptions,
+    ) {
         let mut app = self.app;
         for (font, _) in fonts {
             app = app.font(font);
         }
-        app.check_window_sizes()
-            .expect("valid test application window sizes");
-        let title = app.window_title().to_owned();
-        let initial = app.host_options();
+        kivact_core::__test::check_window_sizes(&app).expect("valid test application window sizes");
+        let title = kivact_core::__test::window_title(&app).to_owned();
+        let initial = kivact_core::__test::host_options(&app);
         let size = initial
             .window_size
             .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
@@ -269,15 +272,18 @@ impl RenderOptions {
                 ..initial.gpu_preference
             },
         };
-        (app, host)
+        (app, self.devtools, host)
     }
 }
 
 impl std::fmt::Debug for RenderOptions {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RenderOptions")
-            .field("title", &self.app.window_title())
-            .field("window_size", &self.app.host_options().window_size)
+            .field("title", &kivact_core::__test::window_title(&self.app))
+            .field(
+                "window_size",
+                &kivact_core::__test::host_options(&self.app).window_size,
+            )
             .field("host_locale", &self.host_locale)
             .field("reduced_motion", &self.reduced_motion)
             .field("dark", &self.dark)

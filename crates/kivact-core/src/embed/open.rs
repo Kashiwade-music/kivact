@@ -44,7 +44,7 @@ impl App {
         root: impl FnOnce() -> V + Send + 'static,
         at: &'static Location<'static>,
     ) -> Result<Embedded> {
-        self.options.check_window_sizes()?;
+        self.check_window_sizes()?;
         if parent
             .scale
             .is_some_and(|scale| !scale.is_finite() || scale <= 0.0)
@@ -65,7 +65,6 @@ impl App {
         let panic = kivact_engine::embed::PanicSlot::default();
         let options = kivact_types::EmbedOptions {
             size: self
-                .options
                 .host_options()
                 .window_size
                 .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE),
@@ -73,18 +72,18 @@ impl App {
             visibility: parent.visibility,
             unhandled_keys: parent.unhandled_keys,
             prefer_gpu: true,
-            gpu_preference: self.options.host_options().gpu_preference,
+            gpu_preference: self.host_options().gpu_preference,
         };
         let hooks = kivact_engine::embed::ChildHooks {
             on_resize_request: parent.on_resize_request,
             on_notice: parent.on_notice,
             panic: panic.clone(),
         };
-        let (settings, theme) = self.options.into_embed_settings(at)?;
+        let (settings, theme) = self.into_embed_settings(at)?;
         let opened = kivact_engine::embed::embed_native(window, options, hooks, move |closing| {
             crate::launch::Launch::new(
                 settings.with_theme(theme),
-                crate::launch::ClientMode::Embedded(closing),
+                crate::launch::LaunchPolicy::embedded(closing),
                 move || root().into_view(),
             )
             .into_engine_client()

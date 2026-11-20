@@ -9,6 +9,7 @@ use kivact_engine::api::{Client, HostWaker, Writer};
 use kivact_engine::contract::{HostInfo, TurnOutput};
 use kivact_types::{WindowId, WindowMode};
 
+use crate::App;
 use crate::client::state::HostState;
 use crate::platform::{AppHandle, AppHandleExt};
 
@@ -20,12 +21,12 @@ use kivact_runtime::driver::{
 };
 use kivact_runtime::{IntoValue, Stage};
 
-use super::settings::AppOptions;
+use super::policy::LaunchPolicy;
 /// Whether the host started the App.
 pub(super) enum LaunchState {
     /// Waiting for the host's `start`, which consumes the config.
     Waiting {
-        options: Box<AppOptions>,
+        options: Box<App>,
         root: Box<dyn FnOnce() -> View>,
     },
     /// The host started the App.
@@ -47,29 +48,29 @@ impl kivact_runtime::driver::Host for ClientHost {
     }
 }
 
-pub struct Launch {
+pub(crate) struct Launch {
     /// Where the App was started: the location of the root owner.
     at: &'static Location<'static>,
     pub(super) launch: LaunchState,
-    /// Host mode and its close/timing protocol for this application.
-    pub(super) mode: ClientMode,
+    /// What differs for this launch: closing, DevTools and test timing.
+    pub(super) policy: LaunchPolicy,
 }
 
 impl Launch {
     /// Prepare an application; the engine constructs its runtime at start.
     #[track_caller]
-    pub fn new(
-        options: AppOptions,
-        mode: ClientMode,
+    pub(crate) fn new(
+        app: App,
+        policy: LaunchPolicy,
         root: impl FnOnce() -> View + 'static,
     ) -> Self {
         Self {
             at: Location::caller(),
             launch: LaunchState::Waiting {
-                options: Box::new(options),
+                options: Box::new(app),
                 root: Box::new(root),
             },
-            mode,
+            policy,
         }
     }
 
@@ -106,7 +107,7 @@ impl Launch {
 fn start_mount(
     rt: &Rc<Runtime>,
     writer: &Writer,
-    mut options: AppOptions,
+    mut options: App,
     root: Box<dyn FnOnce() -> View>,
     at: &'static Location<'static>,
 ) {
@@ -140,8 +141,8 @@ fn start_mount(
 }
 
 /// The recorders a launch turns on from the start: a test screen records its run.
-fn record_bits(mode: &ClientMode) -> RecordBits {
-    if matches!(mode, ClientMode::Test { .. }) {
+fn record_bits(policy: &LaunchPolicy) -> RecordBits {
+    if policy.test.is_some() {
         RecordBits::TEST
     } else {
         RecordBits::default()
@@ -163,10 +164,7 @@ impl Launch {
             LaunchState::Started(_) => unreachable!("invariant: host starts an App once"),
         };
         #[cfg(debug_assertions)]
-        let trace_name = match &self.mode {
-            ClientMode::Test { name, .. } => Some(name.clone()),
-            _ => None,
-        };
+        let trace_name = self.policy.test.as_ref().map(|t| t.name.clone());
         let handle = options.handle();
         let ready = waker.clone();
         let thread_waker = ThreadWaker::new(move || ready.wake());
@@ -177,11 +175,13 @@ impl Launch {
         #[cfg(feature = "devtools")]
         let mut slot = Some(crate::devtools::start::agent_slot(
             &options.settings.title,
-            self.mode
-                .devtools_allowed(options.settings.devtools_in_tests),
-            !matches!(self.mode, ClientMode::Embedded(_)),
+            self.policy.devtools,
+            !self.policy.is_embedded(),
             thread_waker.clone(),
         ));
+        // A build without the agent starts none, whatever the policy asks.
+        #[cfg(not(feature = "devtools"))]
+        let _ = self.policy.devtools;
         let rt = Runtime::new(
             Rc::new(ClientHost(waker)),
             thread_waker,
@@ -189,7 +189,7 @@ impl Launch {
                 start_ns: info.now_ns,
                 blocking_threads: options.settings.blocking_threads,
                 at,
-                record: record_bits(&self.mode),
+                record: record_bits(&self.policy),
             },
             |_rt, root| {
                 #[cfg(feature = "devtools")]
@@ -247,7 +247,7 @@ fn install_main_window(
     view: &ViewState,
     root: kivact_runtime::Owner,
     info: &HostInfo,
-    options: &AppOptions,
+    options: &App,
     at: &'static Location<'static>,
 ) -> kivact_runtime::driver::MotionEnv {
     let decl = Rc::new(WindowDecl {
@@ -321,13 +321,6 @@ impl Drop for Launch {
         if !std::thread::panicking() {
             rt.shutdown();
         }
-        // Opening may fail before an Embedded is returned, or its drop may
-        // precede deferred callback cleanup. Record task retention here too.
-        if matches!(self.mode, ClientMode::Embedded(_))
-            && kivact_types::process::DetachedThreads::any()
-        {
-            kivact_engine::embed::retain_module();
-        }
     }
 }
 
@@ -355,31 +348,6 @@ pub(super) fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usi
     }
     turn.stamp_mounts(kivact_types::Revision(revision));
     writes
-}
-
-/// The engine host driving this application.
-pub enum ClientMode {
-    Window,
-    Embedded(kivact_engine::contract::CloseSignal),
-    /// A test launch: its timing reporter and the test's name (the trace
-    /// file is named after it).
-    Test {
-        timing: TestTiming,
-        name: String,
-    },
-}
-/// Reports the duration of each core turn to the test harness.
-pub struct TestTiming(pub Rc<dyn Fn(u64)>);
-
-impl ClientMode {
-    /// Whether the DevTools agent may run for this launch.
-    #[cfg(feature = "devtools")]
-    fn devtools_allowed(&self, in_tests: bool) -> bool {
-        match self {
-            ClientMode::Window | ClientMode::Embedded(_) => true,
-            ClientMode::Test { .. } => in_tests,
-        }
-    }
 }
 
 pub(crate) fn run_native(

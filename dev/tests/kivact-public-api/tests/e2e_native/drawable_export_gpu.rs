@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use kivact::draw::Pixels;
 use kivact::gpu_interop::{self, GpuAdapter, SharedTextures};
-use kivact::launch::GpuBackend;
+use kivact::platform::GpuBackend;
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions, Screen, Screenshot, gpu_unavailable};
 use kivact::view::{Drawable, DrawableFrame, DrawableShare, ShareError, ShareUpdate, viewport};

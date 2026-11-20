@@ -74,7 +74,7 @@ pub mod gpu_interop;
 )]
 mod gpu_interop;
 pub mod i18n;
-pub mod launch;
+mod launch;
 pub mod motion;
 pub mod platform;
 pub mod state;
@@ -86,3 +86,13 @@ pub mod view;
 pub use app::App;
 #[doc(inline)]
 pub use kivact_runtime::{ErrorKind, Result, UiError};
+
+// xtask-allow(internal-contract): kivact-test drives an App through the same launch as App::run
+#[doc(hidden)]
+pub mod __test {
+    //! Role: The launch contract kivact-test drives; not an App API.
+    pub use crate::app::test_launch::{
+        app_theme_has_fonts, check_window_sizes, host_options, launch, retitle, window_title,
+    };
+    pub use crate::launch::{Inspect, LaunchHandle, LaunchPolicy};
+}

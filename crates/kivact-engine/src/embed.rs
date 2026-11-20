@@ -16,6 +16,23 @@ use std::rc::Rc;
 pub struct EmbeddedHost {
     host: Embedded,
     closing: CloseSignal,
+    // The last field: it drops after the host, whose cleanup may detach threads.
+    _retention: Retention,
+}
+
+/// Keeps the code module mapped when cleanup detached a thread that still runs.
+struct Retention;
+impl Drop for Retention {
+    fn drop(&mut self) {
+        retain_detached();
+    }
+}
+
+/// Keep the module mapped while threads detached during cleanup still run.
+fn retain_detached() {
+    if kivact_types::process::DetachedThreads::any() {
+        retain_module();
+    }
 }
 impl Drop for EmbeddedHost {
     fn drop(&mut self) {
@@ -80,8 +97,18 @@ pub fn embed_native(
             }
         })
     });
-    arvane_native::embed::open(parent, options, hooks, make)
+    match arvane_native::embed::open(parent, options, hooks, make)
         .map(Embedded::new)
-        .map(|host| EmbeddedHost { host, closing })
-        .map_err(|e| HostError::new(e.to_string()))
+        .map(|host| EmbeddedHost {
+            host,
+            closing,
+            _retention: Retention,
+        }) {
+        Ok(host) => Ok(host),
+        Err(e) => {
+            // The failed open may have detached threads of its own.
+            retain_detached();
+            Err(HostError::new(e.to_string()))
+        }
+    }
 }

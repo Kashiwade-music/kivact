@@ -1,5 +1,5 @@
 //! Role: Ephemeral test queries over engine facts and core creation locations.
-use kivact_core::launch::Inspect;
+use kivact_core::__test::Inspect;
 use kivact_engine::api::Reader;
 use kivact_engine::contract::{NodeKind, NodeProperties, NodeType, SceneLayer};
 use kivact_types::NodeId;

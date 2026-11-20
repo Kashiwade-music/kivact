@@ -173,26 +173,19 @@ impl AppLink {
     #[track_caller]
     fn begin(&self) -> Begin {
         let mut state = self.lock();
-        let outcome = match state.clone() {
-            LinkState::Unstarted => Ok(Begin::Run),
+        match state.clone() {
+            LinkState::Unstarted => Begin::Run,
             LinkState::ClosePending => {
                 *state = LinkState::Ended;
-                Ok(Begin::Skip)
+                Begin::Skip
             }
-            LinkState::Ended => Err(
-                "one AppHandle drives one run; App::run consumes the App and cannot run again: \
-                 make another App with App::new",
-            ),
-            LinkState::Running(_) | LinkState::CloseRequested(_) | LinkState::Exiting => {
-                Err("an AppHandle drives one run at a time; make another App with App::new")
+            LinkState::Running(_)
+            | LinkState::CloseRequested(_)
+            | LinkState::Exiting
+            | LinkState::Ended => {
+                drop(state);
+                unreachable!("invariant: App::run consumes the App, so its handle begins once")
             }
-        };
-        // Do not poison the link with a misuse panic: another clone may still
-        // ask about the run that is going.
-        drop(state);
-        match outcome {
-            Ok(begin) => begin,
-            Err(why) => panic!("kivact misuse: {why}"),
         }
     }
 
@@ -373,15 +366,6 @@ mod link_tests {
         clone.close();
         assert_eq!(format!("{handle:?}"), "AppHandle(ClosePending)");
         assert_eq!(handle.begin(), Begin::Skip);
-    }
-
-    #[test]
-    #[should_panic(expected = "one AppHandle drives one run")]
-    fn a_finished_handle_starts_no_run() {
-        let handle = AppHandle::new();
-        handle.close();
-        assert_eq!(handle.begin(), Begin::Skip);
-        handle.begin();
     }
 
     #[test]

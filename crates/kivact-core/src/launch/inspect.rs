@@ -1,5 +1,5 @@
 //! Role: Read-only inspection of a started application.
-use super::runtime::{ClientMode, Launch, LaunchState, TestTiming};
+use super::runtime::{Launch, LaunchState};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
 use kivact_engine::api::Client;
@@ -158,14 +158,8 @@ impl Inspect<'_> {
 }
 
 impl Launch {
-    pub fn into_engine_client(self) -> (Client, LaunchHandle) {
-        let timing = match &self.mode {
-            ClientMode::Test {
-                timing: TestTiming(timing),
-                ..
-            } => Some(timing.clone()),
-            _ => None,
-        };
+    pub(crate) fn into_engine_client(self) -> (Client, LaunchHandle) {
+        let timing = self.policy.test.as_ref().map(|t| t.timing.clone());
         let shared = Rc::new(RefCell::new(self));
         (
             Self::shared_client(shared.clone(), timing),

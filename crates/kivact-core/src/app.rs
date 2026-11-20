@@ -1,29 +1,46 @@
 //! Role: Public application builder and native window entry.
 use crate::Result;
 use crate::i18n::{Locale, Messages};
-use crate::launch::AppOptions;
-use crate::platform::Begin;
+use crate::launch::{AppSettings, LaunchPolicy};
+use crate::platform::{AppHandle, Begin, GpuPreference};
 use crate::view::Asset;
 use crate::view::IntoView;
+use std::panic::Location;
 
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_style::Theme;
+use kivact_types::Size;
 
-#[derive(Clone)]
+/// The App: its window, theme, locale, texts and run. Build it with
+/// `App::new(title)` and the setters, then `run` it once.
 pub struct App {
-    pub(crate) options: AppOptions,
+    pub(crate) theme: kivact_runtime::Prop<Theme>,
+    pub(crate) settings: AppSettings,
 }
+
 impl App {
     /// An app whose window is titled `title`, with the default theme.
     pub fn new(title: impl Into<String>) -> Self {
         Self {
-            options: AppOptions::new(title),
+            theme: kivact_runtime::Prop::constant(Theme::default()),
+            settings: AppSettings {
+                title: title.into(),
+                locale: None,
+                messages: Messages::new(),
+                window_size: None,
+                min_window_size: None,
+                blocking_threads: None,
+                fonts: Vec::new(),
+                gpu_preference: GpuPreference::default(),
+                handle: AppHandle::new(),
+            },
         }
     }
     /// Theme of the whole App, evaluated reactively under its root owner.
     /// Embedded startup accepts only a fixed theme; create reactive themes with
     /// [`style::provide_theme`](crate::style::provide_theme) inside the embedded root factory.
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
-        self.options = self.options.theme(theme);
+        self.theme = theme.into_prop();
         self
     }
     /// The App's locale: the language and region components format for.
@@ -34,7 +51,7 @@ impl App {
     /// [`i18n::provide_locale`](crate::i18n::provide_locale) with a `Signal<Locale>`. Read it with
     /// [`i18n::use_locale`](crate::i18n::use_locale).
     pub fn locale(mut self, locale: Locale) -> Self {
-        self.options = self.options.locale(locale);
+        self.settings.locale = Some(locale);
         self
     }
     /// The App's texts: the replacements for the default (English) texts
@@ -42,7 +59,7 @@ impl App {
     /// keys. To switch them at runtime, wrap the root in
     /// [`i18n::provide_messages`](crate::i18n::provide_messages) with a `Signal<Messages>`.
     pub fn messages(mut self, messages: Messages) -> Self {
-        self.options = self.options.messages(messages);
+        self.settings.messages = messages;
         self
     }
     /// The window's first content size in logical pixels (default 960 by
@@ -54,7 +71,7 @@ impl App {
     /// [`App::min_window_size`]: otherwise [`App::run`] returns an error
     /// of kind `ErrorKind::Message` without opening the window.
     pub fn window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.options = self.options.window_size(width, height);
+        self.settings.window_size = Some(Size::new(width.into(), height.into()));
         self
     }
     /// The smallest content size in logical pixels the user can resize the
@@ -65,7 +82,7 @@ impl App {
     /// returns an error of kind `ErrorKind::Message` without opening the
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
-        self.options = self.options.min_window_size(width, height);
+        self.settings.min_window_size = Some(Size::new(width.into(), height.into()));
         self
     }
     /// Register the fonts of a TTF, OTF or TTC file before the first
@@ -78,7 +95,7 @@ impl App {
     /// `ErrorKind::Asset`, located here; the App starts anyway.
     #[track_caller]
     pub fn font(mut self, font: impl Into<Asset>) -> Self {
-        self.options = self.options.font(font);
+        self.settings.fonts.push((font.into(), Location::caller()));
         self
     }
     /// Register an ordered collection of font files with the same loading and
@@ -92,11 +109,11 @@ impl App {
     }
     /// Size of the blocking pool (default `min(4, CPUs)`).
     pub fn blocking_threads(mut self, n: usize) -> Self {
-        self.options = self.options.blocking_threads(n);
+        self.settings.blocking_threads = Some(n.max(1));
         self
     }
     /// What the App wishes of the window's GPU device: when it starts
-    /// ([`GpuStart`](crate::launch::GpuStart), default on demand), the kind of
+    /// ([`GpuStart`](crate::platform::GpuStart), default on demand), the kind of
     /// adapter, the graphics API and the adapter itself (default: Arvane's own
     /// choice). A wish: the device is made on another adapter or API when the
     /// one asked for is not there, and the environment variables
@@ -104,17 +121,17 @@ impl App {
     /// build without the feature `gpu` draws on the CPU and ignores it. Read the
     /// adapter the device is on with `kivact::gpu_interop::adapter` (feature
     /// `gpu-interop`).
-    pub fn gpu_preference(mut self, preference: crate::launch::GpuPreference) -> Self {
-        self.options = self.options.gpu_preference(preference);
+    pub fn gpu_preference(mut self, preference: GpuPreference) -> Self {
+        self.settings.gpu_preference = preference;
         self
     }
     /// The handle that ends this App's run from any thread
-    /// ([`platform::AppHandle`](crate::platform::AppHandle)). Clones of this
-    /// `App` share it, and it belongs to the one run [`App::run`] starts.
+    /// ([`platform::AppHandle`](crate::platform::AppHandle)). It belongs to the
+    /// one run [`App::run`] starts.
     /// Inside the App, [`platform::app_handle`](crate::platform::app_handle)
     /// returns the same handle.
-    pub fn handle(&self) -> crate::platform::AppHandle {
-        self.options.handle()
+    pub fn handle(&self) -> AppHandle {
+        self.settings.handle.clone()
     }
     /// Open the window and run until it closes. `root` is the body of the
     /// root component (usually a plain function such as `app` or
@@ -145,18 +162,102 @@ impl App {
     /// ```
     #[track_caller]
     pub fn run<V: IntoView>(self, root: impl FnOnce() -> V + 'static) -> Result<()> {
-        self.options.check_window_sizes()?;
-        if self.options.handle().begin() == Begin::Skip {
+        self.check_window_sizes()?;
+        if self.handle().begin() == Begin::Skip {
             return Ok(());
         }
-        let options = self.options.host_options();
-        let (client, _) = crate::launch::Launch::new(
-            self.options,
-            crate::launch::ClientMode::Window,
-            move || root().into_view(),
-        )
-        .into_engine_client();
+        let options = self.host_options();
+        let (client, _) =
+            crate::launch::Launch::new(self, LaunchPolicy::window(), move || root().into_view())
+                .into_engine_client();
         crate::launch::run_native(client, options)
+    }
+
+    #[track_caller]
+    pub(crate) fn check_window_sizes(&self) -> Result<()> {
+        crate::geometry::check_window_sizes(
+            self.settings.window_size,
+            self.settings.min_window_size,
+            ("App::window_size", "App::min_window_size"),
+            Location::caller(),
+        )
+    }
+    /// Initial engine settings, derived from the application options.
+    pub(crate) fn host_options(&self) -> kivact_engine::api::HostOptions {
+        kivact_engine::api::HostOptions {
+            window_size: self.settings.window_size,
+            gpu_preference: self.settings.gpu_preference,
+        }
+    }
+    /// The single title used for both engine startup and later window effects.
+    pub(crate) fn window_title(&self) -> &str {
+        &self.settings.title
+    }
+    /// Replace the window's title (kivact-test names its Apps).
+    pub(crate) fn retitle(mut self, title: impl Into<String>) -> Self {
+        self.settings.title = title.into();
+        self
+    }
+    /// Extract only a fixed theme; reactive inputs stay on their owning thread.
+    pub(crate) fn into_embed_settings(
+        self,
+        at: &'static Location<'static>,
+    ) -> crate::Result<(AppSettings, Theme)> {
+        let theme = self.theme.fixed().ok_or_else(|| {
+            UiError::new(
+                ErrorKind::Unsupported,
+                "App::embed requires a fixed App theme; use style::provide_theme inside the Send root factory for an embedded reactive theme",
+                Some(at),
+            )
+        })?;
+        Ok((self.settings, theme))
+    }
+
+    pub(crate) fn into_view_settings(
+        self,
+    ) -> (
+        kivact_runtime::Prop<Theme>,
+        Option<crate::i18n::Locale>,
+        Messages,
+    ) {
+        (self.theme, self.settings.locale, self.settings.messages)
+    }
+}
+
+/// The functions `kivact_core::__test` exposes over a private App.
+pub(crate) mod test_launch {
+    //! Role: The functions `kivact_core::__test` exposes over a private App.
+    use super::App;
+    use crate::launch::{Launch, LaunchHandle, LaunchPolicy};
+    use crate::view::View;
+
+    /// Launch `app` under `policy` with `root`, returning the engine client and
+    /// the inspection handle.
+    #[track_caller]
+    pub fn launch(
+        app: App,
+        policy: LaunchPolicy,
+        root: impl FnOnce() -> View + 'static,
+    ) -> (kivact_engine::api::Client, LaunchHandle) {
+        Launch::new(app, policy, root).into_engine_client()
+    }
+    pub fn host_options(app: &App) -> kivact_engine::api::HostOptions {
+        app.host_options()
+    }
+    pub fn window_title(app: &App) -> &str {
+        app.window_title()
+    }
+    #[track_caller]
+    pub fn check_window_sizes(app: &App) -> crate::Result<()> {
+        app.check_window_sizes()
+    }
+    pub fn retitle(app: App, title: impl Into<String>) -> App {
+        app.retitle(title)
+    }
+    /// Whether the App's fixed theme carries fonts (C14 fills it).
+    pub fn app_theme_has_fonts(app: &App) -> bool {
+        let _ = app;
+        false
     }
 }
 
@@ -193,10 +294,10 @@ mod window_size_tests {
         let app = App::new("t")
             .window_size(1280, 800)
             .min_window_size(640u16, 480.5);
-        let ok = app.options.check_window_sizes();
+        let ok = app.check_window_sizes();
         assert!(ok.is_ok(), "integer and float literals are taken");
         assert_eq!(
-            app.options.host_options().window_size,
+            app.host_options().window_size,
             Some(Size {
                 width: 1280.0,
                 height: 800.0
@@ -257,16 +358,5 @@ mod handle_tests {
         });
         assert!(result.is_ok(), "a closed run returns Ok");
         assert!(!ran.get(), "the root never runs");
-    }
-
-    #[test]
-    #[should_panic(expected = "one AppHandle drives one run")]
-    fn a_handle_cannot_drive_a_second_run() {
-        let app = App::new("One run");
-        app.handle().close();
-        app.clone()
-            .run(|| text("first"))
-            .expect("the closed run returns Ok");
-        let _ = app.run(|| text("second"));
     }
 }

@@ -12,7 +12,7 @@ use kivact_runtime::driver::{Runtime, TurnGuard};
 use kivact_runtime::{Cause, CauseTag, ErrorKind, Stage, UiError};
 use kivact_types::Revision;
 
-use super::runtime::{ClientMode, Launch, commit, output};
+use super::runtime::{Launch, commit, output};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
 
@@ -31,11 +31,14 @@ impl Launch {
     ) -> TurnOutput {
         let rt = self.runtime().clone();
         let host = HostState::of(&rt);
+        // A closing embedded App runs no turn: its host is tearing it down.
+        if self.policy.closing() {
+            return output(rt.end_idle());
+        }
         rt.advance_clock(now_ns);
         // A close requested from any thread since the last turn starts the
         // exit before the idle check, so a bare wake always counts.
-        let embedded = matches!(self.mode, ClientMode::Embedded(_));
-        super::close::take_close_request(&rt, embedded);
+        super::close::take_close_request(&rt, self.policy.is_embedded());
         #[cfg(feature = "devtools")]
         let incoming = crate::devtools::take_incoming(&rt);
         let tree = ViewState::tree(&rt).engine().clone();
@@ -83,9 +86,6 @@ impl Launch {
         crate::devtools::run_incoming(&rt, &turn, incoming);
         let mut delivered = 0;
         for event in events {
-            if matches!(&self.mode, ClientMode::Embedded(closing) if closing.is_set()) {
-                break;
-            }
             turn.stage(Stage::Dispatch);
             #[cfg(debug_assertions)]
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
