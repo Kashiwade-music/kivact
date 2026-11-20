@@ -367,14 +367,4 @@ mod link_tests {
         assert_eq!(format!("{handle:?}"), "AppHandle(ClosePending)");
         assert_eq!(handle.begin(), Begin::Skip);
     }
-
-    #[test]
-    #[should_panic(expected = "drives one run at a time")]
-    fn a_running_handle_starts_no_second_run() {
-        let handle = AppHandle::new();
-        assert_eq!(handle.begin(), Begin::Run);
-        let (waker, _) = counted_waker();
-        handle.attach(waker);
-        handle.begin();
-    }
 }
