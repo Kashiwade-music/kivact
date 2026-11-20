@@ -359,3 +359,8 @@
   - 止まらないもの：A11 の `GpuDevice`（付属書に印の文がある）。A07 の `ImeRequest`、C11 の `LaunchPolicy`、E17 の `EditContext`・`Limits`、E18 の `NodeInput`、R25 の `TraceWrite`・`TraceRun`、K11 の `SidebarState`・`SidebarItemState`、K26 の `ThemeOptions`、U25 の `Authored` は、`&mut self` の method も内部可変の field も Signal を書く method も無い record（xtask の対象外）。
   - 付属書の試験の関数（R31・U32・U42 の、状態の変数を 2 つ以上持つ試験）は、xtask が試験の file を見ないので止まらない（基点の `kivact-test/tests/screen/disposal.rs` に、印の無い同じ形がある）。
 - 作業指示書 0.5 節の表に 1 行足した：xtask の `state` 検査が、付属書が作る型か field を足す型を報告し、印の文が無いときは、Orchestrator が 3 つの条件を確かめて `independent:` の印を書いて進める。(1) field ごとの書き手を挙げられる。(2) 他の field を見てから読み書きされない。(3) 同じ事実の重複が無い。印の文と書き手は「Orchestrator の判断」に書く。条件を満たさないときだけ差戻し。付属書の文の上で field を足す型（散文で「`X` に field を足す」とあるもの）は機械的に洗えないので、この行で受ける。
+
+## 差戻し（W5a・R28、2026-11-20）
+（設計者へ返す STOP。unit、場所、STOP の文、付属書の節）
+
+- **R28**（W5a、lane X、commit `49707eeb`）：`crates/kivact-interaction` の呼出し元は直した（fmt・check --lib・clippy --lib は成功）。xtask が次の 4 件で失敗する。(1) `crates/kivact-interaction/src/scalar/range.rs`（`follow_range`・`follow_ranges`、59・70・73 行）：effect の closure の中で `Signal::set` を書き、`xtask effect-writes` が error（付属書に扱いが無い。旧 `Binding` の set は検査されず、`Signal` への置換で数えられるようになった）。(2) `disclosure.rs` の `DisclosureApi`：state field `open`・`trigger_state`・`content_state`・`host_disabled` が `xtask state` の error。(3) `scalar/track_data.rs` の `Target`：state field `binding`・`bounds`。(4) `toggle.rs` の `Core`：state field `checked`・`observed`。(2)〜(4) は付属書 R28 に型の印の文が無い。Orchestrator の新しい行（独立の印）の三つの条件を確かめたが、`DisclosureApi` では `open`（Signal）と `shown`（Value、「requested state」）が同じ事実を持つかどうかが判断できない。`Target`・`Core` も書き手と読み手の全部を見ないと確かめられない。設計者は、(1) の扱いと (2)〜(4) の印（または型の作り直し）を決める。この差戻しの間、lane X（鎖）は止める。
