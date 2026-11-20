@@ -2978,7 +2978,7 @@ for my $f (@ARGV) {
   4. module の doc（Invariants）の「`Color::components_in(theme)` and `mix_in(other, amount, theme)` resolve tokens in the given theme; `components` and `mix` use the default theme.」を「`Color::components(theme)` and `mix(other, amount, theme)` resolve variables in the given theme; animation and luminance resolve them in the theme in effect (`try_use_theme`).」にする。
 - **消すもの**：theme なしの `Color::components`・`Color::mix`、`components_in`・`mix_in` の名前、公開の `Color::resolve`・`Color::resolve_space`。
 - **状態の閉じ方**：新しい型なし。
-- **試験**：`crates/kivact-style/src/theme/value.rs` の `mod tests` に `fn components_and_mix_resolve_in_the_given_theme()`（`color::SURFACE.components(&Theme::dark())` が `rgb(0x111827)` の成分、`color::SURFACE.mix(color::TEXT, 0.0, &Theme::dark())` の `components(&Theme::dark())` が同じ）。公開 E2E の `motion.rs` の色の animation の試験がそのまま通ること。
+- **試験**：`crates/kivact-style/src/theme/value.rs` の `mod tests` に `fn components_and_mix_resolve_in_the_given_theme()`（`color::SURFACE.components(&Theme::dark())` が `rgb(0x111827)` の成分、`color::SURFACE.mix(color::TEXT, 0.0, &Theme::dark())` の `components(&Theme::dark())` が同じ色。Oklab の往復の丸めがあるので、各成分の差が `1e-9` 以下で比べる）。公開 E2E の `motion.rs` の色の animation の試験がそのまま通ること。
 - **確認（tier a）**：鎖の共通確認と次：
   ```
   cargo test -p kivact-style
@@ -3544,7 +3544,7 @@ impl Style {
                    out.extend(
                        st.decls
                            .iter()
-                           .filter(|d| d.class() == PropClass::Rest && !matches!(d, Decl::State(..)))
+                           .filter(|d| d.class() == PropClass::Rest)
                            .map(|d| format!("{}.{}", state.name(), d.name())),
                    );
                }
@@ -3785,6 +3785,32 @@ fn expected(what: &str, text: &str) -> String {
 
 ---
 
+## S17b：DevTools の text の追補（2026-11-21 の設計者の回答、C19 の差戻し）
+
+- **wave / lane / 前提**：W6b / 鎖（lane X）/ C19 の commit `79358493` の上。この unit の後に C19 の確認をやり直し、S18 へ進む。
+- **所有**：`crates/kivact-style/src/sheet/edit_text.rs`、`crates/kivact-style/src/sheet/props.rs`（macro の `value_debug` だけ）、`crates/kivact-style/src/sheet/decl.rs`（`extra_value_debug` と `mod tests`）、`crates/kivact-style/src/resolve/describe.rs`（`describe_style` だけ）、`crates/kivact-core/src/devtools/styles.rs`・`apply.rs`（下の 4 の掃除だけ）
+- **目的**：(1) DevTools の override で `background`・`line_height`・`radius` を text から読めるように保つ（2b8df5ac の `override_paint`・`override_text` が読めた形）。(2) DevTools の style の一覧（base の層も state の層も）の値を、`Debug` の文字列でなく表の text の形にする。
+- **手順**：
+  1. `edit_text.rs`：`shown_only!` の一覧から `Background`、`CornerRadius`、`LineHeight` を外し、次の 3 つの impl を足す（`Length`・`Color` の impl の後）：
+     - `impl EditText for Background`：`to_edit_text` は `self.solid()` が `Some(c)` なら `c.to_edit_text()`、`None`（gradient・複数の層）なら `format!("{self:?}")`。`from_edit_text` は `Color::from_edit_text(text).map(|c| Background::from(Paint::from(c)))`（gradient は text から作らない。既存の `From<C: Into<Color>> for Paint` と `From<Paint> for Background` を使う）。
+     - `impl EditText for LineHeight`：`to_edit_text` は `Normal` → `"normal"`、`Scale(v)` → `format!("{v}")`、`Px(v)` → `format!("{v}px")`。`from_edit_text` は `text.trim()` が `"normal"` なら `Normal`、末尾が `px` ならその前を `f64` で読んで `Px`、それ以外は `f64` で読んで `Scale`。読めなければ `expected("a line height", text)`。
+     - `impl EditText for CornerRadius`：`to_edit_text` は `x == y` なら `x.to_edit_text()`、違えば `format!("{} {}", x.to_edit_text(), y.to_edit_text())`。`from_edit_text` は空白で分けて、1 つなら `Length::from_edit_text` を `x` と `y` の両方に、2 つなら順に `x`・`y`、それ以外は `expected("one or two lengths", text)`。
+     （`Box<CornerRadius>` は既存の `impl<T: EditText> EditText for Box<T>` で済む。）
+  2. `props.rs` の macro：`pub(crate) fn value_debug(&self) -> String` を `pub(crate) fn edit_text(&self) -> String` に改名し、doc を「Its value in the DevTools text form (`EditText`).」にする。本体の 2 行を `$( Decl::$variant(v) => EditText::to_edit_text(v), )*` と `$( Decl::$lvariant(v) => EditText::to_edit_text(v), )*` にし、`other => other.extra_edit_text(),` にする。`decl.rs` の `extra_value_debug` を `extra_edit_text` に改名する（本体は変えない：shadow と transition は `Debug` のまま）。
+  3. `describe.rs` の `describe_style`：`d.value_debug()` を `d.edit_text()` にし、doc の「with the `Debug` of its value」を「with its value in the DevTools text form」にする。`describe_state_styles` は変えない（state の層も同じ形になる）。
+  4. core：C19 の `styles.rs`・`apply.rs` に、`Debug` の文字列を前提にした処理（`Px(..)` の形を読み直す、など）があれば消し、`describe_style`・`describe_state_styles` の値をそのまま使う。無ければ変えない。
+- **状態の閉じ方**：新しい状態は無い。
+- **試験**：`decl.rs` の `fn style_properties_round_trip()` に足す：`background` に `"#2563eb"` を parse した style の describe が `Some("#2563eb")`、`line_height` の `"1.5"` が `Some("1.5")`、`"20px"` が `Some("20px")`、`"normal"` が `Some("normal")`、`radius_top_left` の `"8"` が `Some("8")`、`"8 4"` が `Some("8 4")`、`radius_top_left` の `"a b c"` が `Err`。`describe_style` の値の文字列を期待する既存の試験（kivact-style の unit 試験、公開 E2E の devtools の style の表示）があれば、期待の値を text の形（`Px(8.0)` → `8` など）に直してよい（設計者の決まり。0.5 の差戻しに当たらない）。
+- **確認（tier a）**：鎖の共通確認と次：
+  ```
+  cargo test -p kivact-style
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native -- devtools
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core
+  ```
+- **完了条件**：`rg -n "value_debug" crates/kivact-style/src` が 0 件。`rg -n "Background, |CornerRadius, |LineHeight," crates/kivact-style/src/sheet/edit_text.rs` の `shown_only!` の行に 3 つが無い。上のコマンドが通る。
+
+---
+
 ## S18：解決を一度の畳み込みで行う（ST-08 の後半、ST-06、ST-31、ST-09 の style 側）
 
 - **wave / lane / 前提**：W6b / 鎖 / C19（付属書 C。鎖の中で S17 の直後）
@@ -3864,7 +3890,7 @@ fn expected(what: &str, text: &str) -> String {
 ## S19：状態の style がすべての property を受ける（ST-05）
 
 - **wave / lane / 前提**：W6b / 鎖 / S18
-- **所有**：`crates/kivact-style/src/resolve/`、`crates/kivact-style/src/sheet.rs`（module の doc）、`crates/kivact-style/src/sheet/shorthands.rs`（状態の setter の doc）、`crates/kivact-core/src/view/node_states.rs`（新設）、`crates/kivact-core/src/view.rs`（`mod` 宣言）、`crates/kivact-core/src/view/state.rs`、`crates/kivact-core/src/view/mount/style.rs`、`crates/kivact-core/src/client/dispatch/delivery.rs`、`dev/tests/kivact-public-api/tests/e2e_core/`（新しい試験のファイルと `main.rs`）
+- **所有**：`crates/kivact-style/src/resolve/`、`crates/kivact-style/src/sheet.rs`（module の doc）、`crates/kivact-style/src/sheet/shorthands.rs`（状態の setter の doc）、`crates/kivact-core/src/view/node_states.rs`（新設）、`crates/kivact-core/src/view.rs`（`mod` 宣言）、`crates/kivact-core/src/view/state.rs`、`crates/kivact-core/src/view/mount/style.rs`、`crates/kivact-core/src/client/dispatch/delivery.rs`、`dev/tests/kivact-public-api/tests/e2e_core/`（新しい試験のファイルと `main.rs`、`style_paint.rs` の 1 試験）
 - **目的**：ST-05（O-2 採用）。`hover`・`active`・`focus`・`focus_visible`・`group_hover`・`group_focus` の style は、host が差分として塗れる property（分類 `Delta`）を今まで通り host の paint delta にし、それ以外（分類 `Rest`：layout、文字の大きさ・装飾、塗りの callback など）を、engine が報告する状態（S04 の `HostEvent::StatesChanged`）を読んで core が style を compile し直すときに base に merge する。`enter`・`exit` は CSS の `@starting-style` と同じく、遷移で動く property（paint）だけが見え方に効き、それ以外は受け付けて効果を持たない（報告もしない）。`disabled`・`selected` は今まで通り core が merge する。「状態が変えられない property」の報告（`unsupported_in_states`）を消す。
 - **手順**：
   1. style（`crates/kivact-style/src/resolve/compile.rs`）：
@@ -3903,7 +3929,26 @@ fn expected(what: &str, text: &str) -> String {
        }
        ```
        `fn state_styles` に引数 `report: StateSet` を足し、作る `StateStyles` に `report` を入れる（`.then(|| { ... })` の中で `out.report = report;`）。`state_styles` の `.then` の条件に `|| !report.is_empty()` を足す（callback だけの状態でも表を作る）。
-     - `CompiledStyle` から `unsupported_in_states` を消し、`describe.rs` の `pub(super) fn unsupported_in_states` を消す。
+     - `CompiledStyle` の `unsupported_in_states` を `nested_in_states: Vec<String>`（doc：「The states and groups set inside a host state style, as `state.name`; they are ignored.」）に改名し、`describe.rs` の `pub(super) fn unsupported_in_states` を次の `nested_in_states` に置き換える（状態の style の中の状態と `group()` は意味を持たないので、報告を残す。2026-11-21 の設計者の回答）：
+       ```rust
+       /// The states and groups set inside the host state styles of `s`
+       /// (`CompiledStyle::nested_in_states`); they are ignored.
+       pub(super) fn nested_in_states(s: &Style) -> Vec<String> {
+           let mut out = Vec::new();
+           for state in kivact_types::StyleState::HOST {
+               if let Some(st) = s.state(state) {
+                   out.extend(
+                       st.decls
+                           .iter()
+                           .filter(|d| matches!(d, Decl::State(..) | Decl::Group))
+                           .map(|d| format!("{}.{}", state.name(), d.name())),
+                   );
+               }
+           }
+           out
+       }
+       ```
+       `compile.rs` の呼出しと `use` も新しい名前にする。
      - `crates/kivact-style/src/resolve/paint.rs` の `paint_delta` の `sets_border` を、border の色か line style が設定されているときだけにする（幅は `Rest` で、状態が active のとき base に入る）：`let sets_border = st_paint.border_color.iter().any(Option::is_some) || st_paint.border_style.iter().any(Option::is_some);`。
   2. style の doc：`crates/kivact-style/src/sheet.rs` の module の doc の「Interaction states:」の最初の項を次にする：
      「`hover`, `active`, `focus`, `focus_visible`, `group_hover` and `group_focus` accept every property. The paint ones (background, border colors and line styles, outline, radii, opacity, shadows, transforms, z-index, scrollbar, cursor, filters, mask, clip path, text color) are deltas the host draws at once; the others (sizes, spacing, border widths, text properties, a paint callback) are compiled into the node's style while the host reports the state, so they lay out again like CSS. `enter` and `exit` are where a paint transition starts and ends (CSS `@starting-style`); properties a transition does not move have no effect there. `disabled` and `selected` are merged when the style is compiled.」
@@ -3971,9 +4016,9 @@ pub(crate) fn states_changed(rt: &Runtime, node: NodeId, states: StateSet) {
            reported.set(Some(sig));
        }
        ```
-     - `struct StyleReports` の `states: ReportOnce` field と、`fn report` の `if !resolved.unsupported_in_states.is_empty() && self.states.note() { ... }` の塊を消す。
+     - `struct StyleReports` の `states: ReportOnce` field は残す。`fn report` の `if !resolved.unsupported_in_states.is_empty() && self.states.note() { ... }` の塊を、条件を `!resolved.nested_in_states.is_empty() && self.states.note()` に、文を `format!("state styles set a state or group inside a state, ignored: {}; set each state and group() on the base style", resolved.nested_in_states.join(", "))` にする（`ErrorKind::Unsupported` のまま）。
   6. `crates/kivact-core/src/client/dispatch/delivery.rs`：S04 で足した `HostEvent::StatesChanged { .. } => {}`（と直前のコメント）を `HostEvent::StatesChanged { node, states } => crate::view::node_states::states_changed(rt, *node, *states),` にする（`dispatch_host` に S04 で arm を足していない場合は、`dispatch_host` の `match host_event {` の `HostEvent::DuplicateLayoutId` の腕の前に足す）。
-- **消すもの**：`CompiledStyle::unsupported_in_states`、`describe::unsupported_in_states`、core の `StyleReports.states` と「state styles set properties their state cannot change」の報告。
+- **消すもの**：`CompiledStyle::unsupported_in_states`、`describe::unsupported_in_states`（`nested_in_states` に置き換え）と「state styles set properties their state cannot change」の報告。
 - **状態の閉じ方**：`bind_style` の effect の local の `Cell<Option<Signal<StateSet>>>` は一つ（`locals` の検査は二つ以上が対象）。`ViewState.node_states` は map の field。
 - **試験**：`dev/tests/kivact-public-api/tests/e2e_core/state_styles.rs` を作り、`main.rs` に `mod state_styles;` を足す。hover・press・focus の操作と大きさの読み方は、同じ binary の `hover.rs`・`pointer.rs`・`focus.rs` の既存の試験と同じ helper（`screen.get_by_test_id(..)` の `hover()`／`press()`／`focus()` と、box の大きさの取得）を使う：
   - `fn hover_applies_a_layout_property()`：`node().test_id("box").style(style().width(40).height(20).hover(style().width(80)))` を描き、hover の前の幅が 40、hover の後の幅が 80、pointer が離れた後に 40。
@@ -3986,6 +4031,7 @@ pub(crate) fn states_changed(rt: &Runtime, node: NodeId, states: StateSet) {
     - `fn focus_draws_its_paint_callback()`：focusable な node（`node().focusable(true)` など focus を取れる形）を focus すると赤、blur で赤でない。
     - `fn disabled_and_selected_draw_their_paint_callbacks()`：`disabled` の callback が赤、`selected` の callback が緑の node を、node の disabled・selected の modifier（`bind_states` が読むもの）に `signal(false)` を渡して描き、disabled を true にすると赤、false に戻して selected を true にすると緑、両方 false で赤でも緑でもない。
     - `fn a_base_paint_comes_back_after_the_state()`：base の `paint` が青、`hover` の callback が赤。hover で赤、離れて青（置き換えと復帰）。
+  - 既存の `dev/tests/kivact-public-api/tests/e2e_core/style_paint.rs` の `fn a_property_its_state_cannot_change_is_reported` を `fn a_state_inside_a_state_is_reported` に改名し、style は同じ（`hover(style().width(80).opacity(0.5).hover(style().opacity(1.0)))`）のまま、期待を「`errors` が 1 件で `ErrorKind::Unsupported`、message が `hover.hover` を含み、`hover.width` を含まない」にする（幅は ST-05 で効く。報告の試験はこの 1 件だけを直す）。
   - `crates/kivact-style/src/resolve/compile.rs` の `mod tests` に `fn a_state_paint_callback_asks_for_reports()`（`style().hover(style().paint(|_, _| {}))` の `states.unwrap().report.contains(StyleState::Hover)` で、hover の外の compile（`active` 空）の `has_retained_paint()` が false、`Interactive { active: StateSet::EMPTY.with(StyleState::Hover), .. }` の compile で true）と `fn only_states_with_more_than_paint_ask_for_reports()`：`style().hover(style().background(rgb(0xff0000)))` を compile した `states.unwrap().report` が空、`style().hover(style().width(10))` では `report.contains(StyleState::Hover)`。
 - **確認（tier a）**：鎖の共通確認と次：
   ```

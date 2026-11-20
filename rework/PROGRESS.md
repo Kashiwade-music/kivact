@@ -120,3 +120,9 @@
 - W6a merged 632b85c1: S13・S14、tier b 成功。
 - 次の wave：W6b。W6b の E の unit（E19〜E21・E14 など）の始めに、E17 の性能の行（16,384 行の文書の上下移動の p95 0.51 → 2.58 ms、`rework/PROGRESS.md` の W5a の記録）を設計者へ返す（W5a の記録の指示）。
 
+
+## W6b（途中：lane A1・A2・E1・E2 は完了、lane X は差戻しで停止中、2026-11-21）
+- lane A1（A11：`db068636`）、A2（A12：`d9abce37`、設計者の commit を含む）、E1（E19 `c0dbc924`・E21 `f8788b46`）、E2（E14 `f54a8875`・`f12b505b`、E32 `19fa977e`、E24 `8103101c`）は完了。merge は wave の終わりに行う（まだ統合 branch に入れていない）。
+- E14 の `content_version` の再実行と後退の確認は実施済み（`V:/kv-target/logs-W6b-E2/verify-e14-summary.txt`、rc=0 が全件）。
+- lane X：S15・S16・S17 まで完了（`0b554b35`・`67fdd8eb`・`b8470efa`・`bb13f33b`・`1307ae90`・`20a06b61`）。C19 は `79358493` まで進んだが、2 件の設計の判断が要るため停止（`rework/OPEN.md` の「差戻し（W6b・C19）」）。S18〜S23 は未着手。
+- 次：設計者の答えを待つ。W6b の merge（X → E1 → E2 → A1 → A2）と tier b は lane X が終わってから。
