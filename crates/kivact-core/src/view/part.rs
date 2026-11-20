@@ -58,6 +58,22 @@ enum Hover {
 /// The closure receives the exact target's input, focus and availability state.
 #[track_caller]
 pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'static) -> Part<S> {
+    let (facts, apply) = attach_part();
+    Part {
+        state: memo(move || state(facts())),
+        apply,
+    }
+}
+
+/// Everything of a part that does not depend on its exposed state: the input
+/// signals, the binding effect and the observers. `part` is generic and is
+/// called from generic components, so this body stays out of it and is
+/// compiled once; the returned closure is the tracked read of the facts.
+#[track_caller]
+fn attach_part() -> (
+    impl Fn() -> PartState + Copy + 'static,
+    Box<dyn FnOnce(crate::view::element_data::Node) -> crate::view::element_data::Node>,
+) {
     Owner::current();
     let node = node_ref();
     let focus = node.focus_memo(|focus| match focus {
@@ -72,17 +88,16 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             .get_untracked()
             .is_none_or(|(disabled, hidden)| !disabled.get_untracked() && !hidden.get_untracked())
     };
-    let state = memo(move || {
+    let facts = move || {
         let (disabled, hidden) = availability
             .get()
             .map(|(d, h)| (d.get(), h.get()))
             .unwrap_or_default();
-        let input = input.get();
-        state(PartState {
-            availability: part_availability(disabled, hidden, input),
+        PartState {
+            availability: part_availability(disabled, hidden, input.get()),
             focus: focus.get(),
-        })
-    });
+        }
+    };
     let mounted = Rc::new(move |mount: PartMount| {
         availability.set(Some((mount.disabled, mount.hidden)));
         let at = Location::caller();
@@ -125,12 +140,13 @@ pub fn part<S: kivact_runtime::PropValue>(state: impl Fn(PartState) -> S + 'stat
             Ok(())
         })],
     };
-    Part::new(state, move |mut target| {
+    let apply = Box::new(move |mut target: crate::view::element_data::Node| {
         common.node_ref.insert(0, node);
         common.part_bindings.insert(0, binding);
         target.common.attach_part(common);
         target
-    })
+    });
+    (facts, apply)
 }
 
 /// The availability of a target: hidden wins over disabled, and pressed and

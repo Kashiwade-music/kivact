@@ -2342,6 +2342,7 @@ name = "kivact-devtools-agent"
 version = "0.1.0"
 dependencies = [
  "kivact-devtools-protocol",
+ "kivact-types",
  "png 0.18.1",
  "serde_json",
  "tracing",

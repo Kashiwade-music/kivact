@@ -423,3 +423,17 @@
 - **改善未達（記録だけ）**：K2 `per_item text`（比 1.011、改善の必達 ≤0.95）、K2 `per_item row`（0.989、≤0.95）、K5 `pointer p95 n3000`（0.953、≤0.85）。
 - exit 1（後退あり）。判定は上の 2 行の K6 だけ。
 
+
+## 設計者の回答（W5b の確認事項と CP1b の K6、2026-11-20）
+
+- **K6 basic-catalog の後退（差し戻しの 2 行）**：原因は W5a。設計者が catalog の release を commit ごとに作り、linker の map で関数ごとの大きさを比べた：`d615568c` 34378240 → W5a の merge `500f069e` 36562944（W5b はほぼ 0）。増えた code の 8 割は `kivact_core::view::part::part<S>` の写しだった。W5a で kivact-interaction の popup・table・drag・disclosure の API が generic な関数の中で `part(..)` を呼ぶようになり、`part::<S, F>` の実体が約 4 → 数百に増えた。`part` の中の観測の closure（`input_observers` の key・key_up・pointer）・binding の effect・`Signal<PartInput>::update` が実体ごとに写され、3052 個（約 1.6 MB）になっていた。
+  - **修正（設計者、この commit）**：`crates/kivact-core/src/view/part.rs`。`S` に依らない部分（入力の signal・binding の effect・観測）を generic でない `attach_part()` に移し、`part<S>` は `memo(move || state(facts()))` だけにした。memo の数は 1 つのまま（K2 は変わらない）。写しは 3052 → 73。
+  - **修正後**（同じ方法・新しい target dir で測った）：`basic-catalog default` 34792448（B0-CP1 との比 1.022）、`basic-catalog no-gpu` 30210560（1.025）。
+  - **判断**：残り（必達の上限 1.02 を 0.2〜0.5 point 超える）は CP1 では受け入れる。残りの増分は広く薄い：E12・E13 の paint の保持の list（engine の約 80 KB。K3・K4・K5 の改善の手段）、R20 で `Binding` を `Signal` にまとめたことによる型ごとの `Signal<T>` の写し、`UiRecipes` の初期化と複製。手段の unit（recipe 表の分割、plot の crate 化。W9 以降）の後、CP3 の AC-2 で判定する。CP2 は catalog を測らない。CP3 で 1.02 を超えていたら、また設計者に返す。
+  - **教訓**：generic な公開関数（`part`・`for_each` など、generic な部品から呼ばれるもの）の本体は、型に依らない部分を generic でない関数に分ける。
+  - **測り方の注意**：基点と checkpoint の checkout で `CARGO_TARGET_DIR` を共有しない。cargo は checkout の場所を区別しないので、別の checkout で作った古い artifact をそのまま使うことがある（設計者の測定で起きた）。`run.sh` は既定で各 checkout の `target/` を使う。作業指示書 5.1 節の 2 に書いた。K6 は毎回同じ値なので、測り直さない（5.1 節の 3）。
+- **(b) `kivact-devtools-agent` の依存**：足す。`kivact-types` は依存の無い値の crate で `visible_to` の制限も無く、agent を使う App は既に link している。丸めの規則を 1 か所に置くため、private の `to_straight` を消して `kivact_types::color::unpremultiply` を copy に呼んだ（設計者、この commit。clippy・試験・xtask は通る）。
+- **(a) `color_alpha` の doc**：受け入れる（関数は straight の `Rgba` を返すので、doc はコードに合わせる）。
+- **(d) A06 の残り（root `Cargo.toml` の profile）**：変えるものは無い。A06 の所有の「profile 1 行」は、`arvane` crate が消える前提の計画の名残り。`arvane` は window の driver と presenter として残り、毎 frame の経路にあるので、`[profile.dev.package.arvane]` はそのままでよい。root の `[profile.*.package.*]` に並ぶ package はすべて `Cargo.lock` にある（設計者が確かめた）。`templates/basic/README.md` の profile の文は G12（W11b）の手順 3 のとおり。
+- **(e) user 向け docs の `Pixels` の straight-alpha の文**：Orchestrator の判断どおり G の unit で直す。
+- **release の警告**（記録）：`--no-default-features` の release の build で `kivact-core` の `launch/policy.rs` の `TestRun::name` が「never read」の警告を出す。W5b の tier b の範囲（`--all-features`）には出ない。G かその前の後片付けで扱う。

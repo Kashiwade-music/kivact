@@ -9,6 +9,7 @@ description = "Server of the Kivact DevTools inside a target app."
 
 [dependencies]
 kivact-devtools-protocol = { path = "../kivact-devtools-protocol", version = "0.1.0" }
+kivact-types = { path = "../kivact-types", version = "0.1.0" }
 serde_json = { workspace = true }
 png = { workspace = true }
 tracing = { workspace = true }
