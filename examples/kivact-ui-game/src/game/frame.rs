@@ -47,7 +47,7 @@ pub(super) fn native_window(
         menu_bar: None,
         toolbar: None,
         status_bar: None,
-        explorer_width: explorer_width,
+        explorer_width,
         explorer_range: ScalarRange::new(140.0, 420.0)
             .expect("invariant: 140 to 420 is a valid range")
             .into_value(),

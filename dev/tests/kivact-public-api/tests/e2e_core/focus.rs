@@ -255,7 +255,7 @@ fn focus_results(screen: &Screen, from: usize) -> usize {
     screen.trace()[from..]
         .iter()
         .flat_map(|t| t.causes.iter())
-        .filter(|c| c.starts_with("FocusResult"))
+        .filter(|c| c.event == "FocusResult")
         .count()
 }
 

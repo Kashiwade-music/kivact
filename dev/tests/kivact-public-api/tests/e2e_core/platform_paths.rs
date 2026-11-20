@@ -10,9 +10,10 @@ use std::path::PathBuf;
 
 use kivact::platform;
 use kivact::prelude::*;
+use kivact::state::IntoHandler;
 use kivact_public_api_tests::support::mount;
 
-fn button(name: &'static str, press: impl Into<Callback<()>>) -> impl Element {
+fn button<M>(name: &'static str, press: impl IntoHandler<(), M>) -> impl Element {
     node()
         .role(Role::Button)
         .name(name)

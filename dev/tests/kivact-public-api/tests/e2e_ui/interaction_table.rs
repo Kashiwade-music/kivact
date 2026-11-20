@@ -102,7 +102,7 @@ fn headers_sort_and_resize_through_caller_bindings() {
                 vec![1],
                 |row| *row,
                 vec![ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b))],
-                Selection::Multiple(signal(Vec::<i32>::new()).into_binding()),
+                Selection::Multiple(signal(Vec::<i32>::new())),
                 TableFocus::default(),
             )
             .with_sort(sort)

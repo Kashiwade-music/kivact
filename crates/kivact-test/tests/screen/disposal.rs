@@ -36,7 +36,7 @@ fn a_cleanup_writes_signals_and_registers_on_its_disposing_owner() {
         slot.set(Some((open, closed)));
         let seen = seen.clone();
         let branch = show(open, move || {
-            let owner = Owner::current("disposal test", Location::caller());
+            let owner = Owner::setup("disposal test", Location::caller());
             let late = seen.clone();
             on_cleanup(move || {
                 // A write to a signal that outlives the branch.

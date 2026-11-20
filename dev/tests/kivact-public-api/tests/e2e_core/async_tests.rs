@@ -203,7 +203,7 @@ fn async_view_shows_loading_then_ready() {
 fn async_view_fallback_retries() {
     let screen = render(|| {
         let attempts = Rc::new(Cell::new(0));
-        let load = action(ActionMode::Latest, move || {
+        let load = action(move || {
             let n = attempts.get();
             attempts.set(n + 1);
             async move {
@@ -310,7 +310,7 @@ fn request_model_fixture() -> (Screen, Action<u32, u32>, Rc<RefCell<Vec<u32>>>) 
     let slot: Rc<Cell<Option<Action<u32, u32>>>> = Rc::new(Cell::new(None));
     let s2 = slot.clone();
     let screen = render(move || {
-        let act = action(ActionMode::Latest, |i: u32| async move {
+        let act = action(|i: u32| async move {
             kivact::task::sleep(Duration::from_millis(10 * (i as u64 % 5 + 1))).await;
             if i % 7 == 3 {
                 Err(UiError::msg("odd failure"))

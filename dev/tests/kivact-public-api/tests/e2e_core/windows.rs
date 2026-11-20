@@ -92,7 +92,7 @@ fn a_window_inherits_the_context_theme_and_locale_of_its_declaration_site() {
                                 let locale = use_locale();
                                 let theme = use_theme();
                                 (
-                                    text(move || context.get()),
+                                    text(context),
                                     text(move || locale.get().tag().to_owned()),
                                     text(move || format!("{:?}", theme.get().mode())),
                                 )

@@ -79,7 +79,7 @@ struct Task {
     title: &'static str,
 }
 
-fn task_row(task: Binding<Task>) -> impl Element {
+fn task_row(task: Signal<Task>) -> impl Element {
     let id = task.get_untracked().id;
     let clicks = signal(0);
     {
@@ -172,7 +172,7 @@ fn virtual_list_rows_write_back_through_a_signal_source() {
         let view = virtual_list(
             list,
             |t| t.id,
-            |task: Binding<Task>| {
+            |task: Signal<Task>| {
                 let id = task.get_untracked().id;
                 let label = (move || format!("{} #{id}", task.get().title)).into_value();
                 node()
@@ -224,7 +224,7 @@ fn error_boundary_fallback_replaces_the_child_and_reset_remounts() {
                         .name(label)
                         .child(text(label))
                 }
-                .on_press(move || reset.run()),
+                .on_press(move || reset.call(())),
             ))
         });
         ((), view)

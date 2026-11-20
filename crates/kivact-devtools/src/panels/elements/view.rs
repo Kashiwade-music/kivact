@@ -61,7 +61,7 @@ fn actions(session: Session, owners_on: Signal<bool>) -> impl IntoView {
 }
 
 /// The virtualized element tree, or a spinner while the tree loads.
-fn element_tree(session: Session, layout: Binding<bool>) -> impl IntoView {
+fn element_tree(session: Session, layout: Signal<bool>) -> impl IntoView {
     let nodes = memo(move || session.inspected.with(tree_nodes));
     show(
         move || {
@@ -84,7 +84,7 @@ fn element_tree(session: Session, layout: Binding<bool>) -> impl IntoView {
 }
 
 /// The selection binding of the element tree: inspect, then highlight.
-fn selection(session: Session, layout: Binding<bool>) -> Binding<Option<p::NodeId>> {
+fn selection(session: Session, layout: Signal<bool>) -> Signal<Option<p::NodeId>> {
     binding(
         move || session.inspected.with(Inspected::selected),
         move |id: Option<p::NodeId>| {

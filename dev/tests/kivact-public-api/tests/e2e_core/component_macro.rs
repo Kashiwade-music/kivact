@@ -60,11 +60,7 @@ fn optional_and_default_props_use_setters() {
 
 /// A panel whose body is created again each time it opens.
 #[component]
-fn panel(
-    title: Value<String>,
-    open: Binding<bool>,
-    content: kivact::view::ViewFn,
-) -> impl IntoView {
+fn panel(title: Value<String>, open: Signal<bool>, content: kivact::view::ViewFn) -> impl IntoView {
     column((text(title), show(open, content)))
 }
 
@@ -248,4 +244,21 @@ fn default_payload_callback_infers_the_argument() {
     let screen = render(defaulted);
     screen.get_by_role(Role::Button, "Pick").click();
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[component]
+fn signed_picker(on_pick: Callback<i32>) -> impl IntoView {
+    button("pick").on_press(move || on_pick.call(-3))
+}
+
+/// A closure passed to a `Callback<E>` prop gets its parameter type from
+/// the prop, so it can call methods on it.
+#[test]
+fn callback_prop_closure_infers_its_parameter() {
+    let (screen, seen) = mount(|| {
+        let seen = signal(0);
+        (seen, signed_picker(move |n| seen.set(n.abs())))
+    });
+    screen.get_by_role(Role::Button, "pick").click();
+    assert_eq!(seen.get_untracked(), 3);
 }

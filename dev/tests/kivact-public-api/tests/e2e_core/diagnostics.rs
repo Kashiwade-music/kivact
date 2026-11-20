@@ -127,13 +127,15 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
     let trace = screen.trace();
     let t = trace
         .iter()
-        .find(|t| t.causes.iter().any(|c| c.starts_with("Activate")))
+        .find(|t| t.causes.iter().any(|c| c.event == "Activate"))
         .unwrap_or_else(|| panic!("no activation turn in {trace:#?}"));
     // The click updates the pointer and focus sources (the pointer position,
-    // the hover target and the key focus), then the counter.
-    assert_eq!(t.writes.len(), 4, "{:#?}", t.writes);
+    // the hover target and the key focus), then the counter. Only the writes
+    // that changed a value are counted.
+    let writes: Vec<_> = t.writes.iter().filter(|w| w.changed).collect();
+    assert_eq!(writes.len(), 4, "{:#?}", t.writes);
     assert_eq!(
-        t.writes.iter().map(|w| w.ty).collect::<Vec<_>>(),
+        writes.iter().map(|w| w.ty).collect::<Vec<_>>(),
         [
             "core::option::Option<kivact_types::geometry::Point>",
             "core::option::Option<kivact_types::ids::FocusTarget>",
@@ -141,10 +143,10 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
             "i32",
         ]
     );
-    assert!(t.writes[0].at.file().ends_with("hover.rs"));
-    assert!(t.writes[1].at.file().ends_with("hover.rs"));
-    assert!(t.writes[2].at.file().ends_with("focus.rs"));
-    assert_eq!(t.writes[3].at.file(), file!());
+    assert!(writes[0].at.file().ends_with("hover.rs"));
+    assert!(writes[1].at.file().ends_with("hover.rs"));
+    assert!(writes[2].at.file().ends_with("focus.rs"));
+    assert_eq!(writes[3].at.file(), file!());
     // Two text render effects and the memo re-ran; two SetProps were sent.
     let kinds: Vec<&str> = t.reruns.iter().map(|r| r.kind).collect();
     assert!(kinds.contains(&"memo") && kinds.iter().filter(|k| **k == "render").count() >= 2);
@@ -156,7 +158,7 @@ fn trace_records_causes_writes_reruns_ops_and_duration() {
     let after = screen.trace();
     assert!(after[before..].iter().all(|t| {
         t.ops == 0
-            && t.writes.iter().all(|w| {
+            && t.writes.iter().filter(|w| w.changed).all(|w| {
                 (w.ty == "core::option::Option<kivact_types::geometry::Point>"
                     && w.at.file().ends_with("hover.rs"))
                     || (w.ty == "core::option::Option<kivact_types::ids::FocusTarget>"

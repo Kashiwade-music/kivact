@@ -88,8 +88,11 @@ fn frame_loop_runs_only_while_present() {
         let shown = signal(false);
         let ticks = signal(0);
         let target = node_ref();
-        let loop_handle =
-            frame_loop(move |_| ticks.update(|count| *count += 1)).while_present(target);
+        let loop_handle = {
+            let presence = target.presence();
+            frame_loop(move |_| ticks.update(|count| *count += 1))
+                .while_present(move || presence.get() == kivact::view::Presence::Present)
+        };
         let rate = loop_handle.rate();
         (
             (shown, ticks, loop_handle, rate),

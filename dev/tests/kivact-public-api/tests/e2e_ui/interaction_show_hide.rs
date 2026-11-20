@@ -71,8 +71,7 @@ fn select_show_twice_stays_open_and_toggle_twice_returns() {
 fn combobox_show_keeps_a_shown_list_and_its_filter() {
     let (screen, (open, filtering)) = mount(|| {
         let value = signal(None::<&'static str>);
-        let combo =
-            use_combobox(colors(), Selection::Single(value.into_binding())).popup(signal(false));
+        let combo = use_combobox(colors(), Selection::Single(value)).popup(signal(false));
         // Shortcuts on the field: the focus stays in it.
         let shortcuts = move |event: KeyEvent| {
             match event.key() {

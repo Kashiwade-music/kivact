@@ -9,6 +9,7 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
 use kivact::prelude::*;
+use kivact::state::trigger;
 use kivact_public_api_tests::support::mount;
 
 type Log = Rc<RefCell<Vec<String>>>;
@@ -180,13 +181,13 @@ fn effect_cleanup_runs_before_rerun_and_on_dispose_child_before_parent() {
 fn small_handles_trigger_var_binding_callback_value() {
     struct Payload(u32);
     let (screen, (trig, calls, bound, derived, snapshot, payload)) = mount(|| {
-        let trig = signal(());
+        let trig = trigger();
         let calls = var(0u32);
         let hits = signal(0u32);
         let payload = signal(Payload(7));
         // Var writes are allowed in pure contexts (caches)
         let cached = memo(move || {
-            trig.get();
+            trig.track();
             calls.update(|c| *c += 1);
             calls.get()
         });
@@ -195,7 +196,7 @@ fn small_handles_trigger_var_binding_callback_value() {
         let constant: Value<i32> = 40.into_value();
         let setter = callback(move |v| base.set(v));
         let bound = binding(move || base.get(), move |value| base.set(value));
-        let direct: Binding<i32> = base.into_binding();
+        let direct: Signal<i32> = base;
         let snapshot = memo(move || {
             bound.get_untracked()
                 + bound.with_untracked(|n| *n)
@@ -203,8 +204,6 @@ fn small_handles_trigger_var_binding_callback_value() {
                 + direct.with_untracked(|n| *n)
         });
         let bump = callback(move |()| hits.update(|h| *h += 1));
-        let bumped = bump.bind(());
-        let f = setter.to_fn();
         let derived = memo(move || doubled.get() + constant.get());
         (
             (trig, calls, bound, derived, snapshot, payload),
@@ -220,7 +219,7 @@ fn small_handles_trigger_var_binding_callback_value() {
                 }
                 .on_press(move || {
                     assert_eq!(payload.into_value().with(|value| value.0), 7);
-                    bumped.call(());
+                    bump.call(());
                 }),
                 {
                     let label = ("set9").into_value();
@@ -230,7 +229,7 @@ fn small_handles_trigger_var_binding_callback_value() {
                         .name(label)
                         .child(text(label))
                 }
-                .on_press(move || f(9)),
+                .on_press(move || setter.call(9)),
                 text(move || format!("hits {}", hits.get())),
             )),
         )
@@ -252,4 +251,39 @@ fn small_handles_trigger_var_binding_callback_value() {
     assert_eq!(snapshot.get(), 8, "untracked reads add no dependencies");
     screen.get_by_role(Role::Button, "set9").click();
     assert_eq!(derived.get_untracked(), 58);
+}
+
+/// Writes to the state of a removed component are ignored and reported,
+/// for `set` and `update` alike.
+#[test]
+fn writes_to_a_removed_signal_are_ignored() {
+    let slot: Rc<Cell<Option<Signal<i32>>>> = Rc::new(Cell::new(None));
+    let child_slot = slot.clone();
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let child_slot = child_slot.clone();
+        (
+            shown,
+            show(shown, move || {
+                child_slot.set(Some(signal(1)));
+                text("child")
+            }),
+        )
+    });
+    screen.get_by_text("child");
+    shown.set(false);
+    screen.run_until_idle();
+    let removed = slot.get().expect("the child was set up");
+    removed.set(2);
+    removed.update(|v| *v += 1);
+    screen.run_until_idle();
+    assert_eq!(removed.try_get_untracked(), None);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    let reported = screen
+        .trace()
+        .iter()
+        .flat_map(|t| t.notes.iter())
+        .filter(|n| n.starts_with("WriteAfterDispose"))
+        .count();
+    assert_eq!(reported, 2, "one diagnostic for each write");
 }

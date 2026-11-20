@@ -13,7 +13,7 @@ fn interactive_table() -> Node {
             ColumnDef::new(0, "Name").compare(|a: &i32, b: &i32| a.cmp(b)),
             ColumnDef::new(1, "Value").compare(|a: &i32, b: &i32| a.cmp(b)),
         ],
-        Selection::Single(signal(None::<i32>).into_binding()),
+        Selection::Single(signal(None::<i32>)),
         TableFocus::default(),
     );
     column((

@@ -25,8 +25,8 @@ fn picker(
 ) -> impl Element {
     let labels = options();
     let selection = match values {
-        Some(values) => Selection::Multiple(values.into_binding()),
-        None => Selection::Single(value.into_binding()),
+        Some(values) => Selection::Multiple(values),
+        None => Selection::Single(value),
     };
     let combo = use_combobox(labels.clone(), selection).popup(open);
     column((
@@ -117,7 +117,7 @@ fn a_shared_query_survives_setup_and_a_hidden_hide() {
     let (screen, query) = mount(|| {
         let query = signal(String::from("abc"));
         let value = signal(None::<&'static str>);
-        let combo = use_combobox(options(), Selection::Single(value.into_binding()))
+        let combo = use_combobox(options(), Selection::Single(value))
             .query_binding(query)
             .popup(signal(false));
         let view = column((
@@ -186,7 +186,7 @@ fn writing_the_query_while_closed_keeps_the_popup_closed() {
         let open = signal(false);
         let query = signal(String::new());
         let value = signal(None::<&'static str>);
-        let combo = use_combobox(options(), Selection::Single(value.into_binding()))
+        let combo = use_combobox(options(), Selection::Single(value))
             .query_binding(query)
             .popup(open);
         let view = column((

@@ -15,7 +15,7 @@ pub(crate) fn virtual_tree<K: ItemKey>(
     label: &str,
     nodes: Value<Vec<TreeNode<K>>>,
     expanded: Signal<Vec<K>>,
-    selected: Binding<Option<K>>,
+    selected: Signal<Option<K>>,
     row: impl Fn(&K) -> View + 'static,
 ) -> impl IntoView {
     let scroll_to = signal(None::<(K, bool)>);

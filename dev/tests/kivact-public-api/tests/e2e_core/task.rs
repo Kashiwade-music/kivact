@@ -2,10 +2,11 @@
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use std::sync::Arc;
 use std::time::Duration;
 
 use kivact::prelude::*;
-use kivact::task::{CancelToken, sleep};
+use kivact::task::{CancelToken, Remote, clock, queued_action, remote, remote_trigger, sleep};
 use kivact_public_api_tests::support::mount;
 
 fn ms(n: u64) -> Duration {
@@ -17,7 +18,7 @@ fn ms(n: u64) -> Duration {
 #[test]
 fn async_state_helpers_and_direct_errors_follow_each_state() {
     let (screen, (act, res)) = mount(|| {
-        let act = action(ActionMode::Latest, |n: u32| async move {
+        let act = action(|n: u32| async move {
             sleep(ms(10)).await;
             if n == 0 {
                 Err(UiError::msg("zero"))
@@ -164,7 +165,7 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
     let (screen, (act, counter)) = mount(move || {
         let attempts = var(0u32);
         let counter = signal(0u32);
-        let act = action(ActionMode::Latest, move |delay: u64| async move {
+        let act = action(move |delay: u64| async move {
             sleep(ms(delay)).await;
             attempts.update(|a| *a += 1);
             if delay == 13 {
@@ -174,10 +175,7 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
         });
         let (d3, d4) = (d2.clone(), d2.clone());
         let act = act.on_complete(move |r| {
-            let result = match r {
-                kivact::task::ActionOutcome::Succeeded(value) => Ok(value),
-                kivact::task::ActionOutcome::Failed(error) => Err(error),
-            };
+            let result = r;
             d3.borrow_mut().push(format!("{result:?}"));
         });
         let act = act.on_complete(move |_| {
@@ -220,12 +218,12 @@ fn action_latest_wins_retry_cancel_and_multiple_done_handlers() {
 }
 
 #[test]
-fn queue_orders_coalesces_recovers_and_drains() {
+fn queue_orders_recovers_and_drains() {
     let log = Rc::new(RefCell::new(Vec::new()));
     let l2 = log.clone();
-    let (screen, (fifo, latest)) = mount(move || {
-        let (la, lb) = (l2.clone(), l2.clone());
-        let fifo = action(ActionMode::Queue, move |n: u32| {
+    let (screen, fifo) = mount(move || {
+        let la = l2.clone();
+        let fifo = queued_action(move |n: u32| {
             let la = la.clone();
             async move {
                 sleep(ms(10)).await;
@@ -236,33 +234,20 @@ fn queue_orders_coalesces_recovers_and_drains() {
                 Ok(())
             }
         });
-        let latest = action(ActionMode::QueueLatest, move |n: u32| {
-            let lb = lb.clone();
-            async move {
-                sleep(ms(10)).await;
-                lb.borrow_mut().push(format!("latest {n}"));
-                Ok(())
-            }
-        });
         let results = var(Vec::<bool>::new());
-        let fifo = fifo.on_complete(move |r| {
-            results.update(|v| v.push(matches!(r, kivact::task::ActionOutcome::Succeeded(_))))
-        });
+        let fifo = fifo.on_complete(move |r| results.update(|v| v.push(r.is_ok())));
         (
-            (fifo, latest),
+            fifo,
             text(move || format!("{:?}", fifo.state())).test_id("status"),
         )
     });
     fifo.run(1);
-    latest.run(1);
-    screen.run_until_idle(); // run 1 of each queue is now running
+    screen.run_until_idle(); // run 1 is now running
     for n in 2..=4 {
         fifo.run(n);
-        latest.run(n);
     }
     screen.run_until_idle();
     assert_eq!(fifo.pending_len(), 3, "first run running, three waiting");
-    assert_eq!(latest.pending_len(), 1, "waiting runs coalesced");
     assert_eq!(fifo.state(), AsyncState::Pending);
     screen.advance(ms(15));
     screen.advance(ms(10)); // t = 25: run 2 failed at 20, run 3 running
@@ -281,12 +266,6 @@ fn queue_orders_coalesces_recovers_and_drains() {
         fifo_order,
         vec!["fifo 1", "fifo 3", "fifo 4"],
         "order kept, failure skipped"
-    );
-    let latest_order: Vec<&String> = got.iter().filter(|s| s.starts_with("latest")).collect();
-    assert_eq!(
-        latest_order,
-        vec!["latest 1", "latest 4"],
-        "running job kept, waiting ones coalesced"
     );
 }
 
@@ -366,5 +345,202 @@ fn a_spawned_task_error_reaches_on_error() {
     assert_eq!(errors.len(), 1, "{errors:?}");
     assert_eq!(errors[0].message(), "task failed");
     assert_eq!(errors[0].location().map(|l| l.line()), Some(line));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// Writes from another thread wake the App and arrive merged: the signal
+/// is written once, with the latest value.
+#[test]
+fn remote_writes_from_another_thread_coalesce_into_one_update() {
+    let (screen, (sender, runs)) = mount(|| {
+        let (value, sender) = remote(0u32);
+        let runs = var(0u32);
+        effect(move || {
+            value.get();
+            runs.update(|r| *r += 1);
+        });
+        ((sender, runs), text(move || format!("v {}", value.get())))
+    });
+    screen.find_by_text("v 0");
+    let before = runs.get();
+    let worker = sender.clone();
+    std::thread::spawn(move || {
+        for n in 1..=100 {
+            worker.set(n);
+        }
+    })
+    .join()
+    .expect("the writing thread ends");
+    screen.find_by_text("v 100");
+    assert_eq!(
+        runs.get(),
+        before + 1,
+        "a hundred writes arrive as one update"
+    );
+}
+
+/// After the component of a remote is removed, values set from another
+/// thread are dropped at once, not kept for a delivery that never comes.
+#[test]
+fn a_remote_of_a_removed_component_drops_later_values() {
+    let slot: Rc<RefCell<Option<Remote<Arc<u32>>>>> = Rc::new(RefCell::new(None));
+    let child_slot = slot.clone();
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let child_slot = child_slot.clone();
+        (
+            shown,
+            show(shown, move || {
+                let (value, sender) = remote(Arc::new(0u32));
+                *child_slot.borrow_mut() = Some(sender);
+                text(move || format!("v {}", value.get()))
+            }),
+        )
+    });
+    screen.find_by_text("v 0");
+    let sender = slot.borrow_mut().take().expect("the child was set up");
+    shown.set(false);
+    screen.run_until_idle();
+    let probe = Arc::new(7u32);
+    let sent = Arc::clone(&probe);
+    std::thread::spawn(move || sender.set(sent))
+        .join()
+        .expect("the writing thread ends");
+    assert_eq!(
+        Arc::strong_count(&probe),
+        1,
+        "the closed mailbox kept no value"
+    );
+    screen.run_until_idle();
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// A producer that writes while the App turns does not flood it: each
+/// turn writes the signal at most once, and the last value arrives.
+#[test]
+fn remote_delivers_at_most_once_per_turn_under_a_continuous_producer() {
+    const WRITES: u64 = 200_000;
+    let (screen, (sender, runs)) = mount(|| {
+        let (value, sender) = remote(0u64);
+        let runs = var(0u64);
+        effect(move || {
+            value.get();
+            runs.update(|r| *r += 1);
+        });
+        ((sender, runs), text(move || format!("v {}", value.get())))
+    });
+    screen.run_until_idle();
+    let (runs_before, turns_before) = (runs.get(), screen.stats().turns);
+    let producer = std::thread::spawn(move || {
+        for n in 1..=WRITES {
+            sender.set(n);
+        }
+    });
+    while !producer.is_finished() {
+        screen.run_until_idle();
+    }
+    producer.join().expect("the producer ends");
+    screen.find_by_text(&format!("v {WRITES}"));
+    let runs = runs.get() - runs_before;
+    let turns = screen.stats().turns - turns_before;
+    assert!(runs > 0, "values arrived");
+    assert!(
+        runs <= turns,
+        "at most one delivery per turn: {runs} deliveries in {turns} turns"
+    );
+    assert!(runs < WRITES, "writes between turns were merged");
+}
+
+/// A trigger notified from another thread wakes the App; notifications
+/// before a turn are one.
+#[test]
+fn remote_trigger_notifies_from_another_thread() {
+    let (screen, (sender, count)) = mount(|| {
+        let (changed, sender) = remote_trigger();
+        let count = signal(0u32);
+        effect(move || {
+            changed.track();
+            count.update(|c| *c += 1);
+        });
+        ((sender, count), text(move || format!("n {}", count.get())))
+    });
+    screen.find_by_text("n 1");
+    let worker = sender.clone();
+    std::thread::spawn(move || {
+        worker.notify();
+        worker.notify();
+    })
+    .join()
+    .expect("the notifying thread ends");
+    screen.find_by_text("n 2");
+    screen.run_until_idle();
+    assert_eq!(count.get_untracked(), 2);
+}
+
+/// Clocks of one period share one value and one timer, which ticks once per period.
+#[test]
+fn clock_shares_one_timer_per_period() {
+    let (screen, (a, b, c, ticks)) = mount(|| {
+        let a = clock(ms(1000));
+        let b = clock(ms(1000));
+        let c = clock(ms(500));
+        let ticks = var(0u32);
+        effect(move || {
+            a.get();
+            ticks.update(|t| *t += 1);
+        });
+        ((a, b, c, ticks), ())
+    });
+    screen.run_until_idle();
+    assert_eq!(a, b, "one value for one period");
+    assert_ne!(a, c);
+    let before = ticks.get();
+    for _ in 0..3 {
+        screen.advance(ms(1000));
+    }
+    assert_eq!(ticks.get(), before + 3);
+}
+
+/// Removing the component of a queued action cancels its runs, the
+/// waiting ones included: none of them finishes later.
+#[test]
+fn disposing_the_owner_cancels_its_queued_runs() {
+    let log = Rc::new(RefCell::new(Vec::new()));
+    let slot: Rc<Cell<Option<Action<(), u32>>>> = Rc::new(Cell::new(None));
+    let (l2, s2) = (log.clone(), slot.clone());
+    let (screen, shown) = mount(move || {
+        let shown = signal(true);
+        let (l2, s2) = (l2.clone(), s2.clone());
+        (
+            shown,
+            show(shown, move || {
+                let l3 = l2.clone();
+                let queue = queued_action(move |n: u32| {
+                    let l4 = l3.clone();
+                    async move {
+                        sleep(ms(10)).await;
+                        l4.borrow_mut().push(n);
+                        Ok::<(), UiError>(())
+                    }
+                });
+                s2.set(Some(queue));
+                text("queue")
+            }),
+        )
+    });
+    let queue = slot.get().expect("the branch was set up");
+    for n in 1..=3 {
+        queue.run(n);
+    }
+    screen.run_until_idle();
+    assert_eq!(queue.pending_len(), 2, "one run running, two waiting");
+    shown.set(false);
+    screen.run_until_idle();
+    screen.advance(ms(100));
+    assert!(
+        log.borrow().is_empty(),
+        "no run finished after its owner was removed: {:?}",
+        log.borrow()
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
