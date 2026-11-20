@@ -97,13 +97,7 @@ pub fn embed_native(
         let log = frame_log.clone();
         let host = host::new(client, size, arvane_text::TextEngine::new(), frame_log)
             .with_close(ui_closing);
-        let observer = arvane::observer(move |_window, change| {
-            let mut log = log.borrow_mut();
-            match change {
-                arvane::RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
-                _ => log.note(&change.to_string()),
-            }
-        });
+        let observer = arvane::observer(crate::frame_log::renderer_logger(log));
         (host, Some(observer))
     });
     match arvane_native::embed::open(parent, options, hooks, make).map(|host| EmbeddedHost {

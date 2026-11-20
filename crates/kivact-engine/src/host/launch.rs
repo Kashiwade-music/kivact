@@ -6,7 +6,7 @@ use super::pump::{Host, HostPhase};
 use crate::FrameLog;
 use crate::contract::HostError;
 use crate::model::{AppModel, EventSink, Model, Shared};
-use arvane::{Handler, RendererChange, Windows};
+use arvane::{Handler, Windows};
 use arvane_shell::{EventTarget, ShellControl, ShellError, ShellEvent, ShellWaker};
 use kivact_types::cell::Sent;
 use kivact_types::{Size, WindowId, WindowRequest};
@@ -23,19 +23,12 @@ pub fn run_native(client: Client, options: HostOptions) -> Result<(), HostError>
         .window_size
         .unwrap_or(kivact_types::defaults::DEFAULT_WINDOW_SIZE);
     let frame_log = Rc::new(RefCell::new(FrameLog::from_env()));
+    let backend = arvane_native::backend(WindowRequest::main("Kivact", window_size))
+        .map_err(|e| HostError::new(e.to_string()))?;
     // Arvane's renderer changes, as they happen (benchmarks parse the
     // `renderer=` notes); the first is the renderer the window starts
     // with.
-    let log = frame_log.clone();
-    let backend = arvane_native::backend(WindowRequest::main("Kivact", window_size))
-        .map_err(|e| HostError::new(e.to_string()))?;
-    let observer = arvane::observer(move |_window, change| {
-        let mut log = log.borrow_mut();
-        match change {
-            RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
-            _ => log.note(&change.to_string()),
-        }
-    });
+    let observer = arvane::observer(crate::frame_log::renderer_logger(frame_log.clone()));
     let engine = arvane_text::TextEngine::new();
     let handler = new(client, window_size, engine, frame_log);
     arvane::run(

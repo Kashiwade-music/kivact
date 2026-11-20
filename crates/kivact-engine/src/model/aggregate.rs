@@ -1,12 +1,12 @@
 //! Role: The Model aggregate: every passive state group, its creation and reads.
 
 use crate::a11y::state::A11yState;
-use crate::contract::{EngineEmulation, HostEvent};
+use crate::contract::HostEvent;
 use crate::model::events::EngineLog;
 use crate::paint::state::PaintState;
 use crate::tree::NodeTree;
 use crate::tree::node::HostNode;
-use kivact_types::{Modifiers, NodeId, PlatformRequest, RequestId, Size, WindowId};
+use kivact_types::{Modifiers, NodeId, RequestId, Size, WindowId};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
@@ -58,21 +58,6 @@ impl Slots {
     }
 }
 
-/// Requests that must wait until the current client turn has finished.
-pub(crate) enum DeferredRequest {
-    Platform(PlatformRequest),
-    /// Ask the platform to resize the window's content to these logical px.
-    RequestSize(kivact_types::Size),
-    ReducedMotion(Option<bool>),
-    Inject(Vec<arvane_shell::InjectedInput>),
-    Emulate(EngineEmulation),
-    TimeScale(f64),
-    /// Start the model's window GPU device (nothing is answered).
-    DemandGpu,
-    /// Report a key press nobody handled at `window` (nothing is answered).
-    UnhandledKey(kivact_types::KeyCode),
-}
-
 // xtask-allow(state): legacy: modifiers is written only by Model::report_modifiers; assets, window_request; the modifiers last reported to the client, written only by Model::report_modifiers; origins caches window origins until positions move (forget_origins)
 /// The engine's state: the node tree and one field per state group.
 pub(crate) struct Model {
@@ -114,8 +99,6 @@ pub(crate) struct Model {
     pub(crate) frame: super::frame::state::Frame,
     /// The window title, minimum size and resizable flag to set after the turn.
     pub(crate) window_request: Option<(String, Option<Size>, bool)>,
-    /// The platform effects to carry out after the turn.
-    pub(crate) effects: Vec<(RequestId, DeferredRequest)>,
     /// CPU captures awaiting the next settled host boundary.
     pub(crate) snapshots: Vec<(RequestId, NodeId)>,
     /// The imports and drops of shared textures to carry out after the
@@ -171,7 +154,6 @@ impl Model {
             a11y: A11yState::default(),
             frame: super::frame::state::Frame::default(),
             window_request: None,
-            effects: vec![],
             snapshots: Vec::new(),
             external_writes: Vec::new(),
             drawables: Default::default(),

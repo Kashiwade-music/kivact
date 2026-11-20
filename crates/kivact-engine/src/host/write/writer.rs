@@ -8,7 +8,7 @@ use super::reader::Reader;
 use crate::contract::{
     DevtoolsKeys, DevtoolsOverlay, HostEvent, HostRequest, NodeKind, SceneLayer,
 };
-use crate::model::{AppModel, DeferredRequest};
+use crate::model::AppModel;
 use crate::mutation::WriteStats;
 use kivact_types::{
     DrawList, NodeId, PlatformResult, Point, PointerId, RegionId, RequestId, Revision, Size,
@@ -437,69 +437,9 @@ impl Writer {
                 }
             }
             HostRequest::RegisterFont(font) => self.register_font(&mut app, request, font),
-            HostRequest::Platform {
-                window,
-                request: platform,
-            } => {
-                let AppModel {
-                    windows, writes, ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-                    writes.command(None);
-                    model
-                        .effects
-                        .push((request, DeferredRequest::Platform(platform)));
-                }
-            }
-            HostRequest::RequestWindowSize { window, size } => {
-                let AppModel {
-                    windows, writes, ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-                    writes.command(None);
-                    model
-                        .effects
-                        .push((request, DeferredRequest::RequestSize(size)));
-                }
-            }
             drawable @ (HostRequest::DrawableExport { .. }
             | HostRequest::SetDrawableGeometry { .. }) => apply_drawable_effect(&mut app, drawable),
-            HostRequest::ReducedMotion(value) => {
-                queue_main(&mut app, request, DeferredRequest::ReducedMotion(value))
-            }
-            HostRequest::Inject { window, inputs } => {
-                let AppModel {
-                    windows,
-                    writes,
-                    injecting,
-                    ..
-                } = &mut *app;
-                if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-                    writes.command(None);
-                    model
-                        .effects
-                        .push((request, DeferredRequest::Inject(inputs)));
-                    injecting.entry(window).or_default().push_back(request);
-                }
-            }
-            HostRequest::Emulate(emulation) => {
-                queue_main(&mut app, request, DeferredRequest::Emulate(emulation))
-            }
-            HostRequest::TimeScale(scale) => {
-                queue_main(&mut app, request, DeferredRequest::TimeScale(scale))
-            }
-            HostRequest::DemandGpu { window } => {
-                if let Some(model) = app.windows.get_mut(&window).map(|w| &mut w.model) {
-                    model.effects.push((request, DeferredRequest::DemandGpu));
-                }
-            }
-            HostRequest::UnhandledKey { window, code } => {
-                if let Some(model) = app.windows.get_mut(&window).map(|w| &mut w.model) {
-                    model
-                        .effects
-                        .push((request, DeferredRequest::UnhandledKey(code)));
-                }
-            }
+            effect => queue_effect(&mut app, request, effect),
         }
     }
 
@@ -650,15 +590,32 @@ impl Writer {
     }
 }
 
-/// Queue `effect` for the main window's model.
-fn queue_main(app: &mut AppModel, request: RequestId, effect: DeferredRequest) {
-    let AppModel {
-        windows, writes, ..
-    } = app;
-    if let Some(model) = windows.get_mut(&WindowId::MAIN).map(|w| &mut w.model) {
-        writes.command(None);
-        model.effects.push((request, effect));
+/// Queue `effect` for the host after the turn; a window's request only
+/// while the window is open. A request that answers (all but a GPU
+/// demand and an unhandled key) is a command of the write.
+fn queue_effect(app: &mut AppModel, request: RequestId, effect: HostRequest) {
+    let window = match &effect {
+        HostRequest::Platform { window, .. }
+        | HostRequest::RequestWindowSize { window, .. }
+        | HostRequest::Inject { window, .. }
+        | HostRequest::DemandGpu { window }
+        | HostRequest::UnhandledKey { window, .. } => Some(*window),
+        _ => None,
+    };
+    if window.is_some_and(|w| !app.windows.contains_key(&w)) {
+        return;
     }
+    if !matches!(
+        effect,
+        HostRequest::DemandGpu { .. } | HostRequest::UnhandledKey { .. }
+    ) {
+        app.writes.command(None);
+    }
+    // The shell events of the window come from this injection until the shell reports it delivered.
+    if let HostRequest::Inject { window, .. } = &effect {
+        app.injecting.entry(*window).or_default().push_back(request);
+    }
+    app.effects.push((request, effect));
 }
 
 /// Apply a drawable export or geometry request for the drawable's window.
