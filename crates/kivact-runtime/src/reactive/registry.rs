@@ -72,11 +72,16 @@ impl Runtime {
 
 /// Look up a live runtime (internal: no foreign-App check).
 pub(crate) fn try_runtime(app: AppId) -> Option<Rc<Runtime>> {
-    REGISTRY.with(|r| {
-        r.borrow()
-            .get((app.0 as usize).wrapping_sub(1))
-            .and_then(|s| s.clone())
-    })
+    // When the thread ends, the registry drops its runtimes, and what they
+    // hold (a frame loop's token) asks for its runtime: there is none then.
+    REGISTRY
+        .try_with(|r| {
+            r.borrow()
+                .get((app.0 as usize).wrapping_sub(1))
+                .and_then(|s| s.clone())
+        })
+        .ok()
+        .flatten()
 }
 
 /// Run `f` with the registered runtime of `app` without cloning its `Rc`.
