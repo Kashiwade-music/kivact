@@ -1449,6 +1449,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C07：engine の事実を core に写して同期させるのをやめる
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / 付属書 R の R31（R の鎖の最後）、C05、付属書 E の E31（E-REQ-1〜E-REQ-4。W4b）
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 3 の `self.target_value(at)?` は `self.target_value()?`（今の署名は `target_value(&self) -> Option<FocusTarget>`。引数 `at` は無い）。手順 6 の `kivact_runtime::Notifier::notify_from_render` は R23 で `Trigger::notify_from_render`（`kivact-runtime/src/reactive/trigger.rs`）。手順 4 の `asset_failures` の置換元は rustfmt で複数行になっている（`client/dispatch/platform.rs`）。turn の `commit` 関数は `launch/runtime.rs` の `pub(super) fn commit`（`launch/turn.rs` ではない）。
 - **所有**：`crates/kivact-core/src/view/{tree.rs,text_edits.rs（削除）,state.rs,window_view.rs,node_ref.rs}`、`crates/kivact-core/src/client/{state.rs,dispatch/env.rs,dispatch/platform.rs,dispatch/delivery.rs}`、`crates/kivact-core/src/launch/{runtime.rs,turn.rs}`（turn の関数は R06 が `launch/turn.rs` に移してある）、`crates/kivact-core/src/custom/node.rs`、`crates/kivact-core/src/platform/env.rs`、`crates/kivact-core/src/devtools/{input.rs,query.rs}`（`is_visible` を読む 2 か所）
 - **目的**：RC-20。engine が持つ事実（未配送の `TextChanged`、node の最後の layout 報告、node の可視と live region、font の版）を core が counter・側表・App 全体の notifier で写すのをやめる。asset の失敗の一度だけの報告を node と一緒に消える印にする。起動時と環境の変化ごとの font の列挙をやめる（PERF-10）。
 - **手順**：
@@ -1586,6 +1587,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C08：`use_direction` は値、`Owner` は `custom` だけ
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C07（付属書 R の R20 が `use_context::<T>() -> T`・`try_use_context::<T>() -> Option<T>` に、R26 が core の `provide` を `T` をそのまま置く形にし、R26〜R31 の掃引が呼出し元の `.get()` を消してある。4.1 節 R-REQ-12）
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 3 の `state::Owner` の掃引は、今のコードに該当が無い（0 件。何もしない）。
 - **所有**：`crates/kivact-core/src/{state.rs,custom.rs,view/boundary.rs,view/owner.rs,view/root.rs（1 行）,view/element_data.rs,view/overlays.rs}`、`use_direction`・`kivact::state::Owner` の全呼出し元（`crates/`、`dev/`、`examples/`、`templates/`）（呼出し元の `dev/` は `dev/tests/kivact-public-api`・`dev/tests/kivact-kit-tests`・`dev/tests/gpu-interop-producer`・`dev/bench` を含む。W5 では kit・catalog・`kivact-kit-tests` も compile するので直す。INC-33）
 - **目的**：RC-18：`use_direction() -> ReadingDirection`、root が `Ltr` を provide し、呼ぶたびに constant を作る fallback を消す。API-10：`Owner` の path を `kivact::custom` だけにする。`Owner::store`・`store_with` を `#[doc(hidden)]`（RC-31 の core の半分の残り。context の置き場の統一（API-04）は付属書 R が済ませた）。
 - **手順**：
@@ -1969,6 +1971,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C10：`Element::variant` と `Variant`・`Variants` を core に置く
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C09
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 5 の `bind_node_style` の呼出しは `view/mount/node.rs` にある（`create.rs` ではない）。
 - **所有**：新 `crates/kivact-core/src/view/variant.rs`、`crates/kivact-core/src/view/{view.rs の mod 行,element_data.rs,style_layer.rs,mount/parts.rs,mount/style.rs,mount/create.rs,tree.rs,node_modifiers.rs}`、`crates/kivact-ui/src/{variants.rs,lib.rs}`、`crates/kivact-interaction/src/` の `Tone` の定義のあるファイル（impl 1 行）、`impl Variant for` を持つ ui・kit のファイル（`Clone` の derive を足すだけ）
 - **目的**：設計書 5.4：`Element` に `fn variant<V: Variant>(self, v: impl IntoValue<V>) -> Self`。variant は node が `Option<Box<Variants>>` で持つ（MEM-2）。ui と kit の 68 個の写しは付属書 U・K が消す（この unit は core の受け口だけを作る）。
 - **手順**：
@@ -2325,6 +2328,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C12：`on_close_request` を呼んだ owner の window に効かせ、終了の経路を一つにする
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C11
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 3 の `.with(crate::platform::close_request::CloseRequestState::default())` は、R05 の後は `launch/runtime.rs` の `AppState` の初期化の 1 行 `close: crate::platform::close_request::CloseRequestState::default(),`（field は `app_state.rs`）。その行と field を手順の意図どおりに扱う。
 - **所有**：`crates/kivact-core/src/{platform/close_request.rs,platform.rs,launch/close.rs,launch/runtime.rs,client/dispatch/env.rs,view/state.rs,view/window_view.rs}`、`dev/tests/kivact-public-api/tests/*/{close_request.rs,windows.rs}`、`on_close_request` の呼出し元
 - **目的**：RC-11。`platform::on_close_request(handler: impl IntoHandler<(), M>)` は setup の中だけで呼べ、呼んだ owner の window（main、`window()`、foreign window）に効く。main 以外の window では handler が閉じるのを止めなければ `on_dismiss(DismissReason::WindowClose)` が続く。終了の始め（`request_exit` と foreign window の close）を `begin_exit` 一つにする。
 - **手順**：
@@ -2441,6 +2445,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C13：embed を全 OS で compile、停止は `EmbedNotice::Stopped(EmbedStatus)`、`EmbedVisibility`
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C12
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 3 の `embed/notice.rs` は今 `pub use kivact_engine::embed::EmbedNotice;` の 1 行（engine の型の再公開）。手順 3 のとおり、file を core の enum の内容で置き換える（利用者の path `kivact::embed::EmbedNotice` は変わらない。判断は要らない）。
 - **所有**：`crates/kivact-core/src/{embed.rs,embed/*}`、`crates/kivact-types/src/{embed.rs,lib.rs}`、`crates/kivact-engine/src/embed.rs`、`crates/kivact-engine/src/contract/host.rs`（`HostError` を読むだけ。変えない）、`crates/arvane/src/embed.rs`、`crates/arvane-shell/src/child.rs`、`crates/arvane-native/src/{wait.rs,port/embed/*,port/win32/{create.rs,window.rs},port/x11/{conn.rs,test_parent.rs,thread.rs,window.rs}}`、`crates/kivact-test/src/parent.rs`、`dev/tests/kivact-public-api/tests/*/embed/*`
 - **目的**：USR-15、API-10、ST-21。`kivact::embed` は全 OS で compile。未対応の環境の `App::embed` は `Err(ErrorKind::Unsupported)`。停止は `EmbedNotice::Stopped(EmbedStatus)` で一度だけ知らせる。`embed::Visibility` を `EmbedVisibility` に改名。
 - **手順**：
@@ -2567,6 +2572,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C14：font は theme が持つ（`App::font`・`App::fonts`・`TestFonts::Only` を消す）
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C13、付属書 S の S09（W2a。`Theme::with_fonts`・`Theme::fonts`。4.3 節 S-REQ-1）
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 5 の `crates/kivact-test/src/screen/gpu_tests.rs` は `crates/kivact-test/tests/screen/gpu.rs`（`Screen::start(` の 3 か所）。手順 6 の呼出し元の一覧に `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs` の `.fonts(TestFonts::Only(..))` を足す（所有に含める）。
 - **所有**：`crates/kivact-core/src/{app.rs,launch/settings.rs,launch/runtime.rs,view/root.rs,view/boundary.rs,view/state.rs,view/requests.rs,platform/env.rs}`、`crates/kivact-test/src/{options.rs,lib.rs,render.rs,screen/driver.rs,screen/gpu_tests.rs}`（`gpu_tests.rs` は W1 で `dev/tests` へ移っていればその path）、`crates/kivact-types/src/asset.rs`（doc の例 1 行）、`App::font`・`App::fonts` の呼出し元（`crates/kivact-devtools/src/main.rs`、`examples/kivact-ui-{basic,pop,game,soft,creative}/src/main.rs`）、`RenderOptions::font` と `TestFonts::Only` の呼出し元（`examples/kivact-ui-*/tests/*.rs`、`dev/tests/kivact-kit-tests/tests/e2e_kits/theme_conformance.rs`、`dev/tests/kivact-public-api/tests/*/{text_style.rs,offscreen.rs,text_effects.rs,images_animated.rs,launch_fonts.rs}`）（呼出し元の `dev/` は `dev/tests/kivact-public-api`・`dev/tests/kivact-kit-tests`・`dev/tests/gpu-interop-producer`・`dev/bench` を含む。W5 では kit・catalog・`kivact-kit-tests` も compile するので直す。INC-33）
 - **目的**：USR-12、設計書 5.6。font は theme が持つ（12 章 API-13）：`Theme::with_fonts(impl IntoIterator<Item = impl Into<Asset>>)` の `Asset`（path・`Vec<u8>`・共有 bytes・static bytes。`'static` は要らない）を theme が持ち、その font を、`App::theme(t)`・`provide_theme(..)`・`kivact::test::RenderOptions::{with_theme, theme}` が登録する。`App::font`・`App::fonts`・`RenderOptions::font`・`TestFonts::Only` を消す。
 - **手順**：
@@ -2674,6 +2680,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C15：`commit_focused_edit`、`PointerEvent::target_size`、`spacer` の最小の大きさ
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C14
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 4 の `focus_changed` は `focus_changed(rt, window, node: Option<NodeId>, region: Option<RegionId>, visible: bool)`。`if target.is_none()` は `if node.is_none()`。
 - **所有**：新 `crates/kivact-core/src/view/focus_commit.rs`、`crates/kivact-core/src/view/{view.rs,input.rs,state.rs,requests.rs,elements/container.rs,mount/part_pointer.rs}`、`crates/kivact-core/src/client/dispatch/{pointer.rs,text.rs}`、`crates/kivact-core/src/launch/turn.rs`（R06 が移した turn の関数）、`view/window_view.rs`（window を消すときに待ちを終える 1 か所）、`dev/tests/kivact-public-api/tests/*/{text_editing.rs,input_platform.rs,layout.rs}`（試験を足す）
 - **目的**：USR-05：focus を持つ control の「focus を失ったときの確定」を実行し、その結果が state に書かれたら完了する future。USR-16：handler を付けた node の大きさ（`pos` と同じ座標系）。USR-17：`spacer()` は `min_width(0).min_height(0)` を含む。
 - **手順（USR-05）**：仕組み：今の確定は、engine の `FocusChanged { node: None/他 }` の配送で `FocusKeys.focus` が変わり、`text_edit/draft.rs` の `effect_on(focused, ..)`（user effect）が同じ turn の user effect の段で `Drafting::commit` を走らせる、というもの。engine の `Writer::blur(window)` は `change_focus(None)` を通るので、IME の未確定の文字を先に `TextChanged` として出し、その後に `FocusChanged { node: None }` を出す。よって「blur を送り、`FocusChanged` が配送された turn の user effect が終わった後」に future を終える。同じ turn の中で終えると、`settle_async` が user effect より先に task を進めて確定前の state を見る（delivery の途中で `Completion` を完了すると、その turn の `settle_async` で task が起きる）。そこで配送の turn では印だけを付け、**次の turn の始め**に完了する。
@@ -2850,6 +2857,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C16：開くときに作る content の引数をそろえ、小さな API の誤りを直す
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C15
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：手順 4 の `pub fn text_area(` は `crates/kivact-ui/src/text_input/view.rs`（`text_input.rs` ではない）。
 - **所有**：`crates/kivact-core/src/view/{flow/error_boundary.rs,descriptor/factory.rs}`、`crates/kivact-ui/src/{async_view.rs,text_input.rs}`、呼出し元
 - **目的**：API-16：開いたときに作る content は引数なしなら `impl IntoViewFn<V>`、引数ありなら `impl Fn(Arg) -> V`。`provide`・`scope` は `FnOnce`。API-08：`async_view(source, ready).loading(f).fallback(f)` の `loading` が `IntoViewFn` を受ける。API-14：`text_area` に `#[track_caller]`。
 - **手順**：
@@ -2866,6 +2874,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
 ## C17：`Offscreen::render(f64, f64)` と `.scale(f64)`
 
 - **wave / lane / 前提**：W5a の鎖 / 鎖 / C16
+- **W5a の照合（設計者、2026-11-20。R20〜R30 の後のコードとの違い。この注記が手順より優先）**：所有の `crates/kivact-ui-basic/src/plot/paint.rs` に `Offscreen::render` の呼出しは無い（doc の文だけ）。doc の文を新しい署名に合わせるだけ。
 - **所有**：`crates/kivact-offscreen/src/lib.rs`、`Offscreen::render` の呼出し元（`crates/kivact-ui-basic/src/plot/paint.rs`、`dev/tests/kivact-public-api/tests/offscreen.rs`、`dev/tests/kivact-public-api/tests/*/{offscreen.rs,offscreen_svg.rs}`、`docs` を除く全 crate）（呼出し元の `dev/` は `dev/tests/kivact-public-api`・`dev/tests/kivact-kit-tests`・`dev/tests/gpu-interop-producer`・`dev/bench` を含む。W5 では kit・catalog・`kivact-kit-tests` も compile するので直す。INC-33）
 - **目的**：RC-29：`render(u32, u32)` と `render_svg(f64, f64)` の不一致をやめ、両方とも論理の大きさ `(width: f64, height: f64)`、画素の密度は `.scale(f64)`。
 - **手順**：
