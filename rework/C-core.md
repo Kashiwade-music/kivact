@@ -1522,7 +1522,7 @@ wave と lane は作業指示書 4 章（SCHEDULE）の配置に合わせた：C
   5. font の一覧を使う時に作る（E-REQ-4）：
      - `view/state.rs` の `ViewState.fonts_value: Signal<Vec<String>>` を `pub(crate) fonts: kivact_types::cell::Deferred<FontsValue>,` にし、次を足す：
        ```rust
-       // xtask-allow(state): generation は families を最後に読んだ font の版。families は generation の射影で、refresh_fonts だけが両方を同じ遷移で書く
+       // xtask-allow(state): projection: generation is the font version families was last read at; families is its projection, and refresh_fonts alone writes both in one transition
        pub(crate) struct FontsValue {
            pub(crate) families: Signal<Vec<String>>,
            generation: std::cell::Cell<u64>,
