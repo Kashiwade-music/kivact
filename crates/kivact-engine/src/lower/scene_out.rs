@@ -382,7 +382,7 @@ impl SceneOut {
     }
 
     /// What is being recorded cannot be replayed.
-    fn spoil(&mut self) {
+    pub(crate) fn spoil(&mut self) {
         if let Some(recording) = &mut self.recording {
             recording.spoiled = true;
         }
