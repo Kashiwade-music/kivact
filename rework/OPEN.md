@@ -168,6 +168,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R28（lane X）：設計者の回答（`9b9e001c`）に従い、付属書 R28 の「状態の閉じ方」の印を、そのままの文で lane X に入れた（`range.rs` の effect-writes 3 件、`DisclosureApi`・`Target`・`Core` の state の印を doc と属性の塊の上に）。設計者の回答では印が `49707eeb` に入っているとあったが、その commit はコードを変えていなかったので、lane X で入れた。確認（fmt・check・clippy --lib・xtask）は kivact-interaction で成功。
+
 - W5a・R27（lane X、commit `66965e52`）：確認（fmt・clippy --lib・xtask kivact-core）は成功。付属書どおりの policy の except 削除、`__private` と `frame_loop` の削除を受け入れる。(a) `HostEvent` の `StatesChanged`・`NodeFlagsChanged` の腕を cause_of に足した（E の variant の規則どおり）。(b) `launch/turn.rs` の `mounts_only` の helper は too_many_lines への対応（表の「関数の上限」）。(c) `prelude.rs` に `Trigger`・`trigger` は足していない（付属書 R27 の手順は constant_value の削除だけ）。設計書 5.11 との違いの確認は設計者に任せる。
 - 設計者への注意（R27、STOP ではない）：`kivact-interaction`（`scalar/range.rs`）が `state::__private::Prop` を使っている。R28 の所有で直す。R28 までは interaction が compile できない（予期された途中の状態）。
 
