@@ -111,11 +111,9 @@ mod records;
 mod refresh;
 mod shaping;
 mod source;
-mod word;
 
 pub(crate) use edit_lines::EditLines;
 pub(crate) use line_metrics::{line_height, line_offset};
 pub(crate) use refresh::{RefreshError, RefreshMode};
 pub(crate) use shaping::SharedLines;
 pub(crate) use source::{Breaks, Source};
-pub(crate) use word::{line_range, word_range};

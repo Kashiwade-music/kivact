@@ -415,9 +415,10 @@ fn clicking_a_centered_line_places_the_caret_under_the_pointer() {
     assert_eq!(screen.ime_text().expect("focused").selection, 0..0);
 }
 
-/// A focused single-line field holding "hello world foo", and the window point
-/// over the middle of the `o` in "world".
-fn words_screen() -> (Screen, (f64, f64)) {
+/// A focused single-line field holding "hello world foo", the window point
+/// over the middle of the `o` in "world", and the one over the middle of the
+/// first `o` in "foo".
+fn words_screen() -> (Screen, (f64, f64), (f64, f64)) {
     let screen = render(|| {
         node()
             .name("Words")
@@ -429,20 +430,25 @@ fn words_screen() -> (Screen, (f64, f64)) {
     // The carets before and after the `o` (character 7).
     field.press_key(Key::Home);
     let mut stops = Vec::new();
-    for _ in 0..=8 {
+    for _ in 0..=14 {
         let ime = screen.ime_text().expect("focused");
         stops.push(*ime.char_rects.last().expect("the caret"));
         field.press_key(Key::ArrowRight);
     }
     let (from, to) = (stops[7], stops[8]);
-    (screen, ((from.x + to.x) / 2.0, from.y + from.height / 2.0))
+    let (foo_from, foo_to) = (stops[13], stops[14]);
+    (
+        screen,
+        ((from.x + to.x) / 2.0, from.y + from.height / 2.0),
+        ((foo_from.x + foo_to.x) / 2.0, from.y + from.height / 2.0),
+    )
 }
 
 /// The second click of a double click selects the word under the pointer, and
 /// typing replaces the selection. A single click before it only places the caret.
 #[test]
 fn a_double_click_selects_the_word_under_the_pointer() {
-    let (screen, (x, y)) = words_screen();
+    let (screen, (x, y), _) = words_screen();
     screen.click_at(x, y);
     let ime = screen.ime_text().expect("focused");
     assert!(
@@ -464,13 +470,30 @@ fn a_double_click_selects_the_word_under_the_pointer() {
 /// field that is the whole value.
 #[test]
 fn a_triple_click_selects_the_whole_line() {
-    let (screen, (x, y)) = words_screen();
+    let (screen, (x, y), _) = words_screen();
     for _ in 0..3 {
         screen.click_at(x, y);
     }
     assert_eq!(screen.ime_text().expect("focused").selection, 0..15);
     screen.get_by_role(Role::TextBox, "Words").type_text("Z");
     assert_eq!(value_of(&screen, Role::TextBox, "Words"), "Z");
+}
+
+/// A drag after a double click extends the selection word by word: from
+/// the clicked word to the end of the word under the pointer.
+#[test]
+fn a_drag_after_a_double_click_extends_by_words() {
+    let (screen, (x, y), (far, _)) = words_screen();
+    screen.click_at(x, y);
+    screen.mouse_move(x, y);
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_move(far, y);
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(
+        screen.ime_text().expect("focused").selection,
+        6..15,
+        "\"world foo\", whole words"
+    );
 }
 
 /// `on_composition_change` reports `true` when a composition starts and

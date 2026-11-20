@@ -283,6 +283,35 @@ impl EditState {
         self.session.goal_x
     }
 
+    /// The word at byte offset `at`: the Unicode word segment (UAX #29)
+    /// holding the character at `at`, or the last one at the end of the
+    /// text. A run of white space is a segment of its own.
+    pub fn word_at(&self, at: usize) -> Range<usize> {
+        let at = floor_boundary(&self.text, at.min(self.text.len()));
+        let mut last = 0..0;
+        for (start, segment) in self.text.split_word_bound_indices() {
+            let range = start..start + segment.len();
+            if range.contains(&at) {
+                return range;
+            }
+            last = range;
+        }
+        last
+    }
+
+    /// The line at byte offset `at`, without its line feed: between the
+    /// line feeds around it when `multiline`, else the whole text.
+    pub fn line_at(&self, at: usize, multiline: bool) -> Range<usize> {
+        let text = &self.text;
+        if !multiline {
+            return 0..text.len();
+        }
+        let at = floor_boundary(text, at.min(text.len()));
+        let start = text[..at].rfind('\n').map_or(0, |i| i + 1);
+        let end = text[at..].find('\n').map_or(text.len(), |i| at + i);
+        start..end
+    }
+
     /// Replace the clamped range `r` with `text` and record it.
     fn splice(&mut self, r: Range<usize>, text: &str) {
         let removed = self.text[r.clone()].to_string();
