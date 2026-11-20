@@ -131,7 +131,7 @@ fn search(rt: &Runtime, by: &QueryBy) -> Result<Vec<NodeId>, p::RpcError> {
         if tree.hidden(id) == Some(true) {
             continue;
         }
-        if !tree.is_visible(id) {
+        if !reader.node_flags(id).visible {
             continue;
         }
         if matches_node(&tree, &reader, id, by) {

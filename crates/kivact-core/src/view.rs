@@ -51,7 +51,6 @@ pub(crate) mod span;
 pub(crate) mod state;
 mod style_layer;
 pub(crate) mod sync_hook;
-pub(crate) mod text_edits;
 pub(crate) mod tree;
 pub(crate) mod window_view;
 

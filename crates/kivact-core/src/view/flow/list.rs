@@ -262,7 +262,7 @@ fn apply_list<T: Clone + 'static, K: kivact_runtime::ItemKey>(
 fn dispose_rows(rt: &Rc<Runtime>, rows: &[(NodeId, Owner)]) {
     for &(node, owner) in rows {
         let removed = ViewState::tree_mut(rt).remove(node);
-        removed.commit(rt);
+        drop(removed);
         owner.dispose();
     }
 }

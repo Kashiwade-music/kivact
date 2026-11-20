@@ -185,7 +185,7 @@ fn remove_hidden_rows<K: kivact_runtime::ItemKey, T: 'static>(
     };
     for r in gone {
         let removed = ViewState::tree_mut(rt).remove(r.wrapper);
-        removed.commit(rt);
+        drop(removed);
         r.owner.dispose();
     }
 }

@@ -47,9 +47,10 @@ pub fn is_initial_render() -> Value<bool> {
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]
 pub fn font_families() -> Value<Vec<String>> {
+    let at = Location::caller();
     let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: font_families requires a running App");
-    ViewState::of(&rt).fonts_value.into()
+    ViewState::of(&rt).font_families(&rt, at)
 }
 
 /// Whether the window of the calling owner is borderless fullscreen,

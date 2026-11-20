@@ -73,7 +73,7 @@ pub(crate) fn unmount_branch(rt: &Runtime, b: Branch) {
     // The records (their handlers) drop after the tree borrow, while the
     // owner still lives: a `Drop` there may use the tree and the owner.
     let removed = ViewState::tree_mut(rt).remove(b.node);
-    removed.commit(rt);
+    drop(removed);
     b.owner.dispose();
 }
 

@@ -121,8 +121,6 @@ fn start_mount(
     // The App's fonts precede the root's mount (the engine registers
     // a font when it is written, so the first layout uses them).
     requests::register_app_fonts(rt, std::mem::take(&mut options.settings.fonts));
-    let families = ViewState::tree(rt).reader().font_families();
-    rt.enter(|| ViewState::of(rt).fonts_value.set(families));
     crate::view::root::install_app_contexts(rt, root_owner, options.into_view_settings(), at);
     crate::view::root::mount_window_root(rt, WindowId::MAIN, root_owner, root, at);
     // What the platform cannot do is diagnosed, not silently ignored:
@@ -339,13 +337,6 @@ pub(super) fn commit(turn: &TurnGuard<'_>, rt: &Runtime, writer: &Writer) -> usi
         writer.request_frame(at_ns);
     }
     requests::flush_focus(rt);
-    let host = HostState::of(rt);
-    let removed = std::mem::take(&mut *ViewState::of(rt).removed.borrow_mut());
-    if !removed.is_empty() {
-        host.asset_failures
-            .borrow_mut()
-            .retain(|(id, _)| !removed.contains(id));
-    }
     let writes = writer.pending_writes();
     // The new `on_mount` callbacks wait for the revision these writes
     // become, or for the last one when nothing was written.

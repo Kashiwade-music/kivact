@@ -90,6 +90,16 @@ impl NodeRef {
 }
 
 impl NodeRef {
+    /// The engine's visibility facts of the bound node (tracked).
+    pub(crate) fn node_flags(
+        &self,
+        at: &'static Location<'static>,
+    ) -> Option<kivact_engine::contract::NodeFlags> {
+        self.require_observation(RefObservation::Sources, at);
+        let target = self.target_value()?;
+        observation(self.app, target).map(|observation| observation.flags.get())
+    }
+
     /// The shared observation of the bound node. Reading it in a memo also
     /// follows a rebinding of the reference.
     pub(crate) fn tracked_observation(&self) -> Option<crate::view::tree::NodeObservation> {

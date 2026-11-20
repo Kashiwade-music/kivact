@@ -6,12 +6,13 @@ use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{NodeId, PlatformResult, RequestId, Revision};
 
 use super::common::{handler, node_owner, run_handler};
-use crate::client::state::HostState;
 use crate::view::requests;
 use crate::view::state::ViewState;
 
 pub(super) fn effect_result(rt: &Runtime, request: RequestId, result: &PlatformResult) {
     requests::resolve_effect(rt, request.0, result.clone());
+    // A font registration answers with the new font database.
+    ViewState::of(rt).refresh_fonts(rt);
 }
 
 pub(super) fn asset_failed(rt: &Runtime, node: NodeId, message: &str) {
@@ -21,10 +22,7 @@ pub(super) fn asset_failed(rt: &Runtime, node: NodeId, message: &str) {
         run_handler(rt, node_owner(rt, node), || handle.call(error));
         return;
     }
-    let first = HostState::of(rt)
-        .asset_failures
-        .borrow_mut()
-        .insert((node, message.to_owned()));
+    let first = ViewState::tree_mut(rt).note_asset_failure(node, message);
     if !first {
         return;
     }
@@ -45,10 +43,6 @@ pub(super) fn host_failure(rt: &Runtime, revision: Revision, reason: &str) {
 // excess container capacity before application lifecycle callbacks.
 pub(super) fn memory_warning(rt: &Runtime) {
     ViewState::of(rt).release_capacity();
-    HostState::of(rt)
-        .asset_failures
-        .borrow_mut()
-        .shrink_to_fit();
     rt.warn(
         "the platform is short of memory (MemoryWarning); the host released text and unused asset caches".into(),
     );

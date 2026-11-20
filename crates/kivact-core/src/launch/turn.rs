@@ -15,7 +15,6 @@ use kivact_types::Revision;
 use super::runtime::{ClientMode, Launch, commit, output};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
-use crate::view::text_edits::TextEditsAhead;
 
 /// Commit rounds one turn may run before user effects count as a cycle.
 const USER_EFFECT_ROUNDS: usize = 100;
@@ -72,7 +71,6 @@ impl Launch {
         turn.run_mounts(Revision(before));
         turn.deliver_reports();
         turn.settle();
-        let edits = TextEditsAhead::begin(&mut ViewState::tree_mut(&rt), events);
         let mut boundaries = boundaries.iter().peekable();
         let mut acknowledge = |delivered: usize| {
             while let Some(b) = boundaries.next_if(|b| b.events <= delivered) {
@@ -91,7 +89,6 @@ impl Launch {
             turn.stage(Stage::Dispatch);
             #[cfg(debug_assertions)]
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
-            edits.deliver(event);
             ViewState::tree(&rt).engine().deliver(event);
             turn.cause(cause_of(event));
             crate::client::dispatch::dispatch(&rt, event);

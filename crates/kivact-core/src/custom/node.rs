@@ -269,19 +269,13 @@ impl NodeRefExt for NodeRef {
     }
     #[track_caller]
     fn is_visible(&self) -> bool {
-        let (rt, _) = self.state();
-        let revision = ViewState::tree(&rt).visibility_revision();
-        revision.track();
-        self.tracked_node()
-            .is_some_and(|token| ViewState::tree(&rt).is_visible(token.node.node))
+        self.node_flags(Location::caller())
+            .is_some_and(|flags| flags.visible)
     }
     #[track_caller]
     fn is_in_live_region(&self) -> bool {
-        let (rt, _) = self.state();
-        let revision = ViewState::tree(&rt).live_region_revision();
-        revision.track();
-        self.tracked_node()
-            .is_some_and(|token| ViewState::tree(&rt).is_in_live_region(token.node.node))
+        self.node_flags(Location::caller())
+            .is_some_and(|flags| flags.in_live_region)
     }
     #[track_caller]
     fn holds_focus(&self) -> bool {

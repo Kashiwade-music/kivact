@@ -256,15 +256,14 @@ pub(crate) struct ViewState {
     pub(super) tree: RefCell<ViewNodes>,
     /// The DevTools hooks; None without DevTools. Fixed at construction.
     pub(crate) devtools: Option<Rc<dyn crate::view::devtools_hook_traits::DevtoolsHooks>>,
-    /// Removed node ids awaiting host revision cleanup.
-    pub(crate) removed: RefCell<Vec<NodeId>>,
     /// The open windows' records.
     pub(super) windows: RefCell<BTreeMap<WindowId, WindowRecord>>,
     /// The last window id handed out (`WindowId::MAIN` is 1).
     next_window: Cell<u64>,
     /// What the host's platform can do.
     pub(crate) capabilities: Value<Capabilities>,
-    pub(crate) fonts_value: Signal<Vec<String>>,
+    /// The App's font families, read from the engine on first use.
+    pub(crate) fonts: Deferred<FontsValue>,
     /// True until the first turn after the App's setup (written once, by start_mount).
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
@@ -346,13 +345,12 @@ impl ViewState {
             None => host_capabilities.into(),
         };
         Self {
-            tree: RefCell::new(ViewNodes::new(engine, owner, devtools.clone())),
+            tree: RefCell::new(ViewNodes::new(engine, devtools.clone())),
             devtools,
-            removed: RefCell::new(Vec::new()),
             windows: RefCell::new(BTreeMap::new()),
             next_window: Cell::new(1),
             capabilities,
-            fonts_value: owner.signal(Vec::new(), at),
+            fonts: Deferred::new(),
             initial_render: owner.signal(true, at),
             app_motion: owner.signal(
                 AppMotion {
@@ -549,8 +547,41 @@ impl FocusKeys {
     }
 }
 
-impl super::tree::Removed {
-    pub(crate) fn commit(self, rt: &kivact_runtime::driver::Runtime) {
-        ViewState::of(rt).removed.borrow_mut().extend(self.ids);
+// xtask-allow(state): generation は families を最後に読んだ font の版。families は generation の射影で、refresh_fonts だけが両方を同じ遷移で書く
+pub(crate) struct FontsValue {
+    pub(crate) families: Signal<Vec<String>>,
+    generation: Cell<u64>,
+}
+
+impl ViewState {
+    /// The families of the App's fonts, read from the engine on first use.
+    pub(crate) fn font_families(
+        &self,
+        rt: &Runtime,
+        at: &'static Location<'static>,
+    ) -> Value<Vec<String>> {
+        let fonts = self.fonts.get_or_init(|| {
+            let reader = self.tree.borrow().reader();
+            FontsValue {
+                families: rt.root().signal(reader.font_families(), at),
+                generation: Cell::new(reader.font_generation()),
+            }
+        });
+        fonts.families.into()
+    }
+
+    /// Write the families again when the engine's font database changed
+    /// since they were read. Nothing happens before the first read.
+    pub(crate) fn refresh_fonts(&self, rt: &Runtime) {
+        let Some(fonts) = self.fonts.get() else {
+            return;
+        };
+        let reader = self.tree.borrow().reader();
+        let generation = reader.font_generation();
+        if generation != fonts.generation.get() {
+            fonts.generation.set(generation);
+            let families = reader.font_families();
+            rt.enter(|| fonts.families.set(families));
+        }
     }
 }

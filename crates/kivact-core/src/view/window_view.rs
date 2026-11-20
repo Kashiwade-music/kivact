@@ -283,7 +283,7 @@ impl WindowSlot {
         if let Some(root) = root {
             let owner = ViewState::tree(rt).owner_of(root);
             let removed = ViewState::tree_mut(rt).remove(root);
-            removed.commit(rt);
+            drop(removed);
             ViewState::tree(rt).engine().close_window(id);
             if dispose && owner.is_alive() {
                 owner.dispose();
