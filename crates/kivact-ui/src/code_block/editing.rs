@@ -67,8 +67,8 @@ pub(super) fn plain_highlight(
 }
 pub(super) fn code_keys(
     state: &mut EditState,
-    request: EditRequest<'_>,
-    use_context: &EditContext<'_>,
+    request: EditRequest,
+    use_context: &EditContext,
 ) -> EditOutcome {
     let EditRequest::Key { key, modifiers } = request else {
         return text_edit_policy(state, request, use_context);
@@ -92,14 +92,26 @@ pub(super) fn code_keys(
                 } else {
                     line + 1
                 };
-                use_context.offset_at(state, next, use_context.x_of(state, caret)?)
+                use_context.offset_at(
+                    state,
+                    next,
+                    state.goal_x().or_else(|| use_context.x_of(state, caret))?,
+                )
             }
             _ => None,
         });
     match to {
         Some(to) => {
-            state.move_to(to, modifiers.shift);
-            EditOutcome::Done { changed: false }
+            let vertical = matches!(key, Key::ArrowUp | Key::ArrowDown);
+            match state
+                .goal_x()
+                .or_else(|| use_context.x_of(state, caret))
+                .filter(|_| vertical)
+            {
+                Some(goal) => state.move_vertically(to, modifiers.shift, goal),
+                None => state.move_to(to, modifiers.shift),
+            }
+            EditOutcome::Done
         }
         None => text_edit_policy(state, request, use_context),
     }

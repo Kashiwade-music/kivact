@@ -369,8 +369,8 @@ impl Editor {
 
 fn key_command(
     state: &EditState,
-    request: &EditRequest<'_>,
-    context: &EditContext<'_>,
+    request: &EditRequest,
+    context: &EditContext,
     prose: bool,
     whole: bool,
 ) -> Option<Command> {

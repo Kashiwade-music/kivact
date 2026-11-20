@@ -64,7 +64,7 @@ pub enum DecorationKind {
 }
 
 /// What a behavior attached with [`TextEditing::behavior`] runs.
-pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome;
+pub(crate) type Behavior = dyn Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome;
 
 /// Where the line colors of a mounted editor are bound: its runtime,
 /// owner and theme, the node and the author's call site.

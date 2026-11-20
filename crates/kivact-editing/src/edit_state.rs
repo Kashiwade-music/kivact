@@ -38,7 +38,6 @@ pub enum Taken {
     Whole,
 }
 
-// xtask-allow(state): legacy: max_length, log; absent means the editor has no scalar limit
 /// An owned snapshot of a native editor: its document (the text and its
 /// revision) and its [`TextSession`].
 ///
@@ -52,8 +51,6 @@ pub struct EditState {
     text: String,
     revision: u64,
     session: TextSession,
-    /// The scalar limit of the edits, if any.
-    max_length: Option<usize>,
     /// The changes recorded since the log started; `None` when they cover
     /// nothing, which is the same as "the log starts at `revision`".
     log: Option<Log>,
@@ -89,15 +86,9 @@ impl EditState {
             text: value.to_string(),
             revision,
             session: TextSession::caret_at(value.len()),
-            max_length: None,
             log: None,
             damage: VecDeque::new(),
         }
-    }
-
-    /// Set the scalar limit used by subsequent edits.
-    pub(crate) fn set_max_length(&mut self, max_length: Option<usize>) {
-        self.max_length = max_length;
     }
 
     /// The value.
@@ -207,6 +198,7 @@ impl EditState {
             anchor: floor_boundary(&self.text, session.anchor),
             caret: floor_boundary(&self.text, session.caret),
             marked: session.marked.map(|m| self.clamp(m)),
+            goal_x: session.goal_x,
         };
     }
 
@@ -269,6 +261,26 @@ impl EditState {
             self.session.anchor = to;
             self.session.caret = to;
         }
+        self.session.goal_x = None;
+    }
+
+    /// Select `range`: the anchor at its start, the caret at its end.
+    pub fn select(&mut self, range: Range<usize>) {
+        self.move_to(range.start, false);
+        self.move_to(range.end, true);
+    }
+
+    /// Move the caret to `to` by a line (Up or Down), remembering the
+    /// column `goal_x` the next vertical move aims for (`extend`: select
+    /// from the anchor).
+    pub fn move_vertically(&mut self, to: usize, extend: bool, goal_x: f64) {
+        self.move_to(to, extend);
+        self.session.goal_x = Some(goal_x);
+    }
+
+    /// The column the next vertical move aims for, if the caret got here by one.
+    pub fn goal_x(&self) -> Option<f64> {
+        self.session.goal_x
     }
 
     /// Replace the clamped range `r` with `text` and record it.
@@ -294,22 +306,13 @@ impl EditState {
                 });
             }
         }
+        self.session.goal_x = None;
     }
 
     /// Replace `range` with `text`; the caret follows it and any
     /// composition ends.
     pub fn replace(&mut self, range: Range<usize>, text: &str) {
         let r = self.clamp(range);
-        let end = self
-            .max_length
-            .map(|max| {
-                let remaining = self.text.chars().count() - self.text[r.clone()].chars().count();
-                text.char_indices()
-                    .nth(max.saturating_sub(remaining))
-                    .map_or(text.len(), |(byte, _)| byte)
-            })
-            .unwrap_or(text.len());
-        let text = &text[..end];
         if !(r.is_empty() && text.is_empty()) {
             self.splice(r.clone(), text);
         }
@@ -352,10 +355,7 @@ impl EditState {
                 .unwrap_or_else(|| self.session.selection()),
         );
         let start = r.start;
-        let limit = self.max_length;
-        self.set_max_length(None);
         self.replace(r, text);
-        self.set_max_length(limit);
         self.session.marked = (!text.is_empty()).then(|| start..start + text.len());
         let rel = selected.unwrap_or(text.len()..text.len());
         let rel = floor_boundary(text, rel.start)..floor_boundary(text, rel.end);
@@ -363,26 +363,13 @@ impl EditState {
         self.session.caret = start + rel.end.max(rel.start);
     }
 
-    /// End the composition, keeping as much of its text as the length
-    /// limit allows, with the caret after it. Returns whether one ended.
+    /// End the composition, its text kept, with the caret after it. Returns
+    /// whether one ended.
     pub fn unmark(&mut self) -> bool {
         let Some(marked) = self.session.marked.take() else {
             return false;
         };
-        let mut end = marked.end;
-        if let Some(max) = self.max_length {
-            let composed = self.text[marked.clone()].chars().count();
-            let others = self.text.chars().count() - composed;
-            let keep = max.saturating_sub(others);
-            if keep < composed {
-                end = self.text[marked.clone()]
-                    .char_indices()
-                    .nth(keep)
-                    .map_or(marked.end, |(byte, _)| marked.start + byte);
-                self.splice(end..marked.end, "");
-            }
-        }
-        self.session = TextSession::caret_at(end);
+        self.session = TextSession::caret_at(marked.end);
         true
     }
 

@@ -226,7 +226,9 @@ impl Model {
         }
         if mutation.read_only {
             // Commit preedit while the previous read-only policy still applies.
-            self.edit_input(id, kivact_editing::EditState::unmark);
+            self.edit_input(id, |e| {
+                e.unmark();
+            });
             let node = self
                 .tree
                 .get_mut(id)

@@ -336,7 +336,6 @@ impl Writer {
             model.edit_input(id, |e| {
                 e.move_to(0, false);
                 e.move_to(e.value().len(), true);
-                false
             });
         });
     }

@@ -234,6 +234,40 @@ Z"
     );
 }
 
+/// Down through a short line and on to a long one comes back to the
+/// column it started from (the goal column), and so does Up.
+#[test]
+fn up_and_down_keep_their_column_across_a_short_line() {
+    let (screen, value, _log) = field_screen(
+        "abcdef
+ab
+abcdef",
+        true,
+    );
+    let notes = screen.get_by_role(Role::TextBox, "Notes");
+    notes.press_key(Key::End);
+    notes.press_key(Key::ArrowUp);
+    notes.press_key(Key::ArrowUp);
+    screen.type_text("X");
+    assert_eq!(
+        value.get(),
+        "abcdefX
+ab
+abcdef",
+        "Up through the short line keeps the column of the end"
+    );
+    notes.press_key(Key::ArrowDown);
+    notes.press_key(Key::ArrowDown);
+    screen.type_text("Y");
+    assert_eq!(
+        value.get(),
+        "abcdefX
+ab
+abcdefY",
+        "Down through the short line comes back to the column"
+    );
+}
+
 #[test]
 fn clipboard_chords_and_pasted_line_breaks() {
     let (screen, value, _log) = field_screen("abc", false);
@@ -818,4 +852,55 @@ fn commit_focused_edit_without_focus_resolves_at_once() {
         "nothing is focused: the call resolves"
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+/// The 95th percentile of the time `press` takes, over `n` presses.
+fn p95(n: usize, mut press: impl FnMut(usize)) -> std::time::Duration {
+    let mut times: Vec<std::time::Duration> = (0..n)
+        .map(|i| {
+            let start = std::time::Instant::now();
+            press(i);
+            start.elapsed()
+        })
+        .collect();
+    times.sort_unstable();
+    times[n * 95 / 100]
+}
+
+/// Key latency in a 1 MB document of many lines and in a 1 MB single
+/// line: a key that moves the caret, a typed character and (many lines)
+/// a move by a line. A measurement run by hand in release: E17 compares
+/// it before and after; it asserts nothing.
+#[test]
+#[ignore = "a measurement, run by hand in release"]
+fn large_document_key_latency() {
+    let line = "0123456789abcdef".repeat(4);
+    let lines = vec![line.as_str(); 16_384].join("\n");
+    let one_line = "0123456789abcdef".repeat(65_536);
+    for (name, text, area) in [
+        ("lines", lines.as_str(), true),
+        ("one line", one_line.as_str(), false),
+    ] {
+        let (screen, _value, _log) = field_screen(text, area);
+        let field = screen.get_by_role(Role::TextBox, if area { "Notes" } else { "Name" });
+        field.press_key(Key::End);
+        let left = p95(200, |_| {
+            field.press_key(Key::ArrowLeft);
+        });
+        eprintln!("latency {name} ArrowLeft p95 {left:?}");
+        let typed = p95(200, |_| {
+            field.type_text("x");
+        });
+        eprintln!("latency {name} type p95 {typed:?}");
+        if area {
+            let vertical = p95(200, |i| {
+                field.press_key(if i % 2 == 0 {
+                    Key::ArrowUp
+                } else {
+                    Key::ArrowDown
+                });
+            });
+            eprintln!("latency {name} ArrowUp/Down p95 {vertical:?}");
+        }
+    }
 }

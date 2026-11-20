@@ -105,7 +105,7 @@ impl TextEditing {
     /// policy. A later call replaces an earlier one.
     pub fn behavior<F>(mut self, f: F) -> Self
     where
-        F: Fn(&mut EditState, EditRequest<'_>, &EditContext<'_>) -> EditOutcome + 'static,
+        F: Fn(&mut EditState, EditRequest, &EditContext) -> EditOutcome + 'static,
     {
         self.props.behavior = Some(Rc::new(f));
         self

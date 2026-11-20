@@ -495,7 +495,7 @@ impl Host {
         let result = match self.app.borrow_mut().model_mut(id) {
             Some(model) => {
                 let physical = physical_letter(input.code);
-                model.key(input, physical, &mut self.engine.borrow_mut())
+                model.key(input, physical, &self.engine)
             }
             None => return,
         };
@@ -511,7 +511,7 @@ impl Host {
                     && let PlatformResult::Text(text) = window.perform(PlatformRequest::ReadText)
                     && let Some(model) = self.app.borrow_mut().model_mut(id)
                 {
-                    model.paste(node, &text, &mut self.engine.borrow_mut());
+                    model.paste(node, &text, &self.engine);
                 }
             }
             KeyResult::Reported | KeyResult::Consumed => {}

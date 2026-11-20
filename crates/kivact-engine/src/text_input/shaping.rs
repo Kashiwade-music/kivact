@@ -4,11 +4,13 @@ use crate::text_input::EditLines;
 use crate::text_input::edit_lines::Coloring;
 use crate::text_input::pieces::shape_long;
 use crate::text_input::records::{Colored, Run, Shape, Shown};
-use kivact_editing::{LineColors, LineState, Lines, TextGeometry, caret_at};
+use kivact_editing::{LineColors, LineState, TextGeometry, caret_at};
 use kivact_types::text_utf::floor_char_boundary as floor;
 use kivact_types::{Point, Rect};
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::ops::Range;
+use std::rc::Rc;
 use std::sync::Arc;
 
 /// The text measured for an input's natural width: the lines starting in
@@ -31,13 +33,6 @@ pub(crate) struct Published {
     /// Owned shared runs, retaining their font-independent geometry and values.
     /// Allocation identity is not a publication equality contract.
     pub(crate) runs: Arc<[Arc<kivact_types::SemanticsTextRun>]>,
-}
-
-/// An input's lines as a behavior reads them, shaping the lines it asks
-/// about.
-pub(crate) struct Shaping<'a> {
-    lines: std::cell::RefCell<(&'a mut EditLines, &'a mut arvane::Engine)>,
-    revision: u64,
 }
 
 /// The text a line shows: bullets for masked text, spaces for line
@@ -607,41 +602,67 @@ impl EditLines {
     }
 }
 
-impl<'a> Shaping<'a> {
-    /// Lend exclusive cache and shaper access for synchronous editing queries.
-    /// Queries may lazily shape lines; the captured revision stays fixed.
-    pub(crate) fn new(lines: &'a mut EditLines, engine: &'a mut arvane::Engine) -> Self {
-        Shaping {
-            revision: lines.revision(),
-            lines: std::cell::RefCell::new((lines, engine)),
+// xtask-allow(state): independent: lines is the input's own line cache and engine the shared shaper, both owned elsewhere and borrowed one request at a time; neither field is reassigned, only borrowed
+/// An input's lines as an editing behavior reads them for one request:
+/// the input's own line cache and the shaper, shared, shaping only the
+/// lines a query asks about. It answers for the revision it was made for
+/// while nobody else holds the cache or the shaper.
+pub(crate) struct SharedLines {
+    lines: Rc<RefCell<Option<EditLines>>>,
+    engine: Rc<RefCell<arvane::Engine>>,
+    revision: u64,
+}
+
+impl SharedLines {
+    /// The lines of the input whose line cache is `lines`, of `revision`.
+    pub(crate) fn new(
+        lines: Rc<RefCell<Option<EditLines>>>,
+        engine: Rc<RefCell<arvane::Engine>>,
+        revision: u64,
+    ) -> Self {
+        SharedLines {
+            lines,
+            engine,
+            revision,
         }
     }
 
-    /// The revision of the text the lines are of.
-    pub(crate) fn revision(&self) -> u64 {
-        self.revision
+    /// `f` on the lines, when they answer.
+    fn read<T>(&self, f: impl FnOnce(&EditLines) -> T) -> Option<T> {
+        let lines = self.lines.try_borrow().ok()?;
+        lines.as_ref().filter(|l| self.answers(l)).map(f)
+    }
+
+    /// `f` on the lines and the shaper (it may shape a line), when the
+    /// lines answer.
+    fn shape<T>(&self, f: impl FnOnce(&mut EditLines, &mut arvane::Engine) -> T) -> Option<T> {
+        let mut lines = self.lines.try_borrow_mut().ok()?;
+        let lines = lines.as_mut().filter(|l| self.answers(l))?;
+        let mut engine = self.engine.try_borrow_mut().ok()?;
+        Some(f(lines, &mut engine))
+    }
+
+    /// The lines are of the revision and show the value.
+    fn answers(&self, lines: &EditLines) -> bool {
+        lines.revision() == self.revision && lines.shows_value()
     }
 }
 
-impl Lines for Shaping<'_> {
-    fn shows_value(&self) -> bool {
-        self.lines.borrow().0.shows_value()
+impl kivact_editing::host::Lines for SharedLines {
+    fn count(&self) -> Option<usize> {
+        self.read(EditLines::len)
     }
-    fn len(&self) -> usize {
-        self.lines.borrow().0.len()
-    }
-    fn line_of(&self, at: usize) -> usize {
-        self.lines.borrow().0.line_of(at)
+    fn line_of(&self, at: usize) -> Option<usize> {
+        self.read(|l| l.line_of(at))
     }
     fn content(&self, i: usize) -> Option<Range<usize>> {
-        self.lines.borrow().0.content(i)
+        self.read(|l| l.content(i)).flatten()
     }
-    fn caret(&self, text: &str, at: usize, width: f64) -> Rect {
-        let (lines, engine) = &mut *self.lines.borrow_mut();
-        lines.caret(text, at, width, engine)
+    fn caret_x(&self, text: &str, at: usize, width: f64) -> Option<f64> {
+        self.shape(|l, engine| l.caret(text, at, width, engine).x)
     }
-    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> usize {
-        let (lines, engine) = &mut *self.lines.borrow_mut();
-        lines.nearest(text, i, x, width, engine)
+    fn nearest(&self, text: &str, i: usize, x: f64, width: f64) -> Option<usize> {
+        self.shape(|l, engine| l.content(i).map(|_| l.nearest(text, i, x, width, engine)))
+            .flatten()
     }
 }

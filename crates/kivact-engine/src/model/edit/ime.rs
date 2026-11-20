@@ -95,7 +95,6 @@ impl Model {
         self.edit_input(id, |e| {
             e.move_to(start.min(end), false);
             e.move_to(start.max(end), true);
-            false
         });
         self.sync();
     }

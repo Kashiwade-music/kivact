@@ -1,6 +1,9 @@
 //! Role: Exercise a text editor composed only from public APIs.
 
-use kivact::custom::{NodeRefExt, TextEditing, TextSession, inline_view};
+use kivact::custom::{
+    EditContext, EditOutcome, EditRequest, EditState, NodeRefExt, TextEditing, TextSession,
+    inline_view,
+};
 use kivact::draw::{TextBaseline, TextFormat};
 use kivact::interaction::text_edit_policy;
 use kivact::prelude::*;
@@ -397,4 +400,79 @@ fn inline_inspector(inline_presses: Signal<usize>) -> Node {
         .focusable(true)
         .style(style().size(30, 22).background(rgb(0xe0e8ff)))
         .on_press(move || inline_presses.update(|count| *count += 1))
+}
+
+/// The text of the page test: 60 lines `line 00` to `line 59`, 8 bytes a
+/// line with its break.
+fn page_text() -> String {
+    (0..60)
+        .map(|i| format!("line {i:02}"))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+/// PageUp and PageDown move the caret 40 lines to the same `x`, through
+/// the public line queries alone; every other key is the standard policy.
+fn page_keys(state: &mut EditState, request: EditRequest, context: &EditContext) -> EditOutcome {
+    let (key, modifiers) = match request {
+        EditRequest::Key {
+            key: key @ (Key::PageUp | Key::PageDown),
+            modifiers,
+        } => (key, modifiers),
+        request => return text_edit_policy(state, request, context),
+    };
+    let caret = state.caret();
+    let to = context.line_of(state, caret).and_then(|line| {
+        let last = context.line_count(state)?.checked_sub(1)?;
+        let next = if key == Key::PageUp {
+            line.saturating_sub(40)
+        } else {
+            (line + 40).min(last)
+        };
+        context.offset_at(state, next, context.x_of(state, caret)?)
+    });
+    match to {
+        Some(to) => {
+            state.move_to(to, modifiers.shift);
+            EditOutcome::Done
+        }
+        None => EditOutcome::NotEditing,
+    }
+}
+
+/// A behavior built from the public line queries reaches lines far from
+/// the caret: a page (40 lines) up and down in a 60-line document.
+#[test]
+fn a_behavior_moves_a_page_with_the_line_queries() {
+    let (screen, pages) = mount(|| {
+        let pages = node_ref();
+        let view = node()
+            .node_ref(pages)
+            .role(Role::TextBox)
+            .name("Pages")
+            .focusable(true)
+            .style(
+                style()
+                    .size(420, 180)
+                    .font_size(16)
+                    .font_family("monospace"),
+            )
+            .text_editing(
+                TextEditing::new(page_text())
+                    .multiline()
+                    .behavior(page_keys),
+            );
+        (pages, view)
+    });
+    let field = screen.get_by_role(Role::TextBox, "Pages");
+    let caret = || pages.edit_state().expect("mounted native editor").caret();
+    field.press_key(Key::End);
+    assert_eq!(caret(), 59 * 8 + 7, "End goes to the end of `line 59`");
+    field.press_key(Key::PageUp);
+    assert_eq!(caret(), 19 * 8 + 7, "40 lines up: the end of `line 19`");
+    field.press_key(Key::PageUp);
+    assert_eq!(caret(), 7, "the first page stops at the first line");
+    field.press_key(Key::PageDown);
+    assert_eq!(caret(), 40 * 8 + 7, "40 lines down: the end of `line 40`");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

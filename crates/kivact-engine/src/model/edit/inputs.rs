@@ -161,12 +161,7 @@ impl Model {
         if incoming.how() == Taken::Same && incoming.state().session() == &before.1 {
             return false;
         }
-        self.edit_editor_with(id, |journal, _| {
-            let reported = incoming.how() != Taken::Same
-                || journal.state().marked() != incoming.state().marked();
-            journal.take(incoming);
-            reported
-        });
+        self.edit_editor_with(id, |journal, _| journal.take(incoming));
         self.editor_node(id).is_some_and(|node| {
             (node.editor.revision(), node.editor.state().session()) != (before.0, &before.1)
         })
@@ -182,10 +177,7 @@ impl Model {
         if before == session {
             return false;
         }
-        self.edit_input(id, |edit| {
-            edit.set_session(session);
-            edit.marked() != before.marked()
-        });
+        self.edit_input(id, |edit| edit.set_session(session));
         self.edit_session(id).is_some_and(|now| now != before)
     }
 

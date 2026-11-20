@@ -66,7 +66,10 @@ impl ArvaneTestHost {
             .filter_map(|(slot, node)| {
                 let node = node.as_mut()?;
                 let independent = node.lines.borrow().clone();
-                Some((slot, std::mem::replace(node.lines.get_mut(), independent)))
+                Some((
+                    slot,
+                    std::mem::replace(&mut *node.lines.borrow_mut(), independent),
+                ))
             })
             .collect();
         let rebuilt = Some(model.build_semantics(&mut engine));
@@ -76,7 +79,7 @@ impl ArvaneTestHost {
                 .as_mut()
                 .expect("invariant: reference does not remove editors")
                 .lines
-                .get_mut() = original;
+                .borrow_mut() = original;
         }
         compare_accessibility(published.as_ref(), rebuilt.as_ref(), &mut errors);
         errors

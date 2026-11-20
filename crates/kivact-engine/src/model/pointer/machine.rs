@@ -420,7 +420,6 @@ impl Model {
             let range = range(e.value());
             e.move_to(range.start, false);
             e.move_to(range.end, true);
-            false
         });
     }
 

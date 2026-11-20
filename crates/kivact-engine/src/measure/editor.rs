@@ -14,8 +14,9 @@ pub(crate) struct EditorNode {
     /// Document and host-only journal controls.
     pub(crate) editor: Editor,
     /// Shaping cache (`None` until the input is first laid out), kept outside Editor to
-    /// preserve the future crate DAG.
-    pub(crate) lines: RefCell<Option<crate::text_input::EditLines>>,
+    /// preserve the future crate DAG. Shared, for one request, with an editing behavior's
+    /// context (`text_input::SharedLines`).
+    pub(crate) lines: Rc<RefCell<Option<crate::text_input::EditLines>>>,
     /// Width probes must not evict the geometry of the visible wrapped rows.
     pub(crate) measure_lines: RefCell<Option<crate::text_input::EditLines>>,
     /// A controlled value given while the IME composes, taken when the
@@ -39,7 +40,7 @@ impl EditorNode {
     pub(crate) fn new(state: EditState) -> Self {
         Self {
             editor: Editor::new(state),
-            lines: RefCell::default(),
+            lines: Rc::default(),
             measure_lines: RefCell::default(),
             controlled: ControlledValue::InSync { at: 0 },
             reported_session: kivact_types::cell::Sent::new(),
