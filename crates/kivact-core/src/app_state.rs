@@ -18,7 +18,6 @@ pub(crate) struct AppState {
     #[cfg(debug_assertions)]
     pub(crate) trace: crate::client::trace::Trace,
     pub(crate) lifecycle: crate::platform::lifecycle::LifecycleState,
-    pub(crate) close: crate::platform::close_request::CloseRequestState,
     pub(crate) host: HostState,
     /// Runs an activation `NodeRef::activate` deferred (the client's
     /// `run_activation`; the view cannot name the client module).

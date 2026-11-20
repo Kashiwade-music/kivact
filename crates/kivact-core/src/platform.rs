@@ -5,7 +5,7 @@
 //! the host environment (fullscreen, reduced motion, scale, window size,
 //! safe area, surface activity, capabilities) as free functions reading
 //! tracked values, owner-scoped lifecycle notifications, owner-scoped handlers
-//! that may keep the App open when its main window is closed
+//! that may keep their window open when it is closed
 //! (`on_close_request`), plus available font families as a snapshot, and the
 //! cross-thread handle that ends the App's run (`AppHandle`, `app_handle`). The
 //! test host of `kivact::test` scripts the services (an

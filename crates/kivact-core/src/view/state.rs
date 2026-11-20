@@ -279,6 +279,7 @@ pub(crate) struct ViewState {
     pub(crate) requests: RefCell<Requests>,
 }
 
+// xtask-allow(state): hover と mouse は host の報告の別々の事実（指している node と指の位置）で、どの組合せも起きる。close_handlers は登録の表（owner が登録し、owner の cleanup が消す）
 /// One window's view record: the owner that declared it, its declaration,
 /// environment, focus source and pointer sources.
 #[derive(Clone)]
@@ -294,6 +295,10 @@ pub(crate) struct WindowRecord {
     pub(crate) hover: Signal<Option<FocusTarget>>,
     /// The mouse position in the window.
     pub(crate) mouse: Signal<Option<crate::geometry::Point>>,
+    /// The `on_close_request` handlers of this window (the owner that
+    /// registers one removes it on its cleanup).
+    pub(crate) close_handlers:
+        Rc<RefCell<kivact_types::cell::Registry<crate::platform::close_request::Registration>>>,
 }
 
 /// What declares a window. The main window's is built by the launch from

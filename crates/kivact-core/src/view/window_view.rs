@@ -317,6 +317,7 @@ pub(crate) fn open_window_record(
         focus: FocusKeys::new(owner, at),
         hover: owner.signal(None, at),
         mouse: owner.signal(None, at),
+        close_handlers: Rc::default(),
     }
 }
 

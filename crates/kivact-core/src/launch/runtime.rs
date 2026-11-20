@@ -213,7 +213,6 @@ impl Launch {
                     #[cfg(debug_assertions)]
                     trace: crate::client::trace::Trace::new(trace_name.as_deref()),
                     lifecycle: crate::platform::lifecycle::LifecycleState::default(),
-                    close: crate::platform::close_request::CloseRequestState::default(),
                     host: HostState::default(),
                     activate: crate::client::dispatch::run_activation,
                 };

@@ -5,6 +5,7 @@ mod policy;
 mod runtime;
 mod settings;
 mod turn;
+pub(crate) use close::begin_exit;
 pub use inspect::{Inspect, LaunchHandle};
 pub use policy::LaunchPolicy;
 pub(crate) use runtime::{Launch, run_native};

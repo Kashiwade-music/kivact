@@ -14,6 +14,15 @@ use crate::view::state::ViewState;
 const EMBEDDED_CLOSE: &str =
     "an embedded App is closed by its host: drop the Embedded handle instead of AppHandle::close";
 
+/// Start the App's exit: the runtime drains, and every foreign window's
+/// `open` binding is written false so its `on_destroy` runs while its
+/// child still exists. The one exit path of `AppHandle::close` and of a
+/// close request on the main window.
+pub(crate) fn begin_exit(rt: &Runtime) {
+    rt.request_exit();
+    ViewState::of(rt).close_foreign_for_exit();
+}
+
 /// Take a pending `AppHandle::close` request, if any.
 ///
 /// An embedded App refuses the request: its host owns the embedded editor
@@ -25,8 +34,7 @@ pub(super) fn take_close_request(rt: &Runtime, embedded: bool) {
         return;
     }
     if accept {
-        rt.request_exit();
-        ViewState::of(rt).close_foreign_for_exit();
+        begin_exit(rt);
     } else {
         rt.report(
             Some(rt.root()),

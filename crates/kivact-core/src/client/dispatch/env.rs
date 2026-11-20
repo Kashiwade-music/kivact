@@ -6,7 +6,6 @@ use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};
-use crate::platform::close_request;
 use crate::view::input::Handled;
 use crate::view::state::ViewState;
 use crate::view::tree::ScrollState;
@@ -152,17 +151,16 @@ pub(super) fn layout_changed(
 }
 
 pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
-    if window == WindowId::MAIN {
-        if keeps_main_open(rt) {
-            return;
-        }
-        rt.request_exit();
-        ViewState::of(rt).close_foreign_for_exit();
-        return;
-    }
     let Some(record) = ViewState::of(rt).window_record(window) else {
         return;
     };
+    if keeps_open(rt, &record) {
+        return;
+    }
+    if window == WindowId::MAIN {
+        crate::launch::begin_exit(rt);
+        return;
+    }
     let close = match &record.decl.dismiss {
         None => true,
         Some(handler) => {
@@ -176,12 +174,13 @@ pub(super) fn close_requested(rt: &Runtime, window: WindowId) {
     }
 }
 
-/// Run every live `on_close_request` handler in registration order, each under
-/// its owner. `true` when one answers `Yes` or `PreventDefault`, or fails (its
-/// error is reported): the App keeps running. Every handler runs either way.
-fn keeps_main_open(rt: &Runtime) -> bool {
+/// Run every live close handler of `record`'s window in registration order,
+/// each under its owner. `true` when one answers `Yes` or `PreventDefault`,
+/// or fails (its error is reported). Every handler runs either way.
+fn keeps_open(rt: &Runtime, record: &crate::view::state::WindowRecord) -> bool {
+    let registrations = record.close_handlers.borrow_mut().live();
     let mut keeps_open = false;
-    for registration in close_request::registrations(rt) {
+    for registration in registrations {
         if !registration.owner.is_alive() {
             continue;
         }
