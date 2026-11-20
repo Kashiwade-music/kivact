@@ -64,7 +64,7 @@ impl IntoView for Blockquote {
                     .direction(Direction::Column)
                     .min_width(0)
                     .color(p.colors.text_secondary);
-                if use_direction().get() == ReadingDirection::Rtl {
+                if use_direction() == ReadingDirection::Rtl {
                     look.border_right(p.spacing.s0_5, p.colors.border_emphasized)
                         .padding_right(p.spacing.s4)
                 } else {

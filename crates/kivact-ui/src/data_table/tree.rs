@@ -150,7 +150,7 @@ impl<K: kivact_core::state::ItemKey> Plan<K> {
                 })
                 .into_view()
         });
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         row((trigger, content))
             .style(move || {
                 let inset = level.get().saturating_sub(1) as f64 * self.indent.pixels();
@@ -212,7 +212,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
             message("data_table.collapse_row", "Collapse row"),
         )
     };
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     button(move || {
         if open.get() {
             collapse.get()

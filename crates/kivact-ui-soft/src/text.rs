@@ -315,7 +315,7 @@ impl IntoView for StyledText {
                 if capsize.get() {
                     look = look.text_capsize(true);
                 }
-                look = look.text_align(match (justify.get(), use_direction().get()) {
+                look = look.text_align(match (justify.get(), use_direction()) {
                     (TextJustify::Start, ReadingDirection::Ltr)
                     | (TextJustify::End, ReadingDirection::Rtl) => TextAlign::Start,
                     (TextJustify::Center, _) => TextAlign::Center,

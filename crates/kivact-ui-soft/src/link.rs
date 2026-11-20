@@ -187,7 +187,7 @@ impl IntoView for Link {
         let mut root = self.root.with_node(move |node| node.part(attachment));
         root = activate_link(root, self.press, self.as_button);
         root = name_link(root, self.label, self.external, self.new_tab_label);
-        let direction = if use_direction().get() == ReadingDirection::Rtl {
+        let direction = if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row

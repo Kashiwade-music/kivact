@@ -255,7 +255,7 @@ fn row_marker<K: kivact_core::state::ItemKey>(
     row_variants: &Variants,
     marker_content: Option<&kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
 ) -> Node {
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let parent = row.with_untracked(|row| row.branch.has_children());
     let marker = with_recipe_style(
         node(),

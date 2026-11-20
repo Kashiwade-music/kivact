@@ -186,7 +186,7 @@ impl TrackFlow {
     fn new(vertical: bool) -> Self {
         if vertical {
             Self::BottomToTop
-        } else if use_direction().get() == ReadingDirection::Rtl {
+        } else if use_direction() == ReadingDirection::Rtl {
             Self::RightToLeft
         } else {
             Self::LeftToRight

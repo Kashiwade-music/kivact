@@ -191,7 +191,7 @@ impl IntoView for Token {
             ControlSize::Medium => 24,
             ControlSize::Large => 28,
         };
-        let direction = if use_direction().get() == ReadingDirection::Rtl {
+        let direction = if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row

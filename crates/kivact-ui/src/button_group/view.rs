@@ -83,7 +83,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
                                 layout: ButtonGroupState {
                                     orientation: orientation.get(),
                                     size: size.get(),
-                                    rtl: direction.get() == ReadingDirection::Rtl,
+                                    rtl: direction == ReadingDirection::Rtl,
                                 },
                                 first: index == 0,
                                 last: index + 1 == count,
@@ -107,7 +107,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
             move || ButtonGroupState {
                 orientation: orientation.get(),
                 size: size.get(),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             },
         )
         .child(children)
@@ -132,7 +132,7 @@ impl IntoView for ButtonGroupCell {
         let state = kivact_core::state::memo(move || ButtonGroupState {
             orientation: orientation.get(),
             size: crate::control_size::default_control_size(),
-            rtl: use_direction().get() == ReadingDirection::Rtl,
+            rtl: use_direction() == ReadingDirection::Rtl,
         });
         let root = if self.separator {
             self.root.orientation(move || {

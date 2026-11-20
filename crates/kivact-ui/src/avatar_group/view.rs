@@ -89,7 +89,7 @@ impl IntoView for AvatarGroup {
                     &variants,
                     move || index,
                 )
-                .base_style(move || member_overlap(index, overlap, direction.get()))
+                .base_style(move || member_overlap(index, overlap, direction))
                 .hidden(move || index >= max.get())
                 .child(child)
             })

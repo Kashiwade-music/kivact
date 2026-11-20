@@ -111,7 +111,7 @@ impl IntoView for Citation {
         } else {
             text(name)
         };
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         let media = citation_media(number_only, source.image, source.icon);
         let has_media = media.is_some();
         let interactive = source.url.is_some() && open.is_some();

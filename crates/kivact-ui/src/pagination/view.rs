@@ -468,8 +468,8 @@ fn dot_control(
                 return Handled::No;
             }
             let forward = match event.key() {
-                Key::ArrowLeft => direction.get_untracked() == ReadingDirection::Rtl,
-                Key::ArrowRight => direction.get_untracked() != ReadingDirection::Rtl,
+                Key::ArrowLeft => direction == ReadingDirection::Rtl,
+                Key::ArrowRight => direction != ReadingDirection::Rtl,
                 _ => return Handled::No,
             };
             let count = dot.targets.len();

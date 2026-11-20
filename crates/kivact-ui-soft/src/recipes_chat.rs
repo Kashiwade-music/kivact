@@ -90,7 +90,7 @@ fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
         }
     }
     let user = (s.sender == ChatSender::User)
-        != (kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl);
+        != (kivact::view::use_direction() == kivact::view::ReadingDirection::Rtl);
     if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
         look = if user {
             look.radius_top_right(6)

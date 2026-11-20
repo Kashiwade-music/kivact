@@ -199,7 +199,7 @@ impl IntoView for Lightbox {
         let index = self.index.unwrap_or_else(|| signal(0));
         let active = move || index.get().min(media.get().len().saturating_sub(1));
         let selected = move || media.get().get(active()).cloned();
-        let rtl = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
+        let rtl = kivact::view::use_direction() == kivact::view::ReadingDirection::Rtl;
         let fallback = kivact::i18n::message("soft.lightbox.media_viewer", "Media viewer");
         let label = move || {
             selected()

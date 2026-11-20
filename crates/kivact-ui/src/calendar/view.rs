@@ -410,7 +410,7 @@ fn swipe_navigation(
         move || {
             let current = base_month.get();
             super::navigation::SwipeSnapshot {
-                rtl: rtl.get() == kivact_core::view::ReadingDirection::Rtl,
+                rtl: rtl == kivact_core::view::ReadingDirection::Rtl,
                 now: kivact_core::custom::clock_now(),
                 at_min: min.get().is_some_and(|min| current <= min.month_of()),
                 at_max: max.get().is_some_and(|max| current >= max.month_of()),
@@ -504,7 +504,7 @@ fn month_panels(
             let entering = swipe
                 .state()
                 .get_untracked()
-                .entering(rtl.get_untracked() == kivact_core::view::ReadingDirection::Rtl);
+                .entering(rtl == kivact_core::view::ReadingDirection::Rtl);
             let panels = (0..shared.count)
                 .map(|i| {
                     let shown = month.add_months(i as i32);

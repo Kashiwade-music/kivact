@@ -221,14 +221,14 @@ pub fn provide_direction<V: IntoView>(
     provide(dir, child)
 }
 
-/// The reading direction provided above the current owner;
-/// [`ReadingDirection::Ltr`] without one. Setup, handlers and effects.
+/// The reading direction provided above the current owner (the App's root
+/// provides [`ReadingDirection::Ltr`]). Setup, handlers and effects.
 #[track_caller]
-pub fn use_direction() -> Value<ReadingDirection> {
+pub fn use_direction() -> ReadingDirection {
     let owner = Owner::running("use_direction", Location::caller());
     owner
-        .context::<Value<ReadingDirection>>()
-        .unwrap_or_else(|| owner.constant(ReadingDirection::Ltr, Location::caller()))
+        .context::<ReadingDirection>()
+        .expect("invariant: the App's root provides the reading direction")
 }
 
 /// Context entry for the locale of a subtree.

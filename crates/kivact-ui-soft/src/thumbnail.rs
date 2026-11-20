@@ -156,7 +156,7 @@ impl IntoView for Thumbnail {
         let reference = node_ref();
         let hovered = reference.hovered();
         let focus_within = reference.focus_within();
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         let has_source = source.is_some();
         let media = thumbnail_media(source, alt, loading);
         let open = thumbnail_open(media, press, accessible, loading, disabled);

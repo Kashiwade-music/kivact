@@ -333,7 +333,7 @@ fn button_style(cfg: ButtonCfg, rtl: bool) -> kivact::style::Style {
 fn build_button(this: SidebarMenuButton, wrapper: Node) -> Node {
     let cx = current();
     let hidden = icon_only(cx);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let SidebarMenuButton {
         root,
         label,

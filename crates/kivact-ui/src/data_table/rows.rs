@@ -134,7 +134,7 @@ impl StickyColumns {
         });
         Self {
             edges,
-            rtl: use_direction().get() == ReadingDirection::Rtl,
+            rtl: use_direction() == ReadingDirection::Rtl,
             headers,
             widths,
             viewport,
@@ -223,7 +223,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
 
     fn direction(&self) -> Style {
         if self.sticky.as_ref().is_some_and(|sticky| sticky.rtl)
-            || (self.row_status.is_some() && use_direction().get() == ReadingDirection::Rtl)
+            || (self.row_status.is_some() && use_direction() == ReadingDirection::Rtl)
         {
             style().direction(Direction::RowReverse)
         } else {

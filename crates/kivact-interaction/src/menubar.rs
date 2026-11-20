@@ -95,7 +95,7 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
         },
     );
     let menus = var(menus);
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     menus.with(|items| {
         for (at, menu) in items.iter().copied().enumerate() {
             menu.menubar_navigation(kivact_core::state::callback(move |right| {

@@ -380,7 +380,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
         common.roving_focus = Some(
             (move || kivact_engine::contract::RovingFocus {
                 orientation: orientation.get(),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             })
             .into_prop(),
         );
@@ -389,7 +389,7 @@ pub trait Element: crate::view::descriptor::IntoView + Sized {
             if event.modifiers() != Modifiers::default() {
                 return Handled::No;
             }
-            let rtl = direction.get_untracked() == ReadingDirection::Rtl;
+            let rtl = direction == ReadingDirection::Rtl;
             let movement = match (orientation.get_untracked(), event.key()) {
                 (Orientation::Horizontal, Key::ArrowLeft) if !rtl => RovingMove::Previous,
                 (Orientation::Horizontal, Key::ArrowRight) if rtl => RovingMove::Previous,

@@ -213,8 +213,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
                 )
             },
         );
-        let reversed = orientation == Orientation::Horizontal
-            && use_direction().get() == ReadingDirection::Rtl;
+        let reversed =
+            orientation == Orientation::Horizontal && use_direction() == ReadingDirection::Rtl;
         // The recipe, then the row direction: base layers below the caller's styles.
         let root = with_base_recipe_style(
             root,

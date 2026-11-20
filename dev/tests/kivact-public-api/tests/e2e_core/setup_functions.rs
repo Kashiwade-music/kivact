@@ -198,3 +198,29 @@ fn bind_macro_edits_a_nested_field() {
     assert_eq!(model.get().address.street, "New");
     assert_eq!(model.get().untouched, 7);
 }
+
+#[test]
+fn use_direction_is_ltr_at_the_root_and_follows_provide_direction() {
+    use kivact::view::{ReadingDirection, provide_direction, use_direction};
+
+    let at_root = Rc::new(Cell::new(None));
+    let root_seen = at_root.clone();
+    let in_handler = Rc::new(Cell::new(None));
+    let handler_seen = in_handler.clone();
+    let screen = render(move || {
+        root_seen.set(Some(use_direction()));
+        provide_direction(ReadingDirection::Rtl, move || {
+            assert_eq!(use_direction(), ReadingDirection::Rtl);
+            let label = ("rtl").into_value();
+            node()
+                .role(Role::Button)
+                .focusable(true)
+                .name(label)
+                .child(text(label))
+                .on_press(move || handler_seen.set(Some(use_direction())))
+        })
+    });
+    assert_eq!(at_root.get(), Some(ReadingDirection::Ltr));
+    screen.get_by_role(Role::Button, "rtl").click();
+    assert_eq!(in_handler.get(), Some(ReadingDirection::Rtl));
+}

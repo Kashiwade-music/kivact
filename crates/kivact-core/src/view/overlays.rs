@@ -427,7 +427,7 @@ impl IntoView for Overlay {
                             .map(|margin| kivact_types::OverlayFit {
                                 margin,
                                 keep_anchor_clear,
-                                rtl: crate::view::use_direction().get()
+                                rtl: crate::view::use_direction()
                                     == crate::view::ReadingDirection::Rtl,
                             }),
                         modal,

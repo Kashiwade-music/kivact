@@ -76,7 +76,7 @@ impl<K: kivact::state::ItemKey> kivact::view::IntoView for Menubar<K> {
     fn into_view(self) -> View {
         let menus = self.menus;
         let choose = self.choose;
-        let rtl = use_direction().get() == ReadingDirection::Rtl;
+        let rtl = use_direction() == ReadingDirection::Rtl;
         let count = menus.with_untracked(Vec::len);
         let titles = memo(move || {
             menus.with(|all| {

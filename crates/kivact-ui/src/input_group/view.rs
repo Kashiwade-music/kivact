@@ -110,7 +110,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
             (self.block_start.is_some(), self.block_end.is_some());
         let state = kivact_core::state::memo(move || InputGroupState {
             size: size.get(),
-            direction: direction.get(),
+            direction,
             input: input.get(),
             focused: focused.get(),
             invalid: invalid.is_some_and(|invalid| invalid.get()),
@@ -247,7 +247,7 @@ pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
         &Variants::default(),
         move || InputGroupState {
             size,
-            direction: direction.get(),
+            direction,
             ..InputGroupState::default()
         },
     )

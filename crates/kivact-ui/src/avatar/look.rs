@@ -46,7 +46,7 @@ pub(crate) fn avatar_status_content(_: &Theme, _: &AvatarState) -> Style {
     let base = style()
         .position(kivact_core::style::Position::Absolute)
         .bottom(0);
-    if kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl {
+    if kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl {
         base.left(0)
     } else {
         base.right(0)

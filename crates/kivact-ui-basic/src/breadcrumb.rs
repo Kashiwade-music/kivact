@@ -16,7 +16,7 @@ fn root(t: &Theme, _: &Look<()>) -> Style {
 }
 fn list(_: &Theme, _: &Look<()>) -> Style {
     style()
-        .direction(if use_direction().get() == ReadingDirection::Rtl {
+        .direction(if use_direction() == ReadingDirection::Rtl {
             Direction::RowReverse
         } else {
             Direction::Row

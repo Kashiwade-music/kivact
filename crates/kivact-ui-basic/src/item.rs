@@ -107,7 +107,7 @@ fn item(t: &Theme, s: &Look<ItemRowState>) -> Style {
 fn body(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .direction(
-            if kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl {
+            if kivact::view::use_direction() == kivact::view::ReadingDirection::Rtl {
                 Direction::RowReverse
             } else {
                 Direction::Row

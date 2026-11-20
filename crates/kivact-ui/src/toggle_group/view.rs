@@ -188,7 +188,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                             orientation: orientation.get(),
                             size: size.get(),
                             spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                            rtl: direction.get() == ReadingDirection::Rtl,
+                            rtl: direction == ReadingDirection::Rtl,
                         },
                         first: options
                             .with(|options| options.first().is_some_and(|item| item.key() == &at)),
@@ -209,7 +209,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 orientation: orientation.get(),
                 size: size.get(),
                 spacing: spacing.map(|spacing| spacing.get().max(0.0)),
-                rtl: direction.get() == ReadingDirection::Rtl,
+                rtl: direction == ReadingDirection::Rtl,
             },
         )
         .child(rows)

@@ -235,7 +235,7 @@ impl IntoView for Split {
                 children.push(handle(at, reference, &group).into_view());
             }
         }
-        let direction = match (stacked, use_direction().get()) {
+        let direction = match (stacked, use_direction()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

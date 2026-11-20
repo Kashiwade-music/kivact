@@ -68,7 +68,7 @@ impl Space {
 }
 
 pub(crate) fn rtl() -> bool {
-    use_direction().get() == ReadingDirection::Rtl
+    use_direction() == ReadingDirection::Rtl
 }
 
 #[derive(Clone, Copy, Debug, Default)]

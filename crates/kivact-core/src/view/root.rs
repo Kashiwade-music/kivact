@@ -67,6 +67,7 @@ pub(crate) fn install_app_contexts(
     };
     crate::view::boundary::install_theme(owner, theme);
     crate::view::boundary::install_locale(owner, locale);
+    owner.provide(crate::view::ReadingDirection::Ltr);
     let messages: Signal<Messages> = owner.signal(app_messages, at);
     crate::view::boundary::install_messages(owner, messages.into_value());
 }

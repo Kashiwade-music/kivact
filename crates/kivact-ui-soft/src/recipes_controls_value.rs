@@ -138,7 +138,7 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
     };
     let (shown, phase) = (s.shown, s.phase);
     let indeterminate = s.value.is_none();
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     style().size(pct(100), pct(100)).paint(move |d, size| {
         let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
         let (start, length, ink) = if indeterminate {

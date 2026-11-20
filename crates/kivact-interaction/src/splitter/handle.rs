@@ -387,7 +387,7 @@ impl SplitterApi {
         let value = self.ops.binding.into_value();
         let (range, side_by_side) = (self.ops.range, self.side_by_side());
         let rtl = side_by_side
-            && kivact_core::view::use_direction().get() == kivact_core::view::ReadingDirection::Rtl;
+            && kivact_core::view::use_direction() == kivact_core::view::ReadingDirection::Rtl;
         follow_range(self.ops.binding, range);
         // Only an action that will write is an edit: a value that is not a
         // number reports nothing.

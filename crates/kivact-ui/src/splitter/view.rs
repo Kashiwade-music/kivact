@@ -239,7 +239,7 @@ impl IntoView for Splitter {
         let trailing = node()
             .child(end)
             .style(style().grow(1).basis(0).min_width(0).min_height(0));
-        let direction = match (vertical, use_direction().get()) {
+        let direction = match (vertical, use_direction()) {
             (true, _) => Direction::Column,
             (false, ReadingDirection::Ltr) => Direction::Row,
             (false, ReadingDirection::Rtl) => Direction::RowReverse,

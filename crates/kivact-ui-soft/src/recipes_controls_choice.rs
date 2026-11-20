@@ -66,7 +66,7 @@ fn switch_travel(t: &Tokens, s: &Look<CheckableState>) -> f64 {
 }
 
 fn switch_sign() -> f64 {
-    if use_direction().get() == ReadingDirection::Rtl {
+    if use_direction() == ReadingDirection::Rtl {
         -1.0
     } else {
         1.0
@@ -100,7 +100,7 @@ fn switch_offset(drag: Option<ThumbDrag>) -> Option<f64> {
 }
 
 fn inline_start(base: Style, offset: f64) -> Style {
-    if use_direction().get() == ReadingDirection::Rtl {
+    if use_direction() == ReadingDirection::Rtl {
         base.right(offset)
     } else {
         base.left(offset)
@@ -121,7 +121,7 @@ fn label_row(t: &Tokens, width: f64, height: f64) -> Style {
         .focus_visible(style().ring_none())
         .disabled(style().color(t.colors.text_disabled));
     let padding = width + t.spacing.s2;
-    if use_direction().get() == ReadingDirection::Rtl {
+    if use_direction() == ReadingDirection::Rtl {
         base.padding_right(padding)
     } else {
         base.padding_left(padding)

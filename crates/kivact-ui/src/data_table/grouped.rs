@@ -236,7 +236,7 @@ fn group_disclosure_content(
             }
         })
     };
-    let rtl = use_direction().get() == ReadingDirection::Rtl;
+    let rtl = use_direction() == ReadingDirection::Rtl;
     let mark = icon("chevron-right").style(move || {
         let angle = if !state.get().collapsed {
             90

@@ -30,7 +30,7 @@ pub(crate) fn page() -> Page {
 
 // example: provider
 fn provider() -> impl IntoView {
-    let describe = || format!("{:?}", kivact::view::use_direction().get());
+    let describe = || format!("{:?}", kivact::view::use_direction());
     column((
         kivact::view::provide_direction(kivact::view::ReadingDirection::Ltr, move || {
             text(format!("Left to right: {}", describe()))
@@ -46,7 +46,7 @@ fn provider() -> impl IntoView {
 // example: toolbar
 fn toolbar() -> impl IntoView {
     let actions = |label: &'static str| {
-        let reversed = kivact::view::use_direction().get() == kivact::view::ReadingDirection::Rtl;
+        let reversed = kivact::view::use_direction() == kivact::view::ReadingDirection::Rtl;
         let mut items = vec![icon("arrow-left"), text(label), icon("arrow-right")];
         if reversed {
             items.reverse();
