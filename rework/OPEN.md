@@ -168,6 +168,8 @@
 設計者の判断がまだ要るもの（lane は止めない）：R03 のリスク（`pass_runs` が pass の途中の panic で戻らない。workspace は panic を unwind にしている）、K03（`NodeMode::Connecting` の handler の場所）、S11 の確認事項（文字の gradient の px の長さ）。
 
 ## Orchestrator の判断
+- W5a・R25（lane X、commit `013e0cc4` と後続の commit）：`Diag` は付属書に印の文が無く、xtask が state error にした。0.5 節の新しい行に従い、Orchestrator が `independent:` の印を書いた（`reactive/data.rs`、`Diag` の doc の直前）。三つの条件を確かめた：(1) 書く関数を挙げられる（`cause` は `cause()`・`record_write`・`record_run` が読み、turn の境界で消す。`open_stage` は `stage()` が書き、`end_turn` が取る。`next_seq` は `record_error`・`record_diagnostic`）。(2) どの field も他の field の値で読み書きされない。(3) 同じ事実を二つの field が持っていない（`cause` は現在の turn の cause の列への index、`open_stage` は未確定の stage）。印は doc comment の上に置く（xtask は doc と derive を項目の始まりとして数える）。
+
 - W5a・R24（lane X、commit `9176ce98`）：完了条件の rg の残り 4 件は、すべて `//!` の英語の説明文（「Reactive runtime」など）で、API の名前ではない。手順のコードに無い既存の行で、0.5 節の「既存の行に当たる」の行で受け入れる。
 
 - W5a・R22（lane X、commit `629fb246`）：完了条件の rg 0 件、共通の形（fmt・check・clippy・xtask）は成功。(a) `ActionCell::enqueue` の pending の書込みを `publish`（lifecycle の guard）経由にした（同じ効果。dispose の後に publish しない ST-07 を守る）。(b) `on_complete` の `let (_, cell)`（同じ挙動）。(c) `xtask-allow(state)` の印が未使用と言われた `AsyncCellState` の印は外した（表の「未使用の印」の行）。(d) `state.rs` の `TaskState` の印の文は `draining`（削除済みの field）を挙げたままにした。文は R26 以降の掃引か L の閉じ方で直す。以上は受け入れる。
