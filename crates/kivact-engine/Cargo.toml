@@ -35,6 +35,10 @@ name = "content_version"
 required-features = ["testing"]
 
 [[test]]
+name = "draw_cache"
+required-features = ["testing"]
+
+[[test]]
 name = "host_locale"
 required-features = ["testing"]
 

@@ -117,6 +117,10 @@ impl PaintState {
             }
         }
         for id in changes.redrawn() {
+            #[cfg(feature = "testing")]
+            if crate::paint::state::KEEP_STALE_DRAW.with(std::cell::Cell::get) == Some(id) {
+                continue;
+            }
             if let Some(n) = tree.get(id) {
                 draws[n.index.0].set(None);
             }

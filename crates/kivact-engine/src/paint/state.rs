@@ -166,6 +166,28 @@ pub(crate) struct PaintState {
 #[derive(Debug, Default)]
 pub(crate) struct LayerVersions(HashMap<LayerKey, u64>);
 
+#[cfg(feature = "testing")]
+thread_local! {
+    /// A node whose kept drawing a redraw mark does not forget: the test
+    /// driver's injected invalidation fault (`ArvaneTestHost::keep_stale_draw`),
+    /// which the debug check of kept drawings must catch.
+    pub(crate) static KEEP_STALE_DRAW: std::cell::Cell<Option<NodeId>> = const { std::cell::Cell::new(None) };
+}
+
+/// The sizes of a window's paint list and draw cache (the test driver reads them).
+#[cfg(feature = "testing")]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PaintListSizes {
+    /// The list's entries (opens and closes).
+    pub entries: usize,
+    /// The transforms the steps refer to.
+    pub transforms: usize,
+    /// The compositor layers the steps refer to.
+    pub layers: usize,
+    /// The nodes that keep a drawing.
+    pub kept_draws: usize,
+}
+
 impl PaintState {
     /// Initialize an empty retained list that needs its first frame.
     pub(crate) fn new() -> Self {
@@ -266,6 +288,17 @@ impl PaintState {
             .iter()
             .map(|(key, version)| (*key, *version))
             .collect()
+    }
+
+    /// The sizes of the list and the draw cache (the test driver reads them).
+    #[cfg(feature = "testing")]
+    pub(crate) fn list_sizes(&self) -> PaintListSizes {
+        PaintListSizes {
+            entries: self.list.entries.len(),
+            transforms: self.list.transforms.len(),
+            layers: self.list.layers.len(),
+            kept_draws: self.draw_owners.borrow().len(),
+        }
     }
 }
 

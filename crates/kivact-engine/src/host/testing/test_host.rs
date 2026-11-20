@@ -450,6 +450,19 @@ impl ArvaneTestHost {
             .unwrap_or_default()
     }
 
+    /// The sizes of window `window`'s paint list and draw cache after its last frame.
+    pub fn paint_list_sizes(&self, window: WindowId) -> crate::paint::state::PaintListSizes {
+        self.with_window(window, |model| model.paint.list_sizes())
+            .unwrap_or_default()
+    }
+
+    /// Leave `node`'s kept drawing in place when a change marks it for a
+    /// redraw (`None`: leave none): an injected fault the debug check of
+    /// kept drawings must catch.
+    pub fn keep_stale_draw(&self, node: Option<NodeId>) {
+        crate::paint::state::KEEP_STALE_DRAW.with(|kept| kept.set(node));
+    }
+
     /// Make window `window`'s GPU device lost, as a device failure does (a test
     /// control; nothing happens on a CPU-only window).
     pub fn lose_gpu_device(&mut self, window: WindowId) {
