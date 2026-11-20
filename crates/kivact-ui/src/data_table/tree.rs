@@ -22,6 +22,7 @@ impl DataTableTreeIndent {
     }
 }
 
+// xtask-allow(state): independent: expanded is the caller's binding of the open rows, written by the tree toggles; show_all is the tree column's setting, fixed when the plan is made
 pub(super) struct Plan<K: 'static> {
     pub(super) column: usize,
     pub(super) show_all: bool,
