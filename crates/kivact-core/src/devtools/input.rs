@@ -5,7 +5,7 @@ use kivact_devtools_protocol as p;
 use kivact_engine::contract::{
     HostRequest, ImeStateInfo, InjectedInput, PlatformKey, RawInput, RawKey, RawKeyPhase,
 };
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{InputPurpose, Key, KeyCode, Modifiers, NodeId, Point, RequestId, WindowId};
 
 use super::convert;

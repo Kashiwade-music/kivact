@@ -6,7 +6,8 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{EffectKind, UiError, Value};
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::{UiError, Value};
 use kivact_style::{Interactive, Style};
 use kivact_types::{LayoutProps, NodeId};
 
@@ -255,7 +256,7 @@ struct StyleReports {
 impl StyleReports {
     fn report(
         &self,
-        rt: &kivact_runtime::Runtime,
+        rt: &kivact_runtime::driver::Runtime,
         owner: kivact_runtime::Owner,
         id: NodeId,
         resolved: &kivact_style::CompiledStyle,

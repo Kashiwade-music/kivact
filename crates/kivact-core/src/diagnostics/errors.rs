@@ -1,6 +1,7 @@
 //! Role: The errors of the running App that reached its default sink.
 
-use kivact_runtime::{Runtime, UiError};
+use kivact_runtime::UiError;
+use kivact_runtime::driver::Runtime;
 
 /// The errors of the running App that reached its default sink (no
 /// `error_boundary` handled them), oldest first.

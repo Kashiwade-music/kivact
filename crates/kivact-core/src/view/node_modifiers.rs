@@ -13,7 +13,8 @@ use crate::view::part_data::PartMount;
 use crate::view::{
     A11yAction, A11yEvent, ExitLayout, HandlerResult, LiveRegion, Orientation, Role, SortDirection,
 };
-use kivact_runtime::Callback;
+use kivact_runtime::IntoHandler;
+
 use kivact_style::Style;
 use kivact_style::draw::{Draw, IntrinsicSize, Size};
 use kivact_types::SemanticsText;

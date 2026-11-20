@@ -572,7 +572,7 @@ pub fn theme_of(owner: Owner) -> Option<Value<Theme>> {
 /// owner.
 #[track_caller]
 pub fn use_theme() -> Value<Theme> {
-    let owner = Owner::ambient("use_theme", std::panic::Location::caller());
+    let owner = Owner::running("use_theme", std::panic::Location::caller());
     match theme_of(owner) {
         Some(s) => s,
         None => owner.constant(Theme::default(), std::panic::Location::caller()),

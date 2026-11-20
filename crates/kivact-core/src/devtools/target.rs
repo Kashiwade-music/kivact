@@ -2,7 +2,7 @@
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 
 use super::a11y;
 use super::console;

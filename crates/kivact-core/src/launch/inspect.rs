@@ -3,7 +3,8 @@ use super::runtime::{ClientMode, Launch, LaunchState, TestTiming};
 use crate::client::state::HostState;
 use crate::view::state::ViewState;
 use kivact_engine::api::Client;
-use kivact_runtime::{Runtime, UiError};
+use kivact_runtime::UiError;
+use kivact_runtime::driver::Runtime;
 use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
@@ -108,9 +109,10 @@ impl Inspect<'_> {
     pub fn errors(&self) -> Vec<UiError> {
         self.rt().errors()
     }
+    /// Mail from other threads (`task::remote`) counts: the next turn delivers it.
     pub fn pending(&self) -> bool {
         let rt = self.rt();
-        rt.turn_requested() || rt.has_work()
+        rt.turn_requested() || rt.has_work() || rt.has_mail()
     }
     pub fn outstanding_blocking(&self) -> usize {
         self.rt().tasks().stats().outstanding_blocking

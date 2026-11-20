@@ -5,7 +5,8 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::Arc;
 
-use kivact_runtime::{Owner, Runtime, Signal, Trigger};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, Signal, Trigger};
 use kivact_types::cell::Sent;
 use kivact_types::{GpuAdapter, SharedTextures};
 
@@ -13,7 +14,7 @@ use super::link::{LinkState, Phase, ShareLink, ShareMode, ShareRequest, ShareSta
 use crate::gpu_interop::adapter;
 use crate::gpu_interop::import::{ExternalImage, ImportStatus, import_in};
 use crate::sync::Inbox;
-use kivact_runtime::spawn_in;
+use kivact_runtime::driver::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 
 // xtask-allow(state): legacy: current is written only by SharedImage::replace_current; current, pixels, size; the import of the link's current request, written only by

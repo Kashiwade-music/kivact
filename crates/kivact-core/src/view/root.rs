@@ -21,7 +21,8 @@ use std::rc::Rc;
 
 use crate::i18n::{Locale, Messages};
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{IntoValue, Owner, Runtime, Signal, Value};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{IntoValue, Owner, Signal, Value};
 use kivact_types::WindowId;
 
 use crate::view::boundary::mount_in;

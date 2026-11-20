@@ -22,7 +22,7 @@ use crate::view::state::ViewState;
 /// ```
 #[track_caller]
 pub fn modifiers() -> kivact_runtime::Value<Modifiers> {
-    let rt =
-        kivact_runtime::Runtime::current().expect("invariant: modifiers requires a running App");
+    let rt = kivact_runtime::driver::Runtime::current()
+        .expect("invariant: modifiers requires a running App");
     ViewState::of(&rt).modifiers()
 }

@@ -23,8 +23,8 @@ use std::rc::Rc;
 
 use crate::view::descriptor::Mcx;
 use crate::view::descriptor::{IntoView, View, view_fn};
-use kivact_runtime::EffectKind;
 use kivact_runtime::UiError;
+use kivact_runtime::driver::EffectKind;
 use kivact_runtime::{Callback, Handler};
 
 use crate::view::flow::branch::{Branch, Build, build, mount_branch, unmount_branch};

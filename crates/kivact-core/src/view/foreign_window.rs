@@ -6,9 +6,10 @@ use std::marker::PhantomData;
 use std::panic::Location;
 use std::rc::Rc;
 
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    Completion, ErrorKind, Handler, HandlerResult, IntoText, IntoValue, Owner, Runtime, Signal,
-    UiError, Value, require_effectful,
+    Completion, ErrorKind, Handler, HandlerResult, IntoText, IntoValue, Owner, Signal, UiError,
+    Value, require_effectful,
 };
 use kivact_types::{
     DismissReason, NativeWindow, PlatformRequest, RequestId, Size, SurfaceSize, WindowId,
@@ -40,7 +41,7 @@ use crate::view::window_view::{SlotContent, Window};
 pub fn foreign_window(title: impl IntoText, open: Signal<bool>) -> ForeignWindow {
     ForeignWindow {
         title: title.into_text_value(),
-        open: open,
+        open,
         size: Size::new(640.0, 480.0),
         min_size: None,
         mode: WindowMode::Normal,

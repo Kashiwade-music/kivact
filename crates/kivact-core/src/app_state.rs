@@ -4,7 +4,7 @@
 //! `Runtime::new` (`AppParts::state`); every subsystem reads its part
 //! with one downcast (`AppState::of`).
 
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 
 use crate::client::state::HostState;
 use crate::view::state::ViewState;

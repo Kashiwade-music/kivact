@@ -248,8 +248,8 @@ fn input_type(prop: &Prop) -> TokenStream {
 
 fn keep_type(prop: &Prop) -> TokenStream {
     match &prop.kind {
-        PropKind::Text => quote! { ::kivact::custom::Reactive<String> },
-        PropKind::Value(ty) => quote! { ::kivact::custom::Reactive<#ty> },
+        PropKind::Text => quote! { ::kivact::custom::Prop<String> },
+        PropKind::Value(ty) => quote! { ::kivact::custom::Prop<#ty> },
         PropKind::Signal(ty) => quote! { ::kivact::state::Signal<#ty> },
         PropKind::Callback0 => quote! { ::kivact::custom::Handler<()> },
         PropKind::Callback(ty) => quote! { ::kivact::custom::Handler<#ty> },
@@ -263,8 +263,8 @@ fn keep_type(prop: &Prop) -> TokenStream {
 /// The conversion a caller's argument goes through when it is stored.
 fn store(prop: &Prop, input: TokenStream) -> TokenStream {
     match &prop.kind {
-        PropKind::Text => quote! { ::kivact::custom::Reactive::from_text(#input) },
-        PropKind::Value(_) => quote! { ::kivact::custom::Reactive::new(#input) },
+        PropKind::Text => quote! { ::kivact::custom::Prop::from_text(#input) },
+        PropKind::Value(_) => quote! { ::kivact::custom::Prop::new(#input) },
         PropKind::Signal(_) => quote! { #input },
         PropKind::Callback0 => quote! { ::kivact::state::IntoHandler::into_handler(#input) },
         PropKind::Callback(_) => quote! { ::kivact::custom::Handler::from_fn(#input) },

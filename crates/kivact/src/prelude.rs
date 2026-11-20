@@ -7,8 +7,8 @@ pub use crate::component;
 pub use crate::state::use_context;
 
 pub use crate::state::{
-    Callback, IntoText, IntoValue, Signal, Value, Var, binding, callback, constant_value, effect,
-    effect_on, memo, on_cleanup, on_mount, provide, signal, untrack, var,
+    Callback, IntoText, IntoValue, Signal, Value, Var, binding, callback, effect, effect_on, memo,
+    on_cleanup, on_mount, provide, signal, untrack, var,
 };
 
 pub use crate::state::{ItemKey, PropValue, bind};

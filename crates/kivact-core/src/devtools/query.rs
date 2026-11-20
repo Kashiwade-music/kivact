@@ -6,7 +6,7 @@ use std::time::Duration;
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::api::Reader;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::NodeId;
 
 use super::convert;
@@ -241,7 +241,7 @@ fn wait(rt: &Runtime, by: QueryBy, reply: Responder) {
             deadline_ns,
             reply,
         });
-    kivact_runtime::spawn_in(
+    kivact_runtime::driver::spawn_in(
         rt.root(),
         async move {
             kivact_runtime::sleep(Duration::from_millis(u64::from(timeout))).await;

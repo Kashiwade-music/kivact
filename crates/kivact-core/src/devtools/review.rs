@@ -4,7 +4,8 @@ use std::panic::Location;
 
 use kivact_devtools_agent::{NewComment, Responder};
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{NodeId, WindowId};
 
 use super::convert;

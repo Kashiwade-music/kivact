@@ -2,7 +2,8 @@
 
 use kivact_devtools_agent::Incoming;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{CauseTag, ErrorKind, Runtime, Stage, TurnGuard, UiError};
+use kivact_runtime::driver::{Runtime, TurnGuard};
+use kivact_runtime::{CauseTag, ErrorKind, Stage, UiError};
 use kivact_types::{NodeId, WindowId};
 
 use super::console;
@@ -38,7 +39,11 @@ pub(crate) fn run_incoming(rt: &Runtime, turn: &TurnGuard<'_>, incoming: Vec<Inc
         match item {
             Incoming::Call(call, reply) => {
                 turn.stage(Stage::Dispatch);
-                turn.cause_with(CauseTag::Devtools, format!("devtools {}", call.method()));
+                turn.cause(kivact_runtime::Cause {
+                    tag: CauseTag::Devtools,
+                    event: call.method(),
+                    node: None,
+                });
                 rt.root().run_handler(|| target::dispatch(rt, call, reply));
             }
             Incoming::Closed { remaining: 0 } => rt.root().run_handler(|| reset(rt)),

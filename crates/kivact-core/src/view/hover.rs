@@ -20,7 +20,7 @@
 use std::panic::Location;
 
 use crate::geometry::Point;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Owner, Signal, Value};
 use kivact_types::{FocusTarget, WindowId};
 

@@ -8,8 +8,8 @@
 
 #[doc(inline)]
 pub use kivact_runtime::{
-    Action, AsyncState, CancelToken, Resource, Task, action, blocking, queued_action, resource,
-    sleep, spawn, timeout,
+    Action, AsyncState, CancelToken, Remote, RemoteTrigger, Resource, Task, action, blocking,
+    clock, queued_action, remote, remote_trigger, resource, sleep, spawn, timeout,
 };
 
 pub use kivact_runtime::AsyncSource;

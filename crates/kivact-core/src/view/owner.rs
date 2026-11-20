@@ -22,7 +22,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use super::NodeRef;
-use kivact_runtime::{ErrorKind, Owned, Runtime, UiError, raise, require_effectful};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, Owned, UiError, raise, require_effectful};
 
 /// The identity of a component resource owner, without retaining its App.
 /// Equality compares identities: every owner of an App has the same

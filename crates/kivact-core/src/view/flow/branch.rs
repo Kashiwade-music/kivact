@@ -28,9 +28,10 @@ use crate::view::ExitLayout;
 use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::state::ViewState;
-use kivact_runtime::EffectKind;
+use kivact_runtime::Owner;
+use kivact_runtime::driver::EffectKind;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{Handler, IntoValue, Prop as InputProp, PropValue};
-use kivact_runtime::{Owner, Runtime};
 use kivact_runtime::{Signal, Value};
 use kivact_types::WindowId;
 

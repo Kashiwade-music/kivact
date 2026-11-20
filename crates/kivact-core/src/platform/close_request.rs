@@ -9,7 +9,8 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::{Handler, HandlerResult, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Handler, HandlerResult, Owner};
 use kivact_types::cell::Registry;
 
 #[derive(Default)]

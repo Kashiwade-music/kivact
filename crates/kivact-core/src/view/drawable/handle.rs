@@ -9,7 +9,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use kivact_runtime::{AppId, Owned, Owner, Runtime, Value, effect, memo, spawn_in};
+use kivact_runtime::driver::{Runtime, spawn_in};
+use kivact_runtime::{AppId, Owned, Owner, Value, effect, memo};
 use kivact_types::{DrawableId, NodeId, Size};
 
 use super::registry::{self, Registered};

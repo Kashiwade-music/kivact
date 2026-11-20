@@ -4,7 +4,7 @@ use std::collections::BTreeMap;
 
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
-use kivact_runtime::{LiveSnapshot, Runtime};
+use kivact_runtime::driver::{LiveSnapshot, Runtime};
 
 use super::convert;
 use crate::client::state::HostState;

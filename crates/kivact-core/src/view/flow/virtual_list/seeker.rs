@@ -5,7 +5,8 @@ use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
 
-use kivact_runtime::{Prop as InputProp, Runtime, Signal};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Prop as InputProp, Signal};
 use kivact_types::{NodeId, Point};
 
 use super::builder::RowHeight;

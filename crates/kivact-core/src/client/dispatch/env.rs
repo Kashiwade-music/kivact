@@ -1,7 +1,8 @@
 //! Role: Window and environment events: the environment, the frame clock,
 //! close, and the geometry reports (`ScrollChanged`, `LayoutChanged`).
 
-use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{DismissReason, Environment, MotionClock, NodeId, Point, Rect, Size, WindowId};
 
 use super::common::{handler, node_owner, run_handler, stale};

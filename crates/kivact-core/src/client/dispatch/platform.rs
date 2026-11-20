@@ -1,7 +1,8 @@
 //! Role: Answers and failures from the platform: effect results, asset
 //! failures, host failures, memory warnings.
 
-use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{NodeId, PlatformResult, RequestId, Revision};
 
 use super::common::{handler, node_owner, run_handler};

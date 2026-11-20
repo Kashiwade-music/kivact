@@ -12,8 +12,9 @@ use kivact_types::NodeId;
 
 use crate::view::NodeRef;
 use crate::view::state::ViewState;
-use kivact_runtime::Kind;
-use kivact_runtime::{NodeId as GraphNode, Runtime};
+use kivact_runtime::NodeId as GraphNode;
+use kivact_runtime::driver::Kind;
+use kivact_runtime::driver::Runtime;
 
 const DEPTH: usize = 8;
 

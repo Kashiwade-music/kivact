@@ -20,7 +20,7 @@ pub use kivact_types::{
 /// The environment of the calling owner's window (`api` names the caller in
 /// misuse diagnostics).
 fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
-    let rt = kivact_runtime::Runtime::current()
+    let rt = kivact_runtime::driver::Runtime::current()
         .unwrap_or_else(|| panic!("`{api}` needs a running App at {at}"));
     let window = current_window(kivact_runtime::Owner::running(api, at));
     ViewState::of(&rt)
@@ -34,7 +34,7 @@ fn state(api: &'static str, at: &'static Location<'static>) -> Rc<EnvState> {
 /// screen from content mounted later. The value changes until the first turn after the App's setup.
 #[track_caller]
 pub fn is_initial_render() -> Value<bool> {
-    let rt = kivact_runtime::Runtime::current()
+    let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: is_initial_render requires a running App");
     ViewState::of(&rt).initial_render.into()
 }
@@ -47,7 +47,7 @@ pub fn is_initial_render() -> Value<bool> {
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]
 pub fn font_families() -> Value<Vec<String>> {
-    let rt = kivact_runtime::Runtime::current()
+    let rt = kivact_runtime::driver::Runtime::current()
         .expect("invariant: font_families requires a running App");
     ViewState::of(&rt).fonts_value.into()
 }
@@ -101,8 +101,8 @@ pub fn is_surface_active() -> Value<bool> {
 #[track_caller]
 pub fn safe_area() -> Value<Insets> {
     let at = Location::caller();
-    let rt =
-        kivact_runtime::Runtime::current().expect("invariant: safe_area requires a running App");
+    let rt = kivact_runtime::driver::Runtime::current()
+        .expect("invariant: safe_area requires a running App");
     let state = ViewState::of(&rt);
     // Relying on a safe area the platform does not report is noted
     // (once per App) instead of silently reading zero.
@@ -160,8 +160,8 @@ pub fn window_size() -> Value<Size> {
 /// ```
 #[track_caller]
 pub fn capabilities() -> Value<Capabilities> {
-    let rt =
-        kivact_runtime::Runtime::current().expect("invariant: capabilities requires a running App");
+    let rt = kivact_runtime::driver::Runtime::current()
+        .expect("invariant: capabilities requires a running App");
     ViewState::of(&rt).capabilities
 }
 

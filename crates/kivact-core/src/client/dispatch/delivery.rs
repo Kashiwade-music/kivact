@@ -3,7 +3,7 @@ use super::{a11y, common, diagnostics, env, gpu, ime, key, platform, pointer, te
 use crate::view::drawable::events;
 use crate::view::state::ViewState;
 use kivact_engine::contract::HostEvent;
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::{FocusTarget, WindowId};
 
 pub(crate) fn dispatch(rt: &Runtime, host_event: &HostEvent) {

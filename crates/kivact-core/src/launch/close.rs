@@ -4,7 +4,8 @@
 //! place that turns it into the runtime's exit drain (or, for an embedded
 //! App, an error report to the root owner).
 
-use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 
 use crate::platform::AppHandleExt;
 use crate::view::state::ViewState;

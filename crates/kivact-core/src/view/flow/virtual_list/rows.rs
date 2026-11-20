@@ -7,7 +7,8 @@ use std::rc::Rc;
 
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
-use kivact_runtime::{Owner, Runtime, Signal, Trigger};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Owner, Signal, Trigger};
 use kivact_types::{Dimension, Edges, LayoutProps, NodeId, Position};
 
 use super::state::{VRow, VState};

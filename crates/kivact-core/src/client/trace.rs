@@ -7,7 +7,7 @@ use std::fs::File;
 use std::io::{BufWriter, Write as _};
 use std::path::{Path, PathBuf};
 
-use kivact_runtime::Runtime;
+use kivact_runtime::driver::Runtime;
 use kivact_types::NodeId;
 
 use crate::view::state::ViewState;
@@ -154,7 +154,7 @@ pub(crate) fn record(rt: &Runtime) {
         sink.flush();
         return;
     }
-    if let Some(record) = rt.turns().last() {
+    if let Some(record) = rt.last_turn() {
         sink.line(format_args!(
             "stage {:?} events={} causes={:?} writes={:?} reruns={:?} runs={} ops={} notes={:?}",
             record.turn,

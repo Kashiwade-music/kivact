@@ -3,7 +3,8 @@
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::HostRequest;
-use kivact_runtime::{ErrorKind, Runtime};
+use kivact_runtime::ErrorKind;
+use kivact_runtime::driver::Runtime;
 
 use super::convert;
 use crate::view::requests::request_effect;
@@ -28,9 +29,9 @@ pub(super) fn list_animations(rt: &Runtime, _: p::Empty) -> Result<p::AnimationL
         .map(|(index, info)| p::AnimationInfo {
             id: index as u64,
             kind: match info.kind {
-                kivact_runtime::AnimKind::Animated => p::AnimationKind::Animated,
-                kivact_runtime::AnimKind::Timeline => p::AnimationKind::Timeline,
-                kivact_runtime::AnimKind::FrameLoop => p::AnimationKind::FrameLoop,
+                kivact_runtime::driver::AnimKind::Animated => p::AnimationKind::Animated,
+                kivact_runtime::driver::AnimKind::Timeline => p::AnimationKind::Timeline,
+                kivact_runtime::driver::AnimKind::FrameLoop => p::AnimationKind::FrameLoop,
             },
             source: info.created_at.map(convert::location),
             owner: info.owner.raw(),

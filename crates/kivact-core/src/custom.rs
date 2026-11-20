@@ -176,8 +176,9 @@ pub use kivact_editing::{
 mod inline_view;
 pub use inline_view::inline_view;
 
-#[doc(inline)]
-pub use kivact_runtime::Reactive;
+// xtask-allow(internal-contract): #[component] props and #[derive(Prop)] store inputs as Prop<T>
+#[doc(hidden)]
+pub use kivact_runtime::Prop;
 
 mod misuse;
 pub use misuse::raise;

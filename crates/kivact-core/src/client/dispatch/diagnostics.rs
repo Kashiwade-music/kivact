@@ -3,7 +3,8 @@
 //! Layout warnings, dropped draw commands and cut turns are notices of the
 //! default sink. A duplicate layout id is an error of the later node's owner.
 
-use kivact_runtime::{ErrorKind, Runtime, UiError};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{ErrorKind, UiError};
 use kivact_types::{DrawableId, LayoutRule, NodeId};
 
 use super::common::node_owner;

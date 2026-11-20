@@ -16,8 +16,9 @@ use kivact_engine::contract::HostRequest;
 use kivact_types::{PlatformResult, RequestId};
 
 use super::state::{FocusCompletion, FocusReply, FocusRequest, ViewState, Waiter};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, UiError};
-use kivact_runtime::{Owner, Runtime};
 use kivact_style::asset::Asset;
 
 /// Ask the host to focus `node` (written with the next revision); an unmounted

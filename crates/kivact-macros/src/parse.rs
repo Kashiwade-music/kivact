@@ -52,9 +52,9 @@ pub(crate) enum Required {
 
 /// What the prop holds and how the expansion converts it.
 pub(crate) enum PropKind {
-    /// `Value<String>`: text, kept as `Reactive<String>`.
+    /// `Value<String>`: text, kept as `Prop<String>`.
     Text,
-    /// `Value<T>`: a value, kept as `Reactive<T>`.
+    /// `Value<T>`: a value, kept as `Prop<T>`.
     Value(Type),
     /// `Signal<T>`: a two-way value, passed as it is.
     Signal(Type),

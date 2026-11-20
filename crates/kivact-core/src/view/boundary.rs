@@ -20,7 +20,8 @@ use std::panic::Location;
 use std::rc::Rc;
 
 use kivact_i18n::{Locale, Messages, interpolate};
-use kivact_runtime::{IntoValue, Owner, Prop, Runtime, Value, memo};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{IntoValue, Owner, Prop, Value, memo};
 use kivact_style::Theme;
 use kivact_types::NodeId;
 

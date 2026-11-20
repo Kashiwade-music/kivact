@@ -8,7 +8,8 @@ use std::rc::{Rc, Weak};
 use kivact_engine::api::PropValue;
 use kivact_engine::contract::NodeType;
 use kivact_runtime::Prop as InputProp;
-use kivact_runtime::{EffectKind, NodeId as EffectId, Owner, Runtime, Value};
+use kivact_runtime::driver::{EffectKind, Runtime};
+use kivact_runtime::{NodeId as EffectId, Owner, Value};
 use kivact_types::NodeId;
 
 use crate::view::state::ViewState;

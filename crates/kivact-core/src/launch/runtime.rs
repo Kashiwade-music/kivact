@@ -15,10 +15,10 @@ use crate::platform::{AppHandle, AppHandleExt};
 use crate::view::View;
 use crate::view::requests;
 use crate::view::state::{ViewState, WindowDecl};
-use kivact_runtime::{
-    AppParts, ExitState, IntoValue, RecordBits, Runtime, RuntimeConfig, Signal, Stage, ThreadWaker,
-    TurnGuard, TurnReport,
+use kivact_runtime::driver::{
+    AppParts, ExitState, RecordBits, Runtime, RuntimeConfig, ThreadWaker, TurnGuard, TurnReport,
 };
+use kivact_runtime::{IntoValue, Stage};
 
 use super::settings::AppOptions;
 /// Whether the host started the App.
@@ -41,7 +41,7 @@ pub(super) struct Started {
 }
 
 struct ClientHost(HostWaker);
-impl kivact_runtime::Host for ClientHost {
+impl kivact_runtime::driver::Host for ClientHost {
     fn wake(&self) {
         self.0.wake();
     }
@@ -251,7 +251,7 @@ fn install_main_window(
     info: &HostInfo,
     options: &AppOptions,
     at: &'static Location<'static>,
-) -> kivact_runtime::MotionEnv {
+) -> kivact_runtime::driver::MotionEnv {
     let decl = Rc::new(WindowDecl {
         title: root.signal(options.settings.title.clone(), at).into_value(),
         open: root.signal(true, at),
@@ -277,7 +277,7 @@ fn install_main_window(
     let env = record.env.clone();
     view.install_window(WindowId::MAIN, record);
     let app_motion = view.app_motion;
-    kivact_runtime::MotionEnv {
+    kivact_runtime::driver::MotionEnv {
         reduced_motion: env.reduced_motion_value(),
         surface_active: root.with_setup(|| kivact_runtime::memo(move || app_motion.get().drawable)),
         frame_period_ns: root

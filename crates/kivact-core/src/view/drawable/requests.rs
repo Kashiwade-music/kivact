@@ -7,7 +7,8 @@ use std::cell::RefCell;
 use std::sync::Arc;
 
 use kivact_engine::contract::{ExportRequestMode, HostRequest};
-use kivact_runtime::{AppId, Runtime, Trigger};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{AppId, Trigger};
 use kivact_types::DrawableId;
 
 use crate::sync::Inbox;

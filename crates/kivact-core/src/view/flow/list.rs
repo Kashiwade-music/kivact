@@ -31,10 +31,10 @@ use crate::view::boundary::mount_in;
 use crate::view::descriptor::{IntoView, View, view_fn};
 use crate::view::flow::branch::{Branch, mount_branch, unmount_branch};
 use crate::view::state::ViewState;
+use kivact_runtime::driver::{EffectKind, Runtime};
 use kivact_runtime::keyed::{self, Diff, Plan, Rows};
 use kivact_runtime::{
-    EffectKind, ErrorKind, IntoValue, ItemKey, Owner, Prop, PropValue, Runtime, Signal, UiError,
-    Value,
+    ErrorKind, IntoValue, ItemKey, Owner, Prop, PropValue, Signal, UiError, Value,
 };
 
 /// A row builder of a keyed list: the key and the row's item signal.

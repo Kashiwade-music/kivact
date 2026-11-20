@@ -8,7 +8,8 @@
 
 use kivact_engine::api::{Boundary, Writer};
 use kivact_engine::contract::{HostEvent, TurnOutput};
-use kivact_runtime::{CauseTag, ErrorKind, Runtime, Stage, TurnGuard, UiError};
+use kivact_runtime::driver::{Runtime, TurnGuard};
+use kivact_runtime::{Cause, CauseTag, ErrorKind, Stage, UiError};
 use kivact_types::Revision;
 
 use super::runtime::{ClientMode, Launch, commit, output};
@@ -39,13 +40,14 @@ impl Launch {
         #[cfg(feature = "devtools")]
         let incoming = crate::devtools::take_incoming(&rt);
         let tree = ViewState::tree(&rt).engine().clone();
-        // A host call with no event, no due mount callback and no queued
-        // work runs no turn.
+        // A host call with no event, no due mount callback, no queued work
+        // and no mail from other threads runs no turn.
         let idle = events.is_empty()
             && boundaries
                 .last()
                 .is_some_and(|b| !rt.mounts_due(b.revision))
-            && !rt.has_work();
+            && !rt.has_work()
+            && !rt.has_mail();
         #[cfg(feature = "devtools")]
         let idle = idle && incoming.is_empty();
         if idle {
@@ -60,11 +62,12 @@ impl Launch {
         stats.turns += 1;
         host.stats.set(stats);
         let turn = rt.begin_turn(events.len());
-        if events.is_empty()
-            && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision))
-            && rt.is_recording()
-        {
-            turn.cause_with(CauseTag::Mount, "mounts".into());
+        if mounts_only(&rt, events, boundaries) && rt.is_recording() {
+            turn.cause(Cause {
+                tag: CauseTag::Mount,
+                event: "mounts",
+                node: None,
+            });
         }
         turn.run_mounts(Revision(before));
         turn.deliver_reports();
@@ -90,9 +93,7 @@ impl Launch {
             crate::client::trace::event(&rt, format_args!("host_events receive {event:?}"));
             edits.deliver(event);
             ViewState::tree(&rt).engine().deliver(event);
-            if rt.is_recording() {
-                turn.cause_with(CauseTag::Input, describe(event));
-            }
+            turn.cause(cause_of(event));
             crate::client::dispatch::dispatch(&rt, event);
             turn.settle();
             delivered += 1;
@@ -115,6 +116,11 @@ impl Launch {
         }
         output
     }
+}
+
+/// Whether this turn has no event and only runs the due mount callbacks.
+fn mounts_only(rt: &Runtime, events: &[HostEvent], boundaries: &[Boundary]) -> bool {
+    events.is_empty() && boundaries.last().is_some_and(|b| rt.mounts_due(b.revision))
 }
 
 /// Commit, then run what the commit released (mount callbacks, deferred
@@ -157,66 +163,64 @@ fn commit_rounds(turn: &TurnGuard<'_>, rt: &Runtime, tree: &Writer, done: Revisi
     writes
 }
 
-/// The name of a pointer phase without its press data (trace labels carry
-/// no values).
-fn phase_name(phase: kivact_types::PointerPhase) -> &'static str {
-    use kivact_types::PointerPhase as P;
-    match phase {
-        P::Down(_) => "Down",
-        P::Move => "Move",
-        P::Up(_) => "Up",
-        P::Cancel => "Cancel",
-        P::Enter => "Enter",
-        P::Leave => "Leave",
-    }
-}
-
-/// Short cause label of an event for the structured trace (no values).
-fn describe(e: &kivact_engine::contract::HostEvent) -> String {
+/// What a host event says for the turn trace (its kind and node, no values).
+fn cause_of(e: &HostEvent) -> Cause {
     use kivact_engine::contract::HostEvent as E;
-    match e {
-        E::Pointer(route) => format!(
-            "Pointer {} {:?}",
-            phase_name(route.input.phase),
-            route.target.map(|target| target.node)
-        ),
-        E::Wheel(route) => format!("Wheel {:?}", route.target.map(|target| target.node)),
-        E::Key(route) => format!(
-            "Key {:?} {:?} region {:?}",
-            route.input.key,
-            route.target.map(|target| target.node),
-            route.target.and_then(|target| target.region)
-        ),
-        E::Activate { node, region, .. } => {
-            format!("Activate n{} region {:?}", node.0, region.map(|r| r.0))
-        }
-        E::FocusChanged {
-            node,
-            region,
-            visible,
-            ..
-        } => format!(
-            "FocusChanged {:?} region {:?} visible {visible}",
-            node.map(|n| n.0),
-            region.map(|r| r.0)
-        ),
-        E::HoverChanged { target, .. } => {
-            format!("HoverChanged {:?}", target.map(|t| (t.node.0, t.region)))
-        }
-        E::MousePosition { position, .. } => format!("MousePosition {position:?}"),
-        E::TextChanged { node, .. } => format!("TextChanged n{}", node.0),
-        E::SelectionChanged { node, .. } => format!("SelectionChanged n{}", node.0),
-        E::Ime { node, .. } => format!("Ime n{}", node.0),
-        E::ScrollChanged { node, .. } => format!("ScrollChanged n{}", node.0),
-        E::LayoutChanged { node, .. } => format!("LayoutChanged n{}", node.0),
-        E::A11y { node, request, .. } => format!("A11y {:?} n{}", request.action(), node.0),
-        E::SnapshotResult { request, .. } => format!("SnapshotResult {}", request.0),
-        other => {
-            let s = format!("{other:?}");
-            s.split([' ', '{', '('])
-                .next()
-                .unwrap_or_default()
-                .to_string()
-        }
+    let (event, node) = match e {
+        E::Pointer(route) => ("Pointer", route.target.map(|t| t.node)),
+        E::Wheel(route) => ("Wheel", route.target.map(|t| t.node)),
+        E::File(route) => ("File", route.target.map(|t| t.node)),
+        E::Key(route) => ("Key", route.target.map(|t| t.node)),
+        E::Activate { node, .. } => ("Activate", Some(*node)),
+        E::FocusChanged { node, .. } => ("FocusChanged", *node),
+        E::HoverChanged { target, .. } => ("HoverChanged", target.map(|t| t.node)),
+        E::TextChanged { node, .. } => ("TextChanged", Some(*node)),
+        E::SelectionChanged { node, .. } => ("SelectionChanged", Some(*node)),
+        E::Ime { node, .. } => ("Ime", Some(*node)),
+        E::ScrollChanged { node, .. } => ("ScrollChanged", Some(*node)),
+        E::LayoutChanged { node, .. } => ("LayoutChanged", Some(*node)),
+        E::A11y { node, .. } => ("A11y", Some(*node)),
+        E::StatesChanged { node, .. } => ("StatesChanged", Some(*node)),
+        E::NodeFlagsChanged { node, .. } => ("NodeFlagsChanged", Some(*node)),
+
+        E::PresenceChanged { .. } => ("PresenceChanged", None),
+        E::ExitComplete { .. } => ("ExitComplete", None),
+        E::ModifiersChanged { .. } => ("ModifiersChanged", None),
+        E::MousePosition { .. } => ("MousePosition", None),
+        E::FrameTick { .. } => ("FrameTick", None),
+        E::EffectResult { .. } => ("EffectResult", None),
+        E::SnapshotResult { .. } => ("SnapshotResult", None),
+        E::FocusResult { .. } => ("FocusResult", None),
+        E::Lifecycle(_) => ("Lifecycle", None),
+        E::EnvChanged { .. } => ("EnvChanged", None),
+        E::HostFailure { .. } => ("HostFailure", None),
+        E::TurnsCut { .. } => ("TurnsCut", None),
+        E::ImageStatusChanged { .. } => ("ImageStatusChanged", None),
+        E::AssetFailed { .. } => ("AssetFailed", None),
+        E::DrawDropped { .. } => ("DrawDropped", None),
+        E::DrawableNotHosted { .. } => ("DrawableNotHosted", None),
+        E::DrawableDrawnTwice { .. } => ("DrawableDrawnTwice", None),
+        E::LayoutWarning { .. } => ("LayoutWarning", None),
+        E::DuplicateLayoutId { .. } => ("DuplicateLayoutId", None),
+        E::CloseRequested { .. } => ("CloseRequested", None),
+        E::WindowOpened { .. } => ("WindowOpened", None),
+        E::WindowFailed { .. } => ("WindowFailed", None),
+        E::Foreign { .. } => ("Foreign", None),
+        E::InjectDelivered { .. } => ("InjectDelivered", None),
+        E::DevtoolsPick { .. } => ("DevtoolsPick", None),
+        E::DevtoolsKey { .. } => ("DevtoolsKey", None),
+        E::AppMotion { .. } => ("AppMotion", None),
+        E::ExternalImported { .. } => ("ExternalImported", None),
+        E::GpuAdapterChanged { .. } => ("GpuAdapterChanged", None),
+        E::DrawableFrame(_) => ("DrawableFrame", None),
+        E::DrawableResized { .. } => ("DrawableResized", None),
+        E::DrawableTextures { .. } => ("DrawableTextures", None),
+        E::DrawableExportLost(_) => ("DrawableExportLost", None),
+        E::GpuExportAvailable => ("GpuExportAvailable", None),
+    };
+    Cause {
+        tag: CauseTag::Input,
+        event,
+        node,
     }
 }

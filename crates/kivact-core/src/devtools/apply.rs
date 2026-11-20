@@ -3,7 +3,8 @@
 use std::panic::Location;
 
 use kivact_devtools_protocol as p;
-use kivact_runtime::{Owner, Runtime};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::Runtime;
 use kivact_style::theme::{Palette, Radii, Spacing};
 use kivact_style::{Color, ColorToken, Length, LineHeight, Style, TextAlign, Theme};
 

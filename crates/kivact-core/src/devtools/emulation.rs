@@ -3,7 +3,8 @@
 use kivact_devtools_agent::Responder;
 use kivact_devtools_protocol as p;
 use kivact_engine::contract::{EngineEmulation, HostRequest};
-use kivact_runtime::{ErrorKind, Runtime};
+use kivact_runtime::ErrorKind;
+use kivact_runtime::driver::Runtime;
 use kivact_types::ThemeHint;
 
 use crate::devtools::state::{DevtoolsState, emulation_off};

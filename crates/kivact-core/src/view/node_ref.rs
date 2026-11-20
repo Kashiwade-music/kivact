@@ -12,9 +12,9 @@ use kivact_types::{FocusTarget, NodeId};
 use crate::view::state::{
     Bound, NodeRefState, RefObservation, RefState, ViewState, current_window,
 };
+use kivact_runtime::driver::Runtime;
 use kivact_runtime::{
-    AppId, ErrorKind, Owned, Owner, Runtime, Signal, UiError, Value, require_effectful,
-    require_setup,
+    AppId, ErrorKind, Owned, Owner, Signal, UiError, Value, require_effectful, require_setup,
 };
 use kivact_style::draw::Rect;
 use kivact_types::WindowId;

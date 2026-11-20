@@ -10,7 +10,8 @@ use std::fmt;
 use std::panic::Location;
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use kivact_runtime::{Owner, Runtime, ThreadWaker};
+use kivact_runtime::Owner;
+use kivact_runtime::driver::{Runtime, ThreadWaker};
 
 /// Ends a running App from any thread, like the user closing its main window.
 ///
@@ -265,7 +266,7 @@ mod link_tests {
     use std::sync::Arc;
     use std::sync::atomic::{AtomicUsize, Ordering};
 
-    use kivact_runtime::ThreadWaker;
+    use kivact_runtime::driver::ThreadWaker;
 
     fn counted_waker() -> (ThreadWaker, Arc<AtomicUsize>) {
         let count = Arc::new(AtomicUsize::new(0));

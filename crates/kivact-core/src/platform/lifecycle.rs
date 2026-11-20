@@ -8,7 +8,8 @@ use std::cell::RefCell;
 use std::panic::Location;
 use std::rc::Rc;
 
-use kivact_runtime::{Callback, HandlerResult, Owner, Runtime};
+use kivact_runtime::driver::Runtime;
+use kivact_runtime::{Callback, HandlerResult, Owner};
 pub use kivact_types::LifecycleEvent;
 use kivact_types::cell::Registry;
 
