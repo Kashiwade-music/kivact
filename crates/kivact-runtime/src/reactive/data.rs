@@ -462,6 +462,7 @@ pub enum Turn {
     Number(u64),
 }
 
+// xtask-allow(state): independent: cause is the index of the last cause recorded in the current turn, written by cause() and cleared at turn boundaries; open_stage is the stage being timed, written by stage() and taken by end_turn; next_seq is the report sequence, written by record_error and record_diagnostic; no field's value decides another's
 /// Ring buffers of errors, diagnostics and turn records, plus the turn
 /// being recorded.
 #[derive(Default)]
