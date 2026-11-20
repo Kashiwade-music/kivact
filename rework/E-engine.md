@@ -4838,7 +4838,7 @@ cargo test -p kivact-editing
 - **状態の閉じ方**：track の型から Option の field（`pressure`、`tilt`）が消える。新しい状態は無い。
 - **試験**：足さない・直さない。
 - **確認（tier a）**：`ENGINE-A`、`E2E: pointer, hover, touch_scroll, interaction_drag_edit, interaction_slider, interaction_splitter, interaction_zoom_pan, drawables, windows, interaction_edit, text_editing`
-- **完了条件**：手順 6 の `rg` が空。確認がすべて通る（listener が受ける sample の `buttons`・`pressure`・`tilt`・`time_ns` は前と同じ値）。
+- **完了条件**：手順 6 の `rg` が空。確認がすべて通る（listener が受ける sample の `buttons`・`pressure`・`tilt`・`time_ns` は前と同じ値。ただし sample の無い取消し（`cancel_pointer_input` など）は手順の `cancel_sample` の値：`time_ns` は host の時刻、pressure・tilt は `None`、modifiers は default）。
 
 ## E22：書込みの統計を数だけにする、a11y の数をいつも数える、`Mutation` を bit に
 

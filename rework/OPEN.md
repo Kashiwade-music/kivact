@@ -456,3 +456,119 @@ W6a の鎖（S13・S14）の判断。表で判断したもので、差戻しで�
 
 - W6b は 5 lane（鎖 X：S15→S23 の 10 unit、E1：E19→E21、E2：E14→E32→E24、A1：A11、A2：A12）で始める。
 - **E17 の性能（W5a の記録から、設計者へ返す）**：`text_editing::large_document_key_latency`（release、手で実行）で、16,384 行の文書の ArrowUp/Down の p95 が 0.51 ms から 2.58 ms（約 5 倍）、65,536 文字の 1 行の ArrowLeft が 1.075 倍。上下の移動が goal column のために今の行の x を求めるようになった分だけでは説明できない。1 frame（16 ms）より十分小さいので W5a は止めなかった。W6b の engine の lane で profile を取って原因を調べる（作業指示書の W5a の記録の指示）。設計者の判断は今は要らない。原因が分かったら返す。
+
+## Orchestrator の判断（W6b・A11、2026-11-20）
+
+A11（lane A1、commit `03c4d66a`・`db068636`）の subagent が、付属書から外れて自分で決めた点。Orchestrator の判断は次のとおり。どれも振る舞いを変えず、付属書の意図どおりに合わせたもの。
+
+- (a) `GpuDevice` の field の順：`external` を先頭にした（drop の順で `external` を `device` より先に落とす現行の不変条件を守る）。採る（0.5：付属書の意図どおり）。
+- (b) `SurfaceConfigurer` に `failure`（`Arc<DeviceLost>`）を持たせた：現行の `configure` が最後に device の失敗を返すため。採る（同じ）。
+- (c) `SurfaceConfigurer::configure` の戻り値は `()`、時間計測は presenter の worker（付属書の「今の configure に合わせる」）。採る。
+- (d) `GpuDevice::release_caches` は追加しない：現行の呼出しが無く dead code になるため。採る。
+- (e) `surface`（`GpuDevice` へ移動）：field が移るための移動。採る。
+- (f) `Pipelines::present` を `RefCell`：`present_for` が `&self` を要するため。採る。
+- (g) 非 gpu の stub（`gpu_unbuilt.rs`）：`GpuContext` と `SurfaceConfigurer` を、uninhabited な enum から private field の struct（本体は `unreachable!`）に変えた。uninhabited のままだと非 gpu の build で到達しない型が 10 件の warning を出すため。型の形の変更なので、設計者が見直せるよう記録する。採る。
+- 0.5 の行（clippy の `result_large_err`）：`ConfigureFailure::Failed` の note を縮めた。`Box` にせず、`#[allow]` は足さない。
+- 試験：`cargo test -p arvane-compose --all-features` は 0 件（この crate に test が無い）。付属書の行は到達できない。arvane の E2E（36 件）と GPU 系の E2E（`gpu_on_demand`・`drawable_export_gpu`・`gpu_interop`・`shaders`）で代える。採る。
+- 未実施：`KIVACT_TEST_GPU=1` と `KIVACT_TEST_MIRROR=required` の GPU の形の試験は、A11 の unit では走らせていない。CP2 の tier c で確かめる。
+
+## 差戻し（W6b・A12、2026-11-20）
+
+- **A12**（lane A2、commit `4783cc17`）：付属書 A12 の試験 `injected_input_reaches_an_embedded_app`（`dev/tests/kivact-public-api/tests/e2e_native/embed/contract.rs` に足す）を書けなかった。embed の App へ注入する helper が無い。`kivact::test` の Screen は engine の test host、DevTools の `inject_input` は独立の test app だけを駆動し、`TestParent::click` は実 window の OS 入力。どれも `ShellLoop::inject` の embed の経路を通らない。試験は足していない。
+- 設計者に決めてほしいこと：helper を新設するか、この試験の場所（または経路）を変えるか。
+- 他は完了：確認（tier a）は全件 exit 0、後退の確認 4 件（e2e_core 470・e2e_ui 252・e2e_native 45・kivact-test 24、失敗 0）。この差戻しが残っている間は、最終 checkpoint で完了を宣言しない。
+
+## Orchestrator の判断（W6b・A12、2026-11-20）
+
+- `FRAME_PERIOD_NS`：付属書の `crate::FRAME_PERIOD_NS` は `kivact_types::defaults::FRAME_PERIOD_NS`（同じ意味の一つだけ）を使った。採る（0.5）。
+- `canonical`（a11y の validation）：付属書の `canonical(tree) -> SemanticsTree`（Result なし）の形は採らず、`Result<SemanticsTree, AccessibilityError>` のまま残した。並べ替えの traversal は MissingNode・InvalidTree・UnreachableNode を返しうるので、release で消すと不正な木で panic するか誤った順になる。検査（重複・値・text・relations）だけを `#[cfg(debug_assertions)]` の validate に移し、正規化は release でも行う（付属書の意図どおり）。採る。形は付属書と違うので、設計者は見直せる。
+- Linux の warning 2 件（`crates/arvane-native/src/port/winit/foreign/x11.rs:13`、`crates/arvane-native/src/port/x11/test_parent/queries.rs:5`）：A12 が触っていない file の未使用 import で、W5a の記録（C13）と同じ前からのもの。Linux の CI か CP2 の前に直す（記録のみ）。
+
+## Orchestrator の判断（W6b・E19、2026-11-20）
+
+E19（lane E1、commit `c0dbc924`）の subagent が付属書から外れて決めた点。Orchestrator の判断は次のとおり。
+
+- 手順 4 の `HostRequest::Platform { window, request: PlatformRequest::RequestWindowSize(size) }` は実在しない。`HostRequest::RequestWindowSize { window, size }` が独立の variant で、`DeferredRequest::RequestSize` に対応する。これを使った。採る（0.5：付属書のコード片の名前が無く、同じ意味のものが一つだけある）。
+- 手順 7 の `shell.on_renderer_change(...)` は実在しない。実コードは `arvane::observer(closure)` で、observer を `DriverOptions` に渡している。`renderer_logger` は `arvane::observer` の引数の型（`FnMut(WindowId, &RendererChange)`）に合わせて返し、`launch.rs`・`embed.rs` は observer を使う形にした。採る（同じ行）。
+- `queue_effect` に `RequestWindowSize` の window の存在確認を足した。旧コードが確認していたため、これが無いと閉じた window への要求が queue に残る。採る（振る舞いを保つ）。
+- `pump` の effects は、付属書の一つの関数のままだと 80 code 行を超えるので、腕の処理を `carry_out`（`Option<PlatformResult>`）に分けた。採る（0.4 の「意味のある helper に分ける」）。
+- `DeferredRequest` の削除後に未使用になった `EngineEmulation` と `PlatformRequest` の use を消した。採る（機械的な後片付け）。
+
+## 差戻し（W6b・S15、2026-11-20）
+
+- **S15**（lane X、commit `b8470efa`）：`crates/kivact-style/src/paint/border_image.rs` の `BorderImageSource::Gradient(Gradient)` を `Gradient(Box<Gradient>)` にした（clippy の `large_enum_variant` を消すため）。公開の variant の型が変わるので、0.5 の表の「公開の API を変えないものを採る」に当たらない。設計者が決める：Box の形を採るか（API の変更として記録するか）、別の形にするか。この決まりが出るまで、lane X は S16 に進まない。
+- **S15**：`Draw` の text_run の spacing は、theme が無いときに既定の theme に落ち、その unsupported の数を上へ渡していない（subagent の報告）。振る舞いの決まりなので、設計者が見る：この落とし方でよいか。
+
+## Orchestrator の判断（W6b・S15、2026-11-20）
+
+- **S15 の手順 8 の残り**：subagent の報告で、`to_len()` を resolved に通していない呼出しが残った（`effect/shape.rs`・`geometry.rs`・`paint/fill_layer.rs`・`path/commands.rs`・`resolve/paint.rs`・`transform.rs`）。付属書 S15 の手順 8 が `rg` の全件を対象にしているので、設計の判断ではない。同じ lane の fresh の subagent で残りを仕上げる（commit は新しく作る。`Box` の件には触らない）。
+- `kivact-engine/src/model/interact/sticky.rs` の `Calc {percent, px}` の pattern を `..` に直した：所有の外の 1 file。W6b の他の lane は、この file を持っていない。採る（0.5 の「所有の外の 1〜3 ファイル」の行）。
+- `theme_var.rs` の doc の例を `text` の block にした：例が `kivact::` の path を使い、kivact-types の doctest で失敗するため。採る。
+- `VarValue<FontFamily>` の `From<&str>` / `From<String>` は無い（orphan rule）。呼出し側は `FontFamily::from("...")` と書く。採る。
+- `misplaced_content` の文面を変えた（`N length(s) the host cannot take here: ...`）。E2E の期待は文に `length` を含むことなので、満たす。採る。
+- `view/overlays.rs` の `theme_overlay_margin`、`chat_thread/view.rs` の `follow_slack`：関数の長さの上限を守るための helper。採る（0.5）。
+- `apply.rs`（DevTools）：token の表を ThemeVar の参照に置いた。DevTools の token の名前と protocol は変えていない。採る。
+
+## 差戻し（W6b・E21、2026-11-20）
+
+- **E21**（lane E1、commit `f8788b46`）：付属書に書かれていない経路の値が変わった。sample の無い取消し（`cancel_pointer_input`）は、`cancel_sample`（host の時刻、pressure・tilt は `None`、modifiers は default）を使うようになった。このため、取消しの event の `time_ns`・pressure・tilt は、前の event の値ではなくなった。付属書 E21 の完了条件は「time_ns は前と同じ値」なので、この経路だけ食い違う。試験は通っている。設計者が決める：前の event の値を保つ（track に値を残す）か、host の時刻を採るか。この決まりが出るまで、最終 checkpoint で完了を宣言しない。
+
+## Orchestrator の判断（W6b・E21、2026-11-20）
+
+- shell の mouse の Cancel：Cancel の event と後続の Move・Leave は、modifiers と buttons を default・NONE にした sample（ended）で送る（以前の挙動に合わせた）。採る。
+- `cancel_contact` の helper を新設し、`cancel_pointer_input` と `end_contact` を一つにまとめた。`end_contact` は sample を受ける（Up の input、取消しの `cancel_sample`）。付属書の手順にはないが、同じ経路の二重を消す。採る（0.4 の「意味のある helper に分ける」）。
+- `contact_at` の input 引数は使わなくなるので消した。`touch_move`・`touch_candidate`・`release_touch_scroll` は付属書の文どおり引数を足した。採る（crate の中の機械的な追従）。
+- `pointer_down`・`pointer_up` は press を引数から外し、`input.phase` から取る（付属書どおり）。`primary_press` には modifiers の値をそのまま渡す（`send_pointer` を呼ばないため）。採る。
+
+## 差戻し（W6b・S15 の続き、commit `67fdd8eb`、2026-11-20）
+
+- **`path/commands.rs:Path::rounded_rect`**（公開のメソッド、theme を取らない）の `r.x.to_len()`・`r.y.to_len()`（213〜214 行付近）：resolved を通すには theme が要る。公開の API を変える（設計書 5 章）か、解決を後にする（`Length` を未解決のまま持つ）か。設計者が決める。
+- **`transform.rs:Transform::translate_3d`**（公開。`moved()` が px と pct を即時に持つ）の `x.into().to_len()`（285 行付近）：build の時点で var と em が落ちる。解決を遅らせる保存の形が要る（設計の判断）。
+- **workspace clippy の失敗（権限の判定で止まっている）**：`kivact-core/src/devtools/apply.rs` の `COLOR_TOKENS`・`LENGTH_TOKENS`・`WEIGHT_TOKENS`（424・445・466 行付近）の `&'static ThemeVar<..>` が `redundant_static_lifetimes` になる（`b8470efa` から）。clippy の提案どおり `'static` を消すだけの機械的な修正。subagent の編集（sed）は権限の自動判定で拒否された。Orchestrator はこれを回避しない。ユーザーの許可を待つ。許可が出たら、その 3 行だけを直して clippy を通す。
+- **workspace clippy の残り**（`BorderImageSource` の `large_enum_variant` を含む）は、上の clippy が通るまで確認できていない。
+- **設計者が見る subagent の判断**（Orchestrator は採っていない）：(1) draw 時の resolve は theme の base size の em を使う（drawing は style を持たないため）。(2) draw 時の不正な sum は `Draw::unsupported` に足す。(3) `fill_for` と span の背景では、不正な sum を捨てる（`spacing_px` の先例に合わせた）。(3) は値を黙って落とすので、設計者の確認が要る。
+
+## 設計者の回答（W6b の差戻し：E14・A12・S15・E21、2026-11-20）
+
+権限の自動判定で止まった編集（印と `'static`）は、設計者が lane の branch に直接 commit した。Orchestrator はそれを取り込んで続ける（lane の worktree を reset しないこと）。
+
+### E14（lane E2）：`SceneOut` の印
+
+- 付属書 E14 の手順どおり `keeping` を残し、印を足した（W5a の E12 で `SceneOut` の印は外れていたので、新しい印にした）：`// xtask-allow(state): keeping marks the commands kept from the last frame (set_keeping); independent`。commit `f12b505b`（`wt/rw-W6b-E2`）。`cargo xtask check --no-write --only local` は成功（設計者が確認）。
+- 未実施のまま残っているもの（commit `f54a8875` の message のとおり）：`tests/content_version.rs` の再実行（debug の全体と release）と後退の確認 4 件。Orchestrator が走らせてから E32 へ進む。
+
+### A12（lane A2）：embed への注入の試験
+
+- 原因：embed の App の DevTools は注入を断っていた（`agent_slot` の `can_inject` が `!policy.is_embedded()`、`inject_input` が `UNSUPPORTED` を返す）。embed の loop が注入の入力を捨てていた（AR-05）ための封じで、A12 が届けるようにしたので封じは要らない。helper を新設せず、DevTools の client の経路で試験する。
+- 設計者が実施（commit `d9abce37`、`wt/rw-W6b-A2`）：
+  - `crates/kivact-core/src/devtools/{state,start,input}.rs`・`launch/runtime.rs`：`can_inject` を消した（`AgentStart` は agent の receiver の別名、`inject_input` の `UNSUPPORTED` の分岐を削除）。`Inspector` の印は、xtask が「未使用の印」にしたので外した（0.5 の表の行。legacy の印は 182 個に減った）。
+  - `dev/tests/kivact-public-api/tests/e2e_native/embed/contract.rs`：`injected_input_reaches_an_embedded_app`（feature `devtools`）。embed の App の agent を `list_targets()`（pid と App の名前）で見つけ、別 thread の client が `list_windows`・`get_by_role`・`inject_input`（Click）を呼び、押した回数が 1 になるのを確かめる。
+  - 確認：`e2e_native --all-features -- embed::` 13 件成功（新しい試験を含む）、`-- devtools` 成功、`XK` 付きの workspace clippy 成功、`cargo fmt --all --check` 成功、`cargo xtask check --no-write --only local` 成功。
+- 付属書 A12 の試験の行はこれで満たす。A12 の差戻しは閉じる。
+
+### S15（lane X）
+
+1. **`BorderImageSource::Gradient(Box<Gradient>)`**：採る（公開の変更として記録する）。呼出し側は `BorderImage::new(linear_gradient(..))`（`From<Gradient>`）で作り、`Box` を書かない。変種を名指す呼出しは repo に無い。G の移行の文書に 1 行足す（G へ）。
+2. **workspace clippy**：`apply.rs` の 3 行の `'static` を消した。commit `0b554b35`（`wt/rw-W6b-X`）。W6 の clippy は作業指示書 2 章の `XK` の除外を付ける（kit は DEC-14 で compile の対象外。付けないと kit が `ColorToken` などで落ちるが、それは正しい状態）。`XK` 付きの `cargo clippy --workspace --all-targets --all-features --exclude kivact-docs` は成功（設計者が確認。`large_enum_variant` を含め 0 件）。
+3. **`Transform::translate_3d`（と `translate`・`translate_x`・`translate_y`）**：`Transform` は幾何の値で、theme を持たない（`Path::transformed` や `Layer::transform` にも使う）。解決を遅らせる保存は作らない。決まり：
+   - x・y は px と box の百分率（`pct(-50)`、`pct(50) - 4`）。theme の変数・`em`・不正な和を含む長さは、その長さ 1 つにつき `self.unsupported += 1` し、px と百分率の部分だけを使う（`to_len()` のまま）。数は今の仕組み（`Transform::unsupported`、style では `transform: N function(s) the form cannot keep`）で報告される。
+   - 判定は kivact-types の `Length` に足す `pub fn needs_theme(self) -> bool`（`Length::Var(..)`・`Length::Em(..)`・`Length::Invalid`・`Calc` の `em != 0.0` か `var.is_some()` で `true`。実際の variant 名は `length.rs` に合わせる）。
+   - `translate` の doc に 1 文：「A theme variable or `em` here is unsupported (a transform holds no theme): set the style's `translate_x`/`translate_y`, which resolve them.」。
+   - style の `translate_x`/`translate_y`（`transform_of` の `cx.len(..)`）は今のまま解決する。
+   - 試験（`transform.rs` の `mod tests`、無ければ作る）：`fn a_theme_length_in_a_transform_is_unsupported()`（`Transform::new().translate(space::MD, em(1)).unsupported() == 2`、`Transform::new().translate(pct(-50), 4).unsupported() == 0`）。
+4. **`Path::rounded_rect`**：`Path` の他のメソッドはすべて px の数（`Point`・`Rect`・`f64`）を取る。`rounded_rect` だけが `Length` を取っているので、px に揃える（公開の変更。repo の中に呼出しは無い）：
+   - `pub fn rounded_rect(self, rect: Rect, radii: [(f64, f64); 4]) -> Self`。doc：「Clockwise corners from the top left, each `(x, y)` in px; radii that do not fit shrink together as CSS's do.」。本体は `let mut r = radii.map(|(x, y)| (x.max(0.0), y.max(0.0)));` で始め、以降（`ratio` と `scale`）は今のまま。`CornerRadius` の use が不要になれば消す。
+   - style の radius と同じ形が欲しい呼出し側は、百分率を `rect.width * p / 100.0` で、変数を `Draw::theme().get(&radius::MD_VAR)` で px にしてから渡す。
+5. **`Draw` の text_run の spacing（theme が無いときの既定の theme）**：採らない。測定と描画が別の theme で長さを解けば、測った幅と描いた幅が食い違う。text_run は常に使う場所の theme で解く：
+   - `crates/kivact-style/src/draw/text_run.rs`：`pub fn text_run(text, origin, style, scale, color, theme: &Theme, unsupported: &mut u32)`。`fill`・`stroke` の `theme.map(..)` を外し、`fill_for(f, theme, unsupported)` にする。`spacing_px(length, size, theme, unsupported)`（`unwrap_or_default` を消す）。`fill_for(paint, theme, dropped: &mut u32)` は `Resolve::of_theme(theme, dropped)` を使う（「not counted」の注記を消す）。
+   - `Draw` の中の呼出し（`text_run.rs` の `text`・`text_path` など、`paragraph.rs`）：描く呼出しは `&self.theme, &mut self.unsupported`。測るだけの呼出し（`Draw::layout_paragraph`・`layout_inline_paragraph`）は `&self.theme` と捨てる数（`&mut 0`。同じ format を描く呼出しが数える）。
+   - `crates/kivact-core/src/custom/text_shaping.rs`：`paragraph_measurer` が読んでいる theme を返し（`-> (impl TextShaper, Theme)`）、`text_run(text, style, &theme)` に渡す（数は捨てる）。
+   - `crates/kivact-core/src/custom/measurement.rs` と `view/measured_leaf.rs`：`Constraints` に private な field `theme: &'a Theme` を足し、`constraints(request, text, theme)` にする。`bind_measure` は `custom/text_editing.rs` の `bind_highlight` と同じ形にする：hook の content を `(T, Theme)` にし、theme は `bind_highlight` と同じ取り方（`kivact_style::internal::theme_of(owner)`、無ければ `Theme::default()`）で render effect の中で読む。theme が変わると measure の関数を書き直す。`src.fixed()` の近道は消す（theme が変わりうるので、常に effect を通す）。`measure_text`・`measure_paragraph`・`measure_inline_paragraph` は `self.theme` を渡す（数は捨てる）。
+   - 試験（`kivact-public-api` の e2e_core の canvas か primitive の module。付属書 S15 の E2E の置き場所に合わせる）：`fn measured_and_drawn_spacing_agree_in_a_theme()`：`Theme::light().set(&space::MD_VAR, 20)` の下の primitive で、`letter_spacing: space::MD` の `TextFormat` の `Constraints::measure_text` の幅が、同じ text を `Draw::measure_text` で測った幅と等しく、spacing 0 の幅より大きい。
+6. **subagent の draw 時の判断**：(1) draw の `em` は theme の基準の大きさ（`font::SIZE`）：採る。(2) draw の不正な和は `Draw::unsupported`：採る。(3) 黙って捨てる所：`fill_for` は上の 5 で数える。span の背景は `compile_span_style` が既に数えている（`internal.rs`）。残る例外は二つだけとし、doc に書く：測定（同じ format の描画が数える）と、editor の highlighter の装飾（`compile_text_decoration`。layout の中で走り、報告の先が無い。`StyledRange` の `decoration` の doc に「An invalid length here is ignored: a highlighter runs inside layout, where nothing is reported.」）。
+- 3〜6 は lane X の fresh の subagent が `67fdd8eb`・`0b554b35` の上で実施し、付属書 S15 の確認（tier a）と後退の確認、`XK` 付きの workspace clippy を通してから S16 へ進む。
+
+### E21（lane E1）：sample の無い取消しの値
+
+- 付属書 E21 の手順自体が `cancel_sample` の `time_ns: self.frame.host_now()` を指定している。shell は event に自分の時刻（`clicks.rs` の `input.time_ns = now`）を付けるので、host の時刻は前の event と同じ時計で、それより前にならない。取消しはその時に起きるので host の時刻が正しい（Web の `pointercancel` の時刻も発送の時刻）。pressure・tilt は `None`、modifiers は default：押しているものが無い sample として正しい。
+- 実装はこのまま採る。食い違っていたのは完了条件の文なので、付属書 E21 の完了条件を「前と同じ値（sample の無い取消しは `cancel_sample` の値：host の時刻、pressure・tilt は `None`）」に直した。E21 の差戻しは閉じる。
