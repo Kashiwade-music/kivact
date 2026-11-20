@@ -4843,10 +4843,14 @@ script の後の `cargo check` の誤りは、次の種類だけを本書のと�
 4. `crates/kivact-core/src/view/element_data.rs`：script の後の `on_press` と `on_exit_complete` の本体を次にする（`on_press` は arena の object を作らない）。
    ```rust
    fn on_exit_complete<M>(mut self, callback: impl IntoHandler<(), M>) -> Self {
-       // The callback's owner is the caller's; an error goes to its boundary.
-       let callback = Callback::from_handler(callback.into_handler());
+       // A callback whose owner was removed with the node answers `Disposed`
+       // and does not run; a closure, or a callback of a live owner, runs.
+       let handler = callback.into_handler();
        self.node_mut().common.exit_complete = Some(kivact_runtime::Handler::from_fn(move |()| {
-           callback.call_if_alive(())
+           match handler.call(()) {
+               Err(error) if matches!(error.kind(), ErrorKind::Disposed { .. }) => Ok(()),
+               result => result.map(|_| ()),
+           }
        }));
        self
    }
@@ -4858,6 +4862,7 @@ script の後の `cargo check` の誤りは、次の種類だけを本書のと�
    }
    ```
    `use kivact_runtime::{..}` に `IntoHandler` を足す（F2）。`#[track_caller]` の属性はそのまま残す。
+   （W5a で設計者が直した：最初の版は `Callback::from_handler` で包み直していたが、それは今動いている owner（消える branch）の Callback を作るので、branch と一緒に破棄されて呼ばれなかった。`e2e_core` の `motion::exit_completion_fires_for_instant_removal_and_skips_a_disposed_callback`・`motion::popped_exit_releases_layout_and_finishes_after_the_last_descendant` が失敗した。error は host の `ExitComplete` の配送が `rt.report` に渡す。）
 5. `crates/kivact-core/src/view/flow/list.rs`：
    - script で `impl<T: PropValue> ListSource<T> for Signal<Vec<T>>` が二つになる（元の `Binding<Vec<T>>` の impl）。二つ目（本体が `writable_list(self)`）を削除し、一つ目の本体を `writable_list(self)` に、`type Row = Signal<T>;` にする。doc と `on_unimplemented` の文から `Binding` の語を消す（script で `Signal` になった重複の語を直す）。
    - `fn writable_list` を次にする。
