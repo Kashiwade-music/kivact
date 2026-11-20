@@ -42,10 +42,11 @@ pub(crate) fn install_app_contexts(
         kivact_runtime::Prop<kivact_style::Theme>,
         Option<Locale>,
         Messages,
+        &'static Location<'static>,
     ),
     at: &'static Location<'static>,
 ) {
-    let (theme, app_locale, app_messages) = settings;
+    let (theme, app_locale, app_messages, theme_at) = settings;
     let env = ViewState::of(rt)
         .env(WindowId::MAIN)
         .expect("invariant: the main window record exists before mounting");
@@ -60,12 +61,17 @@ pub(crate) fn install_app_contexts(
             })
         }
     };
+    // The fonts of a fixed theme register before the root mounts (a
+    // reactive theme registers its fonts when its effect first runs).
+    if let Some(fixed) = theme.fixed() {
+        crate::view::requests::register_theme_fonts(rt, &fixed, theme_at);
+    }
     // A fixed theme is a constant; DevTools makes it reactive through its wrap.
     let theme = match theme.fixed() {
         Some(theme) => owner.constant(theme, at),
         None => owner.with_setup(|| theme.into_value(owner, at)),
     };
-    crate::view::boundary::install_theme(owner, theme);
+    crate::view::boundary::install_theme(owner, theme, theme_at);
     crate::view::boundary::install_locale(owner, locale);
     owner.provide(crate::view::ReadingDirection::Ltr);
     let messages: Signal<Messages> = owner.signal(app_messages, at);

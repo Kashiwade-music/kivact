@@ -3,15 +3,15 @@
 use kivact_core::i18n::{Locale, Messages};
 use kivact_style::Theme;
 
-/// The fonts text is shaped with ([`RenderOptions::fonts`]).
+/// The fonts text is shaped with ([`RenderOptions::fonts`]). The fonts a
+/// theme carries ([`Theme::with_fonts`]) are added to them.
 #[derive(Clone, Debug, Default)]
 pub enum TestFonts {
     /// Only the bundled test font (Tuffy, no CJK glyphs): the same layout
-    /// and pixels on every machine.
+    /// and pixels on every machine. A theme with fonts replaces it with
+    /// those fonts alone.
     #[default]
     Bundled,
-    /// Only these font files (TTF/OTF bytes): deterministic too.
-    Only(Vec<kivact_core::view::Asset>),
     /// The system's fonts, as a running App sees them.
     System,
 }
@@ -92,6 +92,7 @@ impl RenderOptions {
             ..Self::default()
         }
     }
+    #[track_caller]
     pub fn with_theme(theme: Theme) -> Self {
         Self::default().theme(theme)
     }
@@ -131,6 +132,7 @@ impl RenderOptions {
         self.gpu = TestGpu::OnDemand;
         self
     }
+    #[track_caller]
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.app = self.app.theme(theme);
         self
@@ -145,11 +147,6 @@ impl RenderOptions {
     }
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
         self.app = self.app.min_window_size(width, height);
-        self
-    }
-    #[track_caller]
-    pub fn font(mut self, font: impl Into<kivact_core::view::Asset>) -> Self {
-        self.app = self.app.font(font);
         self
     }
     pub fn blocking_threads(mut self, n: usize) -> Self {
@@ -207,19 +204,12 @@ impl RenderOptions {
     }
     pub(crate) fn into_host(
         self,
-        fonts: Vec<(
-            kivact_core::view::Asset,
-            &'static std::panic::Location<'static>,
-        )>,
     ) -> (
         kivact_core::App,
         bool,
         kivact_engine::testing::TestHostOptions,
     ) {
-        let mut app = self.app;
-        for (font, _) in fonts {
-            app = app.font(font);
-        }
+        let app = self.app;
         kivact_core::__test::check_window_sizes(&app).expect("valid test application window sizes");
         let title = kivact_core::__test::window_title(&app).to_owned();
         let initial = kivact_core::__test::host_options(&app);
@@ -231,21 +221,14 @@ impl RenderOptions {
             width: size.width,
             height: size.height,
             scale: self.scale,
+            // The theme's fonts are the App's to register: a theme with fonts
+            // starts the host without the bundled font.
             fonts: match self.fonts {
+                TestFonts::Bundled if kivact_core::__test::app_theme_has_fonts(&app) => {
+                    kivact_engine::testing::TestFonts::Only(Vec::new())
+                }
                 TestFonts::Bundled => kivact_engine::testing::TestFonts::Bundled,
                 TestFonts::System => kivact_engine::testing::TestFonts::System,
-                TestFonts::Only(fonts) => kivact_engine::testing::TestFonts::Only(
-                    fonts
-                        .into_iter()
-                        .map(|font| match font {
-                            kivact_core::view::Asset::Shared(bytes) => bytes.as_shared().clone(),
-                            kivact_core::view::Asset::Static(bytes) => std::sync::Arc::from(bytes),
-                            kivact_core::view::Asset::Path(path) => std::sync::Arc::from(
-                                std::fs::read(path).expect("test font file is readable"),
-                            ),
-                        })
-                        .collect(),
-                ),
             },
             mirror: self.mirror,
             title,

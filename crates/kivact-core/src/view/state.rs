@@ -16,6 +16,7 @@ use kivact_runtime::Selector;
 use kivact_runtime::Value;
 use kivact_runtime::driver::Runtime;
 use kivact_runtime::{ErrorKind, Handler, Signal, UiError};
+use kivact_style::asset::Asset;
 use kivact_types::cell::Deferred;
 use kivact_types::{
     DismissReason, Environment, FocusTarget, Insets, Modifiers, NodeId, PlatformResult,
@@ -264,6 +265,8 @@ pub(crate) struct ViewState {
     pub(crate) capabilities: Value<Capabilities>,
     /// The App's font families, read from the engine on first use.
     pub(crate) fonts: Deferred<FontsValue>,
+    /// The theme fonts already registered, by asset identity.
+    pub(crate) registered_fonts: RefCell<std::collections::HashSet<Asset>>,
     /// True until the first turn after the App's setup (written once, by start_mount).
     pub(crate) initial_render: Signal<bool>,
     /// The App-wide motion clock input.
@@ -356,6 +359,7 @@ impl ViewState {
             next_window: Cell::new(1),
             capabilities,
             fonts: Deferred::new(),
+            registered_fonts: RefCell::new(std::collections::HashSet::new()),
             initial_render: owner.signal(true, at),
             app_motion: owner.signal(
                 AppMotion {

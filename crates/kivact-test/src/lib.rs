@@ -52,7 +52,7 @@
 //!   [`LayoutViolation`]s; `assert_layout` fails with all of them and keeps
 //!   the frame in [`failure_dir`]. [`Screen::assert_layout_with`] preserves
 //!   explicit check options and the same failure artifacts. A Japanese label needs Noto Sans JP given
-//!   with `TestFonts::Only` (the bundled font has no CJK). The E2E is
+//!   by a theme with fonts (`Theme::with_fonts`; the bundled font has no CJK). The E2E is
 //!   `dev/tests/kivact-public-api/tests/e2e_core/layout_check.rs`.
 
 //!

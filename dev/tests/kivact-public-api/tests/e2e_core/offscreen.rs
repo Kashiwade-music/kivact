@@ -8,7 +8,7 @@ use kivact::draw::{Draw, Layer, Offscreen, Pixels, TextBaseline, TextFormat};
 use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::TextAlign;
-use kivact::test::{RenderOptions, TestFonts, render_with};
+use kivact::test::{RenderOptions, render_with};
 use kivact::view::Asset;
 
 use kivact_public_api_tests::paint::{distance, pixel};
@@ -70,8 +70,7 @@ fn a_drawing_function_gives_the_same_pixels_on_a_canvas_and_in_an_offscreen_imag
     let screen = render_with(
         RenderOptions::default()
             .window_size(96.0, 64.0)
-            .theme(theme())
-            .fonts(TestFonts::Only(vec![kivact::view::Asset::from(TUFFY)])),
+            .theme(theme().with_fonts([TUFFY])),
         move || {
             canvas(move |draw, size| artwork(draw, size, &preview_image))
                 .style(style().size(96, 64))

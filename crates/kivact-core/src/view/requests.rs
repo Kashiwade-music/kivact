@@ -3,7 +3,7 @@
 //! Requests the view layer sends to the host and whose answers come back as
 //! events: keyboard focus (`NodeRef::focus`, the focus restores after a
 //! modal overlay or a popup closes and `NodeRef::restore_focus`),
-//! platform effects (`kivact::platform`, the App's fonts). Request ids come
+//! platform effects (`kivact::platform`, the theme's fonts). Request ids come
 //! from one per-App counter.
 //!
 //! Restores are checked once at flush against engine focus eligibility.
@@ -79,12 +79,26 @@ pub(crate) fn request_effect(rt: &Runtime, req: HostRequest, waiter: Waiter) {
     rt.request_turn();
 }
 
-/// Register the App's fonts (`App::font`), each located at its call: one
-/// `RegisterFont` effect per font, applied before mounting the root's
-/// mount so the first layout measures with them. A font the host rejects
-/// is reported to the default sink as `ErrorKind::Asset`.
-pub(crate) fn register_app_fonts(rt: &Runtime, fonts: Vec<(Asset, &'static Location<'static>)>) {
-    for (font, at) in fonts {
+/// Register the fonts of `theme` the App has not registered yet (by asset
+/// identity: the path, the static address and length, or the shared
+/// allocation), located at `at`. The first layout after this call sees
+/// them (the engine registers a font when it is written). A file that is
+/// not a usable font is reported as `ErrorKind::Asset` at `at`.
+pub(crate) fn register_theme_fonts(
+    rt: &Runtime,
+    theme: &kivact_style::Theme,
+    at: &'static Location<'static>,
+) {
+    let fonts: Vec<Asset> = {
+        let mut seen = ViewState::of(rt).registered_fonts.borrow_mut();
+        theme
+            .fonts()
+            .iter()
+            .filter(|asset| seen.insert((*asset).clone()))
+            .cloned()
+            .collect()
+    };
+    for font in fonts {
         let waiter = Waiter::Report {
             owner: None,
             at,

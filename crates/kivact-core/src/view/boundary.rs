@@ -117,7 +117,7 @@ pub fn provide_theme<V: IntoView>(
     let theme = theme.into_prop();
     boundary(
         at,
-        move |owner| install_theme(owner, theme.into_value(owner, at)),
+        move |owner| install_theme(owner, theme.into_value(owner, at), at),
         child,
     )
 }
@@ -266,9 +266,19 @@ pub(crate) fn install_locale(owner: Owner, locale: Value<Locale>) {
     owner.provide(LocaleCtx(locale));
 }
 
-/// Provide `theme` to `owner`'s subtree, as DevTools shapes it.
-pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>) {
+/// Provide `theme` to `owner`'s subtree, as DevTools shapes it. Its fonts
+/// are registered now and whenever the theme changes, located at `at`.
+pub(crate) fn install_theme(owner: Owner, theme: Value<Theme>, at: &'static Location<'static>) {
     let rt = owner.runtime();
+    let weak = Rc::downgrade(&rt);
+    owner.effect(
+        kivact_runtime::driver::EffectKind::Render,
+        move || {
+            let Some(rt) = weak.upgrade() else { return };
+            theme.with(|t| crate::view::requests::register_theme_fonts(&rt, t, at));
+        },
+        at,
+    );
     let theme = crate::view::devtools_hooks::wrap_theme(&rt, owner, theme);
     kivact_style::internal::install_theme(owner, theme);
 }

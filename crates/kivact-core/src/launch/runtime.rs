@@ -119,9 +119,6 @@ fn start_mount(
         options.settings.min_window_size,
         true,
     );
-    // The App's fonts precede the root's mount (the engine registers
-    // a font when it is written, so the first layout uses them).
-    requests::register_app_fonts(rt, std::mem::take(&mut options.settings.fonts));
     crate::view::root::install_app_contexts(rt, root_owner, options.into_view_settings(), at);
     crate::view::root::mount_window_root(rt, WindowId::MAIN, root_owner, root, at);
     // What the platform cannot do is diagnosed, not silently ignored:

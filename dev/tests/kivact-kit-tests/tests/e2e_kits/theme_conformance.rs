@@ -1,6 +1,6 @@
 //! Role: Check standard semantics, layout, recipes and focus paint in all kit themes.
 use kivact::prelude::*;
-use kivact::test::{RenderOptions, Screen, Screenshot, TestFonts, render_with_handle};
+use kivact::test::{RenderOptions, Screen, Screenshot, render_with_handle};
 use kivact::ui::{self, Look, Recipe, UiRecipes};
 use kivact_public_api_tests::paint::distance;
 
@@ -76,8 +76,7 @@ type Handles = (
 fn options(theme: Theme) -> RenderOptions {
     RenderOptions::from_env()
         .window_size(720.0, 960.0)
-        .theme(theme)
-        .fonts(TestFonts::Only(vec![kivact::view::Asset::from(INTER)]))
+        .theme(theme.with_fonts([INTER]))
         .reduced_motion()
 }
 

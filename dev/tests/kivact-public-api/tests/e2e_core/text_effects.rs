@@ -14,7 +14,6 @@ use kivact::geometry::Rect;
 use kivact::prelude::*;
 use kivact::style::PaintOrder;
 use kivact::test::{RenderOptions, Screenshot, render_with};
-use kivact::view::Asset;
 use kivact_public_api_tests::paint::{BLACK, BLUE, RED, WHITE, at, canvas_of};
 
 /// Inter's variable font (its `wght` and `opsz` axes), the test font.
@@ -23,7 +22,7 @@ static INTER: &[u8] = include_bytes!("../../../../../crates/arvane/tests/fonts/I
 const FAMILY: &str = "Inter Variable";
 
 fn inter() -> RenderOptions {
-    RenderOptions::from_env().font(Asset::from(INTER))
+    RenderOptions::from_env().theme(kivact::style::Theme::default().with_fonts([INTER]))
 }
 
 /// The packed pixel at `(x, y)` of a shot, which lies inside it.

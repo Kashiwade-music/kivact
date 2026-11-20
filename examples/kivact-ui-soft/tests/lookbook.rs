@@ -1,6 +1,6 @@
 //! Capture the Soft catalog pages in both appearances for visual review.
 use kivact::style::ThemeMode;
-use kivact::test::{RenderOptions, Screen, TestFonts, render_with};
+use kivact::test::{RenderOptions, Screen, render_with};
 use kivact::view::{Key, MouseButton, Role};
 use kivact_ui_soft_catalog::{catalog_at, fonts, pages};
 use std::fmt::Write;
@@ -24,9 +24,7 @@ fn capture_catalog() {
             let screen = render_with(
                 RenderOptions::from_env()
                     .window_size(1120.0, 800.0)
-                    .fonts(TestFonts::Only(
-                        fonts().iter().map(|&bytes| bytes.into()).collect(),
-                    )),
+                    .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied())),
                 move || catalog_at(mode, page.slug),
             );
             screen

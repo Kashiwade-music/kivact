@@ -3,7 +3,6 @@ use crate::Result;
 use crate::i18n::{Locale, Messages};
 use crate::launch::{AppSettings, LaunchPolicy};
 use crate::platform::{AppHandle, Begin, GpuPreference};
-use crate::view::Asset;
 use crate::view::IntoView;
 use std::panic::Location;
 
@@ -20,6 +19,7 @@ pub struct App {
 
 impl App {
     /// An app whose window is titled `title`, with the default theme.
+    #[track_caller]
     pub fn new(title: impl Into<String>) -> Self {
         Self {
             theme: kivact_runtime::Prop::constant(Theme::default()),
@@ -30,17 +30,25 @@ impl App {
                 window_size: None,
                 min_window_size: None,
                 blocking_threads: None,
-                fonts: Vec::new(),
+                theme_at: Location::caller(),
                 gpu_preference: GpuPreference::default(),
                 handle: AppHandle::new(),
             },
         }
     }
     /// Theme of the whole App, evaluated reactively under its root owner.
+    /// The fonts the theme carries ([`Theme::with_fonts`](kivact_style::Theme::with_fonts))
+    /// are registered before the first screen, so text can name their
+    /// families with `style().font_family(..)` from the start (like CSS
+    /// `@font-face`). A file that is not a usable font (WOFF, unreadable)
+    /// is reported as `ErrorKind::Asset`, located at this call; the App
+    /// starts anyway.
     /// Embedded startup accepts only a fixed theme; create reactive themes with
     /// [`style::provide_theme`](crate::style::provide_theme) inside the embedded root factory.
+    #[track_caller]
     pub fn theme(mut self, theme: impl kivact_runtime::IntoValue<Theme>) -> Self {
         self.theme = theme.into_prop();
+        self.settings.theme_at = Location::caller();
         self
     }
     /// The App's locale: the language and region components format for.
@@ -83,28 +91,6 @@ impl App {
     /// window.
     pub fn min_window_size(mut self, width: impl Into<f64>, height: impl Into<f64>) -> Self {
         self.settings.min_window_size = Some(Size::new(width.into(), height.into()));
-        self
-    }
-    /// Register the fonts of a TTF, OTF or TTC file before the first
-    /// screen, so text can name their families with
-    /// `style().font_family(..)` from the start (like CSS `@font-face`).
-    /// Call it once per file; a family is the name written in the font,
-    /// not the file name. Usually embedded:
-    /// `.font(include_bytes!("../assets/Inter-Regular.ttf"))`. A file that
-    /// is not a usable font (WOFF, unreadable) is reported as
-    /// `ErrorKind::Asset`, located here; the App starts anyway.
-    #[track_caller]
-    pub fn font(mut self, font: impl Into<Asset>) -> Self {
-        self.settings.fonts.push((font.into(), Location::caller()));
-        self
-    }
-    /// Register an ordered collection of font files with the same loading and
-    /// validation behavior as [`Self::font`].
-    #[track_caller]
-    pub fn fonts(mut self, fonts: impl IntoIterator<Item = impl Into<Asset>>) -> Self {
-        for font in fonts {
-            self = self.font(font);
-        }
         self
     }
     /// Size of the blocking pool (default `min(4, CPUs)`).
@@ -219,8 +205,14 @@ impl App {
         kivact_runtime::Prop<Theme>,
         Option<crate::i18n::Locale>,
         Messages,
+        &'static Location<'static>,
     ) {
-        (self.theme, self.settings.locale, self.settings.messages)
+        (
+            self.theme,
+            self.settings.locale,
+            self.settings.messages,
+            self.settings.theme_at,
+        )
     }
 }
 
@@ -254,10 +246,11 @@ pub(crate) mod test_launch {
     pub fn retitle(app: App, title: impl Into<String>) -> App {
         app.retitle(title)
     }
-    /// Whether the App's fixed theme carries fonts (C14 fills it).
+    /// Whether the App's fixed theme carries fonts (the test host then starts without any).
     pub fn app_theme_has_fonts(app: &App) -> bool {
-        let _ = app;
-        false
+        app.theme
+            .fixed()
+            .is_some_and(|theme| !theme.fonts().is_empty())
     }
 }
 

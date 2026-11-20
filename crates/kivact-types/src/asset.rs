@@ -39,7 +39,7 @@ use std::sync::Arc;
 /// static LOGO: &[u8] = include_bytes!("../assets/logo.svg");
 /// image(LOGO);
 /// image("photos/cover.jpg");
-/// App::new("Editor").font(include_bytes!("../assets/Inter-Regular.ttf"));
+/// Theme::default().with_fonts([include_bytes!("../assets/Inter-Regular.ttf")]);
 /// ```
 #[derive(Clone)]
 pub enum Asset {

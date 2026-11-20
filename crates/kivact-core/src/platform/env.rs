@@ -42,7 +42,7 @@ pub fn is_initial_render() -> Value<bool> {
 /// The window's available font families, sorted by name without duplicates.
 ///
 /// Names retain their original case and include fonts registered with
-/// [`crate::App::font`]. This value follows changes to the font database.
+/// `Theme::with_fonts`. This value follows changes to the font database.
 /// Like other environment reads, call it from setup, a handler, task or effect;
 /// a call outside every owner reports a located `SetupOnly` misuse.
 #[track_caller]

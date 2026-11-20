@@ -10,7 +10,7 @@
 
 use kivact::prelude::*;
 use kivact::style::{Overflow, TextOverflow};
-use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, TestFonts, render, render_with};
+use kivact::test::{LayoutLimit, LayoutRule, RenderOptions, render, render_with};
 
 static NOTO: &[u8] = include_bytes!(
     "../../../../../examples/shared-assets/fonts/notosansjp/NotoSansJP-subset[wght].ttf"
@@ -19,7 +19,7 @@ static NOTO: &[u8] = include_bytes!(
 const GRAY: u32 = 0xdddddd;
 
 fn japanese() -> RenderOptions {
-    RenderOptions::from_env().fonts(TestFonts::Only(vec![kivact::view::Asset::from(NOTO)]))
+    RenderOptions::from_env().theme(kivact::style::Theme::default().with_fonts([NOTO]))
 }
 
 /// A fixed-width button whose label does not fit (its label is located at

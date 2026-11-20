@@ -7,6 +7,6 @@ fn main() -> kivact::Result<()> {
     App::new("Kivact · Official UI · Pop")
         .locale(locale())
         .messages(messages())
-        .fonts(fonts().iter().copied())
+        .theme(kivact::style::Theme::default().with_fonts(fonts().iter().copied()))
         .run(catalog)
 }

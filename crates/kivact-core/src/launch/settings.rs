@@ -3,7 +3,6 @@ use crate::App;
 use crate::i18n::{Locale, Messages};
 use crate::platform::AppHandle;
 use kivact_style::Theme;
-use kivact_style::asset::Asset;
 use kivact_types::Size;
 use std::panic::Location;
 
@@ -20,7 +19,9 @@ pub(crate) struct AppSettings {
     /// The window's minimum size (`min_window_size`).
     pub(crate) min_window_size: Option<Size>,
     pub(crate) blocking_threads: Option<usize>,
-    pub(crate) fonts: Vec<(Asset, &'static Location<'static>)>,
+    /// Where the App's theme was set (`App::theme`; `App::new` until then): the
+    /// theme's fonts are located there when they fail to register.
+    pub(crate) theme_at: &'static Location<'static>,
     /// How the window's GPU device is made (`gpu_preference`).
     pub(crate) gpu_preference: kivact_types::GpuPreference,
     /// The handle that ends this App's run from any thread (`App::handle`).

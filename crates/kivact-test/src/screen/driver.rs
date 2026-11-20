@@ -16,25 +16,22 @@ use super::model::{FIND_TIMEOUT, Record, Screen, TestApp};
 use crate::RenderOptions;
 use kivact_core::__test::{Inspect, LaunchPolicy};
 use kivact_core::view::View;
-use kivact_style::asset::Asset;
 
 /// Turns a settle may run before the App is declared never settling.
 const SETTLE_LIMIT: usize = 100_000;
 
 impl Screen {
-    /// Mount `root` on the test driver with `options`, the App fonts
-    /// `fonts` (as `App::font` passes them), and settle.
+    /// Mount `root` on the test driver with `options` and settle.
     #[track_caller]
     #[doc(hidden)]
     pub fn start(
         options: RenderOptions,
-        fonts: Vec<(Asset, &'static Location<'static>)>,
         root: Box<dyn FnOnce() -> View>,
         at: &'static Location<'static>,
     ) -> Screen {
         let record = Rc::new(Record::default());
         let name = super::artifacts::test_name(at);
-        let (app, devtools, host_options) = options.into_host(fonts);
+        let (app, devtools, host_options) = options.into_host();
         let timed = record.clone();
         let (client, launch) = kivact_core::__test::launch(
             app,
