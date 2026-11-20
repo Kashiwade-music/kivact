@@ -223,6 +223,11 @@ impl Model {
                 colors,
             },
         );
+        // A text color it moves is inherited below the node: the drawings
+        // below are made again (as each step does).
+        if colors_text {
+            self.forget_draws_below(id);
+        }
         // An entrance is drawn at its enter paint from now on.
         self.motion_changed(id);
     }
@@ -266,6 +271,11 @@ impl Model {
                 !colors_text && c != a.current_color(),
             );
             a.retarget(target, c, now, reduced);
+            // The retarget changes the text color drawn below the node, even
+            // when it settles at once: the drawings below are made again.
+            if a.colors_text(|| true) {
+                self.forget_draws_below(*id);
+            }
             let moving = !a.current_paint().transform.is_none();
             self.refresh_place(*id, moving);
             // The retarget may start or settle an opacity or transform track,
