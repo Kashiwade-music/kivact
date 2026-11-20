@@ -167,7 +167,7 @@ mod tests {
     use super::{PENDING_RESIZE_WAIT_NS, ResizeWait, negotiate, settle};
     use crate::port::embed::child::Shared;
     use arvane_shell::{NoticeSink, PanicSlot, ShellEvent, SizeReply};
-    use kivact_types::embed::Visibility;
+    use kivact_types::embed::EmbedVisibility;
     use kivact_types::{PlatformResult, RequestId, ResizeAnswer, Size};
     use std::cell::RefCell;
     use std::collections::VecDeque;
@@ -177,7 +177,7 @@ mod tests {
             1,
             1,
             1.0,
-            Visibility::Shown,
+            EmbedVisibility::Shown,
             PanicSlot::default(),
             NoticeSink::default(),
         )

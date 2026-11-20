@@ -2,7 +2,6 @@
 
 use crate::api::Client;
 use crate::contract::CloseSignal;
-use crate::contract::HostError;
 use crate::{FrameLog, host};
 pub use arvane::embed::{ChildHooks, ChildStop, EmbedNotice, PanicSlot};
 use arvane::embed::{Embedded, Embedder};
@@ -59,17 +58,26 @@ impl EmbeddedHost {
         self.host.scale()
     }
     /// Show or hide the window; queued.
-    pub fn set_visibility(&self, visibility: kivact_types::embed::Visibility) {
+    pub fn set_visibility(&self, visibility: kivact_types::embed::EmbedVisibility) {
         self.host.set_visibility(visibility);
     }
     /// Last applied visibility.
-    pub fn visibility(&self) -> kivact_types::embed::Visibility {
+    pub fn visibility(&self) -> kivact_types::embed::EmbedVisibility {
         self.host.visibility()
     }
     /// Why the host stopped, or `None` while running.
     pub fn stop(&self) -> Option<ChildStop> {
         self.host.stop()
     }
+}
+
+/// Why an embedded host did not open.
+#[derive(Debug)]
+pub enum EmbedOpenError {
+    /// This platform or build cannot embed a window.
+    Unsupported(String),
+    /// The platform failed to open it.
+    Failed(String),
 }
 
 /// Start a client inside a host window; build the client on its UI thread
@@ -80,7 +88,7 @@ pub fn embed_native(
     options: EmbedOptions,
     hooks: ChildHooks,
     client: impl FnOnce(CloseSignal) -> Client + Send + 'static,
-) -> Result<EmbeddedHost, HostError> {
+) -> Result<EmbeddedHost, EmbedOpenError> {
     let size = options.size;
     let closing = CloseSignal::new();
     let ui_closing = closing.clone();
@@ -108,7 +116,11 @@ pub fn embed_native(
         Err(e) => {
             // The failed open may have detached threads of its own.
             retain_detached();
-            Err(HostError::new(e.to_string()))
+            Err(if e.is_unsupported() {
+                EmbedOpenError::Unsupported(e.to_string())
+            } else {
+                EmbedOpenError::Failed(e.to_string())
+            })
         }
     }
 }

@@ -44,7 +44,7 @@ impl TestParent {
             width as f64,
             height as f64,
             Some(1.0),
-            kivact_types::embed::Visibility::Shown,
+            kivact_types::embed::EmbedVisibility::Shown,
         )?;
         let protocols = native
             .connection

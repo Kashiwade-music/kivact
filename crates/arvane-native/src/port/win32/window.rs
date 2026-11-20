@@ -368,7 +368,7 @@ impl State {
         native: Arc<Native>,
         instance: isize,
         scale_source: ScaleSource,
-        visibility: kivact_types::embed::Visibility,
+        visibility: kivact_types::embed::EmbedVisibility,
         unhandled_keys: kivact_types::UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
@@ -577,13 +577,13 @@ impl State {
         }
     }
     /// Apply a queued show/hide on the UI thread: a hidden child has no surface.
-    fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::Visibility) {
+    fn apply_visibility(self: &Rc<Self>, visibility: kivact_types::embed::EmbedVisibility) {
         if self.shared.stopped() {
             return;
         }
         let hwnd = self.native.hwnd();
         match visibility {
-            kivact_types::embed::Visibility::Hidden => {
+            kivact_types::embed::EmbedVisibility::Hidden => {
                 // SAFETY: focus keys read this UI thread's focus window only.
                 let focused = unsafe { GetFocus() };
                 // SAFETY: the check reads this child's parent chain only.
@@ -608,7 +608,7 @@ impl State {
                 }
                 self.shared.set_visibility(visibility);
             }
-            kivact_types::embed::Visibility::Shown => {
+            kivact_types::embed::EmbedVisibility::Shown => {
                 // SAFETY: showing without activation only targets our live child.
                 unsafe {
                     ShowWindow(hwnd, SW_SHOWNA);
@@ -621,7 +621,7 @@ impl State {
             self.surface.set(surface);
             self.event(event);
         }
-        if visibility == kivact_types::embed::Visibility::Shown {
+        if visibility == kivact_types::embed::EmbedVisibility::Shown {
             // SAFETY: invalidation only targets our live child; drawing is deferred.
             unsafe {
                 InvalidateRect(hwnd, std::ptr::null(), 0);

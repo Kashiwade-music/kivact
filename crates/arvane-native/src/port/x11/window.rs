@@ -8,7 +8,7 @@ use crate::port::embed::surface::ChildSurface;
 use crate::present::CpuSurface;
 use arvane_shell::{ShellError, ShellWindow, SizeReply};
 use kivact_types::Environment;
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 use kivact_types::{Capabilities, Cursor, Rect, Size, UnhandledKeys};
 use kivact_types::{PlatformRequest, PlatformResult};
 use std::cell::{Cell, RefCell};
@@ -61,7 +61,7 @@ impl Window {
         backend: Arc<Notifier>,
         size: (u32, u32),
         scale: f64,
-        visibility: Visibility,
+        visibility: EmbedVisibility,
         unhandled_keys: UnhandledKeys,
         on_resize_request: Option<
             Arc<dyn Fn(u32, u32) -> kivact_types::ResizeAnswer + Send + Sync>,
@@ -106,7 +106,7 @@ impl Window {
     /// Apply a show/hide on the UI thread; the boundary event, if it changed.
     pub(super) fn set_surface(
         &mut self,
-        visibility: Visibility,
+        visibility: EmbedVisibility,
     ) -> Option<arvane_shell::ShellEvent> {
         let mut surface = self.surface;
         let event = surface.apply(visibility);

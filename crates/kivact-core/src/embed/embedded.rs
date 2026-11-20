@@ -1,10 +1,9 @@
 //! Role: The running embedded App handle.
 
 use super::EmbedStatus;
-use crate::UiError;
-use kivact_engine::embed::{ChildStop, EmbeddedHost, PanicSlot};
-use kivact_runtime::ErrorKind;
-use kivact_types::embed::Visibility;
+use super::status::status_of;
+use kivact_engine::embed::{EmbeddedHost, PanicSlot};
+use kivact_types::embed::EmbedVisibility;
 
 /// An App running inside a host window. `Send` and `Sync`.
 /// Setters queue the change for the App UI thread and return at once; getters
@@ -51,21 +50,21 @@ impl Embedded {
     /// other setters. The window does not take the keyboard focus. Ignored after
     /// the App stopped.
     pub fn show(&self) {
-        self.set_visibility(Visibility::Shown);
+        self.set_visibility(EmbedVisibility::Shown);
     }
     /// Hide the editor's window (CLAP `gui.hide`). Idempotent; queued. If the
     /// editor has the keyboard focus, it goes back to the parent window first;
     /// a pressed pointer is cancelled. Drawing and frame loops stop until
     /// [`Embedded::show`].
     pub fn hide(&self) {
-        self.set_visibility(Visibility::Hidden);
+        self.set_visibility(EmbedVisibility::Hidden);
     }
     /// Whether the window is shown, as last applied on the UI thread (a queued
     /// `show`/`hide` is not reflected yet).
     pub fn is_visible(&self) -> bool {
-        self.host.visibility() == Visibility::Shown
+        self.host.visibility() == EmbedVisibility::Shown
     }
-    fn set_visibility(&self, visibility: Visibility) {
+    fn set_visibility(&self, visibility: EmbedVisibility) {
         self.host.set_visibility(visibility);
     }
     /// Set physical pixels per logical pixel, keeping physical size until the
@@ -82,19 +81,6 @@ impl Embedded {
     /// Whether the App runs, and why it stopped (CLAP: call `host->closed`;
     /// VST3: treat the view as dead when this is not `Running`).
     pub fn status(&self) -> EmbedStatus {
-        match self.host.stop() {
-            None => EmbedStatus::Running,
-            Some(ChildStop::Closed) => EmbedStatus::Closed,
-            Some(ChildStop::Failed(error)) => {
-                EmbedStatus::Failed(UiError::new(ErrorKind::Platform, error.to_string(), None))
-            }
-            Some(ChildStop::Panicked) => EmbedStatus::Panicked(UiError::new(
-                ErrorKind::Panicked,
-                self.panic
-                    .message()
-                    .unwrap_or_else(|| "the embedded App panicked".to_owned()),
-                None,
-            )),
-        }
+        status_of(self.host.stop(), &self.panic)
     }
 }

@@ -12,7 +12,7 @@
 
 use std::time::{Duration, Instant};
 
-#[cfg(feature = "embed")]
+#[cfg(all(feature = "embed", any(windows, target_os = "linux")))]
 pub(crate) const SHUTDOWN_WAIT: Duration = Duration::from_secs(2);
 
 pub(crate) fn until(done: &mut dyn FnMut() -> bool, limit: Duration) -> bool {

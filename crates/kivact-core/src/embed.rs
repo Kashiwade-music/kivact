@@ -39,7 +39,7 @@ mod parent;
 mod status;
 
 pub use embedded::Embedded;
-pub use kivact_types::embed::{ResizeAnswer, UnhandledKeys, Visibility};
+pub use kivact_types::embed::{EmbedVisibility, ResizeAnswer, UnhandledKeys};
 pub use notice::EmbedNotice;
 pub use parent::Parent;
 pub use status::EmbedStatus;

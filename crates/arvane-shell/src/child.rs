@@ -2,13 +2,13 @@
 
 use crate::{ShellError, ShellHandler};
 use kivact_types::ResizeAnswer;
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 use std::any::Any;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// A push notification an embedded child sends its host (see
 /// `kivact::embed::Parent::on_notice`).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EmbedNotice {
     /// The applied scale changed for a reason other than the host's
     /// `set_scale`: an operating-system scale change (Win32
@@ -18,8 +18,8 @@ pub enum EmbedNotice {
     ScaleChanged(f64),
     /// The child stopped: the host destroyed the parent, a platform failure
     /// stopped the App, or it panicked. Sent once, when the child's stop
-    /// status leaves running; read the stop with `ShellChild::stop`.
-    Stopped,
+    /// status leaves running, with the stop at that moment.
+    Stopped(ChildStop),
 }
 
 /// Delivers [`EmbedNotice`]s to the host's callback.
@@ -36,9 +36,9 @@ impl NoticeSink {
         Self { callback }
     }
 
-    /// Announce that the child stopped.
-    pub fn stopped(&self) {
-        self.send(EmbedNotice::Stopped);
+    /// Announce that the child stopped, and why.
+    pub fn stopped(&self, stop: ChildStop) {
+        self.send(EmbedNotice::Stopped(stop));
     }
 
     /// Announce an operating-system scale change.
@@ -167,9 +167,9 @@ pub trait ShellChild: Send + Sync {
     /// Last applied scale.
     fn scale(&self) -> f64;
     /// Show or hide the window. Queued; the getter returns the applied value.
-    fn set_visibility(&self, visibility: Visibility);
+    fn set_visibility(&self, visibility: EmbedVisibility);
     /// Last applied visibility (a queued change is not reflected yet).
-    fn visibility(&self) -> Visibility;
+    fn visibility(&self) -> EmbedVisibility;
     /// Why the window stopped, or `None` while running.
     fn stop(&self) -> Option<ChildStop>;
 }
@@ -177,7 +177,7 @@ pub trait ShellChild: Send + Sync {
 #[cfg(test)]
 mod tests {
     //! Role: Tests of panic payload messages and notice delivery.
-    use super::{EmbedNotice, NoticeSink, PanicSlot};
+    use super::{ChildStop, EmbedNotice, NoticeSink, PanicSlot};
     use std::sync::{Arc, Mutex};
 
     struct Explosive(Arc<Mutex<bool>>);
@@ -221,12 +221,15 @@ mod tests {
                 seen.lock().expect("test lock is not poisoned").push(notice);
             })))
         };
-        sink.stopped();
+        sink.stopped(ChildStop::Closed);
         sink.scale_changed(2.0);
         assert_eq!(
             *seen.lock().expect("test lock is not poisoned"),
-            [EmbedNotice::Stopped, EmbedNotice::ScaleChanged(2.0)]
+            [
+                EmbedNotice::Stopped(ChildStop::Closed),
+                EmbedNotice::ScaleChanged(2.0)
+            ]
         );
-        NoticeSink::default().stopped();
+        NoticeSink::default().stopped(ChildStop::Closed);
     }
 }

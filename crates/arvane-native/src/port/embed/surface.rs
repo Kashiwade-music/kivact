@@ -1,7 +1,7 @@
 //! Role: The embedded child's surface presence, derived from its visibility.
 
 use arvane_shell::ShellEvent;
-use kivact_types::embed::Visibility;
+use kivact_types::embed::EmbedVisibility;
 
 /// Whether the child can draw, and the surface generation that says so.
 ///
@@ -24,10 +24,10 @@ pub(in crate::port) enum ChildSurface {
 
 impl ChildSurface {
     /// The surface of a window opened with `visibility`.
-    pub(in crate::port) fn new(visibility: Visibility) -> Self {
+    pub(in crate::port) fn new(visibility: EmbedVisibility) -> Self {
         match visibility {
-            Visibility::Shown => Self::Shown { generation: 1 },
-            Visibility::Hidden => Self::Hidden { last: 0 },
+            EmbedVisibility::Shown => Self::Shown { generation: 1 },
+            EmbedVisibility::Hidden => Self::Hidden { last: 0 },
         }
     }
 
@@ -40,16 +40,16 @@ impl ChildSurface {
     }
 
     /// Apply `visibility`; the boundary event, or `None` when it did not change.
-    pub(in crate::port) fn apply(&mut self, visibility: Visibility) -> Option<ShellEvent> {
+    pub(in crate::port) fn apply(&mut self, visibility: EmbedVisibility) -> Option<ShellEvent> {
         match (visibility, &*self) {
-            (Visibility::Shown, Self::Hidden { last }) => {
+            (EmbedVisibility::Shown, Self::Hidden { last }) => {
                 let generation = last
                     .checked_add(1)
                     .expect("invariant: surface generations fit u64");
                 *self = Self::Shown { generation };
                 Some(ShellEvent::SurfaceCreated)
             }
-            (Visibility::Hidden, Self::Shown { generation }) => {
+            (EmbedVisibility::Hidden, Self::Shown { generation }) => {
                 let last = *generation;
                 *self = Self::Hidden { last };
                 Some(ShellEvent::SurfaceDestroyed)
@@ -64,25 +64,25 @@ mod tests {
     //! Role: Tests of the surface presence derived from visibility.
     use super::ChildSurface;
     use arvane_shell::ShellEvent;
-    use kivact_types::embed::Visibility;
+    use kivact_types::embed::EmbedVisibility;
 
     #[test]
     fn hidden_has_no_surface_until_shown() {
-        let mut surface = ChildSurface::new(Visibility::Hidden);
+        let mut surface = ChildSurface::new(EmbedVisibility::Hidden);
         assert_eq!(surface.generation(), None);
-        assert_eq!(surface.apply(Visibility::Hidden), None);
+        assert_eq!(surface.apply(EmbedVisibility::Hidden), None);
         assert_eq!(
-            surface.apply(Visibility::Shown),
+            surface.apply(EmbedVisibility::Shown),
             Some(ShellEvent::SurfaceCreated)
         );
         assert_eq!(surface.generation(), Some(1));
         assert_eq!(
-            surface.apply(Visibility::Hidden),
+            surface.apply(EmbedVisibility::Hidden),
             Some(ShellEvent::SurfaceDestroyed)
         );
         assert_eq!(surface.generation(), None);
         assert_eq!(
-            surface.apply(Visibility::Shown),
+            surface.apply(EmbedVisibility::Shown),
             Some(ShellEvent::SurfaceCreated)
         );
         assert_eq!(surface.generation(), Some(2));
