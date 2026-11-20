@@ -307,6 +307,7 @@ fn holds_pixels(command: &D) -> bool {
     }
 }
 
+// xtask-allow(state): keeping marks the commands kept from the last frame (set_keeping); independent
 /// Draw commands and composition pieces being built in paint order. The
 /// open layers form a stack; the root layer is never closed.
 #[derive(Debug)]
