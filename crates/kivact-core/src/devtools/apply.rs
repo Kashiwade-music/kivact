@@ -421,7 +421,7 @@ fn apply_scalar(theme: Theme, token: &str, value: &str) -> Theme {
 }
 
 /// The color theme variables a token name stands for.
-const COLOR_TOKENS: [(&str, &'static ThemeVar<Color>); 17] = [
+const COLOR_TOKENS: [(&str, &ThemeVar<Color>); 17] = [
     ("surface", &kivact_style::color::SURFACE_VAR),
     ("surface_alt", &kivact_style::color::SURFACE_ALT_VAR),
     ("text", &kivact_style::color::TEXT_VAR),
@@ -442,7 +442,7 @@ const COLOR_TOKENS: [(&str, &'static ThemeVar<Color>); 17] = [
 ];
 
 /// The length theme variables (px) a token name stands for.
-const LENGTH_TOKENS: [(&str, &'static ThemeVar<f64>); 14] = [
+const LENGTH_TOKENS: [(&str, &ThemeVar<f64>); 14] = [
     (
         "disabled_opacity",
         &kivact_style::control::DISABLED_OPACITY_VAR,
@@ -463,7 +463,7 @@ const LENGTH_TOKENS: [(&str, &'static ThemeVar<f64>); 14] = [
 ];
 
 /// The weight theme variables a token name stands for.
-const WEIGHT_TOKENS: [(&str, &'static ThemeVar<u16>); 2] = [
+const WEIGHT_TOKENS: [(&str, &ThemeVar<u16>); 2] = [
     ("text.weight", &kivact_style::font::WEIGHT_VAR),
     ("text.weight_strong", &kivact_style::font::WEIGHT_STRONG_VAR),
 ];
