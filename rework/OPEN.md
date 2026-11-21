@@ -1392,3 +1392,15 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
     - `fn a_recipe_that_reads_the_input_runs_again_on_hover()`：`s.input.is_hovered()` を読む layer は、hover で 1 回増える。
   - **kit**：W9 の kit の lane の `s.input.is_*()` と `input: PartState` の field は、そのまま compile する。field を直に読む所（`.focus`、`.availability`）があれば `.get().focus` にする。これは P3 の merge の後、各 lane が統合を取り込むときの機械的な直しとして、lane の fix の commit で行ってよい。
   - **確認**：tier a（`kivact-core`・`kivact-ui`・`kivact-interaction`・devtools の test、workspace の clippy、XK と XD を除外）、e2e_core・e2e_ui の全件。kv_latency は時間の比べ方が不安定なので、Orchestrator は測らない。設計者が確保の回数と effect の実行の回数で確かめる。
+
+## 設計者の回答（K30 の stepper、K31 の C4・STOP 3 件、2026-11-22）
+
+- **K30 の stepper の hover・pressed**：(a) でも (b) でもない。中核の stepper の項目は、`disabled` でなければ常に押せる（W7a の U23 の食い違い 7 の決め）。だから旧の `s.interactive && !s.disabled` は `!s.disabled` と同じ。hover・pressed の paint は state の style で書く：`if !s.disabled { base.hover(style()..).active(style()..) }`（中身は旧の paint の値のまま）。`StepperItemState` に field は足さない。
+- **K31 の C4**：C4 の文面どおりにする。`Element` の method と同じ名前（`variant`、`on_press`、`description` など）は props にしない。部品の引数に `#[caller] caller: Caller` を書き、caller が付けた値を読む。理由：`.variant(..)` が部品によって Element の variant だったり props だったりすると、利用者には区別が付かない（API の一貫性）。
+  - K31 の divider・section・status_dot・citation・alert_dialog・link・token は、lane K5 の fix の commit で直す。
+  - `Caller` に要る値（`on_press` の handler、`description`）を読む方法が無ければ、その名前を挙げて返す（STOP）。
+  - Orchestrator の言う「先行例」（Element の method の名前を props にしている所）が中核や他の kit にあれば、その一覧を返す（直すかを私が決める）。
+  - K32 以降も C4 のとおりにする。
+- **K31 の alert_dialog**：`node().child(dialog)` で包まない（包む node が layout と a11y に一つ増え、caller の modifier の行き先が変わる）。soft の `alert_dialog` は、中核の `Dialog` の builder を返す関数にする：`pub fn alert_dialog(title: impl IntoText, open: Signal<bool>) -> kivact::ui::Dialog`。本体は `kivact::ui::dialog(title, open).mode(DialogKind::AlertModal)` に、soft の見た目の variant を付ける。caller の modifier は中核の `Dialog` の setter に付く。soft の部品の型（`AlertDialog`）は作らない。今の alert_dialog の props が `Dialog` の setter（`content`、`footer`、`description`、`dismiss` など）で表せなければ、その props の一覧を返す。
+- **K31 の indicator の `input`**：P3 の merge で `PartState` は読んだときだけ追う `Copy` の handle になったので、`IntoValue` は要らない。props の型を `PartState` にし、本体の反応する closure の中で `input.is_hovered()` などを読む。生きている part の handle を渡せば反応する。既定は `PartState::default()`（固定の値）。K32 の indicator の直しで行う。
+- **K31 の theme_scope の白**：`ON_DARK_VAR` を白の代わりに使わない（意味が違う名前に頼ると、theme が `ON_DARK` を変えたときに壊れる）。soft の `color.rs` に色の変数 `WHITE`（`"soft.white"`、light・dark とも `rgb(0xffffff)`。literal は `color.rs` の中なので kit-literal-color の規則に当たらない）を足して使う。lane K5 の fix の commit で行う。
