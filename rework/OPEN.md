@@ -700,3 +700,12 @@ S20（commit `c0904ec4`、subagent の報告の J1〜J5）。
 - **(1) 通知の数**：付属書の手順 4 が誤っていた。`RendererChange` は「その window の frame を何で描くか」の通知なので、window ごとに出す（Orchestrator の直しの形を採る）。device が Driver に一つであることは、通知の数ではなく、各 window の `Window::gpu_adapter()` の `generation` が同じことで確かめる。付属書 A13 の手順 4 と、試験 `two_windows_of_one_driver_share_one_gpu_device`（`Gpu` は window ごとに 1 回・計 2 回、generation が同じ）、`two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing`（generation が違う）を直した。
 - **(2) 開き直した window の device**：DEC-08 が正で、試験の期待を直す。`each_window_opened_again_starts_its_own_device_on_demand` を `each_window_opened_again_draws_on_the_drivers_one_device` に改名し、generation が round ごとに同じことを期待する。main の window が CPU のままである期待は残す。そのため、付属書に手順 4b を足した：`WindowGpu` に `Waiting` を足し（4 variant）、`OnDemand` では adapter を読んだ window だけが GPU で描く（device ができても、読まない window は CPU のまま）。
 - lane A1 は `8fed6148` の上で、直した付属書 A13 の 4・4b と試験に合わせ、A13 の確認をやり直してから進む。
+
+## Orchestrator の判断（W7a・U20・U21・U25・A14・E22、2026-11-21）
+
+- **U20（`8a96e844`）**：採る。`clippy -p kivact-ui` は arvane-native の既存の unused import（Windows の `RECT`・`GetWindowRect`）で落ちる。クリッピーは path の依存も lint するため。tier b（workspace）では通っている。`--no-deps` で対象 crate だけ見る。
+- **U21（`6abda8f2`）の STOP（spinner の `reduced_period`）**：採る。4.3 の fallback 1000 にすると、reduced motion で装飾の動きが止まる挙動（None）が変わる。`reduced_period(Option<f64>) = None` の setting にして、挙動を保つ。設計者に確認：付属書 4.3 の spinner の行。
+- **U21 の食い違い（設計者に確認）**：(a) combobox の `FOCUS_RING` は 4.3 の fallback 2 に従った。旧は theme の `focus_ring()` を読んでいた。テーマで focus ring を変えた利用者は、combobox の見た目が変わる。(b) tree の `RADIUS` は SM のまま（見た目を変えない。4.3 は MD）。(c) tree の試験は `INDENT` でなく `PADDING` を確かめる（付属書の INDENT は 16 固定）。(d) spinner に `GAP`（6）を足した（`indicators.gap` も読むため）。採る。
+- **U25（`e2e0b710`）**：採る。`#[caller]` の binding は、書かれた型（`Caller`）を使う（試験の `use` に合わせる）。`Children` の試験は付属書の形（`shelf((depth_text(),))`）。`absorb` の disabled の OR は設計書 5.1 の規則 2 どおり。挙動が変わる（本体と呼出し側の両方が disabled を書く部品）ので、E2E は component_macro だけを走らせた。他の試験は tier b で確かめる。
+- **A14（`f5382490`）**：採る（付属書との食い違い 1〜8）。`Lent::drop` は常に `give_back`、`forget` は `Session::dispose` の panic 分岐。`State::stop` は `needs_cleanup()` を使う（`accepts_callbacks()` では片付かない）。`stopped_outside_callback` は win32 と x11 で呼ぶ。`Child::stop_idle` の `Calling` の扱いは付属書の表に無い（記録）。Linux の check は成功（x11 の E2E は未実行。WSLg で確認が要る）。
+- **E22（`750ad059`）**：採る。`Writes` の印は xtask が未使用と判定したので外した（0.5 の行）。`kivact-engine --features testing` の DLL 初期化の失敗（0xc0000142）は、再実行では出なかった（環境の一時的な失敗として記録）。`e2e_native --all-features -- devtools::` は 1 件成功。
