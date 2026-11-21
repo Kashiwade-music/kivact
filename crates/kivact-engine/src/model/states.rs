@@ -87,28 +87,27 @@ fn merge(p: &mut PaintProps, d: &PaintDelta) {
 
 impl Model {
     /// The state deltas of `id` that apply now, lowest first.
-    pub(crate) fn active_deltas(&self, id: NodeId) -> Vec<&PaintDelta> {
+    pub(crate) fn active_deltas(&self, id: NodeId) -> impl Iterator<Item = &PaintDelta> + '_ {
         self.deltas(id, false)
     }
 
     /// The state deltas of `id` that apply now, lowest first; with `entering`,
-    /// its enter paint too.
-    fn deltas(&self, id: NodeId, entering: bool) -> Vec<&PaintDelta> {
-        let Some(s) = self.tree.get(id).and_then(|n| n.states()) else {
-            return Vec::new();
-        };
-        let mut wanted = StateSet::EMPTY;
-        for state in StyleState::HOST {
-            if s.delta(state).is_some() {
-                wanted.insert(state);
+    /// its enter paint too. Nothing is collected: the caller takes what it reads.
+    fn deltas(&self, id: NodeId, entering: bool) -> impl Iterator<Item = &PaintDelta> + '_ {
+        let states = self.tree.get(id).and_then(|n| n.states());
+        let active = states.map_or(StateSet::EMPTY, |s| {
+            let mut wanted = StateSet::EMPTY;
+            for state in StyleState::HOST {
+                if s.delta(state).is_some() {
+                    wanted.insert(state);
+                }
             }
-        }
-        let active = self.active_states(id, entering, wanted);
+            self.active_states(id, entering, wanted)
+        });
         StyleState::HOST
             .into_iter()
-            .filter(|state| active.contains(*state))
-            .filter_map(|state| s.delta(state))
-            .collect()
+            .filter(move |state| active.contains(*state))
+            .filter_map(move |state| states.and_then(|s| s.delta(state)))
     }
 
     /// The states among `wanted` that `id` is in now. Only those are
@@ -265,7 +264,7 @@ impl Model {
     pub(crate) fn paint_now(&self, id: NodeId) -> Cow<'_, PaintProps> {
         if self.motion.get(id).is_none()
             && self.layout_motion_scale(id).is_none()
-            && self.active_deltas(id).is_empty()
+            && self.active_deltas(id).next().is_none()
             && let Some(p) = self.tree.get(id).and_then(|n| n.paint())
         {
             return Cow::Borrowed(p);
@@ -277,9 +276,8 @@ impl Model {
     /// deltas' (a cursor does not transition).
     pub(crate) fn cursor_now(&self, id: NodeId) -> kivact_types::Cursor {
         self.active_deltas(id)
-            .iter()
-            .rev()
-            .find_map(|d| d.cursor)
+            .filter_map(|d| d.cursor)
+            .last()
             .or_else(|| self.tree.get(id).and_then(|n| n.paint()).map(|p| p.cursor))
             .unwrap_or(PaintProps::default().cursor)
     }
@@ -321,9 +319,8 @@ impl Model {
             }
             if let Some(c) = self
                 .deltas(x, entering && x == id)
-                .into_iter()
                 .filter_map(|d| d.text_color)
-                .next_back()
+                .last()
             {
                 return c;
             }

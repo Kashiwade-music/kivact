@@ -1,5 +1,8 @@
 //! Role: A state style applies every property to its node (ST-05), and a paint callback of a state replaces the base's while the state applies.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use kivact::prelude::*;
 use kivact::test::{Screen, render};
 use kivact_public_api_tests::paint::{BLUE, GREEN, RED, WHITE, at, canvas_of, expect};
@@ -208,5 +211,31 @@ fn a_base_paint_comes_back_after_the_state() {
     expect(&screen.screenshot(), 20, 20, RED, 0, "hovered");
     screen.mouse_leave();
     expect(&screen.screenshot(), 20, 20, BLUE, 0, "base paint returns");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn pressing_again_does_not_run_the_style_layers_again() {
+    let runs = Rc::new(Cell::new(0));
+    let counted = Rc::clone(&runs);
+    let screen = render(move || {
+        canvas_of(node().test_id("box").style(move || {
+            counted.set(counted.get() + 1);
+            at(0, 0, 40, 20).active(style().height(40))
+        }))
+    });
+    screen.get_by_test_id("box").hover();
+    screen.mouse_down(MouseButton::Primary);
+    screen.mouse_up(MouseButton::Primary);
+    let settled = runs.get();
+    screen.mouse_down(MouseButton::Primary);
+    assert_eq!(height_of(&screen, "box"), 40.0, "pressed again");
+    screen.mouse_up(MouseButton::Primary);
+    assert_eq!(height_of(&screen, "box"), 20.0, "released again");
+    assert_eq!(
+        runs.get(),
+        settled,
+        "the layers run again only when what they read changes, not on a press"
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
