@@ -1,12 +1,49 @@
 //! Role: Derive semantic hierarchy and boxless bounds from retained nodes.
 use crate::contract::NodeType;
 use crate::model::Model;
+use crate::semantic_role;
 use crate::tree::node::Positioning;
 use kivact_types::{NodeId, Point, Rect};
 
 impl Model {
+    /// A fragment: a boxless group (`display: contents`) with neither a role
+    /// nor a name. The accessibility tree does not publish it, as a browser
+    /// leaves out a `display: contents` element without a role.
+    pub(super) fn is_fragment(&self, id: NodeId) -> bool {
+        self.node(id).is_some_and(|n| {
+            n.is_transparent()
+                && semantic_role(n, self.slots.editors[n.index.0].is_some()).is_none()
+                && n.name().is_none_or(str::is_empty)
+        })
+    }
+
+    /// The published children of `id`: its logical children, with each
+    /// fragment replaced by its own published children (so they belong to the
+    /// nearest published ancestor).
     pub(super) fn semantic_children(&self, id: NodeId) -> Vec<NodeId> {
-        self.tree().logical_children(id)
+        let mut out = Vec::new();
+        let mut stack: Vec<_> = self.tree().logical_children(id).into_iter().rev().collect();
+        while let Some(child) = stack.pop() {
+            if self.is_fragment(child) {
+                stack.extend(self.tree().logical_children(child).into_iter().rev());
+            } else {
+                out.push(child);
+            }
+        }
+        out
+    }
+
+    /// The published parent of `id`: its tree parent, or the nearest
+    /// ancestor that is published.
+    pub(super) fn semantic_parent(&self, id: NodeId) -> Option<NodeId> {
+        let mut at = self.tree().get(id).and_then(|n| self.tree().parent_id(n));
+        while let Some(parent) = at.filter(|parent| self.is_fragment(*parent)) {
+            at = self
+                .tree()
+                .get(parent)
+                .and_then(|n| self.tree().parent_id(n));
+        }
+        at
     }
 
     pub(super) fn semantic_order(&self) -> Vec<NodeId> {

@@ -184,7 +184,7 @@ impl Model {
         };
         for &id in &order {
             let Some(n) = self.node(id) else { continue };
-            metadata.parents.insert(id, self.tree().parent_id(n));
+            metadata.parents.insert(id, self.semantic_parent(id));
             let mut children = DefaultHasher::new();
             let mut count = 0usize;
             for child in self.semantic_children(id) {

@@ -78,8 +78,7 @@ impl Model {
 
         let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
         let children: Vec<kivact_types::SemanticsId> = self
-            .tree()
-            .logical_children(id)
+            .semantic_children(id)
             .into_iter()
             .map(|id| kivact_types::SemanticsId(id.0))
             .collect();
