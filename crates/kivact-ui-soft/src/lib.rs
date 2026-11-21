@@ -11,8 +11,10 @@
 mod avatar;
 mod banner;
 mod blockquote;
+mod card;
 mod code;
 mod color;
+mod divider;
 mod hover_card;
 mod icon;
 mod icons;
@@ -48,6 +50,7 @@ mod recipes_overlays_command;
 mod recipes_overlays_dialog;
 mod recipes_overlays_menu;
 mod recipes_overlays_select;
+mod section;
 mod shadows;
 mod space;
 mod stack;
@@ -61,6 +64,7 @@ mod visually_hidden;
 pub use avatar::{AvatarSilhouette, avatar_silhouette};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
+pub use card::with_card_insets;
 pub use code::{Code, CodeColor, code};
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
@@ -92,6 +96,7 @@ pub use color::{
     TEXT_ERROR, TEXT_INFO, TEXT_PRIMARY, TEXT_SECONDARY, TEXT_SUCCESS, TEXT_WARNING, TINT_HOVER,
     TRACK, WARNING, WARNING_MUTED,
 };
+pub use divider::{Divider, DividerVariant, divider};
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
@@ -103,6 +108,7 @@ pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,
 };
+pub use section::{Section, SectionEdges, SectionVariant, section};
 pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
     SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,
