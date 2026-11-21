@@ -46,13 +46,14 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = set_ui_table(theme, mode);
     let theme = crate::recipes_controls::install(theme);
     let theme = crate::recipes_overlays::install(theme);
+    let theme = crate::recipes_navigation::install(theme);
     // Before `settings`: `settings` re-installs the tables it tunes.
     let theme = crate::recipes_feedback::install(theme);
     let theme = crate::recipes_metrics::install(theme);
     let theme = crate::recipes_chat::install(theme);
+    let theme = crate::recipes_input::install(theme);
     let theme = crate::recipes_calendar::install(theme);
     let theme = crate::recipes_code::install(theme);
-    let theme = crate::recipes_input::install(theme);
     let theme = settings(theme);
     theme
         .with_focus_ring(m::FOCUS_RING_WIDTH)

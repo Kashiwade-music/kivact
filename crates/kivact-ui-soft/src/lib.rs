@@ -29,6 +29,7 @@ mod recipes_feedback_empty;
 mod recipes_field;
 mod recipes_input;
 mod recipes_metrics;
+mod recipes_navigation;
 mod recipes_overlays;
 mod recipes_overlays_command;
 mod recipes_overlays_dialog;

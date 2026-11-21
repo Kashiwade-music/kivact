@@ -1,68 +1,45 @@
-//! Role: Style canonical navigation landmarks and rich panel links.
+//! Role: Install Astryx Neutral's recipes of the navigation group: the navigation menu's bar, triggers, panels and links.
+use crate::color as c;
+use crate::metrics as m;
+use crate::motion::FAST_MAX;
+use crate::radius as r;
+use crate::recipe_parts::{ring, shadowed, text, tween};
+use crate::shadows;
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::interaction::NavOpen;
-use kivact::style::{Align, Color, Direction, Style, Theme, style};
-use kivact::ui::{Look, NavigationLinkState, NavigationMenuRecipes, NavigationTriggerState};
-fn direction() -> Direction {
-    if crate::stack::rtl() {
-        Direction::RowReverse
+use kivact::style::{Align, Color, FlexDirection, Justify, Style, Theme, ThemeMode, style};
+use kivact::ui::theme::{Look, NavigationLinkState, NavigationMenuTheme, NavigationTriggerState};
+use kivact::view::{ReadingDirection, use_direction};
+
+/// The flow of a row of navigation parts: reversed in a right-to-left reading direction.
+fn flow() -> FlexDirection {
+    if use_direction() == ReadingDirection::Rtl {
+        FlexDirection::RowReverse
     } else {
-        Direction::Row
+        FlexDirection::Row
     }
 }
-pub(crate) fn navigation_menu(r: NavigationMenuRecipes) -> NavigationMenuRecipes {
-    r.root(|_| {
-        |_: &Theme, _: &Look<NavOpen>| {
-            style()
-                .direction(direction())
-                .align_items(Align::Center)
-                .gap(4)
-                .padding(0)
-        }
-    })
-    .trigger(|_| trigger)
-    .action(|_| |t: &Theme, _: &Look<NavOpen>| item(t, false))
-    .panel(|_| panel)
-    .link(|_| link)
-    .link_title(|_| {
-        |t: &Theme, _: &Look<NavigationLinkState>| {
-            let t = t.ext::<crate::Tokens>();
-            let f = t.typography.body;
-            style()
-                .font_size(f.size_px)
-                .line_height(f.line_height_px / f.size_px)
-                .weight(t.typography.weight_semibold)
-                .color(t.colors.text_primary)
-        }
-    })
-    .link_description(|_| {
-        |t: &Theme, _: &Look<NavigationLinkState>| {
-            let t = t.ext::<crate::Tokens>();
-            let f = t.typography.supporting;
-            style()
-                .font_size(f.size_px)
-                .line_height(f.line_height_px / f.size_px)
-                .color(t.colors.text_secondary)
-        }
-    })
-    .link_icon(|_| {
-        |t: &Theme, _: &Look<NavigationLinkState>| {
-            let t = t.ext::<crate::Tokens>();
-            style()
-                .size(40, 40)
-                .shrink(0)
-                .radius(t.radius.element)
-                .background(t.colors.neutral)
-                .color(t.colors.icon_secondary)
-                .align_items(Align::Center)
-                .justify_content(kivact::style::Justify::Center)
-        }
-    })
-}
-fn item(theme: &Theme, open: bool) -> Style {
-    let t = theme.ext::<crate::Tokens>();
-    let font = t.typography.label;
+
+/// The bar of the navigation menu: its items in a centered row.
+fn root(_theme: &Theme, _s: &Look<NavOpen>, _base: Style) -> Style {
     style()
-        .direction(direction())
+        .flex_direction(flow())
+        .align_items(Align::Center)
+        .gap(4)
+        .padding(0)
+}
+
+/// One item of the bar: the label in the label role, with the hover and pressed fills, and the open
+/// fill when it is open.
+fn item(open: bool) -> Style {
+    let fill = if open {
+        c::OVERLAY_HOVER
+    } else {
+        Color::TRANSPARENT
+    };
+    style()
+        .flex_direction(flow())
         .align_items(Align::Center)
         .gap(8)
         .padding_x(12)
@@ -70,32 +47,33 @@ fn item(theme: &Theme, open: bool) -> Style {
         .height(kivact::style::auto())
         .min_height(0)
         .min_width(0)
-        .border(0, Color::TRANSPARENT)
-        .radius(t.radius.element)
-        .font_size(font.size_px)
-        .line_height(font.line_height_px / font.size_px)
-        .weight(font.weight)
+        .border(0.0, Color::TRANSPARENT)
+        .border_radius(r::RADIUS_ELEMENT)
+        .font_size(t::LABEL.size_px)
+        .line_height(t::LABEL.line_height_px / t::LABEL.size_px)
+        .font_weight(t::LABEL.weight)
         .color(if open {
-            t.colors.text_primary
+            c::TEXT_PRIMARY
         } else {
-            t.colors.text_secondary
+            c::TEXT_SECONDARY
         })
-        .background(if open {
-            t.colors.overlay_hover
-        } else {
-            Color::TRANSPARENT
-        })
-        .hover(style().background(t.colors.overlay_hover))
-        .pressed(style().background(t.colors.overlay_pressed))
-        .disabled(style().opacity(t.sizes.disabled_opacity))
-        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
+        .background(fill)
+        .hover(style().background(c::OVERLAY_HOVER))
+        .active(style().background(c::OVERLAY_PRESSED))
+        .disabled(style().opacity(m::DISABLED_OPACITY))
+        .focus_visible(ring(c::ACCENT))
 }
-fn trigger(theme: &Theme, s: &Look<NavigationTriggerState>) -> Style {
-    let t = theme.ext::<crate::Tokens>();
-    let ink = t.colors.text_secondary;
+
+/// The action item of the bar: the item in its closed state.
+fn action(_theme: &Theme, _s: &Look<NavOpen>, _base: Style) -> Style {
+    item(false)
+}
+
+/// The trigger of a menu item: the item with room for a chevron, which turns when the menu is open.
+fn trigger(_theme: &Theme, s: &Look<NavigationTriggerState>, _base: Style) -> Style {
     let open = s.open;
-    let rtl = crate::stack::rtl();
-    let base = item(theme, open);
+    let rtl = use_direction() == ReadingDirection::Rtl;
+    let base = item(open);
     let base = if rtl {
         base.padding_left(36)
     } else {
@@ -113,54 +91,89 @@ fn trigger(theme: &Theme, s: &Look<NavigationTriggerState>) -> Style {
                 .line_to(Point::new(x, y + 2.0 * flip))
                 .line_to(Point::new(x + 4.0, y - 2.0 * flip)),
             &Stroke::new(1.5),
-            ink,
+            c::TEXT_SECONDARY,
         );
     })
 }
-fn panel(theme: &Theme, _: &Look<NavOpen>) -> Style {
-    let t = theme.ext::<crate::Tokens>();
+
+/// The panel of a menu item: a popover column that fades and slides in, on the low shadow.
+fn panel(theme: &Theme, _s: &Look<NavOpen>, _base: Style) -> Style {
     let hidden = style()
         .opacity(0.0)
-        .translate_y(-t.spacing.s2)
+        .translate_y(-theme.get(&s::SPACE_S2_VAR))
         .scale_xy(0.95, 0.95);
     let base = style()
-        .direction(Direction::Column)
-        .padding(t.spacing.s1)
-        .gap(t.spacing.s1)
+        .flex_direction(FlexDirection::Column)
+        .padding(s::SPACE_S1)
+        .gap(s::SPACE_S1)
         .min_width(280)
-        .background(t.colors.bg_popover)
-        .radius(t.radius.container)
-        .border(0, Color::TRANSPARENT)
-        .enter(hidden)
-        .transition(
-            kivact::style::TransitionProp::All,
-            kivact::motion::Transition::tween(
-                t.motion.fast_max as f64,
-                t.motion.ease_standard.clone(),
-            ),
-        );
-    t.shadows.low.iter().copied().fold(base, Style::shadow)
+        .background(c::BG_POPOVER)
+        .border_radius(r::RADIUS_CONTAINER)
+        .border(0.0, Color::TRANSPARENT)
+        .enter(hidden);
+    shadowed(
+        tween(base, FAST_MAX),
+        shadows::low(theme.mode() == ThemeMode::Dark),
+    )
 }
-fn link(theme: &Theme, s: &Look<NavigationLinkState>) -> Style {
-    let t = theme.ext::<crate::Tokens>();
+
+/// A link in a panel: the row of its icon, title and description, with the hover fill.
+fn link(_theme: &Theme, look: &Look<NavigationLinkState>, _base: Style) -> Style {
+    let hovered = !look.input.is_disabled() && (look.input.is_hovered() || look.input.is_focused());
+    let fill = if hovered {
+        c::OVERLAY_HOVER
+    } else {
+        Color::TRANSPARENT
+    };
     style()
-        .direction(direction())
-        .align_items(if s.has_description {
+        .flex_direction(flow())
+        .align_items(if look.has_description {
             Align::Start
         } else {
             Align::Center
         })
-        .gap(t.spacing.s3)
-        .padding(t.spacing.s3)
+        .gap(s::SPACE_S3)
+        .padding(s::SPACE_S3)
         .min_width(0)
-        .radius(t.radius.element)
-        .background(
-            if !s.input.is_disabled() && (s.input.is_hovered() || s.input.is_focused()) {
-                t.colors.overlay_hover
-            } else {
-                Color::TRANSPARENT
-            },
-        )
-        .disabled(style().opacity(t.sizes.disabled_opacity))
-        .focus_visible(crate::recipe_style::ring(&t, t.colors.accent))
+        .border_radius(r::RADIUS_ELEMENT)
+        .background(fill)
+        .disabled(style().opacity(m::DISABLED_OPACITY))
+        .focus_visible(ring(c::ACCENT))
+}
+
+/// A link's title: the body text in the semibold weight.
+fn link_title(_theme: &Theme, _s: &Look<NavigationLinkState>, _base: Style) -> Style {
+    text(style(), t::BODY, c::TEXT_PRIMARY).font_weight(t::WEIGHT_SEMIBOLD)
+}
+
+/// A link's description: the supporting text.
+fn link_description(_theme: &Theme, _s: &Look<NavigationLinkState>, _base: Style) -> Style {
+    text(style(), t::SUPPORTING, c::TEXT_SECONDARY)
+}
+
+/// A link's icon: a neutral square tile with the secondary icon color.
+fn link_icon(_theme: &Theme, _s: &Look<NavigationLinkState>, _base: Style) -> Style {
+    style()
+        .size(40.0, 40.0)
+        .flex_shrink(0.0)
+        .border_radius(r::RADIUS_ELEMENT)
+        .background(c::NEUTRAL)
+        .color(c::ICON_SECONDARY)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+}
+
+/// Install the kit's recipes of the navigation group.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme.with(
+        NavigationMenuTheme::default()
+            .root(root)
+            .action(action)
+            .trigger(trigger)
+            .panel(panel)
+            .link(link)
+            .link_title(link_title)
+            .link_description(link_description)
+            .link_icon(link_icon),
+    )
 }
