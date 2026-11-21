@@ -694,3 +694,9 @@ S20（commit `c0904ec4`、subagent の報告の J1〜J5）。
 - **S22 の食い違い 6（確認事項・設計者へ）**：span の変換で捨てる Style の text 系 property（`line_height`・`text_align`・`text_shadow`・`overflow`・`transform`・caret・selection・placeholder の色など）は、`Unsupported` に数えていない。付属書どおりだが、黙って捨てる。数えるかは設計者が決める（ST-31 の「数えて報告する」との関係）。
 - **S22 の食い違い 8（kit の旧い field）**：kivact-ui-basic（`code_block/highlight.rs`）と kivact-ui-soft（`rich_blocks.rs`、`code_syntax.rs`）は旧い `StyledRange` の field を使う。DEC-14 の compile の対象外なので直していない。W9 の kit の unit で直す。記録する。
 - **S22 の食い違い 9（既存の別件・確認事項）**：`resolve_extras` は paragraph の features に `tabular_nums` を足しておらず、engine に `tabular_nums` の参照も無いので、paragraph の `tabular_nums()` が効いていないように見える。S22 の範囲外。未確認。設計者が見る（後で W11 の G の確認か、別の unit）。
+
+## 設計者の回答（W7a・A13 の差戻し、2026-11-21）
+
+- **(1) 通知の数**：付属書の手順 4 が誤っていた。`RendererChange` は「その window の frame を何で描くか」の通知なので、window ごとに出す（Orchestrator の直しの形を採る）。device が Driver に一つであることは、通知の数ではなく、各 window の `Window::gpu_adapter()` の `generation` が同じことで確かめる。付属書 A13 の手順 4 と、試験 `two_windows_of_one_driver_share_one_gpu_device`（`Gpu` は window ごとに 1 回・計 2 回、generation が同じ）、`two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing`（generation が違う）を直した。
+- **(2) 開き直した window の device**：DEC-08 が正で、試験の期待を直す。`each_window_opened_again_starts_its_own_device_on_demand` を `each_window_opened_again_draws_on_the_drivers_one_device` に改名し、generation が round ごとに同じことを期待する。main の window が CPU のままである期待は残す。そのため、付属書に手順 4b を足した：`WindowGpu` に `Waiting` を足し（4 variant）、`OnDemand` では adapter を読んだ window だけが GPU で描く（device ができても、読まない window は CPU のまま）。
+- lane A1 は `8fed6148` の上で、直した付属書 A13 の 4・4b と試験に合わせ、A13 の確認をやり直してから進む。
