@@ -1,5 +1,7 @@
 //! Role: Display images in a modal gallery with captions and zoom.
-use crate::recipes_dialog::{body_text, scrim};
+use crate::color as c;
+use crate::recipe_parts::{body_text, scrim};
+use kivact::style::use_theme;
 
 use kivact::interaction::use_dialog;
 use kivact::motion::Easing;
@@ -249,10 +251,7 @@ impl IntoView for Lightbox {
             let controls = gallery_paging(media, active, step);
             let backdrop = node()
                 .with_node(move |node| node.role(Role::Generic))
-                .style(|| {
-                    scrim(&kivact::style::use_tokens::<crate::Tokens>())
-                        .position(Position::Absolute)
-                })
+                .style(|| scrim(&use_theme().get()).position(Position::Absolute))
                 .on_press(move || open.set(false));
             let frame = column((backdrop, content, close, zoom_control, controls))
                 .style(|| {
@@ -285,7 +284,7 @@ fn control_position() -> Style {
         .position(Position::Absolute)
         .size(32, 32)
         .padding(0)
-        .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+        .color(c::ON_DARK)
 }
 
 fn gallery_transform(view: Signal<LightboxView>) -> Signal<ViewTransform> {
@@ -334,8 +333,8 @@ fn gallery_image(
             style()
                 .width(pct(100))
                 .min_height(0)
-                .grow(1)
-                .shrink(1)
+                .flex_grow(1)
+                .flex_shrink(1)
                 .translate(x, y)
                 .scale_xy(scale, scale)
                 .transition(TransitionProp::All, Transition::tween(200, Easing::EaseOut))
@@ -363,15 +362,15 @@ fn gallery_image(
             .padding_top(8)
             .padding_x(12)
             .max_width(600)
-            .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark),
+            .color(c::ON_DARK),
     );
     let error = kivact::i18n::message("soft.lightbox.image_unavailable", "Image unavailable");
     let fallback = text(move || if failed() { error.get() } else { String::new() })
         .with_node(move |node| node.role(Role::Status))
         .live_region(LiveRegion::Polite)
         .style(move || {
-            body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+            body_text(style())
+                .color(c::ON_DARK)
                 .position(Position::Absolute)
         });
     column((photo, fallback, caption)).style(
@@ -441,8 +440,8 @@ fn gallery_paging(
                 .style(control_position().top(pct(50)).right(12).margin_top(-16));
             let counter =
                 text(move || format!("{} / {}", active() + 1, media.get().len())).style(|| {
-                    body_text(&kivact::style::use_tokens::<crate::Tokens>())
-                        .color(kivact::style::use_tokens::<crate::Tokens>().colors.on_dark)
+                    body_text(style())
+                        .color(c::ON_DARK)
                         .position(Position::Absolute)
                         .top(12)
                         .left(12)

@@ -13,6 +13,7 @@ mod avatar;
 mod avatar_status_dot;
 mod banner;
 mod blockquote;
+mod bottom_sheet;
 mod card;
 mod choice_list;
 mod citation;
@@ -30,6 +31,7 @@ mod icons;
 mod indicator;
 mod key_hints;
 mod layout;
+mod lightbox;
 mod link;
 mod media_overlay;
 mod media_query;
@@ -37,6 +39,7 @@ mod metrics;
 mod more_menu;
 mod motion;
 mod navigation_session;
+mod outline;
 mod power_search;
 mod radius;
 mod recipe_parts;
@@ -70,6 +73,7 @@ mod recipes_overlays_select;
 mod scrollable_area;
 mod section;
 mod shadows;
+mod soft_overflow;
 mod soft_table;
 mod space;
 mod stack;
@@ -77,6 +81,7 @@ mod text;
 mod theme;
 mod theme_policy;
 mod theme_scope;
+mod thumbnail;
 mod token;
 mod type_scale;
 mod variants;
@@ -87,6 +92,9 @@ pub use avatar::{AvatarSilhouette, avatar_silhouette};
 pub use avatar_status_dot::{AvatarStatus, avatar_status_dot};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
+pub use bottom_sheet::{
+    BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
+};
 pub use card::with_card_insets;
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
@@ -143,10 +151,12 @@ pub use layout::{
     Layout, LayoutHeight, LayoutInset, LayoutRegion, layout, layout_content, layout_header,
     layout_panel,
 };
+pub use lightbox::{Lightbox, LightboxHandle, LightboxMedia, lightbox, use_lightbox};
 pub use link::{Link, LinkColor, link};
 pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
 pub use media_query::Breakpoint;
 pub use more_menu::{MoreMenu, more_menu};
+pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
@@ -154,6 +164,7 @@ pub use radius::{
 };
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, section};
+pub use soft_overflow::{CollapseFrom, OverflowList, OverflowMeasure, overflow_list};
 pub use soft_table::{
     RowStatusTone, TableSelectionToolbar, table_row_index, table_row_status,
     table_selection_toolbar,
@@ -173,6 +184,7 @@ pub use text::{
 };
 pub use theme::theme;
 pub use theme_scope::{MediaMode, media_theme};
+pub use thumbnail::{RemoveReveal, Thumbnail, thumbnail};
 pub use token::{Token, TokenColor, token};
 pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
@@ -182,9 +194,8 @@ pub use variants::{
     HeadingDisplay, ItemAlign, ItemDensity, ItemHighlighted, ItemLayout, LabelPosition,
     ListDividers, ListEdge, MetadataColumns, MetadataLabelWidth, MetadataOrientation,
     PaginationSize, RowStatusDot, SectionVariant, SegmentedIconOnly, SegmentedLayout,
-    SkeletonRadius, SpinnerShade,
-    SpinnerVariant, StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant,
-    TableCellAlign, TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped,
-    ToolbarVariant, TreeGuides,
+    SkeletonRadius, SpinnerShade, SpinnerVariant, StepCollapsedVariant, StepDensity,
+    StepIndicatorPosition, SystemMessageVariant, TableCellAlign, TableCellDivider,
+    TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
 };
 pub use visually_hidden::{VisuallyHidden, visually_hidden};
