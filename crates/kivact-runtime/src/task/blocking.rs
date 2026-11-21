@@ -38,7 +38,7 @@ pub(crate) struct BlockingFuture<R> {
     pool: Arc<Pool>,
 }
 
-// xtask-allow(state): legacy: slot, outstanding
+// xtask-allow(state): independent: slot is the job's outcome handoff shared with its BlockingFuture and outstanding is the pool's statistic of unfinished jobs; JobGuard holds both handles from construction, and its drop settles one and decrements the other
 /// Held by a running job (its guard): on drop, at a normal exit and on unwind alike, it
 /// settles the slot, wakes the awaiting task and stops counting the job as
 /// outstanding.

@@ -10,7 +10,7 @@ struct Row {
     disabled: Value<bool>,
 }
 
-// xtask-allow(state): legacy: surfaces, rows
+// xtask-allow(state): record: surfaces and rows are separate registries of mounted nodes, each written only by its own registrar (Press::surface, Press::row) and that registrar's cleanup; the gesture state is the machine
 #[derive(Clone, Copy)]
 pub(super) struct Press {
     pub(super) machine: MachineHandle<Machine>,

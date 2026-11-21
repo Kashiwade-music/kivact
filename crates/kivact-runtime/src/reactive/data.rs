@@ -183,7 +183,7 @@ pub(crate) struct SourceCell<T> {
     pub(crate) value: RefCell<T>,
 }
 
-// xtask-allow(state): legacy: value, eq; the memo's last computed value; the graph state is CompState
+// xtask-allow(state): cache: value is the memo's last computed value, written only by the memo's run (None until the first run); eq is the comparison fixed by create_memo
 pub(crate) struct MemoCell<T> {
     pub(crate) value: RefCell<Option<T>>,
     pub(crate) f: Box<dyn Fn(Option<&T>) -> T>,
@@ -353,7 +353,7 @@ pub(crate) struct OwnerExtra {
     pub(crate) on_error: Option<Rc<dyn Fn(UiError)>>,
 }
 
-// xtask-allow(state): legacy: parent, extra; the creating owner, set by create_owner and cleared only by detach_owner when this owner's disposal starts; the root is live without
+// xtask-allow(state): independent: parent is the creating owner, written only by create_owner (None only for the root) and kept through disposal; extra holds the rare members, allocated on first use by extra_mut and emptied in place by dispose_one
 pub(crate) struct OwnerEntry {
     pub(crate) parent: Option<Key>,
     pub(crate) parent_index: u32,

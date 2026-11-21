@@ -97,7 +97,7 @@ pub(crate) struct TaskCell {
     pub(super) task: std::cell::OnceCell<super::executor::RawTask>,
 }
 
-// xtask-allow(state): legacy: tokio, time, blocking_threads, finished, queues, draining, pool; absent means the default worker count; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users
+// xtask-allow(state): record: tokio, time, finished, queues and pool are separate subsystems with their own writers (the tokio bridge, the timer scheduler, spawn, actions and the blocking pool); pool is the only lifecycle of the blocking pool; blocking_threads is the worker count fixed by new; remotes lists the open mailboxes of other threads and remote_wake marks mail; clocks lists the shared clocks and their users
 /// Everything the task subsystem keeps per App, driven by the host that runs
 /// the App's turns: it installs the state with its waker (`new`),
 /// polls ready futures and fires due timers each turn, and drains and shuts
