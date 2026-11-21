@@ -1199,3 +1199,88 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 - 後退（9 行）：K2 3000 rows idle WS（1.395）、K2 per_item box（1.457）、K2 per_item text（1.668）、K2 per_item button（1.365）、K2 per_item row（1.478）、K4 3000 rows work p95（1.059）、K4 3000 rows work p99（1.151）、K5 wheel p95 n3000（1.079）、K5 counter click p95（1.283）。
 - 改善未達（1 行）：K3 3000 rows continuous CPU（0.917、目標 ≤ 0.85 の改善の必達に届かず）。
 - 判定：CP1 と同じく 3 回中 2 回で判定する（`rework/kpi/CP2-r2.md`・`CP2-r3.md`）。この 1 回目では判定しない。r2・r3 を取るかどうかは設計者の指示を待つ。Orchestrator は直さない。
+
+## 設計者の回答（KPI の後退（CP2）、2026-11-22）
+
+- **1 回目は判定に使わない（手順の誤り）**。作業指示書 5.1 節の 2 は、基点 `c9518946` の worktree で `B0-CP2` を測り、続けて checkpoint の commit で `CP2` を測り、`kpi-compare rework/kpi/B0-CP2.md rework/kpi/CP2.md` で比べると決めている。1 回目は CP1 より前の `rework/kpi/B0.md` と比べた。K2 の診断の `arvane_shell::a11y::state::AcceptedTree` は `CP2.md` に 4 件、`B0.md` に 0 件で、5.1 節の 2 の「片方にだけあれば測り直す」に当たる。K2 の 1.3〜1.7 倍は CP1 で見た UI Automation の環境差と同じ形で、改修の後退とはまだ言えない。
+- **測り直しの手順**（5.1 節の 2・3 のとおり。設計の変更はない）：
+  1. 測る間は他の作業をしない。W9 の subagent の build・試験も止める（走っている unit は区切りまで終えてから測り始める）。
+  2. 基点の worktree（`c9518946`）で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh --no-catalog B0-CP2`、続けて CP2 の gate を通した commit（`01bc2d58` の統合、または同じ code の `895802fa`）の checkout で `dev/tools/window-lock.sh --timeout 5400 -- dev/bench/run.sh --no-catalog CP2b`。`CARGO_TARGET_DIR` は設定しない。
+  3. 両方の K2 の診断に `AcceptedTree` があるか（または両方に無いか）を確かめ、片方だけなら 2 からやり直す。
+  4. `rework/kpi/B0-CP2.md`・`rework/kpi/CP2b.md` に写し、`cargo xtask kpi-compare rework/kpi/B0-CP2.md rework/kpi/CP2b.md > rework/kpi/CP2b-ratio.md`。
+  5. ここで必達を満たさない行だけ、基点と一緒に 2 回測り直し（`B0-CP2-r2`/`CP2-r2`、`B0-CP2-r3`/`CP2-r3`）、3 回中 2 回で判定する。K6 は 1 回で判定する。
+  6. 3 回中 2 回で後退の行だけを「KPI の後退（CP2）」に書き直して設計者に返す。改善の必達の未達（K3 continuous CPU など）は「KPI の未達」に書くだけで返さない（5.1 節の 3）。1 回目の `CP2.md`・`CP2-ratio.md` は消さずに残し、この節から「判定に使わない」と分かるようにする。
+- **W9 との順序**：KPI の測り直しを先に済ませてから W9 の unit を起動する。測り直しの後退を待つ必要はない（後退の行は設計者が答えるまで W9 と並べて進めてよい）。
+
+## KPI の後退（CP2、測り直し後の判定、2026-11-22）
+
+- 測り直し（作業指示書 5.1 節の 2・3）：基点 `c9518946`（`W:/w/kv-wt/rw-kpi-base`）で B0-CP2、続けて `895802fa`（`W:/w/kv-wt/rw-kpi-cp2`）で CP2b。基点の script は `--no-catalog` を知らない（`--no-catalog` が label になった）ので、B0-CP2 は basic catalog を含む全行。CP2b は `--no-catalog` で catalog 以外の全行。K2 の AcceptedTree は両方に 4 件（一致）。
+- r2・r3 を取った（基点と CP2 を対で）。r2 の 1 回目の対は K2 の AcceptedTree が片方だけ（基点 4 件、CP2 0 件）だったので、対ごと取り直した。取り直した対は両方 0 件で一致。r3 は両方 0 件で一致。
+- 判定（3 回中 2 回で後退した行。比は `rework/kpi/CP2b-ratio.md`・`CP2-r2-ratio.md`・`CP2-r3-ratio.md`）：
+  - **後退（返す）**：K5 counter click p95（1.309・1.310・1.153。3 回とも後退）。
+  - 後退は 1 回だけ（返さない）：K2 per_item button（1.021、CP2b のみ）、K5 wheel p95 n3000（1.142、CP2b のみ）、K5 unrelated text update p95 n3000（1.140、r2 のみ）。
+- 「KPI の未達」（改善の必達の未達。返さない）：K2 per_item text・K2 per_item row（改善必達 ≤ 0.95 に届かず）、K3 3000 rows continuous CPU（CP2b 0.928、r2 は 後退 の 1 回。改善必達 ≤ 0.85 に届かず）、K4 3000 rows work p95（CP2b 0.809、改善必達 ≤ 0.80 に届かず）。
+- 1 回目の `CP2.md`・`CP2-ratio.md` は判定に使わない（注を足して残した）。
+- W9 は、この測り直しの後に始める（設計者の指示）。K5 counter click p95 の後退への答えは待たずに進める。
+
+## 設計者の回答（W9 の判断待ち 8 件、2026-11-22）
+
+- **(1)・(8) name-collision**：検査の規則の誤り。目的は「`use kivact::prelude::*; use kivact::ui::*; use <kit>::*;` と glob で並べても名前が曖昧にならない」ことで、glob が持ち込むのは**直下の名前だけ**。`kivact::ui::toolbar::BACKGROUND` のような入れ子の名前は持ち込まれない。kit の側も、直下の公開名だけが glob で入る。
+  - 直し（Orchestrator が統合 branch で Haiku high の subagent に任せる。所有：`dev/xtask/src/name_collision.rs`）：
+    1. `reserved` には、path が `kivact::prelude::<名前>` か `kivact::ui::<名前>`（prefix の後に `::` が無い）のものだけを入れる。module は今までどおり飛ばす。
+    2. kit の側も、`<kit の identity_root>::<名前>`（prefix の後に `::` が無い）だけを確かめる。
+    3. module の doc に 1 文足す：「Only direct children are compared: a glob import brings in a module's direct names, not the names inside its submodules.」
+    4. `mod tests` に `fn a_nested_core_name_is_not_reserved()`：surface に `kivact::ui::toolbar::BACKGROUND` と `kivact::ui::Button` を入れ、kit の source が `pub const BACKGROUND: u32 = 0; pub struct Button;` のとき、error が 1 件（`Button` だけ）。もう一つ `fn a_kit_nested_name_is_not_checked()`：kit の `pub mod a { pub struct Button; }` だけなら 0 件。
+    5. 確認：xtask の package の `cargo test`、`cargo xtask check --no-write --only local`。
+  - K1・K15 の const（`BACKGROUND`・`BORDER`・`FOREGROUND`・`MUTED` と各 `_VAR`）は付属書のとおり `pub` で crate の root に出す。K5・K28 の `BORDER`・`FOCUS_RING` も `pub(crate)` をやめ、付属書のとおり root に出す。直した規則でも衝突が残ったら（`kivact::ui` か `kivact::prelude` の直下に同じ名前がある）、その名前の一覧を私に返す。
+- **(2) skeleton と spinner の reduced period**：Orchestrator の案を採る。`skeleton::REDUCED_PERIOD_MS_VAR` は作らない（skeleton は period を読まない）。spinner は `SpinnerTheme::reduced_period(Some(<値>))` で置く（U21 の判断のとおり）。kit が今 `indicators.reduced_period_ms` を set していなければ、何も set しない（`None` は reduced motion で止まる）。付属書 U の変数表の行を直した。
+- **(3) basic の `lib.rs` の plot の 3 行**：K10 が消す（file を移す unit が、その file を指す `mod nice`・`mod plot`・`pub use plot::{..}` の 3 行も消す。所有の例外として、この 3 行だけ）。basic は plot を再公開しない（一つの item に公開の path は一つ。利用者は `kivact_plot` を使う）。K15 はこの 3 行を書き戻さない。K11〜K14 は K10 の後に進めてよい。
+- **(4) pop の `AvatarLook::decorations()`**：
+  - pop に部品 `AvatarDecorations` を作る（`crates/kivact-ui-pop/src/avatar_decorations.rs`、3.0.5 の `#[component]`）。props は `size: f64 = 40.0`、`hue: f64 = 205.0`、`halo: bool = false`、`online: bool = false`（反応する値で受ける形は 3.0.5 のとおり）。本体は今の `decorations()` の本体のまま。`size` の下限 16 も部品の中で `max(16.0)` にする。`Tokens` の `mint` は K20 で作った pop の色の変数で読み、`crate::tokens::avatar_halo`・`avatar_glow` は K20 が移した `color.rs` の `pub(crate) fn` を使う。使い方の doc：「Mount it in an avatar's `status_content`: `avatar(..).status_content(AvatarDecorations::new().halo(true))`.」
+  - `AvatarHalo`・`AvatarOnline` の variant は消す（読む所は `decorations()` だけだった。読む所の無い型は残さない）。`AvatarSize`・`AvatarHue` は avatar の recipe が読むので残す。
+  - `Thread` の既定の portrait は `kivact::ui::avatar(initials).fallback_content(..).variant(AvatarSize(32.0))` にし、`status_content` を付けない（既定は halo も online も false で、今も何も描かない）。
+  - 所有：K21（`messaging.rs` の変換と同じ unit）。`avatar_decorations.rs` を足し、`variants.rs` と `lib.rs` から `AvatarHalo`・`AvatarOnline` を消し、`lib.rs` に `AvatarDecorations` の `mod` 行と `pub use` 行を足す。example（`examples/kivact-ui-pop/src/pop/common.rs`・`messaging.rs`）の `decorations()` は、pop の catalog の unit（K37）が `.status_content(AvatarDecorations::new()...)` に変える。付属書 K の 4.4.2 の表を直した。
+- **(5) K22 の完了条件の範囲**：K22 の `rg` は、`lib.rs` に `mod` 行のある module の file（K22 が変換した file）だけに当てる。crate 全体で 0 件になることは K25 の完了条件にした（付属書 K の K22・K25 を直した）。
+- **(6) `icons.rs` の `OnceLock`**：3.0.7 のとおり、W9 では `icons.rs` を変えない（W10 の各 kit の unit が `icons!` と `thread_local!` にする）。K2 の `thread_local` への変更は元に戻し、K4 の形（今のまま）にそろえる。W9 の間に xtask がこの `OnceLock` を報告したら、それは W10 の unit の範囲として、その error の行を私に返す。
+- **(7a) game の `GameCellVariant`**：改名をやめる。この enum は表の cell の**中身**の種類で、kivact の `*Variant`（見た目の variant）ではない。また kit は `impl IntoView for` を持てない（3.0.5）。そこで enum を消し、4 つの部品にする：`IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`（3.0.5 の `#[component]`。props は今の enum の各 variant の field のまま。本体は今の `cell_view` の各 arm のまま）。`console_cell` も作らない。所有：K27（`table.rs`）。付属書 K の K26 の手順と 4.4.3 の表を直した。example と catalog の呼び出し（`GameCellVariant::User { .. }` など）は、game の catalog の unit（K40）が部品の呼び出しに変える。
+- **(7b) game の recipe の部品**：落とさない（見た目を変えない）。3.0.3 の R1〜R2 のとおり、今 kit が `UiRecipes` で上書きしていた recipe は、**すべて**中核の `<Name>Theme` の同じ名前の setter に移す。付属書の表は group の行き先を示すだけで、setter の一覧ではない。中核には `BreadcrumbTheme::{root, separator}`、`PaginationTheme::{root, ellipsis}`、`StepperTheme::{indicator, label}`、`NavigationMenuTheme::{root, trigger, action, panel, link, link_title, link_description}` がある（`crates/kivact-ui/src/<name>/look.rs` の `recipe_table!`）。中核に同じ名前の setter が無い part があれば、その part の名前と今の recipe の場所の一覧を私に返す（落とさずに止める）。
+- **(8) の後半**：K28 の step 8 を続きの implementer に渡すのは、Orchestrator の判断どおりでよい。
+
+## 設計者の回答（W9 の K5・K3 の判断待ち、2026-11-22）
+
+- **(A) soft の `Elevation::apply` と `Space::px`**：一つの事実に一つの定義にする。今は `Elevation` が `elevation.rs` と `variants.rs` に、`Space` が `stack.rs` と `variants.rs` に二重にある。
+  - `Elevation`：定義は `variants.rs` の一つ（variant だから）。`elevation.rs` は消す。`apply` は `shadows.rs` の `pub(crate) fn elevate(base: Style, elevation: Elevation, dark: bool) -> Style` にする。本体は今の `apply` と同じで、影の列は K28 が作った `shadows::low(dark)`・`med(dark)`・`high(dark)`。`dark` は、他の `shadows::*(dark)` の呼出し側と同じ取り方で渡す。
+  - `Space`：定義は `space.rs` の一つ（`SPACE_*` の変数の隣。公開）。`stack.rs` と `variants.rs` の定義は消す。`lib.rs` は `space::Space` を出す。`px(self) -> f64` は T8 の計算の行の読み方で、`use_theme().get().get(&space::SPACE_<段>_VAR)` を返す（段 = S0、S0_5、…、S10）。`CardPadding(pub Space)` は `variants.rs` に残し、`crate::space::Space` を使う。
+  - 所有：lane K5 の fix の commit（K28 の後、K29 の前）。`elevation.rs`、`shadows.rs`、`space.rs`、`stack.rs`、`variants.rs`、`lib.rs` と、`Elevation::apply` の呼出し側（`rg -n "\.apply\(" crates/kivact-ui-soft/src` のうち `Elevation` のもの）。その後に K29・K30 を進める。
+- **(B1) `editors/time`（`time_editor_builder!`、`TimeEditor`）**：K23 が持つ（dope_sheet が最初の利用者）。K24 の timeline も同じ macro を使う。
+  - `TimeEditor<T>` は crate の中だけの型（`pub(crate)`。Element にしない）のまま残す。
+  - `time_editor_builder!` は、builder の struct と impl の代わりに `#[component]`（3.0.5）の関数を展開する macro にする。props は今の setter と同じ名前・同じ既定。`items` と `state` は位置引数で、`on_edit`、`lanes`、`snap`、`step`、`time_format`、`ruler_ticks`、`zoom_range`、`min_duration` と `lane_extension_methods!` の setter を持つ。本体は `TimeEditor::new(items, state, $height)` に props を入れて view を返す。
+  - macro が展開した `#[component]` が compile しなければ、`DopeSheet` と `Timeline` の 2 つの `#[component]` を手で書く（props の列は同じ）。macro は消す。手書きの builder の例外にはしない。
+  - K24 は `timeline.rs` の呼出しだけを直す。
+- **(B2) K23 と K24・K25 の順序**：3.0.6 の S2 のとおり。K23 が変換する module が、まだ変換していない module（K25 の `number`・`fader`・`knob`、K24 の `editors/shared` の `metrics`・`targets`）を要るなら、その module も K23 が同じ unit で変換して `lib.rs` に足す。K24・K25 は、K23 が変換した module を飛ばす。公開の部品（`Number` などの `#[component]`）にも S2 を当てる。順序は K22 → K23 → K24 → K25 のまま。
+- **(B3) feedback の `tool_window`・`tool_window_button`・`window_layer`**：interaction の非 modal の面は popup（RW-18）。`use_dialog(open, DialogMode::Popover).anchor(node)` は `use_popup(open).anchor(node)` と、その `surface(placement, content)`・`trigger()`・`close_trigger()` の part にする（`use_dialog` は modal だけ）。
+  - `ToolWindowOptions::modal(true)` のときだけ `use_dialog(open, DialogMode::Modal)` を使う。build のときに一度選ぶ（反応する値にしない。`modal` は今も `bool`）。
+  - G-guides の変換表に、この行を足した。旧の版（`8ff48d86`）から feedback.rs に戻して変換する。
+  - `WindowPosition` を popup の `surface` の placement に写せない値があれば、その値の一覧を返す。
+- **(B4) dock の `Dock<K>` と `menu<C, R>`**：手書きの builder の 5 つ目の理由（generic の setter）に当たる。中核の `DataTable`・`Select`・`Combobox` と同じ扱いにする。
+  - `Dock` は builder のまま残し、`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `"kivact_ui_creative::dock::view::Dock crates/kivact-ui-creative/src/dock/view.rs"` を足す。理由の comment は他の generic の行と同じ形にする。
+  - 手書きの builder の規則（caller の値は `node_mut().authored()` から読む、診断の位置は `caller.at()`、引数の無い setter は `bool`）は守る。
+  - 付属書 K の K23・K25 の完了条件の `rg` から `dock/view.rs` を外した。
+- **K3 の再開**：K23 の未了の commit `255a7a72` から続ける。(B1)〜(B4) を K23 の unit で行う。完了条件を満たしたら K24 へ進む。見た目の確認は 3.0.9 のとおり。
+
+## 設計者の回答（W9 の K1・K3 の判断待ちと確認 5 点、2026-11-22）
+
+- **(a) basic の `theme_access.rs`**：K16 で変換する（消さない）。K15 の手順 5 の「`Tokens` を読む helper を消す」は誤りで、K16 の手順 1 と食い違っていた。K15 は `theme_access.rs` を変えず、`mod` 行も書かない（compile されない）。K16 が手順 1 のとおり、helper（`focus_ring`、`wide_focus_ring`、`with_focus`、`lit_row`、`field_fill`、`popover_surface` など）の `p: &Tokens` の引数を消して本体で変数を読む形にし、`recipe_parts.rs` に移す。付属書 K の K15 の手順 5 を直した。K15 は `60697ba4` のまま完了として採る。K16 を進めてよい。
+- **(b1) creative の `color_to_hsv` と `Color::components(&Theme)`**：中核の `Color::components(theme)`・`Color::mix(.., theme)` に合わせ、theme を明示の引数にする。
+  - 公開の署名は `pub fn color_to_hsv(color: Color, theme: &Theme) -> (f64, f64, f64)`。本体は `color.components(theme)`。doc に 1 文足す：「A theme color resolves in `theme`; pass `&use_theme().get()` inside a view.」
+  - `color_from_hsv` は theme を要らないので今のまま。
+  - color_wheel・color_popup・gradient の中の呼出しは、反応する closure の中で `let t = use_theme().get();` と書き、`&t` を渡す。geometry・state・fields も同じ形にする。
+  - 付属書の `color.components()` の箇所は、すべて `color.components(&t)` と読む。
+- **(b2) 2 引数の setter**：
+  - mixer_strip の `routes(routes, route)`：二つの props に分ける。`routes: Vec<..>`（選べる送り先の一覧。反応する値で受ける形は 3.0.5 のとおり。既定は空）と `route`（今の 2 つ目の引数の型。既定は今の builder の既定）。React の `<MixerStrip routes={..} route={..} />` と同じ形。
+  - gradient_editor の `color_transform(to_display, from_display)`：二つは互いに逆の関数で、片方だけでは意味が無い。そこで公開の data の型にまとめ、prop は一つにする。`pub struct ColorTransform { .. }`（field は非公開）と `ColorTransform::new(to_display: impl Fn(Color) -> Color + 'static, from_display: impl Fn(Color) -> Color + 'static) -> Self` を作り（関数の型は今の setter の型のまま）、prop は `color_transform: Option<ColorTransform>`（既定 `None` は変換なし）にする。置き場は `gradient/` の中、`lib.rs` で公開する。
+- **確認 1（timecode の step・precision）**：明示した値が呼ぶ順に関係なく勝つ形を採る（props は順序に依らない）。G の移行の文書の「振る舞いの変化」に 1 行足す（W11b）：「`Timecode` の `step` と `precision` は、呼ぶ順に関係なく明示した値が使われる。」
+- **確認 2（`typing.show(())` → `typing.edit(())`）**：採る。K23 の tier a で、creative の numeric の E2E（`3.0.9` の command の試験の filter）を走らせて確かめる。落ちたら返す。
+- **確認 3（K4 の progress_cell）**：採る。元の enum の 5 つ目の variant を落とさないための追加で、正しい。ただし名前と形は他の 4 つとそろえ、`#[component]` の `ProgressCell` にする（関数の `progress_cell` は作らない）。付属書 K の 4.4.3 の表を直した。
+- **確認 4（K4 の stepper の「not reached」の文字色）**：K26 の写し間違い。基点どおり `TEXT_3` に直す（見た目を変えない）。lane K4 の fix の commit にする。
+- **確認 5（K6 の K10 の commit を merge の前にする）**：採る。
