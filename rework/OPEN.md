@@ -985,3 +985,8 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
   - core の変更は全体に効くので、確認は e2e_core・e2e_ui・e2e_native・kivact-test の全件と workspace の clippy。期待値を変えないと通らない試験が出たら STOP して、その試験の名前と理由を報告する。
   - 原因が別（例えば `drag_source` の on_start の配線の誤り）なら、それを直し、上の core の変更はしない。
   - drag の取手（handle）に限る案は採らない。
+
+## 差戻し（W8・U47 の dialog・hover_card、U53 の chat_thread・code_block、2026-11-21）
+
+- **U47（lane `wt/rw-W8-U2`、commit `d42f9096`）**：Disclosure（`always_open(bool)`・`keep_mounted(bool)`）と DisclosureGroup（allowed_impls）は完了。Dialog・HoverCard は止まる。設計者の答え（root の node を surface に載せる）は、このままでは作れない：`show(when, child)` の child は `Fn() -> V` で、surface は開くたびに作り直す。`Node` は `Clone` でなく、`View` は mount で一度だけ node を作る。呼出し側の `.style`・`.name`・`.test_id` を二回目以降の開きに写せず、root を載せないと黙って落ちる。`variant` だけなら `root.authored().variants()` で読めるが、他の modifier が残る。**設計者が決める**：(a) kivact-core（所有の外）に、一度だけ mount する child か複製できる modifier の集まりを足す、(b) root を作らず `variant` だけ `Variants` の field で持つ（U24 の残りの指示を外す）、(c) 別の形。U48 は U47 の後。
+- **U53（lane `wt/rw-W8-U4`、commit `d9dc37b7`）**：chat_message・chat_composer・typing_indicator は完了。chat_thread と code_block は止まる。(1) `code_block/view.rs:CodeBlock::highlight` の 2 引数の setter `highlight(content, f)`（`ui_chat_code.rs:79` が `.highlight((), f)` を呼ぶ）。マクロの 1 prop 1 setter に写せず、C1 で呼出しの形を変えられない。(2) `chat_thread/view.rs:ChatThread::empty` の 2 引数の setter `empty(when, content)`。`Option<(Value<bool>, View)>` の prop にすると `.empty((when, content))` になり形が変わる。**設計者が決める**：どちらも、マクロの形を変える（2 引数の setter を許す）か、呼出しの形を変えるか。U4 lane は止める（U54 は後）。
