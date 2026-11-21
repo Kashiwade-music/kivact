@@ -2,22 +2,24 @@
 use crate::color as c;
 use crate::metrics as m;
 use crate::motion::FAST_MAX;
+use crate::motion::{EASE_STANDARD, FAST};
 use crate::radius as r;
 use crate::recipe_parts::{ring, shadowed, text, tween};
 use crate::shadows;
 use crate::space as s;
 use crate::type_scale as t;
 use crate::variants::BreadcrumbsVariant;
-use kivact::interaction::NavOpen;
+use kivact::interaction::{NavOpen, TabListState, TabState};
+use kivact::motion::Transition;
 use kivact::style::{
-    Align, Color, Cursor, FlexDirection, Justify, Style, TextDecorationLine, Theme, ThemeMode,
-    style,
+    Align, Color, Cursor, FlexDirection, Justify, Position, Style, TextDecorationLine, Theme,
+    ThemeMode, TransitionProp, style,
 };
 use kivact::ui::theme::{
     BreadcrumbItemState, BreadcrumbTheme, Look, NavigationLinkState, NavigationMenuTheme,
-    NavigationTriggerState,
+    NavigationTriggerState, TabsTheme,
 };
-use kivact::view::{ReadingDirection, use_direction};
+use kivact::view::{Orientation, ReadingDirection, use_direction};
 
 /// The flow of a row of navigation parts: reversed in a right-to-left reading direction.
 fn flow() -> FlexDirection {
@@ -232,8 +234,86 @@ fn breadcrumb_separator(_theme: &Theme, _s: &Look<()>, _base: Style) -> Style {
     )
 }
 
+/// The list of tabs: its tabs in a row, or a column when the list is vertical, with the spacing step between them.
+fn tabs_list(_: &Theme, look: &Look<TabListState>, _base: Style) -> Style {
+    style()
+        .flex_direction(if look.orientation == Orientation::Vertical {
+            FlexDirection::Column
+        } else {
+            FlexDirection::Row
+        })
+        .gap(s::SPACE_S0_5)
+        .min_width(0)
+}
+
+/// A tab: its label in the label role, centered, with the hover and pressed fills unless it is disabled.
+fn tab(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
+    let ink = if look.selected {
+        c::TEXT_PRIMARY
+    } else {
+        c::TEXT_SECONDARY
+    };
+    let tab = text(style(), t::LABEL, ink)
+        .position(Position::Relative)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .height(m::CONTROL_MD)
+        .flex_shrink(0.0)
+        .padding_x(s::SPACE_S3)
+        .gap(s::SPACE_S1)
+        .border_radius(r::RADIUS_ELEMENT)
+        .font_weight(if look.selected {
+            t::WEIGHT_SEMIBOLD
+        } else {
+            t::WEIGHT_NORMAL
+        })
+        .single_line()
+        .focus_visible(ring(c::FOCUS_RING))
+        .transition(
+            TransitionProp::All,
+            Transition::tween(FAST as f64, EASE_STANDARD),
+        );
+    if look.input.is_disabled() {
+        tab
+    } else {
+        tab.hover(style().background(c::OVERLAY_HOVER))
+            .active(style().background(c::OVERLAY_PRESSED))
+    }
+}
+
+/// The indicator of a tab: a bar on the tab's edge, faded in when the tab is selected.
+fn tab_indicator(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
+    let inset = s::SPACE_S3;
+    let indicator = style()
+        .position(Position::Absolute)
+        .border_radius(1.0)
+        .background(c::ACCENT)
+        .opacity(if look.selected { 1.0 } else { 0.0 })
+        .transition(
+            TransitionProp::All,
+            Transition::tween(FAST as f64, EASE_STANDARD).essential(),
+        );
+    if look.orientation == Orientation::Vertical {
+        let indicator = indicator.top(inset).bottom(inset).width(2);
+        if use_direction() == ReadingDirection::Rtl {
+            indicator.right(0)
+        } else {
+            indicator.left(0)
+        }
+    } else {
+        indicator.left(inset).right(inset).bottom(-1).height(2)
+    }
+}
+
 /// Install the kit's recipes of the navigation group.
 pub(crate) fn install(theme: Theme) -> Theme {
+    let theme = theme.with(
+        TabsTheme::default()
+            .list(tabs_list)
+            .tab(tab)
+            .indicator(tab_indicator),
+    );
     let theme = theme.with(
         NavigationMenuTheme::default()
             .root(root)
@@ -252,7 +332,8 @@ pub(crate) fn install(theme: Theme) -> Theme {
             .item(breadcrumb_item)
             .separator(breadcrumb_separator),
     );
-    crate::recipes_navigation_pagination::install(theme)
+    let theme = crate::recipes_navigation_pagination::install(theme);
+    crate::recipes_navigation_stepper::install(theme)
 }
 
 /// A breadcrumb trail's root: it shrinks to its content.

@@ -35,6 +35,7 @@ mod recipes_input;
 mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_navigation_pagination;
+mod recipes_navigation_stepper;
 mod recipes_overlays;
 mod recipes_overlays_command;
 mod recipes_overlays_dialog;
