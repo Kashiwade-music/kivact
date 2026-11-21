@@ -13,7 +13,7 @@ use kivact::interaction::ListItem;
 use kivact::interaction::{DragCoordinates, EditSession, use_drag, use_zoom_pan};
 use kivact::state::{Callback, Value, memo, signal};
 use kivact::state::{IntoValue, callback};
-use kivact::style::{ColorToken, Overflow, style};
+use kivact::style::{Overflow, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{A11yAction, A11yRequest, Handled, IntoView, Role, View, node_ref};
@@ -45,7 +45,7 @@ pub fn node_editor(
             style()
                 .height(280)
                 .overflow(Overflow::Hidden)
-                .background(ColorToken::Surface),
+                .background(crate::color::ISLAND),
         ),
         nodes: nodes.into_value(),
         links: links.into_value(),

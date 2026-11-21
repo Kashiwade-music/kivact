@@ -45,6 +45,9 @@ mod theme;
 mod timeline;
 mod variants;
 
+pub use crate::editors::arrangement::view_state::ArrangementState;
+pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
+pub use crate::editors::time::model::{Keyframe, TimeRequest};
 pub use audio::view_state::ChannelState;
 pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
@@ -56,7 +59,13 @@ pub use dock::{
     dock,
 };
 pub use dope_sheet::{DopeSheet, dope_sheet};
+pub use editors::arrangement::{
+    Arrangement, ArrangementRequest, AutomationPoint, TimelineMarker, TimelineTool, TimelineTrack,
+    TrackFlag, TrackKind, arrangement,
+};
 pub use editors::shared::lane::{EditorMenu, LaneCell};
+pub use editors::shared::model::EditorEvent;
+pub use editors::shared::ruler::RulerTicks;
 pub use editors::time::view_state::TimeState;
 pub use feedback::{
     PopupButton, SplitButton, ToolWindow, ToolWindowApi, ToolWindowButton, ToolWindowOptions,

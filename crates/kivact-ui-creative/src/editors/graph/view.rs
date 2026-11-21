@@ -10,7 +10,7 @@ use kivact::interaction::ListItem;
 use kivact::interaction::{EditSession, use_space_pan};
 use kivact::state::{Callback, Value, signal};
 use kivact::state::{IntoValue, callback};
-use kivact::style::{ColorToken, Overflow, style};
+use kivact::style::{Overflow, style};
 use kivact::view::{A11yAction, IntoView, Role, View, node_ref};
 use kivact::view::{Element, Node, node};
 use std::rc::Rc;
@@ -47,7 +47,7 @@ pub fn graph_editor(curves: impl IntoValue<Vec<Curve>>, state: crate::GraphState
                 .height(280)
                 .min_width(0)
                 .overflow(Overflow::Hidden)
-                .background(ColorToken::Surface),
+                .background(crate::color::ISLAND),
         ),
         curves: curves.into_value(),
         state,

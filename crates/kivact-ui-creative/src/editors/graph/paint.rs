@@ -12,7 +12,6 @@ use kivact::geometry::{Point, Rect, Size};
 use kivact::state::Value;
 
 fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for vertical in [false, true] {
         let range = if vertical {
             space.view.value
@@ -38,7 +37,7 @@ fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
                     Point::new(SIDEBAR, y),
                     Point::new(SIDEBAR + space.plot.width, y),
                     1.0,
-                    p.hair,
+                    crate::color::HAIR,
                 );
                 label(
                     draw,
@@ -46,7 +45,7 @@ fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
                     SIDEBAR - 68.0,
                     y - 12.0,
                     10.0,
-                    p.text,
+                    crate::color::TEXT,
                 );
             } else {
                 let x = space.point(value, space.view.value.0).x;
@@ -54,7 +53,7 @@ fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
                     Point::new(x, RULER),
                     Point::new(x, RULER + space.plot.height),
                     1.0,
-                    p.hair,
+                    crate::color::HAIR,
                 );
                 label(
                     draw,
@@ -62,7 +61,7 @@ fn axes(draw: &mut Draw, space: Space, settings: &Settings) {
                     x + 3.0,
                     3.0,
                     10.0,
-                    p.text,
+                    crate::color::TEXT,
                 );
             }
         }
@@ -76,7 +75,6 @@ pub(crate) fn paint(
     lanes: Value<Vec<Lane>>,
 ) {
     let space = Space::new(state.view.get(), size);
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
     axes(draw, space, settings);
     let Ok(scene) = state.scene.get() else { return };
     let keys = state.visible.get();
@@ -98,9 +96,9 @@ pub(crate) fn paint(
                     key.key.out_tangent
                 };
                 let point = space.point(key.key.time + tangent.time, key.key.value + tangent.value);
-                draw.line(space.point(key.key.time, key.key.value), point, 1.0, p.text);
+                draw.line(space.point(key.key.time, key.key.value), point, 1.0, crate::color::TEXT);
                 let rect = Rect::new(point.x - 4.0, point.y - 4.0, 8.0, 8.0);
-                draw.stroke_rect(rect, 1.0, p.accent);
+                draw.stroke_rect(rect, 1.0, crate::color::ACCENT);
                 if let Some(rect) = clipped(rect, space.plot) {
                     draw.region(id, rect);
                 }
@@ -111,7 +109,7 @@ pub(crate) fn paint(
             draw.fill_rect(
                 rect,
                 if selected.contains(&key.key.id) {
-                    p.accent
+                    crate::color::ACCENT
                 } else {
                     key.color
                 },
@@ -127,12 +125,12 @@ pub(crate) fn paint(
             Point::new(x, RULER),
             Point::new(x, RULER + space.plot.height),
             1.0,
-            p.text_high,
+            crate::color::TEXT_HIGH,
         );
         if let Some(gesture) = state.drag_state()
             && let DragKind::Marquee(from, to) = gesture.kind
         {
-            draw.stroke_rect(Rect::from_points(from, to), 1.0, p.accent);
+            draw.stroke_rect(Rect::from_points(from, to), 1.0, crate::color::ACCENT);
         }
     });
     if let Some(id) = scene.id(&Target::Playhead) {
@@ -174,7 +172,6 @@ fn lane_labels(
     settings: &Settings,
     scene: &crate::editors::shared::targets::Scene<Target>,
 ) {
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for (index, lane) in lanes.get().iter().enumerate() {
         let y = graph_lane_y(index);
         draw.layer(
@@ -184,7 +181,7 @@ fn lane_labels(
                 (GRAPH_LANE_WIDTH - settings.cells_width.get()).max(0.0),
                 crate::editors::shared::metrics::KEY_LANE,
             )),
-            |draw| label(draw, &lane.label, 8.0, y, 11.0, p.text),
+            |draw| label(draw, &lane.label, 8.0, y, 11.0, crate::color::TEXT),
         );
         if let Some(id) = scene.id(&Target::Lane(lane.id)) {
             draw.region(

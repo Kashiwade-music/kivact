@@ -7,7 +7,7 @@ use crate::editors::shared::model::drawable;
 use crate::editors::shared::region_parts::bounded_range;
 use kivact::draw::{Draw, Layer, LineCap, LineJoin, Path, RegionId, Stroke, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::style::{Color, ColorToken};
+use kivact::style::Color;
 
 use super::layout::{automation_y, clamp_pan_y, track_layout};
 pub(crate) fn paint(d: &mut Draw, size: Size, state: State) {
@@ -78,8 +78,7 @@ impl PaintFrame {
         let size = self.size;
         let scale = self.scale;
         let pan = self.pan;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
-        d.fill_rect(size.to_rect(), p.canvas);
+        d.fill_rect(size.to_rect(), crate::color::CANVAS);
         let first = ((-pan.x / scale).floor().max(0.0)) as u64;
         let last = ((size.width - LEFT - pan.x) / scale)
             .ceil()
@@ -91,10 +90,20 @@ impl PaintFrame {
                 Point::new(x, ARRANGEMENT_TOP),
                 Point::new(x, size.height),
                 1.0,
-                if b % 4 == 0 { p.hair_strong } else { p.hair },
+                if b % 4 == 0 {
+                    crate::color::HAIR_STRONG
+                } else {
+                    crate::color::HAIR
+                },
             );
             if b % 4 == 0 {
-                label(d, &format!("{}", b / 4 + 1), x + 4.0, 27.0, p.dim);
+                label(
+                    d,
+                    &format!("{}", b / 4 + 1),
+                    x + 4.0,
+                    27.0,
+                    crate::color::DIM,
+                );
             }
         }
     }
@@ -105,9 +114,14 @@ impl PaintFrame {
         let scale = self.scale;
         let pan = self.pan;
         let regions = &self.regions;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
-        d.fill_rect(Rect::new(0.0, 0.0, LEFT, size.height), p.header);
-        label(d, &state.texts.tracks(tracks.len()), 8.0, 16.0, p.dim);
+        d.fill_rect(Rect::new(0.0, 0.0, LEFT, size.height), crate::color::HEADER);
+        label(
+            d,
+            &state.texts.tracks(tracks.len()),
+            8.0,
+            16.0,
+            crate::color::DIM,
+        );
         let (lo, hi) = bounded_range(
             state.range.get(),
             state.length.get(),
@@ -118,8 +132,7 @@ impl PaintFrame {
         d.rounded_rect(
             Rect::new(lx, 1.0, (hx - lx).max(1.0), 9.0),
             4.0,
-            p.accent
-                .with_alpha(if state.cycle.get() { 0.4 } else { 0.12 }),
+            crate::color::ACCENT.with_alpha(if state.cycle.get() { 0.4 } else { 0.12 }),
         );
         ruler_region(
             d,
@@ -145,7 +158,7 @@ impl PaintFrame {
                 4.0,
                 marker.color,
             );
-            label(d, &marker.label, x + 3.0, 15.0, p.canvas);
+            label(d, &marker.label, x + 3.0, 15.0, crate::color::CANVAS);
         }
     }
     fn tracks(&self, d: &mut Draw) {
@@ -174,11 +187,19 @@ impl PaintFrame {
         let scale = self.scale;
         let pan = self.pan;
         let regions = &self.regions;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
-        d.fill_rect(Rect::new(0.0, 0.0, LEFT, ARRANGEMENT_TOP), p.header);
-        label(d, &state.texts.tracks(tracks.len()), 8.0, 16.0, p.dim);
+        d.fill_rect(
+            Rect::new(0.0, 0.0, LEFT, ARRANGEMENT_TOP),
+            crate::color::HEADER,
+        );
+        label(
+            d,
+            &state.texts.tracks(tracks.len()),
+            8.0,
+            16.0,
+            crate::color::DIM,
+        );
         let x = LEFT + state.frame.get() * scale + pan.x;
-        label(d, "+", LEFT - 22.0, 16.0, p.text);
+        label(d, "+", LEFT - 22.0, 16.0, crate::color::TEXT);
         if let Some(id) = regions.id(Target::AddTrack) {
             d.region(RegionId(id), Rect::new(LEFT - 30.0, 8.0, 24.0, 24.0));
         }
@@ -186,7 +207,7 @@ impl PaintFrame {
             Point::new(x, LOOP_RULER),
             Point::new(x, size.height),
             1.0,
-            p.text_high,
+            crate::color::TEXT_HIGH,
         );
         if let Some(id) = regions.id(Target::Playhead) {
             d.region(
@@ -206,8 +227,8 @@ impl PaintFrame {
                 (a.x - b.x).abs(),
                 (a.y - b.y).abs(),
             );
-            d.fill_rect(r, p.accent.with_alpha(0.12));
-            d.stroke_rect(r, 1.0, p.accent);
+            d.fill_rect(r, crate::color::ACCENT.with_alpha(0.12));
+            d.stroke_rect(r, 1.0, crate::color::ACCENT);
         }
     }
     fn track(
@@ -218,7 +239,6 @@ impl PaintFrame {
         i: usize,
     ) {
         let size = self.size;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         let mut y = row.top;
         let h = row.height;
         d.fill_rect(Rect::new(0.0, y, 3.0, h), track.color);
@@ -227,7 +247,7 @@ impl PaintFrame {
             &format!("{}   {}", i + 1, track.name),
             12.0,
             y + 8.0,
-            p.text,
+            crate::color::TEXT,
         );
         self.switches(d, track, y);
         self.clips(d, track, y, h);
@@ -236,12 +256,16 @@ impl PaintFrame {
             self.automation(d, track, top, y);
             y = top + height;
         }
-        d.line(Point::new(0.0, y), Point::new(size.width, y), 1.0, p.hair);
+        d.line(
+            Point::new(0.0, y),
+            Point::new(size.width, y),
+            1.0,
+            crate::color::HAIR,
+        );
     }
     fn switches(&self, d: &mut Draw, track: &crate::TimelineTrack, y: f64) {
         let state = self.state;
         let regions = &self.regions;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         for tag in TrackFlag::ALL {
             let checked = tag.checked(track);
             let x = 10.0
@@ -256,7 +280,7 @@ impl PaintFrame {
                 if checked {
                     track.color.with_alpha(0.4)
                 } else {
-                    Color::token(ColorToken::Hover)
+                    kivact::style::color::HOVER
                 },
             );
             label(
@@ -264,7 +288,7 @@ impl PaintFrame {
                 &state.texts.switch_letter(tag),
                 x + 6.0,
                 y + 33.0,
-                p.text,
+                crate::color::TEXT,
             );
             if let Some(id) = regions.id(Target::Track(track.id, tag)) {
                 d.region(RegionId(id), Rect::new(x, y + 29.0, 20.0, 18.0));
@@ -277,7 +301,6 @@ impl PaintFrame {
         let pan = self.pan;
         let selected = &self.selected;
         let regions = &self.regions;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         for clip in data.iter().filter(|c| c.lane == track.id && drawable(c)) {
             let r = Rect::new(
                 LEFT + clip.start * scale + pan.x,
@@ -296,7 +319,7 @@ impl PaintFrame {
                     if let Some(id) = regions.id(Target::Trim(clip.id, right)) {
                         d.fill_rect(
                             Rect::new(x, r.y + 15.0, 6.0, r.height - 15.0),
-                            p.text_high.with_alpha(0.4),
+                            crate::color::TEXT_HIGH.with_alpha(0.4),
                         );
                         d.region(RegionId(id), Rect::new(x - 3.0, r.y, 12.0, r.height));
                     }
@@ -308,9 +331,14 @@ impl PaintFrame {
         let scale = self.scale;
         let pan = self.pan;
         let regions = &self.regions;
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         if !track.automation_label.is_empty() {
-            label(d, &track.automation_label, 30.0, y + 10.0, p.dim);
+            label(
+                d,
+                &track.automation_label,
+                30.0,
+                y + 10.0,
+                crate::color::DIM,
+            );
         }
 
         let mut path = Path::new();
@@ -332,7 +360,7 @@ impl PaintFrame {
             d.rounded_rect(
                 Rect::new(point.x - 3.5, point.y - 3.5, 7.0, 7.0),
                 3.5,
-                p.text,
+                crate::color::TEXT,
             );
             if let Some(id) = regions.id(Target::Automation(track.id, knot.id)) {
                 d.region(

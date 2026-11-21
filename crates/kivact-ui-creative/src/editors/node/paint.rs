@@ -11,7 +11,6 @@ use kivact::draw::Draw;
 use kivact::draw::{Layer, Transform};
 use kivact::geometry::Rect;
 use kivact::geometry::Size;
-use kivact::style::ColorToken;
 
 fn item(
     draw: &mut Draw,
@@ -20,18 +19,17 @@ fn item(
     scene: Option<&Scene<Target>>,
     texts: crate::editors::shared::texts::Texts,
 ) {
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
     let r = rect(node);
-    draw.rounded_rect(r, 10.0, ColorToken::Raised);
+    draw.rounded_rect(r, 10.0, kivact::style::color::RAISED);
     draw.rounded_rect(
         Rect::new(r.x, r.y, r.width, 26.0),
         8.0,
         node.color.with_alpha(0.18),
     );
     if selected {
-        draw.stroke_rect(r, 1.5, p.accent);
+        draw.stroke_rect(r, 1.5, crate::color::ACCENT);
     }
-    label(draw, &node.label, r.x + 10.0, r.y + 8.0, 10.5, p.text_high);
+    label(draw, &node.label, r.x + 10.0, r.y + 8.0, 10.5, crate::color::TEXT_HIGH);
     if let Some(id) = scene.and_then(|s| s.id(&Target::Item(node.id))) {
         draw.region(
             id,
@@ -52,7 +50,7 @@ fn item(
             } else {
                 r.x + 11.0
             };
-            label(draw, &entry.label, x, point.y - 5.0, 9.5, p.muted);
+            label(draw, &entry.label, x, point.y - 5.0, 9.5, crate::color::MUTED);
             if let Some(id) = scene.and_then(|s| s.id(&Target::Socket(node.id, outgoing, index))) {
                 draw.region(id, Rect::new(point.x - 9.0, point.y - 9.0, 18.0, 18.0));
             }
@@ -66,12 +64,12 @@ fn item(
         if y + 22.0 > r.y + r.height {
             break;
         }
-        draw.rounded_rect(Rect::new(r.x + 10.0, y, r.width - 20.0, 21.0), 5.0, p.field);
-        label(draw, parameter, r.x + 16.0, y + 5.0, 10.0, p.text);
+        draw.rounded_rect(Rect::new(r.x + 10.0, y, r.width - 20.0, 21.0), 5.0, crate::color::FIELD);
+        label(draw, parameter, r.x + 16.0, y + 5.0, 10.0, crate::color::TEXT);
     }
     for (index, entry) in node.controls.iter().enumerate() {
         let r = control(node, index).expect("enumerated control");
-        draw.rounded_rect(r, 5.0, p.field);
+        draw.rounded_rect(r, 5.0, crate::color::FIELD);
         let value = match &entry.value {
             NodeControlValue::Number { value, .. } => format!("{value:.3}"),
             NodeControlValue::Choice { options, selected } => {
@@ -85,7 +83,7 @@ fn item(
             r.x + 6.0,
             r.y + 4.0,
             10.0,
-            p.text,
+            crate::color::TEXT,
         );
         if let Some(id) = scene.and_then(|s| s.id(&Target::control(node, index))) {
             draw.region(id, r);
@@ -97,16 +95,15 @@ fn item(
             kivact::geometry::Point::new(r.x, r.y + r.height),
             kivact::geometry::Point::new(r.x + r.width, r.y),
             2.0,
-            p.x,
+            crate::color::X,
         );
     }
 }
 
 pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
-    let p = draw.theme().ext::<crate::tokens::Tokens>();
     for x in (0..size.width.max(0.0) as usize).step_by(20) {
         for y in (0..size.height.max(0.0) as usize).step_by(20) {
-            draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, p.hair);
+            draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, crate::color::HAIR);
         }
     }
     let transform = state.transform.get();
@@ -129,9 +126,9 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
                     from,
                     to,
                     if state.selected_link.get() == Some(link) {
-                        p.accent
+                        crate::color::ACCENT
                     } else {
-                        p.dim
+                        crate::color::DIM
                     },
                 );
                 if let Some(id) = scene.as_deref().and_then(|s| s.id(&Target::link(link))) {
@@ -153,7 +150,7 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
             && let (id, index) = source.output()
             && let Some(node) = nodes.iter().find(|n| n.id == id)
         {
-            geometry::draw_link(draw, geometry::socket(node, true, index), to, p.accent);
+            geometry::draw_link(draw, geometry::socket(node, true, index), to, crate::color::ACCENT);
             for candidate in &nodes {
                 for input in 0..candidate.inputs.len() {
                     let point = geometry::socket(candidate, false, input);
@@ -166,13 +163,13 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
                             input,
                         ))
                     {
-                        draw.circle(point, 7.0, p.accent);
+                        draw.circle(point, 7.0, crate::color::ACCENT);
                     }
                 }
             }
         }
         if let Some(DragMode::Marquee { from, to }) = state.drag_state() {
-            draw.stroke_rect(Rect::from_points(from, to), 1.0, p.accent);
+            draw.stroke_rect(Rect::from_points(from, to), 1.0, crate::color::ACCENT);
         }
     });
 }
