@@ -47,7 +47,7 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
                         return outer;
                     }
                     let on_light = outer.get(&c::ON_LIGHT_VAR);
-                    if composite.contrast_ratio(outer.get(&c::ON_DARK_VAR))
+                    if composite.contrast_ratio(outer.get(&c::WHITE_VAR))
                         >= composite.contrast_ratio(on_light)
                     {
                         ThemeMode::Dark
@@ -57,7 +57,7 @@ pub fn media_theme(mode: MediaMode, content: impl IntoView) -> View {
                 }
             };
             let ink = match mode {
-                ThemeMode::Dark => &c::ON_DARK_VAR,
+                ThemeMode::Dark => &c::WHITE_VAR,
                 ThemeMode::Light => &c::ON_LIGHT_VAR,
             };
             theme(mode)

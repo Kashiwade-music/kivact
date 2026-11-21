@@ -8,9 +8,9 @@ use crate::type_scale::{self as t, TypeStyle};
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::custom::PartState;
 use kivact::custom::part;
-use kivact::state::Callback;
 use kivact::state::Value;
 use kivact::state::memo;
 use kivact::style::Align;
@@ -50,13 +50,12 @@ pub enum LinkColor {
     Inherit,
 }
 
-/// Inline-sized link or link-shaped action; `on_press` runs when it is activated.
+/// Inline-sized link or link-shaped action; the caller's `on_press` runs when it is activated.
 ///
-/// The caller performs navigation or another action in `on_press`.
+/// The caller performs navigation or another action in its `on_press`.
 #[component]
 pub fn link(
     label: Value<String>,
-    on_press: Option<Callback<()>>,
     #[prop(default = false)] as_button: Value<bool>,
     #[prop(default = false)] underline: Value<bool>,
     #[prop(default = false)] external: Value<bool>,
@@ -67,12 +66,13 @@ pub fn link(
     weight: Option<u16>,
     #[prop(default = LinkColor::Accent)] color: Value<LinkColor>,
     #[prop(default = 0)] max_lines: Value<u32>,
+    #[caller] caller: Caller,
 ) -> impl Element {
-    let interactive = on_press.is_some();
+    let interactive = caller.has_press();
     let attachment = part(|state| state);
     let input = attachment.state();
     let root = row(()).with_node(move |node| node.part(attachment));
-    let root = activate_link(root, on_press, as_button);
+    let root = activate_link(root, interactive, as_button);
     let root = name_link(root, label, external, new_tab_label);
     let direction = if use_direction() == ReadingDirection::Rtl {
         FlexDirection::RowReverse
@@ -98,8 +98,10 @@ pub fn link(
         )
 }
 
-fn activate_link(mut root: Node, press: Option<Callback<()>>, as_button: Value<bool>) -> Node {
-    if let Some(press) = press {
+/// Make the root a focusable link or button when the caller gave it a press handler.
+/// The handler itself is the caller's `on_press` on the same root.
+fn activate_link(mut root: Node, interactive: bool, as_button: Value<bool>) -> Node {
+    if interactive {
         root = root
             .with_node(move |node| {
                 node.role(if as_button.get() {
@@ -108,8 +110,7 @@ fn activate_link(mut root: Node, press: Option<Callback<()>>, as_button: Value<b
                     Role::Link
                 })
             })
-            .focusable(true)
-            .on_press(move || press.call(()));
+            .focusable(true);
         if !as_button.get() {
             root = root.on_key(|event| {
                 if event.key() == Key::Space {

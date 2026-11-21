@@ -7,6 +7,7 @@ use crate::stack::{ContainerInset, Padding, rtl};
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::state::Value;
 use kivact::state::provide;
 use kivact::state::try_use_context;
@@ -14,6 +15,7 @@ use kivact::style::Color;
 use kivact::style::FlexDirection;
 use kivact::style::style;
 use kivact::style::use_theme;
+use kivact::ui::theme::Variant;
 use kivact::view::Element;
 use kivact::view::View;
 use kivact::view::column;
@@ -30,6 +32,8 @@ pub enum SectionVariant {
     /// Use the muted background.
     Muted,
 }
+
+impl Variant for SectionVariant {}
 
 /// Logical edges of a section, for its dividers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
@@ -67,7 +71,6 @@ struct SectionPadding(f64);
 #[component]
 pub fn section(
     content: View,
-    #[prop(default = SectionVariant::Section)] variant: Value<SectionVariant>,
     padding: Option<Space>,
     padding_x: Option<Space>,
     padding_y: Option<Space>,
@@ -78,7 +81,9 @@ pub fn section(
     #[prop(default = SectionEdges::default())] dividers: Value<SectionEdges>,
     #[prop(default = false)] bleed_top: Value<bool>,
     #[prop(default = false)] bleed_bottom: Value<bool>,
+    #[caller] caller: Caller,
 ) -> impl Element {
+    let variants = caller.variants();
     let parent = try_use_context::<ContainerInset>().unwrap_or_default();
     let (left, right) = parent.sides();
     let spacing = Padding {
@@ -104,7 +109,7 @@ pub fn section(
     node()
         .with_node(move |node| {
             node.base_style(move || {
-                let color = match variant.get() {
+                let color = match variants.get::<SectionVariant>().unwrap_or_default() {
                     SectionVariant::Section => c::BG_SURFACE,
                     SectionVariant::Transparent => Color::TRANSPARENT,
                     SectionVariant::Muted => c::BG_MUTED,

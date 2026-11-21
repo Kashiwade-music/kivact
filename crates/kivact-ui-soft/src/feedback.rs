@@ -4,6 +4,7 @@ use crate::radius as r;
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::motion::Animated;
 use kivact::motion::Easing;
 use kivact::motion::Repeat;
@@ -12,6 +13,7 @@ use kivact::state::Value;
 use kivact::style::Align;
 use kivact::style::Justify;
 use kivact::style::style;
+use kivact::ui::theme::Variant;
 use kivact::view::Element;
 use kivact::view::Node;
 use kivact::view::Role;
@@ -40,14 +42,17 @@ pub enum StatusDotVariant {
     Neutral,
 }
 
+impl Variant for StatusDotVariant {}
+
 /// Named noninteractive status indicator with an accessible label.
 #[component]
 pub fn status_dot(
-    variant: StatusDotVariant,
     label: Value<String>,
     icon: Option<View>,
     #[prop(default = false)] pulsing: Value<bool>,
+    #[caller] caller: Caller,
 ) -> impl Element {
+    let variants = caller.variants();
     let pulse = pulsing.get().then(|| {
         Animated::from(
             1.0f64,
@@ -62,7 +67,10 @@ pub fn status_dot(
         .name(label)
         .with_node(move |node| {
             node.base_style(move || {
-                let (fill, ink) = match variant {
+                let (fill, ink) = match variants
+                    .get::<StatusDotVariant>()
+                    .unwrap_or(StatusDotVariant::Neutral)
+                {
                     StatusDotVariant::Success => (c::SUCCESS, c::ON_SUCCESS),
                     StatusDotVariant::Warning => (c::WARNING, c::ON_WARNING),
                     StatusDotVariant::Error => (c::ERROR, c::ON_ERROR),

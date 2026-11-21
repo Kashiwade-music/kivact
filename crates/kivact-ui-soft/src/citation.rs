@@ -10,10 +10,10 @@ use crate::type_scale as t;
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::i18n::message_with;
 use kivact::motion::Transition;
 use kivact::state::Callback;
-use kivact::state::Value;
 use kivact::style::Align;
 use kivact::style::Cursor;
 use kivact::style::FlexDirection;
@@ -58,15 +58,21 @@ pub enum CitationVariant {
     Number,
 }
 
+impl kivact::ui::theme::Variant for CitationVariant {}
+
 /// Render a numbered reference to a source; `on_open` receives the source URL when activated.
 #[component]
 pub fn citation(
     number: u32,
     source: CitationSource,
-    #[prop(default = CitationVariant::Label)] variant: Value<CitationVariant>,
     on_open: Option<Callback<String>>,
+    #[caller] caller: Caller,
 ) -> impl Element {
-    let number_only = variant.get() == CitationVariant::Number;
+    let number_only = caller
+        .variants()
+        .get::<CitationVariant>()
+        .unwrap_or_default()
+        == CitationVariant::Number;
     let title = source.title.or_else(|| source.url.clone());
     let name = message_with("soft.citation.source", "Source {number}", move || {
         [("number", number.to_string())]

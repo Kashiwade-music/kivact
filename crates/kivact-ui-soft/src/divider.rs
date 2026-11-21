@@ -7,11 +7,13 @@ use crate::type_scale as t;
 
 use kivact::Prop;
 use kivact::component;
+use kivact::custom::Caller;
 use kivact::state::Value;
 use kivact::state::try_use_context;
 use kivact::style::Align;
 use kivact::style::FlexDirection;
 use kivact::style::style;
+use kivact::ui::theme::Variant;
 use kivact::view::Element;
 use kivact::view::Orientation;
 use kivact::view::Role;
@@ -30,15 +32,18 @@ pub enum DividerVariant {
     Strong,
 }
 
+impl Variant for DividerVariant {}
+
 /// Semantic separator with optional content between two rule segments.
 #[component]
 pub fn divider(
     #[prop(default = Orientation::Horizontal)] orientation: Value<Orientation>,
-    #[prop(default = DividerVariant::Subtle)] variant: Value<DividerVariant>,
     #[prop(default = false)] full_bleed: Value<bool>,
     label: Option<View>,
     label_text: Option<Value<String>>,
+    #[caller] caller: Caller,
 ) -> impl Element {
+    let variants = caller.variants();
     let mut root = node().with_node(move |node| node.role(Role::Separator));
     let mut label = label;
     if let Some(value) = label_text {
@@ -69,8 +74,9 @@ pub fn divider(
         })
     });
     let rule = || {
+        let variants = variants.clone();
         node().style(move || {
-            let color = match variant.get() {
+            let color = match variants.get::<DividerVariant>().unwrap_or_default() {
                 DividerVariant::Subtle => c::BORDER,
                 DividerVariant::Strong => c::BORDER_EMPHASIZED,
             };

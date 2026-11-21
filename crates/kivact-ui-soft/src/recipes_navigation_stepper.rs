@@ -135,7 +135,7 @@ fn body(_: &Theme, look: &Look<StepperItemState>, _base: Style) -> Style {
         StepDensity::Balanced => s::SPACE_S2,
         StepDensity::Spacious => s::SPACE_S3,
     };
-    style()
+    let base = style()
         .flex_direction(FlexDirection::Column)
         .min_width(0)
         .flex_grow(1.0)
@@ -152,7 +152,13 @@ fn body(_: &Theme, look: &Look<StepperItemState>, _base: Style) -> Style {
                 Align::Start
             },
         )
-        .border_radius(r::RADIUS_ELEMENT)
+        .border_radius(r::RADIUS_ELEMENT);
+    if !look.disabled {
+        base.hover(style().background(c::OVERLAY_HOVER))
+            .active(style().background(c::OVERLAY_PRESSED))
+    } else {
+        base
+    }
 }
 
 /// A connector of a step, leading or trailing: a line that is filled up to the current step.

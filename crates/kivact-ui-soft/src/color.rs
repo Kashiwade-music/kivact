@@ -63,6 +63,8 @@ pub const ON_ACCENT: Color = Color::var(&ON_ACCENT_VAR);
 pub(crate) static ON_DARK_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_dark", rgb(0xffffff));
 pub const ON_DARK: Color = Color::var(&ON_DARK_VAR);
 
+pub(crate) static WHITE_VAR: ThemeVar<Color> = ThemeVar::new("soft.white", rgb(0xffffff));
+
 pub(crate) static ON_LIGHT_VAR: ThemeVar<Color> = ThemeVar::new("soft.on_light", rgb(0x111111));
 pub const ON_LIGHT: Color = Color::var(&ON_LIGHT_VAR);
 
@@ -712,6 +714,7 @@ fn set_colors_base_2(theme: Theme, dark: bool) -> Theme {
             if dark { rgb(0x111111) } else { rgb(0xffffff) },
         )
         .set(&ON_DARK_VAR, rgb(0xffffff))
+        .set(&WHITE_VAR, rgb(0xffffff))
 }
 
 fn set_colors_base_3(theme: Theme, dark: bool) -> Theme {
