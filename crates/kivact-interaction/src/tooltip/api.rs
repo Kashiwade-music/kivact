@@ -16,7 +16,6 @@
 
 use std::time::Duration;
 
-use crate::options_cell::OptionsCell;
 use kivact_core::custom::{Owner, Part, part};
 use kivact_types::cell::Generation;
 
@@ -115,7 +114,7 @@ impl Hub {
 /// use kivact::view::{Element, node, node_ref, text};
 /// use kivact::view::{Placement, Role, overlay, show};
 /// use kivact::interaction::use_tooltip;
-/// let tip = use_tooltip();
+/// let tip = use_tooltip(true);
 /// let trigger = tip.trigger();
 /// let anchor = node_ref();
 /// let view = (
@@ -129,7 +128,8 @@ impl Hub {
 /// ```
 #[derive(Clone, Copy)]
 pub struct TooltipApi {
-    options: OptionsCell<TooltipOptions>,
+    /// Whether the hint may show.
+    enabled: Value<bool>,
     trigger_state: Signal<Option<Value<PopupState>>>,
     content_state: Signal<Option<Value<PopupState>>>,
     /// What follows the attached trigger: made when it attaches and
@@ -152,18 +152,12 @@ struct Attached {
     visible: Value<bool>,
 }
 
-#[derive(Clone, Copy, Default)]
-struct TooltipOptions {
-    disabled: Option<Value<bool>>,
-}
-
 /// Create a tooltip under the current setup owner, reading [`crate::TooltipTiming`].
 ///
-/// The first tooltip of an App creates the App's shared one-at-a-time state.
-/// Setup only.
+/// `enabled` suppresses the hint while false. The first tooltip of an App
+/// creates the App's shared one-at-a-time state. Setup only.
 #[track_caller]
-pub fn use_tooltip() -> TooltipApi {
-    let options = OptionsCell::new(TooltipOptions::default());
+pub fn use_tooltip(enabled: impl IntoValue<bool>) -> TooltipApi {
     let config = kivact_core::style::use_theme();
     let hub = Hub::of_app();
     let id = hub.take_id();
@@ -171,7 +165,7 @@ pub fn use_tooltip() -> TooltipApi {
     TooltipApi {
         trigger_state: signal(None),
         content_state: signal(None),
-        options,
+        enabled: enabled.into_value(),
         attached,
         visible: (move || {
             attached.with(|attached| attached.as_ref().is_some_and(|a| a.visible.get()))
@@ -211,13 +205,6 @@ impl TooltipApi {
         })
     }
 
-    /// Suppress the hint while disabled.
-    pub fn disabled(self, disabled: impl IntoValue<bool>) -> Self {
-        self.options
-            .update(|options| options.disabled = Some(disabled.into_value()));
-        self
-    }
-
     /// Whether the hint is shown now.
     pub fn is_open(self) -> Value<bool> {
         self.visible
@@ -236,7 +223,7 @@ impl TooltipApi {
     /// trigger mount's owner.
     fn attach(self) {
         let TooltipApi {
-            options,
+            enabled,
             attached,
             anchor,
             surface,
@@ -248,14 +235,8 @@ impl TooltipApi {
         let hover = anchor.hovered();
         let surface_hover = surface.hovered();
         let focus = anchor.focus_within();
-        let engaged = memo(move || {
-            !options
-                .value()
-                .get()
-                .disabled
-                .is_some_and(|disabled| disabled.get())
-                && (hover.get() || surface_hover.get() || focus.get())
-        });
+        let engaged =
+            memo(move || enabled.get() && (hover.get() || surface_hover.get() || focus.get()));
 
         // The delay, or none while another tooltip is warm; both end with the
         // engagement. One tooltip at a time: the delayed machine's visibility

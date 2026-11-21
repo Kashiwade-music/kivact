@@ -60,9 +60,9 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
             move |name: Signal<(u32, String)>| {
                 let id = name.with(|(id, _)| *id);
                 column((
-                    ui::button(format!("Rename {id}")).on_press(move || rename.show(id)),
+                    ui::button(format!("Rename {id}")).on_press(move || rename.edit(id)),
                     show(
-                        move || rename.is_open(&id),
+                        move || rename.editing().get() == Some(id),
                         move || {
                             node().part(
                                 rename
@@ -77,7 +77,13 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
                 ))
             },
         );
-        ((names, editing, committed), column(rows))
+        (
+            (names, editing, committed),
+            column((
+                column(rows),
+                ui::button("Cancel rename").on_press(move || rename.cancel()),
+            )),
+        )
     });
     screen.get_by_role(Role::Button, "Rename 1").click();
     let field = screen.get_by_role(Role::TextBox, "Name 1");
@@ -98,6 +104,11 @@ fn inline_edit_opens_focused_commits_cancels_and_ends_with_its_row() {
         "Escape commits nothing"
     );
     assert!(screen.query_by_role(Role::TextBox, "Name 1").is_none());
+    screen.get_by_role(Role::Button, "Rename 2").click();
+    assert_eq!(editing.get_untracked(), Some(2));
+    screen.get_by_role(Role::Button, "Cancel rename").click();
+    assert_eq!(editing.get_untracked(), None, "cancel ends the rename");
+    assert!(screen.query_by_role(Role::TextBox, "Name 2").is_none());
     screen.get_by_role(Role::Button, "Rename 2").click();
     assert_eq!(editing.get_untracked(), Some(2));
     names.set(vec![(1, "alpha".to_owned())]);

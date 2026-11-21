@@ -1,42 +1,32 @@
-//! Role: Dialog attaches modal, alert, drawer and popover surface semantics.
+//! Role: Dialog attaches modal, alert and drawer surface semantics.
 //!
-//! [`use_dialog`] is an unstyled dialog, drawer or popover on a popup
-//! (`crate::popup`); its parts are `content`, `title`, `description` and
-//! `close_trigger`, with [`PopupState`]. The title's
-//! `labelled_by` and the description's `described_by` are bound again in the
-//! new branch of every opening. The name, the scrim, the panel, the drawer's
-//! edge, the body's scrolling and the enter and exit animations are the
-//! caller's style (`Style::enter`, `Style::exit`). A modal or a drawer keeps
-//! the focus in and restores it through the engine's modal and the overlay's
-//! cleanup, which this module does not repeat; a popover gives its required
-//! anchor to the popup and shares its rule of leaving by Tab from both the
-//! anchor and the surface.
+//! [`use_dialog`] is an unstyled modal dialog, alert dialog or drawer on a
+//! popup (`crate::popup`); its parts are `content`, `title`, `description` and
+//! `close_trigger`, with [`PopupState`]. The title and the description are the
+//! popup's, so the surface is `labelled_by` the title and `described_by` the
+//! description in the new branch of every opening. The name, the scrim, the
+//! panel, the drawer's edge, the body's scrolling and the enter and exit
+//! animations are the caller's style (`Style::enter`, `Style::exit`). A modal
+//! or a drawer keeps the focus in and restores it through the engine's modal
+//! and the overlay's cleanup, which this module does not repeat. The initial
+//! focus (the given node, or the surface's first focusable one through
+//! `focus_first_inside`) is requested after the mount through the core's
+//! restore path, which checks the target when the request is sent. A surface
+//! dismissal is admitted by the [`DismissOn`] rules (assistive technology
+//! always; an alert modal's default refuses an outside press), and an admitted
+//! one only writes `false` to the open binding, without passing the reason on.
 //!
-//! A popover retains its required anchor in its structural options.
-//! The initial focus (the given node, or
-//! the surface's first focusable one through `focus_first_inside`) is
-//! requested after the mount through the core's restore path, which checks
-//! the target when the request is sent. A surface dismissal is admitted by
-//! the [`DismissOn`] rules (assistive technology always; an alert modal's
-//! default refuses an outside press), and an admitted one only writes `false`
-//! to the open binding, without passing the reason on. Whatever closes a
-//! popover while the focus is inside it, the focus goes back to the anchor
-//! through the popup's [`FocusReturn`] (Escape, a selection, assistive
-//! technology, an explicit close and an unmount), except that an outside
-//! press keeps the pressed destination; a modal restores through the
-//! overlay's cleanup.
-//!
-//! `kivact::ui::dialog` draws the standard dialog, drawer and popover from
-//! the same parts with `UiRecipes::dialog`. A domain's movable window keeps
-//! only its own placement and content and shares the opening, dismissal and
-//! focus rules.
+//! `kivact::ui::dialog` draws the standard dialog and drawer from the same
+//! parts. A domain's movable window keeps only its own placement and content
+//! and shares the opening, dismissal and focus rules.
 
 use kivact_core::geometry::Edge;
 
-use kivact_core::ErrorKind;
-use kivact_core::custom::{NodeRefExt, Part, PartState, part, raise};
-use kivact_core::state::{Value, on_mount};
-use kivact_core::view::{DismissReason, NodeRef, Role, node_ref};
+use kivact_core::custom::{Part, PartState, part};
+use kivact_core::state::Value;
+use kivact_core::view::{
+    DismissReason, Element, IntoView, NodeRef, Placement, Role, View, overlay, show,
+};
 
 use crate::options_cell::OptionsCell;
 
@@ -53,8 +43,6 @@ pub enum DialogMode {
     AlertModal,
     /// A modal sheet attached to an edge of the window (`Role::Dialog`).
     Drawer(Edge),
-    /// A non-modal dialog placed at its anchor (`Role::Dialog`).
-    Popover,
 }
 
 /// Which requests close a [`DialogApi`]. Assistive technology's DismissOn always
@@ -63,7 +51,7 @@ pub enum DialogMode {
 pub struct DismissOn {
     /// An unhandled Escape closes it.
     pub escape: bool,
-    /// A pointer press outside it (and outside its anchor) closes it.
+    /// A pointer press outside it closes it.
     pub outside: bool,
 }
 
@@ -83,15 +71,7 @@ struct DialogOptions {
     dismiss: Option<DismissOn>,
 }
 
-#[derive(Clone, Copy)]
-enum DialogOptionsMode {
-    Modal,
-    AlertModal,
-    Drawer,
-    Popover { anchor: Value<NodeRef> },
-}
-
-/// Copy handle for a dialog, a drawer or a popover, without a look.
+/// Copy handle for a dialog or a drawer, without a look.
 ///
 /// The caller owns the open state, through the `Signal<bool>` given to
 /// [`use_dialog`], and draws everything: the scrim, the panel, the title, the
@@ -104,16 +84,14 @@ enum DialogOptionsMode {
 /// | [`DialogMode::Modal`] | `Role::Dialog` | yes |
 /// | [`DialogMode::AlertModal`] | `Role::AlertDialog` | yes |
 /// | [`DialogMode::Drawer`] | `Role::Dialog` | yes |
-/// | [`DialogMode::Popover`] | `Role::Dialog` | no |
 ///
-/// Attach [`content`](Self::content) to the caller's `overlay(..)`: centered
-/// for a modal, at an edge for a drawer, at the anchor for a popover (the
-/// node with the [`trigger`](Self::trigger) part, or the
-/// [`anchor`](Self::anchor)). A [`trigger`](Self::trigger) part makes any
-/// button open it. The surface is `labelled_by` the node with the
-/// [`title`](Self::title) part, a level 2 `Role::Heading`, and `described_by`
-/// the node with the [`description`](Self::description) part, when they are
-/// mounted. The overlay's accessible name stays the caller's `.name(..)`. A
+/// Attach [`content`](Self::content) to the caller's `overlay(..)`, centred for
+/// a modal and at an edge for a drawer, or use [`surface`](Self::surface). A
+/// [`trigger`](Self::trigger) part makes any button open it. The surface is
+/// `labelled_by` the node with the [`title`](Self::title) part, a level 2
+/// `Role::Heading`, and `described_by` the node with the
+/// [`description`](Self::description) part, when they are mounted. The
+/// overlay's accessible name stays the caller's `.name(..)`. A
 /// [`close_trigger`](Self::close_trigger) part makes any button close it.
 ///
 /// Escape, an outside press and assistive technology's Dismiss close it, as
@@ -122,10 +100,7 @@ enum DialogOptionsMode {
 /// that had it when it opened: the engine and the overlay do that, and the
 /// dialog adds nothing to it. The focus starts on the
 /// [`initial_focus`](Self::initial_focus), or else on the first focusable
-/// node of the surface. A popover is a [`PopupApi`]: it also closes when the
-/// focus leaves both it and its anchor, and the focus goes back to the anchor
-/// whenever it closes while the focus is inside, except after an outside
-/// press, which keeps the pressed destination.
+/// node of the surface.
 ///
 /// ```no_run
 /// use kivact::{state::signal, view::{Element, column, node, text, Placement, Role, node_ref, overlay, show}};
@@ -146,35 +121,18 @@ enum DialogOptionsMode {
 pub struct DialogApi {
     popup: PopupApi,
     content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    mode: DialogOptionsMode,
+    mode: DialogMode,
     settings: OptionsCell<DialogOptions>,
-    title: NodeRef,
-    description: NodeRef,
 }
 
 /// Create a dialog of `kind`, shown while `open` is true. Setup only.
 #[track_caller]
 pub fn use_dialog(open: kivact_core::state::Signal<bool>, kind: DialogMode) -> DialogApi {
-    let popup = use_popup(open).focus_first();
-    if kind == DialogMode::Popover {
-        // Resolve the configured anchor at each opening, after setup has
-        // installed an external anchor or the trigger has mounted.
-        popup.return_focus_target(popup.anchor_value());
-    }
     DialogApi {
-        popup,
+        popup: use_popup(open).initial_focus_first(),
         content_state: kivact_core::state::signal(None),
-        mode: match kind {
-            DialogMode::Modal => DialogOptionsMode::Modal,
-            DialogMode::AlertModal => DialogOptionsMode::AlertModal,
-            DialogMode::Drawer(_) => DialogOptionsMode::Drawer,
-            DialogMode::Popover => DialogOptionsMode::Popover {
-                anchor: popup.anchor_value(),
-            },
-        },
+        mode: kind,
         settings: OptionsCell::new(DialogOptions::default()),
-        title: node_ref(),
-        description: node_ref(),
     }
 }
 
@@ -215,23 +173,13 @@ impl DialogApi {
     /// programmatic focus restoration. Outside presses retain outside focus.
     /// Setup only; the supplied value is read by the opening's focus owner.
     pub fn return_focus(self, target: impl kivact_core::state::IntoValue<NodeRef>) -> Self {
-        self.popup.return_focus_target(target.into_value());
+        self.popup
+            .focus_return(FocusReturn::anchor_value(target.into_value()));
         self
     }
 
-    /// The node a [`DialogMode::Popover`] is placed at, for a popover opened
-    /// by a node without the [`trigger`](Self::trigger) part. A popover needs
-    /// an anchor or a trigger; the other kinds ignore it. Setup only.
-    pub fn anchor(self, anchor: NodeRef) -> Self {
-        self.popup.anchor(anchor);
-
-        self
-    }
-
-    /// The button that opens the dialog: activation opens a closed dialog
-    /// and closes an open popover, and it publishes `expanded` and
-    /// `controls`. It is a popover's anchor: the popover is placed at it and
-    /// the focus goes back to it. Setup only.
+    /// The button that opens the dialog: activation opens a closed dialog,
+    /// and it publishes `expanded` and `controls`. Setup only.
     #[track_caller]
     pub fn trigger(self) -> Part<PopupState> {
         self.popup.trigger()
@@ -242,13 +190,30 @@ impl DialogApi {
         self.popup.is_open()
     }
 
-    fn popover(self) -> bool {
-        matches!(self.mode, DialogOptionsMode::Popover { .. })
+    /// Show the dialog unless it is shown.
+    pub fn show(self) {
+        self.popup.show();
+    }
+
+    /// Hide the dialog unless it is hidden.
+    pub fn hide(self) {
+        if self.is_open().get_untracked() {
+            self.popup.open_binding().set(false);
+        }
+    }
+
+    /// Show a hidden dialog, hide a shown one.
+    pub fn toggle(self) {
+        if self.is_open().get_untracked() {
+            self.hide();
+        } else {
+            self.show();
+        }
     }
 
     fn rules(self) -> DismissOn {
         self.settings.get().dismiss.unwrap_or(match self.mode {
-            DialogOptionsMode::AlertModal => DismissOn {
+            DialogMode::AlertModal => DismissOn {
                 outside: false,
                 ..DismissOn::default()
             },
@@ -256,12 +221,8 @@ impl DialogApi {
         })
     }
 
-    fn close(self, reason: PopupCloseReason) {
-        if self.popover() {
-            self.popup.hide(reason);
-        } else {
-            self.popup.open_binding().set(false);
-        }
+    fn close(self, _reason: PopupCloseReason) {
+        self.popup.open_binding().set(false);
     }
 
     fn state(self) -> impl Fn(PartState) -> PopupState + 'static {
@@ -274,25 +235,14 @@ impl DialogApi {
 
     /// The floating surface, for the caller's `overlay(..)`.
     ///
-    /// It sets the role, modality, `labelled_by` and `described_by`, connects
-    /// the overlay's dismissal (after the caller's own dismissal handlers) and
-    /// requests the initial focus on each opening. A popover without a
-    /// trigger or an anchor is a usage error when it opens.
+    /// It sets the role and modality, connects the overlay's dismissal (after
+    /// the caller's own dismissal handlers) and requests the initial focus on
+    /// each opening. The popup sets the `labelled_by` and `described_by`.
     #[track_caller]
     pub fn content(self) -> Part<PopupState> {
         let allowed = move |reason: DismissReason| match reason {
             DismissReason::Escape | DismissReason::WindowClose => self.rules().escape,
-            DismissReason::OutsidePress => {
-                // An outside press keeps the pressed destination, accepted or
-                // not: for the rest of this opening a popover returns the
-                // focus to its anchor only for a dismissal. The next opening
-                // installs the full policy again.
-                if self.popover() {
-                    self.popup
-                        .set_opening_policy(FocusReturn::anchor(self.popup.anchor_ref()));
-                }
-                self.rules().outside
-            }
+            DismissReason::OutsidePress => self.rules().outside,
             DismissReason::Accessibility => true,
             DismissReason::Timeout => false,
         };
@@ -300,65 +250,28 @@ impl DialogApi {
         let part_state = surface.state();
         crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
-            let surface = host.part(surface);
-            let surface = if self.popover() {
-                surface
-            } else {
-                surface.modal()
-            };
-            surface
-                .role(match self.mode {
-                    DialogOptionsMode::AlertModal => Role::AlertDialog,
-                    _ => Role::Dialog,
-                })
-                .labelled_by(self.title)
-                .described_by(self.description)
-                .on_attach(move |_| self.bind())
+            host.part(surface).modal().role(match self.mode {
+                DialogMode::AlertModal => Role::AlertDialog,
+                _ => Role::Dialog,
+            })
         })
-    }
-
-    /// Per-opening focus: the start and, for a popover, the return. Setup
-    /// only, under the mounted surface's owner.
-    fn bind(self) {
-        if let DialogOptionsMode::Popover { anchor } = self.mode {
-            on_mount(move || {
-                if anchor.get_untracked().mounted_node().is_none() {
-                    raise(
-                        ErrorKind::Message,
-                        "DialogApi: a popover needs an anchor (DialogApi::trigger or DialogApi::anchor)",
-                    );
-                }
-            });
-        }
     }
 
     /// The title: a level 2 heading the surface is `labelled_by`.
     #[track_caller]
     pub fn title(self) -> Part<PopupState> {
-        let input = part(self.state());
-        let part_state = input.state();
-        Part::new(part_state, move |host| {
-            host.part(input)
-                .node_ref(self.title)
-                .role(Role::Heading)
-                .level(2_u32)
-        })
+        self.popup.title()
     }
 
     /// A description the surface is `described_by`.
     #[track_caller]
     pub fn description(self) -> Part<PopupState> {
-        let input = part(self.state());
-        let part_state = input.state();
-        Part::new(part_state, move |host| {
-            host.part(input).node_ref(self.description)
-        })
+        self.popup.description()
     }
 
     /// A button whose activation closes the dialog.
     ///
-    /// A popover's focus returns to its anchor; a modal's to the node that had
-    /// it when it opened.
+    /// A modal's focus returns to the node that had it when it opened.
     #[track_caller]
     pub fn close_trigger(self) -> Part<PopupState> {
         let input = part(self.state());
@@ -369,5 +282,25 @@ impl DialogApi {
                 .focusable(true)
                 .on_press(move || self.close(PopupCloseReason::Selection))
         })
+    }
+
+    /// The node the surface is placed at.
+    pub(crate) fn anchor_ref(self) -> NodeRef {
+        self.popup.anchor_ref()
+    }
+
+    /// The floating surface placed at the anchor, for the caller's
+    /// `overlay(..)`: mounted while the dialog is shown.
+    #[track_caller]
+    pub fn surface<V: IntoView>(
+        self,
+        placement: Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> View {
+        show(self.is_open(), move || {
+            overlay(self.anchor_ref(), placement, content())
+                .with_node(|node| node.part(self.content()))
+        })
+        .into_view()
     }
 }

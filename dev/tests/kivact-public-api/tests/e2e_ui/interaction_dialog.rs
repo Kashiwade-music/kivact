@@ -7,7 +7,7 @@
 
 use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
-use kivact::interaction::{DialogApi, use_dialog};
+use kivact::interaction::{DialogApi, FocusReturn, use_dialog, use_popup};
 use kivact::prelude::*;
 use kivact::state::IntoText;
 use kivact::test::Screen;
@@ -78,27 +78,16 @@ fn framed<B: IntoView, F: IntoView>(
             )
             .style(match kind {
                 DialogMode::Drawer(side) => edge(side),
-                DialogMode::Popover => style().width(288),
                 _ => style().width(480),
             });
         if let Some(enter) = frame.enter.clone() {
             panel = panel.style(enter);
         }
-        let popover = kind == DialogMode::Popover;
-        let placement = if popover {
-            Placement::Below
-        } else {
-            Placement::Center
-        };
-        let layer = overlay(anchor, placement, panel)
+        let layer = overlay(anchor, Placement::Center, panel)
             .with_node(move |node| node.part(dialog.content()))
             .name(title);
-        if popover {
-            layer.offset(4).into_view()
-        } else {
-            let scrim = node().style(style().position(Position::Fixed).inset(0));
-            (scrim, layer).into_view()
-        }
+        let scrim = node().style(style().position(Position::Fixed).inset(0));
+        (scrim, layer).into_view()
     })
     .into_view()
 }
@@ -143,11 +132,6 @@ fn page_ordered(
         let open = signal(false);
         let anchor = node_ref();
         let behavior = tweak(use_dialog(open, kind));
-        let behavior = if kind == DialogMode::Popover {
-            behavior.anchor(anchor)
-        } else {
-            behavior
-        };
         let opener = button("Open")
             .node_ref(anchor)
             .on_press(move || open.update(|v| *v = !*v));
@@ -177,13 +161,12 @@ fn page_ordered(
     })
 }
 
-fn kinds() -> [DialogMode; 5] {
+fn kinds() -> [DialogMode; 4] {
     [
         DialogMode::Modal,
         DialogMode::AlertModal,
         DialogMode::Drawer(Edge::Right),
         DialogMode::Drawer(Edge::Left),
-        DialogMode::Popover,
     ]
 }
 
@@ -242,17 +225,12 @@ fn the_focus_starts_on_the_first_focusable_node_or_on_the_initial_focus() {
             "{kind:?}: first focusable"
         );
     }
-    for kind in [DialogMode::Modal, DialogMode::Popover] {
+    for kind in [DialogMode::Modal] {
         let (screen, open) = mount(move || {
             let second = node_ref();
             let open = signal(false);
             let anchor = node_ref();
             let behavior = use_dialog(open, kind).initial_focus(second);
-            let behavior = if kind == DialogMode::Popover {
-                behavior.anchor(anchor)
-            } else {
-                behavior
-            };
             (
                 open,
                 column((
@@ -371,33 +349,49 @@ fn a_modal_contains_tab_and_blocks_the_page_behind_it() {
 }
 
 #[test]
-fn a_popover_anchored_after_its_content_is_made_opens_and_returns_the_focus_to_the_anchor() {
+fn a_popover_popup_has_dialog_parts_and_returns_the_focus_to_its_anchor() {
     let (screen, open) = mount(|| {
         let open = signal(false);
         let anchor = node_ref();
-        let behavior = use_dialog(open, DialogMode::Popover);
-        // The surface part exists before the anchor is given.
-        let content = std::cell::RefCell::new(Some(behavior.content()));
-        let hint = show(behavior.is_open(), move || {
-            let content = content
-                .borrow_mut()
-                .take()
-                .expect("invariant: the popover opens once");
-            overlay(anchor, Placement::Below, column((button("First"),)))
-                .with_node(move |node| node.part(content))
-                .name("Settings")
+        let popup = use_popup(open)
+            .anchor(anchor)
+            .initial_focus_first()
+            .focus_return(FocusReturn::anchor_value(anchor.into_value()));
+        let surface = show(popup.is_open(), move || {
+            overlay(
+                anchor,
+                Placement::Below,
+                column((
+                    text("Settings").part(popup.title()),
+                    button("First"),
+                    button("Second"),
+                    button("Done").on_press(move || open.set(false)),
+                )),
+            )
+            .with_node(move |node| node.part(popup.content()).role(Role::Dialog))
+            .name("Settings")
         });
-        let _ = behavior.anchor(anchor);
         let opener = button("Open")
             .node_ref(anchor)
             .on_press(move || open.update(|v| *v = !*v));
-        (open, column((opener, hint)))
+        (open, column((opener, surface)))
     });
-    screen.get_by_test_id("Open").click();
+    screen.get_by_role(Role::Button, "Open").click();
     assert!(open.get_untracked());
-    screen.get_by_role(Role::Dialog, "Settings");
+    let dialog = screen.get_by_role(Role::Dialog, "Settings");
+    let labels: Vec<String> = dialog.labelled_by().iter().map(|e| e.text()).collect();
+    assert_eq!(labels, ["Settings"], "labelled by the title part");
+    assert_eq!(
+        screen.focused().map(|e| e.name()),
+        Some("First".to_string()),
+        "the first focusable node starts"
+    );
     screen.press_key(Key::Escape);
     assert!(!open.get_untracked());
-    assert!(screen.get_by_test_id("Open").is_focused());
+    assert!(screen.get_by_role(Role::Button, "Open").is_focused());
+    screen.get_by_role(Role::Button, "Open").click();
+    screen.get_by_role(Role::Button, "Done").click();
+    assert!(!open.get_untracked());
+    assert!(screen.get_by_role(Role::Button, "Open").is_focused());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

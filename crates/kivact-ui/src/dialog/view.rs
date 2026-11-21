@@ -10,10 +10,13 @@ use kivact_core::geometry::Edge;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
 use kivact_core::style::{Length, Position, pct, style, use_theme};
+use kivact_core::view::Role;
 use kivact_core::view::{Element, Node, column, node, row, scroll, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 use kivact_core::view::{Variant, Variants};
-use kivact_interaction::{DialogMode, DismissOn, PopupState};
+use kivact_interaction::{
+    DialogApi, DialogMode, DismissOn, FocusReturn, PopupApi, PopupState, use_dialog, use_popup,
+};
 
 /// What a dialog is: a modal dialog, an alert dialog, a drawer from an edge
 /// or a popover.
@@ -29,7 +32,7 @@ pub struct Dialog {
     open: Signal<bool>,
     title: Value<String>,
     title_hidden: Value<bool>,
-    kind: DialogMode,
+    kind: DialogKind,
     placement: Placement,
     align: Option<OverlayAlign>,
     width: Option<Value<Length>>,
@@ -48,7 +51,7 @@ pub struct Dialog {
 /// The builder is the view: give it a body with [`content`](Dialog::content)
 /// and optional actions with [`footer`](Dialog::footer). Open it by writing
 /// `open`, or from a button with [`attach`](Dialog::attach); a
-/// [`DialogMode::Popover`] is placed at the button it is attached to and
+/// [`DialogKind::Popover`] is placed at the button it is attached to and
 /// needs one.
 ///
 /// ```no_run
@@ -75,7 +78,7 @@ pub fn dialog(title: impl IntoText, open: kivact_core::state::Signal<bool>) -> D
         open,
         title: title.into_text_value(),
         title_hidden: false.into_value(),
-        kind: DialogMode::Modal,
+        kind: DialogKind::Modal,
         placement: Placement::Below,
         align: None,
         width: None,
@@ -118,7 +121,7 @@ impl Dialog {
 /// What every part of one dialog tells its recipes besides its own state.
 #[derive(Clone, Copy)]
 struct Shape {
-    kind: DialogMode,
+    kind: DialogKind,
     media: bool,
 }
 impl Shape {
@@ -126,8 +129,60 @@ impl Shape {
         DialogState {
             input: state.input,
             open: state.open,
-            kind: self.kind,
+            // STOP U30a: DialogState.kind is a DialogMode, which has no popover
+            kind: match self.kind {
+                DialogKind::Modal => DialogMode::Modal,
+                DialogKind::AlertModal => DialogMode::AlertModal,
+                DialogKind::Drawer(edge) => DialogMode::Drawer(edge),
+                DialogKind::Popover => DialogMode::Popover,
+            },
             media: self.media,
+        }
+    }
+}
+
+/// The behavior a dialog's kind is built on: a dialog, or a popup for a
+/// popover.
+#[derive(Clone, Copy)]
+enum Behavior {
+    Dialog(DialogApi),
+    Popover(PopupApi),
+}
+impl Behavior {
+    fn trigger(self) -> Part<PopupState> {
+        match self {
+            Self::Dialog(d) => d.trigger(),
+            Self::Popover(p) => p.trigger(),
+        }
+    }
+    fn title(self) -> Part<PopupState> {
+        match self {
+            Self::Dialog(d) => d.title(),
+            Self::Popover(p) => p.title(),
+        }
+    }
+    fn description(self) -> Part<PopupState> {
+        match self {
+            Self::Dialog(d) => d.description(),
+            Self::Popover(p) => p.description(),
+        }
+    }
+    fn close_trigger(self) -> Part<PopupState> {
+        match self {
+            Self::Dialog(d) => d.close_trigger(),
+            Self::Popover(p) => p.close_trigger(),
+        }
+    }
+    fn content(self) -> Part<PopupState> {
+        match self {
+            Self::Dialog(d) => d.content(),
+            Self::Popover(p) => p.content(),
+        }
+    }
+    fn is_open(self) -> Value<bool> {
+        match self {
+            Self::Dialog(d) => d.is_open(),
+            Self::Popover(p) => p.is_open(),
         }
     }
 }
@@ -211,16 +266,11 @@ impl Dialog {
 
     /// What the dialog is: a modal, an alert, a drawer from an edge or a popover.
     pub fn mode(mut self, kind: DialogKind) -> Self {
-        self.kind = match kind {
-            DialogKind::Modal => DialogMode::Modal,
-            DialogKind::AlertModal => DialogMode::AlertModal,
-            DialogKind::Drawer(edge) => DialogMode::Drawer(edge),
-            DialogKind::Popover => DialogMode::Popover,
-        };
+        self.kind = kind;
         self
     }
 
-    /// The side of its trigger a [`DialogMode::Popover`] opens on (default
+    /// The side of its trigger a [`DialogKind::Popover`] opens on (default
     /// [`Placement::Below`]); the host flips it to the opposite side when
     /// the panel does not fit. The other kinds are centred or fixed to their
     /// edge and ignore it. A constant: it is the shape of the layout.
@@ -229,7 +279,7 @@ impl Dialog {
         self
     }
 
-    /// Where along its trigger's side a [`DialogMode::Popover`] sits (the
+    /// Where along its trigger's side a [`DialogKind::Popover`] sits (the
     /// overlay's [`align`](kivact_core::view::Overlay::align); its start by
     /// default). The other kinds ignore it. A constant, as the placement.
     pub fn align(mut self, align: OverlayAlign) -> Self {
@@ -255,7 +305,7 @@ impl Dialog {
     /// trigger also closes it) and return the trigger with the dialog. The
     /// trigger publishes `expanded` and `controls`, keeps its own name and
     /// role (a button without a role becomes a `Role::Button`), and is where
-    /// a [`DialogMode::Popover`] is placed and where the focus goes back to.
+    /// a [`DialogKind::Popover`] is placed and where the focus goes back to.
     pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         self.render(Some(trigger))
     }
@@ -269,21 +319,43 @@ impl IntoView for Dialog {
 
 impl Dialog {
     fn render<T: Element + IntoView>(self, trigger: Option<T>) -> View {
-        let mut behavior = kivact_interaction::use_dialog(self.open, self.kind);
-        if let Some(target) = self.initial_focus {
-            behavior = behavior.initial_focus(target);
-        }
-        if let Some(dismiss) = self.dismiss {
-            behavior = behavior.dismiss(dismiss);
-        }
-        if let Some(target) = self.return_focus {
-            behavior = behavior.return_focus(target);
-        }
-        let mut anchor = node_ref();
+        let anchor = node_ref();
+        let behavior = match self.kind {
+            DialogKind::Popover => {
+                let popup = use_popup(self.open)
+                    .anchor(anchor)
+                    .initial_focus_first()
+                    .focus_return(FocusReturn::anchor_value(
+                        self.return_focus.unwrap_or_else(|| anchor.into_value()),
+                    ));
+                Behavior::Popover(match self.initial_focus {
+                    Some(target) => popup.initial_focus(target),
+                    None => popup,
+                })
+            }
+            kind => {
+                let mode = match kind {
+                    DialogKind::Modal => DialogMode::Modal,
+                    DialogKind::AlertModal => DialogMode::AlertModal,
+                    DialogKind::Drawer(edge) => DialogMode::Drawer(edge),
+                    DialogKind::Popover => unreachable!("invariant: matched above"),
+                };
+                let mut dialog = use_dialog(self.open, mode);
+                if let Some(target) = self.initial_focus {
+                    dialog = dialog.initial_focus(target);
+                }
+                if let Some(dismiss) = self.dismiss {
+                    dialog = dialog.dismiss(dismiss);
+                }
+                if let Some(target) = self.return_focus {
+                    dialog = dialog.return_focus(target);
+                }
+                Behavior::Dialog(dialog)
+            }
+        };
         let trigger = trigger.map(|mut trigger| {
             let role = trigger.node_mut().accessible_role();
             let part = behavior.trigger();
-            anchor = node_ref();
             let trigger = trigger.node_ref(anchor).with_node(|node| node.part(part));
             match role {
                 Some(role) => trigger.with_node(|node| node.role(role)),
@@ -317,7 +389,7 @@ fn edge(side: Edge) -> kivact_core::style::Style {
 
 impl Dialog {
     /// Render media and semantic headings in the dialog header.
-    fn header(&self, behavior: kivact_interaction::DialogApi, shape: Shape) -> View {
+    fn header(&self, behavior: Behavior, shape: Shape) -> View {
         let title = self.title;
         let hidden = self.title_hidden;
         let open = self.open.into_value();
@@ -385,11 +457,10 @@ impl Dialog {
         }
     }
     /// Render the dismiss control for dialog modes which provide it.
-    fn close_button(&self, behavior: kivact_interaction::DialogApi, shape: Shape) -> Option<View> {
-        let kind = self.kind;
+    fn close_button(&self, behavior: Behavior, shape: Shape) -> Option<View> {
         let variants = &self.variants;
         let closable = self.closable;
-        (kind != DialogMode::Popover).then(|| {
+        (!matches!(self.kind, DialogKind::Popover)).then(|| {
             let variants = variants.clone();
             kivact_core::view::show(closable, move || {
                 themed(
@@ -420,7 +491,7 @@ impl Dialog {
                 variants,
                 |r: &DialogTheme| r.body_recipe(),
             );
-            if matches!(kind, DialogMode::Drawer(_)) {
+            if matches!(kind, DialogKind::Drawer(_)) {
                 scroll(content)
                     .style(style().flex_grow(1).min_height(0))
                     .into_view()
@@ -441,12 +512,7 @@ impl Dialog {
         (content, footer)
     }
     /// Compose the panel surface and its optional drawer manipulation handle.
-    fn surface(
-        &self,
-        behavior: kivact_interaction::DialogApi,
-        shape: Shape,
-        anchor: NodeRef,
-    ) -> View {
+    fn surface(&self, behavior: Behavior, shape: Shape, anchor: NodeRef) -> View {
         let kind = self.kind;
         let variants = &self.variants;
         let requested = self.open;
@@ -454,7 +520,7 @@ impl Dialog {
         let close = self.close_button(behavior, shape);
         let (content, footer) = self.contents(shape);
         let panel_ref = node_ref();
-        let swipe = if let DialogMode::Drawer(edge) = kind {
+        let swipe = if let DialogKind::Drawer(edge) = kind {
             Some(crate::dialog::drawer_swipe::handle(
                 edge, panel_ref, requested, variants,
             ))
@@ -473,7 +539,7 @@ impl Dialog {
             variants,
             move || shape.state(surface_state.get()),
         );
-        if let DialogMode::Drawer(side) = kind {
+        if let DialogKind::Drawer(side) = kind {
             panel = panel.style(edge(side));
             if let Some(pulled) = pulled {
                 panel = panel
@@ -497,8 +563,8 @@ impl Dialog {
         let open = self.open.into_value();
         let variants = &self.variants;
         let title = self.title;
-        let popover = kind == DialogMode::Popover;
-        let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
+        let popover = matches!(kind, DialogKind::Popover);
+        let position_anchor = if matches!(kind, DialogKind::Modal | DialogKind::AlertModal)
             && *use_theme().get().ext::<DialogTheme>().center_value() == DialogCenter::Window
         {
             node_ref()
@@ -514,7 +580,13 @@ impl Dialog {
             },
             panel,
         )
-        .with_node(|node| node.part(surface))
+        .with_node(move |node| {
+            if popover {
+                node.part(surface).role(Role::Dialog)
+            } else {
+                node.part(surface)
+            }
+        })
         .name(title);
         if popover {
             let layer = match self.align {

@@ -204,3 +204,90 @@ fn navigation_menu_show_is_idempotent_and_toggle_twice_returns() {
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn disclosure_popup_and_dialog_commands_are_idempotent() {
+    use kivact::interaction::{DialogMode, use_dialog, use_disclosure, use_popup};
+    let (screen, (disclosure, popup, dialog)) = mount(|| {
+        let disclosure = use_disclosure(signal(false));
+        let popup = use_popup(signal(false));
+        let dialog = use_dialog(signal(false), DialogMode::Modal);
+        let view = column((
+            button("Show twice").on_press(move || {
+                disclosure.show();
+                disclosure.show();
+                popup.show();
+                popup.show();
+                dialog.show();
+                dialog.show();
+            }),
+            button("Hide twice").on_press(move || {
+                disclosure.hide();
+                disclosure.hide();
+                popup.hide();
+                popup.hide();
+                dialog.hide();
+                dialog.hide();
+            }),
+            button("Toggle twice").on_press(move || {
+                disclosure.toggle();
+                disclosure.toggle();
+                popup.toggle();
+                popup.toggle();
+                dialog.toggle();
+                dialog.toggle();
+            }),
+        ));
+        (
+            (disclosure.is_open(), popup.is_open(), dialog.is_open()),
+            view,
+        )
+    });
+    let all_open = || {
+        (
+            disclosure.get_untracked(),
+            popup.get_untracked(),
+            dialog.get_untracked(),
+        )
+    };
+    press(&screen, "Show twice");
+    assert_eq!(
+        all_open(),
+        (true, true, true),
+        "a second show does not hide"
+    );
+    press(&screen, "Hide twice");
+    assert_eq!(
+        all_open(),
+        (false, false, false),
+        "a second hide does not show"
+    );
+    press(&screen, "Toggle twice");
+    assert_eq!(all_open(), (false, false, false), "two toggles return");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn popup_surface_mounts_the_content_at_its_trigger() {
+    use kivact::interaction::use_popup;
+    use kivact::view::Placement;
+    let (screen, _open) = mount(|| {
+        let popup = use_popup(signal(false));
+        (
+            popup.is_open(),
+            column((
+                node()
+                    .part(popup.trigger())
+                    .name("Options")
+                    .child(text("Options")),
+                popup.surface(Placement::Below, || column((button("Inside"),))),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "Options").click();
+    screen.get_by_text("Inside");
+    screen.press_key(Key::Escape);
+    assert!(screen.query_by_text("Inside").is_none());
+    assert!(screen.get_by_role(Role::Button, "Options").is_focused());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

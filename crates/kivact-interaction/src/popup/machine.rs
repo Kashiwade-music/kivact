@@ -11,6 +11,7 @@ impl PartialEq for FocusPolicy {
             && match (self.0.target, other.0.target) {
                 (FocusReturnTarget::Opener, FocusReturnTarget::Opener) => true,
                 (FocusReturnTarget::Anchor(a), FocusReturnTarget::Anchor(b)) => a == b,
+                (FocusReturnTarget::AnchorValue(a), FocusReturnTarget::AnchorValue(b)) => a == b,
                 _ => false,
             }
     }

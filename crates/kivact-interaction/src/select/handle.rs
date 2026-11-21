@@ -375,7 +375,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     /// Hide the options as [`PopupCloseReason::Programmatic`]. Nothing
     /// changes while they are hidden.
     pub fn hide(self) {
-        self.popup.hide(PopupCloseReason::Programmatic);
+        self.popup.close(PopupCloseReason::Programmatic);
     }
 
     /// The binding shared with an alternative select surface.
@@ -442,7 +442,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                     popup.open_binding().set(true)
                 })
                 .a11y_action(kivact_core::view::A11yAction::Collapse, move |_| {
-                    popup.hide(PopupCloseReason::Accessibility)
+                    popup.close(PopupCloseReason::Accessibility)
                 })
                 .role(Role::ComboBox)
                 .value_text(label)
@@ -452,7 +452,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         // The focus is back on the trigger while the list is open
                         // (Shift+Tab, or a click on it): the list's keys apply.
                         return if event.key() == Key::Escape || is_alt_up(&event) {
-                            popup.hide(PopupCloseReason::Escape);
+                            popup.close(PopupCloseReason::Escape);
                             Handled::Yes
                         } else if retained.get() {
                             retained_key(self.list, popup, event)
@@ -591,7 +591,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 .role(Role::ListBox)
                 .on_key(move |event: KeyEvent| {
                     if !sheet && (event.key() == Key::Escape || is_alt_up(&event)) {
-                        popup.hide(PopupCloseReason::Escape);
+                        popup.close(PopupCloseReason::Escape);
                         return Handled::Yes;
                     }
                     Handled::No
@@ -600,7 +600,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                 // release, aimed at the option that has the focus now.
                 .on_key_up(move |event: KeyEvent| {
                     if !sheet && event.key() == Key::Tab {
-                        popup.hide(PopupCloseReason::Tab);
+                        popup.close(PopupCloseReason::Tab);
                         Handled::Yes
                     } else {
                         Handled::No
@@ -682,7 +682,7 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
                         if sheet {
                             popup.open_binding().set(false);
                         } else {
-                            popup.hide(PopupCloseReason::Selection);
+                            popup.close(PopupCloseReason::Selection);
                         }
                     }
                 })
@@ -731,7 +731,7 @@ fn retained_key<K: kivact_core::state::ItemKey>(
             // Consume even an empty list or a repeat. Otherwise the core's
             // default Activate would reach the trigger and toggle the popup.
             if !event.repeat() && active.is_some_and(|key| list.select_mounted(key)) {
-                popup.hide(PopupCloseReason::Selection);
+                popup.close(PopupCloseReason::Selection);
             }
             return Handled::Yes;
         }

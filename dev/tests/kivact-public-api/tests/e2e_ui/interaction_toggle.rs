@@ -218,3 +218,22 @@ fn a_parent_reads_the_popup_content_state_across_closing_and_reopening() {
     screen.get_by_text(&open_text("surface", true));
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_disabled_trigger_node_disables_the_disclosure() {
+    use kivact::interaction::use_disclosure;
+    let (screen, open) = mount(|| {
+        let open = signal(false);
+        let details = use_disclosure(open);
+        (
+            open,
+            column((
+                control("Details").disabled(true).part(details.trigger()),
+                show(details.is_open(), move || control("Body")),
+            )),
+        )
+    });
+    screen.get_by_role(Role::Button, "Details").click();
+    assert!(!open.get_untracked(), "a disabled trigger ignores a press");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
