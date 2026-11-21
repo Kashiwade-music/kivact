@@ -55,7 +55,7 @@ impl Hue {
 
 /// A Pop look of a standard button beyond its [`ButtonVariant`](kivact::ui::ButtonVariant):
 /// `kivact::ui::button(..).variant(ButtonTone::Pink)`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]
 pub enum ButtonTone {
     /// The yellow highlight.
     Accent,
@@ -72,27 +72,27 @@ pub enum ButtonTone {
 impl Variant for ButtonTone {}
 
 /// Draw a standard button slanted: `kivact::ui::button(..).variant(Slant)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub struct Slant;
 
 impl Variant for Slant {}
 
 /// Draw a standard progress bar with diagonal stripes on its fill:
 /// `kivact::ui::progress(..).variant(Striped)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub struct Striped;
 
 impl Variant for Striped {}
 
 /// Cut a standard progress bar into this many segments:
 /// `kivact::ui::progress(..).variant(Segments(10))`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]
 pub struct Segments(pub u16);
 
 impl Variant for Segments {}
 
 /// The shape of a Pop badge: a soft tint, a dot, a solid, a slanted label or a count.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum BadgeVariant {
     /// A soft tint in the hue.
     #[default]
@@ -111,27 +111,27 @@ impl Variant for BadgeVariant {}
 
 /// A skewed section-number badge beside a standard semantic heading:
 /// `kivact::ui::badge(..).variant(SectionNumber)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub struct SectionNumber;
 
 impl Variant for SectionNumber {}
 
 /// Diamond indicators above centered labels, with ruled progress connectors:
 /// `kivact::ui::stepper(..).variant(DiamondSteps)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub struct DiamondSteps;
 
 impl Variant for DiamondSteps {}
 
 /// Compact business-conversation bubbles with a hidden visible author line:
 /// `kivact::ui::chat_message(..).variant(ChatBubbleVariant)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub struct ChatBubbleVariant;
 
 impl Variant for ChatBubbleVariant {}
 
 /// A loading indicator of dots: `kivact::ui::spinner(..).variant(SpinnerVariant::Dots)`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum SpinnerVariant {
     /// Three bouncing colored dots.
     Dots,
@@ -140,31 +140,31 @@ pub enum SpinnerVariant {
 impl Variant for SpinnerVariant {}
 
 /// The diameter of an avatar, in logical px (at least 16).
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct AvatarSize(pub f64);
 
 impl Variant for AvatarSize {}
 
 /// The hue of an avatar's gradient, in degrees.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct AvatarHue(pub f64);
 
 impl Variant for AvatarHue {}
 
 /// Whether an avatar wears its halo.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct AvatarHalo(pub bool);
 
 impl Variant for AvatarHalo {}
 
 /// Whether an avatar shows its online dot.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
 pub struct AvatarOnline(pub bool);
 
 impl Variant for AvatarOnline {}
 
 /// The hue of each weekday of a calendar, Monday first; `None` keeps the plain color.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
 pub struct CalendarWeekdayHues(pub [Option<Hue>; 7]);
 
 impl Variant for CalendarWeekdayHues {}

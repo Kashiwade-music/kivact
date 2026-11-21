@@ -1,14 +1,17 @@
 //! Role: Draw the Pop empty-region illustration for the standard icon slot.
-use crate::{Hue, Tokens};
+
+use crate::color;
+use crate::variants::Hue;
+use kivact::component;
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::style::style;
-use kivact::view::{Node, node};
+use kivact::view::node;
 
 /// Decorative empty-region illustration, mounted through `ui::empty_state(..).icon(..)`.
-pub fn empty_illustration() -> Node {
+#[component]
+pub fn empty_illustration() -> impl Element {
     node().base_style(style().size(160, 110)).draw(|d, _| {
-        let p = d.theme().ext::<Tokens>();
         let mut halo = Path::new();
         for i in 0..=64 {
             let a = std::f64::consts::TAU * i as f64 / 64.0;
@@ -22,7 +25,7 @@ pub fn empty_illustration() -> Node {
         d.stroke_path(
             &halo,
             &Stroke::new(4.0).cap(LineCap::Round).join(LineJoin::Round),
-            p.blue,
+            color::BLUE,
         );
         d.rounded_rect(
             Rect {
@@ -32,13 +35,13 @@ pub fn empty_illustration() -> Node {
                 height: 56.0,
             },
             12.0,
-            p.hue(Hue::Blue).0,
+            Hue::Blue.colors().0,
         );
         d.line(
             Point::new(38.0, 60.0),
             Point::new(122.0, 60.0),
             2.0,
-            p.line_strong,
+            color::LINE_STRONG,
         );
         for x in [66.0, 94.0] {
             d.rounded_rect(
@@ -49,7 +52,7 @@ pub fn empty_illustration() -> Node {
                     height: 7.0,
                 },
                 3.5,
-                p.text_faint,
+                color::TEXT_FAINT,
             );
         }
         d.stroke_path(
@@ -57,9 +60,12 @@ pub fn empty_illustration() -> Node {
                 .move_to(Point::new(72.0, 88.0))
                 .quad_to(Point::new(80.0, 82.0), Point::new(88.0, 88.0)),
             &Stroke::new(2.5).cap(LineCap::Round).join(LineJoin::Round),
-            p.text_faint,
+            color::TEXT_FAINT,
         );
-        for (x, y, r, color) in [(132.0, 40.0, 4.0, p.yellow), (27.0, 70.0, 3.0, p.cyan)] {
+        for (x, y, r, color) in [
+            (132.0, 40.0, 4.0, color::YELLOW),
+            (27.0, 70.0, 3.0, color::CYAN),
+        ] {
             d.fill_path(
                 &Path::new()
                     .move_to(Point::new(x, y - r * 2.0))

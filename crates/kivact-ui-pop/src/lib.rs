@@ -15,7 +15,11 @@
 //! `kivact::i18n::message`: an App replaces them with
 //! `App::messages`.
 
+mod chips;
+mod empty_illustration;
 mod icons;
+mod notifications;
+mod patterns;
 mod recipe_parts;
 mod recipes_calendar;
 mod recipes_chat;
@@ -29,13 +33,25 @@ mod recipes_input;
 mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_overlays;
+mod resize;
+mod tabs;
 mod theme;
+mod timeline;
+mod upload;
 mod variants;
 
 mod color;
 mod size;
 
+pub use chips::{ChipList, RemovableChip, chip_list, removable_chip};
+pub use empty_illustration::empty_illustration;
+pub use notifications::{NotificationItem, NotificationMenu, notification_menu};
+pub use patterns::{AgendaItem, agenda_item};
+pub use resize::resizable_text_area;
+pub use tabs::tab_label;
 pub use theme::theme;
+pub use timeline::{TimelineItem, timeline_item};
+pub use upload::upload_row;
 pub use variants::{
     AvatarHalo, AvatarHue, AvatarOnline, AvatarSize, BadgeVariant, ButtonTone, CalendarWeekdayHues,
     ChatBubbleVariant, DiamondSteps, Hue, SectionNumber, Segments, Slant, SpinnerVariant, Striped,

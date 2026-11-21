@@ -1,11 +1,10 @@
 //! Role: The Pop content of a tab or segment: icon, label and count badge.
 
-use kivact::interaction::ListItem;
-use kivact::interaction::TabState;
+use kivact::component;
+use kivact::interaction::{ListItem, TabState};
 use kivact::state::{Value, memo};
 use kivact::style::{Align, style};
-use kivact::view::{IntoView, View, dynamic, show};
-use kivact::view::{row, text};
+use kivact::view::{Element, dynamic, row, show, text};
 
 /// What a Pop tab shows: the item's icon, its label and, while it has a
 /// [`description`](ListItem::description), that text as a count badge.
@@ -31,12 +30,16 @@ use kivact::view::{row, text};
 ///     .content(|key| text(format!("{key} panel")))
 /// }
 /// ```
-pub fn tab_label<K: Clone + 'static>(item: Value<ListItem<K>>, _state: Value<TabState>) -> View {
+#[component]
+pub fn tab_label<K: Clone + 'static>(
+    item: Value<ListItem<K>>,
+    _state: Value<TabState>,
+) -> impl Element {
     item_label(item)
 }
 
 /// The icon, label and count badge of `item`.
-pub(crate) fn item_label<K: Clone + 'static>(item: Value<ListItem<K>>) -> View {
+fn item_label<K: Clone + 'static>(item: Value<ListItem<K>>) -> impl Element {
     let count = memo(move || item.with(ListItem::description));
     row((
         dynamic(
@@ -53,5 +56,4 @@ pub(crate) fn item_label<K: Clone + 'static>(item: Value<ListItem<K>>) -> View {
         ),
     ))
     .style(style().gap(6).align_items(Align::Center))
-    .into_view()
 }

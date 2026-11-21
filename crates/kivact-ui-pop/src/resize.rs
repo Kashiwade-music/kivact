@@ -1,13 +1,16 @@
 //! Role: Optional vertical resizing around an ordinary public text field.
 
+use kivact::component;
 use kivact::geometry::Point;
 use kivact::i18n::message;
 use kivact::interaction::ScalarRange;
 use kivact::interaction::use_splitter;
 use kivact::state::signal;
-use kivact::style::{ColorToken, Cursor, Position, pct, style};
-use kivact::view::{ButtonPress, Handled, MouseButton, Orientation, PointerPhase, node_ref};
-use kivact::view::{Element, node};
+use kivact::style::color as core;
+use kivact::style::{Cursor, Position, pct, style};
+use kivact::view::{
+    ButtonPress, Element, Handled, MouseButton, Orientation, PointerPhase, node, node_ref,
+};
 
 /// The tallest a resizable field becomes, in logical pixels. A minimum above
 /// this raises the maximum to the minimum.
@@ -33,12 +36,12 @@ const MAX_HEIGHT: f64 = 4000.0;
 /// height by 8, Home and End jump to the limits, and accessibility value actions
 /// and a drag follow the same range. A press on the grip leaves the focus in
 /// the field so typing continues, so Escape does not cancel a drag.
-#[track_caller]
+#[component]
 pub fn resizable_text_area(
     field: kivact::ui::TextInput,
     initial_height: f64,
     min_height: f64,
-) -> impl kivact::view::Element {
+) -> impl Element {
     let min = if min_height.is_finite() && min_height > 0.0 {
         min_height
     } else {
@@ -82,7 +85,7 @@ pub fn resizable_text_area(
             Handled::No
         })
         .draw(|draw, _| {
-            let color = draw.theme().colors().get(ColorToken::TextMuted);
+            let color = draw.theme().get(&core::TEXT_MUTED_VAR);
             for offset in [4.0, 7.0, 10.0] {
                 draw.line(
                     Point::new(offset, 12.0),
@@ -107,7 +110,7 @@ pub fn resizable_text_area(
                 .width(pct(100))
                 .height(height.get())
                 .min_height(min)
-                .shrink(0)
+                .flex_shrink(0)
         })
         .child(
             field
