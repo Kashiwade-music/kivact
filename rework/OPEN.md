@@ -1417,3 +1417,15 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - `dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `kivact_ui_soft::more_menu::MoreMenu <file>` と `kivact_ui_soft::power_search::PowerSearch <file>` を足す（file は実際の path）。K32 の完了条件の `rg` から、その 2 つの file を外してよい。
   - lane K5 の fix の commit で行う。
 - **media_overlay**：今の形（`media_overlay(content, base) -> impl Element`、root は `column`）を採る。旧と構造が同じで、modifier の付く先も同じ。
+
+## 差戻し（W9・K5 の K31、2026-11-22）
+
+lane K5 の fix（commit `84858df7`、branch `wt/rw-W9-K5`）の報告による。F1（stepper）・F5（WHITE）・F2 の divider・section・citation・status_dot・link は済み。以下は設計者の判断を待つ。
+
+- **K31 alert_dialog**（`crates/kivact-ui-soft/src/alert_dialog.rs`）：`kivact::ui::Dialog` を返す形に直せない。`on_press`（Element の method と同名。handler は Caller から読めない）、`action_label`・`cancel_label`・`action_variant`・`action_loading` は Dialog の setter ではなく footer の中身で、表せない。`description` と `width` は Dialog の setter で表せる。付属書 K の K31 の手順と、設計者の回答（K30 の stepper、K31 の C4・STOP 3 件）の alert_dialog の行。
+- **K31 token**（`crates/kivact-ui-soft/src/token.rs:token`）：C4 の `on_press`（Element の method と同名。押下は内側の main node にあり、caller の on_press は root に載るので remove の押下でも発火する。handler も Caller から読めない）と `description`（Element の method と同名。caller.description() は root に載り、main とずれる）。両方とも未変更。
+- **K31 先行例**（中核と他の kit の `#[component]` で、Element の method と同名の prop。直すかは設計者）：`kivact-ui/src/avatar.rs:36` name、`kivact-ui/src/sidebar/menu.rs:51` description・`:124` on_press・`:198` on_press、`kivact-ui/src/splitter/view.rs:59` name、`kivact-ui-creative/src/feedback.rs:55` on_press、`kivact-ui-creative/src/property_row.rs:129` on_press、`kivact-ui-pop/src/upload.rs:19` name、`kivact-ui-soft/src/choice_list.rs:89` description、`kivact-ui-soft/src/field_status.rs:45` variant、`kivact-ui-soft/src/more_menu.rs:30` variant。
+- **判断を要する点（実装は済み）**：
+  - link の on_press は、prop を消し、caller の `has_press()` で focusable・role を決め、caller の on_press は absorb で root に載る（avatar.rs・card.rs と同じ形）。handler は読んでいない。C4 の STOP の条件に当たるか。
+  - status_dot の variant は必須の位置引数だったが、Caller から読むので、無いときの既定を `Neutral` にした（`unwrap_or`）。この既定でよいか。
+  - `section.rs` の `SectionVariant` と `variants.rs` の `SectionVariant` が二重にある（`variants.rs` の方は `ToolbarVariant` が使う）。今回は触っていない。どちらを残すか。
