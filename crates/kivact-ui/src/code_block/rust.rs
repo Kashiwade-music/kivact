@@ -28,7 +28,7 @@ const PRIMITIVES: &[&str] = &[
 /// Entry `n` holds the tokens of the `n`th line, the lines being
 /// `source.split('\n')`; a token's range is inside that line. Text that
 /// has no color (identifiers, spaces and the like) has no entry. Give a
-/// line's tokens to [`crate::syntax_ranges`].
+/// line's tokens to [`crate::syntax_ranges`]. Lines are split like `str::split('\n')`, so a trailing newline leaves an empty last line; `Plain` text is not returned.
 pub fn rust_tokens(source: &str) -> Vec<Vec<(Range<usize>, SyntaxKind)>> {
     let mut starts = vec![0];
     starts.extend(source.match_indices('\n').map(|(at, _)| at + 1));

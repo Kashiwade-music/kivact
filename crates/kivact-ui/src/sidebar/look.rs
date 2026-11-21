@@ -81,6 +81,8 @@ recipe_table! {
         menu_item(menu_item_recipe): SidebarItemState = recipes::menu_item,
         /// The button of a menu row.
         menu_button(menu_button_recipe): SidebarItemState = recipes::menu_button,
+        /// The icon of a menu row.
+        menu_button_icon(menu_button_icon_recipe): SidebarItemState = crate::look_common::part,
         /// The label of a menu row.
         menu_button_label(menu_button_label_recipe): SidebarItemState = recipes::menu_button_label,
         /// The element at the end of a menu row, before its badge.
