@@ -110,8 +110,8 @@ fn dropzone_failure_clears_on_the_next_drop() {
             (
                 (),
                 kivact::ui::dropzone("Upload files")
-                    .multiple()
-                    .pick_on_press()
+                    .multiple(true)
+                    .pick_on_press(true)
                     .icon(kivact::view::icon("cloud-upload"))
                     .on_files(|paths| {
                         if paths.iter().any(|path| path.path.ends_with("bad.csv")) {
@@ -306,8 +306,8 @@ fn editing_controls(
                 .expect("invariant: the bounds and the step are finite"),
         ),
         kivact::ui::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
-            .multiple()
-            .pick_on_press()
+            .multiple(true)
+            .pick_on_press(true)
             .icon(kivact::view::icon("cloud-upload"))
             .on_files(move |paths| files.set(paths.into_iter().map(|file| file.path).collect()))
             .style(style().width(350)),

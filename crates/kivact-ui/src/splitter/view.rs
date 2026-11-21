@@ -4,6 +4,8 @@ use crate::control_size::ControlSize;
 use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
 use crate::splitter::look::SplitterTheme;
+use kivact_core::ErrorKind;
+use kivact_core::custom::Owner;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, callback};
@@ -13,7 +15,7 @@ use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
     HandlerResult, IntoView, Orientation, ReadingDirection, Role, View, node_ref, use_direction,
 };
-use kivact_interaction::{ScalarRange, ScalarRangeError, use_splitter};
+use kivact_interaction::{ScalarRange, SplitterApi, use_splitter};
 
 // xtask-allow(state): legacy: start, end, collapse, snaps, key_step, handle
 /// Two panes and a handle between them, created by [`splitter`].
@@ -104,14 +106,12 @@ impl Splitter {
         self
     }
 
-    /// Set a positive finite keyboard step in the caller's size units.
-    pub fn key_step(mut self, step: impl Into<f64>) -> Result<Self, ScalarRangeError> {
-        let step = step.into();
-        if !step.is_finite() || step <= 0.0 {
-            return Err(ScalarRangeError::InvalidStep);
-        }
+    /// Set the keyboard step in the caller's size units. A step that is not
+    /// positive and finite is reported when the splitter is built, and the
+    /// default step is used.
+    pub fn key_step(mut self, step: f64) -> Self {
         self.key_step = Some(step);
-        Ok(self)
+        self
     }
 
     /// Supply the handle's visual content; its canonical input part stays attached.
@@ -157,6 +157,26 @@ impl Element for Splitter {
     }
 }
 
+/// Give the handle its keyboard step. A step that is not positive and finite
+/// is reported once, here at build time, and the default step is used.
+fn with_key_step(behavior: SplitterApi, step: Option<f64>) -> SplitterApi {
+    match step {
+        Some(step) if step.is_finite() && step > 0.0 => behavior
+            .key_step(step)
+            .expect("invariant: the keyboard step was checked above"),
+        Some(step) => {
+            Owner::current().report(
+                ErrorKind::Message,
+                format!(
+                    "splitter key_step must be positive and finite, got {step}; the default step is used"
+                ),
+            );
+            behavior
+        }
+        None => behavior,
+    }
+}
+
 impl IntoView for Splitter {
     fn into_view(self) -> View {
         let Splitter {
@@ -188,11 +208,7 @@ impl IntoView for Splitter {
         if let Some(stops) = snaps {
             behavior = behavior.snaps(stops);
         }
-        if let Some(step) = key_step {
-            behavior = behavior
-                .key_step(step)
-                .expect("invariant: setup validated the keyboard step");
-        }
+        behavior = with_key_step(behavior, key_step);
         // `.disabled(..)` on the splitter ignores input and assistive
         // technology and cancels a drag in progress.
         let disabled = root.accessible_disabled();

@@ -65,15 +65,17 @@ impl Dropzone {
         self.validate = Rc::new(f);
         self
     }
-    /// Accept multiple files in one operation. Without it, more than one
-    /// file shows the message `dropzone.one_file` ("Choose one file.").
-    pub fn multiple(mut self) -> Self {
-        self.multiple = true;
+    /// Accept multiple files in one operation when `multiple` is true. Without
+    /// it, more than one file shows the message `dropzone.one_file` ("Choose
+    /// one file.").
+    pub fn multiple(mut self, multiple: bool) -> Self {
+        self.multiple = multiple;
         self
     }
-    /// Open a native picker on pointer, keyboard or assistive activation.
-    pub fn pick_on_press(mut self) -> Self {
-        self.pick_on_press = true;
+    /// Open a native picker on pointer, keyboard or assistive activation when
+    /// `pick_on_press` is true.
+    pub fn pick_on_press(mut self, pick_on_press: bool) -> Self {
+        self.pick_on_press = pick_on_press;
         self
     }
     /// Show application-provided guidance.
