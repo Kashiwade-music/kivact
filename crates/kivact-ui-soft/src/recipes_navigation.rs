@@ -7,9 +7,16 @@ use crate::recipe_parts::{ring, shadowed, text, tween};
 use crate::shadows;
 use crate::space as s;
 use crate::type_scale as t;
+use crate::variants::BreadcrumbsVariant;
 use kivact::interaction::NavOpen;
-use kivact::style::{Align, Color, FlexDirection, Justify, Style, Theme, ThemeMode, style};
-use kivact::ui::theme::{Look, NavigationLinkState, NavigationMenuTheme, NavigationTriggerState};
+use kivact::style::{
+    Align, Color, Cursor, FlexDirection, Justify, Style, TextDecorationLine, Theme, ThemeMode,
+    style,
+};
+use kivact::ui::theme::{
+    BreadcrumbItemState, BreadcrumbTheme, Look, NavigationLinkState, NavigationMenuTheme,
+    NavigationTriggerState,
+};
 use kivact::view::{ReadingDirection, use_direction};
 
 /// The flow of a row of navigation parts: reversed in a right-to-left reading direction.
@@ -163,6 +170,68 @@ fn link_icon(_theme: &Theme, _s: &Look<NavigationLinkState>, _base: Style) -> St
         .justify_content(Justify::Center)
 }
 
+/// The breadcrumb trail: a wrapping row in the body role, or the supporting role when the variant asks.
+fn breadcrumb_list(_theme: &Theme, s: &Look<()>, _base: Style) -> Style {
+    let font = if s.variant::<BreadcrumbsVariant>().unwrap_or_default()
+        == BreadcrumbsVariant::Supporting
+    {
+        t::SUPPORTING
+    } else {
+        t::BODY
+    };
+    style()
+        .flex_direction(flow())
+        .flex_wrap(true)
+        .align_items(Align::Center)
+        .gap(s::SPACE_S1)
+        .font_size(font.size_px)
+        .line_height(font.line_height_px / font.size_px)
+        .color(c::TEXT_SECONDARY)
+}
+
+/// One breadcrumb: semibold for the current page, a pointer and an underline on hover for a link.
+fn breadcrumb_item(_theme: &Theme, s: &Look<BreadcrumbItemState>, _base: Style) -> Style {
+    let supporting = s.variant::<BreadcrumbsVariant>() == Some(BreadcrumbsVariant::Supporting);
+    let base = style()
+        .flex_direction(flow())
+        .align_items(Align::Center)
+        .gap(s::SPACE_S1)
+        .padding(0)
+        .height(kivact::style::auto())
+        .min_width(0)
+        .border(0.0, Color::TRANSPARENT)
+        .background(Color::TRANSPARENT)
+        .color(if s.input().is_none() && !supporting {
+            c::TEXT_PRIMARY
+        } else {
+            c::TEXT_SECONDARY
+        });
+    if s.input().is_none() {
+        base.font_weight(t::WEIGHT_SEMIBOLD)
+    } else {
+        let base = if s.input().is_some_and(|input| input.is_hovered()) {
+            base.text_decoration(TextDecorationLine::UNDERLINE)
+        } else {
+            base
+        };
+        base.padding_y(s::SPACE_S1)
+            .cursor(Cursor::Pointer)
+            .focus_visible(ring(c::ACCENT))
+    }
+}
+
+/// The separator between breadcrumbs: the chevron, mirrored in a right-to-left reading direction.
+fn breadcrumb_separator(_theme: &Theme, _s: &Look<()>, _base: Style) -> Style {
+    style().scale_xy(
+        if use_direction() == ReadingDirection::Rtl {
+            -1.0
+        } else {
+            1.0
+        },
+        1.0,
+    )
+}
+
 /// Install the kit's recipes of the navigation group.
 pub(crate) fn install(theme: Theme) -> Theme {
     let theme = theme.with(
@@ -176,5 +245,17 @@ pub(crate) fn install(theme: Theme) -> Theme {
             .link_description(link_description)
             .link_icon(link_icon),
     );
+    let theme = theme.with(
+        BreadcrumbTheme::default()
+            .root(breadcrumb_root)
+            .list(breadcrumb_list)
+            .item(breadcrumb_item)
+            .separator(breadcrumb_separator),
+    );
     crate::recipes_navigation_pagination::install(theme)
+}
+
+/// A breadcrumb trail's root: it shrinks to its content.
+fn breadcrumb_root(_theme: &Theme, _s: &Look<()>, _base: Style) -> Style {
+    style().min_width(0)
 }
