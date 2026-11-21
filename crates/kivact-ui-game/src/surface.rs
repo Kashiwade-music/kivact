@@ -1,54 +1,35 @@
 //! Role: Reusable hard-edged surfaces and decorative drawing vocabulary.
-use kivact::draw::{Layer, Path};
-use kivact::draw::{Shape, Transform};
+use crate::color::{CYAN, YELLOW};
+use crate::fonts::MONO_FAMILY_VAR;
+use kivact::component;
+use kivact::draw::{Draw, Layer, Path, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::motion::{FrameRate, frame_loop};
 use kivact::platform;
-use kivact::view::{node, text};
-
-use kivact::state::IntoText;
-use kivact::state::{memo, signal};
-use kivact::style::use_theme;
-use kivact::style::{ColorToken, pct, style};
-use kivact::view::{IntoView, node_ref};
-
-use crate::Tokens;
-
-/// Two opposite cut corners, measured in logical pixels.
-pub fn cut_corner(cut: impl Into<f64>) -> Shape {
-    let cut = cut.into();
-    Shape::polygon()
-        .point(0, 0)
-        .point(pct(100) - cut, 0)
-        .point(pct(100), cut)
-        .point(pct(100), pct(100))
-        .point(cut, pct(100))
-        .point(0, pct(100) - cut)
-}
+use kivact::state::{Value, effect_on, memo, signal};
+use kivact::style::color::{ACCENT, BORDER, SURFACE};
+use kivact::style::{Transform, style, use_theme};
+use kivact::view::{View, node, node_ref, text};
 
 /// Monospaced caption used for IDs, shortcuts and machine-readable values.
-#[track_caller]
-pub fn mono(label: impl IntoText) -> impl kivact::view::Element {
+#[component]
+pub fn mono(label: Value<String>) -> impl Element {
     text(label).style(move || {
-        let t = &use_theme().get();
+        let t = use_theme().get();
         style()
-            .font_family(t.ext::<Tokens>().mono_family.as_str())
+            .font_family(t.get(&MONO_FAMILY_VAR).as_str().unwrap_or_default())
             .font_size(10.5)
-            .weight(600)
+            .font_weight(600)
     })
 }
 
 /// Surface with opposing 10 px HUD brackets.
-#[track_caller]
-pub fn hud(content: impl IntoView) -> impl kivact::view::Element {
+#[component]
+pub fn hud(content: View) -> impl Element {
     node()
-        .style(
-            style()
-                .border(1, ColorToken::Border)
-                .background(ColorToken::Surface),
-        )
+        .style(style().border(1, BORDER).background(SURFACE))
         .draw_over(|d, s| {
-            let c = ColorToken::Accent;
+            let c = ACCENT;
             d.line(Point::new(0., 10.), Point::new(0., 0.), 2., c);
             d.line(Point::new(0., 0.), Point::new(10., 0.), 2., c);
             d.line(
@@ -68,8 +49,8 @@ pub fn hud(content: impl IntoView) -> impl kivact::view::Element {
 }
 
 /// Concentric command halo with built-in decorative rotation, respecting reduced motion.
-#[track_caller]
-pub fn halo() -> impl kivact::view::Element {
+#[component]
+pub fn halo() -> impl Element {
     let time = signal(0_f64);
     let node_ref = node_ref();
     let presence = node_ref.presence();
@@ -89,12 +70,11 @@ pub fn halo() -> impl kivact::view::Element {
         }
     };
     run(running.get_untracked());
-    kivact::state::effect_on(running, move |running| run(*running));
+    effect_on(running, move |running| run(*running));
     node()
         .node_ref(node_ref)
         .style(style().size(180, 180))
         .draw(move |d, s| {
-            let p = d.theme().ext::<Tokens>();
             // Reduced motion paints statically immediately; active frames use the absolute clock.
             let time = if platform::is_motion_reduced().get() {
                 0.
@@ -120,15 +100,11 @@ pub fn halo() -> impl kivact::view::Element {
                             } else {
                                 start + 360. / count as f64 * 0.66
                             };
-                            let path = kivact::draw::Path::new().arc(c, radius, start, end, false);
+                            let path = Path::new().arc(c, radius, start, end, false);
                             d.stroke_path(
                                 &path,
-                                &kivact::draw::Stroke::new(width),
-                                if count == 1 {
-                                    p.cyan
-                                } else {
-                                    d.theme().colors().accent
-                                },
+                                &Stroke::new(width),
+                                if count == 1 { CYAN } else { ACCENT },
                             );
                         }
                     }
@@ -140,21 +116,21 @@ pub fn halo() -> impl kivact::view::Element {
                             .line_to(Point::new(c.x, c.y + 25.))
                             .line_to(Point::new(c.x - 14., c.y))
                             .close(),
-                        ColorToken::Accent,
+                        ACCENT,
                     );
-                    d.fill_rect(Rect::new(128., 36., 14., 7.), p.yellow);
+                    d.fill_rect(Rect::new(128., 36., 14., 7.), YELLOW);
                 },
             );
         })
 }
 
-fn draw_halo_brackets(d: &mut kivact::draw::Draw, c: Point) {
+fn draw_halo_brackets(d: &mut Draw, c: Point) {
     for (start, end) in [
         (Point::new(c.x, 4.), Point::new(c.x, 29.)),
         (Point::new(c.x, 151.), Point::new(c.x, 176.)),
         (Point::new(4., c.y), Point::new(29., c.y)),
         (Point::new(151., c.y), Point::new(176., c.y)),
     ] {
-        d.line(start, end, 1., ColorToken::Accent);
+        d.line(start, end, 1., ACCENT);
     }
 }

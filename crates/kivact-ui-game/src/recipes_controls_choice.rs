@@ -52,21 +52,15 @@ pub(crate) fn radio_group(_: &Theme, orientation: &Look<Orientation>, _base: Sty
 pub(crate) fn radio_item(_: &Theme, state: &Look<CheckableState>, _base: Style) -> Style {
     if state.variant::<RadioGroupVariant>() == Some(RadioGroupVariant::Segmented) {
         // A small slanted secondary button, filled while chosen.
-        return button_style(
-            ButtonVariant::Secondary,
-            None,
-            ControlSize::Small,
-            false,
-            false,
-        )
-        .clip_path(
-            kivact::style::Shape::polygon()
-                .point(8, 0)
-                .point(pct(100), 0)
-                .point(pct(100) - 8, pct(100))
-                .point(0, pct(100)),
-        )
-        .selected(choice_style::segment_chosen());
+        return button_style(ButtonVariant::Outline, ControlSize::Small, false, false)
+            .clip_path(
+                kivact::style::Shape::polygon()
+                    .point(8, 0)
+                    .point(pct(100), 0)
+                    .point(pct(100) - 8, pct(100))
+                    .point(0, pct(100)),
+            )
+            .selected(choice_style::segment_chosen());
     }
     if state.variant::<ChoiceCard>().is_some() {
         return choice_style::card_item(state.is_checked());

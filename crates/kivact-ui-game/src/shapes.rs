@@ -2,7 +2,7 @@
 use kivact::style::{Shape, pct};
 
 /// Two opposite cut corners, `cut` logical pixels deep.
-pub(crate) fn cut_corner(cut: impl Into<f64>) -> Shape {
+pub fn cut_corner(cut: impl Into<f64>) -> Shape {
     let cut = cut.into();
     Shape::polygon()
         .point(0, 0)

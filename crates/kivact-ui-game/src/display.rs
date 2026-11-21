@@ -1,44 +1,15 @@
 //! Role: Dense data displays with hard-edged status geometry.
+use crate::color::LINE_STRONG;
+use crate::surface::mono;
+use crate::tone::ToneExt;
+use kivact::component;
 use kivact::draw::Path;
 use kivact::geometry::Point;
-use kivact::style::{Color, ColorToken, Theme, pct, style};
-use kivact::view::{Element, column, node};
-use kivact::view::{IntoView, Role, View};
-
-use crate::Tokens;
 use kivact::interaction::Tone;
-
-/// The colors a game theme gives a semantic [`Tone`].
-pub(crate) trait ToneExt {
-    /// The tone's solid color.
-    fn color(self, t: &Theme) -> Color;
-    /// The tone's weak tint, for backgrounds.
-    fn weak(self, t: &Theme) -> Color;
-}
-
-impl ToneExt for Tone {
-    fn color(self, t: &Theme) -> Color {
-        match self {
-            Self::Info => t.colors().accent,
-            Self::Success => t.colors().success,
-            Self::Warning => t.colors().warning,
-            Self::Danger => t.colors().danger,
-            Self::Neutral => t.ext::<Tokens>().text_2,
-            Self::Accent => t.ext::<Tokens>().yellow,
-        }
-    }
-    fn weak(self, t: &Theme) -> Color {
-        let p = t.ext::<Tokens>();
-        match self {
-            Self::Info => p.primary_weak,
-            Self::Success => p.success_weak,
-            Self::Warning => p.warning_weak,
-            Self::Danger => p.danger_weak,
-            Self::Neutral => p.surface_3,
-            Self::Accent => p.yellow,
-        }
-    }
-}
+use kivact::state::IntoValue;
+use kivact::style::color::TEXT_MUTED;
+use kivact::style::{pct, style};
+use kivact::view::{Element, IntoView, Role, View, column, node};
 
 /// One entry of an [`activity`] timeline.
 pub struct ActivityEntry {
@@ -46,6 +17,7 @@ pub struct ActivityEntry {
     message: View,
     tone: Tone,
 }
+
 impl ActivityEntry {
     /// An entry at `time` marked in `tone`. `message` is a plain string or any
     /// application-owned view, such as rich text spans.
@@ -58,10 +30,10 @@ impl ActivityEntry {
     }
 }
 
-/// Diamond-marked activity timeline.
-/// Items own non-cloneable views and are consumed once as composition.
-#[track_caller]
-pub fn activity(items: Vec<ActivityEntry>) -> impl kivact::view::Element {
+/// Diamond-marked activity timeline. Items own non-cloneable views and are
+/// consumed once as composition.
+#[component]
+pub fn activity(items: Vec<ActivityEntry>) -> impl Element {
     column(
         items
             .into_iter()
@@ -72,7 +44,7 @@ pub fn activity(items: Vec<ActivityEntry>) -> impl kivact::view::Element {
                      tone,
                  }| {
                     column((
-                        crate::mono(time).style(style().color(ColorToken::TextMuted)),
+                        mono(time.into_value()).style(style().color(TEXT_MUTED)),
                         node().style(style().font_size(12.5)).child(message),
                     ))
                     .style(style().padding_left(26).padding_bottom(14).gap(2))
@@ -81,7 +53,7 @@ pub fn activity(items: Vec<ActivityEntry>) -> impl kivact::view::Element {
                             Point::new(5., 7.),
                             Point::new(5., s.height),
                             1.,
-                            d.theme().ext::<Tokens>().line_strong,
+                            LINE_STRONG,
                         );
                         d.fill_path(
                             &Path::new()

@@ -1,152 +1,70 @@
 //! Role: Count a console KPI tile on the standard statistic up once it scrolls into view.
-use crate::StatVariant;
+use crate::variants::StatVariant;
+use kivact::component;
 use kivact::interaction::Tone;
 use kivact::motion::{Animated, Easing, Transition};
-use kivact::state::{IntoText, IntoValue, Machine, Step, Value, effect, machine, memo};
-use kivact::style::{Align, ColorToken, style};
-use kivact::view::{Element, IntoView, Node, NodeRef, Role, View, node, node_ref, row, text};
-
-// xtask-allow(state): legacy: change, heading, trend
-/// A KPI tile: a standard `kivact::ui::stat` in [`StatVariant::Kpi`] whose
-/// number counts up from zero once the tile is in view. Created by [`kpi`].
-pub struct Kpi {
-    root: Node,
-    label: Value<String>,
-    target: f64,
-    unit: Value<String>,
-    change: Option<Value<String>>,
-    tone: Tone,
-    heading: Option<View>,
-    trend: Option<Value<Vec<f64>>>,
-    format: Box<dyn Fn(f64) -> String>,
-}
+use kivact::state::{Value, effect, machine, memo};
+use kivact::style::color::TEXT_MUTED;
+use kivact::style::{Align, style};
+use kivact::view::{Element, NodeRef, View, node_ref, row, text};
+use std::rc::Rc;
 
 /// A KPI tile titled `label` that counts up to `target` over 900 ms when at
-/// least 30% of it is in the window (at once under reduced motion).
+/// least 30% of it is in the window (at once under reduced motion). The
+/// `unit` follows the number in smaller muted text, `change` is the caption
+/// under it in the tone's color, and `trend` draws a sparkline beside it.
 ///
 /// Assistive technology reads the settled value with its unit, not the
 /// counting one. The default format has no decimals and no grouping.
-///
-/// ```no_run
-/// use kivact::prelude::*;
-/// use kivact::interaction::Tone;
-/// use kivact_ui_game as game;
-///
-/// fn uptime() -> impl IntoView {
-///     game::kpi("Uptime", 99.97)
-///         .decimals(2)
-///         .unit("%")
-///         .change("+0.02pt")
-///         .tone(Tone::Success)
-///         .trend(vec![0.2, 0.4, 0.3, 0.7])
-/// }
-/// ```
-#[track_caller]
-pub fn kpi(label: impl IntoText, target: f64) -> Kpi {
-    Kpi {
-        root: node(),
-        label: label.into_text_value(),
-        target,
-        unit: String::new().into_value(),
-        change: None,
-        tone: Tone::Neutral,
-        heading: None,
-        trend: None,
-        format: Box::new(|value| format!("{value:.0}")),
-    }
-}
-
-impl Kpi {
-    /// Decimal places of the default number format; zero by default.
-    pub fn decimals(mut self, decimals: usize) -> Self {
-        self.format = Box::new(move |value| format!("{value:.decimals$}"));
-        self
-    }
-    /// Unit suffix after the number, in smaller muted text; empty by default.
-    pub fn unit(mut self, unit: impl IntoText) -> Self {
-        self.unit = unit.into_text_value();
-        self
-    }
-    /// Change caption under the number, in the tone's color.
-    pub fn change(mut self, change: impl IntoText) -> Self {
-        self.change = Some(change.into_text_value());
-        self
-    }
-    /// Semantic accent of the top rule and the change caption; neutral by default.
-    pub fn tone(mut self, tone: Tone) -> Self {
-        self.tone = tone;
-        self
-    }
-    /// An application-owned heading in place of the label text; the label
-    /// stays the accessible name.
-    pub fn heading(mut self, heading: impl IntoView) -> Self {
-        self.heading = Some(heading.into_view());
-        self
-    }
-    /// Trend samples drawn as a [`sparkline`](kivact::ui::sparkline) beside the change caption.
-    pub fn trend(mut self, trend: impl IntoValue<Vec<f64>>) -> Self {
-        self.trend = Some(trend.into_value());
-        self
-    }
-    /// Application-defined number text, replacing [`Self::decimals`].
-    pub fn format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-        self.format = Box::new(format);
-        self
-    }
-}
-
-impl Element for Kpi {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Kpi {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            label,
-            target,
-            unit,
-            change,
-            tone,
-            heading,
-            trend,
-            format,
-        } = self;
-        let tile = node_ref();
-        let revealed = reveal_once(tile);
-        let value = Animated::from(
-            0.0,
-            move || if revealed.get() { target } else { 0.0 },
-            Transition::tween(900, Easing::CubicBezier(0.2, 0.7, 0.2, 1.)),
+#[component]
+pub fn kpi(
+    label: Value<String>,
+    target: f64,
+    #[prop(default = 0usize)] decimals: usize,
+    #[prop(default = String::new())] unit: Value<String>,
+    change: Option<Value<String>>,
+    #[prop(default = Tone::Neutral)] tone: Value<Tone>,
+    heading: Option<View>,
+    trend: Option<Value<Vec<f64>>>,
+    format: Option<Rc<dyn Fn(f64) -> String>>,
+) -> impl Element {
+    let format: Rc<dyn Fn(f64) -> String> = match format {
+        Some(format) => format,
+        None => Rc::new(move |value| format!("{value:.decimals$}")),
+    };
+    let tile = node_ref();
+    let revealed = reveal_once(tile);
+    let value = Animated::from(
+        0.0,
+        move || if revealed.get() { target } else { 0.0 },
+        Transition::tween(900, Easing::CubicBezier(0.2, 0.7, 0.2, 1.)),
+    );
+    let settled = format(target);
+    let number = memo({
+        let format = Rc::clone(&format);
+        move || format(value.get())
+    });
+    let text_value = memo(move || format!("{settled}{}", unit.get()));
+    let mut stat = kivact::ui::stat(label, text_value)
+        .variant(StatVariant::Kpi)
+        .variant(tone.get())
+        .value_content(
+            row((
+                text(number),
+                text(unit).style(style().font_size(16).color(TEXT_MUTED)),
+            ))
+            .style(style().gap(2).align_items(Align::Baseline)),
         );
-        let settled = format(target);
-        let number = memo(move || format(value.get()));
-        let mut stat = kivact::ui::stat(label, move || format!("{settled}{}", unit.get()))
-            .variant(StatVariant::Kpi)
-            .variant(tone)
-            .value_content(
-                row((
-                    text(number),
-                    text(unit).style(style().font_size(16).color(ColorToken::TextMuted)),
-                ))
-                .style(style().gap(2).align_items(Align::Baseline)),
-            );
-        if let Some(heading) = heading {
-            stat = stat.label_content(heading);
-        }
-        if let Some(change) = change {
-            stat = stat.delta(change);
-        }
-        if let Some(trend) = trend {
-            stat = stat.chart(kivact::ui::sparkline(trend));
-        }
-        // The caller's modifiers apply to the statistic's own group root.
-        *stat.node_mut() = root.role(Role::Group);
-        stat.node_ref(tile).into_view()
+    if let Some(heading) = heading {
+        stat = stat.label_content(heading);
     }
+    if let Some(change) = change {
+        stat = stat.delta(change);
+    }
+    if let Some(trend) = trend {
+        stat = stat.chart(kivact::ui::sparkline(trend));
+    }
+    stat.node_ref(tile)
 }
 
 /// Whether the tile has been revealed; it never hides again.
@@ -157,14 +75,15 @@ enum Reveal {
 }
 
 struct RevealMachine;
-impl Machine for RevealMachine {
+
+impl kivact::state::Machine for RevealMachine {
     type State = Reveal;
     type Event = bool;
     type Effect = ();
-    fn transition(&self, state: &Reveal, visible: bool) -> Step<Reveal, bool, ()> {
+    fn transition(&self, state: &Reveal, visible: bool) -> kivact::state::Step<Reveal, bool, ()> {
         match state {
-            Reveal::Hidden if visible => Step::to(Reveal::Shown),
-            _ => Step::stay(),
+            Reveal::Hidden if visible => kivact::state::Step::to(Reveal::Shown),
+            _ => kivact::state::Step::stay(),
         }
     }
 }

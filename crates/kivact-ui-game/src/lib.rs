@@ -10,16 +10,20 @@
 //! splitter and toast region) draw in the console's look under [`theme`].
 //! The kit adds what the standard controls do not have.
 //!
-//! The color variables of the kit are in [`color`] and the font families in [`fonts`]; each
-//! is a theme variable, so `theme.set(&color::PRIMARY_HOVER_VAR, ..)` changes it.
+//! The color variables of the kit are in [`color`] and the font families in
+//! [`fonts`]; each is a theme variable, so `theme.set(&color::PRIMARY_HOVER_VAR, ..)`
+//! changes it.
 
 pub mod color;
 pub mod fonts;
-mod size;
-mod variants;
 
+mod button;
+mod choice;
 mod choice_style;
+mod display;
 mod icons;
+mod kpi;
+mod overlays;
 mod recipes_collections;
 mod recipes_controls;
 mod recipes_controls_choice;
@@ -31,11 +35,23 @@ mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_overlays;
 mod shapes;
+mod size;
+mod surface;
+mod table;
 mod theme;
 mod tone;
+mod variants;
 
+pub use button::{chevron, tool_button};
+pub use choice::{card_label, navigation_label};
+pub use display::{ActivityEntry, activity};
+pub use kpi::{Kpi, kpi};
+pub use overlays::{IconMenu, icon_menu};
+pub use shapes::cut_corner;
+pub use surface::{halo, hud, mono};
+pub use table::{TableCellVariant, console_cell};
 pub use theme::{Density, ThemeOptions, theme, theme_with};
 pub use variants::{
-    AvatarVariant, BadgeVariant, ButtonTone, ChoiceCard, GaugeSegments, HeadingVariant,
-    InputGroupVariant, SkeletonVariant, Slant, StatVariant, Striped, TabsVariant,
+    AvatarVariant, BadgeVariant, ChoiceCard, GaugeSegments, HeadingVariant, InputGroupVariant,
+    SkeletonVariant, Slant, StatVariant, Striped, TabsVariant,
 };

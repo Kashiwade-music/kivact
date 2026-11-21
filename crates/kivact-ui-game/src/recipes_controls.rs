@@ -4,7 +4,7 @@ use crate::color::{
     SIDEBAR_ALT, SURFACE_3, TEXT_2, TEXT_3, YELLOW,
 };
 use crate::size::CONTROL_HEIGHT;
-use crate::variants::{ButtonTone, Slant};
+use crate::variants::Slant;
 use kivact::draw::{Layer, LineCap, LineJoin, Path, Stroke, TextFormat};
 use kivact::geometry::{Point, Rect};
 use kivact::style::color::{ACCENT, ACCENT_TEXT, DANGER, SURFACE, TEXT, TEXT_MUTED};
@@ -53,34 +53,29 @@ pub(crate) fn skew(slant: bool) -> f64 {
 pub(crate) fn button(_: &Theme, state: &Look<ButtonState>, _base: Style) -> Style {
     button_style(
         state.variant::<ButtonVariant>().unwrap_or_default(),
-        state.variant::<ButtonTone>(),
         state.size,
         state.busy,
         state.variant::<Slant>().is_some(),
     )
 }
 
-/// The look of a button of `variant` (or of the console's `tone`) and `size`,
-/// slanted or not, busy or not: what a segment of the console's radio group
-/// draws too.
+/// The look of a button of `variant` and `size`, slanted or not, busy or
+/// not: what a segment of the console's radio group draws too.
 pub(crate) fn button_style(
     variant: ButtonVariant,
-    tone: Option<ButtonTone>,
     size: ControlSize,
     loading: bool,
     slant: bool,
 ) -> Style {
     let skew = skew(slant);
-    let (bg, fg, hover, shadow) = match (tone, variant) {
-        (Some(ButtonTone::Dark), _) => (NAVY, ACCENT_TEXT, SIDEBAR_ALT, DARK_SHADOW),
-        (None, ButtonVariant::Primary) => (ACCENT, ACCENT_TEXT, PRIMARY_HOVER, PRIMARY_STRONG),
-        (None, ButtonVariant::Secondary | ButtonVariant::Outline) => {
-            (SURFACE, ACCENT, PRIMARY_WEAK, PRIMARY_WEAK)
-        }
-        (None, ButtonVariant::Ghost | ButtonVariant::Link) => {
+    let (bg, fg, hover, shadow) = match variant {
+        ButtonVariant::Primary => (ACCENT, ACCENT_TEXT, PRIMARY_HOVER, PRIMARY_STRONG),
+        ButtonVariant::Secondary => (NAVY, ACCENT_TEXT, SIDEBAR_ALT, DARK_SHADOW),
+        ButtonVariant::Outline => (SURFACE, ACCENT, PRIMARY_WEAK, PRIMARY_WEAK),
+        ButtonVariant::Ghost | ButtonVariant::Link => {
             (Color::TRANSPARENT, TEXT_2, PRIMARY_WEAK, Color::TRANSPARENT)
         }
-        (None, ButtonVariant::Danger) => (DANGER, ACCENT_TEXT, DANGER, DANGER),
+        ButtonVariant::Danger => (DANGER, ACCENT_TEXT, DANGER, DANGER),
     };
     let mut s = style()
         .flex_direction(FlexDirection::Row)
@@ -95,7 +90,7 @@ pub(crate) fn button_style(
         .shadow(Shadow::new(0, 2, 0, shadow))
         .hover(style().background(hover))
         .active(style().transform(Transform::new().skew_x(skew).translate_y(2)));
-    if matches!(variant, ButtonVariant::Secondary | ButtonVariant::Outline) {
+    if variant == ButtonVariant::Outline {
         s = s.border(1.5, ACCENT);
     }
     s = s.merge(&match size {
@@ -141,7 +136,7 @@ pub(crate) fn button_busy(_: &Theme, state: &Look<ButtonState>, _base: Style) ->
         .size(14, 14)
         .paint(move |d, _| {
             let color = match variant {
-                ButtonVariant::Secondary | ButtonVariant::Outline => ACCENT,
+                ButtonVariant::Outline => ACCENT,
                 ButtonVariant::Ghost | ButtonVariant::Link => TEXT_2,
                 _ => ACCENT_TEXT,
             };
@@ -154,7 +149,7 @@ pub(crate) fn button_busy(_: &Theme, state: &Look<ButtonState>, _base: Style) ->
 }
 
 pub(crate) fn toggle(_: &Theme, state: &Look<ToggleButtonState>, _base: Style) -> Style {
-    let s = button_style(ButtonVariant::Secondary, None, state.size, false, false);
+    let s = button_style(ButtonVariant::Outline, state.size, false, false);
     if state.pressed {
         s.background(ACCENT).color(ACCENT_TEXT)
     } else {
