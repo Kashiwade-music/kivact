@@ -51,17 +51,19 @@ pub(super) fn example_status_dot() -> Node {
         "Status and activity",
         column((
             row((
-                status_dot(StatusDotVariant::Success, "Online"),
+                status_dot("Online").variant(StatusDotVariant::Success),
                 text("Online"),
             ))
             .style(style().align_items(Align::Center).gap(8)),
             row((
-                status_dot(StatusDotVariant::Warning, "Processing").pulsing(true),
+                status_dot("Processing")
+                    .variant(StatusDotVariant::Warning)
+                    .pulsing(true),
                 text("Processing"),
             ))
             .style(style().align_items(Align::Center).gap(8)),
             row((
-                status_dot(StatusDotVariant::Error, "Offline"),
+                status_dot("Offline").variant(StatusDotVariant::Error),
                 text("Offline"),
             ))
             .style(style().align_items(Align::Center).gap(8)),

@@ -2,8 +2,7 @@
 use super::labelled;
 use kivact::style::style;
 use kivact::ui::{avatar, avatar_group, kbd};
-use kivact::view::IntoView;
-use kivact::view::{Node, column, row, text};
+use kivact::view::{Element, IntoView, Node, column, row, text};
 use kivact_ui_soft::{
     HeadingDisplay, IconColor, IconSize, TextColor, TextKind, icon_view, link, styled_text,
     thumbnail, visually_hidden,

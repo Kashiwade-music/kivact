@@ -6,8 +6,8 @@ use kivact::state::signal;
 use kivact::style::provide_theme;
 use kivact::style::{ThemeMode, rgb, style};
 use kivact::ui::{badge, card};
-use kivact::view::{Node, column, row, text};
-use kivact_ui_soft::{MediaMode, link, media_theme, syntax_theme, theme};
+use kivact::view::{Element, Node, column, row, text};
+use kivact_ui_soft::{MediaMode, link, media_theme, theme};
 
 // example: theme
 pub(super) fn example_theme() -> Node {
@@ -72,27 +72,24 @@ pub(super) fn example_media_theme() -> Node {
 pub(super) fn example_syntax_theme() -> Node {
     labelled(
         "Scoped keyword color",
-        syntax_theme(
-            kivact_ui_soft::SyntaxColors {
-                keyword: rgb(0x315db0),
-                ..kivact::style::use_tokens::<kivact_ui_soft::Tokens>()
-                    .colors
-                    .syntax
+        provide_theme(
+            theme(ThemeMode::Light).set(&kivact::ui::syntax_colors::KEYWORD_VAR, rgb(0x315db0)),
+            || {
+                kivact::ui::code_block("fn main() {}")
+                    .language("rust")
+                    .highlight(kivact::ui::highlighter(
+                        || (),
+                        |_, line, _: &()| {
+                            (
+                                kivact_ui_soft::code_highlight(
+                                    &kivact_ui_soft::CodeLanguageInput::from("rust"),
+                                    line,
+                                ),
+                                (),
+                            )
+                        },
+                    ))
             },
-            kivact::ui::code_block("fn main() {}")
-                .language("rust")
-                .highlight(kivact::ui::highlighter(
-                    || (),
-                    |_, line, _: &()| {
-                        (
-                            kivact_ui_soft::code_highlight(
-                                &kivact_ui_soft::CodeLanguageInput::from("rust"),
-                                line,
-                            ),
-                            (),
-                        )
-                    },
-                )),
         ),
     )
 }

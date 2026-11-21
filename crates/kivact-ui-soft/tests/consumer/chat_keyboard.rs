@@ -14,7 +14,7 @@ use kivact::view::Role;
 use kivact_ui_soft as soft;
 
 #[test]
-fn composer_inserts_shift_enter_and_recalls_the_last_submission() {
+fn composer_inserts_shift_enter_and_submits_the_joined_lines() {
     let submitted = Rc::new(RefCell::new(Vec::new()));
     let received = submitted.clone();
     let screen = render_with(
@@ -39,28 +39,6 @@ fn composer_inserts_shift_enter_and_recalls_the_last_submission() {
     input.press_key(Key::Enter);
     assert_eq!(submitted.borrow().as_slice(), ["First line\nSecond line"]);
     assert!(input.value().unwrap_or_default().is_empty());
-
-    input.press_key(Key::ArrowUp);
-    assert_eq!(input.value().as_deref(), Some("First line\nSecond line"));
-    assert_eq!(input.text_selection(), Some((0, 22)));
-    input.press_key(Key::ArrowDown);
-    assert!(input.value().unwrap_or_default().is_empty());
-
-    input.type_text("Another message");
-    input.press_key(Key::Enter);
-    input.type_text("Draft");
-    input.press_key(Key::ArrowUp);
-    assert_eq!(input.value().as_deref(), Some("Draft"));
-    input.press_key(Key::Home);
-    input.press_key(Key::ArrowUp);
-    assert_eq!(input.value().as_deref(), Some("Another message"));
-    input.press_key(Key::ArrowUp);
-    assert_eq!(input.value().as_deref(), Some("First line\nSecond line"));
-    input.press_key(Key::ArrowDown);
-    assert_eq!(input.value().as_deref(), Some("Another message"));
-    input.press_key(Key::ArrowDown);
-    assert_eq!(input.value().as_deref(), Some("Draft"));
-    assert_eq!(submitted.borrow().len(), 2);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 

@@ -22,13 +22,10 @@ fn text_tooltip_opens_only_while_native_layout_cuts_text() {
                 let content = signal("Short".to_owned());
                 let reference = node_ref();
                 let truncated = reference.text_truncated();
-                let message = kivact::view::node()
+                let message = styled_text(content)
+                    .max_lines(max_lines)
+                    .truncate_tooltip(TruncateTooltip::Above)
                     .node_ref(reference)
-                    .child(
-                        styled_text(content)
-                            .max_lines(max_lines)
-                            .truncate_tooltip(TruncateTooltip::Above),
-                    )
                     .style(style().width(72));
                 (
                     truncated,

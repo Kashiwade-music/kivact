@@ -169,7 +169,7 @@ pub struct DisclosureDividers(pub bool);
 impl Variant for DisclosureDividers {}
 
 /// Visual options of a spinner: its ink and track pairing and an optional explicit ink.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
 pub struct SpinnerVariant {
     /// Ink and track palette; accent by default.
     pub shade: SpinnerShade,
@@ -336,7 +336,7 @@ pub struct ListDividers(pub bool);
 impl Variant for ListDividers {}
 
 /// Categorical colors for badges; use the standard tone for semantic statuses.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum BadgeVariant {
     #[default]
     /// Use the neutral badge palette.
@@ -404,7 +404,7 @@ pub enum CodeBlockContainer {
 impl Variant for CodeBlockContainer {}
 
 /// Visual chrome of a standard drop target, independent of file validation.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum DropzoneVariant {
     /// Use the compact field treatment for the drop target.
     Field,
@@ -490,7 +490,7 @@ pub struct PaginationSize(pub ControlSize);
 impl Variant for PaginationSize {}
 
 /// Corner profile supplied to the standard skeleton's variant hook.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum SkeletonRadius {
     /// Use square corners.
     None,
@@ -512,13 +512,13 @@ pub enum SkeletonRadius {
 impl Variant for SkeletonRadius {}
 
 /// Whether a static table row paints separators.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct TableRowDividers(pub bool);
 
 impl Variant for TableRowDividers {}
 
 /// Whether a static table row receives hover paint.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct TableRowHover(pub bool);
 
 impl Variant for TableRowHover {}

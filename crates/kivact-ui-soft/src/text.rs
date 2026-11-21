@@ -9,9 +9,8 @@ use kivact::style::Style;
 use kivact::style::TextAlign;
 use kivact::style::TextDecorationLine;
 use kivact::style::style;
-use kivact::ui::tooltip;
-use kivact::view::Element;
-use kivact::view::Placement;
+use kivact::ui::{Tooltip, tooltip};
+use kivact::view::{Element, IntoView, Node, Placement, View};
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
 use kivact::view::node_ref;
@@ -166,7 +165,7 @@ pub fn styled_text(
     #[prop(default = false)] tabular_numbers: Value<bool>,
     #[prop(default = false)] capsize: Value<bool>,
     heading_level: Option<Value<u32>>,
-) -> impl IntoView {
+) -> impl Element {
     let mut root = control_text(value);
     if let Some(level) = heading_level {
         root = root
@@ -218,12 +217,39 @@ pub fn styled_text(
     match placement.filter(|_| max_lines.get() > 0) {
         Some(placement) => {
             let anchor = node_ref();
-            tooltip(value, root.node_ref(anchor))
-                .placement(placement)
-                .enabled(anchor.text_truncated())
-                .into_view()
+            TextBody::Tipped(
+                tooltip(value, root.node_ref(anchor))
+                    .placement(placement)
+                    .enabled(anchor.text_truncated()),
+            )
         }
-        None => root.into_view(),
+        None => TextBody::Plain(root),
+    }
+}
+
+/// The element `styled_text` returns: the text node itself, with its
+/// truncation tooltip when one is asked for, so a caller's `node_ref` measures
+/// the text and not a wrapper.
+enum TextBody {
+    Plain(Node),
+    Tipped(Tooltip<Node>),
+}
+
+impl Element for TextBody {
+    fn node_mut(&mut self) -> &mut Node {
+        match self {
+            Self::Plain(node) => node,
+            Self::Tipped(tipped) => tipped.node_mut(),
+        }
+    }
+}
+
+impl IntoView for TextBody {
+    fn into_view(self) -> View {
+        match self {
+            Self::Plain(node) => node.into_view(),
+            Self::Tipped(tipped) => tipped.into_view(),
+        }
     }
 }
 
