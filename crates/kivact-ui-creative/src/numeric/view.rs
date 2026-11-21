@@ -1,26 +1,30 @@
 //! Role: Mount a numeric control, paint it and open its text field.
 
 use kivact::draw::Draw;
-use kivact::draw::linear_gradient;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::interaction::{
     DragApi, DragCoordinates, FocusReturn, InlineEditApi, ScalarApi, ScalarRange, ScalarStep,
     ScrubPolicy, use_drag, use_popup, use_scalar,
 };
 use kivact::state::{IntoValue, MachineHandle, Value, Var, binding, machine, memo, signal, var};
-use kivact::style::{Align, Color, ColorToken, Justify, Theme, pct, style, use_theme};
+use kivact::style::linear_gradient;
+use kivact::style::{Align, Color, Justify, Theme, color, pct, style, use_theme};
 use kivact::view::{
-    A11yAction, Element, IntoView, Node, NodeRef, Orientation, Placement, Role, View, node,
-    node_ref, overlay, row, show, text,
+    A11yAction, Element, IntoView, Node, NodeRef, Orientation, Placement, Role, node, node_ref,
+    overlay, row, show, text,
 };
 use std::rc::Rc;
 
-use super::builder::{Numeric, NumericKind, PropertyState};
+use super::builder::{NumericKind, PropertyState, Setup};
 use super::machine;
 use super::paint::{draw_fader, draw_knob};
 use super::text::{
     Formatter, TextParser, builtin_formatter, display_value, editor_formatter, scalar_parser,
 };
+use crate::color::{
+    ACCENT, DRIVEN_PROPERTY_COLOR, HAIR_STRONG, HEADER, KEY, MUTED, STRONG, TEXT, X, Y,
+};
+use crate::fonts::mono_family;
 
 // xtask-allow(state): legacy: accent, drag_distance, text_entry, wheel_rest; absent means the theme's accent
 /// The state a numeric control hands to its scrub, key and paint handlers.
@@ -53,117 +57,113 @@ pub(super) struct NumericView {
     pub(super) wheel_rest: Var<f64>,
 }
 
-impl IntoView for Numeric {
-    fn into_view(self) -> View {
-        let (root, view) = self.prepare();
-        let view = Rc::new(view);
-        let display = view.display();
-        let editor = view.editor();
-        let scrub = NumericView::scrub(&view);
-        let paint = view.clone();
-        let key = view.clone();
-        let wheel = view.clone();
-        let pointer = view.clone();
-        let act = view.clone();
-        let root = view
-            .metadata(root)
-            .draw(move |draw, size| paint.paint(draw, size))
-            .on_key_default(move |event| key.key(event))
-            .on_wheel_default(move |event| wheel.wheel(event))
-            .on_pointer_default(move |event| pointer.pointer(event))
-            .part(scrub.source_with({
-                let value = view.value;
-                move || value.get_untracked()
-            }))
-            .child(display)
-            .child(editor);
-        let act = move |event| act.action(event);
-        root.a11y_action(A11yAction::Increment, act.clone())
-            .a11y_action(A11yAction::Decrement, act.clone())
-            .a11y_action(A11yAction::SetValue, act)
-            .value_text(view.shown)
-            .into_view()
-    }
+/// Mount the numeric control `setup` on its `root`: its handlers, its text
+/// field and its painting.
+pub(super) fn mount(root: Node, setup: Setup) -> Node {
+    let (root, view) = prepare(root, setup);
+    let view = Rc::new(view);
+    let display = view.display();
+    let editor = view.editor();
+    let scrub = NumericView::scrub(&view);
+    let paint = view.clone();
+    let key = view.clone();
+    let wheel = view.clone();
+    let pointer = view.clone();
+    let act = view.clone();
+    let root = view
+        .metadata(root)
+        .draw(move |draw, size| paint.paint(draw, size))
+        .on_key_default(move |event| key.key(event))
+        .on_wheel_default(move |event| wheel.wheel(event))
+        .on_pointer_default(move |event| pointer.pointer(event))
+        .part(scrub.source_with({
+            let value = view.value;
+            move || value.get_untracked()
+        }))
+        .child(display)
+        .child(editor);
+    let act = move |event| act.action(event);
+    root.a11y_action(A11yAction::Increment, act.clone())
+        .a11y_action(A11yAction::Decrement, act.clone())
+        .a11y_action(A11yAction::SetValue, act)
+        .value_text(view.shown)
 }
 
-impl Numeric {
-    fn prepare(self) -> (Node, NumericView) {
-        let Self {
-            root,
-            label,
-            state,
-            kind,
-            range,
-            step,
-            reset,
-            precision,
-            unit,
-            tint,
-            mapping,
-            format,
-            drag_distance,
-            text_entry,
-            timecode,
-            label_visible,
-            accent,
-            bipolar,
-            horizontal,
-            edit: edit_observer,
-            text_parser,
-            mixed,
-        } = self;
-        let value = state.into_value();
-        let (mode, typing) = mode_and_typing();
-        let scalar = use_scalar(state, range)
-            .mapping(mapping.clone())
-            .key_step(step)
-            .expect("invariant: numeric step is finite and positive");
-        let scalar = match edit_observer {
-            Some(observer) => scalar.on_edit(move |phase| observer.call(phase)),
-            None => scalar,
-        };
-        // A scrub is one edit of the scalar from its press: Escape, the
-        // engine and the disposal of the field end it as a Cancel, with the
-        // value it started from written back first.
-        let pointer = scalar.scrub(use_drag::<f64>(DragCoordinates::Local));
-        let reference = node_ref();
-        let rect = reference.rect();
-        let parse = scalar_parser(text_parser, timecode);
-        let shown_format = format
-            .clone()
-            .unwrap_or_else(|| builtin_formatter(precision, unit, timecode));
-        let edit_text = editor_formatter(format, precision, timecode);
-        let shown = display_value(mixed, value, range, shown_format);
-        let view = NumericView {
-            label,
-            kind,
-            range,
-            step,
-            reset,
-            tint,
-            label_visible,
-            accent,
-            bipolar,
-            horizontal,
-            mixed,
-            value,
-            typing,
-            mode,
-            scalar,
-            pointer,
-            reference,
-            rect,
-            parse,
-            shown,
-            edit_text,
-            mapping,
-            drag_distance,
-            text_entry,
-            theme: use_theme(),
-            wheel_rest: var(0.0),
-        };
-        (root, view)
-    }
+fn prepare(root: Node, setup: Setup) -> (Node, NumericView) {
+    let Setup {
+        label,
+        state,
+        kind,
+        range,
+        step,
+        reset,
+        precision,
+        unit,
+        tint,
+        mapping,
+        format,
+        drag_distance,
+        text_entry,
+        timecode,
+        label_visible,
+        accent,
+        bipolar,
+        horizontal,
+        edit: edit_observer,
+        text_parser,
+        mixed,
+    } = setup;
+    let value = state.into_value();
+    let (mode, typing) = mode_and_typing();
+    let scalar = use_scalar(state, range)
+        .mapping(mapping.clone())
+        .key_step(step)
+        .expect("invariant: numeric step is finite and positive");
+    let scalar = match edit_observer {
+        Some(observer) => scalar.on_edit(move |phase| observer.call(phase)),
+        None => scalar,
+    };
+    // A scrub is one edit of the scalar from its press: Escape, the
+    // engine and the disposal of the field end it as a Cancel, with the
+    // value it started from written back first.
+    let pointer = scalar.scrub(use_drag::<f64>(DragCoordinates::Local));
+    let reference = node_ref();
+    let rect = reference.rect();
+    let parse = scalar_parser(text_parser, timecode);
+    let shown_format = format
+        .clone()
+        .unwrap_or_else(|| builtin_formatter(precision, unit, timecode));
+    let edit_text = editor_formatter(format, precision, timecode);
+    let shown = display_value(mixed, value, range, shown_format);
+    let view = NumericView {
+        label,
+        kind,
+        range,
+        step,
+        reset,
+        tint,
+        label_visible,
+        accent,
+        bipolar,
+        horizontal,
+        mixed,
+        value,
+        typing,
+        mode,
+        scalar,
+        pointer,
+        reference,
+        rect,
+        parse,
+        shown,
+        edit_text,
+        mapping,
+        drag_distance,
+        text_entry,
+        theme: use_theme(),
+        wheel_rest: var(0.0),
+    };
+    (root, view)
 }
 
 /// Typing text and scrubbing the value are one mode; the text field follows
@@ -209,18 +209,15 @@ impl NumericView {
                 row((
                     text(label)
                         .hidden(move || !label_visible.get())
-                        .style(style().single_line().grow(1).shrink(1))
-                        .style(style().color(crate::ColorName::Muted)),
+                        .style(style().single_line().flex_grow(1).flex_shrink(1))
+                        .style(style().color(MUTED)),
                     text(shown)
-                        .style(move || {
-                            let t = &use_theme().get();
-                            style().font_family(t.ext::<crate::tokens::Tokens>().mono_font.as_str())
-                        })
+                        .style(move || style().font_family(mono_family(&use_theme().get())))
                         .style(move || {
                             let visible = label_visible.get();
                             style()
-                                .grow(if visible { 0 } else { 1 })
-                                .shrink(0)
+                                .flex_grow(if visible { 0 } else { 1 })
+                                .flex_shrink(0)
                                 .text_wrap(false)
                                 .text_align(if visible {
                                     kivact::style::TextAlign::End
@@ -297,10 +294,7 @@ impl NumericView {
                         .return_focus(reference)
                         .control(),
                 )
-                .style(move || {
-                    let t = &use_theme().get();
-                    style().font_family(t.ext::<crate::tokens::Tokens>().mono_font.as_str())
-                })
+                .style(move || style().font_family(mono_family(&use_theme().get())))
                 .invalid(move || reason.get().is_some())
                 .described_by(status);
             // A knob or fader shows the field over itself; a number or
@@ -354,13 +348,12 @@ impl NumericView {
         let mapping = self.mapping.clone();
 
         let (horizontal, bipolar) = (horizontal.get(), bipolar.get());
-        let p = d.theme().ext::<crate::tokens::Tokens>();
         let tint = tint.get();
         let color = match tint {
-            PropertyState::Plain => accent.map_or(p.accent, |value| value.get()),
-            PropertyState::Keyed => p.key,
-            PropertyState::Animated => p.y,
-            PropertyState::Driven => crate::color::driven_property_color(),
+            PropertyState::Plain => accent.map_or(ACCENT, |value| value.get()),
+            PropertyState::Keyed => KEY,
+            PropertyState::Animated => Y,
+            PropertyState::Driven => DRIVEN_PROPERTY_COLOR,
         };
         let n = mapping.position(value.get(), self.range.get());
         match kind {
@@ -387,15 +380,15 @@ impl NumericView {
                 d.rounded_rect(
                     Rect::new(8.0, y - 2.0, (size.width - 16.0).max(0.0), 4.0),
                     2.0,
-                    p.strong,
+                    STRONG,
                 );
                 let x = 8.0 + (size.width - 16.0) * n;
                 d.rounded_rect(
                     Rect::new(x - 7.0, y - 10.0, 14.0, 20.0),
                     5.0,
-                    linear_gradient(180).colors([p.strong, Color::token(ColorToken::Raised)]),
+                    linear_gradient(180).colors([STRONG, color::RAISED]),
                 );
-                d.line(Point::new(x, y - 5.0), Point::new(x, y + 5.0), 1.5, p.text);
+                d.line(Point::new(x, y - 5.0), Point::new(x, y + 5.0), 1.5, TEXT);
             }
             NumericKind::Fader => draw_fader(d, size, n, color, &shown.get()),
         }
@@ -421,11 +414,11 @@ fn editor_hint(
                     .padding_x(6)
                     .padding_y(3)
                     .max_width(300)
-                    .radius(5)
+                    .border_radius(5)
                     .font_size(11)
-                    .color(crate::ColorName::X)
-                    .background(crate::ColorName::Header)
-                    .border(1, crate::ColorName::HairStrong),
+                    .color(X)
+                    .background(HEADER)
+                    .border(1, HAIR_STRONG),
             ),
         )
         .with_node(move |node| node.part(hint.content()))

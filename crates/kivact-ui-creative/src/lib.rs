@@ -25,6 +25,7 @@ mod fonts;
 mod icons;
 mod key_glyph;
 mod layout;
+mod numeric;
 mod options;
 mod recipe_parts;
 mod recipes_collections;
@@ -52,6 +53,10 @@ pub use feedback::{
 pub use fonts::MONO_FAMILY_VAR;
 pub use key_glyph::KeyGlyph;
 pub use layout::{Panel, media_tile, panel, tree_row};
+pub use numeric::{
+    Fader, Knob, Number, NumericKind, PropertyState, ValueSlider, evaluate_expression, fader, knob,
+    number, value_slider,
+};
 pub use options::{Accent, Density, LabelTone};
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use variants::NoticeVariant;
