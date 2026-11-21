@@ -126,3 +126,11 @@
 - E14 の `content_version` の再実行と後退の確認は実施済み（`V:/kv-target/logs-W6b-E2/verify-e14-summary.txt`、rc=0 が全件）。
 - lane X：S15・S16・S17 まで完了（`0b554b35`・`67fdd8eb`・`b8470efa`・`bb13f33b`・`1307ae90`・`20a06b61`）。C19 は `79358493` まで進んだが、2 件の設計の判断が要るため停止（`rework/OPEN.md` の「差戻し（W6b・C19）」）。S18〜S23 は未着手。
 - 次：設計者の答えを待つ。W6b の merge（X → E1 → E2 → A1 → A2）と tier b は lane X が終わってから。
+
+## W6b 完了（merge 済み・tier b 成功）
+- lane 鎖（X）：S15・S16・S17・C19・S17b・S18・S19・S20・S21・S22・S23 を merge `1e4ba32e`（lane の HEAD `73c2b19a`）。
+- lane E1（E19・E21）：merge `9019f3b8`。lane E2（E14・E32・E24）：merge `10a3d738`。lane A1（A11）：merge `9e79aa16`。lane A2（A12）：merge `25949e78`。競合は無し。
+- 設計者の回答と Orchestrator の判断：`rework/OPEN.md` の W6b の節（C19 の差戻し 2 件、S17b、S18 の期待値 8、S19 の navigation.rs、S20 の J1〜J5、S21・S22 の食い違い、S22 の確認事項）。
+- tier b（統合、`V:/kv-target/rw-main`、W6a〜W9 の形：xtask は `--only local`、clippy と test から XK と XD を除外）：fmt・xtask（`--only local`）・clippy（`-D warnings`）は成功。test は 1303 件成功、失敗 0、無視 39。`xtask-allow(state-fields)` は 0 件（grep で確認。rg は無い）。ログは `V:/kv-target/logs-W6b-tierb/`。
+- 未了：lane worktree（`W:/w/kv-wt/rw-W6b-{X,E1,E2,A1,A2}`）と branch（`wt/rw-W6b-*`）の削除、wave の終わりの push。権限の判定で拒否されたため、保留（設計者または利用者の判断を待つ）。
+- 次：W7a（U20〜U25、E22・E23・E25・E26、A13、A14）。
