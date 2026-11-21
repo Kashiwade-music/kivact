@@ -1,39 +1,31 @@
-//! Role: The field builder that wires a label, hint and error to its control.
+//! Role: The field component that wires a label, hint and error to its control.
 
 use crate::field::look::FieldState;
 use crate::field::look::FieldTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use kivact_core::state::{IntoText, IntoValue};
+use kivact_core::custom::Caller;
 use kivact_core::state::{Value, memo};
-use kivact_core::view::{Element, Node, node, text};
-use kivact_core::view::{IntoView, Role, View, node_ref, show_some};
-
-// xtask-allow(state): legacy: hint, required, error
-/// A control with its visible label, hint and error, created by [`field`].
-///
-/// The root is a column of the label, the control, the hint and the error
-/// message; [`Element`] modifiers apply to it.
-pub struct Field<C> {
-    root: Node,
-    label: Value<String>,
-    control: C,
-    hint: Option<Value<String>>,
-    required: Option<Value<bool>>,
-    error: Option<Value<Option<String>>>,
-}
+use kivact_core::view::{Element, IntoView, Role, View, node, node_ref, show_some, text};
+use kivact_macros::component;
 
 /// A field showing `label` over `control` (a text input, a select, a
-/// switch, ...).
+/// switch, ...). Its root is a column of the label, the control, the hint
+/// and the error message; [`Element`] modifiers apply to it.
 ///
 /// `label` is the visible label, and it is the control's accessible name
 /// (`labelled_by`) whatever name the control was built with, so what is
 /// seen is what is announced. Pressing the label activates the control as a click
 /// would, focusing editable controls and toggling checks. Disabled, hidden or
-/// unavailable controls stay inert through the normal activation contract. [`hint`](Field::hint) adds a
-/// description under the control; [`error`](Field::error) shows a message
-/// under it while the value is `Some`, marks the control invalid and adds
-/// the message to what describes the control, so a validation needs no other
-/// wiring.
+/// unavailable controls stay inert through the normal activation contract.
+///
+/// Setters: `hint` adds a description under the control; `required` reports
+/// that the control requires a value (validation is owned by the app); and
+/// `error` shows a message under the control while the value is `Some`,
+/// marks the control invalid and adds the message to what describes the
+/// control, so a validation needs no other wiring. The control's own
+/// `invalid` value is kept: the control is invalid when either is. While an
+/// error is shown, the label is drawn as an error and the message, a
+/// `Role::Alert`, describes the control.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -49,129 +41,81 @@ pub struct Field<C> {
 ///         .error(error)
 /// }
 /// ```
-#[track_caller]
-pub fn field<C: Element + IntoView>(label: impl IntoText, control: C) -> Field<C> {
-    Field {
-        root: node(),
-        label: label.into_text_value(),
-        control,
-        hint: None,
-        required: None,
-        error: None,
+#[component]
+pub fn field<C: Element + IntoView>(
+    label: Value<String>,
+    control: C,
+    hint: Option<Value<String>>,
+    required: Option<Value<bool>>,
+    error: Option<Value<Option<String>>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let (label_ref, hint_ref, error_ref, control_ref) =
+        (node_ref(), node_ref(), node_ref(), node_ref());
+    let mut control = control
+        .name(label)
+        .with_node(|node| node.labelled_by(label_ref))
+        .node_ref(control_ref);
+    if let Some(required) = required {
+        control = control.with_node(|node| node.required(required));
     }
-}
-
-impl<C> Field<C> {
-    /// Text under the control that describes it (`described_by`).
-    #[track_caller]
-    pub fn hint(mut self, hint: impl IntoText) -> Self {
-        self.hint = Some(hint.into_text_value());
-        self
+    if hint.is_some() {
+        control = control.with_node(|node| node.described_by(hint_ref));
     }
-
-    /// Report that the control requires a value. Validation is owned by the app.
-    #[track_caller]
-    pub fn required(mut self, required: impl IntoValue<bool>) -> Self {
-        self.required = Some(required.into_value());
-        self
-    }
-
-    /// The error message under the hint while the value is `Some`. While it
-    /// is, the control is invalid (its own `invalid` value is kept: the
-    /// control is invalid when either is), the label is drawn as an error
-    /// and the message, a `Role::Alert`, describes the control.
-    #[track_caller]
-    pub fn error(mut self, error: impl IntoValue<Option<String>>) -> Self {
-        self.error = Some(error.into_value());
-        self
-    }
-}
-
-impl<C: Element + IntoView> Element for Field<C> {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-#[diagnostic::do_not_recommend]
-impl<C: Element + IntoView> IntoView for Field<C> {
-    fn into_view(self) -> View {
-        let Field {
-            root,
-            label,
-            mut control,
-            hint,
-            required,
-            error,
-        } = self;
-        let variants = root.authored().variants();
-        let (label_ref, hint_ref, error_ref, control_ref) =
-            (node_ref(), node_ref(), node_ref(), node_ref());
+    let failed = memo(move || error.is_some_and(|error| error.with(Option::is_some)));
+    if error.is_some() {
+        let own = control.node_mut().authored().invalid();
         control = control
-            .name(label)
-            .with_node(|node| node.labelled_by(label_ref))
-            .node_ref(control_ref);
-        if let Some(required) = required {
-            control = control.with_node(|node| node.required(required));
-        }
-        if hint.is_some() {
-            control = control.with_node(|node| node.described_by(hint_ref));
-        }
-        let failed = memo(move || error.is_some_and(|error| error.with(Option::is_some)));
-        if error.is_some() {
-            let own = control.node_mut().authored().invalid();
-            control = control
-                .with_node(|node| node.described_by(error_ref))
-                .invalid(move || failed.get() || own.as_ref().is_some_and(|own| own.get()));
-        }
-        let state = memo(move || FieldState {
-            invalid: failed.get(),
-        });
-        let mut parts: Vec<View> = vec![
+            .with_node(|node| node.described_by(error_ref))
+            .invalid(move || failed.get() || own.as_ref().is_some_and(|own| own.get()));
+    }
+    let state = memo(move || FieldState {
+        invalid: failed.get(),
+    });
+    let mut parts: Vec<View> = vec![
+        with_recipe_style(
+            text(label)
+                .role(Role::Text)
+                .node_ref(label_ref)
+                .on_press(move || control_ref.activate()),
+            |r: &FieldTheme| r.label_recipe(),
+            &variants,
+            move || state.get(),
+        )
+        .into_view(),
+        control.into_view(),
+    ];
+    if let Some(hint) = hint {
+        parts.push(
             with_recipe_style(
-                text(label)
-                    .role(Role::Text)
-                    .node_ref(label_ref)
-                    .on_press(move || control_ref.activate()),
-                |r: &FieldTheme| r.label_recipe(),
+                text(hint).node_ref(hint_ref),
+                |r: &FieldTheme| r.hint_recipe(),
                 &variants,
                 move || state.get(),
             )
             .into_view(),
-            control.into_view(),
-        ];
-        if let Some(hint) = hint {
-            parts.push(
+        );
+    }
+    if let Some(error) = error {
+        let variants = variants.clone();
+        parts.push(
+            show_some(error, move |message| {
                 with_recipe_style(
-                    text(hint).node_ref(hint_ref),
-                    |r: &FieldTheme| r.hint_recipe(),
+                    text(message).role(Role::Alert).node_ref(error_ref),
+                    |r: &FieldTheme| r.error_recipe(),
                     &variants,
                     move || state.get(),
                 )
-                .into_view(),
-            );
-        }
-        if let Some(error) = error {
-            let variants = variants.clone();
-            parts.push(
-                show_some(error, move |message| {
-                    with_recipe_style(
-                        text(message).role(Role::Alert).node_ref(error_ref),
-                        |r: &FieldTheme| r.error_recipe(),
-                        &variants,
-                        move || state.get(),
-                    )
-                })
-                .into_view(),
-            );
-        }
-        with_base_recipe_style(
-            root,
-            |r: &FieldTheme| r.root_recipe(),
-            &variants,
-            move || state.get(),
-        )
-        .child(parts)
-        .into_view()
+            })
+            .into_view(),
+        );
     }
+    with_base_recipe_style(
+        node(),
+        |r: &FieldTheme| r.root_recipe(),
+        &variants,
+        move || state.get(),
+    )
+    .child(parts)
 }
