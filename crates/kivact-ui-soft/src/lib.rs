@@ -9,12 +9,14 @@
 //! }
 //! ```
 mod alert_dialog;
+mod app_shell;
 mod avatar;
 mod avatar_status_dot;
 mod banner;
 mod blockquote;
 mod bottom_sheet;
 mod card;
+mod chat_dictation;
 mod choice_list;
 mod citation;
 mod code;
@@ -33,9 +35,11 @@ mod key_hints;
 mod layout;
 mod lightbox;
 mod link;
+mod markdown_parser;
 mod media_overlay;
 mod media_query;
 mod metrics;
+mod mobile_nav;
 mod more_menu;
 mod motion;
 mod navigation_session;
@@ -88,6 +92,7 @@ mod variants;
 mod visually_hidden;
 
 pub use alert_dialog::{AlertDialog, alert_dialog};
+pub use app_shell::{MobileNavConfig, MobileNavMode, ShellHeight, ShellVariant, app_shell};
 pub use avatar::{AvatarSilhouette, avatar_silhouette};
 pub use avatar_status_dot::{AvatarStatus, avatar_status_dot};
 pub use banner::{BannerIcon, banner_icon};
@@ -96,6 +101,7 @@ pub use bottom_sheet::{
     BottomSheet, DialogPurpose, SheetHeight, SnapPoint, bottom_sheet, bottom_sheet_flow,
 };
 pub use card::with_card_insets;
+pub use chat_dictation::{ChatDictationButton, DictationState, chat_dictation_button};
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
@@ -155,6 +161,10 @@ pub use lightbox::{Lightbox, LightboxHandle, LightboxMedia, lightbox, use_lightb
 pub use link::{Link, LinkColor, link};
 pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
 pub use media_query::Breakpoint;
+pub use mobile_nav::{
+    AppShellMobile, DrawerSide, MobileNav, MobileNavToggle, mobile_nav, mobile_nav_toggle,
+    use_app_shell_mobile,
+};
 pub use more_menu::{MoreMenu, more_menu};
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
