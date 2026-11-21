@@ -315,15 +315,7 @@ impl IntoView for Slider {
             thumbs,
             fractions,
             body,
-        } = slider_parts(
-            values,
-            thumb_name,
-            range,
-            orientation,
-            disabled,
-            on_edit,
-            touch,
-        );
+        } = slider_parts(values, thumb_name, range, orientation, on_edit, touch);
         let track_state = track_part.state();
         let track_ref = node_ref();
         let geometry = std::rc::Rc::new(Geometry {
@@ -341,18 +333,12 @@ impl IntoView for Slider {
             fractions,
             body,
             track_state,
-            size,
-            orientation,
+            state,
             &variants,
+            disabled,
         );
         let thumbs = thumb_views(
-            thumbs,
-            thumb_ref,
-            geometry,
-            size,
-            orientation,
-            touch,
-            &variants,
+            thumbs, thumb_ref, geometry, state, touch, &variants, disabled,
         );
         // The track is disabled with its thumbs, so a look dims the whole
         // slider. Its recipe is the base style, so the caller's styles win.
@@ -435,7 +421,6 @@ fn slider_parts(
     label: Value<String>,
     range: Value<ScalarRange>,
     orientation: Orientation,
-    disabled: Option<Value<bool>>,
     on_edit: Option<Callback<EditPhase>>,
     touch: SliderTouchMotion,
 ) -> SliderParts {
@@ -444,15 +429,11 @@ fn slider_parts(
             on_edit.call(phase);
         }
     };
-    let with_disabled = move |scalar: ScalarApi| match disabled {
-        Some(disabled) => scalar.disabled(disabled),
-        None => scalar,
-    };
     // A range's filled span drags both ends.
     let mut body = None;
     let (track_part, thumbs, fractions): (_, Vec<(ScalarApi, Value<String>)>, _) = match values {
         Values::One(value) => {
-            let scalar = with_disabled(use_scalar(value, range).on_edit(report));
+            let scalar = use_scalar(value, range).on_edit(report);
             if let SliderTouchMotion::Direct { gesture, .. } = touch {
                 scalar.touch_gesture(gesture);
             }
@@ -468,10 +449,6 @@ fn slider_parts(
         }
         Values::Two(low, high) => {
             let pair = use_range_scalar(low, high, range).on_edit(report);
-            let pair = match disabled {
-                Some(disabled) => pair.disabled(disabled),
-                None => pair,
-            };
             if let SliderTouchMotion::Direct { gesture, .. } = touch {
                 pair.end(RangeThumb::Low).touch_gesture(gesture);
             }
@@ -508,16 +485,11 @@ fn thumb_views(
     thumbs: Vec<(ScalarApi, Value<String>)>,
     thumb_ref: kivact_core::view::NodeRef,
     geometry: std::rc::Rc<Geometry>,
-    size: Value<ControlSize>,
-    orientation: Orientation,
+    state: impl Fn(PartState) -> AxisState + Copy + 'static,
     touch: SliderTouchMotion,
     variants: &Variants,
+    disabled: Option<Value<bool>>,
 ) -> Vec<View> {
-    let state = move |input: PartState| AxisState {
-        input,
-        orientation,
-        size: size.get(),
-    };
     thumbs
         .into_iter()
         .enumerate()
@@ -526,7 +498,10 @@ fn thumb_views(
             let input = part.state();
             let geometry = geometry.clone();
             let mut thumb = with_recipe_style(
-                node().part(part).name(name),
+                node()
+                    .disabled(move || disabled.is_some_and(|disabled| disabled.get()))
+                    .part(part)
+                    .name(name),
                 |r: &SliderTheme| r.thumb_recipe(),
                 variants,
                 move || state(input.get().input),
@@ -575,17 +550,14 @@ fn filled_span(
     fractions: Ends,
     body: Option<kivact_core::custom::Part<PartState>>,
     track_state: Value<PartState>,
-    size: Value<ControlSize>,
-    orientation: Orientation,
+    state: impl Fn(PartState) -> AxisState + Copy + 'static,
     variants: &Variants,
+    disabled: Option<Value<bool>>,
 ) -> Node {
-    let state = move |input: PartState| AxisState {
-        input,
-        orientation,
-        size: size.get(),
-    };
     let span = match body {
-        Some(body) => node().part(body),
+        Some(body) => node()
+            .disabled(move || disabled.is_some_and(|disabled| disabled.get()))
+            .part(body),
         None => node(),
     };
     with_recipe_style(

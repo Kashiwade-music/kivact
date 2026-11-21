@@ -8,7 +8,7 @@ use crate::options_cell::OptionsCell;
 use crate::policy::scalar::ScalarStep;
 use kivact_core::custom::Owner;
 use kivact_core::geometry::Rect;
-use kivact_core::state::{Signal, Value, effect, effect_on, memo, on_cleanup, signal};
+use kivact_core::state::{Signal, Value, effect, effect_on, on_cleanup, signal};
 use kivact_core::view::{Handled, NodeRef, node_ref};
 
 /// The edit plumbing one [`ScalarApi`] or both thumbs of a
@@ -23,14 +23,10 @@ pub(crate) struct Shared {
     pub(crate) settings: OptionsCell<ScalarOptions>,
     /// Whether each thumb has the focus; a drag the focus leaves is canceled.
     thumb_focus: Signal<Vec<Value<bool>>>,
-    /// The disabled state each mounted thumb or track received from its
-    /// caller; any true value disables the whole scalar.
-    host_disabled: Signal<Vec<Value<bool>>>,
 }
 
 #[derive(Clone, Copy, Default)]
 pub(crate) struct ScalarOptions {
-    pub(crate) disabled: Option<Value<bool>>,
     pub(crate) key_step: Option<(Value<ScalarStep>, Owner)>,
     pub(crate) touch: Option<Touch>,
 }
@@ -42,14 +38,8 @@ impl Shared {
         let session = EditSession::new(restore);
         let pointer = Pointer::new();
         let settings = OptionsCell::new(ScalarOptions::default());
-        let options = settings.value();
-        let host_disabled = signal(Vec::<Value<bool>>::new());
-        let disabled = memo(move || {
-            options.get().disabled.is_some_and(|d| d.get())
-                || host_disabled.with(|hosts| hosts.iter().any(|d| d.get()))
-        });
         let thumb_focus = signal(Vec::<Value<bool>>::new());
-        let drag = track::drag(session, snapshot, pointer, disabled);
+        let drag = track::drag(session, snapshot, pointer);
         Shared {
             session,
             snapshot,
@@ -57,7 +47,6 @@ impl Shared {
             drag,
             settings,
             thumb_focus,
-            host_disabled,
         }
     }
 
@@ -75,27 +64,11 @@ impl Shared {
         }
     }
 
-    pub(crate) fn is_disabled(self) -> bool {
-        self.settings
-            .value()
-            .get()
-            .disabled
-            .is_some_and(|disabled| disabled.get())
-            || self
-                .host_disabled
-                .with(|hosts| hosts.iter().any(|disabled| disabled.get()))
-    }
-
     pub(crate) fn enable_touch(self, config: TouchSliderGesture) {
         if self.settings.get().touch.is_none() {
             let touch = Touch::new(config, self.pointer, self.session, self.snapshot);
             self.settings
                 .update(|settings| settings.touch = Some(touch));
-            effect(move || {
-                if self.is_disabled() {
-                    touch.finish(false);
-                }
-            });
         }
     }
 
@@ -110,18 +83,23 @@ impl Shared {
         self,
         part: kivact_core::view::Node,
         grip: Grip,
+        disabled: Value<bool>,
     ) -> kivact_core::view::Node {
-        if let Some(touch) = self.settings.get().touch {
-            part.on_pointer(move |event| {
-                if self.is_disabled() {
-                    Handled::No
-                } else {
-                    touch.event(grip, event)
-                }
-            })
-        } else {
-            part
-        }
+        let Some(touch) = self.settings.get().touch else {
+            return part;
+        };
+        effect(move || {
+            if disabled.get() {
+                touch.finish(false);
+            }
+        });
+        part.on_pointer(move |event| {
+            if disabled.get_untracked() {
+                Handled::No
+            } else {
+                touch.event(grip, event)
+            }
+        })
     }
 
     /// Whether the arrows of a thumb mirror: a horizontal track in a
@@ -191,24 +169,6 @@ pub(super) fn register_focus(shared: Shared, focused: Value<bool>) {
             if was_focused {
                 shared.thumb_blurred();
             }
-        }
-    });
-}
-
-/// Register the disabled state a mounted thumb or track received from its
-/// caller; the registration ends with that mount's owner. Setup only.
-pub(super) fn register_host_disabled(shared: Shared, disabled: Option<Value<bool>>) {
-    let Some(disabled) = disabled else {
-        return;
-    };
-    shared.host_disabled.update(|hosts| hosts.push(disabled));
-    on_cleanup(move || {
-        if shared.host_disabled.try_get_untracked().is_some() {
-            shared.host_disabled.update(|hosts| {
-                if let Some(at) = hosts.iter().position(|host| *host == disabled) {
-                    hosts.remove(at);
-                }
-            });
         }
     });
 }
