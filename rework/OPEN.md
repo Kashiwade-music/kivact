@@ -757,3 +757,10 @@ E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）
 - **U22 の `date_range_input`・`date_time_input` の既定の label**：既存のメッセージのままでよい。
 - **push**：W6b までの統合 branch は、利用者の許可を得て設計者が push した（`b1b2c3c2`）。Orchestrator は push しない。
 - **W6b の worktree と branch の後片付け**：権限の判定で拒否された操作なので、利用者の判断を待つ。それまで残す（作業の妨げにならない）。
+
+## Orchestrator の判断（W7a・E25 の直し、W7b・A15、2026-11-21）
+
+- **E25（`f0ed653b`）**：採る（設計者の決め、手順 2）。`ime_select` の末尾の `self.sync();` を戻した。試験の host の経路（`ime_event` → `ime_select`）で settle が走っていなかった。`preedit`・`commit`・`key`・`paste` の sync は外したまま。早い return は手順 1 の結果で戻した（外しても試験は落ちた）。付属書 E25 の手順 7 と EN-27 の文に追補を書いた（`E-engine.md`、本 commit）。確認（engine の試験 216 秒、E2E 12 module、fmt、clippy、xtask）は全部通った。
+- **A15（W7b、`08c1371d`、lane `wt/rw-W7b-A1`、W7a の A13 `3a719498` の上）**：採る。`CpuCompositor` の target の pool（64 MiB）、`filters::apply` の借用（input と output が同じ時だけ clone）、GPU への切替えでの `invalidate`。付属書との食い違い 1〜6（`run` は `size` を取らず `output.size()`、`give_back` は Temp だけ、`render()` は local の pool、試験の pool の非空の assert、E2E は comment 変更の前に走らせた、CRLF の復元後は check・clippy・xtask・compose の試験を再実行）は、配置と同じ形の選択で設計の変更は無い。E2E（ARV 38、DRAW 83、OFFSCREEN 4+8、GPU-DEMAND 6）は通った。
+- **W6b の後片付け**：設計者が利用者の許可を得て実施（worktree と branch の削除）。W6b の target（`V:/kv-target/rw-W6b-*`）は残してある。
+- **U23（`e23f39a8`）**：設計者が Stepper の record の印を入れた（利用者の許可）。U23 の完了 commit は U1 lane で行う。
