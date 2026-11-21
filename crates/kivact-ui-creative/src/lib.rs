@@ -32,6 +32,8 @@ mod key_glyph;
 mod layout;
 mod numeric;
 mod options;
+mod outliner;
+mod outliner_data;
 mod panel_group;
 mod pie;
 mod property_row;
@@ -96,6 +98,8 @@ pub use numeric::{
     number, value_slider,
 };
 pub use options::{Accent, Density, LabelTone};
+pub use outliner::{Outliner, OutlinerCell, OutlinerState, outliner};
+pub use outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
 pub use panel_group::{InspectorPanel, panel_group};
 pub use pie::{PieEntry, PieMenu, PieMode, PieState, pie_menu};
 pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_state_button};
