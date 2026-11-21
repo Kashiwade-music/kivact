@@ -1007,7 +1007,6 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
   - `chat_thread` の `empty(when, content)` → `empty(content: impl IntoView)`。empty の表示は「messages が空で、`loading_top` でない間」に本体が決める（`when` の引数を消す）。呼出し元の `when` が、この条件と違うものを渡している所があれば STOP して報告する。
   - `code_block` の `highlight(content, f)` → `highlight(h: Highlighter)`。`code_block` の module に `pub struct Highlighter`（中身は今の boxed の closure を `Rc<dyn Fn(..)>` にしたもの。props は `Option<Highlighter>`）と `pub fn highlighter<T, S, F>(content: impl IntoValue<T>, f: F) -> Highlighter`（型引数と制約は今の `highlight` と同じ。doc は今の `highlight` の doc を写す）を足し、`lib.rs` と prelude（今 `code_block` を出している所）から `highlighter` と `Highlighter` を出す。呼出し元は `.highlight(highlighter(content, f))` に直す（所有の木の試験・examples。kit は W9）。
 
-<<<<<<< HEAD
 ## 設計者の回答（W8・U48、U53 の chat_thread、U45、U43 の残り、2026-11-21）
 
 - **(1) U48**：`Menu`・`Select`（trigger と surface を兄弟で出す）を allowed_impls にした判断を採る（Select も同じ理由に当たる）。同じ理由で次も手書きの builder のまま残し、allowed_impls に足す：`Combobox`（入力と list の surface を兄弟で出す。`search<F, Fut>` の型引数もそのまま残せる）、`CommandPalette`（dialog の surface を開くたびに作り直す。`close_on(fn(&KeyEvent) -> bool)` もそのまま）、`NavigationMenu`（trigger と panel を兄弟で出し、`link(key, label, content)`・`action(key, label, press)` で key の型付きの項目を積む）、`NavigationMenuLink`（呼出し側の press を `take_press` で取り出して自分の press の中で呼ぶ。U23 の決まり）。allowed_impls の comment に理由の 4 つの型（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む）を書く。これらの固有の `variant` は U24 の残りのまま残してよい。`toast_region` を `#[component]` にした判断を採る。
@@ -1042,7 +1041,6 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
   - `range_span(min, max)` → `min_span(n)`・`max_span(n)`、`bounds(min, max)` → `min_date(d)`・`max_date(d)`（HTML の date の input の `min`・`max` と同じ考え）。呼出し元を直す。
 - **U53 の code_block**：`#[component]` にする。手書きが要る理由が allowed_impls の 4 つの型（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む）のどれかに当たる場合だけ allowed_impls に足して OPEN に記録する。どれにも当たらず `#[component]` にもできないなら、その理由を書いて STOP。
 - 上の C1 の例外（setter の形の変更）は、まとめて G の移行の文書に足す（W11b）。
-=======
 ## 途中の報告（W8・U48、U2 lane、2026-11-21）
 
 U48（menu・select・combobox・command_palette・navigation_menu・navigation_menu_link・toast_region）は途中。次の判断を設計者に求める。
@@ -1061,4 +1059,3 @@ U48（menu・select・combobox・command_palette・navigation_menu・navigation_
 - 設計者の回答（1）どおり：`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `Combobox`（`combobox/handle.rs`）・`CommandPalette`（`command_palette/view.rs`）・`NavigationMenu`（`navigation_menu/view.rs`）・`NavigationMenuLink`（`navigation_menu/link.rs`）の 4 行を足し、comment に理由の 4 つの型を書いた。固有の `variant` は残した。
 - 上の「途中の報告」の STOP（command_palette の `close_on`、combobox の `search`、navigation_menu の `link`・`action`、navigation_menu_link の `take_press`）は、この 4 つを手書きの builder のまま残す答えで解けた（props の形は変えない）。
 - `toast_region` は `#[component]`（`toast/view.rs`）。`Menu`・`Select` は前の回答どおり手書きの builder のまま allowed_impls。
->>>>>>> wt/rw-W8-U2
