@@ -25,6 +25,7 @@ mod dock;
 mod editors;
 mod feedback;
 mod fonts;
+mod gradient;
 mod icons;
 mod key_glyph;
 mod layout;
@@ -56,6 +57,7 @@ pub use feedback::{
     SplitButton, ToolWindowApi, ToolWindowOptions, WindowPosition, popup_button, split_button,
 };
 pub use fonts::MONO_FAMILY_VAR;
+pub use gradient::{ColorTransform, GradientEditor, GradientStop, gradient_editor};
 pub use key_glyph::KeyGlyph;
 pub use layout::{Panel, media_tile, panel, tree_row};
 pub use numeric::{
