@@ -10,6 +10,7 @@ use kivact::ui::spinner;
 use kivact::view::{Element, Role, column, dynamic, icon, node, row, text};
 
 /// A file row with an actual byte count and a percentage supplied by its owner.
+/// The name goes on the title text and the progress bar, the parts inside the row.
 ///
 /// The component performs no file I/O or network transfer. Its progress and
 /// completion indicator update when the caller's value changes. Unknown metadata
