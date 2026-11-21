@@ -168,3 +168,20 @@
 - U30b の開閉の一方向（設計者の決め）：注記の event（`Prepare`・`Closing`・`Typed`）で値を先に渡し、開閉は `open.set` だけが決める。注記の残りは、同じ turn の hide で既定に戻す（`52468fd0`、設計者の (d)）。
 - tier b（統合、`V:/kv-target/rw-main`、W6〜W9 の形）：fmt・clippy（workspace、XK と XD を除外、`-D warnings`）・test（1345 件成功、失敗 0、無視 39）・xtask `--only local` は成功。`xtask-allow(state-fields)` は 0 件（grep）。ログは `V:/kv-target/logs-W7b-tierb/`。
 - 次：W8（U 4 lane、E29、A16、lane S は S22b → S22d）。
+
+## 再開の手順（2026-11-21、利用者の PC 再起動による中断）
+
+- **統合の HEAD**：`f3a67c1a`（ローカル。push していない。worktree は clean）。W6b・W7a・W7b は統合に merge 済み。W8 は全 lane を統合へ merge 済み（順 U2 → U1 → U3 → U4 → E1 → A2 → S）。W8 の a11y 修正 `2e90ced7`、carousel 修正 `7d2870cc`、U45 の残り `b20e2ef3`（merge）、menu の WIP `f3a67c1a`。
+- **各 lane の状態**（branch `wt/rw-W8-*`、いずれも統合に merge 済み）：
+  - U1：`a2dd779a`（U45 完了）。U40・U42・U44・U45・U46 は完了。
+  - U2：`42874813`（U41・U47・U48 完了）。
+  - U3：`46b10e0a`（U43 の checkpoint・U49・U50 `6c4b20cb`・U51 完了。U51 の carousel の初回 scroll は設計者の (a) で統合の `7d2870cc` に入った）。worktree の 10 file は内容の差が 0 行の行末だけ（`git status` は M と出すが、`--ignore-cr-at-eol` で 0 行。作業ツリーは CRLF、index は LF）。
+  - U4：`130d16bb`（U53 の code_block・chat_thread、U54 完了）。
+  - E1：`7b7b87df`（E29 完了）。A2：`508a49fe`（A16 完了）。S：`104c172e`（S22b・S22d 完了）。
+  - W7a・W7b の lane も統合へ merge 済み。W6b の lane は設計者が後片付け済み。
+- **途中の作業（統合の上）**：
+  1. W8 の tier b（`V:/kv-target/logs-W8-tierb/`）：fmt・xtask・clippy は通過。test は 2 件が落ちていた。(a) a11y（`a_text_update_publishes_only_the_text`）は `2e90ced7` で直した（Bump 8 → 6、上限 6 は変えず）。直した後の試験の結果は未確認（W8 の tier b を再実行する）。(b) menu（`ui_components::menu_renders_nested_levels_and_custom_trigger_keeps_its_style`）は、custom trigger に label を書かない形（`f3a67c1a`、WIP）に直したが、試験の driver（`kivact-test` の `name_of`）が surface の名前を labelled_by から読めず、Menu "" で落ちる。**設計者が決める**：(a) driver（所有の外）か engine が labelled_by を名前として解決する、(b) surface の名前を trigger の内容（Text）から読む。
+  2. carousel（設計者の (a)）：`7d2870cc` で済み。試験 `a_carousel_opens_at_its_initial_slide` は直す前に落ち、直した後に通る。
+  3. U54 の確認：`cargo xtask check --no-write --strict --only interaction-view,ui-machine,unit-machine,hand-element,element-shadow --crate kivact-ui` は ui-machine の 1 件（`combobox/labels.rs:54`、Signal/Var write inside an effect closure）が残る。U54 の所有の file の error は 0。この 1 件の所有 unit は未決定（設計者に確認する）。
+- **次にすること**：(1) 設計者の menu の答え（(a) か (b)）を実施し、menu の試験を通す。(2) W8 の tier b（W6 の形、`V:/kv-target/logs-W8-tierb/run.sh`）を再実行し、test が全部通ることを確かめる。(3) U54 の残りの ui-machine（`combobox/labels.rs:54`）の所有を決める。(4) W8 を完了として PROGRESS に記録する。(5) W8L（L1〜L6）→ CP2（KPI、`--strict`）→ W9（K 5 lane と K6）→ W10（K と L7〜L11）→ W11a → W11b → W11c → CP3。
+- **注意**：stash は使わない（worktree 間で共有されていて取り違えが起きた）。kit（`kivact-ui-*`）は compile しない（W9 の所有）。
