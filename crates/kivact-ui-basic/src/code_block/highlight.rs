@@ -7,7 +7,7 @@ use std::ops::Range;
 /// tokens of that line (see [`kivact::ui::rust_tokens`]); and the index of
 /// the next line, the state the editor passes on.
 pub fn rust_lines(
-    tokens: &Vec<Vec<(Range<usize>, SyntaxKind)>>,
+    tokens: &[Vec<(Range<usize>, SyntaxKind)>],
     text: &str,
     index: &usize,
 ) -> (Vec<StyledRange>, usize) {
