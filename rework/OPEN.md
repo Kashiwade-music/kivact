@@ -1059,3 +1059,9 @@ U48（menu・select・combobox・command_palette・navigation_menu・navigation_
 - 設計者の回答（1）どおり：`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `Combobox`（`combobox/handle.rs`）・`CommandPalette`（`command_palette/view.rs`）・`NavigationMenu`（`navigation_menu/view.rs`）・`NavigationMenuLink`（`navigation_menu/link.rs`）の 4 行を足し、comment に理由の 4 つの型を書いた。固有の `variant` は残した。
 - 上の「途中の報告」の STOP（command_palette の `close_on`、combobox の `search`、navigation_menu の `link`・`action`、navigation_menu_link の `take_press`）は、この 4 つを手書きの builder のまま残す答えで解けた（props の形は変えない）。
 - `toast_region` は `#[component]`（`toast/view.rs`）。`Menu`・`Select` は前の回答どおり手書きの builder のまま allowed_impls。
+
+## 設計者の回答（W8・U46 の splitter・dropzone、2026-11-21）
+
+- **splitter の `key_step`**：`key_step(step: f64)`（`-> Self` の普通の setter。C2 の定数の行）にする。正で有限でない step は、本体で一度だけ診断を出し（`Owner::current().report(ErrorKind::Unsupported, "splitter key_step must be positive and finite, got {step}; the default step is used")` の形。他の部品の不正な値の報告と同じ kind を使う）、既定の step を使う。setter で `Result` を返すのはこの一つだけで、props の一様な形（DEC-05）に合わない。呼出し元の `.key_step(x)?`・`.key_step(x).unwrap()` などは `.key_step(x)` に直す。不正な step の試験があれば、`Err` を期待する所を「診断が 1 件で、既定の step で動く」に直してよい（設計者の決まり）。
+- **dropzone の `multiple()`・`pick_on_press()`**：`multiple(v: bool)`・`pick_on_press(v: bool)` にする（Disclosure の `always_open` と同じ）。呼出し元は `(true)`。
+- どちらも G の移行の文書に 1 行ずつ（W11b）。kit の呼出しは W9。
