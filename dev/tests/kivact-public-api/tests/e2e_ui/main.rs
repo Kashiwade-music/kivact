@@ -59,5 +59,6 @@ mod ui_field;
 mod ui_navigation;
 mod ui_sidebar;
 mod ui_sparkline;
+mod ui_tabs_overflow;
 mod ui_theming;
 mod ui_toolbar;
