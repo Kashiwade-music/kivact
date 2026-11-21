@@ -23,7 +23,7 @@ impl Screen {
     /// element is left out.
     ///
     /// A text is compared in layout space, before any transform: a line's
-    /// advance across and its ink down against its own content box, or the
+    /// advance across and its box down against its own content box, or the
     /// padding box of its visual parent; a text wrapped where its role
     /// expects one line; a line off the middle of its parent; a line a clip
     /// cuts with no ellipsis. A scrolling axis never overflows.

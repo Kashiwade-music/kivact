@@ -18,15 +18,13 @@ use kivact_types::{
 const PIXEL_ROUNDING: f64 = 0.5;
 
 /// The findings of the texts in the subtree of `scope` (the whole tree
-/// without one), in tree order; `ink`: the vertical extent of a line is
-/// that of its glyphs' outlines, else of its metrics.
+/// without one), in tree order.
 #[cfg(any(feature = "testing", feature = "devtools"))]
 pub(crate) fn layout_findings(
     host: &Model,
     engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     scope: Option<NodeId>,
-    ink: bool,
 ) -> Vec<LayoutFinding> {
     let mut out = Vec::new();
     let Some(start) = scope.or(host.tree().root()) else {
@@ -42,7 +40,7 @@ pub(crate) fn layout_findings(
             continue;
         }
         if n.kind() == NodeType::Text || host.slots.editors[n.index.0].is_some() {
-            text_findings(host, engine, check, id, ink, &mut out);
+            text_findings(host, engine, check, id, &mut out);
         }
         stack.extend(
             host.tree()
@@ -77,11 +75,10 @@ pub(crate) fn text_findings(
     engine: &mut arvane_text::TextEngine,
     check: &LayoutCheck,
     id: NodeId,
-    ink: bool,
     out: &mut Vec<LayoutFinding>,
 ) {
     let Some(n) = host.node(id) else { return };
-    let Some(shaped) = shape(host, engine, id, ink) else {
+    let Some(shaped) = shape(host, engine, id) else {
         return;
     };
     if shaped.lines.is_empty() {
@@ -109,7 +106,7 @@ pub(crate) fn text_findings(
             .lines
             .iter()
             .filter(|l| !l.cut)
-            .map(|l| (reach(l.ink, clip.rect, clip.axes), l.ink))
+            .map(|l| (reach(l.bounds, clip.rect, clip.axes), l.bounds))
             .filter(|(by, _)| *by > tolerance)
             .collect();
         if let Some(most) = cut.iter().map(|(by, _)| *by).reduce(f64::max) {
