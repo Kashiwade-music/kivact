@@ -320,6 +320,7 @@ impl Model {
                 || self.tree.get(*id).is_some_and(|n| n.place.transformed)
             {
                 self.a11y.moved(*id);
+                self.changes.mark(*id, crate::model::changes::Dirty::REPORT);
                 self.changes
                     .layout
                     .insert(crate::model::changes::LayoutReasons::PASS);

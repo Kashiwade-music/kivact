@@ -139,7 +139,8 @@ impl Model {
         for id in reveal {
             self.scroll_into_view(id);
         }
-        let fitted = self.refit_tooltips(engine, !computed);
+        let due: std::collections::HashSet<NodeId> = self.changes.marked(Dirty::REPORT).collect();
+        let fitted = self.refit_tooltips(engine, !computed, &due);
         // The record's lists are collected only while the DevTools records syncs.
         let recording = self.log.syncs_recording();
         let mut laid_out = Vec::new();
@@ -147,6 +148,7 @@ impl Model {
             let geometry: Vec<_> = self.layout.drain_geometry_changes().collect();
             for change in &geometry {
                 self.a11y.moved(change.id);
+                self.changes.mark(change.id, Dirty::REPORT);
                 if self.edits_input(change.id) {
                     self.changes.mark(change.id, Dirty::CARET);
                 }
@@ -193,6 +195,7 @@ impl Model {
         &mut self,
         engine: &mut arvane_text::TextEngine,
         reset: bool,
+        due: &std::collections::HashSet<NodeId>,
     ) -> bool {
         let tooltips: Vec<_> = self
             .tree
@@ -208,6 +211,14 @@ impl Model {
             .collect();
         let mut computed = false;
         for (id, props) in tooltips {
+            let anchor = match props.at {
+                kivact_types::OverlayAt::Anchor { node, .. } => node,
+                _ => None,
+            };
+            let moved = self.report_due(id, due) || anchor.is_some_and(|a| self.report_due(a, due));
+            if reset && !moved {
+                continue;
+            }
             if reset {
                 self.layout_tooltip(engine, id, None);
                 computed = true;
@@ -575,12 +586,25 @@ impl Model {
         }
     }
 
+    /// Whether `id` or a node above it is in `marks`.
+    fn report_due(&self, id: NodeId, marks: &std::collections::HashSet<NodeId>) -> bool {
+        !marks.is_empty()
+            && self.tree.nodes.index_of(id).is_some_and(|start| {
+                self.tree
+                    .ancestors(start)
+                    .any(|(i, _)| marks.contains(&self.tree.nodes.id_at(i)))
+            })
+    }
+
     fn report_geometry(&mut self, engine: &mut arvane_text::TextEngine) {
+        let marks: std::collections::HashSet<NodeId> =
+            self.changes.take(Dirty::REPORT).into_iter().collect();
         let scrollers: Vec<NodeId> = self
             .tree
             .scrollers
             .union(&self.tree.observed)
             .copied()
+            .filter(|id| self.report_due(*id, &marks))
             .collect();
         for id in scrollers {
             let Some(l) = self.computed_layout(id) else {
@@ -612,7 +636,13 @@ impl Model {
         self.changes.settled();
         // Sticky boxes follow the settled offsets.
         self.stick();
-        let observed: Vec<NodeId> = self.tree.observed.iter().copied().collect();
+        let observed: Vec<NodeId> = self
+            .tree
+            .observed
+            .iter()
+            .copied()
+            .filter(|id| self.report_due(*id, &marks))
+            .collect();
         for id in observed {
             let (Some(rect), Some(l)) = (self.bounds(id), self.computed_layout(id)) else {
                 continue;

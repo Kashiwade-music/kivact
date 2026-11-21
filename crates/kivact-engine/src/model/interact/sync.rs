@@ -63,6 +63,9 @@ impl Model {
             for id in self.input_ids() {
                 self.changes.mark(id, Dirty::CARET);
             }
+            if let Some(root) = self.tree.root() {
+                self.changes.mark(root, Dirty::REPORT);
+            }
         }
     }
 

@@ -157,7 +157,7 @@ impl Model {
         if moved {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
-            self.changes.moved();
+            self.changes.moved_node(id);
             self.changes.mark(id, Dirty::SCROLLED);
             self.a11y_scrolled(id);
         }
@@ -170,6 +170,9 @@ impl Model {
     /// already did.
     pub(crate) fn observe_layout(&mut self, id: NodeId, on: bool) -> bool {
         let changed = self.tree.set_observed(id, on);
+        if changed && on {
+            self.changes.mark(id, Dirty::REPORT);
+        }
         if changed {
             self.changes
                 .layout
@@ -414,7 +417,8 @@ impl Model {
             let fixed = place.positioning == crate::tree::node::Positioning::Fixed;
             let was_fixed = was == crate::tree::node::Positioning::Fixed;
             let parent = parent.map(|index| self.tree.nodes.id_at(index));
-            self.changes.mark(id, Dirty::LAYOUT_STYLE);
+            self.changes
+                .mark(id, Dirty::LAYOUT_STYLE.union(Dirty::REPORT));
             if fixed != was_fixed {
                 // It became or stopped being a layer root: its facts and its box
                 // parent's facts are derived again.
@@ -462,7 +466,7 @@ impl Model {
             self.changes
                 .layout
                 .insert(crate::model::changes::LayoutReasons::PASS);
-            self.changes.moved();
+            self.changes.moved_node(id);
         }
         if text {
             self.invalidate_inherited_text(id);
