@@ -71,31 +71,7 @@ impl Reader {
 
     /// Client mutation totals and the last committed revision.
     pub fn stats(&self) -> crate::mutation::WriteStats {
-        let app = self.app.borrow();
-        let stats = app.writes.stats;
-        #[cfg(feature = "testing")]
-        let stats = crate::mutation::WriteStats {
-            a11y_constructed: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.constructed)
-                .sum(),
-            a11y_published: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.published)
-                .sum(),
-            a11y_enumerated: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.enumerated)
-                .sum(),
-            ..stats
-        };
-        stats
+        super::stats_of(&self.app.borrow())
     }
 
     /// The current display lifetime phase; missing nodes have left.

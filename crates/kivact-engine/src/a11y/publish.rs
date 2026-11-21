@@ -56,10 +56,7 @@ impl Model {
                 .nodes
                 .retain(|_| at.next().is_some_and(|(id, h)| accepted.get(id) != Some(h)));
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.published += candidate.nodes.len() as u64;
-        }
+        self.a11y.published += candidate.nodes.len() as u64;
         let (new_root, focus) = (candidate.root, candidate.focus);
         let accepted = if replace {
             window.replace_accessibility(&candidate)

@@ -94,10 +94,7 @@ impl Model {
         for (_, id, offset) in order {
             self.build_node(id, offset, clipped, &mut nodes, &mut regions, engine);
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
+        self.a11y.constructed += nodes.len() as u64;
         let focus = self.semantics_focus(clipped);
         Built {
             tree: arvane_protocol::SemanticsTree {

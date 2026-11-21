@@ -423,7 +423,7 @@ impl Writer {
             .with_node(id, |model, writes| {
                 let changed = write(model);
                 if changed {
-                    writes.field(id);
+                    writes.field();
                     model.log.tree_upserted(model.window, [id]);
                 }
                 changed
