@@ -850,3 +850,15 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
 - Orchestrator が各型について 0.5 の 3 条件を確かめ、満たせば `// xtask-allow(state): independent: <field> is <事実と書き手>; ...` の印を 1 行ずつ書く（0.5 の表がもともと Orchestrator に許している操作）。確かめる点：machine（`session`）が open・closed を自分の状態にも持っていないか（持っていれば (3) の重複で差戻し）。書き手の列挙（(1)）は「Orchestrator の判断」に書く。
 - 印の編集が権限の判定で拒否されたら、回避せずに main へ報告する。設計者が利用者の許可を得て入れる。
 - (b) の規則の変更と (c) の enum 化は採らない。
+
+## 差戻し（W7b・U30b の state 検査、設計者の答え（a）の判定、2026-11-21）
+
+設計者の答え（a）：Api の handle も対象でよい。`open`・`query` は caller の binding。各型で 0.5 の 3 条件を確かめ、満たせば Orchestrator が independent の印を書く。machine（session）が open を自分の状態にも重ねて持っていれば差戻し。
+
+3 型を確かめた結果、**条件 (3)（同じ事実を二つの場所が持たない）を満たさないので、印は書かず差戻しにする**。lane U1 はここで止める（U31・U33 は後）。
+
+- **`ComboboxApi`**（`combobox/handle.rs:69`）：`open`（caller の Signal。書き手は `show` の `open.set(true)`（494 行付近）と `hide` の `open.set(false)`（460 行付近））と、`session`（machine）。machine の `ComboState` が `Closed` / `Open { surface, filtering, highlight }` を持ち、開いている事実を machine の状態としても持つ（`combobox/machine.rs:8`）。`query`（caller の Signal。書き手は `set_query` の `query.set`（508 行）と hide 系の `query.set(String::new())`（207・553 行））は machine の `filtering` と別の事実だが、machine の文書は「caller の `open` が表示を決める」と書く。
+- **`CommandPaletteApi`**（`palette/handle.rs:195` 付近）：`open`（書き手は `hide` の `open.set(false)`（315 行）、`show` の `open.set(true)`（383 行）、`toggle` の `open.set(!..)`（396 行））。`dialog: DialogApi`（その popup が開閉の状態を持つ）と、`combobox: ComboboxApi`（上の machine を持つ）が、同じ開閉を自分の状態として持つ。
+- **`SelectApi`**（`select/handle.rs:45` 付近）：`open`（書き手は `open_with` と `open.set(true)`（382 行））。`popup: PopupApi` が開閉の状態を持つ。machine の `State::Open { highlight, hovered, previewed, opened_by, surface }`（`select/machine.rs:13`）も開いている事実を持つ。文書は「caller の `open` を popup と machine の両方が follow する」と書く（同じ事実の複製）。
+- **判定**：3 型とも条件 (3) に当たる（開閉が caller の `open`・popup・machine の少なくとも二つに重ねて存在する）。0.5 の表に従い、印は書かない。設計者が決める：machine・popup の開閉を caller の `open` の一つに寄せるか（設計の変更）、または条件 (3) の扱い。
+- 印を書く前に、machine（session）が open を重ねて持つかを確かめる、という設計者の指示に従った結果。
