@@ -43,7 +43,7 @@ mod theme;
 mod variants;
 
 pub use audio::view_state::ChannelState;
-pub use audio::{Meter, Transport, TransportState, meter, transport};
+pub use audio::{Meter, MixerStrip, Transport, TransportState, meter, mixer_strip, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
 pub use color_popup::{ColorPopup, color_popup};
 pub use color_wheel::{ColorModel, ColorWheel, color_from_hsv, color_to_hsv, color_wheel};
