@@ -9,20 +9,20 @@ use super::devtools::{
     DevtoolsHost, append_overlay_layer, apply_emulation, chord_matches, effective_scale,
     emulated_viewport,
 };
+use crate::FrameLog;
 use crate::contract::{
-    DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, PickPhase,
-    TurnOutput,
+    DevtoolsChange, DrawableTexturesHandle, EngineEmulation, FrameRecord, HostEvent, HostRequest,
+    PickPhase, TurnOutput,
 };
+use crate::model::AppModel;
 use crate::model::edit::state::ImeUpdate;
 use crate::model::window::{FRAME_STATE_KEEP_NS, LastPresent};
-use crate::model::{AppModel, DeferredRequest};
-use crate::{FrameLog, FrameTimes};
 use arvane::{ExportNotice, Presented, Window, Windows};
 use arvane_shell::{ShellControl, ShellError, ShellEvent, SizeReply};
 use kivact_types::cell::{ReportOnce, Sent};
 use kivact_types::{
     DrawableId, Key, KeyInput, KeyPhase, MouseButton, NodeId, PlatformRequest, PlatformResult,
-    Point, PointerPhase, WindowId,
+    Point, PointerPhase, RequestId, WindowId,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -157,84 +157,94 @@ impl Host {
         self.pump(windows)
     }
 
-    /// Carry out every window's deferred effects.
+    /// Carry out the App's queued effects in write order (`AppModel::effects`).
     pub(super) fn effects(&mut self, windows: &mut Windows<'_>) {
         if matches!(self.phase, HostPhase::Starting { .. }) || self.closed() {
             return;
         }
-        for id in self.window_ids() {
-            let effects = {
-                let mut app = self.app.borrow_mut();
-                app.model_mut(id)
-                    .map(|model| std::mem::take(&mut model.effects))
-                    .unwrap_or_default()
+        let effects = std::mem::take(&mut self.app.borrow_mut().effects);
+        for (request, effect) in effects {
+            let Some(result) = self.carry_out(windows, request, effect) else {
+                continue;
             };
-            for (request, effect) in effects {
-                let result = match effect {
-                    DeferredRequest::RequestSize(size) => {
-                        let Some(mut window) = windows.get(id) else {
-                            continue;
-                        };
-                        match window.request_size(size, request) {
-                            SizeReply::Now(result) => result,
-                            SizeReply::Later => continue,
-                        }
-                    }
-                    DeferredRequest::Platform(request) => {
-                        let fullscreen_request = matches!(request, PlatformRequest::Fullscreen(_));
-                        let Some(mut window) = windows.get(id) else {
-                            continue;
-                        };
-                        let result = window.perform(request);
-                        if fullscreen_request {
-                            let fullscreen = window.fullscreen();
-                            if let Some(model) = self.app.borrow_mut().model_mut(id) {
-                                model.update_env(|env, _| env.fullscreen = fullscreen);
-                            }
-                        }
-                        result
-                    }
-                    DeferredRequest::ReducedMotion(override_value) => {
-                        self.reduced_motion_override = override_value;
-                        self.apply_reduced_motion();
-                        PlatformResult::Done
-                    }
-                    DeferredRequest::Inject(inputs) => {
-                        if windows.get(id).is_some() {
-                            windows.inject(id, inputs, request);
-                        }
-                        continue;
-                    }
-                    DeferredRequest::Emulate(emulation) => {
-                        self.apply_emulation(emulation, windows);
-                        PlatformResult::Done
-                    }
-                    DeferredRequest::TimeScale(scale) => {
-                        if scale.is_finite() {
-                            let now = windows.now_ns();
-                            self.app.borrow_mut().clock.set_scale(now, scale);
-                        }
-                        PlatformResult::Done
-                    }
-                    DeferredRequest::DemandGpu => {
-                        windows.demand_gpu(id);
-                        continue;
-                    }
-                    DeferredRequest::UnhandledKey(code) => {
-                        if let Some(mut window) = windows.get(id) {
-                            window.unhandled_key(code);
-                        }
-                        continue;
-                    }
-                };
-                if self.closed() {
-                    return;
-                }
-                self.app
-                    .borrow()
-                    .push_event(HostEvent::EffectResult { request, result });
+            if self.closed() {
+                return;
             }
+            self.app
+                .borrow()
+                .push_event(HostEvent::EffectResult { request, result });
         }
+    }
+
+    /// Carry out one effect. `None` when it answers nothing, or its window
+    /// is no longer open.
+    fn carry_out(
+        &mut self,
+        windows: &mut Windows<'_>,
+        request: RequestId,
+        effect: HostRequest,
+    ) -> Option<PlatformResult> {
+        Some(match effect {
+            HostRequest::RequestWindowSize { window, size } => {
+                let mut platform = windows.get(window)?;
+                match platform.request_size(size, request) {
+                    SizeReply::Now(result) => result,
+                    SizeReply::Later => return None,
+                }
+            }
+            HostRequest::Platform {
+                window,
+                request: platform_request,
+            } => {
+                let fullscreen_request = matches!(platform_request, PlatformRequest::Fullscreen(_));
+                let mut platform = windows.get(window)?;
+                let result = platform.perform(platform_request);
+                if fullscreen_request {
+                    let fullscreen = platform.fullscreen();
+                    if let Some(model) = self.app.borrow_mut().model_mut(window) {
+                        model.update_env(|env, _| env.fullscreen = fullscreen);
+                    }
+                }
+                result
+            }
+            HostRequest::ReducedMotion(override_value) => {
+                self.reduced_motion_override = override_value;
+                self.apply_reduced_motion();
+                PlatformResult::Done
+            }
+            HostRequest::Inject { window, inputs } => {
+                if windows.get(window).is_some() {
+                    windows.inject(window, inputs, request);
+                }
+                return None;
+            }
+            HostRequest::Emulate(emulation) => {
+                self.apply_emulation(emulation, windows);
+                PlatformResult::Done
+            }
+            HostRequest::TimeScale(scale) => {
+                if scale.is_finite() {
+                    let now = windows.now_ns();
+                    self.app.borrow_mut().clock.set_scale(now, scale);
+                }
+                PlatformResult::Done
+            }
+            HostRequest::DemandGpu { window } => {
+                windows.demand_gpu(window);
+                return None;
+            }
+            HostRequest::UnhandledKey { window, code } => {
+                if let Some(mut platform) = windows.get(window) {
+                    platform.unhandled_key(code);
+                }
+                return None;
+            }
+            // Answered in the write (`Writer::effect`): never queued.
+            HostRequest::Snapshot(_)
+            | HostRequest::RegisterFont(_)
+            | HostRequest::DrawableExport { .. }
+            | HostRequest::SetDrawableGeometry { .. } => return None,
+        })
     }
 
     /// Apply the reduced-motion override to every window's environment.
@@ -387,53 +397,40 @@ impl Host {
             let logging =
                 self.frame_log.borrow().enabled() || self.app.borrow().log.frames_recording();
             if logging {
-                let times = FrameTimes {
-                    work: Instant::now() - started,
-                    scene: t_raster - t_scene,
-                    raster: *raster,
-                    present: *present,
+                let (revision, frame_period_ns) = {
+                    let app = self.app.borrow();
+                    let period = app.model(id).map_or(0, |model| model.frame.period_ns());
+                    (app.events().applied(), period)
                 };
-                self.record_frame(id, end_ns, times, stats, *renderer);
+                self.record_frame(FrameRecord {
+                    window: id,
+                    revision,
+                    end_ns,
+                    work_ns: (Instant::now() - started).as_nanos() as u64,
+                    scene_ns: (t_raster - t_scene).as_nanos() as u64,
+                    raster_ns: raster.as_nanos() as u64,
+                    present_ns: present.as_nanos() as u64,
+                    stats: *stats,
+                    gpu: matches!(renderer, arvane::Renderer::Gpu),
+                    frame_period_ns,
+                });
             }
         }
         Ok(presented)
     }
 
-    /// Record one shown frame in the frame log and the DevTools' ring.
-    fn record_frame(
-        &self,
-        id: WindowId,
-        end_ns: u64,
-        times: FrameTimes,
-        stats: &kivact_types::export::FrameStats,
-        renderer: arvane::Renderer,
-    ) {
+    /// Give one shown frame's record to the frame log and the DevTools' ring.
+    fn record_frame(&self, record: FrameRecord) {
+        {
+            let mut frame_log = self.frame_log.borrow_mut();
+            if frame_log.enabled() {
+                frame_log.frame(&record);
+            }
+        }
         let log = self.app.borrow().log.clone();
-        let mut frame_log = self.frame_log.borrow_mut();
-        if frame_log.enabled() {
-            frame_log.frame(times, stats);
+        if log.frames_recording() {
+            log.frame(|| record);
         }
-        drop(frame_log);
-        if !log.frames_recording() {
-            return;
-        }
-        let (revision, frame_period_ns) = {
-            let app = self.app.borrow();
-            let period = app.model(id).map_or(0, |model| model.frame.period_ns());
-            (app.events().applied(), period)
-        };
-        log.frame(|| FrameRecord {
-            window: id,
-            revision,
-            end_ns,
-            work_ns: times.work.as_nanos() as u64,
-            scene_ns: times.scene.as_nanos() as u64,
-            raster_ns: times.raster.as_nanos() as u64,
-            present_ns: times.present.as_nanos() as u64,
-            stats: *stats,
-            gpu: matches!(renderer, arvane::Renderer::Gpu),
-            frame_period_ns,
-        });
     }
 
     /// One client turn: it writes the tree (each write applied at once),
@@ -824,10 +821,7 @@ impl Host {
                 model.frame_deadline(client)
             })
             .min();
-        let effects_pending = app
-            .windows
-            .values()
-            .any(|window| !window.model.effects.is_empty());
+        let effects_pending = !app.effects.is_empty();
         let next = if app.events().has_events() || effects_pending {
             Some(now_ns)
         } else {
@@ -955,7 +949,7 @@ impl Host {
         }
     }
 
-    /// Apply the emulation to every window after `DeferredRequest::Emulate`.
+    /// Apply the emulation to every window after `HostRequest::Emulate`.
     pub(super) fn apply_emulation(
         &mut self,
         emulation: EngineEmulation,

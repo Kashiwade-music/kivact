@@ -4,7 +4,7 @@
 //! one motion clock; each window owns its own `Model`. A node's window is
 //! derived from the model whose tree holds it (no second table).
 
-use crate::contract::{DevtoolsChange, HostEvent, NodeFlags};
+use crate::contract::{DevtoolsChange, HostEvent, HostRequest, NodeFlags};
 use crate::lower::assets::ArvaneAssets;
 use crate::model::Model;
 use crate::model::events::{EngineLog, EventSink, Shared};
@@ -39,6 +39,9 @@ pub(crate) struct AppModel {
     pub(crate) assets: Rc<RefCell<ArvaneAssets>>,
     /// Window changes the host performs after the turn, in order.
     pub(crate) window_changes: Vec<WindowChange>,
+    /// The platform and App-wide requests the host carries out after the
+    /// turn, in write order (`Host::effects`).
+    pub(crate) effects: Vec<(RequestId, HostRequest)>,
     /// The App's one motion clock (`kivact_types::clock::Clock`): it stops while no window can draw; `FrameTick.clock` carries its snapshot.
     pub(crate) clock: kivact_types::clock::Clock,
     /// The frames the core asked for; only the tick-source window's
@@ -83,6 +86,7 @@ impl AppModel {
             writes: Writes::default(),
             assets: shared.assets,
             window_changes: Vec::new(),
+            effects: Vec::new(),
             clock: kivact_types::clock::Clock::new(),
             client_frames: FrameRequests::default(),
             focused_window: None,

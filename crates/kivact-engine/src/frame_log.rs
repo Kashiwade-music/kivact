@@ -26,21 +26,26 @@
 //! refresh period changes, `accessibility=on` the first time assistive
 //! technology reads the tree, and `memory_warning`. Benchmarks parse them.
 
+use crate::contract::FrameRecord;
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Write as _;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::rc::Rc;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-/// Times of one presented frame.
-#[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct FrameTimes {
-    /// The whole frame on the UI thread.
-    pub(crate) work: Duration,
-    /// Building the scene (paint list) from the tree.
-    pub(crate) scene: Duration,
-    /// Rasterizing the scene.
-    pub(crate) raster: Duration,
-    /// Handing the pixels to the window.
-    pub(crate) present: Duration,
+/// The observer of Arvane's renderer changes that notes each in `log`
+/// (benchmarks parse the `renderer=` notes; the first is the renderer
+/// the window starts with).
+pub(crate) fn renderer_logger(
+    log: Rc<RefCell<FrameLog>>,
+) -> impl FnMut(kivact_types::WindowId, &arvane::RendererChange) + 'static {
+    move |_window, change| {
+        let mut log = log.borrow_mut();
+        match change {
+            arvane::RendererChange::Start { .. } => log.note(&format!("host=arvane {change}")),
+            _ => log.note(&change.to_string()),
+        }
+    }
 }
 
 /// The frame log of one host window; disabled unless the variable is set.
@@ -79,7 +84,7 @@ impl FrameLog {
 
     /// Record a frame that was just handed to the platform, with the work
     /// it did.
-    pub(crate) fn frame(&mut self, times: FrameTimes, stats: &kivact_types::export::FrameStats) {
+    pub(crate) fn frame(&mut self, record: &FrameRecord) {
         if self.file.is_none() {
             return;
         }
@@ -89,11 +94,9 @@ impl FrameLog {
             .as_nanos();
         self.write(&format!(
             "F {end} {} {} {} {}\n",
-            times.work.as_nanos(),
-            times.scene.as_nanos(),
-            times.raster.as_nanos(),
-            times.present.as_nanos(),
+            record.work_ns, record.scene_ns, record.raster_ns, record.present_ns,
         ));
+        let stats = &record.stats;
         self.write(&format!(
             "S {} {} {} {} {}\n",
             stats.chunks_rastered,
