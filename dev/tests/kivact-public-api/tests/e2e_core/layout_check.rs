@@ -103,6 +103,19 @@ fn glyphs_beyond_a_tight_line_box_are_not_reported() {
 }
 
 #[test]
+fn a_tight_heading_is_not_reported() {
+    // Its line box is 32.3 tall (34 times 0.95). The selection box is taller,
+    // so only the line box is compared with the text's own box.
+    let screen = render(|| {
+        column((text("Heading")
+            .style(style().font_size(34).line_height(0.95))
+            .test_id("heading"),))
+        .style(style().width(200).align_items(Align::Start))
+    });
+    assert_eq!(screen.check_layout(), []);
+}
+
+#[test]
 fn a_line_box_beyond_its_parent_is_reported() {
     // The line box is 40 tall in a column 20 tall: 20 px beyond its bottom.
     let screen = render(|| {
@@ -168,6 +181,35 @@ fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
     });
     assert_eq!(screen.check_layout(), []);
     screen.assert_layout();
+}
+
+#[test]
+fn a_text_scrolled_on_both_axes_is_not_cut_by_the_page_above_it() {
+    // The text is 300 wide, past the page's clip (100). The scroll box holds
+    // it on both axes, so the page never shows that edge.
+    let screen = render(|| {
+        column((scroll(
+            text("A long line of text that cannot fit its box")
+                .style(style().text_wrap(false))
+                .test_id("inner"),
+        )
+        .axes(ScrollAxes::Both)
+        .style(
+            style()
+                .width(60)
+                .height(30)
+                .align_items(Align::Start)
+                .background(rgb(GRAY)),
+        ),))
+        .style(
+            style()
+                .width(100)
+                .height(40)
+                .overflow(Overflow::Hidden)
+                .align_items(Align::Start),
+        )
+    });
+    assert_eq!(screen.check_layout(), []);
 }
 
 #[test]

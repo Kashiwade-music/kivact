@@ -143,15 +143,18 @@ fn merge_line(
 ) {
     if let Some(first) = lines.first() {
         let rect = at(first.rect);
+        let line_box = at(first.line_box);
         *line = Some(match line.take() {
             None => kivact_types::shaped::TextLine {
                 range: 0..text_len,
                 rect,
+                line_box,
                 baseline,
                 ..first.clone()
             },
             Some(mut l) => {
                 l.rect = l.rect.union(rect);
+                l.line_box = l.line_box.union(line_box);
                 l.ascent = l.ascent.max(first.ascent);
                 l.descent = l.descent.max(first.descent);
                 l.cap_height = l.cap_height.max(first.cap_height);
