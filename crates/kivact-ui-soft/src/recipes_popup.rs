@@ -23,22 +23,6 @@ use kivact::ui::TooltipRecipes;
 const TOOLTIP_CONTENT_MAX_WIDTH: f64 = 300.0;
 const TOAST_WIDTH: f64 = 400.0;
 
-pub(crate) fn tooltip(r: TooltipRecipes) -> TooltipRecipes {
-    r.surface(|_| {
-        |t: &Theme, _: &Look<PopupState>| {
-            let p = t.ext::<Tokens>();
-            let base = body_text(&p)
-                .color(p.colors.bg_surface)
-                .background(p.colors.text_primary)
-                .radius(p.radius.container)
-                .padding_x(p.spacing.s2)
-                .padding_y(p.spacing.s1)
-                .max_width(TOOLTIP_CONTENT_MAX_WIDTH + p.spacing.s2 * 2.0);
-            anchored(base, &p, 0.0, p.spacing.s2)
-        }
-    })
-}
-
 pub(crate) fn toast(r: ToastRecipes) -> ToastRecipes {
     r.region(|_| {
         |t: &Theme, _: &Look<PartState>| {
@@ -116,27 +100,4 @@ fn close(t: &Theme, s: &Look<ToastState>) -> Style {
         .hover(style().background(media.colors.overlay_hover))
         .pressed(style().background(media.colors.overlay_pressed))
         .focus_visible(focus(&media))
-}
-
-/// Neutral preview surface, including side-aware entrance motion.
-pub(crate) fn hover_card(r: kivact::ui::HoverCardRecipes) -> kivact::ui::HoverCardRecipes {
-    r.surface(|_| {
-        |theme: &Theme, state: &Look<kivact::ui::HoverCardSurfaceState>| {
-            let p = theme.ext::<Tokens>();
-            let base = shadows(body_text(&p), &p.shadows.med)
-                .direction(Direction::Column)
-                .background(p.colors.bg_surface)
-                .radius(p.radius.container)
-                .max_width(pct(100) - 32.0)
-                .padding(p.spacing.s3);
-            let (x, y) = match state.placement {
-                kivact::view::Placement::Above => (0.0, p.spacing.s2),
-                kivact::view::Placement::Below => (0.0, -p.spacing.s2),
-                kivact::view::Placement::Start => (p.spacing.s2, 0.0),
-                kivact::view::Placement::End => (-p.spacing.s2, 0.0),
-                _ => (0.0, 0.0),
-            };
-            anchored(base, &p, x, y)
-        }
-    })
 }

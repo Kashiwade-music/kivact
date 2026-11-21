@@ -21,6 +21,8 @@ mod recipes_controls_radio;
 mod recipes_controls_value;
 mod recipes_field;
 mod recipes_overlays;
+mod recipes_overlays_command;
+mod recipes_overlays_dialog;
 mod recipes_overlays_menu;
 mod recipes_overlays_select;
 mod shadows;
