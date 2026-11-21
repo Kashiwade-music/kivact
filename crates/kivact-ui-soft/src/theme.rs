@@ -46,6 +46,7 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = set_ui_table(theme, mode);
     let theme = crate::recipes_controls::install(theme);
     let theme = crate::recipes_overlays::install(theme);
+    let theme = crate::recipes_collections::install(theme);
     let theme = crate::recipes_navigation::install(theme);
     // Before `settings`: `settings` re-installs the tables it tunes.
     let theme = crate::recipes_feedback::install(theme);
