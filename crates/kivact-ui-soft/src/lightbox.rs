@@ -79,8 +79,7 @@ pub fn lightbox(
     #[prop(default = false)] zoom: bool,
 ) -> impl IntoView {
     let index = index.unwrap_or_else(|| signal(0));
-    let view = signal(LightboxView::Fit);
-    gallery(open, media, index, zoom, view)
+    gallery(open, media, index, zoom, || signal(LightboxView::Fit))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -167,7 +166,7 @@ impl LightboxHandle {
                 })
             },
         );
-        gallery(open, self.media, index, false, view)
+        gallery(open, self.media, index, false, move || view)
     }
 
     /// Return an activation callback that opens the given zero-based entry.
@@ -181,7 +180,7 @@ fn gallery(
     media: Value<Vec<LightboxMedia>>,
     index: Signal<usize>,
     zoom: bool,
-    view: Signal<LightboxView>,
+    make_view: impl Fn() -> Signal<LightboxView> + 'static,
 ) -> View {
     let active = move || index.get().min(media.get().len().saturating_sub(1));
     let selected = move || media.get().get(active()).cloned();
@@ -196,6 +195,8 @@ fn gallery(
     let close_ref = node_ref();
     let behavior = use_dialog(open, DialogMode::Modal).initial_focus(close_ref);
     show(open, move || {
+        // A new view signal each time the surface opens, so a zoom does not survive a reopen.
+        let view = make_view();
         let zoomed = move || matches!(view.get(), LightboxView::Zoomed { .. });
         let transform = gallery_transform(view);
         let zoom_behavior = use_zoom_pan(transform).scale_range(1.0, 2.0);
