@@ -303,10 +303,11 @@ impl PopupApi {
         self.disclosure.content
     }
 
-    /// Request closure with `reason`: the focus return follows the caller's
-    /// `open` write. A missing target receives no focus request.
+    /// Request closure with `reason`: the reason decides where the focus
+    /// returns ([`FocusReturn`]), and the focus return follows the caller's
+    /// `open` write. `hide` is `close(PopupCloseReason::Programmatic)`.
     #[track_caller]
-    pub(crate) fn close(self, reason: PopupCloseReason) {
+    pub fn close(self, reason: PopupCloseReason) {
         if self.is_open().get_untracked() {
             self.note_close(reason);
         }
