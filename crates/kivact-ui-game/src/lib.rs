@@ -56,5 +56,5 @@ pub use table::{
 pub use theme::{Density, ThemeOptions, theme, theme_with};
 pub use variants::{
     AvatarVariant, BadgeVariant, ChoiceCard, GaugeSegments, HeadingVariant, InputGroupVariant,
-    SkeletonVariant, Slant, StatVariant, Striped, TabsVariant,
+    SkeletonVariant, StatVariant, TabsVariant,
 };

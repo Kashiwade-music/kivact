@@ -23,18 +23,18 @@ fn consumer_modal_menu_command_search_and_focus_restore() {
                 (open, command_open, hits),
                 column((
                     kivact::ui::button("Create")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .on_press(move || open.set(true)),
                     kivact::ui::menu("Actions", vec![MenuEntry::item("run", "Run")])
                         .on_activate(move |_: &'static str| hits.update(|v| *v += 1))
                         .offset(0.)
                         .attach(
                             kivact::ui::button("Actions")
-                                .variant(kivact_ui_game::Slant)
+                                .variant(kivact::ui::Slant)
                                 .variant(kivact::ui::ButtonVariant::Secondary),
                         ),
                     kivact::ui::button("Commands")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .on_press(move || command_open.set(true)),
                     kivact::ui::dialog("New operation", open).content(|| {
                         kivact::ui::text_input("Title", kivact::state::signal(String::new()))
@@ -92,7 +92,7 @@ fn consumer_toast_expiry_and_hover_pause() {
                 (
                     column((
                         kivact::ui::button("Notify")
-                            .variant(kivact_ui_game::Slant)
+                            .variant(kivact::ui::Slant)
                             .on_press(move || {
                                 toaster.push(
                                     Toast::new("Saved")
@@ -158,8 +158,8 @@ fn consumer_tooltip_focus_delay_and_blur_use_setup_bound_observation() {
                         .placement(kivact::view::Placement::Below)
                         .align(kivact::view::OverlayAlign::Center)
                         .offset(6.)
-                        .attach(kivact::ui::button("Save").variant(kivact_ui_game::Slant)),
-                    kivact::ui::button("Elsewhere").variant(kivact_ui_game::Slant),
+                        .attach(kivact::ui::button("Save").variant(kivact::ui::Slant)),
+                    kivact::ui::button("Elsewhere").variant(kivact::ui::Slant),
                 ))
                 .style(style().padding(30).gap(24)),
             )
@@ -204,10 +204,10 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
                 (modal, sheet, popover),
                 column((
                     kivact::ui::button("Open modal")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .on_press(move || modal.set(true)),
                     kivact::ui::button("Open sheet")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .on_press(move || sheet.set(true)),
                     kivact::ui::dialog("Rename", modal)
                         .description("The new name shows everywhere.")
@@ -222,7 +222,7 @@ fn consumer_dialog_drawer_and_popover_are_named_dialogs_that_assistive_technolog
                     kivact::ui::dialog("Help topic", popover)
                         .mode(kivact::interaction::DialogMode::Popover)
                         .content(|| text("Help content"))
-                        .attach(kivact::ui::button("Open help").variant(kivact_ui_game::Slant)),
+                        .attach(kivact::ui::button("Open help").variant(kivact::ui::Slant)),
                 )),
             )
         },

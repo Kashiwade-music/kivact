@@ -8,7 +8,7 @@ use kivact::style::{BackgroundOrigin, Filter, Paint, Shadow, Transform, linear_g
 use kivact::ui::{ButtonVariant, ControlSize};
 
 /// The button look of the kit for a variant, a tone and a size: the fill,
-/// the hover and press looks, and the slant of a [`Slant`](crate::Slant) button.
+/// the hover and press looks, and the slant of a [`Slant`](kivact::ui::Slant) button.
 pub(crate) fn button_style(
     variant: ButtonVariant,
     hue: Option<crate::ButtonTone>,
