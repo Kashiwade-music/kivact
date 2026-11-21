@@ -90,15 +90,15 @@ fn indicator(
         .hit_testable(false)
         .with_node(move |node| node.part(attachment));
     let look = move || {
-        let mut input = input;
-        if actual.get().is_disabled() && !input.is_hidden() {
-            input.availability = kivact::view::Availability::Disabled;
+        let mut facts = input.get();
+        if actual.get().is_disabled() && !facts.is_hidden() {
+            facts.availability = kivact::view::Availability::Disabled;
         }
-        if input.is_disabled() {
-            input.focus = kivact::view::Focus::None;
+        if facts.is_disabled() {
+            facts.focus = kivact::view::Focus::None;
         }
         Look::new(CheckableState {
-            input,
+            input: PartState::fixed(facts),
             control: match kind {
                 Kind::Radio => CheckControl::Radio {
                     selected: checked.get().is_checked(),
