@@ -1,7 +1,7 @@
 //! Role: Exercise Soft toast swipes, pointer filtering, and the timer hold.
 
 use kivact::interaction::Toast;
-use kivact::interaction::toaster;
+use kivact::interaction::use_toaster;
 use kivact::style::ThemeMode;
 use kivact::test::RenderOptions;
 use kivact::test::render_with;
@@ -17,7 +17,7 @@ fn a_short_or_mouse_drag_does_not_dismiss_but_an_edge_swipe_does() {
         let screen = render_with(
             RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
             || {
-                let queue = toaster();
+                let queue = use_toaster();
                 queue.push(Toast::new("Saved").duration(None));
                 toast_region(queue)
             },
@@ -73,7 +73,7 @@ fn a_pending_touch_holds_only_its_toasts_timer() {
     let screen = render_with(
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
-            let queue = toaster();
+            let queue = use_toaster();
             for title in ["Held", "Other"] {
                 queue.push(Toast::new(title).duration(Some(Duration::from_millis(350))));
             }

@@ -8,7 +8,7 @@ use kivact::test::render_with_handle;
 use kivact::ui::ControlSize;
 use kivact::ui::badge;
 use kivact::ui::button;
-use kivact::ui::input_group_with;
+use kivact::ui::input_group;
 use kivact::view::Element;
 use kivact::view::Key;
 use kivact::view::Role;
@@ -27,7 +27,7 @@ fn markdown_wraps_a_live_link_with_the_surrounding_paragraph() {
             let paragraph = kivact_ui_soft::markdown(
                 "The project reference lives in [the guide](https://example.com/guide) today.",
             )
-            .on_link(move |url| opened.set(url.to_owned()))
+            .on_link(kivact::state::callback(move |url: String| opened.set(url)))
             .style(kivact::style::style().width(150))
             .test_id("markdown-paragraph");
             (opened, paragraph)
@@ -77,12 +77,13 @@ fn input_group_inherits_size_without_overriding_an_explicit_member() {
     let screen = render_with(
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light)),
         || {
-            input_group_with("Actions", || {
+            input_group(
+                "Actions",
                 (
                     button("Inherited"),
                     button("Explicit").size(ControlSize::Small),
-                )
-            })
+                ),
+            )
             .size(ControlSize::Large)
         },
     );
@@ -142,7 +143,7 @@ fn content_components_publish_their_names_and_roles() {
                 kivact::ui::heading("Workspace", 2),
                 icon_view("search").size(IconSize::Lg).label("Search icon"),
                 badge("Review").tone(kivact::interaction::Tone::Warning),
-                status_dot(StatusDotVariant::Success, "Online"),
+                status_dot("Online").variant(StatusDotVariant::Success),
             ))
         },
     );
@@ -163,9 +164,11 @@ fn date_and_time_fields_commit_through_the_public_bindings() {
             (
                 (date, time),
                 column((
-                    kivact::ui::date_input("Due date", date)
+                    kivact::ui::date_input(date)
+                        .label("Due date")
                         .presentation(kivact::ui::DatePresentation::Desktop),
-                    kivact::ui::time_input("Reminder", time)
+                    kivact::ui::time_input(time)
+                        .label("Reminder")
                         .presentation(kivact::ui::DatePresentation::Desktop),
                 )),
             )
@@ -242,25 +245,19 @@ fn drop_policy_ends_the_actual_hover_visit_and_keeps_native_picking() {
     use kivact::interaction::DropzoneState;
     use kivact::style::style;
     use kivact::test::render_with_handle;
-    use kivact::ui::UiRecipes;
+    use kivact::ui::theme::DropzoneTheme;
     use kivact::view::FilePhase;
     use std::sync::{Arc, Mutex};
     let observed = Arc::new(Mutex::new(Vec::<DropzoneState>::new()));
     let recorded = observed.clone();
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
-    let recipes = (*theme.ext::<UiRecipes>())
-        .clone()
-        .dropzone(move |recipes| {
-            recipes.root(move |previous| {
-                move |theme, state| {
-                    recorded
-                        .lock()
-                        .expect("invariant: observation lock is healthy")
-                        .push((**state).clone());
-                    previous(theme, state)
-                }
-            })
-        });
+    let recipes = DropzoneTheme::default().root(move |_theme, state, style| {
+        recorded
+            .lock()
+            .expect("invariant: observation lock is healthy")
+            .push((**state).clone());
+        style
+    });
     let (screen, (accepts, files)) =
         render_with_handle(RenderOptions::with_theme(theme.with(recipes)), || {
             let accepts = signal(true);

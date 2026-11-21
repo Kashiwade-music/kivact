@@ -166,3 +166,27 @@ fn one_tool_call_has_no_group_toggle_and_can_open_its_details() {
     screen.get_by_role(Role::Button, "Inspect output");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn chat_composer_submits_trimmed_text_and_clears_draft_on_enter() {
+    let submitted = Rc::new(RefCell::new(Vec::new()));
+    let received = submitted.clone();
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)),
+        move || {
+            kivact::ui::chat_composer(signal(String::new())).on_submit(move |message| {
+                received.borrow_mut().push(message);
+            })
+        },
+    );
+
+    let input = screen.get_by_role(Role::TextBox, "Message input");
+    input.type_text("  Hello  ");
+    input.press_key(Key::Enter);
+    assert_eq!(submitted.borrow().as_slice(), ["Hello"]);
+    assert!(input.value().unwrap_or_default().is_empty());
+
+    input.press_key(Key::Enter);
+    assert_eq!(submitted.borrow().as_slice(), ["Hello"]);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

@@ -6,7 +6,6 @@ use kivact::style::ThemeMode;
 use kivact::style::style;
 use kivact::test::RenderOptions;
 use kivact::test::render_with_handle;
-use kivact::ui::text_input;
 use kivact::view::Element;
 use kivact::view::Key;
 use kivact::view::PointerKind;
@@ -22,7 +21,6 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
         || {
             let selected = signal(Some("a"));
             let field = kivact::ui::select(
-                "Team",
                 vec![
                     ListItem::new("a", "Alpha"),
                     ListItem::new("skip", "Unavailable").disabled(true),
@@ -30,6 +28,7 @@ fn compact_touch_uses_a_latched_dialog_and_keyboard_uses_the_popup() {
                 ],
                 selected,
             )
+            .label("Team")
             .open_on_arrow(true)
             .presentation(kivact::ui::SelectPresentation::BottomSheet)
             .style(style().width(280));
@@ -78,10 +77,10 @@ fn multi_selector_filters_and_commits_in_the_touch_sheet() {
         || {
             let selected = signal(vec!["a"]);
             let field = kivact::ui::combobox(
-                "Teams",
                 vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")],
                 selected,
             )
+            .label("Teams")
             .chips()
             .presentation(kivact::ui::SelectPresentation::BottomSheet)
             .style(style().width(280));
@@ -118,9 +117,12 @@ fn complex_selector_uses_the_same_search_binding_in_its_two_surfaces() {
             let query = signal(String::new());
             (
                 query,
-                kivact::ui::selection_field("Workspace", "Design")
-                    .presentation(kivact::ui::SelectPresentation::BottomSheet)
-                    .content(move || text_input("Filter workspaces", query)),
+                kivact::ui::select(
+                    vec![ListItem::new("design", "Design")],
+                    signal(Some("design")),
+                )
+                .label("Workspace")
+                .presentation(kivact::ui::SelectPresentation::BottomSheet),
             )
         },
     );
@@ -159,10 +161,13 @@ fn selection_field_reopened_through_the_caller_binding_takes_a_fresh_surface() {
             let open = signal(false);
             (
                 open,
-                kivact::ui::selection_field("Workspace", "Design")
-                    .presentation(kivact::ui::SelectPresentation::BottomSheet)
-                    .open(open)
-                    .content(|| kivact::view::text("Choices")),
+                kivact::ui::select(
+                    vec![ListItem::new("design", "Design")],
+                    signal(Some("design")),
+                )
+                .label("Workspace")
+                .presentation(kivact::ui::SelectPresentation::BottomSheet)
+                .open(open),
             )
         },
     );

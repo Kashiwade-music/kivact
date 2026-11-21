@@ -9,6 +9,7 @@ use kivact::test::RenderOptions;
 use kivact::test::render_with;
 use kivact::test::render_with_handle;
 use kivact::ui::ToggleLabelReservation;
+use kivact::ui::theme::ToggleButtonTheme;
 use kivact::ui::toggle_button;
 use kivact::view::CheckedState;
 use kivact::view::Role;
@@ -19,10 +20,7 @@ use kivact::view::icon;
 fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
     let theme = kivact_ui_soft::theme(ThemeMode::Light);
     assert_eq!(
-        theme
-            .ext::<kivact::ui::UiTokens>()
-            .toggle_button
-            .label_reservation,
+        *theme.ext::<ToggleButtonTheme>().label_reservation_value(),
         ToggleLabelReservation::Reserve {
             weight: 600,
             size: 14.0,
@@ -66,10 +64,9 @@ fn soft_toggle_keeps_its_width_when_pressed_and_when_its_label_is_hidden() {
 #[test]
 fn width_measurement_is_opt_in_and_follows_label_changes() {
     assert_eq!(
-        Theme::light()
-            .ext::<kivact::ui::UiTokens>()
-            .toggle_button
-            .label_reservation,
+        *Theme::light()
+            .ext::<ToggleButtonTheme>()
+            .label_reservation_value(),
         ToggleLabelReservation::Natural
     );
     let plain = render_with(RenderOptions::from_env(), || {
@@ -85,16 +82,13 @@ fn width_measurement_is_opt_in_and_follows_label_changes() {
     // Use a deliberately larger measuring size to prove that the reservation
     // affects the layout even when the bundled test font has only one weight.
     let (reserved, label) = render_with_handle(
-        RenderOptions::with_theme(Theme::light().with(kivact::ui::UiTokens {
-            toggle_button: kivact::ui::ToggleButtonTokens {
-                label_reservation: ToggleLabelReservation::Reserve {
-                    weight: 600,
-                    size: 34.0,
-                    extra_small_size: 34.0,
-                },
-            },
-            ..Default::default()
-        })),
+        RenderOptions::with_theme(Theme::light().with(
+            ToggleButtonTheme::default().label_reservation(ToggleLabelReservation::Reserve {
+                weight: 600,
+                size: 34.0,
+                extra_small_size: 34.0,
+            }),
+        )),
         || {
             let label = signal("Label".to_owned());
             (

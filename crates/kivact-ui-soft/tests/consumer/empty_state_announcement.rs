@@ -21,14 +21,8 @@ fn initial_empty_state_is_silent_but_late_mount_and_text_changes_announce() {
             (
                 (initial, late),
                 column((
-                    empty_state(move || initial.get())
-                        .announce_changes()
-                        .description("Initial help"),
-                    show(late, || {
-                        empty_state("No results")
-                            .announce_changes()
-                            .description("Try again")
-                    }),
+                    empty_state(move || initial.get()).announce_changes(true),
+                    show(late, || empty_state("No results").announce_changes(true)),
                 )),
             )
         },
@@ -66,24 +60,9 @@ fn hidden_empty_state_rearms_and_live_ancestors_handle_their_own_text() {
             (
                 (hidden, live, title),
                 column((
-                    column(
-                        empty_state(move || title.get())
-                            .announce_changes()
-                            .description("Try again"),
-                    )
-                    .hidden(hidden),
-                    column(
-                        empty_state("Embedded")
-                            .announce_changes()
-                            .description("Own region"),
-                    )
-                    .live_region(live),
-                    column(
-                        empty_state("Status")
-                            .announce_changes()
-                            .description("Own role"),
-                    )
-                    .role(Role::Status),
+                    column(empty_state(move || title.get()).announce_changes(true)).hidden(hidden),
+                    column(empty_state("Embedded").announce_changes(true)).live_region(live),
+                    column(empty_state("Status").announce_changes(true)).role(Role::Status),
                 )),
             )
         },

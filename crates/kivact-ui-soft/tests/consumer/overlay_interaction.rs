@@ -12,6 +12,7 @@ use kivact::ui::button;
 use kivact::ui::dialog;
 use kivact::ui::menu;
 use kivact::view::Element;
+use kivact::view::IntoView;
 use kivact::view::Key;
 use kivact::view::Role;
 use kivact::view::column;
@@ -256,13 +257,16 @@ fn closed_media_overlay_passes_pointer_and_keyboard_to_base() {
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
             .window_size(800.0, 600.0),
         move || {
-            media_overlay(button("Overlay action")).open(false).attach(
+            media_overlay(
+                button("Overlay action").into_view(),
                 button("Base")
                     .style(style().size(120, 60))
                     .on_press(move || {
                         base_presses.set(base_presses.get() + 1);
-                    }),
+                    })
+                    .into_view(),
             )
+            .open(false)
         },
     );
     assert!(
@@ -282,9 +286,13 @@ fn focus_mode_reveals_the_overlay_even_with_a_noninteractive_base() {
         RenderOptions::with_theme(kivact_ui_soft::theme(ThemeMode::Light))
             .window_size(800.0, 600.0),
         || {
-            media_overlay(button("Overlay action"))
-                .show_on(ShowOn::Focus)
-                .attach(kivact::view::node().style(style().size(120, 60)))
+            media_overlay(
+                button("Overlay action").into_view(),
+                kivact::view::node()
+                    .style(style().size(120, 60))
+                    .into_view(),
+            )
+            .show_on(ShowOn::Focus)
         },
     );
     assert!(
