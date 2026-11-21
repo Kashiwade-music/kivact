@@ -22,6 +22,7 @@ mod divider;
 mod feedback;
 mod field_status;
 mod form_layout;
+mod grid;
 mod hover_card;
 mod icon;
 mod icons;
@@ -121,6 +122,7 @@ pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status
 pub use form_layout::{
     FormDirection, FormLayout, FormLayoutCx, Optionality, form_layout, form_row,
 };
+pub use grid::{GridColumns, GridRepeat, LayoutGrid, layout_grid};
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
