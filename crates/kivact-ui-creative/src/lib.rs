@@ -41,6 +41,7 @@ mod recipes_metrics;
 mod recipes_navigation;
 mod recipes_overlays;
 mod size;
+mod tabs;
 mod theme;
 mod timeline;
 mod variants;
@@ -91,6 +92,7 @@ pub use numeric::{
     number, value_slider,
 };
 pub use options::{Accent, Density, LabelTone};
+pub use tabs::document_tabs;
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{TimelineEditor, timeline_editor};
 pub use variants::NoticeVariant;

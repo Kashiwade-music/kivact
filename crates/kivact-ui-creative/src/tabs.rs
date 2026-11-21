@@ -1,92 +1,45 @@
 //! Role: The document tab slot: a close button and drag reordering on the standard tabs.
 
-use kivact::state::Signal;
-
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::i18n::message;
-use kivact::interaction::{DragCoordinates, DragUpdate, TabState, use_drag};
-use kivact::view::{Element, row, text};
-
-use kivact::interaction::ListItem;
-use kivact::state::{Callback, Value, signal};
-use kivact::state::{IntoText, IntoValue, callback};
+use kivact::interaction::{DragCoordinates, DragUpdate, ListItem, TabState, use_drag};
+use kivact::state::{Callback, IntoValue, ItemKey, Signal, Value, callback, signal};
 use kivact::style::{Align, Cursor, style};
-use kivact::ui::{Tabs, tabs};
-use kivact::view::{HandlerResult, IntoView, View};
+use kivact::ui::tabs;
+use kivact::view::{Element, IntoView, View, row, text};
 
 /// How far a tab is dragged past its neighbor's edge before they swap.
 const SWAP_DISTANCE: f64 = 60.0;
 
 /// Document tabs: [`kivact::ui::tabs`] named `label` (for assistive
-/// technology) of `items` choosing `selected`, in
-/// the kit's theme, where each tab has a close button and is dragged sideways
-/// to swap with its neighbor.
+/// technology) of `items` choosing `value`, in the kit's theme, where each
+/// tab has a close button and is dragged sideways to swap with its neighbor.
 ///
 /// The tabs, their keys, selection and keyboard navigation are the standard
-/// component's; this is its tab slot ([`Tabs::item`]). Dragging a tab 60
-/// pixels toward a neighbor calls `on_reorder((moved, neighbor))`, and the
-/// close button calls `on_close(key)`: the application changes `items`,
-/// which the tabs follow, and keeps the selection. Give the returned tabs
-/// `.content(..)` to show the selected document's panel.
-#[track_caller]
-pub fn document_tabs<K: kivact::state::ItemKey>(
-    label: impl IntoText,
-    items: impl IntoValue<Vec<ListItem<K>>>,
+/// component's; this is its tab slot. Dragging a tab 60 pixels toward a
+/// neighbor calls `on_reorder((moved, neighbor))`, and the close button calls
+/// `on_close(key)`: the application changes `items`, which the tabs follow,
+/// and keeps the selection. `content` builds the selected document's panel.
+#[component]
+pub fn document_tabs<K: ItemKey>(
+    label: Value<String>,
+    items: Value<Vec<ListItem<K>>>,
     value: Signal<K>,
-) -> DocumentTabs<K> {
-    let items = items.into_value();
-    DocumentTabs {
-        tabs: tabs(label, items, value),
-        options: items,
-        on_reorder: callback(|_| ()),
-        on_close: callback(|_| ()),
-    }
-}
-/// Document tabs with optional application-owned close and reorder actions.
-pub struct DocumentTabs<K: kivact::state::ItemKey> {
-    tabs: Tabs<K>,
-    options: Value<Vec<ListItem<K>>>,
-    on_reorder: Callback<(K, K)>,
-    on_close: Callback<K>,
-}
-impl<K: kivact::state::ItemKey> DocumentTabs<K> {
-    /// Report drag reordering; no action by default.
-    pub fn on_reorder<R: HandlerResult>(mut self, f: impl Fn((K, K)) -> R + 'static) -> Self {
-        self.on_reorder = callback(f);
-        self
-    }
-    /// Report closing a document; no action by default.
-    pub fn on_close<R: HandlerResult>(mut self, f: impl Fn(K) -> R + 'static) -> Self {
-        self.on_close = callback(f);
-        self
-    }
-    /// Build the selected document panel through the standard tabs contract.
-    pub fn content<V: IntoView>(mut self, f: impl Fn(K) -> V + 'static) -> Self {
-        self.tabs = self.tabs.content(f);
-        self
-    }
-}
-impl<K: kivact::state::ItemKey> Element for DocumentTabs<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut kivact::view::Node {
-        self.tabs.node_mut()
-    }
-}
-impl<K: kivact::state::ItemKey> IntoView for DocumentTabs<K> {
-    fn into_view(self) -> View {
-        let Self {
-            mut tabs,
-            options,
-            on_reorder,
-            on_close,
-        } = self;
-        let disabled = tabs
-            .node_mut()
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        tabs.item(move |item, _: Value<TabState>| {
-            document_tab(options, item, on_reorder, on_close, disabled)
-        })
-        .into_view()
+    on_reorder: Option<Callback<(K, K)>>,
+    on_close: Option<Callback<K>>,
+    content: Option<Rc<dyn Fn(K) -> View>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let disabled = caller.disabled().unwrap_or_else(|| false.into_value());
+    let on_reorder = on_reorder.unwrap_or_else(|| callback(|_| ()));
+    let on_close = on_close.unwrap_or_else(|| callback(|_| ()));
+    let standard = tabs(label, items, value).item(move |item, _: Value<TabState>| {
+        document_tab(items, item, on_reorder, on_close, disabled)
+    });
+    match content {
+        Some(factory) => standard.content(move |key| factory(key)),
+        None => standard,
     }
 }
 
@@ -99,7 +52,7 @@ enum Reorder {
 
 /// One tab's label and close button, which a horizontal drag swaps with a
 /// neighbor.
-fn document_tab<K: kivact::state::ItemKey>(
+fn document_tab<K: ItemKey>(
     items: Value<Vec<ListItem<K>>>,
     item: Value<ListItem<K>>,
     on_reorder: Callback<(K, K)>,
