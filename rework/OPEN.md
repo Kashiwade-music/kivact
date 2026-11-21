@@ -1322,3 +1322,37 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - **手順 3（engine の `deltas`）**：`Model::deltas` が `Vec<&PaintDelta>` を作るのをやめる。`StyleState::HOST` の順に、active な delta を返す iterator（`impl Iterator<Item = &PaintDelta> + '_`）にする。`active_deltas(id).is_empty()` などの呼出し側は `next().is_none()` などにする。順序は今と同じ。
   - **確認**：tier a（`kivact-core`・`kivact-style`・`kivact-engine` の test、workspace の clippy、XK と XD を除外）と e2e_core・e2e_ui の全件。それから `cargo build --release -p kivact-bench --features latency --bin kv_latency` で、HEAD と P1 の binary を交互に 6 回ずつ走らせる（`KIVACT_TEST_MIRROR=off`）。`counter_click` の p50 と mean の中央値を PROGRESS に書く。P1 の方が遅ければ返す。
   - 設計者が、P1 の後に click ごとの確保の回数を数え直す（subagent）。
+
+## 設計者の回答（P1 の測定、fmt、W9 の判断待ち 5 件、2026-11-22）
+
+- **P1**：まだ統合に merge しない。測定は機械が忙しい間の時間で、二つの山に分かれる（前の調べ）。設計者の subagent が、確保の回数と、交互の 12 対の時間で測り直している。結果で、merge するか、直す点を返すかを決める。P1 の worktree（`wt/rw-P1`）はそのまま置く。
+- **fmt**（`dev/xtask/src/name_collision.rs:134`）：直してよい（`cargo fmt` の機械的な整形だけ。統合 branch の commit）。
+- **(1) K25 の outliner・picker**：
+  - 繰り返す cell・column は、`LaneCell` の前例どおり公開の data の型（`PickerColumn`、`OutlinerCell`）にし、部品は `Vec<..>` の prop で受ける。
+  - `SearchPicker<K>` は手書きの builder の例外にする（中核の `Menu` と同じ理由 1・5：trigger と surface が兄弟、`K` の generic）。`attach(trigger)` と `at(anchor, position)` は今の形のまま。`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `kivact_ui_creative::picker::SearchPicker crates/kivact-ui-creative/src/picker.rs` を足し、K25 の完了条件の `rg` から `picker.rs` を外す（`--glob '!picker.rs'`）。手書きの builder の規則は守る。
+- **(2) K30 の tag_input**：その案でよい。`2b8df5ac` の `recipes_field.rs` の tag_input の recipe を `recipes_input.rs` に移して戻す（K29 の `b0481cc4` で消えたのは誤り）。見た目は基点と同じ。
+- **(3) K18 の native_select**：popup を trigger の子にしない。button の子は a11y では名前の一部になり、popup が trigger の中に入るのは誤り。中核の `Select` と同じく、手書きの builder の例外（理由 1：trigger と surface が兄弟）にする。
+  - `(trigger, popup)` の兄弟を返し、caller の modifier（`style`、`test_id` など）は trigger に付ける（中核の `Select` と同じ）。
+  - `allowed_impls` に `kivact_ui_basic::native_select::NativeSelect crates/kivact-ui-basic/src/native_select.rs` を足す。付属書 K の K18 の完了条件から `native_select` を外した。
+- **(4) K18 の menubar の offset と align**：落とさない。interaction の surface に置き場が無いのは中核の欠け（中核の `Menu` は自分で overlay を組んで `offset`・`align` を付けている）。中核を小さく広げる unit **P2** を lane P に足す（P1 と file が重ならない。P1 の判定を待たずに進めてよい）。
+  - `crates/kivact-types/src/layout.rs` に足す：
+    ```rust
+    /// Where a surface opens: the side of its anchor, where along that side
+    /// and how far from it. A bare `Placement` converts into one with the
+    /// overlay's own alignment and distance.
+    #[derive(Clone, Copy, Debug, PartialEq)]
+    pub struct SurfacePlacement {
+        pub side: Placement,
+        pub align: Option<OverlayAlign>,
+        pub offset: Option<f64>,
+    }
+    ```
+    `impl From<Placement> for SurfacePlacement`（`align`・`offset` は `None`）。`Placement` と `SurfacePlacement` の両方に `pub fn align(self, align: OverlayAlign) -> SurfacePlacement` と `pub fn offset(self, offset: f64) -> SurfacePlacement` を付ける（doc は 1 行ずつ）。`Placement` を公開している所（`kivact::view` など）で `SurfacePlacement` も公開する。
+  - `kivact-interaction` の `MenuApi::surface` と `PopupApi::surface` の引数を `placement: impl Into<SurfacePlacement>` にする。overlay を作った後、`align` が `Some` なら `.align(a)`、`offset` が `Some` なら `.offset(o)` を付ける（menu の pointer・anchor・submenu の 3 つの道すべて）。今の呼出しは `Placement` のまま compile する。
+  - 試験（interaction の popup の試験の file）：`fn a_surface_opens_with_the_given_align_and_offset()`。`Placement::Below.align(OverlayAlign::Start).offset(8.0)` の surface の矩形の上端が anchor の下端 + 8、左端が anchor の左端。
+  - K18 の menubar は `Placement::Below.align(OverlayAlign::Start).offset(8.0)`（submenu は今のとおり `Placement::End`）を使う。K18 の menubar は P2 の merge の後に続ける。
+- **(5) K14 の catalog-shell のコード**：K14 では色を付けずに出してよい。色の付け方は今ここで決める（K34 で迷わないため）。
+  - Rust の字句の色分けは kit に依らない。basic の `code_block/rust.rs` の tokenizer は、K34 で中核の `kivact::ui::code_block` に移す。`pub fn rust_tokens(line: &str) -> Vec<(Range<usize>, SyntaxKind)>` とし、色は中核の `SyntaxKind` と `syntax_ranges`（K08）に任せる。basic の `CodeTone` の分類は `SyntaxKind` に写す。
+  - basic の `rust_source` は消す（一つの item に公開の path は一つ。basic の code_block は中核の `rust_tokens` を使う）。
+  - catalog-shell の `page.rs` の code_block は、K34 の後の basic の catalog の unit（K35）で `rust_tokens` を使って色を付ける。
+  - 付属書の K34 の手順に、この移動を足すこと（Orchestrator が K34 の brief に書く）。
