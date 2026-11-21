@@ -1,14 +1,29 @@
-//! Role: The button recipe state, tokens, recipe table and default looks.
+//! Role: The button recipe state, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
+use crate::recipe::recipe_table;
+use kivact_macros::Prop;
 
 use crate::control_size::ControlSize;
-use crate::variants::Look;
+use crate::recipe::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{
-    Align, Background, Color, FlexDirection, Justify, Style, TextDecorationLine, Theme, style,
+    Align, Background, Color, FlexDirection, Justify, Style, TextDecorationLine, Theme, ThemeVar,
+    style,
 };
+
+/// The busy indicator's turn period in milliseconds per revolution (a zero period is 1 ms).
+pub static BUSY_SPIN_MS_VAR: ThemeVar<f64> = ThemeVar::new("button.busy_spin_ms", 700.0);
+/// The busy indicator's turn period under reduced motion, in milliseconds.
+pub static BUSY_REDUCED_SPIN_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reduced_spin_ms", 700.0);
+/// The milliseconds to wait before revealing the busy indicator; skipped under reduced motion.
+pub static BUSY_REVEAL_DELAY_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reveal_delay_ms", 0.0);
+/// The milliseconds for the busy indicator's opacity fade; zero reveals at once after the delay.
+pub static BUSY_REVEAL_FADE_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reveal_fade_ms", 0.0);
 /// A tint of the theme over `base`, as one background of two layers.
 pub(crate) fn tinted(tint: Color, base: impl Into<Color>) -> Background {
     (tint, base.into()).into()
@@ -17,10 +32,7 @@ pub(crate) fn tinted(tint: Color, base: impl Into<Color>) -> Background {
 /// The button recipe: a row of an optional icon and the label.
 pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     let size = state.size;
-    let variant = state
-        .variant::<ButtonVariant>()
-        .copied()
-        .unwrap_or_default();
+    let variant = state.variant::<ButtonVariant>().unwrap_or_default();
     let s = style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -94,7 +106,7 @@ pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     }
 }
 
-pub(crate) fn button_content(theme: &Theme, state: &ButtonState) -> Style {
+pub(crate) fn button_content(theme: &Theme, state: &Look<ButtonState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -103,7 +115,7 @@ pub(crate) fn button_content(theme: &Theme, state: &ButtonState) -> Style {
 }
 
 /// The icon box of a button: the icon at its own size, centered.
-pub(crate) fn button_icon(_: &Theme, _: &ButtonState) -> Style {
+pub(crate) fn button_icon(_: &Theme, _: &Look<ButtonState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -113,11 +125,7 @@ pub(crate) fn button_icon(_: &Theme, _: &ButtonState) -> Style {
 
 /// A three-quarter ring the button turns while busy.
 pub(crate) fn button_busy(_: &Theme, state: &Look<ButtonState>) -> Style {
-    let color = match state
-        .variant::<ButtonVariant>()
-        .copied()
-        .unwrap_or_default()
-    {
+    let color = match state.variant::<ButtonVariant>().unwrap_or_default() {
         ButtonVariant::Primary | ButtonVariant::Danger => kivact_core::style::color::ACCENT_TEXT,
         _ => kivact_core::style::color::TEXT,
     };
@@ -167,7 +175,7 @@ impl ButtonState {
 
     /// The state of a plain, idle button: for a component that draws one of
     /// its own parts as the theme's button (a kit's toggle, say) by calling
-    /// the theme's [`UiRecipes::button`](super::UiRecipes) recipe with
+    /// the theme's [`ButtonTheme::root`](crate::theme::ButtonTheme) recipe with
     /// [`Look::new`](super::Look::new) with the button's variant added by
     /// [`Look::with_variant`](super::Look::with_variant).
     pub fn new(input: PartState, size: ControlSize) -> Self {
@@ -191,7 +199,7 @@ impl ButtonState {
 /// alike, and a recipe reads each with
 /// [`Look::variant`](super::Look::variant) (a button without a
 /// `ButtonVariant` is the default, `Primary`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ButtonVariant {
     /// The main action of its area, filled with the accent.
     #[default]
@@ -210,4 +218,14 @@ pub enum ButtonVariant {
     Link,
 }
 
-impl crate::variants::Variant for ButtonVariant {}
+impl kivact_core::view::Variant for ButtonVariant {}
+
+recipe_table! {
+    /// The recipes of a button: its root, its content row, its busy indicator and its icon box.
+    ButtonTheme {
+        root(root_recipe): ButtonState = button,
+        content(content_recipe): ButtonState = button_content,
+        busy(busy_recipe): ButtonState = button_busy,
+        icon(icon_recipe): ButtonState = button_icon,
+    }
+}

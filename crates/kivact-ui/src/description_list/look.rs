@@ -1,7 +1,7 @@
-//! Role: The description list recipe state, tokens, recipe table and default looks.
+//! Role: The description list recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 pub(crate) fn description_root(t: &Theme, _: &Look<()>) -> Style {
     style()
@@ -31,7 +31,7 @@ pub(crate) fn description_detail(_: &Theme, _: &Look<()>) -> Style {
 
 recipe_table! {
     /// The list, pair, visible term and labelled detail of a description list.
-    DescriptionListRecipes {
+    DescriptionListTheme {
         root(root_recipe): () = description_root,
         item(item_recipe): () = description_item,
         term(term_recipe): () = description_term,

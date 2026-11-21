@@ -97,10 +97,8 @@ impl Swipe {
         }
         let theme = use_theme().get();
         let row = theme
-            .ext::<crate::UiTokens>()
-            .toast
-            .row_motion
-            .transition
+            .ext::<crate::toast::look::ToastTheme>()
+            .row_transition_value()
             .clone();
         match (row, exit.duration_ms()) {
             (Some(row), Some(wait)) => {

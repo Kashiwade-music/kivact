@@ -1,49 +1,29 @@
 //! Role: Render rich navigation links using the closest existing panel's close request.
 use crate::layer::with_recipe_style;
 use crate::navigation_menu::look::NavigationLinkState;
-use crate::variants::{Variant, Variants};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, Value};
+use crate::navigation_menu::look::NavigationMenuTheme;
+use kivact_core::UiError;
+use kivact_core::state::{IntoText, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, column, node, node_ref, text};
-// xtask-allow(state): legacy: description, icon
 /// A title, optional icon and description that activates and closes its navigation panel.
 pub struct NavigationMenuLink {
     root: Node,
     title: Value<String>,
-    description: Option<Value<String>>,
     icon: Option<View>,
-    press: Option<Callback<()>>,
-    variants: Variants,
 }
 /// Construct a navigation link, optionally inside a standard navigation menu panel.
+#[track_caller]
 pub fn navigation_menu_link(title: impl IntoText) -> NavigationMenuLink {
     let title = title.into_text_value();
     NavigationMenuLink {
         root: node().role(Role::Link).name(title),
         title,
-        description: None,
         icon: None,
-        press: None,
-        variants: Variants::default(),
     }
 }
 impl NavigationMenuLink {
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.description = Some(text.into_text_value());
-        self
-    }
     pub fn icon(mut self, icon: impl IntoView) -> Self {
         self.icon = Some(icon.into_view());
-        self
-    }
-    pub fn on_press<M>(mut self, press: impl IntoHandler<(), M>) -> Self {
-        self.press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(press),
-        ));
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -54,12 +34,16 @@ impl Element for NavigationMenuLink {
 }
 impl IntoView for NavigationMenuLink {
     fn into_view(mut self) -> View {
+        let mut variants = self.root.authored().variants();
         let context = crate::navigation_menu::context::current();
         if let Some(context) = &context {
-            self.variants = self.variants.with_defaults(&context.variants);
+            let mut merged = context.variants.clone();
+            merged.merge(&variants);
+            variants = merged;
         }
         let role = self.root.accessible_role().unwrap_or(Role::Link);
-        let has_description = self.description.is_some();
+        let description = self.root.authored().description();
+        let has_description = description.is_some();
         let behavior = kivact_interaction::use_button()
             .control()
             .map_state(move |input| NavigationLinkState {
@@ -67,18 +51,18 @@ impl IntoView for NavigationMenuLink {
                 has_description,
             });
         let state = behavior.state();
-        let variants = &self.variants;
+        let variants = &variants;
         let title = with_recipe_style(
             text(self.title),
-            |r| r.navigation_menu_recipes().link_title_recipe(),
+            |r: &NavigationMenuTheme| r.link_title_recipe(),
             variants,
             move || state.get(),
         );
         let reference = node_ref();
-        let description = self.description.map(|description| {
+        let description = description.map(|description| {
             with_recipe_style(
                 text(description).node_ref(reference),
-                |r| r.navigation_menu_recipes().link_description_recipe(),
+                |r: &NavigationMenuTheme| r.link_description_recipe(),
                 variants,
                 move || state.get(),
             )
@@ -90,22 +74,25 @@ impl IntoView for NavigationMenuLink {
         let icon = self.icon.map(|icon| {
             with_recipe_style(
                 node().child(icon),
-                |r| r.navigation_menu_recipes().link_icon_recipe(),
+                |r: &NavigationMenuTheme| r.link_icon_recipe(),
                 variants,
                 move || state.get(),
             )
         });
-        let press = self.press;
+        let caller = root.take_press();
         with_recipe_style(
-            root.part(behavior).role(role).on_press(move || {
-                if let Some(press) = press {
-                    press.call(());
-                }
-                if let Some(context) = &context {
-                    context.close.call(());
-                }
-            }),
-            |r| r.navigation_menu_recipes().link_recipe(),
+            root.part(behavior)
+                .role(role)
+                .on_press(move || -> Result<(), UiError> {
+                    if let Some(caller) = &caller {
+                        caller.call(None)?;
+                    }
+                    if let Some(context) = &context {
+                        context.close.call(());
+                    }
+                    Ok(())
+                }),
+            |r: &NavigationMenuTheme| r.link_recipe(),
             variants,
             move || state.get(),
         )

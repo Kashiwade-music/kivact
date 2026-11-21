@@ -1,7 +1,7 @@
 //! Role: The table builder, its sections, rows and cells.
 
 use crate::layer::with_base_recipe_style;
-use crate::variants::{Variant, Variants};
+use crate::table::look::TableTheme;
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Justify, Length, TextAlign, style};
 use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node};
@@ -10,7 +10,6 @@ use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node}
 pub struct Table {
     root: Node,
     part: TablePart,
-    variants: Variants,
 }
 #[derive(Clone, Copy)]
 enum TablePart {
@@ -24,7 +23,6 @@ fn section(children: impl IntoChildren, role: Role, part: TablePart) -> Table {
     Table {
         root: node().role(role).child(children.into_views()),
         part,
-        variants: Variants::default(),
     }
 }
 /// A static table; use `data_table` for interactive grids.
@@ -54,12 +52,7 @@ pub fn table_row(children: impl IntoChildren) -> TableRow {
         table: section(children, Role::Row, TablePart::Row),
     }
 }
-impl Table {
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-}
+impl Table {}
 impl Element for Table {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -67,21 +60,19 @@ impl Element for Table {
 }
 impl IntoView for Table {
     fn into_view(self) -> View {
-        let pick: fn(
-            &crate::recipes::UiRecipes,
-        ) -> &crate::recipe::Recipe<kivact_core::custom::PartState> = match self.part {
-            TablePart::Root => |r| r.table_recipes().root_recipe(),
-            TablePart::Header => |r| r.table_recipes().header_recipe(),
-            TablePart::Body => |r| r.table_recipes().body_recipe(),
-            TablePart::Footer => |r| r.table_recipes().footer_recipe(),
-            TablePart::Row => |r| r.table_recipes().row_recipe(),
-        };
+        let variants = self.root.authored().variants();
+        let pick: fn(&TableTheme) -> &crate::recipe::Recipe<kivact_core::custom::PartState> =
+            match self.part {
+                TablePart::Root => |r: &TableTheme| r.root_recipe(),
+                TablePart::Header => |r: &TableTheme| r.header_recipe(),
+                TablePart::Body => |r: &TableTheme| r.body_recipe(),
+                TablePart::Footer => |r: &TableTheme| r.footer_recipe(),
+                TablePart::Row => |r: &TableTheme| r.row_recipe(),
+            };
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
-        with_base_recipe_style(self.root.part(part), pick, &self.variants, move || {
-            state.get()
-        })
-        .into_view()
+        with_base_recipe_style(self.root.part(part), pick, &variants, move || state.get())
+            .into_view()
     }
 }
 /// A row of header or data cells, created by [`table_row`].
@@ -89,10 +80,6 @@ pub struct TableRow {
     table: Table,
 }
 impl TableRow {
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.table = self.table.variant(variant);
-        self
-    }
     /// Mark the row selected: the row is `selected` in the accessibility tree, and the theme's row recipe draws its selected look.
     pub fn selected(mut self, selected: impl IntoValue<bool>) -> Self {
         self.table.root = self.table.root.selected(selected);
@@ -117,7 +104,6 @@ pub struct TableCell {
     align: Value<TextAlign>,
     width: Option<Value<Length>>,
     span: Value<usize>,
-    variants: Variants,
 }
 /// A column header.
 #[track_caller]
@@ -142,25 +128,23 @@ fn cell(content: impl IntoView, header: bool) -> TableCell {
         align: TextAlign::Start.into_value(),
         width: None,
         span: 1.into_value(),
-        variants: Variants::default(),
     }
 }
 impl TableCell {
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<TextAlign>) -> Self {
         self.align = align.into_value();
         self
     }
+    #[track_caller]
     pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
         self.width = Some(width.into_value());
         self
     }
     /// Allocate the proportional width of this many columns, with a minimum of one.
+    #[track_caller]
     pub fn col_span(mut self, span: impl IntoValue<usize>) -> Self {
         self.span = span.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -177,16 +161,16 @@ impl IntoView for TableCell {
             align,
             width,
             span,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
         let root = with_base_recipe_style(
             root.part(part),
             if header {
-                |r| r.table_recipes().head_recipe()
+                |r: &TableTheme| r.head_recipe()
             } else {
-                |r| r.table_recipes().cell_recipe()
+                |r: &TableTheme| r.cell_recipe()
             },
             &variants,
             move || state.get(),

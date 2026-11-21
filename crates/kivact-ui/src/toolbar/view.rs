@@ -2,7 +2,7 @@
 
 use crate::layer::with_base_recipe_style;
 use crate::toolbar::look::ToolbarState;
-use crate::variants::{Variant, Variants};
+use crate::toolbar::look::ToolbarTheme;
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, FlexDirection, Justify, style};
@@ -24,7 +24,6 @@ pub struct Toolbar {
     size: Value<ControlSize>,
     gap: Option<Value<f64>>,
     dividers: Vec<ToolbarEdge>,
-    variants: Variants,
 }
 
 /// Group controls under an accessible name. Arrow keys along the configured
@@ -42,7 +41,6 @@ pub fn toolbar(label: impl IntoText) -> Toolbar {
         size: crate::control_size::default_control_size().into_value(),
         gap: None,
         dividers: Vec::new(),
-        variants: Variants::default(),
     }
 }
 impl Toolbar {
@@ -67,11 +65,13 @@ impl Toolbar {
         self
     }
     /// Inherited size for controls that do not set their own size.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
     /// Space in pixels between controls; otherwise the theme supplies it.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self
@@ -79,11 +79,6 @@ impl Toolbar {
     /// Add dividers on logical edges.
     pub fn dividers(mut self, edges: &[ToolbarEdge]) -> Self {
         self.dividers = edges.to_vec();
-        self
-    }
-    /// Add a theme presentation variant.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -94,6 +89,7 @@ impl Element for Toolbar {
 }
 impl IntoView for Toolbar {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let orientation = self.orientation;
         let vertical = orientation == Orientation::Vertical;
         let rtl = use_direction() == ReadingDirection::Rtl;
@@ -103,8 +99,7 @@ impl IntoView for Toolbar {
         let dividers = self.dividers;
         let make = move |children, justify, column| {
             row(children).base_style(move || {
-                let tokens = kivact_core::style::use_theme()
-                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
+                let tokens = kivact_core::style::use_theme().get();
                 style()
                     .min_width(0)
                     .align_items(Align::Center)
@@ -116,7 +111,7 @@ impl IntoView for Toolbar {
                     } else {
                         FlexDirection::Row
                     })
-                    .gap(gap.map_or(tokens.toolbar.gap, |gap| gap.get()))
+                    .gap(gap.map_or(tokens.get(&crate::toolbar::look::GAP_VAR), |gap| gap.get()))
                     .grid_column(column)
             })
         };
@@ -130,8 +125,8 @@ impl IntoView for Toolbar {
         });
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
-            |r| r.toolbar_recipes().root_recipe(),
-            &self.variants,
+            |r: &ToolbarTheme| r.root_recipe(),
+            &variants,
             move || ToolbarState {
                 orientation,
                 size: size.get(),

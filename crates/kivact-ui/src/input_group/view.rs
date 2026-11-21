@@ -1,9 +1,10 @@
 //! Role: The input group builder, its member rendering and the addon helper.
 
+use crate::input_group::look::InputGroupTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, Role, View, node, node_ref, row, text, use_direction,
 };
@@ -11,56 +12,36 @@ use kivact_core::view::{
 use crate::input_group::look::InputGroupMemberKind;
 use crate::input_group::look::InputGroupMemberState;
 use crate::input_group::look::InputGroupState;
-enum Controls<C> {
-    Built(C),
-    Scoped(Box<dyn FnOnce() -> C>),
-}
 // xtask-allow(state): legacy: start, end, block_start, block_end
 /// A labelled group of adjacent inputs and adornments.
 pub struct InputGroup<C> {
     root: Node,
     label: Value<String>,
-    controls: Controls<C>,
+    controls: C,
     size: Value<ControlSize>,
     start: Option<View>,
     end: Option<View>,
     block_start: Option<View>,
     block_end: Option<View>,
-    variants: Variants,
 }
-/// Group eagerly built controls under a visible label.
+/// Group controls under a visible label. The controls are built by the
+/// caller, and the group gives its size to them as the inherited control size.
+#[track_caller]
 pub fn input_group<C: IntoChildren>(label: impl IntoText, children: C) -> InputGroup<C> {
     InputGroup {
         root: node(),
         label: label.into_text_value(),
-        controls: Controls::Built(children),
+        controls: children,
         size: ControlSize::Medium.into_value(),
         start: None,
         end: None,
         block_start: None,
         block_end: None,
-        variants: Variants::default(),
-    }
-}
-/// Construct controls once inside the group's inherited control-size scope.
-pub fn input_group_with<C: IntoChildren>(
-    label: impl IntoText,
-    init: impl FnOnce() -> C + 'static,
-) -> InputGroup<C> {
-    InputGroup {
-        root: node(),
-        label: label.into_text_value(),
-        controls: Controls::Scoped(Box::new(init)),
-        size: ControlSize::Medium.into_value(),
-        start: None,
-        end: None,
-        block_start: None,
-        block_end: None,
-        variants: Variants::default(),
     }
 }
 impl<C> InputGroup<C> {
-    /// Set inherited control sizing for scoped initializers.
+    /// Set the inherited control size of the group's controls.
+    #[track_caller]
     pub fn size(mut self, value: impl IntoValue<ControlSize>) -> Self {
         self.size = value.into_value();
         self
@@ -85,11 +66,6 @@ impl<C> InputGroup<C> {
         self.block_end = Some(value.into_view());
         self
     }
-    /// Add a theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl<C: IntoChildren + 'static> Element for InputGroup<C> {
     fn node_mut(&mut self) -> &mut Node {
@@ -98,6 +74,7 @@ impl<C: IntoChildren + 'static> Element for InputGroup<C> {
 }
 impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let size = self.size;
         let direction = use_direction();
         let reference = node_ref();
@@ -121,32 +98,28 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         });
         let render = GroupRender {
             state,
-            variants: self.variants.clone(),
+            variants: variants.clone(),
             primary: node_ref(),
         };
         let inline = render.clone();
-        let members = move |controls: C| {
+        let members = provide_control_size(size.get(), move || {
             crate::input_group::context::provide_state(state, move || {
-                inline.members(self.start, controls.into_views(), self.end)
+                inline.members(self.start, self.controls.into_views(), self.end)
             })
-        };
-        let members = match self.controls {
-            Controls::Built(controls) => members(controls),
-            Controls::Scoped(init) => provide_control_size(size.get(), move || members(init())),
-        };
+        });
         let label_ref = node_ref();
         let label = with_recipe_style(
             text(self.label).node_ref(label_ref),
-            |r| r.input_group_recipes().label_recipe(),
-            &self.variants,
+            |r: &InputGroupTheme| r.label_recipe(),
+            &variants,
             move || state.get(),
         );
         let top = self.block_start.map(|view| render.block(view, true));
         let bottom = self.block_end.map(|view| render.block(view, false));
         with_base_recipe_style(
             self.root.node_ref(reference).part(part),
-            |r| r.input_group_recipes().root_recipe(),
-            &self.variants,
+            |r: &InputGroupTheme| r.root_recipe(),
+            &variants,
             move || state.get(),
         )
         .role(Role::Group)
@@ -164,6 +137,7 @@ struct GroupRender {
 }
 impl GroupRender {
     fn members(self, start: Option<View>, controls: Vec<View>, end: Option<View>) -> View {
+        let variants = self.variants.clone();
         let offset = usize::from(start.is_some());
         let count = offset + controls.len() + usize::from(end.is_some());
         let start = start.map(|view| self.member(view, InputGroupMemberKind::Start, 0, count));
@@ -182,13 +156,14 @@ impl GroupRender {
         let state = self.state;
         with_recipe_style(
             row((start, controls, end)),
-            |r| r.input_group_recipes().members_recipe(),
-            &self.variants,
+            |r: &InputGroupTheme| r.members_recipe(),
+            &variants,
             move || state.get(),
         )
         .into_view()
     }
     fn member(&self, view: View, kind: InputGroupMemberKind, index: usize, count: usize) -> Node {
+        let variants = self.variants.clone();
         let reference = node_ref();
         let focused = reference.focus_within();
         let state = self.state;
@@ -199,8 +174,8 @@ impl GroupRender {
         };
         with_recipe_style(
             root.node_ref(reference),
-            |r| r.input_group_recipes().member_recipe(),
-            &self.variants,
+            |r: &InputGroupTheme| r.member_recipe(),
+            &variants,
             move || InputGroupMemberState {
                 group: state.get(),
                 kind,
@@ -211,15 +186,16 @@ impl GroupRender {
         )
     }
     fn block(&self, view: View, top: bool) -> Node {
+        let variants = self.variants.clone();
         let state = self.state;
         with_recipe_style(
             adornment(view, self.primary),
             if top {
-                |r| r.input_group_recipes().block_start_recipe()
+                |r: &InputGroupTheme| r.block_start_recipe()
             } else {
-                |r| r.input_group_recipes().block_end_recipe()
+                |r: &InputGroupTheme| r.block_end_recipe()
             },
-            &self.variants,
+            &variants,
             move || state.get(),
         )
     }
@@ -243,7 +219,7 @@ pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
     let direction = use_direction();
     with_recipe_style(
         node().child(text(label)),
-        |r| r.input_group_recipes().addon_recipe(),
+        |r: &InputGroupTheme| r.addon_recipe(),
         &Variants::default(),
         move || InputGroupState {
             size,

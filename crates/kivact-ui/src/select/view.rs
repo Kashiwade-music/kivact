@@ -1,23 +1,27 @@
 //! Role: The select builder, its trigger, option rows and popup surface.
 
 use crate::control_size::ControlSize;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::select::look::SelectTheme;
 use crate::select::look::SelectTriggerState;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
 use kivact_core::style::style;
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Node, NodeRef, Placement, PopupKind, View, column,
     for_each, node, overlay, scroll, show, text,
 };
+use kivact_core::view::{Variant, Variants};
 use kivact_interaction::{ListItem, ListItemState, PopupState};
+use kivact_macros::Prop;
+use std::panic::Location;
 use std::rc::Rc;
 
 /// What an option row shows, from its item and its state.
 type OptionContent<K> = kivact_core::view::ViewFn<(Value<ListItem<K>>, Value<ListItemState>)>;
 
 /// Recipe variant supplied to options mounted in a select's touch sheet.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct SelectSheetOption(pub ControlSize);
 
 impl Variant for SelectSheetOption {}
@@ -36,7 +40,7 @@ pub struct Select<K: kivact_core::state::ItemKey> {
 }
 
 struct SelectOptions<K: kivact_core::state::ItemKey> {
-    label: Value<String>,
+    label: Option<Value<String>>,
     options: Value<Vec<ListItem<K>>>,
     selected: Signal<Option<K>>,
     on_edit: Option<kivact_core::state::Callback<kivact_core::view::EditPhase>>,
@@ -44,11 +48,12 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
     preview: Option<Callback<Option<K>>>,
     icon: Option<View>,
     size: Value<ControlSize>,
+    trigger: Option<View>,
     option: Option<OptionContent<K>>,
-    variants: Variants,
     arrow_open: Value<bool>,
     keep_trigger_focus: Value<bool>,
     touch_sheet: Option<TouchSheet>,
+    at: &'static Location<'static>,
 }
 
 /// A themed keyed select whose value, focus and keys belong to interaction.
@@ -57,18 +62,17 @@ struct SelectOptions<K: kivact_core::state::ItemKey> {
 /// `chevron-down` icon; an option row shows its icon, its label over its
 /// description and, while it is the selected one, the theme's `check` icon.
 /// [`option`](Select::item) replaces what an option row shows, the check
-/// included.
+/// included. Name it with [`label`](Select::label), or with
+/// [`field`](crate::field).
+#[track_caller]
 pub fn select<K: kivact_core::state::ItemKey>(
-    label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: kivact_core::state::Signal<Option<K>>,
 ) -> Select<K> {
-    let label = label.into_text_value();
-    let variants = Variants::default();
     Select {
-        root: node().name(label),
+        root: node(),
         settings: SelectOptions {
-            label,
+            label: None,
             options: items.into_value(),
             selected,
             placeholder: None,
@@ -76,16 +80,26 @@ pub fn select<K: kivact_core::state::ItemKey>(
             preview: None,
             icon: None,
             size: crate::control_size::default_control_size().into_value(),
+            trigger: None,
             option: None,
-            variants,
             arrow_open: false.into_value(),
             keep_trigger_focus: true.into_value(),
             touch_sheet: None,
+            at: Location::caller(),
         },
     }
 }
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
+    /// The trigger's accessible name (a name given to the root with `.name`
+    /// wins over it). Inside a [`field`](crate::field) the field's label
+    /// names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.settings.label = Some(label.into_text_value());
+        self
+    }
+
     /// Observe the beginning and commit of each value edit.
     pub fn on_edit<R: kivact_core::view::HandlerResult>(
         mut self,
@@ -94,31 +108,18 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self.settings.on_edit = Some(kivact_core::state::callback(f));
         self
     }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.settings.variants.add(v);
-        self
-    }
 }
 
 impl<K: kivact_core::state::ItemKey> Select<K> {
     /// Open the options on a bare ArrowDown or ArrowUp without selecting.
+    #[track_caller]
     pub fn open_on_arrow(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.settings.arrow_open = enabled.into_value();
         self
     }
 
     /// Keep keyboard focus on the trigger while highlighting options.
+    #[track_caller]
     pub fn keep_trigger_focus(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.settings.keep_trigger_focus = enabled.into_value();
         self
@@ -131,7 +132,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
             move || presentation.uses_sheet(),
             |label, open, _anchor, content| {
                 crate::dialog(label, open)
-                    .mode(kivact_interaction::DialogMode::Drawer(
+                    .mode(crate::dialog::DialogKind::Drawer(
                         kivact_core::geometry::Edge::Bottom,
                     ))
                     .content(move || content.call(()))
@@ -156,6 +157,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self
     }
 
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.settings.placeholder = Some(text.into_text_value());
         self
@@ -171,9 +173,16 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
         self.settings.icon = Some(icon.into_view());
         self
     }
+    /// Show `trigger` as the select's trigger instead of the selected item's
+    /// label; the select keeps its behavior, popup and semantics.
+    pub fn trigger(mut self, trigger: impl IntoView) -> Self {
+        self.settings.trigger = Some(trigger.into_view());
+        self
+    }
     /// The size (default [`ControlSize::Medium`]), given to the trigger
     /// recipe in [`SelectTriggerState::size`]; the recipe sizes the trigger
     /// by it.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.settings.size = size.into_value();
         self
@@ -188,7 +197,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
     /// fn fruit() -> impl IntoView {
     ///     let chosen = signal(None::<&str>);
     ///     let options = vec![ListItem::new("apple", "Apple"), ListItem::new("pear", "Pear")];
-    ///     select("Fruit", options, chosen).item(|item, state| {
+    ///     select(options, chosen).label("Fruit").item(|item, state| {
     ///         text(move || {
     ///             let mark = if state.get().selected { "* " } else { "" };
     ///             format!("{mark}{}", item.get().label())
@@ -215,6 +224,7 @@ impl<K: kivact_core::state::ItemKey> Element for Select<K> {
 
 impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let behavior = configure_select(&self.settings);
         let anchor = kivact_core::view::node_ref();
         let shown = behavior.is_open();
@@ -236,21 +246,22 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let trigger_state = trigger_projection(state, options, selected, size);
         self.root = with_base_recipe_style(
             self.root,
-            |r| r.select_recipes().trigger_recipe(),
-            &self.settings.variants,
+            |r: &SelectTheme| r.trigger_recipe(),
+            &variants,
             move || trigger_state.get(),
         );
+        let named = is_named(&mut self.root) || self.settings.label.is_some();
+        report_unnamed(named, "select", self.settings.at);
+        if let (Some(label), None) = (self.settings.label, self.root.accessible_name()) {
+            self.root = self.root.name(label);
+        }
         let name = self.root.accessible_name();
-        let fallback = self.settings.label;
         let label = kivact_core::state::memo(move || {
-            name.as_ref()
-                .map(|read| read.get())
-                .unwrap_or_else(|| fallback.get())
+            name.as_ref().map(|read| read.get()).unwrap_or_default()
         });
-        let variants = self.settings.variants;
         let indicator = with_recipe_style(
             node(),
-            |r| r.select_recipes().indicator_recipe(),
+            |r: &SelectTheme| r.indicator_recipe(),
             &variants,
             move || state.get(),
         )
@@ -260,7 +271,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             .node_ref(anchor)
             .part(trigger)
             .child(self.settings.icon)
-            .child(text(behavior.label()).style(style().flex_grow(1).single_line()))
+            .child(trigger_content(self.settings.trigger, behavior.label()))
             .child(indicator);
         let build = option_rows(
             behavior,
@@ -294,10 +305,19 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
     }
 }
 
+/// The trigger's content: the caller's `trigger`, or else the selected label.
+fn trigger_content(trigger: Option<View>, label: Value<String>) -> View {
+    trigger.unwrap_or_else(|| {
+        text(label)
+            .style(style().flex_grow(1).single_line())
+            .into_view()
+    })
+}
+
 /// Apply sheet size variants during styling so live sizes preserve row identity.
 pub(crate) fn with_option_style(
     root: Node,
-    pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ListItemState>,
+    pick: fn(&SelectTheme) -> &crate::recipe::Recipe<ListItemState>,
     variants: &Variants,
     state: Value<ListItemState>,
     size: Value<ControlSize>,
@@ -306,12 +326,15 @@ pub(crate) fn with_option_style(
     let variants = variants.clone();
     root.style(move || {
         let variants = if sheet {
-            variants.with(SelectSheetOption(size.get()))
+            variants.clone().with(SelectSheetOption(size.get()))
         } else {
             variants.clone()
         };
         let theme = kivact_core::style::use_theme().get();
-        pick(&crate::layer::recipes(&theme))(&theme, &variants.look(state.get()))
+        pick(&theme.ext::<SelectTheme>()).style(
+            &theme,
+            &crate::recipe::Look::of(state.get(), variants.clone()),
+        )
     })
 }
 
@@ -433,7 +456,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                             move |line| {
                                 with_option_style(
                                     line,
-                                    |r| r.select_recipes().description_recipe(),
+                                    |r: &SelectTheme| r.description_recipe(),
                                     &lines,
                                     state,
                                     size,
@@ -443,7 +466,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                         ),
                         with_option_style(
                             node(),
-                            |r| r.select_recipes().check_recipe(),
+                            |r: &SelectTheme| r.check_recipe(),
                             variants,
                             state,
                             size,
@@ -458,7 +481,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                 };
                 with_option_style(
                     node().part(part),
-                    |r| r.select_recipes().option_recipe(),
+                    |r: &SelectTheme| r.option_recipe(),
                     variants,
                     state,
                     size,
@@ -491,7 +514,7 @@ pub(crate) fn popup_surface<K: kivact_core::state::ItemKey>(
                 Placement::Below,
                 with_recipe_style(
                     scroll(column(popup_build(false))),
-                    |r| r.select_recipes().surface_recipe(),
+                    |r: &SelectTheme| r.surface_recipe(),
                     &variants,
                     move || state.get(),
                 ),

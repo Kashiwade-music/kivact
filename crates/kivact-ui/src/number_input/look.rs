@@ -1,11 +1,12 @@
-//! Role: The number input recipe state, tokens, recipe table and default looks.
+//! Role: The number input recipe state, recipe table and default looks.
 use crate::look_common::flat;
+use crate::theme::Look;
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, TextAlign, Theme, style};
 /// The decrease button, the input and the increase button in one box.
-pub(crate) fn number_root(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn number_root(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -18,7 +19,7 @@ pub(crate) fn number_root(t: &Theme, _: &PartState) -> Style {
 }
 
 /// The number, centered, without a box of its own.
-pub(crate) fn number_input(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn number_input(t: &Theme, _: &Look<PartState>) -> Style {
     flat(t)
         .flex_grow(1)
         .min_width(40)
@@ -29,7 +30,7 @@ pub(crate) fn number_input(t: &Theme, _: &PartState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`number_input`](super::number_input).
-    NumberInputRecipes {
+    NumberInputTheme {
         /// The box of the decrease button, the input and the increase button.
         root(root_recipe): PartState = number_root,
         /// The input, over the text input recipe.

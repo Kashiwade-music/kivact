@@ -28,7 +28,8 @@ pub(crate) fn property_row(
     on_commit: impl Fn(String) + 'static,
 ) -> View {
     let commit = callback(on_commit);
-    let editor = text_input(name.clone(), value)
+    let editor = text_input(value)
+        .label(name.clone())
         .style(style().flex_grow(1).min_width(0).font_size(12.0))
         .disabled(access != RowAccess::Editable)
         .on_submit(move || commit.call(value.get_untracked()));
@@ -64,7 +65,7 @@ fn frame(name: String, enabled: Signal<bool>, access: RowAccess, editor: impl In
     ))
     .style(row_style());
     match access {
-        RowAccess::Unavailable(hint) => kivact::ui::tooltip(hint).attach(row_view),
+        RowAccess::Unavailable(hint) => kivact::ui::tooltip(hint, row_view).into_view(),
         RowAccess::Editable | RowAccess::ReadOnly => row_view.into_view(),
     }
 }

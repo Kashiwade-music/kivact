@@ -16,15 +16,14 @@ fn tooltip_remains_open_while_pointer_is_over_tooltip() {
         (
             (),
             column((
-                kivact::ui::tooltip("Helpful hint")
+                kivact::ui::tooltip("Helpful hint", trigger)
                     .placement(Placement::Below)
                     .offset(0)
                     .content(|| {
                         node()
                             .style(style().size(200, 60))
                             .child(text("Helpful hint"))
-                    })
-                    .attach(trigger),
+                    }),
                 node().style(style().height(240)),
             )),
         )

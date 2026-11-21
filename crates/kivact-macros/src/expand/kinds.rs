@@ -3,6 +3,7 @@
 
 use proc_macro2::{Ident, TokenStream};
 use quote::{format_ident, quote};
+use syn::Type;
 
 use crate::parse::{Prop, PropKind, upper_camel};
 
@@ -44,11 +45,22 @@ pub(super) fn generic_decl(prop: &Prop, r: &TokenStream) -> Option<TokenStream> 
             let result = result(prop);
             Some(quote! { #result: #r::view::HandlerResult })
         }
-        PropKind::ViewFn => {
+        PropKind::ViewFn | PropKind::Func { view: true, .. } => {
             let view = view(prop);
             Some(quote! { #view: #r::view::IntoView })
         }
         _ => None,
+    }
+}
+
+/// The result a `Func` prop's closure returns: the written type, or the view
+/// generic when the written result is `View`.
+fn func_result(prop: &Prop, output: &Type, returns_view: bool) -> TokenStream {
+    if returns_view {
+        let view = view(prop);
+        quote! { #view }
+    } else {
+        quote! { #output }
     }
 }
 
@@ -72,6 +84,14 @@ pub(super) fn input_type(prop: &Prop, r: &TokenStream) -> TokenStream {
             let view = view(prop);
             quote! { impl #r::view::IntoViewFn<#view> }
         }
+        PropKind::Func {
+            args,
+            output,
+            view: returns_view,
+        } => {
+            let output = func_result(prop, output, *returns_view);
+            quote! { impl ::std::ops::Fn(#(#args),*) -> #output + 'static }
+        }
         PropKind::Param(ty) => quote! { #ty },
         PropKind::Other(ty) => quote! { impl ::std::convert::Into<#ty> },
     }
@@ -88,6 +108,18 @@ pub(super) fn keep_type(prop: &Prop, r: &TokenStream) -> TokenStream {
         PropKind::View => quote! { #r::view::View },
         PropKind::Children => quote! { ::std::vec::Vec<#r::view::View> },
         PropKind::ViewFn => quote! { #r::view::ViewFn<()> },
+        PropKind::Func {
+            args,
+            output,
+            view: returns_view,
+        } => {
+            let output = if *returns_view {
+                quote! { #r::view::View }
+            } else {
+                quote! { #output }
+            };
+            quote! { ::std::rc::Rc<dyn ::std::ops::Fn(#(#args),*) -> #output> }
+        }
         PropKind::Param(ty) | PropKind::Other(ty) => quote! { #ty },
     }
 }
@@ -103,6 +135,30 @@ pub(super) fn store(prop: &Prop, r: &TokenStream, input: TokenStream) -> TokenSt
         PropKind::View => quote! { #r::view::IntoView::into_view(#input) },
         PropKind::Children => quote! { #r::view::IntoChildren::into_views(#input) },
         PropKind::ViewFn => quote! { #r::view::IntoViewFn::into_view_fn(#input) },
+        PropKind::Func {
+            args,
+            view: returns_view,
+            ..
+        } => {
+            if *returns_view {
+                // The closure's arguments are written with the types of the
+                // prop, and its `View` result goes through `IntoView`.
+                let names: Vec<Ident> = (0..args.len())
+                    .map(|index| format_ident!("__a{index}"))
+                    .collect();
+                let params = names
+                    .iter()
+                    .zip(args)
+                    .map(|(name, ty)| quote! { #name: #ty });
+                quote! {
+                    ::std::rc::Rc::new(move |#(#params),*| {
+                        #r::view::IntoView::into_view(#input(#(#names),*))
+                    })
+                }
+            } else {
+                quote! { ::std::rc::Rc::new(#input) }
+            }
+        }
         PropKind::Other(_) => quote! { ::std::convert::Into::into(#input) },
     }
 }
@@ -157,6 +213,6 @@ pub(super) fn kivact_type(prop: &Prop, r: &TokenStream) -> Option<TokenStream> {
         PropKind::View => Some(quote! { #r::view::View }),
         PropKind::Children => Some(quote! { ::std::vec::Vec<#r::view::View> }),
         PropKind::ViewFn => Some(quote! { #r::view::ViewFn }),
-        PropKind::Param(_) | PropKind::Other(_) => None,
+        PropKind::Param(_) | PropKind::Func { .. } | PropKind::Other(_) => None,
     }
 }

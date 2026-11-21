@@ -149,6 +149,7 @@ pub use kivact_types::{
 pub(crate) mod measurement;
 mod node;
 mod text_shaping;
+pub use crate::view::Authored as Caller;
 pub use crate::view::boundary::scope;
 pub use crate::view::owner::Owner;
 pub use crate::view::part::{Part, PartState, part};

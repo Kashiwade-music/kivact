@@ -1,13 +1,82 @@
-//! Role: The data table recipe state, tokens, recipe table and default looks.
+//! Role: The data table recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, LineJoin, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{Align, FlexDirection, Justify, Overflow, Style, Theme, pct, style};
+use kivact_core::style::{Color, Length, ThemeVar, color};
 use kivact_core::view::CheckedState;
 use kivact_interaction::{HeaderSort, TableHeaderState};
-pub(crate) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
+
+/// The background of a sticky cell.
+pub static STICKY_SURFACE_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.sticky_surface", &color::SURFACE_VAR);
+/// [`STICKY_SURFACE_VAR`] as a color for a style.
+pub const STICKY_SURFACE: Color = Color::var(&STICKY_SURFACE_VAR);
+
+/// The tint of a sticky cell under the pointer.
+pub static STICKY_HOVER_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.sticky_hover", &color::HOVER_VAR);
+/// [`STICKY_HOVER_VAR`] as a color for a style.
+pub const STICKY_HOVER: Color = Color::var(&STICKY_HOVER_VAR);
+
+/// The background of a selected sticky cell.
+pub static STICKY_SELECTED_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.sticky_selected", &color::SURFACE_ALT_VAR);
+/// [`STICKY_SELECTED_VAR`] as a color for a style.
+pub const STICKY_SELECTED: Color = Color::var(&STICKY_SELECTED_VAR);
+
+/// The shadow at a sticky column's edge.
+pub static STICKY_SHADOW_VAR: ThemeVar<Color> =
+    ThemeVar::new("data_table.sticky_shadow", Color::TRANSPARENT);
+/// [`STICKY_SHADOW_VAR`] as a color for a style.
+pub const STICKY_SHADOW: Color = Color::var(&STICKY_SHADOW_VAR);
+
+/// The width of a sticky column's shadow, in logical px.
+pub static STICKY_SHADOW_WIDTH_VAR: ThemeVar<f64> =
+    ThemeVar::new("data_table.sticky_shadow_width", 0.0);
+/// [`STICKY_SHADOW_WIDTH_VAR`] as a length for a style.
+pub const STICKY_SHADOW_WIDTH: Length = Length::var(&STICKY_SHADOW_WIDTH_VAR);
+
+/// The row status marker of a neutral row.
+pub static ROW_STATUS_NEUTRAL_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_neutral", &color::TEXT_MUTED_VAR);
+/// [`ROW_STATUS_NEUTRAL_VAR`] as a color for a style.
+pub const ROW_STATUS_NEUTRAL: Color = Color::var(&ROW_STATUS_NEUTRAL_VAR);
+
+/// The row status marker of an informative row.
+pub static ROW_STATUS_INFO_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_info", &color::ACCENT_VAR);
+/// [`ROW_STATUS_INFO_VAR`] as a color for a style.
+pub const ROW_STATUS_INFO: Color = Color::var(&ROW_STATUS_INFO_VAR);
+
+/// The row status marker of a successful row.
+pub static ROW_STATUS_SUCCESS_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_success", &color::SUCCESS_VAR);
+/// [`ROW_STATUS_SUCCESS_VAR`] as a color for a style.
+pub const ROW_STATUS_SUCCESS: Color = Color::var(&ROW_STATUS_SUCCESS_VAR);
+
+/// The row status marker of a warning row.
+pub static ROW_STATUS_WARNING_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_warning", &color::WARNING_VAR);
+/// [`ROW_STATUS_WARNING_VAR`] as a color for a style.
+pub const ROW_STATUS_WARNING: Color = Color::var(&ROW_STATUS_WARNING_VAR);
+
+/// The row status marker of a dangerous row.
+pub static ROW_STATUS_DANGER_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_danger", &color::DANGER_VAR);
+/// [`ROW_STATUS_DANGER_VAR`] as a color for a style.
+pub const ROW_STATUS_DANGER: Color = Color::var(&ROW_STATUS_DANGER_VAR);
+
+/// The row status marker of an accented row.
+pub static ROW_STATUS_ACCENT_VAR: ThemeVar<Color> =
+    ThemeVar::alias("data_table.row_status_accent", &color::ACCENT_VAR);
+/// [`ROW_STATUS_ACCENT_VAR`] as a color for a style.
+pub const ROW_STATUS_ACCENT: Color = Color::var(&ROW_STATUS_ACCENT_VAR);
+
+pub(crate) fn group_header(_: &Theme, _: &Look<DataTableGroupState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .background(kivact_core::style::color::SURFACE_ALT)
@@ -15,7 +84,7 @@ pub(crate) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
 }
 
 /// The frame around the toolbar, the grid and the footer.
-pub(crate) fn frame(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn frame(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .width(pct(100))
@@ -29,7 +98,7 @@ pub(crate) fn frame(t: &Theme, _: &PartState) -> Style {
 }
 
 /// The row above the grid.
-pub(crate) fn toolbar(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn toolbar(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -38,7 +107,7 @@ pub(crate) fn toolbar(t: &Theme, _: &PartState) -> Style {
 }
 
 /// The row under the grid.
-pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn footer(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -48,7 +117,7 @@ pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
 
 /// A column header: its title and sort mark, sharing the width with the
 /// column's cells.
-pub(crate) fn header(t: &Theme, state: &TableHeaderState) -> Style {
+pub(crate) fn header(t: &Theme, state: &Look<TableHeaderState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .flex_grow(1)
@@ -71,7 +140,7 @@ pub(crate) fn header(t: &Theme, state: &TableHeaderState) -> Style {
 
 /// A body row, marked while it is hovered or selected; its main row
 /// height and accent are the caller's when given.
-pub(crate) fn row(t: &Theme, state: &DataTableRowState) -> Style {
+pub(crate) fn row(t: &Theme, state: &Look<DataTableRowState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -94,7 +163,7 @@ pub(crate) fn row(t: &Theme, state: &DataTableRowState) -> Style {
 }
 
 /// A body cell, sharing the width with the column's header.
-pub(crate) fn cell(t: &Theme, state: &DataTableCellState) -> Style {
+pub(crate) fn cell(t: &Theme, state: &Look<DataTableCellState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .flex_grow(1)
@@ -111,7 +180,7 @@ pub(crate) fn cell(t: &Theme, state: &DataTableCellState) -> Style {
 }
 
 /// The box around a check box, as wide as the check column.
-pub(crate) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
+pub(crate) fn check(t: &Theme, _: &Look<DataTableCheckState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -123,7 +192,7 @@ pub(crate) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
 /// The sort mark, drawn in the box: an arrow up or down by the direction
 /// the column is sorted in, and nothing for a column that is not sorted or
 /// does not sort.
-pub(crate) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
+pub(crate) fn sort(_: &Theme, state: &Look<TableHeaderState>) -> Style {
     let order = match state.sorting {
         HeaderSort::Sorted { direction, .. } => Some(direction),
         _ => None,
@@ -162,7 +231,7 @@ pub(crate) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
 }
 
 /// The pager: its summary and buttons in a row.
-pub(crate) fn page(t: &Theme, _: &DataTablePageState) -> Style {
+pub(crate) fn page(t: &Theme, _: &Look<DataTablePageState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -245,7 +314,7 @@ recipe_table! {
     /// fills ([`DataTable::toolbar`](super::DataTable::toolbar),
     /// [`footer`](super::DataTable::footer),
     /// [`cell_controls`](super::DataTable::cell_controls)).
-    DataTableRecipes {
+    DataTableTheme {
         /// The frame around the toolbar, the grid and the footer.
         frame(frame_recipe): PartState = frame,
         /// The row above the grid, holding the filter field or the
@@ -271,5 +340,13 @@ recipe_table! {
         sort(sort_recipe): TableHeaderState = sort,
         /// The pager under the grid: Previous, Next and the page shown.
         page(page_recipe): DataTablePageState = page,
+    }
+    settings {
+        /// The transition of a sticky column's shadow; `None` leaves it unanimated.
+        sticky_shadow_transition(sticky_shadow_transition_value): Option<kivact_core::motion::Transition> = None,
+        /// The transition of a sticky column's overlay; `None` leaves it unanimated.
+        sticky_overlay_transition(sticky_overlay_transition_value): Option<kivact_core::motion::Transition> = None,
+        /// The column header of the row status column, as a message key.
+        row_status_header_key(row_status_header_key_value): &'static str = "data_table.row_status.column_header",
     }
 }

@@ -2,9 +2,9 @@
 
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::progress::look::ProgressMotion;
+use crate::progress::look::ProgressTheme;
 use crate::progress::look::{ProgressState, ProgressVariant};
-use crate::progress::tokens::ProgressMotion;
-use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
 use kivact_core::state::{IntoValue, Machine, Step, Value, machine, memo, signal};
@@ -46,7 +46,6 @@ pub struct Progress {
     fixed_indeterminate: bool,
     size: Value<ControlSize>,
     moving: Value<bool>,
-    variants: Variants,
 }
 
 /// A progress bar at `value`, a fraction from 0 to 1 (a number outside it is
@@ -56,7 +55,7 @@ pub struct Progress {
 /// The node is a `Role::ProgressBar` with the range 0 to 1, the current value
 /// and the text "n%". It is not named, because only the caller knows what it
 /// measures: name it with `.name(..)` and draw any visible label yourself.
-/// The look is the theme's [`UiRecipes::progress`](super::UiRecipes), whose
+/// The look is the theme's [`ProgressTheme`](crate::theme::ProgressTheme), whose
 /// track is the bar itself, 100 % wide, and whose fill is its child.
 ///
 /// ```no_run
@@ -83,13 +82,13 @@ pub fn progress(value: impl IntoValue<Option<f64>>) -> Progress {
         fixed_indeterminate,
         size: crate::control_size::default_control_size().into_value(),
         moving: false.into_value(),
-        variants: Variants::default(),
     }
 }
 
 impl Progress {
     /// The size (default [`ControlSize::Medium`]), given to the recipes in
     /// their state; the recipes size the bar by it.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -101,21 +100,6 @@ impl Progress {
     #[track_caller]
     pub fn moving(mut self, moving: impl IntoValue<bool>) -> Self {
         self.moving = moving.into_value();
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -145,16 +129,16 @@ impl IntoView for Progress {
             fixed_indeterminate,
             size,
             moving,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let target = memo(move || fraction(value.get()));
-        let motion_override = variants.look(()).variant::<ProgressMotion>().cloned();
+        let motion_override =
+            crate::recipe::Look::of((), variants.clone()).variant::<ProgressMotion>();
         let motion = motion_override.clone().unwrap_or_else(|| {
             use_theme()
                 .get()
-                .ext::<crate::UiTokens>()
-                .progress
-                .motion
+                .ext::<crate::progress::look::ProgressTheme>()
+                .motion_value()
                 .clone()
         });
         let transition = Transition::tween(
@@ -187,12 +171,12 @@ impl IntoView for Progress {
         }
         let fill = with_recipe_style(
             node(),
-            |recipes| recipes.progress_recipes().fill_recipe(),
+            |r: &ProgressTheme| r.fill_recipe(),
             &variants,
             move || state.get(),
         );
-        let label = (variants.look(()).variant::<ProgressVariant>()
-            == Some(&ProgressVariant::Ring))
+        let label = (crate::recipe::Look::of((), variants.clone()).variant::<ProgressVariant>()
+            == Some(ProgressVariant::Ring))
         .then(|| {
             with_recipe_style(
                 text(move || {
@@ -200,14 +184,14 @@ impl IntoView for Progress {
                         .get()
                         .map_or_else(String::new, |v| format!("{:.0}%", v * 100.0))
                 }),
-                |r| r.progress_recipes().label_recipe(),
+                |r: &ProgressTheme| r.label_recipe(),
                 &variants,
                 move || state.get(),
             )
         });
         with_base_recipe_style(
             root,
-            |recipes| recipes.progress_recipes().track_recipe(),
+            |r: &ProgressTheme| r.track_recipe(),
             &variants,
             move || state.get(),
         )
@@ -227,9 +211,8 @@ fn motion_clock(
         let motion = motion_override.clone().unwrap_or_else(|| {
             use_theme()
                 .get()
-                .ext::<crate::UiTokens>()
-                .progress
-                .motion
+                .ext::<crate::progress::look::ProgressTheme>()
+                .motion_value()
                 .clone()
         });
         if is_motion_reduced().get() {

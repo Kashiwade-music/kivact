@@ -41,7 +41,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     column((
         row((
             text("Console"),
-            select("Kind", kinds, kind).style(style().width(180.0)),
+            select(kinds, kind)
+                .label("Kind")
+                .style(style().width(180.0)),
         )),
         header(),
         virtual_list(

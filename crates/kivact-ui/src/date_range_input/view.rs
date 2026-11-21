@@ -4,6 +4,7 @@ use crate::date_input::OpenedBy;
 use crate::date_range_input::draft::{
     Effect as DraftEffect, Event as DraftEvent, FieldValidity, Policy as DraftPolicy, RangeDraft,
 };
+use crate::date_range_input::look::DateRangeInputTheme;
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
 use kivact_core::state::{IntoText, IntoValue, MachineHandle, Signal, Value, binding, machine};
@@ -22,6 +23,7 @@ impl PartialEq for DateRangePreset {
 }
 impl DateRangePreset {
     /// Create a preset whose dates may depend on the current day or application state.
+    #[track_caller]
     pub fn new(label: impl IntoText, range: impl Fn() -> DateRange + 'static) -> Self {
         Self {
             label: label.into_text_value(),
@@ -35,7 +37,6 @@ type Constraint = Rc<dyn Fn(CalendarDate) -> bool>;
 pub struct DateRangeInput {
     picker_label: Option<Value<String>>,
     root: Node,
-    variants: crate::variants::Variants,
     label: Value<String>,
     start_label: Value<String>,
     end_label: Value<String>,
@@ -55,12 +56,12 @@ pub struct DateRangeInput {
     max_span: Value<Option<u32>>,
 }
 /// Edit two dates; selecting an earlier end reorders the range in one transition.
-pub fn date_range_input(label: impl IntoText, range: Signal<Option<DateRange>>) -> DateRangeInput {
+#[track_caller]
+pub fn date_range_input(range: Signal<Option<DateRange>>) -> DateRangeInput {
     DateRangeInput {
         picker_label: None,
         root: node(),
-        variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: message("date.range_open", "Choose date range"),
         start_label: message("date.start", "Start date"),
         end_label: message("date.end", "End date"),
         value: range,
@@ -80,29 +81,37 @@ pub fn date_range_input(label: impl IntoText, range: Signal<Option<DateRange>>) 
     }
 }
 impl DateRangeInput {
+    /// The name of the picker dialog (default "Choose date range"). The two
+    /// endpoints are named by [`start_label`](Self::start_label) and
+    /// [`end_label`](Self::end_label).
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = label.into_text_value();
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
     }
 
     /// Set the accessible label of the start-date editor.
+    #[track_caller]
     pub fn start_label(mut self, label: impl IntoText) -> Self {
         self.start_label = label.into_text_value();
         self
     }
     /// Set the accessible label of the end-date editor.
+    #[track_caller]
     pub fn end_label(mut self, label: impl IntoText) -> Self {
         self.end_label = label.into_text_value();
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
     /// Format both endpoints.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self.custom_format = None;
@@ -114,6 +123,7 @@ impl DateRangeInput {
         self
     }
     /// Empty endpoint text.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
@@ -124,16 +134,19 @@ impl DateRangeInput {
         self
     }
     /// Earliest accepted endpoint.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted endpoint.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First weekday column.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -149,6 +162,7 @@ impl DateRangeInput {
         self
     }
     /// Display quick range choices.
+    #[track_caller]
     pub fn presets(mut self, presets: impl IntoValue<Vec<DateRangePreset>>) -> Self {
         self.presets = Some(presets.into_value());
         self
@@ -159,11 +173,13 @@ impl DateRangeInput {
         self
     }
     /// Minimum inclusive span in days.
+    #[track_caller]
     pub fn min_range_span(mut self, span: impl IntoValue<u32>) -> Self {
         self.min_span = span.into_value();
         self
     }
     /// Maximum inclusive span in days.
+    #[track_caller]
     pub fn max_range_span(mut self, span: impl IntoValue<u32>) -> Self {
         let span = span.into_value();
         self.max_span = (move || Some(span.get())).into_value();
@@ -188,6 +204,7 @@ impl DateRangeInput {
         ))
     }
     fn render(self, field: crate::date_parts::trigger::FieldPresentation) -> View {
+        let variants = self.root.authored().variants();
         let accept = self.range_validator();
         let draft = range_machine(self.value, self.valid, accept.clone());
         let open = range_open(draft);
@@ -202,7 +219,7 @@ impl DateRangeInput {
                 .child(
                     attach.view(
                         dialog(self.label, open)
-                            .with_variants(&self.variants)
+                            .with_variants(&variants)
                             .mode(self.presentation.mode())
                             .hide_title(true)
                             .content(move || content.call(())),
@@ -215,8 +232,8 @@ impl DateRangeInput {
         let (first, last) = self.endpoint_fields(&editors, order_ref);
         let root = crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.date_range_input_recipes().root_recipe(),
-            &self.variants,
+            |r: &DateRangeInputTheme| r.root_recipe(),
+            &variants,
             kivact_core::custom::PartState::default,
         );
         let trigger = button(
@@ -227,7 +244,7 @@ impl DateRangeInput {
             first,
             last,
             dialog(self.label, open)
-                .with_variants(&self.variants)
+                .with_variants(&variants)
                 .mode(self.presentation.mode())
                 .hide_title(true)
                 .content(move || content.call(()))
@@ -342,6 +359,7 @@ impl DateRangeInput {
         editors: &RangeEditors,
         order_ref: kivact_core::view::NodeRef,
     ) -> (crate::DateInput, crate::DateInput) {
+        let variants = self.root.authored().variants();
         let RangeEditors {
             draft,
             start,
@@ -359,14 +377,16 @@ impl DateRangeInput {
             self.placeholder,
             self.week_start,
         );
-        let variants = &self.variants;
-        let mut first = date_input(start_label, start)
+        let variants = &variants;
+        let mut first = date_input(start)
+            .label(start_label)
             .format(format)
             .min(min)
             .max(max)
             .presentation(presentation)
             .with_variants(variants);
-        let mut last = date_input(end_label, end)
+        let mut last = date_input(end)
+            .label(end_label)
             .format(format)
             .min(min)
             .max(max)

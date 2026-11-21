@@ -2,8 +2,8 @@
 
 use crate::card::look::CardAction;
 use crate::card::look::CardState;
+use crate::card::look::CardTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Signal, Value};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, KeyEvent, Modifiers, Node, View, node, node_ref,
@@ -19,8 +19,6 @@ pub struct Card {
     media: Option<View>,
     footer: Option<View>,
     action: CardKind,
-    disabled: Value<bool>,
-    variants: Variants,
 }
 enum CardKind {
     Plain,
@@ -36,8 +34,6 @@ pub fn card(children: impl IntoView) -> Card {
         media: None,
         footer: None,
         action: CardKind::Plain,
-        disabled: false.into_value(),
-        variants: Variants::default(),
     }
 }
 impl Card {
@@ -56,27 +52,9 @@ impl Card {
         self.footer = Some(value.into_view());
         self
     }
-    /// Activate the card with click, Enter, Space or assistive activation.
-    pub fn on_press<M>(mut self, f: impl kivact_core::state::IntoHandler<(), M>) -> Self {
-        self.root = self.root.on_press(f);
-        if matches!(self.action, CardKind::Plain) {
-            self.action = CardKind::Press;
-        }
-        self
-    }
     /// Make the card a checkbox backed by the supplied binding.
     pub fn selected(mut self, selected: Signal<bool>) -> Self {
         self.action = CardKind::Select(selected);
-        self
-    }
-    /// Disable activation.
-    pub fn disabled(mut self, value: impl IntoValue<bool>) -> Self {
-        self.disabled = value.into_value();
-        self
-    }
-    /// Add a theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
         self
     }
 }
@@ -86,8 +64,17 @@ impl Element for Card {
     }
 }
 impl IntoView for Card {
-    fn into_view(self) -> View {
-        let disabled = self.disabled;
+    fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
+        // The press and the disabled state are the root's (`Element::on_press`
+        // and `Element::disabled`): a card with a press handler is a button.
+        let disabled = self
+            .root
+            .accessible_disabled()
+            .unwrap_or_else(|| false.into_value());
+        if matches!(self.action, CardKind::Plain) && self.root.authored().has_press() {
+            self.action = CardKind::Press;
+        }
         let has_media = self.media.is_some();
         let has_footer = self.footer.is_some();
         let (root, input) = card_target(self.root, self.action, disabled);
@@ -104,11 +91,11 @@ impl IntoView for Card {
             has_media,
             has_footer,
         };
-        let variants = &self.variants;
+        let variants = &variants;
         let header = self.header.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().header_recipe(),
+                |r: &CardTheme| r.header_recipe(),
                 variants,
                 state,
             )
@@ -116,7 +103,7 @@ impl IntoView for Card {
         let media = self.media.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().media_recipe(),
+                |r: &CardTheme| r.media_recipe(),
                 variants,
                 state,
             )
@@ -124,7 +111,7 @@ impl IntoView for Card {
         let content = (!kivact_core::custom::view_is_empty(&self.content)).then(|| {
             with_recipe_style(
                 node().child(self.content),
-                |r| r.card_recipes().content_recipe(),
+                |r: &CardTheme| r.content_recipe(),
                 variants,
                 state,
             )
@@ -132,14 +119,14 @@ impl IntoView for Card {
         let footer = self.footer.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().footer_recipe(),
+                |r: &CardTheme| r.footer_recipe(),
                 variants,
                 state,
             )
         });
         let overlay = with_recipe_style(
             node().hit_testable(false).focusable(false),
-            |r| r.card_recipes().overlay_recipe(),
+            |r: &CardTheme| r.overlay_recipe(),
             variants,
             state,
         )
@@ -148,7 +135,7 @@ impl IntoView for Card {
                 .position(kivact_core::style::Position::Absolute)
                 .inset(0),
         );
-        with_base_recipe_style(root, |r| r.card_recipes().root_recipe(), variants, state)
+        with_base_recipe_style(root, |r: &CardTheme| r.root_recipe(), variants, state)
             .style(kivact_core::style::style().position(kivact_core::style::Position::Relative))
             .child((media, header, content, footer, overlay))
             .into_view()

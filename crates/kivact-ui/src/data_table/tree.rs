@@ -236,7 +236,7 @@ fn control(open: Value<bool>, all: bool) -> Button {
             .padding(0)
             .border_radius(6),
     )
-    .child(
+    .children((
         icon(if rtl { "chevron-left" } else { "chevron-right" }).style(move || {
             style()
                 .size(12, 12)
@@ -251,5 +251,5 @@ fn control(open: Value<bool>, all: bool) -> Button {
                     Transition::tween(150, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0)),
                 )
         }),
-    )
+    ))
 }

@@ -220,6 +220,11 @@ fn into_view(model: &Model, r: &TokenStream) -> TokenStream {
         let name = &prop.name;
         quote! { #[allow(unused_mut)] let mut #name = #name; }
     });
+    // The caller's modifiers as they stand before the body runs; the body
+    // reads this snapshot, and the root stays for `absorb`.
+    let caller = model.caller.as_ref().map(|(ident, ty)| {
+        quote! { let #ident: #ty = __root.authored(); }
+    });
     let statements = &model.body.stmts;
     let finish = match model.returns {
         Returns::Element => quote! {
@@ -234,6 +239,7 @@ fn into_view(model: &Model, r: &TokenStream) -> TokenStream {
                 #r::custom::scope(move || {
                     #(#mounts)*
                     #(#rebinds)*
+                    #caller
                     let __body = (move || {
                         #(#statements)*
                     })();

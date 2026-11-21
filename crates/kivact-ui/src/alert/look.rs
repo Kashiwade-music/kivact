@@ -1,9 +1,10 @@
-//! Role: The alert recipe state, tokens, recipe table and default looks.
+//! Role: The alert recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
 use kivact_interaction::Tone;
+use kivact_macros::Prop;
 pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
     let color = match s.tone {
         Tone::Neutral => kivact_core::style::color::BORDER,
@@ -21,7 +22,7 @@ pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
         .min_width(0);
-    if s.variant::<AlertVariant>() == Some(&AlertVariant::Banner) {
+    if s.variant::<AlertVariant>() == Some(AlertVariant::Banner) {
         base.width(pct(100))
     } else {
         base
@@ -116,7 +117,7 @@ impl Expansion {
 
 recipe_table! {
     /// Recipes for a persistent alert and optional details.
-    AlertRecipes {
+    AlertTheme {
         root(root_recipe): AlertState = alert_root,
         header(header_recipe): AlertState = alert_wrapper,
         message(message_recipe): AlertState = alert_wrapper,
@@ -132,11 +133,11 @@ recipe_table! {
 }
 
 /// The structural presentation of an alert.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum AlertVariant {
     #[default]
     Default,
     Banner,
 }
 
-impl crate::variants::Variant for AlertVariant {}
+impl kivact_core::view::Variant for AlertVariant {}

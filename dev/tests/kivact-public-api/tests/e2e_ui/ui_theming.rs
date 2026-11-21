@@ -13,8 +13,7 @@ use kivact::motion::{Easing, Transition};
 use kivact::prelude::*;
 use kivact::style::{Icon, ThemeExtension, TransitionProp};
 use kivact::test::Screen;
-use kivact::ui::Look;
-use kivact::ui::{ButtonState, UiRecipes};
+use kivact::ui::theme::{ButtonState, ButtonTheme, Look, SwitchTheme};
 use kivact_public_api_tests::paint::{distance, pixel};
 use kivact_public_api_tests::support::mount;
 use std::time::Duration;
@@ -35,17 +34,15 @@ fn at(screen: &Screen, id: &str, dx: f64, dy: f64) -> u32 {
 
 #[test]
 fn a_switch_thumb_recipe_animates_when_the_binding_changes() {
-    let recipes = UiRecipes::default()
-        .switch(|_| |_, _| style().size(120, 32).background(rgb(WHITE)))
-        .switch_track(|_| |_, _| style().size(112, 24).left(4).top(4))
-        .switch_thumb(|_| {
-            |_, state| {
-                style()
-                    .size(16, 16)
-                    .background(rgb(RED))
-                    .translate_x(if state.is_checked() { 80 } else { 0 })
-                    .transition(TransitionProp::All, Transition::tween(400, Easing::Linear))
-            }
+    let recipes = SwitchTheme::default()
+        .root(|_, _, _| style().size(120, 32).background(rgb(WHITE)))
+        .track(|_, _, _| style().size(112, 24).left(4).top(4))
+        .thumb(|_, state, _| {
+            style()
+                .size(16, 16)
+                .background(rgb(RED))
+                .translate_x(if state.is_checked() { 80 } else { 0 })
+                .transition(TransitionProp::All, Transition::tween(400, Easing::Linear))
         });
     let (screen, checked) = mount(move || {
         let checked = signal(false);
@@ -231,10 +228,8 @@ fn a_librarys_tokens_are_read_again_on_a_theme_switch_without_a_remount() {
     let red = Theme::light().with(Brand { fill: rgb(RED) });
     let blue = Theme::light().with(Brand { fill: rgb(BLUE) });
     // A recipe that reads the tokens, as a kit's does.
-    let recipes = UiRecipes::default().button(|prev| {
-        move |theme: &Theme, state: &Look<ButtonState>| {
-            prev(theme, state).background(theme.ext::<Brand>().fill)
-        }
+    let recipes = ButtonTheme::default().root(|theme: &Theme, _state: &Look<ButtonState>, base| {
+        base.background(theme.ext::<Brand>().fill)
     });
     let (red, blue) = (red.with(recipes.clone()), blue.with(recipes));
     let (screen, (theme, setups)) = mount(move || {
@@ -316,4 +311,31 @@ fn app_theme_follows_theme_hint() {
     screen.run_until_idle();
     screen.get_by_text("Light");
     assert!(screen.errors().is_empty());
+}
+
+#[test]
+fn a_recipe_override_receives_the_previous_recipes_style() {
+    let theme = Theme::light().with(
+        ButtonTheme::default()
+            .root(|_, _, base| base.background(rgb(RED)))
+            .root(|_, _, base| base.width(77)),
+    );
+    let (screen, ()) = mount(move || ((), provide_theme(theme, || button("Go").test_id("go"))));
+    let go = screen.get_by_test_id("go").rect().expect("laid out");
+    assert_eq!(go.width, 77.0);
+    assert!(distance(at(&screen, "go", 4.0, 4.0), RED) <= 8);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn component_variables_follow_the_core_variable_they_alias() {
+    use kivact::ui::theme::{combobox, item_list, tree};
+    let theme = kivact::style::Theme::light().set(&kivact::style::radius::MD_VAR, 20.0);
+    assert_eq!(theme.get(&combobox::FIELD_RADIUS_VAR), 20.0);
+    let theme = theme.set(&combobox::FIELD_RADIUS_VAR, 3.0);
+    assert_eq!(theme.get(&combobox::FIELD_RADIUS_VAR), 3.0);
+    let theme = kivact::style::Theme::light().set(&kivact::style::space::MD_VAR, 9.0);
+    assert_eq!(theme.get(&tree::PADDING_VAR), 9.0);
+    let theme = kivact::style::Theme::light().set(&kivact::style::space::XS_VAR, 5.0);
+    assert_eq!(theme.get(&item_list::GAP_VAR), 5.0);
 }

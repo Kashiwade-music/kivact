@@ -1,12 +1,13 @@
 //! Role: The avatar view: the Avatar builder, its picture, fallback and status rendering.
 
+use crate::ControlSize;
 use crate::avatar::initials::initials;
 use crate::avatar::look::AvatarShape;
-use crate::variants::Variants;
-use crate::{AvatarState, ControlSize, Variant};
-use kivact_core::state::IntoHandler;
+use crate::avatar::look::AvatarTheme;
+use crate::theme::AvatarState;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Asset, Element, ImageFit, ImageStatus, IntoView, IntoViewFn, Node, Role, View, ViewFn, dynamic,
     node, node_ref, text,
@@ -31,8 +32,8 @@ pub struct Avatar {
     status: Value<Option<Tone>>,
     status_content: Option<View>,
     name_tooltip: Option<Value<bool>>,
-    variants: Variants,
 }
+#[track_caller]
 pub fn avatar(name: impl IntoText) -> Avatar {
     let name = name.into_text_value();
     Avatar {
@@ -46,7 +47,6 @@ pub fn avatar(name: impl IntoText) -> Avatar {
         status: None::<Tone>.into_value(),
         status_content: None,
         name_tooltip: None,
-        variants: Variants::default(),
     }
 }
 impl Avatar {
@@ -56,22 +56,27 @@ impl Avatar {
         self
     }
 
+    #[track_caller]
     pub fn src(mut self, src: impl IntoValue<Option<Asset>>) -> Self {
         self.src = src.into_value();
         self
     }
+    #[track_caller]
     pub fn fallback_src(mut self, src: impl IntoValue<Option<Asset>>) -> Self {
         self.fallback = src.into_value();
         self
     }
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
+    #[track_caller]
     pub fn shape(mut self, shape: impl IntoValue<AvatarShape>) -> Self {
         self.shape = shape.into_value();
         self
     }
+    #[track_caller]
     pub fn status(mut self, status: impl IntoValue<Option<Tone>>) -> Self {
         self.status = status.into_value();
         self
@@ -80,29 +85,11 @@ impl Avatar {
         self.status_content = Some(content.into_view());
         self
     }
-    /// Show the avatar's name in a tooltip, or not. Without this the theme decides ([`AvatarTokens::name_tooltip`](crate::AvatarTokens::name_tooltip)).
+    /// Show the avatar's name in a tooltip, or not. Without this the theme decides (the `name_tooltip` setting of [`AvatarTheme`](crate::theme::AvatarTheme)).
+    #[track_caller]
     pub fn name_tooltip(mut self, show: impl IntoValue<bool>) -> Self {
         self.name_tooltip = Some(show.into_value());
         self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
-        let f = kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(f),
-        );
-        self.root = self
-            .root
-            .part(kivact_interaction::use_button().control())
-            .on_press(move || f.call(()));
-        self
-    }
-    pub fn on_open<M>(self, f: impl IntoHandler<(), M>) -> Self {
-        let mut result = self.on_press(f);
-        result.root = result.root.role(Role::Link);
-        result
     }
 }
 impl Element for Avatar {
@@ -154,6 +141,10 @@ fn fallback_view(name: Value<String>, content: Option<&ViewFn>) -> View {
 }
 impl IntoView for Avatar {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
+        if self.root.authored().has_press() {
+            self.root = self.root.part(kivact_interaction::use_button().control());
+        }
         let name = self.name;
         let accessible_name = self.root.accessible_name().unwrap_or(name);
         let status = self.status;
@@ -178,23 +169,23 @@ impl IntoView for Avatar {
         };
         let image = crate::layer::with_recipe_style(
             node().child(content),
-            |r| r.avatar_image_recipe(),
-            &self.variants,
+            |r: &AvatarTheme| r.image_recipe(),
+            &variants,
             state,
         );
-        let status_badge = status_badge(size, shape, status, &self.variants);
+        let status_badge = status_badge(size, shape, status, &variants);
         let status_content = self.status_content.map(|content| {
             crate::layer::with_recipe_style(
                 node().child(content),
-                |r| r.avatar_status_content_recipe(),
-                &self.variants,
+                |r: &AvatarTheme| r.status_content_recipe(),
+                &variants,
                 state,
             )
         });
         let root = crate::layer::with_base_recipe_style(
             self.root.name(label),
-            |r| r.avatar_recipe(),
-            &self.variants,
+            |r: &AvatarTheme| r.root_recipe(),
+            &variants,
             state,
         )
         .base_style(style().position(Position::Relative))
@@ -202,7 +193,7 @@ impl IntoView for Avatar {
         .child(status_content)
         .child(status_badge);
         match name_tooltip(self.name_tooltip) {
-            Some(show) => crate::tooltip(name).enabled(show).attach(root),
+            Some(show) => crate::tooltip(name, root).enabled(show).into_view(),
             None => root.into_view(),
         }
     }
@@ -211,10 +202,11 @@ impl IntoView for Avatar {
 /// The caller's choice, or the theme's default; `None` attaches no tooltip at all.
 fn name_tooltip(explicit: Option<Value<bool>>) -> Option<Value<bool>> {
     explicit.or_else(|| {
-        let tokens = kivact_core::style::use_theme()
+        let enabled = *kivact_core::style::use_theme()
             .get()
-            .ext::<crate::UiTokens>();
-        tokens.avatar.name_tooltip.then(|| true.into_value())
+            .ext::<crate::avatar::look::AvatarTheme>()
+            .name_tooltip_value();
+        enabled.then(|| true.into_value())
     })
 }
 
@@ -272,7 +264,7 @@ fn status_badge(
         move || {
             crate::layer::with_base_recipe_style(
                 node(),
-                |r| r.avatar_status_recipe(),
+                |r: &AvatarTheme| r.status_recipe(),
                 &variants,
                 move || AvatarState {
                     size: size.get(),

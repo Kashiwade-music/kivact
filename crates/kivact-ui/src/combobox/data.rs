@@ -1,9 +1,9 @@
 //! Role: Hold passive combobox construction inputs shared by configuration and rendering.
+use super::ComboboxMode;
 use crate::SelectPresentation;
-use crate::variants::Variants;
 use kivact_core::state::{ItemKey, Signal, Value};
 use kivact_core::view::Node;
-use kivact_interaction::{ComboboxMode, ListItem, Selection};
+use kivact_interaction::{ListItem, Selection};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::time::Duration;
@@ -16,7 +16,7 @@ pub(super) type Search<K> =
 /// Single choices show their label; multiple choices can be displayed as chips.
 pub struct Combobox<K: ItemKey> {
     pub(super) root: Node,
-    pub(super) label: Value<String>,
+    pub(super) label: Option<Value<String>>,
     pub(super) options: Value<Vec<ListItem<K>>>,
     pub(super) selection: Selection<K>,
     pub(super) query: Option<Signal<String>>,
@@ -33,5 +33,5 @@ pub struct Combobox<K: ItemKey> {
     pub(super) debounce: Value<Duration>,
     pub(super) exclude_selected: bool,
     pub(super) presentation: SelectPresentation,
-    pub(super) variants: Variants,
+    pub(super) at: &'static std::panic::Location<'static>,
 }

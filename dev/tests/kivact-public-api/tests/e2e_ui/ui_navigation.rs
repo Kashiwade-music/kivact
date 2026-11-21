@@ -161,3 +161,22 @@ fn navigation_actions_and_rich_panel_links_share_the_existing_close_owner() {
     assert!(screen.query_by_role(Role::Link, "Guide").is_none());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn a_navigation_link_runs_the_callers_press_and_closes_its_panel() {
+    let (screen, count) = mount(|| {
+        let count = signal(0usize);
+        (
+            count,
+            navigation_menu("Site").link("docs", "Docs", move || {
+                kivact::ui::navigation_menu_link("Guide")
+                    .on_press(move || count.update(|n| *n += 1))
+            }),
+        )
+    });
+    screen.get_by_role(Role::Button, "Docs").click();
+    screen.get_by_role(Role::Link, "Guide").click();
+    assert_eq!(count.get_untracked(), 1);
+    assert!(screen.query_by_role(Role::Link, "Guide").is_none());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

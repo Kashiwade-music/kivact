@@ -5,13 +5,15 @@ use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
     StickyEdges,
 };
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
-use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
+use crate::theme::{DataTableCellState, DataTableCheckState, DataTableRowState};
+use crate::{DataColumn, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
 use kivact_core::style::linear_gradient;
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
+use kivact_core::view::Variants;
 
 use kivact_core::geometry::Rect;
 use kivact_core::i18n::message_with;
@@ -277,13 +279,8 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .data_table
-                .sticky
-                .clone();
-            let width = paint.shadow_width;
+            let theme = use_theme().get();
+            let width = theme.get(&crate::data_table::look::STICKY_SHADOW_WIDTH_VAR);
             let boundary = visible.with(|columns| {
                 let mut pinned = columns
                     .iter()
@@ -297,7 +294,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             });
             let (before, after) = sticky.overflow.get();
             let show = boundary == Some(index) && if on_left { before } else { after };
-            let shadow = paint.shadow;
+            let shadow = theme.get(&crate::data_table::look::STICKY_SHADOW_VAR);
             let base = style()
                 .position(Position::Absolute)
                 .top(0)
@@ -323,7 +320,11 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             } else {
                 base.right(pct(100))
             };
-            if let Some(transition) = paint.shadow_transition.clone() {
+            if let Some(transition) = theme
+                .ext::<crate::data_table::look::DataTableTheme>()
+                .sticky_shadow_transition_value()
+                .clone()
+            {
                 base.transition(TransitionProp::All, transition)
             } else {
                 base
@@ -457,7 +458,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     let state = part.state();
     let mark = with_recipe_style(
         node(),
-        |r| r.data_table_recipes().sort_recipe(),
+        |r: &DataTableTheme| r.sort_recipe(),
         &grid.variants,
         move || state.get(),
     );
@@ -488,7 +489,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     }
     let header = with_recipe_style(
         header,
-        |r| r.data_table_recipes().header_recipe(),
+        |r: &DataTableTheme| r.header_recipe(),
         &grid.variants,
         move || state.get(),
     )
@@ -576,7 +577,7 @@ where
     let root = grid.navigation_cell(root, id.clone(), CHECK);
     let root = with_recipe_style(
         root,
-        |r| r.data_table_recipes().check_recipe(),
+        |r: &DataTableTheme| r.check_recipe(),
         &grid.variants,
         state,
     );
@@ -671,7 +672,7 @@ where
             .style(style().group())
             .part(part)
             .row_index(row_index),
-        |r| r.data_table_recipes().row_recipe(),
+        |r: &DataTableTheme| r.row_recipe(),
         &grid.variants,
         move || DataTableRowState {
             interaction: state.get(),
@@ -850,7 +851,7 @@ where
         .map(|color| memo(move || item.with(|row| color(row))));
     let cell = with_recipe_style(
         node,
-        |r| r.data_table_recipes().cell_recipe(),
+        |r: &DataTableTheme| r.cell_recipe(),
         &grid.variants,
         move || DataTableCellState {
             interaction: state.get(),

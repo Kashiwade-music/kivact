@@ -1,9 +1,16 @@
-//! Role: The chat thread recipe state, tokens, recipe table and default looks.
+//! Role: The chat thread recipe state, recipe table and default looks.
 use crate::look_common::column;
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
+use kivact_core::style::{Length, ThemeVar};
 use kivact_core::style::{Style, Theme, style};
+
+/// The distance from the end that still follows the newest message, in logical px.
+pub static FOLLOW_SLACK_VAR: ThemeVar<f64> = ThemeVar::new("chat_thread.follow_slack", 24.0);
+/// [`FOLLOW_SLACK_VAR`] as a length for a style.
+pub const FOLLOW_SLACK: Length = Length::var(&FOLLOW_SLACK_VAR);
+
 pub(crate) fn thread_root<S>(t: &Theme, s: &Look<S>) -> Style {
     column(t, s)
         .min_height(0)
@@ -29,7 +36,7 @@ pub struct ChatThreadState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatThread.
-    ChatThreadRecipes {
+    ChatThreadTheme {
         root(root_recipe): ChatThreadState = thread_root,
         viewport(viewport_recipe): ChatThreadState = viewport,
         content(content_recipe): ChatThreadState = crate::look_common::column,

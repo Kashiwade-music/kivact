@@ -3,7 +3,6 @@
 pub(crate) mod editing;
 pub(crate) mod gutter;
 pub(crate) mod look;
-pub(crate) mod tokens;
 mod view;
 
 pub use look::CodeCollapse;

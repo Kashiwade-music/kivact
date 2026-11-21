@@ -2,8 +2,8 @@
 
 use crate::chat_message::look::ChatAlign;
 use crate::chat_thread::look::ChatThreadState;
+use crate::chat_thread::look::ChatThreadTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
@@ -24,9 +24,9 @@ pub struct ChatThread {
     gap: Option<Value<f64>>,
     align: Value<ChatAlign>,
     scroll_button: Value<bool>,
-    variants: Variants,
 }
 /// Place children in a `Role::Log` with shared scroll-follow behavior.
+#[track_caller]
 pub fn chat_thread(children: impl IntoView) -> ChatThread {
     ChatThread {
         root: node().role(Role::Log),
@@ -40,7 +40,6 @@ pub fn chat_thread(children: impl IntoView) -> ChatThread {
         gap: None,
         align: ChatAlign::Start.into_value(),
         scroll_button: true.into_value(),
-        variants: Variants::default(),
     }
 }
 impl ChatThread {
@@ -51,6 +50,7 @@ impl ChatThread {
     }
     /// The history generation; change it in the batch that prepends earlier messages.
     /// Detached readers keep the same visible content when that generation changes.
+    #[track_caller]
     pub fn history_revision(mut self, revision: impl IntoValue<u64>) -> Self {
         self.history_revision = Some(revision.into_value());
         self
@@ -61,38 +61,39 @@ impl ChatThread {
         self
     }
     /// Show empty-log content when the caller's collection is empty.
+    #[track_caller]
     pub fn empty(mut self, when: impl IntoValue<bool>, content: impl IntoView) -> Self {
         self.empty = Some((when.into_value(), content.into_view()));
         self
     }
     /// Show an earlier-history loading status above the messages.
+    #[track_caller]
     pub fn loading_top(mut self, loading: impl IntoValue<bool>) -> Self {
         self.loading_top = loading.into_value();
         self
     }
     /// Show a typing indicator after the messages.
+    #[track_caller]
     pub fn streaming(mut self, streaming: impl IntoValue<bool>) -> Self {
         self.streaming = streaming.into_value();
         self
     }
     /// Set the spacing between children.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self
     }
     /// Align short history to the start or end of its viewport.
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<ChatAlign>) -> Self {
         self.align = align.into_value();
         self
     }
     /// Show the jump-to-end action while the reader is away from the end.
+    #[track_caller]
     pub fn scroll_button(mut self, shown: impl IntoValue<bool>) -> Self {
         self.scroll_button = shown.into_value();
-        self
-    }
-    /// Add an appearance read by every thread recipe.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -103,14 +104,12 @@ impl Element for ChatThread {
 }
 /// The chat thread's follow slack in the theme in effect (tracked).
 fn follow_slack() -> f64 {
-    kivact_core::style::use_theme()
-        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-        .chat
-        .follow_slack
+    kivact_core::style::use_theme().with(|t| t.get(&crate::chat_thread::look::FOLLOW_SLACK_VAR))
 }
 
 impl IntoView for ChatThread {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let viewport = self.viewport.unwrap_or_else(node_ref);
         let content = node_ref();
         let slack = follow_slack();
@@ -131,8 +130,8 @@ impl IntoView for ChatThread {
                 self.children,
                 typing,
             )),
-            |r| r.chat_thread_recipes().content_recipe(),
-            &self.variants,
+            |r: &ChatThreadTheme| r.content_recipe(),
+            &variants,
             state,
         )
         .style(move || {
@@ -154,8 +153,8 @@ impl IntoView for ChatThread {
             scroll(messages)
                 .axes(ScrollAxes::Vertical)
                 .node_ref(viewport),
-            |r| r.chat_thread_recipes().viewport_recipe(),
-            &self.variants,
+            |r: &ChatThreadTheme| r.viewport_recipe(),
+            &variants,
             state,
         );
         let shown = self.scroll_button;
@@ -169,22 +168,22 @@ impl IntoView for ChatThread {
             .hide_label(true)
             .hidden(move || !shown.get() || distance.get() <= slack)
             .on_press(move || follow.jump_to_end()),
-            |r| r.chat_thread_recipes().scroll_button_recipe(),
-            &self.variants,
+            |r: &ChatThreadTheme| r.scroll_button_recipe(),
+            &variants,
             state,
         );
         let composer = self.composer.map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.chat_thread_recipes().composer_recipe(),
-                &self.variants,
+                |r: &ChatThreadTheme| r.composer_recipe(),
+                &variants,
                 state,
             )
         });
         with_base_recipe_style(
             self.root,
-            |r| r.chat_thread_recipes().root_recipe(),
-            &self.variants,
+            |r: &ChatThreadTheme| r.root_recipe(),
+            &variants,
             state,
         )
         .child((viewport, jump, composer))

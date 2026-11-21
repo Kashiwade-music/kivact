@@ -2,59 +2,49 @@
 
 use crate::layer::with_recipe_style;
 use crate::tooltip::look::TooltipArrowState;
-use crate::variants::{Variant, Variants};
+use crate::tooltip::look::TooltipTheme;
 use kivact_core::geometry::Edge;
 use kivact_core::geometry::Rect;
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::view::{Element, node, text};
+use kivact_core::view::Variants;
+use kivact_core::view::{Element, Node, node, text};
 use kivact_core::view::{IntoView, NodeRef, OverlayAlign, Placement, View, node_ref, overlay};
 
-/// A themed hint for a trigger, created by [`tooltip`]; attach it with
-/// [`attach`](Tooltip::attach).
-pub struct Tooltip {
+/// A themed hint for a trigger, created by [`tooltip`]. The builder is the
+/// trigger's element: its modifiers, `.style(..)` and `.test_id(..)` among
+/// them, go to the trigger's root.
+pub struct Tooltip<T> {
+    trigger: T,
     label: Value<String>,
     enabled: Value<bool>,
     placement: Placement,
     align: Option<OverlayAlign>,
     offset: f64,
     content: Option<kivact_core::view::ViewFn>,
-    variants: Variants,
 }
-/// A tooltip that says `label`, shown above its trigger by default.
+/// A tooltip that says `label` for `trigger`, shown above it by default.
+/// The trigger stays the element the caller styles: `tooltip("Save",
+/// button("Save"))`.
 ///
 /// The timing, the one-at-a-time rule and the dismissal are
 /// [`use_tooltip`](kivact_interaction::use_tooltip)'s; this builder draws the
-/// surface with the theme's [`TooltipRecipes`](crate::TooltipRecipes) and
+/// surface with the theme's [`TooltipTheme`](crate::theme::TooltipTheme) and
 /// owns no timer.
-pub fn tooltip(label: impl IntoText) -> Tooltip {
+#[track_caller]
+pub fn tooltip<T: Element + IntoView>(label: impl IntoText, trigger: T) -> Tooltip<T> {
     Tooltip {
+        trigger,
         label: label.into_text_value(),
         enabled: true.into_value(),
         placement: Placement::Above,
         align: None,
         offset: 4.0,
         content: None,
-        variants: Variants::default(),
     }
 }
-impl Tooltip {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
-impl Tooltip {
+impl<T> Tooltip<T> {}
+impl<T> Tooltip<T> {
     /// Render rich caller content in a fresh tooltip owner on each opening.
     pub fn content<V: IntoView>(mut self, factory: impl kivact_core::view::IntoViewFn<V>) -> Self {
         self.content = Some(factory.into_view_fn());
@@ -62,6 +52,7 @@ impl Tooltip {
     }
 
     /// Only reveal the hint while enabled.
+    #[track_caller]
     pub fn enabled(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.enabled = enabled.into_value();
         self
@@ -84,12 +75,22 @@ impl Tooltip {
         self.placement = placement;
         self
     }
-    /// Show the hint for `trigger` and return the trigger with it. A trigger
+}
+
+impl<T: Element + IntoView> Element for Tooltip<T> {
+    fn node_mut(&mut self) -> &mut Node {
+        self.trigger.node_mut()
+    }
+}
+
+impl<T: Element + IntoView> IntoView for Tooltip<T> {
+    /// Show the hint for the trigger and return the trigger with it. A trigger
     /// without a description of its own is described by the label; one that
     /// has a description keeps it. The surface is mounted in a fresh owner
     /// while the tooltip is shown. Moving the pointer onto the hint keeps it
     /// shown until the pointer leaves both the trigger and the hint.
-    pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
+    fn into_view(mut self) -> View {
+        let variants = self.node_mut().authored().variants();
         let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
         let part = behavior.trigger();
         let anchor = node_ref();
@@ -101,7 +102,8 @@ impl Tooltip {
                 node.description(self.label)
             }
         });
-        let trigger = trigger
+        let trigger = self
+            .trigger
             .node_ref(anchor)
             .with_node(|node| node.part(part).part(fallback));
         let surface = kivact_core::view::show(behavior.is_open(), move || {
@@ -118,9 +120,9 @@ impl Tooltip {
                             || text(self.label).into_view(),
                             |factory| factory.call(()),
                         ))
-                        .child(arrow(anchor, placed, self.placement, &self.variants)),
-                    |r| r.tooltip_recipes().surface_recipe(),
-                    &self.variants,
+                        .child(arrow(anchor, placed, self.placement, &variants)),
+                    |r: &TooltipTheme| r.surface_recipe(),
+                    &variants,
                     move || state.get(),
                 ),
             )
@@ -138,7 +140,7 @@ impl Tooltip {
 }
 
 /// The arrow box of the surface bound to `placed`, styled by the theme's
-/// [`TooltipRecipes::arrow`](crate::TooltipRecipes) (by default an empty
+/// [`TooltipTheme::arrow`](crate::theme::TooltipTheme) (by default an empty
 /// box out of the layout).
 fn arrow(
     anchor: NodeRef,
@@ -151,7 +153,7 @@ fn arrow(
         kivact_core::state::memo(move || arrow_state(anchor.get(), placed.get(), requested));
     with_recipe_style(
         node(),
-        |r| r.tooltip_recipes().arrow_recipe(),
+        |r: &TooltipTheme| r.arrow_recipe(),
         variants,
         move || state.get(),
     )

@@ -1,5 +1,6 @@
 //! Role: The hover card builder, its open timing and its rendering.
 
+use crate::hover_card::look::HoverCardTheme;
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, effect_on, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
@@ -34,7 +35,7 @@ enum CardOpen {
 /// A floating preview with shared pointer corridor, focus, and dismissal behavior.
 pub struct HoverCard {
     content: ViewFn,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     placement: Value<Placement>,
     align: Value<OverlayAlign>,
     timing: HoverCardTiming,
@@ -45,10 +46,11 @@ pub struct HoverCard {
     on_open_change: Option<kivact_core::state::Callback<bool>>,
 }
 /// Build the preview content in a fresh owner each time it opens.
+#[track_caller]
 pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
     HoverCard {
         content: ViewFn::from(move |()| content()),
-        variants: crate::variants::Variants::default(),
+        variants: kivact_core::view::Variants::default(),
         placement: Placement::Below.into_value(),
         align: OverlayAlign::Center.into_value(),
         timing: use_theme().get().ext::<InteractionPolicy>().hover_card,
@@ -61,17 +63,19 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
 }
 impl HoverCard {
     /// Select a theme-specific visual treatment.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
+        self.variants = std::mem::take(&mut self.variants).with(variant);
         self
     }
 
     /// Choose a constant or reactive side of the trigger.
+    #[track_caller]
     pub fn placement(mut self, placement: impl IntoValue<Placement>) -> Self {
         self.placement = placement.into_value();
         self
     }
     /// Choose constant or reactive alignment along the trigger.
+    #[track_caller]
     pub fn align(mut self, align: impl IntoValue<OverlayAlign>) -> Self {
         self.align = align.into_value();
         self
@@ -101,6 +105,7 @@ impl HoverCard {
         self
     }
     /// Gate all opening requests with a reactive condition.
+    #[track_caller]
     pub fn enabled(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.enabled = enabled.into_value();
         self
@@ -111,6 +116,7 @@ impl HoverCard {
         self
     }
     /// Give interactive content a dialog role and accessible name.
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
         self
@@ -158,19 +164,18 @@ impl HoverCard {
             let state = part.state();
             let panel = crate::layer::with_recipe_style(
                 column(self.content.call(())).part(part),
-                |recipes| recipes.hover_card_recipes().surface_recipe(),
+                |r: &HoverCardTheme| r.surface_recipe(),
                 &self.variants,
                 move || state.get(),
             );
-            let tokens = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .hover_card
-                .clone();
             let layer = overlay(anchor, self.placement, panel)
                 .align(self.align)
-                .offset(tokens.offset)
-                .viewport_margin(tokens.viewport_margin)
+                .offset(use_theme().get().get(&crate::hover_card::look::OFFSET_VAR))
+                .viewport_margin(
+                    use_theme()
+                        .get()
+                        .get(&crate::hover_card::look::VIEWPORT_MARGIN_VAR),
+                )
                 .node_ref(card)
                 .on_dismiss(move |reason| {
                     if reason == kivact_core::view::DismissReason::Escape && card_focus.get() {

@@ -1,10 +1,10 @@
-//! Role: The chat message recipe state, tokens, recipe table and default looks.
+//! Role: The chat message recipe state, recipe table and default looks.
 use crate::look_common::{column, row};
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
-use crate::variants::Variant;
 use kivact_core::style::{Align, Justify, Style, Theme, pct, style};
+use kivact_core::view::Variant;
 use kivact_macros::Prop;
 pub(crate) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
     style()
@@ -42,7 +42,7 @@ pub(crate) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
     } else {
         base
     };
-    if s.variant::<ChatMessageVariant>() == Some(&ChatMessageVariant::Plain) {
+    if s.variant::<ChatMessageVariant>() == Some(ChatMessageVariant::Plain) {
         base
     } else {
         base.padding(t.get(&kivact_core::style::space::MD_VAR))
@@ -103,7 +103,7 @@ pub struct ChatMessageState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatMessage.
-    ChatMessageRecipes {
+    ChatMessageTheme {
         root(root_recipe): ChatMessageState = message_root,
         body(body_recipe): ChatMessageState = message_body,
         author(author_recipe): ChatMessageState = author,
@@ -141,7 +141,7 @@ pub enum ChatMessageStatus {
 }
 
 /// A built-in chat appearance, interpreted by recipes.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatMessageVariant {
     #[default]
     Bubble,

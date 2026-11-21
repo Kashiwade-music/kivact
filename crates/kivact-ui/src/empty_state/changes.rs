@@ -80,7 +80,7 @@ pub(super) fn observe(
     description: Option<Value<String>>,
     content: Node,
 ) -> View {
-    let notices = kivact_interaction::announcer();
+    let notices = kivact_interaction::use_announcer();
     let controller = machine(
         Phase::Mounting,
         || Controller,

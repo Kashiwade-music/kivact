@@ -1,12 +1,13 @@
 //! Role: The disclosure builder, its trigger and content rendering, and its motion.
 
-use crate::disclosure::tokens::DisclosureMotion;
+use crate::disclosure::look::DisclosureMotion;
+use crate::disclosure::look::DisclosureTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
 use kivact_core::state::IntoText;
 use kivact_core::state::{Signal, Value};
 use kivact_core::style::{TransitionProp, style, use_theme};
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, icon, node, text};
 use kivact_core::view::{IntoView, Orientation, View, show};
 use kivact_interaction::use_disclosure;
@@ -19,12 +20,12 @@ pub struct Disclosure {
     open: Signal<bool>,
     content: kivact_core::view::ViewFn,
     motion: DisclosureMotion,
-    variants: Variants,
+    inherited: Variants,
     always_open: bool,
     keep_mounted: bool,
     heading_level: Option<u32>,
     animation: Option<Value<bool>>,
-    group: Option<crate::DisclosureGroupPosition>,
+    group: Option<crate::theme::DisclosureGroupPosition>,
 }
 
 /// A section titled `title` that `open` opens and closes, showing what
@@ -36,7 +37,7 @@ pub struct Disclosure {
 /// section opens and dropped when it closes (unless
 /// [`keep_mounted`](Disclosure::keep_mounted)). Engine presence retains its
 /// exit paint until the closing motion finishes. The look
-/// is the theme's [`UiRecipes::disclosure`](crate::UiRecipes). A caller's
+/// is the theme's [`DisclosureTheme`](crate::theme::DisclosureTheme). A caller's
 /// `.disabled(..)` on the disclosure disables the trigger.
 ///
 /// An accordion is a column of disclosures over one list of open keys; each
@@ -77,11 +78,10 @@ pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) 
         content: kivact_core::view::ViewFn::from(|()| ()),
         motion: use_theme()
             .get()
-            .ext::<crate::UiTokens>()
-            .disclosure
-            .motion
+            .ext::<DisclosureTheme>()
+            .motion_value()
             .clone(),
-        variants: Variants::default(),
+        inherited: Variants::default(),
         always_open: false,
         keep_mounted: false,
         heading_level: None,
@@ -92,12 +92,21 @@ pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) 
 
 impl Disclosure {
     pub(crate) fn group_position(mut self, index: usize, count: usize) -> Self {
-        self.group = Some(crate::DisclosureGroupPosition { index, count });
+        self.group = Some(crate::theme::DisclosureGroupPosition { index, count });
         self
     }
+    /// The looks of the group this section is in; the section's own
+    /// `.variant(..)` values win over them.
     pub(crate) fn group_variants(mut self, variants: Variants) -> Self {
-        self.variants = self.variants.inherited(&variants);
+        self.inherited = variants;
         self
+    }
+
+    /// The group's looks with the section's own values over them.
+    fn looks(&self) -> Variants {
+        let mut looks = self.inherited.clone();
+        looks.merge(&self.root.authored().variants());
+        looks
     }
 
     pub(crate) fn heading(mut self, level: u32) -> Self {
@@ -125,6 +134,7 @@ impl Disclosure {
 
     /// Attach disclosure behavior to a caller-owned trigger.
     pub fn attach<T: Element + IntoView>(mut self, trigger: T) -> impl kivact_core::view::Element {
+        let variants = self.looks();
         let open = if self.always_open {
             kivact_core::state::binding(|| true, |_| ())
         } else {
@@ -141,7 +151,6 @@ impl Disclosure {
         let content = self.content;
         let motion = self.motion;
         let animation = self.animation;
-        let variants = self.variants;
         let group = self.group;
         let region =
             move || content_region(details, &content, &motion, animation, &variants, group);
@@ -164,23 +173,9 @@ impl Disclosure {
     /// Open and close by moving the content's height over 200 ms, a
     /// decorative motion that reduced motion skips (default: the content
     /// appears and disappears at once). A constant or reactive value.
+    #[track_caller]
     pub fn animated(mut self, animated: impl kivact_core::state::IntoValue<bool>) -> Self {
         self.animation = Some(animated.into_value());
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -194,6 +189,7 @@ impl Element for Disclosure {
 
 impl IntoView for Disclosure {
     fn into_view(mut self) -> View {
+        let variants = self.looks();
         let open = if self.always_open {
             kivact_core::state::binding(|| true, |_| ())
         } else {
@@ -210,20 +206,19 @@ impl IntoView for Disclosure {
         let shown = details.is_open();
         let motion = self.motion;
         let animation = self.animation;
-        let variants = self.variants;
         let group = self.group;
         let part = details.trigger();
         let state = part.state();
         let title = self.title;
         let indicator = with_recipe_style(
             node().child(icon("chevron-down")),
-            |recipes| recipes.disclosure_recipes().indicator_recipe(),
+            |r: &DisclosureTheme| r.indicator_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         );
         let trigger = with_recipe_style(
             node().part(part).name(title),
-            |recipes| recipes.disclosure_recipes().trigger_recipe(),
+            |r: &DisclosureTheme| r.trigger_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
@@ -251,7 +246,7 @@ impl IntoView for Disclosure {
         };
         with_base_recipe_style(
             self.root,
-            |recipes| recipes.disclosure_recipes().root_recipe(),
+            |r: &DisclosureTheme| r.root_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
@@ -267,13 +262,13 @@ fn content_region(
     motion: &DisclosureMotion,
     animation: Option<Value<bool>>,
     variants: &Variants,
-    group: Option<crate::DisclosureGroupPosition>,
+    group: Option<crate::theme::DisclosureGroupPosition>,
 ) -> Node {
     let part = details.content();
     let content_state = part.state();
     let region = with_recipe_style(
         node().part(part),
-        |recipes| recipes.disclosure_recipes().content_recipe(),
+        |r: &DisclosureTheme| r.content_recipe(),
         variants,
         move || {
             crate::disclosure::look::DisclosureRecipeState::from_part(content_state.get(), group)

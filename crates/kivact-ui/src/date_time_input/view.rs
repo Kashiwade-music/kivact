@@ -1,5 +1,6 @@
 //! Role: The date-time field's builder, its controller wiring and desktop picker.
 
+use crate::date_time_input::look::DateTimeInputTheme;
 use crate::date_time_input::model::{
     Controller, DateTimeFields, DateTimeInputState, Event, Panel, field_bindings,
 };
@@ -11,7 +12,6 @@ use kivact_core::view::{Element, IntoView, Node, View, column, node, row};
 /// A Gregorian date and wall-clock time, with no time zone conversion.
 pub struct DateTimeInput {
     root: Node,
-    variants: crate::variants::Variants,
     label: Value<String>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<DateTime>>,
@@ -23,11 +23,11 @@ pub struct DateTimeInput {
     seconds: Value<bool>,
 }
 /// Edit an optional local date and time.
-pub fn date_time_input(label: impl IntoText, value: Signal<Option<DateTime>>) -> DateTimeInput {
+#[track_caller]
+pub fn date_time_input(value: Signal<Option<DateTime>>) -> DateTimeInput {
     DateTimeInput {
         root: node(),
-        variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: message("date_time.open", "Choose date and time"),
         picker_label: None,
         value,
         format: DateStyle::Iso.into_value(),
@@ -39,33 +39,42 @@ pub fn date_time_input(label: impl IntoText, value: Signal<Option<DateTime>>) ->
     }
 }
 impl DateTimeInput {
+    /// The name of the date and time group and of its picker (default
+    /// "Choose date and time"). The date and the time fields are named by
+    /// their own messages.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = label.into_text_value();
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
     /// Date text format.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self
     }
     /// Earliest accepted date and time.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<DateTime>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted date and time.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<DateTime>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First weekday column.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -76,6 +85,7 @@ impl DateTimeInput {
         self
     }
     /// Format wall-clock precision independently of the date format.
+    #[track_caller]
     pub fn time_format(mut self, format: impl IntoValue<TimeStyle>) -> Self {
         let format = format.into_value();
         self.seconds = (move || format.get().seconds).into_value();
@@ -89,6 +99,7 @@ impl Element for DateTimeInput {
 }
 impl IntoView for DateTimeInput {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         if self.presentation.sheet() {
             return crate::date_time_input::sheet::render(crate::date_time_input::sheet::Inputs {
                 root: self.root,
@@ -100,12 +111,11 @@ impl IntoView for DateTimeInput {
                 max: self.max,
                 week_start: self.week_start,
                 seconds: self.seconds,
-                variants: self.variants,
+                variants,
             });
         }
         let Self {
             root,
-            variants,
             label,
             picker_label,
             value,
@@ -116,6 +126,7 @@ impl IntoView for DateTimeInput {
             presentation,
             seconds,
         } = self;
+        let variants = root.authored().variants();
         let DateTimeFields { date, time } = field_bindings(value, min, max);
         let editors = desktop_editors(
             DateTimeFields { date, time },
@@ -141,7 +152,7 @@ impl IntoView for DateTimeInput {
         );
         let root = crate::layer::with_base_recipe_style(
             root,
-            |r| r.date_time_input_recipes().root_recipe(),
+            |r: &DateTimeInputTheme| r.root_recipe(),
             &variants,
             kivact_core::custom::PartState::default,
         );
@@ -192,11 +203,12 @@ fn desktop_editors(
     max: Value<Option<DateTime>>,
     week_start: Option<Value<Weekday>>,
     presentation: DatePresentation,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Node {
     let DateTimeFields { date, time } = fields;
     let (format, seconds) = formats;
-    let mut date_field = date_input(message("date_time.date", "Date"), date)
+    let mut date_field = date_input(date)
+        .label(message("date_time.date", "Date"))
         .format(format)
         .min(move || min.get().map(|value| value.date))
         .max(move || max.get().map(|value| value.date))
@@ -205,7 +217,8 @@ fn desktop_editors(
     if let Some(day) = week_start {
         date_field = date_field.week_start(day);
     }
-    let time_field = time_input(message("date_time.time", "Time"), time)
+    let time_field = time_input(time)
+        .label(message("date_time.time", "Time"))
         .format(move || TimeStyle {
             seconds: seconds.get(),
         })

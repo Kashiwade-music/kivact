@@ -1,8 +1,8 @@
-//! Role: The chat composer recipe state, tokens, recipe table and default looks.
+//! Role: The chat composer recipe state, recipe table and default looks.
 use crate::look_common::{column, muted};
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Style, Theme, style};
 use kivact_macros::Prop;
 pub(crate) fn composer_surface(t: &Theme, s: &Look<ChatComposerState>) -> Style {
@@ -33,7 +33,7 @@ pub struct ChatComposerState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatComposer.
-    ChatComposerRecipes {
+    ChatComposerTheme {
         root(root_recipe): ChatComposerState = crate::look_common::column,
         surface(surface_recipe): ChatComposerState = composer_surface,
         input(input_recipe): ChatComposerState = input,

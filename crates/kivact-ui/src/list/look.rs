@@ -1,12 +1,13 @@
-//! Role: The list recipe state, tokens, recipe table and default looks.
+//! Role: The list recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::ListItemState;
 /// An item: its icon beside its label, the whole row marked while it is
 /// selected.
-pub(crate) fn list_item(t: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn list_item(t: &Theme, _: &Look<ListItemState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -20,7 +21,7 @@ pub(crate) fn list_item(t: &Theme, _: &ListItemState) -> Style {
 }
 
 /// The secondary line of an item with a description.
-pub(crate) fn list_description(t: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn list_description(t: &Theme, _: &Look<ListItemState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
@@ -28,7 +29,7 @@ pub(crate) fn list_description(t: &Theme, _: &ListItemState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`list`](super::list).
-    ListRecipes {
+    ListTheme {
         /// The column of items.
         root(root_recipe): PartState = crate::look_common::list,
         /// An item row: its icon, its label and its description.

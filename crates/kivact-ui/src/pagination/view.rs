@@ -1,6 +1,7 @@
 //! Role: The pagination builder, its page controls and summary rendering.
 
 use crate::pagination::look::PaginationSummary;
+use crate::pagination::look::PaginationTheme;
 use crate::pagination::look::{PageItem, PaginationMode};
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, memo};
 use kivact_core::view::{
@@ -26,7 +27,6 @@ pub struct Pagination {
     item: Option<PageSlot>,
     format: Rc<dyn Fn(usize) -> String>,
     summary: Option<SummarySlot>,
-    variants: crate::variants::Variants,
 }
 enum PageCount {
     Pages(Value<usize>),
@@ -53,31 +53,35 @@ pub fn pagination(count: impl IntoValue<usize>, page: Signal<usize>) -> Paginati
         item: None,
         format: Rc::new(|n| n.to_string()),
         summary: None,
-        variants: crate::variants::Variants::default(),
     }
 }
 impl Pagination {
     /// Neighbours shown on either side of the current page.
+    #[track_caller]
     pub fn siblings(mut self, value: impl IntoValue<usize>) -> Self {
         self.siblings = value.into_value();
         self
     }
     /// Show explicit first and last controls.
+    #[track_caller]
     pub fn first_last(mut self, value: impl IntoValue<bool>) -> Self {
         self.first_last = value.into_value();
         self
     }
     /// Pages moved by previous and next controls.
+    #[track_caller]
     pub fn step(mut self, value: impl IntoValue<usize>) -> Self {
         self.step = value.into_value();
         self
     }
     /// Permit forward navigation when the total is not yet known.
+    #[track_caller]
     pub fn has_more(mut self, value: impl IntoValue<bool>) -> Self {
         self.has_more = value.into_value();
         self
     }
     /// Derive page count from an item total and the configured page size.
+    #[track_caller]
     pub fn total_items(mut self, value: impl IntoValue<u64>) -> Self {
         self.count = PageCount::Items(value.into_value());
         self
@@ -88,11 +92,13 @@ impl Pagination {
         self
     }
     /// Offer these page sizes in a select control.
+    #[track_caller]
     pub fn page_size_options(mut self, values: impl IntoValue<Vec<u32>>) -> Self {
         self.size_options = values.into_value();
         self
     }
     /// Name the editable page field.
+    #[track_caller]
     pub fn page_label(mut self, value: impl IntoText) -> Self {
         self.page_label = value.into_text_value();
         self
@@ -123,11 +129,6 @@ impl Pagination {
         summary: impl Fn(Value<PaginationSummary>) -> V + 'static,
     ) -> Self {
         self.summary = Some(Rc::new(move |facts| summary(facts).into_view()));
-        self
-    }
-    /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -179,8 +180,8 @@ impl IntoView for Pagination {
             item,
             format,
             summary,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let disabled = root
             .accessible_disabled()
             .unwrap_or_else(|| false.into_value());
@@ -240,7 +241,7 @@ struct PageOptions {
     window: PaginationWindow,
     siblings: Value<usize>,
     first_last: Value<bool>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
 }
 fn page_control(
     cell: PageItem,
@@ -255,7 +256,7 @@ fn page_control(
     if matches!(cell, PageItem::Ellipsis) {
         return crate::layer::with_recipe_style(
             node().name(label),
-            |r| r.pagination_recipes().ellipsis_recipe(),
+            |r: &PaginationTheme| r.ellipsis_recipe(),
             &options.variants,
             || (),
         )
@@ -302,15 +303,15 @@ fn page_control(
     };
     crate::layer::with_recipe_style(
         control,
-        |r| r.pagination_recipes().item_recipe(),
+        |r: &PaginationTheme| r.item_recipe(),
         &options.variants,
-        move || crate::PaginationItemState {
+        move || crate::theme::PaginationItemState {
             current: selected.get(),
             item: cell,
             mode,
         },
     )
-    .child(body)
+    .children((body,))
     .into_view()
 }
 fn target_page(cell: PageItem, at: usize, last: usize, delta: usize) -> usize {
@@ -359,7 +360,6 @@ fn page_count(count: PageCount, page_size: Option<Signal<u32>>) -> Value<usize> 
 }
 fn size_selector(size: Signal<u32>, size_options: Value<Vec<u32>>, page: Signal<usize>) -> View {
     crate::select(
-        "Items per page",
         move || {
             size_options
                 .get()
@@ -378,6 +378,7 @@ fn size_selector(size: Signal<u32>, size_options: Value<Vec<u32>>, page: Signal<
             },
         ),
     )
+    .label("Items per page")
     .into_view()
 }
 
@@ -425,7 +426,7 @@ fn render_summary(
     slot: Option<SummarySlot>,
     mode: PaginationMode,
     facts: Value<PaginationSummary>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Option<View> {
     let content = if let Some(slot) = slot {
         slot(facts)
@@ -437,7 +438,7 @@ fn render_summary(
     Some(
         crate::layer::with_recipe_style(
             node().child(content),
-            |r| r.pagination_recipes().summary_recipe(),
+            |r: &PaginationTheme| r.summary_recipe(),
             variants,
             move || facts.get(),
         )
@@ -670,7 +671,7 @@ fn dot_controls(
                 "Page indicators",
             ))
             .child(dots),
-        |r| r.pagination_recipes().dots_recipe(),
+        |r: &PaginationTheme| r.dots_recipe(),
         &variants,
         || (),
     );
@@ -721,8 +722,8 @@ fn render_pagination(
     let input = (mode == PaginationMode::Input)
         .then(|| crate::pagination::draft::input(page, count, page_label, disabled));
     let input = input.map(|view| {
-        presentation_part(view, &variants, facts, |r| {
-            r.pagination_recipes().input_recipe()
+        presentation_part(view, &variants, facts, |r: &PaginationTheme| {
+            r.input_recipe()
         })
     });
     let sizes = page_size.map(|size| {
@@ -730,7 +731,7 @@ fn render_pagination(
             size_selector(size, size_options, page),
             &variants,
             facts,
-            |r| r.pagination_recipes().sizes_recipe(),
+            |r: &PaginationTheme| r.sizes_recipe(),
         )
     });
     let controls = render_controls(
@@ -744,8 +745,8 @@ fn render_pagination(
             input: input.map(IntoView::into_view),
         },
     );
-    let controls = presentation_part(controls, &variants, facts, |r| {
-        r.pagination_recipes().controls_recipe()
+    let controls = presentation_part(controls, &variants, facts, |r: &PaginationTheme| {
+        r.controls_recipe()
     });
     crate::layer::with_base_recipe_style(
         if mode == PaginationMode::Dots {
@@ -753,7 +754,7 @@ fn render_pagination(
         } else {
             root.roving_focus(Orientation::Horizontal)
         },
-        |r| r.pagination_recipes().root_recipe(),
+        |r: &PaginationTheme| r.root_recipe(),
         &variants,
         || (),
     )
@@ -764,9 +765,9 @@ fn render_pagination(
 
 fn presentation_part(
     content: impl IntoView,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     facts: Value<PaginationSummary>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<PaginationSummary>,
+    recipe: fn(&PaginationTheme) -> &crate::recipe::Recipe<PaginationSummary>,
 ) -> Node {
     crate::layer::with_recipe_style(node().child(content), recipe, variants, move || facts.get())
 }

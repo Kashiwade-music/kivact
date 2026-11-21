@@ -1,8 +1,8 @@
-//! Role: The date time input recipe state, tokens, recipe table and default looks.
+//! Role: The date time input recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 recipe_table! {
     /// The parts of a date-and-time field.
-    DateTimeInputRecipes { root(root_recipe): PartState = crate::date_parts::look::input, }
+    DateTimeInputTheme { root(root_recipe): PartState = crate::date_parts::look::input, }
 }

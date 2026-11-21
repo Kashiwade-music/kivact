@@ -2,7 +2,6 @@
 
 pub(crate) mod initials;
 pub(crate) mod look;
-pub(crate) mod tokens;
 mod view;
 
 pub use look::AvatarShape;

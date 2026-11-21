@@ -177,7 +177,9 @@ fn styles_body(
     column((
         row((
             text("Override scope").style(style().font_size(12.0)),
-            select("Override scope", scope_items(), scope_signal).style(style().width(230)),
+            select(scope_items(), scope_signal)
+                .label("Override scope")
+                .style(style().width(230)),
             button("Record change to review")
                 .disabled(move || session.inspected.with(Inspected::selected).is_none())
                 .on_press(move || record_change(session)),

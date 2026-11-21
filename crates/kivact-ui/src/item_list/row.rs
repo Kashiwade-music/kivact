@@ -1,13 +1,13 @@
 //! Role: Attach canonical row input and render independent item content slots.
 use crate::item_list::ItemListMarker;
 use crate::item_list::ItemPosition;
+use crate::item_list::look::ItemListTheme;
 use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, part};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Style, TextOverflow, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoChildren, IntoView, Node, NodeRef, Role, View, node, node_ref, text,
 };
@@ -20,19 +20,16 @@ pub struct ItemRow {
 struct RowContents {
     title: Value<String>,
     title_content: Option<View>,
-    description: Option<Value<String>>,
     description_content: Option<View>,
     media: Option<View>,
     actions: Option<View>,
     header: Option<View>,
     footer: Option<View>,
     marker: Option<View>,
-    press: Option<Callback<()>>,
     delegate: Option<NodeRef>,
     position: Option<(Value<usize>, Value<usize>)>,
     title_lines: Option<Value<Option<u32>>>,
     description_lines: Option<Value<Option<u32>>>,
-    variants: Variants,
 }
 #[track_caller]
 pub fn item_row(title: impl IntoText) -> ItemRow {
@@ -42,19 +39,16 @@ pub fn item_row(title: impl IntoText) -> ItemRow {
         contents: RowContents {
             title,
             title_content: None,
-            description: None,
             description_content: None,
             media: None,
             actions: None,
             header: None,
             footer: None,
             marker: None,
-            press: None,
             delegate: None,
             position: None,
             title_lines: None,
             description_lines: None,
-            variants: Variants::default(),
         },
     }
 }
@@ -65,10 +59,6 @@ impl ItemRow {
     }
     pub fn actions(mut self, view: impl IntoView) -> Self {
         self.contents.actions = Some(view.into_view());
-        self
-    }
-    pub fn description(mut self, text: impl IntoText) -> Self {
-        self.contents.description = Some(text.into_text_value());
         self
     }
     pub fn title_content(mut self, view: impl IntoView) -> Self {
@@ -92,34 +82,27 @@ impl ItemRow {
         self.contents.marker = Some(view.into_view());
         self
     }
-    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
-        self.contents.press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(f),
-        ));
-        self
-    }
     /// Activate and focus the actual eligible target instead of making the row a tab stop.
     pub fn delegate_to(mut self, target: NodeRef) -> Self {
         self.contents.delegate = Some(target);
         self
     }
     /// Actual zero-based index and count for keyed reactive rows; overrides fixed-child context.
+    #[track_caller]
     pub fn position(mut self, index: impl IntoValue<usize>, count: impl IntoValue<usize>) -> Self {
         self.contents.position = Some((index.into_value(), count.into_value()));
         self
     }
     /// Limit actual plain title text; explicit None is unlimited, omission follows theme defaults.
+    #[track_caller]
     pub fn title_lines(mut self, lines: impl IntoValue<Option<u32>>) -> Self {
         self.contents.title_lines = Some(lines.into_value());
         self
     }
     /// Limit actual plain description text; custom content keeps its own layout.
+    #[track_caller]
     pub fn description_lines(mut self, lines: impl IntoValue<Option<u32>>) -> Self {
         self.contents.description_lines = Some(lines.into_value());
-        self
-    }
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.contents.variants.add(value);
         self
     }
 }
@@ -131,8 +114,13 @@ impl Element for ItemRow {
 impl IntoView for ItemRow {
     fn into_view(self) -> View {
         let Self { root, contents } = self;
+        // The press and the description are the outer root's: the part's host
+        // is a node of its own, so they are read before the part is made.
+        let pressable = root.authored().has_press();
+        let description = root.authored().description();
+        let own = root.authored().variants();
         root.part(Part::new(().into_value(), move |root| {
-            contents.render(root)
+            contents.render(root, pressable, description, own)
         }))
         .into_view()
     }
@@ -145,28 +133,36 @@ impl RowRender {
     fn wrap(
         &self,
         view: impl IntoView,
-        pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ItemRowState>,
+        pick: fn(&ItemListTheme) -> &crate::recipe::Recipe<ItemRowState>,
     ) -> Node {
         self.wrap_children((view,), pick)
     }
     fn wrap_children(
         &self,
         children: impl IntoChildren,
-        pick: fn(&crate::recipes::UiRecipes) -> &crate::Recipe<ItemRowState>,
+        pick: fn(&ItemListTheme) -> &crate::theme::Recipe<ItemRowState>,
     ) -> Node {
+        let variants = self.variants.clone();
         let state = self.state;
         with_base_recipe_style(
             node().child(children.into_views()),
             pick,
-            &self.variants,
+            &variants,
             move || state.get(),
         )
     }
 }
 impl RowContents {
-    fn render(mut self, mut root: Node) -> Node {
+    fn render(
+        mut self,
+        mut root: Node,
+        pressable: bool,
+        description: Option<Value<String>>,
+        own: Variants,
+    ) -> Node {
         let context = crate::item_list::context::current();
-        let variants = self.variants.clone().with_defaults(&context.variants);
+        let mut variants = context.variants.clone();
+        variants.merge(&own);
         let position = self.position;
         let fallback = context.position;
         let position = move || {
@@ -186,17 +182,18 @@ impl RowContents {
                 })
                 .set_size(move || position().map_or(0, |p| p.count.min(u32::MAX as usize) as u32));
         }
-        let actionable = self.press.is_some() || self.delegate.is_some();
+        // The delegate replaces the press.
+        let actionable = pressable || self.delegate.is_some();
         if let Some(target) = self.delegate {
             root = root.on_press(move || target.activate());
-        } else if let Some(press) = self.press {
-            root = root.focusable(true).on_press(move || press.call(()));
+        } else if pressable {
+            root = root.focusable(true);
         }
-        let has_description = self.description.is_some() || self.description_content.is_some();
+        let has_description = description.is_some() || self.description_content.is_some();
         let (title_lines, description_lines) = (self.title_lines, self.description_lines);
         let part = part(move |input| {
             let tokens = kivact_core::style::use_theme()
-                .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
+                .with(|t| t.ext::<crate::item_list::look::ItemListTheme>().clone());
             ItemRowState {
                 input,
                 has_description,
@@ -204,45 +201,49 @@ impl RowContents {
                 position: position(),
                 marker: context.marker.get(),
                 start: context.start.get(),
-                title_lines: title_lines.map_or(tokens.item_list.title_lines, |lines| lines.get()),
+                title_lines: title_lines.map_or(*tokens.title_lines_value(), |lines| lines.get()),
                 description_lines: description_lines
-                    .map_or(tokens.item_list.description_lines, |lines| lines.get()),
+                    .map_or(*tokens.description_lines_value(), |lines| lines.get()),
             }
         });
         let render = RowRender {
             state: part.state(),
             variants,
         };
-        let (content, description_ref) = self.content(&render);
+        let (content, description_ref) = self.content(&render, description);
         if let Some(reference) = description_ref {
             root = root.described_by(reference);
         }
         let marker = render_marker(self.marker, &render);
         let media = self
             .media
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().media_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.media_recipe()));
         let actions = self
             .actions
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().actions_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.actions_recipe()));
         let header = self
             .header
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().header_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.header_recipe()));
         let footer = self
             .footer
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().footer_recipe()));
-        let body = render.wrap_children((marker, media, content, actions), |r| {
-            r.item_list_recipes().body_recipe()
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.footer_recipe()));
+        let body = render.wrap_children((marker, media, content, actions), |r: &ItemListTheme| {
+            r.body_recipe()
         });
         let state = render.state;
         with_base_recipe_style(
             root.part(part),
-            |r| r.item_list_recipes().item_recipe(),
+            |r: &ItemListTheme| r.item_recipe(),
             &render.variants,
             move || state.get(),
         )
         .child((header, body, footer))
     }
-    fn content(&mut self, render: &RowRender) -> (Node, Option<NodeRef>) {
+    fn content(
+        &mut self,
+        render: &RowRender,
+        description: Option<Value<String>>,
+    ) -> (Node, Option<NodeRef>) {
         let state = render.state;
         let title = self.title;
         let title = render.wrap(
@@ -251,14 +252,14 @@ impl RowContents {
                     .style(move || line_style(state.get().title_lines))
                     .into_view()
             }),
-            |r| r.item_list_recipes().title_recipe(),
+            |r: &ItemListTheme| r.title_recipe(),
         );
         let reference = node_ref();
         let description = self
             .description_content
             .take()
             .or_else(|| {
-                self.description.take().map(|value| {
+                description.map(|value| {
                     text(value)
                         .style(move || line_style(state.get().description_lines))
                         .into_view()
@@ -266,14 +267,12 @@ impl RowContents {
             })
             .map(|view| {
                 render
-                    .wrap(view, |r| r.item_list_recipes().description_recipe())
+                    .wrap(view, |r: &ItemListTheme| r.description_recipe())
                     .node_ref(reference)
             });
         let reference = description.is_some().then_some(reference);
         (
-            render.wrap_children((title, description), |r| {
-                r.item_list_recipes().content_recipe()
-            }),
+            render.wrap_children((title, description), |r: &ItemListTheme| r.content_recipe()),
             reference,
         )
     }
@@ -312,6 +311,6 @@ fn render_marker(custom: Option<View>, render: &RowRender) -> Node {
                 })
                 .hidden(move || state.get().marker == ItemListMarker::None),
             ),
-        |r| r.item_list_recipes().marker_recipe(),
+        |r: &ItemListTheme| r.marker_recipe(),
     )
 }

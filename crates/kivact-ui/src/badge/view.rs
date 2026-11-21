@@ -1,9 +1,8 @@
 //! Role: The Badge builder and its icon, label and activation rendering.
 
-use crate::variants::Variants;
-use crate::{BadgeState, Variant};
-use kivact_core::state::IntoHandler;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value};
+use crate::badge::look::BadgeTheme;
+use crate::theme::BadgeState;
+use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
 use kivact_interaction::Tone;
 // xtask-allow(state): legacy: icon, trailing
@@ -11,30 +10,24 @@ pub struct Badge {
     root: Node,
     label: Value<String>,
     tone: Value<Tone>,
-    variants: Variants,
     icon: Option<View>,
     trailing: Option<View>,
-    on_press: Option<Callback<()>>,
 }
+#[track_caller]
 pub fn badge(label: impl IntoText) -> Badge {
     let label = label.into_text_value();
     Badge {
         root: row(()).name(label),
         label,
         tone: Tone::Neutral.into_value(),
-        variants: Variants::default(),
         icon: None,
         trailing: None,
-        on_press: None,
     }
 }
 impl Badge {
+    #[track_caller]
     pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
         self.tone = tone.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     pub fn icon(mut self, icon: impl IntoView) -> Self {
@@ -45,12 +38,6 @@ impl Badge {
         self.trailing = Some(icon.into_view());
         self
     }
-    pub fn on_press<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
-        self.on_press = Some(kivact_core::state::Callback::from_handler(
-            kivact_core::state::IntoHandler::into_handler(f),
-        ));
-        self
-    }
 }
 impl Element for Badge {
     fn node_mut(&mut self) -> &mut Node {
@@ -59,8 +46,9 @@ impl Element for Badge {
 }
 impl IntoView for Badge {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let tone = self.tone;
-        let actionable = self.on_press.is_some();
+        let actionable = self.root.authored().has_press();
         let leading_icon = self.icon.is_some();
         let trailing_icon = self.trailing.is_some();
         let part = kivact_core::custom::part(move |input| BadgeState {
@@ -72,22 +60,20 @@ impl IntoView for Badge {
         });
         let state = part.state();
         let mut root = self.root.part(part);
-        if let Some(on_press) = self.on_press {
-            root = root
-                .part(kivact_interaction::use_button().control())
-                .on_press(move || on_press.call(()));
+        if actionable {
+            root = root.part(kivact_interaction::use_button().control());
         }
         crate::layer::with_base_recipe_style(
             root,
-            |r| r.badge_recipe(),
-            &self.variants,
+            |r: &BadgeTheme| r.root_recipe(),
+            &variants,
             move || state.get(),
         )
         .child(self.icon)
         .child(crate::layer::with_recipe_style(
             text(self.label),
-            |r| r.badge_label_recipe(),
-            &self.variants,
+            |r: &BadgeTheme| r.label_recipe(),
+            &variants,
             move || state.get(),
         ))
         .child(self.trailing)

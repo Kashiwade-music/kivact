@@ -1,11 +1,12 @@
-//! Role: The splitter recipe state, tokens, recipe table and default looks.
+//! Role: The splitter recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::slider::look::AxisState;
+use crate::theme::Look;
 use kivact_core::style::{Cursor, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
 /// The handle: a hairline in a hit area wide enough to grab.
-pub(crate) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
+pub(crate) fn splitter_handle(_: &Theme, state: &Look<AxisState>) -> Style {
     let s = style()
         .flex_shrink(0)
         .flex_direction(FlexDirection::Row)
@@ -43,7 +44,7 @@ pub(crate) fn splitter_handle(_: &Theme, state: &AxisState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`splitter`](super::splitter).
-    SplitterRecipes {
+    SplitterTheme {
         /// The handle between the panes.
         handle(handle_recipe): AxisState = splitter_handle,
     }

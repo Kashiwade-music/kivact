@@ -1,12 +1,13 @@
 //! Role: Build the multiline composer, its key handling, and its send and stop slots.
 
 use crate::chat_composer::look::ChatComposerState;
+use crate::chat_composer::look::ChatComposerTheme;
 use crate::chat_composer::look::ComposerStatus;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::NodeRefExt;
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
@@ -32,9 +33,9 @@ pub struct ChatComposer {
     send_actions: Option<View>,
     send_icon: Option<View>,
     stop_icon: Option<View>,
-    variants: Variants,
 }
 /// Edit a draft; Enter submits, Shift+Enter inserts a newline, and IME owns composition keys.
+#[track_caller]
 pub fn chat_composer(value: Signal<String>) -> ChatComposer {
     ChatComposer {
         root: node(),
@@ -53,7 +54,6 @@ pub fn chat_composer(value: Signal<String>) -> ChatComposer {
         send_actions: None,
         send_icon: None,
         stop_icon: None,
-        variants: Variants::default(),
     }
 }
 impl ChatComposer {
@@ -70,33 +70,33 @@ impl ChatComposer {
         self
     }
     /// Replace Send with Stop while a response is in progress.
+    #[track_caller]
     pub fn stop_shown(mut self, shown: impl IntoValue<bool>) -> Self {
         self.stop_shown = shown.into_value();
         self
     }
     /// Set a localized draft hint.
+    #[track_caller]
     pub fn placeholder(mut self, hint: impl IntoText) -> Self {
         self.placeholder = hint.into_text_value();
         self
     }
     /// Enable recall of submitted drafts at the editor's Up and Down edges.
+    #[track_caller]
     pub fn history(mut self, enabled: impl IntoValue<bool>) -> Self {
         self.history = enabled.into_value();
         self
     }
     /// Set a validation diagnostic.
+    #[track_caller]
     pub fn status(mut self, status: impl IntoValue<Option<ComposerStatus>>) -> Self {
         self.status = status.into_value();
         self
     }
     /// Place diagnostics above or below the surface.
+    #[track_caller]
     pub fn status_position(mut self, position: impl IntoValue<ComposerStatusPosition>) -> Self {
         self.status_position = position.into_value();
-        self
-    }
-    /// Add an appearance read by every composer recipe.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     /// Fill the drawer slot.
@@ -172,24 +172,26 @@ impl ChatComposer {
         disabled: Value<bool>,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> (crate::TextInput, Callback<()>) {
+        let variants = self.root.authored().variants();
         let input_ref = node_ref();
         let history = crate::chat_composer::history::use_history(input_ref);
         let send = self.submission(disabled, history);
         let keep_history = self.history;
-        let input = crate::text_area(
-            kivact_core::i18n::message("chat_composer.input", "Message input"),
-            self.value,
-        )
-        .placeholder(self.placeholder)
-        .disabled(disabled)
-        .node_ref(input_ref)
-        .forward_keys(vec![Key::Enter])
-        .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
+        let input = crate::text_area(self.value)
+            .label(kivact_core::i18n::message(
+                "chat_composer.input",
+                "Message input",
+            ))
+            .placeholder(self.placeholder)
+            .disabled(disabled)
+            .node_ref(input_ref)
+            .forward_keys(vec![Key::Enter])
+            .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
         (
             with_recipe_style(
                 input,
-                |r| r.chat_composer_recipes().input_recipe(),
-                &self.variants,
+                |r: &ChatComposerTheme| r.input_recipe(),
+                &variants,
                 state,
             ),
             send,
@@ -201,6 +203,7 @@ impl ChatComposer {
         send: Callback<()>,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> crate::Button {
+        let variants = self.root.authored().variants();
         let stopped = self.stop_shown;
         let stop = self.on_stop;
         let submit = self.on_submit;
@@ -224,7 +227,7 @@ impl ChatComposer {
                     submit.is_none() || value.with(|v| v.trim().is_empty())
                 }
         })
-        .child((
+        .children((
             node().hidden(stopped).child(send_icon),
             node().hidden(move || !stopped.get()).child(stop_icon),
         ))
@@ -239,28 +242,29 @@ impl ChatComposer {
         });
         with_recipe_style(
             control,
-            |r| r.chat_composer_recipes().send_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.send_recipe(),
+            &variants,
             state,
         )
     }
     fn header(&mut self, state: impl Fn() -> ChatComposerState + Copy + 'static) -> Node {
+        let variants = self.root.authored().variants();
         let context = composer_slot(
             self.header_context.take(),
-            |r| r.chat_composer_recipes().header_context_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.header_context_recipe(),
+            &variants,
             state,
         );
         let actions = composer_slot(
             self.header_actions.take(),
-            |r| r.chat_composer_recipes().header_actions_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.header_actions_recipe(),
+            &variants,
             state,
         );
         with_recipe_style(
             node().child((context, actions)),
-            |r| r.chat_composer_recipes().header_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.header_recipe(),
+            &variants,
             state,
         )
     }
@@ -269,22 +273,23 @@ impl ChatComposer {
         control: crate::Button,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> Node {
+        let variants = self.root.authored().variants();
         let actions = composer_slot(
             self.footer_actions.take(),
-            |r| r.chat_composer_recipes().footer_actions_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.footer_actions_recipe(),
+            &variants,
             state,
         );
         let send_actions = composer_slot(
             self.send_actions.take(),
-            |r| r.chat_composer_recipes().send_actions_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.send_actions_recipe(),
+            &variants,
             state,
         );
         with_recipe_style(
             node().child((actions, send_actions, control)),
-            |r| r.chat_composer_recipes().footer_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.footer_recipe(),
+            &variants,
             state,
         )
     }
@@ -293,6 +298,7 @@ impl ChatComposer {
         side: ComposerStatusPosition,
         state: impl Fn() -> ChatComposerState + Copy + 'static,
     ) -> Node {
+        let variants = self.root.authored().variants();
         let status = self.status;
         let position = self.status_position;
         let diagnostic = text(move || {
@@ -305,15 +311,15 @@ impl ChatComposer {
         .hidden(move || status.with(Option::is_none) || position.get() != side);
         with_recipe_style(
             diagnostic,
-            |r| r.chat_composer_recipes().status_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.status_recipe(),
+            &variants,
             state,
         )
     }
 }
 fn composer_slot(
     view: Option<View>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ChatComposerState>,
+    recipe: fn(&ChatComposerTheme) -> &crate::recipe::Recipe<ChatComposerState>,
     variants: &Variants,
     state: impl Fn() -> ChatComposerState + Copy + 'static,
 ) -> Option<Node> {
@@ -358,6 +364,7 @@ fn composer_key(
 }
 impl IntoView for ChatComposer {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let stopped = self.stop_shown;
         let status = self.status;
         let state = move || ChatComposerState {
@@ -374,22 +381,22 @@ impl IntoView for ChatComposer {
         let footer = self.footer(control, state);
         let surface = with_recipe_style(
             node().child((header, input, footer)),
-            |r| r.chat_composer_recipes().surface_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.surface_recipe(),
+            &variants,
             state,
         );
         let top = self.diagnostic(ComposerStatusPosition::Top, state);
         let bottom = self.diagnostic(ComposerStatusPosition::Bottom, state);
         let drawer = composer_slot(
             self.drawer.take(),
-            |r| r.chat_composer_recipes().drawer_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.drawer_recipe(),
+            &variants,
             state,
         );
         with_base_recipe_style(
             self.root,
-            |r| r.chat_composer_recipes().root_recipe(),
-            &self.variants,
+            |r: &ChatComposerTheme| r.root_recipe(),
+            &variants,
             state,
         )
         .child((top, drawer, surface, bottom))

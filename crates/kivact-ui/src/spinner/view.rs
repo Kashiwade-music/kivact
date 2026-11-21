@@ -1,33 +1,30 @@
 //! Role: The spinner builder and its animated rendering.
 
-use crate::variants::{Variant, Variants};
-use crate::{ControlSize, SpinnerState};
+use crate::ControlSize;
+use crate::spinner::look::SpinnerTheme;
+use crate::theme::SpinnerState;
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node};
 pub struct Spinner {
     root: Node,
     size: Value<ControlSize>,
-    variants: Variants,
     label: Option<View>,
 }
+#[track_caller]
 pub fn spinner() -> Spinner {
     Spinner {
         root: node()
             .role(Role::Status)
             .name(kivact_core::i18n::message("spinner.loading", "Loading")),
         size: crate::control_size::default_control_size().into_value(),
-        variants: Variants::default(),
         label: None,
     }
 }
 impl Spinner {
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
     pub fn label_content(mut self, label: impl IntoView) -> Self {
@@ -42,26 +39,27 @@ impl Element for Spinner {
 }
 impl IntoView for Spinner {
     fn into_view(self) -> View {
-        let metrics = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .indicators
-            .clone();
+        let variants = self.root.authored().variants();
+        let theme = kivact_core::style::use_theme().get();
+        let period_ms = theme.get(&crate::spinner::look::PERIOD_MS_VAR);
+        let reduced_period = *theme
+            .ext::<crate::spinner::look::SpinnerTheme>()
+            .reduced_period_value();
         let size = self.size;
-        let variants = self.variants;
+        let variants = variants;
         let glyph = kivact_core::view::dynamic(
             move || {
                 let reduced = kivact_core::platform::is_motion_reduced().get();
-                let essential = reduced && metrics.reduced_period_ms.is_some();
+                let essential = reduced && reduced_period.is_some();
                 let period = if reduced {
-                    metrics.reduced_period_ms.unwrap_or(metrics.period_ms)
+                    reduced_period.unwrap_or(period_ms)
                 } else {
-                    metrics.period_ms
+                    period_ms
                 };
                 (period, essential)
             },
             move |(period, essential)| {
-                let transition =
-                    Transition::tween(period as f64, Easing::Linear).repeat(Repeat::Forever);
+                let transition = Transition::tween(period, Easing::Linear).repeat(Repeat::Forever);
                 let transition = if essential {
                     transition.essential()
                 } else {
@@ -70,7 +68,7 @@ impl IntoView for Spinner {
                 let turn = Animated::from(0.0, 360.0, transition);
                 crate::layer::with_base_recipe_style(
                     node(),
-                    |r| r.spinner_recipe(),
+                    |r: &SpinnerTheme| r.root_recipe(),
                     &variants,
                     move || SpinnerState {
                         size: size.get(),
@@ -85,12 +83,7 @@ impl IntoView for Spinner {
                     kivact_core::style::style()
                         .flex_direction(kivact_core::style::FlexDirection::Column)
                         .align_items(kivact_core::style::Align::Center)
-                        .gap(
-                            kivact_core::style::use_theme()
-                                .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-                                .indicators
-                                .gap,
-                        )
+                        .gap(crate::spinner::look::GAP)
                         .flex_shrink(0)
                 })
             })

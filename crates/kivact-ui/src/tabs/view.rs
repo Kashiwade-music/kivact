@@ -1,9 +1,10 @@
 //! Role: The tab list builder, its selection state and the selected panel.
-use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::tabs::look::TabsTheme;
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
 use kivact_core::style::use_theme;
+use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Orientation, View, dynamic, for_each, show};
 use kivact_interaction::TabState;
@@ -23,7 +24,6 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
     orientation: Orientation,
     item: Option<TabContent<K>>,
     content: Option<kivact_core::view::ViewFn<K>>,
-    variants: Variants,
     keep_mounted: bool,
 }
 /// A themed tab list whose selected key is `value`; give it
@@ -36,12 +36,13 @@ pub struct Tabs<K: kivact_core::state::ItemKey> {
 ///
 /// Each tab shows its item's icon and label; [`item`](Tabs::item) replaces
 /// what a tab shows, keeping its keys, semantics and recipe.
+#[track_caller]
 pub fn tabs<K: kivact_core::state::ItemKey>(
     label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
     value: kivact_core::state::Signal<K>,
 ) -> Tabs<K> {
-    let variants = Variants::default();
+    let _variants = Variants::default();
     Tabs {
         root: node().name(label),
         options: items.into_value(),
@@ -51,7 +52,6 @@ pub fn tabs<K: kivact_core::state::ItemKey>(
         orientation: Orientation::Horizontal,
         item: None,
         content: None,
-        variants,
         keep_mounted: false,
     }
 }
@@ -62,21 +62,6 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         f: impl Fn(kivact_core::view::EditPhase) -> R + 'static,
     ) -> Self {
         self.on_edit = Some(kivact_core::state::callback(f));
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -131,6 +116,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         self
     }
     fn into_list(self) -> (Node, Behavior<K>) {
+        let variants = self.root.authored().variants();
         let behavior = kivact_interaction::use_tabs(self.options, self.binding)
             .activation(self.activation)
             .orientation(self.orientation);
@@ -140,7 +126,8 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         let part = behavior.list();
         let list_state = part.state();
         let slot = self.item;
-        let variants = self.variants.clone();
+        let variants = variants.clone();
+        let label_variants = variants.clone();
         let labels = for_each(
             self.options,
             |item| item.key().clone(),
@@ -156,17 +143,13 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
                     )
                         .into_view(),
                 };
-                let indicator_variants = variants.clone();
+                let indicator_variants = label_variants.clone();
                 let indicator = show(
-                    || {
-                        recipes(&use_theme().get())
-                            .tabs_recipes()
-                            .has_custom_indicator()
-                    },
+                    || use_theme().get().ext::<TabsTheme>().has_custom_indicator(),
                     move || {
                         with_recipe_style(
                             node().hit_testable(false),
-                            |r| r.tabs_recipes().indicator_recipe(),
+                            |r: &TabsTheme| r.indicator_recipe(),
                             &indicator_variants,
                             move || state.get(),
                         )
@@ -174,8 +157,8 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
                 );
                 with_recipe_style(
                     node().part(part),
-                    |r| r.tabs_recipes().tab_recipe(),
-                    &variants,
+                    |r: &TabsTheme| r.tab_recipe(),
+                    &label_variants,
                     move || state.get(),
                 )
                 .child(content)
@@ -184,8 +167,8 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         );
         let root = with_base_recipe_style(
             self.root,
-            |r| r.tabs_recipes().list_recipe(),
-            &self.variants,
+            |r: &TabsTheme| r.list_recipe(),
+            &variants,
             move || list_state.get(),
         );
         let list = root.part(part).child(labels);
@@ -218,12 +201,13 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         self
     }
     fn with_panels(mut self) -> View {
+        let variants = self.root.authored().variants();
         let Some(factory) = self.content.take() else {
             return self.into_list().0.into_view();
         };
         let options = self.options;
         let vertical = self.orientation == Orientation::Vertical;
-        let variants = self.variants.clone();
+        let variants = variants.clone();
         let keep = self.keep_mounted;
         let (list, behavior) = self.into_list();
         let selected = behavior.selected();
@@ -244,7 +228,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
             let state = part.state();
             with_recipe_style(
                 node().part(part).name(name).child(factory.call(key)),
-                |r| r.tabs_recipes().panel_recipe(),
+                |r: &TabsTheme| r.panel_recipe(),
                 &variants,
                 move || state.get(),
             )

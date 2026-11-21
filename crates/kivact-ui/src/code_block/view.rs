@@ -1,13 +1,14 @@
 //! Role: Build the code block, its header, gutter, footer and copy behavior.
 
 use crate::code_block::look::CodeBlockState;
+use crate::code_block::look::CodeBlockTheme;
 use crate::code_block::look::CodeCollapse;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{Part, TextEditing, part};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, memo, signal};
 use kivact_core::style::{Length, StyledRange, style};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoView, Node, Orientation, Role, ScrollAxes, View, node, node_ref, scroll, show,
     text,
@@ -36,12 +37,12 @@ pub struct CodeBlock {
     collapsible_threshold: Value<usize>,
     expanded: Option<Signal<bool>>,
     highlight: Option<Highlight>,
-    variants: Variants,
 }
 type Highlight = Box<dyn Fn(TextEditing, Value<Vec<u32>>, Value<bool>) -> TextEditing>;
 /// Display `code` with native selection and a copy button.
 /// `line_numbers(true)` enables a reactive gutter; `.highlight(content, f)` uses
 /// the same content and cross-line state contract as `TextEditing::line_styles`.
+#[track_caller]
 pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
     let code = code.into_value();
     CodeBlock {
@@ -63,32 +64,36 @@ pub fn code_block(code: impl IntoValue<String>) -> CodeBlock {
         collapsible_threshold: 10usize.into_value(),
         expanded: None,
         highlight: None,
-        variants: Variants::default(),
     }
 }
 impl CodeBlock {
     /// Show a title in the header and use it as the editor's accessible name.
+    #[track_caller]
     pub fn title(mut self, title: impl IntoText) -> Self {
         self.title = Some(title.into_text_value());
         self
     }
     /// Set a display-only language label; syntax coloring is supplied by `highlight`.
+    #[track_caller]
     pub fn language(mut self, language: impl IntoText) -> Self {
         self.language = Some(language.into_text_value());
         self
     }
     /// Show or hide the language label without changing syntax coloring.
+    #[track_caller]
     pub fn language_label(mut self, on: impl IntoValue<bool>) -> Self {
         self.language_label = on.into_value();
         self
     }
     /// Number the source lines starting at one, constant or reactive.
+    #[track_caller]
     pub fn line_numbers(mut self, on: impl IntoValue<bool>) -> Self {
         self.line_numbers = on.into_value();
         self
     }
     /// Style each line with a content source and cross-line parser state.
     /// The callback is pure and has the `TextEditing::line_styles` contract.
+    #[track_caller]
     pub fn highlight<T, S, F>(mut self, content: impl IntoValue<T>, f: F) -> Self
     where
         T: Clone + PartialEq + 'static,
@@ -117,16 +122,19 @@ impl CodeBlock {
         self
     }
     /// Emphasize these one-based source line numbers.
+    #[track_caller]
     pub fn highlight_lines(mut self, lines: impl IntoValue<Vec<u32>>) -> Self {
         self.highlight_lines = lines.into_value();
         self
     }
     /// Color added and removed diff lines, keeping their original source text.
+    #[track_caller]
     pub fn diff(mut self, on: impl IntoValue<bool>) -> Self {
         self.diff = on.into_value();
         self
     }
     /// Show the whole-source copy action.
+    #[track_caller]
     pub fn copy_button(mut self, on: impl IntoValue<bool>) -> Self {
         self.copy_button = on.into_value();
         self
@@ -149,21 +157,25 @@ impl CodeBlock {
         self
     }
     /// Soft-wrap source at the available editor width.
+    #[track_caller]
     pub fn wrap(mut self, on: impl IntoValue<bool>) -> Self {
         self.wrap = on.into_value();
         self
     }
     /// Scroll source vertically beyond this height.
+    #[track_caller]
     pub fn max_height(mut self, height: impl IntoValue<Length>) -> Self {
         self.max_height = Some(height.into_value());
         self
     }
     /// Allow collapsing source with the header disclosure.
+    #[track_caller]
     pub fn collapsible(mut self, on: impl IntoValue<bool>) -> Self {
         self.collapsible = on.into_value();
         self
     }
     /// Only offer collapse when source has at least this many lines.
+    #[track_caller]
     pub fn collapsible_threshold(mut self, lines: impl IntoValue<usize>) -> Self {
         self.collapsible_threshold = lines.into_value();
         self
@@ -171,11 +183,6 @@ impl CodeBlock {
     /// Bind expanded source to the application; defaults to expanded.
     pub fn expanded(mut self, expanded: Signal<bool>) -> Self {
         self.expanded = Some(expanded);
-        self
-    }
-    /// Add an appearance read by all code recipes.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -216,9 +223,7 @@ impl CodeBlock {
         ));
         let open = disclosure.is_open();
         let duration = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .code_block
-            .copy_feedback_ms;
+            .with(|t| t.get(&crate::code_block::look::COPY_FEEDBACK_MS_VAR) as u64);
         let feedback = use_copy_feedback(Duration::from_millis(duration));
         let copied = feedback.is_copied();
         let numbered = self.line_numbers;
@@ -256,6 +261,7 @@ impl CodeBlock {
         }
     }
     fn copy_control(&self, presentation: &CodePresentation) -> crate::Button {
+        let variants = self.root.authored().variants();
         let copied = presentation.feedback.is_copied();
         let feedback = presentation.feedback;
         let code = self.code;
@@ -285,19 +291,20 @@ impl CodeBlock {
         });
         with_recipe_style(
             control,
-            |r| r.code_block_recipes().copy_recipe(),
-            &self.variants,
+            |r: &CodeBlockTheme| r.copy_recipe(),
+            &variants,
             move || state.get(),
         )
     }
     fn header(&mut self, presentation: &CodePresentation) -> Node {
+        let variants = self.root.authored().variants();
         let name = presentation.name;
         let state = presentation.state;
         let can_collapse = presentation.can_collapse;
         let label = with_recipe_style(
             text(name),
-            |r| r.code_block_recipes().title_recipe(),
-            &self.variants,
+            |r: &CodeBlockTheme| r.title_recipe(),
+            &variants,
             move || state.get(),
         );
         let trigger = with_recipe_style(
@@ -306,16 +313,16 @@ impl CodeBlock {
                 .name(name)
                 .child(text(name))
                 .hidden(move || !can_collapse.get()),
-            |r| r.code_block_recipes().collapse_recipe(),
-            &self.variants,
+            |r: &CodeBlockTheme| r.collapse_recipe(),
+            &variants,
             move || state.get(),
         );
         let language_shown = self.language_label;
         let language = self.language.map(|language| {
             with_recipe_style(
                 text(language).hidden(move || !language_shown.get()),
-                |r| r.code_block_recipes().language_recipe(),
-                &self.variants,
+                |r: &CodeBlockTheme| r.language_recipe(),
+                &variants,
                 move || state.get(),
             )
         });
@@ -336,8 +343,8 @@ impl CodeBlock {
         let end = self.end_content.take().map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.code_block_recipes().end_content_recipe(),
-                &self.variants,
+                |r: &CodeBlockTheme| r.end_content_recipe(),
+                &variants,
                 move || state.get(),
             )
         });
@@ -345,8 +352,8 @@ impl CodeBlock {
             node()
                 .child((label, trigger, language, end, copy, status))
                 .hidden(move || !state.get().has_header()),
-            |r| r.code_block_recipes().header_recipe(),
-            &self.variants,
+            |r: &CodeBlockTheme| r.header_recipe(),
+            &variants,
             move || state.get(),
         )
     }
@@ -357,11 +364,11 @@ impl CodeSource {
         let name = presentation.name;
         let disclosure = presentation.disclosure;
         let variants = variants.clone();
-        let motion = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .disclosure
-            .motion
-            .clone();
+        let motion = kivact_core::style::use_theme().with(|t| {
+            t.ext::<crate::disclosure::look::DisclosureTheme>()
+                .motion_value()
+                .clone()
+        });
         show(disclosure.is_open(), move || {
             node()
                 .part(disclosure.content())
@@ -402,14 +409,14 @@ impl CodeSource {
         let gutter = crate::code_block::gutter::gutter(reference, self.code, variants, state);
         let body = with_recipe_style(
             node().child((editor, gutter)),
-            |r| r.code_block_recipes().body_recipe(),
+            |r: &CodeBlockTheme| r.body_recipe(),
             variants,
             move || state.get(),
         );
         let max_height = self.max_height;
         with_recipe_style(
             scroll(body).axes(ScrollAxes::Both),
-            |r| r.code_block_recipes().viewport_recipe(),
+            |r: &CodeBlockTheme| r.viewport_recipe(),
             variants,
             move || state.get(),
         )
@@ -440,7 +447,7 @@ fn native_editor(
     (
         with_recipe_style(
             node().part(editor).node_ref(reference),
-            |r| r.code_block_recipes().code_recipe(),
+            |r: &CodeBlockTheme| r.code_recipe(),
             variants,
             move || state.get(),
         ),
@@ -449,14 +456,15 @@ fn native_editor(
 }
 impl IntoView for CodeBlock {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let presentation = self.presentation();
         let header = self.header(&presentation);
         let state = presentation.state;
         let footer = self.footer.take().map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.code_block_recipes().footer_recipe(),
-                &self.variants,
+                |r: &CodeBlockTheme| r.footer_recipe(),
+                &variants,
                 move || state.get(),
             )
         });
@@ -467,11 +475,11 @@ impl IntoView for CodeBlock {
             diff: self.diff,
             max_height: self.max_height,
         };
-        let viewport = source.render(&presentation, &self.variants);
+        let viewport = source.render(&presentation, &variants);
         with_base_recipe_style(
             self.root,
-            |r| r.code_block_recipes().root_recipe(),
-            &self.variants,
+            |r: &CodeBlockTheme| r.root_recipe(),
+            &variants,
             move || state.get(),
         )
         .child((header, viewport, footer))

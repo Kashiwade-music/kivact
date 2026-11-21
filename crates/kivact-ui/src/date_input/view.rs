@@ -1,5 +1,8 @@
 //! Role: Build an editable date and its keyboard-accessible picker.
 use super::machine::{DateField, DateValidation, Event, OpenedBy, Picker, Snapshot, TypedDate};
+use crate::date_input::look::DateInputTheme;
+use crate::dialog::DialogKind;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
@@ -7,7 +10,7 @@ use kivact_core::geometry::Edge;
 use kivact_core::i18n::{CalendarDate, DateStyle, Weekday, message, use_locale};
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, binding, machine};
 use kivact_core::view::{Element, Handled, IntoView, Key, KeyEvent, Node, View, icon, node, row};
-use kivact_interaction::DialogMode;
+use std::panic::Location;
 use std::rc::Rc;
 /// The surface used for date and time picking.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -25,11 +28,11 @@ impl DatePresentation {
             Self::BottomSheet => true,
         }
     }
-    pub(crate) fn mode(self) -> DialogMode {
+    pub(crate) fn mode(self) -> DialogKind {
         if self.sheet() {
-            DialogMode::Drawer(Edge::Bottom)
+            DialogKind::Drawer(Edge::Bottom)
         } else {
-            DialogMode::Popover
+            DialogKind::Popover
         }
     }
 }
@@ -37,8 +40,8 @@ impl DatePresentation {
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,
-    variants: crate::variants::Variants,
-    label: Value<String>,
+    inherited: kivact_core::view::Variants,
+    label: Option<Value<String>>,
     picker_label: Option<Value<String>>,
     value: Signal<Option<CalendarDate>>,
     format: Value<DateStyle>,
@@ -50,13 +53,16 @@ pub struct DateInput {
     week_start: Option<Value<Weekday>>,
     presentation: DatePresentation,
     configure: Option<Rc<dyn Fn(Calendar) -> Calendar>>,
+    at: &'static Location<'static>,
 }
 /// Edit an optional date. Enter commits valid text; Arrow Down opens the picker.
-pub fn date_input(label: impl IntoText, value: Signal<Option<CalendarDate>>) -> DateInput {
+/// Name it with [`label`](DateInput::label).
+#[track_caller]
+pub fn date_input(value: Signal<Option<CalendarDate>>) -> DateInput {
     DateInput {
+        inherited: kivact_core::view::Variants::default(),
         root: node(),
-        variants: crate::variants::Variants::default(),
-        label: label.into_text_value(),
+        label: None,
         picker_label: None,
         value,
         format: DateStyle::Iso.into_value(),
@@ -68,25 +74,32 @@ pub fn date_input(label: impl IntoText, value: Signal<Option<CalendarDate>>) -> 
         week_start: None,
         presentation: DatePresentation::Adaptive,
         configure: None,
+        at: Location::caller(),
     }
 }
 impl DateInput {
+    /// The editor's accessible name (and the title of the picker when it is
+    /// attached as a trigger). Inside a [`field`](crate::field) the field's
+    /// label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+
     /// Name the separate picker button independently of the text editor.
+    #[track_caller]
     pub fn picker_label(mut self, label: impl IntoText) -> Self {
         self.picker_label = Some(label.into_text_value());
         self
     }
 
-    /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-    pub(crate) fn with_variants(mut self, variants: &crate::variants::Variants) -> Self {
-        self.variants.merge(variants);
+    pub(crate) fn with_variants(mut self, variants: &kivact_core::view::Variants) -> Self {
+        self.inherited = variants.clone();
         self
     }
     /// Date text format, read reactively.
+    #[track_caller]
     pub fn format(mut self, format: impl IntoValue<DateStyle>) -> Self {
         self.format = format.into_value();
         self.custom_format = None;
@@ -98,6 +111,7 @@ impl DateInput {
         self
     }
     /// Text displayed while the optional value is empty.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = text.into_text_value();
         self
@@ -108,16 +122,19 @@ impl DateInput {
         self
     }
     /// Earliest accepted date.
+    #[track_caller]
     pub fn min(mut self, min: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.min = min.into_value();
         self
     }
     /// Latest accepted date.
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<Option<CalendarDate>>) -> Self {
         self.max = max.into_value();
         self
     }
     /// First column of the calendar.
+    #[track_caller]
     pub fn week_start(mut self, day: impl IntoValue<Weekday>) -> Self {
         self.week_start = Some(day.into_value());
         self
@@ -157,7 +174,6 @@ impl DateInput {
         }
         let Self {
             mut root,
-            variants,
             label,
             picker_label,
             value,
@@ -170,7 +186,13 @@ impl DateInput {
             week_start,
             presentation,
             configure,
+            at,
+            inherited,
         } = self;
+        let variants = crate::layer::own_and_inherited(&root, &inherited);
+        let named = is_named(&mut root) || label.is_some();
+        report_unnamed(named, "date_input", at);
+        let label = label.unwrap_or_else(|| String::new().into_value());
         let external_invalid = root.accessible_invalid();
         let described_by = root.accessible_described_by();
         let locale = use_locale();
@@ -225,7 +247,6 @@ impl DateInput {
     fn render_trigger(self, attach: crate::date_parts::trigger::AttachTrigger) -> View {
         let Self {
             root,
-            variants,
             label,
             value,
             valid,
@@ -234,8 +255,10 @@ impl DateInput {
             week_start,
             presentation,
             configure,
+            inherited,
             ..
         } = self;
+        let variants = crate::layer::own_and_inherited(&root, &inherited);
         let locale = use_locale();
         let (state, _announcement) = date_controller(value, valid, min, max, locale);
         let open = picker_open(state);
@@ -275,7 +298,7 @@ impl DateInput {
         };
         root.child(
             attach.view(
-                dialog(label, open)
+                dialog(label.unwrap_or_else(|| String::new().into_value()), open)
                     .with_variants(&variants)
                     .mode(presentation.mode())
                     .hide_title(true)
@@ -433,7 +456,8 @@ fn date_editor(
         external_invalid,
         described_by,
     } = inputs;
-    let mut field = text_input(label, draft)
+    let mut field = text_input(draft)
+        .label(label)
         .with_node(|node| node.described_by(error_ref))
         .placeholder(placeholder)
         .invalid(move || {
@@ -457,7 +481,7 @@ fn date_editor(
                 Handled::No
             }
         })
-        .on_draft_commit(move |text| {
+        .on_commit(move |text| {
             if let Some(date) = value.get_untracked().filter(|date| {
                 custom_format
                     .as_ref()
@@ -537,11 +561,11 @@ fn date_layout(
     picker: View,
     error: Node,
     announcement: Value<String>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> View {
     root.child(with_recipe_style(
         row((field, picker)),
-        |r| r.date_input_recipes().root_recipe(),
+        |r: &DateInputTheme| r.root_recipe(),
         variants,
         PartState::default,
     ))

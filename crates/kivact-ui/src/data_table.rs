@@ -8,7 +8,6 @@
 //! widths stay the caller's: the table keeps no copy of them.
 pub(crate) mod column;
 pub(crate) mod look;
-pub(crate) mod tokens;
 
 mod builder;
 mod chrome;
@@ -26,9 +25,6 @@ mod sticky_paint;
 mod tree;
 pub(crate) mod types;
 
-pub use crate::data_table::tokens::DataTableRowStatusPaint;
-pub use crate::data_table::tokens::DataTableStickyPaint;
-pub use crate::data_table::tokens::DataTableTokens;
 pub use builder::data_table;
 pub use filter_value::{FilterField, FilterUi};
 

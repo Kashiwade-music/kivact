@@ -1,7 +1,8 @@
-//! Role: The slider recipe state, tokens, recipe table and default looks.
+//! Role: The slider recipe state, recipe table and default looks.
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Cursor, Style, Theme, style};
 use kivact_core::view::Orientation;
@@ -20,7 +21,7 @@ pub(crate) fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
 
 /// The track: a thin rounded bar as tall as the thumb, so the thumb fits
 /// it; 160 px long when vertical.
-pub(crate) fn slider_track(t: &Theme, state: &AxisState) -> Style {
+pub(crate) fn slider_track(t: &Theme, state: &Look<AxisState>) -> Style {
     let (bar, thumb) = slider_metrics(t, state.size);
     let s = style().flex_shrink(0).cursor(Cursor::Pointer);
     // The bar is the box's middle third; its painted fill keeps the box's
@@ -41,7 +42,7 @@ pub(crate) fn slider_track(t: &Theme, state: &AxisState) -> Style {
 }
 
 /// The filled part of the track, in the accent.
-pub(crate) fn slider_range(t: &Theme, state: &AxisState) -> Style {
+pub(crate) fn slider_range(t: &Theme, state: &Look<AxisState>) -> Style {
     let (bar, _) = slider_metrics(t, state.size);
     style().paint(move |d, size| {
         let rect = if size.width >= size.height && size.height > 0.0 {
@@ -54,7 +55,7 @@ pub(crate) fn slider_range(t: &Theme, state: &AxisState) -> Style {
 }
 
 /// A round thumb on the surface, ringed in the accent.
-pub(crate) fn slider_thumb(t: &Theme, state: &AxisState) -> Style {
+pub(crate) fn slider_thumb(t: &Theme, state: &Look<AxisState>) -> Style {
     let (_, thumb) = slider_metrics(t, state.size);
     style()
         .size(thumb, thumb)
@@ -88,7 +89,7 @@ pub struct AxisState {
 recipe_table! {
     /// The recipes of a [`slider`](super::slider) and a
     /// [`range_slider`](super::range_slider).
-    SliderRecipes {
+    SliderTheme {
         /// The track the pointer moves along; the component places the
         /// range and the thumbs in it.
         track(track_recipe): AxisState = slider_track,

@@ -1,9 +1,11 @@
 //! Role: Date and wall-clock wheels share scalar keyboard, pointer and assistive editing.
+use crate::date_input::look::DateInputTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::Variants;
+use crate::time_input::look::TimeInputTheme;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, message};
 use kivact_core::state::{IntoValue, Signal, Value, binding, trigger};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     EditPhase, Element, Handled, Node, Role, WheelEvent, column, node, row, text,
 };
@@ -79,17 +81,22 @@ pub(crate) fn wheel(
             release.notify();
             Handled::Yes
         });
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<PartState> = if time {
-        |r| r.time_input_recipes().wheel_recipe()
+    let root = node().with_node(|n| n.role(Role::Group)).child(control);
+    if time {
+        with_recipe_style(
+            root,
+            |r: &TimeInputTheme| r.wheel_recipe(),
+            &Variants::default(),
+            PartState::default,
+        )
     } else {
-        |r| r.date_input_recipes().wheel_recipe()
-    };
-    with_recipe_style(
-        node().with_node(|n| n.role(Role::Group)).child(control),
-        pick,
-        &Variants::default(),
-        PartState::default,
-    )
+        with_recipe_style(
+            root,
+            |r: &DateInputTheme| r.wheel_recipe(),
+            &Variants::default(),
+            PartState::default,
+        )
+    }
 }
 pub(crate) fn time_panel(value: Signal<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
     let time = binding(
@@ -172,14 +179,12 @@ fn wheel_rows(
                 .hit_testable(false)
                 .style(move || {
                     let theme = kivact_core::style::use_theme().get();
-                    let tokens = theme.ext::<crate::UiTokens>();
-                    let tokens = if time {
-                        &tokens.time_input
-                    } else {
-                        &tokens.date_input
-                    };
                     kivact_core::style::style()
-                        .height(tokens.wheel_row_height)
+                        .height(if time {
+                            theme.get(&crate::time_input::look::WHEEL_ROW_HEIGHT_VAR)
+                        } else {
+                            theme.get(&crate::date_input::look::WHEEL_ROW_HEIGHT_VAR)
+                        })
                         .translate_y(settle_offset.get())
                         .opacity(if offset == 0 { 1.0 } else { 0.45 })
                         .font_weight(if offset == 0 { 600 } else { 400 })
@@ -228,10 +233,9 @@ fn wheel_drag(
 
 fn wheel_row_height(time: bool) -> f64 {
     let theme = kivact_core::style::use_theme().get();
-    let tokens = theme.ext::<crate::UiTokens>();
     if time {
-        tokens.time_input.wheel_row_height
+        theme.get(&crate::time_input::look::WHEEL_ROW_HEIGHT_VAR)
     } else {
-        tokens.date_input.wheel_row_height
+        theme.get(&crate::date_input::look::WHEEL_ROW_HEIGHT_VAR)
     }
 }

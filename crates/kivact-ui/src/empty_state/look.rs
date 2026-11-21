@@ -1,7 +1,7 @@
-//! Role: The empty state recipe state, tokens, recipe table and default looks.
+//! Role: The empty state recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, pct, style};
 pub(crate) fn empty_root(t: &Theme, _: &Look<EmptyStateState>) -> Style {
     style()
@@ -49,7 +49,7 @@ pub struct EmptyStateState {
 
 recipe_table! {
     /// Recipes for an empty region's message and actions.
-    EmptyStateRecipes {
+    EmptyStateTheme {
         root(root_recipe): EmptyStateState = empty_root,
         title(title_recipe): EmptyStateState = empty_title,
         description(description_recipe): EmptyStateState = empty_description,

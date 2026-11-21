@@ -1,8 +1,8 @@
 //! Role: The statistic builder, its label, value, delta and slots.
 
 use crate::layer::with_base_recipe_style;
+use crate::stat::look::StatTheme;
 use crate::stat::look::{StatState, Trend};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node, text};
 
@@ -18,7 +18,6 @@ pub struct Stat {
     chart: Option<View>,
     label_content: Option<View>,
     value_content: Option<View>,
-    variants: Variants,
 }
 /// Show application-formatted text as a statistic. Reactive text updates in place.
 #[track_caller]
@@ -33,16 +32,17 @@ pub fn stat(label: impl IntoText, value: impl IntoText) -> Stat {
         chart: None,
         label_content: None,
         value_content: None,
-        variants: Variants::default(),
     }
 }
 impl Stat {
     /// Show application-formatted change text; direction is set separately with [`Self::trend`].
+    #[track_caller]
     pub fn delta(mut self, value: impl IntoText) -> Self {
         self.delta = Some(value.into_text_value());
         self
     }
     /// Set the direction read by every recipe (neutral by default).
+    #[track_caller]
     pub fn trend(mut self, value: impl IntoValue<Trend>) -> Self {
         self.trend = value.into_value();
         self
@@ -67,11 +67,6 @@ impl Stat {
         self.value_content = Some(value.into_view());
         self
     }
-    /// Add an appearance read by every recipe of the statistic.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for Stat {
     fn node_mut(&mut self) -> &mut Node {
@@ -80,36 +75,35 @@ impl Element for Stat {
 }
 impl IntoView for Stat {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let trend = self.trend;
         let state = move || StatState { trend: trend.get() };
-        let variants = &self.variants;
-        let wrap = |view: View, pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StatState>| {
+        let variants = &variants;
+        let wrap = |view: View, pick: fn(&StatTheme) -> &crate::recipe::Recipe<StatState>| {
             with_base_recipe_style(node().child(view), pick, variants, state)
         };
         let label = wrap(
             self.label_content
                 .unwrap_or_else(|| text(self.label).into_view()),
-            |r| r.stat_recipes().label_recipe(),
+            |r: &StatTheme| r.label_recipe(),
         )
         .name(self.label);
         let value = wrap(
             self.value_content
                 .unwrap_or_else(|| text(self.value).into_view()),
-            |r| r.stat_recipes().value_recipe(),
+            |r: &StatTheme| r.value_recipe(),
         )
         .name(self.value);
         let delta = self
             .delta
-            .map(|v| wrap(text(v).into_view(), |r| r.stat_recipes().delta_recipe()));
-        let icon = self
-            .icon
-            .map(|v| wrap(v, |r| r.stat_recipes().icon_recipe()));
+            .map(|v| wrap(text(v).into_view(), |r: &StatTheme| r.delta_recipe()));
+        let icon = self.icon.map(|v| wrap(v, |r: &StatTheme| r.icon_recipe()));
         let chart = self
             .chart
-            .map(|v| wrap(v, |r| r.stat_recipes().chart_recipe()));
+            .map(|v| wrap(v, |r: &StatTheme| r.chart_recipe()));
         with_base_recipe_style(
             self.root.name(self.label).value_text(self.value),
-            |r| r.stat_recipes().root_recipe(),
+            |r: &StatTheme| r.root_recipe(),
             variants,
             state,
         )

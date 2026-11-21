@@ -9,6 +9,7 @@
 #![deny(unused_variables)]
 
 use kivact::Prop;
+use kivact::custom::Caller;
 use kivact::prelude::*;
 use kivact::test::render;
 use kivact::view::KeyCode;
@@ -506,5 +507,151 @@ fn a_generic_component_with_a_where_clause() {
     n.set(4);
     screen.run_until_idle();
     screen.get_by_text("4");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Prop)]
+enum Look3 {
+    Ghost,
+    Bold,
+}
+impl kivact::ui::theme::Variant for Look3 {}
+
+#[component]
+fn leaf(seen: Signal<Option<Look3>>, #[caller] caller: Caller) -> impl Element {
+    seen.set(caller.variants().get::<Look3>());
+    node()
+}
+#[component]
+fn inner(seen: Signal<Option<Look3>>) -> impl Element {
+    leaf(seen).variant(Look3::Ghost)
+}
+#[component]
+fn outer(seen: Signal<Option<Look3>>) -> impl Element {
+    inner(seen)
+}
+
+#[test]
+fn a_wrapper_default_variant_reaches_the_leaf_and_an_outer_variant_overrides_it() {
+    let (screen, (a, b)) = mount(|| {
+        let (a, b) = (signal(None), signal(None));
+        ((a, b), column((outer(a), outer(b).variant(Look3::Bold))))
+    });
+    assert_eq!(a.get_untracked(), Some(Look3::Ghost));
+    screen.run_until_idle();
+    assert_eq!(b.get_untracked(), Some(Look3::Bold));
+}
+
+#[test]
+fn a_variant_before_or_after_a_part_is_the_same_variant() {
+    let (screen, (a, b)) = mount(|| {
+        let (a, b) = (signal(None), signal(None));
+        let part = || {
+            kivact::custom::Part::new(
+                kivact::state::IntoValue::into_value(()),
+                |n: kivact::view::Node| n,
+            )
+        };
+        (
+            (a, b),
+            column((
+                leaf(a).variant(Look3::Bold).with_node(|n| n.part(part())),
+                leaf(b).with_node(|n| n.part(part())).variant(Look3::Bold),
+            )),
+        )
+    });
+    assert_eq!(a.get_untracked(), Some(Look3::Bold));
+    screen.run_until_idle();
+    assert_eq!(b.get_untracked(), Some(Look3::Bold));
+}
+
+#[test]
+fn a_busy_body_stays_disabled_under_the_callers_enabled_state() {
+    #[component]
+    fn busy_button(pressed: Signal<u32>) -> impl Element {
+        node()
+            .role(Role::Button)
+            .name("Busy")
+            .focusable(true)
+            .disabled(true)
+            .child(text("Busy"))
+            .on_press(move || pressed.update(|n| *n += 1))
+    }
+    let (screen, pressed) = mount(|| {
+        let pressed = signal(0);
+        (pressed, busy_button(pressed).disabled(false))
+    });
+    screen.run_until_idle();
+    assert!(screen.get_by_role(Role::Button, "Busy").is_disabled());
+    assert_eq!(pressed.get_untracked(), 0);
+}
+
+#[test]
+fn the_caller_snapshot_reports_a_press_handler_without_copying_it() {
+    #[component]
+    fn probe(seen: Signal<bool>, #[caller] caller: Caller) -> impl Element {
+        seen.set(caller.has_press());
+        node()
+    }
+    let (screen, (a, b)) = mount(|| {
+        let (a, b) = (signal(false), signal(true));
+        ((a, b), column((probe(a).on_press(|| {}), probe(b))))
+    });
+    screen.run_until_idle();
+    assert!(a.get_untracked());
+    assert!(!b.get_untracked());
+}
+
+#[test]
+fn a_function_prop_infers_its_closure_argument_types() {
+    #[component]
+    fn labels(
+        items: Value<Vec<u32>>,
+        render: Option<std::rc::Rc<dyn Fn(u32) -> View>>,
+    ) -> impl Element {
+        let render =
+            render.unwrap_or_else(|| std::rc::Rc::new(|n: u32| text(n.to_string()).into_view()));
+        row(items
+            .get_untracked()
+            .into_iter()
+            .map(|n| render(n))
+            .collect::<Vec<_>>())
+    }
+    let (screen, _) = mount(|| ((), labels(vec![1, 2]).render(|n| text(format!("#{n}")))));
+    assert!(screen.query_by_text("#2").is_some());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_type_parameter_prop_takes_its_argument_without_annotations() {
+    #[component]
+    fn labelled<C: Element + IntoView>(label: Value<String>, control: C) -> impl Element {
+        column((text(label), control))
+    }
+    #[component]
+    fn custom_input() -> impl Element {
+        node().role(Role::TextBox).name("Custom").focusable(true)
+    }
+    let (screen, _) = mount(|| ((), labelled("Name", custom_input())));
+    assert!(screen.query_by_text("Name").is_some());
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn lazy_children_are_made_inside_the_components_context() {
+    #[derive(Clone)]
+    struct Depth(u8);
+    #[component]
+    fn shelf(children: kivact::view::Children) -> impl Element {
+        column((kivact::state::provide(Depth(7), move || {
+            column(children.into_views())
+        }),))
+    }
+    #[component]
+    fn depth_text() -> impl Element {
+        text(use_context::<Depth>().0.to_string())
+    }
+    let (screen, _) = mount(|| ((), shelf((depth_text(),))));
+    assert!(screen.query_by_text("7").is_some());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

@@ -25,14 +25,12 @@ fn avatar_falls_back_to_initials_when_the_image_fails() {
 fn skeleton_stops_with_reduced_motion() {
     let samples = Arc::new(Mutex::new(Vec::new()));
     let recorded = samples.clone();
-    let recipes = ui::UiRecipes::default().skeleton(|previous| {
-        move |theme, state| {
-            recorded
-                .lock()
-                .expect("invariant: sample lock is healthy")
-                .push(state.pulse);
-            previous(theme, state)
-        }
+    let recipes = ui::theme::SkeletonTheme::default().root(move |_theme, state, base| {
+        recorded
+            .lock()
+            .expect("invariant: sample lock is healthy")
+            .push(state.pulse);
+        base
     });
     let screen = render_with(
         RenderOptions::default().theme(Theme::light().with(recipes)),

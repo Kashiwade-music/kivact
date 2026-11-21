@@ -33,7 +33,9 @@ fn app() -> impl IntoView {
 
     column((
         row((
-            text_input("New todo", draft).style(style().width(240)),
+            text_input(draft)
+                .label("New todo")
+                .style(style().width(240)),
             button("Add").on_press(add),
         ))
         .style(style().gap(8)),

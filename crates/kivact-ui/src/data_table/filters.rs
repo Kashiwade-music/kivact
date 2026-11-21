@@ -1,6 +1,7 @@
 //! Role: Render typed filters in table headers and commit validated drafts.
 use super::filter_value::{FilterField, FilterUi};
 use super::types::TypedFilters;
+use crate::dialog::DialogKind;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
@@ -10,8 +11,8 @@ use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
 use kivact_core::view::{column, icon, node, row};
+use kivact_interaction::FilterValue;
 use kivact_interaction::ListItem;
-use kivact_interaction::{DialogMode, FilterValue};
 
 #[derive(Clone, Copy)]
 pub(super) struct Filters {
@@ -112,7 +113,7 @@ fn popover(
         .node_ref(reference)
         .style(style().size(20, 20).min_width(0).min_height(0).padding(0));
     dialog(label, open)
-        .mode(DialogMode::Popover)
+        .mode(DialogKind::Popover)
         .placement(Placement::Below)
         .align(OverlayAlign::Start)
         .width(Length::from(240))
@@ -170,7 +171,8 @@ fn editor(
                     value.set(key.flatten().map(FilterValue::Choice))
                 },
             );
-            select(label, options, choice)
+            select(options, choice)
+                .label(label)
                 .keep_trigger_focus(true)
                 .size(size)
                 .style(style().width(pct(100)))
@@ -199,28 +201,26 @@ fn editor(
             column(controls).style(style().gap(4)).into_view()
         }
         FilterField::Tokens => {
-            let tags = memo(move || {
+            let tokens = memo(move || {
                 value.with(|value| match value {
                     Some(FilterValue::Tokens(tags)) => tags.clone(),
                     _ => Vec::new(),
                 })
             });
-            tag_input(label, tags)
-                .on_add(move |tag| {
-                    let mut next = tags.get_untracked();
-                    if !next.contains(&tag) {
-                        next.push(tag);
-                        value.set(Some(FilterValue::Tokens(next)));
+            // A token is added once: a repeated one is dropped on the write.
+            let tags = binding(
+                move || tokens.get(),
+                move |next: Vec<String>| {
+                    let mut unique: Vec<String> = Vec::with_capacity(next.len());
+                    for tag in next {
+                        if !unique.contains(&tag) {
+                            unique.push(tag);
+                        }
                     }
-                })
-                .on_remove(move |index| {
-                    let mut next = tags.get_untracked();
-                    if index < next.len() {
-                        next.remove(index);
-                        value.set((!next.is_empty()).then_some(FilterValue::Tokens(next)));
-                    }
-                })
-                .into_view()
+                    value.set((!unique.is_empty()).then_some(FilterValue::Tokens(unique)));
+                },
+            );
+            tag_input(tags).label(label).into_view()
         }
         field => return text_editor(field, label, value, size),
     };
@@ -311,7 +311,8 @@ fn text_editor(
         move || draft.get().text().to_owned(),
         move |text| draft.send(FilterEvent::Typed(text)),
     );
-    let view = text_input(label, draft)
+    let view = text_input(draft)
+        .label(label)
         .size(size)
         .placeholder(hint)
         .invalid(move || !valid.get())

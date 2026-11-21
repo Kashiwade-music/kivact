@@ -163,10 +163,12 @@ fn each_key_and_assistive_technology_write_is_its_own_edit() {
 #[test]
 fn every_value_writing_standard_component_reports_on_edit() {
     use kivact::interaction::ListItem;
-    use kivact::ui::{checkbox, select, switch, tabs, tag_input, toggle_button};
-    let logs = Rc::new(RefCell::new(vec![Vec::new(); 6]));
+    use kivact::ui::{
+        StepperItem, checkbox, select, stepper, switch, tabs, tag_input, toggle_button,
+    };
+    let logs = Rc::new(RefCell::new(vec![Vec::new(); 7]));
     let seen = logs.clone();
-    let (screen, (checked, switched, pressed, selected, tab, tags)) =
+    let (screen, (checked, switched, pressed, selected, tab, tags, step)) =
         mount_with(real_window(), move || {
             let checked = signal(false);
             let switched = signal(false);
@@ -174,22 +176,25 @@ fn every_value_writing_standard_component_reports_on_edit() {
             let selected = signal(Some("a"));
             let tab = signal("a");
             let tags = signal(Vec::<String>::new());
+            let step = signal(0usize);
             let observe = move |index: usize| {
                 let seen = seen.clone();
                 move |phase| seen.borrow_mut()[index].push(phase)
             };
             let options = vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")];
             (
-                (checked, switched, pressed, selected, tab, tags),
+                (checked, switched, pressed, selected, tab, tags, step),
                 column((
                     checkbox("Check", checked).on_edit(observe(0)),
                     switch("Switch", switched).on_edit(observe(1)),
                     toggle_button("Toggle", pressed).on_edit(observe(2)),
-                    select("Choose", options.clone(), selected).on_edit(observe(3)),
+                    select(options.clone(), selected)
+                        .label("Choose")
+                        .on_edit(observe(3)),
                     tabs("Pages", options, tab).on_edit(observe(4)),
-                    tag_input("Tags", tags)
-                        .on_add(move |tag| tags.update(|tags| tags.push(tag)))
-                        .on_edit(observe(5)),
+                    tag_input(tags).label("Tags").on_edit(observe(5)),
+                    stepper(vec![StepperItem::new("One"), StepperItem::new("Two")], step)
+                        .on_edit(observe(6)),
                 )),
             )
         });
@@ -201,15 +206,36 @@ fn every_value_writing_standard_component_reports_on_edit() {
     screen.get_by_role(Role::Tab, "Beta").click();
     screen.get_by_role(Role::TextBox, "Tags").type_text("new");
     screen.press_key(Key::Enter);
+    screen.get_by_role(Role::ListItem, "Two").click();
     assert!(checked.get_untracked());
     assert!(switched.get_untracked());
     assert!(pressed.get_untracked());
     assert_eq!(selected.get_untracked(), Some("b"));
     assert_eq!(tab.get_untracked(), "b");
     assert_eq!(tags.get_untracked(), ["new"]);
+    assert_eq!(step.get_untracked(), 1);
     for phases in logs.borrow().iter() {
         assert_eq!(*phases, [Begin, Commit]);
     }
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn stepper_reports_no_phase_for_an_outside_write() {
+    use kivact::ui::{StepperItem, stepper};
+    let logs = Rc::new(RefCell::new(Vec::<EditPhase>::new()));
+    let seen = logs.clone();
+    let (screen, step) = mount_with(real_window(), move || {
+        let step = signal(0usize);
+        (
+            step,
+            stepper(vec![StepperItem::new("One"), StepperItem::new("Two")], step)
+                .on_edit(move |phase| seen.borrow_mut().push(phase)),
+        )
+    });
+    step.set(1);
+    screen.run_until_idle();
+    assert!(logs.borrow().is_empty());
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
@@ -235,7 +261,8 @@ fn text_input_reports_edit_phases_from_the_native_editor() {
             value,
             column((
                 native,
-                kivact::ui::text_input("Standard", value)
+                kivact::ui::text_input(value)
+                    .label("Standard")
                     .on_edit(move |phase| ui_seen.borrow_mut()[1].push(phase)),
             )),
         )

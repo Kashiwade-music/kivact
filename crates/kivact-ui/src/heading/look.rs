@@ -1,6 +1,7 @@
-//! Role: The heading recipe state, tokens, recipe table and default looks.
+//! Role: The heading recipe state, recipe table and default looks.
 
-use crate::variants::Look;
+use crate::recipe::Look;
+use crate::recipe::recipe_table;
 use kivact_core::style::{Style, Theme, style};
 pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
     let scale = match s.level {
@@ -22,4 +23,11 @@ pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
 pub struct HeadingState {
     /// Heading level, clamped to 1 through 6.
     pub level: u8,
+}
+
+recipe_table! {
+    /// The recipes of a semantic heading.
+    HeadingTheme {
+        root(root_recipe): HeadingState = heading,
+    }
 }

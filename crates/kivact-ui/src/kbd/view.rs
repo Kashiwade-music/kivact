@@ -1,29 +1,24 @@
 //! Role: The kbd builders and their key-cap rendering.
 
-use crate::variants::{Variant, Variants};
+use crate::kbd::look::KbdTheme;
 use kivact_core::platform::capabilities;
 use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoView, Key, Modifiers, Node, Role, View, for_index, row, text,
 };
 pub struct Kbd {
     root: Node,
     keys: Value<String>,
-    variants: Variants,
 }
+#[track_caller]
 pub fn kbd(keys: impl IntoText) -> Kbd {
     Kbd {
         root: row(()).role(Role::Image),
         keys: keys.into_text_value(),
-        variants: Variants::default(),
     }
 }
-impl Kbd {
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-}
+impl Kbd {}
 impl Element for Kbd {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
@@ -31,6 +26,7 @@ impl Element for Kbd {
 }
 impl IntoView for Kbd {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let names = crate::kbd::labels::KeyNames::new();
         let platform = capabilities();
         let caps = (move || {
@@ -43,32 +39,28 @@ impl IntoView for Kbd {
                 .collect::<Vec<_>>()
         })
         .into_value();
-        render(self.root, caps, self.variants)
+        render(self.root, caps, variants)
     }
 }
 pub struct KbdCombo {
     root: Node,
     keys: Value<Vec<Key>>,
     modifiers: Value<Modifiers>,
-    variants: Variants,
 }
 /// Render typed keys. Use `.modifiers(..)` for a chord's physical modifiers;
 /// `meta` displays the platform command key from its capabilities.
+#[track_caller]
 pub fn kbd_combo(keys: impl IntoValue<Vec<Key>>) -> KbdCombo {
     KbdCombo {
         root: row(()).role(Role::Image),
         keys: keys.into_value(),
         modifiers: (move || Modifiers::default()).into_value(),
-        variants: Variants::default(),
     }
 }
 impl KbdCombo {
+    #[track_caller]
     pub fn modifiers(mut self, modifiers: impl IntoValue<Modifiers>) -> Self {
         self.modifiers = modifiers.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -79,6 +71,7 @@ impl Element for KbdCombo {
 }
 impl IntoView for KbdCombo {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let names = crate::kbd::labels::KeyNames::new();
         let platform = capabilities();
         let caps = (move || {
@@ -104,10 +97,10 @@ impl IntoView for KbdCombo {
             caps
         })
         .into_value();
-        render(self.root, caps, self.variants)
+        render(self.root, caps, variants)
     }
 }
-fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) -> View {
+fn render(root: Node, caps: Value<Vec<crate::theme::KbdKeyState>>, variants: Variants) -> View {
     let separator = kivact_core::i18n::message("kbd.separator", " + ");
     crate::layer::with_base_recipe_style(
         root.name(move || {
@@ -117,7 +110,7 @@ fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) 
                 .collect::<Vec<_>>()
                 .join(&separator.get())
         }),
-        |r| r.kbd_recipe(),
+        |r: &KbdTheme| r.root_recipe(),
         &variants,
         || (),
     )
@@ -126,7 +119,7 @@ fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) 
         move |_, cap| {
             crate::layer::with_base_recipe_style(
                 row(text(move || cap.get().glyph)),
-                |r| r.kbd_key_recipe(),
+                |r: &KbdTheme| r.key_recipe(),
                 &variants,
                 move || cap.get(),
             )

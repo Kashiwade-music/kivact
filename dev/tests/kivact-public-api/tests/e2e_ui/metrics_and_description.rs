@@ -1,11 +1,12 @@
 //! Role: Verify accessible metrics, headings and term-detail associations.
+use kivact::Prop;
 use kivact::prelude::*;
 use kivact::ui::{self, ProgressVariant, Trend};
 use kivact_public_api_tests::support::mount;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Prop)]
 struct CustomLook;
-impl ui::Variant for CustomLook {}
+impl ui::theme::Variant for CustomLook {}
 
 #[test]
 fn progress_ring_reports_its_value() {

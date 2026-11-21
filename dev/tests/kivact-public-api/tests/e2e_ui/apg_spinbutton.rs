@@ -12,7 +12,7 @@ fn spinbutton_step_buttons_keep_focus_on_the_editable_field() {
         (
             value,
             column((
-                ui::number_input("Quantity", value, ScalarRange::new(0.0, 10.0).unwrap()),
+                ui::number_input(value, ScalarRange::new(0.0, 10.0).unwrap()).label("Quantity"),
                 ui::button("Next"),
             )),
         )
@@ -36,7 +36,7 @@ fn spinbutton_invalid_typed_values_are_exposed_until_corrected_or_blurred() {
         (
             value,
             column((
-                ui::number_input("Quantity", value, ScalarRange::new(0.0, 10.0).unwrap()),
+                ui::number_input(value, ScalarRange::new(0.0, 10.0).unwrap()).label("Quantity"),
                 ui::button("Next"),
             )),
         )

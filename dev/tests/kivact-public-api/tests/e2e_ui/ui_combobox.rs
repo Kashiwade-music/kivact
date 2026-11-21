@@ -17,7 +17,8 @@ fn combobox_filters_options_and_selects_many_as_chips() {
         ]);
         (
             (chosen, options),
-            combobox("Colors", options, chosen)
+            combobox(options, chosen)
+                .label("Colors")
                 .chips()
                 .style(style().width(300)),
         )
@@ -50,10 +51,10 @@ fn select_touch_opens_the_sheet() {
         (
             chosen,
             select(
-                "Team",
                 vec![ListItem::new("a", "Alpha"), ListItem::new("b", "Beta")],
                 chosen,
             )
+            .label("Team")
             .presentation(SelectPresentation::BottomSheet)
             .style(style().width(280)),
         )
@@ -96,10 +97,10 @@ fn free_text_is_kept_when_the_list_closes() {
         (
             query,
             combobox(
-                "Fruit",
                 vec![ListItem::new("a", "Apple"), ListItem::new("b", "Banana")],
                 selected,
             )
+            .label("Fruit")
             .query(query)
             .free_text(),
         )

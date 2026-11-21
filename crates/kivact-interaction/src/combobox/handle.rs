@@ -37,12 +37,6 @@ use crate::{ListItem, ListItemState};
 
 type Filter<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 
-/// Structural presentation of a combobox list.
-#[derive(Clone, Copy)]
-pub enum ComboboxMode {
-    Inline,
-    Popup,
-}
 #[derive(Clone, Copy)]
 enum PresentationMode {
     Inline,

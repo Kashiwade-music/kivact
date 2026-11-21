@@ -1,6 +1,9 @@
 //! Role: The text input and text area builders and their editing state.
 
+use crate::text_input::look::TextAreaTheme;
+use crate::text_input::look::TextInputTheme;
 use kivact_core::style::use_theme;
+use std::panic::Location;
 
 use kivact_core::state::Signal;
 use kivact_core::state::{IntoText, IntoValue};
@@ -10,9 +13,9 @@ use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
 use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 
 use crate::control_size::ControlSize;
-use crate::layer::recipes;
+use crate::helpers::{is_named, report_unnamed};
 use crate::text_input::look::TextInputState;
-use crate::variants::{Variant, Variants};
+use kivact_core::view::Variants;
 
 /// A single-line text input with the theme's field look.
 ///
@@ -23,17 +26,17 @@ pub struct TextInput {
     field: Node,
     editing: TextEditApi,
     size: kivact_core::state::Value<ControlSize>,
-    variants: Variants,
     multiline: bool,
+    at: &'static Location<'static>,
 }
 
-/// A text input named `label` (its accessible name; a later `.name(..)`
-/// replaces it) that edits `value`: the text shown is the binding's, and
+/// A text input that edits `value`: the text shown is the signal's, and
 /// each committed edit (never an IME composition in progress) is written
-/// to it. Changes are observed through the binding: to run more code on
-/// each edit, pass `binding(read, write)` with that code in `write`.
+/// to it. Changes are observed through the signal: to run more code on
+/// each edit, pass `binding(read, write)` with that code in `write`. Name
+/// it with [`label`](TextInput::label), or with [`field`](crate::field).
 ///
-/// The look is the theme's [`UiRecipes::text_input`](crate::UiRecipes):
+/// The look is the theme's [`TextInputTheme::root`](crate::theme::TextInputTheme):
 /// a bordered, rounded field that draws a focus ring. Text is edited
 /// natively (caret, selection, IME, clipboard), with `Role::TextBox`.
 ///
@@ -43,26 +46,23 @@ pub struct TextInput {
 /// fn search() -> impl IntoView {
 ///     let query = signal(String::new());
 ///     column((
-///         text_input("Search", query).placeholder("Type to search"),
+///         text_input(query).label("Search").placeholder("Type to search"),
 ///         text(move || format!("Searching for {}", query.get())),
 ///     ))
 ///     .style(style().gap(8))
 /// }
 /// ```
 #[track_caller]
-pub fn text_input(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
-    create(label.into_text_value(), value, false)
+pub fn text_input(value: kivact_core::state::Signal<String>) -> TextInput {
+    create(value, false)
 }
 /// A controlled native multiline input with the theme's text-area recipe.
 #[track_caller]
-pub fn text_area(label: impl IntoText, value: kivact_core::state::Signal<String>) -> TextInput {
-    create(label.into_text_value(), value, true)
+pub fn text_area(value: kivact_core::state::Signal<String>) -> TextInput {
+    create(value, true)
 }
-fn create(
-    label: kivact_core::state::Value<String>,
-    value: Signal<String>,
-    multiline: bool,
-) -> TextInput {
+#[track_caller]
+fn create(value: Signal<String>, multiline: bool) -> TextInput {
     let size = crate::control_size::default_control_size().into_value();
     let editing = if multiline {
         use_text_area(value)
@@ -70,18 +70,26 @@ fn create(
         use_text_edit(value)
     };
     let part = editing.control();
-    let variants = Variants::default();
-    let field = node().name(label).part(part);
+    let _variants = Variants::default();
+    let field = node().part(part);
     TextInput {
         field,
         editing,
         size,
-        variants,
         multiline,
+        at: Location::caller(),
     }
 }
 
 impl TextInput {
+    /// The control's accessible name, read by assistive technology and not
+    /// drawn. Inside a [`field`](crate::field) the field's label names it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.field = self.field.name(label);
+        self
+    }
+
     /// Soft-wrap a text area's visual rows at its content width.
     pub fn wrap(mut self, on: impl IntoValue<bool>) -> Self {
         self.editing = self.editing.wrap(on);
@@ -96,21 +104,6 @@ impl TextInput {
                 .field
                 .style(kivact_core::style::style().height(kivact_core::style::auto()));
         }
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -135,6 +128,7 @@ impl TextInput {
     }
 
     /// The metrics (default [`ControlSize::Medium`]).
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
@@ -200,8 +194,8 @@ impl TextInput {
     ///     let draft = signal(name.get_untracked());
     ///     let editing = signal(true);
     ///     show(editing, move || {
-    ///         text_input("Name", draft)
-    ///             .on_draft_commit(move |text| name.set(text))
+    ///         text_input(draft).label("Name")
+    ///             .on_commit(move |text| name.set(text))
     ///             .on_edit(move |phase| {
     ///                 if phase != EditPhase::Begin {
     ///                     editing.set(false);
@@ -211,7 +205,7 @@ impl TextInput {
     /// }
     /// ```
     #[track_caller]
-    pub fn on_draft_commit<R: HandlerResult>(
+    pub fn on_commit<R: HandlerResult>(
         mut self,
         on_commit: impl Fn(String) -> R + 'static,
     ) -> Self {
@@ -219,7 +213,7 @@ impl TextInput {
         self
     }
 
-    /// Report each [`EditPhase`] of the draft ([`draft`](Self::on_draft_commit)):
+    /// Report each [`EditPhase`] of the draft ([`draft`](Self::on_commit)):
     /// `Begin` when it starts, then `Commit` or `Cancel`. Without a draft,
     /// native value changes each report `Begin` and `Commit`.
     #[track_caller]
@@ -229,7 +223,7 @@ impl TextInput {
     }
 
     /// Move the focus to `target` when Enter or Escape ends the draft
-    /// ([`draft`](Self::on_draft_commit)): the control the field was opened from.
+    /// ([`draft`](Self::on_commit)): the control the field was opened from.
     pub fn return_focus(mut self, target: NodeRef) -> Self {
         self.editing = self.editing.return_focus(target);
         self
@@ -257,6 +251,12 @@ impl Element for TextInput {
 
 impl IntoView for TextInput {
     fn into_view(mut self) -> View {
+        let what = if self.multiline {
+            "text_area"
+        } else {
+            "text_input"
+        };
+        report_unnamed(is_named(&mut self.field), what, self.at);
         let invalid = self
             .field
             .accessible_invalid()
@@ -264,23 +264,28 @@ impl IntoView for TextInput {
         let input = self.editing.control_state();
         let multiline = self.multiline;
         let size = self.size;
-        let look = self.variants;
+        let look = self.field.authored().variants();
         self.field = self.field.base_style(move || {
             let theme = use_theme().get();
-            let recipes = recipes(&theme);
-            let recipe = if multiline {
-                recipes.text_area_recipe()
-            } else {
-                recipes.text_input_recipe()
-            };
-            recipe(
-                &theme,
-                &look.look(TextInputState {
+            let state = crate::recipe::Look::of(
+                TextInputState {
                     input: input.get(),
                     size: size.get(),
                     invalid: invalid.get(),
-                }),
-            )
+                },
+                look.clone(),
+            );
+            if multiline {
+                theme
+                    .ext::<TextAreaTheme>()
+                    .root_recipe()
+                    .style(&theme, &state)
+            } else {
+                theme
+                    .ext::<TextInputTheme>()
+                    .root_recipe()
+                    .style(&theme, &state)
+            }
         });
         self.field.into_view()
     }

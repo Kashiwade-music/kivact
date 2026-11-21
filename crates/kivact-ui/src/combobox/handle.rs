@@ -1,14 +1,15 @@
 //! Role: Configure the standard keyed combobox family.
+use super::ComboboxMode;
 use super::data::Combobox;
 use crate::SelectPresentation;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, ItemKey, Signal};
 use kivact_core::view::{Element, IntoView, Node, View, node};
-use kivact_interaction::{ComboboxMode, IntoSelection, ListItem};
+use kivact_interaction::{IntoSelection, ListItem};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// A combobox named `label` over keyed `items`, editing the choices in `selected` (one or many).
+/// A combobox over keyed `items`, editing the choices in `selected` (one or many).
+/// Name it with [`label`](Combobox::label), or with [`field`](crate::field).
 ///
 /// Typing filters labels, arrows highlight enabled rows, and Enter chooses.
 /// Focus remains in the editor. Multiple selection toggles keys and Backspace
@@ -20,18 +21,17 @@ use std::time::Duration;
 /// use kivact::prelude::*;
 /// fn colors() -> impl IntoView {
 ///     let chosen = signal(Vec::<&str>::new());
-///     kivact::ui::combobox("Colors", vec![ListItem::new("red", "Red")], chosen).chips()
+///     kivact::ui::combobox(vec![ListItem::new("red", "Red")], chosen).label("Colors").chips()
 /// }
 /// ```
 #[track_caller]
 pub fn combobox<K: ItemKey>(
-    label: impl IntoText,
     items: impl IntoValue<Vec<ListItem<K>>>,
     selected: impl IntoSelection<K>,
 ) -> Combobox<K> {
     Combobox {
         root: node(),
-        label: label.into_text_value(),
+        label: None,
         options: items.into_value(),
         selection: selected.into_selection(),
         query: None,
@@ -48,10 +48,18 @@ pub fn combobox<K: ItemKey>(
         debounce: Duration::from_millis(150).into_value(),
         exclude_selected: false,
         presentation: SelectPresentation::Popover,
-        variants: Variants::default(),
+        at: std::panic::Location::caller(),
     }
 }
 impl<K: ItemKey> Combobox<K> {
+    /// The editor's accessible name. A name given to the root with `.name`
+    /// wins over it.
+    #[track_caller]
+    pub fn label(mut self, label: impl IntoText) -> Self {
+        self.label = Some(label.into_text_value());
+        self
+    }
+
     /// Observe each committed selection change.
     pub fn on_edit<R: kivact_core::view::HandlerResult>(
         mut self,
@@ -86,16 +94,19 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
     /// Hint shown while the editor is empty.
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
     }
     /// Message shown when no suggestion matches.
+    #[track_caller]
     pub fn empty_text(mut self, text: impl IntoText) -> Self {
         self.empty = Some(text.into_text_value());
         self
     }
     /// Show a clear button for a single choice.
+    #[track_caller]
     pub fn show_clear(mut self, show: impl IntoValue<bool>) -> Self {
         self.clear = show.into_value();
         self
@@ -116,6 +127,7 @@ impl<K: ItemKey> Combobox<K> {
         self
     }
     /// Delay before fetching typed suggestions; opening fetches immediately.
+    #[track_caller]
     pub fn debounce(mut self, delay: impl IntoValue<Duration>) -> Self {
         self.debounce = delay.into_value();
         self
@@ -128,11 +140,6 @@ impl<K: ItemKey> Combobox<K> {
     /// Choose an anchored popup or touch sheet.
     pub fn presentation(mut self, presentation: SelectPresentation) -> Self {
         self.presentation = presentation;
-        self
-    }
-    /// Supply a constant theme recipe variant.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }

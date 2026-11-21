@@ -9,7 +9,7 @@
 //! selected. A selected key that is not among the options stays in the
 //! binding, but the factory is not called for it. A kit's domain tab bar
 //! (close, reorder, icons, counters) moves and selects with the same
-//! interaction parts and draws its ordinary parts with `UiRecipes::tabs`.
+//! interaction parts and draws its ordinary parts with [`TabsTheme`](crate::theme::TabsTheme).
 pub(crate) mod look;
 mod view;
 

@@ -1,23 +1,44 @@
-//! Role: The navigation menu recipe state, tokens, recipe table and default looks.
+//! Role: The navigation menu recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The gap between the items of a navigation menu, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("navigation_menu.gap", 8.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
+/// The padding of a navigation menu, in logical px.
+pub static PADDING_VAR: ThemeVar<f64> = ThemeVar::new("navigation_menu.padding", 4.0);
+/// [`PADDING_VAR`] as a length for a style.
+pub const PADDING: Length = Length::var(&PADDING_VAR);
+
+/// The height of a navigation menu's controls, in logical px.
+pub static CONTROL_HEIGHT_VAR: ThemeVar<f64> =
+    ThemeVar::new("navigation_menu.control_height", 32.0);
+/// [`CONTROL_HEIGHT_VAR`] as a length for a style.
+pub const CONTROL_HEIGHT: Length = Length::var(&CONTROL_HEIGHT_VAR);
+
+/// The padding of a navigation menu's panel, in logical px.
+pub static PANEL_PADDING_VAR: ThemeVar<f64> = ThemeVar::new("navigation_menu.panel_padding", 8.0);
+/// [`PANEL_PADDING_VAR`] as a length for a style.
+pub const PANEL_PADDING: Length = Length::var(&PANEL_PADDING_VAR);
+
 pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
-    let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
         .flex_direction(FlexDirection::Row)
-        .gap(p.gap)
-        .padding(p.padding)
+        .gap(GAP)
+        .padding(PADDING)
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 
-pub(crate) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
-    let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
+pub(crate) fn panel(_: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
-        .padding(p.panel_padding)
+        .padding(PANEL_PADDING)
         .background(kivact_core::style::color::SURFACE)
         .border(1, kivact_core::style::color::BORDER)
 }
@@ -73,7 +94,7 @@ pub struct NavigationTriggerState {
 
 recipe_table! {
     /// Navigation landmark, panel trigger and panel surface recipes.
-    NavigationMenuRecipes {
+    NavigationMenuTheme {
         root(root_recipe): kivact_interaction::NavOpen = navigation_root,
         trigger(trigger_recipe): NavigationTriggerState = crate::look_common::part,
         action(action_recipe): kivact_interaction::NavOpen = action,

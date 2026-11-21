@@ -1,8 +1,8 @@
-//! Role: The input group recipe state, tokens, recipe table and default looks.
+//! Role: The input group recipe state, recipe table and default looks.
 
 use crate::control_size::ControlSize;
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::ReadingDirection;
 pub(crate) fn group_root(t: &Theme, _: &Look<InputGroupState>) -> Style {
@@ -121,7 +121,7 @@ impl Default for InputGroupState {
 
 recipe_table! {
     /// Recipes for a labelled group of controls and its text adornments.
-    InputGroupRecipes {
+    InputGroupTheme {
         root(root_recipe): InputGroupState = group_root,
         label(label_recipe): InputGroupState = group_label,
         members(members_recipe): InputGroupState = group_members,

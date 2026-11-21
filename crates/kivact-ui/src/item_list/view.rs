@@ -1,8 +1,8 @@
 //! Role: The item list builder, its child positions and its header rendering.
 
+use crate::item_list::look::ItemListTheme;
 use crate::item_list::look::{ItemListMarker, ItemPosition};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::part;
 use kivact_core::state::{IntoValue, Value, provide};
 use kivact_core::view::{Element, IntoChildren, IntoView, Node, Role, View, node, node_ref};
@@ -14,7 +14,6 @@ pub struct ItemList {
     header: Option<View>,
     marker: Value<ItemListMarker>,
     start: Value<u32>,
-    variants: Variants,
 }
 /// Group rows without introducing listbox selection or another interaction owner.
 #[track_caller]
@@ -25,7 +24,6 @@ pub fn item_list(children: impl IntoChildren) -> ItemList {
         header: None,
         marker: ItemListMarker::None.into_value(),
         start: 1u32.into_value(),
-        variants: Variants::default(),
     }
 }
 impl ItemList {
@@ -35,17 +33,15 @@ impl ItemList {
         self
     }
     /// Generate decorative markers from each actual row position.
+    #[track_caller]
     pub fn marker(mut self, marker: impl IntoValue<ItemListMarker>) -> Self {
         self.marker = marker.into_value();
         self
     }
     /// First number for decimal markers; position semantics remain one based.
+    #[track_caller]
     pub fn start(mut self, start: impl IntoValue<u32>) -> Self {
         self.start = start.into_value();
-        self
-    }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -56,14 +52,15 @@ impl Element for ItemList {
 }
 impl IntoView for ItemList {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let part = part(|s| s);
         let state = part.state();
         let header_ref = node_ref();
         let header = self.header.map(|header| {
             with_recipe_style(
                 node().role(Role::Group).node_ref(header_ref).child(header),
-                |r| r.item_list_recipes().list_header_recipe(),
-                &self.variants,
+                |r: &ItemListTheme| r.list_header_recipe(),
+                &variants,
                 move || state.get(),
             )
         });
@@ -71,7 +68,7 @@ impl IntoView for ItemList {
             self.root = self.root.labelled_by(header_ref);
         }
         let count = self.children.len();
-        let variants = self.variants.clone();
+        let variants = variants.clone();
         let children = self
             .children
             .into_iter()
@@ -90,8 +87,8 @@ impl IntoView for ItemList {
             .collect::<Vec<_>>();
         let list = with_base_recipe_style(
             self.root.part(part),
-            |r| r.item_list_recipes().root_recipe(),
-            &self.variants,
+            |r: &ItemListTheme| r.root_recipe(),
+            &variants,
             move || state.get(),
         )
         .child(children);

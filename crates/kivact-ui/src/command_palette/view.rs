@@ -1,7 +1,7 @@
 //! Role: Build the command palette modal, its search and command rows, and its footer.
 
+use crate::command_palette::look::CommandPaletteTheme;
 use crate::layer::with_recipe_style;
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoText, IntoValue};
@@ -11,6 +11,7 @@ use kivact_core::view::Element;
 use kivact_core::view::{
     HandlerResult, IntoView, KeyEvent, Placement, View, dynamic, for_each, node_ref, overlay, show,
 };
+use kivact_core::view::{Variant, Variants};
 use kivact_core::view::{column, icon, node, row, scroll, text};
 use kivact_interaction::{Command, use_command_palette, use_text_edit};
 use std::rc::Rc;
@@ -92,14 +93,14 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
     }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
     /// The value is a constant: the recipes read the values given before
     /// the component is mounted, and a value never changes afterwards.
     pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
+        self.variants = std::mem::take(&mut self.variants).with(v);
         self
     }
 
@@ -124,6 +125,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
 
     /// The text shown in the empty search field. The default is the message
     /// `palette.placeholder`, "Type a command or search...".
+    #[track_caller]
     pub fn placeholder(mut self, text: impl IntoText) -> Self {
         self.placeholder = Some(text.into_text_value());
         self
@@ -131,6 +133,7 @@ impl<K: kivact_core::state::ItemKey> CommandPalette<K> {
 
     /// The text shown when no command matches. The default is the message
     /// `palette.empty`, "No results found.".
+    #[track_caller]
     pub fn empty_text(mut self, text: impl IntoText) -> Self {
         self.empty = Some(text.into_text_value());
         self
@@ -178,7 +181,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                 let search = search_field(palette, placeholder, &variants);
                 let list = with_recipe_style(
                     scroll(column(groups).part(palette.list())),
-                    |r| r.command_palette_recipes().list_recipe(),
+                    |r: &CommandPaletteTheme| r.list_recipe(),
                     &variants,
                     plain,
                 );
@@ -187,7 +190,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                     move || {
                         with_recipe_style(
                             text(empty),
-                            |r| r.command_palette_recipes().empty_recipe(),
+                            |r: &CommandPaletteTheme| r.empty_recipe(),
                             &variants,
                             plain,
                         )
@@ -196,7 +199,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                 let footer = footer.map(|footer| {
                     with_recipe_style(
                         row(footer),
-                        |r| r.command_palette_recipes().footer_recipe(),
+                        |r: &CommandPaletteTheme| r.footer_recipe(),
                         &variants,
                         plain,
                     )
@@ -205,14 +208,14 @@ impl<K: kivact_core::state::ItemKey> IntoView for CommandPalette<K> {
                 let state = content.state();
                 let panel = with_recipe_style(
                     column((search, list, nothing, footer)),
-                    |r| r.command_palette_recipes().panel_recipe(),
+                    |r: &CommandPaletteTheme| r.panel_recipe(),
                     &variants,
                     move || state.get(),
                 );
                 (
                     with_recipe_style(
                         node(),
-                        |r| r.command_palette_recipes().scrim_recipe(),
+                        |r: &CommandPaletteTheme| r.scrim_recipe(),
                         &variants,
                         plain,
                     ),
@@ -241,7 +244,7 @@ fn row_view<K: kivact_core::state::ItemKey>(
             icon_of.map(|icon_of| {
                 with_recipe_style(
                     icon(icon_of),
-                    |r| r.command_palette_recipes().icon_recipe(),
+                    |r: &CommandPaletteTheme| r.icon_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -256,7 +259,7 @@ fn row_view<K: kivact_core::state::ItemKey>(
             hint.map(|hint| {
                 with_recipe_style(
                     text(hint),
-                    |r| r.command_palette_recipes().hint_recipe(),
+                    |r: &CommandPaletteTheme| r.hint_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -265,7 +268,7 @@ fn row_view<K: kivact_core::state::ItemKey>(
     });
     with_recipe_style(
         node().part(part).selected(active),
-        |r| r.command_palette_recipes().row_recipe(),
+        |r: &CommandPaletteTheme| r.row_recipe(),
         variants,
         move || state.get(),
     )
@@ -301,7 +304,7 @@ fn command_groups<K: kivact_core::state::ItemKey>(
                 column((
                     with_recipe_style(
                         text(move || heading.get()),
-                        |r| r.command_palette_recipes().group_recipe(),
+                        |r: &CommandPaletteTheme| r.group_recipe(),
                         &variants,
                         plain,
                     ),
@@ -329,7 +332,7 @@ fn search_field<K: kivact_core::state::ItemKey>(
                     .control(),
             )
             .part(palette.input()),
-        |r| r.command_palette_recipes().field_recipe(),
+        |r: &CommandPaletteTheme| r.field_recipe(),
         variants,
         plain,
     );
@@ -337,14 +340,14 @@ fn search_field<K: kivact_core::state::ItemKey>(
     let mark = use_theme().get().icons().get("search").map(|_| {
         with_recipe_style(
             icon(Icon::named("search")),
-            |r| r.command_palette_recipes().search_icon_recipe(),
+            |r: &CommandPaletteTheme| r.search_icon_recipe(),
             variants,
             plain,
         )
     });
     with_recipe_style(
         row((mark, field)),
-        |r| r.command_palette_recipes().search_recipe(),
+        |r: &CommandPaletteTheme| r.search_recipe(),
         variants,
         plain,
     )

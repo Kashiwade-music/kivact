@@ -1,8 +1,8 @@
 //! Role: The field builder that wires a label, hint and error to its control.
 
 use crate::field::look::FieldState;
+use crate::field::look::FieldTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Value, memo};
 use kivact_core::view::{Element, Node, node, text};
@@ -20,7 +20,6 @@ pub struct Field<C> {
     hint: Option<Value<String>>,
     required: Option<Value<bool>>,
     error: Option<Value<Option<String>>>,
-    variants: Variants,
 }
 
 /// A field showing `label` over `control` (a text input, a select, a
@@ -45,7 +44,7 @@ pub struct Field<C> {
 ///         let email = email.get();
 ///         (!email.is_empty() && !email.contains('@')).then(|| "Enter an email address".to_owned())
 ///     });
-///     field("Email", text_input("Email", email))
+///     field("Email", text_input(email).label("Email"))
 ///         .hint("We never share it")
 ///         .error(error)
 /// }
@@ -59,18 +58,19 @@ pub fn field<C: Element + IntoView>(label: impl IntoText, control: C) -> Field<C
         hint: None,
         required: None,
         error: None,
-        variants: Variants::default(),
     }
 }
 
 impl<C> Field<C> {
     /// Text under the control that describes it (`described_by`).
+    #[track_caller]
     pub fn hint(mut self, hint: impl IntoText) -> Self {
         self.hint = Some(hint.into_text_value());
         self
     }
 
     /// Report that the control requires a value. Validation is owned by the app.
+    #[track_caller]
     pub fn required(mut self, required: impl IntoValue<bool>) -> Self {
         self.required = Some(required.into_value());
         self
@@ -80,23 +80,9 @@ impl<C> Field<C> {
     /// is, the control is invalid (its own `invalid` value is kept: the
     /// control is invalid when either is), the label is drawn as an error
     /// and the message, a `Role::Alert`, describes the control.
+    #[track_caller]
     pub fn error(mut self, error: impl IntoValue<Option<String>>) -> Self {
         self.error = Some(error.into_value());
-        self
-    }
-
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
         self
     }
 }
@@ -117,8 +103,8 @@ impl<C: Element + IntoView> IntoView for Field<C> {
             hint,
             required,
             error,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         let (label_ref, hint_ref, error_ref, control_ref) =
             (node_ref(), node_ref(), node_ref(), node_ref());
         control = control
@@ -147,7 +133,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
                     .role(Role::Text)
                     .node_ref(label_ref)
                     .on_press(move || control_ref.activate()),
-                |recipes| recipes.field_recipes().label_recipe(),
+                |r: &FieldTheme| r.label_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -158,7 +144,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
             parts.push(
                 with_recipe_style(
                     text(hint).node_ref(hint_ref),
-                    |recipes| recipes.field_recipes().hint_recipe(),
+                    |r: &FieldTheme| r.hint_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -171,7 +157,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
                 show_some(error, move |message| {
                     with_recipe_style(
                         text(message).role(Role::Alert).node_ref(error_ref),
-                        |recipes| recipes.field_recipes().error_recipe(),
+                        |r: &FieldTheme| r.error_recipe(),
                         &variants,
                         move || state.get(),
                     )
@@ -181,7 +167,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
         }
         with_base_recipe_style(
             root,
-            |recipes| recipes.field_recipes().root_recipe(),
+            |r: &FieldTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )

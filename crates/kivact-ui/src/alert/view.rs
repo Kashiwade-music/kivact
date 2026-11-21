@@ -1,15 +1,16 @@
 //! Role: The Alert builder, its rendering, and the dismissal state machine.
 
 use crate::alert::look::AlertState;
+use crate::alert::look::AlertTheme;
 use crate::alert::look::Expansion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use crate::variants::{Variant, Variants};
 use kivact_core::custom::{NodeToken, Owner};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{
     Callback, IntoText, IntoValue, Machine, MachineHandle, Signal, Step, Value, effect, machine,
     signal,
 };
+use kivact_core::view::Variants;
 use kivact_core::view::{
     Element, IntoView, IntoViewFn, LiveRegion, Node, NodeRef, Role, View, ViewFn, node, node_ref,
     show, text,
@@ -41,7 +42,6 @@ enum Ownership {
 pub struct Alert {
     root: Node,
     title: Value<String>,
-    description: Option<Value<String>>,
     icon: Option<View>,
     actions: Option<View>,
     content: Option<ViewFn>,
@@ -52,9 +52,9 @@ pub struct Alert {
     dismiss_content: Option<View>,
     dismiss: Option<Callback<()>>,
     open: Option<Signal<bool>>,
-    variants: Variants,
 }
 /// Display an alert without moving keyboard focus or automatically hiding it.
+#[track_caller]
 pub fn alert(title: impl IntoText) -> Alert {
     let title = title.into_text_value();
     Alert {
@@ -63,7 +63,6 @@ pub fn alert(title: impl IntoText) -> Alert {
             .live_region(LiveRegion::Assertive)
             .name(title),
         title,
-        description: None,
         icon: None,
         actions: None,
         content: None,
@@ -74,16 +73,11 @@ pub fn alert(title: impl IntoText) -> Alert {
         dismiss_content: None,
         dismiss: None,
         open: None,
-        variants: Variants::default(),
     }
 }
 impl Alert {
-    /// Set supporting text.
-    pub fn description(mut self, value: impl IntoText) -> Self {
-        self.description = Some(value.into_text_value());
-        self
-    }
     /// Set the semantic tone.
+    #[track_caller]
     pub fn tone(mut self, tone: impl IntoValue<Tone>) -> Self {
         self.tone = tone.into_value();
         self
@@ -110,11 +104,13 @@ impl Alert {
         self
     }
     /// Show a dismiss control; dismissal lasts until remount.
+    #[track_caller]
     pub fn dismissible(mut self, value: impl IntoValue<bool>) -> Self {
         self.dismissible = value.into_value();
         self
     }
     /// Name the dismiss control.
+    #[track_caller]
     pub fn dismiss_label(mut self, label: impl IntoText) -> Self {
         self.dismiss_label = label.into_text_value();
         self
@@ -125,6 +121,7 @@ impl Alert {
         self
     }
     /// Show a dismiss control and report dismissal after restoring focus.
+    #[track_caller]
     pub fn on_dismiss<M>(mut self, f: impl IntoHandler<(), M>) -> Self {
         self.dismissible = true.into_value();
         self.dismiss = Some(kivact_core::state::Callback::from_handler(
@@ -140,11 +137,6 @@ impl Alert {
         self.open = Some(open);
         self
     }
-    /// Set a structural or theme-defined appearance.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
-        self
-    }
 }
 impl Element for Alert {
     fn node_mut(&mut self) -> &mut Node {
@@ -153,6 +145,7 @@ impl Element for Alert {
 }
 impl IntoView for Alert {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let reference = node_ref();
         let tone = self.tone;
         let dismissible = self.dismissible;
@@ -169,7 +162,7 @@ impl IntoView for Alert {
         let phase = banner_dismissal(reference, self.dismiss.take(), visible);
         let has_icon = self.icon.is_some();
         let has_actions = self.actions.is_some();
-        let has_description = self.description.is_some();
+        let has_description = self.root.authored().description().is_some();
         let state = move || AlertState {
             tone: tone.get(),
             content: has_details.then(|| Expansion::new(collapsible.get(), details.get())),
@@ -181,8 +174,8 @@ impl IntoView for Alert {
         let contents = self.render_contents(state, collapsible, details, phase);
         with_base_recipe_style(
             self.root,
-            |r| r.alert_recipes().root_recipe(),
-            &self.variants,
+            |r: &AlertTheme| r.root_recipe(),
+            &variants,
             state,
         )
         .node_ref(reference)
@@ -200,25 +193,26 @@ impl Alert {
         open: Signal<bool>,
         phase: MachineHandle<BannerMachine>,
     ) -> View {
-        let variants = &self.variants;
+        let variants = self.root.authored().variants();
+        let variants = &variants;
         let icon = self.icon.take().map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.alert_recipes().icon_recipe(),
+                |r: &AlertTheme| r.icon_recipe(),
                 variants,
                 state,
             )
         });
         let title = with_recipe_style(
             node().child(text(self.title)),
-            |r| r.alert_recipes().title_recipe(),
+            |r: &AlertTheme| r.title_recipe(),
             variants,
             state,
         );
-        let description = self.description.take().map(|value| {
+        let description = self.root.authored().description().map(|value| {
             with_recipe_style(
                 text(value),
-                |r| r.alert_recipes().description_recipe(),
+                |r: &AlertTheme| r.description_recipe(),
                 variants,
                 state,
             )
@@ -226,20 +220,20 @@ impl Alert {
         let actions = self.actions.take().map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.alert_recipes().actions_recipe(),
+                |r: &AlertTheme| r.actions_recipe(),
                 variants,
                 state,
             )
         });
         let toggle = expansion_toggle(self.content.is_some(), open, collapsible, variants, state);
         let content = self.content.take().map(|content| {
-            let variants = self.variants.clone();
+            let variants = variants.clone();
             show(
                 move || !collapsible.get() || open.get(),
                 move || {
                     with_recipe_style(
                         node().child(content.call(())),
-                        |r| r.alert_recipes().content_recipe(),
+                        |r: &AlertTheme| r.content_recipe(),
                         &variants,
                         state,
                     )
@@ -251,10 +245,10 @@ impl Alert {
         let dismiss = with_recipe_style(
             crate::button(self.dismiss_label)
                 .hide_label(dismiss_content.is_some())
-                .child(dismiss_content)
+                .children((dismiss_content,))
                 .on_press(move || phase.send(BannerEvent::Dismiss))
                 .hidden(move || !dismissible.get()),
-            |r| r.alert_recipes().dismiss_recipe(),
+            |r: &AlertTheme| r.dismiss_recipe(),
             variants,
             state,
         );
@@ -281,19 +275,19 @@ fn alert_header(
 ) -> Node {
     let message = with_recipe_style(
         node().child(message),
-        |r| r.alert_recipes().message_recipe(),
+        |r: &AlertTheme| r.message_recipe(),
         variants,
         state,
     );
     let controls = with_recipe_style(
         node().child(controls),
-        |r| r.alert_recipes().controls_recipe(),
+        |r: &AlertTheme| r.controls_recipe(),
         variants,
         state,
     );
     with_recipe_style(
         node().child((icon, message, controls)),
-        |r| r.alert_recipes().header_recipe(),
+        |r: &AlertTheme| r.header_recipe(),
         variants,
         state,
     )
@@ -319,12 +313,10 @@ fn expansion_toggle(
             .with_node(move |node| node.expanded(move || open.get()))
             .hidden(move || !collapsible.get())
             .on_press(move || open.set(!open.get()));
-        crate::tooltip(label).attach(with_recipe_style(
-            control,
-            |r| r.alert_recipes().toggle_recipe(),
-            variants,
-            state,
-        ))
+        crate::tooltip(
+            label,
+            with_recipe_style(control, |r: &AlertTheme| r.toggle_recipe(), variants, state),
+        )
     })
 }
 

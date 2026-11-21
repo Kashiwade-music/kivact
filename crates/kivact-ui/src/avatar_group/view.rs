@@ -1,6 +1,6 @@
 //! Role: The AvatarGroup builder, its member overlap and overflow rendering.
 
-use crate::variants::{Variant, Variants};
+use crate::avatar_group::look::AvatarGroupTheme;
 use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::style::style;
 use kivact_core::view::{
@@ -15,8 +15,8 @@ pub struct AvatarGroup {
     overlap: Option<Value<f64>>,
     overflow: Option<Rc<dyn Fn(Value<usize>) -> View>>,
     total: Option<Value<usize>>,
-    variants: Variants,
 }
+#[track_caller]
 pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
     AvatarGroup {
         root: row(())
@@ -28,20 +28,22 @@ pub fn avatar_group(children: impl IntoChildren) -> AvatarGroup {
         overlap: None,
         overflow: None,
         total: None,
-        variants: Variants::default(),
     }
 }
 impl AvatarGroup {
+    #[track_caller]
     pub fn max(mut self, max: impl IntoValue<usize>) -> Self {
         self.max = max.into_value();
         self
     }
     /// Total participants, including all supplied avatars, for partially loaded groups.
+    #[track_caller]
     pub fn total(mut self, total: impl IntoValue<usize>) -> Self {
         self.total = Some(total.into_value());
         self
     }
     /// Override the theme overlap in logical pixels, clamped to nonnegative values.
+    #[track_caller]
     pub fn overlap(mut self, overlap: impl IntoValue<f64>) -> Self {
         self.overlap = Some(overlap.into_value());
         self
@@ -55,10 +57,6 @@ impl AvatarGroup {
         self.overflow = Some(Rc::new(move |count| content(count).into_view()));
         self
     }
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for AvatarGroup {
     fn node_mut(&mut self) -> &mut Node {
@@ -67,6 +65,7 @@ impl Element for AvatarGroup {
 }
 impl IntoView for AvatarGroup {
     fn into_view(self) -> View {
+        let variants = self.root.authored().variants();
         let max = self.max;
         let count = self.children.len();
         let total = self.total;
@@ -75,9 +74,10 @@ impl IntoView for AvatarGroup {
                 .map_or(count, |total| total.get().max(count))
                 .saturating_sub(count.min(max.get()))
         });
-        let variants = self.variants.clone();
+        let variants = variants.clone();
         let overlap = self.overlap;
         let direction = kivact_core::view::use_direction();
+        let member_variants = variants.clone();
         let children = self
             .children
             .into_iter()
@@ -85,8 +85,8 @@ impl IntoView for AvatarGroup {
             .map(move |(index, child)| {
                 crate::layer::with_base_recipe_style(
                     node(),
-                    |r| r.avatar_group_member_recipe(),
-                    &variants,
+                    |r: &AvatarGroupTheme| r.member_recipe(),
+                    &member_variants,
                     move || index,
                 )
                 .base_style(move || member_overlap(index, overlap, direction))
@@ -94,12 +94,12 @@ impl IntoView for AvatarGroup {
                 .child(child)
             })
             .collect::<Vec<_>>();
-        let overflow_variants = self.variants.clone();
+        let overflow_variants = variants.clone();
         let overflow = self.overflow;
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.avatar_group_recipe(),
-            &self.variants,
+            |r: &AvatarGroupTheme| r.root_recipe(),
+            &variants,
             || (),
         )
         .child(children)
@@ -120,7 +120,7 @@ impl IntoView for AvatarGroup {
                         },
                         |content| node().child(content(hidden)),
                     ),
-                    |r| r.avatar_group_overflow_recipe(),
+                    |r: &AvatarGroupTheme| r.overflow_recipe(),
                     &overflow_variants,
                     move || hidden.get(),
                 )
@@ -140,9 +140,7 @@ fn member_overlap(
         .map_or_else(
             || {
                 kivact_core::style::use_theme()
-                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-                    .indicators
-                    .avatar_overlap
+                    .with(|theme| theme.get(&crate::avatar_group::look::OVERLAP_VAR))
             },
             |overlap| overlap.get(),
         )

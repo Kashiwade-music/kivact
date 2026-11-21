@@ -26,6 +26,9 @@ pub(crate) struct Model {
     pub(crate) generics: Generics,
     /// The type parameters no prop's type names, held by `__phantom`.
     pub(crate) phantom: Vec<Ident>,
+    /// The `#[caller]` argument (its name and its written type): bound to the
+    /// snapshot of the caller's modifiers before the body runs (not a prop).
+    pub(crate) caller: Option<(Ident, Type)>,
 }
 
 /// What the component function returns.
@@ -88,6 +91,14 @@ pub(crate) enum PropKind {
     /// A type parameter of the component itself (`control: C`): takes `C`
     /// as it is (rule 3: wrapping it in `Into` stops inference).
     Param(Type),
+    /// `Rc<dyn Fn(A, ..) -> T>`: takes `impl Fn(A, ..) -> T + 'static`; when
+    /// `T` is literally `View`, takes `impl Fn(A, ..) -> V + 'static` with
+    /// `V: IntoView`.
+    Func {
+        args: Vec<Type>,
+        output: Type,
+        view: bool,
+    },
     /// Any other type `T`: takes `impl Into<T>`.
     Other(Type),
 }
@@ -105,8 +116,19 @@ pub(crate) fn component(function: ItemFn) -> syn::Result<Model> {
     let struct_name = Ident::new(&upper_camel(&name.to_string()), name.span());
     let (docs, attrs, deprecated) = item_attributes(&function.attrs)?;
     let mut props = Vec::with_capacity(function.sig.inputs.len());
+    let mut caller = None;
     for input in &function.sig.inputs {
-        props.push(prop(input, &params)?);
+        if !is_caller(input) {
+            props.push(prop(input, &params)?);
+            continue;
+        }
+        if caller.is_some() {
+            return Err(syn::Error::new_spanned(
+                input,
+                "only one #[caller] argument",
+            ));
+        }
+        caller = Some(caller_argument(input, &returns)?);
     }
     let phantom = phantom(&params, &function.sig.inputs);
     Ok(Model {
@@ -121,7 +143,52 @@ pub(crate) fn component(function: ItemFn) -> syn::Result<Model> {
         returns,
         generics,
         phantom,
+        caller,
     })
+}
+
+/// Whether an argument carries `#[caller]`.
+fn is_caller(input: &FnArg) -> bool {
+    match input {
+        FnArg::Typed(pat) => pat.attrs.iter().any(|attr| attr.path().is_ident("caller")),
+        FnArg::Receiver(_) => false,
+    }
+}
+
+/// The name of the `#[caller] caller: Caller` argument. It needs `impl Element`
+/// (the caller's modifiers are collected in the root) and the type `Caller`.
+fn caller_argument(input: &FnArg, returns: &Returns) -> syn::Result<(Ident, Type)> {
+    let FnArg::Typed(pat) = input else {
+        return Err(syn::Error::new_spanned(
+            input,
+            "a #[caller] is a named argument",
+        ));
+    };
+    if !matches!(returns, Returns::Element) {
+        return Err(syn::Error::new_spanned(
+            input,
+            "#[caller] needs a component that returns impl Element",
+        ));
+    }
+    if pat.attrs.len() != 1 {
+        return Err(syn::Error::new_spanned(
+            input,
+            "a #[caller] argument takes no other attribute",
+        ));
+    }
+    let Pat::Ident(binding) = pat.pat.as_ref() else {
+        return Err(syn::Error::new_spanned(
+            &pat.pat,
+            "a #[caller] argument is a named argument",
+        ));
+    };
+    if !is_named(&pat.ty, "Caller") {
+        return Err(syn::Error::new_spanned(
+            &pat.ty,
+            "a #[caller] argument has the type `Caller`",
+        ));
+    }
+    Ok((binding.ident.clone(), (*pat.ty).clone()))
 }
 
 /// Split the function's attributes into doc comments, lint attributes and
@@ -394,8 +461,41 @@ fn kind(ty: &Type, params: &[Ident]) -> PropKind {
         "View" => PropKind::View,
         "Vec" if inner.is_some_and(|inner| is_named(inner, "View")) => PropKind::Children,
         "ViewFn" => PropKind::ViewFn,
+        "Rc" => match inner.and_then(fn_signature) {
+            Some((args, output)) => {
+                let view = is_named(&output, "View");
+                PropKind::Func { args, output, view }
+            }
+            None => other(),
+        },
         _ => other(),
     }
+}
+
+/// The argument types and the result of a `dyn Fn(A, ..) -> T` (no result
+/// is `()`), or `None` for any other type.
+fn fn_signature(ty: &Type) -> Option<(Vec<Type>, Type)> {
+    let Type::TraitObject(object) = ty else {
+        return None;
+    };
+    object.bounds.iter().find_map(|bound| {
+        let TypeParamBound::Trait(bound) = bound else {
+            return None;
+        };
+        let segment = bound.path.segments.last()?;
+        if segment.ident != "Fn" {
+            return None;
+        }
+        let PathArguments::Parenthesized(arguments) = &segment.arguments else {
+            return None;
+        };
+        let args = arguments.inputs.iter().cloned().collect();
+        let output = match &arguments.output {
+            ReturnType::Default => syn::parse_quote!(()),
+            ReturnType::Type(_, ty) => ty.as_ref().clone(),
+        };
+        Some((args, output))
+    })
 }
 
 /// Whether `ty` is exactly one of the component's type parameters.

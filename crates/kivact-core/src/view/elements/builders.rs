@@ -45,11 +45,18 @@ impl Node {
     /// Move the modifiers a caller wrote on a `#[component]` (collected in an
     /// empty `node()`) onto the root its body built: the caller's style layers
     /// after the body's, its handlers before the body's (as `prepend_key`), and
-    /// its name, description, disabled, test id, variants and node refs over
-    /// the body's (a node ref is added, so the body's own refs stay bound).
-    /// Generated code calls it; write `.style(..)` and friends instead.
+    /// its name, description, test id, variants and node refs over the body's
+    /// (a node ref is added, so the body's own refs stay bound). Disabled is
+    /// the OR of both: a busy body stays disabled under the caller's enabled
+    /// state. Generated code calls it; write `.style(..)` and friends instead.
     #[doc(hidden)]
     pub fn absorb(mut self, caller: Node) -> Node {
+        let body_disabled = self
+            .disabled_source()
+            .map(kivact_runtime::IntoValue::into_value);
+        let caller_disabled = caller
+            .disabled_source()
+            .map(kivact_runtime::IntoValue::into_value);
         let Node {
             common,
             children,
@@ -66,6 +73,12 @@ impl Node {
             )));
         self.modifiers.extend(modifiers);
         self.common = common;
+        if let (Some(body), Some(outer)) = (body_disabled, caller_disabled) {
+            self.common
+                .set_disabled(kivact_runtime::IntoValue::into_prop(move || {
+                    body.get() || outer.get()
+                }));
+        }
         self
     }
 }

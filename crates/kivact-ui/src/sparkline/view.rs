@@ -1,10 +1,7 @@
 //! Role: The sparkline builder, its summary text and path painting.
 
-use crate::UiTokens;
 use crate::layer::with_base_recipe_style;
-use crate::sparkline::tokens::SparklineFill;
-use crate::sparkline::tokens::SparklineTokens;
-use crate::variants::{Variant, Variants};
+use crate::sparkline::look::{SparklineFill, SparklineTheme};
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message_with, use_locale};
@@ -18,7 +15,6 @@ pub struct Sparkline {
     root: Node,
     summary: Value<Summary>,
     label: Option<Value<String>>,
-    variants: Variants,
 }
 
 /// A small line chart of `values`, drawn in the theme's sparkline look.
@@ -52,7 +48,6 @@ pub fn sparkline(values: impl IntoValue<Vec<f64>>) -> Sparkline {
             }),
         summary,
         label: None,
-        variants: Variants::default(),
     }
 }
 
@@ -62,17 +57,9 @@ impl Sparkline {
     /// (`sparkline.description`, formatted in the app's locale). Without a
     /// label the chart is decorative; a statistic's `chart(..)` slot is one
     /// when the statistic already names it.
+    #[track_caller]
     pub fn label(mut self, label: impl IntoText) -> Self {
         self.label = Some(label.into_text_value());
-        self
-    }
-
-    /// Give the chart an appearance that its recipe reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same type
-    /// replaces the earlier one; a theme that does not know the type draws the
-    /// plain look.
-    pub fn variant(mut self, value: impl Variant) -> Self {
-        self.variants.add(value);
         self
     }
 }
@@ -89,21 +76,16 @@ impl IntoView for Sparkline {
             mut root,
             summary,
             label,
-            variants,
         } = self;
+        let variants = root.authored().variants();
         if let Some(label) = label {
             root = root
                 .role(Role::Image)
                 .name(label)
                 .description(description(summary));
         }
-        with_base_recipe_style(
-            root,
-            |r| r.sparkline_recipes().root_recipe(),
-            &variants,
-            || (),
-        )
-        .into_view()
+        with_base_recipe_style(root, |r: &SparklineTheme| r.root_recipe(), &variants, || ())
+            .into_view()
     }
 }
 
@@ -179,7 +161,8 @@ fn paint(d: &mut Draw, width: f64, height: f64, values: &[f64], summary: Summary
     if summary.count < 2 {
         return;
     }
-    let tokens = d.theme().ext::<UiTokens>().sparkline;
+    let theme = d.theme().clone();
+    let inset = theme.get(&crate::sparkline::look::INSET_VAR);
     let span = summary.max - summary.min;
     let last_index = (values.len().max(2) - 1) as f64;
     let point = move |i: usize| {
@@ -190,7 +173,7 @@ fn paint(d: &mut Draw, width: f64, height: f64, values: &[f64], summary: Summary
         };
         Point::new(
             width * i as f64 / last_index,
-            tokens.inset + (1.0 - t) * (height - 2.0 * tokens.inset),
+            inset + (1.0 - t) * (height - 2.0 * inset),
         )
     };
     let mut start = 0;
@@ -200,7 +183,7 @@ fn paint(d: &mut Draw, width: f64, height: f64, values: &[f64], summary: Summary
             .position(|value| !value.is_finite())
             .map_or(values.len(), |at| start + at);
         if end - start >= 2 {
-            draw_run(d, (start..end).map(point), height, tokens);
+            draw_run(d, (start..end).map(point), height, &theme);
         }
         start = end + 1;
     }
@@ -212,7 +195,7 @@ fn draw_run(
     d: &mut Draw,
     points: impl Iterator<Item = Point> + Clone,
     height: f64,
-    tokens: SparklineTokens,
+    theme: &kivact_core::style::Theme,
 ) {
     let mut ends = points.clone();
     let Some(first) = ends.next() else {
@@ -236,14 +219,14 @@ fn draw_run(
         )
         .line_to(Point::new(last.x, height))
         .close();
-    fill(d, &area, tokens.fill);
-    let stroke = Stroke::new(tokens.line_width);
-    let stroke = if tokens.round {
+    fill(d, &area, *theme.ext::<SparklineTheme>().fill_value());
+    let stroke = Stroke::new(theme.get(&crate::sparkline::look::LINE_WIDTH_VAR));
+    let stroke = if *theme.ext::<SparklineTheme>().round_value() {
         stroke.cap(LineCap::Round).join(LineJoin::Round)
     } else {
         stroke
     };
-    d.stroke_path(&line, &stroke, tokens.line);
+    d.stroke_path(&line, &stroke, theme.get(&crate::sparkline::look::LINE_VAR));
 }
 
 /// Fill the area under a run with the theme's fill.

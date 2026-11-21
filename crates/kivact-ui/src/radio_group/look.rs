@@ -1,14 +1,15 @@
-//! Role: The radio group recipe state, tokens, recipe table and default looks.
+//! Role: The radio group recipe state, recipe table and default looks.
 
-use crate::Look;
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use crate::toggle::look::CheckableState;
-use crate::variants::Variant;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
+use kivact_core::view::Variant;
+use kivact_macros::Prop;
 pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
-    if look.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() == Some(RadioGroupVariant::Segmented) {
         style()
             .flex_direction(FlexDirection::Row)
             .gap(0)
@@ -22,7 +23,7 @@ pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
 
 pub(crate) fn item(t: &Theme, look: &Look<CheckableState>) -> Style {
     let base = radio_item(t, look);
-    if look.variant::<RadioGroupVariant>() != Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() != Some(RadioGroupVariant::Segmented) {
         return base;
     }
     let base = base
@@ -39,7 +40,7 @@ pub(crate) fn item(t: &Theme, look: &Look<CheckableState>) -> Style {
 }
 
 pub(crate) fn indicator(t: &Theme, look: &Look<CheckableState>) -> Style {
-    if look.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
+    if look.variant::<RadioGroupVariant>() == Some(RadioGroupVariant::Segmented) {
         style().size(0, 0).opacity(0.0)
     } else {
         radio_indicator(t, look)
@@ -92,7 +93,7 @@ pub(crate) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
     }
 }
 
-pub(crate) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
+pub(crate) fn radio_mark(_: &Theme, state: &Look<CheckableState>) -> Style {
     if state.is_checked() {
         style()
     } else {
@@ -100,7 +101,7 @@ pub(crate) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
     }
 }
 
-pub(crate) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
+pub(crate) fn radio_description(t: &Theme, _: &Look<CheckableState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
@@ -108,7 +109,7 @@ pub(crate) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`radio_group`](super::radio_group).
-    RadioGroupRecipes {
+    RadioGroupTheme {
         /// The group, laid out in its orientation.
         group(group_recipe): Orientation = group,
         /// A radio item: its indicator and its label.
@@ -123,14 +124,14 @@ recipe_table! {
     }
 }
 
-impl RadioGroupRecipes {
+impl RadioGroupTheme {
     pub(super) fn has_custom_mark(&self) -> bool {
-        !self.mark.same(&Self::default_table().mark)
+        self.mark.is_overridden()
     }
 }
 
 /// Standard presentation of a radio group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]
 pub enum RadioGroupVariant {
     /// Adjacent choices drawn as a segmented control.
     Segmented,

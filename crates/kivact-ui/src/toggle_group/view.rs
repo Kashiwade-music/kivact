@@ -5,7 +5,7 @@ use crate::layer::with_base_recipe_style;
 use crate::toggle_button::look::ToggleButtonState;
 use crate::toggle_group::look::ToggleGroupItemState;
 use crate::toggle_group::look::ToggleGroupState;
-use crate::variants::{Variant, Variants};
+use crate::toggle_group::look::ToggleGroupTheme;
 use kivact_core::state::{
     Callback, IntoText, IntoValue, ItemKey, Signal, Value, binding, callback, memo,
 };
@@ -29,7 +29,6 @@ pub struct ToggleGroup<K: ItemKey> {
     icon_only: Value<bool>,
     on_edit: Option<Callback<EditPhase>>,
     item: Option<ToggleItemSlot<K>>,
-    variants: Variants,
 }
 
 /// A named group whose toggles edit `selected`. `Option<K>` allows zero or
@@ -52,26 +51,29 @@ pub fn toggle_group<K: ItemKey>(
         icon_only: false.into_value(),
         on_edit: None,
         item: None,
-        variants: Variants::default(),
     }
 }
 impl<K: ItemKey> ToggleGroup<K> {
     /// The constant or reactive layout and keyboard navigation axis.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
     }
     /// Size of all toggle items.
+    #[track_caller]
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.size = size.into_value();
         self
     }
     /// Space in four-pixel units; zero joins the controls.
+    #[track_caller]
     pub fn spacing(mut self, spacing: impl IntoValue<f64>) -> Self {
         self.spacing = Some(spacing.into_value());
         self
     }
     /// Hide visible labels while retaining accessible names.
+    #[track_caller]
     pub fn icon_only(mut self, icon_only: impl IntoValue<bool>) -> Self {
         self.icon_only = icon_only.into_value();
         self
@@ -90,11 +92,6 @@ impl<K: ItemKey> ToggleGroup<K> {
         content: impl Fn(Value<ListItem<K>>, Value<ToggleButtonState>) -> V + 'static,
     ) -> Self {
         self.item = Some(ViewFn::from(move |(item, state)| content(item, state)));
-        self
-    }
-    /// Add a theme presentation variant shared by the group and its items.
-    pub fn variant(mut self, variant: impl Variant) -> Self {
-        self.variants.add(variant);
         self
     }
 }
@@ -135,6 +132,7 @@ fn member<K: ItemKey>(selection: Selection<K>, key: K) -> Signal<bool> {
 }
 impl<K: ItemKey> IntoView for ToggleGroup<K> {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let orientation = self.orientation;
         let size = self.size;
         let spacing = self.spacing;
@@ -145,7 +143,8 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         let slot = self.item;
         let on_edit = self.on_edit;
         let disabled = self.root.accessible_disabled();
-        let variants = self.variants.clone();
+        let variants = variants.clone();
+        let item_variants = variants.clone();
         let rows = for_each(
             self.options,
             |item| item.key().clone(),
@@ -180,8 +179,8 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 let content = item_content(slot.as_ref(), item, state, pressed, hide);
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
-                    |r| r.toggle_group_recipes().item_recipe(),
-                    &variants,
+                    |r: &ToggleGroupTheme| r.item_recipe(),
+                    &item_variants,
                     move || ToggleGroupItemState {
                         toggle: state.get(),
                         layout: ToggleGroupState {
@@ -203,8 +202,8 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         let direction = use_direction();
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
-            |r| r.toggle_group_recipes().root_recipe(),
-            &self.variants,
+            |r: &ToggleGroupTheme| r.root_recipe(),
+            &variants,
             move || ToggleGroupState {
                 orientation: orientation.get(),
                 size: size.get(),

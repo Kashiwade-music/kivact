@@ -9,7 +9,7 @@ use kivact::style::{
     Align, Color, FlexDirection, FontFamily, LineHeight, Style, Theme, ThemeMode, color, control,
     font, pct, radius, rgb, rgba, space, style,
 };
-use kivact::ui::{Look, UiRecipes};
+use kivact::ui::theme::{Look, TabsTheme};
 use kivact::view::Orientation;
 
 /// The app's theme in `mode`.
@@ -68,7 +68,11 @@ pub(crate) fn theme(mode: ThemeMode) -> Theme {
         .set(&font::LINE_HEIGHT_VAR, LineHeight::Scale(16.0 / 12.0))
         .with_focus_ring(1.0)
         .set(&control::HEIGHT_VAR, 32.0)
-        .with(UiRecipes::default().tabs(|tabs| tabs.list(|_| tab_list).tab(|_| tab)))
+        .with(
+            TabsTheme::default()
+                .list(|theme, look, _| tab_list(theme, look))
+                .tab(|theme, look, _| tab(theme, look)),
+        )
 }
 
 /// The tab list: a muted strip with no gap between the tabs.

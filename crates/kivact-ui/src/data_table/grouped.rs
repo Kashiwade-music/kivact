@@ -2,6 +2,7 @@
 use super::rows::{self, Grid};
 use super::types::Grouping;
 use crate::data_table::look::DataTableGroupState;
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, button};
 use kivact_core::i18n::message_with;
@@ -173,7 +174,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
                 .border_radius(0)
                 .cursor(Cursor::Pointer),
         )
-        .child(content);
+        .children((content,));
     let cell_role = if matches!(grid.focus, TableFocus::None) {
         Role::Cell
     } else {
@@ -203,7 +204,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
             .role(Role::Row)
             .row_index(row_index)
             .name(row_name),
-        |recipes| recipes.data_table_recipes().group_header_recipe(),
+        |r: &DataTableTheme| r.group_header_recipe(),
         &grid.variants,
         move || state.get(),
     )

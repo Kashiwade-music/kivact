@@ -1,4 +1,5 @@
 //! Role: Project source line numbers onto the native editor's shaped visual rows.
+use crate::code_block::look::CodeBlockTheme;
 use kivact_core::custom::NodeRefExt;
 use kivact_core::view::NodeRef;
 pub(super) fn numbers(editor: NodeRef, source: &str) -> String {
@@ -31,7 +32,7 @@ pub(super) fn numbers(editor: NodeRef, source: &str) -> String {
 pub(super) fn gutter(
     editor: NodeRef,
     code: kivact_core::state::Value<String>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     state: kivact_core::state::Value<crate::code_block::look::CodeBlockState>,
 ) -> kivact_core::view::Node {
     use kivact_core::view::text;
@@ -42,7 +43,7 @@ pub(super) fn gutter(
             code.with(|source| numbers(editor, source))
         })
         .hidden(move || !state.get().numbered),
-        |r| r.code_block_recipes().gutter_recipe(),
+        |r: &CodeBlockTheme| r.gutter_recipe(),
         variants,
         move || state.get(),
     )

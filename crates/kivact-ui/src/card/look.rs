@@ -1,7 +1,7 @@
-//! Role: The card recipe state, tokens, recipe table and default looks.
+//! Role: The card recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
 pub(crate) fn card_root(t: &Theme, s: &Look<CardState>) -> Style {
     let color = if s.selection() == Selectable::Selected {
@@ -104,7 +104,7 @@ impl Selectable {
 
 recipe_table! {
     /// Recipes for each region of a card.
-    CardRecipes {
+    CardTheme {
         root(root_recipe): CardState = card_root,
         header(header_recipe): CardState = card_region,
         media(media_recipe): CardState = card_media,

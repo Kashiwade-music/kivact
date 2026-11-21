@@ -1,7 +1,10 @@
 //! Role: Render one combobox query and selection through themed editor and list parts.
+use super::ComboboxMode;
 use super::data::Combobox;
 use super::labels::{KnownLabels, label};
 use super::notices::Notices;
+use crate::combobox::look::ComboboxTheme;
+use crate::helpers::{is_named, report_unnamed};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
@@ -10,7 +13,7 @@ use kivact_core::view::{
     Element, Handled, IntoView, Key, Placement, PointerKind, PointerPhase, View, column, for_each,
     icon, node, node_ref, overlay, row, scroll, show, text,
 };
-use kivact_interaction::{ComboboxApi, ComboboxMode, ListItem, Selection, use_combobox};
+use kivact_interaction::{ComboboxApi, ListItem, Selection, use_combobox};
 
 /// The combobox frame takes no input while the combobox is disabled.
 fn frame_availability(disabled: bool) -> kivact_core::view::Availability {
@@ -41,9 +44,9 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         empty,
         clear,
         presentation,
-        variants,
         ..
     } = field;
+    let variants = root.authored().variants();
     let input_ref = node_ref();
     let anchor = node_ref();
     let within = anchor.focus_within();
@@ -72,7 +75,7 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         row((editor, tokens, clear_button, toggle))
             .node_ref(anchor)
             .with_node(move |node| node.focus_on_press(input_ref)),
-        |r| r.combobox_recipes().frame_recipe(),
+        |r: &ComboboxTheme| r.frame_recipe(),
         &variants,
         move || PartState {
             focus: if within.get() {
@@ -107,7 +110,7 @@ fn suggestions<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
 ) -> View {
     let rows = for_each(list.visible(), |key| key.clone(), {
         let variants = variants.clone();
@@ -118,7 +121,7 @@ fn suggestions<K: ItemKey>(
             let shown = memo(move || label(source, &key));
             with_recipe_style(
                 node().part(part),
-                |r| r.combobox_recipes().option_recipe(),
+                |r: &ComboboxTheme| r.option_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -133,7 +136,7 @@ fn suggestions<K: ItemKey>(
         move || {
             with_recipe_style(
                 text(empty),
-                |r| r.combobox_recipes().empty_recipe(),
+                |r: &ComboboxTheme| r.empty_recipe(),
                 &variants,
                 PartState::default,
             )
@@ -141,7 +144,7 @@ fn suggestions<K: ItemKey>(
     });
     with_recipe_style(
         column((rows, no_results)),
-        |r| r.combobox_recipes().surface_recipe(),
+        |r: &ComboboxTheme| r.surface_recipe(),
         &variants,
         PartState::default,
     )
@@ -155,7 +158,7 @@ fn selected_chips<K: ItemKey>(
     known: Value<Vec<ListItem<K>>>,
     disabled: Value<bool>,
     input_ref: kivact_core::view::NodeRef,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Option<View> {
     if chips {
         match selection {
@@ -185,13 +188,13 @@ fn selected_chips<K: ItemKey>(
                                             .collect(),
                                     )
                                 }),
-                            |r| r.combobox_recipes().remove_recipe(),
+                            |r: &ComboboxTheme| r.remove_recipe(),
                             &variants,
                             PartState::default,
                         );
                         with_recipe_style(
                             row((text(shown), remove)),
-                            |r| r.combobox_recipes().chip_recipe(),
+                            |r: &ComboboxTheme| r.chip_recipe(),
                             &variants,
                             PartState::default,
                         )
@@ -244,7 +247,7 @@ fn editor_view<K: ItemKey>(
     free_text: bool,
     placeholder: Value<String>,
     presentation: crate::SelectPresentation,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     root: &mut kivact_core::view::Node,
 ) -> View {
     let EditorState {
@@ -284,7 +287,8 @@ fn editor_view<K: ItemKey>(
         },
     );
     let mut editor = with_recipe_style(
-        text_input(name, displayed)
+        text_input(displayed)
+            .label(name)
             .node_ref(input_ref)
             .disabled(disabled)
             .invalid(invalid)
@@ -298,7 +302,7 @@ fn editor_view<K: ItemKey>(
             })
             .with_node(move |node| node.part(list.input()))
             .on_pointer(editor_pointer(list, disabled, input_ref, presentation)),
-        |r| r.combobox_recipes().input_recipe(),
+        |r: &ComboboxTheme| r.input_recipe(),
         variants,
         PartState::default,
     );
@@ -397,7 +401,7 @@ fn popup_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     anchor: kivact_core::view::NodeRef,
     inline: bool,
 ) -> View {
@@ -416,9 +420,7 @@ fn popup_surface<K: ItemKey>(
                     .offset(
                         kivact_core::style::use_theme()
                             .get()
-                            .ext::<crate::UiTokens>()
-                            .combobox
-                            .popup_offset,
+                            .get(&crate::combobox::look::POPUP_OFFSET_VAR),
                     )
                     .on_dismiss(move |_| list.hide())
                     .into_view()
@@ -434,7 +436,7 @@ fn sheet_surface<K: ItemKey>(
     source: Value<Vec<ListItem<K>>>,
     name: Value<String>,
     empty: Value<String>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     disabled: Value<bool>,
     placeholder: Value<String>,
 ) -> View {
@@ -449,13 +451,14 @@ fn sheet_surface<K: ItemKey>(
     let sheet_list = list.with_input_ref(sheet_input);
     let sheet_search = kivact_core::i18n::message("combobox.sheet_search", "Search options");
     crate::dialog(name, sheet_open)
-        .mode(kivact_interaction::DialogMode::Drawer(
+        .mode(crate::dialog::DialogKind::Drawer(
             kivact_core::geometry::Edge::Bottom,
         ))
         .initial_focus(sheet_input)
         .content(move || {
             column((
-                text_input(sheet_search, query)
+                text_input(query)
+                    .label(sheet_search)
                     .node_ref(sheet_input)
                     .disabled(disabled)
                     .placeholder(placeholder)
@@ -487,7 +490,13 @@ struct Mounted<K: ItemKey> {
 /// Configure shared interaction and retain the labels required by its selection.
 fn prepare<K: ItemKey>(field: &mut Combobox<K>) -> Mounted<K> {
     let selection = field.selection;
-    let name = field.root.accessible_name().unwrap_or(field.label);
+    let named = is_named(&mut field.root) || field.label.is_some();
+    report_unnamed(named, "combobox", field.at);
+    let name = field
+        .root
+        .accessible_name()
+        .or(field.label)
+        .unwrap_or_else(|| String::new().into_value());
     let disabled = field
         .root
         .accessible_disabled()

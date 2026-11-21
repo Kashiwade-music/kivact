@@ -10,7 +10,9 @@ fn date_picker_selection_returns_focus_to_the_picker_button() {
         let value = signal(Some(CalendarDate::new(2026, 10, 14)));
         (
             value,
-            ui::date_input("Date", value).presentation(DatePresentation::Desktop),
+            ui::date_input(value)
+                .label("Date")
+                .presentation(DatePresentation::Desktop),
         )
     });
     let button = screen.get_by_role(Role::Button, "Choose date");
@@ -46,7 +48,9 @@ fn date_picker_keyboard_invoker_is_restored_and_outside_click_keeps_focus() {
         (
             value,
             column((
-                ui::date_input("Date", value).presentation(DatePresentation::Desktop),
+                ui::date_input(value)
+                    .label("Date")
+                    .presentation(DatePresentation::Desktop),
                 spacer().style(style().height(400.0)),
                 ui::button("Outside"),
             )),
@@ -88,7 +92,9 @@ fn time_picker_spinbutton_uses_scalar_key_and_assistive_directions() {
         }));
         (
             value,
-            ui::time_input("Time", value).presentation(DatePresentation::BottomSheet),
+            ui::time_input(value)
+                .label("Time")
+                .presentation(DatePresentation::BottomSheet),
         )
     });
     let input = screen.get_by_role(Role::TextBox, "Time");

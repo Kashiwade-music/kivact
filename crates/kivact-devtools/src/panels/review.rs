@@ -33,7 +33,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
                 button("Open folder").on_press(move || open_folder(session)),
             ))
             .style(style().gap(8).align_items(Align::Center)),
-            text_area("Comment", comment),
+            text_area(comment).label("Comment"),
             button("Add comment")
                 .disabled(move || comment.get().trim().is_empty())
                 .on_press(move || add_comment(session, comment)),
@@ -68,7 +68,7 @@ fn comment_editor(session: Session, edit: Signal<CommentEdit>) -> impl IntoView 
         move || matches!(edit.get(), CommentEdit::Editing { .. }),
         move || {
             row((
-                text_area("Edit comment", draft),
+                text_area(draft).label("Edit comment"),
                 button("Save").on_press(move || save_comment(session, edit)),
                 button("Cancel").on_press(move || edit.set(CommentEdit::Idle)),
             ))

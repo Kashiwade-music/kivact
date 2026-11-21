@@ -1,12 +1,13 @@
 //! Role: The stepper builder, its items, indicators, responsive layout and navigation.
 
+use crate::stepper::look::StepperTheme;
 use crate::stepper::look::{StepIndicatorKind, StepStatus, StepperItemState, StepperState};
 use kivact_core::custom::Prop;
-use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
+use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback, memo};
 use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
-    CurrentItem, Element, IntoView, Node, Orientation, Role, View, column, for_index, node,
-    node_ref, show, text,
+    CurrentItem, EditPhase, Element, IntoView, Node, Orientation, Role, View, column, for_index,
+    node, node_ref, show, text,
 };
 use std::rc::Rc;
 
@@ -54,6 +55,7 @@ impl PartialEq for Content {
 }
 impl StepperItem {
     /// Create a step with the given visible label.
+    #[track_caller]
     pub fn new(label: impl IntoText) -> Self {
         Self {
             label: Prop::new(label.into_text()),
@@ -67,6 +69,7 @@ impl StepperItem {
         }
     }
     /// Add supporting text beneath the label.
+    #[track_caller]
     pub fn description(mut self, description: impl IntoText) -> Self {
         self.description = Some(Prop::new(description.into_text()));
         self
@@ -106,35 +109,39 @@ impl StepperItem {
         self.label.get()
     }
 }
+// xtask-allow(state): record: the builder's props, each written only by its own setter; current is the caller's binding that a step press, the previous and next buttons and the step keys write through the one write in into_view, and min_step_width is the optional narrowest step width before the steps collapse
 /// A progress list whose current step belongs to the application.
 pub struct Stepper {
     root: Node,
     items: Value<Vec<StepperItem>>,
-    current: Value<usize>,
+    current: Signal<usize>,
     orientation: Value<Orientation>,
     collapsed_steps: CollapsedSteps,
-    activate: Option<Callback<usize>>,
+    on_edit: Option<Callback<EditPhase>>,
     min_step_width: Option<Value<f64>>,
-    variants: crate::variants::Variants,
 }
-/// Show progress through an ordered sequence of steps.
+/// Show progress through an ordered sequence of steps. A press on a step
+/// (or on the collapsed previous and next buttons) writes its index to
+/// `current`, and `on_edit` reports the write as an edit. Every step is
+/// pressable; give `StepperItem::disabled(true)` to a step the user may not
+/// jump to (a linear flow).
 #[track_caller]
-pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: impl IntoValue<usize>) -> Stepper {
+pub fn stepper(items: impl IntoValue<Vec<StepperItem>>, current: Signal<usize>) -> Stepper {
     Stepper {
         root: node()
             .role(Role::List)
             .name(kivact_core::i18n::message("stepper.label", "Progress")),
         items: items.into_value(),
-        current: current.into_value(),
+        current,
         orientation: Orientation::Horizontal.into_value(),
         collapsed_steps: CollapsedSteps::Current,
-        activate: None,
+        on_edit: None,
         min_step_width: None,
-        variants: crate::variants::Variants::default(),
     }
 }
 impl Stepper {
     /// Override the minimum width used to derive the collapsed layout.
+    #[track_caller]
     pub fn min_step_width(mut self, width: impl IntoValue<f64>) -> Self {
         self.min_step_width = Some(width.into_value());
         self
@@ -145,21 +152,19 @@ impl Stepper {
         self
     }
     /// Choose horizontal or vertical layout.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
     }
-    /// Activate an enabled step without changing the caller-owned current value.
-    pub fn on_step_press<R: kivact_core::view::HandlerResult>(
+    /// Report each [`EditPhase`] of a write to `current` by the user: a
+    /// press on a step, or on the collapsed previous and next buttons. A
+    /// write from the application own `set` is not reported.
+    pub fn on_edit<R: kivact_core::view::HandlerResult>(
         mut self,
-        f: impl Fn(usize) -> R + 'static,
+        f: impl Fn(EditPhase) -> R + 'static,
     ) -> Self {
-        self.activate = Some(callback(f));
-        self
-    }
-    /// Add kit-defined visual metadata.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
+        self.on_edit = Some(callback(f));
         self
     }
 }
@@ -176,15 +181,27 @@ impl IntoView for Stepper {
             current,
             orientation,
             collapsed_steps,
-            activate,
+            on_edit,
             min_step_width,
-            variants,
         } = self;
+        let variants = root.authored().variants();
+        let edit = kivact_interaction::EditSession::new(move |initial: usize| current.set(initial));
+        let edit = match on_edit {
+            Some(on_edit) => edit.on_edit(move |phase| on_edit.call(phase)),
+            None => edit,
+        };
+        // Every user write of the index goes through here: it clamps the
+        // index to the items and reports one edit when it changes the value.
+        let write = callback(move |index: usize| {
+            let index = index.min(items.with_untracked(|items| items.len().saturating_sub(1)));
+            if index != current.get_untracked() {
+                edit.once(current.get_untracked(), move || current.set(index));
+            }
+        });
         let reference = node_ref();
         let layout = responsive_layout(items, current, orientation, min_step_width, reference);
-        let previous =
-            collapsed_navigation(activate, items, current, layout, variants.clone(), true);
-        let next = collapsed_navigation(activate, items, current, layout, variants.clone(), false);
+        let previous = collapsed_navigation(write, items, current, layout, variants.clone(), true);
+        let next = collapsed_navigation(write, items, current, layout, variants.clone(), false);
         let child_variants = variants.clone();
         let children = for_index(items, move |index, item| {
             step_row(
@@ -193,13 +210,13 @@ impl IntoView for Stepper {
                 current,
                 layout,
                 collapsed_steps,
-                activate,
+                write,
                 child_variants.clone(),
             )
         });
         crate::layer::with_base_recipe_style(
             root.node_ref(reference),
-            |r| r.stepper_recipes().root_recipe(),
+            |r: &StepperTheme| r.root_recipe(),
             &variants,
             move || layout.get(),
         )
@@ -219,7 +236,7 @@ impl IntoView for Stepper {
 
 fn responsive_layout(
     items: Value<Vec<StepperItem>>,
-    current: Value<usize>,
+    current: Signal<usize>,
     orientation: Value<Orientation>,
     min_step_width: Option<Value<f64>>,
     reference: kivact_core::view::NodeRef,
@@ -231,9 +248,7 @@ fn responsive_layout(
             || {
                 kivact_core::style::use_theme()
                     .get()
-                    .ext::<crate::UiTokens>()
-                    .stepper
-                    .min_step_width
+                    .get(&crate::stepper::look::MIN_STEP_WIDTH_VAR)
             },
             |width| width.get(),
         );
@@ -250,18 +265,17 @@ fn responsive_layout(
     })
 }
 fn collapsed_navigation(
-    activate: Option<Callback<usize>>,
+    write: Callback<usize>,
     items: Value<Vec<StepperItem>>,
-    current: Value<usize>,
+    current: Signal<usize>,
     layout: Value<StepperState>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     previous: bool,
-) -> Option<View> {
-    let recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StepperState> = if previous
-    {
-        |r| r.stepper_recipes().previous_recipe()
+) -> View {
+    let recipe: fn(&StepperTheme) -> &crate::recipe::Recipe<StepperState> = if previous {
+        |r: &StepperTheme| r.previous_recipe()
     } else {
-        |r| r.stepper_recipes().next_recipe()
+        |r: &StepperTheme| r.next_recipe()
     };
     let target = memo(move || {
         items.with(|items| {
@@ -275,43 +289,39 @@ fn collapsed_navigation(
             }
         })
     });
-    activate.map(|activate| {
-        show(
-            move || layout.get().collapsed,
-            move || {
-                let activate = activate;
-                let label = if previous {
-                    kivact_core::i18n::message("stepper.previous", "Previous step")
-                } else {
-                    kivact_core::i18n::message("stepper.next", "Next step")
-                };
-                crate::layer::with_recipe_style(
-                    crate::button(label)
-                        .disabled(move || target.get().is_none())
-                        .on_press(move || {
-                            if let Some(target) = target.get_untracked() {
-                                activate.call(target);
-                            }
-                        }),
-                    recipe,
-                    &variants,
-                    move || layout.get(),
-                )
-            },
-        )
-        .into_view()
-    })
+    show(
+        move || layout.get().collapsed,
+        move || {
+            let label = if previous {
+                kivact_core::i18n::message("stepper.previous", "Previous step")
+            } else {
+                kivact_core::i18n::message("stepper.next", "Next step")
+            };
+            crate::layer::with_recipe_style(
+                crate::button(label)
+                    .disabled(move || target.get().is_none())
+                    .on_press(move || {
+                        if let Some(target) = target.get_untracked() {
+                            write.call(target);
+                        }
+                    }),
+                recipe,
+                &variants,
+                move || layout.get(),
+            )
+        },
+    )
+    .into_view()
 }
 fn step_row(
     index: usize,
     item: Value<StepperItem>,
-    current: Value<usize>,
+    current: Signal<usize>,
     layout: Value<StepperState>,
     collapsed_steps: CollapsedSteps,
-    activate: Option<Callback<usize>>,
-    variants: crate::variants::Variants,
+    write: Callback<usize>,
+    variants: kivact_core::view::Variants,
 ) -> impl IntoView {
-    let interactive = activate.is_some();
     let state = move || {
         item.with(|item| StepperItemState {
             count: layout.get().count,
@@ -319,7 +329,6 @@ fn step_row(
             index,
             current: current.get(),
             status: item.status,
-            interactive,
             indicator: match item.indicator {
                 StepIndicator::Auto => StepIndicatorKind::Auto,
                 StepIndicator::Number => StepIndicatorKind::Number,
@@ -344,30 +353,26 @@ fn step_row(
         })
         .name(move || item.with(StepperItem::label))
         .current_item(move || (index == current.get()).then_some(CurrentItem::Step));
-    let row = if let Some(activate) = activate {
-        row.focusable(move || !state().disabled).on_press(move || {
-            if !state().disabled {
-                activate.call(index);
-            }
-        })
-    } else {
-        row
-    };
-    crate::layer::with_recipe_style(row, |r| r.stepper_recipes().item_recipe(), &variants, state)
+    let row = row.focusable(move || !state().disabled).on_press(move || {
+        if !state().disabled {
+            write.call(index);
+        }
+    });
+    crate::layer::with_recipe_style(row, |r: &StepperTheme| r.item_recipe(), &variants, state)
         .child(contents)
 }
 fn step_contents(
     item: StepperItem,
     index: usize,
-    current: Value<usize>,
+    current: Signal<usize>,
     state: impl Fn() -> StepperItemState + Copy + 'static,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> Node {
     let indicator = step_indicator(item.indicator.clone(), index, current);
     let indicator = indicator.map(|indicator| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().indicator_recipe(),
+            |r: &StepperTheme| r.indicator_recipe(),
             variants,
             state,
         )
@@ -378,7 +383,7 @@ fn step_contents(
             let label = item.label.clone();
             move || label.get()
         }),
-        |r| r.stepper_recipes().label_recipe(),
+        |r: &StepperTheme| r.label_recipe(),
         variants,
         state,
     );
@@ -389,13 +394,13 @@ fn step_contents(
     );
     let body = crate::layer::with_recipe_style(
         column((label, description, optional, extra)),
-        |r| r.stepper_recipes().body_recipe(),
+        |r: &StepperTheme| r.body_recipe(),
         variants,
         state,
     );
     let track = crate::layer::with_recipe_style(
         node(),
-        |r| r.stepper_recipes().track_recipe(),
+        |r: &StepperTheme| r.track_recipe(),
         variants,
         state,
     )
@@ -406,7 +411,7 @@ fn step_contents(
     ));
     crate::layer::with_recipe_style(
         node(),
-        |r| r.stepper_recipes().layout_recipe(),
+        |r: &StepperTheme| r.layout_recipe(),
         variants,
         state,
     )
@@ -417,7 +422,7 @@ fn step_contents(
         step_decoration(variants, state, StepDecoration::Progress),
     ))
 }
-fn step_indicator(indicator: StepIndicator, index: usize, current: Value<usize>) -> Option<View> {
+fn step_indicator(indicator: StepIndicator, index: usize, current: Signal<usize>) -> Option<View> {
     match indicator {
         StepIndicator::None => None,
         StepIndicator::Custom(content) => Some((content.0)()),
@@ -437,12 +442,12 @@ fn step_indicator(indicator: StepIndicator, index: usize, current: Value<usize>)
 fn step_details(
     item: StepperItem,
     state: impl Fn() -> StepperItemState + Copy + 'static,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> (Option<View>, Option<View>, Option<View>) {
     let description = item.description.map(|description| {
         crate::layer::with_recipe_style(
             text(move || description.get()),
-            |r| r.stepper_recipes().description_recipe(),
+            |r: &StepperTheme| r.description_recipe(),
             variants,
             state,
         )
@@ -451,7 +456,7 @@ fn step_details(
     let extra = item.content.map(|content| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().content_recipe(),
+            |r: &StepperTheme| r.content_recipe(),
             variants,
             state,
         )
@@ -461,7 +466,7 @@ fn step_details(
     let end = item.end_content.map(|content| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().end_content_recipe(),
+            |r: &StepperTheme| r.end_content_recipe(),
             variants,
             state,
         )
@@ -480,16 +485,15 @@ enum StepDecoration {
 }
 /// Mount only decorative geometry; selection and compact layout remain with the existing source.
 fn step_decoration(
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     state: impl Fn() -> StepperItemState + 'static,
     part: StepDecoration,
 ) -> Node {
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StepperItemState> =
-        match part {
-            StepDecoration::Leading => |r| r.stepper_recipes().leading_recipe(),
-            StepDecoration::Trailing => |r| r.stepper_recipes().trailing_recipe(),
-            StepDecoration::Progress => |r| r.stepper_recipes().progress_recipe(),
-        };
+    let pick: fn(&StepperTheme) -> &crate::recipe::Recipe<StepperItemState> = match part {
+        StepDecoration::Leading => |r: &StepperTheme| r.leading_recipe(),
+        StepDecoration::Trailing => |r: &StepperTheme| r.trailing_recipe(),
+        StepDecoration::Progress => |r: &StepperTheme| r.progress_recipe(),
+    };
     crate::layer::with_recipe_style(
         node().hit_testable(false).focusable(false),
         pick,

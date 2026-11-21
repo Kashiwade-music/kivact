@@ -1,7 +1,7 @@
 //! Role: Share sizing and look helpers that two or more components recipes use.
 
 use crate::control_size::ControlSize;
-use crate::variants::Look;
+use crate::recipe::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::Shadow;
 use kivact_core::style::{Align, Color, FlexDirection, Style, Theme, style};
@@ -64,7 +64,7 @@ pub(crate) fn trigger(t: &Theme) -> Style {
         .background(kivact_core::style::color::SURFACE)
 }
 
-pub(crate) fn surface(t: &Theme, _: &PopupState) -> Style {
+pub(crate) fn surface(t: &Theme, _: &Look<PopupState>) -> Style {
     style()
         .padding(4)
         .background(kivact_core::style::color::SURFACE)
@@ -91,7 +91,7 @@ pub(crate) fn mark() -> Style {
 }
 
 /// The items in a column.
-pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn list(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::XS_VAR))

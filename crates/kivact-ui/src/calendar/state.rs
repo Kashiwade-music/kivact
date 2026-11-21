@@ -10,7 +10,7 @@ use kivact_interaction::CalendarGridApi;
 pub(super) struct Shared {
     pub(super) swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
     pub(super) cell_size: f64,
-    pub(super) variants: crate::variants::Variants,
+    pub(super) variants: kivact_core::view::Variants,
     /// The keyboard, selection and paging behavior.
     pub(super) grid: CalendarGridApi,
     /// The first shown month.

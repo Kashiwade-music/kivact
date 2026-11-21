@@ -5,15 +5,14 @@ use crate::toggle::switch_drag::switch as switch_gesture;
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::toggle::look::CheckControl;
-use crate::toggle::look::CheckableState;
-use crate::variants::{Variant, Variants};
+use crate::toggle::look::{CheckableState, CheckboxTheme, SwitchTheme};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
 use kivact_core::view::{CheckedState, Element, Node, node};
 use kivact_core::view::{IntoView, View};
 use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
-    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $control:ident) => {
+    ($(#[$doc:meta])* $name:ident, $kind:ident, $table:ident, $parts:ident, $gesture:ident, $control:ident) => {
         $(#[$doc])*
         pub struct $name {
             root: Node,
@@ -23,7 +22,6 @@ macro_rules! toggle_builder {
             mixed: Option<Value<bool>>,
             hide_label: Option<Value<bool>>,
             size: Value<ControlSize>,
-            variants: Variants,
         }
 
         impl $name {
@@ -45,12 +43,12 @@ macro_rules! toggle_builder {
                     on_edit: None,
                     hide_label: None,
                     size: crate::control_size::default_control_size().into_value(),
-                    variants: Variants::default(),
                 }
             }
 
             /// The size (default [`ControlSize::Medium`]), given to the
             /// recipe in its state; the recipe sizes the control by it.
+            #[track_caller]
             pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
                 self.size = size.into_value();
                 self
@@ -66,20 +64,6 @@ macro_rules! toggle_builder {
         }
 
         impl $name {
-            /// Give the component a [`Variant`]: a look beyond the meanings its
-            /// state carries, which every recipe of the component reads with
-            /// [`Look::variant`](crate::Look::variant). A later value of the same
-            /// type replaces the earlier one; a theme that does not know the type
-            /// draws the plain look.
-            ///
-            /// The value is a constant: the recipes read the values given before
-            /// the component is mounted, and a value never changes afterwards. A
-            /// look that changes while the component lives is a state the recipe
-            /// reads, or a reactive `.style(..)` of the caller's.
-            pub fn variant(mut self, v: impl Variant) -> Self {
-                self.variants.add(v);
-                self
-            }
         }
 
         impl Element for $name {
@@ -91,6 +75,7 @@ macro_rules! toggle_builder {
         #[diagnostic::do_not_recommend]
         impl IntoView for $name {
             fn into_view(mut self) -> View {
+                let variants = self.root.authored().variants();
                 let mut behavior = $kind(self.state, self.mixed);
                 if let Some(observer) = self.on_edit {
                     behavior = behavior.on_edit(move |phase| observer.call(phase));
@@ -111,11 +96,11 @@ macro_rules! toggle_builder {
                     invalid: invalid.as_ref().is_some_and(|invalid| invalid.get()),
                 });
                 let check_state = part.state();
-                let indicator = crate::toggle::parts::$parts(&self.variants, check_state);
+                let indicator = crate::toggle::parts::$parts(&variants, check_state);
                 with_base_recipe_style(
                     self.root,
-                    |recipes| recipes.$recipe(),
-                    &self.variants,
+                    |t: &$table| t.root_recipe(),
+                    &variants,
                     move || check_state.get(),
                 )
                     .part(part)
@@ -134,7 +119,7 @@ toggle_builder!(
     /// [`use_checkbox`](kivact_interaction::use_checkbox).
     Checkbox,
     checkbox_behavior,
-    checkbox_recipe,
+    CheckboxTheme,
     checkbox,
     no_gesture,
     checkbox_control
@@ -148,7 +133,7 @@ toggle_builder!(
     /// [`use_switch`](kivact_interaction::use_switch).
     Switch,
     switch_behavior,
-    switch_recipe,
+    SwitchTheme,
     switch,
     switch_gesture,
     switch_control
@@ -217,6 +202,7 @@ impl Checkbox {
     /// The binding stays binary; pressing a mixed check box writes `true`.
     /// Clearing the mixed value is the caller's (see
     /// [`CheckboxApi::indeterminate`](kivact_interaction::CheckboxApi::indeterminate)).
+    #[track_caller]
     pub fn indeterminate(mut self, mixed: impl IntoValue<bool>) -> Self {
         self.mixed = Some(mixed.into_value());
         self
@@ -228,8 +214,8 @@ impl Checkbox {
 /// It has `Role::CheckBox` and the checked state; Space and click flip it
 /// (Enter does nothing), and so do the accessibility `Activate` and `Toggle`
 /// actions. The look is the theme's
-/// [`UiRecipes::checkbox`](crate::UiRecipes), given a
-/// [`CheckableState`](crate::CheckableState).
+/// [`CheckboxTheme::root`](crate::theme::CheckboxTheme), given a
+/// [`CheckableState`](crate::theme::CheckableState).
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -253,7 +239,7 @@ pub fn checkbox(label: impl IntoText, checked: kivact_core::state::Signal<bool>)
 /// It has `Role::Switch` and the checked state; Space and click flip it
 /// (Enter does nothing), and so do the accessibility `Activate` and `Toggle`
 /// actions. The look is the theme's
-/// [`UiRecipes::switch`](crate::UiRecipes).
+/// [`SwitchTheme::root`](crate::theme::SwitchTheme).
 ///
 /// ```no_run
 /// use kivact::prelude::*;

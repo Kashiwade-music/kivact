@@ -57,7 +57,9 @@ fn date_input_parses_typed_text_and_opens_the_calendar() {
         let value = signal(None::<CalendarDate>);
         (
             value,
-            ui::date_input("Birthday", value).presentation(DatePresentation::Desktop),
+            ui::date_input(value)
+                .label("Birthday")
+                .presentation(DatePresentation::Desktop),
         )
     });
     let field = screen.get_by_role(Role::TextBox, "Birthday");
@@ -78,7 +80,9 @@ fn date_input_bottom_sheet_picks_with_the_wheel() {
         let value = signal(Some(day(14)));
         (
             value,
-            ui::date_input("Birthday", value).presentation(DatePresentation::BottomSheet),
+            ui::date_input(value)
+                .label("Birthday")
+                .presentation(DatePresentation::BottomSheet),
         )
     });
     screen.get_by_role(Role::Button, "Choose date").click();
@@ -99,7 +103,9 @@ fn time_input_accepts_hours_and_minutes() {
         let value = signal(None::<TimeOfDay>);
         (
             value,
-            ui::time_input("Meeting", value).presentation(DatePresentation::Desktop),
+            ui::time_input(value)
+                .label("Meeting")
+                .presentation(DatePresentation::Desktop),
         )
     });
     let field = screen.get_by_role(Role::TextBox, "Meeting");
@@ -126,7 +132,8 @@ fn date_fields_attach_to_existing_buttons_without_constructing_editors() {
         (
             (date, range, presses),
             column((
-                ui::date_input("Date picker", date)
+                ui::date_input(date)
+                    .label("Date picker")
                     .presentation(DatePresentation::Desktop)
                     .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10)))
                     .attach(
@@ -134,7 +141,8 @@ fn date_fields_attach_to_existing_buttons_without_constructing_editors() {
                             .test_id("date-trigger")
                             .on_press(move || presses.update(|n| *n += 1)),
                     ),
-                ui::date_range_input("Range picker", range)
+                ui::date_range_input(range)
+                    .label("Range picker")
                     .presentation(DatePresentation::Desktop)
                     .calendar(|calendar| calendar.default_month(CalendarMonth::new(2026, 10)))
                     .attach(button("Pick range")),
@@ -167,7 +175,8 @@ fn date_range_input_keeps_invalid_order_as_a_draft() {
         let range = signal(Some(DateRange::new(day(10), day(20))));
         (
             range,
-            ui::date_range_input("Stay", range)
+            ui::date_range_input(range)
+                .label("Stay")
                 .start_label("Check-in")
                 .end_label("Check-out")
                 .presentation(DatePresentation::Desktop),

@@ -17,7 +17,7 @@ pub(crate) struct Inputs {
     pub max: Value<Option<DateTime>>,
     pub week_start: Option<Value<Weekday>>,
     pub seconds: Value<bool>,
-    pub variants: crate::variants::Variants,
+    pub variants: kivact_core::view::Variants,
 }
 pub(crate) fn render(i: Inputs) -> View {
     let button_ref = node_ref();
@@ -126,7 +126,8 @@ fn editors(
             }
         },
     );
-    let field = crate::text_input(message("date_time.date", "Date"), draft)
+    let field = crate::text_input(draft)
+        .label(message("date_time.date", "Date"))
         .node_ref(date_ref)
         .with_node(|n| n.expanded(open))
         .forward_keys(vec![Key::ArrowDown])
@@ -159,7 +160,8 @@ fn editors(
             }
         },
     );
-    let time_label = crate::text_input(message("date_time.time", "Time"), time_draft)
+    let time_label = crate::text_input(time_draft)
+        .label(message("date_time.time", "Time"))
         .node_ref(time_ref)
         .with_node(|n| n.expanded(open))
         .forward_keys(vec![Key::ArrowDown])

@@ -8,9 +8,7 @@
 //! write one `Signal<Vec<K>>`.
 pub(crate) mod group;
 pub(crate) mod look;
-pub(crate) mod tokens;
 mod view;
+pub use look::DisclosureMotion;
 
-pub use crate::disclosure::tokens::DisclosureMotion;
-pub use crate::disclosure::tokens::DisclosureTokens;
 pub use view::{Disclosure, disclosure};

@@ -72,7 +72,8 @@ pub(super) fn input(
         },
         move |text| draft.send(Event::Typed(text)),
     );
-    crate::text_input(label, edit)
+    crate::text_input(edit)
+        .label(label)
         .node_ref(reference)
         .disabled(disabled)
         .on_key(move |event| {

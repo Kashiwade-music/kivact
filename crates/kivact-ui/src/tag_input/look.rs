@@ -1,11 +1,12 @@
-//! Role: The tag input recipe state, tokens, recipe table and default looks.
+//! Role: The tag input recipe state, recipe table and default looks.
 use crate::look_common::flat;
+use crate::theme::Look;
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 /// The box of the tags and the input, ringed while the focus is inside.
-pub(crate) fn tag_root(t: &Theme, state: &PartState) -> Style {
+pub(crate) fn tag_root(t: &Theme, state: &Look<PartState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .flex_wrap(true)
@@ -30,7 +31,7 @@ pub(crate) fn tag_root(t: &Theme, state: &PartState) -> Style {
 }
 
 /// One tag: its text and its remove button.
-pub(crate) fn tag(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn tag(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -44,7 +45,7 @@ pub(crate) fn tag(t: &Theme, _: &PartState) -> Style {
 }
 
 /// A tag's remove button, small enough to sit in the tag.
-pub(crate) fn tag_remove(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn tag_remove(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .size(18, 18)
         .padding(0)
@@ -53,7 +54,7 @@ pub(crate) fn tag_remove(t: &Theme, _: &PartState) -> Style {
 
 /// The input among the tags, without a box of its own: the root's is the
 /// field's.
-pub(crate) fn tag_input(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn tag_input(t: &Theme, _: &Look<PartState>) -> Style {
     flat(t)
         .flex_grow(1)
         .min_width(96)
@@ -62,7 +63,7 @@ pub(crate) fn tag_input(t: &Theme, _: &PartState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`tag_input`](super::tag_input).
-    TagInputRecipes {
+    TagInputTheme {
         /// The box of the tags and the input; its `focused` is true while the
         /// focus is in the input.
         root(root_recipe): PartState = tag_root,

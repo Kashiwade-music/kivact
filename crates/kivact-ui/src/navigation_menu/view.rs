@@ -1,5 +1,6 @@
 //! Role: The navigation menu builder, its panel and trigger rendering.
 
+use crate::navigation_menu::look::NavigationMenuTheme;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
@@ -27,7 +28,6 @@ pub struct NavigationMenu {
     close_delay: Duration,
     placement: Placement,
     align: OverlayAlign,
-    variants: crate::variants::Variants,
     changed: Option<Callback<bool>>,
 }
 /// Construct a navigation landmark under an accessible label.
@@ -40,7 +40,6 @@ pub fn navigation_menu(label: impl IntoText) -> NavigationMenu {
         close_delay: Duration::from_millis(150),
         placement: Placement::Below,
         align: OverlayAlign::Start,
-        variants: crate::variants::Variants::default(),
         changed: None,
     }
 }
@@ -54,6 +53,7 @@ impl NavigationMenu {
         self
     }
     /// Add a panel trigger. Keys belong to the application's navigation data.
+    #[track_caller]
     pub fn link<K: 'static, V: IntoView>(
         mut self,
         _key: K,
@@ -67,6 +67,7 @@ impl NavigationMenu {
         self
     }
     /// Add a direct navigation action without constructing or opening a panel.
+    #[track_caller]
     pub fn action<K: 'static, M>(
         mut self,
         _key: K,
@@ -101,11 +102,6 @@ impl NavigationMenu {
         self.align = align;
         self
     }
-    /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
 }
 impl Element for NavigationMenu {
     fn node_mut(&mut self) -> &mut Node {
@@ -121,9 +117,9 @@ impl IntoView for NavigationMenu {
             close_delay,
             placement,
             align,
-            variants,
             changed,
         } = self;
+        let variants = root.authored().variants();
         let api = use_navigation_menu();
         let api = if let Some(changed) = changed {
             api.on_open_change(move |open| changed.call(open))
@@ -171,7 +167,7 @@ impl IntoView for NavigationMenu {
         }
         crate::layer::with_base_recipe_style(
             root.roving_focus(kivact_core::view::Orientation::Horizontal),
-            |r| r.navigation_menu_recipes().root_recipe(),
+            |r: &NavigationMenuTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )
@@ -183,7 +179,7 @@ impl IntoView for NavigationMenu {
 /// Independent placement, appearance and actual visibility for one mounted panel.
 struct PanelPresentation {
     shown: Value<bool>,
-    variants: crate::variants::Variants,
+    variants: kivact_core::view::Variants,
     placement: Placement,
     align: OverlayAlign,
     open_delay: Duration,
@@ -213,7 +209,7 @@ fn navigation_panel(
         let content = content.clone();
         let panel = crate::layer::with_recipe_style(
             node().role(Role::Group).name(label),
-            |r| r.navigation_menu_recipes().panel_recipe(),
+            |r: &NavigationMenuTheme| r.panel_recipe(),
             &variants,
             move || state.get(),
         )
@@ -311,9 +307,9 @@ fn navigation_trigger(
                 }
                 _ => Handled::No,
             }),
-        |r| r.navigation_menu_recipes().trigger_recipe(),
+        |r: &NavigationMenuTheme| r.trigger_recipe(),
         variants,
-        move || crate::NavigationTriggerState { open: shown.get() },
+        move || crate::theme::NavigationTriggerState { open: shown.get() },
     )
     .into_view()
 }
@@ -323,7 +319,7 @@ fn navigation_action(
     label: Value<String>,
     press: kivact_core::state::Callback<()>,
     disabled: Value<bool>,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
 ) -> View {
     let state = api.state();
     crate::layer::with_recipe_style(
@@ -334,7 +330,7 @@ fn navigation_action(
                 api.hide();
                 press.call(());
             }),
-        |r| r.navigation_menu_recipes().action_recipe(),
+        |r: &NavigationMenuTheme| r.action_recipe(),
         variants,
         move || state.get(),
     )

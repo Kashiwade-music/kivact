@@ -1,6 +1,7 @@
 //! Role: Build the carousel track, paging controls and keyboard behavior.
 
 use crate::carousel::look::CarouselSurfaceState;
+use crate::carousel::look::CarouselTheme;
 use kivact_core::geometry::Point;
 use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
 use kivact_core::style::{FlexDirection, Overflow, pct, style};
@@ -14,7 +15,6 @@ use kivact_interaction::{Snap, use_carousel};
 /// A slide viewport and previous/next controls.
 pub struct Carousel {
     root: Node,
-    variants: crate::variants::Variants,
     slides: Vec<View>,
     index: Signal<usize>,
     orientation: Value<Orientation>,
@@ -32,7 +32,6 @@ pub struct Carousel {
 #[track_caller]
 pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     Carousel {
-        variants: crate::variants::Variants::default(),
         root: node().name(kivact_core::i18n::message("carousel.label", "Carousel")),
         slides: slides.into_views(),
         index,
@@ -48,23 +47,19 @@ pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
     }
 }
 impl Carousel {
-    /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
-        self.variants.add(variant);
-        self
-    }
-
     /// Wrap previous and next navigation at the endpoints.
     pub fn looping(mut self) -> Self {
         self.looping = true;
         self
     }
     /// Choose scroll settling behavior.
+    #[track_caller]
     pub fn snap(mut self, snap: impl IntoValue<Snap>) -> Self {
         self.snap = snap.into_value();
         self
     }
     /// Choose the slide axis.
+    #[track_caller]
     pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
         self.orientation = orientation.into_value();
         self
@@ -75,6 +70,7 @@ impl Carousel {
         self
     }
     /// Number of slides visible, including fractional peeks.
+    #[track_caller]
     pub fn items_per_view(mut self, count: impl IntoValue<f64>) -> Self {
         let count = count.into_value();
         self.per_view = Some(memo(move || {
@@ -84,21 +80,25 @@ impl Carousel {
         self
     }
     /// Space between slides in logical pixels.
+    #[track_caller]
     pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
         self.gap = Some(gap.into_value());
         self
     }
     /// Viewport inset in logical pixels.
+    #[track_caller]
     pub fn padding(mut self, padding: impl IntoValue<f64>) -> Self {
         self.padding = Some(padding.into_value());
         self
     }
     /// Show previous and next controls.
+    #[track_caller]
     pub fn buttons(mut self, buttons: impl IntoValue<bool>) -> Self {
         self.buttons = buttons.into_value();
         self
     }
     /// Fade overflowing viewport edges.
+    #[track_caller]
     pub fn edge_fade(mut self, fade: impl IntoValue<bool>) -> Self {
         self.edge_fade = fade.into_value();
         self
@@ -111,6 +111,7 @@ impl Element for Carousel {
 }
 impl IntoView for Carousel {
     fn into_view(mut self) -> View {
+        let variants = self.root.authored().variants();
         let c = prepare(&mut self);
         let references = std::rc::Rc::new((0..c.count).map(|_| node_ref()).collect::<Vec<_>>());
         let edges = (references.first().copied(), references.last().copied());
@@ -118,15 +119,15 @@ impl IntoView for Carousel {
             follow_index(c, references.clone());
             follow_scroll(c, references.clone());
         }
-        let items = slide_items(c, &self.variants, self.slides, &references);
-        let content = slide_track(c, &self.variants, items);
-        let viewport = slide_viewport(c, &self.variants, content, edges);
-        let previous = navigation_button(c, &self.variants, references.clone(), edges, false);
-        let next = navigation_button(c, &self.variants, references.clone(), edges, true);
+        let items = slide_items(c, &variants, self.slides, &references);
+        let content = slide_track(c, &variants, items);
+        let viewport = slide_viewport(c, &variants, content, edges);
+        let previous = navigation_button(c, &variants, references.clone(), edges, false);
+        let next = navigation_button(c, &variants, references.clone(), edges, true);
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.carousel_recipes().root_recipe(),
-            &self.variants,
+            |r: &CarouselTheme| r.root_recipe(),
+            &variants,
             move || c.recipe_state(),
         )
         .with_node(|n| n.role(Role::Group))
@@ -363,7 +364,7 @@ fn nearest_slide(
 /// Size and label each slide using the actual carousel recipe state.
 fn slide_items(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     slides: Vec<View>,
     refs: &[kivact_core::view::NodeRef],
 ) -> Vec<View> {
@@ -373,7 +374,7 @@ fn slide_items(
         .map(|(at, item)| {
             crate::layer::with_recipe_style(
                 node(),
-                |r| r.carousel_recipes().slide_recipe(),
+                |r: &CarouselTheme| r.slide_recipe(),
                 variants,
                 move || c.recipe_state(),
             )
@@ -412,10 +413,10 @@ fn slide_items(
         .collect()
 }
 /// Lay out and translate the shared slide track.
-fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>) -> Node {
+fn slide_track(c: Layout, variants: &kivact_core::view::Variants, items: Vec<View>) -> Node {
     crate::layer::with_recipe_style(
         node(),
-        |r| r.carousel_recipes().track_recipe(),
+        |r: &CarouselTheme| r.track_recipe(),
         variants,
         move || c.recipe_state(),
     )
@@ -454,7 +455,7 @@ fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>
 /// Wrap slides in the translated or native scrolling viewport.
 fn slide_viewport(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     content: Node,
     edges: (
         Option<kivact_core::view::NodeRef>,
@@ -463,7 +464,7 @@ fn slide_viewport(
 ) -> Node {
     crate::layer::with_recipe_style(
         node(),
-        |r| r.carousel_recipes().viewport_recipe(),
+        |r: &CarouselTheme| r.viewport_recipe(),
         variants,
         move || c.recipe_state(),
     )
@@ -581,7 +582,7 @@ fn keyboard(
 /// Render one previous/next action with the correct directional mark and bounds.
 fn navigation_button(
     c: Layout,
-    variants: &crate::variants::Variants,
+    variants: &kivact_core::view::Variants,
     references: std::rc::Rc<Vec<kivact_core::view::NodeRef>>,
     edges: (
         Option<kivact_core::view::NodeRef>,
@@ -628,12 +629,11 @@ fn navigation_button(
             }
     })
     .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<CarouselSurfaceState> =
-        if next {
-            |r| r.carousel_recipes().next_recipe()
-        } else {
-            |r| r.carousel_recipes().previous_recipe()
-        };
+    let pick: fn(&CarouselTheme) -> &crate::recipe::Recipe<CarouselSurfaceState> = if next {
+        |r: &CarouselTheme| r.next_recipe()
+    } else {
+        |r: &CarouselTheme| r.previous_recipe()
+    };
     crate::layer::with_recipe_style(button, pick, variants, move || c.recipe_state()).into_view()
 }
 

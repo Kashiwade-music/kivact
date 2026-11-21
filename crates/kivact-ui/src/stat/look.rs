@@ -1,7 +1,7 @@
-//! Role: The stat recipe state, tokens, recipe table and default looks.
+//! Role: The stat recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
 use kivact_macros::Prop;
 pub(crate) fn stat_root(t: &Theme, _: &Look<StatState>) -> Style {
@@ -47,7 +47,7 @@ pub struct StatState {
 
 recipe_table! {
     /// Parts of a statistic and its optional application-owned chart.
-    StatRecipes {
+    StatTheme {
         root(root_recipe): StatState = stat_root,
         label(label_recipe): StatState = stat_label,
         value(value_recipe): StatState = stat_value,

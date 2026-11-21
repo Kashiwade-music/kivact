@@ -1,30 +1,50 @@
-//! Role: The stepper recipe state, tokens, recipe table and default looks.
+//! Role: The stepper recipe state, recipe table and default looks.
 
+use crate::recipe::Look;
 use crate::recipe::recipe_table;
-use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
 use kivact_core::view::Orientation;
+
+/// The gap between the parts of a step, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("stepper.gap", 8.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
+/// The padding of a stepper, in logical px.
+pub static PADDING_VAR: ThemeVar<f64> = ThemeVar::new("stepper.padding", 4.0);
+/// [`PADDING_VAR`] as a length for a style.
+pub const PADDING: Length = Length::var(&PADDING_VAR);
+
+/// The minimum width of a step, in logical px.
+pub static MIN_STEP_WIDTH_VAR: ThemeVar<f64> = ThemeVar::new("stepper.min_step_width", 96.0);
+/// [`MIN_STEP_WIDTH_VAR`] as a length for a style.
+pub const MIN_STEP_WIDTH: Length = Length::var(&MIN_STEP_WIDTH_VAR);
+
+/// The gap around a step's connector, in logical px.
+pub static CONNECTOR_GAP_VAR: ThemeVar<f64> = ThemeVar::new("stepper.connector_gap", 8.0);
+/// [`CONNECTOR_GAP_VAR`] as a length for a style.
+pub const CONNECTOR_GAP: Length = Length::var(&CONNECTOR_GAP_VAR);
+
 pub(crate) fn stepper_root(t: &Theme, _: &Look<StepperState>) -> Style {
-    let p = &t.ext::<crate::tokens::UiTokens>().stepper;
     style()
         .flex_direction(FlexDirection::Row)
-        .gap(p.gap)
-        .padding(p.padding)
+        .gap(GAP)
+        .padding(PADDING)
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn stepper_item(t: &Theme, look: &Look<StepperItemState>) -> Style {
-    let p = &t.ext::<crate::tokens::UiTokens>().stepper;
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_width(if look.collapsed {
             0.0
         } else {
-            p.min_step_width
+            t.get(&MIN_STEP_WIDTH_VAR)
         })
-        .gap(p.connector_gap)
+        .gap(CONNECTOR_GAP)
         .color(if look.index == look.current {
             t.get(&kivact_core::style::color::ACCENT_VAR)
         } else {
@@ -58,7 +78,6 @@ pub struct StepperItemState {
     pub current: usize,
     pub status: StepStatus,
     pub indicator: StepIndicatorKind,
-    pub interactive: bool,
     pub collapsed: bool,
     pub disabled: bool,
     pub optional: bool,
@@ -75,7 +94,7 @@ pub struct StepperState {
 
 recipe_table! {
     /// Progress list and individual step recipes.
-    StepperRecipes {
+    StepperTheme {
         root(root_recipe): StepperState = stepper_root,
         previous(previous_recipe): StepperState = crate::look_common::part,
         next(next_recipe): StepperState = crate::look_common::part,

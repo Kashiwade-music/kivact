@@ -383,7 +383,9 @@ fn text_input_purpose_reaches_the_platform() {
         let purpose = signal(InputPurpose::Text);
         (
             purpose,
-            text_input("Purpose", signal(String::new())).purpose(purpose),
+            text_input(signal(String::new()))
+                .label("Purpose")
+                .purpose(purpose),
         )
     });
     screen.get_by_role(Role::TextBox, "Purpose").focus();

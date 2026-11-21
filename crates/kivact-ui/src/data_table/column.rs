@@ -165,7 +165,7 @@ impl<R: 'static> DataColumn<R> {
     pub fn width(mut self, width: impl Into<f64>) -> Self {
         let width = width.into();
         self.flex = None;
-        self.def = self.def.with_width((width > 0.0).then_some(width));
+        self.def = self.def.width((width > 0.0).then_some(width));
         self
     }
 
@@ -174,7 +174,7 @@ impl<R: 'static> DataColumn<R> {
     pub fn flex(mut self, weight: impl Into<f64>) -> Self {
         let weight = weight.into();
         self.flex = (weight.is_finite() && weight > 0.0).then_some(weight);
-        self.def = self.def.with_width(None);
+        self.def = self.def.width(None);
         self
     }
 
@@ -234,7 +234,7 @@ impl<R: 'static> DataColumn<R> {
 
     /// The fixed width given to [`width`](Self::width).
     pub(crate) fn width_value(&self) -> Option<f64> {
-        self.def.width()
+        self.def.preferred_width()
     }
 
     /// The column of the headless row model, keyed by `key` (a table uses

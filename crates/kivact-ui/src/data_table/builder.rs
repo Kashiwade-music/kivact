@@ -4,7 +4,6 @@ use super::types::{
     TreeConfig,
 };
 use crate::data_table::column::DataColumn;
-use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::Color;
@@ -42,7 +41,7 @@ use std::rc::Rc;
 /// [`cell_controls`](DataTable::cell_controls) put controls in the rows that
 /// stay mounted while the rows are edited, sorted and paged, and
 /// [`row_actions`](DataTable::row_actions) adds a last column of controls.
-/// The look is the theme's [`DataTableRecipes`](crate::DataTableRecipes).
+/// The look is the theme's [`DataTableTheme`](crate::theme::DataTableTheme).
 ///
 /// Messages (a localized text replaces each): `data_table.label` ("Data
 /// table", the grid's name), `data_table.filter` ("Filter…", the filter
@@ -133,7 +132,6 @@ where
         row_height: None,
         row_status: None,
         row_color: None,
-        variants: Variants::default(),
     }
 }
 
@@ -190,26 +188,6 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
         self
     }
 
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-
-    /// Select the density used by themes that style data table cells.
-    pub fn density(self, density: super::types::DataTableDensity) -> Self {
-        self.variant(density)
-    }
-
     /// Pin visible data columns to the start and end of the horizontal viewport.
     /// Indices are in declaration order; hidden or invalid indices are ignored.
     /// When an index occurs on both sides, start takes precedence.
@@ -252,6 +230,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Hidden columns stay hidden. Duplicate and unknown indices are ignored,
     /// and omitted columns follow in their original order. Sort and resize
     /// bindings continue to use the original indices.
+    #[track_caller]
     pub fn column_order(mut self, order: impl IntoValue<Vec<usize>>) -> Self {
         self.column_order = Some(order.into_value());
         self
@@ -281,6 +260,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show `size` rows (at least 1) on each page, keeping the zero-based
     /// page in `page`, with Previous and Next buttons under the table.
     /// It replaces an earlier [`remote_page`](Self::remote_page).
+    #[track_caller]
     pub fn page(
         mut self,
         page: kivact_core::state::Signal<usize>,
@@ -311,6 +291,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Show caller-supplied page rows without slicing them again. The caller
     /// loads the page indicated by the binding and supplies whether another
     /// page is available. It replaces an earlier [`page`](Self::page).
+    #[track_caller]
     pub fn remote_page(
         mut self,
         page: kivact_core::state::Signal<usize>,
@@ -327,6 +308,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
     /// Offer a writable page size and sizes to choose from. Applies with
     /// [`page`](Self::page) or [`remote_page`](Self::remote_page). Choosing a size
     /// resets the page to zero. Values of zero are omitted.
+    #[track_caller]
     pub fn page_sizes(
         mut self,
         size: kivact_core::state::Signal<usize>,
@@ -491,6 +473,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Give the main rows `height` logical pixels (at least 18, a constant
     /// or a reactive value); the row recipe reads it.
+    #[track_caller]
     pub fn row_height(mut self, height: impl IntoValue<f64>) -> Self {
         self.row_height = Some(height.into_value());
         self
@@ -517,5 +500,12 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> Element for DataTable<R, K> {
     fn node_mut(&mut self) -> &mut Node {
         &mut self.root
+    }
+}
+
+impl<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey> DataTable<R, K> {
+    /// Select the density used by themes that style data table cells.
+    pub fn density(self, density: super::types::DataTableDensity) -> Self {
+        self.variant(density)
     }
 }

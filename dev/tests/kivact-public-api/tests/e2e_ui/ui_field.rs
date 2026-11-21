@@ -29,7 +29,7 @@ fn the_field_label_names_the_control_even_when_it_has_its_own_name() {
                 ui::field("Nickname", unnamed_input()),
                 ui::field(
                     "Email address",
-                    ui::text_input("Email", signal(String::new())),
+                    ui::text_input(signal(String::new())).label("Email"),
                 ),
             )),
         )
@@ -120,7 +120,7 @@ fn an_error_appears_and_disappears_with_its_relation_and_the_invalid_state() {
         });
         (
             (email, error),
-            ui::field("Email", ui::text_input("Email", email))
+            ui::field("Email", ui::text_input(email).label("Email"))
                 .hint("We never share it")
                 .error(error),
         )
@@ -155,4 +155,23 @@ fn an_error_appears_and_disappears_with_its_relation_and_the_invalid_state() {
     );
     assert_eq!(texts(input().described_by()), ["We never share it"]);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_text_input_without_a_name_reports_an_error_and_a_field_names_it() {
+    let (screen, ()) = mount(|| {
+        let a = signal(String::new());
+        let b = signal(String::new());
+        (
+            (),
+            column((
+                ui::text_input(a).test_id("bare"),
+                ui::field("Email", ui::text_input(b).test_id("named")),
+            )),
+        )
+    });
+    assert_eq!(screen.errors().len(), 1, "{:?}", screen.errors());
+    assert!(format!("{:?}", screen.errors()[0]).contains("has no accessible name"));
+    let named = screen.get_by_test_id("named");
+    assert_eq!(named.name(), "Email");
 }

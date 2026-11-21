@@ -31,10 +31,12 @@ fn slider_vertical_thumbs_expose_orientation() {
                     .part(range.track(Orientation::Vertical))
                     .style(style().size(24, 160))
                     .child((low, high)),
-                slider("Themed volume", signal(40.0))
+                slider(signal(40.0))
+                    .label("Themed volume")
                     .orientation(Orientation::Vertical)
                     .style(style().height(160)),
-                range_slider("Themed range", signal(20.0), signal(80.0))
+                range_slider(signal(20.0), signal(80.0))
+                    .label("Themed range")
                     .orientation(Orientation::Vertical)
                     .style(style().height(160)),
                 node()

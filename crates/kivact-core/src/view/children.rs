@@ -60,3 +60,21 @@ tuple_children!(A, B, C, D, E, F, G, H, I, J, K, L, M);
 tuple_children!(A, B, C, D, E, F, G, H, I, J, K, L, M, N);
 tuple_children!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O);
 tuple_children!(A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P);
+
+/// Children made into views when the component asks: a component that
+/// provides a context to its children calls [`Children::into_views`]
+/// inside that context.
+pub struct Children(Box<dyn FnOnce() -> Vec<View>>);
+
+impl Children {
+    /// Make the children into views now.
+    pub fn into_views(self) -> Vec<View> {
+        (self.0)()
+    }
+}
+
+impl<C: IntoChildren + 'static> From<C> for Children {
+    fn from(children: C) -> Self {
+        Self(Box::new(move || children.into_views()))
+    }
+}

@@ -31,7 +31,8 @@ pub(crate) fn color_input(
         format!("{label} saturation"),
         format!("{label} lightness"),
     );
-    let hex = text_input(label.clone(), value)
+    let hex = text_input(value)
+        .label(label.clone())
         .style(style().flex_grow(1).min_width(0).font_size(12.0))
         .disabled(disabled)
         .on_submit(move || {
@@ -77,7 +78,8 @@ fn slider_row(
 ) -> impl IntoView {
     row((
         text(letter).style(style().width(12).flex_shrink(0).font_size(11.0)),
-        slider(name, value)
+        slider(value)
+            .label(name)
             .range(range)
             .step(1.0)
             .disabled(disabled)

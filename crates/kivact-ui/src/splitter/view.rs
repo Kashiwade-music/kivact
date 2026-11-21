@@ -3,7 +3,7 @@
 use crate::control_size::ControlSize;
 use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
-use crate::variants::{Variant, Variants};
+use crate::splitter::look::SplitterTheme;
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Callback, Signal, Value};
 use kivact_core::state::{IntoText, callback};
@@ -26,7 +26,6 @@ pub struct Splitter {
     start: Option<View>,
     end: Option<View>,
     on_edit: Option<Callback<EditPhase>>,
-    variants: Variants,
     collapse: Option<f64>,
     snaps: Option<Value<Vec<f64>>>,
     pointer_scale: Value<f64>,
@@ -74,7 +73,6 @@ pub fn splitter(
         start: None,
         end: None,
         on_edit: None,
-        variants: Variants::default(),
         collapse: None,
         snaps: None,
         pointer_scale: 1.0.into_value(),
@@ -83,22 +81,7 @@ pub fn splitter(
     }
 }
 
-impl Splitter {
-    /// Give the component a [`Variant`]: a look beyond the meanings its
-    /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
-    /// type replaces the earlier one; a theme that does not know the type
-    /// draws the plain look.
-    ///
-    /// The value is a constant: the recipes read the values given before
-    /// the component is mounted, and a value never changes afterwards. A
-    /// look that changes while the component lives is a state the recipe
-    /// reads, or a reactive `.style(..)` of the caller's.
-    pub fn variant(mut self, v: impl Variant) -> Self {
-        self.variants.add(v);
-        self
-    }
-}
+impl Splitter {}
 
 impl Splitter {
     /// Collapse on release below this fraction of the current range.
@@ -108,12 +91,14 @@ impl Splitter {
     }
 
     /// Snap on release to the nearest fraction of the current range.
+    #[track_caller]
     pub fn snaps(mut self, stops: impl IntoValue<Vec<f64>>) -> Self {
         self.snaps = Some(stops.into_value());
         self
     }
 
     /// Scale pointer travel into the caller's size units.
+    #[track_caller]
     pub fn pointer_scale(mut self, scale: impl IntoValue<f64>) -> Self {
         self.pointer_scale = scale.into_value();
         self
@@ -183,13 +168,13 @@ impl IntoView for Splitter {
             start,
             end,
             on_edit,
-            variants,
             collapse,
             snaps,
             pointer_scale,
             key_step,
             handle,
         } = self;
+        let variants = root.authored().variants();
         let vertical = orientation == Orientation::Vertical;
         let mut behavior = use_splitter(size, range, orientation).on_edit(move |phase| {
             if let Some(on_edit) = on_edit {
@@ -218,7 +203,7 @@ impl IntoView for Splitter {
         let primary = node_ref();
         let handle = with_recipe_style(
             node().part(part).name(name).controls(primary).child(handle),
-            |r| r.splitter_recipes().handle_recipe(),
+            |r: &SplitterTheme| r.handle_recipe(),
             &variants,
             move || AxisState {
                 input: input.get().input,
