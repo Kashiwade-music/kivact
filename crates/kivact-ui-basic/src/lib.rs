@@ -5,9 +5,14 @@
 //! `kivact` facade. Install [`theme`] on the App or a `kivact::style::provide_theme`
 //! boundary: it sets the kit's color variables and the core variables that
 //! draw every standard component of `kivact::ui` in this look.
+//!
+//! Messages are localized under the keys `basic.breadcrumb.more`,
+//! `basic.chart.{bar, stacked_bar, line, area, pie, donut, radar, radial, summary,
+//! total}` and `basic.questionnaire.{label, next, previous, progress, skip, submit}`.
 
 mod attachment;
 mod card_header;
+mod chart;
 mod color;
 mod field;
 mod icons;
@@ -31,6 +36,7 @@ mod recipes_feedback_avatar;
 mod recipes_input;
 mod recipes_metrics;
 mod recipes_navigation;
+mod recipes_navigation_sidebar;
 mod recipes_overlays;
 mod recipes_overlays_combobox;
 mod recipes_overlays_command;
@@ -45,6 +51,7 @@ pub use attachment::{
     Attachment, AttachmentState, attachment, attachment_action, attachment_group,
 };
 pub use card_header::{CardHeader, card_header};
+pub use chart::{Chart, ChartConfig, ChartKind, ChartRow, ChartSeries, chart};
 pub use color::{
     ACCENT, ACCENT_FOREGROUND, ACCENT_FOREGROUND_VAR, ACCENT_VAR, BACKGROUND, BACKGROUND_VAR,
     BORDER, BORDER_VAR, BUBBLE_TINTED, BUBBLE_TINTED_HOVER, BUBBLE_TINTED_HOVER_VAR,

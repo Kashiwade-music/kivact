@@ -2635,6 +2635,7 @@ name = "kivact-ui-basic"
 version = "0.1.0"
 dependencies = [
  "kivact",
+ "kivact-plot",
 ]
 
 [[package]]

@@ -1,16 +1,18 @@
-//! Role: The Chart builder and its canvas, tooltip, legend and accessible text.
+//! Role: The Chart component and its canvas, tooltip, legend and accessible text.
 
-use super::model::Hit;
-use super::model::{ChartConfig, ChartKind, ChartRow};
+use super::model::{ChartConfig, ChartKind, ChartRow, Hit};
 use super::plot::{Options, hit_test, paint};
+use kivact::component;
 use kivact::geometry::{Point, Rect, Size};
 use kivact::i18n::{FractionDigits, Grouping, Locale, NumberStyle, use_locale};
 use kivact::i18n::{message, message_with};
 use kivact::state::IntoValue;
 use kivact::state::{Signal, Value, memo, signal};
-use kivact::style::{Direction, Length, pct, style};
-use kivact::view::{Element, Node, column, node, node_ref};
-use kivact::view::{IntoView, Orientation, PointerEvent, PointerPhase, Role, View, dynamic, show};
+use kivact::style::{FlexDirection, Length, pct, style};
+use kivact::view::{
+    Element, IntoView, Orientation, PointerEvent, PointerPhase, Role, column, dynamic, node,
+    node_ref, show,
+};
 use std::rc::Rc;
 
 /// The name of a kind in the chart's accessible name.
@@ -37,29 +39,15 @@ fn kind_name(kind: Value<ChartKind>) -> Value<String> {
     })
 }
 
-/// A chart (chart.tsx). Created by [`chart`].
+/// A chart of `data` with the series of `config` (chart.tsx).
 ///
 /// The plot is drawn on one canvas in the theme's chart colors, with a hover
 /// tooltip card and a legend under it. The chart is a `Role::Image` named by
 /// its kind and series, and described by its data as text, so assistive
-/// technology reads the values the picture shows.
-pub struct Chart {
-    root: Node,
-    config: ChartConfig,
-    data: Value<Vec<ChartRow>>,
-    options: Options,
-    format: Option<Rc<dyn Fn(f64) -> String>>,
-    tooltip: Value<bool>,
-    legend: Value<bool>,
-    height: Value<Length>,
-}
-
-/// A chart of `data` with the series of `config`.
-///
-/// Every row gives one value per series. The chart is a bar chart with a
-/// grid, axes, a tooltip and a legend until [`Chart::kind`] and the other
-/// options say otherwise. It is as wide as its container; set the width with
-/// `.style(..)`.
+/// technology reads the values the picture shows. Every row gives one value per
+/// series. The chart is a bar chart with a grid, axes, a tooltip and a legend
+/// until `kind` and the other props say otherwise. It is as wide as its
+/// container; set the width with `.style(..)`.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -77,95 +65,92 @@ pub struct Chart {
 ///     basic::chart(config, data).kind(basic::ChartKind::Line)
 /// }
 /// ```
-#[track_caller]
-pub fn chart(config: ChartConfig, data: impl IntoValue<Vec<ChartRow>>) -> Chart {
-    Chart {
-        root: column(()).style(style().width(pct(100)).min_width(0)),
-        config,
-        data: data.into_value(),
-        options: Options {
-            kind: ChartKind::Bar.into_value(),
-            horizontal: false.into_value(),
-            grid: true.into_value(),
-            axis: true.into_value(),
-        },
-        format: None,
-        tooltip: true.into_value(),
-        legend: true.into_value(),
-        height: Length::from(240).into_value(),
-    }
-}
-
-impl Chart {
-    /// Choose how the data is drawn.
-    pub fn kind(mut self, kind: impl IntoValue<ChartKind>) -> Self {
-        self.options.kind = kind.into_value();
-        self
-    }
-
-    /// Lay bars out horizontally with the categories down the left
-    /// ([`Orientation::Horizontal`]) or as columns ([`Orientation::Vertical`]
-    /// and the default `Unspecified`). It affects bar and stacked bar charts
-    /// only. A constant, like the kind: it is the shape of the chart.
-    pub fn orientation(mut self, orientation: impl IntoValue<Orientation>) -> Self {
-        let orientation = orientation.into_value();
-        self.options.horizontal =
-            (move || orientation.get() == Orientation::Horizontal).into_value();
-        self
-    }
-
-    /// Write the values the chart shows (axis ticks, the donut total, the
-    /// tooltip and the description for assistive technology) with `format`.
-    /// The default writes the number in the app's locale, at most three
-    /// decimals, with grouping (`1,234.5` in en-US).
-    pub fn value_format(mut self, format: impl Fn(f64) -> String + 'static) -> Self {
-        self.format = Some(Rc::new(format));
-        self
-    }
-
-    /// Show the tooltip card while the pointer is over the plot (default on;
-    /// constant or reactive).
-    #[track_caller]
-    pub fn tooltip(mut self, tooltip: impl IntoValue<bool>) -> Self {
-        self.tooltip = tooltip.into_value();
-        self
-    }
-
-    /// Show the legend under the plot (default on; constant or reactive).
-    #[track_caller]
-    pub fn legend(mut self, legend: impl IntoValue<bool>) -> Self {
-        self.legend = legend.into_value();
-        self
-    }
-
-    /// Draw the grid lines (default on; constant or reactive).
-    #[track_caller]
-    pub fn grid(mut self, grid: impl IntoValue<bool>) -> Self {
-        self.options.grid = grid.into_value();
-        self
-    }
-
-    /// Draw the axis labels (default on; constant or reactive).
-    #[track_caller]
-    pub fn axis(mut self, axis: impl IntoValue<bool>) -> Self {
-        self.options.axis = axis.into_value();
-        self
-    }
-
-    /// Set the height of the plot (default 240 logical pixels), constant or
-    /// reactive.
-    #[track_caller]
-    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
-        self.height = height.into_value();
-        self
-    }
-}
-
-impl Element for Chart {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+#[component]
+pub fn chart(
+    config: ChartConfig,
+    data: Value<Vec<ChartRow>>,
+    #[prop(default = ChartKind::Bar)] kind: Value<ChartKind>,
+    orientation: Option<Value<Orientation>>,
+    value_format: Option<Rc<dyn Fn(f64) -> String>>,
+    #[prop(default = true)] tooltip: Value<bool>,
+    #[prop(default = true)] legend: Value<bool>,
+    #[prop(default = true)] grid: Value<bool>,
+    #[prop(default = true)] axis: Value<bool>,
+    #[prop(default = Length::from(240))] height: Value<Length>,
+) -> impl Element {
+    let horizontal = (move || {
+        orientation
+            .as_ref()
+            .is_some_and(|orientation| orientation.get() == Orientation::Horizontal)
+    })
+    .into_value();
+    let options = Options {
+        kind,
+        horizontal,
+        grid,
+        axis,
+    };
+    let config = Rc::new(config);
+    let locale = use_locale();
+    let format = value_format.unwrap_or_else(|| default_format(locale));
+    let hover = signal(ChartHover::Away);
+    let (hit, at) = hover_values(hover);
+    let target = node_ref();
+    let bounds = target.rect();
+    let total_label = message("basic.chart.total", "Total");
+    let name = chart_name(options.kind, &config);
+    let details = {
+        let (config, format) = (config.clone(), format.clone());
+        memo(move || data.with(|rows| describe(&config, rows, &*format)))
+    };
+    let canvas = node()
+        .with_node(|root| root.role(Role::Image))
+        .name(name)
+        .description(details)
+        .style(move || {
+            style()
+                .width(pct(100))
+                .height(height.get())
+                .flex_shrink(0.0)
+        })
+        .node_ref(target)
+        .draw({
+            let (config, format) = (config.clone(), format.clone());
+            move |d, size| {
+                let label = total_label.get();
+                data.with(|rows| {
+                    let frame = options.frame(&config, rows, &label, &*format);
+                    hit.with(|hit| paint(d, size, &frame, hit.as_ref()));
+                });
+            }
+        })
+        .on_pointer({
+            let (config, format) = (config.clone(), format.clone());
+            let plot = HoverPlot {
+                hover,
+                bounds,
+                data,
+                options,
+            };
+            move |event: PointerEvent| {
+                if tooltip.get_untracked() {
+                    plot.update(&event, &config, &*format);
+                }
+            }
+        });
+    let (card, legend_view) = below_plot(&config, bounds, &format, hit, at, legend, locale);
+    let plot_box = node()
+        .style(
+            style()
+                .width(pct(100))
+                .flex_direction(FlexDirection::Column),
+        )
+        .child(canvas)
+        .child(card);
+    column(())
+        .style(style().width(pct(100)).min_width(0))
+        .child(plot_box)
+        .child(legend_view)
 }
 
 /// The default value text: the app's locale, at most three decimals, grouped.
@@ -238,81 +223,42 @@ fn hover_values(hover: Signal<ChartHover>) -> (Value<Option<Hit>>, Value<Point>)
     (hit, at)
 }
 
-impl IntoView for Chart {
-    fn into_view(self) -> View {
-        let Chart {
-            root,
-            config,
-            data,
-            options,
-            format,
-            tooltip: with_tooltip,
-            legend: with_legend,
-            height,
-        } = self;
-        let config = Rc::new(config);
-        let locale = use_locale();
-        let format = format.unwrap_or_else(|| default_format(locale));
-        let hover = signal(ChartHover::Away);
-        let (hit, at) = hover_values(hover);
-        let target = node_ref();
-        let bounds = target.rect();
-        let total_label = message("basic.chart.total", "Total");
-        let name = chart_name(options.kind, &config);
-        let details = {
-            let (config, format) = (config.clone(), format.clone());
-            memo(move || data.with(|rows| describe(&config, rows, &*format)))
-        };
-        let canvas = node()
-            .with_node(|root| root.role(Role::Image))
-            .name(name)
-            .description(details)
-            .style(move || style().width(pct(100)).height(height.get()).shrink(0))
-            .node_ref(target)
-            .draw({
-                let (config, format) = (config.clone(), format.clone());
-                move |d, size| {
-                    let label = total_label.get();
-                    data.with(|rows| {
-                        let frame = options.frame(&config, rows, &label, &*format);
-                        hit.with(|hit| paint(d, size, &frame, hit.as_ref()));
+/// Where the pointer moves over the plot: the state the hover follows.
+#[derive(Clone, Copy)]
+struct HoverPlot {
+    hover: Signal<ChartHover>,
+    bounds: Value<Option<Rect>>,
+    data: Value<Vec<ChartRow>>,
+    options: Options,
+}
+
+impl HoverPlot {
+    /// Move the hover to what the pointer of `event` is over: `Down`, `Move`
+    /// and `Enter` look up the hit, `Leave` and `Cancel` clear it.
+    fn update(self, event: &PointerEvent, config: &ChartConfig, format: &dyn Fn(f64) -> String) {
+        match event.phase() {
+            PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
+                let size = self
+                    .bounds
+                    .get_untracked()
+                    .map_or(Size::new(0.0, 0.0), |rect| {
+                        Size::new(rect.width, rect.height)
                     });
-                }
-            })
-            .on_pointer({
-                let (config, format) = (config.clone(), format.clone());
-                move |event: PointerEvent| {
-                    if !with_tooltip.get_untracked() {
-                        return;
-                    }
-                    match event.phase() {
-                        PointerPhase::Down(_) | PointerPhase::Move | PointerPhase::Enter => {
-                            let size = bounds.get_untracked().map_or(Size::new(0.0, 0.0), |rect| {
-                                Size::new(rect.width, rect.height)
-                            });
-                            let next = data.with_untracked(|rows| {
-                                let frame = options.frame(&config, rows, "", &*format);
-                                hit_test(size, &frame, event.pos())
-                            });
-                            hover.set(match next {
-                                Some(hit) => ChartHover::Over {
-                                    hit,
-                                    at: event.pos(),
-                                },
-                                None => ChartHover::Away,
-                            });
-                        }
-                        PointerPhase::Leave | PointerPhase::Cancel => hover.set(ChartHover::Away),
-                        PointerPhase::Up(_) => {}
-                    }
-                }
-            });
-        let (card, legend) = below_plot(&config, bounds, &format, hit, at, with_legend, locale);
-        let plot_box = node()
-            .style(style().width(pct(100)).direction(Direction::Column))
-            .child(canvas)
-            .child(card);
-        root.child(plot_box).child(legend).into_view()
+                let next = self.data.with_untracked(|rows| {
+                    let frame = self.options.frame(config, rows, "", format);
+                    hit_test(size, &frame, event.pos())
+                });
+                self.hover.set(match next {
+                    Some(hit) => ChartHover::Over {
+                        hit,
+                        at: event.pos(),
+                    },
+                    None => ChartHover::Away,
+                });
+            }
+            PointerPhase::Leave | PointerPhase::Cancel => self.hover.set(ChartHover::Away),
+            PointerPhase::Up(_) => {}
+        }
     }
 }
 

@@ -91,7 +91,76 @@ fn set_core(theme: Theme, mode: ThemeMode) -> Theme {
         .set(&font::LINE_HEIGHT_VAR, LineHeight::Scale(16.0 / 12.0))
         .set(&control::HEIGHT_VAR, 32.0)
         .with_focus_ring(1.0);
+    let theme = set_plot_syntax_sidebar(theme, dark);
     set_components(theme)
+}
+
+/// The chart colors of `kivact-plot`, the GitHub syntax colors of the code
+/// blocks and the sidebar's variables, all taken from the kit's colors.
+fn set_plot_syntax_sidebar(theme: Theme, dark: bool) -> Theme {
+    use kivact::ui::theme::{sidebar, syntax};
+    let pick = |light: u32, dark_value: u32| rgb(if dark { dark_value } else { light });
+    let number = pick(0x0550ae, 0x79c0ff);
+    let lifetime = pick(0x116329, 0x7ee787);
+    theme
+        .set(
+            &kivact_plot::color::SERIES_1_VAR,
+            &crate::color::CHART_1_VAR,
+        )
+        .set(
+            &kivact_plot::color::SERIES_2_VAR,
+            &crate::color::CHART_2_VAR,
+        )
+        .set(
+            &kivact_plot::color::SERIES_3_VAR,
+            &crate::color::CHART_3_VAR,
+        )
+        .set(
+            &kivact_plot::color::SERIES_4_VAR,
+            &crate::color::CHART_4_VAR,
+        )
+        .set(
+            &kivact_plot::color::SERIES_5_VAR,
+            &crate::color::CHART_5_VAR,
+        )
+        .set(&kivact_plot::color::GRID_VAR, &crate::color::BORDER_VAR)
+        .set(
+            &kivact_plot::color::AXIS_VAR,
+            &crate::color::MUTED_FOREGROUND_VAR,
+        )
+        .set(&syntax::KEYWORD_VAR, pick(0xcf222e, 0xff7b72))
+        .set(&syntax::STRING_VAR, pick(0x0a3069, 0xa5d6ff))
+        .set(&syntax::NUMBER_VAR, number)
+        .set(&syntax::COMMENT_VAR, pick(0x6e7781, 0x8b949e))
+        .set(&syntax::FUNCTION_VAR, pick(0x8250df, 0xd2a8ff))
+        .set(&syntax::TYPE_VAR, pick(0x953800, 0xffa657))
+        .set(&syntax::MACRO_VAR, number)
+        .set(&syntax::LIFETIME_VAR, lifetime)
+        .set(&syntax::ATTRIBUTE_VAR, pick(0x6639ba, 0xbc8cff))
+        .set(&syntax::OPERATOR_VAR, &crate::color::FOREGROUND_VAR)
+        .set(&syntax::PUNCTUATION_VAR, &crate::color::FOREGROUND_VAR)
+        .set(&syntax::VARIABLE_VAR, &crate::color::FOREGROUND_VAR)
+        .set(&syntax::PROPERTY_VAR, &crate::color::FOREGROUND_VAR)
+        .set(&syntax::CONSTANT_VAR, number)
+        .set(&syntax::TAG_VAR, lifetime)
+        .set(&sidebar::BACKGROUND_VAR, &crate::color::SIDEBAR_VAR)
+        .set(
+            &sidebar::FOREGROUND_VAR,
+            &crate::color::SIDEBAR_FOREGROUND_VAR,
+        )
+        .set(&sidebar::PRIMARY_VAR, &crate::color::SIDEBAR_PRIMARY_VAR)
+        .set(
+            &sidebar::PRIMARY_FOREGROUND_VAR,
+            &crate::color::SIDEBAR_PRIMARY_FOREGROUND_VAR,
+        )
+        .set(&sidebar::ACCENT_VAR, &crate::color::SIDEBAR_ACCENT_VAR)
+        .set(
+            &sidebar::ACCENT_FOREGROUND_VAR,
+            &crate::color::SIDEBAR_ACCENT_FOREGROUND_VAR,
+        )
+        .set(&sidebar::BORDER_VAR, &crate::color::SIDEBAR_BORDER_VAR)
+        .set(&sidebar::RING_VAR, &crate::color::SIDEBAR_RING_VAR)
+        .set(&sidebar::PAGE_VAR, &crate::color::BACKGROUND_VAR)
 }
 
 /// The standard components' variables the kit sets (U 変数表).
