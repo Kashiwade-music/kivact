@@ -107,9 +107,9 @@ fn type_row(label: &str, content: impl IntoView) -> Node {
 
 fn hero(mode: Value<kivact::style::ThemeMode>) -> Node {
     row((column((row((node().style(style().size(22, 8).background(rgb(0xffc928)).transform(Transform::new().skew_x(-12))), g::mono("DESIGN SYSTEM // IDEA 20261003-0940").style(style().color(color::ACCENT).letter_spacing(2.2)))).style(style().gap(10).align_items(Align::Center)),
-        row((text("COMPONENT").style(style().font_family(display_family()).font_size(54).font_weight(800).font_style(kivact::style::FontStyle::Italic).line_height(1.2)),
+        row((text("COMPONENT").style(style().font_family(display_family()).font_size(54).font_weight(800).font_style(kivact::style::FontStyle::Italic).line_height(0.95)),
             node().style(style().background(color::ACCENT).padding_x(8).transform(Transform::new().skew_x(-12)))
-                .child(text("ARCHIVE").style(style().font_family(display_family()).font_size(54).font_weight(800).font_style(kivact::style::FontStyle::Italic).line_height(1.2)
+                .child(text("ARCHIVE").style(style().font_family(display_family()).font_size(54).font_weight(800).font_style(kivact::style::FontStyle::Italic).line_height(0.95)
                     .color(color::ACCENT_TEXT).transform(Transform::new().skew_x(12)))))).style(style().gap(8).align_items(Align::Center)),
         text("A catalog of UI components for native business SaaS, built in blue and white with skewed shapes, cut corners and HUD brackets. Decoration is minimal; information density and reliable operation come first.")
             .style(style().max_width(470).font_size(13.5).color(color::TEXT_MUTED)),
