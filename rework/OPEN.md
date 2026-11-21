@@ -1102,3 +1102,9 @@ U50（lane `wt/rw-W8-U3`、HEAD `2d6e03fb`、変更なし）は着手前に止�
 U51（lane `wt/rw-W8-U3`、commit `46b10e0a`）は付属書どおりに commit したが、STOP 1 件。付属書 3 の `follow_index` の削除で、Scroll mode の初期 index が 0 以外のとき、または viewport の rect が届く前に index が書かれたとき、初回の scroll が起きない（feed は初期値を飛ばす。旧 effect は rect の到着で再実行していた）。既存の試験は初期 index 0 と後からの書込みだけを見るので、欠落を見る試験は足していない。
 - **設計者が決める**：(a) 初回の rect の到着で一度だけ `scroll_to_slide`、(b) 初期 index は scroll しない、(c) 別の形。
 - 同じ commit の食い違い（判断済み）：位置引数の `slides`（carousel）と子（table 系・item_list）は `Children`（`Vec<View>` だと呼出しの形が変わるため）。`looping(v: bool)`（既定 false）。item_row は `position(index, count)` が 2 つの値を一組で受けるため手書きのまま allowed_impls（U50 の理由の型）。pagination は `count` と `total_items(..)` の二つの prop（本体で PageCount を決める）。item_list は header があると root が column になり、caller の modifier は column に付く（tabs と同じ形）。SlideView.rtl は `ReadingDirection`。lib.rs と table.rs の pub use に TableHeader・TableBody・TableFooter・TableHead を足した。
+
+## 設計者の回答（W8・U51 の carousel、2026-11-21）
+
+- (a) を採る。viewport の rect が初めて届いたとき（届く前に書かれた index も含めて）、今の index へ一度だけ `scroll_to_slide` する。この初回の scroll は動きを付けない（即時。reduced motion と同じ扱い）。2 回目以降の rect の変化では scroll しない（index の変化だけが scroll を起こす、今の feed の形のまま）。「初回の rect を見たか」は viewport の rect の feed の中の値で持ち、新しい field は作らない（feed が `Option` の前回値を持っているなら、その `None` → `Some` の遷移で判定する）。
+- 試験を 1 つ足す（e2e_ui の carousel の試験の file）：`fn a_carousel_opens_at_its_initial_slide()`：`Scroll` mode で初期の index が 2 の carousel を描くと、最初の frame の後に slide 2 が viewport に見えている（slide 0 ではない）。
+- (b)（初期の index は scroll しない）は採らない：初期の index が 0 でない carousel が slide 0 を見せるのは誤り。
