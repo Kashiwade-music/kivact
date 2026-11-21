@@ -937,3 +937,20 @@ U30b（lane U1、commit `5c9f7975`）。設計者の答え（条件 2 の (a)、
 - **U52 の 2（`avatar` の `name_tooltip`）**：avatar はいつも `Tooltip<Node>` を返し、`enabled` を「`name_tooltip` の値、無ければ theme の既定」にする（theme が tooltip を求める既定は kit の試験 `avatar_shows_its_name_tooltip_by_default_under_a_theme_that_asks_for_it` が持つので、avatar が tooltip を持ち続ける）。tooltip が `enabled` でないときは、tooltip の fallback の description の part を trigger に付けない（`enabled` に従って付け外しする。無効の tooltip は何も足さない）。これは `tooltip.rs` の変更で U47 の所有なので、U52 の中で `tooltip.rs` のその 1 箇所を直してよい（0.5 の「所有外の 1〜3 file」。U47 と同じ wave の別の lane なので、merge の順は U2（U47）の後に U4 を入れ、衝突したら U47 の形に合わせて直す）。`apg_tooltip` などで「無効の tooltip でも description がある」ことを期待する試験があれば STOP して報告する。
 - **U52 の 3（`progress(None)`）**：不確定は値の今の状態で決める（`value` が `None` の間は不確定）。`Prop::fixed()` の読みと field `fixed_indeterminate` を消し、不確定の見え方と clock（`phase`）は `value.get().is_none() || moving.get()` に reactive に従う。`metrics_and_description.rs` の期待値は変えない（定数の `None` は最初から不確定、reactive の値が `None` になれば不確定）。
 - U3（U49〜U51）と U4（U53・U54）は、それぞれ上を済ませてから進めてよい。
+
+## 差戻し（W8・U47、2026-11-21）
+
+U47（lane `wt/rw-W8-U2`、commit `13432f34`）は部分完了：`announcer_outlet` を `#[component]` にした（`announcer_outlet/look.rs` を新設、`theme.rs` に 1 行）。残りは次の 4 件で止まる。U2 lane はここで止める（U48 は U47 の後）。
+- `dialog/view.rs:Dialog`（`attach`・`render`・`surface`・`place_panel`）：付属書の表の dialog 行に trigger（`attach` の引数）の受け方が無い。`attach` と `into_view` は `(trigger, show(open, surface))` の二つの fragment を返し、一つの root node の `#[component]` に写せない。
+- `hover_card/view.rs:HoverCard::attach`：`attach(trigger)` が `(trigger, layer)` の fragment を返す。表に trigger の受け方が無い。
+- `disclosure/view.rs:Disclosure`（`always_open`・`keep_mounted`・`attach`）：`always_open()`・`keep_mounted()` は引数の無い setter。props にすると C1 に反する。`attach(trigger)` の受け方も表に無い。
+- `disclosure/group.rs:DisclosureGroup::panel`：`panel(key, title, content)` を繰り返し呼んで積む builder。表の `panel` slot（`Rc<dyn Fn(..) -> View>`）の形と合わない。
+- 付属書の注：「## U47：」の節は U-ui.md に無い（表の U47 の行、U44〜U54 の節、規則 C1〜C7 で読んだ）。
+- **設計者が決める**：上の 4 件の形。
+
+## Orchestrator の判断（W8・完了した unit、2026-11-21）
+
+- **E29（`7b7b87df`、lane `wt/rw-W8-E1`）**：採る。`cargo clippy -p kivact-engine --all-targets -- -D warnings` は依存の arvane-native の既存の unused import で落ちるので、`--no-deps` で確かめた（W7b までの lane と同じ扱い）。`DevtoolsChange` の cfg は残す（pub(crate) で devtools の経路だけが使い、cfg が無いと非 devtools の build で dead code）。E29 の手順 4 以外の同 crate の cfg の追従（`contract.rs`・`contract/devtools.rs`・`check/findings.rs`・`measure.rs`・`model/app_model.rs`）は 0.2 の 11 として採る。確認：`dev/tools/check-features.sh` の 12 件、window-lock の engine（14 件）・`e2e_native devtools::`（1 件）・`e2e_core layout_check::`（5 件）が通った。
+- **U40（`aa7c073e`、lane `wt/rw-W8-U1`）**：採る。`button` と `icon_button` を `#[component]` にし、`button/view.rs` を消して `button.rs` に移した（付属書の sketch どおり）。`button_group::member_style` は触っていない（所有の外）。`group_style` は private のまま。busy の試験は `force_click` と期待値 0 と `is_disabled()`（期待値は緩めていない）。
+- **S22b（`a0ca71e0`、lane `wt/rw-W8-S`）**：採る。`span_drops` の 13 variant を `rejected` に数える。試験 1 件を足した。確認は `--no-deps` の clippy、e2e_core 494 件。
+- **A16（`508a49fe`、lane `wt/rw-W8-A2`）**：採る。`Fnv` を `WordHash` に、`adapter.rs` の `#![allow(unsafe_code, ...)]` は、消した identity の既存の allow と同じ（新しい印ではない）。確認は全部通った（GPU の形を含む）。
