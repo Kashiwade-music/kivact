@@ -4290,6 +4290,63 @@ for my $f (@ARGV) {
   ```
 - **完了条件**：`rg -n "xtask-allow\(state-fields\)" crates/kivact-types crates/arvane-protocol crates/kivact-style crates/kivact-svg crates/kivact-shader` が 0 件。上のコマンドが通る。
 
+
+## S22b：span が運べない text の宣言を数える（ST-31、2026-11-21 の設計者の回答）
+
+- **wave / lane / 前提**：W8 / S（この unit だけの lane。W8 の他の lane は `crates/kivact-style/src/internal.rs` を持たない）/ W7b の merge
+- **所有**：`crates/kivact-style/src/internal.rs`（`compile_span` とその `mod tests`）
+- **目的**：ST-31「捨てるものは数えて報告する」。span（`text_spans` の一つの区間）が運ぶのは、engine の `lower/conversion.rs` の `spans` が `ResolvedSpanStyle` に写す property だけ（大きさ、太さ、色、family、italic、字間、語間、kerning、OpenType の features と `tabular_nums`、variations、font width、stroke、decoration の 5 つ、背景）。それ以外の text の宣言は今は黙って捨てているので、`compile_span` の数に足し、core が今のとおり `Unsupported` として報告する。
+- **手順**：
+  1. `internal.rs` に次を足す（`compile_span` の前）：
+     ```rust
+     /// A text declaration a span cannot carry: it belongs to the paragraph
+     /// (lines, alignment, overflow, clamping, case, editing colors) or to the
+     /// whole text's paint (shadow, paint order, optical sizing).
+     fn span_drops(d: &Decl) -> bool {
+         matches!(
+             d,
+             Decl::LineHeight(_)
+                 | Decl::TextWrap(_)
+                 | Decl::TextAlign(_)
+                 | Decl::TextOverflow(_)
+                 | Decl::LineClamp(_)
+                 | Decl::TextCapsize(_)
+                 | Decl::TextTransform(_)
+                 | Decl::PaintOrder(_)
+                 | Decl::FontOpticalSizing(_)
+                 | Decl::CaretColor(_)
+                 | Decl::SelectionColor(_)
+                 | Decl::PlaceholderColor(_)
+                 | Decl::TextShadow(_)
+         )
+     }
+     ```
+  2. `compile_span` の `rejected` の `filter` を `.filter(|d| (d.group() != PropGroup::Text && !matches!(d, Decl::Background(_))) || span_drops(d))` にする。`compile_span` の doc に「Declarations a span cannot carry (`span_drops`) are counted with the rest.」を足す。
+- **状態の閉じ方**：新しい状態は無い。
+- **試験**：`internal.rs` の `mod tests`（無ければ作る：`//! Role: Tests of the style bridges.`）に `fn a_span_counts_the_text_declarations_it_cannot_carry()`：`style().line_height(2.0).text_align(TextAlign::Center).color(rgb(0x2563eb)).font_weight(700)` を `compile_span(.., &Theme::light())` した数が 2、`style().color(rgb(0x2563eb)).tabular_nums()` が 0。公開 E2E の span の試験（`rg -ln "text_spans|span\(" dev/tests/kivact-public-api/tests/e2e_core`）がそのまま通ること（`errors()` が空を期待する試験が落ちたら、その試験の span が捨てる宣言を置いている：STOP して報告する）。
+- **確認（tier a）**：
+  ```
+  cargo test -p kivact-style
+  cargo clippy -p kivact-style --all-targets --all-features -- -D warnings
+  cargo xtask check --no-write --crate kivact-style
+  dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_core
+  ```
+- **完了条件**：上のコマンドが通る。
+
+## S22d：DevTools の computed の名前を style の名前に揃える（J5、2026-11-21 の設計者の回答）
+
+- **wave / lane / 前提**：W8 / S / S22b
+- **所有**：`crates/kivact-core/src/devtools/node.rs`（`describe_paint`・`describe_text` の名前の文字列だけ）
+- **目的**：DevTools の override の名前は S20 で CSS の名前（style の setter の名前）になった。computed の一覧の名前も同じ名前にし、一つの property に一つの名前にする。
+- **手順**：`describe_paint` と `describe_text` の `property("<名前>", ..)` の名前を次のとおり変える（値と並びは変えない）：`"ring"` → `"outline"`、`"radius"` → `"border_radius"`、`"shadows"` → `"box_shadow"`、`"clip"` → `"clip_path"`（`paint.clip` が clip path でなく overflow の clip なら変えない。field の doc で確かめる）、`"weight"` → `"font_weight"`、`"family"` → `"font_family"`、`"italic"` → `"font_style"`、`"align"` → `"text_align"`、`"wrap"` → `"text_wrap"`、`"decoration"` → `"text_decoration"`。他の名前（`background`・`border`・`opacity`・`transform`・`perspective`・`z_index`・`cursor`・`effects`・`font_size`・`color`・`line_height`・`letter_spacing`・`word_spacing` など）は変えない。
+- **試験**：足さない。`rg -n '"(ring|radius|shadows|weight|family|italic|align|wrap|decoration)"' dev/tests crates/kivact-devtools` に当たる期待があれば、新しい名前に直してよい（設計者の決まり）。
+- **確認（tier a）**：`cargo clippy -p kivact-core --all-targets --all-features -- -D warnings`、`dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test -p kivact-public-api-tests --test e2e_native --all-features -- devtools`
+- **完了条件**：上のコマンドが通る。
+
+（S22c：paragraph の `tabular_nums` は、設計者が 2026-11-21 に統合 branch で確かめた。`text.rs` の `resolve_extras` が `t.tabular_nums` を写し、`kivact-types` の computed が継承し、`arvane-text` の `build.rs` が `tnum` を足している。unit は要らない。）
+
+---
+
 ## 4. 他の付属書との接点
 
 ### 4.1 `ThemeVar` の API と、部品・kit の変数の宣言の型（付属書 U・K・G）
