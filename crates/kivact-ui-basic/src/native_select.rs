@@ -1,11 +1,11 @@
 //! Role: Native-select look on the select interaction: bordered trigger and chevron.
 
 use crate::ColorName;
-use crate::list_popup::select_popup;
+use crate::recipe_parts::{row_style, surface_style};
 use crate::theme_access::field_fill;
-use kivact::interaction::use_select;
+use kivact::interaction::{SelectApi, use_select};
 use kivact::view::icon;
-use kivact::view::{Element, Node, node, text};
+use kivact::view::{Element, Node, NodeRef, Placement, column, for_each, node, overlay, scroll, show, text};
 
 use kivact::Prop;
 use kivact::interaction::ListItem;
@@ -192,4 +192,39 @@ fn trigger_style(cfg: Cfg) -> Style {
     } else {
         s
     }
+}
+
+/// The open list of `behavior`, anchored below `anchor` and as wide as it.
+pub(crate) fn select_popup<K: kivact::state::ItemKey>(
+    behavior: SelectApi<K>,
+    options: Value<Vec<ListItem<K>>>,
+    anchor: NodeRef,
+    name: Value<String>,
+) -> View {
+    show(behavior.is_open(), move || {
+        let part = behavior.content();
+        let rows = for_each(
+            options,
+            |item| item.key().clone(),
+            move |item| {
+                let key = item.get().key().clone();
+                let part = behavior.item(key);
+                let state = part.state();
+                node()
+                    .with_node(|root| root.part(part))
+                    .style(move || row_style(&state.get()))
+                    .child(text(move || item.get().label()))
+            },
+        );
+        overlay(
+            anchor,
+            Placement::Below,
+            scroll(column(rows)).style(move || surface_style().max_height(320.0)),
+        )
+        .with_node(|root| root.part(part))
+        .name(name)
+        .offset(4.0)
+        .at_least_anchor_width()
+    })
+    .into_view()
 }

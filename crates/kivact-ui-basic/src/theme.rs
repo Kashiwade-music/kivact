@@ -24,6 +24,9 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = set_core(theme, mode);
     let theme = theme.with_icons(crate::icons::set());
     let theme = crate::recipes_controls::install(theme);
+    let theme = crate::recipes_overlays::install(theme);
+    let theme = crate::recipes_collections::install(theme);
+    let theme = crate::recipes_navigation::install(theme);
     crate::recipes_feedback::install(theme)
 }
 

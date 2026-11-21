@@ -9,11 +9,17 @@
 mod color;
 mod icons;
 mod recipe_parts;
+mod recipes_collections;
 mod recipes_controls;
 mod recipes_controls_button;
 mod recipes_controls_check;
 mod recipes_controls_field;
 mod recipes_feedback;
+mod recipes_navigation;
+mod recipes_overlays;
+mod recipes_overlays_combobox;
+mod recipes_overlays_command;
+mod recipes_overlays_dialog;
 mod theme;
 mod variants;
 
