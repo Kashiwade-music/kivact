@@ -1,108 +1,136 @@
 //! Role: Draw console navigation with numbered chevrons and compact page controls.
-use crate::Tokens;
-use kivact::draw::Shape;
-use kivact::style::{Align, ColorToken, pct, style};
-use kivact::ui::{BreadcrumbRecipes, NavigationMenuRecipes, PaginationRecipes, StepperRecipes};
+use crate::choice_style;
+use crate::color::{PRIMARY_WEAK, SURFACE_3};
+use crate::variants::TabsVariant;
+use kivact::interaction::{NavOpen, TabListState, TabState};
+use kivact::style::color::{ACCENT, ACCENT_TEXT, BORDER, SURFACE_ALT, TEXT, TEXT_MUTED};
+use kivact::style::{Align, Color, FlexDirection, Justify, Shape, Style, Theme, pct, style};
+use kivact::ui::theme::{
+    BreadcrumbItemState, BreadcrumbTheme, Look, NavigationMenuTheme, PaginationItemState,
+    PaginationTheme, StepperItemState, StepperState, StepperTheme, TabsTheme,
+};
 
-pub(crate) fn pagination(r: PaginationRecipes) -> PaginationRecipes {
-    r.root(|base| move |t, s| base(t, s).gap(4).padding(0))
-        .item(|_| {
-            move |t, s| {
-                style()
-                    .size(30, 30)
-                    .align_items(Align::Center)
-                    .justify_content(kivact::style::Justify::Center)
-                    .border(1, ColorToken::Border)
-                    .color(if s.current {
-                        ColorToken::AccentText
-                    } else {
-                        ColorToken::TextMuted
-                    })
-                    .background(if s.current {
-                        t.colors().accent
-                    } else {
-                        kivact::style::Color::TRANSPARENT
-                    })
-                    .hover(
-                        style()
-                            .background(ColorToken::SurfaceAlt)
-                            .color(ColorToken::Text),
-                    )
-                    .disabled(style().opacity(0.42))
-            }
-        })
-        .ellipsis(|base| move |t, s| base(t, s).font_family("monospace"))
+/// Install the tabs, pagination, breadcrumb, stepper and navigation menu recipes.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme
+        .with(TabsTheme::default().list(tabs_list).tab(tab))
+        .with(PaginationTheme::default().item(pagination_item))
+        .with(BreadcrumbTheme::default().item(breadcrumb_item))
+        .with(
+            StepperTheme::default()
+                .root(stepper_root)
+                .item(stepper_item),
+        )
+        .with(
+            NavigationMenuTheme::default()
+                .root(navigation_root)
+                .panel(navigation_panel),
+        )
 }
-pub(crate) fn breadcrumb(r: BreadcrumbRecipes) -> BreadcrumbRecipes {
-    r.root(|base| move |t, s| base(t, s).gap(8).padding(0).align_items(Align::Center))
-        .item(|_| {
-            move |_, s| {
-                style()
-                    .font_size(12)
-                    .weight(if s.is_current() { 700 } else { 400 })
-                    .color(if s.is_current() {
-                        ColorToken::Text
-                    } else {
-                        ColorToken::TextMuted
-                    })
-            }
-        })
-        .separator(|_| move |_, _| style().font_size(20).weight(700).color(ColorToken::Accent))
+
+pub(crate) fn tabs_list(_: &Theme, state: &Look<TabListState>, _base: Style) -> Style {
+    if state.variant::<TabsVariant>() == Some(TabsVariant::Boxed) {
+        return choice_style::boxed_list();
+    }
+    if state.variant::<TabsVariant>() == Some(TabsVariant::Navigation) {
+        return choice_style::navigation_list();
+    }
+    style()
+        .flex_direction(FlexDirection::Row)
+        .width(pct(100))
+        .padding(0)
+        .background(Color::TRANSPARENT)
+        .border(0, BORDER)
+        .border_bottom(1, BORDER)
+        .gap(8)
 }
-pub(crate) fn stepper(r: StepperRecipes) -> StepperRecipes {
-    r.root(|base| move |t, s| base(t, s).width(pct(100)).gap(3).padding(0))
-        .item(|base| {
-            move |t, s| {
-                let p = t.ext::<Tokens>();
-                base(t, s)
-                    .height(40)
-                    .padding_left(if s.index == 0 { 14 } else { 22 })
-                    .padding_right(18)
-                    .gap(8)
-                    .grow(1)
-                    .min_width(0)
-                    .clip_path(
-                        Shape::polygon()
-                            .point(0, 0)
-                            .point(pct(100) - 12, 0)
-                            .point(pct(100), pct(50))
-                            .point(pct(100) - 12, pct(100))
-                            .point(0, pct(100))
-                            .point(if s.index == 0 { 0 } else { 12 }, pct(50)),
-                    )
-                    .background(if s.index == s.current {
-                        t.colors().accent
-                    } else if s.index < s.current {
-                        p.primary_weak
-                    } else {
-                        p.surface_3
-                    })
-                    .color(if s.index == s.current {
-                        t.colors().accent_text
-                    } else if s.index < s.current {
-                        t.colors().accent
-                    } else {
-                        p.text_3
-                    })
-            }
-        })
-        .indicator(|base| {
-            move |t, s| {
-                base(t, s)
-                    .font_family(t.ext::<Tokens>().display_family.as_str())
-                    .font_size(18)
-                    .weight(800)
-                    .italic(true)
-            }
-        })
-        .label(|base| move |t, s| base(t, s).font_size(12).weight(700))
+
+pub(crate) fn tab(_: &Theme, state: &Look<TabState>, _base: Style) -> Style {
+    if state.variant::<TabsVariant>() == Some(TabsVariant::Boxed) {
+        return choice_style::boxed_tab();
+    }
+    if state.variant::<TabsVariant>() == Some(TabsVariant::Navigation) {
+        return choice_style::navigation_item();
+    }
+    style()
+        .flex_direction(FlexDirection::Row)
+        .gap(7)
+        .height(38)
+        .padding_x(16)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .border_bottom(3, Color::TRANSPARENT)
+        .color(TEXT_MUTED)
+        .selected(style().border_color(ACCENT).color(ACCENT).font_weight(700))
+        .hover(style().background(kivact::style::color::SELECTION))
 }
-pub(crate) fn navigation_menu(r: NavigationMenuRecipes) -> NavigationMenuRecipes {
-    r.root(|base| move |t, s| base(t, s).gap(2)).panel(|base| {
-        move |t, s| {
-            base(t, s)
-                .radius(0)
-                .border_color(t.ext::<Tokens>().line_strong)
-        }
-    })
+
+pub(crate) fn pagination_item(_: &Theme, s: &Look<PaginationItemState>, _base: Style) -> Style {
+    style()
+        .size(30, 30)
+        .align_items(Align::Center)
+        .justify_content(Justify::Center)
+        .border(1, BORDER)
+        .color(if s.current { ACCENT_TEXT } else { TEXT_MUTED })
+        .background(if s.current {
+            ACCENT
+        } else {
+            Color::TRANSPARENT
+        })
+        .hover(style().background(SURFACE_ALT).color(TEXT))
+        .disabled(style().opacity(0.42))
+}
+
+pub(crate) fn breadcrumb_item(_: &Theme, s: &Look<BreadcrumbItemState>, _base: Style) -> Style {
+    style()
+        .font_size(12)
+        .font_weight(if s.is_current() { 700 } else { 400 })
+        .color(if s.is_current() { TEXT } else { TEXT_MUTED })
+}
+
+pub(crate) fn stepper_root(_: &Theme, _: &Look<StepperState>, base: Style) -> Style {
+    base.width(pct(100)).gap(3).padding(0)
+}
+
+pub(crate) fn stepper_item(_: &Theme, s: &Look<StepperItemState>, base: Style) -> Style {
+    let fill = if s.index == s.current {
+        ACCENT
+    } else if s.index < s.current {
+        PRIMARY_WEAK
+    } else {
+        SURFACE_3
+    };
+    let text = if s.index == s.current {
+        ACCENT_TEXT
+    } else if s.index < s.current {
+        ACCENT
+    } else {
+        SURFACE_3
+    };
+    base.height(40)
+        .padding_left(if s.index == 0 { 14 } else { 22 })
+        .padding_right(18)
+        .gap(8)
+        .flex_grow(1.)
+        .min_width(0)
+        .clip_path(
+            Shape::polygon()
+                .point(0, 0)
+                .point(pct(100) - 12, 0)
+                .point(pct(100), pct(50))
+                .point(pct(100) - 12, pct(100))
+                .point(0, pct(100))
+                .point(if s.index == 0 { 0 } else { 12 }, pct(50)),
+        )
+        .background(fill)
+        .color(text)
+}
+
+pub(crate) fn navigation_root(_: &Theme, _: &Look<NavOpen>, base: Style) -> Style {
+    base.gap(2)
+}
+
+pub(crate) fn navigation_panel(_: &Theme, _: &Look<NavOpen>, base: Style) -> Style {
+    base.border_radius(0)
+        .border_color(crate::color::LINE_STRONG)
 }
