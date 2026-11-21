@@ -2420,7 +2420,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：なし。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit（`<kit>` = `creative`）。
-- **完了条件**：`rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
+- **完了条件**：`lib.rs` に `mod` 行のある module の file（K22 が変換した file）について、`rg -n "ColorName|Tokens|UiRecipes"` が何も出さない。上の command が通る。crate 全体で 0 件になるのは K25 の完了条件（K23〜K25 が残りを変換する）。
 
 ## K23：creative の部品 1
 
@@ -2432,7 +2432,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient}` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
+- **完了条件**（`dock/view.rs` の `Dock` は手書きの builder の例外。OPEN の 2026-11-22 の回答 (B4)）：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient} --glob '!dock/view.rs'` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
 
 ## K24：creative の部品 2（editors）
 
@@ -2456,7 +2456,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
+- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src --glob '!dock/view.rs'` と `rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
 
 ## K38：creative の icon・試験・catalog・README（W10）
 
@@ -2510,7 +2510,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
   6. `Density`（`tokens.rs` → `src/theme.rs`）はそのまま公開。
   7. `src/variants.rs`：
      - そのまま：`AvatarVariant`（`side: f64, color: Color` の値の struct）、`BadgeVariant`、`SkeletonVariant`、`HeadingVariant`、`StatVariant`、`ChoiceCard`（marker）、`Slant`・`Striped`（K39 まで）。
-     - 改名：`GameInputGroupVariant` → `InputGroupVariant`、`GameCellVariant`（`table.rs`）→ `TableCellVariant`、`Navigation`・`Boxed` の 2 つの marker → `pub enum TabsVariant { Navigation, Boxed }`（recipe の `s.variant::<Navigation>().is_some()` は `s.variant::<TabsVariant>() == Some(TabsVariant::Navigation)` の形に）。
+     - 改名：`GameInputGroupVariant` → `InputGroupVariant`、`GameCellVariant`（`table.rs`）は消して 4 つの部品にする（4.4.3 の表）、`Navigation`・`Boxed` の 2 つの marker → `pub enum TabsVariant { Navigation, Boxed }`（recipe の `s.variant::<Navigation>().is_some()` は `s.variant::<TabsVariant>() == Some(TabsVariant::Navigation)` の形に）。
      - 値にする：`GaugeSegments(pub Value<usize>)` → `GaugeSegments(pub usize)`（V5：`Element::variant` が `Value` を解決する）。
      - `ButtonTone`（`Dark` の 1 値）は K27 で消す（ここでは移すだけ）。
   8. recipe（3.0.3）：`recipes.rs` の `build` の closure の recipe（`button`、`button_content`、`button_busy`、`toggle`、`checkbox`、`switch`、`text_input`、`text_area`）は `recipes_controls.rs` へ。`recipes_extra.rs` の `select_*`、`menu_*`、`dialog_*`、`tooltip_surface` → `recipes_overlays.rs`；`tabs_list`、`tab` → `recipes_navigation.rs`；`radio_*`、`slider_*`、`splitter_handle` → `recipes_controls.rs`；`toast_*` → `recipes_feedback.rs`。`recipes_small.rs`（progress、disclosure）と `recipes_progress.rs` → `recipes_controls.rs`。`recipes_field.rs` → `recipes_controls.rs`。`recipes_badge.rs`、`recipes_avatar.rs`、`recipes_indicators.rs`、`recipes_feedback.rs` → `recipes_feedback.rs`（400 行を越えたら `recipes_feedback_<部品>.rs`）。`recipes_items.rs`、`recipes_collections.rs`、`recipes_groups.rs`（toolbar、button_group、toggle_group）→ `recipes_collections.rs`；`recipes_groups.rs` の input_group → `recipes_input.rs`；`recipes_files.rs`、`recipes_input.rs` → `recipes_input.rs`；`recipes_navigation.rs`、`recipes_metrics.rs`、`recipes_palette.rs`（command_palette → `recipes_overlays.rs`）。`choice_style.rs` の helper と `button.rs` の recipe の helper → 使う recipe の file か `recipe_parts.rs`。中身の無くなった file を消す。
@@ -2930,7 +2930,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 | `ChipList`、`RemovableChip`、`chip_list`、`removable_chip`、`empty_illustration`、`Thread`、`thread`、`NotificationMenu`、`notification_menu`、`AgendaItem`、`agenda_item`、`resizable_text_area`、`tab_label`、`TimelineItem`、`timeline_item`、`upload_row` | 部品 |
 | `NotificationItem` | 残す |
 | `ColorName`、`Tokens` | 消す → 色・長さの変数 |
-| `AvatarLook` | 消す → `AvatarSize(pub f64)`、`AvatarHue(pub f64)`、`AvatarHalo(pub bool)`、`AvatarOnline(pub bool)` |
+| `AvatarLook` | 消す → variant の `AvatarSize(pub f64)`、`AvatarHue(pub f64)` と、部品の `AvatarDecorations`（halo の環と online の点。`status_content` に置く）。`AvatarHalo`・`AvatarOnline` は読む所が無いので作らない（OPEN の 2026-11-22 の回答 (4)） |
 | `BadgeHue`、`ItemHue`、`StatHue`、`ProgressHue` | 消す → `.variant(Hue::X)` か `.variant(hue_signal)` |
 | `WeekendHue` | 消す → `CalendarWeekdayHues(pub [Option<Hue>; 7])` |
 | `BadgeVariant`、`SectionNumber`、`DiamondSteps`、`Segments`、`Hue`、`theme` | 残す（`Hue` に `colors()`・`accent()`） |
@@ -2951,7 +2951,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 | `Slant`、`Striped` | 消す → `kivact::ui::{Slant, Striped}`（K39） |
 | `GameInputGroupVariant` | 改名 → `InputGroupVariant` |
 | `GaugeSegments` | 残す（中身を `Value<usize>` から `usize` に） |
-| `GameCellVariant` | 改名 → `TableCellVariant` |
+| `GameCellVariant` | 消す → 部品 `IdentifierCell`、`DetailCell`、`UserCell`、`BadgeCell`（OPEN の 2026-11-22 の回答 (7a)） |
 | `ThemeOptions` | 残す（field に `display_font`、`mono_font` を足す。`Copy` でなくなる） |
 
 #### 4.4.4 creative（K22〜K25）
