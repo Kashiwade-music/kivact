@@ -43,6 +43,7 @@ impl std::error::Error for Error {}
 /// `call`'s failure as an [`Error::Api`].
 #[cfg(any(
     feature = "import",
+    feature = "wgpu",
     all(feature = "export", any(windows, target_os = "linux"))
 ))]
 pub(crate) fn api<E: fmt::Display>(call: &'static str) -> impl Fn(E) -> Error {

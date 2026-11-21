@@ -24,23 +24,23 @@ pub(crate) fn build<'a>(
     gpu: bool,
 ) -> Result<Plan<'a>, PlanError> {
     validate::check(composition, scale)?;
-    let mut inline: HashSet<u32> = HashSet::new();
-    loop {
-        let plan = Builder::new(composition, cache, size, scale, gpu, inline.clone()).run()?;
-        if plan.targets.len() <= INLINE_TARGET_LIMIT {
-            return Ok(plan);
-        }
-        // Too many targets: draw the next largest eligible layer into its parent and plan again.
-        let next = (1..composition.layers.len() as u32)
-            .rev()
-            .find(|i| !inline.contains(i) && inline_candidate(composition, *i));
-        match next {
-            Some(i) => {
-                inline.insert(i);
-            }
-            None => return Ok(plan),
-        }
+    let mut plan = Builder::new(composition, cache, size, scale, gpu, HashSet::new()).run()?;
+    if plan.targets.len() <= INLINE_TARGET_LIMIT {
+        return Ok(plan);
     }
+    let candidates: Vec<u32> = (1..composition.layers.len() as u32)
+        .rev()
+        .filter(|i| inline_candidate(composition, *i))
+        .collect();
+    let mut taken = 0;
+    while plan.targets.len() > INLINE_TARGET_LIMIT && taken < candidates.len() {
+        // Each inlined layer removes at least its own target: inline as many
+        // as the targets over the limit at once, then plan again.
+        taken = (taken + plan.targets.len() - INLINE_TARGET_LIMIT).min(candidates.len());
+        let inline: HashSet<u32> = candidates[..taken].iter().copied().collect();
+        plan = Builder::new(composition, cache, size, scale, gpu, inline).run()?;
+    }
+    Ok(plan)
 }
 
 /// The state of planning one frame.

@@ -1,7 +1,7 @@
 //! Role: The test engine on Kivact's wgpu, drawing into a shared pool.
 //!
 //! Its own `wgpu::Instance` of the window's graphics API and a device of
-//! `kivact_gpu_share::wgpu::request_device` on the adapter the
+//! `kivact_gpu_share::device::request_device_for` on the adapter the
 //! window reported; the pool (`kivact_gpu_share::wgpu::Pool`)
 //! makes the shared textures as `wgpu::Texture`s. A frame: the CPU's
 //! pixels written into a texture of the engine's own
@@ -15,7 +15,8 @@
 )]
 
 use crate::engine::{Engine, POOL, WAIT};
-use kivact_gpu_share::wgpu::{FORMAT, Pool, request_device};
+use kivact_gpu_share::device::request_device_for;
+use kivact_gpu_share::wgpu::{FORMAT, Pool};
 use kivact_gpu_share::{FrameReady, PoolConfig};
 use kivact_types::{GpuAdapter, GpuBackend, SharedHandle, SharedTextures};
 use std::time::Duration;
@@ -50,7 +51,7 @@ impl Wgpu {
             ..Default::default()
         };
         let (_, device, queue) =
-            request_device(&instance, adapter, &desc).map_err(|e| e.to_string())?;
+            request_device_for(&instance, adapter, &desc).map_err(|e| e.to_string())?;
         let config = PoolConfig {
             slots: POOL as u32,
             ..PoolConfig::new(width, height)

@@ -1,4 +1,127 @@
-//! Role: The export pool and read-back view of shared Vulkan helpers.
+//! Role: Shared Vulkan barriers, memory selection, timeline construction and adapter identity.
 
-pub use crate::vulkan_contract::FORMAT;
-pub(crate) use crate::vulkan_raw::{COLOR, barrier, memory_type};
+use ash::vk;
+
+#[cfg(any(feature = "export", feature = "import"))]
+pub(crate) const COLOR: vk::ImageSubresourceRange = vk::ImageSubresourceRange {
+    aspect_mask: vk::ImageAspectFlags::COLOR,
+    base_mip_level: 0,
+    level_count: 1,
+    base_array_layer: 0,
+    layer_count: 1,
+};
+
+/// The memory type for `bits` with `flags`: the lowest index.
+///
+/// # Safety
+/// `physical` is a physical device of the live `instance`.
+#[cfg(any(feature = "export", feature = "import"))]
+pub(crate) unsafe fn memory_type(
+    instance: &ash::Instance,
+    physical: vk::PhysicalDevice,
+    bits: u32,
+    flags: vk::MemoryPropertyFlags,
+) -> Option<u32> {
+    // SAFETY: a physical device of the instance (the caller).
+    let properties = unsafe { instance.get_physical_device_memory_properties(physical) };
+    (0..properties.memory_type_count).find(|&i| {
+        bits & (1 << i) != 0
+            && properties.memory_types[i as usize]
+                .property_flags
+                .contains(flags)
+    })
+}
+
+/// Record one image barrier into `command`.
+///
+/// # Safety
+/// `command` is a recording command buffer of `device`; `image` is an
+/// image of `device`.
+#[cfg(any(feature = "export", feature = "import"))]
+pub(crate) unsafe fn barrier(
+    device: &ash::Device,
+    command: vk::CommandBuffer,
+    image: vk::Image,
+    (old, new): (vk::ImageLayout, vk::ImageLayout),
+    (from, to): (u32, u32),
+    (src_stage, src_access): (vk::PipelineStageFlags, vk::AccessFlags),
+    (dst_stage, dst_access): (vk::PipelineStageFlags, vk::AccessFlags),
+) {
+    let barrier = vk::ImageMemoryBarrier::default()
+        .old_layout(old)
+        .new_layout(new)
+        .src_queue_family_index(from)
+        .dst_queue_family_index(to)
+        .src_access_mask(src_access)
+        .dst_access_mask(dst_access)
+        .image(image)
+        .subresource_range(COLOR);
+    // SAFETY: recording into a recording buffer (the caller).
+    unsafe {
+        device.cmd_pipeline_barrier(
+            command,
+            src_stage,
+            dst_stage,
+            vk::DependencyFlags::empty(),
+            &[],
+            &[],
+            &[barrier],
+        );
+    }
+}
+
+/// Make a timeline at zero, optionally exportable with the contract handle type.
+///
+/// # Safety
+/// The device supports Vulkan 1.2 timeline semaphores and sharing extensions.
+#[cfg(any(feature = "export", feature = "import"))]
+pub(crate) unsafe fn timeline(
+    device: &ash::Device,
+    external: bool,
+) -> Result<vk::Semaphore, crate::common::Error> {
+    let mut kind = vk::SemaphoreTypeCreateInfo::default()
+        .semaphore_type(vk::SemaphoreType::TIMELINE)
+        .initial_value(0);
+    let mut export =
+        vk::ExportSemaphoreCreateInfo::default().handle_types(crate::vulkan::SEMAPHORE_HANDLE);
+    let mut info = vk::SemaphoreCreateInfo::default().push_next(&mut kind);
+    if external {
+        info = info.push_next(&mut export);
+    }
+    // SAFETY: valid create information on the caller's Vulkan 1.2 device.
+    unsafe { device.create_semaphore(&info, None) }.map_err(crate::common::api("vkCreateSemaphore"))
+}
+
+/// What `VkPhysicalDeviceIDProperties` and the API version say.
+#[cfg(any(feature = "adapter", feature = "export"))]
+pub(crate) struct VulkanIds {
+    pub(crate) device_uuid: [u8; 16],
+    pub(crate) driver_uuid: [u8; 16],
+    /// Read by the adapter identity (`AdapterIds::Vulkan::luid`).
+    #[cfg(feature = "adapter")]
+    pub(crate) luid: Option<[u8; 8]>,
+    #[cfg(feature = "export")]
+    pub(crate) version: u32,
+}
+
+/// Read an adapter's identity and Vulkan version.
+///
+/// # Safety
+/// The physical device belongs to the live instance.
+#[cfg(any(feature = "adapter", feature = "export"))]
+pub(crate) unsafe fn identity(instance: &ash::Instance, physical: vk::PhysicalDevice) -> VulkanIds {
+    let mut id = vk::PhysicalDeviceIDProperties::default();
+    let mut properties = vk::PhysicalDeviceProperties2::default().push_next(&mut id);
+    // SAFETY: the caller supplies a physical device of the live instance.
+    unsafe { instance.get_physical_device_properties2(physical, &mut properties) };
+    #[cfg(feature = "export")]
+    let version = properties.properties.api_version;
+    VulkanIds {
+        device_uuid: id.device_uuid,
+        driver_uuid: id.driver_uuid,
+        #[cfg(feature = "adapter")]
+        luid: (id.device_luid_valid == vk::TRUE).then_some(id.device_luid),
+        #[cfg(feature = "export")]
+        version,
+    }
+}

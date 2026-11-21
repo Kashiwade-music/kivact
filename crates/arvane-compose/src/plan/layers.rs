@@ -19,7 +19,7 @@ use super::frame::{
     Behind, Dest, ItemCtx, ceil_px, coverage_scene, filter_reach, full_polygon, inline_candidate,
     px_map, subtree_has_backdrop,
 };
-use super::hash::{self, Fnv};
+use super::hash::{self, WordHash};
 use super::ops::{DrawOp, Grid, Op, PlanError, Sampling, Scissor, Source, TargetId, TargetKind};
 use crate::cache::{ChunkKey, ChunkRole, LayerRecord, Retained};
 
@@ -133,7 +133,7 @@ fn axis_parallel(h: &Projective) -> Option<Affine> {
 
 /// The hash of a layer's own drawing parameters and window mapping.
 fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Outline]) -> u64 {
-    let mut h = Fnv::new();
+    let mut h = WordHash::new();
     hash::layer_key(&mut h, layer.key);
     h.rect(layer.bounds);
     h.tag(layer.plane as u8);
@@ -151,7 +151,7 @@ fn own_hash(layer: &CompositeLayer, to_win: &Matrix4, clips: &[Outline]) -> u64 
 /// The shared allocations a layer record keeps alive: its effects' and its items' pixels.
 fn layer_retain(layer: &CompositeLayer) -> Vec<Retained> {
     let mut retain = Vec::new();
-    let mut h = Fnv::new();
+    let mut h = WordHash::new();
     hash::effects(&mut h, &layer.effects, &mut retain);
     for item in &layer.items {
         match item {
@@ -243,7 +243,7 @@ impl<'a> Builder<'a> {
         to_t: &Matrix4,
         tsize: (u32, u32),
     ) -> Result<u64, PlanError> {
-        let mut key = Fnv::new();
+        let mut key = WordHash::new();
         key.matrix4(to_t);
         key.u64(u64::from(tsize.0));
         key.u64(u64::from(tsize.1));
@@ -255,7 +255,7 @@ impl<'a> Builder<'a> {
         }
         let layer = self.layer(index)?;
         let geo = self.geometry(layer, to_t, tsize);
-        let mut h = Fnv::new();
+        let mut h = WordHash::new();
         hash::layer_key(&mut h, layer.key);
         h.rect(layer.bounds);
         h.tag(layer.plane as u8);

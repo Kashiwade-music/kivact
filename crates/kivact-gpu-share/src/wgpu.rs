@@ -2,7 +2,7 @@
 //!
 //! For an engine written with wgpu of the version Kivact uses (feature
 //! `wgpu`; the dependency is pinned to `=29.0.4`, arvane-render's, and the
-//! two are raised together). [`request_device`] opens a device on the
+//! two are raised together). [`crate::device::request_device_for`] opens a device on the
 //! adapter the window reported, able to share; [`Pool::new`] makes the
 //! pool of the contract ([`kivact_types::SharedTextures`]) with the backend's
 //! pool (`d3d12::Pool`, `vulkan::Pool`) and wraps its textures as
@@ -47,12 +47,10 @@
 )]
 
 #[cfg(windows)]
-mod d3d12;
-mod device;
+pub(crate) mod d3d12;
 mod pool;
 mod read_back;
-mod vulkan;
+pub(crate) mod vulkan;
 
-pub use device::request_device;
 pub use pool::{FORMAT, Pool, Target, usage};
 pub use read_back::read_back;

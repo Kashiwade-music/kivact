@@ -1,4 +1,4 @@
-//! Role: FNV-1a 64-bit hashes of the plan's commands, paints, effects and layers.
+//! Role: 64-bit word hashes of the plan's commands, paints, effects and layers.
 //!
 //! Floats hash by their bits. Allocations shared by `Arc` hash by address
 //! and length, and the record keeps them alive through [`Retained`].
@@ -20,42 +20,51 @@ use kivact_types::scene::{FillRule, Outline, Stroke};
 
 use crate::cache::Retained;
 
-/// The FNV-1a offset basis.
-const OFFSET: u64 = 0xcbf2_9ce4_8422_2325;
-/// The FNV-1a prime.
-const PRIME: u64 = 0x0000_0100_0000_01b3;
+/// The seed of an empty accumulator.
+const SEED: u64 = 0x243f_6a88_85a3_08d3;
+/// The multiplier of each word.
+const K: u64 = 0x9e37_79b9_7f4a_7c15;
 
-/// An FNV-1a 64-bit accumulator.
+/// A 64-bit accumulator that mixes whole 8-byte words.
 #[derive(Clone, Copy, Debug)]
-pub(crate) struct Fnv(u64);
+pub(crate) struct WordHash(u64);
 
-impl Fnv {
+impl WordHash {
     /// An empty accumulator.
     pub(crate) fn new() -> Self {
-        Fnv(OFFSET)
+        Self(SEED)
     }
 
     /// The hash so far.
     pub(crate) fn finish(self) -> u64 {
-        self.0
+        let mut x = self.0;
+        x ^= x >> 33;
+        x = x.wrapping_mul(0xff51_afd7_ed55_8ccd);
+        x ^= x >> 33;
+        x = x.wrapping_mul(0xc4ce_b9fe_1a85_ec53);
+        x ^ (x >> 33)
     }
 
-    /// Fold in raw bytes.
+    /// Fold in raw bytes, a word at a time; the length goes in the last word.
     pub(crate) fn bytes(&mut self, bytes: &[u8]) {
-        for byte in bytes {
-            self.0 ^= u64::from(*byte);
-            self.0 = self.0.wrapping_mul(PRIME);
+        let (chunks, rest) = bytes.as_chunks::<8>();
+        for chunk in chunks {
+            self.u64(u64::from_le_bytes(*chunk));
         }
+        let mut last = [0u8; 8];
+        last[..rest.len()].copy_from_slice(rest);
+        self.u64(u64::from_le_bytes(last) ^ ((bytes.len() as u64) << 56));
     }
 
     /// Fold in a tag or a small discriminant.
     pub(crate) fn tag(&mut self, value: u8) {
-        self.bytes(&[value]);
+        self.u64(u64::from(value));
     }
 
-    /// Fold in a 64-bit integer.
-    pub(crate) fn u64(&mut self, value: u64) {
-        self.bytes(&value.to_le_bytes());
+    /// Fold in a 64-bit word.
+    pub(crate) fn u64(&mut self, word: u64) {
+        let x = (self.0 ^ word).wrapping_mul(K);
+        self.0 = x ^ (x >> 32);
     }
 
     /// Fold in a length.
@@ -149,7 +158,7 @@ impl Fnv {
 }
 
 /// Fold in a fill rule.
-fn rule(h: &mut Fnv, rule: FillRule) {
+fn rule(h: &mut WordHash, rule: FillRule) {
     h.tag(match rule {
         FillRule::NonZero => 0,
         _ => 1,
@@ -157,7 +166,7 @@ fn rule(h: &mut Fnv, rule: FillRule) {
 }
 
 /// Fold in a paint.
-pub(crate) fn paint(h: &mut Fnv, p: &RasterPaint, retain: &mut Vec<Retained>) {
+pub(crate) fn paint(h: &mut WordHash, p: &RasterPaint, retain: &mut Vec<Retained>) {
     match p {
         RasterPaint::Solid(c) => {
             h.tag(0);
@@ -187,7 +196,7 @@ pub(crate) fn paint(h: &mut Fnv, p: &RasterPaint, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a gradient's geometry, stops and extension.
-fn gradient(h: &mut Fnv, g: &RasterGradient) {
+fn gradient(h: &mut WordHash, g: &RasterGradient) {
     match g.shape {
         GradientShape::Linear { start, end } => {
             h.tag(0);
@@ -240,7 +249,7 @@ fn gradient(h: &mut Fnv, g: &RasterGradient) {
 }
 
 /// Fold in a shape.
-pub(crate) fn shape(h: &mut Fnv, s: &Outline) {
+pub(crate) fn shape(h: &mut WordHash, s: &Outline) {
     match s {
         Outline::Rect(r) => {
             h.tag(0);
@@ -276,7 +285,7 @@ pub(crate) fn shape(h: &mut Fnv, s: &Outline) {
 }
 
 /// Fold in a stroke.
-fn stroke(h: &mut Fnv, s: &Stroke) {
+fn stroke(h: &mut WordHash, s: &Stroke) {
     h.f64(s.width);
     h.tag(s.cap as u8);
     h.tag(s.join as u8);
@@ -289,7 +298,7 @@ fn stroke(h: &mut Fnv, s: &Stroke) {
 }
 
 /// Fold in a group's clip, opacity, blend and blur.
-fn group(h: &mut Fnv, g: &Group) {
+fn group(h: &mut WordHash, g: &Group) {
     match &g.clip {
         Some(clip) => {
             h.tag(1);
@@ -311,7 +320,7 @@ fn group(h: &mut Fnv, g: &Group) {
 /// Fold in a command's own values and return its hash. Allocations it
 /// hashes by address are pushed to `retain`.
 pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
-    let mut h = Fnv::new();
+    let mut h = WordHash::new();
     match cmd {
         RenderCmd::ImageSampled { .. }
         | RenderCmd::Image { .. }
@@ -331,7 +340,7 @@ pub(crate) fn command(cmd: &RenderCmd, retain: &mut Vec<Retained>) -> u64 {
 }
 
 /// Fold in an image, text, shadow command's own values.
-fn media_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+fn media_command(h: &mut WordHash, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
     match cmd {
         RenderCmd::Glyphs { .. } => glyphs_command(h, cmd, retain),
         RenderCmd::ImageSampled {
@@ -392,7 +401,7 @@ fn media_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a shaped glyph run's own values.
-fn glyphs_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+fn glyphs_command(h: &mut WordHash, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
     if let RenderCmd::Glyphs {
         run,
         origin,
@@ -424,7 +433,7 @@ fn glyphs_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a filled or stroked geometry command's own values.
-fn shape_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+fn shape_command(h: &mut WordHash, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
     match cmd {
         RenderCmd::Path { .. } => path_command(h, cmd),
         RenderCmd::Rect { rect, fill } => {
@@ -490,7 +499,7 @@ fn shape_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a path command's own values.
-fn path_command(h: &mut Fnv, cmd: &RenderCmd) {
+fn path_command(h: &mut WordHash, cmd: &RenderCmd) {
     if let RenderCmd::Path {
         cmds,
         fill,
@@ -521,7 +530,7 @@ fn path_command(h: &mut Fnv, cmd: &RenderCmd) {
 }
 
 /// Fold in a clip, transform, group or shape-filling command's own values.
-fn state_command(h: &mut Fnv, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
+fn state_command(h: &mut WordHash, cmd: &RenderCmd, retain: &mut Vec<Retained>) {
     match cmd {
         RenderCmd::PushClip(r) => {
             h.tag(11);
@@ -563,7 +572,7 @@ pub(crate) fn scene_hashes(scene: &RenderScene, retain: &mut Vec<Retained>) -> V
 }
 
 /// Fold in a layer key.
-pub(crate) fn layer_key(h: &mut Fnv, key: LayerKey) {
+pub(crate) fn layer_key(h: &mut WordHash, key: LayerKey) {
     match key {
         LayerKey::Root => h.tag(0),
         LayerKey::Devtools => h.tag(4),
@@ -589,7 +598,7 @@ pub(crate) fn layer_key(h: &mut Fnv, key: LayerKey) {
 }
 
 /// Fold in a backface visibility.
-pub(crate) fn backface(h: &mut Fnv, b: BackfaceVisibility) {
+pub(crate) fn backface(h: &mut WordHash, b: BackfaceVisibility) {
     h.tag(match b {
         BackfaceVisibility::Visible => 0,
         BackfaceVisibility::Hidden => 1,
@@ -597,7 +606,7 @@ pub(crate) fn backface(h: &mut Fnv, b: BackfaceVisibility) {
 }
 
 /// Fold in a shader use: program hash, parameters, images, clock and margin.
-pub(crate) fn shader_use(h: &mut Fnv, s: &ShaderUse, retain: &mut Vec<Retained>) {
+pub(crate) fn shader_use(h: &mut WordHash, s: &ShaderUse, retain: &mut Vec<Retained>) {
     h.u64(s.program.hash);
     h.bytes(&s.params);
     for image in &s.images {
@@ -614,7 +623,7 @@ pub(crate) fn shader_use(h: &mut Fnv, s: &ShaderUse, retain: &mut Vec<Retained>)
 }
 
 /// Fold in one filter of a layer.
-pub(crate) fn filter(h: &mut Fnv, f: &LayerFilter, retain: &mut Vec<Retained>) {
+pub(crate) fn filter(h: &mut WordHash, f: &LayerFilter, retain: &mut Vec<Retained>) {
     match f {
         LayerFilter::Blur { std_dev } => {
             h.tag(0);
@@ -641,7 +650,7 @@ pub(crate) fn filter(h: &mut Fnv, f: &LayerFilter, retain: &mut Vec<Retained>) {
             h.tag(3);
             let mut addresses = Vec::new();
             let keyed = graph.map_images(|image| {
-                let mut ih = Fnv::new();
+                let mut ih = WordHash::new();
                 ih.pixels(image, &mut addresses);
                 ih.finish()
             });
@@ -656,7 +665,7 @@ pub(crate) fn filter(h: &mut Fnv, f: &LayerFilter, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a mask.
-fn mask(h: &mut Fnv, m: &RenderMask, retain: &mut Vec<Retained>) {
+fn mask(h: &mut WordHash, m: &RenderMask, retain: &mut Vec<Retained>) {
     scene(h, &m.scene, retain);
     h.tag(match m.mode {
         MaskMode::Alpha => 0,
@@ -671,7 +680,7 @@ fn mask(h: &mut Fnv, m: &RenderMask, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a whole scene (its commands in order).
-fn scene(h: &mut Fnv, s: &RenderScene, retain: &mut Vec<Retained>) {
+fn scene(h: &mut WordHash, s: &RenderScene, retain: &mut Vec<Retained>) {
     h.len(s.commands.len());
     for cmd in &s.commands {
         h.u64(command(cmd, retain));
@@ -679,7 +688,7 @@ fn scene(h: &mut Fnv, s: &RenderScene, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in the backdrop of a layer.
-fn backdrop(h: &mut Fnv, b: &RenderBackdrop, retain: &mut Vec<Retained>) {
+fn backdrop(h: &mut WordHash, b: &RenderBackdrop, retain: &mut Vec<Retained>) {
     shape(h, &b.shape);
     h.len(b.filters.len());
     for f in &b.filters {
@@ -688,7 +697,7 @@ fn backdrop(h: &mut Fnv, b: &RenderBackdrop, retain: &mut Vec<Retained>) {
 }
 
 /// Fold in a layer's effects (opacity, blend, composite, filters, clip, masks, backdrop).
-pub(crate) fn effects(h: &mut Fnv, e: &LayerEffects, retain: &mut Vec<Retained>) {
+pub(crate) fn effects(h: &mut WordHash, e: &LayerEffects, retain: &mut Vec<Retained>) {
     h.f64(e.opacity);
     h.tag(e.blend as u8);
     h.tag(e.composite as u8);
@@ -717,7 +726,7 @@ pub(crate) fn effects(h: &mut Fnv, e: &LayerEffects, retain: &mut Vec<Retained>)
 }
 
 /// Fold in an external item's frame, geometry, clips and pixels.
-pub(crate) fn external(h: &mut Fnv, e: &ExternalItem, retain: &mut Vec<Retained>) {
+pub(crate) fn external(h: &mut WordHash, e: &ExternalItem, retain: &mut Vec<Retained>) {
     h.u64(e.frame.image.0);
     h.u64(u64::from(e.frame.slot));
     h.u64(e.frame.value);
@@ -740,7 +749,7 @@ pub(crate) fn external(h: &mut Fnv, e: &ExternalItem, retain: &mut Vec<Retained>
 }
 
 /// Fold in a shader item: shader, geometry, coverage, fallback and opacity.
-pub(crate) fn shader_item(h: &mut Fnv, s: &ShaderItem, retain: &mut Vec<Retained>) {
+pub(crate) fn shader_item(h: &mut WordHash, s: &ShaderItem, retain: &mut Vec<Retained>) {
     shader_use(h, &s.shader, retain);
     h.rect(s.rect);
     h.transform(s.transform);
