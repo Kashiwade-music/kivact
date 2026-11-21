@@ -1,71 +1,39 @@
 //! Role: The icon menu in the console's look.
-use kivact::view::{Element, Node, icon};
-
+use crate::button::tool_button_of;
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::interaction::MenuEntry;
-use kivact::state::{Callback, Value};
-use kivact::state::{IntoText, IntoValue, callback};
+use kivact::state::{Callback, ItemKey, Value, callback};
 use kivact::style::Icon;
-use kivact::view::{HandlerResult, IntoView, View};
+use kivact::ui::menu;
+use kivact::view::node;
 
-/// Menu triggered by a square tool button, with an optional icon and callback.
-pub struct IconMenu<K: 'static> {
-    root: kivact::ui::Button,
+/// A menu opened from a square tool button showing `icon`, with `label` as
+/// its accessible name. `on_activate` receives the key of the chosen item; a
+/// disabled menu passes no choice.
+#[component]
+pub fn icon_menu<K: ItemKey>(
     label: Value<String>,
-    entries: Value<Vec<MenuEntry<K>>>,
-    icon: Value<Icon>,
-    choose: Callback<K>,
-}
-/// The required menu label and items; the default icon is `menu`.
-#[track_caller]
-pub fn icon_menu<K: kivact::state::ItemKey>(
-    label: impl IntoText,
-    items: impl IntoValue<Vec<MenuEntry<K>>>,
-) -> IconMenu<K> {
-    let label = label.into_text_value();
-    IconMenu {
-        root: crate::button::tool_button(label).hide_label(true),
-        label,
-        entries: items.into_value(),
-        icon: Icon::named("menu").into_value(),
-        choose: callback(|_| ()),
-    }
-}
-impl<K: 'static> IconMenu<K> {
-    /// Reactive trigger icon; `menu` by default.
-    pub fn icon(mut self, value: impl IntoValue<Icon>) -> Self {
-        self.icon = value.into_value();
-        self
-    }
-    /// Activation callback: the key of the chosen item; no action by default.
-    pub fn on_activate<R: HandlerResult>(mut self, activate: impl Fn(K) -> R + 'static) -> Self {
-        self.choose = callback(activate);
-        self
-    }
-}
-impl<K: kivact::state::ItemKey> Element for IconMenu<K> {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        self.root.node_mut()
-    }
-}
-impl<K: kivact::state::ItemKey> IntoView for IconMenu<K> {
-    fn into_view(mut self) -> View {
-        let disabled = self
-            .root
-            .node_mut()
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let choose = self.choose;
-        kivact::ui::menu(self.label, self.entries)
+    items: Value<Vec<MenuEntry<K>>>,
+    #[prop(default = Icon::named("menu"))] icon: Value<Icon>,
+    on_activate: Option<Callback<K>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let disabled = caller.disabled();
+    let choose = on_activate.unwrap_or_else(|| callback(|_: K| ()));
+    let trigger = tool_button_of(label)
+        .hide_label(true)
+        .icon(kivact::view::icon(icon));
+    node().child(
+        menu(label, items)
             .on_activate(move |key| {
-                if disabled.get() {
+                if disabled.is_some_and(|disabled| disabled.get()) {
                     Ok(())
                 } else {
                     choose.try_call(key)
                 }
             })
             .offset(0.)
-            .attach(self.root.icon(icon(self.icon)))
-            .into_view()
-    }
+            .attach(trigger),
+    )
 }

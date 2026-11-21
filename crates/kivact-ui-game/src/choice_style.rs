@@ -1,8 +1,8 @@
 //! Role: Styles of the radio group and tabs looks: segments, cards, navigation, boxed.
-
 use kivact::draw::Path;
 use kivact::geometry::Point;
-use kivact::style::{Align, Color, ColorToken, Direction, Justify, Position, Style, pct, style};
+use kivact::style::color::{ACCENT, ACCENT_TEXT, BORDER, SURFACE, TEXT, TEXT_MUTED};
+use kivact::style::{Align, Color, FlexDirection, Justify, Position, Style, pct, style};
 
 /// A segment or a card takes no indicator: out of the row, with no size.
 pub(crate) fn hidden_indicator() -> Style {
@@ -11,21 +11,19 @@ pub(crate) fn hidden_indicator() -> Style {
 
 pub(crate) fn segment_group() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(0)
         .align_items(Align::Center)
 }
 
 /// What a chosen segment adds to its button look: the accent fill.
 pub(crate) fn segment_chosen() -> Style {
-    style()
-        .background(ColorToken::Accent)
-        .color(ColorToken::AccentText)
+    style().background(ACCENT).color(ACCENT_TEXT)
 }
 
 pub(crate) fn card_group() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(8)
         .width(pct(100))
         .justify_content(Justify::SpaceBetween)
@@ -34,19 +32,19 @@ pub(crate) fn card_group() -> Style {
 /// A card in a column; a chosen one has a corner mark in the accent.
 pub(crate) fn card_item(chosen: bool) -> Style {
     let s = style()
-        .direction(Direction::Column)
-        .grow(1)
+        .flex_direction(FlexDirection::Column)
+        .flex_grow(1.)
         .padding_x(12)
         .padding_y(10)
         .gap(4)
-        .background(ColorToken::SurfaceAlt)
-        .border(1, ColorToken::Border)
+        .background(kivact::style::color::SURFACE_ALT)
+        .border(1, BORDER)
         .selected(
             style()
-                .background(ColorToken::Selection)
-                .border_color(ColorToken::Accent),
+                .background(kivact::style::color::SELECTION)
+                .border_color(ACCENT),
         )
-        .hover(style().border_color(ColorToken::Accent));
+        .hover(style().border_color(ACCENT));
     if chosen {
         // The mark is drawn by the item's style, which is read again when
         // the choice changes; a state style cannot draw.
@@ -57,7 +55,7 @@ pub(crate) fn card_item(chosen: bool) -> Style {
                     .line_to(Point::new(size.width, 0.))
                     .line_to(Point::new(size.width, 18.))
                     .close(),
-                ColorToken::Accent,
+                ACCENT,
             );
         })
     } else {
@@ -66,41 +64,41 @@ pub(crate) fn card_item(chosen: bool) -> Style {
 }
 
 pub(crate) fn navigation_list() -> Style {
-    style().width(pct(100)).border(1, ColorToken::Border).gap(0)
+    style().width(pct(100)).border(1, BORDER).gap(0)
 }
 
 pub(crate) fn navigation_item() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .min_height(36)
         .padding_x(12)
         .gap(8)
         .align_items(Align::Center)
         .border_left(3, Color::TRANSPARENT)
-        .border_bottom(1, ColorToken::Border)
+        .border_bottom(1, BORDER)
         .selected(
             style()
-                .background(ColorToken::Selection)
-                .color(ColorToken::Accent)
-                .border_color(ColorToken::Accent)
-                .weight(700),
+                .background(kivact::style::color::SELECTION)
+                .color(ACCENT)
+                .border_color(ACCENT)
+                .font_weight(700),
         )
-        .hover(style().background(ColorToken::SurfaceAlt))
+        .hover(style().background(kivact::style::color::SURFACE_ALT))
 }
 
 pub(crate) fn boxed_list() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .width(pct(100))
         .padding(3)
         .gap(0)
-        .background(ColorToken::SurfaceAlt)
-        .border(1, ColorToken::Border)
+        .background(kivact::style::color::SURFACE_ALT)
+        .border(1, BORDER)
 }
 
 pub(crate) fn boxed_tab() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(7)
         .height(30)
         .padding_x(16)
@@ -108,14 +106,14 @@ pub(crate) fn boxed_tab() -> Style {
         .justify_content(Justify::Center)
         .font_size(12.5)
         .border_left(3, Color::TRANSPARENT)
-        .background(ColorToken::SurfaceAlt)
-        .color(ColorToken::TextMuted)
-        .hover(style().background(ColorToken::Selection))
+        .background(kivact::style::color::SURFACE_ALT)
+        .color(TEXT_MUTED)
+        .hover(style().background(kivact::style::color::SELECTION))
         .selected(
             style()
-                .border_color(ColorToken::Accent)
-                .background(ColorToken::Surface)
-                .color(ColorToken::Text)
-                .weight(700),
+                .border_color(ACCENT)
+                .background(SURFACE)
+                .color(TEXT)
+                .font_weight(700),
         )
 }
