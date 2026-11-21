@@ -301,6 +301,8 @@ C3. props の型（設計 5.1 規則 3）：
 | その他の型 `T` | `T`（macro が `impl Into<T>` を受ける） |
 
 C4. setter の名前が `Element` の method と同じもの（`disabled`、`variant`、`name`、`label`、`test_id`、`node_ref`、`style`、`role` など。annex C の `Element` の method の一覧）は props にしない（API-13）。本体がその値を要るときは、部品の引数に `#[caller] caller: Caller` を書いて読む（設計 5.1 規則 10。thread-local の `custom::caller()` は無い）。
+   - C4a（2026-11-22 の設計者の回答で明確にした）：`variant`、`style`、`test_id`、`node_ref`、`role`、`disabled`、`hidden` と、root の node そのものを決める modifier は、どの部品でも props にしない。
+   - C4b：`on_press`、`name`、`label`、`description` は、部品がその値を root ではなく**中の part**（main の行、中の button、中の入力など）へ渡すときに限り、同じ名前の prop にしてよい（prop の setter が `Element` の method を隠す）。prop の doc に「どの part に付くか」を 1 文書く。root が正しい行き先なら prop にせず、`Element` に任せる（本体が値の有無を要るときは `caller.has_press()` などで読む）。
 C5. handler の名前（設計 5.3）：payload のない押下は `on_press`、key の項目の実行は `on_activate`、確定は `on_commit`、編集の段階は `on_edit`。`on_open_change` のような開閉の通知は消し、`open: Signal<bool>`（位置引数か setter。設計 5.9 の規則）にする。
 C6. 見えない名前（DEC-05）：kit の部品が text field・slider・spin button・combobox を作り、今その accessible name を位置引数で取るときは、位置引数から外す。呼出し側は `.label("Name")`（`Element` の modifier）か `field("Name", control)` で名前を付ける。各 unit の表で該当する部品を挙げる。
 C7. 引数のない `pub fn x() -> impl Element`・`-> Node`・`-> impl IntoView` の部品は `#[component] pub fn x() -> impl Element`。
