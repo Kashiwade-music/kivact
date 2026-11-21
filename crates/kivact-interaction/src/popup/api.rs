@@ -38,7 +38,8 @@ use kivact_core::state::{
     IntoValue, MachineHandle, Signal, Value, effect, machine, memo, on_cleanup, on_mount,
 };
 use kivact_core::view::{
-    A11yAction, A11yRequest, DismissReason, Handled, Key, KeyEvent, NodeRef, node_ref,
+    A11yAction, A11yRequest, DismissReason, Element, Handled, IntoView, Key, KeyEvent, NodeRef,
+    Placement, Role, View, node_ref, overlay, show,
 };
 
 use super::machine::{self, Event, Machine, State};
@@ -82,19 +83,13 @@ pub struct PopupState {
 /// before the next flush is skipped, and an explicit live focus request wins.
 ///
 /// ```no_run
-/// use kivact::{state::signal, view::{Element, node, node_ref, text, Placement, Role, overlay, show}};
+/// use kivact::{state::signal, view::{Element, node, text, Placement}};
 /// use kivact::interaction::use_popup;
 /// let open = signal(false);
 /// let menu = use_popup(open);
-/// let trigger = menu.trigger();
-/// let anchor = node_ref();
 /// let view = (
-///     node().node_ref(anchor).part(trigger).name("Options").child(text("Options")),
-///     show(menu.is_open(), move || {
-///         overlay(anchor, Placement::Below, text("Contents"))
-///             .with_node(|node| node.part(menu.content()).role(Role::Dialog))
-///             .name("Options")
-///     }),
+///     node().part(menu.trigger()).name("Options").child(text("Options")),
+///     menu.surface(Placement::Below, || text("Contents")),
 /// );
 /// ```
 #[derive(Clone, Copy)]
@@ -104,6 +99,10 @@ pub struct PopupApi {
     trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
+    /// The surface's title, a heading the surface is `labelled_by`.
+    title: NodeRef,
+    /// The surface's description, which the surface is `described_by`.
+    description: NodeRef,
     settings: OptionsCell<PopupOptions>,
     machine: MachineHandle<Machine>,
 }
@@ -114,7 +113,6 @@ struct PopupOptions {
     anchor: Option<NodeRef>,
     initial_focus: InitialFocus,
     focus_return: Option<FocusReturn>,
-    return_focus_target: Option<Value<NodeRef>>,
     anchor_starts_focus_range: Option<Value<bool>>,
 }
 
@@ -196,6 +194,8 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
         content_state: kivact_core::state::signal(None),
         trigger_state: kivact_core::state::signal(None),
         own_anchor,
+        title: node_ref(),
+        description: node_ref(),
         settings,
         machine,
     }
@@ -247,7 +247,9 @@ impl PopupApi {
         self
     }
 
-    pub(crate) fn focus_first(self) -> Self {
+    /// Start the focus on the surface's first focusable node at each opening.
+    /// Setup only.
+    pub fn initial_focus_first(self) -> Self {
         self.settings
             .update(|settings| settings.initial_focus = InitialFocus::First);
         self
@@ -276,32 +278,19 @@ impl PopupApi {
         self
     }
 
-    pub(crate) fn return_focus_target(self, target: Value<NodeRef>) -> Self {
-        self.settings
-            .update(|settings| settings.return_focus_target = Some(target));
-        self
-    }
-
     /// Replace the policy of the opening in progress, for its close. Runs
     /// while the surface is bound.
     pub(crate) fn set_opening_policy(self, policy: FocusReturn) {
         self.machine.send(Event::Policy(policy));
     }
 
-    /// The caller's policy, or the anchor on `DISMISS`.
+    /// The caller's policy, or the anchor on `DISMISS`, read at each opening.
     fn base_policy(self) -> FocusReturn {
-        if let Some(target) = self.settings.get().return_focus_target {
-            return FocusReturn {
-                target: FocusReturnTarget::Anchor(target.get_untracked()),
-                on: crate::ReasonSet::DISMISS
-                    .union(crate::ReasonSet::PROGRAMMATIC)
-                    .union(crate::ReasonSet::UNMOUNT),
-            };
-        }
         self.settings
             .get()
             .focus_return
             .unwrap_or_else(|| FocusReturn::anchor(self.anchor_ref()))
+            .resolved()
     }
 
     /// The application's authoritative open state.
@@ -313,16 +302,6 @@ impl PopupApi {
     /// trigger part's.
     pub(crate) fn anchor_ref(self) -> NodeRef {
         self.settings.get().anchor.unwrap_or(self.own_anchor)
-    }
-
-    pub(crate) fn anchor_value(self) -> Value<NodeRef> {
-        memo(move || {
-            self.settings
-                .value()
-                .get()
-                .anchor
-                .unwrap_or(self.own_anchor)
-        })
     }
 
     pub(crate) fn open_binding(self) -> Signal<bool> {
@@ -338,11 +317,32 @@ impl PopupApi {
     /// Request closure and apply the focus-return policy only after the
     /// controlled binding accepts it. A missing target receives no focus request.
     #[track_caller]
-    pub fn hide(self, reason: PopupCloseReason) {
+    pub(crate) fn close(self, reason: PopupCloseReason) {
         if !self.is_open().get_untracked() {
             return;
         }
         self.machine.send(Event::Close(reason));
+    }
+
+    /// Show: write `true` to the open state unless it is shown.
+    pub fn show(self) {
+        if !self.is_open().get_untracked() {
+            self.disclosure.open.set(true);
+        }
+    }
+
+    /// Close as an explicit close of the application.
+    pub fn hide(self) {
+        self.close(PopupCloseReason::Programmatic);
+    }
+
+    /// Show a hidden popup, hide a shown one.
+    pub fn toggle(self) {
+        if self.is_open().get_untracked() {
+            self.hide();
+        } else {
+            self.show();
+        }
     }
 
     fn return_target(self, reason: PopupCloseReason) -> Option<kivact_core::custom::NodeToken> {
@@ -356,14 +356,6 @@ impl PopupApi {
             self.anchor_ref(),
             self.content_ref().is_modal(),
         )
-    }
-
-    fn toggle(self) {
-        if self.is_open().get() {
-            self.hide(PopupCloseReason::Programmatic);
-        } else {
-            self.disclosure.open.set(true);
-        }
     }
 
     /// The trigger: a button publishing `expanded` and `controls` that toggles.
@@ -381,7 +373,7 @@ impl PopupApi {
                 .on_press(move || self.toggle())
                 .a11y_action(A11yAction::Expand, move |_| self.disclosure.open.set(true))
                 .a11y_action(A11yAction::Collapse, move |_| {
-                    self.hide(PopupCloseReason::Accessibility)
+                    self.close(PopupCloseReason::Accessibility)
                 })
         })
     }
@@ -403,7 +395,7 @@ impl PopupApi {
                 // as the anchor is part of its focus range.
                 .on_key_up(move |event: KeyEvent| {
                     if event.key() == Key::Tab && self.is_open().get() {
-                        self.hide(PopupCloseReason::Tab);
+                        self.close(PopupCloseReason::Tab);
                     }
                     Handled::No
                 })
@@ -461,8 +453,73 @@ impl PopupApi {
                         DismissReason::Timeout => PopupCloseReason::Programmatic,
                     }));
                 })
+                .labelled_by(self.title)
+                .described_by(self.description)
                 .on_attach(move |_| self.watch())
         })
+    }
+
+    /// The title: a level 2 heading the surface is `labelled_by`.
+    #[track_caller]
+    pub fn title(self) -> Part<PopupState> {
+        let open = self.is_open();
+        let input = part(move |input| PopupState {
+            input,
+            open: open.get(),
+        });
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .node_ref(self.title)
+                .role(Role::Heading)
+                .level(2_u32)
+        })
+    }
+
+    /// A description the surface is `described_by`.
+    #[track_caller]
+    pub fn description(self) -> Part<PopupState> {
+        let open = self.is_open();
+        let input = part(move |input| PopupState {
+            input,
+            open: open.get(),
+        });
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            host.part(input).node_ref(self.description)
+        })
+    }
+
+    /// A button whose activation closes the popup as a selection.
+    #[track_caller]
+    pub fn close_trigger(self) -> Part<PopupState> {
+        let open = self.is_open();
+        let input = part(move |input| PopupState {
+            input,
+            open: open.get(),
+        });
+        let part_state = input.state();
+        Part::new(part_state, move |host| {
+            host.part(input)
+                .role(Role::Button)
+                .focusable(true)
+                .on_press(move || self.close(PopupCloseReason::Selection))
+        })
+    }
+
+    /// The floating surface with its content, mounted at the anchor while the
+    /// popup is shown, in a fresh owner on every opening.
+    #[track_caller]
+    pub fn surface<V: IntoView>(
+        self,
+        placement: Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> View {
+        show(self.is_open(), move || {
+            overlay(self.anchor_ref(), placement, content())
+                .with_node(|node| node.part(self.content()))
+        })
+        .into_view()
     }
 
     /// Per-mount focus range, anchor removal and initial focus. Setup only,
@@ -524,5 +581,6 @@ fn return_target(
     match policy.target {
         FocusReturnTarget::Opener => opener.or_else(|| anchor.mounted_node()),
         FocusReturnTarget::Anchor(reference) => reference.mounted_node(),
+        FocusReturnTarget::AnchorValue(value) => value.get_untracked().mounted_node(),
     }
 }

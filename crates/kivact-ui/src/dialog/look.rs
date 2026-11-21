@@ -2,10 +2,10 @@
 use crate::look_common::mark;
 use crate::theme::Look;
 
+use crate::DialogKind;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Position, Style, Theme, pct, style};
-use kivact_interaction::DialogMode;
 /// Where a theme centers modal dialogs opened by an attached trigger.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DialogCenter {
@@ -86,9 +86,7 @@ pub(crate) fn dialog_close(t: &Theme, _: &Look<DialogState>) -> Style {
 pub(crate) fn drawer_handle(_: &Theme, state: &Look<DialogState>) -> Style {
     if matches!(
         state.kind,
-        kivact_interaction::DialogMode::Drawer(
-            kivact_core::geometry::Edge::Left | kivact_core::geometry::Edge::Right
-        )
+        DialogKind::Drawer(kivact_core::geometry::Edge::Left | kivact_core::geometry::Edge::Right)
     ) {
         style().width(24).height(48).flex_shrink(0)
     } else {
@@ -100,7 +98,7 @@ pub(crate) fn drawer_handle(_: &Theme, state: &Look<DialogState>) -> Style {
 pub struct DialogState {
     pub input: PartState,
     pub open: bool,
-    pub kind: DialogMode,
+    pub kind: DialogKind,
     /// The dialog has a [`media`](crate::Dialog::media) view in its header,
     /// which the header recipe lays out beside or above the title.
     pub media: bool,

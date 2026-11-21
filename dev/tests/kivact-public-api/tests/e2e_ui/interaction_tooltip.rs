@@ -61,7 +61,7 @@ fn tip_with<V: IntoView>(
     mut trigger: Node,
     body: impl Fn() -> V + 'static,
 ) -> View {
-    let tip = use_tooltip();
+    let tip = use_tooltip(true);
     let part = tip.trigger();
     let anchor = node_ref();
     let described = trigger.has_description();
@@ -170,5 +170,28 @@ fn a_tooltip_taken_over_shows_again_when_the_other_hides() {
         "the one it preempted is still engaged"
     );
     assert!(!shown(&screen, "Tip B"));
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_tooltip_built_disabled_shows_no_hint() {
+    let (screen, open) = mount(|| {
+        let tip = use_tooltip(false);
+        let anchor = node_ref();
+        let tip_trigger = trigger("A", true).part(tip.trigger()).node_ref(anchor);
+        let hint = show(tip.is_open(), move || {
+            overlay(anchor, Placement::Below, text("Hint"))
+                .with_node(move |node| node.part(tip.content()))
+                .name("Tip A")
+        });
+        (tip.is_open(), (tip_trigger, hint).into_view())
+    });
+    screen.get_by_test_id("A").hover();
+    screen.advance(ms(600));
+    assert!(!open.get_untracked(), "a disabled tooltip never opens");
+    assert!(!shown(&screen, "Tip A"));
+    screen.get_by_test_id("A").focus();
+    screen.advance(ms(600));
+    assert!(!shown(&screen, "Tip A"), "focus does not open it either");
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

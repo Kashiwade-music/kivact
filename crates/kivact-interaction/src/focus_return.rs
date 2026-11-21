@@ -31,6 +31,8 @@ pub enum FocusReturnTarget {
     Opener,
     /// This reference, resolved when the focus is restored.
     Anchor(NodeRef),
+    /// The reference this value holds when the surface opens.
+    AnchorValue(kivact_core::state::Value<NodeRef>),
 }
 
 /// A set of close reasons.
@@ -93,6 +95,29 @@ impl FocusReturn {
         }
     }
 
+    /// Restore the node `target` holds when the surface opens, on Escape, a
+    /// selection, assistive technology's dismissal, an explicit close and an
+    /// unmount.
+    pub fn anchor_value(target: kivact_core::state::Value<NodeRef>) -> Self {
+        Self {
+            target: FocusReturnTarget::AnchorValue(target),
+            on: ReasonSet::DISMISS
+                .union(ReasonSet::PROGRAMMATIC)
+                .union(ReasonSet::UNMOUNT),
+        }
+    }
+
+    /// This policy with an `AnchorValue` target read now, for one opening.
+    pub(crate) fn resolved(self) -> Self {
+        match self.target {
+            FocusReturnTarget::AnchorValue(value) => Self {
+                target: FocusReturnTarget::Anchor(value.get_untracked()),
+                on: self.on,
+            },
+            _ => self,
+        }
+    }
+
     /// Restore the node that had the focus before the surface mounted, on `on`.
     pub fn opener(on: ReasonSet) -> Self {
         Self {
@@ -126,6 +151,7 @@ impl FocusReturn {
                 }
             }
             FocusReturnTarget::Anchor(reference) => reference.restore_focus(),
+            FocusReturnTarget::AnchorValue(value) => value.get_untracked().restore_focus(),
         }
     }
 }

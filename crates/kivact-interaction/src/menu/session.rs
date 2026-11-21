@@ -68,7 +68,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
                     .submenu,
             },
             move |_, command| match command {
-                Effect::Close => popup.hide(PopupCloseReason::Escape),
+                Effect::Close => popup.close(PopupCloseReason::Escape),
                 Effect::Closed => {
                     if let Some(press) = press {
                         press.cancel_open();
@@ -140,7 +140,7 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         if let Some(press) = self.press {
             press.cancel();
         }
-        self.popup.hide(reason);
+        self.popup.close(reason);
     }
 
     /// Where the focus returns for the opening in progress: to the trigger

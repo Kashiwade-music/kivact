@@ -91,7 +91,7 @@ impl<T: Element + IntoView> IntoView for Tooltip<T> {
     /// shown until the pointer leaves both the trigger and the hint.
     fn into_view(mut self) -> View {
         let variants = self.node_mut().authored().variants();
-        let behavior = kivact_interaction::use_tooltip().disabled(move || !self.enabled.get());
+        let behavior = kivact_interaction::use_tooltip(self.enabled);
         let part = behavior.trigger();
         let anchor = node_ref();
         let fallback = kivact_core::custom::Part::new(part.state(), move |mut node| {

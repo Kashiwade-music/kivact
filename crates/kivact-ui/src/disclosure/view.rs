@@ -4,7 +4,7 @@ use crate::disclosure::look::DisclosureMotion;
 use crate::disclosure::look::DisclosureTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use kivact_core::motion::{Easing, Transition};
-use kivact_core::state::IntoText;
+use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
 use kivact_core::style::{TransitionProp, style, use_theme};
 use kivact_core::view::Variants;
@@ -140,14 +140,20 @@ impl Disclosure {
         } else {
             self.open
         };
-        let mut details = use_disclosure(open);
+        let details = use_disclosure(open);
         let always_open = self.always_open;
-        if let Some(disabled) = self.root.accessible_disabled() {
-            details = details.disabled(move || always_open || disabled.get());
-        } else if always_open {
-            details = details.disabled(true);
-        }
-        let trigger = trigger.with_node(|root| root.part(details.trigger()));
+        let disabled = match (self.root.accessible_disabled(), always_open) {
+            (Some(d), _) => Some((move || always_open || d.get()).into_value()),
+            (None, true) => Some(true.into_value()),
+            (None, false) => None,
+        };
+        let trigger = trigger.with_node(|root| {
+            let root = match disabled {
+                Some(d) => root.disabled(d),
+                None => root,
+            };
+            root.part(details.trigger())
+        });
         let content = self.content;
         let motion = self.motion;
         let animation = self.animation;
@@ -195,14 +201,14 @@ impl IntoView for Disclosure {
         } else {
             self.open
         };
-        let mut details = use_disclosure(open);
+        let details = use_disclosure(open);
         // `.disabled(..)` ignores input and assistive technology.
         let always_open = self.always_open;
-        if let Some(disabled) = self.root.accessible_disabled() {
-            details = details.disabled(move || always_open || disabled.get());
-        } else if always_open {
-            details = details.disabled(true);
-        }
+        let disabled = match (self.root.accessible_disabled(), always_open) {
+            (Some(d), _) => Some((move || always_open || d.get()).into_value()),
+            (None, true) => Some(true.into_value()),
+            (None, false) => None,
+        };
         let shown = details.is_open();
         let motion = self.motion;
         let animation = self.animation;
@@ -216,8 +222,12 @@ impl IntoView for Disclosure {
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         );
+        let root = match disabled {
+            Some(d) => node().disabled(d),
+            None => node(),
+        };
         let trigger = with_recipe_style(
-            node().part(part).name(title),
+            root.part(part).name(title),
             |r: &DisclosureTheme| r.trigger_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
