@@ -166,3 +166,31 @@ pub(crate) fn part_state(cx: Option<SidebarCx>) -> Value<SidebarState> {
         )
     })
 }
+
+/// A handle on the sidebar of the provider above the current owner: it reads and toggles the sidebar.
+#[derive(Clone, Copy)]
+pub struct SidebarHandle {
+    cx: SidebarCx,
+}
+
+impl SidebarHandle {
+    /// Whether the sidebar is an icon column: it is closed and collapses to icons.
+    pub fn icon_only(self) -> bool {
+        self.cx.icon_only()
+    }
+
+    /// The state the sidebar's parts read.
+    pub fn state(self) -> SidebarState {
+        self.cx.state()
+    }
+
+    /// Open or close the sidebar, unless it cannot close.
+    pub fn toggle(self) {
+        self.cx.toggle();
+    }
+}
+
+/// The handle on the sidebar of the provider above the current owner, or `None` outside a provider.
+pub fn use_sidebar() -> Option<SidebarHandle> {
+    current().map(|cx| SidebarHandle { cx })
+}
