@@ -15,6 +15,7 @@ use kivact::ui::Dialog;
 use kivact::ui::DialogKind;
 use kivact::ui::button;
 use kivact::ui::dialog;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::View;
 use kivact::view::column;

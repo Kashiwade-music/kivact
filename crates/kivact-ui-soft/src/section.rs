@@ -16,7 +16,6 @@ use kivact::style::Color;
 use kivact::style::FlexDirection;
 use kivact::style::style;
 use kivact::style::use_theme;
-use kivact::ui::theme::Variant;
 use kivact::view::Element;
 use kivact::view::View;
 use kivact::view::column;

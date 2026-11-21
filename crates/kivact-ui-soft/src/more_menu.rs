@@ -83,31 +83,9 @@ impl<K: ItemKey> MoreMenu<K> {
     }
 }
 
-struct MoreTrigger {
-    button: Button,
-    label: Value<String>,
-}
-
-impl Element for MoreTrigger {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        self.button.node_mut()
-    }
-}
-
-impl IntoView for MoreTrigger {
-    fn into_view(self) -> View {
-        tooltip(self.label, self.button).into_view()
-    }
-}
-
 impl<K: ItemKey> IntoView for MoreMenu<K> {
     fn into_view(self) -> View {
-        let trigger = self.button;
-        self.menu.attach(MoreTrigger {
-            button: trigger,
-            label: self.label,
-        })
+        self.menu.attach(tooltip(self.label, self.button))
     }
 }
 
