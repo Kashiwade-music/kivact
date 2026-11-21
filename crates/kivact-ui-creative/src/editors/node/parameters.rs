@@ -42,7 +42,7 @@ pub(super) fn popup(state: State) -> impl IntoView {
             Placement::Below,
             node()
                 .child(content)
-                .style(style().padding(8).radius(8).min_width(180))
+                .style(style().padding(8).border_radius(8).min_width(180))
                 .style(
                     style()
                         .background(kivact::style::color::RAISED)

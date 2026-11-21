@@ -8,9 +8,10 @@ use crate::editors::node::model::{NodeControlValue, NodeData};
 use crate::editors::shared::targets::Scene;
 use crate::editors::shared::text::label;
 use kivact::draw::Draw;
-use kivact::draw::{Layer, Transform};
+use kivact::draw::Layer;
 use kivact::geometry::Rect;
 use kivact::geometry::Size;
+use kivact::style::Transform;
 
 fn item(
     draw: &mut Draw,
@@ -29,7 +30,14 @@ fn item(
     if selected {
         draw.stroke_rect(r, 1.5, crate::color::ACCENT);
     }
-    label(draw, &node.label, r.x + 10.0, r.y + 8.0, 10.5, crate::color::TEXT_HIGH);
+    label(
+        draw,
+        &node.label,
+        r.x + 10.0,
+        r.y + 8.0,
+        10.5,
+        crate::color::TEXT_HIGH,
+    );
     if let Some(id) = scene.and_then(|s| s.id(&Target::Item(node.id))) {
         draw.region(
             id,
@@ -41,6 +49,22 @@ fn item(
             ),
         );
     }
+    sockets(draw, node, r, scene);
+    parameters(draw, node, r);
+    controls(draw, node, scene, &texts);
+    preview(draw, node, r);
+    if node.muted {
+        draw.line(
+            kivact::geometry::Point::new(r.x, r.y + r.height),
+            kivact::geometry::Point::new(r.x + r.width, r.y),
+            2.0,
+            crate::color::X,
+        );
+    }
+}
+
+/// The sockets of a node, on its left (inputs) and right (outputs) edges.
+fn sockets(draw: &mut Draw, node: &NodeData, r: Rect, scene: Option<&Scene<Target>>) {
     for (outgoing, sockets) in [(false, &node.inputs), (true, &node.outputs)] {
         for (index, entry) in sockets.iter().enumerate() {
             let point = socket(node, outgoing, index);
@@ -50,12 +74,23 @@ fn item(
             } else {
                 r.x + 11.0
             };
-            label(draw, &entry.label, x, point.y - 5.0, 9.5, crate::color::MUTED);
+            label(
+                draw,
+                &entry.label,
+                x,
+                point.y - 5.0,
+                9.5,
+                crate::color::MUTED,
+            );
             if let Some(id) = scene.and_then(|s| s.id(&Target::Socket(node.id, outgoing, index))) {
                 draw.region(id, Rect::new(point.x - 9.0, point.y - 9.0, 18.0, 18.0));
             }
         }
     }
+}
+
+/// The parameter rows that fit under the sockets.
+fn parameters(draw: &mut Draw, node: &NodeData, r: Rect) {
     let start = 58.0
         + node.inputs.len().max(node.outputs.len()) as f64
             * crate::editors::shared::metrics::SOCKET_STEP;
@@ -64,9 +99,29 @@ fn item(
         if y + 22.0 > r.y + r.height {
             break;
         }
-        draw.rounded_rect(Rect::new(r.x + 10.0, y, r.width - 20.0, 21.0), 5.0, crate::color::FIELD);
-        label(draw, parameter, r.x + 16.0, y + 5.0, 10.0, crate::color::TEXT);
+        draw.rounded_rect(
+            Rect::new(r.x + 10.0, y, r.width - 20.0, 21.0),
+            5.0,
+            crate::color::FIELD,
+        );
+        label(
+            draw,
+            parameter,
+            r.x + 16.0,
+            y + 5.0,
+            10.0,
+            crate::color::TEXT,
+        );
     }
+}
+
+/// The controls of a node: each shows its value and is a region of its own.
+fn controls(
+    draw: &mut Draw,
+    node: &NodeData,
+    scene: Option<&Scene<Target>>,
+    texts: &crate::editors::shared::texts::Texts,
+) {
     for (index, entry) in node.controls.iter().enumerate() {
         let r = control(node, index).expect("enumerated control");
         draw.rounded_rect(r, 5.0, crate::color::FIELD);
@@ -89,21 +144,16 @@ fn item(
             draw.region(id, r);
         }
     }
-    preview(draw, node, r);
-    if node.muted {
-        draw.line(
-            kivact::geometry::Point::new(r.x, r.y + r.height),
-            kivact::geometry::Point::new(r.x + r.width, r.y),
-            2.0,
-            crate::color::X,
-        );
-    }
 }
 
 pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
     for x in (0..size.width.max(0.0) as usize).step_by(20) {
         for y in (0..size.height.max(0.0) as usize).step_by(20) {
-            draw.rounded_rect(Rect::new(x as f64, y as f64, 2.0, 2.0), 1.0, crate::color::HAIR);
+            draw.rounded_rect(
+                Rect::new(x as f64, y as f64, 2.0, 2.0),
+                1.0,
+                crate::color::HAIR,
+            );
         }
     }
     let transform = state.transform.get();
@@ -150,7 +200,12 @@ pub(crate) fn editor(draw: &mut kivact::draw::Draw, size: Size, state: State) {
             && let (id, index) = source.output()
             && let Some(node) = nodes.iter().find(|n| n.id == id)
         {
-            geometry::draw_link(draw, geometry::socket(node, true, index), to, crate::color::ACCENT);
+            geometry::draw_link(
+                draw,
+                geometry::socket(node, true, index),
+                to,
+                crate::color::ACCENT,
+            );
             for candidate in &nodes {
                 for input in 0..candidate.inputs.len() {
                     let point = geometry::socket(candidate, false, input);

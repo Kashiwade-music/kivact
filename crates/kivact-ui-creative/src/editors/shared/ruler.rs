@@ -13,7 +13,7 @@ use kivact::state::callback;
 use kivact::style::TextAlign;
 use std::rc::Rc;
 
-/// How the editor's time ruler spaces its ticks ([`Timeline::ruler_ticks`](crate::Timeline::ruler_ticks)).
+/// How the editor's time ruler spaces its ticks (the `ruler_ticks` prop of [`timeline_editor`](crate::timeline_editor), [`dope_sheet`](crate::dope_sheet) and [`graph_editor`](crate::graph_editor)).
 ///
 /// The intervals are in logical editor units, the unit of [`Clip`](crate::Clip)
 /// positions and of the playhead. At each zoom the ruler uses the smallest

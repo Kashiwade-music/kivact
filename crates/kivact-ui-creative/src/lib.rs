@@ -51,6 +51,10 @@ pub use crate::editors::graph::model::{
     Curve, CurveKey, CurveTangent, GraphRequest, GraphView, KeyMove,
 };
 pub use crate::editors::graph::view_state::GraphState;
+pub use crate::editors::node::model::{
+    NodeControl, NodeControlValue, NodeData, NodeLink, NodeRequest, NodeSocket,
+};
+pub use crate::editors::node::view_state::NodeState;
 pub use crate::editors::shared::model::{Clip, EditorContext, EditorFocus, ItemTime, Lane};
 pub use crate::editors::time::model::{Keyframe, TimeRequest};
 pub use audio::view_state::ChannelState;
@@ -69,6 +73,7 @@ pub use editors::arrangement::{
     TrackFlag, TrackKind, arrangement,
 };
 pub use editors::graph::{GraphEditor, graph_editor};
+pub use editors::node::{NodeEditor, node_editor};
 pub use editors::shared::lane::{EditorMenu, LaneCell};
 pub use editors::shared::model::EditorEvent;
 pub use editors::shared::ruler::RulerTicks;
