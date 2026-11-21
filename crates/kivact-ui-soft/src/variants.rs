@@ -125,8 +125,11 @@ pub enum SystemMessageVariant {
 impl Variant for SystemMessageVariant {}
 
 /// The place of a disclosure chevron relative to its title.
+///
+/// Choose it with `kivact::ui::disclosure(..).variant(DisclosureChevron::Start)`;
+/// other themes are ignored and the disclosure draws its normal look.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ChevronPosition {
+pub enum DisclosureChevron {
     /// Before the title, following the current reading direction.
     Start,
     /// After the title (default).
@@ -134,9 +137,13 @@ pub enum ChevronPosition {
     End,
 }
 
-impl Variant for ChevronPosition {}
+impl Variant for DisclosureChevron {}
 
-/// Vertical padding for disclosure triggers.
+/// Vertical padding for disclosure triggers and contents.
+///
+/// Without this variant a disclosure has no padding, unless it draws dividers, which use `Balanced`.
+/// Choose it with `kivact::ui::disclosure(..).variant(DisclosureDensity::Compact)`;
+/// other themes are ignored and the disclosure draws its normal look.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum DisclosureDensity {
     /// Use the theme's smallest spacing step.
@@ -150,18 +157,14 @@ pub enum DisclosureDensity {
 
 impl Variant for DisclosureDensity {}
 
-/// Visual options for `kivact::ui::disclosure` and `disclosure_group`.
+/// Draw a separator before each grouped disclosure panel after the first when true.
+///
+/// Choose it with `kivact::ui::disclosure_group(..).variant(DisclosureDividers(true))`;
+/// other themes are ignored and the disclosure draws its normal look.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct DisclosureVariant {
-    /// Chevron placement; defaults to the trailing side.
-    pub chevron: ChevronPosition,
-    /// Padding override; `None` uses Balanced with dividers and no padding otherwise.
-    pub density: Option<DisclosureDensity>,
-    /// Draw a separator before each grouped panel after the first; false by default.
-    pub dividers: bool,
-}
+pub struct DisclosureDividers(pub bool);
 
-impl Variant for DisclosureVariant {}
+impl Variant for DisclosureDividers {}
 
 /// Visual options of a spinner: its ink and track pairing and an optional explicit ink.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

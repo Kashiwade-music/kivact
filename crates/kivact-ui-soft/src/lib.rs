@@ -75,12 +75,13 @@ pub use space::{
 pub use theme::theme;
 pub use variants::{
     AvatarGroupShape, AvatarSize, BadgeVariant, BannerVariant, BreadcrumbsVariant,
-    ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity, ChevronPosition,
-    CodeBlockContainer, CodeBlockSize, CodeBlockWidth, ComposerElevation, DisclosureDensity,
-    DisclosureVariant, DropzoneVariant, Elevation, EmptyStateVariant, HeadingDisplay, ItemAlign,
-    ItemDensity, ItemHighlighted, ItemLayout, LabelPosition, ListDividers, ListEdge,
-    MetadataColumns, MetadataLabelWidth, MetadataOrientation, PaginationSize, RowStatusDot,
-    SegmentedIconOnly, SegmentedLayout, SkeletonRadius, SpinnerShade, SpinnerVariant,
-    StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant, TableCellAlign,
-    TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
+    ButtonGroupVariant, CardPadding, CardVariant, ChatBubbleVariant, ChatDensity,
+    CodeBlockContainer, CodeBlockSize, CodeBlockWidth, ComposerElevation, DisclosureChevron,
+    DisclosureDensity, DisclosureDividers, DropzoneVariant, Elevation, EmptyStateVariant,
+    HeadingDisplay, ItemAlign, ItemDensity, ItemHighlighted, ItemLayout, LabelPosition,
+    ListDividers, ListEdge, MetadataColumns, MetadataLabelWidth, MetadataOrientation,
+    PaginationSize, RowStatusDot, SegmentedIconOnly, SegmentedLayout, SkeletonRadius, SpinnerShade,
+    SpinnerVariant, StepCollapsedVariant, StepDensity, StepIndicatorPosition, SystemMessageVariant,
+    TableCellAlign, TableCellDivider, TableRowDividers, TableRowHover, TableRowStriped,
+    ToolbarVariant, TreeGuides,
 };

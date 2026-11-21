@@ -5,7 +5,7 @@ use crate::radius as r;
 use crate::recipe_parts::fast;
 use crate::space as s;
 use crate::type_scale as t;
-use crate::variants::{ChevronPosition, DisclosureDensity, DisclosureVariant};
+use crate::variants::{DisclosureChevron, DisclosureDensity, DisclosureDividers};
 use kivact::geometry::Rect;
 use kivact::style::{Align, Color, Cursor, FlexDirection, Justify, Style, Theme, pct, style};
 use kivact::ui::theme::{
@@ -18,11 +18,17 @@ fn focus() -> Style {
     style().outline(m::FOCUS_RING_WIDTH, Color::var(&c::FOCUS_RING_VAR))
 }
 
+/// Whether the disclosure draws a separator before each grouped panel after the first.
+fn dividers(look: &Look<DisclosureRecipeState>) -> bool {
+    look.variant::<DisclosureDividers>()
+        .is_some_and(|dividers| dividers.0)
+}
+
 /// The vertical padding of a disclosure's trigger and content.
-fn padding(theme: &Theme, variant: DisclosureVariant) -> f64 {
-    match variant
-        .density
-        .or(variant.dividers.then_some(DisclosureDensity::Balanced))
+fn padding(theme: &Theme, look: &Look<DisclosureRecipeState>) -> f64 {
+    match look
+        .variant::<DisclosureDensity>()
+        .or(dividers(look).then_some(DisclosureDensity::Balanced))
     {
         Some(DisclosureDensity::Compact) => theme.get(&s::SPACE_S1_VAR),
         Some(DisclosureDensity::Balanced) => theme.get(&s::SPACE_S2_VAR),
@@ -32,11 +38,10 @@ fn padding(theme: &Theme, variant: DisclosureVariant) -> f64 {
 }
 
 fn root(_theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> Style {
-    let variant = look.variant::<DisclosureVariant>().unwrap_or_default();
     let base = style()
         .flex_direction(FlexDirection::Column)
         .width(pct(100));
-    if variant.dividers && look.group.is_some_and(|group| group.index > 0) {
+    if dividers(look) && look.group.is_some_and(|group| group.index > 0) {
         base.border_top(m::BORDER_WIDTH, c::BORDER)
     } else {
         base
@@ -44,8 +49,7 @@ fn root(_theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> Sty
 }
 
 fn trigger(theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> Style {
-    let variant = look.variant::<DisclosureVariant>().unwrap_or_default();
-    let start = variant.chevron == ChevronPosition::Start;
+    let start = look.variant::<DisclosureChevron>() == Some(DisclosureChevron::Start);
     let rtl = use_direction() == ReadingDirection::Rtl;
     let base = style()
         .flex_direction(if start != rtl {
@@ -57,7 +61,7 @@ fn trigger(theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> S
         .align_items(Align::Center)
         .justify_content(Justify::SpaceBetween)
         .gap(s::SPACE_S2)
-        .padding_y(padding(theme, variant))
+        .padding_y(padding(theme, look))
         .font_size(t::LARGE.size_px)
         .line_height(1.0)
         .font_weight(t::WEIGHT_SEMIBOLD)
@@ -74,8 +78,7 @@ fn trigger(theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> S
 
 /// The chevron: turned by the open state and mirrored for a start chevron in RTL.
 fn indicator(_theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> Style {
-    let variant = look.variant::<DisclosureVariant>().unwrap_or_default();
-    let start = variant.chevron == ChevronPosition::Start;
+    let start = look.variant::<DisclosureChevron>() == Some(DisclosureChevron::Start);
     let rtl = use_direction() == ReadingDirection::Rtl;
     let degrees = match (start, look.open) {
         (true, true) | (false, false) => 0.0,
@@ -93,11 +96,10 @@ fn indicator(_theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -
 }
 
 fn content(theme: &Theme, look: &Look<DisclosureRecipeState>, _base: Style) -> Style {
-    let variant = look.variant::<DisclosureVariant>().unwrap_or_default();
     style()
         .flex_direction(FlexDirection::Column)
         .padding_top(s::SPACE_S1)
-        .padding_bottom(padding(theme, variant))
+        .padding_bottom(padding(theme, look))
         .font_size(t::BODY.size_px)
         .line_height(t::BODY.line_height_px / t::BODY.size_px)
         .color(c::TEXT_PRIMARY)
