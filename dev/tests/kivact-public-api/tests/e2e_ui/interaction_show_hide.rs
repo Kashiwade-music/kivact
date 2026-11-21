@@ -167,19 +167,20 @@ fn menu_show_twice_stays_open() {
 #[test]
 fn navigation_menu_show_is_idempotent_and_toggle_twice_returns() {
     let (screen, state) = mount(|| {
-        let menu = use_navigation_menu();
+        let menu = use_navigation_menu(signal(false));
+        let first = menu.panel();
         let view = column((
             button("Show twice").on_press(move || {
-                menu.show(0);
-                menu.show(0);
+                first.show();
+                first.show();
             }),
             button("Hide twice").on_press(move || {
                 menu.hide();
                 menu.hide();
             }),
             button("Toggle twice").on_press(move || {
-                menu.toggle(0);
-                menu.toggle(0);
+                first.toggle();
+                first.toggle();
             }),
         ));
         (menu.state(), view)

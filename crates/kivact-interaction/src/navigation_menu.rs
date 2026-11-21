@@ -1,7 +1,11 @@
 //! Role: Own hover and pinned navigation panel transitions.
 use crate::options_cell::OptionsCell;
-use kivact_core::state::{Callback, callback};
-use kivact_core::state::{Machine as MachineTrait, MachineHandle, Step, Value, machine, memo};
+use crate::{PopupApi, PopupState, use_popup};
+use kivact_core::custom::Part;
+use kivact_core::state::{
+    IntoValue, Machine as MachineTrait, MachineHandle, Signal, Step, Value, binding, machine, memo,
+};
+use kivact_core::view::{Element, IntoView, Placement, View, overlay, show};
 use std::time::Duration;
 
 /// The active navigation panel and the input that keeps it open.
@@ -32,6 +36,7 @@ enum Event {
     Toggle(usize),
     Pin(usize),
     Close,
+    ShowFirst,
     HoverAfter(usize, Duration),
     LeaveAfter(usize, Duration),
     HoverDue(usize),
@@ -68,6 +73,9 @@ impl MachineTrait for Machine {
             ),
             Event::Pin(key) => activate(*state, NavOpen::Pinned(key)),
             Event::Close => activate(*state, NavOpen::Closed),
+            Event::ShowFirst if state.open == NavOpen::Closed => {
+                activate(*state, NavOpen::Pinned(0))
+            }
             Event::PanelRemoved(key) => remove_panel(*state, key),
             _ => Step::stay(),
         }
@@ -193,83 +201,167 @@ fn remove_panel(state: NavMachineState, key: usize) -> Step<NavMachineState, Eve
 #[derive(Clone, Copy)]
 pub struct NavigationMenuApi {
     machine: MachineHandle<Machine>,
-    changed: OptionsCell<Option<Callback<bool>>>,
+    open: Signal<bool>,
     next_panel: OptionsCell<usize>,
 }
 
-/// Create one exclusive panel owner. Setup only.
+/// Create one exclusive panel owner whose open state is `open`. Setup only.
 #[track_caller]
-pub fn use_navigation_menu() -> NavigationMenuApi {
-    let changed = OptionsCell::new(None::<Callback<bool>>);
+pub fn use_navigation_menu(open: Signal<bool>) -> NavigationMenuApi {
+    let machine = machine(
+        NavMachineState::default(),
+        || Machine,
+        move |_, Effect::Changed(value)| {
+            if open.get_untracked() != value {
+                open.set(value);
+            }
+        },
+    );
+    machine.feed(open, |value| {
+        if value {
+            Event::ShowFirst
+        } else {
+            Event::Close
+        }
+    });
     NavigationMenuApi {
-        machine: machine(
-            NavMachineState::default(),
-            || Machine,
-            move |_, Effect::Changed(open)| {
-                if let Some(changed) = changed.get() {
-                    changed.call(open);
-                }
-            },
-        ),
-        changed,
+        machine,
+        open,
         next_panel: OptionsCell::new(0),
     }
 }
 impl NavigationMenuApi {
-    /// Allocate one genuine panel identity during setup, including mounted dynamic factories.
-    /// This is identity allocation only; `NavOpen` remains the sole open-state authority.
-    pub fn panel_key(self) -> usize {
+    /// Whether any panel is open.
+    pub fn is_open(self) -> Value<bool> {
+        self.open.into_value()
+    }
+    /// The current panel and its opening mode.
+    pub fn state(self) -> Value<NavOpen> {
+        memo(move || self.machine.get().open)
+    }
+    /// Show the first panel pinned. Nothing changes while a panel is open.
+    pub fn show(self) {
+        self.machine.send(Event::ShowFirst);
+    }
+    /// Hide the open panel, after dismissal or choosing a link.
+    pub fn hide(self) {
+        self.machine.send(Event::Close);
+    }
+    /// Show the first panel, or hide the open one.
+    pub fn toggle(self) {
+        if self.open.get_untracked() {
+            self.hide();
+        } else {
+            self.show();
+        }
+    }
+    /// Allocate one genuine panel and its API during setup, including mounted dynamic factories.
+    #[track_caller]
+    pub fn panel(self) -> NavigationPanelApi {
         let key = self.next_panel.get();
         self.next_panel.update(|next| {
             *next = next
                 .checked_add(1)
                 .expect("navigation panel identity exhausted");
         });
-        key
+        let state = self.state();
+        let pinned = binding(
+            move || state.get() == NavOpen::Pinned(key),
+            move |pin: bool| {
+                if pin {
+                    self.machine.send(Event::Pin(key));
+                } else if state.get_untracked() == NavOpen::Pinned(key) {
+                    self.machine.send(Event::Close);
+                }
+            },
+        );
+        let shown =
+            memo(move || matches!(state.get(), NavOpen::Hover(i) | NavOpen::Pinned(i) if i == key));
+        NavigationPanelApi {
+            menu: self,
+            key,
+            shown,
+            popup: use_popup(pinned),
+        }
     }
-    /// Observe accepted open/closed changes. Setup only.
-    pub fn on_open_change<R: kivact_core::view::HandlerResult>(
-        self,
-        f: impl Fn(bool) -> R + 'static,
-    ) -> Self {
-        self.changed.update(|changed| *changed = Some(callback(f)));
-        self
+}
+
+/// One navigation panel of a menu: its trigger, its surface and its visibility.
+#[derive(Clone, Copy)]
+pub struct NavigationPanelApi {
+    menu: NavigationMenuApi,
+    key: usize,
+    shown: Value<bool>,
+    popup: PopupApi,
+}
+
+impl NavigationPanelApi {
+    /// The panel's identity within its menu.
+    pub fn key(self) -> usize {
+        self.key
     }
-    /// The current panel and its opening mode.
-    pub fn state(self) -> Value<NavOpen> {
-        memo(move || self.machine.get().open)
+    /// Whether this panel is shown, by hover or by pin.
+    pub fn is_open(self) -> Value<bool> {
+        self.shown
     }
-    /// Dispose this actual panel or its current eligibility without affecting another panel's command.
-    pub fn panel_removed(self, key: usize) {
-        self.machine.send(Event::PanelRemoved(key));
+    /// Pin this panel open: it stays open when the pointer leaves.
+    pub fn show(self) {
+        self.menu.machine.send(Event::Pin(self.key));
+    }
+    /// Close this panel if it is shown.
+    pub fn hide(self) {
+        if self.shown.get_untracked() {
+            self.menu.machine.send(Event::Close);
+        }
+    }
+    /// Pin this panel, or close it if it is pinned.
+    pub fn toggle(self) {
+        self.menu.machine.send(Event::Toggle(self.key));
+    }
+    /// Show this panel on pointer entry.
+    pub fn hover(self) {
+        self.menu.machine.send(Event::Hover(self.key));
+    }
+    /// End the pointer's visit to this panel.
+    pub fn leave(self) {
+        self.menu.machine.send(Event::Leave(self.key));
+    }
+    /// Dispose this panel's eligibility when it is removed.
+    pub fn removed(self) {
+        self.menu.machine.send(Event::PanelRemoved(self.key));
     }
     /// Schedule pointer opening; later input supersedes the pending timer.
-    pub fn hover_after(self, index: usize, delay: Duration) {
-        self.machine.send(Event::HoverAfter(index, delay));
+    pub fn hover_after(self, delay: Duration) {
+        self.menu.machine.send(Event::HoverAfter(self.key, delay));
     }
     /// Schedule pointer departure; re-entry supersedes the pending timer.
-    pub fn leave_after(self, index: usize, delay: Duration) {
-        self.machine.send(Event::LeaveAfter(index, delay));
+    pub fn leave_after(self, delay: Duration) {
+        self.menu.machine.send(Event::LeaveAfter(self.key, delay));
     }
-    /// Enter a trigger or its hover surface.
-    pub fn hover(self, index: usize) {
-        self.machine.send(Event::Hover(index));
+    /// The trigger: the popup trigger that also publishes `expanded` for this panel.
+    #[track_caller]
+    pub fn trigger(self) -> Part<PopupState> {
+        let base = self.popup.trigger();
+        Part::new(base.state(), move |host| {
+            host.part(base).expanded(self.shown)
+        })
     }
-    /// End the pointer's visit to a trigger and its surface.
-    pub fn leave(self, index: usize) {
-        self.machine.send(Event::Leave(index));
+    /// The surface part, for the caller's `overlay(..)`.
+    #[track_caller]
+    pub fn content(self) -> Part<PopupState> {
+        self.popup.content()
     }
-    /// Pin a hovered panel, or close an already pinned panel.
-    pub fn toggle(self, index: usize) {
-        self.machine.send(Event::Toggle(index));
-    }
-    /// Show the panel `index` pinned: it stays open when the pointer
-    /// leaves. Nothing changes while it is pinned.
-    pub fn show(self, index: usize) {
-        self.machine.send(Event::Pin(index));
-    }
-    /// Hide the open panel, after dismissal or choosing a link.
-    pub fn hide(self) {
-        self.machine.send(Event::Close);
+    /// The panel's surface, mounted at the menu's anchor while the panel is shown.
+    #[track_caller]
+    pub fn surface<V: IntoView>(
+        self,
+        placement: Placement,
+        content: impl Fn() -> V + 'static,
+    ) -> View {
+        show(self.shown, move || {
+            overlay(self.popup.anchor_ref(), placement, content())
+                .with_node(|node| node.part(self.content()))
+        })
+        .into_view()
     }
 }

@@ -1,11 +1,10 @@
 //! Role: The hover card builder, its open timing and its rendering.
 
 use crate::hover_card::look::HoverCardTheme;
-use kivact_core::state::{IntoText, IntoValue, Signal, Value, effect_on, signal};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
-    Element, HandlerResult, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column,
-    node_ref, overlay, show,
+    Element, IntoView, OverlayAlign, Placement, Role, View, ViewFn, column, node_ref, overlay, show,
 };
 use kivact_interaction::{HoverCardTiming, InteractionPolicy, use_hover_card};
 use std::time::Duration;
@@ -43,7 +42,6 @@ pub struct HoverCard {
     focus: FocusTrigger,
     open: CardOpen,
     label: Option<Value<String>>,
-    on_open_change: Option<kivact_core::state::Callback<bool>>,
 }
 /// Build the preview content in a fresh owner each time it opens.
 #[track_caller]
@@ -58,7 +56,6 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
         focus: FocusTrigger::Auto,
         open: CardOpen::Uncontrolled(false),
         label: None,
-        on_open_change: None,
     }
 }
 impl HoverCard {
@@ -121,35 +118,24 @@ impl HoverCard {
         self.label = Some(label.into_text_value());
         self
     }
-    /// Observe visibility changes after the initial value.
-    pub fn on_open_change<R: HandlerResult>(mut self, f: impl Fn(bool) -> R + 'static) -> Self {
-        self.on_open_change = Some(kivact_core::state::callback(f));
-        self
-    }
     /// Attach without replacing the trigger's role or existing handlers.
     pub fn attach<T: Element + IntoView>(self, trigger: T) -> View {
         let anchor = node_ref();
-        let card = node_ref();
-        let anchor_focus = anchor.focus_within();
-        let card_focus = card.focus_within();
         let focus = self.focus;
         let requested = match self.open {
             CardOpen::Controlled(binding) => binding,
             CardOpen::Uncontrolled(initial) => signal(initial),
         };
         let behavior = use_hover_card(
-            anchor,
-            card,
             self.enabled,
-            move || focus != FocusTrigger::Never && (anchor_focus.get() || card_focus.get()),
-            requested,
+            move || focus != FocusTrigger::Never,
             self.timing,
+            requested,
         );
         let shown = behavior.is_open();
-        if let Some(callback) = self.on_open_change {
-            effect_on(shown, move |open| callback.call(*open));
-        }
-        let trigger = trigger.node_ref(anchor);
+        let trigger = trigger
+            .node_ref(anchor)
+            .with_node(|node| node.part(behavior.trigger()));
         let trigger = if focus == FocusTrigger::Always {
             trigger.focusable(true)
         } else {
@@ -176,14 +162,7 @@ impl HoverCard {
                         .get()
                         .get(&crate::hover_card::look::VIEWPORT_MARGIN_VAR),
                 )
-                .node_ref(card)
-                .on_dismiss(move |reason| {
-                    if reason == kivact_core::view::DismissReason::Escape && card_focus.get() {
-                        anchor.focus();
-                    }
-                    requested.set(false);
-                    behavior.hide();
-                });
+                .with_node(|node| node.part(behavior.content()));
             match self.label {
                 Some(label) => layer.with_node(|node| node.role(Role::Dialog)).name(label),
                 None => layer

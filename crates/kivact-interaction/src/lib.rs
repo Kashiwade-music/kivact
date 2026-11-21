@@ -186,4 +186,4 @@ mod hover_card;
 pub use hover_card::{HoverCardApi, HoverCardOpenedBy, HoverCardState, use_hover_card};
 mod navigation_menu;
 mod surface;
-pub use navigation_menu::{NavOpen, NavigationMenuApi, use_navigation_menu};
+pub use navigation_menu::{NavOpen, NavigationMenuApi, NavigationPanelApi, use_navigation_menu};
