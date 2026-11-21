@@ -764,3 +764,9 @@ E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）
 - **A15（W7b、`08c1371d`、lane `wt/rw-W7b-A1`、W7a の A13 `3a719498` の上）**：採る。`CpuCompositor` の target の pool（64 MiB）、`filters::apply` の借用（input と output が同じ時だけ clone）、GPU への切替えでの `invalidate`。付属書との食い違い 1〜6（`run` は `size` を取らず `output.size()`、`give_back` は Temp だけ、`render()` は local の pool、試験の pool の非空の assert、E2E は comment 変更の前に走らせた、CRLF の復元後は check・clippy・xtask・compose の試験を再実行）は、配置と同じ形の選択で設計の変更は無い。E2E（ARV 38、DRAW 83、OFFSCREEN 4+8、GPU-DEMAND 6）は通った。
 - **W6b の後片付け**：設計者が利用者の許可を得て実施（worktree と branch の削除）。W6b の target（`V:/kv-target/rw-W6b-*`）は残してある。
 - **U23（`e23f39a8`）**：設計者が Stepper の record の印を入れた（利用者の許可）。U23 の完了 commit は U1 lane で行う。
+
+## Orchestrator の判断（W7a・E26、U23 の完了、2026-11-21）
+
+- **E26（`935ea765`、lane `wt/rw-W7a-E1`）**：採る。`HostNode` の `scroll`・`shift` を `NodeTree` の疎な表へ移した（`size_of <= 280` の assert は通る）。付属書との食い違い 1〜4（`report_geometry` の読む順は `ScrollReport` の値を変えないため、`children_frame` の未使用の引数を消した、CRLF の復元、`scroll_of` は既定値を返す。`?` の所は `self.tree.get(p)?;` で Option の意味を保った）は、配置と同じ形の選択で、振る舞いは変えない。確認（engine の試験 13 件、E2E の e2e_core 10 module と e2e_ui 3 module、fmt、clippy、xtask、check）は通った。
+- **U23（`8270c564`、lane `wt/rw-W7a-U1`）**：採る。設計者の印の commit `e23f39a8` が `stepper/view.rs` を CRLF の blob で入れて、親との diff が全行になっていた。`git add --renormalize` で index を LF に戻した（内容は `e23f39a8^` との 1 行の追加のまま）。clippy は `--no-deps`（arvane-native の既存の warning のため）。xtask（`kivact-ui`・`kivact-interaction`）は error 0。e2e_ui 154・16 件、e2e_core view 11 件は通った。
+- **U23 の完了条件の rg の残り（`TextEditApi::on_draft_commit`、`crates/kivact-interaction/src/text_edit/handle.rs:218`）**：受け入れる（0.5 の「目的・消すものに挙がらない既存の行」）。付属書の手順 1 は ui の `TextInput` の builder だけを改名すると書いており、interaction の method は所有の外。設計者が後で付属書に書くかを決める。
