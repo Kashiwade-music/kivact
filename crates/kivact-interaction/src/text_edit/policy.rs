@@ -1,16 +1,23 @@
 //! Role: Pure native editing keys and clipboard normalization.
 
+use std::ops::Range;
+
 use kivact_core::custom::{EditContext, EditOutcome, EditRequest, EditState};
-use kivact_core::view::Key;
+use kivact_core::platform::{CommandKey, capabilities};
+use kivact_core::view::{Key, Modifiers};
 
 /// The key and paste policy of [`use_text_edit`](crate::use_text_edit), for a
 /// [`TextEditing::behavior`](kivact_core::custom::TextEditing::behavior)
 /// that handles some keys itself and leaves the rest to it.
 ///
 /// It moves and deletes by grapheme, selects with Shift, goes to the start
-/// and end of the text with Home and End, moves a line up or down with the
-/// arrow keys and breaks lines with Enter in a multiline editor, and handles Ctrl/Cmd with A, C, X and V. A pasted
-/// text has its line breaks normalized (`\r\n` to `\n`, or to spaces in a
+/// and end of the line with Home and End in a multiline editor and of the
+/// text with Ctrl/Cmd+Home/End, moves and deletes by word with Ctrl (Alt
+/// where the command key is ⌘) and the arrows, Backspace and Delete, moves a
+/// line up or down with the arrow keys keeping the column of the first Up or
+/// Down across shorter lines, breaks lines with Enter in a multiline editor,
+/// and handles Ctrl/Cmd with A, C, X and V. A pasted text has its line
+/// breaks normalized (`\r\n` to `\n`, or to spaces in a
 /// single-line editor). It keeps read-only values and hidden passwords,
 /// and leaves every other key, Tab included, to routing.
 pub fn text_edit_policy(
@@ -46,44 +53,28 @@ pub fn text_edit_policy(
     let multiline = context.multiline;
     let command = modifiers.ctrl || modifiers.meta;
     let shift = modifiers.shift;
-    if multiline && !command && matches!(key, Key::ArrowUp | Key::ArrowDown) {
+    if multiline && !command && !modifiers.alt && matches!(key, Key::ArrowUp | Key::ArrowDown) {
         return vertical_key(state, key == Key::ArrowUp, shift, context);
     }
+    let word = matches!(
+        key,
+        Key::ArrowLeft | Key::ArrowRight | Key::Backspace | Key::Delete
+    ) && word_chord(modifiers);
     let sel = state.selection();
     let caret = state.caret();
     let changed = match key {
         Key::Char(c) if command => return command_key(state, c),
-        Key::Backspace | Key::Delete => {
-            let r = if !sel.is_empty() {
-                sel.clone()
-            } else if key == Key::Backspace {
-                state.prev_grapheme(caret)..caret
-            } else {
-                caret..state.next_grapheme(caret)
-            };
-            if r.is_empty() {
-                false
-            } else {
-                state.replace(r, "");
-                true
-            }
-        }
+        Key::Backspace | Key::Delete => delete_key(state, key == Key::Backspace, word, &sel),
         Key::ArrowLeft | Key::ArrowRight => {
-            let to = match (key == Key::ArrowLeft, sel.is_empty() || shift) {
-                (true, true) => state.prev_grapheme(caret),
-                (true, false) => sel.start,
-                (false, true) => state.next_grapheme(caret),
-                (false, false) => sel.end,
-            };
-            state.move_to(to, shift);
+            arrow_key(state, key == Key::ArrowLeft, word, shift, &sel);
             false
         }
         Key::Home => {
-            state.move_to(0, shift);
+            state.move_to(line_edge(state, context, command, true), shift);
             false
         }
         Key::End => {
-            state.move_to(state.value().len(), shift);
+            state.move_to(line_edge(state, context, command, false), shift);
             false
         }
         Key::Enter if multiline => {
@@ -98,6 +89,55 @@ pub fn text_edit_policy(
     } else {
         EditOutcome::Done
     }
+}
+
+/// Backspace (`backspace`) or Delete: removes the selection, else the
+/// grapheme or word before the caret or after it. `true` if the text changed.
+fn delete_key(state: &mut EditState, backspace: bool, word: bool, sel: &Range<usize>) -> bool {
+    let caret = state.caret();
+    let r = if !sel.is_empty() {
+        sel.clone()
+    } else if backspace {
+        (if word {
+            word_start(state, caret)
+        } else {
+            state.prev_grapheme(caret)
+        })..caret
+    } else {
+        caret..(if word {
+            word_end(state, caret)
+        } else {
+            state.next_grapheme(caret)
+        })
+    };
+    if r.is_empty() {
+        false
+    } else {
+        state.replace(r, "");
+        true
+    }
+}
+
+/// Left (`left`) or Right: moves the caret by a word with the word chord,
+/// else by a grapheme, collapsing a selection to its near end unless Shift
+/// extends it.
+fn arrow_key(state: &mut EditState, left: bool, word: bool, shift: bool, sel: &Range<usize>) {
+    let caret = state.caret();
+    let to = if word {
+        if left {
+            word_start(state, caret)
+        } else {
+            word_end(state, caret)
+        }
+    } else {
+        match (left, sel.is_empty() || shift) {
+            (true, true) => state.prev_grapheme(caret),
+            (true, false) => sel.start,
+            (false, true) => state.next_grapheme(caret),
+            (false, false) => sel.end,
+        }
+    };
+    state.move_to(to, shift);
 }
 
 /// Up (`up`) or Down in a multiline editor: move the caret a line, extending
@@ -167,4 +207,56 @@ fn command_key(state: &mut EditState, key: char) -> EditOutcome {
         'v' => EditOutcome::Paste,
         _ => EditOutcome::NotEditing,
     }
+}
+
+/// Where Home (`start`) or End moves the caret: the text's end with the
+/// command key, in one line or without layout; else the caret's line's end.
+fn line_edge(state: &EditState, context: &EditContext, command: bool, start: bool) -> usize {
+    let whole = if start { 0 } else { state.value().len() };
+    if command || !context.multiline {
+        return whole;
+    }
+    context
+        .line_of(state, state.caret())
+        .and_then(|line| context.line_range(state, line))
+        .map_or(whole, |range| if start { range.start } else { range.end })
+}
+
+/// Whether the modifiers are the platform's word chord: Alt where the command key is ⌘, else Ctrl.
+fn word_chord(modifiers: Modifiers) -> bool {
+    if modifiers.meta {
+        return false;
+    }
+    match capabilities().get_untracked().command_key {
+        CommandKey::Command => modifiers.alt && !modifiers.ctrl,
+        CommandKey::Ctrl => modifiers.ctrl && !modifiers.alt,
+    }
+}
+
+/// The start of the word before `at`, over the whitespace before it.
+fn word_start(state: &EditState, at: usize) -> usize {
+    let text = state.value();
+    let mut to = at;
+    while to > 0 {
+        let prev = state.prev_grapheme(to);
+        if !text[prev..to].chars().all(char::is_whitespace) {
+            return state.word_at(prev).start;
+        }
+        to = prev;
+    }
+    0
+}
+
+/// The end of the word after `at`, over the whitespace before it.
+fn word_end(state: &EditState, at: usize) -> usize {
+    let text = state.value();
+    let mut to = at;
+    while to < text.len() {
+        let next = state.next_grapheme(to);
+        if !text[to..next].chars().all(char::is_whitespace) {
+            return state.word_at(to).end;
+        }
+        to = next;
+    }
+    text.len()
 }

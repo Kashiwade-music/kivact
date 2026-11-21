@@ -34,6 +34,21 @@ fn ctrl() -> Modifiers {
     }
 }
 
+/// The word chord of the test platform: its command key is Ctrl on every OS.
+fn word() -> Modifiers {
+    Modifiers {
+        ctrl: true,
+        ..Modifiers::default()
+    }
+}
+
+fn word_shift() -> Modifiers {
+    Modifiers {
+        shift: true,
+        ..word()
+    }
+}
+
 type Log = Rc<RefCell<Vec<String>>>;
 
 #[test]
@@ -265,6 +280,123 @@ abcdef",
 ab
 abcdefY",
         "Down through the short line comes back to the column"
+    );
+}
+
+#[test]
+fn home_and_end_go_to_the_ends_of_the_line_and_ctrl_to_the_ends_of_the_text() {
+    let (screen, value, _log) = field_screen(
+        "abcd
+abcd
+abcd",
+        true,
+    );
+    let notes = screen.get_by_role(Role::TextBox, "Notes");
+    notes.press_key_with(Key::End, ctrl());
+    notes.press_key(Key::ArrowUp);
+    notes.press_key(Key::Home);
+    screen.type_text("X");
+    assert_eq!(
+        value.get(),
+        "abcd
+Xabcd
+abcd",
+        "Home goes to the start of the line"
+    );
+    notes.press_key(Key::End);
+    screen.type_text("Y");
+    assert_eq!(
+        value.get(),
+        "abcd
+XabcdY
+abcd",
+        "End goes to the end of the line"
+    );
+    notes.press_key_with(Key::Home, ctrl());
+    screen.type_text("S");
+    notes.press_key_with(Key::End, ctrl());
+    screen.type_text("E");
+    assert_eq!(
+        value.get(),
+        "Sabcd
+XabcdY
+abcdE",
+        "Ctrl+Home and Ctrl+End go to the ends of the text"
+    );
+    notes.press_key_with(Key::Home, shift());
+    screen.type_text("Z");
+    assert_eq!(
+        value.get(),
+        "Sabcd
+XabcdY
+Z",
+        "Shift+Home selects to the start of the line"
+    );
+}
+
+#[test]
+fn up_and_down_keep_the_column_until_a_horizontal_move() {
+    let (screen, value, _log) = field_screen(
+        "abcdef
+ab
+abcdef",
+        true,
+    );
+    let notes = screen.get_by_role(Role::TextBox, "Notes");
+    notes.press_key_with(Key::Home, ctrl());
+    notes.press_key(Key::End);
+    notes.press_key(Key::ArrowDown);
+    notes.press_key(Key::ArrowDown);
+    screen.type_text("X");
+    assert_eq!(
+        value.get(),
+        "abcdef
+ab
+abcdefX",
+        "the column of the first line survives the short line"
+    );
+    notes.press_key(Key::ArrowUp);
+    notes.press_key(Key::ArrowLeft);
+    notes.press_key(Key::ArrowUp);
+    screen.type_text("Y");
+    assert_eq!(
+        value.get(),
+        "aYbcdef
+ab
+abcdefX",
+        "a horizontal move ends the kept column"
+    );
+}
+
+#[test]
+fn the_word_chord_moves_and_deletes_by_word() {
+    let (screen, value, _log) = field_screen("alpha beta gamma", false);
+    let f = screen.get_by_role(Role::TextBox, "Name");
+    f.press_key(Key::End);
+    f.press_key_with(Key::ArrowLeft, word());
+    f.type_text("X");
+    assert_eq!(value.get_untracked(), "alpha beta Xgamma");
+    f.press_key_with(Key::ArrowLeft, word());
+    f.press_key_with(Key::ArrowLeft, word());
+    f.type_text("Y");
+    assert_eq!(
+        value.get_untracked(),
+        "alpha Ybeta Xgamma",
+        "the word chord skips the space before a word"
+    );
+    f.press_key_with(Key::ArrowRight, word());
+    f.type_text("Z");
+    assert_eq!(value.get_untracked(), "alpha YbetaZ Xgamma");
+    f.press_key_with(Key::Backspace, word());
+    assert_eq!(value.get_untracked(), "alpha  Xgamma");
+    f.press_key_with(Key::Delete, word());
+    assert_eq!(value.get_untracked(), "alpha ");
+    f.press_key_with(Key::ArrowLeft, word_shift());
+    f.type_text("Q");
+    assert_eq!(
+        value.get_untracked(),
+        "Q",
+        "Shift with the word chord selects by word"
     );
 }
 
