@@ -3,7 +3,6 @@
 use crate::borrowed_tree::{LayoutTree, LeafMeasurer};
 use crate::columns::{Measured, NodeLayoutColumns};
 use crate::pass_state::LayoutState;
-use kivact_types::NodeId;
 
 /// Complete neutral geometry, opaque so cache and Taffy representations stay private.
 /// Equality includes rounded/unrounded location, size, overflow rectangle,
@@ -40,22 +39,6 @@ impl NodeLayoutColumns {
             rounded: values.final_layout.get(at)?.map(geometry),
             unrounded: geometry(*values.unrounded.get(at)?),
         })
-    }
-    /// Revalidate every recorded request only when the record is complete.
-    /// No result is copied back.
-    /// `slot` must be live and allocated in this instance's domain, and `id` must
-    /// identify that same node. The measurer must describe its current content.
-    pub(crate) fn remeasures_same(
-        &self,
-        slot: usize,
-        id: NodeId,
-        measure: &mut dyn LeafMeasurer,
-    ) -> bool {
-        let record = &self.states[slot + 1].measured;
-        record.state == crate::columns::RecordState::Complete
-            && record.sizes.iter().all(|(ask, retained)| {
-                Measured::of(&measure.measure(id, ask.request())) == *retained
-            })
     }
     /// Compare retained requests with current content, including bounded incomplete records.
     /// This diagnostic operation never updates retained measurements or repairs layout.

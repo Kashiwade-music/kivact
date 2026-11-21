@@ -94,10 +94,7 @@ impl Model {
         for (_, id, offset) in order {
             self.build_node(id, offset, clipped, &mut nodes, &mut regions, engine);
         }
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
+        self.a11y.constructed += nodes.len() as u64;
         let focus = self.semantics_focus(clipped);
         Built {
             tree: arvane_protocol::SemanticsTree {
@@ -128,8 +125,10 @@ impl Model {
                 if targets.insert(id, (d, offset)).is_some() {
                     continue;
                 }
-                let Some(n) = self.node(id) else { continue };
-                let s = n.scroll();
+                if self.node(id).is_none() {
+                    continue;
+                }
+                let s = self.tree().scroll_of(id);
                 let below = Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,

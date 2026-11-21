@@ -215,7 +215,7 @@ impl Walk<'_> {
             self.out.push(Entry::Open(step));
         }
         let child_clip = self.child_clip(&look, o, layout.size, clip, clips, presence_clip);
-        let (base, perspective) = children_frame(host, id, n, o, &look);
+        let (base, perspective) = children_frame(host, id, o, &look);
         let opened = layer.filter(|_| host.is_layer_node(id));
         if let Some(index) = opened {
             self.outer.push((id, index));
@@ -507,10 +507,13 @@ impl Walk<'_> {
                 .node(child)
                 .filter(|c| c.place.positioning == crate::tree::node::Positioning::Sticky)
             {
-                Some(c) => Point {
-                    x: at.x + c.shift.x,
-                    y: at.y + c.shift.y,
-                },
+                Some(_) => {
+                    let shift = host.tree().shift_of(child);
+                    Point {
+                        x: at.x + shift.x,
+                        y: at.y + shift.y,
+                    }
+                }
                 None => at,
             };
             self.node(child, place(at), alpha, clip, perspective);
@@ -999,11 +1002,10 @@ fn opacity(
 fn children_frame(
     host: &Model,
     id: NodeId,
-    n: &HostNode,
     o: Point,
     look: &LayerTraits,
 ) -> (Point, Option<Matrix4>) {
-    let scroll = n.scroll();
+    let scroll = host.tree().scroll_of(id);
     let base = Point {
         x: o.x - scroll.x,
         y: o.y - scroll.y,

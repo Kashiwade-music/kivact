@@ -68,10 +68,7 @@ impl Model {
         };
         let subtree_roots = subtrees;
         let (metadata, order) = self.build_identity_metadata();
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.enumerated += order.len() as u64;
-        }
+        self.a11y.enumerated += order.len() as u64;
         let mut dirty = own.clone();
         dirty.extend(removed.iter().copied());
         dirty.extend(
@@ -132,10 +129,7 @@ impl Model {
         self.expand_relation_dirt(metadata, &mut dirty);
         self.invalidate_boxless_ancestors(&mut dirty);
         let nodes = self.build_dirty_nodes(root, full, &dirty, metadata, engine);
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += nodes.len() as u64;
-        }
+        self.a11y.constructed += nodes.len() as u64;
         let focus = self.semantics_focus(metadata.clipping.rows());
         arvane_protocol::SemanticsTree {
             root: kivact_types::SemanticsId(root.0),
@@ -162,10 +156,7 @@ impl Model {
             kivact_types::Affine::IDENTITY,
             false,
         );
-        #[cfg(feature = "testing")]
-        {
-            self.a11y.constructed += 1;
-        }
+        self.a11y.constructed += 1;
         Built {
             tree: arvane_protocol::SemanticsTree {
                 root: kivact_types::SemanticsId(id),
@@ -322,8 +313,8 @@ impl Model {
                     engine,
                 );
             }
-            if let Some(n) = self.node(id) {
-                let s = n.scroll();
+            if self.node(id).is_some() {
+                let s = self.tree().scroll_of(id);
                 let below = types::Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,

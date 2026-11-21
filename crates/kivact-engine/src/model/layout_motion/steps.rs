@@ -214,7 +214,8 @@ impl Model {
             let Some(parent) = self.tree.flat_parent(node) else {
                 break;
             };
-            let scroll = self.tree.get(parent)?.scroll;
+            self.tree.get(parent)?;
+            let scroll = self.tree.scroll_of(parent);
             x -= scroll.x;
             y -= scroll.y;
             cur = parent;

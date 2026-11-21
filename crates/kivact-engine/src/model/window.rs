@@ -3,10 +3,10 @@
 //! The App-wide `Host` keeps the client, the models and the loop facts; the
 //! facts that belong to one native window live here.
 
+use kivact_types::SurfaceSize;
 use kivact_types::WindowId;
 use kivact_types::WindowMode;
 use kivact_types::cell::Sent;
-use kivact_types::{NativeWindow, SurfaceSize};
 
 /// What a window holds for its content.
 pub(crate) enum Content {
@@ -14,14 +14,7 @@ pub(crate) enum Content {
     Drawn,
     /// A native child fills the content area; `reported` is the last surface
     /// size sent to the client.
-    Foreign {
-        #[allow(
-            dead_code,
-            reason = "the engine keeps the native child handle for the window's lifetime; the client received it in the ready event"
-        )]
-        child: NativeWindow,
-        reported: Sent<SurfaceSize>,
-    },
+    Foreign { reported: Sent<SurfaceSize> },
 }
 
 /// How long an idle window keeps the CPU frame state of its last shown

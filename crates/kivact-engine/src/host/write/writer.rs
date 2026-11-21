@@ -137,31 +137,7 @@ impl Writer {
 
     /// Totals of the client's mutations and the last committed revision.
     pub fn stats(&self) -> WriteStats {
-        let app = self.app.borrow();
-        let stats = app.writes().stats;
-        #[cfg(feature = "testing")]
-        let stats = WriteStats {
-            a11y_constructed: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.constructed)
-                .sum(),
-            a11y_published: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.published)
-                .sum(),
-            a11y_enumerated: app
-                .windows
-                .values()
-                .map(|w| &w.model)
-                .map(|model| model.a11y.enumerated)
-                .sum(),
-            ..stats
-        };
-        stats
+        super::stats_of(&self.app.borrow())
     }
 
     /// Operations awaiting a revision, grouped by changed node.
@@ -199,7 +175,7 @@ impl Writer {
             return;
         }
         m.insert(parent, id, before, true);
-        writes.structural(id);
+        writes.structural();
         m.log.tree_upserted(m.window, [parent, id]);
     }
 
@@ -208,7 +184,7 @@ impl Writer {
         self.app.borrow_mut().with_node(id, |model, writes| {
             let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
             model.move_before(id, before);
-            writes.structural(id);
+            writes.structural();
             model
                 .log
                 .tree_upserted(model.window, parent.into_iter().chain([id]));
@@ -229,7 +205,7 @@ impl Writer {
                 let parent = model.tree().get(id).and_then(|n| model.tree().parent_id(n));
                 let removed = model.tree().subtree(id);
                 model.remove(id, pop_layout, notify);
-                writes.structural(id);
+                writes.structural();
                 model.log.tree_upserted(model.window, parent);
                 removed
             })
@@ -247,7 +223,7 @@ impl Writer {
                 return;
             }
             model.set_scene(id, layer, scene);
-            writes.scene(id);
+            writes.scene();
             model.log.tree_upserted(model.window, [id]);
         });
     }
@@ -267,7 +243,7 @@ impl Writer {
         let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) else {
             return;
         };
-        writes.command(Some(id.node));
+        writes.command();
         model.focus_request(id, request, visible);
     }
 
@@ -278,7 +254,7 @@ impl Writer {
             windows, writes, ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-            writes.command(None);
+            writes.command();
             model.set_focus(None);
         }
     }
@@ -292,9 +268,9 @@ impl Writer {
         easing: Option<kivact_types::Easing>,
     ) {
         self.app.borrow_mut().with_node(id, |m, writes| {
-            writes.command(Some(id));
+            writes.command();
             let Some(n) = m.node(id) else { return };
-            let start = n.scroll();
+            let start = m.tree.scroll_of(id);
             let target = if relative {
                 Point {
                     x: start.x + point.x,
@@ -335,7 +311,7 @@ impl Writer {
     /// Select every character of a text input.
     pub fn select_all(&self, id: NodeId) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.edit_input(id, |e| {
                 e.move_to(0, false);
                 e.move_to(e.value().len(), true);
@@ -346,7 +322,7 @@ impl Writer {
     /// Scroll the container `id` to `offset`.
     pub fn scroll_to(&self, id: NodeId, offset: Point) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.scroll_to(id, offset);
         });
     }
@@ -358,7 +334,7 @@ impl Writer {
     /// `Wheel` no handler handled with this write.
     pub fn scroll_by(&self, id: NodeId, delta: Point) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.scroll_from(id, delta, None);
         });
     }
@@ -366,7 +342,7 @@ impl Writer {
     /// Scroll every scrollable ancestor of `id` so that it is visible.
     pub fn scroll_into_view(&self, id: NodeId) {
         self.app.borrow_mut().with_node(id, |model, writes| {
-            writes.command(Some(id));
+            writes.command();
             model.reveal(id);
         });
     }
@@ -376,7 +352,7 @@ impl Writer {
     pub fn observe_layout(&self, id: NodeId, on: bool) {
         self.app.borrow_mut().with_node(id, |model, writes| {
             if model.observe_layout(id, on) {
-                writes.command(Some(id));
+                writes.command();
             }
         });
     }
@@ -396,7 +372,7 @@ impl Writer {
             windows, writes, ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-            writes.command(None);
+            writes.command();
             crate::model::drawables::apply_request(model, request);
         }
     }
@@ -432,7 +408,7 @@ impl Writer {
                     windows, writes, ..
                 } = &mut *app;
                 if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-                    writes.command(None);
+                    writes.command();
                     model.snapshots.push((request, node));
                 }
             }
@@ -487,7 +463,7 @@ impl Writer {
             windows, writes, ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-            writes.command(None);
+            writes.command();
             model.window_request = Some((title, min_size, resizable));
         }
     }
@@ -511,7 +487,7 @@ impl Writer {
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
             external_windows.insert(image, window);
-            writes.command(None);
+            writes.command();
             model
                 .external_writes
                 .push(crate::model::ExternalWrite::Import(image, textures));
@@ -529,7 +505,7 @@ impl Writer {
             windows, writes, ..
         } = &mut *app;
         if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-            writes.command(None);
+            writes.command();
             model
                 .external_writes
                 .push(crate::model::ExternalWrite::Drop(image));
@@ -540,7 +516,7 @@ impl Writer {
     /// which equals the host clock at time scale 1.
     pub fn request_frame(&self, at_ns: u64) {
         let mut app = self.app.borrow_mut();
-        app.writes.command(None);
+        app.writes.command();
         app.client_frames.0.insert(at_ns);
     }
 
@@ -574,9 +550,14 @@ impl Writer {
         for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.prepare_commit();
         }
+        let touched: usize = app
+            .windows
+            .values()
+            .map(|w| w.model.changes.touched().count())
+            .sum();
         let revision = Revision(app.events.applied().0 + 1);
         app.events.commit(revision);
-        app.writes_mut().commit(revision);
+        app.writes_mut().commit(revision, touched);
         for model in app.windows.values_mut().map(|w| &mut w.model) {
             model.sync();
         }
@@ -609,7 +590,7 @@ fn queue_effect(app: &mut AppModel, request: RequestId, effect: HostRequest) {
         effect,
         HostRequest::DemandGpu { .. } | HostRequest::UnhandledKey { .. }
     ) {
-        app.writes.command(None);
+        app.writes.command();
     }
     // The shell events of the window come from this injection until the shell reports it delivered.
     if let HostRequest::Inject { window, .. } = &effect {
@@ -629,7 +610,7 @@ fn apply_drawable_effect(app: &mut AppModel, drawable: HostRequest) {
         windows, writes, ..
     } = app;
     if let Some(model) = windows.get_mut(&window).map(|w| &mut w.model) {
-        writes.command(None);
+        writes.command();
         crate::model::drawables::apply_request(model, drawable);
     }
 }

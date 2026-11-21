@@ -138,7 +138,7 @@ impl Model {
             return KeyResult::Reported;
         };
         let text = text.filter(|t| !t.is_empty() && !t.chars().any(char::is_control));
-        let result = self.handle_key(
+        self.handle_key(
             key,
             physical,
             code,
@@ -147,9 +147,7 @@ impl Model {
             text.as_deref(),
             pointer,
             engine,
-        );
-        self.sync();
-        result
+        )
     }
 
     /// Clipboard text pasted into the text input `id` (as is).
@@ -160,7 +158,6 @@ impl Model {
         engine: &Rc<RefCell<arvane_text::TextEngine>>,
     ) {
         self.paste_input(id, text, engine);
-        self.sync();
     }
 
     /// A key release, reported to its key down target or the current focus.

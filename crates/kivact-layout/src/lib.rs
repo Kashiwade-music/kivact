@@ -21,6 +21,7 @@
 mod borrowed_tree;
 mod calcs;
 mod columns;
+#[cfg(any(test, feature = "reference"))]
 mod compare;
 mod image;
 mod layout;
@@ -34,6 +35,7 @@ pub use borrowed_tree::{Flow, LayoutTree, LeafMeasurer};
 pub(crate) use columns::NodeLayoutColumns;
 pub(crate) use columns::{ChildCursor, Counted, Filtering, NodeLayoutState, NodeLayoutValues};
 pub use columns::{GeometryChange, GeometryChangeKind, GeometryChanges, NodeLayout};
+#[cfg(any(test, feature = "reference"))]
 pub use compare::{Geometry, LayoutDifference};
 pub use image::{image_content_size, style_known};
 pub use layout::Layout;

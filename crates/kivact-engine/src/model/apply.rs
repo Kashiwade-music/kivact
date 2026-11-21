@@ -150,11 +150,10 @@ impl Model {
 
     /// Scroll the container `id` to `offset`.
     pub(crate) fn scroll_to(&mut self, id: NodeId, offset: Point) {
-        let Some(n) = self.tree.get_mut(id) else {
+        if !self.tree.contains(id) {
             return;
-        };
-        let moved = n.scroll != offset;
-        n.scroll = offset;
+        }
+        let moved = self.tree.set_scroll_of(id, offset);
         if moved {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
@@ -254,18 +253,18 @@ impl Model {
         store: impl FnOnce(&mut NodeProperties, V),
         mut mutation: Mutation,
     ) -> bool {
-        let animate_text = mutation.text && self.tree.attached(id);
+        let animate_text = mutation.has(Mutation::TEXT) && self.tree.attached(id);
         let Some(node) = self.tree.get_mut(id) else {
             return false;
         };
-        let role = mutation.style.then(|| flat_role(node));
+        let role = mutation.has(Mutation::STYLE).then(|| flat_role(node));
         let visibility = mutation
-            .style
+            .has(Mutation::STYLE)
             .then(|| (node.hidden(), node.visibility_hidden()));
         if differs(&mut node.properties, &value) != Some(true) {
             return false;
         }
-        if mutation.read_only {
+        if mutation.has(Mutation::READ_ONLY) {
             // Commit preedit while the previous read-only policy still applies.
             self.edit_input(id, |e| {
                 e.unmark();
@@ -275,7 +274,7 @@ impl Model {
                 .get_mut(id)
                 .expect("invariant: input edit keeps node");
             store(&mut node.properties, value);
-        } else if mutation.paint || mutation.states {
+        } else if mutation.has(Mutation::PAINT) || mutation.has(Mutation::STATES) {
             let old_place = node
                 .paint()
                 .map_or((ElementTransform::NONE, 0), |p| (p.transform, p.z_index));
@@ -283,7 +282,7 @@ impl Model {
             // A node with state styles is drawn with the deltas of its
             // states: what its list steps are made of is read from the paint
             // they give (the others from the base paint, `Model::derive`).
-            let styled = mutation.states || node.states().is_some();
+            let styled = mutation.has(Mutation::STATES) || node.states().is_some();
             let before = styled.then(|| self.paint_stacking(id));
             self.prepare_state_motion(id);
             let node = self
@@ -291,7 +290,7 @@ impl Model {
                 .get_mut(id)
                 .expect("invariant: state preparation keeps node");
             store(&mut node.properties, value);
-            mutation.placed |= if mutation.paint {
+            let moved = if mutation.has(Mutation::PAINT) {
                 old_place
                     != node
                         .paint()
@@ -299,7 +298,12 @@ impl Model {
             } else {
                 old_states || node.states().is_some_and(crate::tree::states_place)
             };
-            mutation.restack |= before.is_some_and(|before| before != self.paint_stacking(id));
+            if moved {
+                mutation.insert(Mutation::PLACED);
+            }
+            if before.is_some_and(|before| before != self.paint_stacking(id)) {
+                mutation.insert(Mutation::RESTACK);
+            }
         } else if animate_text {
             self.prepare_state_motion(id);
             let node = self
@@ -387,14 +391,11 @@ impl Model {
     /// Record the consumers affected by one typed property change.
     pub(super) fn changed(&mut self, id: NodeId, mutation: Mutation) {
         self.invalidate_semantics(id, mutation);
-        self.changes.restack |= mutation.restack;
-        let Mutation {
-            style,
-            measure,
-            text,
-            placed,
-            ..
-        } = mutation;
+        self.changes.restack |= mutation.has(Mutation::RESTACK);
+        let style = mutation.has(Mutation::STYLE);
+        let measure = mutation.has(Mutation::MEASURE);
+        let text = mutation.has(Mutation::TEXT);
+        let placed = mutation.has(Mutation::PLACED);
         let Some(index) = self.tree.nodes.index_of(id) else {
             return;
         };
@@ -439,10 +440,9 @@ impl Model {
                     self.a11y.node(parent);
                 }
             }
-            if place.positioning != crate::tree::node::Positioning::Sticky
-                && let Some(n) = self.tree.get_mut(id)
+            if place.positioning != crate::tree::node::Positioning::Sticky && self.tree.contains(id)
             {
-                n.shift = Point::default();
+                self.tree.set_shift_of(id, Point::default());
             }
             self.changes
                 .layout
@@ -488,18 +488,22 @@ impl Model {
     /// placeholder) changes the node's own payload; a paint may change its clip;
     /// a new transform or placement moves its subtree.
     fn invalidate_semantics(&mut self, id: NodeId, mutation: Mutation) {
-        if mutation.payload_only && !(mutation.style || mutation.subtree || mutation.read_only) {
+        if mutation.has(Mutation::PAYLOAD_ONLY)
+            && !(mutation.has(Mutation::STYLE)
+                || mutation.has(Mutation::SUBTREE)
+                || mutation.has(Mutation::READ_ONLY))
+        {
             self.a11y.payload(id);
         } else {
             self.a11y.node(id);
         }
-        if mutation.style || mutation.subtree {
+        if mutation.has(Mutation::STYLE) || mutation.has(Mutation::SUBTREE) {
             self.a11y.subtree(id);
         }
-        if mutation.paint {
+        if mutation.has(Mutation::PAINT) {
             self.a11y.reclip(id);
         }
-        if mutation.placed {
+        if mutation.has(Mutation::PLACED) {
             self.a11y.moved(id);
         }
     }
@@ -669,7 +673,8 @@ impl Model {
             self.forget_presence(gone);
             self.presence.sizes.remove(&gone);
         }
-        for gone in self.remove_slots(id) {
+        let gone = self.remove_slots(id);
+        for gone in gone.iter().copied() {
             if notify.contains(&gone) {
                 self.push(HostEvent::ExitComplete { node: gone });
             }
@@ -680,6 +685,11 @@ impl Model {
             self.paint.forget_fact(gone);
             self.forget_sources(gone);
         }
+        let gone: std::collections::HashSet<NodeId> = gone.into_iter().collect();
+        self.paint.forget_missing(|x| !gone.contains(&x));
+        self.assets
+            .borrow_mut()
+            .prune_reports(|x| !gone.contains(&x));
         self.focus.forget_missing(&self.tree);
         self.clear_removed_hits();
         self.pointer.forget_missing(&self.tree);

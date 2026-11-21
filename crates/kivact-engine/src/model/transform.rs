@@ -267,7 +267,8 @@ impl Model {
         let place = match parent {
             Some(p) => {
                 let scroll = if scrolled {
-                    self.tree.get(p)?.scroll
+                    self.tree.get(p)?;
+                    self.tree.scroll_of(p)
                 } else {
                     Point::default()
                 };
