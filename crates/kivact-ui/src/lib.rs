@@ -153,7 +153,7 @@ mod tree;
 
 pub use crate::button::ButtonVariant;
 pub use crate::radio_group::RadioGroupVariant;
-pub use button::{Button, button, icon_button};
+pub use button::{Button, IconButton, button, icon_button};
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_table::column::DataColumn;
 pub use data_table::{
@@ -231,7 +231,8 @@ mod button_group;
 mod toggle_group;
 mod toolbar;
 pub use button_group::{
-    ButtonGroup, ButtonGroupCell, button_group, button_group_separator, button_group_text,
+    ButtonGroup, ButtonGroupSeparator, ButtonGroupText, button_group, button_group_separator,
+    button_group_text,
 };
 pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, toolbar};

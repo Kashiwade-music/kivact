@@ -195,14 +195,17 @@ impl IntoView for Splitter {
         }
         // `.disabled(..)` on the splitter ignores input and assistive
         // technology and cancels a drag in progress.
-        if let Some(disabled) = root.accessible_disabled() {
-            behavior = behavior.disabled(move || disabled.get());
-        }
+        let disabled = root.accessible_disabled();
         let part = behavior.handle();
         let input = part.state();
         let primary = node_ref();
         let handle = with_recipe_style(
-            node().part(part).name(name).controls(primary).child(handle),
+            node()
+                .disabled(move || disabled.is_some_and(|disabled| disabled.get()))
+                .part(part)
+                .name(name)
+                .controls(primary)
+                .child(handle),
             |r: &SplitterTheme| r.handle_recipe(),
             &variants,
             move || AxisState {

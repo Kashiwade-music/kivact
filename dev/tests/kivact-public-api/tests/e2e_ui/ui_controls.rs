@@ -13,9 +13,10 @@ use std::rc::Rc;
 use kivact::interaction::{InteractionPolicy, ScalarRange, SwitchPolicy};
 use kivact::prelude::*;
 use kivact::test::{MirrorMode, RenderOptions};
+use kivact::ui::theme::ButtonTheme;
 use kivact::ui::{range_slider, splitter};
 use kivact::view::{A11yAction, PointerKind};
-use kivact_public_api_tests::support::mount_with;
+use kivact_public_api_tests::support::{mount, mount_with};
 
 use EditPhase::{Begin, Cancel, Commit};
 
@@ -353,5 +354,78 @@ fn a_switch_drag_commits_once_and_vertical_or_cancelled_contacts_do_not_toggle()
         "a drag that flips and returns keeps the starting side"
     );
     assert_eq!(writes.get_untracked(), 2);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+// ---------------------------------------------------------------------------
+// Button.
+
+#[test]
+fn an_icon_button_is_named_by_its_label_and_hides_it() {
+    let (screen, ()) = mount(|| ((), icon_button("x", "Close").test_id("close")));
+    let close = screen.get_by_test_id("close");
+    assert_eq!(close.role(), Some(Role::Button));
+    assert_eq!(close.name(), "Close");
+    assert!(
+        screen.query_by_text("Close").is_none(),
+        "the label is not drawn until the tooltip opens"
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_busy_button_is_not_pressed_even_when_its_caller_enables_it() {
+    let (screen, pressed) = mount(|| {
+        let pressed = signal(0u32);
+        (
+            pressed,
+            button("Save")
+                .busy(true)
+                .disabled(false)
+                .on_press(move || pressed.update(|n| *n += 1)),
+        )
+    });
+    let save = screen.get_by_role(Role::Button, "Save");
+    assert!(save.is_disabled(), "a busy button is disabled");
+    // A plain click refuses a disabled element; the press still lands on it.
+    save.force_click();
+    assert_eq!(pressed.get_untracked(), 0);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn the_root_content_and_icon_recipes_read_the_same_variant() {
+    type Seen = std::sync::Arc<std::sync::Mutex<Vec<Option<ButtonVariant>>>>;
+    let seen: Seen = Seen::default();
+    let (root, content, icon) = (seen.clone(), seen.clone(), seen.clone());
+    let theme = Theme::light().with(
+        ButtonTheme::default()
+            .root(move |_, look, base| {
+                root.lock().unwrap().push(look.variant::<ButtonVariant>());
+                base
+            })
+            .content(move |_, look, base| {
+                content
+                    .lock()
+                    .unwrap()
+                    .push(look.variant::<ButtonVariant>());
+                base
+            })
+            .icon(move |_, look, base| {
+                icon.lock().unwrap().push(look.variant::<ButtonVariant>());
+                base
+            }),
+    );
+    let screen =
+        kivact::test::render_with(kivact::test::RenderOptions::default().theme(theme), || {
+            icon_button("x", "Close").variant(ButtonVariant::Danger)
+        });
+    let seen = seen.lock().unwrap();
+    assert!(!seen.is_empty());
+    assert!(
+        seen.iter().all(|v| *v == Some(ButtonVariant::Danger)),
+        "{:?}",
+        seen
+    );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

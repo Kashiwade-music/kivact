@@ -339,3 +339,30 @@ fn component_variables_follow_the_core_variable_they_alias() {
     let theme = kivact::style::Theme::light().set(&kivact::style::space::XS_VAR, 5.0);
     assert_eq!(theme.get(&item_list::GAP_VAR), 5.0);
 }
+
+#[test]
+fn an_icon_button_draws_the_ghost_look_by_default() {
+    let theme = Theme::light().with(ButtonTheme::default().root(|_, look, base| {
+        if look.variant::<ButtonVariant>() == Some(ButtonVariant::Ghost) {
+            base.background(rgb(RED))
+        } else {
+            base.background(rgb(BLUE))
+        }
+    }));
+    let (screen, ()) = mount(move || {
+        (
+            (),
+            provide_theme(theme, || {
+                column((
+                    icon_button("x", "Close").test_id("a"),
+                    icon_button("x", "Open")
+                        .variant(ButtonVariant::Primary)
+                        .test_id("b"),
+                ))
+            }),
+        )
+    });
+    assert!(distance(at(&screen, "a", 4.0, 4.0), RED) <= 8);
+    assert!(distance(at(&screen, "b", 4.0, 4.0), BLUE) <= 8);
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}

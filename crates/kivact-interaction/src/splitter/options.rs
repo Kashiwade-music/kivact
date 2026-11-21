@@ -14,7 +14,6 @@ pub(super) struct SplitterOptions {
     pub(super) shift_step_factor: Option<f64>,
     pub(super) reset: Option<Value<Option<f64>>>,
     pub(super) scale: Option<Value<f64>>,
-    pub(super) disabled: Option<Value<bool>>,
     pub(super) collapse: Option<f64>,
     pub(super) snaps: Option<Value<Vec<f64>>>,
 }
