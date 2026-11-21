@@ -2432,7 +2432,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient}` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
+- **完了条件**（`dock/view.rs` の `Dock` は手書きの builder の例外。OPEN の 2026-11-22 の回答 (B4)）：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src/{audio,bezier,color_popup,color_wheel,dock,gradient} --glob '!dock/view.rs'` と `crates/kivact-ui-creative/src/{controls,curve_preview,dope_sheet,feedback,key_glyph,layout}.rs` が何も出さない。上の command が通る。
 
 ## K24：creative の部品 2（editors）
 
@@ -2456,7 +2456,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src` と `rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
+- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-creative/src --glob '!dock/view.rs'` と `rg -n "ColorName|Tokens|UiRecipes" crates/kivact-ui-creative/src` が何も出さない。上の command が通る。
 
 ## K38：creative の icon・試験・catalog・README（W10）
 
