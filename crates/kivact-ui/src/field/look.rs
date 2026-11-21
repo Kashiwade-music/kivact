@@ -1,11 +1,11 @@
 //! Role: The field recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{Direction, Style, Theme, style};
+use kivact_core::style::{FlexDirection, Style, Theme, style};
 /// A field: its label, control, hint and error stacked.
 pub(crate) fn field(t: &Theme, _: &FieldState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::XS_VAR))
 }
 
@@ -13,7 +13,7 @@ pub(crate) fn field(t: &Theme, _: &FieldState) -> Style {
 pub(crate) fn field_label(t: &Theme, state: &FieldState) -> Style {
     let s = style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR));
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR));
     if state.invalid {
         s.color(kivact_core::style::color::DANGER)
     } else {

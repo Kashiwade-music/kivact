@@ -5,10 +5,10 @@
 //! per channel (tier 2); a test that compares against a gradient
 //! also allows the gradient's own rounding and says so.
 
-use kivact::draw::filter::{Channel, CompositeOp, Light};
-use kivact::draw::linear_gradient;
-use kivact::draw::{Filter, FilterGraph, FilterInput, MaskComposite, MaskLayer, MaskMode};
 use kivact::prelude::*;
+use kivact::style::filter::{Channel, CompositeOp, Light};
+use kivact::style::linear_gradient;
+use kivact::style::{Filter, FilterGraph, FilterInput, MaskComposite, MaskLayer, MaskMode};
 use kivact::test::{Screenshot, render};
 
 use kivact_public_api_tests::paint::{

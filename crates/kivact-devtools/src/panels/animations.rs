@@ -69,9 +69,9 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         )
         .row_label(|animation| format!("#{}", animation.id))
         .name("Running animations")
-        .style(style().grow(1.0).min_height(0.0)),
+        .style(style().flex_grow(1.0).min_height(0.0)),
     ))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// Read the animations and set the selected time scale from the answer.

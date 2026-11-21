@@ -27,7 +27,7 @@ fn trigger(name: &str, focusable: bool) -> Node {
         .name(name)
         .test_id(name)
         .focusable(focusable)
-        .style(style().size(100, 30).shrink(0).margin_right(20))
+        .style(style().size(100, 30).flex_shrink(0).margin_right(20))
         .child(text(name))
 }
 

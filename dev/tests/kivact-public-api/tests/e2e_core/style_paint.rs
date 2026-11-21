@@ -189,7 +189,7 @@ fn text_color_transitions_with_paint() {
                 text("MMMM").test_id("ink").style(move || {
                     style()
                         .font_size(48)
-                        .weight(700)
+                        .font_weight(700)
                         .color(if changed.get() { rgb(BLUE) } else { rgb(RED) })
                         .transition(TransitionProp::All, Transition::tween(240, Easing::Linear))
                 }),

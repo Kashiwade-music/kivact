@@ -172,7 +172,7 @@ impl Variants {
 /// let recipes = UiRecipes::default().radio_group(|table| {
 ///     table.item(|prev| {
 ///         move |theme: &Theme, look: &Look<CheckableState>| match look.variant::<Pill>() {
-///             Some(Pill) => prev(theme, look).radius(999).background(rgb(0xe8eefc)),
+///             Some(Pill) => prev(theme, look).border_radius(999).background(rgb(0xe8eefc)),
 ///             None => prev(theme, look),
 ///         }
 ///     })

@@ -1,6 +1,6 @@
 //! Role: The DevTools text form of each style property: how its value is shown and parsed.
 
-use kivact_types::{Align, Display, Justify, Length, TextAlign, ThemeVar};
+use kivact_types::{Align, Display, FontStyle, Justify, Length, TextAlign, ThemeVar};
 
 use super::Style;
 use crate::color_value::Color;
@@ -242,6 +242,24 @@ impl EditText for TextAlign {
     }
 }
 
+impl EditText for FontStyle {
+    fn to_edit_text(&self) -> String {
+        match self {
+            FontStyle::Normal => "normal",
+            FontStyle::Italic => "italic",
+        }
+        .to_owned()
+    }
+
+    fn from_edit_text(text: &str) -> Result<Self, String> {
+        match text.trim() {
+            "normal" => Ok(FontStyle::Normal),
+            "italic" => Ok(FontStyle::Italic),
+            other => Err(expected("normal or italic", other)),
+        }
+    }
+}
+
 /// Numbers and flags: written as Rust writes them, parsed by `str::parse`.
 macro_rules! number_text {
     ($($t:ty),*) => {$(
@@ -354,7 +372,8 @@ mod tests {
             let set = (line.parse)(text).expect("a line height parses");
             assert_eq!((line.describe)(&set).as_deref(), Some(text));
         }
-        let corner = style_property("radius_top_left").expect("radius_top_left is a property");
+        let corner =
+            style_property("border_top_left_radius").expect("border_top_left_radius is a property");
         for text in ["8", "8 4"] {
             let set = (corner.parse)(text).expect("a radius parses");
             assert_eq!((corner.describe)(&set).as_deref(), Some(text));

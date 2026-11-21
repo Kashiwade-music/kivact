@@ -2,7 +2,9 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Color, Direction, Justify, Position, Style, Theme, pct, style};
+use kivact_core::style::{
+    Align, Color, FlexDirection, Justify, Position, Style, Theme, pct, style,
+};
 use kivact_interaction::{ToastState, Tone};
 /// The regions at the bottom right, above the page.
 pub(crate) fn toast_region(t: &Theme, _: &PartState) -> Style {
@@ -35,15 +37,15 @@ pub(crate) fn toast(t: &Theme, state: &ToastState) -> Style {
         Tone::Accent => kivact_core::style::color::ACCENT,
     };
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Start)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .padding(t.get(&kivact_core::style::space::LG_VAR))
         .background(kivact_core::style::color::RAISED)
         .border(1, kivact_core::style::color::BORDER)
         .border_left(3, edge)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
-        .shadow(kivact_core::draw::Shadow::new(
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .shadow(kivact_core::style::Shadow::new(
             0,
             4,
             12,
@@ -60,11 +62,11 @@ pub(crate) fn toast_icon(_: &Theme, state: &ToastState) -> Style {
         Tone::Warning => kivact_core::style::color::WARNING,
         Tone::Danger => kivact_core::style::color::DANGER,
     };
-    style().size(16, 16).shrink(0).color(color)
+    style().size(16, 16).flex_shrink(0).color(color)
 }
 
 pub(crate) fn toast_title(t: &Theme, _: &ToastState) -> Style {
-    style().weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+    style().font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn toast_body(t: &Theme, _: &ToastState) -> Style {
@@ -76,12 +78,12 @@ pub(crate) fn toast_body(t: &Theme, _: &ToastState) -> Style {
 /// The close button, around its `x` icon.
 pub(crate) fn toast_close(t: &Theme, _: &ToastState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .shrink(0)
+        .flex_shrink(0)
         .size(24, 24)
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
         .hover(style().background(kivact_core::style::color::HOVER))
 }
@@ -91,7 +93,7 @@ pub(crate) fn toast_row(t: &Theme, _: &PartState) -> Style {
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let motion = &tokens.toast.row_motion;
     let base = style()
-        .shrink(0)
+        .flex_shrink(0)
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical);
     if let Some(transition) = &motion.transition {

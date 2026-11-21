@@ -126,7 +126,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             .on_press(move || reset(session)),
     ))
     .style(style().gap(12).padding(12).align_items(Align::Start)))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// The theme select.

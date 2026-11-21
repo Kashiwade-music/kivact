@@ -62,7 +62,7 @@ fn session_view(session: Session) -> impl IntoView {
             move || session.panel.get(),
             move |panel| panel_view(panel, session),
         ))
-        .style(style().grow(1).shrink(1).min_height(0)),
+        .style(style().flex_grow(1).flex_shrink(1).min_height(0)),
         status_bar::view(session),
         popped_windows(session),
     ))

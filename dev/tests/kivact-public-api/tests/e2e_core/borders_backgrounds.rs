@@ -6,8 +6,8 @@
 //! pixels are checked within ±4/255 (tier 2); the image pixels are
 //! sampled at tile centres (tier 2).
 
-use kivact::draw::{BackgroundClip, BackgroundOrigin, BlendMode, Paint, linear_gradient};
 use kivact::prelude::*;
+use kivact::style::{BackgroundClip, BackgroundOrigin, BlendMode, Paint, linear_gradient};
 use kivact::style::{BorderImage, BorderImageRepeat, BorderStyle};
 use kivact::test::render;
 use kivact::view::Asset;

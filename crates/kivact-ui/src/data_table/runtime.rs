@@ -686,7 +686,7 @@ where
             style()
                 .width(Length::MaxContent)
                 .min_width(pct(100))
-                .shrink(0),
+                .flex_shrink(0),
         );
     if let Some(sticky) = &sticky {
         grid = grid.node_ref(sticky.content);
@@ -695,7 +695,7 @@ where
         .axes(kivact_core::view::ScrollAxes::Horizontal)
         // The rows keep their height in a bounded parent: the caller's own
         // scroll view carries them.
-        .style(style().shrink(0));
+        .style(style().flex_shrink(0));
     if let Some(sticky) = &sticky {
         scroller = scroller.node_ref(sticky.viewport);
     }

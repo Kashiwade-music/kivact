@@ -21,7 +21,7 @@ use kivact_types::{BackgroundClip, BackgroundOrigin, BlendMode};
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{pct};
-/// use kivact::draw::{Paint, linear_gradient};
+/// use kivact::style::{Paint, linear_gradient};
 /// // CSS `background: linear-gradient(90deg, #2563eb, #22d3ee) 0 0 / 40% 100% no-repeat`
 /// let fill: Paint = linear_gradient(90)
 ///     .colors([rgb(0x2563eb), rgb(0x22d3ee)])

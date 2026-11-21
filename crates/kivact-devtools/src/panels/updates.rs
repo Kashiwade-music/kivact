@@ -31,8 +31,8 @@ pub(crate) fn view(session: Session) -> impl IntoView {
     );
     column((
         timeline::timeline(session.turns, session.frames, selected),
-        text(move || header(turn.get().as_ref())).style(style().font_size(13.0).weight(600)),
-        scroll(graph).style(style().grow(1).min_height(0)),
+        text(move || header(turn.get().as_ref())).style(style().font_size(13.0).font_weight(600)),
+        scroll(graph).style(style().flex_grow(1).min_height(0)),
         breakdown(turn),
         row((
             count_box("Changed elements", move || {
@@ -92,7 +92,7 @@ fn count_box(label: &'static str, value: impl Fn() -> u64 + 'static) -> impl Int
                 .font_size(10.0)
                 .color(kivact::style::color::TEXT_MUTED),
         ),
-        text(move || value().to_string()).style(style().font_size(16.0).weight(600)),
+        text(move || value().to_string()).style(style().font_size(16.0).font_weight(600)),
     ))
     .style(
         style()
@@ -101,7 +101,7 @@ fn count_box(label: &'static str, value: impl Fn() -> u64 + 'static) -> impl Int
             .padding_y(6)
             .min_width(130)
             .border(1, kivact::style::color::BORDER)
-            .radius(4),
+            .border_radius(4),
     )
 }
 

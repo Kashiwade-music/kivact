@@ -11,13 +11,13 @@ pub(crate) fn dialog_surface(t: &Theme, _: &DialogState) -> Style {
         .max_width(pct(100))
         .background(kivact_core::style::color::SURFACE)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
 }
 
 pub(crate) fn dialog_title(t: &Theme, _: &DialogState) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR) + 4.0)
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn dialog_description(_: &Theme, _: &DialogState) -> Style {
@@ -38,7 +38,7 @@ pub(crate) fn dialog_header(t: &Theme, _: &DialogState) -> Style {
 
 /// The media view's box, above the title.
 pub(crate) fn dialog_media(_: &Theme, _: &DialogState) -> Style {
-    style().shrink(0)
+    style().flex_shrink(0)
 }
 
 pub(crate) fn dialog_body(t: &Theme, _: &DialogState) -> Style {
@@ -66,7 +66,7 @@ pub(crate) fn dialog_close(t: &Theme, _: &DialogState) -> Style {
         .top(inset)
         .right(inset)
         .size(24, 24)
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
         .hover(style().background(kivact_core::style::color::HOVER))
 }
@@ -79,9 +79,9 @@ pub(crate) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
             kivact_core::geometry::Edge::Left | kivact_core::geometry::Edge::Right
         )
     ) {
-        style().width(24).height(48).shrink(0)
+        style().width(24).height(48).flex_shrink(0)
     } else {
-        style().height(24).width(48).shrink(0)
+        style().height(24).width(48).flex_shrink(0)
     }
 }
 

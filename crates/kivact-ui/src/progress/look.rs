@@ -52,7 +52,7 @@ pub(crate) fn progress_track(_: &Theme, s: &Look<ProgressState>) -> Style {
             .width(pct(100))
             .height(metric_height(s))
             .min_width(0)
-            .radius(metric_height(s) / 2.0)
+            .border_radius(metric_height(s) / 2.0)
             .background(kivact_core::style::color::BORDER)
             .clip(true)
     }
@@ -115,7 +115,7 @@ pub(crate) fn progress_fill(_: &Theme, s: &Look<ProgressState>) -> Style {
 pub(crate) fn progress_label(t: &Theme, _: &Look<ProgressState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 

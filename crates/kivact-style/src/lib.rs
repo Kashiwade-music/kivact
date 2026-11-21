@@ -1,9 +1,7 @@
 //! Role: Styles, lengths, colors, themes and the drawing vocabulary.
 //!
-//! The implementation behind `kivact::style` and `kivact::draw`: the `Style`
-//! sheet, the `Theme` and its tokens, assets, and the `Draw` painter with the
-//! paints, shapes, strokes, filters, blending and transforms that styles
-//! share with it (they live in `effect`, `paint`, `draw` and `transform`).
+//! The implementation behind `kivact::style` (the `Style` sheet, the CSS values, the
+//! theme and its variables) and `kivact::draw` (the `Draw` painter and `Path`).
 //! Each value converts itself into the engine's form next to its definition (a
 //! color in the theme it resolves against). The core host uses the hidden
 //! `internal` bridge to compile styles, provide themes and record drawing.
@@ -48,13 +46,13 @@ pub use kivact_types::{Align, Display};
 pub use kivact_types::{
     BackfaceVisibility, ColorSpace, HueInterpolation, Isolation, TransformStyle, WillChange,
 };
-pub use kivact_types::{Cursor, TextAlign};
+pub use kivact_types::{Cursor, FontStyle, TextAlign};
 pub use kivact_types::{Length, auto, em, pct};
 pub use kivact_types::{ThemeVar, VarValue};
 pub use paint::Background;
 pub use resolve::{CompiledStyle, Interactive};
 pub use sheet::{
-    Direction, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
+    FlexDirection, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
 };
 pub use text::{
     FontFeature, FontKerning, LineHeight, SpanStyle, StyledRange, TextDecoration,
@@ -63,7 +61,7 @@ pub use text::{
 pub use theme::value::{Theme, ThemeExtension, ThemeMode, ThemeRef, use_theme};
 pub use theme::{FontFamily, ThemeValue};
 
-/// Visibility of a layout box and its subtree.
+/// Whether a layout box and its subtree are painted and take input (CSS `visibility`).
 pub use kivact_types::Visibility;
 
 pub use kivact_types::ScrollSnap;

@@ -101,6 +101,7 @@ pub use share_error::ShareError;
 #[doc(inline)]
 pub use exit_layout::ExitLayout;
 pub use kivact_types::ImageStatus;
+pub use kivact_types::IntrinsicSize;
 #[doc(inline)]
 pub use kivact_types::{
     A11yAction, A11yRequest, CheckedState, CurrentItem, LiveRegion, Orientation, PopupKind, Role,

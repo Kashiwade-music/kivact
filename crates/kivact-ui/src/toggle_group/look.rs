@@ -3,19 +3,19 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::toggle_button::look::ToggleButtonState;
-use kivact_core::style::{Align, Direction, style};
+use kivact_core::style::{Align, FlexDirection, style};
 use kivact_core::view::Orientation;
 pub(crate) fn toggle_root(
     theme: &kivact_core::style::Theme,
     look: &crate::variants::Look<ToggleGroupState>,
 ) -> kivact_core::style::Style {
     style()
-        .direction(if look.orientation == Orientation::Vertical {
-            Direction::Column
+        .flex_direction(if look.orientation == Orientation::Vertical {
+            FlexDirection::Column
         } else if look.rtl {
-            Direction::RowReverse
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .align_items(Align::Stretch)
         .gap(look.spacing.map_or(

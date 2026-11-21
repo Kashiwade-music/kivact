@@ -172,12 +172,12 @@ fn hover_fixture() -> (kivact::test::Screen, Handles) {
             column((
                 node()
                     .test_id("plain")
-                    .style(style().size(100, 30).shrink(0.0)),
+                    .style(style().size(100, 30).flex_shrink(0.0)),
                 show(mounted, || {
                     node()
                         .test_id("listener")
                         .on_pointer(|_| Handled::Yes)
-                        .style(style().size(100, 30).shrink(0.0))
+                        .style(style().size(100, 30).flex_shrink(0.0))
                 }),
             ))
             .node_ref(group)
@@ -185,7 +185,7 @@ fn hover_fixture() -> (kivact::test::Screen, Handles) {
             .test_id("group"),
             node()
                 .test_id("outside")
-                .style(style().size(100, 30).shrink(0.0)),
+                .style(style().size(100, 30).flex_shrink(0.0)),
             show(modal, || {
                 overlay_at(Point::new(400.0, 400.0), Placement::Center, text("notice"))
                     .modal()

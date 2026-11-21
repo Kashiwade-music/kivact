@@ -66,7 +66,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         ))
         .style(style().gap(12).padding(12).width(pct(100))),
     )
-    .style(style().grow(1.0).min_height(0.0).width(pct(100)))
+    .style(style().flex_grow(1.0).min_height(0.0).width(pct(100)))
 }
 
 /// The window select, the renderer, the trace export and the paint flashing toggle.

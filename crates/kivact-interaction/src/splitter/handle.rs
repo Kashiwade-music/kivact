@@ -99,7 +99,7 @@ pub struct SplitterState {
 ///             .cursor(Cursor::EwResize)
 ///             .background(kivact::style::color::BORDER),
 ///     ),
-///     node().style(style().grow(1)),
+///     node().style(style().flex_grow(1)),
 /// ));
 /// ```
 #[derive(Clone, Copy)]

@@ -44,7 +44,7 @@ pub(crate) enum RadialSize {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::linear_gradient;
+/// use kivact::style::linear_gradient;
 /// // CSS `repeating-linear-gradient(90deg, #2a2a2a 0 3px, #3e3e3e 3px 4px)`
 /// let ruler = linear_gradient(90)
 ///     .repeating()
@@ -82,7 +82,7 @@ pub fn linear_gradient(angle: impl Into<f64>) -> Gradient {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{Color, rgba};
-/// use kivact::draw::radial_gradient;
+/// use kivact::style::radial_gradient;
 /// // CSS `radial-gradient(circle at 1px 1px, #ffffff10 1px, transparent 0) 0 0 / 18px 18px`
 /// let dots = radial_gradient()
 ///     .circle()

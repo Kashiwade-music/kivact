@@ -57,7 +57,7 @@ pub(crate) fn string_child(content: impl IntoText) -> Node {
 ///     match label.to_lowercase().find(&query.to_lowercase()).filter(|_| !query.is_empty()) {
 ///         Some(i) => vec![
 ///             span(&label[..i]),
-///             span(&label[i..i + query.len()]).weight(700).background(kivact::style::color::SELECTION),
+///             span(&label[i..i + query.len()]).font_weight(700).background(kivact::style::color::SELECTION),
 ///             span(&label[i + query.len()..]),
 ///         ],
 ///         None => vec![span(label)],

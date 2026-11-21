@@ -130,14 +130,14 @@ pub fn safe_area() -> Value<Edges<f64>> {
 /// ```
 /// # use kivact_core as kivact;
 /// use kivact::state::{memo};
-/// use kivact::style::{Direction, style};
+/// use kivact::style::{FlexDirection, style};
 /// use kivact::view::{IntoView, Element, column, row};
 /// fn shell(sidebar: impl IntoView, main: impl IntoView) -> impl IntoView {
 ///     // @media (max-width: 860px) { .shell { flex-direction: column } }
 ///     let narrow = memo(move || kivact::platform::window_size().get().width < 860.0);
 ///     row((sidebar, main)).style(move || {
 ///         let s = style().gap(16);
-///         if narrow.get() { s.direction(kivact::style::Direction::Column) } else { s }
+///         if narrow.get() { s.flex_direction(kivact::style::FlexDirection::Column) } else { s }
 ///     })
 /// }
 /// ```

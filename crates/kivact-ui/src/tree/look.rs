@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::{ReadingDirection, use_direction};
 pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
     let rtl = use_direction() == ReadingDirection::Rtl;
@@ -15,10 +15,10 @@ pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
-        .direction(if rtl {
-            Direction::RowReverse
+        .flex_direction(if rtl {
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .align_items(Align::Center)
         .min_height(
@@ -31,7 +31,7 @@ pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
             tree.gap
                 .unwrap_or(t.get(&kivact_core::style::space::XS_VAR)),
         )
-        .radius(
+        .border_radius(
             tree.radius
                 .unwrap_or(t.get(&kivact_core::style::radius::SM_VAR)),
         )
@@ -47,7 +47,7 @@ pub(crate) fn tree_marker(t: &Theme, _: &TreeRowRecipeState) -> Style {
                 .marker_width
                 .unwrap_or(16.0),
         )
-        .shrink(0)
+        .flex_shrink(0)
 }
 
 /// The mounted row's interaction state and structural position in its visible tree.

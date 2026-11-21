@@ -11,7 +11,7 @@ pub(crate) fn text_input(theme: &Theme, state: &TextInputState) -> Style {
         .height(height(theme, size))
         .min_height(0)
         .padding_x(theme.get(&kivact_core::style::space::MD_VAR))
-        .radius(theme.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(theme.get(&kivact_core::style::radius::MD_VAR))
         .border(1, kivact_core::style::color::BORDER)
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
@@ -20,11 +20,11 @@ pub(crate) fn text_input(theme: &Theme, state: &TextInputState) -> Style {
         .focus(
             style()
                 .border_color(kivact_core::style::color::FOCUS)
-                .ring_with_offset(
+                .outline(
                     theme.focus_ring(),
-                    theme.focus_ring_offset(),
                     kivact_core::style::color::FOCUS.with_alpha(0.35),
-                ),
+                )
+                .outline_offset(theme.focus_ring_offset()),
         );
     if state.invalid {
         s.border_color(kivact_core::style::color::DANGER)

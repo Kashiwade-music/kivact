@@ -74,7 +74,7 @@ enum PerspectivePlace {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{pct};
-/// use kivact::draw::Transform;
+/// use kivact::style::Transform;
 /// let tilt = Transform::new().translate(0, -1).rotate(-45);
 /// let card = style().transform(tilt).transform_origin(0, 0);
 /// let centered = style().translate(pct(-50), pct(-50));

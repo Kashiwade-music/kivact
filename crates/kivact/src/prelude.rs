@@ -18,11 +18,11 @@ pub use crate::view::{
 };
 
 pub use crate::style::{
-    Align, Color, Cursor, Justify, Overflow, Position, Style, TextAlign, Theme, ThemeMode, color,
-    em, font, pct, provide_theme, radius, rgb, space, style, use_theme,
+    Align, Color, Cursor, Justify, Overflow, Position, Shadow, Style, TextAlign, Theme, ThemeMode,
+    color, em, font, pct, provide_theme, radius, rgb, space, style, use_theme,
 };
 
-pub use crate::draw::{Draw, Path, Shadow, Stroke};
+pub use crate::draw::{Draw, Path, Stroke};
 
 pub use crate::geometry::{Point, Rect, Size};
 

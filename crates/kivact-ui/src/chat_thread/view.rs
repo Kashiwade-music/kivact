@@ -5,7 +5,7 @@ use crate::chat_thread::look::ChatThreadState;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
-use kivact_core::style::{Direction, style};
+use kivact_core::style::{FlexDirection, style};
 use kivact_core::view::{
     Element, IntoView, Node, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
 };
@@ -137,9 +137,9 @@ impl IntoView for ChatThread {
         )
         .style(move || {
             let s = style()
-                .direction(Direction::Column)
-                .grow(1)
-                .shrink(0)
+                .flex_direction(FlexDirection::Column)
+                .flex_grow(1)
+                .flex_shrink(0)
                 .justify_content(if align.get() == ChatAlign::End {
                     kivact_core::style::Justify::End
                 } else {

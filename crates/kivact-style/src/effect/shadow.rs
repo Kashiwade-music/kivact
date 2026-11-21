@@ -8,7 +8,7 @@ use crate::geometry::Point;
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{rgba};
-/// use kivact::draw::Shadow;
+/// use kivact::style::Shadow;
 /// // CSS `box-shadow: 0 4px 14px -4px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.35)`
 /// let s = style()
 ///     .shadow(Shadow::new(0, 4, 14, rgba(0x000000, 0.5)).spread(-4))

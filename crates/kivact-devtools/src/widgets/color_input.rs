@@ -32,7 +32,7 @@ pub(crate) fn color_input(
         format!("{label} lightness"),
     );
     let hex = text_input(label.clone(), value)
-        .style(style().grow(1).min_width(0).font_size(12.0))
+        .style(style().flex_grow(1).min_width(0).font_size(12.0))
         .disabled(disabled)
         .on_submit(move || {
             let text = value.get_untracked();
@@ -76,12 +76,12 @@ fn slider_row(
     commit: Callback<()>,
 ) -> impl IntoView {
     row((
-        text(letter).style(style().width(12).shrink(0).font_size(11.0)),
+        text(letter).style(style().width(12).flex_shrink(0).font_size(11.0)),
         slider(name, value)
             .range(range)
             .step(1.0)
             .disabled(disabled)
-            .style(style().grow(1).min_width(0))
+            .style(style().flex_grow(1).min_width(0))
             .on_edit(move |phase| {
                 if phase == EditPhase::Commit {
                     commit.call(());
@@ -97,8 +97,8 @@ fn preview(label: &str, value: Signal<String>) -> impl IntoView {
         let color = Color::css(value.get().trim()).unwrap_or(Color::TRANSPARENT);
         style()
             .size(18, 18)
-            .shrink(0)
-            .radius(4)
+            .flex_shrink(0)
+            .border_radius(4)
             .background(color)
             .border(1, kivact::style::color::BORDER)
     })

@@ -52,7 +52,7 @@ pub enum Length {
     /// `height` and `basis`, and grid tracks; elsewhere it is `auto` and
     /// reported as unsupported (CSS `min-width: max-content` on a box that
     /// otherwise fills its parent is
-    /// `width(Length::MaxContent).min_width(pct(100))`, with `.shrink(0)` in
+    /// `width(Length::MaxContent).min_width(pct(100))`, with `.flex_shrink(0)` in
     /// a row).
     MaxContent,
     /// The content's width, at most the available width (CSS

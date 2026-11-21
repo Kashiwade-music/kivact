@@ -260,7 +260,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
             .node_ref(anchor)
             .part(trigger)
             .child(self.settings.icon)
-            .child(text(behavior.label()).style(style().grow(1).single_line()))
+            .child(text(behavior.label()).style(style().flex_grow(1).single_line()))
             .child(indicator);
         let build = option_rows(
             behavior,

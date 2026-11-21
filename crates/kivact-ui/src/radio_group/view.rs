@@ -223,7 +223,8 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
             move || orientation,
         )
         .base_style(if reversed {
-            kivact_core::style::style().direction(kivact_core::style::Direction::RowReverse)
+            kivact_core::style::style()
+                .flex_direction(kivact_core::style::FlexDirection::RowReverse)
         } else {
             kivact_core::style::style()
         });

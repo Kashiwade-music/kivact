@@ -3,10 +3,10 @@
 use crate::recipe::recipe_table;
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Direction, Style, Theme, pct, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
 pub(crate) fn table(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .width(pct(100))
         .min_width(0)
         .font_size(
@@ -18,18 +18,18 @@ pub(crate) fn table(t: &Theme, _: &PartState) -> Style {
 }
 
 pub(crate) fn group(_: &Theme, _: &PartState) -> Style {
-    style().direction(Direction::Column)
+    style().flex_direction(FlexDirection::Column)
 }
 
 pub(crate) fn footer(_: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .background(kivact_core::style::color::SURFACE_ALT)
 }
 
 pub(crate) fn row(_: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .width(pct(100))
         .align_items(Align::Center)
         .border_bottom(1, kivact_core::style::color::BORDER)
@@ -38,7 +38,7 @@ pub(crate) fn row(_: &Theme, _: &PartState) -> Style {
 
 pub(crate) fn cell(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_width(0)
         .padding(
@@ -58,7 +58,7 @@ pub(crate) fn head(t: &Theme, s: &PartState) -> Style {
                 .header_height
                 .unwrap_or(t.get(&kivact_core::style::control::HEIGHT_VAR)),
         )
-        .weight(600)
+        .font_weight(600)
 }
 
 recipe_table! {

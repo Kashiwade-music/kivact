@@ -4,9 +4,9 @@
 //! `Offscreen`: the same pixels (the windowless behaviour of `Offscreen`
 //! is `tests/offscreen.rs`).
 
-use kivact::draw::Transform;
 use kivact::draw::{Layer, Offscreen, Pixels, TextBaseline, TextFormat};
 use kivact::prelude::*;
+use kivact::style::Transform;
 use kivact::test::{RenderOptions, render_with};
 use kivact::view::Asset;
 

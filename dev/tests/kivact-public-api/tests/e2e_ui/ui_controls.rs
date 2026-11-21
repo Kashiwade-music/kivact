@@ -214,8 +214,8 @@ fn a_splitter_sizes_the_leading_pane_by_keys_drag_and_actions_and_cancels_a_drag
     let (screen, size) = mount_with(options(), move || {
         let size = signal(200.0);
         let view = splitter("Sidebar width", size, sidebar())
-            .start(node().test_id("start").style(style().grow(1)))
-            .end(node().test_id("end").style(style().grow(1)))
+            .start(node().test_id("start").style(style().flex_grow(1)))
+            .end(node().test_id("end").style(style().flex_grow(1)))
             .on_edit(logger(&seen))
             .style(style().size(500, 100));
         (size, view)

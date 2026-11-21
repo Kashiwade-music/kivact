@@ -46,7 +46,7 @@ impl From<Gradient> for BorderImageSource {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{BorderImage, BorderImageRepeat};
+/// use kivact::style::{BorderImage, BorderImageRepeat};
 /// // A 12 px frame cut from the picture, its edges repeated.
 /// let frame = BorderImage::new(&[0u8; 4])
 ///     .slice(12)

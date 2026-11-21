@@ -2,7 +2,7 @@
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
-use kivact_core::style::{Align, Direction, style};
+use kivact_core::style::{Align, FlexDirection, style};
 use kivact_core::view::Orientation;
 pub(crate) fn button_root(
     theme: &kivact_core::style::Theme,
@@ -10,16 +10,16 @@ pub(crate) fn button_root(
 ) -> kivact_core::style::Style {
     let t = &theme.ext::<crate::UiTokens>().button_group;
     style()
-        .direction(if look.orientation == Orientation::Vertical {
-            Direction::Column
+        .flex_direction(if look.orientation == Orientation::Vertical {
+            FlexDirection::Column
         } else if look.rtl {
-            Direction::RowReverse
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .align_items(Align::Stretch)
         .gap(t.gap)
-        .radius(t.radius)
+        .border_radius(t.radius)
 }
 
 pub(crate) fn button_separator(
@@ -27,7 +27,7 @@ pub(crate) fn button_separator(
     look: &crate::Look<ButtonGroupState>,
 ) -> kivact_core::style::Style {
     let base = style()
-        .shrink(0)
+        .flex_shrink(0)
         .align_self(Align::Stretch)
         .background(theme.ext::<crate::UiTokens>().button_group.divider);
     if look.orientation == Orientation::Vertical {
@@ -50,7 +50,7 @@ pub(crate) fn button_text(
         .background(t.text_background)
         .color(t.text_color)
         .font_size(12)
-        .weight(500)
+        .font_weight(500)
         .text_wrap(false)
 }
 
@@ -72,7 +72,7 @@ pub(crate) fn button_member(
     } else {
         (first, last, last, first)
     };
-    style().radius_corners(tl, tr, br, bl).clip(true)
+    style().border_radius_corners(tl, tr, br, bl).clip(true)
 }
 
 /// Layout supplied to group and auxiliary cell recipes.

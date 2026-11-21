@@ -4,11 +4,11 @@ use crate::UiTokens;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::CalendarDate;
-use kivact_core::style::{Align, Color, Direction, Justify, Position, Style, Theme, style};
+use kivact_core::style::{Align, Color, FlexDirection, Justify, Position, Style, Theme, style};
 use kivact_interaction::{CalendarDayState, CalendarSpan};
 pub(crate) fn root(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(t.ext::<UiTokens>().calendar.month_gap)
         .padding(t.get(&kivact_core::style::space::SM_VAR))
         .background(kivact_core::style::color::SURFACE)
@@ -26,13 +26,13 @@ pub(crate) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
         .left(0)
         .top(0)
         .size(size, size)
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .text_wrap(false)
-        .focus_visible(style().ring(t.focus_ring(), kivact_core::style::color::FOCUS))
+        .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::FOCUS))
         .disabled(style().opacity(t.get(&kivact_core::style::control::DISABLED_OPACITY_VAR)));
     let base = if s.day.selection == kivact_interaction::DaySelection::Edge {
         base.background(kivact_core::style::color::ACCENT)
@@ -73,14 +73,14 @@ pub(crate) fn range(t: &Theme, s: &CalendarDayState) -> Style {
 
 pub(crate) fn events(_: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .position(Position::Absolute)
         .bottom(2)
         .gap(2)
 }
 
 pub(crate) fn event(_: &Theme, s: &CalendarEventVisual) -> Style {
-    style().size(3, 3).radius(2).background(s.color)
+    style().size(3, 3).border_radius(2).background(s.color)
 }
 
 /// The logical state supplied to a calendar day recipe.

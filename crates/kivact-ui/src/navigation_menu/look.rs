@@ -2,11 +2,11 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(p.gap)
         .padding(p.padding)
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
@@ -16,7 +16,7 @@ pub(crate) fn navigation_root(t: &Theme, _: &Look<kivact_interaction::NavOpen>) 
 pub(crate) fn panel(t: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style {
     let p = &t.ext::<crate::tokens::UiTokens>().navigation_menu;
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .padding(p.panel_padding)
         .background(kivact_core::style::color::SURFACE)
         .border(1, kivact_core::style::color::BORDER)
@@ -31,7 +31,7 @@ pub(crate) fn action(_: &Theme, _: &Look<kivact_interaction::NavOpen>) -> Style 
 
 pub(crate) fn link(t: &Theme, s: &Look<NavigationLinkState>) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(if s.has_description {
             Align::Start
         } else {
@@ -41,11 +41,11 @@ pub(crate) fn link(t: &Theme, s: &Look<NavigationLinkState>) -> Style {
         .padding(t.get(&kivact_core::style::space::SM_VAR))
         .color(kivact_core::style::color::TEXT)
         .hover(style().background(kivact_core::style::color::HOVER))
-        .focus_visible(style().ring(t.focus_ring(), kivact_core::style::color::FOCUS))
+        .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::FOCUS))
 }
 
 pub(crate) fn link_title(_: &Theme, _: &Look<NavigationLinkState>) -> Style {
-    style().weight(600)
+    style().font_weight(600)
 }
 
 pub(crate) fn link_description(t: &Theme, _: &Look<NavigationLinkState>) -> Style {
@@ -55,7 +55,7 @@ pub(crate) fn link_description(t: &Theme, _: &Look<NavigationLinkState>) -> Styl
 }
 
 pub(crate) fn link_icon(_: &Theme, _: &Look<NavigationLinkState>) -> Style {
-    style().shrink(0)
+    style().flex_shrink(0)
 }
 
 /// Actual link input and independent description-slot availability.

@@ -14,7 +14,7 @@
 //! remounts nothing.
 //!
 //! Interaction states:
-//! - `hover`, `pressed`, `focus`, `focus_visible`, `group_hover` and
+//! - `hover`, `active`, `focus`, `focus_visible`, `group_hover` and
 //!   `group_focus` accept every property. The paint ones (background, border
 //!   colors and line styles, outline, radii, opacity, shadows, transforms,
 //!   z-index, scrollbar, cursor, filters, mask, clip path, text color) are
@@ -40,9 +40,9 @@
 //! - A focus stop (focusable, or a native editor) gets a style effect even
 //!   without a style, and resolve gives it the theme's defaults: without a
 //!   `focus` or `focus_visible` state, `focus_visible` gets
-//!   `ring(theme.focus_ring(), kivact::style::color::FOCUS)`; while disabled, the
+//!   `outline(theme.focus_ring(), kivact::style::color::FOCUS)`; while disabled, the
 //!   disabled state gets `theme.get(&kivact::style::control::DISABLED_OPACITY_VAR)` unless it sets an opacity,
-//!   and hover and pressed are dropped. The defaults sit on the node that
+//!   and hover and active are dropped. The defaults sit on the node that
 //!   carries the disabled semantics and the focus, so drawing and meaning
 //!   agree (G-07).
 //!
@@ -96,7 +96,7 @@ mod props;
 mod shorthands;
 
 #[doc(inline)]
-pub use kivact_types::FlexDirection as Direction;
+pub use kivact_types::FlexDirection;
 
 /// How content is distributed along an axis (CSS `justify-content`,
 /// `align-content`).

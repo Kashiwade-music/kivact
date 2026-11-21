@@ -41,8 +41,8 @@ pub(crate) struct AuthoredPrimitive {
 ///
 /// ```
 /// use kivact::prelude::*;
-/// use kivact::draw::{Filter, FilterGraph, FilterInput};
-/// use kivact::draw::filter::Channel;
+/// use kivact::style::{Filter, FilterGraph, FilterInput};
+/// use kivact::style::filter::Channel;
 /// // A glitch: displace the element by noise.
 /// let mut g = FilterGraph::new();
 /// let noise = g.turbulence(0.02, 2, 3.0);

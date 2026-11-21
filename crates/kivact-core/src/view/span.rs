@@ -10,9 +10,9 @@
 
 use kivact_types as p;
 
-use crate::draw::Paint;
+use crate::style::Paint;
 use kivact_style::text::{FontFeature, FontKerning, FontVariation, SpanStyle, TextDecorationLine};
-use kivact_style::{Color, Length, Theme};
+use kivact_style::{Color, FontStyle, Length, Theme};
 
 /// A piece of rich text with its own style. Built by [`span`]; a `&str`
 /// or `String` is a span in the paragraph's style.
@@ -25,7 +25,7 @@ use kivact_style::{Color, Length, Theme};
 /// // <p>Open <mark>fi</mark>le</p>, the match bold and highlighted
 /// let line = rich_text(vec![
 ///     span("Open "),
-///     span("fi").weight(700).background(rgba(0xffd400, 0.4)),
+///     span("fi").font_weight(700).background(rgba(0xffd400, 0.4)),
 ///     span("le"),
 /// ]);
 /// # let _ = line;
@@ -65,7 +65,7 @@ impl Span {
     }
 
     /// CSS `font-weight` (`700`: `<b>`; any value from 1 to 1000).
-    pub fn weight(mut self, v: u16) -> Self {
+    pub fn font_weight(mut self, v: u16) -> Self {
         self.style.weight = Some(v);
         self
     }
@@ -82,9 +82,9 @@ impl Span {
         self
     }
 
-    /// Italic (`<em>`, `<i>`), or upright with `false`.
-    pub fn italic(mut self) -> Self {
-        self.style.italic = Some(true);
+    /// CSS `font-style`: `FontStyle::Italic` (`<em>`, `<i>`) or `FontStyle::Normal`.
+    pub fn font_style(mut self, v: FontStyle) -> Self {
+        self.style.italic = Some(v == FontStyle::Italic);
         self
     }
 

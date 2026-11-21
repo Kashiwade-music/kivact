@@ -2,10 +2,10 @@
 
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 pub(crate) fn input(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::XS_VAR))
 }

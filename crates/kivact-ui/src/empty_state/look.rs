@@ -2,10 +2,10 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, Justify, Style, Theme, pct, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, pct, style};
 pub(crate) fn empty_root(t: &Theme, _: &Look<EmptyStateState>) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
@@ -17,7 +17,7 @@ pub(crate) fn empty_root(t: &Theme, _: &Look<EmptyStateState>) -> Style {
 pub(crate) fn empty_title(t: &Theme, _: &Look<EmptyStateState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR) + 4.0)
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 
@@ -35,7 +35,7 @@ pub(crate) fn empty_icon(_: &Theme, _: &Look<EmptyStateState>) -> Style {
 
 pub(crate) fn empty_actions(t: &Theme, _: &Look<EmptyStateState>) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .align_items(Align::Center)
         .justify_content(Justify::Center)

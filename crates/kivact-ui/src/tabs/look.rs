@@ -1,18 +1,18 @@
 //! Role: The tabs recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::Orientation;
 use kivact_interaction::{TabListState, TabState};
 pub(crate) fn tabs_list(_: &Theme, s: &TabListState) -> Style {
     if s.orientation == Orientation::Vertical {
         style()
-            .direction(Direction::Column)
+            .flex_direction(FlexDirection::Column)
             .gap(4)
             .border_right(1, kivact_core::style::color::BORDER)
     } else {
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .gap(4)
             .border_bottom(1, kivact_core::style::color::BORDER)
     }
@@ -31,7 +31,7 @@ pub(crate) fn tab(t: &Theme, s: &TabState) -> Style {
     style()
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .justify_content(kivact_core::style::Justify::Center)

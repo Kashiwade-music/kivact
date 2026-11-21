@@ -22,7 +22,8 @@ use kivact_types::{BackfaceVisibility, TransformStyle};
 /// `backface_visibility` apply to it); a 2D one maps the drawing directly.
 ///
 /// ```
-/// use kivact::draw::{Layer, Shape, Transform};
+/// use kivact::draw::{Layer};
+/// use kivact::style::{Shape, Transform};
 /// use kivact::prelude::*;
 /// use kivact::draw::{Draw};
 /// use kivact::geometry::{Size};

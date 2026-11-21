@@ -6,8 +6,8 @@
 
 use kivact::interaction::{TabListState, TabState};
 use kivact::style::{
-    Align, Color, Direction, FontFamily, LineHeight, Style, Theme, ThemeMode, color, control, font,
-    pct, radius, rgb, rgba, space, style,
+    Align, Color, FlexDirection, FontFamily, LineHeight, Style, Theme, ThemeMode, color, control,
+    font, pct, radius, rgb, rgba, space, style,
 };
 use kivact::ui::{Look, UiRecipes};
 use kivact::view::Orientation;
@@ -77,9 +77,9 @@ fn tab_list(_: &Theme, look: &Look<TabListState>) -> Style {
         .padding(3)
         .background(kivact::style::color::SURFACE_ALT);
     if look.orientation == Orientation::Vertical {
-        base.direction(Direction::Column)
+        base.flex_direction(FlexDirection::Column)
     } else {
-        base.direction(Direction::Row)
+        base.flex_direction(FlexDirection::Row)
             .align_self(Align::Start)
             .height(32)
     }
@@ -88,13 +88,13 @@ fn tab_list(_: &Theme, look: &Look<TabListState>) -> Style {
 /// A tab: 6 px on each side, 12 px medium text; the selected one is raised.
 fn tab(_: &Theme, look: &Look<TabState>) -> Style {
     let base = style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .padding_x(6)
         .padding_y(2)
         .border(1, Color::TRANSPARENT)
         .font_size(12)
-        .weight(500)
+        .font_weight(500)
         .text_wrap(false)
         .color(kivact::style::color::TEXT_MUTED);
     let base = if look.orientation == Orientation::Vertical {

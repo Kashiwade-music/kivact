@@ -5,7 +5,7 @@ use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{Draw, LineCap, LineJoin, Path, Stroke};
 use kivact_core::geometry::{Point, Rect, Size};
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::CheckedState;
 /// The side of a check box and the height of a switch's track.
 pub(crate) fn indicator(theme: &Theme, size: ControlSize) -> f64 {
@@ -27,16 +27,16 @@ pub(crate) fn indicator_width(theme: &Theme, size: ControlSize, switch: bool) ->
 /// for the drawing of the recipe.
 pub(crate) fn toggle(theme: &Theme, size: ControlSize, switch: bool) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_height(height(theme, size))
         .padding_left(leading(theme) + indicator_width(theme, size, switch) + gap(theme, size))
         .padding_right(theme.get(&kivact_core::style::space::SM_VAR))
-        .radius(theme.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(theme.get(&kivact_core::style::radius::MD_VAR))
         .font_size(font_size(theme, size))
         .color(kivact_core::style::color::TEXT)
         .hover(style().background(kivact_core::style::color::HOVER))
-        .pressed(style().background(kivact_core::style::color::PRESSED))
+        .active(style().background(kivact_core::style::color::PRESSED))
 }
 
 pub(crate) fn checkbox(theme: &Theme, look: &CheckableState) -> Style {

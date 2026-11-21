@@ -4,7 +4,7 @@ use crate::look_common::{description, mark, trigger};
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::{ListItemState, PopupState};
 /// A select's trigger: a bordered field, its text muted while it shows
 /// the placeholder.
@@ -22,7 +22,7 @@ pub(crate) fn option(t: &Theme, _: &ListItemState) -> Style {
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .justify_content(kivact_core::style::Justify::Center)
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .focus(style().background(kivact_core::style::color::HOVER))

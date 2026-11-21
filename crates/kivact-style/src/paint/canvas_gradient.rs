@@ -69,7 +69,7 @@ pub(crate) enum CanvasShape {
 /// use kivact::prelude::*;
 /// use kivact::style::Color;
 /// use kivact::draw::Draw;
-/// use kivact::draw::{CanvasGradient, GradientExtend};
+/// use kivact::style::{CanvasGradient, GradientExtend};
 /// fn knob(d: &mut Draw) {
 ///     // createRadialGradient(34, 34, 0, 40, 40, 30) with two color stops.
 ///     let ball = CanvasGradient::radial(Point::new(34.0, 34.0), 0.0, Point::new(40.0, 40.0), 30.0)

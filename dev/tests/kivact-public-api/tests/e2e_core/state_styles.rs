@@ -45,7 +45,7 @@ fn active_applies_a_layout_property() {
         canvas_of(
             node()
                 .test_id("box")
-                .style(at(0, 0, 40, 20).pressed(style().height(40))),
+                .style(at(0, 0, 40, 20).active(style().height(40))),
         )
     });
     screen.get_by_test_id("box").hover();
@@ -118,7 +118,7 @@ fn active_paint_replaces_hover_paint() {
         canvas_of(
             node()
                 .test_id("box")
-                .style(at(0, 0, 40, 40).hover(filled(BLUE)).pressed(filled(RED))),
+                .style(at(0, 0, 40, 40).hover(filled(BLUE)).active(filled(RED))),
         )
     });
     screen.get_by_test_id("box").hover();

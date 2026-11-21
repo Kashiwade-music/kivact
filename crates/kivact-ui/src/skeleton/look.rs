@@ -10,10 +10,10 @@ pub(crate) fn skeleton(t: &Theme, s: &SkeletonState) -> Style {
         .background(kivact_core::style::color::BORDER)
         .opacity(s.pulse);
     match s.shape {
-        SkeletonShape::Circle => base.size(36, 36).radius(999),
-        SkeletonShape::Rounded => base.radius(t.get(&kivact_core::style::radius::MD_VAR)),
-        SkeletonShape::Rect => base.radius(0),
-        SkeletonShape::Text => base.radius(t.get(&kivact_core::style::radius::SM_VAR)),
+        SkeletonShape::Circle => base.size(36, 36).border_radius(999),
+        SkeletonShape::Rounded => base.border_radius(t.get(&kivact_core::style::radius::MD_VAR)),
+        SkeletonShape::Rect => base.border_radius(0),
+        SkeletonShape::Text => base.border_radius(t.get(&kivact_core::style::radius::SM_VAR)),
     }
 }
 

@@ -34,7 +34,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         header(),
         virtual_list(entries, |entry| entry.seq, input_row)
             .row_height(RowHeight::Fixed(22.0))
-            .style(style().grow(1.0).min_height(0.0)),
+            .style(style().flex_grow(1.0).min_height(0.0)),
         text("IME state"),
         dynamic(
             move || data.state(),
@@ -47,7 +47,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
             },
         ),
     ))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// Load the input log and the IME state of the inspected window.

@@ -6,7 +6,7 @@ use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, ControlSize};
 use kivact_core::custom::{Part, PartState};
 use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
-use kivact_core::style::{Align, Direction, Justify, Position, TextAlign, pct, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Position, TextAlign, pct, style};
 use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Role, View, show};
 use std::rc::Rc;
@@ -27,7 +27,7 @@ fn nav_button(
 }
 
 fn spacer(size: f64) -> Node {
-    node().style(style().size(size, size).shrink(0))
+    node().style(style().size(size, size).flex_shrink(0))
 }
 
 pub(super) fn month_panel(
@@ -104,7 +104,7 @@ pub(super) fn month_panel(
                         .month_gap,
                 )
                 .width(shared.cell_size * 7.0)
-                .shrink(0),
+                .flex_shrink(0),
         ),
         |r| r.calendar_recipes().month_recipe(),
         &shared.variants,
@@ -204,7 +204,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
         style()
             .position(Position::Relative)
             .size(shared.cell_size, shared.cell_size)
-            .shrink(0),
+            .flex_shrink(0),
     )
 }
 
@@ -294,8 +294,8 @@ fn month_caption(
         previous,
         node().child(title(shared, names, index, month)).style(
             style()
-                .grow(1)
-                .direction(Direction::Row)
+                .flex_grow(1)
+                .flex_direction(FlexDirection::Row)
                 .justify_content(Justify::Center)
                 .align_items(Align::Center),
         ),
@@ -304,10 +304,10 @@ fn month_caption(
     ))
     .style(
         style()
-            .direction(if rtl {
-                Direction::RowReverse
+            .flex_direction(if rtl {
+                FlexDirection::RowReverse
             } else {
-                Direction::Row
+                FlexDirection::Row
             })
             .align_items(Align::Center)
             .height(shared.cell_size)

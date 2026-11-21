@@ -13,13 +13,14 @@
 
 use std::panic::Location;
 
-use kivact_core::draw::{
-    BlendMode, Filter, Shadow, Shape, Transform, conic_gradient, linear_gradient, radial_gradient,
+use kivact_core::style::{
+    BlendMode, Filter, Gradient, Shadow, Shape, Transform, conic_gradient, linear_gradient,
+    radial_gradient,
 };
 use kivact_core::view::image;
 use kivact_engine::testing::{Renderer, gpu_unavailable};
 use kivact_style::asset::{Asset, ImageFit};
-use kivact_style::{BorderStyle, Direction, Position, rgb};
+use kivact_style::{BorderStyle, FlexDirection, Position, rgb};
 
 use super::support::button_box;
 use kivact_core::geometry::{Point, Rect};
@@ -53,7 +54,7 @@ fn representative() -> impl IntoView {
             style()
                 .padding(12.0)
                 .gap(6.0)
-                .radius(10.0)
+                .border_radius(10.0)
                 .border(1.5, rgb(color))
                 .background(rgb(0xf7f7fb))
                 .shadow(Shadow::new(0.0, 3.0, 12.0, rgb(0x303050)).spread(1.0)),
@@ -67,7 +68,7 @@ fn representative() -> impl IntoView {
                 style()
                     .width(120.0)
                     .height(48.0)
-                    .radius(24.0)
+                    .border_radius(24.0)
                     .background(linear_gradient(90).colors([rgb(0xff6b6b), rgb(0x4d96ff)])),
             ),
             node().style(
@@ -105,20 +106,24 @@ fn representative() -> impl IntoView {
 /// per-side, dashed and elliptical borders, inset and stacked shadows,
 /// group opacity, color filters, blur and drop shadow filters, a backdrop
 /// blur, a blend mode, a gradient mask, a rounded clip and a clip path.
-fn effects() -> impl IntoView {
-    let stripes = linear_gradient(90)
+fn stripes() -> Gradient {
+    linear_gradient(90)
         .repeating()
         .stop(rgb(0x1e293b), 0)
         .stop(rgb(0x1e293b), 3)
         .stop(rgb(0xf8fafc), 3)
-        .stop(rgb(0xf8fafc), 8);
+        .stop(rgb(0xf8fafc), 8)
+}
+
+fn effects() -> impl IntoView {
+    let stripes = stripes();
     node()
         .child((
             layered_gradient(),
             conic_border(),
             node().style(
                 effect_position(150, 60, 120, 40)
-                    .radius_corners(16, 0, 16, 0)
+                    .border_radius_corners(16, 0, 16, 0)
                     .border_left(4, rgb(0xdc2626))
                     .border_top(2, rgb(0x2563eb))
                     .background(rgb(0xffffff)),
@@ -127,7 +132,7 @@ fn effects() -> impl IntoView {
                 effect_position(290, 10, 80, 40)
                     .border(2, rgb(0x0f172a))
                     .border_style(BorderStyle::Dashed)
-                    .radius(8),
+                    .border_radius(8),
             ),
             node()
                 .child((
@@ -138,14 +143,14 @@ fn effects() -> impl IntoView {
             node().style(effect_position(10, 120, 460, 60).background(stripes)),
             node().style(
                 effect_position(30, 125, 120, 50)
-                    .radius(10)
+                    .border_radius(10)
                     .backdrop_filter(Filter::new().blur(4).saturate(1.6))
                     .background(rgba(0xffffff, 0.3)),
             ),
             filtered_content(),
             node().style(
                 effect_position(280, 130, 40, 40)
-                    .radius(pct(50))
+                    .border_radius(pct(50))
                     .background(rgb(0x2563eb))
                     .filter(Filter::new().drop_shadow(0, 3, 6, rgba(0x000000, 0.6))),
             ),
@@ -165,7 +170,11 @@ fn effects() -> impl IntoView {
                         .fit(ImageFit::Fill)
                         .style(style().size(100, 60)),
                 )
-                .style(effect_position(10, 200, 100, 60).radius(20).clip(true)),
+                .style(
+                    effect_position(10, 200, 100, 60)
+                        .border_radius(20)
+                        .clip(true),
+                ),
             node().style(
                 effect_position(130, 200, 120, 60)
                     .background(linear_gradient(135).colors([rgb(0x7c3aed), rgb(0x22d3ee)]))
@@ -218,7 +227,7 @@ fn transforms() -> impl IntoView {
                 )
                 .style(
                     at(260, 30, 140, 44)
-                        .direction(Direction::Row)
+                        .flex_direction(FlexDirection::Row)
                         .align_items(Align::Center)
                         .justify_content(Justify::Center)
                         .background(linear_gradient(90).colors([rgb(0x2563eb), rgb(0x7c3aed)]))
@@ -235,7 +244,7 @@ fn transforms() -> impl IntoView {
                     node().style(
                         style()
                             .size(80, 30)
-                            .radius(8)
+                            .border_radius(8)
                             .background(rgb(0xffffff))
                             .border(1, rgb(0xcbd5e1))
                             .shadow(Shadow::new(0, 2, 6, rgba(0x000000, 0.3))),
@@ -508,7 +517,7 @@ fn layered_gradient() -> impl IntoView {
     };
     let line = rgba(0x334155, 0.5);
     node().style(
-        at(10, 10, 120, 90).radius(12).background((
+        at(10, 10, 120, 90).border_radius(12).background((
             linear_gradient(180)
                 .stop(line, 1)
                 .stop(Color::TRANSPARENT, 1)
@@ -535,7 +544,7 @@ fn conic_border() -> impl IntoView {
     };
     node().style(
         at(150, 10, 120, 40)
-            .radius((pct(50), pct(50)))
+            .border_radius((pct(50), pct(50)))
             .background(conic_gradient(-60).colors([
                 rgb(0xff4040),
                 rgb(0xffd040),

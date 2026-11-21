@@ -21,7 +21,7 @@ fn app() -> impl Element {
                     .style(move || {
                         let t = &use_theme().get();
                         style()
-                            .direction(kivact::style::Direction::Row)
+                            .flex_direction(kivact::style::FlexDirection::Row)
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
                             .padding_x(t.get(&kivact::style::space::LG_VAR))
@@ -41,7 +41,7 @@ fn app() -> impl Element {
                     .style(move || {
                         let t = &use_theme().get();
                         style()
-                            .direction(kivact::style::Direction::Row)
+                            .flex_direction(kivact::style::FlexDirection::Row)
                             .align_items(Align::Center)
                             .justify_content(Justify::Center)
                             .padding_x(t.get(&kivact::style::space::LG_VAR))

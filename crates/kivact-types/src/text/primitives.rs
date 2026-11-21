@@ -174,3 +174,13 @@ impl FontFeature {
         Self { tag, value }
     }
 }
+
+/// The face of a font family to use (CSS `font-style`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum FontStyle {
+    /// The upright face.
+    #[default]
+    Normal,
+    /// The italic face, when the family has one.
+    Italic,
+}

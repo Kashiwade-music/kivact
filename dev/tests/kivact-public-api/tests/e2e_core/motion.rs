@@ -6,10 +6,10 @@ use std::cell::Cell;
 use std::rc::Rc;
 use std::time::Duration;
 
-use kivact::draw::Filter;
 use kivact::motion::FrameRate;
 use kivact::motion::{Animated, FrameInfo, FrameLoop, Repeat};
 use kivact::prelude::*;
+use kivact::style::Filter;
 use kivact::style::{TransitionProp, rgba};
 use kivact::test::{RenderOptions, Screen, Screenshot};
 use kivact_public_api_tests::paint::{BLACK, BLUE, RED, WHITE, distance};
@@ -387,7 +387,7 @@ fn reactive_text_color_transitions_on_inheriting_children() {
             row((child, explicit)).style(move || {
                 style()
                     .font_size(48)
-                    .weight(700)
+                    .font_weight(700)
                     .color(ink())
                     .transition(TransitionProp::All, Transition::tween(200, Easing::Linear))
             }),

@@ -37,7 +37,7 @@ pub(crate) enum ShapeKind {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{pct};
-/// use kivact::draw::Shape;
+/// use kivact::style::Shape;
 /// // CSS `clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%)`
 /// let cut_corner = Shape::polygon()
 ///     .point(0, 0)

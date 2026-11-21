@@ -10,9 +10,9 @@ use kivact::view::Node;
 use std::time::Duration;
 
 use super::images_animated::gif;
-use kivact::draw::PaintShader;
 use kivact::motion::FrameRate;
 use kivact::prelude::*;
+use kivact::style::PaintShader;
 use kivact::test::{Screen, render};
 use kivact_public_api_tests::paint::{GREEN, RED, at, canvas_of, expect};
 use kivact_public_api_tests::support::mount;
@@ -244,7 +244,7 @@ fn bumped_rows(bumps: Signal<usize>) -> View {
         })
         .collect();
     scroll(column(rows))
-        .style(style().height(300).shrink(0.0))
+        .style(style().height(300).flex_shrink(0.0))
         .into_view()
 }
 
@@ -274,10 +274,10 @@ fn percent_and_absolute_layouts_survive_parent_resize() {
         let view = row((
             node()
                 .test_id("pct")
-                .style(style().width(pct(50)).height(20).shrink(0.0)),
+                .style(style().width(pct(50)).height(20).flex_shrink(0.0)),
             node()
                 .test_id("px")
-                .style(style().width(100).height(20).shrink(0.0)),
+                .style(style().width(100).height(20).flex_shrink(0.0)),
         ))
         .style(move || style().width(if wide.get() { 600 } else { 400 }).height(20));
         (wide, view)

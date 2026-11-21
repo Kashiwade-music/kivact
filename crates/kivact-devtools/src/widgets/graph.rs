@@ -238,7 +238,7 @@ fn card_node(
                 .align_items(Align::Center)
                 .background(kivact::style::color::SURFACE_ALT)
                 .border(1, color)
-                .radius(4);
+                .border_radius(4);
             if cause.wasted {
                 base.opacity(0.6)
             } else {
@@ -282,7 +282,7 @@ fn count_button(card: &Card, expanded: Signal<BTreeSet<u32>>) -> Node {
                 .align_items(Align::Center)
                 .background(kivact::style::color::SURFACE)
                 .border(1, kivact::style::color::BORDER)
-                .radius(3),
+                .border_radius(3),
         )
         .on_pointer(move |event| {
             let PointerPhase::Up(press) = event.phase() else {
@@ -327,7 +327,7 @@ fn member_row(
                 .padding_x(4)
                 .align_items(Align::Center)
                 .background(kivact::style::color::SURFACE)
-                .radius(3),
+                .border_radius(3),
         )
         .on_pointer(move |event| {
             let PointerPhase::Up(press) = event.phase() else {

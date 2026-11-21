@@ -22,7 +22,7 @@ pub(crate) fn slider_metrics(t: &Theme, size: ControlSize) -> (f64, f64) {
 /// it; 160 px long when vertical.
 pub(crate) fn slider_track(t: &Theme, state: &AxisState) -> Style {
     let (bar, thumb) = slider_metrics(t, state.size);
-    let s = style().shrink(0).cursor(Cursor::Pointer);
+    let s = style().flex_shrink(0).cursor(Cursor::Pointer);
     // The bar is the box's middle third; its painted fill keeps the box's
     // full thumb-sized extent for the pointer.
     let s = s.paint(move |d, size| {
@@ -58,10 +58,10 @@ pub(crate) fn slider_thumb(t: &Theme, state: &AxisState) -> Style {
     let (_, thumb) = slider_metrics(t, state.size);
     style()
         .size(thumb, thumb)
-        .radius(thumb / 2.0)
+        .border_radius(thumb / 2.0)
         .background(kivact_core::style::color::SURFACE)
         .border(2, kivact_core::style::color::ACCENT)
-        .shadow(kivact_core::draw::Shadow::new(
+        .shadow(kivact_core::style::Shadow::new(
             0,
             1,
             2,

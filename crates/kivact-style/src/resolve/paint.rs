@@ -376,7 +376,7 @@ fn scrollbar(g: &Groups, theme: &Theme) -> Option<Box<p::ScrollbarProps>> {
     }
     let mut props = p::ScrollbarProps {
         width: match paint.scrollbar_width.unwrap_or_default() {
-            ScrollbarWidth::Auto | ScrollbarWidth::Thin => 6.0,
+            ScrollbarWidth::Auto => 6.0,
             ScrollbarWidth::None => 0.0,
             ScrollbarWidth::Px(px) => {
                 if px.is_finite() {

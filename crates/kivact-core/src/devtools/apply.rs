@@ -46,12 +46,12 @@ const SHORTHANDS: [(&str, &[&str]); 6] = [
         ],
     ),
     (
-        "radius",
+        "border_radius",
         &[
-            "radius_top_left",
-            "radius_top_right",
-            "radius_bottom_right",
-            "radius_bottom_left",
+            "border_top_left_radius",
+            "border_top_right_radius",
+            "border_bottom_right_radius",
+            "border_bottom_left_radius",
         ],
     ),
 ];

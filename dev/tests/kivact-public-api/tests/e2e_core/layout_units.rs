@@ -142,7 +142,7 @@ fn aspect_ratio_sizes_a_box_from_its_other_side() {
 
 #[test]
 fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_units() {
-    use kivact::style::Direction;
+    use kivact::style::FlexDirection;
     let screen = render_with(window(1000.0, 600.0), || {
         // @media (max-width: 860px) { .shell { flex-direction: column } }
         let narrow = memo(move || platform::window_size().get().width < 860.0);
@@ -153,7 +153,7 @@ fn window_size_switches_a_layout_at_a_breakpoint_and_stands_in_for_viewport_unit
             ))
             .style(move || {
                 if narrow.get() {
-                    style().direction(Direction::Column)
+                    style().flex_direction(FlexDirection::Column)
                 } else {
                     style()
                 }

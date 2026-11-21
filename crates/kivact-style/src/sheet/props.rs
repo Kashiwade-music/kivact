@@ -2,7 +2,7 @@
 
 use kivact_runtime::Transition;
 use kivact_types::{
-    Align, BackfaceVisibility, Cursor, Display, FlexDirection as Direction, Isolation, Justify,
+    Align, BackfaceVisibility, Cursor, Display, FlexDirection, FontStyle, Isolation, Justify,
     Length, Orientation, Overflow, Position, ScrollAxes, ScrollSnap, TextAlign, TransformStyle,
     TransitionProp, Visibility, WillChange,
 };
@@ -122,12 +122,12 @@ style_props! {
         min_height(v: impl Into<Length>) => MinHeight(Length) = v.into(), Rest, Size;
         max_width(v: impl Into<Length>) => MaxWidth(Length) = v.into(), Rest, Size;
         max_height(v: impl Into<Length>) => MaxHeight(Length) = v.into(), Rest, Size;
-        basis(v: impl Into<Length>) => FlexBasis(Length) = v.into(), Rest, Size;
+        flex_basis(v: impl Into<Length>) => FlexBasis(Length) = v.into(), Rest, Size;
         /// CSS `aspect-ratio`: width / height (`aspect_ratio(16.0 / 9.0)`). With
         /// one of width and height set (or stretched), the other follows.
         aspect_ratio(v: impl Into<f64>) => AspectRatio(f64) = v.into(), Rest, Size;
-        grow(v: impl Into<f64>) => FlexGrow(f64) = v.into(), Rest, Size;
-        shrink(v: impl Into<f64>) => FlexShrink(f64) = v.into(), Rest, Size;
+        flex_grow(v: impl Into<f64>) => FlexGrow(f64) = v.into(), Rest, Size;
+        flex_shrink(v: impl Into<f64>) => FlexShrink(f64) = v.into(), Rest, Size;
         /// CSS `padding-top`; other edges remain unset.
         padding_top(v: impl Into<Length>) => PaddingTop(Length) = v.into(), Rest, Spacing;
         /// CSS `padding-right`; other edges remain unset.
@@ -154,7 +154,7 @@ style_props! {
         /// CSS `column-gap`: between the columns of a grid (a row's
         /// children).
         column_gap(v: impl Into<Length>) => ColumnGap(Length) = v.into(), Rest, Spacing;
-        direction(v: Direction) => FlexDirection(Direction) = v, Rest, Flow;
+        flex_direction(v: FlexDirection) => FlexDirection(FlexDirection) = v, Rest, Flow;
         /// Cross-axis alignment of children.
         align_items(v: Align) => AlignItems(Align) = v, Rest, Flow;
         align_self(v: Align) => AlignSelf(Align) = v, Rest, Flow;
@@ -167,7 +167,7 @@ style_props! {
         display(v: Display) => Display(Display) = v, Rest, Flow;
         /// Keep layout space while hiding this subtree from painting and interaction.
         visibility(v: Visibility) => Visibility(Visibility) = v, Rest, Flow;
-        wrap(v: bool) => FlexWrap(bool) = v, Rest, Flow;
+        flex_wrap(v: bool) => FlexWrap(bool) = v, Rest, Flow;
         position(v: Position) => Position(Position) = v, Rest, Flow;
         /// Layout overflow on both axes; Hidden also clips layout overflow.
         /// For an axis-specific accessible scroll container, use `scroll`.
@@ -222,13 +222,20 @@ style_props! {
         /// The left border's line style alone (CSS `border-left-style`).
         border_left_style(v: BorderStyle) => BorderLeftStyle(BorderStyle) = v, Delta, Paint;
         /// CSS `border-top-left-radius`.
-        radius_top_left(v: impl Into<CornerRadius>) => RadiusTopLeft(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
+        border_top_left_radius(v: impl Into<CornerRadius>) => BorderTopLeftRadius(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
         /// CSS `border-top-right-radius`.
-        radius_top_right(v: impl Into<CornerRadius>) => RadiusTopRight(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
+        border_top_right_radius(v: impl Into<CornerRadius>) => BorderTopRightRadius(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
         /// CSS `border-bottom-right-radius`.
-        radius_bottom_right(v: impl Into<CornerRadius>) => RadiusBottomRight(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
+        border_bottom_right_radius(v: impl Into<CornerRadius>) => BorderBottomRightRadius(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
         /// CSS `border-bottom-left-radius`.
-        radius_bottom_left(v: impl Into<CornerRadius>) => RadiusBottomLeft(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
+        border_bottom_left_radius(v: impl Into<CornerRadius>) => BorderBottomLeftRadius(Box<CornerRadius>) = Box::new(v.into()), Delta, Paint;
+        /// CSS `outline-width`: the outline drawn outside the border box, in px.
+        outline_width(v: impl Into<f64>) => OutlineWidth(f64) = v.into(), Delta, Paint;
+        /// CSS `outline-offset`: the gap in px between the border box and the
+        /// outline. A positive offset follows the border box even if the node has a clip path.
+        outline_offset(v: impl Into<f64>) => OutlineOffset(f64) = v.into(), Delta, Paint;
+        /// CSS `outline-color`.
+        outline_color(v: impl Into<Color>) => OutlineColor(Color) = v.into(), Delta, Paint;
         /// The opacity of the node and its subtree, as one group (CSS
         /// `opacity`: overlapping children do not show through each
         /// other).
@@ -273,7 +280,7 @@ style_props! {
         transform(v: Transform) => Transform(Box<Transform>) = Box::new(v), Delta, Transform;
         /// The horizontal part of [`translate`](Self::translate) alone
         /// (Tailwind's `translate-x-*`). Each axis is a property of its own: a
-        /// style merged over this one (a later layer, or a `hover`, `pressed`
+        /// style merged over this one (a later layer, or a `hover`, `active`
         /// or `focus` state) that sets only the other axis keeps this one, so a
         /// press that nudges a node down keeps its horizontal centring by
         /// translate. A layer or state that sets this axis replaces it, as in
@@ -309,7 +316,7 @@ style_props! {
         /// A number is px; `font::SIZE` and the other font size variables of the theme are lengths too.
         font_size(v: impl Into<Length>) => FontSize(Length) = v.into(), Rest, Text;
         /// CSS `font-weight` (1 to 1000) of the text in this node and below.
-        weight(v: u16) => FontWeight(u16) = v, Rest, Text;
+        font_weight(v: u16) => FontWeight(u16) = v, Rest, Text;
         /// CSS `color` of the text in this node and below. As in CSS, each
         /// text property is inherited on its own: a descendant that sets
         /// only a `weight` or a `font_size` keeps this color. Without one
@@ -344,8 +351,8 @@ style_props! {
         /// diagnostics. Quote names containing commas. Malformed lists use
         /// system fallback. Without one, text uses `Theme.text.family`.
         font_family(v: impl Into<String>) => FontFamily(String) = v.into(), Rest, Text;
-        /// Italic text (the family's italic face when it has one).
-        italic(v: bool) => Italic(bool) = v, Rest, Text;
+        /// CSS `font-style`: `FontStyle::Italic` picks the family's italic face when it has one.
+        font_style(v: FontStyle) => FontStyle(FontStyle) = v, Rest, Text;
         /// CSS `letter-spacing`: extra space after every character, in px
         /// (`letter_spacing(1)`) or em (`letter_spacing(em(0.08))`, of the
         /// text's font size; negative tightens).
@@ -419,9 +426,6 @@ style_props! {
         BorderRightColor(Color) = "border_right_color", Delta, Paint;
         BorderBottomColor(Color) = "border_bottom_color", Delta, Paint;
         BorderLeftColor(Color) = "border_left_color", Delta, Paint;
-        RingWidth(f64) = "ring_width", Delta, Paint;
-        RingOffset(f64) = "ring_offset", Delta, Paint;
-        RingColor(Color) = "ring_color", Delta, Paint;
         ScrollbarThumbColor(Color) = "scrollbar_thumb_color", Delta, Paint;
         ScrollbarTrackColor(Color) = "scrollbar_track_color", Delta, Paint;
         Scale((f64, f64)) = "scale", Delta, Transform;

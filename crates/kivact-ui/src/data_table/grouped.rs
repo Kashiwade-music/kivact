@@ -170,7 +170,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
                 .padding_y(8)
                 .padding_right(12)
                 .justify_content(Justify::Start)
-                .radius(0)
+                .border_radius(0)
                 .cursor(Cursor::Pointer),
         )
         .child(content);
@@ -182,7 +182,7 @@ fn header<R: 'static, K: kivact_core::state::ItemKey>(
     let cell = node()
         .role(cell_role)
         .column_index(1)
-        .style(style().grow(1));
+        .style(style().flex_grow(1));
     let cell = if matches!(grid.focus, TableFocus::Cells(_)) {
         let cell = grid.navigation.bind(
             cell.focusable(true).name(navigation_label.clone()),
@@ -254,10 +254,10 @@ fn group_disclosure_content(
     });
     let content = row((
         mark,
-        text(label.clone()).style(style().weight(600)),
+        text(label.clone()).style(style().font_weight(600)),
         text(move || format!("({})", state.get().count)).style(
             style()
-                .weight(400)
+                .font_weight(400)
                 .color(kivact_core::style::color::TEXT_MUTED),
         ),
     ))

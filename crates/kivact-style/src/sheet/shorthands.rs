@@ -203,53 +203,42 @@ impl Style {
 
     /// Round every corner (CSS `border-radius`): `8`, `pct(50)` (an
     /// ellipse on a box that is not square) or `(20, 10)` (elliptical).
-    pub fn radius(self, r: impl Into<crate::geometry::CornerRadius>) -> Self {
+    pub fn border_radius(self, r: impl Into<crate::geometry::CornerRadius>) -> Self {
         let r: crate::geometry::CornerRadius = r.into();
-        self.radius_top_left(r)
-            .radius_top_right(r)
-            .radius_bottom_right(r)
-            .radius_bottom_left(r)
+        self.border_top_left_radius(r)
+            .border_top_right_radius(r)
+            .border_bottom_right_radius(r)
+            .border_bottom_left_radius(r)
     }
 
     /// Round each corner: top left, top right, bottom right, bottom left
     /// (CSS `border-radius: tl tr br bl`).
-    pub fn radius_corners(
+    pub fn border_radius_corners(
         self,
         top_left: impl Into<crate::geometry::CornerRadius>,
         top_right: impl Into<crate::geometry::CornerRadius>,
         bottom_right: impl Into<crate::geometry::CornerRadius>,
         bottom_left: impl Into<crate::geometry::CornerRadius>,
     ) -> Self {
-        self.radius_top_left(top_left)
-            .radius_top_right(top_right)
-            .radius_bottom_right(bottom_right)
-            .radius_bottom_left(bottom_left)
+        self.border_top_left_radius(top_left)
+            .border_top_right_radius(top_right)
+            .border_bottom_right_radius(bottom_right)
+            .border_bottom_left_radius(bottom_left)
     }
 
-    /// Focus ring (drawn outside the border box); usually inside
-    /// `focus_visible(..)`. A focusable element without a focus look of its
-    /// own draws the theme's ([`Theme::focus_ring`](crate::Theme::focus_ring)).
-    pub fn ring(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
-        self.ring_with_offset(width, 0.0, color)
+    /// The outline: a line drawn outside the border box, in `width` logical
+    /// pixels of `color` (CSS `outline`). Usually inside `focus_visible(..)`;
+    /// a focusable element without a focus look of its own draws the theme's
+    /// ([`Theme::focus_ring`](crate::Theme::focus_ring)). Its gap is
+    /// [`outline_offset`](Self::outline_offset).
+    pub fn outline(self, width: impl Into<f64>, color: impl Into<Color>) -> Self {
+        self.outline_width(width).outline_color(color)
     }
 
-    /// Draw a focus ring with a gap in logical pixels from the border box.
-    /// A positive offset follows the border box even if the node has a clip path.
-    pub fn ring_with_offset(
-        self,
-        width: impl Into<f64>,
-        offset: impl Into<f64>,
-        color: impl Into<Color>,
-    ) -> Self {
-        self.push(Decl::RingWidth(width.into()))
-            .push(Decl::RingOffset(offset.into()))
-            .push(Decl::RingColor(color.into()))
-    }
-
-    /// No ring (CSS `ring-0`): in a [`focus_visible`](Self::focus_visible)
+    /// No outline (CSS `outline: none`): in a [`focus_visible`](Self::focus_visible)
     /// style it turns the theme's focus ring off.
-    pub fn ring_none(self) -> Self {
-        self.ring(0.0, Color::TRANSPARENT)
+    pub fn outline_none(self) -> Self {
+        self.outline(0.0, Color::TRANSPARENT)
     }
 
     /// Set thumb and track colors (CSS scrollbar-color).
@@ -378,7 +367,7 @@ impl Style {
     }
 
     /// The style while the node is pressed (CSS `:active`).
-    pub fn pressed(self, s: Style) -> Self {
+    pub fn active(self, s: Style) -> Self {
         self.push(Decl::State(StyleState::Active, Box::new(s)))
     }
 
@@ -463,10 +452,11 @@ impl Style {
     /// Painting requires a box, such as `node` or `canvas`. On text, image or
     /// text-input leaves it is ignored and reported as unsupported; paint
     /// their containing box instead.
-    /// Paint belongs on the base style. Paint inside hover, group hover, group focus,
-    /// pressed, focus, disabled, selected, enter or exit styles is ignored
-    /// and reported as unsupported;
-    /// return a base paint from a reactive style to follow interaction state.
+    /// Paint belongs on the base style. A paint in a state style (`hover`,
+    /// `focus`, `disabled`, ...) replaces the base paint while that state
+    /// applies, and the base paint comes back after it; `enter` and `exit`
+    /// ignore paint. Return a base paint from a reactive style to follow
+    /// interaction state.
     pub fn paint(self, f: impl Fn(&mut Draw, Size) + 'static) -> Self {
         self.push(Decl::LocalPaint(LocalPaint::new(f)))
     }

@@ -11,7 +11,7 @@ pub(crate) fn thread_root<S>(t: &Theme, s: &Look<S>) -> Style {
 }
 
 pub(crate) fn viewport<S>(_: &Theme, _: &Look<S>) -> Style {
-    style().grow(1).min_height(0).min_width(0)
+    style().flex_grow(1).min_height(0).min_width(0)
 }
 
 pub(crate) fn jump<S>(_: &Theme, _: &Look<S>) -> Style {

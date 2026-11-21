@@ -4,12 +4,12 @@ use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, LineJoin, Stroke};
 use kivact_core::geometry::Point;
-use kivact_core::style::{Align, Direction, Justify, Overflow, Style, Theme, pct, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Overflow, Style, Theme, pct, style};
 use kivact_core::view::CheckedState;
 use kivact_interaction::{HeaderSort, TableHeaderState};
 pub(crate) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .background(kivact_core::style::color::SURFACE_ALT)
         .border_bottom(1, kivact_core::style::color::BORDER)
 }
@@ -17,21 +17,21 @@ pub(crate) fn group_header(_: &Theme, _: &DataTableGroupState) -> Style {
 /// The frame around the toolbar, the grid and the footer.
 pub(crate) fn frame(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .width(pct(100))
         .min_width(0)
         // The table keeps the height of its rows in a bounded parent; the
         // parent's own scroll view carries them.
-        .shrink(0)
+        .flex_shrink(0)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .overflow(Overflow::Hidden)
 }
 
 /// The row above the grid.
 pub(crate) fn toolbar(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .padding(t.get(&kivact_core::style::space::MD_VAR))
@@ -40,7 +40,7 @@ pub(crate) fn toolbar(t: &Theme, _: &PartState) -> Style {
 /// The row under the grid.
 pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .padding(t.get(&kivact_core::style::space::MD_VAR))
@@ -50,16 +50,16 @@ pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
 /// column's cells.
 pub(crate) fn header(t: &Theme, state: &TableHeaderState) -> Style {
     let s = style()
-        .direction(Direction::Row)
-        .grow(1)
-        .basis(0)
-        .shrink(0)
+        .flex_direction(FlexDirection::Row)
+        .flex_grow(1)
+        .flex_basis(0)
+        .flex_shrink(0)
         .min_width(0)
         .min_height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
         .border_bottom(1, kivact_core::style::color::BORDER);
     if matches!(state.sorting, HeaderSort::Unsortable) {
@@ -73,7 +73,7 @@ pub(crate) fn header(t: &Theme, state: &TableHeaderState) -> Style {
 /// height and accent are the caller's when given.
 pub(crate) fn row(t: &Theme, state: &DataTableRowState) -> Style {
     let s = style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_height(
             state
@@ -96,10 +96,10 @@ pub(crate) fn row(t: &Theme, state: &DataTableRowState) -> Style {
 /// A body cell, sharing the width with the column's header.
 pub(crate) fn cell(t: &Theme, state: &DataTableCellState) -> Style {
     let s = style()
-        .direction(Direction::Row)
-        .grow(1)
-        .basis(0)
-        .shrink(0)
+        .flex_direction(FlexDirection::Row)
+        .flex_grow(1)
+        .flex_basis(0)
+        .flex_shrink(0)
         .min_width(0)
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .align_items(Align::Center);
@@ -113,9 +113,9 @@ pub(crate) fn cell(t: &Theme, state: &DataTableCellState) -> Style {
 /// The box around a check box, as wide as the check column.
 pub(crate) fn check(t: &Theme, _: &DataTableCheckState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
-        .shrink(0)
+        .flex_shrink(0)
         .width(40)
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
 }
@@ -128,9 +128,9 @@ pub(crate) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
         HeaderSort::Sorted { direction, .. } => Some(direction),
         _ => None,
     };
-    let s = style().size(12, 12).shrink(0);
+    let s = style().size(12, 12).flex_shrink(0);
     if matches!(state.sorting, HeaderSort::Unsortable) {
-        return style().size(0, 0).shrink(0);
+        return style().size(0, 0).flex_shrink(0);
     }
     s.paint(move |d, size| {
         use kivact_interaction::SortOrder;
@@ -164,7 +164,7 @@ pub(crate) fn sort(_: &Theme, state: &TableHeaderState) -> Style {
 /// The pager: its summary and buttons in a row.
 pub(crate) fn page(t: &Theme, _: &DataTablePageState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
 }

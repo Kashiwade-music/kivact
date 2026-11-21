@@ -284,7 +284,7 @@ impl Theme {
     /// [`color::FOCUS`](crate::color::FOCUS) while it has
     /// visible focus, unless its style has a focus look of its own (a
     /// `focus` or `focus_visible` state;
-    /// `style().focus_visible(style().ring_none())` draws none).
+    /// `style().focus_visible(style().outline_none())` draws none).
     pub fn focus_ring(&self) -> f64 {
         self.0.focus_ring
     }

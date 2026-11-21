@@ -2,18 +2,18 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::ListItemState;
 /// An item: its icon beside its label, the whole row marked while it is
 /// selected.
 pub(crate) fn list_item(t: &Theme, _: &ListItemState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .min_height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .color(kivact_core::style::color::TEXT)
         .hover(style().background(kivact_core::style::color::HOVER))
         .selected(style().background(kivact_core::style::color::SELECTION))

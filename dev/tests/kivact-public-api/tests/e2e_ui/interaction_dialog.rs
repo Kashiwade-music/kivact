@@ -21,7 +21,7 @@ fn button(name: &'static str) -> Node {
         .name(name)
         .focusable(true)
         .test_id(name)
-        .style(style().size(100, 30).shrink(0))
+        .style(style().size(100, 30).flex_shrink(0))
         .child(text(name))
 }
 
@@ -62,7 +62,7 @@ fn framed<B: IntoView, F: IntoView>(
         let content = node().child(body());
         let content = match kind {
             DialogMode::Drawer(_) => scroll(content)
-                .style(style().grow(1).min_height(0))
+                .style(style().flex_grow(1).min_height(0))
                 .into_view(),
             _ => content.into_view(),
         };

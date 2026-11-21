@@ -2,7 +2,7 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, Style, Theme, pct, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
 use kivact_interaction::Tone;
 pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
     let color = match s.tone {
@@ -13,10 +13,10 @@ pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
         Tone::Danger => kivact_core::style::color::DANGER,
     };
     let base = style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .padding(t.get(&kivact_core::style::space::MD_VAR))
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .border(1, color)
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
@@ -30,7 +30,7 @@ pub(crate) fn alert_root(t: &Theme, s: &Look<AlertState>) -> Style {
 
 pub(crate) fn alert_title(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
 }
 
@@ -41,19 +41,19 @@ pub(crate) fn alert_description(t: &Theme, _: &Look<AlertState>) -> Style {
 }
 
 pub(crate) fn alert_icon(_: &Theme, _: &Look<AlertState>) -> Style {
-    style().shrink(0)
+    style().flex_shrink(0)
 }
 
 pub(crate) fn alert_actions(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
 pub(crate) fn alert_content(t: &Theme, _: &Look<AlertState>) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 

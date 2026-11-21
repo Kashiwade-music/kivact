@@ -384,7 +384,7 @@ impl Dialog {
             });
             if matches!(kind, DialogMode::Drawer(_)) {
                 scroll(content)
-                    .style(style().grow(1).min_height(0))
+                    .style(style().flex_grow(1).min_height(0))
                     .into_view()
             } else {
                 content.into_view()

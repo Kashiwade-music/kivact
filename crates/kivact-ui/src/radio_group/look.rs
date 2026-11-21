@@ -5,16 +5,16 @@ use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::toggle::look::CheckableState;
 use crate::variants::Variant;
-use kivact_core::style::{Align, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::Orientation;
 pub(crate) fn group(t: &Theme, look: &Look<Orientation>) -> Style {
     if look.variant::<RadioGroupVariant>() == Some(&RadioGroupVariant::Segmented) {
         style()
-            .direction(Direction::Row)
+            .flex_direction(FlexDirection::Row)
             .gap(0)
             .padding(2)
             .background(kivact_core::style::color::SURFACE_ALT)
-            .radius(t.get(&kivact_core::style::radius::SM_VAR))
+            .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
     } else {
         radio_group(t, look)
     }
@@ -50,18 +50,18 @@ pub(crate) fn indicator(t: &Theme, look: &Look<CheckableState>) -> Style {
 pub(crate) fn radio_group(t: &Theme, orientation: &Orientation) -> Style {
     let s = style().gap(t.get(&kivact_core::style::space::MD_VAR));
     match orientation {
-        Orientation::Vertical => s.direction(Direction::Column),
-        _ => s.direction(Direction::Row).wrap(true),
+        Orientation::Vertical => s.flex_direction(FlexDirection::Column),
+        _ => s.flex_direction(FlexDirection::Row).flex_wrap(true),
     }
 }
 
 /// An option: its indicator beside its label.
 pub(crate) fn radio_item(t: &Theme, state: &CheckableState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .font_size(match state.size {
             ControlSize::ExtraSmall | ControlSize::Small => {
                 t.get(&kivact_core::style::font::SIZE_SMALL_VAR)
@@ -76,9 +76,9 @@ pub(crate) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
     let side = (t.get(&kivact_core::style::font::SIZE_VAR) + 2.0).round();
     let s = style()
         .size(side, side)
-        .shrink(0)
-        .radius(side / 2.0)
-        .direction(Direction::Row)
+        .flex_shrink(0)
+        .border_radius(side / 2.0)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .background(kivact_core::style::color::SURFACE);

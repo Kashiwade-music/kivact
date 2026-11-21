@@ -311,7 +311,7 @@ impl Path {
     /// ```
     /// use kivact::draw::{Path};
     /// use kivact::geometry::Rect;
-    /// use kivact::draw::Transform;
+    /// use kivact::style::Transform;
     /// let square = Path::new().rect(Rect::new(0.0, 0.0, 10.0, 10.0));
     /// let moved = square.transformed(Transform::new().translate(5, 7).scale(2));
     /// assert_eq!(moved.bounds(), Some(Rect::new(5.0, 7.0, 20.0, 20.0)));

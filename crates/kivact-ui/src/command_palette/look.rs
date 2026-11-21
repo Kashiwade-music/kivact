@@ -2,8 +2,8 @@
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
-use kivact_core::draw::Shadow;
-use kivact_core::style::{Align, Direction, Position, Style, Theme, pct, style};
+use kivact_core::style::Shadow;
+use kivact_core::style::{Align, FlexDirection, Position, Style, Theme, pct, style};
 use kivact_interaction::{ListItemState, PopupState};
 /// The layer that covers the window behind the modal.
 pub(crate) fn scrim(_: &Theme, _: &PartState) -> Style {
@@ -16,13 +16,13 @@ pub(crate) fn scrim(_: &Theme, _: &PartState) -> Style {
 /// The modal's panel: the search over the list.
 pub(crate) fn panel(t: &Theme, _: &PopupState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .width(560)
         .max_width(pct(95))
         .background(kivact_core::style::color::RAISED)
         .color(kivact_core::style::color::TEXT)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::LG_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::LG_VAR))
         .shadow(Shadow::new(0, 10, 30, kivact_core::style::color::SHADOW))
         .clip(true)
 }
@@ -30,7 +30,7 @@ pub(crate) fn panel(t: &Theme, _: &PopupState) -> Style {
 /// The row of the magnifier and the search field.
 pub(crate) fn search(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .padding_x(t.get(&kivact_core::style::space::LG_VAR))
@@ -42,14 +42,14 @@ pub(crate) fn search(t: &Theme, _: &PartState) -> Style {
 pub(crate) fn search_icon(_: &Theme, _: &PartState) -> Style {
     style()
         .size(16, 16)
-        .shrink(0)
+        .flex_shrink(0)
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The search field itself, without a box of its own.
 pub(crate) fn field(_: &Theme, _: &PartState) -> Style {
     style()
-        .grow(1)
+        .flex_grow(1)
         .min_width(0)
         .border_width(0)
         .background(kivact_core::style::Color::TRANSPARENT)
@@ -58,7 +58,7 @@ pub(crate) fn field(_: &Theme, _: &PartState) -> Style {
 /// The scrolling list of rows.
 pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .max_height(320)
         .padding(t.get(&kivact_core::style::space::SM_VAR))
 }
@@ -75,12 +75,12 @@ pub(crate) fn group(t: &Theme, _: &PartState) -> Style {
 /// A command's row, marked while it is the active one.
 pub(crate) fn row(t: &Theme, state: &ListItemState) -> Style {
     let s = style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .min_height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .color(kivact_core::style::color::TEXT)
         // A row is never a focus stop (the field keeps the focus), so a
         // disabled one takes the theme's opacity here.
@@ -97,14 +97,14 @@ pub(crate) fn row(t: &Theme, state: &ListItemState) -> Style {
 pub(crate) fn icon(_: &Theme, _: &ListItemState) -> Style {
     style()
         .size(16, 16)
-        .shrink(0)
+        .flex_shrink(0)
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The hint at the end of a row, such as its shortcut.
 pub(crate) fn hint(t: &Theme, _: &ListItemState) -> Style {
     style()
-        .shrink(0)
+        .flex_shrink(0)
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
 }
@@ -119,7 +119,7 @@ pub(crate) fn empty(t: &Theme, _: &PartState) -> Style {
 /// The line under the list.
 pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .padding_x(t.get(&kivact_core::style::space::LG_VAR))
         .padding_y(t.get(&kivact_core::style::space::MD_VAR))

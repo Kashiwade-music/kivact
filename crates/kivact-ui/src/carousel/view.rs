@@ -3,7 +3,7 @@
 use crate::carousel::look::CarouselSurfaceState;
 use kivact_core::geometry::Point;
 use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
-use kivact_core::style::{Direction, Overflow, pct, style};
+use kivact_core::style::{FlexDirection, Overflow, pct, style};
 use kivact_core::view::{
     Element, Handled, IntoChildren, IntoView, Key, Node, Orientation, ReadingDirection, Role,
     ScrollBehavior, View, node, node_ref, use_direction,
@@ -394,9 +394,9 @@ fn slide_items(
             })
             .style(move || {
                 style()
-                    .grow(0)
-                    .shrink(0)
-                    .basis(
+                    .flex_grow(0)
+                    .flex_shrink(0)
+                    .flex_basis(
                         if c.mode == CarouselMode::Translate || c.per_view.is_some() {
                             pct(100.0 / c.visible()) - c.gap() * (c.visible() - 1.0) / c.visible()
                         } else {
@@ -421,12 +421,12 @@ fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>
     )
     .node_ref(c.track)
     .style(move || {
-        let mut s = style().direction(if c.vertical.get() {
-            Direction::Column
+        let mut s = style().flex_direction(if c.vertical.get() {
+            FlexDirection::Column
         } else if c.rtl == ReadingDirection::Rtl {
-            Direction::RowReverse
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         });
         if let Some(gap) = c.gap {
             s = s.gap(gap.get());
@@ -525,7 +525,7 @@ fn edge_mask(
     }
     let start = c.looping || overflow.0 > 1.0;
     let end = c.looping || overflow.0 < overflow.1 - 1.0;
-    let mask = kivact_core::draw::linear_gradient(if c.vertical.get() { 180 } else { 90 })
+    let mask = kivact_core::style::linear_gradient(if c.vertical.get() { 180 } else { 90 })
         .stop(
             if start {
                 kivact_core::style::Color::TRANSPARENT

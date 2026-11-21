@@ -56,7 +56,7 @@
 //!   features are replaced, the kerning feature is rebuilt from the span's
 //!   or the paragraph's kerning. Inline boxes inside a paragraph are not
 //!   supported.
-//! - `Draw`'s `TextStyle` has the same vocabulary. A run with no line
+//! - `Draw`'s `TextFormat` has the same vocabulary. A run with no line
 //!   height takes the ancestor's, else the theme's; `TextRun`,
 //!   `Draw::measure_text` and `Constraints::measure_text` follow the same
 //!   rule, so their height matches a text node's. `measure_text` shapes the

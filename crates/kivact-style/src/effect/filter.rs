@@ -42,7 +42,7 @@ pub(crate) enum FilterFn {
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{rgba};
-/// use kivact::draw::Filter;
+/// use kivact::style::Filter;
 /// // CSS `filter: brightness(1.12) drop-shadow(0 0 4px rgba(90,169,255,.5))`
 /// let s = style().filter(
 ///     Filter::new()

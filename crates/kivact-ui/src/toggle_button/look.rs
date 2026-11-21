@@ -3,13 +3,13 @@ use crate::look_common::{font_size, gap, height};
 
 use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
-use kivact_core::style::{Align, Color, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, Color, FlexDirection, Justify, Style, Theme, style};
 /// The toggle button recipe: a row of an optional icon and the label,
 /// filled with the theme's pressed color while it is on.
 pub(crate) fn toggle_button(theme: &Theme, state: &ToggleButtonState) -> Style {
     let size = state.size;
     let s = style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .gap(gap(theme, size))
@@ -22,13 +22,13 @@ pub(crate) fn toggle_button(theme: &Theme, state: &ToggleButtonState) -> Style {
                 theme.get(&kivact_core::style::space::LG_VAR)
             }
         })
-        .radius(theme.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(theme.get(&kivact_core::style::radius::MD_VAR))
         .font_size(font_size(theme, size))
-        .weight(theme.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(theme.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .border(1, Color::TRANSPARENT)
         .color(kivact_core::style::color::TEXT)
         .hover(style().background(kivact_core::style::color::HOVER))
-        .pressed(style().background(kivact_core::style::color::PRESSED));
+        .active(style().background(kivact_core::style::color::PRESSED));
     let s = if state.is_icon_only() {
         s.width(height(theme, size)).padding_x(0)
     } else {

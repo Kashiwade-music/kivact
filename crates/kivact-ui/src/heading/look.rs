@@ -13,7 +13,7 @@ pub(crate) fn heading(t: &Theme, s: &Look<HeadingState>) -> Style {
     };
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR) * scale)
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 

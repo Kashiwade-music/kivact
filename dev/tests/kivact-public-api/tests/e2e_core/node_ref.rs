@@ -20,7 +20,7 @@ fn scroll_state_follows_the_scroll_position() {
         (
             (target, state, height, shown, axes),
             show(shown, move || {
-                scroll(node().style(move || style().width(400).height(height.get()).shrink(0)))
+                scroll(node().style(move || style().width(400).height(height.get()).flex_shrink(0)))
                     .node_ref(target)
                     .axes(axes)
                     .style(style().size(200, 100))
@@ -149,7 +149,7 @@ fn rect_called_after_binding_follows_the_node() {
             (target, width),
             node()
                 .node_ref(target)
-                .style(move || style().width(width.get()).height(40).shrink(0)),
+                .style(move || style().width(width.get()).height(40).flex_shrink(0)),
         )
     });
     // Bound at mount, before anything read its geometry.

@@ -2,11 +2,11 @@
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 pub(crate) fn root<S>(t: &Theme, _: &Look<S>) -> Style {
     let p = &t.ext::<crate::tokens::UiTokens>().pagination;
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(p.gap)
         .padding(p.padding)
@@ -21,7 +21,7 @@ pub(crate) fn pagination_item(t: &Theme, s: &Look<PaginationItemState>) -> Style
         } else {
             t.get(&kivact_core::style::color::TEXT_MUTED_VAR)
         })
-        .weight(if s.current { 600 } else { 400 })
+        .font_weight(if s.current { 600 } else { 400 })
 }
 
 pub(crate) fn pagination_wrapper(_: &Theme, _: &Look<PaginationSummary>) -> Style {

@@ -9,7 +9,7 @@ use kivact_macros::Prop;
 pub(crate) fn author(t: &Theme, _: &Look<ChatMessageState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT)
 }
 
@@ -38,7 +38,7 @@ pub(crate) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
     };
     let base = if s.actionable {
         base.cursor(kivact_core::style::Cursor::Pointer)
-            .focus_visible(style().ring(t.focus_ring(), kivact_core::style::color::ACCENT))
+            .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::ACCENT))
     } else {
         base
     };
@@ -46,7 +46,7 @@ pub(crate) fn message_body(t: &Theme, s: &Look<ChatMessageState>) -> Style {
         base
     } else {
         base.padding(t.get(&kivact_core::style::space::MD_VAR))
-            .radius_corners(
+            .border_radius_corners(
                 if matches!(s.group, ChatBubbleGroup::Middle | ChatBubbleGroup::Last) {
                     0.0
                 } else {
@@ -77,7 +77,7 @@ pub(crate) fn reactions(_: &Theme, s: &Look<ChatMessageState>) -> Style {
         .position(kivact_core::style::Position::Absolute)
         .right(12)
         .background(kivact_core::style::color::SURFACE_ALT)
-        .radius(999)
+        .border_radius(999)
         .padding_x(6)
         .padding_y(2);
     match s.reactions_side {

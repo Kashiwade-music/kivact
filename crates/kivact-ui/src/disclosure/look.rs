@@ -1,33 +1,33 @@
 //! Role: The disclosure recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
-use kivact_core::style::{Align, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 /// A disclosure: the trigger over the content.
 pub(crate) fn disclosure_root(_: &Theme, _: &DisclosureRecipeState) -> Style {
-    style().direction(Direction::Column)
+    style().flex_direction(FlexDirection::Column)
 }
 
 /// A disclosure's trigger: the title at the start and the indicator at the end.
 pub(crate) fn disclosure_trigger(t: &Theme, _: &DisclosureRecipeState) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(Justify::SpaceBetween)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .padding_y(t.get(&kivact_core::style::space::MD_VAR))
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
         .color(kivact_core::style::color::TEXT)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .hover(style().background(kivact_core::style::color::HOVER))
-        .pressed(style().background(kivact_core::style::color::PRESSED))
+        .active(style().background(kivact_core::style::color::PRESSED))
 }
 
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
 pub(crate) fn disclosure_indicator(_: &Theme, state: &DisclosureRecipeState) -> Style {
     style()
         .size(16, 16)
-        .shrink(0)
+        .flex_shrink(0)
         .color(kivact_core::style::color::TEXT_MUTED)
         .rotate(if state.open { 180 } else { 0 })
 }
@@ -37,7 +37,7 @@ pub(crate) fn disclosure_content(t: &Theme, _: &DisclosureRecipeState) -> Style 
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .padding_bottom(t.get(&kivact_core::style::space::MD_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
 }

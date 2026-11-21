@@ -247,7 +247,9 @@ fn toast(
             .node_ref(card_ref)
             .part(part)
             .child(icon)
-            .child(column((title, body)).style(kivact_core::style::style().grow(1).min_width(0)))
+            .child(
+                column((title, body)).style(kivact_core::style::style().flex_grow(1).min_width(0)),
+            )
             .child(action)
             .child(close),
         |r| r.toast_recipes().toast_recipe(),

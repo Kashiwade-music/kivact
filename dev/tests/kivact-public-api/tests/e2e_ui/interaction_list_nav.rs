@@ -87,7 +87,7 @@ fn mount_list_kind(
                     .name(name)
                     .selected(move || nav.selected().with(|keys| keys.contains(&name)))
                     .child(text(name))
-                    .style(style().height(24).shrink(0)))
+                    .style(style().height(24).flex_shrink(0)))
                 .part(nav.item(name))
                 .role(Role::Option)
             },

@@ -10,7 +10,7 @@ pub(crate) fn badge(t: &Theme, s: &BadgeState) -> Style {
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .padding_x(t.get(&kivact_core::style::space::SM_VAR))
         .min_height(20)
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
         .font_size(12)

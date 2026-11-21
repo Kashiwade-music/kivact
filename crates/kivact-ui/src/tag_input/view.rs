@@ -279,7 +279,7 @@ fn chip_row(chips: impl IntoView) -> impl IntoView {
         style()
             .grid_row(1)
             .grid_column(1)
-            .wrap(true)
+            .flex_wrap(true)
             .min_width(0)
             .gap(use_theme().get().get(&kivact_core::style::space::SM_VAR))
             .align_items(Align::Center)

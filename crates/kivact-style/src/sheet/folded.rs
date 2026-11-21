@@ -2,7 +2,7 @@
 
 use kivact_runtime::Transition;
 use kivact_types::{
-    Align, BackfaceVisibility, Cursor, FlexDirection as Direction, Isolation, Justify, Overflow,
+    Align, BackfaceVisibility, Cursor, FlexDirection, FontStyle, Isolation, Justify, Overflow,
     Position, ScrollAxes, StyleState, TextAlign, TransformStyle, TransitionProp, WillChange,
 };
 
@@ -52,7 +52,7 @@ pub(crate) struct SpacingFields {
 /// The flow properties of a folded style: flex, grid, position and overflow.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct FlowFields {
-    pub(crate) direction: Option<Direction>,
+    pub(crate) direction: Option<FlexDirection>,
     pub(crate) align: Option<Align>,
     pub(crate) align_self: Option<Align>,
     pub(crate) justify: Option<Justify>,
@@ -195,11 +195,9 @@ pub(crate) struct MotionFields {
 /// Overlay scrollbar width.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub enum ScrollbarWidth {
-    /// Thin default (6 logical pixels).
+    /// The default (6 logical pixels).
     #[default]
     Auto,
-    /// Thin (6 logical pixels).
-    Thin,
     /// Hidden; scrolling still works.
     None,
     /// Explicit logical pixel width.
@@ -331,10 +329,10 @@ impl Groups {
             Decl::BorderRightStyle(v) => p.border_style[1] = Some(*v),
             Decl::BorderBottomStyle(v) => p.border_style[2] = Some(*v),
             Decl::BorderLeftStyle(v) => p.border_style[3] = Some(*v),
-            Decl::RadiusTopLeft(v) => p.radius[0] = Some(**v),
-            Decl::RadiusTopRight(v) => p.radius[1] = Some(**v),
-            Decl::RadiusBottomRight(v) => p.radius[2] = Some(**v),
-            Decl::RadiusBottomLeft(v) => p.radius[3] = Some(**v),
+            Decl::BorderTopLeftRadius(v) => p.radius[0] = Some(**v),
+            Decl::BorderTopRightRadius(v) => p.radius[1] = Some(**v),
+            Decl::BorderBottomRightRadius(v) => p.radius[2] = Some(**v),
+            Decl::BorderBottomLeftRadius(v) => p.radius[3] = Some(**v),
             _ => apply_paint_rest(p, d),
         }
     }
@@ -388,9 +386,9 @@ impl Groups {
 /// the paint group (rings, effects, scrollbars, shadows, the callback).
 fn apply_paint_rest(p: &mut PaintFields, d: &Decl) {
     match d {
-        Decl::RingWidth(v) => p.ring_width = Some(*v),
-        Decl::RingOffset(v) => p.ring_offset = Some(*v),
-        Decl::RingColor(v) => p.ring_color = Some(*v),
+        Decl::OutlineWidth(v) => p.ring_width = Some(*v),
+        Decl::OutlineOffset(v) => p.ring_offset = Some(*v),
+        Decl::OutlineColor(v) => p.ring_color = Some(*v),
         Decl::Opacity(v) => p.opacity = Some(*v),
         Decl::Isolation(v) => p.isolation = Some(*v),
         Decl::BorderImage(v) => p.border_image = Some(v.clone()),
@@ -452,7 +450,7 @@ fn apply_text(t: &mut TextFields, d: &Decl) {
         Decl::TextWrap(v) => t.text_wrap = Some(*v),
         Decl::TextAlign(v) => t.text_align = Some(*v),
         Decl::FontFamily(v) => t.font_family = Some(v.clone()),
-        Decl::Italic(v) => t.italic = Some(*v),
+        Decl::FontStyle(v) => t.italic = Some(*v == FontStyle::Italic),
         _ => apply_text_extras(t.text.get_or_insert_with(Default::default), d),
     }
 }

@@ -201,8 +201,11 @@ impl IntoView for TableCell {
                         _ => Justify::Start,
                     });
                 match width {
-                    Some(width) => s.width(width.get()).shrink(0),
-                    None => s.grow(span.get().max(1) as f64).basis(0).shrink(1),
+                    Some(width) => s.width(width.get()).flex_shrink(0),
+                    None => s
+                        .flex_grow(span.get().max(1) as f64)
+                        .flex_basis(0)
+                        .flex_shrink(1),
                 }
             })
             .into_view()

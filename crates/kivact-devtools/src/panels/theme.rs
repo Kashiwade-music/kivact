@@ -31,7 +31,7 @@ pub(crate) fn view(session: Session) -> impl IntoView {
         .style(style().gap(2))
         .into_view(),
     }))
-    .style(style().grow(1.0).min_height(0.0))
+    .style(style().flex_grow(1.0).min_height(0.0))
 }
 
 /// One token row; color tokens get the color input.

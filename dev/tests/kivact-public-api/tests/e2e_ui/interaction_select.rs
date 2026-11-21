@@ -71,7 +71,7 @@ fn select_view<K: ItemKey>(
                     let selected = part.state();
                     node()
                         .part(part)
-                        .style(style().height(28).shrink(0).padding_x(8).gap(8))
+                        .style(style().height(28).flex_shrink(0).padding_x(8).gap(8))
                         .child(dynamic(memo(move || selected.get().selected), |chosen| {
                             chosen.then(|| text("\u{2713}"))
                         }))
@@ -315,7 +315,7 @@ fn a_preview_given_after_the_content_part_is_reported() {
                     let key = option.with(|option| *option.key());
                     node()
                         .part(api.item(key))
-                        .style(style().height(28).shrink(0))
+                        .style(style().height(28).flex_shrink(0))
                         .child(text(move || option.with(|option| option.label())))
                 },
             );

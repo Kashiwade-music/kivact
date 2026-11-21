@@ -11,7 +11,7 @@ use crate::color_value::Color;
 /// ```
 /// use kivact::prelude::*;
 /// use kivact::style::{Color, rgba};
-/// use kivact::draw::linear_gradient;
+/// use kivact::style::linear_gradient;
 /// // CSS `background: linear-gradient(#0002 1px, transparent 1px) 0 0 / 24px 24px,
 /// //      linear-gradient(90deg, #0002 1px, transparent 1px) 0 0 / 24px 24px, white`
 /// let line = rgba(0x000000, 0.12);

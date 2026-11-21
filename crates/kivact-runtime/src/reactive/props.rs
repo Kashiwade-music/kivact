@@ -436,6 +436,7 @@ constant_value!(
     kivact_types::TextAlign,
     kivact_types::Align,
     kivact_types::FlexDirection,
+    kivact_types::FontStyle,
     kivact_types::Justify,
     kivact_types::Asset,
     kivact_types::Pixels,

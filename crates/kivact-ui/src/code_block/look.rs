@@ -4,11 +4,11 @@ use crate::look_common::{column, row};
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, LineHeight, Style, Theme, pct, style};
+use kivact_core::style::{Align, FlexDirection, LineHeight, Style, Theme, pct, style};
 pub(crate) fn code_root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     column(t, s)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
 }
@@ -19,7 +19,7 @@ pub(crate) fn code_header(t: &Theme, s: &Look<CodeBlockState>) -> Style {
 
 pub(crate) fn code_body(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     row(t, s)
-        .direction(Direction::RowReverse)
+        .flex_direction(FlexDirection::RowReverse)
         .align_items(Align::Start)
         .min_width(pct(100))
 }
@@ -36,14 +36,14 @@ pub(crate) fn code_text(t: &Theme, s: &Look<CodeBlockState>) -> Style {
         .font_size(metrics.font_size)
         .line_height(LineHeight::px(metrics.line_height))
         .text_wrap(s.wrapped)
-        .grow(1)
+        .flex_grow(1)
         .min_width(0)
 }
 
 pub(crate) fn code_gutter(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     code_text(t, s)
-        .grow(0)
-        .shrink(0)
+        .flex_grow(0)
+        .flex_shrink(0)
         .min_width(24)
         .text_wrap(false)
         .color(kivact_core::style::color::TEXT_MUTED)

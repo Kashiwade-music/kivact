@@ -2,12 +2,12 @@
 
 use crate::recipe::recipe_table;
 use crate::tokens::UiTokens;
-use kivact_core::style::{Align, BorderStyle, Direction, Style, Theme, style};
+use kivact_core::style::{Align, BorderStyle, FlexDirection, Style, Theme, style};
 use kivact_interaction::DropzoneState;
 pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {
     let tokens = t.ext::<UiTokens>();
     let base = style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .align_items(Align::Center)
         .gap(6)
         .padding(tokens.dropzone.padding.unwrap_or(16.0))
@@ -25,7 +25,7 @@ pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {
 }
 
 pub(crate) fn dropzone_label(_: &Theme, _: &DropzoneState) -> Style {
-    style().weight(600)
+    style().font_weight(600)
 }
 
 pub(crate) fn dropzone_hint(_: &Theme, _: &DropzoneState) -> Style {

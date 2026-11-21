@@ -223,7 +223,7 @@ impl IntoView for ButtonGroupMember {
                 } else {
                     t.button_group.divider
                 };
-                let base = style().pressed(style().scale(1));
+                let base = style().active(style().scale(1));
                 let Some(position) =
                     try_use_context::<GroupPosition>().map(|position| position.0.get())
                 else {
@@ -240,7 +240,7 @@ impl IntoView for ButtonGroupMember {
                 } else {
                     (first, last, last, first)
                 };
-                let base = base.radius_corners(tl, tr, br, bl);
+                let base = base.border_radius_corners(tl, tr, br, bl);
                 if position.first {
                     base
                 } else if vertical {

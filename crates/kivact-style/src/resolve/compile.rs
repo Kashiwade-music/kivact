@@ -10,7 +10,7 @@ use super::describe::nested_in_states;
 use super::paint::{border_widths, paint, paint_delta, paint_transitions, reports};
 use crate::draw::LocalPaint;
 use crate::sheet::{
-    Decl, Direction, Groups, Position, PropClass, Sides, SizeFields, SpacingFields, Style,
+    Decl, FlexDirection, Groups, Position, PropClass, Sides, SizeFields, SpacingFields, Style,
     TextFields,
 };
 use crate::theme::value::Theme;
@@ -170,7 +170,7 @@ fn layout(g: &Groups, cx: &mut Resolve<'_>) -> LayoutProps {
             .iter()
             .find(|(p, _)| *p == crate::sheet::TransitionProp::Size)
             .map(|(_, t)| t.clone()),
-        direction: flow.direction.unwrap_or(Direction::Column),
+        direction: flow.direction.unwrap_or(FlexDirection::Column),
         align_items: flow.align,
         align_self: flow.align_self,
         justify: flow.justify,
@@ -305,11 +305,9 @@ fn interactive_defaults(s: &mut Style, theme: &Theme, disabled: bool) {
     let has_focus =
         s.state(StyleState::Focus).is_some() || s.state(StyleState::FocusVisible).is_some();
     if !has_focus {
-        let ring = Style::default().ring_with_offset(
-            theme.focus_ring(),
-            theme.focus_ring_offset(),
-            crate::color::FOCUS,
-        );
+        let ring = Style::default()
+            .outline(theme.focus_ring(), crate::color::FOCUS)
+            .outline_offset(theme.focus_ring_offset());
         *s = std::mem::take(s).focus_visible(ring);
     }
     let sets_opacity = s
@@ -581,7 +579,7 @@ mod tests {
     fn a_paint_position_that_is_auto_is_counted() {
         // Each corner takes an x and a y radius: four corners, two lengths each.
         let compiled = compile_style(
-            style().radius(Length::Auto),
+            style().border_radius(Length::Auto),
             &Theme::light(),
             Interactive::default(),
         );

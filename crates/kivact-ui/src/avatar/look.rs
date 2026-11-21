@@ -8,7 +8,7 @@ use kivact_macros::Prop;
 pub(crate) fn avatar(t: &Theme, s: &AvatarState) -> Style {
     style()
         .size(side(s.size), side(s.size))
-        .radius(match s.shape {
+        .border_radius(match s.shape {
             AvatarShape::Circle => 999.0,
             AvatarShape::Rounded => t.get(&kivact_core::style::radius::MD_VAR),
             AvatarShape::Square => 0.0,
@@ -26,7 +26,7 @@ pub(crate) fn avatar_image(t: &Theme, s: &AvatarState) -> Style {
         .clip(true)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
-        .radius(match s.shape {
+        .border_radius(match s.shape {
             AvatarShape::Circle => 999.0,
             AvatarShape::Rounded => t.get(&kivact_core::style::radius::MD_VAR),
             AvatarShape::Square => 0.0,
@@ -39,7 +39,7 @@ pub(crate) fn avatar_status(_: &Theme, s: &AvatarState) -> Style {
         .right(0)
         .bottom(0)
         .size(8, 8)
-        .radius(999)
+        .border_radius(999)
         .background(tone(s.status.unwrap_or_default()))
 }
 

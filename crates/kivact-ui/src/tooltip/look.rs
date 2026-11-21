@@ -9,7 +9,7 @@ pub(crate) fn tooltip(t: &Theme, _: &PopupState) -> Style {
         .padding_y(4)
         .background(kivact_core::style::color::SURFACE)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::SM_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::SM_VAR))
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
 }
 

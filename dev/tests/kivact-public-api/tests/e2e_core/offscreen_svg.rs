@@ -8,12 +8,11 @@
 //! They compare no pixels of the document (Q-01).
 
 use kivact::ErrorKind;
-use kivact::draw::{
-    Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat, Transform, linear_gradient,
-};
+use kivact::draw::{Composite, Draw, ImageOptions, Layer, Offscreen, Pixels, TextFormat};
 use kivact::geometry::{Point, Rect, Size};
 use kivact::style::FontFamily;
 use kivact::style::{Color, Theme, rgb};
+use kivact::style::{Transform, linear_gradient};
 use std::cell::Cell;
 
 static TUFFY: &[u8] = include_bytes!("../../../../../crates/arvane/assets/fonts/Tuffy.ttf");

@@ -244,7 +244,7 @@ fn radius_is_corrected_while_scaling() {
         let moving = node().test_id("moving").style(move || {
             style()
                 .size(if big.get() { 200 } else { 100 }, 100)
-                .radius(RADIUS)
+                .border_radius(RADIUS)
                 .background(rgb(0xff0000))
                 .layout_transition(motion())
         });
@@ -305,7 +305,7 @@ fn reference_corner(width: f64, radius: f64) -> Screenshot {
             node().style(
                 style()
                     .size(width, 100)
-                    .radius(radius)
+                    .border_radius(radius)
                     .background(rgb(0xff0000)),
             ),
         )

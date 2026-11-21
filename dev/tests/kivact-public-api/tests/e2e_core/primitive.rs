@@ -49,7 +49,7 @@ fn a_primitive_is_laid_out_at_its_measured_size_and_new_content_relayouts() {
                 .test_id("cells"),
             node()
                 .test_id("after")
-                .style(style().size(10, 10).shrink(0.0)),
+                .style(style().size(10, 10).flex_shrink(0.0)),
         ))
         .style(style().align_items(Align::Start));
         ((n, tint), view)

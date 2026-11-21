@@ -3,8 +3,8 @@
 use crate::control_size::ControlSize;
 use crate::variants::Look;
 use kivact_core::custom::PartState;
-use kivact_core::draw::Shadow;
-use kivact_core::style::{Align, Color, Direction, Style, Theme, style};
+use kivact_core::style::Shadow;
+use kivact_core::style::{Align, Color, FlexDirection, Style, Theme, style};
 use kivact_interaction::PopupState;
 /// The font size of a control.
 pub(crate) fn font_size(theme: &Theme, size: ControlSize) -> f64 {
@@ -48,19 +48,19 @@ pub(crate) fn flat(_: &Theme) -> Style {
         .focus(
             style()
                 .border_color(Color::TRANSPARENT)
-                .ring(0, Color::TRANSPARENT),
+                .outline(0, Color::TRANSPARENT),
         )
 }
 
 pub(crate) fn trigger(t: &Theme) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(t.get(&kivact_core::style::space::MD_VAR))
         .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .background(kivact_core::style::color::SURFACE)
 }
 
@@ -69,7 +69,7 @@ pub(crate) fn surface(t: &Theme, _: &PopupState) -> Style {
         .padding(4)
         .background(kivact_core::style::color::SURFACE)
         .border(1, kivact_core::style::color::BORDER)
-        .radius(t.get(&kivact_core::style::radius::MD_VAR))
+        .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
         .min_width(160)
         .max_height(320)
 }
@@ -84,22 +84,22 @@ pub(crate) fn description(t: &Theme) -> Style {
 /// The box of a mark icon, centred.
 pub(crate) fn mark() -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .justify_content(kivact_core::style::Justify::Center)
-        .shrink(0)
+        .flex_shrink(0)
 }
 
 /// The items in a column.
 pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::XS_VAR))
 }
 
 pub(crate) fn part<S>(_: &Theme, _: &Look<S>) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .gap(4)
 }
@@ -127,14 +127,14 @@ pub(crate) fn tone(tone: kivact_interaction::Tone) -> Color {
 
 pub(crate) fn column<S>(t: &Theme, _: &Look<S>) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .min_width(0)
 }
 
 pub(crate) fn row<S>(t: &Theme, _: &Look<S>) -> Style {
     style()
-        .direction(Direction::Row)
+        .flex_direction(FlexDirection::Row)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .align_items(Align::Center)
         .min_width(0)

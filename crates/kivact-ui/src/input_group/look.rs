@@ -3,11 +3,11 @@
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::variants::Look;
-use kivact_core::style::{Align, Direction, Justify, Style, Theme, style};
+use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 use kivact_core::view::ReadingDirection;
 pub(crate) fn group_root(t: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
-        .direction(Direction::Column)
+        .flex_direction(FlexDirection::Column)
         .gap(t.get(&kivact_core::style::space::SM_VAR))
         .min_width(0)
 }
@@ -15,15 +15,15 @@ pub(crate) fn group_root(t: &Theme, _: &Look<InputGroupState>) -> Style {
 pub(crate) fn group_label(t: &Theme, _: &Look<InputGroupState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
-        .weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
+        .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
 pub(crate) fn group_members(_: &Theme, s: &Look<InputGroupState>) -> Style {
     style()
-        .direction(if s.direction == kivact_core::view::ReadingDirection::Rtl {
-            Direction::RowReverse
+        .flex_direction(if s.direction == kivact_core::view::ReadingDirection::Rtl {
+            FlexDirection::RowReverse
         } else {
-            Direction::Row
+            FlexDirection::Row
         })
         .align_items(Align::Stretch)
         .min_width(0)
@@ -51,7 +51,7 @@ pub(crate) fn group_member(t: &Theme, s: &Look<InputGroupMemberState>) -> Style 
     let radius = t.get(&kivact_core::style::radius::MD_VAR);
     let base = style()
         .height(crate::look_common::height(t, s.group.size))
-        .radius_corners(
+        .border_radius_corners(
             if left { radius } else { 0.0 },
             if right { radius } else { 0.0 },
             if right { radius } else { 0.0 },

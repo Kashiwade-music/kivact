@@ -453,6 +453,6 @@ pub fn icon(icon: impl IntoValue<kivact_style::Icon>) -> Node {
             .size(16, 16)
             .max_width(kivact_style::pct(100))
             .max_height(kivact_style::pct(100))
-            .shrink(0),
+            .flex_shrink(0),
     )
 }
