@@ -65,6 +65,7 @@ mod recipes_overlays_command;
 mod recipes_overlays_dialog;
 mod recipes_overlays_menu;
 mod recipes_overlays_select;
+mod scrollable_area;
 mod section;
 mod shadows;
 mod space;
@@ -147,6 +148,7 @@ pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,
 };
+pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, SectionVariant, section};
 pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
