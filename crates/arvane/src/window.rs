@@ -1,6 +1,5 @@
 //! Role: One concrete rendering window and shared backend lifecycle driver.
 
-use crate::env::RendererStart;
 use crate::gpu_driver::GpuDriver;
 use crate::presentation::{GpuStartCause, Notes, Observer, RendererChange};
 use crate::presenter::{ExportNotice, Presenter};
@@ -240,8 +239,6 @@ pub struct Windows<'a> {
     observer: &'a Option<Observer>,
     /// The driver's GPU device.
     gpu: &'a mut GpuDriver,
-    /// How the driver's renderers start (a window noted as it opens).
-    start: RendererStart,
 }
 
 impl<'a> Windows<'a> {
@@ -265,8 +262,11 @@ impl<'a> Windows<'a> {
     /// then open the shell window. A foreign-content window has none.
     pub fn open(&mut self, request: WindowRequest) -> Result<(), ShellError> {
         let id = request.id;
+        // A window opened while the device is started waits for it; a window
+        // opened before it is started draws on the CPU until it wants the GPU.
+        let waiting = self.gpu.device_started();
         if request.content == WindowContent::Drawn {
-            let presenter = Presenter::new(Notes::new(self.observer.clone(), id));
+            let presenter = Presenter::new(Notes::new(self.observer.clone(), id), waiting);
             self.presenters.insert(id, presenter);
         }
         if let Err(error) = self.shell.open_window(request) {
@@ -282,22 +282,19 @@ impl<'a> Windows<'a> {
             if let Some(period) = period {
                 presenter.set_frame_period(period);
             }
-            let gpu = self.start == RendererStart::GpuAtLaunch;
-            Notes::new(self.observer.clone(), id).note(RendererChange::Start { gpu });
+            Notes::new(self.observer.clone(), id).note(RendererChange::Start { gpu: waiting });
         }
         Ok(())
     }
 
-    /// Start the driver's GPU device when it waits for a reason
-    /// (`GpuStart::OnDemand`): the App reads a window's adapter to share GPU
-    /// textures with it. Nothing for a driver on the CPU only, or whose
-    /// device started, and nothing for a window that is not open.
+    /// The App reads a window's adapter to share GPU textures with it: the
+    /// window wants the GPU, and the driver's device starts when it waits for
+    /// a reason (`GpuStart::OnDemand`). Nothing for a window that is not open,
+    /// or whose driver draws on the CPU only.
     pub fn demand_gpu(&mut self, id: WindowId) {
-        if !self.presenters.contains_key(&id) {
-            return;
+        if let Some(presenter) = self.presenters.get_mut(&id) {
+            presenter.want_gpu(&mut *self.gpu, GpuStartCause::App);
         }
-        let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
-        self.gpu.demand(GpuStartCause::App, &mut notes);
     }
 
     /// Shut the presenter down, then close the shell window.
@@ -405,7 +402,6 @@ impl<H: Handler> ShellHandler for Driver<H> {
             presenters: &mut self.presenters,
             observer: &self.observer,
             gpu: &mut self.gpu,
-            start: self.env.start,
         };
         self.handler.close(&mut windows);
         for (id, mut presenter) in std::mem::take(&mut self.presenters) {
@@ -423,20 +419,23 @@ impl<H: Handler> ShellHandler for Driver<H> {
         shell: &mut dyn ShellLoop,
         waker: ShellWaker,
     ) -> Result<ShellControl, ShellError> {
-        // On a worker thread: the first frames are drawn on the CPU.
-        let mut presenter = Presenter::new(Notes::new(self.observer.clone(), WindowId::MAIN));
+        // The driver's device starts on a worker thread: the first frames are
+        // drawn on the CPU.
+        let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
+        self.gpu.begin(self.env.start, waker.clone(), &mut notes);
+        let mut presenter = Presenter::new(
+            Notes::new(self.observer.clone(), WindowId::MAIN),
+            self.gpu.device_started(),
+        );
         if let Some(window) = shell.window(WindowId::MAIN) {
             presenter.set_frame_period(window.environment().frame_period_ns);
         }
-        let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
-        self.gpu.begin(self.env.start, waker.clone(), &mut notes);
         self.presenters.insert(WindowId::MAIN, presenter);
         let mut windows = Windows {
             shell,
             presenters: &mut self.presenters,
             observer: &self.observer,
             gpu: &mut self.gpu,
-            start: self.env.start,
         };
         self.handler.start(&mut windows, waker)
     }
@@ -459,8 +458,9 @@ impl<H: Handler> ShellHandler for Driver<H> {
         {
             presenter.set_frame_period(window.environment().frame_period_ns);
         }
-        // A GPU start step finished: once the GPU can draw a window, draw a
-        // frame now, while nothing else happens.
+        // A GPU start step finished: the device moves along, and once a window
+        // can draw on it, the window draws a frame now, while nothing else
+        // happens.
         if matches!(event, ShellEvent::Wake(reasons) if reasons.contains(WakeReasons::GPU_STEP)) {
             let mut notes = Notes::new(self.observer.clone(), WindowId::MAIN);
             self.gpu.advance(&mut notes);
@@ -483,14 +483,21 @@ impl<H: Handler> ShellHandler for Driver<H> {
         {
             presenter.surface_destroyed();
         }
-        let mut windows = Windows {
-            shell,
-            presenters: &mut self.presenters,
-            observer: &self.observer,
-            gpu: &mut self.gpu,
-            start: self.env.start,
+        let result = {
+            let mut windows = Windows {
+                shell,
+                presenters: &mut self.presenters,
+                observer: &self.observer,
+                gpu: &mut self.gpu,
+            };
+            self.handler.event(target, event, &mut windows)
         };
-        self.handler.event(target, event, &mut windows)
+        // A device the windows drew on may have ended during this event (a
+        // failure, a restart): each window that drew on it notes its CPU frames.
+        for presenter in self.presenters.values_mut() {
+            presenter.sync_gpu(&self.gpu);
+        }
+        result
     }
 }
 

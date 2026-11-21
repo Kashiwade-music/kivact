@@ -1,13 +1,14 @@
 //! Role: One window's part of the GPU renderer: its context and swapchain on the driver's device.
 //!
-//! A window whose driver has a ready device makes its context and its
-//! surface (on the window's thread), and a worker configures the swapchain
-//! ([`WindowGpu::advance`]); frames go to the GPU once it is configured. A
-//! surface the platform destroys is dropped with it and made again by the
-//! window's next frame. A device the window no longer has (failed, or
-//! restarted) is dropped with its context, and the window's export pools
-//! are reported lost ([`WindowGpu::lose`]). Failures are classified by the
-//! driver ([`crate::gpu_driver`]).
+//! A window that wants the GPU ([`WindowGpu::Waiting`]) makes its context and
+//! its surface (on the window's thread) once the driver has a device, and a
+//! worker configures the swapchain ([`WindowGpu::advance`]); frames go to the
+//! GPU once it is configured. A surface the platform destroys is dropped with
+//! it and made again by the window's next frame. A window whose device is
+//! lost (failed, or restarted) drops its context and export pools
+//! ([`WindowGpu::lose`]); it waits for the driver's new device, or draws on
+//! the CPU when the driver has none. Failures are classified by the driver
+//! ([`crate::gpu_driver`]).
 
 use crate::gpu_driver::{Polled, ReadyDevice, Wake, Worker};
 use arvane_compose::{GpuContext, GpuDevice, GpuSurface, Presentation};
@@ -38,9 +39,12 @@ pub(crate) enum ConfigureTarget {
 /// One window's GPU renderer on the driver's device.
 #[derive(Default)]
 pub(crate) enum WindowGpu {
-    /// No device: the window draws on the CPU.
+    /// The window draws on the CPU.
     #[default]
     Off,
+    /// The window draws on the GPU: it waits for the driver's device, on
+    /// which its context is made.
+    Waiting,
     /// A worker configures the window's swapchain; the context waits here.
     Configuring {
         /// Boxed: a context is large.
@@ -68,11 +72,19 @@ impl WindowGpu {
         matches!(self, Self::Configuring { .. })
     }
 
+    /// The window wants the GPU: it waits for the driver's device. A window
+    /// that already has a context keeps it.
+    pub(crate) fn want(&mut self) {
+        if matches!(self, Self::Off) {
+            *self = Self::Waiting;
+        }
+    }
+
     /// The context of a ready window.
     pub(crate) fn context_mut(&mut self) -> Option<&mut GpuContext> {
         match self {
             Self::Ready { context, .. } => Some(&mut **context),
-            Self::Off | Self::Configuring { .. } => None,
+            Self::Off | Self::Waiting | Self::Configuring { .. } => None,
         }
     }
 
@@ -80,18 +92,19 @@ impl WindowGpu {
     /// one): the window must lose it.
     pub(crate) fn stale(&self, device: Option<&Rc<GpuDevice>>) -> bool {
         match self {
-            Self::Off => false,
+            Self::Off | Self::Waiting => false,
             Self::Configuring { context, .. } | Self::Ready { context, .. } => {
                 !device.is_some_and(|device| Rc::ptr_eq(device, context.device()))
             }
         }
     }
 
-    /// Drop the window's context and surface; returns the losses of its
-    /// export pools.
-    pub(crate) fn lose(&mut self) -> Vec<ExportLoss> {
-        match std::mem::take(self) {
-            Self::Off => Vec::new(),
+    /// Drop the window's context and surface, and wait for a device again
+    /// (`waiting`) or draw on the CPU; returns the losses of its export pools.
+    pub(crate) fn lose(&mut self, waiting: bool) -> Vec<ExportLoss> {
+        let next = if waiting { Self::Waiting } else { Self::Off };
+        match std::mem::replace(self, next) {
+            Self::Off | Self::Waiting => Vec::new(),
             Self::Configuring { context, .. } | Self::Ready { context, .. } => {
                 context.export_losses()
             }
@@ -105,7 +118,7 @@ impl WindowGpu {
         match self {
             Self::Ready { surface, .. } => *surface = DeviceSurface::Pending,
             Self::Configuring { surface, .. } => *surface = ConfigureTarget::Destroyed,
-            Self::Off => {}
+            Self::Off | Self::Waiting => {}
         }
     }
 
@@ -115,7 +128,7 @@ impl WindowGpu {
             Self::Ready { context, .. } | Self::Configuring { context, .. } => {
                 context.release_caches();
             }
-            Self::Off => {}
+            Self::Off | Self::Waiting => {}
         }
     }
 
@@ -127,25 +140,28 @@ impl WindowGpu {
         }
     }
 
-    /// Move the window's GPU start along on `device` (none: nothing starts):
-    /// once the driver has a device the window has no context for, make
-    /// its context and surface and hand the surface to a worker to
-    /// configure. Returns how long configuring took when the window became
-    /// ready now. A failed surface or configuring is returned as the error,
-    /// after the window dropped what failed.
+    /// Move the window's GPU start along on `device` (none: nothing starts).
+    /// A window that waits for the device makes its context and surface once
+    /// the driver has one, and hands the surface to a worker to configure.
+    /// Returns how long configuring took when the window became ready now (none
+    /// when its surface was lost while configuring). A failed surface or
+    /// configuring is returned as the error, after the window dropped what
+    /// failed.
     pub(crate) fn advance(
         &mut self,
-        device: Option<ReadyDevice>,
+        device: Option<&ReadyDevice>,
         window: &mut dyn ShellWindow,
         make: MakeSurface<'_>,
         physical: (u32, u32),
     ) -> Result<Option<Duration>, RenderError> {
         match std::mem::take(self) {
-            Self::Off => {
-                let Some(ReadyDevice { gpu, wake }) = device else {
+            Self::Off => Ok(None),
+            Self::Waiting => {
+                let Some(device) = device else {
+                    *self = Self::Waiting;
                     return Ok(None);
                 };
-                let context = Box::new(GpuContext::new(gpu));
+                let context = Box::new(GpuContext::new(Rc::clone(&device.gpu)));
                 let surface = match make(&context, window) {
                     Ok(surface) => surface,
                     Err(error) => {
@@ -156,7 +172,7 @@ impl WindowGpu {
                         return Err(error);
                     }
                 };
-                self.configure(wake, context, surface, physical)?;
+                self.configure(device.wake.clone(), context, surface, physical)?;
                 Ok(None)
             }
             Self::Configuring {

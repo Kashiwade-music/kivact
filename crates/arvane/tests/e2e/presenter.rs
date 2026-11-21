@@ -102,12 +102,15 @@ fn a_skipped_frame_ends_a_row_of_losses_and_a_loss_restarts_the_backoff() {
 type Frames = Rc<RefCell<Vec<(WindowId, Renderer)>>>;
 /// The renderer changes so far, with the window they were noted for.
 type Changes = Rc<RefCell<Vec<(WindowId, RendererChange)>>>;
+/// The GPU device generation each window drew a frame on, in order.
+type Generations = Rc<RefCell<Vec<(WindowId, u64)>>>;
 
 /// Opens `extra` at start, then presents one frame to every open window on
-/// each wake, recording what drew it.
+/// each wake, recording what drew it and on which device.
 struct Presenting {
     extra: Vec<WindowRequest>,
     frames: Frames,
+    generations: Generations,
 }
 
 impl Handler for Presenting {
@@ -138,6 +141,11 @@ impl Handler for Presenting {
                     commands_composition(vec![fill(0.0, 0.0, 32.0, 32.0, RED)], plan.size);
                 if let Ok(Presented::Shown { renderer, .. }) = window.present(&composition, plan) {
                     self.frames.borrow_mut().push((id, renderer));
+                    if renderer == Renderer::Gpu
+                        && let Some(adapter) = window.gpu_adapter()
+                    {
+                        self.generations.borrow_mut().push((id, adapter.generation));
+                    }
                 }
             }
         }
@@ -153,11 +161,13 @@ struct Gpu {
     shell: SteppedShell,
     frames: Frames,
     changes: Changes,
+    generations: Generations,
 }
 
 fn gpu_driver(extra: Vec<WindowRequest>) -> Gpu {
     let frames: Frames = Rc::default();
     let changes: Changes = Rc::default();
+    let generations: Generations = Rc::default();
     let observed = Rc::clone(&changes);
     let observer: arvane::Observer = Rc::new(RefCell::new(
         move |window: WindowId, change: &RendererChange| {
@@ -179,6 +189,7 @@ fn gpu_driver(extra: Vec<WindowRequest>) -> Gpu {
     let handler = Presenting {
         extra,
         frames: Rc::clone(&frames),
+        generations: Rc::clone(&generations),
     };
     let options = DriverOptions {
         gpu: GpuPreference {
@@ -193,6 +204,7 @@ fn gpu_driver(extra: Vec<WindowRequest>) -> Gpu {
         shell,
         frames,
         changes,
+        generations,
     }
 }
 
@@ -230,12 +242,23 @@ fn step_until(shells: &mut [&mut SteppedShell], done: impl Fn() -> bool) {
     }
 }
 
-fn gpu_notes(changes: &Changes) -> usize {
+/// The GPU renderer changes noted for `window`.
+fn gpu_notes(changes: &Changes, window: WindowId) -> usize {
     changes
         .borrow()
         .iter()
-        .filter(|(_, change)| matches!(change, RendererChange::Gpu { .. }))
+        .filter(|(id, change)| *id == window && matches!(change, RendererChange::Gpu { .. }))
         .count()
+}
+
+/// The device generation `window` last drew a frame on.
+fn generation_of(generations: &Generations, window: WindowId) -> Option<u64> {
+    generations
+        .borrow()
+        .iter()
+        .rev()
+        .find(|(id, _)| *id == window)
+        .map(|(_, generation)| *generation)
 }
 
 fn drew_on(frames: &Frames, window: WindowId, renderer: Renderer) -> bool {
@@ -251,16 +274,28 @@ fn two_windows_of_one_driver_share_one_gpu_device() {
         eprintln!("SKIPPED two_windows_of_one_driver_share_one_gpu_device: {reason}");
         return;
     }
+    let second = WindowId::new(2).expect("two");
     let mut driver = gpu_driver(vec![second_window()]);
     let frames = Rc::clone(&driver.frames);
     step_until(&mut [&mut driver.shell], || {
-        drew_on(&frames, WindowId::MAIN, Renderer::Gpu)
-            && drew_on(&frames, WindowId::new(2).expect("two"), Renderer::Gpu)
+        drew_on(&frames, WindowId::MAIN, Renderer::Gpu) && drew_on(&frames, second, Renderer::Gpu)
     });
     assert_eq!(
-        gpu_notes(&driver.changes),
+        gpu_notes(&driver.changes, WindowId::MAIN),
         1,
-        "the driver's device is noted once for both windows"
+        "the main window notes its GPU once"
+    );
+    assert_eq!(
+        gpu_notes(&driver.changes, second),
+        1,
+        "the second window notes its GPU once"
+    );
+    let main = generation_of(&driver.generations, WindowId::MAIN);
+    assert!(main.is_some(), "the main window drew on a device");
+    assert_eq!(
+        main,
+        generation_of(&driver.generations, second),
+        "both windows draw on the driver's one device (DEC-08)"
     );
 }
 
@@ -279,8 +314,24 @@ fn two_drivers_have_a_device_each_and_closing_one_leaves_the_other_drawing() {
         drew_on(&first_frames, WindowId::MAIN, Renderer::Gpu)
             && drew_on(&second_frames, WindowId::MAIN, Renderer::Gpu)
     });
-    assert_eq!(gpu_notes(&first.changes), 1, "the first driver's device");
-    assert_eq!(gpu_notes(&second.changes), 1, "the second driver's device");
+    assert_eq!(
+        gpu_notes(&first.changes, WindowId::MAIN),
+        1,
+        "the first driver's device"
+    );
+    assert_eq!(
+        gpu_notes(&second.changes, WindowId::MAIN),
+        1,
+        "the second driver's device"
+    );
+    let (first_device, second_device) = (
+        generation_of(&first.generations, WindowId::MAIN),
+        generation_of(&second.generations, WindowId::MAIN),
+    );
+    assert!(
+        first_device.is_some() && second_device.is_some() && first_device != second_device,
+        "each driver has a device of its own: {first_device:?}, {second_device:?}"
+    );
     drop(first);
     second_frames.borrow_mut().clear();
     step_until(&mut [&mut second.shell], || {

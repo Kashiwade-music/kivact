@@ -9,9 +9,10 @@
 //! creates it (`GpuDevice::new` blocks). Until it is ready, frames are drawn
 //! on the CPU, so no step stalls a window's thread.
 //!
-//! Each window of the driver then makes its own surface on its thread and a
-//! worker configures the swapchain (`presenter/gpu.rs`). Each finished step
-//! wakes the shell, which moves the start along before the host sees the wake.
+//! A window of the driver draws on the device once it wants the GPU: it makes
+//! its own context and surface on its thread and a worker configures the
+//! swapchain (`presenter/gpu.rs`). Each finished step wakes the shell, which
+//! moves the start along before the host sees the wake.
 //!
 //! Failure policy: a device failure (device loss, out of memory, a validation
 //! error) drops the device; a new one starts once per driver, the frames in
@@ -52,6 +53,22 @@ pub(crate) struct ReadyDevice {
     pub(crate) gpu: Rc<GpuDevice>,
     /// Wakes the window's thread when a worker of the device finishes.
     pub(crate) wake: Wake,
+    /// How long creating the device took.
+    pub(crate) init: Duration,
+}
+
+impl ReadyDevice {
+    /// The renderer change of a window that draws on this device now;
+    /// `configure` is how long configuring its swapchain took, when it was
+    /// configured in the background.
+    pub(crate) fn note(&self, configure: Option<Duration>) -> RendererChange {
+        RendererChange::Gpu {
+            adapter: self.gpu.describe(),
+            init: self.init,
+            configure,
+            interop: self.gpu.interop_adapter(),
+        }
+    }
 }
 
 /// What a failed GPU step means for the window's frame.
@@ -227,13 +244,8 @@ struct Background {
 enum Step {
     /// A worker creates the device.
     Starting(Worker<Started>),
-    /// The device is ready. `announced`: a window of this device has drawn
-    /// on it, and its renderer change was noted.
-    Ready {
-        gpu: Rc<GpuDevice>,
-        init: Duration,
-        announced: bool,
-    },
+    /// The device is ready.
+    Ready { gpu: Rc<GpuDevice>, init: Duration },
 }
 
 impl GpuDriver {
@@ -269,6 +281,12 @@ impl GpuDriver {
         matches!(self.state, State::Deferred { .. })
     }
 
+    /// Whether the device is starting or ready: a window opened now waits for
+    /// it (it is not started by the window's opening).
+    pub(crate) fn device_started(&self) -> bool {
+        matches!(self.state, State::Background(_))
+    }
+
     /// Start the device the driver waited for, for `cause`. Nothing in any
     /// other state: a driver on the CPU only never starts one.
     pub(crate) fn demand(&mut self, cause: GpuStartCause, notes: &mut Notes) {
@@ -282,20 +300,19 @@ impl GpuDriver {
 
     /// A CPU frame took `spent` of the `period` the display gives a frame: a
     /// device that waits starts after [`SLOW_FRAMES`] frames in a row over
-    /// half of it.
-    pub(crate) fn note_cpu_frame(&mut self, spent: Duration, period: Duration, notes: &mut Notes) {
+    /// half of it. Returns whether that frame is the one that starts it (the
+    /// caller then starts the window's GPU with [`GpuStartCause::SlowFrames`]).
+    pub(crate) fn note_cpu_frame(&mut self, spent: Duration, period: Duration) -> bool {
         let State::Deferred { slow, .. } = &mut self.state else {
-            return;
+            return false;
         };
         if spent <= period / 2 {
             *slow = 0;
-            return;
+            return false;
         }
         // Below SLOW_FRAMES here: the device starts at SLOW_FRAMES.
         *slow += 1;
-        if *slow >= SLOW_FRAMES {
-            self.demand(GpuStartCause::SlowFrames, notes);
-        }
+        *slow >= SLOW_FRAMES
     }
 
     /// The state that creates the device on a worker thread; `waker` wakes
@@ -335,7 +352,6 @@ impl GpuDriver {
                     step: Step::Ready {
                         gpu: Rc::new(gpu),
                         init,
-                        announced: false,
                     },
                 }),
                 Polled::Sent(Err(error)) => cpu_session(notes, format!("GPU unavailable: {error}")),
@@ -350,42 +366,15 @@ impl GpuDriver {
         match &self.state {
             State::Background(Background {
                 wake,
-                step: Step::Ready { gpu, .. },
+                step: Step::Ready { gpu, init },
                 ..
             }) => Some(ReadyDevice {
                 gpu: Rc::clone(gpu),
                 wake: Arc::clone(wake),
+                init: *init,
             }),
             _ => None,
         }
-    }
-
-    /// A window of the ready device is configured and draws on it (`configure`:
-    /// how long configuring its swapchain took). The first window of a device
-    /// notes the renderer change; the others of the same device note nothing.
-    pub(crate) fn announce(&mut self, configure: Duration, notes: &mut Notes) {
-        let State::Background(Background {
-            step:
-                Step::Ready {
-                    gpu,
-                    init,
-                    announced,
-                },
-            ..
-        }) = &mut self.state
-        else {
-            return;
-        };
-        if *announced {
-            return;
-        }
-        *announced = true;
-        notes.note(RendererChange::Gpu {
-            adapter: gpu.describe(),
-            init: *init,
-            configure: Some(configure),
-            interop: gpu.interop_adapter(),
-        });
     }
 
     /// Apply the failure `error` of a GPU step of a window (a frame, an

@@ -80,11 +80,17 @@ impl Presenter {
         self.cpu.invalidate();
     }
 
-    /// A presenter noting its renderer changes to `notes`.
-    pub(crate) fn new(notes: Notes) -> Self {
+    /// A presenter noting its renderer changes to `notes`; `waiting`: the
+    /// driver's device is started, so the window waits for it (see
+    /// [`GpuDriver::device_started`]).
+    pub(crate) fn new(notes: Notes, waiting: bool) -> Self {
         Self {
             cpu: CpuCompositor::new(),
-            surface: WindowGpu::default(),
+            surface: if waiting {
+                WindowGpu::Waiting
+            } else {
+                WindowGpu::Off
+            },
             notes,
             health: FrameHealth::Healthy,
             exports: ExportRegistry::default(),
@@ -228,9 +234,22 @@ impl Presenter {
         self.surface.ready()
     }
 
-    /// Move the driver's device start along, then this window's context and
-    /// surface on it (see [`WindowGpu::advance`]). A failed step is applied
-    /// as a frame's failure is.
+    /// This window wants the GPU (`GpuStart::OnDemand`, the App reading its
+    /// adapter, a drawn user shader, or CPU frames that keep missing half the
+    /// display period): it waits for the driver's device, which starts now
+    /// when the driver waits for a reason. Nothing for a window whose driver
+    /// has no device to start.
+    pub(crate) fn want_gpu(&mut self, gpu: &mut GpuDriver, cause: GpuStartCause) {
+        if !(gpu.waits() || gpu.device_started()) {
+            return;
+        }
+        self.surface.want();
+        gpu.demand(cause, &mut self.notes);
+    }
+
+    /// Make this window's context and surface on the driver's device (see
+    /// [`WindowGpu::advance`]). The window notes its renderer when it becomes
+    /// ready to draw, and a failed step is applied as a frame's failure is.
     fn advance_gpu(
         &mut self,
         window: &mut dyn ShellWindow,
@@ -239,11 +258,20 @@ impl Presenter {
         physical: (u32, u32),
     ) {
         let was_ready = self.surface.ready();
-        gpu.advance(&mut self.notes);
+        let was_configuring = self.surface.configuring();
         let device = gpu.device();
-        match self.surface.advance(device, window, make, physical) {
-            Ok(Some(configure)) => gpu.announce(configure, &mut self.notes),
-            Ok(None) => {}
+        match self
+            .surface
+            .advance(device.as_ref(), window, make, physical)
+        {
+            Ok(configure) => {
+                if was_configuring
+                    && self.surface.ready()
+                    && let Some(device) = &device
+                {
+                    self.notes.note(device.note(configure));
+                }
+            }
             Err(error) => {
                 self.gpu_failure(gpu, &error);
             }
@@ -251,21 +279,27 @@ impl Presenter {
         self.sync_exports(was_ready);
     }
 
-    /// Bring the window's GPU context onto the driver's device: a context on
-    /// a device the driver no longer has (failed, restarted) is lost.
-    fn sync_gpu(&mut self, gpu: &GpuDriver) {
+    /// Bring the window onto the driver's device: a window whose context is
+    /// on a device the driver no longer has (failed, restarted) loses it, and
+    /// its frames are drawn on the CPU from now on, until the GPU draws it
+    /// again.
+    pub(crate) fn sync_gpu(&mut self, gpu: &GpuDriver) {
         let device = gpu.device();
         if self
             .surface
             .stale(device.as_ref().map(|device| &device.gpu))
         {
-            self.lose_device();
+            self.notes.note(RendererChange::Cpu {
+                reason: "the GPU device was lost".into(),
+            });
+            self.lose_device(gpu);
         }
     }
 
-    /// The window's context is gone: its export pools are reported lost.
-    fn lose_device(&mut self) {
-        let losses = self.surface.lose();
+    /// The window's context is gone: its export pools are reported lost. The
+    /// window waits for the driver's new device when the driver starts one.
+    fn lose_device(&mut self, gpu: &GpuDriver) {
+        let losses = self.surface.lose(gpu.device_started());
         self.exports.lost(losses);
     }
 
@@ -275,7 +309,7 @@ impl Presenter {
         let fallback = gpu.failed(failure, &mut self.notes);
         match fallback {
             Fallback::Surface => self.surface.drop_surface(),
-            Fallback::Cpu => self.lose_device(),
+            Fallback::Cpu => self.lose_device(gpu),
             Fallback::Other => {}
         }
         fallback
@@ -334,7 +368,7 @@ impl Presenter {
                     LossAction::Fail => return Err(error),
                     LossAction::FallbackToCpu => {
                         gpu.fallback_to_cpu(&mut self.notes, &error);
-                        self.lose_device();
+                        self.lose_device(gpu);
                         let drawn = self.draw_native(window, gpu, composition, plan);
                         return self.settle(
                             drawn,
@@ -370,25 +404,7 @@ impl Presenter {
         let was_ready = self.surface.ready();
         let drawn = self.draw_native(window, gpu, composition, plan);
         let (now, period) = (window.now_ns(), self.frame_period_ns);
-        if gpu.waits()
-            && let Ok(drawn) = &drawn
-        {
-            if drawn.report().shader_fallback {
-                gpu.demand(GpuStartCause::Shader, &mut self.notes);
-            } else if let Drawn::Shown {
-                renderer: Renderer::Cpu,
-                raster,
-                present,
-                ..
-            } = drawn
-            {
-                gpu.note_cpu_frame(
-                    *raster + *present,
-                    Duration::from_nanos(period),
-                    &mut self.notes,
-                );
-            }
-        }
+        self.start_gpu_for(gpu, &drawn, period);
         let renderer = if self.surface.ready() {
             Renderer::Gpu
         } else {
@@ -404,6 +420,32 @@ impl Presenter {
         );
         self.sync_exports(was_ready);
         presented
+    }
+
+    /// A frame that drew a user shader's fallback wants the GPU; a CPU frame
+    /// that took too long counts towards starting it (`GpuStart::OnDemand`
+    /// only, a device that waits).
+    fn start_gpu_for(
+        &mut self,
+        gpu: &mut GpuDriver,
+        drawn: &Result<Drawn, Failure>,
+        period_ns: u64,
+    ) {
+        let Ok(drawn) = drawn else {
+            return;
+        };
+        if drawn.report().shader_fallback {
+            self.want_gpu(gpu, GpuStartCause::Shader);
+        } else if let Drawn::Shown {
+            renderer: Renderer::Cpu,
+            raster,
+            present,
+            ..
+        } = drawn
+            && gpu.note_cpu_frame(*raster + *present, Duration::from_nanos(period_ns))
+        {
+            self.want_gpu(gpu, GpuStartCause::SlowFrames);
+        }
     }
 
     /// Note what a frame's report says that the window must report: the
