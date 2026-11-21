@@ -69,6 +69,7 @@ pub(crate) fn layout() -> impl kivact::view::Element {
         ),
         frame(document, document_title, files, document_body, inspector),
     )))
+    .style(style().width(pct(100)))
     .test_id("LAY-01")
 }
 
@@ -278,7 +279,7 @@ pub(crate) fn frame(
     let status = signal("Ready".to_owned());
     let run = signal(Run::Idle);
     let content = signal(INITIAL_SOURCE.to_owned());
-    let width = signal(240_f64);
+    let width = signal(160_f64);
     let saved = signal(content.get_untracked());
     let help = signal(false);
     let command = move |key: &'static str| match key {
@@ -324,7 +325,7 @@ pub(crate) fn frame(
                 ))
                 .style(
                     style()
-                        .width(260)
+                        .width(220)
                         .flex_shrink(0)
                         .border_left(1, color::BORDER),
                 ),
