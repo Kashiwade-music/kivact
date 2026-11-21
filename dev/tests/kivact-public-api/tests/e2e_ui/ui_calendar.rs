@@ -2,7 +2,9 @@
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, TimeOfDay};
 use kivact::prelude::*;
 use kivact::ui::{self, DatePresentation};
+use kivact::view::PointerKind;
 use kivact_public_api_tests::support::mount;
+use std::time::Duration;
 fn day(d: u8) -> CalendarDate {
     CalendarDate::new(2026, 10, d)
 }
@@ -248,6 +250,52 @@ fn the_status_names_the_shown_month_and_follows_navigation() {
         screen
             .query_by_role(Role::Status, "Showing January 2027")
             .is_some()
+    );
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
+#[test]
+fn a_touch_swipe_turns_the_month_within_the_bounds_without_selecting_the_contact_day() {
+    let start = CalendarDate::new(2026, 10, 14);
+    let bound = CalendarDate::new(2026, 11, 30);
+    let (screen, selected) = mount(move || {
+        let selected = signal(Some(start));
+        (
+            selected,
+            kivact::ui::calendar(selected)
+                .min(Some(start))
+                .max(Some(bound)),
+        )
+    });
+    let swipe = |name: &str| {
+        let bounds = screen
+            .get_by_role(Role::GridCell, name)
+            .accessibility_bounds()
+            .unwrap();
+        let (x, y) = (
+            bounds.x + bounds.width / 2.0,
+            bounds.y + bounds.height / 2.0,
+        );
+        let finger = screen.contact_down(PointerKind::Touch, x, y);
+        screen.contact_move(finger, x - 48.0, y + 24.0);
+        screen.contact_up(finger);
+        screen.advance(Duration::from_millis(500));
+    };
+    swipe("2026-10-20");
+    assert_eq!(
+        selected.get_untracked(),
+        Some(start),
+        "the contact day is not selected"
+    );
+    swipe("2026-11-20");
+    assert!(
+        screen.query_by_role(Role::GridCell, "2026-12-15").is_none(),
+        "the bound stops the swipe"
+    );
+    screen.get_by_role(Role::GridCell, "2026-11-15").tap();
+    assert_eq!(
+        selected.get_untracked(),
+        Some(CalendarDate::new(2026, 11, 15))
     );
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }

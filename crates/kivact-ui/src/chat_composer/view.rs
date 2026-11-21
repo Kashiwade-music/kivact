@@ -4,7 +4,6 @@ use crate::chat_composer::look::ChatComposerState;
 use crate::chat_composer::look::ChatComposerTheme;
 use crate::chat_composer::look::ComposerStatus;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use kivact_core::custom::NodeRefExt;
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, callback};
 use kivact_core::view::Variants;
@@ -12,6 +11,7 @@ use kivact_core::view::{
     Element, Handled, HandlerResult, IntoView, Key, KeyEvent, Modifiers, Node, Role, View, node,
     node_ref, text,
 };
+use kivact_interaction::{HistoryApi, use_history};
 use kivact_macros::Prop;
 
 // xtask-allow(state): legacy: drawer, header_actions, header_context, footer_actions, send_actions, send_icon, stop_icon
@@ -141,14 +141,9 @@ impl Element for ChatComposer {
     }
 }
 impl ChatComposer {
-    fn submission(
-        &self,
-        disabled: Value<bool>,
-        history: kivact_core::state::MachineHandle<crate::chat_composer::history::Policy>,
-    ) -> Callback<()> {
+    fn submission(&self, disabled: Value<bool>, history: HistoryApi) -> Callback<()> {
         let value = self.value;
         let stopped = self.stop_shown;
-        let keep_history = self.history;
         let submit = self.on_submit;
         callback(move |()| {
             if disabled.get_untracked() || stopped.get_untracked() {
@@ -157,11 +152,7 @@ impl ChatComposer {
             let draft = value.get_untracked();
             let draft = draft.trim();
             if let Some(submit) = submit.filter(|_| !draft.is_empty()) {
-                if keep_history.get_untracked() {
-                    history.send(crate::chat_composer::history::Event::Submit(
-                        draft.to_owned(),
-                    ));
-                }
+                history.push(draft);
                 value.set(String::new());
                 submit.call(draft.to_owned());
             }
@@ -174,9 +165,8 @@ impl ChatComposer {
     ) -> (crate::TextInput, Callback<()>) {
         let variants = self.root.authored().variants();
         let input_ref = node_ref();
-        let history = crate::chat_composer::history::use_history(input_ref);
+        let history = use_history(input_ref, self.history);
         let send = self.submission(disabled, history);
-        let keep_history = self.history;
         let input = crate::text_area(self.value)
             .label(kivact_core::i18n::message(
                 "chat_composer.input",
@@ -185,8 +175,9 @@ impl ChatComposer {
             .placeholder(self.placeholder)
             .disabled(disabled)
             .node_ref(input_ref)
+            .with_node(|node| node.part(history.input()))
             .forward_keys(vec![Key::Enter])
-            .on_key(move |event| composer_key(event, input_ref, send, history, keep_history));
+            .on_key(move |event| composer_key(event, send));
         (
             with_recipe_style(
                 input,
@@ -325,42 +316,12 @@ fn composer_slot(
 ) -> Option<Node> {
     view.map(|view| with_recipe_style(node().child(view), recipe, variants, state))
 }
-fn composer_key(
-    event: KeyEvent,
-    input: kivact_core::view::NodeRef,
-    send: Callback<()>,
-    history: kivact_core::state::MachineHandle<crate::chat_composer::history::Policy>,
-    keep_history: Value<bool>,
-) -> Handled {
+fn composer_key(event: KeyEvent, send: Callback<()>) -> Handled {
     if event.key() == Key::Enter && event.modifiers() == Modifiers::default() {
         send.call(());
         return Handled::Yes;
     }
-    if !keep_history.get_untracked()
-        || event.modifiers() != Modifiers::default()
-        || !matches!(event.key(), Key::ArrowUp | Key::ArrowDown)
-    {
-        return Handled::No;
-    }
-    let Some(editor) = input.edit_state() else {
-        return Handled::No;
-    };
-    let selection = editor.selection();
-    let at_start = selection.start == 0;
-    let at_end = selection.end == editor.value().len();
-    let eligible = match event.key() {
-        Key::ArrowUp => at_start && (selection.is_empty() || at_end),
-        Key::ArrowDown => at_end && (selection.is_empty() || at_start),
-        _ => false,
-    };
-    if !eligible {
-        return Handled::No;
-    }
-    history.send(crate::chat_composer::history::Event::Recall {
-        previous: event.key() == Key::ArrowUp,
-        draft: editor.value().to_owned(),
-    });
-    Handled::Yes
+    Handled::No
 }
 impl IntoView for ChatComposer {
     fn into_view(mut self) -> View {

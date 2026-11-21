@@ -10,6 +10,7 @@ use kivact_core::i18n::{CalendarDate, CalendarMonth, Weekday};
 use kivact_core::style::{Align, FlexDirection, Justify, Position, TextAlign, pct, style};
 use kivact_core::view::{Element, Node, column, node, row, text};
 use kivact_core::view::{IntoView, Role, View, show};
+use kivact_interaction::{MonthSwipeApi, MonthSwipePhase};
 use std::rc::Rc;
 
 /// A ghost icon button of the caption row, 28 px square, behind a paging part.
@@ -81,7 +82,7 @@ pub(super) fn month_panel(
                         .get(&crate::calendar::look::WEEK_GAP_VAR),
                 ),
             )
-            .style(move || week_motion(swipe.get(), entering))
+            .style(move || week_motion(swipe.phase().get(), entering))
             .into_view()
         })
         .collect::<Vec<_>>();
@@ -111,10 +112,10 @@ pub(super) fn month_panel(
 
 /// The weeks follow a touch swipe's finger and, when the swipe turned the
 /// month, spring in from the side it brought the new month from.
-fn week_motion(swipe: super::navigation::Swipe, entering: f64) -> kivact_core::style::Style {
+fn week_motion(swipe: MonthSwipePhase, entering: f64) -> kivact_core::style::Style {
     let shift = swipe.shift();
     let base = style().translate_x(shift);
-    if entering == 0.0 || matches!(swipe, super::navigation::Swipe::Dragging { .. }) {
+    if entering == 0.0 || matches!(swipe, MonthSwipePhase::Dragging { .. }) {
         return base;
     }
     base.enter(style().translate_x(entering)).transition(
@@ -318,28 +319,6 @@ fn month_caption(
     )
 }
 
-fn interactive_day(
-    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
-) -> Node {
-    node()
-        .on_pointer(move |event: kivact_core::view::PointerEvent| {
-            let dragging = matches!(swipe.get(), super::navigation::Swipe::Dragging { .. });
-            swipe.send(super::navigation::Event::Pointer(event));
-            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                event.capture();
-                kivact_core::view::Handled::Yes
-            } else if dragging {
-                kivact_core::view::Handled::Yes
-            } else {
-                kivact_core::view::Handled::No
-            }
-        })
-        .on_key(move |_| {
-            swipe.send(super::navigation::Event::IndependentActivation);
-            kivact_core::view::Handled::No
-        })
-        .a11y_action(kivact_core::view::A11yAction::Activate, move |_| {
-            swipe.send(super::navigation::Event::IndependentActivation);
-            kivact_core::view::Handled::No
-        })
+fn interactive_day(swipe: MonthSwipeApi) -> Node {
+    node().part(swipe.day())
 }

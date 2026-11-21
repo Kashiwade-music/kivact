@@ -11,7 +11,10 @@ use kivact_core::state::{Callback, Value, on_mount, signal};
 use kivact_core::style::style;
 use kivact_core::view::{Element, Node, node, row};
 use kivact_core::view::{IntoView, Role, View, dynamic};
-use kivact_interaction::{CalendarOptions, CalendarSelection, use_calendar_grid};
+use kivact_interaction::{
+    CalendarOptions, CalendarSelection, MonthSwipeApi, MonthSwipePhase, use_calendar_grid,
+    use_month_swipe,
+};
 use std::rc::Rc;
 
 // xtask-allow(state): legacy: month, week_start, displayed_month; Calendar::default_month; absent starts at the selection's month or today, and a caller month binding
@@ -304,7 +307,7 @@ impl IntoView for Calendar {
             .unwrap_or_else(|| signal(self.month.unwrap_or(focus_day.month_of())));
         let base_month = month;
         let announcement = month_announcement(base_month);
-        let swipe = swipe_navigation(base_month, month, self.min, self.max);
+        let swipe = use_month_swipe(base_month, self.min, self.max);
         let autofocus = initial_focus(self.autofocus);
         let rules = CalendarRules {
             disabled: self.disabled.clone(),
@@ -336,15 +339,7 @@ impl IntoView for Calendar {
             &variants,
             kivact_core::custom::PartState::default,
         )
-        .on_pointer(move |event| {
-            swipe.send(super::navigation::Event::Pointer(event));
-            if matches!(swipe.get(), super::navigation::Swipe::Dragging { .. }) {
-                event.capture();
-                kivact_core::view::Handled::Yes
-            } else {
-                kivact_core::view::Handled::No
-            }
-        })
+        .part(swipe.area())
         .child((body, status))
         .into_view()
     }
@@ -400,47 +395,6 @@ fn month_announcement(month: Signal<CalendarMonth>) -> Value<String> {
             )
         })
     })
-}
-/// Apply horizontal swipe commands within the caller's date bounds.
-fn swipe_navigation(
-    base_month: Signal<CalendarMonth>,
-    month: Signal<CalendarMonth>,
-    min: Value<Option<CalendarDate>>,
-    max: Value<Option<CalendarDate>>,
-) -> kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot> {
-    let rtl = kivact_core::view::use_direction();
-    kivact_core::state::machine(
-        super::navigation::Swipe::Idle,
-        move || {
-            let current = base_month.get();
-            super::navigation::SwipeSnapshot {
-                rtl: rtl == kivact_core::view::ReadingDirection::Rtl,
-                now: kivact_core::custom::clock_now(),
-                at_min: min.get().is_some_and(|min| current <= min.month_of()),
-                at_max: max.get().is_some_and(|max| current >= max.month_of()),
-            }
-        },
-        move |_, months| {
-            // A flick turns as many months as it projects, stopping at the
-            // bounds; it never moves the other way.
-            let current = base_month.get_untracked();
-            let next = current.add_months(months);
-            let (next, moves) = if months > 0 {
-                let next = max
-                    .get_untracked()
-                    .map_or(next, |max| next.min(max.month_of()));
-                (next, next > current)
-            } else {
-                let next = min
-                    .get_untracked()
-                    .map_or(next, |min| next.max(min.month_of()));
-                (next, next < current)
-            };
-            if moves {
-                month.set(next);
-            }
-        },
-    )
 }
 /// Scope the one-shot initial calendar focus request to the mounted owner.
 fn initial_focus(
@@ -506,7 +460,7 @@ fn month_panels(
         move || (month.get(), first.get()),
         move |(month, first)| {
             let entering = swipe
-                .state()
+                .phase()
                 .get_untracked()
                 .entering(rtl == kivact_core::view::ReadingDirection::Rtl);
             let panels = (0..shared.count)
@@ -517,7 +471,7 @@ fn month_panels(
                 .collect::<Vec<_>>();
             on_mount(move || {
                 autofocus.send(grid);
-                swipe.send(super::navigation::Event::Entered);
+                swipe.entered();
             });
             row(panels).style(style().gap(16))
         },
@@ -532,7 +486,7 @@ fn calendar_body(
     rules: CalendarRules,
     focus_day: CalendarDate,
     autofocus: kivact_core::state::MachineHandle<super::navigation::FocusSnapshot>,
-    swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
+    swipe: MonthSwipeApi,
 ) -> View {
     let count = calendar.count;
     let cell_size = calendar.cell_size;
@@ -561,7 +515,7 @@ fn calendar_body(
         move |(count, caption, week_start, cell_size)| {
             let policy =
                 calendar_policy(&rules, count, week_start, focus_day).activation_guard(move |_| {
-                    !matches!(swipe.get(), super::navigation::Swipe::Released { .. })
+                    !matches!(swipe.phase().get(), MonthSwipePhase::Released { .. })
                 });
             let grid = use_calendar_grid(month, selection, policy);
             let shared = Rc::new(Shared {

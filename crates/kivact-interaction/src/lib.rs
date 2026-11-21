@@ -48,10 +48,12 @@ mod drag_velocity;
 mod edit;
 mod focus_return;
 mod follow_end;
+mod history;
 mod hover_corridor;
 mod list;
 mod menu;
 mod menubar;
+mod month_swipe;
 mod palette;
 mod policy;
 mod popup;
@@ -142,6 +144,8 @@ pub use date_field::{
     TypedText, use_date_field, use_date_picker,
 };
 pub use draft::{DraftApi, DraftCommit, DraftOptions, use_draft};
+pub use history::{HistoryApi, use_history};
+pub use month_swipe::{MonthSwipeApi, MonthSwipePhase, use_month_swipe};
 
 mod inline_edit;
 mod interaction_policy;

@@ -1,6 +1,5 @@
 //! Role: Submit multiline drafts through keyboard and send/stop controls.
 
-pub(crate) mod history;
 pub(crate) mod look;
 mod view;
 

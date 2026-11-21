@@ -4,11 +4,11 @@ use crate::calendar::CalendarCaption;
 use crate::calendar::CalendarEvent;
 use kivact_core::i18n::{CalendarDate, CalendarMonth};
 use kivact_core::state::{Signal, Value};
-use kivact_interaction::CalendarGridApi;
+use kivact_interaction::{CalendarGridApi, MonthSwipeApi};
 
 /// Everything the month panels and their day cells share.
 pub(super) struct Shared {
-    pub(super) swipe: kivact_core::state::MachineHandle<super::navigation::SwipeSnapshot>,
+    pub(super) swipe: MonthSwipeApi,
     pub(super) cell_size: f64,
     pub(super) variants: kivact_core::view::Variants,
     /// The keyboard, selection and paging behavior.
