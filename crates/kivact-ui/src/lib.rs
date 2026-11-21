@@ -314,7 +314,7 @@ pub use crate::code_block::CodeCollapse;
 pub use chat_composer::{ChatComposer, chat_composer};
 pub use chat_message::{ChatMessage, chat_message};
 pub use chat_thread::{ChatThread, chat_thread};
-pub use code_block::{CodeBlock, code_block};
+pub use code_block::{CodeBlock, Highlighter, code_block, highlighter};
 pub use typing_indicator::{TypingIndicator, typing_indicator};
 
 pub use crate::card::CardAction;

@@ -76,7 +76,7 @@ fn code_block_copies_and_numbers_lines() {
                 .title("main.rs")
                 .language("Rust")
                 .line_numbers(numbered)
-                .highlight((), |_, line, state: &bool| {
+                .highlight(kivact::ui::highlighter((), |_, line, state: &bool| {
                     (
                         vec![kivact::style::StyledRange {
                             range: 0..line.len(),
@@ -84,7 +84,7 @@ fn code_block_copies_and_numbers_lines() {
                         }],
                         !*state,
                     )
-                })
+                }))
                 .highlight_lines(vec![2])
                 .diff(true)
                 .wrap(true)

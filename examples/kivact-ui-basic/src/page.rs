@@ -102,7 +102,7 @@ fn example_section(page: &'static Page, example: &'static Example) -> Node {
 fn code_block(snippet: String, test_id: String) -> kivact::ui::CodeBlock {
     let parsed = basic::rust_source(&snippet);
     kivact::ui::code_block(snippet)
-        .highlight(
+        .highlight(kivact::ui::highlighter(
             move || {
                 (
                     parsed.clone(),
@@ -110,7 +110,7 @@ fn code_block(snippet: String, test_id: String) -> kivact::ui::CodeBlock {
                 )
             },
             basic::rust_lines,
-        )
+        ))
         .title("Rust")
         .test_id(test_id)
 }

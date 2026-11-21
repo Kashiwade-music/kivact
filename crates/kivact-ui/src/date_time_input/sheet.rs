@@ -3,9 +3,7 @@ use kivact_core::i18n::{
     CalendarDate, DateStyle, DateTime, TimeStyle, Weekday, message, use_locale,
 };
 use kivact_core::state::{Signal, Value, binding};
-use kivact_core::view::{
-    Element, Handled, IntoView, Key, Node, View, column, dynamic, node_ref, row,
-};
+use kivact_core::view::{Element, Handled, IntoView, Key, Node, column, dynamic, node_ref, row};
 use kivact_interaction::{DatePanel, DatePicker, DatePickerApi, use_date_picker};
 pub(crate) struct Inputs {
     pub root: Node,
@@ -19,7 +17,7 @@ pub(crate) struct Inputs {
     pub seconds: Value<bool>,
     pub variants: kivact_core::view::Variants,
 }
-pub(crate) fn render(i: Inputs) -> View {
+pub(crate) fn render(i: Inputs) -> Node {
     let button_ref = node_ref();
     let picker = use_date_picker();
     let open = picker.open(DatePanel::Date, button_ref);
@@ -34,17 +32,15 @@ pub(crate) fn render(i: Inputs) -> View {
     )
     .node_ref(button_ref);
     let content = picker_content(i.min, i.max, i.week_start, i.seconds, date, time, picker);
-    i.root
-        .child(row((
-            editors,
-            crate::dialog(i.label, open)
-                .with_variants(&i.variants)
-                .mode(crate::DatePresentation::BottomSheet.mode())
-                .return_focus(restore)
-                .content(move || content.call(()))
-                .attach(trigger),
-        )))
-        .into_view()
+    i.root.child(row((
+        editors,
+        crate::dialog(i.label, open)
+            .with_variants(&i.variants)
+            .mode(crate::DatePresentation::BottomSheet.mode())
+            .return_focus(restore)
+            .content(move || content.call(()))
+            .attach(trigger),
+    )))
 }
 
 fn picker_content(

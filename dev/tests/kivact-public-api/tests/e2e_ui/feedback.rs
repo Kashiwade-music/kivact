@@ -15,7 +15,7 @@ fn empty_state_announces_once() {
             title,
             ui::empty_state(move || title.get())
                 .description("Try another search")
-                .announce(),
+                .announce(true),
         )
     });
     let notice = screen.get_by_role(Role::Text, "No results. Try another search");

@@ -93,7 +93,7 @@ fn example_empty_state() -> Node {
     specimen(
         "Empty project",
         kivact::ui::empty_state("No documents")
-            .announce_changes()
+            .announce_changes(true)
             .description("Create a document to get started.")
             .icon(icon_view("search"))
             .actions(kivact::ui::button("New document")),
@@ -166,7 +166,7 @@ fn example_code_block() -> Node {
         "Rust example",
         kivact::ui::code_block("fn main() {\n    println!(\"Hello\");\n}")
             .language("rust")
-            .highlight(
+            .highlight(kivact::ui::highlighter(
                 || {
                     kivact::style::use_tokens::<kivact_ui_soft::Tokens>()
                         .colors
@@ -182,7 +182,7 @@ fn example_code_block() -> Node {
                         (),
                     )
                 },
-            )
+            ))
             .title("Example source")
             .language_label(false)
             .collapsible(true)

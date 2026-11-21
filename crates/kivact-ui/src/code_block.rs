@@ -6,4 +6,4 @@ pub(crate) mod look;
 mod view;
 
 pub use look::CodeCollapse;
-pub use view::{CodeBlock, code_block};
+pub use view::{CodeBlock, Highlighter, code_block, highlighter};

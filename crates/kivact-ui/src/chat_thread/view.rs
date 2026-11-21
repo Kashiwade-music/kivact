@@ -4,189 +4,118 @@ use crate::chat_message::look::ChatAlign;
 use crate::chat_thread::look::ChatThreadState;
 use crate::chat_thread::look::ChatThreadTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
-use kivact_core::state::{IntoValue, Value};
+use kivact_core::custom::Caller;
+use kivact_core::state::Value;
 use kivact_core::style::{FlexDirection, style};
-use kivact_core::view::{
-    Element, IntoView, Node, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll,
-};
+use kivact_core::view::{Element, NodeRef, Role, ScrollAxes, View, node, node_ref, scroll};
 use kivact_interaction::use_follow_end;
-// xtask-allow(state): legacy: viewport, history_revision, composer, empty, gap
+use kivact_macros::component;
+
 /// A scrollable message log that follows new content until the reader scrolls away.
-pub struct ChatThread {
-    root: Node,
+///
+/// `children` are the messages. `viewport_ref` attaches the caller's reference to
+/// the scrolling viewport, and `history_revision` is the history generation: change
+/// it in the batch that prepends earlier messages, and detached readers keep the
+/// same visible content. `composer` is placed below the viewport. `empty` is the
+/// empty-log content, shown while `empty_when` is true (default false).
+/// `loading_top` shows an earlier-history loading status above the messages,
+/// `streaming` shows a typing indicator after them, `gap` sets the spacing between
+/// children, `align` places short history at the start or end of its viewport,
+/// and `scroll_button` shows the jump-to-end action while the reader is away from
+/// the end.
+#[component]
+pub fn chat_thread(
     children: View,
-    viewport: Option<NodeRef>,
+    viewport_ref: Option<NodeRef>,
     history_revision: Option<Value<u64>>,
     composer: Option<View>,
-    empty: Option<(Value<bool>, View)>,
-    loading_top: Value<bool>,
-    streaming: Value<bool>,
+    empty: Option<View>,
+    #[prop(default = false)] empty_when: Value<bool>,
+    #[prop(default = false)] loading_top: Value<bool>,
+    #[prop(default = false)] streaming: Value<bool>,
     gap: Option<Value<f64>>,
-    align: Value<ChatAlign>,
-    scroll_button: Value<bool>,
+    #[prop(default = ChatAlign::Start)] align: Value<ChatAlign>,
+    #[prop(default = true)] scroll_button: Value<bool>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let viewport = viewport_ref.unwrap_or_else(node_ref);
+    let content = node_ref();
+    let slack = follow_slack();
+    let follow = use_follow_end(viewport, content, slack, history_revision);
+    let distance = follow.distance();
+    let state = move || ChatThreadState {
+        distance: distance.get(),
+    };
+    let loading = crate::spinner().hidden(move || !loading_top.get());
+    let typing = crate::typing_indicator().hidden(move || !streaming.get());
+    let messages = with_recipe_style(
+        node().node_ref(content).child((
+            loading,
+            empty.map(|view| node().hidden(move || !empty_when.get()).child(view)),
+            children,
+            typing,
+        )),
+        |r: &ChatThreadTheme| r.content_recipe(),
+        &variants,
+        state,
+    )
+    .style(move || {
+        let s = style()
+            .flex_direction(FlexDirection::Column)
+            .flex_grow(1)
+            .flex_shrink(0)
+            .justify_content(if align.get() == ChatAlign::End {
+                kivact_core::style::Justify::End
+            } else {
+                kivact_core::style::Justify::Start
+            });
+        match gap {
+            Some(gap) => s.gap(gap.get()),
+            None => s,
+        }
+    });
+    let viewport = with_recipe_style(
+        scroll(messages)
+            .axes(ScrollAxes::Vertical)
+            .node_ref(viewport),
+        |r: &ChatThreadTheme| r.viewport_recipe(),
+        &variants,
+        state,
+    );
+    let shown = scroll_button;
+    let jump = with_recipe_style(
+        crate::button(kivact_core::i18n::message(
+            "chat_thread.jump",
+            "Jump to latest",
+        ))
+        .variant(crate::ButtonVariant::Outline)
+        .icon(kivact_core::view::icon("arrow-down"))
+        .hide_label(true)
+        .hidden(move || !shown.get() || distance.get() <= slack)
+        .on_press(move || follow.jump_to_end()),
+        |r: &ChatThreadTheme| r.scroll_button_recipe(),
+        &variants,
+        state,
+    );
+    let composer = composer.map(|v| {
+        with_recipe_style(
+            node().child(v),
+            |r: &ChatThreadTheme| r.composer_recipe(),
+            &variants,
+            state,
+        )
+    });
+    with_base_recipe_style(
+        node().role(Role::Log),
+        |r: &ChatThreadTheme| r.root_recipe(),
+        &variants,
+        state,
+    )
+    .child((viewport, jump, composer))
 }
-/// Place children in a `Role::Log` with shared scroll-follow behavior.
-#[track_caller]
-pub fn chat_thread(children: impl IntoView) -> ChatThread {
-    ChatThread {
-        root: node().role(Role::Log),
-        children: children.into_view(),
-        viewport: None,
-        history_revision: None,
-        composer: None,
-        empty: None,
-        loading_top: false.into_value(),
-        streaming: false.into_value(),
-        gap: None,
-        align: ChatAlign::Start.into_value(),
-        scroll_button: true.into_value(),
-    }
-}
-impl ChatThread {
-    /// Attach the caller's reference to the scrolling viewport.
-    pub fn viewport_ref(mut self, reference: NodeRef) -> Self {
-        self.viewport = Some(reference);
-        self
-    }
-    /// The history generation; change it in the batch that prepends earlier messages.
-    /// Detached readers keep the same visible content when that generation changes.
-    #[track_caller]
-    pub fn history_revision(mut self, revision: impl IntoValue<u64>) -> Self {
-        self.history_revision = Some(revision.into_value());
-        self
-    }
-    /// Place a composer below the viewport.
-    pub fn composer(mut self, content: impl IntoView) -> Self {
-        self.composer = Some(content.into_view());
-        self
-    }
-    /// Show empty-log content when the caller's collection is empty.
-    #[track_caller]
-    pub fn empty(mut self, when: impl IntoValue<bool>, content: impl IntoView) -> Self {
-        self.empty = Some((when.into_value(), content.into_view()));
-        self
-    }
-    /// Show an earlier-history loading status above the messages.
-    #[track_caller]
-    pub fn loading_top(mut self, loading: impl IntoValue<bool>) -> Self {
-        self.loading_top = loading.into_value();
-        self
-    }
-    /// Show a typing indicator after the messages.
-    #[track_caller]
-    pub fn streaming(mut self, streaming: impl IntoValue<bool>) -> Self {
-        self.streaming = streaming.into_value();
-        self
-    }
-    /// Set the spacing between children.
-    #[track_caller]
-    pub fn gap(mut self, gap: impl IntoValue<f64>) -> Self {
-        self.gap = Some(gap.into_value());
-        self
-    }
-    /// Align short history to the start or end of its viewport.
-    #[track_caller]
-    pub fn align(mut self, align: impl IntoValue<ChatAlign>) -> Self {
-        self.align = align.into_value();
-        self
-    }
-    /// Show the jump-to-end action while the reader is away from the end.
-    #[track_caller]
-    pub fn scroll_button(mut self, shown: impl IntoValue<bool>) -> Self {
-        self.scroll_button = shown.into_value();
-        self
-    }
-}
-impl Element for ChatThread {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
+
 /// The chat thread's follow slack in the theme in effect (tracked).
 fn follow_slack() -> f64 {
     kivact_core::style::use_theme().with(|t| t.get(&crate::chat_thread::look::FOLLOW_SLACK_VAR))
-}
-
-impl IntoView for ChatThread {
-    fn into_view(self) -> View {
-        let variants = self.root.authored().variants();
-        let viewport = self.viewport.unwrap_or_else(node_ref);
-        let content = node_ref();
-        let slack = follow_slack();
-        let follow = use_follow_end(viewport, content, slack, self.history_revision);
-        let distance = follow.distance();
-        let state = move || ChatThreadState {
-            distance: distance.get(),
-        };
-        let loading = crate::spinner().hidden(move || !self.loading_top.get());
-        let typing = crate::typing_indicator().hidden(move || !self.streaming.get());
-        let gap = self.gap;
-        let align = self.align;
-        let messages = with_recipe_style(
-            node().node_ref(content).child((
-                loading,
-                self.empty
-                    .map(|(when, view)| node().hidden(move || !when.get()).child(view)),
-                self.children,
-                typing,
-            )),
-            |r: &ChatThreadTheme| r.content_recipe(),
-            &variants,
-            state,
-        )
-        .style(move || {
-            let s = style()
-                .flex_direction(FlexDirection::Column)
-                .flex_grow(1)
-                .flex_shrink(0)
-                .justify_content(if align.get() == ChatAlign::End {
-                    kivact_core::style::Justify::End
-                } else {
-                    kivact_core::style::Justify::Start
-                });
-            match gap {
-                Some(gap) => s.gap(gap.get()),
-                None => s,
-            }
-        });
-        let viewport = with_recipe_style(
-            scroll(messages)
-                .axes(ScrollAxes::Vertical)
-                .node_ref(viewport),
-            |r: &ChatThreadTheme| r.viewport_recipe(),
-            &variants,
-            state,
-        );
-        let shown = self.scroll_button;
-        let jump = with_recipe_style(
-            crate::button(kivact_core::i18n::message(
-                "chat_thread.jump",
-                "Jump to latest",
-            ))
-            .variant(crate::ButtonVariant::Outline)
-            .icon(kivact_core::view::icon("arrow-down"))
-            .hide_label(true)
-            .hidden(move || !shown.get() || distance.get() <= slack)
-            .on_press(move || follow.jump_to_end()),
-            |r: &ChatThreadTheme| r.scroll_button_recipe(),
-            &variants,
-            state,
-        );
-        let composer = self.composer.map(|v| {
-            with_recipe_style(
-                node().child(v),
-                |r: &ChatThreadTheme| r.composer_recipe(),
-                &variants,
-                state,
-            )
-        });
-        with_base_recipe_style(
-            self.root,
-            |r: &ChatThreadTheme| r.root_recipe(),
-            &variants,
-            state,
-        )
-        .child((viewport, jump, composer))
-        .into_view()
-    }
 }
