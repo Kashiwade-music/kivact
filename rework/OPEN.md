@@ -1450,3 +1450,8 @@ lane K5 の fix（commit `84858df7`、branch `wt/rw-W9-K5`）の報告による�
 - **(5) status_dot の既定 `Neutral`**：採る。
 - **(6) `SectionVariant` の二重の定義**：`variants.rs` の一つを残し、`section.rs` はそれを使う。二つの variant の値の一覧が違えば、和にする（値の意味が食い違うなら返す）。lane K5 の fix で行う。
 - **stepper**（`5f285533` で消えていた hover・pressed を戻した件）：確認した。それでよい。
+
+## 差戻し（W9 の K2・K4・K32、2026-11-22）
+
+- **Slant・Striped の Prop**（K08、`crates/kivact-ui/src/variant_marks.rs`）：中核の `Slant`・`Striped` に `#[derive(Prop)]` が無いため、`.variant(kivact::ui::Slant)` が `IntoValue` を満たさない。旧の pop・game の型はこの derive を持っていた。pop（`b40485d2`）と game（`fe3e9185`）は、定義と再公開を消し、使い所を `kivact::ui` の型にした（lane `wt/rw-W9-fix1`）。`cargo check --all-targets -p kivact-ui-game` の tests/consumer で E0277 が 12 件。直し方は設計者の判断。examples の 60 行は、この derive が付くまで通らない（W10 の lane が直す）。
+- **K32 lightbox**（`crates/kivact-ui-soft/src/lightbox.rs`）：`view` の値の型 `LightboxView` が private で、pub な setter に出せない（private_interfaces）。(a) `LightboxView` を公開する（API の追加）か、(b) `Lightbox` を手書きの builder として `[hand_element] allowed_impls` に入れるか。現在は手書きの builder のまま（`impl IntoView` の note 1 件）。
