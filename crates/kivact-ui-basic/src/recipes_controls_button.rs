@@ -36,16 +36,26 @@ fn button(t: &Theme, state: &Look<ButtonState>, _base: Style) -> Style {
         s
     };
     // button.tsx `size="icon"`: a square, as wide as the button is high.
-    if state.is_icon_only() {
+    let s = if state.is_icon_only() {
         s.aspect_ratio(1.0).padding_x(0.0)
     } else {
         s
+    };
+    // A button inside an input group takes that group's size.
+    match crate::recipes_input::button(state) {
+        Some(look) => s.merge(&look),
+        None => s,
     }
 }
 
 /// The row of the button's icon and label.
 fn button_content(_: &Theme, state: &Look<ButtonState>, _base: Style) -> Style {
     let (_, _, gap, _) = metrics(state.size);
+    let gap = if crate::recipes_input::button_icon(state).is_some() {
+        4.0
+    } else {
+        gap
+    };
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -56,6 +66,7 @@ fn button_content(_: &Theme, state: &Look<ButtonState>, _base: Style) -> Style {
 /// The box of a button's icons: `size-4`, `size-3.5` in a small button.
 fn button_icon(_: &Theme, state: &Look<ButtonState>, _base: Style) -> Style {
     let (_, _, _, side) = metrics(state.size);
+    let side = crate::recipes_input::button_icon(state).unwrap_or(side);
     style()
         .size(side, side)
         .flex_shrink(0.0)

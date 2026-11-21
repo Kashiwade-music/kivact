@@ -13,6 +13,7 @@ use kivact::geometry::Rect;
 use kivact::style::{
     Align, Cursor, FlexDirection, Justify, Position, Style, TextDecorationLine, Theme, pct, style,
 };
+use kivact::ui::ProgressVariant;
 use kivact::ui::theme::{
     AxisState, CheckableState, DisclosureRecipeState, DisclosureTheme, Look, ProgressState,
     ProgressTheme, RadioGroupTheme, SliderTheme, SplitTheme, SplitterTheme, ToggleButtonState,
@@ -222,7 +223,14 @@ fn toggle(_: &Theme, look: &Look<ToggleButtonState>, _base: Style) -> Style {
 }
 
 /// progress.tsx: a 4 px `bg-muted` track that clips its `bg-primary` fill.
-fn progress_track(_: &Theme, _: &Look<ProgressState>, _base: Style) -> Style {
+/// A ring or another non-bar variant draws its own track.
+fn progress_track(t: &Theme, state: &Look<ProgressState>, base: Style) -> Style {
+    if state
+        .variant::<ProgressVariant>()
+        .is_some_and(|v| v != ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::track(t, state, base);
+    }
     style()
         .width(pct(100.0))
         .height(4.0)
@@ -232,7 +240,14 @@ fn progress_track(_: &Theme, _: &Look<ProgressState>, _base: Style) -> Style {
 }
 
 /// The fill is as wide as the value; an indeterminate bar's segment moves.
-fn progress_fill(_: &Theme, look: &Look<ProgressState>, _base: Style) -> Style {
+/// A ring or another non-bar variant draws its own fill.
+fn progress_fill(t: &Theme, look: &Look<ProgressState>, base: Style) -> Style {
+    if look
+        .variant::<ProgressVariant>()
+        .is_some_and(|v| v != ProgressVariant::Bar)
+    {
+        return crate::recipes_metrics::fill(t, look, base);
+    }
     let state = **look;
     match state.value {
         Some(value) => style()
@@ -297,9 +312,28 @@ fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>, _base: S
         .rotate(if state.open { 180.0 } else { 0.0 })
 }
 
-fn disclosure_content(_: &Theme, state: &Look<DisclosureRecipeState>, _base: Style) -> Style {
-    if state.variant::<DisclosureVariant>() == Some(DisclosureVariant::Plain) {
-        return style();
+/// The detail of a trace: a muted column with a rule at its left edge, under
+/// the compact trigger of a [`DisclosureVariant::Trace`] disclosure.
+fn disclosure_trace(_: &Theme) -> Style {
+    style()
+        .flex_direction(FlexDirection::Column)
+        .min_width(0.0)
+        .margin_top(8.0)
+        .margin_bottom(4.0)
+        .margin_left(6.0)
+        .padding_left(15.0)
+        .padding_right(4.0)
+        .border_left(1.0, BORDER)
+        .line_height(1.625)
+        .color(MUTED_FOREGROUND)
+        .font_size(12.0)
+}
+
+fn disclosure_content(t: &Theme, state: &Look<DisclosureRecipeState>, _base: Style) -> Style {
+    match state.variant::<DisclosureVariant>() {
+        Some(DisclosureVariant::Plain) => return style(),
+        Some(DisclosureVariant::Trace) => return disclosure_trace(t),
+        None => (),
     }
     style()
         .enter_size(Orientation::Vertical)

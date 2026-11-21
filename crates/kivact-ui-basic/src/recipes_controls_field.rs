@@ -4,6 +4,7 @@
 
 use crate::color::{DESTRUCTIVE, FOREGROUND, INPUT, MUTED_FOREGROUND, PRIMARY};
 use crate::recipe_parts::{field_fill, focus_ring, invalid_edge};
+use crate::variants::InputGroupControl;
 use kivact::style::{FlexDirection, Style, Theme, ThemeMode, color, pct, style};
 use kivact::ui::ControlSize;
 use kivact::ui::theme::{
@@ -36,24 +37,34 @@ fn field(t: &Theme, state: &Look<TextInputState>) -> Style {
 
 /// The single-line input: 24 to 36 px high by size.
 fn text_input(t: &Theme, state: &Look<TextInputState>, _base: Style) -> Style {
-    field(t, state)
+    let base = field(t, state)
         .height(match state.size {
             ControlSize::ExtraSmall => 24.0,
             ControlSize::Small => 28.0,
             ControlSize::Medium => 32.0,
             ControlSize::Large => 36.0,
         })
-        .padding_y(4.0)
+        .padding_y(4.0);
+    if state.variant::<InputGroupControl>().is_some() {
+        crate::recipes_input::control(base, false)
+    } else {
+        base
+    }
 }
 
 /// `min-h-16 field-sizing-content`: at least 64 px, growing with the lines
 /// of the value (a native text area does not wrap, and it is never lower
 /// than three lines).
 fn text_area(t: &Theme, state: &Look<TextInputState>, _base: Style) -> Style {
-    field(t, state)
+    let base = field(t, state)
         .min_height(64.0)
         .padding_y(8.0)
-        .line_height(16.0 / 12.0)
+        .line_height(16.0 / 12.0);
+    if state.variant::<InputGroupControl>().is_some() {
+        crate::recipes_input::control(base, true)
+    } else {
+        base
+    }
 }
 
 /// The column of a field: its label, control and hint.

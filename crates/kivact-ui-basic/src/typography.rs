@@ -141,37 +141,3 @@ pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Ele
             .color(ColorName::Foreground),
     )
 }
-
-pub(crate) fn heading(
-    t: &kivact::style::Theme,
-    s: &kivact::ui::Look<kivact::ui::HeadingState>,
-) -> Style {
-    let p = t.ext::<crate::Tokens>();
-    let base = style().color(p.foreground);
-    match s.level {
-        1 => base
-            .font_size(36)
-            .line_height(40.0 / 36.0)
-            .weight(800)
-            .letter_spacing(-0.9),
-        2 => base
-            .font_size(30)
-            .line_height(36.0 / 30.0)
-            .weight(600)
-            .letter_spacing(-0.75)
-            .padding_bottom(8)
-            .border_bottom(1, p.border),
-        3 => base
-            .font_size(24)
-            .line_height(32.0 / 24.0)
-            .weight(600)
-            .letter_spacing(-0.6),
-        4 => base
-            .font_size(20)
-            .line_height(28.0 / 20.0)
-            .weight(600)
-            .letter_spacing(-0.5),
-        5 => base.font_size(16).weight(600),
-        _ => base.font_size(14).weight(600),
-    }
-}

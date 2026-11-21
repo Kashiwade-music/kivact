@@ -27,6 +27,9 @@ pub(crate) const MINUS: Glyph = &[&[(5.0, 12.0), (19.0, 12.0)]];
 /// Lucide `chevron-down`.
 pub(crate) const CHEVRON_DOWN: Glyph = &[&[(6.0, 9.0), (12.0, 15.0), (18.0, 9.0)]];
 
+/// The monospace family of inline code and code blocks; the application registers the font.
+pub(crate) const MONO: &str = "\"Geist Mono\", monospace";
+
 /// The theme's focus ring: the focus outline of the theme's width in
 /// `--ring` at half opacity, for a part without a border of its own.
 pub(crate) fn theme_ring(t: &Theme) -> Style {

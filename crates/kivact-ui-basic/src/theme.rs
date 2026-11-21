@@ -27,7 +27,12 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = crate::recipes_overlays::install(theme);
     let theme = crate::recipes_collections::install(theme);
     let theme = crate::recipes_navigation::install(theme);
-    crate::recipes_feedback::install(theme)
+    let theme = crate::recipes_feedback::install(theme);
+    let theme = crate::recipes_metrics::install(theme);
+    let theme = crate::recipes_chat::install(theme);
+    let theme = crate::recipes_input::install(theme);
+    let theme = crate::recipes_calendar::install(theme);
+    crate::recipes_code::install(theme)
 }
 
 /// The core variables the kit sets: the standard colors, spacing, radii, text and control
@@ -91,13 +96,12 @@ fn set_core(theme: Theme, mode: ThemeMode) -> Theme {
 
 /// The standard components' variables the kit sets (U 変数表).
 fn set_components(theme: Theme) -> Theme {
-    use kivact::ui::theme::{SpinnerTheme, calendar, chat_thread, code_block, combobox};
+    use kivact::ui::theme::{calendar, chat_thread, code_block, combobox};
     theme
         .set(&chat_thread::FOLLOW_SLACK_VAR, 1.5)
         .set(&code_block::FONT_SIZE_VAR, 14.0)
         .set(&code_block::LINE_HEIGHT_VAR, 23.0)
         .set(&code_block::COPY_FEEDBACK_MS_VAR, 2000.0)
-        .with(SpinnerTheme::default().reduced_period(Some(1000.0)))
         .set(&calendar::CELL_SIZE_VAR, 28.0)
         .set(&calendar::MONTH_GAP_VAR, 16.0)
         .set(&calendar::WEEK_GAP_VAR, 8.0)
