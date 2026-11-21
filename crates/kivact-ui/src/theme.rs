@@ -14,6 +14,7 @@ pub use kivact_core::view::Variant;
 pub use crate::alert::look::AlertState;
 pub use crate::alert::look::AlertTheme;
 pub use crate::alert::look::Expansion;
+pub use crate::announcer_outlet::look::AnnouncerOutletTheme;
 pub use crate::avatar::look::AvatarState;
 pub use crate::avatar::look::AvatarTheme;
 pub use crate::avatar_group::look::AvatarGroupTheme;

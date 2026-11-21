@@ -114,21 +114,21 @@ impl Disclosure {
         self
     }
 
-    /// Keep the content expanded and prevent the trigger from collapsing it.
-    /// This structural choice is fixed before mounting.
-    pub fn always_open(mut self) -> Self {
-        self.always_open = true;
+    /// Keep the content expanded and prevent the trigger from collapsing it
+    /// while `always` is true. This structural choice is fixed before mounting.
+    pub fn always_open(mut self, always: bool) -> Self {
+        self.always_open = always;
         self
     }
 
     /// Build the content once and keep it mounted, hidden while the section
     /// is closed, so what it holds (the text of an input, a scroll position)
-    /// survives closing. The hidden content takes no space, input or
-    /// assistive technology; the open and close motion of
+    /// survives closing, while `keep` is true. The hidden content takes no
+    /// space, input or assistive technology; the open and close motion of
     /// [`animated`](Self::animated) does not run. This structural choice is
     /// fixed before mounting.
-    pub fn keep_mounted(mut self) -> Self {
-        self.keep_mounted = true;
+    pub fn keep_mounted(mut self, keep: bool) -> Self {
+        self.keep_mounted = keep;
         self
     }
 

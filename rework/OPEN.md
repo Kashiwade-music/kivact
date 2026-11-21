@@ -974,6 +974,15 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
 - 守りを行の press に移せない：`crates/kivact-core/src/client/dispatch/pointer.rs` の `pointer()` は押しを最も近い pointer handler の祖先 1 つに渡す。`TableFocus::Cells` では、セルの part の handler（`crates/kivact-interaction/src/table/cells.rs` の `cell`、`list.select` を呼ぶ）が先に当たる。
 - **設計者が決める**：(a) チェック付きのセルの押しで選択を置き換えない守りを `table/cells.rs` に置く（所有の外）、(b) drag の出どころを行全体でなく drag の取手（handle）に限る。どちらでも、drag が始まらない原因（どの part が押しを取るか）を先に調べる。U3 lane は止める（U49〜U51 は後）。
 
+## Orchestrator の判断（W8・U47、2026-11-21）
+
+- **STOP（dialog・hover_card）**：`Dialog`・`HoverCard` は「root の node を持たせ、surface の root にする（modifier は surface に付く）」を、このままでは作れない。`show(when, child)` の child は `Fn() -> V` で、surface は開くたびに作り直す（dialog の本文は「開くたびに fresh owner」）。一方 `Node` は `Clone` でなく、`View` は mount で一度だけ node を作る（`View` の説明：「Mounting it creates nodes and effects exactly once」）。よって呼出し側の `.style`・`.name`・`.test_id` などを二回目以降の開きに写せない。`variant` だけなら `root.authored().variants()`（借用で読める）で足りるが、root を surface に載せないと、呼出し側の他の modifier が黙って落ちる。`HoverCard::attach` も同じ（`show` の closure の中で `self.content` を使う）。
+- **判断が要る（設計者）**：(a) kivact-core（所有の外）に、一度だけ mount する child か、複製できる modifier の集まりを足す。(b) `Dialog`・`HoverCard` の root を作らず、`variant` だけを `Variants` の field で持つ（付属書の U24 の残りの指示を外す）。(c) 別の形。U47 の残りはこの判断を待つ。
+- **完了（disclosure）**：`Disclosure` の `always_open(bool)`・`keep_mounted(bool)`（付属書の C2 の定数の行どおり）。呼出し元は `dev/tests/kivact-public-api/tests/e2e_ui/apg_accordion.rs` の `.always_open(true)` のみ（`examples/` の `keep_mounted()` は tabs の呼出しで対象外）。`Disclosure::attach` は root を show の外で一度だけ使うので、replay の問題は無い。`docs/` の `.always_open()` の記述は G の移行の文書（W11b）で直す（未変更）。
+- **完了（disclosure_group）**：`DisclosureGroup` は手書きの builder のまま（`allowed_impls` のみ）。
+- **allowed_impls**：`dev/xtask/policy/workspace.toml` の `[hand_element]` に付属書の 4 行を入れた。定義の path は xtask が報告する形（`kivact_ui::<module>::view::Dialog`、`kivact_ui::disclosure::group::DisclosureGroup`）に合わせた。既存の Tooltip の行は file が `tooltip/view.rs` に移っていたので、`kivact_ui::tooltip::view::Tooltip crates/kivact-ui/src/tooltip/view.rs` に直した（U12 の移動の後の追従）。
+- **名前の規則**：Dialog・Disclosure の試験は名前を読むが、名前は surface（layer）と trigger に直接付くので、U40・U44 の差戻しの形（`#[component]` の名前が body の root に載る）には当たらず、STOP にはしていない。
+- **確認**：`cargo fmt -p kivact-ui`、`cargo check -p kivact-ui --all-targets`、`cargo clippy -p kivact-ui --no-deps --all-targets -- -D warnings`（workspace 全体の clippy は arvane-native の既存の unused import で落ちる。E29 と同じ扱い）、`cargo xtask check --no-write --crate kivact-ui`（ok。hand-element は四つとも allowed に入った）、`cargo check -p kivact -p kivact-devtools -p kivact-public-api-tests --all-targets`、window-lock 付きの `e2e_ui` の interaction_dialog（6）・interaction_show_hide（6）・interaction_tooltip（5）・ui_disclosure_surfaces（6）・ui_navigation（7）・apg_accordion（3）・feedback（10）・apg_tooltip（1）・ui_components（11）・interaction_toast（7）が全部通った（`running 0 tests` は無し）。
 ## 設計者の回答（W8・名前の規則と U43 の二度目、2026-11-21）
 
 - **(1) 名前の規則**：名前は今のとおり body の root に載る（マクロは変えない）。直すのは読む側：**外から受け取った element（trigger・control など）の、呼出し側が書いた値は `node_mut().authored()` で読む**（`authored()` は caller の segment を畳むので、`#[component]` の element でも呼出し側の `.name(..)` が見える）。`accessible_name()` などの `accessible_*()` は、その node に直に書かれた値だけを読むので、外から受け取った element には使わない。自分の body の中は C3 のとおり `Caller` から読む。
@@ -998,6 +1007,7 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
   - `chat_thread` の `empty(when, content)` → `empty(content: impl IntoView)`。empty の表示は「messages が空で、`loading_top` でない間」に本体が決める（`when` の引数を消す）。呼出し元の `when` が、この条件と違うものを渡している所があれば STOP して報告する。
   - `code_block` の `highlight(content, f)` → `highlight(h: Highlighter)`。`code_block` の module に `pub struct Highlighter`（中身は今の boxed の closure を `Rc<dyn Fn(..)>` にしたもの。props は `Option<Highlighter>`）と `pub fn highlighter<T, S, F>(content: impl IntoValue<T>, f: F) -> Highlighter`（型引数と制約は今の `highlight` と同じ。doc は今の `highlight` の doc を写す）を足し、`lib.rs` と prelude（今 `code_block` を出している所）から `highlighter` と `Highlighter` を出す。呼出し元は `.highlight(highlighter(content, f))` に直す（所有の木の試験・examples。kit は W9）。
 
+<<<<<<< HEAD
 ## 設計者の回答（W8・U48、U53 の chat_thread、U45、U43 の残り、2026-11-21）
 
 - **(1) U48**：`Menu`・`Select`（trigger と surface を兄弟で出す）を allowed_impls にした判断を採る（Select も同じ理由に当たる）。同じ理由で次も手書きの builder のまま残し、allowed_impls に足す：`Combobox`（入力と list の surface を兄弟で出す。`search<F, Fut>` の型引数もそのまま残せる）、`CommandPalette`（dialog の surface を開くたびに作り直す。`close_on(fn(&KeyEvent) -> bool)` もそのまま）、`NavigationMenu`（trigger と panel を兄弟で出し、`link(key, label, content)`・`action(key, label, press)` で key の型付きの項目を積む）、`NavigationMenuLink`（呼出し側の press を `take_press` で取り出して自分の press の中で呼ぶ。U23 の決まり）。allowed_impls の comment に理由の 4 つの型（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む）を書く。これらの固有の `variant` は U24 の残りのまま残してよい。`toast_region` を `#[component]` にした判断を採る。
@@ -1032,3 +1042,23 @@ U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計�
   - `range_span(min, max)` → `min_span(n)`・`max_span(n)`、`bounds(min, max)` → `min_date(d)`・`max_date(d)`（HTML の date の input の `min`・`max` と同じ考え）。呼出し元を直す。
 - **U53 の code_block**：`#[component]` にする。手書きが要る理由が allowed_impls の 4 つの型（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む）のどれかに当たる場合だけ allowed_impls に足して OPEN に記録する。どれにも当たらず `#[component]` にもできないなら、その理由を書いて STOP。
 - 上の C1 の例外（setter の形の変更）は、まとめて G の移行の文書に足す（W11b）。
+=======
+## 途中の報告（W8・U48、U2 lane、2026-11-21）
+
+U48（menu・select・combobox・command_palette・navigation_menu・navigation_menu_link・toast_region）は途中。次の判断を設計者に求める。
+
+- **U47 の確認**：`cargo xtask check --no-write --crate kivact-ui` は ok。dialog・hover_card・disclosure・tooltip は hand-element の pending に出ない（allowed_impls の 4 行で通る）。
+- **allowed_impls に足した（trigger と surface を兄弟で出す。surface は `show` で開くたびに作り直す）**：`kivact_ui::menu::view::Menu`（`attach`・`attach_context` が `(trigger, surface)` を返す。`variant`・`variants` の field は残す）、`kivact_ui::select::view::Select`（`into_view` が `(trigger, surface, sheet)` を返す。popup は `show` で作る）。**Select は設計者の名指し（Menu・CommandPalette・ToastRegion）に無い。同じ事情と判断したので足した。違えば差し戻す。**
+- **`#[component]` にした**：`toast_region`（`toast/view.rs`）。root は一つの `column`（surface の兄弟は無い）。`hold_all_on_hover` は `Option<Value<bool>>`、`variants` は `#[caller]` から読み、`variant` の method と `variants` の field は消した。`ToastRegion` の型名は生成された struct に残る（`lib.rs` の `pub use` は変えない）。
+- **STOP（command_palette）**：`close_on(matches: fn(&KeyEvent) -> bool)`。マクロの `Other` の setter は `impl Into<fn(..)>` になり、closure と fn item（`examples/kivact-ui-pop/src/pop/shell.rs:157`、doc の例）が渡せなくなる（C1 に反する）。`Rc<dyn Fn>` にすると `kivact-interaction` の `close_on`（`palette/handle.rs:423`、所有の外）を変える必要がある。**設計者が決める**：(a) interaction の `close_on` を `impl Fn(&KeyEvent) -> bool` にする（所有の外）、(b) 別の形。
+- **STOP（combobox）**：`search<F, Fut>(search: F)` の `Fut` は呼出し側の future の型で、props の `Rc<dyn Fn(..) -> T>` に写せない（`Pin<Box<..>>` にすると呼出し形が変わる）。`selected: impl IntoSelection<K>` も C2 に行が無い。**設計者が決める**：`search` の props の型。
+- **STOP（navigation_menu）**：`link<K, V>(_key, label, content)` と `action<K, M>(_key, label, press)` は一つずつ積む setter で、C2 の「一つの値を受ける setter」に写せない（C1 に反する）。**設計者が決める**：積む形の props（`Vec` の型と setter の名前）。
+- **STOP（navigation_menu_link）**：`into_view` は `root.take_press()` で呼出し側の `on_press` を取り出す。C3 の `Caller` の読みに `take_press` が無く、absorb の前後の順序（取り出した press が absorb で二重に付くか）が決まっていない。**設計者が決める**：`Caller` からの press の取り出し方。
+- **確認**：付属書 C7 の命令（fmt・check・clippy・xtask・downstream check）と window-lock の e2e_ui の結果は下の commit メッセージと報告を見る。
+
+## 完了の記録（W8・U48、設計者の回答（1）を適用、2026-11-21）
+
+- 設計者の回答（1）どおり：`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `Combobox`（`combobox/handle.rs`）・`CommandPalette`（`command_palette/view.rs`）・`NavigationMenu`（`navigation_menu/view.rs`）・`NavigationMenuLink`（`navigation_menu/link.rs`）の 4 行を足し、comment に理由の 4 つの型を書いた。固有の `variant` は残した。
+- 上の「途中の報告」の STOP（command_palette の `close_on`、combobox の `search`、navigation_menu の `link`・`action`、navigation_menu_link の `take_press`）は、この 4 つを手書きの builder のまま残す答えで解けた（props の形は変えない）。
+- `toast_region` は `#[component]`（`toast/view.rs`）。`Menu`・`Select` は前の回答どおり手書きの builder のまま allowed_impls。
+>>>>>>> wt/rw-W8-U2
