@@ -2,6 +2,5 @@
 pub(crate) mod look;
 pub(crate) mod parse;
 
-mod machine;
 mod view;
 pub use view::{TimeInput, time_input};

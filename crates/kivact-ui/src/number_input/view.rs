@@ -1,6 +1,5 @@
 //! Role: The number input builder, its draft text and its rendering.
 
-use crate::number_input::draft::{NumberEvent, NumberInputSnapshot, NumberText, format_value};
 use crate::number_input::look::NumberInputTheme;
 
 use crate::helpers::{is_named, report_unnamed};
@@ -8,15 +7,15 @@ use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::text_input::{TextInput, text_input};
 use crate::{ButtonVariant, button};
 use kivact_core::custom::PartState;
-use kivact_core::i18n::{Locale, message, use_locale};
+use kivact_core::i18n::{FractionDigits, Grouping, Locale, NumberStyle, message, use_locale};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::state::{Signal, Value, binding, machine, memo};
+use kivact_core::state::{Signal, Value, binding};
 use kivact_core::style::{Track, auto, style};
 use kivact_core::view::EditPhase;
 use kivact_core::view::Variants;
 use kivact_core::view::{Element, Node, grid, icon};
 use kivact_core::view::{IntoView, NodeRef, View, node_ref};
-use kivact_interaction::{ScalarRange, use_scalar};
+use kivact_interaction::{DraftCommit, DraftOptions, ScalarRange, use_draft, use_scalar};
 use std::panic::Location;
 
 /// A number field with a decrease and an increase button, created by
@@ -129,51 +128,32 @@ impl IntoView for NumberInput {
         }
         let shown = number.value();
         let locale = use_locale();
-        let typed = machine(
-            NumberText::Value(format_value(
-                shown.get_untracked(),
-                range.get_untracked(),
-                &locale.get_untracked(),
-            )),
-            move || NumberInputSnapshot {
-                value: shown.get(),
-                range: range.get(),
-                locale: locale.get(),
-            },
-            |_, ()| {},
+        // Scalar owns the numeric write; the draft writes its accepted value through it.
+        let writer = binding(shown, move |next: f64| {
+            number.once(|| number.set(next));
+        });
+        let draft = use_draft(
+            writer,
+            DraftOptions::new(
+                move |value: &f64| format_value(*value, range.get(), &locale.get()),
+                move |text: &String| locale.get().parse_number(text),
+            )
+            .commit(DraftCommit::Live),
         );
         let input_ref = node_ref();
-        let focused = input_ref.focused();
-        typed.feed(
-            memo(move || (shown.get(), locale.get(), range.get())),
-            |_| NumberEvent::ValueChanged,
-        );
-        let edit = binding(
-            move || typed.get().text().to_owned(),
-            move |text: String| {
-                // Scalar owns the numeric write. Snapshot its accepted value
-                // when recording text, including bindings that reject a write.
-                if let Some(parsed) = locale.get_untracked().parse_number(&text) {
-                    number.once(|| number.set(parsed));
-                }
-                typed.send(NumberEvent::Typed(text));
-            },
-        );
-        let field = text_input(edit)
+        // Leaving the field shows the written value again.
+        draft.settle_on_blur(input_ref.focused());
+        let field = text_input(draft.editor())
             .label(label)
             .disabled(disabled)
             .invalid(move || {
-                invalid.get() || text_invalid(&typed.get(), range.get(), &locale.get())
+                invalid.get()
+                    || (draft.is_editing().get()
+                        && text_invalid(&draft.draft().get(), range.get(), &locale.get()))
             })
             .with_node(|node| node.base_style(style().grid_row(1).grid_column(2)))
             .node_ref(input_ref)
             .with_node(|node| node.part(number.input()));
-        // Leaving the field shows the written value again.
-        kivact_core::state::effect_on(focused, move |&now| {
-            if !now {
-                typed.send(NumberEvent::FocusOut);
-            }
-        });
         let field = editor_field(field, &variants, labelled_by, described_by);
         let decrease = step_button(number, input_ref, disabled, false);
         let increase = step_button(number, input_ref, disabled, true);
@@ -246,11 +226,48 @@ fn step_button(
 }
 
 /// Validate a pending textual edit against the caller's current numeric bounds.
-fn text_invalid(text: &NumberText, range: ScalarRange, locale: &Locale) -> bool {
-    match text {
-        NumberText::Value(_) => false,
-        NumberText::Typed { text, .. } => locale
-            .parse_number(text)
-            .is_none_or(|value| !value.is_finite() || value < range.min() || value > range.max()),
-    }
+fn text_invalid(text: &str, range: ScalarRange, locale: &Locale) -> bool {
+    locale
+        .parse_number(text)
+        .is_none_or(|value| !value.is_finite() || value < range.min() || value > range.max())
+}
+
+fn format_value(value: f64, range: ScalarRange, locale: &Locale) -> String {
+    let places = range.step().map_or_else(
+        || places(value),
+        |step| {
+            places(step)
+                .max(places(range.min()))
+                .max(places(range.max()))
+        },
+    );
+    locale.format_number(
+        value,
+        NumberStyle {
+            fraction_digits: FractionDigits::Range {
+                min: 0,
+                max: places.min(255) as u8,
+            },
+            grouping: Grouping::None,
+        },
+    )
+}
+
+/// Decimal places required by the step, including a decimal exponent.
+fn places(step: f64) -> usize {
+    let text = step.to_string();
+    let (mantissa, exponent) =
+        text.split_once('e')
+            .map_or((text.as_str(), 0), |(mantissa, exponent)| {
+                (
+                    mantissa,
+                    exponent
+                        .parse::<i32>()
+                        .expect("invariant: f64 exponent is an integer"),
+                )
+            });
+    let decimals = mantissa
+        .split_once('.')
+        .map_or(0, |(_, decimals)| decimals.len());
+    (decimals as i32 - exponent).max(0) as usize
 }

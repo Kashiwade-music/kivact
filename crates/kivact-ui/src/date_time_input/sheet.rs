@@ -1,12 +1,12 @@
 //! Role: Route touch date and time fields through one picker controller.
-use crate::date_time_input::model::{Controller, DateTimeInputState, Event, Panel};
 use kivact_core::i18n::{
     CalendarDate, DateStyle, DateTime, TimeStyle, Weekday, message, use_locale,
 };
-use kivact_core::state::{Signal, Value, binding, machine, memo};
+use kivact_core::state::{Signal, Value, binding};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, View, column, dynamic, node_ref, row,
 };
+use kivact_interaction::{DatePanel, DatePicker, DatePickerApi, use_date_picker};
 pub(crate) struct Inputs {
     pub root: Node,
     pub label: Value<String>,
@@ -21,31 +21,19 @@ pub(crate) struct Inputs {
 }
 pub(crate) fn render(i: Inputs) -> View {
     let button_ref = node_ref();
-    let state = machine(DateTimeInputState::Closed, || Controller, |_, ()| {});
-    let open = binding(
-        move || matches!(state.get(), DateTimeInputState::Open { .. }),
-        move |open| {
-            state.send(if open {
-                Event::Open(Panel::Date, button_ref)
-            } else {
-                Event::Close
-            })
-        },
-    );
-    let restore = memo(move || match state.get() {
-        DateTimeInputState::Open { invoker, .. } => invoker,
-        _ => button_ref,
-    });
+    let picker = use_date_picker();
+    let open = picker.open(DatePanel::Date, button_ref);
+    let restore = picker.return_focus(button_ref);
     let fields = crate::date_time_input::model::field_bindings(i.value, i.min, i.max);
     let date = fields.date;
     let time = fields.time;
-    let editors = editors(date, time, i.format, i.seconds, open, state);
+    let editors = editors(date, time, i.format, i.seconds, open, picker);
     let trigger = crate::button(
         i.picker_label
             .unwrap_or_else(|| message("date_time.open", "Choose date and time")),
     )
     .node_ref(button_ref);
-    let content = picker_content(i.min, i.max, i.week_start, i.seconds, date, time, state);
+    let content = picker_content(i.min, i.max, i.week_start, i.seconds, date, time, picker);
     i.root
         .child(row((
             editors,
@@ -66,38 +54,40 @@ fn picker_content(
     seconds: Value<bool>,
     date: Signal<Option<CalendarDate>>,
     time: Signal<Option<kivact_core::i18n::TimeOfDay>>,
-    state: kivact_core::state::MachineHandle<Controller>,
+    picker: DatePickerApi,
 ) -> kivact_core::view::ViewFn {
     kivact_core::view::ViewFn::from(move |()| {
         dynamic(
-            move || state.get(),
+            move || picker.state().get(),
             move |phase| match phase {
-                DateTimeInputState::Open {
-                    panel: Panel::Date, ..
+                DatePicker::Open {
+                    panel: DatePanel::Date,
+                    ..
                 } => {
-                    let mut picker = crate::calendar(date)
+                    let mut calendar = crate::calendar(date)
                         .min(move || min.get().map(|v| v.date))
                         .max(move || max.get().map(|v| v.date))
                         .autofocus(true);
                     if let Some(day) = week_start {
-                        picker = picker.week_start(day);
+                        calendar = calendar.week_start(day);
                     }
                     column((
-                        crate::date_parts::sheet::panel(date, picker),
+                        crate::date_parts::sheet::panel(date, calendar),
                         crate::button(message("date_time.save_date", "Save date"))
-                            .on_press(move || state.send(Event::Switch(Panel::Time))),
+                            .on_press(move || picker.show_panel(DatePanel::Time)),
                     ))
                     .into_view()
                 }
-                DateTimeInputState::Open {
-                    panel: Panel::Time, ..
+                DatePicker::Open {
+                    panel: DatePanel::Time,
+                    ..
                 } => column((
                     crate::date_parts::wheel::time_panel(time, seconds),
                     crate::button(message("date_time.save", "Save"))
-                        .on_press(move || state.send(Event::Close)),
+                        .on_press(move || picker.hide()),
                 ))
                 .into_view(),
-                DateTimeInputState::Closed => kivact_core::view::node().into_view(),
+                DatePicker::Closed => kivact_core::view::node().into_view(),
             },
         )
     })
@@ -109,7 +99,7 @@ fn editors(
     format: Value<DateStyle>,
     seconds: Value<bool>,
     open: Signal<bool>,
-    state: kivact_core::state::MachineHandle<Controller>,
+    picker: DatePickerApi,
 ) -> Node {
     let date_ref = node_ref();
     let time_ref = node_ref();
@@ -133,7 +123,7 @@ fn editors(
         .forward_keys(vec![Key::ArrowDown])
         .on_key(move |event: kivact_core::view::KeyEvent| {
             if event.key() == Key::ArrowDown {
-                state.send(Event::Open(Panel::Date, date_ref));
+                picker.show(DatePanel::Date, date_ref);
                 Handled::Yes
             } else {
                 Handled::No
@@ -167,7 +157,7 @@ fn editors(
         .forward_keys(vec![Key::ArrowDown])
         .on_key(move |event: kivact_core::view::KeyEvent| {
             if event.key() == Key::ArrowDown {
-                state.send(Event::Open(Panel::Time, time_ref));
+                picker.show(DatePanel::Time, time_ref);
                 Handled::Yes
             } else {
                 Handled::No

@@ -1,6 +1,5 @@
 //! Role: Render a themed number field with decrease and increase buttons.
 
-mod draft;
 pub(crate) mod look;
 mod view;
 
