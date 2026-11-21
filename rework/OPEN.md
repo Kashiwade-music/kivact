@@ -872,3 +872,19 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
   - `PopupApi`・`DialogApi` は `use_popup(open)`・`use_dialog(open, ..)` で同じ `Signal` の handle を持つので、値の写しではない（0.5 の補足どおり）。その中の popup の machine も上の 2・3 で確かめる。
 - Orchestrator がすること（lane U1）：3 型と popup の machine について、2 を `rg`（machine に `Open`・`Close` 系の event を送る `send`/`dispatch` の呼出し）で確かめる。2 に外れる呼出しがあれば、その呼出しを `hide()`／`show()` に置き換える（挙動は同じ：`open` の follow が同じ event を送る）。置き換えは U30b の続きとして lane U1 で行い、U30b の確認をやり直す。満たしたら、各型に印を書く：`// xtask-allow(state): independent: open is the caller's binding, written by the caller and <show/hide/...>; session is the machine that follows open one way (only <effect の名前> sends it Open/Close) and holds the opening's <surface, filter phase, highlight ...>; query is ...`（field ごとに書き手を名指す）。書き手と 2 の確認の結果は「Orchestrator の判断」に書く。
 - 印の編集が権限の判定で拒否されたら、回避せず main に報告して U31 を進める。
+
+## 差戻し（W7b・U30b の開閉の一方向の条件 2、2026-11-21）
+
+設計者の回答（一方向の条件 2：machine の開閉の event は `open` の変化を受ける一つの effect（follow）からだけ送られ、key・pointer・Escape・外の press などは `hide()`／`show()` を呼ぶ）を、lane U1 で rg で確かめた。**`show()`／`hide()` に置き換えられない直接の送信が残るので、印は書かず差戻しにする**。lane U1 は止める（U31・U33 は後）。
+
+残った直接の送信（`rg -n "session\.send\(|\.send\(machine::Event::"`）と、置換できない理由：
+
+- `select/handle.rs:366`（`show_sheet` → `open_with(OpenSheet)`）、`:502`（`arrow_open` の `Open(Key(key))`）、`:634`（sheet の content の `on_attach` → `OpenSheet`）：surface（Sheet）や opener の key など、その回の値が要る。follow（`feed(open, shown)`）は `shown: bool` だけで event を決めるので作れない。
+- `select/handle.rs:407`（`hide()` = `popup.close(Programmatic)`）、`:468`（a11y Collapse）、`:478`・`:617`（Escape）、`:626`（Tab）、`:709`・`:758`（Selection）：popup の `close(reason)` の `reason`（focus の戻り先を決める）。`reason` は `open.set(false)` には載らない。`popup/machine.rs:114-120`、`popup/api.rs:324`・`:447`。
+- `combobox/handle.rs:441`（`show_sheet` → `Present(Sheet)`）：その回の surface。`:512`（`type_query` → `Typed`）：`filtering: true` はその回の入力から来る（follow は `false` しか作れない）。
+- `select/handle.rs:173`（setup 時の `Open(Pointer)`）：follow の初期値で置き換えられるかは未確認。`popup/api.rs:529`（`watch` の `Event::Open{opener, policy}`）：surface の mount から送る。`opener` と `policy` がその回の値。
+- 置換できるもの（参考）：`select` の `:373`・`:465`・`:492`（`show()`）、`combobox` の `:452`（`show()`→ `Present(Popover)`）。
+
+判定：条件 2 を満たすには、(a) popup の `reason`・surface・opener・filtering を `open` の書込みに載せる（popup と machine の設計の変更）、または (b) focus の戻り先を `reason` に依らず決める（仕様の変更）、の設計の判断が要る。付属書の形のままでは満たせない。
+
+設計者が決める：(a) か (b)、またはこの 3 型の開閉の重なりの扱いの別の案。印（`// xtask-allow(state): independent: ...`）は、決まるまで書かない。
