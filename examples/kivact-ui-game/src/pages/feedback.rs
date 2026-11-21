@@ -34,7 +34,7 @@ fn demo() -> impl IntoView {
 }
 // end example
 
-// xtask-allow(state): legacy: info, success, warning, danger; the info alert's open binding, cleared only by its own close button and never set back; the other alerts have their
+// xtask-allow(state): independent: info, success, warning and danger are the open bindings of four separate inline alerts, each cleared only by its own dismiss button and never reopened
 pub(crate) fn feedback(scene: Demo) -> Node {
     let info = signal(true);
     let success = signal(true);

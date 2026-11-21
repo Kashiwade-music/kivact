@@ -12,7 +12,7 @@ pub(crate) enum Overlay {
     Palette,
 }
 
-// xtask-allow(state): legacy: overlay, rows, selected
+// xtask-allow(state): record: three shared catalog signals with different writers: overlay (the one open overlay, via show, hide, toggle and open), rows (the approve, reassign and delete handlers) and selected (the table selection, cleared by delete)
 #[derive(Clone, Copy)]
 pub(crate) struct Demo {
     pub(crate) overlay: Signal<Overlay>,

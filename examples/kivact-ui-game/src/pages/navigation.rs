@@ -31,7 +31,7 @@ fn demo() -> impl IntoView {
 }
 // end example
 
-// xtask-allow(state): legacy: step, page; the wizard step, moved only by the stepper's controls in wizard_steps; the pagination specimen has its own page signal, so any step
+// xtask-allow(state): independent: step is the wizard step moved by the back and next buttons and the stepper; page is the separate pagination specimen's binding; no control writes both
 /// The navigation specimens.
 pub(crate) fn navigation() -> Node {
     let underline = signal("summary".to_owned());

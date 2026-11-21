@@ -67,7 +67,7 @@ fn task() -> (MachineHandle<TaskInput>, Value<bool>) {
     (task, busy)
 }
 
-// xtask-allow(state): legacy: grid_on, filter_on; the grid toggle and the filter toggle are pressed separately and all four combinations are valid views
+// xtask-allow(state): independent: grid_on and filter_on are the two toggle buttons of the button toolbar, each flipped only by its own on_press
 pub(crate) fn buttons(scene: Demo) -> Node {
     let (sync, sync_busy) = task();
     let (verify, verify_busy) = task();

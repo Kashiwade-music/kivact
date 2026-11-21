@@ -23,7 +23,7 @@ fn demo() -> impl IntoView {
 }
 // end example
 
-// xtask-allow(state): legacy: pinned, archived, user_open; the detail-column menu checkbox, flipped only by its own entry; archived and the user popover have their own signals,
+// xtask-allow(state): independent: pinned and archived are two dropdown checkbox entries flipped by their own keys; user_open is the user popover's dialog binding, opened by its trigger and closed by the dialog
 pub(crate) fn overlays(scene: Demo) -> Node {
     let pinned = signal(true);
     let archived = signal(false);

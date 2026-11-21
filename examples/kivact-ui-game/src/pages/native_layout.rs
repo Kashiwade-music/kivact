@@ -30,7 +30,7 @@ fn demo() -> impl IntoView {
 }
 // end example
 
-// xtask-allow(state): legacy: notify, opacity; bound only to the inspector's notify switch; the opacity slider has its own signal, so notifications on or off pair with any opacity
+// xtask-allow(state): independent: notify is bound only to the inspector's notification switch and opacity only to its opacity slider
 pub(crate) fn layout() -> impl kivact::view::Element {
     let document = signal("OPS-2042.md".to_owned());
     let document_title = signal("Section 3 periodic inspection".to_owned());
@@ -267,7 +267,7 @@ impl Run {
     }
 }
 
-// xtask-allow(state): legacy: width, help; the explorer width, written only by the native_window divider within explorer_range; it is layout only, so any width pairs with any
+// xtask-allow(state): independent: width is the explorer width edited only by the window's splitter; help is the About dialog's binding, set by the Help menu command and cleared by the dialog
 pub(crate) fn frame(
     document: Signal<String>,
     title: Signal<String>,
