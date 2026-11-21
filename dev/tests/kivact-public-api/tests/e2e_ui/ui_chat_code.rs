@@ -80,9 +80,7 @@ fn code_block_copies_and_numbers_lines() {
                     (
                         vec![kivact::style::StyledRange {
                             range: 0..line.len(),
-                            color: Some(kivact::style::color::ACCENT),
-                            background: None,
-                            decoration: None,
+                            style: kivact::style::style().color(kivact::style::color::ACCENT),
                         }],
                         !*state,
                     )

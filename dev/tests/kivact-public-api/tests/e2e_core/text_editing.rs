@@ -690,9 +690,11 @@ fn line_styles_color_each_line() {
                         (
                             vec![StyledRange {
                                 range: 0..line.len(),
-                                color: Some(rgb(if *state == 0 { 0xff0000 } else { 0x0000ff })),
-                                background: None,
-                                decoration: None,
+                                style: kivact::style::style().color(rgb(if *state == 0 {
+                                    0xff0000
+                                } else {
+                                    0x0000ff
+                                })),
                             }],
                             state + 1,
                         )

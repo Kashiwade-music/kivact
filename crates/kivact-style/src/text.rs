@@ -66,7 +66,6 @@ use kivact_types as p;
 
 use super::color_value::Color;
 use super::effect::Shadow;
-use super::paint::Paint;
 use super::theme::value::Theme;
 
 pub use kivact_types::PaintOrder;
@@ -283,23 +282,6 @@ pub(crate) fn text_length(
     }
 }
 
-/// A decoration as the engine takes it.
-pub(crate) fn decoration(
-    line: Option<TextDecorationLine>,
-    color: Option<Color>,
-    thickness: Option<p::TextLength>,
-    offset: Option<p::TextLength>,
-    theme: &Theme,
-) -> p::TextDecoration {
-    p::TextDecoration {
-        style: TextDecorationStyle::default(),
-        lines: line.unwrap_or_default(),
-        color: color.map(|c| c.resolve(theme)),
-        thickness,
-        underline_offset: offset.unwrap_or_default(),
-    }
-}
-
 /// The wire variation settings of `list`, and how many were dropped (a tag
 /// that is not four ASCII characters).
 pub(crate) fn wire_variations(list: &[FontVariation]) -> (Vec<p::FontVariation>, u32) {
@@ -391,75 +373,11 @@ pub(crate) fn resolve_extras(t: &mut p::TextStyle, x: &TextExtras, theme: &Theme
     dropped
 }
 
-/// The text properties of one span of rich text; each one is optional and an
-/// unset one is the paragraph's. A span's decoration lines and features
-/// replace the paragraph's. The `Span` builders of `kivact::view` fill
-/// it, and [`crate::internal::compile_span_style`] turns it into the engine's form.
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct SpanStyle {
-    /// Font size in logical px.
-    pub font_size: Option<f64>,
-    /// Font weight.
-    pub weight: Option<u16>,
-    /// Color of the glyphs.
-    pub color: Option<Color>,
-    /// Font family: a name, a generic family or an ordered list.
-    pub family: Option<String>,
-    /// Italic, or upright with `false`.
-    pub italic: Option<bool>,
-    /// Space after each character.
-    pub letter_spacing: Option<Length>,
-    /// Space after each word.
-    pub word_spacing: Option<Length>,
-    /// Pair kerning.
-    pub kerning: Option<FontKerning>,
-    /// OpenType features replacing the paragraph's.
-    pub features: Option<Vec<FontFeature>>,
-    /// Tabular figures (adds the `tnum` feature when `true`).
-    pub tabular_nums: Option<bool>,
-    /// Decoration lines replacing the paragraph's.
-    pub decoration_line: Option<TextDecorationLine>,
-    /// Decoration color (default: the text color).
-    pub decoration_color: Option<Color>,
-    /// Decoration thickness.
-    pub decoration_thickness: Option<Length>,
-    /// Underline offset from its normal place.
-    pub underline_offset: Option<Length>,
-    /// A band behind the glyphs on each line the span is on.
-    pub background: Option<Paint>,
-    /// OpenType variation axis settings replacing the paragraph's.
-    pub variations: Option<Vec<FontVariation>>,
-    /// CSS font-width (font-stretch) in percent, 50 to 200.
-    pub font_width: Option<f64>,
-    /// Outline of its glyphs (CSS `-webkit-text-stroke`): width and color.
-    pub stroke: Option<(Length, Color)>,
-}
-
-/// A [`SpanStyle`] in the engine's form, made by [`crate::internal::compile_span_style`].
-pub struct CompiledSpanStyle {
-    /// The properties the span sets (an unset one stays unset).
-    pub props: p::SpanProps,
-    /// Font feature tags dropped because they are not four ASCII characters.
-    pub unsupported: u32,
-}
-
-/// Paint overrides for a UTF-8 byte range within one editing line.
+/// The style of a UTF-8 byte range within one editing line: its text
+/// properties (color, decoration, weight, ...) and `background`, as a
+/// [`Style`](crate::Style). A span of rich text takes the same vocabulary.
 #[derive(Clone, Debug, PartialEq)]
 pub struct StyledRange {
     pub range: std::ops::Range<usize>,
-    pub color: Option<Color>,
-    pub background: Option<Color>,
-    /// An invalid length here is ignored: a highlighter runs inside layout,
-    /// where nothing is reported.
-    pub decoration: Option<TextDecoration>,
-}
-
-/// Lines, pattern and dimensions of a text decoration.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub struct TextDecoration {
-    pub lines: TextDecorationLine,
-    pub color: Option<Color>,
-    pub thickness: Option<Length>,
-    pub underline_offset: Length,
-    pub style: TextDecorationStyle,
+    pub style: crate::Style,
 }

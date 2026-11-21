@@ -122,9 +122,9 @@ pub use shaped::{
 pub use style_state::{StateSet, StyleState};
 pub use text::{
     ComputedTextStyle, DecorationLines, FontFeature, FontKerning, FontStyle, FontVariation,
-    LineHeight, PaintOrder, SpanProps, TextAlign, TextData, TextDecoration, TextDecorationStyle,
-    TextLength, TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle,
-    TextTransform, TextWrap,
+    LineHeight, PaintOrder, TextAlign, TextData, TextDecoration, TextDecorationStyle, TextLength,
+    TextMetrics, TextOverflow, TextShadow, TextSpan, TextStroke, TextStyle, TextTransform,
+    TextWrap,
 };
 pub use text_shaping::TextShaper;
 pub use theme_var::{ThemeVar, ThemeVarId, VarValue};

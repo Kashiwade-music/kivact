@@ -11,8 +11,10 @@
 use kivact_types as p;
 
 use crate::style::Paint;
-use kivact_style::text::{FontFeature, FontKerning, FontVariation, SpanStyle, TextDecorationLine};
-use kivact_style::{Color, FontStyle, Length, Theme};
+use kivact_style::text::{
+    FontFeature, FontKerning, FontVariation, TextDecorationLine, TextDecorationStyle,
+};
+use kivact_style::{Color, FontStyle, Length, Style, Theme};
 
 /// A piece of rich text with its own style. Built by [`span`]; a `&str`
 /// or `String` is a span in the paragraph's style.
@@ -33,7 +35,7 @@ use kivact_style::{Color, FontStyle, Length, Theme};
 #[derive(Clone, Debug, PartialEq)]
 pub struct Span {
     pub(crate) text: kivact_runtime::Prop<String>,
-    style: SpanStyle,
+    style: Style,
 }
 
 /// A span of rich text showing `text`, in the paragraph's style until its
@@ -41,7 +43,7 @@ pub struct Span {
 pub fn span(text: impl kivact_runtime::IntoText) -> Span {
     Span {
         text: kivact_runtime::Prop::new(text.into_text()),
-        style: SpanStyle::default(),
+        style: Style::default(),
     }
 }
 
@@ -60,49 +62,50 @@ impl From<String> for Span {
 impl Span {
     /// CSS `font-size`.
     pub fn font_size(mut self, v: impl Into<f64>) -> Self {
-        self.style.font_size = Some(v.into());
+        let v: f64 = v.into();
+        self.style = self.style.font_size(v);
         self
     }
 
     /// CSS `font-weight` (`700`: `<b>`; any value from 1 to 1000).
     pub fn font_weight(mut self, v: u16) -> Self {
-        self.style.weight = Some(v);
+        self.style = self.style.font_weight(v);
         self
     }
 
     /// CSS `color` of its glyphs.
     pub fn color(mut self, v: impl Into<Color>) -> Self {
-        self.style.color = Some(v.into());
+        self.style = self.style.color(v);
         self
     }
 
     /// CSS `font-family`: a name, generic family, or ordered comma-separated list.
     pub fn font_family(mut self, v: impl Into<String>) -> Self {
-        self.style.family = Some(v.into());
+        self.style = self.style.font_family(v);
         self
     }
 
     /// CSS `font-style`: `FontStyle::Italic` (`<em>`, `<i>`) or `FontStyle::Normal`.
     pub fn font_style(mut self, v: FontStyle) -> Self {
-        self.style.italic = Some(v == FontStyle::Italic);
+        self.style = self.style.font_style(v);
         self
     }
 
     /// CSS `letter-spacing` (px or `em(..)` of its font size).
     pub fn letter_spacing(mut self, v: impl Into<Length>) -> Self {
-        self.style.letter_spacing = Some(v.into());
+        self.style = self.style.letter_spacing(v);
         self
     }
 
     /// CSS `word-spacing` (px or `em(..)` of its font size).
     pub fn word_spacing(mut self, v: impl Into<Length>) -> Self {
-        self.style.word_spacing = Some(v.into());
+        self.style = self.style.word_spacing(v);
         self
     }
 
     /// CSS `font-kerning`.
     pub fn font_kerning(mut self, v: FontKerning) -> Self {
-        self.style.kerning = Some(v);
+        self.style = self.style.font_kerning(v);
         self
     }
 
@@ -111,7 +114,7 @@ impl Span {
         mut self,
         features: impl IntoIterator<Item = impl Into<FontFeature>>,
     ) -> Self {
-        self.style.features = Some(features.into_iter().map(Into::into).collect());
+        self.style = self.style.font_feature_settings(features);
         self
     }
 
@@ -120,50 +123,57 @@ impl Span {
         mut self,
         settings: impl IntoIterator<Item = impl Into<FontVariation>>,
     ) -> Self {
-        self.style.variations = Some(settings.into_iter().map(Into::into).collect());
+        self.style = self.style.font_variation_settings(settings);
         self
     }
 
     /// CSS `-webkit-text-stroke` (replacing the paragraph's): the outline's
     /// width and color.
     pub fn text_stroke(mut self, width: impl Into<Length>, color: impl Into<Color>) -> Self {
-        self.style.stroke = Some((width.into(), color.into()));
+        self.style = self.style.text_stroke(width, color);
         self
     }
 
     /// CSS `font-stretch` (font-width) in percent, 50 to 200.
     pub fn font_width(mut self, v: impl Into<f64>) -> Self {
-        self.style.font_width = Some(v.into());
+        let v: f64 = v.into();
+        self.style = self.style.font_width(v);
         self
     }
 
     /// CSS `font-variant-numeric: tabular-nums`.
     pub fn tabular_nums(mut self) -> Self {
-        self.style.tabular_nums = Some(true);
+        self.style = self.style.tabular_nums();
         self
     }
 
     /// CSS `text-decoration-line` (replacing the paragraph's lines).
     pub fn text_decoration(mut self, v: TextDecorationLine) -> Self {
-        self.style.decoration_line = Some(v);
+        self.style = self.style.text_decoration(v);
+        self
+    }
+
+    /// CSS `text-decoration-style`: the line's pattern (solid, dashed, dotted or wavy).
+    pub fn text_decoration_style(mut self, v: TextDecorationStyle) -> Self {
+        self.style = self.style.text_decoration_style(v);
         self
     }
 
     /// CSS `text-decoration-color` (default: its text color).
     pub fn text_decoration_color(mut self, v: impl Into<Color>) -> Self {
-        self.style.decoration_color = Some(v.into());
+        self.style = self.style.text_decoration_color(v);
         self
     }
 
     /// CSS `text-decoration-thickness`.
     pub fn text_decoration_thickness(mut self, v: impl Into<Length>) -> Self {
-        self.style.decoration_thickness = Some(v.into());
+        self.style = self.style.text_decoration_thickness(v);
         self
     }
 
     /// CSS `text-underline-offset`.
     pub fn text_underline_offset(mut self, v: impl Into<Length>) -> Self {
-        self.style.underline_offset = Some(v.into());
+        self.style = self.style.text_underline_offset(v);
         self
     }
 
@@ -172,7 +182,8 @@ impl Span {
     /// a color or a gradient (`<mark>`, a marker pen:
     /// `linear_gradient(180).stop(Color::TRANSPARENT, pct(62)).stop(c, pct(62))`).
     pub fn background(mut self, v: impl Into<Paint>) -> Self {
-        self.style.background = Some(v.into());
+        let v: Paint = v.into();
+        self.style = self.style.background(v);
         self
     }
 }
@@ -187,15 +198,16 @@ pub(crate) fn resolve(spans: &[Span], theme: &Theme) -> (String, Vec<p::TextSpan
     for span in spans {
         let start = text.len();
         text.push_str(&span.text.get());
-        let compiled = kivact_style::internal::compile_span_style(&span.style, theme);
-        dropped += compiled.unsupported;
-        let style = compiled.props;
-        if style == p::SpanProps::default() {
+        let (style, background, unsupported) =
+            kivact_style::internal::compile_span(&span.style, theme);
+        dropped += unsupported;
+        if style == p::TextStyle::default() && background.is_none() {
             continue;
         }
         out.push(p::TextSpan {
             range: start..text.len(),
             style,
+            background,
         });
     }
     (text, out, dropped)

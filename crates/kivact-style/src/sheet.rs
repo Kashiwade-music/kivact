@@ -143,7 +143,7 @@ pub use decl::Style;
 pub use folded::ScrollbarWidth;
 pub use shorthands::{style, with_scroll_axes};
 
-pub(crate) use decl::{Decl, PropClass};
+pub(crate) use decl::{Decl, PropClass, PropGroup};
 pub use edit_text::StyleProperty;
 pub(crate) use folded::{Groups, Sides, SizeFields, SpacingFields, TextFields, TransformFields};
 pub(crate) use props::STYLE_PROPERTIES;

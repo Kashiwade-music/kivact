@@ -55,8 +55,8 @@ pub use sheet::{
     FlexDirection, Justify, Overflow, Position, ScrollbarWidth, Style, TransitionProp, style,
 };
 pub use text::{
-    FontFeature, FontKerning, LineHeight, SpanStyle, StyledRange, TextDecoration,
-    TextDecorationLine, TextDecorationStyle, TextOverflow, TextTransform,
+    FontFeature, FontKerning, LineHeight, StyledRange, TextDecorationLine, TextDecorationStyle,
+    TextOverflow, TextTransform,
 };
 pub use theme::value::{Theme, ThemeExtension, ThemeMode, ThemeRef, use_theme};
 pub use theme::{FontFamily, ThemeValue};

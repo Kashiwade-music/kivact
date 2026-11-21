@@ -171,33 +171,32 @@ pub struct TextStyle {
     pub font_width: Option<f64>,
 }
 
-/// What a span of rich text sets over its node's text style (`None`: the
-/// node's).
-#[derive(Clone, Debug, PartialEq, Default)]
-pub struct SpanProps {
-    pub font_size: Option<f64>,
-    pub weight: Option<u16>,
-    pub color: Option<Rgba>,
-    pub family: Option<String>,
-    pub italic: Option<bool>,
-    pub letter_spacing: Option<TextLength>,
-    pub word_spacing: Option<TextLength>,
-    pub kerning: Option<FontKerning>,
-    pub features: Option<Vec<FontFeature>>,
-    pub decoration: Option<TextDecoration>,
-    /// Filled behind the span's glyphs, one band per line (a `<mark>`).
-    pub background: Option<Fill>,
-    /// An outline around the span's glyphs.
-    pub stroke: Option<TextStroke>,
-    /// Variable-font axis settings of the span.
-    pub variations: Option<Vec<FontVariation>>,
-    /// CSS font-width (font-stretch) in percent, 50..=200.
-    pub font_width: Option<f64>,
-}
-
-/// A byte range of a rich text's `Content` and its style.
+/// A byte range of a rich text's `Content` and what it sets over the
+/// paragraph's text style (`None` fields are the paragraph's).
 #[derive(Clone, Debug, PartialEq)]
 pub struct TextSpan {
     pub range: Range<usize>,
-    pub style: SpanProps,
+    /// The text properties it sets.
+    pub style: TextStyle,
+    /// Filled behind the span's glyphs, one band per line (a `<mark>`).
+    pub background: Option<Fill>,
+}
+
+impl TextStyle {
+    /// The decoration a span or an editing range sets over its paragraph's:
+    /// `None` when it sets none of the decoration properties.
+    pub fn span_decoration(&self) -> Option<TextDecoration> {
+        let decorated = self.decoration_lines.is_some()
+            || self.decoration_color.is_some()
+            || self.decoration_thickness.is_some()
+            || self.underline_offset.is_some()
+            || self.decoration_style.is_some();
+        decorated.then(|| TextDecoration {
+            style: self.decoration_style.unwrap_or_default(),
+            lines: self.decoration_lines.unwrap_or_default(),
+            color: self.decoration_color,
+            thickness: self.decoration_thickness,
+            underline_offset: self.underline_offset.unwrap_or_default(),
+        })
+    }
 }
