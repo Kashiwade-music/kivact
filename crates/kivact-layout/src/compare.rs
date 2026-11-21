@@ -96,7 +96,7 @@ impl NodeLayoutColumns {
         for record in &mut self.states {
             record.measured = Default::default();
         }
-        for cache in &mut self.values.caches {
+        for cache in self.values.caches.iter_mut().flatten() {
             cache.clear();
         }
         self.values.performed.clear();
@@ -128,8 +128,12 @@ impl NodeLayoutColumns {
                 continue;
             }
             if let Some(input) = before.performed.get(&(at as u64)).copied() {
-                let a = before.caches[at].clone().get(&input);
-                let b = after.caches[at].clone().get(&input);
+                let a = before.caches[at]
+                    .clone()
+                    .and_then(|mut cache| cache.get(&input));
+                let b = after.caches[at]
+                    .clone()
+                    .and_then(|mut cache| cache.get(&input));
                 if let (Some(a), Some(b)) = (a, b)
                     && a != b
                 {

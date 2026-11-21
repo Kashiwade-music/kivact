@@ -61,14 +61,17 @@ impl NodeLayoutColumns {
             let performed = self.values.performed.get(&(at as u64)).copied();
             let previous = performed.and_then(|inputs| {
                 self.values.caches[at]
-                    .get(&inputs)
+                    .as_mut()
+                    .and_then(|cache| cache.get(&inputs))
                     .map(|before| (inputs, before))
             });
             let Some((inputs, before)) = previous else {
                 self.clear_caches_up(tree, state, slot);
                 continue;
             };
-            self.values.caches[at].clear();
+            if let Some(cache) = self.values.caches[at].as_mut() {
+                cache.clear();
+            }
             let after = self.with_pass(tree, state, measure, |pass| {
                 pass.compute_child_layout(TId::from(at), inputs)
             });
@@ -273,8 +276,10 @@ impl NodeLayoutColumns {
         let index = usize::from(overlay);
         let Some(fit) = tree.overlay_fit(slot) else {
             let values = &mut self.values;
-            if Rc::make_mut(&mut values.styles[index]).set_min_width_floor(floor as f32) {
-                values.caches[index].clear();
+            if Rc::make_mut(&mut values.styles[index]).set_min_width_floor(floor as f32)
+                && let Some(cache) = values.caches[index].as_mut()
+            {
+                cache.clear();
             }
             self.compute_at(tree, state, overlay, available, false, measure);
             return;
@@ -306,7 +311,9 @@ impl NodeLayoutColumns {
                 height: cap(max.height, bounds.height as f32, bounds.height as f32),
             },
         );
-        self.values.caches[index].clear();
+        if let Some(cache) = self.values.caches[index].as_mut() {
+            cache.clear();
+        }
         self.compute_at(tree, state, overlay, bounds, false, measure);
         Rc::make_mut(&mut self.values.styles[index]).set_size_bounds(min, max);
     }
@@ -330,7 +337,9 @@ impl NodeLayoutColumns {
             if let Some(grid) = style.display.grid_mut() {
                 grid.size = size;
             }
-            values.caches[usize::from(root)].clear();
+            if let Some(cache) = values.caches[usize::from(root)].as_mut() {
+                cache.clear();
+            }
         }
         let space = taffy::Size {
             width: taffy::AvailableSpace::Definite(available.width as f32),

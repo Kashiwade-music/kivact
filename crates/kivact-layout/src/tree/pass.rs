@@ -29,7 +29,7 @@ pub(super) struct LayoutPass<'a, Tree: LayoutTree + ?Sized> {
     pub(super) presence_scale: &'a [Option<(Orientation, f64)>],
     pub(super) relative: &'a [bool],
     pub(super) natural_size: &'a mut [Option<taffy::Size<f32>>],
-    pub(super) caches: &'a mut [taffy::Cache],
+    pub(super) caches: &'a mut [Option<Box<taffy::Cache>>],
     pub(super) unrounded: &'a mut [Layout],
     pub(super) final_layout: &'a mut [Option<Layout>],
     pub(super) geometry_changed: &'a mut Vec<GeometryChange>,
@@ -227,17 +227,23 @@ impl<Tree: LayoutTree + ?Sized> TraverseTree for LayoutPass<'_, Tree> {}
 impl<Tree: LayoutTree + ?Sized> CacheTree for LayoutPass<'_, Tree> {
     #[inline(always)]
     fn cache_get(&mut self, t: TId, inputs: &LayoutInput) -> Option<LayoutOutput> {
-        self.caches[usize::from(t)].get(inputs)
+        self.caches[usize::from(t)]
+            .as_mut()
+            .and_then(|cache| cache.get(inputs))
     }
 
     #[inline(always)]
     fn cache_store(&mut self, t: TId, inputs: &LayoutInput, output: LayoutOutput) {
-        self.caches[usize::from(t)].store(inputs, output);
+        self.caches[usize::from(t)]
+            .get_or_insert_with(|| Box::new(taffy::Cache::new()))
+            .store(inputs, output);
     }
 
     #[inline(always)]
     fn cache_clear(&mut self, t: TId) {
-        self.caches[usize::from(t)].clear();
+        if let Some(cache) = self.caches[usize::from(t)].as_mut() {
+            cache.clear();
+        }
     }
 }
 

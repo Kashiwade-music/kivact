@@ -109,7 +109,9 @@ impl NodeLayoutColumns {
     /// Invalidate the shared viewport's layout (the container of the fixed boxes).
     pub(crate) fn invalidate_viewport(&mut self, state: &mut LayoutState) {
         state.mark_dirty();
-        self.values.caches[0].clear();
+        if let Some(cache) = self.values.caches[0].as_mut() {
+            cache.clear();
+        }
     }
     pub(super) fn clear_caches_up<Tree: LayoutTree + ?Sized>(
         &mut self,
@@ -132,14 +134,19 @@ impl NodeLayoutColumns {
             let flow = tree.flow(slot);
             let parent = tree.parent(slot);
             let values = &mut self.values;
-            if let ClearState::AlreadyEmpty = values.caches[slot + 1].clear() {
+            if let ClearState::AlreadyEmpty = values.caches[slot + 1]
+                .as_mut()
+                .map_or(ClearState::AlreadyEmpty, |cache| cache.clear())
+            {
                 break;
             }
             if flow == Flow::Overlay {
                 break;
             }
             if flow == Flow::Fixed && parent.is_some() {
-                values.caches[0].clear();
+                if let Some(cache) = values.caches[0].as_mut() {
+                    cache.clear();
+                }
                 break;
             }
             if values.styles[slot + 1].position == taffy::Position::Absolute
@@ -159,12 +166,16 @@ impl NodeLayoutColumns {
     ) {
         let flow = tree.flow(slot);
         let parent = tree.parent(slot);
-        self.values.caches[slot + 1].clear();
+        if let Some(cache) = self.values.caches[slot + 1].as_mut() {
+            cache.clear();
+        }
         if flow == Flow::Overlay {
             return;
         }
         if flow == Flow::Fixed && parent.is_some() {
-            self.values.caches[0].clear();
+            if let Some(cache) = self.values.caches[0].as_mut() {
+                cache.clear();
+            }
         } else if let Some(parent) = parent {
             self.clear_caches_up(tree, state, parent);
         }
