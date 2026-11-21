@@ -186,6 +186,18 @@ impl GpuContext {
     pub fn drop_export(&mut self, _sink: DrawableId) {
         unreachable!("built without the gpu feature: no context exists")
     }
+
+    /// Unreachable: no context exists.
+    pub fn export_losses(&self) -> Vec<arvane_protocol::ExportLoss> {
+        unreachable!("built without the gpu feature: no context exists")
+    }
+}
+
+/// Always fails: the `gpu` feature is not built, so no adapter is probed.
+pub fn probe_adapter(_env: &GpuEnv) -> Result<String, RenderError> {
+    Err(RenderError::NoAdapter(
+        "built without the gpu feature".into(),
+    ))
 }
 
 impl GpuSurface {

@@ -1,13 +1,12 @@
 //! Role: The GPU device of windows opened and closed while the App runs.
 //!
 //! Reading `gpu_interop::adapter` asks the window the read belongs to for
-//! its GPU device. Whether a device waits to start is the window's own (its
-//! presenter's), so the ask lives and ends with the window: every window
-//! opened again starts a device of its own when it reads its adapter, the
-//! window that did not read it starts none, and asking again starts no
-//! second device. A window on the CPU only starts none however often it is
-//! opened and asks. The adapter is read in a text's closure, a pure
-//! computation: asking for the device is allowed there.
+//! its GPU device. The device belongs to the driver (one per App, DEC-08):
+//! every window opened again draws on that one device when it reads its
+//! adapter, the window that did not read it stays on the CPU, and asking
+//! again starts no second device. A window on the CPU only starts none
+//! however often it is opened and asks. The adapter is read in a text's
+//! closure, a pure computation: asking for the device is allowed there.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -104,13 +103,12 @@ fn windows_stay_on_cpu(options: RenderOptions) {
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
 
-/// Each window opened again starts a device of its own when it reads its
-/// adapter; reading it again, while the device starts and after, makes no
-/// other device; the main window, which never reads its adapter, starts
-/// none.
+/// Each window opened again reads its adapter and draws on the GPU; the
+/// driver's one device outlives the windows, so every round sees the same
+/// device. The main window, which never reads its adapter, stays on the CPU.
 #[test]
-fn each_window_opened_again_starts_its_own_device_on_demand() {
-    if !gpu_lane("each_window_opened_again_starts_its_own_device_on_demand") {
+fn each_window_opened_again_draws_on_the_drivers_one_device() {
+    if !gpu_lane("each_window_opened_again_draws_on_the_drivers_one_device") {
         return;
     }
     if cpu_forced() {
@@ -144,8 +142,8 @@ fn each_window_opened_again_starts_its_own_device_on_demand() {
         assert!(!child.is_open(), "round {round}: the window closes");
     }
     assert!(
-        generations.windows(2).all(|pair| pair[0] < pair[1]),
-        "each window opened made a device of its own: {generations:?}"
+        generations.windows(2).all(|pair| pair[0] == pair[1]),
+        "the driver's one device outlives the windows (DEC-08): {generations:?}"
     );
     assert_eq!(
         screen.renderer(),

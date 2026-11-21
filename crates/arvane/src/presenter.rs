@@ -7,10 +7,11 @@
 //!
 //! Frames go through the window's GPU surface when the GPU renderer is
 //! ready (`arvane-render` built with its feature `gpu`), else they are
-//! rasterized on the CPU straight into the window's CPU surface. A native window's presenter starts the GPU on
-//! a worker thread with the window or, by default, when the window first
-//! needs it (the first frames are drawn on the CPU either way) and moves
-//! the start along on the shell's wakes (`gpu.rs`).
+//! rasterized on the CPU straight into the window's CPU surface. The driver
+//! starts the GPU device on a worker thread with its first window or, by
+//! default, when it is first needed (the first frames are drawn on the CPU
+//! either way); each window makes its context and surface on that device
+//! (`gpu.rs`, and the driver's device in `crate::gpu_driver`).
 //!
 //! Invariants:
 //! - A frame the GPU cannot draw because its device failed, or because the
