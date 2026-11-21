@@ -899,3 +899,23 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
   - machine の状態の形：`Closed { next: Opening }`（`Opening` はその回の値の struct。既定を持つ）と `Open { .., closing: Option<Reason> }` のように、注記の値は machine の状態の中に置く（新しい Api の field は作らない）。
 - 置き換えは U30b の続きとして lane U1 で行い、U30b の確認（interaction と ui の試験、apg_*）をやり直す。期待値は変えない。満たしたら前の回答の形で印を書く。
 - この形が付属書の他の unit（U31・U33・W8 の U47・U48）の手順と食い違う所が出たら、その unit の時に差し戻してよい。
+
+## Orchestrator の判断（W7b・U30b の開閉の一方向、2026-11-21）
+
+U30b（lane U1、commit `5c9f7975`）。設計者の答え（条件 2 の (a)、commit `64ade6db`）どおり、注記の event（`Prepare`・`Closing`・`Typed`）で値を machine に先に渡し、開閉は `open.set` だけが決める。subagent の報告の確認：fmt・check・clippy（`--no-deps`）・xtask（`kivact-interaction`・`kivact-ui` とも error 無し）・`cargo test -p kivact-interaction`（6 + 37 件）・e2e_ui の 17 の module（一つずつ、0 件ではない）が通った。印は 3 型に書いた（`ComboboxApi`・`SelectApi`・`CommandPaletteApi`）。popup の machine は xtask が報告しないので印は付けない。
+
+- **置き換え**：`select`（`open_with`、`show_sheet`、`show`、a11y Expand・Alt+矢印・F4、矢印キー、sheet の `on_attach` の `Prepare(Sheet)`）、`combobox`（`show_sheet`・`show` の `Present`、`type_query` の `Typed`）、`popup`（`close(reason)` の `Closing` 注記、`watch` の feed）。
+- **2 の rg**：残る送信は注記（`select:385`・`:639`、`combobox:439`・`:450`・`:510`、`popup:334`）、follow（`select:177`、`combobox:209`、`popup:592`）、popup の surface の mount・unmount（`popup:555`・`:567`、`show(open)` が駆動）、開閉と無関係（Highlight・Hover・Preview・QueryChanged・Policy・Focus）。
+- **書き手の列挙**（要点）：`ComboboxApi.open`：caller、`hide`（`handle:458`）、`write_open`（`:492`）。`ComboboxApi.session`：follow（`:209`）、注記（`:439`・`:450`・`:510`）。`SelectApi.open`：caller、`open_with`（`select:387`）、sheet の choice（`:715`）、popup の close（`note_close` と `Dismiss`）。`SelectApi.session`：follow（`:177`）、注記（`:385`・`:639`）、Highlight・Hover・Preview。`CommandPaletteApi.open`：caller、`show`（`palette:384`）、`hide`（`:391`）、`toggle`（`:397`）、`chosen` の close（`:316`）、input の close_on（`:488`）。`palette` の combobox と dialog は、open を一方向に follow（それぞれの machine が持つ状態）。
+- **食い違い（設計者に確認）**：
+  - (a) popup の close の受理と focus の戻りが、注記の後の follow（`Hidden`）か unmount で受けられるため、flush の中に移った（以前は同じ turn で同期）。E2E は通る。focus の戻り先の規則は変えていない。
+  - (b) popup では、caller が注記無しで `open.set(false)` したら、受理せず unmount（reason `Unmount`）で扱う。今の挙動を保つため。
+  - (c) popup の `watch`（Open）と cleanup の `Unmount` は、`show(open)` が mount・unmount を駆動する follow として残した。これを follow と見なすかは設計者が決める。
+  - (d) **未検証の角（設計者が決める）**：注記の後に同じ turn で閉じると（`show_sheet` → `hide`、`Typed` → `hide` など）、`open` の値が変わらないので follow が見ず、注記（surface・filter）が `Closed { next }` に残る。後で caller が `open.set(true)` だけで開くと、古い surface・filter で開きうる。試験には出ていない。hide 側で注記を既定に戻す手を入れるか、設計者が決める。
+  - (e) 範囲外に残る rg の一致：`navigation_menu.rs`（`Event::Close` 等）と `menu/*`（`Event::Open`）は、U30c と menu の所有のため触っていない。
+
+## 設計者の回答（W7b・U30b の (c)・(d)、2026-11-21）
+
+- **(d) 古い注記**：直す。注記は「同じ turn のうちに続く開閉」のためだけにある。`Closed` の machine が `Closing(reason)` を受けたら `next` を既定に戻す（`hide()` はいつも `Closing` を先に送るので、`show_sheet → hide`・`Typed → hide` の後に注記は残らない）。follow が `Open` に入るときは `next` を取り出して既定に戻す（今の形のまま）。試験を 1 つ足す（interaction の select の試験の file）：`fn a_note_does_not_outlive_a_hide_in_the_same_turn()`：`show_sheet()` と `hide()` を同じ turn で呼び、そのあと caller が `open.set(true)` したとき、sheet でなく既定の surface で開く。combobox でも同じ形で `Typed` → `hide` の後の `open.set(true)` で filtering が false。lane U1 で U31 の前に足して commit する。
+- **(c) popup の watch と unmount の cleanup**：follow と見なしてよい。どちらも `show(open)` の surface の mount・unmount（`open` から導かれるもの）だけを受けて動く。mount・unmount 以外の理由で `Open`／`Close` を送る所が出たら差し戻す。
+- (a)・(b)・(e) は Orchestrator の判断どおり採る。印が付いたことを確認した。
