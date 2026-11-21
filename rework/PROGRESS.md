@@ -223,3 +223,19 @@
 - 判断の記録は `rework/OPEN.md` の「Orchestrator の判断」と、設計者の回答（W9 の判断待ち、K5・K3、確認 7 点）。
 - K28 の表の漏れ（DisclosureVariant の V4 分解）は K5 の fix（5b81e767）で行った。
 - 残り（W9 の統合の前）：K1 K19、K3 K25 の残り、K5 K30 の残り・K31〜K33。W9 の wave の merge と tier b は、全 lane の完了の後。
+
+## W9 の引継ぎ（2026-11-22、Orchestrator の作業の区切り。ここから再開する）
+
+- 統合 HEAD には、W9 の完了 lane を merge した：K1（basic の K15〜K19、K18 の fix・menubar の offset と align を含む）、K2（pop の K20・K21）、K3（creative の K22〜K25。picker の close(Selection) を含む）、K4（game の K26・K27 と fix）、K6（K06〜K14。catalog-shell を含む）。P1（`6766e5ee`）・P2（`78447ac6`）・P3（`d1a950e9`）も merge 済み。fmt の直し（`7b973275`）済み。
+- **まだ merge していない lane（K5 の soft）**：`wt/rw-W9-K5`、commit `748584d1`（K32 の途中まで。K31 完了 `59cc44ba`、K32 の commit は `c3ba0bd7`〜`748584d1`）。統合の取り込み `bd8ceb88`・`d6a0d3a2` を含む。
+- **K5 の残り（次の implementer）**：
+  1. 設計者の回答（`rework/OPEN.md` の「設計者の回答（K30 の stepper、K31 の C4・STOP 3 件）」）の fix：(a) C4：K31 と K32 の部品の `variant`・`on_press`・`description` などを、props にせず `#[caller] caller: Caller` から読む（読めない値は名前を返す。先行例の一覧も返す）。(b) `alert_dialog(title, open) -> kivact::ui::Dialog` を返す関数にする（node で包まない。AlertModal と soft の variant を付ける。Dialog の setter で表せない props は一覧で返す）。(c) `indicator` の input は `PartState`（既定は `PartState::default()`）。(d) 白は `ON_DARK` を使わず、soft の `color.rs` に `WHITE`（"soft.white"、light・dark とも白）を足して使う。(e) stepper の hover・pressed は、field を足さず、`!disabled` のときに `base.hover(..).active(..)` の state の style で旧の値を書く。
+  2. K32 の残り：thumbnail（`use_tokens` 約 40 か所）、soft_overflow（`OverflowList` の impl）、lightbox（`use_lightbox` は hook のまま）、bottom_sheet（`bottom_sheet`・`bottom_sheet_flow`。`recipes_dialog` の `motion`・`shadows`・`body_text` は消えた。`motion(base, &p, 300)` → `tween(base, 300)`）、outline（`crate::stack::Space` → `crate::space::Space`）。
+  3. K33：app_shell、chat_dictation、markdown、mobile_nav、nav_heading、rich_text、side_navigation（items・shell）、soft_chat_tools、timer、timestamp、top_nav。`crate::stack::Space`・`crate::stack::padding_options` は `crate::space::Space` に。`impl Element`・`IntoView` は残さない（手書きが要るものは allowed_impls の理由の型に当たるか確かめる）。
+  4. 確認 → K5 の commit → 統合へ merge（`merge --no-ff`）。
+- **K32・K33 の副作用で、tests と examples を直す unit が K35・K37 に残る**：`media_overlay(content, base)` の形（examples/kivact-ui-soft/src/docs/overlays.rs:159、tests/consumer/overlay_interaction.rs）、`power_search` の `DialogKind::Popover`、`more_menu` の包み（`node().child(..)`）。
+- **設計者の判断待ち（この引継ぎの時点）**：なし（上の K5 の分は答えが出ている）。ただし K32 の `more_menu`・`power_search`・`media_overlay` の包みで、Element の modifier が包む node に付く挙動の差は、設計者の確認が要る（報告の判断 5）。
+- **W9 の wave の終わり**：K5 の merge の後、統合で `cargo xtask check --no-write --only local` と tier b（W9 の形：clippy と test に XK を除外）を実行し、結果を PROGRESS に書く。その後、W10（K34〜K43・L7〜L11）へ。
+- **注意**：kit の compile は W9 の間は対象外（XK）。P3 の変更で `kivact-ui-soft`・`kivact-ui-basic`・`kivact-ui-pop`・`kivact-ui-game`・`kivact-ui-creative` の一部が compile しない箇所は、kit の lane が直した（K5 の indicator を含む）。
+- **W10 以降の残り（未着手）**：K34→K35→L7（basic。K34 では basic の Rust の tokenizer を中核の `kivact::ui::code_block` の `rust_tokens` に移し、`basic::rust_source` は消す。K35 で catalog-shell のコードに色を付ける）、K36→K37→L8（pop）、K38→L9（creative。`.lane_cell`・`.context_menu`・`.step` の呼出しの直し、typing.edit の E2E は K38 の tier a で確かめる）、K39→K40→L10（game。GameCellVariant の呼出し）、K41→K42→K43→L11（soft）、K44（W11a）、L12（W11a）、G の文書（W11b）、G15（W11c）、CP3。
+- **K2 の完了、K4 の完了**：W9 の範囲は完了。K36・K37 は W10。
