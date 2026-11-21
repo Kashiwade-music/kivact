@@ -223,10 +223,10 @@ impl Model {
         };
         let retention = decay.powf(dt);
         let distance = (retention - 1.0) / decay.ln();
-        let Some(node) = self.node(id) else {
+        if self.node(id).is_none() {
             return false;
-        };
-        let at = node.scroll();
+        }
+        let at = self.tree.scroll_of(id);
         let moved = self.set_scroll(
             id,
             Point {

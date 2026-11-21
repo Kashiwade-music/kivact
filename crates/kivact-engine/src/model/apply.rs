@@ -150,11 +150,10 @@ impl Model {
 
     /// Scroll the container `id` to `offset`.
     pub(crate) fn scroll_to(&mut self, id: NodeId, offset: Point) {
-        let Some(n) = self.tree.get_mut(id) else {
+        if !self.tree.contains(id) {
             return;
-        };
-        let moved = n.scroll != offset;
-        n.scroll = offset;
+        }
+        let moved = self.tree.set_scroll_of(id, offset);
         if moved {
             // Like a wheel or a scroll by a delta, a new offset moves the
             // content (the paint list redraws positions on `moved`).
@@ -441,10 +440,9 @@ impl Model {
                     self.a11y.node(parent);
                 }
             }
-            if place.positioning != crate::tree::node::Positioning::Sticky
-                && let Some(n) = self.tree.get_mut(id)
+            if place.positioning != crate::tree::node::Positioning::Sticky && self.tree.contains(id)
             {
-                n.shift = Point::default();
+                self.tree.set_shift_of(id, Point::default());
             }
             self.changes
                 .layout

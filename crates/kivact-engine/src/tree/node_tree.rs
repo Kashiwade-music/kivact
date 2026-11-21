@@ -3,7 +3,7 @@
 use super::store::NodeStore;
 use crate::contract::NodeType;
 use crate::tree::node::{HostNode, NodeIndex, NodePresence, Place, Positioning};
-use kivact_types::NodeId;
+use kivact_types::{NodeId, Point};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -28,6 +28,10 @@ pub(crate) struct NodeTree {
     pub(crate) root: Option<NodeId>,
     pub(crate) overlays: Vec<NodeId>,
     pub(crate) scrollers: BTreeSet<NodeId>,
+    /// The offset of each scroll container that is scrolled (absent: at the origin).
+    scroll: kivact_types::IdMap<Point>,
+    /// How far each stuck sticky box is moved from its laid out position (absent: not moved).
+    shift: kivact_types::IdMap<Point>,
     pub(crate) observed: BTreeSet<NodeId>,
     /// Image leaves, attached or detached, ordered for asset polling.
     pub(crate) images: BTreeSet<NodeId>,
@@ -53,6 +57,42 @@ impl NodeTree {
 
     pub(crate) fn get_mut(&mut self, id: NodeId) -> Option<&mut HostNode> {
         self.nodes.get_mut(&id)
+    }
+
+    /// The scroll offset of `id`.
+    pub(crate) fn scroll_of(&self, id: NodeId) -> Point {
+        self.scroll.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Set the scroll offset of `id`; whether it changed.
+    pub(crate) fn set_scroll_of(&mut self, id: NodeId, offset: Point) -> bool {
+        if self.scroll_of(id) == offset {
+            return false;
+        }
+        if offset == Point::default() {
+            self.scroll.remove(&id);
+        } else {
+            self.scroll.insert(id, offset);
+        }
+        true
+    }
+
+    /// How far the sticky box `id` is moved by its scrollport.
+    pub(crate) fn shift_of(&self, id: NodeId) -> Point {
+        self.shift.get(&id).copied().unwrap_or_default()
+    }
+
+    /// Set how far the sticky box `id` is moved; whether it changed.
+    pub(crate) fn set_shift_of(&mut self, id: NodeId, shift: Point) -> bool {
+        if self.shift_of(id) == shift {
+            return false;
+        }
+        if shift == Point::default() {
+            self.shift.remove(&id);
+        } else {
+            self.shift.insert(id, shift);
+        }
+        true
     }
 
     pub(crate) fn parent_id(&self, node: &HostNode) -> Option<NodeId> {
@@ -580,6 +620,8 @@ impl NodeTree {
                 self.pending_child_order.remove(&x);
                 self.overlays.retain(|o| *o != x);
                 self.scrollers.remove(&x);
+                self.scroll.remove(&x);
+                self.shift.remove(&x);
                 self.observed.remove(&x);
                 self.images.remove(&x);
                 self.sticky.remove(&x);

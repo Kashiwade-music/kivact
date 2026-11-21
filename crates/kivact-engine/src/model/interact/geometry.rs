@@ -296,7 +296,8 @@ impl Model {
             }
             match self.tree.flat_parent(node) {
                 Some(p) => {
-                    let s = self.tree.get(p)?.scroll;
+                    self.tree.get(p)?;
+                    let s = self.tree.scroll_of(p);
                     x -= s.x;
                     y -= s.y;
                     cur = p;
@@ -316,9 +317,10 @@ impl Model {
             .map(|l| l.location)
             .unwrap_or_default();
         if n.place.positioning == crate::tree::node::Positioning::Sticky {
+            let shift = self.tree.shift_of(self.tree.nodes.id_at(n.index));
             Point {
-                x: loc.x + n.shift.x,
-                y: loc.y + n.shift.y,
+                x: loc.x + shift.x,
+                y: loc.y + shift.y,
             }
         } else {
             loc
@@ -456,16 +458,11 @@ impl Model {
         let Some(o) = self.clamped_scroll(id, offset) else {
             return false;
         };
-        let current = self
-            .tree
+        self.tree
             .get(id)
-            .expect("invariant: clamped scroll found a live node")
-            .scroll;
-        if o == current {
+            .expect("invariant: clamped scroll found a live node");
+        if !self.tree.set_scroll_of(id, o) {
             return false;
-        }
-        if let Some(n) = self.tree.get_mut(id) {
-            n.scroll = o;
         }
         self.forget_origins();
         self.changes.scrolled(id);
@@ -515,7 +512,7 @@ impl Model {
             if n.scroll_axes() == (false, false) {
                 continue;
             }
-            let s = n.scroll;
+            let s = self.tree.scroll_of(id);
             let target = Point {
                 x: s.x + delta.x,
                 y: s.y + delta.y,
@@ -565,7 +562,7 @@ impl Model {
                 let view = self.computed_layout(p).map_or(view, |l| {
                     crate::model::interact::visual::content_at(view, l.content_box)
                 });
-                let mut s = n.scroll;
+                let mut s = self.tree.scroll_of(p);
                 if axes.1 {
                     s.y += reveal(target.y, target.height, view.y, view.height);
                 }
@@ -589,13 +586,14 @@ impl Model {
             let Some(l) = self.computed_layout(id) else {
                 continue;
             };
-            let scroll = self.tree.get(id).map(|n| n.scroll).unwrap_or_default();
+            let scroll = self.tree.scroll_of(id);
             self.set_scroll(id, scroll);
+            let at = self.tree.scroll_of(id);
             let Some(n) = self.tree.get_mut(id) else {
                 continue;
             };
             let state =
-                crate::tree::node::ScrollReport(n.scroll, l.size, l.content_size, n.scroll_axes());
+                crate::tree::node::ScrollReport(at, l.size, l.content_size, n.scroll_axes());
             if n.sent
                 .get_or_insert_default()
                 .scroll

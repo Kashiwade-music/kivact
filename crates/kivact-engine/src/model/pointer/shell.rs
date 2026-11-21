@@ -124,7 +124,7 @@ impl Model {
                 .find(|b| b.vertical == drag.vertical)
             {
                 let pointer = if drag.vertical { local.y } else { local.x };
-                let mut offset = self.node(drag.node).map(|n| n.scroll()).unwrap_or_default();
+                let mut offset = self.tree.scroll_of(drag.node);
                 let delta = if bar.travel > 0.0 {
                     (pointer - drag.pointer) * bar.range / bar.travel
                 } else {
@@ -197,7 +197,7 @@ impl Model {
         {
             let local = self.pointer_local(id, at);
             if let Some(bar) = self.scrollbar_at(id, local) {
-                let mut offset = self.node(id).map(|n| n.scroll()).unwrap_or_default();
+                let mut offset = self.tree.scroll_of(id);
                 let pointer = if bar.vertical { local.y } else { local.x };
                 if !bar.thumb.contains(local) {
                     let thumb = if bar.vertical {
@@ -217,7 +217,7 @@ impl Model {
                     }
                     self.set_scroll(id, offset);
                 }
-                let offset = self.node(id).map(|n| n.scroll()).unwrap_or_default();
+                let offset = self.tree.scroll_of(id);
                 self.pointer.state.mouse_mut().gesture = MouseGesture::Scrollbar(ScrollDrag {
                     node: id,
                     vertical: bar.vertical,

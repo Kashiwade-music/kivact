@@ -151,7 +151,7 @@ fn drawn_local(
     let mut rect = reach_local(host, id, n, layout, &look);
     let mut beyond = false;
     if !n.clips() {
-        let scroll = n.scroll();
+        let scroll = host.tree().scroll_of(id);
         for child in host.tree().flat_children(host.tree().nodes.id_at(n.index)) {
             let Some(c) = host.node(child).filter(|c| !c.is_layer()) else {
                 continue;

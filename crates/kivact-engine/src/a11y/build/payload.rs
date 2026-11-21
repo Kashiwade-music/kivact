@@ -125,8 +125,10 @@ impl Model {
                 if targets.insert(id, (d, offset)).is_some() {
                     continue;
                 }
-                let Some(n) = self.node(id) else { continue };
-                let s = n.scroll();
+                if self.node(id).is_none() {
+                    continue;
+                }
+                let s = self.tree().scroll_of(id);
                 let below = Point {
                     x: offset.x + s.x,
                     y: offset.y + s.y,

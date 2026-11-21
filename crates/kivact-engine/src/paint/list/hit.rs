@@ -183,7 +183,7 @@ impl Model {
         if let Some(h) = self.drawable_hit(id, 1, p, walk) {
             return Some(h);
         }
-        let scroll = n.scroll();
+        let scroll = self.tree.scroll_of(id);
         let candidates: Vec<NodeId> = match walk {
             HitWalk::Pruned => self.hit_candidates(id, n, p, scroll),
             // The reference looks at every child in the model's stacked order:

@@ -11,7 +11,7 @@ impl Model {
             return;
         }
         let axes = node.scroll_axes();
-        let at = node.scroll();
+        let at = self.tree.scroll_of(id);
         let Some(viewport) = self.computed_layout(id) else {
             return;
         };

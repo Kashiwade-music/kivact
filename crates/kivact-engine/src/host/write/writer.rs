@@ -270,7 +270,7 @@ impl Writer {
         self.app.borrow_mut().with_node(id, |m, writes| {
             writes.command();
             let Some(n) = m.node(id) else { return };
-            let start = n.scroll();
+            let start = m.tree.scroll_of(id);
             let target = if relative {
                 Point {
                     x: start.x + point.x,

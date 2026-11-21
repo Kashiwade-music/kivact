@@ -24,20 +24,16 @@ pub(crate) struct HostNode {
     pub(crate) index: NodeIndex,
     pub(crate) properties: NodeProperties,
     pub(crate) scenes: [Option<Arc<DrawList>>; 2],
-    pub(crate) scroll: Point,
     /// What was last published about it: only an observed, scrolling or
     /// image node publishes (`Model::report_geometry`, `Model::report_images`).
     pub(crate) sent: Option<Box<SentReports>>,
     /// Where its paint and layout place it (`model::transform`), read when
     /// its `Paint`, `States` or `Layout` prop is stored.
     pub(crate) place: Place,
-    /// How far a sticky box is moved from its laid out position by the
-    /// scroll of its scrollport (`model::interact::sticky`; zero otherwise).
-    pub(crate) shift: Point,
 }
 
 const _: () = assert!(
-    std::mem::size_of::<HostNode>() <= 312,
+    std::mem::size_of::<HostNode>() <= 280,
     "HostNode grew: box the new rare field"
 );
 
@@ -175,10 +171,8 @@ impl HostNode {
             properties,
             index,
             scenes: [None, None],
-            scroll: Point::default(),
             sent: None,
             place: Place::default(),
-            shift: Point::default(),
         };
         node.update_place(false, false);
         node
@@ -280,11 +274,6 @@ impl HostNode {
     /// The scene of a draw layer.
     pub(crate) fn scene(&self, layer: SceneLayer) -> Option<&Arc<DrawList>> {
         self.scenes[layer_index(layer)].as_ref()
-    }
-
-    /// The scroll offset of a scroll container.
-    pub(crate) fn scroll(&self) -> Point {
-        self.scroll
     }
 
     pub(crate) fn name(&self) -> Option<&str> {

@@ -235,8 +235,9 @@ impl Model {
             .map_or(Edges::all(0.0), |parent| parent.border);
         // Layout locations are parent border-box relative, while an absolute
         // inset is relative to the inside of the parent's border.
-        let left = last.location.x + node.shift.x - border.left;
-        let top = last.location.y + node.shift.y - border.top;
+        let shift = self.tree.shift_of(id);
+        let left = last.location.x + shift.x - border.left;
+        let top = last.location.y + shift.y - border.top;
         layout.position = Position::Absolute;
         layout.inset = Edges::all(Length::Auto);
         layout.inset.left = Length::Px(left);

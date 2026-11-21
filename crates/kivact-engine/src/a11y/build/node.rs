@@ -39,7 +39,7 @@ impl Model {
         let mut out = types::Point::default();
         // From the root down, summed in the order a whole build sums them.
         for x in self.tree().chain(Some(id)).into_iter().skip(1).rev() {
-            let s = self.node(x).map(|n| n.scroll()).unwrap_or_default();
+            let s = self.tree().scroll_of(x);
             out.x += s.x;
             out.y += s.y;
         }
@@ -74,7 +74,7 @@ impl Model {
         // with nothing shown) has empty bounds at the origin: like every
         // other content-space bounds they follow no scroll above its layer.
         let bounds = self.content_bounds(id).unwrap_or_default();
-        let scroll = n.scroll();
+        let scroll = self.tree().scroll_of(id);
 
         let (bounds, transform) = self.a11y_placement(id, n.is_layer(), bounds, offset);
         let children: Vec<kivact_types::SemanticsId> = self
@@ -380,7 +380,7 @@ impl Model {
         // transform, nearest first.
         let mut around = kivact_types::Affine::IDENTITY;
         for x in &ancestors {
-            let s = host.node(*x).map(|n| n.scroll()).unwrap_or_default();
+            let s = host.tree().scroll_of(*x);
             let above = self.scroll_above(*x);
             let r = host.rect(*x).unwrap_or_default();
             let content = types::Rect {
