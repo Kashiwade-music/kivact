@@ -843,3 +843,10 @@ U30b（lane U1、commit `a3b104c7`）は commit されたが、`cargo xtask chec
 - **設計者が決める**：(a) 0.5 の印の 3 条件（書き手の列挙・他 field の値を見てから読まない・同じ事実を二つの field が持たない）を満たすとして、各型に `// xtask-allow(state): independent: ...` の印を付ける（印は Orchestrator が書く。権限の判定で拒否されたら、設計者が利用者の許可を得て入れる）、(b) xtask の対象から `Api` の handle（`open` を Signal で持つだけ）を外す規則の変更、(c) 型を enum にする（設計の変更）。
 - 付属書との食い違い（判断済み）：`menu_show_twice_stays_open` は、付属書の「Show twice の後に Toggle twice で open が true のまま」が、ボタンの押下が menu の外なので先に outside press で閉じるため成立しない。Toggle twice を閉じた状態から先に押す形に変え、期待値の強さは保った。`use_combobox` の仮引数 `options` と memo `options` の名前衝突は `let inline = options.inline;` で解いた（挙動は同じ）。menu の `Level::item` は `key.get()` を `register_item_anchor` に渡した。
 - U30b の試験（interaction_combobox・interaction_show_hide・interaction_menu・interaction_palette・interaction_select・apg_*・ui_combobox・ui_command_palette・ui_components・ui_collections・interaction_dialog）は、window-lock で 68 件、追加の 13 件が通った（0 件ではない）。
+
+## 設計者の回答（W7b・U30b の state 検査、2026-11-21）
+
+- (a) を採る。`Api` の handle も state 検査の対象でよい（付属書の「対象外」の読み方は誤り）。`open`・`query` は caller から受け取った binding で、0.5 の表の補足（「caller から受け取った binding は caller が持つ一つの事実で、書き手は caller と、その型の `set`/`update` の呼出し」）に当たる。`Value` と machine の handle は数えない。
+- Orchestrator が各型について 0.5 の 3 条件を確かめ、満たせば `// xtask-allow(state): independent: <field> is <事実と書き手>; ...` の印を 1 行ずつ書く（0.5 の表がもともと Orchestrator に許している操作）。確かめる点：machine（`session`）が open・closed を自分の状態にも持っていないか（持っていれば (3) の重複で差戻し）。書き手の列挙（(1)）は「Orchestrator の判断」に書く。
+- 印の編集が権限の判定で拒否されたら、回避せずに main へ報告する。設計者が利用者の許可を得て入れる。
+- (b) の規則の変更と (c) の enum 化は採らない。
