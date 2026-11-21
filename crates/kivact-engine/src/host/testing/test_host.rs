@@ -865,8 +865,8 @@ impl ArvaneTestHost {
 
     /// The layout defects of the texts and text inputs in the subtree of
     /// `scope` of window `window` (the whole tree without one), in tree
-    /// order, with the glyphs' ink as the vertical extent of a line. Nothing
-    /// is changed or sent.
+    /// order, with each line's line box as its vertical extent. Nothing is
+    /// changed or sent.
     pub fn layout_findings(
         &self,
         window: WindowId,
@@ -880,7 +880,7 @@ impl ArvaneTestHost {
             return Vec::new();
         };
         let mut engine = host.engine.borrow_mut();
-        crate::check::layout_findings(model, &mut engine, check, scope, true)
+        crate::check::layout_findings(model, &mut engine, check, scope)
     }
 
     /// The kind of node `id`.
