@@ -506,6 +506,8 @@ allowed_impls = [
   "kivact_ui::item_list::row::ItemRow crates/kivact-ui/src/item_list/row.rs",
   "kivact_ui::date_input::view::DateInput crates/kivact-ui/src/date_input/view.rs",
   "kivact_ui::date_range_input::view::DateRangeInput crates/kivact-ui/src/date_range_input/view.rs",
+  # 理由 (5)：generic の setter `menu<C, R>` を持つ builder（DataTable と同じ扱い。設計者の回答 (B4)）。
+  "kivact_ui_creative::dock::view::Dock crates/kivact-ui-creative/src/dock/view.rs",
 ]
 
 [module_rules.arvane-virtual.uses]
