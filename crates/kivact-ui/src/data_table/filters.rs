@@ -5,14 +5,13 @@ use crate::dialog::DialogKind;
 use crate::{ButtonVariant, ControlSize, button, checkbox, dialog, select, tag_input, text_input};
 use kivact_core::i18n::{CalendarDate, message, message_with};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Machine, Signal, Step, Value, binding, machine, memo, signal};
+use kivact_core::state::{Signal, Value, binding, memo, signal};
 use kivact_core::style::{Justify, Length, pct, style};
 use kivact_core::view::Element;
 use kivact_core::view::IntoView;
 use kivact_core::view::{NodeRef, OverlayAlign, Placement, View, node_ref};
 use kivact_core::view::{column, icon, node, row};
-use kivact_interaction::FilterValue;
-use kivact_interaction::ListItem;
+use kivact_interaction::{DraftCommit, DraftOptions, FilterValue, ListItem, use_draft};
 
 #[derive(Clone, Copy)]
 pub(super) struct Filters {
@@ -227,91 +226,28 @@ fn editor(
     (view, true.into_value())
 }
 
-#[derive(Clone, PartialEq)]
-enum FilterDraft {
-    /// The text parses; `value` is the value last written to, or read from, the caller's binding.
-    Valid {
-        text: String,
-        value: Option<FilterValue>,
-    },
-    /// The text does not parse; nothing is written to the binding.
-    Invalid { text: String },
-}
-impl FilterDraft {
-    fn text(&self) -> &str {
-        match self {
-            Self::Valid { text, .. } | Self::Invalid { text } => text,
-        }
-    }
-    /// Whether `incoming` is the value this draft already holds (its own write echoed back).
-    fn holds(&self, incoming: Option<&FilterValue>) -> bool {
-        matches!(self, Self::Valid { value, .. } if value.as_ref() == incoming)
-    }
-}
-enum FilterEvent {
-    External(Option<FilterValue>),
-    Typed(String),
-}
-struct FilterInput {
-    field: FilterField,
-}
-impl Machine for FilterInput {
-    type State = FilterDraft;
-    type Event = FilterEvent;
-    /// The value to write to the caller's binding.
-    type Effect = Option<FilterValue>;
-    fn transition(
-        &self,
-        state: &FilterDraft,
-        event: FilterEvent,
-    ) -> Step<FilterDraft, FilterEvent, Self::Effect> {
-        match event {
-            FilterEvent::External(value) if state.holds(value.as_ref()) => Step::stay(),
-            FilterEvent::External(value) => Step::to(FilterDraft::Valid {
-                text: format_value(value.as_ref()),
-                value,
-            }),
-            FilterEvent::Typed(text) => match parse_value(&self.field, &text) {
-                Ok(value) => Step::to(FilterDraft::Valid {
-                    text,
-                    value: value.clone(),
-                })
-                .with(value),
-                Err(()) => Step::to(FilterDraft::Invalid { text }),
-            },
-        }
-    }
-}
 fn text_editor(
     field: FilterField,
     label: Value<String>,
     value: Signal<Option<FilterValue>>,
     size: ControlSize,
 ) -> (View, Value<bool>) {
-    let initial = value.get_untracked();
     let input = field.clone();
-    let draft = machine(
-        FilterDraft::Valid {
-            text: format_value(initial.as_ref()),
-            value: initial,
-        },
-        move || FilterInput {
-            field: input.clone(),
-        },
-        move |_, next| value.set(next),
+    let draft = use_draft(
+        value,
+        DraftOptions::new(
+            |value: &Option<FilterValue>| format_value(value.as_ref()),
+            move |text: &String| parse_value(&input, text).ok(),
+        )
+        .commit(DraftCommit::Live),
     );
-    draft.feed(value.into_value(), FilterEvent::External);
-    let valid = memo(move || matches!(draft.get(), FilterDraft::Valid { .. }));
+    let valid = draft.is_valid();
     let hint = match field {
         FilterField::Date => "YYYY-MM-DD",
         FilterField::Time => "HH:MM",
         _ => "",
     };
-    let draft = binding(
-        move || draft.get().text().to_owned(),
-        move |text| draft.send(FilterEvent::Typed(text)),
-    );
-    let view = text_input(draft)
+    let view = text_input(draft.editor())
         .label(label)
         .size(size)
         .placeholder(hint)
