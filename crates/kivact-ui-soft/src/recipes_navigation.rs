@@ -165,7 +165,7 @@ fn link_icon(_theme: &Theme, _s: &Look<NavigationLinkState>, _base: Style) -> St
 
 /// Install the kit's recipes of the navigation group.
 pub(crate) fn install(theme: Theme) -> Theme {
-    theme.with(
+    let theme = theme.with(
         NavigationMenuTheme::default()
             .root(root)
             .action(action)
@@ -175,5 +175,6 @@ pub(crate) fn install(theme: Theme) -> Theme {
             .link_title(link_title)
             .link_description(link_description)
             .link_icon(link_icon),
-    )
+    );
+    crate::recipes_navigation_pagination::install(theme)
 }
