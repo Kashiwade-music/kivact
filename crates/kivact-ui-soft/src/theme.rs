@@ -49,6 +49,7 @@ fn build(mode: ThemeMode) -> Theme {
     // Before `settings`: `settings` re-installs the tables it tunes.
     let theme = crate::recipes_feedback::install(theme);
     let theme = crate::recipes_metrics::install(theme);
+    let theme = crate::recipes_chat::install(theme);
     let theme = settings(theme);
     theme
         .with_focus_ring(m::FOCUS_RING_WIDTH)
