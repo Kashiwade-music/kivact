@@ -15,8 +15,6 @@ pub(crate) const ROW_HEIGHT: Length = Length::var(&ROW_HEIGHT_VAR);
 
 /// `--padding`: the padding of a panel.
 pub(crate) static PADDING_VAR: ThemeVar<f64> = ThemeVar::new("game.padding", 20.);
-/// The padding of a panel.
-pub(crate) const PADDING: Length = Length::var(&PADDING_VAR);
 
 /// Set every length variable of the kit to its value in `density`.
 pub(crate) fn set_sizes(theme: Theme, density: Density) -> Theme {
