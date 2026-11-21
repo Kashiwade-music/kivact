@@ -22,7 +22,9 @@ pub fn theme(mode: ThemeMode) -> Theme {
 fn build(mode: ThemeMode) -> Theme {
     let theme = crate::color::set_colors(Theme::light().with_mode(mode), mode);
     let theme = set_core(theme, mode);
-    theme.with_icons(crate::icons::set())
+    let theme = theme.with_icons(crate::icons::set());
+    let theme = crate::recipes_controls::install(theme);
+    crate::recipes_feedback::install(theme)
 }
 
 /// The core variables the kit sets: the standard colors, spacing, radii, text and control

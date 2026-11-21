@@ -8,6 +8,12 @@
 
 mod color;
 mod icons;
+mod recipe_parts;
+mod recipes_controls;
+mod recipes_controls_button;
+mod recipes_controls_check;
+mod recipes_controls_field;
+mod recipes_feedback;
 mod theme;
 mod variants;
 
