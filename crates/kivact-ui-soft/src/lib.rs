@@ -20,6 +20,7 @@ mod chat_dictation;
 mod choice_list;
 mod citation;
 mod code;
+mod code_syntax;
 mod color;
 mod dialog_header;
 mod divider;
@@ -35,6 +36,7 @@ mod key_hints;
 mod layout;
 mod lightbox;
 mod link;
+mod markdown;
 mod markdown_parser;
 mod media_overlay;
 mod media_query;
@@ -75,6 +77,9 @@ mod recipes_overlays_command;
 mod recipes_overlays_dialog;
 mod recipes_overlays_menu;
 mod recipes_overlays_select;
+mod rich_block_doc;
+mod rich_blocks;
+mod rich_text;
 mod scrollable_area;
 mod section;
 mod shadows;
@@ -111,6 +116,7 @@ pub use chat_dictation::{ChatDictationButton, DictationState, chat_dictation_but
 pub use choice_list::{CheckboxList, checkbox_list, checkbox_list_item, radio_list};
 pub use citation::{Citation, CitationSource, CitationVariant, citation};
 pub use code::{Code, CodeColor, code};
+pub use code_syntax::{CodeLanguage, CodeLanguageInput, code_highlight};
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
     BG_POPOVER, BG_SURFACE, BORDER_EMPHASIZED, CHOICE_BORDER_HOVER, CHOICE_SURFACE_HOVER,
@@ -165,6 +171,7 @@ pub use layout::{
 };
 pub use lightbox::{Lightbox, LightboxHandle, LightboxMedia, lightbox, use_lightbox};
 pub use link::{Link, LinkColor, link};
+pub use markdown::{ContentAlign, HeadingLinks, Markdown, MarkdownDensity, markdown};
 pub use media_overlay::{MediaOverlay, OverlayPosition, OverlayScrim, ShowOn, media_overlay};
 pub use media_query::Breakpoint;
 pub use mobile_nav::{
@@ -182,6 +189,7 @@ pub use radius::{
     RADIUS_CHAT, RADIUS_CONTAINER, RADIUS_ELEMENT, RADIUS_FULL, RADIUS_INNER, RADIUS_NONE,
     RADIUS_PAGE,
 };
+pub use rich_text::{RichDoc, RichTextEditor, rich_text_editor};
 pub use scrollable_area::{ScrollAxis, ScrollableArea, scrollable_area};
 pub use section::{Section, SectionEdges, section};
 pub use side_navigation::{

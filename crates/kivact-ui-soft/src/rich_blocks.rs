@@ -1,6 +1,8 @@
 //! Role: Edit source-preserving Markdown blocks using native wrapped text fields.
+use crate::color as c;
 use crate::markdown;
 use crate::rich_block_doc::{Block, Document, EditTarget, Kind};
+use crate::type_scale as t;
 use kivact::custom::EditContext;
 use kivact::custom::EditLineLayout;
 use kivact::custom::EditOutcome;
@@ -271,21 +273,15 @@ impl Editor {
                 }
             })
             .line_styles(
-                move || {
-                    kivact::style::use_tokens::<crate::Tokens>()
-                        .colors
-                        .text_secondary
-                },
-                move |color, line, &()| {
+                || (),
+                move |_: &(), line, &()| {
                     let marks = if prose {
                         line.char_indices()
                             .filter_map(|(at, character)| {
                                 matches!(character, '*' | '_' | '`' | '~' | '[' | ']').then_some(
                                     StyledRange {
                                         range: at..at + 1,
-                                        color: Some(*color),
-                                        background: None,
-                                        decoration: None,
+                                        style: style().color(c::TEXT_SECONDARY),
                                     },
                                 )
                             })
@@ -334,7 +330,7 @@ impl Editor {
                     checkbox(message("soft.rich_text.task", "Task completed"), checked).into_view()
                 } else {
                     text(number.map_or_else(|| "•".into(), |number| format!("{number}.")))
-                        .style(style().width(24).shrink(0))
+                        .style(style().width(24).flex_shrink(0.0))
                         .into_view()
                 };
                 row((marker, field))
@@ -357,8 +353,8 @@ impl Editor {
                 .style(|| {
                     style()
                         .padding(8)
-                        .radius(6)
-                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.bg_muted)
+                        .border_radius(6.0)
+                        .background(c::BG_MUTED)
                 })
                 .into_view()
             }
@@ -455,42 +451,37 @@ fn move_to(reference: NodeRef, forward: bool, x: f64) {
 
 fn selection_style(whole: bool) -> Style {
     if whole {
-        style().background(
-            kivact::style::use_tokens::<crate::Tokens>()
-                .colors
-                .accent_muted,
-        )
+        style().background(c::ACCENT_MUTED)
     } else {
         style()
     }
 }
 
 fn editor_style(kind: &Kind, whole: bool) -> Style {
-    let p = kivact::style::use_tokens::<crate::Tokens>();
     let base = selection_style(whole)
-        .grow(1)
+        .flex_grow(1.0)
         .min_width(0)
         .padding(2)
-        .focus_visible(crate::recipes_dialog::focus(&p));
+        .focus_visible(crate::recipe_parts::ring(c::FOCUS_RING));
     match kind {
         Kind::Heading(level) => {
             let heading = match level {
-                1 => p.typography.heading1,
-                2 => p.typography.heading2,
-                3 => p.typography.heading3,
-                4 => p.typography.heading4,
-                5 => p.typography.heading5,
-                _ => p.typography.heading6,
+                1 => t::HEADING1,
+                2 => t::HEADING2,
+                3 => t::HEADING3,
+                4 => t::HEADING4,
+                5 => t::HEADING5,
+                _ => t::HEADING6,
             };
             base.font_size(heading.size_px)
                 .line_height(heading.line_height_px / heading.size_px)
-                .weight(600)
+                .font_weight(t::WEIGHT_SEMIBOLD)
         }
         Kind::Quote => base
             .padding_left(8)
-            .border_left(2, p.colors.border)
-            .color(p.colors.text_secondary),
-        Kind::Code(_) => base.font_family(p.typography.family_code),
+            .border_left(2, c::BORDER)
+            .color(c::TEXT_SECONDARY),
+        Kind::Code(_) => base.font_family(t::FAMILY_CODE),
         _ => base,
     }
 }

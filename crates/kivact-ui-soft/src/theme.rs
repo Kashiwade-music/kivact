@@ -14,7 +14,7 @@ use kivact::ui::theme::{
     AvatarTheme, DataTableTheme, DialogCenter, DialogTheme, DisclosureTheme, ItemListTheme,
     ProgressTheme, SkeletonTheme, SpinnerTheme, ToastTheme, ToggleButtonTheme, avatar_group,
     button, button_group, calendar, carousel, combobox, data_table, date_input, dropzone,
-    hover_card, skeleton, spinner, stepper, time_input, toast, toggle_group, toolbar,
+    hover_card, skeleton, spinner, stepper, syntax, time_input, toast, toggle_group, toolbar,
 };
 use kivact::ui::{DisclosureMotion, ProgressMotion, ToggleLabelReservation};
 
@@ -42,6 +42,7 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = s::set_space(theme);
     let theme = r::set_radius(theme);
     let theme = set_core(theme);
+    let theme = set_syntax(theme, mode);
     let theme = set_ui_layout(theme);
     let theme = set_ui_table(theme, mode);
     let theme = crate::recipes_controls::install(theme);
@@ -107,6 +108,28 @@ fn set_core(theme: Theme) -> Theme {
             &control::OVERLAY_MARGIN_VAR,
             &s::SPACE_LAYER_VIEWPORT_GUTTER_VAR,
         )
+}
+
+/// The token colors of source code, one variable per syntax kind of the core theme.
+fn set_syntax(theme: Theme, mode: ThemeMode) -> Theme {
+    let dark = mode == ThemeMode::Dark;
+    let pick = |light: u32, dark_value: u32| rgb(if dark { dark_value } else { light });
+    theme
+        .set(&syntax::KEYWORD_VAR, pick(0x6b187c, 0xefa8ff))
+        .set(&syntax::TYPE_VAR, pick(0x6b187c, 0xefa8ff))
+        .set(&syntax::STRING_VAR, pick(0x0b5615, 0xa4d6a3))
+        .set(&syntax::COMMENT_VAR, pick(0x6a6a6a, 0x9e9e9e))
+        .set(&syntax::OPERATOR_VAR, pick(0x6a6a6a, 0x9e9e9e))
+        .set(&syntax::PUNCTUATION_VAR, pick(0x6a6a6a, 0x9e9e9e))
+        .set(&syntax::NUMBER_VAR, pick(0x733100, 0xffb37e))
+        .set(&syntax::CONSTANT_VAR, pick(0x733100, 0xffb37e))
+        .set(&syntax::FUNCTION_VAR, pick(0x00458c, 0xa1caff))
+        .set(&syntax::VARIABLE_VAR, pick(0x111111, 0xe2e2e2))
+        .set(&syntax::TAG_VAR, pick(0x8a0011, 0xffaea7))
+        .set(&syntax::ATTRIBUTE_VAR, pick(0x584400, 0xeec448))
+        .set(&syntax::PROPERTY_VAR, pick(0x005348, 0x90d7c8))
+        .set(&syntax::MACRO_VAR, pick(0x00458c, 0xa1caff))
+        .set(&syntax::LIFETIME_VAR, pick(0x733100, 0xffb37e))
 }
 
 /// The variables of the layout components and the feedback components.

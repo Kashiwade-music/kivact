@@ -18,11 +18,9 @@ use kivact::ui::ControlSize;
 use kivact::ui::button;
 use kivact::ui::text_area;
 use kivact::view::Element;
-use kivact::view::IntoView;
 use kivact::view::Node;
 use kivact::view::NodeRef;
 use kivact::view::Role;
-use kivact::view::View;
 use kivact::view::column;
 use kivact::view::dynamic;
 use kivact::view::node;
@@ -78,7 +76,6 @@ impl EditorMode {
 pub(crate) fn rich_text_view(source: impl IntoText) -> impl kivact::view::Element {
     node().child(markdown(source.into_text_value()))
 }
-
 
 fn toolbar(
     mode: Signal<EditorMode>,
@@ -275,7 +272,6 @@ pub fn rich_text_editor(
     let toolbar = (!read_only).then(|| toolbar(mode, Some(target), offers_blocks));
     node().child(column((toolbar, surface)).style(style().gap(4)))
 }
-
 
 #[cfg(test)]
 mod tests {
