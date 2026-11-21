@@ -1,9 +1,13 @@
 //! Role: Lay out Soft dialog and drawer headings.
-use crate::recipes_dialog::motion;
+use crate::color as c;
+use crate::metrics as m;
+use crate::motion::FAST;
+use crate::recipe_parts::tween;
+use crate::type_scale as t;
 
-use kivact::state::IntoText;
-use kivact::state::IntoValue;
-use kivact::state::{Callback, IntoHandler};
+use kivact::component;
+use kivact::state::Callback;
+use kivact::state::Value;
 use kivact::style::Align;
 use kivact::style::style;
 use kivact::ui::ButtonVariant;
@@ -17,7 +21,6 @@ use kivact::view::column;
 use kivact::view::icon;
 use kivact::view::row;
 use kivact::view::text;
-use std::rc::Rc;
 
 /// Negative inset applied around the trailing header controls.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,202 +33,121 @@ pub enum EdgeCompensation {
     All,
 }
 
-/// Dialog heading with optional subtitle, side content and close action.
-// Independent once-mounted title/subtitle/start/end slots and optional close callback plus construction compensation/divider input; no dialog visibility or close phase is stored.
-pub struct DialogHeader {
-    title: View,
-    subtitle: Option<View>,
+/// Dialog heading with optional subtitle, side content, divider and close action.
+///
+/// `on_close` adds a close button that calls the application callback.
+#[component]
+pub fn dialog_header(
+    title: Value<String>,
+    subtitle: Option<Value<String>>,
+    header_start: Option<View>,
+    header_end: Option<View>,
+    header_end_compensation: Option<EdgeCompensation>,
+    #[prop(default = false)] header_divider: Value<bool>,
+    on_close: Option<Callback<()>>,
+) -> impl Element {
+    heading(
+        title,
+        subtitle,
+        header_start,
+        header_end,
+        header_end_compensation,
+        header_divider,
+        on_close,
+    )
+}
+
+/// Drawer heading: the same layout as a dialog heading. The enclosing drawer supplies its own name.
+#[component]
+pub fn drawer_header(
+    title: Value<String>,
+    subtitle: Option<Value<String>>,
+    header_start: Option<View>,
+    header_end: Option<View>,
+    header_end_compensation: Option<EdgeCompensation>,
+    #[prop(default = false)] header_divider: Value<bool>,
+    on_close: Option<Callback<()>>,
+) -> impl Element {
+    heading(
+        title,
+        subtitle,
+        header_start,
+        header_end,
+        header_end_compensation,
+        header_divider,
+        on_close,
+    )
+}
+
+fn heading(
+    title: Value<String>,
+    subtitle: Option<Value<String>>,
     start: Option<View>,
     end: Option<View>,
-    close: Option<Rc<dyn Fn()>>,
     compensation: Option<EdgeCompensation>,
-    divider: kivact::state::Value<bool>,
-}
-
-/// Create a heading without subtitle, side content, divider or close action.
-pub fn dialog_header(title: impl IntoText) -> DialogHeader {
-    DialogHeader {
-        title: text(title)
-            .with_node(move |node| node.role(Role::Heading))
-            .style(|| {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
-                style()
-                    .font_size(20)
-                    .line_height(1.4)
-                    .weight(600)
-                    .color(p.colors.text_primary)
-            })
-            .into_view(),
-        subtitle: None,
-        start: None,
-        end: None,
-        close: None,
-        compensation: None,
-        divider: false.into_value(),
-    }
-}
-
-/// Drawer headings are visual. The enclosing drawer supplies its own name.
-pub fn drawer_header(title: impl IntoText) -> DrawerHeader {
-    DrawerHeader(dialog_header(title))
-}
-
-/// Visual drawer heading; the enclosing drawer owns its accessible name.
-pub struct DrawerHeader(DialogHeader);
-
-impl DialogHeader {
-    /// Add secondary text below the title.
-    pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
-        self.subtitle = Some(
-            text(subtitle)
-                .style(|| {
-                    style().font_size(12).line_height(20.0 / 14.0).color(
-                        kivact::style::use_tokens::<crate::Tokens>()
-                            .colors
-                            .text_secondary,
-                    )
-                })
-                .into_view(),
-        );
-        self
-    }
-
-    /// Mount content once before the title.
-    pub fn header_start(mut self, content: impl IntoView) -> Self {
-        self.start = Some(content.into_view());
-        self
-    }
-
-    /// Mount content once beside the trailing close control.
-    pub fn header_end(mut self, content: impl IntoView) -> Self {
-        self.end = Some(content.into_view());
-        self
-    }
-
-    /// Override the trailing-control inset; a close control otherwise compensates both axes.
-    pub fn header_end_compensation(mut self, compensation: EdgeCompensation) -> Self {
-        self.compensation = Some(compensation);
-        self
-    }
-
-    /// Enable the bottom divider from a read-only input; false by default.
-    pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
-        self.divider = divider.into_value();
-        self
-    }
-
-    /// Add a close button that calls the application callback.
-    pub fn on_close<M>(mut self, close: impl IntoHandler<(), M>) -> Self {
-        let close: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(close));
-        self.close = Some(Rc::new(move || close.call(())));
-        self
-    }
-
-    fn render(self) -> Node {
-        let close = self.close.map(|close| {
-            let label = kivact::i18n::message("soft.dialog.close", "Close");
-            button("")
-                .variant(ButtonVariant::Ghost)
-                .name(label)
-                .child(icon("x").style(style().size(16, 16)))
-                .style(|| {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    motion(style().size(32, 32).padding(0).radius(10), &p, 125)
-                })
-                .on_press(move || close())
-        });
-        let compensation = self
-            .compensation
-            .or_else(|| close.is_some().then_some(EdgeCompensation::All));
-        let end = row((self.end, close)).style({
-            let mut end = style().gap(8).align_items(Align::Center).shrink(0);
-            if matches!(
-                compensation,
-                Some(EdgeCompensation::Block | EdgeCompensation::All)
-            ) {
-                end = end.margin_top(-8).margin_bottom(-8);
-            }
-            if matches!(
-                compensation,
-                Some(EdgeCompensation::Inline | EdgeCompensation::All)
-            ) {
-                end = end.margin_right(-8);
-            }
-            end
-        });
-        let title = column((self.title, self.subtitle)).style(
+    divider: Value<bool>,
+    close: Option<Callback<()>>,
+) -> Node {
+    let close = close.map(|close| {
+        let label = kivact::i18n::message("soft.dialog.close", "Close");
+        button("")
+            .variant(ButtonVariant::Ghost)
+            .name(label)
+            .icon(icon("x").style(style().size(16, 16)))
+            .style(|| tween(style().size(32, 32).padding(0).border_radius(10), FAST))
+            .on_press(move || close.call(()))
+    });
+    let compensation = compensation.or_else(|| close.is_some().then_some(EdgeCompensation::All));
+    let end = row((end, close)).style({
+        let mut end = style().gap(8).align_items(Align::Center).flex_shrink(0);
+        if matches!(
+            compensation,
+            Some(EdgeCompensation::Block | EdgeCompensation::All)
+        ) {
+            end = end.margin_top(-8).margin_bottom(-8);
+        }
+        if matches!(
+            compensation,
+            Some(EdgeCompensation::Inline | EdgeCompensation::All)
+        ) {
+            end = end.margin_right(-8);
+        }
+        end
+    });
+    let heading = text(title)
+        .with_node(move |node| node.role(Role::Heading))
+        .style(|| {
             style()
-                .grow(1)
-                .min_width(0)
-                .margin_top(-6)
-                .margin_bottom(-6),
-        );
-        let start = self
-            .start
-            .map(|start| row(start).style(style().gap(8).shrink(0)));
-        row((start, title, end)).style(move || {
-            let base = style().gap(12).align_items(Align::Start);
-            if self.divider.get() {
-                base.border_bottom(
-                    1,
-                    kivact::style::use_tokens::<crate::Tokens>().colors.border,
-                )
-            } else {
-                base
-            }
+                .font_size(t::SIZE_XL)
+                .line_height(1.4)
+                .font_weight(t::WEIGHT_SEMIBOLD)
+                .color(c::TEXT_PRIMARY)
         })
-    }
-}
-
-impl DrawerHeader {
-    /// Add secondary text below the title.
-    pub fn subtitle(mut self, subtitle: impl IntoText) -> Self {
-        self.0 = self.0.subtitle(subtitle);
-        self
-    }
-
-    /// Mount content once before the title.
-    pub fn header_start(mut self, content: impl IntoView) -> Self {
-        self.0 = self.0.header_start(content);
-        self
-    }
-
-    /// Mount content once beside the trailing close control.
-    pub fn header_end(mut self, content: impl IntoView) -> Self {
-        self.0 = self.0.header_end(content);
-        self
-    }
-
-    /// Override the trailing-control inset; a close control otherwise compensates both axes.
-    pub fn header_end_compensation(mut self, compensation: EdgeCompensation) -> Self {
-        self.0 = self.0.header_end_compensation(compensation);
-        self
-    }
-
-    /// Enable the bottom divider from a read-only input; false by default.
-    pub fn header_divider(mut self, divider: impl IntoValue<bool>) -> Self {
-        self.0 = self.0.header_divider(divider);
-        self
-    }
-
-    /// Add a close button that calls the application callback.
-    pub fn on_close<M>(mut self, close: impl IntoHandler<(), M>) -> Self {
-        let close: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(close));
-        self.0 = self.0.on_close(close);
-        self
-    }
-}
-
-impl IntoView for DialogHeader {
-    fn into_view(self) -> View {
-        self.render().into_view()
-    }
-}
-
-impl IntoView for DrawerHeader {
-    fn into_view(self) -> View {
-        self.0.into_view()
-    }
+        .into_view();
+    let subtitle = subtitle.map(|subtitle| {
+        text(subtitle)
+            .style(|| {
+                style()
+                    .font_size(t::SIZE_SM)
+                    .line_height(20.0 / 14.0)
+                    .color(c::TEXT_SECONDARY)
+            })
+            .into_view()
+    });
+    let title = column((heading, subtitle)).style(
+        style()
+            .flex_grow(1)
+            .min_width(0)
+            .margin_top(-6)
+            .margin_bottom(-6),
+    );
+    let start = start.map(|start| row(start).style(style().gap(8).flex_shrink(0)));
+    row((start, title, end)).style(move || {
+        let base = style().gap(12).align_items(Align::Start);
+        if divider.get() {
+            base.border_bottom(m::BORDER_WIDTH, c::BORDER)
+        } else {
+            base
+        }
+    })
 }

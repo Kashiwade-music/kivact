@@ -1,20 +1,17 @@
 //! Role: Render themed icons with Neutral sizing and optional color.
 
-use kivact::state::IntoText;
-use kivact::state::IntoValue;
+use crate::color as c;
+use crate::metrics as m;
+use kivact::Prop;
+use kivact::component;
+use kivact::state::Value;
 use kivact::style::Icon as IconSource;
 use kivact::style::Style;
 use kivact::style::style;
-use kivact::view::Element;
-use kivact::view::IntoView;
-use kivact::view::Node;
-use kivact::view::View;
 use kivact::view::icon as control_icon;
-use std::cell::Cell;
-use std::rc::Rc;
 
 /// The icon size option.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
 pub enum IconSize {
     /// Use the extra-small icon dimensions from the theme.
     Xs,
@@ -28,7 +25,7 @@ pub enum IconSize {
 }
 
 /// The icon color option.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Prop)]
 pub enum IconColor {
     /// Use primary icon ink.
     Primary,
@@ -73,88 +70,49 @@ pub enum IconColor {
     Purple,
 }
 
-/// A theme icon created with [`icon_view`].
-pub struct IconView {
-    root: Node,
-    options: Rc<Cell<(IconSize, IconColor)>>,
-}
-
-/// Show an icon from the current theme.
-#[track_caller]
-pub fn icon_view(source: impl IntoValue<IconSource>) -> IconView {
-    let options = Rc::new(Cell::new((IconSize::default(), IconColor::default())));
-    let look = options.clone();
-    // Override the primitive's ordinary style layer before callers add theirs.
-    let root = control_icon(source).style(move || {
-        let (size, color) = look.get();
-        icon_style(size, color)
-    });
-    IconView { root, options }
-}
-
-impl IconView {
-    /// Set the size.
-    pub fn size(self, value: IconSize) -> Self {
-        self.options.set((value, self.options.get().1));
-        self
-    }
-
-    /// Set the color.
-    pub fn color(self, value: IconColor) -> Self {
-        self.options.set((self.options.get().0, value));
-        self
-    }
-
-    /// Give a meaningful icon an accessible name.
-    pub fn label(self, label: impl IntoText) -> Self {
-        self.name(label)
-    }
-}
-
-impl Element for IconView {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for IconView {
-    fn into_view(self) -> View {
-        self.root.into_view()
+/// Show an icon from the current theme, with a Neutral size and color.
+#[component]
+pub fn icon_view(
+    source: Value<IconSource>,
+    #[prop(default = IconSize::Md)] size: Value<IconSize>,
+    #[prop(default = IconColor::Inherit)] color: Value<IconColor>,
+    label: Option<Value<String>>,
+) -> impl Element {
+    let root = control_icon(source).style(move || icon_style(size.get(), color.get()));
+    match label {
+        Some(label) => root.name(label),
+        None => root,
     }
 }
 
 /// Resolve the Neutral icon size and color against the current theme.
-pub fn icon_style(size: IconSize, color: IconColor) -> Style {
-    let tokens = kivact::style::use_tokens::<crate::Tokens>();
-    let s = &tokens.sizes;
-    let size = match size {
-        IconSize::Xs => s.icon_xsm,
-        IconSize::Sm => s.icon_sm,
-        IconSize::Md => s.icon_md,
-        IconSize::Lg => s.icon_lg,
+pub(crate) fn icon_style(size: IconSize, color: IconColor) -> Style {
+    let side = match size {
+        IconSize::Xs => m::ICON_XSM,
+        IconSize::Sm => m::ICON_SM,
+        IconSize::Md => m::ICON_MD,
+        IconSize::Lg => m::ICON_LG,
     };
-    let look = style().size(size, size).shrink(0);
-    let p = &tokens.colors;
+    let look = style().size(side, side).flex_shrink(0);
     match color {
-        IconColor::Primary => look.color(p.icon_primary),
-        IconColor::Secondary | IconColor::Tertiary => look.color(p.icon_secondary),
-        IconColor::Disabled => look.color(p.icon_disabled),
-        IconColor::Accent => look.color(p.icon_accent),
-        IconColor::Info => look.color(p.text_info),
-        IconColor::Success => look.color(p.text_success),
-        IconColor::Error => look.color(p.text_error),
-        IconColor::Warning => look.color(p.text_warning),
+        IconColor::Primary => look.color(c::ICON_PRIMARY),
+        IconColor::Secondary | IconColor::Tertiary => look.color(c::ICON_SECONDARY),
+        IconColor::Disabled => look.color(c::ICON_DISABLED),
+        IconColor::Accent => look.color(c::ICON_ACCENT),
+        IconColor::Info => look.color(c::TEXT_INFO),
+        IconColor::Success => look.color(c::TEXT_SUCCESS),
+        IconColor::Error => look.color(c::TEXT_ERROR),
+        IconColor::Warning => look.color(c::TEXT_WARNING),
         IconColor::Inherit => look,
-        IconColor::Blue => look.color(p.hue.blue.icon),
-        IconColor::Red => look.color(p.hue.red.icon),
-        IconColor::Green => look.color(p.hue.green.icon),
-        IconColor::Gray => look.color(p.hue.gray.icon),
-        IconColor::Cyan => look.color(p.hue.cyan.icon),
-        IconColor::Teal => look.color(p.hue.teal.icon),
-        IconColor::Yellow => look.color(p.hue.yellow.icon),
-        IconColor::Orange => look.color(p.hue.orange.icon),
-        IconColor::Pink => look.color(p.hue.pink.icon),
-        IconColor::Purple => look.color(p.hue.purple.icon),
+        IconColor::Blue => look.color(c::HUE_BLUE_ICON),
+        IconColor::Red => look.color(c::HUE_RED_ICON),
+        IconColor::Green => look.color(c::HUE_GREEN_ICON),
+        IconColor::Gray => look.color(c::HUE_GRAY_ICON),
+        IconColor::Cyan => look.color(c::HUE_CYAN_ICON),
+        IconColor::Teal => look.color(c::HUE_TEAL_ICON),
+        IconColor::Yellow => look.color(c::HUE_YELLOW_ICON),
+        IconColor::Orange => look.color(c::HUE_ORANGE_ICON),
+        IconColor::Pink => look.color(c::HUE_PINK_ICON),
+        IconColor::Purple => look.color(c::HUE_PURPLE_ICON),
     }
 }

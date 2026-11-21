@@ -1,81 +1,69 @@
-//! Role: Style canonical calendars and date/time field surfaces with Neutral tokens.
-use crate::Tokens;
+//! Role: Install Astryx Neutral's recipes of the calendar group: the calendar, and the field and wheel of the date and time inputs.
+use crate::color as c;
+use crate::radius as r;
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::custom::PartState;
 use kivact::interaction::{CalendarDayState, CalendarSpan, DaySelection};
-use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, style};
-use kivact::ui::{CalendarDayVisual, CalendarRecipes, Look};
+use kivact::style::{Align, Color, FlexDirection, Justify, Position, Style, Theme, style};
+use kivact::ui::theme::{CalendarDayVisual, CalendarTheme, Look, calendar};
 use kivact::view::{ReadingDirection, use_direction};
-pub(crate) fn calendar(r: CalendarRecipes) -> CalendarRecipes {
-    r.root(|_| {
-        |theme: &Theme, _: &Look<PartState>| {
-            let t = theme.ext::<Tokens>();
-            style()
-                .direction(Direction::Row)
-                .gap(t.spacing.s4)
-                .color(t.colors.text_primary)
-        }
-    })
-    .month(|_| |_: &Theme, _: &Look<PartState>| style().direction(Direction::Column))
-    .day(|_| day)
-    .range(|_| range)
-}
-fn day(theme: &Theme, s: &Look<CalendarDayVisual>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let size = theme.ext::<kivact::ui::UiTokens>().calendar.cell_size;
+
+/// One day of the calendar: a round cell in the accent when it is an edge of a range.
+fn day(theme: &Theme, s: &Look<CalendarDayVisual>, _base: Style) -> Style {
+    let size = theme.get(&calendar::CELL_SIZE_VAR);
     let inset = 2.0;
+    let edge = s.day.selection == DaySelection::Edge;
     let mut base = style()
         .position(Position::Absolute)
         .left(inset)
         .top(inset)
         .size(size - inset * 2.0, size - inset * 2.0)
-        .radius(t.radius.full)
-        .font_size(t.typography.body.size_px)
+        .border_radius(r::RADIUS_FULL)
+        .font_size(t::BODY.size_px)
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .text_wrap(false)
-        .color(if s.day.selection == DaySelection::Edge {
-            t.colors.on_accent
+        .color(if edge {
+            c::ON_ACCENT
         } else if s.in_month {
-            t.colors.text_primary
+            c::TEXT_PRIMARY
         } else {
-            t.colors.text_secondary
+            c::TEXT_SECONDARY
         })
-        .background(if s.day.selection == DaySelection::Edge {
-            t.colors.accent
-        } else {
-            Color::TRANSPARENT
-        })
-        .focus_visible(style().ring_with_offset(2, 2, t.colors.accent));
+        .background(if edge { c::ACCENT } else { Color::TRANSPARENT })
+        .focus_visible(style().outline(2.0, c::ACCENT).outline_offset(2.0));
     if s.today {
         base = base.border(
-            1,
+            1.0,
             if s.day.span == CalendarSpan::None {
-                t.colors.border_emphasized
+                c::BORDER_EMPHASIZED
             } else {
-                t.colors.text_primary
+                c::TEXT_PRIMARY
             },
         );
     }
     if s.mark.is_some() {
-        base = base.border_bottom(2, t.colors.accent);
+        base = base.border_bottom(2.0, c::ACCENT);
     }
     if s.day.disabled || !s.in_month {
         base.opacity(0.3)
-    } else if s.day.selection == DaySelection::Edge {
+    } else if edge {
         base
     } else {
-        base.hover(style().background(t.colors.overlay_hover))
-            .pressed(style().background(t.colors.overlay_pressed))
+        base.hover(style().background(c::OVERLAY_HOVER))
+            .active(style().background(c::OVERLAY_PRESSED))
     }
 }
-fn range(theme: &Theme, s: &Look<CalendarDayState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let size = theme.ext::<kivact::ui::UiTokens>().calendar.cell_size;
+
+/// The band of a range behind its days, from the span's edge to the cell edge in the reading direction.
+fn range(theme: &Theme, s: &Look<CalendarDayState>, _base: Style) -> Style {
+    let size = theme.get(&calendar::CELL_SIZE_VAR);
     let base = style()
         .position(Position::Absolute)
         .top(2)
         .height(size - 4.0)
-        .background(t.colors.accent_muted);
+        .background(c::ACCENT_MUTED);
     let rtl = use_direction() == ReadingDirection::Rtl;
     match s.span {
         CalendarSpan::Start if rtl => base.left(0).width(size / 2.0),
@@ -86,24 +74,50 @@ fn range(theme: &Theme, s: &Look<CalendarDayState>) -> Style {
         CalendarSpan::None => base.width(0),
     }
 }
-pub(crate) fn field(theme: &Theme, _: &Look<PartState>) -> Style {
-    let t = theme.ext::<Tokens>();
+
+/// The calendar's root: the cells in a row, in the primary text color.
+fn root(_theme: &Theme, _s: &Look<PartState>, _base: Style) -> Style {
     style()
-        .direction(Direction::Row)
-        .align_items(Align::Center)
-        .gap(t.spacing.s2)
+        .flex_direction(FlexDirection::Row)
+        .gap(s::SPACE_S4)
+        .color(c::TEXT_PRIMARY)
 }
-pub(crate) fn wheel(theme: &Theme, _: &Look<PartState>) -> Style {
-    let t = theme.ext::<Tokens>();
+
+/// One month of the calendar: its weeks in a column.
+fn month(_theme: &Theme, _s: &Look<PartState>, _base: Style) -> Style {
+    style().flex_direction(FlexDirection::Column)
+}
+
+/// The field of a date or time input: its parts in a centered row.
+pub(crate) fn field(_theme: &Theme, _s: &Look<PartState>, _base: Style) -> Style {
     style()
-        .direction(Direction::Column)
-        .grow(1)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
+        .gap(s::SPACE_S2)
+}
+
+/// The wheel of a date or time input: a scrolling column of values.
+pub(crate) fn wheel(_theme: &Theme, _s: &Look<PartState>, _base: Style) -> Style {
+    style()
+        .flex_direction(FlexDirection::Column)
+        .flex_grow(1.0)
         .min_width(48)
         .height(264)
         .clip(true)
-        .background(t.colors.bg_surface)
-        .color(t.colors.text_primary)
-        .radius(t.radius.element)
+        .background(c::BG_SURFACE)
+        .color(c::TEXT_PRIMARY)
+        .border_radius(r::RADIUS_ELEMENT)
         .font_size(17)
-        .focus_visible(style().ring_with_offset(2, 3, t.colors.accent))
+        .focus_visible(style().outline(2.0, c::ACCENT).outline_offset(3.0))
+}
+
+/// Install the kit's recipes of the calendar group.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme.with(
+        CalendarTheme::default()
+            .root(root)
+            .month(month)
+            .day(day)
+            .range(range),
+    )
 }

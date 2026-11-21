@@ -737,3 +737,20 @@ fn layout_padding_and_pixel_content_width_place_the_content() {
     );
     assert!(screen.errors().is_empty());
 }
+
+#[test]
+fn an_open_given_inside_a_navigation_group_is_reported() {
+    let screen = render_with(
+        RenderOptions::with_theme(soft::theme(ThemeMode::Light)).window_size(900.0, 650.0),
+        || {
+            soft::top_nav().start((soft::top_nav_mega_menu("Resources")
+                .open(signal(false))
+                .items(|| soft::top_nav_mega_menu_item("Guide").on_press(|| {})),))
+        },
+    );
+    assert!(
+        format!("{:?}", screen.errors()).contains("open is ignored inside a navigation group"),
+        "{:?}",
+        screen.errors()
+    );
+}

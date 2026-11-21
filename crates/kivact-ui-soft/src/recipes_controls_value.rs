@@ -1,35 +1,24 @@
-//! Role: Style Soft sliders and progress bars using their standard value parts.
-use crate::Tokens;
+//! Role: Style Astryx Neutral sliders and progress bars using their standard value parts.
+use crate::color as c;
+use crate::metrics as m;
+use crate::radius as r;
+use crate::recipe_parts::{fast, overlay, ring};
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::geometry::Rect;
 use kivact::interaction::Tone;
 use kivact::motion::Easing;
 use kivact::platform::is_motion_reduced;
-use kivact::style::Color;
-use kivact::style::Cursor;
-use kivact::style::Overflow;
-use kivact::style::Style;
-use kivact::style::Theme;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::ui::AxisState;
-use kivact::ui::Look;
-use kivact::ui::ProgressRecipes;
-use kivact::ui::ProgressState;
-use kivact::ui::SliderRecipes;
-use kivact::view::Orientation;
-use kivact::view::ReadingDirection;
-use kivact::view::use_direction;
+use kivact::style::{Color, Cursor, Overflow, Style, Theme, pct, style};
+use kivact::ui::ProgressVariant;
+use kivact::ui::theme::{AxisState, Look, ProgressState, ProgressTheme, SliderTheme};
+use kivact::view::{Orientation, ReadingDirection, use_direction};
 
-use super::recipe_style::{fast, overlay, ring};
-
-pub(super) fn slider(r: SliderRecipes) -> SliderRecipes {
-    r.track(|_| track).range(|_| range).thumb(|_| thumb)
-}
-
-fn slider_band(t: &Tokens, s: &Look<AxisState>, ink: Color) -> Style {
-    let thickness = t.spacing.s1;
-    let radius = t.radius.full;
-    let vertical = s.orientation == Orientation::Vertical;
+/// A rounded band across a slider track, `ink`-colored, `thickness` wide.
+fn slider_band(theme: &Theme, look: &Look<AxisState>, ink: Color) -> Style {
+    let thickness = theme.get(&s::SPACE_S1_VAR);
+    let radius = theme.get(&r::RADIUS_FULL_VAR);
+    let vertical = look.orientation == Orientation::Vertical;
     style().paint(move |d, size| {
         let rect = if vertical {
             Rect::new((size.width - thickness) / 2.0, 0.0, thickness, size.height)
@@ -42,102 +31,72 @@ fn slider_band(t: &Tokens, s: &Look<AxisState>, ink: Color) -> Style {
     })
 }
 
-fn track(theme: &Theme, s: &Look<AxisState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let base = slider_band(&t, s, t.colors.track)
+fn track(theme: &Theme, look: &Look<AxisState>, _base: Style) -> Style {
+    let base = slider_band(theme, look, c::TRACK)
         .cursor(Cursor::Pointer)
-        .shrink(0)
-        .disabled(
-            style()
-                .opacity(t.sizes.disabled_opacity)
-                .cursor(Cursor::Default),
-        );
-    let side = t.spacing.s5;
-    if s.orientation == Orientation::Vertical {
-        base.width(side).height(t.spacing.s10 * 4.0)
+        .flex_shrink(0)
+        .disabled(style().opacity(m::DISABLED_OPACITY).cursor(Cursor::Default));
+    let side = theme.get(&s::SPACE_S5_VAR);
+    if look.orientation == Orientation::Vertical {
+        base.width(side).height(theme.get(&s::SPACE_S10_VAR) * 4.0)
     } else {
         base.width(pct(100)).height(side)
     }
 }
 
-fn range(theme: &Theme, s: &Look<AxisState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    slider_band(&t, s, t.colors.accent)
+fn range(theme: &Theme, look: &Look<AxisState>, _base: Style) -> Style {
+    slider_band(theme, look, c::ACCENT)
 }
 
-fn thumb(theme: &Theme, _: &Look<AxisState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let c = &t.colors;
-    let side = t.spacing.s5;
+fn thumb(theme: &Theme, _look: &Look<AxisState>, _base: Style) -> Style {
+    let side = theme.get(&s::SPACE_S5_VAR);
     let base = style()
         .size(side, side)
-        .shrink(0)
-        .radius(t.radius.full)
+        .flex_shrink(0)
+        .border_radius(r::RADIUS_FULL)
         .cursor(Cursor::Grab)
-        .background(c.accent)
-        .hover(style().background(c.accent_hover))
-        .pressed(style().background(overlay(theme, c.accent, c.overlay_pressed)))
-        .disabled(style().background(c.bg_muted).cursor(Cursor::Default))
-        .focus_visible(ring(&t, c.focus_ring));
-    fast(&t, base)
+        .background(c::ACCENT)
+        .hover(style().background(c::ACCENT_HOVER))
+        .active(style().background(overlay(theme, c::ACCENT, c::OVERLAY_PRESSED)))
+        .disabled(style().background(c::BG_MUTED).cursor(Cursor::Default))
+        .focus_visible(ring(Color::var(&c::FOCUS_RING_VAR)));
+    fast(base)
 }
 
-pub(super) fn progress(r: ProgressRecipes) -> ProgressRecipes {
-    r.track(|prev| {
-        move |t: &Theme, s: &Look<ProgressState>| {
-            if s.variant::<kivact::ui::ProgressVariant>()
-                .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
-            {
-                prev(t, s)
-            } else {
-                progress_track(t, s)
-            }
-        }
-    })
-    .fill(|prev| {
-        move |t: &Theme, s: &Look<ProgressState>| {
-            if s.variant::<kivact::ui::ProgressVariant>()
-                .is_some_and(|v| *v != kivact::ui::ProgressVariant::Bar)
-            {
-                prev(t, s)
-            } else {
-                progress_fill(t, s)
-            }
-        }
-    })
-    .label(|_| {
-        |t: &Theme, _: &Look<ProgressState>| {
-            style()
-                .font_size(t.ext::<Tokens>().typography.body.size_px)
-                .color(t.ext::<Tokens>().colors.text_primary)
-        }
-    })
+/// Whether a bar uses the standard bar look: no ring and no gauge variant.
+fn is_bar(look: &Look<ProgressState>) -> bool {
+    !look
+        .variant::<ProgressVariant>()
+        .is_some_and(|variant| variant != ProgressVariant::Bar)
 }
 
-fn progress_track(theme: &Theme, _: &Look<ProgressState>) -> Style {
-    let t = theme.ext::<Tokens>();
+fn progress_track(theme: &Theme, look: &Look<ProgressState>, base: Style) -> Style {
+    if !is_bar(look) {
+        return base;
+    }
     style()
         .width(pct(100))
-        .min_width(t.spacing.s12)
-        .height(t.spacing.s2)
-        .radius(t.radius.full)
-        .background(t.colors.border_emphasized)
+        .min_width(theme.get(&s::SPACE_S12_VAR))
+        .height(theme.get(&s::SPACE_S2_VAR))
+        .border_radius(r::RADIUS_FULL)
+        .background(c::BORDER_EMPHASIZED)
         .overflow(Overflow::Hidden)
         .clip(true)
 }
 
-fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    let c = &t.colors;
-    let ink = match s.variant::<Tone>().copied() {
-        Some(Tone::Success) => c.success,
-        Some(Tone::Warning) => c.warning,
-        Some(Tone::Danger) => c.error,
-        Some(Tone::Neutral) => c.text_disabled,
-        _ => c.accent,
+fn progress_fill(_theme: &Theme, look: &Look<ProgressState>, base: Style) -> Style {
+    if !is_bar(look) {
+        return base;
+    }
+    let ink = match look.variant::<Tone>() {
+        Some(Tone::Success) => c::SUCCESS,
+        Some(Tone::Warning) => c::WARNING,
+        Some(Tone::Danger) => c::ERROR,
+        Some(Tone::Neutral) => c::TEXT_DISABLED,
+        _ => c::ACCENT,
     };
-    let (shown, phase) = (s.shown, s.phase);
-    let indeterminate = s.value.is_none();
+    let (shown, phase) = (look.shown, look.phase);
+    let indeterminate = look.value.is_none();
     let rtl = use_direction() == ReadingDirection::Rtl;
     style().size(pct(100), pct(100)).paint(move |d, size| {
         let ease = Easing::CubicBezier(0.42, 0.0, 0.58, 1.0);
@@ -161,4 +120,25 @@ fn progress_fill(theme: &Theme, s: &Look<ProgressState>) -> Style {
             d.rounded_rect(rect, size.height / 2.0, ink);
         }
     })
+}
+
+fn progress_label(_theme: &Theme, _look: &Look<ProgressState>, _base: Style) -> Style {
+    style().font_size(t::BODY.size_px).color(c::TEXT_PRIMARY)
+}
+
+/// Install the kit's recipes of the slider and the progress bar.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme
+        .with(
+            SliderTheme::default()
+                .track(track)
+                .range(range)
+                .thumb(thumb),
+        )
+        .with(
+            ProgressTheme::default()
+                .track(progress_track)
+                .fill(progress_fill)
+                .label(progress_label),
+        )
 }

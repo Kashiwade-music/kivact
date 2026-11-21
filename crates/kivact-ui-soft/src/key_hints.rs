@@ -1,9 +1,14 @@
 //! Role: Show one timed navigation hint on actual keyboard targets.
+use crate::color as c;
+use crate::radius as r;
+use crate::shadows;
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::motion::{Easing, Transition};
 use kivact::state::{
     IntoValue, Machine, MachineHandle, Step, effect, machine, on_cleanup, provide, try_use_context,
 };
-use kivact::style::{Align, TransitionProp, style};
+use kivact::style::{Align, ThemeMode, TransitionProp, style, use_theme};
 use kivact::view::{
     Element, Handled, IntoView, Key, NodeRef, Orientation, OverlayAlign, Placement, View, node_ref,
     overlay, row, show_some, text,
@@ -67,21 +72,21 @@ pub fn with_key_hints<V: IntoView>(
             let surface = row((
                 kivact::ui::kbd(move || keys().0.to_owned()),
                 kivact::ui::kbd(move || keys().1.to_owned()),
-                text(label).style(style().margin_left(4)),
+                text(label).style(style().margin_left(s::SPACE_S1)),
             ))
             .hit_testable(false)
             .style(|| {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
+                let dark = use_theme().get().mode() == ThemeMode::Dark;
                 let base = style()
-                    .gap(4)
-                    .padding_x(8)
-                    .padding_y(4)
+                    .gap(s::SPACE_S1)
+                    .padding_x(s::SPACE_S2)
+                    .padding_y(s::SPACE_S1)
                     .align_items(Align::Center)
-                    .background(t.colors.bg_popover)
-                    .radius(t.radius.element)
-                    .color(t.colors.text_secondary)
-                    .font_size(12)
-                    .line_height(20.0 / 12.0)
+                    .background(c::BG_POPOVER)
+                    .border_radius(r::RADIUS_ELEMENT)
+                    .color(c::TEXT_SECONDARY)
+                    .font_size(t::SIZE_SM)
+                    .line_height(20.0 / t::SIZE_SM)
                     .text_wrap(false)
                     .enter(style().opacity(0.0))
                     .exit(style().opacity(0.0))
@@ -89,10 +94,8 @@ pub fn with_key_hints<V: IntoView>(
                         TransitionProp::All,
                         Transition::tween(150, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0)),
                     );
-                t.shadows
-                    .low
-                    .iter()
-                    .cloned()
+                shadows::low(dark)
+                    .into_iter()
                     .fold(base, |base, shadow| base.shadow(shadow))
             });
             overlay(anchor.get(), Placement::Below, surface)

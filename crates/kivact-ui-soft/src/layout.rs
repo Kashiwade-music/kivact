@@ -1,7 +1,27 @@
 //! Role: Define responsive application layout insets.
-use crate::stack::ContainerInset;
+use crate::color as c;
+use crate::metrics;
+use crate::space::Space;
+use crate::stack::{ContainerInset, rtl};
+use kivact::component;
 use kivact::state::IntoValue;
 use kivact::state::Value;
+use kivact::state::provide;
+use kivact::state::try_use_context;
+use kivact::style::FlexDirection;
+use kivact::style::Length;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::view::Element;
+
+use kivact::view::NodeRef;
+use kivact::view::View;
+use kivact::view::column;
+use kivact::view::node;
+use kivact::view::node_ref;
+use kivact::view::scroll;
+
+use kivact::Prop;
 
 /// Insets inherited by Layout regions from a parent surface.
 #[derive(Clone, Copy, Debug, Default)]
@@ -33,26 +53,6 @@ impl LayoutInset {
     }
 }
 
-use crate::stack::{Space, rtl};
-
-use kivact::view::Element;
-use kivact::view::Node;
-use kivact::view::column;
-use kivact::view::node;
-use kivact::view::scroll;
-
-use kivact::Prop;
-use kivact::state::provide;
-use kivact::state::try_use_context;
-use kivact::style::Direction;
-use kivact::style::Length;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::view::IntoView;
-use kivact::view::NodeRef;
-use kivact::view::View;
-use kivact::view::node_ref;
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 /// Whether a page layout fills its parent or follows intrinsic content height.
 pub enum LayoutHeight {
@@ -63,10 +63,9 @@ pub enum LayoutHeight {
     Auto,
 }
 
-// xtask-allow(state): legacy: header, footer, start, end, content, start_resize, end_resize, padding, content_width
 /// Page regions arranged around a central content area.
-pub struct Layout {
-    root: Node,
+#[component]
+pub fn layout(
     header: Option<LayoutRegion>,
     footer: Option<LayoutRegion>,
     start: Option<LayoutRegion>,
@@ -74,93 +73,70 @@ pub struct Layout {
     content: Option<LayoutRegion>,
     start_resize: Option<View>,
     end_resize: Option<View>,
-    height: Value<LayoutHeight>,
+    #[prop(default = LayoutHeight::Fill)] height: Value<LayoutHeight>,
     padding: Option<Space>,
     content_width: Option<Value<Length>>,
-    default_dividers: Value<bool>,
-}
-
-/// Create an empty fill-height page layout with no default dividers.
-pub fn layout() -> Layout {
-    Layout {
-        root: node(),
-        header: None,
-        footer: None,
-        start: None,
-        end: None,
-        content: None,
-        start_resize: None,
-        end_resize: None,
-        height: (LayoutHeight::Fill).into_value(),
-        padding: None,
-        content_width: None,
-        default_dividers: (false).into_value(),
+    #[prop(default = false)] default_dividers: Value<bool>,
+) -> impl Element {
+    let parent = try_use_context::<ContainerInset>().unwrap_or_default();
+    let mut insets = try_use_context::<LayoutInset>().unwrap_or_default();
+    insets.own_outer = padding.map(Space::px);
+    let mut header = header;
+    let mut footer = footer;
+    for region in [&mut header, &mut footer].into_iter().flatten() {
+        region.divider.get_or_insert(default_dividers.get());
     }
-}
-
-impl Layout {
-    /// Place a region above the central row; usually built with `layout_header`.
-    pub fn header(mut self, slot: LayoutRegion) -> Self {
-        self.header = Some(slot);
-        self
-    }
-    /// Place a region below the central row; usually built with `layout_footer`.
-    pub fn footer(mut self, slot: LayoutRegion) -> Self {
-        self.footer = Some(slot);
-        self
-    }
-    /// Place a panel at the logical leading side, following reading direction.
-    pub fn start(mut self, slot: LayoutRegion) -> Self {
-        self.start = Some(slot);
-        self
-    }
-    /// Place a panel at the logical trailing side, following reading direction.
-    pub fn end(mut self, slot: LayoutRegion) -> Self {
-        self.end = Some(slot);
-        self
-    }
-    /// Place the central region, which grows between optional side panels.
-    pub fn content(mut self, slot: LayoutRegion) -> Self {
-        self.content = Some(slot);
-        self
-    }
-    /// Choose fill or intrinsic height at view construction; defaults to fill.
-    pub fn height(mut self, height: impl IntoValue<LayoutHeight>) -> Self {
-        self.height = height.into_value();
-        self
-    }
-    /// Override the layout’s outer padding on both axes with a theme spacing step.
-    pub fn padding(mut self, padding: Space) -> Self {
-        self.padding = Some(padding);
-        self
-    }
-    /// Set a reactive content-width limit; pixel lengths also center content without side panels.
-    pub fn content_width(mut self, width: impl IntoValue<Length>) -> Self {
-        self.content_width = Some(width.into_value());
-        self
-    }
-    /// Place a caller-owned resize handle after the leading panel; no resize behavior is added.
-    pub fn start_resize_handle(mut self, handle: impl IntoView) -> Self {
-        self.start_resize = Some(handle.into_view());
-        self
-    }
-    /// Place a caller-owned resize handle before the trailing panel; no resize behavior is added.
-    pub fn end_resize_handle(mut self, handle: impl IntoView) -> Self {
-        self.end_resize = Some(handle.into_view());
-        self
-    }
-    /// Choose default header/footer dividers at construction unless a region overrides them.
-    pub fn default_dividers(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.default_dividers = enabled.into_value();
-        self
-    }
-}
-
-impl Element for Layout {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+    let root_ref = node_ref();
+    let slots = LayoutSlots {
+        header_divider: header.as_ref().and_then(|region| region.divider),
+        footer_divider: footer.as_ref().and_then(|region| region.divider),
+        has_start: start.is_some(),
+        has_end: end.is_some(),
+        content_width: content_width.map(|width| ContentWidth {
+            root: root_ref,
+            width,
+        }),
+    };
+    let start = start.map(|slot| slot.in_region(Region::Start));
+    let end = end.map(|slot| slot.in_region(Region::End));
+    let content = content.map(|slot| slot.in_region(Region::Content));
+    let (left, right) = parent.sides();
+    let base = style()
+        .flex_direction(FlexDirection::Column)
+        .min_width(0)
+        .margin_left(-left)
+        .margin_right(-right)
+        .margin_top(-parent.top)
+        .margin_bottom(-parent.bottom);
+    let base = match height.get() {
+        LayoutHeight::Fill => base
+            .flex_grow(1)
+            .min_height(0)
+            .height(pct(100) + parent.top + parent.bottom),
+        LayoutHeight::Auto => base.min_height(pct(100)),
+    };
+    node()
+        .node_ref(root_ref)
+        .with_node(move |node| node.base_style(base))
+        .child(provide(insets, move || {
+            provide(ContainerInset::default(), move || {
+                provide(slots, move || {
+                    (
+                        header.map(region_view),
+                        node()
+                            .with_node(move |node| node.base_style(move || layout_row_style(slots)))
+                            .child((
+                                start.map(region_view),
+                                start_resize,
+                                content.map(region_view),
+                                end_resize,
+                                end.map(region_view),
+                            )),
+                        footer.map(region_view),
+                    )
+                })
+            })
+        }))
 }
 
 /// A caller width limit with the layout root used to centre pixel widths.
@@ -179,81 +155,6 @@ struct LayoutSlots {
     content_width: Option<ContentWidth>,
 }
 
-impl IntoView for Layout {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            header,
-            footer,
-            start,
-            end,
-            content,
-            start_resize,
-            end_resize,
-            height,
-            padding,
-            content_width,
-            default_dividers,
-        } = self;
-        kivact::custom::scope(move || {
-            let parent = try_use_context::<ContainerInset>().unwrap_or_default();
-            let mut insets = try_use_context::<LayoutInset>().unwrap_or_default();
-            insets.own_outer = padding.map(Space::px);
-            let mut header = header;
-            let mut footer = footer;
-            for region in [&mut header, &mut footer].into_iter().flatten() {
-                region.divider.get_or_insert(default_dividers.get());
-            }
-            let root_ref = node_ref();
-            let slots = LayoutSlots {
-                header_divider: header.as_ref().and_then(|region| region.divider),
-                footer_divider: footer.as_ref().and_then(|region| region.divider),
-                has_start: start.is_some(),
-                has_end: end.is_some(),
-                content_width: content_width.map(|width| ContentWidth {
-                    root: root_ref,
-                    width,
-                }),
-            };
-            let start = start.map(|slot| slot.in_region(Region::Start));
-            let end = end.map(|slot| slot.in_region(Region::End));
-            let content = content.map(|slot| slot.in_region(Region::Content));
-            let (left, right) = parent.sides();
-            let base = style()
-                .direction(Direction::Column)
-                .min_width(0)
-                .margin_left(-left)
-                .margin_right(-right)
-                .margin_top(-parent.top)
-                .margin_bottom(-parent.bottom);
-            let base = match height.get() {
-                LayoutHeight::Fill => base
-                    .grow(1)
-                    .min_height(0)
-                    .height(pct(100) + parent.top + parent.bottom),
-                LayoutHeight::Auto => base.min_height(pct(100)),
-            };
-            root.node_ref(root_ref)
-                .with_node(move |node| node.base_style(base))
-                .child(provide(insets, move || {
-                    provide(ContainerInset::default(), move || {
-                        provide(slots, move || {
-                            (
-                                header,
-                                node()
-                                    .with_node(move |node| {
-                                        node.base_style(move || layout_row_style(slots))
-                                    })
-                                    .child((start, start_resize, content, end_resize, end)),
-                                footer,
-                            )
-                        })
-                    })
-                }))
-        })
-    }
-}
-
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Region {
     Header,
@@ -263,10 +164,11 @@ enum Region {
     End,
 }
 
-// xtask-allow(state): legacy: divider, padding, padding_bottom, width
 /// Content slot with padding, size, scrolling and divider settings for a page layout.
+///
+/// A region is a value that a [`layout`] places: its side (header, footer,
+/// start, end or content) is set by the slot it is given to.
 pub struct LayoutRegion {
-    root: Node,
     children: View,
     kind: Region,
     divider: Option<bool>,
@@ -274,36 +176,33 @@ pub struct LayoutRegion {
     padding_bottom: Option<Space>,
     scrollable: Value<bool>,
     width: Option<Value<Length>>,
+    height: Option<Value<Length>>,
 }
 
-fn region(kind: Region, children: impl IntoView) -> LayoutRegion {
+fn region(kind: Region, children: View) -> LayoutRegion {
     LayoutRegion {
-        root: node(),
-        children: children.into_view(),
+        children,
         kind,
         divider: None,
         padding: None,
         padding_bottom: None,
         scrollable: (!matches!(kind, Region::Header | Region::Footer)).into_value(),
         width: None,
+        height: None,
     }
 }
 
 /// Create a non-scrolling header region.
-pub fn layout_header(children: impl IntoView) -> LayoutRegion {
-    region(Region::Header, children)
+pub fn layout_header(children: impl kivact::view::IntoView) -> LayoutRegion {
+    region(Region::Header, children.into_view())
 }
 /// Create a scrolling central content region.
-pub fn layout_content(children: impl IntoView) -> LayoutRegion {
-    region(Region::Content, children)
-}
-/// Create a non-scrolling footer region.
-pub fn layout_footer(children: impl IntoView) -> LayoutRegion {
-    region(Region::Footer, children)
+pub fn layout_content(children: impl kivact::view::IntoView) -> LayoutRegion {
+    region(Region::Content, children.into_view())
 }
 /// Create a scrolling side region; assigning it to start/end determines its logical side.
-pub fn layout_panel(children: impl IntoView) -> LayoutRegion {
-    region(Region::Start, children)
+pub fn layout_panel(children: impl kivact::view::IntoView) -> LayoutRegion {
+    region(Region::Start, children.into_view())
 }
 
 impl LayoutRegion {
@@ -327,59 +226,54 @@ impl LayoutRegion {
         self
     }
     /// Choose at view construction whether this region owns a scroll viewport.
-    pub fn scrollable(mut self, scrollable: impl IntoValue<bool>) -> Self {
+    pub fn scrollable(mut self, scrollable: impl kivact::state::IntoValue<bool>) -> Self {
         self.scrollable = scrollable.into_value();
         self
     }
     /// Set constant or reactive width for a leading or trailing panel.
-    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
+    pub fn width(mut self, width: impl kivact::state::IntoValue<Length>) -> Self {
         self.width = Some(width.into_value());
         self
     }
     /// Set a constant or reactive height using a logical length.
-    pub fn height(mut self, height: impl IntoValue<Length>) -> Self {
-        let height = height.into_value();
-        self.root = self.root.style(move || style().height(height.get()));
+    pub fn height(mut self, height: impl kivact::state::IntoValue<Length>) -> Self {
+        self.height = Some(height.into_value());
         self
     }
 }
 
-impl Element for LayoutRegion {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for LayoutRegion {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            children,
-            kind,
-            divider,
-            padding,
-            padding_bottom,
-            scrollable,
-            width,
-        } = self;
-        kivact::custom::scope(move || {
-            let slots = try_use_context::<LayoutSlots>().unwrap_or_default();
-            let inset = try_use_context::<LayoutInset>().unwrap_or_default();
-            let (inset, inner_x) = region_insets(kind, slots, inset, padding, padding_bottom);
-            let content = column(provide(inset, move || children)).with_node(move |node| {
-                node.base_style(move || region_content_style(kind, slots, inset))
-            });
-            let root = root.with_node(move |node| {
-                node.base_style(move || region_root_style(kind, divider, padding, width, inner_x))
-            });
-            if scrollable.get() {
-                root.child(scroll(content).style(style().grow(1).min_height(0).min_width(0)))
-            } else {
-                root.child(content)
-            }
-        })
-    }
+/// Build the view of one region inside the layout that places it.
+fn region_view(region: LayoutRegion) -> View {
+    let LayoutRegion {
+        children,
+        kind,
+        divider,
+        padding,
+        padding_bottom,
+        scrollable,
+        width,
+        height,
+    } = region;
+    kivact::custom::scope(move || {
+        let slots = try_use_context::<LayoutSlots>().unwrap_or_default();
+        let inset = try_use_context::<LayoutInset>().unwrap_or_default();
+        let (inset, inner_x) = region_insets(kind, slots, inset, padding, padding_bottom);
+        let content = column(provide(inset, move || children)).with_node(move |node| {
+            node.base_style(move || region_content_style(kind, slots, inset))
+        });
+        let root = node().with_node(move |node| {
+            node.base_style(move || region_root_style(kind, divider, padding, width, inner_x))
+        });
+        let root = match height {
+            Some(height) => root.style(move || style().height(height.get())),
+            None => root,
+        };
+        if scrollable.get() {
+            root.child(scroll(content).style(style().flex_grow(1).min_height(0).min_width(0)))
+        } else {
+            root.child(content)
+        }
+    })
 }
 
 fn center_gutter(root: NodeRef, width: f64) -> f64 {
@@ -390,13 +284,13 @@ fn center_gutter(root: NodeRef, width: f64) -> f64 {
 
 fn layout_row_style(slots: LayoutSlots) -> kivact::style::Style {
     let direction = if rtl() {
-        Direction::RowReverse
+        FlexDirection::RowReverse
     } else {
-        Direction::Row
+        FlexDirection::Row
     };
     let mut base = style()
-        .direction(direction)
-        .grow(1)
+        .flex_direction(direction)
+        .flex_grow(1)
         .min_height(0)
         .min_width(0);
     let Some(ContentWidth { root, width }) = slots.content_width else {
@@ -428,6 +322,7 @@ fn layout_row_style(slots: LayoutSlots) -> kivact::style::Style {
     }
     base
 }
+
 fn region_insets(
     kind: Region,
     slots: LayoutSlots,
@@ -435,7 +330,7 @@ fn region_insets(
     padding: Option<Space>,
     padding_bottom: Option<Space>,
 ) -> (ContainerInset, f64) {
-    let fallback = kivact::style::use_tokens::<crate::Tokens>().spacing.s4;
+    let fallback = Space::S4.px();
     let (outer_x, outer_y) = (
         inset.own_outer.or(inset.outer_x).unwrap_or(fallback),
         inset.own_outer.or(inset.outer_y).unwrap_or(fallback),
@@ -486,6 +381,7 @@ fn region_insets(
     }
     (inset, inner_x)
 }
+
 fn region_content_style(
     kind: Region,
     slots: LayoutSlots,
@@ -514,6 +410,7 @@ fn region_content_style(
     }
     base
 }
+
 fn region_root_style(
     kind: Region,
     divider: Option<bool>,
@@ -521,10 +418,13 @@ fn region_root_style(
     width: Option<Value<Length>>,
     inner_x: f64,
 ) -> kivact::style::Style {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let mut base = style().direction(Direction::Column).shrink(0).min_width(0);
+    let border = metrics::BORDER_WIDTH;
+    let mut base = style()
+        .flex_direction(FlexDirection::Column)
+        .flex_shrink(0)
+        .min_width(0);
     if kind == Region::Content {
-        base = base.grow(1).shrink(1).min_height(0).clip(true);
+        base = base.flex_grow(1).flex_shrink(1).min_height(0).clip(true);
     }
     if matches!(kind, Region::Start | Region::End) {
         base = base.clip(true);
@@ -535,14 +435,10 @@ fn region_root_style(
     let divider = divider.unwrap_or_default();
     let right = (kind == Region::Start) != rtl();
     match kind {
-        Region::Header if divider => base.border_bottom(t.sizes.border_width, t.colors.border),
-        Region::Footer if divider => base.border_top(t.sizes.border_width, t.colors.border),
-        Region::Start | Region::End if divider && right => {
-            base.border_right(t.sizes.border_width, t.colors.border)
-        }
-        Region::Start | Region::End if divider => {
-            base.border_left(t.sizes.border_width, t.colors.border)
-        }
+        Region::Header if divider => base.border_bottom(border, c::BORDER),
+        Region::Footer if divider => base.border_top(border, c::BORDER),
+        Region::Start | Region::End if divider && right => base.border_right(border, c::BORDER),
+        Region::Start | Region::End if divider => base.border_left(border, c::BORDER),
         Region::Start | Region::End if padding.is_none() && right => base.margin_right(-inner_x),
         Region::Start | Region::End if padding.is_none() => base.margin_left(-inner_x),
         _ => base,

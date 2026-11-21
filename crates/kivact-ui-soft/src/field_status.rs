@@ -1,22 +1,22 @@
 //! Role: Present an attached or detached field validation message.
+use crate::color as c;
+use crate::radius as r;
+use crate::space as s;
+use crate::type_scale as t;
 
-use kivact::state::IntoValue;
+use kivact::Prop;
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::state::Value;
-use kivact::view::Element;
-use kivact::view::Node;
+use kivact::style::Align;
+use kivact::style::pct;
+use kivact::style::style;
+use kivact::ui::theme::Variant;
+use kivact::view::LiveRegion;
 use kivact::view::icon;
 use kivact::view::node;
 use kivact::view::row;
 use kivact::view::text;
-
-use kivact::Prop;
-use kivact::state::IntoText;
-use kivact::style::Align;
-use kivact::style::pct;
-use kivact::style::style;
-use kivact::view::IntoView;
-use kivact::view::LiveRegion;
-use kivact::view::View;
 
 /// Meaning and color of a field validation message.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -39,110 +39,62 @@ pub enum FieldStatusVariant {
     Detached,
 }
 
+impl Variant for FieldStatusVariant {}
+
 /// Validation text and icon with optional live-region announcements.
-pub struct FieldStatus {
-    root: Node,
+///
+/// The placement is the element's `.variant(FieldStatusVariant::..)`; attached by default.
+#[component]
+pub fn field_status(
     kind: StatusKind,
-    text: Value<String>,
-    variant: Value<FieldStatusVariant>,
-    overlap: Value<f64>,
-    announce: Value<bool>,
-}
-
-/// Create an attached validation message with announcements enabled.
-pub fn field_status(kind: StatusKind, text: impl IntoText) -> FieldStatus {
-    FieldStatus {
-        root: node(),
-        kind,
-        text: text.into_text_value(),
-        variant: (FieldStatusVariant::Attached).into_value(),
-        overlap: (16.0).into_value(),
-        announce: (true).into_value(),
+    message: Value<String>,
+    #[prop(default = 16.0)] overlap: Value<f64>,
+    #[prop(default = true)] announce: Value<bool>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let mut root = node();
+    if announce.get() {
+        root = root.live_region(if kind == StatusKind::Error {
+            LiveRegion::Assertive
+        } else {
+            LiveRegion::Polite
+        });
     }
-}
-
-impl FieldStatus {
-    /// Choose attached or detached presentation; attached by default.
-    pub fn variant(mut self, variant: impl IntoValue<FieldStatusVariant>) -> Self {
-        self.variant = variant.into_value();
-        self
-    }
-
-    /// Set attached overlap in pixels, clamped to zero or greater; defaults to 16.
-    pub fn overlap(mut self, overlap: impl IntoValue<f64>) -> Self {
-        let overlap = overlap.into_value();
-        self.overlap = (move || overlap.get().max(0.0)).into_value();
-        self
-    }
-
-    /// Enable live-region announcements when mounted; enabled by default.
-    pub fn announce(mut self, announce: impl IntoValue<bool>) -> Self {
-        self.announce = announce.into_value();
-        self
-    }
-}
-
-impl Element for FieldStatus {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for FieldStatus {
-    fn into_view(self) -> View {
-        let Self {
-            mut root,
-            kind,
-            text: label,
-            variant,
-            overlap,
-            announce,
-        } = self;
-        if announce.get() {
-            root = root.live_region(if kind == StatusKind::Error {
-                LiveRegion::Assertive
-            } else {
-                LiveRegion::Polite
-            });
-        }
-        let glyph = match kind {
-            StatusKind::Error => "circle-x",
-            StatusKind::Warning => "triangle-alert",
-            StatusKind::Success => "circle-check",
-        };
-        root.child(
-            row((
-                icon(glyph).style(style().size(16, 16).shrink(0)),
-                text(label),
-            ))
-            .style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
-                let c = &t.colors;
-                let (background, color) = match kind {
-                    StatusKind::Error => (c.error_muted, c.on_error_muted),
-                    StatusKind::Warning => (c.warning_muted, c.on_warning_muted),
-                    StatusKind::Success => (c.success_muted, c.on_success_muted),
-                };
-                let base = style()
-                    .width(pct(100))
-                    .gap(4)
-                    .align_items(Align::Start)
-                    .font_size(12)
-                    .line_height(20.0 / 12.0)
-                    .color(color);
-                match variant.get() {
-                    FieldStatusVariant::Attached => base
-                        .background(background)
-                        .radius(t.radius.element)
-                        .margin_top(-overlap.get())
-                        .padding_top(overlap.get() + 8.0)
-                        .padding_bottom(8)
-                        .padding_x(8),
-                    FieldStatusVariant::Detached => base.padding_y(4),
-                }
-            }),
-        )
-        .into_view()
-    }
+    let glyph = match kind {
+        StatusKind::Error => "circle-x",
+        StatusKind::Warning => "triangle-alert",
+        StatusKind::Success => "circle-check",
+    };
+    root.child(
+        row((
+            icon(glyph).style(style().size(16, 16).flex_shrink(0)),
+            text(message),
+        ))
+        .style(move || {
+            let (background, color) = match kind {
+                StatusKind::Error => (c::ERROR_MUTED, c::ON_ERROR_MUTED),
+                StatusKind::Warning => (c::WARNING_MUTED, c::ON_WARNING_MUTED),
+                StatusKind::Success => (c::SUCCESS_MUTED, c::ON_SUCCESS_MUTED),
+            };
+            let base = style()
+                .width(pct(100))
+                .gap(s::SPACE_S1)
+                .align_items(Align::Start)
+                .font_size(t::SIZE_SM)
+                .line_height(20.0 / t::SIZE_SM)
+                .color(color);
+            let overlap = overlap.get().max(0.0);
+            match variants.get::<FieldStatusVariant>().unwrap_or_default() {
+                FieldStatusVariant::Attached => base
+                    .background(background)
+                    .border_radius(r::RADIUS_ELEMENT)
+                    .margin_top(-overlap)
+                    .padding_top(overlap + 8.0)
+                    .padding_bottom(s::SPACE_S2)
+                    .padding_x(s::SPACE_S2),
+                FieldStatusVariant::Detached => base.padding_y(s::SPACE_S1),
+            }
+        }),
+    )
 }

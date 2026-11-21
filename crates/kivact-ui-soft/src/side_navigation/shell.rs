@@ -4,28 +4,32 @@ use super::context::{NavSurface, SideNavCx, nav_cx};
 use super::items::logical_row;
 
 use crate::app_shell::{ShellNavMode, shell_nav_mode};
+use crate::color as c;
 use crate::mobile_nav::use_app_shell_mobile;
+use crate::navigation_session::with_navigation_group;
+use crate::radius::RADIUS_FULL;
+use crate::space::{self as s, SPACE_S12_VAR, Space};
 use crate::stack::rtl;
 
+use kivact::component;
 use kivact::i18n::message;
 use kivact::interaction::{ScalarRange, use_splitter};
 use kivact::motion::Spring;
 use kivact::motion::Transition;
 use kivact::motion::animated;
-use kivact::state::IntoText;
-use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::Value;
 use kivact::state::binding;
 use kivact::state::provide;
 use kivact::state::signal;
 use kivact::style::Align;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
 use kivact::style::Position;
 use kivact::style::auto;
 use kivact::style::pct;
 use kivact::style::style;
+use kivact::style::use_theme;
 use kivact::ui::ButtonVariant;
 use kivact::ui::ControlSize;
 use kivact::ui::button;
@@ -110,248 +114,129 @@ impl SideNavResize {
     }
 }
 
-// xtask-allow(state): legacy: header, top, footer, icons, collapse, resize
 /// A sidebar with a scrollable entry region and retained header and footer slots.
-pub struct SideNav {
-    root: Node,
+///
+/// `collapsible` and `resizable` apply on the desktop shell only; `collapse_button` shows the
+/// built-in toggle when the sidebar can collapse.
+#[component]
+pub fn side_nav(
     children: View,
     header: Option<View>,
-    top: Option<View>,
+    top_content: Option<View>,
     footer: Option<View>,
-    icons: Option<View>,
-    collapse: Option<SideNavCollapse>,
-    resize: Option<SideNavResize>,
-    collapse_button: Value<bool>,
-}
-
-/// Mount sidebar entries once within the shared sidebar context.
-pub fn side_nav(children: impl IntoView) -> SideNav {
-    SideNav {
-        root: node()
-            .with_node(move |node| node.role(Role::Navigation))
-            .name(message("soft.side_nav.label", "Edge navigation")),
-        children: children.into_view(),
-        header: None,
-        top: None,
-        footer: None,
-        icons: None,
-        collapse: None,
-        resize: None,
-        collapse_button: (true).into_value(),
-    }
-}
-
-impl SideNav {
-    /// Mount header content once in the sidebar context.
-    pub fn header(mut self, header: impl IntoView) -> Self {
-        self.header = Some(header.into_view());
-        self
-    }
-    /// Mount content above the scrollable navigation entries.
-    pub fn top_content(mut self, content: impl IntoView) -> Self {
-        self.top = Some(content.into_view());
-        self
-    }
-    /// Mount footer content outside the scrollable entries.
-    pub fn footer(mut self, footer: impl IntoView) -> Self {
-        self.footer = Some(footer.into_view());
-        self
-    }
-    /// Mount compact actions that remain available in the collapsed rail.
-    pub fn footer_icons(mut self, icons: impl IntoView) -> Self {
-        self.icons = Some(icons.into_view());
-        self
-    }
-    /// Choose local or application-owned rail collapse state.
-    pub fn collapsible(mut self, collapse: SideNavCollapse) -> Self {
-        self.collapse = Some(collapse);
-        self
-    }
-    /// Show or hide the sidebar's built-in collapse toggle.
-    pub fn collapse_button(mut self, show: impl IntoValue<bool>) -> Self {
-        self.collapse_button = show.into_value();
-        self
-    }
-    /// Enable resizing with the supplied initial width, bounds and collapse ownership.
-    pub fn resizable(mut self, resize: SideNavResize) -> Self {
-        self.resize = Some(resize);
-        self
-    }
-}
-
-impl Element for SideNav {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for SideNav {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            children,
-            header,
-            top,
-            footer,
-            icons,
-            collapse,
-            resize,
-            collapse_button,
-        } = self;
-        crate::navigation_session::with_navigation_group(move || {
-            let mode = shell_nav_mode();
-            let root = root.with_node(move |node| {
-                node.base_style(move || {
-                    style()
-                        .direction(if mode == ShellNavMode::MobileBar {
-                            logical_row()
-                        } else {
-                            Direction::Column
-                        })
-                        .min_width(0)
-                        .min_height(0)
+    footer_icons: Option<View>,
+    collapsible: Option<SideNavCollapse>,
+    #[prop(default = true)] collapse_button: Value<bool>,
+    resizable: Option<SideNavResize>,
+) -> impl Element {
+    let root = node()
+        .with_node(move |node| node.role(Role::Navigation))
+        .name(message("soft.side_nav.label", "Edge navigation"));
+    let mode = shell_nav_mode();
+    let root = root.with_node(move |node| {
+        node.base_style(move || {
+            style()
+                .flex_direction(if mode == ShellNavMode::MobileBar {
+                    logical_row()
+                } else {
+                    FlexDirection::Column
                 })
-            });
-            if mode == ShellNavMode::MobileBar {
-                return root
-                    .style(|| {
-                        style()
-                            .width(pct(100))
-                            .align_items(Align::Center)
-                            .justify_content(Justify::SpaceBetween)
-                    })
-                    .child((header, icons));
-            }
-            let nav_ref = node_ref();
-            let collapse = if mode == ShellNavMode::Desktop {
-                collapse
-            } else {
-                None
-            };
-            let resize = if mode == ShellNavMode::Desktop {
-                resize
-            } else {
-                None
-            };
-            let collapsed = sidebar_collapse(collapse, resize.as_ref());
-            let expanded_width =
-                signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
-            let cx = SideNavCx {
-                surface: collapsed.map_or(NavSurface::Fixed, NavSurface::Collapsible),
-                ..SideNavCx::default()
-            };
-            let width = sidebar_width(cx, expanded_width, resize.is_none() && collapsed.is_some());
-            let slots = SideNavSlots {
-                children,
-                header,
-                top,
-                footer,
-                icons,
-            };
-            let controls = slots.controls(cx, mode, collapse_button, collapsed);
-            let root = root.node_ref(nav_ref).style(move || {
-                if mode == ShellNavMode::Desktop {
-                    style()
-                        .position(Position::Relative)
-                        .width(width())
-                        .height(pct(100))
-                        .clip(true)
-                } else {
-                    style().width(pct(100)).grow(1)
-                }
-            });
-            let grip = resize.map(|resize| resize_grip(resize, collapsed, expanded_width, nav_ref));
-            root.child((controls, grip))
+                .min_width(0)
+                .min_height(0)
         })
-    }
-}
-
-// xtask-allow(state): legacy: binding, label
-/// A control that toggles the sidebar's collapsed rail.
-pub struct SideNavCollapseButton {
-    root: Node,
-    binding: Option<Signal<bool>>,
-    size: Value<ControlSize>,
-    label: Option<Value<String>>,
-}
-
-/// Create a collapse toggle using the surrounding sidebar context.
-pub fn side_nav_collapse_button() -> SideNavCollapseButton {
-    SideNavCollapseButton {
-        root: node(),
-        binding: None,
-        size: (ControlSize::Medium).into_value(),
-        label: None,
-    }
-}
-
-impl SideNavCollapseButton {
-    /// Override the surrounding sidebar's collapse binding.
-    pub fn binding(mut self, collapsed: Signal<bool>) -> Self {
-        self.binding = Some(collapsed);
-        self
-    }
-    /// Set the collapse toggle button size.
-    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-    /// Override the toggle's accessible label.
-    pub fn label(mut self, label: impl IntoText) -> Self {
-        self.label = Some(label.into_text_value());
-        self
-    }
-}
-
-impl Element for SideNavCollapseButton {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for SideNavCollapseButton {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            binding,
-            size,
-            label,
-        } = self;
-        kivact::custom::scope(move || {
-            let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
-                return View::empty();
-            };
-            if use_app_shell_mobile().is_mobile() {
-                return View::empty();
-            }
-            let expand = message("soft.side_nav.expand", "Expand sidebar");
-            let collapse = message("soft.side_nav.collapse", "Collapse sidebar");
-            let title = move || {
-                if collapsed.get() {
-                    expand.get()
-                } else {
-                    collapse.get()
-                }
-            };
-            let glyph = icon(if rtl() {
-                "chevron-right"
-            } else {
-                "chevron-left"
+    });
+    if mode == ShellNavMode::MobileBar {
+        return root
+            .style(|| {
+                style()
+                    .width(pct(100))
+                    .align_items(Align::Center)
+                    .justify_content(Justify::SpaceBetween)
             })
-            .style(move || style().rotate(if collapsed.get() { 180 } else { 0 }));
-            let trigger = button(move || label.map_or_else(title, |label| label.get()))
-                .variant(ButtonVariant::Ghost)
-                .size(size.get())
-                .icon(glyph)
-                .hide_label(label.is_none())
-                .with_node(move |node| node.expanded(move || !collapsed.get()))
-                .on_press(move || collapsed.set(!collapsed.get()));
-            root.child(tooltip(title).placement(Placement::End).attach(trigger))
-                .into_view()
-        })
+            .child((header, footer_icons));
     }
+    let nav_ref = node_ref();
+    let collapse = if mode == ShellNavMode::Desktop {
+        collapsible
+    } else {
+        None
+    };
+    let resize = if mode == ShellNavMode::Desktop {
+        resizable
+    } else {
+        None
+    };
+    let collapsed = sidebar_collapse(collapse, resize.as_ref());
+    let expanded_width = signal(resize.as_ref().map_or(260.0, |resize| resize.default_width));
+    let cx = SideNavCx {
+        surface: collapsed.map_or(NavSurface::Fixed, NavSurface::Collapsible),
+        ..SideNavCx::default()
+    };
+    let width = sidebar_width(cx, expanded_width, resize.is_none() && collapsed.is_some());
+    let slots = SideNavSlots {
+        children,
+        header,
+        top: top_content,
+        footer,
+        icons: footer_icons,
+    };
+    let root = root.node_ref(nav_ref).style(move || {
+        if mode == ShellNavMode::Desktop {
+            style()
+                .position(Position::Relative)
+                .width(width())
+                .height(pct(100))
+                .clip(true)
+        } else {
+            style().width(pct(100)).flex_grow(1)
+        }
+    });
+    root.child(with_navigation_group(move || {
+        let controls = slots.controls(cx, mode, collapse_button, collapsed);
+        let grip = resize.map(|resize| resize_grip(resize, collapsed, expanded_width, nav_ref));
+        (controls, grip)
+    }))
+}
+
+/// A control that toggles the sidebar's collapsed rail. It is hidden when there is no collapse
+/// binding, and on mobile. `binding` overrides the surrounding sidebar's binding, and `label`
+/// is the visible text of the toggle (the icon alone when it is not given).
+#[component]
+pub fn side_nav_collapse_button(
+    binding: Option<Signal<bool>>,
+    #[prop(default = ControlSize::Medium)] size: Value<ControlSize>,
+    label: Option<Value<String>>,
+) -> impl Element {
+    let root = node();
+    let Some(collapsed) = binding.or(nav_cx().collapsed()) else {
+        return root.hidden(true);
+    };
+    if use_app_shell_mobile().is_mobile() {
+        return root.hidden(true);
+    }
+    let expand = message("soft.side_nav.expand", "Expand sidebar");
+    let collapse = message("soft.side_nav.collapse", "Collapse sidebar");
+    let title = move || {
+        if collapsed.get() {
+            expand.get()
+        } else {
+            collapse.get()
+        }
+    };
+    let glyph = icon(if rtl() {
+        "chevron-right"
+    } else {
+        "chevron-left"
+    })
+    .style(move || style().rotate(if collapsed.get() { 180 } else { 0 }));
+    let trigger = button(move || label.map_or_else(title, |label| label.get()))
+        .variant(ButtonVariant::Ghost)
+        .size(size.get())
+        .icon(glyph)
+        .hide_label(label.is_none())
+        .with_node(move |node| node.expanded(move || !collapsed.get()))
+        .on_press(move || collapsed.set(!collapsed.get()));
+    root.child(tooltip(title, trigger).placement(Placement::End))
 }
 
 fn sidebar_collapse(
@@ -398,10 +283,9 @@ impl SideNavSlots {
             footer.is_some() || icons.is_some() || collapse_button.get() && collapsed.is_some();
         provide(cx, move || {
             let top = column((header, top)).style(move || {
-                let t = kivact::style::use_tokens::<crate::Tokens>();
-                let mut base = style().gap(t.spacing.s2).shrink(0);
+                let mut base = style().gap(s::SPACE_S2).flex_shrink(0);
                 if has_top && mode == ShellNavMode::Desktop {
-                    base = base.padding(t.spacing.s2);
+                    base = base.padding(s::SPACE_S2);
                 }
                 if cx.rail() {
                     base = base.align_items(Align::Center);
@@ -412,7 +296,7 @@ impl SideNavSlots {
                 column(children).style(move || sidebar_items_style(cx, mode, has_top, has_bottom));
             let items = if mode == ShellNavMode::Desktop {
                 scroll(items)
-                    .style(style().grow(1).min_height(0))
+                    .style(style().flex_grow(1).min_height(0))
                     .into_view()
             } else {
                 items.into_view()
@@ -425,13 +309,13 @@ impl SideNavSlots {
                 ))
                 .style(move || {
                     style()
-                        .direction(if cx.rail() {
-                            Direction::ColumnReverse
+                        .flex_direction(if cx.rail() {
+                            FlexDirection::ColumnReverse
                         } else {
                             logical_row()
                         })
                         .align_items(Align::Center)
-                        .gap(kivact::style::use_tokens::<crate::Tokens>().spacing.s1)
+                        .gap(s::SPACE_S1)
                 });
                 column((
                     footer.map(|slot| node().hidden(move || cx.rail()).child(slot)),
@@ -449,17 +333,12 @@ fn sidebar_items_style(
     has_top: bool,
     has_bottom: bool,
 ) -> kivact::style::Style {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let mut base = style().gap(t.spacing.s0_5);
+    let mut base = style().gap(s::SPACE_S0_5);
     if mode == ShellNavMode::Desktop {
         base = base
-            .padding_x(t.spacing.s2)
-            .padding_top(if has_top { t.spacing.s1 } else { t.spacing.s2 })
-            .padding_bottom(if has_bottom {
-                t.spacing.s1
-            } else {
-                t.spacing.s2
-            });
+            .padding_x(s::SPACE_S2)
+            .padding_top(if has_top { s::SPACE_S1 } else { s::SPACE_S2 })
+            .padding_bottom(if has_bottom { s::SPACE_S1 } else { s::SPACE_S2 });
     }
     if cx.rail() {
         base = base.align_items(Align::Center);
@@ -467,13 +346,13 @@ fn sidebar_items_style(
     base
 }
 fn sidebar_bottom_style(cx: SideNavCx, mode: ShellNavMode) -> kivact::style::Style {
-    let t = kivact::style::use_tokens::<crate::Tokens>();
-    let mut base = style().margin_top(auto()).gap(t.spacing.s2).shrink(0);
+    let mut base = style().margin_top(auto()).gap(s::SPACE_S2).flex_shrink(0);
     if mode == ShellNavMode::Desktop {
+        let top = if cx.rail() { 0.0 } else { Space::S1.px() };
         base = base
-            .padding_x(t.spacing.s2)
-            .padding_bottom(t.spacing.s2)
-            .padding_top(if cx.rail() { 0.0 } else { t.spacing.s1 });
+            .padding_x(s::SPACE_S2)
+            .padding_bottom(s::SPACE_S2)
+            .padding_top(top);
     }
     if cx.rail() {
         base = base.align_items(Align::Center);
@@ -534,11 +413,10 @@ fn resize_grip(
             if rtl() { base.left(0) } else { base.right(0) }
         })
         .child(node().style(move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
             let state = visual.get();
             style()
-                .size(3, t.spacing.s8)
-                .radius(t.radius.full)
+                .size(3, s::SPACE_S8)
+                .border_radius(RADIUS_FULL)
                 .translate_x(if rtl() { -7.0 } else { 7.0 })
                 .opacity(
                     if state.dragging || state.input.is_hovered() || state.input.is_focused() {
@@ -548,9 +426,9 @@ fn resize_grip(
                     },
                 )
                 .background(if state.dragging {
-                    t.colors.border_emphasized
+                    c::BORDER_EMPHASIZED
                 } else {
-                    t.colors.border
+                    c::BORDER
                 })
         }))
 }
@@ -562,7 +440,7 @@ fn sidebar_width(
 ) -> impl Fn() -> f64 {
     let target = move || {
         if cx.rail() {
-            kivact::style::use_tokens::<crate::Tokens>().spacing.s12
+            use_theme().get().get(&SPACE_S12_VAR)
         } else {
             expanded_width.get()
         }

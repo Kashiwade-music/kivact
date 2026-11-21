@@ -58,12 +58,6 @@ impl<K: ItemKey> MoreMenu<K> {
         self
     }
 
-    /// Set the visual variant of the overflow trigger button.
-    pub fn variant(mut self, variant: ButtonVariant) -> Self {
-        self.button = self.button.variant(variant);
-        self
-    }
-
     /// Set the trigger button size, including reactive size changes.
     pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
         self.button = self.button.size(size);
@@ -89,31 +83,9 @@ impl<K: ItemKey> MoreMenu<K> {
     }
 }
 
-struct MoreTrigger {
-    button: Button,
-    label: Value<String>,
-}
-
-impl Element for MoreTrigger {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        self.button.node_mut()
-    }
-}
-
-impl IntoView for MoreTrigger {
-    fn into_view(self) -> View {
-        tooltip(self.label).attach(self.button)
-    }
-}
-
 impl<K: ItemKey> IntoView for MoreMenu<K> {
     fn into_view(self) -> View {
-        let trigger = self.button;
-        self.menu.attach(MoreTrigger {
-            button: trigger,
-            label: self.label,
-        })
+        self.menu.attach(tooltip(self.label, self.button))
     }
 }
 

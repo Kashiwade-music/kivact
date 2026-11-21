@@ -1,18 +1,24 @@
 //! Role: Preview an image attachment with upload, open, and remove affordances.
+use crate::color as c;
+use crate::metrics::{BORDER_WIDTH, DISABLED_OPACITY, ICON_LG, ICON_MD};
+use crate::motion::{EASE_STANDARD, FAST, MEDIUM_MAX, SLOW_MIN};
+use crate::radius::{RADIUS_ELEMENT, RADIUS_INNER};
+use crate::space::SPACE_S1;
 use crate::{IconSize, icon_view, visually_hidden};
 use kivact::Prop;
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::i18n::{message, message_with};
 use kivact::motion::Animated;
 use kivact::motion::Easing;
 use kivact::motion::Repeat;
 use kivact::motion::Transition;
-use kivact::state::IntoText;
+use kivact::state::Callback;
 use kivact::state::IntoValue;
 use kivact::state::Value;
-use kivact::state::{Callback, IntoHandler};
 use kivact::style::Align;
 use kivact::style::Cursor;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
 use kivact::style::Position;
 use kivact::style::TransitionProp;
@@ -25,12 +31,10 @@ use kivact::ui::tooltip;
 use kivact::view::Asset;
 use kivact::view::Element;
 use kivact::view::ImageFit;
-use kivact::view::IntoView;
 use kivact::view::LiveRegion;
 use kivact::view::Node;
 use kivact::view::ReadingDirection;
 use kivact::view::Role;
-use kivact::view::View;
 use kivact::view::image;
 use kivact::view::node;
 use kivact::view::node_ref;
@@ -51,164 +55,82 @@ pub enum RemoveReveal {
     Always,
 }
 
-// xtask-allow(state): legacy: source, alt, label
 /// A preview of an image attachment.
-pub struct Thumbnail {
-    root: Node,
-    source: Option<Asset>,
+///
+/// `label` is the hover hint on the preview, and `on_press` belongs to the
+/// open button over the image, not the root.
+#[component]
+pub fn thumbnail(
+    src: Option<Asset>,
     alt: Option<Value<String>>,
     label: Option<Value<String>>,
-    press: Option<Box<dyn Fn()>>,
-    remove: Option<Box<dyn Fn()>>,
-    loading: Value<bool>,
-    reveal: Value<RemoveReveal>,
-}
-
-/// Create an image attachment preview.
-pub fn thumbnail() -> Thumbnail {
-    Thumbnail {
-        root: node().with_node(move |node| node.role(Role::Group)),
-        source: None,
-        alt: None,
-        label: None,
-        press: None,
-        remove: None,
-        loading: false.into_value(),
-        reveal: (RemoveReveal::default()).into_value(),
-    }
-}
-
-impl Thumbnail {
-    /// Set the preview image.
-    pub fn src(mut self, source: impl Into<Asset>) -> Self {
-        self.source = Some(source.into());
-        self
-    }
-    /// Describe the image itself.
-    pub fn alt(mut self, alt: impl IntoText) -> Self {
-        self.alt = Some(alt.into_text_value());
-        self
-    }
-    /// Set the filename or another short preview label.
-    pub fn label(mut self, label: impl IntoText) -> Self {
-        self.label = Some(label.into_text_value());
-        self
-    }
-    /// Open the image when pressed.
-    pub fn on_press<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
-        let action: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
-        self.press = Some(Box::new(move || action.call(())));
-        self
-    }
-    /// Remove the attachment when pressed.
-    pub fn on_remove<M>(mut self, action: impl IntoHandler<(), M>) -> Self {
-        let action: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(action));
-        self.remove = Some(Box::new(move || action.call(())));
-        self
-    }
-    /// Show upload progress.
-    pub fn loading(mut self, loading: impl IntoValue<bool>) -> Self {
-        self.loading = loading.into_value();
-        self
-    }
-    /// Make the preview and its controls unavailable.
-    /// Set when the remove control is shown.
-    pub fn show_remove_on(mut self, reveal: impl IntoValue<RemoveReveal>) -> Self {
-        self.reveal = reveal.into_value();
-        self
-    }
-}
-
-impl Element for Thumbnail {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for Thumbnail {
-    fn into_view(mut self) -> View {
-        let disabled = self
-            .root
-            .accessible_disabled()
-            .unwrap_or_else(|| false.into_value());
-        let Self {
-            root,
-            source,
-            alt,
-            label,
-            press,
-            remove,
-            loading,
-            reveal,
-        } = self;
-        let fallback = message("soft.thumbnail.fallback_name", "Thumbnail");
-        let accessible =
-            move || match (label.map(|value| value.get()), alt.map(|value| value.get())) {
-                (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
-                    format!("{label} — {alt}")
-                }
-                (Some(label), _) if !label.is_empty() => label,
-                (_, Some(alt)) if !alt.is_empty() => alt,
-                _ => fallback.get(),
-            };
-        let reference = node_ref();
-        let hovered = reference.hovered();
-        let focus_within = reference.focus_within();
-        let rtl = use_direction() == ReadingDirection::Rtl;
-        let has_source = source.is_some();
-        let media = thumbnail_media(source, alt, loading);
-        let open = thumbnail_open(media, press, accessible, loading, disabled);
-        let remove = thumbnail_remove(
-            remove,
-            accessible,
-            disabled,
-            reveal,
-            hovered,
-            focus_within,
-            rtl,
-        );
-        let announce = upload_announcement(has_source, loading);
-        let frame = node()
-            .node_ref(reference)
-            .style(|| {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
+    on_press: Option<Callback<()>>,
+    on_remove: Option<Callback<()>>,
+    #[prop(default = false)] loading: Value<bool>,
+    #[prop(default = RemoveReveal::Hover)] show_remove_on: Value<RemoveReveal>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let disabled = caller.disabled().unwrap_or_else(|| false.into_value());
+    let has_label = label.is_some();
+    let fallback = message("soft.thumbnail.fallback_name", "Thumbnail");
+    let accessible = move || match (label.map(|value| value.get()), alt.map(|value| value.get())) {
+        (Some(label), Some(alt)) if !label.is_empty() && !alt.is_empty() => {
+            format!("{label} — {alt}")
+        }
+        (Some(label), _) if !label.is_empty() => label,
+        (_, Some(alt)) if !alt.is_empty() => alt,
+        _ => fallback.get(),
+    };
+    let reference = node_ref();
+    let hovered = reference.hovered();
+    let focus_within = reference.focus_within();
+    let rtl = use_direction() == ReadingDirection::Rtl;
+    let has_source = src.is_some();
+    let media = thumbnail_media(src, alt, loading);
+    let open = thumbnail_open(media, on_press, accessible, loading, disabled);
+    let remove = thumbnail_remove(
+        on_remove,
+        accessible,
+        disabled,
+        show_remove_on,
+        hovered,
+        focus_within,
+        rtl,
+    );
+    let announce = upload_announcement(has_source, loading);
+    let frame = node()
+        .node_ref(reference)
+        .style(|| {
+            style()
+                .position(Position::Relative)
+                .size(SIDE, SIDE)
+                .border_radius(RADIUS_ELEMENT)
+                .clip(true)
+                .background(c::NEUTRAL)
+        })
+        .child(open)
+        .child(remove);
+    let root = node()
+        .with_node(move |node| node.role(Role::Group))
+        .name(accessible)
+        .with_node(move |node| {
+            node.base_style(move || {
                 style()
                     .position(Position::Relative)
-                    .size(SIDE, SIDE)
-                    .radius(p.radius.element)
-                    .clip(true)
-                    .background(p.colors.neutral)
+                    .width(SIDE)
+                    .flex_shrink(0)
+                    .opacity(if disabled.get() {
+                        DISABLED_OPACITY
+                    } else {
+                        1.0
+                    })
             })
-            .child(open)
-            .child(remove);
-        let root = root
-            .name(accessible)
-            .with_node(move |node| {
-                node.base_style(move || {
-                    style()
-                        .position(Position::Relative)
-                        .width(SIDE)
-                        .shrink(0)
-                        .opacity(if disabled.get() {
-                            kivact::style::use_tokens::<crate::Tokens>()
-                                .sizes
-                                .disabled_opacity
-                        } else {
-                            1.0
-                        })
-                })
-            })
-            .child(frame)
-            .child(announce);
-        if let Some(label) = label {
-            tooltip(label).attach(root)
-        } else {
-            root.into_view()
-        }
-    }
+        })
+        .child(frame)
+        .child(announce);
+    // The hint is shown only when there is a label; a disabled tooltip adds no description.
+    let hint = label.unwrap_or_else(|| String::new().into_value());
+    tooltip(hint, root).enabled(has_label)
 }
 
 fn fill() -> kivact::style::Style {
@@ -230,14 +152,13 @@ fn thumbnail_media(
                 .size(SIDE, SIDE)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
-                .direction(Direction::Row),
+                .flex_direction(FlexDirection::Row),
         )
-        .child(image(Asset::from(PLACEHOLDER)).monochrome(true).style(|| {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
-            style()
-                .size(p.sizes.icon_lg, p.sizes.icon_lg)
-                .color(p.colors.icon_secondary)
-        }));
+        .child(
+            image(Asset::from(PLACEHOLDER))
+                .monochrome(true)
+                .style(|| style().size(ICON_LG, ICON_LG).color(c::ICON_SECONDARY)),
+        );
     if let Some(source) = source {
         let photo_ref = node_ref();
         let status = photo_ref.image_status();
@@ -254,19 +175,17 @@ fn thumbnail_media(
         media = media
             .child(photo)
             .child(node().hit_testable(false).style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 fill()
-                    .radius(p.radius.element)
-                    .border(p.sizes.border_width, p.colors.border)
+                    .border_radius(RADIUS_ELEMENT)
+                    .border(BORDER_WIDTH, c::BORDER)
             }))
             .child(show(loading, upload_overlay));
     } else {
         media = media.child(show(loading, || {
-            let p = kivact::style::use_tokens::<crate::Tokens>();
             let pulse = Animated::from(
                 0.25f64,
                 0.925f64,
-                Transition::tween(p.motion.medium_max as f64, Easing::Linear)
+                Transition::tween(MEDIUM_MAX as f64, Easing::Linear)
                     .delay(1000)
                     .alternate()
                     .repeat(Repeat::Forever),
@@ -274,23 +193,22 @@ fn thumbnail_media(
             node()
                 .hit_testable(false)
                 .style(move || {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
                     fill()
-                        .background(p.colors.bg_surface)
-                        .color(p.colors.skeleton)
-                        .direction(Direction::Column)
-                        .radius(p.radius.element)
+                        .background(c::BG_SURFACE)
+                        .color(c::SKELETON)
+                        .flex_direction(FlexDirection::Column)
+                        .border_radius(RADIUS_ELEMENT)
                         .clip(true)
                         .align_items(Align::Stretch)
                 })
                 .child(node().style(move || {
-                    fill()
-                        .background(kivact::style::use_tokens::<crate::Tokens>().colors.skeleton)
-                        .opacity(if kivact::platform::is_motion_reduced().get() {
+                    fill().background(c::SKELETON).opacity(
+                        if kivact::platform::is_motion_reduced().get() {
                             0.25
                         } else {
                             0.25 + ((pulse.get() - 0.25) / 0.075).floor() * 0.075
-                        })
+                        },
+                    )
                 }))
         }));
     }
@@ -301,7 +219,7 @@ fn upload_overlay() -> Node {
     let duration = if kivact::platform::is_motion_reduced().get() {
         3000
     } else {
-        kivact::style::use_tokens::<crate::Tokens>().motion.slow_min
+        SLOW_MIN
     };
     let turn = Animated::from(
         0.0f64,
@@ -314,12 +232,8 @@ fn upload_overlay() -> Node {
         .hit_testable(false)
         .style(|| {
             fill()
-                .background(
-                    kivact::style::use_tokens::<crate::Tokens>()
-                        .colors
-                        .overlay_scrim,
-                )
-                .direction(Direction::Row)
+                .background(c::OVERLAY_SCRIM)
+                .flex_direction(FlexDirection::Row)
                 .align_items(Align::Center)
                 .justify_content(Justify::Center)
         })
@@ -328,7 +242,7 @@ fn upload_overlay() -> Node {
 
 fn thumbnail_open(
     media: Node,
-    press: Option<Box<dyn Fn()>>,
+    press: Option<Callback<()>>,
     accessible: impl Fn() -> String + Copy + 'static,
     loading: Value<bool>,
     disabled: Value<bool>,
@@ -349,26 +263,24 @@ fn thumbnail_open(
             .disabled(move || loading.get() || disabled.get())
             .on_press(action)
             .style(|| {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 style().size(SIDE, SIDE).cursor(Cursor::Pointer).transition(
                     TransitionProp::All,
-                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
+                    Transition::tween(FAST as f64, EASE_STANDARD),
                 )
             })
             .child(media)
             .child(node().hit_testable(false).style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let input = state.get();
                 let color = if input.is_pressed() {
-                    p.colors.overlay_pressed
+                    c::OVERLAY_PRESSED
                 } else if input.is_hovered() {
-                    p.colors.overlay_hover
+                    c::OVERLAY_HOVER
                 } else {
                     kivact::style::Color::TRANSPARENT
                 };
                 fill().background(color).transition(
                     TransitionProp::All,
-                    Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
+                    Transition::tween(FAST as f64, EASE_STANDARD),
                 )
             }))
     } else {
@@ -377,7 +289,7 @@ fn thumbnail_open(
 }
 
 fn thumbnail_remove(
-    remove: Option<Box<dyn Fn()>>,
+    remove: Option<Callback<()>>,
     accessible: impl Fn() -> String + Copy + 'static,
     disabled: Value<bool>,
     reveal: Value<RemoveReveal>,
@@ -391,10 +303,9 @@ fn thumbnail_remove(
         });
         node()
             .style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let look = style()
                     .position(Position::Absolute)
-                    .top(p.spacing.s1)
+                    .top(SPACE_S1)
                     .opacity(
                         if reveal.get() == RemoveReveal::Always
                             || hovered.get()
@@ -407,12 +318,12 @@ fn thumbnail_remove(
                     )
                     .transition(
                         TransitionProp::All,
-                        Transition::tween(p.motion.fast as f64, p.motion.ease_standard.clone()),
+                        Transition::tween(FAST as f64, EASE_STANDARD),
                     );
                 if rtl {
-                    look.left(p.spacing.s1)
+                    look.left(SPACE_S1)
                 } else {
-                    look.right(p.spacing.s1)
+                    look.right(SPACE_S1)
                 }
             })
             .child(
@@ -424,21 +335,20 @@ fn thumbnail_remove(
                     .disabled(disabled)
                     .on_press(remove)
                     .style(|| {
-                        let p = kivact::style::use_tokens::<crate::Tokens>();
                         style()
-                            .size(p.sizes.icon_md, p.sizes.icon_md)
-                            .min_width(p.sizes.icon_md)
-                            .min_height(p.sizes.icon_md)
+                            .size(ICON_MD, ICON_MD)
+                            .min_width(ICON_MD)
+                            .min_height(ICON_MD)
                             .padding(0)
-                            .radius(p.radius.inner)
-                            .background(p.colors.overlay_scrim)
-                            .color(p.colors.on_dark)
+                            .border_radius(RADIUS_INNER)
+                            .background(c::OVERLAY_SCRIM)
+                            .color(c::ON_DARK)
                     }),
             )
     })
 }
 
-fn upload_announcement(has_source: bool, loading: Value<bool>) -> impl IntoView {
+fn upload_announcement(has_source: bool, loading: Value<bool>) -> impl kivact::view::IntoView {
     let loading_message = message("spinner.loading", "Loading");
     visually_hidden(move || {
         if has_source && loading.get() {

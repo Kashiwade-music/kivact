@@ -1,142 +1,43 @@
-//! Role: Apply Soft typography and metric and description appearances.
-use crate::{TextKind, Tokens};
-use kivact::Prop;
-use kivact::style::{Style, Theme};
-use kivact::ui::{HeadingState, Look, Variant};
+//! Role: Install Astryx Neutral's recipes of the metrics group: the heading, the stat and the description list.
+use crate::color as c;
+use crate::radius as r;
+use crate::recipe_parts::text;
+use crate::type_scale as t;
+use crate::variants::{
+    HeadingDisplay, LabelPosition, MetadataColumns, MetadataLabelWidth, MetadataOrientation,
+};
+use kivact::style::{Align, Display, FlexDirection, Length, Style, Theme, Track, color, style};
+use kivact::ui::Trend;
+use kivact::ui::theme::{
+    DescriptionListTheme, HeadingState, HeadingTheme, Look, StatState, StatTheme,
+};
+use kivact::view::Orientation;
 
-/// Display typography independent of the heading's semantic level.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum HeadingDisplay {
-    /// Use the largest display heading typography.
-    D1,
-    /// Use the medium display heading typography.
-    D2,
-    /// Use the smallest display heading typography.
-    D3,
-}
-impl Variant for HeadingDisplay {}
-
-pub(super) fn heading(t: &Theme, look: &Look<HeadingState>) -> Style {
-    let kind = match look.variant::<HeadingDisplay>() {
-        Some(HeadingDisplay::D1) => TextKind::Display1,
-        Some(HeadingDisplay::D2) => TextKind::Display2,
-        Some(HeadingDisplay::D3) => TextKind::Display3,
-        None => TextKind::Body,
-    };
-    crate::text::type_style(
-        &t.ext::<Tokens>(),
-        kind,
-        Some(u32::from(look.level)),
-        None,
-        None,
-        None,
-    )
-}
-
-/// Column arrangement for standard description lists.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
-pub enum MetadataColumns {
-    #[default]
-    /// Arrange description pairs in one column.
-    Single,
-    /// Arrange description pairs in the standard multi-column grid.
-    Multi,
-    /// Arrange description pairs in the specified number of columns.
-    Count(u8),
-}
-/// Place terms beside or above their details.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
-pub enum LabelPosition {
-    /// Place terms at the logical start beside their details.
-    Start,
-    /// Place terms above their details.
-    Top,
-}
-
-/// Reactive appearance shared explicitly by a description list and its pairs.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct MetadataLook(Option<kivact::state::Value<MetadataAppearance>>);
-
-#[derive(Clone, Copy, Debug, PartialEq, Prop)]
-struct MetadataAppearance {
+/// The metadata layout that a description list and its pairs read from their variants.
+#[derive(Clone, Copy, Debug)]
+struct Metadata {
     columns: MetadataColumns,
     position: Option<LabelPosition>,
     width: Option<f64>,
-    orientation: kivact::view::Orientation,
+    orientation: Orientation,
 }
-impl Default for MetadataAppearance {
-    fn default() -> Self {
+
+impl Metadata {
+    fn of(look: &Look<()>) -> Self {
         Self {
-            columns: MetadataColumns::Single,
-            position: None,
-            width: None,
-            orientation: kivact::view::Orientation::Vertical,
+            columns: look.variant::<MetadataColumns>().unwrap_or_default(),
+            position: look.variant::<LabelPosition>(),
+            width: look.variant::<MetadataLabelWidth>().map(|w| w.0),
+            orientation: look
+                .variant::<MetadataOrientation>()
+                .map_or(Orientation::Vertical, |o| o.0),
         }
     }
-}
-impl Variant for MetadataLook {}
-impl MetadataLook {
-    fn get(self) -> MetadataAppearance {
-        self.0
-            .map_or_else(MetadataAppearance::default, |value| value.get())
+
+    fn horizontal(self) -> bool {
+        self.orientation == Orientation::Horizontal
     }
 
-    /// Choose one, a fixed count, or automatically fitted columns.
-    pub fn columns(self, value: impl kivact::state::IntoValue<MetadataColumns>) -> Self {
-        use kivact::state::IntoValue;
-        let value = value.into_value();
-        Self(Some(
-            (move || MetadataAppearance {
-                columns: value.get(),
-                ..self.get()
-            })
-            .into_value(),
-        ))
-    }
-    /// Override the automatic beside/above term placement.
-    pub fn label_position(self, value: impl kivact::state::IntoValue<LabelPosition>) -> Self {
-        use kivact::state::IntoValue;
-        let value = value.into_value();
-        Self(Some(
-            (move || MetadataAppearance {
-                position: Some(value.get()),
-                ..self.get()
-            })
-            .into_value(),
-        ))
-    }
-    /// Fix the beside-label column width instead of its intrinsic maximum.
-    pub fn label_width(self, value: impl kivact::state::IntoValue<f64>) -> Self {
-        use kivact::state::IntoValue;
-        let value = value.into_value();
-        Self(Some(
-            (move || MetadataAppearance {
-                width: Some(value.get().max(0.0)),
-                ..self.get()
-            })
-            .into_value(),
-        ))
-    }
-    /// Arrange pairs in a wrapping row or the selected vertical grid.
-    pub fn orientation(
-        self,
-        value: impl kivact::state::IntoValue<kivact::view::Orientation>,
-    ) -> Self {
-        use kivact::state::IntoValue;
-        let value = value.into_value();
-        Self(Some(
-            (move || MetadataAppearance {
-                orientation: value.get(),
-                ..self.get()
-            })
-            .into_value(),
-        ))
-    }
-}
-impl MetadataAppearance {
-    fn horizontal(self) -> bool {
-        self.orientation == kivact::view::Orientation::Horizontal
-    }
     fn position(self) -> LabelPosition {
         if self.horizontal() {
             LabelPosition::Top
@@ -147,6 +48,7 @@ impl MetadataAppearance {
             })
         }
     }
+
     fn aligned(self) -> bool {
         !self.horizontal()
             && self.position() == LabelPosition::Start
@@ -157,25 +59,57 @@ impl MetadataAppearance {
     }
 }
 
-pub(super) fn descriptions(
-    r: kivact::ui::DescriptionListRecipes,
-) -> kivact::ui::DescriptionListRecipes {
-    r.root(|_| description_root)
-        .item(|_| description_item)
-        .term(|_| description_term)
-        .detail(|_| description_detail)
+/// The heading: the display role when the variant names one, else the role of its level.
+fn heading(_theme: &Theme, look: &Look<HeadingState>, _base: Style) -> Style {
+    let role = match look.variant::<HeadingDisplay>() {
+        Some(HeadingDisplay::D1) => t::DISPLAY1,
+        Some(HeadingDisplay::D2) => t::DISPLAY2,
+        Some(HeadingDisplay::D3) => t::DISPLAY3,
+        None => match u32::from(look.level) {
+            1 => t::HEADING1,
+            2 => t::HEADING2,
+            3 => t::HEADING3,
+            4 => t::HEADING4,
+            5 => t::HEADING5,
+            _ => t::HEADING6,
+        },
+    };
+    text(style(), role, c::TEXT_PRIMARY)
 }
-fn description_root(_: &Theme, s: &Look<()>) -> Style {
-    use kivact::style::{Display, Length, Track, style};
-    let v = s
-        .variant::<MetadataLook>()
-        .copied()
-        .unwrap_or_default()
-        .get();
+
+/// The stat card: the surface, the border and the element radius.
+fn stat_root(_theme: &Theme, _look: &Look<StatState>, base: Style) -> Style {
+    base.background(c::BG_SURFACE)
+        .border_color(color::BORDER)
+        .border_radius(r::RADIUS_ELEMENT)
+}
+
+/// The stat's label: the secondary text color.
+fn stat_label(_theme: &Theme, _look: &Look<StatState>, base: Style) -> Style {
+    base.color(c::TEXT_SECONDARY)
+}
+
+/// The stat's value: the primary text color.
+fn stat_value(_theme: &Theme, _look: &Look<StatState>, base: Style) -> Style {
+    base.color(c::TEXT_PRIMARY)
+}
+
+/// The stat's delta: the success color when rising, the error color when falling.
+fn stat_delta(_theme: &Theme, look: &Look<StatState>, base: Style) -> Style {
+    base.color(match look.trend {
+        Trend::Up => c::SUCCESS,
+        Trend::Down => c::ERROR,
+        Trend::Neutral => c::TEXT_SECONDARY,
+    })
+}
+
+/// The description list: a row when horizontal, else a grid of the chosen columns or a label grid.
+fn description_root(_theme: &Theme, look: &Look<()>, _base: Style) -> Style {
+    let v = Metadata::of(look);
     if v.horizontal() {
         return style()
-            .direction(kivact::style::Direction::Row)
-            .wrap(true)
+            .flex_direction(FlexDirection::Row)
+            .flex_wrap(true)
             .gap(16);
     }
     let base = style()
@@ -199,23 +133,20 @@ fn description_root(_: &Theme, s: &Look<()>) -> Style {
         base.grid_template_columns(tracks)
     }
 }
-fn description_item(_: &Theme, s: &Look<()>) -> Style {
-    use kivact::style::{Direction, Display, style};
-    let v = s
-        .variant::<MetadataLook>()
-        .copied()
-        .unwrap_or_default()
-        .get();
+
+/// One pair: its contents when aligned in the grid, else a row or a column by the label position.
+fn description_item(_theme: &Theme, look: &Look<()>, _base: Style) -> Style {
+    let v = Metadata::of(look);
     if v.aligned() {
         return style().display(Display::Contents);
     }
     style()
-        .direction(if v.position() == LabelPosition::Start {
-            Direction::Row
+        .flex_direction(if v.position() == LabelPosition::Start {
+            FlexDirection::Row
         } else {
-            Direction::Column
+            FlexDirection::Column
         })
-        .align_items(kivact::style::Align::Start)
+        .align_items(Align::Start)
         .gap(if v.position() == LabelPosition::Start {
             16
         } else {
@@ -223,63 +154,47 @@ fn description_item(_: &Theme, s: &Look<()>) -> Style {
         })
         .min_width(0)
 }
-fn description_term(t: &Theme, s: &Look<()>) -> Style {
-    use kivact::style::{Direction, style};
-    let v = s
-        .variant::<MetadataLook>()
-        .copied()
-        .unwrap_or_default()
-        .get();
+
+/// A term: the secondary text, fixed to the label width when it sits beside its detail.
+fn description_term(_theme: &Theme, look: &Look<()>, _base: Style) -> Style {
+    let v = Metadata::of(look);
     let base = style()
-        .direction(Direction::Row)
-        .align_items(kivact::style::Align::Center)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
         .gap(4)
-        .shrink(0)
+        .flex_shrink(0.0)
         .font_size(14)
         .line_height(20.0 / 14.0)
-        .weight(500)
-        .color(t.ext::<Tokens>().colors.text_secondary);
+        .font_weight(500)
+        .color(c::TEXT_SECONDARY);
     if v.position() == LabelPosition::Start && !v.aligned() {
         v.width.map_or(base.clone(), |w| base.width(w.max(0.0)))
     } else {
         base
     }
 }
-fn description_detail(t: &Theme, _: &Look<()>) -> Style {
-    kivact::style::style()
-        .min_width(0)
-        .grow(1)
-        .color(t.ext::<Tokens>().colors.text_primary)
+
+/// A detail: the primary text, growing to fill its pair.
+fn description_detail(_theme: &Theme, _look: &Look<()>, _base: Style) -> Style {
+    style().min_width(0).flex_grow(1.0).color(c::TEXT_PRIMARY)
 }
 
-pub(super) fn stat(r: kivact::ui::StatRecipes) -> kivact::ui::StatRecipes {
-    r.root(|prev| {
-        move |t: &Theme, s: &Look<kivact::ui::StatState>| {
-            let p = t.ext::<Tokens>();
-            prev(t, s)
-                .background(p.colors.bg_surface)
-                .border_color(p.colors.border)
-                .radius(p.radius.element)
-        }
-    })
-    .label(|prev| {
-        move |t: &Theme, s: &Look<kivact::ui::StatState>| {
-            prev(t, s).color(t.ext::<Tokens>().colors.text_secondary)
-        }
-    })
-    .value(|prev| {
-        move |t: &Theme, s: &Look<kivact::ui::StatState>| {
-            prev(t, s).color(t.ext::<Tokens>().colors.text_primary)
-        }
-    })
-    .delta(|prev| {
-        move |t: &Theme, s: &Look<kivact::ui::StatState>| {
-            let p = t.ext::<Tokens>();
-            prev(t, s).color(match s.trend {
-                kivact::ui::Trend::Up => p.colors.success,
-                kivact::ui::Trend::Down => p.colors.error,
-                kivact::ui::Trend::Neutral => p.colors.text_secondary,
-            })
-        }
-    })
+/// Install the kit's recipes of the metrics group.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme
+        .with(HeadingTheme::default().root(heading))
+        .with(
+            StatTheme::default()
+                .root(stat_root)
+                .label(stat_label)
+                .value(stat_value)
+                .delta(stat_delta),
+        )
+        .with(
+            DescriptionListTheme::default()
+                .root(description_root)
+                .item(description_item)
+                .term(description_term)
+                .detail(description_detail),
+        )
 }

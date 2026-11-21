@@ -1,241 +1,102 @@
-//! Role: Style the native editors, field text, and composite input frames for Soft.
-use crate::tokens::{Tokens, TypeStyle};
+//! Role: Style Astryx Neutral text fields, number inputs and field text (the controls group's input parts).
+use crate::color as c;
+use crate::metrics as m;
+use crate::recipe_parts::{editor, flat, frame, text};
+use crate::space as s;
+use crate::type_scale as t;
 use kivact::custom::PartState;
-use kivact::motion::Transition;
-use kivact::style::Align;
-use kivact::style::Color;
-use kivact::style::Direction;
-use kivact::style::Style;
-use kivact::style::Theme;
-use kivact::style::TransitionProp;
-use kivact::style::pct;
-use kivact::style::style;
+use kivact::style::{Align, FlexDirection, Style, Theme, pct, style};
 use kivact::ui::ControlSize;
-use kivact::ui::FieldRecipes;
-use kivact::ui::Look;
-use kivact::ui::NumberInputRecipes;
-use kivact::ui::TagInputRecipes;
-use kivact::ui::TextInputState;
+use kivact::ui::theme::{
+    FieldState, FieldTheme, Look, NumberInputTheme, TextAreaTheme, TextInputState, TextInputTheme,
+};
 
-pub(super) fn height(tokens: &Tokens, size: ControlSize) -> f64 {
+/// The height of a text field at `size`.
+pub(crate) fn height(size: ControlSize) -> f64 {
     match size {
-        ControlSize::ExtraSmall | ControlSize::Small => tokens.sizes.control_sm,
-        ControlSize::Medium => tokens.sizes.control_md,
-        ControlSize::Large => tokens.sizes.control_lg,
+        ControlSize::ExtraSmall | ControlSize::Small => m::CONTROL_SM,
+        ControlSize::Medium => m::CONTROL_MD,
+        ControlSize::Large => m::CONTROL_LG,
     }
 }
 
-pub(super) fn text(s: Style, role: TypeStyle, color: Color) -> Style {
-    s.font_size(role.size_px)
-        .line_height(role.line_height_px / role.size_px)
-        .weight(role.weight)
-        .color(color)
+fn text_input(theme: &Theme, look: &Look<TextInputState>, _base: Style) -> Style {
+    editor(frame(theme, &look.input, look.invalid))
+        .height(height(look.size))
+        .padding_x(s::SPACE_S2)
+        .padding_y(s::SPACE_S1)
 }
 
-pub(super) fn frame(tokens: &Tokens, input: &PartState, invalid: bool) -> Style {
-    let c = &tokens.colors;
-    let hover = if invalid {
-        tokens.shadows.inset_error
-    } else {
-        tokens.shadows.input_hover_ring
-    };
-    let focus = if invalid {
-        style()
-    } else {
-        style()
-            .border_color(c.accent)
-            .shadow(tokens.shadows.input_focus_ring)
-    };
-    style()
-        .min_width(0)
-        .background(c.bg_surface)
-        .radius(tokens.radius.element)
-        .border(
-            tokens.sizes.border_width,
-            if invalid {
-                c.text_error
-            } else {
-                c.border_emphasized
-            },
-        )
-        .hover(if input.is_focused() {
-            style()
-        } else {
-            style().shadow(hover)
-        })
-        .focus(focus)
-        .transition(
-            TransitionProp::All,
-            Transition::tween(
-                tokens.motion.fast as f64,
-                tokens.motion.ease_standard.clone(),
-            ),
-        )
-}
-
-fn editor(tokens: &Tokens, base: Style) -> Style {
-    text(base, tokens.typography.body, tokens.colors.text_primary)
-        .placeholder_color(tokens.colors.text_secondary)
-        .caret_color(tokens.colors.text_primary)
-}
-
-pub(super) fn text_input(theme: &Theme, s: &Look<TextInputState>) -> Style {
-    let t = theme.ext::<Tokens>();
-    editor(&t, frame(&t, &s.input, s.invalid))
-        .height(height(&t, s.size))
-        .padding_x(t.spacing.s2)
-        .padding_y(t.spacing.s1)
-}
-
-pub(super) fn text_area(theme: &Theme, s: &Look<TextInputState>) -> Style {
+fn text_area(theme: &Theme, look: &Look<TextInputState>, _base: Style) -> Style {
     const DEFAULT_ROWS: f64 = 3.0;
-    let t = theme.ext::<Tokens>();
-    let block = if s.size == ControlSize::Large {
-        t.spacing.s2
+    let block = if look.size == ControlSize::Large {
+        theme.get(&s::SPACE_S2_VAR)
     } else {
-        t.spacing.s1
+        theme.get(&s::SPACE_S1_VAR)
     };
-    editor(&t, frame(&t, &s.input, s.invalid))
+    editor(frame(theme, &look.input, look.invalid))
         .width(pct(100))
-        .min_height(
-            DEFAULT_ROWS * t.typography.body.line_height_px + 2.0 * (block + t.sizes.border_width),
-        )
-        .padding_x(t.spacing.s2)
+        .min_height(DEFAULT_ROWS * t::BODY.line_height_px + 2.0 * (block + m::BORDER_WIDTH))
+        .padding_x(s::SPACE_S2)
         .padding_y(block)
 }
 
-pub(super) fn field(r: FieldRecipes) -> FieldRecipes {
-    r.root(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            style()
-                .direction(Direction::Column)
-                .min_width(0)
-                .gap(t.spacing.s1)
-        }
-    })
-    .label(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            text(style(), t.typography.label, t.colors.text_secondary)
-        }
-    })
-    .hint(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            text(style(), t.typography.supporting, t.colors.text_secondary)
-        }
-    })
-    .error(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            text(style(), t.typography.supporting, t.colors.text_error)
-        }
-    })
+fn field_root(_theme: &Theme, _look: &Look<FieldState>, _base: Style) -> Style {
+    style()
+        .flex_direction(FlexDirection::Column)
+        .min_width(0)
+        .gap(s::SPACE_S1)
 }
 
-fn flat(t: &Tokens) -> Style {
-    let clear_edge = style()
-        .border_color(Color::TRANSPARENT)
-        .shadow(kivact::draw::Shadow {
-            color: Color::TRANSPARENT,
-            ..t.shadows.input_focus_ring
-        });
-    editor(t, style())
-        .background(Color::TRANSPARENT)
-        .border(0, Color::TRANSPARENT)
-        .padding(0)
-        .hover(clear_edge.clone())
-        .focus(clear_edge)
+fn field_label(_theme: &Theme, look: &Look<FieldState>, _base: Style) -> Style {
+    let color = if look.invalid {
+        c::TEXT_ERROR
+    } else {
+        c::TEXT_SECONDARY
+    };
+    text(style(), t::LABEL, color)
 }
 
-pub(super) fn number_input(r: NumberInputRecipes) -> NumberInputRecipes {
+fn field_hint(_theme: &Theme, _look: &Look<FieldState>, _base: Style) -> Style {
+    text(style(), t::SUPPORTING, c::TEXT_SECONDARY)
+}
+
+fn field_error(_theme: &Theme, _look: &Look<FieldState>, _base: Style) -> Style {
+    text(style(), t::SUPPORTING, c::TEXT_ERROR)
+}
+
+/// The box of the number input: its frame, with the input between two side buttons.
+fn number_root(theme: &Theme, look: &Look<PartState>, _base: Style) -> Style {
     // The standard spinbutton retains its two side buttons.
-    r.root(|_| {
-        |theme, state| {
-            let t = theme.ext::<Tokens>();
-            frame(&t, state, false)
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .height(t.sizes.control_md)
-                .clip(true)
-        }
-    })
-    .input(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            flat(&t)
-                .height(t.sizes.control_md - 2.0 * t.sizes.border_width)
-                .padding_x(t.spacing.s2)
-                .grow(1)
-        }
-    })
+    frame(theme, look, false)
+        .flex_direction(FlexDirection::Row)
+        .align_items(Align::Center)
+        .height(m::CONTROL_MD)
+        .clip(true)
 }
 
-pub(super) fn tag_input(r: TagInputRecipes) -> TagInputRecipes {
-    r.root(|_| {
-        |theme, state| {
-            let t = theme.ext::<Tokens>();
-            let inset = t.radius.element - t.radius.inner - t.sizes.border_width;
-            let base = frame(&t, state, false);
-            let base = if state.is_focused() {
-                base.border_color(t.colors.accent)
-                    .shadow(t.shadows.input_focus_ring)
-            } else {
-                base
-            };
-            base.align_items(Align::Center)
-                .column_gap(t.spacing.s1)
-                .row_gap(inset)
-                .padding(inset)
-                .min_height(t.sizes.control_md)
-        }
-    })
-    .tag(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            let role = TypeStyle {
-                weight: t.typography.weight_medium,
-                ..t.typography.supporting
-            };
-            text(style(), role, t.colors.text_primary)
-                .direction(Direction::Row)
-                .align_items(Align::Center)
-                .gap(t.spacing.s1)
-                .height(t.spacing.s6)
-                .padding_left(t.spacing.s2)
-                .padding_right(t.spacing.s1)
-                .radius(t.radius.inner)
-                .background(t.colors.neutral)
-                .max_width(pct(100))
-        }
-    })
-    .remove(|_| {
-        |theme, _| {
-            let t = theme.ext::<Tokens>();
-            let clear = style().background(Color::TRANSPARENT).scale(1.0);
-            style()
-                .size(t.sizes.icon_sm, t.sizes.icon_sm)
-                .padding(0)
-                .radius(t.radius.full)
-                .color(t.colors.text_primary)
-                .hover(clear.clone())
-                .pressed(clear)
-                .focus_visible(style().ring_with_offset(
-                    t.sizes.focus_ring_width,
-                    t.sizes.focus_ring_offset,
-                    t.colors.focus_ring,
-                ))
-        }
-    })
-    .input(|_| {
-        |theme, _| {
-            const EMPTY_INPUT_MIN_WIDTH: f64 = 60.0;
-            let t = theme.ext::<Tokens>();
-            flat(&t)
-                .grow(1)
-                .min_width(EMPTY_INPUT_MIN_WIDTH)
-                .height(t.spacing.s6)
-        }
-    })
+fn number_input(theme: &Theme, _look: &Look<PartState>, _base: Style) -> Style {
+    flat(theme)
+        .height(m::CONTROL_MD - 2.0 * m::BORDER_WIDTH)
+        .padding_x(s::SPACE_S2)
+        .flex_grow(1)
+}
+
+/// Install the kit's recipes of the field, the text fields and the number input.
+pub(crate) fn install(theme: Theme) -> Theme {
+    theme
+        .with(
+            FieldTheme::default()
+                .root(field_root)
+                .label(field_label)
+                .hint(field_hint)
+                .error(field_error),
+        )
+        .with(TextInputTheme::default().root(text_input))
+        .with(TextAreaTheme::default().root(text_area))
+        .with(
+            NumberInputTheme::default()
+                .root(number_root)
+                .input(number_input),
+        )
 }

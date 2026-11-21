@@ -1,13 +1,16 @@
 //! Role: Render the responsive Neutral navigation drawer and its toggle.
+use crate::color as c;
 use crate::layout::LayoutInset;
+use crate::metrics as m;
+use crate::motion::{EASE_STANDARD, MEDIUM};
+use crate::space as s;
 use crate::stack::{ContainerInset, rtl};
+use crate::type_scale as t;
 
 use kivact::interaction::use_dialog;
 use kivact::motion::Transition;
-use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::view::Element;
-use kivact::view::IntoViewFn;
 use kivact::view::Node;
 use kivact::view::ViewFn;
 use kivact::view::icon;
@@ -17,9 +20,9 @@ use kivact::view::scroll;
 use kivact::view::text;
 
 use kivact::Prop;
+use kivact::component;
 use kivact::geometry::Edge;
 use kivact::interaction::DialogMode;
-use kivact::state::IntoText;
 use kivact::state::Machine;
 use kivact::state::MachineHandle;
 use kivact::state::Step;
@@ -29,7 +32,7 @@ use kivact::state::provide;
 use kivact::state::signal;
 use kivact::state::try_use_context;
 use kivact::style::Align;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::Justify;
 use kivact::style::Length;
 use kivact::style::Position;
@@ -203,199 +206,86 @@ pub enum DrawerSide {
     Auto,
 }
 
-// xtask-allow(state): legacy: open, label, header
 /// A modal navigation drawer whose content is rebuilt on each opening.
-pub struct MobileNav {
-    root: Node,
+///
+/// `open` binds the drawer to caller state; omitted, it uses the surrounding app shell's
+/// binding. `name` is the accessible name of the drawer's overlay panel (the header text is
+/// used when it is omitted), and `header` is the plain-text heading inside the panel.
+#[component]
+pub fn mobile_nav(
+    content: ViewFn,
     open: Option<Signal<bool>>,
-    width: Value<Length>,
-    side: Value<DrawerSide>,
-    label: Option<Value<String>>,
+    #[prop(default = Length::Px(320.0))] width: Value<Length>,
+    #[prop(default = DrawerSide::Auto)] side: Value<DrawerSide>,
+    name: Option<Value<String>>,
     header: Option<Value<String>>,
     header_view: Option<ViewFn>,
-    content: ViewFn,
+) -> impl Element {
+    let mobile = use_app_shell_mobile();
+    let open = open
+        .or_else(|| mobile.open_binding())
+        .unwrap_or_else(|| signal(false));
+    let anchor = mobile
+        .context
+        .map(|context| context.toggle)
+        .unwrap_or_else(node_ref);
+    let drawer = mobile.drawer_ref().unwrap_or_else(node_ref);
+    let fallback = kivact::i18n::message("soft.mobile_nav.navigation", "Navigation");
+    let label = name.or(header).unwrap_or(fallback);
+    let behavior = use_dialog(open, DialogMode::Drawer(Edge::Right));
+    node().child(show(behavior.is_open(), move || {
+        let right = match side.get() {
+            DrawerSide::Start => rtl(),
+            DrawerSide::End => !rtl(),
+            DrawerSide::Auto => anchor.rect().get().map_or(!rtl(), |rect| {
+                rect.x + rect.width / 2.0 >= kivact::platform::window_size().get().width / 2.0
+            }),
+        };
+        let scrim = drawer_scrim();
+        let header = drawer_header(header_view.as_ref(), header, behavior, open);
+        let body = drawer_body(content.clone());
+        let panel = drawer_panel(drawer, width, right, header, body);
+        (
+            scrim,
+            overlay(anchor, Placement::Center, panel)
+                .with_node(move |node| node.part(behavior.content()))
+                .name(label),
+        )
+    }))
 }
 
-/// Create a drawer whose content factory runs whenever the drawer opens.
-pub fn mobile_nav<V: IntoView>(content: impl IntoViewFn<V>) -> MobileNav {
-    MobileNav {
-        root: node(),
-        open: None,
-        width: (Length::Px(320.0)).into_value(),
-        side: (DrawerSide::Auto).into_value(),
-        label: None,
-        header: None,
-        header_view: None,
-        content: content.into_view_fn(),
-    }
-}
-
-impl MobileNav {
-    /// Use an application-owned open binding instead of the surrounding shell binding.
-    pub fn open(mut self, open: Signal<bool>) -> Self {
-        self.open = Some(open);
-        self
-    }
-    /// Set the drawer width as a layout length (`320.0` is 320 px).
-    pub fn width(mut self, width: impl IntoValue<Length>) -> Self {
-        self.width = width.into_value();
-        self
-    }
-    /// Choose the logical edge or automatic placement of the drawer.
-    pub fn side(mut self, side: impl IntoValue<DrawerSide>) -> Self {
-        self.side = side.into_value();
-        self
-    }
-    /// Set the drawer's accessible navigation label.
-    pub fn name(mut self, label: impl IntoText) -> Self {
-        self.label = Some(label.into_text_value());
-        self
-    }
-    /// Set a plain-text drawer heading.
-    pub fn header(mut self, header: impl IntoText) -> Self {
-        self.header = Some(header.into_text_value());
-        self
-    }
-    /// Build custom heading content each time the drawer opens.
-    pub fn header_view<V: IntoView>(mut self, header: impl IntoViewFn<V>) -> Self {
-        self.header_view = Some(header.into_view_fn());
-        self
-    }
-}
-
-impl Element for MobileNav {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for MobileNav {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            open,
-            width,
-            side,
-            label,
-            header,
-            header_view,
-            content,
-        } = self;
-        kivact::custom::scope(move || {
-            let mobile = use_app_shell_mobile();
-            let open = open
-                .or_else(|| mobile.open_binding())
-                .unwrap_or_else(|| signal(false));
-            let anchor = mobile
-                .context
-                .map(|context| context.toggle)
-                .unwrap_or_else(node_ref);
-            let drawer = mobile.drawer_ref().unwrap_or_else(node_ref);
-            let fallback = kivact::i18n::message("soft.mobile_nav.navigation", "Navigation");
-            let label = label.or(header).unwrap_or(fallback);
-            let behavior = use_dialog(open, DialogMode::Drawer(Edge::Right));
-            root.child(show(behavior.is_open(), move || {
-                let right = match side.get() {
-                    DrawerSide::Start => rtl(),
-                    DrawerSide::End => !rtl(),
-                    DrawerSide::Auto => anchor.rect().get().map_or(!rtl(), |rect| {
-                        rect.x + rect.width / 2.0
-                            >= kivact::platform::window_size().get().width / 2.0
-                    }),
-                };
-                let scrim = drawer_scrim();
-                let header = drawer_header(header_view.as_ref(), header, behavior, open);
-                let body = drawer_body(content.clone());
-                let panel = drawer_panel(drawer, width, right, header, body);
-                (
-                    scrim,
-                    overlay(anchor, Placement::Center, panel)
-                        .with_node(move |node| node.part(behavior.content()))
-                        .name(label),
-                )
-            }))
-        })
-    }
-}
-
-// xtask-allow(state): legacy: label, icon
 /// An app-shell drawer toggle with an optional custom icon.
-pub struct MobileNavToggle {
-    root: Node,
-    label: Option<Value<String>>,
-    icon: Option<View>,
-}
-
-/// Create a toggle for the surrounding app shell's mobile navigation.
-pub fn mobile_nav_toggle() -> MobileNavToggle {
-    MobileNavToggle {
-        root: node(),
-        label: None,
-        icon: None,
-    }
-}
-
-impl MobileNavToggle {
-    /// Override the drawer toggle's accessible label.
-    pub fn label(mut self, label: impl IntoText) -> Self {
-        self.label = Some(label.into_text_value());
-        self
-    }
-    /// Mount a replacement toggle icon once.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-}
-
-impl Element for MobileNavToggle {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for MobileNavToggle {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            label,
-            icon: glyph,
-        } = self;
-        kivact::custom::scope(move || {
-            let mobile = use_app_shell_mobile();
-            if !mobile.is_enabled() {
-                return View::empty();
-            }
-            let label = label.unwrap_or_else(|| {
-                kivact::i18n::message("soft.mobile_nav.open", "Open navigation")
+///
+/// It renders inside an app shell with mobile navigation and is hidden on the desktop layout.
+/// `label` is the accessible label of the toggle's button, and `icon` replaces the menu glyph.
+#[component]
+pub fn mobile_nav_toggle(label: Option<Value<String>>, icon: Option<View>) -> impl Element {
+    let mobile = use_app_shell_mobile();
+    let trigger = mobile.is_enabled().then(|| {
+        let label = label
+            .unwrap_or_else(|| kivact::i18n::message("soft.mobile_nav.open", "Open navigation"));
+        let mut trigger = button(label)
+            .variant(ButtonVariant::Ghost)
+            .size(ControlSize::Medium)
+            .icon(icon.unwrap_or_else(|| kivact::view::icon("menu").into_view()))
+            .hide_label(true)
+            .on_press(move || mobile.toggle())
+            .with_node(move |node| {
+                node.with_node(move |node| node.expanded(move || mobile.is_open()))
             });
-            let mut trigger = button(label)
-                .variant(ButtonVariant::Ghost)
-                .size(ControlSize::Medium)
-                .icon(glyph.unwrap_or_else(|| icon("menu").into_view()))
-                .hide_label(true)
-                .on_press(move || mobile.toggle())
-                .with_node(move |node| {
-                    node.with_node(move |node| node.expanded(move || mobile.is_open()))
-                });
-            if let Some(toggle) = mobile.context.map(|context| context.toggle) {
-                trigger = trigger.node_ref(toggle);
-            }
-            if let Some(drawer) = mobile.drawer_ref() {
-                trigger = trigger.with_node(move |node| node.controls(drawer));
-            }
-            root.hidden(move || !mobile.is_mobile())
-                .child(trigger)
-                .into_view()
-        })
-    }
+        if let Some(toggle) = mobile.context.map(|context| context.toggle) {
+            trigger = trigger.node_ref(toggle);
+        }
+        if let Some(drawer) = mobile.drawer_ref() {
+            trigger = trigger.with_node(move |node| node.controls(drawer));
+        }
+        trigger
+    });
+    node().hidden(move || !mobile.is_mobile()).child(trigger)
 }
 
 fn drawer_scrim() -> Node {
     node().style(|| {
-        let t = kivact::style::use_tokens::<crate::Tokens>();
         let hidden = style().opacity(0.0);
         style()
             .position(Position::Fixed)
@@ -403,13 +293,13 @@ fn drawer_scrim() -> Node {
             .bottom(0)
             .left(0)
             .right(0)
-            .background(t.colors.overlay_scrim)
+            .background(c::OVERLAY_SCRIM)
             .backdrop_blur(2)
             .enter(hidden.clone())
             .exit(hidden)
             .transition(
                 TransitionProp::All,
-                Transition::tween(t.motion.medium as f64, t.motion.ease_standard.clone()),
+                Transition::tween(MEDIUM as f64, EASE_STANDARD),
             )
     })
 }
@@ -426,13 +316,11 @@ fn drawer_header(
             text(label)
                 .with_node(move |node| node.part(behavior.title()))
                 .style(|| {
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
-                    let text = t.typography.heading2;
                     style()
-                        .font_size(text.size_px)
-                        .line_height(text.line_height_px / text.size_px)
-                        .weight(text.weight)
-                        .color(t.colors.text_primary)
+                        .font_size(t::HEADING2.size_px)
+                        .line_height(t::HEADING2.line_height_px / t::HEADING2.size_px)
+                        .font_weight(t::HEADING2.weight)
+                        .color(c::TEXT_PRIMARY)
                 })
                 .into_view()
         })
@@ -448,23 +336,22 @@ fn drawer_header(
     .hide_label(true)
     .on_press(move || open.set(false));
     row((title, close)).style(move || {
-        let t = kivact::style::use_tokens::<crate::Tokens>();
         style()
-            .direction(if rtl() {
-                Direction::RowReverse
+            .flex_direction(if rtl() {
+                FlexDirection::RowReverse
             } else {
-                Direction::Row
+                FlexDirection::Row
             })
-            .min_height(t.spacing.s12)
-            .padding_x(t.spacing.s2)
+            .min_height(s::SPACE_S12)
+            .padding_x(s::SPACE_S2)
             .align_items(Align::Center)
-            .shrink(0)
+            .flex_shrink(0)
             .justify_content(if has_title {
                 Justify::SpaceBetween
             } else {
                 Justify::End
             })
-            .border_bottom(t.sizes.border_width, t.colors.border)
+            .border_bottom(m::BORDER_WIDTH, c::BORDER)
     })
 }
 fn drawer_body(content: ViewFn) -> impl IntoView {
@@ -475,12 +362,12 @@ fn drawer_body(content: ViewFn) -> impl IntoView {
         node()
             .style(|| {
                 style()
-                    .direction(Direction::Column)
-                    .padding(kivact::style::use_tokens::<crate::Tokens>().spacing.s2)
+                    .flex_direction(FlexDirection::Column)
+                    .padding(s::SPACE_S2)
             })
             .child(contents),
     )
-    .style(style().grow(1).min_height(0))
+    .style(style().flex_grow(1).min_height(0))
 }
 fn drawer_panel(
     drawer: NodeRef,
@@ -492,7 +379,6 @@ fn drawer_panel(
     node()
         .node_ref(drawer)
         .style(move || {
-            let t = kivact::style::use_tokens::<crate::Tokens>();
             let offset = if right { pct(100) } else { pct(-100) };
             let hidden = style().translate_x(offset);
             let base = style()
@@ -502,20 +388,18 @@ fn drawer_panel(
                 .width(width.get())
                 .max_width(pct(85))
                 .clip(true)
-                .direction(Direction::Column)
-                .background(t.colors.bg_surface)
+                .flex_direction(FlexDirection::Column)
+                .background(c::BG_SURFACE)
                 .enter(hidden.clone())
                 .exit(hidden)
                 .transition(
                     TransitionProp::All,
-                    Transition::tween(t.motion.medium as f64, t.motion.ease_standard.clone()),
+                    Transition::tween(MEDIUM as f64, EASE_STANDARD),
                 );
             if right {
-                base.right(0)
-                    .border_left(t.sizes.border_width, t.colors.border)
+                base.right(0).border_left(m::BORDER_WIDTH, c::BORDER)
             } else {
-                base.left(0)
-                    .border_right(t.sizes.border_width, t.colors.border)
+                base.left(0).border_right(m::BORDER_WIDTH, c::BORDER)
             }
         })
         .child((header, body))

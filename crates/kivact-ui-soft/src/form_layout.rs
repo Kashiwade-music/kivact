@@ -1,19 +1,22 @@
 //! Role: Arrange fields with Neutral form spacing.
+use crate::metrics;
+use crate::space as s;
+use crate::space::Space;
 use crate::stack::rtl;
 
-use kivact::view::Element;
-use kivact::view::Node;
-use kivact::view::node;
-
+use kivact::component;
 use kivact::state::provide;
+use kivact::state::try_use_context;
 use kivact::style::Align;
-use kivact::style::Direction;
+use kivact::style::FlexDirection;
 use kivact::style::GridAutoFlow;
 use kivact::style::Track;
 use kivact::style::auto;
 use kivact::style::style;
+use kivact::view::Element;
 use kivact::view::IntoView;
 use kivact::view::View;
+use kivact::view::node;
 
 /// Placement of fields and their labels.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -46,52 +49,20 @@ pub struct FormLayoutCx {
 }
 
 /// Form spacing and inherited label/optionality context.
-pub struct FormLayout {
-    root: Node,
+#[component]
+pub fn form_layout(
     content: View,
-    context: FormLayoutCx,
-}
-
-/// Mount form content once with vertical spacing and no optionality override.
-pub fn form_layout(content: impl IntoView) -> FormLayout {
-    FormLayout {
-        root: node(),
-        content: content.into_view(),
-        context: FormLayoutCx::default(),
-    }
-}
-
-impl FormLayout {
-    /// Choose the field arrangement; vertical by default.
-    pub fn direction(mut self, direction: FormDirection) -> Self {
-        self.context.direction = direction;
-        self
-    }
-    /// Provide the optionality hint inherited by nested form fields.
-    pub fn default_optionality(mut self, optionality: Optionality) -> Self {
-        self.context.default_optionality = Some(optionality);
-        self
-    }
-}
-
-impl Element for FormLayout {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl IntoView for FormLayout {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            content,
-            context,
-        } = self;
-        root.with_node(move |node| {
+    #[prop(default = FormDirection::Vertical)] direction: FormDirection,
+    default_optionality: Option<Optionality>,
+) -> impl Element {
+    let context = FormLayoutCx {
+        direction,
+        default_optionality,
+    };
+    node()
+        .with_node(move |node| {
             node.base_style(move || {
-                let spacing = kivact::style::use_tokens::<crate::Tokens>().spacing;
-                let base = style().gap(spacing.s4);
+                let base = style().gap(s::SPACE_S4);
                 match context.direction {
                     FormDirection::Horizontal => base
                         .display(kivact::style::Display::Grid)
@@ -102,18 +73,16 @@ impl IntoView for FormLayout {
                     {
                         base.display(kivact::style::Display::Grid)
                             .grid_template_columns((Track::from(auto()), Track::fr(1)))
-                            .row_gap(spacing.s3)
+                            .row_gap(s::SPACE_S3)
                             .align_items(Align::Start)
                     }
                     _ => base
-                        .direction(Direction::Column)
+                        .flex_direction(FlexDirection::Column)
                         .align_items(Align::Stretch),
                 }
             })
         })
         .child(provide(context, move || content))
-        .into_view()
-    }
 }
 
 /// Place the label and field in consecutive tracks in a horizontal-labels layout.
@@ -122,13 +91,12 @@ pub fn form_row(label: impl IntoView, field: impl IntoView) -> impl IntoView {
         node()
             .with_node(move |node| {
                 node.base_style(move || {
-                    let cx = kivact::state::try_use_context::<FormLayoutCx>().unwrap_or_default();
-                    let t = kivact::style::use_tokens::<crate::Tokens>();
+                    let cx = try_use_context::<FormLayoutCx>().unwrap_or_default();
                     let base = style();
                     if cx.direction == FormDirection::HorizontalLabels
                         && kivact::platform::window_size().get().width > 480.0
                     {
-                        let base = base.padding_top(t.sizes.border_width + t.spacing.s1);
+                        let base = base.padding_top(metrics::BORDER_WIDTH + Space::S1.px());
                         if rtl() {
                             base.align_self(Align::End)
                         } else {

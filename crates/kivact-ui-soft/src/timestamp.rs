@@ -1,22 +1,16 @@
 //! Role: Format timestamps as calendar dates, wall-clock times, or relative ages.
-use crate::{StyledText, TextColor, TextKind, TextSize, TextWeight, styled_text};
+use crate::{TextColor, TextKind, TextSize, TextWeight, styled_text};
 use kivact::Prop;
+use kivact::component;
 use kivact::i18n::CalendarDate;
 use kivact::i18n::message;
-use kivact::state::IntoValue;
 use kivact::state::Machine;
-use kivact::state::MachineHandle;
 use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::machine;
 use kivact::state::memo;
 use kivact::ui::tooltip;
-use kivact::view::Element;
-use kivact::view::IntoView;
-use kivact::view::Node;
-use kivact::view::View;
-use std::cell::RefCell;
-use std::rc::Rc;
+use kivact::view::node;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 /// A UTC instant measured in Unix milliseconds.
@@ -204,55 +198,8 @@ pub enum TimestampFormat {
     UnixSeconds,
 }
 
-/// A date or relative timestamp with optional details.
-pub struct Timestamp {
-    text: StyledText,
-    clock: MachineHandle<TimestampTick>,
-    settings: Rc<RefCell<TimestampSettings>>,
-    details: Value<bool>,
-    entries: Value<Vec<TimestampEntry>>,
-    live: Value<bool>,
-}
-
-/// Show a timestamp in automatic relative or absolute format.
-pub fn timestamp(value: impl IntoValue<TimestampValue>) -> Timestamp {
-    let settings = Rc::new(RefCell::new(TimestampSettings {
-        value: value.into_value(),
-        format: TimestampFormat::Auto.into_value(),
-        threshold: Duration::from_secs(604_800).into_value(),
-        zone: TimeZone::default().into_value(),
-        show_zone: false.into_value(),
-    }));
-    let input = settings.clone();
-    let clock = machine(
-        TimestampClock::Still {
-            now: TimestampValue::from(SystemTime::now()),
-        },
-        move || TimestampTick {
-            value: input.borrow().value.get(),
-            now: TimestampValue::from(SystemTime::now()),
-        },
-        |_, ()| {},
-    );
-    let presentation = settings.clone();
-    let now_label = message("soft.relative_time.now", "now");
-    let yesterday = message("soft.relative_time.yesterday", "yesterday");
-    let display = memo(move || {
-        let now = clock.get().now();
-        timestamp_presentation(&presentation.borrow(), now, now_label, yesterday)
-    });
-    Timestamp {
-        text: styled_text(display)
-            .kind(TextKind::Supporting)
-            .color(TextColor::Secondary),
-        clock,
-        settings,
-        details: (true).into_value(),
-        entries: Vec::new().into_value(),
-        live: (false).into_value(),
-    }
-}
-
+/// The settings the presentation reads, gathered from the component's props.
+#[derive(Clone, Copy)]
 struct TimestampSettings {
     value: Value<TimestampValue>,
     format: Value<TimestampFormat>,
@@ -261,129 +208,97 @@ struct TimestampSettings {
     show_zone: Value<bool>,
 }
 
-impl Timestamp {
-    /// Select the timestamp format.
-    pub fn format(self, format: impl IntoValue<TimestampFormat>) -> Self {
-        self.settings.borrow_mut().format = format.into_value();
-        self
-    }
-    /// Set the relative window for automatic format.
-    pub fn auto_threshold(self, threshold: impl IntoValue<Duration>) -> Self {
-        self.settings.borrow_mut().threshold = threshold.into_value();
-        self
-    }
-    /// Enable or disable the details surface.
-    pub fn hover_card(mut self, on: impl IntoValue<bool>) -> Self {
-        self.details = on.into_value();
-        self
-    }
-    /// Supply the rows shown in the details surface.
-    pub fn entries(mut self, entries: impl IntoValue<Vec<TimestampEntry>>) -> Self {
-        self.entries = entries.into_value();
-        self
-    }
-    /// Set the wall-clock offset supplied by the application.
-    pub fn time_zone(self, zone: impl IntoValue<TimeZone>) -> Self {
-        self.settings.borrow_mut().zone = zone.into_value();
-        self
-    }
-    /// Append the time zone label to time formats.
-    pub fn show_time_zone(self, on: impl IntoValue<bool>) -> Self {
-        self.settings.borrow_mut().show_zone = on.into_value();
-        self
-    }
-    /// Update the relative display while mounted.
-    pub fn live(mut self, live: impl IntoValue<bool>) -> Self {
-        self.live = live.into_value();
-        self
-    }
-    /// Select the typography role.
-    pub fn kind(mut self, kind: impl IntoValue<TextKind>) -> Self {
-        self.text = self.text.kind(kind);
-        self
-    }
-    /// Override the text size.
-    pub fn size(mut self, size: impl IntoValue<TextSize>) -> Self {
-        self.text = self.text.size(size);
-        self
-    }
-    /// Override the text color.
-    pub fn color(mut self, color: impl IntoValue<TextColor>) -> Self {
-        self.text = self.text.color(color);
-        self
-    }
-    /// Override the text weight.
-    pub fn weight(mut self, weight: impl IntoValue<TextWeight>) -> Self {
-        self.text = self.text.weight(weight);
-        self
-    }
-}
-
-impl Element for Timestamp {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        self.text.node_mut()
-    }
-}
-
-impl IntoView for Timestamp {
-    fn into_view(self) -> View {
-        let Self {
-            text,
-            clock,
-            settings,
-            details,
-            entries,
-            live,
-        } = self;
-        let presentation_settings = settings.clone();
-        let settings = settings.borrow();
-        let value = settings.value;
-        let format = settings.format;
-        let zone = settings.zone;
-        let relative = memo(move || {
-            matches!(
-                format.get(),
-                TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
-            )
-        });
-        kivact::state::effect(move || {
-            if live.get() && relative.get() {
-                clock.send(TimestampEvent::Live);
-            } else {
-                clock.send(TimestampEvent::Still);
-            }
-        });
-        let full_zone = zone;
-        let full = move || {
-            calendar_text(
-                value.get(),
-                TimestampFormat::DateTime,
-                &full_zone.get(),
-                true,
-                true,
-            )
-        };
-        let now_label = message("soft.relative_time.now", "now");
-        let yesterday = message("soft.relative_time.yesterday", "yesterday");
-        let text = text.name(move || {
-            if relative.get() {
-                full()
-            } else {
-                let now = clock.get().now();
-                timestamp_presentation(&presentation_settings.borrow(), now, now_label, yesterday)
-            }
-        });
-        let enabled = memo(move || {
-            details.get() && (relative.get() || entries.with(|entries| !entries.is_empty()))
-        });
-        {
-            // Standard tooltip fallback until Soft's interactive hover card is integrated.
-            tooltip(move || timestamp_details(value, zone, entries))
-                .enabled(enabled)
-                .attach(text.focusable(enabled))
+/// A date or relative timestamp with optional details.
+///
+/// `format` selects the presentation and `auto_threshold` the window of `Auto`. `hover_card`
+/// enables the details tooltip, which shows `entries` or the full date. `live` updates the
+/// relative text while mounted. The text is wrapped in a node that carries the caller's
+/// modifiers and the accessible name; `kind`, `color`, `size` and `weight` set its typography.
+#[component]
+pub fn timestamp(
+    value: Value<TimestampValue>,
+    #[prop(default = TimestampFormat::Auto)] format: Value<TimestampFormat>,
+    #[prop(default = Duration::from_secs(604_800))] auto_threshold: Value<Duration>,
+    #[prop(default = true)] hover_card: Value<bool>,
+    #[prop(default = Vec::new())] entries: Value<Vec<TimestampEntry>>,
+    #[prop(default = TimeZone::default())] time_zone: Value<TimeZone>,
+    #[prop(default = false)] show_time_zone: Value<bool>,
+    #[prop(default = false)] live: Value<bool>,
+    #[prop(default = TextKind::Supporting)] kind: Value<TextKind>,
+    #[prop(default = TextColor::Secondary)] color: Value<TextColor>,
+    size: Option<Value<TextSize>>,
+    weight: Option<Value<TextWeight>>,
+) -> impl Element {
+    let settings = TimestampSettings {
+        value,
+        format,
+        threshold: auto_threshold,
+        zone: time_zone,
+        show_zone: show_time_zone,
+    };
+    let clock = machine(
+        TimestampClock::Still {
+            now: TimestampValue::from(SystemTime::now()),
+        },
+        move || TimestampTick {
+            value: value.get(),
+            now: TimestampValue::from(SystemTime::now()),
+        },
+        |_, ()| {},
+    );
+    let now_label = message("soft.relative_time.now", "now");
+    let yesterday = message("soft.relative_time.yesterday", "yesterday");
+    let display = memo(move || {
+        let now = clock.get().now();
+        timestamp_presentation(&settings, now, now_label, yesterday)
+    });
+    let relative = memo(move || {
+        matches!(
+            format.get(),
+            TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
+        )
+    });
+    kivact::state::effect(move || {
+        if live.get() && relative.get() {
+            clock.send(TimestampEvent::Live);
+        } else {
+            clock.send(TimestampEvent::Still);
         }
+    });
+    let full = move || {
+        calendar_text(
+            value.get(),
+            TimestampFormat::DateTime,
+            &time_zone.get(),
+            true,
+            true,
+        )
+    };
+    let name = move || {
+        if relative.get() {
+            full()
+        } else {
+            let now = clock.get().now();
+            timestamp_presentation(&settings, now, now_label, yesterday)
+        }
+    };
+    let enabled = memo(move || {
+        hover_card.get() && (relative.get() || entries.with(|entries| !entries.is_empty()))
+    });
+    let mut text = styled_text(display).kind(kind).color(color);
+    if let Some(size) = size {
+        text = text.size(size);
     }
+    if let Some(weight) = weight {
+        text = text.weight(weight);
+    }
+    // Standard tooltip fallback until Soft's interactive hover card is integrated.
+    let trigger = node().child(text).name(name).focusable(enabled);
+    tooltip(
+        move || timestamp_details(value, time_zone, entries),
+        trigger,
+    )
+    .enabled(enabled)
 }
 
 fn difference(now: TimestampValue, then: TimestampValue) -> i64 {

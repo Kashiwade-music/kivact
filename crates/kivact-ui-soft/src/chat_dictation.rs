@@ -1,9 +1,15 @@
 //! Role: Expose application-owned voice dictation controls alongside canonical composers.
+use crate::color as c;
+use crate::recipe_parts::ring;
+
+use kivact::component;
+use kivact::custom::Caller;
 use kivact::i18n::message;
-use kivact::state::{Callback, IntoHandler, IntoText, IntoValue, Value, callback};
-use kivact::style::{Align, Direction, Justify, style};
+use kivact::state::{Callback, Value};
+use kivact::style::{Align, FlexDirection, Justify, style};
 use kivact::ui::ControlSize;
-use kivact::view::{Element, IntoView, Node, Role, View, node, row, text};
+use kivact::view::{Element, Node, Role, node, row, text};
+
 fn control_side(size: ControlSize) -> i32 {
     match size {
         ControlSize::ExtraSmall => 24,
@@ -31,112 +37,60 @@ pub enum DictationState {
 }
 
 /// Dictation toggle displaying application-owned recording state.
-pub struct ChatDictationButton {
-    root: Node,
+///
+/// `on_toggle` runs when the control is pressed; recording remains application-owned. The
+/// accessible name is the element's `.name(..)`, and it is "Dictation" when none is given.
+#[component]
+pub fn chat_dictation_button(
     state: Value<DictationState>,
     on_toggle: Option<Callback<()>>,
-    size: Value<ControlSize>,
-    hide_when_unsupported: Value<bool>,
-    label: Value<String>,
-}
-
-/// Create a medium dictation control, hidden when unsupported by default.
-pub fn chat_dictation_button(state: impl IntoValue<DictationState>) -> ChatDictationButton {
-    ChatDictationButton {
-        root: node(),
-        state: state.into_value(),
-        on_toggle: None,
-        size: (ControlSize::Medium).into_value(),
-        hide_when_unsupported: (true).into_value(),
-        label: message("soft.chat_dictation_button.label", "Dictation"),
-    }
-}
-
-impl Element for ChatDictationButton {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-
-impl ChatDictationButton {
-    /// Request that the application toggle dictation; recording remains application-owned.
-    pub fn on_toggle<M>(mut self, toggle: impl IntoHandler<(), M>) -> Self {
-        let toggle: Callback<()> =
-            kivact::state::Callback::from_handler(kivact::state::IntoHandler::into_handler(toggle));
-        self.on_toggle = Some(callback(move |_| toggle.call(())));
-        self
-    }
-    /// Choose the visual control size; medium by default.
-    pub fn size(mut self, size: impl IntoValue<ControlSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-    /// Hide the control when dictation is unsupported; enabled by default.
-    pub fn hide_when_unsupported(mut self, hide: impl IntoValue<bool>) -> Self {
-        self.hide_when_unsupported = hide.into_value();
-        self
-    }
-    /// Set the accessible label; defaults to the localized “Dictation” message.
-    pub fn label(mut self, label: impl IntoText) -> Self {
-        self.label = label.into_text_value();
-        self
-    }
-}
-
-impl IntoView for ChatDictationButton {
-    fn into_view(self) -> View {
-        let Self {
-            root,
-            state,
-            on_toggle,
-            size,
-            hide_when_unsupported,
-            label,
-        } = self;
-        let side = control_side(size.get());
-        let listening = move || matches!(state.get(), DictationState::Listening { .. });
-        let icon = text("🎙").hidden(listening);
-        let waveform = row(dictation_bars(state, side))
-            .hidden(move || !listening())
-            .style(style().gap(2).align_items(Align::Center));
-        root.with_node(move |node| node.role(Role::Button))
-            .focusable(true)
-            .name(label)
-            .checked(listening)
-            .disabled(move || matches!(state.get(), DictationState::Unsupported))
-            .on_press(move || {
-                if let Some(toggle) = on_toggle {
-                    toggle.call(());
-                }
+    #[prop(default = ControlSize::Medium)] size: Value<ControlSize>,
+    #[prop(default = true)] hide_when_unsupported: Value<bool>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let name = caller
+        .name()
+        .unwrap_or_else(|| message("soft.chat_dictation_button.label", "Dictation"));
+    let side = control_side(size.get());
+    let listening = move || matches!(state.get(), DictationState::Listening { .. });
+    let icon = text("🎙").hidden(listening);
+    let waveform = row(dictation_bars(state, side))
+        .hidden(move || !listening())
+        .style(style().gap(2).align_items(Align::Center));
+    node()
+        .with_node(move |node| node.role(Role::Button))
+        .focusable(true)
+        .name(name)
+        .checked(listening)
+        .disabled(move || matches!(state.get(), DictationState::Unsupported))
+        .on_press(move || {
+            if let Some(toggle) = &on_toggle {
+                toggle.call(());
+            }
+        })
+        .hidden(move || {
+            hide_when_unsupported.get() && matches!(state.get(), DictationState::Unsupported)
+        })
+        .with_node(move |node| {
+            node.base_style(move || {
+                style()
+                    .flex_direction(FlexDirection::Row)
+                    .size(side, side)
+                    .border_radius(side as f64 / 2.0)
+                    .align_items(Align::Center)
+                    .justify_content(Justify::Center)
+                    .color(c::TEXT_PRIMARY)
+                    .hover(style().background(c::OVERLAY_HOVER))
+                    .focus_visible(ring(c::FOCUS_RING))
             })
-            .hidden(move || {
-                hide_when_unsupported.get() && matches!(state.get(), DictationState::Unsupported)
-            })
-            .with_node(move |node| {
-                node.base_style(move || {
-                    let p = kivact::style::use_tokens::<crate::Tokens>();
-                    style()
-                        .direction(Direction::Row)
-                        .size(side, side)
-                        .radius(side as f64 / 2.0)
-                        .align_items(Align::Center)
-                        .justify_content(Justify::Center)
-                        .color(p.colors.text_primary)
-                        .hover(style().background(p.colors.overlay_hover))
-                        .focus_visible(style().ring(p.sizes.focus_ring_width, p.colors.focus_ring))
-                })
-            })
-            .child((icon, waveform))
-            .into_view()
-    }
+        })
+        .child((icon, waveform))
 }
 
 fn dictation_bars(state: Value<DictationState>, side: i32) -> Vec<Node> {
     (0..5)
         .map(|index| {
             node().style(move || {
-                let p = kivact::style::use_tokens::<crate::Tokens>();
                 let (band, volume) = state.with(|state| match state {
                     DictationState::Listening { volume, bands } => {
                         (bands.get(index).copied().unwrap_or(0.0), *volume)
@@ -147,12 +101,8 @@ fn dictation_bars(state: Value<DictationState>, side: i32) -> Vec<Node> {
                 let height = if side <= 28 { 14.0 } else { 18.0 };
                 style()
                     .size(2.5, height * (0.08 + level * 0.92))
-                    .radius(2)
-                    .background(if volume >= 0.3 {
-                        p.colors.error
-                    } else {
-                        p.colors.accent
-                    })
+                    .border_radius(2)
+                    .background(if volume >= 0.3 { c::ERROR } else { c::ACCENT })
             })
         })
         .collect::<Vec<_>>()
