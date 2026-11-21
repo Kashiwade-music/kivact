@@ -1,12 +1,10 @@
 //! Role: Decide color controls.
-use super::super::color_to_hsv;
 use super::super::geometry::Channel;
 use super::data::{ColorControls, SwatchSelection};
 use kivact::state::Step;
-use kivact::style::Color;
 pub(in crate::color_wheel) struct Machine;
 pub(in crate::color_wheel) enum Event {
-    ColorChanged(Color),
+    ColorChanged((f64, f64, f64)),
     AlphaChanged(bool),
     PaletteChanged(usize),
     Channel(Channel),
@@ -20,8 +18,7 @@ impl kivact::state::Machine for Machine {
     fn transition(&self, state: &ColorControls, event: Event) -> Step<ColorControls, Event, ()> {
         let mut next = *state;
         match event {
-            Event::ColorChanged(color) => {
-                let (h, s, v) = color_to_hsv(color);
+            Event::ColorChanged((h, s, v)) => {
                 if s > 0.00001 && v > 0.00001 {
                     next.hue = h;
                 }

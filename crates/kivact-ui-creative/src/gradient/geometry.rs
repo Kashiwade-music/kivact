@@ -1,8 +1,9 @@
 //! Role: Stable sorted gradient display and shared ramp hit geometry.
 use super::data::{GradientStop, position_value};
-use kivact::draw::{Draw, linear_gradient};
+use kivact::draw::Draw;
 use kivact::geometry::{Rect, Size};
 use kivact::style::Color;
+use kivact::style::linear_gradient;
 #[derive(Clone, Copy)]
 pub(super) struct Ramp {
     pub(super) width: f64,

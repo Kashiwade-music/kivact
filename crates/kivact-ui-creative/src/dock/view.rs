@@ -1,4 +1,5 @@
 //! Role: The Dock builder and the chrome, content and dividers it lays out.
+use crate::color::{ACCENT, SUCCESS};
 
 use super::chrome::AppMenu;
 use super::data::{DockCx, DockGesture, MenuBuilder, Shared, Texts};
@@ -6,7 +7,7 @@ use super::geometry::{Divider, MIN_EXTENT, STRIP};
 use super::items::Item;
 use super::items::{ItemKey, build_items};
 use super::model::{DockAxis, DockLayout, DockPlacement, DockTabs};
-use crate::ColorName;
+
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_splitter;
 use kivact::state::IntoValue;
@@ -16,8 +17,8 @@ use kivact::view::{Element, Node, node, text};
 use kivact::interaction::{MenuEntry, ScalarRange};
 use kivact::state::callback;
 use kivact::state::{Callback, Value, binding, memo, signal, var};
-use kivact::style::use_theme;
-use kivact::style::{Cursor, Direction, Overflow, Position, pct, style};
+
+use kivact::style::{Cursor, FlexDirection, Overflow, Position, pct, style};
 use kivact::view::EditPhase;
 use kivact::view::HandlerResult;
 use kivact::view::{Handled, IntoView, Key, Orientation, Role, View, for_each, node_ref};
@@ -187,7 +188,7 @@ impl<K: kivact::state::ItemKey> IntoView for Dock<K> {
                     .position(Position::Absolute)
                     .left(pct(50) - 30)
                     .top(pct(50) - 8)
-                    .color(ColorName::Dim),
+                    .color(crate::color::DIM),
             );
         let overlay = drop_preview(cx);
         root.node_ref(reference)
@@ -223,7 +224,7 @@ fn content<K: kivact::state::ItemKey>(
         .style(move || {
             item.with(Item::frame)
                 .absolute(STRIP, 1.0)
-                .direction(Direction::Column)
+                .flex_direction(FlexDirection::Column)
                 .overflow(Overflow::Hidden)
         })
         .on_key_default(move |event| cx.maximize_key(&key.get(), &event))
@@ -231,11 +232,11 @@ fn content<K: kivact::state::ItemKey>(
             node()
                 .style(
                     style()
-                        .grow(1)
-                        .basis(0)
+                        .flex_grow(1)
+                        .flex_basis(0)
                         .min_width(0)
                         .min_height(0)
-                        .direction(Direction::Column),
+                        .flex_direction(FlexDirection::Column),
                 )
                 .child(panel.call(id)),
         )
@@ -325,7 +326,7 @@ fn divider<K: kivact::state::ItemKey>(
         .hidden(move || !item.with(Item::shown))
         .style(move || state.with(|divider| divider.as_ref().map_or_else(style, Divider::style)))
         .style(style().cursor(cursor))
-        .style(move || crate::dock_style::splitter_look(&use_theme().get()))
+        .style(crate::recipe_parts::splitter_look)
         .into_view()
 }
 
@@ -343,12 +344,10 @@ fn drop_preview<K: kivact::state::ItemKey>(cx: DockCx<K>) -> Node {
     node()
         .hidden(move || preview.get().is_none())
         .style(move || {
-            let t = &use_theme().get();
-            let p = t.ext::<crate::tokens::Tokens>();
             let Some((rect, bar, edge)) = preview.get() else {
                 return style();
             };
-            let tint = if edge { p.success } else { p.accent };
+            let tint = if edge { SUCCESS } else { ACCENT };
             let base = style()
                 .position(Position::Absolute)
                 .left(rect.x)
@@ -356,7 +355,7 @@ fn drop_preview<K: kivact::state::ItemKey>(cx: DockCx<K>) -> Node {
                 .width(rect.width)
                 .height(rect.height)
                 .z_index(10)
-                .radius(4);
+                .border_radius(4);
             if bar {
                 base.background(tint)
             } else {

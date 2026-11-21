@@ -5,5 +5,5 @@ mod geometry;
 mod state;
 mod view;
 
-pub use data::GradientStop;
+pub use data::{ColorTransform, GradientStop};
 pub use view::{GradientEditor, gradient_editor};

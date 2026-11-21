@@ -6,5 +6,5 @@ mod reveal;
 mod view;
 pub(crate) mod view_state;
 
-pub use crate::outliner_data::{Restriction, RestrictionFlag, TreeDrop, TreeItem};
-pub use view::{Outliner, outliner};
+pub use view::{Outliner, OutlinerCell, outliner};
+pub use view_state::OutlinerState;

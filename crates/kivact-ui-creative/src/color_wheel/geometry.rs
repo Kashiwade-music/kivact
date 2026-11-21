@@ -3,7 +3,7 @@ use super::{color_from_hsv, color_to_hsv};
 use crate::editors::shared::metrics::{PICKER_ALPHA, PICKER_GAP};
 use kivact::draw::{Draw, Path};
 use kivact::geometry::{Point, Rect, Size};
-use kivact::style::Color;
+use kivact::style::{Color, Theme};
 #[derive(Clone, Copy, PartialEq)]
 pub(super) enum Channel {
     Hue,
@@ -49,9 +49,10 @@ impl Geometry {
         point: Point,
         color: Color,
         hue: f64,
+        theme: &Theme,
     ) -> (Color, f64) {
-        let (_, mut s, mut v) = color_to_hsv(color);
-        let mut alpha = color.components()[3];
+        let (_, mut s, mut v) = color_to_hsv(color, theme);
+        let mut alpha = color.components(theme)[3];
         let mut hue = hue;
         match channel {
             Channel::Hue => {
@@ -97,6 +98,7 @@ impl Geometry {
     }
 }
 pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64) {
+    let theme = draw.theme().clone();
     let Geometry {
         center,
         radius,
@@ -131,14 +133,14 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
     }
     draw.fill_rect(
         square,
-        kivact::draw::linear_gradient(90)
+        kivact::style::linear_gradient(90)
             .colors([Color::WHITE, color_from_hsv(hue, 1.0, 1.0, 1.0)]),
     );
     draw.fill_rect(
         square,
-        kivact::draw::linear_gradient(180).colors([Color::TRANSPARENT, Color::BLACK]),
+        kivact::style::linear_gradient(180).colors([Color::TRANSPARENT, Color::BLACK]),
     );
-    let (_, s, v) = color_to_hsv(color);
+    let (_, s, v) = color_to_hsv(color, &theme);
     marker(
         draw,
         Point::new(
@@ -167,12 +169,12 @@ pub(super) fn paint(draw: &mut Draw, geometry: Geometry, color: Color, hue: f64)
     }
     draw.fill_rect(
         alpha,
-        kivact::draw::linear_gradient(90).colors([color.with_alpha(0.0), color.with_alpha(1.0)]),
+        kivact::style::linear_gradient(90).colors([color.with_alpha(0.0), color.with_alpha(1.0)]),
     );
     marker(
         draw,
         Point::new(
-            color.components()[3] * alpha.width,
+            color.components(&theme)[3] * alpha.width,
             alpha.y + alpha.height / 2.0,
         ),
     );

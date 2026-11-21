@@ -1,6 +1,6 @@
 //! Role: Consumer hierarchy values shared by outliner views and controls.
 
-use crate::tokens::LabelTone;
+use crate::LabelTone;
 use kivact::style::Icon;
 
 /// Consumer-owned hierarchy node. Identities must be unique; parents may be absent.

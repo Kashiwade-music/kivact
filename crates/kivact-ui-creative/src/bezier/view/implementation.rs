@@ -1,8 +1,10 @@
-//! Role: The BezierCurve builder and its plot, handles and coordinate fields.
+//! Role: The bezier_curve component: its plot, handles and coordinate fields.
 use super::machine;
 
 use super::super::data::CubicBezier;
 use super::super::geometry::Plane;
+use crate::color::{ACCENT, DIM, HAIR, TEXT};
+use kivact::component;
 use kivact::custom::part;
 use kivact::draw::{Path, RegionId, Stroke};
 use kivact::geometry::Size;
@@ -10,68 +12,111 @@ use kivact::i18n::message;
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_drag};
 use kivact::state::IntoValue;
 use kivact::state::Signal;
-use kivact::state::callback;
 use kivact::state::{Callback, machine, memo};
-use kivact::style::{style, use_theme};
+use kivact::style::style;
 use kivact::view::EditPhase;
-use kivact::view::HandlerResult;
-use kivact::view::{
-    A11yAction, A11yEvent, A11yRequest, Handled, IntoView, Key, KeyEvent, Role, View, node_ref,
-};
-use kivact::view::{Element, Node, node};
-
-/// Two editable control points of a [`CubicBezier`].
-/// Arrow keys move X/Y by 0.01, Shift by 0.1 and Ctrl by 0.001.
-/// Each slider offers Select/Activate, SetValue (`x,y` or `x y`), and X
-/// Increment/Decrement. Ordinary Element modifiers style the canvas. External invalid values are normalized for drawing and
-/// editing without writing the binding until an edit. Cancel restores the
-/// exact external value, including invalid fields. Names use `bezier.label`,
-/// `bezier.control1` and `bezier.control2` message keys.
-pub struct BezierCurve {
-    root: Node,
-    value: Signal<CubicBezier>,
-    on_edit: Option<Callback<EditPhase>>,
-}
+use kivact::view::node;
+use kivact::view::{A11yAction, A11yEvent, A11yRequest, Handled, Key, KeyEvent, Role, node_ref};
 
 /// Edit a cubic easing curve. Endpoint values stay fixed at (0,0) and (1,1).
+///
+/// Two editable control points: arrow keys move X/Y by 0.01, Shift by 0.1
+/// and Ctrl by 0.001. Each slider offers Select/Activate, SetValue (`x,y` or
+/// `x y`), and X Increment/Decrement. External invalid values are normalized
+/// for drawing and editing without writing the binding until an edit. Cancel
+/// restores the exact external value, including invalid fields. Names use
+/// `bezier.label`, `bezier.control1` and `bezier.control2` message keys.
+///
+/// `on_edit` reports one edit per key/AT operation and one per drag. Escape,
+/// pointer cancellation, disabling, hiding and disposal restore the press
+/// value before Cancel. Key and AT writes are suppressed during a drag.
 ///
 /// ```no_run
 /// use kivact::prelude::*;
 /// use kivact_ui_creative::{bezier_curve, CubicBezier};
 /// fn easing() -> impl IntoView {
-///     bezier_curve(signal(CubicBezier::default()))
+///     bezier_curve(signal(CubicBezier::default()), None)
 /// }
 /// ```
-#[track_caller]
-pub fn bezier_curve(value: Signal<CubicBezier>) -> BezierCurve {
-    BezierCurve {
-        root: node()
-            .role(Role::Canvas)
-            .name(message("creative.bezier.label", "Cubic bezier curve"))
-            .style(style().size(240, 200).min_width(0).min_height(0)),
+#[component]
+pub fn bezier_curve(
+    value: Signal<CubicBezier>,
+    on_edit: Option<Callback<EditPhase>>,
+) -> impl Element {
+    let binding = value;
+    let value = binding.into_value();
+    let drag = use_drag::<(usize, CubicBezier, Plane)>(DragCoordinates::Local);
+    let observer = on_edit;
+    let edit = machine(
+        machine::State::Idle,
+        || machine::Machine,
+        move |_, effect| match effect {
+            machine::Effect::Restore(initial) => binding.set(initial),
+            machine::Effect::StopDrag => {
+                drag.cancel();
+            }
+            machine::Effect::Phase(phase) => {
+                if let Some(observer) = observer {
+                    observer.call(phase);
+                }
+            }
+        },
+    );
+    kivact::state::on_cleanup(move || edit.send(machine::Event::Cancel));
+    let reference = node_ref();
+    let rect = reference.rect();
+    let apply_drag = move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+        let (index, raw, plane) = update.payload;
+        let base = raw.clean();
+        binding.set(base.with_point(index, plane.moved(base.point(index), update.delta)));
+    };
+    // Each drag is one edit; Escape, an engine Cancel and the effect
+    // below cancel it, which writes the value from the press back.
+    let gesture = drag
+        .on_start(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+            edit.send(machine::Event::Begin(update.payload.1))
+        })
+        .on_update(apply_drag)
+        .on_end(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
+            if update.phase == DragPhase::Cancel {
+                edit.send(machine::Event::Cancel);
+            } else {
+                apply_drag(update);
+                edit.send(machine::Event::Commit);
+            }
+        });
+    // A key or an action is an edit of its own; a drag owns the value.
+    let controls = Controls {
+        binding,
         value,
-        on_edit: None,
+        gesture,
+        edit,
+        rect,
+    };
+    let mut root = node()
+        .role(Role::Canvas)
+        .name(message("creative.bezier.label", "Cubic bezier curve"))
+        .style(style().size(240, 200).min_width(0).min_height(0))
+        .node_ref(reference)
+        .draw(move |draw, size| paint_curve(draw, size, value));
+    for (index, id, key, fallback) in [
+        (
+            0,
+            RegionId(1),
+            "creative.bezier.control1",
+            "Control point 1",
+        ),
+        (
+            1,
+            RegionId(2),
+            "creative.bezier.control2",
+            "Control point 2",
+        ),
+    ] {
+        let attachment = control_point(controls, index, key, fallback);
+        root = root.region(id, attachment);
     }
-}
-
-impl BezierCurve {
-    /// Report one edit per key/AT operation and one per drag. Escape, pointer
-    /// cancellation, disabling, hiding and disposal restore the press value
-    /// before Cancel. Key and AT writes are suppressed during a drag.
-    pub fn on_edit<R: HandlerResult>(
-        mut self,
-        observer: impl Fn(EditPhase) -> R + 'static,
-    ) -> Self {
-        self.on_edit = Some(callback(observer));
-        self
-    }
-}
-
-impl Element for BezierCurve {
-    #[doc(hidden)]
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
+    root
 }
 
 fn plane(value: CubicBezier, size: Size) -> Plane {
@@ -89,83 +134,6 @@ fn pair(text: &str) -> Option<(f64, f64)> {
     let x = values.next()?.parse::<f64>().ok()?;
     let y = values.next()?.parse::<f64>().ok()?;
     (values.next().is_none() && x.is_finite() && y.is_finite()).then_some((x, y))
-}
-
-impl IntoView for BezierCurve {
-    fn into_view(self) -> View {
-        let binding = self.value;
-        let value = binding.into_value();
-        let drag = use_drag::<(usize, CubicBezier, Plane)>(DragCoordinates::Local);
-        let observer = self.on_edit;
-        let edit = machine(
-            machine::State::Idle,
-            || machine::Machine,
-            move |_, effect| match effect {
-                machine::Effect::Restore(initial) => binding.set(initial),
-                machine::Effect::StopDrag => {
-                    drag.cancel();
-                }
-                machine::Effect::Phase(phase) => {
-                    if let Some(observer) = observer {
-                        observer.call(phase);
-                    }
-                }
-            },
-        );
-        kivact::state::on_cleanup(move || edit.send(machine::Event::Cancel));
-        let reference = node_ref();
-        let rect = reference.rect();
-        let apply_drag = move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
-            let (index, raw, plane) = update.payload;
-            let base = raw.clean();
-            binding.set(base.with_point(index, plane.moved(base.point(index), update.delta)));
-        };
-        // Each drag is one edit; Escape, an engine Cancel and the effect
-        // below cancel it, which writes the value from the press back.
-        let gesture = drag
-            .on_start(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
-                edit.send(machine::Event::Begin(update.payload.1))
-            })
-            .on_update(apply_drag)
-            .on_end(move |update: DragUpdate<(usize, CubicBezier, Plane)>| {
-                if update.phase == DragPhase::Cancel {
-                    edit.send(machine::Event::Cancel);
-                } else {
-                    apply_drag(update);
-                    edit.send(machine::Event::Commit);
-                }
-            });
-        // A key or an action is an edit of its own; a drag owns the value.
-        let controls = Controls {
-            binding,
-            value,
-            gesture,
-            edit,
-            rect,
-        };
-        let mut root = self
-            .root
-            .node_ref(reference)
-            .draw(move |draw, size| paint_curve(draw, size, value));
-        for (index, id, key, fallback) in [
-            (
-                0,
-                RegionId(1),
-                "creative.bezier.control1",
-                "Control point 1",
-            ),
-            (
-                1,
-                RegionId(2),
-                "creative.bezier.control2",
-                "Control point 2",
-            ),
-        ] {
-            let attachment = control_point(controls, index, key, fallback);
-            root = root.region(id, attachment);
-        }
-        root.into_view()
-    }
 }
 
 /// Existing binding, gesture and edit authority shared by the two control regions.
@@ -197,21 +165,20 @@ fn paint_curve(
 ) {
     let value = value.get().clean();
     let area = plane(value, size);
-    let p = use_theme().get().ext::<crate::tokens::Tokens>();
     let from = area.point(0.0, 0.0);
     let to = area.point(1.0, 1.0);
     let first = area.point(value.x1, value.y1);
     let second = area.point(value.x2, value.y2);
-    draw.line(area.point(0.0, 0.0), area.point(1.0, 0.0), 1.0, p.hair);
-    draw.line(area.point(0.0, 1.0), area.point(1.0, 1.0), 1.0, p.hair);
-    draw.line(from, first, 1.0, p.dim);
-    draw.line(to, second, 1.0, p.dim);
+    draw.line(area.point(0.0, 0.0), area.point(1.0, 0.0), 1.0, HAIR);
+    draw.line(area.point(0.0, 1.0), area.point(1.0, 1.0), 1.0, HAIR);
+    draw.line(from, first, 1.0, DIM);
+    draw.line(to, second, 1.0, DIM);
     let path = Path::new().move_to(from).cubic_to(first, second, to);
-    draw.stroke_path(&path, &Stroke::new(2), p.accent);
-    draw.circle(from, 3.0, p.text);
-    draw.circle(to, 3.0, p.text);
+    draw.stroke_path(&path, &Stroke::new(2), ACCENT);
+    draw.circle(from, 3.0, TEXT);
+    draw.circle(to, 3.0, TEXT);
     for (id, point) in [(RegionId(1), first), (RegionId(2), second)] {
-        draw.circle(point, 5.0, p.accent);
+        draw.circle(point, 5.0, ACCENT);
         draw.region(id, area.hit(point));
     }
 }

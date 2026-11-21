@@ -1,5 +1,5 @@
 //! Role: Node parameter popups forwarding edits to the editor session.
-use crate::ColorName;
+
 use crate::editors::node::gesture::{NodeMode, State};
 use crate::editors::node::model::{NodeControlValue, NodeRequest};
 use kivact::state::IntoValue;
@@ -7,7 +7,7 @@ use kivact::state::binding;
 use kivact::view::Element;
 use kivact::view::{column, node};
 
-use kivact::style::{ColorToken, style};
+use kivact::style::style;
 use kivact::view::{IntoView, Placement, Role, overlay_at};
 
 pub(super) fn popup(state: State) -> impl IntoView {
@@ -42,11 +42,11 @@ pub(super) fn popup(state: State) -> impl IntoView {
             Placement::Below,
             node()
                 .child(content)
-                .style(style().padding(8).radius(8).min_width(180))
+                .style(style().padding(8).border_radius(8).min_width(180))
                 .style(
                     style()
-                        .background(ColorToken::Raised)
-                        .border(1, ColorName::HairStrong),
+                        .background(kivact::style::color::RAISED)
+                        .border(1, crate::color::HAIR_STRONG),
                 ),
         )
         .with_node(move |node| node.part(popup.content()))

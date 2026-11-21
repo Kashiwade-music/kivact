@@ -12,7 +12,7 @@ use kivact::style::{Length, Position, Style, pct, style};
 use super::model::{DockAxis, DockLayout, DockNode, DockPlacement, DockSide, DockTabs};
 
 /// Splitter thickness in logical pixels.
-use crate::dock_style::SPLITTER_THICKNESS as GAP;
+use crate::recipe_parts::SPLITTER_THICKNESS as GAP;
 /// Tab strip height in logical pixels.
 pub(super) const STRIP: f64 = 30.0;
 /// Width of the dock-edge drop band.

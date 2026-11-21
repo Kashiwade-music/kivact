@@ -8,5 +8,7 @@ mod scrub;
 mod text;
 mod view;
 
-pub use builder::{Numeric, NumericKind, PropertyState, fader, knob, number, value_slider};
+pub use builder::{
+    Fader, Knob, Number, NumericKind, PropertyState, ValueSlider, fader, knob, number, value_slider,
+};
 pub use text::evaluate_expression;

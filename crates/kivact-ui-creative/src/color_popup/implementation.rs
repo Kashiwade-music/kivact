@@ -1,24 +1,17 @@
 //! Role: Color popup of the Creative kit with live editing and rollback.
 use super::machine;
-use kivact::state::IntoValue;
-use kivact::state::Signal;
-use kivact::ui::button;
-use kivact::view::Element;
-
-use crate::color_wheel;
+use crate::color::{HAIR_STRONG, TEXT, TRANSPARENT_INK};
+use crate::color_wheel::{ColorModel, color_wheel};
+use kivact::component;
 use kivact::interaction::use_popup;
-
-use kivact::state::{IntoText, binding, machine, memo, signal};
-use kivact::style::{ColorToken, style};
-use kivact::view::{Role, column, show, text};
-
-use kivact::style::{Color, pct};
-use kivact::view::{DismissReason, Placement, overlay};
+use kivact::state::{IntoValue, Signal, Value, binding, machine, memo, signal};
+use kivact::style::{Color, pct, style};
+use kivact::ui::button;
+use kivact::view::{DismissReason, Element, Placement, Role, column, overlay, show, text};
 
 /// A live color edit transaction: Escape restores the opening color; outside dismissal commits.
-#[track_caller]
-pub fn color_popup(label: impl IntoText, color: Signal<Color>) -> impl kivact::view::Element {
-    let label = label.into_text_value();
+#[component]
+pub fn color_popup(label: Value<String>, color: Signal<Color>) -> impl Element {
     let value = color.into_value();
     let phase = machine(
         machine::ColorPopupPhase::Closed,
@@ -50,18 +43,18 @@ pub fn color_popup(label: impl IntoText, color: Signal<Color>) -> impl kivact::v
             anchor,
             Placement::Below,
             column((
-                text(label).style(style().weight(600)),
-                color_wheel(color, signal(crate::ColorModel::Rgb))
+                text(label).style(style().font_weight(600)),
+                color_wheel(color, signal(ColorModel::Rgb))
                     .alpha(true)
                     .wheel_size(180.0)
                     .with_node(move |node| node.style(style().width(240))),
             ))
-            .style(style().width(264).padding(12).gap(8).radius(12))
+            .style(style().width(264).padding(12).gap(8).border_radius(12))
             .style(
                 style()
-                    .background(ColorToken::Raised)
-                    .color(crate::ColorName::Text)
-                    .border(1, crate::ColorName::HairStrong),
+                    .background(kivact::style::color::RAISED)
+                    .color(TEXT)
+                    .border(1, HAIR_STRONG),
             ),
         )
         .with_node(move |node| node.role(Role::Dialog))
@@ -79,15 +72,13 @@ pub fn color_popup(label: impl IntoText, color: Signal<Color>) -> impl kivact::v
         .with_node(move |node| node.part(trigger))
         .with_node(move |node| {
             node.style(move || {
-                let swatch = style()
-                    .background(value.get())
-                    .color(crate::color::transparent_ink());
+                let swatch = style().background(value.get()).color(TRANSPARENT_INK);
                 style()
                     .width(pct(100))
                     .background(value.get())
-                    .color(crate::color::transparent_ink())
+                    .color(TRANSPARENT_INK)
                     .hover(swatch.clone())
-                    .pressed(swatch.clone())
+                    .active(swatch.clone())
                     .focus(swatch)
             })
         });

@@ -2,20 +2,22 @@
 use super::data::InspectorPanel;
 use super::machine;
 
-use crate::ColorName;
+use crate::color::{ACCENT, HAIR, HEADER, ISLAND};
+use kivact::component;
 use kivact::geometry::Rect;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{DragCoordinates, DragPhase, DragUpdate, use_disclosure, use_drag};
 use kivact::state::IntoValue;
 use kivact::state::Signal;
 use kivact::state::{Value, machine, memo};
-use kivact::style::{ColorToken, style};
+use kivact::style::color as style_color;
+use kivact::style::style;
 use kivact::view::Element;
 use kivact::view::icon;
-use kivact::view::{IntoView, Role, column, node, node_ref, row, text};
+use kivact::view::{Role, column, node, node_ref, row, text};
 
 use kivact::state::binding;
-use kivact::style::{Align, use_theme};
+use kivact::style::Align;
 use kivact::view::A11yAction;
 use kivact::view::for_each;
 use std::cell::RefCell;
@@ -25,13 +27,11 @@ use std::rc::Rc;
 /// Inspector panels with peer collapse and grip reordering. Content remains mounted when closed.
 /// Opening or closing a panel (a click, a key or an assistive action) while Ctrl or Meta is held
 /// leaves only that panel open. The grip also offers accessible up/down movement.
-#[track_caller]
-pub fn panel_group<V: IntoView>(
+#[component]
+pub fn panel_group(
     panels: Signal<Vec<InspectorPanel>>,
-    content: impl Fn(Value<InspectorPanel>) -> V + 'static,
-) -> impl kivact::view::Element {
-    let content: Rc<dyn Fn(Value<InspectorPanel>) -> kivact::view::View> =
-        Rc::new(move |panel| content(panel).into_view());
+    content: Rc<dyn Fn(Value<InspectorPanel>) -> View>,
+) -> impl Element {
     let data = panels.into_value();
     let rectangles = Rc::new(RefCell::new(HashMap::<u64, Value<Option<Rect>>>::new()));
     let drag = machine(
@@ -84,7 +84,7 @@ fn panel_row(
     let header = row((
         icon("chevron-down")
             .style(move || style().rotate(if panel.get().expanded { 0 } else { -90 })),
-        text(move || panel.get().title).style(style().grow(1)),
+        text(move || panel.get().title).style(style().flex_grow(1)),
         grip,
     ))
     .part(use_disclosure(expanded).trigger())
@@ -95,8 +95,8 @@ fn panel_row(
             .padding_x(8)
             .gap(6)
             .align_items(Align::Center)
-            .background(ColorName::Header)
-            .hover(style().background(ColorToken::Hover)),
+            .background(HEADER)
+            .hover(style().background(style_color::HOVER)),
     );
     column((
         header,
@@ -113,12 +113,10 @@ fn panel_row(
         move || [("title", panel.get().title)],
     ))
     .style(move || {
-        let theme = &use_theme().get();
-        let p = theme.ext::<crate::tokens::Tokens>();
         let mut style = style()
-            .radius(7)
-            .background(p.island)
-            .border(1, p.hair)
+            .border_radius(7)
+            .background(ISLAND)
+            .border(1, HAIR)
             .opacity(if drag.get().panel() == Some(id) {
                 0.65
             } else {
@@ -128,9 +126,9 @@ fn panel_row(
             && target == id
         {
             style = if after {
-                style.border_bottom(2, p.accent)
+                style.border_bottom(2, ACCENT)
             } else {
-                style.border_top(2, p.accent)
+                style.border_top(2, ACCENT)
             };
         }
         style
