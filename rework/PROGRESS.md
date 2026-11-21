@@ -149,3 +149,10 @@
 - 残した行（U24 の完了条件に対する例外）：`dialog`・`menu`・`toast`・`hover_card`・`command_palette` の 5 つの builder は `impl Element` が無い（node を持たない）ため `Element::variant` を使えない。`pub fn variant` と `variants: Variants` field を残し、型だけ core の `Variants` にした（STOP を参照）。
 - 内部の struct の `variants: Variants` field は builder の写しではないので残した（`rg "variants: Variants"` は 26 件。RowRender・GroupRender・Level・PanelPresentation・PageOptions など）。
 - `inherited: Variants` field（date_input・time_input・disclosure）は親の group・親の input の look を子へ渡すための field（`Variants::merge` を core で `#[doc(hidden)] pub` にした）。
+
+## W7a 完了（統合 merge 済み・tier b 成功、2026-11-21）
+- 統合の merge：lane U1（U20・U21・U25・U22・U23・U24）、E1（E22・E23・E25・E26）、A1（A13）、A2（A14）。競合は無し。
+- lane の commit：U1 `8270c564`・`c691dd01`、E1 `935ea765`・`f0ed653b`・`6b66158b`、A1 `3a719498`、A2 `f5382490`。
+- tier b（統合、`V:/kv-target/rw-main`、W6〜W9 の形）：fmt・clippy（workspace、XK と XD を除外、`-D warnings`）・test（1324 件成功、失敗 0、無視 39）は成功。xtask `--only local` は、name-collision の規則を直した後（`67f7f48a`、設計者の決め (c)）に成功。`xtask-allow(state-fields)` は 0 件（grep）。
+- 残りの判断（OPEN）：U24 の 5 builder の variant は W8 の U47・U48 で直す（設計者の決め）。E25 の ime_select の sync（設計者の決め）。
+- 次：W7b（E27・E28・A15 完了。U32・U34・U35 完了。U36 は確認中。U30a は compile の残りで差戻し）。
