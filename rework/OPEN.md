@@ -1149,3 +1149,25 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   - ui の `combobox/render.rs`：`KnownLabels::new` を `kivact_interaction::known_options` に、`observe` を `follow` にする（呼ぶ順は今のまま）。ui の `labels.rs` の `KnownLabels` と `LabelCache` を消し、`label` 関数は使われていれば残す。
   - 前の回答の `ComboboxApi::known_options()` は取り消す（循環のため）。公開 API の追加は `known_options` と `KnownOptions` の二つだけ（kit が使える一般の部品。設計者の許可）。
   - 確認：interaction と ui の combobox の試験（`interaction_combobox`・`apg_combobox`・`ui_combobox`）、`--crate kivact-ui` の ui-machine が 0 件。期待値は変えない。
+
+## 差戻し（W8・tier b の回帰：style_paint::visibility_hidden_keeps_layout_but_hides_the_node、2026-11-22）
+
+- 統合（`500c2298`、tier b の `V:/kv-target/logs-W8-tierb3/test.log`）で、この試験が 1 件だけ落ちる（e2e_core の 494 件成功、1 件失敗。残りの binary・crate は成功。1375 件成功、無視 39）。単独の実行でも 3/3 で落ちる。
+- 場所：`crates/kivact-test/src/screen/driver.rs:213`（debug の self_check）。メッセージ：「the engine's retained results diverged from a fresh computation」。accessibility node 5（Button "child"）が retained では `hidden: false`・`actions: [Focus]`、fresh の再計算では `hidden: true`・`actions: []`。
+- 修正は試みていない（0.4 節の self_check の規則）。
+- 二分探索（worktree `W:/w/kv-wt/rw-W8-bisect`）：`b20e2ef3`（`2e90ced7` の親）では通る（1 件成功）。`2e90ced7`（a11y の fragment を tree に出さない）の結果は下に追記する。
+- **設計者が決める**：(a) `2e90ced7` の fragment の扱いを直す（a11y の親子・hidden の伝播）、(b) 別の形。修正の担当と形。
+
+## 差戻し（W8L・L1〜L6 の印の行、2026-11-22）
+
+- **L1 行 36 ViewState**（`crates/kivact-core/src/view/state.rs:272`）：CP1 の後に増えた状態の field `node_states`（`RefCell<HashMap<..>>`）と `registered_fonts`（`RefCell<HashSet<Asset>>`）に、印の文に説明が無い。印は残した。台帳の文の `removed` と `fonts_value` は既に無い。
+- **L2 行 63 calendar State**（`crates/kivact-interaction/src/calendar/state.rs`）：`month` が Binding から Signal に変わり、状態に数えられる。説明が無い。`grid_state` と `cell_states` は消えている。印は残した。
+- **L2 行 73 Runtime**（`crates/kivact-runtime/src/reactive/data.rs`）：`deferred: RefCell<VecDeque<..>>` が CP1 の後に増えた。説明が無い。印は残した。
+- **L4 行 42・43 devtools の Session**（`crates/kivact-devtools/src/session.rs` の `Session::new`、`crates/kivact-devtools/src/state.rs` の `Session`）：付属書の表は「status は `Session::report` だけが書く」とする。しかし `Session::send`（RPC 失敗の経路）も `self.status.set(..)` で書く。コードは変えず、印は残した。報告を通すか、文を直すかを決める。
+- **L6 行 143 Combobox・145 DateInput**：`label` が `Value<String>` から `Option<Value<String>>` に変わった（U22、`485acfee`）。**行 146 DateRangeInput**：`constraints: Vec<Constraint>` が `constraint: Option<Constraint>` になった。いずれも説明が無い。印は残した。
+- 設計者が決める：上の 6 行の書き方（字句の説明を足すか、型を直すか）。L1・L2・L4・L6 の commit は統合へ merge 済み（`f9b50f2d`・`2a81d187`・`b0754ea0`・`a922e928`）。L5 は `cf185c41` を merge 済み（行 1〜20・166 は全部「書いた」）。
+
+## 注記（W8L、2026-11-22）
+
+- L2（`wt/rw-W8L-L2`）と L3（`wt/rw-W8L-L3`）は、e2e の結果を読んでから commit する（未 commit）。L3 の e2e は `V:/kv-target/rw-W8L-L3/e2e-l3.txt`、L2 の e2e は L3 の window lock の後ろで待っている。
+- 各 lane の `cargo clippy -p <crate> --all-targets -- -D warnings` は、`crates/arvane-native/src/native_input/windows.rs` の未使用の import で失敗する（56 行目の `RECT`、68〜71 行目の `GetWindowRect`・`RegisterWindowMessageW`・`SendMessageW`・`WM_DPICHANGED`）。統合の workspace の clippy（`--all-features`）は通る。既定の feature の build だけで出る警告。この unit の所有の外のため直していない。判断を求める。
