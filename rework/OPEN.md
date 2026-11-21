@@ -1211,3 +1211,14 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
   5. ここで必達を満たさない行だけ、基点と一緒に 2 回測り直し（`B0-CP2-r2`/`CP2-r2`、`B0-CP2-r3`/`CP2-r3`）、3 回中 2 回で判定する。K6 は 1 回で判定する。
   6. 3 回中 2 回で後退の行だけを「KPI の後退（CP2）」に書き直して設計者に返す。改善の必達の未達（K3 continuous CPU など）は「KPI の未達」に書くだけで返さない（5.1 節の 3）。1 回目の `CP2.md`・`CP2-ratio.md` は消さずに残し、この節から「判定に使わない」と分かるようにする。
 - **W9 との順序**：KPI の測り直しを先に済ませてから W9 の unit を起動する。測り直しの後退を待つ必要はない（後退の行は設計者が答えるまで W9 と並べて進めてよい）。
+
+## KPI の後退（CP2、測り直し後の判定、2026-11-22）
+
+- 測り直し（作業指示書 5.1 節の 2・3）：基点 `c9518946`（`W:/w/kv-wt/rw-kpi-base`）で B0-CP2、続けて `895802fa`（`W:/w/kv-wt/rw-kpi-cp2`）で CP2b。基点の script は `--no-catalog` を知らない（`--no-catalog` が label になった）ので、B0-CP2 は basic catalog を含む全行。CP2b は `--no-catalog` で catalog 以外の全行。K2 の AcceptedTree は両方に 4 件（一致）。
+- r2・r3 を取った（基点と CP2 を対で）。r2 の 1 回目の対は K2 の AcceptedTree が片方だけ（基点 4 件、CP2 0 件）だったので、対ごと取り直した。取り直した対は両方 0 件で一致。r3 は両方 0 件で一致。
+- 判定（3 回中 2 回で後退した行。比は `rework/kpi/CP2b-ratio.md`・`CP2-r2-ratio.md`・`CP2-r3-ratio.md`）：
+  - **後退（返す）**：K5 counter click p95（1.309・1.310・1.153。3 回とも後退）。
+  - 後退は 1 回だけ（返さない）：K2 per_item button（1.021、CP2b のみ）、K5 wheel p95 n3000（1.142、CP2b のみ）、K5 unrelated text update p95 n3000（1.140、r2 のみ）。
+- 「KPI の未達」（改善の必達の未達。返さない）：K2 per_item text・K2 per_item row（改善必達 ≤ 0.95 に届かず）、K3 3000 rows continuous CPU（CP2b 0.928、r2 は 後退 の 1 回。改善必達 ≤ 0.85 に届かず）、K4 3000 rows work p95（CP2b 0.809、改善必達 ≤ 0.80 に届かず）。
+- 1 回目の `CP2.md`・`CP2-ratio.md` は判定に使わない（注を足して残した）。
+- W9 は、この測り直しの後に始める（設計者の指示）。K5 counter click p95 の後退への答えは待たずに進める。
