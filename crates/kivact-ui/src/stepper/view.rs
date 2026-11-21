@@ -109,6 +109,7 @@ impl StepperItem {
         self.label.get()
     }
 }
+// xtask-allow(state): record: the builder's props, each written only by its own setter; current is the caller's binding that a step press, the previous and next buttons and the step keys write through the one write in into_view, and min_step_width is the optional narrowest step width before the steps collapse
 /// A progress list whose current step belongs to the application.
 pub struct Stepper {
     root: Node,
