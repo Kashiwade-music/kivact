@@ -59,7 +59,8 @@ pub use dope_sheet::{DopeSheet, dope_sheet};
 pub use editors::shared::lane::{EditorMenu, LaneCell};
 pub use editors::time::view_state::TimeState;
 pub use feedback::{
-    SplitButton, ToolWindowApi, ToolWindowOptions, WindowPosition, popup_button, split_button,
+    PopupButton, SplitButton, ToolWindow, ToolWindowApi, ToolWindowButton, ToolWindowOptions,
+    WindowPosition, popup_button, split_button, tool_window, tool_window_button,
 };
 pub use fonts::MONO_FAMILY_VAR;
 pub use gradient::{ColorTransform, GradientEditor, GradientStop, gradient_editor};

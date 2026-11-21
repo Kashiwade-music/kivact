@@ -1,13 +1,23 @@
 //! Role: Popup buttons, split buttons and the data of tool windows in the Creative kit.
+use std::rc::Rc;
+
 use kivact::component;
 use kivact::custom::Caller;
 use kivact::geometry::{Point, Rect};
-use kivact::i18n::message;
-use kivact::interaction::MenuEntry;
-use kivact::state::{Callback, IntoValue, Signal, Value, signal};
-use kivact::style::{Align, Icon, Overflow, style};
+use kivact::i18n::{message, message_with};
+use kivact::interaction::{
+    DialogMode, DismissOn, DragCoordinates, DragUpdate, MenuEntry, use_dialog, use_drag, use_popup,
+};
+use kivact::platform;
+use kivact::state::{Callback, IntoValue, Signal, Value, on_cleanup, on_mount, signal};
+use kivact::style::{Align, Icon, Overflow, Position, Style, style};
 use kivact::ui::ButtonVariant;
-use kivact::view::{Element, Role, ViewFn, icon, row};
+use kivact::view::{
+    A11yAction, ButtonPress, Element, Handled, IntoView, MouseButton, Node, NodeRef, Placement,
+    PointerPhase, Role, View, ViewFn, column, icon, node, node_ref, overlay, row, show, text,
+};
+
+use crate::recipe_parts::glass_style;
 
 /// A button that opens a nonmodal popover below it, and the popover.
 ///
@@ -224,4 +234,362 @@ impl ToolWindowApi {
     pub fn hide(self) {
         self.open.set(false);
     }
+}
+
+/// A button labelled `label` that opens a tool window with `options`, whose
+/// `content` gets the [`ToolWindowApi`] to close it. The window's title is
+/// [`ToolWindowOptions::title`], or else the label.
+///
+/// `ToolWindowOptions::default()` is a 520-pixel nonmodal centered window
+/// with a draggable and collapsible title bar.
+#[component]
+pub fn tool_window_button(
+    label: Value<String>,
+    options: ToolWindowOptions,
+    content: Rc<dyn Fn(ToolWindowApi) -> View>,
+) -> impl Element {
+    let title = options.title.clone().map_or(label, IntoValue::into_value);
+    let open = signal(false);
+    let anchor = node_ref();
+    let opener = kivact::ui::button(label)
+        .variant(ButtonVariant::Secondary)
+        .on_press(move || open.set(true))
+        .with_node(move |node| node.node_ref(anchor))
+        .with_node(move |node| node.expanded(open));
+    column((opener, window_layer(anchor, open, options, title, content))).style(style().gap(0))
+}
+
+/// A tool window that the application opens and closes through `open`.
+///
+/// The window has a title bar to drag and, unless it is modal, to collapse,
+/// a close button, and `content`, which gets the [`ToolWindowApi`] to close the
+/// window. `anchor` is the node the window belongs to, usually the control
+/// that opens it. `open` is the only state: the window mounts when it
+/// becomes `true`, and it is written `false` by the close button, Escape,
+/// Dismiss from assistive technology, an outside press on a nonmodal window,
+/// [`ToolWindowApi::hide`] and the unmounting of the window's part itself. A
+/// modal window keeps input and focus inside it and ignores an outside press.
+/// The title is [`ToolWindowOptions::title`], or the message `window.untitled`
+/// ("Window").
+///
+/// Each time the window opens it starts expanded at its initial position,
+/// whatever the earlier use left.
+#[component]
+pub fn tool_window(
+    anchor: NodeRef,
+    open: Signal<bool>,
+    options: ToolWindowOptions,
+    content: Rc<dyn Fn(ToolWindowApi) -> View>,
+) -> impl Element {
+    let title = options.title.clone().map_or_else(
+        || message("creative.window.untitled", "Window"),
+        IntoValue::into_value,
+    );
+    column((window_layer(anchor, open, options, title, content),))
+}
+
+/// The window of `open`: a popup surface at the centre of the window for a
+/// nonmodal window, or a modal dialog with its backdrop.
+fn window_layer(
+    anchor: NodeRef,
+    open: Signal<bool>,
+    options: ToolWindowOptions,
+    title: Value<String>,
+    content: Rc<dyn Fn(ToolWindowApi) -> View>,
+) -> View {
+    close_removed_window(open);
+    let reference = node_ref();
+    let bounds = reference.rect();
+    let close = ToolWindowApi { open };
+    // The state of the window that is open now; a closed window keeps none.
+    let state = signal(ToolWindowState::Closed);
+    let blur = options.backdrop_blur;
+    let modal = options.modal;
+    let window = move || {
+        // Made again at each opening, so a window starts expanded and in place.
+        on_mount(move || {
+            state.set(ToolWindowState::Open {
+                collapsed: false,
+                offset: Point::new(0.0, 0.0),
+            });
+        });
+        on_cleanup(move || state.set(ToolWindowState::Closed));
+        window_frame(
+            options.clone(),
+            title,
+            state,
+            bounds,
+            reference,
+            close,
+            content.clone(),
+        )
+    };
+    let layer = if modal {
+        let dialog = use_dialog(open, DialogMode::Modal).dismiss(DismissOn {
+            escape: true,
+            outside: false,
+        });
+        show(dialog.is_open(), move || {
+            let frame = overlay(node_ref(), Placement::Center, window())
+                .with_node(move |node| node.part(dialog.content()));
+            column((window_backdrop(blur), frame)).style(style().gap(0))
+        })
+        .into_view()
+    } else {
+        use_popup(open)
+            .anchor(anchor)
+            .surface(Placement::Center, window)
+    };
+    column((layer,)).style(style().gap(0)).into_view()
+}
+
+/// The frame of one opened window: its title bar and body, placed by its
+/// initial position and drag offset.
+fn window_frame(
+    options: ToolWindowOptions,
+    title: Value<String>,
+    state: Signal<ToolWindowState>,
+    bounds: Value<Option<Rect>>,
+    reference: NodeRef,
+    close: ToolWindowApi,
+    content: Rc<dyn Fn(ToolWindowApi) -> View>,
+) -> Node {
+    let mover = window_mover(state, options.position);
+    let (width, position) = (options.width, options.position);
+    let (body_padding, frame_padding, gap, radius) = (
+        options.body_padding,
+        options.frame_padding,
+        options.gap,
+        options.radius,
+    );
+    let header = window_header(options.clone(), title, state, mover, bounds, close);
+    let body = node()
+        .hidden(move || state.with(ToolWindowState::collapsed))
+        .style(style().padding(body_padding))
+        .child(content(close));
+    let group = column((header, body))
+        .role(Role::Group)
+        .name(message_with(
+            "creative.window.name",
+            "{title} window",
+            move || [("title", title.get())],
+        ))
+        .node_ref(reference)
+        .style(style().width(width))
+        .style(move || {
+            glass_style()
+                .padding(frame_padding)
+                .gap(gap)
+                .border_radius(radius)
+                .overflow(Overflow::Hidden)
+        });
+    node()
+        .role(Role::Dialog)
+        .name(title)
+        .style(move || {
+            let viewport = platform::window_size().get();
+            let rect = bounds.get().unwrap_or(Rect::new(0.0, 0.0, width, 0.0));
+            let centered = WindowPosition::Center.origin(viewport, rect);
+            let initial = position.origin(viewport, rect);
+            let offset = state.with(ToolWindowState::offset);
+            style().translate(
+                initial.x - centered.x + offset.x,
+                initial.y - centered.y + offset.y,
+            )
+        })
+        .child(group)
+}
+
+/// One tool window: closed, or open with its collapsed state and drag offset.
+#[derive(Clone, Copy, PartialEq)]
+enum ToolWindowState {
+    Closed,
+    Open { collapsed: bool, offset: Point },
+}
+
+impl ToolWindowState {
+    fn collapsed(&self) -> bool {
+        matches!(
+            self,
+            Self::Open {
+                collapsed: true,
+                ..
+            }
+        )
+    }
+
+    fn offset(&self) -> Point {
+        match self {
+            Self::Closed => Point::new(0.0, 0.0),
+            Self::Open { offset, .. } => *offset,
+        }
+    }
+}
+
+fn window_mover(
+    state: Signal<ToolWindowState>,
+    position: WindowPosition,
+) -> kivact::interaction::DragApi<Option<(Point, Rect)>> {
+    use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
+        move |update: DragUpdate<Option<(Point, Rect)>>| {
+            let Some((initial, rect)) = update.payload else {
+                return;
+            };
+            let viewport = platform::window_size().get();
+            let base = position.origin(viewport, rect);
+            let proposed = Point::new(
+                base.x + initial.x + update.delta.x,
+                base.y + initial.y + update.delta.y,
+            );
+            let offset = Point::new(
+                proposed.x.clamp(
+                    -rect.width + 80.0,
+                    (viewport.width - 80.0).max(-rect.width + 80.0),
+                ) - base.x,
+                proposed.y.clamp(0.0, (viewport.height - 30.0).max(0.0)) - base.y,
+            );
+            state.update(|state| {
+                if let ToolWindowState::Open {
+                    offset: current, ..
+                } = state
+                {
+                    *current = offset;
+                }
+            });
+        },
+    )
+}
+
+fn toggle_collapsed(state: Signal<ToolWindowState>) {
+    state.update(|state| {
+        if let ToolWindowState::Open { collapsed, .. } = state {
+            *collapsed = !*collapsed;
+        }
+    });
+}
+
+fn window_header(
+    options: ToolWindowOptions,
+    title: Value<String>,
+    state: Signal<ToolWindowState>,
+    mover: kivact::interaction::DragApi<Option<(Point, Rect)>>,
+    bounds: Value<Option<Rect>>,
+    close: ToolWindowApi,
+) -> Node {
+    let (minimize_label, close_label) = (
+        message("creative.window.minimize", "Minimize window"),
+        message("creative.window.close", "Close window"),
+    );
+    let window_icon = options.icon.clone();
+    let header_options = options.clone();
+    let mut header = row((
+        options.icon.is_some().then(move || {
+            icon(window_icon.clone().unwrap_or(Icon::named("settings")))
+                .style(style().color(crate::color::ACCENT))
+        }),
+        text(title).style(style().font_weight(600).flex_grow(1)),
+        (!options.modal).then(move || {
+            kivact::ui::button(minimize_label)
+                .variant(ButtonVariant::Secondary)
+                .hide_label(true)
+                .icon(icon("chevron-down"))
+                .with_node(move |node| {
+                    node.on_pointer_default(|event| {
+                        if matches!(event.phase(), PointerPhase::Down(_)) {
+                            Handled::Yes
+                        } else {
+                            Handled::No
+                        }
+                    })
+                })
+                .on_press(move || toggle_collapsed(state))
+        }),
+        kivact::ui::button(close_label)
+            .variant(ButtonVariant::Secondary)
+            .hide_label(true)
+            .icon(icon("x"))
+            .with_node(move |node| {
+                node.on_pointer_default(|event| {
+                    if matches!(event.phase(), PointerPhase::Down(_)) {
+                        Handled::Yes
+                    } else {
+                        Handled::No
+                    }
+                })
+            })
+            .on_press(move || close.hide()),
+    ))
+    .name(message_with(
+        "creative.window.title_bar",
+        "{title} title bar",
+        move || [("title", title.get())],
+    ))
+    .style(move || window_header_style(&header_options));
+    if !options.modal {
+        header = header
+            .role(Role::Button)
+            .focusable(true)
+            .expanded(move || !state.with(ToolWindowState::collapsed))
+            .a11y_action(A11yAction::Toggle, move |_| toggle_collapsed(state))
+            .on_pointer_default(move |e| {
+                if matches!(
+                    e.phase(),
+                    PointerPhase::Down(ButtonPress {
+                        button: MouseButton::Primary,
+                        clicks: 2..
+                    })
+                ) {
+                    mover.cancel();
+                    toggle_collapsed(state);
+                    return Handled::Yes;
+                }
+                Handled::No
+            })
+            .part(mover.source_with(move || {
+                bounds
+                    .get_untracked()
+                    .map(|rect| (state.with_untracked(ToolWindowState::offset), rect))
+            }));
+    }
+    header
+}
+
+fn window_header_style(options: &ToolWindowOptions) -> Style {
+    style()
+        .height(options.titlebar_height)
+        .padding_left(options.titlebar_padding.0)
+        .padding_right(options.titlebar_padding.1)
+        .gap(8)
+        .align_items(Align::Center)
+        .background(crate::color::HEADER)
+        .cursor(if options.modal {
+            kivact::style::Cursor::Default
+        } else {
+            kivact::style::Cursor::Grab
+        })
+}
+
+fn window_backdrop(blur: f64) -> Option<Node> {
+    (blur > 0.0).then(move || {
+        node().style(
+            style()
+                .position(Position::Fixed)
+                .top(0)
+                .right(0)
+                .bottom(0)
+                .left(0)
+                .z_index(100)
+                .background(crate::color::TRANSPARENT_BACKDROP)
+                .backdrop_blur(blur),
+        )
+    })
+}
+
+fn close_removed_window(open: Signal<bool>) {
+    let value = open.into_value();
+    on_cleanup(move || {
+        if value.try_get() == Some(true) {
+            open.set(false);
+        }
+    });
 }
