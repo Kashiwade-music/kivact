@@ -487,9 +487,21 @@ allowed_paths = ["crates/arvane-native/", "crates/kivact-gpu-share/", "crates/ar
 allowed_types = ["kivact_ui::alert::BannerMachine", "kivact_ui::button::BusyInput", "kivact_ui::calendar::navigation::FocusSnapshot", "kivact_ui::empty_state::changes::Controller", "kivact_ui::progress::ProgressMotionInput"]
 
 [hand_element]
-# kivact-core の view の外で手書きの impl Element / impl IntoView を許す唯一の組（"<定義の path> <file>"）。
-# Tooltip<T> は node が trigger の root で、surface を兄弟として出すので、root が一つの #[component] にできない（設計 5.1）。
-allowed_impls = ["kivact_ui::tooltip::Tooltip crates/kivact-ui/src/tooltip.rs"]
+# kivact-core の view の外で手書きの impl Element / impl IntoView を許す組（"<定義の path> <file>"）。
+# trigger に付いて surface を兄弟で出す builder と、型付きの項目・panel を積む builder。root が一つの #[component] にできない（設計 5.1）。手書きのまま残す理由は 4 つの型：(1) trigger と surface を兄弟で出す（Tooltip・Dialog・HoverCard・Disclosure・Menu・Select・Combobox・NavigationMenu）、(2) surface を show で開くたびに作り直す（Dialog・HoverCard・Menu・Select・CommandPalette）、(3) 型付きの項目・panel を積む（DisclosureGroup・NavigationMenu）、(4) 呼出し側の press を包む（NavigationMenuLink）。
+allowed_impls = [
+  "kivact_ui::tooltip::view::Tooltip crates/kivact-ui/src/tooltip/view.rs",
+  "kivact_ui::dialog::view::Dialog crates/kivact-ui/src/dialog/view.rs",
+  "kivact_ui::hover_card::view::HoverCard crates/kivact-ui/src/hover_card/view.rs",
+  "kivact_ui::disclosure::view::Disclosure crates/kivact-ui/src/disclosure/view.rs",
+  "kivact_ui::disclosure::group::DisclosureGroup crates/kivact-ui/src/disclosure/group.rs",
+  "kivact_ui::menu::view::Menu crates/kivact-ui/src/menu/view.rs",
+  "kivact_ui::select::view::Select crates/kivact-ui/src/select/view.rs",
+  "kivact_ui::combobox::handle::Combobox crates/kivact-ui/src/combobox/handle.rs",
+  "kivact_ui::command_palette::view::CommandPalette crates/kivact-ui/src/command_palette/view.rs",
+  "kivact_ui::navigation_menu::view::NavigationMenu crates/kivact-ui/src/navigation_menu/view.rs",
+  "kivact_ui::navigation_menu::link::NavigationMenuLink crates/kivact-ui/src/navigation_menu/link.rs",
+]
 
 [module_rules.arvane-virtual.uses]
 clock = []

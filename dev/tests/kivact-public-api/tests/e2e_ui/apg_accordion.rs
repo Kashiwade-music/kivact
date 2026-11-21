@@ -60,7 +60,7 @@ fn accordion_always_open_header_exposes_disabled_and_expanded() {
         (
             open,
             kivact::ui::disclosure("Permanent", open)
-                .always_open()
+                .always_open(true)
                 .content(|| text("Permanent body")),
         )
     });

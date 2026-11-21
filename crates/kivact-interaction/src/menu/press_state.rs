@@ -4,8 +4,6 @@ use kivact_core::geometry::Point;
 use kivact_core::state::{MachineHandle, Value, Var, machine, on_cleanup, var};
 use kivact_core::view::NodeRef;
 
-pub use crate::menu_policy::MenuPress;
-
 #[derive(Clone, Copy)]
 struct Row {
     reference: NodeRef,

@@ -1,5 +1,5 @@
 //! Role: Project preview visibility and provenance from the shared hover surface.
-use crate::{DelayedPhase, Delays, HoverCardTiming, HoverSurfaceApi, PopupState};
+use crate::{DelayedPhase, Delays, HoverSurfaceApi, PopupState};
 use kivact_core::custom::{Part, part};
 use kivact_core::state::{IntoValue, Signal, Value, memo};
 use kivact_core::view::{
@@ -42,7 +42,7 @@ pub struct HoverCardApi {
 pub fn use_hover_card(
     enabled: impl IntoValue<bool>,
     focus_opens: impl IntoValue<bool>,
-    timing: HoverCardTiming,
+    timing: Delays,
     open: Signal<bool>,
 ) -> HoverCardApi {
     let anchor = node_ref();
@@ -59,10 +59,7 @@ pub fn use_hover_card(
         card,
         enabled,
         immediate,
-        Delays {
-            open: timing.open_delay,
-            close: timing.close_delay,
-        },
+        timing,
         move |visible| open.set(visible),
     );
     surface.hurry_on(immediate);

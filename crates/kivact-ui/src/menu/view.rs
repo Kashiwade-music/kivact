@@ -181,7 +181,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
         let anchor = kivact_core::view::node_ref();
         let (name, trigger) = match trigger {
             Some(mut trigger) => {
-                let trigger = if trigger.node_mut().accessible_name().is_none() {
+                let trigger = if trigger.node_mut().authored().name().is_none() {
                     trigger.name(self.label)
                 } else {
                     trigger
@@ -237,7 +237,7 @@ fn named<T: Element + IntoView, S: kivact_core::state::PropValue>(
     mut trigger: T,
     part: kivact_core::custom::Part<S>,
 ) -> (Option<Value<String>>, View) {
-    let name = trigger.node_mut().accessible_name();
+    let name = trigger.node_mut().authored().name();
     let role = trigger.node_mut().accessible_role();
     let trigger = trigger.with_node(|node| node.part(part));
     let trigger = match role {
