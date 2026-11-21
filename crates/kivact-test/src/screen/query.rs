@@ -45,12 +45,27 @@ impl Screen {
         out
     }
 
+    /// The accessible name the test reads for a node: its own name (or its
+    /// text content). A node with neither (a menu surface, say) takes the
+    /// own names of the nodes it is `labelled_by`, joined by one space, as
+    /// assistive technology computes it. The labelling nodes' own names are
+    /// read without following their `labelled_by` again, so a cycle stops
+    /// after one step.
     pub(super) fn name_of(&self, id: NodeId) -> String {
         let tree = self.facts();
-        match (tree.name(id), tree.content(id)) {
-            (Some(s), _) | (None, Some(s)) => s,
-            _ => String::new(),
+        let own = |id: NodeId| match (tree.name(id), tree.content(id)) {
+            (Some(s), _) | (None, Some(s)) => Some(s),
+            _ => None,
+        };
+        if let Some(s) = own(id) {
+            return s;
         }
+        tree.labelled_by(id)
+            .into_iter()
+            .filter_map(own)
+            .filter(|s| !s.is_empty())
+            .collect::<Vec<_>>()
+            .join(" ")
     }
 
     pub(super) fn role_of(&self, id: NodeId) -> Option<Role> {
@@ -106,9 +121,29 @@ impl Screen {
             };
             stack.extend(n.children.iter().rev().copied());
             // A node without a role is published as a bare structural node.
-            if n.semantics.name.clone().unwrap_or_default() != name
-                || n.semantics.role.unwrap_or(kivact_types::Role::Generic) != wire
-            {
+            if n.semantics.role.unwrap_or(kivact_types::Role::Generic) != wire {
+                continue;
+            }
+            // A node with no name of its own (a menu surface, say) takes the
+            // published names of the nodes it is labelled by, one space apart,
+            // as assistive technology computes it. Those names are not
+            // followed further, so a cycle stops after one step.
+            let mut effective = n.semantics.name.clone().unwrap_or_default();
+            if effective.is_empty() {
+                let mut parts = Vec::new();
+                for target in &n.semantics.labelled_by {
+                    let own = tree
+                        .nodes
+                        .iter()
+                        .find(|node| node.id == *target)
+                        .and_then(|node| node.semantics.name.clone());
+                    if let Some(own) = own.filter(|s| !s.is_empty()) {
+                        parts.push(own);
+                    }
+                }
+                effective = parts.join(" ");
+            }
+            if effective != name {
                 continue;
             }
             if let Some((node, region)) = host.semantics_target(self.window, n.id.0)

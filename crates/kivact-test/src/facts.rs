@@ -136,6 +136,21 @@ impl Facts {
                 .and_then(|semantics| semantics.name.clone())
         })
     }
+    /// The nodes the engine published as labelling this one
+    /// (`labelled_by`), in order. Only the owning node of each target is kept.
+    pub(super) fn labelled_by(&self, id: NodeId) -> Vec<NodeId> {
+        self.with_node(id, |node| {
+            node.and_then(|node| node.semantics.as_deref())
+                .map(|semantics| {
+                    semantics
+                        .labelled_by
+                        .iter()
+                        .map(|target| target.node)
+                        .collect()
+                })
+                .unwrap_or_default()
+        })
+    }
     pub(super) fn role(&self, id: NodeId) -> Option<kivact_types::Role> {
         self.with_node(id, |node| node.and_then(NodeProperties::role))
     }
