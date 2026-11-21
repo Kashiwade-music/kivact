@@ -15,7 +15,7 @@ const TREE_LABEL: &str = "Element tree";
 /// The accessible name of the owner tree.
 const OWNERS_LABEL: &str = "Owners";
 
-// xtask-allow(state): legacy: owners_on, layout; set only by the Owners checkbox; it swaps the element tree for the owner tree while the details pane and its layout overlay
+// xtask-allow(state): independent: owners_on (the Owners checkbox) picks the tree shown; layout (the layout toggle) drives the highlight overlay of the details pane, which both trees share
 /// The element tree, the owner tree, the details and their actions.
 pub(crate) fn view(session: Session) -> impl IntoView {
     let sizes = signal(vec![0.38, 0.62]);

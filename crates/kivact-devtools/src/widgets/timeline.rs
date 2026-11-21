@@ -118,7 +118,7 @@ pub(crate) fn timeline(
     .style(style().gap(2))
 }
 
-// xtask-allow(state): legacy: turns, frames, zoom, drag, width
+// xtask-allow(state): independent: turns and frames are read-only inputs from the session; zoom and drag are written only by Pointing::handle, zoom_to and the Reset zoom button; width is a projection written only by the paint closure
 /// The signals and the plot width the pointer handler reads.
 #[derive(Clone)]
 struct Pointing {

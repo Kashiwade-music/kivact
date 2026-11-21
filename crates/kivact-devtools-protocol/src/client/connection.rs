@@ -30,7 +30,7 @@ enum Calls {
     Closed(ClientError),
 }
 
-// xtask-allow(state): legacy: writer, calls, next_id, notifications
+// xtask-allow(state): independent: calls is the Open/Closed enum written by call_raw and the read loop; next_id allocates request ids; writer and notifications are Mutexes that only serialize the stream's two halves and are never replaced
 /// A connection to one agent. `Send + Sync`: the DevTools app shares it as `Arc<Connection>`.
 pub struct Connection {
     writer: Mutex<TcpStream>,
