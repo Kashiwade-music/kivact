@@ -164,6 +164,15 @@ fn dragged<K: kivact::state::ItemKey>(
     }
 }
 
+/// The tab label's box: it shrinks in the strip, and a label too wide for it ends in "…".
+fn label_style() -> kivact::style::Style {
+    style()
+        .flex_shrink(1)
+        .min_width(0)
+        .text_wrap(false)
+        .text_overflow(kivact::style::TextOverflow::Ellipsis)
+}
+
 fn tab_view<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     group: ListApi<K>,
@@ -195,7 +204,7 @@ fn tab_view<K: kivact::state::ItemKey>(
     );
     let label = show(
         move || !renaming(),
-        move || text(title).style(style().flex_shrink(1).min_width(0)),
+        move || text(title).style(label_style()),
     );
     let editor = rename_editor(cx, key, title, member_ref, texts, renaming);
     let close = close_tab(cx, key, title, tab);

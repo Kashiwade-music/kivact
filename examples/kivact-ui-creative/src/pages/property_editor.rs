@@ -21,11 +21,6 @@ pub(crate) fn page() -> Page {
 // example: property-editor
 fn demo() -> impl IntoView {
     let tab = signal(2_usize);
-    let display_color = signal(rgb(0xffffff));
-    let display_name = signal(false);
-    let display_axes = signal(true);
-    let display_wireframe = signal(false);
-    let display_as = signal(Some("textured".to_owned()));
     row((
         inspector_tabs(tab),
         scroll(col((
@@ -47,29 +42,7 @@ fn demo() -> impl IntoView {
             "Panel Actions",
             col((
                 note("Click the header to open or close. Collapsing keeps the internal values."),
-                kivact::ui::disclosure("Viewport Display", signal(true)).content(move || {
-                    col((
-                        kivact::ui::checkbox("Name", display_name),
-                        kivact::ui::checkbox("Axes", display_axes),
-                        kivact::ui::checkbox("Wireframe", display_wireframe),
-                        ui::property_row(
-                            "Display As",
-                            kivact::ui::select(
-                                keyed_options([
-                                    ("textured", "Textured"),
-                                    ("solid", "Solid"),
-                                    ("wire", "Wire"),
-                                ]),
-                                display_as,
-                            )
-                            .label("Selection")
-                            .placeholder(""),
-                        ),
-                        ui::property_row("Color", ui::color_popup("Viewport color", display_color))
-                            .test_id("creative-property-display-color"),
-                    ))
-                    .role(kivact::view::Role::List)
-                }),
+                viewport_display(),
                 kivact::ui::alert("Property Editing")
                     .tone(kivact::interaction::Tone::Info)
                     .with_node(|node| {
@@ -89,5 +62,51 @@ fn demo() -> impl IntoView {
         .style(style().width(316)),
     ))
     .style(style().align_items(Align::Start))
+}
+
+/// The Viewport Display section. Its values are read only here, so they live in
+/// this section and the page holds only its tab. Each flag is independent, so each
+/// is a part that owns its own state.
+fn viewport_display() -> impl IntoView {
+    let display_color = signal(rgb(0xffffff));
+    let display_as = signal(Some("textured".to_owned()));
+    kivact::ui::disclosure("Viewport Display", signal(true)).content(move || {
+        col((
+            viewport_name_flag(),
+            viewport_axes_flag(),
+            viewport_wireframe_flag(),
+            ui::property_row(
+                "Display As",
+                kivact::ui::select(
+                    keyed_options([
+                        ("textured", "Textured"),
+                        ("solid", "Solid"),
+                        ("wire", "Wire"),
+                    ]),
+                    display_as,
+                )
+                .label("Selection")
+                .placeholder(""),
+            ),
+            ui::property_row("Color", ui::color_popup("Viewport color", display_color))
+                .test_id("creative-property-display-color"),
+        ))
+        .role(kivact::view::Role::List)
+    })
+}
+
+fn viewport_name_flag() -> impl IntoView {
+    let display_name = signal(false);
+    kivact::ui::checkbox("Name", display_name)
+}
+
+fn viewport_axes_flag() -> impl IntoView {
+    let display_axes = signal(true);
+    kivact::ui::checkbox("Axes", display_axes)
+}
+
+fn viewport_wireframe_flag() -> impl IntoView {
+    let display_wireframe = signal(false);
+    kivact::ui::checkbox("Wireframe", display_wireframe)
 }
 // end example

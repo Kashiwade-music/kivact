@@ -384,6 +384,7 @@ pub(super) fn menus_dropdown_search(
                     .test_id("creative-section-operator-search")
                     .on_press(move || search.set(true)),
             )),
+            operator_search(search, status),
         )),
     )
 }
