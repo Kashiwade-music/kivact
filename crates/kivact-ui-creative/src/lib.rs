@@ -17,7 +17,7 @@
 
 mod audio;
 mod bezier;
-mod color;
+pub mod color;
 mod color_popup;
 mod color_wheel;
 mod curve_preview;

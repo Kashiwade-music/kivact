@@ -6,7 +6,8 @@ use kivact::custom::Caller;
 use kivact::geometry::{Point, Rect};
 use kivact::i18n::{message, message_with};
 use kivact::interaction::{
-    DialogMode, DismissOn, DragCoordinates, DragUpdate, MenuEntry, use_dialog, use_drag, use_popup,
+    DialogMode, DismissOn, DragCoordinates, DragUpdate, FocusReturn, FocusReturnTarget, MenuEntry,
+    ReasonSet, use_dialog, use_drag, use_popup,
 };
 use kivact::platform;
 use kivact::state::{Callback, IntoValue, Signal, Value, on_cleanup, on_mount, signal};
@@ -301,6 +302,7 @@ fn window_layer(
     close_removed_window(open);
     let reference = node_ref();
     let bounds = reference.rect();
+    let viewport = node_ref();
     let close = ToolWindowApi { open };
     // The state of the window that is open now; a closed window keeps none.
     let state = signal(ToolWindowState::Closed);
@@ -337,11 +339,38 @@ fn window_layer(
         })
         .into_view()
     } else {
+        // The window is placed on the viewport, so it opens at its centre. The
+        // window closes by writing `open` (its close button, `hide`), which
+        // the popup accepts as an unmount, so the focus returns to the opener
+        // on Unmount as well as on Escape and the other dismissals.
         use_popup(open)
-            .anchor(anchor)
+            .anchor(viewport)
+            .focus_return(FocusReturn {
+                target: FocusReturnTarget::Anchor(anchor),
+                on: ReasonSet::DISMISS
+                    .union(ReasonSet::PROGRAMMATIC)
+                    .union(ReasonSet::UNMOUNT),
+            })
             .surface(Placement::Center, window)
     };
-    column((layer,)).style(style().gap(0)).into_view()
+    column((window_viewport(viewport), layer))
+        .style(style().gap(0))
+        .into_view()
+}
+
+/// The box of the whole viewport, fixed at its corner: the anchor of a
+/// nonmodal window, so that `Placement::Center` centres the window in the
+/// viewport. It takes no pointer, which reaches the controls under it.
+fn window_viewport(anchor: NodeRef) -> Node {
+    node().node_ref(anchor).hit_testable(false).style(move || {
+        let size = platform::window_size().get();
+        style()
+            .position(Position::Fixed)
+            .top(0)
+            .left(0)
+            .width(size.width)
+            .height(size.height)
+    })
 }
 
 /// The frame of one opened window: its title bar and body, placed by its
@@ -355,7 +384,7 @@ fn window_frame(
     close: ToolWindowApi,
     content: Rc<dyn Fn(ToolWindowApi) -> View>,
 ) -> Node {
-    let mover = window_mover(state, options.position);
+    let mover = window_mover(state);
     let (width, position) = (options.width, options.position);
     let (body_padding, frame_padding, gap, radius) = (
         options.body_padding,
@@ -427,9 +456,12 @@ impl ToolWindowState {
     }
 }
 
+/// Moves the window by its title bar. The window is a popup centred on its
+/// opener, so the clamp takes its origin from the drawn rect at the drag
+/// start: that rect is the popup's placed origin plus the offset the drag
+/// starts from (`initial`), so the origin is that rect less `initial`.
 fn window_mover(
     state: Signal<ToolWindowState>,
-    position: WindowPosition,
 ) -> kivact::interaction::DragApi<Option<(Point, Rect)>> {
     use_drag::<Option<(Point, Rect)>>(DragCoordinates::Window).on_update(
         move |update: DragUpdate<Option<(Point, Rect)>>| {
@@ -437,7 +469,7 @@ fn window_mover(
                 return;
             };
             let viewport = platform::window_size().get();
-            let base = position.origin(viewport, rect);
+            let base = Point::new(rect.x - initial.x, rect.y - initial.y);
             let proposed = Point::new(
                 base.x + initial.x + update.delta.x,
                 base.y + initial.y + update.delta.y,

@@ -930,7 +930,7 @@ fn search_field<K: kivact::state::ItemKey>(
     placeholder: Value<String>,
     navigate: impl Fn(KeyEvent) -> Handled + 'static,
 ) -> Node {
-    let search = kivact::ui::text_input(session.combo.query());
+    let search = kivact::ui::text_input(session.combo.query()).label(placeholder);
     let search = if session.column.is_some() {
         search.forward_keys(vec![Key::Tab, Key::ArrowLeft, Key::ArrowRight])
     } else {

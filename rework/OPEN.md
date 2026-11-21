@@ -1576,3 +1576,22 @@ lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え�
   - console は scroll の container（`overflow` を scroll）にする。console の中身は流れて見えなくなるのが正しい形。
   - catalog-shell の moon.svg・sun.svg（Lucide、ISC）：採る。ただし catalog-shell の assets に Lucide の license の文書（basic の `assets/LICENSE-lucide.txt` と同じもの）を置く。
 - **(5) legacy の印の 180 文字**：その規則は作業書に無く、xtask も通るので、今の付属書の文字どおりでよい。
+
+## 設計者の回答（中核の文字の行の箱と unit P4、2026-11-22）
+
+- **調べた結果**（設計者の subagent）：
+  - layout と描画は一致している。どちらも `arvane-text/src/metrics.rs` の同じ `line_height` を使い、高さも baseline も同じ。受け継いだ line-height も正しく効く。
+  - 食い違っていたのは検査が比べる量だけ。`53075040` で検査は shaped の行の `rect`（`arvane-text/src/output.rs` が作る parley の選択の箱）と比べるようになった。この箱は `max(行の箱, ascent + descent)` で、line-height とは別の量。だから、詰めた行（line-height 0.95 や 1.0）は必ず「はみ出し」と報告される。
+  - 中核の field の label と heading の報告は、この誤りによる。measure と draw の不一致ではない。
+- **unit P4：検査は layout と同じ行の箱で比べる**（lane P。中核）
+  1. `TextLine`（`kivact-types` の定義）に `pub line_box: Rect` を足す。doc：「The line's box as layout stacks it: the line-height down, from the top of its slot. Glyphs may reach beyond it.」
+  2. `arvane-text/src/output.rs` の行を作る所で、`line_box` を layout の measure と同じ規則で決める。高さは `metrics::line_height` の値。y は、段落の先頭から前の行の行の高さを足した値（measure の高さが行の高さの和なのと同じ）。x と width は今の `rect` と同じ。`rect` は変えない（選択と caret が使う）。
+  3. `crates/kivact-engine/src/check/shaped_lines.rs` の `bounds` と `height` を `l.line_box` から作る。
+  4. 試験：
+     - P3b の試験 2 件はそのまま通ること。
+     - 足す試験（engine の check の試験の file）：`fn a_tight_heading_is_not_reported()`。34px・line-height 0.95 の文字が、自分の箱（32.3px）に対して報告されない。
+     - arvane-text の試験：`fn the_line_boxes_add_up_to_the_measured_height()`。normal・0.95・px の 3 つで、`line_box` の高さの和が `measure` の高さと等しい。
+  5. 確認：tier a（arvane-text・kivact-engine・kivact-test）と e2e_core・e2e_ui の全件。
+- **catalog-shell の title の箱（22px の中に 26px の heading）**：これは layout の問題。catalog-shell の title の行が、中身より低い固定の高さを持っている。catalog-shell の title の行の `height` を外して中身に合わせる（`min_height` にする）。catalog-shell の所有の fix。
+- **demo の hero の line-height**：P4 の後に基点の 0.95 に戻す（見た目を変えない）。
+- 順序：P4 → 統合 → catalog-shell の fix → K2・K4 に取り込み、walker を走らせ直す。
