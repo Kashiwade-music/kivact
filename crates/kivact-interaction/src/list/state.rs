@@ -37,8 +37,6 @@ pub(super) struct ListSetupOptions<K: kivact_core::state::ItemKey> {
 }
 
 pub(super) struct State<K: kivact_core::state::ItemKey> {
-    pub(super) item_states: Signal<std::collections::HashMap<K, Value<super::data::ListItemState>>>,
-    pub(super) container_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
     pub(super) owner: Owner,
     /// The App's root when the list was created: an item of another App has
     /// another root.
@@ -122,8 +120,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey>(
     );
     let active_key = selector(active);
     let state = Rc::new(State {
-        item_states: signal(std::collections::HashMap::new()),
-        container_state: signal(None),
         owner,
         root,
         items,

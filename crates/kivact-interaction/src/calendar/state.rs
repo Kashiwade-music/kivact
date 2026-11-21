@@ -20,13 +20,10 @@ pub(super) enum Choice {
     },
 }
 
-// xtask-allow(state): legacy: selection_status, grid_state, cell_states; the day grid part's state, set by calendar/handle.rs when the kit attaches the grid and absent before;
+// xtask-allow(state): legacy: selection_status, month; the day grid's state is read from the Part that grid() returns;
 pub(super) struct State {
     pub(super) chosen_message: Value<String>,
     pub(super) selection_status: Signal<String>,
-    pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
-    pub(super) cell_states:
-        Signal<std::collections::HashMap<CalendarDate, Value<super::data::CalendarDayState>>>,
     pub(super) owner: Owner,
     /// The App's root when the grid was created: a day of another App has
     /// another root.
@@ -93,8 +90,6 @@ pub(super) fn create(
     let state = Rc::new(State {
         chosen_message: chosen,
         selection_status,
-        grid_state: signal(None),
-        cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
         month,

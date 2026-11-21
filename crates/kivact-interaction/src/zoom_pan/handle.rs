@@ -7,7 +7,7 @@ use kivact_core::ErrorKind;
 use kivact_core::custom::{Part, PartState, part, raise};
 use kivact_core::geometry::{Point, Rect, Size};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Signal, Value, machine, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{Handled, Key, KeyEvent, PointerEvent, PointerPhase, WheelEvent};
@@ -18,7 +18,6 @@ use std::rc::Rc;
 /// to the caller's node; drawing and content remain the caller's responsibility.
 #[derive(Clone, Copy)]
 pub struct ZoomPanApi {
-    observed: Signal<Option<Value<PartState>>>,
     transform: Signal<ViewTransform>,
     settings: OptionsCell<ZoomPanOptions>,
     edit: EditSession<ViewTransform>,
@@ -62,7 +61,6 @@ pub fn use_zoom_pan(transform: kivact_core::state::Signal<ViewTransform>) -> Zoo
     let gesturing = memo(move || gesture.get().active());
     let armed = memo(move || gesture.get().space());
     ZoomPanApi {
-        observed: signal(None),
         transform,
         settings,
         edit,
@@ -92,16 +90,6 @@ impl ZoomPanApi {
     /// Map a content point through the current shared pose into the view.
     pub fn to_view(self, point: Point) -> Point {
         self.transform.get().to_view(point)
-    }
-
-    /// Drawing state of the actual attached input target.
-    pub fn viewport_state(self) -> Value<PartState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
     }
 
     /// Positive finite scale bounds with `min <= max` (default 0.01 through
@@ -265,7 +253,6 @@ impl ZoomPanApi {
         let edit = self.edit;
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             let surface = host

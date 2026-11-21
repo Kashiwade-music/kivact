@@ -298,14 +298,15 @@ fn a_logarithmic_track_maps_the_pointer_through_the_mapping() {
         let scalar = use_scalar(value, hz)
             .mapping(ScalarMapping::logarithmic())
             .on_edit(observer(value, &seen));
-        let state = scalar.control_state();
+        let thumb_part = scalar.thumb();
+        let state = thumb_part.state();
         let view = node()
             .part(scalar.track(Orientation::Horizontal))
             .test_id("track")
             .style(style().size(TRACK, THUMB))
             .child(thumb(
                 "Frequency",
-                scalar.thumb(),
+                thumb_part,
                 Orientation::Horizontal,
                 false,
             ));

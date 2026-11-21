@@ -3,12 +3,12 @@
 use super::level::Level;
 use super::session::Session;
 use super::state::Edge;
-use super::state::{MenuEntry, MenuItemDisplay, MenuItemState, MenuOrigin, MenuRow, PressOver};
+use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
 use crate::popup::PopupState;
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
-use kivact_core::custom::{Part, PartState, part};
+use kivact_core::custom::{Part, part};
 use kivact_core::platform::{ContextMenuTrigger, capabilities};
 use kivact_core::state::{Callback, IntoHandler, Value, memo};
 use kivact_core::state::{IntoValue, Signal, callback};
@@ -125,40 +125,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
         self.session
             .options
             .update(|options| options.menubar = Some(navigate));
-    }
-
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        self.session.popup.trigger_state()
-    }
-    /// Drawing state of the mounted menu level.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.level
-                .content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of the actual mounted menu item.
-    /// Before the item mounts it reads as a plain item (`MenuItemDisplay::Action`).
-    pub fn item_state(self, key: K) -> Value<MenuItemState> {
-        memo(move || {
-            self.level
-                .item_states
-                .with(|states| states.get(&key).copied())
-                .map(|state| state.get())
-                .unwrap_or(MenuItemState {
-                    input: PartState::default(),
-                    pressed_over: PressOver::None,
-                    display: MenuItemDisplay::Action,
-                    destructive: false,
-                })
-        })
     }
 
     /// Replace the actual trigger's press action during setup; this is not an observer.
@@ -462,7 +428,6 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
             })
         };
         let part_state = base.state();
-        crate::part_slot::attach_part_state(level.content_state, part_state);
         Part::new(part_state, move |host| level.content(host.part(base)))
     }
 

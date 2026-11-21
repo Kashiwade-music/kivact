@@ -91,24 +91,6 @@ pub fn use_scalar(
 }
 
 impl ScalarApi {
-    /// Drawing state of the actual mounted input or thumb.
-    pub fn control_state(self) -> Value<ScalarState> {
-        memo(move || {
-            self.edit
-                .observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_else(|| {
-                    let value = self.value().get();
-                    ScalarState {
-                        input: PartState::default(),
-                        value,
-                        fraction: self.ops.mapping.get().position(value, self.range().get()),
-                    }
-                })
-        })
-    }
-
     /// Map the value to a position along the control with `mapping` (default
     /// linear): a track drag, a touch, a position step and
     /// [`ScalarState::fraction`] follow it, while the binding, Home/End, value
@@ -408,7 +390,6 @@ impl ScalarApi {
             }
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.edit.observed, part_state);
         Part::new(part_state, move |mut host| {
             register_host_disabled(shared, host.accessible_disabled());
             let mut control = host

@@ -33,15 +33,7 @@ pub(super) struct DataTableOptions<K: kivact_core::state::ItemKey, C: kivact_cor
     pub(super) resize: (ScalarRange, f64),
 }
 
-// xtask-allow(state): legacy: grid_state, header_states, row_states, cell_states, headers; the table grid part's state, set by table/handle.rs when the kit attaches the grid and
 pub(super) struct State<K: kivact_core::state::ItemKey, C: kivact_core::state::ItemKey> {
-    pub(super) grid_state: Signal<Option<Value<kivact_core::custom::PartState>>>,
-    pub(super) header_states:
-        Signal<std::collections::HashMap<C, Value<super::data::TableHeaderState>>>,
-    pub(super) row_states: Signal<std::collections::HashMap<K, Value<super::data::TableRowState>>>,
-    pub(super) cell_states:
-        Signal<std::collections::HashMap<(K, C), Value<super::data::TableCellState>>>,
-
     pub(super) owner: Owner,
     /// The App's root when the table was created: a cell of another App has
     /// another root.
@@ -108,10 +100,6 @@ pub(super) fn create<K: kivact_core::state::ItemKey, C: kivact_core::state::Item
     let active_cell = selector(active);
     options.update(|options| options.widths = widths);
     let state = Rc::new(State {
-        grid_state: signal(None),
-        header_states: signal(std::collections::HashMap::new()),
-        row_states: signal(std::collections::HashMap::new()),
-        cell_states: signal(std::collections::HashMap::new()),
         owner,
         root,
         list: rows,

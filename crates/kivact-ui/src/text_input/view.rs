@@ -25,6 +25,7 @@ use kivact_core::view::Variants;
 pub struct TextInput {
     field: Node,
     editing: TextEditApi,
+    input: kivact_core::state::Value<kivact_core::custom::PartState>,
     size: kivact_core::state::Value<ControlSize>,
     multiline: bool,
     at: &'static Location<'static>,
@@ -70,11 +71,13 @@ fn create(value: Signal<String>, multiline: bool) -> TextInput {
         use_text_edit(value)
     };
     let part = editing.control();
+    let input = part.state();
     let _variants = Variants::default();
     let field = node().part(part);
     TextInput {
         field,
         editing,
+        input,
         size,
         multiline,
         at: Location::caller(),
@@ -261,7 +264,7 @@ impl IntoView for TextInput {
             .field
             .accessible_invalid()
             .unwrap_or_else(|| false.into_value());
-        let input = self.editing.control_state();
+        let input = self.input;
         let multiline = self.multiline;
         let size = self.size;
         let look = self.field.authored().variants();

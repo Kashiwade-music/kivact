@@ -10,7 +10,7 @@ use crate::press::is_double_press;
 use crate::scalar::{ScalarOps, follow_range};
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{MachineHandle, Signal, Value, machine, memo, signal};
+use kivact_core::state::{MachineHandle, Value, machine, memo};
 use kivact_core::view::EditPhase;
 use kivact_core::view::HandlerResult;
 use kivact_core::view::{
@@ -104,7 +104,6 @@ pub struct SplitterState {
 /// ```
 #[derive(Clone, Copy)]
 pub struct SplitterApi {
-    observed: Signal<Option<Value<SplitterState>>>,
     ops: ScalarOps,
     axis: Axis,
     settings: OptionsCell<SplitterOptions>,
@@ -148,7 +147,6 @@ pub fn use_splitter(
     );
     state.feed(binding.into_value(), machine::Event::Observe);
     SplitterApi {
-        observed: signal(None),
         ops,
         axis: Axis::of(axis, "use_splitter"),
         settings,
@@ -158,20 +156,6 @@ pub fn use_splitter(
 }
 
 impl SplitterApi {
-    /// Drawing state of the actual mounted handle.
-    pub fn control_state(self) -> Value<SplitterState> {
-        memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(SplitterState {
-                    input: PartState::default(),
-                    value: self.ops.binding.get(),
-                    dragging: false,
-                })
-        })
-    }
-
     /// Override the positive keyboard and accessibility increment.
     ///
     /// The default is the current range's step, or one percent of the range
@@ -422,7 +406,6 @@ impl SplitterApi {
             dragging: matches!(machine.get().drag, machine::Drag::Dragging { .. }),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let options = settings.value();

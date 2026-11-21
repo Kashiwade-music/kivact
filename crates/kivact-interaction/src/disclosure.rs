@@ -12,7 +12,7 @@
 
 use kivact_core::custom::{Part, PartState, part};
 use kivact_core::state::IntoValue;
-use kivact_core::state::{Signal, Value, signal};
+use kivact_core::state::{Signal, Value};
 use kivact_core::view::{A11yAction, Element, IntoView, NodeRef, Placement, Role, View, node_ref};
 
 /// The shown state and actual input state of a disclosure's trigger or content.
@@ -23,7 +23,6 @@ pub struct DisclosureState {
     pub open: bool,
 }
 
-// xtask-allow(state): independent: open is the caller's requested state, written by show, hide, toggle and the trigger's actions; trigger_state and content_state hold the mounted parts' states (attach_part_state sets them on mount and clears them on cleanup)
 /// Copy handle for a collapsible region: a trigger and the content it shows.
 ///
 /// The disclosure edits one `bool`, the requested open state, through the
@@ -52,8 +51,6 @@ pub struct DisclosureApi {
     pub(crate) open: Signal<bool>,
     /// The shown state: the requested state.
     shown: Value<bool>,
-    trigger_state: Signal<Option<Value<DisclosureState>>>,
-    content_state: Signal<Option<Value<DisclosureState>>>,
     /// The node the trigger part binds; a surface is placed at it.
     anchor: NodeRef,
     pub(crate) content: NodeRef,
@@ -67,8 +64,6 @@ pub fn use_disclosure(open: kivact_core::state::Signal<bool>) -> DisclosureApi {
     DisclosureApi {
         open,
         shown: open.into_value(),
-        trigger_state: signal(None),
-        content_state: signal(None),
         anchor: node_ref(),
         content: node_ref(),
     }
@@ -82,31 +77,6 @@ fn trigger_disabled(host: &mut kivact_core::view::Node) -> Value<bool> {
 }
 
 impl DisclosureApi {
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<DisclosureState> {
-        kivact_core::state::memo(move || {
-            self.trigger_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(DisclosureState {
-                    input: PartState::default(),
-                    open: self.shown.get(),
-                })
-        })
-    }
-    /// Drawing state of the mounted content.
-    pub fn content_state(self) -> Value<DisclosureState> {
-        kivact_core::state::memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(DisclosureState {
-                    input: PartState::default(),
-                    open: self.shown.get(),
-                })
-        })
-    }
-
     /// Whether the content is shown: the requested state.
     pub fn is_open(self) -> Value<bool> {
         self.shown
@@ -163,7 +133,6 @@ impl DisclosureApi {
     pub fn trigger(self) -> Part<DisclosureState> {
         let base = self.base_trigger(|input, open| DisclosureState { input, open });
         let part_state = base.state();
-        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |mut host| {
             let disabled = trigger_disabled(&mut host);
             let write = move |open: Option<bool>| {
@@ -205,7 +174,6 @@ impl DisclosureApi {
             open: shown.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         let target = kivact_core::view::node_ref();
         let presence = target.presence();
         Part::new(part_state, move |host| {

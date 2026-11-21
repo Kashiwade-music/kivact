@@ -167,13 +167,6 @@ impl RangeScalarApi {
         self.low.range()
     }
 
-    /// The thumb of one end: [`ScalarApi::thumb`] with the other end as its
-    /// published bound. Setup only.
-    #[track_caller]
-    pub fn thumb_state(self, thumb: RangeThumb) -> Value<ScalarState> {
-        self.end(thumb).control_state()
-    }
-
     /// Attach one end's scalar semantics and input behavior.
     pub fn thumb(self, thumb: RangeThumb) -> Part<ScalarState> {
         self.end(thumb).thumb()

@@ -62,31 +62,6 @@ impl CalendarGridApi {
         })
     }
 
-    /// Drawing state of the mounted calendar grid.
-    pub fn grid_state(self) -> Value<PartState> {
-        let observed = self.state().grid_state;
-        memo(move || observed.get().map(|state| state.get()).unwrap_or_default())
-    }
-    /// Drawing state and logical selection marks of a calendar day.
-    pub fn cell_state(self, day: CalendarDate) -> Value<CalendarDayState> {
-        let shared = self.state();
-        memo(move || {
-            shared
-                .cell_states
-                .with(|states| states.get(&day).copied())
-                .map(|state| state.get())
-                .unwrap_or_else(|| {
-                    let (selection, span) = marks(shared.choice, day);
-                    CalendarDayState {
-                        input: PartState::default(),
-                        selection,
-                        span,
-                        disabled: shared.disabled(day),
-                    }
-                })
-        })
-    }
-
     fn state(self) -> Rc<State> {
         self.state.get()
     }
@@ -119,7 +94,6 @@ impl CalendarGridApi {
         let multiple = matches!(self.state().choice, Choice::Range { .. });
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.state().grid_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input).role(Role::Grid).multiselectable(multiple)
         })
@@ -195,19 +169,6 @@ impl CalendarGridApi {
             }
         });
         let part_state = input.state();
-        let observed = state.cell_states;
-        observed.update(|states| {
-            states.insert(day, part_state);
-        });
-        kivact_core::state::on_cleanup(move || {
-            if observed.try_get_untracked().is_some() {
-                observed.update(|states| {
-                    if states.get(&day) == Some(&part_state) {
-                        states.remove(&day);
-                    }
-                });
-            }
-        });
         Part::new(part_state, move |host| {
             let attachment = host
                 .part(input)

@@ -119,15 +119,6 @@ pub fn use_menubar<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> MenubarApi<K> {
-    /// Drawing state of the mounted menu bar.
-    pub fn bar_state(self) -> Value<PartState> {
-        self.list.list_state()
-    }
-    /// Drawing state of a mounted top-level trigger.
-    pub fn item_state(self, at: usize) -> Value<ListItemState> {
-        self.list.item_state(at)
-    }
-
     /// The row of triggers: a `Role::MenuBar`. While a menu is open, the
     /// arrows along the bar move the open menu; between closed triggers the
     /// list moves the focus. Setup only.

@@ -351,23 +351,6 @@ pub fn use_command_palette<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> CommandPaletteApi<K> {
-    /// Drawing state of the mounted palette surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        self.dialog.content_state()
-    }
-    /// Drawing state of the mounted query editor.
-    pub fn input_state(self) -> Value<PartState> {
-        self.combobox.input_state()
-    }
-    /// Drawing state of the mounted result list.
-    pub fn list_state(self) -> Value<PartState> {
-        self.combobox.content_state()
-    }
-    /// Drawing state of a mounted command.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        self.combobox.item_state(key)
-    }
-
     /// Handle activation of a command.
     pub fn on_activate<R: HandlerResult>(self, f: impl Fn(K) -> R + 'static) -> Self {
         self.run.set(callback(f));

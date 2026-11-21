@@ -13,7 +13,7 @@ use kivact_core::custom::{
 };
 use kivact_core::state::{Callback, callback};
 use kivact_core::state::{IntoText, IntoValue};
-use kivact_core::state::{Signal, Value, on_cleanup, signal};
+use kivact_core::state::{Signal, Value, on_cleanup};
 use kivact_core::view::{Composition as CompositionState, EditPhase, NodeRef, node_ref};
 use kivact_core::view::{Handled, HandlerResult, Key, Role};
 use kivact_types::cell::Generation;
@@ -86,7 +86,6 @@ fn create(binding: Signal<String>, lines: Lines) -> TextEditApi {
         },
     );
     let data = Rc::new(Data {
-        observed: signal(None),
         binding,
         lines,
         options,
@@ -99,14 +98,6 @@ fn create(binding: Signal<String>, lines: Lines) -> TextEditApi {
 }
 
 impl TextEditApi {
-    /// Drawing state of the actual mounted control.
-    pub fn control_state(self) -> Value<PartState> {
-        let observed = self.data.get().observed;
-        kivact_core::state::memo(move || {
-            observed.get().map(|state| state.get()).unwrap_or_default()
-        })
-    }
-
     /// Soft-wrap multiline content at the field's content width.
     pub fn wrap(self, on: impl IntoValue<bool>) -> Self {
         let on = on.into_value();
@@ -406,7 +397,6 @@ impl TextEditApi {
         require_setup("TextEditApi::control");
         let input = part(|state| state);
         let state = input.state();
-        crate::part_slot::attach_part_state(self.data.get().observed, state);
         let node = node_ref();
         let options = self.data.get().options.value();
         let line_layout = memo(move || {
@@ -497,9 +487,8 @@ struct TextEditOptions {
     composition: Option<Callback<bool>>,
 }
 
-// xtask-allow(state): legacy: observed, next_control_id; the observation of the attached control part, absent until it attaches
+// xtask-allow(state): legacy: next_control_id; the counter that gives each attached control its generation
 struct Data {
-    observed: Signal<Option<Value<PartState>>>,
     binding: Signal<String>,
     lines: Lines,
     options: OptionsCell<TextEditOptions>,

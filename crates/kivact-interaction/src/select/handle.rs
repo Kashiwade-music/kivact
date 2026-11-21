@@ -42,7 +42,7 @@ struct SelectOptions {
     keep_trigger_focus: Value<bool>,
 }
 
-// xtask-allow(state): independent: open is the caller's binding, written by the caller, by open_with (show, show_sheet, trigger and the arrow keys), by the sheet's choice and by the popup's close (hide, dismissal); session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, highlight, hovered and previewed, noted by Prepare (open_with and the sheet's attach) and by Highlight, Hover and Preview; selected is the caller's selection binding, written by the list's and the closed trigger's choice; hovered is the pointer's hover over the sheet's rows, written by track_preview; content_state is the mounted surface's drawing slot, written by content_in and emptied by attach_part_state's cleanup; placeholder is set once by placeholder(); preview is set once by on_active_change
+// xtask-allow(state): independent: open is the caller's binding, written by the caller, by open_with (show, show_sheet, trigger and the arrow keys), by the sheet's choice and by the popup's close (hide, dismissal); session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, highlight, hovered and previewed, noted by Prepare (open_with and the sheet's attach) and by Highlight, Hover and Preview; selected is the caller's selection binding, written by the list's and the closed trigger's choice; hovered is the pointer's hover over the sheet's rows, written by track_preview; placeholder is set once by placeholder(); preview is set once by on_active_change
 /// A select over keyed [`ListItem`]s, without a look of its own.
 ///
 /// `SelectApi` adds the behavior and semantics of a combo box and its list box
@@ -120,7 +120,6 @@ pub struct SelectApi<K: kivact_core::state::ItemKey> {
     options: Value<Vec<ListItem<K>>>,
     selected: Signal<Option<K>>,
     edit: crate::EditSession<Option<K>>,
-    content_state: Signal<Option<Value<PopupState>>>,
     /// What the trigger shows while nothing is selected; read tracked.
     placeholder: Signal<Value<String>>,
     /// Reports the option being tried out; read when the surface binds.
@@ -206,7 +205,6 @@ pub fn use_select<K: kivact_core::state::ItemKey>(
     let retained = retained_focus(settings, session);
     let (closed, list) = trigger_and_list(options, selected, retained, highlight);
     SelectApi {
-        content_state: signal(None),
         edit,
         options,
         selected,
@@ -230,26 +228,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
     ) -> Self {
         self.edit.on_edit(f);
         self
-    }
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        self.popup.trigger_state()
-    }
-    /// Drawing state of the mounted option surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: kivact_core::custom::PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of an individual option.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        self.list.item_state(key)
     }
 
     /// Open on a bare arrow instead of changing the closed selection.
@@ -613,7 +591,6 @@ impl<K: kivact_core::state::ItemKey> SelectApi<K> {
             popup.content()
         };
         let part_state = base.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             let content = host.part(base);
             let content = content

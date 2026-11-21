@@ -29,7 +29,6 @@ use kivact_core::view::{A11yAction, CheckedState, Handled, Key, KeyEvent, Modifi
 /// else's (a canvas region, a native control).
 #[derive(Clone, Copy)]
 pub struct ButtonApi {
-    observed: Signal<Option<Value<PartState>>>,
     disabled: Signal<Option<Value<bool>>>,
 }
 
@@ -45,22 +44,11 @@ pub struct ButtonApi {
 #[track_caller]
 pub fn use_button() -> ButtonApi {
     ButtonApi {
-        observed: signal(None),
         disabled: signal(None),
     }
 }
 
 impl ButtonApi {
-    /// Drawing state of the actual mounted control.
-    pub fn control_state(self) -> Value<PartState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -79,7 +67,6 @@ impl ButtonApi {
         let disabled = self.disabled;
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
             let host = host.part(input).role(Role::Button).focusable(true);
@@ -112,14 +99,12 @@ pub struct ToggleState {
     pub checked: CheckedState,
 }
 
-// xtask-allow(state): independent: checked is the caller's binding, written only by the control's flip through edit; observed holds the mounted control's state (attach_part_state sets it on mount and clears it on cleanup)
 /// What every toggle shares: the binding, the kind and the disabled value.
 #[derive(Clone, Copy)]
 struct Core {
     checked: Signal<bool>,
     kind: Kind,
     edit: crate::EditSession<bool>,
-    observed: Signal<Option<Value<ToggleState>>>,
     options: OptionsCell<ToggleOptions>,
 }
 
@@ -157,7 +142,6 @@ fn core(checked: Signal<bool>, kind: Kind) -> Core {
         checked,
         kind,
         edit: crate::EditSession::new(move |value| checked.set(value)),
-        observed: signal(None),
         options: OptionsCell::new(ToggleOptions::default()),
     }
 }
@@ -218,10 +202,6 @@ impl CheckboxApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Publish a mixed (partially checked) state to assistive technology while
     /// true.
     ///
@@ -267,10 +247,6 @@ impl SwitchApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -296,10 +272,6 @@ impl ToggleButtonApi {
         self
     }
 
-    /// Drawing state of the mounted control.
-    pub fn control_state(self) -> Value<ToggleState> {
-        self.core.control_state()
-    }
     /// Ignore input and assistive technology while true.
     ///
     /// Also marks the root disabled and makes it unfocusable. Setup only.
@@ -317,17 +289,6 @@ impl ToggleButtonApi {
 }
 
 impl Core {
-    fn control_state(self) -> Value<ToggleState> {
-        kivact_core::state::memo(move || {
-            self.observed
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(ToggleState {
-                    input: PartState::default(),
-                    checked: CheckedState::from_bool(self.checked.get()),
-                })
-        })
-    }
     fn set_disabled(self, disabled: Value<bool>) {
         self.options
             .update(|options| options.disabled = Some(disabled));
@@ -376,7 +337,6 @@ impl Core {
             },
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.observed, part_state);
         Part::new(part_state, move |mut host| {
             let caller_disabled = host.accessible_disabled();
 

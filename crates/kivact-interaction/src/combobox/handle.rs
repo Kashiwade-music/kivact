@@ -66,7 +66,7 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
     option.label.get().to_lowercase().contains(&query)
 }
 
-// xtask-allow(state): independent: open is the caller's binding, written by the caller and by hide and write_open (show, show_sheet, type_query); query is the caller's binding, written by the caller, by type_query, by choose and by the machine's Closed effect that clears an inline list; session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, filter phase and highlight, noted by Present (show, show_sheet), Typed (type_query) and QueryChanged; inline is set once by use_combobox; filter is set once by filter(); rows is written by register_row at each option's mount and cleanup; item_states is written by item_in at each option's mount and cleanup; input_state and content_state are the mounted parts' drawing slots, written by input_for and content_for and emptied by attach_part_state's cleanup
+// xtask-allow(state): independent: open is the caller's binding, written by the caller and by hide and write_open (show, show_sheet, type_query); query is the caller's binding, written by the caller, by type_query, by choose and by the machine's Closed effect that clears an inline list; session is the machine that follows open one way (only the feed of open sends Opened and Closed) and holds the opening's surface, filter phase and highlight, noted by Present (show, show_sheet), Typed (type_query) and QueryChanged; inline is set once by use_combobox; filter is set once by filter(); rows is written by register_row at each option's mount and cleanup
 /// A search field over a filtered list box of keyed [`ListItem`]s, without a
 /// look of its own.
 ///
@@ -124,9 +124,6 @@ fn contains_query<K>(query: &str, option: &ListItem<K>) -> bool {
 /// ));
 /// ```
 pub struct ComboboxApi<K: kivact_core::state::ItemKey> {
-    input_state: Signal<Option<Value<PartState>>>,
-    content_state: Signal<Option<Value<PartState>>>,
-    item_states: Signal<HashMap<K, Value<ListItemState>>>,
     options: Value<Vec<ListItem<K>>>,
     /// The caller's selection: one option or several.
     selection: Selection<K>,
@@ -224,9 +221,6 @@ pub fn use_combobox<K: kivact_core::state::ItemKey>(
     let active_key = selector(active);
     let membership = Membership::new(selection);
     ComboboxApi {
-        input_state: signal(None),
-        content_state: signal(None),
-        item_states: signal(HashMap::new()),
         options,
         selection,
         settings,
@@ -367,39 +361,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             })
         });
         self
-    }
-
-    /// Drawing state of the mounted editor anchor.
-    pub fn input_state(self) -> Value<PartState> {
-        memo(move || {
-            self.input_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-    /// Drawing state of the mounted list surface.
-    pub fn content_state(self) -> Value<PartState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or_default()
-        })
-    }
-    /// Drawing state of the actual option, or its logical selection before mounting.
-    pub fn item_state(self, key: K) -> Value<ListItemState> {
-        let watch = self.membership.watch(key.clone());
-        memo(move || {
-            self.item_states
-                .with(|states| states.get(&key).copied())
-                .map(|state| state.get())
-                .unwrap_or_else(|| ListItemState {
-                    input: PartState::default(),
-                    active: self.active_key.is(&key),
-                    selected: self.membership.contains(&key, watch),
-                })
-        })
     }
 
     /// Choose which options the query shows. It receives the query as typed
@@ -608,7 +569,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
         let (active, rows) = (self.active, self.rows);
         let input = part(|input| input);
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.input_state, part_state);
         let expanded = self.is_open();
         Part::new(part_state, move |host| {
             let host = if !self.inline {
@@ -721,7 +681,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
     pub fn content_for(self, target: NodeRef) -> Part<PartState> {
         let list = part(|input| input);
         let part_state = list.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(list)
                 .node_ref(self.list_ref)
@@ -746,7 +705,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             membership,
             rows,
             selection,
-            item_states,
             session,
             ..
         } = self;
@@ -766,19 +724,6 @@ impl<K: kivact_core::state::ItemKey> ComboboxApi<K> {
             active: is_active(),
         });
         let part_state = input.state();
-        item_states.update(|states| {
-            states.insert(key.get(), part_state);
-        });
-        on_cleanup(move || {
-            if item_states.try_get_untracked().is_some() {
-                item_states.update(|states| {
-                    let cleanup_key = key.get();
-                    if states.get(&cleanup_key) == Some(&part_state) {
-                        states.remove(&cleanup_key);
-                    }
-                });
-            }
-        });
         let target = kivact_core::view::node_ref();
         Part::new(part_state, move |host| {
             host.part(input)

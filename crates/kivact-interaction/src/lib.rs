@@ -159,7 +159,6 @@ pub use month_swipe::{MonthSwipeApi, MonthSwipePhase, use_month_swipe};
 mod inline_edit;
 mod interaction_policy;
 mod options_cell;
-mod part_slot;
 pub use inline_edit::{InlineEditApi, use_inline_edit};
 
 pub use interaction_policy::{

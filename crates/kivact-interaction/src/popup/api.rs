@@ -35,7 +35,7 @@
 use kivact_core::ErrorKind;
 use kivact_core::custom::{NodeRefExt, Owner, Part, PartState, focused_node, part, raise};
 use kivact_core::state::{
-    IntoValue, MachineHandle, Signal, Value, effect, machine, memo, on_cleanup, on_mount,
+    IntoValue, MachineHandle, Signal, Value, effect, machine, on_cleanup, on_mount,
 };
 use kivact_core::view::{
     A11yAction, A11yRequest, DismissReason, Element, Handled, IntoView, Key, KeyEvent, NodeRef,
@@ -95,8 +95,6 @@ pub struct PopupState {
 #[derive(Clone, Copy)]
 pub struct PopupApi {
     disclosure: DisclosureApi,
-    content_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
-    trigger_state: kivact_core::state::Signal<Option<Value<PopupState>>>,
     /// The reference the trigger part binds.
     own_anchor: NodeRef,
     /// The surface's title, a heading the surface is `labelled_by`.
@@ -196,8 +194,6 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
     );
     PopupApi {
         disclosure,
-        content_state: kivact_core::state::signal(None),
-        trigger_state: kivact_core::state::signal(None),
         own_anchor,
         title: node_ref(),
         description: node_ref(),
@@ -207,31 +203,6 @@ pub fn use_popup(open: kivact_core::state::Signal<bool>) -> PopupApi {
 }
 
 impl PopupApi {
-    /// Drawing state of the mounted trigger.
-    pub fn trigger_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.trigger_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-    /// Drawing state of the mounted surface.
-    pub fn content_state(self) -> Value<PopupState> {
-        memo(move || {
-            self.content_state
-                .get()
-                .map(|state| state.get())
-                .unwrap_or(PopupState {
-                    input: PartState::default(),
-                    open: self.is_open().get(),
-                })
-        })
-    }
-
     /// Use this node as the anchor instead of the trigger part's node.
     ///
     /// The anchor is the node focus returns to and part of the popup's focus
@@ -411,7 +382,6 @@ impl PopupApi {
             .disclosure
             .base_trigger(|input, open| PopupState { input, open });
         let part_state = base.state();
-        crate::part_slot::attach_part_state(self.trigger_state, part_state);
         Part::new(part_state, move |host| {
             host.part(base)
                 .node_ref(self.own_anchor)
@@ -453,7 +423,6 @@ impl PopupApi {
             open: open.get(),
         });
         let part_state = input.state();
-        crate::part_slot::attach_part_state(self.content_state, part_state);
         Part::new(part_state, move |host| {
             host.part(input)
                 .node_ref(self.content_ref())

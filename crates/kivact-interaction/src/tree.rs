@@ -492,28 +492,6 @@ pub fn use_tree<K: kivact_core::state::ItemKey>(
 }
 
 impl<K: kivact_core::state::ItemKey> TreeApi<K> {
-    /// Drawing state of the mounted tree container.
-    pub fn list_state(self) -> Value<PartState> {
-        self.state().list.list_state()
-    }
-    /// Drawing state and branch metadata of a tree item.
-    pub fn item_state(self, key: K) -> Value<TreeItemState> {
-        let shared = self.state();
-        let input = shared.list.item_state(key.clone());
-        memo(move || {
-            let input = input.get();
-            shared.info.with(|info| TreeItemState {
-                input: input.input,
-                selected: input.selected,
-                active: input.active,
-                branch: info
-                    .get(&key)
-                    .map_or(TreeBranch::Leaf, |entry| entry.row.branch),
-                level: info.get(&key).map_or(0, |entry| entry.row.level),
-            })
-        })
-    }
-
     #[track_caller]
     fn state(self) -> Rc<Shared<K>> {
         self.state
