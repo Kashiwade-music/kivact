@@ -10,6 +10,7 @@
 //! ```
 mod alert_dialog;
 mod avatar;
+mod avatar_status_dot;
 mod banner;
 mod blockquote;
 mod card;
@@ -18,6 +19,7 @@ mod color;
 mod divider;
 mod feedback;
 mod field_status;
+mod form_layout;
 mod hover_card;
 mod icon;
 mod icons;
@@ -69,6 +71,7 @@ mod visually_hidden;
 
 pub use alert_dialog::{AlertDialog, alert_dialog};
 pub use avatar::{AvatarSilhouette, avatar_silhouette};
+pub use avatar_status_dot::{AvatarStatus, avatar_status_dot};
 pub use banner::{BannerIcon, banner_icon};
 pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
 pub use card::with_card_insets;
@@ -106,6 +109,9 @@ pub use color::{
 pub use divider::{Divider, DividerVariant, divider};
 pub use feedback::{StatusDot, StatusDotVariant, status_dot};
 pub use field_status::{FieldStatus, FieldStatusVariant, StatusKind, field_status};
+pub use form_layout::{
+    FormDirection, FormLayout, FormLayoutCx, Optionality, form_layout, form_row,
+};
 pub use hover_card::{HoverCardText, hover_card_text};
 pub use icon::{IconColor, IconSize, IconView, icon_view};
 pub use icons::ICON_NAMES;
