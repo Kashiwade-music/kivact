@@ -19,6 +19,7 @@ mod recipes_controls_choice;
 mod recipes_controls_panel;
 mod recipes_controls_radio;
 mod recipes_controls_value;
+mod recipes_feedback;
 mod recipes_field;
 mod recipes_overlays;
 mod recipes_overlays_command;
