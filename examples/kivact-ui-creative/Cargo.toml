@@ -13,10 +13,12 @@ gpu = ["kivact/gpu"]
 
 [dependencies]
 async-channel = { workspace = true }
+catalog-shell = { path = "../catalog-shell" }
 kivact = { path = "../../crates/kivact", default-features = false }
 kivact-ui-creative = { path = "../../crates/kivact-ui-creative" }
 
 [dev-dependencies]
+catalog-shell = { path = "../catalog-shell", features = ["test"] }
 kivact = { path = "../../crates/kivact", default-features = false, features = ["test"] }
 
 [lints]
