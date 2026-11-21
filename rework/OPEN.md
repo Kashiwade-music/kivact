@@ -1059,3 +1059,28 @@ U48（menu・select・combobox・command_palette・navigation_menu・navigation_
 - 設計者の回答（1）どおり：`dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `Combobox`（`combobox/handle.rs`）・`CommandPalette`（`command_palette/view.rs`）・`NavigationMenu`（`navigation_menu/view.rs`）・`NavigationMenuLink`（`navigation_menu/link.rs`）の 4 行を足し、comment に理由の 4 つの型を書いた。固有の `variant` は残した。
 - 上の「途中の報告」の STOP（command_palette の `close_on`、combobox の `search`、navigation_menu の `link`・`action`、navigation_menu_link の `take_press`）は、この 4 つを手書きの builder のまま残す答えで解けた（props の形は変えない）。
 - `toast_region` は `#[component]`（`toast/view.rs`）。`Menu`・`Select` は前の回答どおり手書きの builder のまま allowed_impls。
+
+## 設計者の回答（W8・U46 の splitter・dropzone、2026-11-21）
+
+- **splitter の `key_step`**：`key_step(step: f64)`（`-> Self` の普通の setter。C2 の定数の行）にする。正で有限でない step は、本体で一度だけ診断を出し（`Owner::current().report(ErrorKind::Unsupported, "splitter key_step must be positive and finite, got {step}; the default step is used")` の形。他の部品の不正な値の報告と同じ kind を使う）、既定の step を使う。setter で `Result` を返すのはこの一つだけで、props の一様な形（DEC-05）に合わない。呼出し元の `.key_step(x)?`・`.key_step(x).unwrap()` などは `.key_step(x)` に直す。不正な step の試験があれば、`Err` を期待する所を「診断が 1 件で、既定の step で動く」に直してよい（設計者の決まり）。
+- **dropzone の `multiple()`・`pick_on_press()`**：`multiple(v: bool)`・`pick_on_press(v: bool)` にする（Disclosure の `always_open` と同じ）。呼出し元は `(true)`。
+- どちらも G の移行の文書に 1 行ずつ（W11b）。kit の呼出しは W9。
+
+## 差戻し（W8・U50 の data_table、2026-11-21）
+
+U50（lane `wt/rw-W8-U3`、HEAD `2d6e03fb`、変更なし）は着手前に止めた。`data_table/builder.rs` の判断が 6 件要る（呼出しの形を変えずに、C1・C2・U25 の表で写せない）。U3 lane は止める（U51 は U50 の後）。
+- (1) 2 引数・3 引数の setter（`group_by`・`tree`・`sticky_columns`・`page`・`remote_page`・`page_sizes`・`row_actions`）と generic の setter（`row_context_menu<M>`・`group_by<G>`）が、1 prop 1 setter に写らない。
+- (2) `expand_all_control(mut self)` は引数なし。C2 の表に行が無い（keep_mounted(bool) と同じ扱いにするか）。
+- (3) `sort` と `multi_sort`、`page` と `remote_page` は、同じ field を後の呼出しが勝つ組。対になる props で、どちらが勝つかの形を決める。
+- (4) 公開の `DataTable`（`data_table/types.rs` の struct）と、R1 の生成 struct の名前 `DataTable` が衝突する。改名の指示が無い。
+- (5) `toolbar` は `FnOnce(DataTableContext) -> V` を受けていた。`Rc<dyn Fn ..>` にすると FnOnce の closure が渡らなくなる（呼出しの形の変化）。
+- (6) `density(d)` は `self.variant(d)` だけの method。`Element::variant` との関係の扱いが付属書に無い。
+- 付属書の 2.3 節の data_table の行は一部の props（row_selectable・row_label・row_details・cell_controls・empty・row_color）だけを書く。builder の全 method（約 33 個）の扱いは書かれていない。
+- **設計者が決める**：上の (1)〜(6)。決まったら U50 を、U3 lane で続きから行う（U51 は後）。
+
+## 設計者の回答（W8・U50 の data_table、2026-11-21）
+
+- `DataTable` は `#[component]` にせず、手書きの builder のまま残す。allowed_impls に足し、理由の型を一つ増やす：**「型引数や複数の値を一組で受ける mode を持つ builder」**（`group_by<G>(..)`・`row_context_menu<M>(..)`・`tree(..)`・`sticky_columns(..)`・`page(..)`・`remote_page(..)`・`page_sizes(..)`・`row_actions(..)`、後の呼出しが勝つ組 `sort`／`multi_sort`・`page`／`remote_page`）。これらを 1 prop 1 setter に分けると、組の値が片方だけ設定された状態（mode の途中）が作れてしまう。builder の method は組を一度に受けるので、その状態が無い。(1)・(3)・(4)・(5) はこの判断で要らなくなる（`DataTable` の名前も、`toolbar` の `FnOnce` も、`density` もそのまま）。
+- (2) `expand_all_control()` は、他の部品と揃えて `expand_all_control(v: bool)` にする（呼出し元は `(true)`。G の移行の文書に 1 行）。
+- U50 は、このほかの部分（`#[track_caller]`、`authored()` の読み、固有の `variant` を残すこと）を今の付属書のとおり済ませて完了。U51 へ進む。
+- allowed_impls の comment の理由の型は 5 つになる（trigger と surface を兄弟で出す／surface を開くたびに作る／型付きの項目を積む／呼出し側の press を包む／型引数や複数の値を一組で受ける mode）。U51 で同じ型に当たるもの（`pagination`・`carousel` など）があれば同じ扱いでよい（OPEN に記録）。

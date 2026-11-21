@@ -1,37 +1,26 @@
-//! Role: The split builder, its handles and the boundary arithmetic.
+//! Role: The split component, its handles and the boundary arithmetic.
 
 use crate::control_size::ControlSize;
 use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
 use crate::split::look::SplitTheme;
 use crate::splitter::look::SplitterTheme;
+use kivact_core::custom::Caller;
 use kivact_core::i18n::message;
 use kivact_core::state::{Callback, Signal, Value, binding, memo};
 use kivact_core::state::{IntoValue, callback};
 use kivact_core::style::{FlexDirection, pct, style};
 use kivact_core::view::EditPhase;
-use kivact_core::view::IntoChildren;
 use kivact_core::view::Variants;
-use kivact_core::view::{Element, Node, node};
 use kivact_core::view::{
-    HandlerResult, IntoView, NodeRef, Orientation, ReadingDirection, Role, View, node_ref, show,
-    use_direction,
+    IntoView, NodeRef, Orientation, ReadingDirection, Role, View, node_ref, show, use_direction,
 };
+use kivact_core::view::{Node, node};
 use kivact_interaction::{ScalarRange, use_splitter};
+use kivact_macros::component;
 
 /// The pixels used until the host has laid the panes out.
 const UNMEASURED: f64 = 800.0;
-
-/// Panes separated by handles, created by [`split`].
-pub struct Split {
-    root: Node,
-    orientation: Orientation,
-    sizes: Signal<Vec<f64>>,
-    panes: Vec<View>,
-    grip: Value<bool>,
-    min_size: f64,
-    on_edit: Option<Callback<EditPhase>>,
-}
 
 /// A group of `panes`, a tuple of views or a `Vec` of them, whose sizes are
 /// the fractions in `sizes`.
@@ -44,16 +33,16 @@ pub struct Split {
 /// boundary, the arrow keys along the group's axis move it by 1 % (Home and
 /// End jump to the limits), Enter collapses and restores the primary pane,
 /// a double click shares the two panes equally, and no pane gets smaller than
-/// [`Split::min_size`] (10 % of the
-/// group unless set). Each key press, action and drag is one edit
-/// ([`on_edit`](Split::on_edit)); Escape or a canceled pointer during a drag
-/// writes the sizes from before the press back. The panes sit side by side
-/// (in a right-to-left subtree the first is on the right and the keys and the
-/// drag follow it); [`Split::orientation`] with [`Orientation::Vertical`]
-/// stacks them. The group fills its parent, so give the parent a size. The
-/// look of a handle is the theme's
-/// [`SplitterTheme::handle`](crate::theme::SplitterTheme), and of its
-/// [`grip`](Split::grip) the theme's [`SplitTheme`](crate::split::look::SplitTheme).
+/// `min_size` (a fraction from 0 to 0.5, 0.1 by default). Each key press,
+/// action and drag is one edit (`on_edit`); Escape or a canceled pointer
+/// during a drag writes the sizes from before the press back. The panes sit
+/// side by side (in a right-to-left subtree the first is on the right and the
+/// keys and the drag follow it); `orientation` set to
+/// [`Orientation::Vertical`] stacks them. The group fills its parent, so give
+/// the parent a size. The look of a handle is the theme's
+/// [`SplitterTheme::handle`](crate::theme::SplitterTheme), and of its `grip`
+/// (shown while `grip` is true) the theme's
+/// [`SplitTheme`](crate::split::look::SplitTheme).
 ///
 /// For two panes whose first size is in pixels, use [`splitter`](crate::splitter).
 ///
@@ -68,62 +57,103 @@ pub struct Split {
 ///         .style(style().height(200).width(400))
 /// }
 /// ```
-#[track_caller]
-pub fn split(sizes: kivact_core::state::Signal<Vec<f64>>, panes: impl IntoChildren) -> Split {
-    Split {
-        root: node(),
-        orientation: Orientation::Horizontal,
+#[component]
+pub fn split(
+    sizes: Signal<Vec<f64>>,
+    panes: Vec<View>,
+    #[prop(default = Orientation::Horizontal)] orientation: Orientation,
+    grip: Option<Value<bool>>,
+    #[prop(default = 0.1)] min_size: f64,
+    on_edit: Option<Callback<EditPhase>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let count = panes.len();
+    let stacked = orientation == Orientation::Vertical;
+    let axis = if stacked {
+        Orientation::Vertical
+    } else {
+        Orientation::Horizontal
+    };
+    let current = sizes.into_value();
+    let shares_now = memo(move || current.with(|sizes| shares(sizes, count)));
+    let refs: Vec<NodeRef> = (0..count).map(|_| node_ref()).collect();
+    // `.disabled(..)` on the group ignores input and assistive technology
+    // and cancels a drag in progress.
+    let group = SplitGroupOptions {
         sizes,
-        panes: panes.into_views(),
-        grip: false.into_value(),
-        min_size: 0.1,
-        on_edit: None,
-    }
-}
-
-impl Split {
-    /// Lay the panes out side by side ([`Orientation::Horizontal`], the
-    /// default; the handles move left and right) or stacked
-    /// ([`Orientation::Vertical`]; the handles move up and down). A constant:
-    /// it is the axis the handles drag and the keys move along, fixed when the
-    /// group is built.
-    pub fn orientation(mut self, orientation: Orientation) -> Self {
-        self.orientation = orientation;
-        self
-    }
-
-    /// Draw a grip on every handle while true (constant or reactive); the
-    /// theme's [`SplitTheme::grip`](crate::split::look::SplitTheme) styles it.
-    #[track_caller]
-    pub fn grip(mut self, grip: impl IntoValue<bool>) -> Self {
-        self.grip = grip.into_value();
-        self
-    }
-
-    /// The smallest fraction of the group a pane may take (0.1 by default).
-    pub fn min_size(mut self, fraction: impl Into<f64>) -> Self {
-        let fraction = fraction.into();
-        self.min_size = if fraction.is_finite() {
-            fraction.clamp(0.0, 0.5)
+        shares: shares_now,
+        shared: shared_room(&refs, stacked),
+        axis,
+        grip: grip.unwrap_or_else(|| false.into_value()),
+        min_size: if min_size.is_finite() {
+            min_size.clamp(0.0, 0.5)
         } else {
             0.1
-        };
-        self
-    }
-
-    /// Report the start and end of each edit ([`EditPhase`]): a drag from
-    /// the press to the release, or one key press or action.
-    pub fn on_edit<R: HandlerResult>(mut self, f: impl Fn(EditPhase) -> R + 'static) -> Self {
-        self.on_edit = Some(callback(f));
-        self
-    }
+        },
+        on_edit,
+        disabled: caller.disabled(),
+        variants,
+    };
+    let children = panes_and_handles(panes, &refs, &group);
+    let direction = match (stacked, use_direction()) {
+        (true, _) => FlexDirection::Column,
+        (false, ReadingDirection::Ltr) => FlexDirection::Row,
+        (false, ReadingDirection::Rtl) => FlexDirection::RowReverse,
+    };
+    node()
+        .base_style(
+            style()
+                .flex_direction(direction)
+                .width(pct(100))
+                .height(pct(100))
+                .min_width(0)
+                .min_height(0),
+        )
+        .child(children)
 }
 
-impl Element for Split {
-    /// The row (or column) of the panes and handles.
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
+/// The pixels the panes share: what they take once laid out.
+fn shared_room(refs: &[NodeRef], stacked: bool) -> Value<f64> {
+    let rects: Vec<_> = refs.iter().map(|r| r.rect()).collect();
+    memo(move || {
+        let lengths: Option<Vec<f64>> = rects
+            .iter()
+            .map(|rect| rect.get().map(|r| if stacked { r.height } else { r.width }))
+            .collect();
+        lengths
+            .map_or(UNMEASURED, |lengths| lengths.iter().sum())
+            .max(1.0)
+    })
+}
+
+/// Each pane in its own share of the room, with the handle after every pane
+/// but the last.
+fn panes_and_handles(panes: Vec<View>, refs: &[NodeRef], group: &SplitGroupOptions) -> Vec<View> {
+    let count = panes.len();
+    let shares_now = group.shares;
+    let mut children: Vec<View> = Vec::with_capacity(count * 2);
+    for (at, (pane, reference)) in panes.into_iter().zip(refs.iter().copied()).enumerate() {
+        children.push(
+            node()
+                .role(Role::Group)
+                .node_ref(reference)
+                .style(move || {
+                    style()
+                        .flex_direction(FlexDirection::Column)
+                        .flex_grow(shares_now.get().get(at).copied().unwrap_or(0.0))
+                        .flex_basis(0)
+                        .min_width(0)
+                        .min_height(0)
+                })
+                .child(pane)
+                .into_view(),
+        );
+        if at + 1 < count {
+            children.push(handle(at, reference, group).into_view());
+        }
     }
+    children
 }
 
 /// The normalized shares of `count` panes from the application's `sizes`.
@@ -152,92 +182,6 @@ struct SplitGroupOptions {
     variants: Variants,
 }
 
-impl IntoView for Split {
-    fn into_view(self) -> View {
-        let Split {
-            mut root,
-            orientation,
-            sizes,
-            panes,
-            grip,
-            min_size,
-            on_edit,
-        } = self;
-        let variants = root.authored().variants();
-        let count = panes.len();
-        let stacked = orientation == Orientation::Vertical;
-        let axis = if stacked {
-            Orientation::Vertical
-        } else {
-            Orientation::Horizontal
-        };
-        let current = sizes.into_value();
-        let shares_now = memo(move || current.with(|sizes| shares(sizes, count)));
-        let refs: Vec<NodeRef> = (0..count).map(|_| node_ref()).collect();
-        let rects: Vec<_> = refs.iter().map(|r| r.rect()).collect();
-        // The pixels the panes share: what they take once laid out.
-        let shared = memo(move || {
-            let lengths: Option<Vec<f64>> = rects
-                .iter()
-                .map(|rect| rect.get().map(|r| if stacked { r.height } else { r.width }))
-                .collect();
-            lengths
-                .map_or(UNMEASURED, |lengths| lengths.iter().sum())
-                .max(1.0)
-        });
-        // `.disabled(..)` on the group ignores input and assistive technology
-        // and cancels a drag in progress.
-        let disabled = root.accessible_disabled();
-        let group = SplitGroupOptions {
-            sizes,
-            shares: shares_now,
-            shared,
-            axis,
-            grip,
-            min_size,
-            on_edit,
-            disabled,
-            variants,
-        };
-        let mut children: Vec<View> = Vec::with_capacity(count * 2);
-        for (at, (pane, reference)) in panes.into_iter().zip(refs.iter().copied()).enumerate() {
-            children.push(
-                node()
-                    .role(Role::Group)
-                    .node_ref(reference)
-                    .style(move || {
-                        style()
-                            .flex_direction(FlexDirection::Column)
-                            .flex_grow(shares_now.get().get(at).copied().unwrap_or(0.0))
-                            .flex_basis(0)
-                            .min_width(0)
-                            .min_height(0)
-                    })
-                    .child(pane)
-                    .into_view(),
-            );
-            if at + 1 < count {
-                children.push(handle(at, reference, &group).into_view());
-            }
-        }
-        let direction = match (stacked, use_direction()) {
-            (true, _) => FlexDirection::Column,
-            (false, ReadingDirection::Ltr) => FlexDirection::Row,
-            (false, ReadingDirection::Rtl) => FlexDirection::RowReverse,
-        };
-        root.base_style(
-            style()
-                .flex_direction(direction)
-                .width(pct(100))
-                .height(pct(100))
-                .min_width(0)
-                .min_height(0),
-        )
-        .child(children)
-        .into_view()
-    }
-}
-
 /// The handle between pane `at` and pane `at + 1`.
 fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
     let SplitGroupOptions {
@@ -263,7 +207,7 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
         sizes.set(next);
     });
     let range = memo(move || boundary_range(&shares_now.get(), at, min_size));
-    let mut behavior = use_splitter(
+    let behavior = use_splitter(
         binding(position, move |value| write.try_call(value)),
         range,
         axis,
@@ -282,9 +226,6 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
             on_edit.call(phase);
         }
     });
-    if let Some(disabled) = disabled {
-        behavior = behavior.disabled(move || disabled.get());
-    }
     let part = behavior.handle();
     let input = part.state();
     let state = move || AxisState {
@@ -298,6 +239,7 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
     };
     with_recipe_style(
         node()
+            .disabled(move || disabled.is_some_and(|disabled| disabled.get()))
             .part(part)
             .name(message("split.handle", "Resize"))
             .controls(primary),

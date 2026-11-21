@@ -397,8 +397,8 @@ fn upload_controls() -> kivact::ui::Card {
         "ファイルアップロード",
         column((
             kivact::ui::dropzone("ここにファイルをドロップ")
-                .multiple()
-                .pick_on_press()
+                .multiple(true)
+                .pick_on_press(true)
                 .icon(kivact::view::icon("cloud-upload").style(style().size(24, 24)))
                 .hint(kivact::i18n::message(
                     "pop.dropzone.hint",

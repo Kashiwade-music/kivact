@@ -48,7 +48,7 @@ fn file_target(label: &'static str, accepts_drop: bool) -> Node {
     let target = node_ref();
     let field = dropzone(label)
         .icon(kivact::view::icon("upload"))
-        .pick_on_press()
+        .pick_on_press(true)
         .node_ref(target)
         .hint(move || {
             files.with(|items| {
@@ -63,7 +63,7 @@ fn file_target(label: &'static str, accepts_drop: bool) -> Node {
         .style(style().width(280));
     let field = if accepts_drop {
         field
-            .multiple()
+            .multiple(true)
             .filters(vec![(
                 "Images".to_owned(),
                 vec!["png".to_owned(), "jpg".to_owned()],
@@ -307,8 +307,8 @@ fn example_input_group() -> Node {
 
 fn example_file_input() -> Node {
     column((
-            specimen("Choose a file", file_target("Attachment", false), "dropzone(label).pick_on_press().on_files(store_files)"),
-            specimen("Choose or drop images", file_target("Images", true), "dropzone(label).multiple().pick_on_press().filters(filters).validate(validate_image).on_files(store_files)"),
+            specimen("Choose a file", file_target("Attachment", false), "dropzone(label).pick_on_press(true).on_files(store_files)"),
+            specimen("Choose or drop images", file_target("Images", true), "dropzone(label).multiple(true).pick_on_press(true).filters(filters).validate(validate_image).on_files(store_files)"),
         )).style(style().gap(12))
 }
 

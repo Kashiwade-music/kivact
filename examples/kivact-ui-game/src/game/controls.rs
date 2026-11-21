@@ -555,8 +555,8 @@ fn file_upload(
         "ファイルアップロード",
         list((
             kivact::ui::dropzone(kivact::i18n::message("game.dropzone.label", "Upload files"))
-                .multiple()
-                .pick_on_press()
+                .multiple(true)
+                .pick_on_press(true)
                 .icon(kivact::view::icon("cloud-upload"))
                 .on_files(move |paths| {
                     for file in paths {

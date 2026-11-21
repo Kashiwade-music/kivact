@@ -119,7 +119,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
         }
         let failed = memo(move || error.is_some_and(|error| error.with(Option::is_some)));
         if error.is_some() {
-            let own = control.node_mut().accessible_invalid();
+            let own = control.node_mut().authored().invalid();
             control = control
                 .with_node(|node| node.described_by(error_ref))
                 .invalid(move || failed.get() || own.as_ref().is_some_and(|own| own.get()));

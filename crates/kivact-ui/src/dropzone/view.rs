@@ -1,175 +1,107 @@
-//! Role: The dropzone builder, file picking, validation and status rendering.
+//! Role: The dropzone component, file picking, validation and status rendering.
 
 use crate::dropzone::look::DropzoneTheme;
+use kivact_core::custom::Caller;
 use kivact_core::platform::{FileDialog, pick_file, pick_files};
-use kivact_core::state::{IntoText, IntoValue, Value};
+use kivact_core::state::{Callback, Value};
 use kivact_core::task::spawn;
-use kivact_core::view::{
-    Element, FilePhase, Handled, HandlerResult, IntoView, Node, Role, View, node, text,
-};
+use kivact_core::view::{Element, FilePhase, Handled, IntoView, Node, Role, View, node, text};
 use kivact_interaction::{DropzoneState, FileInfo, use_dropzone};
+use kivact_macros::component;
 use std::rc::Rc;
-type FileValidator = Rc<dyn Fn(&FileInfo) -> Option<String>>;
-// xtask-allow(state): legacy: icon, multiple, pick_on_press
-/// A validated file drop target. Native file metadata stays application-owned.
-pub struct Dropzone {
-    root: Node,
-    icon: Option<View>,
+
+/// A validated file drop target labelled by `label`. Native file metadata
+/// stays application-owned.
+///
+/// Options: `icon(view)` adds decorative content above the label, mounted
+/// once; `hint(text)` shows application-provided guidance; `on_files(f)`
+/// receives valid files (a callback error appears in the drop target);
+/// `validate(f)` rejects a file with a user-facing error message;
+/// `multiple(true)` accepts several files in one operation (without it, more
+/// than one file shows the message `dropzone.one_file`, "Choose one file.");
+/// `pick_on_press(true)` opens a native picker on pointer, keyboard or
+/// assistive activation; `accept_drop(..)` accepts drag and drop input
+/// independently of the native picker (a change to false ends the active
+/// drag-over visit without clearing files); `filters(..)` passes filters to
+/// the native picker.
+#[component]
+pub fn dropzone(
     label: Value<String>,
-    hint: Value<String>,
-    filters: Value<Vec<(String, Vec<String>)>>,
-    multiple: bool,
-    accept_drop: Value<bool>,
-    pick_on_press: bool,
-    validate: FileValidator,
-    on_files: Rc<dyn Fn(Vec<FileInfo>) -> kivact_core::Result<()>>,
-}
-/// Create a file drop target labelled by `label`.
-#[track_caller]
-pub fn dropzone(label: impl IntoText) -> Dropzone {
-    Dropzone {
-        root: node(),
-        icon: None,
-        label: label.into_text_value(),
-        hint: String::new().into_value(),
-        filters: Vec::new().into_value(),
-        multiple: false,
-        accept_drop: true.into_value(),
-        pick_on_press: false,
-        validate: Rc::new(|_| None),
-        on_files: Rc::new(|_| Ok(())),
+    icon: Option<View>,
+    #[prop(default = String::new())] hint: Value<String>,
+    #[prop(default = Vec::new())] filters: Value<Vec<(String, Vec<String>)>>,
+    #[prop(default = false)] multiple: bool,
+    #[prop(default = true)] accept_drop: Value<bool>,
+    #[prop(default = false)] pick_on_press: bool,
+    validate: Option<Rc<dyn Fn(&FileInfo) -> Option<String>>>,
+    on_files: Option<Callback<Vec<FileInfo>>>,
+    #[caller] caller: Caller,
+) -> impl Element {
+    let variants = caller.variants();
+    let disabled = caller.disabled();
+    let disabled = kivact_core::state::memo(move || disabled.is_some_and(|d| d.get()));
+    let validate = validate.unwrap_or_else(|| Rc::new(|_: &FileInfo| None));
+    let mut api = use_dropzone()
+        .validate(move |file| validate(file))
+        .on_files(move |files| match on_files {
+            // A failed callback becomes the visible failed state.
+            Some(on_files) => on_files.try_call(files),
+            None => Ok(()),
+        });
+    if multiple {
+        api = api.multiple();
     }
-}
-impl Dropzone {
-    /// Accept drag/drop input independently of the native picker. A policy
-    /// change to false ends the active drag-over visit without clearing files.
-    #[track_caller]
-    pub fn accept_drop(mut self, enabled: impl IntoValue<bool>) -> Self {
-        self.accept_drop = enabled.into_value();
-        self
-    }
-
-    /// Add decorative content above the label, mounted once.
-    pub fn icon(mut self, icon: impl IntoView) -> Self {
-        self.icon = Some(icon.into_view());
-        self
-    }
-
-    /// Receive valid files. Callback errors appear in the drop target.
-    pub fn on_files<R: HandlerResult>(mut self, f: impl Fn(Vec<FileInfo>) -> R + 'static) -> Self {
-        self.on_files = Rc::new(move |files| f(files).into_outcome().map(|_| ()));
-        self
-    }
-    /// Reject a file with a user-facing error message.
-    pub fn validate(mut self, f: impl Fn(&FileInfo) -> Option<String> + 'static) -> Self {
-        self.validate = Rc::new(f);
-        self
-    }
-    /// Accept multiple files in one operation. Without it, more than one
-    /// file shows the message `dropzone.one_file` ("Choose one file.").
-    pub fn multiple(mut self) -> Self {
-        self.multiple = true;
-        self
-    }
-    /// Open a native picker on pointer, keyboard or assistive activation.
-    pub fn pick_on_press(mut self) -> Self {
-        self.pick_on_press = true;
-        self
-    }
-    /// Show application-provided guidance.
-    #[track_caller]
-    pub fn hint(mut self, hint: impl IntoText) -> Self {
-        self.hint = hint.into_text_value();
-        self
-    }
-    /// Pass filters to the native picker.
-    #[track_caller]
-    pub fn filters(mut self, filters: impl IntoValue<Vec<(String, Vec<String>)>>) -> Self {
-        self.filters = filters.into_value();
-        self
-    }
-}
-impl Element for Dropzone {
-    fn node_mut(&mut self) -> &mut Node {
-        &mut self.root
-    }
-}
-impl IntoView for Dropzone {
-    fn into_view(self) -> View {
-        let Self {
-            mut root,
+    // A policy change is a real leave event into the shared drop machine,
+    // so a rejected drag cannot retain stale hover feedback.
+    kivact_core::state::effect_on(accept_drop, move |enabled| {
+        if !enabled {
+            api.leave();
+        }
+    });
+    let state = api.state();
+    let reference = kivact_core::view::node_ref();
+    let status_ref = kivact_core::view::node_ref();
+    let root = if pick_on_press {
+        node().part(kivact_interaction::use_button().control())
+    } else {
+        node().with_node(|n| n.role(Role::Group))
+    };
+    let (label_view, hint_view) = captions(label, hint, state, &variants);
+    crate::layer::with_base_recipe_style(
+        root,
+        |r: &DropzoneTheme| r.root_recipe(),
+        &variants,
+        move || state.get(),
+    )
+    .node_ref(reference)
+    .name(label)
+    .invalid(move || matches!(state.get(), DropzoneState::Failed(_)))
+    .on_file(move |event| file_event(api, accept_drop, disabled, event))
+    .on_press(move || {
+        pick(
+            api,
+            disabled,
+            pick_on_press,
             label,
-            icon,
-            hint,
             filters,
             multiple,
-            accept_drop,
-            pick_on_press,
-            validate,
-            on_files,
-        } = self;
-        let variants = root.authored().variants();
-        let disabled = root.accessible_disabled();
-        let disabled = kivact_core::state::memo(move || disabled.is_some_and(|d| d.get()));
-        let mut api = use_dropzone()
-            .validate(move |file| validate(file))
-            .on_files(move |files| on_files(files));
-        if multiple {
-            api = api.multiple();
-        }
-        // A policy change is a real leave event into the shared drop machine,
-        // so a rejected drag cannot retain stale hover feedback.
-        kivact_core::state::effect_on(accept_drop, move |enabled| {
-            if !enabled {
-                api.leave();
-            }
-        });
-        let state = api.state();
-        let reference = kivact_core::view::node_ref();
-        let status_ref = kivact_core::view::node_ref();
-        let root = if pick_on_press {
-            root.part(kivact_interaction::use_button().control())
-        } else {
-            root.with_node(|n| n.role(Role::Group))
-        };
-        let (label_view, hint_view) = captions(label, hint, state, &variants);
-        crate::layer::with_base_recipe_style(
-            root,
-            |r: &DropzoneTheme| r.root_recipe(),
-            &variants,
-            move || state.get(),
+            reference,
         )
-        .node_ref(reference)
-        .name(label)
-        .invalid(move || matches!(state.get(), DropzoneState::Failed(_)))
-        .on_file(move |event| file_event(api, accept_drop, disabled, event))
-        .on_press(move || {
-            pick(
-                api,
-                disabled,
-                pick_on_press,
-                label,
-                filters,
-                multiple,
-                reference,
+    })
+    .child((
+        icon.map(|icon| {
+            crate::layer::with_recipe_style(
+                node().child(icon),
+                |r: &DropzoneTheme| r.icon_recipe(),
+                &variants,
+                move || state.get(),
             )
-        })
-        .child((
-            icon.map(|icon| {
-                crate::layer::with_recipe_style(
-                    node().child(icon),
-                    |r: &DropzoneTheme| r.icon_recipe(),
-                    &variants,
-                    move || state.get(),
-                )
-            }),
-            label_view,
-            hint_view,
-            failure_status(state, &variants),
-            drag_status(state, &variants, status_ref),
-        ))
-        .into_view()
-    }
+        }),
+        label_view,
+        hint_view,
+        failure_status(state, &variants),
+        drag_status(state, &variants, status_ref),
+    ))
 }
 
 /// Run a native file-picking transaction and restore focus on completion.

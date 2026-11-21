@@ -183,6 +183,31 @@ fn a_text_input_without_a_name_reports_an_error_and_a_field_names_it() {
     });
     assert_eq!(screen.errors().len(), 1, "{:?}", screen.errors());
     assert!(format!("{:?}", screen.errors()[0]).contains("has no accessible name"));
+    // The message names the call site: the test's own file.
+    assert!(format!("{:?}", screen.errors()[0]).contains("ui_field.rs"));
     let named = screen.get_by_test_id("named");
     assert_eq!(named.name(), "Email");
+}
+
+/// A custom control without a name of its own, built as a component.
+#[component]
+fn custom_input() -> impl Element {
+    node().role(Role::TextBox).focusable(true)
+}
+
+#[test]
+fn field_takes_a_standard_or_custom_control_without_annotations() {
+    let (screen, ()) = mount(|| {
+        let name = signal(String::new());
+        (
+            (),
+            column((
+                ui::field("Name", ui::text_input(name)),
+                ui::field("Code", custom_input()),
+            )),
+        )
+    });
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+    assert_eq!(screen.get_by_role(Role::TextBox, "Name").name(), "Name");
+    assert_eq!(screen.get_by_role(Role::TextBox, "Code").name(), "Code");
 }

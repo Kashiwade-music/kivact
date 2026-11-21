@@ -12,7 +12,7 @@ fn dropzone_accepts_dropped_files_and_rejects_invalid_ones() {
         (
             files,
             dropzone("Upload")
-                .multiple()
+                .multiple(true)
                 .validate(|f| {
                     f.path
                         .extension()
@@ -55,7 +55,7 @@ fn dropzone_picker_cancellation_and_failure_allow_retry() {
         (
             files,
             dropzone("Choose")
-                .pick_on_press()
+                .pick_on_press(true)
                 .on_files(move |f| files.set(f))
                 .style(style().width(240).height(120)),
         )
