@@ -1141,3 +1141,11 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 ## 設計者の回答（W8・menu の名前の直しで落ちた tabs の試験、2026-11-22）
 
 - (a1) を採る。`role_matches` も `name_of`（`labelled_by` を解決した名前）で比べる。`interaction_tabs::the_list_tabs_and_the_panel_publish_roles_and_relations` の `get_by_role(Role::TabPanel, "")` は `"Beta"` に直す。tab panel が自分の tab で名付けられるのは ARIA の決まり（`aria-labelledby` の先の tab の名前が panel の accessible name）で、支援技術が読む名前も "Beta" になる。前の `""` は、driver が `labelled_by` を解かなかったための値だった。`labelled_by` の関係の assert は変えない。設計者の決まりとして、a11y の名前の期待値を変えてよい（この形の直しだけ：名前が `labelled_by` の先の名前になる所）。他に同じ理由で落ちる試験があれば同じく直し、OPEN に一覧を書く。それ以外の理由で落ちたら STOP。
+
+## 設計者の回答（W8・U48b の循環、2026-11-22）
+
+- (A) の変形を採る。`use_combobox` は変えず、二つ目の `use_combobox` も作らない。cache を interaction の独立した小さな値にし、ui が「作る → selection を作る → 選択に従わせる」の順で使う：
+  - `crates/kivact-interaction/src/combobox/known.rs`（新）に `pub struct KnownOptions<K>`（今の `KnownLabels` の中身。`Copy`）と `pub fn known_options<K: ItemKey>(source: Value<Vec<ListItem<K>>>) -> KnownOptions<K>`（今の `KnownLabels::new`）、method `pub fn values(self) -> Value<Vec<ListItem<K>>>`（今の `values`）と `pub fn follow(self, source: Value<Vec<ListItem<K>>>, selection: Selection<K>)`（今の `observe`。S-9 の `effect-writes` の印ごと移す）。doc：「The options a combobox shows for its selection: the current options plus the selected ones a later result replaced, so a selected item keeps its label.」`lib.rs` から出す（`known_options`、`KnownOptions`）。
+  - ui の `combobox/render.rs`：`KnownLabels::new` を `kivact_interaction::known_options` に、`observe` を `follow` にする（呼ぶ順は今のまま）。ui の `labels.rs` の `KnownLabels` と `LabelCache` を消し、`label` 関数は使われていれば残す。
+  - 前の回答の `ComboboxApi::known_options()` は取り消す（循環のため）。公開 API の追加は `known_options` と `KnownOptions` の二つだけ（kit が使える一般の部品。設計者の許可）。
+  - 確認：interaction と ui の combobox の試験（`interaction_combobox`・`apg_combobox`・`ui_combobox`）、`--crate kivact-ui` の ui-machine が 0 件。期待値は変えない。
