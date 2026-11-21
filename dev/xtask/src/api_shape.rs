@@ -55,7 +55,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                     .reachable
                     .contains(&definition(source, &item.sig.ident.to_string())) =>
             {
-                check_signature(source, &item.sig, false, errors)
+                check_signature(source, &item.sig, &item.attrs, false, errors)
             }
             syn::Item::Trait(item)
                 if surface
@@ -66,7 +66,7 @@ pub(crate) fn check(source: &Source, surface: &Surface, errors: &mut Vec<String>
                     if let syn::TraitItem::Fn(method) = member
                         && !source.internal_contract(&method.attrs, method.sig.span())
                     {
-                        check_signature(source, &method.sig, true, errors);
+                        check_signature(source, &method.sig, &method.attrs, true, errors);
                     }
                 }
             }
@@ -131,10 +131,17 @@ fn shared_mutable_arc(names: &std::collections::BTreeSet<String>, text: &str) ->
                     || name.starts_with("Atomic")
             }))
 }
-fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: &mut Vec<String>) {
+fn check_signature(
+    source: &Source,
+    sig: &syn::Signature,
+    attrs: &[syn::Attribute],
+    method: bool,
+    errors: &mut Vec<String>,
+) {
     if source.allows("api-shape", sig.span()) {
         return;
     }
+    let component = attrs.iter().any(is_component);
     let args: Vec<_> = sig
         .inputs
         .iter()
@@ -147,6 +154,11 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         })
         .collect();
     for arg in &args {
+        // A `#[component]` setter takes its `Rc<dyn Fn ..>` slot as `impl Fn ..`
+        // (the macro rewrites it), so the signature the user sees has no `Rc`.
+        if component && rc_fn_object(arg) {
+            continue;
+        }
         check_type(source, arg, true, errors);
     }
     if let syn::ReturnType::Type(_, ty) = &sig.output {
@@ -189,6 +201,36 @@ fn check_signature(source: &Source, sig: &syn::Signature, method: bool, errors: 
         );
     }
 }
+/// The `#[component]` attribute, by its last path segment (`component` or `kivact::component`).
+fn is_component(attr: &syn::Attribute) -> bool {
+    attr.path()
+        .segments
+        .last()
+        .is_some_and(|segment| segment.ident == "component")
+}
+
+/// `Rc<dyn Fn ..>`, or `Option<Rc<dyn Fn ..>>`: a slot the caller's closure fills.
+fn rc_fn_object(ty: &syn::Type) -> bool {
+    let syn::Type::Path(path) = ty else {
+        return false;
+    };
+    let Some(segment) = path.path.segments.last() else {
+        return false;
+    };
+    let syn::PathArguments::AngleBracketed(arguments) = &segment.arguments else {
+        return false;
+    };
+    let Some(syn::GenericArgument::Type(inner)) = arguments.args.first() else {
+        return false;
+    };
+    match segment.ident.to_string().as_str() {
+        "Rc" => matches!(inner, syn::Type::TraitObject(object)
+            if object.bounds.iter().any(|bound| fn_arguments(bound).is_some())),
+        "Option" => rc_fn_object(inner),
+        _ => false,
+    }
+}
+
 /// The last argument of an `on_*` setter follows API-3.
 fn handler_callback(ty: &syn::Type, sig: &syn::Signature) -> bool {
     into_handler(ty) || fn_output_handler(ty, sig)
@@ -310,7 +352,7 @@ fn check_impl(source: &Source, surface: &Surface, item: &syn::ItemImpl, errors: 
             && matches!(method.vis, syn::Visibility::Public(_))
             && !source.internal_contract(&method.attrs, method.sig.span())
         {
-            check_signature(source, &method.sig, true, errors);
+            check_signature(source, &method.sig, &method.attrs, true, errors);
         }
     }
 }
@@ -366,6 +408,21 @@ mod tests {
         let mut errors = Vec::new();
         super::check(&source, &surface, &mut errors);
         assert_eq!(errors.len(), 2, "{errors:?}");
+    }
+    #[test]
+    fn accepts_rc_slots_of_components_only() {
+        let mut source = crate::check_source::fixture(
+            "#[component] pub fn slotted(item: Option<Rc<dyn Fn(u32) -> View>>, body: Rc<dyn Fn(u32) -> View>) {} pub fn plain(body: Rc<dyn Fn(u32)>) {} #[component] pub fn data(value: Rc<u8>) {}",
+        );
+        source.module.clear();
+        let surface = crate::public_surface::build(std::slice::from_ref(&source));
+        let mut errors = Vec::new();
+        super::check(&source, &surface, &mut errors);
+        assert_eq!(errors.len(), 2, "{errors:?}");
+        assert!(
+            errors.iter().all(|error| error.contains("ownership")),
+            "{errors:?}"
+        );
     }
     #[test]
     fn follows_alias_fields_but_not_private_fields() {

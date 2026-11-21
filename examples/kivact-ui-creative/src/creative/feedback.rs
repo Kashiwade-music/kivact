@@ -108,7 +108,7 @@ fn render_settings(status: Signal<String>) -> impl kivact::view::Element {
                         .border(0, rgba(0, 0.0))
                         .border_bottom(1, ui::ColorName::Hair),
                 )
-                .keep_mounted()
+                .keep_mounted(true)
                 .content(|key| {
                     if key == "format" {
                         render_format_fields()

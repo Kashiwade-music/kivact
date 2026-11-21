@@ -27,13 +27,11 @@ fn branch_exit_keeps_its_paint_but_removes_the_child_from_navigation() {
                 signal(None),
             )
             .expanded(signal(vec![1]))
-            .reveal(
-                2.0,
-                kivact::motion::Transition::tween(
-                    734.77,
-                    kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
-                ),
-            )
+            .reveal(kivact::motion::Transition::tween(
+                734.77,
+                kivact::motion::Easing::CubicBezier(0.327, 0.694, 0.116, 1.0),
+            ))
+            .reveal_gap(2.0)
             .item(|row, _| {
                 node().style(move || {
                     style().size(40, 40).background(if row.get().key == 2 {

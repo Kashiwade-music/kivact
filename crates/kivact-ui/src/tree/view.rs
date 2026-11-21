@@ -29,7 +29,8 @@ pub struct Tree<K: kivact_core::state::ItemKey> {
     marker_content: Option<kivact_core::view::ViewFn<Value<TreeRowRecipeState>>>,
     activate: Option<kivact_core::state::Callback<K>>,
     header: Option<View>,
-    reveal: Option<(f64, Transition)>,
+    reveal: Option<Transition>,
+    reveal_gap: f64,
 }
 
 /// A named tree with application-owned expansion and selection.
@@ -49,6 +50,7 @@ pub fn tree<K: kivact_core::state::ItemKey>(
         activate: None,
         header: None,
         reveal: None,
+        reveal_gap: 0.0,
     }
 }
 
@@ -59,8 +61,13 @@ impl<K: kivact_core::state::ItemKey> Tree<K> {
         self
     }
     /// Reveal branches with retained presence, as in `tree_rows`.
-    pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
-        self.reveal = Some((gap.into(), transition));
+    pub fn reveal(mut self, transition: Transition) -> Self {
+        self.reveal = Some(transition);
+        self
+    }
+    /// The space between revealed rows (default 0), with [`reveal`](Self::reveal).
+    pub fn reveal_gap(mut self, gap: f64) -> Self {
+        self.reveal_gap = gap;
         self
     }
     /// Bind expanded branches.
@@ -134,6 +141,7 @@ pub fn tree_rows<K: kivact_core::state::ItemKey, P: kivact_core::state::ItemKey>
         view,
         render,
         reveal: None,
+        reveal_gap: 0.0,
     }
 }
 
@@ -142,19 +150,25 @@ pub struct TreeRows<K: kivact_core::state::ItemKey> {
     tree: TreeApi<K>,
     view: View,
     render: RowNode<K>,
-    reveal: Option<(f64, Transition)>,
+    reveal: Option<Transition>,
+    reveal_gap: f64,
 }
 impl<K: kivact_core::state::ItemKey> TreeRows<K> {
-    /// Reveal each branch with the supplied spacing and transition.
-    pub fn reveal(mut self, gap: impl Into<f64>, transition: Transition) -> Self {
-        self.reveal = Some((gap.into(), transition));
+    /// Reveal each branch with the supplied transition.
+    pub fn reveal(mut self, transition: Transition) -> Self {
+        self.reveal = Some(transition);
+        self
+    }
+    /// The space between revealed rows (default 0), with [`reveal`](Self::reveal).
+    pub fn reveal_gap(mut self, gap: f64) -> Self {
+        self.reveal_gap = gap;
         self
     }
 }
 impl<K: kivact_core::state::ItemKey> IntoView for TreeRows<K> {
     fn into_view(self) -> View {
         match self.reveal {
-            Some((gap, transition)) => revealed_rows(self.tree, gap, transition, self.render),
+            Some(transition) => revealed_rows(self.tree, self.reveal_gap, transition, self.render),
             None => self.view,
         }
     }
@@ -210,6 +224,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
             marker_content,
             header,
             reveal,
+            reveal_gap,
         } = self;
         let variants = root.authored().variants();
         let mut behavior = use_tree(nodes, expanded, selection);
@@ -220,7 +235,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
         let state = list.state();
         let rows = render_rows(behavior, variants.clone(), item, marker_content);
         let rows = match reveal {
-            Some((gap, transition)) => rows.reveal(gap, transition),
+            Some(transition) => rows.reveal(transition).reveal_gap(reveal_gap),
             None => rows,
         };
         let header_ref = kivact_core::view::node_ref();
