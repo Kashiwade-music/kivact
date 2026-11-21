@@ -434,7 +434,7 @@ impl Default for ToolbarVariant {
 }
 
 /// Display typography independent of the heading's semantic level.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum HeadingDisplay {
     /// Use the largest display heading typography.
     D1,

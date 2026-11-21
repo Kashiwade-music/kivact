@@ -1,39 +1,20 @@
 //! Demonstrate the action, feedback and choice recipes in the Soft catalog.
-use super::specimen::specimen;
+use super::labelled;
 use kivact::interaction::ListItem;
 use kivact::state::signal;
 use kivact::style::style;
 use kivact::ui::{
     ButtonVariant, ControlSize, button, button_group, checkbox, progress, radio_group,
-    range_slider, slider, switch, toggle_button, toggle_group,
+    range_slider, slider, switch, toggle_button,
 };
 use kivact::ui::{RadioGroupVariant, toolbar};
 use kivact::view::Orientation;
 use kivact::view::{Element, Node, column, icon, row};
 use kivact_ui_soft::{check_indicator, keyboard_hint, radio_indicator, with_key_hints};
 
-pub(super) fn examples(slug: &str) -> Option<Node> {
-    Some(match slug {
-        "button" => example_button(),
-        "button-group" => example_button_group(),
-        "toggle-button-group" => example_toggle_button_group(),
-        "segmented-control" => example_segmented_control(),
-        "toolbar" => example_toolbar(),
-        "indicator" => example_indicator(),
-        "icon-button" => example_icon_button(),
-        "toggle-button" => example_toggle_button(),
-        "checkbox-input" => example_checkbox_input(),
-        "switch" => example_switch(),
-        "radio-list" => example_radio_list(),
-        "slider" => example_slider(),
-        "progress-bar" => example_progress_bar(),
-        _ => return None,
-    })
-}
-
 fn buttons() -> Node {
     column((
-        specimen(
+        labelled(
             "Variants",
             row((
                 button("Primary"),
@@ -41,10 +22,9 @@ fn buttons() -> Node {
                 button("Ghost").variant(ButtonVariant::Ghost),
                 button("Danger").variant(ButtonVariant::Danger),
             ))
-            .style(style().gap(8).wrap(true)),
-            "button(\"Danger\").variant(ButtonVariant::Danger)",
+            .style(style().gap(8).flex_wrap(true)),
         ),
-        specimen(
+        labelled(
             "Sizes and states",
             row((
                 button("Extra small").size(ControlSize::ExtraSmall),
@@ -54,42 +34,30 @@ fn buttons() -> Node {
                 button("Unavailable").disabled(true),
                 button("Saving").busy(true),
             ))
-            .style(style().gap(8).wrap(true)),
-            "button(\"Small\").size(ControlSize::Small)\nbutton(\"Saving\").busy(true)",
+            .style(style().gap(8).flex_wrap(true)),
         ),
     ))
     .style(style().gap(12))
 }
 
-fn example_button() -> Node {
+// example: button
+pub(super) fn example_button() -> Node {
     buttons()
 }
+// end example
 
-fn example_button_group() -> Node {
-    specimen(
+// example: button-group
+pub(super) fn example_button_group() -> Node {
+    labelled(
         "Joined actions",
         button_group("History", (button("Undo"), button("Redo"))),
-        "button_group(\"History\", (button(\"Undo\"), button(\"Redo\")))",
     )
 }
+// end example
 
-fn example_toggle_button_group() -> Node {
-    specimen(
-        "Independent formatting choices",
-        toggle_group(
-            "Formatting",
-            vec![
-                ListItem::new("bold", "Bold"),
-                ListItem::new("italic", "Italic"),
-            ],
-            signal(vec!["bold"]),
-        ),
-        "toggle_group(\"Formatting\", items, selection)",
-    )
-}
-
-fn example_segmented_control() -> Node {
-    specimen(
+// example: segmented-control
+pub(super) fn example_segmented_control() -> Node {
+    labelled(
         "Choose a view",
         with_key_hints(Orientation::Horizontal, || {
             radio_group(
@@ -100,24 +68,26 @@ fn example_segmented_control() -> Node {
             .variant(RadioGroupVariant::Segmented)
             .item_node(|target, _, _| keyboard_hint(target))
         }),
-        "radio_group(\"View\", items, selection).variant(RadioGroupVariant::Segmented)",
     )
 }
+// end example
 
-fn example_toolbar() -> Node {
-    specimen(
+// example: toolbar
+pub(super) fn example_toolbar() -> Node {
+    labelled(
         "Keyboard navigation between tools",
         with_key_hints(Orientation::Horizontal, || {
             toolbar("Editing")
                 .start((keyboard_hint(button("Undo")),))
                 .end((keyboard_hint(button("Redo")),))
         }),
-        "toolbar(\"Editing\").start(|| keyboard_hint(button(\"Undo\")))",
     )
 }
+// end example
 
-fn example_indicator() -> Node {
-    specimen(
+// example: indicator
+pub(super) fn example_indicator() -> Node {
+    labelled(
         "Selection marks",
         row((
             check_indicator(true),
@@ -125,12 +95,13 @@ fn example_indicator() -> Node {
             radio_indicator(false),
         ))
         .style(style().gap(12)),
-        "radio_indicator(true)",
     )
 }
+// end example
 
-fn example_icon_button() -> Node {
-    specimen(
+// example: icon-button
+pub(super) fn example_icon_button() -> Node {
+    labelled(
         "Icon-only actions",
         row((
             button("Search").icon(icon("search")).hide_label(true),
@@ -140,12 +111,13 @@ fn example_icon_button() -> Node {
                 .hide_label(true),
         ))
         .style(style().gap(8)),
-        "button(\"Search\").icon(icon(\"search\")).hide_label(true)",
     )
 }
+// end example
 
-fn example_toggle_button() -> Node {
-    specimen(
+// example: toggle-button
+pub(super) fn example_toggle_button() -> Node {
+    labelled(
         "Off, on and disabled",
         row((
             toggle_button("Pin", signal(false)),
@@ -153,12 +125,13 @@ fn example_toggle_button() -> Node {
             toggle_button("Lock", signal(false)).disabled(true),
         ))
         .style(style().gap(8)),
-        "toggle_button(\"Follow\", signal(true))",
     )
 }
+// end example
 
-fn example_checkbox_input() -> Node {
-    specimen(
+// example: checkbox-input
+pub(super) fn example_checkbox_input() -> Node {
+    labelled(
         "Unchecked, checked, mixed and disabled",
         column((
             checkbox("Unchecked", signal(false)),
@@ -166,24 +139,26 @@ fn example_checkbox_input() -> Node {
             checkbox("Mixed", signal(false)).indeterminate(true),
             checkbox("Unavailable", signal(true)).disabled(true),
         )),
-        "checkbox(\"Mixed\", signal(false)).indeterminate(true)",
     )
 }
+// end example
 
-fn example_switch() -> Node {
-    specimen(
+// example: switch
+pub(super) fn example_switch() -> Node {
+    labelled(
         "Off, on and disabled",
         column((
             switch("Notifications", signal(false)),
             switch("Sync", signal(true)),
             switch("Unavailable", signal(true)).disabled(true),
         )),
-        "switch(\"Sync\", signal(true))",
     )
 }
+// end example
 
-fn example_radio_list() -> Node {
-    specimen(
+// example: radio-list
+pub(super) fn example_radio_list() -> Node {
+    labelled(
         "Single selection",
         radio_group(
             "Delivery",
@@ -193,37 +168,42 @@ fn example_radio_list() -> Node {
             ],
             signal(Some("pickup")),
         ),
-        "radio_group(\"Delivery\", options, signal(Some(\"pickup\")))",
     )
 }
+// end example
 
-fn example_slider() -> Node {
-    specimen(
+// example: slider
+pub(super) fn example_slider() -> Node {
+    labelled(
         "Single value, range and vertical",
         column((
-            slider("Volume", signal(40.0))
+            slider(signal(40.0))
+                .label("Volume")
                 .range(0.0..=100.0)
                 .style(style().width(224)),
-            range_slider("Limits", signal(20.0), signal(70.0))
+            range_slider(signal(20.0), signal(70.0))
+                .label("Limits")
                 .range(0.0..=100.0)
                 .style(style().width(224)),
-            slider("Height", signal(60.0))
+            slider(signal(60.0))
+                .label("Height")
                 .range(0.0..=100.0)
                 .orientation(Orientation::Vertical),
         ))
         .style(style().gap(16)),
-        "slider(\"Volume\", signal(40.0)).range(0.0..=100.0)",
     )
 }
+// end example
 
-fn example_progress_bar() -> Node {
-    specimen(
+// example: progress-bar
+pub(super) fn example_progress_bar() -> Node {
+    labelled(
         "Determinate and indeterminate",
         column((
             progress(Some(0.6)).style(style().width(224)),
             progress(None::<f64>).style(style().width(224)),
         ))
         .style(style().gap(16)),
-        "progress(Some(0.6))\nprogress(None::<f64>)",
     )
 }
+// end example

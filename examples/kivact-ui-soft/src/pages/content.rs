@@ -1,39 +1,17 @@
 //! Demonstrate Neutral typography and icon sizes and colors.
-use super::specimen::specimen;
+use super::labelled;
 use kivact::style::style;
 use kivact::ui::{avatar, avatar_group, kbd};
-use kivact::view::{Node, column, row};
+use kivact::view::IntoView;
+use kivact::view::{Node, column, row, text};
 use kivact_ui_soft::{
     HeadingDisplay, IconColor, IconSize, TextColor, TextKind, icon_view, link, styled_text,
     thumbnail, visually_hidden,
 };
 
-pub(super) fn examples(slug: &str) -> Option<Node> {
-    Some(match slug {
-        "text" => example_text(),
-        "heading" => example_heading(),
-        "icon" => example_icon(),
-        "kbd" => example_kbd(),
-        "empty-state" => example_empty_state(),
-        "avatar" | "avatar-group" | "avatar-group-overflow" | "avatar-status-dot" => {
-            example_avatar()
-        }
-        "visually-hidden" => example_visually_hidden(),
-        "link" => example_link(),
-        "thumbnail" => example_thumbnail(),
-        "blockquote" => example_blockquote(),
-        "code" => example_code(),
-        "code-block" => example_code_block(),
-        "markdown" => example_markdown(),
-        "citation" => example_citation(),
-        "timer" => example_timer(),
-        "timestamp" => example_timestamp(),
-        _ => return None,
-    })
-}
-
-fn example_text() -> Node {
-    specimen(
+// example: text
+pub(super) fn example_text() -> Node {
+    labelled(
         "Type roles",
         column((
             styled_text("Large text").kind(TextKind::Large),
@@ -44,12 +22,13 @@ fn example_text() -> Node {
             styled_text("let ready = true;").kind(TextKind::Code),
         ))
         .style(style().gap(8)),
-        "styled_text(\"Supporting text\").kind(TextKind::Supporting).color(TextColor::Secondary)",
     )
 }
+// end example
 
-fn example_heading() -> Node {
-    specimen(
+// example: heading
+pub(super) fn example_heading() -> Node {
+    labelled(
         "Heading scale",
         column((
             kivact::ui::heading("Display", 1).variant(HeadingDisplay::D1),
@@ -61,12 +40,13 @@ fn example_heading() -> Node {
             kivact::ui::heading("Heading six", 6),
         ))
         .style(style().gap(8)),
-        "kivact::ui::heading(\"Display\", 1).variant(HeadingDisplay::D1)",
     )
 }
+// end example
 
-fn example_icon() -> Node {
-    specimen(
+// example: icon
+pub(super) fn example_icon() -> Node {
+    labelled(
         "Sizes and semantic colors",
         row((
             icon_view("search").size(IconSize::Xs),
@@ -77,107 +57,108 @@ fn example_icon() -> Node {
                 .color(IconColor::Warning),
         ))
         .style(style().gap(16)),
-        "icon_view(\"circle-check\").color(IconColor::Success)",
     )
 }
+// end example
 
-fn example_kbd() -> Node {
-    specimen(
+// example: kbd
+pub(super) fn example_kbd() -> Node {
+    labelled(
         "Keyboard shortcuts",
         row((kbd("mod+shift+p"), kbd("escape"), kbd("up+down"))).style(style().gap(12)),
-        "kbd(\"mod+shift+p\")",
     )
 }
+// end example
 
-fn example_empty_state() -> Node {
-    specimen(
+// example: empty-state
+pub(super) fn example_empty_state() -> Node {
+    labelled(
         "Empty project",
-        kivact::ui::empty_state("No documents")
-            .announce_changes(true)
-            .description("Create a document to get started.")
-            .icon(icon_view("search"))
-            .actions(kivact::ui::button("New document")),
-        "empty_state(\"No documents\").description(\"Create a document to get started.\")",
+        column((
+            kivact::ui::empty_state("No documents")
+                .announce_changes(true)
+                .icon(icon_view("search"))
+                .actions(kivact::ui::button("New document")),
+            text("Create a document to get started."),
+        )),
     )
 }
+// end example
 
-fn example_avatar() -> Node {
-    specimen(
+// example: avatar
+// example: avatar-group
+pub(super) fn example_avatar() -> Node {
+    labelled(
         "Initials and grouped members",
         row((
             avatar("Avery Morgan"),
             avatar_group((avatar("Sam Rivera"), avatar("Taylor Chen"))).total(5usize),
         ))
         .style(style().gap(16)),
-        "avatar(\"Avery Morgan\")",
     )
 }
+// end example
 
-fn example_visually_hidden() -> Node {
-    specimen(
+// example: visually-hidden
+pub(super) fn example_visually_hidden() -> Node {
+    labelled(
         "Screen reader text",
         column((
             styled_text("The hint is available to assistive technology."),
             visually_hidden("Additional hint"),
         )),
-        "visually_hidden(\"Additional hint\")",
     )
 }
+// end example
 
-fn example_link() -> Node {
-    specimen(
-        "External link",
-        link("Reference").external(true).on_press(|| {}),
-        "link(\"Reference\").external(true).on_press(open_reference)",
-    )
+// example: link
+pub(super) fn example_link() -> Node {
+    labelled("External link", link("Reference").external(true))
 }
+// end example
 
-fn example_thumbnail() -> Node {
-    specimen(
+// example: thumbnail
+pub(super) fn example_thumbnail() -> Node {
+    labelled(
         "Attachment states",
         row((
             thumbnail().label("Cover image"),
             thumbnail().label("Uploading image").loading(true),
         ))
         .style(style().gap(12)),
-        "thumbnail().label(\"Uploading image\").busy(true)",
     )
 }
+// end example
 
-fn example_blockquote() -> Node {
-    specimen(
+// example: blockquote
+pub(super) fn example_blockquote() -> Node {
+    labelled(
         "Quotation and attribution",
-        kivact_ui_soft::blockquote_text("A simple interface lets the content lead.")
-            .cite("Design notes"),
-        "blockquote_text(\"A simple interface lets the content lead.\").cite(\"Design notes\")",
+        kivact_ui_soft::blockquote(text("A simple interface lets the content lead.").into_view())
+            .cite("Design notes".to_owned()),
     )
 }
+// end example
 
-fn example_code() -> Node {
-    specimen(
-        "Inline code",
-        kivact_ui_soft::code("cargo run"),
-        "code(\"cargo run\")",
-    )
+// example: code
+pub(super) fn example_code() -> Node {
+    labelled("Inline code", kivact_ui_soft::code("cargo run"))
 }
+// end example
 
-fn example_code_block() -> Node {
-    specimen(
+// example: code-block
+pub(super) fn example_code_block() -> Node {
+    labelled(
         "Rust example",
         kivact::ui::code_block("fn main() {\n    println!(\"Hello\");\n}")
             .language("rust")
             .highlight(kivact::ui::highlighter(
-                || {
-                    kivact::style::use_tokens::<kivact_ui_soft::Tokens>()
-                        .colors
-                        .syntax
-                },
-                |palette, line, _: &()| {
+                || (),
+                |_, line, _: &()| {
                     (
                         kivact_ui_soft::code_highlight(
                             &kivact_ui_soft::CodeLanguageInput::from("rust"),
                             line,
-                            palette,
                         ),
                         (),
                     )
@@ -187,45 +168,47 @@ fn example_code_block() -> Node {
             .language_label(false)
             .collapsible(true)
             .collapsible_threshold(3),
-        "code_block(source).language(\"rust\").title(\"Example source\").collapsible(true).collapsible_threshold(3)",
     )
 }
+// end example
 
-fn example_markdown() -> Node {
-    specimen(
-            "Formatted content",
-            kivact_ui_soft::markdown(
+// example: markdown
+pub(super) fn example_markdown() -> Node {
+    labelled("Formatted content", kivact_ui_soft::markdown(
                 "## Project notes\n\nUse **Soft** to style your interface.\n\nThe project reference lives in [the guide](https://example.com/guide) and wraps with the paragraph.\n\n- Review the catalog\n- Try the controls",
             )
-            .content_width(Some(240.0)),
-            "markdown(source).content_width(Some(240.0))",
-        )
+            .content_width(Some(240.0)))
 }
+// end example
 
-fn example_citation() -> Node {
-    specimen(
+// example: citation
+pub(super) fn example_citation() -> Node {
+    labelled(
         "Source reference",
         kivact_ui_soft::citation(
-            1,
+            1u32,
             kivact_ui_soft::CitationSource {
                 title: Some("Design notes".to_owned()),
                 ..Default::default()
             },
         ),
-        "citation(1, source)",
     )
 }
+// end example
 
-fn example_timer() -> Node {
-    specimen("Elapsed time", kivact_ui_soft::timer(), "timer()")
+// example: timer
+pub(super) fn example_timer() -> Node {
+    labelled("Elapsed time", kivact_ui_soft::timer())
 }
+// end example
 
-fn example_timestamp() -> Node {
-    specimen(
+// example: timestamp
+pub(super) fn example_timestamp() -> Node {
+    labelled(
         "Timestamp",
         kivact_ui_soft::timestamp(kivact::state::signal(
             kivact_ui_soft::TimestampValue::unix_seconds(1_793_664_000),
         )),
-        "timestamp(instant)",
     )
 }
+// end example

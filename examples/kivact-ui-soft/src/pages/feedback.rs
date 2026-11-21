@@ -1,5 +1,5 @@
 //! Demonstrate Soft badges, placeholders and status indicators.
-use super::specimen::specimen;
+use super::labelled;
 use kivact::style::{Align, style};
 use kivact::ui::badge;
 use kivact::ui::{ControlSize, skeleton, spinner};
@@ -9,20 +9,9 @@ use kivact_ui_soft::{
     status_dot, token,
 };
 
-pub(super) fn examples(slug: &str) -> Option<Node> {
-    Some(match slug {
-        "badge" => example_badge(),
-        "skeleton" => example_skeleton(),
-        "status-dot" => example_status_dot(),
-        "spinner" => example_spinner(),
-        "token" => example_token(),
-        "banner" => example_banner(),
-        _ => return None,
-    })
-}
-
-fn example_badge() -> Node {
-    specimen(
+// example: badge
+pub(super) fn example_badge() -> Node {
+    labelled(
         "Semantic and categorical colors",
         row((
             badge("Neutral"),
@@ -32,31 +21,33 @@ fn example_badge() -> Node {
             badge("Error").tone(kivact::interaction::Tone::Danger),
             badge("Design").variant(BadgeVariant::Purple),
         ))
-        .style(style().gap(8).wrap(true)),
-        "badge(\"Success\").tone(kivact::interaction::Tone::Success)",
+        .style(style().gap(8).flex_wrap(true)),
     )
 }
+// end example
 
-fn example_skeleton() -> Node {
-    specimen(
+// example: skeleton
+pub(super) fn example_skeleton() -> Node {
+    labelled(
         "Staggered placeholders",
         row((
             skeleton()
                 .variant(SkeletonRadius::Rounded)
                 .style(style().size(40, 40)),
             column((
-                skeleton().index(1).style(style().size(160, 14)),
-                skeleton().index(2).style(style().size(112, 12)),
+                skeleton().index(1usize).style(style().size(160, 14)),
+                skeleton().index(2usize).style(style().size(112, 12)),
             ))
             .style(style().gap(8)),
         ))
         .style(style().align_items(Align::Center).gap(12)),
-        "skeleton().variant(SkeletonRadius::Rounded).style(style().size(40, 40))",
     )
 }
+// end example
 
-fn example_status_dot() -> Node {
-    specimen(
+// example: status-dot
+pub(super) fn example_status_dot() -> Node {
+    labelled(
         "Status and activity",
         column((
             row((
@@ -76,12 +67,13 @@ fn example_status_dot() -> Node {
             .style(style().align_items(Align::Center).gap(8)),
         ))
         .style(style().gap(8)),
-        "status_dot(StatusDotVariant::Warning, \"Processing\").pulsing(true)",
     )
 }
+// end example
 
-fn example_spinner() -> Node {
-    specimen(
+// example: spinner
+pub(super) fn example_spinner() -> Node {
+    labelled(
         "Sizes and shades",
         row((
             spinner().size(ControlSize::ExtraSmall),
@@ -95,24 +87,26 @@ fn example_spinner() -> Node {
                 .label_content(text("Loading")),
         ))
         .style(style().align_items(Align::Center).gap(16)),
-        "spinner().size(ControlSize::Medium).name(\"Loading\").label_content(text(\"Loading\"))",
     )
 }
+// end example
 
-fn example_token() -> Node {
-    specimen(
+// example: token
+pub(super) fn example_token() -> Node {
+    labelled(
         "Categorical tokens",
         row((
             token("Neutral"),
             token("Engineering").color(TokenColor::Blue),
         ))
         .style(style().gap(8)),
-        "token(\"Engineering\").color(TokenColor::Blue)",
     )
 }
+// end example
 
-fn example_banner() -> Node {
-    specimen(
+// example: banner
+pub(super) fn example_banner() -> Node {
+    labelled(
         "Status messages",
         column((
             kivact::ui::alert("Workspace updated")
@@ -125,6 +119,6 @@ fn example_banner() -> Node {
                 )),
         ))
         .style(style().gap(8)),
-        "alert(\"Review required\").tone(Tone::Warning).icon(banner_icon(Tone::Warning))",
     )
 }
+// end example
