@@ -184,6 +184,35 @@ fn an_ellipsis_a_scrolling_axis_and_a_text_that_fits_are_not_violations() {
 }
 
 #[test]
+fn a_text_scrolled_on_both_axes_is_not_cut_by_the_page_above_it() {
+    // The text is 300 wide, past the page's clip (100). The scroll box holds
+    // it on both axes, so the page never shows that edge.
+    let screen = render(|| {
+        column((scroll(
+            text("A long line of text that cannot fit its box")
+                .style(style().text_wrap(false))
+                .test_id("inner"),
+        )
+        .axes(ScrollAxes::Both)
+        .style(
+            style()
+                .width(60)
+                .height(30)
+                .align_items(Align::Start)
+                .background(rgb(GRAY)),
+        ),))
+        .style(
+            style()
+                .width(100)
+                .height(40)
+                .overflow(Overflow::Hidden)
+                .align_items(Align::Start),
+        )
+    });
+    assert_eq!(screen.check_layout(), []);
+}
+
+#[test]
 fn check_layout_lists_every_violation() {
     let screen = render_with(japanese(), || {
         column((
