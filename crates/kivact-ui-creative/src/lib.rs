@@ -32,6 +32,7 @@ mod key_glyph;
 mod layout;
 mod numeric;
 mod options;
+mod panel_group;
 mod recipe_parts;
 mod recipes_collections;
 mod recipes_controls;
@@ -92,6 +93,7 @@ pub use numeric::{
     number, value_slider,
 };
 pub use options::{Accent, Density, LabelTone};
+pub use panel_group::{InspectorPanel, panel_group};
 pub use tabs::document_tabs;
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{TimelineEditor, timeline_editor};
