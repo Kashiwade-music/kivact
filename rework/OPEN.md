@@ -1096,3 +1096,9 @@ U50（lane `wt/rw-W8-U3`、HEAD `2d6e03fb`、変更なし）は着手前に止�
   - `SlideView.rtl` は `ReadingDirection`（今の `Layout.rtl` と同じ型。付属書の `Value<ReadingDirection>` は誤り）。
   - carousel の machine：`Event::GoTo`・`ScrollObserved`・`Settle`、`Effect::Go(at)`（index を書いて `scroll_to(at)`）・`Effect::Settled(at)`（index だけ）。`use_carousel(index, count, scroll_to)`。ui の `follow_index` の effect は消し、`scroll_to_slide(view, refs, at)` を closure にした（`rg "effect\("` は空）。
 - **差戻し（W8・U51 の carousel、初回の scroll）**：`carousel/view.rs` の `follow_index` を消したため、Scroll mode で初期 index が 0 以外のとき、また viewport の rect が届く前に index が書かれたとき、初回の scroll が起きない。旧 `effect` は rect の到着で再実行して `shown` へ scroll していた。`feed` は初期値を飛ばす（`kivact-runtime` の `Machine::feed` は `effect_on`）。既存の試験は初期 index 0 と後からの書込みだけを見るので通る。付属書 U51 の 3 は `effect(` を消すと書いているので、設計者が決める：(a) 初回の rect の到着で一度だけ `scroll_to_slide` を呼ぶ（`effect_on(viewport.rect(), ..)` 相当、`follow_scroll` と同じ形）、(b) 初期 index は scroll しない、(c) 別の形。試験は足していない。
+
+## 差戻し（W8・U51 の carousel の初回 scroll、2026-11-21）
+
+U51（lane `wt/rw-W8-U3`、commit `46b10e0a`）は付属書どおりに commit したが、STOP 1 件。付属書 3 の `follow_index` の削除で、Scroll mode の初期 index が 0 以外のとき、または viewport の rect が届く前に index が書かれたとき、初回の scroll が起きない（feed は初期値を飛ばす。旧 effect は rect の到着で再実行していた）。既存の試験は初期 index 0 と後からの書込みだけを見るので、欠落を見る試験は足していない。
+- **設計者が決める**：(a) 初回の rect の到着で一度だけ `scroll_to_slide`、(b) 初期 index は scroll しない、(c) 別の形。
+- 同じ commit の食い違い（判断済み）：位置引数の `slides`（carousel）と子（table 系・item_list）は `Children`（`Vec<View>` だと呼出しの形が変わるため）。`looping(v: bool)`（既定 false）。item_row は `position(index, count)` が 2 つの値を一組で受けるため手書きのまま allowed_impls（U50 の理由の型）。pagination は `count` と `total_items(..)` の二つの prop（本体で PageCount を決める）。item_list は header があると root が column になり、caller の modifier は column に付く（tabs と同じ形）。SlideView.rtl は `ReadingDirection`。lib.rs と table.rs の pub use に TableHeader・TableBody・TableFooter・TableHead を足した。
