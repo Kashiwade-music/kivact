@@ -12,7 +12,7 @@ use kivact::prelude::Element;
 use kivact::state::{Callback, Value};
 use kivact::style::{
     Align, Color, FlexDirection, Justify, Shadow, Style, TextDecorationLine, Theme, ThemeMode,
-    color, style,
+    color, control, style,
 };
 use kivact::ui::ControlSize;
 use kivact::view::{IntoView, Node, Role, node};
@@ -29,6 +29,12 @@ pub(crate) const CHEVRON_DOWN: Glyph = &[&[(6.0, 9.0), (12.0, 15.0), (18.0, 9.0)
 
 /// The monospace family of inline code and code blocks; the application registers the font.
 pub(crate) const MONO: &str = "\"Geist Mono\", monospace";
+
+/// `disabled:opacity-50`: the theme's disabled opacity, for the box around a
+/// disabled input or label.
+pub(crate) fn disabled(t: &Theme) -> Style {
+    style().opacity(t.get(&control::DISABLED_OPACITY_VAR))
+}
 
 /// The theme's focus ring: the focus outline of the theme's width in
 /// `--ring` at half opacity, for a part without a border of its own.

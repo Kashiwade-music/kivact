@@ -5,23 +5,16 @@
 //! button and field recipes call.
 
 use crate::color::{DESTRUCTIVE, INPUT, MUTED_FOREGROUND};
-use crate::recipe_parts::{field_fill, focus_ring};
+use crate::recipe_parts::{disabled, field_fill, focus_ring};
 use crate::variants::InputGroupButtonSize;
 use kivact::style::{
-    Align, Color, FlexDirection, Justify, LineHeight, Position, Style, Theme, ThemeMode, control,
-    pct, style,
+    Align, Color, FlexDirection, Justify, LineHeight, Position, Style, Theme, ThemeMode, pct, style,
 };
 use kivact::ui::theme::InputGroupMemberKind;
 use kivact::ui::theme::{
     ButtonState, InputGroupMemberState, InputGroupState, InputGroupTheme, Look,
 };
 use kivact::view::ReadingDirection;
-
-/// `disabled:opacity-50`: the theme's disabled opacity, for the box around a
-/// disabled input.
-fn disabled(t: &Theme) -> Style {
-    style().opacity(t.get(&control::DISABLED_OPACITY_VAR))
-}
 
 /// The size of a canonical button inside a group: `h-6` and `h-8` text
 /// buttons, and the square icon buttons.

@@ -4,7 +4,7 @@ use kivact::Prop;
 
 /// Colors of a standard alert callout. Chosen with `kivact::ui::alert(..).variant(AlertTone::Destructive)`;
 /// other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AlertTone {
     /// Card colors.
     #[default]
@@ -15,7 +15,7 @@ pub enum AlertTone {
 
 /// The width class of a standard alert dialog. Chosen with
 /// `kivact::ui::dialog(..).variant(AlertDialogSize::Sm)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AlertDialogSize {
     /// 384 px wide; the media sits beside the text and the footer is right-aligned.
     #[default]
@@ -39,7 +39,7 @@ pub enum AttachmentSize {
 
 /// The frame of the media of an attachment. Chosen with
 /// `kivact::ui::attachment(..).variant(AttachmentMediaVariant::Image)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AttachmentMediaVariant {
     /// An icon on a muted square.
     #[default]
@@ -50,7 +50,7 @@ pub enum AttachmentMediaVariant {
 
 /// The look of a standard `kivact::ui::badge` (badge.tsx `variant`). Chosen with
 /// `kivact::ui::badge(..).variant(BadgeVariant::Outline)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum BadgeVariant {
     /// Solid primary.
     #[default]
@@ -78,12 +78,12 @@ pub enum CardSize {
 
 /// Draw the header rule of a standard card. Chosen with
 /// `kivact::ui::card(..).variant(CardHeaderBordered(true))`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Prop)]
 pub struct CardHeaderBordered(pub bool);
 
 /// The Basic visual arrangement of a canonical chat message. Chosen with
 /// `kivact::ui::chat_message(..).variant(ChatLayout::Bubble)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
 pub enum ChatLayout {
     /// A full-width message row with optional author, avatar and metadata.
     #[default]
@@ -94,7 +94,7 @@ pub enum ChatLayout {
 
 /// The Basic color treatment of a standard chat message content slot. Chosen with
 /// `kivact::ui::chat_message(..).variant(ChatBubbleVariant::Secondary)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ChatBubbleVariant {
     /// Solid primary: the sender's own text.
     #[default]
@@ -116,7 +116,7 @@ pub enum ChatBubbleVariant {
 /// The two looks of a toggle: the variant of a `kivact::ui::toggle_button` and of
 /// a standard `kivact::ui::toggle_group`. Chosen with `.variant(ToggleVariant::Outline)`;
 /// other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ToggleVariant {
     /// Transparent.
     #[default]
@@ -136,7 +136,7 @@ pub enum CodeBlockSize {
 
 /// The edge and spacing of a standard date field popup. Chosen with
 /// `kivact::ui::date_input(..).variant(DatePickerVariant::Flush)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum DatePickerVariant {
     /// A calendar-sized surface without extra popup padding.
     #[default]
@@ -145,7 +145,7 @@ pub enum DatePickerVariant {
 
 /// Visual treatment of a standard disclosure. Chosen with
 /// `kivact::ui::disclosure(..).variant(DisclosureVariant::Trace)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum DisclosureVariant {
     /// Content without accordion padding, used with a caller-owned trigger.
     #[default]
@@ -156,7 +156,7 @@ pub enum DisclosureVariant {
 
 /// The visual treatment of an edge dialog. Chosen with
 /// `kivact::ui::dialog(..).variant(DrawerVariant::Sheet)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum DrawerVariant {
     /// A swipe drawer with its visible grab handle.
     #[default]
@@ -167,7 +167,7 @@ pub enum DrawerVariant {
 
 /// The frame around a standard empty-state icon slot. Chosen with
 /// `kivact::ui::empty_state(..).variant(EmptyMediaVariant::Icon)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum EmptyMediaVariant {
     /// Bare media.
     #[default]
@@ -178,7 +178,7 @@ pub enum EmptyMediaVariant {
 
 /// The look of a field set legend. Chosen with
 /// `kivact::ui::field_set(..).variant(FieldLegendVariant::Label)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum FieldLegendVariant {
     /// `text-sm`.
     #[default]
@@ -189,7 +189,7 @@ pub enum FieldLegendVariant {
 
 /// Draw a standard text input or text area without its own box inside a group. Chosen with
 /// `kivact::ui::input_group(..).variant(InputGroupControl)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub struct InputGroupControl;
 
 /// Visual size of a canonical input-group button. Chosen with
@@ -205,7 +205,7 @@ pub enum InputGroupButtonSize {
 
 /// The frame of an standard item row (item.tsx `variant`). Chosen with
 /// `kivact::ui::item_list(..).variant(ItemVariant::Outline)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ItemVariant {
     /// Transparent border.
     #[default]
@@ -229,7 +229,7 @@ pub enum ItemSize {
 
 /// The frame of the media slot of an standard item row (item.tsx media `variant`). Chosen with
 /// `kivact::ui::item_list(..).variant(ItemMediaVariant::Icon)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum ItemMediaVariant {
     /// Bare content.
     #[default]
@@ -262,7 +262,7 @@ pub enum ItemMediaVariant {
 ///     .content(|key| text(key))
 /// }
 /// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]
 pub enum TabsVariant {
     /// The underlined tabs of `variant="line"`.
     Line,
@@ -270,7 +270,7 @@ pub enum TabsVariant {
 
 /// The decoration of a standard marker (marker.tsx `variant`). Chosen with
 /// `kivact::ui::marker(..).variant(MarkerVariant::Separator)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum MarkerVariant {
     /// Plain muted text.
     #[default]
@@ -284,7 +284,7 @@ pub enum MarkerVariant {
 /// The kind of a kit menu, which the menu recipes read from the menu's
 /// `.variant(..)`: a menu without one is a dropdown or a use_context menu.
 /// Chosen with `kivact::ui::menu(..).variant(MenuVariant::Bar)`; other themes ignore it and draw the standard look.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Prop)]
 pub enum MenuVariant {
     /// menubar.tsx: wider levels and check marks at the start.
     Bar,

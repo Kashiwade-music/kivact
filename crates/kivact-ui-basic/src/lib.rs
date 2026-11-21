@@ -15,6 +15,8 @@ mod input_otp;
 mod marker;
 mod menubar;
 mod native_select;
+mod primitives;
+mod questionnaire;
 mod recipe_parts;
 mod recipes_calendar;
 mod recipes_chat;
@@ -35,6 +37,8 @@ mod recipes_overlays_command;
 mod recipes_overlays_dialog;
 mod scroll_area;
 mod theme;
+mod trace;
+mod typography;
 mod variants;
 
 pub use attachment::{
@@ -62,8 +66,17 @@ pub use input_otp::{InputOtp, OtpPattern, input_otp};
 pub use marker::{Marker, marker};
 pub use menubar::{Menubar, menubar};
 pub use native_select::{NativeSelect, NativeSelectSize, native_select};
+pub use primitives::{
+    Label, Separator, breadcrumb_ellipsis, item_separator, kbd_group, label, separator,
+    table_caption,
+};
+pub use questionnaire::{
+    Questionnaire, QuestionnaireAnswer, QuestionnaireChoice, QuestionnaireStep, questionnaire,
+};
 pub use scroll_area::{ScrollArea, scroll_area};
 pub use theme::theme;
+pub use trace::{TraceLine, trace, trace_collapsible, trace_line};
+pub use typography::{blockquote, bullet_list, inline_code, large, lead, muted, paragraph, small};
 pub use variants::{
     AlertDialogSize, AlertTone, AttachmentMediaVariant, AttachmentSize, BadgeVariant,
     CardHeaderBordered, CardSize, ChatBubbleVariant, ChatLayout, CodeBlockSize, DatePickerVariant,

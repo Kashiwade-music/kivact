@@ -4,132 +4,125 @@
 //! Lyra preset's 12 px controls: prose uses 16 px body text. Vertical
 //! spacing between blocks is the caller's (`column(..).style(style().gap(..))`).
 
-use crate::ColorName;
+use crate::color::{BORDER, FOREGROUND, MUTED, MUTED_FOREGROUND};
+use crate::recipe_parts::MONO;
 
-use kivact::prelude::Element;
-use kivact::view::{Node, column, node, row, text};
+use kivact::component;
+use kivact::state::Value;
+use kivact::style::{Align, FlexDirection, FontStyle, style};
+use kivact::view::{Element, column, node, row, text};
 
-use kivact::state::{IntoText, IntoValue};
-use kivact::style::{Align, Direction, Style, style};
 use kivact::view::{Role, for_index};
 
-/// The monospace family of inline code and code blocks; the application registers the font.
-pub(crate) const MONO: &str = "\"Geist Mono\", monospace";
-
-/// A text node in the foreground color with `style` on top.
-fn styled(value: impl IntoText, look: fn(&crate::Tokens) -> Style) -> Node {
-    text(value).style(move || {
-        let p = kivact::style::use_tokens::<crate::Tokens>();
-        look(&p)
-    })
-}
-
 /// `leading-7`: a 16 px paragraph.
-#[track_caller]
-pub fn paragraph(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn paragraph(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(16)
             .line_height(28.0 / 16.0)
-            .color(p.foreground)
-    })
+            .color(FOREGROUND),
+    )
 }
 
 /// `text-xl text-muted-foreground`: an introductory paragraph.
-#[track_caller]
-pub fn lead(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn lead(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(20)
             .line_height(28.0 / 20.0)
-            .color(p.muted_foreground)
-    })
+            .color(MUTED_FOREGROUND),
+    )
 }
 
 /// `text-lg font-semibold`: emphasized text.
-#[track_caller]
-pub fn large(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn large(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(18)
             .line_height(28.0 / 18.0)
-            .weight(600)
-            .color(p.foreground)
-    })
+            .font_weight(600)
+            .color(FOREGROUND),
+    )
 }
 
 /// `text-sm leading-none font-medium`: small print.
-#[track_caller]
-pub fn small(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn small(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(14)
             .line_height(1.0)
-            .weight(500)
-            .color(p.foreground)
-    })
+            .font_weight(500)
+            .color(FOREGROUND),
+    )
 }
 
 /// `text-sm text-muted-foreground`: secondary text.
-#[track_caller]
-pub fn muted(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn muted(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(14)
             .line_height(20.0 / 14.0)
-            .color(p.muted_foreground)
-    })
+            .color(MUTED_FOREGROUND),
+    )
 }
 
 /// `border-l-2 pl-6 italic`: a quotation.
-#[track_caller]
-pub fn blockquote(value: impl IntoText) -> impl kivact::view::Element {
-    styled(value, |p| {
+#[component]
+pub fn blockquote(value: Value<String>) -> impl Element {
+    text(value).style(
         style()
             .font_size(16)
             .line_height(28.0 / 16.0)
-            .italic(true)
+            .font_style(FontStyle::Italic)
             .padding_left(24)
-            .border_left(2, p.border)
-            .color(p.foreground)
-    })
+            .border_left(2, BORDER)
+            .color(FOREGROUND),
+    )
 }
 
 /// `bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold`: code in prose.
 ///
 /// The node stands on its own; inside a paragraph's text use a
 /// `kivact::view::span` with the same family and background instead.
-#[track_caller]
-pub fn inline_code(value: impl IntoText) -> impl kivact::view::Element {
+#[component]
+pub fn inline_code(value: Value<String>) -> impl Element {
     node()
         .style(
             style()
                 .align_self(Align::Start)
                 .padding_x(4.8)
                 .padding_y(3.2)
-                .radius(0)
-                .background(ColorName::Muted)
-                .color(ColorName::Foreground)
+                .border_radius(0.0)
+                .background(MUTED)
+                .color(FOREGROUND)
                 .font_family(MONO)
                 .font_size(14)
-                .weight(600)
+                .font_weight(600)
                 .text_wrap(false),
         )
         .child(text(value))
 }
 
 /// `ml-6 list-disc [&>li]:mt-2`: a bulleted list of `items` (`Role::List`).
-#[track_caller]
-pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Element {
-    let items = items.into_value();
+#[component]
+pub fn bullet_list(items: Value<Vec<String>>) -> impl Element {
     column(for_index(items, |_, item| {
         row((
-            text("•").style(style().width(16).shrink(0)),
-            text(item).style(style().grow(1).min_width(0)),
+            text("•").style(style().width(16).flex_shrink(0.0)),
+            text(item).style(style().flex_grow(1.0).min_width(0)),
         ))
         .with_node(|root| root.role(Role::ListItem))
         .name(item)
-        .style(style().direction(Direction::Row).align_items(Align::Start))
+        .style(
+            style()
+                .flex_direction(FlexDirection::Row)
+                .align_items(Align::Start),
+        )
     }))
     .with_node(|root| root.role(Role::List))
     .style(
@@ -138,6 +131,6 @@ pub fn bullet_list(items: impl IntoValue<Vec<String>>) -> impl kivact::view::Ele
             .padding_left(8)
             .font_size(16)
             .line_height(28.0 / 16.0)
-            .color(ColorName::Foreground),
+            .color(FOREGROUND),
     )
 }
