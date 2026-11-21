@@ -38,7 +38,7 @@ impl DatePresentation {
         }
     }
 }
-// xtask-allow(state): legacy: picker_label, valid, week_start
+// xtask-allow(state): independent: label names the field and is present only when the caller set it (the Option records only that), picker_label names the picker button, valid is an optional caller output binding for draft validity and week_start an optional calendar override; each is set only by its by-value setter
 /// An editable locale-sensitive date, created by [`date_input`].
 pub struct DateInput {
     root: Node,

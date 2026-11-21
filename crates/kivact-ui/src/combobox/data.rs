@@ -11,7 +11,7 @@ use std::time::Duration;
 pub(super) type Matcher<K> = Rc<dyn Fn(&str, &ListItem<K>) -> bool>;
 pub(super) type Search<K> =
     Rc<dyn Fn(String) -> Pin<Box<dyn Future<Output = kivact_core::Result<Vec<ListItem<K>>>>>>>;
-// xtask-allow(state): legacy: query, open, free_text, mode, chips, placeholder, empty, matcher, search, exclude_selected; Combobox::query binds the editor text to the caller;
+// xtask-allow(state): independent: query and open are optional caller bindings (absent means local signals), free_text, chips and exclude_selected setup flags, and mode, placeholder, empty, matcher and search optional settings, each set only by its by-value setter; Inline mode ignores open, as documented on open(); label is the caller's label, present only when the caller set it (the Option records only that), set only by its by-value label setter; Combobox::query binds the editor text to the caller;
 /// A themed editable list of keyed suggestions, created by [`super::handle::combobox`].
 /// Single choices show their label; multiple choices can be displayed as chips.
 pub struct Combobox<K: ItemKey> {

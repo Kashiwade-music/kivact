@@ -269,7 +269,7 @@ impl Requests {
     }
 }
 
-// xtask-allow(state): legacy: tree, removed, windows, next_window, fonts_value, initial_render, app_motion, pointer_modality, modifiers, requests; allocates
+// xtask-allow(state): record: tree is the node tree, written only through ViewState::tree_mut by the view's tree operations; windows is the open windows' records, written by install_window and remove_window; requests is the focus and platform request queue (its ids come from request_id), written by the view's request and focus code; modifiers and pointer_modality are the last input facts, written by set_modifiers and set_pointer_modality in input dispatch; app_motion is the AppMotion delivery, written by the AppMotion host event; initial_render is true until start_mount writes false once; next_window only allocates window ids; node_states is the per-node state signal registry, inserted and removed by node_states::source (and its cleanup), its signals set by states_changed; registered_fonts is the set of theme fonts already registered, written only by register_theme_fonts; devtools is fixed at construction
 /// Everything the view layer keeps per App. Fields drop in declaration
 /// order.
 pub(crate) struct ViewState {

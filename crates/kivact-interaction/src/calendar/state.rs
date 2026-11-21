@@ -20,7 +20,7 @@ pub(super) enum Choice {
     },
 }
 
-// xtask-allow(state): legacy: selection_status, month; the day grid's state is read from the Part that grid() returns;
+// xtask-allow(state): independent: selection_status is the announced selection text, written by State::pick and the effects of selection_choice; month is the shown month, a Signal from the caller's binding (state::create), written by the caller's binding and by the calendar's moves (State::go_to, State::pick and the month buttons of the calendar handle); the day grid's state is read from the Part that grid() returns;
 pub(super) struct State {
     pub(super) chosen_message: Value<String>,
     pub(super) selection_status: Signal<String>,
