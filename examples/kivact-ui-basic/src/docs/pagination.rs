@@ -1,44 +1,37 @@
 //! Catalog page of Pagination: pages helper, manual links, labels and long lists.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact::ui::PageItem;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "pagination",
-        name: "Pagination",
-        description: "ページ番号で長い一覧を移動する部品です。pagination は 0 から数える現在ページの束縛と総ページ数から、前後の移動と省略記号を含む全体を作ります。ページ番号の書き方は label_format で変えられます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("pagination.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "pages",
-                "Pages",
-                "先頭、末尾、現在とその前後のページを表示し、端では前へ、次へが無効になります。",
-                pages,
-            ),
-            Example::new(
-                "manual",
-                "Custom cell contents",
-                "item スロットでセルの見た目を変更しても、移動と選択は同じページ束縛を使います。",
-                manual,
-            ),
-            Example::new(
-                "labels",
-                "Page labels",
-                "label_format は 1 から数えたページ番号を受け取り、リンクの文字と名前を返します。",
-                labels,
-            ),
-            Example::new(
-                "long",
-                "Many pages",
-                "100 ページでも、表示するのは現在の周辺だけです。",
-                long,
-            ),
-        ],
-    }
+    Page::new("pagination", "Pagination", "Components", include_str!("pagination.rs"))
+        .description("Moves through a long list by page number. pagination builds the whole control from a binding of the current page (counted from 0) and the total page count: the previous and next moves and the ellipses. label_format changes how page numbers are written.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "pages",
+            "Pages",
+            "Shows the first and last pages and the current page with its neighbors; at the ends, previous and next are disabled.",
+            pages,
+        ))
+        .example(Example::new(
+            "manual",
+            "Custom cell contents",
+            "Even if the item slot changes how a cell looks, moving and selecting use the same page binding.",
+            manual,
+        ))
+        .example(Example::new(
+            "labels",
+            "Page labels",
+            "label_format receives the page number counted from 1 and returns the text and the name of the link.",
+            labels,
+        ))
+        .example(Example::new(
+            "long",
+            "Many pages",
+            "Even with 100 pages, only the area around the current page is shown.",
+            long,
+        ))
 }
 
 // example: pages

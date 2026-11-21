@@ -1,44 +1,37 @@
 //! Catalog page of Item: variants, media, group and pressable.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "item",
-        name: "Item",
-        description: "アイコン、題名、説明、操作を持つ一覧の項目です。on_press を渡すと項目全体が押せます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
-        source: include_str!("item.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "variants",
-                "Variants",
-                "ItemVariant の Default、Outline、Muted です。actions に操作を置きます。",
-                variants,
-            ),
-            Example::new(
-                "media",
-                "Media",
-                "media に渡したアイコンを、media_variant の Icon で整えます。",
-                media,
-            ),
-            Example::new(
-                "group",
-                "Group",
-                "item_list で縦に並べ、item_separator で区切ります。",
-                group,
-            ),
-            Example::new(
-                "pressable",
-                "Pressable",
-                "on_press を渡すと、ホバーで背景が変わるボタンになります。",
-                pressable,
-            ),
-        ],
-    }
+    Page::new("item", "Item", "Components", include_str!("item.rs"))
+        .description("A list item with an icon, a title, a description and actions. Pass on_press and the whole item can be pressed.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "variants",
+            "Variants",
+            "The ItemVariant values Default, Outline and Muted. Put the actions in actions.",
+            variants,
+        ))
+        .example(Example::new(
+            "media",
+            "Media",
+            "Arrange the icon passed to media with ItemMedia's Icon variant (media_variant).",
+            media,
+        ))
+        .example(Example::new(
+            "group",
+            "Group",
+            "Stack the items with item_list and divide them with item_separator.",
+            group,
+        ))
+        .example(Example::new(
+            "pressable",
+            "Pressable",
+            "With on_press the item is a button whose background changes on hover.",
+            pressable,
+        ))
 }
 
 // example: variants

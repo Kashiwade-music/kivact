@@ -1,31 +1,24 @@
 //! Catalog page of Direction: provide a reading direction and read it back.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "direction",
-        name: "Direction",
-        description: "部分木の読み方向（左から右、右から左）を伝える境界です。方向に対応した部品が、構築のときに読んで行の並びと矢印の向きを反転します。標準の kivact::ui の部品は反転しません。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("direction.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "provider",
-                "Provider",
-                "provide_direction に方向と子を作る関数を渡します。内側では use_direction が渡した方向を返します。",
-                provider,
-            ),
-            Example::new(
-                "toolbar",
-                "Toolbar",
-                "use_direction を読んで、行の並びを自分で反転する例です。",
-                toolbar,
-            ),
-        ],
-    }
+    Page::new("direction", "Direction", "Components", include_str!("direction.rs"))
+        .description("A boundary that tells a subtree which way to read (left to right, or right to left). A component that follows the direction reads it when it is built, and reverses its order and its arrows. The standard kivact::ui components do not reverse.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "provider",
+            "Provider",
+            "Pass a direction and a function that builds the children to provide_direction. Inside, use_direction returns the direction that was passed.",
+            provider,
+        ))
+        .example(Example::new(
+            "toolbar",
+            "Toolbar",
+            "An example that reads use_direction and reverses a row by hand.",
+            toolbar,
+        ))
 }
 
 // example: provider

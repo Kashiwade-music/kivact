@@ -1,52 +1,46 @@
 //! Catalog page of Date Picker: single, format, range and options.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::i18n::{CalendarDate, DateRange};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "date-picker",
-        name: "Date Picker",
-        description: "カレンダーから日付や期間を選ぶ部品です。ボタンの幅は表示する文字の幅で、固定の幅を持ちません。幅が必要なときは style で指定します。表示する文字と書式は attach に渡すボタンで指定します。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("date_picker.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "ボタンを押すとカレンダーのポップオーバーが開き、日を選ぶと閉じて値を表示します。幅は style で 280 にしています。",
-                basic,
-            ),
-            Example::new(
-                "format",
-                "Format",
-                "format で表示を変えます。placeholder は未選択の文言です。",
-                format,
-            ),
-            Example::new(
-                "range",
-                "Range",
-                "date_range_picker は二回目の押下で閉じ、「開始 - 終了」を表示します。",
-                range,
-            ),
-            Example::new(
-                "weekdays",
-                "Weekdays only",
-                "calendar で開くカレンダーを設定します。ここでは日曜と土曜を選べなくします。",
-                weekdays,
-            ),
-        ],
-    }
+    Page::new("date-picker", "Date Picker", "Components", include_str!("date_picker.rs"))
+        .description("Chooses a date or a range of dates from a calendar. The width of the button is the width of the text it shows, so it has no fixed width; set one with style when you need it. The text and its format are set by the button passed to attach.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pressing the button opens a calendar popover; picking a day closes it and shows the value. The width is 280 through style.",
+            basic,
+        ))
+        .example(Example::new(
+            "format",
+            "Format",
+            "format changes the display. placeholder is the text shown while nothing is picked.",
+            format,
+        ))
+        .example(Example::new(
+            "range",
+            "Range",
+            "date_range_picker closes on the second press and shows 'start - end'.",
+            range,
+        ))
+        .example(Example::new(
+            "weekdays",
+            "Weekdays only",
+            "calendar sets the calendar it opens. Here Sundays and Saturdays cannot be chosen.",
+            weekdays,
+        ))
 }
 
 // example: basic
 fn basic() -> impl IntoView {
     let date = signal(None::<CalendarDate>);
     let locale = kivact::i18n::use_locale();
-    kivact::ui::date_input("Date of birth", date)
+    kivact::ui::date_input(date)
+        .label("Date of birth")
         .presentation(kivact::ui::DatePresentation::Desktop)
         .variant(basic::DatePickerVariant::Flush)
         .calendar(|c| c.variable_rows(true))
@@ -68,7 +62,7 @@ fn basic() -> impl IntoView {
                 style()
                     .width(280)
                     .justify_content(Justify::Start)
-                    .weight(400),
+                    .font_weight(400),
             ),
         )
 }
@@ -77,7 +71,8 @@ fn basic() -> impl IntoView {
 // example: format
 fn format() -> impl IntoView {
     let date = signal(Some(CalendarDate::new(2026, 10, 3)));
-    kivact::ui::date_input("Due date", date)
+    kivact::ui::date_input(date)
+        .label("Due date")
         .presentation(kivact::ui::DatePresentation::Desktop)
         .variant(basic::DatePickerVariant::Flush)
         .calendar(|c| c.variable_rows(true))
@@ -99,7 +94,8 @@ fn format() -> impl IntoView {
 fn range() -> impl IntoView {
     let value = signal(None::<DateRange>);
     let locale = kivact::i18n::use_locale();
-    kivact::ui::date_range_input("Stay", value)
+    kivact::ui::date_range_input(value)
+        .label("Stay")
         .presentation(kivact::ui::DatePresentation::Desktop)
         .variant(basic::DatePickerVariant::Flush)
         .calendar(|c| c.number_of_months(2).variable_rows(true))
@@ -132,7 +128,8 @@ fn range() -> impl IntoView {
 fn weekdays() -> impl IntoView {
     use kivact::i18n::Weekday;
     let date = signal(None::<CalendarDate>);
-    kivact::ui::date_input("Meeting", date)
+    kivact::ui::date_input(date)
+        .label("Meeting")
         .presentation(kivact::ui::DatePresentation::Desktop)
         .variant(basic::DatePickerVariant::Flush)
         .calendar(|c| {

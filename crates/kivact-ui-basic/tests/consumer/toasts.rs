@@ -10,11 +10,11 @@ use std::time::Duration;
 fn page(child: impl IntoView) -> Node {
     column(child).style(
         style()
-            .background(basic::ColorName::Background)
-            .color(basic::ColorName::Foreground)
+            .background(basic::BACKGROUND)
+            .color(basic::FOREGROUND)
             .padding(16)
             .gap(12)
-            .grow(1)
+            .flex_grow(1)
             .align_items(Align::Start),
     )
 }
@@ -29,9 +29,9 @@ fn toast_page(make: fn() -> kivact::interaction::Toast) -> (Screen, ()) {
                 (),
                 page((
                     kivact::ui::button("Show").on_press(move || {
-                        kivact::interaction::toaster().push(make());
+                        kivact::interaction::use_toaster().push(make());
                     }),
-                    kivact::ui::toast_region(kivact::interaction::toaster())
+                    kivact::ui::toast_region(kivact::interaction::use_toaster())
                         .hold_all_on_hover(true),
                 )),
             )

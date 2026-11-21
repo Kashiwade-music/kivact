@@ -1,50 +1,43 @@
 //! Catalog page of Button: variants, sizes, icons, loading and disabled.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use std::time::Duration;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "button",
-        name: "Button",
-        description: "操作を実行するためのボタンです。標準の kivact::ui::button に Lyra の見た目を当てたもので、種類、大きさ、アイコン、読み込み中の状態を持ちます。",
-        usage: "use kivact::prelude::*;\nuse kivact::ui::ControlSize;",
-        source: include_str!("button.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "variants",
-                "Variants",
-                "variant で見た目を選びます。Primary が shadcn の default、Danger が destructive に当たります。",
-                variants,
-            ),
-            Example::new(
-                "sizes",
-                "Sizes",
-                "ControlSize の ExtraSmall、Small、Medium、Large が xs、sm、default、lg の高さ（24、28、32、36 px）になります。",
-                sizes,
-            ),
-            Example::new(
-                "with-icon",
-                "With icon",
-                "icon と trailing_icon で Lucide のアイコンを添えます。アイコンの側の余白は 2 px 狭くなります。icon を付けて hide_label(true) にした button は、名前だけを持つ正方形のボタンになります。",
-                with_icon,
-            ),
-            Example::new(
-                "loading",
-                "Loading",
-                "loading が true のあいだはスピナーを表示し、押せなくなります。押すと 2 秒間だけ読み込み中になります。",
-                loading,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled",
-                "disabled のボタンは薄く表示され、押せません。",
-                disabled,
-            ),
-        ],
-    }
+    Page::new("button", "Button", "Components", include_str!("button.rs"))
+        .description("A button that runs an action. It is the standard kivact::ui::button in the Lyra look, with a kind, a size, an icon and a loading state.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::ControlSize;")
+        .example(Example::new(
+            "variants",
+            "Variants",
+            "Choose the look with variant. Primary is shadcn's default, and Danger is destructive.",
+            variants,
+        ))
+        .example(Example::new(
+            "sizes",
+            "Sizes",
+            "ControlSize ExtraSmall, Small, Medium and Large give the heights xs, sm, default and lg (24, 28, 32 and 36 px).",
+            sizes,
+        ))
+        .example(Example::new(
+            "with-icon",
+            "With icon",
+            "icon and trailing_icon add a Lucide icon; the space beside the icon is 2 px narrower. A button with an icon and hide_label(true) is a square button that keeps only its name.",
+            with_icon,
+        ))
+        .example(Example::new(
+            "loading",
+            "Loading",
+            "While loading is true a spinner is shown and the button cannot be pressed. A press makes it loading for 2 seconds.",
+            loading,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled",
+            "A disabled button is drawn faint and cannot be pressed.",
+            disabled,
+        ))
 }
 
 // example: variants

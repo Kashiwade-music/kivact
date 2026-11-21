@@ -1,45 +1,38 @@
 //! Catalog page of Alert Dialog: confirmation, destructive, media and small sizes.
 
-use crate::model::{Example, Page, PreviewAlign};
-use kivact::interaction::DialogMode;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "alert-dialog",
-        name: "Alert Dialog",
-        description: "ユーザーに確認や回答を求めるモーダルです。標準の kivact::ui::dialog を DialogMode::AlertModal にすると、このテーマでは alert-dialog.tsx の見た目で描きます。Escape とボタンで閉じ、外側の押下では閉じません。フォーカスはフッターの最初のボタンから始まり、閉じると開いた要素へ戻ります。",
-        usage: "use kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact_ui_basic as basic;",
-        source: include_str!("alert_dialog.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "open の signal と題名を渡し、mode を DialogMode::AlertModal にします。キャンセルと実行のボタンは footer に置き、押したときに open を false にします。閉じるボタンは closable(false) で出しません。",
-                default,
-            ),
-            Example::new(
-                "destructive",
-                "Destructive",
-                "実行のボタンを ButtonVariant::Danger にすると、破壊的な操作の色になります。",
-                destructive,
-            ),
-            Example::new(
-                "with-media",
-                "With media",
-                "media に 24 px のアイコンなどを返す関数を渡すと、題名の脇に 40 px の枠で表示します。",
-                with_media,
-            ),
-            Example::new(
-                "small",
-                "Small",
-                "variant(AlertDialogSize::Sm) にすると 320 px 幅の中央寄せになります。2 つのボタンに grow(1) と basis(0) を付けると幅を分け合います。",
-                small,
-            ),
-        ],
-    }
+    Page::new("alert-dialog", "Alert Dialog", "Components", include_str!("alert_dialog.rs"))
+        .description("A modal that asks the user to confirm or to answer. Make the standard kivact::ui::dialog a DialogKind::AlertModal and this theme draws it in the look of alert-dialog.tsx. Escape and the buttons close it; a press outside does not. Focus starts on the first button of the footer, and closing returns focus to the element that opened it.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::DialogKind;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the open signal and the title, and set the mode to DialogKind::AlertModal. Put the cancel and the action buttons in the footer; pressing one sets open to false. closable(false) hides the close button.",
+            default,
+        ))
+        .example(Example::new(
+            "destructive",
+            "Destructive",
+            "Make the action button a ButtonVariant::Danger to show a destructive action in its color.",
+            destructive,
+        ))
+        .example(Example::new(
+            "with-media",
+            "With media",
+            "Pass a function that returns a 24 px icon to media; it is shown in a 40 px frame beside the title.",
+            with_media,
+        ))
+        .example(Example::new(
+            "small",
+            "Small",
+            "variant(AlertDialogSize::Sm) makes it 320 px wide and centered. Give the two buttons grow(1) and basis(0) to share the width between them.",
+            small,
+        ))
 }
 
 // example: default
@@ -52,7 +45,7 @@ fn default() -> impl IntoView {
             .on_press(move || open.set(true)),
         basic::muted(move || answer.get()),
         dialog("Are you absolutely sure?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("This action cannot be undone. This will permanently delete your account.")
             .footer(move || {
@@ -91,7 +84,7 @@ fn destructive() -> impl IntoView {
             .to_string()
         }),
         dialog("Delete chat?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("This will permanently delete this chat conversation.")
             .footer(move || {
@@ -120,7 +113,7 @@ fn with_media() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Share this chat?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .closable(false)
             .description("They will be able to see everything in this conversation.")
             .media(|| icon("share").style(style().size(24, 24)))
@@ -144,13 +137,13 @@ fn small() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         dialog("Allow accessory to connect?", open)
-            .mode(DialogMode::AlertModal)
+            .mode(DialogKind::AlertModal)
             .variant(basic::AlertDialogSize::Sm)
             .closable(false)
             .description("Do you want to allow the USB accessory to connect to this device?")
             .media(|| icon("shield").style(style().size(24, 24)))
             .footer(move || {
-                let share = style().grow(1).basis(0);
+                let share = style().flex_grow(1).flex_basis(0);
                 (
                     button("Don't allow")
                         .variant(ButtonVariant::Outline)

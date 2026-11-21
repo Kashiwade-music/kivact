@@ -1,44 +1,37 @@
 //! Catalog page of Calendar: single, range, disabled dates and dropdown caption.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact::prelude::*;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "calendar",
-        name: "Calendar",
-        description: "月の表から日付や期間を選ぶ部品です。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("calendar.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "single",
-                "Single",
-                "日付の binding を渡します。矢印キーで日、PageUp と PageDown で月を移り、Enter で選びます。",
-                single,
-            ),
-            Example::new(
-                "range",
-                "Range",
-                "calendar_range は二回の押下で期間を選びます。number_of_months で複数の月を並べます。",
-                range,
-            ),
-            Example::new(
-                "disabled",
-                "Disabled dates",
-                "disabled_dates に述語を渡すと、その日はフォーカスも選択もできません。ここでは週末です。",
-                disabled_dates,
-            ),
-            Example::new(
-                "dropdown",
-                "Dropdown caption",
-                "caption の Dropdown は、月と年を選択欄で選びます。",
-                dropdown,
-            ),
-        ],
-    }
+    Page::new("calendar", "Calendar", "Components", include_str!("calendar.rs"))
+        .description("A month grid for choosing a date or a range of dates.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "single",
+            "Single",
+            "Pass a binding for the date. The arrow keys move by day, PageUp and PageDown move by month, and Enter selects.",
+            single,
+        ))
+        .example(Example::new(
+            "range",
+            "Range",
+            "calendar_range selects a range with two presses. number_of_months shows several months side by side.",
+            range,
+        ))
+        .example(Example::new(
+            "disabled",
+            "Disabled dates",
+            "A predicate passed to disabled_dates makes those days unfocusable and unselectable. Here the weekends are disabled.",
+            disabled_dates,
+        ))
+        .example(Example::new(
+            "dropdown",
+            "Dropdown caption",
+            "The Dropdown in the caption chooses the month and the year.",
+            dropdown,
+        ))
 }
 
 // example: single

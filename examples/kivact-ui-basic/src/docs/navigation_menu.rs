@@ -1,38 +1,31 @@
 //! Catalog page of Navigation Menu: panels with links, and plain links.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "navigation-menu",
-        name: "Navigation Menu",
-        description: "サイトの上部に置く、リンクと展開パネルの並びです。見出しにポインタを置くとパネルが開き、離れると閉じます。クリック、Enter、Space、下矢印で開くと、Escape か外側の押下まで開いたままです。パネルは同時に 1 つだけ開きます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("navigation_menu.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "basic",
-                "Basic",
-                "navigation_menu(...).link に、開くたびにパネルの中身を作る関数を渡します。パネルの中は navigation_menu_link を並べます。リンクを押すとパネルが閉じます。",
-                basic,
-            ),
-            Example::new(
-                "links",
-                "Links",
-                "navigation_menu(...).action は、パネルを持たずに押された時の関数を呼ぶだけの項目です。パネルの項目と並べられます。",
-                links,
-            ),
-            Example::new(
-                "icons",
-                "Links with icons",
-                "navigation_menu_link に icon と description を付けると、アイコンと説明の付いた行になります。",
-                icons,
-            ),
-        ],
-    }
+    Page::new("navigation-menu", "Navigation Menu", "Components", include_str!("navigation_menu.rs"))
+        .description("A row of links and expanding panels for the top of a site. A panel opens when the pointer rests on its heading, and closes when the pointer leaves. Clicking, Enter, Space or the down arrow opens it and keeps it open until Escape or a press outside. Only one panel is open at a time.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "basic",
+            "Basic",
+            "Pass a function to navigation_menu(...).link that makes the content of the panel each time it opens. Put navigation_menu_link items in the panel. Pressing a link closes the panel.",
+            basic,
+        ))
+        .example(Example::new(
+            "links",
+            "Links",
+            "navigation_menu(...).action is an item with no panel: pressing it only calls a function. It can sit beside the items with panels.",
+            links,
+        ))
+        .example(Example::new(
+            "icons",
+            "Links with icons",
+            "With an icon and a description, navigation_menu_link becomes a row with the icon and the description.",
+            icons,
+        ))
 }
 
 // example: basic

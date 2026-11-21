@@ -2,8 +2,11 @@
 
 use crate::model::{Example, Page, PreviewAlign};
 use kivact::prelude::*;
+use kivact::style::StyledRange;
+use kivact::ui::SyntaxKind;
 use kivact::view::Node;
 use kivact::view::Scroll;
+use std::ops::Range;
 
 /// The scrolling page of `page`; a new page starts at the top.
 pub(crate) fn page_view(page: &Page) -> Scroll {
@@ -104,12 +107,24 @@ fn example_section(page: &Page, example: &Example) -> Node {
     .style(style().gap(12))
 }
 
-/// A "Rust" block whose copy button writes `snippet` to the clipboard.
-///
-/// The code is shown plain: the Rust highlighter lives in `kivact-ui-basic`,
-/// which the shared shell does not depend on.
+/// A "Rust" block whose copy button writes `snippet` to the clipboard, its
+/// tokens colored from the core's Rust tokens (`kivact::ui::rust_tokens`).
 fn code_block(snippet: String, test_id: String) -> kivact::ui::CodeBlock {
+    let tokens = kivact::ui::rust_tokens(&snippet);
     kivact::ui::code_block(snippet)
+        .highlight(kivact::ui::highlighter(tokens, |tokens, text, index| {
+            rust_line(tokens, text, index)
+        }))
         .title("Rust")
         .test_id(test_id)
+}
+
+/// The colored ranges of line `index` of `text`, and the index of the next line.
+fn rust_line(
+    tokens: &[Vec<(Range<usize>, SyntaxKind)>],
+    text: &str,
+    index: &usize,
+) -> (Vec<StyledRange>, usize) {
+    let line = tokens.get(*index).map_or(&[][..], Vec::as_slice);
+    (kivact::ui::syntax_ranges(text, line), index + 1)
 }

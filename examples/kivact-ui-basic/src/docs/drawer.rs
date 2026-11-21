@@ -1,32 +1,25 @@
 //! Catalog page of Drawer: a modal panel that is swiped away with its handle.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "drawer",
-        name: "Drawer",
-        description: "端に付くモーダルのパネルで、取っ手をつかんで端へスワイプして閉じます。パネルの高さ（横向きなら幅）の 30 % を越えるか、素早くはじくと閉じ、それ以外は元の位置へ戻ります。",
-        usage: "use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;",
-        source: include_str!("drawer.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "既定は下端です。取っ手を下へ引くか、Escape や背景の押下で閉じます。",
-                default,
-            ),
-            Example::new(
-                "side",
-                "Side",
-                "side（kivact::geometry::Edge）で付ける端と、スワイプで閉じる向きを選びます。",
-                side,
-            ),
-        ],
-    }
+    Page::new("drawer", "Drawer", "Components", include_str!("drawer.rs"))
+        .description("A modal panel that comes from an edge; you grab the handle and swipe it to the edge to close it. It closes when you pass 30 % of the panel's height (its width when it is sideways) or flick it, and otherwise it returns to its place.")
+        .usage("use kivact::geometry::Edge;\nuse kivact::prelude::*;\nuse kivact::ui::ControlSize;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "The default edge is the bottom. Pull the handle down, or press Escape or the background, to close it.",
+            default,
+        ))
+        .example(Example::new(
+            "side",
+            "Side",
+            "side (kivact::geometry::Edge) chooses the edge it comes from and the direction of the swipe that closes it.",
+            side,
+        ))
 }
 
 // example: default
@@ -39,7 +32,7 @@ fn default() -> impl IntoView {
             .variant(ButtonVariant::Outline)
             .on_press(move || open.set(true)),
         kivact::ui::dialog("Move Goal", open)
-            .mode(kivact::interaction::DialogMode::Drawer(
+            .mode(kivact::ui::DialogKind::Drawer(
                 kivact::geometry::Edge::Bottom,
             ))
             .variant(basic::DrawerVariant::Drawer)
@@ -55,7 +48,7 @@ fn default() -> impl IntoView {
                         .on_press(move || goal.update(|goal| *goal -= 10)),
                     column((
                         text(move || goal.get().to_string())
-                            .style(style().font_size(36).weight(800)),
+                            .style(style().font_size(36).font_weight(800)),
                         basic::muted("Calories/day"),
                     ))
                     .style(style().align_items(Align::Center).min_width(120)),
@@ -99,7 +92,7 @@ fn side() -> impl IntoView {
                 .variant(ButtonVariant::Outline)
                 .on_press(move || open.set(true)),
             kivact::ui::dialog(format!("{label} drawer"), open)
-                .mode(kivact::interaction::DialogMode::Drawer(side))
+                .mode(kivact::ui::DialogKind::Drawer(side))
                 .variant(basic::DrawerVariant::Drawer)
                 .closable(false)
                 .description("Swipe the handle toward the edge to dismiss it.")

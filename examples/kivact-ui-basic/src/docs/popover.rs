@@ -1,41 +1,34 @@
 //! Catalog page of Popover: the dialog at a trigger, its placement and alignment.
 
-use crate::model::{Example, Page, PreviewAlign};
-use kivact::interaction::DialogMode;
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
+use kivact::ui::DialogKind;
 use kivact::view::OverlayAlign;
 use kivact::view::Placement;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "popover",
-        name: "Popover",
-        description: "トリガーの近くに重ねて表示する、モーダルではないパネルです。標準の kivact::ui::dialog を DialogMode::Popover にして attach で取り付けると、このテーマでは popover.tsx の見た目で描きます。Escape、外側の押下、フォーカスが離れたときに閉じ、閉じるとフォーカスはトリガーへ戻ります。attach に渡したボタンが開閉のボタンになります。",
-        usage: "use kivact::prelude::*;\nuse kivact::interaction::DialogMode;\nuse kivact::view::{OverlayAlign, Placement};\nuse kivact_ui_basic as basic;",
-        source: include_str!("popover.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "open の signal と題名を渡し、description と content で中身を作り、attach でトリガーに取り付けます。開くと最初のフォーカスできる要素へフォーカスが移ります。",
-                default,
-            ),
-            Example::new(
-                "placement",
-                "Placement",
-                "placement（kivact::view::Placement）で開く側を選びます。入りきらない場合は反対側へ回ります。題名を見せないときは hide_title(true) にし、題名は支援技術向けの名前だけに使います。",
-                placement,
-            ),
-            Example::new(
-                "align",
-                "Align",
-                "align（kivact::view::OverlayAlign）でトリガーの始まり、中央、終わりのどれに揃えるかを選びます。既定は始まりです。",
-                align,
-            ),
-        ],
-    }
+    Page::new("popover", "Popover", "Components", include_str!("popover.rs"))
+        .description("A panel that is not modal and opens over the page near its trigger. Make the standard kivact::ui::dialog a DialogKind::Popover and attach it, and this theme draws it in the look of popover.tsx. It closes on Escape, on a press outside and when focus leaves, and closing returns focus to the trigger. The button passed to attach is the open and close button.")
+        .usage("use kivact::prelude::*;\nuse kivact::ui::DialogKind;\nuse kivact::view::{OverlayAlign, Placement};\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the open signal and the title, make the content with description and content, and attach it to the trigger. When it opens, focus moves to the first focusable element.",
+            default,
+        ))
+        .example(Example::new(
+            "placement",
+            "Placement",
+            "placement (kivact::view::Placement) chooses the side it opens on; when it does not fit it turns to the other side. To hide the title, set hide_title(true); the title then serves only as the name for assistive technology.",
+            placement,
+        ))
+        .example(Example::new(
+            "align",
+            "Align",
+            "align (kivact::view::OverlayAlign) chooses whether it lines up with the start, the center or the end of the trigger. The default is the start.",
+            align,
+        ))
 }
 
 // example: default
@@ -46,12 +39,12 @@ fn default() -> impl IntoView {
     let field = |label: &'static str, value: Signal<String>| {
         row((
             basic::label(label).style(style().width(80)),
-            text_input(label, value).style(style().grow(1)),
+            text_input(value).label(label).style(style().flex_grow(1)),
         ))
         .style(style().gap(8).align_items(Align::Center))
     };
     dialog("Dimensions", open)
-        .mode(DialogMode::Popover)
+        .mode(DialogKind::Popover)
         .description("Set the dimensions for the layer.")
         .content(move || {
             column((field("Width", width), field("Height", height)))
@@ -72,7 +65,7 @@ fn placement() -> impl IntoView {
     row(Vec::from(sides.map(|(label, placement)| {
         let open = signal(false);
         dialog(format!("{label} popover"), open)
-            .mode(DialogMode::Popover)
+            .mode(DialogKind::Popover)
             .hide_title(true)
             .placement(placement)
             .content(move || text(format!("Opens on the {label} side.")))
@@ -92,7 +85,7 @@ fn align() -> impl IntoView {
     row(Vec::from(aligns.map(|(label, align)| {
         let open = signal(false);
         dialog(label, open)
-            .mode(DialogMode::Popover)
+            .mode(DialogKind::Popover)
             .align(align)
             .description("Lined up with the trigger.")
             .attach(button(label).variant(ButtonVariant::Outline))

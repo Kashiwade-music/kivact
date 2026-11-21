@@ -1,45 +1,38 @@
 //! Catalog page of Message: received, sent and a conversation.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "message",
-        name: "Message",
-        description: "チャットの発言を、アバターや見出しとともに表示する部品です。author と content を指定し、Basic の BubbleVariant で色を選びます。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("message.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "received",
-                "Received",
-                "avatar、header、footer を添えた、受け取った発言です。",
-                received,
-            ),
-            Example::new(
-                "sent",
-                "Sent",
-                "align に End を渡すと右寄りになります。発言全体の配置に反映されます。",
-                sent,
-            ),
-            Example::new(
-                "conversation",
-                "Conversation",
-                "column で発言を縦に並べます。",
-                conversation,
-            ),
-        ],
-    }
+    Page::new("message", "Message", "Components", include_str!("message.rs"))
+        .description("A chat message shown with an avatar and a heading. Give the author and the content, and choose the color with the Basic BubbleVariant.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "received",
+            "Received",
+            "A received message with an avatar, a header and a footer.",
+            received,
+        ))
+        .example(Example::new(
+            "sent",
+            "Sent",
+            "Pass End as align to put the message on the right. It applies to the whole message.",
+            sent,
+        ))
+        .example(Example::new(
+            "conversation",
+            "Conversation",
+            "column stacks the messages vertically.",
+            conversation,
+        ))
 }
 
 // example: received
 fn received() -> impl IntoView {
     kivact::ui::chat_message("Ada")
         .content("Hi! Did you see the new design?")
-        .variant(basic::BubbleVariant::Secondary)
+        .variant(basic::ChatBubbleVariant::Secondary)
         .avatar(kivact::ui::avatar("AB").fallback_content(|| text("AB")))
         .footer(text("10:42"))
         .style(style().width(420))
@@ -60,7 +53,7 @@ fn conversation() -> impl IntoView {
     column((
         kivact::ui::chat_message("")
             .content("Lunch at noon?")
-            .variant(basic::BubbleVariant::Muted)
+            .variant(basic::ChatBubbleVariant::Muted)
             .avatar(kivact::ui::avatar("AB").fallback_content(|| text("AB"))),
         kivact::ui::chat_message("")
             .content("Sounds good.")

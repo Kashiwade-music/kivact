@@ -1,44 +1,37 @@
 //! Catalog page of Dialog: default, form, no close button and confirmation.
 
-use crate::model::{Example, Page, PreviewAlign};
+use catalog_shell::{Example, Page};
 use kivact::prelude::*;
 use kivact_ui_basic as basic;
 
 pub(crate) fn page() -> Page {
-    Page {
-        slug: "dialog",
-        name: "Dialog",
-        description: "ページの上に重ねて表示するモーダルです。標準の kivact::ui::dialog に Lyra の見た目を当てたもので、フォーカスの閉じ込めと Escape での閉じる動作は標準の部品が行います。",
-        usage: "use kivact::prelude::*;\nuse kivact_ui_basic as basic;",
-        source: include_str!("dialog.rs"),
-        align: PreviewAlign::Center,
-        examples: vec![
-            Example::new(
-                "default",
-                "Default",
-                "open の signal と題名を渡し、content(..) と footer(..) に本文とフッターを作る関数を渡します。右上の閉じるボタンと Escape で閉じます。",
-                default,
-            ),
-            Example::new(
-                "form",
-                "Edit profile",
-                "本文に入力欄を置いた例です。保存すると値を反映して閉じます。",
-                edit_profile,
-            ),
-            Example::new(
-                "no-close-button",
-                "No close button",
-                "closable を false にすると右上の閉じるボタンを出しません。フッターのボタンで閉じます。",
-                no_close_button,
-            ),
-            Example::new(
-                "confirm",
-                "Confirmation",
-                "取り消せない操作の確認です。破壊的な操作には Danger のボタンを使います。",
-                confirm,
-            ),
-        ],
-    }
+    Page::new("dialog", "Dialog", "Components", include_str!("dialog.rs"))
+        .description("A modal shown over the page. It is the standard kivact::ui::dialog in the Lyra look; the standard parts hold the focus and close it on Escape.")
+        .usage("use kivact::prelude::*;\nuse kivact_ui_basic as basic;")
+        .example(Example::new(
+            "default",
+            "Default",
+            "Pass the open signal and the title, and functions that make the content(..) and the footer(..). It closes with the close button at the top right or with Escape.",
+            default,
+        ))
+        .example(Example::new(
+            "form",
+            "Edit profile",
+            "An example with an input in the content. Saving applies the value and closes it.",
+            edit_profile,
+        ))
+        .example(Example::new(
+            "no-close-button",
+            "No close button",
+            "closable(false) hides the close button at the top right. Close it with a footer button.",
+            no_close_button,
+        ))
+        .example(Example::new(
+            "confirm",
+            "Confirmation",
+            "A confirmation for an action that cannot be undone. Use a Danger button for a destructive action.",
+            confirm,
+        ))
 }
 
 // example: default
@@ -80,12 +73,16 @@ fn edit_profile() -> impl IntoView {
                 column((
                     column((
                         basic::label("Name"),
-                        text_input("Name", name).style(style().width(pct(100))),
+                        text_input(name)
+                            .label("Name")
+                            .style(style().width(pct(100))),
                     ))
                     .style(style().gap(8)),
                     column((
                         basic::label("Username"),
-                        text_input("Username", username).style(style().width(pct(100))),
+                        text_input(username)
+                            .label("Username")
+                            .style(style().width(pct(100))),
                     ))
                     .style(style().gap(8)),
                 ))
