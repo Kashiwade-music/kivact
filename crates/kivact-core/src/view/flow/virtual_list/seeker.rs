@@ -26,7 +26,7 @@ fn reveal_offset(top: f64, height: f64, offset: f64, view: f64) -> f64 {
     }
 }
 
-// xtask-allow(state): legacy: state, viewport
+// xtask-allow(state): independent: state is the list's shared row state (seek, rows, index and heights, each with its own writer); viewport is the host's last reported viewport, written only by the scroll handler of virtual_list/mount and only read here
 /// What carries out `scroll_to`: the pending request becomes a scroll of the
 /// list to the position of the row and, once the row is mounted, a scroll of
 /// the host that brings the row into view.

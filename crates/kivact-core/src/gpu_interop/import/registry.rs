@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::panic::Location;
 
-// xtask-allow(state): legacy: imports, adapter
+// xtask-allow(state): independent: imports is the import table (register gives ids, forget drops them); adapter is each window's device adapter, written only by adapter_changed; whether an import fits the adapter is kept in that import's own status signal
 /// What `gpu_interop` keeps per App: its imports and the adapter of each
 /// window's device. It is made on the first use ([`state`]).
 pub(crate) struct State {

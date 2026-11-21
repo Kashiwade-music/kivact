@@ -17,7 +17,7 @@ use crate::sync::Inbox;
 use kivact_runtime::driver::spawn_in;
 use kivact_style::draw::{GpuFrame, Pixels};
 
-// xtask-allow(state): legacy: current is written only by SharedImage::replace_current; current, pixels, size; the import of the link's current request, written only by
+// xtask-allow(state): independent: current is the import of the newest request, written only by replace_current; pixels is the newest CPU picture whatever the request, written only by receive; size is the size the App asks for, written only by set_size
 /// An image an engine on another thread shares with the UI
 /// ([`shared_image`]): the UI thread's handle, `Clone` and `!Send`.
 ///

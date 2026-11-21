@@ -45,7 +45,7 @@ pub(crate) struct Inspector {
     pub(crate) session: SessionData,
 }
 
-// xtask-allow(state): legacy: recording, prop_writes, overrides, forced, emulation, focus_history, input_log, next_input
+// xtask-allow(state): record: DevTools hook tables with separate writers: recording (updates start and stop), prop_writes (the prop_written hook, drained by updates), overrides and forced (styles calls; forced is pruned by the turn), emulation (emulation calls), focus_history (the focus_changed hook, swept per closed window), input_log with its sequence allocator next_input (input_event); node_overrides is the projection of overrides written only by rebuild_node_overrides
 pub(crate) struct HookData {
     pub(crate) recording: RefCell<p::RecordingSettings>,
     pub(crate) prop_writes: RefCell<Vec<PropWrite>>,
@@ -62,7 +62,7 @@ pub(crate) struct HookData {
     pub(crate) node_overrides_changed: kivact_runtime::Trigger,
 }
 
-// xtask-allow(state): legacy: events, pending, pending_graphs, turns, frames, update_counts, next_override, inspector, overlays, sent_overlays, snapshots, next_snapshot, sent_windows, errors_sent; allocates style override ids
+// xtask-allow(state): record: DevTools session tables with separate writers: events (the host_event hook, taken by the turn), pending (find, inject and list_turns calls), pending_graphs and turns (the graph pipeline of updates), frames and update_counts (records), inspector (pick mode), overlays and sent_overlays (settings and what was last sent to the engine), snapshots (perf), sent_windows (tree) and errors_sent (console); next_override and next_snapshot only allocate ids
 pub(crate) struct SessionData {
     pub(crate) events: RefCell<Vec<DevtoolsEvent>>,
     pub(crate) pending: RefCell<Vec<Pending>>,

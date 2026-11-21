@@ -531,7 +531,7 @@ pub(crate) type LayoutDrawFn = Rc<dyn Fn(&mut Draw, &kivact_editing::TextLayout)
 
 pub(crate) type DrawFn = Rc<dyn Fn(&mut Draw, Size)>;
 
-// xtask-allow(state): legacy: exit_layout, focusable_when_disabled, roving_focus, hit_testable, focus_on_press, text_editing, ime, part_region_events, part_modal, draw, draw_over, draw_with_layout, intrinsic, image_fit, monochrome, image_playing, layout_id, at; an exit layout; absent means no exit layout
+// xtask-allow(state): independent: each field is one builder modifier, written only by its own Element or Node modifier and moved out once at mount; drop_misused clears the ones a node kind cannot show, so every combination is a valid builder value
 /// Modifiers shared by every element builder.
 #[derive(Default)]
 pub(crate) struct Common {
@@ -766,7 +766,7 @@ pub(super) enum RegistryPhase {
     Mounted,
 }
 
-// xtask-allow(state): legacy: state, phase, gestures
+// xtask-allow(state): independent: state is the region tables (adopt, retire and cleanup in mount/regions); phase is the mount phase, written only by Registry::bind; gestures is the pointer gesture record of mount/part_pointer; each adopted region keeps its own binding, so phase never contradicts state
 /// One canvas identity owns this lookup for its entire mounted lifetime.
 pub(crate) struct Registry {
     pub(super) node: NodeId,

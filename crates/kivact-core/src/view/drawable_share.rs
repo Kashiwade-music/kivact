@@ -102,7 +102,7 @@ pub(crate) enum ExportLink {
     Closed,
 }
 
-// xtask-allow(state): legacy: scale, next_number; the App's configured scale; absent means the window's own
+// xtask-allow(state): independent: scale is the app's export scale, written only by DrawableShare::set_scale (None means the window's own); next_number numbers the frames accepted over the drawable's life, written only by on_frame; the request phase is the ExportRequest enum
 /// The state of an open export.
 pub(crate) struct ExportOpen {
     /// The current request, its generation and, for the requests that

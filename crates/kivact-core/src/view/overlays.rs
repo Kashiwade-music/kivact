@@ -114,7 +114,7 @@ enum Place {
     },
 }
 
-// xtask-allow(state): legacy: viewport_margin, keep_anchor_clear, modal
+// xtask-allow(state): independent: viewport_margin, keep_anchor_clear and modal are separate builder settings, each written only by its own by-value builder; node_mut, the only &mut self method, lends root and writes none of them
 /// Out-of-flow layer (popup, menu, tooltip). Built by [`overlay`] and
 /// [`overlay_at`].
 pub struct Overlay {
