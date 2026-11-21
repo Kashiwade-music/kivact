@@ -58,5 +58,5 @@ pub use timeline::{TimelineItem, timeline_item};
 pub use upload::upload_row;
 pub use variants::{
     AvatarHue, AvatarSize, BadgeVariant, ButtonTone, CalendarWeekdayHues, ChatBubbleVariant,
-    DiamondSteps, Hue, SectionNumber, Segments, Slant, SpinnerVariant, Striped,
+    DiamondSteps, Hue, SectionNumber, Segments, SpinnerVariant,
 };

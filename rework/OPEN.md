@@ -1450,3 +1450,38 @@ lane K5 の fix（commit `84858df7`、branch `wt/rw-W9-K5`）の報告による�
 - **(5) status_dot の既定 `Neutral`**：採る。
 - **(6) `SectionVariant` の二重の定義**：`variants.rs` の一つを残し、`section.rs` はそれを使う。二つの variant の値の一覧が違えば、和にする（値の意味が食い違うなら返す）。lane K5 の fix で行う。
 - **stepper**（`5f285533` で消えていた hover・pressed を戻した件）：確認した。それでよい。
+
+## 差戻し（W9 の K2・K4・K32、2026-11-22）
+
+- **Slant・Striped の Prop**（K08、`crates/kivact-ui/src/variant_marks.rs`）：中核の `Slant`・`Striped` に `#[derive(Prop)]` が無いため、`.variant(kivact::ui::Slant)` が `IntoValue` を満たさない。旧の pop・game の型はこの derive を持っていた。pop（`b40485d2`）と game（`fe3e9185`）は、定義と再公開を消し、使い所を `kivact::ui` の型にした（lane `wt/rw-W9-fix1`）。`cargo check --all-targets -p kivact-ui-game` の tests/consumer で E0277 が 12 件。直し方は設計者の判断。examples の 60 行は、この derive が付くまで通らない（W10 の lane が直す）。
+- **K32 lightbox**（`crates/kivact-ui-soft/src/lightbox.rs`）：`view` の値の型 `LightboxView` が private で、pub な setter に出せない（private_interfaces）。(a) `LightboxView` を公開する（API の追加）か、(b) `Lightbox` を手書きの builder として `[hand_element] allowed_impls` に入れるか。現在は手書きの builder のまま（`impl IntoView` の note 1 件）。
+
+## 差戻し（W9・K33a、2026-11-22）
+
+lane K5 の K33a（commit `84f6dd05`）の報告による。app_shell・mobile_nav・chat_dictation は変換済み。以下は未変換のまま。
+
+- **K33 markdown**（`crates/kivact-ui-soft/src/markdown.rs`、`Markdown::into_view` の 218・225 行付近）：`CodeLanguage`・`CodeLanguageInput`・`code_highlight` は `code_syntax.rs`（K41 の unit）にしかなく、その file は消えた `SyntaxColors` を使い、lib に配線されていない。markdown の変換は K41 の後か、code_syntax を先に直すか、設計者の判断。K33 の完了 rg は、この 2 行が残るまで 0 件にならない。
+- **K33 nav_heading**（`crates/kivact-ui-soft/src/nav_heading.rs`、`SideNavHeading::into_view`）：`nav_is_rail` と `logical_row` は K33b の side_navigation にしかなく、未配線。Orchestrator は、side_navigation を先に変換し、その後に nav_heading を変換する順に変える（K33 の中の順だけ。付属書の内容は変えない）。
+
+## 差戻し（W9・K33e、2026-11-22）
+
+lane K5 の K33e（commit `94d1ed25`）の報告による。設計者の答え「caller の `open` を唯一の signal として使う」と、実際の `NavPanel` の配線が合わない。
+
+- **TopNavMegaMenu の `open`**（`crates/kivact-ui-soft/src/navigation_session.rs:NavPanel::new`、`top_nav.rs`）：`TopNavMegaMenu` が top_nav の navigation group の中にあるとき、group の signal が使われ、caller の `open(..)` は無視される（コードに注記を書いた）。no-group の経路では `use_navigation_menu(open)` に渡す実装にした。group の経路の実行試験はしていない（確認は check・clippy・xtask のみ）。group と caller の `open` の優先順位（どちらを使うか、両方を同期させるか）は設計者の判断。
+
+## 設計者の回答（W9・K33e の TopNavMegaMenu の open、2026-11-22）
+
+- navigation の group の中では、**group が唯一の事実**（一度に開く panel は一つ。どの panel が開いているかは group の signal が持つ）。panel ごとの caller の `open` を足すと二つ目の事実になり、同期が要る。だから両方は使わず、同期もさせない。
+- 決め：
+  - group の外（no-group の経路）では、caller の `open` を使う（今の実装のとおり）。
+  - group の中で caller が `open(..)` を与えたら、黙って無視せず、usage の誤りとして報告する（`caller.at()` の位置、他の usage の誤りと同じ報告の仕方）。開閉は group の signal のまま。報告の文：「`open` is ignored inside a navigation group: the group shows one panel at a time. Read or set the group's open panel instead.」
+  - `open` の setter の doc に 1 文足す：「Inside a navigation group the group decides which panel is open, and `open` is reported as a mistake.」
+- 試験（soft の試験の file。kit の試験が compile に戻る K43 で走らせる。今は書くだけでよい）：`fn an_open_given_inside_a_navigation_group_is_reported()`。
+- lane K5 の fix の commit で行う。その後は PROGRESS の「次にすること」(2)〜(6) のとおり。
+
+## 設計者の回答（W9 の引継ぎの記録への答え、2026-11-22）
+
+- **avatar_options.rs の削除**：採る（`AvatarSize` は `variants.rs` の一つ）。
+- **lightbox の zoom が開き直しで残る**：残さない（旧は `show` のたびに `Fit` に戻した）。view の signal は、開いている間の surface の中で作る（開くたびに新しい `Fit` の signal。「surface を開くたびに作る」の形）。`LightboxHandle::view()` の道は、今どおり handle の state の `Open { view }` が事実。lane K5 の fix で行う。
+- **TopNavMegaMenu の drawer**：drawer の形でも、caller の modifier は trigger に付ける（`node_mut()` は二つの形で同じ trigger の node）。wrapper には付けない。非 drawer の trigger の見た目は、旧の row の見た目と同じであることを K43 の catalog の確認で見る（違えば返す）。lane K5 の fix で行う。
+- **fix1 の worktree と branch**：merge 済みなので消してよい（`git worktree remove`。submodule の都合で要るなら、clean と merge 済みを確かめてから `--force`）。

@@ -18,12 +18,12 @@ fn consumer_buttons_checks_mixed_states_and_modifiers() {
                 (count, checked, mixed),
                 column((
                     kivact::ui::button("Approve")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .test_id("approve")
                         .style(style().height(46))
                         .on_press(move || count.update(|v| *v += 1)),
                     kivact::ui::button("Disabled")
-                        .variant(kivact_ui_game::Slant)
+                        .variant(kivact::ui::Slant)
                         .disabled(true),
                     kivact::ui::checkbox("Permissions", checked).indeterminate(mixed),
                     kivact::ui::switch("Network", checked),

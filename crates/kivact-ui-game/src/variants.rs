@@ -26,19 +26,6 @@ pub enum TabsVariant {
 }
 impl Variant for TabsVariant {}
 
-/// Draw a standard button slanted, the console's parallelogram:
-/// `kivact::ui::button(..).variant(Slant)`. Another theme draws the plain button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub struct Slant;
-impl Variant for Slant {}
-
-/// Draw a standard progress bar with moving diagonal stripes over its fill:
-/// `kivact::ui::progress(..).moving(true).variant(Striped)`. Another theme
-/// draws the plain bar.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub struct Striped;
-impl Variant for Striped {}
-
 /// Console avatar dimensions and the application-selected fill:
 /// `kivact::ui::avatar(..).variant(AvatarVariant { side, color })`.
 #[derive(Clone, Copy, Debug, PartialEq, Prop)]

@@ -5,7 +5,7 @@ use kivact::component;
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::Point;
 use kivact::i18n::message;
-use kivact::state::{Callback, Value, memo};
+use kivact::state::{Value, memo};
 use kivact::style::{Align, TextAlign, style};
 use kivact::ui::{ButtonVariant, button, tooltip};
 use kivact::view::{Element, Role, View, node, row, text};
@@ -123,11 +123,7 @@ pub fn property_row(
 /// }
 /// ```
 #[component]
-pub fn property_state_button(
-    label: Value<String>,
-    state: Value<PropertyState>,
-    on_press: Option<Callback<()>>,
-) -> impl Element {
+pub fn property_state_button(label: Value<String>, state: Value<PropertyState>) -> impl Element {
     let names = [
         message("creative.property.state.plain", "Not animated"),
         message("creative.property.state.animated", "Animated"),
@@ -180,10 +176,6 @@ pub fn property_state_button(
                 );
             }
         });
-    let trigger = match on_press {
-        Some(press) => trigger.on_press(press),
-        None => trigger,
-    };
     tooltip(state_name, trigger)
         .placement(kivact::view::Placement::Below)
         .align(kivact::view::OverlayAlign::Center)

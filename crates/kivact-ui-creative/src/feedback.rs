@@ -45,7 +45,8 @@ pub fn popup_button(label: Value<String>, content: ViewFn) -> impl IntoView {
 
 /// A primary command joined to a separately accessible options menu.
 ///
-/// `on_press` runs the primary command. `on_activate` receives the key of
+/// `on_press` runs the primary command on the primary button part, not on the
+/// menu button beside it. `on_activate` receives the key of
 /// the chosen menu entry; it is a no-op by default. The whole control is
 /// disabled when the application disables it.
 #[component]

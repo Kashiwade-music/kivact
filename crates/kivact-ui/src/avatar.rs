@@ -29,8 +29,9 @@ enum AvatarStatusSource {
 
 /// A person's picture, or their initials while no picture is available, with
 /// an optional status. The name is the accessible name and, when the tooltip
-/// is enabled, the tooltip's text. `name_tooltip` decides whether the name
-/// shows in a tooltip; without it the theme decides.
+/// is enabled, the tooltip's text. The name also goes on the initials text of
+/// the fallback, a part inside the image. `name_tooltip` decides whether the
+/// name shows in a tooltip; without it the theme decides.
 #[component]
 pub fn avatar(
     name: Value<String>,

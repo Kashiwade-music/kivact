@@ -1,12 +1,12 @@
 //! Role: Draw the console's progress bar, gauge, ring and disclosure recipes.
 //!
-//! A flat bar in the variant's tone, optionally [`Striped`](crate::variants::Striped)
+//! A flat bar in the variant's tone, optionally [`Striped`](kivact::ui::Striped)
 //! with moving stripes; the gauge and the ring are the progress variants
 //! [`ProgressVariant::Gauge`] and [`ProgressVariant::Ring`]; the disclosure is
 //! a ruled band whose chevron turns.
 use crate::color::{PRIMARY_HOVER, SURFACE_3};
 use crate::tone::ToneExt;
-use crate::variants::{GaugeSegments, Striped};
+use crate::variants::GaugeSegments;
 use kivact::draw::{Layer, Path, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::interaction::Tone;
@@ -15,7 +15,7 @@ use kivact::style::{Align, Color, FlexDirection, Style, Theme, pct, style};
 use kivact::ui::theme::{
     DisclosureRecipeState, DisclosureTheme, Look, ProgressState, ProgressTheme,
 };
-use kivact::ui::{ControlSize, ProgressVariant};
+use kivact::ui::{ControlSize, ProgressVariant, Striped};
 
 /// Install the progress and disclosure recipes.
 pub(crate) fn install(theme: Theme) -> Theme {

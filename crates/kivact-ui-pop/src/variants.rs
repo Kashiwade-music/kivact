@@ -71,19 +71,6 @@ pub enum ButtonTone {
 
 impl Variant for ButtonTone {}
 
-/// Draw a standard button slanted: `kivact::ui::button(..).variant(Slant)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub struct Slant;
-
-impl Variant for Slant {}
-
-/// Draw a standard progress bar with diagonal stripes on its fill:
-/// `kivact::ui::progress(..).variant(Striped)`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub struct Striped;
-
-impl Variant for Striped {}
-
 /// Cut a standard progress bar into this many segments:
 /// `kivact::ui::progress(..).variant(Segments(10))`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Prop)]

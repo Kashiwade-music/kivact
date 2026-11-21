@@ -29,7 +29,7 @@ fn consumer_theme_density_and_halo_pixels_follow_public_theme() {
                     || {
                         column((
                             kivact::ui::button("Action")
-                                .variant(kivact_ui_game::Slant)
+                                .variant(kivact::ui::Slant)
                                 .test_id("themed-action"),
                             g::halo().style(style().size(34, 34)).test_id("small-halo"),
                         ))

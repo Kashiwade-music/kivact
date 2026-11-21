@@ -239,3 +239,29 @@
 - **注意**：kit の compile は W9 の間は対象外（XK）。P3 の変更で `kivact-ui-soft`・`kivact-ui-basic`・`kivact-ui-pop`・`kivact-ui-game`・`kivact-ui-creative` の一部が compile しない箇所は、kit の lane が直した（K5 の indicator を含む）。
 - **W10 以降の残り（未着手）**：K34→K35→L7（basic。K34 では basic の Rust の tokenizer を中核の `kivact::ui::code_block` の `rust_tokens` に移し、`basic::rust_source` は消す。K35 で catalog-shell のコードに色を付ける）、K36→K37→L8（pop）、K38→L9（creative。`.lane_cell`・`.context_menu`・`.step` の呼出しの直し、typing.edit の E2E は K38 の tier a で確かめる）、K39→K40→L10（game。GameCellVariant の呼出し）、K41→K42→K43→L11（soft）、K44（W11a）、L12（W11a）、G の文書（W11b）、G15（W11c）、CP3。
 - **K2 の完了、K4 の完了**：W9 の範囲は完了。K36・K37 は W10。
+
+## W9 の引継ぎ（2026-11-22 の後半、Orchestrator の作業の区切り。ここから再開する）
+
+- **統合 HEAD**：`a1c3ed0a`（ローカル。push していない）。merge 済み：K1・K2・K3・K4・K6・P1〜P3、先行例の fix（`wt/rw-W9-fix1`：core・creative・pop・game、中核の Slant・Striped の `Prop`（設計者の答え））。fix1 の worktree（`W:/w/kv-wt/rw-W9-fix1`、branch `wt/rw-W9-fix1`、HEAD `948bbac8`）は統合に merge 済みで、後片付けは未。target は `V:/kv-target/rw-W9-fix1`。
+- **未 merge の lane（K5、soft）**：worktree `W:/w/kv-wt/rw-W9-K5`、branch `wt/rw-W9-K5`、HEAD `94d1ed25`、clean。target は `V:/kv-target/rw-W9-K5`。統合は `41b7faf4` で取り込み済み。統合へ merge する前に、統合の HEAD（`a1c3ed0a` 以降の OPEN.md・K-kits.md など）を lane に取り込むこと（`git merge refactor/kashiwade/fundamental-rework`）。
+- **lane K5 の commit（順）**：`84858df7`（fixA：stepper・C4 の一部・白）、`0d13bdc3`（fixB：more_menu・power_search の builder）、`28653ad6`（fixC：alert_dialog の builder、token の doc、先行例、SectionVariant）、`04dbf6af`（fixD：Element の import、MoreTrigger の削除）、K32 の残り（thumbnail・soft_overflow・bottom_sheet・outline。`f627ea04`）、lightbox（`37004b3e`、設計者の答え (b)）、K33a（`84f6dd05`：app_shell・mobile_nav・chat_dictation）、K33b（`fb838b48`：side_navigation → nav_heading）、K33c（`48e3928f`：rich_text・soft_chat_tools・timer・timestamp・top_nav）、K33d1（`bb03524f`：markdown・rich_blocks・rich_block_doc・rich_text・code_syntax の S2）、K33d2（`aaebf06b`：nav_icon・chat_appearance を消す・avatar_options を消す・media_query）、K33e（`94d1ed25`：TopNavMegaMenu を手書きの builder の例外に）。
+- **lane K5 の tier a**：subagent の報告では、`cargo fmt`・`cargo check --lib`（error 0）・`cargo clippy --lib -- -D warnings -A dead_code`・xtask `--crate kivact-ui-soft`（ok）が通った。Orchestrator は K33e の後に再実行していない（次の Orchestrator が確かめる）。dead_code の警告（約 33 件）は K41・K42 で消える分。
+- **判断待ち（差戻し）**：
+  1. K33e の TopNavMegaMenu の `open`（group の signal と caller の `open` の優先順位）。OPEN「差戻し（W9・K33e）」。
+  2. K33 の完了 rg：`impl Element/IntoView` が残るのは K33 の対象外の `top_nav`・`app_shell`・`alert_dialog`（IntoView のみ）などの分の確認が要る。K33e の後に次の Orchestrator が確かめる。
+- **判断の記録（設計者が答えた後の確認。答えは不要なものは、記録のみ）**：
+  - `avatar_options.rs` は削除（mod と pub use を足すと `AvatarSize` が二重定義で E0252。付属書の「mod と pub use を足す」からの逸脱。`AvatarSize` は既に `variants.rs` にある）。
+  - `nav_icon`：`.shrink(0)`→`.flex_shrink(0)`、`.radius(pct(50))`→`.border_radius(r::RADIUS_FULL)`。
+  - `side_navigation`・`nav_heading` は K33b で変換したが、K42 の手順 1 で消す予定（brief どおり変換したので、K42 で消える分の作業が無駄になる）。
+  - `timer`・`timestamp` は K33c で `#[component]` にした（K33 の一覧には無い。K42 の手順 3・4 で中を変える）。
+  - `markdown`：`on_link` は `Option<Callback<String>>`（E=&str の行が無いため）。`render_code`・`render_image`・`render_heading` は ViewFn の tuple 引数（`(String, Option<String>)` など）。`heading_level_start`・`content_width` の prop を追加。memo は `use_theme().get()` に依る。catalog と tests の呼出しは W10 で直す。
+  - `lightbox`：`LightboxView` の signal は component の生存中に一つ。旧は開くたびに作っていたので、閉じるときに zoom していたら開き直しても zoom が残る。元に戻す（開くたびに Fit）かは設計者の判断。
+  - `NavPanel::new` の第 3 引数は `Option<Signal<bool>>`（nav_heading・items は `None`）。
+  - `TopNavMegaMenu` の非 drawer の trigger は、旧の row の見た目を node の `base_style`（flex row の `top_item_style`）にした。layout の細部が変わる可能性。drawer では caller の modifier が wrapper に付く（disclosure に absorb できる公開の経路が無い）。
+  - `thumbnail` の tooltip は、label の有無で分けず、常に `tooltip(hint, root).enabled(has_label)`（旧は label が無いとき付けず、tree に空の show が 1 つ増える）。
+  - `bottom_sheet` の `snap_points` は `impl Into<Vec<SnapPoint>>`（旧は IntoIterator）。
+  - `outline` は `side_navigation::items::logical_row`（private fn）と `recipe_parts::ring` を使う。
+  - `soft_overflow` の item と overflow は `Rc<dyn Fn>`（Box から変えた）。
+- **手順の注意**：subagent への指示は、cargo に必ず `--manifest-path <worktree>/Cargo.toml` を付ける（cwd は main repo のままで、付けないと統合の crate を check してしまう。前に出た 403 件の偽の error はこれが原因。lane では error 0 を確認済み）。cargo は cwd を main repo（`W:/w/kivact`）に保つ（別の cwd では stable の toolchain が選ばれ、`kivact-core` が E0658 で落ちる）。
+- **次にすること**：(1) 設計者の答え（K33e の `open`）を実施し、lane K5 を直す（fix commit）。(2) lane K5 に統合を取り込み、確認（tier a の全体。`cargo check --lib`・clippy（`-A dead_code` は W9 の間だけ）・xtask `--crate kivact-ui-soft`）。(3) 統合へ `merge --no-ff`。(4) W9 の wave の終わり：統合で `cargo xtask check --no-write --only local`、tier b（W9 の形：fmt・clippy・test に XK を足して除外）。失敗は error を出した crate の lane の fix へ。(5) `PROGRESS.md` に「W9 merged」を書いて push（origin の `refactor/kashiwade/fundamental-rework` だけ）。(6) W10：K34→K35→L7（basic）、K36→K37→L8（pop）、K38→L9（creative）、K39→K40→L10（game）、K41→K42→K43→L11（soft）、K44（W11a）、L12、G の文書、CP3。
+- **注意**：W10 の kit の lane は、この `PROGRESS` の「W9 の引継ぎ（2026-11-22）」の一覧とは別の unit を持つ。K41 は code_syntax の手順 2 を、K33 が変換した分は飛ばす（設計者の答え）。

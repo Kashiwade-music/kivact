@@ -5,7 +5,7 @@
 
 use crate::color;
 use crate::recipe_parts::{button_style, check_style};
-use crate::variants::{ButtonTone, Hue, Segments, Slant, Striped};
+use crate::variants::{ButtonTone, Hue, Segments};
 use kivact::draw::{LineCap, LineJoin, Path, Stroke};
 use kivact::geometry::{Point, Rect};
 use kivact::style::color as core;
@@ -16,7 +16,7 @@ use kivact::ui::theme::{
     ProgressState, ProgressTheme, SliderTheme, SplitTheme, SplitterTheme, ToggleButtonState,
     ToggleButtonTheme,
 };
-use kivact::ui::{ButtonVariant, ControlSize, ProgressVariant};
+use kivact::ui::{ButtonVariant, ControlSize, ProgressVariant, Slant, Striped};
 
 /// Install the kit's recipes of the controls.
 pub(crate) fn install(theme: Theme) -> Theme {

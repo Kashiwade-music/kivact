@@ -23,7 +23,8 @@ use kivact_macros::component;
 /// with the pointer; Escape or a canceled pointer during the drag writes the
 /// size from before the press back. Each key press, action and drag is one
 /// edit (`on_edit`). In a right-to-left subtree the leading pane is on the
-/// right and the keys and the drag follow it.
+/// right and the keys and the drag follow it. The name goes on the handle and
+/// on the leading pane, the parts inside the splitter.
 ///
 /// Options: `collapsible(threshold)` collapses on release below that fraction
 /// of the current range; `snaps(stops)` snaps on release to the nearest
