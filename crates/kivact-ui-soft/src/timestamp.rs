@@ -2,12 +2,10 @@
 use crate::{TextColor, TextKind, TextSize, TextWeight, styled_text};
 use kivact::Prop;
 use kivact::component;
-use kivact::i18n::CalendarDate;
-use kivact::i18n::message;
-use kivact::state::Machine;
-use kivact::state::Step;
+use kivact::i18n::{
+    CalendarDate, Locale, NameWidth, TimeOfDay, TimeStyle, Weekday, message, use_locale,
+};
 use kivact::state::Value;
-use kivact::state::machine;
 use kivact::state::memo;
 use kivact::ui::tooltip;
 use kivact::view::node;
@@ -164,8 +162,6 @@ pub struct TimestampEntry {
     pub format: InstantFormat,
     /// Optional label preceding the detail value.
     pub label: Option<String>,
-    /// Reserved for a copy action on this detail row; the timestamp details do not draw one yet, so the value has no effect.
-    pub copyable: bool,
 }
 
 /// The format of the main timestamp.
@@ -198,16 +194,6 @@ pub enum TimestampFormat {
     UnixSeconds,
 }
 
-/// The settings the presentation reads, gathered from the component's props.
-#[derive(Clone, Copy)]
-struct TimestampSettings {
-    value: Value<TimestampValue>,
-    format: Value<TimestampFormat>,
-    threshold: Value<Duration>,
-    zone: Value<TimeZone>,
-    show_zone: Value<bool>,
-}
-
 /// A date or relative timestamp with optional details.
 ///
 /// `format` selects the presentation and `auto_threshold` the window of `Auto`. `hover_card`
@@ -229,41 +215,39 @@ pub fn timestamp(
     size: Option<Value<TextSize>>,
     weight: Option<Value<TextWeight>>,
 ) -> impl Element {
-    let settings = TimestampSettings {
-        value,
-        format,
-        threshold: auto_threshold,
-        zone: time_zone,
-        show_zone: show_time_zone,
-    };
-    let clock = machine(
-        TimestampClock::Still {
-            now: TimestampValue::from(SystemTime::now()),
-        },
-        move || TimestampTick {
-            value: value.get(),
-            now: TimestampValue::from(SystemTime::now()),
-        },
-        |_, ()| {},
-    );
-    let now_label = message("soft.relative_time.now", "now");
-    let yesterday = message("soft.relative_time.yesterday", "yesterday");
-    let display = memo(move || {
-        let now = clock.get().now();
-        timestamp_presentation(&settings, now, now_label, yesterday)
-    });
+    let locale = use_locale();
+    // The instant the component mounts, used while the text is not live.
+    let mounted = TimestampValue::from(SystemTime::now());
+    let ticks = kivact::task::clock(Duration::from_secs(1));
     let relative = memo(move || {
         matches!(
             format.get(),
             TimestampFormat::Relative | TimestampFormat::RelativeShort | TimestampFormat::Auto
         )
     });
-    kivact::state::effect(move || {
-        if live.get() && relative.get() {
-            clock.send(TimestampEvent::Live);
+    let ticking = memo(move || live.get() && relative.get());
+    let now = memo(move || {
+        if ticking.get() {
+            TimestampValue::from(ticks.get())
         } else {
-            clock.send(TimestampEvent::Still);
+            mounted
         }
+    });
+    let now_label = message("soft.relative_time.now", "now");
+    let yesterday = message("soft.relative_time.yesterday", "yesterday");
+    let display = memo(move || {
+        let instant = value.get();
+        let now = now.get();
+        let format = resolved_format(format.get(), instant, now, auto_threshold.get());
+        timestamp_text(
+            instant,
+            format,
+            &time_zone.get(),
+            show_time_zone.get(),
+            now,
+            (now_label, yesterday),
+            &locale.get(),
+        )
     });
     let full = move || {
         calendar_text(
@@ -272,14 +256,14 @@ pub fn timestamp(
             &time_zone.get(),
             true,
             true,
+            &locale.get(),
         )
     };
     let name = move || {
         if relative.get() {
             full()
         } else {
-            let now = clock.get().now();
-            timestamp_presentation(&settings, now, now_label, yesterday)
+            display.get()
         }
     };
     let enabled = memo(move || {
@@ -295,10 +279,47 @@ pub fn timestamp(
     // Standard tooltip fallback until Soft's interactive hover card is integrated.
     let trigger = node().child(text).name(name).focusable(enabled);
     tooltip(
-        move || timestamp_details(value, time_zone, entries),
+        move || timestamp_details(value, time_zone, entries, locale),
         trigger,
     )
     .enabled(enabled)
+}
+
+/// The format to show: `Auto` picks a relative age inside the threshold and a date-time beyond it.
+fn resolved_format(
+    format: TimestampFormat,
+    instant: TimestampValue,
+    now: TimestampValue,
+    threshold: Duration,
+) -> TimestampFormat {
+    if format != TimestampFormat::Auto {
+        format
+    } else if difference(now, instant).unsigned_abs() <= threshold.as_secs() {
+        TimestampFormat::Relative
+    } else {
+        TimestampFormat::DateTime
+    }
+}
+
+/// The text of a resolved format. `words` are the relative labels for now and yesterday.
+fn timestamp_text(
+    instant: TimestampValue,
+    format: TimestampFormat,
+    zone: &TimeZone,
+    show_zone: bool,
+    now: TimestampValue,
+    words: (Value<String>, Value<String>),
+    locale: &Locale,
+) -> String {
+    match format {
+        TimestampFormat::Relative | TimestampFormat::RelativeShort => relative_text(
+            difference(now, instant),
+            format == TimestampFormat::RelativeShort,
+            words.0,
+            words.1,
+        ),
+        _ => calendar_text(instant, format, zone, show_zone, false, locale),
+    }
 }
 
 fn difference(now: TimestampValue, then: TimestampValue) -> i64 {
@@ -337,28 +358,27 @@ fn relative_text(diff: i64, short: bool, now: Value<String>, yesterday: Value<St
     }
 }
 
+/// The weekday of a day count from the Unix epoch, which was a Thursday.
+fn weekday_of(days: i64) -> Weekday {
+    match (days + 3).rem_euclid(7) {
+        0 => Weekday::Monday,
+        1 => Weekday::Tuesday,
+        2 => Weekday::Wednesday,
+        3 => Weekday::Thursday,
+        4 => Weekday::Friday,
+        5 => Weekday::Saturday,
+        _ => Weekday::Sunday,
+    }
+}
+
 fn calendar_text(
     instant: TimestampValue,
     format: TimestampFormat,
     zone: &TimeZone,
     show_zone: bool,
     full: bool,
+    locale: &Locale,
 ) -> String {
-    const MONTHS: [&str; 12] = [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-    ];
-    const WEEKDAYS: [&str; 7] = ["Thu", "Fri", "Sat", "Sun", "Mon", "Tue", "Wed"];
     let unix = instant.0.div_euclid(1000);
     let local = unix + i64::from(zone.offset_seconds);
     let days = local.div_euclid(86_400);
@@ -371,15 +391,14 @@ fn calendar_text(
     let hour = local.div_euclid(3600).rem_euclid(24);
     let minute = local.div_euclid(60).rem_euclid(60);
     let second = local.rem_euclid(60);
-    let month_name = MONTHS[(month - 1) as usize];
-    let short = &month_name[..3];
-    let hour12 = (hour + 11) % 12 + 1;
-    let ampm = if hour < 12 { "AM" } else { "PM" };
-    let mut clock = if full {
-        format!("{hour12}:{minute:02}:{second:02} {ampm}")
-    } else {
-        format!("{hour12}:{minute:02} {ampm}")
+    let time = TimeOfDay {
+        hour: hour as u8,
+        minute: minute as u8,
+        second: second as u8,
     };
+    let month_name = locale.month_name(date.month(), NameWidth::Long);
+    let short = locale.month_name(date.month(), NameWidth::Short);
+    let mut clock = locale.format_time(time, TimeStyle { seconds: full });
     if show_zone && let Some(name) = zone.label.as_deref() {
         clock.push(' ');
         clock.push_str(name);
@@ -392,7 +411,7 @@ fn calendar_text(
         TimestampFormat::DateLong => format!("{month_name} {day}, {year}"),
         TimestampFormat::DateWeekday => format!(
             "{}, {short} {day}, {year}",
-            WEEKDAYS[days.rem_euclid(7) as usize]
+            locale.weekday_name(weekday_of(days), NameWidth::Short)
         ),
         TimestampFormat::Time => clock,
         TimestampFormat::SystemDate => format!("{year:04}-{month:02}-{day:02}"),
@@ -405,101 +424,14 @@ fn calendar_text(
     }
 }
 
-#[derive(Clone, PartialEq)]
-enum TimestampClock {
-    /// Refreshed once at `now`; no tick is scheduled.
-    Still { now: TimestampValue },
-    /// Refreshed at `now`; the next tick is scheduled.
-    Live { now: TimestampValue },
-}
-impl TimestampClock {
-    fn now(&self) -> TimestampValue {
-        match self {
-            Self::Still { now } | Self::Live { now } => *now,
-        }
-    }
-}
-struct TimestampTick {
-    value: TimestampValue,
-    now: TimestampValue,
-}
-impl Machine for TimestampTick {
-    type State = TimestampClock;
-    type Event = TimestampEvent;
-    type Effect = ();
-    fn transition(
-        &self,
-        state: &TimestampClock,
-        event: TimestampEvent,
-    ) -> Step<TimestampClock, TimestampEvent, ()> {
-        let age = difference(self.now, self.value).unsigned_abs();
-        let delay = match age {
-            0..=59 => 1,
-            60..=3599 => 30,
-            3600..=86399 => 60,
-            _ => 300,
-        };
-        match (state, event) {
-            (_, TimestampEvent::Still) => {
-                Step::to(TimestampClock::Still { now: self.now }).cancel(TimestampEvent::Tick)
-            }
-            (_, TimestampEvent::Live) | (TimestampClock::Live { .. }, TimestampEvent::Tick) => {
-                Step::to(TimestampClock::Live { now: self.now })
-                    .after(Duration::from_secs(delay), TimestampEvent::Tick)
-            }
-            (TimestampClock::Still { .. }, TimestampEvent::Tick) => Step::stay(),
-        }
-    }
-}
-
-enum TimestampEvent {
-    /// Refresh once and stop ticking.
-    Still,
-    /// Refresh now and keep ticking.
-    Live,
-    /// The scheduled tick fired.
-    Tick,
-}
-fn timestamp_presentation(
-    settings: &TimestampSettings,
-    now: TimestampValue,
-    now_label: Value<String>,
-    yesterday: Value<String>,
-) -> String {
-    let instant = settings.value.get();
-    let diff = difference(now, instant);
-    let format = if settings.format.get() == TimestampFormat::Auto {
-        if diff.unsigned_abs() <= settings.threshold.get().as_secs() {
-            TimestampFormat::Relative
-        } else {
-            TimestampFormat::DateTime
-        }
-    } else {
-        settings.format.get()
-    };
-    match format {
-        TimestampFormat::Relative | TimestampFormat::RelativeShort => relative_text(
-            diff,
-            format == TimestampFormat::RelativeShort,
-            now_label,
-            yesterday,
-        ),
-        _ => calendar_text(
-            instant,
-            format,
-            &settings.zone.get(),
-            settings.show_zone.get(),
-            false,
-        ),
-    }
-}
-
 fn timestamp_details(
     value: Value<TimestampValue>,
     zone: Value<TimeZone>,
     entries: Value<Vec<TimestampEntry>>,
+    locale: Value<Locale>,
 ) -> String {
     let entries = entries.get();
+    let locale = locale.get();
     if entries.is_empty() {
         return calendar_text(
             value.get(),
@@ -507,6 +439,7 @@ fn timestamp_details(
             &zone.get(),
             true,
             true,
+            &locale,
         );
     }
     entries
@@ -528,6 +461,7 @@ fn timestamp_details(
                 entry.zone.as_ref().unwrap_or(&zone.get()),
                 entry.zone.is_some() || full,
                 full,
+                &locale,
             );
             entry
                 .label

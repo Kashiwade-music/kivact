@@ -14,7 +14,8 @@ use kivact::ui::theme::{
     AvatarTheme, DataTableTheme, DialogCenter, DialogTheme, DisclosureTheme, ItemListTheme,
     ProgressTheme, SkeletonTheme, SpinnerTheme, ToastTheme, ToggleButtonTheme, avatar_group,
     button, button_group, calendar, carousel, combobox, data_table, date_input, dropzone,
-    hover_card, skeleton, spinner, stepper, syntax, time_input, toast, toggle_group, toolbar,
+    hover_card, sidebar, skeleton, spinner, stepper, syntax, time_input, toast, toggle_group,
+    toolbar,
 };
 use kivact::ui::{DisclosureMotion, ProgressMotion, ToggleLabelReservation};
 
@@ -42,6 +43,7 @@ fn build(mode: ThemeMode) -> Theme {
     let theme = s::set_space(theme);
     let theme = r::set_radius(theme);
     let theme = set_core(theme);
+    let theme = set_sidebar(theme);
     let theme = set_syntax(theme, mode);
     let theme = set_ui_layout(theme);
     let theme = set_ui_table(theme, mode);
@@ -62,6 +64,23 @@ fn build(mode: ThemeMode) -> Theme {
         .with_focus_ring_offset(m::FOCUS_RING_OFFSET)
         .with_icons(crate::icons::set())
         .with(crate::theme_policy::policy())
+}
+
+/// The sidebar's variables: the kit's surface, text, accent and border colors, its row radius
+/// and the width of an open sidebar (the width of the kit's side navigation).
+fn set_sidebar(theme: Theme) -> Theme {
+    theme
+        .set(&sidebar::BACKGROUND_VAR, &c::BG_SURFACE_VAR)
+        .set(&sidebar::FOREGROUND_VAR, &c::TEXT_PRIMARY_VAR)
+        .set(&sidebar::ACCENT_VAR, &c::OVERLAY_HOVER_VAR)
+        .set(&sidebar::ACCENT_FOREGROUND_VAR, &c::TEXT_PRIMARY_VAR)
+        .set(&sidebar::PRIMARY_VAR, &c::ACCENT_VAR)
+        .set(&sidebar::PRIMARY_FOREGROUND_VAR, &c::ON_ACCENT_VAR)
+        .set(&sidebar::BORDER_VAR, &c::BORDER_VAR)
+        .set(&sidebar::RING_VAR, &c::FOCUS_RING_VAR)
+        .set(&sidebar::PAGE_VAR, &c::BG_BODY_VAR)
+        .set(&sidebar::ITEM_RADIUS_VAR, &r::RADIUS_ELEMENT_VAR)
+        .set(&sidebar::WIDTH_VAR, 260.0)
 }
 
 /// The core variables of the kit: the kit's colors, spacing, radii and typography.
