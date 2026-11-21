@@ -229,6 +229,25 @@ fn async_view_fallback_retries() {
     screen.get_by_text("Recovered");
 }
 
+#[test]
+fn async_view_takes_a_resource_or_an_action_and_an_unannotated_ready_closure() {
+    let screen = render(|| {
+        let data = resource((), |_| async { Ok::<u32, UiError>(7) });
+        let save = action(|| async { Ok::<u32, UiError>(3) });
+        column((
+            async_view(data, |n| text(n.to_string())),
+            button("Save").on_press(move || save.run(())),
+            async_view(save, |n| text(format!("saved {n}"))),
+        ))
+    });
+    screen.run_until_idle();
+    screen.get_by_text("7");
+    screen.get_by_role(Role::Button, "Save").click();
+    screen.run_until_idle();
+    screen.get_by_text("saved 3");
+    assert!(screen.errors().is_empty(), "{:?}", screen.errors());
+}
+
 #[cfg(feature = "tokio")]
 #[test]
 fn on_tokio_future_resolves_and_wakes_the_ui() {

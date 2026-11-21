@@ -268,7 +268,7 @@ fn drop_policy_ends_the_actual_hover_visit_and_keeps_native_picking() {
             (
                 (accepts, files),
                 kivact::ui::dropzone("Upload")
-                    .pick_on_press()
+                    .pick_on_press(true)
                     .accept_drop(accepts)
                     .on_files(move |items| {
                         files.set(items.into_iter().map(|item| item.path).collect())

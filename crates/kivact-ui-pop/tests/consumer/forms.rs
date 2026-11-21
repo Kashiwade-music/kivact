@@ -95,8 +95,8 @@ fn dropzone_reports_public_file_events_and_platform_picker_results() {
             (
                 paths,
                 kivact::ui::dropzone("Upload")
-                    .multiple()
-                    .pick_on_press()
+                    .multiple(true)
+                    .pick_on_press(true)
                     .icon(icon("cloud-upload").style(style().size(24, 24)))
                     .hint("Select reports")
                     .filters(vec![("Reports".into(), vec!["pdf".into()])])

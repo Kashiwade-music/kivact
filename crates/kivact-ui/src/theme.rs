@@ -15,6 +15,7 @@ pub use crate::alert::look::AlertState;
 pub use crate::alert::look::AlertTheme;
 pub use crate::alert::look::Expansion;
 pub use crate::announcer_outlet::look::AnnouncerOutletTheme;
+pub use crate::async_view::look::AsyncViewTheme;
 pub use crate::avatar::look::AvatarState;
 pub use crate::avatar::look::AvatarTheme;
 pub use crate::avatar_group::look::AvatarGroupTheme;
