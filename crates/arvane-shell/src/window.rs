@@ -67,6 +67,14 @@ pub trait ShellWindow {
         update: &arvane_protocol::SemanticsUpdate,
     ) -> Result<(), crate::a11y::error::AccessibilityError>;
 
+    /// Resolve an assistive-technology request against the window's
+    /// accepted tree, as the platform's own request would be.
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<ShellEvent>;
+
     /// Current logical content extent in pixels.
     fn size(&self) -> Size;
 

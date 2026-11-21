@@ -22,11 +22,8 @@ struct Retained {
 }
 
 #[cfg(any(windows, target_os = "linux"))]
-#[expect(
-    clippy::disallowed_types,
-    reason = "process-wide module mapping initialized once"
-)]
-static RETAINED: std::sync::OnceLock<Retained> = std::sync::OnceLock::new();
+static RETAINED: kivact_types::cell::SharedDeferred<Retained> =
+    kivact_types::cell::SharedDeferred::new();
 
 /// Keep this code module mapped until process exit for detached threads or
 /// native providers. Repeated calls do nothing. Other platforms do nothing.

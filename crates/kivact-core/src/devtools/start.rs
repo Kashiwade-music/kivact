@@ -10,13 +10,9 @@ use crate::devtools::state::{AgentSlot, AgentStart, Inspector};
 use crate::view::state::ViewState;
 
 /// Start the agent on a background thread when the launch and the
-/// environment allow it; `None` otherwise.
-pub(crate) fn agent_slot(
-    title: &str,
-    allowed: bool,
-    can_inject: bool,
-    waker: ThreadWaker,
-) -> Option<AgentStart> {
+/// environment allow it; `None` otherwise. An embedded App's agent injects
+/// input too: the embed loop delivers it like a window's.
+pub(crate) fn agent_slot(title: &str, allowed: bool, waker: ThreadWaker) -> Option<AgentStart> {
     if !allowed || std::env::var("KIVACT_DEVTOOLS").as_deref() == Ok("0") || is_devtools_app() {
         return None;
     }
@@ -47,10 +43,7 @@ pub(crate) fn agent_slot(
             waker.wake();
         });
     match spawned {
-        Ok(_) => Some(AgentStart {
-            receiver,
-            can_inject,
-        }),
+        Ok(_) => Some(receiver),
         Err(error) => {
             tracing::warn!(target: "kivact::devtools", "cannot start the DevTools agent: {error}");
             None

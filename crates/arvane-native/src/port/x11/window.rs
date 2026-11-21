@@ -238,6 +238,13 @@ impl ShellWindow for Window {
     ) -> Result<(), arvane_shell::AccessibilityError> {
         self.accessibility.tree.update(update).map(|_| ())
     }
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<arvane_shell::ShellEvent> {
+        self.accessibility.tree.request_action(node, request)
+    }
     fn size(&self) -> Size {
         Size {
             width: self.width as f64 / self.scale,

@@ -31,15 +31,19 @@ use windows_sys::Win32::UI::WindowsAndMessaging::{
 pub(super) struct Window(pub(super) Rc<State>);
 
 pub(super) fn environment(state: &State) -> kivact_types::Environment {
-    let scale = state.shared.scale();
-    let mouse = crate::native_input::pointer_settings(state.shared.scale());
+    environment_of(&state.shared, frame_period(state.native.hwnd()))
+}
+/// The environment of an embedded child from its shared state and frame period.
+fn environment_of(shared: &Shared, frame_period_ns: u64) -> kivact_types::Environment {
+    let scale = shared.scale();
+    let mouse = crate::native_input::pointer_settings(shared.scale());
     kivact_types::Environment {
         scale_factor: scale,
         window_size: kivact_types::Size {
-            width: f64::from(state.shared.size().0) / scale,
-            height: f64::from(state.shared.size().1) / scale,
+            width: f64::from(shared.size().0) / scale,
+            height: f64::from(shared.size().1) / scale,
         },
-        frame_period_ns: frame_period(state.native.hwnd()),
+        frame_period_ns,
         theme_hint: crate::native_input::theme_hint(),
         reduced_motion: crate::native_input::reduced_motion(),
         locale: crate::native_input::locale::system_locale(),
@@ -163,6 +167,13 @@ impl ShellWindow for Window {
             .a11y
             .update(update)
             .map(|_| super::a11y::publish(&self.0))
+    }
+    fn request_accessibility_action(
+        &self,
+        node: u64,
+        request: kivact_types::A11yRequest,
+    ) -> Option<ShellEvent> {
+        self.0.a11y.request_action(node, request)
     }
     fn size(&self) -> Size {
         let applied = self.0.shared.applied();
@@ -415,14 +426,7 @@ impl State {
             uia: RefCell::new(super::state::Uia::Inactive),
             services: RefCell::new(crate::services::Services::default()),
             input: crate::native_input::state::NativeInput::new(
-                kivact_types::Environment {
-                    scale_factor: shared.scale(),
-                    theme_hint: crate::native_input::theme_hint(),
-                    reduced_motion: crate::native_input::reduced_motion(),
-                    pointer: crate::native_input::pointer_settings(shared.scale()),
-                    locale: crate::native_input::locale::system_locale(),
-                    ..Default::default()
-                },
+                environment_of(&shared, kivact_types::defaults::FRAME_PERIOD_NS),
                 waker.clone(),
             ),
             target: Arc::new(super::target::Target {

@@ -488,11 +488,8 @@ impl Dnd {
 /// This machine's name, which a source may put in a `file://` host.
 #[allow(unsafe_code, reason = "gethostname fills a caller-owned buffer")]
 fn host_name() -> Option<&'static [u8]> {
-    #[expect(
-        clippy::disallowed_types,
-        reason = "process-wide hostname snapshot initialized once"
-    )]
-    static NAME: std::sync::OnceLock<Option<Vec<u8>>> = std::sync::OnceLock::new();
+    static NAME: kivact_types::cell::SharedDeferred<Option<Vec<u8>>> =
+        kivact_types::cell::SharedDeferred::new();
     NAME.get_or_init(|| {
         let mut buffer = [0_u8; 256];
         // SAFETY: the buffer is writable for its whole length.

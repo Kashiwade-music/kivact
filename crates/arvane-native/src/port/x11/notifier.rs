@@ -23,12 +23,12 @@ pub(super) enum UiThread {
 }
 impl Notifier {
     pub(super) fn request(&self, reasons: arvane_shell::WakeReasons) {
-        let bits = crate::wake::encode(reasons);
+        let bits = reasons.bits();
         if bits != 0 && self.reasons.fetch_or(bits, Ordering::AcqRel) == 0 {
             super::poll::signal(&self.wake);
         }
     }
     pub(super) fn take(&self) -> arvane_shell::WakeReasons {
-        crate::wake::decode(self.reasons.swap(0, Ordering::AcqRel))
+        arvane_shell::WakeReasons::from_bits(self.reasons.swap(0, Ordering::AcqRel))
     }
 }

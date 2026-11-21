@@ -43,11 +43,8 @@ const CLASS_NAME: [u16; 20] = [
     0,
 ];
 
-#[expect(
-    clippy::disallowed_types,
-    reason = "process-wide foreign child window class registered once"
-)]
-static REGISTERED: std::sync::OnceLock<Result<(), String>> = std::sync::OnceLock::new();
+static REGISTERED: kivact_types::cell::SharedDeferred<Result<(), String>> =
+    kivact_types::cell::SharedDeferred::new();
 
 /// The loop's shared state for foreign children (nothing on Win32).
 #[derive(Default)]

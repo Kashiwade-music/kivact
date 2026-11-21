@@ -165,13 +165,6 @@ fn injected_inputs(
 
 pub(super) fn inject_input(rt: &Runtime, params: p::InjectInputParams, reply: Responder) {
     let i = DevtoolsState::inspector(rt);
-    if !i.can_inject {
-        reply.send(Err(p::RpcError::new(
-            p::code::UNSUPPORTED,
-            "input injection is not supported by this target",
-        )));
-        return;
-    }
     let reader = ViewState::tree(rt).reader();
     let Some(window) =
         convert::window_from(params.window).filter(|window| reader.windows().contains(window))

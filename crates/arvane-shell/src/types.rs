@@ -107,4 +107,12 @@ impl WakeReasons {
     pub fn is_empty(self) -> bool {
         self.0 == 0
     }
+    /// The reasons as bits (stable within a process), for atomic storage.
+    pub const fn bits(self) -> u8 {
+        self.0
+    }
+    /// The reasons of `bits` (from [`WakeReasons::bits`]).
+    pub const fn from_bits(bits: u8) -> Self {
+        Self(bits)
+    }
 }

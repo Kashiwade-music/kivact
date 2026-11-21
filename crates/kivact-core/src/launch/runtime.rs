@@ -173,7 +173,6 @@ impl Launch {
         let mut slot = Some(crate::devtools::start::agent_slot(
             &options.settings.title,
             self.policy.devtools,
-            !self.policy.is_embedded(),
             thread_waker.clone(),
         ));
         // A build without the agent starts none, whatever the policy asks.
