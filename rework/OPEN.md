@@ -1429,3 +1429,24 @@ lane K5 の fix（commit `84858df7`、branch `wt/rw-W9-K5`）の報告による�
   - link の on_press は、prop を消し、caller の `has_press()` で focusable・role を決め、caller の on_press は absorb で root に載る（avatar.rs・card.rs と同じ形）。handler は読んでいない。C4 の STOP の条件に当たるか。
   - status_dot の variant は必須の位置引数だったが、Caller から読むので、無いときの既定を `Neutral` にした（`unwrap_or`）。この既定でよいか。
   - `section.rs` の `SectionVariant` と `variants.rs` の `SectionVariant` が二重にある（`variants.rs` の方は `ToolbarVariant` が使う）。今回は触っていない。どちらを残すか。
+
+## 設計者の回答（K5 の fix の STOP 3 件と確認 3 点、2026-11-22）
+
+- **C4 を明確にした**（付属書 K の 3.0.5 の C4 に C4a・C4b を足した）。
+  - 理由：`on_press`・`description`・`name` には、root ではなく中の part に付けるべき部品がある。たとえば token の押下は main の行で、remove の button では発火しない。その値は `Caller` から読めない（handler）か、root に付くとずれる。中核の sidebar・avatar・splitter も、この形の prop を持っている。
+  - C4a：`variant`・`style`・`test_id`・`node_ref`・`role`・`disabled`・`hidden` などは、どの部品でも props にしない。
+  - C4b：`on_press`・`name`・`label`・`description` は、中の part へ渡すときだけ同じ名前の prop にしてよい。doc に、どの part に付くかを書く。
+- **(1) alert_dialog**：soft の `AlertDialog` は手書きの builder にする（中核の `Dialog` と同じく Element ではない。理由 2：surface を開くたびに作る）。
+  - `pub fn alert_dialog(title: impl IntoText, open: Signal<bool>) -> AlertDialog`。中に `kivact::ui::Dialog`（`DialogKind::AlertModal` と soft の variant）を持つ。
+  - setter は旧の名前のまま：`description`・`width`（中の `Dialog` の setter に渡す）、`action_label`・`cancel_label`・`action_variant`・`action_loading`・`on_press`（action の button の押下。C4b。doc：「Called when the action button is pressed.」）。
+  - `into_view` は旧と同じ footer（cancel と action の button）を中の `Dialog` の `.footer(..)` に入れ、dialog の view を返す。
+  - `allowed_impls` に `kivact_ui_soft::alert_dialog::AlertDialog crates/kivact-ui-soft/src/alert_dialog.rs` を足す。
+- **(2) token**：今の形（`on_press`・`description` を prop にして main の part に付ける）を C4b として採る。doc に、付く part を 1 文ずつ書く。
+- **(3) 先行例**：
+  - `on_press`・`name`・`description` の prop は、中の part へ渡しているなら C4b として残す。avatar・sidebar・splitter・creative の feedback と property_row・pop の upload・soft の choice_list は、それぞれ中の part に渡しているか確かめる。root に付けているだけなら、prop を消して Element に任せる。
+  - `variant` の prop（soft の `field_status.rs:45`、`more_menu.rs:30`）は C4a のとおり消す。field_status は `caller` から読む（既定は今の既定）。more_menu は手書きの builder の `node_mut()`（trigger）の variant に任せる。
+  - 中核（kivact-ui）の分の確かめと直しは、lane P の小さな commit で行う。kit の分は各 lane の fix の commit で行う（W10 の各 kit の最初の unit の前に）。
+- **(4) link**：採る（root が正しい行き先。`caller.has_press()` で有無を読む形は C4b の後半のとおり）。
+- **(5) status_dot の既定 `Neutral`**：採る。
+- **(6) `SectionVariant` の二重の定義**：`variants.rs` の一つを残し、`section.rs` はそれを使う。二つの variant の値の一覧が違えば、和にする（値の意味が食い違うなら返す）。lane K5 の fix で行う。
+- **stepper**（`5f285533` で消えていた hover・pressed を戻した件）：確認した。それでよい。
