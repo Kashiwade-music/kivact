@@ -1,6 +1,7 @@
 //! Role: Build the carousel track, paging controls and keyboard behavior.
 
 use crate::carousel::look::CarouselSurfaceState;
+use crate::carousel::look::CarouselTheme;
 use kivact_core::geometry::Point;
 use kivact_core::state::{IntoValue, Signal, Value, effect, memo};
 use kivact_core::style::{FlexDirection, Overflow, pct, style};
@@ -49,7 +50,7 @@ pub fn carousel(index: Signal<usize>, slides: impl IntoChildren) -> Carousel {
 }
 impl Carousel {
     /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -125,7 +126,7 @@ impl IntoView for Carousel {
         let next = navigation_button(c, &self.variants, references.clone(), edges, true);
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.carousel_recipes().root_recipe(),
+            |r: &CarouselTheme| r.root_recipe(),
             &self.variants,
             move || c.recipe_state(),
         )
@@ -373,7 +374,7 @@ fn slide_items(
         .map(|(at, item)| {
             crate::layer::with_recipe_style(
                 node(),
-                |r| r.carousel_recipes().slide_recipe(),
+                |r: &CarouselTheme| r.slide_recipe(),
                 variants,
                 move || c.recipe_state(),
             )
@@ -415,7 +416,7 @@ fn slide_items(
 fn slide_track(c: Layout, variants: &crate::variants::Variants, items: Vec<View>) -> Node {
     crate::layer::with_recipe_style(
         node(),
-        |r| r.carousel_recipes().track_recipe(),
+        |r: &CarouselTheme| r.track_recipe(),
         variants,
         move || c.recipe_state(),
     )
@@ -463,7 +464,7 @@ fn slide_viewport(
 ) -> Node {
     crate::layer::with_recipe_style(
         node(),
-        |r| r.carousel_recipes().viewport_recipe(),
+        |r: &CarouselTheme| r.viewport_recipe(),
         variants,
         move || c.recipe_state(),
     )
@@ -628,12 +629,11 @@ fn navigation_button(
             }
     })
     .on_press(move || navigate(c, &references, if next { 1 } else { -1 }));
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<CarouselSurfaceState> =
-        if next {
-            |r| r.carousel_recipes().next_recipe()
-        } else {
-            |r| r.carousel_recipes().previous_recipe()
-        };
+    let pick: fn(&CarouselTheme) -> &crate::recipe::Recipe<CarouselSurfaceState> = if next {
+        |r: &CarouselTheme| r.next_recipe()
+    } else {
+        |r: &CarouselTheme| r.previous_recipe()
+    };
     crate::layer::with_recipe_style(button, pick, variants, move || c.recipe_state()).into_view()
 }
 

@@ -1,5 +1,6 @@
 //! Role: The kbd builders and their key-cap rendering.
 
+use crate::kbd::look::KbdTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::platform::capabilities;
 use kivact_core::state::{IntoText, IntoValue, Value};
@@ -107,7 +108,7 @@ impl IntoView for KbdCombo {
         render(self.root, caps, self.variants)
     }
 }
-fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) -> View {
+fn render(root: Node, caps: Value<Vec<crate::theme::KbdKeyState>>, variants: Variants) -> View {
     let separator = kivact_core::i18n::message("kbd.separator", " + ");
     crate::layer::with_base_recipe_style(
         root.name(move || {
@@ -117,7 +118,7 @@ fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) 
                 .collect::<Vec<_>>()
                 .join(&separator.get())
         }),
-        |r| r.kbd_recipe(),
+        |r: &KbdTheme| r.root_recipe(),
         &variants,
         || (),
     )
@@ -126,7 +127,7 @@ fn render(root: Node, caps: Value<Vec<crate::KbdKeyState>>, variants: Variants) 
         move |_, cap| {
             crate::layer::with_base_recipe_style(
                 row(text(move || cap.get().glyph)),
-                |r| r.kbd_key_recipe(),
+                |r: &KbdTheme| r.key_recipe(),
                 &variants,
                 move || cap.get(),
             )

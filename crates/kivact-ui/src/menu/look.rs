@@ -1,16 +1,17 @@
 //! Role: The menu recipe state, tokens, recipe table and default looks.
 use crate::look_common::{description, mark, trigger};
+use crate::theme::Look;
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::{MenuItemState, PopupState};
 /// A menu's own trigger, drawn like a select's.
-pub(crate) fn menu_trigger(t: &Theme, _: &PopupState) -> Style {
+pub(crate) fn menu_trigger(t: &Theme, _: &Look<PopupState>) -> Style {
     trigger(t)
 }
 
-pub(crate) fn menu_item(t: &Theme, state: &MenuItemState) -> Style {
+pub(crate) fn menu_item(t: &Theme, state: &Look<MenuItemState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -25,7 +26,7 @@ pub(crate) fn menu_item(t: &Theme, state: &MenuItemState) -> Style {
     }
 }
 
-pub(crate) fn separator(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn separator(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .height(1)
         .margin_y(4)
@@ -33,7 +34,7 @@ pub(crate) fn separator(_: &Theme, _: &PartState) -> Style {
 }
 
 /// A heading: muted small text the keys skip.
-pub(crate) fn menu_label(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn menu_label(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .padding_y(t.get(&kivact_core::style::space::XS_VAR))
@@ -42,34 +43,34 @@ pub(crate) fn menu_label(t: &Theme, _: &PartState) -> Style {
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
-pub(crate) fn shortcut(_: &Theme, _: &MenuItemState) -> Style {
+pub(crate) fn shortcut(_: &Theme, _: &Look<MenuItemState>) -> Style {
     style()
         .flex_grow(1)
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
-pub(crate) fn menu_description(t: &Theme, _: &MenuItemState) -> Style {
+pub(crate) fn menu_description(t: &Theme, _: &Look<MenuItemState>) -> Style {
     description(t)
 }
 
 /// The check or radio mark's box: 16 px wide even while empty, so labels
 /// line up.
-pub(crate) fn menu_check(_: &Theme, _: &MenuItemState) -> Style {
+pub(crate) fn menu_check(_: &Theme, _: &Look<MenuItemState>) -> Style {
     mark().width(16)
 }
 
-pub(crate) fn menu_submenu(_: &Theme, _: &MenuItemState) -> Style {
+pub(crate) fn menu_submenu(_: &Theme, _: &Look<MenuItemState>) -> Style {
     mark()
 }
 
 /// The room of an inset row: as wide as the check box.
-pub(crate) fn menu_inset(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn menu_inset(_: &Theme, _: &Look<PartState>) -> Style {
     style().width(16).flex_shrink(0)
 }
 
 recipe_table! {
     /// The recipes of a [`menu`](super::menu).
-    MenuRecipes {
+    MenuTheme {
         /// The menu's own trigger button (without `Menu::attach`).
         trigger(trigger_recipe): PopupState = menu_trigger,
         /// The top level's floating surface.

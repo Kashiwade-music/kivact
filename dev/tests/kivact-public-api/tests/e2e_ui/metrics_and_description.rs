@@ -5,7 +5,7 @@ use kivact_public_api_tests::support::mount;
 
 #[derive(Clone, Debug, PartialEq)]
 struct CustomLook;
-impl ui::Variant for CustomLook {}
+impl ui::theme::Variant for CustomLook {}
 
 #[test]
 fn progress_ring_reports_its_value() {

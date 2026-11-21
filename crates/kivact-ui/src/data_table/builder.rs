@@ -42,7 +42,7 @@ use std::rc::Rc;
 /// [`cell_controls`](DataTable::cell_controls) put controls in the rows that
 /// stay mounted while the rows are edited, sorted and paged, and
 /// [`row_actions`](DataTable::row_actions) adds a last column of controls.
-/// The look is the theme's [`DataTableRecipes`](crate::DataTableRecipes).
+/// The look is the theme's [`DataTableTheme`](crate::theme::DataTableTheme).
 ///
 /// Messages (a localized text replaces each): `data_table.label` ("Data
 /// table", the grid's name), `data_table.filter` ("Filter…", the filter
@@ -192,7 +192,7 @@ impl<R: 'static, K: 'static> DataTable<R, K> {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///

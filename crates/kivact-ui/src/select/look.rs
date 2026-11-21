@@ -1,5 +1,6 @@
 //! Role: The select recipe state, tokens, recipe table and default looks.
 use crate::look_common::{description, mark, trigger};
+use crate::theme::Look;
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
@@ -8,7 +9,7 @@ use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_interaction::{ListItemState, PopupState};
 /// A select's trigger: a bordered field, its text muted while it shows
 /// the placeholder.
-pub(crate) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
+pub(crate) fn select_trigger(t: &Theme, state: &Look<SelectTriggerState>) -> Style {
     let s = trigger(t).height(crate::look_common::height(t, state.size));
     if state.placeholder {
         s.color(kivact_core::style::color::TEXT_MUTED)
@@ -17,7 +18,7 @@ pub(crate) fn select_trigger(t: &Theme, state: &SelectTriggerState) -> Style {
     }
 }
 
-pub(crate) fn option(t: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn option(t: &Theme, _: &Look<ListItemState>) -> Style {
     style()
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .height(t.get(&kivact_core::style::control::HEIGHT_VAR))
@@ -30,15 +31,15 @@ pub(crate) fn option(t: &Theme, _: &ListItemState) -> Style {
 }
 
 /// The box of the selected option's check, at the row's end.
-pub(crate) fn option_check(_: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn option_check(_: &Theme, _: &Look<ListItemState>) -> Style {
     mark().width(16)
 }
 
-pub(crate) fn option_description(t: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn option_description(t: &Theme, _: &Look<ListItemState>) -> Style {
     description(t)
 }
 
-pub(crate) fn select_indicator(_: &Theme, _: &PopupState) -> Style {
+pub(crate) fn select_indicator(_: &Theme, _: &Look<PopupState>) -> Style {
     mark().color(kivact_core::style::color::TEXT_MUTED)
 }
 
@@ -58,7 +59,7 @@ pub struct SelectTriggerState {
 
 recipe_table! {
     /// The recipes of a [`select`](super::select).
-    SelectRecipes {
+    SelectTheme {
         /// The trigger, which knows whether it shows the placeholder. Its
         /// [`indicator`](Self::indicator_recipe) holds the theme's `chevron-down`
         /// icon.

@@ -5,9 +5,11 @@ use super::types::{
     CellSlot, Key, RowColor, RowContextMenu, RowName, RowSelectable, RowSlot, RowStatusOf, Sort,
     StickyEdges,
 };
+use crate::data_table::look::DataTableTheme;
 use crate::layer::with_recipe_style;
+use crate::theme::{DataTableCellState, DataTableCheckState, DataTableRowState};
 use crate::variants::Variants;
-use crate::{DataColumn, DataTableCellState, DataTableCheckState, DataTableRowState, checkbox};
+use crate::{DataColumn, checkbox};
 use kivact_core::custom::{NodeRefExt, Part};
 use kivact_core::style::linear_gradient;
 use kivact_core::view::Element;
@@ -457,7 +459,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     let state = part.state();
     let mark = with_recipe_style(
         node(),
-        |r| r.data_table_recipes().sort_recipe(),
+        |r: &DataTableTheme| r.sort_recipe(),
         &grid.variants,
         move || state.get(),
     );
@@ -488,7 +490,7 @@ fn head_cell<R: kivact_core::state::PropValue, K: kivact_core::state::ItemKey>(
     }
     let header = with_recipe_style(
         header,
-        |r| r.data_table_recipes().header_recipe(),
+        |r: &DataTableTheme| r.header_recipe(),
         &grid.variants,
         move || state.get(),
     )
@@ -576,7 +578,7 @@ where
     let root = grid.navigation_cell(root, id.clone(), CHECK);
     let root = with_recipe_style(
         root,
-        |r| r.data_table_recipes().check_recipe(),
+        |r: &DataTableTheme| r.check_recipe(),
         &grid.variants,
         state,
     );
@@ -671,7 +673,7 @@ where
             .style(style().group())
             .part(part)
             .row_index(row_index),
-        |r| r.data_table_recipes().row_recipe(),
+        |r: &DataTableTheme| r.row_recipe(),
         &grid.variants,
         move || DataTableRowState {
             interaction: state.get(),
@@ -850,7 +852,7 @@ where
         .map(|color| memo(move || item.with(|row| color(row))));
     let cell = with_recipe_style(
         node,
-        |r| r.data_table_recipes().cell_recipe(),
+        |r: &DataTableTheme| r.cell_recipe(),
         &grid.variants,
         move || DataTableCellState {
             interaction: state.get(),

@@ -1,7 +1,8 @@
 //! Role: The Badge builder and its icon, label and activation rendering.
 
+use crate::badge::look::BadgeTheme;
+use crate::theme::{BadgeState, Variant};
 use crate::variants::Variants;
-use crate::{BadgeState, Variant};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, View, row, text};
@@ -79,14 +80,14 @@ impl IntoView for Badge {
         }
         crate::layer::with_base_recipe_style(
             root,
-            |r| r.badge_recipe(),
+            |r: &BadgeTheme| r.root_recipe(),
             &self.variants,
             move || state.get(),
         )
         .child(self.icon)
         .child(crate::layer::with_recipe_style(
             text(self.label),
-            |r| r.badge_label_recipe(),
+            |r: &BadgeTheme| r.label_recipe(),
             &self.variants,
             move || state.get(),
         ))

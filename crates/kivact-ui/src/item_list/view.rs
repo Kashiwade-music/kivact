@@ -1,5 +1,6 @@
 //! Role: The item list builder, its child positions and its header rendering.
 
+use crate::item_list::look::ItemListTheme;
 use crate::item_list::look::{ItemListMarker, ItemPosition};
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -62,7 +63,7 @@ impl IntoView for ItemList {
         let header = self.header.map(|header| {
             with_recipe_style(
                 node().role(Role::Group).node_ref(header_ref).child(header),
-                |r| r.item_list_recipes().list_header_recipe(),
+                |r: &ItemListTheme| r.list_header_recipe(),
                 &self.variants,
                 move || state.get(),
             )
@@ -90,7 +91,7 @@ impl IntoView for ItemList {
             .collect::<Vec<_>>();
         let list = with_base_recipe_style(
             self.root.part(part),
-            |r| r.item_list_recipes().root_recipe(),
+            |r: &ItemListTheme| r.root_recipe(),
             &self.variants,
             move || state.get(),
         )

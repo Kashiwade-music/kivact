@@ -1,5 +1,7 @@
 //! Role: The text input and text area builders and their editing state.
 
+use crate::text_input::look::TextAreaTheme;
+use crate::text_input::look::TextInputTheme;
 use kivact_core::style::use_theme;
 
 use kivact_core::state::Signal;
@@ -10,7 +12,6 @@ use kivact_core::view::{HandlerResult, IntoView, NodeRef, View};
 use kivact_interaction::{TextEditApi, use_text_area, use_text_edit};
 
 use crate::control_size::ControlSize;
-use crate::layer::recipes;
 use crate::text_input::look::TextInputState;
 use crate::variants::{Variant, Variants};
 
@@ -33,7 +34,7 @@ pub struct TextInput {
 /// to it. Changes are observed through the binding: to run more code on
 /// each edit, pass `binding(read, write)` with that code in `write`.
 ///
-/// The look is the theme's [`UiRecipes::text_input`](crate::UiRecipes):
+/// The look is the theme's [`TextInputTheme::root`](crate::theme::TextInputTheme):
 /// a bordered, rounded field that draws a focus ring. Text is edited
 /// natively (caret, selection, IME, clipboard), with `Role::TextBox`.
 ///
@@ -101,7 +102,7 @@ impl TextInput {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -267,20 +268,22 @@ impl IntoView for TextInput {
         let look = self.variants;
         self.field = self.field.base_style(move || {
             let theme = use_theme().get();
-            let recipes = recipes(&theme);
-            let recipe = if multiline {
-                recipes.text_area_recipe()
+            let state = look.look(TextInputState {
+                input: input.get(),
+                size: size.get(),
+                invalid: invalid.get(),
+            });
+            if multiline {
+                theme
+                    .ext::<TextAreaTheme>()
+                    .root_recipe()
+                    .style(&theme, &state)
             } else {
-                recipes.text_input_recipe()
-            };
-            recipe(
-                &theme,
-                &look.look(TextInputState {
-                    input: input.get(),
-                    size: size.get(),
-                    invalid: invalid.get(),
-                }),
-            )
+                theme
+                    .ext::<TextInputTheme>()
+                    .root_recipe()
+                    .style(&theme, &state)
+            }
         });
         self.field.into_view()
     }

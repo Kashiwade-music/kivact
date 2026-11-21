@@ -1,10 +1,11 @@
 //! Role: The dropzone recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use crate::tokens::UiTokens;
 use kivact_core::style::{Align, BorderStyle, FlexDirection, Style, Theme, style};
 use kivact_interaction::DropzoneState;
-pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {
+pub(crate) fn dropzone_root(t: &Theme, s: &Look<DropzoneState>) -> Style {
     let tokens = t.ext::<UiTokens>();
     let base = style()
         .flex_direction(FlexDirection::Column)
@@ -14,7 +15,7 @@ pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {
         .min_height(tokens.dropzone.min_height.unwrap_or(96.0))
         .border(1, t.get(&kivact_core::style::color::BORDER_VAR))
         .border_style(BorderStyle::Dashed);
-    match s {
+    match &**s {
         DropzoneState::DragOver {
             valid: kivact_interaction::Validity::Invalid(_),
         } => base.border_color(kivact_core::style::color::DANGER),
@@ -24,29 +25,29 @@ pub(crate) fn dropzone_root(t: &Theme, s: &DropzoneState) -> Style {
     }
 }
 
-pub(crate) fn dropzone_label(_: &Theme, _: &DropzoneState) -> Style {
+pub(crate) fn dropzone_label(_: &Theme, _: &Look<DropzoneState>) -> Style {
     style().font_weight(600)
 }
 
-pub(crate) fn dropzone_hint(_: &Theme, _: &DropzoneState) -> Style {
+pub(crate) fn dropzone_hint(_: &Theme, _: &Look<DropzoneState>) -> Style {
     style()
         .font_size(12)
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
-pub(crate) fn dropzone_status(_: &Theme, _: &DropzoneState) -> Style {
+pub(crate) fn dropzone_status(_: &Theme, _: &Look<DropzoneState>) -> Style {
     style()
         .font_size(12)
         .color(kivact_core::style::color::DANGER)
 }
 
-pub(crate) fn dropzone_icon(_: &Theme, _: &DropzoneState) -> Style {
+pub(crate) fn dropzone_icon(_: &Theme, _: &Look<DropzoneState>) -> Style {
     style()
 }
 
 recipe_table! {
     /// Styles for a file drop target and its feedback.
-    DropzoneRecipes {
+    DropzoneTheme {
         root(root_recipe): DropzoneState = dropzone_root,
         icon(icon_recipe): DropzoneState = dropzone_icon,
         label(label_recipe): DropzoneState = dropzone_label,

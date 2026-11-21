@@ -1,5 +1,6 @@
 //! Role: The stepper builder, its items, indicators, responsive layout and navigation.
 
+use crate::stepper::look::StepperTheme;
 use crate::stepper::look::{StepIndicatorKind, StepStatus, StepperItemState, StepperState};
 use kivact_core::custom::Prop;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, callback, memo};
@@ -158,7 +159,7 @@ impl Stepper {
         self
     }
     /// Add kit-defined visual metadata.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -199,7 +200,7 @@ impl IntoView for Stepper {
         });
         crate::layer::with_base_recipe_style(
             root.node_ref(reference),
-            |r| r.stepper_recipes().root_recipe(),
+            |r: &StepperTheme| r.root_recipe(),
             &variants,
             move || layout.get(),
         )
@@ -257,11 +258,10 @@ fn collapsed_navigation(
     variants: crate::variants::Variants,
     previous: bool,
 ) -> Option<View> {
-    let recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StepperState> = if previous
-    {
-        |r| r.stepper_recipes().previous_recipe()
+    let recipe: fn(&StepperTheme) -> &crate::recipe::Recipe<StepperState> = if previous {
+        |r: &StepperTheme| r.previous_recipe()
     } else {
-        |r| r.stepper_recipes().next_recipe()
+        |r: &StepperTheme| r.next_recipe()
     };
     let target = memo(move || {
         items.with(|items| {
@@ -353,7 +353,7 @@ fn step_row(
     } else {
         row
     };
-    crate::layer::with_recipe_style(row, |r| r.stepper_recipes().item_recipe(), &variants, state)
+    crate::layer::with_recipe_style(row, |r: &StepperTheme| r.item_recipe(), &variants, state)
         .child(contents)
 }
 fn step_contents(
@@ -367,7 +367,7 @@ fn step_contents(
     let indicator = indicator.map(|indicator| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().indicator_recipe(),
+            |r: &StepperTheme| r.indicator_recipe(),
             variants,
             state,
         )
@@ -378,7 +378,7 @@ fn step_contents(
             let label = item.label.clone();
             move || label.get()
         }),
-        |r| r.stepper_recipes().label_recipe(),
+        |r: &StepperTheme| r.label_recipe(),
         variants,
         state,
     );
@@ -389,13 +389,13 @@ fn step_contents(
     );
     let body = crate::layer::with_recipe_style(
         column((label, description, optional, extra)),
-        |r| r.stepper_recipes().body_recipe(),
+        |r: &StepperTheme| r.body_recipe(),
         variants,
         state,
     );
     let track = crate::layer::with_recipe_style(
         node(),
-        |r| r.stepper_recipes().track_recipe(),
+        |r: &StepperTheme| r.track_recipe(),
         variants,
         state,
     )
@@ -406,7 +406,7 @@ fn step_contents(
     ));
     crate::layer::with_recipe_style(
         node(),
-        |r| r.stepper_recipes().layout_recipe(),
+        |r: &StepperTheme| r.layout_recipe(),
         variants,
         state,
     )
@@ -442,7 +442,7 @@ fn step_details(
     let description = item.description.map(|description| {
         crate::layer::with_recipe_style(
             text(move || description.get()),
-            |r| r.stepper_recipes().description_recipe(),
+            |r: &StepperTheme| r.description_recipe(),
             variants,
             state,
         )
@@ -451,7 +451,7 @@ fn step_details(
     let extra = item.content.map(|content| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().content_recipe(),
+            |r: &StepperTheme| r.content_recipe(),
             variants,
             state,
         )
@@ -461,7 +461,7 @@ fn step_details(
     let end = item.end_content.map(|content| {
         crate::layer::with_recipe_style(
             node(),
-            |r| r.stepper_recipes().end_content_recipe(),
+            |r: &StepperTheme| r.end_content_recipe(),
             variants,
             state,
         )
@@ -484,12 +484,11 @@ fn step_decoration(
     state: impl Fn() -> StepperItemState + 'static,
     part: StepDecoration,
 ) -> Node {
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StepperItemState> =
-        match part {
-            StepDecoration::Leading => |r| r.stepper_recipes().leading_recipe(),
-            StepDecoration::Trailing => |r| r.stepper_recipes().trailing_recipe(),
-            StepDecoration::Progress => |r| r.stepper_recipes().progress_recipe(),
-        };
+    let pick: fn(&StepperTheme) -> &crate::recipe::Recipe<StepperItemState> = match part {
+        StepDecoration::Leading => |r: &StepperTheme| r.leading_recipe(),
+        StepDecoration::Trailing => |r: &StepperTheme| r.trailing_recipe(),
+        StepDecoration::Progress => |r: &StepperTheme| r.progress_recipe(),
+    };
     crate::layer::with_recipe_style(
         node().hit_testable(false).focusable(false),
         pick,

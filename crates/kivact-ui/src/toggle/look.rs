@@ -1,5 +1,7 @@
 //! Role: The toggle recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 
 use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
@@ -39,13 +41,13 @@ pub(crate) fn toggle(theme: &Theme, size: ControlSize, switch: bool) -> Style {
         .active(style().background(kivact_core::style::color::PRESSED))
 }
 
-pub(crate) fn checkbox(theme: &Theme, look: &CheckableState) -> Style {
-    let (theme, state) = (theme.clone(), *look);
+pub(crate) fn checkbox(theme: &Theme, look: &Look<CheckableState>) -> Style {
+    let (theme, state) = (theme.clone(), **look);
     toggle(&theme, state.size, false).paint(move |d, size| draw_checkbox(&theme, &state, d, size))
 }
 
-pub(crate) fn switch(theme: &Theme, look: &CheckableState) -> Style {
-    let (theme, state) = (theme.clone(), *look);
+pub(crate) fn switch(theme: &Theme, look: &Look<CheckableState>) -> Style {
+    let (theme, state) = (theme.clone(), **look);
     toggle(&theme, state.size, true).paint(move |d, size| draw_switch(&theme, &state, d, size))
 }
 
@@ -121,7 +123,7 @@ pub(crate) fn draw_switch(theme: &Theme, look: &CheckableState, d: &mut Draw, si
 }
 
 /// The standard checkbox and switch draw their indicators in the root.
-pub(crate) fn empty_toggle_part(_: &Theme, _: &CheckableState) -> Style {
+pub(crate) fn empty_toggle_part(_: &Theme, _: &Look<CheckableState>) -> Style {
     style().size(0, 0)
 }
 
@@ -284,5 +286,38 @@ impl CheckableState {
             CheckControl::Switch { drag, .. } => drag,
             CheckControl::CheckBox(_) | CheckControl::Radio { .. } => None,
         }
+    }
+}
+
+recipe_table! {
+    /// The recipes of a checkbox: its root, its indicator box and its marks.
+    CheckboxTheme {
+        root(root_recipe): CheckableState = checkbox,
+        indicator(indicator_recipe): CheckableState = empty_toggle_part,
+        check(check_recipe): CheckableState = empty_toggle_part,
+        mixed(mixed_recipe): CheckableState = empty_toggle_part,
+    }
+}
+
+recipe_table! {
+    /// The recipes of a switch: its root, its track and its thumb.
+    SwitchTheme {
+        root(root_recipe): CheckableState = switch,
+        track(track_recipe): CheckableState = empty_toggle_part,
+        thumb(thumb_recipe): CheckableState = empty_toggle_part,
+    }
+}
+
+impl CheckboxTheme {
+    /// Whether a theme gave the checkbox its own indicator, check or mixed parts.
+    pub(crate) fn has_parts(&self) -> bool {
+        self.indicator.is_overridden() || self.check.is_overridden() || self.mixed.is_overridden()
+    }
+}
+
+impl SwitchTheme {
+    /// Whether a theme gave the switch its own track or thumb.
+    pub(crate) fn has_parts(&self) -> bool {
+        self.track.is_overridden() || self.thumb.is_overridden()
     }
 }

@@ -1,5 +1,6 @@
 //! Role: The button recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
+use crate::recipe::recipe_table;
 
 use crate::control_size::ControlSize;
 use crate::variants::Look;
@@ -94,7 +95,7 @@ pub(crate) fn button(theme: &Theme, state: &Look<ButtonState>) -> Style {
     }
 }
 
-pub(crate) fn button_content(theme: &Theme, state: &ButtonState) -> Style {
+pub(crate) fn button_content(theme: &Theme, state: &Look<ButtonState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -103,7 +104,7 @@ pub(crate) fn button_content(theme: &Theme, state: &ButtonState) -> Style {
 }
 
 /// The icon box of a button: the icon at its own size, centered.
-pub(crate) fn button_icon(_: &Theme, _: &ButtonState) -> Style {
+pub(crate) fn button_icon(_: &Theme, _: &Look<ButtonState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -167,7 +168,7 @@ impl ButtonState {
 
     /// The state of a plain, idle button: for a component that draws one of
     /// its own parts as the theme's button (a kit's toggle, say) by calling
-    /// the theme's [`UiRecipes::button`](super::UiRecipes) recipe with
+    /// the theme's [`ButtonTheme::root`](crate::theme::ButtonTheme) recipe with
     /// [`Look::new`](super::Look::new) with the button's variant added by
     /// [`Look::with_variant`](super::Look::with_variant).
     pub fn new(input: PartState, size: ControlSize) -> Self {
@@ -211,3 +212,13 @@ pub enum ButtonVariant {
 }
 
 impl crate::variants::Variant for ButtonVariant {}
+
+recipe_table! {
+    /// The recipes of a button: its root, its content row, its busy indicator and its icon box.
+    ButtonTheme {
+        root(root_recipe): ButtonState = button,
+        content(content_recipe): ButtonState = button_content,
+        busy(busy_recipe): ButtonState = button_busy,
+        icon(icon_recipe): ButtonState = button_icon,
+    }
+}

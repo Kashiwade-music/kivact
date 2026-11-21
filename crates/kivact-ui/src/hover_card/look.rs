@@ -1,18 +1,19 @@
 //! Role: The hover card recipe state, tokens, recipe table and default looks.
 
+use crate::theme::Look;
 use crate::tooltip::look::tooltip;
 
 use crate::recipe::recipe_table;
 use kivact_core::style::{Style, Theme};
 use kivact_core::view::Placement;
 use kivact_interaction::PopupState;
-pub(crate) fn hover_card(t: &Theme, _: &HoverCardSurfaceState) -> Style {
+pub(crate) fn hover_card(t: &Theme, _: &Look<HoverCardSurfaceState>) -> Style {
     tooltip(
         t,
-        &PopupState {
+        &Look::new(PopupState {
             input: Default::default(),
             open: true,
-        },
+        }),
     )
 }
 
@@ -26,7 +27,7 @@ pub struct HoverCardSurfaceState {
 
 recipe_table! {
     /// Theme surface of a hover preview.
-    HoverCardRecipes {
+    HoverCardTheme {
         surface(surface_recipe): HoverCardSurfaceState = hover_card,
     }
 }

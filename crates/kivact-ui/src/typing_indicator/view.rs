@@ -1,6 +1,7 @@
 //! Role: The typing indicator builder, its avatar slot and its animation.
 
 use crate::typing_indicator::look::TypingIndicatorState;
+use crate::typing_indicator::look::TypingIndicatorTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
 use kivact_core::view::{Element, IntoView, LiveRegion, Node, Role, View, node};
@@ -55,21 +56,21 @@ impl IntoView for TypingIndicator {
         let state = move || TypingIndicatorState { phase: phase.get() };
         let dots = crate::layer::with_recipe_style(
             node(),
-            |r| r.typing_indicator_recipes().dots_recipe(),
+            |r: &TypingIndicatorTheme| r.dots_recipe(),
             &self.variants,
             state,
         );
         let avatar = self.avatar.map(|v| {
             crate::layer::with_recipe_style(
                 node().child(v),
-                |r| r.typing_indicator_recipes().avatar_recipe(),
+                |r: &TypingIndicatorTheme| r.avatar_recipe(),
                 &self.variants,
                 state,
             )
         });
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.typing_indicator_recipes().root_recipe(),
+            |r: &TypingIndicatorTheme| r.root_recipe(),
             &self.variants,
             state,
         )

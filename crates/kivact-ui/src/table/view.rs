@@ -1,6 +1,7 @@
 //! Role: The table builder, its sections, rows and cells.
 
 use crate::layer::with_base_recipe_style;
+use crate::table::look::TableTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::style::{Justify, Length, TextAlign, style};
@@ -67,15 +68,14 @@ impl Element for Table {
 }
 impl IntoView for Table {
     fn into_view(self) -> View {
-        let pick: fn(
-            &crate::recipes::UiRecipes,
-        ) -> &crate::recipe::Recipe<kivact_core::custom::PartState> = match self.part {
-            TablePart::Root => |r| r.table_recipes().root_recipe(),
-            TablePart::Header => |r| r.table_recipes().header_recipe(),
-            TablePart::Body => |r| r.table_recipes().body_recipe(),
-            TablePart::Footer => |r| r.table_recipes().footer_recipe(),
-            TablePart::Row => |r| r.table_recipes().row_recipe(),
-        };
+        let pick: fn(&TableTheme) -> &crate::recipe::Recipe<kivact_core::custom::PartState> =
+            match self.part {
+                TablePart::Root => |r: &TableTheme| r.root_recipe(),
+                TablePart::Header => |r: &TableTheme| r.header_recipe(),
+                TablePart::Body => |r: &TableTheme| r.body_recipe(),
+                TablePart::Footer => |r: &TableTheme| r.footer_recipe(),
+                TablePart::Row => |r: &TableTheme| r.row_recipe(),
+            };
         let part = kivact_core::custom::part(|state| state);
         let state = part.state();
         with_base_recipe_style(self.root.part(part), pick, &self.variants, move || {
@@ -184,9 +184,9 @@ impl IntoView for TableCell {
         let root = with_base_recipe_style(
             root.part(part),
             if header {
-                |r| r.table_recipes().head_recipe()
+                |r: &TableTheme| r.head_recipe()
             } else {
-                |r| r.table_recipes().cell_recipe()
+                |r: &TableTheme| r.cell_recipe()
             },
             &variants,
             move || state.get(),

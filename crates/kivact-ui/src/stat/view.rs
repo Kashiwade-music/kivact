@@ -1,6 +1,7 @@
 //! Role: The statistic builder, its label, value, delta and slots.
 
 use crate::layer::with_base_recipe_style;
+use crate::stat::look::StatTheme;
 use crate::stat::look::{StatState, Trend};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value};
@@ -83,33 +84,31 @@ impl IntoView for Stat {
         let trend = self.trend;
         let state = move || StatState { trend: trend.get() };
         let variants = &self.variants;
-        let wrap = |view: View, pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<StatState>| {
+        let wrap = |view: View, pick: fn(&StatTheme) -> &crate::recipe::Recipe<StatState>| {
             with_base_recipe_style(node().child(view), pick, variants, state)
         };
         let label = wrap(
             self.label_content
                 .unwrap_or_else(|| text(self.label).into_view()),
-            |r| r.stat_recipes().label_recipe(),
+            |r: &StatTheme| r.label_recipe(),
         )
         .name(self.label);
         let value = wrap(
             self.value_content
                 .unwrap_or_else(|| text(self.value).into_view()),
-            |r| r.stat_recipes().value_recipe(),
+            |r: &StatTheme| r.value_recipe(),
         )
         .name(self.value);
         let delta = self
             .delta
-            .map(|v| wrap(text(v).into_view(), |r| r.stat_recipes().delta_recipe()));
-        let icon = self
-            .icon
-            .map(|v| wrap(v, |r| r.stat_recipes().icon_recipe()));
+            .map(|v| wrap(text(v).into_view(), |r: &StatTheme| r.delta_recipe()));
+        let icon = self.icon.map(|v| wrap(v, |r: &StatTheme| r.icon_recipe()));
         let chart = self
             .chart
-            .map(|v| wrap(v, |r| r.stat_recipes().chart_recipe()));
+            .map(|v| wrap(v, |r: &StatTheme| r.chart_recipe()));
         with_base_recipe_style(
             self.root.name(self.label).value_text(self.value),
-            |r| r.stat_recipes().root_recipe(),
+            |r: &StatTheme| r.root_recipe(),
             variants,
             state,
         )

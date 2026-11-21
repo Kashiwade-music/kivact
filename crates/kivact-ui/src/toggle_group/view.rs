@@ -5,6 +5,7 @@ use crate::layer::with_base_recipe_style;
 use crate::toggle_button::look::ToggleButtonState;
 use crate::toggle_group::look::ToggleGroupItemState;
 use crate::toggle_group::look::ToggleGroupState;
+use crate::toggle_group::look::ToggleGroupTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{
     Callback, IntoText, IntoValue, ItemKey, Signal, Value, binding, callback, memo,
@@ -180,7 +181,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
                 let content = item_content(slot.as_ref(), item, state, pressed, hide);
                 with_base_recipe_style(
                     node().name(move || item.get().label()),
-                    |r| r.toggle_group_recipes().item_recipe(),
+                    |r: &ToggleGroupTheme| r.item_recipe(),
                     &variants,
                     move || ToggleGroupItemState {
                         toggle: state.get(),
@@ -203,7 +204,7 @@ impl<K: ItemKey> IntoView for ToggleGroup<K> {
         let direction = use_direction();
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
-            |r| r.toggle_group_recipes().root_recipe(),
+            |r: &ToggleGroupTheme| r.root_recipe(),
             &self.variants,
             move || ToggleGroupState {
                 orientation: orientation.get(),

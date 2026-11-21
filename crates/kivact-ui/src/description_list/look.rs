@@ -31,7 +31,7 @@ pub(crate) fn description_detail(_: &Theme, _: &Look<()>) -> Style {
 
 recipe_table! {
     /// The list, pair, visible term and labelled detail of a description list.
-    DescriptionListRecipes {
+    DescriptionListTheme {
         root(root_recipe): () = description_root,
         item(item_recipe): () = description_item,
         term(term_recipe): () = description_term,

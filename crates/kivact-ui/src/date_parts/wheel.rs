@@ -1,5 +1,7 @@
 //! Role: Date and wall-clock wheels share scalar keyboard, pointer and assistive editing.
+use crate::date_input::look::DateInputTheme;
 use crate::layer::with_recipe_style;
+use crate::time_input::look::TimeInputTheme;
 use crate::variants::Variants;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, message};
@@ -79,17 +81,22 @@ pub(crate) fn wheel(
             release.notify();
             Handled::Yes
         });
-    let pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<PartState> = if time {
-        |r| r.time_input_recipes().wheel_recipe()
+    let root = node().with_node(|n| n.role(Role::Group)).child(control);
+    if time {
+        with_recipe_style(
+            root,
+            |r: &TimeInputTheme| r.wheel_recipe(),
+            &Variants::default(),
+            PartState::default,
+        )
     } else {
-        |r| r.date_input_recipes().wheel_recipe()
-    };
-    with_recipe_style(
-        node().with_node(|n| n.role(Role::Group)).child(control),
-        pick,
-        &Variants::default(),
-        PartState::default,
-    )
+        with_recipe_style(
+            root,
+            |r: &DateInputTheme| r.wheel_recipe(),
+            &Variants::default(),
+            PartState::default,
+        )
+    }
 }
 pub(crate) fn time_panel(value: Signal<Option<TimeOfDay>>, seconds: Value<bool>) -> Node {
     let time = binding(

@@ -121,7 +121,7 @@ impl Default for InputGroupState {
 
 recipe_table! {
     /// Recipes for a labelled group of controls and its text adornments.
-    InputGroupRecipes {
+    InputGroupTheme {
         root(root_recipe): InputGroupState = group_root,
         label(label_recipe): InputGroupState = group_label,
         members(members_recipe): InputGroupState = group_members,

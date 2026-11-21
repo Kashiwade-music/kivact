@@ -170,7 +170,7 @@ impl crate::variants::Variant for ProgressMotion {}
 
 recipe_table! {
     /// The recipes of a [`progress`](super::progress) bar.
-    ProgressRecipes {
+    ProgressTheme {
         /// The bar itself: the track the fill moves in, which clips it.
         track(track_recipe): ProgressState = progress_track,
         /// The fill, the track's one child: the whole track, painted or

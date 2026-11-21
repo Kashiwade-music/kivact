@@ -1,8 +1,10 @@
 //! Role: The skeleton recipe state, tokens, recipe table and default looks.
 
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{Style, Theme, pct, style};
 use kivact_macros::Prop;
-pub(crate) fn skeleton(t: &Theme, s: &SkeletonState) -> Style {
+pub(crate) fn skeleton(t: &Theme, s: &Look<SkeletonState>) -> Style {
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let base = style()
         .min_height(tokens.indicators.line_height)
@@ -30,4 +32,11 @@ pub enum SkeletonShape {
     Circle,
     Text,
     Rounded,
+}
+
+recipe_table! {
+    /// The recipes of a skeleton placeholder.
+    SkeletonTheme {
+        root(root_recipe): SkeletonState = skeleton,
+    }
 }

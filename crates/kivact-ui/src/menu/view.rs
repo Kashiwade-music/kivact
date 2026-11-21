@@ -1,6 +1,7 @@
 //! Role: The menu builder, its recursive level rendering and its item rendering.
 
 use crate::layer::with_recipe_style;
+use crate::menu::look::MenuTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::Value;
 use kivact_core::state::{IntoText, IntoValue};
@@ -62,7 +63,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
     }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -174,7 +175,7 @@ impl<K: kivact_core::state::ItemKey> Menu<K> {
                 let state = part.state();
                 let trigger = with_recipe_style(
                     node().name(self.label),
-                    |r| r.menu_recipes().trigger_recipe(),
+                    |r: &MenuTheme| r.trigger_recipe(),
                     &self.variants,
                     move || state.get(),
                 )
@@ -273,7 +274,7 @@ fn inset_box<K: 'static>(entry: Value<MenuEntry<K>>, variants: &Variants) -> Vie
             let state = part.state();
             with_recipe_style(
                 node().part(part),
-                |r| r.menu_recipes().inset_recipe(),
+                |r: &MenuTheme| r.inset_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -299,7 +300,7 @@ fn item_content<K: Clone + 'static>(
         };
         with_recipe_style(
             node(),
-            |r| r.menu_recipes().check_recipe(),
+            |r: &MenuTheme| r.check_recipe(),
             variants,
             move || state.get(),
         )
@@ -310,7 +311,7 @@ fn item_content<K: Clone + 'static>(
     let chevron = submenu.then(|| {
         with_recipe_style(
             node(),
-            |r| r.menu_recipes().submenu_recipe(),
+            |r: &MenuTheme| r.submenu_recipe(),
             variants,
             move || state.get(),
         )
@@ -324,7 +325,7 @@ fn item_content<K: Clone + 'static>(
             (!text_value.is_empty()).then(|| {
                 with_recipe_style(
                     node(),
-                    |r| r.menu_recipes().shortcut_recipe(),
+                    |r: &MenuTheme| r.shortcut_recipe(),
                     &shortcuts,
                     move || state.get(),
                 )
@@ -341,7 +342,7 @@ fn item_content<K: Clone + 'static>(
             move |line| {
                 with_recipe_style(
                     line,
-                    |r| r.menu_recipes().description_recipe(),
+                    |r: &MenuTheme| r.description_recipe(),
                     &lines,
                     move || state.get(),
                 )
@@ -372,9 +373,9 @@ fn surface<K: kivact_core::state::ItemKey>(level: Level<K>, slot: Option<ItemCon
         let content = with_recipe_style(
             scroll(column(rows)),
             match kind {
-                LevelKind::Submenu => |r| r.menu_recipes().sub_surface_recipe(),
-                LevelKind::Context => |r| r.menu_recipes().context_surface_recipe(),
-                LevelKind::Anchored => |r| r.menu_recipes().surface_recipe(),
+                LevelKind::Submenu => |r: &MenuTheme| r.sub_surface_recipe(),
+                LevelKind::Context => |r: &MenuTheme| r.context_surface_recipe(),
+                LevelKind::Anchored => |r: &MenuTheme| r.surface_recipe(),
             },
             &variants,
             move || state.get(),
@@ -450,7 +451,7 @@ fn menu_rows<K: kivact_core::state::ItemKey>(
                             text(move || entry.get().1.label()),
                         ))
                         .part(part),
-                        |r| r.menu_recipes().label_recipe(),
+                        |r: &MenuTheme| r.label_recipe(),
                         &looks,
                         move || state.get(),
                     )
@@ -461,7 +462,7 @@ fn menu_rows<K: kivact_core::state::ItemKey>(
                     let state = part.state();
                     with_recipe_style(
                         node().part(part).role(kivact_core::view::Role::Separator),
-                        |r| r.menu_recipes().separator_recipe(),
+                        |r: &MenuTheme| r.separator_recipe(),
                         &looks,
                         move || state.get(),
                     )
@@ -497,7 +498,7 @@ fn menu_item<K: kivact_core::state::ItemKey>(
             .part(part)
             .child(inset_box(data, looks))
             .child(content),
-        |r| r.menu_recipes().item_recipe(),
+        |r: &MenuTheme| r.item_recipe(),
         looks,
         move || item_state.get(),
     );

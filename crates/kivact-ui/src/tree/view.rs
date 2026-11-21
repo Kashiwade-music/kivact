@@ -2,6 +2,7 @@
 
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::tree::look::TreeRowRecipeState;
+use crate::tree::look::TreeTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::motion::Transition;
@@ -237,7 +238,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Tree<K> {
         let header = header.map(|content| node().node_ref(header_ref).child(content));
         with_base_recipe_style(
             root.part(list),
-            |r| r.tree_recipes().root_recipe(),
+            |r: &TreeTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )
@@ -259,7 +260,7 @@ fn row_marker<K: kivact_core::state::ItemKey>(
     let parent = row.with_untracked(|row| row.branch.has_children());
     let marker = with_recipe_style(
         node(),
-        |r| r.tree_recipes().marker_recipe(),
+        |r: &TreeTheme| r.marker_recipe(),
         row_variants,
         move || recipe_state.get(),
     );
@@ -352,7 +353,7 @@ fn render_rows<K: kivact_core::state::ItemKey>(
                 .map_or_else(|| text(label).into_view(), |item| item.call((row, state)));
             with_recipe_style(
                 node().part(part),
-                |r| r.tree_recipes().item_recipe(),
+                |r: &TreeTheme| r.item_recipe(),
                 &row_variants,
                 move || recipe_state.get(),
             )

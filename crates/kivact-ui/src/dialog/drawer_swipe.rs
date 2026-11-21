@@ -1,4 +1,5 @@
 //! Role: Attach velocity-aware dismissal to a drawer's dedicated drag handle.
+use crate::dialog::look::DialogTheme;
 use kivact_core::geometry::{Edge, Point, Rect};
 use kivact_core::state::Machine as MachineTrait;
 use kivact_core::state::{Signal, Step, Value, machine, memo};
@@ -116,9 +117,9 @@ pub(crate) fn handle(
             node().part(part).role(kivact_core::view::Role::Group).name(
                 kivact_core::i18n::message("drawer.drag_handle", "Drag to close"),
             ),
-            |recipes| recipes.dialog_recipes().drag_handle_recipe(),
+            |r: &DialogTheme| r.drag_handle_recipe(),
             variants,
-            move || crate::DialogState {
+            move || crate::theme::DialogState {
                 input: state.get().input,
                 open: open.get(),
                 kind: kivact_interaction::DialogMode::Drawer(edge),

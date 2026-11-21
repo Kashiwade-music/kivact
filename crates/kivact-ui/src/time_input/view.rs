@@ -1,6 +1,7 @@
 //! Role: Time field and its wheel dialog.
 use super::machine::{Event, Snapshot, TimeDraft, TimeInputState};
 use crate::layer::with_recipe_style;
+use crate::time_input::look::TimeInputTheme;
 use crate::{DatePresentation, button, dialog, text_input};
 use kivact_core::custom::PartState;
 use kivact_core::i18n::{TimeOfDay, TimeStyle, message, use_locale};
@@ -41,7 +42,7 @@ impl TimeInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -143,7 +144,7 @@ impl IntoView for TimeInput {
                     })
                     .attach(toggle),
             )),
-            |r| r.time_input_recipes().root_recipe(),
+            |r: &TimeInputTheme| r.root_recipe(),
             &variants,
             PartState::default,
         ))

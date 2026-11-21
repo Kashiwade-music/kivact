@@ -1,6 +1,7 @@
 //! Role: Build the code block, its header, gutter, footer and copy behavior.
 
 use crate::code_block::look::CodeBlockState;
+use crate::code_block::look::CodeBlockTheme;
 use crate::code_block::look::CodeCollapse;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -285,7 +286,7 @@ impl CodeBlock {
         });
         with_recipe_style(
             control,
-            |r| r.code_block_recipes().copy_recipe(),
+            |r: &CodeBlockTheme| r.copy_recipe(),
             &self.variants,
             move || state.get(),
         )
@@ -296,7 +297,7 @@ impl CodeBlock {
         let can_collapse = presentation.can_collapse;
         let label = with_recipe_style(
             text(name),
-            |r| r.code_block_recipes().title_recipe(),
+            |r: &CodeBlockTheme| r.title_recipe(),
             &self.variants,
             move || state.get(),
         );
@@ -306,7 +307,7 @@ impl CodeBlock {
                 .name(name)
                 .child(text(name))
                 .hidden(move || !can_collapse.get()),
-            |r| r.code_block_recipes().collapse_recipe(),
+            |r: &CodeBlockTheme| r.collapse_recipe(),
             &self.variants,
             move || state.get(),
         );
@@ -314,7 +315,7 @@ impl CodeBlock {
         let language = self.language.map(|language| {
             with_recipe_style(
                 text(language).hidden(move || !language_shown.get()),
-                |r| r.code_block_recipes().language_recipe(),
+                |r: &CodeBlockTheme| r.language_recipe(),
                 &self.variants,
                 move || state.get(),
             )
@@ -336,7 +337,7 @@ impl CodeBlock {
         let end = self.end_content.take().map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.code_block_recipes().end_content_recipe(),
+                |r: &CodeBlockTheme| r.end_content_recipe(),
                 &self.variants,
                 move || state.get(),
             )
@@ -345,7 +346,7 @@ impl CodeBlock {
             node()
                 .child((label, trigger, language, end, copy, status))
                 .hidden(move || !state.get().has_header()),
-            |r| r.code_block_recipes().header_recipe(),
+            |r: &CodeBlockTheme| r.header_recipe(),
             &self.variants,
             move || state.get(),
         )
@@ -402,14 +403,14 @@ impl CodeSource {
         let gutter = crate::code_block::gutter::gutter(reference, self.code, variants, state);
         let body = with_recipe_style(
             node().child((editor, gutter)),
-            |r| r.code_block_recipes().body_recipe(),
+            |r: &CodeBlockTheme| r.body_recipe(),
             variants,
             move || state.get(),
         );
         let max_height = self.max_height;
         with_recipe_style(
             scroll(body).axes(ScrollAxes::Both),
-            |r| r.code_block_recipes().viewport_recipe(),
+            |r: &CodeBlockTheme| r.viewport_recipe(),
             variants,
             move || state.get(),
         )
@@ -440,7 +441,7 @@ fn native_editor(
     (
         with_recipe_style(
             node().part(editor).node_ref(reference),
-            |r| r.code_block_recipes().code_recipe(),
+            |r: &CodeBlockTheme| r.code_recipe(),
             variants,
             move || state.get(),
         ),
@@ -455,7 +456,7 @@ impl IntoView for CodeBlock {
         let footer = self.footer.take().map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.code_block_recipes().footer_recipe(),
+                |r: &CodeBlockTheme| r.footer_recipe(),
                 &self.variants,
                 move || state.get(),
             )
@@ -470,7 +471,7 @@ impl IntoView for CodeBlock {
         let viewport = source.render(&presentation, &self.variants);
         with_base_recipe_style(
             self.root,
-            |r| r.code_block_recipes().root_recipe(),
+            |r: &CodeBlockTheme| r.root_recipe(),
             &self.variants,
             move || state.get(),
         )

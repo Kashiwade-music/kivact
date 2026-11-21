@@ -2613,6 +2613,7 @@ dependencies = [
  "kivact-core",
  "kivact-interaction",
  "kivact-macros",
+ "kivact-types",
 ]
 
 [[package]]

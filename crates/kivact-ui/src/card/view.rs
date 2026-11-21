@@ -2,6 +2,7 @@
 
 use crate::card::look::CardAction;
 use crate::card::look::CardState;
+use crate::card::look::CardTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Signal, Value};
@@ -108,7 +109,7 @@ impl IntoView for Card {
         let header = self.header.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().header_recipe(),
+                |r: &CardTheme| r.header_recipe(),
                 variants,
                 state,
             )
@@ -116,7 +117,7 @@ impl IntoView for Card {
         let media = self.media.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().media_recipe(),
+                |r: &CardTheme| r.media_recipe(),
                 variants,
                 state,
             )
@@ -124,7 +125,7 @@ impl IntoView for Card {
         let content = (!kivact_core::custom::view_is_empty(&self.content)).then(|| {
             with_recipe_style(
                 node().child(self.content),
-                |r| r.card_recipes().content_recipe(),
+                |r: &CardTheme| r.content_recipe(),
                 variants,
                 state,
             )
@@ -132,14 +133,14 @@ impl IntoView for Card {
         let footer = self.footer.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.card_recipes().footer_recipe(),
+                |r: &CardTheme| r.footer_recipe(),
                 variants,
                 state,
             )
         });
         let overlay = with_recipe_style(
             node().hit_testable(false).focusable(false),
-            |r| r.card_recipes().overlay_recipe(),
+            |r: &CardTheme| r.overlay_recipe(),
             variants,
             state,
         )
@@ -148,7 +149,7 @@ impl IntoView for Card {
                 .position(kivact_core::style::Position::Absolute)
                 .inset(0),
         );
-        with_base_recipe_style(root, |r| r.card_recipes().root_recipe(), variants, state)
+        with_base_recipe_style(root, |r: &CardTheme| r.root_recipe(), variants, state)
             .style(kivact_core::style::style().position(kivact_core::style::Position::Relative))
             .child((media, header, content, footer, overlay))
             .into_view()

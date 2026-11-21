@@ -1,5 +1,6 @@
 //! Role: Present caller-owned chooser content in a popup or touch drawer.
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::select::look::SelectTheme;
 use crate::variants::Variants;
 use kivact_core::geometry::Rect;
 use kivact_core::state::{
@@ -145,7 +146,7 @@ impl SelectionField {
         self
     }
     /// Supply a theme-specific visual treatment.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -209,9 +210,9 @@ impl IntoView for SelectionField {
         let input = part.state();
         let trigger = with_base_recipe_style(
             self.root.part(part),
-            |r| r.select_recipes().trigger_recipe(),
+            |r: &SelectTheme| r.trigger_recipe(),
             &self.variants,
-            move || crate::SelectTriggerState {
+            move || crate::theme::SelectTriggerState {
                 input: input.get(),
                 open: matches!(field.get(), FieldState::Open { .. }),
                 placeholder: false,
@@ -252,7 +253,7 @@ impl IntoView for SelectionField {
             .content(move || {
                 with_recipe_style(
                     scroll(popup_body.call(())),
-                    |r| r.select_recipes().surface_recipe(),
+                    |r: &SelectTheme| r.surface_recipe(),
                     &variants,
                     move || PopupState {
                         input: Default::default(),
@@ -283,7 +284,7 @@ impl IntoView for SelectionField {
 fn indicator(open: Signal<bool>, variants: &Variants) -> View {
     with_recipe_style(
         node(),
-        |r| r.select_recipes().indicator_recipe(),
+        |r: &SelectTheme| r.indicator_recipe(),
         variants,
         move || PopupState {
             input: Default::default(),

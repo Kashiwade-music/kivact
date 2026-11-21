@@ -1,7 +1,9 @@
 //! Role: The spinner builder and its animated rendering.
 
+use crate::ControlSize;
+use crate::spinner::look::SpinnerTheme;
+use crate::theme::SpinnerState;
 use crate::variants::{Variant, Variants};
-use crate::{ControlSize, SpinnerState};
 use kivact_core::motion::{Animated, Easing, Repeat, Transition};
 use kivact_core::state::{IntoValue, Value};
 use kivact_core::view::{Element, IntoView, Node, Role, View, node};
@@ -70,7 +72,7 @@ impl IntoView for Spinner {
                 let turn = Animated::from(0.0, 360.0, transition);
                 crate::layer::with_base_recipe_style(
                     node(),
-                    |r| r.spinner_recipe(),
+                    |r: &SpinnerTheme| r.root_recipe(),
                     &variants,
                     move || SpinnerState {
                         size: size.get(),

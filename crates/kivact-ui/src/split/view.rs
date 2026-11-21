@@ -3,6 +3,8 @@
 use crate::control_size::ControlSize;
 use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
+use crate::split::look::SplitTheme;
+use crate::splitter::look::SplitterTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::i18n::message;
 use kivact_core::state::{Callback, Signal, Value, binding, memo};
@@ -51,8 +53,8 @@ pub struct Split {
 /// drag follow it); [`Split::orientation`] with [`Orientation::Vertical`]
 /// stacks them. The group fills its parent, so give the parent a size. The
 /// look of a handle is the theme's
-/// [`SplitterRecipes::handle`](crate::SplitterRecipes), and of its
-/// [`grip`](Split::grip) the theme's [`SplitRecipes`](crate::split::look::SplitRecipes).
+/// [`SplitterTheme::handle`](crate::theme::SplitterTheme), and of its
+/// [`grip`](Split::grip) the theme's [`SplitTheme`](crate::split::look::SplitTheme).
 ///
 /// For two panes whose first size is in pixels, use [`splitter`](crate::splitter).
 ///
@@ -93,7 +95,7 @@ impl Split {
     }
 
     /// Draw a grip on every handle while true (constant or reactive); the
-    /// theme's [`SplitRecipes::grip`](crate::split::look::SplitRecipes) styles it.
+    /// theme's [`SplitTheme::grip`](crate::split::look::SplitTheme) styles it.
     #[track_caller]
     pub fn grip(mut self, grip: impl IntoValue<bool>) -> Self {
         self.grip = grip.into_value();
@@ -120,7 +122,7 @@ impl Split {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -309,21 +311,14 @@ fn handle(at: usize, primary: NodeRef, group: &SplitGroupOptions) -> Node {
     };
     let mark = {
         let variants = variants.clone();
-        move || {
-            with_recipe_style(
-                node(),
-                |recipes| recipes.split_recipes().grip_recipe(),
-                &variants,
-                state,
-            )
-        }
+        move || with_recipe_style(node(), |r: &SplitTheme| r.grip_recipe(), &variants, state)
     };
     with_recipe_style(
         node()
             .part(part)
             .name(message("split.handle", "Resize"))
             .controls(primary),
-        |recipes| recipes.splitter_recipes().handle_recipe(),
+        |r: &SplitterTheme| r.handle_recipe(),
         &variants,
         state,
     )

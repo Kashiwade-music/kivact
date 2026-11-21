@@ -1,6 +1,7 @@
 //! Role: The Button builder: its busy phase, icon slots and rendering.
 
 use crate::button::look::ButtonState;
+use crate::button::look::ButtonTheme;
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -154,7 +155,7 @@ impl Button {
         self
     }
     /// A view before the label, in a box the theme's
-    /// [`UiRecipes::button_icon`](crate::UiRecipes) styles (a kit sizes
+    /// [`ButtonTheme::icon`](crate::theme::ButtonTheme) styles (a kit sizes
     /// the icon there by the button's size).
     /// The recipe knows it from [`ButtonState::leading_icon`].
     pub fn icon(mut self, icon: impl IntoView) -> Self {
@@ -185,7 +186,7 @@ impl Button {
     /// Give the button a [`Variant`]: its [`ButtonVariant`](crate::button::ButtonVariant)
     /// (the default is `Primary`), or a look a kit defines beyond it. Every
     /// recipe of the button reads it with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -245,14 +246,14 @@ impl Button {
         // The text style, then the recipe: base layers below every `.style(..)` of the caller.
         let root = with_base_recipe_style(
             root.base_style(crate::helpers::single_line_text()),
-            |r| r.button_recipe(),
+            |r: &ButtonTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         );
         let slot = |icon: View| {
             with_recipe_style(
                 node().child(icon),
-                |r| r.button_icon_recipe(),
+                |r: &ButtonTheme| r.icon_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -267,7 +268,7 @@ impl Button {
                 trailing.map(slot),
                 children,
             )),
-            |r| r.button_content_recipe(),
+            |r: &ButtonTheme| r.content_recipe(),
             &variants,
             move || {
                 let mut state = state.get();
@@ -313,7 +314,7 @@ fn busy_indicator(
             });
             with_recipe_style(
                 node(),
-                |r| r.button_busy_recipe(),
+                |r: &ButtonTheme| r.busy_recipe(),
                 &variants,
                 move || state.get(),
             )

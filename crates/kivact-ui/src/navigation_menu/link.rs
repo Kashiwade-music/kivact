@@ -1,6 +1,7 @@
 //! Role: Render rich navigation links using the closest existing panel's close request.
 use crate::layer::with_recipe_style;
 use crate::navigation_menu::look::NavigationLinkState;
+use crate::navigation_menu::look::NavigationMenuTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{Callback, IntoText, Value};
@@ -70,7 +71,7 @@ impl IntoView for NavigationMenuLink {
         let variants = &self.variants;
         let title = with_recipe_style(
             text(self.title),
-            |r| r.navigation_menu_recipes().link_title_recipe(),
+            |r: &NavigationMenuTheme| r.link_title_recipe(),
             variants,
             move || state.get(),
         );
@@ -78,7 +79,7 @@ impl IntoView for NavigationMenuLink {
         let description = self.description.map(|description| {
             with_recipe_style(
                 text(description).node_ref(reference),
-                |r| r.navigation_menu_recipes().link_description_recipe(),
+                |r: &NavigationMenuTheme| r.link_description_recipe(),
                 variants,
                 move || state.get(),
             )
@@ -90,7 +91,7 @@ impl IntoView for NavigationMenuLink {
         let icon = self.icon.map(|icon| {
             with_recipe_style(
                 node().child(icon),
-                |r| r.navigation_menu_recipes().link_icon_recipe(),
+                |r: &NavigationMenuTheme| r.link_icon_recipe(),
                 variants,
                 move || state.get(),
             )
@@ -105,7 +106,7 @@ impl IntoView for NavigationMenuLink {
                     context.close.call(());
                 }
             }),
-            |r| r.navigation_menu_recipes().link_recipe(),
+            |r: &NavigationMenuTheme| r.link_recipe(),
             variants,
             move || state.get(),
         )

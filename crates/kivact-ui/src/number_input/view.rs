@@ -1,6 +1,7 @@
 //! Role: The number input builder, its draft text and its rendering.
 
 use crate::number_input::draft::{NumberEvent, NumberInputSnapshot, NumberText, format_value};
+use crate::number_input::look::NumberInputTheme;
 
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::text_input::{TextInput, text_input};
@@ -77,7 +78,7 @@ pub fn number_input(
 impl NumberInput {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -182,7 +183,7 @@ impl IntoView for NumberInput {
         let increase = step_button(number, input_ref, disabled, true);
         with_base_recipe_style(
             root,
-            |r| r.number_input_recipes().root_recipe(),
+            |r: &NumberInputTheme| r.root_recipe(),
             &variants,
             PartState::default,
         )
@@ -200,7 +201,7 @@ fn editor_field(
 ) -> TextInput {
     field = with_recipe_style(
         field,
-        |r| r.number_input_recipes().input_recipe(),
+        |r: &NumberInputTheme| r.input_recipe(),
         variants,
         PartState::default,
     );

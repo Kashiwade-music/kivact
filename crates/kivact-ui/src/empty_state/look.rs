@@ -49,7 +49,7 @@ pub struct EmptyStateState {
 
 recipe_table! {
     /// Recipes for an empty region's message and actions.
-    EmptyStateRecipes {
+    EmptyStateTheme {
         root(root_recipe): EmptyStateState = empty_root,
         title(title_recipe): EmptyStateState = empty_title,
         description(description_recipe): EmptyStateState = empty_description,

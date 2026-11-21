@@ -1,5 +1,6 @@
 //! Role: The description list and description builders and their rendering.
 
+use crate::description_list::look::DescriptionListTheme;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, Value};
@@ -34,7 +35,7 @@ impl IntoView for DescriptionList {
     fn into_view(self) -> View {
         with_base_recipe_style(
             self.root,
-            |r| r.description_list_recipes().root_recipe(),
+            |r: &DescriptionListTheme| r.root_recipe(),
             &self.variants,
             || (),
         )
@@ -86,7 +87,7 @@ impl IntoView for Description {
         };
         let term = with_base_recipe_style(
             term_content.node_ref(label),
-            |r| r.description_list_recipes().term_recipe(),
+            |r: &DescriptionListTheme| r.term_recipe(),
             &self.variants,
             || (),
         );
@@ -96,13 +97,13 @@ impl IntoView for Description {
                 .name(self.term)
                 .labelled_by(label)
                 .child(self.detail),
-            |r| r.description_list_recipes().detail_recipe(),
+            |r: &DescriptionListTheme| r.detail_recipe(),
             &self.variants,
             || (),
         );
         with_base_recipe_style(
             self.root.name(self.term),
-            |r| r.description_list_recipes().item_recipe(),
+            |r: &DescriptionListTheme| r.item_recipe(),
             &self.variants,
             || (),
         )

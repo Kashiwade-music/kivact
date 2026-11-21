@@ -2,6 +2,7 @@
 
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::progress::look::ProgressTheme;
 use crate::progress::look::{ProgressState, ProgressVariant};
 use crate::progress::tokens::ProgressMotion;
 use crate::variants::{Variant, Variants};
@@ -56,7 +57,7 @@ pub struct Progress {
 /// The node is a `Role::ProgressBar` with the range 0 to 1, the current value
 /// and the text "n%". It is not named, because only the caller knows what it
 /// measures: name it with `.name(..)` and draw any visible label yourself.
-/// The look is the theme's [`UiRecipes::progress`](super::UiRecipes), whose
+/// The look is the theme's [`ProgressTheme`](crate::theme::ProgressTheme), whose
 /// track is the bar itself, 100 % wide, and whose fill is its child.
 ///
 /// ```no_run
@@ -106,7 +107,7 @@ impl Progress {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -187,7 +188,7 @@ impl IntoView for Progress {
         }
         let fill = with_recipe_style(
             node(),
-            |recipes| recipes.progress_recipes().fill_recipe(),
+            |r: &ProgressTheme| r.fill_recipe(),
             &variants,
             move || state.get(),
         );
@@ -200,14 +201,14 @@ impl IntoView for Progress {
                         .get()
                         .map_or_else(String::new, |v| format!("{:.0}%", v * 100.0))
                 }),
-                |r| r.progress_recipes().label_recipe(),
+                |r: &ProgressTheme| r.label_recipe(),
                 &variants,
                 move || state.get(),
             )
         });
         with_base_recipe_style(
             root,
-            |recipes| recipes.progress_recipes().track_recipe(),
+            |r: &ProgressTheme| r.track_recipe(),
             &variants,
             move || state.get(),
         )

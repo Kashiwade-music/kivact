@@ -3,6 +3,7 @@
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::slider::look::AxisState;
+use crate::slider::look::SliderTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::PartState;
 use kivact_core::geometry::Rect;
@@ -99,7 +100,7 @@ fn create(label: Value<String>, values: Values) -> Slider {
 impl Slider {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -348,7 +349,7 @@ impl IntoView for Slider {
         // slider. Its recipe is the base style, so the caller's styles win.
         let root = with_base_recipe_style(
             root,
-            |r| r.slider_recipes().track_recipe(),
+            |r: &SliderTheme| r.track_recipe(),
             &variants,
             move || state(track_state.get()),
         )
@@ -499,7 +500,7 @@ fn thumb_views(
             let geometry = geometry.clone();
             let mut thumb = with_recipe_style(
                 node().part(part).name(name),
-                |r| r.slider_recipes().thumb_recipe(),
+                |r: &SliderTheme| r.thumb_recipe(),
                 variants,
                 move || state(input.get().input),
             );
@@ -562,7 +563,7 @@ fn filled_span(
     };
     with_recipe_style(
         span,
-        |r| r.slider_recipes().range_recipe(),
+        |r: &SliderTheme| r.range_recipe(),
         variants,
         move || state(track_state.get()),
     )

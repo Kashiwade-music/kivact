@@ -4,6 +4,7 @@ use super::rows::{self, Grid};
 use super::types::{
     DataTable, DataTableContext, PagePlan, PageSetting, Paging, RowName, SortSetting,
 };
+use crate::data_table::look::DataTableTheme;
 use kivact_core::i18n::message;
 use kivact_core::state::{IntoValue, Signal};
 use kivact_core::view::Element;
@@ -144,7 +145,7 @@ where
     regions(
         crate::layer::with_base_recipe_style(
             table.root,
-            |r| r.data_table_recipes().frame_recipe(),
+            |r: &DataTableTheme| r.frame_recipe(),
             &table.variants,
             kivact_core::custom::PartState::default,
         ),

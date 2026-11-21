@@ -1,10 +1,11 @@
 //! Role: The tree recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::{ReadingDirection, use_direction};
-pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
+pub(crate) fn tree_item(t: &Theme, row: &Look<TreeRowRecipeState>) -> Style {
     let rtl = use_direction() == ReadingDirection::Rtl;
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let tree = &tokens.tree;
@@ -39,7 +40,7 @@ pub(crate) fn tree_item(t: &Theme, row: &TreeRowRecipeState) -> Style {
         .selected(style().background(kivact_core::style::color::SELECTION))
 }
 
-pub(crate) fn tree_marker(t: &Theme, _: &TreeRowRecipeState) -> Style {
+pub(crate) fn tree_marker(t: &Theme, _: &Look<TreeRowRecipeState>) -> Style {
     style()
         .width(
             t.ext::<crate::tokens::UiTokens>()
@@ -71,7 +72,7 @@ impl std::ops::Deref for TreeRowRecipeState {
 
 recipe_table! {
     /// The recipes of a [`tree`](super::tree).
-    TreeRecipes {
+    TreeTheme {
         /// The column containing the visible rows.
         root(root_recipe): PartState = crate::look_common::list,
         /// A row with the expansion indicator and its content.

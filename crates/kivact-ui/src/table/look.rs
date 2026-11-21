@@ -1,10 +1,11 @@
 //! Role: The table recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
-pub(crate) fn table(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn table(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .width(pct(100))
@@ -17,17 +18,17 @@ pub(crate) fn table(t: &Theme, _: &PartState) -> Style {
         )
 }
 
-pub(crate) fn group(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn group(_: &Theme, _: &Look<PartState>) -> Style {
     style().flex_direction(FlexDirection::Column)
 }
 
-pub(crate) fn footer(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn footer(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .background(kivact_core::style::color::SURFACE_ALT)
 }
 
-pub(crate) fn row(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn row(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .width(pct(100))
@@ -36,7 +37,7 @@ pub(crate) fn row(_: &Theme, _: &PartState) -> Style {
         .selected(style().background(kivact_core::style::color::SELECTION))
 }
 
-pub(crate) fn cell(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn cell(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -50,7 +51,7 @@ pub(crate) fn cell(t: &Theme, _: &PartState) -> Style {
         .color(kivact_core::style::color::TEXT)
 }
 
-pub(crate) fn head(t: &Theme, s: &PartState) -> Style {
+pub(crate) fn head(t: &Theme, s: &Look<PartState>) -> Style {
     cell(t, s)
         .min_height(
             t.ext::<UiTokens>()
@@ -63,7 +64,7 @@ pub(crate) fn head(t: &Theme, s: &PartState) -> Style {
 
 recipe_table! {
     /// Static table part recipes.
-    TableRecipes {
+    TableTheme {
         root(root_recipe): PartState = table,
         header(header_recipe): PartState = group,
         body(body_recipe): PartState = group,

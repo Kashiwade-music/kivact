@@ -2,6 +2,7 @@
 
 use super::state::Shared;
 use crate::calendar::CalendarCaption;
+use crate::calendar::look::CalendarTheme;
 use kivact_core::i18n::{CalendarDate, CalendarMonth, DateRange, Weekday};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::IntoValue;
@@ -119,7 +120,7 @@ impl Calendar {
     }
 
     /// Pass a kit-defined appearance to every calendar part recipe.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -328,7 +329,7 @@ impl IntoView for Calendar {
             );
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.calendar_recipes().root_recipe(),
+            |r: &CalendarTheme| r.root_recipe(),
             &self.variants,
             kivact_core::custom::PartState::default,
         )

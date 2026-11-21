@@ -116,7 +116,7 @@ impl Expansion {
 
 recipe_table! {
     /// Recipes for a persistent alert and optional details.
-    AlertRecipes {
+    AlertTheme {
         root(root_recipe): AlertState = alert_root,
         header(header_recipe): AlertState = alert_wrapper,
         message(message_recipe): AlertState = alert_wrapper,

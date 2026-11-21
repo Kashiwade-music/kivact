@@ -1,6 +1,7 @@
 //! Role: Build the chat message, its status and bubble slots and its layout.
 
 use crate::chat_message::look::ChatMessageState;
+use crate::chat_message::look::ChatMessageTheme;
 use crate::chat_message::look::{
     ChatAlign, ChatBubbleGroup, ChatMessageStatus, ChatReactionsSide, ChatSender,
 };
@@ -204,7 +205,7 @@ impl ChatMessage {
                 ChatMessageStatus::Read => read.get(),
                 ChatMessageStatus::Error => failed.get(),
             }),
-            |r| r.chat_message_recipes().status_recipe(),
+            |r: &ChatMessageTheme| r.status_recipe(),
             &self.variants,
             state,
         ))
@@ -216,14 +217,14 @@ impl ChatMessage {
                 let author = self.author;
                 move || author.with(String::is_empty)
             }),
-            |r| r.chat_message_recipes().author_recipe(),
+            |r: &ChatMessageTheme| r.author_recipe(),
             variants,
             state,
         );
         let time = self.time.map(|t| {
             with_recipe_style(
                 text(t),
-                |r| r.chat_message_recipes().time_recipe(),
+                |r: &ChatMessageTheme| r.time_recipe(),
                 variants,
                 state,
             )
@@ -231,49 +232,49 @@ impl ChatMessage {
         let status = self.render_status(state);
         let content = message_slot(
             self.content.take(),
-            |r| r.chat_message_recipes().content_recipe(),
+            |r: &ChatMessageTheme| r.content_recipe(),
             variants,
             state,
         );
         let header = message_slot(
             self.header.take(),
-            |r| r.chat_message_recipes().header_recipe(),
+            |r: &ChatMessageTheme| r.header_recipe(),
             variants,
             state,
         );
         let footer = message_slot(
             self.footer.take(),
-            |r| r.chat_message_recipes().footer_recipe(),
+            |r: &ChatMessageTheme| r.footer_recipe(),
             variants,
             state,
         );
         let metadata = message_slot(
             self.metadata.take(),
-            |r| r.chat_message_recipes().metadata_recipe(),
+            |r: &ChatMessageTheme| r.metadata_recipe(),
             variants,
             state,
         );
         let media = message_slot(
             self.media.take(),
-            |r| r.chat_message_recipes().media_recipe(),
+            |r: &ChatMessageTheme| r.media_recipe(),
             variants,
             state,
         );
         let icon = message_slot(
             self.icon.take(),
-            |r| r.chat_message_recipes().icon_recipe(),
+            |r: &ChatMessageTheme| r.icon_recipe(),
             variants,
             state,
         );
         let actions = message_slot(
             self.actions.take(),
-            |r| r.chat_message_recipes().actions_recipe(),
+            |r: &ChatMessageTheme| r.actions_recipe(),
             variants,
             state,
         );
         let reactions = message_slot(
             self.reactions.take(),
-            |r| r.chat_message_recipes().reactions_recipe(),
+            |r: &ChatMessageTheme| r.reactions_recipe(),
             variants,
             state,
         );
@@ -283,7 +284,7 @@ impl ChatMessage {
                 author, header, media, icon, content, time, status, metadata, actions, footer,
                 reactions,
             )),
-            |r| r.chat_message_recipes().body_recipe(),
+            |r: &ChatMessageTheme| r.body_recipe(),
             variants,
             state,
         );
@@ -303,7 +304,7 @@ impl ChatMessage {
 }
 fn message_slot(
     view: Option<View>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ChatMessageState>,
+    recipe: fn(&ChatMessageTheme) -> &crate::recipe::Recipe<ChatMessageState>,
     variants: &Variants,
     state: impl Fn() -> ChatMessageState + Copy + 'static,
 ) -> Option<Node> {
@@ -315,13 +316,13 @@ impl IntoView for ChatMessage {
         let body = self.render_body(state);
         let avatar = message_slot(
             self.avatar.take(),
-            |r| r.chat_message_recipes().avatar_recipe(),
+            |r: &ChatMessageTheme| r.avatar_recipe(),
             &self.variants,
             state,
         );
         with_base_recipe_style(
             self.root,
-            |r| r.chat_message_recipes().root_recipe(),
+            |r: &ChatMessageTheme| r.root_recipe(),
             &self.variants,
             state,
         )

@@ -25,7 +25,7 @@ pub struct TypingIndicatorState {
 
 recipe_table! {
     /// Styles for the persistent parts of TypingIndicator.
-    TypingIndicatorRecipes {
+    TypingIndicatorTheme {
         root(root_recipe): TypingIndicatorState = crate::look_common::row,
         avatar(avatar_recipe): TypingIndicatorState = crate::look_common::slot,
         dots(dots_recipe): TypingIndicatorState = typing_dots,

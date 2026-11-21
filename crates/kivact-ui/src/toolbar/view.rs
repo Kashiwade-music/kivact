@@ -2,6 +2,7 @@
 
 use crate::layer::with_base_recipe_style;
 use crate::toolbar::look::ToolbarState;
+use crate::toolbar::look::ToolbarTheme;
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
 use kivact_core::state::{IntoText, IntoValue, Value};
@@ -130,7 +131,7 @@ impl IntoView for Toolbar {
         });
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
-            |r| r.toolbar_recipes().root_recipe(),
+            |r: &ToolbarTheme| r.root_recipe(),
             &self.variants,
             move || ToolbarState {
                 orientation,

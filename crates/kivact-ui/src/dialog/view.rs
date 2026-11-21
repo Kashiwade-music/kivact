@@ -1,10 +1,10 @@
 //! Role: The dialog builder, its header and content layout, and panel placement.
 
-use crate::DialogState;
+use crate::dialog::look::DialogTheme;
 use crate::dialog::tokens::DialogCenter;
 use crate::layer::with_recipe_style;
 use crate::recipe::Recipe;
-use crate::recipes::UiRecipes;
+use crate::theme::DialogState;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::Part;
 use kivact_core::geometry::Edge;
@@ -88,7 +88,7 @@ impl Dialog {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -126,7 +126,7 @@ fn themed(
     part: Part<PopupState>,
     shape: Shape,
     variants: &Variants,
-    pick: fn(&UiRecipes) -> &Recipe<DialogState>,
+    pick: fn(&DialogTheme) -> &Recipe<DialogState>,
 ) -> Node {
     let state = part.state();
     with_recipe_style(root.part(part), pick, variants, move || {
@@ -138,7 +138,7 @@ fn wrapper(
     open: Value<bool>,
     shape: Shape,
     variants: &Variants,
-    pick: fn(&UiRecipes) -> &Recipe<DialogState>,
+    pick: fn(&DialogTheme) -> &Recipe<DialogState>,
 ) -> Node {
     let part = kivact_core::custom::part(move |input| PopupState {
         input,
@@ -307,20 +307,32 @@ impl Dialog {
         let heading = {
             let variants = variants.clone();
             move || {
-                themed(text(title), behavior.title(), shape, &variants, |r| {
-                    r.dialog_recipes().title_recipe()
-                })
+                themed(
+                    text(title),
+                    behavior.title(),
+                    shape,
+                    &variants,
+                    |r: &DialogTheme| r.title_recipe(),
+                )
             }
         };
         let description = self.description.map(|label| {
-            themed(text(label), behavior.description(), shape, variants, |r| {
-                r.dialog_recipes().description_recipe()
-            })
+            themed(
+                text(label),
+                behavior.description(),
+                shape,
+                variants,
+                |r: &DialogTheme| r.description_recipe(),
+            )
         });
         let media = self.media.as_ref().map(|media| {
-            wrapper(node().child(media.call(())), open, shape, variants, |r| {
-                r.dialog_recipes().media_recipe()
-            })
+            wrapper(
+                node().child(media.call(())),
+                open,
+                shape,
+                variants,
+                |r: &DialogTheme| r.media_recipe(),
+            )
         });
         // The media, the title and the description form the header; the
         // close button comes last, so the content's first control takes
@@ -334,7 +346,7 @@ impl Dialog {
                 open,
                 shape,
                 variants,
-                |r| r.dialog_recipes().header_recipe(),
+                |r: &DialogTheme| r.header_recipe(),
             )
             .into_view()
         } else {
@@ -342,9 +354,13 @@ impl Dialog {
             kivact_core::view::show(
                 move || !hidden.get(),
                 move || {
-                    wrapper(column(heading()), open, shape, &variants, |r| {
-                        r.dialog_recipes().header_recipe()
-                    })
+                    wrapper(
+                        column(heading()),
+                        open,
+                        shape,
+                        &variants,
+                        |r: &DialogTheme| r.header_recipe(),
+                    )
                 },
             )
             .into_view()
@@ -365,7 +381,7 @@ impl Dialog {
                     behavior.close_trigger(),
                     shape,
                     &variants,
-                    |r| r.dialog_recipes().close_recipe(),
+                    |r: &DialogTheme| r.close_recipe(),
                 )
             })
             .into_view()
@@ -379,9 +395,13 @@ impl Dialog {
         // A dialog without content has no body, so the surface's gap
         // does not open twice between the header and the footer.
         let content = self.content.as_ref().map(|body| {
-            let content = wrapper(node().child(body.call(())), open, shape, variants, |r| {
-                r.dialog_recipes().body_recipe()
-            });
+            let content = wrapper(
+                node().child(body.call(())),
+                open,
+                shape,
+                variants,
+                |r: &DialogTheme| r.body_recipe(),
+            );
             if matches!(kind, DialogMode::Drawer(_)) {
                 scroll(content)
                     .style(style().flex_grow(1).min_height(0))
@@ -396,8 +416,8 @@ impl Dialog {
             .map(|footer| footer.call(()))
             .filter(|footer| !kivact_core::custom::view_is_empty(footer))
             .map(|footer| {
-                wrapper(row(footer), open, shape, variants, |r| {
-                    r.dialog_recipes().footer_recipe()
+                wrapper(row(footer), open, shape, variants, |r: &DialogTheme| {
+                    r.footer_recipe()
                 })
             });
         (content, footer)
@@ -431,7 +451,7 @@ impl Dialog {
         let surface_state = surface.state();
         let mut panel = with_recipe_style(
             column((handle, header, content, footer, close)).node_ref(panel_ref),
-            |r| r.dialog_recipes().surface_recipe(),
+            |r: &DialogTheme| r.surface_recipe(),
             variants,
             move || shape.state(surface_state.get()),
         );
@@ -486,8 +506,8 @@ impl Dialog {
             return layer.offset(4.0).into_view();
         }
         (
-            wrapper(node(), open, shape, variants, |r| {
-                r.dialog_recipes().scrim_recipe()
+            wrapper(node(), open, shape, variants, |r: &DialogTheme| {
+                r.scrim_recipe()
             }),
             layer,
         )

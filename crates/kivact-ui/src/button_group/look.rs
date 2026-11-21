@@ -6,7 +6,7 @@ use kivact_core::style::{Align, FlexDirection, style};
 use kivact_core::view::Orientation;
 pub(crate) fn button_root(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupState>,
+    look: &crate::theme::Look<ButtonGroupState>,
 ) -> kivact_core::style::Style {
     let t = &theme.ext::<crate::UiTokens>().button_group;
     style()
@@ -24,7 +24,7 @@ pub(crate) fn button_root(
 
 pub(crate) fn button_separator(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupState>,
+    look: &crate::theme::Look<ButtonGroupState>,
 ) -> kivact_core::style::Style {
     let base = style()
         .flex_shrink(0)
@@ -39,7 +39,7 @@ pub(crate) fn button_separator(
 
 pub(crate) fn button_text(
     theme: &kivact_core::style::Theme,
-    _: &crate::Look<ButtonGroupState>,
+    _: &crate::theme::Look<ButtonGroupState>,
 ) -> kivact_core::style::Style {
     let t = &theme.ext::<crate::UiTokens>().button_group;
     style()
@@ -56,7 +56,7 @@ pub(crate) fn button_text(
 
 pub(crate) fn button_member(
     theme: &kivact_core::style::Theme,
-    look: &crate::Look<ButtonGroupMemberState>,
+    look: &crate::theme::Look<ButtonGroupMemberState>,
 ) -> kivact_core::style::Style {
     let tokens = theme.ext::<crate::UiTokens>();
     let t = &tokens.button_group;
@@ -93,7 +93,7 @@ pub struct ButtonGroupMemberState {
 
 recipe_table! {
     /// Joined action group surface and auxiliary cell recipes.
-    ButtonGroupRecipes {
+    ButtonGroupTheme {
         root(root_recipe): ButtonGroupState = button_root,
         member(member_recipe): ButtonGroupMemberState = button_member,
         separator(separator_recipe): ButtonGroupState = button_separator,

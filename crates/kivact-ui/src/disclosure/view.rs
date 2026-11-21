@@ -1,5 +1,6 @@
 //! Role: The disclosure builder, its trigger and content rendering, and its motion.
 
+use crate::disclosure::look::DisclosureTheme;
 use crate::disclosure::tokens::DisclosureMotion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -24,7 +25,7 @@ pub struct Disclosure {
     keep_mounted: bool,
     heading_level: Option<u32>,
     animation: Option<Value<bool>>,
-    group: Option<crate::DisclosureGroupPosition>,
+    group: Option<crate::theme::DisclosureGroupPosition>,
 }
 
 /// A section titled `title` that `open` opens and closes, showing what
@@ -36,7 +37,7 @@ pub struct Disclosure {
 /// section opens and dropped when it closes (unless
 /// [`keep_mounted`](Disclosure::keep_mounted)). Engine presence retains its
 /// exit paint until the closing motion finishes. The look
-/// is the theme's [`UiRecipes::disclosure`](crate::UiRecipes). A caller's
+/// is the theme's [`DisclosureTheme`](crate::theme::DisclosureTheme). A caller's
 /// `.disabled(..)` on the disclosure disables the trigger.
 ///
 /// An accordion is a column of disclosures over one list of open keys; each
@@ -92,7 +93,7 @@ pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) 
 
 impl Disclosure {
     pub(crate) fn group_position(mut self, index: usize, count: usize) -> Self {
-        self.group = Some(crate::DisclosureGroupPosition { index, count });
+        self.group = Some(crate::theme::DisclosureGroupPosition { index, count });
         self
     }
     pub(crate) fn group_variants(mut self, variants: Variants) -> Self {
@@ -171,7 +172,7 @@ impl Disclosure {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -217,13 +218,13 @@ impl IntoView for Disclosure {
         let title = self.title;
         let indicator = with_recipe_style(
             node().child(icon("chevron-down")),
-            |recipes| recipes.disclosure_recipes().indicator_recipe(),
+            |r: &DisclosureTheme| r.indicator_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         );
         let trigger = with_recipe_style(
             node().part(part).name(title),
-            |recipes| recipes.disclosure_recipes().trigger_recipe(),
+            |r: &DisclosureTheme| r.trigger_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
@@ -251,7 +252,7 @@ impl IntoView for Disclosure {
         };
         with_base_recipe_style(
             self.root,
-            |recipes| recipes.disclosure_recipes().root_recipe(),
+            |r: &DisclosureTheme| r.root_recipe(),
             &variants,
             move || crate::disclosure::look::DisclosureRecipeState::from_part(state.get(), group),
         )
@@ -267,13 +268,13 @@ fn content_region(
     motion: &DisclosureMotion,
     animation: Option<Value<bool>>,
     variants: &Variants,
-    group: Option<crate::DisclosureGroupPosition>,
+    group: Option<crate::theme::DisclosureGroupPosition>,
 ) -> Node {
     let part = details.content();
     let content_state = part.state();
     let region = with_recipe_style(
         node().part(part),
-        |recipes| recipes.disclosure_recipes().content_recipe(),
+        |r: &DisclosureTheme| r.content_recipe(),
         variants,
         move || {
             crate::disclosure::look::DisclosureRecipeState::from_part(content_state.get(), group)

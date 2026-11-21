@@ -47,7 +47,7 @@ pub struct StatState {
 
 recipe_table! {
     /// Parts of a statistic and its optional application-owned chart.
-    StatRecipes {
+    StatTheme {
         root(root_recipe): StatState = stat_root,
         label(label_recipe): StatState = stat_label,
         value(value_recipe): StatState = stat_value,

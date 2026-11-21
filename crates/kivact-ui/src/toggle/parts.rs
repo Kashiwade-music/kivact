@@ -1,6 +1,6 @@
 //! Role: Mount persistent themeable indicator parts for checkbox and switch motion.
-use crate::layer::{recipes, with_recipe_style};
-use crate::toggle::look::CheckableState;
+use crate::layer::with_recipe_style;
+use crate::toggle::look::{CheckableState, CheckboxTheme, SwitchTheme};
 use crate::variants::Variants;
 use kivact_core::state::Value;
 use kivact_core::style::{Position, style, use_theme};
@@ -10,7 +10,7 @@ use kivact_core::view::{Node, node};
 pub(super) fn checkbox(variants: &Variants, state: Value<CheckableState>) -> impl IntoView {
     let variants = variants.clone();
     show(
-        || recipes(&use_theme().get()).has_checkbox_parts(),
+        || use_theme().get().ext::<CheckboxTheme>().has_parts(),
         move || checkbox_parts(&variants, state),
     )
 }
@@ -18,20 +18,20 @@ pub(super) fn checkbox(variants: &Variants, state: Value<CheckableState>) -> imp
 fn checkbox_parts(variants: &Variants, state: Value<CheckableState>) -> Node {
     with_recipe_style(
         node().style(style().position(Position::Absolute)),
-        |r| r.checkbox_indicator_recipe(),
+        |r: &CheckboxTheme| r.indicator_recipe(),
         variants,
         move || state.get(),
     )
     .child((
         with_recipe_style(
             node(),
-            |r| r.checkbox_check_recipe(),
+            |r: &CheckboxTheme| r.check_recipe(),
             variants,
             move || state.get(),
         ),
         with_recipe_style(
             node(),
-            |r| r.checkbox_mixed_recipe(),
+            |r: &CheckboxTheme| r.mixed_recipe(),
             variants,
             move || state.get(),
         ),
@@ -41,7 +41,7 @@ fn checkbox_parts(variants: &Variants, state: Value<CheckableState>) -> Node {
 pub(super) fn switch(variants: &Variants, state: Value<CheckableState>) -> impl IntoView {
     let variants = variants.clone();
     show(
-        || recipes(&use_theme().get()).has_switch_parts(),
+        || use_theme().get().ext::<SwitchTheme>().has_parts(),
         move || switch_parts(&variants, state),
     )
 }
@@ -49,13 +49,13 @@ pub(super) fn switch(variants: &Variants, state: Value<CheckableState>) -> impl 
 fn switch_parts(variants: &Variants, state: Value<CheckableState>) -> Node {
     with_recipe_style(
         node().style(style().position(Position::Absolute)),
-        |r| r.switch_track_recipe(),
+        |r: &SwitchTheme| r.track_recipe(),
         variants,
         move || state.get(),
     )
     .child(with_recipe_style(
         node(),
-        |r| r.switch_thumb_recipe(),
+        |r: &SwitchTheme| r.thumb_recipe(),
         variants,
         move || state.get(),
     ))

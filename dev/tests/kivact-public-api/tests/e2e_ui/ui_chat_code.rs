@@ -187,32 +187,27 @@ fn chat_composer_preserves_newlines_history_stop_and_ime() {
 fn code_block_numbers_follow_native_wrapped_rows_and_recipe_line_height() {
     use kivact::style::LineHeight;
     use kivact::test::RenderOptions;
-    let (screen, (source, width)) = kivact_public_api_tests::support::mount_with(
-        RenderOptions::from_env().theme(Theme::light().with(
-            kivact::ui::UiRecipes::default().code_block(|r| {
-                r.code(|previous| {
-                    move |theme, state| {
-                        previous(theme, state)
-                            .font_size(18)
-                            .line_height(LineHeight::px(31))
-                    }
-                })
-            }),
-        )),
-        || {
-            let source = signal(format!("{}\ntail", "abcdefghij ".repeat(8)));
-            let width = signal(220.0);
-            (
-                (source, width),
-                code_block(source)
-                    .title("Wrapped")
-                    .line_numbers(true)
-                    .wrap(true)
-                    .test_id("wrapped-code")
-                    .style(move || style().width(width.get())),
-            )
-        },
-    );
+    let (screen, (source, width)) =
+        kivact_public_api_tests::support::mount_with(
+            RenderOptions::from_env().theme(Theme::light().with(
+                kivact::ui::theme::CodeBlockTheme::default().code(|_theme, _state, base| {
+                    base.font_size(18).line_height(LineHeight::px(31))
+                }),
+            )),
+            || {
+                let source = signal(format!("{}\ntail", "abcdefghij ".repeat(8)));
+                let width = signal(220.0);
+                (
+                    (source, width),
+                    code_block(source)
+                        .title("Wrapped")
+                        .line_numbers(true)
+                        .wrap(true)
+                        .test_id("wrapped-code")
+                        .style(move || style().width(width.get())),
+                )
+            },
+        );
     let numbers = gutter(screen.get_by_test_id("wrapped-code"));
     let text = numbers.text();
     let second = text

@@ -1,5 +1,6 @@
 //! Role: The tab list builder, its selection state and the selected panel.
-use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::tabs::look::TabsTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
@@ -67,7 +68,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -158,15 +159,11 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
                 };
                 let indicator_variants = variants.clone();
                 let indicator = show(
-                    || {
-                        recipes(&use_theme().get())
-                            .tabs_recipes()
-                            .has_custom_indicator()
-                    },
+                    || use_theme().get().ext::<TabsTheme>().has_custom_indicator(),
                     move || {
                         with_recipe_style(
                             node().hit_testable(false),
-                            |r| r.tabs_recipes().indicator_recipe(),
+                            |r: &TabsTheme| r.indicator_recipe(),
                             &indicator_variants,
                             move || state.get(),
                         )
@@ -174,7 +171,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
                 );
                 with_recipe_style(
                     node().part(part),
-                    |r| r.tabs_recipes().tab_recipe(),
+                    |r: &TabsTheme| r.tab_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -184,7 +181,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
         );
         let root = with_base_recipe_style(
             self.root,
-            |r| r.tabs_recipes().list_recipe(),
+            |r: &TabsTheme| r.list_recipe(),
             &self.variants,
             move || list_state.get(),
         );
@@ -244,7 +241,7 @@ impl<K: kivact_core::state::ItemKey> Tabs<K> {
             let state = part.state();
             with_recipe_style(
                 node().part(part).name(name).child(factory.call(key)),
-                |r| r.tabs_recipes().panel_recipe(),
+                |r: &TabsTheme| r.panel_recipe(),
                 &variants,
                 move || state.get(),
             )

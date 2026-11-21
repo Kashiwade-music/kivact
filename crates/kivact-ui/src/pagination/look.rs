@@ -49,7 +49,7 @@ pub struct PaginationSummary {
 
 recipe_table! {
     /// Page control and gap recipes.
-    PaginationRecipes {
+    PaginationTheme {
         root(root_recipe): () = root,
         item(item_recipe): PaginationItemState = pagination_item,
         ellipsis(ellipsis_recipe): () = crate::look_common::part,

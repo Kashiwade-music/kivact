@@ -1,5 +1,6 @@
 //! Role: The date-time field's builder, its controller wiring and desktop picker.
 
+use crate::date_time_input::look::DateTimeInputTheme;
 use crate::date_time_input::model::{
     Controller, DateTimeFields, DateTimeInputState, Event, Panel, field_bindings,
 };
@@ -46,7 +47,7 @@ impl DateTimeInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -141,7 +142,7 @@ impl IntoView for DateTimeInput {
         );
         let root = crate::layer::with_base_recipe_style(
             root,
-            |r| r.date_time_input_recipes().root_recipe(),
+            |r: &DateTimeInputTheme| r.root_recipe(),
             &variants,
             kivact_core::custom::PartState::default,
         );

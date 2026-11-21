@@ -1,12 +1,13 @@
 //! Role: The command palette recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::Shadow;
 use kivact_core::style::{Align, FlexDirection, Position, Style, Theme, pct, style};
 use kivact_interaction::{ListItemState, PopupState};
 /// The layer that covers the window behind the modal.
-pub(crate) fn scrim(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn scrim(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .position(Position::Fixed)
         .inset(0)
@@ -14,7 +15,7 @@ pub(crate) fn scrim(_: &Theme, _: &PartState) -> Style {
 }
 
 /// The modal's panel: the search over the list.
-pub(crate) fn panel(t: &Theme, _: &PopupState) -> Style {
+pub(crate) fn panel(t: &Theme, _: &Look<PopupState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .width(560)
@@ -28,7 +29,7 @@ pub(crate) fn panel(t: &Theme, _: &PopupState) -> Style {
 }
 
 /// The row of the magnifier and the search field.
-pub(crate) fn search(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn search(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -39,7 +40,7 @@ pub(crate) fn search(t: &Theme, _: &PartState) -> Style {
 }
 
 /// The magnifier before the field.
-pub(crate) fn search_icon(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn search_icon(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .size(16, 16)
         .flex_shrink(0)
@@ -47,7 +48,7 @@ pub(crate) fn search_icon(_: &Theme, _: &PartState) -> Style {
 }
 
 /// The search field itself, without a box of its own.
-pub(crate) fn field(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn field(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_grow(1)
         .min_width(0)
@@ -56,7 +57,7 @@ pub(crate) fn field(_: &Theme, _: &PartState) -> Style {
 }
 
 /// The scrolling list of rows.
-pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn list(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .max_height(320)
@@ -64,7 +65,7 @@ pub(crate) fn list(t: &Theme, _: &PartState) -> Style {
 }
 
 /// The heading of a group.
-pub(crate) fn group(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn group(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .padding_x(t.get(&kivact_core::style::space::MD_VAR))
         .padding_y(t.get(&kivact_core::style::space::SM_VAR))
@@ -73,7 +74,7 @@ pub(crate) fn group(t: &Theme, _: &PartState) -> Style {
 }
 
 /// A command's row, marked while it is the active one.
-pub(crate) fn row(t: &Theme, state: &ListItemState) -> Style {
+pub(crate) fn row(t: &Theme, state: &Look<ListItemState>) -> Style {
     let s = style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -94,7 +95,7 @@ pub(crate) fn row(t: &Theme, state: &ListItemState) -> Style {
 }
 
 /// The icon at the start of a row.
-pub(crate) fn icon(_: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn icon(_: &Theme, _: &Look<ListItemState>) -> Style {
     style()
         .size(16, 16)
         .flex_shrink(0)
@@ -102,7 +103,7 @@ pub(crate) fn icon(_: &Theme, _: &ListItemState) -> Style {
 }
 
 /// The hint at the end of a row, such as its shortcut.
-pub(crate) fn hint(t: &Theme, _: &ListItemState) -> Style {
+pub(crate) fn hint(t: &Theme, _: &Look<ListItemState>) -> Style {
     style()
         .flex_shrink(0)
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
@@ -110,14 +111,14 @@ pub(crate) fn hint(t: &Theme, _: &ListItemState) -> Style {
 }
 
 /// The text shown when no command matches.
-pub(crate) fn empty(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn empty(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .padding(t.get(&kivact_core::style::space::XL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The line under the list.
-pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn footer(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -130,7 +131,7 @@ pub(crate) fn footer(t: &Theme, _: &PartState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`command_palette`](super::command_palette).
-    CommandPaletteRecipes {
+    CommandPaletteTheme {
         /// The layer that covers the window behind the modal.
         scrim(scrim_recipe): PartState = scrim,
         /// The modal's panel, which holds the search, the list and the footer.

@@ -1,9 +1,11 @@
 //! Role: The avatar view: the Avatar builder, its picture, fallback and status rendering.
 
+use crate::ControlSize;
 use crate::avatar::initials::initials;
 use crate::avatar::look::AvatarShape;
+use crate::avatar::look::AvatarTheme;
+use crate::theme::{AvatarState, Variant};
 use crate::variants::Variants;
-use crate::{AvatarState, ControlSize, Variant};
 use kivact_core::state::IntoHandler;
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::style::{Align, Justify, Position, pct, style};
@@ -178,7 +180,7 @@ impl IntoView for Avatar {
         };
         let image = crate::layer::with_recipe_style(
             node().child(content),
-            |r| r.avatar_image_recipe(),
+            |r: &AvatarTheme| r.image_recipe(),
             &self.variants,
             state,
         );
@@ -186,14 +188,14 @@ impl IntoView for Avatar {
         let status_content = self.status_content.map(|content| {
             crate::layer::with_recipe_style(
                 node().child(content),
-                |r| r.avatar_status_content_recipe(),
+                |r: &AvatarTheme| r.status_content_recipe(),
                 &self.variants,
                 state,
             )
         });
         let root = crate::layer::with_base_recipe_style(
             self.root.name(label),
-            |r| r.avatar_recipe(),
+            |r: &AvatarTheme| r.root_recipe(),
             &self.variants,
             state,
         )
@@ -272,7 +274,7 @@ fn status_badge(
         move || {
             crate::layer::with_base_recipe_style(
                 node(),
-                |r| r.avatar_status_recipe(),
+                |r: &AvatarTheme| r.status_recipe(),
                 &variants,
                 move || AvatarState {
                     size: size.get(),

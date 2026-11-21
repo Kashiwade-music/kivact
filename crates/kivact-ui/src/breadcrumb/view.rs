@@ -1,6 +1,7 @@
 //! Role: The Breadcrumb builder, its item entries and separators.
 
-use crate::BreadcrumbItemState;
+use crate::breadcrumb::look::BreadcrumbTheme;
+use crate::theme::BreadcrumbItemState;
 use kivact_core::state::{Callback, IntoValue, Value, callback};
 use kivact_core::view::{
     CurrentItem, Element, HandlerResult, IntoView, Node, Role, View, dynamic, node, text,
@@ -65,7 +66,7 @@ impl<K: Clone + PartialEq + 'static> Breadcrumb<K> {
         self
     }
     /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -102,7 +103,7 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
                     children.push(
                         crate::layer::with_recipe_style(
                             node(),
-                            |r| r.breadcrumb_recipes().separator_recipe(),
+                            |r: &BreadcrumbTheme| r.separator_recipe(),
                             &child_variants,
                             || (),
                         )
@@ -124,14 +125,14 @@ impl<K: Clone + PartialEq + 'static> IntoView for Breadcrumb<K> {
         });
         crate::layer::with_base_recipe_style(
             root,
-            |r| r.breadcrumb_recipes().root_recipe(),
+            |r: &BreadcrumbTheme| r.root_recipe(),
             &variants,
             || (),
         )
         .child(
             crate::layer::with_recipe_style(
                 node().role(Role::List),
-                |r| r.breadcrumb_recipes().list_recipe(),
+                |r: &BreadcrumbTheme| r.list_recipe(),
                 &variants,
                 || (),
             )
@@ -162,7 +163,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
         if item.is_none() {
             crate::layer::with_recipe_style(
                 text(label).current_item(current),
-                |r| r.breadcrumb_recipes().item_recipe(),
+                |r: &BreadcrumbTheme| r.item_recipe(),
                 variants,
                 move || state,
             )
@@ -174,7 +175,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                     .name(label)
                     .current_item(current)
                     .child(body),
-                |r| r.breadcrumb_recipes().item_recipe(),
+                |r: &BreadcrumbTheme| r.item_recipe(),
                 variants,
                 move || state,
             )
@@ -198,7 +199,7 @@ fn breadcrumb_entry<K: Clone + PartialEq + 'static>(
                     }
                 })
                 .child(body),
-            |r| r.breadcrumb_recipes().item_recipe(),
+            |r: &BreadcrumbTheme| r.item_recipe(),
             variants,
             move || BreadcrumbItemState::Link(input.get()),
         )

@@ -77,7 +77,7 @@ impl CodeBlockState {
 
 recipe_table! {
     /// Styles for the persistent parts of CodeBlock.
-    CodeBlockRecipes {
+    CodeBlockTheme {
         root(root_recipe): CodeBlockState = code_root,
         header(header_recipe): CodeBlockState = code_header,
         title(title_recipe): CodeBlockState = crate::look_common::slot,

@@ -5,7 +5,7 @@ use crate::toggle::switch_drag::switch as switch_gesture;
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::toggle::look::CheckControl;
-use crate::toggle::look::CheckableState;
+use crate::toggle::look::{CheckableState, CheckboxTheme, SwitchTheme};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
 use kivact_core::state::{Signal, Value};
@@ -13,7 +13,7 @@ use kivact_core::view::{CheckedState, Element, Node, node};
 use kivact_core::view::{IntoView, View};
 use kivact_interaction::{CheckboxApi, SwitchApi, ToggleState, use_checkbox, use_switch};
 macro_rules! toggle_builder {
-    ($(#[$doc:meta])* $name:ident, $kind:ident, $recipe:ident, $parts:ident, $gesture:ident, $control:ident) => {
+    ($(#[$doc:meta])* $name:ident, $kind:ident, $table:ident, $parts:ident, $gesture:ident, $control:ident) => {
         $(#[$doc])*
         pub struct $name {
             root: Node,
@@ -68,7 +68,7 @@ macro_rules! toggle_builder {
         impl $name {
             /// Give the component a [`Variant`]: a look beyond the meanings its
             /// state carries, which every recipe of the component reads with
-            /// [`Look::variant`](crate::Look::variant). A later value of the same
+            /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
             /// type replaces the earlier one; a theme that does not know the type
             /// draws the plain look.
             ///
@@ -114,7 +114,7 @@ macro_rules! toggle_builder {
                 let indicator = crate::toggle::parts::$parts(&self.variants, check_state);
                 with_base_recipe_style(
                     self.root,
-                    |recipes| recipes.$recipe(),
+                    |t: &$table| t.root_recipe(),
                     &self.variants,
                     move || check_state.get(),
                 )
@@ -134,7 +134,7 @@ toggle_builder!(
     /// [`use_checkbox`](kivact_interaction::use_checkbox).
     Checkbox,
     checkbox_behavior,
-    checkbox_recipe,
+    CheckboxTheme,
     checkbox,
     no_gesture,
     checkbox_control
@@ -148,7 +148,7 @@ toggle_builder!(
     /// [`use_switch`](kivact_interaction::use_switch).
     Switch,
     switch_behavior,
-    switch_recipe,
+    SwitchTheme,
     switch,
     switch_gesture,
     switch_control
@@ -228,8 +228,8 @@ impl Checkbox {
 /// It has `Role::CheckBox` and the checked state; Space and click flip it
 /// (Enter does nothing), and so do the accessibility `Activate` and `Toggle`
 /// actions. The look is the theme's
-/// [`UiRecipes::checkbox`](crate::UiRecipes), given a
-/// [`CheckableState`](crate::CheckableState).
+/// [`CheckboxTheme::root`](crate::theme::CheckboxTheme), given a
+/// [`CheckableState`](crate::theme::CheckableState).
 ///
 /// ```no_run
 /// use kivact::prelude::*;
@@ -253,7 +253,7 @@ pub fn checkbox(label: impl IntoText, checked: kivact_core::state::Signal<bool>)
 /// It has `Role::Switch` and the checked state; Space and click flip it
 /// (Enter does nothing), and so do the accessibility `Activate` and `Toggle`
 /// actions. The look is the theme's
-/// [`UiRecipes::switch`](crate::UiRecipes).
+/// [`SwitchTheme::root`](crate::theme::SwitchTheme).
 ///
 /// ```no_run
 /// use kivact::prelude::*;

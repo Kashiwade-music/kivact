@@ -1,5 +1,6 @@
 //! Role: The toggle button builder, its label and its rendering.
 
+use crate::toggle_button::look::ToggleButtonTheme;
 use crate::toggle_button::tokens::ToggleLabelReservation;
 
 use crate::control_size::ControlSize;
@@ -97,8 +98,8 @@ pub struct ToggleButton {
 /// It has `Role::Button` with a checked state (ARIA's `aria-pressed`); Space,
 /// Enter and click flip it, and so do the accessibility `Activate` and
 /// `ToggleButton` actions. The look is the theme's
-/// [`UiRecipes::toggle_button`](crate::UiRecipes), given a
-/// [`ToggleButtonState`](crate::ToggleButtonState). A toggle_button with an
+/// [`ToggleButtonTheme::root`](crate::theme::ToggleButtonTheme), given a
+/// [`ToggleButtonState`](crate::theme::ToggleButtonState). A toggle_button with an
 /// [`icon`](ToggleButton::icon) and a hidden label is an icon toggle_button, a square.
 ///
 /// ```no_run
@@ -165,7 +166,7 @@ impl ToggleButton {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which the recipe reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -211,7 +212,7 @@ impl IntoView for ToggleButton {
         let root = self.root.base_style(crate::helpers::single_line_text());
         with_base_recipe_style(
             root,
-            |recipes| recipes.toggle_recipe(),
+            |r: &ToggleButtonTheme| r.root_recipe(),
             &self.variants,
             move || state.get(),
         )

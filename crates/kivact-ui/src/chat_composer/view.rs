@@ -1,6 +1,7 @@
 //! Role: Build the multiline composer, its key handling, and its send and stop slots.
 
 use crate::chat_composer::look::ChatComposerState;
+use crate::chat_composer::look::ChatComposerTheme;
 use crate::chat_composer::look::ComposerStatus;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -188,7 +189,7 @@ impl ChatComposer {
         (
             with_recipe_style(
                 input,
-                |r| r.chat_composer_recipes().input_recipe(),
+                |r: &ChatComposerTheme| r.input_recipe(),
                 &self.variants,
                 state,
             ),
@@ -239,7 +240,7 @@ impl ChatComposer {
         });
         with_recipe_style(
             control,
-            |r| r.chat_composer_recipes().send_recipe(),
+            |r: &ChatComposerTheme| r.send_recipe(),
             &self.variants,
             state,
         )
@@ -247,19 +248,19 @@ impl ChatComposer {
     fn header(&mut self, state: impl Fn() -> ChatComposerState + Copy + 'static) -> Node {
         let context = composer_slot(
             self.header_context.take(),
-            |r| r.chat_composer_recipes().header_context_recipe(),
+            |r: &ChatComposerTheme| r.header_context_recipe(),
             &self.variants,
             state,
         );
         let actions = composer_slot(
             self.header_actions.take(),
-            |r| r.chat_composer_recipes().header_actions_recipe(),
+            |r: &ChatComposerTheme| r.header_actions_recipe(),
             &self.variants,
             state,
         );
         with_recipe_style(
             node().child((context, actions)),
-            |r| r.chat_composer_recipes().header_recipe(),
+            |r: &ChatComposerTheme| r.header_recipe(),
             &self.variants,
             state,
         )
@@ -271,19 +272,19 @@ impl ChatComposer {
     ) -> Node {
         let actions = composer_slot(
             self.footer_actions.take(),
-            |r| r.chat_composer_recipes().footer_actions_recipe(),
+            |r: &ChatComposerTheme| r.footer_actions_recipe(),
             &self.variants,
             state,
         );
         let send_actions = composer_slot(
             self.send_actions.take(),
-            |r| r.chat_composer_recipes().send_actions_recipe(),
+            |r: &ChatComposerTheme| r.send_actions_recipe(),
             &self.variants,
             state,
         );
         with_recipe_style(
             node().child((actions, send_actions, control)),
-            |r| r.chat_composer_recipes().footer_recipe(),
+            |r: &ChatComposerTheme| r.footer_recipe(),
             &self.variants,
             state,
         )
@@ -305,7 +306,7 @@ impl ChatComposer {
         .hidden(move || status.with(Option::is_none) || position.get() != side);
         with_recipe_style(
             diagnostic,
-            |r| r.chat_composer_recipes().status_recipe(),
+            |r: &ChatComposerTheme| r.status_recipe(),
             &self.variants,
             state,
         )
@@ -313,7 +314,7 @@ impl ChatComposer {
 }
 fn composer_slot(
     view: Option<View>,
-    recipe: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ChatComposerState>,
+    recipe: fn(&ChatComposerTheme) -> &crate::recipe::Recipe<ChatComposerState>,
     variants: &Variants,
     state: impl Fn() -> ChatComposerState + Copy + 'static,
 ) -> Option<Node> {
@@ -374,7 +375,7 @@ impl IntoView for ChatComposer {
         let footer = self.footer(control, state);
         let surface = with_recipe_style(
             node().child((header, input, footer)),
-            |r| r.chat_composer_recipes().surface_recipe(),
+            |r: &ChatComposerTheme| r.surface_recipe(),
             &self.variants,
             state,
         );
@@ -382,13 +383,13 @@ impl IntoView for ChatComposer {
         let bottom = self.diagnostic(ComposerStatusPosition::Bottom, state);
         let drawer = composer_slot(
             self.drawer.take(),
-            |r| r.chat_composer_recipes().drawer_recipe(),
+            |r: &ChatComposerTheme| r.drawer_recipe(),
             &self.variants,
             state,
         );
         with_base_recipe_style(
             self.root,
-            |r| r.chat_composer_recipes().root_recipe(),
+            |r: &ChatComposerTheme| r.root_recipe(),
             &self.variants,
             state,
         )

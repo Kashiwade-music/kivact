@@ -165,19 +165,17 @@ impl Variants {
 ///
 /// ```
 /// use kivact::style::{Theme, rgb};
-/// use kivact::ui::{CheckableState, Look, UiRecipes, Variant};
+/// use kivact::ui::theme::{ButtonState, ButtonTheme, Look, Variant};
 /// #[derive(Clone, Copy, Debug, PartialEq)]
 /// struct Pill;
 /// impl Variant for Pill {}
-/// let recipes = UiRecipes::default().radio_group(|table| {
-///     table.item(|prev| {
-///         move |theme: &Theme, look: &Look<CheckableState>| match look.variant::<Pill>() {
-///             Some(Pill) => prev(theme, look).border_radius(999).background(rgb(0xe8eefc)),
-///             None => prev(theme, look),
-///         }
-///     })
-/// });
-/// # let _ = recipes;
+/// let theme = Theme::light().with(ButtonTheme::default().root(|_, look: &Look<ButtonState>, base| {
+///     match look.variant::<Pill>() {
+///         Some(Pill) => base.border_radius(999).background(rgb(0xe8eefc)),
+///         None => base,
+///     }
+/// }));
+/// # let _ = theme;
 /// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct Look<S> {

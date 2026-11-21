@@ -104,7 +104,7 @@ impl Selectable {
 
 recipe_table! {
     /// Recipes for each region of a card.
-    CardRecipes {
+    CardTheme {
         root(root_recipe): CardState = card_root,
         header(header_recipe): CardState = card_region,
         media(media_recipe): CardState = card_media,

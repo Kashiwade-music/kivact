@@ -1,9 +1,10 @@
 //! Role: The tooltip recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{Position, Style, Theme, style};
 use kivact_interaction::PopupState;
-pub(crate) fn tooltip(t: &Theme, _: &PopupState) -> Style {
+pub(crate) fn tooltip(t: &Theme, _: &Look<PopupState>) -> Style {
     style()
         .padding_x(8)
         .padding_y(4)
@@ -14,7 +15,7 @@ pub(crate) fn tooltip(t: &Theme, _: &PopupState) -> Style {
 }
 
 /// No arrow: an empty box out of the layout.
-pub(crate) fn no_arrow(_: &Theme, _: &TooltipArrowState) -> Style {
+pub(crate) fn no_arrow(_: &Theme, _: &Look<TooltipArrowState>) -> Style {
     style().position(Position::Absolute)
 }
 
@@ -34,7 +35,7 @@ pub struct TooltipArrowState {
 
 recipe_table! {
     /// The recipes of a [`tooltip`](super::tooltip).
-    TooltipRecipes {
+    TooltipTheme {
         surface(surface_recipe): PopupState = tooltip,
         /// The arrow toward the trigger: an absolutely positioned box in the
         /// surface, given the side the tooltip shows on and where the

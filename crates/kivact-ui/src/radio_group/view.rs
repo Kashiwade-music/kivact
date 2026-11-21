@@ -1,7 +1,8 @@
 //! Role: The radio group builder and its option rendering over the keyed list parts.
 
 use crate::control_size::ControlSize;
-use crate::layer::{recipes, with_base_recipe_style, with_recipe_style};
+use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::radio_group::look::RadioGroupTheme;
 use crate::toggle::look::{CheckControl, CheckableState};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
@@ -83,7 +84,7 @@ pub fn radio_group<K: kivact_core::state::ItemKey>(
 impl<K: kivact_core::state::ItemKey> RadioGroup<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -218,7 +219,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for RadioGroup<K> {
         // The recipe, then the row direction: base layers below the caller's styles.
         let root = with_base_recipe_style(
             root,
-            |r| r.radio_group_recipes().group_recipe(),
+            |r: &RadioGroupTheme| r.group_recipe(),
             &variants,
             move || orientation,
         )
@@ -260,21 +261,18 @@ fn radio_option<K: kivact_core::state::ItemKey>(
     let mark_looks = looks.clone();
     let indicator = with_recipe_style(
         node(),
-        |r| r.radio_group_recipes().indicator_recipe(),
+        |r: &RadioGroupTheme| r.indicator_recipe(),
         looks,
         move || check.get(),
     )
     .child(show(
         move || {
-            recipes(&use_theme().get())
-                .radio_group_recipes()
-                .has_custom_mark()
-                || check.get().is_checked()
+            use_theme().get().ext::<RadioGroupTheme>().has_custom_mark() || check.get().is_checked()
         },
         move || {
             with_recipe_style(
                 icon("dot"),
-                |r| r.radio_group_recipes().mark_recipe(),
+                |r: &RadioGroupTheme| r.mark_recipe(),
                 &mark_looks,
                 move || check.get(),
             )
@@ -290,7 +288,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
                 move |line| {
                     with_recipe_style(
                         line,
-                        |r| r.radio_group_recipes().description_recipe(),
+                        |r: &RadioGroupTheme| r.description_recipe(),
                         &lines,
                         move || check.get(),
                     )
@@ -304,7 +302,7 @@ fn radio_option<K: kivact_core::state::ItemKey>(
             .part(member)
             .role(Role::RadioButton)
             .checked(move || state.get().selected),
-        |r| r.radio_group_recipes().item_recipe(),
+        |r: &RadioGroupTheme| r.item_recipe(),
         looks,
         move || check.get(),
     )

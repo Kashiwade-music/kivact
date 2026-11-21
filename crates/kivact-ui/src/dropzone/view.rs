@@ -1,5 +1,6 @@
 //! Role: The dropzone builder, file picking, validation and status rendering.
 
+use crate::dropzone::look::DropzoneTheme;
 use kivact_core::platform::{FileDialog, pick_file, pick_files};
 use kivact_core::state::{IntoText, IntoValue, Value};
 use kivact_core::task::spawn;
@@ -55,7 +56,7 @@ impl Dropzone {
     }
 
     /// Add a setup-only visual variant for every component recipe.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -138,7 +139,7 @@ impl IntoView for Dropzone {
         let (label_view, hint_view) = captions(label, hint, state, &variants);
         crate::layer::with_base_recipe_style(
             root,
-            |r| r.dropzone_recipes().root_recipe(),
+            |r: &DropzoneTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )
@@ -161,7 +162,7 @@ impl IntoView for Dropzone {
             icon.map(|icon| {
                 crate::layer::with_recipe_style(
                     node().child(icon),
-                    |r| r.dropzone_recipes().icon_recipe(),
+                    |r: &DropzoneTheme| r.icon_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -228,7 +229,7 @@ fn failure_status(state: Value<DropzoneState>, variants: &crate::variants::Varia
             move |message: Value<String>| {
                 crate::layer::with_recipe_style(
                     text(message),
-                    |r| r.dropzone_recipes().status_recipe(),
+                    |r: &DropzoneTheme| r.status_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -254,7 +255,7 @@ fn drag_status(
             } => message,
             _ => String::new(),
         }),
-        |r| r.dropzone_recipes().status_recipe(),
+        |r: &DropzoneTheme| r.status_recipe(),
         variants,
         move || state.get(),
     )
@@ -271,13 +272,13 @@ fn captions(
 ) -> (Node, Node) {
     let label_view = crate::layer::with_recipe_style(
         text(label),
-        |r| r.dropzone_recipes().label_recipe(),
+        |r: &DropzoneTheme| r.label_recipe(),
         variants,
         move || state.get(),
     );
     let hint_view = crate::layer::with_recipe_style(
         text(hint),
-        |r| r.dropzone_recipes().hint_recipe(),
+        |r: &DropzoneTheme| r.hint_recipe(),
         variants,
         move || state.get(),
     );

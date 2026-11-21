@@ -1,5 +1,6 @@
 //! Role: The hover card builder, its open timing and its rendering.
 
+use crate::hover_card::look::HoverCardTheme;
 use kivact_core::state::{IntoText, IntoValue, Signal, Value, effect_on, signal};
 use kivact_core::style::use_theme;
 use kivact_core::view::{
@@ -61,7 +62,7 @@ pub fn hover_card<V: IntoView>(content: impl Fn() -> V + 'static) -> HoverCard {
 }
 impl HoverCard {
     /// Select a theme-specific visual treatment.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -158,7 +159,7 @@ impl HoverCard {
             let state = part.state();
             let panel = crate::layer::with_recipe_style(
                 column(self.content.call(())).part(part),
-                |recipes| recipes.hover_card_recipes().surface_recipe(),
+                |r: &HoverCardTheme| r.surface_recipe(),
                 &self.variants,
                 move || state.get(),
             );

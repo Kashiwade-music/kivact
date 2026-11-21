@@ -2,6 +2,7 @@
 
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::select::look::SelectTheme;
 use crate::select::look::SelectTriggerState;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{Callback, IntoText, IntoValue, Signal, Value, binding, callback};
@@ -97,7 +98,7 @@ impl<K: kivact_core::state::ItemKey> Select<K> {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -236,7 +237,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let trigger_state = trigger_projection(state, options, selected, size);
         self.root = with_base_recipe_style(
             self.root,
-            |r| r.select_recipes().trigger_recipe(),
+            |r: &SelectTheme| r.trigger_recipe(),
             &self.settings.variants,
             move || trigger_state.get(),
         );
@@ -250,7 +251,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
         let variants = self.settings.variants;
         let indicator = with_recipe_style(
             node(),
-            |r| r.select_recipes().indicator_recipe(),
+            |r: &SelectTheme| r.indicator_recipe(),
             &variants,
             move || state.get(),
         )
@@ -297,7 +298,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for Select<K> {
 /// Apply sheet size variants during styling so live sizes preserve row identity.
 pub(crate) fn with_option_style(
     root: Node,
-    pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ListItemState>,
+    pick: fn(&SelectTheme) -> &crate::recipe::Recipe<ListItemState>,
     variants: &Variants,
     state: Value<ListItemState>,
     size: Value<ControlSize>,
@@ -311,7 +312,7 @@ pub(crate) fn with_option_style(
             variants.clone()
         };
         let theme = kivact_core::style::use_theme().get();
-        pick(&crate::layer::recipes(&theme))(&theme, &variants.look(state.get()))
+        pick(&theme.ext::<SelectTheme>()).style(&theme, &variants.look(state.get()))
     })
 }
 
@@ -433,7 +434,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                             move |line| {
                                 with_option_style(
                                     line,
-                                    |r| r.select_recipes().description_recipe(),
+                                    |r: &SelectTheme| r.description_recipe(),
                                     &lines,
                                     state,
                                     size,
@@ -443,7 +444,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                         ),
                         with_option_style(
                             node(),
-                            |r| r.select_recipes().check_recipe(),
+                            |r: &SelectTheme| r.check_recipe(),
                             variants,
                             state,
                             size,
@@ -458,7 +459,7 @@ pub(crate) fn option_rows<K: kivact_core::state::ItemKey>(
                 };
                 with_option_style(
                     node().part(part),
-                    |r| r.select_recipes().option_recipe(),
+                    |r: &SelectTheme| r.option_recipe(),
                     variants,
                     state,
                     size,
@@ -491,7 +492,7 @@ pub(crate) fn popup_surface<K: kivact_core::state::ItemKey>(
                 Placement::Below,
                 with_recipe_style(
                     scroll(column(popup_build(false))),
-                    |r| r.select_recipes().surface_recipe(),
+                    |r: &SelectTheme| r.surface_recipe(),
                     &variants,
                     move || state.get(),
                 ),

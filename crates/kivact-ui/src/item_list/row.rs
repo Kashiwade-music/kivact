@@ -1,6 +1,7 @@
 //! Role: Attach canonical row input and render independent item content slots.
 use crate::item_list::ItemListMarker;
 use crate::item_list::ItemPosition;
+use crate::item_list::look::ItemListTheme;
 use crate::item_list::look::ItemRowState;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
@@ -145,14 +146,14 @@ impl RowRender {
     fn wrap(
         &self,
         view: impl IntoView,
-        pick: fn(&crate::recipes::UiRecipes) -> &crate::recipe::Recipe<ItemRowState>,
+        pick: fn(&ItemListTheme) -> &crate::recipe::Recipe<ItemRowState>,
     ) -> Node {
         self.wrap_children((view,), pick)
     }
     fn wrap_children(
         &self,
         children: impl IntoChildren,
-        pick: fn(&crate::recipes::UiRecipes) -> &crate::Recipe<ItemRowState>,
+        pick: fn(&ItemListTheme) -> &crate::theme::Recipe<ItemRowState>,
     ) -> Node {
         let state = self.state;
         with_base_recipe_style(
@@ -220,23 +221,23 @@ impl RowContents {
         let marker = render_marker(self.marker, &render);
         let media = self
             .media
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().media_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.media_recipe()));
         let actions = self
             .actions
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().actions_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.actions_recipe()));
         let header = self
             .header
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().header_recipe()));
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.header_recipe()));
         let footer = self
             .footer
-            .map(|v| render.wrap(v, |r| r.item_list_recipes().footer_recipe()));
-        let body = render.wrap_children((marker, media, content, actions), |r| {
-            r.item_list_recipes().body_recipe()
+            .map(|v| render.wrap(v, |r: &ItemListTheme| r.footer_recipe()));
+        let body = render.wrap_children((marker, media, content, actions), |r: &ItemListTheme| {
+            r.body_recipe()
         });
         let state = render.state;
         with_base_recipe_style(
             root.part(part),
-            |r| r.item_list_recipes().item_recipe(),
+            |r: &ItemListTheme| r.item_recipe(),
             &render.variants,
             move || state.get(),
         )
@@ -251,7 +252,7 @@ impl RowContents {
                     .style(move || line_style(state.get().title_lines))
                     .into_view()
             }),
-            |r| r.item_list_recipes().title_recipe(),
+            |r: &ItemListTheme| r.title_recipe(),
         );
         let reference = node_ref();
         let description = self
@@ -266,14 +267,12 @@ impl RowContents {
             })
             .map(|view| {
                 render
-                    .wrap(view, |r| r.item_list_recipes().description_recipe())
+                    .wrap(view, |r: &ItemListTheme| r.description_recipe())
                     .node_ref(reference)
             });
         let reference = description.is_some().then_some(reference);
         (
-            render.wrap_children((title, description), |r| {
-                r.item_list_recipes().content_recipe()
-            }),
+            render.wrap_children((title, description), |r: &ItemListTheme| r.content_recipe()),
             reference,
         )
     }
@@ -312,6 +311,6 @@ fn render_marker(custom: Option<View>, render: &RowRender) -> Node {
                 })
                 .hidden(move || state.get().marker == ItemListMarker::None),
             ),
-        |r| r.item_list_recipes().marker_recipe(),
+        |r: &ItemListTheme| r.marker_recipe(),
     )
 }

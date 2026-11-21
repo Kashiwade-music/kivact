@@ -58,7 +58,7 @@ impl std::ops::Deref for ToggleGroupItemState {
 
 recipe_table! {
     /// Toggle group surface and item recipes.
-    ToggleGroupRecipes {
+    ToggleGroupTheme {
         root(root_recipe): ToggleGroupState = toggle_root,
         item(item_recipe): ToggleGroupItemState = toggle_item,
     }

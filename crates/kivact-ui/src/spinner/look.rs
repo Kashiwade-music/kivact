@@ -1,11 +1,13 @@
 //! Role: The spinner recipe state, tokens, recipe table and default looks.
 use crate::look_common::side;
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 
 use crate::control_size::ControlSize;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{Style, Theme, style};
-pub(crate) fn spinner(_: &Theme, s: &SpinnerState) -> Style {
+pub(crate) fn spinner(_: &Theme, s: &Look<SpinnerState>) -> Style {
     let side = side(s.size) * 0.6;
     let turn = s.turn;
     style()
@@ -32,4 +34,11 @@ pub(crate) fn spinner(_: &Theme, s: &SpinnerState) -> Style {
 pub struct SpinnerState {
     pub size: ControlSize,
     pub turn: f64,
+}
+
+recipe_table! {
+    /// The recipes of a spinner.
+    SpinnerTheme {
+        root(root_recipe): SpinnerState = spinner,
+    }
 }

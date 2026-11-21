@@ -2,6 +2,7 @@
 
 use crate::UiTokens;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
 use kivact_core::view::{Orientation, ReadingDirection};
 pub(crate) fn carousel_gap(t: &Theme) -> f64 {
@@ -16,26 +17,26 @@ pub(crate) fn carousel_fade_width(t: &Theme) -> f64 {
     t.ext::<UiTokens>().carousel.edge_fade_width.unwrap_or(4.0)
 }
 
-pub(crate) fn carousel_root(_: &Theme, _: &CarouselSurfaceState) -> Style {
+pub(crate) fn carousel_root(_: &Theme, _: &Look<CarouselSurfaceState>) -> Style {
     style().flex_direction(FlexDirection::Column).min_width(0)
 }
 
-pub(crate) fn carousel_track(t: &Theme, _: &CarouselSurfaceState) -> Style {
+pub(crate) fn carousel_track(t: &Theme, _: &Look<CarouselSurfaceState>) -> Style {
     style().gap(carousel_gap(t)).transition(
         kivact_core::style::TransitionProp::All,
         kivact_core::motion::Transition::tween(300, kivact_core::motion::Easing::EaseOut),
     )
 }
 
-pub(crate) fn carousel_viewport(t: &Theme, _: &CarouselSurfaceState) -> Style {
+pub(crate) fn carousel_viewport(t: &Theme, _: &Look<CarouselSurfaceState>) -> Style {
     style().padding(carousel_padding(t))
 }
 
-pub(crate) fn carousel_slide(_: &Theme, _: &CarouselSurfaceState) -> Style {
+pub(crate) fn carousel_slide(_: &Theme, _: &Look<CarouselSurfaceState>) -> Style {
     style()
 }
 
-pub(crate) fn carousel_control(_: &Theme, _: &CarouselSurfaceState) -> Style {
+pub(crate) fn carousel_control(_: &Theme, _: &Look<CarouselSurfaceState>) -> Style {
     style()
 }
 
@@ -56,7 +57,7 @@ impl std::ops::Deref for CarouselSurfaceState {
 
 recipe_table! {
     /// Styles for a carousel's persistent parts.
-    CarouselRecipes {
+    CarouselTheme {
         root(root_recipe): CarouselSurfaceState = carousel_root,
         viewport(viewport_recipe): CarouselSurfaceState = carousel_viewport,
         track(track_recipe): CarouselSurfaceState = carousel_track,

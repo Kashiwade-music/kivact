@@ -1,6 +1,7 @@
 //! Role: The list builder, its keyed item rendering and its edit handling.
 
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::list::look::ListTheme;
 use crate::variants::{Variant, Variants};
 
 use kivact_core::state::{Callback, Signal, Value, binding};
@@ -68,7 +69,7 @@ pub fn list<K: kivact_core::state::ItemKey>(
 impl<K: kivact_core::state::ItemKey> List<K> {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -189,7 +190,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
                                 move |line| {
                                     with_recipe_style(
                                         line,
-                                        |r| r.list_recipes().description_recipe(),
+                                        |r: &ListTheme| r.description_recipe(),
                                         &looks,
                                         move || state.get(),
                                     )
@@ -201,7 +202,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
                 };
                 with_recipe_style(
                     node().part(part),
-                    |r| r.list_recipes().item_recipe(),
+                    |r: &ListTheme| r.item_recipe(),
                     &looks,
                     move || state.get(),
                 )
@@ -211,7 +212,7 @@ impl<K: kivact_core::state::ItemKey> IntoView for List<K> {
         // The recipe is the base style, so the caller's styles win.
         with_base_recipe_style(
             root,
-            |r| r.list_recipes().root_recipe(),
+            |r: &ListTheme| r.root_recipe(),
             &variants,
             move || list_state.get(),
         )

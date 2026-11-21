@@ -1,6 +1,7 @@
 //! Role: The tag input builder, its tag chips and the add field.
 
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::tag_input::look::TagInputTheme;
 use crate::text_input::{TextInput, text_input};
 use crate::variants::{Variant, Variants};
 use crate::{ButtonVariant, button};
@@ -96,7 +97,7 @@ impl TagInput {
     }
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -180,7 +181,7 @@ impl IntoView for TagInput {
                         Handled::No
                     })
                 }),
-            |r| r.tag_input_recipes().input_recipe(),
+            |r: &TagInputTheme| r.input_recipe(),
             &variants,
             PartState::default,
         );
@@ -218,7 +219,7 @@ fn with_tag_box(
     let within = input_ref.focus_within();
     with_base_recipe_style(
         root,
-        |r| r.tag_input_recipes().root_recipe(),
+        |r: &TagInputTheme| r.root_recipe(),
         variants,
         move || PartState {
             focus: if within.get() {
@@ -259,13 +260,13 @@ fn tag_chips(
                     .hide_label(true)
                     .icon(icon("x"))
                     .on_press(move || edit.once((), || on_remove.call(index))),
-                |r| r.tag_input_recipes().remove_recipe(),
+                |r: &TagInputTheme| r.remove_recipe(),
                 &variants,
                 PartState::default,
             );
             with_recipe_style(
                 row((text(tag), remove)),
-                |r| r.tag_input_recipes().tag_recipe(),
+                |r: &TagInputTheme| r.tag_recipe(),
                 &variants,
                 PartState::default,
             )

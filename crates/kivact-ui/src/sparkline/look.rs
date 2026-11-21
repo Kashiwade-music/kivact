@@ -9,7 +9,7 @@ pub(crate) fn sparkline_root(_: &Theme, _: &Look<()>) -> Style {
 
 recipe_table! {
     /// The recipes of a [`sparkline`](super::sparkline).
-    SparklineRecipes {
+    SparklineTheme {
         /// The chart's box: its size. The theme's `UiTokens::sparkline` draws the line and the area in it.
         root(root_recipe): () = sparkline_root,
     }

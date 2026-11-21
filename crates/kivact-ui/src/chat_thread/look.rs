@@ -29,7 +29,7 @@ pub struct ChatThreadState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatThread.
-    ChatThreadRecipes {
+    ChatThreadTheme {
         root(root_recipe): ChatThreadState = thread_root,
         viewport(viewport_recipe): ChatThreadState = viewport,
         content(content_recipe): ChatThreadState = crate::look_common::column,

@@ -4,5 +4,5 @@ use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 recipe_table! {
     /// The parts of a date-and-time field.
-    DateTimeInputRecipes { root(root_recipe): PartState = crate::date_parts::look::input, }
+    DateTimeInputTheme { root(root_recipe): PartState = crate::date_parts::look::input, }
 }

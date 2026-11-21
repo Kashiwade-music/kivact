@@ -4,6 +4,7 @@ use crate::date_input::OpenedBy;
 use crate::date_range_input::draft::{
     Effect as DraftEffect, Event as DraftEvent, FieldValidity, Policy as DraftPolicy, RangeDraft,
 };
+use crate::date_range_input::look::DateRangeInputTheme;
 use crate::{Calendar, DatePresentation, button, calendar, date_input, dialog};
 use kivact_core::i18n::{CalendarDate, DateRange, DateStyle, Weekday, message};
 use kivact_core::state::{IntoText, IntoValue, MachineHandle, Signal, Value, binding, machine};
@@ -98,7 +99,7 @@ impl DateRangeInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -215,7 +216,7 @@ impl DateRangeInput {
         let (first, last) = self.endpoint_fields(&editors, order_ref);
         let root = crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.date_range_input_recipes().root_recipe(),
+            |r: &DateRangeInputTheme| r.root_recipe(),
             &self.variants,
             kivact_core::custom::PartState::default,
         );

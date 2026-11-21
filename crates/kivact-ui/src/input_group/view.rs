@@ -1,5 +1,6 @@
 //! Role: The input group builder, its member rendering and the addon helper.
 
+use crate::input_group::look::InputGroupTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use crate::{ControlSize, provide_control_size};
@@ -137,7 +138,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         let label_ref = node_ref();
         let label = with_recipe_style(
             text(self.label).node_ref(label_ref),
-            |r| r.input_group_recipes().label_recipe(),
+            |r: &InputGroupTheme| r.label_recipe(),
             &self.variants,
             move || state.get(),
         );
@@ -145,7 +146,7 @@ impl<C: IntoChildren + 'static> IntoView for InputGroup<C> {
         let bottom = self.block_end.map(|view| render.block(view, false));
         with_base_recipe_style(
             self.root.node_ref(reference).part(part),
-            |r| r.input_group_recipes().root_recipe(),
+            |r: &InputGroupTheme| r.root_recipe(),
             &self.variants,
             move || state.get(),
         )
@@ -182,7 +183,7 @@ impl GroupRender {
         let state = self.state;
         with_recipe_style(
             row((start, controls, end)),
-            |r| r.input_group_recipes().members_recipe(),
+            |r: &InputGroupTheme| r.members_recipe(),
             &self.variants,
             move || state.get(),
         )
@@ -199,7 +200,7 @@ impl GroupRender {
         };
         with_recipe_style(
             root.node_ref(reference),
-            |r| r.input_group_recipes().member_recipe(),
+            |r: &InputGroupTheme| r.member_recipe(),
             &self.variants,
             move || InputGroupMemberState {
                 group: state.get(),
@@ -215,9 +216,9 @@ impl GroupRender {
         with_recipe_style(
             adornment(view, self.primary),
             if top {
-                |r| r.input_group_recipes().block_start_recipe()
+                |r: &InputGroupTheme| r.block_start_recipe()
             } else {
-                |r| r.input_group_recipes().block_end_recipe()
+                |r: &InputGroupTheme| r.block_end_recipe()
             },
             &self.variants,
             move || state.get(),
@@ -243,7 +244,7 @@ pub fn input_addon(label: impl IntoText) -> impl kivact_core::view::Element {
     let direction = use_direction();
     with_recipe_style(
         node().child(text(label)),
-        |r| r.input_group_recipes().addon_recipe(),
+        |r: &InputGroupTheme| r.addon_recipe(),
         &Variants::default(),
         move || InputGroupState {
             size,

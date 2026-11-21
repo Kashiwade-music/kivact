@@ -73,7 +73,7 @@ pub struct NavigationTriggerState {
 
 recipe_table! {
     /// Navigation landmark, panel trigger and panel surface recipes.
-    NavigationMenuRecipes {
+    NavigationMenuTheme {
         root(root_recipe): kivact_interaction::NavOpen = navigation_root,
         trigger(trigger_recipe): NavigationTriggerState = crate::look_common::part,
         action(action_recipe): kivact_interaction::NavOpen = action,

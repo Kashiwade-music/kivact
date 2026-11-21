@@ -2,6 +2,7 @@
 use super::data::Combobox;
 use super::labels::{KnownLabels, label};
 use super::notices::Notices;
+use crate::combobox::look::ComboboxTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::{ButtonVariant, button, text_input};
 use kivact_core::custom::PartState;
@@ -72,7 +73,7 @@ pub(super) fn render<K: ItemKey>(mut field: Combobox<K>) -> View {
         row((editor, tokens, clear_button, toggle))
             .node_ref(anchor)
             .with_node(move |node| node.focus_on_press(input_ref)),
-        |r| r.combobox_recipes().frame_recipe(),
+        |r: &ComboboxTheme| r.frame_recipe(),
         &variants,
         move || PartState {
             focus: if within.get() {
@@ -118,7 +119,7 @@ fn suggestions<K: ItemKey>(
             let shown = memo(move || label(source, &key));
             with_recipe_style(
                 node().part(part),
-                |r| r.combobox_recipes().option_recipe(),
+                |r: &ComboboxTheme| r.option_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -133,7 +134,7 @@ fn suggestions<K: ItemKey>(
         move || {
             with_recipe_style(
                 text(empty),
-                |r| r.combobox_recipes().empty_recipe(),
+                |r: &ComboboxTheme| r.empty_recipe(),
                 &variants,
                 PartState::default,
             )
@@ -141,7 +142,7 @@ fn suggestions<K: ItemKey>(
     });
     with_recipe_style(
         column((rows, no_results)),
-        |r| r.combobox_recipes().surface_recipe(),
+        |r: &ComboboxTheme| r.surface_recipe(),
         &variants,
         PartState::default,
     )
@@ -185,13 +186,13 @@ fn selected_chips<K: ItemKey>(
                                             .collect(),
                                     )
                                 }),
-                            |r| r.combobox_recipes().remove_recipe(),
+                            |r: &ComboboxTheme| r.remove_recipe(),
                             &variants,
                             PartState::default,
                         );
                         with_recipe_style(
                             row((text(shown), remove)),
-                            |r| r.combobox_recipes().chip_recipe(),
+                            |r: &ComboboxTheme| r.chip_recipe(),
                             &variants,
                             PartState::default,
                         )
@@ -298,7 +299,7 @@ fn editor_view<K: ItemKey>(
             })
             .with_node(move |node| node.part(list.input()))
             .on_pointer(editor_pointer(list, disabled, input_ref, presentation)),
-        |r| r.combobox_recipes().input_recipe(),
+        |r: &ComboboxTheme| r.input_recipe(),
         variants,
         PartState::default,
     );

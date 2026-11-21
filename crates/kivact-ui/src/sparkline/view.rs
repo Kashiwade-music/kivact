@@ -2,6 +2,7 @@
 
 use crate::UiTokens;
 use crate::layer::with_base_recipe_style;
+use crate::sparkline::look::SparklineTheme;
 use crate::sparkline::tokens::SparklineFill;
 use crate::sparkline::tokens::SparklineTokens;
 use crate::variants::{Variant, Variants};
@@ -68,7 +69,7 @@ impl Sparkline {
     }
 
     /// Give the chart an appearance that its recipe reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same type
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same type
     /// replaces the earlier one; a theme that does not know the type draws the
     /// plain look.
     pub fn variant(mut self, value: impl Variant) -> Self {
@@ -97,13 +98,8 @@ impl IntoView for Sparkline {
                 .name(label)
                 .description(description(summary));
         }
-        with_base_recipe_style(
-            root,
-            |r| r.sparkline_recipes().root_recipe(),
-            &variants,
-            || (),
-        )
-        .into_view()
+        with_base_recipe_style(root, |r: &SparklineTheme| r.root_recipe(), &variants, || ())
+            .into_view()
     }
 }
 

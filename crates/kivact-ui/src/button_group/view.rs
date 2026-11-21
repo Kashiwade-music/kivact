@@ -2,6 +2,7 @@
 
 use crate::button_group::look::ButtonGroupMemberState;
 use crate::button_group::look::ButtonGroupState;
+use crate::button_group::look::ButtonGroupTheme;
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
@@ -90,7 +91,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
                             });
                             with_base_recipe_style(
                                 node(),
-                                |r| r.button_group_recipes().member_recipe(),
+                                |r: &ButtonGroupTheme| r.member_recipe(),
                                 &members,
                                 move || state.get(),
                             )
@@ -102,7 +103,7 @@ impl<C: IntoChildren> IntoView for ButtonGroup<C> {
         });
         with_base_recipe_style(
             self.root.orientation(orientation).roving_focus(orientation),
-            |r| r.button_group_recipes().root_recipe(),
+            |r: &ButtonGroupTheme| r.root_recipe(),
             &self.variants,
             move || ButtonGroupState {
                 orientation: orientation.get(),
@@ -148,9 +149,9 @@ impl IntoView for ButtonGroupCell {
         with_base_recipe_style(
             root,
             if self.separator {
-                |r| r.button_group_recipes().separator_recipe()
+                |r: &ButtonGroupTheme| r.separator_recipe()
             } else {
-                |r| r.button_group_recipes().text_recipe()
+                |r: &ButtonGroupTheme| r.text_recipe()
             },
             &Variants::default(),
             move || state.get(),

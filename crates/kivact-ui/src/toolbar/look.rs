@@ -63,7 +63,7 @@ pub struct ToolbarState {
 
 recipe_table! {
     /// Toolbar surface recipes.
-    ToolbarRecipes {
+    ToolbarTheme {
         root(root_recipe): ToolbarState = root_style,
     }
 }

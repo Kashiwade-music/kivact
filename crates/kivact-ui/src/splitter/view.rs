@@ -3,6 +3,7 @@
 use crate::control_size::ControlSize;
 use crate::layer::with_recipe_style;
 use crate::slider::look::AxisState;
+use crate::splitter::look::SplitterTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoValue;
 use kivact_core::state::{Callback, Signal, Value};
@@ -86,7 +87,7 @@ pub fn splitter(
 impl Splitter {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -218,7 +219,7 @@ impl IntoView for Splitter {
         let primary = node_ref();
         let handle = with_recipe_style(
             node().part(part).name(name).controls(primary).child(handle),
-            |r| r.splitter_recipes().handle_recipe(),
+            |r: &SplitterTheme| r.handle_recipe(),
             &variants,
             move || AxisState {
                 input: input.get().input,

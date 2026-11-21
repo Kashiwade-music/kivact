@@ -1,6 +1,7 @@
 //! Role: The field builder that wires a label, hint and error to its control.
 
 use crate::field::look::FieldState;
+use crate::field::look::FieldTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue};
@@ -87,7 +88,7 @@ impl<C> Field<C> {
 
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -147,7 +148,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
                     .role(Role::Text)
                     .node_ref(label_ref)
                     .on_press(move || control_ref.activate()),
-                |recipes| recipes.field_recipes().label_recipe(),
+                |r: &FieldTheme| r.label_recipe(),
                 &variants,
                 move || state.get(),
             )
@@ -158,7 +159,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
             parts.push(
                 with_recipe_style(
                     text(hint).node_ref(hint_ref),
-                    |recipes| recipes.field_recipes().hint_recipe(),
+                    |r: &FieldTheme| r.hint_recipe(),
                     &variants,
                     move || state.get(),
                 )
@@ -171,7 +172,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
                 show_some(error, move |message| {
                     with_recipe_style(
                         text(message).role(Role::Alert).node_ref(error_ref),
-                        |recipes| recipes.field_recipes().error_recipe(),
+                        |r: &FieldTheme| r.error_recipe(),
                         &variants,
                         move || state.get(),
                     )
@@ -181,7 +182,7 @@ impl<C: Element + IntoView> IntoView for Field<C> {
         }
         with_base_recipe_style(
             root,
-            |recipes| recipes.field_recipes().root_recipe(),
+            |r: &FieldTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )

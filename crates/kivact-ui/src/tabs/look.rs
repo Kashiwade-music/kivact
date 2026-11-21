@@ -1,10 +1,11 @@
 //! Role: The tabs recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
 use kivact_core::view::Orientation;
 use kivact_interaction::{TabListState, TabState};
-pub(crate) fn tabs_list(_: &Theme, s: &TabListState) -> Style {
+pub(crate) fn tabs_list(_: &Theme, s: &Look<TabListState>) -> Style {
     if s.orientation == Orientation::Vertical {
         style()
             .flex_direction(FlexDirection::Column)
@@ -18,11 +19,11 @@ pub(crate) fn tabs_list(_: &Theme, s: &TabListState) -> Style {
     }
 }
 
-pub(crate) fn no_tab_indicator(_: &Theme, _: &TabState) -> Style {
+pub(crate) fn no_tab_indicator(_: &Theme, _: &Look<TabState>) -> Style {
     style()
 }
 
-pub(crate) fn tab(t: &Theme, s: &TabState) -> Style {
+pub(crate) fn tab(t: &Theme, s: &Look<TabState>) -> Style {
     let mark = if s.orientation == Orientation::Vertical {
         style().border_right(2, kivact_core::style::color::ACCENT)
     } else {
@@ -38,13 +39,13 @@ pub(crate) fn tab(t: &Theme, s: &TabState) -> Style {
         .selected(mark)
 }
 
-pub(crate) fn panel(t: &Theme, _: &TabState) -> Style {
+pub(crate) fn panel(t: &Theme, _: &Look<TabState>) -> Style {
     style().padding(t.get(&kivact_core::style::space::MD_VAR))
 }
 
 recipe_table! {
     /// The recipes of [`tabs`](super::tabs).
-    TabsRecipes {
+    TabsTheme {
         /// The tab list, which knows its orientation.
         list(list_recipe): TabListState = tabs_list,
         /// A tab, which knows whether it is selected and the list's orientation.
@@ -56,8 +57,8 @@ recipe_table! {
     }
 }
 
-impl TabsRecipes {
+impl TabsTheme {
     pub(super) fn has_custom_indicator(&self) -> bool {
-        !self.indicator.same(&Self::default_table().indicator)
+        self.indicator.is_overridden()
     }
 }

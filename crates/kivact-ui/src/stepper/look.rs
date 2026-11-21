@@ -75,7 +75,7 @@ pub struct StepperState {
 
 recipe_table! {
     /// Progress list and individual step recipes.
-    StepperRecipes {
+    StepperTheme {
         root(root_recipe): StepperState = stepper_root,
         previous(previous_recipe): StepperState = crate::look_common::part,
         next(next_recipe): StepperState = crate::look_common::part,

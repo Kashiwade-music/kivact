@@ -3,6 +3,7 @@
 use crate::button::ButtonVariant;
 use crate::layer::with_recipe_style;
 use crate::toast::look::ToastGroupState;
+use crate::toast::look::ToastTheme;
 use crate::toast::swipe::Swipe;
 use crate::variants::{Variant, Variants};
 use kivact_core::custom::part;
@@ -65,7 +66,7 @@ pub struct ToastRegion {
 impl ToastRegion {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -111,7 +112,7 @@ impl IntoView for ToastRegion {
                     let (card, swipe) = build(id.get_untracked());
                     let row = with_recipe_style(
                         column(card),
-                        |r| r.toast_recipes().row_recipe(),
+                        |r: &ToastTheme| r.row_recipe(),
                         &row_variants,
                         kivact_core::custom::PartState::default,
                     );
@@ -125,7 +126,7 @@ impl IntoView for ToastRegion {
             let input = part.state();
             with_recipe_style(
                 column(items).part(part),
-                |r| r.toast_recipes().group_recipe(),
+                |r: &ToastTheme| r.group_recipe(),
                 &groups,
                 move || ToastGroupState {
                     input: input.get(),
@@ -152,7 +153,7 @@ impl IntoView for ToastRegion {
             ))
             .node_ref(anchor)
             .part(region),
-            |r| r.toast_recipes().region_recipe(),
+            |r: &ToastTheme| r.region_recipe(),
             &variants,
             move || state.get(),
         )
@@ -189,7 +190,7 @@ fn card_icon(
         None => tone_icon(content.tone).map(|name| {
             with_recipe_style(
                 kivact_core::view::icon(name),
-                |r| r.toast_recipes().icon_recipe(),
+                |r: &ToastTheme| r.icon_recipe(),
                 variants,
                 move || state.get(),
             )
@@ -227,14 +228,14 @@ fn toast(
     let state = part.state();
     let title = with_recipe_style(
         text(content.title.clone()),
-        |r| r.toast_recipes().title_recipe(),
+        |r: &ToastTheme| r.title_recipe(),
         variants,
         move || state.get(),
     );
     let body = content.body.clone().map(|body| {
         with_recipe_style(
             text(body),
-            |r| r.toast_recipes().body_recipe(),
+            |r: &ToastTheme| r.body_recipe(),
             variants,
             move || state.get(),
         )
@@ -252,7 +253,7 @@ fn toast(
             )
             .child(action)
             .child(close),
-        |r| r.toast_recipes().toast_recipe(),
+        |r: &ToastTheme| r.toast_recipe(),
         variants,
         move || state.get(),
     );
@@ -308,7 +309,7 @@ fn close_button(
     };
     with_recipe_style(
         close,
-        |r| r.toast_recipes().close_recipe(),
+        |r: &ToastTheme| r.close_recipe(),
         variants,
         move || state.get(),
     )

@@ -1,5 +1,6 @@
 //! Role: The AvatarGroup builder, its member overlap and overflow rendering.
 
+use crate::avatar_group::look::AvatarGroupTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value, memo};
 use kivact_core::style::style;
@@ -85,7 +86,7 @@ impl IntoView for AvatarGroup {
             .map(move |(index, child)| {
                 crate::layer::with_base_recipe_style(
                     node(),
-                    |r| r.avatar_group_member_recipe(),
+                    |r: &AvatarGroupTheme| r.member_recipe(),
                     &variants,
                     move || index,
                 )
@@ -98,7 +99,7 @@ impl IntoView for AvatarGroup {
         let overflow = self.overflow;
         crate::layer::with_base_recipe_style(
             self.root,
-            |r| r.avatar_group_recipe(),
+            |r: &AvatarGroupTheme| r.root_recipe(),
             &self.variants,
             || (),
         )
@@ -120,7 +121,7 @@ impl IntoView for AvatarGroup {
                         },
                         |content| node().child(content(hidden)),
                     ),
-                    |r| r.avatar_group_overflow_recipe(),
+                    |r: &AvatarGroupTheme| r.overflow_recipe(),
                     &overflow_variants,
                     move || hidden.get(),
                 )

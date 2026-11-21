@@ -1,14 +1,15 @@
 //! Role: The disclosure recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
 /// A disclosure: the trigger over the content.
-pub(crate) fn disclosure_root(_: &Theme, _: &DisclosureRecipeState) -> Style {
+pub(crate) fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style().flex_direction(FlexDirection::Column)
 }
 
 /// A disclosure's trigger: the title at the start and the indicator at the end.
-pub(crate) fn disclosure_trigger(t: &Theme, _: &DisclosureRecipeState) -> Style {
+pub(crate) fn disclosure_trigger(t: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -24,7 +25,7 @@ pub(crate) fn disclosure_trigger(t: &Theme, _: &DisclosureRecipeState) -> Style 
 }
 
 /// The box of a disclosure's `chevron-down` icon, turned up while it is open.
-pub(crate) fn disclosure_indicator(_: &Theme, state: &DisclosureRecipeState) -> Style {
+pub(crate) fn disclosure_indicator(_: &Theme, state: &Look<DisclosureRecipeState>) -> Style {
     style()
         .size(16, 16)
         .flex_shrink(0)
@@ -33,7 +34,7 @@ pub(crate) fn disclosure_indicator(_: &Theme, state: &DisclosureRecipeState) -> 
 }
 
 /// A disclosure's content under the trigger.
-pub(crate) fn disclosure_content(t: &Theme, _: &DisclosureRecipeState) -> Style {
+pub(crate) fn disclosure_content(t: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style()
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical)
@@ -75,7 +76,7 @@ impl DisclosureRecipeState {
 recipe_table! {
     /// The recipes of a [`disclosure`](super::disclosure); all of them get
     /// the trigger's or the content's [`DisclosureRecipeState`].
-    DisclosureRecipes {
+    DisclosureTheme {
         /// The column of the trigger over the content.
         root(root_recipe): DisclosureRecipeState = disclosure_root,
         /// The trigger: the title and the indicator in a row.

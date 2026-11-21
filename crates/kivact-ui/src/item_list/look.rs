@@ -1,10 +1,11 @@
 //! Role: The item list recipe state, tokens, recipe table and default looks.
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
 use kivact_macros::Prop;
-pub(crate) fn item_list_root(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn item_list_root(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .width(pct(100))
@@ -16,7 +17,7 @@ pub(crate) fn item_list_root(t: &Theme, _: &PartState) -> Style {
         )
 }
 
-pub(crate) fn item(t: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn item(t: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .padding(
@@ -35,18 +36,18 @@ pub(crate) fn item(t: &Theme, _: &ItemRowState) -> Style {
         .focus_visible(style().outline(t.focus_ring(), kivact_core::style::color::FOCUS))
 }
 
-pub(crate) fn content(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn content(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .flex_grow(1)
         .min_width(0)
 }
 
-pub(crate) fn title(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn title(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style().font_weight(500)
 }
 
-pub(crate) fn description(t: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn description(t: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .font_size(
             t.ext::<UiTokens>()
@@ -57,22 +58,22 @@ pub(crate) fn description(t: &Theme, _: &ItemRowState) -> Style {
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
-pub(crate) fn media(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn media(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style().flex_shrink(0).align_self(Align::Center)
 }
 
-pub(crate) fn actions(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn actions(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .flex_shrink(0)
         .align_items(Align::Center)
 }
 
-pub(crate) fn band(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn band(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style().flex_direction(FlexDirection::Row).width(pct(100))
 }
 
-pub(crate) fn item_body(t: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn item_body(t: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -84,13 +85,13 @@ pub(crate) fn item_body(t: &Theme, _: &ItemRowState) -> Style {
         )
 }
 
-pub(crate) fn list_header(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn list_header(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .font_weight(600)
 }
 
-pub(crate) fn marker(_: &Theme, _: &ItemRowState) -> Style {
+pub(crate) fn marker(_: &Theme, _: &Look<ItemRowState>) -> Style {
     style()
         .flex_shrink(0)
         .min_width(16)
@@ -119,7 +120,7 @@ impl std::ops::Deref for ItemRowState {
 
 recipe_table! {
     /// Static list and item-row part recipes.
-    ItemListRecipes {
+    ItemListTheme {
         list_header(list_header_recipe): PartState = list_header,
         marker(marker_recipe): ItemRowState = marker,
         root(root_recipe): PartState = item_list_root,

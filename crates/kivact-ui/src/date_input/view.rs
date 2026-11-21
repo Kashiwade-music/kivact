@@ -1,5 +1,6 @@
 //! Role: Build an editable date and its keyboard-accessible picker.
 use super::machine::{DateField, DateValidation, Event, OpenedBy, Picker, Snapshot, TypedDate};
+use crate::date_input::look::DateInputTheme;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, Calendar, button, calendar, dialog, text_input};
 use kivact_core::custom::PartState;
@@ -78,7 +79,7 @@ impl DateInput {
     }
 
     /// Add a visual variant shared by the field and its picker surface.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -541,7 +542,7 @@ fn date_layout(
 ) -> View {
     root.child(with_recipe_style(
         row((field, picker)),
-        |r| r.date_input_recipes().root_recipe(),
+        |r: &DateInputTheme| r.root_recipe(),
         variants,
         PartState::default,
     ))

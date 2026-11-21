@@ -1,9 +1,11 @@
 //! Role: The badge recipe state, tokens, recipe table and default looks.
 use crate::look_common::tone;
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 
 use kivact_core::style::{Align, Justify, Style, Theme, style};
 use kivact_interaction::Tone;
-pub(crate) fn badge(t: &Theme, s: &BadgeState) -> Style {
+pub(crate) fn badge(t: &Theme, s: &Look<BadgeState>) -> Style {
     style()
         .align_items(Align::Center)
         .justify_content(Justify::Center)
@@ -17,7 +19,7 @@ pub(crate) fn badge(t: &Theme, s: &BadgeState) -> Style {
         .color(tone(s.tone))
 }
 
-pub(crate) fn badge_label(_: &Theme, _: &BadgeState) -> Style {
+pub(crate) fn badge_label(_: &Theme, _: &Look<BadgeState>) -> Style {
     style()
 }
 
@@ -29,4 +31,12 @@ pub struct BadgeState {
     pub actionable: bool,
     pub leading_icon: bool,
     pub trailing_icon: bool,
+}
+
+recipe_table! {
+    /// The recipes of a badge: its root and its label.
+    BadgeTheme {
+        root(root_recipe): BadgeState = badge,
+        label(label_recipe): BadgeState = badge_label,
+    }
 }

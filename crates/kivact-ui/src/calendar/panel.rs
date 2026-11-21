@@ -2,6 +2,7 @@
 
 use super::caption::{Names, title};
 use super::state::Shared;
+use crate::calendar::look::CalendarTheme;
 use crate::layer::with_recipe_style;
 use crate::{ButtonVariant, ControlSize};
 use kivact_core::custom::{Part, PartState};
@@ -106,7 +107,7 @@ pub(super) fn month_panel(
                 .width(shared.cell_size * 7.0)
                 .flex_shrink(0),
         ),
-        |r| r.calendar_recipes().month_recipe(),
+        |r: &CalendarTheme| r.month_recipe(),
         &shared.variants,
         PartState::default,
     )
@@ -182,7 +183,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
             .selected(move || marked.get().selection != kivact_interaction::DaySelection::None)
             .child(text(day.day().to_string()))
             .child(event_marks(shared, day, marked)),
-        |r| r.calendar_recipes().day_recipe(),
+        |r: &CalendarTheme| r.day_recipe(),
         &shared.variants,
         move || crate::calendar::look::CalendarDayVisual {
             date: day,
@@ -196,7 +197,7 @@ fn day_node(shared: &Rc<Shared>, month: CalendarMonth, day: CalendarDate) -> Nod
     let button = button.style(move || style().size(cell_size, cell_size));
     let band = with_recipe_style(
         node(),
-        |r| r.calendar_recipes().range_recipe(),
+        |r: &CalendarTheme| r.range_recipe(),
         &shared.variants,
         move || marked.get(),
     );
@@ -230,7 +231,7 @@ fn event_marks(
                 .map(|event| {
                     with_recipe_style(
                         node(),
-                        |r| r.calendar_recipes().event_recipe(),
+                        |r: &CalendarTheme| r.event_recipe(),
                         &variants,
                         move || crate::calendar::look::CalendarEventVisual {
                             color: event.color,
@@ -245,7 +246,7 @@ fn event_marks(
     );
     with_recipe_style(
         node().child(contents),
-        |r| r.calendar_recipes().events_recipe(),
+        |r: &CalendarTheme| r.events_recipe(),
         &shared.variants,
         PartState::default,
     )
@@ -315,7 +316,7 @@ fn month_caption(
     );
     with_recipe_style(
         caption,
-        |r| r.calendar_recipes().caption_recipe(),
+        |r: &CalendarTheme| r.caption_recipe(),
         &shared.variants,
         PartState::default,
     )

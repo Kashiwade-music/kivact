@@ -2,11 +2,12 @@
 
 use crate::UiTokens;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::CalendarDate;
 use kivact_core::style::{Align, Color, FlexDirection, Justify, Position, Style, Theme, style};
 use kivact_interaction::{CalendarDayState, CalendarSpan};
-pub(crate) fn root(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn root(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .gap(t.ext::<UiTokens>().calendar.month_gap)
@@ -15,11 +16,11 @@ pub(crate) fn root(t: &Theme, _: &PartState) -> Style {
         .color(kivact_core::style::color::TEXT)
 }
 
-pub(crate) fn month(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn month(_: &Theme, _: &Look<PartState>) -> Style {
     style()
 }
 
-pub(crate) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
+pub(crate) fn day(t: &Theme, s: &Look<CalendarDayVisual>) -> Style {
     let size = s.cell_size;
     let base = style()
         .position(Position::Absolute)
@@ -56,7 +57,7 @@ pub(crate) fn day(t: &Theme, s: &CalendarDayVisual) -> Style {
     }
 }
 
-pub(crate) fn range(t: &Theme, s: &CalendarDayState) -> Style {
+pub(crate) fn range(t: &Theme, s: &Look<CalendarDayState>) -> Style {
     let size = t.ext::<UiTokens>().calendar.cell_size;
     let base = style()
         .position(Position::Absolute)
@@ -71,7 +72,7 @@ pub(crate) fn range(t: &Theme, s: &CalendarDayState) -> Style {
     }
 }
 
-pub(crate) fn events(_: &Theme, _: &PartState) -> Style {
+pub(crate) fn events(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .position(Position::Absolute)
@@ -79,7 +80,7 @@ pub(crate) fn events(_: &Theme, _: &PartState) -> Style {
         .gap(2)
 }
 
-pub(crate) fn event(_: &Theme, s: &CalendarEventVisual) -> Style {
+pub(crate) fn event(_: &Theme, s: &Look<CalendarEventVisual>) -> Style {
     style().size(3, 3).border_radius(2).background(s.color)
 }
 
@@ -104,7 +105,7 @@ pub struct CalendarEventVisual {
 
 recipe_table! {
     /// Calendar panels and date cells.
-    CalendarRecipes {
+    CalendarTheme {
         root(root_recipe): PartState = root,
         month(month_recipe): PartState = month,
         caption(caption_recipe): PartState = month,

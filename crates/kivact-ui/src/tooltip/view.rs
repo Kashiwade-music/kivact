@@ -2,6 +2,7 @@
 
 use crate::layer::with_recipe_style;
 use crate::tooltip::look::TooltipArrowState;
+use crate::tooltip::look::TooltipTheme;
 use crate::variants::{Variant, Variants};
 use kivact_core::geometry::Edge;
 use kivact_core::geometry::Rect;
@@ -25,7 +26,7 @@ pub struct Tooltip {
 ///
 /// The timing, the one-at-a-time rule and the dismissal are
 /// [`use_tooltip`](kivact_interaction::use_tooltip)'s; this builder draws the
-/// surface with the theme's [`TooltipRecipes`](crate::TooltipRecipes) and
+/// surface with the theme's [`TooltipTheme`](crate::theme::TooltipTheme) and
 /// owns no timer.
 pub fn tooltip(label: impl IntoText) -> Tooltip {
     Tooltip {
@@ -41,7 +42,7 @@ pub fn tooltip(label: impl IntoText) -> Tooltip {
 impl Tooltip {
     /// Give the component a [`Variant`]: a look beyond the meanings its
     /// state carries, which every recipe of the component reads with
-    /// [`Look::variant`](crate::Look::variant). A later value of the same
+    /// [`Look::variant`](crate::theme::Look::variant). A later value of the same
     /// type replaces the earlier one; a theme that does not know the type
     /// draws the plain look.
     ///
@@ -119,7 +120,7 @@ impl Tooltip {
                             |factory| factory.call(()),
                         ))
                         .child(arrow(anchor, placed, self.placement, &self.variants)),
-                    |r| r.tooltip_recipes().surface_recipe(),
+                    |r: &TooltipTheme| r.surface_recipe(),
                     &self.variants,
                     move || state.get(),
                 ),
@@ -138,7 +139,7 @@ impl Tooltip {
 }
 
 /// The arrow box of the surface bound to `placed`, styled by the theme's
-/// [`TooltipRecipes::arrow`](crate::TooltipRecipes) (by default an empty
+/// [`TooltipTheme::arrow`](crate::theme::TooltipTheme) (by default an empty
 /// box out of the layout).
 fn arrow(
     anchor: NodeRef,
@@ -151,7 +152,7 @@ fn arrow(
         kivact_core::state::memo(move || arrow_state(anchor.get(), placed.get(), requested));
     with_recipe_style(
         node(),
-        |r| r.tooltip_recipes().arrow_recipe(),
+        |r: &TooltipTheme| r.arrow_recipe(),
         variants,
         move || state.get(),
     )

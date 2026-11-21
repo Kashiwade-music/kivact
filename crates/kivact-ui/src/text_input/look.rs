@@ -1,11 +1,13 @@
 //! Role: The text input recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, height};
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 
 use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Style, Theme, style};
 /// The text input recipe: a bordered field that rings on focus.
-pub(crate) fn text_input(theme: &Theme, state: &TextInputState) -> Style {
+pub(crate) fn text_input(theme: &Theme, state: &Look<TextInputState>) -> Style {
     let size = state.size;
     let s = style()
         .height(height(theme, size))
@@ -33,7 +35,7 @@ pub(crate) fn text_input(theme: &Theme, state: &TextInputState) -> Style {
     }
 }
 
-pub(crate) fn text_area(theme: &Theme, state: &TextInputState) -> Style {
+pub(crate) fn text_area(theme: &Theme, state: &Look<TextInputState>) -> Style {
     text_input(theme, state)
         .height(100)
         .padding_y(theme.get(&kivact_core::style::space::SM_VAR))
@@ -46,4 +48,18 @@ pub struct TextInputState {
     pub size: ControlSize,
     /// Whether the caller marked the value invalid (`TextInput::invalid`).
     pub invalid: bool,
+}
+
+recipe_table! {
+    /// The recipes of a single-line text field.
+    TextInputTheme {
+        root(root_recipe): TextInputState = text_input,
+    }
+}
+
+recipe_table! {
+    /// The recipes of a multi-line text field.
+    TextAreaTheme {
+        root(root_recipe): TextInputState = text_area,
+    }
 }

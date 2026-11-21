@@ -33,7 +33,7 @@ pub struct ChatComposerState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatComposer.
-    ChatComposerRecipes {
+    ChatComposerTheme {
         root(root_recipe): ChatComposerState = crate::look_common::column,
         surface(surface_recipe): ChatComposerState = composer_surface,
         input(input_recipe): ChatComposerState = input,

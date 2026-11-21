@@ -1,5 +1,6 @@
 //! Role: The empty state builder and its announcement policy.
 
+use crate::empty_state::look::EmptyStateTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoText, IntoValue, Value, on_mount};
@@ -106,7 +107,7 @@ impl IntoView for EmptyState {
         let icon = self.icon.map(|icon| {
             with_recipe_style(
                 node().child(icon),
-                |r| r.empty_state_recipes().icon_recipe(),
+                |r: &EmptyStateTheme| r.icon_recipe(),
                 variants,
                 state,
             )
@@ -115,14 +116,14 @@ impl IntoView for EmptyState {
             text(title)
                 .role(Role::Heading)
                 .level(move || u32::from(state().heading_level)),
-            |r| r.empty_state_recipes().title_recipe(),
+            |r: &EmptyStateTheme| r.title_recipe(),
             variants,
             state,
         );
         let description = description.map(|value| {
             with_recipe_style(
                 text(value),
-                |r| r.empty_state_recipes().description_recipe(),
+                |r: &EmptyStateTheme| r.description_recipe(),
                 variants,
                 state,
             )
@@ -130,14 +131,14 @@ impl IntoView for EmptyState {
         let actions = self.actions.map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.empty_state_recipes().actions_recipe(),
+                |r: &EmptyStateTheme| r.actions_recipe(),
                 variants,
                 state,
             )
         });
         let result = with_base_recipe_style(
             self.root,
-            |r| r.empty_state_recipes().root_recipe(),
+            |r: &EmptyStateTheme| r.root_recipe(),
             variants,
             state,
         )

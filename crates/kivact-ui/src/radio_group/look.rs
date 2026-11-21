@@ -1,8 +1,8 @@
 //! Role: The radio group recipe state, tokens, recipe table and default looks.
 
-use crate::Look;
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use crate::toggle::look::CheckableState;
 use crate::variants::Variant;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
@@ -92,7 +92,7 @@ pub(crate) fn radio_indicator(t: &Theme, state: &CheckableState) -> Style {
     }
 }
 
-pub(crate) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
+pub(crate) fn radio_mark(_: &Theme, state: &Look<CheckableState>) -> Style {
     if state.is_checked() {
         style()
     } else {
@@ -100,7 +100,7 @@ pub(crate) fn radio_mark(_: &Theme, state: &CheckableState) -> Style {
     }
 }
 
-pub(crate) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
+pub(crate) fn radio_description(t: &Theme, _: &Look<CheckableState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
@@ -108,7 +108,7 @@ pub(crate) fn radio_description(t: &Theme, _: &CheckableState) -> Style {
 
 recipe_table! {
     /// The recipes of a [`radio_group`](super::radio_group).
-    RadioGroupRecipes {
+    RadioGroupTheme {
         /// The group, laid out in its orientation.
         group(group_recipe): Orientation = group,
         /// A radio item: its indicator and its label.
@@ -123,9 +123,9 @@ recipe_table! {
     }
 }
 
-impl RadioGroupRecipes {
+impl RadioGroupTheme {
     pub(super) fn has_custom_mark(&self) -> bool {
-        !self.mark.same(&Self::default_table().mark)
+        self.mark.is_overridden()
     }
 }
 

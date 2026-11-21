@@ -1,7 +1,7 @@
 //! Role: The breadcrumb recipe state, tokens, recipe table and default looks.
 
-use crate::Look;
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
 pub(crate) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
     let p = &t.ext::<crate::UiTokens>().breadcrumb;
@@ -17,7 +17,7 @@ pub(crate) fn breadcrumb_list(_: &Theme, _: &Look<()>) -> Style {
     style().flex_direction(FlexDirection::Row).gap(8)
 }
 
-pub(crate) fn breadcrumb_item(t: &Theme, s: &Look<crate::BreadcrumbItemState>) -> Style {
+pub(crate) fn breadcrumb_item(t: &Theme, s: &Look<crate::theme::BreadcrumbItemState>) -> Style {
     style()
         .padding(0)
         .height(kivact_core::style::auto())
@@ -59,10 +59,10 @@ impl BreadcrumbItemState {
 
 recipe_table! {
     /// Breadcrumb landmark, item and decorative separator recipes.
-    BreadcrumbRecipes {
+    BreadcrumbTheme {
         root(root_recipe): () = breadcrumb_root,
         list(list_recipe): () = breadcrumb_list,
-        item(item_recipe): crate::BreadcrumbItemState = breadcrumb_item,
+        item(item_recipe): crate::theme::BreadcrumbItemState = breadcrumb_item,
         separator(separator_recipe): () = crate::look_common::part,
     }
 }

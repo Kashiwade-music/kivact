@@ -1,6 +1,7 @@
 //! Role: The Alert builder, its rendering, and the dismissal state machine.
 
 use crate::alert::look::AlertState;
+use crate::alert::look::AlertTheme;
 use crate::alert::look::Expansion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -181,7 +182,7 @@ impl IntoView for Alert {
         let contents = self.render_contents(state, collapsible, details, phase);
         with_base_recipe_style(
             self.root,
-            |r| r.alert_recipes().root_recipe(),
+            |r: &AlertTheme| r.root_recipe(),
             &self.variants,
             state,
         )
@@ -204,21 +205,21 @@ impl Alert {
         let icon = self.icon.take().map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.alert_recipes().icon_recipe(),
+                |r: &AlertTheme| r.icon_recipe(),
                 variants,
                 state,
             )
         });
         let title = with_recipe_style(
             node().child(text(self.title)),
-            |r| r.alert_recipes().title_recipe(),
+            |r: &AlertTheme| r.title_recipe(),
             variants,
             state,
         );
         let description = self.description.take().map(|value| {
             with_recipe_style(
                 text(value),
-                |r| r.alert_recipes().description_recipe(),
+                |r: &AlertTheme| r.description_recipe(),
                 variants,
                 state,
             )
@@ -226,7 +227,7 @@ impl Alert {
         let actions = self.actions.take().map(|view| {
             with_recipe_style(
                 node().child(view),
-                |r| r.alert_recipes().actions_recipe(),
+                |r: &AlertTheme| r.actions_recipe(),
                 variants,
                 state,
             )
@@ -239,7 +240,7 @@ impl Alert {
                 move || {
                     with_recipe_style(
                         node().child(content.call(())),
-                        |r| r.alert_recipes().content_recipe(),
+                        |r: &AlertTheme| r.content_recipe(),
                         &variants,
                         state,
                     )
@@ -254,7 +255,7 @@ impl Alert {
                 .child(dismiss_content)
                 .on_press(move || phase.send(BannerEvent::Dismiss))
                 .hidden(move || !dismissible.get()),
-            |r| r.alert_recipes().dismiss_recipe(),
+            |r: &AlertTheme| r.dismiss_recipe(),
             variants,
             state,
         );
@@ -281,19 +282,19 @@ fn alert_header(
 ) -> Node {
     let message = with_recipe_style(
         node().child(message),
-        |r| r.alert_recipes().message_recipe(),
+        |r: &AlertTheme| r.message_recipe(),
         variants,
         state,
     );
     let controls = with_recipe_style(
         node().child(controls),
-        |r| r.alert_recipes().controls_recipe(),
+        |r: &AlertTheme| r.controls_recipe(),
         variants,
         state,
     );
     with_recipe_style(
         node().child((icon, message, controls)),
-        |r| r.alert_recipes().header_recipe(),
+        |r: &AlertTheme| r.header_recipe(),
         variants,
         state,
     )
@@ -321,7 +322,7 @@ fn expansion_toggle(
             .on_press(move || open.set(!open.get()));
         crate::tooltip(label).attach(with_recipe_style(
             control,
-            |r| r.alert_recipes().toggle_recipe(),
+            |r: &AlertTheme| r.toggle_recipe(),
             variants,
             state,
         ))

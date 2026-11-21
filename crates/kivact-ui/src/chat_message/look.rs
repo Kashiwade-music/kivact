@@ -103,7 +103,7 @@ pub struct ChatMessageState {
 
 recipe_table! {
     /// Styles for the persistent parts of ChatMessage.
-    ChatMessageRecipes {
+    ChatMessageTheme {
         root(root_recipe): ChatMessageState = message_root,
         body(body_recipe): ChatMessageState = message_body,
         author(author_recipe): ChatMessageState = author,

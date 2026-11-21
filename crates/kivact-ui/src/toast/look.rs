@@ -1,13 +1,14 @@
 //! Role: The toast recipe state, tokens, recipe table and default looks.
 
 use crate::recipe::recipe_table;
+use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::style::{
     Align, Color, FlexDirection, Justify, Position, Style, Theme, pct, style,
 };
 use kivact_interaction::{ToastState, Tone};
 /// The regions at the bottom right, above the page.
-pub(crate) fn toast_region(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn toast_region(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .position(Position::Fixed)
         .right(t.get(&kivact_core::style::space::XL_VAR))
@@ -18,7 +19,7 @@ pub(crate) fn toast_region(t: &Theme, _: &PartState) -> Style {
 
 /// One live region's toasts in a column; a space above the assertive
 /// group while both groups show toasts.
-pub(crate) fn toast_group(t: &Theme, state: &ToastGroupState) -> Style {
+pub(crate) fn toast_group(t: &Theme, state: &Look<ToastGroupState>) -> Style {
     let s = style().gap(t.get(&kivact_core::style::space::SM_VAR));
     if state.count > 0 && state.above > 0 {
         s.margin_top(t.get(&kivact_core::style::space::SM_VAR))
@@ -28,7 +29,7 @@ pub(crate) fn toast_group(t: &Theme, state: &ToastGroupState) -> Style {
 }
 
 /// A toast on the raised surface, its edge in the tone's color.
-pub(crate) fn toast(t: &Theme, state: &ToastState) -> Style {
+pub(crate) fn toast(t: &Theme, state: &Look<ToastState>) -> Style {
     let edge: Color = match state.tone {
         Tone::Neutral | Tone::Info => kivact_core::style::color::BORDER,
         Tone::Success => kivact_core::style::color::SUCCESS,
@@ -54,7 +55,7 @@ pub(crate) fn toast(t: &Theme, state: &ToastState) -> Style {
 }
 
 /// The tone's icon box: 16 px in the tone's color.
-pub(crate) fn toast_icon(_: &Theme, state: &ToastState) -> Style {
+pub(crate) fn toast_icon(_: &Theme, state: &Look<ToastState>) -> Style {
     let color: Color = match state.tone {
         Tone::Neutral => kivact_core::style::color::TEXT_MUTED,
         Tone::Info | Tone::Accent => kivact_core::style::color::ACCENT,
@@ -65,18 +66,18 @@ pub(crate) fn toast_icon(_: &Theme, state: &ToastState) -> Style {
     style().size(16, 16).flex_shrink(0).color(color)
 }
 
-pub(crate) fn toast_title(t: &Theme, _: &ToastState) -> Style {
+pub(crate) fn toast_title(t: &Theme, _: &Look<ToastState>) -> Style {
     style().font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
-pub(crate) fn toast_body(t: &Theme, _: &ToastState) -> Style {
+pub(crate) fn toast_body(t: &Theme, _: &Look<ToastState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_SMALL_VAR))
         .color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The close button, around its `x` icon.
-pub(crate) fn toast_close(t: &Theme, _: &ToastState) -> Style {
+pub(crate) fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
@@ -89,7 +90,7 @@ pub(crate) fn toast_close(t: &Theme, _: &ToastState) -> Style {
 }
 
 /// Shared by all kits: the row owns size presence independently of card paint.
-pub(crate) fn toast_row(t: &Theme, _: &PartState) -> Style {
+pub(crate) fn toast_row(t: &Theme, _: &Look<PartState>) -> Style {
     let tokens = t.ext::<crate::tokens::UiTokens>();
     let motion = &tokens.toast.row_motion;
     let base = style()
@@ -122,7 +123,7 @@ pub struct ToastGroupState {
 
 recipe_table! {
     /// The recipes of a [`toast_region`](super::toast_region).
-    ToastRecipes {
+    ToastTheme {
         /// The region, placed at the window's bottom right.
         region(region_recipe): PartState = toast_region,
         /// The column of one live region's toasts (polite, then assertive).

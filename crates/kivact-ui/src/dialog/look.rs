@@ -1,11 +1,12 @@
 //! Role: The dialog recipe state, tokens, recipe table and default looks.
 use crate::look_common::mark;
+use crate::theme::Look;
 
 use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Position, Style, Theme, pct, style};
 use kivact_interaction::DialogMode;
-pub(crate) fn dialog_surface(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_surface(t: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .width(480)
         .max_width(pct(100))
@@ -14,18 +15,18 @@ pub(crate) fn dialog_surface(t: &Theme, _: &DialogState) -> Style {
         .border_radius(t.get(&kivact_core::style::radius::MD_VAR))
 }
 
-pub(crate) fn dialog_title(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_title(t: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR) + 4.0)
         .font_weight(t.get(&kivact_core::style::font::WEIGHT_STRONG_VAR))
 }
 
-pub(crate) fn dialog_description(_: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_description(_: &Theme, _: &Look<DialogState>) -> Style {
     style().color(kivact_core::style::color::TEXT_MUTED)
 }
 
 /// The title over the description, clear of the close button.
-pub(crate) fn dialog_header(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_header(t: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .padding(t.get(&kivact_core::style::space::LG_VAR))
         .padding_right(
@@ -37,21 +38,21 @@ pub(crate) fn dialog_header(t: &Theme, _: &DialogState) -> Style {
 }
 
 /// The media view's box, above the title.
-pub(crate) fn dialog_media(_: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_media(_: &Theme, _: &Look<DialogState>) -> Style {
     style().flex_shrink(0)
 }
 
-pub(crate) fn dialog_body(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_body(t: &Theme, _: &Look<DialogState>) -> Style {
     style().padding(t.get(&kivact_core::style::space::LG_VAR))
 }
 
-pub(crate) fn dialog_footer(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_footer(t: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .padding(t.get(&kivact_core::style::space::LG_VAR))
         .gap(t.get(&kivact_core::style::space::SM_VAR))
 }
 
-pub(crate) fn dialog_scrim(_: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_scrim(_: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .position(Position::Fixed)
         .inset(0)
@@ -59,7 +60,7 @@ pub(crate) fn dialog_scrim(_: &Theme, _: &DialogState) -> Style {
 }
 
 /// The close button at the surface's top right, around its `x` icon.
-pub(crate) fn dialog_close(t: &Theme, _: &DialogState) -> Style {
+pub(crate) fn dialog_close(t: &Theme, _: &Look<DialogState>) -> Style {
     let inset = t.get(&kivact_core::style::space::LG_VAR) - 4.0;
     mark()
         .position(Position::Absolute)
@@ -72,7 +73,7 @@ pub(crate) fn dialog_close(t: &Theme, _: &DialogState) -> Style {
 }
 
 /// Pointer target for pulling a drawer toward its edge.
-pub(crate) fn drawer_handle(_: &Theme, state: &DialogState) -> Style {
+pub(crate) fn drawer_handle(_: &Theme, state: &Look<DialogState>) -> Style {
     if matches!(
         state.kind,
         kivact_interaction::DialogMode::Drawer(
@@ -97,7 +98,7 @@ pub struct DialogState {
 
 recipe_table! {
     /// The recipes of a [`dialog`](super::dialog).
-    DialogRecipes {
+    DialogTheme {
         surface(surface_recipe): DialogState = dialog_surface,
         title(title_recipe): DialogState = dialog_title,
         description(description_recipe): DialogState = dialog_description,

@@ -1,5 +1,6 @@
 //! Role: The skeleton builder and its pulse and stagger rendering.
 
+use crate::skeleton::look::SkeletonTheme;
 use crate::skeleton::look::{SkeletonShape, SkeletonState};
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, Easing, Repeat, Stagger, Transition};
@@ -90,7 +91,7 @@ impl IntoView for Skeleton {
                 move |_, _| {
                     crate::layer::with_base_recipe_style(
                         node(),
-                        |r| r.skeleton_recipe(),
+                        |r: &SkeletonTheme| r.root_recipe(),
                         &variants,
                         move || SkeletonState {
                             shape: shape.get(),

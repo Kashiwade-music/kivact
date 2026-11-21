@@ -1,5 +1,6 @@
 //! Role: The heading builder and its rendering.
 
+use crate::heading::look::HeadingTheme;
 use crate::layer::with_base_recipe_style;
 use crate::variants::{Variant, Variants};
 use kivact_core::state::IntoText;
@@ -42,7 +43,7 @@ impl IntoView for Heading {
     fn into_view(self) -> View {
         with_base_recipe_style(
             self.root,
-            |r| r.heading_recipe(),
+            |r: &HeadingTheme| r.root_recipe(),
             &self.variants,
             move || HeadingState { level: self.level },
         )

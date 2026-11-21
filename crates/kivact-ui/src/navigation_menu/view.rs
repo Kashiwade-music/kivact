@@ -1,5 +1,6 @@
 //! Role: The navigation menu builder, its panel and trigger rendering.
 
+use crate::navigation_menu::look::NavigationMenuTheme;
 use kivact_core::state::{Callback, IntoText, IntoValue, Value, binding, callback, memo};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
@@ -102,7 +103,7 @@ impl NavigationMenu {
         self
     }
     /// Add a kit-defined visual variant.
-    pub fn variant(mut self, variant: impl crate::Variant) -> Self {
+    pub fn variant(mut self, variant: impl crate::theme::Variant) -> Self {
         self.variants.add(variant);
         self
     }
@@ -171,7 +172,7 @@ impl IntoView for NavigationMenu {
         }
         crate::layer::with_base_recipe_style(
             root.roving_focus(kivact_core::view::Orientation::Horizontal),
-            |r| r.navigation_menu_recipes().root_recipe(),
+            |r: &NavigationMenuTheme| r.root_recipe(),
             &variants,
             move || state.get(),
         )
@@ -213,7 +214,7 @@ fn navigation_panel(
         let content = content.clone();
         let panel = crate::layer::with_recipe_style(
             node().role(Role::Group).name(label),
-            |r| r.navigation_menu_recipes().panel_recipe(),
+            |r: &NavigationMenuTheme| r.panel_recipe(),
             &variants,
             move || state.get(),
         )
@@ -311,9 +312,9 @@ fn navigation_trigger(
                 }
                 _ => Handled::No,
             }),
-        |r| r.navigation_menu_recipes().trigger_recipe(),
+        |r: &NavigationMenuTheme| r.trigger_recipe(),
         variants,
-        move || crate::NavigationTriggerState { open: shown.get() },
+        move || crate::theme::NavigationTriggerState { open: shown.get() },
     )
     .into_view()
 }
@@ -334,7 +335,7 @@ fn navigation_action(
                 api.hide();
                 press.call(());
             }),
-        |r| r.navigation_menu_recipes().action_recipe(),
+        |r: &NavigationMenuTheme| r.action_recipe(),
         variants,
         move || state.get(),
     )

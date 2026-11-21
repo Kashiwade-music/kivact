@@ -1,12 +1,14 @@
 //! Role: The toggle button recipe state, tokens, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
+use crate::recipe::recipe_table;
+use crate::theme::Look;
 
 use crate::control_size::ControlSize;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, Color, FlexDirection, Justify, Style, Theme, style};
 /// The toggle button recipe: a row of an optional icon and the label,
 /// filled with the theme's pressed color while it is on.
-pub(crate) fn toggle_button(theme: &Theme, state: &ToggleButtonState) -> Style {
+pub(crate) fn toggle_button(theme: &Theme, state: &Look<ToggleButtonState>) -> Style {
     let size = state.size;
     let s = style()
         .flex_direction(FlexDirection::Row)
@@ -63,5 +65,12 @@ impl ToggleButtonState {
     /// is hidden. A look draws it as a square of the toggle's height.
     pub fn is_icon_only(&self) -> bool {
         self.leading_icon && self.label_hidden
+    }
+}
+
+recipe_table! {
+    /// The recipes of a toggle button.
+    ToggleButtonTheme {
+        root(root_recipe): ToggleButtonState = toggle_button,
     }
 }

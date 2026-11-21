@@ -2,6 +2,7 @@
 
 use crate::chat_message::look::ChatAlign;
 use crate::chat_thread::look::ChatThreadState;
+use crate::chat_thread::look::ChatThreadTheme;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::state::{IntoValue, Value};
@@ -131,7 +132,7 @@ impl IntoView for ChatThread {
                 self.children,
                 typing,
             )),
-            |r| r.chat_thread_recipes().content_recipe(),
+            |r: &ChatThreadTheme| r.content_recipe(),
             &self.variants,
             state,
         )
@@ -154,7 +155,7 @@ impl IntoView for ChatThread {
             scroll(messages)
                 .axes(ScrollAxes::Vertical)
                 .node_ref(viewport),
-            |r| r.chat_thread_recipes().viewport_recipe(),
+            |r: &ChatThreadTheme| r.viewport_recipe(),
             &self.variants,
             state,
         );
@@ -169,21 +170,21 @@ impl IntoView for ChatThread {
             .hide_label(true)
             .hidden(move || !shown.get() || distance.get() <= slack)
             .on_press(move || follow.jump_to_end()),
-            |r| r.chat_thread_recipes().scroll_button_recipe(),
+            |r: &ChatThreadTheme| r.scroll_button_recipe(),
             &self.variants,
             state,
         );
         let composer = self.composer.map(|v| {
             with_recipe_style(
                 node().child(v),
-                |r| r.chat_thread_recipes().composer_recipe(),
+                |r: &ChatThreadTheme| r.composer_recipe(),
                 &self.variants,
                 state,
             )
         });
         with_base_recipe_style(
             self.root,
-            |r| r.chat_thread_recipes().root_recipe(),
+            |r: &ChatThreadTheme| r.root_recipe(),
             &self.variants,
             state,
         )
