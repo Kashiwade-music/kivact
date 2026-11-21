@@ -44,26 +44,26 @@ impl Element for Spinner {
 }
 impl IntoView for Spinner {
     fn into_view(self) -> View {
-        let metrics = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .indicators
-            .clone();
+        let theme = kivact_core::style::use_theme().get();
+        let period_ms = theme.get(&crate::spinner::look::PERIOD_MS_VAR);
+        let reduced_period = *theme
+            .ext::<crate::spinner::look::SpinnerTheme>()
+            .reduced_period_value();
         let size = self.size;
         let variants = self.variants;
         let glyph = kivact_core::view::dynamic(
             move || {
                 let reduced = kivact_core::platform::is_motion_reduced().get();
-                let essential = reduced && metrics.reduced_period_ms.is_some();
+                let essential = reduced && reduced_period.is_some();
                 let period = if reduced {
-                    metrics.reduced_period_ms.unwrap_or(metrics.period_ms)
+                    reduced_period.unwrap_or(period_ms)
                 } else {
-                    metrics.period_ms
+                    period_ms
                 };
                 (period, essential)
             },
             move |(period, essential)| {
-                let transition =
-                    Transition::tween(period as f64, Easing::Linear).repeat(Repeat::Forever);
+                let transition = Transition::tween(period, Easing::Linear).repeat(Repeat::Forever);
                 let transition = if essential {
                     transition.essential()
                 } else {
@@ -87,12 +87,7 @@ impl IntoView for Spinner {
                     kivact_core::style::style()
                         .flex_direction(kivact_core::style::FlexDirection::Column)
                         .align_items(kivact_core::style::Align::Center)
-                        .gap(
-                            kivact_core::style::use_theme()
-                                .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-                                .indicators
-                                .gap,
-                        )
+                        .gap(crate::spinner::look::GAP)
                         .flex_shrink(0)
                 })
             })

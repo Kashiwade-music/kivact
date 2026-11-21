@@ -1,21 +1,33 @@
-//! Role: The table recipe state, tokens, recipe table and default looks.
+//! Role: The table recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
-use crate::tokens::UiTokens;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, pct, style};
-pub(crate) fn table(t: &Theme, _: &Look<PartState>) -> Style {
+use kivact_core::style::{Length, ThemeVar, control, font, space};
+
+/// The padding of a table cell, in logical px.
+pub static CELL_PADDING_VAR: ThemeVar<f64> = ThemeVar::alias("table.cell_padding", &space::SM_VAR);
+/// [`CELL_PADDING_VAR`] as a length for a style.
+pub const CELL_PADDING: Length = Length::var(&CELL_PADDING_VAR);
+
+/// The height of a table header, in logical px.
+pub static HEADER_HEIGHT_VAR: ThemeVar<f64> =
+    ThemeVar::alias("table.header_height", &control::HEIGHT_VAR);
+/// [`HEADER_HEIGHT_VAR`] as a length for a style.
+pub const HEADER_HEIGHT: Length = Length::var(&HEADER_HEIGHT_VAR);
+
+/// The font size of a table, in logical px.
+pub static FONT_SIZE_VAR: ThemeVar<f64> = ThemeVar::alias("table.font_size", &font::SIZE_SMALL_VAR);
+/// [`FONT_SIZE_VAR`] as a length for a style.
+pub const FONT_SIZE: Length = Length::var(&FONT_SIZE_VAR);
+
+pub(crate) fn table(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Column)
         .width(pct(100))
         .min_width(0)
-        .font_size(
-            t.ext::<UiTokens>()
-                .table
-                .font_size
-                .unwrap_or(t.get(&kivact_core::style::font::SIZE_SMALL_VAR)),
-        )
+        .font_size(FONT_SIZE)
 }
 
 pub(crate) fn group(_: &Theme, _: &Look<PartState>) -> Style {
@@ -37,29 +49,17 @@ pub(crate) fn row(_: &Theme, _: &Look<PartState>) -> Style {
         .selected(style().background(kivact_core::style::color::SELECTION))
 }
 
-pub(crate) fn cell(t: &Theme, _: &Look<PartState>) -> Style {
+pub(crate) fn cell(_: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
         .min_width(0)
-        .padding(
-            t.ext::<UiTokens>()
-                .table
-                .cell_padding
-                .unwrap_or(t.get(&kivact_core::style::space::SM_VAR)),
-        )
+        .padding(CELL_PADDING)
         .color(kivact_core::style::color::TEXT)
 }
 
 pub(crate) fn head(t: &Theme, s: &Look<PartState>) -> Style {
-    cell(t, s)
-        .min_height(
-            t.ext::<UiTokens>()
-                .table
-                .header_height
-                .unwrap_or(t.get(&kivact_core::style::control::HEIGHT_VAR)),
-        )
-        .font_weight(600)
+    cell(t, s).min_height(HEADER_HEIGHT).font_weight(600)
 }
 
 recipe_table! {

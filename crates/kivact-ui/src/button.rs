@@ -6,7 +6,7 @@
 //! menu or disclosure trigger part was attached or the caller set
 //! `.expanded`, `None` otherwise. The `.icon` and `.trailing` views go
 //! into `button_icon` boxes, where a kit sizes the icon by the button's size.
-//! While busy, the busy part uses the theme's [`tokens::ButtonBusyMotion`].
+//! While busy, the busy part is timed by the theme variables `theme::button::BUSY_*_VAR`.
 //! A [`ButtonVariant`] is only a meaning,
 //! given with `.variant(..)` like a kit's tone or slanted shape and read by
 //! the recipe with `look.variant::<ButtonVariant>()` (a button without one is
@@ -17,7 +17,6 @@
 //! in, without reimplementing activation.
 
 pub(crate) mod look;
-pub(crate) mod tokens;
 mod view;
 
 pub use look::ButtonVariant;

@@ -1,10 +1,26 @@
-//! Role: The code block recipe state, tokens, recipe table and default looks.
+//! Role: The code block recipe state, recipe table and default looks.
 use crate::chat_thread::look::viewport;
 use crate::look_common::{column, row};
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, LineHeight, Style, Theme, pct, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The font size of a code block's code, in logical px.
+pub static FONT_SIZE_VAR: ThemeVar<f64> = ThemeVar::new("code_block.font_size", 14.0);
+/// [`FONT_SIZE_VAR`] as a length for a style.
+pub const FONT_SIZE: Length = Length::var(&FONT_SIZE_VAR);
+
+/// The line height of a code block's code, in logical px.
+pub static LINE_HEIGHT_VAR: ThemeVar<f64> = ThemeVar::new("code_block.line_height", 22.0);
+/// [`LINE_HEIGHT_VAR`] as a length for a style.
+pub const LINE_HEIGHT: Length = Length::var(&LINE_HEIGHT_VAR);
+
+/// How long a copy button shows its copied state, in milliseconds.
+pub static COPY_FEEDBACK_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("code_block.copy_feedback_ms", 2000.0);
+
 pub(crate) fn code_root(t: &Theme, s: &Look<CodeBlockState>) -> Style {
     column(t, s)
         .border(1, kivact_core::style::color::BORDER)
@@ -29,12 +45,10 @@ pub(crate) fn code_viewport(t: &Theme, s: &Look<CodeBlockState>) -> Style {
 }
 
 pub(crate) fn code_text(t: &Theme, s: &Look<CodeBlockState>) -> Style {
-    let tokens = t.ext::<crate::UiTokens>();
-    let metrics = &tokens.code_block;
     style()
         .font_family("monospace")
-        .font_size(metrics.font_size)
-        .line_height(LineHeight::px(metrics.line_height))
+        .font_size(FONT_SIZE)
+        .line_height(LineHeight::px(t.get(&LINE_HEIGHT_VAR)))
         .text_wrap(s.wrapped)
         .flex_grow(1)
         .min_width(0)

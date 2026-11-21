@@ -1,4 +1,4 @@
-//! Role: The toast recipe state, tokens, recipe table and default looks.
+//! Role: The toast recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
@@ -6,7 +6,14 @@ use kivact_core::custom::PartState;
 use kivact_core::style::{
     Align, Color, FlexDirection, Justify, Position, Style, Theme, pct, style,
 };
+use kivact_core::style::{Length, ThemeVar};
 use kivact_interaction::{ToastState, Tone};
+
+/// The gap above a toast row that is animating its size, in logical px.
+pub static ROW_GAP_VAR: ThemeVar<f64> = ThemeVar::new("toast.row_gap", 0.0);
+/// [`ROW_GAP_VAR`] as a length for a style.
+pub const ROW_GAP: Length = Length::var(&ROW_GAP_VAR);
+
 /// The regions at the bottom right, above the page.
 pub(crate) fn toast_region(t: &Theme, _: &Look<PartState>) -> Style {
     style()
@@ -91,14 +98,13 @@ pub(crate) fn toast_close(t: &Theme, _: &Look<ToastState>) -> Style {
 
 /// Shared by all kits: the row owns size presence independently of card paint.
 pub(crate) fn toast_row(t: &Theme, _: &Look<PartState>) -> Style {
-    let tokens = t.ext::<crate::tokens::UiTokens>();
-    let motion = &tokens.toast.row_motion;
     let base = style()
         .flex_shrink(0)
         .enter_size(kivact_core::view::Orientation::Vertical)
         .exit_size(kivact_core::view::Orientation::Vertical);
-    if let Some(transition) = &motion.transition {
-        base.padding_top(motion.gap)
+    let row = t.ext::<ToastTheme>().row_transition_value().clone();
+    if let Some(transition) = &row {
+        base.padding_top(ROW_GAP)
             .transition(kivact_core::style::TransitionProp::Size, transition.clone())
     } else {
         base
@@ -142,5 +148,9 @@ recipe_table! {
         icon(icon_recipe): ToastState = toast_icon,
         /// The close button, holding the theme's `x` icon.
         close(close_recipe): ToastState = toast_close,
+    }
+    settings {
+        /// The transition that shows and collapses a toast row; `None` leaves the size unanimated.
+        row_transition(row_transition_value): Option<kivact_core::motion::Transition> = None,
     }
 }

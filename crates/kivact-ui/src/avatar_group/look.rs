@@ -1,8 +1,15 @@
-//! Role: The avatar group recipe state, tokens, recipe table and default looks.
+//! Role: The avatar group recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
 use kivact_core::style::{Align, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The overlap of adjacent avatars in a group, in logical px.
+pub static OVERLAP_VAR: ThemeVar<f64> = ThemeVar::new("avatar_group.overlap", 8.0);
+/// [`OVERLAP_VAR`] as a length for a style.
+pub const OVERLAP: Length = Length::var(&OVERLAP_VAR);
+
 pub(crate) fn avatar_group(_: &Theme, _: &Look<()>) -> Style {
     style().align_items(Align::Center)
 }

@@ -1,7 +1,7 @@
 //! Role: The dialog builder, its header and content layout, and panel placement.
 
+use crate::dialog::look::DialogCenter;
 use crate::dialog::look::DialogTheme;
-use crate::dialog::tokens::DialogCenter;
 use crate::layer::with_recipe_style;
 use crate::recipe::Recipe;
 use crate::theme::DialogState;
@@ -481,7 +481,7 @@ impl Dialog {
         let title = self.title;
         let popover = kind == DialogMode::Popover;
         let position_anchor = if matches!(kind, DialogMode::Modal | DialogMode::AlertModal)
-            && use_theme().get().ext::<crate::UiTokens>().dialog.center == DialogCenter::Window
+            && *use_theme().get().ext::<DialogTheme>().center_value() == DialogCenter::Window
         {
             node_ref()
         } else {

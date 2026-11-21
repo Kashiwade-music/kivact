@@ -417,9 +417,7 @@ fn popup_surface<K: ItemKey>(
                     .offset(
                         kivact_core::style::use_theme()
                             .get()
-                            .ext::<crate::UiTokens>()
-                            .combobox
-                            .popup_offset,
+                            .get(&crate::combobox::look::POPUP_OFFSET_VAR),
                     )
                     .on_dismiss(move |_| list.hide())
                     .into_view()

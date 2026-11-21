@@ -45,13 +45,11 @@ impl Element for TypingIndicator {
 impl IntoView for TypingIndicator {
     fn into_view(self) -> View {
         let duration = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .chat
-            .typing_period_ms;
+            .with(|t| t.get(&crate::typing_indicator::look::PERIOD_MS_VAR));
         let phase = Animated::from(
             0.0,
             std::f64::consts::TAU,
-            Transition::tween(duration as f64, Easing::Linear).repeat(Repeat::Forever),
+            Transition::tween(duration, Easing::Linear).repeat(Repeat::Forever),
         );
         let state = move || TypingIndicatorState { phase: phase.get() };
         let dots = crate::layer::with_recipe_style(

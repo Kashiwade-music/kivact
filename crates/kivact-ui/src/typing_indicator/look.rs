@@ -1,8 +1,15 @@
-//! Role: The typing indicator recipe state, tokens, recipe table and default looks.
+//! Role: The typing indicator recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
+use kivact_core::style::{Length, ThemeVar};
 use kivact_core::style::{Style, Theme, style};
+
+/// The period of the typing dots' cycle, in milliseconds.
+pub static PERIOD_MS_VAR: ThemeVar<f64> = ThemeVar::new("typing_indicator.period_ms", 1000.0);
+/// [`PERIOD_MS_VAR`] as a length for a style.
+pub const PERIOD_MS: Length = Length::var(&PERIOD_MS_VAR);
+
 pub(crate) fn typing_dots(_: &Theme, s: &Look<TypingIndicatorState>) -> Style {
     let phase = s.phase;
     style().size(48, 24).paint(move |d, _| {

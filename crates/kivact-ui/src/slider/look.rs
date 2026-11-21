@@ -1,4 +1,4 @@
-//! Role: The slider recipe state, tokens, recipe table and default looks.
+//! Role: The slider recipe state, recipe table and default looks.
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;

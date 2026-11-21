@@ -1,4 +1,4 @@
-//! Role: The button recipe state, tokens, recipe table and default looks.
+//! Role: The button recipe state, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
 use crate::recipe::recipe_table;
 
@@ -8,8 +8,21 @@ use kivact_core::custom::PartState;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
 use kivact_core::style::{
-    Align, Background, Color, FlexDirection, Justify, Style, TextDecorationLine, Theme, style,
+    Align, Background, Color, FlexDirection, Justify, Style, TextDecorationLine, Theme, ThemeVar,
+    style,
 };
+
+/// The busy indicator's turn period in milliseconds per revolution (a zero period is 1 ms).
+pub static BUSY_SPIN_MS_VAR: ThemeVar<f64> = ThemeVar::new("button.busy_spin_ms", 700.0);
+/// The busy indicator's turn period under reduced motion, in milliseconds.
+pub static BUSY_REDUCED_SPIN_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reduced_spin_ms", 700.0);
+/// The milliseconds to wait before revealing the busy indicator; skipped under reduced motion.
+pub static BUSY_REVEAL_DELAY_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reveal_delay_ms", 0.0);
+/// The milliseconds for the busy indicator's opacity fade; zero reveals at once after the delay.
+pub static BUSY_REVEAL_FADE_MS_VAR: ThemeVar<f64> =
+    ThemeVar::new("button.busy_reveal_fade_ms", 0.0);
 /// A tint of the theme over `base`, as one background of two layers.
 pub(crate) fn tinted(tint: Color, base: impl Into<Color>) -> Background {
     (tint, base.into()).into()

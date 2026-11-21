@@ -1,12 +1,40 @@
-//! Role: The progress recipe state, tokens, recipe table and default looks.
+//! Role: The progress recipe state, recipe table and default looks.
 
 use crate::control_size::ControlSize;
-use crate::progress::tokens::ProgressMotion;
 use crate::recipe::recipe_table;
 use crate::variants::{Look, Variant};
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::{Point, Rect};
+use kivact_core::motion::Easing;
 use kivact_core::style::{Align, Justify, Position, Style, Theme, pct, style};
+
+/// Timing of standard progress bars. Configure it through [`ProgressTheme`](crate::theme::ProgressTheme).
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProgressMotion {
+    /// Whether the first value animates from empty.
+    pub animate_initial: bool,
+    /// The milliseconds a determinate change takes.
+    pub determinate_ms: u64,
+    /// The easing of a determinate change.
+    pub determinate_easing: Easing,
+    /// The milliseconds per revolution of an indeterminate bar.
+    pub period_ms: u64,
+    /// The indeterminate period under reduced motion; `None` stops the bar.
+    pub reduced_period_ms: Option<u64>,
+}
+
+impl Default for ProgressMotion {
+    fn default() -> Self {
+        Self {
+            animate_initial: true,
+            determinate_ms: 400,
+            determinate_easing: Easing::EaseOut,
+            period_ms: 1300,
+            reduced_period_ms: None,
+        }
+    }
+}
+
 pub(crate) fn ring(s: &Look<ProgressState>) -> bool {
     s.variant::<ProgressVariant>() == Some(&ProgressVariant::Ring)
 }
@@ -178,6 +206,10 @@ recipe_table! {
         fill(fill_recipe): ProgressState = progress_fill,
         /// Percentage text in a ring.
         label(label_recipe): ProgressState = progress_label,
+    }
+    settings {
+        /// The motion of the bar; see [`ProgressMotion`].
+        motion(motion_value): ProgressMotion = ProgressMotion::default(),
     }
 }
 

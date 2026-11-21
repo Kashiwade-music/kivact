@@ -2,6 +2,9 @@
 
 use crate::button::look::ButtonState;
 use crate::button::look::ButtonTheme;
+use crate::button::look::{
+    BUSY_REDUCED_SPIN_MS_VAR, BUSY_REVEAL_DELAY_MS_VAR, BUSY_REVEAL_FADE_MS_VAR, BUSY_SPIN_MS_VAR,
+};
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
@@ -147,7 +150,7 @@ impl Button {
         self
     }
     /// Show the busy indicator and ignore presses while true (constant or
-    /// reactive). Its spin and reveal use the theme's [`ButtonBusyMotion`].
+    /// reactive). Its spin and reveal use the theme's `theme::button::BUSY_*_VAR`.
     pub fn busy(mut self, busy: impl IntoValue<bool>) -> Self {
         let busy = busy.into_value();
         self.root = self.root.busy(busy);
@@ -290,26 +293,20 @@ fn busy_indicator(
     show(
         move || state.get().busy,
         move || {
-            let motion = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .button
-                .busy_motion;
+            let theme = use_theme().get();
             let delay = if kivact_core::platform::is_motion_reduced().get() {
                 0
             } else {
-                motion.reveal_delay_ms
+                theme.get(&BUSY_REVEAL_DELAY_MS_VAR) as u64
             };
-            let fade = (delay != 0 || motion.reveal_fade_ms != 0).then(|| {
+            let fade_ms = theme.get(&BUSY_REVEAL_FADE_MS_VAR);
+            let fade = (delay != 0 || fade_ms != 0.0).then(|| {
                 Animated::from(
                     0.0f64,
                     1.0f64,
-                    Transition::tween(
-                        motion.reveal_fade_ms as f64,
-                        Easing::CubicBezier(0.25, 0.1, 0.25, 1.0),
-                    )
-                    .delay(delay as f64)
-                    .essential(),
+                    Transition::tween(fade_ms, Easing::CubicBezier(0.25, 0.1, 0.25, 1.0))
+                        .delay(delay as f64)
+                        .essential(),
                 )
             });
             with_recipe_style(
@@ -339,17 +336,13 @@ impl IntoView for Button {
 fn busy_animation(state: Value<ButtonState>) -> (Value<f64>, Value<bool>) {
     let phase = signal(0.0f64);
     let period = memo(|| {
-        let motion = use_theme()
-            .get()
-            .ext::<crate::UiTokens>()
-            .button
-            .busy_motion;
+        let theme = use_theme().get();
         if kivact_core::platform::is_motion_reduced().get() {
-            motion.reduced_spin_ms
+            theme.get(&BUSY_REDUCED_SPIN_MS_VAR)
         } else {
-            motion.spin_ms
+            theme.get(&BUSY_SPIN_MS_VAR)
         }
-        .max(1) as f64
+        .max(1.0)
     });
     let clock = frame_loop(move |frame| {
         let period = period.get();
@@ -359,18 +352,14 @@ fn busy_animation(state: Value<ButtonState>) -> (Value<f64>, Value<bool>) {
     let busy_machine = machine(
         BusyPhase::Idle,
         || {
-            let motion = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .button
-                .busy_motion;
+            let theme = use_theme().get();
             BusyInput {
                 delay: if kivact_core::platform::is_motion_reduced().get() {
                     0
                 } else {
-                    motion.reveal_delay_ms
+                    theme.get(&BUSY_REVEAL_DELAY_MS_VAR) as u64
                 },
-                fade: motion.reveal_fade_ms,
+                fade: theme.get(&BUSY_REVEAL_FADE_MS_VAR) as u64,
                 active: kivact_core::platform::is_surface_active().get(),
             }
         },

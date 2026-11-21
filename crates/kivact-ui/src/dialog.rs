@@ -18,9 +18,6 @@
 //! recipe returns.
 mod drawer_swipe;
 pub(crate) mod look;
-pub(crate) mod tokens;
 mod view;
 
-pub use crate::dialog::tokens::DialogCenter;
-pub use crate::dialog::tokens::DialogTokens;
 pub use view::{Dialog, dialog};

@@ -217,12 +217,11 @@ impl IntoView for ButtonGroupMember {
         let solid = self.solid;
         button
             .style(move || {
-                let t = kivact_core::style::use_theme()
-                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
+                let t = kivact_core::style::use_theme().get();
                 let divider = if solid.get() {
-                    t.button_group.solid_divider
+                    t.get(&crate::button_group::look::SOLID_DIVIDER_VAR)
                 } else {
-                    t.button_group.divider
+                    t.get(&crate::button_group::look::DIVIDER_VAR)
                 };
                 let base = style().active(style().scale(1));
                 let Some(position) =
@@ -230,7 +229,7 @@ impl IntoView for ButtonGroupMember {
                 else {
                     return base;
                 };
-                let r = t.button_group.radius;
+                let r = t.get(&crate::button_group::look::RADIUS_VAR);
                 let first = if position.first { r } else { 0.0 };
                 let last = if position.last { r } else { 0.0 };
                 let vertical = position.layout.orientation == Orientation::Vertical;

@@ -279,13 +279,8 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
         let visible = self.visible;
         let on_left = start != sticky.rtl;
         Some(node().hit_testable(false).style(move || {
-            let paint = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .data_table
-                .sticky
-                .clone();
-            let width = paint.shadow_width;
+            let theme = use_theme().get();
+            let width = theme.get(&crate::data_table::look::STICKY_SHADOW_WIDTH_VAR);
             let boundary = visible.with(|columns| {
                 let mut pinned = columns
                     .iter()
@@ -299,7 +294,7 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             });
             let (before, after) = sticky.overflow.get();
             let show = boundary == Some(index) && if on_left { before } else { after };
-            let shadow = paint.shadow;
+            let shadow = theme.get(&crate::data_table::look::STICKY_SHADOW_VAR);
             let base = style()
                 .position(Position::Absolute)
                 .top(0)
@@ -325,7 +320,11 @@ impl<R: 'static, K: kivact_core::state::ItemKey> Grid<R, K> {
             } else {
                 base.right(pct(100))
             };
-            if let Some(transition) = paint.shadow_transition.clone() {
+            if let Some(transition) = theme
+                .ext::<crate::data_table::look::DataTableTheme>()
+                .sticky_shadow_transition_value()
+                .clone()
+            {
                 base.transition(TransitionProp::All, transition)
             } else {
                 base

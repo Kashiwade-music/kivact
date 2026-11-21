@@ -104,10 +104,7 @@ impl Element for ChatThread {
 }
 /// The chat thread's follow slack in the theme in effect (tracked).
 fn follow_slack() -> f64 {
-    kivact_core::style::use_theme()
-        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-        .chat
-        .follow_slack
+    kivact_core::style::use_theme().with(|t| t.get(&crate::chat_thread::look::FOLLOW_SLACK_VAR))
 }
 
 impl IntoView for ChatThread {

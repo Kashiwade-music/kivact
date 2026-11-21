@@ -1,15 +1,36 @@
-//! Role: The pagination recipe state, tokens, recipe table and default looks.
+//! Role: The pagination recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;
 use kivact_core::style::{Align, FlexDirection, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The gap between the items of a pagination, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("pagination.gap", 8.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
+/// The padding of a pagination, in logical px.
+pub static PADDING_VAR: ThemeVar<f64> = ThemeVar::new("pagination.padding", 4.0);
+/// [`PADDING_VAR`] as a length for a style.
+pub const PADDING: Length = Length::var(&PADDING_VAR);
+
+/// The height of a pagination's controls, in logical px.
+pub static CONTROL_HEIGHT_VAR: ThemeVar<f64> = ThemeVar::new("pagination.control_height", 32.0);
+/// [`CONTROL_HEIGHT_VAR`] as a length for a style.
+pub const CONTROL_HEIGHT: Length = Length::var(&CONTROL_HEIGHT_VAR);
+
+/// The padding of a pagination's panel, in logical px.
+pub static PANEL_PADDING_VAR: ThemeVar<f64> = ThemeVar::new("pagination.panel_padding", 8.0);
+/// [`PANEL_PADDING_VAR`] as a length for a style.
+pub const PANEL_PADDING: Length = Length::var(&PANEL_PADDING_VAR);
+
 pub(crate) fn root<S>(t: &Theme, _: &Look<S>) -> Style {
-    let p = &t.ext::<crate::tokens::UiTokens>().pagination;
     style()
         .flex_direction(FlexDirection::Row)
         .align_items(Align::Center)
-        .gap(p.gap)
-        .padding(p.padding)
+        .gap(GAP)
+        .padding(PADDING)
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
         .color(kivact_core::style::color::TEXT)
 }

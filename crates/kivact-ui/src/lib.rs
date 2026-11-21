@@ -47,14 +47,14 @@
 //! [`Theme`](kivact_core::style::Theme). It is changed in three steps, from small
 //! to large:
 //!
-//! 1. **Tokens.** Every standard component takes its colors, spacing,
+//! 1. **Theme variables.** Every standard component takes its colors, spacing,
 //!    radii, type sizes, focus ring, disabled opacity and control height
 //!    from the theme's variables (`kivact::style::color::ACCENT`, `space::MD`,
 //!    `radius::MD`, `font::SIZE`, `focus_ring`, `control::DISABLED_OPACITY`,
 //!    `control::HEIGHT`), and
 //!    its icons and marks from the theme's [`IconSet`](kivact_core::style::IconSet).
 //!    A different [`Theme`](kivact_core::style::Theme) re-skins them all. A kit adds
-//!    its own tokens with `Theme::with`.
+//!    its own variables with `Theme::set` and its recipes with `Theme::with`.
 //! 2. **Recipes.** A `<Name>Theme` from [`theme`] installed in the theme
 //!    (`theme.with(ButtonTheme::default().root(..))`) replaces the style function, including
 //!    local `Style::paint` drawing, of a component's parts. A UI kit's theme
@@ -91,19 +91,19 @@
 //! # Kits
 //!
 //! A UI kit does not reimplement or re-export these components: it supplies
-//! a theme and its domain components. A light change of look is tokens and
+//! a theme and its domain components. A light change of look is variables and
 //! recipes; a kit's own component is built from the interaction parts and
 //! the primitives. Every theme of the official kits carries recipes for
 //! every standard component. A kit's theme is one function of the shape
-//! `theme(mode: ThemeMode, ..)`; its tokens are one type implementing
+//! `theme(mode: ThemeMode, ..)`; its variables are set with `Theme::set`, and its settings are one type implementing
 //! [`ThemeExtension`](kivact_core::style::ThemeExtension) (its `fallback` follows
 //! the theme), installed with `Theme::with` and read only with
-//! `theme.ext::<Tokens>()`, its colors are also named by a field-less `Color`
+//! its colors are also named by a field-less `Color`
 //! enum implementing `Into<Color>`(kivact_core::style::Into<Color>) (a style
 //! takes `basic::ColorName::Border` and reads the theme it is painted in), and its
 //! icons are added with `Theme::with_icon`. The
-//! token type and the theme constructor that assembles the recipes are kept
-//! apart, so a recipe reading tokens never depends back on the constructor.
+//! variables and the theme constructor that assembles the recipes are kept
+//! apart, so a recipe reading a variable never depends back on the constructor.
 //! The types and API reference are here; installing a kit is in the
 //! official UI guide.
 //!
@@ -157,24 +157,23 @@ mod variants;
 
 pub use crate::button::ButtonVariant;
 pub use crate::radio_group::RadioGroupVariant;
-pub use button::tokens::{ButtonBusyMotion, ButtonTokens};
 pub use button::{Button, button};
 pub use command_palette::{CommandPalette, command_palette};
 pub use data_table::column::DataColumn;
 pub use data_table::{
-    DataTable, DataTableContext, DataTableDensity, DataTableRowStatusPaint, DataTableStickyPaint,
-    DataTableTokens, DataTableTreeIndent, FilterField, FilterUi, Paging, data_table,
+    DataTable, DataTableContext, DataTableDensity, DataTableTreeIndent, FilterField, FilterUi,
+    Paging, data_table,
 };
-pub use disclosure::{Disclosure, DisclosureMotion, DisclosureTokens, disclosure};
+pub use disclosure::{Disclosure, DisclosureMotion, disclosure};
 pub use field::{Field, field};
 pub use list::{List, list};
 pub use number_input::{NumberInput, number_input};
-pub use progress::{Progress, ProgressMotion, ProgressTokens, progress};
+pub use progress::{Progress, ProgressMotion, progress};
 pub use split::{Split, split};
 pub use tag_input::{TagInput, tag_input};
 pub use text_input::{TextInput, text_area, text_input};
 pub use toggle::{Checkbox, Switch, checkbox, switch};
-pub use toggle_button::tokens::{ToggleButtonTokens, ToggleLabelReservation};
+pub use toggle_button::look::ToggleLabelReservation;
 pub use toggle_button::{ToggleButton, toggle_button};
 pub use tree::{Tree, TreeRows, tree, tree_rows};
 
@@ -187,21 +186,17 @@ mod splitter;
 mod tabs;
 mod toast;
 mod tooltip;
-pub use dialog::{Dialog, DialogCenter, DialogTokens, dialog};
+pub use dialog::{Dialog, dialog};
 pub use menu::{Menu, menu};
 pub use radio_group::{RadioGroup, radio_group};
 pub use select::{Select, SelectSheetOption, select};
 pub use slider::{Slider, range_slider, slider};
 pub use splitter::{Splitter, splitter};
 pub use tabs::{Tabs, tabs};
-pub use toast::{ToastRegion, ToastRowMotion, ToastTokens, toast_region};
+pub use toast::{ToastRegion, toast_region};
 pub use tooltip::{Tooltip, tooltip};
 
-mod tokens;
-pub use tokens::UiTokens;
-
-pub use crate::sparkline::tokens::SparklineFill;
-pub use crate::sparkline::tokens::SparklineTokens;
+pub use crate::sparkline::look::SparklineFill;
 
 mod async_view;
 pub use async_view::{AsyncView, async_view};
@@ -210,8 +205,6 @@ mod calendar;
 pub use crate::calendar::CalendarCaption;
 pub use crate::calendar::CalendarEvent;
 pub use calendar::{Calendar, calendar};
-
-pub use crate::calendar::tokens::CalendarTokens;
 
 mod date_input;
 pub use date_input::{DateInput, DatePresentation, date_input};
@@ -225,13 +218,10 @@ pub use date_range_input::{DateRangeInput, DateRangePreset, date_range_input};
 mod date_time_input;
 pub use date_time_input::{DateTimeInput, date_time_input};
 
-pub use crate::date_parts::tokens::DateInputTokens;
 mod carousel;
 pub use carousel::{Carousel, Snap, carousel};
 
 mod dropzone;
-pub use crate::carousel::tokens::CarouselTokens;
-pub use crate::dropzone::tokens::DropzoneTokens;
 pub use disclosure::group::{DisclosureGroup, disclosure_group};
 pub use dropzone::{Dropzone, dropzone};
 
@@ -240,19 +230,17 @@ pub use hover_card::{FocusTrigger, HoverCard, hover_card};
 
 mod combobox;
 mod selection_field;
-pub use combobox::{Combobox, ComboboxTokens, combobox};
+pub use combobox::{Combobox, combobox};
 pub use kivact_interaction::ComboboxMode;
 pub use select::presentation::SelectPresentation;
 pub use selection_field::{SelectionField, selection_field};
 mod button_group;
 mod toggle_group;
 mod toolbar;
-pub use button_group::tokens::ButtonGroupTokens;
 pub use button_group::{
     ButtonGroup, ButtonGroupCell, ButtonGroupMember, button_group, button_group_separator,
     button_group_text,
 };
-pub use toggle_group::tokens::ToggleGroupTokens;
 pub use toggle_group::{ToggleGroup, toggle_group};
 pub use toolbar::{Toolbar, toolbar};
 
@@ -270,14 +258,12 @@ mod skeleton;
 mod spinner;
 pub use crate::avatar::AvatarShape;
 pub use crate::skeleton::SkeletonShape;
-pub use crate::tokens::IndicatorTokens;
 pub use badge::{Badge, badge};
 pub use skeleton::{Skeleton, skeleton};
 pub use spinner::{Spinner, spinner};
 
 mod avatar;
 mod avatar_group;
-pub use crate::avatar::tokens::AvatarTokens;
 pub use avatar::{Avatar, avatar};
 pub use avatar_group::{AvatarGroup, avatar_group};
 
@@ -301,8 +287,6 @@ pub use crate::pagination::PaginationWindow;
 pub use navigation_menu::link::{NavigationMenuLink, navigation_menu_link};
 mod pagination;
 mod stepper;
-pub use crate::stepper::tokens::StepperTokens;
-pub use crate::tokens::NavigationTokens;
 pub use breadcrumb::{Breadcrumb, breadcrumb};
 pub use navigation_menu::{NavigationMenu, navigation_menu};
 pub use pagination::{Pagination, pagination};
@@ -332,8 +316,6 @@ pub use crate::chat_message::ChatMessageVariant;
 pub use crate::chat_message::ChatReactionsSide;
 pub use crate::chat_message::ChatSender;
 pub use crate::code_block::CodeCollapse;
-pub use crate::code_block::tokens::CodeBlockTokens;
-pub use crate::tokens::ChatTokens;
 pub use chat_composer::{ChatComposer, chat_composer};
 pub use chat_message::{ChatMessage, chat_message};
 pub use chat_thread::{ChatThread, chat_thread};
@@ -341,13 +323,8 @@ pub use code_block::{CodeBlock, code_block};
 pub use typing_indicator::{TypingIndicator, typing_indicator};
 
 pub use crate::card::CardAction;
-pub use crate::hover_card::tokens::HoverCardTokens;
-pub use crate::item_list::tokens::ItemListTokens;
 pub use crate::stat::Trend;
-pub use crate::table::tokens::TableTokens;
 pub use crate::toolbar::ToolbarEdge;
-pub use crate::toolbar::tokens::ToolbarTokens;
-pub use crate::tree::tokens::TreeTokens;
 
 pub use crate::alert::AlertVariant;
 pub use crate::carousel::CarouselMode;

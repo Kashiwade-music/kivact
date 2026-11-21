@@ -1,4 +1,4 @@
-//! Role: The command palette recipe state, tokens, recipe table and default looks.
+//! Role: The command palette recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;

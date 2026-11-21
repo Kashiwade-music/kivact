@@ -1,14 +1,35 @@
-//! Role: The breadcrumb recipe state, tokens, recipe table and default looks.
+//! Role: The breadcrumb recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
 use kivact_core::style::{FlexDirection, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
+
+/// The gap between the items of a breadcrumb, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("breadcrumb.gap", 8.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
+/// The padding of a breadcrumb, in logical px.
+pub static PADDING_VAR: ThemeVar<f64> = ThemeVar::new("breadcrumb.padding", 4.0);
+/// [`PADDING_VAR`] as a length for a style.
+pub const PADDING: Length = Length::var(&PADDING_VAR);
+
+/// The height of a breadcrumb's controls, in logical px.
+pub static CONTROL_HEIGHT_VAR: ThemeVar<f64> = ThemeVar::new("breadcrumb.control_height", 32.0);
+/// [`CONTROL_HEIGHT_VAR`] as a length for a style.
+pub const CONTROL_HEIGHT: Length = Length::var(&CONTROL_HEIGHT_VAR);
+
+/// The padding of a breadcrumb's panel, in logical px.
+pub static PANEL_PADDING_VAR: ThemeVar<f64> = ThemeVar::new("breadcrumb.panel_padding", 8.0);
+/// [`PANEL_PADDING_VAR`] as a length for a style.
+pub const PANEL_PADDING: Length = Length::var(&PANEL_PADDING_VAR);
+
 pub(crate) fn breadcrumb_root(t: &Theme, _: &Look<()>) -> Style {
-    let p = &t.ext::<crate::UiTokens>().breadcrumb;
     style()
         .flex_direction(FlexDirection::Row)
-        .gap(p.gap)
-        .padding(p.padding)
+        .gap(GAP)
+        .padding(PADDING)
         .font_size(t.get(&kivact_core::style::font::SIZE_VAR))
         .color(kivact_core::style::color::TEXT)
 }

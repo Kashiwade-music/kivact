@@ -141,9 +141,7 @@ fn member_overlap(
         .map_or_else(
             || {
                 kivact_core::style::use_theme()
-                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-                    .indicators
-                    .avatar_overlap
+                    .with(|theme| theme.get(&crate::avatar_group::look::OVERLAP_VAR))
             },
             |overlap| overlap.get(),
         )

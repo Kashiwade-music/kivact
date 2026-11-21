@@ -217,9 +217,7 @@ impl CodeBlock {
         ));
         let open = disclosure.is_open();
         let duration = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .code_block
-            .copy_feedback_ms;
+            .with(|t| t.get(&crate::code_block::look::COPY_FEEDBACK_MS_VAR) as u64);
         let feedback = use_copy_feedback(Duration::from_millis(duration));
         let copied = feedback.is_copied();
         let numbered = self.line_numbers;
@@ -358,11 +356,11 @@ impl CodeSource {
         let name = presentation.name;
         let disclosure = presentation.disclosure;
         let variants = variants.clone();
-        let motion = kivact_core::style::use_theme()
-            .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-            .disclosure
-            .motion
-            .clone();
+        let motion = kivact_core::style::use_theme().with(|t| {
+            t.ext::<crate::disclosure::look::DisclosureTheme>()
+                .motion_value()
+                .clone()
+        });
         show(disclosure.is_open(), move || {
             node()
                 .part(disclosure.content())

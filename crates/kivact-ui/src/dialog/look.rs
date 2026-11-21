@@ -1,4 +1,4 @@
-//! Role: The dialog recipe state, tokens, recipe table and default looks.
+//! Role: The dialog recipe state, recipe table and default looks.
 use crate::look_common::mark;
 use crate::theme::Look;
 
@@ -6,6 +6,16 @@ use crate::recipe::recipe_table;
 use kivact_core::custom::PartState;
 use kivact_core::style::{Position, Style, Theme, pct, style};
 use kivact_interaction::DialogMode;
+/// Where a theme centers modal dialogs opened by an attached trigger.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum DialogCenter {
+    /// Centered on the anchor's window.
+    #[default]
+    Anchor,
+    /// Centered on the screen's window.
+    Window,
+}
+
 pub(crate) fn dialog_surface(t: &Theme, _: &Look<DialogState>) -> Style {
     style()
         .width(480)
@@ -111,5 +121,9 @@ recipe_table! {
         /// The header's close button, holding the theme's `x` icon.
         close(close_recipe): DialogState = dialog_close,
         drag_handle(drag_handle_recipe): DialogState = drawer_handle,
+    }
+    settings {
+        /// Where a dialog centers itself: on its anchor's window or the screen's.
+        center(center_value): DialogCenter = DialogCenter::Anchor,
     }
 }

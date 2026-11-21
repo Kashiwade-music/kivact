@@ -1,4 +1,4 @@
-//! Role: The avatar recipe state, tokens, recipe table and default looks.
+//! Role: The avatar recipe state, recipe table and default looks.
 use crate::look_common::{side, tone};
 use crate::recipe::recipe_table;
 use crate::theme::Look;
@@ -78,5 +78,9 @@ recipe_table! {
         image(image_recipe): AvatarState = avatar_image,
         status(status_recipe): AvatarState = avatar_status,
         status_content(status_content_recipe): AvatarState = avatar_status_content,
+    }
+    settings {
+        /// Whether an avatar shows its name in a tooltip unless the caller says otherwise.
+        name_tooltip(name_tooltip_value): bool = false,
     }
 }

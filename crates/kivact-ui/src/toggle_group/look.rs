@@ -1,10 +1,17 @@
-//! Role: The toggle group recipe state, tokens, recipe table and default looks.
+//! Role: The toggle group recipe state, recipe table and default looks.
 
 use crate::control_size::ControlSize;
 use crate::recipe::recipe_table;
 use crate::toggle_button::look::ToggleButtonState;
 use kivact_core::style::{Align, FlexDirection, style};
+use kivact_core::style::{Length, ThemeVar};
 use kivact_core::view::Orientation;
+
+/// The gap between the items of a toggle group, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("toggle_group.gap", 4.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
 pub(crate) fn toggle_root(
     theme: &kivact_core::style::Theme,
     look: &crate::variants::Look<ToggleGroupState>,
@@ -18,10 +25,10 @@ pub(crate) fn toggle_root(
             FlexDirection::Row
         })
         .align_items(Align::Stretch)
-        .gap(look.spacing.map_or(
-            theme.ext::<crate::tokens::UiTokens>().toggle_group.gap,
-            |spacing| spacing * 4.0,
-        ))
+        .gap(
+            look.spacing
+                .map_or(theme.get(&GAP_VAR), |spacing| spacing * 4.0),
+        )
 }
 
 pub(crate) fn toggle_item(

@@ -1,7 +1,7 @@
 //! Role: The disclosure builder, its trigger and content rendering, and its motion.
 
+use crate::disclosure::look::DisclosureMotion;
 use crate::disclosure::look::DisclosureTheme;
-use crate::disclosure::tokens::DisclosureMotion;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Easing, Transition};
@@ -78,9 +78,8 @@ pub fn disclosure(title: impl IntoText, open: kivact_core::state::Signal<bool>) 
         content: kivact_core::view::ViewFn::from(|()| ()),
         motion: use_theme()
             .get()
-            .ext::<crate::UiTokens>()
-            .disclosure
-            .motion
+            .ext::<DisclosureTheme>()
+            .motion_value()
             .clone(),
         variants: Variants::default(),
         always_open: false,

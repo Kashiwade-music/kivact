@@ -1,4 +1,4 @@
-//! Role: The badge recipe state, tokens, recipe table and default looks.
+//! Role: The badge recipe state, recipe table and default looks.
 use crate::look_common::tone;
 use crate::recipe::recipe_table;
 use crate::theme::Look;

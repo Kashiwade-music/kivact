@@ -49,18 +49,18 @@ impl Element for Skeleton {
 }
 impl IntoView for Skeleton {
     fn into_view(self) -> View {
-        let tokens =
-            kivact_core::style::use_theme().with(kivact_core::style::Theme::ext::<crate::UiTokens>);
-        let period = tokens.indicators.period_ms;
+        let theme = kivact_core::style::use_theme().get();
+        let period = theme.get(&crate::skeleton::look::PERIOD_MS_VAR);
         // The placeholder is the last of the group 0..=index, so a linear stagger
         // from the first item gives `index * stagger_ms`.
-        let stagger = Stagger::new(tokens.indicators.stagger_ms);
-        let delay = tokens.indicators.delay_ms + stagger.delay(self.index, self.index + 1);
-        let transition = tokens
-            .indicators
-            .skeleton_transition
+        let stagger = Stagger::new(theme.get(&crate::skeleton::look::STAGGER_MS_VAR));
+        let delay = theme.get(&crate::skeleton::look::DELAY_MS_VAR)
+            + stagger.delay(self.index, self.index + 1);
+        let transition = theme
+            .ext::<crate::skeleton::look::SkeletonTheme>()
+            .transition_value()
             .clone()
-            .unwrap_or_else(|| Transition::tween(period as f64, Easing::EaseInOut));
+            .unwrap_or_else(|| Transition::tween(period, Easing::EaseInOut));
         let pulse = Animated::from(
             1.0,
             0.5,
@@ -78,14 +78,7 @@ impl IntoView for Skeleton {
         let shape = self.shape;
         let variants = self.variants;
         self.root
-            .base_style(move || {
-                kivact_core::style::style().gap(
-                    kivact_core::style::use_theme()
-                        .with(kivact_core::style::Theme::ext::<crate::UiTokens>)
-                        .indicators
-                        .gap,
-                )
-            })
+            .base_style(move || kivact_core::style::style().gap(crate::skeleton::look::GAP))
             .child(for_index(
                 move || (0..lines.get()).collect::<Vec<_>>(),
                 move |_, _| {

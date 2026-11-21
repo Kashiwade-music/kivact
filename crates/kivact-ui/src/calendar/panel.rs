@@ -78,9 +78,7 @@ pub(super) fn month_panel(
                 style().margin_top(
                     kivact_core::style::use_theme()
                         .get()
-                        .ext::<crate::UiTokens>()
-                        .calendar
-                        .week_gap,
+                        .get(&crate::calendar::look::WEEK_GAP_VAR),
                 ),
             )
             .style(move || week_motion(swipe.get(), entering))
@@ -100,9 +98,7 @@ pub(super) fn month_panel(
                 .gap(
                     kivact_core::style::use_theme()
                         .get()
-                        .ext::<crate::UiTokens>()
-                        .calendar
-                        .month_gap,
+                        .get(&crate::calendar::look::MONTH_GAP_VAR),
                 )
                 .width(shared.cell_size * 7.0)
                 .flex_shrink(0),

@@ -104,8 +104,7 @@ impl IntoView for Toolbar {
         let dividers = self.dividers;
         let make = move |children, justify, column| {
             row(children).base_style(move || {
-                let tokens = kivact_core::style::use_theme()
-                    .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
+                let tokens = kivact_core::style::use_theme().get();
                 style()
                     .min_width(0)
                     .align_items(Align::Center)
@@ -117,7 +116,7 @@ impl IntoView for Toolbar {
                     } else {
                         FlexDirection::Row
                     })
-                    .gap(gap.map_or(tokens.toolbar.gap, |gap| gap.get()))
+                    .gap(gap.map_or(tokens.get(&crate::toolbar::look::GAP_VAR), |gap| gap.get()))
                     .grid_column(column)
             })
         };

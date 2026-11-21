@@ -326,3 +326,16 @@ fn a_recipe_override_receives_the_previous_recipes_style() {
     assert!(distance(at(&screen, "go", 4.0, 4.0), RED) <= 8);
     assert!(screen.errors().is_empty(), "{:?}", screen.errors());
 }
+
+#[test]
+fn component_variables_follow_the_core_variable_they_alias() {
+    use kivact::ui::theme::{combobox, item_list, tree};
+    let theme = kivact::style::Theme::light().set(&kivact::style::radius::MD_VAR, 20.0);
+    assert_eq!(theme.get(&combobox::FIELD_RADIUS_VAR), 20.0);
+    let theme = theme.set(&combobox::FIELD_RADIUS_VAR, 3.0);
+    assert_eq!(theme.get(&combobox::FIELD_RADIUS_VAR), 3.0);
+    let theme = kivact::style::Theme::light().set(&kivact::style::space::MD_VAR, 9.0);
+    assert_eq!(theme.get(&tree::PADDING_VAR), 9.0);
+    let theme = kivact::style::Theme::light().set(&kivact::style::space::XS_VAR, 5.0);
+    assert_eq!(theme.get(&item_list::GAP_VAR), 5.0);
+}

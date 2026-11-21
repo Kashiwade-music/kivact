@@ -197,7 +197,7 @@ impl RowContents {
         let (title_lines, description_lines) = (self.title_lines, self.description_lines);
         let part = part(move |input| {
             let tokens = kivact_core::style::use_theme()
-                .with(kivact_core::style::Theme::ext::<crate::UiTokens>);
+                .with(|t| t.ext::<crate::item_list::look::ItemListTheme>().clone());
             ItemRowState {
                 input,
                 has_description,
@@ -205,9 +205,9 @@ impl RowContents {
                 position: position(),
                 marker: context.marker.get(),
                 start: context.start.get(),
-                title_lines: title_lines.map_or(tokens.item_list.title_lines, |lines| lines.get()),
+                title_lines: title_lines.map_or(*tokens.title_lines_value(), |lines| lines.get()),
                 description_lines: description_lines
-                    .map_or(tokens.item_list.description_lines, |lines| lines.get()),
+                    .map_or(*tokens.description_lines_value(), |lines| lines.get()),
             }
         });
         let render = RowRender {

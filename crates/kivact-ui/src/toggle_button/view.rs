@@ -1,7 +1,7 @@
 //! Role: The toggle button builder, its label and its rendering.
 
 use crate::toggle_button::look::ToggleButtonTheme;
-use crate::toggle_button::tokens::ToggleLabelReservation;
+use crate::toggle_button::look::ToggleLabelReservation;
 
 use crate::control_size::ControlSize;
 use crate::layer::with_base_recipe_style;
@@ -26,11 +26,10 @@ fn toggle_label(
     dynamic(
         move || {
             (
-                use_theme()
+                *use_theme()
                     .get()
-                    .ext::<crate::UiTokens>()
-                    .toggle_button
-                    .label_reservation,
+                    .ext::<ToggleButtonTheme>()
+                    .label_reservation_value(),
                 size.get(),
             )
         },

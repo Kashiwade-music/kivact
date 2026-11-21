@@ -1,4 +1,4 @@
-//! Role: The spinner recipe state, tokens, recipe table and default looks.
+//! Role: The spinner recipe state, recipe table and default looks.
 use crate::look_common::side;
 use crate::recipe::recipe_table;
 use crate::theme::Look;
@@ -6,7 +6,19 @@ use crate::theme::Look;
 use crate::control_size::ControlSize;
 use kivact_core::draw::{LineCap, Path, Stroke};
 use kivact_core::geometry::Point;
+use kivact_core::style::{Length, ThemeVar};
 use kivact_core::style::{Style, Theme, style};
+
+/// The period of a spinner's turn, in milliseconds.
+pub static PERIOD_MS_VAR: ThemeVar<f64> = ThemeVar::new("spinner.period_ms", 1000.0);
+/// [`PERIOD_MS_VAR`] as a length for a style.
+pub const PERIOD_MS: Length = Length::var(&PERIOD_MS_VAR);
+
+/// The gap between a spinner and its label, in logical px.
+pub static GAP_VAR: ThemeVar<f64> = ThemeVar::new("spinner.gap", 6.0);
+/// [`GAP_VAR`] as a length for a style.
+pub const GAP: Length = Length::var(&GAP_VAR);
+
 pub(crate) fn spinner(_: &Theme, s: &Look<SpinnerState>) -> Style {
     let side = side(s.size) * 0.6;
     let turn = s.turn;
@@ -40,5 +52,9 @@ recipe_table! {
     /// The recipes of a spinner.
     SpinnerTheme {
         root(root_recipe): SpinnerState = spinner,
+    }
+    settings {
+        /// The turn period under reduced motion, in milliseconds. `None` keeps the spinner's decorative motion paused under reduced motion; `Some` keeps the essential turn running at this period.
+        reduced_period(reduced_period_value): Option<f64> = None,
     }
 }

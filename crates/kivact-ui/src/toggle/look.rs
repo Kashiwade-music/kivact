@@ -1,4 +1,4 @@
-//! Role: The toggle recipe state, tokens, recipe table and default looks.
+//! Role: The toggle recipe state, recipe table and default looks.
 use crate::look_common::{font_size, gap, height};
 use crate::recipe::recipe_table;
 use crate::theme::Look;

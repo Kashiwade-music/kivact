@@ -1,4 +1,4 @@
-//! Role: The tag input recipe state, tokens, recipe table and default looks.
+//! Role: The tag input recipe state, recipe table and default looks.
 use crate::look_common::flat;
 use crate::theme::Look;
 

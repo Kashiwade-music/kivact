@@ -1,4 +1,4 @@
-//! Role: The chat composer recipe state, tokens, recipe table and default looks.
+//! Role: The chat composer recipe state, recipe table and default looks.
 use crate::look_common::{column, muted};
 
 use crate::recipe::recipe_table;

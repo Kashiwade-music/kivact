@@ -1,4 +1,4 @@
-//! Role: The menu recipe state, tokens, recipe table and default looks.
+//! Role: The menu recipe state, recipe table and default looks.
 use crate::look_common::{description, mark, trigger};
 use crate::theme::Look;
 

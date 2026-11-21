@@ -1,4 +1,4 @@
-//! Role: The description list recipe state, tokens, recipe table and default looks.
+//! Role: The description list recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::variants::Look;

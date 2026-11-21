@@ -179,14 +179,12 @@ fn wheel_rows(
                 .hit_testable(false)
                 .style(move || {
                     let theme = kivact_core::style::use_theme().get();
-                    let tokens = theme.ext::<crate::UiTokens>();
-                    let tokens = if time {
-                        &tokens.time_input
-                    } else {
-                        &tokens.date_input
-                    };
                     kivact_core::style::style()
-                        .height(tokens.wheel_row_height)
+                        .height(if time {
+                            theme.get(&crate::time_input::look::WHEEL_ROW_HEIGHT_VAR)
+                        } else {
+                            theme.get(&crate::date_input::look::WHEEL_ROW_HEIGHT_VAR)
+                        })
                         .translate_y(settle_offset.get())
                         .opacity(if offset == 0 { 1.0 } else { 0.45 })
                         .font_weight(if offset == 0 { 600 } else { 400 })
@@ -235,10 +233,9 @@ fn wheel_drag(
 
 fn wheel_row_height(time: bool) -> f64 {
     let theme = kivact_core::style::use_theme().get();
-    let tokens = theme.ext::<crate::UiTokens>();
     if time {
-        tokens.time_input.wheel_row_height
+        theme.get(&crate::time_input::look::WHEEL_ROW_HEIGHT_VAR)
     } else {
-        tokens.date_input.wheel_row_height
+        theme.get(&crate::date_input::look::WHEEL_ROW_HEIGHT_VAR)
     }
 }

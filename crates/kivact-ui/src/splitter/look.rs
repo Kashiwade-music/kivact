@@ -1,4 +1,4 @@
-//! Role: The splitter recipe state, tokens, recipe table and default looks.
+//! Role: The splitter recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::slider::look::AxisState;

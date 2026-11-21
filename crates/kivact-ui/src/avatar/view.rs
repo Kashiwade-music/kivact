@@ -82,7 +82,7 @@ impl Avatar {
         self.status_content = Some(content.into_view());
         self
     }
-    /// Show the avatar's name in a tooltip, or not. Without this the theme decides ([`AvatarTokens::name_tooltip`](crate::AvatarTokens::name_tooltip)).
+    /// Show the avatar's name in a tooltip, or not. Without this the theme decides (the `name_tooltip` setting of [`AvatarTheme`](crate::theme::AvatarTheme)).
     pub fn name_tooltip(mut self, show: impl IntoValue<bool>) -> Self {
         self.name_tooltip = Some(show.into_value());
         self
@@ -213,10 +213,11 @@ impl IntoView for Avatar {
 /// The caller's choice, or the theme's default; `None` attaches no tooltip at all.
 fn name_tooltip(explicit: Option<Value<bool>>) -> Option<Value<bool>> {
     explicit.or_else(|| {
-        let tokens = kivact_core::style::use_theme()
+        let enabled = *kivact_core::style::use_theme()
             .get()
-            .ext::<crate::UiTokens>();
-        tokens.avatar.name_tooltip.then(|| true.into_value())
+            .ext::<crate::avatar::look::AvatarTheme>()
+            .name_tooltip_value();
+        enabled.then(|| true.into_value())
     })
 }
 

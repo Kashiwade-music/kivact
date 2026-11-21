@@ -1,16 +1,30 @@
-//! Role: The calendar recipe state, tokens, recipe table and default looks.
+//! Role: The calendar recipe state, recipe table and default looks.
 
-use crate::UiTokens;
 use crate::recipe::recipe_table;
 use crate::theme::Look;
 use kivact_core::custom::PartState;
 use kivact_core::i18n::CalendarDate;
 use kivact_core::style::{Align, Color, FlexDirection, Justify, Position, Style, Theme, style};
+use kivact_core::style::{Length, ThemeVar};
 use kivact_interaction::{CalendarDayState, CalendarSpan};
+
+/// The side of a calendar's day cell, in logical px.
+pub static CELL_SIZE_VAR: ThemeVar<f64> = ThemeVar::new("calendar.cell_size", 32.0);
+/// [`CELL_SIZE_VAR`] as a length for a style.
+pub const CELL_SIZE: Length = Length::var(&CELL_SIZE_VAR);
+/// The gap between the months of a calendar, in logical px.
+pub static MONTH_GAP_VAR: ThemeVar<f64> = ThemeVar::new("calendar.month_gap", 16.0);
+/// [`MONTH_GAP_VAR`] as a length for a style.
+pub const MONTH_GAP: Length = Length::var(&MONTH_GAP_VAR);
+/// The gap between the weeks of a month, in logical px.
+pub static WEEK_GAP_VAR: ThemeVar<f64> = ThemeVar::new("calendar.week_gap", 8.0);
+/// [`WEEK_GAP_VAR`] as a length for a style.
+pub const WEEK_GAP: Length = Length::var(&WEEK_GAP_VAR);
+
 pub(crate) fn root(t: &Theme, _: &Look<PartState>) -> Style {
     style()
         .flex_direction(FlexDirection::Row)
-        .gap(t.ext::<UiTokens>().calendar.month_gap)
+        .gap(MONTH_GAP)
         .padding(t.get(&kivact_core::style::space::SM_VAR))
         .background(kivact_core::style::color::SURFACE)
         .color(kivact_core::style::color::TEXT)
@@ -58,7 +72,7 @@ pub(crate) fn day(t: &Theme, s: &Look<CalendarDayVisual>) -> Style {
 }
 
 pub(crate) fn range(t: &Theme, s: &Look<CalendarDayState>) -> Style {
-    let size = t.ext::<UiTokens>().calendar.cell_size;
+    let size = t.get(&CELL_SIZE_VAR);
     let base = style()
         .position(Position::Absolute)
         .top(0)

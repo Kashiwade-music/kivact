@@ -232,9 +232,7 @@ fn responsive_layout(
             || {
                 kivact_core::style::use_theme()
                     .get()
-                    .ext::<crate::UiTokens>()
-                    .stepper
-                    .min_step_width
+                    .get(&crate::stepper::look::MIN_STEP_WIDTH_VAR)
             },
             |width| width.get(),
         );

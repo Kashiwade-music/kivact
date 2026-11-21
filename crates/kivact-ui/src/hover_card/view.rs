@@ -163,15 +163,14 @@ impl HoverCard {
                 &self.variants,
                 move || state.get(),
             );
-            let tokens = use_theme()
-                .get()
-                .ext::<crate::UiTokens>()
-                .hover_card
-                .clone();
             let layer = overlay(anchor, self.placement, panel)
                 .align(self.align)
-                .offset(tokens.offset)
-                .viewport_margin(tokens.viewport_margin)
+                .offset(use_theme().get().get(&crate::hover_card::look::OFFSET_VAR))
+                .viewport_margin(
+                    use_theme()
+                        .get()
+                        .get(&crate::hover_card::look::VIEWPORT_MARGIN_VAR),
+                )
                 .node_ref(card)
                 .on_dismiss(move |reason| {
                     if reason == kivact_core::view::DismissReason::Escape && card_focus.get() {

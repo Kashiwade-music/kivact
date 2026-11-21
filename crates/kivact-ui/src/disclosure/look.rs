@@ -1,8 +1,32 @@
-//! Role: The disclosure recipe state, tokens, recipe table and default looks.
+//! Role: The disclosure recipe state, recipe table and default looks.
 
 use crate::recipe::recipe_table;
 use crate::theme::Look;
+use kivact_core::motion::Transition;
 use kivact_core::style::{Align, FlexDirection, Justify, Style, Theme, style};
+use std::time::Duration;
+
+/// Timing of a disclosure's opening and closing. Configure it through [`DisclosureTheme`].
+#[derive(Clone, Debug, PartialEq)]
+pub struct DisclosureMotion {
+    /// Whether the content animates its size.
+    pub animate: bool,
+    /// The duration of the size animation.
+    pub duration: Duration,
+    /// The transition of the size animation; `None` uses a tween of `duration`.
+    pub transition: Option<Transition>,
+}
+
+impl Default for DisclosureMotion {
+    fn default() -> Self {
+        Self {
+            animate: false,
+            duration: Duration::from_millis(200),
+            transition: None,
+        }
+    }
+}
+
 /// A disclosure: the trigger over the content.
 pub(crate) fn disclosure_root(_: &Theme, _: &Look<DisclosureRecipeState>) -> Style {
     style().flex_direction(FlexDirection::Column)
@@ -86,5 +110,9 @@ recipe_table! {
         indicator(indicator_recipe): DisclosureRecipeState = disclosure_indicator,
         /// The content under the trigger.
         content(content_recipe): DisclosureRecipeState = disclosure_content,
+    }
+    settings {
+        /// The motion of the content's size; see [`DisclosureMotion`].
+        motion(motion_value): DisclosureMotion = DisclosureMotion::default(),
     }
 }

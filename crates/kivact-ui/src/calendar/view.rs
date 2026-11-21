@@ -63,9 +63,7 @@ fn new(selection: CalendarSelection) -> Calendar {
         cell_size: kivact_core::state::memo(|| {
             kivact_core::style::use_theme()
                 .get()
-                .ext::<crate::UiTokens>()
-                .calendar
-                .cell_size
+                .get(&crate::calendar::look::CELL_SIZE_VAR)
         }),
         selection,
         month: None,

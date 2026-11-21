@@ -2,9 +2,9 @@
 
 use crate::control_size::ControlSize;
 use crate::layer::{with_base_recipe_style, with_recipe_style};
+use crate::progress::look::ProgressMotion;
 use crate::progress::look::ProgressTheme;
 use crate::progress::look::{ProgressState, ProgressVariant};
-use crate::progress::tokens::ProgressMotion;
 use crate::variants::{Variant, Variants};
 use kivact_core::motion::{Animated, FrameRate, Transition, animated, frame_loop};
 use kivact_core::platform::{is_motion_reduced, is_surface_active};
@@ -153,9 +153,8 @@ impl IntoView for Progress {
         let motion = motion_override.clone().unwrap_or_else(|| {
             use_theme()
                 .get()
-                .ext::<crate::UiTokens>()
-                .progress
-                .motion
+                .ext::<crate::progress::look::ProgressTheme>()
+                .motion_value()
                 .clone()
         });
         let transition = Transition::tween(
@@ -228,9 +227,8 @@ fn motion_clock(
         let motion = motion_override.clone().unwrap_or_else(|| {
             use_theme()
                 .get()
-                .ext::<crate::UiTokens>()
-                .progress
-                .motion
+                .ext::<crate::progress::look::ProgressTheme>()
+                .motion_value()
                 .clone()
         });
         if is_motion_reduced().get() {
