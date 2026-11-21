@@ -2202,7 +2202,7 @@ The standard components of `kivact::ui` draw in this look under the theme. The k
 - **状態の閉じ方**：C10。新しい印は要らない。
 - **試験**：なし。
 - **確認（tier a）**：3.0.9 の途中の unit。
-- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-basic/src/{attachment,card_header,field,input_otp,marker,menubar,native_select,scroll_area}.rs` が何も出さない。上の command が通る。
+- **完了条件**：`rg -n "impl (kivact::view::)?(Element|IntoView) for" crates/kivact-ui-basic/src/{attachment,card_header,field,input_otp,marker,menubar,scroll_area}.rs` が何も出さない（`native_select.rs` の `NativeSelect` は手書きの builder の例外。OPEN の 2026-11-22 の回答 (3)）。上の command が通る。
 
 ## K19：basic の部品 2（`#[component]`）
 
