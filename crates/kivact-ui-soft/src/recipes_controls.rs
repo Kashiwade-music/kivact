@@ -1,8 +1,8 @@
 //! Role: Style the Astryx Neutral buttons and toggle buttons (the controls group's action parts).
 use crate::color as c;
 use crate::metrics as m;
-use crate::recipe_parts::{fast, overlay, ring};
 use crate::radius as r;
+use crate::recipe_parts::{fast, overlay, ring};
 use crate::space as s;
 use crate::type_scale as t;
 use kivact::draw::LineCap;
@@ -13,9 +13,7 @@ use kivact::style::{
     Align, Color, Cursor, FlexDirection, Justify, Position, Style, TextDecorationLine, Theme, pct,
     style,
 };
-use kivact::ui::theme::{
-    ButtonState, ButtonTheme, Look, ToggleButtonState, ToggleButtonTheme,
-};
+use kivact::ui::theme::{ButtonState, ButtonTheme, Look, ToggleButtonState, ToggleButtonTheme};
 use kivact::ui::{ButtonVariant, ControlSize};
 
 /// The look of a button's fill, text and focus ring for `variant`.
@@ -55,11 +53,7 @@ fn action(size: ControlSize, square: bool) -> Style {
         .font_size(text.size_px)
         .line_height(text.line_height_px / text.size_px)
         .font_weight(t::WEIGHT_MEDIUM)
-        .disabled(
-            style()
-                .opacity(m::DISABLED_OPACITY)
-                .cursor(Cursor::Default),
-        );
+        .disabled(style().opacity(m::DISABLED_OPACITY).cursor(Cursor::Default));
     if square {
         base.width(height).flex_shrink(0)
     } else {
