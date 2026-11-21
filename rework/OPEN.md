@@ -819,3 +819,10 @@ U30a（lane U1、commit `fbad507e`、`wt/rw-W7b-U1`）は、`kivact-ui` が comp
 - U32 の報告の食い違い（判断済み）：U32 は付属書の `toast.rs`・`empty_state.rs` を実際の `toast/view.rs`・`empty_state/view.rs` に当てた（同じ module の中）。試験の import は付属書と実物が違い、`kivact::motion::{Easing, Transition}` を足した。
 
 U34・U35（W7b の U3）は完了、U32（U2）は完了、U36（U4）は ui の試験を確認中、E27・E28（W7b の E1）と A15（W7b の A1）は完了。
+
+## 設計者の回答（W7b・U30a の差戻し、2026-11-21）
+
+- (d) を採る。U23 の残り（`DialogState.kind: DialogKind`）を U30a の中で済ませ、U2 の 1 行は wave の merge で直す。
+  1. lane U1（U30a の続き）：`crates/kivact-ui/src/dialog/look.rs` の `DialogState.kind` を `crate::DialogKind`（ui の型）にし、`use kivact_interaction::DialogMode;` を消す。look.rs の中の `DialogMode::Drawer(..)` などは `DialogKind::Drawer(..)` にする。`dialog/view.rs` の `Shape::state` の変換の `match`（STOP の印の所）は消し、`kind` をそのまま入れる。ui の中で `DialogMode` を使うのは、render が `DialogKind` を interaction の `DialogMode`（`Popover` の無いもの）に変える所と popup の分岐だけになる（付属書 U30a の前提の文のとおり）。U1 の lane の中の他の `DialogMode` の `DialogState` 用の書込みも同じく直す。check と U30a の確認をやり直して commit する。
+  2. lane U2 の `dialog/drawer_swipe.rs` の `kind: kivact_interaction::DialogMode::Drawer(edge),`（U32 で入った行）は U2 の lane では直さない（U2 の lane では look.rs がまだ `DialogMode` なので、直すと U2 が compile しない）。W7b の merge で U2 を入れた直後に、統合 branch で `kind: crate::DialogKind::Drawer(edge),` の 1 行に直し、`cargo check -p kivact-ui --all-targets` を通してから次の lane を merge する（merge の直しとして PROGRESS に記録する）。
+- U32 の食い違い（file の置き場、試験の import）は採る。

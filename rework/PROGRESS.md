@@ -156,3 +156,8 @@
 - tier b（統合、`V:/kv-target/rw-main`、W6〜W9 の形）：fmt・clippy（workspace、XK と XD を除外、`-D warnings`）・test（1324 件成功、失敗 0、無視 39）は成功。xtask `--only local` は、name-collision の規則を直した後（`67f7f48a`、設計者の決め (c)）に成功。`xtask-allow(state-fields)` は 0 件（grep）。
 - 残りの判断（OPEN）：U24 の 5 builder の variant は W8 の U47・U48 で直す（設計者の決め）。E25 の ime_select の sync（設計者の決め）。
 - 次：W7b（E27・E28・A15 完了。U32・U34・U35 完了。U36 は確認中。U30a は compile の残りで差戻し）。
+
+## W7b の進み（2026-11-21）
+- 完了（lane の commit、統合へは未 merge）：E27 `198ec9e5`、E28 `e908b61c`（lane `wt/rw-W7b-E1`）、A15 `08c1371d`（lane `wt/rw-W7b-A1`）、U32 `459b6715`（lane `wt/rw-W7b-U2`）、U34 `ca79381b` と U35 `7869702e`（lane `wt/rw-W7b-U3`）、U36 `288c6f6e`（lane `wt/rw-W7b-U4`）。
+- 停止：U30a（lane `wt/rw-W7b-U1`、commit `fbad507e`、compile が通らない）。設計者の答えを待つ（OPEN「差戻し（W7b・U30a）」）。U30c・U30b・U31・U33 は U30a の後。
+- W7b の merge と tier b は、U1 lane が終わってから。
