@@ -8,36 +8,6 @@ use kivact::style::{Align, Color, Direction, Justify, Position, Style, Theme, pc
 use kivact::ui::Look;
 use kivact::view::Orientation;
 
-/// A look of `kivact::ui::tabs` beside the theme's filled one, given with
-/// `.variant(..)`.
-///
-/// `Line` is tabs.tsx's `variant="line"`: no filled list, and a 2 px
-/// underline in place of the selected tab's fill (beside the tab when
-/// vertical). The tabs' keys, semantics and panels do not change:
-///
-/// ```no_run
-/// use kivact::prelude::*;
-/// use kivact_ui_basic as basic;
-///
-/// fn reports() -> impl IntoView {
-///     let current = signal("overview");
-///     tabs(
-///         "Report sections",
-///         vec![ListItem::new("overview", "Overview"), ListItem::new("reports", "Reports")],
-///         current,
-///     )
-///     .variant(basic::TabsVariant::Line)
-///     .content(|key| text(key))
-/// }
-/// ```
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum TabsVariant {
-    /// The underlined tabs of `variant="line"`.
-    Line,
-}
-
-impl kivact::ui::Variant for TabsVariant {}
-
 /// Whether `look` belongs to line tabs.
 pub(crate) fn is_line<S>(look: &Look<S>) -> bool {
     look.variant::<TabsVariant>() == Some(&TabsVariant::Line)

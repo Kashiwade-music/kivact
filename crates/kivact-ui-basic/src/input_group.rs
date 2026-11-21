@@ -7,39 +7,6 @@ use kivact::ui::{
     ButtonState, InputGroupMemberKind, InputGroupMemberState, InputGroupRecipes, InputGroupState,
     Look,
 };
-/// Draw a standard text input or text area without its own box inside a group.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct InputGroupControl;
-impl kivact::ui::Variant for InputGroupControl {}
-/// Visual size of a canonical input-group button.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub enum InputGroupButtonSize {
-    #[default]
-    Xs,
-    Sm,
-    IconXs,
-    IconSm,
-}
-impl kivact::ui::Variant for InputGroupButtonSize {}
-/// Reactive visual measurements of a canonical button in an input group.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct InputGroupButtonLook {
-    size: Value<InputGroupButtonSize>,
-}
-impl Default for InputGroupButtonLook {
-    fn default() -> Self {
-        Self {
-            size: InputGroupButtonSize::Xs.into_value(),
-        }
-    }
-}
-impl kivact::ui::Variant for InputGroupButtonLook {}
-impl InputGroupButtonLook {
-    pub fn size(mut self, size: impl IntoValue<InputGroupButtonSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-}
 fn button_size(s: &Look<ButtonState>) -> Option<InputGroupButtonSize> {
     s.variant::<InputGroupButtonLook>()
         .map(|look| look.size.get())

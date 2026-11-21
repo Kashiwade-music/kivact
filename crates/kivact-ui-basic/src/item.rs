@@ -6,63 +6,6 @@ use kivact::custom::PartState;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Color, Cursor, Direction, Justify, Overflow, Style, Theme, pct, style};
 use kivact::ui::{ItemListRecipes, ItemRowState, Look};
-/// The frame of an standard item row (item.tsx `variant`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ItemVariant {
-    /// Transparent border.
-    #[default]
-    Default,
-    /// Bordered.
-    Outline,
-    /// Muted fill.
-    Muted,
-}
-
-/// The density of an standard item row (item.tsx `size`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub enum ItemSize {
-    /// 12 px / 10 px padding.
-    #[default]
-    Default,
-    /// The same padding with a smaller image.
-    Sm,
-}
-
-/// The frame of the media slot of an standard item row (item.tsx media `variant`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ItemMediaVariant {
-    /// Bare content.
-    #[default]
-    Default,
-    /// An icon.
-    Icon,
-    /// A 40 px (32 px for `Sm`) clipped picture.
-    Image,
-}
-
-impl kivact::ui::Variant for ItemVariant {}
-impl kivact::ui::Variant for ItemSize {}
-impl kivact::ui::Variant for ItemMediaVariant {}
-/// Reactive visual size for a standard item row.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct ItemLook {
-    size: Value<ItemSize>,
-}
-impl Default for ItemLook {
-    fn default() -> Self {
-        Self {
-            size: ItemSize::Default.into_value(),
-        }
-    }
-}
-impl kivact::ui::Variant for ItemLook {}
-impl ItemLook {
-    /// Set constant or reactive media density.
-    pub fn size(mut self, size: impl IntoValue<ItemSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-}
 pub(crate) fn recipes(r: ItemListRecipes) -> ItemListRecipes {
     r.root(|_| root)
         .item(|_| item)

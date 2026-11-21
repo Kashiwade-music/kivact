@@ -4,41 +4,6 @@ use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, Overflow, Style, Theme, style};
 use kivact::ui::{CardRecipes, CardState, Look};
-/// Spacing of a standard card.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub enum CardSize {
-    #[default]
-    Default,
-    Sm,
-}
-impl kivact::ui::Variant for CardSize {}
-/// Reactive spacing and independent header border of a standard card.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CardLook {
-    size: Value<CardSize>,
-    header_bordered: Value<bool>,
-}
-impl Default for CardLook {
-    fn default() -> Self {
-        Self {
-            size: CardSize::Default.into_value(),
-            header_bordered: false.into_value(),
-        }
-    }
-}
-impl kivact::ui::Variant for CardLook {}
-impl CardLook {
-    /// Use constant or reactive card spacing.
-    pub fn size(mut self, size: impl IntoValue<CardSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-    /// Draw the header rule while true.
-    pub fn header_bordered(mut self, bordered: impl IntoValue<bool>) -> Self {
-        self.header_bordered = bordered.into_value();
-        self
-    }
-}
 fn spacing(s: &Look<CardState>) -> f64 {
     match s
         .variant::<CardLook>()

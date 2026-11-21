@@ -4,33 +4,6 @@ use kivact::Prop;
 use kivact::state::{IntoValue, Value};
 use kivact::style::{Align, Direction, LineHeight, Style, TextAlign, Theme, pct, style};
 use kivact::ui::{CodeBlockRecipes, CodeBlockState, Look};
-/// Text size and padding of a standard code block.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub enum CodeBlockSize {
-    #[default]
-    Default,
-    Sm,
-}
-impl kivact::ui::Variant for CodeBlockSize {}
-/// A constant or reactive code-size presentation, independent of source editing.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct CodeBlockLook {
-    size: Value<CodeBlockSize>,
-}
-impl Default for CodeBlockLook {
-    fn default() -> Self {
-        Self {
-            size: CodeBlockSize::Default.into_value(),
-        }
-    }
-}
-impl kivact::ui::Variant for CodeBlockLook {}
-impl CodeBlockLook {
-    pub fn size(mut self, size: impl IntoValue<CodeBlockSize>) -> Self {
-        self.size = size.into_value();
-        self
-    }
-}
 fn metrics(s: &Look<CodeBlockState>) -> (f64, f64, f64) {
     match s
         .variant::<CodeBlockLook>()

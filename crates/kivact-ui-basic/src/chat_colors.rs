@@ -1,27 +1,6 @@
 //! Role: Basic chat color variants, independent of message interaction.
 use crate::Tokens;
 use kivact::style::Color;
-/// The Basic color treatment of a standard chat message content slot.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum BubbleVariant {
-    /// Solid primary: the sender's own text.
-    #[default]
-    Default,
-    /// Secondary fill.
-    Secondary,
-    /// Muted fill.
-    Muted,
-    /// A faint gray derived from the primary color.
-    Tinted,
-    /// Bordered on the background.
-    Outline,
-    /// No fill, border or padding.
-    Ghost,
-    /// Tinted destructive.
-    Destructive,
-}
-
-impl kivact::ui::Variant for BubbleVariant {}
 /// `oklch(from primary 0.93 ..)` and friends for the neutral primary: the grays of lightness
 /// 0.93, 0.88 (light) and 0.30, 0.35 (dark).
 fn tinted(p: &Tokens, hovered: bool) -> Color {

@@ -39,16 +39,6 @@ const BAR: MenuLook = MenuLook {
     bar: true,
 };
 
-/// The kind of a kit menu, which the menu recipes read from the menu's
-/// `.variant(..)`: a menu without one is a dropdown or a use_context menu.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum MenuVariant {
-    /// menubar.tsx: wider levels and check marks at the start.
-    Bar,
-}
-
-impl kivact::ui::Variant for MenuVariant {}
-
 /// The measures of the kind of menu `look` belongs to.
 fn kind<S>(look: &kivact::ui::Look<S>) -> MenuLook {
     match look.variant::<MenuVariant>() {

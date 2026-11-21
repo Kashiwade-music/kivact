@@ -14,18 +14,6 @@ use kivact::style::{
 use kivact::ui::{Button, ButtonVariant, ControlSize};
 use kivact::view::{IntoView, Orientation, Role, View, show};
 
-/// The size of an [`Attachment`] (attachment.tsx `size`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
-pub enum AttachmentSize {
-    /// 40 px media, 8 px gap.
-    #[default]
-    Default,
-    /// 32 px media.
-    Sm,
-    /// 28 px media.
-    Xs,
-}
-
 /// The progress of an [`Attachment`] (attachment.tsx `state`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Prop)]
 pub enum AttachmentState {
@@ -38,16 +26,6 @@ pub enum AttachmentState {
     Uploading,
     /// Failed: destructive colors.
     Error,
-}
-
-/// The frame of the media of an [`Attachment`].
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum AttachmentMediaVariant {
-    /// An icon on a muted square.
-    #[default]
-    Icon,
-    /// A picture that fills the square.
-    Image,
 }
 
 // xtask-allow(state): legacy: media, description, actions
@@ -317,9 +295,6 @@ pub fn attachment_group(children: impl IntoView) -> Scroll {
         .axes(ScrollAxes::Horizontal)
         .style(style().min_width(0).padding_y(4))
 }
-
-impl kivact::ui::Variant for AttachmentSize {}
-impl kivact::ui::Variant for AttachmentMediaVariant {}
 
 fn render_media(media: View, media_variant: AttachmentMediaVariant, cfg: Cfg) -> Node {
     let Cfg {

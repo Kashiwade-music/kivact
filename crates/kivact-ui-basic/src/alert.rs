@@ -2,16 +2,6 @@
 use crate::Tokens;
 use kivact::style::{Align, ColorToken, Display, Position, Style, Theme, Track, auto, pct, style};
 use kivact::ui::{AlertRecipes, AlertState, Look};
-/// Colors of a standard alert callout.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum AlertLook {
-    /// Card colors.
-    #[default]
-    Default,
-    /// Destructive text and icon.
-    Destructive,
-}
-impl kivact::ui::Variant for AlertLook {}
 pub(crate) fn recipes(r: AlertRecipes) -> AlertRecipes {
     r.root(|_| root)
         .title(|_| title)

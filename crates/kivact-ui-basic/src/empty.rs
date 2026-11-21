@@ -2,16 +2,6 @@
 use crate::Tokens;
 use kivact::style::{Align, Direction, Justify, Style, TextAlign, Theme, pct, style};
 use kivact::ui::{EmptyStateRecipes, EmptyStateState, Look};
-/// The frame around a standard empty-state icon slot.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum EmptyMediaVariant {
-    /// Bare media.
-    #[default]
-    Default,
-    /// A 32 px muted square around an icon.
-    Icon,
-}
-impl kivact::ui::Variant for EmptyMediaVariant {}
 pub(crate) fn recipes(r: EmptyStateRecipes) -> EmptyStateRecipes {
     r.root(|_| root)
         .title(|_| title)

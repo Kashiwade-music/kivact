@@ -8,18 +8,6 @@ use kivact::view::{Element, Node, node, row};
 use kivact::style::{Align, Direction, pct, style};
 use kivact::view::{IntoView, View};
 
-/// The decoration of a [`Marker`] (marker.tsx `variant`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum MarkerVariant {
-    /// Plain muted text.
-    #[default]
-    Default,
-    /// Rules fill the space on both sides of the content.
-    Separator,
-    /// A rule under the content.
-    Border,
-}
-
 /// A muted note such as a date divider in a conversation. Created by [`marker`].
 pub struct Marker {
     root: Node,
@@ -116,5 +104,3 @@ impl IntoView for Marker {
             .into_view()
     }
 }
-
-impl kivact::ui::Variant for MarkerVariant {}

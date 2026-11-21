@@ -3,25 +3,6 @@ use crate::theme_access::wide_focus_ring;
 use crate::tokens::Tokens;
 use kivact::custom::PartState;
 use kivact::style::{Align, Color, Cursor, Justify, TextDecorationLine, style};
-/// The look of a standard `kivact::ui::badge` (badge.tsx `variant`).
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum BadgeVariant {
-    /// Solid primary.
-    #[default]
-    Default,
-    /// Secondary fill.
-    Secondary,
-    /// Tinted destructive.
-    Destructive,
-    /// Bordered, no fill.
-    Outline,
-    /// No fill; muted on hover.
-    Ghost,
-    /// Primary text, underlined on hover.
-    Link,
-}
-
-impl kivact::ui::Variant for BadgeVariant {}
 /// Background, text and border colors of `variant`; hover colors apply to pressable badges.
 /// The fill, text and border colors of `variant`, at rest or while a
 /// pressable badge is hovered.

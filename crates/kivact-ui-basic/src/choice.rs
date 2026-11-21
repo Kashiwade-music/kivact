@@ -5,19 +5,6 @@ use crate::tokens::Tokens;
 use kivact::style::{Align, Color, Direction, Justify, Style, style};
 use kivact::ui::{ControlSize, Variant};
 
-/// The two looks of a toggle: the variant of a `kivact::ui::toggle_button` and of
-/// a standard `kivact::ui::toggle_group`.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum ToggleVariant {
-    /// Transparent.
-    #[default]
-    Default,
-    /// With a 1 px `input` border.
-    Outline,
-}
-
-impl Variant for ToggleVariant {}
-
 /// toggle.tsx: `inline-flex center gap-1 text-xs font-medium`, muted when on,
 /// with the wide ring while the focus is visible.
 pub(crate) fn toggle_style(

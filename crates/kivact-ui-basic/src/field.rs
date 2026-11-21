@@ -7,16 +7,6 @@ use kivact::state::IntoText;
 use kivact::style::{Direction, Justify, Position, pct, style};
 use kivact::view::{IntoView, Role, View};
 
-/// The look of a [`FieldSet`] legend.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-pub enum FieldLegendVariant {
-    /// `text-sm`.
-    #[default]
-    Legend,
-    /// `text-xs`, like a label.
-    Label,
-}
-
 // xtask-allow(state): legacy: legend, description
 /// A group of fields with an optional legend and description (`FieldSet`).
 ///
@@ -192,5 +182,3 @@ impl IntoView for FieldSeparator {
         root.into_view()
     }
 }
-
-impl kivact::ui::Variant for FieldLegendVariant {}

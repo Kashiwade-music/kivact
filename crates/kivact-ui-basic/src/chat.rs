@@ -2,16 +2,6 @@
 use crate::{BubbleVariant, Tokens};
 use kivact::style::{Align, Direction, Justify, Overflow, Position, Style, Theme, pct, style};
 use kivact::ui::{ChatAlign, ChatMessageRecipes, ChatMessageState, ChatReactionsSide, Look};
-/// The Basic visual arrangement of a canonical chat message.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ChatLayout {
-    /// A full-width message row with optional author, avatar and metadata.
-    #[default]
-    Message,
-    /// A standalone bubble sized to its contents.
-    Bubble,
-}
-impl kivact::ui::Variant for ChatLayout {}
 fn standalone(s: &Look<ChatMessageState>) -> bool {
     s.variant::<ChatLayout>() == Some(&ChatLayout::Bubble)
 }
