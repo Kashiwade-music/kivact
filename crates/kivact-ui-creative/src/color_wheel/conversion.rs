@@ -1,8 +1,9 @@
 //! Role: Public HSV color conversions for color controls.
-use kivact::style::Color;
-/// Convert an sRGB color to hue (degrees), saturation and value.
-pub fn color_to_hsv(color: Color) -> (f64, f64, f64) {
-    let [r, g, b, _] = color.components();
+use kivact::style::{Color, Theme};
+/// Convert a color to hue (degrees), saturation and value. A theme color
+/// resolves in `theme`; pass `&use_theme().get()` inside a view.
+pub fn color_to_hsv(color: Color, theme: &Theme) -> (f64, f64, f64) {
+    let [r, g, b, _] = color.components(theme);
     let max = r.max(g).max(b);
     let min = r.min(g).min(b);
     let d = max - min;

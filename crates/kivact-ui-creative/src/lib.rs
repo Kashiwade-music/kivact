@@ -18,6 +18,7 @@
 mod audio;
 mod bezier;
 mod color;
+mod color_wheel;
 mod curve_preview;
 mod dock;
 mod editors;
@@ -43,6 +44,7 @@ mod variants;
 pub use audio::view_state::ChannelState;
 pub use audio::{Meter, Transport, TransportState, meter, transport};
 pub use bezier::{BezierCurve, CubicBezier, bezier_curve};
+pub use color_wheel::{ColorModel, ColorWheel, color_from_hsv, color_to_hsv, color_wheel};
 pub use curve_preview::{CurvePreview, curve_preview};
 pub use dock::{
     Dock, DockAxis, DockChild, DockLayout, DockNode, DockPlacement, DockSide, DockTab, DockTabs,
