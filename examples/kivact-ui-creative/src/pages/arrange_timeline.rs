@@ -1,20 +1,30 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::arrange::*;
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, separator};
+use catalog_shell::{Example, Page};
 use kivact::prelude::{Element, IntoView, rgb, row, signal, spacer};
+use kivact::state::Signal;
 use kivact::style::style;
 use kivact::view::Node;
 use kivact_ui_creative as ui;
-use super::arrange::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("arrange-timeline", "Arrange Timeline", "Animation", include_str!("arrange_timeline.rs"))
-        .description("Ruler, loop, tracks, clips and automation.")
-        .example(Example::new("arrange-timeline", "Arrange Timeline", "", demo))
+    Page::new(
+        "arrange-timeline",
+        "Arrange Timeline",
+        "Animation",
+        include_str!("arrange_timeline.rs"),
+    )
+    .description("Ruler, loop, tracks, clips and automation.")
+    .example(Example::new(
+        "arrange-timeline",
+        "Arrange Timeline",
+        "",
+        demo,
+    ))
 }
 
 // example: arrange-timeline

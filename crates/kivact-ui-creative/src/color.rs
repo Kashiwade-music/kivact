@@ -9,36 +9,28 @@ use kivact::style::{Color, Theme, ThemeMode, ThemeVar, color, rgb, rgba};
 
 pub static CANVAS_VAR: ThemeVar<Color> = ThemeVar::new("creative.canvas", rgb(0xeceef1));
 /// The island: the surface of a panel.
-pub static ISLAND_VAR: ThemeVar<Color> =
-    ThemeVar::alias("creative.island", &color::SURFACE_VAR);
+pub static ISLAND_VAR: ThemeVar<Color> = ThemeVar::alias("creative.island", &color::SURFACE_VAR);
 pub static HEADER_VAR: ThemeVar<Color> = ThemeVar::new("creative.header", rgb(0xf5f6f8));
-pub static STRONG_VAR: ThemeVar<Color> =
-    ThemeVar::alias("creative.strong", &color::PRESSED_VAR);
+pub static STRONG_VAR: ThemeVar<Color> = ThemeVar::alias("creative.strong", &color::PRESSED_VAR);
 pub static FIELD_VAR: ThemeVar<Color> = ThemeVar::new("creative.field", rgb(0xf1f2f5));
 pub static HAIR_VAR: ThemeVar<Color> = ThemeVar::alias("creative.hair", &color::BORDER_VAR);
 pub static HAIR_STRONG_VAR: ThemeVar<Color> =
     ThemeVar::new("creative.hair_strong", rgba(0x000000, 0.18));
 pub static TEXT_VAR: ThemeVar<Color> = ThemeVar::alias("creative.text", &color::TEXT_VAR);
-pub static TEXT_HIGH_VAR: ThemeVar<Color> =
-    ThemeVar::new("creative.text_high", rgb(0x0a0b0d));
-pub static MUTED_VAR: ThemeVar<Color> =
-    ThemeVar::alias("creative.muted", &color::TEXT_MUTED_VAR);
+pub static TEXT_HIGH_VAR: ThemeVar<Color> = ThemeVar::new("creative.text_high", rgb(0x0a0b0d));
+pub static MUTED_VAR: ThemeVar<Color> = ThemeVar::alias("creative.muted", &color::TEXT_MUTED_VAR);
 pub static DIM_VAR: ThemeVar<Color> = ThemeVar::new("creative.dim", rgb(0x8c8f99));
 pub static ACCENT_VAR: ThemeVar<Color> = ThemeVar::new("creative.accent", rgb(0x8b7cff));
-pub static ACCENT_HIGH_VAR: ThemeVar<Color> =
-    ThemeVar::new("creative.accent_high", rgb(0xa397ff));
-pub static ACCENT_INK_VAR: ThemeVar<Color> =
-    ThemeVar::new("creative.accent_ink", rgb(0x0c0a1f));
+pub static ACCENT_HIGH_VAR: ThemeVar<Color> = ThemeVar::new("creative.accent_high", rgb(0xa397ff));
+pub static ACCENT_INK_VAR: ThemeVar<Color> = ThemeVar::new("creative.accent_ink", rgb(0x0c0a1f));
 pub static SELECTION_VAR: ThemeVar<Color> =
     ThemeVar::new("creative.selection", rgba(0x8b7cff, 0.2));
 pub static KEY_VAR: ThemeVar<Color> = ThemeVar::new("creative.key", rgb(0xc98a00));
 pub static X_VAR: ThemeVar<Color> = ThemeVar::alias("creative.x", &color::DANGER_VAR);
 pub static Y_VAR: ThemeVar<Color> = ThemeVar::new("creative.y", rgb(0x4f9a1c));
 pub static Z_VAR: ThemeVar<Color> = ThemeVar::new("creative.z", rgb(0x2f6fe0));
-pub static SUCCESS_VAR: ThemeVar<Color> =
-    ThemeVar::alias("creative.success", &color::SUCCESS_VAR);
-pub static WARNING_VAR: ThemeVar<Color> =
-    ThemeVar::alias("creative.warning", &color::WARNING_VAR);
+pub static SUCCESS_VAR: ThemeVar<Color> = ThemeVar::alias("creative.success", &color::SUCCESS_VAR);
+pub static WARNING_VAR: ThemeVar<Color> = ThemeVar::alias("creative.warning", &color::WARNING_VAR);
 
 pub const CANVAS: Color = Color::var(&CANVAS_VAR);
 pub const ISLAND: Color = Color::var(&ISLAND_VAR);

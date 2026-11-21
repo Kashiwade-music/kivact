@@ -88,7 +88,7 @@ pub(super) fn tool_palette_size(vertical: bool, compact: bool) -> Node {
         .child(buttons)
         .style(
             style()
-                .direction(if vertical {
+                .flex_direction(if vertical {
                     kivact::style::FlexDirection::Column
                 } else {
                     kivact::style::FlexDirection::Row
@@ -116,7 +116,7 @@ pub(super) fn num(
     max: f64,
     precision: usize,
     unit: &str,
-) -> impl IntoView {
+) -> ui::Number {
     ui::number(label.to_owned(), signal(value))
         .range(min..=max)
         .precision(precision)
@@ -125,7 +125,7 @@ pub(super) fn num(
         .reset_to(value)
         .style(style().width(pct(100)))
 }
-pub(super) fn slide(label: &str, value: f64) -> impl IntoView {
+pub(super) fn slide(label: &str, value: f64) -> ui::ValueSlider {
     ui::value_slider(label.to_owned(), signal(value))
         .reset_to(value)
         .style(style().width(pct(100)))
@@ -148,7 +148,7 @@ pub(super) fn chip(label: &str, color: Color) -> Node {
 pub(super) fn buttons_static_collections() -> Node {
     spec(
         "Static collections",
-        "一覧と表の意味を標準部品で公開",
+        "Lists and tables exposed with standard components",
         col((
             kivact::ui::table((
                 kivact::ui::table_header((kivact::ui::table_row((
@@ -170,7 +170,7 @@ pub(super) fn buttons_static_collections() -> Node {
 pub(super) fn buttons_standard_indicators() -> Node {
     spec(
         "Standard indicators",
-        "状態・読み込み・ショートカット",
+        "States, Loading and Shortcuts",
         col((
             line((
                 kivact::ui::badge("Ready").tone(kivact::interaction::Tone::Success),
@@ -190,7 +190,7 @@ pub(super) fn buttons_standard_indicators() -> Node {
 pub(super) fn buttons_cubic_easing(curve: Signal<ui::CubicBezier>) -> Node {
     spec(
         "Cubic easing",
-        "同じ曲線を編集・プレビュー",
+        "Edit and preview the same curve",
         col((
             ui::bezier_curve(curve),
             ui::curve_preview(move || curve.get().samples(64)),
@@ -201,7 +201,7 @@ pub(super) fn buttons_cubic_easing(curve: Signal<ui::CubicBezier>) -> Node {
 pub(super) fn buttons_push_button(status: Signal<String>) -> Node {
     spec(
         "Push Button",
-        "押しボタン",
+        "Push Buttons",
         col((
             line((
                 kivact::ui::button("Apply")
@@ -238,7 +238,7 @@ pub(super) fn buttons_push_button(status: Signal<String>) -> Node {
 pub(super) fn buttons_glyph_button() -> Node {
     spec(
         "Glyph Button",
-        "アイコンボタン",
+        "Icon Buttons",
         col((
             line(
                 ["copy", "link", "settings", "more", "trash"]
@@ -271,7 +271,7 @@ pub(super) fn buttons_glyph_button() -> Node {
 pub(super) fn buttons_toggle_button(snap: Signal<bool>) -> Node {
     spec(
         "Toggle Button",
-        "トグル",
+        "Toggles",
         col((
             line((
                 kivact::ui::toggle_button("Snap", snap).icon(kivact::view::icon("magnet")),
@@ -291,7 +291,7 @@ pub(super) fn buttons_toggle_button(snap: Signal<bool>) -> Node {
 pub(super) fn buttons_segmented_enum_row(interpolation: Signal<Option<String>>) -> Node {
     spec(
         "Segmented / Enum Row",
-        "排他ボタン列",
+        "Exclusive Button Row",
         col((
             kivact::ui::radio_group(
                 "Mode",
@@ -337,7 +337,7 @@ pub(super) fn buttons_segmented_enum_row(interpolation: Signal<Option<String>>) 
 pub(super) fn buttons_split_menu_button(status: Signal<String>) -> Node {
     spec(
         "Split / Menu Button",
-        "分割ボタン",
+        "Split Buttons",
         col((
             ui::split_button(
                 "Add to Render Queue",
@@ -388,11 +388,13 @@ pub(super) fn buttons_split_menu_button(status: Signal<String>) -> Node {
 pub(super) fn buttons_tool_palette() -> Node {
     spec(
         "Tool Palette",
-        "ツールボックス",
+        "Tool Palette",
         col((
             tool_palette(true),
             tool_palette(false),
-            note("選択・押下はアクセント色の半透明ティント。Ctrl で微調整 / Shift で粗調整。"),
+            note(
+                "Selected and pressed use a translucent accent tint. Ctrl for fine, Shift for coarse.",
+            ),
         )),
     )
 }
@@ -400,7 +402,7 @@ pub(super) fn buttons_tool_palette() -> Node {
 pub(super) fn selection_checkbox_radio(radio: Signal<Option<String>>) -> Node {
     spec(
         "Checkbox / Radio",
-        "チェック・ラジオ",
+        "Checkbox and Radio",
         row((
             col((
                 kivact::ui::checkbox("Shadows", signal(true)),
@@ -431,7 +433,7 @@ pub(super) fn selection_checkbox_radio(radio: Signal<Option<String>>) -> Node {
 pub(super) fn selection_switch() -> Node {
     spec(
         "Switch",
-        "スイッチ",
+        "Switch",
         col((
             kivact::ui::switch("GPU Compute", signal(true)),
             kivact::ui::switch("Low-latency Monitoring", signal(false)),
@@ -443,12 +445,11 @@ pub(super) fn selection_switch() -> Node {
 pub(super) fn selection_enum_dropdown() -> Node {
     spec(
         "Enum Dropdown",
-        "列挙",
+        "Enum",
         col((
             ui::property_row(
                 "Render Engine",
                 kivact::ui::select(
-                    "Render Engine",
                     keyed_options([
                         ("path", "Path Tracer"),
                         ("raster", "Rasterizer"),
@@ -456,6 +457,7 @@ pub(super) fn selection_enum_dropdown() -> Node {
                     ]),
                     signal(Some("path".to_owned())),
                 )
+                .label("Render Engine")
                 .placeholder("")
                 .name("Render Engine")
                 .style(style().width(pct(100))),
@@ -463,7 +465,6 @@ pub(super) fn selection_enum_dropdown() -> Node {
             ui::property_row(
                 "Blend Mode",
                 kivact::ui::select(
-                    "Blend Mode",
                     keyed_options([
                         ("normal", "Normal"),
                         ("dissolve", "Dissolve"),
@@ -485,6 +486,7 @@ pub(super) fn selection_enum_dropdown() -> Node {
                     ]),
                     signal(Some("screen".to_owned())),
                 )
+                .label("Blend Mode")
                 .placeholder("")
                 .name("Blend Mode")
                 .style(style().width(pct(100))),
@@ -492,7 +494,6 @@ pub(super) fn selection_enum_dropdown() -> Node {
             ui::property_row(
                 "Sample Rate",
                 kivact::ui::select(
-                    "Sample Rate",
                     keyed_options([
                         ("hz44100", "44.1 kHz"),
                         ("hz48000", "48 kHz"),
@@ -502,6 +503,7 @@ pub(super) fn selection_enum_dropdown() -> Node {
                     ]),
                     signal(Some("hz48000".to_owned())),
                 )
+                .label("Sample Rate")
                 .placeholder("")
                 .name("Sample Rate")
                 .style(style().width(pct(100))),
@@ -509,10 +511,10 @@ pub(super) fn selection_enum_dropdown() -> Node {
             ui::property_row(
                 "Disabled",
                 kivact::ui::select(
-                    "Selection",
                     keyed_options([("none", "None")]),
                     signal(Some("none".to_owned())),
                 )
+                .label("Selection")
                 .placeholder("")
                 .disabled(true)
                 .style(style().width(pct(100))),
@@ -526,20 +528,22 @@ pub(super) fn selection_enum_dropdown() -> Node {
 pub(super) fn selection_text_field() -> Node {
     spec(
         "Text Field",
-        "テキスト",
+        "Text",
         col((
-            kivact::ui::text_input("Object Name", signal("Shot_010_Comp_v012".into())),
-            kivact::ui::text_input("Search", signal(String::new()))
+            kivact::ui::text_input(signal("Shot_010_Comp_v012".into())).label("Object Name"),
+            kivact::ui::text_input(signal(String::new()))
+                .label("Search")
                 .placeholder("Search effects..."),
-            kivact::ui::text_input("Invalid expression", signal("frame_####.exr".into()))
+            kivact::ui::text_input(signal("frame_####.exr".into()))
+                .label("Invalid expression")
                 .invalid(true)
                 .style(
                     style()
                         .font_family("Geist Mono")
                         .border(1, rgb(0xff5c6c))
-                        .ring(2, rgb(0xff5c6c).with_alpha(0.12)),
+                        .outline(2, rgb(0xff5c6c).with_alpha(0.12)),
                 ),
-            note("⚠ 連番パディング # が出力ディレクトリで重複しています").style(
+            note("⚠ The sequence padding # duplicates a name in the output folder").style(
                 style()
                     .color(rgb(0xff5c6c))
                     .font_size(10.5)
@@ -552,11 +556,10 @@ pub(super) fn selection_text_field() -> Node {
 pub(super) fn selection_data_block_selector() -> Node {
     spec(
         "Data-block Selector",
-        "データブロック",
+        "Data Block",
         col((
             row((
                 kivact::ui::select(
-                    "Browse Material",
                     keyed_options([
                         ("none", "⊖"),
                         ("glass", "Glass"),
@@ -565,10 +568,12 @@ pub(super) fn selection_data_block_selector() -> Node {
                     ]),
                     signal(Some("none".to_owned())),
                 )
+                .label("Browse Material")
                 .placeholder("")
                 .name("Browse Material")
                 .style(style().padding(0)),
-                kivact::ui::text_input("Material Name", signal("Metal.002".into()))
+                kivact::ui::text_input(signal("Metal.002".into()))
+                    .label("Material Name")
                     .style(style().width(0).flex_grow(1)),
                 kivact::ui::button("3")
                     .variant(kivact::ui::ButtonVariant::Secondary)
@@ -588,7 +593,8 @@ pub(super) fn selection_data_block_selector() -> Node {
             .style(style().gap(1)),
             note("File Path").style(style().font_size(11)),
             row((
-                kivact::ui::text_input("Data-block path", signal("//renders/shot010/".into()))
+                kivact::ui::text_input(signal("//renders/shot010/".into()))
+                    .label("Data-block path")
                     .style(style().flex_grow(1).width(0).font_family("Geist Mono")),
                 kivact::ui::button("Browse File Path")
                     .variant(kivact::ui::ButtonVariant::Secondary)
@@ -602,12 +608,19 @@ pub(super) fn selection_data_block_selector() -> Node {
 
 pub(super) fn selection_script_expression() -> Node {
     spec(
-            "Script / Expression",
-            "エクスプレッション",
-            col((
-                kivact::ui::text_area("Expression", signal("// wiggle position\nfreq = 3; amp = 25;\nw = wiggle(freq, amp);\n[w[0], value[1]]".into()))
-                    .style(style().height(108)),
-                line((chip("● valid",rgb(0x34d399)),note("Ln 4, Col 17 · JS").style(style().font_family("Geist Mono").font_size(10.5)))),
+        "Script / Expression",
+        "Expression",
+        col((
+            kivact::ui::text_area(signal(
+                "// wiggle position\nfreq = 3; amp = 25;\nw = wiggle(freq, amp);\n[w[0], value[1]]"
+                    .into(),
+            ))
+            .label("Expression")
+            .style(style().height(108)),
+            line((
+                chip("● valid", rgb(0x34d399)),
+                note("Ln 4, Col 17 · JS").style(style().font_family("Geist Mono").font_size(10.5)),
             )),
-        )
+        )),
+    )
 }

@@ -1,28 +1,33 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
+use super::layout::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::prelude::{
     Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
-use super::layout::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("areas-docking", "Areas & Docking", "Layout", include_str!("areas_docking.rs"))
-        .description("Editor types, splits, maximize and document tabs.")
-        .example(Example::new("areas-docking", "Areas & Docking", "", demo))
+    Page::new(
+        "areas-docking",
+        "Areas & Docking",
+        "Layout",
+        include_str!("areas_docking.rs"),
+    )
+    .description("Editor types, splits, maximize and document tabs.")
+    .example(Example::new("areas-docking", "Areas & Docking", "", demo))
 }
 
 // example: areas-docking

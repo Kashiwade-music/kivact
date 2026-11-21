@@ -50,7 +50,10 @@ pub(super) fn edits(
     }
 }
 /// The provisional automation point of the running edit, created once.
-pub(super) fn provisional_id(txn: Signal<Txn<ArrangementEdit>>, tracks: &[ui::TimelineTrack]) -> u64 {
+pub(super) fn provisional_id(
+    txn: Signal<Txn<ArrangementEdit>>,
+    tracks: &[ui::TimelineTrack],
+) -> u64 {
     Txn::read(txn, |edit| edit.provisional)
         .flatten()
         .unwrap_or_else(|| {

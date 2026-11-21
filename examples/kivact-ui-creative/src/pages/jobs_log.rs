@@ -1,7 +1,9 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::common::*;
 use super::common::{TextRow, bind, col, line, note, spec, specs, text_table};
+use super::jobs::*;
+use catalog_shell::{Example, Page};
 use kivact::draw::{LineCap, LineJoin, Stroke};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
@@ -14,13 +16,16 @@ use kivact::style::GridPlacement;
 use kivact::style::style;
 use kivact::view::Node;
 use kivact_ui_creative as ui;
-use super::jobs::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("jobs-log", "Jobs & Log", "Feedback", include_str!("jobs_log.rs"))
-        .description("Progress, notifications and log.")
-        .example(Example::new("jobs-log", "Jobs & Log", "", demo))
+    Page::new(
+        "jobs-log",
+        "Jobs & Log",
+        "Feedback",
+        include_str!("jobs_log.rs"),
+    )
+    .description("Progress, notifications and log.")
+    .example(Example::new("jobs-log", "Jobs & Log", "", demo))
 }
 
 // example: jobs-log

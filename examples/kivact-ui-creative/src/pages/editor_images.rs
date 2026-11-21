@@ -51,7 +51,7 @@ pub(super) fn histogram(samples: &[Color], mode: &str) -> Pixels {
     let height = 160_u32;
     let mut bins = [[0_u32; 256]; 3];
     for sample in samples {
-        let channels = sample.components();
+        let channels = sample.components(&kivact::style::use_theme().get());
         for channel in 0..3 {
             bins[channel][(channels[channel].clamp(0.0, 1.0) * 255.0) as usize] += 1;
         }

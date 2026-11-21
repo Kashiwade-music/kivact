@@ -55,7 +55,6 @@ impl kivact::state::Machine for JobMachine {
 pub(super) fn job_ring(value: impl IntoValue<f64>) -> Node {
     let value = value.into_value();
     node().style(style().size(38, 38)).draw(move |d, s| {
-        let p = d.theme().ext::<ui::Tokens>();
         let center = Point::new(s.width / 2.0, s.height / 2.0);
         let mut path = kivact::draw::Path::new();
         for i in 0..=50 {
@@ -70,7 +69,7 @@ pub(super) fn job_ring(value: impl IntoValue<f64>) -> Node {
         d.stroke_path(
             &path,
             &Stroke::new(3.0).cap(LineCap::Round).join(LineJoin::Round),
-            p.strong,
+            ui::color::STRONG,
         );
         let v = value.get();
         let mut path = kivact::draw::Path::new();
@@ -86,7 +85,7 @@ pub(super) fn job_ring(value: impl IntoValue<f64>) -> Node {
         d.stroke_path(
             &path,
             &Stroke::new(3.0).cap(LineCap::Round).join(LineJoin::Round),
-            p.accent,
+            ui::color::ACCENT,
         );
     })
 }
@@ -139,7 +138,7 @@ pub(super) fn queue_rows() -> Vec<TextRow> {
 pub(super) fn report_view(status: Signal<String>, log: Signal<Vec<LogLine>>) -> Node {
     spec(
         "Toast / Report",
-        "通知",
+        "Notifications",
         col((
             line(
                 [
@@ -179,7 +178,7 @@ pub(super) fn report_view(status: Signal<String>, log: Signal<Vec<LogLine>>) -> 
                 })
                 .collect::<Vec<_>>(),
             ),
-            note("トーストと同時にステータスバーにもレポートを表示し、インフォログへ記録します。"),
+            note("Reports in the status bar as well as in a toast, and records to the info log."),
         )),
     )
     .style(style().height(162))
@@ -211,22 +210,20 @@ pub(super) fn log_view(log: Signal<Vec<LogLine>>, severity: Signal<Vec<bool>>) -
                 .on_press(move || log.set(Vec::new())),
         ))
         .style(style().height(40).padding_x(10).gap(8)),
-        kivact::ui::text_area(
-            "Job log",
-            bind(
-                move || {
-                    log.with(|lines| {
-                        lines
-                            .iter()
-                            .filter(|line| severity.get()[line.level])
-                            .map(|line| line.text.as_str())
-                            .collect::<Vec<_>>()
-                            .join("\n")
-                    })
-                },
-                |_| {},
-            ),
-        )
+        kivact::ui::text_area(bind(
+            move || {
+                log.with(|lines| {
+                    lines
+                        .iter()
+                        .filter(|line| severity.get()[line.level])
+                        .map(|line| line.text.as_str())
+                        .collect::<Vec<_>>()
+                        .join("\n")
+                })
+            },
+            |_| {},
+        ))
+        .label("Job log")
         .read_only(true)
         .style(style().height(170)),
     ))
@@ -241,7 +238,7 @@ pub(super) fn log_view(log: Signal<Vec<LogLine>>, severity: Signal<Vec<bool>>) -
 pub(super) fn progress_view(running: kivact::state::Value<bool>, amount: Signal<f64>) -> Node {
     spec(
         "Progress",
-        "進捗",
+        "Progress",
         col((
             kivact::ui::progress(Some(0.64)).name("Render progress"),
             kivact::ui::progress(Some(0.32)).name("Proxy progress"),
@@ -252,12 +249,15 @@ pub(super) fn progress_view(running: kivact::state::Value<bool>, amount: Signal<
                 .name("Background task")
                 .style(style().height(18)),
             node().style(style().height(22)).draw(move |d, s| {
-                let p = d.theme().ext::<ui::Tokens>();
                 for i in 0..56 {
                     d.rounded_rect(
                         Rect::new(i as f64 * s.width / 56.0, 5.0, 3.0, 12.0),
                         1.5,
-                        if i < 14 { p.success } else { p.strong },
+                        if i < 14 {
+                            ui::color::SUCCESS
+                        } else {
+                            ui::color::STRONG
+                        },
                     );
                 }
             }),

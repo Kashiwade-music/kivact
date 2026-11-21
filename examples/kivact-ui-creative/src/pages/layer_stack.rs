@@ -1,28 +1,33 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
+use super::layout::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::prelude::{
     Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
-use super::layout::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("layer-stack", "Layer Stack", "Animation", include_str!("layer_stack.rs"))
-        .description("A/V switches, layers, blend modes and parenting.")
-        .example(Example::new("layer-stack", "Layer Stack", "", demo))
+    Page::new(
+        "layer-stack",
+        "Layer Stack",
+        "Animation",
+        include_str!("layer_stack.rs"),
+    )
+    .description("A/V switches, layers, blend modes and parenting.")
+    .example(Example::new("layer-stack", "Layer Stack", "", demo))
 }
 
 // example: layer-stack
@@ -58,7 +63,8 @@ fn demo() -> impl IntoView {
     col((
         line((
             text("Comp 1").style(style().font_weight(600)),
-            kivact::ui::text_input("Layer search", query)
+            kivact::ui::text_input(query)
+                .label("Layer search")
                 .placeholder("Search layers")
                 .style(style().width(180)),
             kivact::ui::toggle_button("Shy", signal(false)),

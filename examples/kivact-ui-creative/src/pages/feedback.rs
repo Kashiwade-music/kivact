@@ -18,12 +18,11 @@ use kivact::view::{Handled, Placement, node_ref, overlay};
 use kivact_ui_creative as ui;
 
 pub(super) fn glass(t: &Theme) -> Style {
-    let p = t.ext::<ui::Tokens>();
     style()
         .background(rgba(0x1e1f26, 0.94))
         .backdrop_blur(22)
-        .color(p.text)
-        .border(1, p.hair_strong)
+        .color(ui::color::TEXT)
+        .border(1, ui::color::HAIR_STRONG)
         .shadow(kivact::style::Shadow::new(0.0, 18.0, 45.0, rgba(0, 0.65)))
 }
 
@@ -34,7 +33,7 @@ pub(super) fn window_options(title: &str, width: f64) -> ui::ToolWindowOptions {
         .frame_padding(0.0)
         .body_padding(0.0)
         .gap(0.0)
-        .border_radius(16.0)
+        .radius(16.0)
         .titlebar_height(40.0)
         .titlebar_padding(14.0, 8.0)
 }
@@ -68,7 +67,13 @@ pub(super) fn render_settings(status: Signal<String>) -> impl kivact::view::Elem
                     keyed_options([("format", "Format"), ("encoding", "Encoding")]),
                     tab,
                 )
-                .style(style().height(40).padding_x(8).padding_y(0).border_radius(0))
+                .style(
+                    style()
+                        .height(40)
+                        .padding_x(8)
+                        .padding_y(0)
+                        .border_radius(0),
+                )
                 .style(
                     style()
                         .background(rgba(0, 0.0))
@@ -89,7 +94,12 @@ pub(super) fn render_settings(status: Signal<String>) -> impl kivact::view::Elem
                 }),
                 window_footer((
                     text("~ 3.2 GB")
-                        .style(style().font_family("Geist Mono").font_size(10.5).flex_grow(1))
+                        .style(
+                            style()
+                                .font_family("Geist Mono")
+                                .font_size(10.5)
+                                .flex_grow(1),
+                        )
                         .style(style().color(ui::color::DIM)),
                     kivact::ui::button("Cancel")
                         .variant(kivact::ui::ButtonVariant::Secondary)
@@ -125,7 +135,7 @@ pub(super) fn close_project(status: Signal<String>) -> impl kivact::view::Elemen
             column((
                 row((
                     node().style(style().size(40, 40).padding(8).border_radius(12).flex_shrink(0))
-                        .style(move || { let t = &use_theme().get(); style().background(t.ext::<ui::Tokens>().warning.with_alpha(0.12)) })
+                        .style(move || { let t = &use_theme().get(); style().background(ui::color::WARNING.with_alpha(0.12)) })
                         .child(kivact::view::icon("warning").style(style().size(24, 24))
                             .style( style().color(ui::color::WARNING))),
                     column((
@@ -210,7 +220,8 @@ pub(super) fn operator_search(
             col((
                 line((
                     kivact::view::icon("search"),
-                    kivact::ui::text_input("Search operators", query)
+                    kivact::ui::text_input(query)
+                        .label("Search operators")
                         .placeholder("Search operators...")
                         .with_node(|node| node.node_ref(field))
                         .style(style().flex_grow(1)),
@@ -299,13 +310,16 @@ pub(super) fn menus_pie_menu(
     )
 }
 
-pub(super) fn menus_dropdown_search(status: Signal<String>, search: Signal<bool>) -> kivact::view::Node {
+pub(super) fn menus_dropdown_search(
+    status: Signal<String>,
+    search: Signal<bool>,
+) -> kivact::view::Node {
     spec(
         "Dropdown / Search",
-        "ドロップダウン・検索",
+        "Dropdown and Search",
         col((
             note(
-                "F3 または右上の検索アイコンから、全 22 章をコマンドとして検索。↑↓ 選択 / Enter 実行 / Esc 閉じる。",
+                "Search for operators with F3 or the search icon at the top right. Up and down select; Enter runs; Esc closes.",
             ),
             line((
                 kivact::ui::menu(
@@ -357,7 +371,7 @@ pub(super) fn menus_dropdown_search(status: Signal<String>, search: Signal<bool>
 pub(super) fn dialogs_metrics_and_descriptions() -> kivact::view::Node {
     spec(
         "Metrics and descriptions",
-        "進捗・指標・表示用の説明",
+        "Progress, Metrics and Display Notes",
         col((
             kivact::ui::heading("Render overview", 3),
             line((
@@ -385,7 +399,7 @@ pub(super) fn dialogs_dialog(status: Signal<String>) -> kivact::view::Node {
         "modal · focus trap",
         col((
             line((render_settings(status), close_project(status))),
-            note("モーダルは背景入力を遮断し、Escape と Close でフォーカスが戻ります。"),
+            note("A modal blocks input to the background; Escape and Close return focus."),
         )),
     )
 }
@@ -415,65 +429,66 @@ pub(super) fn dialogs_tooltip() -> kivact::view::Node {
         "hover · anchor",
         col((
             line((
-                kivact::ui::tooltip("Camera View")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .content(move || {
-                        column((
-                            text("Camera View").style(style().font_weight(600)),
-                            text("Align viewport to the active camera")
-                                .style(style().font_size(11)),
-                            text("Numpad 0").style(move || {
-                                let theme = kivact::style::use_theme().get();
-                                style()
-                                    .font_family(theme.ext::<ui::Tokens>().mono_font.as_str())
-                                    .font_size(10)
-                                    .color(theme.ext::<ui::Tokens>().dim)
-                            }),
-                        ))
-                    })
-                    .attach(
-                        kivact::ui::button("Hover me")
-                            .variant(kivact::ui::ButtonVariant::Secondary),
-                    ),
-                kivact::ui::tooltip("Scale")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .content(move || {
-                        column((
-                            text("Scale").style(style().font_weight(600)),
-                            text("Scale the selection").style(style().font_size(11)),
-                            text("S").style(move || {
-                                let theme = kivact::style::use_theme().get();
-                                style()
-                                    .font_family(theme.ext::<ui::Tokens>().mono_font.as_str())
-                                    .font_size(10)
-                                    .color(theme.ext::<ui::Tokens>().dim)
-                            }),
-                        ))
-                    })
-                    .attach(kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary)),
-                kivact::ui::tooltip("Tool information")
-                    .placement(kivact::view::Placement::Below)
-                    .align(kivact::view::OverlayAlign::Center)
-                    .offset(6.0)
-                    .content(move || {
-                        column((
-                            text("Tool information").style(style().font_weight(600)),
-                            text("Public Kivact view and modifier API")
-                                .style(style().font_size(11)),
-                        ))
-                    })
-                    .attach(
-                        kivact::ui::button("API tooltip")
-                            .variant(kivact::ui::ButtonVariant::Secondary)
-                            .hide_label(true)
-                            .icon(kivact::view::icon("info")),
-                    ),
+                kivact::ui::tooltip(
+                    "Camera View",
+                    kivact::ui::button("Hover me").variant(kivact::ui::ButtonVariant::Secondary),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0)
+                .content(move || {
+                    column((
+                        text("Camera View").style(style().font_weight(600)),
+                        text("Align viewport to the active camera").style(style().font_size(11)),
+                        text("Numpad 0").style(move || {
+                            let theme = kivact::style::use_theme().get();
+                            style()
+                                .font_family("Geist Mono")
+                                .font_size(10)
+                                .color(ui::color::DIM)
+                        }),
+                    ))
+                }),
+                kivact::ui::tooltip(
+                    "Scale",
+                    kivact::ui::button("S").variant(kivact::ui::ButtonVariant::Secondary),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0)
+                .content(move || {
+                    column((
+                        text("Scale").style(style().font_weight(600)),
+                        text("Scale the selection").style(style().font_size(11)),
+                        text("S").style(move || {
+                            let theme = kivact::style::use_theme().get();
+                            style()
+                                .font_family("Geist Mono")
+                                .font_size(10)
+                                .color(ui::color::DIM)
+                        }),
+                    ))
+                }),
+                kivact::ui::tooltip(
+                    "Tool information",
+                    kivact::ui::button("API tooltip")
+                        .variant(kivact::ui::ButtonVariant::Secondary)
+                        .hide_label(true)
+                        .icon(kivact::view::icon("info")),
+                )
+                .placement(kivact::view::Placement::Below)
+                .align(kivact::view::OverlayAlign::Center)
+                .offset(6.0)
+                .content(move || {
+                    column((
+                        text("Tool information").style(style().font_weight(600)),
+                        text("Public Kivact view and modifier API").style(style().font_size(11)),
+                    ))
+                }),
             )),
-            note("0.5 秒ホバーで表示。タイトル・説明・ショートカット・API パスの4要素。"),
+            note(
+                "Shows after hovering for 0.5 seconds. Four parts: title, description, shortcut and API path.",
+            ),
         )),
     )
 }
@@ -481,7 +496,7 @@ pub(super) fn dialogs_tooltip() -> kivact::view::Node {
 pub(super) fn dialogs_banner() -> kivact::view::Node {
     spec(
             "Banner",
-            "インラインバナー",
+            "Inline Banner",
             col((
                 kivact::ui::alert("Media Offline").tone(kivact::interaction::Tone::Warning).with_node(|node| node.role(kivact::view::Role::Status).live_region(kivact::view::LiveRegion::Polite)).description("3 clips could not be found at D:/Footage/Day02/").variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))
@@ -502,7 +517,6 @@ pub(super) fn render_format_fields() -> Node {
         ui::property_row(
             "Preset",
             kivact::ui::select(
-                "Render preset",
                 keyed_options([
                     ("hdtv-1080p", "HDTV 1080p"),
                     ("4k-uhd", "4K UHD"),
@@ -510,6 +524,7 @@ pub(super) fn render_format_fields() -> Node {
                 ]),
                 signal(Some("hdtv-1080p".to_owned())),
             )
+            .label("Render preset")
             .placeholder("")
             .name("Render preset")
             .style(style().width(pct(100))),
@@ -535,7 +550,6 @@ pub(super) fn render_format_fields() -> Node {
         ui::property_row(
             "Frame Rate",
             kivact::ui::select(
-                "Render frame rate",
                 keyed_options([
                     ("23-98", "23.98"),
                     ("24", "24"),
@@ -545,6 +559,7 @@ pub(super) fn render_format_fields() -> Node {
                 ]),
                 signal(Some("24".to_owned())),
             )
+            .label("Render frame rate")
             .placeholder("")
             .name("Render frame rate")
             .style(style().width(pct(100))),
@@ -557,7 +572,6 @@ pub(super) fn render_encoding_fields() -> Node {
         ui::property_row(
             "Container",
             kivact::ui::select(
-                "Render container",
                 keyed_options([
                     ("quicktime", "QuickTime"),
                     ("mp4", "MP4"),
@@ -566,6 +580,7 @@ pub(super) fn render_encoding_fields() -> Node {
                 ]),
                 signal(Some("quicktime".to_owned())),
             )
+            .label("Render container")
             .placeholder("")
             .name("Render container")
             .style(style().width(pct(100))),
@@ -573,7 +588,6 @@ pub(super) fn render_encoding_fields() -> Node {
         ui::property_row(
             "Codec",
             kivact::ui::select(
-                "Render codec",
                 keyed_options([
                     ("prores-422-hq", "ProRes 422 HQ"),
                     ("prores-4444", "ProRes 4444"),
@@ -582,6 +596,7 @@ pub(super) fn render_encoding_fields() -> Node {
                 ]),
                 signal(Some("prores-422-hq".to_owned())),
             )
+            .label("Render codec")
             .placeholder("")
             .name("Render codec")
             .style(style().width(pct(100))),

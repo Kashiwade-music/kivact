@@ -9,7 +9,14 @@ use kivact::style::style;
 use kivact::view::Node;
 use kivact_ui_creative as ui;
 
-pub(super) fn clip(id: u64, label: &str, beat: f64, length: f64, lane: usize, color: u32) -> ui::Clip {
+pub(super) fn clip(
+    id: u64,
+    label: &str,
+    beat: f64,
+    length: f64,
+    lane: usize,
+    color: u32,
+) -> ui::Clip {
     ui::Clip::new(id, lane as u64, beat, length, label).color(rgb(color))
 }
 
@@ -83,7 +90,6 @@ pub(super) fn timeline_toolbar(
         separator(),
         kivact::ui::toggle_button("Snap", snap).icon(kivact::view::icon("magnet")),
         kivact::ui::select(
-            "Timeline grid",
             keyed_options([
                 ("bar", "Bar"),
                 ("beat", "Beat"),
@@ -92,6 +98,7 @@ pub(super) fn timeline_toolbar(
             ]),
             unit,
         )
+        .label("Timeline grid")
         .placeholder("")
         .name("Timeline grid")
         .style(style().width(70)),

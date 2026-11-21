@@ -89,7 +89,7 @@ impl Machine for Measurement {
 pub(super) fn transport_section_transport_panel(state: Signal<TransportState>) -> Node {
     spec(
         "Transport Panel",
-        "トランスポート",
+        "Transport",
         col((
             row((
                 kivact::ui::button("To Start")
@@ -148,7 +148,7 @@ pub(super) fn transport_section_transport_panel(state: Signal<TransportState>) -
             .style(style().height(30).width(pct(100)).border_radius(9))
             .style(style().background(ui::color::CANVAS)),
             note(
-                "Space 再生／停止、Home 先頭、, . で1フレーム移動。全エディタの再生ヘッドが同期します。",
+                "Space plays or stops, Home goes to the start, , and . step one frame. The playhead syncs across all editors.",
             ),
         )),
     )
@@ -160,12 +160,12 @@ pub(super) fn transport_section_lcd_time_display(
 ) -> Node {
     spec(
         "LCD Time Display",
-        "タイム表示",
+        "Time Display",
         col((
             kivact::ui::button("")
                 .variant(kivact::ui::ButtonVariant::Secondary)
                 .name("Primary Time Display")
-                .child(
+                .children(vec![
                     col((
                         row((
                             lcd_note("PRIMARY"),
@@ -185,7 +185,12 @@ pub(super) fn transport_section_lcd_time_display(
                             2 => format!("{:.3} s", state.get().frame / 24.0),
                             _ => format!("{:06}", state.get().frame as u64),
                         })
-                        .style(style().font_family("Geist Mono").font_size(30).font_weight(600)),
+                        .style(
+                            style()
+                                .font_family("Geist Mono")
+                                .font_size(30)
+                                .font_weight(600),
+                        ),
                         row((
                             lcd_note(move || {
                                 format!(
@@ -198,8 +203,9 @@ pub(super) fn transport_section_lcd_time_display(
                             lcd_note(move || format!("SEC {:.3}", state.get().frame / 24.0)),
                         )),
                     ))
-                    .style(style().gap(3)),
-                )
+                    .style(style().gap(3))
+                    .into_view(),
+                ])
                 .style(style().height(88).padding(12).border_radius(12))
                 .style(
                     style()
@@ -210,10 +216,19 @@ pub(super) fn transport_section_lcd_time_display(
             col((
                 row((lcd_note("TEMPO"), spacer(), lcd_note("SIGNATURE"))),
                 row((
-                    text("120.000")
-                        .style(style().font_family("Geist Mono").font_size(22).font_weight(600)),
+                    text("120.000").style(
+                        style()
+                            .font_family("Geist Mono")
+                            .font_size(22)
+                            .font_weight(600),
+                    ),
                     spacer(),
-                    text("4/4").style(style().font_family("Geist Mono").font_size(22).font_weight(600)),
+                    text("4/4").style(
+                        style()
+                            .font_family("Geist Mono")
+                            .font_size(22)
+                            .font_weight(600),
+                    ),
                 )),
                 row((lcd_note("TRACK TEMPO"), spacer(), lcd_note("SYNC INT"))),
             ))
@@ -231,7 +246,7 @@ pub(super) fn transport_section_lcd_time_display(
 pub(super) fn transport_section_locators(state: Signal<TransportState>) -> Node {
     spec(
         "Locators",
-        "ロケーター",
+        "Locators",
         col((
             locator(
                 "L",
@@ -304,7 +319,7 @@ pub(super) fn transport_section_locators(state: Signal<TransportState>) -> Node 
 pub(super) fn knobs_rotary_knob() -> Node {
     spec(
         "Rotary Knob",
-        "ノブ",
+        "Knobs",
         col((
             gain_knob_bank().style(style().gap(10)),
             line((
@@ -355,7 +370,7 @@ pub(super) fn knobs_rotary_knob() -> Node {
 pub(super) fn knobs_channel_fader() -> Node {
     spec(
         "Channel Fader",
-        "フェーダー",
+        "Faders",
         row((
             ui::fader("Volume", signal(0.0))
                 .range(-60.0..=6.0)
@@ -363,7 +378,7 @@ pub(super) fn knobs_channel_fader() -> Node {
             ui::meter("Fader Peak", 0.65).style(style().size(20, 180)),
             col((
                 note("VOLUME").style(style().font_size(10)),
-                note("dB カーブ（−60〜+6）。Ctrl 微調整。Shift 粗調整。"),
+                note("dB curve (-60 to +6). Ctrl for fine, Shift for coarse."),
             )),
         ))
         .style(style().align_items(Align::Start).gap(4)),
@@ -373,7 +388,7 @@ pub(super) fn knobs_channel_fader() -> Node {
 pub(super) fn knobs_horizontal_range(range: Signal<(f64, f64)>) -> Node {
     spec(
         "Horizontal / Range",
-        "横フェーダー・範囲",
+        "Horizontal Fader and Range",
         col((
             row((
                 lcd_note("A"),
@@ -392,7 +407,7 @@ pub(super) fn knobs_horizontal_range(range: Signal<(f64, f64)>) -> Node {
                 spacer(),
                 lcd_note(move || format!("{:.0} – {:.0}", range.get().0, range.get().1)),
             )),
-            ui::range("In Out", range),
+            ui::range(range).name("In Out"),
             lcd_note("SEND LEVEL"),
             ui::value_slider("FX 1 · Reverb", signal(-12.0))
                 .range(-60.0..=6.0)
@@ -412,7 +427,7 @@ pub(super) fn knobs_horizontal_range(range: Signal<(f64, f64)>) -> Node {
 pub(super) fn meters_peak_meter(state: Signal<TransportState>) -> Node {
     spec(
         "Peak Meter",
-        "ピーク",
+        "Peak",
         row((
             ui::meter("Stereo Peak", level(state, 0)).style(style().size(18, 220)),
             column(
@@ -441,7 +456,7 @@ pub(super) fn meters_peak_meter(state: Signal<TransportState>) -> Node {
 pub(super) fn meters_horizontal_meter(state: Signal<TransportState>) -> Node {
     spec(
         "Horizontal Meter",
-        "横型",
+        "Horizontal",
         col((
             ui::meter("Stereo Horizontal", level(state, 0))
                 .orientation(Orientation::Horizontal)
@@ -469,7 +484,7 @@ pub(super) fn meters_horizontal_meter(state: Signal<TransportState>) -> Node {
 pub(super) fn meters_loudness(integrated: kivact::state::MachineHandle<Measurement>) -> Node {
     spec(
         "Loudness",
-        "ラウドネス",
+        "Loudness",
         col((
             line((
                 loudness("MOMENTARY", "−22.8", "LUFS", None),
@@ -506,7 +521,7 @@ pub(super) fn meters_loudness(integrated: kivact::state::MachineHandle<Measureme
                             Point::new(0.0, s.height * i as f64 / 4.0),
                             Point::new(s.width, s.height * i as f64 / 4.0),
                             1.0,
-                            d.theme().ext::<ui::Tokens>().hair,
+                            ui::color::HAIR,
                         );
                     }
                     d.line(
@@ -521,7 +536,7 @@ pub(super) fn meters_loudness(integrated: kivact::state::MachineHandle<Measureme
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .size(kivact::ui::ControlSize::Small)
                     .on_press(move || integrated.send(MeasurementEvent::Reset)),
-                note("再生中のみ積算").style(style().font_size(10.5)),
+                note("Integrates during playback only").style(style().font_size(10.5)),
             )),
         ))
         .style(style().gap(8)),

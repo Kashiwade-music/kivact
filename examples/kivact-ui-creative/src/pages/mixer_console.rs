@@ -1,23 +1,28 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::audio::*;
 use super::audio_values::TransportState;
-use kivact::state::Signal;
 use super::audio_values::level;
+use super::common::*;
 use super::common::{col, note};
+use catalog_shell::{Example, Page};
 use kivact::prelude::{Element, IntoView, rgb, row, scroll, signal};
 use kivact::state::IntoValue;
+use kivact::state::Signal;
 use kivact::state::binding;
 use kivact::style::style;
 use kivact::view::ScrollAxes;
 use kivact_ui_creative as ui;
-use super::audio::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("mixer-console", "Mixer Console", "Audio", include_str!("mixer_console.rs"))
-        .description("Routing, inserts, pan, mute and solo, and volume.")
-        .example(Example::new("mixer-console", "Mixer Console", "", demo))
+    Page::new(
+        "mixer-console",
+        "Mixer Console",
+        "Audio",
+        include_str!("mixer_console.rs"),
+    )
+    .description("Routing, inserts, pan, mute and solo, and volume.")
+    .example(Example::new("mixer-console", "Mixer Console", "", demo))
 }
 
 // example: mixer-console
@@ -58,14 +63,14 @@ fn demo() -> impl IntoView {
                     .into_iter()
                     .map(|item| item.to_string())
                     .collect::<Vec<_>>(),
-                signal(if i < 2 {
-                    0
-                } else if i == 7 {
-                    2
-                } else {
-                    1
-                }),
             )
+            .route(signal(if i < 2 {
+                0
+            } else if i == 7 {
+                2
+            } else {
+                1
+            }))
             .inserts(
                 [
                     ["Gate", "EQ-4", "—", "—"],
@@ -93,7 +98,7 @@ fn demo() -> impl IntoView {
         .collect::<Vec<_>>();
     col((
         scroll(row(strips).style(style().gap(4).padding(8))).axes(ScrollAxes::Horizontal),
-        note("インサート名を表示。M / S はミュート・ソロ。再生するとメーターが動作。"),
+        note("Shows insert names. M / S mute and solo. Meters run during playback."),
     ))
     .style(style().padding_bottom(16))
 }

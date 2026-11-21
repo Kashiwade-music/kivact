@@ -1,10 +1,12 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::audio_samples::*;
 use super::audio_values::TransportState;
 use super::audio_values::{level, smpte};
+use super::common::*;
 use super::common::{bind, col, line, note, spec, specs};
 use super::controls::chip;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::interaction::ScalarMapping;
@@ -17,13 +19,16 @@ use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
-use super::audio_samples::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("knobs-faders", "Knobs & Faders", "Audio", include_str!("knobs_faders.rs"))
-        .description("Knobs, faders and ranges.")
-        .example(Example::new("knobs-faders", "Knobs & Faders", "", demo))
+    Page::new(
+        "knobs-faders",
+        "Knobs & Faders",
+        "Audio",
+        include_str!("knobs_faders.rs"),
+    )
+    .description("Knobs, faders and ranges.")
+    .example(Example::new("knobs-faders", "Knobs & Faders", "", demo))
 }
 
 // example: knobs-faders

@@ -16,13 +16,14 @@ use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
 
-// xtask-allow(state): legacy: tab, display_name, display_axes, display_wireframe; the inspector tab strip's selection, set only by inspector_tabs; it never touches the viewport
 pub(super) fn console_view(output: Signal<String>, command: Signal<String>) -> Node {
     col((
-        kivact::ui::text_area("Console output", output)
+        kivact::ui::text_area(output)
+            .label("Console output")
             .read_only(true)
             .style(style().height(96)),
-        kivact::ui::text_input("Console command", command)
+        kivact::ui::text_input(command)
+            .label("Console command")
             .on_key(move |e| {
                 if e.key() != Key::Enter {
                     return Handled::No;
@@ -75,7 +76,9 @@ pub(super) fn effects_panel() -> Node {
     .content(move |key| {
         if key == "effects" {
             col((
-                kivact::ui::text_input("Find effect", query).placeholder("Find effect"),
+                kivact::ui::text_input(query)
+                    .label("Find effect")
+                    .placeholder("Find effect"),
                 super::layout_reducers::outliner(
                     effects,
                     ui::OutlinerState {
@@ -91,10 +94,10 @@ pub(super) fn effects_panel() -> Node {
                 ui::property_row(
                     "Font",
                     kivact::ui::select(
-                        "Selection",
                         keyed_options([("geist", "Geist"), ("geist-mono", "Geist Mono")]),
                         signal(Some("geist".to_owned())),
                     )
+                    .label("Selection")
                     .placeholder(""),
                 ),
                 ui::property_row("Size", num("Font size", 12.0, 1.0, 300.0, 0, " pt")),
@@ -154,8 +157,12 @@ pub(super) fn layer_property(
         node()
             .style(style().height(22).width(260).flex_shrink(0))
             .draw(move |d, s| {
-                let p = d.theme().ext::<ui::Tokens>();
-                d.line(Point::new(0.0, 0.0), Point::new(0.0, s.height), 1.0, p.dim);
+                d.line(
+                    Point::new(0.0, 0.0),
+                    Point::new(0.0, s.height),
+                    1.0,
+                    ui::color::DIM,
+                );
                 for frame in keys.get() {
                     let x = frame / 240.0 * s.width;
                     d.fill_path(
@@ -165,7 +172,7 @@ pub(super) fn layer_property(
                             .line_to(Point::new(x, 16.0))
                             .line_to(Point::new(x - 4.0, 11.0))
                             .close(),
-                        p.accent,
+                        ui::color::ACCENT,
                     );
                 }
                 let x = state.get().frame / 240.0 * s.width;
@@ -173,7 +180,7 @@ pub(super) fn layer_property(
                     Point::new(x, 0.0),
                     Point::new(x, s.height),
                     1.0,
-                    p.text_high,
+                    ui::color::TEXT_HIGH,
                 );
             }),
     ))
@@ -192,10 +199,10 @@ pub(super) fn inspector_panel(id: u64) -> Node {
             ui::property_row(
                 "Parent",
                 kivact::ui::select(
-                    "Selection",
                     keyed_options([("none", "None"), ("null-1", "Null 1"), ("camera", "Camera")]),
                     signal(Some("none".to_owned())),
                 )
+                .label("Selection")
                 .placeholder(""),
             ),
             ui::property_row("Pass Index", num("", 0.0, 0.0, 999.0, 0, "")),
@@ -230,7 +237,6 @@ pub(super) fn transform_properties() -> Node {
         ui::property_row(
             "Mode",
             kivact::ui::select(
-                "Rotation Mode",
                 keyed_options([
                     ("xyz-euler", "XYZ Euler"),
                     ("quaternion", "Quaternion"),
@@ -238,6 +244,7 @@ pub(super) fn transform_properties() -> Node {
                 ]),
                 signal(Some("xyz-euler".to_owned())),
             )
+            .label("Rotation Mode")
             .placeholder("")
             .name("Rotation Mode")
             .style(style().width(pct(100))),
@@ -274,7 +281,8 @@ pub(super) fn dock_panel(
         "text" => kivact::ui::split(
             editor_sizes,
             (
-                kivact::ui::text_area("Document source", document)
+                kivact::ui::text_area(document)
+                    .label("Document source")
                     .style(style().width(pct(100)).height(pct(100))),
                 ui::panel("Console", console_view(output, command)).style(style().height(pct(100))),
             ),
@@ -294,10 +302,10 @@ pub(super) fn dock_panel(
                 ui::property_row(
                     "Frame Rate",
                     kivact::ui::select(
-                        "Selection",
                         keyed_options([("24", "24"), ("25", "25"), ("30", "30"), ("60", "60")]),
                         signal(Some("24".to_owned())),
                     )
+                    .label("Selection")
                     .placeholder(""),
                 ),
             ))
@@ -311,31 +319,34 @@ pub(super) fn dock_panel(
 
 pub(super) fn dock_console(output: Signal<String>, command: Signal<String>) -> impl IntoView {
     scroll(col((
-        kivact::ui::text_area("Console output", output)
+        kivact::ui::text_area(output)
+            .label("Console output")
             .read_only(true)
             .style(style().height(200)),
-        kivact::ui::text_input("Console command", command).on_key(move |e| {
-            if e.key() == Key::Enter {
-                let cmd = command.get();
-                let answer = if cmd == "help" {
-                    "help · clear · arithmetic expressions".into()
+        kivact::ui::text_input(command)
+            .label("Console command")
+            .on_key(move |e| {
+                if e.key() == Key::Enter {
+                    let cmd = command.get();
+                    let answer = if cmd == "help" {
+                        "help · clear · arithmetic expressions".into()
+                    } else {
+                        ui::evaluate_expression(&cmd).map_or_else(
+                            || "SyntaxError: invalid expression".into(),
+                            |v| v.to_string(),
+                        )
+                    };
+                    if cmd == "clear" {
+                        output.set(String::new())
+                    } else {
+                        output.update(|v| v.push_str(&format!("\n>>> {cmd}\n{answer}")))
+                    }
+                    command.set(String::new());
+                    Handled::Yes
                 } else {
-                    ui::evaluate_expression(&cmd).map_or_else(
-                        || "SyntaxError: invalid expression".into(),
-                        |v| v.to_string(),
-                    )
-                };
-                if cmd == "clear" {
-                    output.set(String::new())
-                } else {
-                    output.update(|v| v.push_str(&format!("\n>>> {cmd}\n{answer}")))
+                    Handled::No
                 }
-                command.set(String::new());
-                Handled::Yes
-            } else {
-                Handled::No
-            }
-        }),
+            }),
     )))
     .into_view()
 }
@@ -421,7 +432,7 @@ pub(super) fn property_fields(
     state: Signal<TransportState>,
     watch: Signal<bool>,
     keys: Signal<Vec<f64>>,
-) -> Vec<ui::Numeric> {
+) -> Vec<ui::Number> {
     initial
         .into_iter()
         .enumerate()
@@ -499,13 +510,11 @@ pub(super) fn layer_cell(
         ))
         .style(style().gap(6))
         .into_view(),
-        5 => ui::range(
-            format!("Layer {id} range"),
-            bind(
-                move || ranges.get()[(id - 1) as usize],
-                move |v| ranges.update(|rs| rs[(id - 1) as usize] = v),
-            ),
-        )
+        5 => ui::range(bind(
+            move || ranges.get()[(id - 1) as usize],
+            move |v| ranges.update(|rs| rs[(id - 1) as usize] = v),
+        ))
+        .name(format!("Layer {id} range"))
         .limits(0.0..=240.0)
         .interval(item.get_untracked().color.unwrap_or(Color::WHITE))
         .movable(true)
@@ -518,7 +527,11 @@ pub(super) fn layer_cell(
     }
 }
 
-pub(super) fn layer_switches(id: u64, column: usize, flags: Signal<Vec<[bool; 12]>>) -> impl IntoView {
+pub(super) fn layer_switches(
+    id: u64,
+    column: usize,
+    flags: Signal<Vec<[bool; 12]>>,
+) -> impl IntoView {
     row((0..if column == 0 { 4 } else { 8 })
         .map(move |index| {
             kivact::ui::toggle_button(
@@ -580,7 +593,6 @@ pub(super) fn layer_choice(
         .map(|label| kivact::interaction::ListItem::new(label.to_owned(), label))
         .collect::<Vec<_>>();
     kivact::ui::select(
-        "Selection",
         options,
         bind(
             move || item.with(|row| row.cells.get(column).cloned()),
@@ -595,6 +607,7 @@ pub(super) fn layer_choice(
             },
         ),
     )
+    .label("Selection")
     .placeholder("")
     .style(style().height(22).width(pct(100)))
     .into_view()

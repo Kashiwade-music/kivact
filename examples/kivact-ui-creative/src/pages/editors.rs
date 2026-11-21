@@ -65,7 +65,7 @@ pub(super) fn scene() -> Node {
                         w,
                         (h - horizon) / 31.0 + 1.0,
                     ),
-                    mix(rgb(0x4e94ae), rgb(0x053957), t),
+                    rgb(0x4e94ae).mix(rgb(0x053957), t, &kivact::style::use_theme().get()),
                 );
             }
             d.fill_path(
@@ -112,24 +112,21 @@ pub(super) fn scene() -> Node {
             );
         })
 }
-pub(super) fn mix(a: Color, b: Color, t: f64) -> Color {
-    let a = a.components();
-    let b = b.components();
-    Color::from_rgba_f64(
-        a[0] + (b[0] - a[0]) * t,
-        a[1] + (b[1] - a[1]) * t,
-        a[2] + (b[2] - a[2]) * t,
-        1.0,
-    )
-}
 
-pub(super) fn picker_channel(color: Signal<Color>, index: usize, label: &str, name: &str) -> impl IntoView {
+pub(super) fn picker_channel(
+    color: Signal<Color>,
+    index: usize,
+    label: &str,
+    name: &str,
+) -> impl IntoView {
     ui::value_slider(
         label.to_owned(),
         bind(
-            move || color.get().components()[index],
+            move || color.get().components(&kivact::style::use_theme().get())[index],
             move |v| {
-                let mut c = color.get_untracked().components();
+                let mut c = color
+                    .get_untracked()
+                    .components(&kivact::style::use_theme().get());
                 c[index] = v;
                 color.set(Color::from_rgba_f64(c[0], c[1], c[2], c[3]));
             },
@@ -146,9 +143,11 @@ pub(super) fn channel(color: Signal<Color>, index: usize, label: &str) -> impl I
     ui::number(
         label.to_string(),
         bind(
-            move || color.get().components()[index],
+            move || color.get().components(&kivact::style::use_theme().get())[index],
             move |v| {
-                let mut c = color.get_untracked().components();
+                let mut c = color
+                    .get_untracked()
+                    .components(&kivact::style::use_theme().get());
                 c[index] = v;
                 color.set(Color::from_rgba_f64(c[0], c[1], c[2], c[3]));
             },
@@ -392,11 +391,13 @@ pub(super) fn animation_dope_sheet(
     .test_id("creative-dopesheet")
 }
 
-pub(super) fn animation_dope_toolbar(state: Signal<TransportState>, keys: Signal<Vec<ui::Keyframe>>) -> Node {
+pub(super) fn animation_dope_toolbar(
+    state: Signal<TransportState>,
+    keys: Signal<Vec<ui::Keyframe>>,
+) -> Node {
     line((
         text("Dope Sheet").style(style().font_weight(600)),
         kivact::ui::select(
-            "Selection",
             keyed_options([
                 ("dope-sheet", "Dope Sheet"),
                 ("action-editor", "Action Editor"),
@@ -404,6 +405,7 @@ pub(super) fn animation_dope_toolbar(state: Signal<TransportState>, keys: Signal
             ]),
             signal(Some("dope-sheet".to_owned())),
         )
+        .label("Selection")
         .placeholder("")
         .style(style().width(110)),
         spacer(),
@@ -432,18 +434,21 @@ pub(super) fn picker_hsv(color: Signal<Color>, index: usize, label: &str) -> imp
         ["H", "S", "V"][index],
         bind(
             move || {
-                let (h, s, v) = ui::color_to_hsv(color.get());
+                let (h, s, v) = ui::color_to_hsv(color.get(), &kivact::style::use_theme().get());
                 [h / 360.0, s, v][index]
             },
             move |value| {
-                let (h, s, v) = ui::color_to_hsv(color.get_untracked());
+                let (h, s, v) =
+                    ui::color_to_hsv(color.get_untracked(), &kivact::style::use_theme().get());
                 let mut c = [h, s, v];
                 c[index] = if index == 0 { value * 360.0 } else { value };
                 color.set(ui::color_from_hsv(
                     c[0],
                     c[1],
                     c[2],
-                    color.get_untracked().components()[3],
+                    color
+                        .get_untracked()
+                        .components(&kivact::style::use_theme().get())[3],
                 ));
             },
         ),
@@ -457,7 +462,7 @@ pub(super) fn picker_hsv(color: Signal<Color>, index: usize, label: &str) -> imp
 pub(super) fn picker_popover() -> Node {
     spec(
         "Swatch Field",
-        "クリックでポップオーバー",
+        "Click for a Popover",
         col((
             ui::property_row("Diffuse", color_swatch(signal(rgb(0xd24b3a)))),
             ui::property_row("Specular Tint", color_swatch(signal(rgb(0xf2e6c8)))),
@@ -466,17 +471,21 @@ pub(super) fn picker_popover() -> Node {
                 color_swatch(signal(rgb(0x5a8ccf).with_alpha(0.6))),
             ),
             ui::property_row("Track Color", color_swatch(signal(rgb(0x3fbf8f)))),
-            note("ドラッグ中はリアルタイム反映、Escape で元の色に戻します。"),
+            note("Changes apply live while dragging; Escape restores the original color."),
         ))
         .role(kivact::view::Role::List),
     )
     .style(style().min_height(516))
 }
 
-pub(super) fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, hex: Signal<String>) -> Node {
+pub(super) fn picker_inline(
+    color: Signal<Color>,
+    mode: Signal<Option<String>>,
+    hex: Signal<String>,
+) -> Node {
     spec(
         "Inline Picker",
-        "インライン",
+        "Inline",
         col((
             ui::color_wheel(color, signal(ui::ColorModel::Rgb))
                 .wheel_size(200.0)
@@ -509,10 +518,18 @@ pub(super) fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, 
             }),
             ui::property_row(
                 "Hex",
-                kivact::ui::text_input("HEX Color", hex).style(style().font_family("Geist Mono")),
+                kivact::ui::text_input(hex)
+                    .label("HEX Color")
+                    .style(style().font_family("Geist Mono")),
             ),
             row((
-                node().style(move || style().height(24).flex_grow(1).border_radius(5).background(color.get())),
+                node().style(move || {
+                    style()
+                        .height(24)
+                        .flex_grow(1)
+                        .border_radius(5)
+                        .background(color.get())
+                }),
                 kivact::ui::button("Eyedropper preview")
                     .variant(kivact::ui::ButtonVariant::Secondary)
                     .hide_label(true)
@@ -539,7 +556,7 @@ pub(super) fn picker_inline(color: Signal<Color>, mode: Signal<Option<String>>, 
                     .on_press(move || color.set(rgb(c)))
             })
             .collect::<Vec<_>>())
-            .style(style().width(248).wrap(true).gap(5)),
+            .style(style().width(248).flex_wrap(true).gap(5)),
         ))
         .role(kivact::view::Role::List)
         .style(style().width(248)),
@@ -610,7 +627,6 @@ pub(super) fn grading_scopes(
 ) -> Node {
     col((
         kivact::ui::select(
-            "Selection",
             keyed_options([
                 ("parade", "Parade"),
                 ("waveform", "Waveform"),
@@ -618,6 +634,7 @@ pub(super) fn grading_scopes(
             ]),
             upper,
         )
+        .label("Selection")
         .placeholder("")
         .style(style().width(110)),
         kivact::view::viewport(move || {
@@ -629,10 +646,10 @@ pub(super) fn grading_scopes(
         .name("Application histogram")
         .style(style().height(340)),
         kivact::ui::select(
-            "Selection",
             keyed_options([("vectorscope", "Vectorscope"), ("histogram", "Histogram")]),
             lower,
         )
+        .label("Selection")
         .placeholder("")
         .style(style().width(110)),
         kivact::view::viewport(move || {
@@ -688,9 +705,13 @@ pub(super) fn scene_sky(d: &mut kivact::draw::Draw, w: f64, horizon: f64) {
     for y in 0..64 {
         let t = y as f64 / 63.0;
         let sky = if t < 0.7 {
-            mix(rgb(0x153565), rgb(0xf89973), t / 0.7)
+            rgb(0x153565).mix(rgb(0xf89973), t / 0.7, &kivact::style::use_theme().get())
         } else {
-            mix(rgb(0xf89973), rgb(0xffd481), (t - 0.7) / 0.3)
+            rgb(0xf89973).mix(
+                rgb(0xffd481),
+                (t - 0.7) / 0.3,
+                &kivact::style::use_theme().get(),
+            )
         };
         d.fill_rect(
             Rect::new(0.0, y as f64 * horizon / 64.0, w, horizon / 64.0 + 1.0),

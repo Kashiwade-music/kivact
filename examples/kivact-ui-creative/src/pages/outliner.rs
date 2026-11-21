@@ -1,28 +1,33 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
+use super::layout::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::prelude::{
     Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
-use super::layout::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("outliner", "Outliner", "Layout", include_str!("outliner.rs"))
-        .description("Hierarchy, selection, visibility and lock.")
-        .example(Example::new("outliner", "Outliner", "", demo))
+    Page::new(
+        "outliner",
+        "Outliner",
+        "Layout",
+        include_str!("outliner.rs"),
+    )
+    .description("Hierarchy, selection, visibility and lock.")
+    .example(Example::new("outliner", "Outliner", "", demo))
 }
 
 // example: outliner
@@ -67,14 +72,14 @@ fn demo() -> impl IntoView {
     ]);
     specs((
         col((
-            row((kivact::ui::select("Outliner mode", keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input("Search Outliner", filter).placeholder("Search").style(style().flex_grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
+            row((kivact::ui::select(keyed_options([("scene", "▧"), ("kivact-file", "Kivact File")]), mode).label("Outliner mode").placeholder("").name("Outliner mode").style(style().width(32).padding(0)),kivact::ui::text_input(filter).label("Search Outliner").placeholder("Search").style(style().flex_grow(1)),kivact::ui::button("Outliner filter").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("filter")),kivact::ui::button("Rename selected").variant(kivact::ui::ButtonVariant::Secondary).hide_label(true).icon(kivact::view::icon("folder")).on_press(move||renaming.set(selected.with(|v|v.first().copied())))))
                 .style(style().height(40).padding_x(8).gap(6)),
             scroll(dynamic(mode,move|mode|{
                 super::layout_reducers::outliner(if mode.as_deref()==Some("scene") { nodes } else { blocks }, ui::OutlinerState { expanded: (signal(if mode.as_deref()==Some("scene") { vec![1,2,4,14,19] } else { vec![101,102] })), selection: selected, renaming}).filter(filter).test_id("creative-scene-outliner")
             })).style(style().height(338).min_height(0)),
         )).style(style().gap(0).grid_column(GridPlacement::span(2)).height(380)),
-        spec("Interaction","操作",col((
-            note("クリックで選択、Ctrl 追加、Shift 範囲。ダブルクリック / F2 で改名。矢印で階層を開閉、ドラッグで移動。"),
+        spec("Interaction","Selection and editing",col((
+            note("Click to select, Ctrl to add, Shift for a range. Double-click or F2 to rename. Arrows open and close levels; drag to move."),
             note(move||format!("ACTIVE       {}\nSELECTED     {}\nROWS         13",nodes.with(|v|v.iter().find(|n|selected.with(|s|s.contains(&n.id))).map_or("—",|n|n.label.as_str()).to_owned()),selected.with(Vec::len))),
         ))).style(style().height(380)),
     ))

@@ -1,19 +1,29 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::common::*;
 use super::common::{col, line, note, spec, specs};
 use super::controls::chip;
+use super::indicators::*;
+use catalog_shell::{Example, Page};
 use kivact::prelude::{Element, IntoView, node, rgb, row, show, signal, spacer, text};
 use kivact::style::{Align, style};
 use kivact::style::{Overflow, TextAlign};
 use kivact::view::Node;
-use super::indicators::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("indicators-labels", "Indicators & Labels", "Controls", include_str!("indicators_labels.rs"))
-        .description("LEDs, status, keycaps, labels and cache indicators.")
-        .example(Example::new("indicators-labels", "Indicators & Labels", "", demo))
+    Page::new(
+        "indicators-labels",
+        "Indicators & Labels",
+        "Controls",
+        include_str!("indicators_labels.rs"),
+    )
+    .description("LEDs, status, keycaps, labels and cache indicators.")
+    .example(Example::new(
+        "indicators-labels",
+        "Indicators & Labels",
+        "",
+        demo,
+    ))
 }
 
 // example: indicators-labels

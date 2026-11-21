@@ -1,28 +1,33 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::chip;
 use super::controls::num;
 use super::controls::slide;
+use super::layout::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::prelude::{
     Element, IntoView, Key, column, dynamic, grid, node, rgb, row, scroll, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::{Align, Color, pct, style};
 use kivact::style::{GridPlacement, Track};
 use kivact::view::Handled;
 use kivact::view::{Node, Orientation};
 use kivact_ui_creative as ui;
-use super::layout::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("property-editor", "Property Editor", "Layout", include_str!("property_editor.rs"))
-        .description("Collapsible sections, properties, keyframe state and modifiers.")
-        .example(Example::new("property-editor", "Property Editor", "", demo))
+    Page::new(
+        "property-editor",
+        "Property Editor",
+        "Layout",
+        include_str!("property_editor.rs"),
+    )
+    .description("Collapsible sections, properties, keyframe state and modifiers.")
+    .example(Example::new("property-editor", "Property Editor", "", demo))
 }
 
 // example: property-editor
@@ -51,9 +56,9 @@ fn demo() -> impl IntoView {
         .style(style().width(278).height(556).padding_x(5)),
         spec(
             "Panel Behaviour",
-            "パネル操作",
+            "Panel Actions",
             col((
-                note("ヘッダーをクリックで開閉。内部値を保持したまま折りたたみます。"),
+                note("Click the header to open or close. Collapsing keeps the internal values."),
                 kivact::ui::disclosure("Viewport Display", signal(true)).content(move || {
                     col((
                         kivact::ui::checkbox("Name", display_name),
@@ -62,7 +67,6 @@ fn demo() -> impl IntoView {
                         ui::property_row(
                             "Display As",
                             kivact::ui::select(
-                                "Selection",
                                 keyed_options([
                                     ("textured", "Textured"),
                                     ("solid", "Solid"),
@@ -70,6 +74,7 @@ fn demo() -> impl IntoView {
                                 ]),
                                 display_as,
                             )
+                            .label("Selection")
                             .placeholder(""),
                         ),
                         ui::property_row("Color", ui::color_popup("Viewport color", display_color))
@@ -83,7 +88,7 @@ fn demo() -> impl IntoView {
                         node.role(kivact::view::Role::Status)
                             .live_region(kivact::view::LiveRegion::Polite)
                     })
-                    .description("ドラッグ・ホイール・直接入力・キー操作で編集。")
+                    .description("Edit by drag, wheel, typing or keys.")
                     .variant(ui::NoticeVariant)
                     .dismiss_content(kivact::view::icon("x"))
                     .dismiss_label(kivact::i18n::message(

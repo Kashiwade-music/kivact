@@ -1,12 +1,13 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::num;
 use super::controls::tool_palette;
 use super::editor_images as images;
+use super::editors::*;
+use catalog_shell::{Example, Page};
 use kivact::draw::Path;
 use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
@@ -14,17 +15,22 @@ use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::view::Node;
+use kivact::view::node_ref;
 use kivact_ui_creative as ui;
-use super::editors::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("3d-viewport", "3D Viewport", "Compositing", include_str!("viewport_3d.rs"))
-        .description("View, grid, selection, pan and zoom.")
-        .example(Example::new("3d-viewport", "3D Viewport", "", demo))
+    Page::new(
+        "3d-viewport",
+        "3D Viewport",
+        "Compositing",
+        include_str!("viewport_3d.rs"),
+    )
+    .description("View, grid, selection, pan and zoom.")
+    .example(Example::new("3d-viewport", "3D Viewport", "", demo))
 }
 
 // example: 3d-viewport

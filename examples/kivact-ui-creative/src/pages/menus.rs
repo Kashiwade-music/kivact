@@ -1,9 +1,11 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::common::*;
 use super::common::{col, keyed_options, line, note, spec, specs};
 use super::controls::num;
 use super::controls::slide;
+use super::feedback::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::interaction::MenuEntry;
 use kivact::prelude::{
@@ -17,8 +19,6 @@ use kivact::style::{Align, Justify, Style, pct, rgba, style};
 use kivact::view::Node;
 use kivact::view::{Handled, Placement, node_ref, overlay};
 use kivact_ui_creative as ui;
-use super::feedback::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
     Page::new("menus", "Menus", "Feedback", include_str!("menus.rs"))

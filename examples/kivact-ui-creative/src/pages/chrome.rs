@@ -32,7 +32,7 @@ pub(super) fn accent_controls(accent: Signal<ui::Accent>) -> Vec<Node> {
                         .border_radius(7)
                         .background(choice.colors().0)
                         .flex_shrink(0)
-                        .selected(style().ring(2, choice.colors().0))
+                        .selected(style().outline(2, choice.colors().0))
                         .hover(style().scale(1.15)),
                 )
         })
@@ -120,7 +120,12 @@ pub(super) fn catalog_status(status: Signal<String>, transport: Signal<Transport
         text(status)
             .role(Role::Status)
             .live_region(LiveRegion::Polite)
-            .style(style().flex_grow(1).text_align(TextAlign::Center).font_size(11)),
+            .style(
+                style()
+                    .flex_grow(1)
+                    .text_align(TextAlign::Center)
+                    .font_size(11),
+            ),
         text(move || {
             format!(
                 "Scene Shot 010   {:.0} f   1920×1080  24 fps   v0.1.0",

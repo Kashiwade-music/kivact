@@ -163,9 +163,9 @@ pub(super) fn media_table(
                         .style(move || {
                             let t = &use_theme().get();
                             style().color(if c == 8 {
-                                t.ext::<ui::Tokens>().accent
+                                ui::color::ACCENT
                             } else {
-                                t.ext::<ui::Tokens>().muted
+                                ui::color::MUTED
                             })
                         })
                         .into_view()
@@ -193,7 +193,8 @@ pub(super) fn media_toolbar(
         .orientation(kivact::view::Orientation::Horizontal)
         .variant(kivact::ui::RadioGroupVariant::Segmented)
         .test_id("creative-media-mode"),
-        kivact::ui::text_input("Search Media Pool", query)
+        kivact::ui::text_input(query)
+            .label("Search Media Pool")
             .placeholder("Search clips...")
             .style(style().width(200)),
         spacer(),
@@ -291,7 +292,7 @@ pub(super) fn media_preview(
                     Point::new(x, 0.0),
                     Point::new(x, s.height),
                     2.0,
-                    d.theme().ext::<ui::Tokens>().accent,
+                    ui::color::ACCENT,
                 );
             }
         })

@@ -20,7 +20,7 @@ pub(super) fn led(c: u32, square: bool) -> Node {
 pub(super) fn indicators_led() -> Node {
     spec(
         "LED",
-        "インジケーター",
+        "Indicators",
         col((
             line(
                 [
@@ -51,7 +51,7 @@ pub(super) fn indicators_led() -> Node {
 pub(super) fn indicators_status_chip() -> Node {
     spec(
         "Status Chip",
-        "状態",
+        "States",
         col((
             line(
                 [
@@ -90,7 +90,13 @@ pub(super) fn indicators_status_chip() -> Node {
                     show(visible, move || {
                         kivact::ui::button(format!("● {s} ×"))
                             .variant(kivact::ui::ButtonVariant::Secondary)
-                            .style(style().height(22).border_radius(10).padding_x(8).color(rgb(c)))
+                            .style(
+                                style()
+                                    .height(22)
+                                    .border_radius(10)
+                                    .padding_x(8)
+                                    .color(rgb(c)),
+                            )
                             .on_press(move || visible.set(false))
                     })
                 })
@@ -109,7 +115,7 @@ pub(super) fn indicators_status_chip() -> Node {
 pub(super) fn indicators_shortcuts() -> Node {
     spec(
         "Shortcuts",
-        "キーキャップ",
+        "Key Caps",
         line(
             [
                 ("Ctrl + Shift + S", "Save As"),
@@ -139,7 +145,7 @@ pub(super) fn indicators_label_colors(
 ) -> Node {
     spec(
         "Label Colors",
-        "ラベル色",
+        "Label Colors",
         col((
             note(move || colors[picked.get()].0.to_owned())
                 .style(style().text_align(TextAlign::End).font_size(9)),
@@ -158,7 +164,7 @@ pub(super) fn indicators_label_colors(
                                     .border_radius(13)
                                     .padding(0)
                                     .background(rgb(c))
-                                    .selected(style().ring(2, rgb(c))),
+                                    .selected(style().outline(2, rgb(c))),
                             )
                             .on_press(move || picked.set(i))
                     })
@@ -173,7 +179,7 @@ pub(super) fn indicators_label_colors(
 pub(super) fn indicators_cache_render_bar() -> Node {
     spec(
         "Cache / Render Bar",
-        "キャッシュ",
+        "Cache",
         col((
             note("RAM preview (green) / disk cache (blue) / uncached (red)")
                 .style(style().font_size(10.5).line_height(1.1)),
@@ -187,7 +193,12 @@ pub(super) fn indicators_cache_render_bar() -> Node {
             .into_iter()
             .map(|(width, c)| node().style(style().flex_grow(width).height(4).background(rgb(c))))
             .collect::<Vec<_>>())
-            .style(style().height(4).border_radius(2).overflow(Overflow::Hidden)),
+            .style(
+                style()
+                    .height(4)
+                    .border_radius(2)
+                    .overflow(Overflow::Hidden),
+            ),
             row((note("0f"), spacer(), note("120f"), spacer(), note("240f")))
                 .style(style().font_family("Geist Mono").font_size(10)),
         ))
@@ -198,7 +209,7 @@ pub(super) fn indicators_cache_render_bar() -> Node {
 pub(super) fn indicators_badges_on_controls() -> Node {
     spec(
         "Badges on Controls",
-        "組み合わせ",
+        "Combinations",
         line((
             kivact::ui::button("♧ Messages ❸").variant(kivact::ui::ButtonVariant::Secondary),
             kivact::ui::button("● Timecode Sync").variant(kivact::ui::ButtonVariant::Secondary),

@@ -1,7 +1,9 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
+use super::common::*;
 use super::common::{col, keyed_options, line, note};
+use super::media_pool::*;
+use catalog_shell::{Example, Page};
 use kivact::geometry::Point;
 use kivact::geometry::Rect;
 use kivact::interaction::ListItem;
@@ -20,13 +22,21 @@ use kivact::view::ScrollAxes;
 use kivact::view::{A11yAction, Handled};
 use kivact::view::{ButtonPress, MouseButton, PointerPhase};
 use kivact_ui_creative as ui;
-use super::media_pool::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("media-pool-data-table", "Media Pool & Data Table", "Layout", include_str!("media_pool_data_table.rs"))
-        .description("Sorting, filters, row selection and labels.")
-        .example(Example::new("media-pool-data-table", "Media Pool & Data Table", "", demo))
+    Page::new(
+        "media-pool-data-table",
+        "Media Pool & Data Table",
+        "Layout",
+        include_str!("media_pool_data_table.rs"),
+    )
+    .description("Sorting, filters, row selection and labels.")
+    .example(Example::new(
+        "media-pool-data-table",
+        "Media Pool & Data Table",
+        "",
+        demo,
+    ))
 }
 
 // example: media-pool-data-table

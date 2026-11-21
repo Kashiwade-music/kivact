@@ -1,12 +1,13 @@
 //! Role: The page of the Creative catalog.
 
-use catalog_shell::{Example, Page};
 use super::audio_values::TransportState;
-use kivact::state::Signal;
+use super::common::*;
 use super::common::{bind, col, keyed_options, line, note, spec, specs};
 use super::controls::num;
 use super::controls::tool_palette;
 use super::editor_images as images;
+use super::editors::*;
+use catalog_shell::{Example, Page};
 use kivact::draw::Path;
 use kivact::geometry::Rect;
 use kivact::geometry::{Point, Size};
@@ -14,17 +15,26 @@ use kivact::interaction::MenuEntry;
 use kivact::prelude::{
     Element, IntoView, NodeRef, Role, dynamic, memo, node, rgb, row, signal, spacer, text,
 };
+use kivact::state::Signal;
 use kivact::style::Position;
 use kivact::style::{Align, Color, Justify, pct, style};
 use kivact::view::Node;
 use kivact_ui_creative as ui;
-use super::editors::*;
-use super::common::*;
 
 pub(crate) fn page() -> Page {
-    Page::new("color-grading-scopes", "Color Grading & Scopes", "Compositing", include_str!("color_grading_scopes.rs"))
-        .description("Lift, gamma, gain, parade, waveform and vectorscope.")
-        .example(Example::new("color-grading-scopes", "Color Grading & Scopes", "", demo))
+    Page::new(
+        "color-grading-scopes",
+        "Color Grading & Scopes",
+        "Compositing",
+        include_str!("color_grading_scopes.rs"),
+    )
+    .description("Lift, gamma, gain, parade, waveform and vectorscope.")
+    .example(Example::new(
+        "color-grading-scopes",
+        "Color Grading & Scopes",
+        "",
+        demo,
+    ))
 }
 
 // example: color-grading-scopes
@@ -42,23 +52,29 @@ fn demo() -> impl IntoView {
         signal(rgb(0x8b7cff)),
     ];
     let samples = memo(move || {
-        let tint = wheels[0].get().components();
+        let tint = wheels[0]
+            .get()
+            .components(&kivact::style::use_theme().get());
         (0..4096)
             .map(|i| {
                 let x = (i % 128) as f64 / 127.0;
                 let y = (i / 128) as f64 / 31.0;
                 let noise = ((i as u64 * 1664525 + 1013904223) % 65536) as f64 / 65535.0 - 0.5;
                 let c = if y < 0.58 {
-                    mix(rgb(0x183961), rgb(0xffb272), y / 0.58)
+                    rgb(0x183961).mix(rgb(0xffb272), y / 0.58, &kivact::style::use_theme().get())
                 } else {
-                    mix(rgb(0x4e94ae), rgb(0x053957), (y - 0.58) / 0.42)
+                    rgb(0x4e94ae).mix(
+                        rgb(0x053957),
+                        (y - 0.58) / 0.42,
+                        &kivact::style::use_theme().get(),
+                    )
                 };
                 let c = if x < 0.22 && y > 0.45 {
                     rgb(0x279837)
                 } else {
                     c
                 };
-                let mut c = c.components();
+                let mut c = c.components(&kivact::style::use_theme().get());
                 if !bypass.get() {
                     for k in 0..3 {
                         c[k] = (c[k] + (tint[k] - 0.478) * 0.3 + noise * 0.10).clamp(0.0, 1.0);
