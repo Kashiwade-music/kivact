@@ -88,7 +88,7 @@ pub use layout::{
     Align, AvailableSpace, Baseline, Breadth, Display, EditLineLayout, FlexDirection, GridAutoFlow,
     GridContainer, GridLine, GridPos, GridProps, GridRepeat, GridTrack, IntrinsicSize, Justify,
     LayoutProps, LeafSize, MeasureRequest, Overflow, OverlayAlign, OverlayAt, OverlayFit,
-    OverlayProps, Placement, Position, ScrollAxes, TrackSize, Visibility,
+    OverlayProps, Placement, Position, ScrollAxes, SurfacePlacement, TrackSize, Visibility,
 };
 pub use length::{Length, auto, em, pct};
 pub use motion::{

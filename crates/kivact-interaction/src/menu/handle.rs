@@ -5,7 +5,7 @@ use super::session::Session;
 use super::state::Edge;
 use super::state::{MenuEntry, MenuItemState, MenuOrigin, MenuRow};
 use crate::focus_return::PopupCloseReason;
-use crate::popup::PopupState;
+use crate::popup::{PopupState, with_placement};
 use kivact_core::ErrorKind;
 use kivact_core::custom::raise;
 use kivact_core::custom::{Part, part};
@@ -450,17 +450,21 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
     #[track_caller]
     pub fn surface<V: IntoView>(
         self,
-        placement: kivact_core::view::Placement,
+        placement: impl Into<kivact_core::view::SurfacePlacement>,
         content: impl Fn() -> V + 'static,
     ) -> View {
+        let placement: kivact_core::view::SurfacePlacement = placement.into();
         let content = std::rc::Rc::new(content);
         let (session, level) = (self.session, self.level);
         if level.depth > 0 {
             let prefix = level.prefix;
             return kivact_core::view::show(level.shown, move || {
                 let anchor = session.item_anchor(&prefix.get_untracked());
-                kivact_core::view::overlay(anchor, placement, content())
-                    .with_node(|n| n.part(self.content()))
+                with_placement(
+                    kivact_core::view::overlay(anchor, placement.side, content()),
+                    placement,
+                )
+                .with_node(|n| n.part(self.content()))
             })
             .into_view();
         }
@@ -475,13 +479,13 @@ impl<K: kivact_core::state::ItemKey> MenuApi<K> {
                             Some(MenuOrigin::Pointer(point)) => point,
                             _ => kivact_core::geometry::Point::new(0.0, 0.0),
                         },
-                        placement,
+                        placement.side,
                         content(),
                     )
                 } else {
-                    kivact_core::view::overlay(session.anchor, placement, content())
+                    kivact_core::view::overlay(session.anchor, placement.side, content())
                 };
-                layer.with_node(|n| n.part(self.content()))
+                with_placement(layer, placement).with_node(|n| n.part(self.content()))
             })
         })
         .into_view()
