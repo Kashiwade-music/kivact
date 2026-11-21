@@ -743,3 +743,17 @@ E25（lane E1、作業ツリーの未 commit の 6 file。HEAD は `6b66158b`）
 - **原因（見立て）**：付属書 E25 の EN-27（「文字入力の入口は sync せず、続く pump の settle に任せる」）に従い、`model/keys.rs`（`key`・`paste`）と `model/edit/ime.rs`（`preedit`・`commit`・`ime_select`）から `sync()` を外した。`reconvert` の経路がその `sync()` に依っていた。試験は pump を挟まず a11y を読む。
 - **設計者が決める**（0.5 の表に当たらない。a11y の期待値は差戻し対象）：(a) `ime_select`（または `reconvert` の経路）の `sync()` を残す（E25 の手順 3 の一部を取り消す。試験の期待値は変えない）、(b) 試験の前に pump を挟む（試験の期待値を変える。設計者の承認が要る）、(c) EN-27 の文を直す。
 - 作業ツリーの変更は reset せず残してある（lane E1 の `W:/w/kv-wt/rw-W7a-E1`）。E25 の他の確認（engine の試験 13 件、E2E の他の 11 module、fmt、clippy、xtask）は通った（`V:/kv-target/logs-W7a-verify/e1-*.log`）。
+
+## 設計者の回答（W7a・E25 の差戻しと、確認の残り、2026-11-21）
+
+- **E25**：(a)・(b) は採らない。EN-27 と E25 の早い return（`is_clean`）は、「書込み・入力・tick・resize・asset は、すべて一つの `Changes` に記録される」（`sync.rs` の module doc）を前提にしている。試験が落ちたのは、reconvert の経路のどこかが `Changes` に記録せずに状態を変え、前は無条件の `sync` がそれを拾っていたためと見る（隠れた通り道。root で直す）。次の順で調べて直す（subagent に任せてよい）：
+  1. 手順 3 の早い return だけを一時的に外して試験を走らせる。通るなら、早い return が仕事を飛ばしている。reconvert（`ime_select`・`session_select`・`session_event` と、それを受けた App の commit）の後に、`sync` のどの段が a11y の選択範囲を出しているか、その段が読む状態を誰が書いているかを突き止め、その書き手が `Changes` に印を付ける（その段が既に使う `Dirty::` の bit か `Changes` の field。新しい field は作らない）。早い return は戻す。
+  2. 早い return を外しても落ちるなら、手順 7 の `sync()` の削除が原因（試験の host の経路で、入力の後に settle が走っていない）。その場合は、落ちる入口の関数だけ `self.sync();` を残し、付属書 E25 の手順 7 と EN-27 の文をその入口を除く形に Orchestrator が直す（設計者の決まりとして記録する）。
+  どちらでも試験の期待値は変えない。E25 の確認を全部やり直してから commit し、E26 へ進む。
+- **J5（DevTools の override 名）**：採る。DevTools の名前は style の setter の名前（S20 の CSS の名前）に揃える。wire は rework の中で互換を約束しない。表示用の label（`node.rs` の "ring"・"radius"・"weight"）も同じ名前にする：W11c の後片付けの unit に入れる（設計者が付属書に書く）。
+- **S22 の食い違い 6**：数える（ST-31 の「数えて報告する」が正）。span の変換で捨てる text 系の property を `Unsupported` に数える unit を、設計者が W9 の前に付属書 S に足す（S22b）。それまで今の形でよい。
+- **S22 の食い違い 9（paragraph の `tabular_nums`）**：設計者が調べ、要るなら同じ時に unit を足す（S22c）。
+- **U21 (a)〜(d)**：採る。(a) は 4.3 の fallback の規則どおり。G の移行の文書に「combobox の focus ring は theme の `focus_ring()` でなく token の `FOCUS_RING`」を 1 行足す（W11b）。
+- **U22 の `date_range_input`・`date_time_input` の既定の label**：既存のメッセージのままでよい。
+- **push**：W6b までの統合 branch は、利用者の許可を得て設計者が push した（`b1b2c3c2`）。Orchestrator は push しない。
+- **W6b の worktree と branch の後片付け**：権限の判定で拒否された操作なので、利用者の判断を待つ。それまで残す（作業の妨げにならない）。
