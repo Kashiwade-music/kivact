@@ -100,7 +100,7 @@ pub use panel_group::{InspectorPanel, panel_group};
 pub use pie::{PieEntry, PieMenu, PieMode, PieState, pie_menu};
 pub use property_row::{PropertyRow, PropertyStateButton, property_row, property_state_button};
 pub use range::{Range, range};
-pub use tabs::document_tabs;
+pub use tabs::{DocumentTabs, document_tabs};
 pub use theme::{ThemeOptions, theme, theme_with};
 pub use timeline::{TimelineEditor, timeline_editor};
 pub use variants::NoticeVariant;
