@@ -112,7 +112,7 @@ pub use kivact_types::{
 pub use node_ref::{NodeRef, ScrollBehavior, node_ref};
 pub use node_status_data::ScrollState;
 #[doc(inline)]
-pub use overlays::{Overlay, OverlayAlign, Placement, overlay, overlay_at};
+pub use overlays::{Overlay, OverlayAlign, Placement, SurfacePlacement, overlay, overlay_at};
 
 #[doc(inline)]
 pub use foreign::ForeignChild;

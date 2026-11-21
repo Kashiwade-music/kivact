@@ -99,6 +99,12 @@ pub use kivact_types::Placement;
 #[doc(inline)]
 pub use kivact_types::OverlayAlign;
 
+/// Where a surface opens: a [`Placement`] side, with an optional
+/// [`OverlayAlign`] and offset (`Placement::Below.align(..).offset(..)`).
+/// A bare `Placement` converts into one.
+#[doc(inline)]
+pub use kivact_types::SurfacePlacement;
+
 /// Where an overlay is placed, chosen by its constructor: the reactive source
 /// of [`kivact_types::OverlayAt`] (the same two cases).
 enum Place {
