@@ -10,6 +10,7 @@
 //! ```
 mod avatar;
 mod banner;
+mod blockquote;
 mod code;
 mod color;
 mod hover_card;
@@ -48,6 +49,7 @@ mod recipes_overlays_menu;
 mod recipes_overlays_select;
 mod shadows;
 mod space;
+mod text;
 mod theme;
 mod theme_policy;
 mod type_scale;
@@ -56,6 +58,7 @@ mod visually_hidden;
 
 pub use avatar::{AvatarSilhouette, avatar_silhouette};
 pub use banner::{BannerIcon, banner_icon};
+pub use blockquote::{Blockquote, BlockquoteText, blockquote, blockquote_text};
 pub use code::{Code, CodeColor, code};
 pub use color::{
     ACCENT, ACCENT_HOVER, ACCENT_MUTED, BG_BODY, BG_CARD, BG_ERROR_INVERTED, BG_INVERTED, BG_MUTED,
@@ -98,6 +101,10 @@ pub use space::{
     SPACE_CARD_PADDING, SPACE_DIALOG_PADDING, SPACE_LAYER_VIEWPORT_GUTTER, SPACE_S0, SPACE_S0_5,
     SPACE_S1, SPACE_S1_5, SPACE_S2, SPACE_S3, SPACE_S4, SPACE_S5, SPACE_S6, SPACE_S7, SPACE_S8,
     SPACE_S9, SPACE_S10, SPACE_S11, SPACE_S12, SPACE_SECTION_PADDING, Space,
+};
+pub use text::{
+    StyledText, TextColor, TextJustify, TextKind, TextSize, TextWeight, TextWrap, TruncateTooltip,
+    WordBreak, styled_text,
 };
 pub use theme::theme;
 pub use variants::{
