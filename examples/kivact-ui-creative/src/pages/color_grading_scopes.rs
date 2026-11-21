@@ -89,6 +89,7 @@ fn demo() -> impl IntoView {
         ))
         .style(style().padding(12)),
     ))
+    .style(style().width(pct(100)))
 }
 // end example
 
@@ -112,7 +113,7 @@ fn grade_wheels(wheels: [Signal<Color>; 4]) -> impl IntoView {
                     channel(wheels[i], 2, "Grade B"),
                 )),
             ))
-            .style(style().width(pct(25)).padding(12))
+            .style(style().width(pct(50)).padding(12))
             .style(
                 style()
                     .border_top(1, ui::color::HAIR)
@@ -120,4 +121,5 @@ fn grade_wheels(wheels: [Signal<Color>; 4]) -> impl IntoView {
             )
         })
         .collect::<Vec<_>>())
+    .style(style().flex_wrap(true))
 }

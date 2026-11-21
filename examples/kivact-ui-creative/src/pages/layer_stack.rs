@@ -3,8 +3,9 @@
 use super::common::*;
 use super::layout::*;
 use catalog_shell::{Example, Page};
-use kivact::prelude::{Element, IntoView, signal, text};
-use kivact::style::style;
+use kivact::prelude::{Element, IntoView, scroll, signal, text};
+use kivact::style::{pct, style};
+use kivact::view::ScrollAxes;
 
 pub(crate) fn page() -> Page {
     Page::new(
@@ -58,40 +59,45 @@ fn demo() -> impl IntoView {
             kivact::ui::toggle_button("Collapse", signal(false)),
             kivact::ui::toggle_button("Motion Blur", signal(false)),
         )),
-        super::common::text_table(
-            &[
-                ("A/V", 104.0),
-                ("Layer Name", 0.0),
-                ("Switches", 160.0),
-                ("Mode", 110.0),
-                ("Parent & Link", 120.0),
-                ("Range", 260.0),
-            ],
-            rows,
-            signal(vec![4]),
-            signal(None),
+        scroll(
+            super::common::text_table(
+                &[
+                    ("A/V", 104.0),
+                    ("Layer Name", 0.0),
+                    ("Switches", 160.0),
+                    ("Mode", 110.0),
+                    ("Parent & Link", 120.0),
+                    ("Range", 260.0),
+                ],
+                rows,
+                signal(vec![4]),
+                signal(None),
+            )
+            .filter(query)
+            .row_label(|row| row.cells.get(1).cloned().unwrap_or_default())
+            .resizable(signal(Vec::new()))
+            .cell_controls(move |item, column| {
+                layer_cell(item, column, flags, opened, ranges, rows)
+            })
+            .row_details(move |item| {
+                let id = item.get_untracked().id;
+                col((
+                    text("⌄  Transform").style(style().height(20).font_weight(600)),
+                    layer_property(id, "Anchor Point", vec![960.0, 540.0], "", state, false),
+                    layer_property(id, "Position", vec![960.0, 540.0], "", state, id == 2),
+                    layer_property(id, "Scale", vec![100.0, 100.0], "%", state, false),
+                    layer_property(id, "Rotation", vec![0.0], "°", state, false),
+                    layer_property(id, "Opacity", vec![100.0], "%", state, id == 2),
+                ))
+                .hidden(move || !opened.with(|v| v.contains(&id)))
+                .style(style().padding_left(168).gap(4).padding_bottom(8))
+                .into_view()
+            })
+            .on_reorder(move |change| super::layout_reducers::reorder(rows, change.key, change.to))
+            .name("Layer Stack table"),
         )
-        .filter(query)
-        .row_label(|row| row.cells.get(1).cloned().unwrap_or_default())
-        .resizable(signal(Vec::new()))
-        .cell_controls(move |item, column| layer_cell(item, column, flags, opened, ranges, rows))
-        .row_details(move |item| {
-            let id = item.get_untracked().id;
-            col((
-                text("⌄  Transform").style(style().height(20).font_weight(600)),
-                layer_property(id, "Anchor Point", vec![960.0, 540.0], "", state, false),
-                layer_property(id, "Position", vec![960.0, 540.0], "", state, id == 2),
-                layer_property(id, "Scale", vec![100.0, 100.0], "%", state, false),
-                layer_property(id, "Rotation", vec![0.0], "°", state, false),
-                layer_property(id, "Opacity", vec![100.0], "%", state, id == 2),
-            ))
-            .hidden(move || !opened.with(|v| v.contains(&id)))
-            .style(style().padding_left(168).gap(4).padding_bottom(8))
-            .into_view()
-        })
-        .on_reorder(move |change| super::layout_reducers::reorder(rows, change.key, change.to))
-        .name("Layer Stack table"),
+        .axes(ScrollAxes::Horizontal),
     ))
-    .style(style().padding(8))
+    .style(style().padding(8).width(pct(100)))
 }
 // end example
