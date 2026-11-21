@@ -22,10 +22,33 @@ use crate::theme::value::Theme;
 pub use crate::theme::value::{install_theme, theme_of};
 use kivact_types as p;
 
+/// A text declaration a span cannot carry: it belongs to the paragraph
+/// (lines, alignment, overflow, clamping, case, editing colors) or to the
+/// whole text's paint (shadow, paint order, optical sizing).
+fn span_drops(d: &Decl) -> bool {
+    matches!(
+        d,
+        Decl::LineHeight(_)
+            | Decl::TextWrap(_)
+            | Decl::TextAlign(_)
+            | Decl::TextOverflow(_)
+            | Decl::LineClamp(_)
+            | Decl::TextCapsize(_)
+            | Decl::TextTransform(_)
+            | Decl::PaintOrder(_)
+            | Decl::FontOpticalSizing(_)
+            | Decl::CaretColor(_)
+            | Decl::SelectionColor(_)
+            | Decl::PlaceholderColor(_)
+            | Decl::TextShadow(_)
+    )
+}
+
 /// A span's or an editing range's style compiled against `theme`: its text
 /// properties, its background, and how many of its values the host cannot
 /// take (a declaration that is neither text nor `background`, and the values
-/// the host drops), reported as `Unsupported`.
+/// the host drops), reported as `Unsupported`. Declarations a span cannot
+/// carry (`span_drops`) are counted with the rest.
 pub fn compile_span(
     style: &crate::sheet::Style,
     theme: &Theme,
@@ -33,7 +56,9 @@ pub fn compile_span(
     let rejected = style
         .decls
         .iter()
-        .filter(|d| d.group() != PropGroup::Text && !matches!(d, Decl::Background(_)))
+        .filter(|d| {
+            (d.group() != PropGroup::Text && !matches!(d, Decl::Background(_))) || span_drops(d)
+        })
         .count() as u32;
     let compiled = compile_style(style.clone(), theme, Interactive::default());
     let dropped = compiled.misplaced_lengths + compiled.unsupported_text;
@@ -55,4 +80,25 @@ pub fn resolve_color(color: crate::Color, theme: &Theme) -> p::Rgba {
 pub fn try_use_theme() -> Option<Theme> {
     let owner = kivact_runtime::Owner::try_ambient()?;
     theme_of(owner).map(|theme| kivact_runtime::untrack(|| theme.get()))
+}
+
+#[cfg(test)]
+mod tests {
+    //! Role: Tests of the style bridges.
+    use super::*;
+    use crate::rgb;
+    use crate::sheet::style;
+
+    #[test]
+    fn a_span_counts_the_text_declarations_it_cannot_carry() {
+        let theme = Theme::light();
+        let paragraph = style()
+            .line_height(2.0)
+            .text_align(p::TextAlign::Center)
+            .color(rgb(0x2563eb))
+            .font_weight(700);
+        assert_eq!(compile_span(&paragraph, &theme).2, 2);
+        let inline = style().color(rgb(0x2563eb)).tabular_nums();
+        assert_eq!(compile_span(&inline, &theme).2, 0);
+    }
 }
