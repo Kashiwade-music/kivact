@@ -1408,3 +1408,12 @@ W8-fix（branch `wt/rw-W8-fix`、基点 `1323f8d1`。未 commit の変更が wor
 ## 設計者の記録（P3 の効果、2026-11-22）
 
 - counter の click（kv_latency と同じ手順、200 回）：確保は P1 の merge の 496 → 234 回/click（-53%）、bytes は 122.8 → 49.7 KB/click（-59%）。最初の基点（625 回、182.9 KB）からは -63%・-73%。style の effect と `compile_style` は click では一度も走らない（以前は 4 回ずつ）。engine の stats の差分は同じ。測ったのは設計者の subagent（`V:/kv-target/bisect-k5/p3-*.raw`）。時間は CP3 の KPI で判定する。
+
+## 設計者の回答（K32 の more_menu・power_search・media_overlay の包み、2026-11-22）
+
+- **more_menu・power_search**：包む node を作らない（alert_dialog の答えと同じ理由。node が layout と a11y に一つ増え、caller の modifier が trigger から外れる）。中核の `Menu`・`Select`・`Dialog` と同じく、手書きの builder の例外（理由 1：trigger と surface が兄弟）にする。
+  - 型は `MoreMenu`・`PowerSearch`。`node_mut()` は trigger の node を返し、caller の modifier（`width`、`hidden`、`name` など）は旧と同じく trigger に付く。`into_view` は旧と同じ兄弟（trigger と surface。more_menu は `tooltip(label, trigger)` を trigger として `attach` に渡す形）を返す。
+  - 手書きの builder の規則（caller の値は `node_mut().authored()` から読む、診断の位置は `caller.at()`、引数の無い setter は `bool`）を守る。
+  - `dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に `kivact_ui_soft::more_menu::MoreMenu <file>` と `kivact_ui_soft::power_search::PowerSearch <file>` を足す（file は実際の path）。K32 の完了条件の `rg` から、その 2 つの file を外してよい。
+  - lane K5 の fix の commit で行う。
+- **media_overlay**：今の形（`media_overlay(content, base) -> impl Element`、root は `column`）を採る。旧と構造が同じで、modifier の付く先も同じ。
