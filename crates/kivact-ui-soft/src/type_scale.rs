@@ -32,8 +32,6 @@ pub(crate) const SIZE_XL: f64 = 20.0;
 pub(crate) const SIZE_2XL: f64 = 24.0;
 pub(crate) const SIZE_3XL: f64 = 29.0;
 pub(crate) const SIZE_4XL: f64 = 35.0;
-pub(crate) const SIZE_5XL: f64 = 42.0;
-pub(crate) const LETTER_SPACING: f64 = 0.0;
 
 pub(crate) const DISPLAY1: TypeStyle = TypeStyle {
     size_px: 42.0,

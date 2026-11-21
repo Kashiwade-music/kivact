@@ -240,6 +240,7 @@ pub use variants::{
     PaginationSize, RowStatusDot, SectionVariant, SegmentedIconOnly, SegmentedLayout,
     SkeletonRadius, SpinnerShade, SpinnerVariant, StepCollapsedVariant, StepDensity,
     StepIndicatorPosition, SystemMessageVariant, TableCellAlign, TableCellDivider,
-    TableRowDividers, TableRowHover, TableRowStriped, ToolbarVariant, TreeGuides,
+    TableRowDividers, TableRowHover, TableRowStriped, TabsDivider, TabsFullBleed, TabsLayout,
+    ToolbarVariant, TreeGuides,
 };
 pub use visually_hidden::{VisuallyHidden, visually_hidden};

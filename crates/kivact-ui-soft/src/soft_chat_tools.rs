@@ -11,13 +11,10 @@ use crate::radius::RADIUS_ELEMENT;
 use crate::type_scale as t;
 use crate::{SpinnerShade, SpinnerVariant};
 use kivact::component;
-use kivact::custom::EditState;
 use kivact::i18n::{message, message_with};
 use kivact::interaction::use_disclosure;
 use kivact::motion::Transition;
 use kivact::state::IntoValue;
-use kivact::state::Machine;
-use kivact::state::Step;
 use kivact::state::Value;
 use kivact::state::binding;
 use kivact::state::memo;
@@ -34,7 +31,6 @@ use kivact::view::Key;
 use kivact::view::KeyEvent;
 use kivact::view::Node;
 use kivact::view::Role;
-use kivact::view::Span;
 use kivact::view::View;
 use kivact::view::column;
 use kivact::view::for_each;
@@ -44,7 +40,6 @@ use kivact::view::node_ref;
 use kivact::view::row;
 use kivact::view::show;
 use kivact::view::show_some;
-use kivact::view::span;
 use kivact::view::text;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -297,181 +292,6 @@ fn tool_chevron(open: impl IntoValue<bool>) -> Node {
             .rotate(if open.get() { 180 } else { 0 })
             .transition(TransitionProp::All, Transition::tween(125.0, EASE_STANDARD))
     })
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-/// Semantic color treatment of a substituted chat token.
-pub(crate) enum ChatTokenTone {
-    #[default]
-    /// Use neutral token colors.
-    Neutral,
-    /// Use informational token colors.
-    Info,
-    /// Use successful token colors.
-    Success,
-    /// Use warning token colors.
-    Warning,
-    /// Use error token colors.
-    Error,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-/// A source substring and its styled replacement label.
-pub(crate) struct ChatToken {
-    /// Nonempty source substring to replace when tokenizing text.
-    pub value: String,
-    /// Visible replacement label.
-    pub label: String,
-    /// Semantic color treatment of the replacement.
-    pub tone: ChatTokenTone,
-}
-
-impl ChatToken {
-    /// Create a neutral token replacing the supplied source substring with a label.
-    pub(crate) fn badge(value: impl Into<String>, label: impl Into<String>) -> Self {
-        Self {
-            value: value.into(),
-            label: label.into(),
-            tone: ChatTokenTone::Neutral,
-        }
-    }
-    /// Set the semantic color treatment of this token.
-    pub(crate) fn tone(mut self, tone: ChatTokenTone) -> Self {
-        self.tone = tone;
-        self
-    }
-}
-
-fn token_colors(tone: ChatTokenTone) -> (kivact::style::Color, kivact::style::Color) {
-    match tone {
-        ChatTokenTone::Neutral => (c::NEUTRAL, c::TEXT_PRIMARY),
-        ChatTokenTone::Info => (c::INFO_MUTED, c::ON_INFO_MUTED),
-        ChatTokenTone::Success => (c::SUCCESS_MUTED, c::ON_SUCCESS_MUTED),
-        ChatTokenTone::Warning => (c::WARNING_MUTED, c::ON_WARNING_MUTED),
-        ChatTokenTone::Error => (c::ERROR_MUTED, c::ON_ERROR_MUTED),
-    }
-}
-
-fn tokenize(source: &str, tokens: &[ChatToken]) -> Vec<Span> {
-    let mut spans = Vec::new();
-    let mut rest = source;
-    while !rest.is_empty() {
-        let next = tokens
-            .iter()
-            .filter(|token| !token.value.is_empty())
-            .filter_map(|token| rest.find(&token.value).map(|index| (index, token)))
-            .min_by_key(|(index, _)| *index);
-        let Some((index, token)) = next else {
-            spans.push(span(rest));
-            break;
-        };
-        if index != 0 {
-            spans.push(span(&rest[..index]));
-        }
-        let (fill, ink) = token_colors(token.tone);
-        spans.push(
-            span(token.label.clone())
-                .font_size(12)
-                .font_weight(500)
-                .background(fill)
-                .color(ink),
-        );
-        rest = &rest[index + token.value.len()..];
-    }
-    spans
-}
-
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-/// Reveal pacing used while streamed text is arriving.
-pub(crate) enum StreamSpeed {
-    #[default]
-    /// Reveal text in the standard paced batches.
-    Natural,
-    /// Use shorter ticks and smaller reveal batches.
-    Fast,
-    /// Show the complete target immediately.
-    Instant,
-}
-
-#[derive(Clone, PartialEq)]
-enum Stream {
-    Idle,
-    Revealing { shown: usize },
-    Done,
-}
-#[derive(Clone, PartialEq)]
-struct StreamSnapshot {
-    source: String,
-    phase: Stream,
-}
-enum StreamEvent {
-    Changed,
-    Tick,
-}
-struct StreamInput {
-    target: String,
-    animated: bool,
-    speed: StreamSpeed,
-}
-impl Machine for StreamInput {
-    type State = StreamSnapshot;
-    type Event = StreamEvent;
-    type Effect = ();
-    fn transition(
-        &self,
-        state: &StreamSnapshot,
-        event: StreamEvent,
-    ) -> Step<StreamSnapshot, StreamEvent, ()> {
-        let next = |phase| StreamSnapshot {
-            source: self.target.clone(),
-            phase,
-        };
-        if !self.animated || self.target.is_empty() {
-            return Step::to(next(Stream::Done)).cancel(StreamEvent::Tick);
-        }
-        let previous = match state.phase {
-            Stream::Revealing { shown } => &state.source[..shown],
-            Stream::Idle => "",
-            Stream::Done => &state.source,
-        };
-        let mut shown = if self.target.starts_with(previous) {
-            previous.len()
-        } else {
-            0
-        };
-        let editor = EditState::new(&self.target);
-        if matches!(event, StreamEvent::Tick) {
-            if shown > 0 && shown < self.target.len() {
-                shown = editor.next_grapheme(editor.prev_grapheme(shown));
-            }
-            let start = shown;
-            let budget = if self.speed == StreamSpeed::Fast {
-                4
-            } else {
-                10
-            };
-            while shown < self.target.len()
-                && (shown == start || self.target[start..shown].encode_utf16().count() < budget)
-            {
-                shown = editor.next_grapheme(shown);
-            }
-        }
-        if shown == self.target.len() {
-            return Step::to(next(Stream::Done)).cancel(StreamEvent::Tick);
-        }
-        if matches!(event, StreamEvent::Changed) && matches!(state.phase, Stream::Revealing { .. })
-        {
-            return Step::to(next(Stream::Revealing { shown }));
-        }
-        Step::to(next(Stream::Revealing { shown })).after(
-            Duration::from_millis(if self.speed == StreamSpeed::Fast {
-                5
-            } else {
-                10
-            }),
-            StreamEvent::Tick,
-        )
-    }
 }
 
 fn tool_group_trigger(

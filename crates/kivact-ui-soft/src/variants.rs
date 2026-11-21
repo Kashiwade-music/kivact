@@ -638,3 +638,33 @@ pub enum BreadcrumbsVariant {
 }
 
 impl Variant for BreadcrumbsVariant {}
+
+/// How a Soft tab strip shares its width among its tabs.
+///
+/// Choose it with `kivact::ui::tabs(..).variant(TabsLayout::Fill)`; other themes are ignored and the tabs draw their normal look.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Prop)]
+pub enum TabsLayout {
+    #[default]
+    /// Size each tab to its contents; the default.
+    Hug,
+    /// Share the strip's width equally among its tabs.
+    Fill,
+}
+
+impl Variant for TabsLayout {}
+
+/// Whether a Soft tab strip draws a divider below its tabs.
+///
+/// Choose it with `kivact::ui::tabs(..).variant(TabsDivider(true))`; other themes are ignored and the tabs draw their normal look.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TabsDivider(pub bool);
+
+impl Variant for TabsDivider {}
+
+/// Whether a Soft tab strip extends into the horizontal inset of its container.
+///
+/// Choose it with `kivact::ui::tabs(..).variant(TabsFullBleed(true))`; other themes are ignored and the tabs draw their normal look.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TabsFullBleed(pub bool);
+
+impl Variant for TabsFullBleed {}

@@ -7,13 +7,15 @@ use crate::radius as r;
 use crate::recipe_parts::{ring, shadowed, text, tween};
 use crate::shadows;
 use crate::space as s;
+use crate::stack::ContainerInset;
 use crate::type_scale as t;
-use crate::variants::BreadcrumbsVariant;
+use crate::variants::{BreadcrumbsVariant, TabsDivider, TabsFullBleed, TabsLayout};
 use kivact::interaction::{NavOpen, TabListState, TabState};
 use kivact::motion::Transition;
+use kivact::state::try_use_context;
 use kivact::style::{
     Align, Color, Cursor, FlexDirection, Justify, Position, Style, TextDecorationLine, Theme,
-    ThemeMode, TransitionProp, style,
+    ThemeMode, TransitionProp, pct, style,
 };
 use kivact::ui::theme::{
     BreadcrumbItemState, BreadcrumbTheme, Look, NavigationLinkState, NavigationMenuTheme,
@@ -235,15 +237,43 @@ fn breadcrumb_separator(_theme: &Theme, _s: &Look<()>, _base: Style) -> Style {
 }
 
 /// The list of tabs: its tabs in a row, or a column when the list is vertical, with the spacing step between them.
-fn tabs_list(_: &Theme, look: &Look<TabListState>, _base: Style) -> Style {
-    style()
+/// A fill layout spans the width, a divider draws the rule under the strip, and a full-bleed strip reaches its container's inset.
+fn tabs_list(theme: &Theme, look: &Look<TabListState>, _base: Style) -> Style {
+    let base = style()
         .flex_direction(if look.orientation == Orientation::Vertical {
             FlexDirection::Column
         } else {
             FlexDirection::Row
         })
         .gap(s::SPACE_S0_5)
-        .min_width(0)
+        .min_width(0);
+    let base = if look.variant::<TabsLayout>() == Some(TabsLayout::Fill) {
+        base.width(pct(100))
+    } else {
+        base
+    };
+    let base = if look.variant::<TabsDivider>() == Some(TabsDivider(true)) {
+        base.padding_bottom(s::SPACE_S1)
+            .border_bottom(m::BORDER_WIDTH, c::BORDER)
+    } else {
+        base
+    };
+    full_bleed(base, look, theme)
+}
+
+/// A full-bleed strip extends into the container's horizontal inset: its margin takes the inset, and its padding keeps the first and last tabs at the inset's edge.
+fn full_bleed(base: Style, look: &Look<TabListState>, theme: &Theme) -> Style {
+    if look.variant::<TabsFullBleed>() != Some(TabsFullBleed(true)) {
+        return base;
+    }
+    let (left, right) = try_use_context::<ContainerInset>()
+        .unwrap_or_default()
+        .sides();
+    let gap = theme.get(&s::SPACE_S3_VAR);
+    base.margin_left(-left)
+        .margin_right(-right)
+        .padding_left((left - gap).max(0.0))
+        .padding_right((right - gap).max(0.0))
 }
 
 /// A tab: its label in the label role, centered, with the hover and pressed fills unless it is disabled.
@@ -259,7 +289,6 @@ fn tab(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
         .align_items(Align::Center)
         .justify_content(Justify::Center)
         .height(m::CONTROL_MD)
-        .flex_shrink(0.0)
         .padding_x(s::SPACE_S3)
         .gap(s::SPACE_S1)
         .border_radius(r::RADIUS_ELEMENT)
@@ -274,6 +303,11 @@ fn tab(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
             TransitionProp::All,
             Transition::tween(FAST as f64, EASE_STANDARD),
         );
+    let tab = if look.variant::<TabsLayout>() == Some(TabsLayout::Fill) {
+        tab.flex_grow(1.0).flex_basis(0).min_width(0)
+    } else {
+        tab.flex_shrink(0.0)
+    };
     if look.input.is_disabled() {
         tab
     } else {
@@ -283,7 +317,7 @@ fn tab(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
 }
 
 /// The indicator of a tab: a bar on the tab's edge, faded in when the tab is selected.
-fn tab_indicator(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
+fn tab_indicator(theme: &Theme, look: &Look<TabState>, _base: Style) -> Style {
     let inset = s::SPACE_S3;
     let indicator = style()
         .position(Position::Absolute)
@@ -302,7 +336,12 @@ fn tab_indicator(_: &Theme, look: &Look<TabState>, _base: Style) -> Style {
             indicator.left(0)
         }
     } else {
-        indicator.left(inset).right(inset).bottom(-1).height(2)
+        let rule = if look.variant::<TabsDivider>() == Some(TabsDivider(true)) {
+            theme.get(&s::SPACE_S1_VAR) + m::BORDER_WIDTH
+        } else {
+            m::BORDER_WIDTH
+        };
+        indicator.left(inset).right(inset).bottom(-rule).height(2)
     }
 }
 
