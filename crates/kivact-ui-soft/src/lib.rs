@@ -45,6 +45,7 @@ mod mobile_nav;
 mod more_menu;
 mod motion;
 mod nav_heading;
+mod nav_icon;
 mod navigation_session;
 mod outline;
 mod power_search;
@@ -183,6 +184,7 @@ pub use nav_heading::{
     NavHeadingMenu, NavHeadingMenuItem, SideNavHeading, nav_heading_menu, nav_heading_menu_item,
     side_nav_heading, top_nav_heading,
 };
+pub use nav_icon::nav_icon;
 pub use outline::{Outline, OutlineDensity, OutlineItem, outline};
 pub use power_search::{PowerSearch, SearchFilter, SearchOperator, power_search};
 pub use radius::{
