@@ -1,20 +1,5 @@
-//! Role: Configure delayed preview opening and drawer dismissal gestures.
-use std::time::Duration;
+//! Role: Configure drawer dismissal gestures.
 
-/// Delays for pointer entry and departure from a hover preview.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct HoverCardTiming {
-    pub open_delay: Duration,
-    pub close_delay: Duration,
-}
-impl Default for HoverCardTiming {
-    fn default() -> Self {
-        Self {
-            open_delay: Duration::from_millis(600),
-            close_delay: Duration::from_millis(300),
-        }
-    }
-}
 /// Distance and velocity thresholds for dismissing a drawer.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DrawerSwipe {

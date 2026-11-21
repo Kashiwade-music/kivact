@@ -54,12 +54,11 @@ impl<K: kivact_core::state::ItemKey> Session<K> {
         // `Session::focus_return`, installed when the top level binds).
         let popup = use_popup(open);
         let anchor = popup.anchor_ref();
-        let press = (kivact_core::style::use_theme()
+        let press = kivact_core::style::use_theme()
             .get()
             .ext::<crate::InteractionPolicy>()
             .menu
-            .press)
-            .0
+            .press
             .then(Press::new);
         let machine = kivact_core::state::machine(
             State::Closed,
