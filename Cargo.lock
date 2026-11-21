@@ -2657,6 +2657,7 @@ name = "kivact-ui-creative-catalog"
 version = "0.1.0"
 dependencies = [
  "async-channel",
+ "catalog-shell",
  "kivact",
  "kivact-ui-creative",
 ]

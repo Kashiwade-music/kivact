@@ -30,6 +30,9 @@ use super::model::{DockLayout, DockPlacement, DockSide, DockTab, DockTabs};
 
 /// Pixels a pressed tab must travel before it becomes a drag.
 const DRAG_THRESHOLD: f64 = 5.0;
+/// The narrowest a tab gets in a crowded strip: its padding, icon, gaps and
+/// close button, plus room for the label's ellipsis.
+const TAB_MIN_WIDTH: f64 = 76.0;
 
 /// Application entries for the menu of a container.
 type AppEntries<K, C> = Rc<dyn Fn(&DockTabs<K>) -> Vec<MenuEntry<C>>>;
@@ -164,6 +167,15 @@ fn dragged<K: kivact::state::ItemKey>(
     }
 }
 
+/// The tab label's box: it shrinks in the strip, and a label too wide for it ends in "…".
+fn label_style() -> kivact::style::Style {
+    style()
+        .flex_shrink(1)
+        .min_width(0)
+        .text_wrap(false)
+        .text_overflow(kivact::style::TextOverflow::Ellipsis)
+}
+
 fn tab_view<K: kivact::state::ItemKey>(
     cx: DockCx<K>,
     group: ListApi<K>,
@@ -195,7 +207,7 @@ fn tab_view<K: kivact::state::ItemKey>(
     );
     let label = show(
         move || !renaming(),
-        move || text(title).style(style().flex_shrink(1).min_width(0)),
+        move || text(title).style(label_style()),
     );
     let editor = rename_editor(cx, key, title, member_ref, texts, renaming);
     let close = close_tab(cx, key, title, tab);
@@ -646,7 +658,10 @@ fn tab_style(dragged: bool) -> kivact::style::Style {
         .height(STRIP - 6.0)
         .padding_x(8)
         .gap(6)
-        .flex_shrink(0)
+        // A tab shrinks in a narrow strip, but keeps room for its icon and
+        // the start of its label, which then ends in "…".
+        .flex_shrink(1)
+        .min_width(TAB_MIN_WIDTH)
         .align_items(Align::Center)
         .border_radius(5)
         .color(MUTED)

@@ -92,7 +92,8 @@ fn floating_window_drags_collapses_and_restores_opener_focus() {
                 ui::tool_window_button("Render Settings", ui::ToolWindowOptions::default(), |_| {
                     column((
                         text("Retained settings"),
-                        kivact::ui::text_input("Window text", signal(String::new()))
+                        kivact::ui::text_input(signal(String::new()))
+                            .label("Window text")
                             .with_node(move |node| node.value_text("Settings")),
                     ))
                     .into_view()
