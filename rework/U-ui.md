@@ -7454,6 +7454,13 @@ dev/tools/window-lock.sh --timeout 900 -- env KIVACT_TEST_MIRROR=off cargo test 
 
 各 unit は、2.3 節の表の自分の行の部品を、U40 と規則 C1〜C7 のとおりに書き換える。表の「特別な扱い」の列はその部品だけの手順である。
 
+**U47 の手書きの builder（2026-11-21 の設計者の回答）**：`Dialog`・`HoverCard`・`Disclosure` は `attach(trigger)` で呼出し側の trigger に付き、trigger と surface を兄弟の二つの fragment で出す。`Tooltip<T>` と同じ理由で一つの root の `#[component]` にできないので、手書きの builder のまま残す（設計 5.1 の例外）。`DisclosureGroup` は `panel(key, title, content)` を繰り返して group の key の型の panel を積む builder で、props の形（C2）に写せないので、同じく手書きのまま残す。この 4 つについて U47 がすること：
+- `dev/xtask/policy/workspace.toml` の `[hand_element] allowed_impls` に 4 行を足す（`"kivact_ui::dialog::Dialog crates/kivact-ui/src/dialog/view.rs"`、`"kivact_ui::hover_card::HoverCard crates/kivact-ui/src/hover_card/view.rs"`、`"kivact_ui::disclosure::Disclosure crates/kivact-ui/src/disclosure/view.rs"`、`"kivact_ui::disclosure::DisclosureGroup crates/kivact-ui/src/disclosure/group.rs"`。定義の path は xtask が報告する path に合わせる）。上の comment に「trigger に付いて surface を兄弟で出す builder（Tooltip・Dialog・HoverCard・Disclosure）と、型付きの panel を積む DisclosureGroup」と書く。
+- `Dialog`・`HoverCard` に root の node を持たせ（field `root: Node`、constructor で `node()`）、`impl Element`（`node_mut` は `&mut self.root`）を足す。その node は surface の root になる（呼出し側の `style`・`variant`・`name` などは surface に付く）。U24 の残りの固有の `variant` と `variants` の field を消し、`into_view`（と `attach`）の先頭で `self.root.authored().variants()` から読む。
+- `Disclosure` の `always_open()`・`keep_mounted()` は `always_open(v: bool)`・`keep_mounted(v: bool)` にする（C2 の定数の行。C1 の例外として設計者が決めた）。呼出し元は `(true)` を足す（所有の木の中。kit は W9）。G の移行の文書に 1 行足す（W11b）。
+- `Disclosure`・`DisclosureGroup` の固有の `variant` があれば消し、`authored().variants()` から読む。
+- `announcer_outlet` は済み。`tooltip` は表の行のとおり確かめるだけ。
+
 **U24 の残り（2026-11-21 の設計者の回答）**：`Dialog`（U47）・`HoverCard`（U47）・`Menu`（U48）・`CommandPalette`（U48）・`ToastRegion`（U48）は W7a の時点で node を持たず、U24 の後も固有の `pub fn variant` と field `variants: Variants` を残している。この 5 つを `#[component]` にする unit は、root の node を `Element` にし（C1〜C7 のとおり）、固有の `variant` と `variants` の field を消して、variant を `caller` の `Node::authored` から読む（tooltip の U47 の注記と同じ形）。呼出し元の `.variant(..)` は変わらない（`Element::variant` に解決される）。
 
 | unit | wave / lane / 前提 | 所有（`crates/kivact-ui/src/` 以下。各部品の `<name>.rs` と `<name>/` の全部） | 部品 |

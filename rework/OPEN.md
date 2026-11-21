@@ -919,3 +919,57 @@ U30b（lane U1、commit `5c9f7975`）。設計者の答え（条件 2 の (a)、
 - **(d) 古い注記**：直す。注記は「同じ turn のうちに続く開閉」のためだけにある。`Closed` の machine が `Closing(reason)` を受けたら `next` を既定に戻す（`hide()` はいつも `Closing` を先に送るので、`show_sheet → hide`・`Typed → hide` の後に注記は残らない）。follow が `Open` に入るときは `next` を取り出して既定に戻す（今の形のまま）。試験を 1 つ足す（interaction の select の試験の file）：`fn a_note_does_not_outlive_a_hide_in_the_same_turn()`：`show_sheet()` と `hide()` を同じ turn で呼び、そのあと caller が `open.set(true)` したとき、sheet でなく既定の surface で開く。combobox でも同じ形で `Typed` → `hide` の後の `open.set(true)` で filtering が false。lane U1 で U31 の前に足して commit する。
 - **(c) popup の watch と unmount の cleanup**：follow と見なしてよい。どちらも `show(open)` の surface の mount・unmount（`open` から導かれるもの）だけを受けて動く。mount・unmount 以外の理由で `Open`／`Close` を送る所が出たら差し戻す。
 - (a)・(b)・(e) は Orchestrator の判断どおり採る。印が付いたことを確認した。
+
+## 差戻し（W8・U43 と U52、2026-11-21）
+
+- **U43（lane `wt/rw-W8-U3`、commit なし・作業ツリーに変更）**：付属書の試験 `dragging_a_row_reports_one_place_per_step`（`ui_data_table.rs`）は、Ada の GridCell の中心を押すと `moves` が空（`left: []`、`right: [(1, 1)]`）。セルがドラッグを奪うことが原因で、HEAD の `drag_source` でも同じ失敗。行の余白（Row の矩形の上端 2 px）を押すと期待値どおり通る。**設計者が決める**：セルがドラッグを止めるかどうか（セルの仕様）。U3 lane は止める（U49〜U51 は後）。
+- **U52（lane `wt/rw-W8-U4`、commit `fb826ec6`）**：11 module（alert・card・badge・kbd・avatar_group・spinner・skeleton・heading・stat・description_list・sparkline）は完了。残り 3 件で止まる：
+  1. `empty_state`：`.announce()` と `.announce_changes()` が引数を取らない setter。`#[component]` の props の setter はすべて引数を取るので、C1（呼出しの形を変えない）を保てない。呼出しは `feedback.rs`・`kivact-ui-soft`・examples。
+  2. `avatar`：`name_tooltip` が Some のとき `Tooltip<T>`（into_view が trigger と surface の二つの fragment）を返し、None のとき Node を返す。`impl Element` の本体は一つの型しか返せない。enabled(false) では、fallback の description part が trigger に付くため同じにならない。
+  3. `progress(None)`：不確定の判定が `Prop::fixed()` に依るが、component の body は mount 済みの `Value` しか受けず、`Value::constant_value` は `kivact-runtime` の pub(crate) で読めない。`metrics_and_description.rs:25-43` の期待値を読んで判断したが、実装して確かめてはいない。
+  **設計者が決める**：(a) 三つの形を付属書で直す（props の setter の形、tooltip の戻り型、progress の None の扱い）、(b) 別の形。U4 lane は止める（U53・U54 は後）。
+- E29（lane `wt/rw-W8-E1`、作業ツリーに変更、commit なし）：確認の残り（check-features、window-lock の engine・E2E `devtools::`・`layout_check::`、fmt、CRLF、commit）を続きでやる。止めはしない。
+
+## 設計者の回答（W8・U43 と U52 の差戻し、2026-11-21）
+
+- **U43（セルと行の drag）**：セルは行の drag を止めない。行の並べ替えは、行の中のどこを押しても始まる（行の中の input・button などの操作部品を除く）。止めているのは data cell の `on_pointer(keep_selection)`（primary の down を `Handled::Yes` にする）で、目的は「check box で行を選ぶとき、セルの press が行の選択を置き換えない」こと。この目的は行の側で満たす：行の press の選択の処理（`TableFocus::Rows` の行の press）が、選択が check box による（`row_selectable` が check box の形）ときは選択を置き換えない。そうしたら data cell の `on_pointer(keep_selection)` を外し、`keep_selection` の関数が他に使われていなければ消す。選択の試験（check box で選ぶ表でセルを押しても選択が変わらない）の期待値は変えない。付属書の `dragging_a_row_reports_one_place_per_step` はそのまま（セルの中心を押す）。U43 の所有の `data_table/rows.rs` の中で済む。
+- **U52 の 1（`empty_state` の `.announce()`・`.announce_changes()`）**：`announce(v: impl IntoValue<bool>)`・`announce_changes(v: impl IntoValue<bool>)` にする（props の setter はすべて値を取る。DEC-05 の一様な API。JS の `announce={true}` と同じ形）。呼出し元は `.announce(true)` に直す（`feedback.rs`、examples。kit は K の W9）。G の移行の文書に 1 行足す（W11b）。
+- **U52 の 2（`avatar` の `name_tooltip`）**：avatar はいつも `Tooltip<Node>` を返し、`enabled` を「`name_tooltip` の値、無ければ theme の既定」にする（theme が tooltip を求める既定は kit の試験 `avatar_shows_its_name_tooltip_by_default_under_a_theme_that_asks_for_it` が持つので、avatar が tooltip を持ち続ける）。tooltip が `enabled` でないときは、tooltip の fallback の description の part を trigger に付けない（`enabled` に従って付け外しする。無効の tooltip は何も足さない）。これは `tooltip.rs` の変更で U47 の所有なので、U52 の中で `tooltip.rs` のその 1 箇所を直してよい（0.5 の「所有外の 1〜3 file」。U47 と同じ wave の別の lane なので、merge の順は U2（U47）の後に U4 を入れ、衝突したら U47 の形に合わせて直す）。`apg_tooltip` などで「無効の tooltip でも description がある」ことを期待する試験があれば STOP して報告する。
+- **U52 の 3（`progress(None)`）**：不確定は値の今の状態で決める（`value` が `None` の間は不確定）。`Prop::fixed()` の読みと field `fixed_indeterminate` を消し、不確定の見え方と clock（`phase`）は `value.get().is_none() || moving.get()` に reactive に従う。`metrics_and_description.rs` の期待値は変えない（定数の `None` は最初から不確定、reactive の値が `None` になれば不確定）。
+- U3（U49〜U51）と U4（U53・U54）は、それぞれ上を済ませてから進めてよい。
+
+## 差戻し（W8・U47、2026-11-21）
+
+U47（lane `wt/rw-W8-U2`、commit `13432f34`）は部分完了：`announcer_outlet` を `#[component]` にした（`announcer_outlet/look.rs` を新設、`theme.rs` に 1 行）。残りは次の 4 件で止まる。U2 lane はここで止める（U48 は U47 の後）。
+- `dialog/view.rs:Dialog`（`attach`・`render`・`surface`・`place_panel`）：付属書の表の dialog 行に trigger（`attach` の引数）の受け方が無い。`attach` と `into_view` は `(trigger, show(open, surface))` の二つの fragment を返し、一つの root node の `#[component]` に写せない。
+- `hover_card/view.rs:HoverCard::attach`：`attach(trigger)` が `(trigger, layer)` の fragment を返す。表に trigger の受け方が無い。
+- `disclosure/view.rs:Disclosure`（`always_open`・`keep_mounted`・`attach`）：`always_open()`・`keep_mounted()` は引数の無い setter。props にすると C1 に反する。`attach(trigger)` の受け方も表に無い。
+- `disclosure/group.rs:DisclosureGroup::panel`：`panel(key, title, content)` を繰り返し呼んで積む builder。表の `panel` slot（`Rc<dyn Fn(..) -> View>`）の形と合わない。
+- 付属書の注：「## U47：」の節は U-ui.md に無い（表の U47 の行、U44〜U54 の節、規則 C1〜C7 で読んだ）。
+- **設計者が決める**：上の 4 件の形。
+
+## Orchestrator の判断（W8・完了した unit、2026-11-21）
+
+- **E29（`7b7b87df`、lane `wt/rw-W8-E1`）**：採る。`cargo clippy -p kivact-engine --all-targets -- -D warnings` は依存の arvane-native の既存の unused import で落ちるので、`--no-deps` で確かめた（W7b までの lane と同じ扱い）。`DevtoolsChange` の cfg は残す（pub(crate) で devtools の経路だけが使い、cfg が無いと非 devtools の build で dead code）。E29 の手順 4 以外の同 crate の cfg の追従（`contract.rs`・`contract/devtools.rs`・`check/findings.rs`・`measure.rs`・`model/app_model.rs`）は 0.2 の 11 として採る。確認：`dev/tools/check-features.sh` の 12 件、window-lock の engine（14 件）・`e2e_native devtools::`（1 件）・`e2e_core layout_check::`（5 件）が通った。
+- **U40（`aa7c073e`、lane `wt/rw-W8-U1`）**：採る。`button` と `icon_button` を `#[component]` にし、`button/view.rs` を消して `button.rs` に移した（付属書の sketch どおり）。`button_group::member_style` は触っていない（所有の外）。`group_style` は private のまま。busy の試験は `force_click` と期待値 0 と `is_disabled()`（期待値は緩めていない）。
+- **S22b（`a0ca71e0`、lane `wt/rw-W8-S`）**：採る。`span_drops` の 13 variant を `rejected` に数える。試験 1 件を足した。確認は `--no-deps` の clippy、e2e_core 494 件。
+- **A16（`508a49fe`、lane `wt/rw-W8-A2`）**：採る。`Fnv` を `WordHash` に、`adapter.rs` の `#![allow(unsafe_code, ...)]` は、消した identity の既存の allow と同じ（新しい印ではない）。確認は全部通った（GPU の形を含む）。
+
+## 設計者の回答（W8・U47 の差戻し、2026-11-21）
+
+- 付属書 U の「U44〜U54」の節に「U47 の手書きの builder」の段落を足した（「## U47」の節は無く、表の行とこの段落が U47 の手順）。
+- `Dialog`・`HoverCard`・`Disclosure`（`attach(trigger)` で trigger と surface を兄弟で出す）と `DisclosureGroup`（型付きの panel を積む）は、`Tooltip` と同じく手書きの builder のまま残し、`[hand_element] allowed_impls` に足す。`Dialog`・`HoverCard` は root の node を持って `impl Element` にする（呼出し側の modifier は surface に付く）。U24 の残りの固有の `variant` はここで消す。
+- `Disclosure` の `always_open`・`keep_mounted` は `bool` を取る setter にする（C1 の例外、呼出し元は `(true)`）。
+- U2 lane を再開し、U47 の残りを済ませてから U48 へ進む。U48 の `Menu`・`CommandPalette`・`ToastRegion` で同じ理由（trigger と surface を兄弟で出す）に当たるものがあれば、同じ扱いにしてよい（allowed_impls に足し、OPEN に記録する）。それ以外の理由で `#[component]` にできないものは差し戻す。
+
+## 差戻し（W8・U40 と U44 の名前の規則、2026-11-21）
+
+U44（lane `wt/rw-W8-U1`、commit `e693a67f`）の確認で、U40 の試験 `ui_components::menu_renders_nested_levels_and_custom_trigger_keeps_its_style` が落ちる（`e2e_ui` 全件で 277 件通過、1 件失敗）。原因：`#[component]` の名前（`accessible_name`）は body の root node に載るので、`menu/view.rs:named` と `attach` が読む `trigger.node_mut().accessible_name()` が None になり、menu が自分の label（"Custom" ではない）を使う。U44 の toggle・toggle_button・toggle_group・button_group・toolbar も同じ形で、今の試験は当たらないが、trigger の名前を読む API で同じ誤りが出る。試験の期待値は変えない。**設計者が決める**：名前の規則（マクロの側で名前を trigger に載せる、または呼出し側の名前を優先する、など）。U1 lane は止める（U45・U46 は後）。
+
+## 差戻し（W8・U43、二度目、2026-11-21）
+
+U43（lane `wt/rw-W8-U3`、作業ツリーに変更、commit なし）。設計者の答え（`503f3fdf`：セルは行の drag を止めない、選択の守りは行の press に移す）を実施したが、試験 `dragging_a_row_reports_one_place_per_step` は、答えの前提と合わずに落ちる：
+- 試験には `.selection(...)` が無く、`checks()` が None なので、data cell の `keep_selection` は掛からない。止めているのは keep_selection ではない。
+- HEAD の `row_drag.rs`・`rows.rs` の `drag_source` に戻しても、同じ試験が同じ失敗（`left: []`）。drag が始まらない（`on_start` が呼ばれない）。`TableFocus::None` で `Role::Cell` を押しても失敗する。
+- 守りを行の press に移せない：`crates/kivact-core/src/client/dispatch/pointer.rs` の `pointer()` は押しを最も近い pointer handler の祖先 1 つに渡す。`TableFocus::Cells` では、セルの part の handler（`crates/kivact-interaction/src/table/cells.rs` の `cell`、`list.select` を呼ぶ）が先に当たる。
+- **設計者が決める**：(a) チェック付きのセルの押しで選択を置き換えない守りを `table/cells.rs` に置く（所有の外）、(b) drag の出どころを行全体でなく drag の取手（handle）に限る。どちらでも、drag が始まらない原因（どの part が押しを取るか）を先に調べる。U3 lane は止める（U49〜U51 は後）。
