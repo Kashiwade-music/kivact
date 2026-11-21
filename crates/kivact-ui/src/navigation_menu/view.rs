@@ -1,7 +1,7 @@
 //! Role: The navigation menu builder, its panel and trigger rendering.
 
 use crate::navigation_menu::look::NavigationMenuTheme;
-use kivact_core::state::{IntoText, IntoValue, Signal, Value, signal};
+use kivact_core::state::{IntoText, IntoValue, Signal, Value, on_cleanup, signal};
 use kivact_core::view::{
     Element, Handled, IntoView, Key, Node, OverlayAlign, Placement, PointerPhase, Role, View, node,
     node_ref, overlay, show,
@@ -132,6 +132,7 @@ impl IntoView for NavigationMenu {
                 }
             };
             let panel = api.panel();
+            on_cleanup(move || panel.removed());
             let anchor = node_ref();
             let presentation = PanelPresentation {
                 shown: panel.is_open(),
