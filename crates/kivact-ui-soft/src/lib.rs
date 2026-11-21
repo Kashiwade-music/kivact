@@ -14,6 +14,7 @@ mod metrics;
 mod motion;
 mod radius;
 mod recipe_parts;
+mod recipes_calendar;
 mod recipes_chat;
 mod recipes_controls;
 mod recipes_controls_choice;
