@@ -54,9 +54,6 @@ pub(crate) fn classify_scroll(report: ScrollState) -> super::node_status_data::S
     }
 }
 
-type SecondaryContextHandler = Handler<PointerEvent>;
-
-// xtask-allow(state): legacy: secondary_context, selection; a builder subscription; absent means none
 /// Event handlers of one host node.
 ///
 /// The key, key release, pointer, wheel and file handlers are one layered
@@ -75,7 +72,7 @@ pub(crate) struct Handlers {
     /// Pointer handlers.
     pub pointer: EventHandlers<PointerEvent>,
     /// Fallback for an unclaimed secondary button event in this subtree.
-    pub secondary_context: Option<SecondaryContextHandler>,
+    pub secondary_context: Option<Handler<PointerEvent>>,
     /// Wheel handlers.
     pub wheel: EventHandlers<WheelEvent>,
     /// The input method's events for the node's IME session.
@@ -86,7 +83,7 @@ pub(crate) struct Handlers {
     /// Text edits of a TextInput.
     pub text: Option<Handler<crate::view::editing_data::TextEditEvent>>,
     /// Session changes of a TextInput (`TextEditing::on_selection_change`).
-    pub selection: Option<crate::view::editing_data::SessionHandler>,
+    pub selection: Option<Handler<crate::view::editing_data::TextSession>>,
     pub edit_phase: Option<Handler<crate::view::EditPhase>>,
     /// Loading or decoding failed for the node's image source.
     pub image_error: Option<Handler<kivact_runtime::UiError>>,
@@ -286,7 +283,7 @@ pub(crate) struct Removed {
     )]
     records: Vec<CoreNode>,
 }
-// xtask-allow(state): legacy: at, handlers, rare; the builder's call site, recorded when the node is created; absent for the root, fragments and the wrappers a builder adds,
+// xtask-allow(state): independent: at is the builder's call site, written once at create (None for roots, fragments and wrappers); handlers and rare are boxes created on first use and kept until the node is removed; none constrains another
 /// One node of the retained tree (host node or fragment): only what the
 /// engine cannot hold. Everything the engine knows about a host node (its
 /// props, rect, test id, whether its layout is observed) is read through
@@ -377,7 +374,7 @@ pub(crate) struct Provenance {
 /// Metadata keyed by the authoritative engine node IDs.
 pub(crate) struct CoreNodes(IdMap<CoreNode>);
 
-// xtask-allow(state): legacy: next_id, future_text_edits
+// xtask-allow(state): identity: next_id only allocates node ids (create_root, create); devtools is fixed at construction
 /// Core metadata and direct access to the engine tree.
 pub(crate) struct ViewNodes {
     nodes: CoreNodes,

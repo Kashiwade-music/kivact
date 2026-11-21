@@ -37,7 +37,7 @@ impl Bound {
     }
 }
 
-// xtask-allow(state): legacy: bound, observation, rect_value, scroll_value; the rect memo of the binding, created under the ref's owner by the first NodeRef::rect call; absent
+// xtask-allow(state): cache: rect_value and scroll_value are the memos NodeRef::rect and NodeRef::scroll_offset create once, after raising observation; bound is the binding phase, written only by bind_target and its cleanup; observation only rises, in require_observation
 /// What a [`NodeRef`](super::NodeRef) stores under its owner: the bound
 /// target and its reactive readers.
 pub(crate) struct NodeRefState {

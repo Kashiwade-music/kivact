@@ -18,7 +18,7 @@ pub(crate) struct Trace {
     sink: Option<RefCell<Sink>>,
 }
 
-// xtask-allow(state): legacy: stage, semantics, host_events; whether KIVACT_TRACE names the `stage` stream, read once by Trace::new; false means stage lines are not written (a
+// xtask-allow(state): independent: stage, semantics and host_events are the KIVACT_TRACE streams chosen once by Trace::new; flush and line write only file and previous, so any selection of streams stays valid
 struct Sink {
     file: BufWriter<File>,
     stage: bool,
