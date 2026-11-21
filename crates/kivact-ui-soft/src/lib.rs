@@ -13,6 +13,8 @@ mod icons;
 mod metrics;
 mod motion;
 mod radius;
+mod recipe_parts;
+mod recipes_controls;
 mod shadows;
 mod space;
 mod theme;
