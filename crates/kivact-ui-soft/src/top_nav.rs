@@ -16,8 +16,10 @@ use crate::space::{self as s, Space};
 use crate::stack::rtl;
 use crate::type_scale as t;
 
+use kivact::ErrorKind;
 use kivact::component;
 use kivact::custom::Caller;
+use kivact::custom::Owner;
 use kivact::interaction::Delays;
 use kivact::interaction::use_popup;
 use kivact::view::Element;
@@ -53,6 +55,7 @@ use kivact::view::View;
 use kivact::view::node_ref;
 use kivact::view::overlay;
 use kivact::view::show;
+use std::panic::Location;
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -309,6 +312,7 @@ pub struct TopNavMegaMenu {
 }
 
 /// Create a named mega-menu flyout with independently configured content columns.
+#[track_caller]
 pub fn top_nav_mega_menu(label: impl IntoText) -> TopNavMegaMenu {
     TopNavMegaMenu {
         root: node(),
@@ -345,6 +349,8 @@ impl TopNavMegaMenu {
         self
     }
     /// Give `open` to read or set whether the panel is shown; without it the menu keeps its own.
+    /// Inside a navigation group the group decides which panel is open, and `open` is reported
+    /// as a mistake.
     pub fn open(mut self, open: Signal<bool>) -> Self {
         self.open = Some(open);
         self
@@ -363,6 +369,17 @@ impl Element for TopNavMegaMenu {
 #[derive(Clone, Copy)]
 struct MegaClose(Signal<bool>);
 
+/// Report an `open` given inside a navigation group: the group owns the open panel.
+fn report_open_in_group(at: &Location<'_>) {
+    Owner::current().report(
+        ErrorKind::Message,
+        format!(
+            "top_nav_mega_menu at {at}: open is ignored inside a navigation group: \
+             the group shows one panel at a time. Read or set the group's open panel instead."
+        ),
+    );
+}
+
 impl IntoView for TopNavMegaMenu {
     /// The trigger and the surface are siblings: the surface is returned beside the trigger, not
     /// inside it (a `#[component]` has one root, so this stays hand-written).
@@ -377,17 +394,23 @@ impl IntoView for TopNavMegaMenu {
         } = self;
         kivact::custom::scope(move || {
             if shell_nav_mode() == ShellNavMode::Drawer {
-                let disclosure = side_nav_item(label).children(move || {
-                    column((
-                        items.as_ref().map(|items| items.call(())),
-                        featured.as_ref().map(|featured| featured.call(())),
-                    ))
-                });
-                return root.child(disclosure).into_view();
+                // The caller's modifiers go on the trigger, as in the flyout shape, not on a wrapper.
+                let disclosure = side_nav_item(label)
+                    .children(move || {
+                        column((
+                            items.as_ref().map(|items| items.call(())),
+                            featured.as_ref().map(|featured| featured.call(())),
+                        ))
+                    })
+                    .with_node(move |node| node.absorb(root));
+                return node().child(disclosure).into_view();
             }
             let named = root.authored().name().is_some();
             let trigger_ref = node_ref();
             let surface_ref = node_ref();
+            if open.is_some() && crate::navigation_session::in_group() {
+                report_open_in_group(root.authored().at());
+            }
             let nav_panel = crate::navigation_session::NavPanel::new(true, delays, open);
             let open = nav_panel.open();
             let shown = open.into_value();

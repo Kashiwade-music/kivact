@@ -7,6 +7,10 @@ use kivact::view::{Element, Handled, IntoView, PointerEvent, PointerKind, Pointe
 use std::time::Duration;
 #[derive(Clone, Copy)]
 struct NavigationGroup(NavigationMenuApi);
+/// Whether the caller is inside a navigation group (the group owns the open panel).
+pub(crate) fn in_group() -> bool {
+    try_use_context::<NavigationGroup>().is_some()
+}
 /// Establish one owner around actual navigation content, without adding a view node.
 pub(crate) fn with_navigation_group<V: IntoView>(content: impl FnOnce() -> V + 'static) -> View {
     provide(NavigationGroup(use_navigation_menu(signal(false))), content)
